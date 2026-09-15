@@ -214,7 +214,7 @@ Creating a new turn in a session automatically cancels any turn still running in
 
 `createTurnStream` / `create_turn_stream` returns a stream of [turn events](#turn-events-reference). `stream.withMetadata()` / `stream.with_metadata()` yields `{ data, id }` (TypeScript) or `StreamEvent` (Python: `.data`, `.id`), where `data` is the parsed event and `id` is the per-stream sequence number used to [resume after a disconnect](#resume-a-stream). The stream opens with `turn.created` and closes with `turn.done`; read the terminal result from `turn.done.state`.
 
-Keep an **`id`-keyed event index**. Model output streams as an empty `model.message` base followed by `model.message.delta` fragments that share the base's `id`. TypeScript stores each non-delta event under its `id` and merges each delta into the base with `isEventDelta` / `mergeEventDelta`. Python does not export those helpers — skip events whose `type` ends in `.delta`. (Deltas appear only while streaming; [`listTurnEvents`](#replay-a-finished-turn) / `list_turn_events` returns them already merged.) Pause handlers and the per-thread index below reuse this pattern.
+Keep an **`id`-keyed event index**. Model output streams as an empty `model.message` base followed by `model.message.delta` fragments that share the base's `id`. Store each non-delta event under its `id` and merge each delta into the base with TypeScript `isEventDelta` / `mergeEventDelta` or Python `is_event_delta` / `merge_event_delta` (`from trueforge_sdk.events import …`). (Deltas appear only while streaming; [`listTurnEvents`](#replay-a-finished-turn) / `list_turn_events` returns them already merged.) Pause handlers and the per-thread index below reuse this pattern.
 
 <CodeGroup>
 ```typescript TypeScript wrap
@@ -249,6 +249,7 @@ for await (const { data: event, id } of stream.withMetadata()) {
 ```python Python wrap
 import os
 from trueforge_sdk import TrueForge
+from trueforge_sdk.events import is_event_delta, merge_event_delta
 
 client = TrueForge(
     base_url=os.environ.get("TRUEFORGE_BASE_URL", "http://localhost:8790"),
@@ -270,9 +271,12 @@ for meta in stream.with_metadata():
         last_sequence_number = int(meta.id)
     if event.type == "turn.created":
         turn_id = event.turn_id
-    if event.type.endswith(".delta"):
-        continue
-    events[event.id] = event
+    if is_event_delta(event):
+        base = events.get(event.id)
+        if base is not None:
+            merge_event_delta(base, event)
+    else:
+        events[event.id] = event
     if event.type == "turn.done":
         print("status:", event.state.status)
 ```
@@ -486,7 +490,7 @@ For approvals and questions, each pending ref carries the `sourceEventId` of the
 
 ### Tool approvals
 
-A gated tool ([human approval](/create-agent/overview#whats-in-an-agent)) emits [`tool.approval_required`](#tool-approval-required). Collect the pending events while streaming, then resume with one `user.tool_approval` per pending call, either allowing it or denying it with a reason. Look up each ref in the [event index](#create-and-stream-a-turn); Python rebuilds that index from [`list_turn_events`](#replay-a-finished-turn) after the stream closes.
+A gated tool ([human approval](/create-agent/overview#whats-in-an-agent)) emits [`tool.approval_required`](#tool-approval-required). Collect the pending events while streaming, then resume with one `user.tool_approval` per pending call, either allowing it or denying it with a reason. Look up each ref in the [event index](#create-and-stream-a-turn).
 
 <CodeGroup>
 ```typescript TypeScript wrap
@@ -538,6 +542,7 @@ for await (const { data: event } of resume.withMetadata()) console.log(event.typ
 ```python Python wrap
 import os
 from trueforge_sdk import TrueForge
+from trueforge_sdk.events import is_event_delta, merge_event_delta
 
 client = TrueForge(
     base_url=os.environ.get("TRUEFORGE_BASE_URL", "http://localhost:8790"),
@@ -545,23 +550,22 @@ client = TrueForge(
 )
 session = client.sessions.create(agent={"name": "ops-bot"})
 
+events = {}
 pending_approvals = []
-turn_id = None
 
 stream = client.sessions.create_turn_stream(
     session_id=session.data.id,
     input=[{"type": "user.message", "content": "Restart the billing service."}],
 )
 for event in stream:
-    if event.type == "turn.created":
-        turn_id = event.turn_id
+    if is_event_delta(event):
+        base = events.get(event.id)
+        if base is not None:
+            merge_event_delta(base, event)
+    else:
+        events[event.id] = event
     if event.type == "tool.approval_required":
         pending_approvals.append(event)
-
-events = {
-    event.id: event
-    for event in client.sessions.list_turn_events(session_id=session.data.id, turn_id=turn_id)
-}
 
 approvals = []
 for pending in pending_approvals:
@@ -645,6 +649,7 @@ for await (const { data: event } of resume.withMetadata()) console.log(event.typ
 import json
 import os
 from trueforge_sdk import TrueForge
+from trueforge_sdk.events import is_event_delta, merge_event_delta
 
 client = TrueForge(
     base_url=os.environ.get("TRUEFORGE_BASE_URL", "http://localhost:8790"),
@@ -652,23 +657,22 @@ client = TrueForge(
 )
 session = client.sessions.create(agent={"name": "ops-bot"})
 
+events = {}
 pending_questions = []
-turn_id = None
 
 stream = client.sessions.create_turn_stream(
     session_id=session.data.id,
     input=[{"type": "user.message", "content": "Create a new environment called testing-1."}],
 )
 for event in stream:
-    if event.type == "turn.created":
-        turn_id = event.turn_id
+    if is_event_delta(event):
+        base = events.get(event.id)
+        if base is not None:
+            merge_event_delta(base, event)
+    else:
+        events[event.id] = event
     if event.type == "tool.response_required":
         pending_questions.append(event)
-
-events = {
-    event.id: event
-    for event in client.sessions.list_turn_events(session_id=session.data.id, turn_id=turn_id)
-}
 
 responses = []
 for pending in pending_questions:
@@ -831,6 +835,7 @@ if (turn.state.status === 'running') {
 ```python Python wrap
 import os
 from trueforge_sdk import TrueForge
+from trueforge_sdk.events import is_event_delta, merge_event_delta
 
 client = TrueForge(
     base_url=os.environ.get("TRUEFORGE_BASE_URL", "http://localhost:8790"),
@@ -852,9 +857,12 @@ for meta in stream.with_metadata():
         last_sequence_number = int(meta.id)
     if event.type == "turn.created":
         turn_id = event.turn_id
-    if event.type.endswith(".delta"):
-        continue
-    events[event.id] = event
+    if is_event_delta(event):
+        base = events.get(event.id)
+        if base is not None:
+            merge_event_delta(base, event)
+    else:
+        events[event.id] = event
 
 # …after a disconnect, with session.id / turn_id / last_sequence_number restored:
 turn = client.sessions.get_turn(session_id=session.data.id, turn_id=turn_id).data
@@ -869,9 +877,12 @@ if turn.state.status == "running":
         event = meta.data
         if meta.id is not None:
             last_sequence_number = int(meta.id)
-        if event.type.endswith(".delta"):
-            continue
-        events[event.id] = event
+        if is_event_delta(event):
+            base = events.get(event.id)
+            if base is not None:
+                merge_event_delta(base, event)
+        else:
+            events[event.id] = event
 else:
     # Already finished: rebuild from the stored log (deltas already merged).
     for event in client.sessions.list_turn_events(session_id=session.data.id, turn_id=turn_id):
@@ -891,7 +902,7 @@ A turn stream interleaves the root agent and any parallel [subagents](/key-featu
 - A unique id: a subagent thread. [`thread.created`](#thread-created) and [`thread.done`](#thread-done) bracket its lifecycle.
 - `null`: a turn-level event, such as [`turn.created`](#turn-created), [`turn.done`](#turn-done), [`sandbox.created`](#sandbox-created), and [`mcp.auth_required`](#mcp-auth-required).
 
-Keep a **per-thread** index (`Map<threadId, Map<id, event>>` in TypeScript; nested dicts in Python) and apply the same [event-index](#create-and-stream-a-turn) merge (or skip) inside each thread's bucket.
+Keep a **per-thread** index (`Map<threadId, Map<id, event>>` in TypeScript; nested dicts in Python) and apply the same [event-index](#create-and-stream-a-turn) merge inside each thread's bucket.
 
 ```mermaid
 sequenceDiagram
@@ -951,6 +962,7 @@ for await (const { data: event } of stream.withMetadata()) {
 ```python Python wrap
 import os
 from trueforge_sdk import TrueForge
+from trueforge_sdk.events import is_event_delta, merge_event_delta
 
 client = TrueForge(
     base_url=os.environ.get("TRUEFORGE_BASE_URL", "http://localhost:8790"),
@@ -969,9 +981,12 @@ for event in stream:
         print("turn-level event:", event.type)
         continue
     bucket = threads.setdefault(event.thread_id, {})
-    if event.type.endswith(".delta"):
-        continue
-    bucket[event.id] = event
+    if is_event_delta(event):
+        base = bucket.get(event.id)
+        if base is not None:
+            merge_event_delta(base, event)
+    else:
+        bucket[event.id] = event
     if event.type == "thread.done":
         print(f"{event.thread_id} done: {event.title} ({len(bucket)} events)")
         del threads[event.thread_id]
@@ -1093,7 +1108,7 @@ An assistant message — text content and/or tool calls. On a live stream the ba
 
 #### `model.message.delta`
 
-An incremental fragment of a `model.message` — text and/or tool-call chunks. All deltas share the base event's `id`; append `content` chunks and merge tool-call fragments by index. The most frequent event on a live stream. Not present when listing persisted events.
+An incremental fragment of a `model.message` — text and/or tool-call chunks. All deltas share the base event's `id`; append `content` chunks and merge tool-call fragments by index (`isEventDelta` / `mergeEventDelta` in TypeScript; `is_event_delta` / `merge_event_delta` from `trueforge_sdk.events` in Python). The most frequent event on a live stream. Not present when listing persisted events.
 
 ### Tool activity
 
