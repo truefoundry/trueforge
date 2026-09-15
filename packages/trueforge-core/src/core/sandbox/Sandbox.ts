@@ -101,6 +101,7 @@ export interface SandboxOptions {
   mcpConnectTimeoutMs: number;
   tracing: AgentTracing;
   logger: Logger;
+  onInitFailure?: ((error: unknown) => void) | undefined;
 }
 
 export const SANDBOX_EXEC_TOOL_NAME = 'exec';
@@ -210,6 +211,7 @@ export class Sandbox extends LocalToolMCP {
   private readonly logger: Logger;
   // Pre-resolved credential-store file content (null = clear / no git auth).
   private readonly resolvedGitCredentialsContent: string | null;
+  private readonly onInitFailure: ((error: unknown) => void) | undefined;
   private codeModeDispatcher: CodeModeDispatcher | undefined;
   private codeModeTransport: CodeModeTransport | undefined;
   /** Cached from transport.getClientInstall after sandbox init (when Code Mode is configured). */
@@ -234,6 +236,7 @@ export class Sandbox extends LocalToolMCP {
     this.requestTimeoutSeconds = Math.ceil(mcpBoundTimeoutMs / 1000) + NATS_REQUEST_TIMEOUT_BUFFER_SECONDS;
     this.logger = options.logger.child({ module: 'Sandbox' });
     this.resolvedGitCredentialsContent = options.resolvedGitCredentialsContent ?? null;
+    this.onInitFailure = options.onInitFailure;
 
     if (this.existingSandboxId) {
       this.existingSandboxInfo = { sandbox_id: this.existingSandboxId };
@@ -525,6 +528,7 @@ export class Sandbox extends LocalToolMCP {
       ({ sandboxInfo, sandboxCreated } = await this.ensureReadySandbox());
     } catch (e) {
       this.logger.error('Sandbox initialization failed', extractErrorLogFields(e));
+      this.onInitFailure?.(e);
       const message = e instanceof Error ? e.message : 'Sandbox initialization failed';
       const fallback = this.existingSandboxInfo;
       return toolResultResponse({

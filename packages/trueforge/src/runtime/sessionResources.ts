@@ -22,6 +22,7 @@ import { LocalSandboxProvider } from '../sandbox/local/provider/LocalSandboxProv
 import { getCachedLocalSandboxSupport, isLocalSandboxFallbackEnabled } from '../sandbox/localRuntime';
 import { toSandboxProviderFromRecord } from '../sandbox/providerUtils';
 import type { ReasoningEffort } from '../schemas/modelProvider';
+import { captureCriticalException } from '../sentry';
 
 export interface McpConnection {
   url: string;
@@ -244,6 +245,11 @@ export function buildTurnSandbox(input: {
     skillMounter: new SkillMounter({ skills: input.skills ?? [] }),
     tracing: input.tracing,
     logger: input.logger,
+    onInitFailure: error => {
+      captureCriticalException(error, {
+        tags: { module: 'sandbox', operation: 'init' },
+      });
+    },
   });
 }
 

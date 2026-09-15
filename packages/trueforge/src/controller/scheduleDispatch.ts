@@ -13,6 +13,7 @@ import type { WithTransaction } from '../db/transaction';
 import { createTlsFetch, normalizeTlsUrl } from '../http/tls';
 import { nextTriggerAfter } from '../runtime/cron';
 import { InvalidCronError, type ScheduleRunStatus } from '../schemas/schedule';
+import { captureCriticalException } from '../sentry';
 import type { ControlLoop } from './Controller';
 
 /**
@@ -303,6 +304,10 @@ export async function dispatchScheduledRuns<TTransaction>(params: {
           run_id: run.id,
           error,
         });
+        captureCriticalException(error, {
+          tags: { module: 'scheduleDispatch', operation: 'handoff' },
+          extra: { schedule_id: schedule.id, run_id: run.id },
+        });
         await finishScheduledRun({
           store,
           run,
@@ -328,6 +333,10 @@ export async function dispatchScheduledRuns<TTransaction>(params: {
         schedule_id: run.schedule_id,
         run_id: run.id,
         error,
+      });
+      captureCriticalException(error, {
+        tags: { module: 'scheduleDispatch', operation: 'processRun' },
+        extra: { schedule_id: run.schedule_id, run_id: run.id },
       });
     }
   }

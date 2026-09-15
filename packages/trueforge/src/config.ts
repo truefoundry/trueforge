@@ -545,6 +545,8 @@ export interface SharedServerConfiguration {
    * `TRUEFORGE_MTLS_ENABLED` is true. Env: `TRUEFORGE_MTLS_CERTS_DIR`. Default `/etc/tls`.
    */
   TRUEFORGE_MTLS_CERTS_DIR: string;
+  SENTRY_ENABLED: boolean;
+  SENTRY_DSN: string | undefined;
 }
 
 export type StandaloneServerConfiguration = SharedServerConfiguration & {
@@ -654,6 +656,8 @@ export type DistributedServerConfiguration = SharedServerConfiguration & {
    * Env: `TRUEFOUNDRY_SANDBOX_SETTINGS`.
    */
   TRUEFOUNDRY_SANDBOX_SETTINGS: string | undefined;
+  TRUEFOUNDRY_AUTH_SERVER_URL: string | undefined;
+  TRUEFOUNDRY_TENANT_NAME: string | undefined;
 };
 
 export type ServerConfiguration = StandaloneServerConfiguration | DistributedServerConfiguration;
@@ -768,6 +772,12 @@ const shared: SharedServerConfiguration = {
     defaultValue: false,
   }),
   TRUEFORGE_MTLS_CERTS_DIR: getEnv('TRUEFORGE_MTLS_CERTS_DIR', { defaultValue: '/etc/tls' }) ?? '/etc/tls',
+  SENTRY_ENABLED: parseBoolean({
+    envKey: 'SENTRY_ENABLED',
+    raw: getEnv('SENTRY_ENABLED'),
+    defaultValue: false,
+  }),
+  SENTRY_DSN: getEnv('SENTRY_DSN', { required: false }),
 };
 
 const configuration: ServerConfiguration = standalone
@@ -829,6 +839,8 @@ const configuration: ServerConfiguration = standalone
       TRUEFOUNDRY_SANDBOX_API_KEY: getEnv('TRUEFOUNDRY_SANDBOX_API_KEY', { required: false }),
       TRUEFOUNDRY_SANDBOX_SERVER_URL: getEnv('TRUEFOUNDRY_SANDBOX_SERVER_URL', { required: false }),
       TRUEFOUNDRY_SANDBOX_SETTINGS: getEnv('TRUEFOUNDRY_SANDBOX_SETTINGS', { required: false }),
+      TRUEFOUNDRY_AUTH_SERVER_URL: getEnv('TRUEFOUNDRY_AUTH_SERVER_URL', { required: false }),
+      TRUEFOUNDRY_TENANT_NAME: getEnv('TRUEFOUNDRY_TENANT_NAME', { required: false }),
     };
 
 export function isOidcConfigured(

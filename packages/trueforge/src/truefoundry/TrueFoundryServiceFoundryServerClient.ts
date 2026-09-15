@@ -5,6 +5,7 @@ import type { Logger } from 'winston';
 import { z } from 'zod';
 
 import type { McpAuthStatus } from '../schemas/mcpServer';
+import { captureCriticalException } from '../sentry';
 import { createInternalTlsDispatcher, normalizeInternalTlsUrl, type InternalTlsOptions } from './internalTls';
 import { mapResolvedAgentSkillVersions, type ResolvedAgentSkillVersion } from './mapSfyAgentSkills';
 import { parseSfyMcpAuthStatus, parseSfyMcpAuthorizeResult, type SfyMcpAuthSource } from './mapSfyMcpServers';
@@ -653,9 +654,14 @@ export class TrueFoundryServiceFoundryServerClient {
     }
     if (!response.ok) {
       const detail = await readServiceFoundryErrorMessage(response);
-      throw new HTTPException(424, {
+      const error = new HTTPException(424, {
         message: `TrueFoundry ServiceFoundry server request failed: ${detail ?? `HTTP ${String(response.status)}`}`,
       });
+      captureCriticalException(error, {
+        tags: { module: 'TrueFoundryServiceFoundryServerClient', operation: 'requestJson' },
+        extra: { url: input.url.href, method: input.method, status: response.status },
+      });
+      throw error;
     }
     if (response.status === 204) {
       return undefined;
@@ -671,10 +677,15 @@ export class TrueFoundryServiceFoundryServerClient {
         url: input.url.href,
         ...extractErrorLogFields(error),
       });
-      throw new HTTPException(424, {
+      const httpError = new HTTPException(424, {
         message: 'TrueFoundry ServiceFoundry server returned non-JSON',
         cause: error,
       });
+      captureCriticalException(httpError, {
+        tags: { module: 'TrueFoundryServiceFoundryServerClient', operation: 'requestJson' },
+        extra: { url: input.url.href, method: input.method },
+      });
+      throw httpError;
     }
   }
 }

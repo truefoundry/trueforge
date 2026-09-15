@@ -9,6 +9,7 @@
  * process. Loops are written assuming this.
  */
 import type { Logger } from 'winston';
+import { captureCriticalException } from '../sentry';
 
 /** Reason passed to {@link AbortController.abort} when {@link Controller.stop} runs. */
 export const CONTROLLER_STOPPED = 'controller-stopped';
@@ -120,6 +121,10 @@ export class Controller {
           return;
         }
         this.#logger.error('Control loop pass failed', { loop: loop.name, error });
+        captureCriticalException(error, {
+          tags: { module: 'controller', operation: 'tick' },
+          extra: { loop: loop.name },
+        });
       }
     })();
 
