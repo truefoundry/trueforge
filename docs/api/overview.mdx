@@ -82,6 +82,8 @@ Jane's follow-ups about the refund stay in `sess-7f2a9c1b`. Bob's question runs 
 
 Persist the session `id` so Jane can come back tomorrow and pick up where she left off. Only one turn runs in a session at a time.
 
+Every session you run this way is also recorded in the [Sessions](/sessions) view, where you can inspect its turns, tool calls, subagents, and timing.
+
 ### Turn
 
 A **turn** is one request in the conversation: a single back-and-forth between your app and the agent. Each time Jane sends a message (or your app sends an approval), you create a new turn. Turns in a session **chain automatically** (`previous_turn_id` defaults to `"auto"`), so the agent sees every earlier turn without you resending history.

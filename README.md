@@ -87,6 +87,7 @@ To work on TrueForge from this repository, see [CONTRIBUTING.md](CONTRIBUTING.md
 | [Quickstart](https://trueforge.dev/quickstart)                      | Run local or hosted, build your first agent                       |
 | [Initial Setup](https://trueforge.dev/harness/initial-setup)        | Models, MCP, skills, sandbox - catalogs and overrides             |
 | [Create an Agent](https://trueforge.dev/create-agent/overview)      | Select resources; tool approval, questions, Generative UI         |
+| [Sessions](https://trueforge.dev/sessions)                          | Inspect past runs: turns, tool calls, subagents, tokens, timing   |
 | [Harness Capabilities](https://trueforge.dev/key-features/overview) | Sandbox-as-tool, subagents, deferred tools, Code Mode, compaction |
 | [Setup Login](https://trueforge.dev/authentication/overview)        | Optional OIDC for shared deployments                              |
 | [Benchmarking](https://trueforge.dev/benchmarking)                  | Cost/accuracy vs Claude Managed Agents and deepagents             |
