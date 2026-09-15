@@ -1,7 +1,7 @@
 apiVersion: apps/v1
 kind: Deployment
 metadata:
-  name: {{ include "trueforge.fullname" . }}
+  name: {{ include "trueforge.fullname" . }}-server
   labels:
     {{- include "trueforge.labels" . | nindent 4 }}
   {{- with (mergeOverwrite (include "trueforge.annotations" . | fromYaml) (deepCopy .Values.server.deploymentAnnotations)) }}
@@ -57,7 +57,7 @@ spec:
         {{- end }}
       {{- end }}
       containers:
-        - name: server
+        - name: trueforge-server
           image: {{ include "trueforge.image" . | quote }}
           imagePullPolicy: {{ .Values.image.pullPolicy }}
           {{- with .Values.securityContext }}
