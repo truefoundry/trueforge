@@ -16,6 +16,8 @@ serviceAccount:
   annotations: {}
   # If empty and create is true, a name is generated from the fullname.
   name: ""
+# Mount the ServiceAccount token into the server and controller pods.
+automountServiceAccountToken: false
 podAnnotations: {}
 podLabels: {}
 # Labels / annotations on every rendered object (merged over global.labels /

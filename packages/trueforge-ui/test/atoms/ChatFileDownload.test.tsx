@@ -84,6 +84,19 @@ describe('ChatFileDownload', () => {
     expect(screen.queryByLabelText(/Download /)).not.toBeInTheDocument();
   });
 
+  it('shows a read-only tooltip on hover when configured', () => {
+    render(
+      <ChatFileDownload
+        readOnly
+        readOnlyTooltip="Download File is not available in read-only mode"
+        files={[{ name: 'report.txt', path: '/report.txt' }]}
+      />,
+    );
+
+    fireEvent.mouseEnter(screen.getByText('report.txt').parentElement ?? screen.getByText('report.txt'));
+    expect(screen.getByRole('tooltip')).toHaveTextContent('Download File is not available in read-only mode');
+  });
+
   it('marks files as unavailable when no download mechanism is configured', () => {
     render(<ChatFileDownload files={[{ name: 'offline.txt', path: '/offline.txt' }]} />);
 

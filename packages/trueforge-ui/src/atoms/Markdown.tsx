@@ -33,6 +33,8 @@ export type MarkdownProps = {
   onDownloadArtifact?: (path: string, filename: string) => Promise<void>;
   /** When true, download actions in sandbox artifact blocks are hidden/disabled. */
   readOnly?: boolean;
+  /** Shown on hover over sandbox artifact filenames when `readOnly` is true. */
+  sandboxDownloadReadOnlyTooltip?: string;
   className?: string;
 };
 
@@ -61,6 +63,7 @@ function makeComponents(opts: {
   fileDownloadBaseUrl?: string;
   onDownloadArtifact?: (path: string, filename: string) => Promise<void>;
   readOnly?: boolean;
+  sandboxDownloadReadOnlyTooltip?: string;
   OpenUiFenceBlock: ComponentType<OpenUiFenceBlockProps>;
   SandboxArtifactDownload: ComponentType<SandboxArtifactDownloadProps>;
   SyntaxHighlighter: ComponentType<SyntaxHighlighterProps>;
@@ -73,6 +76,7 @@ function makeComponents(opts: {
     fileDownloadBaseUrl,
     onDownloadArtifact,
     readOnly,
+    sandboxDownloadReadOnlyTooltip,
     OpenUiFenceBlock,
     SandboxArtifactDownload,
     SyntaxHighlighter,
@@ -118,6 +122,7 @@ function makeComponents(opts: {
             fileDownloadBaseUrl={fileDownloadBaseUrl}
             onDownloadArtifact={onDownloadArtifact}
             readOnly={readOnly}
+            sandboxDownloadReadOnlyTooltip={sandboxDownloadReadOnlyTooltip}
           />
         );
       }
@@ -156,6 +161,7 @@ export function Markdown({
   fileDownloadBaseUrl,
   onDownloadArtifact,
   readOnly,
+  sandboxDownloadReadOnlyTooltip,
   className,
 }: MarkdownProps) {
   const mode = useThemeMode();
@@ -178,6 +184,7 @@ export function Markdown({
         fileDownloadBaseUrl,
         onDownloadArtifact,
         readOnly,
+        sandboxDownloadReadOnlyTooltip,
         OpenUiFenceBlock,
         SandboxArtifactDownload,
         SyntaxHighlighter,
@@ -189,6 +196,7 @@ export function Markdown({
       fileDownloadBaseUrl,
       onDownloadArtifact,
       readOnly,
+      sandboxDownloadReadOnlyTooltip,
       OpenUiFenceBlock,
       SandboxArtifactDownload,
       SyntaxHighlighter,

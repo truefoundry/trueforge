@@ -205,8 +205,11 @@ describe('agents router', () => {
     );
     expect(body.data.snippets.map(snippet => snippet.language)).toEqual(['typescript', 'python']);
     const python = body.data.snippets.find(snippet => snippet.language === 'python');
+    const typescript = body.data.snippets.find(snippet => snippet.language === 'typescript');
     expect(python?.sample_code.stream).toContain('create_turn_stream');
+    expect(python?.sample_code.stream).toContain('merge_event_delta');
     expect(python?.sample_code.non_stream).toContain('create_turn');
+    expect(typescript?.sample_code.stream).toContain('mergeEventDelta');
     for (const snippet of body.data.snippets) {
       expect(snippet.sample_code.stream).not.toContain('USER_API_KEY');
       expect(snippet.sample_code.non_stream).not.toContain('USER_API_KEY');

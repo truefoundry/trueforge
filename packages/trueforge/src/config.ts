@@ -17,6 +17,7 @@ import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 
 import envPaths from 'env-paths';
+import { z } from 'zod';
 
 const DEFAULT_PORT = 8790;
 /** Loopback default; container images set HOST=0.0.0.0 so probes and Service traffic reach the process. */
@@ -104,10 +105,9 @@ export function parseOidcScopes(raw: string): string[] {
 }
 
 /**
- * Parses `OIDC_ALLOWED_EMAILS`: comma-separated exact addresses and/or globs
- * (`*@company.com`). Empty / unset → no allowlist (any authenticated user may sign in).
+ * Parses a comma-separated env list (trim, drop empties). Empty / unset → `[]`.
  */
-export function parseOidcAllowedEmails(raw: string | undefined): string[] {
+export function parseCommaSeparatedEnvList(raw: string | undefined): string[] {
   if (raw === undefined || raw.trim() === '') {
     return [];
   }
@@ -115,6 +115,32 @@ export function parseOidcAllowedEmails(raw: string | undefined): string[] {
     .split(',')
     .map(part => part.trim())
     .filter(part => part.length > 0);
+}
+
+/**
+ * Parses `OIDC_ALLOWED_EMAILS`: comma-separated exact addresses and/or globs
+ * (`*@company.com`). Empty / unset → no allowlist (any authenticated user may sign in).
+ */
+export function parseOidcAllowedEmails(raw: string | undefined): string[] {
+  return parseCommaSeparatedEnvList(raw);
+}
+
+/**
+ * Parses `TRUEFOUNDRY_TENANT_ID_TO_ALLOWED_MODEL_PROVIDER_ACCOUNTS` JSON.
+ * Empty / unset → `{}` (no filtering).
+ */
+export function parseTenantIdToAllowedModelProviderAccounts(raw: string | undefined): Record<string, string[]> {
+  if (raw === undefined || raw.trim() === '') {
+    return {};
+  }
+  try {
+    return z.record(z.string(), z.array(z.string())).parse(JSON.parse(raw));
+  } catch (error) {
+    throw new Error(
+      'Environment variable TRUEFOUNDRY_TENANT_ID_TO_ALLOWED_MODEL_PROVIDER_ACCOUNTS must be a JSON object of tenant_id → string[]',
+      { cause: error },
+    );
+  }
 }
 
 /** Parses a positive-integer env var, falling back to `defaultValue` when unset/blank. */
@@ -654,6 +680,13 @@ export type DistributedServerConfiguration = SharedServerConfiguration & {
    * Env: `TRUEFOUNDRY_SANDBOX_SETTINGS`.
    */
   TRUEFOUNDRY_SANDBOX_SETTINGS: string | undefined;
+  /**
+   * Optional per-tenant allowlist of model provider account names. JSON object
+   * `Record<tenant_id, account_name[]>`. Empty / unset → no filtering. Tenants omitted from the
+   * map are unaffected; tenants present are limited to the listed provider accounts.
+   * Env: `TRUEFOUNDRY_TENANT_ID_TO_ALLOWED_MODEL_PROVIDER_ACCOUNTS`.
+   */
+  TRUEFOUNDRY_TENANT_ID_TO_ALLOWED_MODEL_PROVIDER_ACCOUNTS: Record<string, string[]>;
 };
 
 export type ServerConfiguration = StandaloneServerConfiguration | DistributedServerConfiguration;
@@ -829,6 +862,9 @@ const configuration: ServerConfiguration = standalone
       TRUEFOUNDRY_SANDBOX_API_KEY: getEnv('TRUEFOUNDRY_SANDBOX_API_KEY', { required: false }),
       TRUEFOUNDRY_SANDBOX_SERVER_URL: getEnv('TRUEFOUNDRY_SANDBOX_SERVER_URL', { required: false }),
       TRUEFOUNDRY_SANDBOX_SETTINGS: getEnv('TRUEFOUNDRY_SANDBOX_SETTINGS', { required: false }),
+      TRUEFOUNDRY_TENANT_ID_TO_ALLOWED_MODEL_PROVIDER_ACCOUNTS: parseTenantIdToAllowedModelProviderAccounts(
+        getEnv('TRUEFOUNDRY_TENANT_ID_TO_ALLOWED_MODEL_PROVIDER_ACCOUNTS', { required: false }),
+      ),
     };
 
 export function isOidcConfigured(

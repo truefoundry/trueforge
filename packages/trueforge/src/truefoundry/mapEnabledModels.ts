@@ -1,6 +1,7 @@
 import { SUPPORTED_REASONING_EFFORTS } from '@truefoundry/trueforge-core/core';
 import { HTTPException } from 'hono/http-exception';
 import { z } from 'zod';
+import configuration, { isTrueFoundryModeEnabled } from '../config';
 import type { ModelProperties, ReasoningEffort } from '../schemas/modelProvider';
 
 const ModelParamSchema = z.object({
@@ -80,6 +81,25 @@ export function mapEnabledModels(input: { integrations: readonly unknown[] }): T
     });
   }
   return models;
+}
+
+/**
+ * Applies `TRUEFOUNDRY_TENANT_ID_TO_ALLOWED_MODEL_PROVIDER_ACCOUNTS` when TrueFoundry mode is on.
+ * Tenants omitted from the map are unfiltered; listed tenants keep only matching `accountName`s.
+ */
+export function filterEnvModels(input: {
+  tenant_id: string;
+  models: readonly TrueFoundryEnabledModel[];
+}): TrueFoundryEnabledModel[] {
+  if (!isTrueFoundryModeEnabled(configuration)) {
+    return [...input.models];
+  }
+  const allowedAccounts = configuration.TRUEFOUNDRY_TENANT_ID_TO_ALLOWED_MODEL_PROVIDER_ACCOUNTS[input.tenant_id];
+  if (allowedAccounts === undefined) {
+    return [...input.models];
+  }
+  const allowed = new Set(allowedAccounts);
+  return input.models.filter(model => allowed.has(model.accountName));
 }
 
 const InstallationSchema = z.object({
