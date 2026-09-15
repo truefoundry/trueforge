@@ -15,6 +15,7 @@ class PermissionResourceType(enum.StrEnum):
     AGENT = "agent"
     SCHEDULE = "schedule"
     SESSION = "session"
+    TENANT = "tenant"
     _UNKNOWN = "__PERMISSIONRESOURCETYPE_UNKNOWN__"
     """
     This member is used for forward compatibility. If the value is not recognized by the enum, it will be stored here, and the raw value is accessible through `.value`.
@@ -31,6 +32,7 @@ class PermissionResourceType(enum.StrEnum):
         agent: typing.Callable[[], T_Result],
         schedule: typing.Callable[[], T_Result],
         session: typing.Callable[[], T_Result],
+        tenant: typing.Callable[[], T_Result],
         _unknown_member: typing.Callable[[str], T_Result],
     ) -> T_Result:
         if self is PermissionResourceType.AGENT:
@@ -39,4 +41,6 @@ class PermissionResourceType(enum.StrEnum):
             return schedule()
         if self is PermissionResourceType.SESSION:
             return session()
+        if self is PermissionResourceType.TENANT:
+            return tenant()
         return _unknown_member(self._value_)
