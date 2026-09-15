@@ -28,7 +28,7 @@ class RawAgentsClient:
         request_options: typing.Optional[RequestOptions] = None,
     ) -> HttpResponse[GetAgentCodeSnippetsResponse]:
         """
-        TypeScript TrueForge SDK samples (stream and non-stream) for creating a session and turn against this agent.
+        TrueForge SDK samples (TypeScript and Python, stream and non-stream) for a session and turn against this agent.
 
         Parameters
         ----------
@@ -44,7 +44,7 @@ class RawAgentsClient:
         Returns
         -------
         HttpResponse[GetAgentCodeSnippetsResponse]
-            TypeScript SDK samples.
+            SDK samples.
         """
         _response = self._client_wrapper.httpx_client.request(
             f"api/v1/agents/{encode_path_param(agent_id)}/code-snippets",
@@ -97,7 +97,7 @@ class AsyncRawAgentsClient:
         request_options: typing.Optional[RequestOptions] = None,
     ) -> AsyncHttpResponse[GetAgentCodeSnippetsResponse]:
         """
-        TypeScript TrueForge SDK samples (stream and non-stream) for creating a session and turn against this agent.
+        TrueForge SDK samples (TypeScript and Python, stream and non-stream) for a session and turn against this agent.
 
         Parameters
         ----------
@@ -113,7 +113,7 @@ class AsyncRawAgentsClient:
         Returns
         -------
         AsyncHttpResponse[GetAgentCodeSnippetsResponse]
-            TypeScript SDK samples.
+            SDK samples.
         """
         _response = await self._client_wrapper.httpx_client.request(
             f"api/v1/agents/{encode_path_param(agent_id)}/code-snippets",

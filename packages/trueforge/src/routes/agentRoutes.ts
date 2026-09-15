@@ -106,7 +106,7 @@ export const getAgentCodeSnippetsRoute = createRoute({
   tags: [OpenApiTag.AGENTS],
   summary: 'Get agent SDK code snippets',
   description:
-    'TypeScript TrueForge SDK samples (stream and non-stream) for creating a session and turn against this agent.',
+    'TrueForge SDK samples (TypeScript and Python, stream and non-stream) for a session and turn against this agent.',
   'x-fern-sdk-group-name': ['internal', 'agents'],
   'x-fern-sdk-method-name': 'get_code_snippets',
   'x-excluded': true,
@@ -117,7 +117,7 @@ export const getAgentCodeSnippetsRoute = createRoute({
   responses: {
     200: {
       content: { 'application/json': { schema: GetAgentCodeSnippetsResponseSchema } },
-      description: 'TypeScript SDK samples.',
+      description: 'SDK samples.',
     },
     404: {
       content: { 'application/json': { schema: RequestErrorResponseSchema } },

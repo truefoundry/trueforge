@@ -195,7 +195,7 @@ describe('agents router', () => {
     const body = (await response.json()) as {
       data: {
         base_url: string;
-        snippets: Array<{ sample_code: { stream: string; non_stream: string } }>;
+        snippets: Array<{ language: string; sample_code: { stream: string; non_stream: string } }>;
       };
     };
     expect(body.data.base_url).toBe(
@@ -203,9 +203,14 @@ describe('agents router', () => {
         ? new URL(new URL(configuration.PUBLIC_BASE_URL).pathname, 'http://localhost').href
         : 'http://localhost',
     );
-    expect(body.data.snippets.length).toBeGreaterThan(0);
-    expect(body.data.snippets[0]?.sample_code.stream).not.toContain('USER_API_KEY');
-    expect(body.data.snippets[0]?.sample_code.non_stream).not.toContain('USER_API_KEY');
+    expect(body.data.snippets.map(snippet => snippet.language)).toEqual(['typescript', 'python']);
+    const python = body.data.snippets.find(snippet => snippet.language === 'python');
+    expect(python?.sample_code.stream).toContain('create_turn_stream');
+    expect(python?.sample_code.non_stream).toContain('create_turn');
+    for (const snippet of body.data.snippets) {
+      expect(snippet.sample_code.stream).not.toContain('USER_API_KEY');
+      expect(snippet.sample_code.non_stream).not.toContain('USER_API_KEY');
+    }
 
     const overridden = await router.request(
       `/${createdJson.data.id}/code-snippets?base_url=${encodeURIComponent('https://sample.com/trueforge')}`,

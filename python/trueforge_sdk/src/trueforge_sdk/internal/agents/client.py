@@ -31,7 +31,7 @@ class AgentsClient:
         request_options: typing.Optional[RequestOptions] = None,
     ) -> GetAgentCodeSnippetsResponse:
         """
-        TypeScript TrueForge SDK samples (stream and non-stream) for creating a session and turn against this agent.
+        TrueForge SDK samples (TypeScript and Python, stream and non-stream) for a session and turn against this agent.
 
         Parameters
         ----------
@@ -47,7 +47,7 @@ class AgentsClient:
         Returns
         -------
         GetAgentCodeSnippetsResponse
-            TypeScript SDK samples.
+            SDK samples.
 
         Examples
         --------
@@ -90,7 +90,7 @@ class AsyncAgentsClient:
         request_options: typing.Optional[RequestOptions] = None,
     ) -> GetAgentCodeSnippetsResponse:
         """
-        TypeScript TrueForge SDK samples (stream and non-stream) for creating a session and turn against this agent.
+        TrueForge SDK samples (TypeScript and Python, stream and non-stream) for a session and turn against this agent.
 
         Parameters
         ----------
@@ -106,7 +106,7 @@ class AsyncAgentsClient:
         Returns
         -------
         GetAgentCodeSnippetsResponse
-            TypeScript SDK samples.
+            SDK samples.
 
         Examples
         --------
