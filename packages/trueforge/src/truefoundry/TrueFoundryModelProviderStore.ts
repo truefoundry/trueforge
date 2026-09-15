@@ -14,7 +14,12 @@ import {
 import type { AvailableModel, ModelProviderManifest } from '../schemas/modelProvider';
 import { accessTokenForRequest, asTrueFoundryRequestContext, type ResolveAccessToken } from './accessToken';
 import { trueFoundryManaged } from './errors';
-import { filterEnvModels, mapEnabledModels, resolveDefaultGatewayUrl, type TrueFoundryEnabledModel } from './mapEnabledModels';
+import {
+  filterEnvModels,
+  mapEnabledModels,
+  resolveDefaultGatewayUrl,
+  type TrueFoundryEnabledModel,
+} from './mapEnabledModels';
 import { TrueFoundryServiceFoundryServerClient } from './TrueFoundryServiceFoundryServerClient';
 
 export class TrueFoundryModelProviderStore<TTransaction = never> implements IModelProviderStore<TTransaction> {
