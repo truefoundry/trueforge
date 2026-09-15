@@ -42,3 +42,4 @@ service-account*.json
 .vscode
 
 .certs/
+*.pyc
