@@ -55,7 +55,7 @@ Open a feature request in the issue tracker, or upvote an existing request that 
 
 ## Prerequisites
 
-Source development (`pnpm install`, `pnpm dev`, `pnpm standalone:dev`, `pnpm build`) is supported on **macOS, Linux, and Windows via WSL2**. Native Windows (PowerShell / cmd) is not a supported at this time.
+Source development (`pnpm install`, `pnpm dev`, `pnpm standalone:dev`, `pnpm build`) is supported on **macOS, Linux, and Windows via WSL2**. Native Windows (PowerShell / cmd) is not supported at this time.
 
 - **Node.js 22.14+** (see [`.nvmrc`](.nvmrc); pnpm 11.16 needs 22.13+, and `better-sqlite3` v13 needs Node-API 10)
 - **pnpm** (version pinned via `packageManager` in [`package.json`](package.json); `corepack enable` handles it)
