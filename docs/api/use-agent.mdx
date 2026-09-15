@@ -47,7 +47,7 @@ client = TrueForge(
 ```
 </CodeGroup>
 
-Point `baseUrl` / `base_url` at your running TrueForge server; `http://localhost:8790` is the Quickstart default. When [OIDC login](/authentication/overview) is enabled, pass `token` (an ID token from your IdP; see [Get a token and connect](/api/quickstart#get-a-token-and-connect)). When login is off, omit it. TypeScript fields are camelCase; Python fields match the wire format (`snake_case`). The Python SDK does not export `isEventDelta` / `mergeEventDelta` — skip `.delta` events when building an id-keyed index.
+Point `baseUrl` / `base_url` at your running TrueForge server; `http://localhost:8790` is the Quickstart default. When [OIDC login](/authentication/overview) is enabled, pass `token` (an ID token from your IdP; see [Get a token and connect](/api/quickstart#get-a-token-and-connect)). When login is off, omit it. TypeScript fields are camelCase; Python fields match the wire format (`snake_case`).
 
 ## Quick Start
 
@@ -214,7 +214,7 @@ Creating a new turn in a session automatically cancels any turn still running in
 
 `createTurnStream` / `create_turn_stream` returns a stream of [turn events](#turn-events-reference). `stream.withMetadata()` / `stream.with_metadata()` yields `{ data, id }` (TypeScript) or `StreamEvent` (Python: `.data`, `.id`), where `data` is the parsed event and `id` is the per-stream sequence number used to [resume after a disconnect](#resume-a-stream). The stream opens with `turn.created` and closes with `turn.done`; read the terminal result from `turn.done.state`.
 
-Keep an **`id`-keyed event index**. Model output streams as an empty `model.message` base followed by `model.message.delta` fragments that share the base's `id`; store each non-delta event under its `id`, and merge each delta into the base with `isEventDelta` / `mergeEventDelta` (TypeScript). The Python SDK has no merge helpers — skip events whose `type` ends in `.delta`. (Deltas appear only while streaming; [`listTurnEvents`](#replay-a-finished-turn) / `list_turn_events` returns them already merged.) The pause handlers below reuse this index to look up the `model.message` that emitted a tool call.
+Keep an **`id`-keyed event index**. Model output streams as an empty `model.message` base followed by `model.message.delta` fragments that share the base's `id`. TypeScript stores each non-delta event under its `id` and merges each delta into the base with `isEventDelta` / `mergeEventDelta`. Python does not export those helpers — skip events whose `type` ends in `.delta`. (Deltas appear only while streaming; [`listTurnEvents`](#replay-a-finished-turn) / `list_turn_events` returns them already merged.) Pause handlers and the per-thread index below reuse this pattern.
 
 <CodeGroup>
 ```typescript TypeScript wrap
@@ -486,7 +486,7 @@ For approvals and questions, each pending ref carries the `sourceEventId` of the
 
 ### Tool approvals
 
-A gated tool ([human approval](/create-agent/overview#whats-in-an-agent)) emits [`tool.approval_required`](#tool-approval-required). Collect the pending events while streaming, then resume with one `user.tool_approval` per pending call, either allowing it or denying it with a reason. TypeScript merges deltas into the event index while streaming. Python has no merge helpers, so after the stream closes, rebuild the index from [`listTurnEvents`](#replay-a-finished-turn) / `list_turn_events` (already merged) before looking up `sourceEventId` / `source_event_id`.
+A gated tool ([human approval](/create-agent/overview#whats-in-an-agent)) emits [`tool.approval_required`](#tool-approval-required). Collect the pending events while streaming, then resume with one `user.tool_approval` per pending call, either allowing it or denying it with a reason. Look up each ref in the [event index](#create-and-stream-a-turn); Python rebuilds that index from [`list_turn_events`](#replay-a-finished-turn) after the stream closes.
 
 <CodeGroup>
 ```typescript TypeScript wrap
@@ -891,7 +891,7 @@ A turn stream interleaves the root agent and any parallel [subagents](/key-featu
 - A unique id: a subagent thread. [`thread.created`](#thread-created) and [`thread.done`](#thread-done) bracket its lifecycle.
 - `null`: a turn-level event, such as [`turn.created`](#turn-created), [`turn.done`](#turn-done), [`sandbox.created`](#sandbox-created), and [`mcp.auth_required`](#mcp-auth-required).
 
-Keep a **per-thread** index (`Map<threadId, Map<id, event>>` in TypeScript; nested dicts in Python) and merge deltas within the matching thread's bucket. Python skips `.delta` events instead of merging.
+Keep a **per-thread** index (`Map<threadId, Map<id, event>>` in TypeScript; nested dicts in Python) and apply the same [event-index](#create-and-stream-a-turn) merge (or skip) inside each thread's bucket.
 
 ```mermaid
 sequenceDiagram
