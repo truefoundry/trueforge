@@ -236,6 +236,10 @@ externalPostgres:
   # Optional TLS for the app → Postgres pool (`POSTGRES_SSL_MODE`). Empty = unset (no TLS).
   # Modes: disable | prefer | require | verify-ca | verify-full | no-verify.
   sslMode: ""
+  # Optional client TLS material (mTLS). Mount the PEMs with extraVolumes / extraVolumeMounts,
+  # then set these to the in-pod paths (`POSTGRES_SSL_CERT_PATH` / `POSTGRES_SSL_KEY_PATH`).
+  sslCertPath: ""
+  sslKeyPath: ""
 externalRedis:
   # Full connection URL, e.g. redis://:password@redis-master.databases.svc:6379.
   # string, or { valueFrom: { secretKeyRef: { name, key } } }. Prefer valueFrom in prod.

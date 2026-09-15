@@ -349,6 +349,7 @@ async function createDistributedPersistence(options: {
   const { configuration, logger } = options;
   const {
     DATABASE_URL: databaseUrl,
+    DATABASE_SSL: databaseSsl,
     DATABASE_POOL_MAX: databasePoolMax,
     POSTGRES_STATEMENT_TIMEOUT_MS: statementTimeoutMs,
     POSTGRES_IDLE_IN_TRANSACTION_SESSION_TIMEOUT_MS: idleInTransactionSessionTimeoutMs,
@@ -389,6 +390,7 @@ async function createDistributedPersistence(options: {
     poolMax: databasePoolMax,
     statementTimeoutMs,
     idleInTransactionSessionTimeoutMs,
+    ssl: databaseSsl,
   });
   await migrateToLatest(db);
   logger.info('Distributed mode: postgres');

@@ -11,7 +11,7 @@
  * - `false`: Postgres + Redis (defaults to local trueforge credentials /
  *   `redis://localhost:6379`).
  */
-import { existsSync } from 'node:fs';
+import { existsSync, readFileSync } from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
@@ -298,6 +298,8 @@ function resolveRedisUrl(): string {
 /**
  * Postgres connection string for distributed mode.
  * Prefers `DATABASE_URL` when set (Railway / managed Postgres); otherwise builds from `POSTGRES_*`.
+ * When client cert paths are set, `sslmode` is omitted from the built URL so Pool `ssl` is not
+ * overwritten by pg-connection-string (same as servicefoundry: TLS lives on the ssl object).
  */
 function resolvePostgresDatabaseUrl(): string {
   const databaseUrl = getEnv('DATABASE_URL');
@@ -315,7 +317,10 @@ function resolvePostgresDatabaseUrl(): string {
     raw: getEnv('POSTGRES_PORT'),
     defaultValue: DEFAULT_POSTGRES_PORT,
   });
-  const postgresSslMode = parsePostgresSslMode(getEnv('POSTGRES_SSL_MODE'));
+  const postgresSslMode =
+    resolveOptionalPathEnv('POSTGRES_SSL_CERT_PATH') || resolveOptionalPathEnv('POSTGRES_SSL_KEY_PATH')
+      ? ''
+      : parsePostgresSslMode(getEnv('POSTGRES_SSL_MODE'));
   if (
     postgresUser.trim() === '' ||
     postgresPassword.trim() === '' ||
@@ -335,6 +340,31 @@ function resolvePostgresDatabaseUrl(): string {
     database: postgresDb,
     sslMode: postgresSslMode,
   });
+}
+
+/**
+ * Optional Postgres client TLS (mTLS). Env: `POSTGRES_SSL_CERT_PATH` / `POSTGRES_SSL_KEY_PATH`.
+ * Passed to the pg Pool as `ssl` — not written into `DATABASE_URL`.
+ */
+function resolvePostgresSsl():
+  | { cert?: string; key?: string; rejectUnauthorized?: boolean }
+  | undefined {
+  const certPath = resolveOptionalPathEnv('POSTGRES_SSL_CERT_PATH');
+  const keyPath = resolveOptionalPathEnv('POSTGRES_SSL_KEY_PATH');
+  if (!certPath && !keyPath) {
+    return undefined;
+  }
+  const ssl: { cert?: string; key?: string; rejectUnauthorized?: boolean } = {};
+  if (certPath) {
+    ssl.cert = readFileSync(certPath, 'utf8');
+  }
+  if (keyPath) {
+    ssl.key = readFileSync(keyPath, 'utf8');
+  }
+  if (parsePostgresSslMode(getEnv('POSTGRES_SSL_MODE')) === 'no-verify') {
+    ssl.rejectUnauthorized = false;
+  }
+  return ssl;
 }
 
 /** Builds a Postgres connection URL from discrete `POSTGRES_*` parts. */
@@ -608,6 +638,11 @@ export type DistributedServerConfiguration = SharedServerConfiguration & {
    * Form: `postgres://USER:PASSWORD@HOST:PORT/DB` (or `postgresql://…`) with user/password URL-encoded.
    */
   DATABASE_URL: string;
+  /**
+   * Optional client TLS for the pg Pool (`ssl.cert` / `ssl.key`).
+   * Env: `POSTGRES_SSL_CERT_PATH` / `POSTGRES_SSL_KEY_PATH` (PEM file paths). Undefined when both unset.
+   */
+  DATABASE_SSL: { cert?: string; key?: string; rejectUnauthorized?: boolean } | undefined;
   /** Max connections in the `pg` Pool. Env: `DATABASE_POOL_MAX`. Default 10. */
   DATABASE_POOL_MAX: number;
   /**
@@ -815,6 +850,7 @@ const configuration: ServerConfiguration = standalone
       ...shared,
       STANDALONE: false,
       DATABASE_URL: resolvePostgresDatabaseUrl(),
+      DATABASE_SSL: resolvePostgresSsl(),
       DATABASE_POOL_MAX: parsePositiveInt({
         envKey: 'DATABASE_POOL_MAX',
         raw: getEnv('DATABASE_POOL_MAX'),
