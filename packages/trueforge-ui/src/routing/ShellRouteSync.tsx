@@ -5,6 +5,7 @@ import { useLocation, useNavigate } from 'react-router-dom';
 
 import { sessionIsCreateAgent } from '../atoms/lib/sessionCreateAgent.js';
 import { findAgentByName } from '../atoms/lib/useSearchAgentsList.js';
+import { useCanCreateAgent } from '../hooks/useCanCreateAgent.js';
 import {
   useOptionalAgentSessionsServer,
   useOptionalCatalogServer,
@@ -49,13 +50,17 @@ export function ShellRouteSync({
   const schedules = useOptionalScheduleServer();
   const capabilities = useServerCapabilities();
   const capabilitiesSettled = useServerCapabilitiesSettled();
+  const { canCreateAgent, loading: createAgentPermissionLoading } = useCanCreateAgent();
+  const createAgentPermissionSettled = !createAgentPermissionLoading;
   const navigate = useNavigate();
   const location = useLocation();
   // Same gates as sidebar chrome: missing optional ports unregister their paths.
-  const effectiveRoutes = useMemo(
-    () => toEffectiveRoutes({ routes, catalog, capabilities, sessions, schedules }),
-    [routes, catalog, capabilities, sessions, schedules],
-  );
+  // Tenant CREATE also unregisters /build-agent once the grant has settled (denied).
+  const effectiveRoutes = useMemo(() => {
+    const base = toEffectiveRoutes({ routes, catalog, capabilities, sessions, schedules });
+    if (!createAgentPermissionSettled || canCreateAgent) return base;
+    return { ...base, buildAgent: null };
+  }, [routes, catalog, capabilities, sessions, schedules, createAgentPermissionSettled, canCreateAgent]);
   const settingsChromeEnabled = effectiveRoutes.settings != null;
   // Gate identity only — avoid re-syncing when capabilities object identity churns
   // without changing which paths are registered (would clobber window share query).
@@ -64,6 +69,7 @@ export function ShellRouteSync({
     effectiveRoutes.sessionsBrowser,
     effectiveRoutes.libraryAgent,
     effectiveRoutes.schedules,
+    effectiveRoutes.buildAgent,
   ].join('\0');
 
   const snapshot: ShellSnapshot = {
@@ -202,6 +208,11 @@ export function ShellRouteSync({
           shell.setSchedulesOpen(true);
           return;
         case 'buildAgent':
+          // Route entry must honor tenant CREATE; denied → New Chat landing (not builder).
+          if (!canCreateAgent) {
+            shell.openDraft();
+            return;
+          }
           shell.openAgentBuilder();
           return;
         case 'session':
@@ -231,7 +242,7 @@ export function ShellRouteSync({
           }
       }
     },
-    [shell, activeRemoteId, openAgent, openSession],
+    [shell, activeRemoteId, canCreateAgent, openAgent, openSession],
   );
 
   // Boot: URL wins, except an explicit `initialSettingsOpen` overlay. Boot is the
@@ -244,6 +255,8 @@ export function ShellRouteSync({
       routes,
     });
     if (!capabilitiesSettled && configuredUrlPlace?.type === 'settings') return;
+    // Wait for tenant CREATE so /build-agent does not open the builder before the grant settles.
+    if (!createAgentPermissionSettled && configuredUrlPlace?.type === 'buildAgent') return;
     bootedRef.current = true;
 
     const urlPlace = matchLocation({
@@ -294,9 +307,9 @@ export function ShellRouteSync({
       selfNavPathRef.current = desiredPath !== location.pathname ? desiredPath : null;
       navigate({ pathname: desiredPath, search: desiredSearch, hash: location.hash }, { replace: true });
     }
-    // Boot runs once after any capability-dependent Settings destination resolves.
+    // Boot runs once after capability / create-agent gates for Settings / build-agent settle.
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [capabilitiesSettled]);
+  }, [capabilitiesSettled, createAgentPermissionSettled]);
 
   // Shell -> URL: mirror the derived place. Skip the first commit (boot owns it).
   useEffect(() => {

@@ -7,7 +7,14 @@ import { ScheduleFormDrawer } from '@/atoms/schedules/ScheduleFormDrawer.js';
 import { ToasterProvider } from '@/containers/ToasterContainer.js';
 import { ServerProvider } from '@/server/ServerContext.js';
 import { ShellModeProvider, useShellMode } from '@/server/ShellModeContext.js';
-import type { AgentUIServer, ConnectorBase, PermissionsServer, Schedule, ScheduleServer } from '@/server/types.js';
+import type {
+  AgentUIServer,
+  ConnectorBase,
+  ListPermissionsResponse,
+  PermissionsServer,
+  Schedule,
+  ScheduleServer,
+} from '@/server/types.js';
 import { SlotsProvider } from '@/theme/SlotsProvider.js';
 import { createMockAgentUIServer, createMockCatalog } from '../../server/mockServer.js';
 
@@ -245,7 +252,9 @@ describe('ScheduleFormDrawer', () => {
     renderDrawer({
       scheduleServer: mockScheduleServer({ createSchedule }),
       permissions: {
-        listPermissions: vi.fn(async () => ({ data: { 'demo-agent': [] } })),
+        listPermissions: vi.fn(async (): Promise<ListPermissionsResponse> => ({
+          data: { type: 'agent', permissions: { 'demo-agent': [] } },
+        })),
       },
       initialAgentId: 'demo-agent',
     });

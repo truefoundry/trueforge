@@ -10,6 +10,6 @@ export type CreateHarnessPermissionsServerOptions = CreateTrueForgeClientOptions
 export function createHarnessPermissionsServer(options: CreateHarnessPermissionsServerOptions = {}): PermissionsServer {
   const client = options.client ?? createTrueForgeClient(options);
   return {
-    listPermissions: request => client.internal.listPermissions(request),
+    listPermissions: async request => client.internal.listPermissions(request),
   };
 }

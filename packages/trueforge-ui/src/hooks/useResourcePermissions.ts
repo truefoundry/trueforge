@@ -89,7 +89,7 @@ export function useResourcePermissions({
           server,
           resourceType,
           key: requestKey,
-          data: Object.assign({}, ...responses.map(response => response.data)),
+          data: Object.assign({}, ...responses.map(response => response.data.permissions)),
           loading: false,
           error: null,
         });

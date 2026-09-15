@@ -3,6 +3,7 @@
 import { useEffect, useMemo, useRef, useState, type FormEvent, type ReactNode } from 'react';
 
 import { useToasterOptional } from '../../containers/ToasterContainer.js';
+import { useCanCreateAgent } from '../../hooks/useCanCreateAgent.js';
 import { useResourcePermissions } from '../../hooks/useResourcePermissions.js';
 import { Icon } from '../../icons/Icon.js';
 import { useScheduleServer, useServer } from '../../server/ServerContext.js';
@@ -45,6 +46,7 @@ function ScheduleFormDrawerBody({
   const scheduleServer = useScheduleServer();
   const server = useServer();
   const shell = useOptionalShellMode();
+  const { canCreateAgent } = useCanCreateAgent();
   const toaster = useToasterOptional();
   const [form, setForm] = useState<ScheduleFormValues>(defaultScheduleFormValues);
   const [agentId, setAgentId] = useState(initialAgentId);
@@ -316,7 +318,7 @@ function ScheduleFormDrawerBody({
             onAgentPicked={setSelectedAgent}
             agentPickerDisabled={isExternalEdit || isCreatedEdit}
             onBuildAgent={
-              mode === 'create' && shell?.isComposerEnabled === true
+              mode === 'create' && shell?.isComposerEnabled === true && canCreateAgent
                 ? () => {
                     onOpenChange(false);
                     shell.openAgentBuilder();
