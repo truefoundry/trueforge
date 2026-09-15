@@ -391,7 +391,6 @@ async function createDistributedPersistence(options: {
     statementTimeoutMs,
     idleInTransactionSessionTimeoutMs,
   });
-  logger.info('Connected to Postgres');
   await migrateToLatest(db);
   logger.info(`Executor id: ${executorId}`);
   const serviceFoundryClient = createServiceFoundryServerClient(logger);
