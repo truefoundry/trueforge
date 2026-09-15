@@ -17,6 +17,7 @@ import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 
 import envPaths from 'env-paths';
+import { z } from 'zod';
 
 const DEFAULT_PORT = 8790;
 /** Loopback default; container images set HOST=0.0.0.0 so probes and Service traffic reach the process. */
@@ -132,30 +133,14 @@ export function parseTenantIdToAllowedModelProviderAccounts(raw: string | undefi
   if (raw === undefined || raw.trim() === '') {
     return {};
   }
-  let parsed: unknown;
   try {
-    parsed = JSON.parse(raw);
+    return z.record(z.string(), z.array(z.string())).parse(JSON.parse(raw));
   } catch (error) {
     throw new Error(
-      'Environment variable TRUEFOUNDRY_TENANT_ID_TO_ALLOWED_MODEL_PROVIDER_ACCOUNTS must be valid JSON',
+      'Environment variable TRUEFOUNDRY_TENANT_ID_TO_ALLOWED_MODEL_PROVIDER_ACCOUNTS must be a JSON object of tenant_id → string[]',
       { cause: error },
     );
   }
-  if (parsed === null || typeof parsed !== 'object' || Array.isArray(parsed)) {
-    throw new Error(
-      'Environment variable TRUEFOUNDRY_TENANT_ID_TO_ALLOWED_MODEL_PROVIDER_ACCOUNTS must be a JSON object of tenant_id → string[]',
-    );
-  }
-  const result: Record<string, string[]> = {};
-  for (const [tenantId, accounts] of Object.entries(parsed)) {
-    if (!Array.isArray(accounts) || accounts.some(account => typeof account !== 'string')) {
-      throw new Error(
-        `Environment variable TRUEFOUNDRY_TENANT_ID_TO_ALLOWED_MODEL_PROVIDER_ACCOUNTS[${JSON.stringify(tenantId)}] must be a string array`,
-      );
-    }
-    result[tenantId] = accounts;
-  }
-  return result;
 }
 
 /** Parses a positive-integer env var, falling back to `defaultValue` when unset/blank. */
