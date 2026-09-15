@@ -231,12 +231,14 @@ export function buildTurnSandbox(input: {
   skills?: readonly Skill[];
   fileDownloadEnabled: boolean;
   existingSandboxId?: string | undefined;
+  signal: AbortSignal;
   tracing: AgentTracing;
 }): Sandbox {
   // Empty mounter still uploads requested-skills file so existing skills are cleaned up.
   return new Sandbox({
     provider: input.provider,
     existingSandboxId: input.existingSandboxId,
+    signal: input.signal,
     fileDownloadEnabled: input.fileDownloadEnabled,
     blockDestructiveToolsInCodeMode: true,
     mcpRequestTimeoutMs: configuration.MCP_REQUEST_TIMEOUT_MS,

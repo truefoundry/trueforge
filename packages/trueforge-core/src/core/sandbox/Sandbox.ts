@@ -87,6 +87,7 @@ export interface SandboxStoredFile {
 export interface SandboxOptions {
   provider: SandboxProvider;
   existingSandboxId?: string | undefined;
+  signal?: AbortSignal | undefined;
   skillMounter?: ISkillMounter | undefined;
   fileDownloadEnabled?: boolean | undefined;
   /** Pre-resolved credential-store file content (null = clear / no git auth). */
@@ -198,6 +199,7 @@ export class Sandbox extends LocalToolMCP {
 
   private readonly provider: SandboxProvider;
   private readonly existingSandboxId?: string | undefined;
+  private readonly signal?: AbortSignal | undefined;
   private existingSandboxInfo: SandboxInfo | undefined;
   // Cached promise to prevent concurrent sub-agents from creating duplicate sandboxes.
   private sandboxCreationPromise?: Promise<SandboxInfo> | undefined;
@@ -228,6 +230,7 @@ export class Sandbox extends LocalToolMCP {
     super({ tracing: options.tracing });
     this.provider = options.provider;
     this.existingSandboxId = options.existingSandboxId;
+    this.signal = options.signal;
     this.skillMounter = options.skillMounter;
     this.fileDownloadEnabled = options.fileDownloadEnabled ?? false;
     const mcpBoundTimeoutMs = options.mcpRequestTimeoutMs + options.mcpConnectTimeoutMs;
@@ -557,6 +560,7 @@ export class Sandbox extends LocalToolMCP {
         command: input.command,
         cwd: input.cwd,
         env,
+        signal: this.signal,
       });
 
       return {
@@ -592,6 +596,7 @@ export class Sandbox extends LocalToolMCP {
         command: input.command,
         cwd: input.cwd,
         env: retryEnv,
+        signal: this.signal,
       });
       return {
         result: {

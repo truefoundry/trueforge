@@ -3,7 +3,7 @@
  * plus Code Mode UDS and security probes. Run via `pnpm smoke`.
  */
 import { getDefaultWritePaths, SandboxManager } from '@anthropic-ai/sandbox-runtime';
-import { CodeModeDispatcher, type IToolSet } from '@truefoundry/trueforge-core/core';
+import { CodeModeDispatcher, SANDBOX_EXEC_ABORTED, type IToolSet } from '@truefoundry/trueforge-core/core';
 import assert from 'node:assert/strict';
 import { spawn } from 'node:child_process';
 import { randomUUID } from 'node:crypto';
@@ -68,6 +68,18 @@ function sleep(ms: number): Promise<void> {
   return new Promise(resolve => {
     setTimeout(resolve, ms);
   });
+}
+
+async function waitForHostFile(path: string): Promise<void> {
+  for (let attempt = 0; attempt < 100; attempt += 1) {
+    try {
+      await access(path);
+      return;
+    } catch {
+      await sleep(50);
+    }
+  }
+  throw new Error(`timed out waiting for ${path}`);
 }
 
 /**
@@ -1939,6 +1951,33 @@ async function main(): Promise<void> {
     if (!persist2.success) throw new Error('unreachable');
     assert.equal(persist2.response.result, 'persist-ok\n');
     console.log('ok: sandbox persists across execs');
+
+    const abortController = new AbortController();
+    const abortStartedPath = join(sandboxId, 'abort-started.txt');
+    const abortExecStartedAt = Date.now();
+    const abortExec = provider.exec({
+      sandboxId,
+      command: "printf 'abort-started\\n' > abort-started.txt; sleep 120",
+      timeoutSeconds: 120,
+      signal: abortController.signal,
+    });
+    await waitForHostFile(abortStartedPath);
+    abortController.abort();
+    const abortResult = await abortExec;
+    const abortElapsedMs = Date.now() - abortExecStartedAt;
+    assert.equal(abortResult.success, false);
+    if (abortResult.success) throw new Error('unreachable');
+    assert.equal(abortResult.error, SANDBOX_EXEC_ABORTED);
+    assert.ok(abortElapsedMs < 10_000, `abort took ${String(abortElapsedMs)}ms`);
+    const afterAbort = await provider.exec({
+      sandboxId,
+      command: "cat persist.txt && printf 'after-abort-ok\\n'",
+    });
+    assert.equal(afterAbort.success, true);
+    if (!afterAbort.success) throw new Error('unreachable');
+    assert.equal(afterAbort.response.exitCode, 0, afterAbort.response.result);
+    assert.equal(afterAbort.response.result, 'persist-ok\nafter-abort-ok\n');
+    console.log('ok: abort stops current exec and same sandbox remains usable');
 
     const flood = await provider.exec({
       sandboxId,
