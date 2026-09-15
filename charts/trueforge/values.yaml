@@ -235,11 +235,14 @@ externalPostgres:
   #       key: host  # or port / database / user / password
   # Optional TLS for the app → Postgres pool (`POSTGRES_SSL_MODE`). Empty = unset (no TLS).
   # Modes: disable | prefer | require | verify-ca | verify-full | no-verify.
+  # prefer/require/verify-ca/verify-full all enable TLS with Node default verification
+  # (≈ verify-full). Use no-verify to encrypt without verifying the server cert.
   sslMode: ""
-  # Optional client TLS material (mTLS). Mount the PEMs with extraVolumes / extraVolumeMounts,
-  # then set these to the in-pod paths (`POSTGRES_SSL_CERT_PATH` / `POSTGRES_SSL_KEY_PATH`).
+  # Optional client / CA TLS material. Mount the PEMs with extraVolumes / extraVolumeMounts,
+  # then set these to the in-pod paths.
   sslCertPath: ""
   sslKeyPath: ""
+  sslCaPath: ""
 externalRedis:
   # Full connection URL, e.g. redis://:password@redis-master.databases.svc:6379.
   # string, or { valueFrom: { secretKeyRef: { name, key } } }. Prefer valueFrom in prod.

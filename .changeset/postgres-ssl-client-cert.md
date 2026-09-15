@@ -2,4 +2,4 @@
 "@truefoundry/trueforge": patch
 ---
 
-Support `POSTGRES_SSL_CERT_PATH` / `POSTGRES_SSL_KEY_PATH` as Pool `ssl.cert` / `ssl.key` (client TLS).
+Apply Postgres TLS via Pool `ssl` like servicefoundry (`POSTGRES_SSL_MODE` + cert/key/CA paths), not `sslmode` on the URL.
