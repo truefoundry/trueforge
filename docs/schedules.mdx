@@ -4,11 +4,11 @@ sidebarTitle: 'Schedules'
 description: 'Run a saved agent on a recurring cadence, unattended, and review each run.'
 ---
 
-**Schedules** run a saved agent on a repeating cadence, with no one in the chat. Each run sends the same task to the agent, executes on the server, and is recorded as a [session](/sessions) you can open later. Use them for work that should happen on a clock, such as a morning brief, a recurring report, or a periodic check.
+**Schedules** run a saved agent on a recurring cadence, unattended. Each run sends the agent the same task, executes on the server, and is recorded as a [session](/sessions) you can open later. Use them for recurring work such as a daily brief, a periodic report, or a regular check.
 
 ## Before you start
 
-A schedule runs an existing **saved agent**, so [create an agent](/create-agent/overview) first. The same task goes to the agent on every run, so its instructions and tools should already cover the work you want repeated.
+A schedule runs an existing **saved agent**, so [create an agent](/create-agent/overview) first. The agent receives the same task on every run, so its instructions and tools should already cover that work.
 
 ## Creating a schedule
 
@@ -19,7 +19,7 @@ Open **Schedules** from the sidebar and click **Create Schedule**. Fill in:
 - **Task**: the message sent to the agent on every run. Write it as you would the first message in a chat, for example: "Summarize the most important AI news from the last 24 hours and list the top five items with links."
 - **Frequency**: **Hourly**, **Daily**, or **Weekly**, with the hour, minute, and **timezone** to run in. The form previews the result, such as "Daily 9:00 AM" in your timezone.
 
-Click **Save**, and the schedule starts running on that cadence.
+Click **Save**. The schedule becomes active and runs on that cadence.
 
 <Frame caption="Creating a schedule: pick a saved agent, write the task, and set the cadence and timezone.">
   ![The New Schedule form with an agent, a name, a task message, and a Daily frequency set to a time and timezone, with a preview of the resulting cadence](/images/schedules-create.png)
@@ -31,7 +31,7 @@ Click **Save**, and the schedule starts running on that cadence.
 
 ## How runs work
 
-- Every run starts a fresh session, runs the agent against the task on its own, and stops when the agent is done.
+- Every run starts a fresh session, sends the agent the task, and ends when the agent completes it.
 - Each run is recorded as a [session](/sessions), marked **Scheduled run**, so you can open it to read the transcript, tool calls, and result.
 - The list shows the outcome of the **last five runs** for each schedule.
 - Use **Run now** to trigger a run immediately, without waiting for the next scheduled time.
@@ -41,7 +41,7 @@ Click **Save**, and the schedule starts running on that cadence.
 The **Scheduled Agents** page lists every schedule with its agent, cadence, status, and recent runs. From here you can:
 
 - **Search** by name, or filter by **status** or **agent**.
-- **Pause** a schedule to stop it running, then resume it later. Paused schedules stay in the list.
+- **Pause** a schedule to stop it from running, and resume it later. Paused schedules stay in the list.
 - **Edit** a schedule's task, cadence, or timezone.
 - **Delete** a schedule you no longer need.
 
@@ -50,7 +50,7 @@ The **Scheduled Agents** page lists every schedule with its agent, cadence, stat
 </Frame>
 
 <Note>
-  Schedules run on the server, so it has to be running for them to fire. In hosted mode with [login](/authentication/overview) enabled, schedules are owner-scoped: each user sees only their own.
+  Schedules run on the server, so the server must be running for them to trigger. In hosted mode with [login](/authentication/overview) enabled, schedules are owner-scoped: each user sees only their own.
 </Note>
 
 ## Via the SDK
