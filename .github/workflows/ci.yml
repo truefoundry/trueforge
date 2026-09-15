@@ -66,6 +66,11 @@ jobs:
               - 'pnpm-workspace.yaml'
               - 'tsconfig.base.json'
               - '.github/workflows/ci.yml'
+            trueforge-python-sdk:
+              - 'python/trueforge_sdk/**'
+              - 'package.json'
+              - 'pnpm-workspace.yaml'
+              - '.github/workflows/ci.yml'
             store:
               - 'packages/trueforge/src/db/**'
               - 'packages/trueforge/tests/db/**'
@@ -96,6 +101,7 @@ jobs:
           TRUEFORGE: ${{ steps.filter.outputs.trueforge }}
           FRONTEND: ${{ steps.filter.outputs.frontend }}
           TRUEFORGE_UI: ${{ steps.filter.outputs['trueforge-ui'] }}
+          TRUEFORGE_PYTHON_SDK: ${{ steps.filter.outputs['trueforge-python-sdk'] }}
         run: |
           node <<'EOF' >> "$GITHUB_OUTPUT"
           const changedPackages = [];
@@ -103,6 +109,7 @@ jobs:
           if (process.env.TRUEFORGE === 'true') changedPackages.push('trueforge');
           if (process.env.FRONTEND === 'true') changedPackages.push('frontend');
           if (process.env.TRUEFORGE_UI === 'true') changedPackages.push('trueforge-ui');
+          if (process.env.TRUEFORGE_PYTHON_SDK === 'true') changedPackages.push('trueforge-python-sdk');
           console.log(`list=${JSON.stringify(changedPackages)}`);
           EOF
 
@@ -226,6 +233,16 @@ jobs:
 
       - name: Install dependencies
         run: pnpm install --frozen-lockfile
+
+      - name: Setup Python
+        if: matrix.package == 'trueforge-python-sdk'
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+
+      - name: Install Python SDK test deps
+        if: matrix.package == 'trueforge-python-sdk'
+        run: python -m pip install -e python/trueforge_sdk pytest pytest-asyncio
 
       - name: Test
         run: pnpm "test:${{ matrix.package }}"
