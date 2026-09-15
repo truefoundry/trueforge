@@ -188,6 +188,7 @@ const expectedRuntimeExports: Array<keyof typeof sdk> = [
   'useAuiState',
   'useBrand',
   'useBrandName',
+  'useCanCreateAgent',
   'useCatalogServer',
   'useComposerBusyState',
   'useComposerPauseView',
