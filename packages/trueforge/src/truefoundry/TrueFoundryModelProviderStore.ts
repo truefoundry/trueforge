@@ -14,7 +14,12 @@ import {
 import type { AvailableModel, ModelProviderManifest } from '../schemas/modelProvider';
 import { accessTokenForRequest, asTrueFoundryRequestContext, type ResolveAccessToken } from './accessToken';
 import { trueFoundryManaged } from './errors';
-import { mapEnabledModels, resolveDefaultGatewayUrl, type TrueFoundryEnabledModel } from './mapEnabledModels';
+import {
+  filterEnvModels,
+  mapEnabledModels,
+  resolveDefaultGatewayUrl,
+  type TrueFoundryEnabledModel,
+} from './mapEnabledModels';
 import { TrueFoundryServiceFoundryServerClient } from './TrueFoundryServiceFoundryServerClient';
 
 export class TrueFoundryModelProviderStore<TTransaction = never> implements IModelProviderStore<TTransaction> {
@@ -94,11 +99,15 @@ export class TrueFoundryModelProviderStore<TTransaction = never> implements IMod
       this.#client.listGatewayInstallations(agentToken),
     ]);
     const gatewayUrl = resolveDefaultGatewayUrl(installations);
+    const models = filterEnvModels({
+      tenant_id: input.tenant_id,
+      models: mapEnabledModels({ integrations }),
+    });
     return toRecords({
       tenant_id: input.tenant_id,
       gatewayUrl,
       accessToken: userToken,
-      models: mapEnabledModels({ integrations }),
+      models,
     });
   }
 }
