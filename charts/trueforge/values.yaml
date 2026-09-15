@@ -16,6 +16,9 @@ serviceAccount:
   annotations: {}
   # If empty and create is true, a name is generated from the fullname.
   name: ""
+# Mount the ServiceAccount token into the server and controller pods. Neither
+# talks to the Kubernetes API, so the token is off by default.
+automountServiceAccountToken: false
 podAnnotations: {}
 podLabels: {}
 # Labels / annotations on every rendered object (merged over global.labels /
