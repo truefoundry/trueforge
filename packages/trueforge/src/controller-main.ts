@@ -34,12 +34,14 @@ try {
     process.exit(0);
   }
 
+  logger.info('Connecting to Postgres');
   const db = createDb({
     connectionString: configuration.DATABASE_URL,
     poolMax: configuration.DATABASE_POOL_MAX,
     statementTimeoutMs: configuration.POSTGRES_STATEMENT_TIMEOUT_MS,
     idleInTransactionSessionTimeoutMs: configuration.POSTGRES_IDLE_IN_TRANSACTION_SESSION_TIMEOUT_MS,
   });
+  logger.info('Connected to Postgres');
 
   logger.info('Controller starting', {
     serverUrl: configuration.SERVER_URL,
