@@ -203,32 +203,41 @@ With TrueForge open in your browser, this walkthrough takes you from an empty wo
     See the [Sandbox guide](/sandbox) for provider setup details.
   </Step>
 
-  <Step title="Compose an agent and start chatting">
-    Back in the chat, assemble the agent for this conversation. Pick a model from the selector in the composer, then open the **Tools** menu and set three things:
+  <Step title="Build the agent">
+    Open **Build Agent** from the sidebar. It's a split view: assemble the agent in the **Agent Config** panel on the left, and test it in a live chat on the right as you go.
 
-    - **Connectors** — enable **Exa**.
-    - **Skills** — enable **web-artifacts-builder**.
-    - **Capabilities** — leave **Dynamic sub-agents** on (it's the default). This lets the agent research each item in parallel instead of one at a time.
+    In the left panel, set:
+
+    - **Model** — pick one from the selector at the top and choose a reasoning effort.
+    - **Instructions** — define the agent's role and behavior. For this example:
+
+    ```text wrap
+    You are a web research assistant. Given a topic or question, use Exa to search the web and pull content from the most relevant, recent sources. When the request compares several items, research each one in parallel, then synthesize the findings into a clear one-page brief.
+    ```
+
+    - **MCP Servers** — open **Select MCP Tools**, choose **Exa**, and enable its tools.
+    - **Skills** — open the **Skills** picker and enable **web-artifacts-builder**.
+    - **Runtime Config** — open it to review execution and context settings. Keep **Dynamic sub-agents** on so the agent researches each item in parallel, and leave **Generative UI**, **Sandbox**, and **Context compaction** on.
 
     <Tabs>
-      <Tab title="Connectors">
+      <Tab title="Tools">
         <Frame>
-          ![The composer Tools menu on the Connectors tab with Exa enabled](/images/quickstart-compose-connectors.png)
+          ![The Select MCP Tools dialog with Exa selected and its web_search and web_fetch tools enabled](/images/quickstart-build-tools.png)
         </Frame>
       </Tab>
       <Tab title="Skills">
         <Frame>
-          ![The Tools menu on the Skills tab with web-artifacts-builder enabled](/images/quickstart-compose-skills.png)
+          ![The Skills dialog with web-artifacts-builder enabled](/images/quickstart-build-skills.png)
         </Frame>
       </Tab>
-      <Tab title="Capabilities">
+      <Tab title="Runtime Config">
         <Frame>
-          ![The Tools menu on the Capabilities tab with Generative UI, Dynamic sub-agents, and Ask clarifying questions toggled on](/images/quickstart-compose-capabilities.png)
+          ![The Runtime Config panel with Dynamic sub-agents, Generative UI, Ask user questions, Sandbox, and Context compaction toggled on](/images/quickstart-build-runtime.png)
         </Frame>
       </Tab>
     </Tabs>
 
-    Then send your first message. For example:
+    Then test it in the chat on the right. For example:
 
     ```text wrap
     Research the current state of open-source vector databases. Compare Qdrant, Weaviate, and Milvus on performance, features, and licensing, then write a one-page brief with sources.
@@ -236,31 +245,27 @@ With TrueForge open in your browser, this walkthrough takes you from an empty wo
 
     The agent searches with Exa, delegates each database to a parallel subagent, and uses **web-artifacts-builder** in the sandbox to render an interactive brief.
 
-    <Frame caption="The result — an interactive brief the agent built from its web research: a comparison, feature chips, and a strengths chart.">
-      ![A chat result showing an interactive comparison of Qdrant, Weaviate, and Milvus with license badges, feature chips, Performance/Features/Licensing tabs, and a radar chart of relative strengths](/images/quickstart-chat-result.png)
+    <Frame caption="The Build Agent page: Agent Config on the left, and on the right the interactive brief the agent produced, including a Generative UI radar chart of the databases' relative strengths.">
+      ![The Build Agent page with the Agent Config panel on the left (model, instructions, runtime config, MCP servers, and skills) and, on the right, an interactive brief comparing Qdrant, Weaviate, and Milvus with a radar chart of relative strengths and recommendation cards](/images/quickstart-build-agent.png)
     </Frame>
   </Step>
 
   <Step title="Save it as an agent">
-    Happy with the setup? Click **Save Agent**, then in **Save agent** give it a name and instructions and click **Save changes** — this captures the model, connectors, skills, and prompt together as a reusable agent. For this example:
+    Happy with the setup? Click **Save Agent** at the top right, give it a name and a short description, and click **Save changes**. This captures the model, instructions, tools, skills, and runtime settings together as a reusable agent. For this example:
 
-    - **Name** — `web-research-brief`
-    - **Instructions** —
-
-    ```text wrap
-    You are a web research assistant. Given a topic or question, use Exa to search the web and pull content from the most relevant, recent sources. When the request compares several items, research each one in parallel, then synthesize the findings into a clear one-page brief.
-    ```
+    - **Agent name** — `web-research-brief`
+    - **Description** — `Web research brief agent`
 
     <Frame>
-      ![The Save agent dialog with a name, instructions, and a configuration summary of model, connectors, and skills](/images/save-agent.png)
+      ![The Save agent dialog with an agent name and a description field](/images/save-agent.png)
     </Frame>
   </Step>
 
   <Step title="Find it under Agents">
-    Open **Agents** from the sidebar. Your saved agent is there — click **Try** to start a fresh chat with the same setup, or **Edit** to tweak it. See [Agents](/agent-library) for shared-visibility notes in hosted mode.
+    Open **Agents** from the sidebar. Your saved agent is listed with a summary of its model, skills, and connectors. Click **Try** to start a fresh chat with the same setup, or use the row's menu to manage it. See [Agents](/agent-library) for shared-visibility notes in hosted mode.
 
     <Frame>
-      ![Agents listing the saved web-research-brief agent with Edit and Try actions](/images/quickstart-agents-library.png)
+      ![The Agents list showing the saved web-research-brief agent with its model and tool summary and a Try action](/images/quickstart-agents-library.png)
     </Frame>
   </Step>
 </Steps>
