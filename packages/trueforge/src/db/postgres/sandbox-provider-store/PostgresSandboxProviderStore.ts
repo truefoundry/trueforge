@@ -88,7 +88,8 @@ export class PostgresSandboxProviderStore implements ISandboxProviderStore<Trans
     transaction?: Transaction<Database>,
   ): Promise<SandboxProviderRecord | undefined> {
     const db = transaction ?? this.#db;
-    const row = await db
+    const expectedManifest = input.expected_manifest;
+    let query = db
       .updateTable('sandbox_provider')
       .set({
         status: input.status,
@@ -96,9 +97,11 @@ export class PostgresSandboxProviderStore implements ISandboxProviderStore<Trans
         build_metadata: input.build_metadata !== null ? json(input.build_metadata) : null,
         updated_at: now(),
       })
-      .where('tenant_id', '=', input.tenant_id)
-      .returningAll()
-      .executeTakeFirst();
+      .where('tenant_id', '=', input.tenant_id);
+    if (expectedManifest !== undefined) {
+      query = query.where('manifest', '=', json(expectedManifest));
+    }
+    const row = await query.returningAll().executeTakeFirst();
     return row === undefined ? undefined : toRecord(row);
   }
 }

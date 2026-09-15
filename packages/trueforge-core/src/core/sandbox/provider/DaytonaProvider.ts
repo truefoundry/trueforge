@@ -99,6 +99,7 @@ export interface DaytonaSandboxProviderOptions {
   /** Defaults to 1 hour (same as the gateway's max agent execution time). */
   previewUrlExpirySeconds?: number;
   logger: Logger;
+  onError?: ((error: unknown) => Promise<void>) | undefined;
 }
 
 export class DaytonaSandboxProvider implements SandboxProvider {
@@ -118,6 +119,7 @@ export class DaytonaSandboxProvider implements SandboxProvider {
   private readonly apiKey: string;
   private readonly apiUrl: string;
   private readonly logger: Logger;
+  private readonly onError: ((error: unknown) => Promise<void>) | undefined;
   private readonly daytona: Daytona;
   private static readonly cachedSandboxes = new Map<string, { sandbox: Sandbox; defaultTimeoutMs: number }>();
   // De-dupes concurrent recovery attempts on the same sandbox to a single refreshData+start round-trip.
@@ -138,6 +140,15 @@ export class DaytonaSandboxProvider implements SandboxProvider {
     this.natsBridgePort = options.natsBridgePort ?? DEFAULT_SANDBOX_NATS_WS_PORT;
     this.previewUrlExpirySeconds = options.previewUrlExpirySeconds ?? DEFAULT_PREVIEW_URL_EXPIRY_SECONDS;
     this.logger = options.logger.child({ module: 'DaytonaProvider' });
+    this.onError = options.onError;
+  }
+
+  private async reportError(error: unknown): Promise<void> {
+    try {
+      await this.onError?.(error);
+    } catch (reportError) {
+      this.logger.error('Failed to report Daytona error', extractErrorLogFields(reportError));
+    }
   }
 
   private async getOrCreateSandbox(sandboxId?: string): Promise<{ sandbox: Sandbox; defaultTimeoutMs: number }> {
@@ -246,11 +257,16 @@ export class DaytonaSandboxProvider implements SandboxProvider {
   }
 
   async createSandbox(): Promise<{ sandboxId: string }> {
-    return context.with(suppressTracing(context.active()), async () => {
-      const { sandbox } = await this.getOrCreateSandbox();
-      this.logger.debug(`Sandbox created: name=${sandbox.name}`);
-      return { sandboxId: sandbox.name };
-    });
+    try {
+      return await context.with(suppressTracing(context.active()), async () => {
+        const { sandbox } = await this.getOrCreateSandbox();
+        this.logger.debug(`Sandbox created: name=${sandbox.name}`);
+        return { sandboxId: sandbox.name };
+      });
+    } catch (error) {
+      await this.reportError(error);
+      throw error;
+    }
   }
 
   /** Resolves undefined when no snapshot carries that name; auth/other failures throw. */
@@ -403,6 +419,7 @@ export class DaytonaSandboxProvider implements SandboxProvider {
         if (e instanceof SandboxNotAvailableError) {
           throw e;
         }
+        await this.reportError(e);
         this.logger.error('Sandbox execution error', extractErrorLogFields(e));
         const message = e instanceof Error ? e.message : 'Unknown error';
         return { success: false, error: message };
