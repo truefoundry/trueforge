@@ -15,6 +15,7 @@ on:
       - '.github/fern/**'
       - '.github/workflows/generate-sdk.yaml'
       - 'scripts/generate-sdk.sh'
+      - 'scripts/patch-python-sdk-event-exports.py'
   pull_request:
     types: [opened, synchronize, reopened]
     paths:
@@ -24,6 +25,7 @@ on:
       - '.github/fern/**'
       - '.github/workflows/generate-sdk.yaml'
       - 'scripts/generate-sdk.sh'
+      - 'scripts/patch-python-sdk-event-exports.py'
 
 concurrency:
   group: generate-sdk-${{ github.head_ref || github.ref_name }}
@@ -112,7 +114,7 @@ jobs:
           elif ! git rev-parse --verify --quiet "${BASE_SHA}^{commit}" >/dev/null; then
             # A branch's first push reports an all-zero base commit.
             reason="there is no base commit to compare against"
-          elif ! git diff --quiet "$BASE_SHA" HEAD -- .github/fern/generators.yml .github/fern/fern.config.json scripts/generate-sdk.sh; then
+          elif ! git diff --quiet "$BASE_SHA" HEAD -- .github/fern/generators.yml .github/fern/fern.config.json scripts/generate-sdk.sh scripts/patch-python-sdk-event-exports.py; then
             reason="the generator config changed"
           fi
 

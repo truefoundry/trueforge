@@ -1,4 +1,4 @@
-from trueforge_sdk.events import is_event_delta, merge_event_delta
+from trueforge_sdk import is_event_delta, merge_event_delta
 from trueforge_sdk.types.chat_completion_chunk_delta_tool_call_function import (
     ChatCompletionChunkDeltaToolCallFunction,
 )
@@ -126,8 +126,8 @@ def test_merge_overwrites_finish_reason_and_refusal() -> None:
     assert base.refusal == "no"
 
 
-def test_helpers_are_not_on_package_root() -> None:
+def test_helpers_are_on_package_root() -> None:
     import trueforge_sdk
 
-    assert not hasattr(trueforge_sdk, "is_event_delta")
-    assert not hasattr(trueforge_sdk, "merge_event_delta")
+    assert trueforge_sdk.is_event_delta is is_event_delta
+    assert trueforge_sdk.merge_event_delta is merge_event_delta

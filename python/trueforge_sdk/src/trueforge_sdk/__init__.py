@@ -253,6 +253,7 @@ if typing.TYPE_CHECKING:
     )
     from . import agents, auth, catalogs, internal, mcp_servers, models, schedules, server, sessions, settings, skills
     from ._default_clients import DefaultAioHttpClient, DefaultAsyncHttpxClient
+    from .events import is_event_delta, merge_event_delta
     from .client import AsyncTrueForge, TrueForge
     from .version import __version__
 _dynamic_imports: typing.Dict[str, str] = {
@@ -474,6 +475,8 @@ _dynamic_imports: typing.Dict[str, str] = {
     "ToolResponseEvent": ".types",
     "ToolResponseRequiredEvent": ".types",
     "TrueForge": ".client",
+    "is_event_delta": ".events",
+    "merge_event_delta": ".events",
     "TrueFoundryMcpServerManifest": ".types",
     "TrueFoundryModelProvider": ".types",
     "TrueFoundryRegistrySkill": ".types",
@@ -756,6 +759,8 @@ __all__ = [
     "ToolResponseEvent",
     "ToolResponseRequiredEvent",
     "TrueForge",
+    "is_event_delta",
+    "merge_event_delta",
     "TrueFoundryMcpServerManifest",
     "TrueFoundryModelProvider",
     "TrueFoundryRegistrySkill",
@@ -796,3 +801,12 @@ __all__ = [
     "settings",
     "skills",
 ]
+
+
+# Hand-written helpers (see .fernignore), registered into the lazy barrel above.
+if typing.TYPE_CHECKING:
+    from .events import is_event_delta, merge_event_delta
+
+_dynamic_imports["is_event_delta"] = ".events"
+_dynamic_imports["merge_event_delta"] = ".events"
+__all__ += ["is_event_delta", "merge_event_delta"]
