@@ -93,6 +93,7 @@ import { PACKAGE_VERSION } from './packageVersion';
 import { ActiveTurnRegistry } from './runtime/activeTurns';
 import { EventSubscriptionRegistry } from './runtime/event-subscription';
 import type { ConnectedRedis } from './runtime/redis';
+import { captureCriticalException, exitAfterFlushSentry, initSentry } from './sentry';
 import { printStandaloneStartupBanner } from './startupBanner';
 import { InlineMcpServerStore } from './truefoundry/InlineMcpServerStore';
 import { parseInlineMcpServers, parseInlineSkills, X_TFG_MCP, X_TFG_SKILLS } from './truefoundry/inlineResources';
@@ -675,6 +676,8 @@ try {
     version: PACKAGE_VERSION,
   });
 
+  await initSentry(configuration, logger, { tags: { component: 'server' } });
+
   if (configuration.STANDALONE) {
     printStandaloneStartupBanner({ version: PACKAGE_VERSION, color: shouldColorize() });
     await prepareCodeModeSocketParent({ path: configuration.CODE_MODE_SOCKET_PARENT, logger });
@@ -777,7 +780,8 @@ try {
 
   server.on('error', (error: unknown) => {
     console.error('Failed to start server:', error instanceof Error ? error.message : error);
-    process.exit(1);
+    captureCriticalException(error, { tags: { module: 'main', operation: 'listen' } });
+    void exitAfterFlushSentry(1);
   });
 
   // Graceful drain is the safe default for built and direct execution.
@@ -794,7 +798,11 @@ try {
       // Arm at the start of each shutdown; unref so this timer alone cannot keep the process alive.
       setTimeout(() => {
         logger.warn(`Drain timed out after ${String(configuration.GRACEFUL_TIMEOUT_SECONDS)}s, exiting`);
-        process.exit(1);
+        captureCriticalException(new Error('Server drain timed out'), {
+          tags: { module: 'main', operation: 'drain' },
+          extra: { gracefulTimeoutSeconds: configuration.GRACEFUL_TIMEOUT_SECONDS },
+        });
+        void exitAfterFlushSentry(1);
       }, configuration.GRACEFUL_TIMEOUT_SECONDS * 1000).unref();
 
       const closed = new Promise<void>(resolve => {
@@ -844,5 +852,6 @@ try {
   }
 } catch (error) {
   console.error('Failed to start server:', error instanceof Error ? error.message : error);
-  process.exit(1);
+  captureCriticalException(error, { tags: { module: 'main', operation: 'startup' } });
+  await exitAfterFlushSentry(1);
 }

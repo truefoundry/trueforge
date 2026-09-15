@@ -3,6 +3,7 @@ import { Controller } from './controller/Controller';
 import { scheduleDispatchLoop } from './controller/scheduleDispatch';
 import type { IScheduleStore } from './db/scheduleStore';
 import type { WithTransaction } from './db/transaction';
+import { captureCriticalException, exitAfterFlushSentry } from './sentry';
 
 /**
  * Controller whose schedule loop hands runs to the server over HTTP
@@ -52,7 +53,11 @@ export function runController<TTransaction>(params: {
     // Passes only hold short transactions, so the deadline should never elapse.
     setTimeout(() => {
       logger.warn(`Controller drain timed out after ${String(gracefulTimeoutSeconds)}s, exiting`);
-      process.exit(1);
+      captureCriticalException(new Error('Controller drain timed out'), {
+        tags: { module: 'controller', operation: 'drain' },
+        extra: { gracefulTimeoutSeconds },
+      });
+      void exitAfterFlushSentry(1);
     }, gracefulTimeoutSeconds * 1000).unref();
 
     await controller.stop();

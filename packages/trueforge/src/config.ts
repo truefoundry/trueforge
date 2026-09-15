@@ -807,6 +807,8 @@ export interface SharedServerConfiguration {
   OUTBOUND_URL_ALLOWED_HOSTS: string[];
   /** Hosts always blocked. Env: `OUTBOUND_URL_BLOCKED_HOSTS` (JSON string array). Empty = none. */
   OUTBOUND_URL_BLOCKED_HOSTS: string[];
+  SENTRY_ENABLED: boolean;
+  SENTRY_DSN: string | undefined;
 }
 
 export type StandaloneServerConfiguration = SharedServerConfiguration & {
@@ -970,6 +972,8 @@ export type DistributedServerConfiguration = SharedServerConfiguration & {
    * Unset / empty → web search tools are not registered. Env: `TRUEFOUNDRY_WEB_SEARCH_PROVIDER`.
    */
   TRUEFOUNDRY_WEB_SEARCH_PROVIDER: TrueFoundryWebSearchProviderEnv | undefined;
+  TRUEFOUNDRY_AUTH_SERVER_URL: string | undefined;
+  TRUEFOUNDRY_TENANT_NAME: string | undefined;
 };
 
 export type ServerConfiguration = StandaloneServerConfiguration | DistributedServerConfiguration;
@@ -1103,6 +1107,12 @@ const shared: SharedServerConfiguration = {
     envKey: 'OUTBOUND_URL_BLOCKED_HOSTS',
     raw: getEnv('OUTBOUND_URL_BLOCKED_HOSTS'),
   }),
+  SENTRY_ENABLED: parseBoolean({
+    envKey: 'SENTRY_ENABLED',
+    raw: getEnv('SENTRY_ENABLED'),
+    defaultValue: false,
+  }),
+  SENTRY_DSN: getEnv('SENTRY_DSN', { required: false }),
 };
 
 const configuration: ServerConfiguration = standalone
@@ -1202,6 +1212,8 @@ const configuration: ServerConfiguration = standalone
       TRUEFOUNDRY_WEB_SEARCH_PROVIDER: parseTrueFoundryWebSearchProvider(
         getEnv('TRUEFOUNDRY_WEB_SEARCH_PROVIDER', { required: false }),
       ),
+      TRUEFOUNDRY_AUTH_SERVER_URL: getEnv('TRUEFOUNDRY_AUTH_SERVER_URL', { required: false }),
+      TRUEFOUNDRY_TENANT_NAME: getEnv('TRUEFOUNDRY_TENANT_NAME', { required: false }),
     };
 
 export function isOidcConfigured(
