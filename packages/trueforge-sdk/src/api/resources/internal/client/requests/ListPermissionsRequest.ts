@@ -10,7 +10,7 @@ import type * as TrueForge from "../../../../index.js";
  *     }
  */
 export interface ListPermissionsRequest {
-    /** Resource ids of `resource_type` to evaluate for the caller. */
+    /** Resource ids of `resource_type` to evaluate. */
     resourceIds: string[];
     resourceType: TrueForge.PermissionResourceType;
 }

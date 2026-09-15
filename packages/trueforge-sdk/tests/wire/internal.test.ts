@@ -9,7 +9,7 @@ describe("InternalClient", () => {
         const server = mockServerPool.createServer();
         const client = new TrueForge({ maxRetries: 0, token: "test", baseUrl: server.baseUrl });
         const rawRequestBody = { resource_ids: ["resource_ids"], resource_type: "agent" };
-        const rawResponseBody = { data: { key: ["USE"] } };
+        const rawResponseBody = { data: { permissions: { key: ["USE"] }, type: "agent" } };
 
         server
             .mockEndpoint()
@@ -26,7 +26,10 @@ describe("InternalClient", () => {
         });
         expect(response).toEqual({
             data: {
-                key: ["USE"],
+                permissions: {
+                    key: ["USE"],
+                },
+                type: "agent",
             },
         });
     });

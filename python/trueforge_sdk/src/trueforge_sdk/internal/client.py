@@ -47,12 +47,12 @@ class InternalClient:
         request_options: typing.Optional[RequestOptions] = None,
     ) -> ListPermissionsResponse:
         """
-        Return granted actions for each requested agent, schedule, or session id.
+        Return granted actions for the requested resources.
 
         Parameters
         ----------
         resource_ids : typing.Sequence[str]
-            Resource ids of `resource_type` to evaluate for the caller.
+            Resource ids of `resource_type` to evaluate.
 
         resource_type : PermissionResourceType
 
@@ -62,7 +62,7 @@ class InternalClient:
         Returns
         -------
         ListPermissionsResponse
-            Permissions keyed by resource id.
+            Permissions envelope: `{ type, permissions }`.
 
         Examples
         --------
@@ -143,12 +143,12 @@ class AsyncInternalClient:
         request_options: typing.Optional[RequestOptions] = None,
     ) -> ListPermissionsResponse:
         """
-        Return granted actions for each requested agent, schedule, or session id.
+        Return granted actions for the requested resources.
 
         Parameters
         ----------
         resource_ids : typing.Sequence[str]
-            Resource ids of `resource_type` to evaluate for the caller.
+            Resource ids of `resource_type` to evaluate.
 
         resource_type : PermissionResourceType
 
@@ -158,7 +158,7 @@ class AsyncInternalClient:
         Returns
         -------
         ListPermissionsResponse
-            Permissions keyed by resource id.
+            Permissions envelope: `{ type, permissions }`.
 
         Examples
         --------
