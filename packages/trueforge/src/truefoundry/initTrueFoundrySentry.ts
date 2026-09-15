@@ -14,11 +14,7 @@ export interface TrueFoundrySentryInitConfig {
   TRUEFOUNDRY_SERVICEFOUNDRY_HTTP_TIMEOUT_MS?: number | undefined;
 }
 
-function isSentryNodeOptions(value: unknown): value is NodeOptions {
-  return typeof value === 'object' && value !== null && !Array.isArray(value);
-}
-
-async function fetchSentryAuth(config: TrueFoundrySentryInitConfig): Promise<NodeOptions | undefined> {
+async function fetchSentryAuth(config: TrueFoundrySentryInitConfig): Promise<unknown> {
   const url = `${config.TRUEFOUNDRY_AUTH_SERVER_URL}/api/v1/tenants/sentry-auth-data`;
   const urlParamsObj: Record<string, string> = {
     serviceName: SENTRY_SERVICE_NAME,
@@ -37,11 +33,7 @@ async function fetchSentryAuth(config: TrueFoundrySentryInitConfig): Promise<Nod
     if (res.status !== 200) {
       return undefined;
     }
-    const data: unknown = await res.json();
-    if (!isSentryNodeOptions(data)) {
-      return undefined;
-    }
-    return data;
+    return await res.json();
   } catch (err) {
     if (err instanceof Error && (err.name === 'TimeoutError' || err.name === 'AbortError')) {
       throw new Error(`Timed out fetching sentry auth data after ${String(timeoutMs)}ms`, { cause: err });
@@ -58,13 +50,16 @@ export async function initTrueFoundrySentry(input: {
 }): Promise<boolean> {
   const { config, logger, version, tags } = input;
   try {
-    const sentryInitOptions = await fetchSentryAuth(config);
-    if (sentryInitOptions === undefined) {
+    const authData = await fetchSentryAuth(config);
+    if (authData === undefined || typeof authData !== 'object' || authData === null) {
       logger.error('Failed to fetch sentry config. Skipping initialization');
       return false;
     }
-    sentryInitOptions.includeLocalVariables = false;
-    sentryInitOptions.integrations = [];
+    const sentryInitOptions: NodeOptions = {
+      includeLocalVariables: false,
+      integrations: [],
+    };
+    Object.assign(sentryInitOptions, authData);
     Sentry.init(sentryInitOptions);
     Sentry.getGlobalScope().setTag('TRUEFORGE_VERSION', version);
     if (tags) {
