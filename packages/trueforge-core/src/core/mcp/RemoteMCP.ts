@@ -5,6 +5,7 @@ import type { MCPServerInitInfo } from '../events/schema';
 import type { InternalToolCallInfo } from '../llm/LLMTypes';
 import type { AgentTracing } from '../tracing/AgentTracing';
 import { NOOP_AGENT_TRACING } from '../tracing/NoopAgentTracing';
+import { extractErrorLogFields } from '../util/errorLogFields';
 import {
   type AgentToolSchema,
   type AuthRequiredResponse,
@@ -256,7 +257,7 @@ export class RemoteMCP implements ToolSource {
                 this.isConnected = false;
               },
               onError: error => {
-                this.logger.error(`Error on remote MCP transport ${this.name}`, { error });
+                this.logger.error(`Error on remote MCP transport ${this.name}`, extractErrorLogFields(error));
               },
             });
             span.setOutput(JSON.stringify({ transport: conn.transportType, stateful: conn.sessionId !== null }));
