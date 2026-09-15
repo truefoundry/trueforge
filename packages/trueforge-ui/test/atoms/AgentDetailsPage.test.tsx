@@ -214,6 +214,15 @@ describe('AgentDetailsPage', () => {
     fireEvent.click(screen.getByRole('menuitem', { name: 'Delete' }));
 
     expect(screen.getByRole('dialog', { name: 'Delete agent' })).toBeInTheDocument();
+    expect(screen.getByText(/including any schedules for this agent/)).toBeInTheDocument();
+    expect(deleteAgent).not.toHaveBeenCalled();
+
+    fireEvent.click(screen.getByRole('button', { name: 'Cancel' }));
+    expect(screen.queryByRole('dialog', { name: 'Delete agent' })).not.toBeInTheDocument();
+    expect(deleteAgent).not.toHaveBeenCalled();
+
+    fireEvent.click(screen.getByRole('button', { name: 'Actions for release-notes-writer' }));
+    fireEvent.click(screen.getByRole('menuitem', { name: 'Delete' }));
     fireEvent.click(screen.getByRole('button', { name: 'Delete' }));
 
     await waitFor(() => {

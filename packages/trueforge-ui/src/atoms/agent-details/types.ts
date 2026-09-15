@@ -32,6 +32,10 @@ export type AgentSessionListRowProps = {
   };
   active: boolean;
   onSelect: () => void;
+  /** Opens delete confirmation; does not call the API. */
+  onRequestDelete?: () => void;
+  /** When false, Delete is disabled via PermissionGuard. Defaults to true. */
+  canDelete?: boolean;
 };
 
 export type AgentSessionDetailHeaderProps = {

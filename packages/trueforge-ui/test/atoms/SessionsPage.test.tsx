@@ -1,11 +1,17 @@
 // @vitest-environment jsdom
 import { fireEvent, render, screen, waitFor } from '@testing-library/react';
-import { afterEach, describe, expect, it, vi } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 import { SessionsPage } from '@/atoms/agent-details/SessionsPage.js';
 import { ServerProvider } from '@/server/ServerContext.js';
 import { ShellModeProvider } from '@/server/ShellModeContext.js';
-import type { Session, SessionEventItem, SessionListEntry } from '@/server/types.js';
+import type {
+  ListPermissionsResponse,
+  PermissionsServer,
+  Session,
+  SessionEventItem,
+  SessionListEntry,
+} from '@/server/types.js';
 import { SlotsProvider } from '@/theme/SlotsProvider.js';
 import { DEFAULT_SESSION_TIME_WINDOW_MS, SESSION_TIME_BUFFER_MS } from '@/utils/sessionShareUrl.js';
 import { toDateTimeLocalValue } from '@/utils/sessionTimePresets.js';
@@ -36,6 +42,40 @@ type ListSessionsRequest = {
   endTimestamp?: string;
 };
 
+const originalShowModal = Object.getOwnPropertyDescriptor(HTMLDialogElement.prototype, 'showModal');
+const originalClose = Object.getOwnPropertyDescriptor(HTMLDialogElement.prototype, 'close');
+
+beforeEach(() => {
+  Object.defineProperty(HTMLDialogElement.prototype, 'showModal', {
+    configurable: true,
+    value: function showModal(this: HTMLDialogElement) {
+      this.open = true;
+    },
+  });
+  Object.defineProperty(HTMLDialogElement.prototype, 'close', {
+    configurable: true,
+    value: function close(this: HTMLDialogElement) {
+      this.open = false;
+      this.dispatchEvent(new Event('close'));
+    },
+  });
+});
+
+afterEach(() => {
+  vi.restoreAllMocks();
+  window.history.replaceState(null, '', '/');
+  if (originalShowModal === undefined) {
+    Reflect.deleteProperty(HTMLDialogElement.prototype, 'showModal');
+  } else {
+    Object.defineProperty(HTMLDialogElement.prototype, 'showModal', originalShowModal);
+  }
+  if (originalClose === undefined) {
+    Reflect.deleteProperty(HTMLDialogElement.prototype, 'close');
+  } else {
+    Object.defineProperty(HTMLDialogElement.prototype, 'close', originalClose);
+  }
+});
+
 function renderPage({
   listSessions = vi.fn(async (_req?: ListSessionsRequest) => ({ data: [namedRow, draftRow] })),
   listSessionEvents = vi.fn(async () => ({ data: [] as SessionEventItem[] })),
@@ -46,10 +86,14 @@ function renderPage({
     createdAt: namedRow.createdAt,
     updatedAt: namedRow.updatedAt,
   })),
+  deleteSession,
+  permissions,
 }: {
   listSessions?: (req?: ListSessionsRequest) => Promise<{ data: SessionListEntry[] }>;
   listSessionEvents?: () => Promise<{ data: SessionEventItem[] }>;
   getSession?: () => Promise<Session>;
+  deleteSession?: (req: { sessionId: string }) => Promise<void>;
+  permissions?: PermissionsServer;
 } = {}) {
   const server = createMockAgentUIServer({
     getSession,
@@ -57,6 +101,8 @@ function renderPage({
       { agentId: 'agent-1', name: 'release-notes-writer', agentSpec: { model: { name: 'openai/gpt-5.1' } } },
     ]),
     sessions: { getAgent: vi.fn(), getCodeSnippets: vi.fn(), listSessions, listSessionEvents },
+    ...(deleteSession == null ? {} : { deleteSession }),
+    ...(permissions == null ? {} : { permissions }),
   });
   render(
     <SlotsProvider>
@@ -67,15 +113,10 @@ function renderPage({
       </ServerProvider>
     </SlotsProvider>,
   );
-  return { listSessions, listSessionEvents, getSession };
+  return { listSessions, listSessionEvents, getSession, deleteSession };
 }
 
 describe('SessionsPage', () => {
-  afterEach(() => {
-    vi.restoreAllMocks();
-    window.history.replaceState(null, '', '/');
-  });
-
   it('lists all user sessions without agent_id and applies the default time window', async () => {
     const { listSessions } = renderPage();
     expect(await screen.findByRole('heading', { name: 'Agent Sessions' })).toBeInTheDocument();
@@ -200,5 +241,48 @@ describe('SessionsPage', () => {
     expect(resizer).toHaveClass('w-0');
     expect(resizer.querySelector('.w-px')).toBeInTheDocument();
     expect(screen.getByRole('heading', { name: 'Named session' })).toBeInTheDocument();
+  });
+
+  it('deletes only after the confirmation dialog is accepted', async () => {
+    const deleteSession = vi.fn(async () => undefined);
+    renderPage({ deleteSession });
+
+    fireEvent.click(await screen.findByRole('button', { name: 'Actions for Named session' }));
+    fireEvent.click(screen.getByRole('menuitem', { name: 'Delete' }));
+
+    expect(screen.getByRole('dialog', { name: 'Delete session' })).toBeInTheDocument();
+    expect(deleteSession).not.toHaveBeenCalled();
+
+    fireEvent.click(screen.getByRole('button', { name: 'Cancel' }));
+    expect(screen.queryByRole('dialog', { name: 'Delete session' })).not.toBeInTheDocument();
+    expect(deleteSession).not.toHaveBeenCalled();
+
+    fireEvent.click(screen.getByRole('button', { name: 'Actions for Named session' }));
+    fireEvent.click(screen.getByRole('menuitem', { name: 'Delete' }));
+    fireEvent.click(screen.getByRole('button', { name: 'Delete' }));
+
+    await waitFor(() => {
+      expect(deleteSession).toHaveBeenCalledWith({ sessionId: 'sess-1' });
+    });
+    expect(screen.queryByText('Named session')).not.toBeInTheDocument();
+    expect(screen.getByText('Draft session')).toBeInTheDocument();
+  });
+
+  it('disables Delete without session DELETE permission', async () => {
+    const deleteSession = vi.fn(async () => undefined);
+    renderPage({
+      deleteSession,
+      permissions: {
+        listPermissions: vi.fn(async (): Promise<ListPermissionsResponse> => ({
+          data: { 'sess-1': [], 'sess-draft': ['DELETE'] },
+        })),
+      },
+    });
+
+    fireEvent.click(await screen.findByRole('button', { name: 'Actions for Named session' }));
+    await waitFor(() => {
+      expect(screen.getByRole('menuitem', { name: 'Delete' })).toBeDisabled();
+    });
+    expect(deleteSession).not.toHaveBeenCalled();
   });
 });
