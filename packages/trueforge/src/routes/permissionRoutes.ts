@@ -11,7 +11,7 @@ export const listPermissionsRoute = createRoute({
   path: '/list-permissions',
   tags: [OpenApiTag.INTERNAL],
   summary: 'List permissions for resources',
-  description: 'Return granted actions for each requested agent, schedule, or session id.',
+  description: 'Return granted actions for the requested resources.',
   'x-fern-sdk-group-name': ['internal'],
   'x-fern-sdk-method-name': 'list_permissions',
   request: {
@@ -23,7 +23,7 @@ export const listPermissionsRoute = createRoute({
   responses: {
     200: {
       content: { 'application/json': { schema: ListPermissionsResponseSchema } },
-      description: 'Permissions keyed by resource id.',
+      description: 'Permissions envelope: `{ type, permissions }`.',
     },
     400: {
       content: { 'application/json': { schema: RequestErrorResponseSchema } },

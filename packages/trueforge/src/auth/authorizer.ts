@@ -5,9 +5,11 @@ import {
   AGENT_OWNER_PERMISSIONS,
   AGENT_USE_PERMISSIONS,
   emptyPermissionsByResourceId,
+  listPermissionsData,
   SCHEDULE_OWNER_PERMISSIONS,
   SESSION_OWNER_PERMISSIONS,
-  type ResourcePermission,
+  TENANT_CREATE_AGENT_PERMISSIONS,
+  type ListPermissionsData,
 } from '../schemas/permissions';
 import type { RequestContext } from './identity';
 
@@ -23,12 +25,13 @@ interface GetPermissionsBase {
 export type GetPermissionsInput =
   | (GetPermissionsBase & { resourceType: 'agent'; store: IAgentStore })
   | (GetPermissionsBase & { resourceType: 'schedule'; store: IScheduleStore })
-  | (GetPermissionsBase & { resourceType: 'session'; store: ISessionStore });
+  | (GetPermissionsBase & { resourceType: 'session'; store: ISessionStore })
+  | (GetPermissionsBase & { resourceType: 'tenant' });
 
 export interface Authorizer {
   listAgentAccess(input: { context: RequestContext; action: AgentAction }): Promise<AgentListAccess>;
   canAccessAgent(input: { context: RequestContext; action: AgentAction; agent: AgentRecord }): Promise<boolean>;
-  getPermissions(input: GetPermissionsInput): Promise<Record<string, ResourcePermission[]>>;
+  getPermissions(input: GetPermissionsInput): Promise<ListPermissionsData>;
 }
 
 /** Standalone and OIDC: tenant-local agents. Read/use are unconstrained; manage/delete are creator-only. */
@@ -44,7 +47,11 @@ export class TrueForgeAuthorizer implements Authorizer {
     return Promise.resolve(input.agent.created_by_subject.subject_id === input.context.subject.id);
   }
 
-  async getPermissions(input: GetPermissionsInput): Promise<Record<string, ResourcePermission[]>> {
+  async getPermissions(input: GetPermissionsInput): Promise<ListPermissionsData> {
+    if (input.resourceType === 'tenant') {
+      return listPermissionsData('tenant', { agent: [...TENANT_CREATE_AGENT_PERMISSIONS] });
+    }
+
     const data = emptyPermissionsByResourceId(input.resourceIds);
 
     if (input.resourceType === 'agent') {
@@ -57,7 +64,7 @@ export class TrueForgeAuthorizer implements Authorizer {
       for (const id of input.resourceIds) {
         data[id] = owned.has(id) ? [...AGENT_OWNER_PERMISSIONS] : [...AGENT_USE_PERMISSIONS];
       }
-      return data;
+      return listPermissionsData('agent', data);
     }
 
     if (input.resourceType === 'schedule') {
@@ -69,7 +76,7 @@ export class TrueForgeAuthorizer implements Authorizer {
       for (const id of ownedIds) {
         data[id] = [...SCHEDULE_OWNER_PERMISSIONS];
       }
-      return data;
+      return listPermissionsData('schedule', data);
     }
 
     const ownedIds = await input.store.getOwnedIds({
@@ -80,6 +87,6 @@ export class TrueForgeAuthorizer implements Authorizer {
     for (const id of ownedIds) {
       data[id] = [...SESSION_OWNER_PERMISSIONS];
     }
-    return data;
+    return listPermissionsData('session', data);
   }
 }
