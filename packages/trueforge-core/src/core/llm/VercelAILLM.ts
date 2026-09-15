@@ -1128,6 +1128,7 @@ export async function* mapStreamToChunks({
   const toolCallStates = new Map<string, ToolCallState>();
   let nextToolIndex = 0;
   let accumulatedText = '';
+  let accumulatedReasoning = '';
   const accumulatedThinking: ThinkingBlock[] = [];
   const thinkingByReasoningItem = new Map<string, ThinkingBlock>();
   let currentThinkingBlock: ThinkingBlock | null = null;
@@ -1188,6 +1189,7 @@ export async function* mapStreamToChunks({
         // signature, breaking replay while the text still streams out.
         currentThinkingBlock ??= openThinkingBlock(part.providerMetadata);
         currentThinkingBlock.thinking += part.text;
+        accumulatedReasoning += part.text;
         applyReasoningSignature({ block: currentThinkingBlock, providerMetadata: part.providerMetadata });
         yield {
           ...makeBase(),
@@ -1349,6 +1351,7 @@ export async function* mapStreamToChunks({
   const output: RawAssistantMessage = {
     role: 'assistant',
     content: accumulatedText || null,
+    ...(accumulatedReasoning.length > 0 ? { reasoning_content: accumulatedReasoning } : {}),
     ...(accumulatedThinking.length > 0 ? { thinking_blocks: accumulatedThinking } : {}),
     ...(toolCalls.length > 0 ? { tool_calls: toolCalls } : {}),
   };

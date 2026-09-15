@@ -1077,6 +1077,9 @@ export class AgentThread {
       // Hence, we resolve the underlying tool to get the tool information.
       resolveUnderlyingTool: true,
     });
+    // Display-only; keep off thread context so replay uses thinking_blocks alone.
+    const { reasoning_content: _omitReasoning, ...assistantMessageForContext } = assistantMessage;
+    void _omitReasoning;
     const finishReason = result.value.finish_reason;
     const agentAssistantMessage = buildModelMessageEvent({
       assistantMessage: await enrichAssistantMessage({
@@ -1115,7 +1118,7 @@ export class AgentThread {
     }
 
     yield* this.appendToContext({
-      context: [assistantMessage],
+      context: [assistantMessageForContext],
       output: [agentAssistantMessage],
       currentContextUsage: currentContextUsageFromCompletion(result.value.usage),
       usage: result.value.usage,
