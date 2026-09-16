@@ -3,8 +3,6 @@ import path from 'node:path';
 
 import type { Kysely } from 'kysely';
 import { FileMigrationProvider, Migrator } from 'kysely/migration';
-
-import configuration from '../config';
 import { importAbsoluteModule } from '../util/crossPlatform';
 import { ensureTrueforgeSchema, TRUEFORGE_SCHEMA } from './postgres/schema';
 import type { Database } from './postgres/types';
@@ -23,11 +21,7 @@ function createMigrator(db: Kysely<Database>): Migrator {
 }
 
 async function runMigrations(input: { db: Kysely<Database>; targetMigrationName: string | undefined }): Promise<void> {
-  // TODO (chiragjn): This code will removed after a stable release.
-  if (!configuration.STANDALONE && configuration.AUTOMATICALLY_MOVE_TRUEFORGE_TABLES_FROM_PUBLIC_TO_TRUEFORGE_SCHEMA) {
-    await ensureTrueforgeSchema(input.db);
-  }
-
+  await ensureTrueforgeSchema(input.db);
   const migrator = createMigrator(input.db);
 
   const { error, results } =
