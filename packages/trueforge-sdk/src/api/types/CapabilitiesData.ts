@@ -6,4 +6,5 @@ export interface CapabilitiesData {
     sandbox: TrueForge.SandboxCapability;
     settings: TrueForge.SettingsCapability;
     skill: TrueForge.SkillCapability;
+    webSearch: TrueForge.WebSearchCapability;
 }

@@ -8,9 +8,9 @@ from ..core.unchecked_base_model import UncheckedBaseModel
 
 
 class WebSearchConfig(UncheckedBaseModel):
-    enabled: typing.Optional[bool] = pydantic.Field(default=True)
+    enabled: typing.Optional[bool] = pydantic.Field(default=False)
     """
-    Enable built-in web search and fetch tools. Default: true.
+    Enable built-in web search and fetch tools. Default: false (host must configure a provider).
     """
 
     if IS_PYDANTIC_V2:

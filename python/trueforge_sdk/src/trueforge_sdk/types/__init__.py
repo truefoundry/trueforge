@@ -235,6 +235,7 @@ if typing.TYPE_CHECKING:
     from .user_message_content_item import UserMessageContentItem
     from .user_tool_approval_event import UserToolApprovalEvent
     from .user_tool_response_event import UserToolResponseEvent
+    from .web_search_capability import WebSearchCapability
     from .web_search_config import WebSearchConfig
     from .zai_model_provider import ZaiModelProvider
 _dynamic_imports: typing.Dict[str, str] = {
@@ -467,6 +468,7 @@ _dynamic_imports: typing.Dict[str, str] = {
     "UserMessageContentItem": ".user_message_content_item",
     "UserToolApprovalEvent": ".user_tool_approval_event",
     "UserToolResponseEvent": ".user_tool_response_event",
+    "WebSearchCapability": ".web_search_capability",
     "WebSearchConfig": ".web_search_config",
     "ZaiModelProvider": ".zai_model_provider",
 }
@@ -723,6 +725,7 @@ __all__ = [
     "UserMessageContentItem",
     "UserToolApprovalEvent",
     "UserToolResponseEvent",
+    "WebSearchCapability",
     "WebSearchConfig",
     "ZaiModelProvider",
 ]

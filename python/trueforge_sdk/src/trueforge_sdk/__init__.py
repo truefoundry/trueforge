@@ -236,6 +236,7 @@ if typing.TYPE_CHECKING:
         UserMessageContentItem,
         UserToolApprovalEvent,
         UserToolResponseEvent,
+        WebSearchCapability,
         WebSearchConfig,
         ZaiModelProvider,
     )
@@ -503,6 +504,7 @@ _dynamic_imports: typing.Dict[str, str] = {
     "UserMessageContentItem": ".types",
     "UserToolApprovalEvent": ".types",
     "UserToolResponseEvent": ".types",
+    "WebSearchCapability": ".types",
     "WebSearchConfig": ".types",
     "ZaiModelProvider": ".types",
     "__version__": ".version",
@@ -787,6 +789,7 @@ __all__ = [
     "UserMessageContentItem",
     "UserToolApprovalEvent",
     "UserToolResponseEvent",
+    "WebSearchCapability",
     "WebSearchConfig",
     "ZaiModelProvider",
     "__version__",

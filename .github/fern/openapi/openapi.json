@@ -502,12 +502,16 @@
           },
           "skill": {
             "$ref": "#/components/schemas/SkillCapability"
+          },
+          "web_search": {
+            "$ref": "#/components/schemas/WebSearchCapability"
           }
         },
         "required": [
           "sandbox",
           "skill",
-          "settings"
+          "settings",
+          "web_search"
         ],
         "type": "object"
       },
@@ -3574,7 +3578,7 @@
             "file_downloads": true
           },
           "web_search": {
-            "enabled": true
+            "enabled": false
           }
         },
         "properties": {
@@ -5622,14 +5626,26 @@
         ],
         "type": "object"
       },
+      "WebSearchCapability": {
+        "properties": {
+          "enabled": {
+            "description": "Whether a host web-search provider is configured (TrueFoundry mode + env).",
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "enabled"
+        ],
+        "type": "object"
+      },
       "WebSearchConfig": {
         "default": {
-          "enabled": true
+          "enabled": false
         },
         "properties": {
           "enabled": {
-            "default": true,
-            "description": "Enable built-in web search and fetch tools. Default: true.",
+            "default": false,
+            "description": "Enable built-in web search and fetch tools. Default: false (host must configure a provider).",
             "type": "boolean"
           }
         },
