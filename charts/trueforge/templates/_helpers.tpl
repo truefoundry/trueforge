@@ -436,29 +436,31 @@ fields, wires bundled Postgres/Redis, optional OIDC, then server.extraEnv.
 {{- if and .Values.redis.enabled .Values.externalRedis.enabled -}}
 {{- fail "redis.enabled and externalRedis.enabled are mutually exclusive" -}}
 {{- end -}}
+{{- $externalRedis := .Values.externalRedis | default dict -}}
+{{- $sentinel := $externalRedis.sentinel | default dict -}}
+{{- $externalRedisActive := or $externalRedis.enabled $externalRedis.url $externalRedis.host (eq $sentinel.enabled true) -}}
 {{- if .Values.redis.enabled -}}
 {{- $env = append $env (dict "name" "REDIS_URL" "value" (include "trueforge.redis.bundledUrl" .)) -}}
-{{- else if .Values.externalRedis.enabled -}}
-{{- $sentinel := .Values.externalRedis.sentinel | default dict -}}
-{{- if and (not $sentinel.enabled) (not .Values.externalRedis.url) (not .Values.externalRedis.host) -}}
-{{- fail "externalRedis.url or externalRedis.host is required when externalRedis.enabled is true and sentinel is disabled" -}}
+{{- else if $externalRedisActive -}}
+{{- if and (not $sentinel.enabled) (not $externalRedis.url) (not $externalRedis.host) -}}
+{{- fail "externalRedis.url or externalRedis.host is required when using external Redis without sentinel" -}}
 {{- end -}}
-{{- if .Values.externalRedis.url -}}
-{{- $env = append $env (include "trueforge.env.fromStringOrValueFrom" (dict "name" "REDIS_URL" "field" "externalRedis.url" "value" .Values.externalRedis.url) | fromJson) -}}
+{{- if $externalRedis.url -}}
+{{- $env = append $env (include "trueforge.env.fromStringOrValueFrom" (dict "name" "REDIS_URL" "field" "externalRedis.url" "value" $externalRedis.url) | fromJson) -}}
 {{- end -}}
-{{- if .Values.externalRedis.host -}}
-{{- $env = append $env (include "trueforge.env.fromStringOrValueFrom" (dict "name" "REDIS_HOST" "field" "externalRedis.host" "value" .Values.externalRedis.host) | fromJson) -}}
-{{- $env = append $env (dict "name" "REDIS_PORT" "value" (.Values.externalRedis.port | toString)) -}}
-{{- $env = append $env (dict "name" "REDIS_DB" "value" (.Values.externalRedis.db | toString)) -}}
+{{- if $externalRedis.host -}}
+{{- $env = append $env (include "trueforge.env.fromStringOrValueFrom" (dict "name" "REDIS_HOST" "field" "externalRedis.host" "value" $externalRedis.host) | fromJson) -}}
 {{- end -}}
-{{- $auth := .Values.externalRedis.auth | default dict -}}
+{{- $env = append $env (dict "name" "REDIS_PORT" "value" (($externalRedis.port | default 6379) | toString)) -}}
+{{- $env = append $env (dict "name" "REDIS_DB" "value" (($externalRedis.db | default 0) | toString)) -}}
+{{- $auth := $externalRedis.auth | default dict -}}
 {{- if $auth.username -}}
 {{- $env = append $env (include "trueforge.env.fromStringOrValueFrom" (dict "name" "REDIS_USERNAME" "field" "externalRedis.auth.username" "value" $auth.username) | fromJson) -}}
 {{- end -}}
 {{- if $auth.password -}}
 {{- $env = append $env (include "trueforge.env.fromStringOrValueFrom" (dict "name" "REDIS_PASSWORD" "field" "externalRedis.auth.password" "value" $auth.password) | fromJson) -}}
 {{- end -}}
-{{- $tls := .Values.externalRedis.tls | default dict -}}
+{{- $tls := $externalRedis.tls | default dict -}}
 {{- $env = append $env (dict "name" "REDIS_TLS_ENABLED" "value" (ternary "true" "false" (eq $tls.enabled true))) -}}
 {{- if $tls.enabled -}}
 {{- if $tls.caCert -}}
@@ -492,7 +494,7 @@ fields, wires bundled Postgres/Redis, optional OIDC, then server.extraEnv.
 {{- end -}}
 {{- end -}}
 {{- else -}}
-{{- fail "set redis.enabled or externalRedis.enabled" -}}
+{{- fail "set redis.enabled or externalRedis (enabled, url, host, or sentinel)" -}}
 {{- end -}}
 
 {{- if .Values.postgresql.enabled -}}

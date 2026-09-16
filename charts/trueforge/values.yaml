@@ -272,6 +272,7 @@ externalPostgres:
   sslCaPath: ""
 externalRedis:
   ## Use an external Redis instead of the bundled Redis (`redis.enabled` must be false).
+  ## Set `enabled: true`, or set url/host/sentinel (enabled is optional for upgrade compat).
   enabled: false
   ## Full connection URL, e.g. redis://:password@redis-master.databases.svc:6379.
   ## string or valueFrom. Preferred over host when set (app REDIS_URL).
