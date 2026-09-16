@@ -82,7 +82,10 @@ const deniedCanAccessAgent = jest.fn((_input: Parameters<Authorizer['canAccessAg
 const denyAllAuthorizer: Authorizer = {
   listAgentAccess: deniedListAgentAccess,
   canAccessAgent: deniedCanAccessAgent,
-  getPermissions: async ({ resourceIds }) => Object.fromEntries(resourceIds.map(id => [id, []])),
+  getPermissions: async ({ resourceType, resourceIds }) => ({
+    type: resourceType,
+    permissions: Object.fromEntries(resourceIds.map(id => [id, []])),
+  }),
 };
 
 describe('agents router', () => {

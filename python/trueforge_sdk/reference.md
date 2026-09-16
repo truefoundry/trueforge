@@ -12,7 +12,7 @@
 <dl>
 <dd>
 
-Return granted actions for each requested agent, schedule, or session id.
+Return granted actions for the requested resources.
 </dd>
 </dl>
 </dd>
@@ -55,7 +55,7 @@ client.internal.list_permissions(
 <dl>
 <dd>
 
-**resource_ids:** `typing.List[str]` — Resource ids of `resource_type` to evaluate for the caller.
+**resource_ids:** `typing.List[str]` — Resource ids of `resource_type` to evaluate.
     
 </dd>
 </dl>

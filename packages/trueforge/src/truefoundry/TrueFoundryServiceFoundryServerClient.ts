@@ -532,6 +532,29 @@ export class TrueFoundryServiceFoundryServerClient {
   }
 
   /**
+   * `GET v1/authorize/permissions?resourceType=tenant&v2=true` — flat action list
+   * (tenant + root-account merged), same as the platform FE Create Agent check.
+   */
+  async getTenantPermissions(input: { accessToken: string }): Promise<string[]> {
+    const payload = await this.#requestJson({
+      url: this.#url(AGENT_PERMISSIONS_PATH, { resourceType: 'tenant', v2: 'true' }),
+      accessToken: input.accessToken,
+      method: 'GET',
+    });
+    const parsed = z.array(z.string()).safeParse(payload);
+    if (!parsed.success) {
+      this.#logger.error('TrueFoundry ServiceFoundry tenant permissions response was malformed', {
+        ...extractErrorLogFields(parsed.error),
+      });
+      throw new HTTPException(424, {
+        message: 'TrueFoundry ServiceFoundry tenant permissions response was malformed',
+        cause: parsed.error,
+      });
+    }
+    return parsed.data;
+  }
+
+  /**
    * Exchange a TrueFoundry API key for dual agent-scoped tokens.
    * Wire `actorToken` is the agent identity (`asAgent`); wire `subjectToken` is the user with agent in `act` (`asUser`).
    * Authenticated with the server API key, not the user bearer.

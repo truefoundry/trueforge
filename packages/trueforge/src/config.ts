@@ -469,7 +469,7 @@ export interface OIDCConfig {
 export interface SharedServerConfiguration {
   /** Log level. Env: `LOG_LEVEL`. */
   LOG_LEVEL: string;
-  /** Log one line per HTTP request (except `/healthz`). Env: `ACCESS_LOGS`. Default true. */
+  /** Log one line per HTTP request (except `/healthz` and `/assets/`). Env: `ACCESS_LOGS`. Default true. */
   ACCESS_LOGS: boolean;
   /** Node environment. Env: `NODE_ENV`. */
   NODE_ENV: string | undefined;

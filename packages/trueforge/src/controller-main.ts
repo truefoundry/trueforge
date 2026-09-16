@@ -34,6 +34,7 @@ try {
     process.exit(0);
   }
 
+  logger.info('Connecting to Postgres');
   const db = createDb({
     connectionString: configuration.DATABASE_URL,
     poolMax: configuration.DATABASE_POOL_MAX,

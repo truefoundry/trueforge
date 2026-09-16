@@ -51,6 +51,8 @@
               },
               "create-agent/overview",
               "agent-library",
+              "sessions",
+              "schedules",
               {
                 "group": "Harness Capabilities",
                 "pages": [

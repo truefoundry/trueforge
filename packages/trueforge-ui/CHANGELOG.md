@@ -1,5 +1,15 @@
 # Changelog
 
+## 0.3.0-rc.9
+
+### Patch Changes
+
+- fd1bf7f: Bump `@truefoundry/assistant-ui-runtime` to `0.1.38` for assistant completion timestamps and keep-alive turn streams on session switch.
+- 079f832: Show an optional tooltip when sandbox artifact downloads are read-only.
+- Updated dependencies [648273b]
+- Updated dependencies [134dcb9]
+  - @truefoundry/trueforge-sdk@0.2.0-rc.8
+
 ## 0.3.0-rc.8
 
 ### Patch Changes
