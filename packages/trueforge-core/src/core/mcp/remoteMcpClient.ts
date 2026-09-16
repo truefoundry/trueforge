@@ -172,12 +172,17 @@ export async function connectRemoteMcp(params: {
   for (const transportType of candidates) {
     const transport = createTransport(transportType, url, params.headers, params.sessionId);
     const client = new McpClientWithTimeout(params.requestTimeoutMs);
+    // withTimeout races client.connect() and does not abort it, so timed-out connects can leak
+    // sockets until GC. Merge the caller signal with connectTimeoutMs so the handshake is cancelled.
+    const connectOptions = {
+      signal: AbortSignal.any([params.signal, AbortSignal.timeout(params.connectTimeoutMs)]),
+    };
     try {
       stampTraceHeaders(params.headers);
       await withTimeout(
         // Concrete transports use sessionId: string|undefined; Transport uses an optional
         // property — exactOptionalPropertyTypes rejects assignability without this cast.
-        client.connect(transport as Parameters<Client['connect']>[0], requestOptions),
+        client.connect(transport as Parameters<Client['connect']>[0], connectOptions),
         params.connectTimeoutMs,
         transportType,
       );
