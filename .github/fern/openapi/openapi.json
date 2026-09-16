@@ -3572,6 +3572,9 @@
           "sandbox": {
             "enabled": false,
             "file_downloads": true
+          },
+          "web_search": {
+            "enabled": true
           }
         },
         "properties": {
@@ -3596,6 +3599,9 @@
           },
           "sandbox": {
             "$ref": "#/components/schemas/SandboxConfig"
+          },
+          "web_search": {
+            "$ref": "#/components/schemas/WebSearchConfig"
           }
         },
         "type": "object"
@@ -5614,6 +5620,19 @@
           "tool_call_id",
           "content"
         ],
+        "type": "object"
+      },
+      "WebSearchConfig": {
+        "default": {
+          "enabled": true
+        },
+        "properties": {
+          "enabled": {
+            "default": true,
+            "description": "Enable built-in web search and fetch tools. Default: true.",
+            "type": "boolean"
+          }
+        },
         "type": "object"
       },
       "ZaiModelProvider": {

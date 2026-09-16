@@ -8,6 +8,7 @@ import { ContextManagementConfig } from "./ContextManagementConfig.js";
 import { DynamicSubAgentsConfig } from "./DynamicSubAgentsConfig.js";
 import { GenerativeUiConfig } from "./GenerativeUiConfig.js";
 import { SandboxConfig } from "./SandboxConfig.js";
+import { WebSearchConfig } from "./WebSearchConfig.js";
 
 export const RuntimeConfig: core.serialization.ObjectSchema<serializers.RuntimeConfig.Raw, TrueForge.RuntimeConfig> =
     core.serialization.object({
@@ -17,6 +18,7 @@ export const RuntimeConfig: core.serialization.ObjectSchema<serializers.RuntimeC
         generativeUi: core.serialization.property("generative_ui", GenerativeUiConfig.optional()),
         iterationLimit: core.serialization.property("iteration_limit", core.serialization.number().optional()),
         sandbox: SandboxConfig.optional(),
+        webSearch: core.serialization.property("web_search", WebSearchConfig.optional()),
     });
 
 export declare namespace RuntimeConfig {
@@ -27,5 +29,6 @@ export declare namespace RuntimeConfig {
         generative_ui?: GenerativeUiConfig.Raw | null;
         iteration_limit?: number | null;
         sandbox?: SandboxConfig.Raw | null;
+        web_search?: WebSearchConfig.Raw | null;
     }
 }

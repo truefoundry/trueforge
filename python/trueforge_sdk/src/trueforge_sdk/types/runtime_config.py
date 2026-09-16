@@ -10,6 +10,7 @@ from .context_management_config import ContextManagementConfig
 from .dynamic_sub_agents_config import DynamicSubAgentsConfig
 from .generative_ui_config import GenerativeUiConfig
 from .sandbox_config import SandboxConfig
+from .web_search_config import WebSearchConfig
 
 
 class RuntimeConfig(UncheckedBaseModel):
@@ -23,6 +24,7 @@ class RuntimeConfig(UncheckedBaseModel):
     """
 
     sandbox: typing.Optional[SandboxConfig] = None
+    web_search: typing.Optional[WebSearchConfig] = None
 
     if IS_PYDANTIC_V2:
         model_config: typing.ClassVar[pydantic.ConfigDict] = pydantic.ConfigDict(extra="allow")  # type: ignore # Pydantic v2
