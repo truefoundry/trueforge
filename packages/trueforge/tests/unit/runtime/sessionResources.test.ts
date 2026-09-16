@@ -18,6 +18,7 @@ import {
   buildGatewayMetadata,
   getModelDetails,
   localSandboxSessionSegment,
+  parseGatewayMetadataHeader,
   TFG_METADATA_PREFIX,
   validateAgentSpec,
   withGatewayMetadataHeaders,
@@ -37,6 +38,30 @@ async function createGatewayMetadataSession(input: { agent: SessionAgent }): Pro
     external_id: null,
   });
 }
+
+describe('parseGatewayMetadataHeader', () => {
+  it('parses a JSON object of string values', () => {
+    expect(parseGatewayMetadataHeader(JSON.stringify({ env: 'prod', team: 'platform' }))).toEqual({
+      env: 'prod',
+      team: 'platform',
+    });
+  });
+
+  it.each([
+    ['not json', 'not-json'],
+    ['an array', '[]'],
+    ['a scalar', '"nope"'],
+    ['a value that is not a string', JSON.stringify({ env: 1 })],
+  ])('rejects %s rather than silently dropping caller metadata', (_case, raw) => {
+    expect(() => parseGatewayMetadataHeader(raw)).toThrow(HTTPException);
+  });
+
+  it('keeps the parse failure as the cause, so a bad header can be debugged', () => {
+    expect(() => parseGatewayMetadataHeader('not-json')).toThrow(
+      expect.objectContaining({ cause: expect.any(SyntaxError) }),
+    );
+  });
+});
 
 describe('buildGatewayMetadata', () => {
   it('stamps session/turn/agent fields only', async () => {

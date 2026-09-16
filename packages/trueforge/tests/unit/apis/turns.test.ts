@@ -190,6 +190,62 @@ describe('turns', () => {
     });
   });
 
+  describe('create turn x-tfy-metadata', () => {
+    it('rejects a malformed header before starting the turn', async () => {
+      const db = createSqliteDb(':memory:');
+      await migrateSqliteToLatest(db);
+      const sessionStore = new SqliteSessionStore(db);
+      const sessions = new Sessions({ sessionStore });
+      await sessionStore.createSession({
+        tenant_id: 'default',
+        session_id: 's1',
+        created_by_subject: {
+          subject_id: STANDALONE_REQUEST_CONTEXT.subject.id,
+          subject_type: STANDALONE_REQUEST_CONTEXT.subject.type,
+          subject_display_name: STANDALONE_REQUEST_CONTEXT.subject.display_name,
+        },
+        agent: {
+          type: 'inline',
+          spec: AgentSpecSchema.parse({
+            model: { name: 'test-provider/test-model' },
+            instructions: 'test',
+          }),
+        },
+        custom: null,
+        metadata: {},
+        external_id: null,
+        source: null,
+      });
+
+      const app = new OpenAPIHono();
+      app.route(
+        '/',
+        createTurnsRouter({
+          sessions,
+          sessionStore,
+          activeTurns: new ActiveTurnRegistry(),
+          resolveModelProviderStore: () => new SqliteModelProviderStore(db),
+          resolveMcpServerStore: () => mcpServerStoreWithAuth(db, new SqliteOAuthTokenStore(db)),
+          resolveSkillStore: () => new SqliteSkillStore(db),
+          resolveAgentStore: () => new SqliteAgentStore(db),
+          eventSubscriptions: new EventSubscriptionRegistry(undefined),
+          resolveSandboxProviderStore: () => new SqliteSandboxProviderStore(db),
+          logger: createLogger({ silent: true }),
+          resolveRequestContext: () => STANDALONE_REQUEST_CONTEXT,
+          authorizer: new TrueForgeAuthorizer(),
+        }),
+      );
+
+      const response = await app.request('/s1/turns', {
+        method: 'POST',
+        headers: { 'content-type': 'application/json', 'x-tfy-metadata': 'not-json' },
+        body: JSON.stringify({ stream: false }),
+      });
+      expect(response.status).toBe(400);
+      expect(await response.text()).toContain('x-tfy-metadata must be a JSON object');
+    });
+  });
+
   describe('create turn non-streaming', () => {
     it('returns the running turn JSON after dual-writing turn.created so subscribe can attach', async () => {
       const logger = createLogger({ silent: true });
