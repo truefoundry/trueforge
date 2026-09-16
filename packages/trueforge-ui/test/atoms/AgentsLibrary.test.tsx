@@ -242,7 +242,9 @@ describe('AgentsLibrary', () => {
         },
       ]),
       permissions: {
-        listPermissions: vi.fn(async (): Promise<ListPermissionsResponse> => ({ data: { 'shared-id': ['USE'] } })),
+        listPermissions: vi.fn(async (): Promise<ListPermissionsResponse> => ({
+          data: { type: 'agent', permissions: { 'shared-id': ['USE'] } },
+        })),
       },
       sessions: createMockAgentSessionsServer(),
       schedules: createMockScheduleServer(),

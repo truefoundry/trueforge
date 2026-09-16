@@ -32,12 +32,12 @@ class RawInternalClient:
         request_options: typing.Optional[RequestOptions] = None,
     ) -> HttpResponse[ListPermissionsResponse]:
         """
-        Return granted actions for each requested agent, schedule, or session id.
+        Return granted actions for the requested resources.
 
         Parameters
         ----------
         resource_ids : typing.Sequence[str]
-            Resource ids of `resource_type` to evaluate for the caller.
+            Resource ids of `resource_type` to evaluate.
 
         resource_type : PermissionResourceType
 
@@ -47,7 +47,7 @@ class RawInternalClient:
         Returns
         -------
         HttpResponse[ListPermissionsResponse]
-            Permissions keyed by resource id.
+            Permissions envelope: `{ type, permissions }`.
         """
         _response = self._client_wrapper.httpx_client.request(
             "api/internal/list-permissions",
@@ -116,12 +116,12 @@ class AsyncRawInternalClient:
         request_options: typing.Optional[RequestOptions] = None,
     ) -> AsyncHttpResponse[ListPermissionsResponse]:
         """
-        Return granted actions for each requested agent, schedule, or session id.
+        Return granted actions for the requested resources.
 
         Parameters
         ----------
         resource_ids : typing.Sequence[str]
-            Resource ids of `resource_type` to evaluate for the caller.
+            Resource ids of `resource_type` to evaluate.
 
         resource_type : PermissionResourceType
 
@@ -131,7 +131,7 @@ class AsyncRawInternalClient:
         Returns
         -------
         AsyncHttpResponse[ListPermissionsResponse]
-            Permissions keyed by resource id.
+            Permissions envelope: `{ type, permissions }`.
         """
         _response = await self._client_wrapper.httpx_client.request(
             "api/internal/list-permissions",

@@ -9,12 +9,13 @@ T_Result = typing.TypeVar("T_Result")
 
 class ResourcePermission(enum.StrEnum):
     """
-    Granted action on a resource.
+    Granted action on a resource id or tenant entity kind.
     """
 
     USE = "USE"
     MANAGE = "MANAGE"
     DELETE = "DELETE"
+    CREATE = "CREATE"
     _UNKNOWN = "__RESOURCEPERMISSION_UNKNOWN__"
     """
     This member is used for forward compatibility. If the value is not recognized by the enum, it will be stored here, and the raw value is accessible through `.value`.
@@ -31,6 +32,7 @@ class ResourcePermission(enum.StrEnum):
         use: typing.Callable[[], T_Result],
         manage: typing.Callable[[], T_Result],
         delete: typing.Callable[[], T_Result],
+        create: typing.Callable[[], T_Result],
         _unknown_member: typing.Callable[[str], T_Result],
     ) -> T_Result:
         if self is ResourcePermission.USE:
@@ -39,4 +41,6 @@ class ResourcePermission(enum.StrEnum):
             return manage()
         if self is ResourcePermission.DELETE:
             return delete()
+        if self is ResourcePermission.CREATE:
+            return create()
         return _unknown_member(self._value_)

@@ -3,8 +3,10 @@ import { Client } from '@modelcontextprotocol/sdk/client/index.js';
 
 import { SSEClientTransport } from '@modelcontextprotocol/sdk/client/sse.js';
 import { StreamableHTTPClientTransport } from '@modelcontextprotocol/sdk/client/streamableHttp.js';
+import type { FetchLike } from '@modelcontextprotocol/sdk/shared/transport.js';
 import type { CallToolRequest, CallToolResult } from '@modelcontextprotocol/sdk/types.js';
 import { context, propagation } from '@opentelemetry/api';
+import { Agent, fetch as undiciFetch } from 'undici';
 import { McpConnectionError } from '../errors';
 import { withTimeout } from '../util/promiseUtils';
 import type { ToolSchema } from './IMCPServer';
@@ -29,6 +31,15 @@ type McpTransport = StreamableHTTPClientTransport | SSEClientTransport;
 const CLIENT_INFO = { name: 'tfy-agent-mcp-client', version: '1.0.0' } as const;
 const TRANSPORT_PROBE_ORDER: RemoteMcpTransportType[] = ['streamable-http', 'sse'];
 
+// MCP SSE/streamable-HTTP keeps a long-lived response open that is often idle between tool calls.
+// Node fetch (undici) defaults bodyTimeout to 300s of silence, then kills the stream with
+// `Body Timeout Error` — we reconnect and the ~5m cycle repeats in logs. 30m matches the
+// Gateway idle-body window; MCP request deadlines still come from requestTimeoutMs.
+const MCP_BODY_TIMEOUT_MS = 30 * 60 * 1000;
+const mcpHttpAgent = new Agent({ bodyTimeout: MCP_BODY_TIMEOUT_MS });
+const mcpFetch: FetchLike = (url, init) =>
+  undiciFetch(typeof url === 'string' ? url : url.href, { ...(init as object), dispatcher: mcpHttpAgent });
+
 class McpClientWithTimeout extends Client {
   constructor(private readonly requestTimeoutMs: number) {
     super(CLIENT_INFO, { capabilities: {} });
@@ -50,10 +61,14 @@ function createTransport(
 ): McpTransport {
   const requestInit = { headers };
   if (type === 'streamable-http') {
-    return new StreamableHTTPClientTransport(url, { requestInit, ...(sessionId !== undefined ? { sessionId } : {}) });
+    return new StreamableHTTPClientTransport(url, {
+      requestInit,
+      fetch: mcpFetch,
+      ...(sessionId !== undefined ? { sessionId } : {}),
+    });
   }
   // eslint-disable-next-line @typescript-eslint/no-deprecated -- dual-transport probe; see TRANSPORT_PROBE_ORDER
-  return new SSEClientTransport(url, { requestInit });
+  return new SSEClientTransport(url, { requestInit, fetch: mcpFetch });
 }
 
 export function isSessionExpiredError(error: unknown): boolean {

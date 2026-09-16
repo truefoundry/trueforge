@@ -26,7 +26,9 @@ export function createPermissionsRouter<TTransaction>(deps: PermissionsRouterDep
     const { resource_type: resourceType, resource_ids: resourceIds } = body;
 
     let input: GetPermissionsInput;
-    if (resourceType === 'agent') {
+    if (resourceType === 'tenant') {
+      input = { resourceType: 'tenant', requestContext, resourceIds };
+    } else if (resourceType === 'agent') {
       input = {
         resourceType: 'agent',
         requestContext,

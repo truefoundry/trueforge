@@ -162,7 +162,10 @@ describe('turns', () => {
                   : { kind: 'agent_external_ids', agent_external_ids: [] },
               ),
             canAccessAgent: () => Promise.resolve(false),
-            getPermissions: async ({ resourceIds }) => Object.fromEntries(resourceIds.map(id => [id, []])),
+            getPermissions: async ({ resourceType, resourceIds }) => ({
+              type: resourceType,
+              permissions: Object.fromEntries(resourceIds.map(id => [id, []])),
+            }),
           },
         }),
       );
@@ -473,7 +476,10 @@ describe('turns', () => {
     const denyAllAuthorizer: Authorizer = {
       listAgentAccess: () => Promise.resolve({ kind: 'agent_external_ids', agent_external_ids: [] }),
       canAccessAgent: deniedCanAccessAgent,
-      getPermissions: async ({ resourceIds }) => Object.fromEntries(resourceIds.map(id => [id, []])),
+      getPermissions: async ({ resourceType, resourceIds }) => ({
+        type: resourceType,
+        permissions: Object.fromEntries(resourceIds.map(id => [id, []])),
+      }),
     };
 
     async function referencedAgentHarness(authorizer: Authorizer) {

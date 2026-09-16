@@ -12,7 +12,7 @@
 <dl>
 <dd>
 
-Return granted actions for each requested agent, schedule, or session id.
+Return granted actions for the requested resources.
 </dd>
 </dl>
 </dd>
