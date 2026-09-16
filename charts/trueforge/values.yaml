@@ -99,11 +99,15 @@ controller:
       cpu: 100m
       memory: 256Mi
       ephemeral-storage: 256Mi
-# Controller → server API key (TRUEFORGE_API_KEY). Dev default is a known
-# placeholder — strongly recommended to create a Secret and set:
+# Controller → server API key (TRUEFORGE_API_KEY). String, or
+# { valueFrom: { secretKeyRef: { name, key } } }. Strongly recommended to create
+# a Secret and set:
 #   apiKey: { valueFrom: { secretKeyRef: { name: trueforge-api-key, key: TRUEFORGE_API_KEY } } }
 # The chart never creates that Secret. A plain string also works for local trials.
-apiKey: "placeholder-value-please-generate-your-own"
+# Unset falls back to a well-known dev placeholder
+# ("placeholder-value-please-generate-your-own"). Null (not "") so a parent
+# chart can override with a valueFrom map without a Helm coalesce type warning.
+apiKey:
 # Extra env for BOTH server and controller: name -> scalar or { valueFrom: ... }.
 # A key that matches a chart-computed variable (POSTGRES_HOST, PUBLIC_BASE_URL,
 # ...) replaces it in place. This is the extension point for a parent chart.
@@ -223,13 +227,15 @@ redis:
 externalPostgres:
   # host / port / database / user / password: inline scalar, or
   # { valueFrom: { secretKeyRef: { name, key } } } (or configMapKeyRef).
-  # Required when postgresql.enabled is false. Defaults below are for a
-  # standalone install; a parent chart can replace any of them with valueFrom.
-  host: ""
+  # host and password are required when postgresql.enabled is false; database
+  # and user fall back to "trueforge" when unset. Defaults are null (not "")
+  # so a parent chart can replace any of them with valueFrom without a Helm
+  # coalesce type warning.
+  host:
   port: 5432
-  database: trueforge
-  user: trueforge
-  password: ""
+  database:
+  user:
+  password:
   # host / port / database / user / password:
   #   valueFrom:
   #     secretKeyRef:
@@ -241,7 +247,9 @@ externalPostgres:
 externalRedis:
   # Full connection URL, e.g. redis://:password@redis-master.databases.svc:6379.
   # string, or { valueFrom: { secretKeyRef: { name, key } } }. Prefer valueFrom in prod.
-  url: ""
+  # Required when redis.enabled is false. Default is null (not "") so a parent
+  # chart can override with a valueFrom map without a Helm coalesce type warning.
+  url:
   # Redis Sentinel connection settings, injected as REDIS_SENTINEL_* env.
   # url:
   #   valueFrom:
