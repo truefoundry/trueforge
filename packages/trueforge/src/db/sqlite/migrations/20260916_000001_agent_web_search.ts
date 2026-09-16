@@ -6,27 +6,27 @@ import { type Kysely, sql } from 'kysely';
  */
 export async function up<TDatabase>(db: Kysely<TDatabase>): Promise<void> {
   await db.transaction().execute(async transaction => {
-    // Seed config when absent so web_search is always written (parity with Postgres jsonb_set).
+    // Seed config when absent, then merge web_search (parity with Postgres).
     await sql`
     UPDATE agent
     SET manifest = jsonb_set(
-      jsonb_set(
-        coalesce(manifest, jsonb('{}')),
-        '$.config',
-        coalesce(jsonb_extract(manifest, '$.config'), jsonb('{}'))
-      ),
-      '$.config.web_search',
-      jsonb('{"enabled":false}')
-    );
+      coalesce(manifest, jsonb('{}')),
+      '$.config',
+      jsonb_patch(
+        coalesce(jsonb_extract(manifest, '$.config'), jsonb('{}')),
+        jsonb('{"web_search":{"enabled":false}}')
+      )
+    )
+  `.execute(transaction);
+    await sql`
     UPDATE session
     SET agent_spec = jsonb_set(
-      jsonb_set(
-        agent_spec,
-        '$.config',
-        coalesce(jsonb_extract(agent_spec, '$.config'), jsonb('{}'))
-      ),
-      '$.config.web_search',
-      jsonb('{"enabled":false}')
+      agent_spec,
+      '$.config',
+      jsonb_patch(
+        coalesce(jsonb_extract(agent_spec, '$.config'), jsonb('{}')),
+        jsonb('{"web_search":{"enabled":false}}')
+      )
     )
     WHERE agent_spec IS NOT NULL
   `.execute(transaction);
@@ -39,7 +39,9 @@ export async function down<TDatabase>(db: Kysely<TDatabase>): Promise<void> {
     await sql`
     UPDATE agent
     SET manifest = jsonb_remove(manifest, '$.config.web_search')
-    WHERE json_extract(manifest, '$.config.web_search') IS NOT NULL;
+    WHERE json_extract(manifest, '$.config.web_search') IS NOT NULL
+  `.execute(transaction);
+    await sql`
     UPDATE session
     SET agent_spec = jsonb_remove(agent_spec, '$.config.web_search')
     WHERE agent_spec IS NOT NULL
