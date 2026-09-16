@@ -5,11 +5,17 @@ import typing
 import pydantic
 from ..core.pydantic_utilities import IS_PYDANTIC_V2
 from ..core.unchecked_base_model import UncheckedBaseModel
-from .list_permissions_data import ListPermissionsData
+from .permission_resource_type import PermissionResourceType
+from .resource_permission import ResourcePermission
 
 
-class ListPermissionsResponse(UncheckedBaseModel):
-    data: ListPermissionsData
+class ListPermissionsData(UncheckedBaseModel):
+    permissions: typing.Dict[str, typing.List[ResourcePermission]] = pydantic.Field()
+    """
+    For agent/schedule/session: keyed by resource id. For tenant: keyed by entity kind (e.g. `agent` → `CREATE`).
+    """
+
+    type: PermissionResourceType
 
     if IS_PYDANTIC_V2:
         model_config: typing.ClassVar[pydantic.ConfigDict] = pydantic.ConfigDict(extra="allow")  # type: ignore # Pydantic v2

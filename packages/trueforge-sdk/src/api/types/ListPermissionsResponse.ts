@@ -3,6 +3,5 @@
 import type * as TrueForge from "../index.js";
 
 export interface ListPermissionsResponse {
-    /** Permissions granted to the caller, keyed by resource id. Missing or inaccessible ids are `[]`. */
-    data: Record<string, TrueForge.ResourcePermission[]>;
+    data: TrueForge.ListPermissionsData;
 }
