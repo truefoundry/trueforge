@@ -167,7 +167,7 @@ function createTurnResolver(deps: {
   } = deps;
   const tenant_id = session.tenant_id;
   const sessionId = session.session_id;
-  // Caller keys first; harness tfg.* always win so session/turn/agent cannot be spoofed.
+  // Caller keys first; harness tfg.* always win.
   const metadataHeaders = isTrueFoundryModeEnabled()
     ? gatewayMetadataHeaders({
         ...callerMetadata,
