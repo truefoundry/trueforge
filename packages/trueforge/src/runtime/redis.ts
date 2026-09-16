@@ -154,7 +154,7 @@ async function connectSentinelWithRetry(input: {
       }
     | undefined;
   logger: Logger;
-}): Promise<RedisPeerClient> {
+}): Promise<ReturnType<typeof createSentinel>> {
   let attempt = 0;
   for (;;) {
     const client = createSentinel({
@@ -237,6 +237,8 @@ export async function connectRedis(input: {
 
   let client: RedisPeerClient;
   if (isRedisSentinelConfigured(input.sentinel) && input.sentinel) {
+    // createSentinel()'s return is not assignable to RedisSentinelType under exactOptionalPropertyTypes
+    // @ts-expect-error TS2375
     client = await connectSentinelWithRetry({
       sentinel: input.sentinel,
       auth,
