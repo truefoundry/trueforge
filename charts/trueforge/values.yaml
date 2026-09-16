@@ -85,9 +85,9 @@ service:
 # packages/trueforge/src/config.ts.
 server:
   # Number of server replicas (ignored when autoscaling.enabled is true).
-  # Empty = derived from the resource tier (small=1, medium=2, large=3),
+  # null = derived from the resource tier (small=1, medium=2, large=3),
   # or 1 when no tier is set. Set a number to override the tier.
-  replicaCount: ""
+  replicaCount: null
   # Annotations on the server Deployment object (for example, Argo CD sync waves).
   deploymentAnnotations: {}
   # Rolling update strategy for the server Deployment.
