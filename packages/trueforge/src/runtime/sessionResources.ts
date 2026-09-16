@@ -72,6 +72,18 @@ export function buildGatewayMetadata(input: { session: SessionHandle; turnId: st
   return metadata;
 }
 
+/** Caller keys first; harness tfg.* always win */
+export function mergeGatewayMetadata(input: {
+  session: SessionHandle;
+  turnId: string;
+  callerMetadata?: Record<string, string> | undefined;
+}): Record<string, string> {
+  return {
+    ...input.callerMetadata,
+    ...buildGatewayMetadata({ session: input.session, turnId: input.turnId }),
+  };
+}
+
 export function gatewayMetadataHeaders(metadata: Record<string, string>): Record<string, string> {
   if (Object.keys(metadata).length === 0) {
     return {};

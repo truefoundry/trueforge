@@ -18,6 +18,7 @@ import {
   buildGatewayMetadata,
   getModelDetails,
   localSandboxSessionSegment,
+  mergeGatewayMetadata,
   parseGatewayMetadataHeader,
   TFG_METADATA_PREFIX,
   validateAgentSpec,
@@ -75,6 +76,44 @@ describe('buildGatewayMetadata', () => {
       [`${TFG_METADATA_PREFIX}.agent_id`]: 'agent-1',
       [`${TFG_METADATA_PREFIX}.agent_name`]: 'my-agent',
     });
+  });
+});
+
+describe('mergeGatewayMetadata', () => {
+  it('keeps caller keys and overwrites spoofed tfg.* fields so order is maintained', async () => {
+    const session = await createGatewayMetadataSession({
+      agent: { type: 'reference', id: 'agent-1', name: 'my-agent' },
+    });
+
+    expect(
+      mergeGatewayMetadata({
+        session,
+        turnId: 'turn-1',
+        callerMetadata: {
+          env: 'prod',
+          [`${TFG_METADATA_PREFIX}.session_id`]: 'spoofed-session',
+          [`${TFG_METADATA_PREFIX}.turn_id`]: 'spoofed-turn',
+          [`${TFG_METADATA_PREFIX}.agent_id`]: 'spoofed-agent',
+          [`${TFG_METADATA_PREFIX}.agent_name`]: 'spoofed-name',
+        },
+      }),
+    ).toEqual({
+      env: 'prod',
+      [`${TFG_METADATA_PREFIX}.session_id`]: 'sess-1',
+      [`${TFG_METADATA_PREFIX}.turn_id`]: 'turn-1',
+      [`${TFG_METADATA_PREFIX}.agent_id`]: 'agent-1',
+      [`${TFG_METADATA_PREFIX}.agent_name`]: 'my-agent',
+    });
+  });
+
+  it('matches harness-only stamps when caller metadata is absent', async () => {
+    const session = await createGatewayMetadataSession({
+      agent: { type: 'reference', id: 'agent-1', name: 'my-agent' },
+    });
+
+    expect(mergeGatewayMetadata({ session, turnId: 'turn-1' })).toEqual(
+      buildGatewayMetadata({ session, turnId: 'turn-1' }),
+    );
   });
 });
 

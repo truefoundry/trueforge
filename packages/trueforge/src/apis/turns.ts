@@ -51,11 +51,11 @@ import { StreamGoneError, type EventSubscription, type EventSubscriptionRegistry
 import { mintPeeredTurnId } from '../runtime/peeringIds';
 import { validateSandboxFilePath } from '../runtime/sandboxFilePath';
 import {
-  buildGatewayMetadata,
   buildTurnSandbox,
   gatewayMetadataHeaders,
   getMcpConnection,
   getModelDetails,
+  mergeGatewayMetadata,
   parseGatewayMetadataHeader,
   resolveSandboxProvider,
   withGatewayMetadataHeaders,
@@ -167,12 +167,8 @@ function createTurnResolver(deps: {
   } = deps;
   const tenant_id = session.tenant_id;
   const sessionId = session.session_id;
-  // Caller keys first; harness tfg.* always win.
   const metadataHeaders = isTrueFoundryModeEnabled()
-    ? gatewayMetadataHeaders({
-        ...callerMetadata,
-        ...buildGatewayMetadata({ session, turnId }),
-      })
+    ? gatewayMetadataHeaders(mergeGatewayMetadata({ session, turnId, callerMetadata }))
     : {};
 
   return new TurnResourceResolver({
