@@ -26,6 +26,17 @@ export function mcpToolSectionId(tool: McpToolSelection): McpToolSectionId {
   return 'others';
 }
 
+export type McpToolKind = 'read' | 'write' | 'destructive';
+
+/** Undefined when the server ships no usable hints, so callers can omit the label. */
+export function mcpToolKind(tool: McpToolSelection): McpToolKind | undefined {
+  const annotations = mcpToolAnnotations(tool);
+  if (annotations?.readOnlyHint === true) return 'read';
+  if (annotations?.destructiveHint === true) return 'destructive';
+  if (annotations?.readOnlyHint === false) return 'write';
+  return undefined;
+}
+
 export const MCP_TOOL_SECTION_ORDER: readonly McpToolSectionId[] = ['read-only', 'others', 'destructive'];
 
 export const MCP_TOOL_SECTION_LABELS: Record<McpToolSectionId, string> = {

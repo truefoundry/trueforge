@@ -1211,6 +1211,47 @@ describe('AgentConfigEditors', () => {
     expect(screen.getByLabelText('Slack selected')).toBeInTheDocument();
   });
 
+  it('relists tools for a selected MCP whose background listing was cancelled', async () => {
+    const slackPending = deferred<{ id: string; name: string }[]>();
+    const loadMcpTools = vi.fn(async (connectorId: string) =>
+      connectorId === 'slack' ? slackPending.promise : [{ id: 'issues.list', name: 'issues.list' }],
+    );
+    const renderEditors = () => (
+      <SlotsProvider>
+        <AgentConfigEditors
+          editor="mcp"
+          spec={{
+            model: { name: 'openai/gpt' },
+            mcpServers: [
+              { id: 'github', name: 'GitHub', enableTools: ['@all'] },
+              { id: 'slack', name: 'Slack', enableTools: ['@all'] },
+            ],
+          }}
+          models={[]}
+          connectors={[
+            { id: 'github', name: 'GitHub', authenticated: true },
+            { id: 'slack', name: 'Slack', authenticated: true },
+          ]}
+          skills={[]}
+          loading={false}
+          error={null}
+          loadMcpTools={loadMcpTools}
+          onChange={vi.fn()}
+          onClose={vi.fn()}
+        />
+      </SlotsProvider>
+    );
+    const rendered = render(renderEditors());
+
+    await waitFor(() => expect(loadMcpTools).toHaveBeenCalledWith('slack'));
+    rendered.rerender(renderEditors());
+
+    await waitFor(() => expect(loadMcpTools.mock.calls.filter(([id]) => id === 'slack')).toHaveLength(2));
+    await act(async () => {
+      slackPending.resolve([{ id: 'messages.list', name: 'messages.list' }]);
+    });
+  });
+
   it('enables sandbox when a skill is added', () => {
     const spec: AgentSpec = { model: { name: 'openai/gpt' } };
     const onChange = vi.fn();

@@ -52,6 +52,8 @@ Each option below is part of the agent definition. The **Set in** line on each s
 
     You can override which tools require approval per MCP server. In **Select MCP Tools**, the shield next to an enabled tool toggles approval for it, and the **Destructive Actions** header has an **Approval required** switch that covers all of them; via the API, set [`require_approval_for_tools`](#mcp_servers) to `@all`, `@write`, `@destructive`, or literal tool names.
 
+    To review what a saved agent ended up with, open its **Overview** tab: **MCP Servers & Tools** lists each attached server with how many of its tools need approval, and expanding one shows every tool with its `read` / `write` / `destructive` label and shield state.
+
     **Set in:** UI + API
   </Accordion>
 
