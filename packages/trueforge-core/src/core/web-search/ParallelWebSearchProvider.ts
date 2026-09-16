@@ -1,9 +1,9 @@
 import Parallel from 'parallel-web';
 import {
   WebSearchProviders,
+  type IWebSearchProvider,
   type WebFetchPages,
   type WebSearchHits,
-  type IWebSearchProvider,
 } from './WebSearchProvider';
 
 export type ParallelSearchMode = 'turbo' | 'fast' | 'basic' | 'advanced';

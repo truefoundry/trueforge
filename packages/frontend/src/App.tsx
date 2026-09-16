@@ -111,22 +111,14 @@ export function App() {
           return;
         }
         const first = models[0];
-        const webSearch = Reflect.get(capabilities, 'web_search');
-        const webSearchEnabled =
-          typeof webSearch === 'object' &&
-          webSearch !== null &&
-          Reflect.get(webSearch, 'enabled') === true;
-        const defaultConfig = {
-          sandbox: { enabled: capabilities.sandbox.enabled },
-          webSearch: { enabled: webSearchEnabled },
-        };
+        const sandboxConfig = { sandbox: { enabled: capabilities.sandbox.enabled } };
         if (first === undefined) {
           setBoot({
             status: 'ready',
             openSettings: capabilities.settings.enabled,
             defaultAgentSpec: {
               model: { name: '' },
-              config: defaultConfig,
+              config: sandboxConfig,
             },
           });
           return;
@@ -142,7 +134,7 @@ export function App() {
               name: first.name,
               ...(defaultReasoningEffort ? { params: { reasoningEffort: defaultReasoningEffort } } : {}),
             },
-            config: defaultConfig,
+            config: sandboxConfig,
           },
         });
       } catch (err) {
