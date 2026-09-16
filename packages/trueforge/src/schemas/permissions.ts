@@ -22,10 +22,10 @@ export const SessionResourcePermissionSchema = z
   .openapi('SessionResourcePermission');
 
 /** Tenant-scoped create actions (keys are entity kinds, e.g. `agent`). */
-export const TenantCreatePermissionSchema = z
+export const TenantScopedResourcePermissionSchema = z
   .enum(['CREATE'])
   .describe('Granted create action on a tenant-scoped entity kind.')
-  .openapi('TenantCreatePermission');
+  .openapi('TenantScopedResourcePermission');
 
 /** Any permission that may appear in a list-permissions response. */
 export const ResourcePermissionSchema = z
@@ -61,7 +61,7 @@ export type PermissionResourceType = z.infer<typeof PermissionResourceTypeSchema
 export type AgentResourcePermission = z.infer<typeof AgentResourcePermissionSchema>;
 export type ScheduleResourcePermission = z.infer<typeof ScheduleResourcePermissionSchema>;
 export type SessionResourcePermission = z.infer<typeof SessionResourcePermissionSchema>;
-export type TenantCreatePermission = z.infer<typeof TenantCreatePermissionSchema>;
+export type TenantScopedResourcePermission = z.infer<typeof TenantScopedResourcePermissionSchema>;
 export type ResourcePermission = z.infer<typeof ResourcePermissionSchema>;
 export type ListPermissionsRequest = z.infer<typeof ListPermissionsRequestSchema>;
 export type ListPermissionsData = z.infer<typeof ListPermissionsDataSchema>;
@@ -71,7 +71,7 @@ export const AGENT_USE_PERMISSIONS = [AgentResourcePermissionSchema.enum.USE] as
 export const AGENT_OWNER_PERMISSIONS = AgentResourcePermissionSchema.options;
 export const SCHEDULE_OWNER_PERMISSIONS = ScheduleResourcePermissionSchema.options;
 export const SESSION_OWNER_PERMISSIONS = SessionResourcePermissionSchema.options;
-export const TENANT_CREATE_AGENT_PERMISSIONS = [TenantCreatePermissionSchema.enum.CREATE] as const;
+export const TENANT_CREATE_AGENT_PERMISSIONS = [TenantScopedResourcePermissionSchema.enum.CREATE] as const;
 
 /** Response scaffold: every requested id starts with no grants. */
 export function emptyPermissionsByResourceId(resourceIds: readonly string[]): Record<string, ResourcePermission[]> {
