@@ -60,6 +60,17 @@ export interface GetEnvOptions {
   required?: boolean;
 }
 
+const POSTGRES_SSL_MODES = ['disable', 'prefer', 'require', 'verify-ca', 'verify-full', 'no-verify'] as const;
+type PostgresSslMode = (typeof POSTGRES_SSL_MODES)[number];
+
+/** pg Pool `ssl` object fields (client certs / CA / no-verify). */
+export interface PostgresSslConfig {
+  cert?: string;
+  key?: string;
+  ca?: string;
+  rejectUnauthorized?: boolean;
+}
+
 function getEnv(key: string, options?: GetEnvOptions): string | undefined {
   const value = process.env[key];
   if (value !== undefined) {
@@ -210,11 +221,8 @@ function parseTrueFoundrySandboxProvider(raw: string | undefined): 'daytona' | '
   );
 }
 
-const POSTGRES_SSL_MODES = ['disable', 'prefer', 'require', 'verify-ca', 'verify-full', 'no-verify'] as const;
-type PostgresSslMode = (typeof POSTGRES_SSL_MODES)[number];
-
 /** Parses `POSTGRES_SSL_MODE`. Unset/blank → `''`. Unknown values throw. */
-function parsePostgresSslMode(raw: string | undefined): PostgresSslMode | '' {
+function validatePostgresSslMode(raw: string | undefined): PostgresSslMode | '' {
   const mode = raw?.trim() ?? '';
   if (!mode) {
     return '';
@@ -337,10 +345,11 @@ function resolvePostgresDatabaseUrl(): string {
  * `ssl: true` (or the cert object); use `no-verify` for encrypt-without-verify.
  */
 function resolvePostgresSsl(): boolean | PostgresSslConfig {
-  const cert = readOptionalPemEnv('POSTGRES_SSL_CERT_PATH');
-  const key = readOptionalPemEnv('POSTGRES_SSL_KEY_PATH');
+  const sslMode = getEnv('POSTGRES_SSL_MODE');
+  const cert = readOptionalFileContentsEnv('POSTGRES_SSL_CERT_PATH');
+  const key = readOptionalFileContentsEnv('POSTGRES_SSL_KEY_PATH');
   // Cloud SQL / private CA often fail verify-full; Node cannot express verify-ca without hostname check.
-  const ca = readOptionalPemEnv('POSTGRES_SSL_CA_PATH');
+  const ca = readOptionalFileContentsEnv('POSTGRES_SSL_CA_PATH');
 
   let ssl: boolean | PostgresSslConfig = false;
   if (cert || key || ca) {
@@ -351,7 +360,7 @@ function resolvePostgresSsl(): boolean | PostgresSslConfig {
     };
   }
 
-  switch (parsePostgresSslMode(getEnv('POSTGRES_SSL_MODE'))) {
+  switch (validatePostgresSslMode(sslMode)) {
     case 'disable':
       return false;
     case 'prefer':
@@ -367,7 +376,7 @@ function resolvePostgresSsl(): boolean | PostgresSslConfig {
 }
 
 /** Reads a PEM file from an optional path env; unset/blank → `undefined`. */
-function readOptionalPemEnv(envKey: string): string | undefined {
+function readOptionalFileContentsEnv(envKey: string): string | undefined {
   const filePath = resolveOptionalPathEnv(envKey);
   return filePath ? readFileSync(filePath, 'utf8') : undefined;
 }
@@ -382,14 +391,6 @@ function buildPostgresConnectionString(parts: {
 }): string {
   return `postgres://${encodeURIComponent(parts.user)}:${encodeURIComponent(parts.password)}@${parts.host}:${String(parts.port)}/${encodeURIComponent(parts.database)}`;
 }
-
-/** pg Pool `ssl` object fields (client certs / CA / no-verify). */
-export type PostgresSslConfig = {
-  cert?: string;
-  key?: string;
-  ca?: string;
-  rejectUnauthorized?: boolean;
-};
 
 function resolveOIDCConfig(): OIDCConfig | undefined {
   const issuerUrl = getEnv('OIDC_ISSUER_URL');
@@ -675,6 +676,15 @@ export type DistributedServerConfiguration = SharedServerConfiguration & {
    * caller's token. Unset = local Postgres stores. Mutually exclusive with OIDC.
    * Env: `TRUEFOUNDRY_SERVICEFOUNDRY_SERVER_URL`.
    */
+  /**
+   * When set, automatically move public TrueForge tables to the TrueForge schema.
+   * Env: `AUTOMATICALLY_MOVE_TRUEFORGE_TABLES_FROM_PUBLIC_TO_TRUEFORGE_SCHEMA`. Default false.
+   */
+  AUTOMATICALLY_MOVE_TRUEFORGE_TABLES_FROM_PUBLIC_TO_TRUEFORGE_SCHEMA: boolean;
+  /**
+   * The URL of the TrueFoundry ServiceFoundry server.
+   * Env: `TRUEFOUNDRY_SERVICEFOUNDRY_SERVER_URL`.
+   */
   TRUEFOUNDRY_SERVICEFOUNDRY_SERVER_URL: string | undefined;
   /**
    * Required when `TRUEFOUNDRY_SERVICEFOUNDRY_SERVER_URL` is set. Env: `TRUEFOUNDRY_API_KEY`.
@@ -876,6 +886,11 @@ const configuration: ServerConfiguration = standalone
       }),
       REDIS_URL: resolveRedisUrl(),
       OIDC: resolveOIDCConfig(),
+      AUTOMATICALLY_MOVE_TRUEFORGE_TABLES_FROM_PUBLIC_TO_TRUEFORGE_SCHEMA: parseBoolean({
+        envKey: 'AUTOMATICALLY_MOVE_TRUEFORGE_TABLES_FROM_PUBLIC_TO_TRUEFORGE_SCHEMA',
+        raw: getEnv('AUTOMATICALLY_MOVE_TRUEFORGE_TABLES_FROM_PUBLIC_TO_TRUEFORGE_SCHEMA'),
+        defaultValue: false,
+      }),
       TRUEFOUNDRY_SERVICEFOUNDRY_SERVER_URL: getEnv('TRUEFOUNDRY_SERVICEFOUNDRY_SERVER_URL', { required: false }),
       TRUEFOUNDRY_API_KEY: getEnv('TRUEFOUNDRY_API_KEY', { required: false }),
       TRUEFOUNDRY_SERVICEFOUNDRY_HTTP_TIMEOUT_MS: parsePositiveInt({
