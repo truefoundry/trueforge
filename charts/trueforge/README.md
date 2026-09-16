@@ -151,17 +151,18 @@ The chart's own value wins on conflict; `tolerations` append to
 ## Resource tiers
 
 `resourceTier` (`small` / `medium` / `large`) selects sizing presets for the
-server and the controller. When set, it **replaces** the `resources` tables
-(replica counts stay as set: server `replicaCount`, controller always 1); an
-unknown tier fails the render. Empty (the default) keeps the explicit
-`resources` / `controller.resources`. A parent chart may set
-`global.resourceTier` instead; the chart's own `resourceTier` wins.
+server and the controller, and sets the server replica count (an explicit
+`server.replicaCount` overrides it; the controller is always 1 replica). When
+set, it **replaces** the `resources` tables; an unknown tier fails the render.
+Empty (the default) keeps the explicit `resources` / `controller.resources`
+and 1 server replica. A parent chart may set `global.resourceTier` instead;
+the chart's own `resourceTier` wins.
 
-| Preset | Server requests | Controller requests |
-| --- | --- | --- |
-| `small` | 50m / 128Mi | 50m / 128Mi |
-| `medium` | 100m / 256Mi | 100m / 256Mi |
-| `large` | 500m / 512Mi | 500m / 512Mi |
+| Preset | Server replicas | Server requests | Controller requests |
+| --- | --- | --- | --- |
+| `small` | 1 | 50m / 128Mi | 50m / 128Mi |
+| `medium` | 2 | 100m / 256Mi | 100m / 256Mi |
+| `large` | 3 | 500m / 512Mi | 500m / 512Mi |
 
 ## Postgres
 
@@ -322,8 +323,8 @@ extraObjects:
 
 | Value                 | Default                             | Description                           |
 | --------------------- | ----------------------------------- | ------------------------------------- |
-| `resourceTier`        | `""`                                | Optional `small` / `medium` / `large` sizing preset; empty uses `resources`. |
-| `server.replicaCount` | `1`                                 | Number of server replicas.            |
+| `resourceTier`        | `""`                                | Optional `small` / `medium` / `large` preset for resources and server replicas; empty uses `resources`. |
+| `server.replicaCount` | `""`                                | Number of server replicas. Empty derives from the resource tier (small=1, medium=2, large=3; 1 with no tier). |
 | `server.deploymentAnnotations` | `{}`                          | Annotations on the server Deployment, such as an Argo CD sync wave. |
 | `controller.deploymentAnnotations` | `{}`                      | Annotations on the controller Deployment, such as an Argo CD sync wave. |
 | `image.repository`    | `tfy.jfrog.io/tfy-images/trueforge` | Image repository.                     |

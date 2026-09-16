@@ -232,8 +232,24 @@ chart's global.resourceTier.
 {{- end -}}
 {{- end }}
 
+{{/*
+Server replica count. An explicit server.replicaCount wins; otherwise the
+resource tier decides (small=1, medium=2, large=3), falling back to 1 when no
+tier is set.
+*/}}
 {{- define "trueforge.replicas" -}}
+{{- $tier := include "trueforge.resourceTier" . | trim -}}
+{{- if .Values.server.replicaCount -}}
 {{- .Values.server.replicaCount -}}
+{{- else if eq $tier "small" -}}
+1
+{{- else if eq $tier "medium" -}}
+2
+{{- else if eq $tier "large" -}}
+3
+{{- else -}}
+1
+{{- end -}}
 {{- end }}
 
 {{- define "trueforge.defaultResources.small" -}}
