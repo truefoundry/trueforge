@@ -22,7 +22,6 @@ import { ShellActions } from '../atoms/ShellActions.js';
 import { AgentConfigDrawerContainer } from '../containers/AgentConfigDrawerContainer.js';
 import { Thread } from '../containers/Thread.js';
 import { ThreadListContainer } from '../containers/ThreadListContainer.js';
-import { useCanCreateAgent } from '../hooks/useCanCreateAgent.js';
 import { useChatHeaderContentVisible } from '../hooks/useChatChromeActionsVisible.js';
 import { Icon } from '../icons/Icon.js';
 import { shellIsCreateAgent, useOptionalShellMode, type ShellMode } from '../server/ShellModeContext.js';
@@ -50,7 +49,6 @@ function isRecentHistoryVisible({ overlayOpen, mode }: { overlayOpen: boolean; m
 function SidebarNav(): ReactNode {
   const aui = useAui();
   const shell = useOptionalShellMode();
-  const { canCreateAgent, loading: createAgentPermissionLoading } = useCanCreateAgent();
   const AgentsLibraryButton = useSlot('AgentsLibraryButton');
   const SessionsBrowserButton = useSlot('SessionsBrowserButton');
   const SchedulesButton = useSlot('SchedulesButton');
@@ -110,16 +108,11 @@ function SidebarNav(): ReactNode {
         <button
           type="button"
           aria-label="Start new agent"
-          title={createAgentPermissionLoading || canCreateAgent ? 'Build Agent' : 'No permission to create agents'}
+          title="New Agent"
           aria-current={newAgentSelected ? 'page' : undefined}
-          disabled={!canCreateAgent || createAgentPermissionLoading}
           className={auiButtonClass({
             variant: 'ghost',
-            className: cn(
-              railActionButtonClassName,
-              newAgentSelected && railSelectedClassName,
-              (!canCreateAgent || createAgentPermissionLoading) && 'opacity-50',
-            ),
+            className: cn(railActionButtonClassName, newAgentSelected && railSelectedClassName),
           })}
           onClick={handleNewAgent}
         >

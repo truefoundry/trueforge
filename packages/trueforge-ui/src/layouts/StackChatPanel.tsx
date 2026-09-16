@@ -11,7 +11,6 @@ import { cn } from '../atoms/lib/cn.js';
 import { Spinner } from '../atoms/primitives/Spinner.js';
 import { AgentConfigDrawerContainer } from '../containers/AgentConfigDrawerContainer.js';
 import { Thread } from '../containers/Thread.js';
-import { useCanCreateAgent } from '../hooks/useCanCreateAgent.js';
 import { Icon } from '../icons/Icon.js';
 import { useOptionalShellMode } from '../server/ShellModeContext.js';
 import { useSlot } from '../theme/SlotsProvider.js';
@@ -34,7 +33,6 @@ export type StackChatPanelProps = {
 export function StackChatPanel({ className, threadHeaderEnd }: StackChatPanelProps) {
   const aui = useAui();
   const shell = useOptionalShellMode();
-  const { canCreateAgent, loading: createAgentPermissionLoading } = useCanCreateAgent();
   const ClearChatButton = useSlot('ClearChatButton');
   const AgentDetailsPage = useSlot('AgentDetailsPage');
   const AgentsLibrary = useSlot('AgentsLibrary');
@@ -48,7 +46,6 @@ export function StackChatPanel({ className, threadHeaderEnd }: StackChatPanelPro
   const sessionsOpen = shell?.sessionsOpen === true;
   const schedulesOpen = shell?.schedulesOpen === true;
   const showNewActions = shell?.isNewChatEnabled !== false;
-  const buildAgentDisabled = !canCreateAgent || createAgentPermissionLoading;
 
   useEffect(() => {
     if (isIdle) return;
@@ -145,15 +142,8 @@ export function StackChatPanel({ className, threadHeaderEnd }: StackChatPanelPro
                   <button
                     type="button"
                     aria-label="New Agent"
-                    title={
-                      createAgentPermissionLoading || canCreateAgent ? 'New Agent' : 'No permission to create agents'
-                    }
-                    disabled={buildAgentDisabled}
-                    className={auiButtonClass({
-                      variant: 'ghost',
-                      size: 'icon',
-                      className: buildAgentDisabled ? 'opacity-50' : undefined,
-                    })}
+                    title="New Agent"
+                    className={auiButtonClass({ variant: 'ghost', size: 'icon' })}
                     onClick={handleNewAgent}
                   >
                     <Icon name="agent-2" />

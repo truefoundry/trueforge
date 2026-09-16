@@ -12,7 +12,6 @@ import { useIsMobile } from '../atoms/lib/useIsMobile.js';
 import { Spinner } from '../atoms/primitives/Spinner.js';
 import { AgentConfigDrawerContainer } from '../containers/AgentConfigDrawerContainer.js';
 import { Thread } from '../containers/Thread.js';
-import { useCanCreateAgent } from '../hooks/useCanCreateAgent.js';
 import { Icon } from '../icons/Icon.js';
 import { shellIsCreateAgent, useOptionalShellMode } from '../server/ShellModeContext.js';
 import { useSlot } from '../theme/SlotsProvider.js';
@@ -25,7 +24,6 @@ const SchedulesPage = lazy(() =>
 export function DrawerLayout({ className }: { className?: string }) {
   const aui = useAui();
   const shell = useOptionalShellMode();
-  const { canCreateAgent, loading: createAgentPermissionLoading } = useCanCreateAgent();
   const isMobile = useIsMobile();
   const ClearChatButton = useSlot('ClearChatButton');
   const AgentDetailsPage = useSlot('AgentDetailsPage');
@@ -44,7 +42,6 @@ export function DrawerLayout({ className }: { className?: string }) {
   const showAgentConfig =
     shell != null && shellIsCreateAgent(shell.mode) && !overlayOpen && (!isMobile || shell.agentConfigOpen);
   const showNewActions = shell?.isNewChatEnabled !== false;
-  const buildAgentDisabled = !canCreateAgent || createAgentPermissionLoading;
 
   const handleNewChat = () => {
     shell?.setLibraryOpen(false);
@@ -126,15 +123,8 @@ export function DrawerLayout({ className }: { className?: string }) {
                     <button
                       type="button"
                       aria-label="New Agent"
-                      title={
-                        createAgentPermissionLoading || canCreateAgent ? 'New Agent' : 'No permission to create agents'
-                      }
-                      disabled={buildAgentDisabled}
-                      className={auiButtonClass({
-                        variant: 'ghost',
-                        size: 'icon',
-                        className: buildAgentDisabled ? 'opacity-50' : undefined,
-                      })}
+                      title="New Agent"
+                      className={auiButtonClass({ variant: 'ghost', size: 'icon' })}
                       onClick={handleNewAgent}
                     >
                       <Icon name="agent-2" />

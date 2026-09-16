@@ -8,7 +8,6 @@ import { resolveRoutesConfig } from '@/routing/paths.js';
 import { ShellRouteSync } from '@/routing/ShellRouteSync.js';
 import { ServerProvider } from '@/server/ServerContext.js';
 import { ShellModeProvider, useShellMode, type AgentConfig } from '@/server/ShellModeContext.js';
-import type { PermissionsServer } from '@/server/types.js';
 import {
   createMockAgentSessionsServer,
   createMockAgentUIServer,
@@ -48,7 +47,6 @@ function SettingsCatalogProvider({
   includeCatalog = true,
   includeSessions = true,
   includeSchedules = false,
-  permissions,
 }: {
   children: ReactNode;
   settingsEnabled?: boolean;
@@ -56,13 +54,11 @@ function SettingsCatalogProvider({
   includeCatalog?: boolean;
   includeSessions?: boolean;
   includeSchedules?: boolean;
-  permissions?: PermissionsServer;
 }) {
   const server = createMockAgentUIServer({
     ...(includeCatalog ? { catalog: createMockCatalog() } : {}),
     ...(includeSessions ? { sessions: createMockAgentSessionsServer() } : {}),
     ...(includeSchedules ? { schedules: createMockScheduleServer() } : {}),
-    ...(permissions != null ? { permissions } : {}),
     getCapabilities: async () => {
       if (capabilitiesFail) throw new Error('Unavailable');
       return {
@@ -95,7 +91,6 @@ function Harness({
   includeCatalog = true,
   includeSessions = true,
   includeSchedules = false,
-  permissions,
 }: {
   agentConfig?: AgentConfig;
   initialRemoteId?: string;
@@ -105,7 +100,6 @@ function Harness({
   includeCatalog?: boolean;
   includeSessions?: boolean;
   includeSchedules?: boolean;
-  permissions?: PermissionsServer;
 }) {
   const [remoteId, setId] = useState<string | undefined>(initialRemoteId);
   setRemoteId = setId;
@@ -116,7 +110,6 @@ function Harness({
       includeCatalog={includeCatalog}
       includeSessions={includeSessions}
       includeSchedules={includeSchedules}
-      permissions={permissions}
     >
       <ShellModeProvider agentConfig={agentConfig} initialSettingsOpen={initialSettingsOpen}>
         <CaptureShell />
@@ -136,7 +129,6 @@ function renderSync(opts: {
   includeCatalog?: boolean;
   includeSessions?: boolean;
   includeSchedules?: boolean;
-  permissions?: PermissionsServer;
   strict?: boolean;
 }) {
   const tree = (
@@ -149,7 +141,6 @@ function renderSync(opts: {
         includeCatalog={opts.includeCatalog}
         includeSessions={opts.includeSessions}
         includeSchedules={opts.includeSchedules}
-        permissions={opts.permissions}
       />
     </MemoryRouter>
   );
@@ -287,19 +278,6 @@ describe('ShellRouteSync', () => {
     expect(pathname).toBe('/');
     act(() => shell.openAgentBuilder());
     expect(pathname).toBe('/build-agent');
-  });
-
-  it('rejects build-agent deep links when tenant CREATE is denied', async () => {
-    renderSync({
-      initialEntries: ['/build-agent'],
-      permissions: {
-        listPermissions: async () => ({ data: { type: 'tenant', permissions: { agent: [] } } }),
-      },
-    });
-    await waitFor(() => {
-      expect(pathname).toBe('/');
-      expect(shell.mode).toMatchObject({ status: 'active', isMutable: true, isCreateAgent: false });
-    });
   });
 
   it('mirrors settings open/close through history', async () => {
