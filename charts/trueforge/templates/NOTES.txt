@@ -39,7 +39,7 @@ before any shared / public deploy.
 {{- if and .Values.redis.enabled (not .Values.redis.auth.enabled) }}
 
 WARNING: Bundled Redis has auth disabled. Keep it cluster-internal (NetworkPolicy)
-or switch to external passworded Redis via externalRedis.url.
+or switch to external passworded Redis via externalRedis (url/host/auth).
 {{- end }}
 
 {{- if and .Values.configs.oidc.enabled (not .Values.server.publicBaseUrl) }}

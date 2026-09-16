@@ -1,5 +1,5 @@
+import type { RedisPeerClient } from '@truefoundry/trueforge-core/request-reply';
 import { setTimeout as sleep } from 'node:timers/promises';
-import type { RedisClientType } from 'redis';
 import {
   StreamGoneError,
   SUBSCRIBE_STREAM_THRESHOLD_MS,
@@ -31,7 +31,7 @@ export class RedisEventSubscription<T extends object> implements EventSubscripti
   private nextSequenceNumber = 1;
 
   constructor(
-    private readonly redis: RedisClientType,
+    private readonly redis: RedisPeerClient,
     private readonly streamId: string,
   ) {}
 
