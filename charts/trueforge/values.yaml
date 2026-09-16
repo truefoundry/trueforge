@@ -226,9 +226,9 @@ postgresql:
       size: 8Gi
 # --- Bundled Redis (Bitnami subchart) ------------------------------------------
 # Rendered only when redis.enabled is true. Auth is disabled (dev default) so
-# REDIS_URL is a plain redis://host:6379. Safe only while Redis stays inside
-# the cluster trust boundary. For passworded Redis, disable the subchart and
-# use externalRedis with a Secret.
+# Auth is disabled (dev default) so REDIS_HOST points at the bundled master
+# without credentials. Safe only while Redis stays inside the cluster trust
+# boundary. For passworded Redis, disable the subchart and use externalRedis.
 redis:
   enabled: true
   architecture: standalone
@@ -271,23 +271,36 @@ externalPostgres:
   sslKeyPath: ""
   sslCaPath: ""
 externalRedis:
-  # Full connection URL, e.g. redis://:password@redis-master.databases.svc:6379.
-  # string, or { valueFrom: { secretKeyRef: { name, key } } }. Prefer valueFrom in prod.
+  ## Use an external Redis instead of the bundled Redis (`redis.enabled` must be false).
+  enabled: false
+  ## Full connection URL, e.g. redis://:password@redis-master.databases.svc:6379.
+  ## string or valueFrom. Preferred over host when set (app REDIS_URL).
   url: ""
-  # Redis Sentinel connection settings, injected as REDIS_SENTINEL_* env.
-  # url:
-  #   valueFrom:
-  #     secretKeyRef:
-  #       name: my-redis-secret
-  #       key: redis-url
+  ## Standalone Redis host (used when url is unset; optional when sentinel.enabled).
+  host: ""
+  port: 6379
+  db: 0
+  auth:
+    ## string or valueFrom
+    username: ""
+    password: ""
+  tls:
+    enabled: false
+    ## Path or inline PEM
+    caCert: ""
+    serverName: ""
+    cert: ""
+    key: ""
+    keyPassphrase: ""
   sentinel:
     enabled: false
-    # Comma-separated host:port list -> REDIS_SENTINEL_HOSTS.
-    hosts: ""
-    # Monitored master name -> REDIS_SENTINEL_MASTER_NAME.
+    ## Array of host:port entries
+    nodes: []
     masterName: ""
-    # string or valueFrom -> REDIS_SENTINEL_PASSWORD.
-    password: ""
+    auth:
+      ## string or valueFrom
+      username: ""
+      password: ""
 # --- Bundled dev sandbox server (tfy-sandbox-server subchart) -------------------
 # Managed by the parent chart; off for standalone installs. When true, the
 # subchart is deployed and the app gets TRUEFOUNDRY_SANDBOX_* env pointing at it.

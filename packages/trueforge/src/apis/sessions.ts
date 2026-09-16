@@ -14,11 +14,11 @@ import { extractErrorLogFields } from '@truefoundry/trueforge-core/core';
 import {
   redisRequest,
   RequestTimeoutError,
+  type RedisPeerClient,
   type RouteHandler as RequestReplyRouteHandler,
   type RequestReplyRouter,
 } from '@truefoundry/trueforge-core/request-reply';
 import type { Context } from 'hono';
-import type { RedisClientType } from 'redis';
 import type { Logger } from 'winston';
 import { z } from 'zod';
 import type { Authorizer } from '../auth/authorizer';
@@ -80,7 +80,7 @@ export interface SessionsRouterDeps {
   resolveSkillStore: ResolveSkillStore;
   resolveAgentStore: (c: Context) => IAgentStore;
   resolveSandboxProviderStore: (c: Context) => ISandboxProviderStore;
-  redis?: RedisClientType | undefined;
+  redis?: RedisPeerClient | undefined;
   requestReplyRouter: RequestReplyRouter;
   resolveRequestContext: ResolveRequestContext;
   logger: Logger;
@@ -126,7 +126,7 @@ export interface CancelTurnDeps {
   activeTurns: ActiveTurnRegistry;
   session: Pick<SessionHandle, 'session_id' | 'freezeTurn'>;
   sessionStore: Pick<ISessionStore, 'getTurn'>;
-  redis?: RedisClientType | undefined;
+  redis?: RedisPeerClient | undefined;
   logger: Pick<Logger, 'warn'>;
 }
 

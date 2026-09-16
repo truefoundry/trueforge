@@ -8,8 +8,7 @@
  *
  * `STANDALONE` is a discriminated mode selector:
  * - `true` (default): SQLite only; no Redis / executor peering.
- * - `false`: Postgres + Redis (defaults to local trueforge credentials /
- *   `redis://localhost:6379`).
+ * - `false`: Postgres + Redis (`REDIS_URL`, `REDIS_HOST`, or Sentinel required).
  */
 import { existsSync, readFileSync } from 'node:fs';
 import os from 'node:os';
@@ -40,7 +39,6 @@ const DEFAULT_POSTGRES_HOST = 'localhost';
 const DEFAULT_POSTGRES_PORT = 5432;
 /** Default Postgres schema for app tables + Kysely migration bookkeeping. */
 export const DEFAULT_POSTGRES_SCHEMA = 'trueforge';
-const DEFAULT_REDIS_URL = 'redis://localhost:6379';
 /** Unquoted Postgres identifier: letter/underscore start, then alnum/underscore, ≤63 chars. */
 const POSTGRES_SCHEMA_NAME_RE = /^[a-z_][a-z0-9_]{0,62}$/;
 /**
@@ -214,6 +212,18 @@ function parsePositiveInt(options: { envKey: string; raw: string | undefined; de
   return value;
 }
 
+function parseNonNegativeInt(options: { envKey: string; raw: string | undefined; defaultValue: number }): number {
+  const { envKey, raw, defaultValue } = options;
+  if (raw === undefined || raw.trim() === '') {
+    return defaultValue;
+  }
+  const value = Number(raw);
+  if (!Number.isInteger(value) || value < 0) {
+    throw new Error(`Environment variable ${envKey} must be a non-negative integer, got "${raw}"`);
+  }
+  return value;
+}
+
 /** Parses a boolean env var; anything but `true`/`false` throws instead of reading as `false`. */
 function parseBoolean(options: { envKey: string; raw: string | undefined; defaultValue: boolean }): boolean {
   const { envKey, raw, defaultValue } = options;
@@ -349,11 +359,11 @@ function resolveCodeModeSocketParent(): string {
   return path.join(os.tmpdir(), 'tf_cms');
 }
 
-/** Redis peering URL for distributed mode. Env: `REDIS_URL`. */
-function resolveRedisUrl(): string {
-  const raw = getEnv('REDIS_URL', { defaultValue: DEFAULT_REDIS_URL }) ?? DEFAULT_REDIS_URL;
-  if (raw.trim() === '') {
-    throw new Error('Environment variable REDIS_URL must be non-empty when STANDALONE=false.');
+/** Redis peering URL for distributed mode. Env: `REDIS_URL`. Preferred over `REDIS_HOST` when set. */
+function resolveRedisUrl(): string | undefined {
+  const raw = getEnv('REDIS_URL');
+  if (raw === undefined || raw.trim() === '') {
+    return undefined;
   }
   return raw;
 }
@@ -738,8 +748,48 @@ export type DistributedServerConfiguration = SharedServerConfiguration & {
    * Env: `POSTGRES_SCHEMA`. Default `trueforge`.
    */
   POSTGRES_SCHEMA: string;
-  /** Peering URL shared by all replicas. Env: `REDIS_URL`. Default `redis://localhost:6379`. */
-  REDIS_URL: string;
+  /**
+   * Peering URL shared by all replicas. Preferred over `REDIS_HOST` when set (may include userinfo).
+   * Env: `REDIS_URL`. Required (with host or Sentinel) when `STANDALONE=false`.
+   */
+  REDIS_URL: string | undefined;
+  /** Standalone Redis host. Used when `REDIS_URL` / Sentinel are unset. Env: `REDIS_HOST`. */
+  REDIS_HOST: string | undefined;
+  /** Redis port. Env: `REDIS_PORT`. Default 6379. */
+  REDIS_PORT: number;
+  /** Redis DB index. Env: `REDIS_DB`. Default 0. */
+  REDIS_DB: number;
+  /** Redis ACL username (data nodes). Env: `REDIS_USERNAME`. */
+  REDIS_USERNAME: string | undefined;
+  /** Redis password (data nodes). Env: `REDIS_PASSWORD`. */
+  REDIS_PASSWORD: string | undefined;
+  /**
+   * Opt into Redis Sentinel. Active only when nodes + master name are also set.
+   * Env: `REDIS_SENTINEL_ENABLED`. Default false.
+   */
+  REDIS_SENTINEL_ENABLED: boolean;
+  /** Comma-separated `host:port` Sentinel nodes. Env: `REDIS_SENTINEL_NODES`. */
+  REDIS_SENTINEL_NODES: string | undefined;
+  /** Sentinel monitored master name. Env: `REDIS_SENTINEL_MASTER_NAME`. */
+  REDIS_SENTINEL_MASTER_NAME: string | undefined;
+  /** Auth to Sentinel processes (not data nodes). Env: `REDIS_SENTINEL_USERNAME`. */
+  REDIS_SENTINEL_USERNAME: string | undefined;
+  /** Auth to Sentinel processes (not data nodes). Env: `REDIS_SENTINEL_PASSWORD`. */
+  REDIS_SENTINEL_PASSWORD: string | undefined;
+  /** Enable TLS for Redis (and Sentinel when used). Env: `REDIS_TLS_ENABLED`. Default false. */
+  REDIS_TLS_ENABLED: boolean;
+  /** CA cert path or inline PEM. Env: `REDIS_TLS_CA_CERT`. */
+  REDIS_TLS_CA_CERT: string | undefined;
+  /** Verify server cert. Env: `REDIS_TLS_REJECT_UNAUTHORIZED`. Default true. */
+  REDIS_TLS_REJECT_UNAUTHORIZED: boolean;
+  /** TLS SNI server name. Env: `REDIS_TLS_SERVERNAME`. */
+  REDIS_TLS_SERVERNAME: string | undefined;
+  /** Client cert path or inline PEM (mTLS). Env: `REDIS_TLS_CERT`. */
+  REDIS_TLS_CERT: string | undefined;
+  /** Client key path or inline PEM (mTLS). Env: `REDIS_TLS_KEY`. */
+  REDIS_TLS_KEY: string | undefined;
+  /** Client key passphrase. Env: `REDIS_TLS_KEY_PASSPHRASE`. */
+  REDIS_TLS_KEY_PASSPHRASE: string | undefined;
   /**
    * OIDC configuration for server authentication.
    * Undefined means browser login is disabled.
@@ -984,6 +1034,43 @@ const configuration: ServerConfiguration = standalone
       }),
       POSTGRES_SCHEMA: parsePostgresSchema(getEnv('POSTGRES_SCHEMA')),
       REDIS_URL: resolveRedisUrl(),
+      REDIS_HOST: getEnv('REDIS_HOST'),
+      REDIS_PORT: parsePositiveInt({
+        envKey: 'REDIS_PORT',
+        raw: getEnv('REDIS_PORT'),
+        defaultValue: 6379,
+      }),
+      REDIS_DB: parseNonNegativeInt({
+        envKey: 'REDIS_DB',
+        raw: getEnv('REDIS_DB'),
+        defaultValue: 0,
+      }),
+      REDIS_USERNAME: getEnv('REDIS_USERNAME'),
+      REDIS_PASSWORD: getEnv('REDIS_PASSWORD'),
+      REDIS_SENTINEL_ENABLED: parseBoolean({
+        envKey: 'REDIS_SENTINEL_ENABLED',
+        raw: getEnv('REDIS_SENTINEL_ENABLED'),
+        defaultValue: false,
+      }),
+      REDIS_SENTINEL_NODES: getEnv('REDIS_SENTINEL_NODES'),
+      REDIS_SENTINEL_MASTER_NAME: getEnv('REDIS_SENTINEL_MASTER_NAME'),
+      REDIS_SENTINEL_USERNAME: getEnv('REDIS_SENTINEL_USERNAME'),
+      REDIS_SENTINEL_PASSWORD: getEnv('REDIS_SENTINEL_PASSWORD'),
+      REDIS_TLS_ENABLED: parseBoolean({
+        envKey: 'REDIS_TLS_ENABLED',
+        raw: getEnv('REDIS_TLS_ENABLED'),
+        defaultValue: false,
+      }),
+      REDIS_TLS_CA_CERT: getEnv('REDIS_TLS_CA_CERT'),
+      REDIS_TLS_REJECT_UNAUTHORIZED: parseBoolean({
+        envKey: 'REDIS_TLS_REJECT_UNAUTHORIZED',
+        raw: getEnv('REDIS_TLS_REJECT_UNAUTHORIZED'),
+        defaultValue: true,
+      }),
+      REDIS_TLS_SERVERNAME: getEnv('REDIS_TLS_SERVERNAME'),
+      REDIS_TLS_CERT: getEnv('REDIS_TLS_CERT'),
+      REDIS_TLS_KEY: getEnv('REDIS_TLS_KEY'),
+      REDIS_TLS_KEY_PASSPHRASE: getEnv('REDIS_TLS_KEY_PASSPHRASE'),
       OIDC: resolveOIDCConfig(),
       AUTOMATICALLY_MOVE_TRUEFORGE_TABLES_FROM_PUBLIC_TO_TRUEFORGE_SCHEMA: parseBoolean({
         envKey: 'AUTOMATICALLY_MOVE_TRUEFORGE_TABLES_FROM_PUBLIC_TO_TRUEFORGE_SCHEMA',

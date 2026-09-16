@@ -10,6 +10,7 @@ export type { SendRequestOptions } from './client';
 export { NoResponderError, ReplyError, RequestTimeoutError } from './errors';
 export { RequestReplyExecutor } from './executor';
 export type { RequestReplyErrorHandler, RunExecutorOptions } from './executor';
+export type { RedisPeerClient } from './redisClient';
 export { RequestReplyRouter } from './router';
 export type { RouteHandler } from './router';
 export { jsonReplySchema } from './types';
