@@ -1,5 +1,19 @@
 # @truefoundry/trueforge
 
+## 0.2.0-rc.12
+
+### Patch Changes
+
+- 584e815: Gate Save Agent (create) on tenant CREATE from list-permissions, keep Update Agent on agent MANAGE, unwrap `{ type, permissions }`, and bump `@truefoundry/assistant-ui-runtime` to `0.1.39`.
+- ffcd60d: Forward inbound `x-tfy-metadata` from create-turn to TrueFoundry-mode gateway calls, merged with harness session, turn, and agent ids.
+- c221ac6: Fail Postgres connects after 10s and log idle pool errors so a backend restart cannot crash the process.
+- 7dc8757: Log while connecting to Postgres and Redis on startup, and skip access logs for `/assets/`.
+- c4078c6: Apply Postgres TLS via Pool `ssl` like servicefoundry (`POSTGRES_SSL_MODE` + cert/key/CA paths), not `sslmode` on the URL.
+- Updated dependencies [01ee934]
+- Updated dependencies [2cb51a5]
+- Updated dependencies [bf5233d]
+  - @truefoundry/trueforge-core@0.2.0-rc.5
+
 ## 0.2.0-rc.11
 
 ### Patch Changes
