@@ -446,6 +446,15 @@ fields, wires bundled Postgres/Redis, optional OIDC, then server.extraEnv.
 {{- if .Values.externalPostgres.sslMode -}}
 {{- $env = append $env (dict "name" "POSTGRES_SSL_MODE" "value" .Values.externalPostgres.sslMode) -}}
 {{- end -}}
+{{- if .Values.externalPostgres.sslCertPath -}}
+{{- $env = append $env (dict "name" "POSTGRES_SSL_CERT_PATH" "value" .Values.externalPostgres.sslCertPath) -}}
+{{- end -}}
+{{- if .Values.externalPostgres.sslKeyPath -}}
+{{- $env = append $env (dict "name" "POSTGRES_SSL_KEY_PATH" "value" .Values.externalPostgres.sslKeyPath) -}}
+{{- end -}}
+{{- if .Values.externalPostgres.sslCaPath -}}
+{{- $env = append $env (dict "name" "POSTGRES_SSL_CA_PATH" "value" .Values.externalPostgres.sslCaPath) -}}
+{{- end -}}
 {{- end -}}
 
 {{- if .Values.configs.oidc.enabled -}}

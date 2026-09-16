@@ -1,4 +1,13 @@
+## [0.2.0-rc.8] - 2026-09-15
+
 ## [0.2.0-rc.7] - 2026-09-14
+
+## 0.2.0-rc.8
+
+### Patch Changes
+
+- 648273b: Regenerate SDK from updated OpenAPI spec.
+- 134dcb9: Python SDK `is_event_delta` / `merge_event_delta` (PyPI version locksteps with this package on Version Packages).
 
 ## [0.2.0-rc.6] - 2026-09-14
 

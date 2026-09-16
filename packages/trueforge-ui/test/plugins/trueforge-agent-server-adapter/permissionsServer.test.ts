@@ -2,7 +2,7 @@ import { describe, expect, it, vi } from 'vitest';
 
 import { createTrueForgeAgentUIServer } from '@/plugins/trueforge-agent-server-adapter/index.js';
 import { createHarnessPermissionsServer } from '@/plugins/trueforge-agent-server-adapter/permissionsServer.js';
-import type { PermissionsServer } from '@/server/types.js';
+import type { ListPermissionsResponse, PermissionsServer } from '@/server/types.js';
 
 describe('createHarnessPermissionsServer', () => {
   it('delegates list requests to the generated internal SDK client', async () => {
@@ -10,7 +10,7 @@ describe('createHarnessPermissionsServer', () => {
       expect(String(input)).toBe('https://trueforge.test/api/internal/list-permissions');
       expect(init?.method).toBe('POST');
       expect(init?.body).toBe(JSON.stringify({ resource_type: 'agent', resource_ids: ['agent-1'] }));
-      return Response.json({ data: { 'agent-1': ['USE'] } });
+      return Response.json({ data: { type: 'agent', permissions: { 'agent-1': ['USE'] } } });
     });
     const server = createHarnessPermissionsServer({
       baseUrl: 'https://trueforge.test',
@@ -19,7 +19,7 @@ describe('createHarnessPermissionsServer', () => {
     });
 
     await expect(server.listPermissions({ resourceType: 'agent', resourceIds: ['agent-1'] })).resolves.toEqual({
-      data: { 'agent-1': ['USE'] },
+      data: { type: 'agent', permissions: { 'agent-1': ['USE'] } },
     });
     expect(fetchMock).toHaveBeenCalledOnce();
   });
@@ -33,7 +33,9 @@ describe('createTrueForgeAgentUIServer permissions', () => {
 
   it('preserves an explicit permissions port', () => {
     const permissions: PermissionsServer = {
-      listPermissions: vi.fn(async () => ({ data: {} })),
+      listPermissions: vi.fn(async (): Promise<ListPermissionsResponse> => ({
+        data: { type: 'agent', permissions: {} },
+      })),
     };
     const server = createTrueForgeAgentUIServer({ fetch: vi.fn(), permissions });
     expect(server.permissions).toBe(permissions);

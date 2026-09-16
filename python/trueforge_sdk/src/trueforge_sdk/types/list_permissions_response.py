@@ -5,14 +5,11 @@ import typing
 import pydantic
 from ..core.pydantic_utilities import IS_PYDANTIC_V2
 from ..core.unchecked_base_model import UncheckedBaseModel
-from .resource_permission import ResourcePermission
+from .list_permissions_data import ListPermissionsData
 
 
 class ListPermissionsResponse(UncheckedBaseModel):
-    data: typing.Dict[str, typing.List[ResourcePermission]] = pydantic.Field()
-    """
-    Permissions granted to the caller, keyed by resource id. Missing or inaccessible ids are `[]`.
-    """
+    data: ListPermissionsData
 
     if IS_PYDANTIC_V2:
         model_config: typing.ClassVar[pydantic.ConfigDict] = pydantic.ConfigDict(extra="allow")  # type: ignore # Pydantic v2

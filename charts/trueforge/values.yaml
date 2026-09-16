@@ -4,7 +4,7 @@ image:
   repository: tfy.jfrog.io/tfy-images/trueforge
   # Tag defaults to chart appVersion when empty. Prod chart-release PRs set this
   # to {appVersion}-{shortSha} for the npm-install image already in the registry.
-  tag: "0.2.0-rc.8-dd5b98e"
+  tag: "0.2.0-rc.11-7fc322f"
   pullPolicy: IfNotPresent
 imagePullSecrets: []
 # Default tfy.jfrog.io repos are anonymously pullable. Set secrets only when
@@ -237,7 +237,14 @@ externalPostgres:
   #       key: host  # or port / database / user / password
   # Optional TLS for the app → Postgres pool (`POSTGRES_SSL_MODE`). Empty = unset (no TLS).
   # Modes: disable | prefer | require | verify-ca | verify-full | no-verify.
+  # prefer/require/verify-ca/verify-full all enable TLS with Node default verification
+  # (≈ verify-full). Use no-verify to encrypt without verifying the server cert.
   sslMode: ""
+  # Optional client / CA TLS material. Mount the PEMs with extraVolumes / extraVolumeMounts,
+  # then set these to the in-pod paths.
+  sslCertPath: ""
+  sslKeyPath: ""
+  sslCaPath: ""
 externalRedis:
   # Full connection URL, e.g. redis://:password@redis-master.databases.svc:6379.
   # string, or { valueFrom: { secretKeyRef: { name, key } } }. Prefer valueFrom in prod.

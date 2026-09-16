@@ -13,6 +13,7 @@ import {
 import { HTTPException } from 'hono/http-exception';
 import { join } from 'node:path';
 import type { Logger } from 'winston';
+import { z } from 'zod';
 import configuration from '../config';
 import type { IMcpServerStore, IMcpServerWithAuthStore } from '../db/mcpServerStore';
 import type { IModelProviderStore } from '../db/modelProviderStore';
@@ -34,6 +35,27 @@ export const X_TFY_METADATA = 'x-tfy-metadata';
 /** Prefix for harness-owned keys */
 export const TFG_METADATA_PREFIX = 'tfg';
 
+const GatewayMetadataSchema = z.record(z.string().min(1), z.string());
+
+/**
+ * Parse inbound `x-tfy-metadata`. Rejects malformed values rather than dropping them.
+ */
+export function parseGatewayMetadataHeader(raw: string): Record<string, string> {
+  let decoded: unknown;
+  try {
+    decoded = JSON.parse(raw);
+  } catch (error) {
+    throw new HTTPException(400, { message: `${X_TFY_METADATA} must be a JSON object`, cause: error });
+  }
+  const parsed = GatewayMetadataSchema.safeParse(decoded);
+  if (!parsed.success) {
+    throw new HTTPException(400, {
+      message: `${X_TFY_METADATA} must be a JSON object of string values`,
+    });
+  }
+  return parsed.data;
+}
+
 export function buildGatewayMetadata(input: { session: SessionHandle; turnId: string }): Record<string, string> {
   // Session.metadata is intentionally omitted for now (Unicode-in-header risk); re-add later.
   const metadata: Record<string, string> = {
@@ -48,6 +70,18 @@ export function buildGatewayMetadata(input: { session: SessionHandle; turnId: st
     }
   }
   return metadata;
+}
+
+/** Inbound x-tfy-metadata first; harness tfg.* always win */
+export function mergeGatewayMetadata(input: {
+  session: SessionHandle;
+  turnId: string;
+  tfyMetadata?: Record<string, string> | undefined;
+}): Record<string, string> {
+  return {
+    ...input.tfyMetadata,
+    ...buildGatewayMetadata({ session: input.session, turnId: input.turnId }),
+  };
 }
 
 export function gatewayMetadataHeaders(metadata: Record<string, string>): Record<string, string> {

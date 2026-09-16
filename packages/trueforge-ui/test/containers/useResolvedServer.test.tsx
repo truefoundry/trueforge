@@ -3,14 +3,18 @@ import { renderHook, waitFor } from '@testing-library/react';
 import { describe, expect, it, vi } from 'vitest';
 
 import { useResolvedServer } from '@/containers/useResolvedServer.js';
-import type { PermissionsServer } from '@/server/types.js';
+import type { ListPermissionsResponse, PermissionsServer } from '@/server/types.js';
 import { createMockAgentUIServer, createMockCatalog } from '../server/mockServer.js';
 
 const permissions: PermissionsServer = {
-  listPermissions: vi.fn(async () => ({ data: {} })),
+  listPermissions: vi.fn(async (): Promise<ListPermissionsResponse> => ({
+    data: { type: 'agent', permissions: {} },
+  })),
 };
 const defaultHarnessPermissions: PermissionsServer = {
-  listPermissions: vi.fn(async () => ({ data: {} })),
+  listPermissions: vi.fn(async (): Promise<ListPermissionsResponse> => ({
+    data: { type: 'agent', permissions: {} },
+  })),
 };
 
 const mockCreateTrueForgeAgentUIServer = vi.fn((options?: { permissions?: PermissionsServer }) =>

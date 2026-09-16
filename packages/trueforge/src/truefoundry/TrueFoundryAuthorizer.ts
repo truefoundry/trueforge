@@ -3,11 +3,13 @@ import { HTTPException } from 'hono/http-exception';
 import type { AgentAction, AgentListAccess, Authorizer, GetPermissionsInput } from '../auth/authorizer';
 import type { RequestContext } from '../auth/identity';
 import type { AgentRecord } from '../db/agentStore';
-import type { ResourcePermission } from '../schemas/permissions';
+import type { ListPermissionsData, ResourcePermission } from '../schemas/permissions';
 import {
   emptyPermissionsByResourceId,
+  listPermissionsData,
   SCHEDULE_OWNER_PERMISSIONS,
   SESSION_OWNER_PERMISSIONS,
+  TENANT_CREATE_AGENT_PERMISSIONS,
 } from '../schemas/permissions';
 import type { AgentPermission, TrueFoundryServiceFoundryServerClient } from './TrueFoundryServiceFoundryServerClient';
 
@@ -73,8 +75,17 @@ export class TrueFoundryAuthorizer implements Authorizer {
     return allowsAction(permissions[input.agent.external_id] ?? [], input.action);
   }
 
-  async getPermissions(input: GetPermissionsInput): Promise<Record<string, ResourcePermission[]>> {
+  async getPermissions(input: GetPermissionsInput): Promise<ListPermissionsData> {
     const { requestContext, resourceIds } = input;
+
+    if (input.resourceType === 'tenant') {
+      const tenantPermissions = await this.#client.getTenantPermissions({
+        accessToken: requireUserCredential(requestContext),
+      });
+      const agent = tenantPermissions.includes('CREATE_AGENT') ? [...TENANT_CREATE_AGENT_PERMISSIONS] : [];
+      return listPermissionsData('tenant', { agent });
+    }
+
     const data = emptyPermissionsByResourceId(resourceIds);
 
     if (input.resourceType === 'agent') {
@@ -83,7 +94,7 @@ export class TrueFoundryAuthorizer implements Authorizer {
         ids: resourceIds,
       });
       if (agents.length === 0) {
-        return data;
+        return listPermissionsData('agent', data);
       }
       const permissions = await this.#client.getAgentPermissions({
         accessToken: requireUserCredential(requestContext),
@@ -92,7 +103,7 @@ export class TrueFoundryAuthorizer implements Authorizer {
       for (const agent of agents) {
         data[agent.id] = toResourcePermissions(permissions[agent.external_id] ?? []);
       }
-      return data;
+      return listPermissionsData('agent', data);
     }
 
     if (input.resourceType === 'schedule') {
@@ -104,7 +115,7 @@ export class TrueFoundryAuthorizer implements Authorizer {
       for (const id of ownedIds) {
         data[id] = [...SCHEDULE_OWNER_PERMISSIONS];
       }
-      return data;
+      return listPermissionsData('schedule', data);
     }
 
     const ownedIds = await input.store.getOwnedIds({
@@ -115,6 +126,6 @@ export class TrueFoundryAuthorizer implements Authorizer {
     for (const id of ownedIds) {
       data[id] = [...SESSION_OWNER_PERMISSIONS];
     }
-    return data;
+    return listPermissionsData('session', data);
   }
 }

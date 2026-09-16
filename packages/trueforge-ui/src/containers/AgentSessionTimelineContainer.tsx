@@ -82,6 +82,7 @@ function applyTerminalState(messages: ThreadMessageLike[], turn: SessionTurnView
   // failures need an assistant row so the terminal state is visible.
   const assistantIndex = messages.findIndex(message => message.role === 'assistant');
   const assistant = assistantIndex < 0 ? undefined : messages[assistantIndex];
+  const createdAt = new Date(state.completedAt ?? turn.done?.createdAt ?? turn.created.createdAt);
   const terminal: ThreadMessageLike =
     state.status === 'error'
       ? {
@@ -89,7 +90,7 @@ function applyTerminalState(messages: ThreadMessageLike[], turn: SessionTurnView
             id: `${turn.turnId}-assistant`,
             role: 'assistant',
             content: [],
-            createdAt: new Date(turn.done?.createdAt ?? turn.created.createdAt),
+            createdAt,
             metadata: { custom: { turnId: turn.turnId } },
           }),
           status: { type: 'incomplete', reason: 'error', error: state.message },
@@ -99,7 +100,7 @@ function applyTerminalState(messages: ThreadMessageLike[], turn: SessionTurnView
             id: `${turn.turnId}-assistant`,
             role: 'assistant',
             content: [],
-            createdAt: new Date(turn.done?.createdAt ?? turn.created.createdAt),
+            createdAt,
             metadata: { custom: { turnId: turn.turnId } },
           }),
           content: appendTerminalText(assistant?.content ?? [], `Cancelled: ${state.reason}`),
