@@ -41,7 +41,6 @@ try {
     statementTimeoutMs: configuration.POSTGRES_STATEMENT_TIMEOUT_MS,
     idleInTransactionSessionTimeoutMs: configuration.POSTGRES_IDLE_IN_TRANSACTION_SESSION_TIMEOUT_MS,
   });
-  logger.info('Connected to Postgres');
 
   logger.info('Controller starting', {
     serverUrl: configuration.SERVER_URL,
