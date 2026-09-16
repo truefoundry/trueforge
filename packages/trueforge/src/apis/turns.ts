@@ -150,7 +150,7 @@ function createTurnResolver(deps: {
   userRef: string;
   session: SessionHandle;
   turnId: string;
-  callerMetadata: Record<string, string> | undefined;
+  tfyMetadata: Record<string, string> | undefined;
 }): TurnResourceResolver {
   const {
     mcpServerStore,
@@ -163,12 +163,12 @@ function createTurnResolver(deps: {
     userRef,
     session,
     turnId,
-    callerMetadata,
+    tfyMetadata,
   } = deps;
   const tenant_id = session.tenant_id;
   const sessionId = session.session_id;
   const metadataHeaders = isTrueFoundryModeEnabled()
-    ? gatewayMetadataHeaders(mergeGatewayMetadata({ session, turnId, callerMetadata }))
+    ? gatewayMetadataHeaders(mergeGatewayMetadata({ session, turnId, tfyMetadata }))
     : {};
 
   return new TurnResourceResolver({
@@ -391,10 +391,10 @@ export async function beginTurnExecution(params: {
   input: TurnInputItem[] | undefined;
   previous_turn_id: string | undefined;
   userRef: string;
-  callerMetadata?: Record<string, string> | undefined;
+  tfyMetadata?: Record<string, string> | undefined;
   deps: BeginTurnExecutionDeps;
 }): Promise<{ turn: TurnHandle; drainInput: TurnEventDrainInput }> {
-  const { session, input, previous_turn_id: previousTurnId, userRef, callerMetadata, deps } = params;
+  const { session, input, previous_turn_id: previousTurnId, userRef, tfyMetadata, deps } = params;
   const sessionId = session.session_id;
   const turnId = mintPeeredTurnId(configuration.EXECUTOR_ID);
 
@@ -411,7 +411,7 @@ export async function beginTurnExecution(params: {
     userRef,
     session,
     turnId,
-    callerMetadata,
+    tfyMetadata,
   });
 
   // First turn only: derive the title from the first user message. The store
@@ -466,7 +466,7 @@ export async function startTurnInProcess(params: {
   input: TurnInputItem[] | undefined;
   previous_turn_id: string | undefined;
   userRef: string;
-  callerMetadata?: Record<string, string> | undefined;
+  tfyMetadata?: Record<string, string> | undefined;
   deps: BeginTurnExecutionDeps;
 }): Promise<TurnHandle> {
   const { turn, drainInput } = await beginTurnExecution(params);
@@ -774,15 +774,15 @@ export function createTurnsRouter(deps: TurnsRouterDeps) {
       referencedAgent = agent;
     }
 
-    const rawCallerMetadata = c.req.header(X_TFY_METADATA);
-    const callerMetadata = rawCallerMetadata === undefined ? undefined : parseGatewayMetadataHeader(rawCallerMetadata);
+    const rawTfyMetadata = c.req.header(X_TFY_METADATA);
+    const tfyMetadata = rawTfyMetadata === undefined ? undefined : parseGatewayMetadataHeader(rawTfyMetadata);
 
     const turnParams = {
       session,
       input: body.input,
       previous_turn_id: body.previous_turn_id,
       userRef: requestContext.subject.id,
-      callerMetadata,
+      tfyMetadata,
       deps: {
         ...deps,
         modelProviderStore: deps.resolveModelProviderStore(c, referencedAgent),

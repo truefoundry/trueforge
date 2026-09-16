@@ -38,7 +38,7 @@ export const TFG_METADATA_PREFIX = 'tfg';
 const GatewayMetadataSchema = z.record(z.string().min(1), z.string());
 
 /**
- * Parse caller-owned `x-tfy-metadata`. Rejects malformed values rather than dropping them.
+ * Parse inbound `x-tfy-metadata`. Rejects malformed values rather than dropping them.
  */
 export function parseGatewayMetadataHeader(raw: string): Record<string, string> {
   let decoded: unknown;
@@ -72,14 +72,14 @@ export function buildGatewayMetadata(input: { session: SessionHandle; turnId: st
   return metadata;
 }
 
-/** Caller keys first; harness tfg.* always win */
+/** Inbound x-tfy-metadata first; harness tfg.* always win */
 export function mergeGatewayMetadata(input: {
   session: SessionHandle;
   turnId: string;
-  callerMetadata?: Record<string, string> | undefined;
+  tfyMetadata?: Record<string, string> | undefined;
 }): Record<string, string> {
   return {
-    ...input.callerMetadata,
+    ...input.tfyMetadata,
     ...buildGatewayMetadata({ session: input.session, turnId: input.turnId }),
   };
 }

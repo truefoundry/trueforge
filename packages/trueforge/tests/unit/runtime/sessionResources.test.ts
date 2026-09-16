@@ -80,7 +80,7 @@ describe('buildGatewayMetadata', () => {
 });
 
 describe('mergeGatewayMetadata', () => {
-  it('keeps caller keys and overwrites spoofed tfg.* fields so order is maintained', async () => {
+  it('keeps tfyMetadata keys and overwrites spoofed tfg.* fields so order is maintained', async () => {
     const session = await createGatewayMetadataSession({
       agent: { type: 'reference', id: 'agent-1', name: 'my-agent' },
     });
@@ -89,7 +89,7 @@ describe('mergeGatewayMetadata', () => {
       mergeGatewayMetadata({
         session,
         turnId: 'turn-1',
-        callerMetadata: {
+        tfyMetadata: {
           env: 'prod',
           [`${TFG_METADATA_PREFIX}.session_id`]: 'spoofed-session',
           [`${TFG_METADATA_PREFIX}.turn_id`]: 'spoofed-turn',
@@ -106,7 +106,7 @@ describe('mergeGatewayMetadata', () => {
     });
   });
 
-  it('matches harness-only stamps when caller metadata is absent', async () => {
+  it('matches harness-only stamps when tfyMetadata is absent', async () => {
     const session = await createGatewayMetadataSession({
       agent: { type: 'reference', id: 'agent-1', name: 'my-agent' },
     });
