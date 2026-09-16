@@ -173,4 +173,11 @@ describe('connectRemoteMcp transport selection', () => {
     expect(caller.signal.aborted).toBe(false);
     expect(mockCloseCalls).toBe(mockConnectAttempts.length);
   });
+
+  it('does not abort the connect signal after a successful handshake', async () => {
+    await connectRemoteMcp({ ...baseParams(), knownTransportType: 'sse', connectTimeoutMs: 20 });
+    await new Promise(resolve => setTimeout(resolve, 40));
+    expect(mockConnectSignals).toHaveLength(1);
+    expect(mockConnectSignals[0]?.aborted).toBe(false);
+  });
 });

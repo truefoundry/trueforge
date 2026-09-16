@@ -173,10 +173,11 @@ export async function connectRemoteMcp(params: {
     const transport = createTransport(transportType, url, params.headers, params.sessionId);
     const client = new McpClientWithTimeout(params.requestTimeoutMs);
     // withTimeout races client.connect() and does not abort it, so timed-out connects can leak
-    // sockets until GC. Merge the caller signal with connectTimeoutMs so the handshake is cancelled.
-    const connectOptions = {
-      signal: AbortSignal.any([params.signal, AbortSignal.timeout(params.connectTimeoutMs)]),
-    };
+    // sockets until GC. Abort this controller on timeout so the handshake is cancelled.
+    // AbortSignal.timeout cannot be cleared, and the SDK keeps the signal on initialize, so it
+    // would still fire connectTimeoutMs later and cancel the live client.
+    const timeout = new AbortController();
+    const connectOptions = { signal: AbortSignal.any([params.signal, timeout.signal]) };
     try {
       stampTraceHeaders(params.headers);
       await withTimeout(
@@ -187,6 +188,7 @@ export async function connectRemoteMcp(params: {
         transportType,
       );
     } catch (error) {
+      timeout.abort();
       await client.close().catch(() => {
         /* no-op */
       });
