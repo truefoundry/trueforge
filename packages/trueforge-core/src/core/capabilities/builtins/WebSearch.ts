@@ -2,12 +2,12 @@ import { z } from 'zod';
 import { type CallToolResponse, toolResultResponse } from '../../mcp/IMCPServer';
 import { defineTool, LocalToolMCP, type ToolDefinition } from '../../mcp/LocalToolMCP';
 import type { AgentTracing } from '../../tracing/AgentTracing';
-import type { WebSearchProvider } from '../../web-search/WebSearchProvider';
+import type { IWebSearchProvider } from '../../web-search/WebSearchProvider';
 import type { AgentCapability } from '../AgentCapability';
 
-export const WEB_SEARCH_SERVER_ID = 'web-search';
-export const WEB_SEARCH_TOOL_NAME = 'web_search';
-export const WEB_FETCH_TOOL_NAME = 'web_fetch';
+const WEB_SEARCH_SERVER_ID = 'web-search';
+const WEB_SEARCH_TOOL_NAME = 'web_search';
+const WEB_FETCH_TOOL_NAME = 'web_fetch';
 
 const webSearchInputSchema = z
   .object({
@@ -34,9 +34,9 @@ const webFetchInputSchema = z
 export class WebSearchTools extends LocalToolMCP {
   readonly name = WEB_SEARCH_SERVER_ID;
   readonly displayName = 'WebSearch';
-  readonly #provider: WebSearchProvider;
+  readonly #provider: IWebSearchProvider;
 
-  constructor(options: { provider: WebSearchProvider; tracing: AgentTracing }) {
+  constructor(options: { provider: IWebSearchProvider; tracing: AgentTracing }) {
     super({ tracing: options.tracing });
     this.#provider = options.provider;
   }
@@ -77,7 +77,7 @@ export class WebSearchTools extends LocalToolMCP {
   }
 }
 
-export function webSearch(options: { provider: WebSearchProvider; tracing: AgentTracing }): AgentCapability {
+export function webSearch(options: { provider: IWebSearchProvider; tracing: AgentTracing }): AgentCapability {
   return {
     systemToolSets: [new WebSearchTools(options)],
   };

@@ -4,7 +4,7 @@ import type { AgentDefinition } from '../core/runtime/AgentDefinition';
 import type { AgentInfo } from '../core/runtime/AgentThread.types';
 import type { Sandbox, SandboxInfo } from '../core/sandbox/Sandbox';
 import type { AgentTracing } from '../core/tracing/AgentTracing';
-import type { WebSearchProvider } from '../core/web-search/WebSearchProvider';
+import type { IWebSearchProvider } from '../core/web-search/WebSearchProvider';
 import type { TurnRecord } from './models/TurnRecord';
 import type { AgentSpec } from './schemas/agentSpec';
 
@@ -19,13 +19,13 @@ export interface ResolvedAgentDefinition {
  * per-request state (secrets, providers, caches) freely.
  */
 export interface ITurnResourceResolver<TTurnCustom extends object = Record<string, never>> {
-  /** Forwarded to AgentThread / orchestrator / RemoteMCP. */
-  readonly logger: Logger;
   /**
    * Host web-search backend. When set and `config.web_search.enabled`, builtins
    * register search/fetch system tools. Omit when the host has no provider configured.
    */
-  readonly webSearchProvider?: WebSearchProvider | undefined;
+  readonly webSearchProvider?: IWebSearchProvider | undefined;
+  /** Forwarded to AgentThread / orchestrator / RemoteMCP. */
+  readonly logger: Logger;
   /** Called exactly once per run, before any other method. */
   createTracing(): AgentTracing;
   /**

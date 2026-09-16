@@ -6,6 +6,7 @@ import { hasAdminRole, type ResolveRequestContext } from '../auth/identity';
 import type { ISandboxProviderStore } from '../db/sandboxProviderStore';
 import type { WithTransaction } from '../db/transaction';
 import { getCapabilitiesRoute } from '../routes/capabilityRoutes';
+import configuration, { isTrueFoundryModeEnabled } from '../config';
 import { isLocalSandboxFallbackEnabled } from '../sandbox/localRuntime';
 import { checkSnapshotStatus } from '../sandbox/providerUtils';
 import type { SandboxBuildStatus } from '../schemas/sandboxProvider';
@@ -45,12 +46,15 @@ export function createCapabilitiesRouter<TTransaction>(deps: {
     }
     const sandboxEnabled = status === 'ready' || (status === undefined && isLocalSandboxFallbackEnabled());
     const settingsEnabled = hasAdminRole(requestContext);
+    const webSearchEnabled =
+      isTrueFoundryModeEnabled(configuration) && configuration.TRUEFOUNDRY_WEB_SEARCH_PROVIDER !== undefined;
     return c.json(
       {
         data: {
           sandbox: { enabled: sandboxEnabled },
           skill: sandboxEnabled ? { enabled: true } : { enabled: false, reason: skillDisabledReason(status) },
           settings: { enabled: settingsEnabled },
+          web_search: { enabled: webSearchEnabled },
         },
       },
       200,

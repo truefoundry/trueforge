@@ -200,7 +200,10 @@ const AskUserQuestionsConfigSchema = z
 
 const WebSearchConfigSchema = z
   .object({
-    enabled: z.boolean().default(true).describe('Enable built-in web search and fetch tools. Default: true.'),
+    enabled: z
+      .boolean()
+      .default(false)
+      .describe('Enable built-in web search and fetch tools. Default: false (host must configure a provider).'),
   })
   .openapi('WebSearchConfig');
 
@@ -223,7 +226,7 @@ export const RuntimeConfigSchema = z
     })),
     generative_ui: GenerativeUIConfigSchema.default(() => ({ enabled: true })),
     ask_user_questions: AskUserQuestionsConfigSchema.default(() => ({ enabled: true })),
-    web_search: WebSearchConfigSchema.default(() => ({ enabled: true })),
+    web_search: WebSearchConfigSchema.default(() => ({ enabled: false })),
   })
   .openapi('RuntimeConfig');
 

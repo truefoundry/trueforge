@@ -14,7 +14,7 @@ import {
   type TurnInputItem,
   type TurnRecordWithoutSnapshot,
 } from '@truefoundry/trueforge-core/agent-session';
-import type { WebSearchProvider } from '@truefoundry/trueforge-core/core';
+import type { IWebSearchProvider } from '@truefoundry/trueforge-core/core';
 import {
   AgentHarnessError,
   existingSandboxIdForProvider,
@@ -65,8 +65,6 @@ import {
 import { checkSnapshotStatus } from '../sandbox/providerUtils';
 import { resolveWebSearchProvider } from '../websearch/providers';
 import { canReadAgentBoundResource } from './agentAccess';
-
-const hostWebSearchProvider: WebSearchProvider | undefined = resolveWebSearchProvider();
 
 export function toWireTurn(record: TurnRecordWithoutSnapshot): Turn {
   return {
@@ -149,13 +147,13 @@ function createTurnResolver(deps: {
   sandboxProviderStore: ISandboxProviderStore;
   agentStore: IAgentStore;
   modelProviderStore: IModelProviderStore;
+  webSearchProvider: IWebSearchProvider | undefined;
   logger: Logger;
   signal: AbortSignal;
   userRef: string;
   session: SessionHandle;
   turnId: string;
   tfyMetadata: Record<string, string> | undefined;
-  webSearchProvider: WebSearchProvider | undefined;
 }): TurnResourceResolver {
   const {
     mcpServerStore,
@@ -163,13 +161,13 @@ function createTurnResolver(deps: {
     sandboxProviderStore,
     agentStore,
     modelProviderStore,
+    webSearchProvider,
     logger,
     signal,
     userRef,
     session,
     turnId,
     tfyMetadata,
-    webSearchProvider,
   } = deps;
   const tenant_id = session.tenant_id;
   const sessionId = session.session_id;
@@ -413,13 +411,13 @@ export async function beginTurnExecution(params: {
     sandboxProviderStore: deps.sandboxProviderStore,
     agentStore: deps.agentStore,
     modelProviderStore: deps.modelProviderStore,
+    webSearchProvider: resolveWebSearchProvider(),
     logger: deps.logger,
     signal: abortController.signal,
     userRef,
     session,
     turnId,
     tfyMetadata,
-    webSearchProvider: hostWebSearchProvider,
   });
 
   // First turn only: derive the title from the first user message. The store

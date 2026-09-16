@@ -33,7 +33,7 @@ export interface WebFetchPages {
  * Host-supplied web search backend. Implementations map vendor APIs onto
  * {@link WebSearchHits} / {@link WebFetchPages} so the capability tools stay provider-agnostic.
  */
-export interface WebSearchProvider {
+export interface IWebSearchProvider {
   readonly id: WebSearchProviders;
   search(input: { search_queries: string[]; objective: string | undefined }): Promise<WebSearchHits>;
   fetch(input: { urls: string[]; objective: string | undefined }): Promise<WebFetchPages>;

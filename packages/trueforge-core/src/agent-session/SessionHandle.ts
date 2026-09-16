@@ -467,8 +467,8 @@ export class SessionHandle<
         isChild,
         sandboxAvailable: Boolean(input.sandbox),
         tracing: input.tracing,
-        logger: input.resolver.logger,
         webSearchProvider: input.resolver.webSearchProvider,
+        logger: input.resolver.logger,
       }),
       ...(extraCapabilities ?? []),
     ];
@@ -523,8 +523,8 @@ export class SessionHandle<
           isChild: true,
           sandboxAvailable: Boolean(input.sandbox),
           tracing: input.tracing,
-          logger: input.resolver.logger,
           webSearchProvider: input.resolver.webSearchProvider,
+          logger: input.resolver.logger,
         }),
         ...(extraCapabilities ?? []),
       ];

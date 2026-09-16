@@ -23,11 +23,20 @@ const SettingsCapabilitySchema = z
   })
   .openapi('SettingsCapability');
 
+const WebSearchCapabilitySchema = z
+  .object({
+    enabled: z
+      .boolean()
+      .describe('Whether a host web-search provider is configured (TrueFoundry mode + env).'),
+  })
+  .openapi('WebSearchCapability');
+
 const CapabilitiesDataSchema = z
   .object({
     sandbox: SandboxCapabilitySchema,
     skill: SkillCapabilitySchema,
     settings: SettingsCapabilitySchema,
+    web_search: WebSearchCapabilitySchema,
   })
   .openapi('CapabilitiesData');
 

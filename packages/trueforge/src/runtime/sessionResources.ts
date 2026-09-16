@@ -14,7 +14,7 @@ import { HTTPException } from 'hono/http-exception';
 import { join } from 'node:path';
 import type { Logger } from 'winston';
 import { z } from 'zod';
-import configuration from '../config';
+import configuration, { isTrueFoundryModeEnabled } from '../config';
 import type { IMcpServerStore, IMcpServerWithAuthStore } from '../db/mcpServerStore';
 import type { IModelProviderStore } from '../db/modelProviderStore';
 import type { ISandboxProviderStore } from '../db/sandboxProviderStore';
@@ -353,5 +353,15 @@ export async function validateAgentSpec({
           : 'sandbox is enabled but no sandbox provider is configured — PUT /settings/sandbox-providers',
       });
     }
+  }
+
+  if (
+    spec.config.web_search.enabled &&
+    !(isTrueFoundryModeEnabled(configuration) && configuration.TRUEFOUNDRY_WEB_SEARCH_PROVIDER !== undefined)
+  ) {
+    throw new HTTPException(422, {
+      message:
+        'web_search is enabled but no web-search provider is configured — set TRUEFOUNDRY_WEB_SEARCH_PROVIDER in TrueFoundry mode',
+    });
   }
 }

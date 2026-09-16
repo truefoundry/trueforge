@@ -3,31 +3,35 @@ import {
   WebSearchProviders,
   type WebFetchPages,
   type WebSearchHits,
-  type WebSearchProvider,
+  type IWebSearchProvider,
 } from './WebSearchProvider';
+
+export type ParallelSearchMode = 'turbo' | 'fast' | 'basic' | 'advanced';
 
 export interface ParallelWebSearchProviderOptions {
   apiKey: string;
+  /** Parallel Search mode preset. Caller supplies the default (e.g. `turbo`). */
+  mode: ParallelSearchMode;
 }
 
-const SEARCH_MODE = 'turbo'; // hardcoded for now
 /**
  * Parallel Search + Extract via the official `parallel-web` SDK.
- * Search always uses turbo mode.
  */
-export class ParallelWebSearchProvider implements WebSearchProvider {
+export class ParallelWebSearchProvider implements IWebSearchProvider {
   readonly id = WebSearchProviders.Parallel;
   readonly #client: Parallel;
+  readonly #mode: ParallelSearchMode;
 
   constructor(options: ParallelWebSearchProviderOptions) {
     this.#client = new Parallel({ apiKey: options.apiKey });
+    this.#mode = options.mode;
   }
 
   async search(input: { search_queries: string[]; objective: string | undefined }): Promise<WebSearchHits> {
     const response = await this.#client.search({
       search_queries: input.search_queries,
       ...(input.objective ? { objective: input.objective } : {}),
-      mode: SEARCH_MODE,
+      mode: this.#mode,
     });
     return {
       hits: response.results.map(result => ({

@@ -13,7 +13,7 @@ import { openUI } from '../core/capabilities/builtins/OpenUI';
 import { webSearch } from '../core/capabilities/builtins/WebSearch';
 import type { AgentDefinition } from '../core/runtime/AgentDefinition';
 import type { AgentTracing } from '../core/tracing/AgentTracing';
-import type { WebSearchProvider } from '../core/web-search/WebSearchProvider';
+import type { IWebSearchProvider } from '../core/web-search/WebSearchProvider';
 import type { AgentSpec } from './schemas/agentSpec';
 
 export function builtinsFromSpec(input: {
@@ -23,10 +23,10 @@ export function builtinsFromSpec(input: {
   isChild: boolean;
   sandboxAvailable: boolean;
   tracing: AgentTracing;
+  webSearchProvider: IWebSearchProvider | undefined;
   logger: Logger;
-  webSearchProvider: WebSearchProvider | undefined;
 }): AgentCapability[] {
-  const { spec, definition, isChild, sandboxAvailable, tracing, logger, webSearchProvider } = input;
+  const { spec, definition, isChild, sandboxAvailable, tracing, webSearchProvider, logger } = input;
   const config = spec.config;
   const capabilities: AgentCapability[] = [currentDateTime({ tracing })];
 

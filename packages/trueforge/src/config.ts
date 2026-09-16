@@ -155,18 +155,31 @@ export function parseTenantIdToAllowedModelProviderAccounts(raw: string | undefi
 }
 
 /**
- * Parses `TRUEFOUNDRY_WEB_SEARCH_PROVIDER` JSON. Empty / unset → `undefined` (feature off).
- * Expected keys: `name` (`parallel`), `api_key`.
+ * Parsed `TRUEFOUNDRY_WEB_SEARCH_PROVIDER` JSON. Empty / unset → `undefined` (feature off).
+ * Requires non-empty `name` (`parallel`) and `api_key`.
  */
-export function parseTrueFoundryWebSearchProvider(raw: string | undefined): Record<string, string> | undefined {
+export type TrueFoundryWebSearchProviderEnv = {
+  name: string;
+  api_key: string;
+};
+
+export function parseTrueFoundryWebSearchProvider(
+  raw: string | undefined,
+): TrueFoundryWebSearchProviderEnv | undefined {
   if (!raw?.trim()) {
     return undefined;
   }
   try {
-    return z.record(z.string(), z.string()).parse(JSON.parse(raw));
+    const parsed = z.record(z.string(), z.string()).parse(JSON.parse(raw));
+    const name = parsed['name']?.trim();
+    const apiKey = parsed['api_key']?.trim();
+    if (!name || !apiKey) {
+      throw new Error('missing name or api_key');
+    }
+    return { name, api_key: apiKey };
   } catch (error) {
     throw new Error(
-      'Environment variable TRUEFOUNDRY_WEB_SEARCH_PROVIDER must be a JSON object of string keys to string values (e.g. {"name":"parallel","api_key":"..."})',
+      'Environment variable TRUEFOUNDRY_WEB_SEARCH_PROVIDER must be a JSON object with non-empty string "name" and "api_key" (e.g. {"name":"parallel","api_key":"..."})',
       { cause: error },
     );
   }
@@ -763,7 +776,7 @@ export type DistributedServerConfiguration = SharedServerConfiguration & {
    * `Record<string, string>` with `name` (`parallel`) and `api_key`.
    * Unset / empty → web search tools are not registered. Env: `TRUEFOUNDRY_WEB_SEARCH_PROVIDER`.
    */
-  TRUEFOUNDRY_WEB_SEARCH_PROVIDER: Record<string, string> | undefined;
+  TRUEFOUNDRY_WEB_SEARCH_PROVIDER: TrueFoundryWebSearchProviderEnv | undefined;
 };
 
 export type ServerConfiguration = StandaloneServerConfiguration | DistributedServerConfiguration;
