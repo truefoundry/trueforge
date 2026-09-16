@@ -1,5 +1,6 @@
 import { type Kysely, sql } from 'kysely';
 
+import configuration from '../../config';
 import type { Database } from './types';
 
 export const TRUEFORGE_SCHEMA = 'trueforge';
@@ -41,10 +42,15 @@ export async function ensureTrueforgeSchema(db: Kysely<Database>): Promise<void>
     }
 
     await sql`CREATE SCHEMA IF NOT EXISTS ${sql.id(TRUEFORGE_SCHEMA)}`.execute(txn);
-    for (const tableName of TABLES_TO_MOVE) {
-      await sql`
-        ALTER TABLE IF EXISTS ${sql.id('public', tableName)} SET SCHEMA ${sql.id(TRUEFORGE_SCHEMA)}
-      `.execute(txn);
+    if (
+      !configuration.STANDALONE &&
+      configuration.AUTOMATICALLY_MOVE_TRUEFORGE_TABLES_FROM_PUBLIC_TO_TRUEFORGE_SCHEMA
+    ) {
+      for (const tableName of TABLES_TO_MOVE) {
+        await sql`
+          ALTER TABLE IF EXISTS ${sql.id('public', tableName)} SET SCHEMA ${sql.id(TRUEFORGE_SCHEMA)}
+        `.execute(txn);
+      }
     }
   });
 }
