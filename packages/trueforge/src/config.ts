@@ -11,7 +11,7 @@
  * - `false`: Postgres + Redis (defaults to local trueforge credentials /
  *   `redis://localhost:6379`).
  */
-import { existsSync } from 'node:fs';
+import { existsSync, readFileSync } from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
@@ -58,6 +58,17 @@ const DEFAULT_OIDC_SCOPES = 'openid,profile,email';
 export interface GetEnvOptions {
   defaultValue?: string;
   required?: boolean;
+}
+
+const POSTGRES_SSL_MODES = ['disable', 'prefer', 'require', 'verify-ca', 'verify-full', 'no-verify'] as const;
+type PostgresSslMode = (typeof POSTGRES_SSL_MODES)[number];
+
+/** pg Pool `ssl` object fields (client certs / CA / no-verify). */
+export interface PostgresSslConfig {
+  cert?: string;
+  key?: string;
+  ca?: string;
+  rejectUnauthorized?: boolean;
 }
 
 function getEnv(key: string, options?: GetEnvOptions): string | undefined {
@@ -211,28 +222,19 @@ function parseTrueFoundrySandboxProvider(raw: string | undefined): 'daytona' | '
 }
 
 /** Parses `POSTGRES_SSL_MODE`. Unset/blank → `''`. Unknown values throw. */
-function parsePostgresSslMode(raw: string | undefined): string {
-  if (!raw) {
+function validatePostgresSslMode(raw: string | undefined): PostgresSslMode | '' {
+  const mode = raw?.trim() ?? '';
+  if (!mode) {
     return '';
   }
-  const mode = raw.trim();
-  if (mode === '') {
-    return '';
+  for (const allowed of POSTGRES_SSL_MODES) {
+    if (mode === allowed) {
+      return allowed;
+    }
   }
-  switch (mode) {
-    case 'disable':
-    case 'prefer':
-    case 'require':
-    case 'verify-ca':
-    case 'verify-full':
-    case 'no-verify':
-      return mode;
-    default:
-      throw new Error(
-        'Environment variable POSTGRES_SSL_MODE must be one of disable, prefer, require, verify-ca, ' +
-          `verify-full, no-verify; got "${mode}"`,
-      );
-  }
+  throw new Error(
+    `Environment variable POSTGRES_SSL_MODE must be one of ${POSTGRES_SSL_MODES.join(', ')}; got "${mode}"`,
+  );
 }
 
 /**
@@ -298,6 +300,7 @@ function resolveRedisUrl(): string {
 /**
  * Postgres connection string for distributed mode.
  * Prefers `DATABASE_URL` when set (Railway / managed Postgres); otherwise builds from `POSTGRES_*`.
+ * TLS is not put on the URL — see `resolvePostgresSsl` / `DATABASE_SSL` (servicefoundry-style).
  */
 function resolvePostgresDatabaseUrl(): string {
   const databaseUrl = getEnv('DATABASE_URL');
@@ -315,7 +318,6 @@ function resolvePostgresDatabaseUrl(): string {
     raw: getEnv('POSTGRES_PORT'),
     defaultValue: DEFAULT_POSTGRES_PORT,
   });
-  const postgresSslMode = parsePostgresSslMode(getEnv('POSTGRES_SSL_MODE'));
   if (
     postgresUser.trim() === '' ||
     postgresPassword.trim() === '' ||
@@ -333,24 +335,61 @@ function resolvePostgresDatabaseUrl(): string {
     host: postgresHost,
     port: postgresPort,
     database: postgresDb,
-    sslMode: postgresSslMode,
   });
 }
 
-/** Builds a Postgres connection URL from discrete `POSTGRES_*` parts. */
+/**
+ * Postgres TLS for the pg Pool — same shape as servicefoundry `getSSLConfig`.
+ * Env: `POSTGRES_SSL_MODE`, `POSTGRES_SSL_CERT_PATH`, `POSTGRES_SSL_KEY_PATH`, `POSTGRES_SSL_CA_PATH`.
+ * Not written into `DATABASE_URL`. `prefer` / `require` / `verify-ca` / `verify-full` all map to
+ * `ssl: true` (or the cert object); use `no-verify` for encrypt-without-verify.
+ */
+function resolvePostgresSsl(): boolean | PostgresSslConfig {
+  const sslMode = getEnv('POSTGRES_SSL_MODE');
+  const cert = readOptionalFileContentsEnv('POSTGRES_SSL_CERT_PATH');
+  const key = readOptionalFileContentsEnv('POSTGRES_SSL_KEY_PATH');
+  // Cloud SQL / private CA often fail verify-full; Node cannot express verify-ca without hostname check.
+  const ca = readOptionalFileContentsEnv('POSTGRES_SSL_CA_PATH');
+
+  let ssl: boolean | PostgresSslConfig = false;
+  if (cert || key || ca) {
+    ssl = {
+      ...(cert ? { cert } : {}),
+      ...(key ? { key } : {}),
+      ...(ca ? { ca } : {}),
+    };
+  }
+
+  switch (validatePostgresSslMode(sslMode)) {
+    case 'disable':
+      return false;
+    case 'prefer':
+    case 'require':
+    case 'verify-ca':
+    case 'verify-full':
+      return ssl || true;
+    case 'no-verify':
+      return { ...(ssl || {}), rejectUnauthorized: false };
+    default:
+      return ssl;
+  }
+}
+
+/** Reads a PEM file from an optional path env; unset/blank → `undefined`. */
+function readOptionalFileContentsEnv(envKey: string): string | undefined {
+  const filePath = resolveOptionalPathEnv(envKey);
+  return filePath ? readFileSync(filePath, 'utf8') : undefined;
+}
+
+/** Builds a Postgres connection URL from discrete `POSTGRES_*` parts (no TLS query params). */
 function buildPostgresConnectionString(parts: {
   user: string;
   password: string;
   host: string;
   port: number;
   database: string;
-  sslMode: string;
 }): string {
-  let connectionString = `postgres://${encodeURIComponent(parts.user)}:${encodeURIComponent(parts.password)}@${parts.host}:${String(parts.port)}/${encodeURIComponent(parts.database)}`;
-  if (parts.sslMode !== '') {
-    connectionString += `?sslmode=${encodeURIComponent(parts.sslMode)}`;
-  }
-  return connectionString;
+  return `postgres://${encodeURIComponent(parts.user)}:${encodeURIComponent(parts.password)}@${parts.host}:${String(parts.port)}/${encodeURIComponent(parts.database)}`;
 }
 
 function resolveOIDCConfig(): OIDCConfig | undefined {
@@ -603,11 +642,16 @@ export type DistributedServerConfiguration = SharedServerConfiguration & {
    */
   STANDALONE: false;
   /**
-   * Postgres connection string. Env: `DATABASE_URL` when set; otherwise built from `POSTGRES_*`
-   * (including optional `POSTGRES_SSL_MODE` as `sslmode`).
+   * Postgres connection string. Env: `DATABASE_URL` when set; otherwise built from `POSTGRES_*`.
    * Form: `postgres://USER:PASSWORD@HOST:PORT/DB` (or `postgresql://…`) with user/password URL-encoded.
+   * TLS is not encoded here — see `DATABASE_SSL`.
    */
   DATABASE_URL: string;
+  /**
+   * Postgres TLS for the pg Pool (servicefoundry-style).
+   * Env: `POSTGRES_SSL_MODE`, `POSTGRES_SSL_CERT_PATH`, `POSTGRES_SSL_KEY_PATH`, `POSTGRES_SSL_CA_PATH`.
+   */
+  DATABASE_SSL: boolean | PostgresSslConfig;
   /** Max connections in the `pg` Pool. Env: `DATABASE_POOL_MAX`. Default 10. */
   DATABASE_POOL_MAX: number;
   /**
@@ -630,6 +674,15 @@ export type DistributedServerConfiguration = SharedServerConfiguration & {
   /**
    * When set, models/MCP/agents are backed by the TrueFoundry ServiceFoundry server with the
    * caller's token. Unset = local Postgres stores. Mutually exclusive with OIDC.
+   * Env: `TRUEFOUNDRY_SERVICEFOUNDRY_SERVER_URL`.
+   */
+  /**
+   * When set, automatically move public TrueForge tables to the TrueForge schema.
+   * Env: `AUTOMATICALLY_MOVE_TRUEFORGE_TABLES_FROM_PUBLIC_TO_TRUEFORGE_SCHEMA`. Default true.
+   */
+  AUTOMATICALLY_MOVE_TRUEFORGE_TABLES_FROM_PUBLIC_TO_TRUEFORGE_SCHEMA: boolean;
+  /**
+   * The URL of the TrueFoundry ServiceFoundry server.
    * Env: `TRUEFOUNDRY_SERVICEFOUNDRY_SERVER_URL`.
    */
   TRUEFOUNDRY_SERVICEFOUNDRY_SERVER_URL: string | undefined;
@@ -815,6 +868,7 @@ const configuration: ServerConfiguration = standalone
       ...shared,
       STANDALONE: false,
       DATABASE_URL: resolvePostgresDatabaseUrl(),
+      DATABASE_SSL: resolvePostgresSsl(),
       DATABASE_POOL_MAX: parsePositiveInt({
         envKey: 'DATABASE_POOL_MAX',
         raw: getEnv('DATABASE_POOL_MAX'),
@@ -832,6 +886,11 @@ const configuration: ServerConfiguration = standalone
       }),
       REDIS_URL: resolveRedisUrl(),
       OIDC: resolveOIDCConfig(),
+      AUTOMATICALLY_MOVE_TRUEFORGE_TABLES_FROM_PUBLIC_TO_TRUEFORGE_SCHEMA: parseBoolean({
+        envKey: 'AUTOMATICALLY_MOVE_TRUEFORGE_TABLES_FROM_PUBLIC_TO_TRUEFORGE_SCHEMA',
+        raw: getEnv('AUTOMATICALLY_MOVE_TRUEFORGE_TABLES_FROM_PUBLIC_TO_TRUEFORGE_SCHEMA'),
+        defaultValue: true,
+      }),
       TRUEFOUNDRY_SERVICEFOUNDRY_SERVER_URL: getEnv('TRUEFOUNDRY_SERVICEFOUNDRY_SERVER_URL', { required: false }),
       TRUEFOUNDRY_API_KEY: getEnv('TRUEFOUNDRY_API_KEY', { required: false }),
       TRUEFOUNDRY_SERVICEFOUNDRY_HTTP_TIMEOUT_MS: parsePositiveInt({
