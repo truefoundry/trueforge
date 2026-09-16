@@ -17,6 +17,7 @@ import { useIsMobile } from '../lib/useIsMobile.js';
 import { BottomSheet } from '../primitives/BottomSheet.js';
 import { Button } from '../primitives/Button.js';
 import { CatalogLogo } from '../primitives/CatalogLogo.js';
+import { Checkbox } from '../primitives/Checkbox.js';
 import { Tooltip } from '../primitives/Tooltip.js';
 import { DraftCatalogEmptyState } from './DraftCatalogEmptyState.js';
 import { useDraftCatalog } from './DraftCatalogProvider.js';
@@ -57,22 +58,6 @@ const TABS: { id: AttachTab; label: string; icon: string }[] = [
 ];
 
 const SPEC_FLUSH_MS = 300;
-
-function Checkbox({ checked }: { checked: boolean }) {
-  return (
-    <span
-      className={cn(
-        'flex size-4 shrink-0 items-center justify-center rounded border',
-        checked
-          ? 'border-primary-button-bg bg-primary-button-bg text-primary-button-text'
-          : 'border-input-border bg-input-box-bg',
-      )}
-      aria-hidden
-    >
-      {checked ? <Icon name="check" className="size-3" /> : null}
-    </span>
-  );
-}
 
 export function CatalogRow({
   title,

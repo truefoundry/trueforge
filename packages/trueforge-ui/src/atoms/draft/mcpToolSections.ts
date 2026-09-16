@@ -34,6 +34,12 @@ export const MCP_TOOL_SECTION_LABELS: Record<McpToolSectionId, string> = {
   destructive: 'Destructive Actions',
 };
 
+export const MCP_TOOL_SECTION_ENABLE_ALL_LABELS: Record<McpToolSectionId, string> = {
+  'read-only': 'Enable all read-only tools',
+  others: 'Enable all other tools',
+  destructive: 'Enable all destructive tools',
+};
+
 export function partitionMcpToolsBySection(
   tools: readonly McpToolSelection[],
 ): Record<McpToolSectionId, McpToolSelection[]> {

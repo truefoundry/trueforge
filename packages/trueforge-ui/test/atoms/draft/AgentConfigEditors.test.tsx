@@ -1206,7 +1206,7 @@ describe('AgentConfigEditors', () => {
     await waitFor(() => expect(loadMcpTools).toHaveBeenLastCalledWith('github'));
     rendered.rerender(renderEditors(slackSpec));
 
-    expect(loadMcpTools).toHaveBeenLastCalledWith('github');
+    expect(screen.getByRole('button', { name: 'GitHub' })).toHaveAttribute('aria-current', 'true');
     expect(screen.getAllByRole('menuitemcheckbox', { name: /issues.list/ }).length).toBeGreaterThan(0);
     expect(screen.getByLabelText('Slack selected')).toBeInTheDocument();
   });
