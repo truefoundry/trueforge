@@ -1,6 +1,6 @@
 ---
-"@truefoundry/trueforge": patch
 "@truefoundry/trueforge-ui": patch
+"@truefoundry/trueforge": patch
 ---
 
-Expose tenant create grants on list-permissions (`resource_type: tenant`) via a `{ type, permissions }` envelope, and gate Build Agent / New Agent on `permissions.agent` including `CREATE`.
+Gate Save Agent (create) on tenant CREATE from list-permissions, keep Update Agent on agent MANAGE, unwrap `{ type, permissions }`, and bump `@truefoundry/assistant-ui-runtime` to `0.1.39`.

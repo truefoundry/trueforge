@@ -9,7 +9,7 @@ import {
   useResourcePermissions,
 } from '@/hooks/useResourcePermissions.js';
 import { ServerProvider } from '@/server/ServerContext.js';
-import type { ListPermissionsResponse, ResourcePermission } from '@/server/types.js';
+import type { ListPermissionsResponse } from '@/server/types.js';
 import { createMockAgentUIServer } from '../server/mockServer.js';
 
 describe('useResourcePermissions', () => {
@@ -21,10 +21,10 @@ describe('useResourcePermissions', () => {
   });
 
   it('fails closed until grants load and denies missing ids', async () => {
-    let resolvePermissions: ((value: { data: Record<string, ResourcePermission[]> }) => void) | undefined;
+    let resolvePermissions: ((value: ListPermissionsResponse) => void) | undefined;
     const listPermissions = vi.fn(
       () =>
-        new Promise<{ data: Record<string, ResourcePermission[]> }>(resolve => {
+        new Promise<ListPermissionsResponse>(resolve => {
           resolvePermissions = resolve;
         }),
     );
@@ -39,7 +39,7 @@ describe('useResourcePermissions', () => {
 
     expect(result.current.allows('agent-1', 'MANAGE')).toBe(false);
     await act(async () => {
-      resolvePermissions?.({ data: { 'agent-1': ['USE', 'MANAGE'] } });
+      resolvePermissions?.({ data: { type: 'agent', permissions: { 'agent-1': ['USE', 'MANAGE'] } } });
     });
     await waitFor(() => expect(result.current.loading).toBe(false));
     expect(result.current.allows('agent-1', 'USE')).toBe(true);
@@ -49,9 +49,14 @@ describe('useResourcePermissions', () => {
   });
 
   it('chunks requests at 100 ids and fails closed on errors', async () => {
-    const listPermissions = vi.fn(async ({ resourceIds }: { resourceIds: string[] }) => ({
-      data: Object.fromEntries(resourceIds.map(resourceId => [resourceId, ['DELETE' as const]])),
-    }));
+    const listPermissions = vi.fn(
+      async ({ resourceIds }: { resourceIds: string[] }): Promise<ListPermissionsResponse> => ({
+        data: {
+          type: 'session',
+          permissions: Object.fromEntries(resourceIds.map(resourceId => [resourceId, ['DELETE']])),
+        },
+      }),
+    );
     const server = createMockAgentUIServer({ permissions: { listPermissions } });
     const wrapper = ({ children }: { children: ReactNode }) => (
       <ServerProvider server={server}>{children}</ServerProvider>
@@ -73,15 +78,15 @@ describe('useResourcePermissions', () => {
 
   it('keeps known grants while an expanded request loads and fails', async () => {
     let rejectExpanded: ((reason: unknown) => void) | undefined;
-    const knownResponse: { data: Record<string, ResourcePermission[]> } = {
-      data: { known: ['MANAGE'] },
+    const knownResponse: ListPermissionsResponse = {
+      data: { type: 'session', permissions: { known: ['MANAGE'] } },
     };
     const listPermissions = vi
       .fn()
       .mockResolvedValueOnce(knownResponse)
       .mockImplementationOnce(
         () =>
-          new Promise<{ data: Record<string, ResourcePermission[]> }>((_resolve, reject) => {
+          new Promise<ListPermissionsResponse>((_resolve, reject) => {
             rejectExpanded = reject;
           }),
       );
