@@ -213,6 +213,7 @@ function createTurnResolver(deps: {
     },
     mcpRequestTimeoutMs: configuration.MCP_REQUEST_TIMEOUT_MS,
     mcpConnectTimeoutMs: configuration.MCP_CONNECT_TIMEOUT_MS,
+    mcpMaxResponseBytes: configuration.MCP_MAX_RESPONSE_BYTES,
     sandboxProvider: async ({ spec, existingSandboxId, tracing }) => {
       const provider = await resolveSandboxProvider({
         tenant_id,
