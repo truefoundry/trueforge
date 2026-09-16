@@ -89,6 +89,38 @@ describe('AgentOverview MCP servers', () => {
     expect(screen.getByRole('button', { name: /parallel-web/ })).toBeEnabled();
   });
 
+  it('applies tag-based enableTools and subtracts disableTools', async () => {
+    renderOverview({
+      getMcpTools: vi.fn(async () => slackTools),
+      agentDetail: {
+        ...detail,
+        agentSpec: {
+          ...detail.agentSpec,
+          mcpServers: [
+            { name: 'slack', enableTools: ['@all'], disableTools: ['slack_update_canvas'] },
+            { name: 'parallel-web', enableTools: ['@read-only'] },
+          ],
+        },
+      },
+    });
+
+    expect(await screen.findByText('2 tools')).toBeInTheDocument();
+    fireEvent.click(screen.getByRole('button', { name: /slack/ }));
+    expect(screen.queryByText('slack_update_canvas')).not.toBeInTheDocument();
+    expect(screen.getByText('slack_send_message')).toBeInTheDocument();
+  });
+
+  it('falls back to the selector text when tags cannot be resolved', () => {
+    renderOverview({
+      agentDetail: {
+        ...detail,
+        agentSpec: { ...detail.agentSpec, mcpServers: [{ name: 'slack', enableTools: ['@read-only'] }] },
+      },
+    });
+
+    expect(screen.getByText('@read-only')).toBeInTheDocument();
+  });
+
   it('counts only the servers it can render', () => {
     renderOverview({
       agentDetail: { ...detail, agentSpec: { ...detail.agentSpec, mcpServers: [] } },

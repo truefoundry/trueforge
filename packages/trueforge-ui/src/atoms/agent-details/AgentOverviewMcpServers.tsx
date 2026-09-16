@@ -8,11 +8,13 @@ import type { McpToolSelection } from '../../server/types.js';
 import { useSlot } from '../../theme/SlotsProvider.js';
 import {
   approvalSelectorsFromMount,
+  disableSelectorsFromMount,
   editableMountsFromSpec,
-  enabledToolsFromMount,
+  enableSelectorsFromMount,
 } from '../draft/agentConfigMounts.js';
 import { namedToolRequiresApproval } from '../draft/mcpToolApprovals.js';
 import { mcpToolKind, type McpToolKind } from '../draft/mcpToolSections.js';
+import { selectedToolNames, TOOL_TAG_ALL } from '../draft/mcpToolSelectors.js';
 import { cn } from '../lib/cn.js';
 import { Tooltip } from '../primitives/Tooltip.js';
 
@@ -30,9 +32,14 @@ const KIND_ORDER: Record<McpToolKind | 'unknown', number> = {
   destructive: 3,
 };
 
-function toolCountLabel({ count, unknown }: { count: number; unknown: boolean }): string {
-  if (unknown) return 'All tools';
+function toolCountLabel(count: number): string {
   return count === 1 ? '1 tool' : `${count} tools`;
+}
+
+/** Shown while tags cannot be resolved: the selectors themselves are the best available answer. */
+function toolSelectorLabel(enableSelectors: readonly string[]): string {
+  if (enableSelectors.includes(TOOL_TAG_ALL)) return 'All tools';
+  return enableSelectors.filter(selector => selector.startsWith('@')).join(' ');
 }
 
 function ApprovalCountBadge({ count }: { count: number }) {
@@ -117,8 +124,13 @@ export function AgentOverviewMcpServers({ mcpServers }: { mcpServers: unknown })
         {mounts.map(mount => {
           const tools = toolsByServer[mount.name] ?? [];
           const selectors = approvalSelectorsFromMount(mount.value);
-          const enabled = enabledToolsFromMount(mount.value);
-          const toolNames = (enabled === 'all' ? tools.map(tool => tool.name) : enabled)
+          const enableSelectors = enableSelectorsFromMount(mount.value);
+          const enabled = selectedToolNames({
+            enableSelectors,
+            disableSelectors: disableSelectorsFromMount(mount.value),
+            tools,
+          });
+          const toolNames = enabled.names
             .map(toolName => {
               const tool = tools.find(item => item.name === toolName);
               const kind = tool === undefined ? undefined : mcpToolKind(tool);
@@ -157,7 +169,7 @@ export function AgentOverviewMcpServers({ mcpServers }: { mcpServers: unknown })
                 />
                 <span className="min-w-0 flex-1 truncate font-medium">{mount.name}</span>
                 <span className="shrink-0 text-text-secondary">
-                  {toolCountLabel({ count: toolNames.length, unknown: enabled === 'all' && tools.length === 0 })}
+                  {enabled.resolved ? toolCountLabel(toolNames.length) : toolSelectorLabel(enableSelectors)}
                 </span>
                 {approvalCount > 0 ? <ApprovalCountBadge count={approvalCount} /> : null}
               </button>

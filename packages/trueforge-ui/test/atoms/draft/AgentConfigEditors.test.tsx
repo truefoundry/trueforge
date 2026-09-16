@@ -1252,6 +1252,47 @@ describe('AgentConfigEditors', () => {
     });
   });
 
+  it('retries a background tool listing that failed', async () => {
+    const loadMcpTools = vi.fn(async (connectorId: string) => {
+      if (connectorId !== 'slack') return [{ id: 'issues.list', name: 'issues.list' }];
+      if (loadMcpTools.mock.calls.filter(([id]) => id === 'slack').length === 1) {
+        throw new Error('Slack is unreachable');
+      }
+      return [{ id: 'messages.list', name: 'messages.list' }];
+    });
+    const renderEditors = () => (
+      <SlotsProvider>
+        <AgentConfigEditors
+          editor="mcp"
+          spec={{
+            model: { name: 'openai/gpt' },
+            mcpServers: [
+              { id: 'github', name: 'GitHub', enableTools: ['@all'] },
+              { id: 'slack', name: 'Slack', enableTools: ['@all'] },
+            ],
+          }}
+          models={[]}
+          connectors={[
+            { id: 'github', name: 'GitHub', authenticated: true },
+            { id: 'slack', name: 'Slack', authenticated: true },
+          ]}
+          skills={[]}
+          loading={false}
+          error={null}
+          loadMcpTools={loadMcpTools}
+          onChange={vi.fn()}
+          onClose={vi.fn()}
+        />
+      </SlotsProvider>
+    );
+    const rendered = render(renderEditors());
+
+    await waitFor(() => expect(loadMcpTools).toHaveBeenCalledWith('slack'));
+    rendered.rerender(renderEditors());
+
+    await waitFor(() => expect(loadMcpTools.mock.calls.filter(([id]) => id === 'slack')).toHaveLength(2));
+  });
+
   it('enables sandbox when a skill is added', () => {
     const spec: AgentSpec = { model: { name: 'openai/gpt' } };
     const onChange = vi.fn();

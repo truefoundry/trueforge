@@ -157,16 +157,16 @@ export function AgentConfigEditors({
       pending.map(async connectorId => {
         try {
           const nextTools = await loadMcpTools(connectorId);
+          settled.add(connectorId);
           setToolsByConnector(previous => ({ ...previous, [connectorId]: nextTools }));
         } catch {
-          // Approval badges fall back to name-only matching when a server cannot list its tools.
-        } finally {
-          settled.add(connectorId);
+          // Approval badges fall back to name-only matching until a later run retries the listing.
         }
       }),
     );
     return () => {
-      // Listings still in flight lose their mark so a later run can retry them.
+      // Listings that produced no tools (still in flight, or failed) lose their mark so a later
+      // run retries them.
       for (const connectorId of pending) {
         if (!settled.has(connectorId)) requested.delete(connectorId);
       }

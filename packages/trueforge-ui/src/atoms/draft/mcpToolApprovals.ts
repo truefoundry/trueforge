@@ -1,39 +1,14 @@
 import type { McpToolSelection } from '../../server/types.js';
-import { mcpToolAnnotations } from './mcpToolSections.js';
-
-const APPROVAL_TAG_ALL = '@all';
-const APPROVAL_TAG_WRITE = '@write';
-const APPROVAL_TAG_DESTRUCTIVE = '@destructive';
+import {
+  TOOL_TAG_ALL,
+  TOOL_TAG_DESTRUCTIVE,
+  TOOL_TAG_WRITE,
+  toolMatchesSelectors,
+  toolMatchesTag,
+} from './mcpToolSelectors.js';
 
 /** Harness default applied when a mount omits `requireApprovalForTools`. */
-export const DEFAULT_APPROVAL_SELECTORS: readonly string[] = [APPROVAL_TAG_WRITE, APPROVAL_TAG_DESTRUCTIVE];
-
-function matchesTag({ tag, tool }: { tag: string; tool: McpToolSelection }): boolean {
-  const annotations = mcpToolAnnotations(tool);
-  switch (tag) {
-    case APPROVAL_TAG_ALL:
-      return true;
-    case APPROVAL_TAG_DESTRUCTIVE:
-      return annotations?.destructiveHint === true;
-    case APPROVAL_TAG_WRITE:
-      return annotations?.readOnlyHint === false && annotations.destructiveHint !== true;
-    default:
-      return false;
-  }
-}
-
-/** Unannotated tools match no tag, so they are gated only by name or `@all`. */
-export function toolRequiresApproval({
-  tool,
-  selectors,
-}: {
-  tool: McpToolSelection;
-  selectors: readonly string[];
-}): boolean {
-  return selectors.some(selector =>
-    selector.startsWith('@') ? matchesTag({ tag: selector, tool }) : selector === tool.name,
-  );
-}
+export const DEFAULT_APPROVAL_SELECTORS: readonly string[] = [TOOL_TAG_WRITE, TOOL_TAG_DESTRUCTIVE];
 
 /** Approval state for a tool name whose annotations are unknown (tags cannot be resolved). */
 export function namedToolRequiresApproval({
@@ -46,8 +21,8 @@ export function namedToolRequiresApproval({
   selectors: readonly string[];
 }): boolean {
   const tool = tools.find(item => item.name === toolName);
-  if (tool !== undefined) return toolRequiresApproval({ tool, selectors });
-  return selectors.includes(APPROVAL_TAG_ALL) || selectors.includes(toolName);
+  if (tool !== undefined) return toolMatchesSelectors({ tool, selectors });
+  return selectors.includes(TOOL_TAG_ALL) || selectors.includes(toolName);
 }
 
 export function approvedToolNames({
@@ -57,7 +32,7 @@ export function approvedToolNames({
   tools: readonly McpToolSelection[];
   selectors: readonly string[];
 }): Set<string> {
-  return new Set(tools.filter(tool => toolRequiresApproval({ tool, selectors })).map(tool => tool.name));
+  return new Set(tools.filter(tool => toolMatchesSelectors({ tool, selectors })).map(tool => tool.name));
 }
 
 /**
@@ -71,13 +46,13 @@ export function approvalSelectorsFor({
   tools: readonly McpToolSelection[];
   approved: ReadonlySet<string>;
 }): string[] {
-  if (tools.length > 0 && tools.every(tool => approved.has(tool.name))) return [APPROVAL_TAG_ALL];
-  const selectors = [APPROVAL_TAG_WRITE, APPROVAL_TAG_DESTRUCTIVE].filter(tag =>
-    tools.every(tool => !matchesTag({ tag, tool }) || approved.has(tool.name)),
+  if (tools.length > 0 && tools.every(tool => approved.has(tool.name))) return [TOOL_TAG_ALL];
+  const selectors = [TOOL_TAG_WRITE, TOOL_TAG_DESTRUCTIVE].filter(tag =>
+    tools.every(tool => !toolMatchesTag({ tag, tool }) || approved.has(tool.name)),
   );
   for (const tool of tools) {
     if (!approved.has(tool.name)) continue;
-    if (toolRequiresApproval({ tool, selectors })) continue;
+    if (toolMatchesSelectors({ tool, selectors })) continue;
     selectors.push(tool.name);
   }
   return selectors;

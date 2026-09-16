@@ -6,7 +6,6 @@ import {
   approvedToolNames,
   DEFAULT_APPROVAL_SELECTORS,
   namedToolRequiresApproval,
-  toolRequiresApproval,
 } from '@/atoms/draft/mcpToolApprovals.js';
 import type { McpToolSelection } from '@/server/types.js';
 
@@ -21,25 +20,6 @@ const renameItem = tool('rename_item', { readOnlyHint: false, destructiveHint: f
 const deleteItem = tool('delete_item', { readOnlyHint: false, destructiveHint: true });
 const unannotated = tool('run_report');
 const tools = [listItems, renameItem, deleteItem, unannotated];
-
-describe('toolRequiresApproval', () => {
-  it('resolves class tags from tool annotations', () => {
-    const selectors = [...DEFAULT_APPROVAL_SELECTORS];
-    expect(toolRequiresApproval({ tool: renameItem, selectors })).toBe(true);
-    expect(toolRequiresApproval({ tool: deleteItem, selectors })).toBe(true);
-    expect(toolRequiresApproval({ tool: listItems, selectors })).toBe(false);
-  });
-
-  it('exempts unannotated tools unless named or covered by @all', () => {
-    expect(toolRequiresApproval({ tool: unannotated, selectors: [...DEFAULT_APPROVAL_SELECTORS] })).toBe(false);
-    expect(toolRequiresApproval({ tool: unannotated, selectors: ['run_report'] })).toBe(true);
-    expect(toolRequiresApproval({ tool: unannotated, selectors: ['@all'] })).toBe(true);
-  });
-
-  it('gates nothing for an empty selector list', () => {
-    expect(toolRequiresApproval({ tool: deleteItem, selectors: [] })).toBe(false);
-  });
-});
 
 describe('namedToolRequiresApproval', () => {
   it('falls back to name and @all matching when annotations are unknown', () => {

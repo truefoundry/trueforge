@@ -28,7 +28,6 @@ import {
   approvedToolNames,
   DEFAULT_APPROVAL_SELECTORS,
   namedToolRequiresApproval,
-  toolRequiresApproval,
 } from './mcpToolApprovals.js';
 import {
   MCP_TOOL_SECTION_ENABLE_ALL_LABELS,
@@ -37,6 +36,7 @@ import {
   partitionMcpToolsBySection,
   type McpToolSectionId,
 } from './mcpToolSections.js';
+import { toolMatchesSelectors } from './mcpToolSelectors.js';
 
 export type AgentMcpEditorContentProps = {
   spec: AgentSpec;
@@ -501,7 +501,7 @@ export function AgentMcpEditorContent({
                           ) : null}
                           {sectionTools.map(tool => {
                             const checked = enabledTools === 'all' || enabledTools.includes(tool.name);
-                            const approvalRequired = toolRequiresApproval({ tool, selectors: approvalSelectors });
+                            const approvalRequired = toolMatchesSelectors({ tool, selectors: approvalSelectors });
                             return (
                               <div
                                 key={tool.id}
