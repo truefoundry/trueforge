@@ -158,10 +158,10 @@ export function parseTenantIdToAllowedModelProviderAccounts(raw: string | undefi
  * Parsed `TRUEFOUNDRY_WEB_SEARCH_PROVIDER` JSON. Empty / unset → `undefined` (feature off).
  * Requires non-empty `name` (`parallel`) and `api_key`.
  */
-export type TrueFoundryWebSearchProviderEnv = {
+export interface TrueFoundryWebSearchProviderEnv {
   name: string;
   api_key: string;
-};
+}
 
 export function parseTrueFoundryWebSearchProvider(
   raw: string | undefined,
