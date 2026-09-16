@@ -38,8 +38,8 @@ async function getDelReply(redisClient: RedisClientType, rKey: string): Promise<
 
 /**
  * Publishes the request (JSON) on the worker channel, then polls the reply key with GETDEL
- * (see https://redis.io/docs/latest/commands/getdel/ ) until a result arrives or the wait
- * budget is exceeded.
+ * (see https://redis.io/docs/latest/commands/getdel/ ) until a result arrives, the executor
+ * heartbeat expires, or the wait budget is exceeded.
  */
 export async function redisRequest<T extends JSONValue>({
   redis: redisClient,
@@ -81,6 +81,11 @@ export async function redisRequest<T extends JSONValue>({
     const replyPayload = await getDelReply(redisClient, rKey);
     if (replyPayload) {
       return replyPayload;
+    }
+    // We already checked that the executor was alive before sending, but it may have
+    // died while we wait. Recheck here so we fail soon instead of waiting until the timeout.
+    if ((await redisClient.exists(aliveK)) === 0) {
+      throw new NoResponderError(executorId);
     }
     if (performance.now() >= replyDeadline) {
       throw new RequestTimeoutError(replyTimeoutMs);
