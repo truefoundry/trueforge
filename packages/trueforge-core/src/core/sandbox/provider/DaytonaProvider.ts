@@ -2,7 +2,7 @@ import type { CreateSandboxFromSnapshotParams, Sandbox, Snapshot } from '@dayton
 import { Daytona, DaytonaError } from '@daytona/sdk';
 import { context } from '@opentelemetry/api';
 import { suppressTracing } from '@opentelemetry/core';
-import { randomUUID } from 'node:crypto';
+import { createHash, randomUUID } from 'node:crypto';
 import { join } from 'node:path/posix';
 import type { Logger } from 'winston';
 import { extractErrorLogFields } from '../../util/errorLogFields';
@@ -191,7 +191,7 @@ export class DaytonaSandboxProvider implements SandboxProvider {
   private async getOrCreateSandbox(sandboxId?: string): Promise<{ sandbox: Sandbox; defaultTimeoutMs: number }> {
     if (sandboxId) {
       validateSandboxOwnedByTenant({ sandboxId, tenantName: this.tenantName });
-      const cached = DaytonaSandboxProvider.cachedSandboxes.get(sandboxId);
+      const cached = DaytonaSandboxProvider.cachedSandboxes.get(this.sandboxCacheKey(sandboxId));
       if (cached) {
         return cached;
       }
@@ -202,7 +202,7 @@ export class DaytonaSandboxProvider implements SandboxProvider {
       : await this.daytona.create(this.buildCreateParams());
 
     const entry = { sandbox, defaultTimeoutMs: this.timeoutMs };
-    DaytonaSandboxProvider.cachedSandboxes.set(sandbox.name, entry);
+    DaytonaSandboxProvider.cachedSandboxes.set(this.sandboxCacheKey(sandbox.name), entry);
     return entry;
   }
 
@@ -221,14 +221,26 @@ export class DaytonaSandboxProvider implements SandboxProvider {
     };
   }
 
+  /**
+   * A Sandbox object carries the Daytona client that restored it.  Include the client
+   * identity in the process-wide cache so a settings update with rotated credentials
+   * cannot reuse an object authenticated with the previous key.  Hashing avoids keeping
+   * the raw API key as a Map key or exposing it through diagnostics.
+   */
+  private sandboxCacheKey(sandboxId: string): string {
+    return createHash('sha256')
+      .update(`${this.tenantName}\u0000${this.apiUrl}\u0000${this.apiKey}\u0000${sandboxId}`)
+      .digest('hex');
+  }
+
   // Returns true iff the caller should retry: either we restarted a stopped sandbox, or the cache entry is missing and the retry will rebuild it via the cold path.
-  private static recoverSandboxIfStopped(sandboxId: string): Promise<boolean> {
-    const existing = DaytonaSandboxProvider.inFlightRecoveries.get(sandboxId);
+  private static recoverSandboxIfStopped(cacheKey: string): Promise<boolean> {
+    const existing = DaytonaSandboxProvider.inFlightRecoveries.get(cacheKey);
     if (existing) {
       return existing;
     }
 
-    const cached = DaytonaSandboxProvider.cachedSandboxes.get(sandboxId);
+    const cached = DaytonaSandboxProvider.cachedSandboxes.get(cacheKey);
     // Cache may have been evicted by a concurrent error path; signal retry so getOrCreateSandbox rebuilds via restoreExistingSandbox.
     if (!cached) {
       return Promise.resolve(true);
@@ -243,10 +255,10 @@ export class DaytonaSandboxProvider implements SandboxProvider {
       await cached.sandbox.start();
       return true;
     })().finally(() => {
-      DaytonaSandboxProvider.inFlightRecoveries.delete(sandboxId);
+      DaytonaSandboxProvider.inFlightRecoveries.delete(cacheKey);
     });
 
-    DaytonaSandboxProvider.inFlightRecoveries.set(sandboxId, recovery);
+    DaytonaSandboxProvider.inFlightRecoveries.set(cacheKey, recovery);
     return recovery;
   }
 
@@ -261,7 +273,7 @@ export class DaytonaSandboxProvider implements SandboxProvider {
 
       let recovered: boolean;
       try {
-        recovered = await DaytonaSandboxProvider.recoverSandboxIfStopped(sandboxId);
+        recovered = await DaytonaSandboxProvider.recoverSandboxIfStopped(this.sandboxCacheKey(sandboxId));
       } catch (recoveryError) {
         this.logger.error('Sandbox recovery failed', {
           ...extractErrorLogFields(recoveryError),
@@ -461,7 +473,7 @@ export class DaytonaSandboxProvider implements SandboxProvider {
           };
         });
       } catch (e: unknown) {
-        DaytonaSandboxProvider.cachedSandboxes.delete(params.sandboxId);
+        DaytonaSandboxProvider.cachedSandboxes.delete(this.sandboxCacheKey(params.sandboxId));
         if (e instanceof SandboxNotAvailableError) {
           throw e;
         }

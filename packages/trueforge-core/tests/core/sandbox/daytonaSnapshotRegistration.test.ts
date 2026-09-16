@@ -32,10 +32,14 @@ function makeProvider(): DaytonaSandboxProvider {
   });
 }
 
-function makeRuntimeProvider(client: Daytona, onError?: (error: unknown) => Promise<void>): DaytonaSandboxProvider {
+function makeRuntimeProvider(
+  client: Daytona,
+  onError?: (error: unknown) => Promise<void>,
+  apiKey = 'dtn-test',
+): DaytonaSandboxProvider {
   return new DaytonaSandboxProvider({
     client,
-    apiKey: 'dtn-test',
+    apiKey,
     apiUrl: API_URL,
     tenantName: 'test-tenant',
     sandboxImage: 'registry.example.com/sandbox:029ea5ff',
@@ -128,5 +132,37 @@ describe('DaytonaSandboxProvider exec', () => {
     await expect(provider.exec({ sandboxId: 'test-tenant.gone', command: 'true' })).rejects.toBeInstanceOf(
       SandboxNotAvailableError,
     );
+  });
+
+  it('does not reuse a restored sandbox after the Daytona credentials rotate', async () => {
+    const sandboxId = 'test-tenant.rotated-credentials';
+    const oldClient = new Daytona({ apiKey: 'dtn-old', useDeprecatedPolling: true });
+    const newClient = new Daytona({ apiKey: 'dtn-new', useDeprecatedPolling: true });
+    const oldSandbox = {
+      state: 'started',
+      process: { executeCommand: jest.fn().mockResolvedValue({ exitCode: 0, result: 'old' }) },
+    };
+    const newSandbox = {
+      state: 'started',
+      process: { executeCommand: jest.fn().mockResolvedValue({ exitCode: 0, result: 'new' }) },
+    };
+    jest.spyOn(oldClient, 'get').mockResolvedValue(oldSandbox as never);
+    jest.spyOn(newClient, 'get').mockResolvedValue(newSandbox as never);
+
+    await expect(
+      makeRuntimeProvider(oldClient, undefined, 'dtn-old').exec({ sandboxId, command: 'true' }),
+    ).resolves.toMatchObject({
+      success: true,
+      response: { result: 'old' },
+    });
+    await expect(
+      makeRuntimeProvider(newClient, undefined, 'dtn-new').exec({ sandboxId, command: 'true' }),
+    ).resolves.toMatchObject({
+      success: true,
+      response: { result: 'new' },
+    });
+
+    expect(oldClient.get).toHaveBeenCalledWith(sandboxId);
+    expect(newClient.get).toHaveBeenCalledWith(sandboxId);
   });
 });
