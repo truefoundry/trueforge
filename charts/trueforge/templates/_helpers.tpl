@@ -139,16 +139,12 @@ Used so NOTES / helpers can print "postgres.svc" and skip secretKeyRef maps.
 
 {{/*
 Fail unless .value is a non-empty string, a number, or a map with valueFrom.
-Expects dict with keys "name" and "value". Nil (the values.yaml default for
-these fields, kept null so parent-chart valueFrom overrides coalesce without
-type warnings) fails the same way as "".
+Expects dict with keys "name" and "value".
 */}}
 {{- define "trueforge.requireStringOrValueFrom" -}}
 {{- $v := index . "value" -}}
 {{- $name := index . "name" -}}
-{{- if kindIs "invalid" $v -}}
-{{- fail (printf "%s is required (string, number, or valueFrom.secretKeyRef)" $name) -}}
-{{- else if kindIs "string" $v -}}
+{{- if kindIs "string" $v -}}
 {{- if eq $v "" -}}{{- fail (printf "%s is required (string, number, or valueFrom.secretKeyRef)" $name) -}}{{- end -}}
 {{- else if or (kindIs "int" $v) (kindIs "int64" $v) (kindIs "float64" $v) -}}
 {{- else if kindIs "map" $v -}}
@@ -173,16 +169,16 @@ Empty when the field is a valueFrom map (external secret/configmap).
 {{- define "trueforge.postgres.user" -}}
 {{- if .Values.postgresql.enabled -}}
 {{- .Values.postgresql.auth.username -}}
-{{- else if eq (include "trueforge.isLiteralString" (dict "value" (.Values.externalPostgres.user | default "trueforge"))) "true" -}}
-{{- .Values.externalPostgres.user | default "trueforge" -}}
+{{- else if eq (include "trueforge.isLiteralString" (dict "value" .Values.externalPostgres.user)) "true" -}}
+{{- .Values.externalPostgres.user -}}
 {{- end -}}
 {{- end }}
 
 {{- define "trueforge.postgres.database" -}}
 {{- if .Values.postgresql.enabled -}}
 {{- .Values.postgresql.auth.database -}}
-{{- else if eq (include "trueforge.isLiteralString" (dict "value" (.Values.externalPostgres.database | default "trueforge"))) "true" -}}
-{{- .Values.externalPostgres.database | default "trueforge" -}}
+{{- else if eq (include "trueforge.isLiteralString" (dict "value" .Values.externalPostgres.database)) "true" -}}
+{{- .Values.externalPostgres.database -}}
 {{- end -}}
 {{- end }}
 
@@ -444,8 +440,8 @@ fields, wires bundled Postgres/Redis, optional OIDC, then server.extraEnv.
 {{- else -}}
 {{- $env = append $env (include "trueforge.env.fromStringOrValueFrom" (dict "name" "POSTGRES_HOST" "field" "externalPostgres.host" "value" .Values.externalPostgres.host) | fromJson) -}}
 {{- $env = append $env (include "trueforge.env.fromStringOrValueFrom" (dict "name" "POSTGRES_PORT" "field" "externalPostgres.port" "value" .Values.externalPostgres.port) | fromJson) -}}
-{{- $env = append $env (include "trueforge.env.fromStringOrValueFrom" (dict "name" "POSTGRES_DB" "field" "externalPostgres.database" "value" (.Values.externalPostgres.database | default "trueforge")) | fromJson) -}}
-{{- $env = append $env (include "trueforge.env.fromStringOrValueFrom" (dict "name" "POSTGRES_USER" "field" "externalPostgres.user" "value" (.Values.externalPostgres.user | default "trueforge")) | fromJson) -}}
+{{- $env = append $env (include "trueforge.env.fromStringOrValueFrom" (dict "name" "POSTGRES_DB" "field" "externalPostgres.database" "value" .Values.externalPostgres.database) | fromJson) -}}
+{{- $env = append $env (include "trueforge.env.fromStringOrValueFrom" (dict "name" "POSTGRES_USER" "field" "externalPostgres.user" "value" .Values.externalPostgres.user) | fromJson) -}}
 {{- $env = append $env (include "trueforge.env.fromStringOrValueFrom" (dict "name" "POSTGRES_PASSWORD" "field" "externalPostgres.password" "value" .Values.externalPostgres.password) | fromJson) -}}
 {{- if .Values.externalPostgres.sslMode -}}
 {{- $env = append $env (dict "name" "POSTGRES_SSL_MODE" "value" .Values.externalPostgres.sslMode) -}}
@@ -469,7 +465,7 @@ fields, wires bundled Postgres/Redis, optional OIDC, then server.extraEnv.
 {{- end -}}
 
 {{- /* Controller -> server auth. The app rejects an empty value when peered. */ -}}
-{{- $env = append $env (include "trueforge.env.fromStringOrValueFrom" (dict "name" "TRUEFORGE_API_KEY" "field" "apiKey" "value" (.Values.apiKey | default "placeholder-value-please-generate-your-own")) | fromJson) -}}
+{{- $env = append $env (include "trueforge.env.fromStringOrValueFrom" (dict "name" "TRUEFORGE_API_KEY" "field" "apiKey" "value" .Values.apiKey) | fromJson) -}}
 
 {{- /* Node reads its own bundled CA store unless told otherwise. */ -}}
 {{- if eq (include "trueforge.customCA.enabled" .) "true" -}}

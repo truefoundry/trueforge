@@ -21,7 +21,7 @@ Those defaults are **not** production-safe:
 | Default | Risk if the Service / Ingress is reachable |
 | --- | --- |
 | `configs.oidc.enabled: false` | No login; every caller is the shared local admin (`trueforge-default`) |
-| `apiKey` unset (falls back to `placeholder-value-please-generate-your-own`) | Well-known controller↔server key (`TRUEFORGE_API_KEY`); replace before any shared deploy |
+| `apiKey: placeholder-value-please-generate-your-own` | Well-known controller↔server key (`TRUEFORGE_API_KEY`); replace before any shared deploy |
 | `postgresql.auth.password: trueforge` | Well-known Postgres password (unless you set `existingSecret` / a strong password) |
 | `redis.auth.enabled: false` | Unauthenticated Redis on the cluster network |
 
@@ -72,9 +72,7 @@ helm upgrade --install trueforge oci://tfy.jfrog.io/tfy-helm/trueforge \
 authenticates controller → server calls (schedule dispatch). The chart always
 runs peered (`STANDALONE=false`) and rejects an empty key.
 
-`apiKey` is null in `values.yaml` (so a parent chart can override it with a
-`valueFrom` map without a Helm coalesce type warning); when unset, the
-templates fall back to a **dev placeholder**
+`values.yaml` ships a **dev placeholder**
 (`placeholder-value-please-generate-your-own`). The chart does **not** create a
 Secret for it. Before any shared or production deploy, create a Secret and
 point `apiKey` at it (strongly recommended over an inlined string):
