@@ -120,7 +120,14 @@ spec:
       tolerations:
         {{- . | nindent 8 }}
       {{- end }}
-      {{- with .Values.topologySpreadConstraints }}
       topologySpreadConstraints:
+        {{- with .Values.topologySpreadConstraints }}
         {{- toYaml . | nindent 8 }}
-      {{- end }}
+        {{- else }}
+        - maxSkew: 1
+          topologyKey: kubernetes.io/hostname
+          whenUnsatisfiable: ScheduleAnyway
+          labelSelector:
+            matchLabels:
+              {{- include "trueforge.selectorLabels" . | nindent 14 }}
+        {{- end }}

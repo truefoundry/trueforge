@@ -338,7 +338,7 @@ extraObjects:
 | `service.port`        | `8790`                              | Service port.                         |
 | `server.port`         | `8790`                              | Container port (`PORT`).              |
 | `autoscaling.enabled` | `false`                             | Enable a HorizontalPodAutoscaler.     |
-| `podDisruptionBudget.enabled` | `false`                       | Enable a PodDisruptionBudget (`minAvailable` defaults to `1`). |
+| `podDisruptionBudget.enabled` | `true`                        | PodDisruptionBudget (`minAvailable` defaults to `1`); rendered only when the server runs more than one replica. |
 | `podSecurityContext`  | non-root UID/GID `10001`            | Pod-level restricted security defaults. |
 | `securityContext`     | read-only root FS + drop all capabilities | Container-level restricted security defaults. |
 | `resources`           | 100m/256Mi requests, 200m/512Mi limits | Server CPU, memory, and ephemeral-storage. Replaced when a resourceTier is set. |
@@ -349,10 +349,13 @@ extraObjects:
 The server uses a RollingUpdate strategy by default (`server.strategy`); the
 controller is fixed to a single replica with `Recreate` and exposes neither.
 
-Also available (defaults inert): `priorityClassName`,
-`topologySpreadConstraints`, `initContainers`, `extraContainers`,
-`extraVolumes`, `extraVolumeMounts`, `service.annotations`, `service.labels`,
-`startupProbe`.
+Server pods spread across nodes by default (`maxSkew: 1`,
+`whenUnsatisfiable: ScheduleAnyway`); set `topologySpreadConstraints` to
+override (entries apply verbatim to both server and controller pods).
+
+Also available (defaults inert): `priorityClassName`, `initContainers`,
+`extraContainers`, `extraVolumes`, `extraVolumeMounts`, `service.annotations`,
+`service.labels`, `startupProbe`.
 
 The server container mounts an `emptyDir` at `/tmp` by default so the image can
 run with `readOnlyRootFilesystem: true`. When set, `resources.limits.ephemeral-storage`
@@ -370,4 +373,4 @@ also sets the `/tmp` `emptyDir.sizeLimit`.
 - If enabling `mtls`, set `mtls.secretName` and ensure any reverse proxy dials HTTPS with a trusted client cert (see Caddy `internal_mtls`).
 - Tune container `resources` (especially CPU requests) before enabling HPA.
 - Default `tfy.jfrog.io` images and the Helm chart are anonymously pullable — set `imagePullSecrets` only if you override to a private registry.
-- Enable `podDisruptionBudget` when running multiple replicas (defaults to `minAvailable: 1`; set exactly one of `minAvailable` or `maxUnavailable`).
+- Run multiple replicas (`server.replicaCount` or a `resourceTier` of `medium`/`large`); the PodDisruptionBudget (`minAvailable: 1`) then applies automatically.
