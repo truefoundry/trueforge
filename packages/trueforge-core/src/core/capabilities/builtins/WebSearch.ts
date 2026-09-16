@@ -1,13 +1,16 @@
+import dedent from 'dedent';
 import { z } from 'zod';
+import { InstructionBuilder } from '../../InstructionBuilder';
 import { type CallToolResponse, toolResultResponse } from '../../mcp/IMCPServer';
 import { defineTool, LocalToolMCP, type ToolDefinition } from '../../mcp/LocalToolMCP';
 import type { AgentTracing } from '../../tracing/AgentTracing';
 import type { IWebSearchProvider } from '../../web-search/WebSearchProvider';
 import type { AgentCapability } from '../AgentCapability';
 
-const WEB_SEARCH_SERVER_ID = 'web-search';
-const WEB_SEARCH_TOOL_NAME = 'web_search';
-const WEB_FETCH_TOOL_NAME = 'web_fetch';
+export const WEB_SEARCH_SERVER_ID = 'web-search';
+export const WEB_SEARCH_TOOL_NAME = 'web_search';
+export const WEB_FETCH_TOOL_NAME = 'web_fetch';
+export const WEB_SEARCH_REMINDER_TAG = 'web-search';
 
 const webSearchInputSchema = z
   .object({
@@ -15,21 +18,75 @@ const webSearchInputSchema = z
       .array(z.string().min(1))
       .min(1)
       .max(5)
-      .describe('Concise keyword search queries (3–6 words each). Provide 2–3 for best results.'),
+      .describe(
+        'Keyword search queries (prefer 3–6 words each; 2–3 queries often beat one long query). Operators such as site:domain, filetype:pdf, intitle:word, -term, and "exact phrase" may work when the backend supports them.',
+      ),
     objective: z
       .string()
       .min(1)
       .optional()
-      .describe('Natural-language goal for the search. Helps focus results when provided.'),
+      .describe('Natural-language goal for the search. Helps the backend focus hits when provided.'),
   })
   .strict();
 
 const webFetchInputSchema = z
   .object({
-    urls: z.array(z.url()).min(1).max(20).describe('URLs to fetch page content from (up to 20).'),
-    objective: z.string().min(1).optional().describe('Optional goal used to focus extracted excerpts.'),
+    urls: z
+      .array(z.url())
+      .min(1)
+      .max(20)
+      .describe(
+        'Page or PDF URLs to extract (up to 20). Pass arxiv/document PDF links directly when you need paper content.',
+      ),
+    objective: z
+      .string()
+      .min(1)
+      .optional()
+      .describe('Optional goal used to focus extracted excerpts when the page is large.'),
   })
   .strict();
+
+const WEB_SEARCH_TOOL_DESCRIPTION = dedent`
+  Search the web for information. Returns ranked hits with titles, URLs, and snippets.
+
+  Prefer concise keyword queries over full sentences. Use multiple related queries in one call when useful.
+  Query operators such as site:domain, filetype:pdf, intitle:word, -term, and "exact phrase" may work when the backend supports them.
+
+  Params:
+  - search_queries — 1–5 keyword queries
+  - objective — optional natural-language goal to focus results
+`.trim();
+
+const WEB_FETCH_TOOL_DESCRIPTION = dedent`
+  Extract content from web page URLs as markdown/text (no LLM summarization — fast). Also works with PDF URLs (arxiv papers, documents) — pass the PDF link directly.
+
+  Prefer fetching specific hit URLs from ${WEB_SEARCH_TOOL_NAME} when you need full page text. If a URL fails or times out, try an alternate source from search results.
+
+  Params:
+  - urls — list of page/PDF URLs (max 20)
+  - objective — optional goal to focus excerpts on large pages
+`.trim();
+
+export function buildWebSearchInstruction(builder: InstructionBuilder): void {
+  builder.addSection(
+    WEB_SEARCH_REMINDER_TAG,
+    dedent`
+      The Agent has two system tools for live web access: ${WEB_SEARCH_TOOL_NAME} (search) and ${WEB_FETCH_TOOL_NAME} (extract page/PDF content).
+
+      When to use them:
+      - The user asks to search, browse, verify, look up, or get latest information.
+      - Facts may have changed recently (news, prices, laws, schedules, product specs, software APIs/docs, people in roles, rates, scores).
+      - The answer needs direct quotes, links, or precise source attribution.
+      - A specific page, paper, dataset, PDF, or site is referenced and its contents were not provided.
+      - High-stakes accuracy matters (medical, legal, financial guidance), or there is a meaningful chance of incorrect recall.
+
+      How to use them:
+      - Start with ${WEB_SEARCH_TOOL_NAME} for discovery; follow with ${WEB_FETCH_TOOL_NAME} on the best URLs when snippets are not enough.
+      - Prefer primary and authoritative sources. Cite claims with Markdown links like [title](https://example.com/page) next to the supported statement — not bare URLs or search-result pages.
+      - Do not dump long verbatim passages; paraphrase and keep quotes short.
+    `.trim(),
+  );
+}
 
 export class WebSearchTools extends LocalToolMCP {
   readonly name = WEB_SEARCH_SERVER_ID;
@@ -44,13 +101,13 @@ export class WebSearchTools extends LocalToolMCP {
   private tools: ToolDefinition[] = [
     defineTool({
       name: WEB_SEARCH_TOOL_NAME,
-      description: 'Search the live web and return ranked hits with titles, URLs, and LLM-oriented snippets.',
+      description: WEB_SEARCH_TOOL_DESCRIPTION,
       schema: webSearchInputSchema,
       handler: input => this.runSearch(input),
     }),
     defineTool({
       name: WEB_FETCH_TOOL_NAME,
-      description: 'Fetch and extract page content from one or more URLs as markdown suitable for LLM use.',
+      description: WEB_FETCH_TOOL_DESCRIPTION,
       schema: webFetchInputSchema,
       handler: input => this.runFetch(input),
     }),
@@ -80,5 +137,6 @@ export class WebSearchTools extends LocalToolMCP {
 export function webSearch(options: { provider: IWebSearchProvider; tracing: AgentTracing }): AgentCapability {
   return {
     systemToolSets: [new WebSearchTools(options)],
+    instructionBuilders: [buildWebSearchInstruction],
   };
 }

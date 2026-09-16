@@ -3,13 +3,13 @@ import { extractErrorLogFields } from '@truefoundry/trueforge-core/core';
 import type { Context } from 'hono';
 import type { Logger } from 'winston';
 import { hasAdminRole, type ResolveRequestContext } from '../auth/identity';
-import configuration, { isTrueFoundryModeEnabled } from '../config';
 import type { ISandboxProviderStore } from '../db/sandboxProviderStore';
 import type { WithTransaction } from '../db/transaction';
 import { getCapabilitiesRoute } from '../routes/capabilityRoutes';
 import { isLocalSandboxFallbackEnabled } from '../sandbox/localRuntime';
 import { checkSnapshotStatus } from '../sandbox/providerUtils';
 import type { SandboxBuildStatus } from '../schemas/sandboxProvider';
+import { resolveWebSearchProvider } from '../websearch/providers';
 
 /**
  * Why skills are unavailable, keyed off the sandbox build status.
@@ -46,8 +46,7 @@ export function createCapabilitiesRouter<TTransaction>(deps: {
     }
     const sandboxEnabled = status === 'ready' || (status === undefined && isLocalSandboxFallbackEnabled());
     const settingsEnabled = hasAdminRole(requestContext);
-    const webSearchEnabled =
-      isTrueFoundryModeEnabled(configuration) && configuration.TRUEFOUNDRY_WEB_SEARCH_PROVIDER !== undefined;
+    const webSearchEnabled = resolveWebSearchProvider() !== undefined;
     return c.json(
       {
         data: {

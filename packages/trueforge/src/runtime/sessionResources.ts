@@ -14,7 +14,7 @@ import { HTTPException } from 'hono/http-exception';
 import { join } from 'node:path';
 import type { Logger } from 'winston';
 import { z } from 'zod';
-import configuration, { isTrueFoundryModeEnabled } from '../config';
+import configuration from '../config';
 import type { IMcpServerStore, IMcpServerWithAuthStore } from '../db/mcpServerStore';
 import type { IModelProviderStore } from '../db/modelProviderStore';
 import type { ISandboxProviderStore } from '../db/sandboxProviderStore';
@@ -23,6 +23,7 @@ import { LocalSandboxProvider } from '../sandbox/local/provider/LocalSandboxProv
 import { getCachedLocalSandboxSupport, isLocalSandboxFallbackEnabled } from '../sandbox/localRuntime';
 import { toSandboxProviderFromRecord } from '../sandbox/providerUtils';
 import type { ReasoningEffort } from '../schemas/modelProvider';
+import { resolveWebSearchProvider } from '../websearch/providers';
 
 export interface McpConnection {
   url: string;
@@ -355,10 +356,7 @@ export async function validateAgentSpec({
     }
   }
 
-  if (
-    spec.config.web_search.enabled &&
-    !(isTrueFoundryModeEnabled(configuration) && configuration.TRUEFOUNDRY_WEB_SEARCH_PROVIDER !== undefined)
-  ) {
+  if (spec.config.web_search.enabled && resolveWebSearchProvider() === undefined) {
     throw new HTTPException(422, {
       message:
         'web_search is enabled but no web-search provider is configured — set TRUEFOUNDRY_WEB_SEARCH_PROVIDER in TrueFoundry mode',

@@ -5,6 +5,7 @@ import {
   type SessionAgent,
   type SessionHandle,
 } from '@truefoundry/trueforge-core/agent-session';
+import { WebSearchProviders, type IWebSearchProvider } from '@truefoundry/trueforge-core/core';
 import { HTTPException } from 'hono/http-exception';
 import { validateGitAgentSkills } from '../../../src/db/gitSkillMounts';
 import { migrateSqliteToLatest } from '../../../src/db/migrateSqlite';
@@ -27,6 +28,17 @@ import {
 } from '../../../src/runtime/sessionResources';
 import { setCachedLocalSandboxSupport } from '../../../src/sandbox/localRuntime';
 import type { ReasoningEffort } from '../../../src/schemas/modelProvider';
+import { resolveWebSearchProvider } from '../../../src/websearch/providers';
+
+jest.mock('../../../src/websearch/providers', () => ({
+  resolveWebSearchProvider: jest.fn(() => undefined),
+}));
+
+const mockWebSearchProvider: IWebSearchProvider = {
+  id: WebSearchProviders.Parallel,
+  search: () => Promise.resolve({ hits: [] }),
+  fetch: () => Promise.resolve({ pages: [] }),
+};
 
 async function createGatewayMetadataSession(input: { agent: SessionAgent }): Promise<SessionHandle> {
   const sessions = new Sessions({ sessionStore: new InMemorySessionStore() });
@@ -164,6 +176,8 @@ describe('localSandboxSessionSegment', () => {
 describe('validateAgentSpec', () => {
   afterEach(() => {
     setCachedLocalSandboxSupport(undefined);
+    jest.mocked(resolveWebSearchProvider).mockReset();
+    jest.mocked(resolveWebSearchProvider).mockReturnValue(undefined);
   });
 
   async function setup(options?: { reasoningEfforts?: ReasoningEffort[] | undefined }) {
@@ -340,6 +354,40 @@ describe('validateAgentSpec', () => {
       status: 422,
       message: expect.stringContaining('PUT /settings/sandbox-providers'),
     } satisfies Partial<HTTPException>);
+  });
+
+  it('rejects web_search.enabled with 422 when no web-search provider is configured', async () => {
+    const stores = await setup();
+    await expect(
+      validateAgentSpec({
+        spec: AgentSpecSchema.parse({
+          model: { name: 'test-provider/test-model' },
+          instructions: 'test',
+          config: { web_search: { enabled: true } },
+        }),
+        tenant_id: 'default',
+        ...stores,
+      }),
+    ).rejects.toMatchObject({
+      status: 422,
+      message: expect.stringContaining('TRUEFOUNDRY_WEB_SEARCH_PROVIDER'),
+    } satisfies Partial<HTTPException>);
+  });
+
+  it('admits web_search.enabled when a web-search provider resolves', async () => {
+    const stores = await setup();
+    jest.mocked(resolveWebSearchProvider).mockReturnValueOnce(mockWebSearchProvider);
+    await expect(
+      validateAgentSpec({
+        spec: AgentSpecSchema.parse({
+          model: { name: 'test-provider/test-model' },
+          instructions: 'test',
+          config: { web_search: { enabled: true } },
+        }),
+        tenant_id: 'default',
+        ...stores,
+      }),
+    ).resolves.toBeUndefined();
   });
 
   it('rejects skills when no sandbox provider is configured', async () => {

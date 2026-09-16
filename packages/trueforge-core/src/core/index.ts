@@ -46,7 +46,14 @@ export {
   largeToolResponse,
 } from './capabilities/builtins/LargeToolResponse';
 export { openUI } from './capabilities/builtins/OpenUI';
-export { webSearch } from './capabilities/builtins/WebSearch';
+export {
+  WEB_FETCH_TOOL_NAME,
+  WEB_SEARCH_REMINDER_TAG,
+  WEB_SEARCH_SERVER_ID,
+  WEB_SEARCH_TOOL_NAME,
+  buildWebSearchInstruction,
+  webSearch,
+} from './capabilities/builtins/WebSearch';
 
 // MCP contracts
 export type { ApprovalDecision } from './events/schema';
