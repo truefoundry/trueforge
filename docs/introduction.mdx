@@ -21,8 +21,8 @@ TrueForge is an **open-source agent harness** with three parts: a **core server*
 
 <GitHub.Repo repo="truefoundry/trueforge" />
 
-<Frame caption="The bundled chat UI — a streaming response with the agent-steps panel expanded to show reasoning, tool calls, and a subagent.">
-  <img src="/images/chat-ui.png" alt="The TrueForge chat UI showing an agent response with the agent-steps panel expanded — reasoning, Exa tool calls, and a subagent" />
+<Frame caption="The bundled chat UI: an agent answering on the right, with an expandable summary of its steps (tool calls and reasoning), next to the Agent Config panel where you shape the agent.">
+  <img src="/images/chat-ui.png" alt="The TrueForge chat UI: an agent response about recent developments in agentic AI, with a collapsed Agent steps summary of tool calls and thoughts, beside the Agent Config panel showing model, instructions, runtime config, and MCP servers" />
 </Frame>
 
 ### Key Components
@@ -104,6 +104,12 @@ The agent features are identical in both modes — only the backend around the s
   </Card>
   <Card title="Create an Agent" icon="robot" href="/create-agent/overview">
     Select a model, attach connectors and skills, then save under Agents.
+  </Card>
+  <Card title="Sessions" icon="magnifying-glass" href="/sessions">
+    Inspect past runs: turns, tool calls, subagents, tokens, and timing.
+  </Card>
+  <Card title="Schedules" icon="clock" href="/schedules">
+    Run a saved agent on a recurring cadence, unattended.
   </Card>
   <Card title="Harness Capabilities" icon="layer-group" href="/key-features/overview">
     Sandbox-as-tool, subagents, deferred tools, code mode, compaction, and human checkpoints.
