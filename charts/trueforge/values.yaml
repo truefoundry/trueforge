@@ -41,7 +41,7 @@ image:
   repository: tfy.jfrog.io/tfy-images/trueforge
   # Tag defaults to chart appVersion when empty. Prod chart-release PRs set this
   # to {appVersion}-{shortSha} for the npm-install image already in the registry.
-  tag: "0.2.0-rc.11-7fc322f"
+  tag: "0.2.0-rc.12-1525f94"
   pullPolicy: IfNotPresent
 imagePullSecrets: []
 # Default tfy.jfrog.io repos are anonymously pullable. Set secrets only when
