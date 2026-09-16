@@ -6,7 +6,7 @@ import { StreamableHTTPClientTransport } from '@modelcontextprotocol/sdk/client/
 import type { FetchLike } from '@modelcontextprotocol/sdk/shared/transport.js';
 import type { CallToolRequest, CallToolResult } from '@modelcontextprotocol/sdk/types.js';
 import { context, propagation } from '@opentelemetry/api';
-import { Agent } from 'undici';
+import { Agent, fetch as undiciFetch } from 'undici';
 import { McpConnectionError } from '../errors';
 import { withTimeout } from '../util/promiseUtils';
 import type { ToolSchema } from './IMCPServer';
@@ -37,7 +37,8 @@ const TRANSPORT_PROBE_ORDER: RemoteMcpTransportType[] = ['streamable-http', 'sse
 // Gateway idle-body window; MCP request deadlines still come from requestTimeoutMs.
 const MCP_BODY_TIMEOUT_MS = 30 * 60 * 1000;
 const mcpHttpAgent = new Agent({ bodyTimeout: MCP_BODY_TIMEOUT_MS });
-const mcpFetch: FetchLike = (url, init) => fetch(url, Object.assign({}, init, { dispatcher: mcpHttpAgent }));
+const mcpFetch: FetchLike = (url, init) =>
+  undiciFetch(typeof url === 'string' ? url : url.href, { ...(init as object), dispatcher: mcpHttpAgent });
 
 class McpClientWithTimeout extends Client {
   constructor(private readonly requestTimeoutMs: number) {
