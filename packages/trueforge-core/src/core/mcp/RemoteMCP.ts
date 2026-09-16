@@ -257,7 +257,13 @@ export class RemoteMCP implements ToolSource {
                 this.isConnected = false;
               },
               onError: error => {
-                this.logger.error(`Error on remote MCP transport ${this.name}`, extractErrorLogFields(error));
+                const fields = extractErrorLogFields(error);
+                const msg = `Error on remote MCP transport ${this.name}`;
+                if (fields.error.includes('Body Timeout')) {
+                  this.logger.warn(msg, fields);
+                } else {
+                  this.logger.error(msg, fields);
+                }
               },
             });
             span.setOutput(JSON.stringify({ transport: conn.transportType, stateful: conn.sessionId !== null }));
