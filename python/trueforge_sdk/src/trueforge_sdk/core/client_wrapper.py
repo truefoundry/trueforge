@@ -33,12 +33,12 @@ class BaseClientWrapper:
         import platform
 
         headers: typing.Dict[str, str] = {
-            "User-Agent": "trueforge_sdk/0.2.0-rc.7",
+            "User-Agent": "trueforge_sdk/0.2.0-rc.8",
             "X-Fern-Language": "Python",
             "X-Fern-Runtime": f"python/{platform.python_version()}",
             "X-Fern-Platform": f"{platform.system().lower()}/{platform.release()}",
             "X-Fern-SDK-Name": "trueforge_sdk",
-            "X-Fern-SDK-Version": "0.2.0-rc.7",
+            "X-Fern-SDK-Version": "0.2.0-rc.8",
             **(self.get_custom_headers() or {}),
         }
         token = self._get_token()
