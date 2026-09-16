@@ -33,10 +33,10 @@ const TRANSPORT_PROBE_ORDER: RemoteMcpTransportType[] = ['streamable-http', 'sse
 
 // MCP SSE/streamable-HTTP keeps a long-lived response open that is often idle between tool calls.
 // Node fetch (undici) defaults bodyTimeout to 300s of silence, then kills the stream with
-// `Body Timeout Error` — we reconnect and the ~5m cycle repeats in logs. bodyTimeout: 0 disables
-// that idle kill; MCP request deadlines still come from requestTimeoutMs on the client.
-// Gateway avoided the same default via a process-wide undici Agent (UNDICI_BODY_TIMEOUT_MS, 30m).
-const mcpHttpAgent = new Agent({ bodyTimeout: 0 });
+// `Body Timeout Error` — we reconnect and the ~5m cycle repeats in logs. 30m matches the
+// Gateway idle-body window; MCP request deadlines still come from requestTimeoutMs.
+const MCP_BODY_TIMEOUT_MS = 30 * 60 * 1000;
+const mcpHttpAgent = new Agent({ bodyTimeout: MCP_BODY_TIMEOUT_MS });
 const mcpFetch: FetchLike = (url, init) => fetch(url, Object.assign({}, init, { dispatcher: mcpHttpAgent }));
 
 class McpClientWithTimeout extends Client {
