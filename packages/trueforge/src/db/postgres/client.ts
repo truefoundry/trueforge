@@ -44,15 +44,22 @@ export function createDb(options: {
 }): Kysely<Database> {
   const { connectionString, poolMax, statementTimeoutMs, idleInTransactionSessionTimeoutMs } = options;
   configurePgTypeParsers();
+  const pool = new Pool({
+    connectionString,
+    max: poolMax,
+    // pg default 0 waits forever; 10s covers in-cluster TCP+auth and fails fast if Postgres is down.
+    connectionTimeoutMillis: 10_000,
+    statement_timeout: statementTimeoutMs,
+    idle_in_transaction_session_timeout: idleInTransactionSessionTimeoutMs,
+    options: `-c search_path=${TRUEFORGE_SCHEMA}`,
+  });
+  // Idle clients emit 'error' when the backend closes; without a listener Node exits.
+  pool.on('error', (error: Error) => {
+    console.error('Unexpected Postgres pool error on idle client', error);
+  });
   return new Kysely<Database>({
     dialect: new PostgresDialect({
-      pool: new Pool({
-        connectionString,
-        max: poolMax,
-        statement_timeout: statementTimeoutMs,
-        idle_in_transaction_session_timeout: idleInTransactionSessionTimeoutMs,
-        options: `-c search_path=${TRUEFORGE_SCHEMA}`,
-      }),
+      pool,
     }),
   });
 }
