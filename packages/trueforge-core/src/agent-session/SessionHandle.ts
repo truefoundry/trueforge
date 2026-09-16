@@ -468,6 +468,7 @@ export class SessionHandle<
         sandboxAvailable: Boolean(input.sandbox),
         tracing: input.tracing,
         logger: input.resolver.logger,
+        webSearchProvider: input.resolver.webSearchProvider,
       }),
       ...(extraCapabilities ?? []),
     ];
@@ -523,6 +524,7 @@ export class SessionHandle<
           sandboxAvailable: Boolean(input.sandbox),
           tracing: input.tracing,
           logger: input.resolver.logger,
+          webSearchProvider: input.resolver.webSearchProvider,
         }),
         ...(extraCapabilities ?? []),
       ];

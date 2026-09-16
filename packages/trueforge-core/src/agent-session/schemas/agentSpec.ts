@@ -198,6 +198,12 @@ const AskUserQuestionsConfigSchema = z
   })
   .openapi('AskUserQuestionsConfig');
 
+const WebSearchConfigSchema = z
+  .object({
+    enabled: z.boolean().default(true).describe('Enable built-in web search and fetch tools. Default: true.'),
+  })
+  .openapi('WebSearchConfig');
+
 export const RuntimeConfigSchema = z
   .object({
     iteration_limit: z
@@ -217,6 +223,7 @@ export const RuntimeConfigSchema = z
     })),
     generative_ui: GenerativeUIConfigSchema.default(() => ({ enabled: true })),
     ask_user_questions: AskUserQuestionsConfigSchema.default(() => ({ enabled: true })),
+    web_search: WebSearchConfigSchema.default(() => ({ enabled: true })),
   })
   .openapi('RuntimeConfig');
 

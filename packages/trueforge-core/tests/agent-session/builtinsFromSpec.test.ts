@@ -26,6 +26,7 @@ function runBuiltins(input: {
     sandboxAvailable: false,
     tracing: NOOP_AGENT_TRACING,
     logger: makeSilentLogger(),
+    webSearchProvider: undefined,
   });
 }
 

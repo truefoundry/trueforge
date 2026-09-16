@@ -10,8 +10,10 @@ import { currentDateTime } from '../core/capabilities/builtins/CurrentDateTime';
 import { dynamicSubAgents } from '../core/capabilities/builtins/DynamicSubAgents';
 import { largeToolResponse } from '../core/capabilities/builtins/LargeToolResponse';
 import { openUI } from '../core/capabilities/builtins/OpenUI';
+import { webSearch } from '../core/capabilities/builtins/WebSearch';
 import type { AgentDefinition } from '../core/runtime/AgentDefinition';
 import type { AgentTracing } from '../core/tracing/AgentTracing';
+import type { WebSearchProvider } from '../core/web-search/WebSearchProvider';
 import type { AgentSpec } from './schemas/agentSpec';
 
 export function builtinsFromSpec(input: {
@@ -22,8 +24,9 @@ export function builtinsFromSpec(input: {
   sandboxAvailable: boolean;
   tracing: AgentTracing;
   logger: Logger;
+  webSearchProvider: WebSearchProvider | undefined;
 }): AgentCapability[] {
-  const { spec, definition, isChild, sandboxAvailable, tracing, logger } = input;
+  const { spec, definition, isChild, sandboxAvailable, tracing, logger, webSearchProvider } = input;
   const config = spec.config;
   const capabilities: AgentCapability[] = [currentDateTime({ tracing })];
 
@@ -61,6 +64,10 @@ export function builtinsFromSpec(input: {
 
   if (!isChild && config.generative_ui.enabled) {
     capabilities.push(openUI({ preload: false, tracing }));
+  }
+
+  if (webSearchProvider && config.web_search.enabled) {
+    capabilities.push(webSearch({ provider: webSearchProvider, tracing }));
   }
 
   return capabilities;

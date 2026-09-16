@@ -9,6 +9,7 @@ import type { AgentInfo } from '../core/runtime/AgentThread.types';
 import type { Sandbox, SandboxInfo } from '../core/sandbox/Sandbox';
 import type { AgentTracing } from '../core/tracing/AgentTracing';
 import { NOOP_AGENT_TRACING } from '../core/tracing/NoopAgentTracing';
+import type { WebSearchProvider } from '../core/web-search/WebSearchProvider';
 import type { ITurnResourceResolver, ResolvedAgentDefinition } from './ITurnResourceResolver';
 import type { TurnRecord } from './models/TurnRecord';
 import type { AgentSpec } from './schemas/agentSpec';
@@ -82,6 +83,8 @@ export class TurnResourceResolver<
        * session is bound by reference; omit only if all sessions use inline agents.
        */
       agent?: ((agentId: string) => Promise<AgentSpec>) | undefined;
+      /** Host web-search backend; omit when not configured. */
+      webSearchProvider?: WebSearchProvider | undefined;
       /** Forwarded to RemoteMCP / AgentThread (required by their constructors). */
       logger: Logger;
     },
@@ -89,6 +92,10 @@ export class TurnResourceResolver<
 
   get logger(): Logger {
     return this.deps.logger;
+  }
+
+  get webSearchProvider(): WebSearchProvider | undefined {
+    return this.deps.webSearchProvider;
   }
 
   /** Default: no-op tracing. Override to plug in a real tracer. */

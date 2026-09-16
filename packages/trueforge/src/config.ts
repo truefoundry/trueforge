@@ -154,6 +154,24 @@ export function parseTenantIdToAllowedModelProviderAccounts(raw: string | undefi
   }
 }
 
+/**
+ * Parses `TRUEFOUNDRY_WEB_SEARCH_PROVIDER` JSON. Empty / unset → `undefined` (feature off).
+ * Expected keys: `name` (`parallel`), `api_key`.
+ */
+export function parseTrueFoundryWebSearchProvider(raw: string | undefined): Record<string, string> | undefined {
+  if (!raw?.trim()) {
+    return undefined;
+  }
+  try {
+    return z.record(z.string(), z.string()).parse(JSON.parse(raw));
+  } catch (error) {
+    throw new Error(
+      'Environment variable TRUEFOUNDRY_WEB_SEARCH_PROVIDER must be a JSON object of string keys to string values (e.g. {"name":"parallel","api_key":"..."})',
+      { cause: error },
+    );
+  }
+}
+
 /** Parses a positive-integer env var, falling back to `defaultValue` when unset/blank. */
 function parsePositiveInt(options: { envKey: string; raw: string | undefined; defaultValue: number }): number {
   const { envKey, raw, defaultValue } = options;
@@ -740,6 +758,12 @@ export type DistributedServerConfiguration = SharedServerConfiguration & {
    * Env: `TRUEFOUNDRY_TENANT_ID_TO_ALLOWED_MODEL_PROVIDER_ACCOUNTS`.
    */
   TRUEFOUNDRY_TENANT_ID_TO_ALLOWED_MODEL_PROVIDER_ACCOUNTS: Record<string, string[]>;
+  /**
+   * Optional built-in web search provider (TrueFoundry mode only). JSON object
+   * `Record<string, string>` with `name` (`parallel`) and `api_key`.
+   * Unset / empty → web search tools are not registered. Env: `TRUEFOUNDRY_WEB_SEARCH_PROVIDER`.
+   */
+  TRUEFOUNDRY_WEB_SEARCH_PROVIDER: Record<string, string> | undefined;
 };
 
 export type ServerConfiguration = StandaloneServerConfiguration | DistributedServerConfiguration;
@@ -923,6 +947,9 @@ const configuration: ServerConfiguration = standalone
       TRUEFOUNDRY_SANDBOX_SETTINGS: getEnv('TRUEFOUNDRY_SANDBOX_SETTINGS', { required: false }),
       TRUEFOUNDRY_TENANT_ID_TO_ALLOWED_MODEL_PROVIDER_ACCOUNTS: parseTenantIdToAllowedModelProviderAccounts(
         getEnv('TRUEFOUNDRY_TENANT_ID_TO_ALLOWED_MODEL_PROVIDER_ACCOUNTS', { required: false }),
+      ),
+      TRUEFOUNDRY_WEB_SEARCH_PROVIDER: parseTrueFoundryWebSearchProvider(
+        getEnv('TRUEFOUNDRY_WEB_SEARCH_PROVIDER', { required: false }),
       ),
     };
 
