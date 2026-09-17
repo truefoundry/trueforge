@@ -1,5 +1,17 @@
 # @truefoundry/trueforge-core
 
+## 0.2.0-rc.6
+
+### Minor Changes
+
+- e4c4b56: Add built-in web search/fetch system tools (Parallel via `parallel-web`), gated by `AgentSpec.config.web_search` (default off) and TrueFoundry-mode host env `TRUEFOUNDRY_WEB_SEARCH_PROVIDER`. New drafts seed `web_search.enabled` from `/capabilities` when a provider is configured.
+
+### Patch Changes
+
+- 551b6a8: Default MCP tool approval to `@destructive` only. Selecting Other/read-only tools clears approval; selecting destructive tools keeps it on. Migrate mounts still carrying the old `@write`+`@destructive` default.
+- c83145a: Abort remote MCP HTTP response bodies over 50MB (`MCP_TOOL_CALL_MAX_RESPONSE_BYTES`) so oversized tool results cannot OOM the process.
+- a655537: Add a `turn.update` event schema with paused/running status and `action_required_on_events`.
+
 ## 0.2.0-rc.5
 
 ### Patch Changes
