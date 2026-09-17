@@ -156,10 +156,10 @@ export function parseTenantIdToAllowedModelProviderAccounts(raw: string | undefi
 
 /**
  * Parsed `TRUEFOUNDRY_WEB_SEARCH_PROVIDER` JSON. Empty / unset → `undefined` (feature off).
- * Requires non-empty `name` (`parallel`) and `api_key`.
+ * Requires `name: "parallel"` and non-empty `api_key`.
  */
 export interface TrueFoundryWebSearchProviderEnv {
-  name: string;
+  name: 'parallel';
   api_key: string;
 }
 
@@ -173,13 +173,13 @@ export function parseTrueFoundryWebSearchProvider(
     const parsed = z.record(z.string(), z.string()).parse(JSON.parse(raw));
     const name = parsed['name']?.trim();
     const apiKey = parsed['api_key']?.trim();
-    if (!name || !apiKey) {
-      throw new Error('missing name or api_key');
+    if (name !== 'parallel' || !apiKey) {
+      throw new Error('missing or unsupported name, or missing api_key');
     }
-    return { name, api_key: apiKey };
+    return { name: 'parallel', api_key: apiKey };
   } catch (error) {
     throw new Error(
-      'Environment variable TRUEFOUNDRY_WEB_SEARCH_PROVIDER must be a JSON object with non-empty string "name" and "api_key" (e.g. {"name":"parallel","api_key":"..."})',
+      'Environment variable TRUEFOUNDRY_WEB_SEARCH_PROVIDER must be a JSON object with "name":"parallel" and non-empty "api_key" (e.g. {"name":"parallel","api_key":"..."})',
       { cause: error },
     );
   }

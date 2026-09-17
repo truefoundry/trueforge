@@ -153,7 +153,7 @@ describe('builtinsFromSpec web_search', () => {
       throw new Error('expected listTools result');
     }
     expect(listed.result.tools.map(t => t.name)).toEqual([WEB_SEARCH_TOOL_NAME, WEB_FETCH_TOOL_NAME]);
-    expect(listed.result.tools[0]?.description).toContain('site:domain');
-    expect(listed.result.tools[1]?.description).toContain('PDF');
+    expect(listed.result.tools[0]?.description).toContain('ranked hits');
+    expect(listed.result.tools[1]?.description).toContain('markdown/text');
   });
 });

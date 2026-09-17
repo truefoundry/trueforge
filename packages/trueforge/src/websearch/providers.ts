@@ -10,10 +10,5 @@ export function resolveWebSearchProvider(): IWebSearchProvider | undefined {
   if (!env) {
     return undefined;
   }
-  switch (env.name) {
-    case 'parallel':
-      return new ParallelWebSearchProvider({ apiKey: env.api_key, mode: 'turbo' });
-    default:
-      throw new Error(`Unsupported TRUEFOUNDRY_WEB_SEARCH_PROVIDER name: ${env.name}`);
-  }
+  return new ParallelWebSearchProvider({ apiKey: env.api_key, mode: 'turbo' });
 }

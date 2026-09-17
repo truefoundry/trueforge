@@ -8,6 +8,11 @@ import {
 
 export type ParallelSearchMode = 'turbo' | 'fast' | 'basic' | 'advanced';
 
+/** Keep search payloads under the large-tool-response individual threshold (~6k tokens). */
+const PARALLEL_SEARCH_MAX_RESULTS = 5;
+const PARALLEL_SEARCH_MAX_CHARS_PER_RESULT = 500;
+const PARALLEL_SEARCH_MAX_CHARS_TOTAL = 4000;
+
 export interface ParallelWebSearchProviderOptions {
   apiKey: string;
   /** Parallel Search mode preset. Caller supplies the default (e.g. `turbo`). */
@@ -32,6 +37,11 @@ export class ParallelWebSearchProvider implements IWebSearchProvider {
       search_queries: input.search_queries,
       ...(input.objective ? { objective: input.objective } : {}),
       mode: this.#mode,
+      max_chars_total: PARALLEL_SEARCH_MAX_CHARS_TOTAL,
+      advanced_settings: {
+        max_results: PARALLEL_SEARCH_MAX_RESULTS,
+        excerpt_settings: { max_chars_per_result: PARALLEL_SEARCH_MAX_CHARS_PER_RESULT },
+      },
     });
     return {
       hits: response.results.map(result => ({

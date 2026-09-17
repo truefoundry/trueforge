@@ -7,14 +7,14 @@ import {
 import { InstructionBuilder } from '../../../../src/core/InstructionBuilder';
 
 describe('buildWebSearchInstruction', () => {
-  it('adds when-to-search and citation guidance referencing both tools', () => {
+  it('adds when-to-search guidance referencing both tools', () => {
     const builder = new InstructionBuilder('capabilities');
     buildWebSearchInstruction(builder);
     const text = builder.build();
     expect(text).toContain(WEB_SEARCH_REMINDER_TAG);
     expect(text).toContain(WEB_SEARCH_TOOL_NAME);
     expect(text).toContain(WEB_FETCH_TOOL_NAME);
-    expect(text).toContain('Markdown links');
     expect(text).toContain('may have changed recently');
+    expect(text).toContain('Start with');
   });
 });

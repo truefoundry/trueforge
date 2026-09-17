@@ -34,10 +34,8 @@ const webFetchInputSchema = z
     urls: z
       .array(z.url())
       .min(1)
-      .max(20)
-      .describe(
-        'Page or PDF URLs to extract (up to 20). Pass arxiv/document PDF links directly when you need paper content.',
-      ),
+      .max(5)
+      .describe('Page URLs to extract (up to 5). Prefer specific hit URLs from web_search.'),
     objective: z
       .string()
       .min(1)
@@ -46,44 +44,32 @@ const webFetchInputSchema = z
   })
   .strict();
 
-const WEB_SEARCH_TOOL_DESCRIPTION = dedent`
-  Search the web for information. Returns ranked hits with titles, URLs, and snippets.
+/** What the tool does — param details live on the Zod schema `.describe`s. */
+const WEB_SEARCH_TOOL_DESCRIPTION =
+  'Search the web. Returns ranked hits with titles, URLs, and snippets. Prefer concise keyword queries; use multiple related queries in one call when useful.';
 
-  Prefer concise keyword queries over full sentences. Use multiple related queries in one call when useful.
-  Query operators such as site:domain, filetype:pdf, intitle:word, -term, and "exact phrase" may work when the backend supports them.
+/** What the tool does — param details live on the Zod schema `.describe`s. */
+const WEB_FETCH_TOOL_DESCRIPTION = `Extract page content from URLs as markdown/text (no LLM summarization). Prefer specific hit URLs from ${WEB_SEARCH_TOOL_NAME} when snippets are not enough.`;
 
-  Params:
-  - search_queries — 1–5 keyword queries
-  - objective — optional natural-language goal to focus results
-`.trim();
-
-const WEB_FETCH_TOOL_DESCRIPTION = dedent`
-  Extract content from web page URLs as markdown/text (no LLM summarization — fast). Also works with PDF URLs (arxiv papers, documents) — pass the PDF link directly.
-
-  Prefer fetching specific hit URLs from ${WEB_SEARCH_TOOL_NAME} when you need full page text. If a URL fails or times out, try an alternate source from search results.
-
-  Params:
-  - urls — list of page/PDF URLs (max 20)
-  - objective — optional goal to focus excerpts on large pages
-`.trim();
-
+/**
+ * Cross-tool policy (when / how to combine search + fetch).
+ * Per-tool behavior and params stay on tool descriptions / schema describes.
+ */
 export function buildWebSearchInstruction(builder: InstructionBuilder): void {
   builder.addSection(
     WEB_SEARCH_REMINDER_TAG,
     dedent`
-      The Agent has two system tools for live web access: ${WEB_SEARCH_TOOL_NAME} (search) and ${WEB_FETCH_TOOL_NAME} (extract page/PDF content).
+      The Agent has two system tools for live web access: ${WEB_SEARCH_TOOL_NAME} (search) and ${WEB_FETCH_TOOL_NAME} (extract page content).
 
       When to use them:
       - The user asks to search, browse, verify, look up, or get latest information.
       - Facts may have changed recently (news, prices, laws, schedules, product specs, software APIs/docs, people in roles, rates, scores).
       - The answer needs direct quotes, links, or precise source attribution.
-      - A specific page, paper, dataset, PDF, or site is referenced and its contents were not provided.
-      - High-stakes accuracy matters (medical, legal, financial guidance), or there is a meaningful chance of incorrect recall.
+      - A specific page, paper, dataset, or site is referenced and its contents were not provided.
 
       How to use them:
       - Start with ${WEB_SEARCH_TOOL_NAME} for discovery; follow with ${WEB_FETCH_TOOL_NAME} on the best URLs when snippets are not enough.
-      - Prefer primary and authoritative sources. Cite claims with Markdown links like [title](https://example.com/page) next to the supported statement — not bare URLs or search-result pages.
-      - Do not dump long verbatim passages; paraphrase and keep quotes short.
+      - Prefer primary and authoritative sources.
     `.trim(),
   );
 }
