@@ -37,7 +37,13 @@ export function approvalSelectorsAfterEnabling({
     if (defaultApprovalRequiredForTool(tool)) approved.add(name);
     else approved.delete(name);
   }
-  return approvalSelectorsFor({ tools, approved });
+  const next = approvalSelectorsFor({ tools, approved });
+  // No destructive tools on this server → keep the omitted harness default instead of writing `[]`,
+  // so later-added destructive tools still pick up `@destructive`.
+  if (next.length === 0 && !tools.some(tool => defaultApprovalRequiredForTool(tool))) {
+    return [...DEFAULT_APPROVAL_SELECTORS];
+  }
+  return next;
 }
 
 /** Approval state for a tool name whose annotations are unknown (tags cannot be resolved). */
@@ -68,6 +74,7 @@ export function approvedToolNames({
 /**
  * Narrowest selector list that gates exactly `approved`. Class tags are kept while every tool of
  * that class stays gated, so servers that later add write/destructive tools still gate them.
+ * Tags with no matching tools on the server are omitted (vacuous `every` would otherwise keep them).
  */
 export function approvalSelectorsFor({
   tools,
@@ -77,9 +84,10 @@ export function approvalSelectorsFor({
   approved: ReadonlySet<string>;
 }): string[] {
   if (tools.length > 0 && tools.every(tool => approved.has(tool.name))) return [TOOL_TAG_ALL];
-  const selectors = [TOOL_TAG_WRITE, TOOL_TAG_DESTRUCTIVE].filter(tag =>
-    tools.every(tool => !toolMatchesTag({ tag, tool }) || approved.has(tool.name)),
-  );
+  const selectors = [TOOL_TAG_WRITE, TOOL_TAG_DESTRUCTIVE].filter(tag => {
+    const matching = tools.filter(tool => toolMatchesTag({ tag, tool }));
+    return matching.length > 0 && matching.every(tool => approved.has(tool.name));
+  });
   for (const tool of tools) {
     if (!approved.has(tool.name)) continue;
     if (toolMatchesSelectors({ tool, selectors })) continue;

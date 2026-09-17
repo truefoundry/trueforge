@@ -42,6 +42,16 @@ describe('approvalSelectorsAfterEnabling', () => {
       }),
     ).toEqual(['@destructive']);
   });
+
+  it('keeps the harness default when enabling tools on a server with no destructive class', () => {
+    expect(
+      approvalSelectorsAfterEnabling({
+        tools: [unannotated],
+        selectors: [...DEFAULT_APPROVAL_SELECTORS],
+        newlyEnabledNames: ['run_report'],
+      }),
+    ).toEqual([...DEFAULT_APPROVAL_SELECTORS]);
+  });
 });
 
 describe('approvalSelectorsFor', () => {
@@ -73,6 +83,11 @@ describe('approvalSelectorsFor', () => {
 
   it('returns an empty list when nothing is gated', () => {
     expect(approvalSelectorsFor({ tools, approved: new Set() })).toEqual([]);
+  });
+
+  it('omits class tags when the server has no tools in that class', () => {
+    expect(approvalSelectorsFor({ tools: [unannotated], approved: new Set() })).toEqual([]);
+    expect(approvalSelectorsFor({ tools: [listItems], approved: new Set([listItems.name]) })).toEqual(['@all']);
   });
 });
 
