@@ -38,10 +38,10 @@ Each option below is part of the agent definition. The **Set in** line on each s
     - **Preload** — load a server's full tool definitions upfront, or (default) discover them on demand to keep context lean. See [Deferred Tool Loading](/key-features/deferred-tool-loading). Toggle it on the connector's chip in Build Agent, or via the API.
     - **Tool approval** — pause before sensitive tool calls until a human approves. See below.
 
-    **Set in:** UI (attach servers, tool selection, preload toggle) · API (same, plus approval policy)
+    **Set in:** UI + API
   </Accordion>
 
-  <Accordion title="Tool approval (API only)" icon="user-shield">
+  <Accordion title="Tool approval" icon="user-shield">
     Some tool calls shouldn't run without a human's sign-off. **Tool approval** pauses the agent before such a call, shows the tool name and arguments, and resumes only after the user chooses **Allow** or **Deny** in the chat UI.
 
     By default, the harness decides what to gate from the tool's own **MCP annotation**: if the server marks a tool as **write or destructive** (the default `["@write", "@destructive"]`), the agent pauses for approval before running it. Read-only tools run autonomously.
@@ -50,9 +50,19 @@ Each option below is part of the agent definition. The **Set in** line on each s
       <img src="/images/hitl.png" alt="Chat UI pausing on a tool call, showing the request payload with Allow and Deny buttons" />
     </Frame>
 
-    You can override which tools require approval — gate a specific list, or every tool — but that is configured **per MCP server via the API only** ([`require_approval_for_tools`](#mcp_servers)).
+    You can override which tools require approval per MCP server. In **Select MCP Tools**, the shield next to an enabled tool toggles approval for it, and the **Destructive Actions** header has an **Approval required** switch that covers all of them; via the API, set [`require_approval_for_tools`](#mcp_servers) to `@all`, `@write`, `@destructive`, or literal tool names.
 
-    **Set in:** API
+    <Frame caption="The shield on an enabled tool row toggles approval; the Selected Tools panel counts how many are gated.">
+      <img src="/images/mcp-tool-approval.png" alt="The Select MCP Tools dialog with a shielded web_search tool and a Selected Tools panel listing tools with approval badges" />
+    </Frame>
+
+    To review what a saved agent ended up with, open its **Overview** tab: **MCP Servers & Tools** lists each attached server with how many of its tools need approval, and expanding one shows every tool with its `read` / `write` / `destructive` label and shield state.
+
+    <Frame caption="The agent Overview tab, with the slack server expanded to show each tool's annotation and shield state.">
+      <img src="/images/agent-overview-mcp-tools.png" alt="The agent Overview tab showing an MCP Servers and Tools panel with per-server approval counts and a tool list labelled read or write" />
+    </Frame>
+
+    **Set in:** UI + API
   </Accordion>
 
   <Accordion title="Skills" icon="book">
@@ -143,7 +153,7 @@ Open **Build Agent** from the sidebar. The **Agent Config** panel on the left is
 
 1. **Select a model** from the providers you configured under **Settings → Models**, and set its reasoning effort.
 2. Write focused **instructions** — role, audience, and behavior.
-3. **Add MCP servers** — open **Select MCP Tools**, pick the servers the agent should use, and choose which of their tools to enable. Set a server's **preload** toggle on its chip to load its tools upfront.
+3. **Add MCP servers** — open **Select MCP Tools**, pick the servers the agent should use, and choose which of their tools to enable. Use the shield on a tool to require **approval** before it runs — write and destructive tools are gated by default. Set a server's **preload** toggle on its chip to load its tools upfront.
 4. **Add skills** if the agent should follow specialized procedures (requires [sandbox](/sandbox) enabled).
 5. Open **Runtime Config** to review execution and context behavior — Dynamic sub-agents, Generative UI, Ask user questions, the sandbox, iteration limit, and context compaction (all on by default).
 6. Click **Save Agent**, give it a name and description, and save. It then appears under [Agents](/agent-library).
@@ -152,10 +162,10 @@ Open **Build Agent** from the sidebar. The **Agent Config** panel on the left is
   <img src="/images/save-agent.png" alt="The Save agent dialog with an agent name and a description field" />
 </Frame>
 
-Available in the UI today: **model**, **instructions**, **MCP servers** (attach, tool selection, preload), **skills**, **sandbox** (on/off and file downloads), **iteration limit**, **context compaction**, and the **Dynamic sub-agents**, **Generative UI**, and **Ask user questions** toggles.
+Available in the UI today: **model**, **instructions**, **MCP servers** (attach, tool selection, tool approval, preload), **skills**, **sandbox** (on/off and file downloads), **iteration limit**, **context compaction**, and the **Dynamic sub-agents**, **Generative UI**, and **Ask user questions** toggles.
 
 <Note>
-  A few options are still API only: model parameters (temperature, top_p, and so on), per-tool **approval** policy, response format, and seed messages. See [Create an agent via the API](#create-an-agent-via-the-api).
+  A few options are still API only: model parameters (temperature, top_p, and so on), response format, and seed messages. See [Create an agent via the API](#create-an-agent-via-the-api).
 </Note>
 
 ## Create an agent via the API
@@ -347,7 +357,7 @@ Optional array. Each entry attaches a [configured MCP server](/mcp-servers) by n
 | `enable_tools`               | `["@all"]`                   | API      | Tools exposed to the agent: `@all`, `@read-only`, or literal tool names.                                                         |
 | `disable_tools`              | `[]`                         | API      | Tools subtracted from the enabled set.                                                                                           |
 | `preload_tools`              | `[]`                         | API      | Tools loaded eagerly into context while the rest stay deferred.                                                                  |
-| `require_approval_for_tools` | `["@write", "@destructive"]` | API      | Tools that pause for [human approval](#whats-in-an-agent): `@all`, `@write`, `@destructive`, or literal names.                   |
+| `require_approval_for_tools` | `["@write", "@destructive"]` | UI + API | Tools that pause for [human approval](#whats-in-an-agent): `@all`, `@write`, `@destructive`, or literal names.                   |
 | `preload`                    | `false`                      | UI + API | Load all tool schemas upfront instead of [on demand](/key-features/deferred-tool-loading).                                       |
 
 The `@read-only`, `@write`, and `@destructive` selectors are resolved from the tool annotations published by the MCP server.

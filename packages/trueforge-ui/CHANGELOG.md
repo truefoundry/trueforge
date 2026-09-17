@@ -1,5 +1,18 @@
 # Changelog
 
+## 0.3.0-rc.11
+
+### Patch Changes
+
+- 4be60e7: Bump `@truefoundry/assistant-ui-runtime` to `0.1.41` for turn-scoped sandbox artifact downloads and to stop stale session history from merging after a session switch.
+- 551b6a8: Default MCP tool approval to `@destructive` only. Selecting Other/read-only tools clears approval; selecting destructive tools keeps it on. Migrate mounts still carrying the old `@write`+`@destructive` default.
+- 551b6a8: Let Build Agent pick which MCP tools require human approval, saved as `require_approval_for_tools` on the agent spec, and make unchecked tool checkboxes legible in both tool selectors. The agent Overview tab now expands each attached MCP server into its tools, with read/write/destructive labels and approval state.
+- ffbb239: Add a hover ellipsis delete menu with confirmation dialog on Sessions list rows.
+- a655537: Add a `turn.update` event schema with paused/running status and `action_required_on_events`.
+- Updated dependencies [648273b]
+- Updated dependencies [648273b]
+  - @truefoundry/trueforge-sdk@0.2.0-rc.9
+
 ## 0.3.0-rc.10
 
 ### Patch Changes

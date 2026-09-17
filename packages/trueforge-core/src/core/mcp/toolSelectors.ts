@@ -25,7 +25,7 @@ export const REQUIRE_APPROVAL_TOOLS_SELECTOR_TAGS = [TOOL_TAG_ALL, TOOL_TAG_WRIT
 export const DEFAULT_ENABLE_TOOLS: string[] = [TOOL_TAG_ALL];
 export const DEFAULT_DISABLE_TOOLS: string[] = [];
 export const DEFAULT_PRELOAD_TOOLS: string[] = [];
-export const DEFAULT_REQUIRE_APPROVAL_FOR_TOOLS: string[] = [TOOL_TAG_WRITE, TOOL_TAG_DESTRUCTIVE];
+export const DEFAULT_REQUIRE_APPROVAL_FOR_TOOLS: string[] = [TOOL_TAG_DESTRUCTIVE];
 
 function isToolTag(selector: string): selector is ToolTag {
   return TOOL_TAGS.includes(selector as ToolTag);

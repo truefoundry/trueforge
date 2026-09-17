@@ -1,5 +1,28 @@
 # @truefoundry/trueforge
 
+## 0.2.0-rc.13
+
+### Minor Changes
+
+- e4c4b56: Add built-in web search/fetch system tools (Parallel via `parallel-web`), gated by `AgentSpec.config.web_search` (default off) and TrueFoundry-mode host env `TRUEFOUNDRY_WEB_SEARCH_PROVIDER`. New drafts seed `web_search.enabled` from `/capabilities` when a provider is configured.
+
+### Patch Changes
+
+- 4be60e7: Bump `@truefoundry/assistant-ui-runtime` to `0.1.41` for turn-scoped sandbox artifact downloads and to stop stale session history from merging after a session switch.
+- 551b6a8: Default MCP tool approval to `@destructive` only. Selecting Other/read-only tools clears approval; selecting destructive tools keeps it on. Migrate mounts still carrying the old `@write`+`@destructive` default.
+- c83145a: Abort remote MCP HTTP response bodies over 50MB (`MCP_TOOL_CALL_MAX_RESPONSE_BYTES`) so oversized tool results cannot OOM the process.
+- 4a91f47: Allow renaming sessions via `PATCH /api/v1/sessions/{session_id}` with an optional `title` (trimmed, 1–50 chars).
+- 3d385af: Cap SQLite leftover WAL at 64 MiB after checkpoint so a full disk cannot grow the WAL unbounded.
+- a655537: Add a `turn.update` event schema with paused/running status and `action_required_on_events`.
+- Updated dependencies [648273b]
+- Updated dependencies [648273b]
+- Updated dependencies [551b6a8]
+- Updated dependencies [c83145a]
+- Updated dependencies [a655537]
+- Updated dependencies [e4c4b56]
+  - @truefoundry/trueforge-sdk@0.2.0-rc.9
+  - @truefoundry/trueforge-core@0.2.0-rc.6
+
 ## 0.2.0-rc.12
 
 ### Patch Changes
