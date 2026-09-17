@@ -9,6 +9,6 @@ import type * as TrueForge from "../../../../index.js";
 export interface UpdateSessionRequest {
     agent?: TrueForge.SessionAgentSpecBody;
     metadata?: TrueForge.SessionMetadata;
-    /** Human-readable session title (1–50 chars after trim). */
+    /** Human-readable session title. */
     title?: string;
 }

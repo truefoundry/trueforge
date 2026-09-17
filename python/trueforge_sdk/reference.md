@@ -2079,7 +2079,7 @@ client.sessions.update(
 <dl>
 <dd>
 
-**title:** `typing.Optional[str]` — Human-readable session title (1–50 chars after trim).
+**title:** `typing.Optional[str]` — Human-readable session title.
     
 </dd>
 </dl>

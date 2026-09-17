@@ -405,7 +405,7 @@ class RawSessionsClient:
         metadata : typing.Optional[SessionMetadata]
 
         title : typing.Optional[str]
-            Human-readable session title (1–50 chars after trim).
+            Human-readable session title.
 
         request_options : typing.Optional[RequestOptions]
             Request-specific configuration.
@@ -1930,7 +1930,7 @@ class AsyncRawSessionsClient:
         metadata : typing.Optional[SessionMetadata]
 
         title : typing.Optional[str]
-            Human-readable session title (1–50 chars after trim).
+            Human-readable session title.
 
         request_options : typing.Optional[RequestOptions]
             Request-specific configuration.

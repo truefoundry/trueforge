@@ -5491,7 +5491,7 @@
             "$ref": "#/components/schemas/SessionMetadata"
           },
           "title": {
-            "description": "Human-readable session title (1–50 chars after trim).",
+            "description": "Human-readable session title.",
             "maxLength": 50,
             "minLength": 1,
             "type": "string"
