@@ -3,7 +3,12 @@ import { type Kysely, sql } from 'kysely';
 import configuration from '../../config';
 import type { Database } from './types';
 
-export const TRUEFORGE_SCHEMA = 'trueforge';
+export function getTrueForgePostgresSchema(): string {
+  if (configuration.STANDALONE) {
+    throw new Error('unreachable');
+  }
+  return configuration.POSTGRES_SCHEMA;
+}
 
 const TABLES_TO_MOVE = [
   'kysely_migration',
@@ -26,29 +31,30 @@ const TABLES_TO_MOVE = [
 ] as const;
 
 export async function ensureTrueforgeSchema(db: Kysely<Database>): Promise<void> {
+  const schema = getTrueForgePostgresSchema();
   await db.transaction().execute(async txn => {
     await sql`SET LOCAL lock_timeout = '5s'`.execute(txn);
-    await sql`SELECT pg_advisory_xact_lock(hashtext('trueforge_schema_bootstrap'))`.execute(txn);
+    await sql`SELECT pg_advisory_xact_lock(hashtext(${`trueforge_schema_bootstrap:${schema}`}))`.execute(txn);
 
     const result = await sql<{ exists: boolean }>`
       SELECT EXISTS (
         SELECT 1
         FROM pg_namespace
-        WHERE nspname = ${TRUEFORGE_SCHEMA}
+        WHERE nspname = ${schema}
       ) AS exists
     `.execute(txn);
     if (result.rows[0]?.exists === true) {
       return;
     }
 
-    await sql`CREATE SCHEMA IF NOT EXISTS ${sql.id(TRUEFORGE_SCHEMA)}`.execute(txn);
+    await sql`CREATE SCHEMA IF NOT EXISTS ${sql.id(schema)}`.execute(txn);
     if (
       !configuration.STANDALONE &&
       configuration.AUTOMATICALLY_MOVE_TRUEFORGE_TABLES_FROM_PUBLIC_TO_TRUEFORGE_SCHEMA
     ) {
       for (const tableName of TABLES_TO_MOVE) {
         await sql`
-          ALTER TABLE IF EXISTS ${sql.id('public', tableName)} SET SCHEMA ${sql.id(TRUEFORGE_SCHEMA)}
+          ALTER TABLE IF EXISTS ${sql.id('public', tableName)} SET SCHEMA ${sql.id(schema)}
         `.execute(txn);
       }
     }

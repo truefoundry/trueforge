@@ -21,6 +21,7 @@ export const getSessionMetricsMetersRoute = createRoute({
   description: "Aggregate the caller's session meters for a named agent over an inclusive creation-time window.",
   'x-fern-sdk-group-name': ['internal', 'metrics'],
   'x-fern-sdk-method-name': 'get_meters',
+  'x-excluded': true,
   request: {
     query: GetSessionMetricsRequestQuerySchema,
   },
@@ -44,6 +45,7 @@ export const getSessionMetricsChartsRoute = createRoute({
   description: 'List available session metric charts.',
   'x-fern-sdk-group-name': ['internal', 'metrics'],
   'x-fern-sdk-method-name': 'list_charts',
+  'x-excluded': true,
   responses: {
     200: {
       content: { 'application/json': { schema: GetSessionMetricsChartResponseSchema } },
@@ -61,6 +63,7 @@ export const getSessionMetricsChartsDataRoute = createRoute({
     "Return one chart for the caller's sessions on a named agent over an inclusive creation-time window. Uses hourly buckets for windows up to 24 hours and daily UTC buckets otherwise.",
   'x-fern-sdk-group-name': ['internal', 'metrics'],
   'x-fern-sdk-method-name': 'get_chart_data',
+  'x-excluded': true,
   request: {
     query: GetSessionMetricsChartDataRequestQuerySchema,
   },

@@ -1,10 +1,47 @@
 # Default values for the trueforge chart.
+# Bitnami relocated its versioned container images to docker.io/bitnamilegacy and
+# left only rolling `latest` tags under docker.io/bitnami, so the subchart image
+# defaults no longer pull. We source pinned legacy images from the TrueFoundry
+# JFrog mirror instead. Overriding the registry trips Bitnami's image guardrail,
+# so allowInsecureImages must be set for the subcharts to render.
+global:
+  resourceTier: ""
+  security:
+    allowInsecureImages: true
+  # Custom CA trust, set here or inherited from a parent chart. Give an inline
+  # `certificate` or an `existingConfigMap.name` (key `ca-certificates.crt`);
+  # mounted over /etc/ssl/certs (overrideCAList) or merged with the system
+  # bundle by an initContainer. Sets NODE_EXTRA_CA_CERTS either way.
+  customCA:
+    enabled: false
+    certificate: ""
+    existingConfigMap:
+      name: ""
+      overrideCAList: false
+    image:
+      registry: tfy.jfrog.io
+      repository: tfy-mirror/alpine
+      tag: "3.21"
+    securityContext:
+      runAsNonRoot: true
+      runAsUser: 1001
+      runAsGroup: 1001
+      readOnlyRootFilesystem: true
+      allowPrivilegeEscalation: false
+      capabilities:
+        drop:
+          - ALL
+    # Extra env for the initContainer only, e.g. SSL_CERT_FILE, REQUESTS_CA_BUNDLE.
+    env: {}
+    emptyDir:
+      sslCerts:
+        sizeLimit: 10Mi
 
 image:
   repository: tfy.jfrog.io/tfy-images/trueforge
   # Tag defaults to chart appVersion when empty. Prod chart-release PRs set this
   # to {appVersion}-{shortSha} for the npm-install image already in the registry.
-  tag: "0.2.0-rc.11-7fc322f"
+  tag: "0.2.0-rc.12-1525f94"
   pullPolicy: IfNotPresent
 imagePullSecrets: []
 # Default tfy.jfrog.io repos are anonymously pullable. Set secrets only when
@@ -48,7 +85,9 @@ service:
 # packages/trueforge/src/config.ts.
 server:
   # Number of server replicas (ignored when autoscaling.enabled is true).
-  replicaCount: 1
+  # null = derived from the resource tier (small=1, medium=2, large=3),
+  # or 1 when no tier is set. Set a number to override the tier.
+  replicaCount: null
   # Annotations on the server Deployment object (for example, Argo CD sync waves).
   deploymentAnnotations: {}
   # Rolling update strategy for the server Deployment.
@@ -132,42 +171,6 @@ configs:
     # Optional comma-separated exact emails and/or * globs (e.g. "*@company.com").
     # Empty = unrestricted. Matched against the ID token `email` claim.
     allowedEmails: ""
-# Bitnami relocated its versioned container images to docker.io/bitnamilegacy and
-# left only rolling `latest` tags under docker.io/bitnami, so the subchart image
-# defaults no longer pull. We source pinned legacy images from the TrueFoundry
-# JFrog mirror instead. Overriding the registry trips Bitnami's image guardrail,
-# so allowInsecureImages must be set for the subcharts to render.
-global:
-  security:
-    allowInsecureImages: true
-  # Custom CA trust, set here or inherited from a parent chart. Give an inline
-  # `certificate` or an `existingConfigMap.name` (key `ca-certificates.crt`);
-  # mounted over /etc/ssl/certs (overrideCAList) or merged with the system
-  # bundle by an initContainer. Sets NODE_EXTRA_CA_CERTS either way.
-  customCA:
-    enabled: false
-    certificate: ""
-    existingConfigMap:
-      name: ""
-      overrideCAList: false
-    image:
-      registry: tfy.jfrog.io
-      repository: tfy-mirror/alpine
-      tag: "3.21"
-    securityContext:
-      runAsNonRoot: true
-      runAsUser: 1001
-      runAsGroup: 1001
-      readOnlyRootFilesystem: true
-      allowPrivilegeEscalation: false
-      capabilities:
-        drop:
-          - ALL
-    # Extra env for the initContainer only, e.g. SSL_CERT_FILE, REQUESTS_CA_BUNDLE.
-    env: {}
-    emptyDir:
-      sslCerts:
-        sizeLimit: 10Mi
 # Resource tier: small | medium | large presets for server and controller.
 # Empty = use `resources` / `controller.resources`. Wins over a parent chart's
 # global.resourceTier.
@@ -261,16 +264,17 @@ externalRedis:
     masterName: ""
     # string or valueFrom -> REDIS_SENTINEL_PASSWORD.
     password: ""
+
 # Extra raw manifests deployed alongside the server, e.g. an Istio
 # VirtualService, a Gateway, an Ingress, or a NetworkPolicy. Each entry is a
 # full Kubernetes object rendered through `tpl`, so Helm templating works and
-# helpers like `{{ include "trueforge.fullname" . }}` resolve. Example:
+# helpers like `{{ include "trueforge.server.fullname" . }}` resolve. Example:
 #
 # extraObjects:
 #   - apiVersion: networking.istio.io/v1
 #     kind: VirtualService
 #     metadata:
-#       name: '{{ include "trueforge.fullname" . }}'
+#       name: '{{ include "trueforge.server.fullname" . }}'
 #     spec:
 #       hosts:
 #         - trueforge.example.com
@@ -279,7 +283,7 @@ externalRedis:
 #       http:
 #         - route:
 #             - destination:
-#                 host: '{{ include "trueforge.fullname" . }}'
+#                 host: '{{ include "trueforge.server.fullname" . }}'
 #                 port:
 #                   number: '{{ .Values.service.port }}'
 extraObjects: []
@@ -335,7 +339,9 @@ autoscaling:
   maxReplicas: 5
   targetCPUUtilizationPercentage: 80
 podDisruptionBudget:
-  enabled: false
+  # Rendered only when the server runs more than one replica, so single-replica
+  # installs never block node drains.
+  enabled: true
   # Exactly one of minAvailable or maxUnavailable is required when enabled.
   # Default keeps at least one pod available during voluntary disruptions.
   minAvailable: 1
@@ -343,4 +349,6 @@ podDisruptionBudget:
 nodeSelector: {}
 tolerations: []
 affinity: {}
+# Empty = server pods spread across nodes (maxSkew 1, ScheduleAnyway). Set to
+# override; entries apply verbatim to both server and controller pods.
 topologySpreadConstraints: []

@@ -20,6 +20,7 @@ export const importAgentsRoute = createRoute({
   summary: 'Import agents in bulk (create)',
   description: 'Ops/backfill only. Per-item created | exists | failed.',
   'x-fern-ignore': true,
+  'x-excluded': true,
   request: {
     body: {
       content: { 'application/json': { schema: ImportAgentsRequestSchema } },
@@ -46,6 +47,7 @@ export const importSessionRoute = createRoute({
   description:
     'Ops/backfill only. Named sessions link agent_name to a local agent when present; otherwise a dummy agent_id. Drafts use agent_spec (SF name/id stashed in metadata when both present). 409 if session_id exists.',
   'x-fern-ignore': true,
+  'x-excluded': true,
   request: {
     body: {
       content: { 'application/json': { schema: ImportSessionRequestSchema } },
@@ -79,6 +81,7 @@ export const getImportSessionsCheckpointRoute = createRoute({
   summary: 'Session import checkpoint',
   description: 'Min created_at among imported sessions for one tenant (metadata.imported=true).',
   'x-fern-ignore': true,
+  'x-excluded': true,
   request: {
     query: ImportSessionsCheckpointQuerySchema,
   },
