@@ -6,6 +6,7 @@ import type * as serializers from "../index.js";
 import { SandboxCapability } from "./SandboxCapability.js";
 import { SettingsCapability } from "./SettingsCapability.js";
 import { SkillCapability } from "./SkillCapability.js";
+import { WebSearchCapability } from "./WebSearchCapability.js";
 
 export const CapabilitiesData: core.serialization.ObjectSchema<
     serializers.CapabilitiesData.Raw,
@@ -14,6 +15,7 @@ export const CapabilitiesData: core.serialization.ObjectSchema<
     sandbox: SandboxCapability,
     settings: SettingsCapability,
     skill: SkillCapability,
+    webSearch: core.serialization.property("web_search", WebSearchCapability),
 });
 
 export declare namespace CapabilitiesData {
@@ -21,5 +23,6 @@ export declare namespace CapabilitiesData {
         sandbox: SandboxCapability.Raw;
         settings: SettingsCapability.Raw;
         skill: SkillCapability.Raw;
+        web_search: WebSearchCapability.Raw;
     }
 }
