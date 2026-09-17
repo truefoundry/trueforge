@@ -3,6 +3,7 @@ import { CancellationReason } from '../../src/agent-session/schemas/turn';
 import { Sessions } from '../../src/agent-session/Sessions';
 import { InMemorySessionStore } from '../../src/agent-session/store/InMemorySessionStore';
 import { TurnResourceResolver } from '../../src/agent-session/TurnResourceResolver';
+import { DEFAULT_MCP_TOOL_CALL_CONCURRENCY } from '../../src/core/mcp/executeToolCalls';
 import { RemoteMCP } from '../../src/core/mcp/RemoteMCP';
 import { makeStubPublicSandbox } from '../core/harnessMocks';
 import {
@@ -400,6 +401,7 @@ describe('TurnHandle.stream()', () => {
       mcp: () => Promise.resolve({ url: 'http://localhost' }),
       mcpRequestTimeoutMs: 60_000,
       mcpConnectTimeoutMs: 5_000,
+      mcpToolCallConcurrency: DEFAULT_MCP_TOOL_CALL_CONCURRENCY,
       sandboxProvider: () => Promise.resolve(sandbox),
       logger,
     });
@@ -454,6 +456,7 @@ describe('TurnResourceResolver caches', () => {
       mcp: () => Promise.resolve({ url: 'http://example.invalid' }),
       mcpRequestTimeoutMs: 60_000,
       mcpConnectTimeoutMs: 5_000,
+      mcpToolCallConcurrency: DEFAULT_MCP_TOOL_CALL_CONCURRENCY,
       logger,
     });
     await resolver.resolveTwice();
@@ -478,6 +481,7 @@ describe('TurnResourceResolver caches', () => {
       mcp: () => Promise.reject(new Error('unused')),
       mcpRequestTimeoutMs: 1_000,
       mcpConnectTimeoutMs: 1_000,
+      mcpToolCallConcurrency: DEFAULT_MCP_TOOL_CALL_CONCURRENCY,
       logger,
     });
     await resolver.resolveTwice();
@@ -498,6 +502,7 @@ describe('TurnResourceResolver caches', () => {
       mcp: () => Promise.resolve({ url: 'http://localhost' }),
       mcpRequestTimeoutMs: 60_000,
       mcpConnectTimeoutMs: 5_000,
+      mcpToolCallConcurrency: DEFAULT_MCP_TOOL_CALL_CONCURRENCY,
       sandboxProvider: () => {
         sandboxCreates += 1;
         return Promise.resolve(sandbox);

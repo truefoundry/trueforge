@@ -1,5 +1,6 @@
 /** One root thread, no tools: user message in, text reply out. */
 import { EventType } from '../../src/core/events/schema';
+import { DEFAULT_MCP_TOOL_CALL_CONCURRENCY } from '../../src/core/mcp/executeToolCalls';
 import { AgentThread } from '../../src/core/runtime/AgentThread';
 import { InternalEventType } from '../../src/core/runtime/AgentThread.types';
 import { AgentThreadOrchestrator } from '../../src/core/runtime/AgentThreadOrchestrator';
@@ -64,6 +65,7 @@ describe('orchestration: mocked LLM and no tools', () => {
       capabilityState: undefined,
       tracing: NOOP_AGENT_TRACING,
       logger: makeSilentLogger(),
+      mcpToolCallConcurrency: DEFAULT_MCP_TOOL_CALL_CONCURRENCY,
     });
 
     // Orchestrator owns the thread map and fans send/execute across live threads.

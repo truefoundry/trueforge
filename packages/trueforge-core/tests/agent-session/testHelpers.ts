@@ -14,6 +14,7 @@ import type {
   RawAssistantMessageWithUsage,
 } from '../../src/core/llm/LLMTypes';
 import { getEmptyUsage } from '../../src/core/llm/LLMTypes';
+import { DEFAULT_MCP_TOOL_CALL_CONCURRENCY } from '../../src/core/mcp/executeToolCalls';
 import { getEmptyCurrentContextUsage } from '../../src/core/runtime/contextUsage';
 import type { Sandbox } from '../../src/core/sandbox/Sandbox';
 import { makeMockILLM, makeSilentLogger } from '../core/harnessMocks';
@@ -100,6 +101,7 @@ export function makeTestResolver<TTurnCustom extends object = Record<string, nev
     },
     mcpRequestTimeoutMs: 60_000,
     mcpConnectTimeoutMs: 5_000,
+    mcpToolCallConcurrency: DEFAULT_MCP_TOOL_CALL_CONCURRENCY,
     logger: makeSilentLogger(),
     ...(options?.agent !== undefined ? { agent: options.agent } : {}),
     ...(options?.sandbox
@@ -122,6 +124,7 @@ export function makeTestResolver<TTurnCustom extends object = Record<string, nev
     get logger() {
       return base.logger;
     },
+    mcpToolCallConcurrency: base.mcpToolCallConcurrency,
     createTracing: () => base.createTracing(),
     resolveAgentSpec: input => base.resolveAgentSpec(input),
     resolveSandbox: input => base.resolveSandbox(input),

@@ -2,6 +2,7 @@ import type { AgentDefinition, CreateDynamicSubAgentThread } from '../../src/cor
 import { dynamicSubAgents } from '../../src/core/capabilities/builtins/DynamicSubAgents';
 import { EventType } from '../../src/core/events/schema';
 import type { ILLM } from '../../src/core/llm/ILLM';
+import { DEFAULT_MCP_TOOL_CALL_CONCURRENCY } from '../../src/core/mcp/executeToolCalls';
 import { AgentThread } from '../../src/core/runtime/AgentThread';
 import { InternalEventType, type AgentThreadConstructorInput } from '../../src/core/runtime/AgentThread.types';
 import {
@@ -143,6 +144,7 @@ describe('orchestration: dynamic sub-agent', () => {
       // Default
       tracing: NOOP_AGENT_TRACING,
       logger: makeSilentLogger(),
+      mcpToolCallConcurrency: DEFAULT_MCP_TOOL_CALL_CONCURRENCY,
     };
 
     let thread_1 = new AgentThread(agentThreadInput);
@@ -182,6 +184,7 @@ describe('orchestration: dynamic sub-agent', () => {
         capabilityState: undefined,
         tracing: NOOP_AGENT_TRACING,
         logger: makeSilentLogger(),
+        mcpToolCallConcurrency: DEFAULT_MCP_TOOL_CALL_CONCURRENCY,
       });
     };
 

@@ -1,5 +1,6 @@
 /** Pause on write_note approval, then resume after allow or deny. */
 import { EventType } from '../../src/core/events/schema';
+import { DEFAULT_MCP_TOOL_CALL_CONCURRENCY } from '../../src/core/mcp/executeToolCalls';
 import { AgentThread } from '../../src/core/runtime/AgentThread';
 import { InternalEventType, type AgentThreadConstructorInput } from '../../src/core/runtime/AgentThread.types';
 import { AgentThreadOrchestrator } from '../../src/core/runtime/AgentThreadOrchestrator';
@@ -280,6 +281,7 @@ function makeApprovalHarness(finalReply: string): {
     capabilityState: undefined,
     tracing: NOOP_AGENT_TRACING,
     logger: makeSilentLogger(),
+    mcpToolCallConcurrency: DEFAULT_MCP_TOOL_CALL_CONCURRENCY,
   };
 
   const thread = new AgentThread(agentThreadInput);

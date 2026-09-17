@@ -1,6 +1,7 @@
 import type { ILLM } from '../../../src/core/llm/ILLM';
 import type { ExtendedChatCompletionChunk, RawAssistantMessageWithUsage } from '../../../src/core/llm/LLMTypes';
 import { getEmptyUsage } from '../../../src/core/llm/LLMTypes';
+import { DEFAULT_MCP_TOOL_CALL_CONCURRENCY } from '../../../src/core/mcp/executeToolCalls';
 import { AgentThread } from '../../../src/core/runtime/AgentThread';
 import { makeUnknownToolInfo, toToolCallInfo } from '../../../src/core/runtime/contextUtils';
 import { NOOP_AGENT_TRACING } from '../../../src/core/tracing/NoopAgentTracing';
@@ -93,6 +94,7 @@ describe('AgentThread unknown tool logging', () => {
       title: 'Main',
       tracing: NOOP_AGENT_TRACING,
       logger: silentLogger,
+      mcpToolCallConcurrency: DEFAULT_MCP_TOOL_CALL_CONCURRENCY,
       definition: {
         modelClient,
         instruction: 'test',

@@ -63,3 +63,38 @@ export async function* mergeAsyncGenerators<T>(
     pending.set(idx, getNextIteration(idx));
   }
 }
+
+/** Runs `fn` over `items` with at most `concurrency` calls in flight. Results stay in input order. */
+export async function mapWithConcurrency<T, R>(
+  items: readonly T[],
+  concurrency: number,
+  fn: (item: T, index: number) => Promise<R>,
+  signal?: AbortSignal,
+): Promise<R[]> {
+  if (items.length === 0) {
+    return [];
+  }
+
+  const workerCount = Math.max(1, Math.min(concurrency, items.length));
+  const completed: { index: number; value: R }[] = [];
+  let nextIndex = 0;
+
+  const worker = async (): Promise<void> => {
+    while (nextIndex < items.length) {
+      if (signal?.aborted) {
+        return;
+      }
+      const index = nextIndex;
+      nextIndex += 1;
+      const item = items[index];
+      if (item === undefined) {
+        return;
+      }
+      completed.push({ index, value: await fn(item, index) });
+    }
+  };
+
+  await Promise.all(Array.from({ length: workerCount }, () => worker()));
+  completed.sort((a, b) => a.index - b.index);
+  return completed.map(entry => entry.value);
+}

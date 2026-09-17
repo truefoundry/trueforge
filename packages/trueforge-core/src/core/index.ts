@@ -50,6 +50,7 @@ export { openUI } from './capabilities/builtins/OpenUI';
 // MCP contracts
 export type { ApprovalDecision } from './events/schema';
 export { ClientSideTool } from './mcp/ClientSideTool';
+export { DEFAULT_MCP_TOOL_CALL_CONCURRENCY } from './mcp/executeToolCalls';
 export { isAuthRequired, toolResultResponse } from './mcp/IMCPServer';
 export type {
   AgentToolSchema,

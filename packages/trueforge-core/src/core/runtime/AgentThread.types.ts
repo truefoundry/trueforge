@@ -176,4 +176,5 @@ export interface AgentThreadConstructorInput {
   capabilityState?: CapabilityState | undefined;
   tracing: AgentTracing;
   logger: Logger;
+  mcpToolCallConcurrency: number;
 }

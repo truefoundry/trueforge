@@ -3,6 +3,7 @@ import { EventType } from '../../src/agent-session/schemas/events';
 import { Sessions } from '../../src/agent-session/Sessions';
 import { InMemorySessionStore } from '../../src/agent-session/store/InMemorySessionStore';
 import { TurnResourceResolver } from '../../src/agent-session/TurnResourceResolver';
+import { DEFAULT_MCP_TOOL_CALL_CONCURRENCY } from '../../src/core/mcp/executeToolCalls';
 import { makeAgentSpec, makeMockILLM, makeSilentLogger, makeTestResolver, mintTestTurnId } from './testHelpers';
 
 describe('TurnResourceResolver.resolveAgentSpec', () => {
@@ -12,6 +13,7 @@ describe('TurnResourceResolver.resolveAgentSpec', () => {
       mcp: () => Promise.reject(new Error('unused')),
       mcpRequestTimeoutMs: 1_000,
       mcpConnectTimeoutMs: 1_000,
+      mcpToolCallConcurrency: DEFAULT_MCP_TOOL_CALL_CONCURRENCY,
       logger: makeSilentLogger(),
     });
 
@@ -26,6 +28,7 @@ describe('TurnResourceResolver.resolveAgentDefinition', () => {
       mcp: () => Promise.reject(new Error('unused')),
       mcpRequestTimeoutMs: 1_000,
       mcpConnectTimeoutMs: 1_000,
+      mcpToolCallConcurrency: DEFAULT_MCP_TOOL_CALL_CONCURRENCY,
       logger: makeSilentLogger(),
     });
 
@@ -62,6 +65,7 @@ describe('TurnResourceResolver.resolveAgentDefinition', () => {
       mcp: () => Promise.reject(new Error('unused')),
       mcpRequestTimeoutMs: 1_000,
       mcpConnectTimeoutMs: 1_000,
+      mcpToolCallConcurrency: DEFAULT_MCP_TOOL_CALL_CONCURRENCY,
       logger: makeSilentLogger(),
     });
     const spec = AgentSpecSchema.parse({

@@ -16,6 +16,7 @@ import os from 'node:os';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 
+import { DEFAULT_MCP_TOOL_CALL_CONCURRENCY } from '@truefoundry/trueforge-core/core';
 import envPaths from 'env-paths';
 import { z } from 'zod';
 
@@ -531,6 +532,8 @@ export interface SharedServerConfiguration {
   MCP_REQUEST_TIMEOUT_MS: number;
   /** Max milliseconds for an MCP transport connection. Env: `MCP_CONNECT_TIMEOUT_MS`. Default 30 seconds. */
   MCP_CONNECT_TIMEOUT_MS: number;
+  /** Max in-flight MCP tool calls. Env: `MCP_TOOL_CALL_CONCURRENCY`; unset uses DEFAULT_MCP_TOOL_CALL_CONCURRENCY. */
+  MCP_TOOL_CALL_CONCURRENCY: number;
   /**
    * Client name used for Dynamic Client Registration (DCR) of MCP servers.
    * This is the client name shown on authorization-server consent screens.
@@ -811,6 +814,11 @@ const shared: SharedServerConfiguration = {
     envKey: 'MCP_CONNECT_TIMEOUT_MS',
     raw: getEnv('MCP_CONNECT_TIMEOUT_MS'),
     defaultValue: 30 * 1000,
+  }),
+  MCP_TOOL_CALL_CONCURRENCY: parsePositiveInt({
+    envKey: 'MCP_TOOL_CALL_CONCURRENCY',
+    raw: getEnv('MCP_TOOL_CALL_CONCURRENCY'),
+    defaultValue: DEFAULT_MCP_TOOL_CALL_CONCURRENCY,
   }),
   MCP_DCR_OAUTH_CLIENT_NAME:
     getEnv('MCP_DCR_OAUTH_CLIENT_NAME', { defaultValue: 'truefoundry-harness' }) ?? 'truefoundry-harness',

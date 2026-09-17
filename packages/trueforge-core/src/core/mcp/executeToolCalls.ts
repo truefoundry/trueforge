@@ -5,6 +5,7 @@ import type { MCPAuthRequired } from '../mcp/IMCPServer';
 import type { AgentThreadCreateSubAgent } from '../runtime/AgentThread.types';
 import { InternalEventType } from '../runtime/AgentThread.types';
 import type { SandboxInfo } from '../sandbox/Sandbox';
+import { mapWithConcurrency } from '../util/promiseUtils';
 import type { MappedMCPTool } from './convertMCPServers';
 import {
   isApprovalRequiredResponse,
@@ -13,6 +14,13 @@ import {
   isClientSideToolRequiredResponse,
   toolResultResponse,
 } from './IMCPServer';
+
+/**
+ * Single default for callers and env `MCP_TOOL_CALL_CONCURRENCY`.
+ * Tool bodies sit in memory until LargeToolResponse truncates, so peak RAM is in-flight × largest body.
+ * 4 still covers typical 2–8 parallel calls without extra wait, and caps a 20+ dump instead of matching it.
+ */
+export const DEFAULT_MCP_TOOL_CALL_CONCURRENCY = 4;
 
 export interface ToolCallResult {
   message: LLMToolMessage;
@@ -42,11 +50,15 @@ export async function executeToolCalls({
   toolMapping,
   threadId,
   approvalDecisions,
+  concurrency,
+  signal,
 }: {
   assistantMessage: InternalEnrichedAssistantMessage;
   toolMapping: Map<string, MappedMCPTool>;
   threadId: string;
   approvalDecisions: Map<string, ApprovalDecision>;
+  concurrency: number;
+  signal?: AbortSignal | undefined;
 }): Promise<ExecuteToolCallsResult> {
   const toolMessages: ToolCallResult[] = [];
   const initializationInfo: MCPServerInitInfo[] = [];
@@ -70,43 +82,52 @@ export async function executeToolCalls({
     };
   }
 
-  const toolCallPromises = assistantMessage.tool_calls.map(async toolCall => {
-    const toolInfo = toolMapping.get(toolCall.function.name);
-    if (!toolInfo) {
-      return {
-        toolCall,
-        toolInfo,
-        response: toolResultResponse({ text: `Tool ${toolCall.function.name} not found in tool mapping` }),
-        failure: true,
-        completedAt: new Date().toISOString(),
-      };
-    }
+  // After cancel, workers stop taking new tool calls from the queue.
+  // Do not throw: calls already in flight may still finish and those results are kept.
+  // AgentThread.execute() then returns on abort so deriveState() does not see leftover open tool calls.
+  const results = await mapWithConcurrency(
+    assistantMessage.tool_calls,
+    concurrency,
+    async toolCall => {
+      const toolInfo = toolMapping.get(toolCall.function.name);
+      if (!toolInfo) {
+        return {
+          toolCall,
+          toolInfo,
+          response: toolResultResponse({ text: `Tool ${toolCall.function.name} not found in tool mapping` }),
+          failure: true,
+          completedAt: new Date().toISOString(),
+        };
+      }
 
-    try {
-      const args: Record<string, unknown> = JSON.parse(toolCall.function.arguments || '{}') as Record<string, unknown>;
-      const response = await toolInfo.toolSet.callTool(
-        {
-          name: toolInfo.originalToolName,
-          arguments: args,
-        },
-        approvalDecisions.get(toolCall.id),
-      );
-      return { toolCall, toolInfo, response, failure: false, completedAt: new Date().toISOString() };
-    } catch (error) {
-      return {
-        toolCall,
-        toolInfo,
-        response: toolResultResponse({
-          text: JSON.stringify({ error: error instanceof Error ? error.message : 'Tool execution failed' }),
-          isError: true,
-        }),
-        failure: true,
-        completedAt: new Date().toISOString(),
-      };
-    }
-  });
-
-  const results = await Promise.all(toolCallPromises);
+      try {
+        const args: Record<string, unknown> = JSON.parse(toolCall.function.arguments || '{}') as Record<
+          string,
+          unknown
+        >;
+        const response = await toolInfo.toolSet.callTool(
+          {
+            name: toolInfo.originalToolName,
+            arguments: args,
+          },
+          approvalDecisions.get(toolCall.id),
+        );
+        return { toolCall, toolInfo, response, failure: false, completedAt: new Date().toISOString() };
+      } catch (error) {
+        return {
+          toolCall,
+          toolInfo,
+          response: toolResultResponse({
+            text: JSON.stringify({ error: error instanceof Error ? error.message : 'Tool execution failed' }),
+            isError: true,
+          }),
+          failure: true,
+          completedAt: new Date().toISOString(),
+        };
+      }
+    },
+    signal,
+  );
   for (const { toolCall, toolInfo, response, failure, completedAt } of results) {
     if (isCallToolResponseCreateSubAgent(response)) {
       createThreadEvents.push({

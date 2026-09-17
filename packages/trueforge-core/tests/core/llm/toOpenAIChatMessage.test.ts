@@ -7,6 +7,7 @@ import type {
 import { getEmptyUsage } from '../../../src/core/llm/LLMTypes';
 import { ResponseFormatSchema, toOpenAIResponseFormat } from '../../../src/core/llm/responseFormat';
 import { toOpenAIChatMessage } from '../../../src/core/llm/toOpenAIChatMessage';
+import { DEFAULT_MCP_TOOL_CALL_CONCURRENCY } from '../../../src/core/mcp/executeToolCalls';
 import { AgentThread } from '../../../src/core/runtime/AgentThread';
 import { NOOP_AGENT_TRACING } from '../../../src/core/tracing/NoopAgentTracing';
 import { makeSilentLogger } from '../harnessMocks';
@@ -169,6 +170,7 @@ describe('AgentThread LLM request mapping (end-to-end)', () => {
       title: 'Main',
       tracing: NOOP_AGENT_TRACING,
       logger: makeSilentLogger(),
+      mcpToolCallConcurrency: DEFAULT_MCP_TOOL_CALL_CONCURRENCY,
       definition: {
         modelClient,
         instruction: 'test',

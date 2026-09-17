@@ -75,6 +75,7 @@ export class TurnResourceResolver<
       mcp: (name: string) => Promise<{ url: string; headers?: RemoteMcpHeaders }>;
       mcpRequestTimeoutMs: number;
       mcpConnectTimeoutMs: number;
+      mcpToolCallConcurrency: number;
       /** One sandbox type per runtime. Omit = no sandbox support. */
       sandboxProvider?: TurnSandboxFactory | undefined;
       /**
@@ -89,6 +90,10 @@ export class TurnResourceResolver<
 
   get logger(): Logger {
     return this.deps.logger;
+  }
+
+  get mcpToolCallConcurrency(): number {
+    return this.deps.mcpToolCallConcurrency;
   }
 
   /** Default: no-op tracing. Override to plug in a real tracer. */

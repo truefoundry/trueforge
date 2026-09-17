@@ -9,6 +9,7 @@ import { Sessions } from '../../src/agent-session/Sessions';
 import { InMemorySessionStore } from '../../src/agent-session/store/InMemorySessionStore';
 import type { AgentCapability, JsonValue } from '../../src/core/capabilities/AgentCapability';
 import type { AgentContextProcessorOutput } from '../../src/core/capabilities/AgentContextProcessor';
+import { DEFAULT_MCP_TOOL_CALL_CONCURRENCY } from '../../src/core/mcp/executeToolCalls';
 import { AgentThread } from '../../src/core/runtime/AgentThread';
 import { InternalEventType } from '../../src/core/runtime/AgentThread.types';
 import { NOOP_AGENT_TRACING } from '../../src/core/tracing/NoopAgentTracing';
@@ -281,6 +282,7 @@ describe('capability_state (tfy.plan fixture)', () => {
       capabilities: [badCapability],
       tracing: NOOP_AGENT_TRACING,
       logger: makeSilentLogger(),
+      mcpToolCallConcurrency: DEFAULT_MCP_TOOL_CALL_CONCURRENCY,
     });
     for await (const event of thread.send([{ type: EventType.USER_MESSAGE, content: 'x' }])) {
       void event;

@@ -485,6 +485,7 @@ export class SessionHandle<
       capabilityState: input.previousThreadSnapshot?.capability_state ?? undefined,
       tracing: input.tracing,
       logger: input.resolver.logger,
+      mcpToolCallConcurrency: input.resolver.mcpToolCallConcurrency,
     });
   }
 
@@ -536,6 +537,7 @@ export class SessionHandle<
         capabilities,
         tracing: input.tracing,
         logger: input.resolver.logger,
+        mcpToolCallConcurrency: input.resolver.mcpToolCallConcurrency,
       });
     };
   }

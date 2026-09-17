@@ -66,4 +66,5 @@ export interface ITurnResourceResolver<TTurnCustom extends object = Record<strin
    * knowing what was resolved.
    */
   close(): Promise<void>;
+  readonly mcpToolCallConcurrency: number;
 }
