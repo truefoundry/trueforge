@@ -17,6 +17,7 @@ import {
 import { paginateWithCursorGuard } from './pagination';
 import {
   connectRemoteMcp,
+  DEFAULT_MAX_MCP_RESPONSE_BYTES,
   isSessionExpiredError,
   type RemoteMcpConnection,
   type RemoteMcpTransportType,
@@ -57,6 +58,7 @@ export class RemoteMCP implements ToolSource {
   private readonly tracing: AgentTracing;
   private readonly requestTimeoutMs: number;
   private readonly connectTimeoutMs: number;
+  private readonly maxResponseBytes: number;
   // Redacted display url for trace spans (derived from url; unused when tracing is a no-op).
   private readonly traceUrl: string;
 
@@ -80,6 +82,7 @@ export class RemoteMCP implements ToolSource {
     transportType?: RemoteMcpTransportType | undefined;
     requestTimeoutMs: number;
     connectTimeoutMs: number;
+    maxResponseBytes?: number | undefined;
     signal: AbortSignal;
   }) {
     this.name = params.name;
@@ -92,6 +95,7 @@ export class RemoteMCP implements ToolSource {
     this.resolvedTransportType = params.transportType;
     this.requestTimeoutMs = params.requestTimeoutMs;
     this.connectTimeoutMs = params.connectTimeoutMs;
+    this.maxResponseBytes = params.maxResponseBytes ?? DEFAULT_MAX_MCP_RESPONSE_BYTES;
     this.logger = params.logger;
     this.tracing = params.tracing ?? NOOP_AGENT_TRACING;
     this.traceUrl = redactUrlForTrace(params.url);
@@ -252,6 +256,7 @@ export class RemoteMCP implements ToolSource {
               knownTransportType: this.resolvedTransportType,
               requestTimeoutMs: this.requestTimeoutMs,
               connectTimeoutMs: this.connectTimeoutMs,
+              maxResponseBytes: this.maxResponseBytes,
               signal: this.signal,
               onClose: () => {
                 this.isConnected = false;
