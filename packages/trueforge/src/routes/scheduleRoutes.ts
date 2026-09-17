@@ -179,6 +179,7 @@ export const executeScheduleRunRoute = createRoute({
   description: 'Execute a persisted schedule run using its saved schedule and agent.',
   'x-fern-sdk-group-name': ['internal', 'schedules'],
   'x-fern-sdk-method-name': 'execute_run',
+  'x-excluded': true,
   request: {
     body: {
       content: { 'application/json': { schema: ExecuteScheduleRunRequestSchema } },

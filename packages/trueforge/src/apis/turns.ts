@@ -63,6 +63,7 @@ import {
   X_TFY_METADATA,
 } from '../runtime/sessionResources';
 import { checkSnapshotStatus } from '../sandbox/providerUtils';
+import { MAX_SESSION_TITLE_LENGTH } from '../schemas/session';
 import { resolveWebSearchProvider } from '../websearch/providers';
 import { canReadAgentBoundResource } from './agentAccess';
 
@@ -275,8 +276,6 @@ function createTurnResolver(deps: {
     logger,
   });
 }
-
-const MAX_SESSION_TITLE_LENGTH = 50;
 
 /**
  * Derives a session title from the first user message of the first turn. Returns the

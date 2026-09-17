@@ -14,6 +14,7 @@ export const listPermissionsRoute = createRoute({
   description: 'Return granted actions for the requested resources.',
   'x-fern-sdk-group-name': ['internal'],
   'x-fern-sdk-method-name': 'list_permissions',
+  'x-excluded': true,
   request: {
     body: {
       content: { 'application/json': { schema: ListPermissionsRequestSchema } },

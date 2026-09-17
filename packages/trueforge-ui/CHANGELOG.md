@@ -1,5 +1,11 @@
 # Changelog
 
+## 0.3.0-rc.10
+
+### Patch Changes
+
+- 584e815: Gate Save Agent (create) on tenant CREATE from list-permissions, keep Update Agent on agent MANAGE, unwrap `{ type, permissions }`, and bump `@truefoundry/assistant-ui-runtime` to `0.1.39`.
+
 ## 0.3.0-rc.9
 
 ### Patch Changes
