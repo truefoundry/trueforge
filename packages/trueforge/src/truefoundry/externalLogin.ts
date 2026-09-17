@@ -1,5 +1,5 @@
 import { safeReturnTo } from '../auth/safeReturnTo';
-import { getPublicBaseUrl, getPublicUiBasePath } from '../config';
+import { getPublicUiBasePath } from '../config';
 
 /** TrueFoundry platform browser login entry (same-origin path). */
 export const TRUEFOUNDRY_EXTERNAL_SIGNIN_PATH = '/signin/external';
@@ -13,15 +13,4 @@ export function resolveTrueFoundryLoginReturnTo(returnTo: string | undefined): s
   const redirectPath =
     returnTo !== undefined && returnTo !== '' && safeReturnTo(returnTo) === returnTo ? returnTo : getPublicUiBasePath();
   return `${TRUEFOUNDRY_EXTERNAL_SIGNIN_PATH}?${new URLSearchParams({ redirectPath }).toString()}`;
-}
-
-/**
- * TrueFoundry platform browser login. Harness is mounted under the TF frontend
- * origin (e.g. `https://app.example.com/trueforge`); `returnTo` is the
- * same-origin `/signin/external?…` path produced by
- * {@link resolveTrueFoundryLoginReturnTo}.
- */
-export function buildTrueFoundryExternalLoginHref(returnTo: string): string {
-  const publicUrl = new URL(getPublicBaseUrl());
-  return `${publicUrl.origin}${returnTo}`;
 }
