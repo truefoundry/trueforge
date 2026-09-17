@@ -502,12 +502,16 @@
           },
           "skill": {
             "$ref": "#/components/schemas/SkillCapability"
+          },
+          "web_search": {
+            "$ref": "#/components/schemas/WebSearchCapability"
           }
         },
         "required": [
           "sandbox",
           "skill",
-          "settings"
+          "settings",
+          "web_search"
         ],
         "type": "object"
       },
@@ -3572,6 +3576,9 @@
           "sandbox": {
             "enabled": false,
             "file_downloads": true
+          },
+          "web_search": {
+            "enabled": false
           }
         },
         "properties": {
@@ -3596,6 +3603,9 @@
           },
           "sandbox": {
             "$ref": "#/components/schemas/SandboxConfig"
+          },
+          "web_search": {
+            "$ref": "#/components/schemas/WebSearchConfig"
           }
         },
         "type": "object"
@@ -5620,6 +5630,31 @@
           "tool_call_id",
           "content"
         ],
+        "type": "object"
+      },
+      "WebSearchCapability": {
+        "properties": {
+          "enabled": {
+            "description": "Whether a host web-search provider is configured.",
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "enabled"
+        ],
+        "type": "object"
+      },
+      "WebSearchConfig": {
+        "default": {
+          "enabled": false
+        },
+        "properties": {
+          "enabled": {
+            "default": false,
+            "description": "Enable built-in web search and fetch tools. Default: false (host must configure a provider).",
+            "type": "boolean"
+          }
+        },
         "type": "object"
       },
       "ZaiModelProvider": {

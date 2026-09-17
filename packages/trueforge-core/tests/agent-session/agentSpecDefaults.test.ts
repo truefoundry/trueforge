@@ -10,6 +10,7 @@ describe('AgentSpec RuntimeConfig defaults', () => {
     expect(spec.config.dynamic_sub_agents).toEqual({ enabled: true });
     expect(spec.config.context_management.compaction).toEqual({ enabled: true });
     expect(spec.config.context_management.large_tool_response.enabled).toBe(true);
+    expect(spec.config.web_search).toEqual({ enabled: false });
   });
 
   it('accepts an explicit input-token compaction trigger', () => {

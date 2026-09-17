@@ -46,6 +46,14 @@ export {
   largeToolResponse,
 } from './capabilities/builtins/LargeToolResponse';
 export { openUI } from './capabilities/builtins/OpenUI';
+export {
+  WEB_FETCH_TOOL_NAME,
+  WEB_SEARCH_REMINDER_TAG,
+  WEB_SEARCH_SERVER_ID,
+  WEB_SEARCH_TOOL_NAME,
+  buildWebSearchInstruction,
+  webSearch,
+} from './capabilities/builtins/WebSearch';
 
 // MCP contracts
 export type { ApprovalDecision } from './events/schema';
@@ -173,6 +181,18 @@ export {
 export { SANDBOX_IMAGE_URI } from './sandbox/sandboxImage';
 export { existingSandboxIdForProvider, formatSandboxId, parseSandboxId, rawSandboxId } from './sandbox/sandboxRef';
 export type { SandboxRefParts } from './sandbox/sandboxRef';
+
+// Web search
+export { ParallelWebSearchProvider } from './web-search/ParallelWebSearchProvider';
+export type { ParallelSearchMode, ParallelWebSearchProviderOptions } from './web-search/ParallelWebSearchProvider';
+export { WebSearchProviders } from './web-search/WebSearchProvider';
+export type {
+  IWebSearchProvider,
+  WebFetchPage,
+  WebFetchPages,
+  WebSearchHit,
+  WebSearchHits,
+} from './web-search/WebSearchProvider';
 
 // Skills: the ISkillMounter seam lets hosts plug in their own skill sources
 export { InstructionBuilder } from './InstructionBuilder';
