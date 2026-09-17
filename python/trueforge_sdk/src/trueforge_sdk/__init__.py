@@ -8,6 +8,7 @@ from importlib import import_module
 if typing.TYPE_CHECKING:
     from .types import (
         ActionRequiredEvent,
+        ActionRequiredOnEvent,
         Agent,
         AgentCodeSnippet,
         AgentCodeSnippetSampleCode,
@@ -231,6 +232,10 @@ if typing.TYPE_CHECKING:
         TurnStateErrorMetrics,
         TurnStateRunning,
         TurnStreamingEvent,
+        TurnUpdateEvent,
+        TurnUpdateState,
+        TurnUpdateStatePaused,
+        TurnUpdateStateRunning,
         UserMessage,
         UserMessageContent,
         UserMessageContentItem,
@@ -260,6 +265,7 @@ if typing.TYPE_CHECKING:
     from .version import __version__
 _dynamic_imports: typing.Dict[str, str] = {
     "ActionRequiredEvent": ".types",
+    "ActionRequiredOnEvent": ".types",
     "Agent": ".types",
     "AgentCodeSnippet": ".types",
     "AgentCodeSnippetSampleCode": ".types",
@@ -497,6 +503,10 @@ _dynamic_imports: typing.Dict[str, str] = {
     "TurnStateErrorMetrics": ".types",
     "TurnStateRunning": ".types",
     "TurnStreamingEvent": ".types",
+    "TurnUpdateEvent": ".types",
+    "TurnUpdateState": ".types",
+    "TurnUpdateStatePaused": ".types",
+    "TurnUpdateStateRunning": ".types",
     "UnauthorizedError": ".errors",
     "UnprocessableEntityError": ".errors",
     "UserMessage": ".types",
@@ -545,6 +555,7 @@ def __dir__():
 
 __all__ = [
     "ActionRequiredEvent",
+    "ActionRequiredOnEvent",
     "Agent",
     "AgentCodeSnippet",
     "AgentCodeSnippetSampleCode",
@@ -782,6 +793,10 @@ __all__ = [
     "TurnStateErrorMetrics",
     "TurnStateRunning",
     "TurnStreamingEvent",
+    "TurnUpdateEvent",
+    "TurnUpdateState",
+    "TurnUpdateStatePaused",
+    "TurnUpdateStateRunning",
     "UnauthorizedError",
     "UnprocessableEntityError",
     "UserMessage",

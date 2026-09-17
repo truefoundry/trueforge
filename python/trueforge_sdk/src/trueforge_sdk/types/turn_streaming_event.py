@@ -14,6 +14,7 @@ from .tool_response_event import ToolResponseEvent
 from .tool_response_required_event import ToolResponseRequiredEvent
 from .turn_created_event import TurnCreatedEvent
 from .turn_done_event import TurnDoneEvent
+from .turn_update_event import TurnUpdateEvent
 
 TurnStreamingEvent = typing.Union[
     McpAuthRequiredEvent,
@@ -28,4 +29,5 @@ TurnStreamingEvent = typing.Union[
     ToolResponseRequiredEvent,
     TurnCreatedEvent,
     TurnDoneEvent,
+    TurnUpdateEvent,
 ]

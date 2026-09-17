@@ -7,6 +7,7 @@ from importlib import import_module
 
 if typing.TYPE_CHECKING:
     from .action_required_event import ActionRequiredEvent
+    from .action_required_on_event import ActionRequiredOnEvent
     from .agent import Agent
     from .agent_code_snippet import AgentCodeSnippet
     from .agent_code_snippet_sample_code import AgentCodeSnippetSampleCode
@@ -230,6 +231,10 @@ if typing.TYPE_CHECKING:
     from .turn_state_error_metrics import TurnStateErrorMetrics
     from .turn_state_running import TurnStateRunning
     from .turn_streaming_event import TurnStreamingEvent
+    from .turn_update_event import TurnUpdateEvent
+    from .turn_update_state import TurnUpdateState
+    from .turn_update_state_paused import TurnUpdateStatePaused
+    from .turn_update_state_running import TurnUpdateStateRunning
     from .user_message import UserMessage
     from .user_message_content import UserMessageContent
     from .user_message_content_item import UserMessageContentItem
@@ -240,6 +245,7 @@ if typing.TYPE_CHECKING:
     from .zai_model_provider import ZaiModelProvider
 _dynamic_imports: typing.Dict[str, str] = {
     "ActionRequiredEvent": ".action_required_event",
+    "ActionRequiredOnEvent": ".action_required_on_event",
     "Agent": ".agent",
     "AgentCodeSnippet": ".agent_code_snippet",
     "AgentCodeSnippetSampleCode": ".agent_code_snippet_sample_code",
@@ -463,6 +469,10 @@ _dynamic_imports: typing.Dict[str, str] = {
     "TurnStateErrorMetrics": ".turn_state_error_metrics",
     "TurnStateRunning": ".turn_state_running",
     "TurnStreamingEvent": ".turn_streaming_event",
+    "TurnUpdateEvent": ".turn_update_event",
+    "TurnUpdateState": ".turn_update_state",
+    "TurnUpdateStatePaused": ".turn_update_state_paused",
+    "TurnUpdateStateRunning": ".turn_update_state_running",
     "UserMessage": ".user_message",
     "UserMessageContent": ".user_message_content",
     "UserMessageContentItem": ".user_message_content_item",
@@ -497,6 +507,7 @@ def __dir__():
 
 __all__ = [
     "ActionRequiredEvent",
+    "ActionRequiredOnEvent",
     "Agent",
     "AgentCodeSnippet",
     "AgentCodeSnippetSampleCode",
@@ -720,6 +731,10 @@ __all__ = [
     "TurnStateErrorMetrics",
     "TurnStateRunning",
     "TurnStreamingEvent",
+    "TurnUpdateEvent",
+    "TurnUpdateState",
+    "TurnUpdateStatePaused",
+    "TurnUpdateStateRunning",
     "UserMessage",
     "UserMessageContent",
     "UserMessageContentItem",
