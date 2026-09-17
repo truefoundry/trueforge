@@ -12,6 +12,7 @@ export type AgentResourceEditorContentProps = {
   query: string;
   activeConnectorId: string | null;
   tools: McpToolSelection[];
+  toolsByConnector?: Record<string, McpToolSelection[]>;
   connectorLoading: boolean;
   connectorError: string | null;
   toolsLoading: boolean;
@@ -47,6 +48,7 @@ export function AgentResourceEditorContent(props: AgentResourceEditorContentProp
       query={props.query}
       activeConnectorId={props.activeConnectorId}
       tools={props.tools}
+      {...(props.toolsByConnector === undefined ? {} : { toolsByConnector: props.toolsByConnector })}
       connectorLoading={props.connectorLoading}
       connectorError={props.connectorError}
       toolsLoading={props.toolsLoading}

@@ -39,7 +39,7 @@ class McpServer(UncheckedBaseModel):
         default=None
     )
     """
-    Tools that pause for human approval: `@all`, `@write`, `@destructive`, or literal names. Default: `["@write", "@destructive"]`.
+    Tools that pause for human approval: `@all`, `@write`, `@destructive`, or literal names. Default: `["@destructive"]`.
     """
 
     if IS_PYDANTIC_V2:
