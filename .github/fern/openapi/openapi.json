@@ -2,6 +2,18 @@
   "components": {
     "parameters": {},
     "schemas": {
+      "ActionRequired": {
+        "properties": {
+          "id": {
+            "description": "Unique identifier for the event (monotonic ULID).",
+            "type": "string"
+          }
+        },
+        "required": [
+          "id"
+        ],
+        "type": "object"
+      },
       "ActionRequiredEvent": {
         "discriminator": {
           "mapping": {
@@ -22,18 +34,6 @@
             "$ref": "#/components/schemas/MCPAuthRequiredEvent"
           }
         ]
-      },
-      "ActionRequiredOnEvent": {
-        "properties": {
-          "id": {
-            "description": "Unique identifier for the event (monotonic ULID).",
-            "type": "string"
-          }
-        },
-        "required": [
-          "id"
-        ],
-        "type": "object"
       },
       "Agent": {
         "additionalProperties": false,
@@ -5502,7 +5502,7 @@
           "action_required_on_events": {
             "description": "Events that still need a user or client action.",
             "items": {
-              "$ref": "#/components/schemas/ActionRequiredOnEvent"
+              "$ref": "#/components/schemas/ActionRequired"
             },
             "type": "array"
           },

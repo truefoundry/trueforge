@@ -7,7 +7,7 @@ from ..core.pydantic_utilities import IS_PYDANTIC_V2
 from ..core.unchecked_base_model import UncheckedBaseModel
 
 
-class ActionRequiredOnEvent(UncheckedBaseModel):
+class ActionRequired(UncheckedBaseModel):
     id: str = pydantic.Field()
     """
     Unique identifier for the event (monotonic ULID).

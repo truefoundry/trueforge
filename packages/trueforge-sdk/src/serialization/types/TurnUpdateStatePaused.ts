@@ -3,7 +3,7 @@
 import type * as TrueForge from "../../api/index.js";
 import * as core from "../../core/index.js";
 import type * as serializers from "../index.js";
-import { ActionRequiredOnEvent } from "./ActionRequiredOnEvent.js";
+import { ActionRequired } from "./ActionRequired.js";
 
 export const TurnUpdateStatePaused: core.serialization.ObjectSchema<
     serializers.TurnUpdateStatePaused.Raw,
@@ -11,14 +11,14 @@ export const TurnUpdateStatePaused: core.serialization.ObjectSchema<
 > = core.serialization.object({
     actionRequiredOnEvents: core.serialization.property(
         "action_required_on_events",
-        core.serialization.list(ActionRequiredOnEvent),
+        core.serialization.list(ActionRequired),
     ),
     status: core.serialization.stringLiteral("paused"),
 });
 
 export declare namespace TurnUpdateStatePaused {
     export interface Raw {
-        action_required_on_events: ActionRequiredOnEvent.Raw[];
+        action_required_on_events: ActionRequired.Raw[];
         status: "paused";
     }
 }

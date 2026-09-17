@@ -4,14 +4,12 @@ import type * as TrueForge from "../../api/index.js";
 import * as core from "../../core/index.js";
 import type * as serializers from "../index.js";
 
-export const ActionRequiredOnEvent: core.serialization.ObjectSchema<
-    serializers.ActionRequiredOnEvent.Raw,
-    TrueForge.ActionRequiredOnEvent
-> = core.serialization.object({
-    id: core.serialization.string(),
-});
+export const ActionRequired: core.serialization.ObjectSchema<serializers.ActionRequired.Raw, TrueForge.ActionRequired> =
+    core.serialization.object({
+        id: core.serialization.string(),
+    });
 
-export declare namespace ActionRequiredOnEvent {
+export declare namespace ActionRequired {
     export interface Raw {
         id: string;
     }

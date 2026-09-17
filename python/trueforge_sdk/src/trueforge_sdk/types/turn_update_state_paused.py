@@ -5,11 +5,11 @@ import typing
 import pydantic
 from ..core.pydantic_utilities import IS_PYDANTIC_V2
 from ..core.unchecked_base_model import UncheckedBaseModel
-from .action_required_on_event import ActionRequiredOnEvent
+from .action_required import ActionRequired
 
 
 class TurnUpdateStatePaused(UncheckedBaseModel):
-    action_required_on_events: typing.List[ActionRequiredOnEvent] = pydantic.Field()
+    action_required_on_events: typing.List[ActionRequired] = pydantic.Field()
     """
     Events that still need a user or client action.
     """
