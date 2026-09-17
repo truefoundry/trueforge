@@ -101,6 +101,9 @@ export class PostgresSandboxProviderStore implements ISandboxProviderStore<Trans
     if (expectedManifest !== undefined) {
       query = query.where('manifest', '=', json(expectedManifest));
     }
+    if (input.expected_updated_at !== undefined) {
+      query = query.where('updated_at', '=', new Date(input.expected_updated_at));
+    }
     const row = await query.returningAll().executeTakeFirst();
     return row === undefined ? undefined : toRecord(row);
   }

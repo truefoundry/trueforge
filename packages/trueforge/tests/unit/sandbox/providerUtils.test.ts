@@ -57,5 +57,28 @@ it('persists Daytona authentication failures instead of surfacing a settings err
     status_reason: 'Daytona rejected the API key. Check the configured credentials.',
     build_metadata: null,
     expected_manifest: record.manifest,
+    expected_updated_at: record.updated_at,
   });
+});
+
+it('does not overwrite a concurrent Daytona access failure with a stale refresh', async () => {
+  jest
+    .spyOn(DaytonaSandboxProvider.prototype, 'getImageBuildStatus')
+    .mockResolvedValue({ status: 'ready', metadata: { snapshot: 'snap-1' } } as never);
+  const failed = {
+    ...record,
+    status: 'failed' as const,
+    status_reason: 'Daytona rejected the API key. Check the configured credentials.',
+    updated_at: '2026-09-17T10:00:00.000Z',
+  };
+  const store = makeStore();
+  (store.updateSandboxStatus as jest.Mock).mockResolvedValue(undefined);
+  (store.getSandboxProvider as jest.Mock).mockResolvedValueOnce(record).mockResolvedValueOnce(failed);
+
+  await expect(
+    checkSnapshotStatus({ store, tenant_id: record.tenant_id, logger: createLogger({ silent: true }) }),
+  ).resolves.toMatchObject({ status: 'failed', status_reason: failed.status_reason });
+  expect(store.updateSandboxStatus).toHaveBeenCalledWith(
+    expect.objectContaining({ expected_updated_at: record.updated_at }),
+  );
 });
