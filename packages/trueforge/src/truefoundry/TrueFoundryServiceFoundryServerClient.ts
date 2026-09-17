@@ -41,9 +41,12 @@ const GetSessionUserSchema = z.object({
   subject: SessionSubjectSchema,
 });
 
-const GetSessionWireSchema = z.object({
-  user: GetSessionUserSchema.nullable(),
-});
+const GetSessionWireSchema = z
+  .object({
+    user: GetSessionUserSchema.nullable(),
+    controlPlaneURL: z.url(),
+  })
+  .transform(({ user, controlPlaneURL: public_base_url }) => ({ user, public_base_url }));
 
 /** Authenticated session payload (`user` is non-null after {@link TrueFoundryServiceFoundryServerClient.getSession}). */
 export interface GetSessionResponse {
@@ -472,14 +475,14 @@ export class TrueFoundryServiceFoundryServerClient {
   }
 
   /**
-   * `GET v1/session` for RequestContext mapping.
-   * `user: null` (invalid/missing auth on a 200) → 401; all other failures → 500.
+   * `GET v1/session` for RequestContext mapping (always called with a bearer token).
+   * SFY optional-auth soft failure (`user: null` on 200) → 401; malformed → 500.
    */
   async getSession(accessToken: string): Promise<GetSessionResponse> {
     let payload: unknown;
     try {
       payload = await this.#requestJson({
-        url: this.#url(SESSION_PATH),
+        url: this.#url(SESSION_PATH, { includeTenantInfo: 'true' }),
         accessToken,
         method: 'GET',
       });
