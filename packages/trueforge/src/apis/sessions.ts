@@ -460,7 +460,7 @@ export function createSessionsRouter(deps: SessionsRouterDeps) {
         tenant_id: requestContext.tenant_id,
         session_id: sessionId,
         agent: body.agent === undefined ? undefined : { type: 'inline', spec: body.agent.spec },
-        title: undefined,
+        title: body.title,
         metadata: body.metadata,
       });
     } catch (error) {

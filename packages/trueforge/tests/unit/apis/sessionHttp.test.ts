@@ -500,6 +500,66 @@ describe('sessions HTTP agent binding', () => {
     expect(omittedJson.data.metadata).toEqual({});
   });
 
+  it('PATCH title renames a session and omission preserves it', async () => {
+    const created = await app.request('/', jsonInit('POST', { agent: { spec: inlineSpec } }));
+    expect(created.status).toBe(201);
+    const { data } = (await created.json()) as { data: { id: string; title: string | null } };
+    expect(data.title).toBeNull();
+
+    const renamed = await app.request(`/${data.id}`, jsonInit('PATCH', { title: '  Acme onboarding  ' }));
+    expect(renamed.status).toBe(200);
+    const renamedJson = (await renamed.json()) as { data: { title: string | null } };
+    expect(renamedJson.data.title).toBe('Acme onboarding');
+
+    const omit = await app.request(`/${data.id}`, jsonInit('PATCH', {}));
+    expect(omit.status).toBe(200);
+    const omitJson = (await omit.json()) as { data: { title: string | null } };
+    expect(omitJson.data.title).toBe('Acme onboarding');
+
+    const got = await app.request(`/${data.id}`);
+    expect(got.status).toBe(200);
+    expect(((await got.json()) as { data: { title: string | null } }).data.title).toBe('Acme onboarding');
+  });
+
+  it('PATCH title works on named (reference) sessions', async () => {
+    const agent = await agentStore.createAgent({
+      tenant_id: 'default',
+      created_by_subject: {
+        subject_id: STANDALONE_REQUEST_CONTEXT.subject.id,
+        subject_type: STANDALONE_REQUEST_CONTEXT.subject.type,
+        subject_display_name: STANDALONE_REQUEST_CONTEXT.subject.display_name,
+      },
+      name: 'rename-agent',
+      description: 'Test agent.',
+      manifest: inlineSpec,
+      external_id: null,
+    });
+
+    const created = await app.request('/', jsonInit('POST', { agent: { name: agent.name } }));
+    expect(created.status).toBe(201);
+    const { data } = (await created.json()) as { data: { id: string } };
+
+    const renamed = await app.request(`/${data.id}`, jsonInit('PATCH', { title: 'Customer A support' }));
+    expect(renamed.status).toBe(200);
+    const renamedJson = (await renamed.json()) as {
+      data: { title: string | null; agent: { type: string } };
+    };
+    expect(renamedJson.data.title).toBe('Customer A support');
+    expect(renamedJson.data.agent.type).toBe('reference');
+  });
+
+  it('rejects blank or over-limit session titles on PATCH', async () => {
+    const created = await app.request('/', jsonInit('POST', { agent: { spec: inlineSpec } }));
+    expect(created.status).toBe(201);
+    const { data } = (await created.json()) as { data: { id: string } };
+
+    const blank = await app.request(`/${data.id}`, jsonInit('PATCH', { title: '   ' }));
+    expect(blank.status).toBe(400);
+
+    const tooLong = await app.request(`/${data.id}`, jsonInit('PATCH', { title: 'x'.repeat(51) }));
+    expect(tooLong.status).toBe(400);
+  });
+
   it('rejects invalid session metadata on create', async () => {
     const tooLongKey = await app.request(
       '/',
