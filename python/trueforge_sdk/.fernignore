@@ -1,2 +1,3 @@
 src/trueforge_sdk/events.py
 tests/test_events.py
+.fern/metadata.json

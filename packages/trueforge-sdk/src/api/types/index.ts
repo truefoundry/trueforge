@@ -227,4 +227,6 @@ export * from "./UserMessageContent.js";
 export * from "./UserMessageContentItem.js";
 export * from "./UserToolApprovalEvent.js";
 export * from "./UserToolResponseEvent.js";
+export * from "./WebSearchCapability.js";
+export * from "./WebSearchConfig.js";
 export * from "./ZaiModelProvider.js";
