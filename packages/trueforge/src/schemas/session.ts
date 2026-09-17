@@ -52,10 +52,21 @@ export const GetOrCreateSessionByExternalIdRequestSchema = z
   .strict()
   .openapi('GetOrCreateSessionByExternalIdRequest');
 
-/** Only inline sessions may be updated; named (reference) sessions reject agent updates. */
+/** Matches auto-derived titles from the first user message on turn 1. */
+export const MAX_SESSION_TITLE_LENGTH = 50;
+
+export const SessionTitleSchema = z
+  .string()
+  .trim()
+  .min(1)
+  .max(MAX_SESSION_TITLE_LENGTH)
+  .describe(`Human-readable session title (1–${String(MAX_SESSION_TITLE_LENGTH)} chars after trim).`);
+
+/** Only inline sessions may replace `agent`; named (reference) sessions reject agent updates. Title/metadata apply to both. */
 export const UpdateSessionRequestSchema = z
   .object({
     agent: SessionAgentSpecBodySchema.optional(),
+    title: SessionTitleSchema.optional(),
     metadata: SessionMetadataSchema.optional(),
   })
   .strict()

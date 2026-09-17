@@ -62,6 +62,7 @@ import {
   X_TFY_METADATA,
 } from '../runtime/sessionResources';
 import { checkSnapshotStatus } from '../sandbox/providerUtils';
+import { MAX_SESSION_TITLE_LENGTH } from '../schemas/session';
 import { canReadAgentBoundResource } from './agentAccess';
 
 export function toWireTurn(record: TurnRecordWithoutSnapshot): Turn {
@@ -270,8 +271,6 @@ function createTurnResolver(deps: {
     logger,
   });
 }
-
-const MAX_SESSION_TITLE_LENGTH = 50;
 
 /**
  * Derives a session title from the first user message of the first turn. Returns the
