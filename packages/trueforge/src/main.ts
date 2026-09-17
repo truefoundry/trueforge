@@ -353,6 +353,7 @@ async function createDistributedPersistence(options: {
     DATABASE_POOL_MAX: databasePoolMax,
     POSTGRES_STATEMENT_TIMEOUT_MS: statementTimeoutMs,
     POSTGRES_IDLE_IN_TRANSACTION_SESSION_TIMEOUT_MS: idleInTransactionSessionTimeoutMs,
+    TRUEFORGE_SCHEMA: trueforgeSchema,
     REDIS_URL: redisUrl,
     EXECUTOR_ID: executorId,
   } = configuration;
@@ -391,6 +392,7 @@ async function createDistributedPersistence(options: {
     poolMax: databasePoolMax,
     statementTimeoutMs,
     idleInTransactionSessionTimeoutMs,
+    schema: trueforgeSchema,
     ssl: databaseSsl,
   });
   await migrateToLatest(db);

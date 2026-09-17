@@ -38,7 +38,11 @@ const DEFAULT_POSTGRES_PASSWORD = 'trueforge';
 const DEFAULT_POSTGRES_DB = 'trueforge';
 const DEFAULT_POSTGRES_HOST = 'localhost';
 const DEFAULT_POSTGRES_PORT = 5432;
+/** Default Postgres schema for app tables + Kysely migration bookkeeping. */
+export const DEFAULT_TRUEFORGE_SCHEMA = 'trueforge';
 const DEFAULT_REDIS_URL = 'redis://localhost:6379';
+/** Unquoted Postgres identifier: letter/underscore start, then alnum/underscore, ≤63 chars. */
+const POSTGRES_SCHEMA_NAME_RE = /^[a-z_][a-z0-9_]{0,62}$/;
 /**
  * Fixed local service credential when `STANDALONE=true` and `TRUEFORGE_API_KEY` is unset.
  * Local testing only — not for distributed deployments.
@@ -181,6 +185,20 @@ function parseBoolean(options: { envKey: string; raw: string | undefined; defaul
     return false;
   }
   throw new Error(`Environment variable ${envKey} must be "true" or "false", got "${raw}"`);
+}
+
+function parseTrueforgeSchema(raw: string | undefined): string {
+  if (raw === undefined || raw.trim() === '') {
+    return DEFAULT_TRUEFORGE_SCHEMA;
+  }
+  const schema = raw.trim();
+  if (!POSTGRES_SCHEMA_NAME_RE.test(schema)) {
+    throw new Error(
+      `Environment variable TRUEFORGE_SCHEMA must be a lowercase Postgres identifier ` +
+        `(letter/underscore, then alnum/underscore, max 63 chars); got "${raw}"`,
+    );
+  }
+  return schema;
 }
 
 /**
@@ -664,6 +682,11 @@ export type DistributedServerConfiguration = SharedServerConfiguration & {
    * Env: `POSTGRES_IDLE_IN_TRANSACTION_SESSION_TIMEOUT_MS`. Default 60000.
    */
   POSTGRES_IDLE_IN_TRANSACTION_SESSION_TIMEOUT_MS: number;
+  /**
+   * Postgres schema for app tables and Kysely migration bookkeeping (`search_path`, Migrator).
+   * Env: `TRUEFORGE_SCHEMA`. Default `trueforge`.
+   */
+  TRUEFORGE_SCHEMA: string;
   /** Peering URL shared by all replicas. Env: `REDIS_URL`. Default `redis://localhost:6379`. */
   REDIS_URL: string;
   /**
@@ -677,7 +700,7 @@ export type DistributedServerConfiguration = SharedServerConfiguration & {
    * Env: `TRUEFOUNDRY_SERVICEFOUNDRY_SERVER_URL`.
    */
   /**
-   * When set, automatically move public TrueForge tables to the TrueForge schema.
+   * When set, automatically move public TrueForge tables into `TRUEFORGE_SCHEMA` on first bootstrap.
    * Env: `AUTOMATICALLY_MOVE_TRUEFORGE_TABLES_FROM_PUBLIC_TO_TRUEFORGE_SCHEMA`. Default true.
    */
   AUTOMATICALLY_MOVE_TRUEFORGE_TABLES_FROM_PUBLIC_TO_TRUEFORGE_SCHEMA: boolean;
@@ -884,6 +907,7 @@ const configuration: ServerConfiguration = standalone
         raw: getEnv('POSTGRES_IDLE_IN_TRANSACTION_SESSION_TIMEOUT_MS'),
         defaultValue: 60_000,
       }),
+      TRUEFORGE_SCHEMA: parseTrueforgeSchema(getEnv('TRUEFORGE_SCHEMA')),
       REDIS_URL: resolveRedisUrl(),
       OIDC: resolveOIDCConfig(),
       AUTOMATICALLY_MOVE_TRUEFORGE_TABLES_FROM_PUBLIC_TO_TRUEFORGE_SCHEMA: parseBoolean({

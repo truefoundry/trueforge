@@ -5,6 +5,7 @@
 import type { Kysely } from 'kysely';
 import { Pool } from 'pg';
 
+import { DEFAULT_TRUEFORGE_SCHEMA } from '../../../src/config';
 import { migrateTo, migrateToLatest } from '../../../src/db/migratePostgres';
 import { createDb } from '../../../src/db/postgres/client';
 import type { Database } from '../../../src/db/postgres/types';
@@ -75,6 +76,7 @@ export async function createPostgresTestDatabase(
     poolMax: 5,
     statementTimeoutMs: 60_000,
     idleInTransactionSessionTimeoutMs: 60_000,
+    schema: DEFAULT_TRUEFORGE_SCHEMA,
   });
   try {
     if (targetMigrationName === undefined) {
