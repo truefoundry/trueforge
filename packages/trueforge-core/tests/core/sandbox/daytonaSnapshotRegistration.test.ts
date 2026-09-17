@@ -165,4 +165,48 @@ describe('DaytonaSandboxProvider exec', () => {
     expect(oldClient.get).toHaveBeenCalledWith(sandboxId);
     expect(newClient.get).toHaveBeenCalledWith(sandboxId);
   });
+
+  it.each([
+    [
+      'download',
+      (provider: DaytonaSandboxProvider, sandboxId: string) => provider.downloadFile({ sandboxId, path: '/tmp/file' }),
+    ],
+    [
+      'upload',
+      (provider: DaytonaSandboxProvider, sandboxId: string) =>
+        provider.uploadFile({ sandboxId, remotePath: '/tmp/file', content: Buffer.from('content') }),
+    ],
+    [
+      'preview',
+      (provider: DaytonaSandboxProvider, sandboxId: string) =>
+        (
+          provider as unknown as {
+            getPreviewUrl(params: { sandboxId: string; port: number; expiresInSeconds: number }): Promise<string>;
+          }
+        ).getPreviewUrl({
+          sandboxId,
+          port: 3000,
+          expiresInSeconds: 60,
+        }),
+    ],
+  ])('evicts the credential-scoped cache entry when %s fails', async (_operation, run) => {
+    const sandboxId = 'test-tenant.cached';
+    const client = new Daytona({ apiKey: 'dtn-test', useDeprecatedPolling: true });
+    const provider = makeRuntimeProvider(client);
+    const internals = DaytonaSandboxProvider as unknown as { cachedSandboxes: Map<string, unknown> };
+    const cacheKey = (provider as unknown as { sandboxCacheKey(id: string): string }).sandboxCacheKey(sandboxId);
+    const failingSandbox = {
+      fs: {
+        getFileDetails: jest.fn().mockResolvedValue({ size: 1, isDir: false }),
+        downloadFile: jest.fn().mockRejectedValue(new Error('download failed')),
+        uploadFile: jest.fn().mockRejectedValue(new Error('upload failed')),
+      },
+      getSignedPreviewUrl: jest.fn().mockRejectedValue(new Error('preview failed')),
+    };
+    internals.cachedSandboxes.set(cacheKey, { sandbox: failingSandbox, defaultTimeoutMs: 1000 });
+
+    await expect(run(provider, sandboxId)).rejects.toThrow();
+
+    expect(internals.cachedSandboxes.has(cacheKey)).toBe(false);
+  });
 });
