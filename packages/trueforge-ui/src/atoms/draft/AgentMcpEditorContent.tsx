@@ -1,6 +1,6 @@
 'use client';
 
-import { useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 
 import { useMCPAuth } from '../../hooks/useMcpAuth.js';
 import { Icon } from '../../icons/Icon.js';
@@ -24,10 +24,12 @@ import {
 } from './agentConfigMounts.js';
 import { connectorsWithSelectedStubs } from './mcpConnectorStubs.js';
 import {
+  approvalSelectorsAfterEnabling,
   approvalSelectorsFor,
   approvedToolNames,
   DEFAULT_APPROVAL_SELECTORS,
   namedToolRequiresApproval,
+  sameSelectors,
 } from './mcpToolApprovals.js';
 import {
   MCP_TOOL_SECTION_ENABLE_ALL_LABELS,
@@ -36,7 +38,10 @@ import {
   partitionMcpToolsBySection,
   type McpToolSectionId,
 } from './mcpToolSections.js';
-import { toolMatchesSelectors } from './mcpToolSelectors.js';
+import { TOOL_TAG_DESTRUCTIVE, TOOL_TAG_WRITE, toolMatchesSelectors } from './mcpToolSelectors.js';
+
+/** Pre-change harness default; still present on mounts materialized before approval became destructive-only. */
+const LEGACY_APPROVAL_SELECTORS = [TOOL_TAG_WRITE, TOOL_TAG_DESTRUCTIVE] as const;
 
 export type AgentMcpEditorContentProps = {
   spec: AgentSpec;
@@ -95,10 +100,23 @@ function ToolApprovalToggle({
 }) {
   return (
     <Tooltip
+      side="bottom"
+      dismissOnClick={false}
+      className="w-64 whitespace-normal p-3 text-left shadow-lg"
       content={
-        approvalRequired
-          ? 'This tool will ask for your approval before running — click to auto-run'
-          : 'This tool runs without asking — click to require your approval'
+        <span className="flex flex-col gap-1.5">
+          <span className="flex items-center justify-between gap-3">
+            <span className="font-semibold">Require approval</span>
+            <span className="text-primary-button-bg text-[0.625rem] font-semibold tracking-wide uppercase">
+              {approvalRequired ? 'ON' : 'OFF'}
+            </span>
+          </span>
+          <span className="text-text-secondary text-xs leading-snug">
+            {approvalRequired
+              ? 'This tool will ask for your approval before running — click to auto-run'
+              : 'This tool runs without asking — click to require your approval'}
+          </span>
+        </span>
       }
     >
       <button
@@ -222,6 +240,33 @@ export function AgentMcpEditorContent({
     });
   };
 
+  // Specs saved under the old default still carry `@write`+`@destructive`. Rewrite once tools are
+  // known so Other tools show (and run) without approval unless the user opts in.
+  const migratedLegacyApprovalRef = useRef(new Set<string>());
+  useEffect(() => {
+    if (!activeMount || tools.length === 0) return;
+    if (migratedLegacyApprovalRef.current.has(activeMount.id)) return;
+    const selectors = approvalSelectorsFromMount(activeMount.value);
+    if (!sameSelectors(selectors, LEGACY_APPROVAL_SELECTORS)) {
+      migratedLegacyApprovalRef.current.add(activeMount.id);
+      return;
+    }
+    migratedLegacyApprovalRef.current.add(activeMount.id);
+    const enabled = enabledToolsFromMount(activeMount.value);
+    const names = enabled === 'all' ? tools.map(tool => tool.name) : enabled;
+    onChange({
+      ...spec,
+      mcpServers: mcpMounts.map(item =>
+        item.id === activeMount.id
+          ? withApprovalSelectors(
+              activeMount.value,
+              approvalSelectorsAfterEnabling({ tools, selectors, newlyEnabledNames: names }),
+            )
+          : item.value,
+      ),
+    });
+  }, [activeMount, tools, mcpMounts, onChange, spec]);
+
   const removeMount = (mountId: string) => {
     onChange({
       ...spec,
@@ -234,14 +279,43 @@ export function AgentMcpEditorContent({
     onSelectConnector(match?.id ?? mount.id);
   };
 
-  const setEnabledToolNames = (next: string[]) => {
+  const commitEnabledTools = ({
+    next,
+    newlyEnabledNames,
+    baseValue,
+  }: {
+    next: string[];
+    newlyEnabledNames: readonly string[];
+    baseValue: object;
+  }) => {
+    let value = withEnabledTools(baseValue, next);
+    if (newlyEnabledNames.length > 0 && tools.length > 0) {
+      value = withApprovalSelectors(
+        value,
+        approvalSelectorsAfterEnabling({
+          tools,
+          selectors: approvalSelectorsFromMount(value),
+          newlyEnabledNames,
+        }),
+      );
+    }
+    return value;
+  };
+
+  const setEnabledToolNames = ({
+    next,
+    newlyEnabledNames = [],
+  }: {
+    next: string[];
+    newlyEnabledNames?: readonly string[];
+  }) => {
     if (!selectedConnector) return;
     if (next.length === 0) {
       if (activeMount) removeMount(activeMount.id);
       return;
     }
     if (activeMount) {
-      updateMount(activeMount.id, withEnabledTools(activeMount.value, next));
+      updateMount(activeMount.id, commitEnabledTools({ next, newlyEnabledNames, baseValue: activeMount.value }));
       return;
     }
     if (!canAddActiveConnector) return;
@@ -249,7 +323,11 @@ export function AgentMcpEditorContent({
       ...spec,
       mcpServers: [
         ...(spec.mcpServers ?? []),
-        withEnabledTools({ id: selectedConnector.id, name: selectedConnector.name }, next),
+        commitEnabledTools({
+          next,
+          newlyEnabledNames,
+          baseValue: { id: selectedConnector.id, name: selectedConnector.name },
+        }),
       ],
     });
   };
@@ -258,19 +336,13 @@ export function AgentMcpEditorContent({
     if (!selectedConnector) return;
     if (!activeMount) {
       if (!canAddActiveConnector) return;
-      onChange({
-        ...spec,
-        mcpServers: [
-          ...(spec.mcpServers ?? []),
-          withEnabledTools({ id: selectedConnector.id, name: selectedConnector.name }, [toolName]),
-        ],
-      });
+      setEnabledToolNames({ next: [toolName], newlyEnabledNames: [toolName] });
       return;
     }
     const current = enabledTools === 'all' ? tools.map(tool => tool.name) : enabledTools;
     const checked = current.includes(toolName);
     const next = checked ? current.filter(name => name !== toolName) : [...current, toolName];
-    setEnabledToolNames(next);
+    setEnabledToolNames({ next, newlyEnabledNames: checked ? [] : [toolName] });
   };
 
   const setSectionTools = ({ sectionId, enabled }: { sectionId: McpToolSectionId; enabled: boolean }) => {
@@ -279,14 +351,18 @@ export function AgentMcpEditorContent({
     if (enabled) {
       if (enabledTools === 'all') return;
       const merged = activeMount ? [...enabledTools] : [];
+      const newlyEnabledNames: string[] = [];
       for (const name of sectionNames) {
-        if (!merged.includes(name)) merged.push(name);
+        if (!merged.includes(name)) {
+          merged.push(name);
+          newlyEnabledNames.push(name);
+        }
       }
-      setEnabledToolNames(merged);
+      setEnabledToolNames({ next: merged, newlyEnabledNames });
       return;
     }
     const current = enabledTools === 'all' ? tools.map(tool => tool.name) : enabledTools;
-    setEnabledToolNames(current.filter(name => !sectionNames.includes(name)));
+    setEnabledToolNames({ next: current.filter(name => !sectionNames.includes(name)) });
   };
 
   const setToolsApproval = ({ toolNames, required }: { toolNames: readonly string[]; required: boolean }) => {
@@ -306,7 +382,10 @@ export function AgentMcpEditorContent({
       ...spec,
       mcpServers: [
         ...(spec.mcpServers ?? []),
-        withEnabledTools({ id: selectedConnector.id, name: selectedConnector.name }, 'all'),
+        withApprovalSelectors(
+          withEnabledTools({ id: selectedConnector.id, name: selectedConnector.name }, 'all'),
+          DEFAULT_APPROVAL_SELECTORS,
+        ),
       ],
     });
   };
@@ -639,7 +718,7 @@ export function AgentMcpEditorContent({
                           key={`${mount.id}:${toolName}`}
                           type="button"
                           aria-label={`Open ${mount.name} for ${toolName}`}
-                          className="text-text-primary hover:bg-ghost-button-hover flex w-full cursor-pointer items-center gap-1.5 rounded-md px-2 py-1 pl-7 text-left text-[0.6875rem]"
+                          className="text-text-primary hover:bg-ghost-button-hover flex w-full h-7 cursor-pointer items-center gap-1.5 rounded-md px-2 py-1 pl-7 text-left text-[0.6875rem]"
                           onClick={() => openMountConnector(mount)}
                         >
                           <Icon name="wrench" className="text-text-secondary size-3 shrink-0" />

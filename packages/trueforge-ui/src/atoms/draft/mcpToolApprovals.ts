@@ -1,4 +1,5 @@
 import type { McpToolSelection } from '../../server/types.js';
+import { mcpToolSectionId } from './mcpToolSections.js';
 import {
   TOOL_TAG_ALL,
   TOOL_TAG_DESTRUCTIVE,
@@ -8,7 +9,36 @@ import {
 } from './mcpToolSelectors.js';
 
 /** Harness default applied when a mount omits `requireApprovalForTools`. */
-export const DEFAULT_APPROVAL_SELECTORS: readonly string[] = [TOOL_TAG_WRITE, TOOL_TAG_DESTRUCTIVE];
+export const DEFAULT_APPROVAL_SELECTORS: readonly string[] = [TOOL_TAG_DESTRUCTIVE];
+
+/** Approval on by default only for destructive tools; Other/read-only stay off until toggled. */
+export function defaultApprovalRequiredForTool(tool: McpToolSelection): boolean {
+  return mcpToolSectionId(tool) === 'destructive';
+}
+
+/**
+ * Apply section defaults for tools that were just enabled: destructive → gated, everything else →
+ * auto-run. Rebuilds selectors from the full server tool list so class tags stay coherent.
+ */
+export function approvalSelectorsAfterEnabling({
+  tools,
+  selectors,
+  newlyEnabledNames,
+}: {
+  tools: readonly McpToolSelection[];
+  selectors: readonly string[];
+  newlyEnabledNames: readonly string[];
+}): string[] {
+  if (tools.length === 0 || newlyEnabledNames.length === 0) return [...selectors];
+  const approved = approvedToolNames({ tools, selectors });
+  for (const name of newlyEnabledNames) {
+    const tool = tools.find(item => item.name === name);
+    if (tool === undefined) continue;
+    if (defaultApprovalRequiredForTool(tool)) approved.add(name);
+    else approved.delete(name);
+  }
+  return approvalSelectorsFor({ tools, approved });
+}
 
 /** Approval state for a tool name whose annotations are unknown (tags cannot be resolved). */
 export function namedToolRequiresApproval({
