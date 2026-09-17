@@ -502,12 +502,16 @@
           },
           "skill": {
             "$ref": "#/components/schemas/SkillCapability"
+          },
+          "web_search": {
+            "$ref": "#/components/schemas/WebSearchCapability"
           }
         },
         "required": [
           "sandbox",
           "skill",
-          "settings"
+          "settings",
+          "web_search"
         ],
         "type": "object"
       },
@@ -3572,6 +3576,9 @@
           "sandbox": {
             "enabled": false,
             "file_downloads": true
+          },
+          "web_search": {
+            "enabled": false
           }
         },
         "properties": {
@@ -3596,6 +3603,9 @@
           },
           "sandbox": {
             "$ref": "#/components/schemas/SandboxConfig"
+          },
+          "web_search": {
+            "$ref": "#/components/schemas/WebSearchConfig"
           }
         },
         "type": "object"
@@ -5489,6 +5499,12 @@
           },
           "metadata": {
             "$ref": "#/components/schemas/SessionMetadata"
+          },
+          "title": {
+            "description": "Human-readable session title.",
+            "maxLength": 50,
+            "minLength": 1,
+            "type": "string"
           }
         },
         "type": "object"
@@ -5614,6 +5630,31 @@
           "tool_call_id",
           "content"
         ],
+        "type": "object"
+      },
+      "WebSearchCapability": {
+        "properties": {
+          "enabled": {
+            "description": "Whether a host web-search provider is configured.",
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "enabled"
+        ],
+        "type": "object"
+      },
+      "WebSearchConfig": {
+        "default": {
+          "enabled": false
+        },
+        "properties": {
+          "enabled": {
+            "default": false,
+            "description": "Enable built-in web search and fetch tools. Default: false (host must configure a provider).",
+            "type": "boolean"
+          }
+        },
         "type": "object"
       },
       "ZaiModelProvider": {
@@ -8232,7 +8273,7 @@
         "x-fern-sdk-method-name": "get"
       },
       "patch": {
-        "description": "Update a session by replacing `agent` with `{ spec: AgentSpec }`. Named (reference) sessions reject agent updates. An empty body is a valid no-op that refreshes `updated_at`. Only the session creator may update it.",
+        "description": "Update a session: optional `title`, `metadata`, and (inline sessions only) `agent` as `{ spec: AgentSpec }`. Named sessions reject agent updates. An empty body is a valid no-op that refreshes `updated_at`. Only the session creator may update it.",
         "parameters": [
           {
             "description": "Session identifier.",
