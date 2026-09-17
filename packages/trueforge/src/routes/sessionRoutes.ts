@@ -71,6 +71,7 @@ export const getOrCreateSessionByExternalIdRoute = createRoute({
   description: 'Idempotent get-or-create: returns the existing session for this `external_id`, or creates one',
   'x-fern-sdk-group-name': ['internal', 'sessions'],
   'x-fern-sdk-method-name': 'get_or_create_by_external_id',
+  'x-excluded': true,
   request: {
     body: {
       content: { 'application/json': { schema: GetOrCreateSessionByExternalIdRequestSchema } },
