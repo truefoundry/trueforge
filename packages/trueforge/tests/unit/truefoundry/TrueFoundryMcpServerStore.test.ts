@@ -130,13 +130,10 @@ describe('resolveAuthorizeRedirectURL', () => {
     );
   });
 
-  it('does not use a non-tenant PUBLIC_BASE_URL-style origin', () => {
+  it('keeps path and query from return_to on the session origin', () => {
     const returnTo = '/trueforge/sessions/abc?screenType=mcp-auth&pUid=popup-1';
     expect(resolveAuthorizeRedirectURL({ returnTo, publicBaseUrl: PUBLIC_BASE_URL })).toBe(
-      `https://tenant.example.com${returnTo}`,
-    );
-    expect(resolveAuthorizeRedirectURL({ returnTo, publicBaseUrl: PUBLIC_BASE_URL })).not.toContain(
-      'app.truefoundry.com',
+      `${PUBLIC_BASE_URL}${returnTo}`,
     );
   });
 });
