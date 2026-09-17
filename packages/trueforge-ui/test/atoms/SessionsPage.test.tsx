@@ -274,7 +274,7 @@ describe('SessionsPage', () => {
       deleteSession,
       permissions: {
         listPermissions: vi.fn(async (): Promise<ListPermissionsResponse> => ({
-          data: { 'sess-1': [], 'sess-draft': ['DELETE'] },
+          data: { type: 'session', permissions: { 'sess-1': [], 'sess-draft': ['DELETE'] } },
         })),
       },
     });
