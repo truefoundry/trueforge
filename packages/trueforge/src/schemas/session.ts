@@ -60,7 +60,7 @@ export const SessionTitleSchema = z
   .trim()
   .min(1)
   .max(MAX_SESSION_TITLE_LENGTH)
-  .describe(`Human-readable session title (1–${String(MAX_SESSION_TITLE_LENGTH)} chars after trim).`);
+  .describe('Human-readable session title.');
 
 /** Only inline sessions may replace `agent`; named (reference) sessions reject agent updates. Title/metadata apply to both. */
 export const UpdateSessionRequestSchema = z
