@@ -264,6 +264,15 @@ externalRedis:
     masterName: ""
     # string or valueFrom -> REDIS_SENTINEL_PASSWORD.
     password: ""
+# --- Bundled dev sandbox server (tfy-sandbox-server subchart) -------------------
+# Managed by the parent chart; off for standalone installs. When true, the
+# subchart is deployed and the app gets TRUEFOUNDRY_SANDBOX_* env pointing at it.
+truefoundry:
+  devSandboxServerEnabled: false
+tfy-sandbox-server:
+  # Keeps the rendered names distinct from any other sandbox server in the
+  # namespace: <release>-trueforge-tfy-sandbox-server.
+  nameOverride: trueforge-tfy-sandbox-server
 
 # Extra raw manifests deployed alongside the server, e.g. an Istio
 # VirtualService, a Gateway, an Ingress, or a NetworkPolicy. Each entry is a
