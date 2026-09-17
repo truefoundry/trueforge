@@ -4,6 +4,7 @@ import { Sessions } from '../../src/agent-session/Sessions';
 import { InMemorySessionStore } from '../../src/agent-session/store/InMemorySessionStore';
 import { TurnNotFoundError } from '../../src/agent-session/store/SessionStoreErrors';
 import { TurnHandle } from '../../src/agent-session/TurnHandle';
+import { InvalidAgentSendInputError } from '../../src/core/errors';
 import { makeAgentSpec, makeTestResolver, mintTestTurnId } from './testHelpers';
 
 describe('Sessions / SessionHandle / TurnHandle (storage + createTurn)', () => {
@@ -314,7 +315,7 @@ describe('Sessions / SessionHandle / TurnHandle (storage + createTurn)', () => {
         signal: new AbortController().signal,
         resolver: makeTestResolver(),
       }),
-    ).rejects.toThrow();
+    ).rejects.toThrow(InvalidAgentSendInputError);
     const turns = await store.listTurns({
       session_id: 's1',
       limit: 10,

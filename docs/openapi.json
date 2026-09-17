@@ -4564,6 +4564,7 @@
       "ThreadState": {
         "discriminator": {
           "mapping": {
+            "cancelled": "#/components/schemas/ThreadStateCancelled",
             "done": "#/components/schemas/ThreadStateDone",
             "error": "#/components/schemas/ThreadStateError"
           },
@@ -4575,8 +4576,26 @@
           },
           {
             "$ref": "#/components/schemas/ThreadStateError"
+          },
+          {
+            "$ref": "#/components/schemas/ThreadStateCancelled"
           }
         ]
+      },
+      "ThreadStateCancelled": {
+        "properties": {
+          "status": {
+            "description": "Thread was cancelled before completion.",
+            "enum": [
+              "cancelled"
+            ],
+            "type": "string"
+          }
+        },
+        "required": [
+          "status"
+        ],
+        "type": "object"
       },
       "ThreadStateDone": {
         "properties": {

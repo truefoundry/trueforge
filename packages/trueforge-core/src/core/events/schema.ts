@@ -219,8 +219,14 @@ export const ThreadStateErrorSchema = z
   })
   .openapi('ThreadStateError');
 
+export const ThreadStateCancelledSchema = z
+  .object({
+    status: z.literal('cancelled').describe('Thread was cancelled before completion.'),
+  })
+  .openapi('ThreadStateCancelled');
+
 export const ThreadStateSchema = z
-  .discriminatedUnion('status', [ThreadStateDoneSchema, ThreadStateErrorSchema])
+  .discriminatedUnion('status', [ThreadStateDoneSchema, ThreadStateErrorSchema, ThreadStateCancelledSchema])
   .openapi('ThreadState');
 
 export const BaseThreadDoneEventSchema = z
@@ -381,6 +387,7 @@ export type ModelMessageDeltaEvent = z.infer<typeof ModelMessageDeltaEventSchema
 export type ToolResponseEvent = z.infer<typeof ToolResponseEventSchema>;
 export type ThreadCreatedEvent = z.infer<typeof ThreadCreatedEventSchema>;
 export type ThreadStateError = z.infer<typeof ThreadStateErrorSchema>;
+export type ThreadStateCancelled = z.infer<typeof ThreadStateCancelledSchema>;
 export type ThreadState = z.infer<typeof ThreadStateSchema>;
 export type BaseThreadDoneEvent = z.infer<typeof BaseThreadDoneEventSchema>;
 export type ThreadDoneEvent = z.infer<typeof ThreadDoneEventSchema>;

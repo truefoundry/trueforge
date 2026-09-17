@@ -8,27 +8,44 @@
  * conversation can continue.
  *
  * Uses is_thread_creation from InternalToolCallInfo to identify sub-agent
- * tool calls (which should remain open); does NOT use SUB_AGENTS_SERVER_ID.
- * Older persisted contexts without is_thread_creation follow the ordinary
- * non-thread-creation path (no compatibility fallback).
+ * tool calls. Older persisted contexts without is_thread_creation follow the
+ * ordinary non-thread-creation path (no compatibility fallback).
+ *
+ * Resume / user-action batches close only dangling regular calls. A user
+ * message also closes pending approval, client-side, and thread-creation
+ * calls so the new message can sit after a complete tool-call/response pair.
  */
 import type {
   AgentContextProcessorAppendContext,
   AgentThreadExecutionContext,
   PreSendContextProcessor,
 } from '../capabilities/AgentContextProcessor';
-import type { InternalEnrichedAssistantMessage, LLMToolMessage } from '../llm/LLMTypes';
+import { EventType, newEventId, type ToolResponseEvent } from '../events/schema';
+import type { InternalEnrichedAssistantMessage, InternalEnrichedToolCall, LLMToolMessage } from '../llm/LLMTypes';
 import type { ContextMessage } from './AgentThread.types';
 import { InternalEventType } from './AgentThread.types';
 import { mergeCurrentContextUsage } from './contextUsage';
 import { estimateTokensForContextMessages, isLLMContextMessage } from './contextUtils';
 
-const DUMMY_TOOL_MESSAGE_CONTENT = JSON.stringify({
+const DANGLING_TOOL_MESSAGE_CONTENT = JSON.stringify({
   error: 'Tool call was not executed. Please retry this tool call.',
 });
 
-export function getClosableOpenToolCallIds(context: ContextMessage[]): Set<string> {
-  const lastIdx = context.findLastIndex(
+const CANCELLED_TOOL_MESSAGE_CONTENT = 'Tool call was cancelled: a new turn was started.';
+
+function isPendingUserAction(toolCall: InternalEnrichedToolCall): boolean {
+  return toolCall.tool_info.is_approval_required === true || toolCall.tool_info.is_client_side === true;
+}
+
+function isThreadCreation(toolCall: InternalEnrichedToolCall): boolean {
+  return toolCall.tool_info.is_thread_creation === true;
+}
+
+export function getClosableOpenToolCallIds(input: {
+  context: ContextMessage[];
+  userMessageIncoming: boolean;
+}): Set<string> {
+  const lastIdx = input.context.findLastIndex(
     (msg): msg is InternalEnrichedAssistantMessage =>
       isLLMContextMessage(msg) && msg.role === 'assistant' && !!msg.tool_calls?.length,
   );
@@ -36,7 +53,7 @@ export function getClosableOpenToolCallIds(context: ContextMessage[]): Set<strin
     return new Set();
   }
 
-  const lastAssistant = context[lastIdx];
+  const lastAssistant = input.context[lastIdx];
   if (lastAssistant === undefined || !isLLMContextMessage(lastAssistant) || lastAssistant.role !== 'assistant') {
     throw new Error('Unreachable');
   }
@@ -44,43 +61,75 @@ export function getClosableOpenToolCallIds(context: ContextMessage[]): Set<strin
     return new Set();
   }
 
-  if (
-    lastAssistant.tool_calls.some(
-      tc => tc.tool_info.is_approval_required === true || tc.tool_info.is_client_side === true,
-    )
-  ) {
+  if (!input.userMessageIncoming && lastAssistant.tool_calls.some(isPendingUserAction)) {
     return new Set();
   }
 
-  const requestedIds = new Set(
-    lastAssistant.tool_calls.filter(tc => tc.tool_info.is_thread_creation !== true).map(tc => tc.id),
-  );
-
-  const messagesAfterAssistant = context.slice(lastIdx + 1);
-  for (const msg of messagesAfterAssistant) {
+  const resolvedIds = new Set<string>();
+  for (const msg of input.context.slice(lastIdx + 1)) {
     if (isLLMContextMessage(msg) && msg.role === 'tool') {
-      requestedIds.delete(msg.tool_call_id);
+      resolvedIds.add(msg.tool_call_id);
     }
   }
 
-  return requestedIds;
+  const closable = new Set<string>();
+  for (const toolCall of lastAssistant.tool_calls) {
+    if (resolvedIds.has(toolCall.id)) {
+      continue;
+    }
+    if (!input.userMessageIncoming && isThreadCreation(toolCall)) {
+      continue;
+    }
+    closable.add(toolCall.id);
+  }
+  return closable;
+}
+
+// we are closing open tool calls synthetically, the subscriber needs to understand
+// the tool calls were closed.
+function toToolResponseEvent(input: { threadId: string; toolCallId: string; content: string }): ToolResponseEvent {
+  return {
+    type: EventType.TOOL_RESPONSE,
+    id: newEventId(),
+    created_at: new Date().toISOString(),
+    thread_id: input.threadId,
+    tool_call_id: input.toolCallId,
+    content: input.content,
+  };
 }
 
 export class OpenToolCallCloser implements PreSendContextProcessor {
   // eslint-disable-next-line @typescript-eslint/require-await -- async *: AsyncIterable contract; body is sync
   async *processPreSend(
     execution: Readonly<AgentThreadExecutionContext>,
+    options: { userMessageIncoming: boolean },
   ): AsyncGenerator<AgentContextProcessorAppendContext, void, unknown> {
-    const requestedIds = getClosableOpenToolCallIds(execution.context);
-    if (requestedIds.size === 0) {
+    const closableIds = [
+      ...getClosableOpenToolCallIds({
+        context: execution.context,
+        userMessageIncoming: options.userMessageIncoming,
+      }),
+    ];
+    if (closableIds.length === 0) {
       return;
     }
 
-    const dummyToolMessages: LLMToolMessage[] = [...requestedIds].map(toolCallId => ({
+    const content = options.userMessageIncoming ? CANCELLED_TOOL_MESSAGE_CONTENT : DANGLING_TOOL_MESSAGE_CONTENT;
+    const dummyToolMessages: LLMToolMessage[] = closableIds.map(toolCallId => ({
       role: 'tool',
       tool_call_id: toolCallId,
-      content: DUMMY_TOOL_MESSAGE_CONTENT,
+      content,
     }));
+
+    const output: ToolResponseEvent[] = options.userMessageIncoming
+      ? closableIds.map(toolCallId =>
+          toToolResponseEvent({
+            threadId: execution.threadId,
+            toolCallId,
+            content,
+          }),
+        )
+      : [];
 
     const currentContextUsage = mergeCurrentContextUsage(
       execution.currentContextUsage,
@@ -90,7 +139,7 @@ export class OpenToolCallCloser implements PreSendContextProcessor {
     yield {
       type: InternalEventType.AGENT_CONTEXT_APPEND,
       context: dummyToolMessages,
-      output: [],
+      output,
       current_context_usage: currentContextUsage,
     };
   }

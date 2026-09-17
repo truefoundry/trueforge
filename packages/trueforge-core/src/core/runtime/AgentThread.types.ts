@@ -77,7 +77,11 @@ export type InternalMCPAuthRequiredEvent = BaseMCPAuthRequiredEvent & {
 export type InternalThreadDoneEvent = BaseThreadDoneEvent & {
   type: typeof InternalEventType.AGENT_DONE;
   send_to_parent: LLMToolMessage | undefined;
-} & ({ status: 'done'; output: ModelMessageEvent } | { status: 'error'; error: string; output?: ModelMessageEvent });
+} & (
+    | { status: 'done'; output: ModelMessageEvent }
+    | { status: 'error'; error: string; output?: ModelMessageEvent }
+    | { status: 'cancelled' }
+  );
 
 export type LLMContextMessage = LLMUserMessage | InternalEnrichedAssistantMessage | LLMToolMessage;
 

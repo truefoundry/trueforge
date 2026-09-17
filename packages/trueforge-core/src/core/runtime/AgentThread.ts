@@ -94,7 +94,7 @@ import {
 } from './contextUtils';
 import { DeferredTool } from './DeferredTool';
 import { createEmptyAgentThreadMetrics, updateMetricsFromUsage, type AgentThreadMetrics } from './metrics';
-import { getClosableOpenToolCallIds, OpenToolCallCloser } from './OpenToolCallCloser';
+import { OpenToolCallCloser } from './OpenToolCallCloser';
 import { isEmptyMessageContent, processAgentUserInput, type AgentInputUserMessage } from './UserInputMessage';
 
 const DEFAULT_ITERATION_LIMIT = 25;
@@ -177,19 +177,6 @@ function lastAssistantInContext(context: ContextMessage[]): InternalEnrichedAssi
   );
 }
 
-// Open tool calls that block a new user message: the open set minus those OpenToolCallCloser will
-// auto-close during preSend. Lets a user message resume a thread whose only open calls are dangling
-// regular tool calls (which the closer repairs), while still blocking on approval/client-side/
-// sub-agent calls that genuinely need resolution. Takes the already-computed open set; copies it
-// since it mutates (deletes) the closable ids.
-function getUnclosableOpenToolCallIds(context: ContextMessage[], openToolCallIds: Set<string>): Set<string> {
-  const blockingOpenToolCallIds = new Set(openToolCallIds);
-  for (const id of getClosableOpenToolCallIds(context)) {
-    blockingOpenToolCallIds.delete(id);
-  }
-  return blockingOpenToolCallIds;
-}
-
 function buildMCPInitializeEvent(initInfo: MCPServerInitInfo[], threadId: string): MCPInitializeEvent {
   return {
     type: EventType.MCP_INITIALIZE,
@@ -260,16 +247,9 @@ function buildModelMessageEvent({
   return event;
 }
 
-function validateUserMessage(
-  message: { content: AgentInputUserMessage['content'] },
-  blockingOpenToolCallIds: Set<string>,
-  index: number,
-): void {
+function validateUserMessage(message: { content: AgentInputUserMessage['content'] }, index: number): void {
   if (isEmptyMessageContent(message.content)) {
     throw new InvalidAgentSendInputError(`messages[${String(index)}] user message has empty content`);
-  }
-  if (blockingOpenToolCallIds.size > 0) {
-    throw new InvalidAgentSendInputError('user message cannot be sent while approvals or questions are pending');
   }
 }
 
@@ -316,11 +296,9 @@ function validateInputMessageTypesGivenContext(
   context: ContextMessage[],
   messages: AgentThreadRuntimeSendInput[],
 ): void {
+  const hasUserMessage = messages.some(isInputUserMessage);
   // Full open set: validates incoming tool responses and dedupes within the batch.
   const openToolCallIds = getOpenToolCallIds(context);
-  // Subset that blocks a fresh user message: excludes calls OpenToolCallCloser will auto-close
-  // during preSend, so a dangling regular tool call doesn't reject a user message it will repair.
-  const blockingOpenToolCallIds = getUnclosableOpenToolCallIds(context, openToolCallIds);
   const pendingApprovalIds = new Set(getPendingApprovalToolCalls(context).map(tc => tc.id));
   const pendingClientSideIds = new Set(getPendingClientSideToolCalls(context).map(tc => tc.id));
 
@@ -333,11 +311,10 @@ function validateInputMessageTypesGivenContext(
       validateApprovalMessage(m, pendingApprovalIds, i);
       pendingApprovalIds.delete(m.tool_call_id);
     } else if (isInputUserMessage(m)) {
-      validateUserMessage(m, blockingOpenToolCallIds, i);
+      validateUserMessage(m, i);
     } else if (isClientSideToolResponseMessage(m) || isLLMToolMessage(m)) {
       validateToolMessage(m, openToolCallIds, i);
       openToolCallIds.delete(m.tool_call_id);
-      blockingOpenToolCallIds.delete(m.tool_call_id);
       pendingClientSideIds.delete(m.tool_call_id);
     } else {
       const _exhaustive: never = m;
@@ -347,9 +324,9 @@ function validateInputMessageTypesGivenContext(
     }
   }
 
-  // A send for a thread awaiting user input must resolve every pending approval and client-side
-  // tool call in the same batch; any left unresolved (including an empty batch) is a blocker.
-  if (pendingApprovalIds.size > 0 || pendingClientSideIds.size > 0) {
+  // User messages interrupt pending approvals / client-side calls (OpenToolCallCloser
+  // synthesizes the missing responses). Empty and action batches still must resolve them all.
+  if (!hasUserMessage && (pendingApprovalIds.size > 0 || pendingClientSideIds.size > 0)) {
     const missing = [...pendingApprovalIds, ...pendingClientSideIds];
     throw new InvalidAgentSendInputError(
       `Send batch must resolve all pending tool calls awaiting user input. Missing: ${missing.join(', ')}`,
@@ -503,6 +480,7 @@ export class AgentThread {
   private deferredTool?: DeferredTool | undefined;
   private convertedTools: ConvertToolsResult | undefined;
   private pendingSandboxCreatedEvents: SandboxCreatedEvent[] = [];
+  private pendingPreSendOutputEvents: ToolResponseEvent[] = [];
   private sandbox?: Sandbox | undefined;
   private readonly tracing: AgentTracing;
   private readonly logger: Logger;
@@ -599,8 +577,17 @@ export class AgentThread {
 
     this.contextBusy = true;
     try {
-      for await (const event of this.executeContextProcessors('preSend')) {
-        yield event;
+      for await (const event of this.executeContextProcessors('preSend', {
+        userMessageIncoming: messages.some(isInputUserMessage),
+      })) {
+        // createTurn drains send() for context only; surface closer tool.response
+        // events at execute start so they persist after turn.created.
+        for (const item of event.output) {
+          if (item.type === EventType.TOOL_RESPONSE) {
+            this.pendingPreSendOutputEvents.push(item);
+          }
+        }
+        yield { ...event, output: [] };
       }
       this.preSendRanThisTurn = true;
 
@@ -876,7 +863,10 @@ export class AgentThread {
     };
   }
 
-  private executeContextProcessors(hook: 'preSend'): AsyncGenerator<AgentThreadAppendContext, void, unknown>;
+  private executeContextProcessors(
+    hook: 'preSend',
+    options: { userMessageIncoming: boolean },
+  ): AsyncGenerator<AgentThreadAppendContext, void, unknown>;
   private executeContextProcessors(
     hook: 'preLLM' | 'postToolCall',
   ): AsyncGenerator<
@@ -889,6 +879,7 @@ export class AgentThread {
   >;
   private async *executeContextProcessors(
     hook: 'preSend' | 'preLLM' | 'postToolCall',
+    options?: { userMessageIncoming: boolean },
   ): AsyncGenerator<
     | ThreadOverwriteContextEvent
     | AgentThreadAppendContext
@@ -902,7 +893,10 @@ export class AgentThread {
     ) => AsyncIterable<AgentContextProcessorOutput>)[];
     switch (hook) {
       case 'preSend':
-        processors = this.preSendContextProcessors.map(p => p.processPreSend.bind(p));
+        processors = this.preSendContextProcessors.map(
+          p => (execution: Readonly<AgentThreadExecutionContext>) =>
+            p.processPreSend(execution, { userMessageIncoming: options?.userMessageIncoming === true }),
+        );
         break;
       case 'preLLM':
         processors = this.preLLMContextProcessors.map(p => p.processPreLLM.bind(p));
@@ -1316,11 +1310,15 @@ export class AgentThread {
       }
 
       if (!this.preSendRanThisTurn) {
-        for await (const event of this.executeContextProcessors('preSend')) {
+        for await (const event of this.executeContextProcessors('preSend', { userMessageIncoming: false })) {
           yield event;
         }
       }
       this.preSendRanThisTurn = false;
+      for (const event of this.pendingPreSendOutputEvents) {
+        yield event;
+      }
+      this.pendingPreSendOutputEvents = [];
       const { initializationInfo, authRequirementInfo } = await this.tracing.withInitSpan(() => this.init());
 
       if (initializationInfo.length > 0) {

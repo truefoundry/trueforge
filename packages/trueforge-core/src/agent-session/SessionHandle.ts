@@ -1,6 +1,7 @@
 /**
  * Bound session handle: starts turns via {@link SessionHandle.createTurn}.
  */
+import { InvalidAgentSendInputError } from '../core/errors';
 import { newEventId } from '../core/events/schema';
 import type { AgentDefinition } from '../core/runtime/AgentDefinition';
 import { AgentThread } from '../core/runtime/AgentThread';
@@ -55,7 +56,9 @@ function toSendBatch(input: TurnInputItem[] | undefined): AgentThreadSendBatch {
   if (input.every(isInputUserMessage)) {
     return input;
   }
-  throw new Error('input must be homogeneous: all user messages, or all approval/tool-response messages');
+  throw new InvalidAgentSendInputError(
+    'input must be homogeneous: all user messages, or all approval/tool-response messages',
+  );
 }
 
 function toNewThreadInit(snapshot: AgentThreadSnapshot): NewThreadInit {
