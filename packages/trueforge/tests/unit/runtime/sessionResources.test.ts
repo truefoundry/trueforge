@@ -370,7 +370,7 @@ describe('validateAgentSpec', () => {
       }),
     ).rejects.toMatchObject({
       status: 422,
-      message: expect.stringContaining('TRUEFOUNDRY_WEB_SEARCH_PROVIDER'),
+      message: expect.stringContaining('no web-search provider is configured'),
     } satisfies Partial<HTTPException>);
   });
 
