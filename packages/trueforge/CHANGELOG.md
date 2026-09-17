@@ -1,5 +1,11 @@
 # @truefoundry/trueforge
 
+## 0.2.0-rc.14
+
+### Patch Changes
+
+- 5ae0781: [truefoundry] TrueFoundry MCP OAuth authorize redirect uses the tenant `controlPlaneURL` from the session instead of the process `PUBLIC_BASE_URL` origin.
+
 ## 0.2.0-rc.13
 
 ### Minor Changes
