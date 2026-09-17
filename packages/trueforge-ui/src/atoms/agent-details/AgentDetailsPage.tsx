@@ -110,7 +110,7 @@ export function AgentDetailsPage({ agentId }: AgentDetailsPageProps) {
   } else if (detail == null) {
     content = (
       <div
-        className="grid min-h-0 gap-3 overflow-auto p-4 md:grid-cols-[minmax(0,1fr)_18rem]"
+        className="grid min-h-0 gap-3 overflow-auto p-4 md:grid-cols-[minmax(0,1fr)_22rem]"
         role="status"
         aria-label="Loading agent details"
       >

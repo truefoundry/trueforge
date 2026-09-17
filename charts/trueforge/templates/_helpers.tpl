@@ -499,6 +499,21 @@ fields, wires bundled Postgres/Redis, optional OIDC, then server.extraEnv.
 {{- $env = append $env (dict "name" "NODE_EXTRA_CA_CERTS" "value" "/etc/ssl/certs/ca-certificates.crt") -}}
 {{- end -}}
 
+{{- /* Bundled dev sandbox server: point the app at the subchart's Service.
+       The subchart's fullname helper computes the name; it needs the
+       subchart's scope (its values live under our tfy-sandbox-server key)
+       and is only defined while the dependency is enabled - the same flag
+       that gates this block. */ -}}
+{{- if (.Values.truefoundry | default dict).devSandboxServerEnabled -}}
+{{- $sandbox := index .Values "tfy-sandbox-server" | default dict -}}
+{{- $sandboxSvc := $sandbox.service | default dict -}}
+{{- $sandboxHost := include "tfy-sandbox-server.fullname" (dict "Values" $sandbox "Chart" (dict "Name" "tfy-sandbox-server") "Release" .Release) -}}
+{{- $env = append $env (dict "name" "TRUEFOUNDRY_SANDBOX_ENABLED" "value" "true") -}}
+{{- $env = append $env (dict "name" "TRUEFOUNDRY_SANDBOX_PROVIDER" "value" "truefoundry") -}}
+{{- $env = append $env (dict "name" "TRUEFOUNDRY_SANDBOX_SERVER_URL" "value" (printf "http://%s:%v" $sandboxHost ($sandboxSvc.port | default 8080))) -}}
+{{- $env = append $env (dict "name" "TRUEFOUNDRY_SANDBOX_SETTINGS" "value" (dict "nats_bridge_url" (printf "ws://%s:%v" $sandboxHost ($sandboxSvc.natsBridgePort | default 4444)) | toJson)) -}}
+{{- end -}}
+
 {{- /* env map: replace in place when the chart already emits the name, else
        append. Keeps the pod spec free of duplicate env entries. */ -}}
 {{- $overrides := .Values.env | default dict -}}
