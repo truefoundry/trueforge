@@ -2015,7 +2015,7 @@ client.sessions.delete(
 <dl>
 <dd>
 
-Update a session by replacing `agent` with `{ spec: AgentSpec }`. Named (reference) sessions reject agent updates. An empty body is a valid no-op that refreshes `updated_at`. Only the session creator may update it.
+Update a session: optional `title`, `metadata`, and (inline sessions only) `agent` as `{ spec: AgentSpec }`. Named sessions reject agent updates. An empty body is a valid no-op that refreshes `updated_at`. Only the session creator may update it.
 </dd>
 </dl>
 </dd>
@@ -2072,6 +2072,14 @@ client.sessions.update(
 <dd>
 
 **metadata:** `typing.Optional[SessionMetadata]` 
+    
+</dd>
+</dl>
+
+<dl>
+<dd>
+
+**title:** `typing.Optional[str]` — Human-readable session title (1–50 chars after trim).
     
 </dd>
 </dl>

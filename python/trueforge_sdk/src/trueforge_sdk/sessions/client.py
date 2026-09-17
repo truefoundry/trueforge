@@ -245,10 +245,11 @@ class SessionsClient:
         session_id: str,
         agent: typing.Optional[SessionAgentSpecBody] = OMIT,
         metadata: typing.Optional[SessionMetadata] = OMIT,
+        title: typing.Optional[str] = OMIT,
         request_options: typing.Optional[RequestOptions] = None,
     ) -> GetSessionResponse:
         """
-        Update a session by replacing `agent` with `{ spec: AgentSpec }`. Named (reference) sessions reject agent updates. An empty body is a valid no-op that refreshes `updated_at`. Only the session creator may update it.
+        Update a session: optional `title`, `metadata`, and (inline sessions only) `agent` as `{ spec: AgentSpec }`. Named sessions reject agent updates. An empty body is a valid no-op that refreshes `updated_at`. Only the session creator may update it.
 
         Parameters
         ----------
@@ -258,6 +259,9 @@ class SessionsClient:
         agent : typing.Optional[SessionAgentSpecBody]
 
         metadata : typing.Optional[SessionMetadata]
+
+        title : typing.Optional[str]
+            Human-readable session title (1–50 chars after trim).
 
         request_options : typing.Optional[RequestOptions]
             Request-specific configuration.
@@ -280,7 +284,7 @@ class SessionsClient:
         )
         """
         _response = self._raw_client.update(
-            session_id=session_id, agent=agent, metadata=metadata, request_options=request_options
+            session_id=session_id, agent=agent, metadata=metadata, title=title, request_options=request_options
         )
         return _response.data
 
@@ -986,10 +990,11 @@ class AsyncSessionsClient:
         session_id: str,
         agent: typing.Optional[SessionAgentSpecBody] = OMIT,
         metadata: typing.Optional[SessionMetadata] = OMIT,
+        title: typing.Optional[str] = OMIT,
         request_options: typing.Optional[RequestOptions] = None,
     ) -> GetSessionResponse:
         """
-        Update a session by replacing `agent` with `{ spec: AgentSpec }`. Named (reference) sessions reject agent updates. An empty body is a valid no-op that refreshes `updated_at`. Only the session creator may update it.
+        Update a session: optional `title`, `metadata`, and (inline sessions only) `agent` as `{ spec: AgentSpec }`. Named sessions reject agent updates. An empty body is a valid no-op that refreshes `updated_at`. Only the session creator may update it.
 
         Parameters
         ----------
@@ -999,6 +1004,9 @@ class AsyncSessionsClient:
         agent : typing.Optional[SessionAgentSpecBody]
 
         metadata : typing.Optional[SessionMetadata]
+
+        title : typing.Optional[str]
+            Human-readable session title (1–50 chars after trim).
 
         request_options : typing.Optional[RequestOptions]
             Request-specific configuration.
@@ -1029,7 +1037,7 @@ class AsyncSessionsClient:
         asyncio.run(main())
         """
         _response = await self._raw_client.update(
-            session_id=session_id, agent=agent, metadata=metadata, request_options=request_options
+            session_id=session_id, agent=agent, metadata=metadata, title=title, request_options=request_options
         )
         return _response.data
 
