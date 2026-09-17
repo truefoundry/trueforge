@@ -24,16 +24,20 @@ itself contains "trueforge".
 
 {{/*
 Server object name derived from trueforge.fullname (`{fullname}-server`).
+The base is trimmed to leave room for the suffix, so it survives the 63
+character limit; truncating after appending would collapse the server and
+controller names onto each other for long release names.
 */}}
 {{- define "trueforge.server.fullname" -}}
-{{- printf "%s-server" (include "trueforge.fullname" .) | trunc 63 | trimSuffix "-" }}
+{{- printf "%s-server" (include "trueforge.fullname" . | trunc 56 | trimSuffix "-") }}
 {{- end }}
 
 {{/*
-Controller Deployment name (`{fullname}-controller`).
+Controller Deployment name (`{fullname}-controller`), truncated the same way
+as trueforge.server.fullname so the suffix always survives.
 */}}
 {{- define "trueforge.controller.fullname" -}}
-{{- printf "%s-controller" (include "trueforge.fullname" .) | trunc 63 | trimSuffix "-" }}
+{{- printf "%s-controller" (include "trueforge.fullname" . | trunc 52 | trimSuffix "-") }}
 {{- end }}
 
 {{/*
