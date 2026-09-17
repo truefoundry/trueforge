@@ -2,7 +2,7 @@ import { Kysely, PostgresDialect } from 'kysely';
 import pg, { Pool } from 'pg';
 
 import type { PostgresSslConfig } from '../../config';
-import { TRUEFORGE_SCHEMA } from './schema';
+import { getTrueForgePostgresSchema } from './schema';
 import type { Database } from './types';
 
 const INT8_OID = 20;
@@ -46,6 +46,7 @@ export function createDb(options: {
   ssl?: boolean | PostgresSslConfig | undefined;
 }): Kysely<Database> {
   const { connectionString, poolMax, statementTimeoutMs, idleInTransactionSessionTimeoutMs, ssl } = options;
+  const schema = getTrueForgePostgresSchema();
   configurePgTypeParsers();
   const pool = new Pool({
     connectionString,
@@ -54,7 +55,7 @@ export function createDb(options: {
     connectionTimeoutMillis: 10_000,
     statement_timeout: statementTimeoutMs,
     idle_in_transaction_session_timeout: idleInTransactionSessionTimeoutMs,
-    options: `-c search_path=${TRUEFORGE_SCHEMA}`,
+    options: `-c search_path=${schema}`,
     ...(ssl !== undefined ? { ssl } : {}),
   });
   // Idle clients emit 'error' when the backend closes; without a listener Node exits.

@@ -14,7 +14,7 @@ fixed count. A PDB over a single replica would block node drains. */}}
 apiVersion: policy/v1
 kind: PodDisruptionBudget
 metadata:
-  name: {{ include "trueforge.fullname" . }}
+  name: {{ include "trueforge.server.fullname" . }}
   labels:
     {{- include "trueforge.labels" . | nindent 4 }}
   {{- with (include "trueforge.annotations" .) }}

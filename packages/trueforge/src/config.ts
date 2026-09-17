@@ -38,7 +38,11 @@ const DEFAULT_POSTGRES_PASSWORD = 'trueforge';
 const DEFAULT_POSTGRES_DB = 'trueforge';
 const DEFAULT_POSTGRES_HOST = 'localhost';
 const DEFAULT_POSTGRES_PORT = 5432;
+/** Default Postgres schema for app tables + Kysely migration bookkeeping. */
+export const DEFAULT_POSTGRES_SCHEMA = 'trueforge';
 const DEFAULT_REDIS_URL = 'redis://localhost:6379';
+/** Unquoted Postgres identifier: letter/underscore start, then alnum/underscore, ≤63 chars. */
+const POSTGRES_SCHEMA_NAME_RE = /^[a-z_][a-z0-9_]{0,62}$/;
 /**
  * Fixed local service credential when `STANDALONE=true` and `TRUEFORGE_API_KEY` is unset.
  * Local testing only — not for distributed deployments.
@@ -154,6 +158,37 @@ export function parseTenantIdToAllowedModelProviderAccounts(raw: string | undefi
   }
 }
 
+/**
+ * Parsed `TRUEFOUNDRY_WEB_SEARCH_PROVIDER` JSON. Empty / unset → `undefined` (feature off).
+ * Requires `name: "parallel"` and non-empty `api_key`.
+ */
+export interface TrueFoundryWebSearchProviderEnv {
+  name: 'parallel';
+  api_key: string;
+}
+
+export function parseTrueFoundryWebSearchProvider(
+  raw: string | undefined,
+): TrueFoundryWebSearchProviderEnv | undefined {
+  if (!raw?.trim()) {
+    return undefined;
+  }
+  try {
+    const parsed = z.record(z.string(), z.string()).parse(JSON.parse(raw));
+    const name = parsed['name']?.trim();
+    const apiKey = parsed['api_key']?.trim();
+    if (name !== 'parallel' || !apiKey) {
+      throw new Error('missing or unsupported name, or missing api_key');
+    }
+    return { name: 'parallel', api_key: apiKey };
+  } catch (error) {
+    throw new Error(
+      'Environment variable TRUEFOUNDRY_WEB_SEARCH_PROVIDER must be a JSON object with "name":"parallel" and non-empty "api_key" (e.g. {"name":"parallel","api_key":"..."})',
+      { cause: error },
+    );
+  }
+}
+
 /** Parses a positive-integer env var, falling back to `defaultValue` when unset/blank. */
 function parsePositiveInt(options: { envKey: string; raw: string | undefined; defaultValue: number }): number {
   const { envKey, raw, defaultValue } = options;
@@ -181,6 +216,20 @@ function parseBoolean(options: { envKey: string; raw: string | undefined; defaul
     return false;
   }
   throw new Error(`Environment variable ${envKey} must be "true" or "false", got "${raw}"`);
+}
+
+function parsePostgresSchema(raw: string | undefined): string {
+  if (raw === undefined || raw.trim() === '') {
+    return DEFAULT_POSTGRES_SCHEMA;
+  }
+  const schema = raw.trim();
+  if (!POSTGRES_SCHEMA_NAME_RE.test(schema)) {
+    throw new Error(
+      `Environment variable POSTGRES_SCHEMA must be a lowercase Postgres identifier ` +
+        `(letter/underscore, then alnum/underscore, max 63 chars); got "${raw}"`,
+    );
+  }
+  return schema;
 }
 
 /**
@@ -664,6 +713,11 @@ export type DistributedServerConfiguration = SharedServerConfiguration & {
    * Env: `POSTGRES_IDLE_IN_TRANSACTION_SESSION_TIMEOUT_MS`. Default 60000.
    */
   POSTGRES_IDLE_IN_TRANSACTION_SESSION_TIMEOUT_MS: number;
+  /**
+   * Postgres schema for app tables and Kysely migration bookkeeping (`search_path`, Migrator).
+   * Env: `POSTGRES_SCHEMA`. Default `trueforge`.
+   */
+  POSTGRES_SCHEMA: string;
   /** Peering URL shared by all replicas. Env: `REDIS_URL`. Default `redis://localhost:6379`. */
   REDIS_URL: string;
   /**
@@ -677,7 +731,7 @@ export type DistributedServerConfiguration = SharedServerConfiguration & {
    * Env: `TRUEFOUNDRY_SERVICEFOUNDRY_SERVER_URL`.
    */
   /**
-   * When set, automatically move public TrueForge tables to the TrueForge schema.
+   * When set, automatically move public TrueForge tables into `POSTGRES_SCHEMA` on first bootstrap.
    * Env: `AUTOMATICALLY_MOVE_TRUEFORGE_TABLES_FROM_PUBLIC_TO_TRUEFORGE_SCHEMA`. Default true.
    */
   AUTOMATICALLY_MOVE_TRUEFORGE_TABLES_FROM_PUBLIC_TO_TRUEFORGE_SCHEMA: boolean;
@@ -740,6 +794,12 @@ export type DistributedServerConfiguration = SharedServerConfiguration & {
    * Env: `TRUEFOUNDRY_TENANT_ID_TO_ALLOWED_MODEL_PROVIDER_ACCOUNTS`.
    */
   TRUEFOUNDRY_TENANT_ID_TO_ALLOWED_MODEL_PROVIDER_ACCOUNTS: Record<string, string[]>;
+  /**
+   * Optional built-in web search provider (TrueFoundry mode only). JSON object
+   * `Record<string, string>` with `name` (`parallel`) and `api_key`.
+   * Unset / empty → web search tools are not registered. Env: `TRUEFOUNDRY_WEB_SEARCH_PROVIDER`.
+   */
+  TRUEFOUNDRY_WEB_SEARCH_PROVIDER: TrueFoundryWebSearchProviderEnv | undefined;
 };
 
 export type ServerConfiguration = StandaloneServerConfiguration | DistributedServerConfiguration;
@@ -884,6 +944,7 @@ const configuration: ServerConfiguration = standalone
         raw: getEnv('POSTGRES_IDLE_IN_TRANSACTION_SESSION_TIMEOUT_MS'),
         defaultValue: 60_000,
       }),
+      POSTGRES_SCHEMA: parsePostgresSchema(getEnv('POSTGRES_SCHEMA')),
       REDIS_URL: resolveRedisUrl(),
       OIDC: resolveOIDCConfig(),
       AUTOMATICALLY_MOVE_TRUEFORGE_TABLES_FROM_PUBLIC_TO_TRUEFORGE_SCHEMA: parseBoolean({
@@ -923,6 +984,9 @@ const configuration: ServerConfiguration = standalone
       TRUEFOUNDRY_SANDBOX_SETTINGS: getEnv('TRUEFOUNDRY_SANDBOX_SETTINGS', { required: false }),
       TRUEFOUNDRY_TENANT_ID_TO_ALLOWED_MODEL_PROVIDER_ACCOUNTS: parseTenantIdToAllowedModelProviderAccounts(
         getEnv('TRUEFOUNDRY_TENANT_ID_TO_ALLOWED_MODEL_PROVIDER_ACCOUNTS', { required: false }),
+      ),
+      TRUEFOUNDRY_WEB_SEARCH_PROVIDER: parseTrueFoundryWebSearchProvider(
+        getEnv('TRUEFOUNDRY_WEB_SEARCH_PROVIDER', { required: false }),
       ),
     };
 

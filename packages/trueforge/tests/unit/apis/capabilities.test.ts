@@ -97,6 +97,7 @@ describe('capabilities routers', () => {
           reason: 'Skills run in a sandbox, which is not configured.',
         },
         settings: { enabled: true },
+        web_search: { enabled: false },
       },
     });
   });
@@ -119,6 +120,7 @@ describe('capabilities routers', () => {
         sandbox: { enabled: true },
         skill: { enabled: true },
         settings: { enabled: true },
+        web_search: { enabled: false },
       },
     });
   });
@@ -135,6 +137,7 @@ describe('capabilities routers', () => {
         sandbox: { enabled: true },
         skill: { enabled: true },
         settings: { enabled: true },
+        web_search: { enabled: false },
       },
     });
   });
@@ -266,6 +269,7 @@ describe('capabilities routers', () => {
             reason: 'Skills run in a sandbox, which is not configured.',
           },
           settings: { enabled: true },
+          web_search: { enabled: false },
         },
       });
 
@@ -281,6 +285,7 @@ describe('capabilities routers', () => {
             reason: 'Skills run in a sandbox, which is not configured.',
           },
           settings: { enabled: false },
+          web_search: { enabled: false },
         },
       });
     });
