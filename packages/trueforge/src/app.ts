@@ -72,17 +72,18 @@ function withAdminAuth(router: OpenAPIHono, middleware: MiddlewareHandler): Open
   return shell;
 }
 
-/** One line per request: method, path, status, duration. Skips `/healthz`. */
+/** One line per request: method, path, status, duration. Skips `/healthz` and `/assets/`. */
 export function createAccessLogMiddleware(logger: Logger): MiddlewareHandler {
   return async (c, next) => {
     const started = performance.now();
     await next();
-    if (c.req.path === '/healthz') {
+    const path = c.req.path;
+    if (path === '/healthz' || path.startsWith('/assets/')) {
       return;
     }
     logger.info('request', {
       method: c.req.method,
-      path: c.req.path,
+      path,
       status: c.res.status,
       duration_ms: Math.round(performance.now() - started),
     });

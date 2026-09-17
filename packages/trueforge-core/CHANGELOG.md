@@ -1,5 +1,13 @@
 # @truefoundry/trueforge-core
 
+## 0.2.0-rc.5
+
+### Patch Changes
+
+- 01ee934: Abort timed-out remote MCP `client.connect()` so the handshake does not leak sockets.
+- 2cb51a5: Raise remote MCP undici bodyTimeout to 30m so idle SSE streams are not killed at 5m; warn on Body Timeout and stringify other transport errors.
+- bf5233d: Fail Redis request-reply waits when the executor heartbeat expires during polling instead of waiting until replyTimeoutMs.
+
 ## 0.2.0-rc.4
 
 ### Patch Changes

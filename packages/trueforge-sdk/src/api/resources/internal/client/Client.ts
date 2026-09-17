@@ -48,7 +48,7 @@ export class InternalClient {
     }
 
     /**
-     * Return granted actions for each requested agent, schedule, or session id.
+     * Return granted actions for the requested resources.
      *
      * @param {TrueForge.ListPermissionsRequest} request
      * @param {InternalClient.RequestOptions} requestOptions - Request-specific configuration.

@@ -119,7 +119,9 @@ describe('SchedulesPage', () => {
     const { scheduleServer } = renderPage(sampleSchedules, {}, undefined, undefined, {
       agentId: 'demo-agent',
       permissions: {
-        listPermissions: vi.fn(async () => ({ data: { s1: [] } })),
+        listPermissions: vi.fn(async (): Promise<ListPermissionsResponse> => ({
+          data: { type: 'schedule', permissions: { s1: [] } },
+        })),
       },
     });
 
@@ -140,7 +142,10 @@ describe('SchedulesPage', () => {
       agentId: 'demo-agent',
       permissions: {
         listPermissions: vi.fn(async ({ resourceType }): Promise<ListPermissionsResponse> => ({
-          data: resourceType === 'agent' ? { 'demo-agent': ['USE'] } : { s1: [] },
+          data:
+            resourceType === 'agent'
+              ? { type: 'agent', permissions: { 'demo-agent': ['USE'] } }
+              : { type: resourceType, permissions: { s1: [] } },
         })),
       },
     });
@@ -153,7 +158,10 @@ describe('SchedulesPage', () => {
 
   it('leaves Create enabled for All agents and gates USE when a specific agent is selected', async () => {
     const listPermissions = vi.fn(async ({ resourceType }): Promise<ListPermissionsResponse> => ({
-      data: resourceType === 'agent' ? { 'demo-agent': [] } : {},
+      data:
+        resourceType === 'agent'
+          ? { type: 'agent', permissions: { 'demo-agent': [] } }
+          : { type: resourceType, permissions: {} },
     }));
     renderPage(sampleSchedules, {}, undefined, undefined, {
       permissions: { listPermissions },

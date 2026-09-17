@@ -1,7 +1,8 @@
 import { Kysely, PostgresDialect } from 'kysely';
 import pg, { Pool } from 'pg';
 
-import { TRUEFORGE_SCHEMA } from './schema';
+import type { PostgresSslConfig } from '../../config';
+import { getTrueForgePostgresSchema } from './schema';
 import type { Database } from './types';
 
 const INT8_OID = 20;
@@ -41,18 +42,29 @@ export function createDb(options: {
   statementTimeoutMs: number;
   /** Postgres `idle_in_transaction_session_timeout` in ms. Applied to every pooled connection. */
   idleInTransactionSessionTimeoutMs: number;
+  /** Client TLS for the pg Pool (`false` | `true` | `{ cert, key, ca, rejectUnauthorized }`). */
+  ssl?: boolean | PostgresSslConfig | undefined;
 }): Kysely<Database> {
-  const { connectionString, poolMax, statementTimeoutMs, idleInTransactionSessionTimeoutMs } = options;
+  const { connectionString, poolMax, statementTimeoutMs, idleInTransactionSessionTimeoutMs, ssl } = options;
+  const schema = getTrueForgePostgresSchema();
   configurePgTypeParsers();
+  const pool = new Pool({
+    connectionString,
+    max: poolMax,
+    // pg default 0 waits forever; 10s covers in-cluster TCP+auth and fails fast if Postgres is down.
+    connectionTimeoutMillis: 10_000,
+    statement_timeout: statementTimeoutMs,
+    idle_in_transaction_session_timeout: idleInTransactionSessionTimeoutMs,
+    options: `-c search_path=${schema}`,
+    ...(ssl !== undefined ? { ssl } : {}),
+  });
+  // Idle clients emit 'error' when the backend closes; without a listener Node exits.
+  pool.on('error', (error: Error) => {
+    console.error('Unexpected Postgres pool error on idle client', error);
+  });
   return new Kysely<Database>({
     dialect: new PostgresDialect({
-      pool: new Pool({
-        connectionString,
-        max: poolMax,
-        statement_timeout: statementTimeoutMs,
-        idle_in_transaction_session_timeout: idleInTransactionSessionTimeoutMs,
-        options: `-c search_path=${TRUEFORGE_SCHEMA}`,
-      }),
+      pool,
     }),
   });
 }

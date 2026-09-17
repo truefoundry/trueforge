@@ -23,6 +23,24 @@ itself contains "trueforge".
 {{- end }}
 
 {{/*
+Server object name derived from trueforge.fullname (`{fullname}-server`).
+The base is trimmed to leave room for the suffix, so it survives the 63
+character limit; truncating after appending would collapse the server and
+controller names onto each other for long release names.
+*/}}
+{{- define "trueforge.server.fullname" -}}
+{{- printf "%s-server" (include "trueforge.fullname" . | trunc 56 | trimSuffix "-") }}
+{{- end }}
+
+{{/*
+Controller Deployment name (`{fullname}-controller`), truncated the same way
+as trueforge.server.fullname so the suffix always survives.
+*/}}
+{{- define "trueforge.controller.fullname" -}}
+{{- printf "%s-controller" (include "trueforge.fullname" . | trunc 52 | trimSuffix "-") }}
+{{- end }}
+
+{{/*
 Chart name and version as used by the chart label.
 */}}
 {{- define "trueforge.chart" -}}
@@ -106,7 +124,7 @@ server Service when controller.serverUrl is empty (https when mtls is enabled).
 {{- if .Values.controller.serverUrl -}}
 {{- .Values.controller.serverUrl -}}
 {{- else -}}
-{{- printf "%s://%s:%v" (ternary "https" "http" .Values.mtls.enabled) (include "trueforge.fullname" .) .Values.service.port -}}
+{{- printf "%s://%s:%v" (ternary "https" "http" .Values.mtls.enabled) (include "trueforge.server.fullname" .) .Values.service.port -}}
 {{- end -}}
 {{- end }}
 
@@ -232,8 +250,24 @@ chart's global.resourceTier.
 {{- end -}}
 {{- end }}
 
+{{/*
+Server replica count. An explicit server.replicaCount wins; otherwise the
+resource tier decides (small=1, medium=2, large=3), falling back to 1 when no
+tier is set.
+*/}}
 {{- define "trueforge.replicas" -}}
+{{- $tier := include "trueforge.resourceTier" . | trim -}}
+{{- if .Values.server.replicaCount -}}
 {{- .Values.server.replicaCount -}}
+{{- else if eq $tier "small" -}}
+1
+{{- else if eq $tier "medium" -}}
+2
+{{- else if eq $tier "large" -}}
+3
+{{- else -}}
+1
+{{- end -}}
 {{- end }}
 
 {{- define "trueforge.defaultResources.small" -}}
@@ -429,6 +463,15 @@ fields, wires bundled Postgres/Redis, optional OIDC, then server.extraEnv.
 {{- $env = append $env (include "trueforge.env.fromStringOrValueFrom" (dict "name" "POSTGRES_PASSWORD" "field" "externalPostgres.password" "value" .Values.externalPostgres.password) | fromJson) -}}
 {{- if .Values.externalPostgres.sslMode -}}
 {{- $env = append $env (dict "name" "POSTGRES_SSL_MODE" "value" .Values.externalPostgres.sslMode) -}}
+{{- end -}}
+{{- if .Values.externalPostgres.sslCertPath -}}
+{{- $env = append $env (dict "name" "POSTGRES_SSL_CERT_PATH" "value" .Values.externalPostgres.sslCertPath) -}}
+{{- end -}}
+{{- if .Values.externalPostgres.sslKeyPath -}}
+{{- $env = append $env (dict "name" "POSTGRES_SSL_KEY_PATH" "value" .Values.externalPostgres.sslKeyPath) -}}
+{{- end -}}
+{{- if .Values.externalPostgres.sslCaPath -}}
+{{- $env = append $env (dict "name" "POSTGRES_SSL_CA_PATH" "value" .Values.externalPostgres.sslCaPath) -}}
 {{- end -}}
 {{- end -}}
 
