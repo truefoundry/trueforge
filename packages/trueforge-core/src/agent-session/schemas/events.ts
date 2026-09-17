@@ -60,17 +60,17 @@ export const TurnDoneEventSchema = z
   })
   .openapi('TurnDoneEvent');
 
-export const ActionRequiredOnEventSchema = z
+export const ActionRequiredSchema = z
   .object({
     id: EventIdSchema,
   })
-  .openapi('ActionRequiredOnEvent');
+  .openapi('ActionRequired');
 
 export const TurnUpdateStatePausedSchema = z
   .object({
     status: z.literal('paused').describe('Turn is paused waiting for required actions.'),
     action_required_on_events: z
-      .array(ActionRequiredOnEventSchema)
+      .array(ActionRequiredSchema)
       .describe('Events that still need a user or client action.'),
   })
   .openapi('TurnUpdateStatePaused');
