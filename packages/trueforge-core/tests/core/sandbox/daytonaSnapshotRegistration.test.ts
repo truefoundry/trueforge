@@ -209,4 +209,45 @@ describe('DaytonaSandboxProvider exec', () => {
 
     expect(internals.cachedSandboxes.has(cacheKey)).toBe(false);
   });
+
+  it.each([
+    [
+      'download',
+      async (provider: DaytonaSandboxProvider, sandboxId: string) =>
+        provider.downloadFile({ sandboxId, path: '/tmp/output' }),
+    ],
+    [
+      'upload',
+      async (provider: DaytonaSandboxProvider, sandboxId: string) =>
+        provider.uploadFile({ sandboxId, remotePath: '/tmp/output', content: Buffer.from('content') }),
+    ],
+    [
+      'preview',
+      async (provider: DaytonaSandboxProvider, sandboxId: string) =>
+        (
+          provider as unknown as {
+            getPreviewUrl(params: { sandboxId: string; port: number; expiresInSeconds: number }): Promise<string>;
+          }
+        ).getPreviewUrl({ sandboxId, port: 4222, expiresInSeconds: 60 }),
+    ],
+  ])('reports Daytona authentication failures from %s operations', async (_operation, invoke) => {
+    const sandboxId = 'test-tenant.auth-failure';
+    const client = new Daytona({ apiKey: 'dtn-test', useDeprecatedPolling: true });
+    const unauthorized = new DaytonaError('unauthorized', 401);
+    const sandbox = {
+      state: 'started',
+      fs: {
+        getFileDetails: jest.fn().mockResolvedValue({ size: 1, isDir: false }),
+        downloadFile: jest.fn().mockRejectedValue(unauthorized),
+        uploadFile: jest.fn().mockRejectedValue(unauthorized),
+      },
+      getSignedPreviewUrl: jest.fn().mockRejectedValue(unauthorized),
+    };
+    jest.spyOn(client, 'get').mockResolvedValue(sandbox as never);
+    const onError = jest.fn().mockResolvedValue(undefined);
+    const provider = makeRuntimeProvider(client, onError);
+
+    await expect(invoke(provider, sandboxId)).rejects.toMatchObject({ statusCode: 401 });
+    expect(onError).toHaveBeenCalledWith(expect.objectContaining({ statusCode: 401 }));
+  });
 });
