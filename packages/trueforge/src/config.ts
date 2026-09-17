@@ -562,6 +562,8 @@ export interface SharedServerConfiguration {
   MCP_REQUEST_TIMEOUT_MS: number;
   /** Max milliseconds for an MCP transport connection. Env: `MCP_CONNECT_TIMEOUT_MS`. Default 30 seconds. */
   MCP_CONNECT_TIMEOUT_MS: number;
+  /** Max bytes for one remote MCP tool-call HTTP response body (not GET SSE). Env: `MCP_TOOL_CALL_MAX_RESPONSE_BYTES`. Default 50 MB. */
+  MCP_TOOL_CALL_MAX_RESPONSE_BYTES: number;
   /**
    * Client name used for Dynamic Client Registration (DCR) of MCP servers.
    * This is the client name shown on authorization-server consent screens.
@@ -848,6 +850,11 @@ const shared: SharedServerConfiguration = {
     envKey: 'MCP_CONNECT_TIMEOUT_MS',
     raw: getEnv('MCP_CONNECT_TIMEOUT_MS'),
     defaultValue: 30 * 1000,
+  }),
+  MCP_TOOL_CALL_MAX_RESPONSE_BYTES: parsePositiveInt({
+    envKey: 'MCP_TOOL_CALL_MAX_RESPONSE_BYTES',
+    raw: getEnv('MCP_TOOL_CALL_MAX_RESPONSE_BYTES'),
+    defaultValue: 50 * 1024 * 1024,
   }),
   MCP_DCR_OAUTH_CLIENT_NAME:
     getEnv('MCP_DCR_OAUTH_CLIENT_NAME', { defaultValue: 'truefoundry-harness' }) ?? 'truefoundry-harness',

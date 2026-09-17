@@ -1,3 +1,4 @@
+export * from "./ActionRequired.js";
 export * from "./ActionRequiredEvent.js";
 export * from "./Agent.js";
 export * from "./AgentCodeSnippet.js";
@@ -222,6 +223,10 @@ export * from "./TurnStateError.js";
 export * from "./TurnStateErrorMetrics.js";
 export * from "./TurnStateRunning.js";
 export * from "./TurnStreamingEvent.js";
+export * from "./TurnUpdateEvent.js";
+export * from "./TurnUpdateState.js";
+export * from "./TurnUpdateStatePaused.js";
+export * from "./TurnUpdateStateRunning.js";
 export * from "./UserMessage.js";
 export * from "./UserMessageContent.js";
 export * from "./UserMessageContentItem.js";

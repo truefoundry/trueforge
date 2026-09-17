@@ -9,6 +9,7 @@ import {
   TokenPaginationSchema,
   TurnCreatedEventSchema,
   TurnDoneEventSchema,
+  TurnUpdateEventSchema,
 } from '@truefoundry/trueforge-core/agent-session';
 import {
   MCPAuthRequiredEventSchema,
@@ -41,6 +42,7 @@ export const TurnStreamingEventSchema = z
     ToolApprovalRequiredEventSchema,
     ToolResponseRequiredEventSchema,
     TurnCreatedEventSchema,
+    TurnUpdateEventSchema,
     TurnDoneEventSchema,
   ])
   .openapi('TurnStreamingEvent');

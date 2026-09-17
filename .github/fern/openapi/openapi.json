@@ -2,6 +2,18 @@
   "components": {
     "parameters": {},
     "schemas": {
+      "ActionRequired": {
+        "properties": {
+          "id": {
+            "description": "Unique identifier for the event (monotonic ULID).",
+            "type": "string"
+          }
+        },
+        "required": [
+          "id"
+        ],
+        "type": "object"
+      },
       "ActionRequiredEvent": {
         "discriminator": {
           "mapping": {
@@ -2590,10 +2602,9 @@
           },
           "require_approval_for_tools": {
             "default": [
-              "@write",
               "@destructive"
             ],
-            "description": "Tools that pause for human approval: `@all`, `@write`, `@destructive`, or literal names. Default: `[\"@write\", \"@destructive\"]`.",
+            "description": "Tools that pause for human approval: `@all`, `@write`, `@destructive`, or literal names. Default: `[\"@destructive\"]`.",
             "items": {
               "$ref": "#/components/schemas/MCPServerApprovalToolSelector"
             },
@@ -4024,13 +4035,17 @@
             "tool.response": "#/components/schemas/ToolResponseEvent",
             "tool.response_required": "#/components/schemas/ToolResponseRequiredEvent",
             "turn.created": "#/components/schemas/TurnCreatedEvent",
-            "turn.done": "#/components/schemas/TurnDoneEvent"
+            "turn.done": "#/components/schemas/TurnDoneEvent",
+            "turn.update": "#/components/schemas/TurnUpdateEvent"
           },
           "propertyName": "type"
         },
         "oneOf": [
           {
             "$ref": "#/components/schemas/TurnCreatedEvent"
+          },
+          {
+            "$ref": "#/components/schemas/TurnUpdateEvent"
           },
           {
             "$ref": "#/components/schemas/TurnDoneEvent"
@@ -5379,7 +5394,8 @@
             "tool.response": "#/components/schemas/ToolResponseEvent",
             "tool.response_required": "#/components/schemas/ToolResponseRequiredEvent",
             "turn.created": "#/components/schemas/TurnCreatedEvent",
-            "turn.done": "#/components/schemas/TurnDoneEvent"
+            "turn.done": "#/components/schemas/TurnDoneEvent",
+            "turn.update": "#/components/schemas/TurnUpdateEvent"
           },
           "propertyName": "type"
         },
@@ -5418,9 +5434,105 @@
             "$ref": "#/components/schemas/TurnCreatedEvent"
           },
           {
+            "$ref": "#/components/schemas/TurnUpdateEvent"
+          },
+          {
             "$ref": "#/components/schemas/TurnDoneEvent"
           }
         ]
+      },
+      "TurnUpdateEvent": {
+        "properties": {
+          "created_at": {
+            "description": "ISO 8601 event timestamp.",
+            "type": "string"
+          },
+          "id": {
+            "description": "Unique identifier for the event (monotonic ULID).",
+            "type": "string"
+          },
+          "state": {
+            "$ref": "#/components/schemas/TurnUpdateState"
+          },
+          "thread_id": {
+            "description": "Thread that owns the event; null for turn-level lifecycle events.",
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "type": {
+            "description": "Emitted when a turn pauses or resumes.",
+            "enum": [
+              "turn.update"
+            ],
+            "type": "string"
+          }
+        },
+        "required": [
+          "type",
+          "id",
+          "state",
+          "created_at",
+          "thread_id"
+        ],
+        "type": "object"
+      },
+      "TurnUpdateState": {
+        "description": "Live non-terminal turn status.",
+        "discriminator": {
+          "mapping": {
+            "paused": "#/components/schemas/TurnUpdateStatePaused",
+            "running": "#/components/schemas/TurnUpdateStateRunning"
+          },
+          "propertyName": "status"
+        },
+        "oneOf": [
+          {
+            "$ref": "#/components/schemas/TurnUpdateStatePaused"
+          },
+          {
+            "$ref": "#/components/schemas/TurnUpdateStateRunning"
+          }
+        ]
+      },
+      "TurnUpdateStatePaused": {
+        "properties": {
+          "action_required_on_events": {
+            "description": "Events that still need a user or client action.",
+            "items": {
+              "$ref": "#/components/schemas/ActionRequired"
+            },
+            "type": "array"
+          },
+          "status": {
+            "description": "Turn is paused waiting for required actions.",
+            "enum": [
+              "paused"
+            ],
+            "type": "string"
+          }
+        },
+        "required": [
+          "status",
+          "action_required_on_events"
+        ],
+        "type": "object"
+      },
+      "TurnUpdateStateRunning": {
+        "properties": {
+          "status": {
+            "description": "Turn is executing.",
+            "enum": [
+              "running"
+            ],
+            "type": "string"
+          }
+        },
+        "required": [
+          "status"
+        ],
+        "type": "object"
       },
       "UpdateAgentRequest": {
         "additionalProperties": false,

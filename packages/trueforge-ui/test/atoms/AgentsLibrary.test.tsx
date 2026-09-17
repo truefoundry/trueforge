@@ -308,7 +308,7 @@ describe('AgentsLibrary', () => {
     expect(screen.getByRole('heading', { name: 'Agents' })).toBeInTheDocument();
   });
 
-  it('deletes an agent after confirm and stays on the library', async () => {
+  it('deletes an agent only after the confirmation dialog is accepted', async () => {
     const deleteAgent = vi.fn(async () => {});
     const server = createMockAgentUIServer({
       searchAgents: vi.fn(async () => [
@@ -331,6 +331,15 @@ describe('AgentsLibrary', () => {
     fireEvent.click(screen.getByRole('menuitem', { name: 'Delete' }));
 
     expect(screen.getByRole('dialog', { name: 'Delete agent' })).toBeInTheDocument();
+    expect(screen.getByText(/including any schedules for this agent/)).toBeInTheDocument();
+    expect(deleteAgent).not.toHaveBeenCalled();
+
+    fireEvent.click(screen.getByRole('button', { name: 'Cancel' }));
+    expect(screen.queryByRole('dialog', { name: 'Delete agent' })).not.toBeInTheDocument();
+    expect(deleteAgent).not.toHaveBeenCalled();
+
+    fireEvent.click(screen.getByRole('button', { name: 'Actions for writer' }));
+    fireEvent.click(screen.getByRole('menuitem', { name: 'Delete' }));
     fireEvent.click(screen.getByRole('button', { name: 'Delete' }));
 
     await waitFor(() => {

@@ -35,16 +35,21 @@ function toUiTerminalTurnState(state: TrueForgeApi.TurnDoneEventState): Exclude<
   }
 }
 
-export function toUiSessionEvent(event: TrueForgeApi.SessionEvent): SessionEventItem['event'] {
+export function toUiSessionEvent(event: TrueForgeApi.SessionEvent): SessionEventItem['event'] | undefined {
+  // TODO: map turn.update when the runtime event union includes it
+  if (event.type === 'turn.update') return undefined;
   if (event.type !== 'turn.done') return { ...event };
   return { ...event, state: toUiTerminalTurnState(event.state) };
 }
 
-export function toUiStreamingEvent(event: TrueForgeApi.TurnStreamingEvent): TurnStreamingEvent {
+export function toUiStreamingEvent(event: TrueForgeApi.TurnStreamingEvent): TurnStreamingEvent | undefined {
+  // TODO: map turn.update when the runtime event union includes it
+  if (event.type === 'turn.update') return undefined;
   if (event.type !== 'turn.done') return { ...event };
   return { ...event, state: toUiTerminalTurnState(event.state) };
 }
 
-export function toUiEventItem(item: TrueForgeApi.SessionEventItem): SessionEventItem {
-  return { turnId: item.turnId, event: toUiSessionEvent(item.event) };
+export function toUiEventItem(item: TrueForgeApi.SessionEventItem): SessionEventItem | undefined {
+  const event = toUiSessionEvent(item.event);
+  return event === undefined ? undefined : { turnId: item.turnId, event };
 }
