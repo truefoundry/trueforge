@@ -2,6 +2,7 @@ import { Kysely, PostgresDialect } from 'kysely';
 import pg, { Pool } from 'pg';
 
 import type { PostgresSslConfig } from '../../config';
+import { getTrueForgePostgresSchema } from './schema';
 import type { Database } from './types';
 
 const INT8_OID = 20;
@@ -41,11 +42,11 @@ export function createDb(options: {
   statementTimeoutMs: number;
   /** Postgres `idle_in_transaction_session_timeout` in ms. Applied to every pooled connection. */
   idleInTransactionSessionTimeoutMs: number;
-  schema: string;
   /** Client TLS for the pg Pool (`false` | `true` | `{ cert, key, ca, rejectUnauthorized }`). */
   ssl?: boolean | PostgresSslConfig | undefined;
 }): Kysely<Database> {
-  const { connectionString, poolMax, statementTimeoutMs, idleInTransactionSessionTimeoutMs, schema, ssl } = options;
+  const { connectionString, poolMax, statementTimeoutMs, idleInTransactionSessionTimeoutMs, ssl } = options;
+  const schema = getTrueForgePostgresSchema();
   configurePgTypeParsers();
   const pool = new Pool({
     connectionString,

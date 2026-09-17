@@ -1,13 +1,13 @@
 import { type Kysely, sql } from 'kysely';
 
-import configuration, { DEFAULT_TRUEFORGE_SCHEMA } from '../../config';
+import configuration from '../../config';
 import type { Database } from './types';
 
-export function getTrueforgeSchema(): string {
+export function getTrueForgePostgresSchema(): string {
   if (configuration.STANDALONE) {
-    return DEFAULT_TRUEFORGE_SCHEMA;
+    throw new Error('unreachable');
   }
-  return configuration.TRUEFORGE_SCHEMA;
+  return configuration.POSTGRES_SCHEMA;
 }
 
 const TABLES_TO_MOVE = [
@@ -31,7 +31,7 @@ const TABLES_TO_MOVE = [
 ] as const;
 
 export async function ensureTrueforgeSchema(db: Kysely<Database>): Promise<void> {
-  const schema = getTrueforgeSchema();
+  const schema = getTrueForgePostgresSchema();
   await db.transaction().execute(async txn => {
     await sql`SET LOCAL lock_timeout = '5s'`.execute(txn);
     await sql`SELECT pg_advisory_xact_lock(hashtext(${`trueforge_schema_bootstrap:${schema}`}))`.execute(txn);

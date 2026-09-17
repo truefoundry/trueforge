@@ -1,6 +1,6 @@
 import { sql } from 'kysely';
 
-import { DEFAULT_TRUEFORGE_SCHEMA } from '../../../src/config';
+import { DEFAULT_POSTGRES_SCHEMA } from '../../../src/config';
 import { createDb } from '../../../src/db/postgres/client';
 
 const describePg = process.env['PG_STORE_TESTS_ENABLED'] === '1' ? describe : describe.skip;
@@ -20,7 +20,6 @@ describePg('createDb postgres session timeouts', () => {
       poolMax: 1,
       statementTimeoutMs,
       idleInTransactionSessionTimeoutMs,
-      schema: DEFAULT_TRUEFORGE_SCHEMA,
     });
     try {
       const { rows } = await sql<{ name: string; setting: string }>`
@@ -32,7 +31,7 @@ describePg('createDb postgres session timeouts', () => {
       const byName = new Map(rows.map(row => [row.name, row.setting]));
       expect(byName.get('statement_timeout')).toBe(String(statementTimeoutMs));
       expect(byName.get('idle_in_transaction_session_timeout')).toBe(String(idleInTransactionSessionTimeoutMs));
-      expect(byName.get('search_path')).toBe(DEFAULT_TRUEFORGE_SCHEMA);
+      expect(byName.get('search_path')).toBe(DEFAULT_POSTGRES_SCHEMA);
     } finally {
       await db.destroy();
     }
