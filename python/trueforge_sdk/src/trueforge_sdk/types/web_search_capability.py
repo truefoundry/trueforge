@@ -10,7 +10,7 @@ from ..core.unchecked_base_model import UncheckedBaseModel
 class WebSearchCapability(UncheckedBaseModel):
     enabled: bool = pydantic.Field()
     """
-    Whether a host web-search provider is configured (TrueFoundry mode + env).
+    Whether a host web-search provider is configured.
     """
 
     if IS_PYDANTIC_V2:

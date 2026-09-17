@@ -5635,7 +5635,7 @@
       "WebSearchCapability": {
         "properties": {
           "enabled": {
-            "description": "Whether a host web-search provider is configured (TrueFoundry mode + env).",
+            "description": "Whether a host web-search provider is configured.",
             "type": "boolean"
           }
         },
