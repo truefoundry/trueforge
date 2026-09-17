@@ -234,7 +234,9 @@ describe('AgentDetailsPage', () => {
     renderPage({
       serverOverrides: {
         permissions: {
-          listPermissions: vi.fn(async (): Promise<ListPermissionsResponse> => ({ data: { 'agent-1': ['USE'] } })),
+          listPermissions: vi.fn(async (): Promise<ListPermissionsResponse> => ({
+            data: { type: 'agent', permissions: { 'agent-1': ['USE'] } },
+          })),
         },
       },
     });

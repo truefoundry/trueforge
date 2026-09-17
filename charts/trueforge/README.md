@@ -151,17 +151,18 @@ The chart's own value wins on conflict; `tolerations` append to
 ## Resource tiers
 
 `resourceTier` (`small` / `medium` / `large`) selects sizing presets for the
-server and the controller. When set, it **replaces** the `resources` tables
-(replica counts stay as set: server `replicaCount`, controller always 1); an
-unknown tier fails the render. Empty (the default) keeps the explicit
-`resources` / `controller.resources`. A parent chart may set
-`global.resourceTier` instead; the chart's own `resourceTier` wins.
+server and the controller, and sets the server replica count (an explicit
+`server.replicaCount` overrides it; the controller is always 1 replica). When
+set, it **replaces** the `resources` tables; an unknown tier fails the render.
+Empty (the default) keeps the explicit `resources` / `controller.resources`
+and 1 server replica. A parent chart may set `global.resourceTier` instead;
+the chart's own `resourceTier` wins.
 
-| Preset | Server requests | Controller requests |
-| --- | --- | --- |
-| `small` | 50m / 128Mi | 50m / 128Mi |
-| `medium` | 100m / 256Mi | 100m / 256Mi |
-| `large` | 500m / 512Mi | 500m / 512Mi |
+| Preset | Server replicas | Server requests | Controller requests |
+| --- | --- | --- | --- |
+| `small` | 1 | 50m / 128Mi | 50m / 128Mi |
+| `medium` | 2 | 100m / 256Mi | 100m / 256Mi |
+| `large` | 3 | 500m / 512Mi | 500m / 512Mi |
 
 ## Postgres
 
@@ -304,7 +305,7 @@ extraObjects:
   - apiVersion: networking.istio.io/v1
     kind: VirtualService
     metadata:
-      name: '{{ include "trueforge.fullname" . }}'
+      name: '{{ include "trueforge.server.fullname" . }}'
     spec:
       hosts:
         - trueforge.example.com
@@ -313,7 +314,7 @@ extraObjects:
       http:
         - route:
             - destination:
-                host: '{{ include "trueforge.fullname" . }}'
+                host: '{{ include "trueforge.server.fullname" . }}'
                 port:
                   number: '{{ .Values.service.port }}'
 ```
@@ -322,8 +323,8 @@ extraObjects:
 
 | Value                 | Default                             | Description                           |
 | --------------------- | ----------------------------------- | ------------------------------------- |
-| `resourceTier`        | `""`                                | Optional `small` / `medium` / `large` sizing preset; empty uses `resources`. |
-| `server.replicaCount` | `1`                                 | Number of server replicas.            |
+| `resourceTier`        | `""`                                | Optional `small` / `medium` / `large` preset for resources and server replicas; empty uses `resources`. |
+| `server.replicaCount` | `""`                                | Number of server replicas. Empty derives from the resource tier (small=1, medium=2, large=3; 1 with no tier). |
 | `server.deploymentAnnotations` | `{}`                          | Annotations on the server Deployment, such as an Argo CD sync wave. |
 | `controller.deploymentAnnotations` | `{}`                      | Annotations on the controller Deployment, such as an Argo CD sync wave. |
 | `image.repository`    | `tfy.jfrog.io/tfy-images/trueforge` | Image repository.                     |
@@ -337,7 +338,7 @@ extraObjects:
 | `service.port`        | `8790`                              | Service port.                         |
 | `server.port`         | `8790`                              | Container port (`PORT`).              |
 | `autoscaling.enabled` | `false`                             | Enable a HorizontalPodAutoscaler.     |
-| `podDisruptionBudget.enabled` | `false`                       | Enable a PodDisruptionBudget (`minAvailable` defaults to `1`). |
+| `podDisruptionBudget.enabled` | `true`                        | Server PodDisruptionBudget (`minAvailable` defaults to `1`); rendered only when the server runs more than one replica. |
 | `podSecurityContext`  | non-root UID/GID `10001`            | Pod-level restricted security defaults. |
 | `securityContext`     | read-only root FS + drop all capabilities | Container-level restricted security defaults. |
 | `resources`           | 100m/256Mi requests, 200m/512Mi limits | Server CPU, memory, and ephemeral-storage. Replaced when a resourceTier is set. |
@@ -348,10 +349,13 @@ extraObjects:
 The server uses a RollingUpdate strategy by default (`server.strategy`); the
 controller is fixed to a single replica with `Recreate` and exposes neither.
 
-Also available (defaults inert): `priorityClassName`,
-`topologySpreadConstraints`, `initContainers`, `extraContainers`,
-`extraVolumes`, `extraVolumeMounts`, `service.annotations`, `service.labels`,
-`startupProbe`.
+Server pods spread across nodes by default (`maxSkew: 1`,
+`whenUnsatisfiable: ScheduleAnyway`); set `topologySpreadConstraints` to
+override (entries apply verbatim to both server and controller pods).
+
+Also available (defaults inert): `priorityClassName`, `initContainers`,
+`extraContainers`, `extraVolumes`, `extraVolumeMounts`, `service.annotations`,
+`service.labels`, `startupProbe`.
 
 The server container mounts an `emptyDir` at `/tmp` by default so the image can
 run with `readOnlyRootFilesystem: true`. When set, `resources.limits.ephemeral-storage`
@@ -369,4 +373,4 @@ also sets the `/tmp` `emptyDir.sizeLimit`.
 - If enabling `mtls`, set `mtls.secretName` and ensure any reverse proxy dials HTTPS with a trusted client cert (see Caddy `internal_mtls`).
 - Tune container `resources` (especially CPU requests) before enabling HPA.
 - Default `tfy.jfrog.io` images and the Helm chart are anonymously pullable — set `imagePullSecrets` only if you override to a private registry.
-- Enable `podDisruptionBudget` when running multiple replicas (defaults to `minAvailable: 1`; set exactly one of `minAvailable` or `maxUnavailable`).
+- Run multiple replicas (`server.replicaCount` or a `resourceTier` of `medium`/`large`); the server PodDisruptionBudget (`{release}-trueforge-server`, `minAvailable: 1`) then applies automatically.

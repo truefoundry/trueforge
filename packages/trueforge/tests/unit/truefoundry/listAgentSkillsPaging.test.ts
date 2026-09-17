@@ -4,6 +4,7 @@ import { TrueFoundryServiceFoundryServerClient } from '../../../src/truefoundry/
 const fetchMock = jest.fn();
 
 jest.mock('undici', () => ({
+  Agent: class Agent {},
   fetch: (...args: unknown[]) => fetchMock(...args),
 }));
 

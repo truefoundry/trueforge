@@ -5,6 +5,7 @@ import {
   type SessionAgent,
   type SessionHandle,
 } from '@truefoundry/trueforge-core/agent-session';
+import { WebSearchProviders, type IWebSearchProvider } from '@truefoundry/trueforge-core/core';
 import { HTTPException } from 'hono/http-exception';
 import { validateGitAgentSkills } from '../../../src/db/gitSkillMounts';
 import { migrateSqliteToLatest } from '../../../src/db/migrateSqlite';
@@ -18,6 +19,8 @@ import {
   buildGatewayMetadata,
   getModelDetails,
   localSandboxSessionSegment,
+  mergeGatewayMetadata,
+  parseGatewayMetadataHeader,
   TFG_METADATA_PREFIX,
   validateAgentSpec,
   withGatewayMetadataHeaders,
@@ -25,6 +28,17 @@ import {
 } from '../../../src/runtime/sessionResources';
 import { setCachedLocalSandboxSupport } from '../../../src/sandbox/localRuntime';
 import type { ReasoningEffort } from '../../../src/schemas/modelProvider';
+import { resolveWebSearchProvider } from '../../../src/websearch/providers';
+
+jest.mock('../../../src/websearch/providers', () => ({
+  resolveWebSearchProvider: jest.fn(() => undefined),
+}));
+
+const mockWebSearchProvider: IWebSearchProvider = {
+  id: WebSearchProviders.Parallel,
+  search: () => Promise.resolve({ hits: [] }),
+  fetch: () => Promise.resolve({ pages: [] }),
+};
 
 async function createGatewayMetadataSession(input: { agent: SessionAgent }): Promise<SessionHandle> {
   const sessions = new Sessions({ sessionStore: new InMemorySessionStore() });
@@ -38,6 +52,30 @@ async function createGatewayMetadataSession(input: { agent: SessionAgent }): Pro
   });
 }
 
+describe('parseGatewayMetadataHeader', () => {
+  it('parses a JSON object of string values', () => {
+    expect(parseGatewayMetadataHeader(JSON.stringify({ env: 'prod', team: 'platform' }))).toEqual({
+      env: 'prod',
+      team: 'platform',
+    });
+  });
+
+  it.each([
+    ['not json', 'not-json'],
+    ['an array', '[]'],
+    ['a scalar', '"nope"'],
+    ['a value that is not a string', JSON.stringify({ env: 1 })],
+  ])('rejects %s rather than silently dropping caller metadata', (_case, raw) => {
+    expect(() => parseGatewayMetadataHeader(raw)).toThrow(HTTPException);
+  });
+
+  it('keeps the parse failure as the cause, so a bad header can be debugged', () => {
+    expect(() => parseGatewayMetadataHeader('not-json')).toThrow(
+      expect.objectContaining({ cause: expect.any(SyntaxError) }),
+    );
+  });
+});
+
 describe('buildGatewayMetadata', () => {
   it('stamps session/turn/agent fields only', async () => {
     const session = await createGatewayMetadataSession({
@@ -50,6 +88,44 @@ describe('buildGatewayMetadata', () => {
       [`${TFG_METADATA_PREFIX}.agent_id`]: 'agent-1',
       [`${TFG_METADATA_PREFIX}.agent_name`]: 'my-agent',
     });
+  });
+});
+
+describe('mergeGatewayMetadata', () => {
+  it('keeps tfyMetadata keys and overwrites spoofed tfg.* fields so order is maintained', async () => {
+    const session = await createGatewayMetadataSession({
+      agent: { type: 'reference', id: 'agent-1', name: 'my-agent' },
+    });
+
+    expect(
+      mergeGatewayMetadata({
+        session,
+        turnId: 'turn-1',
+        tfyMetadata: {
+          env: 'prod',
+          [`${TFG_METADATA_PREFIX}.session_id`]: 'spoofed-session',
+          [`${TFG_METADATA_PREFIX}.turn_id`]: 'spoofed-turn',
+          [`${TFG_METADATA_PREFIX}.agent_id`]: 'spoofed-agent',
+          [`${TFG_METADATA_PREFIX}.agent_name`]: 'spoofed-name',
+        },
+      }),
+    ).toEqual({
+      env: 'prod',
+      [`${TFG_METADATA_PREFIX}.session_id`]: 'sess-1',
+      [`${TFG_METADATA_PREFIX}.turn_id`]: 'turn-1',
+      [`${TFG_METADATA_PREFIX}.agent_id`]: 'agent-1',
+      [`${TFG_METADATA_PREFIX}.agent_name`]: 'my-agent',
+    });
+  });
+
+  it('matches harness-only stamps when tfyMetadata is absent', async () => {
+    const session = await createGatewayMetadataSession({
+      agent: { type: 'reference', id: 'agent-1', name: 'my-agent' },
+    });
+
+    expect(mergeGatewayMetadata({ session, turnId: 'turn-1' })).toEqual(
+      buildGatewayMetadata({ session, turnId: 'turn-1' }),
+    );
   });
 });
 
@@ -100,6 +176,8 @@ describe('localSandboxSessionSegment', () => {
 describe('validateAgentSpec', () => {
   afterEach(() => {
     setCachedLocalSandboxSupport(undefined);
+    jest.mocked(resolveWebSearchProvider).mockReset();
+    jest.mocked(resolveWebSearchProvider).mockReturnValue(undefined);
   });
 
   async function setup(options?: { reasoningEfforts?: ReasoningEffort[] | undefined }) {
@@ -276,6 +354,40 @@ describe('validateAgentSpec', () => {
       status: 422,
       message: expect.stringContaining('PUT /settings/sandbox-providers'),
     } satisfies Partial<HTTPException>);
+  });
+
+  it('rejects web_search.enabled with 422 when no web-search provider is configured', async () => {
+    const stores = await setup();
+    await expect(
+      validateAgentSpec({
+        spec: AgentSpecSchema.parse({
+          model: { name: 'test-provider/test-model' },
+          instructions: 'test',
+          config: { web_search: { enabled: true } },
+        }),
+        tenant_id: 'default',
+        ...stores,
+      }),
+    ).rejects.toMatchObject({
+      status: 422,
+      message: expect.stringContaining('no web-search provider is configured'),
+    } satisfies Partial<HTTPException>);
+  });
+
+  it('admits web_search.enabled when a web-search provider resolves', async () => {
+    const stores = await setup();
+    jest.mocked(resolveWebSearchProvider).mockReturnValueOnce(mockWebSearchProvider);
+    await expect(
+      validateAgentSpec({
+        spec: AgentSpecSchema.parse({
+          model: { name: 'test-provider/test-model' },
+          instructions: 'test',
+          config: { web_search: { enabled: true } },
+        }),
+        tenant_id: 'default',
+        ...stores,
+      }),
+    ).resolves.toBeUndefined();
   });
 
   it('rejects skills when no sandbox provider is configured', async () => {

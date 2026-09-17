@@ -1,6 +1,6 @@
 {
   "name": "@truefoundry/trueforge",
-  "version": "0.2.0-rc.10",
+  "version": "0.2.0-rc.12",
   "description": "TrueForge Agent Harness: server, HTTP API, and chat UI (npx @truefoundry/trueforge)",
   "author": "TrueFoundry",
   "license": "MIT",
@@ -50,7 +50,7 @@
     "predev": "pnpm --filter @truefoundry/trueforge-core build:gen && pnpm run build:gen",
     "pretypecheck": "pnpm -w run sdk:types",
     "test:eventsub": "jest --config jest.eventsub.config.cjs",
-    "test:store:postgres": "jest --config jest.store.postgres.config.cjs",
+    "test:store:postgres": "cross-env STANDALONE=false TRUEFORGE_API_KEY=test-store-postgres jest --config jest.store.postgres.config.cjs",
     "test:store:sqlite": "jest --config jest.store.sqlite.config.cjs",
     "test": "pnpm run build:gen && cross-env NODE_OPTIONS=--conditions=trueforge-dev node --env-file=.env.test ./node_modules/jest/bin/jest.js --config jest.unit.config.cjs",
     "test:local-sandbox:contract": "pnpm run build:gen && cross-env NODE_OPTIONS=--conditions=trueforge-dev node --env-file=.env.test ./node_modules/jest/bin/jest.js --config jest.local-sandbox.contract.config.cjs",

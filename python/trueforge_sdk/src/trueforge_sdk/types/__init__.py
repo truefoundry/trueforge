@@ -6,6 +6,7 @@ import typing
 from importlib import import_module
 
 if typing.TYPE_CHECKING:
+    from .action_required import ActionRequired
     from .action_required_event import ActionRequiredEvent
     from .agent import Agent
     from .agent_code_snippet import AgentCodeSnippet
@@ -97,6 +98,7 @@ if typing.TYPE_CHECKING:
     from .list_mcp_server_tools_response import ListMcpServerToolsResponse
     from .list_mcp_servers_response import ListMcpServersResponse
     from .list_model_providers_response import ListModelProvidersResponse
+    from .list_permissions_data import ListPermissionsData
     from .list_permissions_response import ListPermissionsResponse
     from .list_schedule_runs_response import ListScheduleRunsResponse
     from .list_schedules_response import ListSchedulesResponse
@@ -229,13 +231,20 @@ if typing.TYPE_CHECKING:
     from .turn_state_error_metrics import TurnStateErrorMetrics
     from .turn_state_running import TurnStateRunning
     from .turn_streaming_event import TurnStreamingEvent
+    from .turn_update_event import TurnUpdateEvent
+    from .turn_update_state import TurnUpdateState
+    from .turn_update_state_paused import TurnUpdateStatePaused
+    from .turn_update_state_running import TurnUpdateStateRunning
     from .user_message import UserMessage
     from .user_message_content import UserMessageContent
     from .user_message_content_item import UserMessageContentItem
     from .user_tool_approval_event import UserToolApprovalEvent
     from .user_tool_response_event import UserToolResponseEvent
+    from .web_search_capability import WebSearchCapability
+    from .web_search_config import WebSearchConfig
     from .zai_model_provider import ZaiModelProvider
 _dynamic_imports: typing.Dict[str, str] = {
+    "ActionRequired": ".action_required",
     "ActionRequiredEvent": ".action_required_event",
     "Agent": ".agent",
     "AgentCodeSnippet": ".agent_code_snippet",
@@ -327,6 +336,7 @@ _dynamic_imports: typing.Dict[str, str] = {
     "ListMcpServerToolsResponse": ".list_mcp_server_tools_response",
     "ListMcpServersResponse": ".list_mcp_servers_response",
     "ListModelProvidersResponse": ".list_model_providers_response",
+    "ListPermissionsData": ".list_permissions_data",
     "ListPermissionsResponse": ".list_permissions_response",
     "ListScheduleRunsResponse": ".list_schedule_runs_response",
     "ListSchedulesResponse": ".list_schedules_response",
@@ -459,11 +469,17 @@ _dynamic_imports: typing.Dict[str, str] = {
     "TurnStateErrorMetrics": ".turn_state_error_metrics",
     "TurnStateRunning": ".turn_state_running",
     "TurnStreamingEvent": ".turn_streaming_event",
+    "TurnUpdateEvent": ".turn_update_event",
+    "TurnUpdateState": ".turn_update_state",
+    "TurnUpdateStatePaused": ".turn_update_state_paused",
+    "TurnUpdateStateRunning": ".turn_update_state_running",
     "UserMessage": ".user_message",
     "UserMessageContent": ".user_message_content",
     "UserMessageContentItem": ".user_message_content_item",
     "UserToolApprovalEvent": ".user_tool_approval_event",
     "UserToolResponseEvent": ".user_tool_response_event",
+    "WebSearchCapability": ".web_search_capability",
+    "WebSearchConfig": ".web_search_config",
     "ZaiModelProvider": ".zai_model_provider",
 }
 
@@ -490,6 +506,7 @@ def __dir__():
 
 
 __all__ = [
+    "ActionRequired",
     "ActionRequiredEvent",
     "Agent",
     "AgentCodeSnippet",
@@ -581,6 +598,7 @@ __all__ = [
     "ListMcpServerToolsResponse",
     "ListMcpServersResponse",
     "ListModelProvidersResponse",
+    "ListPermissionsData",
     "ListPermissionsResponse",
     "ListScheduleRunsResponse",
     "ListSchedulesResponse",
@@ -713,10 +731,16 @@ __all__ = [
     "TurnStateErrorMetrics",
     "TurnStateRunning",
     "TurnStreamingEvent",
+    "TurnUpdateEvent",
+    "TurnUpdateState",
+    "TurnUpdateStatePaused",
+    "TurnUpdateStateRunning",
     "UserMessage",
     "UserMessageContent",
     "UserMessageContentItem",
     "UserToolApprovalEvent",
     "UserToolResponseEvent",
+    "WebSearchCapability",
+    "WebSearchConfig",
     "ZaiModelProvider",
 ]

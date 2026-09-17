@@ -1,5 +1,30 @@
 # @truefoundry/trueforge
 
+## 0.2.0-rc.12
+
+### Patch Changes
+
+- 584e815: Gate Save Agent (create) on tenant CREATE from list-permissions, keep Update Agent on agent MANAGE, unwrap `{ type, permissions }`, and bump `@truefoundry/assistant-ui-runtime` to `0.1.39`.
+- ffcd60d: Forward inbound `x-tfy-metadata` from create-turn to TrueFoundry-mode gateway calls, merged with harness session, turn, and agent ids.
+- c221ac6: Fail Postgres connects after 10s and log idle pool errors so a backend restart cannot crash the process.
+- 7dc8757: Log while connecting to Postgres and Redis on startup, and skip access logs for `/assets/`.
+- c4078c6: Apply Postgres TLS via Pool `ssl` like servicefoundry (`POSTGRES_SSL_MODE` + cert/key/CA paths), not `sslmode` on the URL.
+- Updated dependencies [01ee934]
+- Updated dependencies [2cb51a5]
+- Updated dependencies [bf5233d]
+  - @truefoundry/trueforge-core@0.2.0-rc.5
+
+## 0.2.0-rc.11
+
+### Patch Changes
+
+- fd1bf7f: Bump `@truefoundry/assistant-ui-runtime` to `0.1.38` for assistant completion timestamps and keep-alive turn streams on session switch.
+- 9846d6d: Add Python TrueForge SDK stream and non-stream samples to agent Use in Code snippets, merging deltas with is_event_delta / merge_event_delta.
+- c77e7df: TrueFoundry mode: optional `TRUEFOUNDRY_TENANT_ID_TO_ALLOWED_MODEL_PROVIDER_ACCOUNTS` JSON map of tenant id → provider account names to limit which virtual providers are listed per tenant.
+- Updated dependencies [648273b]
+- Updated dependencies [134dcb9]
+  - @truefoundry/trueforge-sdk@0.2.0-rc.8
+
 ## 0.2.0-rc.10
 
 ### Patch Changes

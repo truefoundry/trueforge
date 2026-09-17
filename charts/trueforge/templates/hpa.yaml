@@ -2,7 +2,7 @@
 apiVersion: autoscaling/v2
 kind: HorizontalPodAutoscaler
 metadata:
-  name: {{ include "trueforge.fullname" . }}
+  name: {{ include "trueforge.server.fullname" . }}
   labels:
     {{- include "trueforge.labels" . | nindent 4 }}
   {{- with (include "trueforge.annotations" .) }}
@@ -13,7 +13,7 @@ spec:
   scaleTargetRef:
     apiVersion: apps/v1
     kind: Deployment
-    name: {{ include "trueforge.fullname" . }}
+    name: {{ include "trueforge.server.fullname" . }}
   minReplicas: {{ .Values.autoscaling.minReplicas }}
   maxReplicas: {{ .Values.autoscaling.maxReplicas }}
   metrics:

@@ -14,6 +14,7 @@ describe("ServerClient", () => {
                 sandbox: { enabled: true },
                 settings: { enabled: true },
                 skill: { enabled: true, reason: "reason" },
+                web_search: { enabled: true },
             },
         };
 
@@ -37,6 +38,9 @@ describe("ServerClient", () => {
                 skill: {
                     enabled: true,
                     reason: "reason",
+                },
+                webSearch: {
+                    enabled: true,
                 },
             },
         });

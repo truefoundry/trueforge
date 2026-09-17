@@ -7,6 +7,7 @@ from importlib import import_module
 
 if typing.TYPE_CHECKING:
     from .types import (
+        ActionRequired,
         ActionRequiredEvent,
         Agent,
         AgentCodeSnippet,
@@ -98,6 +99,7 @@ if typing.TYPE_CHECKING:
         ListMcpServerToolsResponse,
         ListMcpServersResponse,
         ListModelProvidersResponse,
+        ListPermissionsData,
         ListPermissionsResponse,
         ListScheduleRunsResponse,
         ListSchedulesResponse,
@@ -230,11 +232,17 @@ if typing.TYPE_CHECKING:
         TurnStateErrorMetrics,
         TurnStateRunning,
         TurnStreamingEvent,
+        TurnUpdateEvent,
+        TurnUpdateState,
+        TurnUpdateStatePaused,
+        TurnUpdateStateRunning,
         UserMessage,
         UserMessageContent,
         UserMessageContentItem,
         UserToolApprovalEvent,
         UserToolResponseEvent,
+        WebSearchCapability,
+        WebSearchConfig,
         ZaiModelProvider,
     )
     from .errors import (
@@ -256,6 +264,7 @@ if typing.TYPE_CHECKING:
     from .client import AsyncTrueForge, TrueForge
     from .version import __version__
 _dynamic_imports: typing.Dict[str, str] = {
+    "ActionRequired": ".types",
     "ActionRequiredEvent": ".types",
     "Agent": ".types",
     "AgentCodeSnippet": ".types",
@@ -358,6 +367,7 @@ _dynamic_imports: typing.Dict[str, str] = {
     "ListMcpServerToolsResponse": ".types",
     "ListMcpServersResponse": ".types",
     "ListModelProvidersResponse": ".types",
+    "ListPermissionsData": ".types",
     "ListPermissionsResponse": ".types",
     "ListScheduleRunsResponse": ".types",
     "ListSchedulesResponse": ".types",
@@ -493,6 +503,10 @@ _dynamic_imports: typing.Dict[str, str] = {
     "TurnStateErrorMetrics": ".types",
     "TurnStateRunning": ".types",
     "TurnStreamingEvent": ".types",
+    "TurnUpdateEvent": ".types",
+    "TurnUpdateState": ".types",
+    "TurnUpdateStatePaused": ".types",
+    "TurnUpdateStateRunning": ".types",
     "UnauthorizedError": ".errors",
     "UnprocessableEntityError": ".errors",
     "UserMessage": ".types",
@@ -500,6 +514,8 @@ _dynamic_imports: typing.Dict[str, str] = {
     "UserMessageContentItem": ".types",
     "UserToolApprovalEvent": ".types",
     "UserToolResponseEvent": ".types",
+    "WebSearchCapability": ".types",
+    "WebSearchConfig": ".types",
     "ZaiModelProvider": ".types",
     "__version__": ".version",
     "agents": ".agents",
@@ -538,6 +554,7 @@ def __dir__():
 
 
 __all__ = [
+    "ActionRequired",
     "ActionRequiredEvent",
     "Agent",
     "AgentCodeSnippet",
@@ -640,6 +657,7 @@ __all__ = [
     "ListMcpServerToolsResponse",
     "ListMcpServersResponse",
     "ListModelProvidersResponse",
+    "ListPermissionsData",
     "ListPermissionsResponse",
     "ListScheduleRunsResponse",
     "ListSchedulesResponse",
@@ -775,6 +793,10 @@ __all__ = [
     "TurnStateErrorMetrics",
     "TurnStateRunning",
     "TurnStreamingEvent",
+    "TurnUpdateEvent",
+    "TurnUpdateState",
+    "TurnUpdateStatePaused",
+    "TurnUpdateStateRunning",
     "UnauthorizedError",
     "UnprocessableEntityError",
     "UserMessage",
@@ -782,6 +804,8 @@ __all__ = [
     "UserMessageContentItem",
     "UserToolApprovalEvent",
     "UserToolResponseEvent",
+    "WebSearchCapability",
+    "WebSearchConfig",
     "ZaiModelProvider",
     "__version__",
     "agents",

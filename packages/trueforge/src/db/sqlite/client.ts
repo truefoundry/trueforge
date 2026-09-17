@@ -110,6 +110,9 @@ class ImmediateSqliteDialect implements Dialect {
 
 function applyPragmas(database: Database.Database): void {
   database.pragma('journal_mode = WAL');
+  // Autocheckpoint ~4 MiB; leftover WAL 64 MiB after checkpoint (Rails/common WAL-app default).
+  database.pragma('wal_autocheckpoint = 1000');
+  database.pragma('journal_size_limit = 67108864');
   database.pragma('busy_timeout = 5000');
   database.pragma('synchronous = NORMAL');
   database.pragma('foreign_keys = ON');

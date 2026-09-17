@@ -3,9 +3,8 @@ import path from 'node:path';
 
 import type { Kysely } from 'kysely';
 import { FileMigrationProvider, Migrator } from 'kysely/migration';
-
 import { importAbsoluteModule } from '../util/crossPlatform';
-import { ensureTrueforgeSchema, TRUEFORGE_SCHEMA } from './postgres/schema';
+import { ensureTrueforgeSchema, getTrueForgePostgresSchema } from './postgres/schema';
 import type { Database } from './postgres/types';
 
 function createMigrator(db: Kysely<Database>): Migrator {
@@ -17,13 +16,12 @@ function createMigrator(db: Kysely<Database>): Migrator {
       import: importAbsoluteModule,
       migrationFolder: path.join(import.meta.dirname, 'postgres', 'migrations'),
     }),
-    migrationTableSchema: TRUEFORGE_SCHEMA,
+    migrationTableSchema: getTrueForgePostgresSchema(),
   });
 }
 
 async function runMigrations(input: { db: Kysely<Database>; targetMigrationName: string | undefined }): Promise<void> {
   await ensureTrueforgeSchema(input.db);
-
   const migrator = createMigrator(input.db);
 
   const { error, results } =
