@@ -359,7 +359,7 @@ export async function validateAgentSpec({
   if (spec.config.web_search.enabled && resolveWebSearchProvider() === undefined) {
     throw new HTTPException(422, {
       message:
-        'web_search is enabled but no web-search provider is configured — set TRUEFOUNDRY_WEB_SEARCH_PROVIDER in TrueFoundry mode',
+        'web_search is enabled but no web-search provider is configured',
     });
   }
 }

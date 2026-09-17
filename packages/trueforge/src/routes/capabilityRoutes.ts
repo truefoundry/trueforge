@@ -25,7 +25,7 @@ const SettingsCapabilitySchema = z
 
 const WebSearchCapabilitySchema = z
   .object({
-    enabled: z.boolean().describe('Whether a host web-search provider is configured (TrueFoundry mode + env).'),
+    enabled: z.boolean().describe('Whether a host web-search provider is configured.'),
   })
   .openapi('WebSearchCapability');
 
