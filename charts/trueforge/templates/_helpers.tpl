@@ -23,6 +23,20 @@ itself contains "trueforge".
 {{- end }}
 
 {{/*
+Server object name derived from trueforge.fullname (`{fullname}-server`).
+*/}}
+{{- define "trueforge.server.fullname" -}}
+{{- printf "%s-server" (include "trueforge.fullname" .) | trunc 63 | trimSuffix "-" }}
+{{- end }}
+
+{{/*
+Controller Deployment name (`{fullname}-controller`).
+*/}}
+{{- define "trueforge.controller.fullname" -}}
+{{- printf "%s-controller" (include "trueforge.fullname" .) | trunc 63 | trimSuffix "-" }}
+{{- end }}
+
+{{/*
 Chart name and version as used by the chart label.
 */}}
 {{- define "trueforge.chart" -}}
@@ -106,7 +120,7 @@ server Service when controller.serverUrl is empty (https when mtls is enabled).
 {{- if .Values.controller.serverUrl -}}
 {{- .Values.controller.serverUrl -}}
 {{- else -}}
-{{- printf "%s://%s:%v" (ternary "https" "http" .Values.mtls.enabled) (include "trueforge.fullname" .) .Values.service.port -}}
+{{- printf "%s://%s:%v" (ternary "https" "http" .Values.mtls.enabled) (include "trueforge.server.fullname" .) .Values.service.port -}}
 {{- end -}}
 {{- end }}
 

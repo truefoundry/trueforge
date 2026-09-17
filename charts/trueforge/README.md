@@ -305,7 +305,7 @@ extraObjects:
   - apiVersion: networking.istio.io/v1
     kind: VirtualService
     metadata:
-      name: '{{ include "trueforge.fullname" . }}'
+      name: '{{ include "trueforge.server.fullname" . }}'
     spec:
       hosts:
         - trueforge.example.com
@@ -314,7 +314,7 @@ extraObjects:
       http:
         - route:
             - destination:
-                host: '{{ include "trueforge.fullname" . }}'
+                host: '{{ include "trueforge.server.fullname" . }}'
                 port:
                   number: '{{ .Values.service.port }}'
 ```
@@ -338,7 +338,7 @@ extraObjects:
 | `service.port`        | `8790`                              | Service port.                         |
 | `server.port`         | `8790`                              | Container port (`PORT`).              |
 | `autoscaling.enabled` | `false`                             | Enable a HorizontalPodAutoscaler.     |
-| `podDisruptionBudget.enabled` | `true`                        | PodDisruptionBudget (`minAvailable` defaults to `1`); rendered only when the server runs more than one replica. |
+| `podDisruptionBudget.enabled` | `true`                        | Server PodDisruptionBudget (`minAvailable` defaults to `1`); rendered only when the server runs more than one replica. |
 | `podSecurityContext`  | non-root UID/GID `10001`            | Pod-level restricted security defaults. |
 | `securityContext`     | read-only root FS + drop all capabilities | Container-level restricted security defaults. |
 | `resources`           | 100m/256Mi requests, 200m/512Mi limits | Server CPU, memory, and ephemeral-storage. Replaced when a resourceTier is set. |
@@ -373,4 +373,4 @@ also sets the `/tmp` `emptyDir.sizeLimit`.
 - If enabling `mtls`, set `mtls.secretName` and ensure any reverse proxy dials HTTPS with a trusted client cert (see Caddy `internal_mtls`).
 - Tune container `resources` (especially CPU requests) before enabling HPA.
 - Default `tfy.jfrog.io` images and the Helm chart are anonymously pullable — set `imagePullSecrets` only if you override to a private registry.
-- Run multiple replicas (`server.replicaCount` or a `resourceTier` of `medium`/`large`); the PodDisruptionBudget (`minAvailable: 1`) then applies automatically.
+- Run multiple replicas (`server.replicaCount` or a `resourceTier` of `medium`/`large`); the server PodDisruptionBudget (`{release}-trueforge-server`, `minAvailable: 1`) then applies automatically.

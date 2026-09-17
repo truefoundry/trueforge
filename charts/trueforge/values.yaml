@@ -268,13 +268,13 @@ externalRedis:
 # Extra raw manifests deployed alongside the server, e.g. an Istio
 # VirtualService, a Gateway, an Ingress, or a NetworkPolicy. Each entry is a
 # full Kubernetes object rendered through `tpl`, so Helm templating works and
-# helpers like `{{ include "trueforge.fullname" . }}` resolve. Example:
+# helpers like `{{ include "trueforge.server.fullname" . }}` resolve. Example:
 #
 # extraObjects:
 #   - apiVersion: networking.istio.io/v1
 #     kind: VirtualService
 #     metadata:
-#       name: '{{ include "trueforge.fullname" . }}'
+#       name: '{{ include "trueforge.server.fullname" . }}'
 #     spec:
 #       hosts:
 #         - trueforge.example.com
@@ -283,7 +283,7 @@ externalRedis:
 #       http:
 #         - route:
 #             - destination:
-#                 host: '{{ include "trueforge.fullname" . }}'
+#                 host: '{{ include "trueforge.server.fullname" . }}'
 #                 port:
 #                   number: '{{ .Values.service.port }}'
 extraObjects: []
