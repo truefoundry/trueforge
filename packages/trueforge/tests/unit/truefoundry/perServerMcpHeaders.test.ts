@@ -50,6 +50,7 @@ const storeWith = (perServerHeaders: Record<string, Record<string, string>>): Tr
       subject: { id: 'user-1', type: 'user', display_name: 'user-1' },
       roles: [],
       user_credential: 'caller-token',
+      public_base_url: 'https://internal.truefoundry.cloud',
     }),
     agent: undefined,
     logger: createLogger({ silent: true }),
