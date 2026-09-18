@@ -2,8 +2,8 @@ import { sql, type Kysely } from 'kysely';
 
 /**
  * Persist turn ownership on the turn row. Backfills from the legacy peered
- * turn_id grammar `{ulid}.{executorId}`; non-peered ids (e.g. SF→TrueForge
- * import) get sentinel `default` — those source executors are gone.
+ * turn_id grammar `{ulid}.{executorId}`; non-peered ids (e.g. import migration)
+ * get sentinel `default` — those source executors are gone.
  * Runs inside the Migrator's transaction — do not nest `db.transaction()`.
  */
 export async function up(db: Kysely<unknown>): Promise<void> {
