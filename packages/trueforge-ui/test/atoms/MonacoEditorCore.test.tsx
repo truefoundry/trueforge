@@ -3,6 +3,7 @@ import { act, render, waitFor } from '@testing-library/react';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 import { MonacoEditorCore } from '@/atoms/MonacoEditorCore.js';
+import { preloadMonaco, resetMonacoPreloadForTests } from '@/atoms/monacoPreload.js';
 
 const monacoMocks = vi.hoisted(() => {
   let changeListener: (() => void) | undefined;
@@ -48,6 +49,7 @@ vi.mock('monaco-editor', () => monacoMocks.module);
 describe('MonacoEditorCore', () => {
   beforeEach(() => {
     vi.clearAllMocks();
+    resetMonacoPreloadForTests();
     monacoMocks.editor.getValue.mockReturnValue('initial value');
     monacoMocks.editor.getContentHeight.mockReturnValue(72);
     vi.stubGlobal('requestAnimationFrame', (callback: FrameRequestCallback) => {
@@ -56,7 +58,21 @@ describe('MonacoEditorCore', () => {
     });
   });
 
-  afterEach(() => vi.unstubAllGlobals());
+  afterEach(() => {
+    resetMonacoPreloadForTests();
+    vi.unstubAllGlobals();
+  });
+
+  it('shares one Monaco import across preload and editor mount', async () => {
+    const first = preloadMonaco();
+    const second = preloadMonaco();
+    expect(first).toBe(second);
+    await expect(first).resolves.toMatchObject({ editor: expect.any(Object) });
+
+    render(<MonacoEditorCore value="initial value" />);
+    await waitFor(() => expect(monacoMocks.editorApi.create).toHaveBeenCalledOnce());
+    expect(preloadMonaco()).toBe(first);
+  });
 
   it('creates Monaco with consumer options and forwards lifecycle and change callbacks', async () => {
     const beforeMount = vi.fn();
