@@ -1,17 +1,26 @@
 /**
- * Inbound send-event payloads for tip HITL (client → harness), distinct from the
- * stream log ({@link PersistedTurnEvent} / session_event).
+ * Inbound send-event payloads (client → harness), distinct from the stream log
+ * ({@link PersistedTurnEvent} / session_event).
  *
- * Public send is session-scoped (`POST …/sessions/{id}/events`) with required
- * body `turn_id` (one batch → one tip) plus `SessionInboundEventItem`s; rows stamp that
- * tip id. v1 union is tip-only; approval policies may relax `turn_id` later.
+ * Public send is session-scoped (`POST …/sessions/{id}/events`) with body
+ * `turn_id` + items. Tip HITL uses approval/tool_response; sticky policies use
+ * `user.tool_approval_policy` (session `allow_session`, optional expiry; may later
+ * relax tip binding). Per-call allow/deny stays on `user.tool_approval`.
  * `user.message` stays on createTurn / steer.
  */
 import { z } from '@hono/zod-openapi';
-import { UserToolApprovalMessageSchema, UserToolResponseMessageSchema } from '../../core/events/schema';
+import {
+  UserToolApprovalMessageSchema,
+  UserToolApprovalPolicyMessageSchema,
+  UserToolResponseMessageSchema,
+} from '../../core/events/schema';
 
 export const SessionInboundEventItemSchema = z
-  .discriminatedUnion('type', [UserToolApprovalMessageSchema, UserToolResponseMessageSchema])
-  .openapi('SessionInboundEventItem');
+  .discriminatedUnion('type', [
+    UserToolApprovalMessageSchema,
+    UserToolResponseMessageSchema,
+    UserToolApprovalPolicyMessageSchema,
+  ])
+  .openapi('SendTurnEventItem');
 
 export type SessionInboundEventItem = z.infer<typeof SessionInboundEventItemSchema>;
