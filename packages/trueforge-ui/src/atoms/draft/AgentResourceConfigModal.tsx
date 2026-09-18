@@ -1,5 +1,6 @@
 'use client';
 
+import { Icon } from '../../icons/Icon.js';
 import type { AgentSkill, AgentSpec, ConnectorState, McpToolSelection } from '../../server/types.js';
 import { useSlot } from '../../theme/SlotsProvider.js';
 import { Button } from '../primitives/Button.js';
@@ -14,6 +15,7 @@ export type AgentResourceConfigModalProps = {
   query: string;
   activeConnectorId: string | null;
   tools: McpToolSelection[];
+  toolsByConnector?: Record<string, McpToolSelection[]>;
   connectorLoading: boolean;
   connectorError: string | null;
   toolsLoading: boolean;
@@ -44,7 +46,11 @@ export function AgentResourceConfigModal({ editor, onClose, ...contentProps }: A
       aria-label={selectingMcp ? 'Select MCP Tools' : 'Edit skills'}
       footer={
         selectingMcp ? (
-          <div className="flex justify-end">
+          <div className="flex items-center justify-between gap-3">
+            <p className="text-text-secondary flex min-w-0 items-center gap-1.5 text-xs">
+              <Icon name="shield-check" className="text-warning-bg size-3.5 shrink-0" />
+              <span className="min-w-0">Shielded tools always ask before the agent runs them.</span>
+            </p>
             <Button.Primary type="button" onClick={onClose}>
               Save
             </Button.Primary>

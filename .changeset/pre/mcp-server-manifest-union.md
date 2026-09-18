@@ -3,4 +3,4 @@
 "@truefoundry/trueforge-sdk": patch
 ---
 
-Make MCPServerManifest a type-discriminated oneOf of RemoteMCPServerManifest and TrueFoundryMCPServerManifest.
+[truefoundry] Make MCPServerManifest a type-discriminated oneOf of RemoteMCPServerManifest and TrueFoundryMCPServerManifest.

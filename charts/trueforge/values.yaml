@@ -36,12 +36,11 @@ global:
     emptyDir:
       sslCerts:
         sizeLimit: 10Mi
-
 image:
   repository: tfy.jfrog.io/tfy-images/trueforge
   # Tag defaults to chart appVersion when empty. Prod chart-release PRs set this
   # to {appVersion}-{shortSha} for the npm-install image already in the registry.
-  tag: "0.2.0-rc.12-1525f94"
+  tag: "0.2.0-rc.14-e1ebeda"
   pullPolicy: IfNotPresent
 imagePullSecrets: []
 # Default tfy.jfrog.io repos are anonymously pullable. Set secrets only when
@@ -264,7 +263,15 @@ externalRedis:
     masterName: ""
     # string or valueFrom -> REDIS_SENTINEL_PASSWORD.
     password: ""
-
+# --- Bundled dev sandbox server (tfy-sandbox-server subchart) -------------------
+# Managed by the parent chart; off for standalone installs. When true, the
+# subchart is deployed and the app gets TRUEFOUNDRY_SANDBOX_* env pointing at it.
+truefoundry:
+  devSandboxServerEnabled: false
+tfy-sandbox-server:
+  # Keeps the rendered names distinct from any other sandbox server in the
+  # namespace: <release>-trueforge-tfy-sandbox-server.
+  nameOverride: trueforge-tfy-sandbox-server
 # Extra raw manifests deployed alongside the server, e.g. an Istio
 # VirtualService, a Gateway, an Ingress, or a NetworkPolicy. Each entry is a
 # full Kubernetes object rendered through `tpl`, so Helm templating works and

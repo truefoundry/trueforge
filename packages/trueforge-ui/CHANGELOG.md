@@ -1,5 +1,18 @@
 # Changelog
 
+## 0.3.0-rc.11
+
+### Patch Changes
+
+- 4be60e7: Bump `@truefoundry/assistant-ui-runtime` to `0.1.41` for turn-scoped sandbox artifact downloads and to stop stale session history from merging after a session switch.
+- 551b6a8: Default MCP tool approval to `@destructive` only. Selecting Other/read-only tools clears approval; selecting destructive tools keeps it on. Migrate mounts still carrying the old `@write`+`@destructive` default.
+- 551b6a8: Let Build Agent pick which MCP tools require human approval, saved as `require_approval_for_tools` on the agent spec, and make unchecked tool checkboxes legible in both tool selectors. The agent Overview tab now expands each attached MCP server into its tools, with read/write/destructive labels and approval state.
+- ffbb239: Add a hover ellipsis delete menu with confirmation dialog on Sessions list rows.
+- a655537: Add a `turn.update` event schema with paused/running status and `action_required_on_events`.
+- Updated dependencies [648273b]
+- Updated dependencies [648273b]
+  - @truefoundry/trueforge-sdk@0.2.0-rc.9
+
 ## 0.3.0-rc.10
 
 ### Patch Changes
@@ -85,7 +98,7 @@
 
 ### Patch Changes
 
-- 762ecc0: TrueFoundry skills catalog: proxy GET /skills and /skills/versions from ServiceFoundry; settings skill writes return 424. SkillManifest is a type-discriminated oneOf of GitSkill | TrueFoundryRegistrySkill (`type: truefoundry`; name is FQN, display_name is short). AvailableSkill exposes optional metadata (display_name, repository_name, version). AgentSpec skill refs allow opaque FQN names, optional preload (registry), and max 50. UI draft skill mounts map catalog `id` to AgentSpec `name`.
+- 762ecc0: [truefoundry] TrueFoundry skills catalog: proxy GET /skills and /skills/versions from ServiceFoundry; settings skill writes return 424. SkillManifest is a type-discriminated oneOf of GitSkill | TrueFoundryRegistrySkill (`type: truefoundry`; name is FQN, display_name is short). AvailableSkill exposes optional metadata (display_name, repository_name, version). AgentSpec skill refs allow opaque FQN names, optional preload (registry), and max 50. UI draft skill mounts map catalog `id` to AgentSpec `name`.
 - 26a9b80: Add an agent-scoped Schedules tab and route library schedule actions into it.
 - 1b8a3f7: Add documentation links to the code snippets view and shell actions.
 - d2fdfc9: Add agent-filtered chat history labels, preserve Try Agent and explicit history-filter intent in URL query state while resolving backend IDs, reset active chats when users change filters, keep Try Agent highlighted as chat, and route fresh agent builders at `/build-agent` before their session URL is assigned.
@@ -112,7 +125,7 @@
 - 2284d3b: Polish the MCP tool selector controls, loading state, and API error messages.
 - e3973a5: Group schedule recurrence controls and display the cadence in an attached summary footer.
 - f2ca338: Show active/paused schedule counts in the Agents library, pin selected MCPs when reopening the tools modal, and align paused schedule badge colors.
-- 77c5c33: Show TrueFoundry skill repositories and versions in skill pickers, load version choices lazily, preserve the chosen version FQN when attaching skills, keep picker ordering stable while open, and add registry-only preload controls to selected skill pills.
+- 77c5c33: [truefoundry] Show TrueFoundry skill repositories and versions in skill pickers, load version choices lazily, preserve the chosen version FQN when attaching skills, keep picker ordering stable while open, and add registry-only preload controls to selected skill pills.
 - 26a9b80: Show weekly schedule days before the time controls.
 - 1b8a3f7: Match the Build Agent configuration panel width to the agent playground and identify sessions created by schedule runs.
 - adaf532: Widen the sidebar rail and its nav buttons so labels like "Build Agent" have more breathing room.
@@ -157,7 +170,7 @@
 - 0cc59f8: Wire schedule test runs and show last five run status chips on the schedules table. Bump `@truefoundry/assistant-ui-runtime` to `0.1.25`.
 - 0cc59f8: Add global Schedules page at `/schedules` with listing, popover-based filters, and create/edit drawer wired to the schedule API. New schedules save as paused, open a Test Schedule review with MCP connect status, and support Activate Anyway. List schedules uses server token pagination and multi-agent filters. Agents shows a Schedules count column (warning when any are paused) loaded via a batched list for on-screen agents. Add Table primitives with client-side and token pagination plus portal DropdownMenu so row actions are not clipped by overflow. Export a reusable popover select with single- and multi-select modes.
 - 788636d: Sidebar layout is a permanent icon+label nav rail (no expand/collapse). Recent chats are hidden from the sidebar and mobile drawer; the drawer shows nav actions only.
-- 8f1a2dc: Add a TrueFoundry-managed model registry. When `TRUEFOUNDRY_SERVICEFOUNDRY_SERVER_URL` is set, models are listed from the TrueFoundry ServiceFoundry server and turns are routed through the tenant's default AI Gateway with the caller's token. Mutually exclusive with OIDC. Supports internal mutual TLS to the ServiceFoundry server via `TRUEFOUNDRY_MTLS_ENABLED`/`TRUEFOUNDRY_MTLS_CERTS_DIR`.
+- 8f1a2dc: [truefoundry] Add a TrueFoundry-managed model registry. When `TRUEFOUNDRY_SERVICEFOUNDRY_SERVER_URL` is set, models are listed from the TrueFoundry ServiceFoundry server and turns are routed through the tenant's default AI Gateway with the caller's token. Mutually exclusive with OIDC. Supports internal mutual TLS to the ServiceFoundry server via `TRUEFOUNDRY_MTLS_ENABLED`/`TRUEFOUNDRY_MTLS_CERTS_DIR`.
 
 ### Patch Changes
 
@@ -178,7 +191,7 @@
 - 333230d: Improve Agent Sessions with a resizable divider, accurate turn grouping, optional cost display, and reliable timeline tooltips with sub-agent details. Simplify schedule recurrence and default new schedules to the local timezone.
 - c4ee138: Unregister the `/settings` route when Settings chrome is unavailable (no catalog or `capabilities.settings.enabled` is false), matching the sidebar Settings button gate.
 - c4ee138: Split New Chat and New Agent draft preference stores. New Chat remembers only model (+ reasoning), skills, and MCP; New Agent keeps the full seed including runtime config.
-- 4c1260e: Wire TrueFoundry MCP authorize, status, and delete through ServiceFoundry; stub list auth_status; gate oauth2 invoke mid-turn with authRequired; paginate MCP server lists. UI treats SFY consent `code`/`error` on the FE landing like local DCR success/failure.
+- 4c1260e: [truefoundry] Wire TrueFoundry MCP authorize, status, and delete through ServiceFoundry; stub list auth_status; gate oauth2 invoke mid-turn with authRequired; paginate MCP server lists. UI treats SFY consent `code`/`error` on the FE landing like local DCR success/failure.
 - c4ee138: Per-turn Tokens in Agent Sessions shows a keyboard-accessible Input / Output / Cached tooltip (Input is uncached).
 - bc11131: Share a single `PageHeader` across chat and list chrome so title size/height stay consistent, and drop decorative title icons.
 - Updated dependencies [648273b]

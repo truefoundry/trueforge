@@ -1,4 +1,13 @@
+## [0.2.0-rc.9] - 2026-09-17
+
 ## [0.2.0-rc.8] - 2026-09-15
+
+## 0.2.0-rc.9
+
+### Patch Changes
+
+- 648273b: Regenerate SDK from updated OpenAPI spec.
+- 648273b: Regenerate SDK from updated OpenAPI spec.
 
 ## [0.2.0-rc.7] - 2026-09-14
 
@@ -32,7 +41,7 @@
 ### Patch Changes
 
 - 648273b: Regenerate SDK from updated OpenAPI spec.
-- 9501536: Make MCPServerManifest a type-discriminated oneOf of RemoteMCPServerManifest and TrueFoundryMCPServerManifest.
+- 9501536: [truefoundry] Make MCPServerManifest a type-discriminated oneOf of RemoteMCPServerManifest and TrueFoundryMCPServerManifest.
 - dc2151f: Paginate `GET /api/v1/agents` with `limit` / `page_token` and a `pagination` envelope; optional `agent_name` filters by case-insensitive substring. Agents library uses rows-per-page and prev/next against the token-paginated API. Schedule create and the schedules listing agent filter use a searchable agent combobox backed by the same filtered list API.
 
 ## [0.2.0-rc.3] - 2026-09-10
@@ -56,7 +65,7 @@
 - 648273b: Regenerate SDK from updated OpenAPI spec.
 - 648273b: Regenerate SDK from updated OpenAPI spec.
 - 648273b: Regenerate SDK from updated OpenAPI spec.
-- 44f9cbe: TrueFoundry mode: env-backed Daytona | truefoundry sandbox via TRUEFOUNDRY_SANDBOX_* (static SETTINGS JSON). Settings OpenAPI stays Daytona-only (`SandboxProviderManifest`); truefoundry is store-internal (`StoredSandboxProviderManifest`).
+- 44f9cbe: [truefoundry] TrueFoundry mode: env-backed Daytona | truefoundry sandbox via TRUEFOUNDRY_SANDBOX_* (static SETTINGS JSON). Settings OpenAPI stays Daytona-only (`SandboxProviderManifest`); truefoundry is store-internal (`StoredSandboxProviderManifest`).
 
 ## [0.1.4-rc.1] - 2026-09-07
 
@@ -80,8 +89,8 @@
 - 52987a7: Add `internal.agents.getCodeSnippets` API under the new SDK `internal` namespace.
 - 38ce068: Add tenant-unique optional session `external_id`, `Sessions.getOrCreateByExternalId`, and an idempotent `POST /internal/sessions/get-or-create-by-external-id` endpoint and SDK method.
 - b654052: Add caller-owned session `metadata` (`Record<string, string>` with size limits) on create, update, and read. Persist as a new `session.metadata` jsonb column; leave session `custom` unchanged.
-- 4c1260e: Wire TrueFoundry MCP authorize, status, and delete through ServiceFoundry; stub list auth_status; gate oauth2 invoke mid-turn with authRequired; paginate MCP server lists. UI treats SFY consent `code`/`error` on the FE landing like local DCR success/failure.
-- f175245: Add TrueFoundry-managed MCP list/get (SFY registry, gateway proxy URL, create/update 424).
+- 4c1260e: [truefoundry] Wire TrueFoundry MCP authorize, status, and delete through ServiceFoundry; stub list auth_status; gate oauth2 invoke mid-turn with authRequired; paginate MCP server lists. UI treats SFY consent `code`/`error` on the FE landing like local DCR success/failure.
+- f175245: [truefoundry] Add TrueFoundry-managed MCP list/get (SFY registry, gateway proxy URL, create/update 424).
 
 ## [0.1.3] - 2026-08-19
 
