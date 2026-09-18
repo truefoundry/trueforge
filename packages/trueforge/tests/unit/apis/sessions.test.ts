@@ -33,6 +33,7 @@ function turnRecord(turnId: string, state: TurnState): TurnRecord {
     first_turn_id: turnId,
     ancestor_ids: [],
     previous_turn_id: null,
+    active_executor_id: 'test-executor',
     state,
     input: [],
     snapshot: { threads: {}, mcp_servers: null, sandbox_info: null },
