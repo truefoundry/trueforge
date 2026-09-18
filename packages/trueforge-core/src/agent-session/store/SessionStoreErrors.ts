@@ -98,6 +98,23 @@ export class TurnNotRunningError extends SessionStoreConflictError {
   }
 }
 
+/** Progress write rejected: turn is still running but the caller is not the active executor. */
+export class TurnExecutorMismatchError extends SessionStoreConflictError {
+  readonly turn_id: string;
+  readonly expected_active_executor_id: string;
+  readonly active_executor_id: string;
+
+  constructor(input: { turn_id: string; expected_active_executor_id: string; active_executor_id: string }) {
+    super(
+      `Turn ${input.turn_id} is owned by executor ${input.active_executor_id}, not ${input.expected_active_executor_id}`,
+    );
+    this.name = 'TurnExecutorMismatchError';
+    this.turn_id = input.turn_id;
+    this.expected_active_executor_id = input.expected_active_executor_id;
+    this.active_executor_id = input.active_executor_id;
+  }
+}
+
 export class InvalidPageTokenError extends SessionStoreConflictError {
   readonly token: string;
 

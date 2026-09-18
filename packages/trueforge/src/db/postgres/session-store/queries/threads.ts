@@ -18,10 +18,10 @@ import { json, jsonbSet } from '../../sqlExpressions';
 import type { Database, TurnThreadCheckpoint } from '../../types';
 import { values } from '../sqlExpressions';
 import {
-  assertTurnRunning,
-  classifyTurnFenceWriteFailure,
-  classifyTurnThreadWriteFailure,
-  turnRunningFence,
+  assertTurnProgressAllowed,
+  classifyTurnProgressFenceFailure,
+  classifyTurnThreadProgressFailure,
+  turnProgressFence,
   type TurnKeys,
 } from './turns';
 
@@ -42,9 +42,10 @@ interface CapabilityStateInsertRow {
  */
 export async function addThreads(db: Kysely<Database>, input: AddThreadsInput): Promise<void> {
   await db.transaction().execute(async trx => {
-    await assertTurnRunning(trx, {
+    await assertTurnProgressAllowed(trx, {
       session_id: input.session_id,
       turn_id: input.turn_id,
+      expected_active_executor_id: input.expected_active_executor_id,
     });
 
     const now = new Date();
@@ -156,11 +157,12 @@ export async function removeThreads(db: Kysely<Database>, input: RemoveThreadsIn
   const keys: TurnKeys = {
     session_id: input.session_id,
     turn_id: input.turn_id,
+    expected_active_executor_id: input.expected_active_executor_id,
   };
   const onFence = sql<boolean>`EXISTS (SELECT 1 FROM turn_fence)`;
 
   const fence = await db
-    .with('turn_fence', qb => turnRunningFence(qb, keys))
+    .with('turn_fence', qb => turnProgressFence(qb, keys))
     .with('del_cap', qb =>
       qb
         .deleteFrom('thread_capability_state')
@@ -182,7 +184,7 @@ export async function removeThreads(db: Kysely<Database>, input: RemoveThreadsIn
     .executeTakeFirst();
 
   if (fence === undefined) {
-    await classifyTurnFenceWriteFailure(db, keys);
+    await classifyTurnProgressFenceFailure(db, keys);
   }
 }
 
@@ -219,7 +221,7 @@ async function fencedTurnThreadContextUpdate(
   if (context.length === 0) {
     // No log INSERT — still fence + patch usage/completion / clear-or-keep array.
     const emptyResult = await db
-      .with('turn_fence', qb => turnRunningFence(qb, keys))
+      .with('turn_fence', qb => turnProgressFence(qb, keys))
       .updateTable('turn_thread')
       .set({
         context_ids: replace_array ? sql<number[]>`'{}'::bigint[]` : sql<number[]>`context_ids`,
@@ -234,7 +236,7 @@ async function fencedTurnThreadContextUpdate(
       .executeTakeFirst();
 
     if (Number(emptyResult.numUpdatedRows) === 0) {
-      await classifyTurnThreadWriteFailure(db, keys, thread_id);
+      await classifyTurnThreadProgressFailure(db, keys, thread_id);
     }
     return;
   }
@@ -251,7 +253,7 @@ async function fencedTurnThreadContextUpdate(
       >`context_ids || coalesce((SELECT array_agg(append_id ORDER BY append_id) FROM new_rows), '{}'::bigint[])`;
 
   const result = await db
-    .with('turn_fence', qb => turnRunningFence(qb, keys))
+    .with('turn_fence', qb => turnProgressFence(qb, keys))
     .with('new_rows', qb =>
       qb
         .insertInto('thread_context_log')
@@ -285,7 +287,7 @@ async function fencedTurnThreadContextUpdate(
     .executeTakeFirst();
 
   if (Number(result.numUpdatedRows) === 0) {
-    await classifyTurnThreadWriteFailure(db, keys, thread_id);
+    await classifyTurnThreadProgressFailure(db, keys, thread_id);
   }
 }
 
@@ -299,6 +301,7 @@ export async function appendToThreadContext(db: Kysely<Database>, input: AppendT
     keys: {
       session_id: input.session_id,
       turn_id: input.turn_id,
+      expected_active_executor_id: input.expected_active_executor_id,
     },
     thread_id: input.thread_id,
     context: input.context,
@@ -318,6 +321,7 @@ export async function overwriteThreadContext(db: Kysely<Database>, input: Overwr
     keys: {
       session_id: input.session_id,
       turn_id: input.turn_id,
+      expected_active_executor_id: input.expected_active_executor_id,
     },
     thread_id: input.event.thread_id,
     context: input.event.context,
@@ -330,7 +334,7 @@ export async function overwriteThreadContext(db: Kysely<Database>, input: Overwr
 
 /**
  * patchMCPServers — one-shot conditional UPDATE on the fence row itself
- * (`state->>'status' = 'running'`). No separate FOR SHARE fence CTE.
+ * (running + matching active_executor_id). No separate FOR SHARE fence CTE.
  * Subscript LHS + expression RHS for shallow merge by server id.
  */
 export async function patchMCPServers(db: Kysely<Database>, input: PatchMCPServersInput): Promise<void> {
@@ -342,6 +346,7 @@ export async function patchMCPServers(db: Kysely<Database>, input: PatchMCPServe
   const keys: TurnKeys = {
     session_id: input.session_id,
     turn_id: input.turn_id,
+    expected_active_executor_id: input.expected_active_executor_id,
   };
 
   const result = await db
@@ -356,21 +361,23 @@ export async function patchMCPServers(db: Kysely<Database>, input: PatchMCPServe
     .where('session_id', '=', keys.session_id)
     .where('turn_id', '=', keys.turn_id)
     .where(sql<boolean>`state->>'status' = 'running'`)
+    .where('active_executor_id', '=', keys.expected_active_executor_id)
     .executeTakeFirst();
 
   if (Number(result.numUpdatedRows) === 0) {
-    await classifyTurnFenceWriteFailure(db, keys);
+    await classifyTurnProgressFenceFailure(db, keys);
   }
 }
 
 /**
  * patchSandboxInfo — one-shot conditional UPDATE on the fence row itself
- * (`state->>'status' = 'running'`). LWW replace via subscript assignment.
+ * (running + matching active_executor_id). LWW replace via subscript assignment.
  */
 export async function patchSandboxInfo(db: Kysely<Database>, input: PatchSandboxInfoInput): Promise<void> {
   const keys: TurnKeys = {
     session_id: input.session_id,
     turn_id: input.turn_id,
+    expected_active_executor_id: input.expected_active_executor_id,
   };
 
   const result = await db
@@ -380,10 +387,11 @@ export async function patchSandboxInfo(db: Kysely<Database>, input: PatchSandbox
     .where('session_id', '=', keys.session_id)
     .where('turn_id', '=', keys.turn_id)
     .where(sql<boolean>`state->>'status' = 'running'`)
+    .where('active_executor_id', '=', keys.expected_active_executor_id)
     .executeTakeFirst();
 
   if (Number(result.numUpdatedRows) === 0) {
-    await classifyTurnFenceWriteFailure(db, keys);
+    await classifyTurnProgressFenceFailure(db, keys);
   }
 }
 

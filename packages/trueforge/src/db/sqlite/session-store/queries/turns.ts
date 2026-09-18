@@ -18,6 +18,7 @@ import {
   SessionStoreInvariantError,
   SessionStoreNotFoundError,
   TurnAlreadyExistsError,
+  TurnExecutorMismatchError,
   TurnNotFoundError,
   TurnNotRunningError,
 } from '@truefoundry/trueforge-core/agent-session/store/SessionStoreErrors';
@@ -59,6 +60,7 @@ export interface NewThreadRegistration {
 export interface TurnKeys {
   session_id: string;
   turn_id: string;
+  expected_active_executor_id: string;
 }
 
 export interface NewContextAppend {
@@ -151,46 +153,77 @@ function terminalTurnState(state: TurnState, turn_id: string): TerminalTurnState
   }
 }
 
-async function loadTurnState(db: DbOrTrx, keys: TurnKeys): Promise<TurnState | undefined> {
+async function loadTurnFenceRow(
+  db: DbOrTrx,
+  keys: TurnKeys,
+): Promise<{ state: TurnState; active_executor_id: string } | undefined> {
   const row = await db
     .selectFrom('turn')
-    .select([jsonText<TurnState>(sql.ref('state')).as('state')])
+    .select([jsonText<TurnState>(sql.ref('state')).as('state'), 'active_executor_id'])
     .where('session_id', '=', keys.session_id)
     .where('turn_id', '=', keys.turn_id)
     .executeTakeFirst();
-  return row?.state;
+  if (!row) {
+    return undefined;
+  }
+  return { state: row.state, active_executor_id: row.active_executor_id };
 }
 
-/** Classify a 0-row fenced write: missing turn vs frozen/non-running turn. */
-export async function classifyTurnFenceWriteFailure(db: DbOrTrx, keys: TurnKeys): Promise<never> {
-  const state = await loadTurnState(db, keys);
-  if (!state) {
+/** Classify a 0-row progress-fenced write: missing, wrong owner, or not running. */
+export async function classifyTurnProgressFenceFailure(db: DbOrTrx, keys: TurnKeys): Promise<never> {
+  const row = await loadTurnFenceRow(db, keys);
+  if (!row) {
     throw new TurnNotFoundError(keys.turn_id);
   }
-  throw new TurnNotRunningError(keys.turn_id, terminalTurnState(state, keys.turn_id));
+  if (row.state.status === 'running' && row.active_executor_id !== keys.expected_active_executor_id) {
+    throw new TurnExecutorMismatchError({
+      turn_id: keys.turn_id,
+      expected_active_executor_id: keys.expected_active_executor_id,
+      active_executor_id: row.active_executor_id,
+    });
+  }
+  throw new TurnNotRunningError(keys.turn_id, terminalTurnState(row.state, keys.turn_id));
 }
 
 /**
- * Classify a 0-row fenced turn_thread UPDATE: turn missing/terminal vs thread row missing.
+ * Classify a 0-row progress-fenced turn_thread UPDATE: missing/terminal/wrong owner vs thread missing.
  */
-export async function classifyTurnThreadWriteFailure(db: DbOrTrx, keys: TurnKeys, thread_id: string): Promise<never> {
-  const state = await loadTurnState(db, keys);
-  if (!state) {
+export async function classifyTurnThreadProgressFailure(
+  db: DbOrTrx,
+  keys: TurnKeys,
+  thread_id: string,
+): Promise<never> {
+  const row = await loadTurnFenceRow(db, keys);
+  if (!row) {
     throw new TurnNotFoundError(keys.turn_id);
   }
-  if (state.status !== 'running') {
-    throw new TurnNotRunningError(keys.turn_id, terminalTurnState(state, keys.turn_id));
+  if (row.state.status !== 'running') {
+    throw new TurnNotRunningError(keys.turn_id, terminalTurnState(row.state, keys.turn_id));
+  }
+  if (row.active_executor_id !== keys.expected_active_executor_id) {
+    throw new TurnExecutorMismatchError({
+      turn_id: keys.turn_id,
+      expected_active_executor_id: keys.expected_active_executor_id,
+      active_executor_id: row.active_executor_id,
+    });
   }
   throw new SessionStoreInvariantError(`thread ${thread_id} not found in turn ${keys.turn_id}`);
 }
 
-export async function assertTurnRunning(db: DbOrTrx, keys: TurnKeys): Promise<void> {
-  const state = await loadTurnState(db, keys);
-  if (!state) {
+export async function assertTurnProgressAllowed(db: DbOrTrx, keys: TurnKeys): Promise<void> {
+  const row = await loadTurnFenceRow(db, keys);
+  if (!row) {
     throw new TurnNotFoundError(keys.turn_id);
   }
-  if (state.status !== 'running') {
-    throw new TurnNotRunningError(keys.turn_id, terminalTurnState(state, keys.turn_id));
+  if (row.state.status !== 'running') {
+    throw new TurnNotRunningError(keys.turn_id, terminalTurnState(row.state, keys.turn_id));
+  }
+  if (row.active_executor_id !== keys.expected_active_executor_id) {
+    throw new TurnExecutorMismatchError({
+      turn_id: keys.turn_id,
+      expected_active_executor_id: keys.expected_active_executor_id,
+      active_executor_id: row.active_executor_id,
+    });
   }
 }
 
@@ -797,8 +830,8 @@ export async function listTurns(db: Kysely<Database>, input: ListTurnsInput): Pr
 }
 
 /**
- * updateTurnState — conditional on state->>'status'='running'.
- * 0 rows → SELECT by PK → missing NotFound, present Conflict (first terminal write wins).
+ * updateTurnState — conditional on running + matching active_executor_id.
+ * 0 rows → classify: missing / wrong owner / already terminal (first terminal write wins).
  */
 export async function updateTurnState(db: Kysely<Database>, input: UpdateTurnStateInput): Promise<void> {
   await db.transaction().execute(async trx => {
@@ -811,22 +844,17 @@ export async function updateTurnState(db: Kysely<Database>, input: UpdateTurnSta
       .where('session_id', '=', input.session_id)
       .where('turn_id', '=', input.turn_id)
       .where(sql<boolean>`state->>'status' = 'running'`)
+      .where('active_executor_id', '=', input.expected_active_executor_id)
       .returning(['created_at'])
       .executeTakeFirst();
 
-    // No RETURNING row: UPDATE matched 0 running turns.
+    // No RETURNING row: UPDATE matched 0 owned running turns.
     if (result === undefined) {
-      const existing = await trx
-        .selectFrom('turn')
-        .select([jsonText<TurnState>(sql.ref('state')).as('state')])
-        .where('session_id', '=', input.session_id)
-        .where('turn_id', '=', input.turn_id)
-        .executeTakeFirst();
-
-      if (!existing) {
-        throw new TurnNotFoundError(input.turn_id);
-      }
-      throw new TurnNotRunningError(input.turn_id, terminalTurnState(existing.state, input.turn_id));
+      return await classifyTurnProgressFenceFailure(trx, {
+        session_id: input.session_id,
+        turn_id: input.turn_id,
+        expected_active_executor_id: input.expected_active_executor_id,
+      });
     }
 
     await addSessionCostAndDuration(trx, {

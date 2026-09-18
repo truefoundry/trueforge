@@ -159,6 +159,7 @@ export interface ListTurnsInput {
 export interface UpdateTurnStateInput {
   session_id: string;
   turn_id: string;
+  expected_active_executor_id: string;
   state: TerminalTurnState;
   /** Caller-built turn.done; written atomically with the state flip in the same tx. */
   turn_done_event: PersistedTurnEvent;
@@ -167,24 +168,28 @@ export interface UpdateTurnStateInput {
 export interface AppendToEventsInput {
   session_id: string;
   turn_id: string;
+  expected_active_executor_id: string;
   events: PersistedTurnEvent[];
 }
 
 export interface AddThreadsInput {
   session_id: string;
   turn_id: string;
+  expected_active_executor_id: string;
   threads: AgentThreadSnapshot[];
 }
 
 export interface RemoveThreadsInput {
   session_id: string;
   turn_id: string;
+  expected_active_executor_id: string;
   thread_ids: string[];
 }
 
 export interface AppendToThreadContextInput {
   session_id: string;
   turn_id: string;
+  expected_active_executor_id: string;
   thread_id: string;
   context: ContextMessage[];
   current_context_usage: CurrentContextUsage | null;
@@ -194,24 +199,28 @@ export interface AppendToThreadContextInput {
 export interface OverwriteThreadContextInput {
   session_id: string;
   turn_id: string;
+  expected_active_executor_id: string;
   event: ThreadOverwriteContextEvent;
 }
 
 export interface PatchMCPServersInput {
   session_id: string;
   turn_id: string;
+  expected_active_executor_id: string;
   mcp_servers: MCPServerInitInfo[];
 }
 
 export interface PatchSandboxInfoInput {
   session_id: string;
   turn_id: string;
+  expected_active_executor_id: string;
   sandbox_info: SandboxInfo;
 }
 
 export interface PatchThreadCapabilityStateInput {
   session_id: string;
   turn_id: string;
+  expected_active_executor_id: string;
   thread_id: string;
   key: string;
   state: JsonValue;

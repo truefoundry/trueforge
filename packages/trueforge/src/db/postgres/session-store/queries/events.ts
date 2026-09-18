@@ -23,7 +23,7 @@ import { sql } from 'kysely';
 import { json } from '../../sqlExpressions';
 import type { Database } from '../../types';
 import { unnestWithOrdinality, values } from '../sqlExpressions';
-import { classifyTurnFenceWriteFailure, turnRunningFence } from './turns';
+import { classifyTurnProgressFenceFailure, turnProgressFence } from './turns';
 
 export async function appendToEvents(db: Kysely<Database>, input: AppendToEventsInput): Promise<void> {
   if (input.events.length === 0) {
@@ -33,6 +33,7 @@ export async function appendToEvents(db: Kysely<Database>, input: AppendToEvents
   const keys = {
     session_id: input.session_id,
     turn_id: input.turn_id,
+    expected_active_executor_id: input.expected_active_executor_id,
   };
 
   const eventRows = input.events.map(event => ({
@@ -43,7 +44,7 @@ export async function appendToEvents(db: Kysely<Database>, input: AppendToEvents
   }));
 
   const inserted = await db
-    .with('turn_fence', qb => turnRunningFence(qb, keys))
+    .with('turn_fence', qb => turnProgressFence(qb, keys))
     .insertInto('session_event')
     .columns(['session_id', 'turn_id', 'event_id', 'event', 'created_at'])
     .expression(eb =>
@@ -62,7 +63,7 @@ export async function appendToEvents(db: Kysely<Database>, input: AppendToEvents
     .execute();
 
   if (inserted.length === 0) {
-    await classifyTurnFenceWriteFailure(db, keys);
+    await classifyTurnProgressFenceFailure(db, keys);
   }
 }
 

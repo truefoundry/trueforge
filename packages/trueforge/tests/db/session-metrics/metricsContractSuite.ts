@@ -3,6 +3,7 @@ import {
   makeCreateTurnInput,
   makeDoneTurnState,
   makeTurnDoneEvent,
+  TEST_ACTIVE_EXECUTOR_ID,
 } from '../../../../trueforge-core/tests/agent-session/testHelpers';
 import type { ISessionMetricsStore } from '../../../src/db/sessionMetricsStore';
 
@@ -56,6 +57,7 @@ export function runSessionMetricsStoreContractSuite(
       await sessionStore.updateTurnState({
         session_id: 'metrics-session',
         turn_id: 'metrics-turn',
+        expected_active_executor_id: TEST_ACTIVE_EXECUTOR_ID,
         state,
         turn_done_event: makeTurnDoneEvent(state),
       });
@@ -147,6 +149,7 @@ export function runSessionMetricsStoreContractSuite(
           await sessionStore.updateTurnState({
             session_id: definition.id,
             turn_id: turnId,
+            expected_active_executor_id: TEST_ACTIVE_EXECUTOR_ID,
             state,
             turn_done_event: makeTurnDoneEvent(state),
           });
@@ -207,6 +210,7 @@ export function runSessionMetricsStoreContractSuite(
       await sessionStore.updateTurnState({
         session_id: 'completed-session',
         turn_id: 'completed-turn',
+        expected_active_executor_id: TEST_ACTIVE_EXECUTOR_ID,
         state,
         turn_done_event: makeTurnDoneEvent(state),
       });
