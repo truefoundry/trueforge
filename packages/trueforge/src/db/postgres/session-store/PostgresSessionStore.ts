@@ -21,16 +21,20 @@ import type {
   GetSessionByExternalIdInput,
   GetSessionInput,
   GetTurnInput,
+  InsertSessionInboundEventsInput,
   ISessionStore,
   ListSessionEventsInput,
   ListSessionsInput,
   ListTurnEventsInput,
   ListTurnsInput,
+  ListUnconsumedSessionInboundEventsInput,
+  MarkSessionInboundEventsConsumedInput,
   OverwriteThreadContextInput,
   PatchMCPServersInput,
   PatchSandboxInfoInput,
   PatchThreadCapabilityStateInput,
   RemoveThreadsInput,
+  SessionInboundEventRecord,
   TurnRecordWithoutSnapshot,
   UpdateSessionInput,
   UpdateTurnStateInput,
@@ -52,6 +56,11 @@ import {
   listSessionEvents as listSessionEventsQuery,
   listTurnEvents as listTurnEventsQuery,
 } from './queries/events';
+import {
+  insertSessionInboundEvents as insertSessionInboundEventsQuery,
+  listUnconsumedSessionInboundEvents as listUnconsumedSessionInboundEventsQuery,
+  markSessionInboundEventsConsumed as markSessionInboundEventsConsumedQuery,
+} from './queries/inboundEvents';
 import {
   createSession as createSessionQuery,
   deleteSession as deleteSessionQuery,
@@ -214,6 +223,20 @@ export class PostgresSessionStore implements ISessionStore<SessionCustom, TurnCu
 
   appendToEvents(input: AppendToEventsInput): Promise<void> {
     return appendToEventsQuery(this.db, input);
+  }
+
+  insertSessionInboundEvents(input: InsertSessionInboundEventsInput): Promise<void> {
+    return insertSessionInboundEventsQuery(this.db, input);
+  }
+
+  listUnconsumedSessionInboundEvents(
+    input: ListUnconsumedSessionInboundEventsInput,
+  ): Promise<SessionInboundEventRecord[]> {
+    return listUnconsumedSessionInboundEventsQuery(this.db, input);
+  }
+
+  markSessionInboundEventsConsumed(input: MarkSessionInboundEventsConsumedInput): Promise<void> {
+    return markSessionInboundEventsConsumedQuery(this.db, input);
   }
 
   addThreads(input: AddThreadsInput): Promise<void> {

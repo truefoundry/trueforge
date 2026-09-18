@@ -4,6 +4,7 @@ import type { SessionRecord } from '../models/SessionRecord';
 import type { TurnRecord, TurnSnapshot } from '../models/TurnRecord';
 import type { PersistedTurnEvent, SessionEventItem } from '../schemas/events';
 import type { TokenPagination } from '../schemas/pagination';
+import type { SessionInboundEventItem } from '../schemas/sendEvent';
 import type { TerminalTurnState } from '../schemas/turn';
 import { assertCreateTurnThreadDelta } from './assertCreateTurnThreadDelta';
 import type {
@@ -18,17 +19,21 @@ import type {
   GetSessionByExternalIdInput,
   GetSessionInput,
   GetTurnInput,
+  InsertSessionInboundEventsInput,
   ISessionStore,
   ListSessionEventsInput,
   ListSessionsInput,
   ListTurnEventsInput,
   ListTurnsInput,
+  ListUnconsumedSessionInboundEventsInput,
+  MarkSessionInboundEventsConsumedInput,
   NewThreadInit,
   OverwriteThreadContextInput,
   PatchMCPServersInput,
   PatchSandboxInfoInput,
   PatchThreadCapabilityStateInput,
   RemoveThreadsInput,
+  SessionInboundEventRecord,
   TurnContextAppend,
   TurnRecordWithoutSnapshot,
   UpdateSessionInput,
@@ -45,6 +50,7 @@ import {
   PreviousTurnRunningError,
   SessionAlreadyExistsError,
   SessionExternalIdConflictError,
+  SessionInboundEventAlreadyExistsError,
   SessionNotFoundError,
   SessionStoreInvariantError,
   TurnAlreadyExistsError,
@@ -55,6 +61,14 @@ import {
 /* eslint-disable @typescript-eslint/require-await -- in-memory store is synchronous; methods stay async so thrown SessionStore*Error reject as Promises for ISessionStore callers */
 
 type StoredEvent = PersistedTurnEvent;
+
+interface StoredInboundEvent {
+  event_id: string;
+  turn_id: string | null;
+  payload: SessionInboundEventItem;
+  created_at: string;
+  consumed: boolean;
+}
 
 interface StoredSession<TSessionCustom extends object> {
   record: SessionRecord<TSessionCustom>;
@@ -170,6 +184,8 @@ export class InMemorySessionStore<
   private readonly sessions = new Map<string, StoredSession<TSessionCustom>>();
   private readonly turns = new Map<string, TurnRecord<TTurnCustom>>();
   private readonly events = new Map<string, StoredEvent[]>();
+  /** session_id → inbound send-event inbox */
+  private readonly inboundEvents = new Map<string, StoredInboundEvent[]>();
 
   async createSession(input: CreateSessionInput<TSessionCustom>): Promise<void> {
     const key = sessionKey(input.session_id);
@@ -219,6 +235,7 @@ export class InMemorySessionStore<
       this.turns.delete(tKey);
       this.events.delete(tKey);
     }
+    this.inboundEvents.delete(sessionKey(input.session_id));
     this.sessions.delete(sKey);
   }
 
@@ -485,6 +502,81 @@ export class InMemorySessionStore<
     return;
   }
 
+  async insertSessionInboundEvents(input: InsertSessionInboundEventsInput): Promise<void> {
+    if (input.events.length === 0) {
+      return;
+    }
+    this.requireSession(input.session_id);
+    this.requireRunningTurn(input.session_id, input.turn_id);
+    const sKey = sessionKey(input.session_id);
+    let list = this.inboundEvents.get(sKey);
+    if (!list) {
+      list = [];
+      this.inboundEvents.set(sKey, list);
+    }
+    const existing = new Set(list.map(row => row.event_id));
+    for (const event of input.events) {
+      if (existing.has(event.event_id)) {
+        throw new SessionInboundEventAlreadyExistsError(input.session_id, event.event_id);
+      }
+      existing.add(event.event_id);
+    }
+    for (const event of input.events) {
+      list.push({
+        event_id: event.event_id,
+        turn_id: input.turn_id,
+        payload: deepCopy(event.payload),
+        created_at: event.created_at,
+        consumed: false,
+      });
+    }
+  }
+
+  async listUnconsumedSessionInboundEvents(
+    input: ListUnconsumedSessionInboundEventsInput,
+  ): Promise<SessionInboundEventRecord[]> {
+    this.requireSession(input.session_id);
+    const list = this.inboundEvents.get(sessionKey(input.session_id)) ?? [];
+    return list
+      .filter(row => {
+        if (row.consumed) {
+          return false;
+        }
+        if (input.turn_id === undefined) {
+          return true;
+        }
+        if (input.turn_id === null) {
+          return row.turn_id === null;
+        }
+        return row.turn_id === input.turn_id;
+      })
+      .slice()
+      .sort((a, b) => (a.event_id < b.event_id ? -1 : a.event_id > b.event_id ? 1 : 0))
+      .map(row => ({
+        event_id: row.event_id,
+        turn_id: row.turn_id,
+        payload: deepCopy(row.payload),
+        created_at: row.created_at,
+      }));
+  }
+
+  async markSessionInboundEventsConsumed(input: MarkSessionInboundEventsConsumedInput): Promise<void> {
+    if (input.event_ids.length === 0) {
+      return;
+    }
+    this.requireSession(input.session_id);
+    const list = this.inboundEvents.get(sessionKey(input.session_id));
+    if (!list) {
+      return;
+    }
+    const wanted = new Set(input.event_ids);
+    for (const row of list) {
+      if (wanted.has(row.event_id)) {
+        row.consumed = true;
+      }
+    }
+  }
+
   /** Cost from turn metrics when present; duration is completed_at − created_at, floored at 0. */
   private addTerminalSessionMetrics(sessionId: string, created_at: Date, state: TerminalTurnState): void {
     const stored = this.sessions.get(sessionKey(sessionId));
@@ -497,6 +589,14 @@ export class InMemorySessionStore<
       stored.record.metrics.total_cost_in_usd = (stored.record.metrics.total_cost_in_usd ?? 0) + turnCost;
     }
     stored.record.metrics.total_duration_ms += elapsed_ms > 0 ? Math.trunc(elapsed_ms) : 0;
+  }
+
+  private requireSession(sessionId: string): StoredSession<TSessionCustom> {
+    const stored = this.sessions.get(sessionKey(sessionId));
+    if (!stored) {
+      throw new SessionNotFoundError(sessionId);
+    }
+    return stored;
   }
 
   private requireTurn(sessionId: string, turnId: string): TurnRecord<TTurnCustom> {

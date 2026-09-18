@@ -688,6 +688,27 @@ export function runStoreContractSuite(createStore: () => ISessionStore) {
         }),
       ).rejects.toBeInstanceOf(TurnNotFoundError);
       await expect(
+        store.insertSessionInboundEvents({
+          session_id: sessionId,
+          turn_id: 'turn-1',
+          events: [
+            {
+              event_id: newEventId(),
+              payload: {
+                type: 'user.tool_approval',
+                thread_id: 'main',
+                tool_call_id: 'tc-1',
+                approval: { status: 'allow' },
+              },
+              created_at: new Date().toISOString(),
+            },
+          ],
+        }),
+      ).rejects.toBeInstanceOf(SessionNotFoundError);
+      await expect(
+        store.listUnconsumedSessionInboundEvents({ session_id: sessionId, turn_id: undefined }),
+      ).rejects.toBeInstanceOf(SessionNotFoundError);
+      await expect(
         store.listSessionEvents({
           session_id: sessionId,
           limit: 10,
@@ -2206,6 +2227,269 @@ export function runStoreContractSuite(createStore: () => ISessionStore) {
       });
       expect(data.map(e => e.type)).toEqual(['turn.created', EventType.MODEL_MESSAGE]);
       expect(data.map(e => e.id)).toEqual([created.id, model.id]);
+    });
+
+    it('session_inbound_events: insert, list unconsumed, mark consumed, duplicate id', async () => {
+      const store = createStore();
+      await seedSession(store);
+      await store.createTurn(makeCreateTurnInput({ sessionId, turnId: 'turn-1' }));
+
+      const earlier = {
+        event_id: 'evt-a',
+        payload: {
+          type: 'user.tool_approval' as const,
+          thread_id: 'main',
+          tool_call_id: 'tc-1',
+          approval: { status: 'allow' as const },
+        },
+        created_at: new Date().toISOString(),
+      };
+      const later = {
+        event_id: 'evt-b',
+        payload: {
+          type: 'user.tool_approval' as const,
+          thread_id: 'main',
+          tool_call_id: 'tc-2',
+          approval: { status: 'deny' as const, reason: 'nope' },
+        },
+        created_at: new Date().toISOString(),
+      };
+
+      await store.insertSessionInboundEvents({
+        session_id: sessionId,
+        turn_id: 'turn-1',
+        events: [later, earlier],
+      });
+
+      let pending = await store.listUnconsumedSessionInboundEvents({
+        session_id: sessionId,
+        turn_id: 'turn-1',
+      });
+      expect(pending.map(e => e.event_id)).toEqual([earlier.event_id, later.event_id]);
+      expect(pending[0]?.payload).toEqual(earlier.payload);
+      expect(pending[0]?.turn_id).toBe('turn-1');
+
+      await store.markSessionInboundEventsConsumed({
+        session_id: sessionId,
+        event_ids: [earlier.event_id],
+      });
+      pending = await store.listUnconsumedSessionInboundEvents({
+        session_id: sessionId,
+        turn_id: 'turn-1',
+      });
+      expect(pending.map(e => e.event_id)).toEqual([later.event_id]);
+
+      await expect(
+        store.insertSessionInboundEvents({
+          session_id: sessionId,
+          turn_id: 'turn-1',
+          events: [later],
+        }),
+      ).rejects.toMatchObject({
+        name: 'SessionInboundEventAlreadyExistsError',
+        event_id: later.event_id,
+      });
+
+      // Later id in the batch collides — error must name that id.
+      const fresh = {
+        event_id: 'evt-fresh',
+        payload: {
+          type: 'user.tool_approval' as const,
+          thread_id: 'main',
+          tool_call_id: 'tc-fresh',
+          approval: { status: 'allow' as const },
+        },
+        created_at: new Date().toISOString(),
+      };
+      await expect(
+        store.insertSessionInboundEvents({
+          session_id: sessionId,
+          turn_id: 'turn-1',
+          events: [fresh, later],
+        }),
+      ).rejects.toMatchObject({
+        name: 'SessionInboundEventAlreadyExistsError',
+        event_id: later.event_id,
+      });
+      expect(
+        (await store.listUnconsumedSessionInboundEvents({ session_id: sessionId, turn_id: 'turn-1' })).map(
+          e => e.event_id,
+        ),
+      ).toEqual([later.event_id]);
+
+      const dupId = 'evt-dup';
+      await expect(
+        store.insertSessionInboundEvents({
+          session_id: sessionId,
+          turn_id: 'turn-1',
+          events: [
+            {
+              event_id: dupId,
+              payload: {
+                type: 'user.tool_approval' as const,
+                thread_id: 'main',
+                tool_call_id: 'tc-dup',
+                approval: { status: 'allow' as const },
+              },
+              created_at: new Date().toISOString(),
+            },
+            {
+              event_id: dupId,
+              payload: {
+                type: 'user.tool_approval' as const,
+                thread_id: 'main',
+                tool_call_id: 'tc-dup-2',
+                approval: { status: 'deny' as const, reason: 'dup' },
+              },
+              created_at: new Date().toISOString(),
+            },
+          ],
+        }),
+      ).rejects.toMatchObject({
+        name: 'SessionInboundEventAlreadyExistsError',
+        event_id: dupId,
+      });
+      // Failed batch must not leave a partial row (SQL PK is all-or-nothing).
+      expect(
+        (await store.listUnconsumedSessionInboundEvents({ session_id: sessionId, turn_id: 'turn-1' })).map(
+          e => e.event_id,
+        ),
+      ).toEqual([later.event_id]);
+
+      // Terminal tip rejects inbox writes.
+      await finishTurn(store, 'turn-1');
+      await expect(
+        store.insertSessionInboundEvents({
+          session_id: sessionId,
+          turn_id: 'turn-1',
+          events: [
+            {
+              event_id: 'evt-after-done',
+              payload: {
+                type: 'user.tool_response' as const,
+                thread_id: 'main',
+                tool_call_id: 'tc-3',
+                content: 'client result',
+              },
+              created_at: new Date().toISOString(),
+            },
+          ],
+        }),
+      ).rejects.toBeInstanceOf(TurnNotRunningError);
+      expect(
+        (await store.listUnconsumedSessionInboundEvents({ session_id: sessionId, turn_id: 'turn-1' })).map(
+          e => e.event_id,
+        ),
+      ).toEqual([later.event_id]);
+    });
+
+    it('session_inbound_events: list filter turn_id string | null | undefined', async () => {
+      const store = createStore();
+      await seedSession(store);
+      await store.createTurn(makeCreateTurnInput({ sessionId, turnId: 'turn-a' }));
+
+      const forA = {
+        event_id: 'evt-a',
+        payload: {
+          type: 'user.tool_approval' as const,
+          thread_id: 'main',
+          tool_call_id: 'tc-a',
+          approval: { status: 'allow' as const },
+        },
+        created_at: new Date().toISOString(),
+      };
+      await store.insertSessionInboundEvents({
+        session_id: sessionId,
+        turn_id: 'turn-a',
+        events: [forA],
+      });
+
+      await finishTurn(store, 'turn-a');
+      await store.createTurn(
+        makeCreateTurnInput({ sessionId, turnId: 'turn-b', previousTurnId: 'turn-a', firstTurnId: 'turn-a' }),
+      );
+
+      const forB = {
+        event_id: 'evt-b',
+        payload: {
+          type: 'user.tool_approval' as const,
+          thread_id: 'main',
+          tool_call_id: 'tc-b',
+          approval: { status: 'allow' as const },
+        },
+        created_at: new Date().toISOString(),
+      };
+
+      await store.insertSessionInboundEvents({
+        session_id: sessionId,
+        turn_id: 'turn-b',
+        events: [forB],
+      });
+
+      // string — that turn only
+      expect(
+        (
+          await store.listUnconsumedSessionInboundEvents({
+            session_id: sessionId,
+            turn_id: 'turn-a',
+          })
+        ).map(e => e.event_id),
+      ).toEqual([forA.event_id]);
+      expect(
+        (
+          await store.listUnconsumedSessionInboundEvents({
+            session_id: sessionId,
+            turn_id: 'turn-b',
+          })
+        ).map(e => e.event_id),
+      ).toEqual([forB.event_id]);
+
+      // null — session-scoped only (v1 insert always sets turn_id; no such rows yet)
+      expect(
+        (
+          await store.listUnconsumedSessionInboundEvents({
+            session_id: sessionId,
+            turn_id: null,
+          })
+        ).map(e => e.event_id),
+      ).toEqual([]);
+
+      // omitted — all unconsumed, ordered by event_id
+      // undefined — all unconsumed, ordered by event_id
+      expect(
+        (
+          await store.listUnconsumedSessionInboundEvents({
+            session_id: sessionId,
+            turn_id: undefined,
+          })
+        ).map(e => e.event_id),
+      ).toEqual([forA.event_id, forB.event_id]);
+    });
+
+    it('session_inbound_events cascade away with deleteSession', async () => {
+      const store = createStore();
+      await seedSession(store);
+      await store.createTurn(makeCreateTurnInput({ sessionId, turnId: 'turn-1' }));
+      await store.insertSessionInboundEvents({
+        session_id: sessionId,
+        turn_id: 'turn-1',
+        events: [
+          {
+            event_id: newEventId(),
+            payload: {
+              type: 'user.tool_approval',
+              thread_id: 'main',
+              tool_call_id: 'tc-x',
+              approval: { status: 'allow' },
+            },
+            created_at: new Date().toISOString(),
+          },
+        ],
+      });
+      await store.deleteSession({ tenant_id: tenant, session_id: sessionId });
+      await expect(
+        store.listUnconsumedSessionInboundEvents({ session_id: sessionId, turn_id: undefined }),
+      ).rejects.toBeInstanceOf(SessionNotFoundError);
     });
 
     it('add/remove threads and append/overwrite context', async () => {

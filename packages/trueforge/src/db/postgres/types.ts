@@ -6,6 +6,7 @@ import type {
   AgentSpec,
   CreatedBySubject,
   PersistedTurnEvent,
+  SessionInboundEventItem,
   SessionMetadata,
   SessionMetrics,
   SessionSource,
@@ -246,6 +247,19 @@ export interface SessionEventTable {
    *      future time-range filters can be indexed without inspecting jsonb.
    *      Ordering still uses event_id.
    */
+  created_at: Date;
+}
+
+/**
+ * Session inbound send-event inbox (tip HITL + future session-scoped payloads).
+ * PRIMARY KEY (session_id, event_id). `turn_id` nullable.
+ */
+export interface SessionInboundEventsTable {
+  session_id: string;
+  event_id: string;
+  turn_id: string | null;
+  payload: JSONColumnType<SessionInboundEventItem, SessionInboundEventItem, SessionInboundEventItem>;
+  consumed: boolean;
   created_at: Date;
 }
 
@@ -520,6 +534,7 @@ export interface Database {
   turn: TurnTable;
   turn_thread: TurnThreadTable;
   session_event: SessionEventTable;
+  session_inbound_events: SessionInboundEventsTable;
   thread_context_log: ThreadContextLogTable;
   thread_capability_state: ThreadCapabilityStateTable;
   model_provider: ModelProviderTable;

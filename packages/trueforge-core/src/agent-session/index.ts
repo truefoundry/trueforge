@@ -21,6 +21,9 @@ export {
 } from './schemas/turn';
 export type { TerminalTurnState, Turn, TurnInputItem, TurnMetrics, TurnState } from './schemas/turn';
 
+export { SessionInboundEventItemSchema } from './schemas/sendEvent';
+export type { SessionInboundEventItem } from './schemas/sendEvent';
+
 export {
   SessionMetadataSchema,
   SessionMetricsSchema,
@@ -80,16 +83,20 @@ export type {
   GetSessionInput,
   GetTurnInput,
   ISessionStore,
+  InsertSessionInboundEventsInput,
   ListSessionEventsInput,
   ListSessionsInput,
   ListTurnEventsInput,
   ListTurnsInput,
+  ListUnconsumedSessionInboundEventsInput,
+  MarkSessionInboundEventsConsumedInput,
   NewThreadInit,
   OverwriteThreadContextInput,
   PatchMCPServersInput,
   PatchSandboxInfoInput,
   PatchThreadCapabilityStateInput,
   RemoveThreadsInput,
+  SessionInboundEventRecord,
   TurnContextAppend,
   TurnRecordWithoutSnapshot,
   UpdateSessionInput,
@@ -100,6 +107,7 @@ export {
   PreviousTurnRunningError,
   SessionAlreadyExistsError,
   SessionExternalIdConflictError,
+  SessionInboundEventAlreadyExistsError,
   SessionNotFoundError,
   SessionStoreConflictError,
   SessionStoreInvariantError,
