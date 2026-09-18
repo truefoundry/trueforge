@@ -2,7 +2,7 @@ import { sql, type Kysely } from 'kysely';
 
 /**
  * Persist turn ownership on the turn row. Backfills from the legacy peered
- * turn_id grammar `{ulid}.{executorId}`; remaining rows get standalone `local`.
+ * turn_id grammar `{ulid}.{executorId}` (including standalone `….local`).
  * Mirrors db/postgres/migrations/20260918_000001_turn_active_executor_id.ts.
  * Kysely does not wrap SQLite migrations — keep schema + backfill atomic.
  */
@@ -20,12 +20,6 @@ export async function up(db: Kysely<unknown>): Promise<void> {
         AND turn_id NOT GLOB '*.*.*'
         AND turn_id NOT GLOB '.*'
         AND turn_id NOT GLOB '*.'
-    `.execute(trx);
-
-    await sql`
-      UPDATE turn
-      SET active_executor_id = 'local'
-      WHERE active_executor_id = ''
     `.execute(trx);
   });
 }

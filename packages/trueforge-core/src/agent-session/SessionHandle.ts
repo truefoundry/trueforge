@@ -174,7 +174,6 @@ export class SessionHandle<
    */
   async createTurn(input: {
     turn_id: string;
-    /** Owning replica id persisted on the turn row for peering / steal. */
     active_executor_id: string;
     input?: TurnInputItem[] | undefined;
     /** 'auto'/omitted → session.last_turn_id; 'none' → new root; id → fork from that turn. */
