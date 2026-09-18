@@ -10,14 +10,17 @@ import { z } from '@hono/zod-openapi';
 import { CreatedBySubjectSchema, TokenPaginationSchema } from '@truefoundry/trueforge-core/agent-session';
 import { NameSchema } from './common';
 
-// random things in sdk:)
-const DAYTONA_GPU_TYPE_VALUES = Object.values(GpuType).filter(value => value !== GpuType.UNKNOWN_DEFAULT_OPEN_API) as [
-  string,
-  ...string[],
-];
+/** Allowed Daytona GPU types (excludes the SDK's OpenAPI unknown sentinel). */
+const DAYTONA_GPU_TYPES = [
+  GpuType.H100,
+  GpuType.H200,
+  GpuType.RTX_PRO_6000,
+  GpuType.RTX_4090,
+  GpuType.RTX_5090,
+] as const satisfies readonly GpuType[];
 
 export const DaytonaGpuTypeSchema = z
-  .enum(DAYTONA_GPU_TYPE_VALUES)
+  .enum(DAYTONA_GPU_TYPES)
   .describe('Preferred Daytona GPU type.')
   .openapi('DaytonaGpuType');
 

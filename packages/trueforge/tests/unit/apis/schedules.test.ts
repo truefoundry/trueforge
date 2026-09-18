@@ -72,6 +72,7 @@ function stubTurnExecutionDeps(agentStore: SqliteAgentStore, scheduleStore: Sqli
     resolveMcpServerStore: () => ({}) as never,
     turnSkillsResolverStore: { resolveTurnSkills: async () => [] },
     resolveSandboxProviderStore: () => ({}) as never,
+    resolveSandboxEnvironmentStore: () => ({}) as never,
   };
 }
 

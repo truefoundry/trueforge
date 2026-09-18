@@ -312,6 +312,10 @@ export const SandboxCreatedEventSchema = z
     id: EventIdSchema,
     created_at: z.string().describe('ISO 8601 event timestamp.'),
     sandbox_id: z.string().describe('Provider sandbox id.'),
+    environment: z
+      .string()
+      .optional()
+      .describe('Sandbox environment name when created with one; omit for provider defaults.'),
     // This is a run-level event, sandbox once created is reused by all threads,
     // and future turns as well.
     thread_id: z.string().nullable().describe('Always null — sandbox is session-scoped.'),

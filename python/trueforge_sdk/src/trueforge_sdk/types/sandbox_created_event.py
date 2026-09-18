@@ -13,6 +13,11 @@ class SandboxCreatedEvent(UncheckedBaseModel):
     ISO 8601 event timestamp.
     """
 
+    environment: typing.Optional[str] = pydantic.Field(default=None)
+    """
+    Sandbox environment name when created with one; omit for provider defaults.
+    """
+
     id: str = pydantic.Field()
     """
     Unique identifier for the event (monotonic ULID).

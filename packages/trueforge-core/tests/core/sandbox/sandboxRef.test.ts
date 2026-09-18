@@ -24,7 +24,7 @@ describe('sandboxRef', () => {
     expect(rawSandboxId('tenant.uuid')).toBe('tenant.uuid');
   });
 
-  it('carries legacy and same-type v1 ids; drops cross-type v1 ids', () => {
+  it('carries legacy and same-type v1 ids; drops cross-type or environment-mismatched ids', () => {
     expect(
       existingSandboxIdForProvider({ existingSandboxId: undefined, currentProviderType: 'local' }),
     ).toBeUndefined();
@@ -41,6 +41,30 @@ describe('sandboxRef', () => {
       existingSandboxIdForProvider({
         existingSandboxId: 'v1:daytona:abc',
         currentProviderType: 'local',
+      }),
+    ).toBeUndefined();
+    expect(
+      existingSandboxIdForProvider({
+        existingSandboxId: 'v1:daytona:abc',
+        currentProviderType: 'daytona',
+        existingEnvironment: 'env-a',
+        currentEnvironment: 'env-a',
+      }),
+    ).toBe('v1:daytona:abc');
+    expect(
+      existingSandboxIdForProvider({
+        existingSandboxId: 'v1:daytona:abc',
+        currentProviderType: 'daytona',
+        existingEnvironment: 'env-a',
+        currentEnvironment: 'env-b',
+      }),
+    ).toBeUndefined();
+    expect(
+      existingSandboxIdForProvider({
+        existingSandboxId: 'v1:daytona:abc',
+        currentProviderType: 'daytona',
+        existingEnvironment: 'env-a',
+        currentEnvironment: undefined,
       }),
     ).toBeUndefined();
   });

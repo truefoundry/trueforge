@@ -157,12 +157,14 @@ export type { DaytonaSandboxProviderOptions } from './sandbox/provider/DaytonaPr
 export { absolutizeRelativeExecEnv } from './sandbox/provider/execEnv';
 export { ensureExecSuccess, shellEscape } from './sandbox/provider/Provider';
 export type {
+  DaytonaSandboxCreateParams,
   ExecErrorResult,
   ExecResult,
   ExecSuccessResult,
   SandboxBuild,
   SandboxBuildMetadata,
   SandboxBuildStatus,
+  SandboxCreateOptions,
   SandboxExecParams,
   SandboxInit,
   SandboxProvider,

@@ -529,7 +529,10 @@ export class TurnHandle<TTurnCustom extends object = Record<string, never>> {
       case HarnessEventType.SANDBOX_CREATED: {
         await this.store.patchSandboxInfo({
           ...scope,
-          sandbox_info: { sandbox_id: event.sandbox_id },
+          sandbox_info:
+            event.environment === undefined
+              ? { sandbox_id: event.sandbox_id }
+              : { sandbox_id: event.sandbox_id, environment: event.environment },
         });
         await this.store.appendToEvents({
           ...scope,

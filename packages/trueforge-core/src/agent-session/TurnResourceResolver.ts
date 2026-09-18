@@ -16,13 +16,13 @@ import type { AgentSpec } from './schemas/agentSpec';
 
 /**
  * Factory that creates a Sandbox handle for a run (reattach via
- * existingSandboxId). `spec` carries the sandbox-relevant agent settings
- * (e.g. config.sandbox.file_downloads) so implementations can shape the
- * Sandbox per run without the factory type growing a field per option.
+ * existing.sandbox_id). `spec` carries the sandbox-relevant agent settings
+ * (e.g. config.sandbox.file_downloads / environment) so implementations can
+ * shape the Sandbox per run without the factory type growing a field per option.
  */
 export type TurnSandboxFactory = (input: {
   spec: AgentSpec;
-  existingSandboxId?: string | undefined;
+  existing?: SandboxInfo | undefined;
   signal: AbortSignal;
   tracing: AgentTracing;
 }) => Promise<Sandbox>;
@@ -118,8 +118,8 @@ export class TurnResourceResolver<
 
   /**
    * Default: creates a sandbox iff a provider is configured AND the spec wants
-   * one; reattaches to the previous turn's VM via `existing.sandbox_id` when
-   * present. Overrides that resolve their own sandbox must assign it so
+   * one; reattaches to the previous turn's VM via `existing` when present.
+   * Overrides that resolve their own sandbox must assign it so
    * close() can release it (or override close() too).
    */
   async resolveSandbox(input: {
@@ -134,7 +134,7 @@ export class TurnResourceResolver<
     }
     this.#sandbox = await this.deps.sandboxProvider({
       spec: input.spec,
-      existingSandboxId: input.existing?.sandbox_id,
+      existing: input.existing,
       signal: input.signal,
       tracing: input.tracing,
     });

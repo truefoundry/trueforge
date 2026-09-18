@@ -1,4 +1,10 @@
-import type { Sandbox, Snapshot } from '@daytona/sdk';
+import type {
+  CreateSandboxBaseParams,
+  CreateSandboxFromImageParams,
+  CreateSandboxFromSnapshotParams,
+  Sandbox,
+  Snapshot,
+} from '@daytona/sdk';
 import { Daytona, DaytonaError } from '@daytona/sdk';
 import { context } from '@opentelemetry/api';
 import { suppressTracing } from '@opentelemetry/core';
@@ -16,7 +22,15 @@ import {
 import type { CodeModeTransport } from '../codeMode/CodeModeTransport';
 import { CodeModeNatsTransport } from '../codeMode/nats/CodeModeNatsTransport';
 import { DEFAULT_PREVIEW_URL_EXPIRY_SECONDS, DEFAULT_SANDBOX_NATS_WS_PORT } from '../constants';
-import type { ExecResult, SandboxBuild, SandboxExecParams, SandboxFileInfo, SandboxProvider } from './Provider';
+import type {
+  DaytonaSandboxCreateParams,
+  ExecResult,
+  SandboxBuild,
+  SandboxCreateOptions,
+  SandboxExecParams,
+  SandboxFileInfo,
+  SandboxProvider,
+} from './Provider';
 
 const SANDBOX_NOT_FOUND_STATUS = 404;
 /** Another replica already registered this build name; its create is the one that counts. */
@@ -31,6 +45,30 @@ const BUILD_STATE_BUILD_FAILED = 'build_failed';
 const IMAGE_BUILD_NAME_PREFIX = 'trueforge-build-';
 /** Same default the Daytona SDK applies when `DaytonaConfig.apiUrl` is omitted. */
 const DEFAULT_DAYTONA_API_URL = 'https://app.daytona.io/api';
+
+function applyDaytonaCreateOverrides(
+  target: CreateSandboxBaseParams,
+  source: DaytonaSandboxCreateParams | undefined,
+): void {
+  if (!source) {
+    return;
+  }
+  if (source.secrets) {
+    target.secrets = source.secrets;
+  }
+  if (source.networkBlockAll != null) {
+    target.networkBlockAll = source.networkBlockAll;
+  }
+  if (source.networkAllowList) {
+    target.networkAllowList = source.networkAllowList;
+  }
+  if (source.domainAllowList) {
+    target.domainAllowList = source.domainAllowList;
+  }
+  if (source.outboundProxyUrl) {
+    target.outboundProxyUrl = source.outboundProxyUrl;
+  }
+}
 
 function isRecord(value: unknown): value is Record<string, unknown> {
   return typeof value === 'object' && value !== null;
@@ -140,7 +178,10 @@ export class DaytonaSandboxProvider implements SandboxProvider {
     this.logger = options.logger.child({ module: 'DaytonaProvider' });
   }
 
-  private async getOrCreateSandbox(sandboxId?: string): Promise<{ sandbox: Sandbox; defaultTimeoutMs: number }> {
+  private async getOrCreateSandbox(
+    sandboxId?: string,
+    createParams?: DaytonaSandboxCreateParams,
+  ): Promise<{ sandbox: Sandbox; defaultTimeoutMs: number }> {
     if (sandboxId) {
       validateSandboxOwnedByTenant({ sandboxId, tenantName: this.tenantName });
       const cached = DaytonaSandboxProvider.cachedSandboxes.get(sandboxId);
@@ -151,17 +192,43 @@ export class DaytonaSandboxProvider implements SandboxProvider {
 
     const sandbox = sandboxId
       ? await this.restoreExistingSandbox(sandboxId)
-      : await this.daytona.create({
-          name: `${this.tenantName}.${randomUUID()}`,
-          snapshot: this.buildRef,
-          autoStopInterval: this.autoStopIntervalInMinutes,
-          autoArchiveInterval: this.autoArchiveIntervalInMinutes,
-          autoDeleteInterval: this.autoDeleteIntervalInMinutes,
-        });
+      : await this.createNewSandbox(createParams);
 
     const entry = { sandbox, defaultTimeoutMs: this.timeoutMs };
     DaytonaSandboxProvider.cachedSandboxes.set(sandbox.name, entry);
     return entry;
+  }
+
+  private async createNewSandbox(createParams?: DaytonaSandboxCreateParams): Promise<Sandbox> {
+    if (createParams?.snapshot && createParams.image) {
+      throw new Error('Daytona create overrides must not set both snapshot and image');
+    }
+
+    const name = `${this.tenantName}.${randomUUID()}`;
+    const base: CreateSandboxBaseParams = {
+      name,
+      autoStopInterval: createParams?.autoStopInterval ?? this.autoStopIntervalInMinutes,
+      autoArchiveInterval: createParams?.autoArchiveInterval ?? this.autoArchiveIntervalInMinutes,
+      autoDeleteInterval: createParams?.autoDeleteInterval ?? this.autoDeleteIntervalInMinutes,
+    };
+    applyDaytonaCreateOverrides(base, createParams);
+
+    if (createParams?.image) {
+      const params: CreateSandboxFromImageParams = { ...base, image: createParams.image };
+      if (createParams.resources) {
+        params.resources = createParams.resources;
+      }
+      return await this.daytona.create(params);
+    }
+
+    if (createParams?.resources) {
+      throw new Error('Resources require a docker image environment (not supported on snapshot create)');
+    }
+
+    return await this.daytona.create({
+      ...base,
+      snapshot: createParams?.snapshot ?? this.buildRef,
+    } satisfies CreateSandboxFromSnapshotParams);
   }
 
   // Returns true iff the caller should retry: either we restarted a stopped sandbox, or the cache entry is missing and the retry will rebuild it via the cold path.
@@ -245,9 +312,9 @@ export class DaytonaSandboxProvider implements SandboxProvider {
     }
   }
 
-  async createSandbox(): Promise<{ sandboxId: string }> {
+  async createSandbox(options?: SandboxCreateOptions): Promise<{ sandboxId: string }> {
     return context.with(suppressTracing(context.active()), async () => {
-      const { sandbox } = await this.getOrCreateSandbox();
+      const { sandbox } = await this.getOrCreateSandbox(undefined, options?.daytona);
       this.logger.debug(`Sandbox created: name=${sandbox.name}`);
       return { sandboxId: sandbox.name };
     });

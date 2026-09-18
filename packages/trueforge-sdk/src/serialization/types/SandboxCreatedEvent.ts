@@ -9,6 +9,7 @@ export const SandboxCreatedEvent: core.serialization.ObjectSchema<
     TrueForge.SandboxCreatedEvent
 > = core.serialization.object({
     createdAt: core.serialization.property("created_at", core.serialization.string()),
+    environment: core.serialization.string().optional(),
     id: core.serialization.string(),
     sandboxId: core.serialization.property("sandbox_id", core.serialization.string()),
     threadId: core.serialization.property("thread_id", core.serialization.string().nullable()),
@@ -18,6 +19,7 @@ export const SandboxCreatedEvent: core.serialization.ObjectSchema<
 export declare namespace SandboxCreatedEvent {
     export interface Raw {
         created_at: string;
+        environment?: string | null;
         id: string;
         sandbox_id: string;
         thread_id?: string | null;

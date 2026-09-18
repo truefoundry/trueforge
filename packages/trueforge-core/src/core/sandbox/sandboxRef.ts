@@ -39,16 +39,23 @@ export function rawSandboxId(sandboxId: string): string {
   return parsed.kind === 'v1' ? parsed.parts.rawId : parsed.rawId;
 }
 
-/** Carry-forward gate for turn admit / download. Type mismatch drops the id (create fresh). */
+/** Carry-forward gate for turn admit / download. Type or environment mismatch drops the id. */
 export function existingSandboxIdForProvider(params: {
   existingSandboxId: string | undefined;
   currentProviderType: string;
+  /** Previous turn's environment name; omit/undefined = provider defaults. */
+  existingEnvironment?: string | undefined;
+  /** Current agent-spec environment name; omit/undefined = provider defaults. */
+  currentEnvironment?: string | undefined;
 }): string | undefined {
   if (params.existingSandboxId === undefined) {
     return undefined;
   }
   const parsed = parseSandboxId(params.existingSandboxId);
   if (parsed.kind === 'v1' && parsed.parts.providerType !== params.currentProviderType) {
+    return undefined;
+  }
+  if ((params.existingEnvironment ?? undefined) !== (params.currentEnvironment ?? undefined)) {
     return undefined;
   }
   return params.existingSandboxId;

@@ -240,6 +240,7 @@ export function createServerApp<TTransaction>(deps: ServerDeps<TTransaction>) {
     resolveModelProviderStore: deps.resolveModelProviderStore,
     resolveMcpServerStore: deps.resolveMcpServerStore,
     resolveSandboxProviderStore: deps.resolveSandboxProviderStore,
+    resolveSandboxEnvironmentStore: deps.resolveSandboxEnvironmentStore,
     activeTurns: deps.activeTurns,
     turnSkillsResolverStore: deps.turnSkillsResolverStore,
   };
@@ -481,6 +482,7 @@ export function createServerApp<TTransaction>(deps: ServerDeps<TTransaction>) {
         resolveAgentStore: deps.resolveAgentStore,
         eventSubscriptions: deps.eventSubscriptions,
         resolveSandboxProviderStore: deps.resolveSandboxProviderStore,
+        resolveSandboxEnvironmentStore: deps.resolveSandboxEnvironmentStore,
         logger: deps.logger,
         resolveRequestContext,
         authorizer: deps.authorizer,
