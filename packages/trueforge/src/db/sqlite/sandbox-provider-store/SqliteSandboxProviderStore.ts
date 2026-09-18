@@ -104,8 +104,8 @@ export class SqliteSandboxProviderStore implements ISandboxProviderStore<Transac
     if (expectedManifest !== undefined) {
       query = query.where(sql<boolean>`manifest = ${jsonbBind(expectedManifest)}`);
     }
-    if (input.expected_updated_at !== undefined) {
-      query = query.where('updated_at', '=', input.expected_updated_at);
+    if (input.expected_status !== undefined) {
+      query = query.where('status', '=', input.expected_status);
     }
     return await query.returning(recordColumns).executeTakeFirst();
   }

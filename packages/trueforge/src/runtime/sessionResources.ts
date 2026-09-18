@@ -235,9 +235,10 @@ export async function resolveSandboxProvider({
 
   if (record !== undefined) {
     if (record.manifest.type === 'daytona') {
+      const manifest = record.manifest;
       return {
         provider: toDaytonaSandboxProvider({
-          manifest: record.manifest,
+          manifest,
           tenant_id,
           logger,
           build_metadata: record.build_metadata,
@@ -247,8 +248,8 @@ export async function resolveSandboxProvider({
               tenant_id,
               error,
               build_metadata: record.build_metadata,
-              expected_manifest: record.manifest,
-              expected_updated_at: record.updated_at,
+              expected_manifest: manifest,
+              expected_status: record.status,
             });
           },
         }),

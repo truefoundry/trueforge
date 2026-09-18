@@ -57,7 +57,7 @@ it('persists Daytona authentication failures instead of surfacing a settings err
     status_reason: 'Daytona rejected the API key. Check the configured credentials.',
     build_metadata: null,
     expected_manifest: record.manifest,
-    expected_updated_at: record.updated_at,
+    expected_status: record.status,
   });
 });
 
@@ -78,7 +78,5 @@ it('does not overwrite a concurrent Daytona access failure with a stale refresh'
   await expect(
     checkSnapshotStatus({ store, tenant_id: record.tenant_id, logger: createLogger({ silent: true }) }),
   ).resolves.toMatchObject({ status: 'failed', status_reason: failed.status_reason });
-  expect(store.updateSandboxStatus).toHaveBeenCalledWith(
-    expect.objectContaining({ expected_updated_at: record.updated_at }),
-  );
+  expect(store.updateSandboxStatus).toHaveBeenCalledWith(expect.objectContaining({ expected_status: record.status }));
 });

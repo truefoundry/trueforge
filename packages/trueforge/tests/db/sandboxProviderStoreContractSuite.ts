@@ -131,4 +131,29 @@ export function runSandboxProviderStoreContractSuite(getStore: () => ISandboxPro
     ).toBeUndefined();
     expect((await store.getSandboxProvider(TENANT))?.status).toBe('pending');
   });
+
+  it('updateSandboxStatus ignores a stale provider status', async () => {
+    const store = getStore();
+    await store.upsertSandboxProvider(upsertInput());
+    await store.updateSandboxStatus({
+      tenant_id: TENANT,
+      status: 'failed',
+      status_reason: 'authorization failed',
+      build_metadata: null,
+      expected_manifest: undefined,
+      expected_status: 'pending',
+    });
+
+    expect(
+      await store.updateSandboxStatus({
+        tenant_id: TENANT,
+        status: 'ready',
+        status_reason: null,
+        build_metadata: BUILD_METADATA,
+        expected_manifest: undefined,
+        expected_status: 'pending',
+      }),
+    ).toBeUndefined();
+    expect((await store.getSandboxProvider(TENANT))?.status).toBe('failed');
+  });
 }
