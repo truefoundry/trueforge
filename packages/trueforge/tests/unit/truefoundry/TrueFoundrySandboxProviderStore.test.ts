@@ -118,6 +118,7 @@ describe('TrueFoundrySandboxProviderStore', () => {
         status: 'ready',
         status_reason: null,
         build_metadata: null,
+        expected_manifest: undefined,
       }),
     );
   });
