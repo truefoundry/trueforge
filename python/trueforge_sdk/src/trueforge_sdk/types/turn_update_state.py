@@ -2,7 +2,7 @@
 
 import typing
 
-from .turn_update_state_paused import TurnUpdateStatePaused
-from .turn_update_state_running import TurnUpdateStateRunning
+from .turn_state_paused import TurnStatePaused
+from .turn_state_running import TurnStateRunning
 
-TurnUpdateState = typing.Union[TurnUpdateStatePaused, TurnUpdateStateRunning]
+TurnUpdateState = typing.Union[TurnStatePaused, TurnStateRunning]

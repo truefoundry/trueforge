@@ -1,4 +1,4 @@
-import type { TerminalTurnState } from '../schemas/turn';
+import type { TurnState } from '../schemas/turn';
 
 /** Store conflict (e.g. first-terminal-wins violation, concurrent createTurn). */
 export abstract class SessionStoreConflictError extends Error {
@@ -88,9 +88,9 @@ export class PreviousTurnRunningError extends SessionStoreConflictError {
 
 export class TurnNotRunningError extends SessionStoreConflictError {
   readonly turn_id: string;
-  readonly state: TerminalTurnState;
+  readonly state: Exclude<TurnState, { status: 'running' }>;
 
-  constructor(turn_id: string, state: TerminalTurnState) {
+  constructor(turn_id: string, state: Exclude<TurnState, { status: 'running' }>) {
     super(`Turn ${turn_id} is not running (${state.status})`);
     this.name = 'TurnNotRunningError';
     this.turn_id = turn_id;

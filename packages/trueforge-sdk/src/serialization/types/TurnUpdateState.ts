@@ -3,12 +3,12 @@
 import type * as TrueForge from "../../api/index.js";
 import * as core from "../../core/index.js";
 import type * as serializers from "../index.js";
-import { TurnUpdateStatePaused } from "./TurnUpdateStatePaused.js";
-import { TurnUpdateStateRunning } from "./TurnUpdateStateRunning.js";
+import { TurnStatePaused } from "./TurnStatePaused.js";
+import { TurnStateRunning } from "./TurnStateRunning.js";
 
 export const TurnUpdateState: core.serialization.Schema<serializers.TurnUpdateState.Raw, TrueForge.TurnUpdateState> =
-    core.serialization.undiscriminatedUnion([TurnUpdateStatePaused, TurnUpdateStateRunning]);
+    core.serialization.undiscriminatedUnion([TurnStatePaused, TurnStateRunning]);
 
 export declare namespace TurnUpdateState {
-    export type Raw = TurnUpdateStatePaused.Raw | TurnUpdateStateRunning.Raw;
+    export type Raw = TurnStatePaused.Raw | TurnStateRunning.Raw;
 }

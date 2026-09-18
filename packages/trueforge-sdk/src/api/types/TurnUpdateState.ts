@@ -5,4 +5,4 @@ import type * as TrueForge from "../index.js";
 /**
  * Live non-terminal turn status.
  */
-export type TurnUpdateState = TrueForge.TurnUpdateStatePaused | TrueForge.TurnUpdateStateRunning;
+export type TurnUpdateState = TrueForge.TurnStatePaused | TrueForge.TurnStateRunning;

@@ -14,27 +14,6 @@
         ],
         "type": "object"
       },
-      "ActionRequiredEvent": {
-        "discriminator": {
-          "mapping": {
-            "mcp.auth_required": "#/components/schemas/MCPAuthRequiredEvent",
-            "tool.approval_required": "#/components/schemas/ToolApprovalRequiredEvent",
-            "tool.response_required": "#/components/schemas/ToolResponseRequiredEvent"
-          },
-          "propertyName": "type"
-        },
-        "oneOf": [
-          {
-            "$ref": "#/components/schemas/ToolApprovalRequiredEvent"
-          },
-          {
-            "$ref": "#/components/schemas/ToolResponseRequiredEvent"
-          },
-          {
-            "$ref": "#/components/schemas/MCPAuthRequiredEvent"
-          }
-        ]
-      },
       "Agent": {
         "additionalProperties": false,
         "properties": {
@@ -5224,6 +5203,7 @@
             "cancelled": "#/components/schemas/TurnStateCancelled",
             "done": "#/components/schemas/TurnStateDone",
             "error": "#/components/schemas/TurnStateError",
+            "paused": "#/components/schemas/TurnStatePaused",
             "running": "#/components/schemas/TurnStateRunning"
           },
           "propertyName": "status"
@@ -5231,6 +5211,9 @@
         "oneOf": [
           {
             "$ref": "#/components/schemas/TurnStateRunning"
+          },
+          {
+            "$ref": "#/components/schemas/TurnStatePaused"
           },
           {
             "$ref": "#/components/schemas/TurnStateDone"
@@ -5305,17 +5288,10 @@
                 "type": "null"
               }
             ],
-            "description": "Final `model.message` for the turn, or null when the turn ended paused without a final message."
-          },
-          "required_actions": {
-            "description": "Pending actions (`tool.approval_required`, `tool.response_required`, `mcp.auth_required`); empty when none.",
-            "items": {
-              "$ref": "#/components/schemas/ActionRequiredEvent"
-            },
-            "type": "array"
+            "description": "Final `model.message` for the turn, or null when the turn finished without one."
           },
           "status": {
-            "description": "Turn finished (possibly paused for required actions).",
+            "description": "Turn finished with no open required actions.",
             "enum": [
               "done"
             ],
@@ -5325,7 +5301,6 @@
         "required": [
           "status",
           "output",
-          "required_actions",
           "completed_at"
         ],
         "type": "object"
@@ -5362,6 +5337,29 @@
           "status",
           "message",
           "completed_at"
+        ],
+        "type": "object"
+      },
+      "TurnStatePaused": {
+        "properties": {
+          "action_required_on_events": {
+            "description": "Events that still need a user or client action.",
+            "items": {
+              "$ref": "#/components/schemas/ActionRequired"
+            },
+            "type": "array"
+          },
+          "status": {
+            "description": "Turn is paused waiting for required actions.",
+            "enum": [
+              "paused"
+            ],
+            "type": "string"
+          }
+        },
+        "required": [
+          "status",
+          "action_required_on_events"
         ],
         "type": "object"
       },
@@ -5482,57 +5480,19 @@
         "description": "Live non-terminal turn status.",
         "discriminator": {
           "mapping": {
-            "paused": "#/components/schemas/TurnUpdateStatePaused",
-            "running": "#/components/schemas/TurnUpdateStateRunning"
+            "paused": "#/components/schemas/TurnStatePaused",
+            "running": "#/components/schemas/TurnStateRunning"
           },
           "propertyName": "status"
         },
         "oneOf": [
           {
-            "$ref": "#/components/schemas/TurnUpdateStatePaused"
+            "$ref": "#/components/schemas/TurnStatePaused"
           },
           {
-            "$ref": "#/components/schemas/TurnUpdateStateRunning"
+            "$ref": "#/components/schemas/TurnStateRunning"
           }
         ]
-      },
-      "TurnUpdateStatePaused": {
-        "properties": {
-          "action_required_on_events": {
-            "description": "Events that still need a user or client action.",
-            "items": {
-              "$ref": "#/components/schemas/ActionRequired"
-            },
-            "type": "array"
-          },
-          "status": {
-            "description": "Turn is paused waiting for required actions.",
-            "enum": [
-              "paused"
-            ],
-            "type": "string"
-          }
-        },
-        "required": [
-          "status",
-          "action_required_on_events"
-        ],
-        "type": "object"
-      },
-      "TurnUpdateStateRunning": {
-        "properties": {
-          "status": {
-            "description": "Turn is executing.",
-            "enum": [
-              "running"
-            ],
-            "type": "string"
-          }
-        },
-        "required": [
-          "status"
-        ],
-        "type": "object"
       },
       "UpdateAgentRequest": {
         "additionalProperties": false,

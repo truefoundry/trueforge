@@ -5,6 +5,7 @@ import typing
 from .turn_state_cancelled import TurnStateCancelled
 from .turn_state_done import TurnStateDone
 from .turn_state_error import TurnStateError
+from .turn_state_paused import TurnStatePaused
 from .turn_state_running import TurnStateRunning
 
-TurnState = typing.Union[TurnStateCancelled, TurnStateDone, TurnStateError, TurnStateRunning]
+TurnState = typing.Union[TurnStateCancelled, TurnStateDone, TurnStateError, TurnStatePaused, TurnStateRunning]

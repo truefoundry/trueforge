@@ -7,6 +7,7 @@ export { AgentSpecSchema, DEFAULT_AGENT_CONFIG_ITERATION_LIMIT, RuntimeConfigSch
 export type { AgentSpec, Skill } from './schemas/agentSpec';
 
 export {
+  ActionRequiredSchema,
   CancellationReason,
   CreateTurnRequestSchema,
   TurnInputItemSchema,
@@ -16,10 +17,19 @@ export {
   TurnStateCancelledSchema,
   TurnStateDoneSchema,
   TurnStateErrorSchema,
+  TurnStatePausedSchema,
   TurnStateRunningSchema,
   TurnStateSchema,
 } from './schemas/turn';
-export type { TerminalTurnState, Turn, TurnInputItem, TurnMetrics, TurnState } from './schemas/turn';
+export type {
+  ActionRequired,
+  TerminalTurnState,
+  Turn,
+  TurnInputItem,
+  TurnMetrics,
+  TurnState,
+  TurnStatePaused,
+} from './schemas/turn';
 
 export {
   SessionMetadataSchema,

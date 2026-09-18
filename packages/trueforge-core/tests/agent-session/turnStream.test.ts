@@ -5,6 +5,7 @@ import { InMemorySessionStore } from '../../src/agent-session/store/InMemorySess
 import { TurnResourceResolver } from '../../src/agent-session/TurnResourceResolver';
 import { RemoteMCP } from '../../src/core/mcp/RemoteMCP';
 import { makeStubPublicSandbox } from '../core/harnessMocks';
+import { makeApprovalGatedWriteNoteToolSet, writeNoteToolCallStream } from '../orchestration/helpers/helpers';
 import {
   emptyLlmStream,
   makeAgentSpec,
@@ -79,6 +80,61 @@ describe('TurnHandle.stream()', () => {
       turn_id: turn.id,
     });
     expect(stored?.state.status).toBe('done');
+  });
+
+  it('HITL required actions write paused + turn.update, not done', async () => {
+    const { store, session } = await createSession();
+    const { toolSet } = makeApprovalGatedWriteNoteToolSet();
+    const turn = await session.createTurn({
+      turn_id: mintTestTurnId(),
+      active_executor_id: TEST_ACTIVE_EXECUTOR_ID,
+      input: [{ type: EventType.USER_MESSAGE, content: 'hello' }],
+      previous_turn_id: 'none',
+      signal: new AbortController().signal,
+      resolver: makeTestResolver({
+        extraCapabilities: [{ systemToolSets: [toolSet] }],
+        create: () => writeNoteToolCallStream(),
+      }),
+    });
+
+    const types: string[] = [];
+    for await (const event of turn.stream()) {
+      types.push(event.type);
+    }
+
+    expect(types[0]).toBe(EventType.TURN_CREATED);
+    expect(types).toContain(EventType.TOOL_APPROVAL_REQUIRED);
+    expect(types[types.length - 1]).toBe(EventType.TURN_UPDATE);
+    expect(types).not.toContain(EventType.TURN_DONE);
+    expect(turn.state.status).toBe('paused');
+
+    const { data } = await turn.listEvents({ limit: 50 });
+    const approval = data.find(e => e.type === EventType.TOOL_APPROVAL_REQUIRED);
+    const updates = data.filter(e => e.type === EventType.TURN_UPDATE);
+    expect(approval).toBeDefined();
+    expect(data.some(e => e.type === EventType.TURN_DONE)).toBe(false);
+    expect(updates).toHaveLength(1);
+    if (turn.state.status === 'paused' && approval) {
+      expect(turn.state.action_required_on_events).toEqual([{ id: approval.id }]);
+      expect(updates[0]).toMatchObject({
+        type: EventType.TURN_UPDATE,
+        state: {
+          status: 'paused',
+          action_required_on_events: [{ id: approval.id }],
+        },
+      });
+    }
+
+    const stored = await store.getTurn({
+      session_id: 's1',
+      turn_id: turn.id,
+    });
+    expect(stored?.state.status).toBe('paused');
+    const sessionRow = await store.getSession({ tenant_id: tenant, session_id: 's1' });
+    expect(sessionRow?.metrics).toEqual({
+      total_duration_ms: 0,
+      total_turns: 1,
+    });
   });
 
   it('persists final turn usage from orchestrator metrics', async () => {
