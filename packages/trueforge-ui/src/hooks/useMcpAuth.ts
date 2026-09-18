@@ -38,8 +38,32 @@ export const useMCPAuth = ({ callbackPath }: UseMCPAuthOptions = {}) => {
 
   useEffect(() => clearPopupListener, [clearPopupListener]);
 
+  const reportVerifiedSuccess = useCallback(
+    async (integrationId: string, callback: McpAuthCallback) => {
+      try {
+        const connector = await connectorCatalog.getConnector({ id: integrationId });
+        if (!connector.authenticated) {
+          throw new Error('The MCP server is not authenticated yet. Please try again.');
+        }
+        callback(true);
+      } catch (error: unknown) {
+        toaster?.showError(error);
+        callback(false);
+      }
+    },
+    [connectorCatalog, toaster],
+  );
+
   const openAuthPopup = useCallback(
-    (authorizationEndpoint: string, callback: McpAuthCallback) => {
+    ({
+      authorizationEndpoint,
+      integrationId,
+      callback,
+    }: {
+      authorizationEndpoint: string;
+      integrationId: string;
+      callback: McpAuthCallback;
+    }) => {
       clearPopupListener();
 
       const channel = new BroadcastChannel(MCP_AUTH_POPUP_CHANNEL);
@@ -51,11 +75,13 @@ export const useMCPAuth = ({ callbackPath }: UseMCPAuthOptions = {}) => {
 
       channel.onmessage = (event: MessageEvent<unknown>) => {
         if (!isPopupMessage(event.data) || event.data.popupUid !== popupUid) return;
-        try {
-          callback(event.data.isSuccess);
-        } finally {
-          clearPopupListener();
+        const { isSuccess } = event.data;
+        clearPopupListener();
+        if (!isSuccess) {
+          callback(false);
+          return;
         }
+        void reportVerifiedSuccess(integrationId, callback);
       };
       listenerCleanupRef.current = cleanup;
 
@@ -67,7 +93,7 @@ export const useMCPAuth = ({ callbackPath }: UseMCPAuthOptions = {}) => {
 
       popup.focus();
     },
-    [clearPopupListener, popupUid],
+    [clearPopupListener, popupUid, reportVerifiedSuccess],
   );
 
   const handleAuthorize = useCallback(
@@ -92,7 +118,7 @@ export const useMCPAuth = ({ callbackPath }: UseMCPAuthOptions = {}) => {
           ('status' in result && result.status?.toUpperCase() === 'AUTHENTICATED') ||
           ('authenticated' in result && result.authenticated)
         ) {
-          callback(true);
+          await reportVerifiedSuccess(integrationId, callback);
           return;
         }
 
@@ -101,7 +127,7 @@ export const useMCPAuth = ({ callbackPath }: UseMCPAuthOptions = {}) => {
           throw new Error('The MCP server did not return an authorization URL.');
         }
 
-        openAuthPopup(authorizationEndpoint, callback);
+        openAuthPopup({ authorizationEndpoint, integrationId, callback });
       } catch (error: unknown) {
         toaster?.showError(error);
         callback(false);
@@ -109,7 +135,7 @@ export const useMCPAuth = ({ callbackPath }: UseMCPAuthOptions = {}) => {
         setIsOAuthLoading(false);
       }
     },
-    [callbackPath, connectorCatalog, openAuthPopup, popupUid, toaster],
+    [callbackPath, connectorCatalog, openAuthPopup, popupUid, reportVerifiedSuccess, toaster],
   );
 
   return {
