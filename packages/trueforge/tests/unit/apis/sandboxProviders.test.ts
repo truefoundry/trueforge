@@ -48,9 +48,9 @@ const expectedStatus = {
   status_reason: null,
 };
 
-/** Wire GET/PUT response: the (redacted) manifest nested under `manifest`, plus the build status. */
+/** Wire GET/PUT response: identity name (= manifest.type), redacted manifest, build status. */
 function wireResponse(manifest: Record<string, unknown>) {
-  return { manifest, ...expectedStatus };
+  return { name: manifest['type'], manifest, ...expectedStatus };
 }
 
 const putBodyWire = wireResponse({

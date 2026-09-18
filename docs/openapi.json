@@ -947,6 +947,11 @@
           "manifest": {
             "$ref": "#/components/schemas/SandboxProviderManifest"
           },
+          "name": {
+            "description": "Sandbox provider name.",
+            "minLength": 1,
+            "type": "string"
+          },
           "status": {
             "$ref": "#/components/schemas/SandboxBuildStatus"
           },
@@ -959,6 +964,7 @@
           }
         },
         "required": [
+          "name",
           "manifest",
           "status",
           "status_reason"

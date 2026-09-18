@@ -11,6 +11,11 @@ from .sandbox_provider_manifest import SandboxProviderManifest
 
 class ConfiguredSandboxProvider(UncheckedBaseModel):
     manifest: SandboxProviderManifest
+    name: str = pydantic.Field()
+    """
+    Sandbox provider name.
+    """
+
     status: SandboxBuildStatus
     status_reason: typing.Optional[str] = pydantic.Field(default=None)
     """

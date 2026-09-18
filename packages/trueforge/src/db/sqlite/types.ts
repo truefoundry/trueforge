@@ -203,10 +203,12 @@ export interface SkillTable {
 
 /**
  * Configured sandbox provider — mirrors the Postgres `sandbox_provider` table.
- * PRIMARY KEY (tenant_id) — at most one row per tenant.
+ * PRIMARY KEY (tenant_id) — at most one row per tenant; UNIQUE (tenant_id, name).
  */
 export interface SandboxProviderTable {
   tenant_id: string;
+  /** Identity; currently always equal to `manifest.type`. UNIQUE with tenant_id. */
+  name: string;
   /** StoredSandboxProviderManifest document; replaced whole on every upsert */
   manifest: JsonbColumn<StoredSandboxProviderManifest>;
   /** Last persisted build status of the release sandbox image. */

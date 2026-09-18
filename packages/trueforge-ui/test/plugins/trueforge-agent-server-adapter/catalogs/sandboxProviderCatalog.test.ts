@@ -33,6 +33,7 @@ describe('sandboxProviderCatalog mappers', () => {
     statusReason: string | null;
   }): TrueForgeApi.GetSandboxProviderResponse['data'] {
     return {
+      name: 'daytona',
       manifest: harnessConfigured,
       status,
       statusReason,

@@ -51,6 +51,7 @@ export function createSandboxProvidersRouter<TTransaction>(deps: SandboxProvider
     return c.json(
       {
         data: {
+          name: record.name,
           manifest: redactSandboxProvider(record.manifest),
           status: status?.status ?? record.status,
           status_reason: status?.status_reason ?? record.status_reason,
@@ -76,7 +77,7 @@ export function createSandboxProvidersRouter<TTransaction>(deps: SandboxProvider
     });
     try {
       // NOTE: build (Daytona network I/O) runs inside the transaction for now; the design is being revisited.
-      const { manifest, status } = await deps.withTransaction(async transaction => {
+      const { name, manifest, status } = await deps.withTransaction(async transaction => {
         const locked = await store.getSandboxProviderForUpdate(requestContext.tenant_id, transaction);
         const resolved = resolveManifest(locked);
         // Pass persisted build_metadata so a settings re-save does not start a new snapshot for a
@@ -90,15 +91,16 @@ export function createSandboxProvidersRouter<TTransaction>(deps: SandboxProvider
         const built = toSandboxStatus(
           await withTimeout(provider.buildImage(), BUILD_REQUEST_TIMEOUT_MS, 'sandbox buildImage'),
         );
-        await store.upsertSandboxProvider(
+        const record = await store.upsertSandboxProvider(
           { tenant_id: requestContext.tenant_id, manifest: resolved, ...built },
           transaction,
         );
-        return { manifest: resolved, status: built };
+        return { name: record.name, manifest: resolved, status: built };
       });
       return c.json(
         {
           data: {
+            name,
             manifest: redactSandboxProvider(manifest),
             status: status.status,
             status_reason: status.status_reason,

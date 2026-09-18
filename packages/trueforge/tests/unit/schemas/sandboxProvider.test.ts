@@ -1,8 +1,8 @@
+import type { SandboxProviderManifest } from '../../../src/schemas/sandboxProvider';
 import {
   StoredSandboxProviderManifestSchema,
   UpdateSandboxProviderRequestSchema,
   toDaytonaSandboxProviderInput,
-  type SandboxProviderManifest,
 } from '../../../src/schemas/sandboxProvider';
 
 describe('toDaytonaSandboxProviderInput', () => {

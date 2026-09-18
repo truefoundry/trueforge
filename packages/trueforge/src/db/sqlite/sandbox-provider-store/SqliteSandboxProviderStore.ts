@@ -13,6 +13,7 @@ import type { Database } from '../types';
 function recordColumns(eb: ExpressionBuilder<Database, 'sandbox_provider'>) {
   return [
     'tenant_id' as const,
+    'name' as const,
     jsonText<StoredSandboxProviderManifest>(eb.ref('manifest')).as('manifest'),
     'status' as const,
     'status_reason' as const,
@@ -62,10 +63,13 @@ export class SqliteSandboxProviderStore implements ISandboxProviderStore<Transac
   ): Promise<SandboxProviderRecord> {
     const db = transaction ?? this.#db;
     const timestamp = nowIso();
+    // TEMP: name is always manifest.type until providers can have distinct identities.
+    const name = input.manifest.type;
     return await db
       .insertInto('sandbox_provider')
       .values({
         tenant_id: input.tenant_id,
+        name,
         manifest: jsonbBind(input.manifest),
         status: input.status,
         status_reason: input.status_reason,
@@ -75,6 +79,7 @@ export class SqliteSandboxProviderStore implements ISandboxProviderStore<Transac
       })
       .onConflict(oc =>
         oc.columns(['tenant_id']).doUpdateSet({
+          name,
           manifest: jsonbBind(input.manifest),
           status: input.status,
           status_reason: input.status_reason,
