@@ -55,12 +55,13 @@ function mcpStoreWith(inlineRaw: object) {
   return { store, inner };
 }
 
-function skillStoreWith(inlineRaw: object) {
+function skillStoreWith(inlineRaw: object, innerOverrides?: Partial<ISkillStore>) {
   const inner = {
     listSkills: jest.fn().mockResolvedValue([registrySkill]),
     validateAgentSkills: jest.fn().mockResolvedValue(undefined),
     resolveTurnSkills: jest.fn().mockResolvedValue([]),
     listSkillVersions: jest.fn().mockResolvedValue([]),
+    ...innerOverrides,
   } as unknown as ISkillStore;
   const store = new InlineSkillStore({ inner, inline: parseInlineSkills(JSON.stringify(inlineRaw)) });
   return { store, inner };
@@ -202,5 +203,41 @@ describe('InlineSkillStore', () => {
     const records = await store.listSkills({ tenant_id: 'default', names: undefined });
 
     expect(records.map(record => record.name)).toEqual(['team-skill']);
+  });
+
+  it('validate allows mixed inline and registry skills; resolve rejects sandbox-name collisions', async () => {
+    const registryFqn = 'agent-skill:acme/team-a/echo:3';
+    const { store, inner } = skillStoreWith(
+      { echo: { ...ASK_AI_SKILL, path: 'echo' } },
+      {
+        resolveTurnSkills: jest.fn().mockResolvedValue([
+          {
+            type: 'registry',
+            name: 'echo',
+            description: 'Registry echo',
+            fqn: registryFqn,
+            preload: false,
+            skillMdContent: null,
+            presignedUrl: 'https://example.com/echo.tgz',
+          },
+        ]),
+      },
+    );
+    const skills = [
+      { name: 'echo', preload: false },
+      { name: registryFqn, preload: false },
+    ];
+
+    await expect(store.validateAgentSkills({ tenant_id: 'default', skills })).resolves.toBeUndefined();
+    expect(inner.validateAgentSkills).toHaveBeenCalledWith(
+      { tenant_id: 'default', skills: [{ name: registryFqn, preload: false }] },
+      undefined,
+    );
+    expect(inner.resolveTurnSkills).not.toHaveBeenCalled();
+
+    await expect(store.resolveTurnSkills({ tenant_id: 'default', skills })).rejects.toMatchObject({
+      status: 422,
+      message: 'Agent skills must have unique names; duplicate skill name(s): echo',
+    });
   });
 });

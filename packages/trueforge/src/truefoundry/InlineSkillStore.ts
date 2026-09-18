@@ -1,4 +1,5 @@
 import type { Skill as SkillMount } from '@truefoundry/trueforge-core/core';
+import { HTTPException } from 'hono/http-exception';
 import { resolveGitTurnSkills, validateGitAgentSkills } from '../db/gitSkillMounts';
 import type {
   AgentSkillsInput,
@@ -65,6 +66,8 @@ export class InlineSkillStore<TTransaction = never> implements ISkillStore<TTran
     if (inlineSkills.length > 0) {
       await validateGitAgentSkills(this, { tenant_id: input.tenant_id, skills: inlineSkills });
     }
+    // Cross-source uniqueness needs registry short names from resolveTurnSkills; keep that out of
+    // validate so mixed specs are not failed for API-key / presigned-URL requirements.
     if (registrySkills.length > 0) {
       await this.#inner.validateAgentSkills({ tenant_id: input.tenant_id, skills: registrySkills }, transaction);
     }
@@ -80,7 +83,18 @@ export class InlineSkillStore<TTransaction = never> implements ISkillStore<TTran
       registrySkills.length > 0
         ? await this.#inner.resolveTurnSkills({ tenant_id: input.tenant_id, skills: registrySkills })
         : [];
-    return [...inlineMounts, ...registryMounts];
+    const mounts = [...inlineMounts, ...registryMounts];
+    // Inline key and registry short name share the sandbox dir — reject collisions here.
+    const seen = new Set<string>();
+    for (const mount of mounts) {
+      if (seen.has(mount.name)) {
+        throw new HTTPException(422, {
+          message: `Agent skills must have unique names; duplicate skill name(s): ${mount.name}`,
+        });
+      }
+      seen.add(mount.name);
+    }
+    return mounts;
   }
 
   #partition(skills: AgentSkillsInput['skills']): {
