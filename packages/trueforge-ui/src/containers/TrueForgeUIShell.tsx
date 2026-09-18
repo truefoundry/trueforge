@@ -16,6 +16,7 @@ import { HistorySessionSwitchBridge } from '../routing/HistorySessionSwitchBridg
 import { LibrarySessionShareBoot } from '../routing/LibrarySessionShareBoot.js';
 import { RemoteIdRouteBridge } from '../routing/RemoteIdRouteBridge.js';
 import { ResolvedRoutesProvider } from '../routing/ResolvedRoutesContext.js';
+import { ShellLocationProvider } from '../routing/ShellLocationContext.js';
 import type { ResolvedRoutes, RoutesConfig } from '../routing/types.js';
 import { CustomActionRenderersProvider, type CustomActionRenderers } from '../server/CustomActionRenderersContext.js';
 import { ServerProvider } from '../server/ServerContext.js';
@@ -34,6 +35,9 @@ const DrawerLayout = lazy(() => import('../layouts/DrawerLayout.js').then(m => (
 const DockLayout = lazy(() => import('../layouts/DockLayout.js').then(m => ({ default: m.DockLayout })));
 const WidgetLayout = lazy(() => import('../layouts/WidgetLayout.js').then(m => ({ default: m.WidgetLayout })));
 const ShellRouteSync = lazy(() => import('../routing/ShellRouteSync.js').then(m => ({ default: m.ShellRouteSync })));
+const ShellStorageRouteSync = lazy(() =>
+  import('../routing/ShellStorageRouteSync.js').then(m => ({ default: m.ShellStorageRouteSync })),
+);
 
 export type ChatLayout = 'sidebar' | 'drawer' | 'dock' | 'widget';
 
@@ -62,9 +66,10 @@ export type TrueForgeUIProps = {
    */
   customActionRenderers?: CustomActionRenderers;
   /**
-   * Sync shell navigation to the browser URL via react-router (opt-in).
+   * Sync shell navigation to the browser URL via react-router.
    * Requires `react-router-dom` in the host. Leave off for dock/widget embeds
-   * and hosts that own their own router. Defaults to `false`.
+   * and hosts that own their own router — navigation then persists in sessionStorage
+   * without mutating the host URL. Defaults to `false`.
    */
   withRouter?: boolean;
   /** URL path customization; only honored when `withRouter`. */
@@ -326,11 +331,15 @@ export function TrueForgeUIShell(props: TrueForgeUIShellProps) {
             initialSettingsOpen={initialSettingsOpen}
           />
         </Suspense>
-      ) : null}
+      ) : (
+        <Suspense fallback={null}>
+          <ShellStorageRouteSync activeRemoteId={activeRemoteId} initialSettingsOpen={initialSettingsOpen} />
+        </Suspense>
+      )}
       <ChatProviderFromShell
         server={server}
         onError={onError}
-        onRemoteIdChange={resolvedRoutes != null ? handleRemoteIdChange : undefined}
+        onRemoteIdChange={handleRemoteIdChange}
         {...providerRest}
       >
         {layoutTree}
@@ -341,15 +350,18 @@ export function TrueForgeUIShell(props: TrueForgeUIShellProps) {
   const visibilityTree =
     layout === 'widget' ? <WidgetVisibilityProvider>{shellTree}</WidgetVisibilityProvider> : shellTree;
 
+  const withLocation =
+    resolvedRoutes == null ? <ShellLocationProvider>{visibilityTree}</ShellLocationProvider> : visibilityTree;
+
   return (
     <SlotsProvider overrides={overrides} theme={theme}>
       <CurrentUserProvider currentUser={currentUser}>
         <CustomActionRenderersProvider renderers={customActionRenderers}>
           <ServerProvider server={server}>
             {resolvedRoutes != null ? (
-              <ResolvedRoutesProvider routes={resolvedRoutes}>{visibilityTree}</ResolvedRoutesProvider>
+              <ResolvedRoutesProvider routes={resolvedRoutes}>{withLocation}</ResolvedRoutesProvider>
             ) : (
-              visibilityTree
+              withLocation
             )}
           </ServerProvider>
         </CustomActionRenderersProvider>

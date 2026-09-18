@@ -3,6 +3,8 @@ import { act, renderHook, waitFor } from '@testing-library/react';
 import type { ReactNode } from 'react';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
+import { ShellLocationProvider, useShellLocationStore } from '@/routing/ShellLocationContext.js';
+import { clearShellLocationStorage } from '@/routing/shellLocationStore.js';
 import {
   AGENT_DRAFT_SPEC_PREFERENCES_STORAGE_KEY,
   CHAT_DRAFT_SPEC_PREFERENCES_STORAGE_KEY,
@@ -13,6 +15,22 @@ import { ServerProvider, useServerCapabilities } from '@/server/ServerContext.js
 import { ShellModeProvider, useOptionalShellMode, useShellMode, type AgentConfig } from '@/server/ShellModeContext.js';
 import type { AgentUIServer } from '@/server/types.js';
 import { createMockAgentSessionsServer, createMockAgentUIServer, createMockCatalog } from './mockServer.js';
+
+function wrapWithLocationStore(agentConfig?: AgentConfig) {
+  const server = createMockAgentUIServer({
+    catalog: createMockCatalog(),
+    sessions: createMockAgentSessionsServer(),
+  });
+  return function Wrapper({ children }: { children: ReactNode }) {
+    return (
+      <ServerProvider server={server}>
+        <ShellLocationProvider>
+          <ShellModeProvider agentConfig={agentConfig}>{children}</ShellModeProvider>
+        </ShellLocationProvider>
+      </ServerProvider>
+    );
+  };
+}
 
 function wrap(agentConfig?: AgentConfig, initialSettingsOpen?: boolean) {
   const server = createMockAgentUIServer({
@@ -69,6 +87,8 @@ describe('ShellModeProvider', () => {
     window.localStorage.removeItem(DRAFT_SPEC_PREFERENCES_STORAGE_KEY);
     window.localStorage.removeItem(CHAT_DRAFT_SPEC_PREFERENCES_STORAGE_KEY);
     window.localStorage.removeItem(AGENT_DRAFT_SPEC_PREFERENCES_STORAGE_KEY);
+    clearShellLocationStorage();
+    window.history.replaceState(null, '', '/');
   });
 
   it('requires a provider for useShellMode', () => {
@@ -270,6 +290,30 @@ describe('ShellModeProvider', () => {
 
     act(() => result.current.setSessionsOpen(true));
     expect(result.current.sessionsOpen).toBe(false);
+  });
+
+  it('clears view via the location store when sessions close under ShellLocationProvider', () => {
+    window.history.replaceState(null, '', '/host?keep=1');
+    const { result } = renderHook(
+      () => ({
+        shell: useShellMode(),
+        store: useShellLocationStore(),
+      }),
+      { wrapper: wrapWithLocationStore() },
+    );
+
+    act(() => {
+      result.current.store.navigate({ pathname: '/sessions', search: '?view=sessions' });
+      result.current.shell.setSessionsOpen(true);
+    });
+    expect(result.current.shell.sessionsOpen).toBe(true);
+    expect(result.current.store.getLocation().search).toContain('view=sessions');
+
+    act(() => result.current.shell.setSessionsOpen(false));
+    expect(result.current.shell.sessionsOpen).toBe(false);
+    expect(result.current.store.getLocation().search).not.toContain('view=sessions');
+    // Host URL is untouched in storage mode.
+    expect(window.location.search).toBe('?keep=1');
   });
 
   it('defaults to AgentLibraryWithComposer (mutable + library)', () => {
