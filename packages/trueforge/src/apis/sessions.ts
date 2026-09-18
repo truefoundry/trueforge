@@ -39,7 +39,6 @@ import {
   updateSessionRoute,
 } from '../routes/sessionRoutes';
 import type { ActiveTurnRegistry } from '../runtime/activeTurns';
-import { executorFromTurnId } from '../runtime/peeringIds';
 import { validateAgentSpec } from '../runtime/sessionResources';
 import { honoQueriesToRecord } from '../schemas/deepObjectQuery';
 import { isSessionAgentNameRef, parseListSessionsQuery, type Session } from '../schemas/session';
@@ -159,9 +158,9 @@ export async function cancelSessionTurn(
     return;
   }
 
-  const owner = executorFromTurnId(turnId);
-  // Without a Redis client there is no peer to ask, so an id naming another
-  // replica falls through to the local lookup and freezes if the run is gone.
+  const owner = turn.active_executor_id;
+  // Without a Redis client there is no peer to ask, so a different owner falls
+  // through to the local lookup and freezes if the run is gone.
   if (owner !== configuration.EXECUTOR_ID && deps.redis) {
     try {
       const reply = await redisRequest<CancelPeerBody>({
