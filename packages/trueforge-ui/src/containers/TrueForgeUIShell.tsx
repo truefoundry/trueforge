@@ -1,7 +1,7 @@
 'use client';
 
 import type { TrueFoundryAgentConfig, UseTrueFoundryAgentRuntimeOptions } from '@truefoundry/assistant-ui-runtime';
-import { lazy, Suspense, useCallback, useMemo, useState, type ReactNode } from 'react';
+import { lazy, Suspense, useCallback, useEffect, useMemo, useState, type ReactNode } from 'react';
 import { ThinkingOrb } from 'thinking-orbs';
 
 import { AgentConfigInstructionsProvider } from '../atoms/draft/AgentConfigInstructionsContext.js';
@@ -9,6 +9,7 @@ import { DraftCatalogProvider } from '../atoms/draft/DraftCatalogProvider.js';
 import { DraftSpecPreferenceBridge } from '../atoms/draft/DraftSpecPreferenceBridge.js';
 import { cn } from '../atoms/lib/cn.js';
 import { IS_CREATE_AGENT_METADATA_KEY, isCreateAgentMetadataValue } from '../atoms/lib/sessionCreateAgent.js';
+import { preloadMonaco } from '../atoms/monacoPreload.js';
 import { CurrentUserProvider, type CurrentUser } from '../contexts/CurrentUserContext.js';
 import { WidgetVisibilityProvider } from '../layouts/WidgetVisibilityContext.js';
 import { HistorySessionSwitchBridge } from '../routing/HistorySessionSwitchBridge.js';
@@ -289,6 +290,11 @@ export function TrueForgeUIShell(props: TrueForgeUIShellProps) {
   const resolved = useResolvedServer(serverConfig, onError);
   const [activeRemoteId, setActiveRemoteId] = useState<string | undefined>(undefined);
   const handleRemoteIdChange = useCallback((id: string | undefined) => setActiveRemoteId(id), []);
+
+  // Warm Monaco while the shell boots so tool request/response cards paint faster.
+  useEffect(() => {
+    void preloadMonaco();
+  }, []);
 
   if (resolved.status === 'loading') {
     return (

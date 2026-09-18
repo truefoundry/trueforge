@@ -3,7 +3,14 @@ import { EventType } from '../../src/agent-session/schemas/events';
 import { Sessions } from '../../src/agent-session/Sessions';
 import { InMemorySessionStore } from '../../src/agent-session/store/InMemorySessionStore';
 import { TurnResourceResolver } from '../../src/agent-session/TurnResourceResolver';
-import { makeAgentSpec, makeMockILLM, makeSilentLogger, makeTestResolver, mintTestTurnId } from './testHelpers';
+import {
+  makeAgentSpec,
+  makeMockILLM,
+  makeSilentLogger,
+  makeTestResolver,
+  mintTestTurnId,
+  TEST_ACTIVE_EXECUTOR_ID,
+} from './testHelpers';
 
 describe('TurnResourceResolver.resolveAgentSpec', () => {
   it('fails closed when deps.agent is not wired for a named lookup', async () => {
@@ -98,6 +105,7 @@ describe('SessionHandle.createTurn named resolve', () => {
     const agent = jest.fn().mockResolvedValue(live);
     const turn = await session.createTurn({
       turn_id: mintTestTurnId(),
+      active_executor_id: TEST_ACTIVE_EXECUTOR_ID,
       input: [{ type: EventType.USER_MESSAGE, content: 'hi' }],
       previous_turn_id: 'none',
       signal: new AbortController().signal,

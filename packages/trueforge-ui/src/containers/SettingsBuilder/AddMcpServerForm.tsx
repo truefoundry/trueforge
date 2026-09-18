@@ -245,7 +245,7 @@ const AddMcpServerForm = ({ open, onOpenChange, onSubmit, connector, busy = fals
                   onChange={event => {
                     setApiKey(event.target.value);
                   }}
-                  placeholder="Paste the server token"
+                  placeholder="Bearer ..."
                   className={inputClassName}
                 />
               </div>

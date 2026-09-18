@@ -98,6 +98,8 @@ export interface TurnTable {
   previous_turn_id: string | null;
   /** JSONB array of turn ids — topology only; not a SQL join key. */
   ancestor_ids: JsonbColumn<string[]>;
+  /** Replica currently owning the in-memory ActiveTurn. */
+  active_executor_id: string;
   input: JsonbColumn<TurnInputItem[]>;
   state: JsonbColumn<TurnState>;
   checkpoint: JsonbColumn<TurnCheckpoint>;

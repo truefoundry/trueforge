@@ -45,6 +45,10 @@ vi.mock('thinking-orbs', () => ({
   ThinkingOrb: () => <div data-testid="thinking-orb" />,
 }));
 
+vi.mock('@/atoms/monacoPreload.js', () => ({
+  preloadMonaco: vi.fn(() => Promise.resolve({ editor: {} })),
+}));
+
 vi.mock('@/plugins/trueforge-agent-server-adapter/index.js', () => ({
   createTrueForgeAgentUIServer: vi.fn(async () =>
     createMockAgentUIServer({

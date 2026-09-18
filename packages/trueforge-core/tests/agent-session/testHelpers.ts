@@ -25,6 +25,8 @@ export function mintTestTurnId(): string {
   return ulid().toLowerCase();
 }
 
+export const TEST_ACTIVE_EXECUTOR_ID = 'test-executor';
+
 /** Minimal AgentSpec for session/turn tests — interactive builtins off; FQN model required. */
 export function makeAgentSpec(
   overrides: {
@@ -162,6 +164,7 @@ const defaultRootThread: NewThreadInit = {
 export function makeCreateTurnInput(input: {
   sessionId: string;
   turnId: string;
+  activeExecutorId?: string;
   previousTurnId?: string | null;
   firstTurnId?: string;
   new_threads?: NewThreadInit[];
@@ -172,6 +175,7 @@ export function makeCreateTurnInput(input: {
   const turn = makeRunningTurnRecord({
     sessionId: input.sessionId,
     turnId: input.turnId,
+    ...(input.activeExecutorId !== undefined ? { activeExecutorId: input.activeExecutorId } : {}),
     ...(input.previousTurnId !== undefined ? { previousTurnId: input.previousTurnId } : {}),
     ...(input.firstTurnId !== undefined ? { firstTurnId: input.firstTurnId } : {}),
   });
@@ -209,6 +213,7 @@ export function makeCancelledTurnState(
 export function makeRunningTurnRecord(input: {
   sessionId: string;
   turnId: string;
+  activeExecutorId?: string;
   previousTurnId?: string | null;
   firstTurnId?: string;
 }): TurnRecord {
@@ -219,6 +224,7 @@ export function makeRunningTurnRecord(input: {
     first_turn_id: input.firstTurnId ?? input.turnId,
     ancestor_ids: input.previousTurnId ? [input.previousTurnId] : [],
     previous_turn_id: input.previousTurnId ?? null,
+    active_executor_id: input.activeExecutorId ?? TEST_ACTIVE_EXECUTOR_ID,
     state: { status: 'running' },
     input: [],
     custom: null,

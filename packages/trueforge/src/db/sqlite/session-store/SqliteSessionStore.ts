@@ -137,6 +137,7 @@ export class SqliteSessionStore implements ISessionStore<SessionCustom, TurnCust
         first_turn_id: input.turn.first_turn_id,
         previous_turn_id: input.turn.previous_turn_id,
         ancestor_ids: input.turn.ancestor_ids,
+        active_executor_id: input.turn.active_executor_id,
         input: input.turn.input,
         state: input.turn.state,
         custom: input.turn.custom,
