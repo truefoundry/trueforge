@@ -356,9 +356,8 @@ export class PostgresSessionStore implements ISessionStore<SessionCustom, TurnCu
       for (const turn of turns) {
         const turnId = turn.turn_id;
         const updatedAt = new Date(turn.updated_at);
-        const peeredParts = turnId.split('.');
-        const activeExecutorId =
-          peeredParts.length === 2 && peeredParts[0] && peeredParts[1] ? peeredParts[1] : 'local';
+        // import: source_turn_ids can be in a different format. source executors are gone; do not parse turn_id.
+        const activeExecutorId = 'default';
         await trx
           .insertInto('turn')
           .values({
