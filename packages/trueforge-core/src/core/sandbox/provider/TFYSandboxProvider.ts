@@ -16,7 +16,6 @@ import {
 } from '../SandboxErrors';
 import { absolutizeRelativeExecEnv } from './execEnv';
 import {
-  ensureExecSuccess,
   shellEscape,
   type ExecResult,
   type SandboxBuild,
@@ -28,6 +27,9 @@ import {
 const DEFAULT_TIMEOUT_SECONDS = 60;
 // Buffer for network latency + response processing on top of the server-side timeout.
 const CLIENT_TIMEOUT_BUFFER_SECONDS = 5;
+
+// TFY sandbox file upload timeout (same as Daytona SDK uploadFile default timeout).
+const FILE_UPLOAD_TIMEOUT_MS = 30 * 60 * 1000;
 
 const TFY_MCP_CLIENT_BIN = 'mcp-client/bin';
 
@@ -228,14 +230,23 @@ export class TFYSandboxProvider implements SandboxProvider {
   }
 
   async uploadFile(params: { sandboxId: string; remotePath: string; content: Buffer }): Promise<void> {
-    const encoded = params.content.toString('base64');
-    const escapedPath = shellEscape(params.remotePath);
+    validateSandboxOwnedByTenant({ sandboxId: params.sandboxId, tenantName: this.tenantName });
 
-    const result = await this.exec({
-      sandboxId: params.sandboxId,
-      command: `echo ${shellEscape(encoded)} | base64 -d > ${escapedPath}`,
+    const query = new URLSearchParams({ sandbox_id: params.sandboxId, path: params.remotePath });
+    const response = await fetch(`${this.serverUrl}/files/upload?${query.toString()}`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/octet-stream' },
+      body: params.content,
+      signal: AbortSignal.timeout(FILE_UPLOAD_TIMEOUT_MS),
     });
-    ensureExecSuccess(result);
+    if (!response.ok) {
+      throw new Error(`Sandbox server returned ${String(response.status)}: ${await response.text()}`);
+    }
+
+    const result = (await response.json()) as { success: true } | { success: false; error: string };
+    if (!result.success) {
+      throw new Error(result.error);
+    }
   }
 
   // The TFY sandbox exposes a static, cluster-internal NATS WebSocket URL (no signed URLs).
