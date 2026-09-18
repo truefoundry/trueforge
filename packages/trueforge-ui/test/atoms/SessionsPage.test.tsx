@@ -3,6 +3,7 @@ import { fireEvent, render, screen, waitFor } from '@testing-library/react';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 import { SessionsPage } from '@/atoms/agent-details/SessionsPage.js';
+import { CompactLayoutProvider } from '@/atoms/lib/CompactLayoutContext.js';
 import { ServerProvider } from '@/server/ServerContext.js';
 import { ShellModeProvider } from '@/server/ShellModeContext.js';
 import type {
@@ -241,6 +242,48 @@ describe('SessionsPage', () => {
     expect(resizer).toHaveClass('w-0');
     expect(resizer.querySelector('.w-px')).toBeInTheDocument();
     expect(screen.getByRole('heading', { name: 'Named session' })).toBeInTheDocument();
+  });
+
+  it('stacks list and detail in compact layouts instead of a resizable split', async () => {
+    const server = createMockAgentUIServer({
+      getSession: vi.fn(async (): Promise<Session> => ({
+        id: 'sess-1',
+        title: 'Named session',
+        isMutable: false,
+        createdAt: namedRow.createdAt,
+        updatedAt: namedRow.updatedAt,
+      })),
+      sessions: {
+        getAgent: vi.fn(),
+        getCodeSnippets: vi.fn(async () => []),
+        listSessions: vi.fn(async () => ({ data: [namedRow, draftRow] })),
+        listSessionEvents: vi.fn(async () => ({ data: [] as SessionEventItem[] })),
+      },
+    });
+
+    render(
+      <SlotsProvider>
+        <ServerProvider server={server}>
+          <ShellModeProvider>
+            <CompactLayoutProvider>
+              <SessionsPage />
+            </CompactLayoutProvider>
+          </ShellModeProvider>
+        </ServerProvider>
+      </SlotsProvider>,
+    );
+
+    expect(await screen.findByText('Named session')).toBeInTheDocument();
+    expect(screen.queryByRole('separator', { name: 'Resize session list' })).not.toBeInTheDocument();
+    expect(screen.queryByText('Select a session to view details')).not.toBeInTheDocument();
+
+    fireEvent.click(screen.getByText('Named session').closest('button') ?? screen.getByText('Named session'));
+    expect(await screen.findByRole('heading', { name: 'Named session' })).toBeInTheDocument();
+    expect(screen.queryByText('Draft session')).not.toBeInTheDocument();
+
+    fireEvent.click(screen.getByRole('button', { name: 'Close session details' }));
+    expect(await screen.findByText('Draft session')).toBeInTheDocument();
+    expect(screen.queryByRole('heading', { name: 'Named session' })).not.toBeInTheDocument();
   });
 
   it('deletes only after the confirmation dialog is accepted', async () => {

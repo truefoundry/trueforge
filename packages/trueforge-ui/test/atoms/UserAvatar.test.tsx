@@ -33,6 +33,19 @@ describe('UserAvatar', () => {
     expect(avatar).toHaveClass('w-14.5');
   });
 
+  it('shows only the avatar glyph when unlabeled', () => {
+    render(
+      <CurrentUserProvider currentUser={{ displayName: 'Ada Lovelace' }}>
+        <UserAvatar />
+      </CurrentUserProvider>,
+    );
+
+    const avatar = screen.getByLabelText('Ada Lovelace');
+    expect(avatar.querySelector('[data-slot="avatar-fallback"]')).toHaveTextContent(/^A$/);
+    expect(avatar).not.toHaveTextContent('Ada Lovelace');
+    expect(avatar).toHaveAttribute('title', 'Ada Lovelace');
+  });
+
   it('renders nothing without a non-empty display name', () => {
     const { container, rerender } = render(<UserAvatar />);
     expect(container).toBeEmptyDOMElement();

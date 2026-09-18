@@ -307,11 +307,12 @@ describe('ShellModeProvider', () => {
     });
   });
 
-  it('starts AgentLibrary idle, then selectAgent → immutable', () => {
+  it('starts AgentLibrary idle with the Agents Library open, then selectAgent → immutable', () => {
     const { result } = renderHook(() => useShellMode(), {
       wrapper: wrap({ mode: 'AgentLibrary' }),
     });
     expect(result.current.mode.status).toBe('idle');
+    expect(result.current.libraryOpen).toBe(true);
     expect(result.current.isNewChatEnabled).toBe(false);
     expect(result.current.isComposerEnabled).toBe(false);
     expect(result.current.isLibraryEnabled).toBe(true);
@@ -325,12 +326,26 @@ describe('ShellModeProvider', () => {
       agentName: 'alpha',
       locked: false,
     });
+    expect(result.current.libraryOpen).toBe(false);
 
     const keyBefore = result.current.runtimeKey;
     act(() => result.current.clearChat());
     expect(result.current.mode.status).toBe('active');
     expect(result.current.mode).toMatchObject({ isMutable: false });
     expect(result.current.runtimeKey).not.toBe(keyBefore);
+  });
+
+  it('openLibraryHome returns AgentLibrary to the Agents screen', () => {
+    const { result } = renderHook(() => useShellMode(), {
+      wrapper: wrap({ mode: 'AgentLibrary' }),
+    });
+
+    act(() => result.current.selectAgent('alpha'));
+    expect(result.current.libraryOpen).toBe(false);
+
+    act(() => result.current.openLibraryHome());
+    expect(result.current.mode.status).toBe('idle');
+    expect(result.current.libraryOpen).toBe(true);
   });
 
   it('re-picking the current agent still changes runtimeKey', () => {

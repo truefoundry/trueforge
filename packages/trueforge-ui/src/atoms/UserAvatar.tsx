@@ -5,7 +5,8 @@ import { cn } from './lib/cn.js';
 import { Avatar, AvatarFallback } from './primitives/Avatar.js';
 
 export type UserAvatarProps = {
-  labeled?: boolean; // Uses the sidebar rail width instead of the compact chrome width
+  /** Sidebar rail: wider control with display name under the avatar. */
+  labeled?: boolean;
   className?: string;
 };
 
@@ -29,14 +30,16 @@ export function UserAvatar({ labeled = false, className }: UserAvatarProps) {
       title={displayName}
       className={cn(
         'flex min-w-0 shrink-0 flex-col items-center justify-center gap-0.5 text-text-secondary',
-        labeled ? 'w-14.5' : 'max-w-20',
+        labeled ? 'w-14.5' : undefined,
         className,
       )}
     >
       <Avatar size="sm">
         <AvatarFallback>{getUserInitials(displayName)}</AvatarFallback>
       </Avatar>
-      <span className="w-full truncate text-center text-[0.625rem] leading-tight">{displayName}</span>
+      {labeled ? (
+        <span className="w-full truncate text-center text-[0.625rem] leading-tight">{displayName}</span>
+      ) : null}
     </div>
   );
 }

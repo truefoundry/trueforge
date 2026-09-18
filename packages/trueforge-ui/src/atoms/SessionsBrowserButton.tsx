@@ -11,10 +11,13 @@ import { cn } from './lib/cn.js';
 
 export type SessionsBrowserButtonProps = {
   className?: string;
+  /** Sidebar rail: icon + label stacked. */
   compact?: boolean;
+  /** Header/footer chrome: icon-only control. */
+  toolbar?: boolean;
 };
 
-export function SessionsBrowserButton({ className, compact = false }: SessionsBrowserButtonProps) {
+export function SessionsBrowserButton({ className, compact = false, toolbar = false }: SessionsBrowserButtonProps) {
   const sessionsServer = useOptionalAgentSessionsServer();
   const shell = useOptionalShellMode();
   const { updateShareSearch } = useSessionShareSearch();
@@ -22,6 +25,42 @@ export function SessionsBrowserButton({ className, compact = false }: SessionsBr
   const enabled = isSessionsChromeEnabled({ sessions: sessionsServer }) && shell != null;
 
   if (!enabled) return null;
+
+  const openSessions = () => {
+    if (!sessionsOpen) {
+      const share = readSessionShareSearch(window.location.search);
+      updateShareSearch({
+        view: 'sessions',
+        agentId: null,
+        sessionId: null,
+        timeRange: share.timeRange ?? defaultSessionTimeRange(),
+      });
+    }
+    shell.setSessionsOpen(true);
+  };
+
+  if (toolbar) {
+    return (
+      <button
+        type="button"
+        aria-label="Sessions"
+        title="Sessions"
+        aria-current={sessionsOpen ? 'page' : undefined}
+        className={auiButtonClass({
+          variant: 'ghost',
+          size: 'icon',
+          className: cn(
+            sessionsOpen &&
+              'bg-primary-button-bg font-medium text-primary-button-text hover:bg-primary-button-hover hover:text-primary-button-text',
+            className,
+          ),
+        })}
+        onClick={openSessions}
+      >
+        <Icon name="message-square-text" />
+      </button>
+    );
+  }
 
   return (
     <div className={cn('relative min-w-0', compact ? 'flex justify-center' : 'w-full', className)}>
@@ -40,18 +79,7 @@ export function SessionsBrowserButton({ className, compact = false }: SessionsBr
               'bg-primary-button-bg font-medium text-primary-button-text hover:bg-primary-button-hover hover:text-primary-button-text',
           ),
         })}
-        onClick={() => {
-          if (!sessionsOpen) {
-            const share = readSessionShareSearch(window.location.search);
-            updateShareSearch({
-              view: 'sessions',
-              agentId: null,
-              sessionId: null,
-              timeRange: share.timeRange ?? defaultSessionTimeRange(),
-            });
-          }
-          shell.setSessionsOpen(true);
-        }}
+        onClick={openSessions}
       >
         <Icon name="message-square-text" size={compact ? 14 : undefined} />
         {compact ? (

@@ -12,7 +12,7 @@ import { Spinner } from '../atoms/primitives/Spinner.js';
 import { AgentConfigDrawerContainer } from '../containers/AgentConfigDrawerContainer.js';
 import { Thread } from '../containers/Thread.js';
 import { Icon } from '../icons/Icon.js';
-import { useOptionalShellMode } from '../server/ShellModeContext.js';
+import { shellIsCreateAgent, useOptionalShellMode } from '../server/ShellModeContext.js';
 import { useSlot } from '../theme/SlotsProvider.js';
 
 const TruefoundrySettingsBuilder = lazy(() => import('../containers/SettingsBuilder/index.js'));
@@ -36,16 +36,23 @@ export function StackChatPanel({ className, threadHeaderEnd }: StackChatPanelPro
   const ClearChatButton = useSlot('ClearChatButton');
   const AgentDetailsPage = useSlot('AgentDetailsPage');
   const AgentsLibrary = useSlot('AgentsLibrary');
+  const AgentsLibraryButton = useSlot('AgentsLibraryButton');
+  const SessionsBrowserButton = useSlot('SessionsBrowserButton');
+  const SchedulesButton = useSlot('SchedulesButton');
   const SessionsPage = useSlot('SessionsPage');
   const SaveAgentButton = useSlot('SaveAgentButton');
   const SelectAgentEmptyState = useSlot('SelectAgentEmptyState');
+  const DraftAgentConfigTrigger = useSlot('DraftAgentConfigTrigger');
   const UserAvatar = useSlot('UserAvatar');
   const isIdle = shell?.mode.status === 'idle';
   const settingsOpen = shell?.settingsOpen === true;
   const libraryOpen = shell?.libraryOpen === true;
   const sessionsOpen = shell?.sessionsOpen === true;
   const schedulesOpen = shell?.schedulesOpen === true;
+  const overlayOpen = settingsOpen || libraryOpen || sessionsOpen || schedulesOpen;
   const showNewActions = shell?.isNewChatEnabled !== false;
+  const isCreateAgent = shell != null && shellIsCreateAgent(shell.mode);
+  const showConfigReopen = isCreateAgent && !overlayOpen && shell?.agentConfigOpen !== true;
 
   useEffect(() => {
     if (isIdle) return;
@@ -70,6 +77,13 @@ export function StackChatPanel({ className, threadHeaderEnd }: StackChatPanelPro
     if (shell?.isComposerEnabled) {
       shell.openAgentBuilder();
     }
+  };
+
+  const handleBackToChat = () => {
+    shell?.setLibraryOpen(false);
+    shell?.setSessionsOpen(false);
+    shell?.setSchedulesOpen(false);
+    shell?.setSettingsOpen(false);
   };
 
   return (
@@ -156,6 +170,7 @@ export function StackChatPanel({ className, threadHeaderEnd }: StackChatPanelPro
               <>
                 <ClearChatButton />
                 <SaveAgentButton />
+                {showConfigReopen ? <DraftAgentConfigTrigger /> : null}
                 {threadHeaderEnd}
               </>
             }
@@ -163,25 +178,32 @@ export function StackChatPanel({ className, threadHeaderEnd }: StackChatPanelPro
           <div className="min-h-0 flex-1">{isIdle ? <SelectAgentEmptyState /> : <Thread />}</div>
         </>
       )}
-      {/* Stable mount: only ShellActions needs to survive Settings / list / thread; host end chrome stays in the thread header. */}
+      {/* Stable mount: ShellActions + nav survive Settings / list / thread; widget close stays visible on overlays. */}
       <footer className="flex shrink-0 items-center justify-between border-t border-border px-2 py-1.5">
         <div className="flex min-w-0 items-center gap-1">
-          {libraryOpen || schedulesOpen ? (
+          {overlayOpen ? (
             <button
               type="button"
               className={auiButtonClass({ variant: 'ghost', size: 'small' })}
-              onClick={() => {
-                shell?.setLibraryOpen(false);
-                shell?.setSchedulesOpen(false);
-              }}
+              onClick={handleBackToChat}
             >
               <Icon name="arrow-left" />
               Back to chat
             </button>
           ) : null}
+          {!overlayOpen ? (
+            <>
+              <AgentsLibraryButton toolbar />
+              <SessionsBrowserButton toolbar />
+              <SchedulesButton toolbar />
+            </>
+          ) : null}
           <UserAvatar />
         </div>
-        <ShellActions key="shell-actions" />
+        <div className="flex shrink-0 items-center gap-1">
+          <ShellActions key="shell-actions" />
+          {overlayOpen ? threadHeaderEnd : null}
+        </div>
       </footer>
       {shell?.agentConfigOpen ? (
         <aside

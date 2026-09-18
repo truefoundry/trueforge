@@ -215,17 +215,19 @@ export function ShellRouteSync({
           return;
         case 'root':
           shell.setSettingsOpen(false);
-          shell.setLibraryOpen(false);
           shell.setSchedulesOpen(false);
           switch (shell.agentConfigMode) {
             case 'AgentLibrary':
+              // Library-only root is the Agents Library screen.
               shell.openLibraryHome();
               return;
             case 'AgentComposer':
             case 'AgentLibraryWithComposer':
+              shell.setLibraryOpen(false);
               shell.openDraft();
               return;
             case 'SingleAgent':
+              shell.setLibraryOpen(false);
               shell.clearChat();
               return;
           }
@@ -271,6 +273,9 @@ export function ShellRouteSync({
       shell.openLibraryAgent(urlPlace.agentId);
     } else if (urlPlace.type === 'schedules') {
       shell.setSchedulesOpen(true);
+    } else if (urlPlace.type === 'root' && shell.agentConfigMode === 'AgentLibrary') {
+      // Library-only hosts land on Agents instead of the empty select state.
+      shell.openLibraryHome();
     } else {
       const chatPlace = deriveChatPlace(snapshot);
       if (!placesEqual(chatPlace, urlPlace)) applyPlace(urlPlace);
@@ -282,7 +287,11 @@ export function ShellRouteSync({
       applyHistoryAgentSearch(null);
     }
 
-    const desiredPlace: RoutePlace = settingsOnBoot ? { type: 'settings' } : urlPlace;
+    const desiredPlace: RoutePlace = settingsOnBoot
+      ? { type: 'settings' }
+      : urlPlace.type === 'root' && shell.agentConfigMode === 'AgentLibrary'
+        ? { type: 'library' }
+        : urlPlace;
     bootPlaceRef.current = placesEqual(place, desiredPlace) ? null : desiredPlace;
     const desiredPath = buildPath(desiredPlace, effectiveRoutes);
     const desiredSearch = updateHistoryAgentSearch(
