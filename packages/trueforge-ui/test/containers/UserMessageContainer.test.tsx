@@ -52,6 +52,7 @@ describe('UserMessageContainer', () => {
   });
 
   it('renders a file attachment chip above the text bubble', () => {
+    const fileData = `data:application/pdf;base64,${btoa('x'.repeat(1024))}`;
     renderUserMessage([
       {
         role: 'user',
@@ -68,7 +69,7 @@ describe('UserMessageContainer', () => {
                 type: 'file',
                 mimeType: 'application/pdf',
                 filename: 'report.pdf',
-                data: 'data:application/pdf;base64,AAAA',
+                data: fileData,
               },
             ],
           },
@@ -78,6 +79,8 @@ describe('UserMessageContainer', () => {
     expect(screen.getByText('See attached')).toBeInTheDocument();
     const chip = screen.getByText('report.pdf').closest("[data-slot='aui_attachment-chip']");
     expect(chip).toHaveStyle({ maxWidth: '12rem' });
+    expect(screen.getByText('1.00 KB')).toBeInTheDocument();
+    expect(document.querySelector('.aui-user-message-attachments-end')).toHaveClass('flex-wrap');
   });
 
   it('shows the action bar when the thread is idle', () => {
