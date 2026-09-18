@@ -5,10 +5,10 @@ sandbox image, and optional from-source **dev** images.
 
 | What                                | Trigger                                                                            | Workflow                                                                                       |
 | ----------------------------------- | ---------------------------------------------------------------------------------- | ---------------------------------------------------------------------------------------------- |
-| npm packages                        | Push to `main` (Changesets)                                                        | [`release.yml`](.github/workflows/release.yml)                                                 |
+| npm packages                        | Push to `main` or `release-v*` (Changesets)                                        | [`release.yml`](.github/workflows/release.yml)                                                 |
 | PyPI `trueforge-sdk`                | Same `mode=publish` run as npm (parallel OIDC job)                                 | [`release.yml`](.github/workflows/release.yml)                                                 |
 | Prod image + chart-release PR       | After `@truefoundry/trueforge` npm publish (reusable workflow), or manual dispatch | [`build-and-prepare-chart-release.yml`](.github/workflows/build-and-prepare-chart-release.yml) |
-| Chart tag, GitHub Release, OCI push | Merge of `release-chart/trueforge`, or push/dispatch of `charts/trueforge@*`       | [`release-chart.yml`](.github/workflows/release-chart.yml)                                     |
+| Chart tag, GitHub Release, OCI push | Auto-merge (or manual merge) of `release-chart/trueforge`, or tag/dispatch         | [`release-chart.yml`](.github/workflows/release-chart.yml)                                     |
 | Sandbox image + pin PR              | Push to `main` when `scripts/sandbox/**` changes, or dispatch                      | [`push-sandbox-image.yml`](.github/workflows/push-sandbox-image.yml)                           |
 | Dev (from-source) image             | Manual `workflow_dispatch`                                                         | [`build-dev-image.yml`](.github/workflows/build-dev-image.yml)                                 |
 
@@ -48,23 +48,24 @@ helm install trueforge oci://tfy.jfrog.io/tfy-helm/trueforge --version <chart-se
 ## Flow
 
 No `v*` tag publish. [`release.yml`](.github/workflows/release.yml) does both version and publish
-(`select-mode` → `version` \| `pack` → `publish`):
+(`select-mode` → `version` \| `pack` → `publish`) on `main` and on `release-v*`:
 
 1. Add a changeset in the same PR as the code change (`pnpm changeset`, or
    `pnpm change --bump patch --summary "…" <pkg>`). SDK regen already adds
    `@truefoundry/trueforge-sdk` via `pnpm changeset:sdk-regen`.
-2. Merge to `main`. Pending changesets → **Version Packages** PR
-   (`pnpm run version`). When `@truefoundry/trueforge-sdk` moves,
-   `scripts/version.mjs` mirrors that version into `python/trueforge_sdk` and
-   regenerates both SDKs. Review and merge.
+2. Merge to the release branch (`main` or `release-v*`). Pending changesets →
+   **Version Packages** PR targeting that branch (`pnpm run version`). When
+   `@truefoundry/trueforge-sdk` moves, `scripts/version.mjs` mirrors that version
+   into `python/trueforge_sdk` and regenerates both SDKs. Review and merge.
 3. With no pending changesets, **pack** (build/test) and **Windows npx smoke**
    run in parallel, then **npm publish** and **PyPI publish** run in parallel
    via trusted publishing (OIDC; no `NPM_TOKEN` / `PYPI_TOKEN`). PyPI skips when
    that `pyproject.toml` version is already published.
 4. If `@truefoundry/trueforge` was published, **Release** calls **Build and
-   prepare chart release** as a reusable workflow on the same commit (so a
-   newer `main` push cannot change the Dockerfile / shortSha). GitHub's
-   `workflow_dispatch` API only accepts a branch or tag name, not a SHA.
+   prepare chart release** on the same commit: image build, chart bot PR, then
+   (by default) wait for CI and squash-merge so OCI publish runs without a
+   human merge. GitHub's `workflow_dispatch` API only accepts a branch or tag
+   name, not a SHA.
 5. Pin dependents to exact versions during early `0.x`.
 
 `workflow_dispatch` on **Release** re-runs the same workflow.
@@ -134,18 +135,44 @@ pnpm clean && pnpm build && pnpm standalone:start
 npm publish @truefoundry/trueforge@X.Y.Z
   → call build-and-prepare-chart-release (same commit as publish)
   → build Dockerfile (APP_VERSION=X.Y.Z) → push X.Y.Z-<shortSha>
-  → open/update PR on branch release-chart/trueforge
-  → merge PR → tag + GH Release + OCI push (release-chart.yml)
+  → open/update chart bot PR (release-chart/trueforge or release-chart/trueforge-release-v*)
+  → wait for CI check → squash-merge (merge_chart_pr=true)
+  → tag + GH Release + OCI push (release-chart.yml)
 
-manual rebuild (same or other app version)
-  → workflow_dispatch build-and-prepare-chart-release
-  → same PR path
+manual rebuild (inspect without merge)
+  → workflow_dispatch build-and-prepare-chart-release (merge_chart_pr=false)
+  → same PR path; merge by hand when ready
 
 chart-only
   → human PR bumps Chart.yaml version
   → human tags charts/trueforge@A.B.C (or gh release create)
   → release-chart.yml publishes OCI (no image rebuild)
 ```
+
+## Hotfix release branches
+
+Cut a line from a shipped commit so a patch does not take tip-of-`main`:
+
+```bash
+git fetch origin
+git checkout -b release-vX.Y.Z <shipped-sha>
+# or from a chart tag:
+# git checkout -b release-vX.Y.Z charts/trueforge@A.B.C
+git push -u origin release-vX.Y.Z
+```
+
+Then cherry-pick the fix + changeset onto that branch, merge the Version Packages
+PR that targets `release-vX.Y.Z`, and let **Release** publish npm/PyPI and auto
+chart OCI (chart SemVer stays on that line: same `X.Y.Z-rc.*` or stable `X.Y.*`).
+Pass the resulting chart SemVer to helm-charts `release-start` as
+`trueforge_chart_version` (control-plane pin).
+
+Org rules still require human approval on Version Packages PRs into `release-v*`.
+Chart auto-merge needs the limited `trueforge-dev-bot` ruleset bypass
+(`pull_request` mode; required CI checks on a no-bypass ruleset).
+
+Smoke-test the first hotfix npm/PyPI publish: trusted publishers bind to
+`release.yml` with no Environment name.
 
 ## Dockerfiles
 
@@ -162,13 +189,21 @@ even when `main` has moved on.
 [`build-and-prepare-chart-release.yml`](.github/workflows/build-and-prepare-chart-release.yml)
 (`workflow_call` from **Release**, or manual `workflow_dispatch`):
 
-| Input                | Default                   | Meaning                                                              |
-| -------------------- | ------------------------- | -------------------------------------------------------------------- |
-| `app_version`        | `Chart.yaml` `appVersion` | npm version to install into the image                                |
-| `update_app_version` | `false`                   | Also write that version into `Chart.yaml` `appVersion` on the bot PR |
+| Input                | Default                            | Meaning                                                              |
+| -------------------- | ---------------------------------- | -------------------------------------------------------------------- |
+| `app_version`        | `Chart.yaml` `appVersion`          | npm version to install into the image                                |
+| `update_app_version` | `false`                            | Also write that version into `Chart.yaml` `appVersion` on the bot PR |
+| `merge_chart_pr`     | `true` (call) / `false` (dispatch) | Wait for CI `check` and squash-merge the chart bot PR                |
 
 Always: build/push `{appVersion}-{shortSha}`, patch-bump chart `version`, set `image.tag`,
-open/update one PR on `release-chart/trueforge`.
+open/update one PR on `release-chart/trueforge` (base `main`) or
+`release-chart/trueforge-<release-v*>` (hotfix base). Chart version baseline is
+`max(Chart.yaml, highest tag on the same line)`: same `X.Y.Z-rc.*` cycle stays
+monotonic; a stable `X.Y.*` hotfix ignores newer majors/RC lines (e.g. `0.2.0`
+→ `0.2.1` while `main` is on `0.3.0-rc.*`). Image builds may run per-ref in
+parallel; chart version assign + PR open/merge is globally serialized with a
+multi-run pending queue (`queue: max`), and auto-merge waits until the
+`charts/trueforge@*` tag exists before the next run starts.
 
 ```bash
 gh workflow run build-and-prepare-chart-release.yml
@@ -176,25 +211,28 @@ gh workflow run build-and-prepare-chart-release.yml -f app_version=0.1.0
 # after npm publish of a new app version:
 gh workflow run build-and-prepare-chart-release.yml \
   -f app_version=0.1.0 -f update_app_version=true
+# inspect without auto-merge:
+gh workflow run build-and-prepare-chart-release.yml -f merge_chart_pr=false
 ```
 
 You may edit chart SemVer (minor/major) on the PR before merging; the tag follows
 `Chart.yaml` `version` at merge time. Each run rebuilds the `release-chart/trueforge` branch
-from `main`, but a chart `version` on the branch that outranks the patch bump is carried over,
+from the chart base, but a chart `version` on the branch that outranks the patch bump is carried over,
 so a manual bump survives later image rebuilds. Other manual edits on that branch do not —
-commit them to `main` instead.
+commit them to the base branch instead.
 
 ## Publish Helm chart
 
 [`release-chart.yml`](.github/workflows/release-chart.yml) is one job with three entry points:
 
-| Trigger                                                   | What it does                                                        |
-| --------------------------------------------------------- | ------------------------------------------------------------------- |
-| Merged PR from `release-chart/trueforge` (same repo only) | Create `charts/trueforge@<version>` + GitHub Release, then OCI push |
-| Push of tag `charts/trueforge@*`                          | OCI push only (tag already exists)                                  |
-| `workflow_dispatch` with `tag=`                           | OCI push for an existing tag (retry)                                |
+| Trigger                                                                                            | What it does                                                        |
+| -------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------- |
+| Merged PR from `release-chart/trueforge` or `release-chart/trueforge-*` into `main` / `release-v*` | Create `charts/trueforge@<version>` + GitHub Release, then OCI push |
+| Push of tag `charts/trueforge@*`                                                                   | OCI push only (tag already exists)                                  |
+| `workflow_dispatch` with `tag=`                                                                    | OCI push for an existing tag (retry)                                |
 
-Only the `release-chart/trueforge` branch auto-tags. Ordinary merges never create chart tags.
+Only `release-chart/trueforge` (main) and `release-chart/trueforge-*` (hotfix)
+heads auto-tag. Ordinary merges never create chart tags.
 
 Chart-only example:
 

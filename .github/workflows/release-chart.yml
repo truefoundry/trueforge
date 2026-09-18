@@ -5,7 +5,9 @@ name: Publish Helm chart
 on:
   pull_request:
     types: [closed]
-    branches: [main]
+    branches:
+      - main
+      - 'release-v*'
   push:
     tags:
       - 'charts/trueforge@*'
@@ -29,7 +31,10 @@ jobs:
       github.event_name != 'pull_request' ||
       (
         github.event.pull_request.merged == true &&
-        github.event.pull_request.head.ref == 'release-chart/trueforge' &&
+        (
+          github.event.pull_request.head.ref == 'release-chart/trueforge' ||
+          startsWith(github.event.pull_request.head.ref, 'release-chart/trueforge-')
+        ) &&
         github.event.pull_request.head.repo.full_name == github.repository
       )
     runs-on: ubuntu-latest

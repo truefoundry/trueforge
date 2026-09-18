@@ -18,6 +18,11 @@ on:
         required: false
         type: boolean
         default: false
+      merge_chart_pr:
+        description: After opening the chart PR, wait for CI and squash-merge it
+        required: false
+        type: boolean
+        default: true
   workflow_dispatch:
     inputs:
       app_version:
@@ -29,9 +34,14 @@ on:
         required: false
         type: boolean
         default: false
+      merge_chart_pr:
+        description: After opening the chart PR, wait for CI and squash-merge it
+        required: false
+        type: boolean
+        default: false
 
 concurrency:
-  group: release-image-and-chart
+  group: release-image-and-chart-${{ github.ref_name }}
   cancel-in-progress: false
 
 permissions: {}
@@ -45,6 +55,9 @@ jobs:
       image_tag: ${{ steps.resolve.outputs.image_tag }}
       update_app_version: ${{ steps.resolve.outputs.update_app_version }}
       short_sha: ${{ steps.resolve.outputs.short_sha }}
+      chart_base: ${{ steps.resolve.outputs.chart_base }}
+      pr_branch: ${{ steps.resolve.outputs.pr_branch }}
+      merge_chart_pr: ${{ steps.resolve.outputs.merge_chart_pr }}
     permissions:
       contents: read
     steps:
@@ -61,6 +74,8 @@ jobs:
         env:
           INPUT_APP_VERSION: ${{ inputs.app_version }}
           INPUT_UPDATE_APP_VERSION: ${{ inputs.update_app_version }}
+          INPUT_MERGE_CHART_PR: ${{ inputs.merge_chart_pr }}
+          REF_NAME: ${{ github.ref_name }}
         run: |
           set -euo pipefail
           CHART_APP=$(yq -r '.appVersion' charts/trueforge/Chart.yaml | tr -d '"')
@@ -86,11 +101,28 @@ jobs:
           else
             UPDATE_OUT=false
           fi
+          MERGE_IN="${INPUT_MERGE_CHART_PR:-false}"
+          if [[ "$MERGE_IN" == "true" ]]; then
+            MERGE_OUT=true
+          else
+            MERGE_OUT=false
+          fi
+          if [[ "$REF_NAME" == release-v* ]]; then
+            CHART_BASE="$REF_NAME"
+            # One bot head per base so main and hotfix runs cannot clobber each other.
+            PR_BRANCH="release-chart/trueforge-${CHART_BASE}"
+          else
+            CHART_BASE=main
+            PR_BRANCH=release-chart/trueforge
+          fi
           echo "app_version=$APP_VERSION" >> "$GITHUB_OUTPUT"
           echo "image_tag=$IMAGE_TAG" >> "$GITHUB_OUTPUT"
           echo "short_sha=$SHORT_SHA" >> "$GITHUB_OUTPUT"
           echo "update_app_version=$UPDATE_OUT" >> "$GITHUB_OUTPUT"
-          echo "Resolved APP_VERSION=$APP_VERSION IMAGE_TAG=$IMAGE_TAG update_app_version=$UPDATE_OUT"
+          echo "chart_base=$CHART_BASE" >> "$GITHUB_OUTPUT"
+          echo "pr_branch=$PR_BRANCH" >> "$GITHUB_OUTPUT"
+          echo "merge_chart_pr=$MERGE_OUT" >> "$GITHUB_OUTPUT"
+          echo "Resolved APP_VERSION=$APP_VERSION IMAGE_TAG=$IMAGE_TAG update_app_version=$UPDATE_OUT chart_base=$CHART_BASE pr_branch=$PR_BRANCH merge_chart_pr=$MERGE_OUT"
 
   build:
     name: Build and push server image
@@ -119,11 +151,19 @@ jobs:
     name: Open chart release PR
     needs: [resolve, build]
     runs-on: ubuntu-latest
+    # Chart SemVer lines can advance in parallel in theory, but tag publish and
+    # PR merge still race on shared git state; serialize this job. Default
+    # queue is a single pending slot — a third ref would cancel the waiter —
+    # so queue: max keeps main + multiple release-v* runs lined up.
+    concurrency:
+      group: release-chart-version-and-pr
+      cancel-in-progress: false
+      queue: max
     permissions:
       contents: write
       pull-requests: write
     env:
-      PR_BRANCH: release-chart/trueforge
+      PR_BRANCH: ${{ needs.resolve.outputs.pr_branch }}
     steps:
       - id: app-token
         uses: actions/create-github-app-token@v3
@@ -135,6 +175,8 @@ jobs:
         uses: actions/checkout@v7
         with:
           token: ${{ steps.app-token.outputs.token }}
+          # Full history so charts/trueforge@* tags are available for the version baseline.
+          fetch-depth: 0
 
       - name: Install yq
         run: |
@@ -159,10 +201,32 @@ jobs:
             git fetch --depth=1 origin "$PR_BRANCH"
             PR_VERSION=$(git show FETCH_HEAD:charts/trueforge/Chart.yaml | yq -r '.version')
           fi
-          VERSION=$(bash scripts/resolve-chart-version.sh "$CURRENT" "$APP_VERSION" "$PR_VERSION")
+
+          # Floor on the highest published tag on this line only:
+          # - RC Chart.yaml X.Y.Z-rc.* → max X.Y.Z-rc.* (same RC cycle)
+          # - stable Chart.yaml X.Y.* → max X.Y.* stable (not a newer major/RC)
+          # Stale hotfix cuts still avoid tag reuse without jumping lines.
+          git fetch --tags --force origin
+          HIGHEST_TAG=$(
+            git tag -l 'charts/trueforge@*' |
+              sed 's|^charts/trueforge@||' |
+              bash scripts/highest-chart-tag-on-line.sh "$CURRENT" || true
+          )
+          BASELINE=$CURRENT
+          if [[ -n "$HIGHEST_TAG" ]]; then
+            BASELINE=$(printf '%s\n%s\n' "$CURRENT" "$HIGHEST_TAG" | sort -V | tail -1)
+          fi
+
+          VERSION=$(bash scripts/resolve-chart-version.sh "$BASELINE" "$APP_VERSION" "$PR_VERSION")
+
+          if [[ "$BASELINE" != "$CURRENT" ]]; then
+            echo "Using line tag baseline $BASELINE (Chart.yaml was $CURRENT)"
+          fi
+
           if [[ -n "$PR_VERSION" && "$VERSION" == "$PR_VERSION" ]]; then
             echo "Keeping chart version $PR_VERSION from $PR_BRANCH"
           fi
+
           export VERSION IMAGE_TAG APP_VERSION
           yq -i '.version = strenv(VERSION)' charts/trueforge/Chart.yaml
           yq -i '.image.tag = strenv(IMAGE_TAG)' charts/trueforge/values.yaml
@@ -174,11 +238,12 @@ jobs:
           echo "app_version=$APP_VERSION" >> "$GITHUB_OUTPUT"
 
       - name: Open or update chart-release PR
+        id: open-pr
         uses: peter-evans/create-pull-request@v8
         with:
           token: ${{ steps.app-token.outputs.token }}
           branch: ${{ env.PR_BRANCH }}
-          base: main
+          base: ${{ needs.resolve.outputs.chart_base }}
           commit-message: 'release(chart): ${{ steps.chart.outputs.version }}'
           title: 'release(chart): ${{ steps.chart.outputs.version }} (image ${{ needs.resolve.outputs.image_tag }})'
           body: |
@@ -189,9 +254,50 @@ jobs:
             | Chart version | `${{ steps.chart.outputs.version }}` |
             | appVersion | `${{ steps.chart.outputs.app_version }}` |
             | image.tag | `${{ needs.resolve.outputs.image_tag }}` |
+            | Base | `${{ needs.resolve.outputs.chart_base }}` |
 
             Merging this PR creates `charts/trueforge@${{ steps.chart.outputs.version }}`,
             creates a GitHub Release, and publishes the OCI Helm chart.
           add-paths: |
             charts/trueforge/Chart.yaml
             charts/trueforge/values.yaml
+
+      - name: Wait for CI and merge chart PR
+        if: >-
+          needs.resolve.outputs.merge_chart_pr == 'true' &&
+          steps.open-pr.outputs.pull-request-number != ''
+        env:
+          GH_TOKEN: ${{ steps.app-token.outputs.token }}
+          PR_NUMBER: ${{ steps.open-pr.outputs.pull-request-number }}
+          PR_BRANCH: ${{ env.PR_BRANCH }}
+          CHART_VERSION: ${{ steps.chart.outputs.version }}
+        run: |
+          set -euo pipefail
+          HEAD_REF=$(gh pr view "$PR_NUMBER" --json headRefName --jq .headRefName)
+          if [[ "$HEAD_REF" != "$PR_BRANCH" ]]; then
+            echo "Refusing to merge PR #$PR_NUMBER with unexpected head $HEAD_REF" >&2
+            exit 1
+          fi
+          # Checks usually appear within ~10s of PR open.
+          sleep 20
+          for _ in $(seq 1 30); do
+            gh pr checks "$PR_NUMBER" >/dev/null 2>&1 && break
+            sleep 5
+          done
+          gh pr checks "$PR_NUMBER" --watch --fail-fast
+          if ! gh pr merge "$PR_NUMBER" --squash; then
+            echo "Merge blocked. Add limited trueforge-dev-bot ruleset bypass (pull_request mode; keep required checks on a no-bypass ruleset)." >&2
+            exit 1
+          fi
+          # Hold job concurrency until release-chart.yml creates the tag, so the
+          # next queued run's baseline includes this SemVer.
+          TAG="charts/trueforge@${CHART_VERSION}"
+          for _ in $(seq 1 60); do
+            if git ls-remote --exit-code --tags origin "refs/tags/${TAG}" >/dev/null 2>&1; then
+              echo "Tag ${TAG} is visible on origin"
+              exit 0
+            fi
+            sleep 10
+          done
+          echo "Timed out waiting for ${TAG} after merge" >&2
+          exit 1

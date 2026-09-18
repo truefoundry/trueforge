@@ -3,7 +3,7 @@
 # npm and PyPI trusted publishers are bound to `release.yml`.
 # Do not rename this file without updating every package on npmjs.com and PyPI.
 #
-# On every push to main, changesets/action/select-mode chooses:
+# On every push to main or release-v*, changesets/action/select-mode chooses:
 #   - pending `.changeset/*.md` → version job opens/updates the Version Packages PR
 #     (install only; that PR is gated by CI.yml). When @truefoundry/trueforge-sdk
 #     moves, scripts/version.mjs mirrors that version into python/trueforge_sdk and rebakes Fern.
@@ -19,7 +19,9 @@ name: Release
 
 on:
   push:
-    branches: [main]
+    branches:
+      - main
+      - 'release-v*'
   workflow_dispatch:
 
 concurrency:
@@ -329,3 +331,4 @@ jobs:
     with:
       app_version: ${{ needs.publish.outputs.trueforge_version }}
       update_app_version: true
+      merge_chart_pr: true

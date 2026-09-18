@@ -40,7 +40,7 @@
     "start:controller": "cross-env STANDALONE=false NODE_ENV=production pnpm --filter @truefoundry/trueforge start:controller",
     "push-sandbox-image-to-daytona": "pnpm --filter @truefoundry/trueforge push-sandbox-image-to-daytona",
     "test:frontend": "pnpm --filter frontend test",
-    "test:chart-version": "bash tests/scripts/resolve-chart-version.test.sh",
+    "test:chart-version": "bash tests/scripts/resolve-chart-version.test.sh && bash tests/scripts/highest-chart-tag-on-line.test.sh",
     "test:trueforge-core": "pnpm --filter @truefoundry/trueforge-core test",
     "test:trueforge": "pnpm --filter @truefoundry/trueforge test",
     "test:local-sandbox:contract": "pnpm --filter @truefoundry/trueforge test:local-sandbox:contract",
