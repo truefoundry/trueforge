@@ -10,6 +10,7 @@ import {
   type GetExternalIdsByIdsInput,
   type GetOwnedIdsInput,
   type IAgentStore,
+  type ListAgentIdsUsingSandboxEnvironmentInput,
   type ListAgentsInput,
   type UpdateAgentInput,
 } from '../db/agentStore';
@@ -17,6 +18,7 @@ import { PostgresAgentStore } from '../db/postgres/agent-store/PostgresAgentStor
 import type { Database } from '../db/postgres/types';
 import { AGENT_DESCRIPTION_MAX_LENGTH } from '../schemas/agent';
 import { callerAccessToken, type ResolveAccessToken } from './accessToken';
+import { trueFoundryManaged } from './errors';
 import {
   TrueFoundryServiceFoundryServerClient,
   type PutRemoteAgentInput,
@@ -248,5 +250,14 @@ export class TrueFoundryAgentStore implements IAgentStore<Transaction<Database>>
       }
       await this.#inner.deleteAgent(input, txn);
     });
+  }
+
+  listAgentIdsUsingSandboxEnvironment(
+    input: ListAgentIdsUsingSandboxEnvironmentInput,
+    transaction?: Transaction<Database>,
+  ): Promise<readonly string[]> {
+    void input;
+    void transaction;
+    return trueFoundryManaged();
   }
 }

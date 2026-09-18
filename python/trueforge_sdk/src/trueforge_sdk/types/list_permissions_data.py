@@ -12,7 +12,7 @@ from .resource_permission import ResourcePermission
 class ListPermissionsData(UncheckedBaseModel):
     permissions: typing.Dict[str, typing.List[ResourcePermission]] = pydantic.Field()
     """
-    For agent/schedule/session: keyed by resource id. For tenant: keyed by entity kind (e.g. `agent` → `CREATE`).
+    For agent/schedule/session: keyed by resource id. For tenant: keyed by entity kind (e.g. `agent` or `sandbox-environment` → `CREATE`).
     """
 
     type: PermissionResourceType

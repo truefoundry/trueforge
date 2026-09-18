@@ -15,6 +15,7 @@ import {
 } from '../db/agentStore';
 import type { IMcpServerStore } from '../db/mcpServerStore';
 import type { IModelProviderStore } from '../db/modelProviderStore';
+import type { ISandboxEnvironmentStore } from '../db/sandboxEnvironmentStore';
 import type { ISandboxProviderStore } from '../db/sandboxProviderStore';
 import type { ISkillStore } from '../db/skillStore';
 import type { WithTransaction } from '../db/transaction';
@@ -38,6 +39,7 @@ export interface AgentsRouterDeps<TTransaction> {
   resolveMcpServerStore: (c: Context) => IMcpServerStore<TTransaction>;
   resolveSkillStore: ResolveSkillStore<TTransaction>;
   resolveSandboxProviderStore: (c: Context) => ISandboxProviderStore<TTransaction>;
+  resolveSandboxEnvironmentStore: (c: Context) => ISandboxEnvironmentStore<TTransaction>;
   withTransaction: WithTransaction<TTransaction>;
   resolveRequestContext: ResolveRequestContext;
   authorizer: Authorizer;
@@ -60,22 +62,28 @@ async function validateManifest<TTransaction>({
   mcpServerStore,
   skillStore,
   sandboxProviderStore,
+  sandboxEnvironmentStore,
   tenant_id,
+  subject_id,
 }: {
   spec: AgentSpec;
   modelProviderStore: IModelProviderStore<TTransaction>;
   mcpServerStore: IMcpServerStore<TTransaction>;
   skillStore: ISkillStore<TTransaction>;
   sandboxProviderStore: ISandboxProviderStore<TTransaction>;
+  sandboxEnvironmentStore: ISandboxEnvironmentStore<TTransaction>;
   tenant_id: string;
+  subject_id: string;
 }): Promise<AgentSpec> {
   await validateAgentSpec({
     spec,
     tenant_id,
+    subject_id,
     modelProviderStore,
     mcpServerStore,
     skillStore,
     sandboxProviderStore,
+    sandboxEnvironmentStore,
   });
   return spec;
 }
@@ -112,7 +120,9 @@ export function createAgentsRouter<TTransaction>(deps: AgentsRouterDeps<TTransac
       mcpServerStore: deps.resolveMcpServerStore(c),
       skillStore: deps.resolveSkillStore(c),
       sandboxProviderStore: deps.resolveSandboxProviderStore(c),
+      sandboxEnvironmentStore: deps.resolveSandboxEnvironmentStore(c),
       tenant_id: requestContext.tenant_id,
+      subject_id: requestContext.subject.id,
     });
     try {
       const record = await deps.resolveAgentStore(c).createAgent({
@@ -216,7 +226,9 @@ export function createAgentsRouter<TTransaction>(deps: AgentsRouterDeps<TTransac
       mcpServerStore: deps.resolveMcpServerStore(c),
       skillStore: deps.resolveSkillStore(c),
       sandboxProviderStore: deps.resolveSandboxProviderStore(c),
+      sandboxEnvironmentStore: deps.resolveSandboxEnvironmentStore(c),
       tenant_id: requestContext.tenant_id,
+      subject_id: requestContext.subject.id,
     });
     const record = await deps.resolveAgentStore(c).updateAgent({
       tenant_id: requestContext.tenant_id,

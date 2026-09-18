@@ -14,9 +14,10 @@ import { HTTPException } from 'hono/http-exception';
 import { join } from 'node:path';
 import type { Logger } from 'winston';
 import { z } from 'zod';
-import configuration from '../config';
+import configuration, { isTrueFoundryModeEnabled } from '../config';
 import type { IMcpServerStore, IMcpServerWithAuthStore } from '../db/mcpServerStore';
 import type { IModelProviderStore } from '../db/modelProviderStore';
+import type { ISandboxEnvironmentStore } from '../db/sandboxEnvironmentStore';
 import type { ISandboxProviderStore } from '../db/sandboxProviderStore';
 import type { ISkillStore } from '../db/skillStore';
 import { LocalSandboxProvider } from '../sandbox/local/provider/LocalSandboxProvider';
@@ -290,17 +291,21 @@ export function buildTurnSandbox(input: {
 export async function validateAgentSpec({
   spec,
   tenant_id,
+  subject_id,
   modelProviderStore,
   mcpServerStore,
   skillStore,
   sandboxProviderStore,
+  sandboxEnvironmentStore,
 }: {
   spec: AgentSpec;
   tenant_id: string;
+  subject_id: string;
   modelProviderStore: IModelProviderStore;
   mcpServerStore: IMcpServerStore;
   skillStore: ISkillStore;
   sandboxProviderStore: ISandboxProviderStore;
+  sandboxEnvironmentStore: ISandboxEnvironmentStore;
 }): Promise<void> {
   const resolved = await getModelDetails({
     tenant_id,
@@ -345,6 +350,20 @@ export async function validateAgentSpec({
 
   const wantsSandbox = spec.config.sandbox.enabled;
   const hasSkills = requestedSkills.length > 0;
+  const environmentName = spec.config.sandbox.environment;
+  if (environmentName) {
+    if (!wantsSandbox) {
+      throw new HTTPException(422, {
+        message: 'sandbox.environment requires sandbox.enabled to be true',
+      });
+    }
+    if (isTrueFoundryModeEnabled(configuration)) {
+      throw new HTTPException(422, {
+        message: 'sandbox.environment is not supported in TrueFoundry mode',
+      });
+    }
+  }
+
   if (wantsSandbox || hasSkills) {
     const record = await sandboxProviderStore.getSandboxProvider(tenant_id);
     if (record === undefined && !isLocalSandboxFallbackEnabled()) {
@@ -354,9 +373,30 @@ export async function validateAgentSpec({
           : 'sandbox is enabled but no sandbox provider is configured — PUT /settings/sandbox-providers',
       });
     }
+    if (environmentName) {
+      if (record?.manifest.type !== 'daytona') {
+        throw new HTTPException(422, {
+          message: 'sandbox.environment requires a configured Daytona sandbox provider',
+        });
+      }
+      const environment = await sandboxEnvironmentStore.getSandboxEnvironment({
+        tenant_id,
+        name: environmentName,
+      });
+      if (environment?.created_by_subject.subject_id !== subject_id) {
+        throw new HTTPException(422, {
+          message: `Unknown sandbox environment "${environmentName}" — not found or not owned by the caller`,
+        });
+      }
+      if (environment.manifest.provider !== record.name) {
+        throw new HTTPException(422, {
+          message: `Sandbox environment "${environmentName}" provider does not match the configured sandbox provider`,
+        });
+      }
+    }
   }
 
-  if (spec.config.web_search.enabled && resolveWebSearchProvider() === undefined) {
+  if (spec.config.web_search.enabled && !resolveWebSearchProvider()) {
     throw new HTTPException(422, {
       message: 'web_search is enabled but no web-search provider is configured',
     });

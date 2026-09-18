@@ -16,6 +16,7 @@ import { SqliteAgentStore } from '../../../src/db/sqlite/agent-store/SqliteAgent
 import { createSqliteDb } from '../../../src/db/sqlite/client';
 import { SqliteMcpServerStore } from '../../../src/db/sqlite/mcp-server-store/SqliteMcpServerStore';
 import { SqliteModelProviderStore } from '../../../src/db/sqlite/model-provider-store/SqliteModelProviderStore';
+import { SqliteSandboxEnvironmentStore } from '../../../src/db/sqlite/sandbox-environment-store/SqliteSandboxEnvironmentStore';
 import { SqliteSandboxProviderStore } from '../../../src/db/sqlite/sandbox-provider-store/SqliteSandboxProviderStore';
 import { SqliteSessionMetricsStore } from '../../../src/db/sqlite/session-metrics/SqliteSessionMetricsStore';
 import { SqliteSessionStore } from '../../../src/db/sqlite/session-store/SqliteSessionStore';
@@ -96,6 +97,7 @@ describe('sessions HTTP agent binding', () => {
       resolveSkillStore: () => skillStore,
       resolveAgentStore: () => agentStore,
       resolveSandboxProviderStore: () => sandboxProviderStore,
+      resolveSandboxEnvironmentStore: () => new SqliteSandboxEnvironmentStore(db),
       redis: createClient(),
       requestReplyRouter: new RequestReplyRouter(),
       resolveRequestContext: () => STANDALONE_REQUEST_CONTEXT,

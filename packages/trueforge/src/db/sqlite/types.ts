@@ -28,6 +28,7 @@ import type { CurrentContextUsage } from '@truefoundry/trueforge-core/core/runti
 import type { ColumnType, Generated, JSONColumnType } from 'kysely';
 import type { McpServerManifest } from '../../schemas/mcpServer';
 import type { ModelProviderManifest } from '../../schemas/modelProvider';
+import type { StoredSandboxEnvironmentManifest } from '../../schemas/sandboxEnvironment';
 import type {
   SandboxBuildMetadata,
   SandboxBuildStatus,
@@ -222,6 +223,22 @@ export interface SandboxProviderTable {
 }
 
 /**
+ * Configured sandbox environments — mirrors the Postgres `sandbox_environment` table.
+ * PRIMARY KEY (id); UNIQUE (tenant_id, name).
+ */
+export interface SandboxEnvironmentTable {
+  id: string;
+  tenant_id: string;
+  name: string;
+  description: string | null;
+  /** StoredSandboxEnvironmentManifest document; replaced whole on every update */
+  manifest: JsonbColumn<StoredSandboxEnvironmentManifest>;
+  created_by_subject: JsonbColumn<CreatedBySubject>;
+  created_at: string;
+  updated_at: string;
+}
+
+/**
  * Configured agents — mirrors the Postgres `agent` table.
  * PRIMARY KEY (id); UNIQUE (tenant_id, name).
  */
@@ -347,6 +364,7 @@ export interface Database {
   model_provider: ModelProviderTable;
   skill: SkillTable;
   sandbox_provider: SandboxProviderTable;
+  sandbox_environment: SandboxEnvironmentTable;
   agent: AgentTable;
   schedule: ScheduleTable;
   schedule_run: ScheduleRunTable;

@@ -3,7 +3,7 @@
 import type * as TrueForge from "../index.js";
 
 export interface ListPermissionsData {
-    /** For agent/schedule/session: keyed by resource id. For tenant: keyed by entity kind (e.g. `agent` → `CREATE`). */
+    /** For agent/schedule/session: keyed by resource id. For tenant: keyed by entity kind (e.g. `agent` or `sandbox-environment` → `CREATE`). */
     permissions: Record<string, TrueForge.ResourcePermission[]>;
     type: TrueForge.PermissionResourceType;
 }

@@ -22,6 +22,7 @@ import {
   type GetExternalIdsByIdsInput,
   type GetOwnedIdsInput,
   type IAgentStore,
+  type ListAgentIdsUsingSandboxEnvironmentInput,
   type ListAgentsInput,
   type UpdateAgentInput,
 } from '../../agentStore';
@@ -211,6 +212,20 @@ export class SqliteAgentStore implements IAgentStore<Transaction<Database>> {
   async deleteAgent(input: DeleteAgentInput, transaction?: Transaction<Database>): Promise<void> {
     const db = transaction ?? this.#db;
     await db.deleteFrom('agent').where('tenant_id', '=', input.tenant_id).where('id', '=', input.id).execute();
+  }
+
+  async listAgentIdsUsingSandboxEnvironment(
+    input: ListAgentIdsUsingSandboxEnvironmentInput,
+    transaction?: Transaction<Database>,
+  ): Promise<readonly string[]> {
+    const db = transaction ?? this.#db;
+    const rows = await db
+      .selectFrom('agent')
+      .select('id')
+      .where('tenant_id', '=', input.tenant_id)
+      .where(sql`json_extract(manifest, '$.config.sandbox.environment')`, '=', input.environment_name)
+      .execute();
+    return rows.map(row => row.id);
   }
 
   /** Map unique violations to external_id vs name conflicts. */

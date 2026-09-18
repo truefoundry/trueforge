@@ -3,6 +3,8 @@
 export interface SandboxConfig {
     /** Give the agent a sandbox. Required for skills and Code Mode. */
     enabled: boolean;
+    /** Caller-owned sandbox environment name. Omit to use the tenant provider defaults. */
+    environment?: string;
     /** Allow downloading agent-produced files via the turn download endpoint. Default: true. */
     fileDownloads?: boolean;
 }

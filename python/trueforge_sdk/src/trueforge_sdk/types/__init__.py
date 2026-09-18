@@ -57,8 +57,18 @@ if typing.TYPE_CHECKING:
     from .created_by_subject import CreatedBySubject
     from .cron_expression import CronExpression
     from .custom_model_provider import CustomModelProvider
+    from .daytona_docker_image import DaytonaDockerImage
+    from .daytona_gpu_type import DaytonaGpuType
+    from .daytona_sandbox_environment_image import DaytonaSandboxEnvironmentImage
+    from .daytona_sandbox_environment_lifecycle import DaytonaSandboxEnvironmentLifecycle
+    from .daytona_sandbox_environment_networking import DaytonaSandboxEnvironmentNetworking
+    from .daytona_sandbox_environment_resources import DaytonaSandboxEnvironmentResources
+    from .daytona_sandbox_environment_resources_gpu_type import DaytonaSandboxEnvironmentResourcesGpuType
     from .daytona_sandbox_provider_auth import DaytonaSandboxProviderAuth
+    from .daytona_snapshot_image import DaytonaSnapshotImage
+    from .daytona_trueforge_default_image import DaytonaTrueforgeDefaultImage
     from .delete_agent_response import DeleteAgentResponse
+    from .delete_sandbox_environment_response import DeleteSandboxEnvironmentResponse
     from .delete_schedule_response import DeleteScheduleResponse
     from .dynamic_sub_agents_config import DynamicSubAgentsConfig
     from .extended_chunk_delta_tool_call import ExtendedChunkDeltaToolCall
@@ -76,6 +86,7 @@ if typing.TYPE_CHECKING:
     from .get_me_subject import GetMeSubject
     from .get_model_provider_catalog_response import GetModelProviderCatalogResponse
     from .get_model_provider_response import GetModelProviderResponse
+    from .get_sandbox_environment_response import GetSandboxEnvironmentResponse
     from .get_sandbox_provider_catalog_response import GetSandboxProviderCatalogResponse
     from .get_sandbox_provider_response import GetSandboxProviderResponse
     from .get_schedule_response import GetScheduleResponse
@@ -100,6 +111,7 @@ if typing.TYPE_CHECKING:
     from .list_model_providers_response import ListModelProvidersResponse
     from .list_permissions_data import ListPermissionsData
     from .list_permissions_response import ListPermissionsResponse
+    from .list_sandbox_environments_response import ListSandboxEnvironmentsResponse
     from .list_schedule_runs_response import ListScheduleRunsResponse
     from .list_schedules_response import ListSchedulesResponse
     from .list_session_events_response import ListSessionEventsResponse
@@ -163,6 +175,8 @@ if typing.TYPE_CHECKING:
     from .sandbox_capability import SandboxCapability
     from .sandbox_config import SandboxConfig
     from .sandbox_created_event import SandboxCreatedEvent
+    from .sandbox_environment import SandboxEnvironment
+    from .sandbox_environment_manifest import SandboxEnvironmentManifest
     from .sandbox_provider_manifest import SandboxProviderManifest
     from .schedule import Schedule
     from .schedule_manifest import ScheduleManifest
@@ -295,8 +309,18 @@ _dynamic_imports: typing.Dict[str, str] = {
     "CreatedBySubject": ".created_by_subject",
     "CronExpression": ".cron_expression",
     "CustomModelProvider": ".custom_model_provider",
+    "DaytonaDockerImage": ".daytona_docker_image",
+    "DaytonaGpuType": ".daytona_gpu_type",
+    "DaytonaSandboxEnvironmentImage": ".daytona_sandbox_environment_image",
+    "DaytonaSandboxEnvironmentLifecycle": ".daytona_sandbox_environment_lifecycle",
+    "DaytonaSandboxEnvironmentNetworking": ".daytona_sandbox_environment_networking",
+    "DaytonaSandboxEnvironmentResources": ".daytona_sandbox_environment_resources",
+    "DaytonaSandboxEnvironmentResourcesGpuType": ".daytona_sandbox_environment_resources_gpu_type",
     "DaytonaSandboxProviderAuth": ".daytona_sandbox_provider_auth",
+    "DaytonaSnapshotImage": ".daytona_snapshot_image",
+    "DaytonaTrueforgeDefaultImage": ".daytona_trueforge_default_image",
     "DeleteAgentResponse": ".delete_agent_response",
+    "DeleteSandboxEnvironmentResponse": ".delete_sandbox_environment_response",
     "DeleteScheduleResponse": ".delete_schedule_response",
     "DynamicSubAgentsConfig": ".dynamic_sub_agents_config",
     "ExtendedChunkDeltaToolCall": ".extended_chunk_delta_tool_call",
@@ -314,6 +338,7 @@ _dynamic_imports: typing.Dict[str, str] = {
     "GetMeSubject": ".get_me_subject",
     "GetModelProviderCatalogResponse": ".get_model_provider_catalog_response",
     "GetModelProviderResponse": ".get_model_provider_response",
+    "GetSandboxEnvironmentResponse": ".get_sandbox_environment_response",
     "GetSandboxProviderCatalogResponse": ".get_sandbox_provider_catalog_response",
     "GetSandboxProviderResponse": ".get_sandbox_provider_response",
     "GetScheduleResponse": ".get_schedule_response",
@@ -338,6 +363,7 @@ _dynamic_imports: typing.Dict[str, str] = {
     "ListModelProvidersResponse": ".list_model_providers_response",
     "ListPermissionsData": ".list_permissions_data",
     "ListPermissionsResponse": ".list_permissions_response",
+    "ListSandboxEnvironmentsResponse": ".list_sandbox_environments_response",
     "ListScheduleRunsResponse": ".list_schedule_runs_response",
     "ListSchedulesResponse": ".list_schedules_response",
     "ListSessionEventsResponse": ".list_session_events_response",
@@ -401,6 +427,8 @@ _dynamic_imports: typing.Dict[str, str] = {
     "SandboxCapability": ".sandbox_capability",
     "SandboxConfig": ".sandbox_config",
     "SandboxCreatedEvent": ".sandbox_created_event",
+    "SandboxEnvironment": ".sandbox_environment",
+    "SandboxEnvironmentManifest": ".sandbox_environment_manifest",
     "SandboxProviderManifest": ".sandbox_provider_manifest",
     "Schedule": ".schedule",
     "ScheduleManifest": ".schedule_manifest",
@@ -557,8 +585,18 @@ __all__ = [
     "CreatedBySubject",
     "CronExpression",
     "CustomModelProvider",
+    "DaytonaDockerImage",
+    "DaytonaGpuType",
+    "DaytonaSandboxEnvironmentImage",
+    "DaytonaSandboxEnvironmentLifecycle",
+    "DaytonaSandboxEnvironmentNetworking",
+    "DaytonaSandboxEnvironmentResources",
+    "DaytonaSandboxEnvironmentResourcesGpuType",
     "DaytonaSandboxProviderAuth",
+    "DaytonaSnapshotImage",
+    "DaytonaTrueforgeDefaultImage",
     "DeleteAgentResponse",
+    "DeleteSandboxEnvironmentResponse",
     "DeleteScheduleResponse",
     "DynamicSubAgentsConfig",
     "ExtendedChunkDeltaToolCall",
@@ -576,6 +614,7 @@ __all__ = [
     "GetMeSubject",
     "GetModelProviderCatalogResponse",
     "GetModelProviderResponse",
+    "GetSandboxEnvironmentResponse",
     "GetSandboxProviderCatalogResponse",
     "GetSandboxProviderResponse",
     "GetScheduleResponse",
@@ -600,6 +639,7 @@ __all__ = [
     "ListModelProvidersResponse",
     "ListPermissionsData",
     "ListPermissionsResponse",
+    "ListSandboxEnvironmentsResponse",
     "ListScheduleRunsResponse",
     "ListSchedulesResponse",
     "ListSessionEventsResponse",
@@ -663,6 +703,8 @@ __all__ = [
     "SandboxCapability",
     "SandboxConfig",
     "SandboxCreatedEvent",
+    "SandboxEnvironment",
+    "SandboxEnvironmentManifest",
     "SandboxProviderManifest",
     "Schedule",
     "ScheduleManifest",

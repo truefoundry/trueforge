@@ -13,6 +13,7 @@ import type { ISkillStore } from '../../../src/db/skillStore';
 import { createSqliteDb } from '../../../src/db/sqlite/client';
 import { SqliteMcpServerStore } from '../../../src/db/sqlite/mcp-server-store/SqliteMcpServerStore';
 import { SqliteModelProviderStore } from '../../../src/db/sqlite/model-provider-store/SqliteModelProviderStore';
+import { SqliteSandboxEnvironmentStore } from '../../../src/db/sqlite/sandbox-environment-store/SqliteSandboxEnvironmentStore';
 import { SqliteSandboxProviderStore } from '../../../src/db/sqlite/sandbox-provider-store/SqliteSandboxProviderStore';
 import { SqliteSkillStore } from '../../../src/db/sqlite/skill-store/SqliteSkillStore';
 import {
@@ -211,6 +212,8 @@ describe('validateAgentSpec', () => {
       mcpServerStore: new SqliteMcpServerStore(db),
       skillStore: new SqliteSkillStore(db),
       sandboxProviderStore: new SqliteSandboxProviderStore(db),
+      sandboxEnvironmentStore: new SqliteSandboxEnvironmentStore(db),
+      subject_id: 'test-subject',
     };
   }
 

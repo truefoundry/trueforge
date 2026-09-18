@@ -46,7 +46,7 @@ export const ListPermissionsDataSchema = z
     permissions: z
       .record(z.string(), z.array(ResourcePermissionSchema))
       .describe(
-        'For agent/schedule/session: keyed by resource id. For tenant: keyed by entity kind (e.g. `agent` → `CREATE`).',
+        'For agent/schedule/session: keyed by resource id. For tenant: keyed by entity kind (e.g. `agent` or `sandbox-environment` → `CREATE`).',
       ),
   })
   .openapi('ListPermissionsData');
@@ -72,6 +72,9 @@ export const AGENT_OWNER_PERMISSIONS = AgentResourcePermissionSchema.options;
 export const SCHEDULE_OWNER_PERMISSIONS = ScheduleResourcePermissionSchema.options;
 export const SESSION_OWNER_PERMISSIONS = SessionResourcePermissionSchema.options;
 export const TENANT_CREATE_AGENT_PERMISSIONS = [TenantScopedResourcePermissionSchema.enum.CREATE] as const;
+export const TENANT_CREATE_SANDBOX_ENVIRONMENT_PERMISSIONS = [
+  TenantScopedResourcePermissionSchema.enum.CREATE,
+] as const;
 
 /** Response scaffold: every requested id starts with no grants. */
 export function emptyPermissionsByResourceId(resourceIds: readonly string[]): Record<string, ResourcePermission[]> {

@@ -73,6 +73,7 @@ import { McpServerWithAuthStore } from './db/McpServerWithAuthStore';
 import type { IModelProviderStore } from './db/modelProviderStore';
 import type { PostgresAgentStore } from './db/postgres/agent-store/PostgresAgentStore';
 import type { Database as PostgresDatabase } from './db/postgres/types';
+import type { ISandboxEnvironmentStore } from './db/sandboxEnvironmentStore';
 import type { ISandboxProviderStore } from './db/sandboxProviderStore';
 import type { IScheduleStore } from './db/scheduleStore';
 import type { ISessionMetricsStore } from './db/sessionMetricsStore';
@@ -118,6 +119,7 @@ interface ServerPersistence<TTransaction> {
     perServerHeaders?: PerServerMcpHeaders,
   ) => IMcpServerWithAuthStore<TTransaction>;
   resolveSandboxProviderStore: (rc: RequestContext) => ISandboxProviderStore<TTransaction>;
+  resolveSandboxEnvironmentStore: (rc: RequestContext) => ISandboxEnvironmentStore<TTransaction>;
   /** Per-request store: DB git skills, or TrueFoundry registry catalog in TrueFoundry mode. */
   resolveSkillStore: (rc: RequestContext) => ISkillStore<TTransaction>;
   resolveAgentStore: (rc: RequestContext) => IAgentStore<TTransaction>;
@@ -292,6 +294,7 @@ async function createStandalonePersistence(options: {
       import('./db/sqlite/token-store/SqliteOAuthTokenStore'),
       import('./db/sqlite/skill-store/SqliteSkillStore'),
       import('./db/sqlite/sandbox-provider-store/SqliteSandboxProviderStore'),
+      import('./db/sqlite/sandbox-environment-store/SqliteSandboxEnvironmentStore'),
       import('./db/sqlite/agent-store/SqliteAgentStore'),
       import('./db/sqlite/schedule-store/SqliteScheduleStore'),
     ]),
@@ -304,6 +307,7 @@ async function createStandalonePersistence(options: {
     { SqliteOAuthTokenStore },
     { SqliteSkillStore },
     { SqliteSandboxProviderStore },
+    { SqliteSandboxEnvironmentStore },
     { SqliteAgentStore },
     { SqliteScheduleStore },
   ] = sqliteStores;
@@ -322,6 +326,7 @@ async function createStandalonePersistence(options: {
     clientName: configuration.MCP_DCR_OAUTH_CLIENT_NAME,
   });
   const sandboxProviderStore = new SqliteSandboxProviderStore(db);
+  const sandboxEnvironmentStore = new SqliteSandboxEnvironmentStore(db);
   const skillStore = new SqliteSkillStore(db);
   return {
     withTransaction: callback => db.transaction().execute(callback),
@@ -333,6 +338,7 @@ async function createStandalonePersistence(options: {
     resolveModelProviderStore: () => modelProviderStore,
     resolveMcpServerStore: () => mcpServerStore,
     resolveSandboxProviderStore: () => sandboxProviderStore,
+    resolveSandboxEnvironmentStore: () => sandboxEnvironmentStore,
     resolveSkillStore: () => skillStore,
     resolveAgentStore: () => agentStore,
     resolveImportAgentStore: () => agentStore,
@@ -372,6 +378,7 @@ async function createDistributedPersistence(options: {
       import('./db/postgres/token-store/PostgresOAuthTokenStore'),
       import('./db/postgres/skill-store/PostgresSkillStore'),
       import('./db/postgres/sandbox-provider-store/PostgresSandboxProviderStore'),
+      import('./db/postgres/sandbox-environment-store/PostgresSandboxEnvironmentStore'),
       import('./db/postgres/agent-store/PostgresAgentStore'),
       import('./db/postgres/schedule-store/PostgresScheduleStore'),
     ]),
@@ -384,6 +391,7 @@ async function createDistributedPersistence(options: {
     { PostgresOAuthTokenStore },
     { PostgresSkillStore },
     { PostgresSandboxProviderStore },
+    { PostgresSandboxEnvironmentStore },
     { PostgresAgentStore },
     { PostgresScheduleStore },
   ] = postgresStores;
@@ -408,6 +416,7 @@ async function createDistributedPersistence(options: {
     clientName: configuration.MCP_DCR_OAUTH_CLIENT_NAME,
   });
   const sandboxProviderStore = new PostgresSandboxProviderStore(db);
+  const sandboxEnvironmentStore = new PostgresSandboxEnvironmentStore(db);
   const skillStore = new PostgresSkillStore(db);
   const agentStore = new PostgresAgentStore(db);
   const turnSkillsResolverStore = buildTurnSkillsResolverStore({
@@ -452,6 +461,7 @@ async function createDistributedPersistence(options: {
   const resolveSandboxProviderStore = buildResolveSandboxProviderStore({
     persistenceStore: sandboxProviderStore,
   });
+  const resolveSandboxEnvironmentStore = () => sandboxEnvironmentStore;
   const resolveSkillStore = buildResolveSkillStore({
     persistenceStore: skillStore,
     client: serviceFoundryClient,
@@ -466,6 +476,7 @@ async function createDistributedPersistence(options: {
     resolveModelProviderStore,
     resolveMcpServerStore,
     resolveSandboxProviderStore,
+    resolveSandboxEnvironmentStore,
     resolveSkillStore,
     resolveAgentStore,
     resolveImportAgentStore,
@@ -561,6 +572,8 @@ async function createServerRuntime<TTransaction>(persistence: ServerPersistence<
   };
   const resolveAgentStore = (c: Context) => persistence.resolveAgentStore(resolveRequestContext(c));
   const resolveSandboxProviderStore = (c: Context) => persistence.resolveSandboxProviderStore(resolveRequestContext(c));
+  const resolveSandboxEnvironmentStore = (c: Context) =>
+    persistence.resolveSandboxEnvironmentStore(resolveRequestContext(c));
   const resolveSkillStore = (c: Context) => {
     const store = persistence.resolveSkillStore(resolveRequestContext(c));
     if (!isTrueFoundryModeEnabled(configuration)) {
@@ -582,6 +595,7 @@ async function createServerRuntime<TTransaction>(persistence: ServerPersistence<
     resolveAgentStore,
     resolveImportAgentStore,
     resolveSandboxProviderStore,
+    resolveSandboxEnvironmentStore,
     resolveSkillStore,
     withTransaction,
     tokenStore,

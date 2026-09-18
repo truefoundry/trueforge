@@ -9,6 +9,7 @@ import {
   SCHEDULE_OWNER_PERMISSIONS,
   SESSION_OWNER_PERMISSIONS,
   TENANT_CREATE_AGENT_PERMISSIONS,
+  TENANT_CREATE_SANDBOX_ENVIRONMENT_PERMISSIONS,
   type ListPermissionsData,
 } from '../schemas/permissions';
 import type { RequestContext } from './identity';
@@ -49,7 +50,10 @@ export class TrueForgeAuthorizer implements Authorizer {
 
   async getPermissions(input: GetPermissionsInput): Promise<ListPermissionsData> {
     if (input.resourceType === 'tenant') {
-      return listPermissionsData('tenant', { agent: [...TENANT_CREATE_AGENT_PERMISSIONS] });
+      return listPermissionsData('tenant', {
+        agent: [...TENANT_CREATE_AGENT_PERMISSIONS],
+        'sandbox-environment': [...TENANT_CREATE_SANDBOX_ENVIRONMENT_PERMISSIONS],
+      });
     }
 
     const data = emptyPermissionsByResourceId(input.resourceIds);

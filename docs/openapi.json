@@ -1053,6 +1053,27 @@
         ],
         "type": "object"
       },
+      "CreateSandboxEnvironmentRequest": {
+        "additionalProperties": false,
+        "properties": {
+          "description": {
+            "description": "Optional human-readable description.",
+            "maxLength": 1024,
+            "type": "string"
+          },
+          "manifest": {
+            "$ref": "#/components/schemas/SandboxEnvironmentManifest"
+          },
+          "name": {
+            "$ref": "#/components/schemas/ResourceName"
+          }
+        },
+        "required": [
+          "name",
+          "manifest"
+        ],
+        "type": "object"
+      },
       "CreateScheduleRequest": {
         "additionalProperties": false,
         "properties": {
@@ -1226,6 +1247,147 @@
         ],
         "type": "object"
       },
+      "DaytonaDockerImage": {
+        "additionalProperties": false,
+        "properties": {
+          "ref": {
+            "description": "Container image reference passed to Daytona create-from-image.",
+            "minLength": 1,
+            "type": "string"
+          },
+          "type": {
+            "description": "Build/create from a container image reference.",
+            "enum": [
+              "docker"
+            ],
+            "type": "string"
+          }
+        },
+        "required": [
+          "type",
+          "ref"
+        ],
+        "type": "object"
+      },
+      "DaytonaGpuType": {
+        "description": "Preferred Daytona GPU type.",
+        "enum": [
+          "H100",
+          "H200",
+          "RTX-PRO-6000",
+          "RTX-4090",
+          "RTX-5090"
+        ],
+        "type": "string"
+      },
+      "DaytonaSandboxEnvironmentImage": {
+        "discriminator": {
+          "mapping": {
+            "docker": "#/components/schemas/DaytonaDockerImage",
+            "snapshot": "#/components/schemas/DaytonaSnapshotImage",
+            "trueforge-default": "#/components/schemas/DaytonaTrueforgeDefaultImage"
+          },
+          "propertyName": "type"
+        },
+        "oneOf": [
+          {
+            "$ref": "#/components/schemas/DaytonaTrueforgeDefaultImage"
+          },
+          {
+            "$ref": "#/components/schemas/DaytonaSnapshotImage"
+          },
+          {
+            "$ref": "#/components/schemas/DaytonaDockerImage"
+          }
+        ]
+      },
+      "DaytonaSandboxEnvironmentLifecycle": {
+        "additionalProperties": false,
+        "properties": {
+          "auto_archive_interval_in_minutes": {
+            "description": "Minutes before Daytona auto-archives the sandbox (0 disables).",
+            "minimum": 0,
+            "type": "integer"
+          },
+          "auto_delete_interval_in_minutes": {
+            "description": "Minutes before Daytona auto-deletes the sandbox (0 disables).",
+            "minimum": 0,
+            "type": "integer"
+          },
+          "auto_stop_interval_in_minutes": {
+            "description": "Minutes of idle time before Daytona auto-stops the sandbox (0 disables).",
+            "minimum": 0,
+            "type": "integer"
+          }
+        },
+        "type": "object"
+      },
+      "DaytonaSandboxEnvironmentNetworking": {
+        "additionalProperties": false,
+        "properties": {
+          "domain_allow_list": {
+            "description": "Comma-separated allowed domains.",
+            "minLength": 1,
+            "type": "string"
+          },
+          "network_allow_list": {
+            "description": "Comma-separated allowed CIDR network addresses.",
+            "minLength": 1,
+            "type": "string"
+          },
+          "network_block_all": {
+            "description": "Block all outbound network access.",
+            "type": "boolean"
+          },
+          "outbound_proxy_url": {
+            "description": "Outbound HTTP(S) proxy URL.",
+            "minLength": 1,
+            "type": "string"
+          }
+        },
+        "type": "object"
+      },
+      "DaytonaSandboxEnvironmentResources": {
+        "additionalProperties": false,
+        "properties": {
+          "cpu": {
+            "description": "CPU allocation in cores.",
+            "exclusiveMinimum": 0,
+            "type": "number"
+          },
+          "disk": {
+            "description": "Disk allocation in GiB.",
+            "exclusiveMinimum": 0,
+            "type": "number"
+          },
+          "gpu": {
+            "description": "GPU allocation in Daytona GPU units.",
+            "minimum": 0,
+            "type": "number"
+          },
+          "gpu_type": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/DaytonaGpuType"
+              },
+              {
+                "items": {
+                  "$ref": "#/components/schemas/DaytonaGpuType"
+                },
+                "minItems": 1,
+                "type": "array"
+              }
+            ],
+            "description": "Preferred GPU type, or an ordered fallback list."
+          },
+          "memory": {
+            "description": "Memory allocation in GiB.",
+            "exclusiveMinimum": 0,
+            "type": "number"
+          }
+        },
+        "type": "object"
+      },
       "DaytonaSandboxProviderAuth": {
         "additionalProperties": false,
         "description": "Daytona authentication credentials.",
@@ -1241,7 +1403,49 @@
         ],
         "type": "object"
       },
+      "DaytonaSnapshotImage": {
+        "additionalProperties": false,
+        "properties": {
+          "name": {
+            "description": "Daytona snapshot name.",
+            "minLength": 1,
+            "type": "string"
+          },
+          "type": {
+            "description": "Clone an existing Daytona snapshot by name.",
+            "enum": [
+              "snapshot"
+            ],
+            "type": "string"
+          }
+        },
+        "required": [
+          "type",
+          "name"
+        ],
+        "type": "object"
+      },
+      "DaytonaTrueforgeDefaultImage": {
+        "additionalProperties": false,
+        "properties": {
+          "type": {
+            "description": "Use the tenant provider TrueForge release snapshot.",
+            "enum": [
+              "trueforge-default"
+            ],
+            "type": "string"
+          }
+        },
+        "required": [
+          "type"
+        ],
+        "type": "object"
+      },
       "DeleteAgentResponse": {
+        "properties": {},
+        "type": "object"
+      },
+      "DeleteSandboxEnvironmentResponse": {
         "properties": {},
         "type": "object"
       },
@@ -1525,6 +1729,17 @@
         "required": [
           "external_id",
           "agent"
+        ],
+        "type": "object"
+      },
+      "GetSandboxEnvironmentResponse": {
+        "properties": {
+          "data": {
+            "$ref": "#/components/schemas/SandboxEnvironment"
+          }
+        },
+        "required": [
+          "data"
         ],
         "type": "object"
       },
@@ -2277,7 +2492,7 @@
               },
               "type": "array"
             },
-            "description": "For agent/schedule/session: keyed by resource id. For tenant: keyed by entity kind (e.g. `agent` → `CREATE`).",
+            "description": "For agent/schedule/session: keyed by resource id. For tenant: keyed by entity kind (e.g. `agent` or `sandbox-environment` → `CREATE`).",
             "type": "object"
           },
           "type": {
@@ -2319,6 +2534,24 @@
         },
         "required": [
           "data"
+        ],
+        "type": "object"
+      },
+      "ListSandboxEnvironmentsResponse": {
+        "properties": {
+          "data": {
+            "items": {
+              "$ref": "#/components/schemas/SandboxEnvironment"
+            },
+            "type": "array"
+          },
+          "pagination": {
+            "$ref": "#/components/schemas/TokenPagination"
+          }
+        },
+        "required": [
+          "data",
+          "pagination"
         ],
         "type": "object"
       },
@@ -3658,6 +3891,11 @@
             "description": "Give the agent a sandbox. Required for skills and Code Mode.",
             "type": "boolean"
           },
+          "environment": {
+            "description": "Caller-owned sandbox environment name. Omit to use the tenant provider defaults.",
+            "minLength": 1,
+            "type": "string"
+          },
           "file_downloads": {
             "default": true,
             "description": "Allow downloading agent-produced files via the turn download endpoint. Default: true.",
@@ -3704,6 +3942,97 @@
           "created_at",
           "sandbox_id",
           "thread_id"
+        ],
+        "type": "object"
+      },
+      "SandboxEnvironment": {
+        "additionalProperties": false,
+        "properties": {
+          "created_at": {
+            "description": "ISO-8601 create time.",
+            "format": "date-time",
+            "type": "string"
+          },
+          "created_by_subject": {
+            "$ref": "#/components/schemas/CreatedBySubject"
+          },
+          "description": {
+            "description": "Optional human-readable description.",
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "id": {
+            "description": "Immutable server-generated environment identifier.",
+            "minLength": 1,
+            "type": "string"
+          },
+          "manifest": {
+            "$ref": "#/components/schemas/SandboxEnvironmentManifest"
+          },
+          "name": {
+            "$ref": "#/components/schemas/ResourceName"
+          },
+          "updated_at": {
+            "description": "ISO-8601 last update time.",
+            "format": "date-time",
+            "type": "string"
+          }
+        },
+        "required": [
+          "id",
+          "name",
+          "description",
+          "manifest",
+          "created_by_subject",
+          "created_at",
+          "updated_at"
+        ],
+        "type": "object"
+      },
+      "SandboxEnvironmentManifest": {
+        "additionalProperties": false,
+        "properties": {
+          "image": {
+            "$ref": "#/components/schemas/DaytonaSandboxEnvironmentImage"
+          },
+          "lifecycle": {
+            "$ref": "#/components/schemas/DaytonaSandboxEnvironmentLifecycle"
+          },
+          "networking": {
+            "$ref": "#/components/schemas/DaytonaSandboxEnvironmentNetworking"
+          },
+          "provider": {
+            "description": "Must match the configured sandbox provider name/type.",
+            "enum": [
+              "daytona"
+            ],
+            "type": "string"
+          },
+          "resources": {
+            "$ref": "#/components/schemas/DaytonaSandboxEnvironmentResources"
+          },
+          "secrets": {
+            "additionalProperties": {
+              "minLength": 1,
+              "type": "string"
+            },
+            "description": "Map of sandbox env var name to an existing Daytona organization secret name.",
+            "type": "object"
+          },
+          "type": {
+            "description": "Daytona sandbox environment.",
+            "enum": [
+              "daytona"
+            ],
+            "type": "string"
+          }
+        },
+        "required": [
+          "type",
+          "provider",
+          "image"
         ],
         "type": "object"
       },
@@ -5574,6 +5903,26 @@
         "properties": {
           "manifest": {
             "$ref": "#/components/schemas/ModelProviderManifest"
+          }
+        },
+        "required": [
+          "manifest"
+        ],
+        "type": "object"
+      },
+      "UpdateSandboxEnvironmentRequest": {
+        "additionalProperties": false,
+        "properties": {
+          "description": {
+            "description": "Optional human-readable description.",
+            "maxLength": 1024,
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "manifest": {
+            "$ref": "#/components/schemas/SandboxEnvironmentManifest"
           }
         },
         "required": [
@@ -7535,6 +7884,367 @@
           "models"
         ],
         "x-fern-sdk-method-name": "list"
+      }
+    },
+    "/api/v1/sandbox-environments": {
+      "get": {
+        "description": "List sandbox environments created by the authenticated subject, newest first.",
+        "parameters": [
+          {
+            "description": "Page size. Defaults to 25",
+            "in": "query",
+            "name": "limit",
+            "required": false,
+            "schema": {
+              "default": 25,
+              "description": "Page size. Defaults to 25",
+              "maximum": 25,
+              "minimum": 1,
+              "type": "integer"
+            }
+          },
+          {
+            "description": "Opaque token from a previous response `next_page_token`.",
+            "in": "query",
+            "name": "page_token",
+            "required": false,
+            "schema": {
+              "description": "Opaque token from a previous response `next_page_token`.",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ListSandboxEnvironmentsResponse"
+                }
+              }
+            },
+            "description": "Paginated caller-owned sandbox environments."
+          },
+          "400": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/RequestErrorResponse"
+                }
+              }
+            },
+            "description": "Invalid query parameters or page token."
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/RequestErrorResponse"
+                }
+              }
+            },
+            "description": "Unauthenticated."
+          }
+        },
+        "summary": "List sandbox environments",
+        "tags": [
+          "Sandboxes"
+        ],
+        "x-fern-pagination": {
+          "cursor": "$request.page_token",
+          "next_cursor": "$response.pagination.next_page_token",
+          "results": "$response.data"
+        },
+        "x-fern-sdk-group-name": [
+          "sandbox_environments"
+        ],
+        "x-fern-sdk-method-name": "list"
+      },
+      "post": {
+        "description": "Create a Daytona sandbox environment owned by the authenticated subject.",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CreateSandboxEnvironmentRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "201": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/GetSandboxEnvironmentResponse"
+                }
+              }
+            },
+            "description": "Created sandbox environment."
+          },
+          "400": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/RequestErrorResponse"
+                }
+              }
+            },
+            "description": "Invalid request body."
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/RequestErrorResponse"
+                }
+              }
+            },
+            "description": "Unauthenticated."
+          },
+          "409": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/RequestErrorResponse"
+                }
+              }
+            },
+            "description": "Name already exists in the tenant."
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/RequestErrorResponse"
+                }
+              }
+            },
+            "description": "Provider, snapshot, or secret validation failed."
+          }
+        },
+        "summary": "Create a sandbox environment",
+        "tags": [
+          "Sandboxes"
+        ],
+        "x-fern-sdk-group-name": [
+          "sandbox_environments"
+        ],
+        "x-fern-sdk-method-name": "create"
+      }
+    },
+    "/api/v1/sandbox-environments/{sandbox_environment_id}": {
+      "delete": {
+        "description": "Delete a caller-owned sandbox environment. Fails if any agent references it.",
+        "parameters": [
+          {
+            "description": "Immutable sandbox environment identifier.",
+            "in": "path",
+            "name": "sandbox_environment_id",
+            "required": true,
+            "schema": {
+              "description": "Immutable sandbox environment identifier.",
+              "maxLength": 64,
+              "minLength": 1,
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/DeleteSandboxEnvironmentResponse"
+                }
+              }
+            },
+            "description": "Deleted."
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/RequestErrorResponse"
+                }
+              }
+            },
+            "description": "Unauthenticated."
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/RequestErrorResponse"
+                }
+              }
+            },
+            "description": "Not found or you do not have access."
+          },
+          "409": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/RequestErrorResponse"
+                }
+              }
+            },
+            "description": "Environment is referenced by one or more agents."
+          }
+        },
+        "summary": "Delete a sandbox environment",
+        "tags": [
+          "Sandboxes"
+        ],
+        "x-fern-sdk-group-name": [
+          "sandbox_environments"
+        ],
+        "x-fern-sdk-method-name": "delete"
+      },
+      "get": {
+        "description": "Get a sandbox environment owned by the authenticated subject.",
+        "parameters": [
+          {
+            "description": "Immutable sandbox environment identifier.",
+            "in": "path",
+            "name": "sandbox_environment_id",
+            "required": true,
+            "schema": {
+              "description": "Immutable sandbox environment identifier.",
+              "maxLength": 64,
+              "minLength": 1,
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/GetSandboxEnvironmentResponse"
+                }
+              }
+            },
+            "description": "The sandbox environment."
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/RequestErrorResponse"
+                }
+              }
+            },
+            "description": "Unauthenticated."
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/RequestErrorResponse"
+                }
+              }
+            },
+            "description": "Not found or you do not have access."
+          }
+        },
+        "summary": "Get a sandbox environment",
+        "tags": [
+          "Sandboxes"
+        ],
+        "x-fern-sdk-group-name": [
+          "sandbox_environments"
+        ],
+        "x-fern-sdk-method-name": "get"
+      },
+      "put": {
+        "description": "Replace the manifest (and optionally description). Name is immutable.",
+        "parameters": [
+          {
+            "description": "Immutable sandbox environment identifier.",
+            "in": "path",
+            "name": "sandbox_environment_id",
+            "required": true,
+            "schema": {
+              "description": "Immutable sandbox environment identifier.",
+              "maxLength": 64,
+              "minLength": 1,
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/UpdateSandboxEnvironmentRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/GetSandboxEnvironmentResponse"
+                }
+              }
+            },
+            "description": "Updated sandbox environment."
+          },
+          "400": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/RequestErrorResponse"
+                }
+              }
+            },
+            "description": "Invalid request body."
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/RequestErrorResponse"
+                }
+              }
+            },
+            "description": "Unauthenticated."
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/RequestErrorResponse"
+                }
+              }
+            },
+            "description": "Not found or you do not have access."
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/RequestErrorResponse"
+                }
+              }
+            },
+            "description": "Provider, snapshot, or secret validation failed."
+          }
+        },
+        "summary": "Update a sandbox environment",
+        "tags": [
+          "Sandboxes"
+        ],
+        "x-fern-sdk-group-name": [
+          "sandbox_environments"
+        ],
+        "x-fern-sdk-method-name": "update"
       }
     },
     "/api/v1/schedules": {

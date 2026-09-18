@@ -25,6 +25,7 @@ import type { CurrentContextUsage } from '@truefoundry/trueforge-core/core/runti
 import type { ColumnType, Generated, JSONColumnType } from 'kysely';
 import type { McpServerManifest } from '../../schemas/mcpServer';
 import type { ModelProviderManifest } from '../../schemas/modelProvider';
+import type { StoredSandboxEnvironmentManifest } from '../../schemas/sandboxEnvironment';
 import type {
   SandboxBuildMetadata,
   SandboxBuildStatus,
@@ -378,6 +379,25 @@ export interface SandboxProviderTable {
 }
 
 /**
+ * Configured sandbox environments — immutable ULID `id` PK; UNIQUE (tenant_id, name).
+ * PRIMARY KEY (id)
+ */
+export interface SandboxEnvironmentTable {
+  id: string;
+  tenant_id: string;
+  name: string;
+  description: string | null;
+  manifest: JSONColumnType<
+    StoredSandboxEnvironmentManifest,
+    StoredSandboxEnvironmentManifest,
+    StoredSandboxEnvironmentManifest
+  >;
+  created_by_subject: JSONColumnType<CreatedBySubject, CreatedBySubject, CreatedBySubject>;
+  created_at: Date;
+  updated_at: Date;
+}
+
+/**
  * Configured agents — immutable ULID `id` PK; UNIQUE immutable (tenant_id, name).
  * PRIMARY KEY (id)
  */
@@ -527,6 +547,7 @@ export interface Database {
   model_provider: ModelProviderTable;
   skill: SkillTable;
   sandbox_provider: SandboxProviderTable;
+  sandbox_environment: SandboxEnvironmentTable;
   agent: AgentTable;
   schedule: ScheduleTable;
   schedule_run: ScheduleRunTable;

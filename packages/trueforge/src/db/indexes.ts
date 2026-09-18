@@ -30,3 +30,9 @@ export const SCHEDULE_RUN_CREATED_BY_SUBJECT_ID_IDX = 'schedule_run_created_by_s
 
 /** `(tenant_id, name)` unique on sandbox_provider. */
 export const SANDBOX_PROVIDER_TENANT_NAME_UQ = 'sandbox_provider_tenant_name_uq';
+
+/** `(tenant_id, name)` unique on sandbox_environment. */
+export const SANDBOX_ENVIRONMENT_TENANT_NAME_UQ = 'sandbox_environment_tenant_name_uq';
+
+/** `(tenant_id, created_by_subject.subject_id)` on sandbox_environment. */
+export const SANDBOX_ENVIRONMENT_CREATED_BY_SUBJECT_ID_IDX = 'sandbox_environment_created_by_subject_id_idx';

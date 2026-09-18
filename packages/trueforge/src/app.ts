@@ -19,6 +19,7 @@ import { createMcpOAuthRouter } from './apis/mcpOAuth';
 import { createMcpServersRouter } from './apis/mcpServers';
 import { createModelsRouter } from './apis/models';
 import { createPermissionsRouter } from './apis/permissions';
+import { createSandboxEnvironmentsRouter } from './apis/sandboxEnvironments';
 import { createScheduleExecutionRouter, createSchedulesRouter } from './apis/schedules';
 import { createInternalMetricsRouter } from './apis/sessionMetrics';
 import { createInternalSessionsRouter, createSessionsRouter } from './apis/sessions';
@@ -42,6 +43,7 @@ import configuration, { getPublicUiBasePath, getTrueForgeAuthMode, TrueForgeAuth
 import type { AgentRecord, IAgentStore } from './db/agentStore';
 import type { IMcpServerWithAuthStore } from './db/mcpServerStore';
 import type { IModelProviderStore } from './db/modelProviderStore';
+import type { ISandboxEnvironmentStore } from './db/sandboxEnvironmentStore';
 import type { ISandboxProviderStore } from './db/sandboxProviderStore';
 import type { IScheduleStore } from './db/scheduleStore';
 import type { ISessionMetricsStore } from './db/sessionMetricsStore';
@@ -193,6 +195,8 @@ export interface ServerDeps<TTransaction> {
    * (`TRUEFOUNDRY_SANDBOX_*` + static SETTINGS JSON).
    */
   resolveSandboxProviderStore: (c: Context) => ISandboxProviderStore<TTransaction>;
+  /** Per-request store: DB sandbox environments, or TrueFoundry empty stub. */
+  resolveSandboxEnvironmentStore: (c: Context) => ISandboxEnvironmentStore<TTransaction>;
   /** Per-request store: DB git skills, or TrueFoundry registry catalog in TrueFoundry mode. */
   resolveSkillStore: ResolveSkillStore<TTransaction>;
   withTransaction: WithTransaction<TTransaction>;
@@ -336,9 +340,23 @@ export function createServerApp<TTransaction>(deps: ServerDeps<TTransaction>) {
         resolveMcpServerStore: deps.resolveMcpServerStore,
         resolveSkillStore: deps.resolveSkillStore,
         resolveSandboxProviderStore: deps.resolveSandboxProviderStore,
+        resolveSandboxEnvironmentStore: deps.resolveSandboxEnvironmentStore,
         withTransaction: deps.withTransaction,
         resolveRequestContext,
         authorizer: deps.authorizer,
+      }),
+      authMiddleware,
+    ),
+  );
+  app.route(
+    '/api/v1/sandbox-environments',
+    withAuth(
+      createSandboxEnvironmentsRouter({
+        resolveSandboxEnvironmentStore: deps.resolveSandboxEnvironmentStore,
+        resolveSandboxProviderStore: deps.resolveSandboxProviderStore,
+        agentStore: deps.agentStore,
+        withTransaction: deps.withTransaction,
+        resolveRequestContext,
       }),
       authMiddleware,
     ),
@@ -396,6 +414,7 @@ export function createServerApp<TTransaction>(deps: ServerDeps<TTransaction>) {
         resolveSkillStore: deps.resolveSkillStore,
         resolveAgentStore: deps.resolveAgentStore,
         resolveSandboxProviderStore: deps.resolveSandboxProviderStore,
+        resolveSandboxEnvironmentStore: deps.resolveSandboxEnvironmentStore,
         resolveRequestContext,
         authorizer: deps.authorizer,
       }),
@@ -439,6 +458,7 @@ export function createServerApp<TTransaction>(deps: ServerDeps<TTransaction>) {
         resolveSkillStore: deps.resolveSkillStore,
         resolveAgentStore: deps.resolveAgentStore,
         resolveSandboxProviderStore: deps.resolveSandboxProviderStore,
+        resolveSandboxEnvironmentStore: deps.resolveSandboxEnvironmentStore,
         redis: deps.redis,
         requestReplyRouter: deps.requestReplyRouter,
         resolveRequestContext,

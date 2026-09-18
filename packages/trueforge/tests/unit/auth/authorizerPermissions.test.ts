@@ -93,7 +93,7 @@ describe('TrueForgeAuthorizer.getPermissions', () => {
     });
   });
 
-  it('always grants tenant agent CREATE in standalone mode', async () => {
+  it('always grants tenant agent and sandbox-environment CREATE in standalone mode', async () => {
     expect(
       await authorizer.getPermissions({
         resourceType: 'tenant',
@@ -102,7 +102,7 @@ describe('TrueForgeAuthorizer.getPermissions', () => {
       }),
     ).toEqual({
       type: 'tenant',
-      permissions: { agent: ['CREATE'] },
+      permissions: { agent: ['CREATE'], 'sandbox-environment': ['CREATE'] },
     });
   });
 });
