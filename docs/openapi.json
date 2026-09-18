@@ -1104,6 +1104,43 @@
           }
         ]
       },
+      "CreateSessionEventRequest": {
+        "properties": {
+          "events": {
+            "description": "One or more inbound items (`user.tool_approval`, `user.tool_response`, `user.tool_approval_policy`).",
+            "items": {
+              "$ref": "#/components/schemas/SessionInboundEventItem"
+            },
+            "minItems": 1,
+            "type": "array"
+          },
+          "turn_id": {
+            "description": "Tip turn that receives this batch. Must be non-terminal (running; paused when that status lands).",
+            "minLength": 1,
+            "type": "string"
+          }
+        },
+        "required": [
+          "turn_id",
+          "events"
+        ],
+        "type": "object"
+      },
+      "CreateSessionEventResponse": {
+        "properties": {
+          "data": {
+            "description": "Created inbox events with server-minted `id` and `created_at`, in request order.",
+            "items": {
+              "$ref": "#/components/schemas/CreatedSessionEvent"
+            },
+            "type": "array"
+          }
+        },
+        "required": [
+          "data"
+        ],
+        "type": "object"
+      },
       "CreateSessionRequest": {
         "additionalProperties": false,
         "properties": {
@@ -1175,6 +1212,145 @@
           "subject_id",
           "subject_type",
           "subject_display_name"
+        ],
+        "type": "object"
+      },
+      "CreatedSessionEvent": {
+        "discriminator": {
+          "mapping": {
+            "user.tool_approval": "#/components/schemas/CreatedUserToolApprovalEvent",
+            "user.tool_approval_policy": "#/components/schemas/CreatedUserToolApprovalPolicyEvent",
+            "user.tool_response": "#/components/schemas/CreatedUserToolResponseEvent"
+          },
+          "propertyName": "type"
+        },
+        "oneOf": [
+          {
+            "$ref": "#/components/schemas/CreatedUserToolApprovalEvent"
+          },
+          {
+            "$ref": "#/components/schemas/CreatedUserToolResponseEvent"
+          },
+          {
+            "$ref": "#/components/schemas/CreatedUserToolApprovalPolicyEvent"
+          }
+        ]
+      },
+      "CreatedUserToolApprovalEvent": {
+        "properties": {
+          "approval": {
+            "$ref": "#/components/schemas/ApprovalDecision"
+          },
+          "created_at": {
+            "description": "ISO 8601 event timestamp.",
+            "type": "string"
+          },
+          "id": {
+            "description": "Unique identifier for the event (monotonic ULID).",
+            "type": "string"
+          },
+          "thread_id": {
+            "description": "Thread that owns the pending tool call.",
+            "minLength": 1,
+            "type": "string"
+          },
+          "tool_call_id": {
+            "description": "Tool call id being approved or denied.",
+            "minLength": 1,
+            "type": "string"
+          },
+          "type": {
+            "description": "Client resume after tool.approval_required.",
+            "enum": [
+              "user.tool_approval"
+            ],
+            "type": "string"
+          }
+        },
+        "required": [
+          "type",
+          "thread_id",
+          "tool_call_id",
+          "approval",
+          "id",
+          "created_at"
+        ],
+        "type": "object"
+      },
+      "CreatedUserToolApprovalPolicyEvent": {
+        "properties": {
+          "created_at": {
+            "description": "ISO 8601 event timestamp.",
+            "type": "string"
+          },
+          "id": {
+            "description": "Unique identifier for the event (monotonic ULID).",
+            "type": "string"
+          },
+          "policies": {
+            "description": "One or more (server, tool_name) policy entries.",
+            "items": {
+              "$ref": "#/components/schemas/ToolApprovalPolicyItem"
+            },
+            "minItems": 1,
+            "type": "array"
+          },
+          "type": {
+            "description": "Sticky allow-session policy for matching tools (optional expiry).",
+            "enum": [
+              "user.tool_approval_policy"
+            ],
+            "type": "string"
+          }
+        },
+        "required": [
+          "type",
+          "policies",
+          "id",
+          "created_at"
+        ],
+        "type": "object"
+      },
+      "CreatedUserToolResponseEvent": {
+        "properties": {
+          "content": {
+            "description": "Client-side tool result content.",
+            "minLength": 1,
+            "type": "string"
+          },
+          "created_at": {
+            "description": "ISO 8601 event timestamp.",
+            "type": "string"
+          },
+          "id": {
+            "description": "Unique identifier for the event (monotonic ULID).",
+            "type": "string"
+          },
+          "thread_id": {
+            "description": "Thread that owns the pending tool call.",
+            "minLength": 1,
+            "type": "string"
+          },
+          "tool_call_id": {
+            "description": "Tool call id receiving the client response.",
+            "minLength": 1,
+            "type": "string"
+          },
+          "type": {
+            "description": "Client resume after tool.response_required.",
+            "enum": [
+              "user.tool_response"
+            ],
+            "type": "string"
+          }
+        },
+        "required": [
+          "type",
+          "thread_id",
+          "tool_call_id",
+          "content",
+          "id",
+          "created_at"
         ],
         "type": "object"
       },
@@ -4095,6 +4271,27 @@
         ],
         "type": "object"
       },
+      "SessionInboundEventItem": {
+        "discriminator": {
+          "mapping": {
+            "user.tool_approval": "#/components/schemas/UserToolApprovalEvent",
+            "user.tool_approval_policy": "#/components/schemas/UserToolApprovalPolicyEvent",
+            "user.tool_response": "#/components/schemas/UserToolResponseEvent"
+          },
+          "propertyName": "type"
+        },
+        "oneOf": [
+          {
+            "$ref": "#/components/schemas/UserToolApprovalEvent"
+          },
+          {
+            "$ref": "#/components/schemas/UserToolResponseEvent"
+          },
+          {
+            "$ref": "#/components/schemas/UserToolApprovalPolicyEvent"
+          }
+        ]
+      },
       "SessionMetadata": {
         "additionalProperties": {
           "description": "Metadata value; at most 128 characters.",
@@ -4703,6 +4900,58 @@
         },
         "required": [
           "limit"
+        ],
+        "type": "object"
+      },
+      "ToolApprovalPolicyAllowSession": {
+        "properties": {
+          "expire_at": {
+            "description": "ISO 8601 timestamp when this session allow expires. Omit to allow for the whole session.",
+            "type": "string"
+          },
+          "type": {
+            "description": "Allow matching tool calls for the rest of this session.",
+            "enum": [
+              "allow_session"
+            ],
+            "type": "string"
+          }
+        },
+        "required": [
+          "type"
+        ],
+        "type": "object"
+      },
+      "ToolApprovalPolicyItem": {
+        "properties": {
+          "action": {
+            "discriminator": {
+              "mapping": {
+                "allow_session": "#/components/schemas/ToolApprovalPolicyAllowSession"
+              },
+              "propertyName": "type"
+            },
+            "oneOf": [
+              {
+                "$ref": "#/components/schemas/ToolApprovalPolicyAllowSession"
+              }
+            ]
+          },
+          "server": {
+            "description": "MCP server name the tool belongs to.",
+            "minLength": 1,
+            "type": "string"
+          },
+          "tool_name": {
+            "description": "Tool name this policy applies to.",
+            "minLength": 1,
+            "type": "string"
+          }
+        },
+        "required": [
+          "server",
+          "tool_name",
+          "action"
         ],
         "type": "object"
       },
@@ -5708,6 +5957,30 @@
           "thread_id",
           "tool_call_id",
           "approval"
+        ],
+        "type": "object"
+      },
+      "UserToolApprovalPolicyEvent": {
+        "properties": {
+          "policies": {
+            "description": "One or more (server, tool_name) policy entries.",
+            "items": {
+              "$ref": "#/components/schemas/ToolApprovalPolicyItem"
+            },
+            "minItems": 1,
+            "type": "array"
+          },
+          "type": {
+            "description": "Sticky allow-session policy for matching tools (optional expiry).",
+            "enum": [
+              "user.tool_approval_policy"
+            ],
+            "type": "string"
+          }
+        },
+        "required": [
+          "type",
+          "policies"
         ],
         "type": "object"
       },
@@ -8656,6 +8929,93 @@
           "sessions"
         ],
         "x-fern-sdk-method-name": "list_events"
+      },
+      "post": {
+        "description": "Create inbound events (`user.tool_approval`, `user.tool_response`, `user.tool_approval_policy`) in the durable session inbox for a tip `turn_id`. Only the session creator may create. Events are stored unconsumed; applying them to the turn is a separate step.",
+        "parameters": [
+          {
+            "description": "Session identifier.",
+            "in": "path",
+            "name": "session_id",
+            "required": true,
+            "schema": {
+              "description": "Session identifier.",
+              "maxLength": 64,
+              "minLength": 1,
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CreateSessionEventRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "201": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CreateSessionEventResponse"
+                }
+              }
+            },
+            "description": "Events created in the session inbox."
+          },
+          "400": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/RequestErrorResponse"
+                }
+              }
+            },
+            "description": "Invalid request body."
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/RequestErrorResponse"
+                }
+              }
+            },
+            "description": "Caller is not the session creator."
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/RequestErrorResponse"
+                }
+              }
+            },
+            "description": "Session or turn not found."
+          },
+          "409": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/RequestErrorResponse"
+                }
+              }
+            },
+            "description": "Turn is terminal, or an event id already exists."
+          }
+        },
+        "summary": "Create session events",
+        "tags": [
+          "Agent Sessions"
+        ],
+        "x-fern-sdk-group-name": [
+          "sessions"
+        ],
+        "x-fern-sdk-method-name": "create_event"
       }
     },
     "/api/v1/sessions/{session_id}/turns": {

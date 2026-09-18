@@ -1891,6 +1891,87 @@ const response = page.response;
 </dl>
 </details>
 
+<details><summary><code>client.sessions.<a href="/src/api/resources/sessions/client/Client.ts">createEvent</a>(session_id, { ...params }) -> TrueForge.CreateSessionEventResponse</code></summary>
+<dl>
+<dd>
+
+#### 📝 Description
+
+<dl>
+<dd>
+
+<dl>
+<dd>
+
+Create inbound events (`user.tool_approval`, `user.tool_response`, `user.tool_approval_policy`) in the durable session inbox for a tip `turn_id`. Only the session creator may create. Events are stored unconsumed; applying them to the turn is a separate step.
+</dd>
+</dl>
+</dd>
+</dl>
+
+#### 🔌 Usage
+
+<dl>
+<dd>
+
+<dl>
+<dd>
+
+```typescript
+await client.sessions.createEvent("session_id", {
+    events: [{
+            approval: {
+                status: "allow"
+            },
+            threadId: "thread_id",
+            toolCallId: "tool_call_id",
+            type: "user.tool_approval"
+        }],
+    turnId: "turn_id"
+});
+
+```
+</dd>
+</dl>
+</dd>
+</dl>
+
+#### ⚙️ Parameters
+
+<dl>
+<dd>
+
+<dl>
+<dd>
+
+**session_id:** `string` — Session identifier.
+    
+</dd>
+</dl>
+
+<dl>
+<dd>
+
+**request:** `TrueForge.CreateSessionEventRequest` 
+    
+</dd>
+</dl>
+
+<dl>
+<dd>
+
+**requestOptions:** `SessionsClient.RequestOptions` 
+    
+</dd>
+</dl>
+</dd>
+</dl>
+
+
+</dd>
+</dl>
+</details>
+
 <details><summary><code>client.sessions.<a href="/src/api/resources/sessions/client/Client.ts">listTurns</a>(session_id, { ...params }) -> core.Page&lt;TrueForge.Turn, TrueForge.ListTurnsResponse&gt;</code></summary>
 <dl>
 <dd>

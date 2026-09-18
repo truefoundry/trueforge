@@ -722,6 +722,255 @@ describe("SessionsClient", () => {
         }).rejects.toThrow(TrueForgeTypes.NotFoundError);
     });
 
+    test("create_event (1)", async () => {
+        const server = mockServerPool.createServer();
+        const client = new TrueForge({ maxRetries: 0, token: "test", baseUrl: server.baseUrl });
+        const rawRequestBody = {
+            events: [
+                {
+                    approval: { status: "allow" },
+                    thread_id: "thread_id",
+                    tool_call_id: "tool_call_id",
+                    type: "user.tool_approval",
+                },
+            ],
+            turn_id: "turn_id",
+        };
+        const rawResponseBody = {
+            data: [
+                {
+                    approval: { status: "allow" },
+                    created_at: "created_at",
+                    id: "id",
+                    thread_id: "thread_id",
+                    tool_call_id: "tool_call_id",
+                    type: "user.tool_approval",
+                },
+            ],
+        };
+
+        server
+            .mockEndpoint()
+            .post("/api/v1/sessions/session_id/events")
+            .jsonBody(rawRequestBody)
+            .respondWith()
+            .statusCode(200)
+            .jsonBody(rawResponseBody)
+            .build();
+
+        const response = await client.sessions.createEvent("session_id", {
+            events: [
+                {
+                    approval: {
+                        status: "allow",
+                    },
+                    threadId: "thread_id",
+                    toolCallId: "tool_call_id",
+                    type: "user.tool_approval",
+                },
+            ],
+            turnId: "turn_id",
+        });
+        expect(response).toEqual({
+            data: [
+                {
+                    approval: {
+                        status: "allow",
+                    },
+                    createdAt: "created_at",
+                    id: "id",
+                    threadId: "thread_id",
+                    toolCallId: "tool_call_id",
+                    type: "user.tool_approval",
+                },
+            ],
+        });
+    });
+
+    test("create_event (2)", async () => {
+        const server = mockServerPool.createServer();
+        const client = new TrueForge({ maxRetries: 0, token: "test", baseUrl: server.baseUrl });
+        const rawRequestBody = {
+            events: [
+                { approval: { status: "allow" }, thread_id: "x", tool_call_id: "x", type: "user.tool_approval" },
+                { approval: { status: "allow" }, thread_id: "x", tool_call_id: "x", type: "user.tool_approval" },
+            ],
+            turn_id: "x",
+        };
+        const rawResponseBody = { error: { message: "message" } };
+
+        server
+            .mockEndpoint()
+            .post("/api/v1/sessions/session_id/events")
+            .jsonBody(rawRequestBody)
+            .respondWith()
+            .statusCode(400)
+            .jsonBody(rawResponseBody)
+            .build();
+
+        await expect(async () => {
+            return await client.sessions.createEvent("session_id", {
+                events: [
+                    {
+                        approval: {
+                            status: "allow",
+                        },
+                        threadId: "x",
+                        toolCallId: "x",
+                        type: "user.tool_approval",
+                    },
+                    {
+                        approval: {
+                            status: "allow",
+                        },
+                        threadId: "x",
+                        toolCallId: "x",
+                        type: "user.tool_approval",
+                    },
+                ],
+                turnId: "x",
+            });
+        }).rejects.toThrow(TrueForgeTypes.BadRequestError);
+    });
+
+    test("create_event (3)", async () => {
+        const server = mockServerPool.createServer();
+        const client = new TrueForge({ maxRetries: 0, token: "test", baseUrl: server.baseUrl });
+        const rawRequestBody = {
+            events: [
+                { approval: { status: "allow" }, thread_id: "x", tool_call_id: "x", type: "user.tool_approval" },
+                { approval: { status: "allow" }, thread_id: "x", tool_call_id: "x", type: "user.tool_approval" },
+            ],
+            turn_id: "x",
+        };
+        const rawResponseBody = { error: { message: "message" } };
+
+        server
+            .mockEndpoint()
+            .post("/api/v1/sessions/session_id/events")
+            .jsonBody(rawRequestBody)
+            .respondWith()
+            .statusCode(403)
+            .jsonBody(rawResponseBody)
+            .build();
+
+        await expect(async () => {
+            return await client.sessions.createEvent("session_id", {
+                events: [
+                    {
+                        approval: {
+                            status: "allow",
+                        },
+                        threadId: "x",
+                        toolCallId: "x",
+                        type: "user.tool_approval",
+                    },
+                    {
+                        approval: {
+                            status: "allow",
+                        },
+                        threadId: "x",
+                        toolCallId: "x",
+                        type: "user.tool_approval",
+                    },
+                ],
+                turnId: "x",
+            });
+        }).rejects.toThrow(TrueForgeTypes.ForbiddenError);
+    });
+
+    test("create_event (4)", async () => {
+        const server = mockServerPool.createServer();
+        const client = new TrueForge({ maxRetries: 0, token: "test", baseUrl: server.baseUrl });
+        const rawRequestBody = {
+            events: [
+                { approval: { status: "allow" }, thread_id: "x", tool_call_id: "x", type: "user.tool_approval" },
+                { approval: { status: "allow" }, thread_id: "x", tool_call_id: "x", type: "user.tool_approval" },
+            ],
+            turn_id: "x",
+        };
+        const rawResponseBody = { error: { message: "message" } };
+
+        server
+            .mockEndpoint()
+            .post("/api/v1/sessions/session_id/events")
+            .jsonBody(rawRequestBody)
+            .respondWith()
+            .statusCode(404)
+            .jsonBody(rawResponseBody)
+            .build();
+
+        await expect(async () => {
+            return await client.sessions.createEvent("session_id", {
+                events: [
+                    {
+                        approval: {
+                            status: "allow",
+                        },
+                        threadId: "x",
+                        toolCallId: "x",
+                        type: "user.tool_approval",
+                    },
+                    {
+                        approval: {
+                            status: "allow",
+                        },
+                        threadId: "x",
+                        toolCallId: "x",
+                        type: "user.tool_approval",
+                    },
+                ],
+                turnId: "x",
+            });
+        }).rejects.toThrow(TrueForgeTypes.NotFoundError);
+    });
+
+    test("create_event (5)", async () => {
+        const server = mockServerPool.createServer();
+        const client = new TrueForge({ maxRetries: 0, token: "test", baseUrl: server.baseUrl });
+        const rawRequestBody = {
+            events: [
+                { approval: { status: "allow" }, thread_id: "x", tool_call_id: "x", type: "user.tool_approval" },
+                { approval: { status: "allow" }, thread_id: "x", tool_call_id: "x", type: "user.tool_approval" },
+            ],
+            turn_id: "x",
+        };
+        const rawResponseBody = { error: { message: "message" } };
+
+        server
+            .mockEndpoint()
+            .post("/api/v1/sessions/session_id/events")
+            .jsonBody(rawRequestBody)
+            .respondWith()
+            .statusCode(409)
+            .jsonBody(rawResponseBody)
+            .build();
+
+        await expect(async () => {
+            return await client.sessions.createEvent("session_id", {
+                events: [
+                    {
+                        approval: {
+                            status: "allow",
+                        },
+                        threadId: "x",
+                        toolCallId: "x",
+                        type: "user.tool_approval",
+                    },
+                    {
+                        approval: {
+                            status: "allow",
+                        },
+                        threadId: "x",
+                        toolCallId: "x",
+                        type: "user.tool_approval",
+                    },
+                ],
+                turnId: "x",
+            });
+        }).rejects.toThrow(TrueForgeTypes.ConflictError);
+    });
+
     test("list_turns (1)", async () => {
         const server = mockServerPool.createServer();
         const client = new TrueForge({ maxRetries: 0, token: "test", baseUrl: server.baseUrl });

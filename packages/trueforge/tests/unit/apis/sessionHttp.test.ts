@@ -3,6 +3,11 @@ import { AgentSpecSchema, Sessions } from '@truefoundry/trueforge-core/agent-ses
 import { RequestReplyRouter } from '@truefoundry/trueforge-core/request-reply';
 import { createClient } from 'redis';
 import { createLogger } from 'winston';
+import {
+  makeCreateTurnInput,
+  makeDoneTurnState,
+  makeTurnDoneEvent,
+} from '../../../../trueforge-core/tests/agent-session/testHelpers';
 import { createInternalMetricsRouter } from '../../../src/apis/sessionMetrics';
 import {
   createInternalSessionsRouter,
@@ -420,8 +425,141 @@ describe('sessions HTTP agent binding', () => {
     expect(eventsForbidden.status).toBe(403);
     expect(await eventsForbidden.json()).toEqual(forbiddenBody);
 
+    const sendEventsForbidden = await app.request(
+      '/other-user-session/events',
+      jsonInit('POST', {
+        turn_id: 'any-turn',
+        events: [
+          {
+            type: 'user.tool_approval',
+            thread_id: 'main',
+            tool_call_id: 'tc-1',
+            approval: { status: 'allow' },
+          },
+        ],
+      }),
+    );
+    expect(sendEventsForbidden.status).toBe(403);
+    expect(await sendEventsForbidden.json()).toEqual(forbiddenBody);
+
     const allowed = await app.request(`/${json.data.id}`);
     expect(allowed.status).toBe(200);
+  });
+
+  it('POST /sessions/{id}/events persists inbox rows for a running tip', async () => {
+    const created = await app.request('/', jsonInit('POST', { agent: { spec: inlineSpec } }));
+    expect(created.status).toBe(201);
+    const { data: session } = (await created.json()) as { data: { id: string } };
+    await sessionStore.createTurn(makeCreateTurnInput({ sessionId: session.id, turnId: 'tip-1' }));
+
+    const res = await app.request(
+      `/${session.id}/events`,
+      jsonInit('POST', {
+        turn_id: 'tip-1',
+        events: [
+          {
+            type: 'user.tool_approval',
+            thread_id: 'main',
+            tool_call_id: 'tc-1',
+            approval: { status: 'allow' },
+          },
+          {
+            type: 'user.tool_approval_policy',
+            policies: [
+              {
+                server: 'github',
+                tool_name: 'create_issue',
+                action: { type: 'allow_session' },
+              },
+            ],
+          },
+        ],
+      }),
+    );
+    expect(res.status).toBe(201);
+    const body = (await res.json()) as {
+      data: Array<{
+        id: string;
+        created_at: string;
+        type: string;
+        thread_id: string | null;
+        tool_call_id?: string;
+        approval?: { status: string };
+        policies?: unknown[];
+      }>;
+    };
+    expect(body.data).toHaveLength(2);
+    expect(body.data[0]).toMatchObject({
+      type: 'user.tool_approval',
+      thread_id: 'main',
+      tool_call_id: 'tc-1',
+      approval: { status: 'allow' },
+    });
+    expect(body.data[0]?.id).toEqual(expect.any(String));
+    expect(body.data[0]?.created_at).toEqual(expect.any(String));
+    expect(body.data[1]).toMatchObject({
+      type: 'user.tool_approval_policy',
+      policies: [
+        {
+          server: 'github',
+          tool_name: 'create_issue',
+          action: { type: 'allow_session' },
+        },
+      ],
+    });
+
+    const pending = await sessionStore.listUnconsumedSessionInboundEvents({
+      session_id: session.id,
+      turn_id: 'tip-1',
+    });
+    expect(pending.map(e => e.event_id)).toEqual(body.data.map(e => e.id));
+    expect(pending.map(e => e.payload.type)).toEqual(['user.tool_approval', 'user.tool_approval_policy']);
+  });
+
+  it('POST /sessions/{id}/events returns 404 for unknown tip and 409 for terminal tip', async () => {
+    const created = await app.request('/', jsonInit('POST', { agent: { spec: inlineSpec } }));
+    expect(created.status).toBe(201);
+    const { data: session } = (await created.json()) as { data: { id: string } };
+    await sessionStore.createTurn(makeCreateTurnInput({ sessionId: session.id, turnId: 'tip-done' }));
+    const doneState = makeDoneTurnState();
+    await sessionStore.updateTurnState({
+      session_id: session.id,
+      turn_id: 'tip-done',
+      state: doneState,
+      turn_done_event: makeTurnDoneEvent(doneState),
+    });
+
+    const missing = await app.request(
+      `/${session.id}/events`,
+      jsonInit('POST', {
+        turn_id: 'no-such-tip',
+        events: [
+          {
+            type: 'user.tool_approval',
+            thread_id: 'main',
+            tool_call_id: 'tc-1',
+            approval: { status: 'allow' },
+          },
+        ],
+      }),
+    );
+    expect(missing.status).toBe(404);
+
+    const terminal = await app.request(
+      `/${session.id}/events`,
+      jsonInit('POST', {
+        turn_id: 'tip-done',
+        events: [
+          {
+            type: 'user.tool_approval',
+            thread_id: 'main',
+            tool_call_id: 'tc-1',
+            approval: { status: 'allow' },
+          },
+        ],
+      }),
+    );
+    expect(terminal.status).toBe(409);
   });
 
   it('rejects PATCH agent on a named session', async () => {

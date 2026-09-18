@@ -10,7 +10,7 @@ import {
   SessionStoreNotFoundError,
   TurnNotFoundError,
 } from '@truefoundry/trueforge-core/agent-session';
-import { extractErrorLogFields } from '@truefoundry/trueforge-core/core';
+import { extractErrorLogFields, newEventId } from '@truefoundry/trueforge-core/core';
 import {
   redisRequest,
   RequestTimeoutError,
@@ -30,6 +30,7 @@ import type { IModelProviderStore } from '../db/modelProviderStore';
 import type { ISandboxProviderStore } from '../db/sandboxProviderStore';
 import {
   cancelSessionRoute,
+  createSessionEventRoute,
   createSessionRoute,
   deleteSessionRoute,
   getOrCreateSessionByExternalIdRoute,
@@ -584,6 +585,56 @@ export function createSessionsRouter(deps: SessionsRouterDeps) {
     }
   };
 
+  /** Persist-only inbox write; apply / wake is follow-up work. */
+  const createSessionEventHandler: RouteHandler<typeof createSessionEventRoute> = async c => {
+    const { session_id: sessionId } = c.req.valid('param');
+    const body = c.req.valid('json');
+    const requestContext = deps.resolveRequestContext(c);
+    const session = await deps.sessions.get({
+      tenant_id: requestContext.tenant_id,
+      session_id: sessionId,
+    });
+    if (!session) {
+      return c.json({ error: { message: `Session not found: ${sessionId}` } }, 404);
+    }
+    if (
+      !isSessionOwner({
+        subject_id: requestContext.subject.id,
+        created_by_subject: session.record.created_by_subject,
+      })
+    ) {
+      return c.json({ error: { message: FORBIDDEN_SESSION_ACCESS } }, 403);
+    }
+
+    const createdAt = new Date().toISOString();
+    const events = body.events.map(payload => {
+      const id = newEventId();
+      return {
+        event_id: id,
+        payload,
+        created_at: createdAt,
+        created: { ...payload, id, created_at: createdAt },
+      };
+    });
+
+    try {
+      await deps.sessionStore.insertSessionInboundEvents({
+        session_id: sessionId,
+        turn_id: body.turn_id,
+        events: events.map(({ event_id, payload, created_at }) => ({ event_id, payload, created_at })),
+      });
+      return c.json({ data: events.map(e => e.created) }, 201);
+    } catch (error) {
+      if (error instanceof SessionStoreNotFoundError) {
+        return c.json({ error: { message: error.message } }, 404);
+      }
+      if (error instanceof SessionStoreConflictError) {
+        return c.json({ error: { message: error.message } }, 409);
+      }
+      throw error;
+    }
+  };
+
   const router = new OpenAPIHono();
   router.openapi(createSessionRoute, createSessionHandler);
   router.openapi(getSessionRoute, getSessionHandler);
@@ -592,6 +643,7 @@ export function createSessionsRouter(deps: SessionsRouterDeps) {
   router.openapi(listSessionsRoute, listSessionsHandler);
   router.openapi(cancelSessionRoute, cancelSessionHandler);
   router.openapi(listSessionEventsRoute, listSessionEventsHandler);
+  router.openapi(createSessionEventRoute, createSessionEventHandler);
   deps.requestReplyRouter.registerRoute(SESSIONS_CANCEL_PATH, cancelSessionTurnPeerHandler(deps.activeTurns));
   return router;
 }

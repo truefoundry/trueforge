@@ -9,6 +9,7 @@ from ..core.request_options import RequestOptions
 from ..core.stream import AsyncStream, Stream, StreamEvent
 from ..types.cancel_session_response import CancelSessionResponse
 from ..types.create_session_agent import CreateSessionAgent
+from ..types.create_session_event_response import CreateSessionEventResponse
 from ..types.get_session_response import GetSessionResponse
 from ..types.get_turn_response import GetTurnResponse
 from ..types.list_session_events_response import ListSessionEventsResponse
@@ -22,6 +23,7 @@ from ..types.session import Session
 from ..types.session_agent_spec_body import SessionAgentSpecBody
 from ..types.session_event import SessionEvent
 from ..types.session_event_item import SessionEventItem
+from ..types.session_inbound_event_item import SessionInboundEventItem
 from ..types.session_metadata import SessionMetadata
 from ..types.session_source_type import SessionSourceType
 from ..types.turn import Turn
@@ -380,6 +382,61 @@ class SessionsClient:
             limit=limit,
             request_options=request_options,
         )
+
+    def create_event(
+        self,
+        *,
+        session_id: str,
+        events: typing.Sequence[SessionInboundEventItem],
+        turn_id: str,
+        request_options: typing.Optional[RequestOptions] = None,
+    ) -> CreateSessionEventResponse:
+        """
+        Create inbound events (`user.tool_approval`, `user.tool_response`, `user.tool_approval_policy`) in the durable session inbox for a tip `turn_id`. Only the session creator may create. Events are stored unconsumed; applying them to the turn is a separate step.
+
+        Parameters
+        ----------
+        session_id : str
+            Session identifier.
+
+        events : typing.Sequence[SessionInboundEventItem]
+            One or more inbound items (`user.tool_approval`, `user.tool_response`, `user.tool_approval_policy`).
+
+        turn_id : str
+            Tip turn that receives this batch. Must be non-terminal (running; paused when that status lands).
+
+        request_options : typing.Optional[RequestOptions]
+            Request-specific configuration.
+
+        Returns
+        -------
+        CreateSessionEventResponse
+            Events created in the session inbox.
+
+        Examples
+        --------
+        from trueforge_sdk import ApprovalAllow, TrueForge, UserToolApprovalEvent
+
+        client = TrueForge(
+            token="YOUR_TOKEN",
+            base_url="https://yourhost.com/path/to/api",
+        )
+        client.sessions.create_event(
+            session_id="session_id",
+            events=[
+                UserToolApprovalEvent(
+                    approval=ApprovalAllow(),
+                    thread_id="thread_id",
+                    tool_call_id="tool_call_id",
+                )
+            ],
+            turn_id="turn_id",
+        )
+        """
+        _response = self._raw_client.create_event(
+            session_id=session_id, events=events, turn_id=turn_id, request_options=request_options
+        )
+        return _response.data
 
     def list_turns(
         self,
@@ -1150,6 +1207,69 @@ class AsyncSessionsClient:
             limit=limit,
             request_options=request_options,
         )
+
+    async def create_event(
+        self,
+        *,
+        session_id: str,
+        events: typing.Sequence[SessionInboundEventItem],
+        turn_id: str,
+        request_options: typing.Optional[RequestOptions] = None,
+    ) -> CreateSessionEventResponse:
+        """
+        Create inbound events (`user.tool_approval`, `user.tool_response`, `user.tool_approval_policy`) in the durable session inbox for a tip `turn_id`. Only the session creator may create. Events are stored unconsumed; applying them to the turn is a separate step.
+
+        Parameters
+        ----------
+        session_id : str
+            Session identifier.
+
+        events : typing.Sequence[SessionInboundEventItem]
+            One or more inbound items (`user.tool_approval`, `user.tool_response`, `user.tool_approval_policy`).
+
+        turn_id : str
+            Tip turn that receives this batch. Must be non-terminal (running; paused when that status lands).
+
+        request_options : typing.Optional[RequestOptions]
+            Request-specific configuration.
+
+        Returns
+        -------
+        CreateSessionEventResponse
+            Events created in the session inbox.
+
+        Examples
+        --------
+        import asyncio
+
+        from trueforge_sdk import ApprovalAllow, AsyncTrueForge, UserToolApprovalEvent
+
+        client = AsyncTrueForge(
+            token="YOUR_TOKEN",
+            base_url="https://yourhost.com/path/to/api",
+        )
+
+
+        async def main() -> None:
+            await client.sessions.create_event(
+                session_id="session_id",
+                events=[
+                    UserToolApprovalEvent(
+                        approval=ApprovalAllow(),
+                        thread_id="thread_id",
+                        tool_call_id="tool_call_id",
+                    )
+                ],
+                turn_id="turn_id",
+            )
+
+
+        asyncio.run(main())
+        """
+        _response = await self._raw_client.create_event(
+            session_id=session_id, events=events, turn_id=turn_id, request_options=request_options
+        )
+        return _response.data
 
     async def list_turns(
         self,

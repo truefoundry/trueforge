@@ -4,8 +4,10 @@
  */
 import { z } from '@hono/zod-openapi';
 import {
+  CreatedSessionEventSchema,
   EventType,
   SessionEventItemSchema,
+  SessionInboundEventItemSchema,
   TokenPaginationSchema,
   TurnCreatedEventSchema,
   TurnDoneEventSchema,
@@ -27,6 +29,28 @@ import { EVENTS_PAGE_LIMIT } from './common';
 
 export type { TurnCreatedEvent } from '@truefoundry/trueforge-core/agent-session';
 export { EventType };
+
+/** Client → harness inbound events (tip HITL / sticky policy). Persisted to the session inbox. */
+export const CreateSessionEventRequestSchema = z
+  .object({
+    turn_id: z
+      .string()
+      .min(1)
+      .describe('Tip turn that receives this batch. Must be non-terminal (running; paused when that status lands).'),
+    events: z
+      .array(SessionInboundEventItemSchema)
+      .min(1)
+      .describe('One or more inbound items (`user.tool_approval`, `user.tool_response`, `user.tool_approval_policy`).'),
+  })
+  .openapi('CreateSessionEventRequest');
+
+export const CreateSessionEventResponseSchema = z
+  .object({
+    data: z
+      .array(CreatedSessionEventSchema)
+      .describe('Created inbox events with server-minted `id` and `created_at`, in request order.'),
+  })
+  .openapi('CreateSessionEventResponse');
 
 /** Live SSE stream for session turns — content events, deltas and lifecycle. */
 export const TurnStreamingEventSchema = z

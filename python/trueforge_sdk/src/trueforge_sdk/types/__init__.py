@@ -54,7 +54,12 @@ if typing.TYPE_CHECKING:
     from .context_management_config import ContextManagementConfig
     from .create_schedule_run_response import CreateScheduleRunResponse
     from .create_session_agent import CreateSessionAgent
+    from .create_session_event_response import CreateSessionEventResponse
     from .created_by_subject import CreatedBySubject
+    from .created_session_event import CreatedSessionEvent
+    from .created_user_tool_approval_event import CreatedUserToolApprovalEvent
+    from .created_user_tool_approval_policy_event import CreatedUserToolApprovalPolicyEvent
+    from .created_user_tool_response_event import CreatedUserToolResponseEvent
     from .cron_expression import CronExpression
     from .custom_model_provider import CustomModelProvider
     from .daytona_sandbox_provider_auth import DaytonaSandboxProviderAuth
@@ -177,6 +182,7 @@ if typing.TYPE_CHECKING:
     from .session_agent_spec_body import SessionAgentSpecBody
     from .session_event import SessionEvent
     from .session_event_item import SessionEventItem
+    from .session_inbound_event_item import SessionInboundEventItem
     from .session_metadata import SessionMetadata
     from .session_metrics import SessionMetrics
     from .session_metrics_chart import SessionMetricsChart
@@ -206,6 +212,8 @@ if typing.TYPE_CHECKING:
     from .timezone import Timezone
     from .together_ai_model_provider import TogetherAiModelProvider
     from .token_pagination import TokenPagination
+    from .tool_approval_policy_allow_session import ToolApprovalPolicyAllowSession
+    from .tool_approval_policy_item import ToolApprovalPolicyItem
     from .tool_approval_required_event import ToolApprovalRequiredEvent
     from .tool_call import ToolCall
     from .tool_call_ref import ToolCallRef
@@ -239,6 +247,7 @@ if typing.TYPE_CHECKING:
     from .user_message_content import UserMessageContent
     from .user_message_content_item import UserMessageContentItem
     from .user_tool_approval_event import UserToolApprovalEvent
+    from .user_tool_approval_policy_event import UserToolApprovalPolicyEvent
     from .user_tool_response_event import UserToolResponseEvent
     from .web_search_capability import WebSearchCapability
     from .web_search_config import WebSearchConfig
@@ -292,7 +301,12 @@ _dynamic_imports: typing.Dict[str, str] = {
     "ContextManagementConfig": ".context_management_config",
     "CreateScheduleRunResponse": ".create_schedule_run_response",
     "CreateSessionAgent": ".create_session_agent",
+    "CreateSessionEventResponse": ".create_session_event_response",
     "CreatedBySubject": ".created_by_subject",
+    "CreatedSessionEvent": ".created_session_event",
+    "CreatedUserToolApprovalEvent": ".created_user_tool_approval_event",
+    "CreatedUserToolApprovalPolicyEvent": ".created_user_tool_approval_policy_event",
+    "CreatedUserToolResponseEvent": ".created_user_tool_response_event",
     "CronExpression": ".cron_expression",
     "CustomModelProvider": ".custom_model_provider",
     "DaytonaSandboxProviderAuth": ".daytona_sandbox_provider_auth",
@@ -415,6 +429,7 @@ _dynamic_imports: typing.Dict[str, str] = {
     "SessionAgentSpecBody": ".session_agent_spec_body",
     "SessionEvent": ".session_event",
     "SessionEventItem": ".session_event_item",
+    "SessionInboundEventItem": ".session_inbound_event_item",
     "SessionMetadata": ".session_metadata",
     "SessionMetrics": ".session_metrics",
     "SessionMetricsChart": ".session_metrics_chart",
@@ -444,6 +459,8 @@ _dynamic_imports: typing.Dict[str, str] = {
     "Timezone": ".timezone",
     "TogetherAiModelProvider": ".together_ai_model_provider",
     "TokenPagination": ".token_pagination",
+    "ToolApprovalPolicyAllowSession": ".tool_approval_policy_allow_session",
+    "ToolApprovalPolicyItem": ".tool_approval_policy_item",
     "ToolApprovalRequiredEvent": ".tool_approval_required_event",
     "ToolCall": ".tool_call",
     "ToolCallRef": ".tool_call_ref",
@@ -477,6 +494,7 @@ _dynamic_imports: typing.Dict[str, str] = {
     "UserMessageContent": ".user_message_content",
     "UserMessageContentItem": ".user_message_content_item",
     "UserToolApprovalEvent": ".user_tool_approval_event",
+    "UserToolApprovalPolicyEvent": ".user_tool_approval_policy_event",
     "UserToolResponseEvent": ".user_tool_response_event",
     "WebSearchCapability": ".web_search_capability",
     "WebSearchConfig": ".web_search_config",
@@ -554,7 +572,12 @@ __all__ = [
     "ContextManagementConfig",
     "CreateScheduleRunResponse",
     "CreateSessionAgent",
+    "CreateSessionEventResponse",
     "CreatedBySubject",
+    "CreatedSessionEvent",
+    "CreatedUserToolApprovalEvent",
+    "CreatedUserToolApprovalPolicyEvent",
+    "CreatedUserToolResponseEvent",
     "CronExpression",
     "CustomModelProvider",
     "DaytonaSandboxProviderAuth",
@@ -677,6 +700,7 @@ __all__ = [
     "SessionAgentSpecBody",
     "SessionEvent",
     "SessionEventItem",
+    "SessionInboundEventItem",
     "SessionMetadata",
     "SessionMetrics",
     "SessionMetricsChart",
@@ -706,6 +730,8 @@ __all__ = [
     "Timezone",
     "TogetherAiModelProvider",
     "TokenPagination",
+    "ToolApprovalPolicyAllowSession",
+    "ToolApprovalPolicyItem",
     "ToolApprovalRequiredEvent",
     "ToolCall",
     "ToolCallRef",
@@ -739,6 +765,7 @@ __all__ = [
     "UserMessageContent",
     "UserMessageContentItem",
     "UserToolApprovalEvent",
+    "UserToolApprovalPolicyEvent",
     "UserToolResponseEvent",
     "WebSearchCapability",
     "WebSearchConfig",
