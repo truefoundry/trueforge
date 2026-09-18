@@ -1,11 +1,11 @@
 'use client';
 
-import type { ReactNode } from 'react';
+import { useEffect, useRef, type ReactNode } from 'react';
 
 import { Icon } from '../icons/Icon.js';
 import { auiButtonClass } from './lib/buttonClasses.js';
 import { cn } from './lib/cn.js';
-import { formatRelativeShort } from './lib/threadListMeta.js';
+import { formatRelativeShort, MAX_SESSION_TITLE_LENGTH } from './lib/threadListMeta.js';
 
 export type ThreadListRowProps = {
   title: string;
@@ -15,10 +15,81 @@ export type ThreadListRowProps = {
   agentName?: string;
   /** Shown as compact relative time on the right. */
   lastMessageAt?: Date;
-  /** Overflow actions (e.g. delete menu) — rendered as a sibling of the title button. */
+  /** Overflow actions (e.g. rename / delete menu) — rendered as a sibling of the title button. */
   actions?: ReactNode;
+  renaming?: boolean;
+  renameValue?: string;
+  renameSaving?: boolean;
+  onRenameValueChange?: (value: string) => void;
+  onRenameCommit?: () => void;
+  onRenameCancel?: () => void;
+  onRenameBlur?: () => void;
   className?: string;
 };
+
+function ThreadListAgentName({ agentName }: { agentName: string }) {
+  return (
+    <span className="mt-0.5 flex min-w-0 items-center gap-1 text-[0.75rem] text-text-secondary">
+      <Icon name="bot" className="shrink-0" />
+      <span className="truncate">{agentName}</span>
+    </span>
+  );
+}
+
+function ThreadListRenameField({
+  title,
+  renameValue,
+  renameSaving,
+  agentName,
+  onRenameValueChange,
+  onRenameCommit,
+  onRenameCancel,
+  onRenameBlur,
+}: {
+  title: string;
+  renameValue?: string;
+  renameSaving: boolean;
+  agentName?: string;
+  onRenameValueChange?: (value: string) => void;
+  onRenameCommit?: () => void;
+  onRenameCancel?: () => void;
+  onRenameBlur?: () => void;
+}) {
+  const inputRef = useRef<HTMLInputElement>(null);
+
+  useEffect(() => {
+    const input = inputRef.current;
+    if (input == null) return;
+    input.focus();
+    input.select();
+  }, []);
+
+  return (
+    <div className="min-h-8 min-w-0 flex-1 overflow-hidden px-2.5 py-1.5">
+      <input
+        ref={inputRef}
+        aria-label="Session title"
+        value={renameValue ?? title}
+        readOnly={renameSaving}
+        maxLength={MAX_SESSION_TITLE_LENGTH}
+        className="h-7 w-full cursor-text border-none bg-transparent text-sm text-text-primary outline-none focus:ring-0 focus-visible:ring-0"
+        onChange={event => onRenameValueChange?.(event.target.value)}
+        onBlur={() => onRenameBlur?.()}
+        onKeyDown={event => {
+          if (event.key === 'Enter') {
+            event.preventDefault();
+            onRenameCommit?.();
+          }
+          if (event.key === 'Escape') {
+            event.preventDefault();
+            onRenameCancel?.();
+          }
+        }}
+      />
+      {agentName != null ? <ThreadListAgentName agentName={agentName} /> : null}
+    </div>
+  );
+}
 
 export function ThreadListRow({
   title,
@@ -27,46 +98,63 @@ export function ThreadListRow({
   agentName,
   lastMessageAt,
   actions,
+  renaming = false,
+  renameValue,
+  renameSaving = false,
+  onRenameValueChange,
+  onRenameCommit,
+  onRenameCancel,
+  onRenameBlur,
   className,
 }: ThreadListRowProps) {
   const relative = lastMessageAt != null ? formatRelativeShort(lastMessageAt) : undefined;
-  const hasTrailing = relative != null || actions != null;
+  const hasTrailing = !renaming && (relative != null || actions != null);
 
   return (
     <div
       data-slot="aui_thread-list-item"
-      data-active={active || undefined}
+      data-active={(!renaming && active) || undefined}
       className={cn(
         'group flex min-w-0 items-center gap-0.5 rounded-[0.5rem] transition-colors',
-        active
-          ? 'bg-dropdown-selected-item-bg text-dropdown-selected-item-text'
-          : 'text-text-secondary hover:bg-ghost-button-hover hover:text-text-primary',
+        renaming
+          ? 'text-text-secondary'
+          : active
+            ? 'bg-dropdown-selected-item-bg text-dropdown-selected-item-text'
+            : 'text-text-secondary hover:bg-ghost-button-hover hover:text-text-primary',
         className,
       )}
     >
-      <button
-        type="button"
-        onClick={onSelect}
-        style={{ borderRadius: 'var(--thread-list-item-radius, 0.75rem)' }}
-        className={auiButtonClass({
-          variant: 'ghost',
-          className: cn(
-            '!justify-start h-auto min-h-8 min-w-0 flex-1 overflow-hidden rounded-[0.75rem] px-2.5 py-1.5 text-left font-normal shadow-none',
-            'bg-transparent hover:bg-transparent hover:text-inherit',
-            active ? 'text-dropdown-selected-item-text' : 'text-inherit',
-          ),
-        })}
-      >
-        <span className="min-w-0 flex-1">
-          <span className="block truncate text-sm font-normal text-text-primary">{title}</span>
-          {agentName != null ? (
-            <span className="mt-0.5 flex min-w-0 items-center gap-1 text-[0.75rem] text-text-secondary">
-              <Icon name="bot" className="shrink-0" />
-              <span className="truncate">{agentName}</span>
-            </span>
-          ) : null}
-        </span>
-      </button>
+      {renaming ? (
+        <ThreadListRenameField
+          title={title}
+          renameValue={renameValue}
+          renameSaving={renameSaving}
+          agentName={agentName}
+          onRenameValueChange={onRenameValueChange}
+          onRenameCommit={onRenameCommit}
+          onRenameCancel={onRenameCancel}
+          onRenameBlur={onRenameBlur}
+        />
+      ) : (
+        <button
+          type="button"
+          onClick={onSelect}
+          style={{ borderRadius: 'var(--thread-list-item-radius, 0.75rem)' }}
+          className={auiButtonClass({
+            variant: 'ghost',
+            className: cn(
+              '!justify-start h-auto min-h-8 min-w-0 flex-1 overflow-hidden rounded-[0.75rem] px-2.5 py-1.5 text-left font-normal shadow-none',
+              'bg-transparent hover:bg-transparent hover:text-inherit',
+              active ? 'text-dropdown-selected-item-text' : 'text-inherit',
+            ),
+          })}
+        >
+          <span className="min-w-0 flex-1">
+            <span className="block truncate text-sm font-normal text-text-primary">{title}</span>
+            {agentName != null ? <ThreadListAgentName agentName={agentName} /> : null}
+          </span>
+        </button>
+      )}
       {hasTrailing ? (
         <div className="relative mr-1 flex size-7 shrink-0 items-center justify-center">
           {relative != null ? (

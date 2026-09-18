@@ -1,3 +1,6 @@
+/** Matches TrueForge `PATCH /sessions/{id}` title max. */
+export const MAX_SESSION_TITLE_LENGTH = 50;
+
 /** Compact relative age for sidebar session rows (e.g. 30m, 22h, 1d). */
 export function formatRelativeShort(date: Date, now: Date = new Date()): string {
   const diffMs = Math.max(0, now.getTime() - date.getTime());

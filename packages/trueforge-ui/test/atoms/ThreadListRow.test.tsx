@@ -7,6 +7,31 @@ import { DropdownMenuItem } from '@/atoms/primitives/DropdownMenu.js';
 import { SlotsProvider } from '@/theme/SlotsProvider.js';
 
 describe('ThreadListRow', () => {
+  it('renders an inline title input when renaming', () => {
+    const { rerender } = render(
+      <SlotsProvider>
+        <ThreadListRow title="Session A" active onSelect={() => {}} renaming renameValue="Session A" />
+      </SlotsProvider>,
+    );
+    const input = screen.getByRole('textbox', { name: 'Session title' });
+    expect(input).toHaveValue('Session A');
+    expect(input.className).toMatch(/bg-transparent/);
+    expect(input.className).toMatch(/border-none/);
+    const row = input.closest('[data-slot="aui_thread-list-item"]');
+    expect(row).not.toHaveAttribute('data-active');
+    expect(row?.className).not.toMatch(/bg-dropdown-selected-item-bg/);
+    expect(screen.queryByRole('button', { name: 'Session A' })).not.toBeInTheDocument();
+
+    rerender(
+      <SlotsProvider>
+        <ThreadListRow title="Session A" active onSelect={() => {}} renaming renameValue="Session A" renameSaving />
+      </SlotsProvider>,
+    );
+    expect(input).toHaveAttribute('readonly');
+    expect(input).not.toBeDisabled();
+    expect(input).toHaveFocus();
+  });
+
   it('hides actions when omitted', () => {
     render(
       <SlotsProvider>

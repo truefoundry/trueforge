@@ -16,6 +16,7 @@ import { cn } from '../atoms/lib/cn.js';
 import { useCompactLayout } from '../atoms/lib/CompactLayoutContext.js';
 import {
   canReuseMutableShell,
+  MAX_SESSION_TITLE_LENGTH,
   readThreadAgentName,
   threadListIndicesByRecency,
   threadListItemIsMutable,
@@ -27,13 +28,16 @@ import { Icon } from '../icons/Icon.js';
 import { useOptionalServer } from '../server/ServerContext.js';
 import { useOptionalShellMode } from '../server/ShellModeContext.js';
 import { useSlot } from '../theme/SlotsProvider.js';
+import { useToasterOptional } from './ToasterContainer.js';
 
 /**
  * Simplified relative to the reference: renders threads in a single flat list
  * rather than grouping them by Today/Yesterday/Earlier.
  *
  * Delete uses assistant-ui ThreadListItemPrimitive.Delete / ThreadListItemMorePrimitive
- * (adapter.delete → server.deleteSession). Mobile/compact keeps a BottomSheet chrome.
+ * (adapter.delete → server.deleteSession). Rename uses aui.threadListItem().rename
+ * (adapter.rename → server.renameSession) when `renameSession` is implemented.
+ * Mobile/compact keeps a BottomSheet chrome.
  */
 export type ThreadListContainerProps = {
   /** Called after New chat or selecting a row — used by stack/drawer chrome. */
@@ -42,10 +46,25 @@ export type ThreadListContainerProps = {
   variant?: 'default' | 'recent-history';
 };
 
+const actionItemClass =
+  'flex w-full cursor-pointer select-none items-center gap-2 rounded-md px-2 py-1.5 text-sm font-medium outline-none transition-colors hover:bg-ghost-button-hover focus:bg-ghost-button-hover data-[highlighted]:bg-ghost-button-hover';
+
 const deleteItemClass =
   'flex w-full cursor-pointer select-none items-center gap-2 rounded-md px-2 py-1.5 text-sm font-medium text-failure-bg outline-none transition-colors hover:bg-failure-bg/12 hover:text-failure-bg focus:bg-failure-bg/12 focus:text-failure-bg data-[highlighted]:bg-failure-bg/12 data-[highlighted]:text-failure-bg';
 
-function ThreadListItemDeleteMenu({ disabled }: { disabled: boolean }) {
+function ThreadListItemActionsMenu({
+  canRename,
+  renameDisabled,
+  canDelete,
+  deleteDisabled,
+  onRename,
+}: {
+  canRename: boolean;
+  renameDisabled: boolean;
+  canDelete: boolean;
+  deleteDisabled: boolean;
+  onRename: () => void;
+}) {
   const PermissionGuard = useSlot('PermissionGuard');
   const compact = useCompactLayout();
   const isMobile = useIsMobile();
@@ -62,6 +81,38 @@ function ThreadListItemDeleteMenu({ disabled }: { disabled: boolean }) {
     size: 'icon',
     className: 'size-7 shrink-0 text-text-secondary hover:bg-transparent hover:text-text-primary',
   });
+
+  const renameButton = canRename ? (
+    <PermissionGuard allowed={!renameDisabled}>
+      <button
+        type="button"
+        className={actionItemClass}
+        disabled={renameDisabled}
+        onClick={() => {
+          if (renameDisabled) return;
+          setSheetOpen(false);
+          onRename();
+        }}
+      >
+        <Icon name="pencil" className="size-3.5" />
+        Rename
+      </button>
+    </PermissionGuard>
+  ) : null;
+
+  const deleteButton = canDelete ? (
+    <PermissionGuard allowed={!deleteDisabled}>
+      <ThreadListItemPrimitive.Delete
+        className={deleteItemClass}
+        onClick={() => {
+          if (!deleteDisabled) setSheetOpen(false);
+        }}
+      >
+        <Icon name="trash" className="size-3.5" />
+        Delete
+      </ThreadListItemPrimitive.Delete>
+    </PermissionGuard>
+  ) : null;
 
   if (useSheet) {
     return (
@@ -80,17 +131,8 @@ function ThreadListItemDeleteMenu({ disabled }: { disabled: boolean }) {
         {sheetOpen ? (
           <BottomSheet open onOpenChange={setSheetOpen} aria-label="Session actions">
             <div className="flex flex-col gap-1 p-2 *:w-full" role="menu">
-              <PermissionGuard allowed={!disabled}>
-                <ThreadListItemPrimitive.Delete
-                  className={deleteItemClass}
-                  onClick={() => {
-                    if (!disabled) setSheetOpen(false);
-                  }}
-                >
-                  <Icon name="trash" className="size-3.5" />
-                  Delete
-                </ThreadListItemPrimitive.Delete>
-              </PermissionGuard>
+              {renameButton}
+              {deleteButton}
             </div>
           </BottomSheet>
         ) : null}
@@ -112,14 +154,10 @@ function ThreadListItemDeleteMenu({ disabled }: { disabled: boolean }) {
         portalProps={{ container: portalContainer }}
         align="end"
         sideOffset={4}
-        className="aui-popup-enter font-sans-flex z-50 min-w-[8rem] rounded-md border border-border bg-card-bg p-1 text-text-primary shadow-md *:w-full"
+        className="aui-popup-enter font-sans-flex z-50 min-w-32 rounded-md border border-border bg-card-bg p-1 text-text-primary shadow-md *:w-full"
       >
-        <PermissionGuard allowed={!disabled}>
-          <ThreadListItemPrimitive.Delete className={deleteItemClass}>
-            <Icon name="trash" className="size-3.5" />
-            Delete
-          </ThreadListItemPrimitive.Delete>
-        </PermissionGuard>
+        {renameButton}
+        {deleteButton}
       </ThreadListItemMorePrimitive.Content>
     </ThreadListItemMorePrimitive.Root>
   );
@@ -127,15 +165,20 @@ function ThreadListItemDeleteMenu({ disabled }: { disabled: boolean }) {
 
 function ThreadListItemRow({
   onThreadOpen,
+  canRenameSession,
   canDeleteSession,
+  canManageResource,
   canDeleteResource,
 }: {
   onThreadOpen?: () => void;
+  canRenameSession: boolean;
   canDeleteSession: boolean;
+  canManageResource: (sessionId: string) => boolean;
   canDeleteResource: (sessionId: string) => boolean;
 }) {
   const aui = useAui();
   const shell = useOptionalShellMode();
+  const toaster = useToasterOptional();
   const ThreadListRow = useSlot('ThreadListRow');
   const id = useAuiState(s => s.threadListItem.id);
   const remoteId = useAuiState(s => s.threadListItem.remoteId);
@@ -144,17 +187,75 @@ function ThreadListItemRow({
   const custom = useAuiState(s => s.threadListItem.custom);
   const mainThreadId = useAuiState(s => s.threads.mainThreadId);
   const agentName = readThreadAgentName(custom);
+  const showRename = canRenameSession && remoteId != null;
   const showDelete = canDeleteSession && remoteId != null;
+  const showActions = showRename || showDelete;
+  const renameDisabled = remoteId != null && !canManageResource(remoteId);
   const deleteDisabled = remoteId != null && !canDeleteResource(remoteId);
   const sidebarNavOpen = shell?.libraryOpen === true || shell?.sessionsOpen === true || shell?.schedulesOpen === true;
+  const [renaming, setRenaming] = useState(false);
+  const [renameValue, setRenameValue] = useState('');
+  const [renameSaving, setRenameSaving] = useState(false);
+  const skipRenameBlurRef = useRef(false);
+
+  const displayTitle = title ?? 'New Chat';
+  const isValidRename = (() => {
+    const trimmed = renameValue.trim();
+    return trimmed.length > 0 && trimmed.length <= MAX_SESSION_TITLE_LENGTH;
+  })();
+
+  const persistRename = async () => {
+    const trimmed = renameValue.trim();
+    if (trimmed === (title ?? '').trim()) {
+      skipRenameBlurRef.current = true;
+      setRenaming(false);
+      return;
+    }
+    setRenameSaving(true);
+    try {
+      await aui.threadListItem().rename(trimmed);
+      skipRenameBlurRef.current = true;
+      setRenaming(false);
+    } catch (caught) {
+      skipRenameBlurRef.current = true;
+      setRenaming(false);
+      toaster?.showError(caught);
+    } finally {
+      setRenameSaving(false);
+    }
+  };
 
   return (
     <ThreadListItemPrimitive.Root className="min-w-0">
       <ThreadListRow
-        title={title ?? 'New Chat'}
+        title={displayTitle}
         active={id === mainThreadId && !sidebarNavOpen}
         agentName={agentName}
         lastMessageAt={lastMessageAt}
+        renaming={renaming}
+        renameValue={renameValue}
+        renameSaving={renameSaving}
+        onRenameValueChange={setRenameValue}
+        onRenameCommit={() => {
+          if (!isValidRename || renameSaving) return;
+          void persistRename();
+        }}
+        onRenameCancel={() => {
+          if (renameSaving) return;
+          skipRenameBlurRef.current = true;
+          setRenaming(false);
+        }}
+        onRenameBlur={() => {
+          if (skipRenameBlurRef.current || renameSaving) {
+            skipRenameBlurRef.current = false;
+            return;
+          }
+          if (!isValidRename) {
+            setRenaming(false);
+            return;
+          }
+          void persistRename();
+        }}
         onSelect={() => {
           onThreadOpen?.();
           shell?.setSettingsOpen(false);
@@ -195,7 +296,21 @@ function ThreadListItemRow({
           }
           void Promise.resolve(aui.threads().switchToThread(id)).catch(() => undefined);
         }}
-        actions={showDelete ? <ThreadListItemDeleteMenu disabled={deleteDisabled} /> : undefined}
+        actions={
+          showActions ? (
+            <ThreadListItemActionsMenu
+              canRename={showRename}
+              renameDisabled={renameDisabled}
+              canDelete={showDelete}
+              deleteDisabled={deleteDisabled}
+              onRename={() => {
+                skipRenameBlurRef.current = false;
+                setRenameValue(title ?? '');
+                setRenaming(true);
+              }}
+            />
+          ) : undefined
+        }
       />
     </ThreadListItemPrimitive.Root>
   );
@@ -227,12 +342,16 @@ function useThreadListIndicesByRecency(variant: NonNullable<ThreadListContainerP
 function ThreadListItemsByRecency({
   indices,
   onThreadOpen,
+  canRenameSession,
   canDeleteSession,
+  canManageResource,
   canDeleteResource,
 }: {
   indices: number[];
   onThreadOpen?: () => void;
+  canRenameSession: boolean;
   canDeleteSession: boolean;
+  canManageResource: (sessionId: string) => boolean;
   canDeleteResource: (sessionId: string) => boolean;
 }) {
   // Newest-first: remount/switchToThread can append the active session to threadIds.
@@ -246,7 +365,9 @@ function ThreadListItemsByRecency({
           <ThreadListItemByIndexProvider key={key} index={index} archived={false}>
             <ThreadListItemRow
               onThreadOpen={onThreadOpen}
+              canRenameSession={canRenameSession}
               canDeleteSession={canDeleteSession}
+              canManageResource={canManageResource}
               canDeleteResource={canDeleteResource}
             />
           </ThreadListItemByIndexProvider>
@@ -328,6 +449,7 @@ export function ThreadListContainer({ onThreadOpen, variant = 'default' }: Threa
   const showNewChat = shell?.isNewChatEnabled !== false;
   const isIdle = shell?.mode.status === 'idle';
   const isRecentHistory = variant === 'recent-history';
+  const canRenameSession = typeof server?.renameSession === 'function';
   const canDeleteSession = typeof server?.deleteSession === 'function';
   const remoteSessionIds = useMemo(
     () => threadItems.flatMap(item => (item.remoteId == null ? [] : [item.remoteId])),
@@ -401,7 +523,9 @@ export function ThreadListContainer({ onThreadOpen, variant = 'default' }: Threa
         <ThreadListItemsByRecency
           indices={indices}
           onThreadOpen={onThreadOpen}
+          canRenameSession={canRenameSession}
           canDeleteSession={canDeleteSession}
+          canManageResource={sessionId => allows(sessionId, 'MANAGE')}
           canDeleteResource={sessionId => allows(sessionId, 'DELETE')}
         />
       </ThreadListPrimitive.Root>
