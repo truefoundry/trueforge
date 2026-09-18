@@ -6,9 +6,9 @@ import { StreamableHTTPClientTransport } from '@modelcontextprotocol/sdk/client/
 import type { FetchLike } from '@modelcontextprotocol/sdk/shared/transport.js';
 import type { CallToolRequest, CallToolResult } from '@modelcontextprotocol/sdk/types.js';
 import { context, propagation } from '@opentelemetry/api';
-import { Agent, fetch as undiciFetch } from 'undici';
 import { McpConnectionError } from '../errors';
 import { withTimeout } from '../util/promiseUtils';
+import { ssrfFetch } from '../util/ssrfGuard';
 import type { ToolSchema } from './IMCPServer';
 
 /** Networking for remote (url-based) MCP servers, kept separate so it can be mocked in tests. */
@@ -32,15 +32,6 @@ const CLIENT_INFO = { name: 'tfy-agent-mcp-client', version: '1.0.0' } as const;
 const TRANSPORT_PROBE_ORDER: RemoteMcpTransportType[] = ['streamable-http', 'sse'];
 
 export const DEFAULT_MAX_MCP_RESPONSE_BYTES = 50 * 1024 * 1024;
-
-// MCP SSE/streamable-HTTP keeps a long-lived response open that is often idle between tool calls.
-// Node fetch (undici) defaults bodyTimeout to 300s of silence, then kills the stream with
-// `Body Timeout Error` — we reconnect and the ~5m cycle repeats in logs. 30m matches the
-// Gateway idle-body window; MCP request deadlines still come from requestTimeoutMs.
-const MCP_BODY_TIMEOUT_MS = 30 * 60 * 1000;
-const mcpHttpAgent = new Agent({ bodyTimeout: MCP_BODY_TIMEOUT_MS });
-const mcpFetch: FetchLike = (url, init) =>
-  undiciFetch(typeof url === 'string' ? url : url.href, { ...(init as object), dispatcher: mcpHttpAgent });
 
 /** GET SSE is long-lived and uncapped; every other body aborts at `maxBytes`. */
 export function withMaxResponseBytes(fetchFn: FetchLike, maxBytes: number): FetchLike {
@@ -197,7 +188,7 @@ export async function connectRemoteMcp(params: {
 }): Promise<RemoteMcpConnection> {
   const url = new URL(params.url);
   const requestOptions = { signal: params.signal };
-  const fetchFn = withMaxResponseBytes(mcpFetch, params.maxResponseBytes ?? DEFAULT_MAX_MCP_RESPONSE_BYTES);
+  const fetchFn = withMaxResponseBytes(ssrfFetch, params.maxResponseBytes ?? DEFAULT_MAX_MCP_RESPONSE_BYTES);
   const candidates = params.knownTransportType
     ? [params.knownTransportType, ...TRANSPORT_PROBE_ORDER.filter(t => t !== params.knownTransportType)]
     : TRANSPORT_PROBE_ORDER;

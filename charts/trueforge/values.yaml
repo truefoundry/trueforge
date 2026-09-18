@@ -170,6 +170,13 @@ configs:
     # Optional comma-separated exact emails and/or * globs (e.g. "*@company.com").
     # Empty = unrestricted. Matched against the ID token `email` claim.
     allowedEmails: ""
+  outboundUrl:
+    # Env: ENABLE_SSRF. Default true. Set false to skip the outbound URL guard.
+    enabled: true
+    # Comma-separated hosts always allowed. Empty = none. Env: OUTBOUND_URL_ALLOW_HOSTS.
+    allowHosts: ""
+    # Comma-separated hosts always blocked. Empty = none. Env: OUTBOUND_URL_BLOCKED_HOSTS.
+    blockedHosts: ""
 # Resource tier: small | medium | large presets for server and controller.
 # Empty = use `resources` / `controller.resources`. Wins over a parent chart's
 # global.resourceTier.

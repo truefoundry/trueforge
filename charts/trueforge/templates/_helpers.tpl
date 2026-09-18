@@ -491,6 +491,14 @@ fields, wires bundled Postgres/Redis, optional OIDC, then server.extraEnv.
 {{- end -}}
 {{- end -}}
 
+{{- $env = append $env (dict "name" "ENABLE_SSRF" "value" (.Values.configs.outboundUrl.enabled | toString)) -}}
+{{- if .Values.configs.outboundUrl.allowHosts -}}
+{{- $env = append $env (dict "name" "OUTBOUND_URL_ALLOW_HOSTS" "value" .Values.configs.outboundUrl.allowHosts) -}}
+{{- end -}}
+{{- if .Values.configs.outboundUrl.blockedHosts -}}
+{{- $env = append $env (dict "name" "OUTBOUND_URL_BLOCKED_HOSTS" "value" .Values.configs.outboundUrl.blockedHosts) -}}
+{{- end -}}
+
 {{- /* Controller -> server auth. The app rejects an empty value when peered. */ -}}
 {{- $env = append $env (include "trueforge.env.fromStringOrValueFrom" (dict "name" "TRUEFORGE_API_KEY" "field" "apiKey" "value" .Values.apiKey) | fromJson) -}}
 
