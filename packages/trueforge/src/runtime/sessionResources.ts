@@ -73,14 +73,14 @@ export function buildGatewayMetadata(input: { session: SessionHandle; turnId: st
   return metadata;
 }
 
-/** Inbound x-tfy-metadata first; harness tfg.* always win */
+/** Caller requestMetadata first; harness tfg.* always win */
 export function mergeGatewayMetadata(input: {
   session: SessionHandle;
   turnId: string;
-  tfyMetadata?: Record<string, string> | undefined;
+  requestMetadata?: Record<string, string> | undefined;
 }): Record<string, string> {
   return {
-    ...input.tfyMetadata,
+    ...input.requestMetadata,
     ...buildGatewayMetadata({ session: input.session, turnId: input.turnId }),
   };
 }
