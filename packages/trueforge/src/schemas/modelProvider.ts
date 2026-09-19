@@ -34,6 +34,16 @@ export const ConfiguredModelSchema = z
     model_id: z.string().min(1).describe('Upstream, provider-specific identifier sent to the provider API.'),
     name: NameSchema,
     properties: ModelPropertiesSchema,
+    base_url: z
+      .url()
+      .optional()
+      .describe('Per-model API base URL. Used instead of the provider base URL for this model.'),
+    chat_completions_path: z
+      .string()
+      .max(200)
+      .optional()
+      .describe('Path appended for chat completions. Empty means the base URL is the full endpoint.'),
+    invocation_error: z.string().min(1).optional().describe('Present when this model cannot run a chat completion.'),
   })
   .strict()
   .openapi('ConfiguredModel');

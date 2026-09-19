@@ -61,4 +61,43 @@ describe('TrueFoundryModelProviderStore dual tokens', () => {
       auth: { api_key: SUBJECT_TOKEN },
     });
   });
+
+  it('routes a custom endpoint through proxy-api and refuses Jev', async () => {
+    const client = {
+      listProviderIntegrations: jest.fn().mockResolvedValue([
+        {
+          name: 'custom-endpoint',
+          type: 'integration/model/custom-endpoint',
+          manifest: {
+            model_types: ['chat'],
+            base_url: 'https://api.typesafe.ai/v1',
+          },
+          providerAccount: { name: 'jev', manifest: { type: 'provider-account/custom-endpoint' } },
+        },
+      ]),
+      listGatewayInstallations: jest
+        .fn()
+        .mockResolvedValue([{ isDefault: true, manifest: { url: 'https://gateway.truefoundry.ai' } }]),
+      vendToken: jest.fn().mockResolvedValue({ subjectToken: SUBJECT_TOKEN, actorToken: ACTOR_TOKEN }),
+    } as unknown as TrueFoundryServiceFoundryServerClient;
+
+    const store = new TrueFoundryModelProviderStore({
+      client,
+      requestContext: createTrueFoundryRequestContext({
+        tenant_id: TENANT,
+        subject: { id: 'user-1', type: 'user', display_name: 'User' },
+        roles: [],
+        user_credential: 'caller-token',
+      }),
+      agent: AGENT,
+      logger: createLogger({ silent: true }),
+    });
+
+    const providers = await store.listProviders({ tenant_id: TENANT });
+    expect(providers[0]?.manifest.models[0]).toMatchObject({
+      name: 'custom-endpoint',
+      model_id: 'jev/custom-endpoint',
+    });
+    expect(providers[0]?.manifest.models[0]?.invocation_error).toContain('POST /v1/systemone');
+  });
 });

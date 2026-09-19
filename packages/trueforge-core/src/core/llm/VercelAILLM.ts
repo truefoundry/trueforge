@@ -87,6 +87,11 @@ export interface VercelAIProviderConfig {
   name: string;
   /** Optional base URL override. Explicitly includes `undefined` for Zod-derived type compat. */
   baseUrl?: string | undefined;
+  /**
+   * Replaces the OpenAI-compatible `/chat/completions` suffix. Empty posts to `baseUrl`
+   * itself — TrueFoundry custom endpoints whose upstream URL is already the full path.
+   */
+  chatCompletionsPath?: string | undefined;
   apiKey: string;
   headers: Record<string, string>;
 }
@@ -120,6 +125,94 @@ function isFunctionToolCall<T extends { type: string }>(toolCall: T): toolCall i
 // Model construction
 // ---------------------------------------------------------------------------
 
+const CHAT_COMPLETIONS_PATH = '/chat/completions';
+
+/** Gateway custom-endpoint root: `{origin}/…/proxy-api/{account}/{endpoint}` with no further path. */
+export function isTrueFoundryProxyRoot(baseUrl: string): boolean {
+  try {
+    const path = new URL(baseUrl).pathname.replace(/\/+$/, '');
+    return /(?:^|\/)proxy-api\/[^/]+\/[^/]+$/.test(path);
+  } catch {
+    return false;
+  }
+}
+
+/**
+ * The OpenAI-compatible client always posts to `{base}/chat/completions`. Custom endpoints
+ * append that path to the upstream base URL, so a non-chat upstream (Jev is `POST /v1/systemone`)
+ * 404s. An explicit path wins; a bare proxy root is the full endpoint.
+ */
+export function resolveChatCompletionsPath(
+  config: Pick<VercelAIProviderConfig, 'baseUrl' | 'chatCompletionsPath'>,
+): string {
+  if (config.chatCompletionsPath !== undefined) {
+    return config.chatCompletionsPath;
+  }
+  if (config.baseUrl !== undefined && isTrueFoundryProxyRoot(config.baseUrl)) {
+    return '';
+  }
+  return CHAT_COMPLETIONS_PATH;
+}
+
+function chatCompletionsSuffix(chatCompletionsPath: string): string {
+  if (chatCompletionsPath === '' || chatCompletionsPath.startsWith('/')) {
+    return chatCompletionsPath;
+  }
+  return `/${chatCompletionsPath}`;
+}
+
+/** Rewrites the suffix the compatible client appends. Preserves query and hash. */
+export function rewriteCompatibleChatUrl(input: { url: string; chatCompletionsPath: string }): string {
+  let parsed: URL;
+  try {
+    parsed = new URL(input.url);
+  } catch {
+    return input.url;
+  }
+  const path = parsed.pathname.replace(/\/+$/, '');
+  if (!path.endsWith(CHAT_COMPLETIONS_PATH)) {
+    return input.url;
+  }
+  const basePath = path.slice(0, -CHAT_COMPLETIONS_PATH.length);
+  const nextPath = `${basePath}${chatCompletionsSuffix(input.chatCompletionsPath)}`;
+  parsed.pathname = nextPath === '' ? '/' : nextPath;
+  return parsed.toString();
+}
+
+function compatibleFetch(chatCompletionsPath: string): typeof fetch {
+  return (input, init) => {
+    const url = input instanceof Request ? input.url : input instanceof URL ? input.toString() : input;
+    const rewritten = rewriteCompatibleChatUrl({ url, chatCompletionsPath });
+    if (input instanceof Request) {
+      return fetch(new Request(rewritten, input), init);
+    }
+    return fetch(rewritten, init);
+  };
+}
+
+function isJevCustomEndpoint(input: {
+  baseUrl: string;
+  modelId: string;
+  chatCompletionsPath: string | undefined;
+}): boolean {
+  // An explicit path means the caller already classified this endpoint (including '' for a full upstream path).
+  if (input.chatCompletionsPath !== undefined) {
+    return false;
+  }
+  const modelIsJev = input.modelId === 'jev' || input.modelId.startsWith('jev/');
+  if (!modelIsJev) {
+    return false;
+  }
+  if (isTrueFoundryProxyRoot(input.baseUrl)) {
+    return true;
+  }
+  try {
+    return new URL(input.baseUrl).pathname.includes('/proxy-api/jev/');
+  } catch {
+    return false;
+  }
+}
+
 /**
  * Shared by every OpenAI-compatible provider, which differ only by endpoint. The provider type
  * doubles as the `providerOptions` key. Fireworks, Together and Z AI stay here rather than on their
@@ -131,6 +224,12 @@ function compatibleModel(config: VercelAIProviderConfig): LanguageModel {
   if (baseUrl === undefined) {
     throw new Error(`Provider "${provider.type}" requires a baseUrl`);
   }
+  if (isJevCustomEndpoint({ baseUrl, modelId: model.id, chatCompletionsPath: config.chatCompletionsPath })) {
+    throw new Error(
+      `Model "${model.id}" cannot run an agent turn. Jev is TypeSafe's evaluation API (POST /v1/systemone), not an OpenAI chat completions model. The gateway custom-endpoint proxy forwards the path as-is, so /chat/completions 404s. Pick a chat model instead.`,
+    );
+  }
+  const chatCompletionsPath = resolveChatCompletionsPath(config);
   const client = createOpenAICompatible({
     name: provider.type,
     baseURL: baseUrl,
@@ -140,6 +239,7 @@ function compatibleModel(config: VercelAIProviderConfig): LanguageModel {
     // These endpoints omit token counts from streamed responses unless asked.
     includeUsage: true,
     ...(Object.keys(headers).length > 0 ? { headers } : {}),
+    ...(chatCompletionsPath === CHAT_COMPLETIONS_PATH ? {} : { fetch: compatibleFetch(chatCompletionsPath) }),
   });
   return client(model.id);
 }
@@ -987,12 +1087,37 @@ export function normalizeUsage(usage: {
  * Fallback is required because stream `error` parts are typed `unknown` (not only
  * `APICallError`) — plain objects would otherwise stringify to "[object Object]".
  */
+function requestModelId(values: unknown): string | undefined {
+  if (!isPlainObject(values)) {
+    return undefined;
+  }
+  const model = values['model'];
+  return typeof model === 'string' ? model : undefined;
+}
+
+function proxyApiNotFoundDetail(error: APICallError): string | undefined {
+  if (error.statusCode !== 404 || !error.url.includes('/proxy-api/')) {
+    return undefined;
+  }
+  const model = requestModelId(error.requestBodyValues);
+  const jev = error.url.includes('/jev/') || (model !== undefined && (model === 'jev' || model.startsWith('jev/')));
+  if (jev) {
+    return "Jev is TypeSafe's evaluation API (POST /v1/systemone), not OpenAI /chat/completions. The gateway custom-endpoint proxy forwards the path as-is, so this route 404s.";
+  }
+  if (error.url.includes(CHAT_COMPLETIONS_PATH)) {
+    return 'TrueFoundry custom endpoints forward the request path to the upstream base URL, and this upstream has no /chat/completions route.';
+  }
+  return undefined;
+}
+
 export function describeStreamError(raw: unknown): string {
   if (APICallError.isInstance(raw)) {
+    const detail = proxyApiNotFoundDetail(raw);
     if (raw.statusCode != null) {
-      return `Request failed (${String(raw.statusCode)}): ${raw.message}`;
+      const message = detail ?? raw.message;
+      return `Request failed (${String(raw.statusCode)}): ${message}`;
     }
-    return raw.message;
+    return detail ?? raw.message;
   }
   return describeUnknownError(raw);
 }
