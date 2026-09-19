@@ -155,7 +155,7 @@ export type { CodeModeErrorSource, CodeModeReply, CodeModeRequest } from './sand
 export { DaytonaSandboxProvider } from './sandbox/provider/DaytonaProvider';
 export type { DaytonaSandboxProviderOptions } from './sandbox/provider/DaytonaProvider';
 export { absolutizeRelativeExecEnv } from './sandbox/provider/execEnv';
-export { ensureExecSuccess, shellEscape } from './sandbox/provider/Provider';
+export { SANDBOX_EXEC_ABORTED, ensureExecSuccess, shellEscape } from './sandbox/provider/Provider';
 export type {
   ExecErrorResult,
   ExecResult,
@@ -182,6 +182,7 @@ export {
 export { SANDBOX_IMAGE_URI } from './sandbox/sandboxImage';
 export { existingSandboxIdForProvider, formatSandboxId, parseSandboxId, rawSandboxId } from './sandbox/sandboxRef';
 export type { SandboxRefParts } from './sandbox/sandboxRef';
+export { onSignalAbort } from './util/abort';
 
 // Web search
 export { ParallelWebSearchProvider } from './web-search/ParallelWebSearchProvider';

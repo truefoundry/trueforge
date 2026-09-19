@@ -1,5 +1,6 @@
-import { Daytona, DaytonaError } from '@daytona/sdk';
+import { Daytona, DaytonaError, type Sandbox } from '@daytona/sdk';
 import { DaytonaSandboxProvider } from '../../../src/core/sandbox/provider/DaytonaProvider';
+import { SANDBOX_EXEC_ABORTED } from '../../../src/core/sandbox/provider/Provider';
 import { SandboxNotAvailableError } from '../../../src/core/sandbox/SandboxErrors';
 import { makeSilentLogger } from '../harnessMocks';
 
@@ -81,6 +82,69 @@ describe('DaytonaSandboxProvider register-only snapshot create', () => {
 });
 
 describe('DaytonaSandboxProvider exec', () => {
+  it('does not recover or retry when abort force-stops the exec sandbox', async () => {
+    const client = new Daytona({ apiKey: 'dtn-test', useDeprecatedPolling: true });
+    let rejectExecuteCommand: ((error: Error) => void) | undefined;
+    const execStarted = new Promise<void>(resolve => {
+      const executeCommand = jest.fn(
+        (
+          _command: string,
+          _cwd: string | undefined,
+          _env: Record<string, string>,
+          _timeoutSeconds: number,
+        ): Promise<{ exitCode: number; result: string }> => {
+          resolve();
+          return new Promise((_resolve, reject) => {
+            rejectExecuteCommand = reject;
+          });
+        },
+      );
+      const sandbox: Sandbox = Object.assign(Object.create(null), {
+        name: 'test-tenant.abort',
+        state: 'started',
+        process: { executeCommand },
+        refreshData: jest.fn(() => Promise.resolve()),
+        start: jest.fn(() => Promise.resolve()),
+        stop: jest.fn(() => Promise.resolve()),
+      });
+      jest.spyOn(client, 'get').mockResolvedValue(sandbox);
+    });
+    const provider = new DaytonaSandboxProvider({
+      client,
+      apiKey: 'dtn-test',
+      apiUrl: API_URL,
+      tenantName: 'test-tenant',
+      sandboxImage: 'registry.example.com/sandbox:029ea5ff',
+      timeoutMs: 1000,
+      autoStopIntervalInMinutes: 5,
+      autoArchiveIntervalInMinutes: 60,
+      autoDeleteIntervalInMinutes: 7200,
+      fileMaxBytesForDownload: 1024,
+      logger: makeSilentLogger(),
+    });
+    const controller = new AbortController();
+
+    const exec = provider.exec({
+      sandboxId: 'test-tenant.abort',
+      command: 'sleep 120',
+      signal: controller.signal,
+    });
+    await execStarted;
+    controller.abort();
+    const reject = rejectExecuteCommand;
+    if (reject === undefined) {
+      throw new Error('executeCommand did not start');
+    }
+    reject(new DaytonaError('sandbox stopped', 500));
+
+    await expect(exec).resolves.toEqual({ success: false, error: SANDBOX_EXEC_ABORTED });
+    const sandbox = await client.get('test-tenant.abort');
+    expect(sandbox.stop).toHaveBeenCalledWith(1, true);
+    expect(sandbox.start).not.toHaveBeenCalled();
+    expect(sandbox.refreshData).not.toHaveBeenCalled();
+    expect(sandbox.process.executeCommand).toHaveBeenCalledTimes(1);
+  });
+
   it('rethrows SandboxNotAvailableError when the sandbox is gone', async () => {
     const client = new Daytona({ apiKey: 'dtn-test', useDeprecatedPolling: true });
     jest.spyOn(client, 'get').mockRejectedValue(new DaytonaError('not found', NOT_FOUND_STATUS));

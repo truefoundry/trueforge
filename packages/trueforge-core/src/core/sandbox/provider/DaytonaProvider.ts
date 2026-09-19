@@ -5,6 +5,7 @@ import { suppressTracing } from '@opentelemetry/core';
 import { randomUUID } from 'node:crypto';
 import { join } from 'node:path/posix';
 import type { Logger } from 'winston';
+import { isSignalAborted, onSignalAbort } from '../../util/abort';
 import { extractErrorLogFields } from '../../util/errorLogFields';
 import {
   SandboxFileNotFoundError,
@@ -16,7 +17,14 @@ import {
 import type { CodeModeTransport } from '../codeMode/CodeModeTransport';
 import { CodeModeNatsTransport } from '../codeMode/nats/CodeModeNatsTransport';
 import { DEFAULT_PREVIEW_URL_EXPIRY_SECONDS, DEFAULT_SANDBOX_NATS_WS_PORT } from '../constants';
-import type { ExecResult, SandboxBuild, SandboxExecParams, SandboxFileInfo, SandboxProvider } from './Provider';
+import {
+  SANDBOX_EXEC_ABORTED,
+  type ExecResult,
+  type SandboxBuild,
+  type SandboxExecParams,
+  type SandboxFileInfo,
+  type SandboxProvider,
+} from './Provider';
 
 const SANDBOX_NOT_FOUND_STATUS = 404;
 /** Another replica already registered this build name; its create is the one that counts. */
@@ -193,18 +201,22 @@ export class DaytonaSandboxProvider implements SandboxProvider {
     return recovery;
   }
 
-  private async executeWithSandboxRecovery<T>(sandboxId: string, operation: () => Promise<T>): Promise<T> {
+  private async executeWithSandboxRecovery<T>(params: {
+    sandboxId: string;
+    signal: AbortSignal | undefined;
+    operation: () => Promise<T>;
+  }): Promise<T> {
     try {
-      return await operation();
+      return await params.operation();
     } catch (originalError) {
       // TODO: Narrow to a specific Daytona error code once @daytona/sdk exposes one for "sandbox not running".
-      if (!(originalError instanceof DaytonaError)) {
+      if (!(originalError instanceof DaytonaError) || isSignalAborted(params.signal)) {
         throw originalError;
       }
 
       let recovered: boolean;
       try {
-        recovered = await DaytonaSandboxProvider.recoverSandboxIfStopped(sandboxId);
+        recovered = await DaytonaSandboxProvider.recoverSandboxIfStopped(params.sandboxId);
       } catch (recoveryError) {
         this.logger.error('Sandbox recovery failed', {
           ...extractErrorLogFields(recoveryError),
@@ -218,7 +230,7 @@ export class DaytonaSandboxProvider implements SandboxProvider {
       }
 
       try {
-        return await operation();
+        return await params.operation();
       } catch (retryError) {
         this.logger.error('Sandbox operation failed after successful recovery', {
           ...extractErrorLogFields(retryError),
@@ -384,22 +396,56 @@ export class DaytonaSandboxProvider implements SandboxProvider {
 
   async exec(params: SandboxExecParams): Promise<ExecResult> {
     return context.with(suppressTracing(context.active()), async (): Promise<ExecResult> => {
+      if (isSignalAborted(params.signal)) {
+        return { success: false, error: SANDBOX_EXEC_ABORTED };
+      }
+      // Map the catch to abort only if this exec's handler called stop(); a later signal abort must not hide a Daytona error.
+      const execAbortRequested = { value: false };
       try {
-        return await this.executeWithSandboxRecovery(params.sandboxId, async () => {
-          const { sandbox, defaultTimeoutMs } = await this.getOrCreateSandbox(params.sandboxId);
-          const response = await sandbox.process.executeCommand(
-            params.command,
-            params.cwd,
-            params.env ?? {},
-            params.timeoutSeconds ?? defaultTimeoutMs / 1000,
-          );
-          return {
-            success: true,
-            response: { exitCode: response.exitCode, result: response.result },
-          };
+        return await this.executeWithSandboxRecovery({
+          sandboxId: params.sandboxId,
+          signal: params.signal,
+          operation: async () => {
+            const { sandbox, defaultTimeoutMs } = await this.getOrCreateSandbox(params.sandboxId);
+            const timeoutSeconds = params.timeoutSeconds ?? defaultTimeoutMs / 1000;
+            if (isSignalAborted(params.signal)) {
+              return { success: false, error: SANDBOX_EXEC_ABORTED };
+            }
+            const cleanupAbort = onSignalAbort(params.signal, () => {
+              execAbortRequested.value = true;
+              void sandbox.stop(timeoutSeconds, true).catch((error: unknown) => {
+                this.logger.error('Failed to stop Daytona sandbox after exec abort', {
+                  ...extractErrorLogFields(error),
+                  sandboxId: params.sandboxId,
+                });
+              });
+            });
+            try {
+              const response = await sandbox.process.executeCommand(
+                params.command,
+                params.cwd,
+                params.env ?? {},
+                timeoutSeconds,
+              );
+              if (execAbortRequested.value) {
+                // Drop only the stale SDK object. The remote sandbox and filesystem stay under the same id.
+                DaytonaSandboxProvider.cachedSandboxes.delete(params.sandboxId);
+                return { success: false, error: SANDBOX_EXEC_ABORTED };
+              }
+              return {
+                success: true,
+                response: { exitCode: response.exitCode, result: response.result },
+              };
+            } finally {
+              cleanupAbort();
+            }
+          },
         });
       } catch (e: unknown) {
         DaytonaSandboxProvider.cachedSandboxes.delete(params.sandboxId);
+        if (execAbortRequested.value) {
+          return { success: false, error: SANDBOX_EXEC_ABORTED };
+        }
         if (e instanceof SandboxNotAvailableError) {
           throw e;
         }
@@ -418,18 +464,22 @@ export class DaytonaSandboxProvider implements SandboxProvider {
   async downloadFile(params: { sandboxId: string; path: string }): Promise<Buffer> {
     return context.with(suppressTracing(context.active()), async () => {
       try {
-        return await this.executeWithSandboxRecovery(params.sandboxId, async () => {
-          const { sandbox } = await this.getOrCreateSandbox(params.sandboxId);
+        return await this.executeWithSandboxRecovery({
+          sandboxId: params.sandboxId,
+          signal: undefined,
+          operation: async () => {
+            const { sandbox } = await this.getOrCreateSandbox(params.sandboxId);
 
-          const info = await this.getFileInfo(sandbox, params.path);
-          if (info.isDir) {
-            throw new SandboxPathIsDirectoryError(params.path);
-          }
-          if (info.size > this.fileMaxBytesForDownload) {
-            throw new SandboxFileTooLargeError(params.path, info.size, this.fileMaxBytesForDownload);
-          }
+            const info = await this.getFileInfo(sandbox, params.path);
+            if (info.isDir) {
+              throw new SandboxPathIsDirectoryError(params.path);
+            }
+            if (info.size > this.fileMaxBytesForDownload) {
+              throw new SandboxFileTooLargeError(params.path, info.size, this.fileMaxBytesForDownload);
+            }
 
-          return await sandbox.fs.downloadFile(params.path);
+            return await sandbox.fs.downloadFile(params.path);
+          },
         });
       } catch (e: unknown) {
         if (e instanceof SandboxPathIsDirectoryError || e instanceof SandboxFileTooLargeError) {
@@ -447,9 +497,13 @@ export class DaytonaSandboxProvider implements SandboxProvider {
   async uploadFile(params: { sandboxId: string; remotePath: string; content: Buffer }): Promise<void> {
     return context.with(suppressTracing(context.active()), async () => {
       try {
-        await this.executeWithSandboxRecovery(params.sandboxId, async () => {
-          const { sandbox } = await this.getOrCreateSandbox(params.sandboxId);
-          await sandbox.fs.uploadFile(params.content, params.remotePath);
+        await this.executeWithSandboxRecovery({
+          sandboxId: params.sandboxId,
+          signal: undefined,
+          operation: async () => {
+            const { sandbox } = await this.getOrCreateSandbox(params.sandboxId);
+            await sandbox.fs.uploadFile(params.content, params.remotePath);
+          },
         });
       } catch (e: unknown) {
         DaytonaSandboxProvider.cachedSandboxes.delete(params.sandboxId);
@@ -462,10 +516,14 @@ export class DaytonaSandboxProvider implements SandboxProvider {
   private async getPreviewUrl(params: { sandboxId: string; port: number; expiresInSeconds: number }): Promise<string> {
     return context.with(suppressTracing(context.active()), async () => {
       try {
-        return await this.executeWithSandboxRecovery(params.sandboxId, async () => {
-          const { sandbox } = await this.getOrCreateSandbox(params.sandboxId);
-          const signed = await sandbox.getSignedPreviewUrl(params.port, params.expiresInSeconds);
-          return signed.url;
+        return await this.executeWithSandboxRecovery({
+          sandboxId: params.sandboxId,
+          signal: undefined,
+          operation: async () => {
+            const { sandbox } = await this.getOrCreateSandbox(params.sandboxId);
+            const signed = await sandbox.getSignedPreviewUrl(params.port, params.expiresInSeconds);
+            return signed.url;
+          },
         });
       } catch (e: unknown) {
         DaytonaSandboxProvider.cachedSandboxes.delete(params.sandboxId);
