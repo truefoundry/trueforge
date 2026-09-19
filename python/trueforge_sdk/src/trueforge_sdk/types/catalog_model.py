@@ -10,6 +10,21 @@ from .resource_name import ResourceName
 
 
 class CatalogModel(UncheckedBaseModel):
+    base_url: typing.Optional[str] = pydantic.Field(default=None)
+    """
+    Per-model API base URL. Used instead of the provider base URL for this model.
+    """
+
+    chat_completions_path: typing.Optional[str] = pydantic.Field(default=None)
+    """
+    Path appended for chat completions. Empty means the base URL is the full endpoint.
+    """
+
+    invocation_error: typing.Optional[str] = pydantic.Field(default=None)
+    """
+    Present when this model cannot run a chat completion.
+    """
+
     model_id: str = pydantic.Field()
     """
     Upstream, provider-specific identifier sent to the provider API.

@@ -3,6 +3,12 @@
 import type * as TrueForge from "../index.js";
 
 export interface CatalogModel {
+    /** Per-model API base URL. Used instead of the provider base URL for this model. */
+    baseUrl?: string;
+    /** Path appended for chat completions. Empty means the base URL is the full endpoint. */
+    chatCompletionsPath?: string;
+    /** Present when this model cannot run a chat completion. */
+    invocationError?: string;
     /** Upstream, provider-specific identifier sent to the provider API. */
     modelId: string;
     name: TrueForge.ResourceName;
