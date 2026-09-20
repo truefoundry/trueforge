@@ -7,6 +7,7 @@
  * {@link initSrt} — the same platform captured by LocalSandboxProvider.isSupported.
  */
 import { getDefaultWritePaths, SandboxManager } from '@anthropic-ai/sandbox-runtime';
+import { onSignalAbort } from '@truefoundry/trueforge-core/core';
 import { execFile, spawn, type ChildProcess } from 'node:child_process';
 import { randomUUID } from 'node:crypto';
 import { realpathSync } from 'node:fs';
@@ -217,6 +218,7 @@ export interface SessionResult {
   exitCode: number;
   protocolError: string | undefined;
   timedOut: boolean;
+  aborted: boolean;
   /** Process-group leader pid of the sandboxed command (Unix). */
   childPid: number | undefined;
 }
@@ -490,6 +492,7 @@ export async function runSupervisorSession(params: {
   onChildSpawn?: (pid: number) => void;
   /** Hard wall-clock limit for the sandboxed command; caller must choose deliberately. */
   timeoutMs: number;
+  signal?: AbortSignal | undefined;
 }): Promise<SessionResult> {
   const {
     sandboxRootPath,
@@ -501,6 +504,7 @@ export async function runSupervisorSession(params: {
     stdin,
     onChildSpawn,
     timeoutMs,
+    signal,
   } = params;
   const command = wrapSandboxCommand({ platform, command: rawCommand });
 
@@ -565,6 +569,7 @@ export async function runSupervisorSession(params: {
   let bufferedOutput = 0;
   let protocolError: string | undefined;
   let timedOut = false;
+  let aborted = false;
   let closed = false;
 
   const ignoreStreamError = (
@@ -607,14 +612,22 @@ export async function runSupervisorSession(params: {
       timedOut = true;
       killExecTree(child);
     }, timeoutMs);
+    const cleanupAbort = onSignalAbort(signal, () => {
+      aborted = true;
+      killExecTree(child);
+    });
+    const cleanup = (): void => {
+      clearTimeout(timer);
+      cleanupAbort();
+      SandboxManager.cleanupAfterCommand();
+    };
 
     child.on('error', error => {
       if (closed) {
         return;
       }
       closed = true;
-      clearTimeout(timer);
-      SandboxManager.cleanupAfterCommand();
+      cleanup();
       reject(error);
     });
 
@@ -623,14 +636,20 @@ export async function runSupervisorSession(params: {
         return;
       }
       closed = true;
-      clearTimeout(timer);
-      SandboxManager.cleanupAfterCommand();
+      cleanup();
+      let exitCode = 0;
+      if (code !== null) {
+        exitCode = code;
+      } else if (timedOut || aborted) {
+        exitCode = 1;
+      }
       resolve({
         stdoutText,
         stderrText,
-        exitCode: typeof code === 'number' ? code : timedOut ? 1 : 0,
+        exitCode,
         protocolError,
         timedOut,
+        aborted,
         childPid: child.pid,
       });
     });
