@@ -1,6 +1,9 @@
 'use client';
 
-import type { TrueForgeAgentConfig, UseTrueForgeAgentRuntimeOptions } from '@truefoundry/trueforge-assistant-ui-runtime';
+import type {
+  TrueForgeAgentConfig,
+  UseTrueForgeAgentRuntimeOptions,
+} from '@truefoundry/trueforge-assistant-ui-runtime';
 import { lazy, Suspense, useCallback, useEffect, useMemo, useState, type ReactNode } from 'react';
 import { ThinkingOrb } from 'thinking-orbs';
 
