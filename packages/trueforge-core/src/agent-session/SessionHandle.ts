@@ -177,6 +177,7 @@ export class SessionHandle<
    */
   async createTurn(input: {
     turn_id: string;
+    active_executor_id: string;
     input?: TurnInputItem[] | undefined;
     /** 'auto'/omitted → session.last_turn_id; 'none' → new root; id → fork from that turn. */
     previous_turn_id?: string | undefined;
@@ -287,6 +288,7 @@ export class SessionHandle<
         first_turn_id: previous?.first_turn_id ?? turnId,
         ancestor_ids: previous ? [...previous.ancestor_ids, previous.turn_id].slice(-MAX_TURN_ANCESTORS) : [],
         previous_turn_id: previousTurnId,
+        active_executor_id: input.active_executor_id,
         state: { status: 'running' },
         input: input.input ?? [],
         created_at: now,
@@ -470,6 +472,7 @@ export class SessionHandle<
         isChild,
         sandboxAvailable: Boolean(input.sandbox),
         tracing: input.tracing,
+        webSearchProvider: input.resolver.webSearchProvider,
         logger: input.resolver.logger,
       }),
       ...(extraCapabilities ?? []),
@@ -525,6 +528,7 @@ export class SessionHandle<
           isChild: true,
           sandboxAvailable: Boolean(input.sandbox),
           tracing: input.tracing,
+          webSearchProvider: input.resolver.webSearchProvider,
           logger: input.resolver.logger,
         }),
         ...(extraCapabilities ?? []),

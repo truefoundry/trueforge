@@ -8,6 +8,7 @@ import {
   readDraftSpecPreferences,
   selectDraftSpecPreferences,
   withCapabilitiesSandbox,
+  withCapabilitiesWebSearch,
   writeDraftSpecPreferences,
   type DraftPreferenceKind,
 } from './draftSpecPreferences.js';
@@ -515,19 +516,32 @@ export function ShellModeProvider({
   ]);
 
   const sandboxEnabled = capabilities?.sandbox.enabled;
+  const webSearchEnabled = capabilities?.webSearch?.enabled;
   const rememberDraftSpec = useCallback(
     (agentSpec: AgentSpec, kind: DraftPreferenceKind = 'chat') => {
       const selected = selectDraftSpecPreferences(agentSpec, kind);
-      const preferences = kind === 'agent' ? withCapabilitiesSandbox(selected, sandboxEnabled) : selected;
+      const withSandbox = kind === 'agent' ? withCapabilitiesSandbox(selected, sandboxEnabled) : selected;
+      const preferences =
+        kind === 'agent'
+          ? withCapabilitiesWebSearch({
+              spec: withSandbox,
+              webSearchEnabled,
+              kind: 'agent',
+            })
+          : withSandbox;
       if (kind === 'chat') {
         chatSeedRef.current = preferences;
       } else {
         // Keep the active builder intact in memory; storage remains limited to reusable preferences.
-        agentSeedRef.current = withCapabilitiesSandbox(agentSpec, sandboxEnabled);
+        agentSeedRef.current = withCapabilitiesWebSearch({
+          spec: withCapabilitiesSandbox(agentSpec, sandboxEnabled),
+          webSearchEnabled,
+          kind: 'agent',
+        });
       }
       writeDraftSpecPreferences(kind, preferences);
     },
-    [sandboxEnabled],
+    [sandboxEnabled, webSearchEnabled],
   );
 
   const openHistorySession = useCallback(

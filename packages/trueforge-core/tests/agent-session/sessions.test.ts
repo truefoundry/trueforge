@@ -5,7 +5,7 @@ import { InMemorySessionStore } from '../../src/agent-session/store/InMemorySess
 import { TurnNotFoundError } from '../../src/agent-session/store/SessionStoreErrors';
 import { TurnHandle } from '../../src/agent-session/TurnHandle';
 import { InvalidAgentSendInputError } from '../../src/core/errors';
-import { makeAgentSpec, makeTestResolver, mintTestTurnId } from './testHelpers';
+import { makeAgentSpec, makeTestResolver, mintTestTurnId, TEST_ACTIVE_EXECUTOR_ID } from './testHelpers';
 
 describe('Sessions / SessionHandle / TurnHandle (storage + createTurn)', () => {
   const tenant = 'tenant-1';
@@ -138,6 +138,7 @@ describe('Sessions / SessionHandle / TurnHandle (storage + createTurn)', () => {
     });
     const turn = await session.createTurn({
       turn_id: mintTestTurnId(),
+      active_executor_id: TEST_ACTIVE_EXECUTOR_ID,
       input: [{ type: EventType.USER_MESSAGE, content: 'hello' }],
       previous_turn_id: 'none',
       signal: new AbortController().signal,
@@ -169,6 +170,7 @@ describe('Sessions / SessionHandle / TurnHandle (storage + createTurn)', () => {
     });
     const created = await session.createTurn({
       turn_id: mintTestTurnId(),
+      active_executor_id: TEST_ACTIVE_EXECUTOR_ID,
       previous_turn_id: 'none',
       signal: new AbortController().signal,
       resolver: makeTestResolver(),
@@ -207,6 +209,7 @@ describe('Sessions / SessionHandle / TurnHandle (storage + createTurn)', () => {
     });
     const turn = await session.createTurn({
       turn_id: mintTestTurnId(),
+      active_executor_id: TEST_ACTIVE_EXECUTOR_ID,
       previous_turn_id: 'none',
       signal: new AbortController().signal,
       resolver: makeTestResolver(),
@@ -236,6 +239,7 @@ describe('Sessions / SessionHandle / TurnHandle (storage + createTurn)', () => {
     });
     const t1 = await session.createTurn({
       turn_id: mintTestTurnId(),
+      active_executor_id: TEST_ACTIVE_EXECUTOR_ID,
       input: [{ type: EventType.USER_MESSAGE, content: 'one' }],
       previous_turn_id: 'none',
       signal: new AbortController().signal,
@@ -246,6 +250,7 @@ describe('Sessions / SessionHandle / TurnHandle (storage + createTurn)', () => {
 
     const t2 = await session.createTurn({
       turn_id: mintTestTurnId(),
+      active_executor_id: TEST_ACTIVE_EXECUTOR_ID,
       input: [{ type: EventType.USER_MESSAGE, content: 'two' }],
       previous_turn_id: 'auto',
       signal: new AbortController().signal,
@@ -267,6 +272,7 @@ describe('Sessions / SessionHandle / TurnHandle (storage + createTurn)', () => {
     });
     const first = await session.createTurn({
       turn_id: mintTestTurnId(),
+      active_executor_id: TEST_ACTIVE_EXECUTOR_ID,
       input: [{ type: EventType.USER_MESSAGE, content: 'one' }],
       previous_turn_id: 'none',
       signal: new AbortController().signal,
@@ -278,6 +284,7 @@ describe('Sessions / SessionHandle / TurnHandle (storage + createTurn)', () => {
     }
     const root2 = await session.createTurn({
       turn_id: mintTestTurnId(),
+      active_executor_id: TEST_ACTIVE_EXECUTOR_ID,
       input: [{ type: EventType.USER_MESSAGE, content: 'fresh root' }],
       previous_turn_id: 'none',
       signal: new AbortController().signal,
@@ -301,6 +308,7 @@ describe('Sessions / SessionHandle / TurnHandle (storage + createTurn)', () => {
     await expect(
       session.createTurn({
         turn_id: mintTestTurnId(),
+        active_executor_id: TEST_ACTIVE_EXECUTOR_ID,
         // Mixed batch — rejected by SessionHandle.toSendBatch / orchestrator validation path.
         input: [
           { type: EventType.USER_MESSAGE, content: 'hi' },
@@ -342,6 +350,7 @@ describe('Sessions / SessionHandle / TurnHandle (storage + createTurn)', () => {
     await expect(
       session.createTurn({
         turn_id: mintTestTurnId(),
+        active_executor_id: TEST_ACTIVE_EXECUTOR_ID,
         // Mixed batch — rejected after sandbox/thread resolution.
         input: [
           { type: EventType.USER_MESSAGE, content: 'hi' },
@@ -363,6 +372,7 @@ describe('Sessions / SessionHandle / TurnHandle (storage + createTurn)', () => {
     const closeOnSuccess = jest.fn().mockResolvedValue(undefined);
     const turn = await session.createTurn({
       turn_id: mintTestTurnId(),
+      active_executor_id: TEST_ACTIVE_EXECUTOR_ID,
       input: [{ type: EventType.USER_MESSAGE, content: 'hello' }],
       previous_turn_id: 'none',
       signal: new AbortController().signal,

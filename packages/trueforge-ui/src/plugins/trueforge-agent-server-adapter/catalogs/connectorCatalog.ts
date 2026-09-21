@@ -23,6 +23,17 @@ export type UiConnectorCatalogEntry = ConnectorCatalogEntry;
 
 const DEFAULT_API_KEY_HEADER = 'Authorization';
 
+/** Prefixed Authorization values for MCP catalog servers that expect `Bearer …`. */
+function ensureBearerAuthorizationValue({ headerName, value }: { headerName: string; value: string }): string {
+  if (headerName.toLowerCase() !== DEFAULT_API_KEY_HEADER.toLowerCase()) {
+    return value;
+  }
+  if (/^bearer\s+/i.test(value)) {
+    return value;
+  }
+  return `Bearer ${value}`;
+}
+
 export function toUiAuthPublic(auth: TrueForgeApi.McpServerManifestAuth | undefined): UiConnectorAuthPublic {
   if (auth === undefined) {
     return { type: 'none' };
@@ -50,7 +61,10 @@ export function toHarnessAuth(auth: ConnectorAuth): TrueForgeApi.McpServerManife
   }
   const trimmedHeader = auth.headerName?.trim();
   const headerName = trimmedHeader !== undefined && trimmedHeader !== '' ? trimmedHeader : DEFAULT_API_KEY_HEADER;
-  return { type: 'header', headers: { [headerName]: apiKey } };
+  return {
+    type: 'header',
+    headers: { [headerName]: ensureBearerAuthorizationValue({ headerName, value: apiKey }) },
+  };
 }
 
 export function toUiCatalogEntry(server: TrueForgeApi.CatalogMcpServer): UiConnectorCatalogEntry {

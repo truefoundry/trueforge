@@ -14,7 +14,10 @@ export function runtimeConfigValueClassName(value: string): string {
   return value === 'off' ? 'text-failure-bg font-medium' : 'text-primary-button-bg font-medium';
 }
 
-export function runtimeConfigSummary(config?: AgentRuntimeConfig): RuntimeConfigSummaryEntry[] {
+export function runtimeConfigSummary(
+  config?: AgentRuntimeConfig,
+  { webSearchAvailable = false }: { webSearchAvailable?: boolean } = {},
+): RuntimeConfigSummaryEntry[] {
   return [
     { label: 'iteration limit', value: String(config?.iterationLimit ?? 100) },
     { label: 'sandbox', value: enabledLabel(config?.sandbox?.enabled, false) },
@@ -26,5 +29,6 @@ export function runtimeConfigSummary(config?: AgentRuntimeConfig): RuntimeConfig
     { label: 'dynamic sub-agents', value: enabledLabel(config?.dynamicSubAgents?.enabled, true) },
     { label: 'generative UI', value: enabledLabel(config?.generativeUi?.enabled, true) },
     { label: 'ask user questions', value: enabledLabel(config?.askUserQuestions?.enabled, true) },
+    ...(webSearchAvailable ? [{ label: 'web search', value: enabledLabel(config?.webSearch?.enabled, true) }] : []),
   ];
 }

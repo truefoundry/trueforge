@@ -22,6 +22,7 @@ export type AgentConfigEditorsProps = {
   error: string | null;
   skillsDisabled?: boolean;
   sandboxAvailable?: boolean;
+  webSearchAvailable?: boolean;
   instructions?: string;
   onInstructionsSave?: (draft: AgentInstructionsDraft) => void;
   loadMcpConnector?: (connectorId: string) => Promise<ConnectorState | undefined>;
@@ -41,6 +42,7 @@ export function AgentConfigEditors({
   error,
   skillsDisabled = false,
   sandboxAvailable = false,
+  webSearchAvailable = false,
   instructions,
   onInstructionsSave,
   loadMcpConnector,
@@ -59,9 +61,12 @@ export function AgentConfigEditors({
   const [connectorLoading, setConnectorLoading] = useState(false);
   const [connectorError, setConnectorError] = useState<string | null>(null);
   const [tools, setTools] = useState<McpToolSelection[]>([]);
+  const [toolsByConnector, setToolsByConnector] = useState<Record<string, McpToolSelection[]>>({});
   const [toolsLoading, setToolsLoading] = useState(false);
   const [toolsError, setToolsError] = useState<string | null>(null);
   const [toolsRequestEpoch, setToolsRequestEpoch] = useState(0);
+  // Connector ids whose tool listing is cached or in flight, so mounts are listed once.
+  const requestedToolConnectorsRef = useRef<Set<string>>(new Set());
   const mounts = useMemo(() => editableMountsFromSpec(spec.mcpServers), [spec.mcpServers]);
   const catalogConnectors = useMemo(
     () => connectorsWithSelectedStubs({ connectors, selected: mounts }),
@@ -121,6 +126,9 @@ export function AgentConfigEditors({
       setToolsLoading(true);
       try {
         const nextTools = await loadMcpTools(selectedConnectorId);
+        // Cache by id even when this run was cancelled, so the mark always has tools behind it.
+        requestedToolConnectorsRef.current.add(selectedConnectorId);
+        setToolsByConnector(previous => ({ ...previous, [selectedConnectorId]: nextTools }));
         if (!cancelled) setTools(nextTools);
       } catch (reason: unknown) {
         if (!cancelled) setToolsError(getErrorMessage(reason, 'Failed to load tools.'));
@@ -133,12 +141,48 @@ export function AgentConfigEditors({
     };
   }, [editor, loadMcpConnector, loadMcpTools, selectedConnectorId, selectedListedAuthenticated, toolsRequestEpoch]);
 
+  // Selected servers other than the open one need their tools listed too, so the Selected Tools
+  // summary can resolve `@write` / `@destructive` approval selectors against tool annotations.
+  useEffect(() => {
+    if (editor !== 'mcp' || loadMcpTools === undefined) return;
+    const requested = requestedToolConnectorsRef.current;
+    const pending = mounts.flatMap(mount => {
+      const connector = catalogConnectorsRef.current.find(item => item.id === mount.id || item.name === mount.name);
+      if (connector === undefined || connector.authenticated !== true) return [];
+      if (connector.id === selectedConnectorId || requested.has(connector.id)) return [];
+      return [connector.id];
+    });
+    if (pending.length === 0) return;
+    for (const connectorId of pending) requested.add(connectorId);
+    const settled = new Set<string>();
+    void Promise.all(
+      pending.map(async connectorId => {
+        try {
+          const nextTools = await loadMcpTools(connectorId);
+          settled.add(connectorId);
+          setToolsByConnector(previous => ({ ...previous, [connectorId]: nextTools }));
+        } catch {
+          // Approval badges fall back to name-only matching until a later run retries the listing.
+        }
+      }),
+    );
+    return () => {
+      // Listings that produced no tools (still in flight, or failed) lose their mark so a later
+      // run retries them.
+      for (const connectorId of pending) {
+        if (!settled.has(connectorId)) requested.delete(connectorId);
+      }
+    };
+  }, [editor, loadMcpTools, mounts, selectedConnectorId]);
+
   const close = () => {
     setQuery('');
     setActiveConnectorId(null);
     setActiveConnector(undefined);
     setConnectorError(null);
     setTools([]);
+    setToolsByConnector({});
+    requestedToolConnectorsRef.current.clear();
     setToolsError(null);
     onClose();
   };
@@ -187,6 +231,7 @@ export function AgentConfigEditors({
           open
           spec={spec}
           sandboxAvailable={sandboxAvailable}
+          webSearchAvailable={webSearchAvailable}
           onChange={onChange}
           onClose={close}
         />
@@ -201,6 +246,7 @@ export function AgentConfigEditors({
           query={query}
           activeConnectorId={selectedConnectorId}
           tools={tools}
+          toolsByConnector={toolsByConnector}
           connectorLoading={
             connectorLoading ||
             (loadMcpConnector !== undefined && activeConnector?.id !== selectedConnectorId && connectorError === null)

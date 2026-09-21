@@ -98,6 +98,7 @@ const expectedRuntimeExports: Array<keyof typeof sdk> = [
   'MessageListSkeleton',
   'MessageTimestamp',
   'MonacoEditorCore',
+  'preloadMonaco',
   'OpenUiFenceBlock',
   'PRESETS',
   'PermissionGuard',

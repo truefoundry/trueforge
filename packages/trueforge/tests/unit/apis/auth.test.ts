@@ -8,7 +8,7 @@ import { createAuthMiddleware } from '../../../src/auth/middleware';
 import { disableOidcAuth, initOidc } from '../../../src/auth/oidc';
 import { OidcAuthenticator } from '../../../src/auth/oidcAuthenticator';
 import { StandaloneAuthenticator } from '../../../src/auth/standaloneAuthenticator';
-import configuration, { getPublicBaseUrl, getPublicUiBasePath, isTrueFoundryModeEnabled } from '../../../src/config';
+import configuration, { getPublicUiBasePath, isTrueFoundryModeEnabled } from '../../../src/config';
 
 jest.mock('../../../src/config', () => {
   const actual = jest.requireActual<typeof import('../../../src/config')>('../../../src/config');
@@ -119,13 +119,11 @@ describe('auth router (TrueFoundry mode)', () => {
   beforeEach(() => {
     disableOidcAuth();
     jest.mocked(isTrueFoundryModeEnabled).mockReturnValue(true);
-    jest.mocked(getPublicBaseUrl).mockReturnValue('https://app.example.com/trueforge');
     jest.mocked(getPublicUiBasePath).mockReturnValue('/trueforge/');
   });
 
   afterEach(() => {
     jest.mocked(isTrueFoundryModeEnabled).mockReturnValue(false);
-    jest.mocked(getPublicBaseUrl).mockReturnValue('https://harness.example.com');
     jest.mocked(getPublicUiBasePath).mockReturnValue('/');
   });
 
@@ -135,7 +133,7 @@ describe('auth router (TrueFoundry mode)', () => {
     const res = await router.request('/login', { redirect: 'manual' });
 
     expect(res.status).toBe(302);
-    expect(res.headers.get('location')).toBe('https://app.example.com/signin/external?redirectPath=%2Ftrueforge%2F');
+    expect(res.headers.get('location')).toBe('/signin/external?redirectPath=%2Ftrueforge%2F');
   });
 
   it('GET /auth/login wraps return_to as platform redirectPath', async () => {
@@ -144,9 +142,7 @@ describe('auth router (TrueFoundry mode)', () => {
     const res = await router.request('/login?return_to=/trueforge/sessions/abc', { redirect: 'manual' });
 
     expect(res.status).toBe(302);
-    expect(res.headers.get('location')).toBe(
-      'https://app.example.com/signin/external?redirectPath=%2Ftrueforge%2Fsessions%2Fabc',
-    );
+    expect(res.headers.get('location')).toBe('/signin/external?redirectPath=%2Ftrueforge%2Fsessions%2Fabc');
   });
 });
 

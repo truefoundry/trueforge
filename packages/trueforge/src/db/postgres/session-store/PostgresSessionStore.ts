@@ -162,6 +162,7 @@ export class PostgresSessionStore implements ISessionStore<SessionCustom, TurnCu
         first_turn_id: input.turn.first_turn_id,
         previous_turn_id: input.turn.previous_turn_id,
         ancestor_ids: input.turn.ancestor_ids,
+        active_executor_id: input.turn.active_executor_id,
         input: input.turn.input,
         state: input.turn.state,
         custom: input.turn.custom,
@@ -355,6 +356,8 @@ export class PostgresSessionStore implements ISessionStore<SessionCustom, TurnCu
       for (const turn of turns) {
         const turnId = turn.turn_id;
         const updatedAt = new Date(turn.updated_at);
+        // import: source_turn_ids can be in a different format. source executors are gone; do not parse turn_id.
+        const activeExecutorId = 'default';
         await trx
           .insertInto('turn')
           .values({
@@ -363,6 +366,7 @@ export class PostgresSessionStore implements ISessionStore<SessionCustom, TurnCu
             first_turn_id: turn.first_turn_id,
             previous_turn_id: turn.previous_turn_id,
             ancestor_ids: turn.ancestor_ids,
+            active_executor_id: activeExecutorId,
             input: jsonUnknown<TurnInputItem[]>(turn.input),
             state: jsonUnknown<TurnState>(turn.state),
             checkpoint: jsonUnknown<TurnCheckpoint>(turn.checkpoint ?? { mcp_servers: null, sandbox_info: null }),

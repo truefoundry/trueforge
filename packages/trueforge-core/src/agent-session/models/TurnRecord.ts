@@ -28,6 +28,7 @@ export interface TurnRecord<TCustom extends object = Record<string, never>> {
    */
   ancestor_ids: string[];
   previous_turn_id: string | null;
+  active_executor_id: string;
   state: TurnState;
   input: TurnInputItem[];
   snapshot: TurnSnapshot;

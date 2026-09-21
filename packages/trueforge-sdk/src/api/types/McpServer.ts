@@ -13,6 +13,6 @@ export interface McpServer {
     preload?: boolean;
     /** Tools loaded eagerly into context while the rest stay deferred. A non-empty list implies `preload: false`. */
     preloadTools?: TrueForge.McpServerToolSelector[];
-    /** Tools that pause for human approval: `@all`, `@write`, `@destructive`, or literal names. Default: `["@write", "@destructive"]`. */
+    /** Tools that pause for human approval: `@all`, `@write`, `@destructive`, or literal names. Default: `["@destructive"]`. */
     requireApprovalForTools?: TrueForge.McpServerApprovalToolSelector[];
 }

@@ -28,6 +28,7 @@ import {
   makeModelMessageEvent,
   makeTurnCreatedEvent,
   makeTurnDoneEvent,
+  TEST_ACTIVE_EXECUTOR_ID,
 } from '../testHelpers';
 
 const ContractPassthroughEventSchema = z.object({
@@ -616,6 +617,7 @@ export function runStoreContractSuite(createStore: () => ISessionStore) {
       await seedSession(store);
       await store.createTurn(makeCreateTurnInput({ sessionId, turnId: 'turn-1' }));
       const recreated = mustGet(await store.getTurn({ session_id: sessionId, turn_id: 'turn-1' }));
+      expect(recreated.active_executor_id).toBe(TEST_ACTIVE_EXECUTOR_ID);
       expect(recreated.snapshot.threads[MAIN_THREAD_ID]?.context).toEqual([]);
       expect(recreated.snapshot.threads[MAIN_THREAD_ID]?.capability_state).toBeNull();
       expect(recreated.snapshot.mcp_servers).toBeNull();

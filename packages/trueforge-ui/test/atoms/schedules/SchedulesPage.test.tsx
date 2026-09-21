@@ -125,7 +125,7 @@ describe('SchedulesPage', () => {
       },
     });
 
-    expect(await screen.findByRole('button', { name: 'Create Schedule' })).toBeDisabled();
+    expect(await screen.findByRole('button', { name: 'New Schedule' })).toBeDisabled();
     expect(await screen.findByRole('button', { name: 'Run now daily-digest' })).toBeDisabled();
     fireEvent.click(screen.getByRole('button', { name: 'Actions for daily-digest' }));
     await waitFor(() => {
@@ -151,7 +151,7 @@ describe('SchedulesPage', () => {
     });
 
     await waitFor(() => {
-      expect(screen.getByRole('button', { name: 'Create Schedule' })).toBeEnabled();
+      expect(screen.getByRole('button', { name: 'New Schedule' })).toBeEnabled();
     });
     expect(screen.getByRole('button', { name: 'Run now daily-digest' })).toBeDisabled();
   });
@@ -167,7 +167,7 @@ describe('SchedulesPage', () => {
       permissions: { listPermissions },
     });
 
-    expect(await screen.findByRole('button', { name: 'Create Schedule' })).toBeEnabled();
+    expect(await screen.findByRole('button', { name: 'New Schedule' })).toBeEnabled();
     expect(listPermissions).not.toHaveBeenCalledWith(
       expect.objectContaining({ resourceType: 'agent', resourceIds: expect.arrayContaining(['demo-agent']) }),
     );
@@ -181,7 +181,7 @@ describe('SchedulesPage', () => {
         resourceType: 'agent',
         resourceIds: ['demo-agent'],
       });
-      expect(screen.getByRole('button', { name: 'Create Schedule' })).toBeDisabled();
+      expect(screen.getByRole('button', { name: 'New Schedule' })).toBeDisabled();
     });
   });
   it('locks embedded schedules to the supplied agent', async () => {

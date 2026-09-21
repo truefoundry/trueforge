@@ -72,6 +72,7 @@ export interface CreateTurnTurnFields {
   first_turn_id: string;
   previous_turn_id: string | null;
   ancestor_ids: string[];
+  active_executor_id: string;
   input: TurnInputItem[];
   state: TurnState;
   custom: Record<string, unknown> | null;
@@ -209,6 +210,7 @@ async function assembleTurnRecord(
       'turn_id',
       'first_turn_id',
       'previous_turn_id',
+      'active_executor_id',
       jsonText<string[]>(sql.ref('ancestor_ids')).as('ancestor_ids'),
       jsonText<TurnInputItem[]>(sql.ref('input')).as('input'),
       jsonText<TurnState>(sql.ref('state')).as('state'),
@@ -330,6 +332,7 @@ async function assembleTurnRecord(
     first_turn_id: turn.first_turn_id,
     ancestor_ids: turn.ancestor_ids,
     previous_turn_id: turn.previous_turn_id,
+    active_executor_id: turn.active_executor_id,
     state: turn.state,
     input: turn.input,
     snapshot,
@@ -470,6 +473,7 @@ export async function createTurn(db: Kysely<Database>, input: CreateTurnInput): 
           first_turn_id: input.turn.first_turn_id,
           previous_turn_id: input.turn.previous_turn_id ?? null,
           ancestor_ids: jsonbBind(input.turn.ancestor_ids),
+          active_executor_id: input.turn.active_executor_id,
           input: jsonbBind(input.turn.input),
           state: jsonbBind(input.turn.state),
           checkpoint: jsonbBind(checkpoint),
@@ -755,6 +759,7 @@ export async function listTurns(db: Kysely<Database>, input: ListTurnsInput): Pr
       'turn_id',
       'first_turn_id',
       'previous_turn_id',
+      'active_executor_id',
       jsonText<string[]>(sql.ref('ancestor_ids')).as('ancestor_ids'),
       jsonText<TurnInputItem[]>(sql.ref('input')).as('input'),
       jsonText<TurnState>(sql.ref('state')).as('state'),
@@ -778,6 +783,7 @@ export async function listTurns(db: Kysely<Database>, input: ListTurnsInput): Pr
     first_turn_id: row.first_turn_id,
     ancestor_ids: row.ancestor_ids,
     previous_turn_id: row.previous_turn_id,
+    active_executor_id: row.active_executor_id,
     state: row.state,
     input: row.input,
     created_at: new Date(row.created_at),

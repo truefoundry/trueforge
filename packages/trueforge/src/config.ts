@@ -158,6 +158,37 @@ export function parseTenantIdToAllowedModelProviderAccounts(raw: string | undefi
   }
 }
 
+/**
+ * Parsed `TRUEFOUNDRY_WEB_SEARCH_PROVIDER` JSON. Empty / unset → `undefined` (feature off).
+ * Requires `name: "parallel"` and non-empty `api_key`.
+ */
+export interface TrueFoundryWebSearchProviderEnv {
+  name: 'parallel';
+  api_key: string;
+}
+
+export function parseTrueFoundryWebSearchProvider(
+  raw: string | undefined,
+): TrueFoundryWebSearchProviderEnv | undefined {
+  if (!raw?.trim()) {
+    return undefined;
+  }
+  try {
+    const parsed = z.record(z.string(), z.string()).parse(JSON.parse(raw));
+    const name = parsed['name']?.trim();
+    const apiKey = parsed['api_key']?.trim();
+    if (name !== 'parallel' || !apiKey) {
+      throw new Error('missing or unsupported name, or missing api_key');
+    }
+    return { name: 'parallel', api_key: apiKey };
+  } catch (error) {
+    throw new Error(
+      'Environment variable TRUEFOUNDRY_WEB_SEARCH_PROVIDER must be a JSON object with "name":"parallel" and non-empty "api_key" (e.g. {"name":"parallel","api_key":"..."})',
+      { cause: error },
+    );
+  }
+}
+
 /** Parses a positive-integer env var, falling back to `defaultValue` when unset/blank. */
 function parsePositiveInt(options: { envKey: string; raw: string | undefined; defaultValue: number }): number {
   const { envKey, raw, defaultValue } = options;
@@ -531,6 +562,8 @@ export interface SharedServerConfiguration {
   MCP_REQUEST_TIMEOUT_MS: number;
   /** Max milliseconds for an MCP transport connection. Env: `MCP_CONNECT_TIMEOUT_MS`. Default 30 seconds. */
   MCP_CONNECT_TIMEOUT_MS: number;
+  /** Max bytes for one remote MCP tool-call HTTP response body (not GET SSE). Env: `MCP_TOOL_CALL_MAX_RESPONSE_BYTES`. Default 50 MB. */
+  MCP_TOOL_CALL_MAX_RESPONSE_BYTES: number;
   /**
    * Client name used for Dynamic Client Registration (DCR) of MCP servers.
    * This is the client name shown on authorization-server consent screens.
@@ -763,6 +796,12 @@ export type DistributedServerConfiguration = SharedServerConfiguration & {
    * Env: `TRUEFOUNDRY_TENANT_ID_TO_ALLOWED_MODEL_PROVIDER_ACCOUNTS`.
    */
   TRUEFOUNDRY_TENANT_ID_TO_ALLOWED_MODEL_PROVIDER_ACCOUNTS: Record<string, string[]>;
+  /**
+   * Optional built-in web search provider (TrueFoundry mode only). JSON object
+   * `Record<string, string>` with `name` (`parallel`) and `api_key`.
+   * Unset / empty → web search tools are not registered. Env: `TRUEFOUNDRY_WEB_SEARCH_PROVIDER`.
+   */
+  TRUEFOUNDRY_WEB_SEARCH_PROVIDER: TrueFoundryWebSearchProviderEnv | undefined;
 };
 
 export type ServerConfiguration = StandaloneServerConfiguration | DistributedServerConfiguration;
@@ -811,6 +850,11 @@ const shared: SharedServerConfiguration = {
     envKey: 'MCP_CONNECT_TIMEOUT_MS',
     raw: getEnv('MCP_CONNECT_TIMEOUT_MS'),
     defaultValue: 30 * 1000,
+  }),
+  MCP_TOOL_CALL_MAX_RESPONSE_BYTES: parsePositiveInt({
+    envKey: 'MCP_TOOL_CALL_MAX_RESPONSE_BYTES',
+    raw: getEnv('MCP_TOOL_CALL_MAX_RESPONSE_BYTES'),
+    defaultValue: 50 * 1024 * 1024,
   }),
   MCP_DCR_OAUTH_CLIENT_NAME:
     getEnv('MCP_DCR_OAUTH_CLIENT_NAME', { defaultValue: 'truefoundry-harness' }) ?? 'truefoundry-harness',
@@ -947,6 +991,9 @@ const configuration: ServerConfiguration = standalone
       TRUEFOUNDRY_SANDBOX_SETTINGS: getEnv('TRUEFOUNDRY_SANDBOX_SETTINGS', { required: false }),
       TRUEFOUNDRY_TENANT_ID_TO_ALLOWED_MODEL_PROVIDER_ACCOUNTS: parseTenantIdToAllowedModelProviderAccounts(
         getEnv('TRUEFOUNDRY_TENANT_ID_TO_ALLOWED_MODEL_PROVIDER_ACCOUNTS', { required: false }),
+      ),
+      TRUEFOUNDRY_WEB_SEARCH_PROVIDER: parseTrueFoundryWebSearchProvider(
+        getEnv('TRUEFOUNDRY_WEB_SEARCH_PROVIDER', { required: false }),
       ),
     };
 

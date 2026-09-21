@@ -5,5 +5,8 @@ dependencies:
 - name: redis
   repository: oci://registry-1.docker.io/bitnamicharts
   version: 24.0.0
-digest: sha256:6a9a66cd177329b1829c9d3d79c6810b89f4394f0411c3cfcb78cba87ca057e7
-generated: "2026-08-05T20:23:02.606276+01:00"
+- name: tfy-sandbox-server
+  repository: oci://tfy.jfrog.io/tfy-helm
+  version: 0.3.3
+digest: sha256:4a1e8e592add0094b94177b0e5deea17ccec1efc034e4399176a9421e8fca0a7
+generated: "2026-09-17T18:47:27.221049+05:30"

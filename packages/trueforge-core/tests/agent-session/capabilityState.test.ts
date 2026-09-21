@@ -19,6 +19,7 @@ import {
   makeSilentLogger,
   makeTestResolver,
   mintTestTurnId,
+  TEST_ACTIVE_EXECUTOR_ID,
 } from './testHelpers';
 
 function makePlanShapedCapability(options: {
@@ -74,6 +75,7 @@ describe('capability_state (tfy.plan fixture)', () => {
 
     const turn1 = await session.createTurn({
       turn_id: mintTestTurnId(),
+      active_executor_id: TEST_ACTIVE_EXECUTOR_ID,
       input: [{ type: EventType.USER_MESSAGE, content: 'start' }],
       previous_turn_id: 'none',
       signal: new AbortController().signal,
@@ -102,6 +104,7 @@ describe('capability_state (tfy.plan fixture)', () => {
     loads = [];
     const turn2 = await session.createTurn({
       turn_id: mintTestTurnId(),
+      active_executor_id: TEST_ACTIVE_EXECUTOR_ID,
       input: [{ type: EventType.USER_MESSAGE, content: 'continue' }],
       previous_turn_id: 'auto',
       signal: new AbortController().signal,
@@ -145,6 +148,7 @@ describe('capability_state (tfy.plan fixture)', () => {
 
     const turn1 = await session.createTurn({
       turn_id: mintTestTurnId(),
+      active_executor_id: TEST_ACTIVE_EXECUTOR_ID,
       input: [{ type: EventType.USER_MESSAGE, content: 'start' }],
       previous_turn_id: 'none',
       signal: new AbortController().signal,
@@ -178,6 +182,7 @@ describe('capability_state (tfy.plan fixture)', () => {
 
     const turn3 = await session.createTurn({
       turn_id: mintTestTurnId(),
+      active_executor_id: TEST_ACTIVE_EXECUTOR_ID,
       input: [{ type: EventType.USER_MESSAGE, content: 'no plan' }],
       previous_turn_id: 'auto',
       signal: new AbortController().signal,
@@ -235,6 +240,7 @@ describe('capability_state (tfy.plan fixture)', () => {
     });
     const turn = await session.createTurn({
       turn_id: mintTestTurnId(),
+      active_executor_id: TEST_ACTIVE_EXECUTOR_ID,
       input: [{ type: EventType.USER_MESSAGE, content: 'x' }],
       previous_turn_id: 'none',
       signal: new AbortController().signal,

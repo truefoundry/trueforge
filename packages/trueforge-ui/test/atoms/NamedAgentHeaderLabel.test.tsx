@@ -35,6 +35,25 @@ function SelectEditable() {
   );
 }
 
+function SelectCloneDraft() {
+  const shell = useShellMode();
+  return (
+    <button
+      type="button"
+      onClick={() =>
+        shell.selectLibraryAgent({
+          isMutable: true,
+          isCreateAgent: true,
+          agentName: 'reviewer-clone',
+          agentSpec: { model: { name: 'openai/gpt-4.1' } },
+        })
+      }
+    >
+      clone
+    </button>
+  );
+}
+
 function OpenAgentBuilder() {
   const shell = useShellMode();
   return (
@@ -99,6 +118,24 @@ describe('NamedAgentHeaderLabel', () => {
     });
 
     expect(screen.getByRole('heading', { name: 'reviewer Editing' })).toBeInTheDocument();
+  });
+
+  it('shows the clone draft name without an Editing label', () => {
+    render(
+      <ShellModeProvider agentConfig={{ mode: 'AgentComposer' }}>
+        <RuntimeHarness messages={[]}>
+          <SelectCloneDraft />
+          <NamedAgentHeaderLabel />
+        </RuntimeHarness>
+      </ShellModeProvider>,
+    );
+
+    act(() => {
+      screen.getByRole('button', { name: 'clone' }).click();
+    });
+
+    expect(screen.getByRole('heading', { name: 'reviewer-clone' })).toBeInTheDocument();
+    expect(screen.queryByText('Editing')).not.toBeInTheDocument();
   });
 
   it('is hidden while idle, then appears after selecting a named agent', () => {

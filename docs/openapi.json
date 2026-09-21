@@ -2,6 +2,18 @@
   "components": {
     "parameters": {},
     "schemas": {
+      "ActionRequired": {
+        "properties": {
+          "id": {
+            "description": "Unique identifier for the event (monotonic ULID).",
+            "type": "string"
+          }
+        },
+        "required": [
+          "id"
+        ],
+        "type": "object"
+      },
       "ActionRequiredEvent": {
         "discriminator": {
           "mapping": {
@@ -502,12 +514,16 @@
           },
           "skill": {
             "$ref": "#/components/schemas/SkillCapability"
+          },
+          "web_search": {
+            "$ref": "#/components/schemas/WebSearchCapability"
           }
         },
         "required": [
           "sandbox",
           "skill",
-          "settings"
+          "settings",
+          "web_search"
         ],
         "type": "object"
       },
@@ -2586,10 +2602,9 @@
           },
           "require_approval_for_tools": {
             "default": [
-              "@write",
               "@destructive"
             ],
-            "description": "Tools that pause for human approval: `@all`, `@write`, `@destructive`, or literal names. Default: `[\"@write\", \"@destructive\"]`.",
+            "description": "Tools that pause for human approval: `@all`, `@write`, `@destructive`, or literal names. Default: `[\"@destructive\"]`.",
             "items": {
               "$ref": "#/components/schemas/MCPServerApprovalToolSelector"
             },
@@ -3572,6 +3587,9 @@
           "sandbox": {
             "enabled": false,
             "file_downloads": true
+          },
+          "web_search": {
+            "enabled": false
           }
         },
         "properties": {
@@ -3596,6 +3614,9 @@
           },
           "sandbox": {
             "$ref": "#/components/schemas/SandboxConfig"
+          },
+          "web_search": {
+            "$ref": "#/components/schemas/WebSearchConfig"
           }
         },
         "type": "object"
@@ -4014,13 +4035,17 @@
             "tool.response": "#/components/schemas/ToolResponseEvent",
             "tool.response_required": "#/components/schemas/ToolResponseRequiredEvent",
             "turn.created": "#/components/schemas/TurnCreatedEvent",
-            "turn.done": "#/components/schemas/TurnDoneEvent"
+            "turn.done": "#/components/schemas/TurnDoneEvent",
+            "turn.update": "#/components/schemas/TurnUpdateEvent"
           },
           "propertyName": "type"
         },
         "oneOf": [
           {
             "$ref": "#/components/schemas/TurnCreatedEvent"
+          },
+          {
+            "$ref": "#/components/schemas/TurnUpdateEvent"
           },
           {
             "$ref": "#/components/schemas/TurnDoneEvent"
@@ -5388,7 +5413,8 @@
             "tool.response": "#/components/schemas/ToolResponseEvent",
             "tool.response_required": "#/components/schemas/ToolResponseRequiredEvent",
             "turn.created": "#/components/schemas/TurnCreatedEvent",
-            "turn.done": "#/components/schemas/TurnDoneEvent"
+            "turn.done": "#/components/schemas/TurnDoneEvent",
+            "turn.update": "#/components/schemas/TurnUpdateEvent"
           },
           "propertyName": "type"
         },
@@ -5427,9 +5453,105 @@
             "$ref": "#/components/schemas/TurnCreatedEvent"
           },
           {
+            "$ref": "#/components/schemas/TurnUpdateEvent"
+          },
+          {
             "$ref": "#/components/schemas/TurnDoneEvent"
           }
         ]
+      },
+      "TurnUpdateEvent": {
+        "properties": {
+          "created_at": {
+            "description": "ISO 8601 event timestamp.",
+            "type": "string"
+          },
+          "id": {
+            "description": "Unique identifier for the event (monotonic ULID).",
+            "type": "string"
+          },
+          "state": {
+            "$ref": "#/components/schemas/TurnUpdateState"
+          },
+          "thread_id": {
+            "description": "Thread that owns the event; null for turn-level lifecycle events.",
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "type": {
+            "description": "Emitted when a turn pauses or resumes.",
+            "enum": [
+              "turn.update"
+            ],
+            "type": "string"
+          }
+        },
+        "required": [
+          "type",
+          "id",
+          "state",
+          "created_at",
+          "thread_id"
+        ],
+        "type": "object"
+      },
+      "TurnUpdateState": {
+        "description": "Live non-terminal turn status.",
+        "discriminator": {
+          "mapping": {
+            "paused": "#/components/schemas/TurnUpdateStatePaused",
+            "running": "#/components/schemas/TurnUpdateStateRunning"
+          },
+          "propertyName": "status"
+        },
+        "oneOf": [
+          {
+            "$ref": "#/components/schemas/TurnUpdateStatePaused"
+          },
+          {
+            "$ref": "#/components/schemas/TurnUpdateStateRunning"
+          }
+        ]
+      },
+      "TurnUpdateStatePaused": {
+        "properties": {
+          "action_required_on_events": {
+            "description": "Events that still need a user or client action.",
+            "items": {
+              "$ref": "#/components/schemas/ActionRequired"
+            },
+            "type": "array"
+          },
+          "status": {
+            "description": "Turn is paused waiting for required actions.",
+            "enum": [
+              "paused"
+            ],
+            "type": "string"
+          }
+        },
+        "required": [
+          "status",
+          "action_required_on_events"
+        ],
+        "type": "object"
+      },
+      "TurnUpdateStateRunning": {
+        "properties": {
+          "status": {
+            "description": "Turn is executing.",
+            "enum": [
+              "running"
+            ],
+            "type": "string"
+          }
+        },
+        "required": [
+          "status"
+        ],
+        "type": "object"
       },
       "UpdateAgentRequest": {
         "additionalProperties": false,
@@ -5508,6 +5630,12 @@
           },
           "metadata": {
             "$ref": "#/components/schemas/SessionMetadata"
+          },
+          "title": {
+            "description": "Human-readable session title.",
+            "maxLength": 50,
+            "minLength": 1,
+            "type": "string"
           }
         },
         "type": "object"
@@ -5635,6 +5763,31 @@
         ],
         "type": "object"
       },
+      "WebSearchCapability": {
+        "properties": {
+          "enabled": {
+            "description": "Whether a host web-search provider is configured.",
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "enabled"
+        ],
+        "type": "object"
+      },
+      "WebSearchConfig": {
+        "default": {
+          "enabled": false
+        },
+        "properties": {
+          "enabled": {
+            "default": false,
+            "description": "Enable built-in web search and fetch tools. Default: false (host must configure a provider).",
+            "type": "boolean"
+          }
+        },
+        "type": "object"
+      },
       "ZaiModelProvider": {
         "additionalProperties": false,
         "properties": {
@@ -5682,7 +5835,7 @@
   "info": {
     "description": "HTTP API for the TrueForge agent server (`/api/v1`). Interactive docs are served at `/api/v1/docs` (OpenAPI JSON at `/api/v1/openapi.json`).\n\n**Authentication:** Standalone auth accepts requests without credentials — middleware stamps a local default user. When OIDC or TrueFoundry auth is configured, protected routes require a valid cookie or `Authorization: Bearer` token. There is no built-in API-key scheme; pass custom headers only if your reverse proxy or IdP layer requires them.\n\nCovers DB-backed sessions, the agent registry, settings catalogs, and model/MCP/skill/sandbox providers.",
     "title": "TrueForge API",
-    "version": "0.2.0-rc.12"
+    "version": "0.2.0"
   },
   "openapi": "3.1.0",
   "paths": {
@@ -8251,7 +8404,7 @@
         "x-fern-sdk-method-name": "get"
       },
       "patch": {
-        "description": "Update a session by replacing `agent` with `{ spec: AgentSpec }`. Named (reference) sessions reject agent updates. An empty body is a valid no-op that refreshes `updated_at`. Only the session creator may update it.",
+        "description": "Update a session: optional `title`, `metadata`, and (inline sessions only) `agent` as `{ spec: AgentSpec }`. Named sessions reject agent updates. An empty body is a valid no-op that refreshes `updated_at`. Only the session creator may update it.",
         "parameters": [
           {
             "description": "Session identifier.",
