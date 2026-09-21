@@ -53,7 +53,6 @@ const GetSessionUnauthenticatedSchema = z.object({
 
 const GetSessionAuthenticatedSchema = z.object({
   user: GetSessionUserSchema,
-  controlPlaneURL: z.url(),
 });
 
 const GetSessionWireSchema = z.union([GetSessionUnauthenticatedSchema, GetSessionAuthenticatedSchema]);
