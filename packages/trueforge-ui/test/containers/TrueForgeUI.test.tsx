@@ -2,7 +2,7 @@
 import type { CatalogServer } from '@/server/types.js';
 import { useExternalStoreRuntime, type ThreadMessageLike } from '@assistant-ui/react';
 import { act, fireEvent, render, screen, waitFor, within } from '@testing-library/react';
-import { afterEach, beforeAll, beforeEach, describe, expect, it, vi } from 'vitest';
+import { beforeAll, describe, expect, it, vi } from 'vitest';
 import { createMockAgentUIServer, createMockCatalog } from '../server/mockServer.js';
 
 vi.mock('@truefoundry/assistant-ui-runtime', () => ({
@@ -71,7 +71,6 @@ import { SidebarLayout } from '@/layouts/SidebarLayout.js';
 import { StackChatPanel } from '@/layouts/StackChatPanel.js';
 import { WidgetLayout } from '@/layouts/WidgetLayout.js';
 import { WidgetVisibilityProvider } from '@/layouts/WidgetVisibilityContext.js';
-import { clearShellLocationStorage } from '@/routing/shellLocationStore.js';
 import { ServerProvider } from '@/server/ServerContext.js';
 import { ShellModeProvider, useShellMode } from '@/server/ShellModeContext.js';
 import { SlotsProvider } from '@/theme/SlotsProvider.js';
@@ -96,16 +95,6 @@ beforeAll(() => {
     this.removeAttribute('open');
     this.dispatchEvent(new Event('close'));
   };
-});
-
-beforeEach(() => {
-  clearShellLocationStorage();
-  window.history.replaceState(null, '', '/');
-});
-
-afterEach(() => {
-  clearShellLocationStorage();
-  window.history.replaceState(null, '', '/');
 });
 
 function mobileMatchMedia(query: string): MediaQueryList {

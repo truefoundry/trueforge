@@ -93,16 +93,7 @@ router should leave it off (the default).
 <TrueForgeUI server={server} layout="sidebar" withRouter />
 ```
 
-When `withRouter` is off, the same places and per-route search params are
-persisted in `sessionStorage` (key `tfy-aui-shell-location`) instead of the
-browser URL. Reloads restore the last place (settings, library agent + tab,
-session, sessions browser filters, etc.). The package does **not** mutate the
-host URL for ongoing navigation. Pasted share links (`?view=sessions`,
-`?agentId=`, `?sessionId=`, …) are still honored on boot — they win over the
-stored location, then are stripped from the real URL so a later reload restores
-from storage.
-
-Places mirrored to the URL (or to sessionStorage when `withRouter` is off):
+Places mirrored to the URL:
 
 - `/` — new chat / library landing (mode-dependent)
 - `/build-agent` — new agent builder
@@ -136,32 +127,25 @@ to keep that place overlay-only with no URL:
 Custom `agent` / `session` / `libraryAgent` templates must keep their `:param` segment, or the
 place can be written to the URL but not read back.
 
-Shell state stays the source of truth; the router (or sessionStorage store)
-mirrors it. Combining `withRouter` with `initialSessionId` is not supported —
-the URL wins. Without `withRouter`, a stored location similarly wins over
-`initialSessionId` after the first visit.
+Shell state stays the source of truth; the router mirrors it. Combining
+`withRouter` with `initialSessionId` is not supported — the URL wins.
 
 Notes on behaviour:
 
-- Hashes and host-owned query keys are preserved across navigation when
-  `withRouter` is on. Session keys (`sessionId`, `agentId`, `tab`, `view`,
-  `s_tw`, `s_sts`, `s_ets`) are removed when the destination does not own them,
-  preventing stale filters or selections from leaking into unrelated routes.
-  The same ownership rules apply to the sessionStorage search string when
-  `withRouter` is off.
+- Hashes and host-owned query keys are preserved across navigation. Session
+  keys (`sessionId`, `agentId`, `tab`, `view`, `s_tw`, `s_sts`, `s_ets`) are
+  removed when the destination does not own them, preventing stale filters or
+  selections from leaking into unrelated routes.
 - A copied library session link is `?agentId=&sessionId=` on the current page
   (plus `/library/:agentId` when `withRouter`). Opening it lands on that
   agent's Sessions tab. Clicking an agent in the library writes `?tab=overview`
   so a leftover chat `sessionId` does not open Sessions. The same query works
-  when `withRouter` is off (consumed into sessionStorage on boot, then stripped
-  from the host URL).
-- The all-user Sessions page is `/sessions` when `withRouter` is on. When it is
-  off, the stored path is still `/sessions` (with `view` / time-range query in
-  sessionStorage); a pasted `?view=sessions` share link opens the same page on
-  boot. Agent and time filters live in the query (`agentId`, `s_tw` for a
-  relative window, or `s_sts`/`s_ets` for an absolute range). Opening a session
-  pins `s_sts`/`s_ets` around `created_at` (±5 min) so a refresh still finds
-  that row on page 1 without scrolling the list.
+  when `withRouter` is off.
+- The all-user Sessions page is `/sessions` when `withRouter` is on, or
+  `?view=sessions` when it is off. Agent and time filters live in the query
+  (`agentId`, `s_tw` for a relative window, or `s_sts`/`s_ets` for an absolute
+  range). Opening a session pins `s_sts`/`s_ets` around `created_at` (±5 min)
+  so a refresh still finds that row on page 1 without scrolling the list.
 - A `/sessions/:sessionId` link is resolved through `getSession` so the chat
   opens with its own agent binding and mutability rather than as a new draft.
 - `/build-agent` is used for a fresh builder; after its draft session persists,
