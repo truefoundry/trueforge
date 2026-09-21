@@ -160,7 +160,11 @@ describe('buildSessionTimelineSegments', () => {
 
     const segments = buildSessionTimelineSegments(turns);
     assert.equal(
-      segments.some(segment => segment.type === 'sub_agent' && segment.description === 'Researcher'),
+      segments.some(segment => segment.type === 'tool_call' && segment.description === 'search'),
+      true,
+    );
+    assert.equal(
+      segments.some(segment => segment.type === 'tool_call' && segment.description === 'lookup'),
       true,
     );
     assert.equal(
@@ -185,6 +189,56 @@ describe('buildSessionTimelineSegments', () => {
     const groups = groupOverlappingToolCalls(toolCalls).filter(group => group.segments.length > 1);
     assert.equal(groups.length, 1);
     assert.equal(groups[0]?.segments.length, 2);
+  });
+
+  it('labels deferred MCP meta-tool bars with the underlying tool name', () => {
+    const turns = buildSessionTurnViews([
+      created({ turnId: 't1', createdAt: '2026-01-01T00:00:00.000Z' }),
+      {
+        turnId: 't1',
+        event: {
+          type: 'model.message',
+          id: 'model-1',
+          threadId: 'main',
+          content: 'calling deferred tool',
+          createdAt: '2026-01-01T00:00:01.000Z',
+          toolCalls: [
+            {
+              id: 'call-deferred',
+              type: 'function',
+              function: {
+                name: 'call_tool',
+                arguments: JSON.stringify({
+                  mcp_server: 'github',
+                  tool_name: 'search_issues',
+                  input: { q: 'bug' },
+                }),
+              },
+            },
+          ],
+        },
+      },
+      {
+        turnId: 't1',
+        event: {
+          type: 'tool.response',
+          id: 'resp-deferred',
+          threadId: 'main',
+          toolCallId: 'call-deferred',
+          content: 'ok',
+          createdAt: '2026-01-01T00:00:02.000Z',
+        },
+      },
+      done({ turnId: 't1', createdAt: '2026-01-01T00:00:03.000Z' }),
+    ]);
+
+    const segments = buildSessionTimelineSegments(turns);
+    assert.equal(
+      segments.some(
+        segment => segment.type === 'tool_call' && segment.description === 'call_tool: search_issues (github)',
+      ),
+      true,
+    );
   });
 
   it('waits only for the first sub-agent in a concurrent batch', () => {

@@ -35,6 +35,7 @@ import type {
 } from 'openai/resources/chat';
 import type { Logger } from 'winston';
 import { describeUnknownError, extractErrorLogFields } from '../util/errorLogFields';
+import { ssrfFetch } from '../util/ssrfGuard';
 import type { ILLM, LLMCreateParams, LLMCreateParamsStreaming } from './ILLM';
 import {
   type CompletionUsage,
@@ -135,6 +136,7 @@ function compatibleModel(config: VercelAIProviderConfig): LanguageModel {
     name: provider.type,
     baseURL: baseUrl,
     apiKey,
+    fetch: ssrfFetch,
     // Without this the adapter silently downgrades json_schema to a schema-less json_object.
     supportsStructuredOutputs: true,
     // These endpoints omit token counts from streamed responses unless asked.
@@ -152,6 +154,7 @@ export function buildLanguageModel(config: VercelAIProviderConfig): LanguageMode
     case 'openai': {
       const client = createOpenAI({
         apiKey,
+        fetch: ssrfFetch,
         ...(baseUrl !== undefined ? { baseURL: baseUrl } : {}),
         ...(extraHeaders !== undefined ? { headers: extraHeaders } : {}),
       });
@@ -160,6 +163,7 @@ export function buildLanguageModel(config: VercelAIProviderConfig): LanguageMode
     case 'anthropic': {
       const client = createAnthropic({
         apiKey,
+        fetch: ssrfFetch,
         ...(baseUrl !== undefined ? { baseURL: baseUrl } : {}),
         ...(extraHeaders !== undefined ? { headers: extraHeaders } : {}),
       });
@@ -168,6 +172,7 @@ export function buildLanguageModel(config: VercelAIProviderConfig): LanguageMode
     case 'google-gemini': {
       const client = createGoogle({
         apiKey,
+        fetch: ssrfFetch,
         ...(baseUrl !== undefined ? { baseURL: baseUrl } : {}),
         ...(extraHeaders !== undefined ? { headers: extraHeaders } : {}),
       });
@@ -176,6 +181,7 @@ export function buildLanguageModel(config: VercelAIProviderConfig): LanguageMode
     case 'moonshot': {
       const client = createMoonshotAI({
         apiKey,
+        fetch: ssrfFetch,
         ...(baseUrl !== undefined ? { baseURL: baseUrl } : {}),
         ...(extraHeaders !== undefined ? { headers: extraHeaders } : {}),
       });
@@ -189,6 +195,7 @@ export function buildLanguageModel(config: VercelAIProviderConfig): LanguageMode
       const client = createAlibaba({
         apiKey,
         baseURL: baseUrl,
+        fetch: ssrfFetch,
         ...(extraHeaders !== undefined ? { headers: extraHeaders } : {}),
       });
       return client(model.id);

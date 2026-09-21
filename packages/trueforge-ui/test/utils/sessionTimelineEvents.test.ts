@@ -23,4 +23,35 @@ describe('toolCallDescription', () => {
     expect(toolCallDescription({ function: { name: 'exec', arguments: '{"command":"ls"}' } })).toBe('exec');
     expect(toolCallDescription({ function: { name: 'search', arguments: '{"q":"x"}' } })).toBe('search');
   });
+
+  it('unwraps deferred MCP meta-tool args so the real tool name is visible', () => {
+    expect(
+      toolCallDescription({
+        function: {
+          name: 'call_tool',
+          arguments: JSON.stringify({
+            mcp_server: 'github',
+            tool_name: 'search_issues',
+            input: { q: 'bug' },
+          }),
+        },
+      }),
+    ).toBe('call_tool: search_issues (github)');
+    expect(
+      toolCallDescription({
+        function: {
+          name: 'get_tool_info',
+          arguments: JSON.stringify({ mcp_server: 'linear', tool_name: 'create_issue' }),
+        },
+      }),
+    ).toBe('get_tool_info: create_issue (linear)');
+    expect(
+      toolCallDescription({
+        function: {
+          name: 'list_tools',
+          arguments: JSON.stringify({ mcp_server: 'slack-workspace' }),
+        },
+      }),
+    ).toBe('list_tools (slack-workspace)');
+  });
 });

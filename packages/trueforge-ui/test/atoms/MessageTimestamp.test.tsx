@@ -1,6 +1,7 @@
 import { fireEvent, render, screen } from '@testing-library/react';
 import { describe, expect, it } from 'vitest';
 
+import { formatAbsoluteDateTime } from '@/atoms/lib/dateFormat.js';
 import { MessageTimestamp } from '@/atoms/MessageTimestamp.js';
 
 const createdAt = new Date('2026-04-05T14:03:02.000Z');
@@ -10,17 +11,6 @@ function expectedTime(date: Date): string {
     hour: '2-digit',
     minute: '2-digit',
     second: '2-digit',
-    hour12: true,
-  }).format(date);
-}
-
-function expectedFullDate(date: Date): string {
-  return new Intl.DateTimeFormat(undefined, {
-    month: 'short',
-    day: 'numeric',
-    year: 'numeric',
-    hour: 'numeric',
-    minute: '2-digit',
     hour12: true,
   }).format(date);
 }
@@ -41,7 +31,7 @@ describe('MessageTimestamp', () => {
 
     fireEvent.focus(timestamp);
 
-    expect(screen.getByRole('tooltip')).toHaveTextContent(expectedFullDate(createdAt));
+    expect(screen.getByRole('tooltip')).toHaveTextContent(formatAbsoluteDateTime(createdAt));
     fireEvent.blur(timestamp);
     expect(screen.queryByRole('tooltip')).not.toBeInTheDocument();
   });

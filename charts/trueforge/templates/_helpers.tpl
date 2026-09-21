@@ -491,6 +491,14 @@ fields, wires bundled Postgres/Redis, optional OIDC, then server.extraEnv.
 {{- end -}}
 {{- end -}}
 
+{{- $env = append $env (dict "name" "NETWORK_POLICY_ENABLED" "value" (.Values.networkPolicy.enabled | toString)) -}}
+{{- if .Values.networkPolicy.outbound.allowedHosts -}}
+{{- $env = append $env (dict "name" "OUTBOUND_URL_ALLOWED_HOSTS" "value" (.Values.networkPolicy.outbound.allowedHosts | toJson)) -}}
+{{- end -}}
+{{- if .Values.networkPolicy.outbound.blockedHosts -}}
+{{- $env = append $env (dict "name" "OUTBOUND_URL_BLOCKED_HOSTS" "value" (.Values.networkPolicy.outbound.blockedHosts | toJson)) -}}
+{{- end -}}
+
 {{- /* Controller -> server auth. The app rejects an empty value when peered. */ -}}
 {{- $env = append $env (include "trueforge.env.fromStringOrValueFrom" (dict "name" "TRUEFORGE_API_KEY" "field" "apiKey" "value" .Values.apiKey) | fromJson) -}}
 

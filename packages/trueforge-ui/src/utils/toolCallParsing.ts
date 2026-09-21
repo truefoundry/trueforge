@@ -17,8 +17,8 @@ export const ASK_USER_TOOL_NAME = 'ask_user_question';
 /** Tool names that should be rendered as a sandbox execution card. */
 export const SANDBOX_TOOL_NAMES = new Set(['exec', 'sandbox_exec']);
 
-/** MCP meta-tools that wrap actual tool calls. */
-export const MCP_META_TOOLS = new Set(['call_tool', 'list_tools', 'get_tool_info']);
+/** MCP meta-tools that wrap actual tool calls (deferred tool loading). */
+export const MCP_META_TOOLS = new Set(['call_tool', 'list_tools', 'get_tool_info', 'get_tool_output_schema']);
 
 const APPROVAL_OPTION_DEFAULT_LABELS: Record<string, string> = {
   'allow-once': 'Allow',
@@ -268,11 +268,14 @@ export function mcpDisplayName(
   mcpServer: string | undefined,
   innerToolName: string | undefined,
 ): string {
+  if (toolName === 'list_tools' && mcpServer) {
+    return `list_tools (${mcpServer})`;
+  }
   if (toolName === 'call_tool' && innerToolName) {
     return mcpServer ? `call_tool: ${innerToolName} (${mcpServer})` : `call_tool: ${innerToolName}`;
   }
-  if (toolName === 'get_tool_info' && innerToolName && mcpServer) {
-    return `get_tool_info: ${innerToolName} (${mcpServer})`;
+  if ((toolName === 'get_tool_info' || toolName === 'get_tool_output_schema') && innerToolName && mcpServer) {
+    return `${toolName}: ${innerToolName} (${mcpServer})`;
   }
   return toolName;
 }

@@ -127,7 +127,7 @@ export function DraftModelCatalogPanel({
         id={listboxId}
         role="listbox"
         aria-label="Select model"
-        className="flex min-h-0 flex-1 flex-col overflow-y-auto p-1"
+        className="flex min-h-0 flex-auto flex-col overflow-y-auto p-1"
       >
         {filtered.length === 0 ? (
           <DraftCatalogEmptyState

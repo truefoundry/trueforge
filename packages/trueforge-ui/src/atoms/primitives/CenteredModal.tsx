@@ -111,7 +111,8 @@ export function CenteredModal({
           <Icon name="xmark" />
         </button>
       </header>
-      <div className="flex min-h-0 flex-1 flex-col overflow-x-hidden overflow-y-auto">{children}</div>
+      {/* Safari collapses flex-1 (basis 0) + overflow inside fit-content/max-height dialogs to ~0 height. */}
+      <div className="flex min-h-0 flex-auto flex-col overflow-x-hidden overflow-y-auto">{children}</div>
       {footer ? <div className="shrink-0 border-t border-border px-5 py-3">{footer}</div> : null}
     </dialog>
   );
