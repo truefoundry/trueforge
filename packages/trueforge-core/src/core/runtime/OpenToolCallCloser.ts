@@ -20,7 +20,6 @@ import type {
   AgentThreadExecutionContext,
   PreSendContextProcessor,
 } from '../capabilities/AgentContextProcessor';
-import { EventType, newEventId, type ToolResponseEvent } from '../events/schema';
 import type { InternalEnrichedAssistantMessage, InternalEnrichedToolCall, LLMToolMessage } from '../llm/LLMTypes';
 import type { ContextMessage } from './AgentThread.types';
 import { InternalEventType } from './AgentThread.types';
@@ -85,19 +84,6 @@ export function getClosableOpenToolCallIds(input: {
   return closable;
 }
 
-// we are closing open tool calls synthetically, the subscriber needs to understand
-// the tool calls were closed.
-function toToolResponseEvent(input: { threadId: string; toolCallId: string; content: string }): ToolResponseEvent {
-  return {
-    type: EventType.TOOL_RESPONSE,
-    id: newEventId(),
-    created_at: new Date().toISOString(),
-    thread_id: input.threadId,
-    tool_call_id: input.toolCallId,
-    content: input.content,
-  };
-}
-
 export class OpenToolCallCloser implements PreSendContextProcessor {
   // eslint-disable-next-line @typescript-eslint/require-await -- async *: AsyncIterable contract; body is sync
   async *processPreSend(
@@ -121,16 +107,6 @@ export class OpenToolCallCloser implements PreSendContextProcessor {
       content,
     }));
 
-    const output: ToolResponseEvent[] = options.userMessageIncoming
-      ? closableIds.map(toolCallId =>
-          toToolResponseEvent({
-            threadId: execution.threadId,
-            toolCallId,
-            content,
-          }),
-        )
-      : [];
-
     const currentContextUsage = mergeCurrentContextUsage(
       execution.currentContextUsage,
       estimateTokensForContextMessages(dummyToolMessages),
@@ -139,7 +115,7 @@ export class OpenToolCallCloser implements PreSendContextProcessor {
     yield {
       type: InternalEventType.AGENT_CONTEXT_APPEND,
       context: dummyToolMessages,
-      output,
+      output: [],
       current_context_usage: currentContextUsage,
     };
   }

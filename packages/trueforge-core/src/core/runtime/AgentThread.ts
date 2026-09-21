@@ -482,7 +482,6 @@ export class AgentThread {
   private deferredTool?: DeferredTool | undefined;
   private convertedTools: ConvertToolsResult | undefined;
   private pendingSandboxCreatedEvents: SandboxCreatedEvent[] = [];
-  private pendingPreSendOutputEvents: ToolResponseEvent[] = [];
   private sandbox?: Sandbox | undefined;
   private readonly tracing: AgentTracing;
   private readonly logger: Logger;
@@ -582,14 +581,7 @@ export class AgentThread {
       for await (const event of this.executeContextProcessors('preSend', {
         userMessageIncoming: messages.some(isInputUserMessage),
       })) {
-        // createTurn drains send() for context only; surface closer tool.response
-        // events at execute start so they persist after turn.created.
-        for (const item of event.output) {
-          if (item.type === EventType.TOOL_RESPONSE) {
-            this.pendingPreSendOutputEvents.push(item);
-          }
-        }
-        yield { ...event, output: [] };
+        yield event;
       }
       this.preSendRanThisTurn = true;
 
@@ -1317,10 +1309,6 @@ export class AgentThread {
         }
       }
       this.preSendRanThisTurn = false;
-      for (const event of this.pendingPreSendOutputEvents) {
-        yield event;
-      }
-      this.pendingPreSendOutputEvents = [];
       const { initializationInfo, authRequirementInfo } = await this.tracing.withInitSpan(() => this.init());
 
       if (initializationInfo.length > 0) {

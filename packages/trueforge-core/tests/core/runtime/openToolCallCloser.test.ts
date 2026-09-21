@@ -1,4 +1,3 @@
-import { EventType } from '../../../src/core/events/schema';
 import type { InternalEnrichedAssistantMessage, InternalEnrichedToolCall } from '../../../src/core/llm/LLMTypes';
 import type { ContextMessage } from '../../../src/core/runtime/AgentThread.types';
 import { getEmptyCurrentContextUsage } from '../../../src/core/runtime/contextUsage';
@@ -162,7 +161,7 @@ describe('OpenToolCallCloser.processPreSend', () => {
     expect(yielded[0]?.output).toEqual([]);
   });
 
-  it('cancels every unmatched last-assistant call with the same content and tool.response events', async () => {
+  it('cancels every unmatched last-assistant call in context with no output events', async () => {
     const yielded = await collectPreSend(
       assistantWithToolCalls([
         makeToolCall('tc-regular'),
@@ -178,26 +177,7 @@ describe('OpenToolCallCloser.processPreSend', () => {
       { role: 'tool', tool_call_id: 'tc-approval', content: cancelled },
       { role: 'tool', tool_call_id: 'tc-sub-agent', content: cancelled },
     ]);
-    expect(yielded[0]?.output).toEqual([
-      expect.objectContaining({
-        type: EventType.TOOL_RESPONSE,
-        tool_call_id: 'tc-regular',
-        thread_id: 'main',
-        content: cancelled,
-      }),
-      expect.objectContaining({
-        type: EventType.TOOL_RESPONSE,
-        tool_call_id: 'tc-approval',
-        thread_id: 'main',
-        content: cancelled,
-      }),
-      expect.objectContaining({
-        type: EventType.TOOL_RESPONSE,
-        tool_call_id: 'tc-sub-agent',
-        thread_id: 'main',
-        content: cancelled,
-      }),
-    ]);
+    expect(yielded[0]?.output).toEqual([]);
   });
 
   it('is idempotent after dummy responses are in context', async () => {
