@@ -1,5 +1,5 @@
 // @vitest-environment jsdom
-import { act, cleanup, renderHook } from '@testing-library/react';
+import { act, cleanup, renderHook, waitFor } from '@testing-library/react';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 import type { ConnectorBase, ConnectorCatalogServer } from '@/server/types.js';
@@ -8,15 +8,21 @@ type CatalogHookValue = {
   connectorCatalog: Pick<ConnectorCatalogServer, 'authenticateConnector' | 'getConnector'>;
 };
 
+type ServerHookValue = {
+  getMcpConnector?: (req: { connectorId: string }) => Promise<ConnectorBase>;
+};
+
 type ToasterValue = {
   showError: (error: unknown) => void;
 };
 
 const useCatalogServer = vi.hoisted(() => vi.fn<() => CatalogHookValue>());
+const useOptionalServer = vi.hoisted(() => vi.fn<() => ServerHookValue | null>());
 const useToasterOptional = vi.hoisted(() => vi.fn<() => ToasterValue | null>());
 
 vi.mock('@/server/ServerContext.js', () => ({
   useCatalogServer,
+  useOptionalServer,
 }));
 
 vi.mock('@/containers/ToasterContainer.js', () => ({
@@ -44,6 +50,7 @@ class BroadcastChannelStub {
 
 const authenticateConnector = vi.fn<ConnectorCatalogServer['authenticateConnector']>();
 const getConnector = vi.fn<ConnectorCatalogServer['getConnector']>();
+const getMcpConnector = vi.fn<(req: { connectorId: string }) => Promise<ConnectorBase>>();
 const showError = vi.fn<(error: unknown) => void>();
 
 function authenticatedConnector(id: string): ConnectorBase {
@@ -83,12 +90,15 @@ describe('useMCPAuth', () => {
     channels.length = 0;
     authenticateConnector.mockReset();
     getConnector.mockReset();
+    getMcpConnector.mockReset();
     showError.mockReset();
     useCatalogServer.mockReset();
+    useOptionalServer.mockReset();
     useToasterOptional.mockReset();
     useCatalogServer.mockReturnValue({
       connectorCatalog: { authenticateConnector, getConnector },
     });
+    useOptionalServer.mockReturnValue(null);
     useToasterOptional.mockReturnValue({ showError });
     vi.stubGlobal('BroadcastChannel', BroadcastChannelStub);
     window.history.replaceState({}, '', '/chat');
@@ -311,5 +321,48 @@ describe('useMCPAuth', () => {
     expect(close).toHaveBeenCalledOnce();
     expect(callback).not.toHaveBeenCalled();
     expect(getConnector).not.toHaveBeenCalled();
+  });
+
+  it('confirms OAuth via getMcpConnector when the chat projection is available', async () => {
+    authenticateConnector.mockResolvedValue({ status: 'AUTHENTICATED' });
+    getMcpConnector.mockResolvedValue(authenticatedConnector('connector-1'));
+    useOptionalServer.mockReturnValue({ getMcpConnector });
+    const callback = vi.fn();
+    const { result } = renderHook(() => useMCPAuth());
+
+    await act(async () => {
+      await result.current.handleAuthorize('connector-1', callback);
+    });
+
+    expect(getMcpConnector).toHaveBeenCalledWith({ connectorId: 'connector-1' });
+    expect(getConnector).not.toHaveBeenCalled();
+    expect(callback).toHaveBeenCalledOnce();
+    expect(callback).toHaveBeenCalledWith(true);
+    expect(showError).not.toHaveBeenCalled();
+  });
+
+  it('does not invoke the callback after unmount while connector verification is in flight', async () => {
+    authenticateConnector.mockResolvedValue({ status: 'AUTHENTICATED' });
+    let resolveGet: ((connector: ConnectorBase) => void) | undefined;
+    getConnector.mockImplementation(
+      () =>
+        new Promise(resolve => {
+          resolveGet = resolve;
+        }),
+    );
+    const callback = vi.fn();
+    const { result, unmount } = renderHook(() => useMCPAuth());
+
+    const authorizePromise = result.current.handleAuthorize('connector-1', callback);
+    await waitFor(() => expect(getConnector).toHaveBeenCalledWith({ id: 'connector-1' }));
+
+    unmount();
+    await act(async () => {
+      resolveGet?.(authenticatedConnector('connector-1'));
+      await authorizePromise;
+    });
+
+    expect(callback).not.toHaveBeenCalled();
+    expect(showError).not.toHaveBeenCalled();
   });
 });

@@ -2,7 +2,7 @@
 
 import { useThreadIsRunning } from '@assistant-ui/core/react';
 import { useTrueFoundryMcpAuth } from '@truefoundry/assistant-ui-runtime';
-import { useRef, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 
 import { useDraftCatalog } from '@/atoms/draft/DraftCatalogProvider.js';
 import { useMCPAuth } from '@/hooks/useMcpAuth.js';
@@ -23,6 +23,14 @@ function CatalogMcpAuthPrompt({ servers, onContinue, readOnly }: McpAuthPromptPr
   const connectedServerIdsRef = useRef(connectedServerIds);
   const [isResuming, setIsResuming] = useState(false);
   const resumedRef = useRef(false);
+  const promptGenerationRef = useRef(0);
+
+  useEffect(
+    () => () => {
+      promptGenerationRef.current += 1;
+    },
+    [],
+  );
 
   const startResume = () => {
     if (readOnly || resumedRef.current) return;
@@ -35,14 +43,14 @@ function CatalogMcpAuthPrompt({ servers, onContinue, readOnly }: McpAuthPromptPr
   };
 
   const handleConnect = (serverId: string) => {
+    const generation = promptGenerationRef.current;
     void handleAuthorize(serverId, isSuccess => {
-      if (isSuccess) {
-        const nextConnectedServerIds = new Set([...connectedServerIdsRef.current, serverId]);
-        connectedServerIdsRef.current = nextConnectedServerIds;
-        setConnectedServerIds(nextConnectedServerIds);
-        void refreshConnectors();
-        if (servers.every(server => nextConnectedServerIds.has(server.id))) startResume();
-      }
+      if (generation !== promptGenerationRef.current || !isSuccess) return;
+      const nextConnectedServerIds = new Set([...connectedServerIdsRef.current, serverId]);
+      connectedServerIdsRef.current = nextConnectedServerIds;
+      setConnectedServerIds(nextConnectedServerIds);
+      void refreshConnectors();
+      if (servers.every(server => nextConnectedServerIds.has(server.id))) startResume();
     });
   };
 
