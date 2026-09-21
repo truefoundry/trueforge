@@ -73,6 +73,7 @@ describe('public CRUD after session deletion', () => {
         resolveAgentStore: () => agentStore,
         eventSubscriptions: new EventSubscriptionRegistry(undefined),
         resolveSandboxProviderStore: () => sandboxProviderStore,
+        resolveSandboxEnvironmentStore: () => sandboxEnvironmentStore,
         logger: createLogger({ silent: true }),
         resolveRequestContext: () => STANDALONE_REQUEST_CONTEXT,
         authorizer: new TrueForgeAuthorizer(),

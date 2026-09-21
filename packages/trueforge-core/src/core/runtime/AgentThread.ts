@@ -220,7 +220,8 @@ function buildSandboxCreatedEvent(info: SandboxInfo): SandboxCreatedEvent {
     type: EventType.SANDBOX_CREATED,
     id: newEventId(),
     created_at: new Date().toISOString(),
-    ...info,
+    sandbox_id: info.sandbox_id,
+    ...(info.environment === undefined ? {} : { environment: info.environment }),
     thread_id: null,
   };
 }

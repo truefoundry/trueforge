@@ -37,6 +37,7 @@ import configuration, { isTrueFoundryModeEnabled } from '../config';
 import type { AgentRecord, IAgentStore } from '../db/agentStore';
 import type { IMcpServerWithAuthStore } from '../db/mcpServerStore';
 import type { IModelProviderStore } from '../db/modelProviderStore';
+import type { ISandboxEnvironmentStore } from '../db/sandboxEnvironmentStore';
 import type { ISandboxProviderStore } from '../db/sandboxProviderStore';
 import type { ISkillStore } from '../db/skillStore';
 import {
@@ -61,6 +62,7 @@ import {
   withGatewayMetadataHeaders,
   X_TFY_METADATA,
 } from '../runtime/sessionResources';
+import { resolveSandboxEnvironmentForTurn } from '../sandbox/daytonaEnvironment';
 import { checkSnapshotStatus } from '../sandbox/providerUtils';
 import { MAX_SESSION_TITLE_LENGTH } from '../schemas/session';
 import { newId } from '../utils/id';
@@ -120,6 +122,7 @@ export interface TurnsRouterDeps {
   /** Resumable live turn-event transport: create-turn writes, subscribe polls. */
   eventSubscriptions: EventSubscriptionRegistry<TurnStreamingEvent>;
   resolveSandboxProviderStore: (c: Context) => ISandboxProviderStore;
+  resolveSandboxEnvironmentStore: (c: Context) => ISandboxEnvironmentStore;
   logger: Logger;
   resolveRequestContext: ResolveRequestContext;
   authorizer: Authorizer;
@@ -135,6 +138,7 @@ export type BeginTurnExecutionDeps = Pick<TurnsRouterDeps, 'activeTurns' | 'even
   modelProviderStore: IModelProviderStore;
   mcpServerStore: IMcpServerWithAuthStore;
   sandboxProviderStore: ISandboxProviderStore;
+  sandboxEnvironmentStore: ISandboxEnvironmentStore;
   skillStore: Pick<ISkillStore, 'resolveTurnSkills'>;
 };
 
@@ -146,6 +150,7 @@ function createTurnResolver(deps: {
   mcpServerStore: IMcpServerWithAuthStore;
   skillStore: Pick<ISkillStore, 'resolveTurnSkills'>;
   sandboxProviderStore: ISandboxProviderStore;
+  sandboxEnvironmentStore: ISandboxEnvironmentStore;
   agentStore: IAgentStore;
   modelProviderStore: IModelProviderStore;
   webSearchProvider: IWebSearchProvider | undefined;
@@ -160,6 +165,7 @@ function createTurnResolver(deps: {
     mcpServerStore,
     skillStore,
     sandboxProviderStore,
+    sandboxEnvironmentStore,
     agentStore,
     modelProviderStore,
     webSearchProvider,
@@ -219,7 +225,7 @@ function createTurnResolver(deps: {
     mcpRequestTimeoutMs: configuration.MCP_REQUEST_TIMEOUT_MS,
     mcpConnectTimeoutMs: configuration.MCP_CONNECT_TIMEOUT_MS,
     mcpMaxResponseBytes: configuration.MCP_TOOL_CALL_MAX_RESPONSE_BYTES,
-    sandboxProvider: async ({ spec, existingSandboxId, tracing }) => {
+    sandboxProvider: async ({ spec, existing, tracing }) => {
       const provider = await resolveSandboxProvider({
         tenant_id,
         store: sandboxProviderStore,
@@ -231,14 +237,32 @@ function createTurnResolver(deps: {
           message: 'no sandbox provider configured — PUT /settings/sandbox-providers',
         });
       }
-      const carriedSandboxId = existingSandboxIdForProvider({
-        existingSandboxId,
-        currentProviderType: provider.type,
+
+      const environmentName = spec.config.sandbox.environment;
+      const providerRecord = await sandboxProviderStore.getSandboxProvider(tenant_id);
+      const resolvedEnvironment = await resolveSandboxEnvironmentForTurn({
+        tenant_id,
+        subject_id: userRef,
+        environmentName,
+        providerRecord,
+        sandboxEnvironmentStore,
       });
-      // A fresh Daytona sandbox is cloned from the release snapshot, so the build must be ready first.
-      // Restoring an existing sandbox goes through daytona.get and never touches the snapshot.
-      // Local fallback has no image build.
-      if (carriedSandboxId === undefined && provider.type !== 'local') {
+
+      const carriedSandboxId = existingSandboxIdForProvider({
+        existingSandboxId: existing?.sandbox_id,
+        currentProviderType: provider.type,
+        existingEnvironment: existing?.environment,
+        currentEnvironment: environmentName,
+      });
+
+      // Fresh Daytona creates that use the tenant release snapshot need the build ready.
+      // Custom snapshot / docker images skip that gate. Restoring an existing sandbox never
+      // touches the snapshot. Local fallback has no image build.
+      const needsTenantSnapshot =
+        carriedSandboxId === undefined &&
+        provider.type !== 'local' &&
+        (resolvedEnvironment === undefined || resolvedEnvironment.requiresTenantSnapshot);
+      if (needsTenantSnapshot) {
         const status = await checkSnapshotStatus({ store: sandboxProviderStore, tenant_id, logger });
         if (status?.status !== 'ready') {
           throw new HTTPException(422, {
@@ -263,6 +287,8 @@ function createTurnResolver(deps: {
         skills: mountSkills,
         fileDownloadEnabled: spec.config.sandbox.file_downloads,
         existingSandboxId: carriedSandboxId,
+        environment: resolvedEnvironment?.environmentName,
+        createOptions: resolvedEnvironment?.createOptions,
         tracing,
       });
     },
@@ -409,6 +435,7 @@ export async function beginTurnExecution(params: {
     mcpServerStore: deps.mcpServerStore,
     skillStore: deps.skillStore,
     sandboxProviderStore: deps.sandboxProviderStore,
+    sandboxEnvironmentStore: deps.sandboxEnvironmentStore,
     agentStore: deps.agentStore,
     modelProviderStore: deps.modelProviderStore,
     webSearchProvider: resolveWebSearchProvider(),
@@ -797,6 +824,7 @@ export function createTurnsRouter(deps: TurnsRouterDeps) {
         skillStore: deps.resolveSkillStore(c),
         agentStore: deps.resolveAgentStore(c),
         sandboxProviderStore: deps.resolveSandboxProviderStore(c),
+        sandboxEnvironmentStore: deps.resolveSandboxEnvironmentStore(c),
       },
     };
 

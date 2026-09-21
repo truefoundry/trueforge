@@ -17,7 +17,7 @@ import type { AgentTracing } from '../tracing/AgentTracing';
 import { extractErrorLogFields } from '../util/errorLogFields';
 import { CodeModeDispatcher } from './codeMode/CodeModeDispatcher';
 import { type CodeModeClientInstall, type CodeModeTransport } from './codeMode/CodeModeTransport';
-import { ensureExecSuccess, shellEscape, type SandboxProvider } from './provider/Provider';
+import { ensureExecSuccess, shellEscape, type SandboxCreateOptions, type SandboxProvider } from './provider/Provider';
 import { SandboxNotAvailableError, validateNoPathTraversal } from './SandboxErrors';
 import { formatSandboxId, rawSandboxId } from './sandboxRef';
 // Import submodules, not the ./skills barrel, to avoid a cycle (the mounters import from Sandbox).
@@ -33,6 +33,8 @@ function mcpClientLayout(remotePath: string): { pythonPath: string; binDir: stri
 
 export interface SandboxInfo {
   sandbox_id: string;
+  /** Sandbox environment name when created with one; omit for provider defaults. */
+  environment?: string | undefined;
 }
 
 // Downloader/setup scripts can run longer than a normal exec.
@@ -99,6 +101,10 @@ export interface SandboxOptions {
   /** Used to derive the Code Mode NATS wait as request + connect. */
   mcpRequestTimeoutMs: number;
   mcpConnectTimeoutMs: number;
+  /** Environment name stamped onto SandboxInfo when set. */
+  environment?: string | undefined;
+  /** Applied only on fresh create (reattach ignores). */
+  createOptions?: SandboxCreateOptions | undefined;
   tracing: AgentTracing;
   logger: Logger;
 }
@@ -210,6 +216,8 @@ export class Sandbox extends LocalToolMCP {
   private readonly logger: Logger;
   // Pre-resolved credential-store file content (null = clear / no git auth).
   private readonly resolvedGitCredentialsContent: string | null;
+  private readonly environmentName: string | undefined;
+  private readonly createOptions: SandboxCreateOptions | undefined;
   private codeModeDispatcher: CodeModeDispatcher | undefined;
   private codeModeTransport: CodeModeTransport | undefined;
   /** Cached from transport.getClientInstall after sandbox init (when Code Mode is configured). */
@@ -234,10 +242,19 @@ export class Sandbox extends LocalToolMCP {
     this.requestTimeoutSeconds = Math.ceil(mcpBoundTimeoutMs / 1000) + NATS_REQUEST_TIMEOUT_BUFFER_SECONDS;
     this.logger = options.logger.child({ module: 'Sandbox' });
     this.resolvedGitCredentialsContent = options.resolvedGitCredentialsContent ?? null;
+    this.environmentName = options.environment;
+    this.createOptions = options.createOptions;
 
     if (this.existingSandboxId) {
-      this.existingSandboxInfo = { sandbox_id: this.existingSandboxId };
+      this.existingSandboxInfo = this.toSandboxInfo(this.existingSandboxId);
     }
+  }
+
+  private toSandboxInfo(sandboxId: string): SandboxInfo {
+    if (this.environmentName === undefined) {
+      return { sandbox_id: sandboxId };
+    }
+    return { sandbox_id: sandboxId, environment: this.environmentName };
   }
 
   /** Provider-facing id (unwraps `v1:type:raw`; legacy ids pass through). */
@@ -458,10 +475,10 @@ export class Sandbox extends LocalToolMCP {
     }
     // Provider returns a raw id; persist the fancy `v1:type:raw` session id.
     this.sandboxCreationPromise ??= this.provider
-      .createSandbox()
-      .then(({ sandboxId }) => ({
-        sandbox_id: formatSandboxId({ providerType: this.provider.type, rawId: sandboxId }),
-      }))
+      .createSandbox(this.createOptions)
+      .then(({ sandboxId }) =>
+        this.toSandboxInfo(formatSandboxId({ providerType: this.provider.type, rawId: sandboxId })),
+      )
       .catch((e: unknown) => {
         this.sandboxCreationPromise = undefined;
         throw e;

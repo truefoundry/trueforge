@@ -10,14 +10,17 @@ import { z } from '@hono/zod-openapi';
 import { CreatedBySubjectSchema, TokenPaginationSchema } from '@truefoundry/trueforge-core/agent-session';
 import { NameSchema } from './common';
 
-// random things in sdk:)
-const DAYTONA_GPU_TYPE_VALUES = Object.values(GpuType).filter(value => value !== GpuType.UNKNOWN_DEFAULT_OPEN_API) as [
-  string,
-  ...string[],
-];
+/** Allowed Daytona GPU types (excludes the SDK's OpenAPI unknown sentinel). */
+const DAYTONA_GPU_TYPES = [
+  GpuType.H100,
+  GpuType.H200,
+  GpuType.RTX_PRO_6000,
+  GpuType.RTX_4090,
+  GpuType.RTX_5090,
+] as const satisfies readonly GpuType[];
 
 export const DaytonaGpuTypeSchema = z
-  .enum(DAYTONA_GPU_TYPE_VALUES)
+  .enum(DAYTONA_GPU_TYPES)
   .describe('Preferred Daytona GPU type.')
   .openapi('DaytonaGpuType');
 
@@ -125,6 +128,27 @@ export const DaytonaSandboxEnvironmentManifestSchema = z
     lifecycle: DaytonaSandboxEnvironmentLifecycleSchema.optional(),
   })
   .strict()
+  .superRefine((value, ctx) => {
+    const wantsGpu = value.resources?.gpu != null || value.resources?.gpu_type != null;
+    if (!wantsGpu) {
+      return;
+    }
+    if (value.image.type !== 'docker') {
+      ctx.addIssue({
+        code: 'custom',
+        path: ['resources'],
+        message: 'GPU resources require image.type "docker"',
+      });
+    }
+    const autoDelete = value.lifecycle?.auto_delete_interval_in_minutes;
+    if (autoDelete != null && autoDelete !== 0) {
+      ctx.addIssue({
+        code: 'custom',
+        path: ['lifecycle', 'auto_delete_interval_in_minutes'],
+        message: 'GPU sandboxes must be ephemeral; set auto_delete_interval_in_minutes to 0',
+      });
+    }
+  })
   .openapi('DaytonaSandboxEnvironmentManifest');
 
 /** Settings / OpenAPI — Daytona only until a second provider ships. */

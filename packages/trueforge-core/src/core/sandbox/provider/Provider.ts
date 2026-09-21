@@ -80,6 +80,31 @@ export interface SandboxBuild {
   metadata: SandboxBuildMetadata | null;
 }
 
+import type { Resources } from '@daytona/sdk';
+
+/**
+ * Daytona `create` overrides from a sandbox environment (or host defaults).
+ * Snapshot vs image are mutually exclusive; omit both to use the provider buildRef.
+ */
+export interface DaytonaSandboxCreateParams {
+  snapshot?: string | undefined;
+  image?: string | undefined;
+  resources?: Resources | undefined;
+  secrets?: Record<string, string> | undefined;
+  networkBlockAll?: boolean | undefined;
+  networkAllowList?: string | undefined;
+  domainAllowList?: string | undefined;
+  outboundProxyUrl?: string | undefined;
+  autoStopInterval?: number | undefined;
+  autoArchiveInterval?: number | undefined;
+  autoDeleteInterval?: number | undefined;
+}
+
+/** Optional create-time overrides; non-Daytona providers ignore `daytona`. */
+export interface SandboxCreateOptions {
+  daytona?: DaytonaSandboxCreateParams | undefined;
+}
+
 export interface SandboxProvider {
   /** Stable provider kind used in fancy sandbox ids and carry-forward (plain string). */
   readonly type: string;
@@ -91,7 +116,7 @@ export interface SandboxProvider {
   buildImage(): Promise<SandboxBuild>;
   /** Current build status of the release image. Read-only: never kicks off a build. */
   getImageBuildStatus(): Promise<SandboxBuild>;
-  createSandbox(): Promise<{ sandboxId: string }>;
+  createSandbox(options?: SandboxCreateOptions): Promise<{ sandboxId: string }>;
   exec(params: SandboxExecParams): Promise<ExecResult>;
   /** Provider-specific instructions appended to the agent system prompt. */
   getAdditionalInstructions(): string | undefined;

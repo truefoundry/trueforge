@@ -3913,6 +3913,10 @@
             "description": "ISO 8601 event timestamp.",
             "type": "string"
           },
+          "environment": {
+            "description": "Sandbox environment name when created with one; omit for provider defaults.",
+            "type": "string"
+          },
           "id": {
             "description": "Unique identifier for the event (monotonic ULID).",
             "type": "string"

@@ -6,6 +6,7 @@ import {
   type AgentTracing,
   type ModelParams,
   type RemoteMcpHeaders,
+  type SandboxCreateOptions,
   type SandboxProvider,
   type Skill,
   type VercelAIProviderConfig,
@@ -267,6 +268,8 @@ export function buildTurnSandbox(input: {
   skills?: readonly Skill[];
   fileDownloadEnabled: boolean;
   existingSandboxId?: string | undefined;
+  environment?: string | undefined;
+  createOptions?: SandboxCreateOptions | undefined;
   tracing: AgentTracing;
 }): Sandbox {
   // Empty mounter still uploads requested-skills file so existing skills are cleaned up.
@@ -274,6 +277,8 @@ export function buildTurnSandbox(input: {
     provider: input.provider,
     existingSandboxId: input.existingSandboxId,
     fileDownloadEnabled: input.fileDownloadEnabled,
+    environment: input.environment,
+    createOptions: input.createOptions,
     blockDestructiveToolsInCodeMode: true,
     mcpRequestTimeoutMs: configuration.MCP_REQUEST_TIMEOUT_MS,
     mcpConnectTimeoutMs: configuration.MCP_CONNECT_TIMEOUT_MS,
