@@ -35,6 +35,25 @@ export async function* textReplyStream(
   };
 }
 
+export async function* missingToolCallStream(): AsyncGenerator<
+  ExtendedChatCompletionChunk,
+  RawAssistantMessageWithUsage,
+  unknown
+> {
+  yield await Promise.resolve({
+    id: 'chunk-missing-tool-call',
+    object: 'chat.completion.chunk',
+    created: 0,
+    model: 'test-model',
+    choices: [{ index: 0, delta: { role: 'assistant', content: null }, finish_reason: 'tool_calls' }],
+  });
+  return {
+    output: { role: 'assistant', content: null },
+    usage: getEmptyUsage(),
+    finish_reason: 'tool_calls',
+  };
+}
+
 // eslint-disable-next-line @typescript-eslint/require-await -- async generator fixture, not awaiting I/O
 export async function* createSubAgentStream() {
   yield {
