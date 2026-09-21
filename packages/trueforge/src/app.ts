@@ -19,7 +19,11 @@ import { createMcpOAuthRouter } from './apis/mcpOAuth';
 import { createMcpServersRouter } from './apis/mcpServers';
 import { createModelsRouter } from './apis/models';
 import { createPermissionsRouter } from './apis/permissions';
-import { createScheduleExecutionRouter, createSchedulesRouter } from './apis/schedules';
+import {
+  createScheduleExecutionRouter,
+  createSchedulesRouter,
+  type ResolveScheduleRequestContext,
+} from './apis/schedules';
 import { createInternalMetricsRouter } from './apis/sessionMetrics';
 import { createInternalSessionsRouter, createSessionsRouter } from './apis/sessions';
 import { createSettingsRouter } from './apis/settings';
@@ -219,6 +223,8 @@ export interface ServerDeps<TTransaction> {
   authenticator: Authenticator;
   /** Startup-selected agent authorization policy. */
   authorizer: Authorizer;
+  /** Request identity for internal schedule execute (no live HTTP caller). */
+  resolveScheduleRequestContext: ResolveScheduleRequestContext;
 }
 
 export function createServerApp<TTransaction>(deps: ServerDeps<TTransaction>) {
@@ -238,6 +244,7 @@ export function createServerApp<TTransaction>(deps: ServerDeps<TTransaction>) {
     resolveSandboxProviderStore: deps.resolveSandboxProviderStore,
     activeTurns: deps.activeTurns,
     turnSkillsResolverStore: deps.turnSkillsResolverStore,
+    resolveScheduleRequestContext: deps.resolveScheduleRequestContext,
   };
 
   if (configuration.ACCESS_LOGS) {

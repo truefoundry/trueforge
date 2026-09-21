@@ -15,6 +15,7 @@ import path from 'node:path';
 import winston from 'winston';
 import { buildOpenApiDocument, createServerApp } from '../src/app';
 import { TrueForgeAuthorizer } from '../src/auth/authorizer';
+import { requestContextFromCreatedBySubject } from '../src/auth/identity';
 import { StandaloneAuthenticator } from '../src/auth/standaloneAuthenticator';
 import { McpCatalog } from '../src/catalog/McpCatalog';
 import { ModelCatalog } from '../src/catalog/ModelCatalog';
@@ -95,6 +96,7 @@ const app = createServerApp({
   oidcClient: undefined,
   authenticator: new StandaloneAuthenticator(),
   authorizer: new TrueForgeAuthorizer(),
+  resolveScheduleRequestContext: params => Promise.resolve(requestContextFromCreatedBySubject(params)),
 });
 
 // Runtime apps only advertise BearerAuth when OIDC is configured. The committed
