@@ -52,13 +52,11 @@ describe('orchestration: user message while work is pending', () => {
       sendBatch: [{ type: EventType.USER_MESSAGE, content: 'never mind, do this instead' }],
     });
     expect(callTool).not.toHaveBeenCalled();
+    expect(steered.events.some(e => e.type === EventType.TOOL_RESPONSE && e.tool_call_id === WRITE_NOTE_CALL_ID)).toBe(
+      false,
+    );
     expect(steered.events).toEqual(
       expect.arrayContaining([
-        expect.objectContaining({
-          type: EventType.TOOL_RESPONSE,
-          thread_id: ROOT_ID,
-          tool_call_id: WRITE_NOTE_CALL_ID,
-        }),
         expect.objectContaining({
           type: InternalEventType.AGENT_DONE,
           thread_id: ROOT_ID,
@@ -93,25 +91,19 @@ describe('orchestration: user message while work is pending', () => {
     ).rejects.toThrow(/no pending approval/);
   });
 
-  it('cancels an open sub-agent when a user message arrives', async () => {
+  it('drops an open sub-agent when a user message arrives without executing it', async () => {
     const { orchestrator, childCreate } = makeOpenSubAgentHarness();
     const steered = await runTurn({
       orchestrator,
       sendBatch: [{ type: EventType.USER_MESSAGE, content: 'stop the worker' }],
     });
     expect(childCreate).not.toHaveBeenCalled();
-    expect(steered.events[0]).toMatchObject({
-      type: InternalEventType.AGENT_DONE,
-      thread_id: CHILD_ID,
-      status: 'cancelled',
-    });
+    expect(steered.events.some(e => e.type === InternalEventType.AGENT_DONE && e.thread_id === CHILD_ID)).toBe(false);
+    expect(steered.events.some(e => e.type === EventType.TOOL_RESPONSE && e.tool_call_id === SUB_AGENT_CALL_ID)).toBe(
+      false,
+    );
     expect(steered.events).toEqual(
       expect.arrayContaining([
-        expect.objectContaining({
-          type: EventType.TOOL_RESPONSE,
-          thread_id: ROOT_ID,
-          tool_call_id: SUB_AGENT_CALL_ID,
-        }),
         expect.objectContaining({ type: InternalEventType.AGENT_DONE, thread_id: ROOT_ID, status: 'done' }),
       ]),
     );
@@ -132,7 +124,6 @@ describe('orchestration: user message while work is pending', () => {
         expect.objectContaining({ type: InternalEventType.AGENT_DONE, thread_id: ROOT_ID, status: 'done' }),
       ]),
     );
-    expect(resumed.events.some(e => e.type === InternalEventType.AGENT_DONE && e.status === 'cancelled')).toBe(false);
   });
 });
 

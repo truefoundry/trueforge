@@ -80,12 +80,6 @@ export function isInternalThreadDoneError(
   return event.status === 'error';
 }
 
-export function isInternalThreadDoneCancelled(
-  event: InternalThreadDoneEvent,
-): event is InternalThreadDoneEvent & { status: 'cancelled' } {
-  return event.status === 'cancelled';
-}
-
 export function scanApprovalDecisions(context: ContextMessage[]): Map<string, ApprovalDecision> {
   const decisions = new Map<string, ApprovalDecision>();
   for (const msg of context) {

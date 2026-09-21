@@ -48,9 +48,7 @@ function toThreadDoneEvent(event: InternalThreadDoneEvent): ThreadDoneEvent {
   const state =
     event.status === 'error'
       ? { status: 'error' as const, error: event.error, ...(event.output && { output: event.output }) }
-      : event.status === 'cancelled'
-        ? { status: 'cancelled' as const }
-        : { status: 'done' as const, output: event.output };
+      : { status: 'done' as const, output: event.output };
   return {
     type: HarnessEventType.THREAD_DONE,
     id: newEventId(),

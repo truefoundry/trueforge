@@ -29,7 +29,6 @@ import {
   getThreadId,
   isApprovalDecisionMessage,
   isClientSideToolResponseMessage,
-  isInternalThreadDoneCancelled,
   isInternalThreadDoneError,
 } from './contextUtils';
 import type { CreateDynamicSubAgentThread } from './CreateDynamicSubAgentThread';
@@ -166,9 +165,6 @@ function createRootAgentSpan(mainThread: AgentThread, tracing: AgentTracing): Ro
         if (isInternalThreadDoneError(chunk)) {
           rootAgentErrorMessage = chunk.error;
           trace.setOutput(JSON.stringify({ error: chunk.error }));
-        } else if (isInternalThreadDoneCancelled(chunk)) {
-          rootAgentErrorMessage = 'Agent thread cancelled';
-          trace.setOutput(JSON.stringify({ cancelled: true }));
         } else {
           const content = assistantMessageContentToStringForSubAgent(chunk.output.content);
           trace.setOutput(JSON.stringify({ result: content }));
@@ -211,10 +207,6 @@ export async function* wrapWithSubAgentSpan(
           subTrace.setOutput(JSON.stringify({ error: event.error }));
           subTrace.setMetrics(currentThread.getAgentThreadMetrics());
           subTrace.setError(event.error);
-        } else if (isInternalThreadDoneCancelled(event)) {
-          subTrace.setOutput(JSON.stringify({ cancelled: true }));
-          subTrace.setMetrics(currentThread.getAgentThreadMetrics());
-          subTrace.setError('Agent thread cancelled');
         } else {
           const content = assistantMessageContentToStringForSubAgent(event.output.content);
           subTrace.setOutput(JSON.stringify({ result: content }));
@@ -247,7 +239,6 @@ export class AgentThreadOrchestrator {
   private readonly logger: Logger;
   // Finished sub-agents removed from `agentThreads`; kept so totals still include them.
   private finishedSubAgentMetrics: AgentThreadMetrics = createEmptyAgentThreadMetrics();
-  private readonly cancelledThreadIds = new Set<string>();
 
   constructor(params: AgentThreadOrchestratorInput) {
     this.agentThreads = params.agentThreads;
@@ -270,24 +261,22 @@ export class AgentThreadOrchestrator {
     return total;
   }
 
-  private markNonRootThreadsCancelled(): void {
-    for (const thread of this.agentThreads.values()) {
+  private dropNonRootThreads(): void {
+    for (const thread of [...this.agentThreads.values()]) {
       if (thread.parent) {
-        this.cancelledThreadIds.add(thread.threadId);
+        addAgentThreadMetrics(this.finishedSubAgentMetrics, thread.getAgentThreadMetrics());
+        this.agentThreads.delete(thread.threadId);
       }
     }
   }
 
   public async *send(messages: AgentThreadSendBatch): AsyncGenerator<AgentThreadAppendContext, void, unknown> {
     if (messages.length > 0 && !isUserToolApprovalOrResponseBatch(messages)) {
-      this.markNonRootThreadsCancelled();
+      this.dropNonRootThreads();
     }
 
     const byThread = new Map<string, AgentThreadRuntimeSendBatch>();
     for (const thread of this.agentThreads.values()) {
-      if (this.cancelledThreadIds.has(thread.threadId)) {
-        continue;
-      }
       byThread.set(thread.threadId, []);
     }
 
@@ -371,27 +360,25 @@ export class AgentThreadOrchestrator {
         return { shouldStopExecution: true };
       case InternalEventType.AGENT_DONE: {
         if (chunk.parent) {
-          if (chunk.status !== 'cancelled') {
-            if (!chunk.send_to_parent) {
-              throw new Error('unreachable');
-            }
-            const parentThread = this.agentThreads.get(chunk.parent.thread_id);
-            if (!parentThread) {
-              throw new Error('unreachable: parent thread missing');
-            }
-            const subAgentToolIsOpen = parentThread.hasOpenToolCallId(chunk.parent.tool_call_id);
-            if (subAgentToolIsOpen) {
-              const parentToolResponse: ToolResponseEvent = {
-                type: EventType.TOOL_RESPONSE,
-                id: newEventId(),
-                created_at: new Date().toISOString(),
-                thread_id: chunk.parent.thread_id,
-                tool_call_id: chunk.send_to_parent.tool_call_id,
-                content: '',
-              };
-              yield parentToolResponse;
-              yield* this.sendToThread(chunk.parent.thread_id, [chunk.send_to_parent]);
-            }
+          if (!chunk.send_to_parent) {
+            throw new Error('unreachable');
+          }
+          const parentThread = this.agentThreads.get(chunk.parent.thread_id);
+          if (!parentThread) {
+            throw new Error('unreachable: parent thread missing');
+          }
+          const subAgentToolIsOpen = parentThread.hasOpenToolCallId(chunk.parent.tool_call_id);
+          if (subAgentToolIsOpen) {
+            const parentToolResponse: ToolResponseEvent = {
+              type: EventType.TOOL_RESPONSE,
+              id: newEventId(),
+              created_at: new Date().toISOString(),
+              thread_id: chunk.parent.thread_id,
+              tool_call_id: chunk.send_to_parent.tool_call_id,
+              content: '',
+            };
+            yield parentToolResponse;
+            yield* this.sendToThread(chunk.parent.thread_id, [chunk.send_to_parent]);
           }
           yield chunk;
           // Move metrics to the finished bucket and drop the live entry with no `yield` between,
@@ -464,7 +451,6 @@ export class AgentThreadOrchestrator {
     });
 
     try {
-      yield* this.flushCancelledThreads(signal);
       while (agentThreads.size > 0) {
         if (shouldStopExecution) {
           break;
@@ -546,25 +532,5 @@ export class AgentThreadOrchestrator {
       required_actions: requiredActions,
       root_agent_error: rootAgentError,
     };
-  }
-
-  private async *flushCancelledThreads(signal: AbortSignal): AsyncGenerator<AgentThreadExecutionEvent, void, unknown> {
-    for (const threadId of this.cancelledThreadIds) {
-      const thread = this.agentThreads.get(threadId);
-      if (!thread?.parent) {
-        continue;
-      }
-      yield* this.processAgentStreamChunk(
-        {
-          type: InternalEventType.AGENT_DONE,
-          status: 'cancelled',
-          thread_id: thread.threadId,
-          title: thread.title,
-          parent: thread.parent,
-          send_to_parent: undefined,
-        },
-        signal,
-      );
-    }
   }
 }
