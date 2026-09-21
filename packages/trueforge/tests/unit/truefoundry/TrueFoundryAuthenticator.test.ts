@@ -2,7 +2,7 @@ import type { Context } from 'hono';
 import { TrueFoundryAuthenticator } from '../../../src/truefoundry/TrueFoundryAuthenticator';
 
 describe('TrueFoundryAuthenticator', () => {
-  it('stores public_base_url from GET /v1/session on request context', async () => {
+  it('maps GET /v1/session into request context identity', async () => {
     const getSession = jest.fn().mockResolvedValue({
       user: {
         tenantName: 'internal',
@@ -14,7 +14,6 @@ describe('TrueFoundryAuthenticator', () => {
           subjectSlug: 'alice@example.com',
         },
       },
-      public_base_url: 'https://tenant.example.com',
     });
     const authenticator = new TrueFoundryAuthenticator({ getSession });
     const context = {
@@ -31,7 +30,6 @@ describe('TrueFoundryAuthenticator', () => {
       subject: { id: 'user-1', type: 'user', display_name: 'Alice' },
       roles: ['tenant-admin'],
       user_credential: 'tok',
-      public_base_url: 'https://tenant.example.com',
     });
   });
 });

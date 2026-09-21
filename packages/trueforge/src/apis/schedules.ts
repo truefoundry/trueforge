@@ -87,8 +87,7 @@ export interface SchedulesRouterDeps<TTransaction> extends ScheduleTurnExecution
 
 /**
  * Prepare and start a schedule run using Context-based store resolvers. Caller must set
- * `request_context` (typically via {@link requestContextFromCreatedBySubject})
- * before calling.
+ * `request_context` (typically via requestContextFromCreatedBySubject) before calling.
  */
 export async function startScheduleRunOnRequest<TTransaction>(params: {
   c: Context;

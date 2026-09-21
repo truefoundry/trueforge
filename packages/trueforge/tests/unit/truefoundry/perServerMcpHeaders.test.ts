@@ -25,6 +25,7 @@ function unusedClient(): TrueFoundryMcpApiClient {
     getMcpAuthStatus: unused,
     deleteMcpAuth: unused,
     vendToken: () => Promise.resolve({ subjectToken: 'caller-token', actorToken: 'caller-token' }),
+    getTenantControlPlaneUrl: async () => 'https://tenant.example.com',
   };
 }
 
@@ -50,7 +51,6 @@ const storeWith = (perServerHeaders: Record<string, Record<string, string>>): Tr
       subject: { id: 'user-1', type: 'user', display_name: 'user-1' },
       roles: [],
       user_credential: 'caller-token',
-      public_base_url: 'https://tenant.example.com',
     }),
     agent: undefined,
     logger: createLogger({ silent: true }),
