@@ -170,6 +170,18 @@ configs:
     # Optional comma-separated exact emails and/or * globs (e.g. "*@company.com").
     # Empty = unrestricted. Matched against the ID token `email` claim.
     allowedEmails: ""
+# App-level outbound URL guard (MCP url / model-provider base_url). Not a K8s NetworkPolicy.
+# Behavior: see charts/trueforge/README.md (networkPolicy).
+networkPolicy:
+  # Env: ENABLE_SSRF. Default true. Set false to skip the outbound URL guard.
+  enabled: true
+  outbound:
+    # Env: OUTBOUND_URL_ALLOWED_HOSTS (JSON string array). Empty = none.
+    # Example: ["localhost", "127.0.0.1", "llm-gateway.internal"]
+    allowedHosts: []
+    # Env: OUTBOUND_URL_BLOCKED_HOSTS (JSON string array). Empty = none.
+    # Example: ["evil.example.com"]
+    blockedHosts: []
 # Resource tier: small | medium | large presets for server and controller.
 # Empty = use `resources` / `controller.resources`. Wins over a parent chart's
 # global.resourceTier.

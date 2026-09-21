@@ -9,7 +9,7 @@
  * (migrate, Redis, listen) are caught below and exit non-zero. SQLite vs
  * Postgres store modules stay dynamic so only the active engine is loaded.
  */
-import { extractErrorLogFields } from '@truefoundry/trueforge-core/core';
+import { configureOutboundUrlGuard, extractErrorLogFields } from '@truefoundry/trueforge-core/core';
 import type { Context } from 'hono';
 import { mkdir } from 'node:fs/promises';
 import path from 'node:path';
@@ -36,6 +36,11 @@ try {
     getPublicUiBasePath,
     TrueForgeAuthMode,
   } = await import('./config'));
+  configureOutboundUrlGuard({
+    enabled: configuration.ENABLE_SSRF,
+    allowedHosts: configuration.OUTBOUND_URL_ALLOWED_HOSTS,
+    blockedHosts: configuration.OUTBOUND_URL_BLOCKED_HOSTS,
+  });
 } catch (error) {
   console.error(
     'Failed to start server: Failed to load configuration:',

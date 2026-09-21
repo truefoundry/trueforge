@@ -2,6 +2,7 @@
  * Authorize + OAuth callback against real sqlite stores with fetch stubbed
  * (same pattern as the server MCP OAuth helper tests).
  */
+import { configureOutboundUrlGuard } from '@truefoundry/trueforge-core/core';
 import winston from 'winston';
 import { createMcpOAuthRouter } from '../../../src/apis/mcpOAuth';
 import { createMcpServersRouter, createSettingsMcpServersRouter } from '../../../src/apis/mcpServers';
@@ -14,6 +15,17 @@ import { createSqliteDb } from '../../../src/db/sqlite/client';
 import { SqliteMcpServerStore } from '../../../src/db/sqlite/mcp-server-store/SqliteMcpServerStore';
 import { SqliteOAuthTokenStore } from '../../../src/db/sqlite/token-store/SqliteOAuthTokenStore';
 import { mcpOAuthCallbackUrl } from '../../../src/mcp/auth/mcpOAuthHelpers';
+
+jest.mock('undici', () => {
+  const actual = jest.requireActual<typeof import('undici')>('undici');
+  return {
+    ...actual,
+    fetch: (input: unknown, init?: RequestInit) => {
+      const url = input instanceof Request ? input.url : String(input);
+      return globalThis.fetch(url, init);
+    },
+  };
+});
 
 const AS_ORIGIN = 'https://auth.example.com';
 const MCP_URL = 'https://mcp.example.com/sse';
@@ -84,6 +96,10 @@ describe('MCP OAuth authorize + callback', () => {
   let logger: ReturnType<typeof winston.createLogger>;
 
   beforeAll(async () => {
+    configureOutboundUrlGuard({
+      allowedHosts: ['mcp.example.com', 'auth.example.com'],
+      blockedHosts: [],
+    });
     const db = createSqliteDb(':memory:');
     await migrateSqliteToLatest(db);
     tokenStore = new SqliteOAuthTokenStore(db);
@@ -121,6 +137,10 @@ describe('MCP OAuth authorize + callback', () => {
 
   afterEach(() => {
     globalThis.fetch = realFetch;
+  });
+
+  afterAll(() => {
+    configureOutboundUrlGuard({ allowedHosts: [], blockedHosts: [] });
   });
 
   /** Registers a dcr server and authorizes it, returning the pending authorization's `state`. */
