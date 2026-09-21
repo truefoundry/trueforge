@@ -30,7 +30,7 @@ dependencies:
     condition: redis.enabled
   # Dev sandbox server, deployed only when a parent chart enables it.
   - name: tfy-sandbox-server
-    version: "0.3.3"
+    version: "0.3.4"
     repository: oci://tfy.jfrog.io/tfy-helm
     condition: truefoundry.devSandboxServerEnabled
     alias: tfy-sandbox-server
