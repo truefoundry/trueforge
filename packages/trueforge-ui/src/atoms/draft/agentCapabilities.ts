@@ -4,12 +4,14 @@ export type AgentCapabilityValues = {
   generativeUi: boolean;
   dynamicSubAgents: boolean;
   askUserQuestions: boolean;
+  webSearch: boolean;
 };
 
 export const DEFAULT_AGENT_CAPABILITIES: AgentCapabilityValues = {
   generativeUi: true,
   dynamicSubAgents: true,
   askUserQuestions: true,
+  webSearch: true,
 };
 
 export function readAgentCapabilities(config?: AgentRuntimeConfig): AgentCapabilityValues {
@@ -17,6 +19,7 @@ export function readAgentCapabilities(config?: AgentRuntimeConfig): AgentCapabil
     generativeUi: config?.generativeUi?.enabled ?? DEFAULT_AGENT_CAPABILITIES.generativeUi,
     dynamicSubAgents: config?.dynamicSubAgents?.enabled ?? DEFAULT_AGENT_CAPABILITIES.dynamicSubAgents,
     askUserQuestions: config?.askUserQuestions?.enabled ?? DEFAULT_AGENT_CAPABILITIES.askUserQuestions,
+    webSearch: config?.webSearch?.enabled ?? DEFAULT_AGENT_CAPABILITIES.webSearch,
   };
 }
 
@@ -32,5 +35,6 @@ export function withAgentCapabilities({
     generativeUi: { ...config?.generativeUi, enabled: values.generativeUi },
     dynamicSubAgents: { ...config?.dynamicSubAgents, enabled: values.dynamicSubAgents },
     askUserQuestions: { ...config?.askUserQuestions, enabled: values.askUserQuestions },
+    webSearch: { ...config?.webSearch, enabled: values.webSearch },
   };
 }

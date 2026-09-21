@@ -245,9 +245,13 @@ const AddMcpServerForm = ({ open, onOpenChange, onSubmit, connector, busy = fals
                   onChange={event => {
                     setApiKey(event.target.value);
                   }}
-                  placeholder="Paste the server token"
+                  placeholder="Bearer <Paste the token from the provider>"
+                  aria-describedby="mcp-server-api-key-hint"
                   className={inputClassName}
                 />
+                <p id="mcp-server-api-key-hint" className="mt-1.5 text-xs text-text-secondary">
+                  {`This is the value for the "${headerName.trim() || 'Authorization'}" header.`}
+                </p>
               </div>
 
               <div>

@@ -32,9 +32,17 @@ const accessTokenCache: unique symbol = Symbol('truefoundryAccessTokenCache');
  */
 export type TrueFoundryRequestContext = RequestContext & {
   readonly [accessTokenCache]: Map<string, AccessTokens>;
+  /**
+   * Tenant public base URL from ServiceFoundry session (`controlPlaneURL`).
+   * Set by {@link TrueFoundryAuthenticator}; may be absent on synthetic contexts
+   * (e.g. schedule impersonation). Used as the MCP OAuth FE redirect origin.
+   */
+  public_base_url?: string;
 };
 
-export function createTrueFoundryRequestContext(base: RequestContext): TrueFoundryRequestContext {
+export function createTrueFoundryRequestContext(
+  base: RequestContext & { public_base_url?: string },
+): TrueFoundryRequestContext {
   return { ...base, [accessTokenCache]: new Map() };
 }
 

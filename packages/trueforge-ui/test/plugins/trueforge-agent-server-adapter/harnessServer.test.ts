@@ -42,6 +42,15 @@ const fetchMock: typeof fetch = async (input, init) => {
     }
     return Response.json({ data: session });
   }
+  if (url.endsWith('/api/v1/sessions/ses_1') && method === 'PATCH') {
+    const body: unknown = typeof init?.body === 'string' ? JSON.parse(init.body) : undefined;
+    sessionRequests.push(body);
+    const title =
+      body !== null && typeof body === 'object' && 'title' in body && typeof body.title === 'string'
+        ? body.title
+        : session.title;
+    return Response.json({ data: { ...session, title } });
+  }
   if (url.endsWith('/api/v1/sessions/ses_1') && method === 'DELETE') {
     deletedSessions.push('ses_1');
     return new Response(null, { status: 204 });
@@ -222,6 +231,18 @@ describe('createHarnessChatServer', () => {
 
     assert.ok(listUrl !== undefined);
     assert.equal(new URL(listUrl, 'http://test.local').searchParams.get('created_by_me'), 'true');
+  });
+
+  it('PATCHes session title and returns the updated UI session', async () => {
+    sessionRequests.length = 0;
+    const server = createHarnessChatServer({ fetch: fetchMock });
+    assert.equal(typeof server.renameSession, 'function');
+    await server.renameSession?.({ sessionId: 'ses_1', title: 'Acme onboarding' });
+    assert.deepEqual(sessionRequests.at(-1), { title: 'Acme onboarding' });
+
+    const updated = await server.updateSession({ sessionId: 'ses_1', title: 'Acme onboarding' });
+    assert.deepEqual(sessionRequests.at(-1), { title: 'Acme onboarding' });
+    assert.equal(updated.title, 'Acme onboarding');
   });
 
   it('listSessions forwards an unknown agentId to the API (empty page from the server)', async () => {

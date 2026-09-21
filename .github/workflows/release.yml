@@ -235,12 +235,24 @@ jobs:
             echo "published=true" >> "$GITHUB_OUTPUT"
             echo "version=$VERSION" >> "$GITHUB_OUTPUT"
             echo "Published @truefoundry/trueforge@$VERSION"
-            sleep 30
           else
             echo "published=false" >> "$GITHUB_OUTPUT"
             echo "version=" >> "$GITHUB_OUTPUT"
             echo "@truefoundry/trueforge was not in this publish set"
           fi
+
+      - name: Wait for npm to advertise package
+        if: steps.trueforge.outputs.published == 'true'
+        env:
+          VERSION: ${{ steps.trueforge.outputs.version }}
+        run: |
+          echo "Newly published npm packages are typically available in about five minutes, and may take up to 15 minutes or more at peak times."
+          echo "https://github.blog/changelog/2026-07-28-npm-publish-time-malware-scanning-and-dual-use-metadata/"
+          for _ in $(seq 30); do
+            npm view "@truefoundry/trueforge@$VERSION" version && exit 0
+            sleep 30
+          done
+          exit 1
 
   # Sibling of npm publish (same gates). Skips when pyproject version is already on PyPI.
   publish-python:

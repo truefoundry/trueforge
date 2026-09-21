@@ -284,13 +284,13 @@ Exact host match; `blockedHosts` is checked before `allowedHosts`.
 
 | allowedHosts | blockedHosts | a | b | c (in neither) |
 | --- | --- | --- | --- | --- |
-| `[]` | `[]` | default | default | default |
-| `[]` | `[b]` | default | denied | default |
-| `[a]` | `[]` | allowed (even if private) | default | default |
-| `[a]` | `[b]` | allowed (even if private) | denied | default |
-| `[a]` | `[a]` | denied (block wins) | default | default |
+| `[]` | `[]` | default (deny private) | default (deny private) | default (deny private) |
+| `[]` | `[b]` | default (deny private) | denied | default (deny private) |
+| `[a]` | `[]` | allowed (even if private) | default (deny private) | default (deny private) |
+| `[a]` | `[b]` | allowed (even if private) | denied | default (deny private) |
+| `[a]` | `[a]` | denied (block wins) | default (deny private) | default (deny private) |
 
-Default = deny private/loopback/link-local/in-cluster; allow public.
+Default (deny private) = deny private/loopback/link-local/in-cluster; allow public.
 
 Env (JSON string arrays):
 

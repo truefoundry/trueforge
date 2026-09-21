@@ -42,6 +42,16 @@ function codeModeSocketParentAllow(): string[] {
   return codeModeSocketParentPath === undefined ? [] : [codeModeSocketParentPath];
 }
 
+function linuxNetworkSocketAllow(platform: LocalSandboxPlatform): string[] {
+  if (platform !== 'linux') {
+    return [];
+  }
+
+  return [SandboxManager.getLinuxHttpSocketPath(), SandboxManager.getLinuxSocksSocketPath()].filter(
+    (socketPath): socketPath is string => socketPath !== undefined,
+  );
+}
+
 function requireActivePlatform(): LocalSandboxPlatform {
   if (activePlatform === undefined) {
     throw new Error('SRT platform is not set; call initSrt({ platform }) first');
@@ -126,8 +136,19 @@ export const SRT_HOST_BINARIES_BY_PLATFORM = {
   darwin: [],
 } as const satisfies Record<LocalSandboxPlatform, readonly string[]>;
 
+/** PATH executable → package name for install / support messages. */
+export const SRT_HOST_BINARY_LABELS: Readonly<Record<string, string>> = {
+  bwrap: 'bubblewrap',
+  socat: 'socat',
+  rg: 'ripgrep',
+};
+
 export function srtHostBinaryNames(platform: LocalSandboxPlatform): readonly string[] {
   return SRT_HOST_BINARIES_BY_PLATFORM[platform];
+}
+
+export function srtHostBinaryLabel(executable: string): string {
+  return SRT_HOST_BINARY_LABELS[executable] ?? executable;
 }
 
 /** SRT's own host-dep check (bwrap/socat/rg on Linux). Does not require initSrt. */
@@ -268,7 +289,12 @@ function filesystemPolicy(params: { sandboxRootPath: string; platform: LocalSand
     allowWrite: [params.sandboxRootPath],
     denyWrite: denySharedDefaultWritePaths(),
     denyRead: ['/'],
-    allowRead: [params.sandboxRootPath, ...codeModeSocketParentAllow(), ...platformAllowRead(params.platform)],
+    allowRead: [
+      params.sandboxRootPath,
+      ...codeModeSocketParentAllow(),
+      ...linuxNetworkSocketAllow(params.platform),
+      ...platformAllowRead(params.platform),
+    ],
   };
 }
 

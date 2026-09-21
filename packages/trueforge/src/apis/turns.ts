@@ -49,7 +49,6 @@ import {
 } from '../routes/turnRoutes';
 import type { ActiveTurnRegistry } from '../runtime/activeTurns';
 import { StreamGoneError, type EventSubscription, type EventSubscriptionRegistry } from '../runtime/event-subscription';
-import { mintPeeredTurnId } from '../runtime/peeringIds';
 import { validateSandboxFilePath } from '../runtime/sandboxFilePath';
 import {
   buildTurnSandbox,
@@ -64,6 +63,7 @@ import {
 } from '../runtime/sessionResources';
 import { checkSnapshotStatus } from '../sandbox/providerUtils';
 import { MAX_SESSION_TITLE_LENGTH } from '../schemas/session';
+import { newId } from '../utils/id';
 import { resolveWebSearchProvider } from '../websearch/providers';
 import { canReadAgentBoundResource } from './agentAccess';
 
@@ -401,7 +401,7 @@ export async function beginTurnExecution(params: {
 }): Promise<{ turn: TurnHandle; drainInput: TurnEventDrainInput }> {
   const { session, input, previous_turn_id: previousTurnId, userRef, tfyMetadata, deps } = params;
   const sessionId = session.session_id;
-  const turnId = mintPeeredTurnId(configuration.EXECUTOR_ID);
+  const turnId = newId();
 
   const abortController = new AbortController();
   const tenant_id = session.tenant_id;
@@ -426,6 +426,7 @@ export async function beginTurnExecution(params: {
 
   const turn = await session.createTurn({
     turn_id: turnId,
+    active_executor_id: configuration.EXECUTOR_ID,
     input,
     previous_turn_id: previousTurnId,
     signal: abortController.signal,

@@ -131,6 +131,20 @@ function BoundMutableSaveButton({
   return <SaveAgentButton />;
 }
 
+function CloneDraftSaveButton({ agentName, description }: { agentName: string; description?: string }) {
+  const { selectLibraryAgent } = useShellMode();
+  useEffect(() => {
+    selectLibraryAgent({
+      isMutable: true,
+      isCreateAgent: true,
+      agentName,
+      ...(description === undefined ? {} : { description }),
+      agentSpec,
+    });
+  }, [agentName, description, selectLibraryAgent]);
+  return <SaveAgentButton />;
+}
+
 function SaveWithInstructionDraft() {
   const { onChange } = useAgentConfigInstructions();
   return (
@@ -356,6 +370,26 @@ describe('SaveAgentButton', () => {
 
     await waitFor(() =>
       expect(saveAgent).toHaveBeenCalledWith(expect.objectContaining({ agentName: 'writer', intent: 'update' })),
+    );
+  });
+
+  it('treats a named create draft (clone) as Save Agent create, not update', async () => {
+    const saveAgent = vi.fn(async (): Promise<SaveAgentResult> => ({ agentId: 'writer-clone-id' }));
+    renderButton({
+      saveAgent,
+      children: <CloneDraftSaveButton agentName="writer-clone" description="Writes docs." />,
+    });
+
+    const trigger = await screen.findByRole('button', { name: 'Save Agent' });
+    expect(screen.queryByRole('button', { name: 'Update Agent' })).not.toBeInTheDocument();
+    fireEvent.click(trigger);
+    const dialog = await screen.findByRole('dialog', { name: 'Save agent' });
+    expect(within(dialog).getByLabelText('Agent name')).toHaveValue('writer-clone');
+    expect(within(dialog).getByLabelText('Description')).toHaveValue('Writes docs.');
+    fireEvent.click(within(dialog).getByRole('button', { name: 'Save changes' }));
+
+    await waitFor(() =>
+      expect(saveAgent).toHaveBeenCalledWith(expect.objectContaining({ agentName: 'writer-clone', intent: 'create' })),
     );
   });
 

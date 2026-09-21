@@ -133,13 +133,7 @@ export function parseCommaSeparatedEnvList(raw: string | undefined): string[] {
 }
 
 /** Parses a JSON string array env. Empty / unset → `[]`. */
-export function parseJsonStringArrayEnv({
-  envKey,
-  raw,
-}: {
-  envKey: string;
-  raw: string | undefined;
-}): string[] {
+export function parseJsonStringArrayEnv({ envKey, raw }: { envKey: string; raw: string | undefined }): string[] {
   if (raw === undefined || raw.trim() === '') {
     return [];
   }

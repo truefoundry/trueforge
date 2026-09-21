@@ -1,9 +1,13 @@
-import { srtHostBinaryNames } from '../../../../../src/sandbox/local/core/hostRun';
+import { srtHostBinaryLabel, srtHostBinaryNames } from '../../../../../src/sandbox/local/core/hostRun';
 import { formatLocalSandboxSupportReason } from '../../../../../src/sandbox/local/provider/LocalSandboxProvider';
 
 describe('SRT host binaries', () => {
   it('requires bwrap, socat, and rg on Linux', () => {
     expect(srtHostBinaryNames('linux')).toEqual(['bwrap', 'socat', 'rg']);
+  });
+
+  it('labels PATH executables with installable package names', () => {
+    expect(srtHostBinaryNames('linux').map(srtHostBinaryLabel)).toEqual(['bubblewrap', 'socat', 'ripgrep']);
   });
 
   it('requires no extra host binaries on macOS (seatbelt, no rg scan)', () => {
@@ -12,10 +16,10 @@ describe('SRT host binaries', () => {
 });
 
 describe('formatLocalSandboxSupportReason', () => {
-  it('reports missing host SRT binaries on PATH', () => {
+  it('reports missing host SRT binaries with package names', () => {
     expect(
       formatLocalSandboxSupportReason({
-        summary: 'SRT host dependencies missing (linux: bwrap, socat, rg)',
+        summary: 'SRT host dependencies missing (linux: bubblewrap, socat, ripgrep)',
         attempts: [
           { kind: 'host', name: 'bwrap', resolved: undefined },
           { kind: 'host', name: 'socat', resolved: '/usr/bin/socat' },
@@ -23,7 +27,7 @@ describe('formatLocalSandboxSupportReason', () => {
         ],
       }),
     ).toBe(
-      'SRT host dependencies missing (linux: bwrap, socat, rg): bwrap: not on PATH; socat: resolved=/usr/bin/socat; rg: not on PATH',
+      'SRT host dependencies missing (linux: bubblewrap, socat, ripgrep): bubblewrap binary not found. Either it is not installed or not on PATH; socat: resolved=/usr/bin/socat; ripgrep binary not found. Either it is not installed or not on PATH',
     );
   });
 

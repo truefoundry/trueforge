@@ -4,6 +4,7 @@ import { useEffect, useRef, useState } from 'react';
 
 import { useOptionalContentClassNames, useOptionalThemeMode } from '../theme/ThemeProvider.js';
 import { cn } from './lib/cn.js';
+import { preloadMonaco } from './monacoPreload.js';
 
 export type MonacoEditorCoreProps = {
   value: string;
@@ -210,7 +211,7 @@ export function MonacoEditorCore({
     let sizeDisposable: { dispose(): void } | null = null;
     let destroyed = false;
 
-    void import('monaco-editor').then(mod => {
+    void preloadMonaco().then(mod => {
       if (destroyed || !containerRef.current) return;
 
       const monaco = mod as unknown as MonacoModule;
