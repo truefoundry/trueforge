@@ -173,7 +173,7 @@ configs:
 # App-level outbound URL guard (MCP url / model-provider base_url). Not a K8s NetworkPolicy.
 # Behavior: see charts/trueforge/README.md (networkPolicy).
 networkPolicy:
-  # Env: ENABLE_SSRF. Default true. Set false to skip the outbound URL guard.
+  # Env: NETWORK_POLICY_ENABLED. Default true. Set false to skip the outbound URL guard.
   enabled: true
   outbound:
     # Env: OUTBOUND_URL_ALLOWED_HOSTS (JSON string array). Empty = none.

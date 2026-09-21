@@ -673,8 +673,8 @@ export interface SharedServerConfiguration {
    * `TRUEFORGE_MTLS_ENABLED` is true. Env: `TRUEFORGE_MTLS_CERTS_DIR`. Default `/etc/tls`.
    */
   TRUEFORGE_MTLS_CERTS_DIR: string;
-  /** Env: `ENABLE_SSRF`. Default true. `false` skips the outbound URL guard. */
-  ENABLE_SSRF: boolean;
+  /** Env: `NETWORK_POLICY_ENABLED`. Default true. `false` skips the outbound URL guard. */
+  NETWORK_POLICY_ENABLED: boolean;
   /** Hosts always allowed. Env: `OUTBOUND_URL_ALLOWED_HOSTS` (JSON string array). Empty = none. */
   OUTBOUND_URL_ALLOWED_HOSTS: string[];
   /** Hosts always blocked. Env: `OUTBOUND_URL_BLOCKED_HOSTS` (JSON string array). Empty = none. */
@@ -939,9 +939,9 @@ const shared: SharedServerConfiguration = {
     defaultValue: false,
   }),
   TRUEFORGE_MTLS_CERTS_DIR: getEnv('TRUEFORGE_MTLS_CERTS_DIR', { defaultValue: '/etc/tls' }) ?? '/etc/tls',
-  ENABLE_SSRF: parseBoolean({
-    envKey: 'ENABLE_SSRF',
-    raw: getEnv('ENABLE_SSRF'),
+  NETWORK_POLICY_ENABLED: parseBoolean({
+    envKey: 'NETWORK_POLICY_ENABLED',
+    raw: getEnv('NETWORK_POLICY_ENABLED'),
     defaultValue: true,
   }),
   OUTBOUND_URL_ALLOWED_HOSTS: parseJsonStringArrayEnv({

@@ -295,7 +295,7 @@ Default (deny private) = deny private/loopback/link-local/in-cluster; allow publ
 Env (JSON string arrays):
 
 ```bash
-ENABLE_SSRF=true
+NETWORK_POLICY_ENABLED=true
 OUTBOUND_URL_ALLOWED_HOSTS=["localhost","127.0.0.1","llm-gateway.internal"]
 OUTBOUND_URL_BLOCKED_HOSTS=["evil.example.com"]
 ```
