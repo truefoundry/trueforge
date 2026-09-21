@@ -227,6 +227,7 @@ export function buildOpenUIInstruction(builder: InstructionBuilder): void {
     OPENUI_IMPORTANT_RULES_TAG,
     dedent`
       - When asked about data, generate realistic/plausible data
+      - Prefer OpenUI charts for plot/chart/visualize; images only if downloadable
       - Choose components that best represent the content (tables for comparisons, charts for trends, forms for input, etc.)
       - When you render data in an openui block (tables, charts, KPI cards), do NOT repeat the same numbers/facts in the markdown text outside the block.
       - Text outside the openui block can optionally include:
@@ -256,7 +257,7 @@ export function buildOpenUIInstruction(builder: InstructionBuilder): void {
   openui.addSection(
     OPENUI_USER_INTERACTION_CHECKLIST_TAG,
     dedent`
-      1. Will the response be UI heavy and will contain components which are not supported by markdown? Use openui if the answer is yes.
+      1. Plot/chart/visualize or UI-heavy beyond markdown? Use openui.
       2. \`\`\`openui\`\`\` fencing must be closed.`,
   );
 }
@@ -285,7 +286,8 @@ function buildOpenUIDeferredInstruction(builder: InstructionBuilder): void {
       Before writing any \`\`\`openui fence, the Agent MUST call ${GET_OPENUI_INSTRUCTIONS_TOOL_NAME} with arguments {}.
       Do not invent OpenUI syntax or component APIs without loading those instructions.
 
-      Use OpenUI only when the response is UI-heavy and needs components markdown does not support.
+      Prefer OpenUI for plot/chart/visualize over sandbox code; sandbox images only for downloads.
+      Otherwise use OpenUI only when UI-heavy beyond markdown.
     `.trim(),
   );
 }

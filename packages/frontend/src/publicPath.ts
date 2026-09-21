@@ -66,11 +66,11 @@ export function installMonacoWorkerPublicPath(): void {
   if (typeof window === 'undefined') {
     return;
   }
-  const previous = window.MonacoEnvironment?.getWorkerUrl;
+  const previousEnvironment = window.MonacoEnvironment;
   window.MonacoEnvironment = {
-    ...window.MonacoEnvironment,
+    ...previousEnvironment,
     getWorkerUrl(moduleId: string, label: string) {
-      const raw = previous?.call(window.MonacoEnvironment, moduleId, label);
+      const raw = previousEnvironment?.getWorkerUrl?.(moduleId, label);
       if (typeof raw === 'string' && raw.length > 0) {
         return monacoWorkerUrl(raw);
       }
