@@ -17,6 +17,7 @@ export type UseMCPAuthOptions = {
 };
 
 const generatePopupUid = () => `mcp-oauth-${Date.now().toString(36)}-${Math.random().toString(36).slice(2)}`;
+const POPUP_CLOSED_CHECK_INTERVAL_MS = 500;
 
 const isPopupMessage = (value: unknown): value is McpAuthPopupMessage => {
   if (typeof value !== 'object' || value === null) return false;
@@ -109,7 +110,9 @@ export const useMCPAuth = ({ callbackPath }: UseMCPAuthOptions = {}) => {
 
       const channel = new BroadcastChannel(MCP_AUTH_POPUP_CHANNEL);
       let popup: Window | null = null;
+      const popupClosedTimer: { current?: number } = {};
       const cleanup = () => {
+        if (popupClosedTimer.current !== undefined) window.clearInterval(popupClosedTimer.current);
         channel.close();
         popup?.close();
       };
@@ -133,6 +136,11 @@ export const useMCPAuth = ({ callbackPath }: UseMCPAuthOptions = {}) => {
       }
 
       popup.focus();
+      popupClosedTimer.current = window.setInterval(() => {
+        if (!popup?.closed) return;
+        clearPopupListener();
+        if (authorizeGenerationRef.current === generation) callback(false);
+      }, POPUP_CLOSED_CHECK_INTERVAL_MS);
     },
     [clearPopupListener, popupUid, reportVerifiedSuccess],
   );

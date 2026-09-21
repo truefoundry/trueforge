@@ -106,6 +106,7 @@ describe('useMCPAuth', () => {
 
   afterEach(() => {
     cleanup();
+    vi.useRealTimers();
     vi.restoreAllMocks();
     vi.unstubAllGlobals();
   });
@@ -272,6 +273,38 @@ describe('useMCPAuth', () => {
     expect(callback).toHaveBeenCalledOnce();
     expect(callback).toHaveBeenCalledWith(false);
     expect(showError).not.toHaveBeenCalled();
+  });
+
+  it('reports failure when the authorization popup is closed', async () => {
+    vi.useFakeTimers();
+    authenticateConnector.mockResolvedValue({
+      authorization_endpoint: 'https://auth.example.test/authorize',
+    });
+    let popupClosed = false;
+    const popup = new Proxy(window, {
+      get(target, property, receiver) {
+        return property === 'closed' ? popupClosed : Reflect.get(target, property, receiver);
+      },
+    });
+    vi.spyOn(window, 'open').mockReturnValue(popup);
+    vi.spyOn(window, 'focus').mockImplementation(() => {});
+    vi.spyOn(window, 'close').mockImplementation(() => {});
+    const callback = vi.fn();
+    const { result } = renderHook(() => useMCPAuth());
+
+    await act(async () => {
+      await result.current.handleAuthorize('connector-2', callback);
+    });
+
+    popupClosed = true;
+    await act(async () => {
+      await vi.advanceTimersByTimeAsync(500);
+    });
+
+    expect(callback).toHaveBeenCalledOnce();
+    expect(callback).toHaveBeenCalledWith(false);
+    expect(getConnector).not.toHaveBeenCalled();
+    expect(channels[0]?.close).toHaveBeenCalledOnce();
   });
 
   it('reports a blocked popup and completes authorization as failed', async () => {
