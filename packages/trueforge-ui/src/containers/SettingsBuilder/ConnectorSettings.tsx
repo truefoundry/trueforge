@@ -508,7 +508,7 @@ const ConnectorSettings = () => {
                     onChange={event => {
                       setApiKey(event.target.value);
                     }}
-                    placeholder={`Paste the token from ${connectorAwaitingKey?.name ?? 'the provider'}`}
+                    placeholder={`Bearer <Paste the token from ${connectorAwaitingKey?.name ?? 'the provider'}>`}
                     autoFocus
                     required
                     className={auiInputClass('h-11')}

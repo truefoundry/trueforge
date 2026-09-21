@@ -218,10 +218,15 @@ export function createHarnessChatServer(
       await client.sessions.delete(sessionId);
     },
 
-    async updateSession({ sessionId, agentSpec }) {
+    async renameSession({ sessionId, title }) {
+      await client.sessions.update(sessionId, { title });
+    },
+
+    async updateSession({ sessionId, agentSpec, title }) {
       // Named (reference) sessions reject agent updates server-side.
       const response = await client.sessions.update(sessionId, {
         ...(agentSpec === undefined ? {} : { agent: { spec: toHarnessAgentSpec(agentSpec) } }),
+        ...(title === undefined ? {} : { title }),
       });
       return toUiSession(response.data);
     },

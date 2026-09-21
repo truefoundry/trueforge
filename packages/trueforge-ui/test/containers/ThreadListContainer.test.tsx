@@ -12,8 +12,10 @@ import { beforeAll, describe, expect, it, vi } from 'vitest';
 import type { ThreadListRowProps } from '@/atoms/ThreadListRow.js';
 import { CompactLayoutProvider } from '@/atoms/lib/CompactLayoutContext.js';
 import { ThreadListContainer, type ThreadListContainerProps } from '@/containers/ThreadListContainer.js';
+import { ToasterProvider } from '@/containers/ToasterContainer.js';
 import { ServerProvider } from '@/server/ServerContext.js';
 import { ShellModeProvider, useShellMode } from '@/server/ShellModeContext.js';
+import type { ListPermissionsResponse } from '@/server/types.js';
 import { SlotsProvider } from '@/theme/SlotsProvider.js';
 import { createMockAgentUIServer } from '../server/mockServer.js';
 
@@ -108,29 +110,45 @@ function renderThreadList({
   adapter,
   onThreadOpen,
   canDelete = false,
+  canRename = false,
+  permissions,
   variant,
 }: {
   adapter: ExternalStoreThreadListAdapter;
   onThreadOpen?: () => void;
   canDelete?: boolean;
+  canRename?: boolean;
+  permissions?: {
+    listPermissions: (req: { resourceType: string; resourceIds: string[] }) => Promise<ListPermissionsResponse>;
+  };
   variant?: ThreadListContainerProps['variant'];
 }) {
   const list = (
     <SlotsProvider overrides={{ ThreadListRow: ThreadListRowOverride }}>
-      <ThreadListRuntimeHarness threadList={adapter}>
-        <CompactLayoutProvider>
-          <ThreadListContainer onThreadOpen={onThreadOpen} variant={variant} />
-        </CompactLayoutProvider>
-      </ThreadListRuntimeHarness>
+      <ToasterProvider>
+        <ThreadListRuntimeHarness threadList={adapter}>
+          <CompactLayoutProvider>
+            <ThreadListContainer onThreadOpen={onThreadOpen} variant={variant} />
+          </CompactLayoutProvider>
+        </ThreadListRuntimeHarness>
+      </ToasterProvider>
     </SlotsProvider>
   );
 
-  if (!canDelete) {
+  if (!canDelete && !canRename) {
     return render(list);
   }
 
   return render(
-    <ServerProvider server={createMockAgentUIServer({ deleteSession: async () => {} })}>{list}</ServerProvider>,
+    <ServerProvider
+      server={createMockAgentUIServer({
+        ...(canDelete ? { deleteSession: async () => {} } : {}),
+        ...(canRename ? { renameSession: async () => {} } : {}),
+        ...(permissions === undefined ? {} : { permissions }),
+      })}
+    >
+      {list}
+    </ServerProvider>,
   );
 }
 
@@ -365,6 +383,213 @@ describe('ThreadListContainer', () => {
     await waitFor(() => {
       expect(onDelete).toHaveBeenCalledWith('thread-1');
     });
+  });
+
+  it('hides rename when the server does not opt in', () => {
+    renderThreadList({
+      adapter: {
+        threads: [
+          {
+            status: 'regular',
+            id: 'thread-1',
+            remoteId: 'session-1',
+            title: 'Remote session',
+          },
+        ],
+      },
+      canDelete: true,
+    });
+
+    fireEvent.click(screen.getByRole('button', { name: 'Session actions' }));
+    expect(screen.queryByRole('button', { name: 'Rename' })).not.toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'Delete' })).toBeInTheDocument();
+  });
+
+  it('renames a remote session from the modal after validating the title', async () => {
+    const onRename = vi.fn(async () => {});
+
+    renderThreadList({
+      adapter: {
+        threadId: 'thread-1',
+        threads: [
+          {
+            status: 'regular',
+            id: 'thread-1',
+            remoteId: 'session-1',
+            title: 'Remote session',
+          },
+          {
+            status: 'regular',
+            id: 'thread-local',
+            title: 'Local draft',
+          },
+        ],
+        onRename,
+      },
+      canRename: true,
+    });
+
+    const actionButtons = screen.getAllByRole('button', { name: 'Session actions' });
+    expect(actionButtons).toHaveLength(1);
+    fireEvent.click(actionButtons[0]!);
+    fireEvent.click(screen.getByRole('button', { name: 'Rename' }));
+
+    const dialog = screen.getByRole('dialog', { name: 'Rename session' });
+    expect(dialog).toBeInTheDocument();
+    const titleInput = screen.getByRole('textbox', { name: 'Session title' });
+    expect(titleInput).toHaveValue('Remote session');
+
+    fireEvent.change(titleInput, { target: { value: '   ' } });
+    expect(screen.getByRole('button', { name: 'Save' })).toBeDisabled();
+    fireEvent.click(screen.getByRole('button', { name: 'Save' }));
+    expect(onRename).not.toHaveBeenCalled();
+
+    fireEvent.change(titleInput, { target: { value: '  Acme onboarding  ' } });
+    fireEvent.click(screen.getByRole('button', { name: 'Save' }));
+
+    await waitFor(() => {
+      expect(onRename).toHaveBeenCalledWith('thread-1', 'Acme onboarding');
+    });
+    await waitFor(() => {
+      expect(screen.queryByRole('dialog', { name: 'Rename session' })).not.toBeInTheDocument();
+    });
+  });
+
+  it('cancels rename from the modal without persisting', async () => {
+    const onRename = vi.fn(async () => {});
+
+    renderThreadList({
+      adapter: {
+        threadId: 'thread-1',
+        threads: [
+          {
+            status: 'regular',
+            id: 'thread-1',
+            remoteId: 'session-1',
+            title: 'Remote session',
+          },
+        ],
+        onRename,
+      },
+      canRename: true,
+    });
+
+    fireEvent.click(screen.getByRole('button', { name: 'Session actions' }));
+    fireEvent.click(screen.getByRole('button', { name: 'Rename' }));
+    const titleInput = screen.getByRole('textbox', { name: 'Session title' });
+    fireEvent.change(titleInput, { target: { value: 'Scratch' } });
+    fireEvent.click(screen.getByRole('button', { name: 'Cancel' }));
+
+    await waitFor(() => {
+      expect(screen.queryByRole('dialog', { name: 'Rename session' })).not.toBeInTheDocument();
+    });
+    expect(onRename).not.toHaveBeenCalled();
+    expect(screen.getByText('Remote session')).toBeInTheDocument();
+  });
+
+  it('keeps the modal open and disables Cancel while rename is saving', async () => {
+    let resolveRename: (() => void) | undefined;
+    const onRename = vi.fn(
+      () =>
+        new Promise<void>(resolve => {
+          resolveRename = resolve;
+        }),
+    );
+
+    renderThreadList({
+      adapter: {
+        threadId: 'thread-1',
+        threads: [
+          {
+            status: 'regular',
+            id: 'thread-1',
+            remoteId: 'session-1',
+            title: 'Remote session',
+          },
+        ],
+        onRename,
+      },
+      canRename: true,
+    });
+
+    fireEvent.click(screen.getByRole('button', { name: 'Session actions' }));
+    fireEvent.click(screen.getByRole('button', { name: 'Rename' }));
+    const titleInput = screen.getByRole('textbox', { name: 'Session title' });
+    fireEvent.change(titleInput, { target: { value: 'Updated title' } });
+    fireEvent.click(screen.getByRole('button', { name: 'Save' }));
+
+    await waitFor(() => {
+      expect(titleInput).toHaveAttribute('readonly');
+    });
+    expect(screen.getByRole('button', { name: 'Cancel' })).toBeDisabled();
+    fireEvent.click(screen.getByRole('button', { name: 'Cancel' }));
+    expect(screen.getByRole('dialog', { name: 'Rename session' })).toBeInTheDocument();
+
+    resolveRename?.();
+    await waitFor(() => {
+      expect(screen.queryByRole('dialog', { name: 'Rename session' })).not.toBeInTheDocument();
+    });
+  });
+
+  it('toasts when rename fails and keeps the modal open', async () => {
+    const onRename = vi.fn(async () => {
+      throw new Error('rename failed');
+    });
+
+    renderThreadList({
+      adapter: {
+        threadId: 'thread-1',
+        threads: [
+          {
+            status: 'regular',
+            id: 'thread-1',
+            remoteId: 'session-1',
+            title: 'Remote session',
+          },
+        ],
+        onRename,
+      },
+      canRename: true,
+    });
+
+    fireEvent.click(screen.getByRole('button', { name: 'Session actions' }));
+    fireEvent.click(screen.getByRole('button', { name: 'Rename' }));
+    const titleInput = screen.getByRole('textbox', { name: 'Session title' });
+    fireEvent.change(titleInput, { target: { value: 'Updated title' } });
+    fireEvent.click(screen.getByRole('button', { name: 'Save' }));
+
+    await waitFor(() => {
+      expect(screen.getByText('rename failed')).toBeInTheDocument();
+    });
+    expect(screen.getByRole('dialog', { name: 'Rename session' })).toBeInTheDocument();
+    expect(onRename).toHaveBeenCalledOnce();
+  });
+
+  it('disables rename when the caller lacks MANAGE', async () => {
+    renderThreadList({
+      adapter: {
+        threads: [
+          {
+            status: 'regular',
+            id: 'thread-1',
+            remoteId: 'session-1',
+            title: 'Remote session',
+          },
+        ],
+      },
+      canRename: true,
+      canDelete: true,
+      permissions: {
+        listPermissions: vi.fn(async (): Promise<ListPermissionsResponse> => ({
+          data: { type: 'session', permissions: { 'session-1': ['DELETE'] } },
+        })),
+      },
+    });
+
+    await waitFor(() => expect(screen.getByRole('button', { name: 'Session actions' })).toBeInTheDocument());
+    fireEvent.click(screen.getByRole('button', { name: 'Session actions' }));
+    await waitFor(() => expect(screen.getByRole('button', { name: 'Rename' })).toBeDisabled());
+    expect(screen.getByRole('button', { name: 'Delete' })).not.toBeDisabled();
   });
 
   it('clears chat selection highlight while a sidebar top nav tab is open', () => {
