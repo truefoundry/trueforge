@@ -115,16 +115,20 @@ function buildSnapshotFromDelta(input: {
   new_context_appends: TurnContextAppend[];
   capability_states: CreateTurnInput['capability_states'];
 }): TurnSnapshot {
-  const threads: Record<string, AgentThreadSnapshot> = input.previousSnapshot
-    ? deepCopy(input.previousSnapshot.threads)
-    : {};
-
-  assertCreateTurnThreadDelta({
-    previousThreadIds: new Set(Object.keys(threads)),
+  const previousThreads = input.previousSnapshot?.threads ?? {};
+  const liveThreadIds = assertCreateTurnThreadDelta({
+    previousThreadIds: new Set(Object.keys(previousThreads)),
     new_threads: input.new_threads,
     new_context_appends: input.new_context_appends,
     capability_states: input.capability_states,
   });
+
+  const threads: Record<string, AgentThreadSnapshot> = {};
+  for (const [threadId, thread] of Object.entries(previousThreads)) {
+    if (liveThreadIds.has(threadId)) {
+      threads[threadId] = deepCopy(thread);
+    }
+  }
 
   for (const nt of input.new_threads) {
     threads[nt.thread_id] = newThreadSnapshot(nt);

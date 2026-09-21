@@ -444,12 +444,13 @@ export async function createTurn(db: Kysely<Database>, input: CreateTurnInput): 
         }
       }
 
-      assertCreateTurnThreadDelta({
+      const liveThreadIds = assertCreateTurnThreadDelta({
         previousThreadIds: new Set(prevThreadRows.map(r => r.thread_id)),
         new_threads: input.new_threads,
         new_context_appends: input.new_context_appends,
         capability_states: input.capability_states,
       });
+      const carriedThreadRows = prevThreadRows.filter(row => liveThreadIds.has(row.thread_id));
 
       const checkpoint: TurnCheckpoint = {
         mcp_servers: input.mcp_servers ?? prevCheckpoint?.mcp_servers ?? null,
@@ -542,7 +543,7 @@ export async function createTurn(db: Kysely<Database>, input: CreateTurnInput): 
         append_id: number;
       }[] = [];
 
-      for (const parent of prevThreadRows) {
+      for (const parent of carriedThreadRows) {
         const usage = appendUsageByThread.get(parent.thread_id) ?? parent.current_context_usage;
         turnThreadRows.push({
           session_id: input.session_id,
@@ -556,7 +557,7 @@ export async function createTurn(db: Kysely<Database>, input: CreateTurnInput): 
       }
 
       // One SELECT for all parent context mappings (not N+1 per thread).
-      if (prevTurnId != null && prevThreadRows.length > 0) {
+      if (prevTurnId != null && carriedThreadRows.length > 0) {
         const parentContextRows = await trx
           .selectFrom('turn_thread_context')
           .select(['thread_id', 'pos', 'append_id'])
@@ -565,7 +566,7 @@ export async function createTurn(db: Kysely<Database>, input: CreateTurnInput): 
           .where(
             'thread_id',
             'in',
-            prevThreadRows.map(r => r.thread_id),
+            carriedThreadRows.map(r => r.thread_id),
           )
           .orderBy('thread_id')
           .orderBy('pos')
@@ -582,7 +583,7 @@ export async function createTurn(db: Kysely<Database>, input: CreateTurnInput): 
         }
       }
 
-      for (const parent of prevThreadRows) {
+      for (const parent of carriedThreadRows) {
         const newIds = newIdsByThread.get(parent.thread_id) ?? [];
         const basePos = parent.context_pos_max;
         for (let i = 0; i < newIds.length; i++) {
