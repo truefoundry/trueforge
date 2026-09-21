@@ -1,0 +1,3 @@
+providers:
+  - type: parallel
+    mode: turbo

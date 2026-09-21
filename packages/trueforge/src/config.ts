@@ -565,6 +565,12 @@ export interface SharedServerConfiguration {
    */
   SANDBOX_CATALOG_PATH: string | undefined;
   /**
+   * Optional override for the web-search catalog YAML (discovery presets for
+   * GET /catalogs/web-search-providers). When unset, the catalog inlined at build
+   * time is used. Env: `WEB_SEARCH_CATALOG_PATH`.
+   */
+  WEB_SEARCH_CATALOG_PATH: string | undefined;
+  /**
    * Frontend build served alongside the API; a missing directory leaves the server API-only.
    * Env: `FRONTEND_DIR`. Default: packaged `dist/_frontend` (npx tarball) or
    * monorepo `packages/frontend/dist` — always absolute, independent of CWD.
@@ -857,6 +863,7 @@ const shared: SharedServerConfiguration = {
   MCP_CATALOG_PATH: resolveOptionalPathEnv('MCP_CATALOG_PATH'),
   SKILL_CATALOG_PATH: resolveOptionalPathEnv('SKILL_CATALOG_PATH'),
   SANDBOX_CATALOG_PATH: resolveOptionalPathEnv('SANDBOX_CATALOG_PATH'),
+  WEB_SEARCH_CATALOG_PATH: resolveOptionalPathEnv('WEB_SEARCH_CATALOG_PATH'),
   FRONTEND_DIR: resolveFrontendDir(),
 
   MCP_REQUEST_TIMEOUT_MS: parsePositiveInt({

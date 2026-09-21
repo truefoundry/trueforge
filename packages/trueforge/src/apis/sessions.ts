@@ -28,6 +28,7 @@ import type { IAgentStore } from '../db/agentStore';
 import type { IMcpServerStore } from '../db/mcpServerStore';
 import type { IModelProviderStore } from '../db/modelProviderStore';
 import type { ISandboxProviderStore } from '../db/sandboxProviderStore';
+import type { IWebSearchProviderStore } from '../db/webSearchProviderStore';
 import {
   cancelSessionRoute,
   createSessionRoute,
@@ -80,6 +81,7 @@ export interface SessionsRouterDeps {
   resolveSkillStore: ResolveSkillStore;
   resolveAgentStore: (c: Context) => IAgentStore;
   resolveSandboxProviderStore: (c: Context) => ISandboxProviderStore;
+  resolveWebSearchProviderStore: (c: Context) => IWebSearchProviderStore;
   redis?: RedisClientType | undefined;
   requestReplyRouter: RequestReplyRouter;
   resolveRequestContext: ResolveRequestContext;
@@ -236,6 +238,7 @@ type InternalSessionsRouterDeps = Pick<
   | 'resolveSkillStore'
   | 'resolveAgentStore'
   | 'resolveSandboxProviderStore'
+  | 'resolveWebSearchProviderStore'
   | 'resolveRequestContext'
   | 'authorizer'
 >;
@@ -289,6 +292,7 @@ function createGetOrCreateSessionByExternalIdHandler(
         mcpServerStore: deps.resolveMcpServerStore(c),
         skillStore: deps.resolveSkillStore(c),
         sandboxProviderStore: deps.resolveSandboxProviderStore(c),
+        webSearchProviderStore: deps.resolveWebSearchProviderStore(c),
       });
       agent = { type: 'inline', spec: body.agent.spec };
     }
@@ -361,6 +365,7 @@ export function createSessionsRouter(deps: SessionsRouterDeps) {
       mcpServerStore: deps.resolveMcpServerStore(c),
       skillStore: deps.resolveSkillStore(c),
       sandboxProviderStore: deps.resolveSandboxProviderStore(c),
+      webSearchProviderStore: deps.resolveWebSearchProviderStore(c),
     });
     const session = await deps.sessions.create({
       tenant_id: requestContext.tenant_id,
@@ -452,6 +457,7 @@ export function createSessionsRouter(deps: SessionsRouterDeps) {
         mcpServerStore: deps.resolveMcpServerStore(c),
         skillStore: deps.resolveSkillStore(c),
         sandboxProviderStore: deps.resolveSandboxProviderStore(c),
+        webSearchProviderStore: deps.resolveWebSearchProviderStore(c),
       });
     }
     try {

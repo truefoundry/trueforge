@@ -1,14 +1,29 @@
 import { ParallelWebSearchProvider, type IWebSearchProvider } from '@truefoundry/trueforge-core/core';
-import configuration, { isTrueFoundryModeEnabled } from '../config';
+import type { IWebSearchProviderStore } from '../db/webSearchProviderStore';
 
-/** Build the host web-search backend (TrueFoundry mode only), or `undefined` when unset. */
-export function resolveWebSearchProvider(): IWebSearchProvider | undefined {
-  if (!isTrueFoundryModeEnabled(configuration)) {
+export async function hasConfiguredWebSearchProvider({
+  tenant_id,
+  store,
+}: {
+  tenant_id: string;
+  store: IWebSearchProviderStore;
+}): Promise<boolean> {
+  const providers = await store.listProviders({ tenant_id });
+  return providers.length > 0;
+}
+
+export async function resolveWebSearchProvider({
+  tenant_id,
+  store,
+}: {
+  tenant_id: string;
+  store: IWebSearchProviderStore;
+}): Promise<IWebSearchProvider | undefined> {
+  const providers = await store.listProviders({ tenant_id });
+  const record = providers[0];
+  if (!record) {
     return undefined;
   }
-  const env = configuration.TRUEFOUNDRY_WEB_SEARCH_PROVIDER;
-  if (!env) {
-    return undefined;
-  }
-  return new ParallelWebSearchProvider({ apiKey: env.api_key, mode: 'turbo' });
+  const { manifest } = record;
+  return new ParallelWebSearchProvider({ apiKey: manifest.auth.api_key, mode: manifest.mode });
 }

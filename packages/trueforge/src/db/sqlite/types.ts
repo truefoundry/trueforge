@@ -35,6 +35,7 @@ import type {
 } from '../../schemas/sandboxProvider';
 import type { ScheduleManifest, ScheduleRunStatus, ScheduleStatus } from '../../schemas/schedule';
 import type { SkillManifest } from '../../schemas/skill';
+import type { WebSearchProviderManifest } from '../../schemas/webSearchProvider';
 import type { OAuthClient, OAuthPendingAuthorizationData, OAuthServer, OAuthToken } from '../mcpServerStore';
 
 /**
@@ -183,6 +184,14 @@ export interface ModelProviderTable {
   name: string;
   /** ModelProviderManifest document; replaced whole on every upsert */
   manifest: JsonbColumn<ModelProviderManifest>;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface WebSearchProviderTable {
+  tenant_id: string;
+  name: string;
+  manifest: JsonbColumn<WebSearchProviderManifest>;
   created_at: string;
   updated_at: string;
 }
@@ -343,6 +352,7 @@ export interface Database {
   thread_context_log: ThreadContextLogTable;
   thread_capability_state: ThreadCapabilityStateTable;
   model_provider: ModelProviderTable;
+  web_search_provider: WebSearchProviderTable;
   skill: SkillTable;
   sandbox_provider: SandboxProviderTable;
   agent: AgentTable;

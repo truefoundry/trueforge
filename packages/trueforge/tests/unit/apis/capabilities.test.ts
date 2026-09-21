@@ -16,6 +16,7 @@ import type { OIDCConfig } from '../../../src/config';
 import { migrateSqliteToLatest } from '../../../src/db/migrateSqlite';
 import { createSqliteDb } from '../../../src/db/sqlite/client';
 import { SqliteSandboxProviderStore } from '../../../src/db/sqlite/sandbox-provider-store/SqliteSandboxProviderStore';
+import type { IWebSearchProviderStore } from '../../../src/db/webSearchProviderStore';
 import { setCachedLocalSandboxSupport } from '../../../src/sandbox/localRuntime';
 import { checkSnapshotStatus } from '../../../src/sandbox/providerUtils';
 import type { SandboxBuildStatus, SandboxStatus } from '../../../src/schemas/sandboxProvider';
@@ -71,9 +72,17 @@ describe('capabilities routers', () => {
 
   function makeRouter(authenticator: Authenticator = new StandaloneAuthenticator()): OpenAPIHono {
     const db = createSqliteDb(':memory:');
+    const emptyWebSearchStore: IWebSearchProviderStore = {
+      listProviders: () => Promise.resolve([]),
+      getProvider: () => Promise.resolve(undefined),
+      getProviderForUpdate: () => Promise.resolve(undefined),
+      createProvider: () => Promise.reject(new Error('not used')),
+      upsertProvider: () => Promise.reject(new Error('not used')),
+    };
     return withAuth(
       createCapabilitiesRouter({
         resolveSandboxProviderStore: () => new SqliteSandboxProviderStore(db),
+        resolveWebSearchProviderStore: () => emptyWebSearchStore,
         withTransaction: callback => db.transaction().execute(callback),
         logger: silentLogger,
         resolveRequestContext,
@@ -247,9 +256,17 @@ describe('capabilities routers', () => {
     it('marks settings enabled for admin callers and disabled for non-admin callers', async () => {
       const db = createSqliteDb(':memory:');
       await migrateSqliteToLatest(db);
+      const emptyWebSearchStore: IWebSearchProviderStore = {
+        listProviders: () => Promise.resolve([]),
+        getProvider: () => Promise.resolve(undefined),
+        getProviderForUpdate: () => Promise.resolve(undefined),
+        createProvider: () => Promise.reject(new Error('not used')),
+        upsertProvider: () => Promise.reject(new Error('not used')),
+      };
       const router = withAuth(
         createCapabilitiesRouter({
           resolveSandboxProviderStore: () => new SqliteSandboxProviderStore(db),
+          resolveWebSearchProviderStore: () => emptyWebSearchStore,
           withTransaction: callback => db.transaction().execute(callback),
           logger: silentLogger,
           resolveRequestContext,

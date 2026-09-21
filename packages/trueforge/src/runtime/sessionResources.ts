@@ -19,11 +19,12 @@ import type { IMcpServerStore, IMcpServerWithAuthStore } from '../db/mcpServerSt
 import type { IModelProviderStore } from '../db/modelProviderStore';
 import type { ISandboxProviderStore } from '../db/sandboxProviderStore';
 import type { ISkillStore } from '../db/skillStore';
+import type { IWebSearchProviderStore } from '../db/webSearchProviderStore';
 import { LocalSandboxProvider } from '../sandbox/local/provider/LocalSandboxProvider';
 import { getCachedLocalSandboxSupport, isLocalSandboxFallbackEnabled } from '../sandbox/localRuntime';
 import { toSandboxProviderFromRecord } from '../sandbox/providerUtils';
 import type { ReasoningEffort } from '../schemas/modelProvider';
-import { resolveWebSearchProvider } from '../websearch/providers';
+import { hasConfiguredWebSearchProvider } from '../websearch/providers';
 
 export interface McpConnection {
   url: string;
@@ -294,6 +295,7 @@ export async function validateAgentSpec({
   mcpServerStore,
   skillStore,
   sandboxProviderStore,
+  webSearchProviderStore,
 }: {
   spec: AgentSpec;
   tenant_id: string;
@@ -301,6 +303,7 @@ export async function validateAgentSpec({
   mcpServerStore: IMcpServerStore;
   skillStore: ISkillStore;
   sandboxProviderStore: ISandboxProviderStore;
+  webSearchProviderStore: IWebSearchProviderStore;
 }): Promise<void> {
   const resolved = await getModelDetails({
     tenant_id,
@@ -356,9 +359,12 @@ export async function validateAgentSpec({
     }
   }
 
-  if (spec.config.web_search.enabled && resolveWebSearchProvider() === undefined) {
-    throw new HTTPException(422, {
-      message: 'web_search is enabled but no web-search provider is configured',
-    });
+  if (spec.config.web_search.enabled) {
+    const hasProvider = await hasConfiguredWebSearchProvider({ tenant_id, store: webSearchProviderStore });
+    if (!hasProvider) {
+      throw new HTTPException(422, {
+        message: 'web_search is enabled but no web-search provider is configured',
+      });
+    }
   }
 }

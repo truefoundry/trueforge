@@ -39,6 +39,7 @@ import type { IMcpServerWithAuthStore } from '../db/mcpServerStore';
 import type { IModelProviderStore } from '../db/modelProviderStore';
 import type { ISandboxProviderStore } from '../db/sandboxProviderStore';
 import type { ISkillStore } from '../db/skillStore';
+import type { IWebSearchProviderStore } from '../db/webSearchProviderStore';
 import {
   createAndExecuteTurnRoute,
   downloadSandboxFileRoute,
@@ -120,6 +121,7 @@ export interface TurnsRouterDeps {
   /** Resumable live turn-event transport: create-turn writes, subscribe polls. */
   eventSubscriptions: EventSubscriptionRegistry<TurnStreamingEvent>;
   resolveSandboxProviderStore: (c: Context) => ISandboxProviderStore;
+  resolveWebSearchProviderStore: (c: Context) => IWebSearchProviderStore;
   logger: Logger;
   resolveRequestContext: ResolveRequestContext;
   authorizer: Authorizer;
@@ -135,6 +137,7 @@ export type BeginTurnExecutionDeps = Pick<TurnsRouterDeps, 'activeTurns' | 'even
   modelProviderStore: IModelProviderStore;
   mcpServerStore: IMcpServerWithAuthStore;
   sandboxProviderStore: ISandboxProviderStore;
+  webSearchProviderStore: IWebSearchProviderStore;
   skillStore: Pick<ISkillStore, 'resolveTurnSkills'>;
 };
 
@@ -405,13 +408,17 @@ export async function beginTurnExecution(params: {
 
   const abortController = new AbortController();
   const tenant_id = session.tenant_id;
+  const webSearchProvider = await resolveWebSearchProvider({
+    tenant_id,
+    store: deps.webSearchProviderStore,
+  });
   const resolver = createTurnResolver({
     mcpServerStore: deps.mcpServerStore,
     skillStore: deps.skillStore,
     sandboxProviderStore: deps.sandboxProviderStore,
     agentStore: deps.agentStore,
     modelProviderStore: deps.modelProviderStore,
-    webSearchProvider: resolveWebSearchProvider(),
+    webSearchProvider,
     logger: deps.logger,
     signal: abortController.signal,
     userRef,
@@ -797,6 +804,7 @@ export function createTurnsRouter(deps: TurnsRouterDeps) {
         skillStore: deps.resolveSkillStore(c),
         agentStore: deps.resolveAgentStore(c),
         sandboxProviderStore: deps.resolveSandboxProviderStore(c),
+        webSearchProviderStore: deps.resolveWebSearchProviderStore(c),
       },
     };
 
