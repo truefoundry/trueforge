@@ -203,20 +203,15 @@ jobs:
           fi
 
           # Floor on the highest published tag on this line only:
-          # - RC Chart.yaml X.Y.Z-rc.* → max X.Y.Z-rc.* (same RC cycle)
+          # - RC Chart.yaml X.Y.Z-rc.* → max of X.Y.Z-rc.* and same-core stable X.Y.Z
           # - stable Chart.yaml X.Y.* → max X.Y.* stable (not a newer major/RC)
           # Stale hotfix cuts still avoid tag reuse without jumping lines.
           git fetch --tags --force origin
-          HIGHEST_TAG=$(
+          BASELINE=$(
             git tag -l 'charts/trueforge@*' |
               sed 's|^charts/trueforge@||' |
-              bash scripts/highest-chart-tag-on-line.sh "$CURRENT" || true
+              bash scripts/highest-chart-tag-on-line.sh "$CURRENT"
           )
-          BASELINE=$CURRENT
-          if [[ -n "$HIGHEST_TAG" ]]; then
-            BASELINE=$(printf '%s\n%s\n' "$CURRENT" "$HIGHEST_TAG" | sort -V | tail -1)
-          fi
-
           VERSION=$(bash scripts/resolve-chart-version.sh "$BASELINE" "$APP_VERSION" "$PR_VERSION")
 
           if [[ "$BASELINE" != "$CURRENT" ]]; then
