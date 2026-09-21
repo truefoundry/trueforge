@@ -1,11 +1,15 @@
 // @vitest-environment jsdom
-import { act, cleanup, renderHook } from '@testing-library/react';
+import { act, cleanup, renderHook, waitFor } from '@testing-library/react';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
-import type { ConnectorCatalogServer } from '@/server/types.js';
+import type { ConnectorBase, ConnectorCatalogServer } from '@/server/types.js';
 
 type CatalogHookValue = {
-  connectorCatalog: Pick<ConnectorCatalogServer, 'authenticateConnector'>;
+  connectorCatalog: Pick<ConnectorCatalogServer, 'authenticateConnector' | 'getConnector'>;
+};
+
+type ServerHookValue = {
+  getMcpConnector?: (req: { connectorId: string }) => Promise<ConnectorBase>;
 };
 
 type ToasterValue = {
@@ -13,10 +17,12 @@ type ToasterValue = {
 };
 
 const useCatalogServer = vi.hoisted(() => vi.fn<() => CatalogHookValue>());
+const useOptionalServer = vi.hoisted(() => vi.fn<() => ServerHookValue | null>());
 const useToasterOptional = vi.hoisted(() => vi.fn<() => ToasterValue | null>());
 
 vi.mock('@/server/ServerContext.js', () => ({
   useCatalogServer,
+  useOptionalServer,
 }));
 
 vi.mock('@/containers/ToasterContainer.js', () => ({
@@ -43,10 +49,32 @@ class BroadcastChannelStub {
 }
 
 const authenticateConnector = vi.fn<ConnectorCatalogServer['authenticateConnector']>();
+const getConnector = vi.fn<ConnectorCatalogServer['getConnector']>();
+const getMcpConnector = vi.fn<(req: { connectorId: string }) => Promise<ConnectorBase>>();
 const showError = vi.fn<(error: unknown) => void>();
 
-function getPopupUid(): string {
-  const call = authenticateConnector.mock.calls.at(-1);
+function authenticatedConnector(id: string): ConnectorBase {
+  return {
+    id,
+    name: id,
+    description: '',
+    url: 'https://example.test/mcp',
+    auth: { type: 'dcr' },
+    requiresAuth: false,
+    authenticated: true,
+  };
+}
+
+function unauthenticatedConnector(id: string): ConnectorBase {
+  return {
+    ...authenticatedConnector(id),
+    requiresAuth: true,
+    authenticated: false,
+  };
+}
+
+function getPopupUid(callIndex = -1): string {
+  const call = authenticateConnector.mock.calls.at(callIndex);
   if (!call) throw new Error('Expected authenticateConnector to be called');
 
   const returnTo = call[0].returnTo;
@@ -61,12 +89,16 @@ describe('useMCPAuth', () => {
   beforeEach(() => {
     channels.length = 0;
     authenticateConnector.mockReset();
+    getConnector.mockReset();
+    getMcpConnector.mockReset();
     showError.mockReset();
     useCatalogServer.mockReset();
+    useOptionalServer.mockReset();
     useToasterOptional.mockReset();
     useCatalogServer.mockReturnValue({
-      connectorCatalog: { authenticateConnector },
+      connectorCatalog: { authenticateConnector, getConnector },
     });
+    useOptionalServer.mockReturnValue(null);
     useToasterOptional.mockReturnValue({ showError });
     vi.stubGlobal('BroadcastChannel', BroadcastChannelStub);
     window.history.replaceState({}, '', '/chat');
@@ -80,6 +112,7 @@ describe('useMCPAuth', () => {
 
   it('completes immediately when the connector is already authenticated', async () => {
     authenticateConnector.mockResolvedValue({ status: 'AUTHENTICATED' });
+    getConnector.mockResolvedValue(authenticatedConnector('connector-1'));
     const open = vi.spyOn(window, 'open');
     const callback = vi.fn();
     const { result } = renderHook(() => useMCPAuth());
@@ -92,6 +125,7 @@ describe('useMCPAuth', () => {
       id: 'connector-1',
       returnTo: expect.stringMatching(/^\/chat\?/),
     });
+    expect(getConnector).toHaveBeenCalledWith({ id: 'connector-1' });
     expect(callback).toHaveBeenCalledOnce();
     expect(callback).toHaveBeenCalledWith(true);
     expect(open).not.toHaveBeenCalled();
@@ -100,10 +134,44 @@ describe('useMCPAuth', () => {
     expect(result.current.isOAuthLoading).toBe(false);
   });
 
+  it('reports failure when AUTHENTICATED status is not confirmed by getConnector', async () => {
+    authenticateConnector.mockResolvedValue({ status: 'AUTHENTICATED' });
+    getConnector.mockResolvedValue(unauthenticatedConnector('connector-1'));
+    const callback = vi.fn();
+    const { result } = renderHook(() => useMCPAuth());
+
+    await act(async () => {
+      await result.current.handleAuthorize('connector-1', callback);
+    });
+
+    expect(getConnector).toHaveBeenCalledWith({ id: 'connector-1' });
+    expect(callback).toHaveBeenCalledOnce();
+    expect(callback).toHaveBeenCalledWith(false);
+    expect(showError).toHaveBeenCalledOnce();
+    expect(showError).toHaveBeenCalledWith(new Error('The MCP server is not authenticated yet. Please try again.'));
+  });
+
+  it('reports failure when post-auth getConnector throws', async () => {
+    authenticateConnector.mockResolvedValue({ status: 'AUTHENTICATED' });
+    getConnector.mockRejectedValue(new Error('Catalog unavailable'));
+    const callback = vi.fn();
+    const { result } = renderHook(() => useMCPAuth());
+
+    await act(async () => {
+      await result.current.handleAuthorize('connector-1', callback);
+    });
+
+    expect(callback).toHaveBeenCalledOnce();
+    expect(callback).toHaveBeenCalledWith(false);
+    expect(showError).toHaveBeenCalledOnce();
+    expect(showError).toHaveBeenCalledWith(new Error('Catalog unavailable'));
+  });
+
   it('opens the authorization endpoint and accepts only its matching channel result', async () => {
     authenticateConnector.mockResolvedValue({
       authorization_endpoint: 'https://auth.example.test/authorize',
     });
+    getConnector.mockResolvedValue(authenticatedConnector('connector-2'));
     const open = vi.spyOn(window, 'open').mockReturnValue(window);
     const focus = vi.spyOn(window, 'focus').mockImplementation(() => {});
     const close = vi.spyOn(window, 'close').mockImplementation(() => {});
@@ -139,13 +207,105 @@ describe('useMCPAuth', () => {
     expect(channel.close).not.toHaveBeenCalled();
     expect(close).not.toHaveBeenCalled();
 
-    channel.emit({ popupUid: getPopupUid(), isSuccess: true });
+    await act(async () => {
+      channel.emit({ popupUid: getPopupUid(), isSuccess: true });
+    });
 
+    expect(getConnector).toHaveBeenCalledWith({ id: 'connector-2' });
     expect(callback).toHaveBeenCalledOnce();
     expect(callback).toHaveBeenCalledWith(true);
     expect(channel.close).toHaveBeenCalledOnce();
     expect(close).toHaveBeenCalledOnce();
     expect(showError).not.toHaveBeenCalled();
+  });
+
+  it('does not report success when the popup succeeds but the connector is still unauthenticated', async () => {
+    authenticateConnector.mockResolvedValue({
+      authorization_endpoint: 'https://auth.example.test/authorize',
+    });
+    getConnector.mockResolvedValue(unauthenticatedConnector('connector-2'));
+    vi.spyOn(window, 'open').mockReturnValue(window);
+    vi.spyOn(window, 'focus').mockImplementation(() => {});
+    vi.spyOn(window, 'close').mockImplementation(() => {});
+    const callback = vi.fn();
+    const { result } = renderHook(() => useMCPAuth());
+
+    await act(async () => {
+      await result.current.handleAuthorize('connector-2', callback);
+    });
+
+    const channel = channels[0];
+    if (!channel) throw new Error('Expected an authorization channel');
+
+    await act(async () => {
+      channel.emit({ popupUid: getPopupUid(), isSuccess: true });
+    });
+
+    expect(getConnector).toHaveBeenCalledWith({ id: 'connector-2' });
+    expect(callback).toHaveBeenCalledOnce();
+    expect(callback).toHaveBeenCalledWith(false);
+    expect(showError).toHaveBeenCalledOnce();
+  });
+
+  it('does not call getConnector when the popup reports failure', async () => {
+    authenticateConnector.mockResolvedValue({
+      authorization_endpoint: 'https://auth.example.test/authorize',
+    });
+    vi.spyOn(window, 'open').mockReturnValue(window);
+    vi.spyOn(window, 'focus').mockImplementation(() => {});
+    vi.spyOn(window, 'close').mockImplementation(() => {});
+    const callback = vi.fn();
+    const { result } = renderHook(() => useMCPAuth());
+
+    await act(async () => {
+      await result.current.handleAuthorize('connector-2', callback);
+    });
+
+    const channel = channels[0];
+    if (!channel) throw new Error('Expected an authorization channel');
+
+    await act(async () => {
+      channel.emit({ popupUid: getPopupUid(), isSuccess: false });
+    });
+
+    expect(getConnector).not.toHaveBeenCalled();
+    expect(callback).toHaveBeenCalledOnce();
+    expect(callback).toHaveBeenCalledWith(false);
+    expect(showError).not.toHaveBeenCalled();
+  });
+
+  it('keeps simultaneous server authorization attempts independent', async () => {
+    authenticateConnector.mockResolvedValue({
+      authorization_endpoint: 'https://auth.example.test/authorize',
+    });
+    getConnector.mockImplementation(async ({ id }) => authenticatedConnector(id));
+    vi.spyOn(window, 'open').mockReturnValue(window);
+    vi.spyOn(window, 'focus').mockImplementation(() => {});
+    vi.spyOn(window, 'close').mockImplementation(() => {});
+    const firstCallback = vi.fn();
+    const secondCallback = vi.fn();
+    const { result } = renderHook(() => useMCPAuth());
+
+    await act(async () => {
+      await Promise.all([
+        result.current.handleAuthorize('connector-1', firstCallback),
+        result.current.handleAuthorize('connector-2', secondCallback),
+      ]);
+    });
+
+    expect(channels).toHaveLength(2);
+    await act(async () => {
+      channels[1]?.emit({ popupUid: getPopupUid(1), isSuccess: true });
+    });
+    expect(secondCallback).toHaveBeenCalledWith(true);
+    expect(firstCallback).not.toHaveBeenCalled();
+
+    await act(async () => {
+      channels[0]?.emit({ popupUid: getPopupUid(0), isSuccess: true });
+    });
+    expect(firstCallback).toHaveBeenCalledWith(true);
+    expect(getConnector).toHaveBeenCalledWith({ id: 'connector-1' });
+    expect(getConnector).toHaveBeenCalledWith({ id: 'connector-2' });
   });
 
   it('reports a blocked popup and completes authorization as failed', async () => {
@@ -162,6 +322,7 @@ describe('useMCPAuth', () => {
 
     expect(callback).toHaveBeenCalledOnce();
     expect(callback).toHaveBeenCalledWith(false);
+    expect(getConnector).not.toHaveBeenCalled();
     expect(showError).toHaveBeenCalledOnce();
     expect(showError).toHaveBeenCalledWith(
       new Error('Popup blocked. Please allow pop-ups to authorize the MCP server.'),
@@ -193,5 +354,49 @@ describe('useMCPAuth', () => {
     expect(channel.close).toHaveBeenCalledOnce();
     expect(close).toHaveBeenCalledOnce();
     expect(callback).not.toHaveBeenCalled();
+    expect(getConnector).not.toHaveBeenCalled();
+  });
+
+  it('confirms OAuth via getMcpConnector when the chat projection is available', async () => {
+    authenticateConnector.mockResolvedValue({ status: 'AUTHENTICATED' });
+    getMcpConnector.mockResolvedValue(authenticatedConnector('connector-1'));
+    useOptionalServer.mockReturnValue({ getMcpConnector });
+    const callback = vi.fn();
+    const { result } = renderHook(() => useMCPAuth());
+
+    await act(async () => {
+      await result.current.handleAuthorize('connector-1', callback);
+    });
+
+    expect(getMcpConnector).toHaveBeenCalledWith({ connectorId: 'connector-1' });
+    expect(getConnector).not.toHaveBeenCalled();
+    expect(callback).toHaveBeenCalledOnce();
+    expect(callback).toHaveBeenCalledWith(true);
+    expect(showError).not.toHaveBeenCalled();
+  });
+
+  it('does not invoke the callback after unmount while connector verification is in flight', async () => {
+    authenticateConnector.mockResolvedValue({ status: 'AUTHENTICATED' });
+    let resolveGet: ((connector: ConnectorBase) => void) | undefined;
+    getConnector.mockImplementation(
+      () =>
+        new Promise(resolve => {
+          resolveGet = resolve;
+        }),
+    );
+    const callback = vi.fn();
+    const { result, unmount } = renderHook(() => useMCPAuth());
+
+    const authorizePromise = result.current.handleAuthorize('connector-1', callback);
+    await waitFor(() => expect(getConnector).toHaveBeenCalledWith({ id: 'connector-1' }));
+
+    unmount();
+    await act(async () => {
+      resolveGet?.(authenticatedConnector('connector-1'));
+      await authorizePromise;
+    });
+
+    expect(callback).not.toHaveBeenCalled();
+    expect(showError).not.toHaveBeenCalled();
   });
 });
