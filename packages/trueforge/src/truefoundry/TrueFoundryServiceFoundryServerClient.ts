@@ -41,14 +41,21 @@ const GetSessionUserSchema = z.object({
   subject: SessionSubjectSchema,
 });
 
-const GetSessionWireSchema = z.object({
-  user: GetSessionUserSchema.nullable(),
+const GetSessionUnauthenticatedSchema = z.object({
+  user: z.null(),
 });
 
-/** Authenticated session payload (`user` is non-null after {@link TrueFoundryServiceFoundryServerClient.getSession}). */
-export interface GetSessionResponse {
-  user: z.infer<typeof GetSessionUserSchema>;
-}
+const GetSessionAuthenticatedSchema = z
+  .object({
+    user: GetSessionUserSchema,
+    controlPlaneURL: z.url(),
+  })
+  .transform(({ user, controlPlaneURL: public_base_url }) => ({ user, public_base_url }));
+
+const GetSessionWireSchema = z.union([GetSessionUnauthenticatedSchema, GetSessionAuthenticatedSchema]);
+
+/** Authenticated session payload returned by {@link TrueFoundryServiceFoundryServerClient.getSession}. */
+export type GetSessionResponse = z.infer<typeof GetSessionAuthenticatedSchema>;
 
 const ListResponseSchema = z.union([
   z.array(z.unknown()),
@@ -472,8 +479,8 @@ export class TrueFoundryServiceFoundryServerClient {
   }
 
   /**
-   * `GET v1/session` for RequestContext mapping.
-   * `user: null` (invalid/missing auth on a 200) → 401; all other failures → 500.
+   * `GET v1/session` for RequestContext mapping (always called with a bearer token).
+   * SFY optional-auth soft failure (`user: null` on 200) → 401; malformed → 500.
    */
   async getSession(accessToken: string): Promise<GetSessionResponse> {
     let payload: unknown;
@@ -502,7 +509,7 @@ export class TrueFoundryServiceFoundryServerClient {
     if (parsed.data.user === null) {
       throw new HTTPException(401, { message: 'Authentication required' });
     }
-    return { user: parsed.data.user };
+    return parsed.data;
   }
 
   async getAgentPermissions(input: {

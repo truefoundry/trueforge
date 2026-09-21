@@ -428,7 +428,7 @@ export function SchedulesPage({ agentId }: SchedulesPageProps) {
               }
             >
               <Icon name="plus" className="size-3.5" />
-              Create Schedule
+              New Schedule
             </Button.Primary>
           </>
         }

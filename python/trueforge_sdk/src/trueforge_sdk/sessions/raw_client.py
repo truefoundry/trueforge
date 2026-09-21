@@ -389,10 +389,11 @@ class RawSessionsClient:
         session_id: str,
         agent: typing.Optional[SessionAgentSpecBody] = OMIT,
         metadata: typing.Optional[SessionMetadata] = OMIT,
+        title: typing.Optional[str] = OMIT,
         request_options: typing.Optional[RequestOptions] = None,
     ) -> HttpResponse[GetSessionResponse]:
         """
-        Update a session by replacing `agent` with `{ spec: AgentSpec }`. Named (reference) sessions reject agent updates. An empty body is a valid no-op that refreshes `updated_at`. Only the session creator may update it.
+        Update a session: optional `title`, `metadata`, and (inline sessions only) `agent` as `{ spec: AgentSpec }`. Named sessions reject agent updates. An empty body is a valid no-op that refreshes `updated_at`. Only the session creator may update it.
 
         Parameters
         ----------
@@ -402,6 +403,9 @@ class RawSessionsClient:
         agent : typing.Optional[SessionAgentSpecBody]
 
         metadata : typing.Optional[SessionMetadata]
+
+        title : typing.Optional[str]
+            Human-readable session title.
 
         request_options : typing.Optional[RequestOptions]
             Request-specific configuration.
@@ -419,6 +423,7 @@ class RawSessionsClient:
                     object_=agent, annotation=SessionAgentSpecBody, direction="write"
                 ),
                 "metadata": metadata,
+                "title": title,
             },
             headers={
                 "content-type": "application/json",
@@ -1909,10 +1914,11 @@ class AsyncRawSessionsClient:
         session_id: str,
         agent: typing.Optional[SessionAgentSpecBody] = OMIT,
         metadata: typing.Optional[SessionMetadata] = OMIT,
+        title: typing.Optional[str] = OMIT,
         request_options: typing.Optional[RequestOptions] = None,
     ) -> AsyncHttpResponse[GetSessionResponse]:
         """
-        Update a session by replacing `agent` with `{ spec: AgentSpec }`. Named (reference) sessions reject agent updates. An empty body is a valid no-op that refreshes `updated_at`. Only the session creator may update it.
+        Update a session: optional `title`, `metadata`, and (inline sessions only) `agent` as `{ spec: AgentSpec }`. Named sessions reject agent updates. An empty body is a valid no-op that refreshes `updated_at`. Only the session creator may update it.
 
         Parameters
         ----------
@@ -1922,6 +1928,9 @@ class AsyncRawSessionsClient:
         agent : typing.Optional[SessionAgentSpecBody]
 
         metadata : typing.Optional[SessionMetadata]
+
+        title : typing.Optional[str]
+            Human-readable session title.
 
         request_options : typing.Optional[RequestOptions]
             Request-specific configuration.
@@ -1939,6 +1948,7 @@ class AsyncRawSessionsClient:
                     object_=agent, annotation=SessionAgentSpecBody, direction="write"
                 ),
                 "metadata": metadata,
+                "title": title,
             },
             headers={
                 "content-type": "application/json",

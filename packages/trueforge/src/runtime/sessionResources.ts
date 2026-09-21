@@ -23,6 +23,7 @@ import { LocalSandboxProvider } from '../sandbox/local/provider/LocalSandboxProv
 import { getCachedLocalSandboxSupport, isLocalSandboxFallbackEnabled } from '../sandbox/localRuntime';
 import { toSandboxProviderFromRecord } from '../sandbox/providerUtils';
 import type { ReasoningEffort } from '../schemas/modelProvider';
+import { resolveWebSearchProvider } from '../websearch/providers';
 
 export interface McpConnection {
   url: string;
@@ -368,5 +369,11 @@ export async function validateAgentSpec({
           : 'sandbox is enabled but no sandbox provider is configured — PUT /settings/sandbox-providers',
       });
     }
+  }
+
+  if (spec.config.web_search.enabled && resolveWebSearchProvider() === undefined) {
+    throw new HTTPException(422, {
+      message: 'web_search is enabled but no web-search provider is configured',
+    });
   }
 }

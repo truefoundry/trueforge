@@ -2,8 +2,10 @@
 
 import { useState, type ComponentType } from 'react';
 import { Icon } from '../../icons/Icon.js';
+import { useServerCapabilities } from '../../server/ServerContext.js';
 import { useSlot } from '../../theme/SlotsProvider.js';
 import { cn } from '../lib/cn.js';
+import { AgentOverviewMcpServers } from './AgentOverviewMcpServers.js';
 import type { AgentOverviewProps } from './types.js';
 
 type InstructionsView = 'markdown' | 'raw';
@@ -27,12 +29,6 @@ function readRecordValue(record: Record<string, unknown> | null, ...keys: string
   return undefined;
 }
 
-function hasAllTools(value: object): boolean {
-  if (!isRecord(value)) return false;
-  const tools = readRecordValue(value, 'enableTools', 'enable_tools');
-  return tools === undefined || (Array.isArray(tools) && tools.includes('@all'));
-}
-
 function displayModelName(name: string): string {
   const slash = name.lastIndexOf('/');
   return slash >= 0 ? name.slice(slash + 1) : name;
@@ -41,11 +37,11 @@ function displayModelName(name: string): string {
 export default function AgentOverview({ detail }: AgentOverviewProps) {
   const Markdown = useSlot('Markdown');
   const AgentOverviewCard = useSlot('AgentOverviewCard');
+  const capabilitiesAvailable = useServerCapabilities();
   const [instructionsView, setInstructionsView] = useState<InstructionsView>('markdown');
   const [copied, setCopied] = useState(false);
   const spec = detail.agentSpec;
   const skills = spec.skills ?? [];
-  const connectors = spec.mcpServers ?? [];
   const modelParams = isRecord(spec.model.params) ? spec.model.params : null;
   const maxTokens = readRecordValue(modelParams, 'maxTokens', 'max_tokens');
   const temperature = readRecordValue(modelParams, 'temperature');
@@ -64,12 +60,15 @@ export default function AgentOverview({ detail }: AgentOverviewProps) {
     ['Generative UI', spec.config?.generativeUi?.enabled],
     ['Dynamic sub-agents', spec.config?.dynamicSubAgents?.enabled],
     ['Ask user questions', spec.config?.askUserQuestions?.enabled],
+    ...(capabilitiesAvailable?.webSearch?.enabled === true
+      ? ([['Web search', spec.config?.webSearch?.enabled]] as const)
+      : []),
   ].filter((entry): entry is [string, boolean] => typeof entry[1] === 'boolean');
   const toggleLabel = instructionsView === 'markdown' ? 'Raw' : 'Markdown';
 
   return (
     <div className="flex min-h-0 flex-1 flex-col gap-3 overflow-auto p-4 md:overflow-hidden">
-      <div className="grid min-h-0 flex-1 gap-3 md:grid-cols-[minmax(0,1fr)_18rem] md:overflow-hidden">
+      <div className="grid min-h-0 flex-1 gap-3 md:grid-cols-[minmax(0,1fr)_22rem] md:overflow-hidden">
         <section className="flex min-h-64 flex-col rounded-lg border border-border bg-card-bg p-4 text-text-primary">
           <div className="mb-3 flex shrink-0 items-center justify-between gap-2">
             <h2 className="flex items-center gap-1.5 text-sm font-semibold text-text-primary">
@@ -155,29 +154,7 @@ export default function AgentOverview({ detail }: AgentOverviewProps) {
               ) : null}
             </dl>
           </AgentOverviewCard>
-          <AgentOverviewCard title="MCP Servers" icon="plug" count={connectors.length}>
-            {connectors.length === 0 ? (
-              <p className="text-xs text-text-secondary">No connectors attached.</p>
-            ) : (
-              <ul className="space-y-1.5">
-                {connectors.map((connector, index) => (
-                  <li
-                    key={`${readName(connector) ?? 'connector'}-${index}`}
-                    className="rounded-md bg-secondary-bg px-2 py-1.5 text-xs"
-                  >
-                    <span className="flex items-center justify-between gap-2">
-                      <span className="truncate">{readName(connector) ?? `Connector ${index + 1}`}</span>
-                      {hasAllTools(connector) ? (
-                        <span className="shrink-0 rounded-full bg-primary-button-bg/10 px-1.5 py-0.5 text-[10px] text-primary-button-bg">
-                          All tools
-                        </span>
-                      ) : null}
-                    </span>
-                  </li>
-                ))}
-              </ul>
-            )}
-          </AgentOverviewCard>
+          <AgentOverviewMcpServers mcpServers={spec.mcpServers} />
 
           <AgentOverviewCard title="Attached Skills" icon="lightbulb" count={skills.length}>
             {skills.length === 0 ? (

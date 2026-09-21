@@ -108,6 +108,7 @@ export { MessageTimestamp } from './atoms/MessageTimestamp.js';
 export type { MessageTimestampProps } from './atoms/MessageTimestamp.js';
 export { MonacoEditorCore } from './atoms/MonacoEditorCore.js';
 export type { MonacoEditorCoreProps } from './atoms/MonacoEditorCore.js';
+export { preloadMonaco } from './atoms/monacoPreload.js';
 export { OpenUiFenceBlock } from './atoms/OpenUiFenceBlock.js';
 export type { OpenUiFenceBlockProps } from './atoms/OpenUiFenceBlock.js';
 export { SandboxArtifactDownload } from './atoms/SandboxArtifactDownload.js';

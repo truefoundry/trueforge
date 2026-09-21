@@ -14,6 +14,7 @@ import {
   type TurnInputItem,
   type TurnRecordWithoutSnapshot,
 } from '@truefoundry/trueforge-core/agent-session';
+import type { IWebSearchProvider } from '@truefoundry/trueforge-core/core';
 import {
   AgentHarnessError,
   existingSandboxIdForProvider,
@@ -48,7 +49,6 @@ import {
 } from '../routes/turnRoutes';
 import type { ActiveTurnRegistry } from '../runtime/activeTurns';
 import { StreamGoneError, type EventSubscription, type EventSubscriptionRegistry } from '../runtime/event-subscription';
-import { mintPeeredTurnId } from '../runtime/peeringIds';
 import { validateSandboxFilePath } from '../runtime/sandboxFilePath';
 import {
   buildTurnSandbox,
@@ -61,6 +61,9 @@ import {
   X_TFY_METADATA,
 } from '../runtime/sessionResources';
 import { checkSnapshotStatus } from '../sandbox/providerUtils';
+import { MAX_SESSION_TITLE_LENGTH } from '../schemas/session';
+import { newId } from '../utils/id';
+import { resolveWebSearchProvider } from '../websearch/providers';
 import { canReadAgentBoundResource } from './agentAccess';
 
 export function toWireTurn(record: TurnRecordWithoutSnapshot): Turn {
@@ -156,6 +159,7 @@ function createTurnResolver(deps: {
   sandboxProviderStore: ISandboxProviderStore;
   agentStore: IAgentStore;
   modelProviderStore: IModelProviderStore;
+  webSearchProvider: IWebSearchProvider | undefined;
   logger: Logger;
   signal: AbortSignal;
   userRef: string;
@@ -168,6 +172,7 @@ function createTurnResolver(deps: {
     sandboxProviderStore,
     agentStore,
     modelProviderStore,
+    webSearchProvider,
     logger,
     signal,
     userRef,
@@ -219,6 +224,7 @@ function createTurnResolver(deps: {
     },
     mcpRequestTimeoutMs: configuration.MCP_REQUEST_TIMEOUT_MS,
     mcpConnectTimeoutMs: configuration.MCP_CONNECT_TIMEOUT_MS,
+    mcpMaxResponseBytes: configuration.MCP_TOOL_CALL_MAX_RESPONSE_BYTES,
     sandboxProvider: async ({ spec, existingSandboxId, tracing }) => {
       const provider = await resolveSandboxProvider({
         tenant_id,
@@ -273,11 +279,10 @@ function createTurnResolver(deps: {
       }
       return record.manifest;
     },
+    webSearchProvider,
     logger,
   });
 }
-
-const MAX_SESSION_TITLE_LENGTH = 50;
 
 /**
  * Derives a session title from the first user message of the first turn. Returns the
@@ -397,7 +402,7 @@ export async function beginTurnExecution(
 ): Promise<{ turn: TurnHandle; drainInput: TurnEventDrainInput }> {
   const { session, input, previous_turn_id: previousTurnId, userRef, turnHeaders, deps } = params;
   const sessionId = session.session_id;
-  const turnId = mintPeeredTurnId(configuration.EXECUTOR_ID);
+  const turnId = newId();
 
   const abortController = new AbortController();
   const tenant_id = session.tenant_id;
@@ -407,6 +412,7 @@ export async function beginTurnExecution(
     sandboxProviderStore: deps.sandboxProviderStore,
     agentStore: deps.agentStore,
     modelProviderStore: deps.modelProviderStore,
+    webSearchProvider: resolveWebSearchProvider(),
     logger: deps.logger,
     signal: abortController.signal,
     userRef,
@@ -420,6 +426,7 @@ export async function beginTurnExecution(
 
   const turn = await session.createTurn({
     turn_id: turnId,
+    active_executor_id: configuration.EXECUTOR_ID,
     input,
     previous_turn_id: previousTurnId,
     signal: abortController.signal,

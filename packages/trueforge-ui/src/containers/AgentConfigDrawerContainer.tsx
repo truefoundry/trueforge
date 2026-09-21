@@ -148,6 +148,7 @@ export function AgentConfigDrawerContainer({ showClose = false }: { showClose?: 
         modelsError={catalog.error}
         skills={catalog.skills}
         skillsAvailable={capabilities?.skill.enabled === true}
+        webSearchAvailable={capabilities?.webSearch?.enabled === true}
         instructions={instructionDraft}
         onOpenEditor={nextEditor => {
           if (canManageAgent) setEditor(nextEditor);
@@ -166,6 +167,7 @@ export function AgentConfigDrawerContainer({ showClose = false }: { showClose?: 
         error={catalog.error}
         skillsDisabled={capabilities?.skill.enabled !== true}
         sandboxAvailable={capabilities?.sandbox.enabled === true}
+        webSearchAvailable={capabilities?.webSearch?.enabled === true}
         instructions={instructionDraft}
         onInstructionsSave={saveInstructions}
         {...(server?.getMcpConnector === undefined ? {} : { loadMcpConnector })}

@@ -17,6 +17,7 @@ import {
 import { paginateWithCursorGuard } from './pagination';
 import {
   connectRemoteMcp,
+  DEFAULT_MAX_MCP_RESPONSE_BYTES,
   isSessionExpiredError,
   type RemoteMcpConnection,
   type RemoteMcpTransportType,
@@ -57,6 +58,7 @@ export class RemoteMCP implements ToolSource {
   private readonly tracing: AgentTracing;
   private readonly requestTimeoutMs: number;
   private readonly connectTimeoutMs: number;
+  private readonly maxResponseBytes: number;
   // Redacted display url for trace spans (derived from url; unused when tracing is a no-op).
   private readonly traceUrl: string;
 
@@ -67,6 +69,8 @@ export class RemoteMCP implements ToolSource {
   private sessionId: string | null | undefined;
   private resolvedTransportType?: RemoteMcpTransportType | undefined;
   private cachedTools?: AgentToolSchema[] | undefined;
+  private inflight = 0;
+  private pendingClose: RemoteMcpConnection | undefined;
 
   constructor(params: {
     name: string;
@@ -80,6 +84,7 @@ export class RemoteMCP implements ToolSource {
     transportType?: RemoteMcpTransportType | undefined;
     requestTimeoutMs: number;
     connectTimeoutMs: number;
+    maxResponseBytes?: number | undefined;
     signal: AbortSignal;
   }) {
     this.name = params.name;
@@ -92,6 +97,7 @@ export class RemoteMCP implements ToolSource {
     this.resolvedTransportType = params.transportType;
     this.requestTimeoutMs = params.requestTimeoutMs;
     this.connectTimeoutMs = params.connectTimeoutMs;
+    this.maxResponseBytes = params.maxResponseBytes ?? DEFAULT_MAX_MCP_RESPONSE_BYTES;
     this.logger = params.logger;
     this.tracing = params.tracing ?? NOOP_AGENT_TRACING;
     this.traceUrl = redactUrlForTrace(params.url);
@@ -101,14 +107,29 @@ export class RemoteMCP implements ToolSource {
     return this.sessionId ?? undefined;
   }
 
-  private get connection(): RemoteMcpConnection {
-    if (!this._connection) {
-      throw new Error(`Remote MCP '${this.name}' not connected - connectIfNeeded() must run first`);
+  // Concurrent callTool/listTools share one transport. Session-expired retry must not close it
+  // while a sibling is still using it — close() aborts the sibling with "Connection closed",
+  // which is not treated as session-expired, so that call is never retried.
+  //
+  // Example: A (long) and B share socket S. B gets session-expired.
+  //   Detach S (pendingClose), B retries on a new socket, A finishes on S,
+  //   last caller closes pendingClose when inflight hits 0.
+  //
+  // connectAndRun:
+  //   conn = this._connection          // capture; op does not re-read this._connection
+  //   inflight++
+  //   try:    return op(conn)
+  //   catch sessionExpired:
+  //     detach conn                    // _connection = undefined; do not close if inflight > 0
+  //     pendingClose = conn
+  //     reconnect and retry once
+  //   finally:
+  //     inflight--
+  //     if inflight == 0: close(pendingClose)
+  private async resetConnection(expired?: RemoteMcpConnection): Promise<void> {
+    if (expired !== undefined && this._connection !== expired) {
+      return;
     }
-    return this._connection;
-  }
-
-  private async resetConnection(): Promise<void> {
     this.isConnected = false;
     this.sessionId = undefined;
     this.cachedTools = undefined;
@@ -117,10 +138,19 @@ export class RemoteMCP implements ToolSource {
   }
 
   private async closeAndClearConnection(): Promise<void> {
-    await this._connection?.close().catch(() => {
+    const connection = this._connection;
+    this._connection = undefined;
+    if (!connection) {
+      return;
+    }
+    if (this.inflight > 0) {
+      // One leftover socket; a second session-expiry while the first is still pending can leak it.
+      this.pendingClose = connection;
+      return;
+    }
+    await connection.close().catch(() => {
       /* no-op */
     });
-    this._connection = undefined;
   }
 
   private async resolveHeaders(): Promise<ResolveHeadersResult> {
@@ -130,7 +160,9 @@ export class RemoteMCP implements ToolSource {
     return await this.headers();
   }
 
-  private async executeWithSessionRetry<T>(operation: () => Promise<T>): Promise<ExecuteResult<T>> {
+  private async executeWithSessionRetry<T>(
+    operation: (connection: RemoteMcpConnection) => Promise<T>,
+  ): Promise<ExecuteResult<T>> {
     // Auth is re-checked on every operation, not only on the first connect: a registered server's OAuth
     // can be revoked or expire mid-request, and callers must get authRequired rather than a generic
     // upstream failure. When already connected the resolved headers are unused (connect is skipped).
@@ -143,29 +175,47 @@ export class RemoteMCP implements ToolSource {
 
   private async connectAndRun<T>(
     headers: Record<string, string>,
-    operation: () => Promise<T>,
+    operation: (connection: RemoteMcpConnection) => Promise<T>,
     canRetry: boolean,
   ): Promise<ExecuteResult<T>> {
+    let used: RemoteMcpConnection | undefined;
     try {
       const initInfo = await this.connectIfNeeded(headers);
-      return { result: await operation(), wasInitialized: initInfo };
-    } catch (error) {
-      if (canRetry && isSessionExpiredError(error)) {
-        this.logger.info(`Session expired for remote MCP ${this.name}, reinitializing...`);
-        await this.resetConnection();
-        return this.connectAndRun(headers, operation, false);
+      const connection = this._connection;
+      if (!connection) {
+        throw new Error(`Remote MCP '${this.name}' not connected - connectIfNeeded() must run first`);
       }
-      throw error;
+      used = connection;
+      this.inflight += 1;
+      return { result: await operation(connection), wasInitialized: initInfo };
+    } catch (error) {
+      if (!(canRetry && isSessionExpiredError(error))) {
+        throw error;
+      }
+      this.logger.info(`Session expired for remote MCP ${this.name}, reinitializing...`);
+      await this.resetConnection(used);
+    } finally {
+      if (used) {
+        this.inflight -= 1;
+        if (this.inflight === 0 && this.pendingClose) {
+          const stale = this.pendingClose;
+          this.pendingClose = undefined;
+          await stale.close().catch(() => {
+            /* no-op */
+          });
+        }
+      }
     }
+    return this.connectAndRun(headers, operation, false);
   }
 
-  private async loadTools(): Promise<{ tools: AgentToolSchema[] }> {
+  private async loadTools(connection: RemoteMcpConnection): Promise<{ tools: AgentToolSchema[] }> {
     return this.tracing.withRemoteMcpToolSpan(
       { method: 'tools/list', serverName: this.name, serverId: this.id, serverUrl: this.traceUrl, enabled: true },
       async span => {
         const tools = await paginateWithCursorGuard(
           async cursor => {
-            const page = await this.connection.listTools(cursor);
+            const page = await connection.listTools(cursor);
             return { items: page.tools, nextCursor: page.nextCursor };
           },
           this.name,
@@ -183,7 +233,7 @@ export class RemoteMCP implements ToolSource {
     if (this.cachedTools) {
       return { result: { tools: this.cachedTools }, wasInitialized: undefined };
     }
-    const response = await this.executeWithSessionRetry(() => this.loadTools());
+    const response = await this.executeWithSessionRetry(connection => this.loadTools(connection));
     if ('authRequired' in response) {
       return response;
     }
@@ -191,7 +241,7 @@ export class RemoteMCP implements ToolSource {
   }
 
   async callTool(params: CallToolRequest['params']): Promise<CallToolResolvedResponse | AuthRequiredResponse> {
-    const response = await this.executeWithSessionRetry(() =>
+    const response = await this.executeWithSessionRetry(connection =>
       this.tracing.withRemoteMcpToolSpan(
         {
           method: 'tools/call',
@@ -203,7 +253,7 @@ export class RemoteMCP implements ToolSource {
           enabled: true,
         },
         async span => {
-          const result = await this.connection.callTool(params);
+          const result = await connection.callTool(params);
           span.setOutput(JSON.stringify(result));
           return result;
         },
@@ -238,7 +288,7 @@ export class RemoteMCP implements ToolSource {
 
     const existingSessionId = this.sessionId;
     this.connectPromise = (async (): Promise<MCPServerInitInfo | undefined> => {
-      let connection: RemoteMcpConnection;
+      let connection: RemoteMcpConnection | undefined;
       try {
         await this.closeAndClearConnection();
         connection = await this.tracing.withRemoteMcpToolSpan(
@@ -252,9 +302,12 @@ export class RemoteMCP implements ToolSource {
               knownTransportType: this.resolvedTransportType,
               requestTimeoutMs: this.requestTimeoutMs,
               connectTimeoutMs: this.connectTimeoutMs,
+              maxResponseBytes: this.maxResponseBytes,
               signal: this.signal,
               onClose: () => {
-                this.isConnected = false;
+                if (connection !== undefined && this._connection === connection) {
+                  this.isConnected = false;
+                }
               },
               onError: error => {
                 const fields = extractErrorLogFields(error);

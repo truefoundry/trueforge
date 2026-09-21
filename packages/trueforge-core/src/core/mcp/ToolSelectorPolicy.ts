@@ -107,7 +107,7 @@ export class ToolSelectorPolicy {
 
   /**
    * Whether the tool requires human approval. Honors `requireApprovalForTools` exactly: omit /
-   * undefined defaults to write+destructive (constructor); an explicit list — including empty —
+   * undefined defaults to `@destructive` (constructor); an explicit list — including empty —
    * is exact.
    */
   requiresApproval(toolName: string, annotations: ToolAnnotations | undefined): boolean {

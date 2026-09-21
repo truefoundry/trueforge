@@ -71,6 +71,7 @@ export const getOrCreateSessionByExternalIdRoute = createRoute({
   description: 'Idempotent get-or-create: returns the existing session for this `external_id`, or creates one',
   'x-fern-sdk-group-name': ['internal', 'sessions'],
   'x-fern-sdk-method-name': 'get_or_create_by_external_id',
+  'x-excluded': true,
   request: {
     body: {
       content: { 'application/json': { schema: GetOrCreateSessionByExternalIdRequestSchema } },
@@ -162,7 +163,7 @@ export const updateSessionRoute = createRoute({
   tags: [OpenApiTag.AGENT_SESSIONS],
   summary: 'Update a session',
   description:
-    'Update a session by replacing `agent` with `{ spec: AgentSpec }`. Named (reference) sessions reject agent updates. An empty body is a valid no-op that refreshes `updated_at`. Only the session creator may update it.',
+    'Update a session: optional `title`, `metadata`, and (inline sessions only) `agent` as `{ spec: AgentSpec }`. Named sessions reject agent updates. An empty body is a valid no-op that refreshes `updated_at`. Only the session creator may update it.',
   'x-fern-sdk-group-name': ['sessions'],
   'x-fern-sdk-method-name': 'update',
   request: {
