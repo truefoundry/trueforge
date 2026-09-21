@@ -2,8 +2,7 @@
 
 import typing
 
-from .thread_state_cancelled import ThreadStateCancelled
 from .thread_state_done import ThreadStateDone
 from .thread_state_error import ThreadStateError
 
-ThreadState = typing.Union[ThreadStateCancelled, ThreadStateDone, ThreadStateError]
+ThreadState = typing.Union[ThreadStateDone, ThreadStateError]

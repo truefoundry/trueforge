@@ -3,13 +3,12 @@
 import type * as TrueForge from "../../api/index.js";
 import * as core from "../../core/index.js";
 import type * as serializers from "../index.js";
-import { ThreadStateCancelled } from "./ThreadStateCancelled.js";
 import { ThreadStateDone } from "./ThreadStateDone.js";
 import { ThreadStateError } from "./ThreadStateError.js";
 
 export const ThreadState: core.serialization.Schema<serializers.ThreadState.Raw, TrueForge.ThreadState> =
-    core.serialization.undiscriminatedUnion([ThreadStateCancelled, ThreadStateDone, ThreadStateError]);
+    core.serialization.undiscriminatedUnion([ThreadStateDone, ThreadStateError]);
 
 export declare namespace ThreadState {
-    export type Raw = ThreadStateCancelled.Raw | ThreadStateDone.Raw | ThreadStateError.Raw;
+    export type Raw = ThreadStateDone.Raw | ThreadStateError.Raw;
 }

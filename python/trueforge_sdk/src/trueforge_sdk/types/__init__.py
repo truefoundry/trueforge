@@ -201,7 +201,6 @@ if typing.TYPE_CHECKING:
     from .thread_created_event import ThreadCreatedEvent
     from .thread_done_event import ThreadDoneEvent
     from .thread_state import ThreadState
-    from .thread_state_cancelled import ThreadStateCancelled
     from .thread_state_done import ThreadStateDone
     from .thread_state_error import ThreadStateError
     from .timezone import Timezone
@@ -440,7 +439,6 @@ _dynamic_imports: typing.Dict[str, str] = {
     "ThreadCreatedEvent": ".thread_created_event",
     "ThreadDoneEvent": ".thread_done_event",
     "ThreadState": ".thread_state",
-    "ThreadStateCancelled": ".thread_state_cancelled",
     "ThreadStateDone": ".thread_state_done",
     "ThreadStateError": ".thread_state_error",
     "Timezone": ".timezone",
@@ -703,7 +701,6 @@ __all__ = [
     "ThreadCreatedEvent",
     "ThreadDoneEvent",
     "ThreadState",
-    "ThreadStateCancelled",
     "ThreadStateDone",
     "ThreadStateError",
     "Timezone",

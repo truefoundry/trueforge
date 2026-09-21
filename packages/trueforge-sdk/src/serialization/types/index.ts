@@ -193,7 +193,6 @@ export * from "./TextContent.js";
 export * from "./ThreadCreatedEvent.js";
 export * from "./ThreadDoneEvent.js";
 export * from "./ThreadState.js";
-export * from "./ThreadStateCancelled.js";
 export * from "./ThreadStateDone.js";
 export * from "./ThreadStateError.js";
 export * from "./Timezone.js";

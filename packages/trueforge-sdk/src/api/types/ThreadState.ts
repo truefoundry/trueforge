@@ -2,4 +2,4 @@
 
 import type * as TrueForge from "../index.js";
 
-export type ThreadState = TrueForge.ThreadStateCancelled | TrueForge.ThreadStateDone | TrueForge.ThreadStateError;
+export type ThreadState = TrueForge.ThreadStateDone | TrueForge.ThreadStateError;
