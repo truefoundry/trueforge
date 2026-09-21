@@ -51,9 +51,10 @@ export function McpAuthPrompt({
               <span className="truncate font-sans font-medium text-text-primary">{server.name}</span>
             </div>
             {connectedServerIds?.has(server.id) ? (
-              <Button.Primary size="small" disabled className="shrink-0">
+              <span className="inline-flex shrink-0 items-center gap-1 text-xs text-success-bg">
+                <Icon name="check" size="0.875rem" />
                 Connected
-              </Button.Primary>
+              </span>
             ) : (
               <Button.Primary
                 size="small"
