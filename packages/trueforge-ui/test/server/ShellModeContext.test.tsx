@@ -193,6 +193,32 @@ describe('ShellModeProvider', () => {
     expect(result.current.runtimeKey).toBe(builderRuntimeKey);
   });
 
+  it('starts a fresh agent builder after leaving a saved builder', () => {
+    const { result } = renderHook(() => useShellMode(), { wrapper: wrap() });
+
+    act(() => result.current.openAgentBuilder());
+    act(() =>
+      result.current.bindMutableAgent({
+        agentId: 'saved',
+        agentName: 'saved',
+        agentSpec: { model: { name: 'saved/model' } },
+      }),
+    );
+    expect(result.current.mode).toMatchObject({ agentId: 'saved', agentName: 'saved' });
+
+    act(() => result.current.setLibraryOpen(true));
+    act(() => result.current.openAgentBuilder());
+
+    expect(result.current.mode).toMatchObject({
+      status: 'active',
+      isMutable: true,
+      isCreateAgent: true,
+    });
+    if (result.current.mode.status !== 'active') throw new Error('expected active mode');
+    expect(result.current.mode.agentId).toBeUndefined();
+    expect(result.current.mode.agentName).toBeUndefined();
+  });
+
   it('restores the active agent draft after visiting New Chat', () => {
     const { result } = renderHook(() => useShellMode(), { wrapper: wrap() });
     const agentDraft = {
