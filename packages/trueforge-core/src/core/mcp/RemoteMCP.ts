@@ -288,13 +288,12 @@ export class RemoteMCP implements ToolSource {
 
     const existingSessionId = this.sessionId;
     this.connectPromise = (async (): Promise<MCPServerInitInfo | undefined> => {
-      let connection: RemoteMcpConnection;
+      let connection: RemoteMcpConnection | undefined;
       try {
         await this.closeAndClearConnection();
         connection = await this.tracing.withRemoteMcpToolSpan(
           { method: 'initialize', serverName: this.name, serverId: this.id, serverUrl: this.traceUrl, enabled: true },
           async span => {
-            const attached: { current: RemoteMcpConnection | undefined } = { current: undefined };
             const conn = await connectRemoteMcp({
               url: this.url,
               headers,
@@ -306,7 +305,7 @@ export class RemoteMCP implements ToolSource {
               maxResponseBytes: this.maxResponseBytes,
               signal: this.signal,
               onClose: () => {
-                if (attached.current !== undefined && this._connection === attached.current) {
+                if (connection !== undefined && this._connection === connection) {
                   this.isConnected = false;
                 }
               },
@@ -321,7 +320,6 @@ export class RemoteMCP implements ToolSource {
               },
             });
             span.setOutput(JSON.stringify({ transport: conn.transportType, stateful: conn.sessionId !== null }));
-            attached.current = conn;
             return conn;
           },
         );
