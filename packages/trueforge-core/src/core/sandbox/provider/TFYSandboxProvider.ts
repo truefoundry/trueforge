@@ -232,23 +232,25 @@ export class TFYSandboxProvider implements SandboxProvider {
   async uploadFile(params: { sandboxId: string; remotePath: string; content: Buffer }): Promise<void> {
     validateSandboxOwnedByTenant({ sandboxId: params.sandboxId, tenantName: this.tenantName });
 
-    const query = new URLSearchParams({ sandbox_id: params.sandboxId, path: params.remotePath });
-    const response = await fetch(`${this.serverUrl}/files/upload?${query.toString()}`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/octet-stream' },
-      body: params.content,
-      signal: AbortSignal.timeout(FILE_UPLOAD_TIMEOUT_MS),
-    });
-    if (!response.ok) {
-      throw new Error(
-        `File upload to sandbox failed: Sandbox server returned ${String(response.status)}: ${await response.text()}`,
-      );
-    }
+    return context.with(suppressTracing(context.active()), async () => {
+      const query = new URLSearchParams({ sandbox_id: params.sandboxId, path: params.remotePath });
+      const response = await fetch(`${this.serverUrl}/files/upload?${query.toString()}`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/octet-stream' },
+        body: params.content,
+        signal: AbortSignal.timeout(FILE_UPLOAD_TIMEOUT_MS),
+      });
+      if (!response.ok) {
+        throw new Error(
+          `File upload to sandbox failed: Sandbox server returned ${String(response.status)}: ${await response.text()}`,
+        );
+      }
 
-    const result = (await response.json()) as { success: true } | { success: false; error: string };
-    if (!result.success) {
-      throw new Error(`File upload to sandbox failed: ${result.error}`);
-    }
+      const result = (await response.json()) as { success: true } | { success: false; error: string };
+      if (!result.success) {
+        throw new Error(`File upload to sandbox failed: ${result.error}`);
+      }
+    });
   }
 
   // The TFY sandbox exposes a static, cluster-internal NATS WebSocket URL (no signed URLs).
