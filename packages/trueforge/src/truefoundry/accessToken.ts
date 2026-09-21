@@ -34,8 +34,8 @@ export type TrueFoundryRequestContext = RequestContext & {
   readonly [accessTokenCache]: Map<string, AccessTokens>;
   /**
    * Tenant public base URL from ServiceFoundry session (`controlPlaneURL`).
-   * Set by {@link TrueFoundryAuthenticator}; may be absent on synthetic contexts
-   * (e.g. schedule impersonation). Used as the MCP OAuth FE redirect origin.
+   * Set by TrueFoundryAuthenticator or schedule synthetic context
+   * (requestContextFromCreatedBySubject). Used as the MCP OAuth FE redirect origin.
    */
   public_base_url?: string;
 };
