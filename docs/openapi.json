@@ -712,6 +712,26 @@
         ],
         "type": "string"
       },
+      "CatalogWebSearchProvider": {
+        "additionalProperties": false,
+        "properties": {
+          "mode": {
+            "$ref": "#/components/schemas/ParallelWebSearchMode"
+          },
+          "type": {
+            "description": "Parallel web-search provider.",
+            "enum": [
+              "parallel"
+            ],
+            "type": "string"
+          }
+        },
+        "required": [
+          "type",
+          "mode"
+        ],
+        "type": "object"
+      },
       "CatalogWellKnownModelProvider": {
         "additionalProperties": false,
         "properties": {
@@ -982,6 +1002,22 @@
         ],
         "type": "object"
       },
+      "ConfiguredWebSearchProvider": {
+        "additionalProperties": false,
+        "properties": {
+          "manifest": {
+            "$ref": "#/components/schemas/WebSearchProviderManifest"
+          },
+          "name": {
+            "$ref": "#/components/schemas/ResourceName"
+          }
+        },
+        "required": [
+          "name",
+          "manifest"
+        ],
+        "type": "object"
+      },
       "ContextManagementConfig": {
         "default": {
           "compaction": {
@@ -1149,6 +1185,18 @@
             "type": "boolean"
           }
         },
+        "type": "object"
+      },
+      "CreateWebSearchProviderRequest": {
+        "additionalProperties": false,
+        "properties": {
+          "manifest": {
+            "$ref": "#/components/schemas/WebSearchProviderManifest"
+          }
+        },
+        "required": [
+          "manifest"
+        ],
         "type": "object"
       },
       "CreatedBySubject": {
@@ -1631,6 +1679,31 @@
         "properties": {
           "data": {
             "$ref": "#/components/schemas/Turn"
+          }
+        },
+        "required": [
+          "data"
+        ],
+        "type": "object"
+      },
+      "GetWebSearchProviderCatalogResponse": {
+        "properties": {
+          "data": {
+            "items": {
+              "$ref": "#/components/schemas/CatalogWebSearchProvider"
+            },
+            "type": "array"
+          }
+        },
+        "required": [
+          "data"
+        ],
+        "type": "object"
+      },
+      "GetWebSearchProviderResponse": {
+        "properties": {
+          "data": {
+            "$ref": "#/components/schemas/ConfiguredWebSearchProvider"
           }
         },
         "required": [
@@ -2467,6 +2540,20 @@
         "required": [
           "data",
           "pagination"
+        ],
+        "type": "object"
+      },
+      "ListWebSearchProvidersResponse": {
+        "properties": {
+          "data": {
+            "items": {
+              "$ref": "#/components/schemas/ConfiguredWebSearchProvider"
+            },
+            "type": "array"
+          }
+        },
+        "required": [
+          "data"
         ],
         "type": "object"
       },
@@ -3310,6 +3397,31 @@
           "auth",
           "models",
           "type"
+        ],
+        "type": "object"
+      },
+      "ParallelWebSearchMode": {
+        "description": "Parallel Search mode preset.",
+        "enum": [
+          "turbo",
+          "fast",
+          "basic",
+          "advanced"
+        ],
+        "type": "string"
+      },
+      "ParallelWebSearchProviderAuth": {
+        "additionalProperties": false,
+        "description": "Parallel authentication credentials.",
+        "properties": {
+          "api_key": {
+            "description": "Parallel API key. Responses are redacted; on PUT, a real value sets/rotates and a redacted value keeps the stored key.",
+            "minLength": 1,
+            "type": "string"
+          }
+        },
+        "required": [
+          "api_key"
         ],
         "type": "object"
       },
@@ -5633,6 +5745,18 @@
         ],
         "type": "object"
       },
+      "UpdateWebSearchProviderRequest": {
+        "additionalProperties": false,
+        "properties": {
+          "manifest": {
+            "$ref": "#/components/schemas/WebSearchProviderManifest"
+          }
+        },
+        "required": [
+          "manifest"
+        ],
+        "type": "object"
+      },
       "UserMessage": {
         "properties": {
           "content": {
@@ -5767,6 +5891,30 @@
             "type": "boolean"
           }
         },
+        "type": "object"
+      },
+      "WebSearchProviderManifest": {
+        "additionalProperties": false,
+        "properties": {
+          "auth": {
+            "$ref": "#/components/schemas/ParallelWebSearchProviderAuth"
+          },
+          "mode": {
+            "$ref": "#/components/schemas/ParallelWebSearchMode"
+          },
+          "type": {
+            "description": "Parallel web-search provider.",
+            "enum": [
+              "parallel"
+            ],
+            "type": "string"
+          }
+        },
+        "required": [
+          "type",
+          "auth",
+          "mode"
+        ],
         "type": "object"
       },
       "ZaiModelProvider": {
@@ -7075,6 +7223,42 @@
         "x-fern-sdk-group-name": [
           "catalogs",
           "skills"
+        ],
+        "x-fern-sdk-method-name": "list"
+      }
+    },
+    "/api/v1/catalogs/web-search-providers": {
+      "get": {
+        "description": "Shipped web-search-provider presets (discovery-only). Copy into POST/PUT /settings/web-search-providers to configure.",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/GetWebSearchProviderCatalogResponse"
+                }
+              }
+            },
+            "description": "Shipped web-search-provider presets."
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/RequestErrorResponse"
+                }
+              }
+            },
+            "description": "Not authenticated."
+          }
+        },
+        "summary": "Get the web-search provider catalog",
+        "tags": [
+          "Web Search"
+        ],
+        "x-fern-sdk-group-name": [
+          "catalogs",
+          "webSearchProviders"
         ],
         "x-fern-sdk-method-name": "list"
       }
@@ -9966,6 +10150,170 @@
         "x-fern-sdk-method-name": "create_or_update"
       }
     },
+    "/api/v1/settings/web-search-providers": {
+      "get": {
+        "description": "All configured providers with nested manifests. `auth.api_key` is redacted.",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ListWebSearchProvidersResponse"
+                }
+              }
+            },
+            "description": "All configured web-search providers"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/RequestErrorResponse"
+                }
+              }
+            },
+            "description": "OIDC is configured and the request has no valid session cookie."
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/RequestErrorResponse"
+                }
+              }
+            },
+            "description": "OIDC is configured and the caller is authenticated but not an admin."
+          }
+        },
+        "summary": "List configured web-search providers",
+        "tags": [
+          "Web Search"
+        ],
+        "x-fern-sdk-group-name": [
+          "settings",
+          "webSearchProviders"
+        ],
+        "x-fern-sdk-method-name": "list"
+      },
+      "post": {
+        "description": "Creates a provider. Fails if `name` is already taken. Well-known types use `type` as `name` (one each). `auth.api_key`: real value required; redacted with no stored secret returns 400.",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CreateWebSearchProviderRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "201": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/GetWebSearchProviderResponse"
+                }
+              }
+            },
+            "description": "The created provider"
+          },
+          "400": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/RequestErrorResponse"
+                }
+              }
+            },
+            "description": "Invalid request body, or redacted API key with no stored secret to keep."
+          },
+          "409": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/RequestErrorResponse"
+                }
+              }
+            },
+            "description": "A web-search provider with this name already exists."
+          },
+          "424": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/RequestErrorResponse"
+                }
+              }
+            },
+            "description": "Unsupported operation because web-search providers are managed by an external system"
+          }
+        },
+        "summary": "Create a web-search provider",
+        "tags": [
+          "Web Search"
+        ],
+        "x-fern-sdk-group-name": [
+          "settings",
+          "webSearchProviders"
+        ],
+        "x-fern-sdk-method-name": "create"
+      },
+      "put": {
+        "description": "Create or replace a provider. Well-known types use `type` as `name` (one each). `auth.api_key`: real value sets/rotates; redacted keeps existing (400 if none).",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/UpdateWebSearchProviderRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/GetWebSearchProviderResponse"
+                }
+              }
+            },
+            "description": "The saved provider"
+          },
+          "400": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/RequestErrorResponse"
+                }
+              }
+            },
+            "description": "Invalid request body, or redacted API key with no stored secret to keep."
+          },
+          "424": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/RequestErrorResponse"
+                }
+              }
+            },
+            "description": "Unsupported operation because web-search providers are managed by an external system"
+          }
+        },
+        "summary": "Create or replace a web-search provider",
+        "tags": [
+          "Web Search"
+        ],
+        "x-fern-sdk-group-name": [
+          "settings",
+          "webSearchProviders"
+        ],
+        "x-fern-sdk-method-name": "create_or_update"
+      }
+    },
     "/api/v1/skills": {
       "get": {
         "description": "Configured skills as a slim name/description list for the composer.",
@@ -10076,6 +10424,9 @@
     },
     {
       "name": "Sandboxes"
+    },
+    {
+      "name": "Web Search"
     },
     {
       "name": "Agents"
