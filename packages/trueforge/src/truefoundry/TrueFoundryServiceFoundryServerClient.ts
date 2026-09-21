@@ -51,12 +51,10 @@ const GetSessionUnauthenticatedSchema = z.object({
   user: z.null(),
 });
 
-const GetSessionAuthenticatedSchema = z
-  .object({
-    user: GetSessionUserSchema,
-    controlPlaneURL: z.url(),
-  })
-  .transform(({ user }) => ({ user }));
+const GetSessionAuthenticatedSchema = z.object({
+  user: GetSessionUserSchema,
+  controlPlaneURL: z.url(),
+});
 
 const GetSessionWireSchema = z.union([GetSessionUnauthenticatedSchema, GetSessionAuthenticatedSchema]);
 
@@ -67,11 +65,9 @@ export type GetSessionResponse = z.infer<typeof GetSessionAuthenticatedSchema>;
  * `GET /v1/session?tenantName=` with the service API key — tenant `controlPlaneURL`
  * for MCP OAuth redirect origin. CP URL comes from the query tenant.
  */
-const TenantControlPlaneUrlSchema = z
-  .object({
-    controlPlaneURL: z.url(),
-  })
-  .transform(({ controlPlaneURL }) => controlPlaneURL);
+const TenantControlPlaneUrlSchema = z.object({
+  controlPlaneURL: z.url(),
+});
 
 const ListResponseSchema = z.union([
   z.array(z.unknown()),
@@ -550,11 +546,9 @@ export class TrueFoundryServiceFoundryServerClient {
         method: 'GET',
       });
     } catch (error) {
-      if (error instanceof HTTPException && (error.status === 401 || error.status === 403)) {
-        throw error;
-      }
+      const causeString = error instanceof Error ? error.message : String(error);
       throw new HTTPException(500, {
-        message: 'TrueFoundry ServiceFoundry session request failed',
+        message: `TrueFoundry ServiceFoundry session request failed: ${causeString}`,
         cause: error,
       });
     }
@@ -565,8 +559,9 @@ export class TrueFoundryServiceFoundryServerClient {
         cause: parsed.error,
       });
     }
-    this.#controlPlaneUrlByTenant.set(input.tenantName, parsed.data);
-    return parsed.data;
+    const controlPlaneURL = parsed.data.controlPlaneURL;
+    this.#controlPlaneUrlByTenant.set(input.tenantName, controlPlaneURL);
+    return controlPlaneURL;
   }
 
   async getAgentPermissions(input: {
@@ -709,7 +704,7 @@ export class TrueFoundryServiceFoundryServerClient {
       });
     } catch (error) {
       const timedOut = error instanceof Error && error.name === 'TimeoutError';
-      this.#logger.warn('TrueFoundry ServiceFoundry server request failed', {
+      this.#logger.error('TrueFoundry ServiceFoundry server request failed', {
         url: input.url.href,
         method: input.method,
         durationMs: Date.now() - startedAt,
