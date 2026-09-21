@@ -37,6 +37,8 @@ const DEFAULT_TMP_CLAUDE = '/tmp/claude';
 const DELETE_TARGET = join(DEFAULT_TMP_CLAUDE, 'poc-delete-target.txt');
 const SECRET_CONTENTS = 'host-secret-should-not-leak\n';
 const HOST_HOME = process.env['HOME'];
+const HOST_HOME_SECRET_CONTENTS = 'host-home-secret-should-not-leak\n';
+const HOST_HOME_SECRET = HOST_HOME === undefined ? undefined : join(HOST_HOME, `.tfy-poc-home-secret-${randomUUID()}`);
 const ENV_LEAK_MARKER = 'TFY_SMOKE_HOST_SECRET';
 const ENV_LEAK_VALUE = 'host-env-must-not-reach-sandbox';
 const ENV_INHERIT_MARKER = 'TFY_SMOKE_INHERIT';
@@ -57,11 +59,68 @@ async function prepareHostProbeFiles(): Promise<void> {
   await mkdir(SANDBOXES, { recursive: true, mode: 0o700 });
   await writeFile(DELETE_TARGET, 'delete-me\n', { mode: 0o600 });
   await writeFile(DENY_READ_SECRET, SECRET_CONTENTS, { mode: 0o600 });
+  if (HOST_HOME_SECRET !== undefined) {
+    await writeFile(HOST_HOME_SECRET, HOST_HOME_SECRET_CONTENTS, { mode: 0o600 });
+  }
 }
 
 async function cleanupHostProbeFiles(): Promise<void> {
   await rm(DELETE_TARGET, { force: true });
   await rm(DENY_READ_SECRET, { force: true });
+  if (HOST_HOME_SECRET !== undefined) {
+    await rm(HOST_HOME_SECRET, { force: true });
+  }
+}
+
+/**
+ * Linux SRT proxy bridge must remain reachable without exposing all of host /tmp.
+ * Regression: denyRead ['/'] previously hid SRT's /tmp/claude-http-*.sock,
+ * causing sandboxed HTTPS/pip traffic to fail with ProxyError.
+ */
+async function smokeLinuxSrtProxySocketReadGate(params: {
+  provider: LocalSandboxProvider;
+  sandboxId: string;
+  platform: 'darwin' | 'linux';
+}): Promise<void> {
+  if (params.platform !== 'linux') {
+    return;
+  }
+
+  const httpSocketPath = SandboxManager.getLinuxHttpSocketPath();
+  assert.ok(httpSocketPath, 'Linux SRT HTTP bridge socket path missing after initialization');
+
+  const unrelatedTmpPath = join(tmpdir(), `tfy-srt-unrelated-${newId().slice(0, 10)}`);
+  await writeFile(unrelatedTmpPath, 'host-tmp-must-stay-hidden\n', { mode: 0o600 });
+
+  try {
+    const probe = await params.provider.exec({
+      sandboxId: params.sandboxId,
+      command: [
+        "python3 - <<'PY'",
+        'import os, stat',
+        `socket_path = ${JSON.stringify(httpSocketPath)}`,
+        `sentinel_path = ${JSON.stringify(unrelatedTmpPath)}`,
+        'st = os.stat(socket_path)',
+        'if not stat.S_ISSOCK(st.st_mode):',
+        '  raise SystemExit("SRT HTTP bridge path is not a Unix socket")',
+        'if os.path.exists(sentinel_path):',
+        '  raise SystemExit("unrelated host /tmp path is visible")',
+        'print("srt-http-socket-visible")',
+        'print("unrelated-host-tmp-hidden")',
+        'PY',
+      ].join('\n'),
+    });
+
+    assert.equal(probe.success, true);
+    if (!probe.success) throw new Error('unreachable');
+    assert.equal(probe.response.exitCode, 0, probe.response.result);
+    assert.match(probe.response.result, /srt-http-socket-visible/);
+    assert.match(probe.response.result, /unrelated-host-tmp-hidden/);
+
+    console.log('ok: Linux SRT proxy socket visible while unrelated host /tmp remains hidden');
+  } finally {
+    await rm(unrelatedTmpPath, { force: true });
+  }
 }
 
 function sleep(ms: number): Promise<void> {
@@ -1671,6 +1730,12 @@ async function main(): Promise<void> {
       platform: support.platform,
     });
 
+    await smokeLinuxSrtProxySocketReadGate({
+      provider,
+      sandboxId,
+      platform: support.platform,
+    });
+
     const write = await provider.exec({
       sandboxId,
       command: "printf 'sandbox-ok\\n' > note.txt && cat note.txt",
@@ -1729,7 +1794,22 @@ async function main(): Promise<void> {
     console.log('ok: host secret outside sandbox blocked');
 
     assert.ok(HOST_HOME && HOST_HOME.length > 0);
-    await assertExecFails(provider, sandboxId, `ls ${JSON.stringify(HOST_HOME)}`, 'host home listing denied');
+    assert.ok(HOST_HOME_SECRET !== undefined);
+    await access(HOST_HOME_SECRET);
+
+    const hostHomeSecretRead = await provider.exec({
+      sandboxId,
+      command: `cat ${JSON.stringify(HOST_HOME_SECRET)}`,
+    });
+    assert.equal(hostHomeSecretRead.success, true);
+    if (!hostHomeSecretRead.success) throw new Error('unreachable');
+    assert.notEqual(
+      hostHomeSecretRead.response.exitCode,
+      0,
+      `host home secret unexpectedly readable\n${hostHomeSecretRead.response.result}`,
+    );
+    assert.ok(!hostHomeSecretRead.response.result.includes(HOST_HOME_SECRET_CONTENTS.trim()));
+    console.log('ok: host home secret file blocked');
 
     await smokeHostPackageManagerDenied(provider, sandboxId);
 

@@ -26,7 +26,11 @@ describe('connectorCatalog mappers', () => {
     assert.deepEqual(toHarnessAuth({ type: 'dcr' }), { type: 'dcr' });
     assert.deepEqual(toHarnessAuth({ type: 'header', apiKey: 'sk-test' }), {
       type: 'header',
-      headers: { Authorization: 'sk-test' },
+      headers: { Authorization: 'Bearer sk-test' },
+    });
+    assert.deepEqual(toHarnessAuth({ type: 'header', apiKey: 'Bearer already' }), {
+      type: 'header',
+      headers: { Authorization: 'Bearer already' },
     });
     assert.deepEqual(toHarnessAuth({ type: 'header', apiKey: 'tok', headerName: 'X-Api-Key' }), {
       type: 'header',
