@@ -142,7 +142,6 @@ interface BeginTurnExecutionParams {
   input: TurnInputItem[] | undefined;
   previous_turn_id: string | undefined;
   userRef: string;
-  /** Required so no turn start path can silently drop gateway metadata (see `gatewayTurnHeaders`). */
   turnHeaders: ResolveTurnHeaders;
   deps: BeginTurnExecutionDeps;
 }
