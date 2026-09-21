@@ -73,8 +73,8 @@ function unauthenticatedConnector(id: string): ConnectorBase {
   };
 }
 
-function getPopupUid(): string {
-  const call = authenticateConnector.mock.calls.at(-1);
+function getPopupUid(callIndex = -1): string {
+  const call = authenticateConnector.mock.calls.at(callIndex);
   if (!call) throw new Error('Expected authenticateConnector to be called');
 
   const returnTo = call[0].returnTo;
@@ -106,7 +106,6 @@ describe('useMCPAuth', () => {
 
   afterEach(() => {
     cleanup();
-    vi.useRealTimers();
     vi.restoreAllMocks();
     vi.unstubAllGlobals();
   });
@@ -275,36 +274,38 @@ describe('useMCPAuth', () => {
     expect(showError).not.toHaveBeenCalled();
   });
 
-  it('reports failure when the authorization popup is closed', async () => {
-    vi.useFakeTimers();
+  it('keeps simultaneous server authorization attempts independent', async () => {
     authenticateConnector.mockResolvedValue({
       authorization_endpoint: 'https://auth.example.test/authorize',
     });
-    let popupClosed = false;
-    const popup = new Proxy(window, {
-      get(target, property, receiver) {
-        return property === 'closed' ? popupClosed : Reflect.get(target, property, receiver);
-      },
-    });
-    vi.spyOn(window, 'open').mockReturnValue(popup);
+    getConnector.mockImplementation(async ({ id }) => authenticatedConnector(id));
+    vi.spyOn(window, 'open').mockReturnValue(window);
     vi.spyOn(window, 'focus').mockImplementation(() => {});
     vi.spyOn(window, 'close').mockImplementation(() => {});
-    const callback = vi.fn();
+    const firstCallback = vi.fn();
+    const secondCallback = vi.fn();
     const { result } = renderHook(() => useMCPAuth());
 
     await act(async () => {
-      await result.current.handleAuthorize('connector-2', callback);
+      await Promise.all([
+        result.current.handleAuthorize('connector-1', firstCallback),
+        result.current.handleAuthorize('connector-2', secondCallback),
+      ]);
     });
 
-    popupClosed = true;
+    expect(channels).toHaveLength(2);
     await act(async () => {
-      await vi.advanceTimersByTimeAsync(500);
+      channels[1]?.emit({ popupUid: getPopupUid(1), isSuccess: true });
     });
+    expect(secondCallback).toHaveBeenCalledWith(true);
+    expect(firstCallback).not.toHaveBeenCalled();
 
-    expect(callback).toHaveBeenCalledOnce();
-    expect(callback).toHaveBeenCalledWith(false);
-    expect(getConnector).not.toHaveBeenCalled();
-    expect(channels[0]?.close).toHaveBeenCalledOnce();
+    await act(async () => {
+      channels[0]?.emit({ popupUid: getPopupUid(0), isSuccess: true });
+    });
+    expect(firstCallback).toHaveBeenCalledWith(true);
+    expect(getConnector).toHaveBeenCalledWith({ id: 'connector-1' });
+    expect(getConnector).toHaveBeenCalledWith({ id: 'connector-2' });
   });
 
   it('reports a blocked popup and completes authorization as failed', async () => {

@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 
 import { useToasterOptional } from '../containers/ToasterContainer.js';
 import { useCatalogServer, useOptionalServer } from '../server/ServerContext.js';
@@ -17,7 +17,6 @@ export type UseMCPAuthOptions = {
 };
 
 const generatePopupUid = () => `mcp-oauth-${Date.now().toString(36)}-${Math.random().toString(36).slice(2)}`;
-const POPUP_CLOSED_CHECK_INTERVAL_MS = 500;
 
 const isPopupMessage = (value: unknown): value is McpAuthPopupMessage => {
   if (typeof value !== 'object' || value === null) return false;
@@ -32,30 +31,25 @@ const isPopupMessage = (value: unknown): value is McpAuthPopupMessage => {
  * 3. Success is re-read from the connector before `callback(true)` — the popup only proves the redirect ran, not that
  *    tokens were stored.
  *
- * Every callback is gated on an authorize generation, so a late popup result cannot report into an unmounted caller or
- * a newer authorize attempt.
+ * Each attempt has its own popup ID and listener, so multiple servers can be authorized independently.
  */
 export const useMCPAuth = ({ callbackPath }: UseMCPAuthOptions = {}) => {
   const { connectorCatalog } = useCatalogServer();
   const server = useOptionalServer();
   const toaster = useToasterOptional();
-  const [isOAuthLoading, setIsOAuthLoading] = useState(false);
-  const popupUid = useMemo(() => generatePopupUid(), []);
-  const listenerCleanupRef = useRef<(() => void) | null>(null);
-  const authorizeGenerationRef = useRef(0);
+  const [loadingCount, setLoadingCount] = useState(0);
+  const activeAttemptsRef = useRef(new Set<object>());
+  const popupCleanupRef = useRef(new Set<() => void>());
 
-  const clearPopupListener = useCallback(() => {
-    listenerCleanupRef.current?.();
-    listenerCleanupRef.current = null;
+  useEffect(() => {
+    const activeAttempts = activeAttemptsRef.current;
+    const popupCleanups = popupCleanupRef.current;
+    return () => {
+      activeAttempts.clear();
+      for (const cleanup of popupCleanups) cleanup();
+      popupCleanups.clear();
+    };
   }, []);
-
-  useEffect(
-    () => () => {
-      authorizeGenerationRef.current += 1;
-      clearPopupListener();
-    },
-    [clearPopupListener],
-  );
 
   // Check the user's MCP authentication status with `getMcpConnector`; `getConnector` is only available to admins.
   const loadConnector = useCallback(
@@ -72,21 +66,21 @@ export const useMCPAuth = ({ callbackPath }: UseMCPAuthOptions = {}) => {
     async ({
       integrationId,
       callback,
-      generation,
+      attempt,
     }: {
       integrationId: string;
       callback: McpAuthCallback;
-      generation: number;
+      attempt: object;
     }) => {
       try {
         const connector = await loadConnector(integrationId);
-        if (authorizeGenerationRef.current !== generation) return;
+        if (!activeAttemptsRef.current.has(attempt)) return;
         if (!connector.authenticated) {
           throw new Error('The MCP server is not authenticated yet. Please try again.');
         }
         callback(true);
       } catch (error: unknown) {
-        if (authorizeGenerationRef.current !== generation) return;
+        if (!activeAttemptsRef.current.has(attempt)) return;
         toaster?.showError(error);
         callback(false);
       }
@@ -99,59 +93,58 @@ export const useMCPAuth = ({ callbackPath }: UseMCPAuthOptions = {}) => {
       authorizationEndpoint,
       integrationId,
       callback,
-      generation,
+      attempt,
+      popupUid,
     }: {
       authorizationEndpoint: string;
       integrationId: string;
       callback: McpAuthCallback;
-      generation: number;
+      attempt: object;
+      popupUid: string;
     }) => {
-      clearPopupListener();
-
       const channel = new BroadcastChannel(MCP_AUTH_POPUP_CHANNEL);
       let popup: Window | null = null;
-      const popupClosedTimer: { current?: number } = {};
       const cleanup = () => {
-        if (popupClosedTimer.current !== undefined) window.clearInterval(popupClosedTimer.current);
         channel.close();
         popup?.close();
+        popupCleanupRef.current.delete(cleanup);
       };
 
       channel.onmessage = (event: MessageEvent<unknown>) => {
         if (!isPopupMessage(event.data) || event.data.popupUid !== popupUid) return;
         const { isSuccess } = event.data;
-        clearPopupListener();
+        cleanup();
         if (!isSuccess) {
-          if (authorizeGenerationRef.current === generation) callback(false);
+          if (activeAttemptsRef.current.delete(attempt)) callback(false);
           return;
         }
-        void reportVerifiedSuccess({ integrationId, callback, generation });
+        void reportVerifiedSuccess({ integrationId, callback, attempt }).finally(() => {
+          activeAttemptsRef.current.delete(attempt);
+        });
       };
-      listenerCleanupRef.current = cleanup;
+      popupCleanupRef.current.add(cleanup);
 
       popup = window.open(authorizationEndpoint, '_blank', 'popup=true');
       if (!popup) {
-        clearPopupListener();
+        cleanup();
         throw new Error('Popup blocked. Please allow pop-ups to authorize the MCP server.');
       }
 
       popup.focus();
-      popupClosedTimer.current = window.setInterval(() => {
-        if (!popup?.closed) return;
-        clearPopupListener();
-        if (authorizeGenerationRef.current === generation) callback(false);
-      }, POPUP_CLOSED_CHECK_INTERVAL_MS);
     },
-    [clearPopupListener, popupUid, reportVerifiedSuccess],
+    [reportVerifiedSuccess],
   );
 
   const handleAuthorize = useCallback(
     async (integrationId: string, callback: McpAuthCallback) => {
       if (!integrationId) return;
-      const generation = ++authorizeGenerationRef.current;
+      const attempt = {};
+      const popupUid = generatePopupUid();
+      activeAttemptsRef.current.add(attempt);
+      setLoadingCount(count => count + 1);
+      let popupOpened = false;
 
       try {
-        setIsOAuthLoading(true);
         const callbackUrl = callbackPath
           ? new URL(callbackPath, window.location.origin)
           : new URL(window.location.href);
@@ -163,13 +156,13 @@ export const useMCPAuth = ({ callbackPath }: UseMCPAuthOptions = {}) => {
           id: integrationId,
           returnTo: `${callbackUrl.pathname}${callbackUrl.search}`,
         });
-        if (authorizeGenerationRef.current !== generation) return;
+        if (!activeAttemptsRef.current.has(attempt)) return;
 
         if (
           ('status' in result && result.status?.toUpperCase() === 'AUTHENTICATED') ||
           ('authenticated' in result && result.authenticated)
         ) {
-          await reportVerifiedSuccess({ integrationId, callback, generation });
+          await reportVerifiedSuccess({ integrationId, callback, attempt });
           return;
         }
 
@@ -178,20 +171,22 @@ export const useMCPAuth = ({ callbackPath }: UseMCPAuthOptions = {}) => {
           throw new Error('The MCP server did not return an authorization URL.');
         }
 
-        openAuthPopup({ authorizationEndpoint, integrationId, callback, generation });
+        openAuthPopup({ authorizationEndpoint, integrationId, callback, attempt, popupUid });
+        popupOpened = true;
       } catch (error: unknown) {
-        if (authorizeGenerationRef.current !== generation) return;
+        if (!activeAttemptsRef.current.has(attempt)) return;
         toaster?.showError(error);
         callback(false);
       } finally {
-        if (authorizeGenerationRef.current === generation) setIsOAuthLoading(false);
+        if (activeAttemptsRef.current.has(attempt)) setLoadingCount(count => count - 1);
+        if (!popupOpened) activeAttemptsRef.current.delete(attempt);
       }
     },
-    [callbackPath, connectorCatalog, openAuthPopup, popupUid, reportVerifiedSuccess, toaster],
+    [callbackPath, connectorCatalog, openAuthPopup, reportVerifiedSuccess, toaster],
   );
 
   return {
     handleAuthorize,
-    isOAuthLoading,
+    isOAuthLoading: loadingCount > 0,
   };
 };
