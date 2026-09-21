@@ -1,7 +1,7 @@
 'use client';
 
 import { useThreadIsRunning } from '@assistant-ui/core/react';
-import { useTrueFoundryToolResponses } from '@truefoundry/assistant-ui-runtime';
+import { useTrueForgeToolResponses } from '@truefoundry/assistant-ui-runtime';
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import {
   ASK_USER_CUSTOM_OPTION,
@@ -15,7 +15,7 @@ const EMPTY_ANSWER: AskUserAnswerDraft = { radioValue: '', custom: '' };
 
 export function AskUserContainer({ disabled = false }: { disabled?: boolean }) {
   const AskUserPrompt = useSlot('AskUserPrompt');
-  const { pending, respond } = useTrueFoundryToolResponses();
+  const { pending, respond } = useTrueForgeToolResponses();
   const isRunning = useThreadIsRunning();
   const item = pending[0];
 

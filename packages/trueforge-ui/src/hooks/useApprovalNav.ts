@@ -1,6 +1,6 @@
 'use client';
 
-import { useTrueFoundryApprovals } from '@truefoundry/assistant-ui-runtime';
+import { useTrueForgeApprovals } from '@truefoundry/assistant-ui-runtime';
 import { useCallback, useEffect, useRef, useState } from 'react';
 
 import { useOptionalApprovalFocus } from '../containers/approvalFocus.js';
@@ -23,7 +23,7 @@ export type ApprovalNavState = {
  * index so the next pending item fills the slot; chevrons do not wrap.
  */
 export function useApprovalNav(): ApprovalNavState {
-  const { pending } = useTrueFoundryApprovals();
+  const { pending } = useTrueForgeApprovals();
   const focusApi = useOptionalApprovalFocus();
   const [selection, setSelection] = useState<{ approvalId: string | null; index: number }>({
     approvalId: null,

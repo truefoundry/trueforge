@@ -1,6 +1,6 @@
 'use client';
 
-import { useTrueFoundryAgentSpec, useTrueFoundryUpdateAgentSpec } from '@truefoundry/assistant-ui-runtime';
+import { useTrueForgeAgentSpec, useTrueForgeUpdateAgentSpec } from '@truefoundry/assistant-ui-runtime';
 import { useEffect, useId, useRef, useState } from 'react';
 
 import { Icon } from '../../icons/Icon.js';
@@ -22,8 +22,8 @@ export type DraftModelSelectorProps = {
 
 export function DraftModelSelector({ disabled, isRunning }: DraftModelSelectorProps) {
   const { models, loading, ensureLoaded } = useDraftCatalog();
-  const { agentSpec } = useTrueFoundryAgentSpec();
-  const updateAgentSpec = useTrueFoundryUpdateAgentSpec();
+  const { agentSpec } = useTrueForgeAgentSpec();
+  const updateAgentSpec = useTrueForgeUpdateAgentSpec();
   const catalog = useOptionalCatalogServer();
   const shell = useOptionalShellMode();
   const [open, setOpen] = useState(false);

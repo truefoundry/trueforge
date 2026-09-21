@@ -17,7 +17,7 @@ import type {
   SearchAgentsParams,
 } from './types.js';
 
-export type CreateTrueFoundryServerOptions<
+export type CreateTrueForgeServerOptions<
   TSpec extends AgentSpec = AgentSpec,
   TModel extends ModelSelection = ModelSelection,
   TSkill extends AgentSkill = AgentSkill,
@@ -54,7 +54,7 @@ export type CreateTrueFoundryServerOptions<
   permissions?: TPermissions;
 };
 
-export type TrueFoundryServer<
+export type TrueForgeServer<
   TSpec extends AgentSpec = AgentSpec,
   TModel extends ModelSelection = ModelSelection,
   TSkill extends AgentSkill = AgentSkill,
@@ -81,7 +81,7 @@ export type TrueFoundryServer<
  * and an optional settings `catalog`.
  * Gateway wiring lives in the host (or `@truefoundry/agent-server-adapter`).
  */
-export function createTrueFoundryServer<
+export function createTrueForgeServer<
   TSpec extends AgentSpec = AgentSpec,
   TModel extends ModelSelection = ModelSelection,
   TSkill extends AgentSkill = AgentSkill,
@@ -95,7 +95,7 @@ export function createTrueFoundryServer<
   TSchedules extends ScheduleServer = ScheduleServer,
   TPermissions extends PermissionsServer = PermissionsServer,
 >(
-  opts: CreateTrueFoundryServerOptions<
+  opts: CreateTrueForgeServerOptions<
     TSpec,
     TModel,
     TSkill,
@@ -109,7 +109,7 @@ export function createTrueFoundryServer<
     TSchedules,
     TPermissions
   >,
-): TrueFoundryServer<
+): TrueForgeServer<
   TSpec,
   TModel,
   TSkill,
@@ -137,11 +137,11 @@ export function createTrueFoundryServer<
         await opts.deleteAgent(req);
         return;
       }
-      throw new Error('deleteAgent is host-owned. Pass deleteAgent to createTrueFoundryServer.');
+      throw new Error('deleteAgent is host-owned. Pass deleteAgent to createTrueForgeServer.');
     },
   };
 
-  const server: TrueFoundryServer<
+  const server: TrueForgeServer<
     TSpec,
     TModel,
     TSkill,

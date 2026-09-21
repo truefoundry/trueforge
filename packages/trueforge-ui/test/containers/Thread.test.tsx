@@ -8,10 +8,10 @@ import { SlotsProvider } from '@/theme/SlotsProvider.js';
 import { RuntimeHarness } from './RuntimeHarness.js';
 
 vi.mock('@truefoundry/assistant-ui-runtime', () => ({
-  useTrueFoundryCancel: () => vi.fn(),
-  useTrueFoundryToolResponses: () => ({ pending: [] }),
-  useTrueFoundryApprovals: () => ({ pending: [] }),
-  useTrueFoundryAgentSpec: () => ({ agentSpec: { model: { name: 'test/model' } } }),
+  useTrueForgeCancel: () => vi.fn(),
+  useTrueForgeToolResponses: () => ({ pending: [] }),
+  useTrueForgeApprovals: () => ({ pending: [] }),
+  useTrueForgeAgentSpec: () => ({ agentSpec: { model: { name: 'test/model' } } }),
 }));
 
 function WelcomeOverride({ heading }: WelcomeScreenProps) {

@@ -6,7 +6,7 @@ const useApprovals = vi.hoisted(() => vi.fn());
 const focus = vi.hoisted(() => vi.fn());
 
 vi.mock('@truefoundry/assistant-ui-runtime', () => ({
-  useTrueFoundryApprovals: useApprovals,
+  useTrueForgeApprovals: useApprovals,
 }));
 
 vi.mock('@/containers/approvalFocus.js', () => ({

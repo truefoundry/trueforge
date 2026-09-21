@@ -11,7 +11,7 @@ import { RuntimeHarness } from '../containers/RuntimeHarness.js';
 import { createMockAgentUIServer } from '../server/mockServer.js';
 
 vi.mock('@truefoundry/assistant-ui-runtime', () => ({
-  useTrueFoundryAgentSpec: () => ({
+  useTrueForgeAgentSpec: () => ({
     agentSpec: {
       model: { name: 'openai-main/gpt-4.1' },
     },

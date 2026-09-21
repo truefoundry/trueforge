@@ -13,7 +13,7 @@ import { ShellModeProvider, useShellMode } from '@/server/ShellModeContext.js';
 import { RuntimeHarness } from '../containers/RuntimeHarness.js';
 
 vi.mock('@truefoundry/assistant-ui-runtime', () => ({
-  useTrueFoundryAgentSpec: () => ({
+  useTrueForgeAgentSpec: () => ({
     agentSpec: {},
   }),
 }));

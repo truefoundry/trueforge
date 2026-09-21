@@ -2,19 +2,19 @@
 import { useExternalStoreRuntime, type ThreadMessageLike } from '@assistant-ui/react';
 import { act, render, screen } from '@testing-library/react';
 import {
-  trueFoundryAttachmentAdapter,
-  type TrueFoundryAgentConfig,
-  type UseTrueFoundryAgentRuntimeOptions,
+  trueForgeAttachmentAdapter,
+  type TrueForgeAgentConfig,
+  type UseTrueForgeAgentRuntimeOptions,
 } from '@truefoundry/assistant-ui-runtime';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { createMockAgentUIServer } from '../server/mockServer.js';
 
-const runtimeSpy = vi.hoisted(() => vi.fn<(options: UseTrueFoundryAgentRuntimeOptions) => void>());
+const runtimeSpy = vi.hoisted(() => vi.fn<(options: UseTrueForgeAgentRuntimeOptions) => void>());
 const defaultAttachmentAdapter = vi.hoisted(() => ({}));
 
 vi.mock('@truefoundry/assistant-ui-runtime', () => ({
-  trueFoundryAttachmentAdapter: defaultAttachmentAdapter,
-  useTrueFoundryAgentRuntime: (options: UseTrueFoundryAgentRuntimeOptions) => {
+  trueForgeAttachmentAdapter: defaultAttachmentAdapter,
+  useTrueForgeAgentRuntime: (options: UseTrueForgeAgentRuntimeOptions) => {
     runtimeSpy(options);
     // Called from ChatRuntimeScope (a React component), so hooks are valid here.
     return useExternalStoreRuntime<ThreadMessageLike>({
@@ -26,9 +26,9 @@ vi.mock('@truefoundry/assistant-ui-runtime', () => ({
   },
 }));
 
-import { TrueFoundryChatProvider } from '@/containers/TrueFoundryChatProvider.js';
+import { TrueForgeChatProvider } from '@/containers/TrueForgeChatProvider.js';
 
-describe('TrueFoundryChatProvider', () => {
+describe('TrueForgeChatProvider', () => {
   beforeEach(() => {
     runtimeSpy.mockClear();
   });
@@ -38,9 +38,9 @@ describe('TrueFoundryChatProvider', () => {
     const onError = vi.fn();
 
     render(
-      <TrueFoundryChatProvider server={server} agentName="my-agent" initialSessionId="session-123" onError={onError}>
+      <TrueForgeChatProvider server={server} agentName="my-agent" initialSessionId="session-123" onError={onError}>
         <div>chat-child</div>
-      </TrueFoundryChatProvider>,
+      </TrueForgeChatProvider>,
     );
 
     expect(screen.getByText('chat-child')).toBeInTheDocument();
@@ -86,9 +86,9 @@ describe('TrueFoundryChatProvider', () => {
     }));
 
     render(
-      <TrueFoundryChatProvider server={createMockAgentUIServer({ listSessions })} agentName="my-agent">
+      <TrueForgeChatProvider server={createMockAgentUIServer({ listSessions })} agentName="my-agent">
         <div>chat-child</div>
-      </TrueFoundryChatProvider>,
+      </TrueForgeChatProvider>,
     );
 
     const runtimeServer = runtimeSpy.mock.calls[0]?.[0]?.server;
@@ -109,9 +109,9 @@ describe('TrueFoundryChatProvider', () => {
       updatedAt: '2026-09-10T00:00:00.000Z',
     }));
     render(
-      <TrueFoundryChatProvider server={createMockAgentUIServer({ createSession })} agentName="my-agent">
+      <TrueForgeChatProvider server={createMockAgentUIServer({ createSession })} agentName="my-agent">
         <div>chat-child</div>
-      </TrueFoundryChatProvider>,
+      </TrueForgeChatProvider>,
     );
     const runtimeServer = runtimeSpy.mock.calls[0]?.[0]?.server;
     if (runtimeServer === undefined) throw new Error('Expected runtime server');
@@ -126,31 +126,31 @@ describe('TrueFoundryChatProvider', () => {
   });
 
   it('forwards a discriminated agent configuration', () => {
-    const agent: TrueFoundryAgentConfig = {
+    const agent: TrueForgeAgentConfig = {
       mode: 'named',
       agentName: 'configured-agent',
     };
 
     render(
-      <TrueFoundryChatProvider server={createMockAgentUIServer()} agent={agent}>
+      <TrueForgeChatProvider server={createMockAgentUIServer()} agent={agent}>
         <div>chat-child</div>
-      </TrueFoundryChatProvider>,
+      </TrueForgeChatProvider>,
     );
 
     expect(runtimeSpy).toHaveBeenCalledWith(expect.objectContaining({ agent }));
   });
 
   it('preserves a consumer-provided attachment adapter', () => {
-    const attachmentAdapter = { ...trueFoundryAttachmentAdapter };
+    const attachmentAdapter = { ...trueForgeAttachmentAdapter };
 
     render(
-      <TrueFoundryChatProvider
+      <TrueForgeChatProvider
         server={createMockAgentUIServer()}
         agentName="my-agent"
         adapters={{ attachments: attachmentAdapter }}
       >
         <div>chat-child</div>
-      </TrueFoundryChatProvider>,
+      </TrueForgeChatProvider>,
     );
 
     expect(runtimeSpy).toHaveBeenCalledWith(
@@ -162,9 +162,9 @@ describe('TrueFoundryChatProvider', () => {
 
   it('uses the toaster as the default runtime error handler', async () => {
     render(
-      <TrueFoundryChatProvider server={createMockAgentUIServer()} agentName="my-agent">
+      <TrueForgeChatProvider server={createMockAgentUIServer()} agentName="my-agent">
         <div>chat-child</div>
-      </TrueFoundryChatProvider>,
+      </TrueForgeChatProvider>,
     );
     const options = runtimeSpy.mock.calls[0]?.[0];
     if (options?.onError === undefined) {

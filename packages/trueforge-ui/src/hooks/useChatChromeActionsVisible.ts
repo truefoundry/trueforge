@@ -1,6 +1,6 @@
 'use client';
 
-import { useTrueFoundryAgentSpec } from '@truefoundry/assistant-ui-runtime';
+import { useTrueForgeAgentSpec } from '@truefoundry/assistant-ui-runtime';
 
 import { useAuiState } from '../assistant-ui.js';
 import { useOptionalShellMode } from '../server/ShellModeContext.js';
@@ -45,7 +45,7 @@ export function useNamedAgentHeaderVisible(): boolean {
 // Mutable New Agent / Edit with a selected model — drives Save Agent + header chrome.
 export function useSaveAgentVisible(): boolean {
   const shell = useOptionalShellMode();
-  const { agentSpec } = useTrueFoundryAgentSpec();
+  const { agentSpec } = useTrueForgeAgentSpec();
   if (shell == null || shell.mode.status !== 'active' || !shell.mode.isMutable || !shell.mode.isCreateAgent) {
     return false;
   }

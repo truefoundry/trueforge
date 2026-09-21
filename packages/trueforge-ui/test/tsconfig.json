@@ -7,7 +7,7 @@
     "moduleResolution": "Bundler",
     "customConditions": ["trueforge-dev"],
     "rootDir": "..",
-    "types": ["node", "vitest/globals"]
+    "types": ["node", "vitest/globals", "@testing-library/jest-dom/vitest"]
   },
   "include": ["../src", ".", "../vitest.config.ts"]
 }

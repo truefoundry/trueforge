@@ -2,10 +2,10 @@
 
 import { AssistantRuntimeProvider, useAuiState } from '@assistant-ui/react';
 import {
-  trueFoundryAttachmentAdapter,
-  useTrueFoundryAgentRuntime,
-  type TrueFoundryAgentConfig,
-  type UseTrueFoundryAgentRuntimeOptions,
+  trueForgeAttachmentAdapter,
+  useTrueForgeAgentRuntime,
+  type TrueForgeAgentConfig,
+  type UseTrueForgeAgentRuntimeOptions,
 } from '@truefoundry/assistant-ui-runtime';
 import { useCallback, useMemo, type ReactNode } from 'react';
 
@@ -15,7 +15,7 @@ import { ActiveSessionPermissionsProvider } from '../hooks/useResourcePermission
 import type { AgentUIServer } from '../server/types.js';
 import { ToasterProvider, useToaster } from './ToasterContainer.js';
 
-type RuntimeAdapters = NonNullable<UseTrueFoundryAgentRuntimeOptions['adapters']>;
+type RuntimeAdapters = NonNullable<UseTrueForgeAgentRuntimeOptions['adapters']>;
 
 function ActiveSessionPermissionScope({
   locallyCreatedSessionIds,
@@ -59,14 +59,14 @@ function runtimeServer({
   };
 }
 
-export type TrueFoundryChatProviderProps = {
+export type TrueForgeChatProviderProps = {
   server: AgentUIServer;
   initialSessionId?: string;
   adapters?: RuntimeAdapters;
   onError?: (error: unknown) => void;
   children: ReactNode;
   /** Discriminated agent source. Prefer over legacy `agentName`. */
-  agent?: TrueFoundryAgentConfig;
+  agent?: TrueForgeAgentConfig;
   /** Legacy named-agent shorthand. Prefer `agent: { mode: "named", agentName }`. */
   agentName?: string;
   /** Forwarded to `listSessions({ agentId })` for history filtering. */
@@ -84,7 +84,7 @@ function ChatRuntimeScope({
   children,
 }: {
   server: AgentUIServer;
-  agent?: TrueFoundryAgentConfig;
+  agent?: TrueForgeAgentConfig;
   agentName?: string;
   listSessionsAgentId?: string;
   initialSessionId?: string;
@@ -110,7 +110,7 @@ function ChatRuntimeScope({
     [reportError],
   );
 
-  const runtime = useTrueFoundryAgentRuntime({
+  const runtime = useTrueForgeAgentRuntime({
     server: historyServer as never,
     agent,
     agentName,
@@ -120,7 +120,7 @@ function ChatRuntimeScope({
     onError: resolvedOnError,
     adapters: {
       ...adapters,
-      attachments: adapters?.attachments ?? trueFoundryAttachmentAdapter,
+      attachments: adapters?.attachments ?? trueForgeAttachmentAdapter,
     },
   });
 
@@ -134,10 +134,10 @@ function ChatRuntimeScope({
 }
 
 /**
- * Chat shell: wires `useTrueFoundryAgentRuntime` from `server` and provides
+ * Chat shell: wires `useTrueForgeAgentRuntime` from `server` and provides
  * assistant-ui + error toasts.
  */
-export function TrueFoundryChatProvider(props: TrueFoundryChatProviderProps) {
+export function TrueForgeChatProvider(props: TrueForgeChatProviderProps) {
   const { server, initialSessionId, adapters, onError, children, agent, agentName, listSessionsAgentId } = props;
 
   const stableServer = useMemo(() => server, [server]);

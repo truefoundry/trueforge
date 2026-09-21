@@ -13,8 +13,8 @@ let agentSpec: AgentSpec | undefined;
 const updateAgentSpec = vi.fn();
 
 vi.mock('@truefoundry/assistant-ui-runtime', () => ({
-  useTrueFoundryAgentSpec: () => ({ agentSpec }),
-  useTrueFoundryUpdateAgentSpec: () => updateAgentSpec,
+  useTrueForgeAgentSpec: () => ({ agentSpec }),
+  useTrueForgeUpdateAgentSpec: () => updateAgentSpec,
 }));
 
 const models: ModelSelection[] = [

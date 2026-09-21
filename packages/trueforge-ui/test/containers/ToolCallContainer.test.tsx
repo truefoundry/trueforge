@@ -19,7 +19,7 @@ vi.mock('@truefoundry/assistant-ui-runtime', async importOriginal => {
   const actual = await importOriginal<typeof import('@truefoundry/assistant-ui-runtime')>();
   return {
     ...actual,
-    useTrueFoundryRespondToToolApproval: () => respondToNestedApproval,
+    useTrueForgeRespondToToolApproval: () => respondToNestedApproval,
   };
 });
 

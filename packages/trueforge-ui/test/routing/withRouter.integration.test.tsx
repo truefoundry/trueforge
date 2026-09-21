@@ -13,8 +13,8 @@ const threadState = {
 };
 
 vi.mock('@truefoundry/assistant-ui-runtime', () => ({
-  trueFoundryAttachmentAdapter: {},
-  useTrueFoundryAgentRuntime: () => {
+  trueForgeAttachmentAdapter: {},
+  useTrueForgeAgentRuntime: () => {
     const [threadId, setThreadId] = useState(threadState.threadId);
     threadState.setThreadId = setThreadId;
     return useExternalStoreRuntime<ThreadMessageLike>({
@@ -36,22 +36,22 @@ vi.mock('@truefoundry/assistant-ui-runtime', () => ({
       },
     });
   },
-  useTrueFoundryCancel: () => vi.fn(),
-  useTrueFoundryToolResponses: () => ({ pending: [] }),
-  useTrueFoundryApprovals: () => ({ pending: [] }),
-  useTrueFoundryRespondToToolApproval: () => vi.fn(),
-  useTrueFoundryMcpAuth: () => ({ pending: [], connect: vi.fn(), continue: vi.fn() }),
-  useTrueFoundryHistoryPagination: () => ({
+  useTrueForgeCancel: () => vi.fn(),
+  useTrueForgeToolResponses: () => ({ pending: [] }),
+  useTrueForgeApprovals: () => ({ pending: [] }),
+  useTrueForgeRespondToToolApproval: () => vi.fn(),
+  useTrueForgeMcpAuth: () => ({ pending: [], connect: vi.fn(), continue: vi.fn() }),
+  useTrueForgeHistoryPagination: () => ({
     isLoadingMore: false,
     hasMore: false,
     loadMore: vi.fn(),
   }),
-  useTrueFoundryAgentSpec: () => ({
+  useTrueForgeAgentSpec: () => ({
     agentSpec: { model: { name: 'openai-main/gpt-4.1' } },
   }),
-  useTrueFoundryFlushAgentSpec: () => async () => {},
-  useTrueFoundryAdoptAgentSpec: () => vi.fn(),
-  useTrueFoundryUpdateAgentSpec: () => vi.fn(),
+  useTrueForgeFlushAgentSpec: () => async () => {},
+  useTrueForgeAdoptAgentSpec: () => vi.fn(),
+  useTrueForgeUpdateAgentSpec: () => vi.fn(),
 }));
 
 import { CompactLayoutProvider } from '@/atoms/lib/CompactLayoutContext.js';

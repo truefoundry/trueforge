@@ -50,7 +50,7 @@ export function toUiSkill(skill: TrueForgeApi.ConfiguredSkill, catalogNames: Rea
   return base;
 }
 
-/** Settings skill-catalog port for `createTrueFoundryServer`. Delete omitted (no BE route). */
+/** Settings skill-catalog port for `createTrueForgeServer`. Delete omitted (no BE route). */
 export function createSkillCatalog(client: TrueForge): SkillCatalogServer<UiSkill> {
   return {
     getSkillCatalog: async () => {

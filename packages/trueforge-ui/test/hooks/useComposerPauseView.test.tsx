@@ -12,8 +12,8 @@ vi.mock('@assistant-ui/react', () => ({
 }));
 
 vi.mock('@truefoundry/assistant-ui-runtime', () => ({
-  useTrueFoundryToolResponses: useToolResponses,
-  useTrueFoundryApprovals: useApprovals,
+  useTrueForgeToolResponses: useToolResponses,
+  useTrueForgeApprovals: useApprovals,
 }));
 
 import { threadHasPendingMcpAuth, type ThreadPauseState, useComposerPauseView } from '@/hooks/useComposerPauseView.js';

@@ -1,7 +1,7 @@
 'use client';
 
 import { useAuiState } from '@assistant-ui/react';
-import { useTrueFoundryApprovals, useTrueFoundryToolResponses } from '@truefoundry/assistant-ui-runtime';
+import { useTrueForgeApprovals, useTrueForgeToolResponses } from '@truefoundry/assistant-ui-runtime';
 
 import { useOptionalCustomActionRenderers } from '../server/CustomActionRenderersContext.js';
 
@@ -34,8 +34,8 @@ export type ComposerPauseView =
 /** Shared composer pause detection for default and custom composer containers. */
 export function useComposerPauseView(): ComposerPauseView {
   const mcpPending = useAuiState(threadHasPendingMcpAuth);
-  const { pending: toolResponsesPending } = useTrueFoundryToolResponses();
-  const { pending: approvalsPending } = useTrueFoundryApprovals();
+  const { pending: toolResponsesPending } = useTrueForgeToolResponses();
+  const { pending: approvalsPending } = useTrueForgeApprovals();
   const customActionRenderers = useOptionalCustomActionRenderers();
 
   if (mcpPending) {

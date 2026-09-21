@@ -156,9 +156,9 @@ interface ToolCall {
 }
 
 type ToolInfo =
-  | { type: "truefoundry-system"; name: string }
+  | { type: "trueforge-system"; name: string }
   | { type: "mcp"; serverId: string; serverName: string; name: string }
-  | { type: string; name?: string; [key: string]: unknown };
+  | { type: string; name?: string };
 ```
 
 `function.arguments` is a JSON **string**, not an object. `toolInfo` drives presentation: the

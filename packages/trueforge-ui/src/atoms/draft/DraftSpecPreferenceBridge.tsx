@@ -1,6 +1,6 @@
 'use client';
 
-import { useTrueFoundryAgentSpec, useTrueFoundryUpdateAgentSpec } from '@truefoundry/assistant-ui-runtime';
+import { useTrueForgeAgentSpec, useTrueForgeUpdateAgentSpec } from '@truefoundry/assistant-ui-runtime';
 import { useEffect } from 'react';
 
 import {
@@ -135,8 +135,8 @@ export function reconcileDraftWebSearch({
  */
 export function DraftSpecPreferenceBridge() {
   const { mode, pendingSessionId, rememberDraftSpec } = useShellMode();
-  const { agentSpec } = useTrueFoundryAgentSpec();
-  const updateAgentSpec = useTrueFoundryUpdateAgentSpec();
+  const { agentSpec } = useTrueForgeAgentSpec();
+  const updateAgentSpec = useTrueForgeUpdateAgentSpec();
   const capabilities = useServerCapabilities();
   const sandboxEnabled = capabilities?.sandbox.enabled;
   const webSearchEnabled = capabilities?.webSearch?.enabled;

@@ -7,7 +7,8 @@ alwaysApply: false
 # Server types — runtime is the sole owner
 
 Canonical `AgentUIServer` / chat / builder / catalog port types live only in
-`@truefoundry/assistant-ui-runtime` (`src/server/types.ts` + `events.ts`).
+[`packages/assistant-ui-runtime`](packages/assistant-ui-runtime)
+(`src/server/types.ts` + `events.ts`).
 
 ## Rules
 
@@ -18,7 +19,7 @@ Canonical `AgentUIServer` / chat / builder / catalog port types live only in
 - Hosts import types from `@truefoundry/trueforge-ui` only — they must not need the
   runtime package for types.
 - Need a new field/method on the contract? Change runtime `server/types.ts` first,
-  publish/bump, then re-export — never fork the shape in the UI SDK.
+  then re-export and changeset both affected packages — never fork the shape in the UI SDK.
 - React wiring may stay here (`ServerContext`, `ShellModeContext`,
   `TrueForgeServerConfig`). Those modules **import** runtime types; they do not
   redefine ports.

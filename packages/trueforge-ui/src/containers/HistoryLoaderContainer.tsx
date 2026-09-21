@@ -1,6 +1,6 @@
 'use client';
 
-import { useTrueFoundryHistoryPagination } from '@truefoundry/assistant-ui-runtime';
+import { useTrueForgeHistoryPagination } from '@truefoundry/assistant-ui-runtime';
 import { useCallback, useEffect, useRef, useState } from 'react';
 
 import { useSlot } from '../theme/SlotsProvider.js';
@@ -20,7 +20,7 @@ const VIEWPORT_SELECTOR = '[data-slot="aui_thread-viewport"]';
  */
 export function HistoryLoaderContainer() {
   const HistoryLoader = useSlot('HistoryLoader');
-  const { hasOlderHistory, isLoadingOlderHistory, loadOlderHistory } = useTrueFoundryHistoryPagination();
+  const { hasOlderHistory, isLoadingOlderHistory, loadOlderHistory } = useTrueForgeHistoryPagination();
 
   const [sentinel, setSentinel] = useState<HTMLDivElement | null>(null);
   const inflightRef = useRef(false);

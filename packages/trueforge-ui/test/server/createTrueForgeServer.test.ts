@@ -2,10 +2,10 @@ import type { SaveAgentResult } from '@/index.js';
 import type { CatalogServer } from '@/server/types.js';
 import { describe, expect, it, vi } from 'vitest';
 
-import { createTrueFoundryServer } from '@/server/createTrueFoundryServer.js';
+import { createTrueForgeServer } from '@/server/createTrueForgeServer.js';
 import { createMockAgentUIServer } from './mockServer.js';
 
-describe('createTrueFoundryServer', () => {
+describe('createTrueForgeServer', () => {
   it('composes chat server with builder callbacks', async () => {
     const chatServer = createMockAgentUIServer({
       createSession: vi.fn(),
@@ -48,7 +48,7 @@ describe('createTrueFoundryServer', () => {
       listSessionEvents: vi.fn(async () => ({ data: [] })),
     };
 
-    const server = createTrueFoundryServer({
+    const server = createTrueForgeServer({
       chatServer,
       getCapabilities,
       getModels,
@@ -183,7 +183,7 @@ describe('createTrueFoundryServer', () => {
       },
     };
 
-    const server = createTrueFoundryServer({
+    const server = createTrueForgeServer({
       chatServer,
       getCapabilities: async () => ({
         data: { sandbox: { enabled: false }, skill: { enabled: false } },

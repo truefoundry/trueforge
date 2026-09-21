@@ -14,13 +14,13 @@ const flushAgentSpec = vi.fn(async () => undefined);
 const updateAgentSpec = vi.fn();
 
 vi.mock('@truefoundry/assistant-ui-runtime', () => ({
-  useTrueFoundryAgentSpec: () => ({
+  useTrueForgeAgentSpec: () => ({
     agentSpec: { model: { name: 'openai/gpt-4.1' } },
     draftSessionId: 'draft-1',
   }),
-  useTrueFoundryFlushAgentSpec: () => flushAgentSpec,
-  useTrueFoundryUpdateAgentSpec: () => updateAgentSpec,
-  useTrueFoundryAdoptAgentSpec: () => vi.fn(),
+  useTrueForgeFlushAgentSpec: () => flushAgentSpec,
+  useTrueForgeUpdateAgentSpec: () => updateAgentSpec,
+  useTrueForgeAdoptAgentSpec: () => vi.fn(),
 }));
 
 beforeAll(() => {

@@ -8,7 +8,7 @@ import {
   type ToolCallMessagePartComponent,
   type ToolCallMessagePartProps,
 } from '@assistant-ui/react';
-import { useTrueFoundryRespondToToolApproval } from '@truefoundry/assistant-ui-runtime';
+import { useTrueForgeRespondToToolApproval } from '@truefoundry/assistant-ui-runtime';
 import { useCallback, useState } from 'react';
 
 import { useSlot } from '../theme/SlotsProvider.js';
@@ -61,7 +61,7 @@ function NestedSubAgentAssistantMessage() {
 
 function ToolApprovalSlot({ part }: { part: ToolCallMessagePartProps }) {
   const isNestedReadonly = useNestedApprovalBridge();
-  const respondToNestedApproval = useTrueFoundryRespondToToolApproval();
+  const respondToNestedApproval = useTrueForgeRespondToToolApproval();
 
   const respond = (response: ToolApprovalResponse) => {
     if (!isNestedReadonly) {
