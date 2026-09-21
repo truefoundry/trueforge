@@ -668,7 +668,7 @@ describe('AgentsLibraryButton', () => {
     });
     const listSchedules = vi.fn(async () => {
       await schedulesGate;
-      return { data: [] as const };
+      return { data: [] };
     });
     const server = createMockAgentUIServer({
       searchAgents: vi.fn(async () => [{ name: 'alpha-agent', agentId: 'alpha-agent' }]),
