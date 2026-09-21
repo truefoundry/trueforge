@@ -44,7 +44,7 @@ describe('TrueFoundryServiceFoundryServerClient.getTenantControlPlaneUrl', () =>
     expect(fetchMock).toHaveBeenCalledTimes(1);
     const [url, init] = fetchMock.mock.calls[0] as [URL, { headers: Record<string, string> }];
     expect(url.toString()).toBe('https://sfy.example/v1/session?tenantName=acme');
-    expect(init.headers.authorization).toBe('Bearer service-key');
+    expect(init.headers['authorization']).toBe('Bearer service-key');
   });
 
   it('caches control-plane URLs per tenant', async () => {
