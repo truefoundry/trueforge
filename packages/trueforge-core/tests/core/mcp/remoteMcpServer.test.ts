@@ -48,6 +48,7 @@ interface FakeConnectionState {
   callToolCalls: number;
   closes: number;
   queueCallToolError(error: unknown): void;
+  holdNextSuccessfulCall(): { started: Promise<void>; release: () => void; fail: (error: unknown) => void };
 }
 
 function toError(error: unknown): Error {
@@ -58,11 +59,18 @@ function installFakeConnection(
   opts: { tools?: ToolSchema[]; sessionId?: string | null; connectError?: unknown } = {},
 ): FakeConnectionState {
   const callToolErrors: unknown[] = [];
+  const holds: Array<{ started: () => void; wait: Promise<void> }> = [];
   const state: FakeConnectionState = {
     connectCalls: 0,
     callToolCalls: 0,
     closes: 0,
     queueCallToolError: (error: unknown) => callToolErrors.push(error),
+    holdNextSuccessfulCall: () => {
+      const started = Promise.withResolvers<void>();
+      const wait = Promise.withResolvers<void>();
+      holds.push({ started: started.resolve, wait: wait.promise });
+      return { started: started.promise, release: wait.resolve, fail: wait.reject };
+    },
   };
 
   mockConnect.mockImplementation(() => {
@@ -70,20 +78,41 @@ function installFakeConnection(
     if (opts.connectError) {
       return Promise.reject(toError(opts.connectError));
     }
+    let closed = false;
+    const abortHeld: Array<(error: Error) => void> = [];
     return Promise.resolve({
       transportType: 'streamable-http' as const,
       sessionId: opts.sessionId ?? null,
       listTools: () => Promise.resolve({ tools: opts.tools ?? [READ_TOOL, WRITE_TOOL] }),
-      callTool: callParams => {
+      callTool: async callParams => {
         state.callToolCalls += 1;
         const queued = callToolErrors.shift();
         if (queued) {
-          return Promise.reject(toError(queued));
+          throw toError(queued);
         }
-        return Promise.resolve({ content: [{ type: 'text', text: `called ${callParams.name}` }] });
+        const hold = holds.shift();
+        if (hold) {
+          hold.started();
+          await Promise.race([
+            hold.wait,
+            new Promise<never>((_, reject) => {
+              abortHeld.push(reject);
+            }),
+          ]);
+        }
+        if (closed) {
+          throw new Error('Connection closed');
+        }
+        return { content: [{ type: 'text', text: `called ${callParams.name}` }] };
       },
       close: () => {
+        closed = true;
         state.closes += 1;
+        const err = new Error('Connection closed');
+        for (const reject of abortHeld) {
+          reject(err);
+        }
+        abortHeld.length = 0;
         return Promise.resolve();
       },
     });
@@ -280,6 +309,50 @@ describe('RemoteMCP + ToolSet', () => {
     // First attempt failed with expiry, reset + reconnect, second attempt succeeded.
     expect(state.connectCalls).toBe(2);
     expect(state.callToolCalls).toBe(2);
+  });
+
+  it('does not close the shared transport while a sibling call is in flight', async () => {
+    const state = installFakeConnection({ sessionId: 'sess-1' });
+    const server = makeServer({});
+    await server.listTools();
+
+    const hold = state.holdNextSuccessfulCall();
+    const hanging = server.callTool({ name: 'read_thing', arguments: {} });
+    await hold.started;
+
+    state.queueCallToolError(new Error('session-expired'));
+    const retried = await server.callTool({ name: 'write_thing', arguments: {} });
+    if (!isCallToolResponseResult(retried)) throw new Error('expected result response');
+    expect(retried.result.isError).toBeFalsy();
+    expect(state.connectCalls).toBe(2);
+    expect(state.closes).toBe(0);
+
+    hold.release();
+    const hung = await hanging;
+    if (!isCallToolResponseResult(hung)) throw new Error('expected result response');
+    expect(hung.result.isError).toBeFalsy();
+    expect(state.closes).toBe(1);
+  });
+
+  it('does not reset a newer transport when a stale sibling later expires', async () => {
+    const state = installFakeConnection({ sessionId: 'sess-1' });
+    const server = makeServer({});
+    await server.listTools();
+
+    const hold = state.holdNextSuccessfulCall();
+    const hanging = server.callTool({ name: 'read_thing', arguments: {} });
+    await hold.started;
+
+    state.queueCallToolError(new Error('session-expired'));
+    const retried = await server.callTool({ name: 'write_thing', arguments: {} });
+    if (!isCallToolResponseResult(retried)) throw new Error('expected result response');
+    expect(state.connectCalls).toBe(2);
+
+    hold.fail(new Error('session-expired'));
+    const hung = await hanging;
+    if (!isCallToolResponseResult(hung)) throw new Error('expected result response');
+    expect(hung.result.isError).toBeFalsy();
+    expect(state.connectCalls).toBe(2);
   });
 
   it('wraps a non-auth connect failure in a server-named McpConnectionError preserving the status hint', async () => {

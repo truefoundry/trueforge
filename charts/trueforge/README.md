@@ -269,6 +269,35 @@ configs:
     # scopes: "openid,profile,email,groups"
     # Optional email allowlist (exact + * globs). Empty = unrestricted.
     # allowedEmails: "alice@acme.com,*@partner.com"
+networkPolicy:
+  # enabled: true
+  outbound:
+    # allowedHosts: ["llm-gateway.internal", "localhost"]
+    # blockedHosts: ["evil.example.com"]
+```
+
+### Outbound URL guard (`networkPolicy`)
+
+App-level check on MCP `url` and model-provider `base_url` (not a Kubernetes
+NetworkPolicy). When `enabled` is true (default), connections are http(s) only.
+Exact host match; `blockedHosts` is checked before `allowedHosts`.
+
+| allowedHosts | blockedHosts | a | b | c (in neither) |
+| --- | --- | --- | --- | --- |
+| `[]` | `[]` | default (deny private) | default (deny private) | default (deny private) |
+| `[]` | `[b]` | default (deny private) | denied | default (deny private) |
+| `[a]` | `[]` | allowed (even if private) | default (deny private) | default (deny private) |
+| `[a]` | `[b]` | allowed (even if private) | denied | default (deny private) |
+| `[a]` | `[a]` | denied (block wins) | default (deny private) | default (deny private) |
+
+Default (deny private) = deny private/loopback/link-local/in-cluster; allow public.
+
+Env (JSON string arrays):
+
+```bash
+ENABLE_SSRF=true
+OUTBOUND_URL_ALLOWED_HOSTS=["localhost","127.0.0.1","llm-gateway.internal"]
+OUTBOUND_URL_BLOCKED_HOSTS=["evil.example.com"]
 ```
 
 ## Using Secrets
