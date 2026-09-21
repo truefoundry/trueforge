@@ -204,24 +204,29 @@ export class DaytonaSandboxProvider implements SandboxProvider {
       throw new Error('Daytona create overrides must not set both snapshot and image');
     }
 
+    const resources = createParams?.resources;
+    const wantsGpu = !!resources?.gpu || !!resources?.gpuType;
     const name = `${this.tenantName}.${randomUUID()}`;
     const base: CreateSandboxBaseParams = {
       name,
       autoStopInterval: createParams?.autoStopInterval ?? this.autoStopIntervalInMinutes,
       autoArchiveInterval: createParams?.autoArchiveInterval ?? this.autoArchiveIntervalInMinutes,
-      autoDeleteInterval: createParams?.autoDeleteInterval ?? this.autoDeleteIntervalInMinutes,
+      // Daytona requires GPU sandboxes to be ephemeral (autoDeleteInterval = 0).
+      autoDeleteInterval: wantsGpu
+        ? 0
+        : (createParams?.autoDeleteInterval ?? this.autoDeleteIntervalInMinutes),
     };
     applyDaytonaCreateOverrides(base, createParams);
 
     if (createParams?.image) {
       const params: CreateSandboxFromImageParams = { ...base, image: createParams.image };
-      if (createParams.resources) {
-        params.resources = createParams.resources;
+      if (resources) {
+        params.resources = resources;
       }
       return await this.daytona.create(params);
     }
 
-    if (createParams?.resources) {
+    if (resources) {
       throw new Error('Resources require a docker image environment (not supported on snapshot create)');
     }
 

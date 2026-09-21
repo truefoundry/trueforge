@@ -128,6 +128,27 @@ export const DaytonaSandboxEnvironmentManifestSchema = z
     lifecycle: DaytonaSandboxEnvironmentLifecycleSchema.optional(),
   })
   .strict()
+  .superRefine((value, ctx) => {
+    const wantsGpu = value.resources?.gpu != null || value.resources?.gpu_type != null;
+    if (!wantsGpu) {
+      return;
+    }
+    if (value.image.type !== 'docker') {
+      ctx.addIssue({
+        code: 'custom',
+        path: ['resources'],
+        message: 'GPU resources require image.type "docker"',
+      });
+    }
+    const autoDelete = value.lifecycle?.auto_delete_interval_in_minutes;
+    if (autoDelete != null && autoDelete !== 0) {
+      ctx.addIssue({
+        code: 'custom',
+        path: ['lifecycle', 'auto_delete_interval_in_minutes'],
+        message: 'GPU sandboxes must be ephemeral; set auto_delete_interval_in_minutes to 0',
+      });
+    }
+  })
   .openapi('DaytonaSandboxEnvironmentManifest');
 
 /** Settings / OpenAPI — Daytona only until a second provider ships. */
