@@ -240,12 +240,14 @@ export class TFYSandboxProvider implements SandboxProvider {
       signal: AbortSignal.timeout(FILE_UPLOAD_TIMEOUT_MS),
     });
     if (!response.ok) {
-      throw new Error(`Sandbox server returned ${String(response.status)}: ${await response.text()}`);
+      throw new Error(
+        `File upload to sandbox failed: Sandbox server returned ${String(response.status)}: ${await response.text()}`,
+      );
     }
 
     const result = (await response.json()) as { success: true } | { success: false; error: string };
     if (!result.success) {
-      throw new Error(result.error);
+      throw new Error(`File upload to sandbox failed: ${result.error}`);
     }
   }
 

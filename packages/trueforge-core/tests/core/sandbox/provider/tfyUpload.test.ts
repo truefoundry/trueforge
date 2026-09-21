@@ -47,7 +47,7 @@ describe('TFYSandboxProvider.uploadFile', () => {
   });
 
   it('throws the server error body when success is false', async () => {
-    mockFetch({ status: 200, body: { success: false, error: 'File exceeds 20971520 bytes' } });
+    mockFetch({ status: 200, body: { success: false, error: 'File exceeds 26214400 bytes' } });
 
     await expect(
       makeProvider().uploadFile({
@@ -55,7 +55,7 @@ describe('TFYSandboxProvider.uploadFile', () => {
         remotePath: 'uploads/big.bin',
         content: Buffer.from('ok'),
       }),
-    ).rejects.toThrow('File exceeds 20971520 bytes');
+    ).rejects.toThrow('File upload to sandbox failed: File exceeds 26214400 bytes');
   });
 
   it('rejects a sandbox that is not owned by the tenant', async () => {
