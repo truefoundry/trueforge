@@ -24,6 +24,8 @@ function CatalogMcpAuthPrompt({ servers, onContinue, readOnly }: McpAuthPromptPr
   const [isResuming, setIsResuming] = useState(false);
   const resumedRef = useRef(false);
   const promptGenerationRef = useRef(0);
+  const authorizingRef = useRef(false);
+  const [isAuthorizing, setIsAuthorizing] = useState(false);
 
   useEffect(
     () => () => {
@@ -43,8 +45,13 @@ function CatalogMcpAuthPrompt({ servers, onContinue, readOnly }: McpAuthPromptPr
   };
 
   const handleConnect = (serverId: string) => {
+    if (authorizingRef.current) return;
+    authorizingRef.current = true;
+    setIsAuthorizing(true);
     const generation = promptGenerationRef.current;
     void handleAuthorize(serverId, isSuccess => {
+      authorizingRef.current = false;
+      setIsAuthorizing(false);
       if (generation !== promptGenerationRef.current || !isSuccess) return;
       const nextConnectedServerIds = new Set([...connectedServerIdsRef.current, serverId]);
       connectedServerIdsRef.current = nextConnectedServerIds;
@@ -61,7 +68,7 @@ function CatalogMcpAuthPrompt({ servers, onContinue, readOnly }: McpAuthPromptPr
       continueLoading={isResuming}
       onConnect={handleConnect}
       onContinue={startResume}
-      readOnly={readOnly}
+      readOnly={readOnly || isAuthorizing}
     />
   );
 }

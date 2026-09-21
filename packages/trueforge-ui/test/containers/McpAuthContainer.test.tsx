@@ -167,6 +167,53 @@ describe('McpAuthContainer', () => {
     expect(resumeMcpAuth).not.toHaveBeenCalled();
   });
 
+  it('allows only one catalog authorization at a time', async () => {
+    let resolveAuthorization: ((result: { status: string }) => void) | undefined;
+    const authenticateConnector = vi.fn(
+      () =>
+        new Promise<{ status: string }>(resolve => {
+          resolveAuthorization = resolve;
+        }),
+    );
+    const getConnector = vi.fn(async ({ id }: { id: string }) => ({
+      id,
+      name: id,
+      description: '',
+      url: 'https://example.test/mcp',
+      auth: { type: 'dcr' as const },
+      requiresAuth: false,
+      authenticated: true,
+    }));
+    const catalog = createMockCatalog({
+      connectorCatalog: {
+        ...createMockCatalog().connectorCatalog,
+        authenticateConnector,
+        getConnector,
+      },
+    });
+    const server = createMockAgentUIServer({ catalog });
+
+    render(<McpAuthHarness pendingMcpAuth={PENDING} resumeMcpAuth={vi.fn()} server={server} />);
+
+    const connectButtons = screen.getAllByRole('button', { name: 'Connect' });
+    const firstConnect = connectButtons[0];
+    const secondConnect = connectButtons[1];
+    if (!firstConnect || !secondConnect) throw new Error('Expected two MCP Connect buttons');
+
+    fireEvent.click(firstConnect);
+    expect(firstConnect).toBeDisabled();
+    expect(secondConnect).toBeDisabled();
+    fireEvent.click(secondConnect);
+    expect(authenticateConnector).toHaveBeenCalledTimes(1);
+
+    await act(async () => {
+      resolveAuthorization?.({ status: 'AUTHENTICATED' });
+    });
+
+    await waitFor(() => expect(screen.getByText('Connected')).toBeInTheDocument());
+    expect(screen.getByRole('button', { name: 'Connect' })).toBeEnabled();
+  });
+
   it('does not mark a server connected when AUTHENTICATED is not confirmed', async () => {
     const resumeMcpAuth = vi.fn().mockResolvedValue(undefined);
     const authenticateConnector = vi.fn().mockResolvedValue({ status: 'AUTHENTICATED' });
