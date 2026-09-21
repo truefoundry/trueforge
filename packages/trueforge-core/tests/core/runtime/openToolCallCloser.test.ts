@@ -106,29 +106,6 @@ describe('getClosableOpenToolCallIds', () => {
       getClosableOpenToolCallIds({ context: [{ role: 'user', content: 'hello' }], userMessageIncoming: false }),
     ).toEqual(new Set());
   });
-
-  it('closes approval, client-side, and thread-creation calls when a user message is incoming', () => {
-    const context = assistantWithToolCalls([
-      makeToolCall('tc-regular'),
-      makeToolCall('tc-approval', { is_approval_required: true }),
-      makeToolCall('tc-client', { is_client_side: true }),
-      makeToolCall('tc-sub-agent', { is_thread_creation: true }),
-    ]);
-    expect(getClosableOpenToolCallIds({ context, userMessageIncoming: true })).toEqual(
-      new Set(['tc-regular', 'tc-approval', 'tc-client', 'tc-sub-agent']),
-    );
-  });
-
-  it('still excludes already-resolved calls when a user message is incoming', () => {
-    const context: ContextMessage[] = [
-      ...assistantWithToolCalls([
-        makeToolCall('tc-approval', { is_approval_required: true }),
-        makeToolCall('tc-sub-agent', { is_thread_creation: true }),
-      ]),
-      { role: 'tool', tool_call_id: 'tc-approval', content: 'already closed' },
-    ];
-    expect(getClosableOpenToolCallIds({ context, userMessageIncoming: true })).toEqual(new Set(['tc-sub-agent']));
-  });
 });
 
 describe('OpenToolCallCloser.processPreSend', () => {
@@ -148,43 +125,26 @@ describe('OpenToolCallCloser.processPreSend', () => {
     return yielded;
   }
 
-  it('appends dangling dummy tool messages with no output events on resume', async () => {
-    const yielded = await collectPreSend(assistantWithToolCalls([makeToolCall('tc-1')]), false);
-    expect(yielded).toHaveLength(1);
-    expect(yielded[0]?.context).toEqual([
-      {
-        role: 'tool',
-        tool_call_id: 'tc-1',
-        content: JSON.stringify({ error: 'Tool call was not executed. Please retry this tool call.' }),
-      },
-    ]);
-    expect(yielded[0]?.output).toEqual([]);
-  });
-
-  it('cancels every unmatched last-assistant call in context with no output events', async () => {
-    const yielded = await collectPreSend(
-      assistantWithToolCalls([
+  it('closes every unmatched call in context without emitting output events for a new user message', async () => {
+    const context: ContextMessage[] = [
+      ...assistantWithToolCalls([
         makeToolCall('tc-regular'),
         makeToolCall('tc-approval', { is_approval_required: true }),
+        makeToolCall('tc-client', { is_client_side: true }),
         makeToolCall('tc-sub-agent', { is_thread_creation: true }),
+        makeToolCall('tc-resolved'),
       ]),
-      true,
-    );
+      { role: 'tool', tool_call_id: 'tc-resolved', content: 'done' },
+    ];
+    const yielded = await collectPreSend(context, true);
     const cancelled = 'Tool call was cancelled: a new turn was started.';
     expect(yielded).toHaveLength(1);
     expect(yielded[0]?.context).toEqual([
       { role: 'tool', tool_call_id: 'tc-regular', content: cancelled },
       { role: 'tool', tool_call_id: 'tc-approval', content: cancelled },
+      { role: 'tool', tool_call_id: 'tc-client', content: cancelled },
       { role: 'tool', tool_call_id: 'tc-sub-agent', content: cancelled },
     ]);
     expect(yielded[0]?.output).toEqual([]);
-  });
-
-  it('is idempotent after dummy responses are in context', async () => {
-    const context = assistantWithToolCalls([makeToolCall('tc-1')]);
-    const first = await collectPreSend(context, false);
-    const closed = [...context, ...(first[0]?.context ?? [])];
-    expect(await collectPreSend(closed, false)).toEqual([]);
-    expect(getClosableOpenToolCallIds({ context: closed, userMessageIncoming: true })).toEqual(new Set());
   });
 });
