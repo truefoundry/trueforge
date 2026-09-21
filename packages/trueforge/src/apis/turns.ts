@@ -32,7 +32,7 @@ import { streamSSE } from 'hono/streaming';
 import type { Logger } from 'winston';
 import type { Authorizer } from '../auth/authorizer';
 import type { ResolveRequestContext } from '../auth/identity';
-import configuration, { isTrueFoundryModeEnabled } from '../config';
+import configuration from '../config';
 import type { AgentRecord, IAgentStore } from '../db/agentStore';
 import type { IMcpServerWithAuthStore } from '../db/mcpServerStore';
 import type { IModelProviderStore } from '../db/modelProviderStore';
@@ -52,10 +52,9 @@ import { mintPeeredTurnId } from '../runtime/peeringIds';
 import { validateSandboxFilePath } from '../runtime/sandboxFilePath';
 import {
   buildTurnSandbox,
-  gatewayMetadataHeaders,
+  gatewayTurnHeaders,
   getMcpConnection,
   getModelDetails,
-  mergeGatewayMetadata,
   parseGatewayMetadataHeader,
   resolveSandboxProvider,
   withGatewayMetadataHeaders,
@@ -143,7 +142,8 @@ interface BeginTurnExecutionParams {
   input: TurnInputItem[] | undefined;
   previous_turn_id: string | undefined;
   userRef: string;
-  turnHeaders?: ResolveTurnHeaders;
+  /** Required so no turn start path can silently drop gateway metadata (see `gatewayTurnHeaders`). */
+  turnHeaders: ResolveTurnHeaders;
   deps: BeginTurnExecutionDeps;
 }
 
@@ -412,7 +412,7 @@ export async function beginTurnExecution(
     signal: abortController.signal,
     userRef,
     session,
-    turnHeaders: turnHeaders?.({ session, turnId }) ?? {},
+    turnHeaders: turnHeaders({ session, turnId }),
   });
 
   // First turn only: derive the title from the first user message. The store
@@ -777,9 +777,7 @@ export function createTurnsRouter(deps: TurnsRouterDeps) {
       previous_turn_id: body.previous_turn_id,
       userRef: requestContext.subject.id,
       turnHeaders: ({ session: turnSession, turnId }) =>
-        isTrueFoundryModeEnabled()
-          ? gatewayMetadataHeaders(mergeGatewayMetadata({ session: turnSession, turnId, requestMetadata }))
-          : {},
+        gatewayTurnHeaders({ session: turnSession, turnId, requestMetadata }),
       deps: {
         ...deps,
         modelProviderStore: deps.resolveModelProviderStore(c, referencedAgent),
