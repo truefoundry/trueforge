@@ -174,11 +174,15 @@ const guardedLookup: LookupFunction = (hostname, options: LookupOptions, callbac
   });
 };
 
-const BODY_TIMEOUT_MS = 30 * 60 * 1000;
+const MCP_BODY_TIMEOUT_MS = 30 * 60 * 1000;
 
 const outboundAgent = new Agent({
+  connect: { lookup: guardedLookup },
+});
+
+const mcpOutboundAgent = new Agent({
   // MCP SSE/streamable-HTTP stays idle between tool calls; undici's 300s bodyTimeout kills it.
-  bodyTimeout: BODY_TIMEOUT_MS,
+  bodyTimeout: MCP_BODY_TIMEOUT_MS,
   connect: { lookup: guardedLookup },
 });
 
@@ -256,7 +260,12 @@ function mergeRequestInit(input: string | URL | Request, init: RequestInit): Req
   };
 }
 
-async function guardedFetch(input: string | URL | Request, init: RequestInit, hopsLeft: number): Promise<Response> {
+async function guardedFetch(
+  input: string | URL | Request,
+  init: RequestInit,
+  hopsLeft: number,
+  agent: Agent,
+): Promise<Response> {
   const url = parseOutboundUrl(input);
   if (guardEnabled) {
     assertHost(normalizeHost(url.hostname));
@@ -266,12 +275,12 @@ async function guardedFetch(input: string | URL | Request, init: RequestInit, ho
   const followsRedirects = guardEnabled && redirect === 'follow';
   const requestInit = {
     redirect: followsRedirects ? 'manual' : redirect,
-    dispatcher: outboundAgent,
+    dispatcher: agent,
   };
   // npm undici vs @types/node undici-types: FormData/Headers do not line up under exactOptionalPropertyTypes.
   Object.assign(requestInit, merged, {
     redirect: followsRedirects ? 'manual' : redirect,
-    dispatcher: outboundAgent,
+    dispatcher: agent,
     ...(merged.body != null && typeof merged.body === 'object' && 'getReader' in merged.body
       ? { duplex: 'half' as const }
       : {}),
@@ -292,9 +301,14 @@ async function guardedFetch(input: string | URL | Request, init: RequestInit, ho
     throw new Error('Outbound URL blocked: too many redirects');
   }
   const hop = nextHop(response, location, url, merged);
-  return guardedFetch(hop.url, hop.init, hopsLeft - 1);
+  return guardedFetch(hop.url, hop.init, hopsLeft - 1, agent);
 }
 
 export async function ssrfFetch(input: string | URL | Request, init?: RequestInit): Promise<Response> {
-  return guardedFetch(input, init ?? {}, MAX_REDIRECTS);
+  return guardedFetch(input, init ?? {}, MAX_REDIRECTS, outboundAgent);
+}
+
+/** Same as `ssrfFetch` with a 30m bodyTimeout for idle MCP SSE / streamable-HTTP. */
+export async function mcpSsrfFetch(input: string | URL | Request, init?: RequestInit): Promise<Response> {
+  return guardedFetch(input, init ?? {}, MAX_REDIRECTS, mcpOutboundAgent);
 }

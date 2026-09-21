@@ -8,7 +8,7 @@ import type { CallToolRequest, CallToolResult } from '@modelcontextprotocol/sdk/
 import { context, propagation } from '@opentelemetry/api';
 import { McpConnectionError } from '../errors';
 import { withTimeout } from '../util/promiseUtils';
-import { ssrfFetch } from '../util/ssrfGuard';
+import { mcpSsrfFetch } from '../util/ssrfGuard';
 import type { ToolSchema } from './IMCPServer';
 
 /** Networking for remote (url-based) MCP servers, kept separate so it can be mocked in tests. */
@@ -188,7 +188,7 @@ export async function connectRemoteMcp(params: {
 }): Promise<RemoteMcpConnection> {
   const url = new URL(params.url);
   const requestOptions = { signal: params.signal };
-  const fetchFn = withMaxResponseBytes(ssrfFetch, params.maxResponseBytes ?? DEFAULT_MAX_MCP_RESPONSE_BYTES);
+  const fetchFn = withMaxResponseBytes(mcpSsrfFetch, params.maxResponseBytes ?? DEFAULT_MAX_MCP_RESPONSE_BYTES);
   const candidates = params.knownTransportType
     ? [params.knownTransportType, ...TRANSPORT_PROBE_ORDER.filter(t => t !== params.knownTransportType)]
     : TRANSPORT_PROBE_ORDER;
