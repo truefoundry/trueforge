@@ -9,6 +9,7 @@ import {
   selectAgentDraftSpecPreferences,
   selectChatDraftSpecPreferences,
   withCapabilitiesSandbox,
+  withCapabilitiesWebSearch,
   writeDraftSpecPreferences,
 } from '@/server/draftSpecPreferences.js';
 
@@ -173,5 +174,59 @@ describe('withCapabilitiesSandbox', () => {
     const spec = { model: { name: 'model' }, config: { sandbox: { enabled: false } } };
 
     expect(withCapabilitiesSandbox(spec, false)).toBe(spec);
+  });
+});
+
+describe('withCapabilitiesWebSearch', () => {
+  it('forces false when the host capability is off', () => {
+    expect(
+      withCapabilitiesWebSearch({
+        spec: { model: { name: 'model' }, config: { webSearch: { enabled: true } } },
+        webSearchEnabled: false,
+        kind: 'chat',
+      }),
+    ).toEqual({
+      model: { name: 'model' },
+      config: { webSearch: { enabled: false } },
+    });
+  });
+
+  it('forces true for New Chat when the capability is on', () => {
+    expect(
+      withCapabilitiesWebSearch({
+        spec: { model: { name: 'model' }, config: { webSearch: { enabled: false } } },
+        webSearchEnabled: true,
+        kind: 'chat',
+      }),
+    ).toEqual({
+      model: { name: 'model' },
+      config: { webSearch: { enabled: true } },
+    });
+  });
+
+  it('fills true for New Agent when the field is absent', () => {
+    expect(
+      withCapabilitiesWebSearch({
+        spec: { model: { name: 'model' } },
+        webSearchEnabled: true,
+        kind: 'agent',
+      }),
+    ).toEqual({
+      model: { name: 'model' },
+      config: { webSearch: { enabled: true } },
+    });
+  });
+
+  it('preserves an explicit agent value when the capability is on', () => {
+    const spec = { model: { name: 'model' }, config: { webSearch: { enabled: false } } };
+
+    expect(withCapabilitiesWebSearch({ spec, webSearchEnabled: true, kind: 'agent' })).toBe(spec);
+  });
+
+  it('does not change the spec while capabilities are still loading', () => {
+    const spec = { model: { name: 'model' } };
+
+    expect(withCapabilitiesWebSearch({ spec, webSearchEnabled: undefined, kind: 'chat' })).toBe(spec);
+    expect(withCapabilitiesWebSearch({ spec, webSearchEnabled: null, kind: 'agent' })).toBe(spec);
   });
 });

@@ -41,6 +41,7 @@ import {
   resolvePythonExecutableOnHost,
   runSupervisorSession,
   SANDBOX_VENV_DIR,
+  srtHostBinaryLabel,
   srtHostBinaryNames,
   type LocalSandboxPlatform,
   type SessionResult,
@@ -94,11 +95,16 @@ export function formatLocalSandboxSupportReason(params: {
   return details.length === 0 ? params.summary : `${params.summary}: ${details}`;
 }
 
+function supportAttemptLabel(attempt: LocalSandboxSupportProbeAttempt): string {
+  return attempt.kind === 'host' ? srtHostBinaryLabel(attempt.name) : attempt.name;
+}
+
 function formatLocalSandboxSupportAttempt(attempt: LocalSandboxSupportProbeAttempt): string {
+  const label = supportAttemptLabel(attempt);
   if (attempt.resolved === undefined) {
-    return attempt.kind === 'host' ? `${attempt.name}: not on PATH` : `${attempt.name}: not on sandbox PATH`;
+    return `${label} binary not found. Either it is not installed or not on PATH`;
   }
-  const parts = [`${attempt.name}: resolved=${attempt.resolved}`];
+  const parts = [`${label}: resolved=${attempt.resolved}`];
   if (attempt.executable !== undefined && attempt.executable !== attempt.resolved) {
     parts.push(`executable=${attempt.executable}`);
   }
@@ -279,7 +285,7 @@ export class LocalSandboxProvider implements SandboxProvider {
       hostAttempts.push({ kind: 'host', name, resolved });
     }
     if (hostAttempts.some(attempt => attempt.resolved === undefined)) {
-      const required = srtHostBinaryNames(platform).join(', ');
+      const required = srtHostBinaryNames(platform).map(srtHostBinaryLabel).join(', ');
       return unsupported({
         platform,
         attempts: hostAttempts,

@@ -87,6 +87,9 @@ import { PACKAGE_VERSION } from './packageVersion';
 import { ActiveTurnRegistry } from './runtime/activeTurns';
 import { EventSubscriptionRegistry } from './runtime/event-subscription';
 import { printStandaloneStartupBanner } from './startupBanner';
+import { InlineMcpServerStore } from './truefoundry/InlineMcpServerStore';
+import { parseInlineMcpServers, parseInlineSkills, X_TFG_MCP, X_TFG_SKILLS } from './truefoundry/inlineResources';
+import { InlineSkillStore } from './truefoundry/InlineSkillStore';
 import {
   parsePerServerMcpHeaders,
   X_TFG_MCP_HEADERS,
@@ -542,15 +545,33 @@ async function createServerRuntime<TTransaction>(persistence: ServerPersistence<
       return mcpOAuthStore;
     }
     const rawPerServerHeaders = c.req.header(X_TFG_MCP_HEADERS);
-    return persistence.resolveMcpServerStore(
+    const store = persistence.resolveMcpServerStore(
       resolveRequestContext(c),
       runAsAgent,
       rawPerServerHeaders === undefined ? undefined : parsePerServerMcpHeaders(rawPerServerHeaders),
     );
+    if (!isTrueFoundryModeEnabled(configuration)) {
+      return store;
+    }
+    const rawInline = c.req.header(X_TFG_MCP);
+    if (rawInline === undefined) {
+      return store;
+    }
+    return new InlineMcpServerStore({ inner: store, inline: parseInlineMcpServers(rawInline) });
   };
   const resolveAgentStore = (c: Context) => persistence.resolveAgentStore(resolveRequestContext(c));
   const resolveSandboxProviderStore = (c: Context) => persistence.resolveSandboxProviderStore(resolveRequestContext(c));
-  const resolveSkillStore = (c: Context) => persistence.resolveSkillStore(resolveRequestContext(c));
+  const resolveSkillStore = (c: Context) => {
+    const store = persistence.resolveSkillStore(resolveRequestContext(c));
+    if (!isTrueFoundryModeEnabled(configuration)) {
+      return store;
+    }
+    const rawInline = c.req.header(X_TFG_SKILLS);
+    if (rawInline === undefined) {
+      return store;
+    }
+    return new InlineSkillStore({ inner: store, inline: parseInlineSkills(rawInline) });
+  };
   const app = createServerApp({
     modelCatalog: ModelCatalog.load(),
     mcpCatalog: McpCatalog.load(),

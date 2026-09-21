@@ -170,6 +170,7 @@ describe('useResolvedServer', () => {
         sandbox: { enabled: true },
         skill: { enabled: true },
         settings: { enabled: true },
+        webSearch: { enabled: false },
       },
     });
   });

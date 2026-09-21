@@ -2,6 +2,7 @@
 
 import { useState, type ComponentType } from 'react';
 import { Icon } from '../../icons/Icon.js';
+import { useServerCapabilities } from '../../server/ServerContext.js';
 import { useSlot } from '../../theme/SlotsProvider.js';
 import { cn } from '../lib/cn.js';
 import { AgentOverviewMcpServers } from './AgentOverviewMcpServers.js';
@@ -36,6 +37,7 @@ function displayModelName(name: string): string {
 export default function AgentOverview({ detail }: AgentOverviewProps) {
   const Markdown = useSlot('Markdown');
   const AgentOverviewCard = useSlot('AgentOverviewCard');
+  const capabilitiesAvailable = useServerCapabilities();
   const [instructionsView, setInstructionsView] = useState<InstructionsView>('markdown');
   const [copied, setCopied] = useState(false);
   const spec = detail.agentSpec;
@@ -58,6 +60,9 @@ export default function AgentOverview({ detail }: AgentOverviewProps) {
     ['Generative UI', spec.config?.generativeUi?.enabled],
     ['Dynamic sub-agents', spec.config?.dynamicSubAgents?.enabled],
     ['Ask user questions', spec.config?.askUserQuestions?.enabled],
+    ...(capabilitiesAvailable?.webSearch?.enabled === true
+      ? ([['Web search', spec.config?.webSearch?.enabled]] as const)
+      : []),
   ].filter((entry): entry is [string, boolean] => typeof entry[1] === 'boolean');
   const toggleLabel = instructionsView === 'markdown' ? 'Raw' : 'Markdown';
 
