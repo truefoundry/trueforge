@@ -51,12 +51,9 @@ const GetSessionUnauthenticatedSchema = z.object({
   user: z.null(),
 });
 
-const GetSessionAuthenticatedSchema = z
-  .object({
-    user: GetSessionUserSchema,
-    controlPlaneURL: z.url(),
-  })
-  .transform(({ user }) => ({ user }));
+const GetSessionAuthenticatedSchema = z.object({
+  user: GetSessionUserSchema,
+});
 
 const GetSessionWireSchema = z.union([GetSessionUnauthenticatedSchema, GetSessionAuthenticatedSchema]);
 
@@ -67,11 +64,9 @@ export type GetSessionResponse = z.infer<typeof GetSessionAuthenticatedSchema>;
  * `GET /v1/session?tenantName=` with the service API key — tenant `controlPlaneURL`
  * for MCP OAuth redirect origin. CP URL comes from the query tenant.
  */
-const TenantControlPlaneUrlSchema = z
-  .object({
-    controlPlaneURL: z.url(),
-  })
-  .transform(({ controlPlaneURL }) => controlPlaneURL);
+const TenantControlPlaneUrlSchema = z.object({
+  controlPlaneURL: z.url(),
+});
 
 const ListResponseSchema = z.union([
   z.array(z.unknown()),
@@ -565,8 +560,8 @@ export class TrueFoundryServiceFoundryServerClient {
         cause: parsed.error,
       });
     }
-    this.#controlPlaneUrlByTenant.set(input.tenantName, parsed.data);
-    return parsed.data;
+    this.#controlPlaneUrlByTenant.set(input.tenantName, parsed.data.controlPlaneURL);
+    return parsed.data.controlPlaneURL;
   }
 
   async getAgentPermissions(input: {
