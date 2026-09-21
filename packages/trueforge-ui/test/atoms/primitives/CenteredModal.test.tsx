@@ -143,6 +143,8 @@ describe('CenteredModal', () => {
     expect(dialog).toHaveAttribute('aria-describedby', description.id);
     expect(dialog).toHaveClass('custom-modal');
     expect(dialog).toHaveStyle({ height: 'fit-content', maxHeight: '85dvh' });
+    // flex-auto (not flex-1): Safari collapses basis-0 overflow scroll bodies in fit-content dialogs.
+    expect(screen.getByText('Modal content').parentElement).toHaveClass('flex-auto');
     expect(screen.getByTestId('header-icon')).toBeInTheDocument();
     expect(screen.getByText('Modal content')).toBeInTheDocument();
   });
