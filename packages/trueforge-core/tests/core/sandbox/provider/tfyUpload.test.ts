@@ -71,3 +71,41 @@ describe('TFYSandboxProvider.uploadFile', () => {
     expect(fetchMock).not.toHaveBeenCalled();
   });
 });
+
+describe('TFYSandboxProvider.exec abort', () => {
+  it('aborts an in-flight exec when the turn signal aborts', async () => {
+    const controller = new AbortController();
+    let calls = 0;
+    jest.spyOn(globalThis, 'fetch').mockImplementation((_url, init) => {
+      calls += 1;
+      if (calls === 1) {
+        return Promise.resolve(
+          new Response(JSON.stringify({ success: true, response: { exitCode: 0, result: '/sandbox\n/usr/bin' } }), {
+            status: 200,
+            headers: { 'Content-Type': 'application/json' },
+          }),
+        );
+      }
+      return new Promise((_resolve, reject) => {
+        const abort = (): void => {
+          const error = new Error('aborted');
+          error.name = 'AbortError';
+          reject(error);
+        };
+        if (init?.signal?.aborted) {
+          abort();
+          return;
+        }
+        init?.signal?.addEventListener('abort', abort, { once: true });
+      });
+    });
+
+    const pending = makeProvider().exec({
+      sandboxId: SANDBOX_ID,
+      command: 'sleep 100',
+      signal: controller.signal,
+    });
+    controller.abort();
+    await expect(pending).resolves.toEqual({ success: false, error: 'Cancelled' });
+  });
+});
