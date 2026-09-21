@@ -89,12 +89,10 @@ export function requestSubjectFromCreatedBySubject(subject: CreatedBySubject): R
 /**
  * Request identity for store resolvers and other work that runs as a persisted creator
  * (schedule dispatch, etc.), not as the live HTTP caller.
- * `public_base_url` is set on TrueFoundry contexts (e.g. from SFY session for schedule execute).
  */
 export function requestContextFromCreatedBySubject(params: {
   tenant_id: string;
   created_by_subject: CreatedBySubject;
-  public_base_url?: string;
 }): RequestContext {
   const base: RequestContext = {
     tenant_id: params.tenant_id,
@@ -102,13 +100,7 @@ export function requestContextFromCreatedBySubject(params: {
     roles: [],
     user_credential: null,
   };
-  if (!isTrueFoundryModeEnabled(configuration)) {
-    return base;
-  }
-  return createTrueFoundryRequestContext({
-    ...base,
-    ...(params.public_base_url !== undefined ? { public_base_url: params.public_base_url } : {}),
-  });
+  return isTrueFoundryModeEnabled(configuration) ? createTrueFoundryRequestContext(base) : base;
 }
 
 /** Persistable creator snapshot derived from the authenticated request. */

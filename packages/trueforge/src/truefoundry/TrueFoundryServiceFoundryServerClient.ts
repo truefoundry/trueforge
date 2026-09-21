@@ -1,5 +1,6 @@
 import { extractErrorLogFields } from '@truefoundry/trueforge-core/core';
 import { HTTPException } from 'hono/http-exception';
+import { LRUCache } from 'lru-cache';
 import { fetch as undiciFetch, type Dispatcher } from 'undici';
 import type { Logger } from 'winston';
 import { z } from 'zod';
@@ -8,6 +9,11 @@ import type { McpAuthStatus } from '../schemas/mcpServer';
 import { createInternalTlsDispatcher, normalizeInternalTlsUrl, type InternalTlsOptions } from './internalTls';
 import { mapResolvedAgentSkillVersions, type ResolvedAgentSkillVersion } from './mapSfyAgentSkills';
 import { parseSfyMcpAuthStatus, parseSfyMcpAuthorizeResult, type SfyMcpAuthSource } from './mapSfyMcpServers';
+
+/** How long a tenant control-plane URL stays cached between SFY lookups. */
+const TENANT_CONTROL_PLANE_URL_TTL_MS = 5 * 60 * 1000;
+/** Bound cache size so long-lived processes do not retain unbounded tenant URLs. */
+const TENANT_CONTROL_PLANE_URL_CACHE_MAX = 500;
 
 const INTEGRATIONS_PATH = 'v1/provider-integrations';
 const INSTALLATIONS_PATH = 'v1/llm-gateway/installations';
@@ -50,7 +56,7 @@ const GetSessionAuthenticatedSchema = z
     user: GetSessionUserSchema,
     controlPlaneURL: z.url(),
   })
-  .transform(({ user, controlPlaneURL: public_base_url }) => ({ user, public_base_url }));
+  .transform(({ user }) => ({ user }));
 
 const GetSessionWireSchema = z.union([GetSessionUnauthenticatedSchema, GetSessionAuthenticatedSchema]);
 
@@ -59,16 +65,13 @@ export type GetSessionResponse = z.infer<typeof GetSessionAuthenticatedSchema>;
 
 /**
  * `GET /v1/session?tenantName=` with the service API key — tenant `controlPlaneURL`
- * for synthetic contexts (e.g. schedule execute). CP URL comes from the query tenant.
+ * for MCP OAuth redirect origin. CP URL comes from the query tenant.
  */
-const GetSessionForTenantSchema = z
+const TenantControlPlaneUrlSchema = z
   .object({
     controlPlaneURL: z.url(),
   })
-  .transform(({ controlPlaneURL: public_base_url }) => ({ public_base_url }));
-
-/** Tenant control-plane URL from {@link TrueFoundryServiceFoundryServerClient.getSessionForTenant}. */
-export type GetSessionForTenantResponse = z.infer<typeof GetSessionForTenantSchema>;
+  .transform(({ controlPlaneURL }) => controlPlaneURL);
 
 const ListResponseSchema = z.union([
   z.array(z.unknown()),
@@ -163,6 +166,10 @@ export class TrueFoundryServiceFoundryServerClient {
   readonly #httpAgentTimeoutMs: number;
   readonly #apiKey: string;
   readonly #headers: Record<string, string>;
+  readonly #controlPlaneUrlByTenant = new LRUCache<string, string>({
+    max: TENANT_CONTROL_PLANE_URL_CACHE_MAX,
+    ttl: TENANT_CONTROL_PLANE_URL_TTL_MS,
+  });
 
   constructor(input: {
     serviceFoundryServerUrl: string;
@@ -526,10 +533,15 @@ export class TrueFoundryServiceFoundryServerClient {
   }
 
   /**
-   * `GET v1/session?tenantName=` authenticated with the service API key — tenant
-   * `controlPlaneURL` for synthetic contexts (e.g. schedule execute).
+   * Tenant control-plane URL from `GET v1/session?tenantName=` (service API key).
+   * Cached per tenant for 5 minutes.
    */
-  async getSessionForTenant(input: { tenantName: string }): Promise<GetSessionForTenantResponse> {
+  async getTenantControlPlaneUrl(input: { tenantName: string }): Promise<string> {
+    const cached = this.#controlPlaneUrlByTenant.get(input.tenantName);
+    if (cached !== undefined) {
+      return cached;
+    }
+
     let payload: unknown;
     try {
       payload = await this.#requestJson({
@@ -546,13 +558,14 @@ export class TrueFoundryServiceFoundryServerClient {
         cause: error,
       });
     }
-    const parsed = GetSessionForTenantSchema.safeParse(payload);
+    const parsed = TenantControlPlaneUrlSchema.safeParse(payload);
     if (!parsed.success) {
       throw new HTTPException(500, {
         message: 'TrueFoundry ServiceFoundry session response was malformed',
         cause: parsed.error,
       });
     }
+    this.#controlPlaneUrlByTenant.set(input.tenantName, parsed.data);
     return parsed.data;
   }
 

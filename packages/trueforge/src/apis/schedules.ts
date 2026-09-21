@@ -4,14 +4,18 @@
 import { OpenAPIHono, type RouteHandler } from '@hono/zod-openapi';
 import {
   InvalidPageTokenError,
-  type CreatedBySubject,
   type Sessions,
   type TurnStreamingEvent,
 } from '@truefoundry/trueforge-core/agent-session';
 import type { Context } from 'hono';
 import type { Logger } from 'winston';
 import type { Authorizer } from '../auth/authorizer';
-import { createdBySubjectFromRequestContext, type RequestContext, type ResolveRequestContext } from '../auth/identity';
+import {
+  createdBySubjectFromRequestContext,
+  requestContextFromCreatedBySubject,
+  type RequestContext,
+  type ResolveRequestContext,
+} from '../auth/identity';
 import {
   loadScheduleDispatchItem,
   ScheduleAgentNotFoundError,
@@ -58,12 +62,6 @@ import {
 import { agentIfAccessible, canReadAgentBoundResource, resolveManagedAgentIds } from './agentAccess';
 import { getTurnExecutionError, startTurnInProcess } from './turns';
 
-/** Build request identity for internal schedule execute. */
-export type ResolveScheduleRequestContext = (params: {
-  tenant_id: string;
-  created_by_subject: CreatedBySubject;
-}) => Promise<RequestContext>;
-
 /** Runtime + Context store resolvers needed to start a schedule turn. */
 export interface ScheduleTurnExecutionDeps<TTransaction> {
   scheduleStore: IScheduleStore<TTransaction>;
@@ -77,7 +75,6 @@ export interface ScheduleTurnExecutionDeps<TTransaction> {
   /** Persistence agent store (schedule agent binding is not caller-scoped). */
   agentStore: IAgentStore<TTransaction>;
   turnSkillsResolverStore: Pick<ISkillStore, 'resolveTurnSkills'>;
-  resolveScheduleRequestContext: ResolveScheduleRequestContext;
 }
 
 export interface SchedulesRouterDeps<TTransaction> extends ScheduleTurnExecutionDeps<TTransaction> {
@@ -89,7 +86,7 @@ export interface SchedulesRouterDeps<TTransaction> extends ScheduleTurnExecution
 
 /**
  * Prepare and start a schedule run using Context-based store resolvers. Caller must set
- * `request_context` (typically via resolveScheduleRequestContext) before calling.
+ * `request_context` (typically via requestContextFromCreatedBySubject) before calling.
  */
 export async function startScheduleRunOnRequest<TTransaction>(params: {
   c: Context;
@@ -197,7 +194,7 @@ export function createScheduleExecutionRouter<TTransaction>(deps: ScheduleTurnEx
       });
       c.set(
         'request_context',
-        await deps.resolveScheduleRequestContext({
+        requestContextFromCreatedBySubject({
           tenant_id: item.schedule.tenant_id,
           created_by_subject: item.schedule.created_by_subject,
         }),

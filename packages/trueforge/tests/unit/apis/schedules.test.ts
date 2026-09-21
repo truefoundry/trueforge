@@ -8,7 +8,7 @@ import {
 import winston from 'winston';
 import { createScheduleExecutionRouter, createSchedulesRouter } from '../../../src/apis/schedules';
 import { TrueForgeAuthorizer, type Authorizer } from '../../../src/auth/authorizer';
-import { requestContextFromCreatedBySubject, type RequestContext } from '../../../src/auth/identity';
+import type { RequestContext } from '../../../src/auth/identity';
 import { ScheduleAgentNotFoundError, startScheduleRun } from '../../../src/controller/scheduleDispatch';
 import { migrateSqliteToLatest } from '../../../src/db/migrateSqlite';
 import { SqliteAgentStore } from '../../../src/db/sqlite/agent-store/SqliteAgentStore';
@@ -72,7 +72,6 @@ function stubTurnExecutionDeps(agentStore: SqliteAgentStore, scheduleStore: Sqli
     resolveMcpServerStore: () => ({}) as never,
     turnSkillsResolverStore: { resolveTurnSkills: async () => [] },
     resolveSandboxProviderStore: () => ({}) as never,
-    resolveScheduleRequestContext: params => Promise.resolve(requestContextFromCreatedBySubject(params)),
   };
 }
 

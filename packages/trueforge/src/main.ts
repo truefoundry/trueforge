@@ -56,11 +56,10 @@ import type { Kysely, Transaction } from 'kysely';
 import type { RedisClientType } from 'redis';
 import type { Logger } from 'winston';
 
-import type { ResolveScheduleRequestContext } from './apis/schedules';
 import { createServerApp } from './app';
 import { TrueForgeAuthorizer, type Authorizer } from './auth/authorizer';
 import { createAuthenticator } from './auth/createAuthenticator';
-import { requestContextFromCreatedBySubject, resolveRequestContext, type RequestContext } from './auth/identity';
+import { resolveRequestContext, type RequestContext } from './auth/identity';
 import { initOidc } from './auth/oidc';
 import { McpCatalog } from './catalog/McpCatalog';
 import { ModelCatalog } from './catalog/ModelCatalog';
@@ -528,19 +527,6 @@ async function createServerRuntime<TTransaction>(persistence: ServerPersistence<
     authorizer = new TrueForgeAuthorizer();
   }
 
-  const resolveScheduleRequestContext: ResolveScheduleRequestContext = async params => {
-    if (!isTrueFoundryModeEnabled(configuration)) {
-      return requestContextFromCreatedBySubject(params);
-    }
-    if (serviceFoundryClient === undefined) {
-      throw new Error('TrueFoundry ServiceFoundry client is required to execute scheduled runs');
-    }
-    const { public_base_url } = await serviceFoundryClient.getSessionForTenant({
-      tenantName: params.tenant_id,
-    });
-    return requestContextFromCreatedBySubject({ ...params, public_base_url });
-  };
-
   // Standalone owns the control loops in-process; they hand off via HTTP loopback
   // (same transport as the dedicated controller in distributed mode).
   const controller = configuration.STANDALONE
@@ -613,7 +599,6 @@ async function createServerRuntime<TTransaction>(persistence: ServerPersistence<
     oidcClient,
     authenticator,
     authorizer,
-    resolveScheduleRequestContext,
   });
 
   return { activeTurns, app, controller, destroyDb, redis, requestReplyRouter };
