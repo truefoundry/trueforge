@@ -5,6 +5,7 @@ import { useSlot } from '../../theme/SlotsProvider.js';
 import { formatSessionListMetrics } from '../../utils/sessionDisplayFormat.js';
 import { auiButtonClass } from '../lib/buttonClasses.js';
 import { cn } from '../lib/cn.js';
+import { formatAbsoluteDateTime } from '../lib/dateFormat.js';
 import { formatRelativeShort } from '../lib/threadListMeta.js';
 import { DropdownMenu, DropdownMenuItem } from '../primitives/DropdownMenu.js';
 import { Tooltip } from '../primitives/Tooltip.js';
@@ -24,14 +25,7 @@ export function AgentSessionListRow({
   const PermissionGuard = useSlot('PermissionGuard');
   const activityAt = new Date(lastActivityAt);
   const relative = formatRelativeShort(activityAt);
-  const absolute = new Intl.DateTimeFormat(undefined, {
-    month: 'short',
-    day: 'numeric',
-    year: 'numeric',
-    hour: 'numeric',
-    minute: '2-digit',
-    hour12: true,
-  }).format(activityAt);
+  const absolute = formatAbsoluteDateTime(activityAt);
 
   return (
     <div

@@ -1,4 +1,5 @@
 import type { ScheduleRun, ScheduleRunStatus } from '../../server/types.js';
+import { formatAbsoluteDateTime } from '../lib/dateFormat.js';
 
 export function isManualRun(name: string): boolean {
   return name.startsWith('manual-');
@@ -29,12 +30,5 @@ export function formatScheduleRunInstant(iso: string | null): string {
   if (iso == null) return '—';
   const date = new Date(iso);
   if (Number.isNaN(date.getTime())) return '—';
-  return new Intl.DateTimeFormat(undefined, {
-    month: 'short',
-    day: 'numeric',
-    year: 'numeric',
-    hour: 'numeric',
-    minute: '2-digit',
-    hour12: true,
-  }).format(date);
+  return formatAbsoluteDateTime(date);
 }
