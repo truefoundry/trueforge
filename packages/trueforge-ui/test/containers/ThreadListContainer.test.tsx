@@ -46,39 +46,13 @@ function ThreadListRuntimeHarness({
   return <AssistantRuntimeProvider runtime={runtime}>{children}</AssistantRuntimeProvider>;
 }
 
-function ThreadListRowOverride({
-  title,
-  active,
-  onSelect,
-  actions,
-  renaming,
-  renameValue,
-  renameSaving,
-  onRenameValueChange,
-  onRenameCommit,
-  onRenameCancel,
-  onRenameBlur,
-}: ThreadListRowProps) {
+function ThreadListRowOverride({ title, active, onSelect, actions }: ThreadListRowProps) {
   return (
     <div data-testid={`thread-row-${title}`} data-active={active ? 'true' : 'false'}>
-      {renaming ? (
-        <input
-          aria-label="Session title"
-          value={renameValue ?? title}
-          readOnly={renameSaving}
-          onChange={event => onRenameValueChange?.(event.target.value)}
-          onBlur={() => onRenameBlur?.()}
-          onKeyDown={event => {
-            if (event.key === 'Enter') onRenameCommit?.();
-            if (event.key === 'Escape') onRenameCancel?.();
-          }}
-        />
-      ) : (
-        <button type="button" onClick={onSelect}>
-          {title}
-        </button>
-      )}
-      {renaming ? null : actions}
+      <button type="button" onClick={onSelect}>
+        {title}
+      </button>
+      {actions}
     </div>
   );
 }
@@ -431,7 +405,7 @@ describe('ThreadListContainer', () => {
     expect(screen.getByRole('button', { name: 'Delete' })).toBeInTheDocument();
   });
 
-  it('renames a remote session inline after validating the title', async () => {
+  it('renames a remote session from the modal after validating the title', async () => {
     const onRename = vi.fn(async () => {});
 
     renderThreadList({
@@ -460,23 +434,28 @@ describe('ThreadListContainer', () => {
     fireEvent.click(actionButtons[0]!);
     fireEvent.click(screen.getByRole('button', { name: 'Rename' }));
 
+    const dialog = screen.getByRole('dialog', { name: 'Rename session' });
+    expect(dialog).toBeInTheDocument();
     const titleInput = screen.getByRole('textbox', { name: 'Session title' });
     expect(titleInput).toHaveValue('Remote session');
 
     fireEvent.change(titleInput, { target: { value: '   ' } });
-    fireEvent.keyDown(titleInput, { key: 'Enter' });
+    expect(screen.getByRole('button', { name: 'Save' })).toBeDisabled();
+    fireEvent.click(screen.getByRole('button', { name: 'Save' }));
     expect(onRename).not.toHaveBeenCalled();
-    expect(titleInput).toBeInTheDocument();
 
     fireEvent.change(titleInput, { target: { value: '  Acme onboarding  ' } });
-    fireEvent.keyDown(titleInput, { key: 'Enter' });
+    fireEvent.click(screen.getByRole('button', { name: 'Save' }));
 
     await waitFor(() => {
       expect(onRename).toHaveBeenCalledWith('thread-1', 'Acme onboarding');
     });
+    await waitFor(() => {
+      expect(screen.queryByRole('dialog', { name: 'Rename session' })).not.toBeInTheDocument();
+    });
   });
 
-  it('cancels inline rename on Escape without persisting', async () => {
+  it('cancels rename from the modal without persisting', async () => {
     const onRename = vi.fn(async () => {});
 
     renderThreadList({
@@ -499,16 +478,16 @@ describe('ThreadListContainer', () => {
     fireEvent.click(screen.getByRole('button', { name: 'Rename' }));
     const titleInput = screen.getByRole('textbox', { name: 'Session title' });
     fireEvent.change(titleInput, { target: { value: 'Scratch' } });
-    fireEvent.keyDown(titleInput, { key: 'Escape' });
+    fireEvent.click(screen.getByRole('button', { name: 'Cancel' }));
 
     await waitFor(() => {
-      expect(screen.queryByRole('textbox', { name: 'Session title' })).not.toBeInTheDocument();
+      expect(screen.queryByRole('dialog', { name: 'Rename session' })).not.toBeInTheDocument();
     });
     expect(onRename).not.toHaveBeenCalled();
     expect(screen.getByText('Remote session')).toBeInTheDocument();
   });
 
-  it('ignores Escape while rename is saving', async () => {
+  it('keeps the modal open and disables Cancel while rename is saving', async () => {
     let resolveRename: (() => void) | undefined;
     const onRename = vi.fn(
       () =>
@@ -537,21 +516,22 @@ describe('ThreadListContainer', () => {
     fireEvent.click(screen.getByRole('button', { name: 'Rename' }));
     const titleInput = screen.getByRole('textbox', { name: 'Session title' });
     fireEvent.change(titleInput, { target: { value: 'Updated title' } });
-    fireEvent.keyDown(titleInput, { key: 'Enter' });
+    fireEvent.click(screen.getByRole('button', { name: 'Save' }));
 
     await waitFor(() => {
       expect(titleInput).toHaveAttribute('readonly');
     });
-    fireEvent.keyDown(titleInput, { key: 'Escape' });
-    expect(titleInput).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'Cancel' })).toBeDisabled();
+    fireEvent.click(screen.getByRole('button', { name: 'Cancel' }));
+    expect(screen.getByRole('dialog', { name: 'Rename session' })).toBeInTheDocument();
 
     resolveRename?.();
     await waitFor(() => {
-      expect(screen.queryByRole('textbox', { name: 'Session title' })).not.toBeInTheDocument();
+      expect(screen.queryByRole('dialog', { name: 'Rename session' })).not.toBeInTheDocument();
     });
   });
 
-  it('toasts when rename fails and closes the inline editor', async () => {
+  it('toasts when rename fails and keeps the modal open', async () => {
     const onRename = vi.fn(async () => {
       throw new Error('rename failed');
     });
@@ -576,13 +556,12 @@ describe('ThreadListContainer', () => {
     fireEvent.click(screen.getByRole('button', { name: 'Rename' }));
     const titleInput = screen.getByRole('textbox', { name: 'Session title' });
     fireEvent.change(titleInput, { target: { value: 'Updated title' } });
-    fireEvent.keyDown(titleInput, { key: 'Enter' });
+    fireEvent.click(screen.getByRole('button', { name: 'Save' }));
 
     await waitFor(() => {
       expect(screen.getByText('rename failed')).toBeInTheDocument();
     });
-    expect(screen.queryByRole('textbox', { name: 'Session title' })).not.toBeInTheDocument();
-    fireEvent.click(screen.getByRole('button', { name: 'Remote session' }));
+    expect(screen.getByRole('dialog', { name: 'Rename session' })).toBeInTheDocument();
     expect(onRename).toHaveBeenCalledOnce();
   });
 

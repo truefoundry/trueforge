@@ -238,8 +238,9 @@ describe('createHarnessChatServer', () => {
     const server = createHarnessChatServer({ fetch: fetchMock });
     assert.equal(typeof server.renameSession, 'function');
     await server.renameSession?.({ sessionId: 'ses_1', title: 'Acme onboarding' });
-    const updated = await server.updateSession({ sessionId: 'ses_1', title: 'Acme onboarding' });
+    assert.deepEqual(sessionRequests.at(-1), { title: 'Acme onboarding' });
 
+    const updated = await server.updateSession({ sessionId: 'ses_1', title: 'Acme onboarding' });
     assert.deepEqual(sessionRequests.at(-1), { title: 'Acme onboarding' });
     assert.equal(updated.title, 'Acme onboarding');
   });

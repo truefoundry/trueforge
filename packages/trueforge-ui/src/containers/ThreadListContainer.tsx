@@ -16,13 +16,13 @@ import { cn } from '../atoms/lib/cn.js';
 import { useCompactLayout } from '../atoms/lib/CompactLayoutContext.js';
 import {
   canReuseMutableShell,
-  MAX_SESSION_TITLE_LENGTH,
   readThreadAgentName,
   threadListIndicesByRecency,
   threadListItemIsMutable,
 } from '../atoms/lib/threadListMeta.js';
 import { useIsMobile } from '../atoms/lib/useIsMobile.js';
 import { BottomSheet } from '../atoms/primitives/BottomSheet.js';
+import { RenameSessionModal } from '../atoms/RenameSessionModal.js';
 import { useResourcePermissions } from '../hooks/useResourcePermissions.js';
 import { Icon } from '../icons/Icon.js';
 import { useOptionalServer } from '../server/ServerContext.js';
@@ -35,9 +35,9 @@ import { useToasterOptional } from './ToasterContainer.js';
  * rather than grouping them by Today/Yesterday/Earlier.
  *
  * Delete uses assistant-ui ThreadListItemPrimitive.Delete / ThreadListItemMorePrimitive
- * (adapter.delete → server.deleteSession). Rename uses aui.threadListItem().rename
- * (adapter.rename → server.renameSession) when `renameSession` is implemented.
- * Mobile/compact keeps a BottomSheet chrome.
+ * (adapter.delete → server.deleteSession). Rename opens RenameSessionModal via
+ * aui.threadListItem().rename (adapter.rename → server.renameSession) when
+ * `renameSession` is implemented. Mobile/compact keeps a BottomSheet chrome.
  */
 export type ThreadListContainerProps = {
   /** Called after New chat or selecting a row — used by stack/drawer chrome. */
@@ -193,32 +193,21 @@ function ThreadListItemRow({
   const renameDisabled = remoteId != null && !canManageResource(remoteId);
   const deleteDisabled = remoteId != null && !canDeleteResource(remoteId);
   const sidebarNavOpen = shell?.libraryOpen === true || shell?.sessionsOpen === true || shell?.schedulesOpen === true;
-  const [renaming, setRenaming] = useState(false);
-  const [renameValue, setRenameValue] = useState('');
+  const [renameOpen, setRenameOpen] = useState(false);
   const [renameSaving, setRenameSaving] = useState(false);
-  const skipRenameBlurRef = useRef(false);
 
   const displayTitle = title ?? 'New Chat';
-  const isValidRename = (() => {
-    const trimmed = renameValue.trim();
-    return trimmed.length > 0 && trimmed.length <= MAX_SESSION_TITLE_LENGTH;
-  })();
 
-  const persistRename = async () => {
-    const trimmed = renameValue.trim();
+  const persistRename = async (trimmed: string) => {
     if (trimmed === (title ?? '').trim()) {
-      skipRenameBlurRef.current = true;
-      setRenaming(false);
+      setRenameOpen(false);
       return;
     }
     setRenameSaving(true);
     try {
       await aui.threadListItem().rename(trimmed);
-      skipRenameBlurRef.current = true;
-      setRenaming(false);
+      setRenameOpen(false);
     } catch (caught) {
-      skipRenameBlurRef.current = true;
-      setRenaming(false);
       toaster?.showError(caught);
     } finally {
       setRenameSaving(false);
@@ -232,30 +221,6 @@ function ThreadListItemRow({
         active={id === mainThreadId && !sidebarNavOpen}
         agentName={agentName}
         lastMessageAt={lastMessageAt}
-        renaming={renaming}
-        renameValue={renameValue}
-        renameSaving={renameSaving}
-        onRenameValueChange={setRenameValue}
-        onRenameCommit={() => {
-          if (!isValidRename || renameSaving) return;
-          void persistRename();
-        }}
-        onRenameCancel={() => {
-          if (renameSaving) return;
-          skipRenameBlurRef.current = true;
-          setRenaming(false);
-        }}
-        onRenameBlur={() => {
-          if (skipRenameBlurRef.current || renameSaving) {
-            skipRenameBlurRef.current = false;
-            return;
-          }
-          if (!isValidRename) {
-            setRenaming(false);
-            return;
-          }
-          void persistRename();
-        }}
         onSelect={() => {
           onThreadOpen?.();
           shell?.setSettingsOpen(false);
@@ -303,14 +268,19 @@ function ThreadListItemRow({
               renameDisabled={renameDisabled}
               canDelete={showDelete}
               deleteDisabled={deleteDisabled}
-              onRename={() => {
-                skipRenameBlurRef.current = false;
-                setRenameValue(title ?? '');
-                setRenaming(true);
-              }}
+              onRename={() => setRenameOpen(true)}
             />
           ) : undefined
         }
+      />
+      <RenameSessionModal
+        open={renameOpen}
+        initialTitle={title ?? ''}
+        saving={renameSaving}
+        onOpenChange={setRenameOpen}
+        onSave={nextTitle => {
+          void persistRename(nextTitle);
+        }}
       />
     </ThreadListItemPrimitive.Root>
   );
