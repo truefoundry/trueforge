@@ -13,7 +13,7 @@ Canonical `AgentUIServer` / chat / builder / catalog port types live only in
 ## Rules
 
 - [`packages/trueforge-ui/src/server/types.ts`](packages/trueforge-ui/src/server/types.ts)
-  is the host-facing barrel: re-export only from `@truefoundry/assistant-ui-runtime`
+  is the host-facing barrel: re-export only from `@truefoundry/trueforge-assistant-ui-runtime`
   (prefer `/server` when avoiding root name collisions). Do **not** put hand-written
   server port/DTO interfaces there or elsewhere in this monorepo.
 - Hosts import types from `@truefoundry/trueforge-ui` only — they must not need the

@@ -12,7 +12,7 @@ import { createMockAgentUIServer, createMockCatalog } from '../../server/mockSer
 let agentSpec: AgentSpec | undefined;
 const updateAgentSpec = vi.fn();
 
-vi.mock('@truefoundry/assistant-ui-runtime', () => ({
+vi.mock('@truefoundry/trueforge-assistant-ui-runtime', () => ({
   useTrueForgeAgentSpec: () => ({ agentSpec }),
   useTrueForgeUpdateAgentSpec: () => updateAgentSpec,
 }));

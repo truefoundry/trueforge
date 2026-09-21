@@ -1,7 +1,7 @@
 'use client';
 
 import { useThreadIsRunning } from '@assistant-ui/core/react';
-import { useTrueForgeMcpAuth } from '@truefoundry/assistant-ui-runtime';
+import { useTrueForgeMcpAuth } from '@truefoundry/trueforge-assistant-ui-runtime';
 import { useEffect, useRef, useState } from 'react';
 
 import { useDraftCatalog } from '@/atoms/draft/DraftCatalogProvider.js';

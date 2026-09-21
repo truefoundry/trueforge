@@ -1,7 +1,7 @@
 // @vitest-environment jsdom
 import { AssistantRuntimeProvider, useExternalStoreRuntime, type ThreadMessageLike } from '@assistant-ui/react';
 import { act, fireEvent, render, screen, waitFor } from '@testing-library/react';
-import { trueForgeExtras, type TrueForgeRuntimeExtras } from '@truefoundry/assistant-ui-runtime';
+import { trueForgeExtras, type TrueForgeRuntimeExtras } from '@truefoundry/trueforge-assistant-ui-runtime';
 import { describe, expect, it, vi } from 'vitest';
 
 import { DraftCatalogProvider } from '@/atoms/draft/DraftCatalogProvider.js';

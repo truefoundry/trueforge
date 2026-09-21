@@ -1,6 +1,6 @@
 'use client';
 
-import { useTrueForgeHistoryPagination } from '@truefoundry/assistant-ui-runtime';
+import { useTrueForgeHistoryPagination } from '@truefoundry/trueforge-assistant-ui-runtime';
 import { useCallback, useEffect, useRef, useState } from 'react';
 
 import { useSlot } from '../theme/SlotsProvider.js';

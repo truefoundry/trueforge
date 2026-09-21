@@ -275,13 +275,13 @@ export {
   useTrueForgeToolResponses,
   useTrueForgeTurnId,
   useTrueForgeUpdateAgentSpec,
-} from '@truefoundry/assistant-ui-runtime';
+} from '@truefoundry/trueforge-assistant-ui-runtime';
 export type {
   DraftAgentConfig,
   NamedAgentConfig,
   TrueForgeAgentConfig,
   UseTrueForgeAgentRuntimeOptions,
-} from '@truefoundry/assistant-ui-runtime';
+} from '@truefoundry/trueforge-assistant-ui-runtime';
 
 // Server port types + factory
 export { ClearChatButton } from './atoms/ClearChatButton.js';

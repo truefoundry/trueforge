@@ -57,7 +57,7 @@
     "src/icons/registerAgentIcons.ts"
   ],
   "scripts": {
-    "runtime:build": "pnpm --filter @truefoundry/assistant-ui-runtime build",
+    "runtime:build": "pnpm --filter @truefoundry/trueforge-assistant-ui-runtime build",
     "prebuild": "pnpm run runtime:build && pnpm -w run sdk:types",
     "build": "node ../../scripts/rm-path.mjs dist && tailwindcss --input src/build-styles.css --output dist/styles.css --minify && tsup",
     "dev:watch": "pnpm run \"/^(dev:watch:js|dev:watch:css)$/\"",
@@ -97,7 +97,7 @@
     "@openuidev/react-headless": "^0.9.4",
     "@openuidev/react-lang": "^0.2.9",
     "@openuidev/react-ui": "^0.13.2",
-    "@truefoundry/assistant-ui-runtime": "workspace:*",
+    "@truefoundry/trueforge-assistant-ui-runtime": "workspace:*",
     "@truefoundry/trueforge-sdk": "workspace:*",
     "chart.js": "^4.5.1",
     "clsx": "^2.1.1",

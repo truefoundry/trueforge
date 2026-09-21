@@ -1,7 +1,7 @@
 'use client';
 
 import { useAuiState } from '@assistant-ui/react';
-import { useTrueForgeApprovals, useTrueForgeToolResponses } from '@truefoundry/assistant-ui-runtime';
+import { useTrueForgeApprovals, useTrueForgeToolResponses } from '@truefoundry/trueforge-assistant-ui-runtime';
 
 import { useOptionalCustomActionRenderers } from '../server/CustomActionRenderersContext.js';
 

@@ -12,7 +12,7 @@ const threadState = {
   setThreadId: (_id: string) => {},
 };
 
-vi.mock('@truefoundry/assistant-ui-runtime', () => ({
+vi.mock('@truefoundry/trueforge-assistant-ui-runtime', () => ({
   trueForgeAttachmentAdapter: {},
   useTrueForgeAgentRuntime: () => {
     const [threadId, setThreadId] = useState(threadState.threadId);

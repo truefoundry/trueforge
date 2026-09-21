@@ -10,7 +10,7 @@ import { SlotsProvider } from '@/theme/SlotsProvider.js';
 import { RuntimeHarness } from '../containers/RuntimeHarness.js';
 import { createMockAgentUIServer } from '../server/mockServer.js';
 
-vi.mock('@truefoundry/assistant-ui-runtime', () => ({
+vi.mock('@truefoundry/trueforge-assistant-ui-runtime', () => ({
   useTrueForgeAgentSpec: () => ({
     agentSpec: {
       model: { name: 'openai-main/gpt-4.1' },

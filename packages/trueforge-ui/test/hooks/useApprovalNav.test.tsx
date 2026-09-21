@@ -5,7 +5,7 @@ import { beforeEach, describe, expect, it, vi } from 'vitest';
 const useApprovals = vi.hoisted(() => vi.fn());
 const focus = vi.hoisted(() => vi.fn());
 
-vi.mock('@truefoundry/assistant-ui-runtime', () => ({
+vi.mock('@truefoundry/trueforge-assistant-ui-runtime', () => ({
   useTrueForgeApprovals: useApprovals,
 }));
 

@@ -7,7 +7,7 @@ import { Thread } from '@/containers/Thread.js';
 import { SlotsProvider } from '@/theme/SlotsProvider.js';
 import { RuntimeHarness } from './RuntimeHarness.js';
 
-vi.mock('@truefoundry/assistant-ui-runtime', () => ({
+vi.mock('@truefoundry/trueforge-assistant-ui-runtime', () => ({
   useTrueForgeCancel: () => vi.fn(),
   useTrueForgeToolResponses: () => ({ pending: [] }),
   useTrueForgeApprovals: () => ({ pending: [] }),

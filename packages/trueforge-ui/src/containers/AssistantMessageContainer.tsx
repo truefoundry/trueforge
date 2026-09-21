@@ -2,7 +2,7 @@
 
 import { useActionBarCopy, useMessageError, useThreadIsRunning, type PartState } from '@assistant-ui/core/react';
 import { MessagePrimitive, useAuiState, type EnrichedPartState, type GroupByContext } from '@assistant-ui/react';
-import { useTrueForgeResumeUnavailable } from '@truefoundry/assistant-ui-runtime';
+import { useTrueForgeResumeUnavailable } from '@truefoundry/trueforge-assistant-ui-runtime';
 
 import { useSlot } from '../theme/SlotsProvider.js';
 import { computeAgentStepsSplit } from '../utils/computeAgentStepsSplit.js';

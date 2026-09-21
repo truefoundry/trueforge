@@ -32,7 +32,7 @@ const sandboxCatalog: SandboxCatalogServer = {
 
 const settingsCatalog = createMockCatalog({ skillCatalog, sandboxCatalog });
 
-vi.mock('@truefoundry/assistant-ui-runtime', () => ({
+vi.mock('@truefoundry/trueforge-assistant-ui-runtime', () => ({
   useTrueForgeAgentSpec: () => ({ agentSpec }),
   useTrueForgeUpdateAgentSpec: () => updateAgentSpec,
 }));

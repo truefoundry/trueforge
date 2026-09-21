@@ -19,7 +19,7 @@ Install once at the app root.
 | ----------------------------------- | ----------------- |
 | `@assistant-ui/core`                | `^0.2.22`         |
 | `@assistant-ui/react`               | `^0.14.24`        |
-| `@truefoundry/assistant-ui-runtime` | workspace release |
+| `@truefoundry/trueforge-assistant-ui-runtime` | workspace release |
 | `lucide-react`                      | `^0.562.0`        |
 
 `@assistant-ui/*` are also listed as **optional** peers so hosts that install

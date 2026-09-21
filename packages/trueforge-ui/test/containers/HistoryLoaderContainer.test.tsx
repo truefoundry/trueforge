@@ -1,7 +1,7 @@
 // @vitest-environment jsdom
 import { AssistantRuntimeProvider, useExternalStoreRuntime, type ThreadMessageLike } from '@assistant-ui/react';
 import { render, screen, waitFor } from '@testing-library/react';
-import { trueForgeExtras } from '@truefoundry/assistant-ui-runtime';
+import { trueForgeExtras } from '@truefoundry/trueforge-assistant-ui-runtime';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 import { HistoryLoaderContainer } from '@/containers/HistoryLoaderContainer.js';

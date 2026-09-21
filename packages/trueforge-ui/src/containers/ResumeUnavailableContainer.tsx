@@ -1,6 +1,6 @@
 'use client';
 
-import { useTrueForgeResumeUnavailable } from '@truefoundry/assistant-ui-runtime';
+import { useTrueForgeResumeUnavailable } from '@truefoundry/trueforge-assistant-ui-runtime';
 
 import { useSlot } from '../theme/SlotsProvider.js';
 

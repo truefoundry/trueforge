@@ -32,6 +32,6 @@ const server: AgentUIServer = {
 <TrueForgeUI server={server} layout="sidebar" />;
 ```
 
-The canonical contracts live in `@truefoundry/assistant-ui-runtime/server` and are re-exported by `@truefoundry/trueforge-ui`. Hosts should import them from the UI package.
+The canonical contracts live in `@truefoundry/trueforge-assistant-ui-runtime/server` and are re-exported by `@truefoundry/trueforge-ui`. Hosts should import them from the UI package.
 
 Use `createTrueForgeServer` to compose separately implemented chat, builder, catalog, session, metrics, schedule, and permissions ports into one `AgentUIServer`.

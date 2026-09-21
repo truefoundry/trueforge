@@ -5,7 +5,7 @@ import { act, fireEvent, render, screen, waitFor, within } from '@testing-librar
 import { beforeAll, describe, expect, it, vi } from 'vitest';
 import { createMockAgentUIServer, createMockCatalog } from '../server/mockServer.js';
 
-vi.mock('@truefoundry/assistant-ui-runtime', () => ({
+vi.mock('@truefoundry/trueforge-assistant-ui-runtime', () => ({
   trueForgeAttachmentAdapter: {},
   useTrueForgeAgentRuntime: () =>
     useExternalStoreRuntime<ThreadMessageLike>({

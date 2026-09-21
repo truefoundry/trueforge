@@ -6,7 +6,7 @@ import {
   useTrueForgeAgentRuntime,
   type TrueForgeAgentConfig,
   type UseTrueForgeAgentRuntimeOptions,
-} from '@truefoundry/assistant-ui-runtime';
+} from '@truefoundry/trueforge-assistant-ui-runtime';
 import { useCallback, useMemo, type ReactNode } from 'react';
 
 import { sessionIsCreateAgent } from '../atoms/lib/sessionCreateAgent.js';

@@ -8,7 +8,7 @@ import {
   type ToolCallMessagePartComponent,
   type ToolCallMessagePartProps,
 } from '@assistant-ui/react';
-import { useTrueForgeRespondToToolApproval } from '@truefoundry/assistant-ui-runtime';
+import { useTrueForgeRespondToToolApproval } from '@truefoundry/trueforge-assistant-ui-runtime';
 import { useCallback, useState } from 'react';
 
 import { useSlot } from '../theme/SlotsProvider.js';

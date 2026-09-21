@@ -1,7 +1,7 @@
 'use client';
 
 import { ThreadPrimitive, type ThreadMessageLike } from '@assistant-ui/react';
-import { convertTurnsToThreadMessages } from '@truefoundry/assistant-ui-runtime';
+import { convertTurnsToThreadMessages } from '@truefoundry/trueforge-assistant-ui-runtime';
 import { Suspense, useCallback, useEffect, useMemo, useRef, useState, type ComponentType } from 'react';
 
 import { Markdown, type MarkdownProps } from '../atoms/Markdown.js';

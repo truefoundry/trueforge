@@ -1,7 +1,7 @@
 'use client';
 
 import { ComposerPrimitive, useAui, useAuiState } from '@assistant-ui/react';
-import { useTrueForgeAgentSpec, useTrueForgeCancel } from '@truefoundry/assistant-ui-runtime';
+import { useTrueForgeAgentSpec, useTrueForgeCancel } from '@truefoundry/trueforge-assistant-ui-runtime';
 import { useRef } from 'react';
 
 import { DraftCatalogProvider } from '../atoms/draft/DraftCatalogProvider.js';

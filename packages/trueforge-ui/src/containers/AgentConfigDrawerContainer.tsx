@@ -4,7 +4,7 @@ import {
   useTrueForgeAgentSpec,
   useTrueForgeFlushAgentSpec,
   useTrueForgeUpdateAgentSpec,
-} from '@truefoundry/assistant-ui-runtime';
+} from '@truefoundry/trueforge-assistant-ui-runtime';
 import { useCallback, useEffect, useState } from 'react';
 
 import type { AgentConfigEditor } from '../atoms/draft/AgentConfigEditors.js';

@@ -1,4 +1,4 @@
-# @truefoundry/assistant-ui-runtime
+# @truefoundry/trueforge-assistant-ui-runtime
 
 Headless React runtime that maps TrueForge sessions, turns, streaming events, tool approvals, and sub-agent threads onto assistant-ui's external-store runtime.
 
@@ -7,7 +7,7 @@ The package accepts a ready `AgentChatServer`. It does not construct backend cli
 ## Installation
 
 ```bash
-pnpm add @truefoundry/assistant-ui-runtime @assistant-ui/react
+pnpm add @truefoundry/trueforge-assistant-ui-runtime @assistant-ui/react
 ```
 
 React 18 and 19 are supported. `@assistant-ui/core` and `@assistant-ui/store` are installed with the runtime.
@@ -18,7 +18,7 @@ React 18 and 19 are supported. `@assistant-ui/core` and `@assistant-ui/store` ar
 'use client';
 
 import { AssistantRuntimeProvider } from '@assistant-ui/react';
-import { useTrueForgeAgentRuntime, type AgentChatServer } from '@truefoundry/assistant-ui-runtime';
+import { useTrueForgeAgentRuntime, type AgentChatServer } from '@truefoundry/trueforge-assistant-ui-runtime';
 
 function Chat({ server }: { server: AgentChatServer }) {
   const runtime = useTrueForgeAgentRuntime({
@@ -41,7 +41,7 @@ For the complete TrueForge UI, use `@truefoundry/trueforge-ui`. It supplies the 
 Named agents use an existing server-side agent:
 
 ```ts
-import type { TrueForgeAgentConfig } from '@truefoundry/assistant-ui-runtime';
+import type { TrueForgeAgentConfig } from '@truefoundry/trueforge-assistant-ui-runtime';
 
 const agent = {
   mode: 'named',
@@ -52,7 +52,7 @@ const agent = {
 Draft agents run from an inline spec and synchronize edits through the server:
 
 ```ts
-import type { TrueForgeAgentConfig } from '@truefoundry/assistant-ui-runtime';
+import type { TrueForgeAgentConfig } from '@truefoundry/trueforge-assistant-ui-runtime';
 
 const agent = {
   mode: 'draft',
@@ -114,7 +114,7 @@ import type {
   Session,
   Turn,
   TurnStreamingEvent,
-} from '@truefoundry/assistant-ui-runtime/server';
+} from '@truefoundry/trueforge-assistant-ui-runtime/server';
 ```
 
 Important invariants:
@@ -131,17 +131,17 @@ Important invariants:
 
 ## Package exports
 
-- `@truefoundry/assistant-ui-runtime`
-- `@truefoundry/assistant-ui-runtime/server`
+- `@truefoundry/trueforge-assistant-ui-runtime`
+- `@truefoundry/trueforge-assistant-ui-runtime/server`
 
 ## Development
 
 Run from the trueforge repository root:
 
 ```bash
-pnpm --filter @truefoundry/assistant-ui-runtime build
+pnpm --filter @truefoundry/trueforge-assistant-ui-runtime build
 pnpm test:assistant-ui-runtime
-pnpm --filter @truefoundry/assistant-ui-runtime typecheck
+pnpm --filter @truefoundry/trueforge-assistant-ui-runtime typecheck
 ```
 
 ## License

@@ -7,7 +7,7 @@ import {
   type ReasoningMessagePart,
   type TextMessagePart,
 } from '@assistant-ui/react';
-import { useTrueForgeDownloadSandboxFile } from '@truefoundry/assistant-ui-runtime';
+import { useTrueForgeDownloadSandboxFile } from '@truefoundry/trueforge-assistant-ui-runtime';
 import { useCallback, useMemo, useRef } from 'react';
 
 import { MARKDOWN_SMOOTH_BACKLOG_CHARS, useThrottledMarkdownText } from '../hooks/useThrottledMarkdownText.js';

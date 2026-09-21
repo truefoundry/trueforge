@@ -32,7 +32,7 @@ const approvalsState = vi.hoisted(() => ({
   }>,
 }));
 
-vi.mock('@truefoundry/assistant-ui-runtime', () => ({
+vi.mock('@truefoundry/trueforge-assistant-ui-runtime', () => ({
   useTrueForgeCancel: () => vi.fn(),
   useTrueForgeToolResponses: () => toolResponsesState,
   useTrueForgeApprovals: () => approvalsState,

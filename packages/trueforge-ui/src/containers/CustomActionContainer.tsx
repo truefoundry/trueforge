@@ -1,7 +1,7 @@
 'use client';
 
 import { useThreadIsRunning } from '@assistant-ui/core/react';
-import { useTrueForgeToolResponses } from '@truefoundry/assistant-ui-runtime';
+import { useTrueForgeToolResponses } from '@truefoundry/trueforge-assistant-ui-runtime';
 import { useCallback } from 'react';
 
 import { useOptionalCustomActionRenderers } from '../server/CustomActionRenderersContext.js';

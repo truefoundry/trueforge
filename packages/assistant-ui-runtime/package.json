@@ -1,8 +1,9 @@
 {
-  "name": "@truefoundry/assistant-ui-runtime",
+  "name": "@truefoundry/trueforge-assistant-ui-runtime",
   "version": "0.1.43",
   "description": "TrueForge agent runtime adapter for assistant-ui",
   "author": "TrueFoundry",
+  "license": "Apache-2.0",
   "repository": {
     "type": "git",
     "url": "git+https://github.com/truefoundry/trueforge.git",

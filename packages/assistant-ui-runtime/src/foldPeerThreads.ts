@@ -76,7 +76,7 @@ function warnUnexpectedRootThread(threadId: string, eventType: string): void {
     return;
   }
   console.warn(
-    `[@truefoundry/assistant-ui-runtime] Expected root thread "${ROOT_THREAD_ID}" but received "${threadId}" on ${eventType}.`,
+    `[@truefoundry/trueforge-assistant-ui-runtime] Expected root thread "${ROOT_THREAD_ID}" but received "${threadId}" on ${eventType}.`,
   );
 }
 
@@ -86,7 +86,7 @@ function assertRootThreadEvent(threadId: string, eventType: string): void {
   }
   if (isDev) {
     throw new Error(
-      `[@truefoundry/assistant-ui-runtime] Root-looking event ${eventType} arrived on thread "${threadId}" instead of "${ROOT_THREAD_ID}".`,
+      `[@truefoundry/trueforge-assistant-ui-runtime] Root-looking event ${eventType} arrived on thread "${threadId}" instead of "${ROOT_THREAD_ID}".`,
     );
   }
   warnUnexpectedRootThread(threadId, eventType);

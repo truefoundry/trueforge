@@ -1,6 +1,6 @@
 'use client';
 
-import { useTrueForgeAgentSpec } from '@truefoundry/assistant-ui-runtime';
+import { useTrueForgeAgentSpec } from '@truefoundry/trueforge-assistant-ui-runtime';
 
 import { useAuiState } from '../assistant-ui.js';
 import { useOptionalShellMode } from '../server/ShellModeContext.js';

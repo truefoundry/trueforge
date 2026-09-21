@@ -1,6 +1,6 @@
 'use client';
 
-import { useTrueForgeApprovals } from '@truefoundry/assistant-ui-runtime';
+import { useTrueForgeApprovals } from '@truefoundry/trueforge-assistant-ui-runtime';
 import { useCallback, useEffect, useRef, useState } from 'react';
 
 import { useOptionalApprovalFocus } from '../containers/approvalFocus.js';

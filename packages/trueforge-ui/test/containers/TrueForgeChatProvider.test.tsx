@@ -5,14 +5,14 @@ import {
   trueForgeAttachmentAdapter,
   type TrueForgeAgentConfig,
   type UseTrueForgeAgentRuntimeOptions,
-} from '@truefoundry/assistant-ui-runtime';
+} from '@truefoundry/trueforge-assistant-ui-runtime';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { createMockAgentUIServer } from '../server/mockServer.js';
 
 const runtimeSpy = vi.hoisted(() => vi.fn<(options: UseTrueForgeAgentRuntimeOptions) => void>());
 const defaultAttachmentAdapter = vi.hoisted(() => ({}));
 
-vi.mock('@truefoundry/assistant-ui-runtime', () => ({
+vi.mock('@truefoundry/trueforge-assistant-ui-runtime', () => ({
   trueForgeAttachmentAdapter: defaultAttachmentAdapter,
   useTrueForgeAgentRuntime: (options: UseTrueForgeAgentRuntimeOptions) => {
     runtimeSpy(options);

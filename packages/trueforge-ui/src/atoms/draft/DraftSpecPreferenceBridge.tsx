@@ -1,6 +1,6 @@
 'use client';
 
-import { useTrueForgeAgentSpec, useTrueForgeUpdateAgentSpec } from '@truefoundry/assistant-ui-runtime';
+import { useTrueForgeAgentSpec, useTrueForgeUpdateAgentSpec } from '@truefoundry/trueforge-assistant-ui-runtime';
 import { useEffect } from 'react';
 
 import {

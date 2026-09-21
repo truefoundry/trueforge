@@ -4,7 +4,7 @@ import {
   useTrueForgeAdoptAgentSpec,
   useTrueForgeAgentSpec,
   useTrueForgeFlushAgentSpec,
-} from '@truefoundry/assistant-ui-runtime';
+} from '@truefoundry/trueforge-assistant-ui-runtime';
 import { useRef, useState } from 'react';
 
 import { useCanCreateAgent } from '../hooks/useCanCreateAgent.js';
