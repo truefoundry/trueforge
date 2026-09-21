@@ -7,6 +7,6 @@ dependencies:
   version: 24.0.0
 - name: tfy-sandbox-server
   repository: oci://tfy.jfrog.io/tfy-helm
-  version: 0.3.3
-digest: sha256:4a1e8e592add0094b94177b0e5deea17ccec1efc034e4399176a9421e8fca0a7
-generated: "2026-09-17T18:47:27.221049+05:30"
+  version: 0.3.4
+digest: sha256:6907545c404a1c892aad13e017c6fc1a6fc813287f6c18eda8666312b2c976ed
+generated: "2026-09-21T16:44:28.85081+05:30"
