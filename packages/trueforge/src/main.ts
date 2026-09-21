@@ -37,7 +37,7 @@ try {
     TrueForgeAuthMode,
   } = await import('./config'));
   configureOutboundUrlGuard({
-    enabled: configuration.ENABLE_SSRF,
+    enabled: configuration.NETWORK_POLICY_ENABLED,
     allowedHosts: configuration.OUTBOUND_URL_ALLOWED_HOSTS,
     blockedHosts: configuration.OUTBOUND_URL_BLOCKED_HOSTS,
   });

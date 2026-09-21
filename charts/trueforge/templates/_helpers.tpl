@@ -491,7 +491,7 @@ fields, wires bundled Postgres/Redis, optional OIDC, then server.extraEnv.
 {{- end -}}
 {{- end -}}
 
-{{- $env = append $env (dict "name" "ENABLE_SSRF" "value" (.Values.networkPolicy.enabled | toString)) -}}
+{{- $env = append $env (dict "name" "NETWORK_POLICY_ENABLED" "value" (.Values.networkPolicy.enabled | toString)) -}}
 {{- if .Values.networkPolicy.outbound.allowedHosts -}}
 {{- $env = append $env (dict "name" "OUTBOUND_URL_ALLOWED_HOSTS" "value" (.Values.networkPolicy.outbound.allowedHosts | toJson)) -}}
 {{- end -}}
