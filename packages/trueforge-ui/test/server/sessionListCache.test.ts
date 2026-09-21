@@ -39,13 +39,14 @@ describe('withSessionListCache', () => {
     expect(listSessions).toHaveBeenCalledTimes(3);
   });
 
-  it('clears the cache after createSession, updateSession, and deleteSession', async () => {
+  it('clears the cache after createSession, updateSession, renameSession, and deleteSession', async () => {
     const listSessions = vi.fn().mockResolvedValue(emptyPage);
     const session = { id: 's1' };
     const server = cachedServer({
       listSessions,
       createSession: vi.fn().mockResolvedValue(session),
       updateSession: vi.fn().mockResolvedValue(session),
+      renameSession: vi.fn().mockResolvedValue(undefined),
       deleteSession: vi.fn().mockResolvedValue(undefined),
     });
 
@@ -54,10 +55,12 @@ describe('withSessionListCache', () => {
     await server.listSessions({ limit: 20 });
     await server.updateSession({ sessionId: 's1' });
     await server.listSessions({ limit: 20 });
+    await server.renameSession?.({ sessionId: 's1', title: 'Renamed' });
+    await server.listSessions({ limit: 20 });
     await server.deleteSession?.({ sessionId: 's1' });
     await server.listSessions({ limit: 20 });
 
-    expect(listSessions).toHaveBeenCalledTimes(4);
+    expect(listSessions).toHaveBeenCalledTimes(5);
   });
 
   it('retries after a failed page instead of replaying the rejection', async () => {

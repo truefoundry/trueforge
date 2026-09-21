@@ -1,3 +1,4 @@
+import { configureOutboundUrlGuard } from '@truefoundry/trueforge-core/core';
 import { STANDALONE_REQUEST_CONTEXT } from '../../../src/auth/identity';
 import { McpServerWithAuthStore } from '../../../src/db/McpServerWithAuthStore';
 import type { IMcpServerWithAuthStore } from '../../../src/db/mcpServerStore';
@@ -8,12 +9,27 @@ import { SqliteOAuthTokenStore } from '../../../src/db/sqlite/token-store/Sqlite
 import { mcpOAuthCallbackUrl } from '../../../src/mcp/auth/mcpOAuthHelpers';
 import { getMcpConnection } from '../../../src/runtime/sessionResources';
 
+jest.mock('undici', () => {
+  const actual = jest.requireActual<typeof import('undici')>('undici');
+  return {
+    ...actual,
+    fetch: (input: unknown, init?: RequestInit) => {
+      const url = input instanceof Request ? input.url : String(input);
+      return globalThis.fetch(url, init);
+    },
+  };
+});
+
 describe('getMcpConnection', () => {
   let db: ReturnType<typeof createSqliteDb>;
   let mcpServerStore: IMcpServerWithAuthStore;
   let tokenStore: SqliteOAuthTokenStore;
 
   beforeAll(async () => {
+    configureOutboundUrlGuard({
+      allowedHosts: ['auth.example.com', 'mcp.oauth.example'],
+      blockedHosts: [],
+    });
     db = createSqliteDb(':memory:');
     await migrateSqliteToLatest(db);
     tokenStore = new SqliteOAuthTokenStore(db);
@@ -258,5 +274,9 @@ describe('getMcpConnection', () => {
         userRef: STANDALONE_REQUEST_CONTEXT.subject.id,
       }),
     ).resolves.toBeUndefined();
+  });
+
+  afterAll(() => {
+    configureOutboundUrlGuard({ allowedHosts: [], blockedHosts: [] });
   });
 });

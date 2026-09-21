@@ -40,7 +40,7 @@ image:
   repository: tfy.jfrog.io/tfy-images/trueforge
   # Tag defaults to chart appVersion when empty. Prod chart-release PRs set this
   # to {appVersion}-{shortSha} for the npm-install image already in the registry.
-  tag: "0.2.0-rc.14-e1ebeda"
+  tag: "0.2.0-8b1d98e"
   pullPolicy: IfNotPresent
 imagePullSecrets: []
 # Default tfy.jfrog.io repos are anonymously pullable. Set secrets only when
@@ -170,6 +170,18 @@ configs:
     # Optional comma-separated exact emails and/or * globs (e.g. "*@company.com").
     # Empty = unrestricted. Matched against the ID token `email` claim.
     allowedEmails: ""
+# App-level outbound URL guard (MCP url / model-provider base_url). Not a K8s NetworkPolicy.
+# Behavior: see charts/trueforge/README.md (networkPolicy).
+networkPolicy:
+  # Env: NETWORK_POLICY_ENABLED. Default true. Set false to skip the outbound URL guard.
+  enabled: true
+  outbound:
+    # Env: OUTBOUND_URL_ALLOWED_HOSTS (JSON string array). Empty = none.
+    # Example: ["localhost", "127.0.0.1", "llm-gateway.internal"]
+    allowedHosts: []
+    # Env: OUTBOUND_URL_BLOCKED_HOSTS (JSON string array). Empty = none.
+    # Example: ["evil.example.com"]
+    blockedHosts: []
 # Resource tier: small | medium | large presets for server and controller.
 # Empty = use `resources` / `controller.resources`. Wins over a parent chart's
 # global.resourceTier.

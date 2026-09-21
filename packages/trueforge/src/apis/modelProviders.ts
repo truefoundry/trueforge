@@ -1,4 +1,5 @@
 import { OpenAPIHono, type RouteHandler } from '@hono/zod-openapi';
+import { assertSafeOutboundUrl } from '@truefoundry/trueforge-core/core';
 import type { Context } from 'hono';
 import type { ResolveRequestContext } from '../auth/identity';
 import {
@@ -79,6 +80,12 @@ export function createModelProvidersRouter<TTransaction>(deps: ModelProvidersRou
     const provider = body.manifest;
     const name = modelProviderName(provider);
     try {
+      await assertSafeOutboundUrl(provider.base_url);
+    } catch (error) {
+      const message = error instanceof Error ? error.message : 'Outbound URL blocked';
+      return c.json({ error: { message } }, 400);
+    }
+    try {
       // Create has no prior row; redacted keep resolves to MissingStoredSecretError → 400.
       const manifest = resolveModelProviderManifestForWrite({ incoming: provider, existing: undefined });
       const record = await deps.resolveModelProviderStore(c).createProvider({
@@ -104,6 +111,12 @@ export function createModelProvidersRouter<TTransaction>(deps: ModelProvidersRou
     const requestContext = deps.resolveRequestContext(c);
     const provider = body.manifest;
     const name = modelProviderName(provider);
+    try {
+      await assertSafeOutboundUrl(provider.base_url);
+    } catch (error) {
+      const message = error instanceof Error ? error.message : 'Outbound URL blocked';
+      return c.json({ error: { message } }, 400);
+    }
     try {
       // Lock → resolve secret from that snapshot → upsert, all in one txn so concurrent keep
       // cannot re-write a secret over a rotate that committed in between.

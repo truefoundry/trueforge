@@ -15,10 +15,19 @@ export type ThreadListRowProps = {
   agentName?: string;
   /** Shown as compact relative time on the right. */
   lastMessageAt?: Date;
-  /** Overflow actions (e.g. delete menu) — rendered as a sibling of the title button. */
+  /** Overflow actions (e.g. rename / delete menu) — rendered as a sibling of the title button. */
   actions?: ReactNode;
   className?: string;
 };
+
+function ThreadListAgentName({ agentName }: { agentName: string }) {
+  return (
+    <span className="mt-0.5 flex min-w-0 items-center gap-1 text-[0.75rem] text-text-secondary">
+      <Icon name="bot" className="shrink-0" />
+      <span className="truncate">{agentName}</span>
+    </span>
+  );
+}
 
 export function ThreadListRow({
   title,
@@ -59,12 +68,7 @@ export function ThreadListRow({
       >
         <span className="min-w-0 flex-1">
           <span className="block truncate text-sm font-normal text-text-primary">{title}</span>
-          {agentName != null ? (
-            <span className="mt-0.5 flex min-w-0 items-center gap-1 text-[0.75rem] text-text-secondary">
-              <Icon name="bot" className="shrink-0" />
-              <span className="truncate">{agentName}</span>
-            </span>
-          ) : null}
+          {agentName != null ? <ThreadListAgentName agentName={agentName} /> : null}
         </span>
       </button>
       {hasTrailing ? (
