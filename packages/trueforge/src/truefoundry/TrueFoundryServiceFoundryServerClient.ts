@@ -57,6 +57,19 @@ const GetSessionWireSchema = z.union([GetSessionUnauthenticatedSchema, GetSessio
 /** Authenticated session payload returned by {@link TrueFoundryServiceFoundryServerClient.getSession}. */
 export type GetSessionResponse = z.infer<typeof GetSessionAuthenticatedSchema>;
 
+/**
+ * `GET /v1/session?tenantName=` with the service API key — tenant `controlPlaneURL`
+ * for synthetic contexts (e.g. schedule execute). CP URL comes from the query tenant.
+ */
+const GetSessionForTenantSchema = z
+  .object({
+    controlPlaneURL: z.url(),
+  })
+  .transform(({ controlPlaneURL: public_base_url }) => ({ public_base_url }));
+
+/** Tenant control-plane URL from {@link TrueFoundryServiceFoundryServerClient.getSessionForTenant}. */
+export type GetSessionForTenantResponse = z.infer<typeof GetSessionForTenantSchema>;
+
 const ListResponseSchema = z.union([
   z.array(z.unknown()),
   z.object({
@@ -508,6 +521,37 @@ export class TrueFoundryServiceFoundryServerClient {
     }
     if (parsed.data.user === null) {
       throw new HTTPException(401, { message: 'Authentication required' });
+    }
+    return parsed.data;
+  }
+
+  /**
+   * `GET v1/session?tenantName=` authenticated with the service API key — tenant
+   * `controlPlaneURL` for synthetic contexts (e.g. schedule execute).
+   */
+  async getSessionForTenant(input: { tenantName: string }): Promise<GetSessionForTenantResponse> {
+    let payload: unknown;
+    try {
+      payload = await this.#requestJson({
+        url: this.#url(SESSION_PATH, { tenantName: input.tenantName }),
+        accessToken: this.#apiKey,
+        method: 'GET',
+      });
+    } catch (error) {
+      if (error instanceof HTTPException && (error.status === 401 || error.status === 403)) {
+        throw error;
+      }
+      throw new HTTPException(500, {
+        message: 'TrueFoundry ServiceFoundry session request failed',
+        cause: error,
+      });
+    }
+    const parsed = GetSessionForTenantSchema.safeParse(payload);
+    if (!parsed.success) {
+      throw new HTTPException(500, {
+        message: 'TrueFoundry ServiceFoundry session response was malformed',
+        cause: parsed.error,
+      });
     }
     return parsed.data;
   }
