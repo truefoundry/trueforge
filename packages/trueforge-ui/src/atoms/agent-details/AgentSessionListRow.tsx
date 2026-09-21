@@ -22,7 +22,16 @@ export function AgentSessionListRow({
   canDelete = true,
 }: AgentSessionListRowProps) {
   const PermissionGuard = useSlot('PermissionGuard');
-  const relative = formatRelativeShort(new Date(lastActivityAt));
+  const activityAt = new Date(lastActivityAt);
+  const relative = formatRelativeShort(activityAt);
+  const absolute = new Intl.DateTimeFormat(undefined, {
+    month: 'short',
+    day: 'numeric',
+    year: 'numeric',
+    hour: 'numeric',
+    minute: '2-digit',
+    hour12: true,
+  }).format(activityAt);
 
   return (
     <div
@@ -96,7 +105,9 @@ export function AgentSessionListRow({
               <span aria-hidden="true">·</span>
             </>
           ) : null}
-          <span>{relative}</span>
+          <Tooltip content={absolute} side="bottom">
+            <span>{relative}</span>
+          </Tooltip>
         </span>
         <span className="shrink-0 tabular-nums">{formatSessionListMetrics(metrics)}</span>
       </button>
