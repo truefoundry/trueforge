@@ -109,7 +109,7 @@ export async function startScheduleRunOnRequest<TTransaction>(params: {
     input: prepared.input,
     previous_turn_id: prepared.previous_turn_id,
     userRef: prepared.userRef,
-    turnHeaders: ({ session, turnId }) => gatewayTurnHeaders({ session, turnId }),
+    resolveTurnHeaders: gatewayTurnHeaders,
     deps: {
       activeTurns: deps.activeTurns,
       eventSubscriptions: deps.eventSubscriptions,

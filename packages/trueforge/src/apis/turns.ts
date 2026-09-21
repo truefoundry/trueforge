@@ -145,7 +145,7 @@ interface BeginTurnExecutionParams {
   input: TurnInputItem[] | undefined;
   previous_turn_id: string | undefined;
   userRef: string;
-  turnHeaders: ResolveTurnHeaders;
+  resolveTurnHeaders: ResolveTurnHeaders;
   deps: BeginTurnExecutionDeps;
 }
 
@@ -400,7 +400,7 @@ export interface TurnEventDrainInput {
 export async function beginTurnExecution(
   params: BeginTurnExecutionParams,
 ): Promise<{ turn: TurnHandle; drainInput: TurnEventDrainInput }> {
-  const { session, input, previous_turn_id: previousTurnId, userRef, turnHeaders, deps } = params;
+  const { session, input, previous_turn_id: previousTurnId, userRef, resolveTurnHeaders, deps } = params;
   const sessionId = session.session_id;
   const turnId = newId();
 
@@ -417,7 +417,7 @@ export async function beginTurnExecution(
     signal: abortController.signal,
     userRef,
     session,
-    turnHeaders: turnHeaders({ session, turnId }),
+    turnHeaders: resolveTurnHeaders({ session, turnId }),
   });
 
   // First turn only: derive the title from the first user message. The store
@@ -782,8 +782,7 @@ export function createTurnsRouter(deps: TurnsRouterDeps) {
       input: body.input,
       previous_turn_id: body.previous_turn_id,
       userRef: requestContext.subject.id,
-      turnHeaders: ({ session: turnSession, turnId }) =>
-        gatewayTurnHeaders({ session: turnSession, turnId, requestMetadata }),
+      resolveTurnHeaders: input => gatewayTurnHeaders({ ...input, requestMetadata }),
       deps: {
         ...deps,
         modelProviderStore: deps.resolveModelProviderStore(c, referencedAgent),
