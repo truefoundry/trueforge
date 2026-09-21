@@ -2,6 +2,7 @@
 
 import { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState, type ReactNode } from 'react';
 
+import { useOptionalShellLocationStore } from '../routing/ShellLocationContext.js';
 import type { HistoryAgentIntent } from '../utils/historyAgentSearch.js';
 import { replaceSessionShareSearch } from '../utils/sessionShareUrl.js';
 import {
@@ -222,6 +223,7 @@ export function ShellModeProvider({
   const refreshCapabilities = useOptionalRefreshServerCapabilities();
   const sessionsServer = useOptionalAgentSessionsServer();
   const scheduleServer = useOptionalScheduleServer();
+  const locationStore = useOptionalShellLocationStore();
   const chatSeedRef = useRef(
     readDraftSpecPreferences('chat') ?? selectDraftSpecPreferences(mutableSeedFromConfig(agentConfig), 'chat'),
   );
@@ -263,12 +265,14 @@ export function ShellModeProvider({
         setLibraryOpenState(false);
         setLibraryAgentId(null);
         setSchedulesOpenState(false);
+      } else if (locationStore != null) {
+        locationStore.updateSearch({ view: null });
       } else {
         replaceSessionShareSearch({ view: null });
       }
       setSessionsOpenState(sessionsEnabled && open);
     },
-    [sessionsEnabled],
+    [locationStore, sessionsEnabled],
   );
   const setLibraryOpen = useCallback(
     (open: boolean) => {

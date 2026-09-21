@@ -260,14 +260,15 @@ const CustomModelProviderForm = ({
       contentSized
     >
       <form
-        className="flex min-h-0 flex-1 flex-col"
+        className="flex min-h-0 flex-auto flex-col"
         onSubmit={event => {
           event.preventDefault();
           void handleSubmit();
         }}
       >
-        {/* Scrollable body — generous bottom padding keeps expanded Advanced clear of the pinned footer */}
-        <div className="min-h-0 flex-1 space-y-4 overflow-y-auto px-5 pt-4 pb-8">
+        {/* Scrollable body — generous bottom padding keeps expanded Advanced clear of the pinned footer.
+            flex-auto (not flex-1): Safari collapses basis-0 overflow scrollers in fit-content dialogs. */}
+        <div className="min-h-0 flex-auto space-y-4 overflow-y-auto px-5 pt-4 pb-8">
           <div>
             <label htmlFor="custom-provider-name" className="mb-1.5 block text-sm font-medium text-text-primary">
               Name

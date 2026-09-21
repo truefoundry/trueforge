@@ -214,16 +214,18 @@ export default function App() {
 />
 ```
 
-| Prop               | Type                       | Required | Description                                                                                                        |
-| ------------------ | -------------------------- | -------- | ------------------------------------------------------------------------------------------------------------------ |
-| `server`           | `TrueForgeServerConfig`    | ✅       | Built-in config (`truefoundry` / `trueforge`) **or** a ready `AgentUIServer`.                                      |
-| `layout`           | `LayoutProp`               | ✅       | Built-in layout string **or** a custom React component.                                                            |
-| `agentConfig`      | `AgentConfig`              | —        | Shell mode: SingleAgent / AgentLibrary / AgentComposer / AgentLibraryWithComposer. Defaults to library + composer. |
-| `theme`            | `ThemeConfig`              | —        | Preset, mode, tokens, brand, icons, **content `classNames`** (see [Theming](#theming)).                            |
-| `overrides`        | `SlotOverrides`            | —        | Map of slot overrides (see [Overriding components](#overriding-components)).                                       |
-| `className`        | `string`                   | —        | Applied to the layout root.                                                                                        |
-| `initialSessionId` | `string`                   | —        | Resume a specific session.                                                                                         |
-| `onError`          | `(error: unknown) => void` | —        | Host error hook (runtime + server init).                                                                           |
+| Prop               | Type                       | Required | Description                                                                                                                                                                                                                |
+| ------------------ | -------------------------- | -------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `server`           | `TrueForgeServerConfig`    | ✅       | Built-in config (`truefoundry` / `trueforge`) **or** a ready `AgentUIServer`.                                                                                                                                              |
+| `layout`           | `LayoutProp`               | ✅       | Built-in layout string **or** a custom React component.                                                                                                                                                                    |
+| `agentConfig`      | `AgentConfig`              | —        | Shell mode: SingleAgent / AgentLibrary / AgentComposer / AgentLibraryWithComposer. Defaults to library + composer.                                                                                                         |
+| `theme`            | `ThemeConfig`              | —        | Preset, mode, tokens, brand, icons, **content `classNames`** (see [Theming](#theming)).                                                                                                                                    |
+| `overrides`        | `SlotOverrides`            | —        | Map of slot overrides (see [Overriding components](#overriding-components)).                                                                                                                                               |
+| `className`        | `string`                   | —        | Applied to the layout root.                                                                                                                                                                                                |
+| `initialSessionId` | `string`                   | —        | Resume a specific session.                                                                                                                                                                                                 |
+| `withRouter`       | `boolean`                  | —        | Sync shell navigation to the browser URL via react-router. When off (default), the same places persist in sessionStorage without mutating the host URL. See [URL routing](./docs/customization.md#url-routing-withrouter). |
+| `routes`           | `RoutesConfig`             | —        | Path customization; only honored when `withRouter`.                                                                                                                                                                        |
+| `onError`          | `(error: unknown) => void` | —        | Host error hook (runtime + server init).                                                                                                                                                                                   |
 
 Later sections use `server` as a `TrueForgeServerConfig` (usually `type: "truefoundry"`). For a host-built port, pass the `AgentUIServer` directly.
 
