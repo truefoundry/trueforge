@@ -491,11 +491,12 @@ export function ShellModeProvider({
 
   const isActiveAgentBuilder =
     effectiveMode.status === 'active' && effectiveMode.isMutable && effectiveMode.isCreateAgent;
+  const isBoundAgentBuilder = isActiveAgentBuilder && effectiveMode.agentId != null;
   const openAgentBuilder = useCallback(() => {
     if (!isComposerEnabled) return;
     refreshCapabilities?.();
-    // Returning from an overlay must keep the live draft runtime and its unsaved instructions.
-    if (isActiveAgentBuilder) {
+    // Preserve unsaved drafts, saved builders start fresh when revisited.
+    if (isActiveAgentBuilder && !isBoundAgentBuilder) {
       setSettingsOpen(false);
       setLibraryOpenState(false);
       setLibraryAgentId(null);
@@ -507,6 +508,7 @@ export function ShellModeProvider({
     selectLibraryAgent({ isMutable: true, isCreateAgent: true, agentSpec: agentSeedRef.current });
   }, [
     isActiveAgentBuilder,
+    isBoundAgentBuilder,
     isComposerEnabled,
     refreshCapabilities,
     selectLibraryAgent,
