@@ -52,6 +52,7 @@ import {
 import type { ActiveTurnRegistry } from '../runtime/activeTurns';
 import { minIntervalSeconds, nextTriggerAfter } from '../runtime/cron';
 import type { EventSubscriptionRegistry } from '../runtime/event-subscription';
+import { gatewayTurnHeaders } from '../runtime/sessionResources';
 import {
   InvalidCronError,
   SCHEDULE_MIN_INTERVAL_SECONDS,
@@ -107,6 +108,7 @@ export async function startScheduleRunOnRequest<TTransaction>(params: {
     input: prepared.input,
     previous_turn_id: prepared.previous_turn_id,
     userRef: prepared.userRef,
+    resolveTurnHeaders: gatewayTurnHeaders,
     deps: {
       activeTurns: deps.activeTurns,
       eventSubscriptions: deps.eventSubscriptions,
