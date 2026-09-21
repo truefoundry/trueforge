@@ -7,6 +7,16 @@ import { DropdownMenuItem } from '@/atoms/primitives/DropdownMenu.js';
 import { SlotsProvider } from '@/theme/SlotsProvider.js';
 
 describe('ThreadListRow', () => {
+  it('renders the title button when not renaming', () => {
+    render(
+      <SlotsProvider>
+        <ThreadListRow title="Session A" active onSelect={() => {}} />
+      </SlotsProvider>,
+    );
+    expect(screen.getByRole('button', { name: 'Session A' })).toBeInTheDocument();
+    expect(screen.queryByRole('textbox', { name: 'Session title' })).not.toBeInTheDocument();
+  });
+
   it('hides actions when omitted', () => {
     render(
       <SlotsProvider>

@@ -2,6 +2,7 @@
 
 import { useThreadIsRunning } from '@assistant-ui/core/react';
 import { useTrueForgeMcpAuth } from '@truefoundry/assistant-ui-runtime';
+import { useEffect, useRef, useState } from 'react';
 
 import { useDraftCatalog } from '@/atoms/draft/DraftCatalogProvider.js';
 import { useMCPAuth } from '@/hooks/useMcpAuth.js';
@@ -10,7 +11,7 @@ import { useSlot } from '../theme/SlotsProvider.js';
 
 type McpAuthPromptProps = {
   servers: NonNullable<ReturnType<typeof useTrueForgeMcpAuth>['pending']>['mcpServers'];
-  onContinue: () => void;
+  onContinue: () => Promise<void>;
   readOnly: boolean;
 };
 
@@ -18,16 +19,51 @@ function CatalogMcpAuthPrompt({ servers, onContinue, readOnly }: McpAuthPromptPr
   const McpAuthPrompt = useSlot('McpAuthPrompt');
   const { handleAuthorize } = useMCPAuth();
   const { refreshConnectors } = useDraftCatalog();
+  const [connectedServerIds, setConnectedServerIds] = useState<ReadonlySet<string>>(() => new Set());
+  const connectedServerIdsRef = useRef(connectedServerIds);
+  const [isResuming, setIsResuming] = useState(false);
+  const resumedRef = useRef(false);
+  const promptGenerationRef = useRef(0);
 
-  const handleConnect = (serverId: string) => {
-    void handleAuthorize(serverId, isSuccess => {
-      if (isSuccess) {
-        void refreshConnectors();
-      }
+  useEffect(
+    () => () => {
+      promptGenerationRef.current += 1;
+    },
+    [],
+  );
+
+  const startResume = () => {
+    if (readOnly || resumedRef.current) return;
+    resumedRef.current = true;
+    setIsResuming(true);
+    void onContinue().catch(() => {
+      resumedRef.current = false;
+      setIsResuming(false);
     });
   };
 
-  return <McpAuthPrompt servers={servers} onConnect={handleConnect} onContinue={onContinue} readOnly={readOnly} />;
+  const handleConnect = (serverId: string) => {
+    const generation = promptGenerationRef.current;
+    void handleAuthorize(serverId, isSuccess => {
+      if (generation !== promptGenerationRef.current || !isSuccess) return;
+      const nextConnectedServerIds = new Set([...connectedServerIdsRef.current, serverId]);
+      connectedServerIdsRef.current = nextConnectedServerIds;
+      setConnectedServerIds(nextConnectedServerIds);
+      void refreshConnectors();
+      if (servers.every(server => nextConnectedServerIds.has(server.id))) startResume();
+    });
+  };
+
+  return (
+    <McpAuthPrompt
+      servers={servers}
+      connectedServerIds={connectedServerIds}
+      continueLoading={isResuming}
+      onConnect={handleConnect}
+      onContinue={startResume}
+      readOnly={readOnly}
+    />
+  );
 }
 
 export function McpAuthContainer({ disabled = false }: { disabled?: boolean }) {
@@ -39,12 +75,12 @@ export function McpAuthContainer({ disabled = false }: { disabled?: boolean }) {
   if (!pending) return null;
 
   if (catalog) {
+    const pendingServerKey = JSON.stringify(pending.mcpServers.map(server => server.id));
     return (
       <CatalogMcpAuthPrompt
+        key={pendingServerKey}
         servers={pending.mcpServers}
-        onContinue={() => {
-          if (!disabled) void resume();
-        }}
+        onContinue={resume}
         readOnly={isRunning || disabled}
       />
     );
