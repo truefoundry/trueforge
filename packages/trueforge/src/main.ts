@@ -38,7 +38,7 @@ try {
   } = await import('./config'));
   configureOutboundUrlGuard({
     enabled: configuration.ENABLE_SSRF,
-    allowedHosts: configuration.OUTBOUND_URL_ALLOW_HOSTS,
+    allowedHosts: configuration.OUTBOUND_URL_ALLOWED_HOSTS,
     blockedHosts: configuration.OUTBOUND_URL_BLOCKED_HOSTS,
   });
 } catch (error) {
