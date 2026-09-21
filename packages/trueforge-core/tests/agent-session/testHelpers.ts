@@ -14,6 +14,7 @@ import type {
   RawAssistantMessageWithUsage,
 } from '../../src/core/llm/LLMTypes';
 import { getEmptyUsage } from '../../src/core/llm/LLMTypes';
+import { DEFAULT_MAX_TOOL_CALLS_PER_STEP } from '../../src/core/runtime/AgentDefinition';
 import { getEmptyCurrentContextUsage } from '../../src/core/runtime/contextUsage';
 import type { Sandbox } from '../../src/core/sandbox/Sandbox';
 import { makeMockILLM, makeSilentLogger } from '../core/harnessMocks';
@@ -102,6 +103,7 @@ export function makeTestResolver<TTurnCustom extends object = Record<string, nev
     },
     mcpRequestTimeoutMs: 60_000,
     mcpConnectTimeoutMs: 5_000,
+    maxToolCallsPerStep: DEFAULT_MAX_TOOL_CALLS_PER_STEP,
     logger: makeSilentLogger(),
     ...(options?.agent !== undefined ? { agent: options.agent } : {}),
     ...(options?.sandbox

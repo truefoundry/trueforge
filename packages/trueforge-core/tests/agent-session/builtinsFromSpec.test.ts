@@ -12,6 +12,7 @@ import {
   buildWebSearchInstruction,
 } from '../../src/core/capabilities/builtins/WebSearch';
 import type { AgentDefinition } from '../../src/core/runtime/AgentDefinition';
+import { DEFAULT_MAX_TOOL_CALLS_PER_STEP } from '../../src/core/runtime/AgentDefinition';
 import { NOOP_AGENT_TRACING } from '../../src/core/tracing/NoopAgentTracing';
 import { WebSearchProviders, type IWebSearchProvider } from '../../src/core/web-search/WebSearchProvider';
 import { makeMockILLM, makeSilentLogger } from '../core/harnessMocks';
@@ -19,6 +20,7 @@ import { makeMockILLM, makeSilentLogger } from '../core/harnessMocks';
 function makeDefinition(): AgentDefinition {
   return {
     modelClient: makeMockILLM(),
+    maxToolCallsPerStep: DEFAULT_MAX_TOOL_CALLS_PER_STEP,
   };
 }
 

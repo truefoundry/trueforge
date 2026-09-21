@@ -1,5 +1,6 @@
 /** One root thread, no tools: user message in, text reply out. */
 import { EventType } from '../../src/core/events/schema';
+import { DEFAULT_MAX_TOOL_CALLS_PER_STEP } from '../../src/core/runtime/AgentDefinition';
 import { AgentThread } from '../../src/core/runtime/AgentThread';
 import { InternalEventType } from '../../src/core/runtime/AgentThread.types';
 import { AgentThreadOrchestrator } from '../../src/core/runtime/AgentThreadOrchestrator';
@@ -50,6 +51,7 @@ describe('orchestration: mocked LLM and no tools', () => {
         modelParams: undefined,
         responseFormat: undefined,
         iterationLimit: undefined,
+        maxToolCallsPerStep: DEFAULT_MAX_TOOL_CALLS_PER_STEP,
         toolSets: undefined,
       },
       threadId: THREAD_ID,

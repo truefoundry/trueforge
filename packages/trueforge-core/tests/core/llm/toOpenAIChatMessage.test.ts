@@ -7,6 +7,7 @@ import type {
 import { getEmptyUsage } from '../../../src/core/llm/LLMTypes';
 import { ResponseFormatSchema, toOpenAIResponseFormat } from '../../../src/core/llm/responseFormat';
 import { toOpenAIChatMessage } from '../../../src/core/llm/toOpenAIChatMessage';
+import { DEFAULT_MAX_TOOL_CALLS_PER_STEP } from '../../../src/core/runtime/AgentDefinition';
 import { AgentThread } from '../../../src/core/runtime/AgentThread';
 import { NOOP_AGENT_TRACING } from '../../../src/core/tracing/NoopAgentTracing';
 import { makeSilentLogger } from '../harnessMocks';
@@ -173,6 +174,7 @@ describe('AgentThread LLM request mapping (end-to-end)', () => {
         modelClient,
         instruction: 'test',
         toolSets: [],
+        maxToolCallsPerStep: DEFAULT_MAX_TOOL_CALLS_PER_STEP,
         responseFormat: ResponseFormatSchema.parse({
           type: 'json_schema',
           vendor_ext: 42,

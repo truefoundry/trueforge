@@ -1,5 +1,6 @@
 /** Pause on write_note approval, then resume after allow or deny. */
 import { EventType } from '../../src/core/events/schema';
+import { DEFAULT_MAX_TOOL_CALLS_PER_STEP } from '../../src/core/runtime/AgentDefinition';
 import { AgentThread } from '../../src/core/runtime/AgentThread';
 import { InternalEventType, type AgentThreadConstructorInput } from '../../src/core/runtime/AgentThread.types';
 import { AgentThreadOrchestrator } from '../../src/core/runtime/AgentThreadOrchestrator';
@@ -256,6 +257,7 @@ function makeApprovalHarness(finalReply: string): {
       modelParams: undefined,
       responseFormat: undefined,
       iterationLimit: undefined,
+      maxToolCallsPerStep: DEFAULT_MAX_TOOL_CALLS_PER_STEP,
       toolSets: undefined,
     },
     threadId: ROOT_ID,

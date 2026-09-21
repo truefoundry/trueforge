@@ -1174,6 +1174,7 @@ export class AgentThread {
       toolMapping,
       threadId: this.threadId,
       approvalDecisions: decisions,
+      maxToolCallsPerStep: this.definition.maxToolCallsPerStep,
     });
     void clientSideToolCalls;
     if (approvalRequiredToolCalls.length > 0) {

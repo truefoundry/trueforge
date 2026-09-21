@@ -16,6 +16,7 @@ import os from 'node:os';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 
+import { DEFAULT_MAX_TOOL_CALLS_PER_STEP } from '@truefoundry/trueforge-core/core';
 import envPaths from 'env-paths';
 import { z } from 'zod';
 
@@ -577,6 +578,11 @@ export interface SharedServerConfiguration {
   /** Max bytes for one remote MCP tool-call HTTP response body (not GET SSE). Env: `MCP_TOOL_CALL_MAX_RESPONSE_BYTES`. Default 50 MB. */
   MCP_TOOL_CALL_MAX_RESPONSE_BYTES: number;
   /**
+   * Max tool calls executed per assistant step (over-limit fails the turn).
+   * Env: `AGENT_MAX_TOOL_CALLS_PER_STEP`. Default DEFAULT_MAX_TOOL_CALLS_PER_STEP (20).
+   */
+  AGENT_MAX_TOOL_CALLS_PER_STEP: number;
+  /**
    * Client name used for Dynamic Client Registration (DCR) of MCP servers.
    * This is the client name shown on authorization-server consent screens.
    * Env: `MCP_DCR_OAUTH_CLIENT_NAME`. Default: "truefoundry-harness".
@@ -873,6 +879,11 @@ const shared: SharedServerConfiguration = {
     envKey: 'MCP_TOOL_CALL_MAX_RESPONSE_BYTES',
     raw: getEnv('MCP_TOOL_CALL_MAX_RESPONSE_BYTES'),
     defaultValue: 50 * 1024 * 1024,
+  }),
+  AGENT_MAX_TOOL_CALLS_PER_STEP: parsePositiveInt({
+    envKey: 'AGENT_MAX_TOOL_CALLS_PER_STEP',
+    raw: getEnv('AGENT_MAX_TOOL_CALLS_PER_STEP'),
+    defaultValue: DEFAULT_MAX_TOOL_CALLS_PER_STEP,
   }),
   MCP_DCR_OAUTH_CLIENT_NAME:
     getEnv('MCP_DCR_OAUTH_CLIENT_NAME', { defaultValue: 'truefoundry-harness' }) ?? 'truefoundry-harness',

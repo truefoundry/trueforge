@@ -4,6 +4,7 @@
  */
 
 // Runtime
+export { DEFAULT_MAX_TOOL_CALLS_PER_STEP } from './runtime/AgentDefinition';
 export type { AgentDefinition, ModelParams } from './runtime/AgentDefinition';
 export { AgentThread } from './runtime/AgentThread';
 export type {
