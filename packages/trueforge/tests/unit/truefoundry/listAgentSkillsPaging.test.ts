@@ -3,10 +3,13 @@ import { TrueFoundryServiceFoundryServerClient } from '../../../src/truefoundry/
 
 const fetchMock = jest.fn();
 
-jest.mock('undici', () => ({
-  Agent: class Agent {},
-  fetch: (...args: unknown[]) => fetchMock(...args),
-}));
+jest.mock('undici', () => {
+  const actual = jest.requireActual<typeof import('undici')>('undici');
+  return {
+    ...actual,
+    fetch: (...args: unknown[]) => fetchMock(...args),
+  };
+});
 
 function jsonResponse(body: unknown): { ok: true; status: 200; text: () => Promise<string> } {
   return {

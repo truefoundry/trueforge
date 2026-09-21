@@ -132,6 +132,18 @@ export function parseCommaSeparatedEnvList(raw: string | undefined): string[] {
     .filter(part => part.length > 0);
 }
 
+/** Parses a JSON string array env. Empty / unset → `[]`. */
+export function parseJsonStringArrayEnv({ envKey, raw }: { envKey: string; raw: string | undefined }): string[] {
+  if (raw === undefined || raw.trim() === '') {
+    return [];
+  }
+  try {
+    return z.array(z.string()).parse(JSON.parse(raw));
+  } catch (error) {
+    throw new Error(`Environment variable ${envKey} must be a JSON string array`, { cause: error });
+  }
+}
+
 /**
  * Parses `OIDC_ALLOWED_EMAILS`: comma-separated exact addresses and/or globs
  * (`*@company.com`). Empty / unset → no allowlist (any authenticated user may sign in).
@@ -661,6 +673,12 @@ export interface SharedServerConfiguration {
    * `TRUEFORGE_MTLS_ENABLED` is true. Env: `TRUEFORGE_MTLS_CERTS_DIR`. Default `/etc/tls`.
    */
   TRUEFORGE_MTLS_CERTS_DIR: string;
+  /** Env: `ENABLE_SSRF`. Default true. `false` skips the outbound URL guard. */
+  ENABLE_SSRF: boolean;
+  /** Hosts always allowed. Env: `OUTBOUND_URL_ALLOWED_HOSTS` (JSON string array). Empty = none. */
+  OUTBOUND_URL_ALLOWED_HOSTS: string[];
+  /** Hosts always blocked. Env: `OUTBOUND_URL_BLOCKED_HOSTS` (JSON string array). Empty = none. */
+  OUTBOUND_URL_BLOCKED_HOSTS: string[];
 }
 
 export type StandaloneServerConfiguration = SharedServerConfiguration & {
@@ -921,6 +939,19 @@ const shared: SharedServerConfiguration = {
     defaultValue: false,
   }),
   TRUEFORGE_MTLS_CERTS_DIR: getEnv('TRUEFORGE_MTLS_CERTS_DIR', { defaultValue: '/etc/tls' }) ?? '/etc/tls',
+  ENABLE_SSRF: parseBoolean({
+    envKey: 'ENABLE_SSRF',
+    raw: getEnv('ENABLE_SSRF'),
+    defaultValue: true,
+  }),
+  OUTBOUND_URL_ALLOWED_HOSTS: parseJsonStringArrayEnv({
+    envKey: 'OUTBOUND_URL_ALLOWED_HOSTS',
+    raw: getEnv('OUTBOUND_URL_ALLOWED_HOSTS'),
+  }),
+  OUTBOUND_URL_BLOCKED_HOSTS: parseJsonStringArrayEnv({
+    envKey: 'OUTBOUND_URL_BLOCKED_HOSTS',
+    raw: getEnv('OUTBOUND_URL_BLOCKED_HOSTS'),
+  }),
 };
 
 const configuration: ServerConfiguration = standalone
