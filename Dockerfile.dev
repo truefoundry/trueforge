@@ -10,8 +10,18 @@
 # the download layer stays cached when only package.json / scripts change.
 # See https://pnpm.io/cli/fetch. BuildKit cache mounts are avoided so the same
 # file builds on Railway Metal (which requires a hardcoded service id in mount ids).
+#
+# Optional build-arg:
+#   BASE_IMAGE — Alpine Node image with shell + corepack (default node:24-alpine).
+#                Use a *-dev variant when experimenting with shell-less runtimes' siblings
+#                (e.g. node:24-alpine-dev).
+#
+# Example:
+#   docker build -f Dockerfile.dev --build-arg BASE_IMAGE=node:24-alpine-dev -t trueforge:dev .
 
-FROM node:24-slim AS base
+ARG BASE_IMAGE=node:24-alpine
+
+FROM $BASE_IMAGE AS base
 ENV PNPM_HOME=/pnpm
 ENV PATH="$PNPM_HOME:$PATH"
 RUN corepack enable && pnpm config set store-dir /pnpm/store
@@ -85,30 +95,29 @@ ENV NODE_ENV=production \
     HOST=0.0.0.0
 
 # Production dependency tree (pnpm workspace symlinks preserved).
-COPY --from=prod-deps /app/node_modules ./node_modules
-COPY --from=prod-deps /app/packages/trueforge-core/node_modules ./packages/trueforge-core/node_modules
-COPY --from=prod-deps /app/packages/trueforge/node_modules ./packages/trueforge/node_modules
+# Numeric uid/gid only — no useradd/groupadd (Alpine/DHI may lack both).
+COPY --from=prod-deps --chown=10001:10001 /app/node_modules ./node_modules
+COPY --from=prod-deps --chown=10001:10001 /app/packages/trueforge-core/node_modules ./packages/trueforge-core/node_modules
+COPY --from=prod-deps --chown=10001:10001 /app/packages/trueforge/node_modules ./packages/trueforge/node_modules
 
 # Built workspace dependencies (@truefoundry/trueforge-core + SDK).
-COPY --from=builder /app/packages/trueforge-core/package.json ./packages/trueforge-core/package.json
-COPY --from=builder /app/packages/trueforge-core/dist ./packages/trueforge-core/dist
-COPY --from=builder /app/packages/trueforge-sdk/package.json ./packages/trueforge-sdk/package.json
-COPY --from=builder /app/packages/trueforge-sdk/dist ./packages/trueforge-sdk/dist
+COPY --from=builder --chown=10001:10001 /app/packages/trueforge-core/package.json ./packages/trueforge-core/package.json
+COPY --from=builder --chown=10001:10001 /app/packages/trueforge-core/dist ./packages/trueforge-core/dist
+COPY --from=builder --chown=10001:10001 /app/packages/trueforge-sdk/package.json ./packages/trueforge-sdk/package.json
+COPY --from=builder --chown=10001:10001 /app/packages/trueforge-sdk/dist ./packages/trueforge-sdk/dist
 
 # Built server (JS). UI is copied below from the parallel frontend stage into
 # dist/_frontend — same path as the npm tarball / `pnpm build` copy step.
-COPY --from=builder /app/packages/trueforge/package.json ./packages/trueforge/package.json
-COPY --from=builder /app/packages/trueforge/dist ./packages/trueforge/dist
+COPY --from=builder --chown=10001:10001 /app/packages/trueforge/package.json ./packages/trueforge/package.json
+COPY --from=builder --chown=10001:10001 /app/packages/trueforge/dist ./packages/trueforge/dist
 # Frontend builds in a parallel stage; place it at the same path as the npm tarball.
-COPY --from=frontend-builder /app/packages/frontend/dist ./packages/trueforge/dist/_frontend
+COPY --from=frontend-builder --chown=10001:10001 /app/packages/frontend/dist ./packages/trueforge/dist/_frontend
 
 WORKDIR /app/packages/trueforge
-
-RUN groupadd --gid 10001 trueforge \
-  && useradd --uid 10001 --gid trueforge trueforge
 
 EXPOSE 8790
 
 # Launch-only (matches root `pnpm start` / `standalone:start`). Image already contains dist.
 USER 10001:10001
-CMD ["node", "dist/main.js"]
+ENTRYPOINT ["node"]
+CMD ["dist/main.js"]
