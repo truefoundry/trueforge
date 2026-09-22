@@ -371,6 +371,7 @@ export type {
   CreateSessionRequest,
   CreateSkillRequest,
   CreateSkillRequestBase,
+  CreateWebSearchProviderRequest,
   CreatedBySubject,
   DefinedSkill,
   GithubSkill,
@@ -393,6 +394,7 @@ export type {
   ModelSelection,
   ModelSelectorEntry,
   PageParams,
+  ParallelWebSearchMode,
   PermissionResourceType,
   PermissionsServer,
   PreviousTurnIdInput,
@@ -430,10 +432,15 @@ export type {
   UpdateModelProviderRequest,
   UpdateSandboxProviderRequest,
   UpdateSessionRequest,
+  UpdateWebSearchProviderRequest,
   UserMessage,
   UserMessageContent,
   UserToolApprovalEvent,
   UserToolResponseEvent,
+  WebSearchCatalogServer,
+  WebSearchProviderBase,
+  WebSearchProviderCatalogEntry,
+  WebSearchProviderConfig,
 } from './server/types.js';
 
 export { AgentCodeBlock } from './atoms/agent-details/AgentCodeBlock.js';
