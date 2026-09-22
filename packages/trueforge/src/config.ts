@@ -387,8 +387,7 @@ export function buildRedisStandaloneUrl(parts: {
   username: string | undefined;
   password: string | undefined;
 }): string {
-  const bareHost =
-    parts.host.startsWith('[') && parts.host.endsWith(']') ? parts.host.slice(1, -1) : parts.host;
+  const bareHost = parts.host.startsWith('[') && parts.host.endsWith(']') ? parts.host.slice(1, -1) : parts.host;
   const host = isIPv6(bareHost) ? `[${bareHost}]` : bareHost;
   const url = new URL(`redis://${host}:${String(parts.port)}/${String(parts.database)}`);
   if (parts.username !== undefined) {
