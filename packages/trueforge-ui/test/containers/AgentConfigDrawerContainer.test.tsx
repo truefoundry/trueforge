@@ -13,14 +13,14 @@ import { createMockAgentUIServer } from '../server/mockServer.js';
 const flushAgentSpec = vi.fn(async () => undefined);
 const updateAgentSpec = vi.fn();
 
-vi.mock('@truefoundry/assistant-ui-runtime', () => ({
-  useTrueFoundryAgentSpec: () => ({
+vi.mock('@truefoundry/trueforge-assistant-ui-runtime', () => ({
+  useTrueForgeAgentSpec: () => ({
     agentSpec: { model: { name: 'openai/gpt-4.1' } },
     draftSessionId: 'draft-1',
   }),
-  useTrueFoundryFlushAgentSpec: () => flushAgentSpec,
-  useTrueFoundryUpdateAgentSpec: () => updateAgentSpec,
-  useTrueFoundryAdoptAgentSpec: () => vi.fn(),
+  useTrueForgeFlushAgentSpec: () => flushAgentSpec,
+  useTrueForgeUpdateAgentSpec: () => updateAgentSpec,
+  useTrueForgeAdoptAgentSpec: () => vi.fn(),
 }));
 
 beforeAll(() => {

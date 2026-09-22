@@ -1,7 +1,7 @@
 // @vitest-environment jsdom
 import { AssistantRuntimeProvider, useExternalStoreRuntime, type ThreadMessageLike } from '@assistant-ui/react';
 import { render, screen, waitFor } from '@testing-library/react';
-import { trueFoundryExtras } from '@truefoundry/assistant-ui-runtime';
+import { trueForgeExtras } from '@truefoundry/trueforge-assistant-ui-runtime';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 import { HistoryLoaderContainer } from '@/containers/HistoryLoaderContainer.js';
@@ -43,7 +43,7 @@ function Harness({
     isRunning: false,
     convertMessage: (m: ThreadMessageLike) => m,
     onNew: async () => {},
-    extras: trueFoundryExtras.provide({
+    extras: trueForgeExtras.provide({
       pendingApprovals: [],
       pendingToolResponses: [],
       pendingMcpAuth: null,

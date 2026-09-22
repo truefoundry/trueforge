@@ -33,7 +33,7 @@ import { streamSSE } from 'hono/streaming';
 import type { Logger } from 'winston';
 import type { Authorizer } from '../auth/authorizer';
 import type { ResolveRequestContext } from '../auth/identity';
-import configuration, { isTrueFoundryModeEnabled } from '../config';
+import configuration from '../config';
 import type { AgentRecord, IAgentStore } from '../db/agentStore';
 import type { IMcpServerWithAuthStore } from '../db/mcpServerStore';
 import type { IModelProviderStore } from '../db/modelProviderStore';
@@ -52,10 +52,9 @@ import { StreamGoneError, type EventSubscription, type EventSubscriptionRegistry
 import { validateSandboxFilePath } from '../runtime/sandboxFilePath';
 import {
   buildTurnSandbox,
-  gatewayMetadataHeaders,
+  gatewayTurnHeaders,
   getMcpConnection,
   getModelDetails,
-  mergeGatewayMetadata,
   parseGatewayMetadataHeader,
   resolveSandboxProvider,
   withGatewayMetadataHeaders,
@@ -138,6 +137,18 @@ export type BeginTurnExecutionDeps = Pick<TurnsRouterDeps, 'activeTurns' | 'even
   skillStore: Pick<ISkillStore, 'resolveTurnSkills'>;
 };
 
+/** Extra LLM/MCP headers resolved after turn id is minted. */
+type ResolveTurnHeaders = (input: { session: SessionHandle; turnId: string }) => Record<string, string>;
+
+interface BeginTurnExecutionParams {
+  session: SessionHandle;
+  input: TurnInputItem[] | undefined;
+  previous_turn_id: string | undefined;
+  userRef: string;
+  resolveTurnHeaders: ResolveTurnHeaders;
+  deps: BeginTurnExecutionDeps;
+}
+
 /**
  * Builds the per-turn resolver. Agent / MCP / sandbox / LLM lookups are wired
  * the same way: async factories over the corresponding stores.
@@ -153,8 +164,7 @@ function createTurnResolver(deps: {
   signal: AbortSignal;
   userRef: string;
   session: SessionHandle;
-  turnId: string;
-  tfyMetadata: Record<string, string> | undefined;
+  turnHeaders: Record<string, string>;
 }): TurnResourceResolver {
   const {
     mcpServerStore,
@@ -167,14 +177,10 @@ function createTurnResolver(deps: {
     signal,
     userRef,
     session,
-    turnId,
-    tfyMetadata,
+    turnHeaders,
   } = deps;
   const tenant_id = session.tenant_id;
   const sessionId = session.session_id;
-  const metadataHeaders = isTrueFoundryModeEnabled()
-    ? gatewayMetadataHeaders(mergeGatewayMetadata({ session, turnId, tfyMetadata }))
-    : {};
 
   return new TurnResourceResolver({
     llm: async name => {
@@ -187,7 +193,7 @@ function createTurnResolver(deps: {
         modelClient: new VercelAILLM({
           providerConfig: {
             ...resolved.providerConfig,
-            headers: { ...resolved.providerConfig.headers, ...metadataHeaders },
+            headers: { ...resolved.providerConfig.headers, ...turnHeaders },
           },
           logger,
           signal,
@@ -212,7 +218,7 @@ function createTurnResolver(deps: {
         url: connection.url,
         headers: withGatewayMetadataHeaders({
           headers: connection.headers,
-          metadataHeaders,
+          metadataHeaders: turnHeaders,
         }),
       };
     },
@@ -391,15 +397,10 @@ export interface TurnEventDrainInput {
  * Shared create-turn engine: persist the turn, start execution, and return the
  * drain inputs. Does not wait for events and does not write HTTP/SSE.
  */
-export async function beginTurnExecution(params: {
-  session: SessionHandle;
-  input: TurnInputItem[] | undefined;
-  previous_turn_id: string | undefined;
-  userRef: string;
-  tfyMetadata?: Record<string, string> | undefined;
-  deps: BeginTurnExecutionDeps;
-}): Promise<{ turn: TurnHandle; drainInput: TurnEventDrainInput }> {
-  const { session, input, previous_turn_id: previousTurnId, userRef, tfyMetadata, deps } = params;
+export async function beginTurnExecution(
+  params: BeginTurnExecutionParams,
+): Promise<{ turn: TurnHandle; drainInput: TurnEventDrainInput }> {
+  const { session, input, previous_turn_id: previousTurnId, userRef, resolveTurnHeaders, deps } = params;
   const sessionId = session.session_id;
   const turnId = newId();
 
@@ -416,8 +417,7 @@ export async function beginTurnExecution(params: {
     signal: abortController.signal,
     userRef,
     session,
-    turnId,
-    tfyMetadata,
+    turnHeaders: resolveTurnHeaders({ session, turnId }),
   });
 
   // First turn only: derive the title from the first user message. The store
@@ -468,14 +468,7 @@ export async function beginTurnExecution(params: {
  * Non-stream create-turn: begin execution and resolve once the first event is
  * dual-written so immediate subscribe cannot 412. Same as `stream: false`.
  */
-export async function startTurnInProcess(params: {
-  session: SessionHandle;
-  input: TurnInputItem[] | undefined;
-  previous_turn_id: string | undefined;
-  userRef: string;
-  tfyMetadata?: Record<string, string> | undefined;
-  deps: BeginTurnExecutionDeps;
-}): Promise<TurnHandle> {
+export async function startTurnInProcess(params: BeginTurnExecutionParams): Promise<TurnHandle> {
   const { turn, drainInput } = await beginTurnExecution(params);
 
   // Same unawaited drain scheduling as Hono streamSSE's run(cb).
@@ -782,14 +775,14 @@ export function createTurnsRouter(deps: TurnsRouterDeps) {
     }
 
     const rawTfyMetadata = c.req.header(X_TFY_METADATA);
-    const tfyMetadata = rawTfyMetadata === undefined ? undefined : parseGatewayMetadataHeader(rawTfyMetadata);
+    const requestMetadata = rawTfyMetadata === undefined ? undefined : parseGatewayMetadataHeader(rawTfyMetadata);
 
-    const turnParams = {
+    const turnParams: BeginTurnExecutionParams = {
       session,
       input: body.input,
       previous_turn_id: body.previous_turn_id,
       userRef: requestContext.subject.id,
-      tfyMetadata,
+      resolveTurnHeaders: input => gatewayTurnHeaders({ ...input, requestMetadata }),
       deps: {
         ...deps,
         modelProviderStore: deps.resolveModelProviderStore(c, referencedAgent),

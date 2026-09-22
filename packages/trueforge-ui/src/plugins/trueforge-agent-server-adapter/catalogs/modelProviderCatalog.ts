@@ -108,7 +108,7 @@ export function toHarnessModelProvider(req: {
   return { type: req.type, auth, models };
 }
 
-/** Settings model-catalog port for `createTrueFoundryServer`. Delete is omitted (no BE route). */
+/** Settings model-catalog port for `createTrueForgeServer`. Delete is omitted (no BE route). */
 export function createModelProviderCatalog(
   client: TrueForge,
 ): ModelCatalogServer<

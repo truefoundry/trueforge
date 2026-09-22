@@ -6,7 +6,7 @@ import {
   type ThreadMessageLike,
 } from '@assistant-ui/react';
 import { act, fireEvent, render, screen, waitFor } from '@testing-library/react';
-import { trueFoundryExtras } from '@truefoundry/assistant-ui-runtime';
+import { trueForgeExtras } from '@truefoundry/trueforge-assistant-ui-runtime';
 import { useState } from 'react';
 import { describe, expect, it, vi } from 'vitest';
 
@@ -193,7 +193,7 @@ describe('AssistantTextContainer', () => {
         isRunning: false,
         convertMessage: (m: ThreadMessageLike) => m,
         onNew: async () => {},
-        extras: trueFoundryExtras.provide({
+        extras: trueForgeExtras.provide({
           pendingApprovals: [],
           pendingToolResponses: [],
           pendingMcpAuth: null,
