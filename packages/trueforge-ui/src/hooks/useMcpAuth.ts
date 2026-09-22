@@ -104,16 +104,21 @@ export const useMCPAuth = ({ callbackPath }: UseMCPAuthOptions = {}) => {
     }) => {
       const channel = new BroadcastChannel(MCP_AUTH_POPUP_CHANNEL);
       let popup: Window | null = null;
-      const cleanup = () => {
+      // Close the channel on result; leave the popup open so the callback screen can show
+      // success/failure and close itself.
+      const cleanupChannel = () => {
         channel.close();
+        popupCleanupRef.current.delete(cleanupWithPopup);
+      };
+      const cleanupWithPopup = () => {
+        cleanupChannel();
         popup?.close();
-        popupCleanupRef.current.delete(cleanup);
       };
 
       channel.onmessage = (event: MessageEvent<unknown>) => {
         if (!isPopupMessage(event.data) || event.data.popupUid !== popupUid) return;
         const { isSuccess } = event.data;
-        cleanup();
+        cleanupChannel();
         if (!isSuccess) {
           if (activeAttemptsRef.current.delete(attempt)) callback(false);
           return;
@@ -122,11 +127,11 @@ export const useMCPAuth = ({ callbackPath }: UseMCPAuthOptions = {}) => {
           activeAttemptsRef.current.delete(attempt);
         });
       };
-      popupCleanupRef.current.add(cleanup);
+      popupCleanupRef.current.add(cleanupWithPopup);
 
       popup = window.open(authorizationEndpoint, '_blank', 'popup=true');
       if (!popup) {
-        cleanup();
+        cleanupWithPopup();
         throw new Error('Popup blocked. Please allow pop-ups to authorize the MCP server.');
       }
 

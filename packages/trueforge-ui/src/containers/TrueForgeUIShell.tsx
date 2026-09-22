@@ -1,6 +1,9 @@
 'use client';
 
-import type { TrueFoundryAgentConfig, UseTrueFoundryAgentRuntimeOptions } from '@truefoundry/assistant-ui-runtime';
+import type {
+  TrueForgeAgentConfig,
+  UseTrueForgeAgentRuntimeOptions,
+} from '@truefoundry/trueforge-assistant-ui-runtime';
 import { lazy, Suspense, useCallback, useEffect, useMemo, useState, type ReactNode } from 'react';
 import { ThinkingOrb } from 'thinking-orbs';
 
@@ -26,7 +29,7 @@ import type { AgentUIServer, CreateSessionRequest } from '../server/types.js';
 import { SlotsProvider, useThemeMode, type SlotOverrides } from '../theme/SlotsProvider.js';
 import type { LayoutProp, ThemeConfig } from '../theme/types.js';
 import { getErrorMessage } from '../utils/getErrorMessage.js';
-import { TrueFoundryChatProvider, type TrueFoundryChatProviderProps } from './TrueFoundryChatProvider.js';
+import { TrueForgeChatProvider, type TrueForgeChatProviderProps } from './TrueForgeChatProvider.js';
 import { useResolvedServer } from './useResolvedServer.js';
 
 const SidebarLayout = lazy(() => import('../layouts/SidebarLayout.js').then(m => ({ default: m.SidebarLayout })));
@@ -37,7 +40,7 @@ const ShellRouteSync = lazy(() => import('../routing/ShellRouteSync.js').then(m 
 
 export type ChatLayout = 'sidebar' | 'drawer' | 'dock' | 'widget';
 
-type RuntimeAdapters = NonNullable<UseTrueFoundryAgentRuntimeOptions['adapters']>;
+type RuntimeAdapters = NonNullable<UseTrueForgeAgentRuntimeOptions['adapters']>;
 
 export type TrueForgeUIProps = {
   server: TrueForgeServerConfig;
@@ -92,7 +95,7 @@ function LayoutFallback({ className }: { className?: string }) {
   );
 }
 
-/** Shown while `type: "truefoundry"` resolves the agent UI server. */
+/** Shown while a built-in agent UI server resolves. */
 export function ServerInitLoader({ className }: { className?: string }) {
   // Outside ThemeProvider (Suspense), useThemeMode falls back to light.
   const themeMode = useThemeMode();
@@ -174,7 +177,7 @@ function ChatProviderFromShell({
   children: ReactNode;
   /** When routing, reports the active thread's remote id up to `ShellRouteSync`. */
   onRemoteIdChange?: (id: string | undefined) => void;
-} & Omit<TrueFoundryChatProviderProps, 'agent' | 'agentName' | 'listSessionsAgentId' | 'children'>) {
+} & Omit<TrueForgeChatProviderProps, 'agent' | 'agentName' | 'listSessionsAgentId' | 'children'>) {
   const { mode, runtimeKey, historyAgentFilter, listSessionsAgentId, pendingSessionId } = useShellMode();
 
   const isCreateAgent = mode.status === 'active' && mode.isMutable && mode.isCreateAgent;
@@ -221,7 +224,7 @@ function ChatProviderFromShell({
     // eslint-disable-next-line react-hooks/exhaustive-deps -- intentionally keyed on runtimeKey only
   }, [runtimeKey]);
 
-  const agent: TrueFoundryAgentConfig = useMemo(() => {
+  const agent: TrueForgeAgentConfig = useMemo(() => {
     // idle uses a placeholder draft so layout chrome (useAui) still mounts;
     // layouts render an empty CTA instead of the thread.
     if (mode.status === 'idle') {
@@ -250,7 +253,7 @@ function ChatProviderFromShell({
 
   return (
     <DraftCatalogProvider>
-      <TrueFoundryChatProvider
+      <TrueForgeChatProvider
         key={runtimeKey}
         {...providerRest}
         server={runtimeServer}
@@ -264,7 +267,7 @@ function ChatProviderFromShell({
           {onRemoteIdChange != null ? <RemoteIdRouteBridge onRemoteIdChange={onRemoteIdChange} /> : null}
           {children}
         </AgentConfigInstructionsProvider>
-      </TrueFoundryChatProvider>
+      </TrueForgeChatProvider>
     </DraftCatalogProvider>
   );
 }

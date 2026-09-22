@@ -43,6 +43,10 @@ vi.mock('@openuidev/react-ui', () => ({
   openuiLibrary: {},
 }));
 
+vi.mock('thinking-orbs', () => ({
+  ThinkingOrb: () => createElement('div', { 'data-testid': 'thinking-orb' }),
+}));
+
 // jsdom does not implement ResizeObserver; assistant-ui's viewport/scroll
 // tracking primitives use it, so tests need a no-op stand-in.
 class ResizeObserverStub {

@@ -32,11 +32,11 @@ const approvalsState = vi.hoisted(() => ({
   }>,
 }));
 
-vi.mock('@truefoundry/assistant-ui-runtime', () => ({
-  useTrueFoundryCancel: () => vi.fn(),
-  useTrueFoundryToolResponses: () => toolResponsesState,
-  useTrueFoundryApprovals: () => approvalsState,
-  useTrueFoundryAgentSpec: () => ({ agentSpec: agentSpecState.agentSpec }),
+vi.mock('@truefoundry/trueforge-assistant-ui-runtime', () => ({
+  useTrueForgeCancel: () => vi.fn(),
+  useTrueForgeToolResponses: () => toolResponsesState,
+  useTrueForgeApprovals: () => approvalsState,
+  useTrueForgeAgentSpec: () => ({ agentSpec: agentSpecState.agentSpec }),
 }));
 
 function SecretSelectProbe({ onSubmit }: CustomActionRendererProps) {

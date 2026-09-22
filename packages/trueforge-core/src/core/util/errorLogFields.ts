@@ -11,13 +11,10 @@ function formatObjectErrorForLog(error: object): string {
   }
 }
 
-/**
- * User/turn-facing message for any thrown value. Prefer Error.message / `.message`;
- * never surface developer-only strings (e.g. unserialisable dumps) in Agent Steps.
- */
-export function describeUnknownError(error: unknown): string {
+/** Single-hop message for any thrown value (no cause walk). */
+function messageOfUnknown(error: unknown): string {
   if (error instanceof Error) {
-    return error.message.length > 0 ? error.message : 'An unexpected error occurred';
+    return error.message;
   }
   if (typeof error !== 'object' || error === null) {
     return String(error);
@@ -29,23 +26,63 @@ export function describeUnknownError(error: unknown): string {
   try {
     return JSON.stringify(error);
   } catch {
+    return '';
+  }
+}
+
+/**
+ * Walk `Error.cause` (and plain `{ cause }` objects) so undici-style
+ * `TypeError: fetch failed` surfaces the nested `ECONNREFUSED` / cert reason.
+ */
+function describeErrorChain(error: unknown, seen: Set<unknown>): string {
+  if (error === undefined || error === null || seen.has(error)) {
+    return '';
+  }
+  seen.add(error);
+
+  const head = messageOfUnknown(error).trim();
+  const nestedCause = typeof error === 'object' && 'cause' in error ? Reflect.get(error, 'cause') : undefined;
+  const tail = describeErrorChain(nestedCause, seen).trim();
+
+  if (head.length === 0) {
+    return tail;
+  }
+  if (tail.length === 0 || head.includes(tail)) {
+    return head;
+  }
+  return `${head}: ${tail}`;
+}
+
+/**
+ * User/turn-facing message for any thrown value. Prefer Error.message / `.message`;
+ * never surface developer-only strings (e.g. unserialisable dumps) in Agent Steps.
+ * Includes nested `cause` messages when present (e.g. undici "fetch failed").
+ */
+export function describeUnknownError(error: unknown): string {
+  const chain = describeErrorChain(error, new Set());
+  if (chain.length > 0) {
+    return chain;
+  }
+  if (typeof error === 'object' && error !== null) {
     return 'An unexpected error occurred';
   }
+  return String(error);
 }
 
 export function extractErrorLogFields(error: unknown): ErrorLogFields {
   if (error instanceof Error) {
+    const chain = describeErrorChain(error, new Set());
     return {
-      error: error.message.length > 0 ? error.message : formatObjectErrorForLog(error),
+      error: chain.length > 0 ? chain : formatObjectErrorForLog(error),
       stack: error.stack,
     };
   }
   if (typeof error !== 'object' || error === null) {
     return { error: String(error) };
   }
-  const message: unknown = Reflect.get(error, 'message');
-  if (typeof message === 'string' && message.length > 0) {
-    return { error: message };
+  const chain = describeErrorChain(error, new Set());
+  if (chain.length > 0) {
+    return { error: chain };
   }
   return { error: formatObjectErrorForLog(error) };
 }

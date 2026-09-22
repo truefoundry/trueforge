@@ -20,7 +20,7 @@ Built on:
 - `<TrueForgeUI server={{ type: 'trueforge', baseUrl: '/', fetch: authAwareFetch }} />`
 
 Chat, agent library, and settings catalogs are composed inside the UI SDK plugin —
-the host does **not** call `createTrueFoundryServer` or maintain harness adapters.
+the host does **not** call `createTrueForgeServer` or maintain harness adapters.
 
 ## Local development
 

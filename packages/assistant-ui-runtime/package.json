@@ -1,0 +1,88 @@
+{
+  "name": "@truefoundry/trueforge-assistant-ui-runtime",
+  "version": "0.1.0",
+  "description": "TrueForge agent runtime adapter for assistant-ui",
+  "author": "TrueFoundry",
+  "license": "Apache-2.0",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/truefoundry/trueforge.git",
+    "directory": "packages/assistant-ui-runtime"
+  },
+  "homepage": "https://github.com/truefoundry/trueforge/tree/main/packages/assistant-ui-runtime#readme",
+  "bugs": {
+    "url": "https://github.com/truefoundry/trueforge/issues"
+  },
+  "keywords": [
+    "assistant-ui",
+    "truefoundry",
+    "ai",
+    "agent",
+    "react",
+    "llm",
+    "chat"
+  ],
+  "publishConfig": {
+    "access": "public",
+    "provenance": true
+  },
+  "engines": {
+    "node": ">=22"
+  },
+  "type": "module",
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "import": "./dist/index.js",
+      "default": "./dist/index.js"
+    },
+    "./server": {
+      "types": "./dist/server/index.d.ts",
+      "import": "./dist/server/index.js",
+      "default": "./dist/server/index.js"
+    }
+  },
+  "main": "./dist/index.js",
+  "types": "./dist/index.d.ts",
+  "files": [
+    "dist",
+    "src",
+    "README.md",
+    "CHANGELOG.md",
+    "LICENSE"
+  ],
+  "sideEffects": false,
+  "scripts": {
+    "build": "tsup",
+    "lint": "eslint src --fix --cache --cache-location ../../.eslintcache --cache-strategy content",
+    "lint:ci": "eslint src --cache --cache-location ../../.eslintcache",
+    "pack:dry": "pnpm build && pnpm pack --dry-run",
+    "test": "vitest run",
+    "test:file": "vitest run",
+    "typecheck": "tsc --noEmit && pnpm run typecheck:test",
+    "typecheck:test": "tsc --noEmit --project test/tsconfig.json"
+  },
+  "dependencies": {
+    "@assistant-ui/core": "^0.2.22",
+    "@assistant-ui/store": "^0.2.21"
+  },
+  "peerDependencies": {
+    "@types/react": "*",
+    "react": "^18 || ^19"
+  },
+  "peerDependenciesMeta": {
+    "@types/react": {
+      "optional": true
+    }
+  },
+  "devDependencies": {
+    "@testing-library/react": "^16.3.2",
+    "@types/node": "^20",
+    "@types/react": "^19.2.17",
+    "jsdom": "^29.1.1",
+    "react": "^19.2.4",
+    "tsup": "^8.5.0",
+    "typescript": "^5.9.3",
+    "vitest": "^4.1.9"
+  }
+}

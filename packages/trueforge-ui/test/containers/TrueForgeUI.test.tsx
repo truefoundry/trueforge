@@ -5,40 +5,31 @@ import { act, fireEvent, render, screen, waitFor, within } from '@testing-librar
 import { beforeAll, describe, expect, it, vi } from 'vitest';
 import { createMockAgentUIServer, createMockCatalog } from '../server/mockServer.js';
 
-vi.mock('@truefoundry/assistant-ui-runtime', () => ({
-  trueFoundryAttachmentAdapter: {},
-  useTrueFoundryAgentRuntime: () =>
+vi.mock('@truefoundry/trueforge-assistant-ui-runtime', () => ({
+  trueForgeAttachmentAdapter: {},
+  useTrueForgeAgentRuntime: () =>
     useExternalStoreRuntime<ThreadMessageLike>({
       messages: [],
       isRunning: false,
       convertMessage: (message: ThreadMessageLike) => message,
       onNew: async () => {},
     }),
-  useTrueFoundryCancel: () => vi.fn(),
-  useTrueFoundryToolResponses: () => ({ pending: [] }),
-  useTrueFoundryApprovals: () => ({ pending: [] }),
-  useTrueFoundryRespondToToolApproval: () => vi.fn(),
-  useTrueFoundryMcpAuth: () => ({ pending: [], connect: vi.fn(), continue: vi.fn() }),
-  useTrueFoundryHistoryPagination: () => ({
+  useTrueForgeCancel: () => vi.fn(),
+  useTrueForgeToolResponses: () => ({ pending: [] }),
+  useTrueForgeApprovals: () => ({ pending: [] }),
+  useTrueForgeRespondToToolApproval: () => vi.fn(),
+  useTrueForgeMcpAuth: () => ({ pending: [], connect: vi.fn(), continue: vi.fn() }),
+  useTrueForgeHistoryPagination: () => ({
     isLoadingMore: false,
     hasMore: false,
     loadMore: vi.fn(),
   }),
-  useTrueFoundryAgentSpec: () => ({
+  useTrueForgeAgentSpec: () => ({
     agentSpec: { model: { name: 'openai-main/gpt-4.1' } },
   }),
-  useTrueFoundryFlushAgentSpec: () => async () => {},
-  useTrueFoundryAdoptAgentSpec: () => vi.fn(),
-  useTrueFoundryUpdateAgentSpec: () => vi.fn(),
-}));
-
-vi.mock('@truefoundry/assistant-ui-runtime/plugins/truefoundry-agent-server-adapter', () => ({
-  createTrueFoundryAgentUIServer: vi.fn(
-    () =>
-      new Promise(() => {
-        /* never resolves — keep init loader visible */
-      }),
-  ),
+  useTrueForgeFlushAgentSpec: () => async () => {},
+  useTrueForgeAdoptAgentSpec: () => vi.fn(),
+  useTrueForgeUpdateAgentSpec: () => vi.fn(),
 }));
 
 vi.mock('thinking-orbs', () => ({
@@ -352,23 +343,6 @@ describe('TrueForgeUI', () => {
       expect(screen.queryByRole('status', { name: 'Loading' })).not.toBeInTheDocument();
     });
     expect(screen.queryByRole('alert')).not.toBeInTheDocument();
-  });
-
-  it('shows a loader while truefoundry server init is pending', () => {
-    render(
-      <TrueForgeUI
-        server={{
-          type: 'truefoundry',
-          apiKey: 'k',
-          controlPlaneURL: 'https://cp.example',
-        }}
-        layout="sidebar"
-        className="h-96"
-      />,
-    );
-
-    expect(screen.getByRole('status', { name: 'Loading' })).toBeInTheDocument();
-    expect(screen.getByTestId('thinking-orb')).toBeInTheDocument();
   });
 });
 

@@ -7,11 +7,11 @@ import { Thread } from '@/containers/Thread.js';
 import { SlotsProvider } from '@/theme/SlotsProvider.js';
 import { RuntimeHarness } from './RuntimeHarness.js';
 
-vi.mock('@truefoundry/assistant-ui-runtime', () => ({
-  useTrueFoundryCancel: () => vi.fn(),
-  useTrueFoundryToolResponses: () => ({ pending: [] }),
-  useTrueFoundryApprovals: () => ({ pending: [] }),
-  useTrueFoundryAgentSpec: () => ({ agentSpec: { model: { name: 'test/model' } } }),
+vi.mock('@truefoundry/trueforge-assistant-ui-runtime', () => ({
+  useTrueForgeCancel: () => vi.fn(),
+  useTrueForgeToolResponses: () => ({ pending: [] }),
+  useTrueForgeApprovals: () => ({ pending: [] }),
+  useTrueForgeAgentSpec: () => ({ agentSpec: { model: { name: 'test/model' } } }),
 }));
 
 function WelcomeOverride({ heading }: WelcomeScreenProps) {

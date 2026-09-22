@@ -40,7 +40,7 @@ export default defineConfig({
     '@openuidev/react-lang',
     '@openuidev/react-ui',
     '@openuidev/react-ui/genui-lib',
-    '@truefoundry/assistant-ui-runtime',
+    '@truefoundry/trueforge-assistant-ui-runtime',
     'lucide-react',
     'react-markdown',
     'remark-gfm',

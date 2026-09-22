@@ -176,7 +176,7 @@ describe('AgentSessionTimelineContainer', () => {
 
     expect(await screen.findByText('timeline turns=1')).toBeInTheDocument();
     expect(await screen.findByText('Turn 1')).toBeInTheDocument();
-    expect(screen.getByText('Turns')).toBeInTheDocument();
+    expect(screen.getByText('Turn')).toBeInTheDocument();
     expect(screen.getByText('Duration')).toBeInTheDocument();
     expect(await screen.findAllByRole('button', { name: 'Copy' })).not.toHaveLength(0);
     fireEvent.click(screen.getByRole('button', { name: 'timeline turns=1' }));

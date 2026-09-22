@@ -1,7 +1,7 @@
 // @vitest-environment jsdom
 import { AssistantRuntimeProvider, useExternalStoreRuntime, type ThreadMessageLike } from '@assistant-ui/react';
 import { act, fireEvent, render, screen, waitFor } from '@testing-library/react';
-import { trueFoundryExtras, type TrueFoundryRuntimeExtras } from '@truefoundry/assistant-ui-runtime';
+import { trueForgeExtras, type TrueForgeRuntimeExtras } from '@truefoundry/trueforge-assistant-ui-runtime';
 import { describe, expect, it, vi } from 'vitest';
 
 import { DraftCatalogProvider } from '@/atoms/draft/DraftCatalogProvider.js';
@@ -21,8 +21,8 @@ function McpAuthHarness({
   isRunning = false,
   server,
 }: {
-  pendingMcpAuth: TrueFoundryRuntimeExtras['pendingMcpAuth'];
-  resumeMcpAuth: TrueFoundryRuntimeExtras['resumeMcpAuth'];
+  pendingMcpAuth: TrueForgeRuntimeExtras['pendingMcpAuth'];
+  resumeMcpAuth: TrueForgeRuntimeExtras['resumeMcpAuth'];
   isRunning?: boolean;
   server?: AgentUIServer;
 }) {
@@ -32,7 +32,7 @@ function McpAuthHarness({
     isRunning,
     convertMessage: (m: ThreadMessageLike) => m,
     onNew: async () => {},
-    extras: trueFoundryExtras.provide({
+    extras: trueForgeExtras.provide({
       pendingApprovals: [],
       pendingToolResponses: [],
       pendingMcpAuth,

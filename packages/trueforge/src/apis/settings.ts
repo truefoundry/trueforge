@@ -11,11 +11,13 @@ import type { IMcpServerWithAuthStore } from '../db/mcpServerStore';
 import type { IModelProviderStore } from '../db/modelProviderStore';
 import type { ISandboxProviderStore } from '../db/sandboxProviderStore';
 import type { WithTransaction } from '../db/transaction';
+import type { IWebSearchProviderStore } from '../db/webSearchProviderStore';
 import type { IOAuthTokenStore } from '../mcp/auth/types';
 import { createSettingsMcpServersRouter } from './mcpServers';
 import { createModelProvidersRouter } from './modelProviders';
 import { createSandboxProvidersRouter } from './sandboxProviders';
 import { createSkillsRouter, type ResolveSkillStore } from './skills';
+import { createWebSearchProvidersRouter } from './webSearchProviders';
 
 export interface SettingsRouterDeps<TTransaction> {
   resolveModelProviderStore: (c: Context) => IModelProviderStore<TTransaction>;
@@ -23,6 +25,7 @@ export interface SettingsRouterDeps<TTransaction> {
   tokenStore: IOAuthTokenStore<TTransaction>;
   resolveSkillStore: ResolveSkillStore<TTransaction>;
   resolveSandboxProviderStore: (c: Context) => ISandboxProviderStore<TTransaction>;
+  resolveWebSearchProviderStore: (c: Context) => IWebSearchProviderStore<TTransaction>;
   withTransaction: WithTransaction<TTransaction>;
   logger: Logger;
   resolveRequestContext: ResolveRequestContext;
@@ -62,6 +65,13 @@ export function createSettingsRouter<TTransaction>(deps: SettingsRouterDeps<TTra
       resolveSandboxProviderStore: deps.resolveSandboxProviderStore,
       withTransaction: deps.withTransaction,
       logger: deps.logger,
+      resolveRequestContext: deps.resolveRequestContext,
+    }),
+  );
+  router.route(
+    '/web-search-providers',
+    createWebSearchProvidersRouter({
+      resolveWebSearchProviderStore: deps.resolveWebSearchProviderStore,
       resolveRequestContext: deps.resolveRequestContext,
     }),
   );

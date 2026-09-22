@@ -25,11 +25,11 @@ const flushAgentSpec = vi.fn(async () => undefined);
 const adoptAgentSpec = vi.fn();
 const updateAgentSpec = vi.fn();
 
-vi.mock('@truefoundry/assistant-ui-runtime', () => ({
-  useTrueFoundryAgentSpec: () => ({ agentSpec, draftSessionId: 'draft-1' }),
-  useTrueFoundryFlushAgentSpec: () => flushAgentSpec,
-  useTrueFoundryAdoptAgentSpec: () => adoptAgentSpec,
-  useTrueFoundryUpdateAgentSpec: () => updateAgentSpec,
+vi.mock('@truefoundry/trueforge-assistant-ui-runtime', () => ({
+  useTrueForgeAgentSpec: () => ({ agentSpec, draftSessionId: 'draft-1' }),
+  useTrueForgeFlushAgentSpec: () => flushAgentSpec,
+  useTrueForgeAdoptAgentSpec: () => adoptAgentSpec,
+  useTrueForgeUpdateAgentSpec: () => updateAgentSpec,
 }));
 
 beforeAll(() => {
