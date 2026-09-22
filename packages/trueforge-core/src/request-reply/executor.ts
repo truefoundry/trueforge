@@ -108,7 +108,7 @@ export class RequestReplyExecutor {
         ...extractErrorLogFields(err),
       });
       this.onError?.(err, { executorId: this.executorId, channel: this.channel });
-      this.stopHeartbeat();
+      // error is often transient; the client can reconnect and fire ready again. Do not stop the heartbeat.
     });
     this.subscriberClient.on('end', () => {
       this.logger.warn('[RequestReplyExecutor] Subscriber connection ended', { executorId: this.executorId });
