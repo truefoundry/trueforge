@@ -492,6 +492,11 @@ fields, wires bundled Postgres/Redis, optional OIDC, then server.extraEnv.
 {{- end -}}
 {{- $env = append $env (dict "name" "REDIS_TLS_ENABLED" "value" (ternary "true" "false" $tlsEnabled)) -}}
 {{- if $tlsEnabled -}}
+{{- $rejectUnauthorized := true -}}
+{{- if hasKey $tls "rejectUnauthorized" -}}
+{{- $rejectUnauthorized = eq (toString $tls.rejectUnauthorized) "true" -}}
+{{- end -}}
+{{- $env = append $env (dict "name" "REDIS_TLS_REJECT_UNAUTHORIZED" "value" (ternary "true" "false" $rejectUnauthorized)) -}}
 {{- if $tls.caCert -}}
 {{- $env = append $env (include "trueforge.env.fromStringOrValueFrom" (dict "name" "REDIS_TLS_CA_CERT" "field" "externalRedis.tls.caCert" "value" $tls.caCert) | fromJson) -}}
 {{- end -}}

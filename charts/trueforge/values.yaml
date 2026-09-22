@@ -289,6 +289,8 @@ externalRedis:
     enabled: false
     ## Path or inline PEM
     caCert: ""
+    ## Verify the server certificate. Set false only for self-signed certs without a CA.
+    rejectUnauthorized: true
     serverName: ""
     cert: ""
     key: ""

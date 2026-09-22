@@ -316,7 +316,9 @@ chart does **not** create Secrets for chart-owned fields — supply
 Fields that accept string | `valueFrom.secretKeyRef`:
 `externalPostgres.host`, `externalPostgres.port`, `externalPostgres.database`,
 `externalPostgres.user`, `externalPostgres.password`, `externalRedis.url` / `host` / `auth`,
-`configs.oidc.clientSecret`.
+`externalRedis.tls` (`caCert`, `cert`, `key`, `keyPassphrase`, `serverName`),
+`externalRedis.sentinel.auth`, `configs.oidc.clientSecret`.
+`externalRedis.tls.rejectUnauthorized` is a plain boolean (default true).
 `configs.oidc.issuerUrl` and `clientId` are plain strings only.
 
 **Bundled Postgres password** still uses Bitnami's API (`postgresql.auth.existingSecret`,
