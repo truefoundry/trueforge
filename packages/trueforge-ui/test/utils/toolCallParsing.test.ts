@@ -79,6 +79,10 @@ describe('toolCallParsing', () => {
       input: { q: 'x' },
     });
     expect(mcpDisplayName('call_tool', 'github', 'search')).toBe('call_tool: search (github)');
+    expect(mcpDisplayName('list_tools', 'github', undefined)).toBe('list_tools (github)');
+    expect(mcpDisplayName('get_tool_output_schema', 'github', 'search')).toBe(
+      'get_tool_output_schema: search (github)',
+    );
   });
 
   it('pretty-prints json display values', () => {

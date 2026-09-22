@@ -40,6 +40,7 @@ export type TrueFoundryMcpApiClient = Pick<
   | 'getMcpAuthStatus'
   | 'deleteMcpAuth'
   | 'vendToken'
+  | 'getTenantControlPlaneUrl'
 >;
 
 function withoutAuthorization(headers: Record<string, string> | undefined): Record<string, string> {
@@ -51,7 +52,7 @@ function withoutAuthorization(headers: Record<string, string> | undefined): Reco
 
 /**
  * Absolute FE landing for the upstream authorize `redirectURL`.
- * Origin from the tenant session `public_base_url`; UI path prefix from process
+ * Origin from the tenant control-plane URL; UI path prefix from process
  * `PUBLIC_BASE_URL` via {@link getPublicUiBasePath}. `return_to` is a browser path.
  *
  * TODO: add an env var for the public UI path prefix (do not keep deriving mount path from
@@ -63,7 +64,7 @@ export function resolveAuthorizeRedirectURL(input: { returnTo?: string; publicBa
     const publicBase = new URL(getPublicUiBasePath(), `${origin}/`);
     return new URL(safeReturnTo(input.returnTo), publicBase).href;
   } catch (error) {
-    throw new McpConnectionError('Tenant public base URL from session is required for TrueFoundry MCP OAuth', 500, {
+    throw new McpConnectionError('Tenant control-plane URL is required for TrueFoundry MCP OAuth', 500, {
       cause: error,
     });
   }
@@ -75,7 +76,6 @@ export class TrueFoundryMcpServerStore<TTransaction = never> implements IMcpServ
   readonly #asAgent: ResolveAccessToken;
   readonly #asUser: ResolveAccessToken;
   readonly #subject: RequestSubject;
-  readonly #publicBaseUrl: string | undefined;
   readonly #perServerHeaders: PerServerMcpHeaders;
   #gatewayUrl: string | undefined;
 
@@ -97,7 +97,6 @@ export class TrueFoundryMcpServerStore<TTransaction = never> implements IMcpServ
     this.#asAgent = tokens.asAgent;
     this.#asUser = tokens.asUser;
     this.#subject = requestContext.subject;
-    this.#publicBaseUrl = requestContext.public_base_url;
     this.#perServerHeaders = input.perServerHeaders ?? {};
   }
 
@@ -230,10 +229,7 @@ export class TrueFoundryMcpServerStore<TTransaction = never> implements IMcpServ
     if (record === undefined) {
       throw new McpServerNotFoundError(input.name);
     }
-    const publicBaseUrl = this.#publicBaseUrl;
-    if (publicBaseUrl === undefined || publicBaseUrl.trim() === '') {
-      throw new McpConnectionError('Tenant public base URL from session is required for TrueFoundry MCP OAuth', 500);
-    }
+    const publicBaseUrl = await this.#client.getTenantControlPlaneUrl({ tenantName: input.tenant_id });
     return this.#client.getMcpAuthorize({
       accessToken: await this.#asUser(),
       mcpServerId: record.id,

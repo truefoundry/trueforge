@@ -1,12 +1,12 @@
 'use client';
 
-import { useTrueFoundryResumeUnavailable } from '@truefoundry/assistant-ui-runtime';
+import { useTrueForgeResumeUnavailable } from '@truefoundry/trueforge-assistant-ui-runtime';
 
 import { useSlot } from '../theme/SlotsProvider.js';
 
 export function ResumeUnavailableContainer() {
   const ResumeUnavailable = useSlot('ResumeUnavailable');
-  const resumeUnavailable = useTrueFoundryResumeUnavailable();
+  const resumeUnavailable = useTrueForgeResumeUnavailable();
 
   if (!resumeUnavailable) return null;
 

@@ -1,10 +1,10 @@
 'use client';
 
 import {
-  useTrueFoundryAdoptAgentSpec,
-  useTrueFoundryAgentSpec,
-  useTrueFoundryFlushAgentSpec,
-} from '@truefoundry/assistant-ui-runtime';
+  useTrueForgeAdoptAgentSpec,
+  useTrueForgeAgentSpec,
+  useTrueForgeFlushAgentSpec,
+} from '@truefoundry/trueforge-assistant-ui-runtime';
 import { useRef, useState } from 'react';
 
 import { useCanCreateAgent } from '../hooks/useCanCreateAgent.js';
@@ -57,11 +57,11 @@ function SaveAgentButtonContent({
   children: string;
   instructionsOverride?: string;
 }) {
-  const { agentSpec, draftSessionId } = useTrueFoundryAgentSpec();
+  const { agentSpec, draftSessionId } = useTrueForgeAgentSpec();
   const agentSpecRef = useRef(agentSpec);
   agentSpecRef.current = agentSpec;
-  const flushAgentSpec = useTrueFoundryFlushAgentSpec();
-  const adoptAgentSpec = useTrueFoundryAdoptAgentSpec();
+  const flushAgentSpec = useTrueForgeFlushAgentSpec();
+  const adoptAgentSpec = useTrueForgeAdoptAgentSpec();
   const builder = useOptionalServer();
   const shell = useOptionalShellMode();
   const agentId = shell?.mode.status === 'active' ? shell.mode.agentId : undefined;

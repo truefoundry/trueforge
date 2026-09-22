@@ -14,16 +14,16 @@ need few props. Use them to build a [custom layout](/ui-sdk/guides/layouts).
 | `ThreadContainer` | `{ composer?: ReactNode }` | The message transcript with an optional composer slot beneath it. |
 | `ComposerContainer` | `{ placeholder?: string }` | Input, attachments, model label, send/cancel. |
 | `ThreadListContainer` | `{ onThreadOpen?: () => void }` | Session list with new-chat affordance. |
-| `TrueFoundryChatProvider` | see below | Mounts the chat runtime. |
+| `TrueForgeChatProvider` | see below | Mounts the chat runtime. |
 
 ```ts
-type TrueFoundryChatProviderProps = {
+type TrueForgeChatProviderProps = {
   server: AgentUIServer;
   initialSessionId?: string;
-  adapters?: UseTrueFoundryAgentRuntimeOptions["adapters"];
+  adapters?: UseTrueForgeAgentRuntimeOptions["adapters"];
   onError?: (error: unknown) => void;
   children: ReactNode;
-  agent?: TrueFoundryAgentConfig;
+  agent?: TrueForgeAgentConfig;
   agentName?: string;
   listSessionsAgentId?: string;
 };

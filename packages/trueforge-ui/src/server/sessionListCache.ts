@@ -29,7 +29,7 @@ export function withSessionListCache({
   server: AgentUIServer;
   cache: SessionListCache;
 }): AgentUIServer {
-  const { deleteSession } = server;
+  const { deleteSession, renameSession } = server;
   return {
     ...server,
     listSessions(request) {
@@ -59,6 +59,14 @@ export function withSessionListCache({
       ? {
           deleteSession: async (request: { sessionId: string }) => {
             await deleteSession.call(server, request);
+            cache.clear();
+          },
+        }
+      : {}),
+    ...(renameSession != null
+      ? {
+          renameSession: async (request: { sessionId: string; title: string }) => {
+            await renameSession.call(server, request);
             cache.clear();
           },
         }

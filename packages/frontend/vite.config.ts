@@ -1,14 +1,10 @@
 import react from '@vitejs/plugin-react';
 import path from 'node:path';
-import { fileURLToPath } from 'node:url';
 import type { Plugin, ProxyOptions } from 'vite';
 import { defaultClientConditions, defineConfig } from 'vite';
 import { compression } from 'vite-plugin-compression2';
 // Maintained ESM fork of vite-plugin-monaco-editor (works with Vite 6 ESM config).
 import monacoEditorPlugin from 'vite-plugin-monaco-editor-esm';
-
-const rootDir = path.dirname(fileURLToPath(import.meta.url));
-const gatewaySdkStub = path.join(rootDir, 'src/gatewaySdkStubs.ts');
 
 const SERVER = process.env.VITE_SERVER_URL ?? 'http://localhost:8790';
 const PORT = Number(process.env.FRONTEND_PORT ?? 3000);
@@ -69,11 +65,6 @@ export default defineConfig(({ command }) => ({
     // Never add 'import'/'require' here: Vite applies those per import kind, and
     // forcing 'import' makes CJS deps require @babel/runtime's ESM helpers.
     conditions: ['trueforge-dev', ...defaultClientConditions],
-    alias: {
-      'truefoundry-gateway-sdk/agents/private': gatewaySdkStub,
-      'truefoundry-gateway-sdk/agents': gatewaySdkStub,
-      'truefoundry-gateway-sdk': gatewaySdkStub,
-    },
     dedupe: ['react', 'react-dom', '@assistant-ui/core', '@assistant-ui/store', '@assistant-ui/react'],
   },
   server: {

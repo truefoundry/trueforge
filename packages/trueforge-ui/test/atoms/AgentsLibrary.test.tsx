@@ -662,13 +662,14 @@ describe('AgentsLibraryButton', () => {
   });
 
   it('does not show an empty-schedules action before schedule counts load', async () => {
-    let resolveSchedules: (value: { data: [] }) => void = () => undefined;
-    const listSchedules = vi.fn(
-      () =>
-        new Promise<{ data: [] }>(resolve => {
-          resolveSchedules = resolve;
-        }),
-    );
+    let releaseSchedules!: () => void;
+    const schedulesGate = new Promise<void>(resolve => {
+      releaseSchedules = resolve;
+    });
+    const listSchedules = vi.fn(async () => {
+      await schedulesGate;
+      return { data: [] };
+    });
     const server = createMockAgentUIServer({
       searchAgents: vi.fn(async () => [{ name: 'alpha-agent', agentId: 'alpha-agent' }]),
       schedules: {
@@ -689,7 +690,7 @@ describe('AgentsLibraryButton', () => {
     expect(screen.getByLabelText('Schedule count unavailable for alpha-agent')).toBeInTheDocument();
     expect(screen.queryByRole('button', { name: 'Add schedule for alpha-agent' })).not.toBeInTheDocument();
 
-    resolveSchedules({ data: [] });
+    releaseSchedules();
     expect(await screen.findByRole('button', { name: 'Add schedule for alpha-agent' })).toBeInTheDocument();
   });
 

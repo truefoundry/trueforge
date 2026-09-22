@@ -1,6 +1,6 @@
 'use client';
 
-import { useTrueFoundryAgentSpec, useTrueFoundryUpdateAgentSpec } from '@truefoundry/assistant-ui-runtime';
+import { useTrueForgeAgentSpec, useTrueForgeUpdateAgentSpec } from '@truefoundry/trueforge-assistant-ui-runtime';
 import { createContext, useCallback, useContext, useMemo, type ReactNode } from 'react';
 
 import { useDebouncedAgentInstructions } from '../../hooks/useDebouncedAgentInstructions.js';
@@ -14,8 +14,8 @@ type AgentConfigInstructionsContextValue = {
 const AgentConfigInstructionsContext = createContext<AgentConfigInstructionsContextValue | null>(null);
 
 export function AgentConfigInstructionsProvider({ children }: { children: ReactNode }) {
-  const { agentSpec } = useTrueFoundryAgentSpec();
-  const updateAgentSpec = useTrueFoundryUpdateAgentSpec();
+  const { agentSpec } = useTrueForgeAgentSpec();
+  const updateAgentSpec = useTrueForgeUpdateAgentSpec();
   const commit = useCallback((instructions: string) => updateAgentSpec?.({ instructions }), [updateAgentSpec]);
   const { draft, onChange, flush } = useDebouncedAgentInstructions({
     value: agentSpec?.instructions ?? '',

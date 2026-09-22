@@ -40,7 +40,7 @@ image:
   repository: tfy.jfrog.io/tfy-images/trueforge
   # Tag defaults to chart appVersion when empty. Prod chart-release PRs set this
   # to {appVersion}-{shortSha} for the npm-install image already in the registry.
-  tag: "0.2.0-rc.14-e1ebeda"
+  tag: "0.2.1-de68a16"
   pullPolicy: IfNotPresent
 imagePullSecrets: []
 # Default tfy.jfrog.io repos are anonymously pullable. Set secrets only when
@@ -170,6 +170,31 @@ configs:
     # Optional comma-separated exact emails and/or * globs (e.g. "*@company.com").
     # Empty = unrestricted. Matched against the ID token `email` claim.
     allowedEmails: ""
+# App-level outbound URL guard (MCP url / model-provider base_url). Not a K8s NetworkPolicy.
+# Full table: charts/trueforge/README.md (networkPolicy).
+#
+# enabled=false: guard skipped (all hosts allowed).
+# enabled=true: http(s) only; exact host match; blockedHosts before allowedHosts.
+#   "default" = deny private/loopback/link-local/in-cluster; allow public.
+#
+#   allowedHosts | blockedHosts | host a | host b | other (neither list)
+#   ------------ | ------------ | ------ | ------ | --------------------
+#   []           | []           | default| default| default
+#   []           | [b]          | default| denied | default
+#   [a]          | []           | allow* | default| default
+#   [a]          | [b]          | allow* | denied | default
+#   [a]          | [a]          | denied | default| default
+#   * allow = allowed even if private / in-cluster.
+networkPolicy:
+  # Env: NETWORK_POLICY_ENABLED. Chart default false.
+  enabled: false
+  outbound:
+    # Env: OUTBOUND_URL_ALLOWED_HOSTS (JSON string array). Empty = no allowlist entries.
+    # Example: ["localhost", "127.0.0.1", "llm-gateway.internal"]
+    allowedHosts: []
+    # Env: OUTBOUND_URL_BLOCKED_HOSTS (JSON string array). Empty = no blocklist entries.
+    # Example: ["evil.example.com"]
+    blockedHosts: []
 # Resource tier: small | medium | large presets for server and controller.
 # Empty = use `resources` / `controller.resources`. Wins over a parent chart's
 # global.resourceTier.

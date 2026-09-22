@@ -52,6 +52,7 @@ function createMockClient(): MockClient {
     getMcpAuthStatus: jest.fn(),
     deleteMcpAuth: jest.fn(),
     vendToken: jest.fn(),
+    getTenantControlPlaneUrl: jest.fn(),
   };
 }
 
@@ -60,7 +61,7 @@ function createStore(input?: {
   client?: MockClient;
   subject?: { id: string; type: string; display_name: string };
   agent?: AgentRecord;
-  publicBaseUrl?: string;
+  controlPlaneUrl?: string;
 }) {
   const client = input?.client ?? createMockClient();
   client.getMcpServerByName.mockResolvedValue(SFY_ROW);
@@ -69,6 +70,7 @@ function createStore(input?: {
   client.getMcpAuthorize.mockResolvedValue({ status: 'authenticated' });
   client.getMcpAuthStatus.mockResolvedValue({ status: 'authenticated' });
   client.deleteMcpAuth.mockResolvedValue(undefined);
+  client.getTenantControlPlaneUrl.mockResolvedValue(input?.controlPlaneUrl ?? PUBLIC_BASE_URL);
   if (input?.agent !== undefined) {
     client.vendToken.mockResolvedValue({ subjectToken: SUBJECT_TOKEN, actorToken: ACTOR_TOKEN });
   }
@@ -79,7 +81,6 @@ function createStore(input?: {
       subject: input?.subject ?? { id: 'user-1', type: 'user', display_name: 'user-1' },
       roles: [],
       user_credential: input?.accessToken ?? ACCESS_TOKEN,
-      public_base_url: input?.publicBaseUrl ?? PUBLIC_BASE_URL,
     }),
     agent: input?.agent,
     logger: createLogger({ silent: true }),
@@ -159,10 +160,11 @@ describe('TrueFoundryMcpServerStore', () => {
   });
 
   describe('authorize', () => {
-    it('derives upstream redirectURL from return_to and session public base URL', async () => {
+    it('derives upstream redirectURL from return_to and tenant control-plane URL', async () => {
       const { store, client } = createStore();
       const returnTo = '/trueforge/?screenType=mcp-auth&pUid=popup-1';
       await store.authorize({ tenant_id: TENANT, name: 'github', userRef: 'user-1', returnTo });
+      expect(client.getTenantControlPlaneUrl).toHaveBeenCalledWith({ tenantName: TENANT });
       expect(client.getMcpAuthorize).toHaveBeenCalledWith({
         accessToken: ACCESS_TOKEN,
         mcpServerId: 'mcp-id-1',
@@ -170,10 +172,10 @@ describe('TrueFoundryMcpServerStore', () => {
       });
     });
 
-    it('throws when session public base URL is missing', async () => {
-      const { store } = createStore({ publicBaseUrl: '' });
+    it('throws when tenant control-plane URL is invalid', async () => {
+      const { store } = createStore({ controlPlaneUrl: '' });
       await expect(store.authorize({ tenant_id: TENANT, name: 'github', userRef: 'user-1' })).rejects.toMatchObject({
-        message: 'Tenant public base URL from session is required for TrueFoundry MCP OAuth',
+        message: 'Tenant control-plane URL is required for TrueFoundry MCP OAuth',
         statusCode: 500,
       });
     });

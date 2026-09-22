@@ -14,7 +14,7 @@ import { HTTPException } from 'hono/http-exception';
 import { join } from 'node:path';
 import type { Logger } from 'winston';
 import { z } from 'zod';
-import configuration from '../config';
+import configuration, { isTrueFoundryModeEnabled } from '../config';
 import type { IMcpServerStore, IMcpServerWithAuthStore } from '../db/mcpServerStore';
 import type { IModelProviderStore } from '../db/modelProviderStore';
 import type { ISandboxProviderStore } from '../db/sandboxProviderStore';
@@ -73,14 +73,14 @@ export function buildGatewayMetadata(input: { session: SessionHandle; turnId: st
   return metadata;
 }
 
-/** Inbound x-tfy-metadata first; harness tfg.* always win */
+/** Caller requestMetadata first; harness tfg.* always win */
 export function mergeGatewayMetadata(input: {
   session: SessionHandle;
   turnId: string;
-  tfyMetadata?: Record<string, string> | undefined;
+  requestMetadata?: Record<string, string> | undefined;
 }): Record<string, string> {
   return {
-    ...input.tfyMetadata,
+    ...input.requestMetadata,
     ...buildGatewayMetadata({ session: input.session, turnId: input.turnId }),
   };
 }
@@ -90,6 +90,21 @@ export function gatewayMetadataHeaders(metadata: Record<string, string>): Record
     return {};
   }
   return { [X_TFY_METADATA]: JSON.stringify(metadata) };
+}
+
+/**
+ * Per-turn gateway headers for LLM/MCP calls: harness tfg.* stamps over caller
+ * metadata. Empty outside TrueFoundry mode. Every turn start must wire this in.
+ */
+export function gatewayTurnHeaders(input: {
+  session: SessionHandle;
+  turnId: string;
+  requestMetadata?: Record<string, string> | undefined;
+}): Record<string, string> {
+  if (!isTrueFoundryModeEnabled()) {
+    return {};
+  }
+  return gatewayMetadataHeaders(mergeGatewayMetadata(input));
 }
 
 /**
