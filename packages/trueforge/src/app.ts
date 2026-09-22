@@ -248,7 +248,7 @@ export function createServerApp<TTransaction>(deps: ServerDeps<TTransaction>) {
   if (configuration.ACCESS_LOGS) {
     app.use('*', createAccessLogMiddleware(deps.logger));
   }
-  if (!configuration.STANDALONE && configuration.TRUEFORGE_MTLS_ENABLED) {
+  if (!configuration.STANDALONE && configuration.MTLS_ENABLED) {
     app.use('*', createClientCertificateMiddleware(deps.logger));
   }
   app.use('*', createRequestBodyLimitMiddleware(configuration.MAX_REQUEST_BODY_BYTES));

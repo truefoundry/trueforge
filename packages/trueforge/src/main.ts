@@ -721,8 +721,8 @@ try {
   }
 
   const tlsServe = serverTlsServeOptions({
-    enabled: !configuration.STANDALONE && configuration.TRUEFORGE_MTLS_ENABLED,
-    dir: configuration.TRUEFORGE_MTLS_CERTS_DIR,
+    enabled: !configuration.STANDALONE && configuration.MTLS_ENABLED,
+    dir: configuration.MTLS_CERTS_DIR,
   });
   const server = serve(
     {

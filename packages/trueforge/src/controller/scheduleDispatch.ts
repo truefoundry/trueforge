@@ -46,8 +46,8 @@ export type ScheduleRunExecutor = (scheduleRunId: string) => Promise<void>;
 /** HTTP handoff to `POST /api/internal/schedules/runs/execute` (dedicated controller or standalone loopback). */
 export function createHttpScheduleRunExecutor(): ScheduleRunExecutor {
   const tls = {
-    enabled: configuration.TRUEFORGE_MTLS_ENABLED,
-    dir: configuration.TRUEFORGE_MTLS_CERTS_DIR,
+    enabled: configuration.MTLS_ENABLED,
+    dir: configuration.MTLS_CERTS_DIR,
   };
   const tlsFetch = createTlsFetch(tls);
   const client = new TrueForge({

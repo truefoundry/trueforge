@@ -92,7 +92,7 @@ function requestUrlFromFetchInput(input: Parameters<typeof fetch>[0]): string {
 export function createTlsFetch(options: TlsOptions): typeof fetch | undefined {
   const dispatcher = createTlsDispatcher({
     ...options,
-    enabledEnvKey: 'TRUEFORGE_MTLS_ENABLED',
+    enabledEnvKey: 'MTLS_ENABLED',
   });
   if (dispatcher === undefined) {
     return undefined;
@@ -108,8 +108,7 @@ export function serverTlsServeOptions(
   if (!options.enabled) {
     return undefined;
   }
-  const read = (fileName: string) =>
-    readTlsFile({ dir: options.dir, fileName, enabledEnvKey: 'TRUEFORGE_MTLS_ENABLED' });
+  const read = (fileName: string) => readTlsFile({ dir: options.dir, fileName, enabledEnvKey: 'MTLS_ENABLED' });
   return {
     createServer: createHttpsServer,
     serverOptions: {

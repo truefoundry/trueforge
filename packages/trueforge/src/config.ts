@@ -657,7 +657,7 @@ export interface SharedServerConfiguration {
    * Base URL the controller uses to reach the server's HTTP API. Dedicated controller
    * (`STANDALONE=false`, `dist/controller-main.js`) and the in-process standalone controller
    * both call the server over HTTP(S) at this URL (loopback in standalone). When
-   * `TRUEFORGE_MTLS_ENABLED` is true the controller upgrades an `http://` URL to `https://`
+   * `MTLS_ENABLED` is true the controller upgrades an `http://` URL to `https://`
    * and presents the client cert. Env: `SERVER_URL`.
    * Default: `http://localhost:$PORT`; in-cluster deployments MUST point this at the server Service.
    */
@@ -671,14 +671,14 @@ export interface SharedServerConfiguration {
   /**
    * Mutual TLS for this process's HTTPS listener and controller→server. When true, serves HTTPS
    * with client-cert enforcement (except `/healthz`) and the controller presents a client cert.
-   * Env: `TRUEFORGE_MTLS_ENABLED`. Default false.
+   * Env: `MTLS_ENABLED`. Default false.
    */
-  TRUEFORGE_MTLS_ENABLED: boolean;
+  MTLS_ENABLED: boolean;
   /**
    * Directory holding the TLS cert triple (`tls.crt` / `tls.key` / `ca.crt`) when
-   * `TRUEFORGE_MTLS_ENABLED` is true. Env: `TRUEFORGE_MTLS_CERTS_DIR`. Default `/etc/tls`.
+   * `MTLS_ENABLED` is true. Env: `MTLS_CERTS_DIR`. Default `/etc/tls`.
    */
-  TRUEFORGE_MTLS_CERTS_DIR: string;
+  MTLS_CERTS_DIR: string;
   /** Env: `NETWORK_POLICY_ENABLED`. Default true. `false` skips the outbound URL guard. */
   NETWORK_POLICY_ENABLED: boolean;
   /** Hosts always allowed. Env: `OUTBOUND_URL_ALLOWED_HOSTS` (JSON string array). Empty = none. */
@@ -940,12 +940,12 @@ const shared: SharedServerConfiguration = {
   TRUEFORGE_API_KEY: standalone
     ? (getEnv('TRUEFORGE_API_KEY', { defaultValue: STANDALONE_TRUEFORGE_API_KEY }) ?? STANDALONE_TRUEFORGE_API_KEY)
     : (getEnv('TRUEFORGE_API_KEY', { required: true }) ?? ''),
-  TRUEFORGE_MTLS_ENABLED: parseBoolean({
-    envKey: 'TRUEFORGE_MTLS_ENABLED',
-    raw: getEnv('TRUEFORGE_MTLS_ENABLED'),
+  MTLS_ENABLED: parseBoolean({
+    envKey: 'MTLS_ENABLED',
+    raw: getEnv('MTLS_ENABLED'),
     defaultValue: false,
   }),
-  TRUEFORGE_MTLS_CERTS_DIR: getEnv('TRUEFORGE_MTLS_CERTS_DIR', { defaultValue: '/etc/tls' }) ?? '/etc/tls',
+  MTLS_CERTS_DIR: getEnv('MTLS_CERTS_DIR', { defaultValue: '/etc/tls' }) ?? '/etc/tls',
   NETWORK_POLICY_ENABLED: parseBoolean({
     envKey: 'NETWORK_POLICY_ENABLED',
     raw: getEnv('NETWORK_POLICY_ENABLED'),
