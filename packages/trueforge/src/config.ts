@@ -364,20 +364,21 @@ function resolveCodeModeSocketParent(): string {
   return path.join(os.tmpdir(), 'tf_cms');
 }
 
-/** Non-empty trimmed env string, or undefined. */
+/** Env string as-is, or undefined when unset/empty (no trimming). */
 function optionalNonEmptyEnv(envKey: string): string | undefined {
   const raw = getEnv(envKey);
-  if (raw === undefined || raw.trim() === '') {
+  if (raw === undefined || raw === '') {
     return undefined;
   }
-  return raw.trim();
+  return raw;
 }
 
 /**
  * Build a standalone `redis://` URL from discrete host fields.
  * TLS stays on socket options (`REDIS_TLS_*`), not the URL scheme — CA/cert/key
  * cannot be expressed in `rediss://`, and mixing scheme + socket TLS is ambiguous.
- * IPv6 hosts are bracketed (`[::1]`) so `new URL()` / node-redis accept them.
+ * IPv6 hosts are bracketed so `new URL()` accepts them; username/password are
+ * percent-encoded by the URL setters.
  */
 export function buildRedisStandaloneUrl(parts: {
   host: string;
@@ -386,24 +387,17 @@ export function buildRedisStandaloneUrl(parts: {
   username: string | undefined;
   password: string | undefined;
 }): string {
-  let auth = '';
+  const bareHost =
+    parts.host.startsWith('[') && parts.host.endsWith(']') ? parts.host.slice(1, -1) : parts.host;
+  const host = isIPv6(bareHost) ? `[${bareHost}]` : bareHost;
+  const url = new URL(`redis://${host}:${String(parts.port)}/${String(parts.database)}`);
   if (parts.username !== undefined) {
-    auth = encodeURIComponent(parts.username);
-    if (parts.password !== undefined) {
-      auth += `:${encodeURIComponent(parts.password)}`;
-    }
-    auth += '@';
-  } else if (parts.password !== undefined) {
-    auth = `:${encodeURIComponent(parts.password)}@`;
+    url.username = parts.username;
   }
-  const host =
-    parts.host.startsWith('[') && parts.host.endsWith(']')
-      ? parts.host
-      : isIPv6(parts.host)
-        ? `[${parts.host}]`
-        : parts.host;
-  const dbPath = parts.database > 0 ? `/${String(parts.database)}` : '';
-  return `redis://${auth}${host}:${String(parts.port)}${dbPath}`;
+  if (parts.password !== undefined) {
+    url.password = parts.password;
+  }
+  return url.href;
 }
 
 /**

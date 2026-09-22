@@ -729,12 +729,10 @@ try {
   // awaits the initial subscribe + heartbeat — the replica is reachable for
   // peering before the HTTP server starts.
   let requestReplySubscriber: RedisClient | undefined;
-  let requestReplySubscriberOwned = false;
   let requestReplyExecutor: RequestReplyExecutor | undefined;
   if (redis) {
     if (redis.mode !== 'sentinel') {
       requestReplySubscriber = redis.client.duplicate();
-      requestReplySubscriberOwned = true;
       requestReplySubscriber.on('error', (error: Error) => {
         logger.error('[RedisSubscriber] Client error', extractErrorLogFields(error));
       });
@@ -815,17 +813,20 @@ try {
       await activeTurns.shutdownAndWait(CancellationReason.Abandoned);
       await closed;
       // Stop serving peer requests (waits for in-flight replies), then close
-      // clients this process owns: the subscriber duplicate (standalone only)
-      // and the primary.
+      // Redis clients (Set dedupes when Sentinel shares one client for pub/sub).
       await requestReplyExecutor?.drain();
-      if (requestReplySubscriberOwned) {
-        await requestReplySubscriber?.close().catch((error: unknown) => {
-          logger.warn('[Redis] Error closing subscriber client during shutdown', extractErrorLogFields(error));
+      const redisClients = new Set<RedisClient>();
+      if (requestReplySubscriber !== undefined) {
+        redisClients.add(requestReplySubscriber);
+      }
+      if (redis !== undefined) {
+        redisClients.add(redis.client);
+      }
+      for (const client of redisClients) {
+        await client.close().catch((error: unknown) => {
+          logger.warn('[Redis] Error closing client during shutdown', extractErrorLogFields(error));
         });
       }
-      await redis?.client.close().catch((error: unknown) => {
-        logger.warn('[Redis] Error closing client during shutdown', extractErrorLogFields(error));
-      });
       if (configuration.STANDALONE) {
         await removeCodeModeSocketParent(configuration.CODE_MODE_SOCKET_PARENT).catch((error: unknown) => {
           logger.warn('Error removing Code Mode socket parent during shutdown', extractErrorLogFields(error));

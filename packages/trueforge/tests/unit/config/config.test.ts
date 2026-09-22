@@ -140,12 +140,12 @@ describe('buildRedisStandaloneUrl', () => {
   };
 
   it('builds a hostname URL', () => {
-    expect(buildRedisStandaloneUrl({ ...base, host: 'redis.internal' })).toBe('redis://redis.internal:6379');
+    expect(buildRedisStandaloneUrl({ ...base, host: 'redis.internal' })).toBe('redis://redis.internal:6379/0');
   });
 
   it('brackets bare IPv6 hosts so the URL is parseable', () => {
     const url = buildRedisStandaloneUrl({ ...base, host: '::1' });
-    expect(url).toBe('redis://[::1]:6379');
+    expect(url).toBe('redis://[::1]:6379/0');
     expect(() => new URL(url)).not.toThrow();
   });
 
@@ -156,6 +156,6 @@ describe('buildRedisStandaloneUrl', () => {
   });
 
   it('leaves IPv4 hosts unbracketed', () => {
-    expect(buildRedisStandaloneUrl({ ...base, host: '127.0.0.1' })).toBe('redis://127.0.0.1:6379');
+    expect(buildRedisStandaloneUrl({ ...base, host: '127.0.0.1' })).toBe('redis://127.0.0.1:6379/0');
   });
 });
