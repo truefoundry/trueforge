@@ -56,11 +56,7 @@ import {
   type ISessionStore,
   type TurnStreamingEvent,
 } from '@truefoundry/trueforge-core/agent-session';
-import {
-  RequestReplyExecutor,
-  RequestReplyRouter,
-  type RedisPeerClient,
-} from '@truefoundry/trueforge-core/request-reply';
+import { RequestReplyExecutor, RequestReplyRouter, type RedisClient } from '@truefoundry/trueforge-core/request-reply';
 import type { Kysely, Transaction } from 'kysely';
 import type { Logger } from 'winston';
 
@@ -732,7 +728,7 @@ try {
   // Sentinel owns pub/sub on the shared client. Connect before init() so init()
   // awaits the initial subscribe + heartbeat — the replica is reachable for
   // peering before the HTTP server starts.
-  let requestReplySubscriber: RedisPeerClient | undefined;
+  let requestReplySubscriber: RedisClient | undefined;
   let requestReplySubscriberOwned = false;
   let requestReplyExecutor: RequestReplyExecutor | undefined;
   if (redis) {

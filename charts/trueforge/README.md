@@ -213,10 +213,9 @@ externalPostgres:
 The server always runs peered (`STANDALONE=false`), so Redis is always required.
 Bundled by default (`redis.enabled=true`, **auth disabled** — fine only when
 Redis stays unreachable outside the cluster trust boundary). To use an
-**external** Redis, set `redis.enabled=false` and provide exactly one of
-`externalRedis.url`, `externalRedis.host`, or Sentinel. Set `externalRedis.enabled=true`
-explicitly, or omit it when url/host/sentinel is set (upgrade-compatible). Fields accept a
-string or `valueFrom.secretKeyRef`. url, host, and sentinel are mutually exclusive:
+**external** Redis, set `redis.enabled=false`, `externalRedis.enabled=true`, and exactly one
+of `externalRedis.url`, `externalRedis.host`, or Sentinel. Fields accept a string or
+`valueFrom.secretKeyRef`. url, host, and sentinel are mutually exclusive:
 
 ```yaml
 redis:

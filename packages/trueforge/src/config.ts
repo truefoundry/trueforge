@@ -373,6 +373,32 @@ function optionalNonEmptyEnv(envKey: string): string | undefined {
 }
 
 /**
+ * Build a standalone `redis://` URL from discrete host fields.
+ * TLS stays on socket options (`REDIS_TLS_*`), not the URL scheme — CA/cert/key
+ * cannot be expressed in `rediss://`, and mixing scheme + socket TLS is ambiguous.
+ */
+function buildRedisStandaloneUrl(parts: {
+  host: string;
+  port: number;
+  database: number;
+  username: string | undefined;
+  password: string | undefined;
+}): string {
+  let auth = '';
+  if (parts.username !== undefined) {
+    auth = `${encodeURIComponent(parts.username)}`;
+    if (parts.password !== undefined) {
+      auth += `:${encodeURIComponent(parts.password)}`;
+    }
+    auth += '@';
+  } else if (parts.password !== undefined) {
+    auth = `:${encodeURIComponent(parts.password)}@`;
+  }
+  const dbPath = parts.database > 0 ? `/${String(parts.database)}` : '';
+  return `redis://${auth}${parts.host}:${String(parts.port)}${dbPath}`;
+}
+
+/**
  * Exactly one Redis transport when configured.
  * Transports are mutually exclusive: Sentinel, `REDIS_URL`, or `REDIS_HOST`.
  * Returns undefined when none are set so controller / migrate can boot without Redis;
@@ -430,7 +456,7 @@ function resolveRedisConnection(): RedisConnection | undefined {
     );
   }
   if (url !== undefined) {
-    return { mode: 'url', url };
+    return { mode: 'standalone', url };
   }
   if (host !== undefined) {
     const port = parsePositiveInt({
@@ -439,12 +465,14 @@ function resolveRedisConnection(): RedisConnection | undefined {
       defaultValue: 6379,
     });
     return {
-      mode: 'host',
-      host,
-      port,
-      database,
-      ...(username !== undefined ? { username } : {}),
-      ...(passwordOrUndefined !== undefined ? { password: passwordOrUndefined } : {}),
+      mode: 'standalone',
+      url: buildRedisStandaloneUrl({
+        host,
+        port,
+        database,
+        username,
+        password: passwordOrUndefined,
+      }),
     };
   }
 

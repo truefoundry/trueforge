@@ -5,10 +5,10 @@
  * Sentinel shares the same client for pub/sub).
  */
 import { existsSync, readFileSync } from 'node:fs';
+import { setTimeout as sleep } from 'node:timers/promises';
 
 import { extractErrorLogFields } from '@truefoundry/trueforge-core/core';
-import type { RedisPeerClient } from '@truefoundry/trueforge-core/request-reply';
-import { createClient, createSentinel, type RedisClientType } from 'redis';
+import { createClient, createSentinel, type RedisClientType, type RedisSentinelType } from 'redis';
 import type { Logger } from 'winston';
 
 const DEFAULT_SENTINEL_PORT = 26379;
@@ -17,15 +17,7 @@ const SENTINEL_RETRY_MAX_MS = 3_000;
 
 /** Exactly one Redis transport, resolved at config load. */
 export type RedisConnection =
-  | { mode: 'url'; url: string }
-  | {
-      mode: 'host';
-      host: string;
-      port: number;
-      database: number;
-      username?: string;
-      password?: string;
-    }
+  | { mode: 'standalone'; url: string }
   | {
       mode: 'sentinel';
       nodes: string;
@@ -38,9 +30,7 @@ export type RedisConnection =
     };
 
 export type ConnectedRedis =
-  | { mode: 'url'; client: RedisClientType }
-  | { mode: 'host'; client: RedisClientType }
-  | { mode: 'sentinel'; client: RedisPeerClient };
+  { mode: 'standalone'; client: RedisClientType } | { mode: 'sentinel'; client: RedisSentinelType };
 
 /** Parse comma-separated `host:port` list into Sentinel root nodes. */
 export function parseRedisSentinelNodes(raw: string): { host: string; port: number }[] {
@@ -69,6 +59,17 @@ export interface RedisTlsInput {
   keyPassphrase: string | undefined;
 }
 
+/** node-redis socket TLS fields shared by data-node and Sentinel clients. */
+export type RedisTlsSocketOptions = {
+  tls: true;
+  rejectUnauthorized: boolean;
+  ca?: string;
+  cert?: string;
+  key?: string;
+  passphrase?: string;
+  servername?: string;
+};
+
 const PEM_MARKER = '-----BEGIN';
 
 function resolvePemMaterial({ value, label }: { value: string; label: string }): string {
@@ -89,23 +90,13 @@ function resolvePemMaterial({ value, label }: { value: string; label: string }):
 }
 
 /** Shared TLS socket options for data nodes and Sentinel clients. */
-function buildTlsSocketOptions(tls: RedisTlsInput | undefined):
-  | {
-      tls: true;
-      rejectUnauthorized: boolean;
-      ca?: string;
-      cert?: string;
-      key?: string;
-      passphrase?: string;
-      servername?: string;
-    }
-  | undefined {
+function buildTlsSocketOptions(tls: RedisTlsInput | undefined): RedisTlsSocketOptions | undefined {
   if (!tls?.enabled) {
     return undefined;
   }
   if ((tls.cert && !tls.key) || (tls.key && !tls.cert)) {
     throw new Error(
-      '[Redis] mTLS misconfigured: REDIS_TLS_CERT and REDIS_TLS_KEY must be set together ' +
+      '[Redis] TLS misconfigured: REDIS_TLS_CERT and REDIS_TLS_KEY must be set together ' +
         '(provide both for mutual TLS, or neither).',
     );
   }
@@ -121,10 +112,6 @@ function buildTlsSocketOptions(tls: RedisTlsInput | undefined):
   };
 }
 
-function sleep(ms: number): Promise<void> {
-  return new Promise(resolve => setTimeout(resolve, ms));
-}
-
 /**
  * Connect via Redis Sentinel with rebuild-and-retry.
  *
@@ -138,17 +125,7 @@ async function connectSentinelWithRetry(input: {
   connection: Extract<RedisConnection, { mode: 'sentinel' }>;
   clientDefaults: { disableOfflineQueue: true; pingInterval: number };
   connectTimeoutMs: number;
-  socketTls:
-    | {
-        tls: true;
-        rejectUnauthorized: boolean;
-        ca?: string;
-        cert?: string;
-        key?: string;
-        passphrase?: string;
-        servername?: string;
-      }
-    | undefined;
+  socketTls: RedisTlsSocketOptions | undefined;
   logger: Logger;
 }): Promise<ReturnType<typeof createSentinel>> {
   const { connection } = input;
@@ -220,7 +197,7 @@ export async function connectRedis(input: ConnectRedisInput): Promise<ConnectedR
   switch (input.connection.mode) {
     case 'sentinel': {
       // @ts-expect-error TS2375 createSentinel return not assignable under EOPT
-      const client: RedisPeerClient = await connectSentinelWithRetry({
+      const client: RedisSentinelType = await connectSentinelWithRetry({
         connection: input.connection,
         clientDefaults,
         connectTimeoutMs: input.connectTimeoutMs,
@@ -230,7 +207,7 @@ export async function connectRedis(input: ConnectRedisInput): Promise<ConnectedR
       input.logger.info('Connected to Redis');
       return { mode: 'sentinel', client };
     }
-    case 'url': {
+    case 'standalone': {
       const created = createClient({
         url: input.connection.url,
         ...clientDefaults,
@@ -244,31 +221,7 @@ export async function connectRedis(input: ConnectRedisInput): Promise<ConnectedR
       input.logger.info('Connected to Redis');
       // @ts-expect-error TS2375 createClient return not assignable under EOPT
       const client: RedisClientType = created;
-      return { mode: 'url', client };
-    }
-    case 'host': {
-      const { host, port, database, username, password } = input.connection;
-      const created = createClient({
-        ...clientDefaults,
-        database,
-        ...(username ? { username } : {}),
-        ...(password ? { password } : {}),
-        socket: {
-          host,
-          port,
-          connectTimeout: input.connectTimeoutMs,
-          ...(socketTls ?? {}),
-        },
-      });
-      // Without an 'error' listener node-redis crashes the process on emit.
-      created.on('error', (error: Error) => {
-        input.logger.error('[Redis] Client error', extractErrorLogFields(error));
-      });
-      await created.connect();
-      input.logger.info('Connected to Redis');
-      // @ts-expect-error TS2375 createClient return not assignable under EOPT
-      const client: RedisClientType = created;
-      return { mode: 'host', client };
+      return { mode: 'standalone', client };
     }
   }
 }

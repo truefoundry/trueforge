@@ -439,13 +439,12 @@ fields, wires bundled Postgres/Redis, optional OIDC, then server.extraEnv.
 {{- $tls := $externalRedis.tls | default dict -}}
 {{- $sentinelEnabled := eq (toString ($sentinel.enabled | default false)) "true" -}}
 {{- $tlsEnabled := eq (toString ($tls.enabled | default false)) "true" -}}
-{{- $externalRedisActive := or $externalRedis.enabled $externalRedis.url $externalRedis.host $sentinelEnabled -}}
-{{- if and .Values.redis.enabled $externalRedisActive -}}
-{{- fail "redis.enabled and externalRedis are mutually exclusive (unset externalRedis enabled/url/host/sentinel)" -}}
+{{- if and .Values.redis.enabled $externalRedis.enabled -}}
+{{- fail "redis.enabled and externalRedis.enabled are mutually exclusive" -}}
 {{- end -}}
 {{- if .Values.redis.enabled -}}
 {{- $env = append $env (dict "name" "REDIS_URL" "value" (include "trueforge.redis.bundledUrl" .)) -}}
-{{- else if $externalRedisActive -}}
+{{- else if $externalRedis.enabled -}}
 {{- if and $sentinelEnabled (or $externalRedis.url $externalRedis.host) -}}
 {{- fail "externalRedis.sentinel cannot be combined with externalRedis.url or externalRedis.host" -}}
 {{- end -}}
@@ -513,7 +512,7 @@ fields, wires bundled Postgres/Redis, optional OIDC, then server.extraEnv.
 {{- end -}}
 {{- end -}}
 {{- else -}}
-{{- fail "set redis.enabled or externalRedis (enabled, url, host, or sentinel)" -}}
+{{- fail "set redis.enabled or externalRedis.enabled" -}}
 {{- end -}}
 
 {{- if .Values.postgresql.enabled -}}

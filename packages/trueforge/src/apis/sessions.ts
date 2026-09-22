@@ -14,7 +14,7 @@ import { extractErrorLogFields } from '@truefoundry/trueforge-core/core';
 import {
   redisRequest,
   RequestTimeoutError,
-  type RedisPeerClient,
+  type RedisClient,
   type RouteHandler as RequestReplyRouteHandler,
   type RequestReplyRouter,
 } from '@truefoundry/trueforge-core/request-reply';
@@ -81,7 +81,7 @@ export interface SessionsRouterDeps {
   resolveSkillStore: ResolveSkillStore;
   resolveAgentStore: (c: Context) => IAgentStore;
   resolveSandboxProviderStore: (c: Context) => ISandboxProviderStore;
-  redis?: RedisPeerClient | undefined;
+  redis?: RedisClient | undefined;
   resolveWebSearchProviderStore: (c: Context) => IWebSearchProviderStore;
   requestReplyRouter: RequestReplyRouter;
   resolveRequestContext: ResolveRequestContext;
@@ -128,7 +128,7 @@ export interface CancelTurnDeps {
   activeTurns: ActiveTurnRegistry;
   session: Pick<SessionHandle, 'session_id' | 'freezeTurn'>;
   sessionStore: Pick<ISessionStore, 'getTurn'>;
-  redis?: RedisPeerClient | undefined;
+  redis?: RedisClient | undefined;
   logger: Pick<Logger, 'warn'>;
 }
 

@@ -1,7 +1,7 @@
 import { randomUUID } from 'node:crypto';
 import { performance } from 'node:perf_hooks';
 import { NoResponderError, RequestTimeoutError } from './errors';
-import type { RedisPeerClient } from './redisClient';
+import type { RedisClient } from './redisClient';
 import type { JSONReply, JSONValue, PublishedRequest, RequestEnvelope } from './types';
 import { jsonReplySchema } from './types';
 import { heartbeatKey, replyKey, requestChannel, sleep } from './utils';
@@ -28,7 +28,7 @@ function parseReplyPayload(raw: string) {
   return jsonReplySchema.parse(parsed);
 }
 
-async function getDelReply(redisClient: RedisPeerClient, rKey: string): Promise<JSONReply | null> {
+async function getDelReply(redisClient: RedisClient, rKey: string): Promise<JSONReply | null> {
   const raw = await redisClient.getDel(rKey);
   if (raw === null) {
     return null;
@@ -48,7 +48,7 @@ export async function redisRequest<T extends JSONValue>({
   request,
   options,
 }: {
-  redis: RedisPeerClient;
+  redis: RedisClient;
   executorId: string;
   path: string;
   request: RequestEnvelope<T>;

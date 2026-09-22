@@ -3,7 +3,7 @@ import type { Logger } from 'winston';
 import z from 'zod';
 import { extractErrorLogFields } from '../core/util/errorLogFields';
 import { ReplyError } from './errors';
-import type { RedisPeerClient } from './redisClient';
+import type { RedisClient } from './redisClient';
 import type { JSONReply, RequestHandler } from './types';
 import { publishedRequestSchema } from './types';
 import { heartbeatKey, requestChannel } from './utils';
@@ -44,8 +44,8 @@ export class RequestReplyExecutor {
   readonly executorId: string;
   /** `tfg:rr:req:<executorId>` — the channel this executor subscribes to. */
   readonly channel: string;
-  private readonly redis: RedisPeerClient;
-  private readonly subscriberClient: RedisPeerClient;
+  private readonly redis: RedisClient;
+  private readonly subscriberClient: RedisClient;
   private readonly logger: Logger;
   private readonly heartbeatIntervalMs: number;
   private readonly heartbeatTtlMs: number;
@@ -74,9 +74,9 @@ export class RequestReplyExecutor {
   }: {
     executorId: string;
     /** Connected command client, used only for SET (reply + heartbeat). Caller owns its lifecycle. */
-    redis: RedisPeerClient;
+    redis: RedisClient;
     /** Connected client to SUBSCRIBE on (duplicate or Sentinel). Caller owns its lifecycle. */
-    subscriberClient: RedisPeerClient;
+    subscriberClient: RedisClient;
     requestHandler: RequestHandler;
     onError?: RequestReplyErrorHandler | undefined;
     logger: Logger;

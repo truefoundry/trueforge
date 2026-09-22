@@ -3,7 +3,7 @@ import { swaggerUI } from '@hono/swagger-ui';
 import { OpenAPIHono, z } from '@hono/zod-openapi';
 import type { ISessionStore, Sessions, TurnStreamingEvent } from '@truefoundry/trueforge-core/agent-session';
 import { extractErrorLogFields } from '@truefoundry/trueforge-core/core';
-import type { RedisPeerClient, RequestReplyRouter } from '@truefoundry/trueforge-core/request-reply';
+import type { RedisClient, RequestReplyRouter } from '@truefoundry/trueforge-core/request-reply';
 import type { Context, ErrorHandler, MiddlewareHandler } from 'hono';
 import { bodyLimit } from 'hono/body-limit';
 import { HTTPException } from 'hono/http-exception';
@@ -210,7 +210,7 @@ export interface ServerDeps<TTransaction> {
   sessions: Sessions;
   activeTurns: ActiveTurnRegistry;
   /** Primary Redis client (server-owned); undefined in standalone mode. */
-  redis?: RedisPeerClient | undefined;
+  redis?: RedisClient | undefined;
   /** Request-reply dispatch table served by this replica's executor. */
   requestReplyRouter: RequestReplyRouter;
   /** Hands out each turn's resumable event stream to the create and subscribe handlers. */
