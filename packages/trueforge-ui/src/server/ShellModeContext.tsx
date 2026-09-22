@@ -8,6 +8,7 @@ import {
   readDraftSpecPreferences,
   selectDraftSpecPreferences,
   withCapabilitiesSandbox,
+  withCapabilitiesWebSearch,
   writeDraftSpecPreferences,
   type DraftPreferenceKind,
 } from './draftSpecPreferences.js';
@@ -50,6 +51,8 @@ export type ShellMode =
       agentId?: string;
       /** Display / welcome label (often same as agentId). */
       agentName?: string;
+      /** Published-agent description, kept outside the executable agent spec. */
+      description?: string;
       /** Seed for mutable (draft) runtime. */
       agentSpec?: AgentSpec;
       locked: boolean;
@@ -64,6 +67,7 @@ export type SelectLibraryAgentRequest = {
   isCreateAgent?: boolean;
   agentId?: string;
   agentName?: string;
+  description?: string;
   agentSpec?: AgentSpec;
 };
 
@@ -111,7 +115,7 @@ type ShellModeContextValue = {
    * Attach identity + agentSpec to the *current* mutable chat without remounting.
    * Used after `saveAgent` so the same draft session continues as an editable agent.
    */
-  bindMutableAgent: (req: { agentId: string; agentName: string; agentSpec: AgentSpec }) => void;
+  bindMutableAgent: (req: { agentId: string; agentName: string; description?: string; agentSpec: AgentSpec }) => void;
   /** @deprecated Prefer `selectLibraryAgent({ isMutable: false, agentName })`. */
   selectAgent: (agentName: string) => void;
   /** Open a simple New Chat (mutable, no agent-builder chrome). */
@@ -411,6 +415,7 @@ export function ShellModeProvider({
           isCreateAgent,
           agentId: req.agentId,
           agentName: req.agentName,
+          description: req.description,
           agentSpec: req.agentSpec ?? (kind === 'agent' ? agentSeedRef.current : chatSeedRef.current),
           locked: false,
         });
@@ -451,7 +456,7 @@ export function ShellModeProvider({
   );
 
   const bindMutableAgent = useCallback(
-    (req: { agentId: string; agentName: string; agentSpec: AgentSpec }) => {
+    (req: { agentId: string; agentName: string; description?: string; agentSpec: AgentSpec }) => {
       if (!isComposerEnabled) return;
       setMode(prev => {
         if (prev.status !== 'active' || !prev.isMutable) return prev;
@@ -461,6 +466,7 @@ export function ShellModeProvider({
           isCreateAgent: true,
           agentId: req.agentId,
           agentName: req.agentName,
+          description: req.description,
           agentSpec: req.agentSpec,
           locked: false,
         };
@@ -485,11 +491,12 @@ export function ShellModeProvider({
 
   const isActiveAgentBuilder =
     effectiveMode.status === 'active' && effectiveMode.isMutable && effectiveMode.isCreateAgent;
+  const isBoundAgentBuilder = isActiveAgentBuilder && effectiveMode.agentId != null;
   const openAgentBuilder = useCallback(() => {
     if (!isComposerEnabled) return;
     refreshCapabilities?.();
-    // Returning from an overlay must keep the live draft runtime and its unsaved instructions.
-    if (isActiveAgentBuilder) {
+    // Preserve unsaved drafts, saved builders start fresh when revisited.
+    if (isActiveAgentBuilder && !isBoundAgentBuilder) {
       setSettingsOpen(false);
       setLibraryOpenState(false);
       setLibraryAgentId(null);
@@ -501,6 +508,7 @@ export function ShellModeProvider({
     selectLibraryAgent({ isMutable: true, isCreateAgent: true, agentSpec: agentSeedRef.current });
   }, [
     isActiveAgentBuilder,
+    isBoundAgentBuilder,
     isComposerEnabled,
     refreshCapabilities,
     selectLibraryAgent,
@@ -510,19 +518,32 @@ export function ShellModeProvider({
   ]);
 
   const sandboxEnabled = capabilities?.sandbox.enabled;
+  const webSearchEnabled = capabilities?.webSearch?.enabled;
   const rememberDraftSpec = useCallback(
     (agentSpec: AgentSpec, kind: DraftPreferenceKind = 'chat') => {
       const selected = selectDraftSpecPreferences(agentSpec, kind);
-      const preferences = kind === 'agent' ? withCapabilitiesSandbox(selected, sandboxEnabled) : selected;
+      const withSandbox = kind === 'agent' ? withCapabilitiesSandbox(selected, sandboxEnabled) : selected;
+      const preferences =
+        kind === 'agent'
+          ? withCapabilitiesWebSearch({
+              spec: withSandbox,
+              webSearchEnabled,
+              kind: 'agent',
+            })
+          : withSandbox;
       if (kind === 'chat') {
         chatSeedRef.current = preferences;
       } else {
         // Keep the active builder intact in memory; storage remains limited to reusable preferences.
-        agentSeedRef.current = withCapabilitiesSandbox(agentSpec, sandboxEnabled);
+        agentSeedRef.current = withCapabilitiesWebSearch({
+          spec: withCapabilitiesSandbox(agentSpec, sandboxEnabled),
+          webSearchEnabled,
+          kind: 'agent',
+        });
       }
       writeDraftSpecPreferences(kind, preferences);
     },
-    [sandboxEnabled],
+    [sandboxEnabled, webSearchEnabled],
   );
 
   const openHistorySession = useCallback(

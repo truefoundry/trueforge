@@ -3,10 +3,12 @@ import { Client } from '@modelcontextprotocol/sdk/client/index.js';
 
 import { SSEClientTransport } from '@modelcontextprotocol/sdk/client/sse.js';
 import { StreamableHTTPClientTransport } from '@modelcontextprotocol/sdk/client/streamableHttp.js';
+import type { FetchLike } from '@modelcontextprotocol/sdk/shared/transport.js';
 import type { CallToolRequest, CallToolResult } from '@modelcontextprotocol/sdk/types.js';
 import { context, propagation } from '@opentelemetry/api';
 import { McpConnectionError } from '../errors';
 import { withTimeout } from '../util/promiseUtils';
+import { mcpSsrfFetch } from '../util/ssrfGuard';
 import type { ToolSchema } from './IMCPServer';
 
 /** Networking for remote (url-based) MCP servers, kept separate so it can be mocked in tests. */
@@ -29,6 +31,37 @@ type McpTransport = StreamableHTTPClientTransport | SSEClientTransport;
 const CLIENT_INFO = { name: 'tfy-agent-mcp-client', version: '1.0.0' } as const;
 const TRANSPORT_PROBE_ORDER: RemoteMcpTransportType[] = ['streamable-http', 'sse'];
 
+export const DEFAULT_MAX_MCP_RESPONSE_BYTES = 50 * 1024 * 1024;
+
+/** GET SSE is long-lived and uncapped; every other body aborts at `maxBytes`. */
+export function withMaxResponseBytes(fetchFn: FetchLike, maxBytes: number): FetchLike {
+  return async (url, init) => {
+    const response = await fetchFn(url, init);
+    const isGetSse =
+      (init?.method ?? 'GET').toUpperCase() === 'GET' &&
+      (response.headers.get('content-type') ?? '').toLowerCase().includes('text/event-stream');
+    if (isGetSse || !response.body) {
+      return response;
+    }
+    let seen = 0;
+    return new Response(
+      response.body.pipeThrough(
+        new TransformStream<Uint8Array, Uint8Array>({
+          transform(chunk, controller) {
+            seen += chunk.byteLength;
+            if (seen > maxBytes) {
+              controller.error(new Error(`MCP response exceeded max ${String(maxBytes)} bytes`));
+              return;
+            }
+            controller.enqueue(chunk);
+          },
+        }),
+      ),
+      { status: response.status, statusText: response.statusText, headers: response.headers },
+    );
+  };
+}
+
 class McpClientWithTimeout extends Client {
   constructor(private readonly requestTimeoutMs: number) {
     super(CLIENT_INFO, { capabilities: {} });
@@ -46,14 +79,19 @@ function createTransport(
   type: RemoteMcpTransportType,
   url: URL,
   headers: Record<string, string>,
+  fetchFn: FetchLike,
   sessionId?: string,
 ): McpTransport {
   const requestInit = { headers };
   if (type === 'streamable-http') {
-    return new StreamableHTTPClientTransport(url, { requestInit, ...(sessionId !== undefined ? { sessionId } : {}) });
+    return new StreamableHTTPClientTransport(url, {
+      requestInit,
+      fetch: fetchFn,
+      ...(sessionId !== undefined ? { sessionId } : {}),
+    });
   }
   // eslint-disable-next-line @typescript-eslint/no-deprecated -- dual-transport probe; see TRANSPORT_PROBE_ORDER
-  return new SSEClientTransport(url, { requestInit });
+  return new SSEClientTransport(url, { requestInit, fetch: fetchFn });
 }
 
 export function isSessionExpiredError(error: unknown): boolean {
@@ -143,30 +181,39 @@ export async function connectRemoteMcp(params: {
   knownTransportType?: RemoteMcpTransportType | undefined;
   requestTimeoutMs: number;
   connectTimeoutMs: number;
+  maxResponseBytes?: number | undefined;
   signal: AbortSignal;
   onClose?: (() => void) | undefined;
   onError?: ((error: Error) => void) | undefined;
 }): Promise<RemoteMcpConnection> {
   const url = new URL(params.url);
   const requestOptions = { signal: params.signal };
+  const fetchFn = withMaxResponseBytes(mcpSsrfFetch, params.maxResponseBytes ?? DEFAULT_MAX_MCP_RESPONSE_BYTES);
   const candidates = params.knownTransportType
     ? [params.knownTransportType, ...TRANSPORT_PROBE_ORDER.filter(t => t !== params.knownTransportType)]
     : TRANSPORT_PROBE_ORDER;
   const failures: { transport: RemoteMcpTransportType; error: string }[] = [];
 
   for (const transportType of candidates) {
-    const transport = createTransport(transportType, url, params.headers, params.sessionId);
+    const transport = createTransport(transportType, url, params.headers, fetchFn, params.sessionId);
     const client = new McpClientWithTimeout(params.requestTimeoutMs);
+    // withTimeout races client.connect() and does not abort it, so timed-out connects can leak
+    // sockets until GC. Abort this controller on timeout so the handshake is cancelled.
+    // AbortSignal.timeout cannot be cleared, and the SDK keeps the signal on initialize, so it
+    // would still fire connectTimeoutMs later and cancel the live client.
+    const timeout = new AbortController();
+    const connectOptions = { signal: AbortSignal.any([params.signal, timeout.signal]) };
     try {
       stampTraceHeaders(params.headers);
       await withTimeout(
         // Concrete transports use sessionId: string|undefined; Transport uses an optional
         // property — exactOptionalPropertyTypes rejects assignability without this cast.
-        client.connect(transport as Parameters<Client['connect']>[0], requestOptions),
+        client.connect(transport as Parameters<Client['connect']>[0], connectOptions),
         params.connectTimeoutMs,
         transportType,
       );
     } catch (error) {
+      timeout.abort();
       await client.close().catch(() => {
         /* no-op */
       });

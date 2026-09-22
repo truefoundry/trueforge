@@ -82,6 +82,8 @@ Jane's follow-ups about the refund stay in `sess-7f2a9c1b`. Bob's question runs 
 
 Persist the session `id` so Jane can come back tomorrow and pick up where she left off. Only one turn runs in a session at a time.
 
+Every session you run this way is also recorded in the [Sessions](/sessions) view, where you can inspect its turns, tool calls, subagents, and timing.
+
 ### Turn
 
 A **turn** is one request in the conversation: a single back-and-forth between your app and the agent. Each time Jane sends a message (or your app sends an approval), you create a new turn. Turns in a session **chain automatically** (`previous_turn_id` defaults to `"auto"`), so the agent sees every earlier turn without you resending history.
@@ -168,6 +170,8 @@ Your order ORD-2031
 Your order ORD-2031 shipped on June 12.
 Your order ORD-2031 shipped on June 12. Total: $1,240.00.
 ```
+
+In the SDK, use TypeScript `isEventDelta` / `mergeEventDelta` or Python `is_event_delta` / `merge_event_delta` from `trueforge_sdk.events`. See [Create and stream a turn](/api/use-agent#create-and-stream-a-turn).
 
 Deltas only exist on the live stream. When you list a turn's events afterwards (`GET .../events`), each `model.message` is already merged, so you use it directly.
 

@@ -10,20 +10,8 @@ export type UserAvatarProps = {
 };
 
 export function getUserInitials(displayName: string): string {
-  // split by spaces and filter out empty strings
-  const parts = displayName.trim().split(/\s+/).filter(Boolean);
-  const first = parts[0];
-  if (first === undefined) {
-    return '';
-  }
-  const last = parts.at(-1);
-  const characters =
-    parts.length === 1 ? Array.from(first).slice(0, 2) : [Array.from(first)[0], Array.from(last ?? '')[0]];
-
-  return characters
-    .filter(character => character !== undefined)
-    .join('')
-    .toLocaleUpperCase();
+  const first = Array.from(displayName.trim())[0];
+  return first === undefined ? '' : first.toLocaleUpperCase();
 }
 
 // Default current-user chrome; hosts can replace it through `overrides.UserAvatar`.
@@ -46,9 +34,7 @@ export function UserAvatar({ labeled = false, className }: UserAvatarProps) {
       )}
     >
       <Avatar size="sm">
-        <AvatarFallback className="bg-primary-button-bg text-primary-button-text">
-          {getUserInitials(displayName)}
-        </AvatarFallback>
+        <AvatarFallback>{getUserInitials(displayName)}</AvatarFallback>
       </Avatar>
       <span className="w-full truncate text-center text-[0.625rem] leading-tight">{displayName}</span>
     </div>

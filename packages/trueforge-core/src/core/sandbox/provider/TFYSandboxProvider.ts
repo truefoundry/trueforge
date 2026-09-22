@@ -16,7 +16,6 @@ import {
 } from '../SandboxErrors';
 import { absolutizeRelativeExecEnv } from './execEnv';
 import {
-  ensureExecSuccess,
   shellEscape,
   type ExecResult,
   type SandboxBuild,
@@ -28,6 +27,9 @@ import {
 const DEFAULT_TIMEOUT_SECONDS = 60;
 // Buffer for network latency + response processing on top of the server-side timeout.
 const CLIENT_TIMEOUT_BUFFER_SECONDS = 5;
+
+// TFY sandbox file upload timeout (same as Daytona SDK uploadFile default timeout).
+const FILE_UPLOAD_TIMEOUT_MS = 30 * 60 * 1000;
 
 const TFY_MCP_CLIENT_BIN = 'mcp-client/bin';
 
@@ -228,14 +230,27 @@ export class TFYSandboxProvider implements SandboxProvider {
   }
 
   async uploadFile(params: { sandboxId: string; remotePath: string; content: Buffer }): Promise<void> {
-    const encoded = params.content.toString('base64');
-    const escapedPath = shellEscape(params.remotePath);
+    validateSandboxOwnedByTenant({ sandboxId: params.sandboxId, tenantName: this.tenantName });
 
-    const result = await this.exec({
-      sandboxId: params.sandboxId,
-      command: `echo ${shellEscape(encoded)} | base64 -d > ${escapedPath}`,
+    return context.with(suppressTracing(context.active()), async () => {
+      const query = new URLSearchParams({ sandbox_id: params.sandboxId, path: params.remotePath });
+      const response = await fetch(`${this.serverUrl}/files/upload?${query.toString()}`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/octet-stream' },
+        body: params.content,
+        signal: AbortSignal.timeout(FILE_UPLOAD_TIMEOUT_MS),
+      });
+      if (!response.ok) {
+        throw new Error(
+          `File upload to sandbox failed: Sandbox server returned ${String(response.status)}: ${await response.text()}`,
+        );
+      }
+
+      const result = (await response.json()) as { success: true } | { success: false; error: string };
+      if (!result.success) {
+        throw new Error(`File upload to sandbox failed: ${result.error}`);
+      }
     });
-    ensureExecSuccess(result);
   }
 
   // The TFY sandbox exposes a static, cluster-internal NATS WebSocket URL (no signed URLs).
@@ -251,8 +266,9 @@ export class TFYSandboxProvider implements SandboxProvider {
   getAdditionalInstructions(): string {
     return dedent`
     SANDBOX RULES:
-    - uploads, skills, and tool-results live in the sandbox working directory (not /tmp or /opt).
-    - ALL file creation and writes MUST stay within the sandbox working directory.
+    - The Agent's first sandbox command should be \`pwd\` to discover the working directory.
+    - uploads, skills, and tool-results live in that working directory (not /tmp or /opt).
+    - ALL file creation and writes MUST stay within that working directory.
     - The Agent must NOT write to /tmp/, ~/, or any absolute path outside the working directory.
   `;
   }

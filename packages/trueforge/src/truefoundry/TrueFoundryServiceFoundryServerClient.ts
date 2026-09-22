@@ -1,5 +1,6 @@
 import { extractErrorLogFields } from '@truefoundry/trueforge-core/core';
 import { HTTPException } from 'hono/http-exception';
+import { LRUCache } from 'lru-cache';
 import { fetch as undiciFetch, type Dispatcher } from 'undici';
 import type { Logger } from 'winston';
 import { z } from 'zod';
@@ -8,6 +9,11 @@ import type { McpAuthStatus } from '../schemas/mcpServer';
 import { createInternalTlsDispatcher, normalizeInternalTlsUrl, type InternalTlsOptions } from './internalTls';
 import { mapResolvedAgentSkillVersions, type ResolvedAgentSkillVersion } from './mapSfyAgentSkills';
 import { parseSfyMcpAuthStatus, parseSfyMcpAuthorizeResult, type SfyMcpAuthSource } from './mapSfyMcpServers';
+
+/** How long a tenant control-plane URL stays cached between SFY lookups. */
+const TENANT_CONTROL_PLANE_URL_TTL_MS = 5 * 60 * 1000;
+/** Bound cache size so long-lived processes do not retain unbounded tenant URLs. */
+const TENANT_CONTROL_PLANE_URL_CACHE_MAX = 500;
 
 const INTEGRATIONS_PATH = 'v1/provider-integrations';
 const INSTALLATIONS_PATH = 'v1/llm-gateway/installations';
@@ -41,14 +47,26 @@ const GetSessionUserSchema = z.object({
   subject: SessionSubjectSchema,
 });
 
-const GetSessionWireSchema = z.object({
-  user: GetSessionUserSchema.nullable(),
+const GetSessionUnauthenticatedSchema = z.object({
+  user: z.null(),
 });
 
-/** Authenticated session payload (`user` is non-null after {@link TrueFoundryServiceFoundryServerClient.getSession}). */
-export interface GetSessionResponse {
-  user: z.infer<typeof GetSessionUserSchema>;
-}
+const GetSessionAuthenticatedSchema = z.object({
+  user: GetSessionUserSchema,
+});
+
+const GetSessionWireSchema = z.union([GetSessionUnauthenticatedSchema, GetSessionAuthenticatedSchema]);
+
+/** Authenticated session payload returned by {@link TrueFoundryServiceFoundryServerClient.getSession}. */
+export type GetSessionResponse = z.infer<typeof GetSessionAuthenticatedSchema>;
+
+/**
+ * `GET /v1/session?tenantName=` with the service API key — tenant `controlPlaneURL`
+ * for MCP OAuth redirect origin. CP URL comes from the query tenant.
+ */
+const TenantControlPlaneUrlSchema = z.object({
+  controlPlaneURL: z.url(),
+});
 
 const ListResponseSchema = z.union([
   z.array(z.unknown()),
@@ -85,8 +103,11 @@ const AgentPermissionsSchema = z.record(
 export type AgentPermissions = z.infer<typeof AgentPermissionsSchema>;
 
 const VendTokenResponseSchema = z.object({
-  token: z.string().min(1),
+  subjectToken: z.string().min(1),
+  actorToken: z.string().min(1),
 });
+
+export type VendedTokens = z.infer<typeof VendTokenResponseSchema>;
 
 export interface PutRemoteAgentInput {
   accessToken: string;
@@ -94,6 +115,7 @@ export interface PutRemoteAgentInput {
   description: string;
   model: string;
   mcp_servers: string[];
+  trueFoundryManagedAgentId?: string;
 }
 
 export interface PutRemoteAgentResult {
@@ -139,6 +161,10 @@ export class TrueFoundryServiceFoundryServerClient {
   readonly #httpAgentTimeoutMs: number;
   readonly #apiKey: string;
   readonly #headers: Record<string, string>;
+  readonly #controlPlaneUrlByTenant = new LRUCache<string, string>({
+    max: TENANT_CONTROL_PLANE_URL_CACHE_MAX,
+    ttl: TENANT_CONTROL_PLANE_URL_TTL_MS,
+  });
 
   constructor(input: {
     serviceFoundryServerUrl: string;
@@ -242,6 +268,7 @@ export class TrueFoundryServiceFoundryServerClient {
 
   /** PUT `/internal/tfg/agents` — create/reuse remote agent + sync model/MCP grants. */
   async putRemoteAgent(input: PutRemoteAgentInput): Promise<PutRemoteAgentResult> {
+    const hasTrueFoundryManagedAgentId = input.trueFoundryManagedAgentId !== undefined;
     const payload = await this.#requestJson({
       url: this.#url(TFG_AGENTS_PATH),
       accessToken: input.accessToken,
@@ -252,6 +279,7 @@ export class TrueFoundryServiceFoundryServerClient {
         description: input.description,
         model: input.model,
         mcp_servers: input.mcp_servers,
+        ...(hasTrueFoundryManagedAgentId ? { trueFoundryManagedAgentId: input.trueFoundryManagedAgentId } : {}),
       },
     });
     const parsed = PutRemoteAgentResponseSchema.safeParse(payload);
@@ -466,8 +494,8 @@ export class TrueFoundryServiceFoundryServerClient {
   }
 
   /**
-   * `GET v1/session` for RequestContext mapping.
-   * `user: null` (invalid/missing auth on a 200) → 401; all other failures → 500.
+   * `GET v1/session` for RequestContext mapping (always called with a bearer token).
+   * SFY optional-auth soft failure (`user: null` on 200) → 401; malformed → 500.
    */
   async getSession(accessToken: string): Promise<GetSessionResponse> {
     let payload: unknown;
@@ -496,7 +524,43 @@ export class TrueFoundryServiceFoundryServerClient {
     if (parsed.data.user === null) {
       throw new HTTPException(401, { message: 'Authentication required' });
     }
-    return { user: parsed.data.user };
+    return parsed.data;
+  }
+
+  /**
+   * Tenant control-plane URL from `GET v1/session?tenantName=` (service API key).
+   * Cached per tenant for 5 minutes.
+   */
+  async getTenantControlPlaneUrl(input: { tenantName: string }): Promise<string> {
+    const cached = this.#controlPlaneUrlByTenant.get(input.tenantName);
+    if (cached !== undefined) {
+      return cached;
+    }
+
+    let payload: unknown;
+    try {
+      payload = await this.#requestJson({
+        url: this.#url(SESSION_PATH, { tenantName: input.tenantName }),
+        accessToken: this.#apiKey,
+        method: 'GET',
+      });
+    } catch (error) {
+      const causeString = error instanceof Error ? error.message : String(error);
+      throw new HTTPException(500, {
+        message: `TrueFoundry ServiceFoundry session request failed: ${causeString}`,
+        cause: error,
+      });
+    }
+    const parsed = TenantControlPlaneUrlSchema.safeParse(payload);
+    if (!parsed.success) {
+      throw new HTTPException(500, {
+        message: 'TrueFoundry ServiceFoundry session response was malformed',
+        cause: parsed.error,
+      });
+    }
+    const controlPlaneURL = parsed.data.controlPlaneURL;
+    this.#controlPlaneUrlByTenant.set(input.tenantName, controlPlaneURL);
+    return controlPlaneURL;
   }
 
   async getAgentPermissions(input: {
@@ -526,14 +590,38 @@ export class TrueFoundryServiceFoundryServerClient {
   }
 
   /**
-   * Exchange a TrueFoundry API key for an agent-scoped token.
+   * `GET v1/authorize/permissions?resourceType=tenant&v2=true` — flat action list
+   * (tenant + root-account merged), same as the platform FE Create Agent check.
+   */
+  async getTenantPermissions(input: { accessToken: string }): Promise<string[]> {
+    const payload = await this.#requestJson({
+      url: this.#url(AGENT_PERMISSIONS_PATH, { resourceType: 'tenant', v2: 'true' }),
+      accessToken: input.accessToken,
+      method: 'GET',
+    });
+    const parsed = z.array(z.string()).safeParse(payload);
+    if (!parsed.success) {
+      this.#logger.error('TrueFoundry ServiceFoundry tenant permissions response was malformed', {
+        ...extractErrorLogFields(parsed.error),
+      });
+      throw new HTTPException(424, {
+        message: 'TrueFoundry ServiceFoundry tenant permissions response was malformed',
+        cause: parsed.error,
+      });
+    }
+    return parsed.data;
+  }
+
+  /**
+   * Exchange a TrueFoundry API key for dual agent-scoped tokens.
+   * Wire `actorToken` is the agent identity (`asAgent`); wire `subjectToken` is the user with agent in `act` (`asUser`).
    * Authenticated with the server API key, not the user bearer.
    */
   async vendToken(input: {
     subject: { id: string; type: string; display_name: string };
     agentId: string;
     tenantName: string;
-  }): Promise<string> {
+  }): Promise<VendedTokens> {
     const payload = await this.#requestJson({
       url: this.#url(VEND_TOKEN_PATH),
       accessToken: this.#apiKey,
@@ -556,7 +644,7 @@ export class TrueFoundryServiceFoundryServerClient {
         cause: parsed.error,
       });
     }
-    return parsed.data.token;
+    return parsed.data;
   }
 
   #parseListResponse(payload: unknown): ListResponse {
@@ -615,7 +703,7 @@ export class TrueFoundryServiceFoundryServerClient {
       });
     } catch (error) {
       const timedOut = error instanceof Error && error.name === 'TimeoutError';
-      this.#logger.warn('TrueFoundry ServiceFoundry server request failed', {
+      this.#logger.error('TrueFoundry ServiceFoundry server request failed', {
         url: input.url.href,
         method: input.method,
         durationMs: Date.now() - startedAt,

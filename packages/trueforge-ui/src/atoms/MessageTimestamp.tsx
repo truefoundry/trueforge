@@ -1,6 +1,7 @@
 'use client';
 
 import { cn } from './lib/cn.js';
+import { formatAbsoluteDateTime } from './lib/dateFormat.js';
 import { LightTooltip } from './primitives/Tooltip.js';
 
 function toDate(createdAt: Date | string | undefined): Date | null {
@@ -20,17 +21,6 @@ function formatTime(date: Date): string {
   }).format(date);
 }
 
-function formatFullDate(date: Date): string {
-  return new Intl.DateTimeFormat(undefined, {
-    month: 'short',
-    day: 'numeric',
-    year: 'numeric',
-    hour: 'numeric',
-    minute: '2-digit',
-    hour12: true,
-  }).format(date);
-}
-
 export type MessageTimestampProps = {
   createdAt?: Date | string;
   className?: string;
@@ -44,7 +34,7 @@ export function MessageTimestamp({ createdAt, className }: MessageTimestampProps
   }
 
   return (
-    <LightTooltip title={formatFullDate(date)} size="fit" side="bottom">
+    <LightTooltip title={formatAbsoluteDateTime(date)} size="fit" side="bottom">
       <span className={cn('text-xs font-medium cursor-pointer leading-normal shrink-0 text-text-secondary', className)}>
         {formatTime(date)}
       </span>

@@ -76,6 +76,12 @@ function readSandboxEnabled(spec: AgentSpec): boolean | undefined {
   return typeof enabled === 'boolean' ? enabled : undefined;
 }
 
+function readWebSearchEnabled(spec: AgentSpec): boolean | undefined {
+  if (spec.config?.webSearch === undefined) return undefined;
+  const enabled = spec.config.webSearch.enabled;
+  return typeof enabled === 'boolean' ? enabled : undefined;
+}
+
 /** Disable sandbox when unavailable; availability must not override the user's runtime choice. */
 export function withCapabilitiesSandbox(spec: AgentSpec, sandboxEnabled: boolean | null | undefined): AgentSpec {
   if (sandboxEnabled !== false || readSandboxEnabled(spec) === false) return spec;
@@ -86,6 +92,56 @@ export function withCapabilitiesSandbox(spec: AgentSpec, sandboxEnabled: boolean
   return {
     ...spec,
     config,
+  };
+}
+
+/**
+ * Align `config.webSearch` with host capability.
+ * - unavailable → force false
+ * - chat + available → force true
+ * - agent + available → fill true only when the key is absent (preserve explicit values)
+ */
+export function withCapabilitiesWebSearch({
+  spec,
+  webSearchEnabled,
+  kind = 'agent',
+}: {
+  spec: AgentSpec;
+  webSearchEnabled: boolean | null | undefined;
+  kind?: DraftPreferenceKind;
+}): AgentSpec {
+  if (webSearchEnabled == null) return spec;
+
+  if (webSearchEnabled === false) {
+    if (readWebSearchEnabled(spec) === false) return spec;
+    return {
+      ...spec,
+      config: {
+        ...spec.config,
+        webSearch: { ...spec.config?.webSearch, enabled: false },
+      },
+    };
+  }
+
+  if (kind === 'chat') {
+    if (readWebSearchEnabled(spec) === true) return spec;
+    return {
+      ...spec,
+      config: {
+        ...spec.config,
+        webSearch: { ...spec.config?.webSearch, enabled: true },
+      },
+    };
+  }
+
+  // Agent: only default true when the field is missing from the spec.
+  if (spec.config?.webSearch !== undefined) return spec;
+  return {
+    ...spec,
+    config: {
+      ...spec.config,
+      webSearch: { enabled: true },
+    },
   };
 }
 

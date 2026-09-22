@@ -9,7 +9,7 @@
  * (migrate, Redis, listen) are caught below and exit non-zero. SQLite vs
  * Postgres store modules stay dynamic so only the active engine is loaded.
  */
-import { extractErrorLogFields } from '@truefoundry/trueforge-core/core';
+import { configureOutboundUrlGuard, extractErrorLogFields } from '@truefoundry/trueforge-core/core';
 import type { Context } from 'hono';
 import { mkdir } from 'node:fs/promises';
 import path from 'node:path';
@@ -36,6 +36,11 @@ try {
     getPublicUiBasePath,
     TrueForgeAuthMode,
   } = await import('./config'));
+  configureOutboundUrlGuard({
+    enabled: configuration.NETWORK_POLICY_ENABLED,
+    allowedHosts: configuration.OUTBOUND_URL_ALLOWED_HOSTS,
+    blockedHosts: configuration.OUTBOUND_URL_BLOCKED_HOSTS,
+  });
 } catch (error) {
   console.error(
     'Failed to start server: Failed to load configuration:',
@@ -87,6 +92,9 @@ import { PACKAGE_VERSION } from './packageVersion';
 import { ActiveTurnRegistry } from './runtime/activeTurns';
 import { EventSubscriptionRegistry } from './runtime/event-subscription';
 import { printStandaloneStartupBanner } from './startupBanner';
+import { InlineMcpServerStore } from './truefoundry/InlineMcpServerStore';
+import { parseInlineMcpServers, parseInlineSkills, X_TFG_MCP, X_TFG_SKILLS } from './truefoundry/inlineResources';
+import { InlineSkillStore } from './truefoundry/InlineSkillStore';
 import {
   parsePerServerMcpHeaders,
   X_TFG_MCP_HEADERS,
@@ -349,6 +357,7 @@ async function createDistributedPersistence(options: {
   const { configuration, logger } = options;
   const {
     DATABASE_URL: databaseUrl,
+    DATABASE_SSL: databaseSsl,
     DATABASE_POOL_MAX: databasePoolMax,
     POSTGRES_STATEMENT_TIMEOUT_MS: statementTimeoutMs,
     POSTGRES_IDLE_IN_TRANSACTION_SESSION_TIMEOUT_MS: idleInTransactionSessionTimeoutMs,
@@ -384,14 +393,15 @@ async function createDistributedPersistence(options: {
     { PostgresScheduleStore },
   ] = postgresStores;
 
+  logger.info('Connecting to Postgres');
   const db = createDb({
     connectionString: databaseUrl,
     poolMax: databasePoolMax,
     statementTimeoutMs,
     idleInTransactionSessionTimeoutMs,
+    ssl: databaseSsl,
   });
   await migrateToLatest(db);
-  logger.info('Distributed mode: postgres');
   logger.info(`Executor id: ${executorId}`);
   const serviceFoundryClient = createServiceFoundryServerClient(logger);
   const tokenStore = new PostgresOAuthTokenStore(db);
@@ -540,15 +550,33 @@ async function createServerRuntime<TTransaction>(persistence: ServerPersistence<
       return mcpOAuthStore;
     }
     const rawPerServerHeaders = c.req.header(X_TFG_MCP_HEADERS);
-    return persistence.resolveMcpServerStore(
+    const store = persistence.resolveMcpServerStore(
       resolveRequestContext(c),
       runAsAgent,
       rawPerServerHeaders === undefined ? undefined : parsePerServerMcpHeaders(rawPerServerHeaders),
     );
+    if (!isTrueFoundryModeEnabled(configuration)) {
+      return store;
+    }
+    const rawInline = c.req.header(X_TFG_MCP);
+    if (rawInline === undefined) {
+      return store;
+    }
+    return new InlineMcpServerStore({ inner: store, inline: parseInlineMcpServers(rawInline) });
   };
   const resolveAgentStore = (c: Context) => persistence.resolveAgentStore(resolveRequestContext(c));
   const resolveSandboxProviderStore = (c: Context) => persistence.resolveSandboxProviderStore(resolveRequestContext(c));
-  const resolveSkillStore = (c: Context) => persistence.resolveSkillStore(resolveRequestContext(c));
+  const resolveSkillStore = (c: Context) => {
+    const store = persistence.resolveSkillStore(resolveRequestContext(c));
+    if (!isTrueFoundryModeEnabled(configuration)) {
+      return store;
+    }
+    const rawInline = c.req.header(X_TFG_SKILLS);
+    if (rawInline === undefined) {
+      return store;
+    }
+    return new InlineSkillStore({ inner: store, inline: parseInlineSkills(rawInline) });
+  };
   const app = createServerApp({
     modelCatalog: ModelCatalog.load(),
     mcpCatalog: McpCatalog.load(),

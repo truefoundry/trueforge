@@ -92,12 +92,12 @@ const MCPServerRequestSchema = z
       .describe(
         'Tools loaded eagerly into context while the rest stay deferred. A non-empty list implies `preload: false`.',
       ),
-    // Tools that require human approval before execution. Default: @write + @destructive.
+    // Tools that require human approval before execution. Default: @destructive only.
     require_approval_for_tools: z
       .array(RequireApprovalToolSelectorSchema)
       .default(DEFAULT_REQUIRE_APPROVAL_FOR_TOOLS)
       .describe(
-        'Tools that pause for human approval: `@all`, `@write`, `@destructive`, or literal names. Default: `["@write", "@destructive"]`.',
+        'Tools that pause for human approval: `@all`, `@write`, `@destructive`, or literal names. Default: `["@destructive"]`.',
       ),
     // Whether this server's tools are preloaded into context. Default: false.
     // When false, tools are discovered lazily and only `preload_tools` stay eager.
@@ -198,6 +198,15 @@ const AskUserQuestionsConfigSchema = z
   })
   .openapi('AskUserQuestionsConfig');
 
+const WebSearchConfigSchema = z
+  .object({
+    enabled: z
+      .boolean()
+      .default(false)
+      .describe('Enable built-in web search and fetch tools. Default: false (host must configure a provider).'),
+  })
+  .openapi('WebSearchConfig');
+
 export const RuntimeConfigSchema = z
   .object({
     iteration_limit: z
@@ -217,6 +226,7 @@ export const RuntimeConfigSchema = z
     })),
     generative_ui: GenerativeUIConfigSchema.default(() => ({ enabled: true })),
     ask_user_questions: AskUserQuestionsConfigSchema.default(() => ({ enabled: true })),
+    web_search: WebSearchConfigSchema.default(() => ({ enabled: false })),
   })
   .openapi('RuntimeConfig');
 

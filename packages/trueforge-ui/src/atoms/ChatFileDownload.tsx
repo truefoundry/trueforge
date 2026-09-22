@@ -5,6 +5,7 @@ import { useState, type MouseEvent } from 'react';
 import { Icon } from '../icons/Icon.js';
 import { cn } from './lib/cn.js';
 import { Spinner } from './primitives/Spinner.js';
+import { Tooltip } from './primitives/Tooltip.js';
 
 export type ChatFileDownloadFile = {
   name: string;
@@ -16,9 +17,17 @@ export type ChatFileDownloadProps = {
   fileDownloadBaseUrl?: string;
   onDownloadArtifact?: (path: string, filename: string) => Promise<void>;
   readOnly?: boolean;
+  /** Shown on hover when `readOnly` is true. */
+  readOnlyTooltip?: string;
 };
 
-export function ChatFileDownload({ files, fileDownloadBaseUrl, onDownloadArtifact, readOnly }: ChatFileDownloadProps) {
+export function ChatFileDownload({
+  files,
+  fileDownloadBaseUrl,
+  onDownloadArtifact,
+  readOnly,
+  readOnlyTooltip,
+}: ChatFileDownloadProps) {
   const [downloadingPath, setDownloadingPath] = useState<string | null>(null);
 
   return (
@@ -27,24 +36,37 @@ export function ChatFileDownload({ files, fileDownloadBaseUrl, onDownloadArtifac
       className="aui-sandbox-artifacts group my-2 overflow-hidden rounded-lg border border-primary-button-bg/20 bg-card-bg"
       data-testid="aui-sandbox-artifacts"
     >
-      <summary className="flex min-h-9 cursor-pointer list-none items-center gap-2 bg-primary-button-bg/5 px-3 py-2 text-xs font-medium leading-none text-primary-button-bg [&::-webkit-details-marker]:hidden">
-        <Icon name="chevron-down" size={13} className="shrink-0 transition-transform group-open:rotate-180" />
-        <Icon name="file" size={16} className="shrink-0" />
-        <span className="leading-none">
-          {files.length} {files.length === 1 ? 'file' : 'files'} generated
+      <summary className="min-h-9 cursor-pointer list-none bg-primary-button-bg/5 px-3 py-2 text-xs font-medium leading-none text-primary-button-bg [&::-webkit-details-marker]:hidden">
+        <span className="inline-flex items-center gap-1">
+          <Icon name="chevron-down" size={13} className="shrink-0 transition-transform group-open:rotate-180" />
+          <Icon name="file" size={16} className="shrink-0" />
+          <span className="leading-none">
+            {files.length} {files.length === 1 ? 'file' : 'files'} generated
+          </span>
         </span>
       </summary>
 
       <div className="flex flex-wrap items-center gap-y-1 px-3 py-2">
         {files.map(({ name, path }) => {
           if (readOnly) {
-            return (
-              <span
-                key={path}
-                className="mr-3 inline-flex min-h-7 items-center gap-1.5 border-r border-border pr-3 text-xs text-text-secondary last:mr-0 last:border-r-0 last:pr-0"
-              >
+            const itemClassName =
+              'mr-3 inline-flex min-h-7 items-center gap-1.5 border-r border-border pr-3 text-xs text-text-secondary last:mr-0 last:border-r-0 last:pr-0';
+            const label = (
+              <>
                 <Icon name="file" size={14} className="shrink-0" />
                 <span className="leading-none">{name}</span>
+              </>
+            );
+            if (readOnlyTooltip) {
+              return (
+                <Tooltip key={path} content={readOnlyTooltip} triggerClassName={itemClassName}>
+                  <span className="inline-flex items-center gap-1.5">{label}</span>
+                </Tooltip>
+              );
+            }
+            return (
+              <span key={path} className={itemClassName}>
+                {label}
               </span>
             );
           }

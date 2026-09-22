@@ -108,6 +108,7 @@ export { MessageTimestamp } from './atoms/MessageTimestamp.js';
 export type { MessageTimestampProps } from './atoms/MessageTimestamp.js';
 export { MonacoEditorCore } from './atoms/MonacoEditorCore.js';
 export type { MonacoEditorCoreProps } from './atoms/MonacoEditorCore.js';
+export { preloadMonaco } from './atoms/monacoPreload.js';
 export { OpenUiFenceBlock } from './atoms/OpenUiFenceBlock.js';
 export type { OpenUiFenceBlockProps } from './atoms/OpenUiFenceBlock.js';
 export { SandboxArtifactDownload } from './atoms/SandboxArtifactDownload.js';
@@ -241,6 +242,8 @@ export { UserEditComposerContainer } from './containers/UserEditComposerContaine
 export { UserMessageContainer } from './containers/UserMessageContainer.js';
 export { useApprovalNav } from './hooks/useApprovalNav.js';
 export type { ApprovalNavState } from './hooks/useApprovalNav.js';
+export { useCanCreateAgent } from './hooks/useCanCreateAgent.js';
+export type { UseCanCreateAgentResult } from './hooks/useCanCreateAgent.js';
 export { ComposerBusyProvider, useComposerBusyState } from './hooks/useComposerBusyState.js';
 export type { ComposerBusyState } from './hooks/useComposerBusyState.js';
 export { threadHasPendingMcpAuth, useComposerPauseView } from './hooks/useComposerPauseView.js';

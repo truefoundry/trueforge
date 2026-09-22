@@ -6,20 +6,20 @@ import { CurrentUserProvider } from '@/contexts/CurrentUserContext.js';
 
 describe('getUserInitials', () => {
   it.each([
-    ['Ada Lovelace', 'AL'],
-    ['Ada King Lovelace', 'AL'],
-    ['Ada', 'AD'],
-    ['Ada Ada', 'AA'],
-    ['  ada   lovelace  ', 'AL'],
+    ['Ada Lovelace', 'A'],
+    ['Ada King Lovelace', 'A'],
+    ['Ada', 'A'],
+    ['bob', 'B'],
+    ['  ada   lovelace  ', 'A'],
     ['', ''],
     ['   ', ''],
-  ])('returns initials for %j', (displayName, expected) => {
+  ])('returns the first character for %j', (displayName, expected) => {
     expect(getUserInitials(displayName)).toBe(expected);
   });
 });
 
 describe('UserAvatar', () => {
-  it('shows initials with the full display name underneath', () => {
+  it('shows the first character with the full display name underneath', () => {
     render(
       <CurrentUserProvider currentUser={{ displayName: 'Ada Lovelace' }}>
         <UserAvatar labeled />
@@ -27,7 +27,7 @@ describe('UserAvatar', () => {
     );
 
     const avatar = screen.getByLabelText('Ada Lovelace');
-    expect(avatar).toHaveTextContent('AL');
+    expect(avatar).toHaveTextContent('A');
     expect(avatar).toHaveTextContent('Ada Lovelace');
     expect(avatar).toHaveAttribute('title', 'Ada Lovelace');
     expect(avatar).toHaveClass('w-14.5');

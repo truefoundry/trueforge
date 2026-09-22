@@ -142,7 +142,7 @@ describe('BottomSheet', () => {
 
     const dialog = screen.getByRole('dialog', { name: 'Choose an attachment' });
     expect(dialog).toHaveAttribute('id', 'attachment-picker');
-    expect(dialog).toHaveClass('custom-sheet');
+    expect(dialog).toHaveClass('aui-bottom-sheet', 'custom-sheet');
     expect(dialog).toHaveStyle({ height: 'min(70dvh, 30rem)', maxHeight: '85dvh' });
     expect(screen.getByText('Sheet content')).toBeInTheDocument();
   });

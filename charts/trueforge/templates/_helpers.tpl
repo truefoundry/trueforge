@@ -23,6 +23,24 @@ itself contains "trueforge".
 {{- end }}
 
 {{/*
+Server object name derived from trueforge.fullname (`{fullname}-server`).
+The base is trimmed to leave room for the suffix, so it survives the 63
+character limit; truncating after appending would collapse the server and
+controller names onto each other for long release names.
+*/}}
+{{- define "trueforge.server.fullname" -}}
+{{- printf "%s-server" (include "trueforge.fullname" . | trunc 56 | trimSuffix "-") }}
+{{- end }}
+
+{{/*
+Controller Deployment name (`{fullname}-controller`), truncated the same way
+as trueforge.server.fullname so the suffix always survives.
+*/}}
+{{- define "trueforge.controller.fullname" -}}
+{{- printf "%s-controller" (include "trueforge.fullname" . | trunc 52 | trimSuffix "-") }}
+{{- end }}
+
+{{/*
 Chart name and version as used by the chart label.
 */}}
 {{- define "trueforge.chart" -}}
@@ -106,7 +124,7 @@ server Service when controller.serverUrl is empty (https when mtls is enabled).
 {{- if .Values.controller.serverUrl -}}
 {{- .Values.controller.serverUrl -}}
 {{- else -}}
-{{- printf "%s://%s:%v" (ternary "https" "http" .Values.mtls.enabled) (include "trueforge.fullname" .) .Values.service.port -}}
+{{- printf "%s://%s:%v" (ternary "https" "http" .Values.mtls.enabled) (include "trueforge.server.fullname" .) .Values.service.port -}}
 {{- end -}}
 {{- end }}
 
@@ -190,8 +208,26 @@ postgresql subchart (existingSecret override or <release>-postgresql).
 {{- default (printf "%s-postgresql" .Release.Name) .Values.postgresql.auth.existingSecret -}}
 {{- end }}
 
+{{/*
+Bitnami redis fullname (mirrors common.names.fullname) so REDIS_URL tracks
+redis.nameOverride / redis.fullnameOverride.
+*/}}
+{{- define "trueforge.redis.fullname" -}}
+{{- if .Values.redis.fullnameOverride -}}
+{{- .Values.redis.fullnameOverride | trunc 63 | trimSuffix "-" -}}
+{{- else -}}
+{{- $name := default "redis" .Values.redis.nameOverride -}}
+{{- $releaseName := regexReplaceAll "(-?[^a-z\\d\\-])+-?" (lower .Release.Name) "-" -}}
+{{- if contains $name $releaseName -}}
+{{- $releaseName | trunc 63 | trimSuffix "-" -}}
+{{- else -}}
+{{- printf "%s-%s" $releaseName $name | trunc 63 | trimSuffix "-" -}}
+{{- end -}}
+{{- end -}}
+{{- end }}
+
 {{- define "trueforge.redis.bundledUrl" -}}
-{{- printf "redis://%s-redis-master:6379" .Release.Name -}}
+{{- printf "redis://%s-master:6379" (include "trueforge.redis.fullname" .) -}}
 {{- end }}
 
 {{/*
@@ -214,8 +250,24 @@ chart's global.resourceTier.
 {{- end -}}
 {{- end }}
 
+{{/*
+Server replica count. An explicit server.replicaCount wins; otherwise the
+resource tier decides (small=1, medium=2, large=3), falling back to 1 when no
+tier is set.
+*/}}
 {{- define "trueforge.replicas" -}}
+{{- $tier := include "trueforge.resourceTier" . | trim -}}
+{{- if .Values.server.replicaCount -}}
 {{- .Values.server.replicaCount -}}
+{{- else if eq $tier "small" -}}
+1
+{{- else if eq $tier "medium" -}}
+2
+{{- else if eq $tier "large" -}}
+3
+{{- else -}}
+1
+{{- end -}}
 {{- end }}
 
 {{- define "trueforge.defaultResources.small" -}}
@@ -412,6 +464,15 @@ fields, wires bundled Postgres/Redis, optional OIDC, then server.extraEnv.
 {{- if .Values.externalPostgres.sslMode -}}
 {{- $env = append $env (dict "name" "POSTGRES_SSL_MODE" "value" .Values.externalPostgres.sslMode) -}}
 {{- end -}}
+{{- if .Values.externalPostgres.sslCertPath -}}
+{{- $env = append $env (dict "name" "POSTGRES_SSL_CERT_PATH" "value" .Values.externalPostgres.sslCertPath) -}}
+{{- end -}}
+{{- if .Values.externalPostgres.sslKeyPath -}}
+{{- $env = append $env (dict "name" "POSTGRES_SSL_KEY_PATH" "value" .Values.externalPostgres.sslKeyPath) -}}
+{{- end -}}
+{{- if .Values.externalPostgres.sslCaPath -}}
+{{- $env = append $env (dict "name" "POSTGRES_SSL_CA_PATH" "value" .Values.externalPostgres.sslCaPath) -}}
+{{- end -}}
 {{- end -}}
 
 {{- if .Values.configs.oidc.enabled -}}
@@ -430,12 +491,35 @@ fields, wires bundled Postgres/Redis, optional OIDC, then server.extraEnv.
 {{- end -}}
 {{- end -}}
 
+{{- $env = append $env (dict "name" "NETWORK_POLICY_ENABLED" "value" (.Values.networkPolicy.enabled | toString)) -}}
+{{- if .Values.networkPolicy.outbound.allowedHosts -}}
+{{- $env = append $env (dict "name" "OUTBOUND_URL_ALLOWED_HOSTS" "value" (.Values.networkPolicy.outbound.allowedHosts | toJson)) -}}
+{{- end -}}
+{{- if .Values.networkPolicy.outbound.blockedHosts -}}
+{{- $env = append $env (dict "name" "OUTBOUND_URL_BLOCKED_HOSTS" "value" (.Values.networkPolicy.outbound.blockedHosts | toJson)) -}}
+{{- end -}}
+
 {{- /* Controller -> server auth. The app rejects an empty value when peered. */ -}}
 {{- $env = append $env (include "trueforge.env.fromStringOrValueFrom" (dict "name" "TRUEFORGE_API_KEY" "field" "apiKey" "value" .Values.apiKey) | fromJson) -}}
 
 {{- /* Node reads its own bundled CA store unless told otherwise. */ -}}
 {{- if eq (include "trueforge.customCA.enabled" .) "true" -}}
 {{- $env = append $env (dict "name" "NODE_EXTRA_CA_CERTS" "value" "/etc/ssl/certs/ca-certificates.crt") -}}
+{{- end -}}
+
+{{- /* Bundled dev sandbox server: point the app at the subchart's Service.
+       The subchart's fullname helper computes the name; it needs the
+       subchart's scope (its values live under our tfy-sandbox-server key)
+       and is only defined while the dependency is enabled - the same flag
+       that gates this block. */ -}}
+{{- if (.Values.truefoundry | default dict).devSandboxServerEnabled -}}
+{{- $sandbox := index .Values "tfy-sandbox-server" | default dict -}}
+{{- $sandboxSvc := $sandbox.service | default dict -}}
+{{- $sandboxHost := include "tfy-sandbox-server.fullname" (dict "Values" $sandbox "Chart" (dict "Name" "tfy-sandbox-server") "Release" .Release) -}}
+{{- $env = append $env (dict "name" "TRUEFOUNDRY_SANDBOX_ENABLED" "value" "true") -}}
+{{- $env = append $env (dict "name" "TRUEFOUNDRY_SANDBOX_PROVIDER" "value" "truefoundry") -}}
+{{- $env = append $env (dict "name" "TRUEFOUNDRY_SANDBOX_SERVER_URL" "value" (printf "http://%s:%v" $sandboxHost ($sandboxSvc.port | default 8080))) -}}
+{{- $env = append $env (dict "name" "TRUEFOUNDRY_SANDBOX_SETTINGS" "value" (dict "nats_bridge_url" (printf "ws://%s:%v" $sandboxHost ($sandboxSvc.natsBridgePort | default 4444)) | toJson)) -}}
 {{- end -}}
 
 {{- /* env map: replace in place when the chart already emits the name, else

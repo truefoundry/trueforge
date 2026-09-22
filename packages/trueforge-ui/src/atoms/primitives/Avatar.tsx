@@ -3,9 +3,9 @@ import React, { useState } from 'react';
 import { cn } from '../lib/cn.js';
 
 const sizeClasses = {
-  sm: 'h-6 w-6 text-xs',
-  default: 'h-8 w-8 text-sm',
-  lg: 'h-10 w-10 text-base',
+  sm: 'h-5 w-5 text-[0.625rem] leading-none',
+  default: 'h-8 w-8 text-sm leading-none',
+  lg: 'h-10 w-10 text-base leading-none',
 };
 
 export type AvatarProps = React.HTMLAttributes<HTMLDivElement> & {
@@ -52,7 +52,7 @@ export function AvatarFallback({ className, ...props }: AvatarFallbackProps) {
     <div
       data-slot="avatar-fallback"
       className={cn(
-        'flex h-full w-full items-center justify-center rounded-full bg-secondary-bg font-medium text-text-secondary',
+        'flex h-full w-full items-center justify-center rounded-full bg-gradient-to-br from-primary-button-bg/20 to-primary-button-bg/10 font-medium text-primary-button-bg dark:from-primary-button-bg dark:to-primary-button-hover dark:text-primary-button-text',
         className,
       )}
       {...props}

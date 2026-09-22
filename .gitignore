@@ -40,3 +40,6 @@ service-account*.json
 .cursor/plans/
 
 .vscode
+
+.certs/
+*.pyc

@@ -4,10 +4,10 @@ sidebarTitle: 'Create an Agent'
 description: 'Every option on an agent, what the UI covers today, and how to set the rest via the API.'
 ---
 
-An agent is a saved, reusable definition: a model, instructions, the tools and skills it can use, and a set of runtime behaviors. You build one in the chat UI or via the [SDK](/api/overview) — either way, TrueForge stores the same **agent spec**, and any number of conversations can run against it.
+An agent is a saved, reusable definition: a model, instructions, the tools and skills it can use, and a set of runtime behaviors. You build one on the **Build Agent** page or via the [SDK](/api/overview) — either way, TrueForge stores the same **agent spec**, and any number of conversations can run against it.
 
 - **[What's in an agent](#whats-in-an-agent)** — every option, explained.
-- **[Create an agent via the UI](#create-an-agent-via-the-ui)** — the options available in the chat UI today.
+- **[Create an agent via the UI](#create-an-agent-via-the-ui)** — the options available in the UI today.
 - **[Create an agent via the API](#create-an-agent-via-the-api)** — the full agent spec, with every field.
 
 ## What's in an agent
@@ -32,16 +32,16 @@ Each option below is part of the agent definition. The **Set in** line on each s
   <Accordion title="MCP servers (tools)" icon="plug">
     The [MCP servers](/mcp-servers) whose tools the agent can call, attached by name from **Settings → Connectors**. Credentials live in the connector, never in the agent. Prefer only the servers the agent actually needs.
 
-    Per server you can further control (via the API):
+    Per server you can further control:
 
-    - **Which tools are enabled or disabled** — expose everything, only read-only tools, or a specific list.
-    - **Preload** — load a server's full tool definitions upfront, or (default) discover them on demand to keep context lean. See [Deferred Tool Loading](/key-features/deferred-tool-loading). The **preload** toggle is also in the UI.
+    - **Which tools are enabled or disabled** — expose everything, only read-only tools, or a specific list. Choose these in **Select MCP Tools** when you attach the server, or via the API.
+    - **Preload** — load a server's full tool definitions upfront, or (default) discover them on demand to keep context lean. See [Deferred Tool Loading](/key-features/deferred-tool-loading). Toggle it on the connector's chip in Build Agent, or via the API.
     - **Tool approval** — pause before sensitive tool calls until a human approves. See below.
 
-    **Set in:** UI (attach servers, preload toggle) · API (tool filters, approval policy)
+    **Set in:** UI + API
   </Accordion>
 
-  <Accordion title="Tool approval (API only)" icon="user-shield">
+  <Accordion title="Tool approval" icon="user-shield">
     Some tool calls shouldn't run without a human's sign-off. **Tool approval** pauses the agent before such a call, shows the tool name and arguments, and resumes only after the user chooses **Allow** or **Deny** in the chat UI.
 
     By default, the harness decides what to gate from the tool's own **MCP annotation**: if the server marks a tool as **write or destructive** (the default `["@write", "@destructive"]`), the agent pauses for approval before running it. Read-only tools run autonomously.
@@ -50,9 +50,19 @@ Each option below is part of the agent definition. The **Set in** line on each s
       <img src="/images/hitl.png" alt="Chat UI pausing on a tool call, showing the request payload with Allow and Deny buttons" />
     </Frame>
 
-    You can override which tools require approval — gate a specific list, or every tool — but that is configured **per MCP server via the API only** ([`require_approval_for_tools`](#mcp_servers)).
+    You can override which tools require approval per MCP server. In **Select MCP Tools**, the shield next to an enabled tool toggles approval for it, and the **Destructive Actions** header has an **Approval required** switch that covers all of them; via the API, set [`require_approval_for_tools`](#mcp_servers) to `@all`, `@write`, `@destructive`, or literal tool names.
 
-    **Set in:** API
+    <Frame caption="The shield on an enabled tool row toggles approval; the Selected Tools panel counts how many are gated.">
+      <img src="/images/mcp-tool-approval.png" alt="The Select MCP Tools dialog with a shielded web_search tool and a Selected Tools panel listing tools with approval badges" />
+    </Frame>
+
+    To review what a saved agent ended up with, open its **Overview** tab: **MCP Servers & Tools** lists each attached server with how many of its tools need approval, and expanding one shows every tool with its `read` / `write` / `destructive` label and shield state.
+
+    <Frame caption="The agent Overview tab, with the slack server expanded to show each tool's annotation and shield state.">
+      <img src="/images/agent-overview-mcp-tools.png" alt="The agent Overview tab showing an MCP Servers and Tools panel with per-server approval counts and a tool list labelled read or write" />
+    </Frame>
+
+    **Set in:** UI + API
   </Accordion>
 
   <Accordion title="Skills" icon="book">
@@ -66,16 +76,16 @@ Each option below is part of the agent definition. The **Set in** line on each s
   <Accordion title="Sandbox" icon="box">
     An isolated environment for running code, files, and shell commands, separate from the server. It's **off by default** and provisioned only when the agent needs it. Required for [skills](/skills) and [Code Mode](/key-features/code-mode).
 
-    Optional extras (API): allow clients to **download files** the agent produces.
+    Optional extra: allow clients to **download files** the agent produces.
 
-    **Set in:** UI (on/off) · API (on/off + file downloads)
+    **Set in:** UI (on/off + file downloads) · API (same)
   </Accordion>
 
   <Accordion title="Generative UI" icon="chart-column">
     Lets the agent stream interactive components — charts, tables, cards, forms — that the chat UI renders as React. The agent embeds a small OpenUI snippet in its response; the client renders real, registered components as tokens stream in (no arbitrary code execution). On by default.
 
     <Frame caption="A Generative UI response with a chart rendered inline in chat.">
-      <img src="/images/generative-ui.png" alt="Rendered Generative UI response with an inline bar chart comparing options" />
+      <img src="/images/generative-ui.png" alt="Rendered Generative UI response with an inline bar chart of the world's most spoken languages" />
     </Frame>
 
     | Use case | What the agent renders |
@@ -106,22 +116,22 @@ Each option below is part of the agent definition. The **Set in** line on each s
     Enable the harness to spawn **subagents**. This lets the TrueForge harness solve complicated tasks by breaking them into smaller pieces and running them in parallel, then merging only their results — keeping the main agent's context clean. On by default. See [Subagents](/key-features/subagents) for how it works.
 
     <Frame caption="The agent fans out to parallel subagents, each shown as its own trace under Agent steps.">
-      <img src="/images/subagents.png" alt="Chat UI showing three parallel subagents — MCP research, Agent governance research, A2A protocol research — under Agent steps" />
+      <img src="/images/subagents.png" alt="Chat UI showing three parallel subagents (notion-research, obsidian-research, evernote-research) under the Agent steps panel" />
     </Frame>
 
     **Set in:** UI + API
   </Accordion>
 
-  <Accordion title="Context management (API only)" icon="compress">
-    Keeps long runs efficient. **Compaction** summarizes older history once the context crosses a token threshold, and **large tool-response offloading** writes oversized tool outputs to a sandbox file and leaves a short preview in context. Both are on by default. See [Harness Capabilities](/key-features/overview#context-compaction) and [Large tool responses](/key-features/large-tool-responses).
+  <Accordion title="Context management" icon="compress">
+    Keeps long runs efficient. **Compaction** summarizes older history once the context crosses a token threshold, and **large tool-response offloading** writes oversized tool outputs to a sandbox file and leaves a short preview in context. Both are on by default, with the compaction threshold and both toggles in **Runtime Config**. See [Harness Capabilities](/key-features/overview#context-compaction) and [Large tool responses](/key-features/large-tool-responses).
 
-    **Set in:** API
+    **Set in:** UI + API
   </Accordion>
 
-  <Accordion title="Iteration limit (API only)" icon="rotate">
-    A safety stop for how many agent-loop steps a single turn can take (1–1024, default 100). It halts runaway loops; it isn't a normal quality lever.
+  <Accordion title="Iteration limit" icon="rotate">
+    A safety stop for how many agent-loop steps a single turn can take (1–1024, default 100). It halts runaway loops; it isn't a normal quality lever. Set it in **Runtime Config**.
 
-    **Set in:** API
+    **Set in:** UI + API
   </Accordion>
 
   <Accordion title="Response format (API only)" icon="brackets-curly">
@@ -139,22 +149,23 @@ Each option below is part of the agent definition. The **Set in** line on each s
 
 ## Create an agent via the UI
 
-1. Open TrueForge and use the chat UI to create or edit an agent.
-2. **Select a model** from the providers you configured under Settings → Models.
-3. **Attach connectors** (MCP servers) the agent should use — and set each server's **preload** toggle if you want its tools loaded upfront.
-4. **Attach skills** if the agent should follow specialized procedures (requires [sandbox](/sandbox) enabled).
-5. Write focused **instructions** — role, audience, and behavior.
-6. Set the **Capabilities** toggles (all on by default): Generative UI, Ask clarifying questions, and Dynamic sub-agents.
-7. **Save** the agent so it appears in the [Agent Library](/agent-library).
+Open **Build Agent** from the sidebar. The **Agent Config** panel on the left is where you assemble the agent; the chat on the right lets you test it as you go.
 
-<Frame caption="Save a reusable agent from the chat UI.">
-  <img src="/images/save-agent.png" alt="The Save agent dialog with a name, instructions, and a configuration summary of model, connectors, and skills" />
+1. **Select a model** from the providers you configured under **Settings → Models**, and set its reasoning effort.
+2. Write focused **instructions** — role, audience, and behavior.
+3. **Add MCP servers** — open **Select MCP Tools**, pick the servers the agent should use, and choose which of their tools to enable. Use the shield on a tool to require **approval** before it runs — write and destructive tools are gated by default. Set a server's **preload** toggle on its chip to load its tools upfront.
+4. **Add skills** if the agent should follow specialized procedures (requires [sandbox](/sandbox) enabled).
+5. Open **Runtime Config** to review execution and context behavior — Dynamic sub-agents, Generative UI, Ask user questions, the sandbox, iteration limit, and context compaction (all on by default).
+6. Click **Save Agent**, give it a name and description, and save. It then appears under [Agents](/agent-library).
+
+<Frame caption="Save a reusable agent from the Build Agent page.">
+  <img src="/images/save-agent.png" alt="The Save agent dialog with an agent name and a description field" />
 </Frame>
 
-Options available in the UI today: **model** (selection), **instructions**, **connectors** (attach + preload), **skills**, **sandbox** on/off, and the **Generative UI**, **Ask clarifying questions**, and **Dynamic sub-agents** toggles.
+Available in the UI today: **model**, **instructions**, **MCP servers** (attach, tool selection, tool approval, preload), **skills**, **sandbox** (on/off and file downloads), **iteration limit**, **context compaction**, and the **Dynamic sub-agents**, **Generative UI**, and **Ask user questions** toggles.
 
 <Note>
-  Everything else — model parameters, per-server tool filters, tool approval policy, iteration limit, context management, response format, seed messages, and sandbox extras — is [available via the API](#create-an-agent-via-the-api) today. These are deliberately kept out of the UI for now to keep it simple, and will be added to the UI in the future.
+  A few options are still API only: model parameters (temperature, top_p, and so on), response format, and seed messages. See [Create an agent via the API](#create-an-agent-via-the-api).
 </Note>
 
 ## Create an agent via the API
@@ -165,7 +176,8 @@ The [SDK](/api/overview) and HTTP API expose **every** option through the **agen
 
 <Steps>
   <Step title="Connect the client">
-    ```typescript
+    <CodeGroup>
+    ```typescript TypeScript wrap
     import { TrueForge } from '@truefoundry/trueforge-sdk';
 
     const client = new TrueForge({
@@ -174,27 +186,53 @@ The [SDK](/api/overview) and HTTP API expose **every** option through the **agen
     });
     ```
 
+    ```python Python wrap
+    import os
+    from trueforge_sdk import TrueForge
+
+    client = TrueForge(
+        base_url=os.environ.get("TRUEFORGE_BASE_URL", "http://localhost:8790"),
+        # token=os.environ.get("TRUEFORGE_TOKEN"),  # ID token when OIDC login is enabled
+    )
+    ```
+    </CodeGroup>
+
     When [OIDC login](/authentication/overview) is on, pass an ID token; see [Get a token and connect](/api/quickstart#get-a-token-and-connect). When login is off, omit `token`.
   </Step>
 
   <Step title="Save the spec as a named agent">
-    `agents.create` (`POST /api/v1/agents`) stores the spec under a unique `name` and returns the agent with its server-generated `id`. The name is immutable and must be unique — a duplicate returns `409`.
+    `agents.create` (`POST /api/v1/agents`) stores the spec under a unique `name` and returns the agent with its server-generated `id`. The name is immutable and must be unique — a duplicate returns `409`. `description` is required.
 
-    ```typescript
+    <CodeGroup>
+    ```typescript TypeScript wrap
     const { data: agent } = await client.agents.create({
       name: 'support-bot',
+      description: 'Helps customers with orders.',
       manifest: {
         model: { name: 'anthropic/claude-sonnet-4-6' },
         instructions: 'You help customers with orders. Always confirm before processing refunds.',
       },
     });
     ```
+
+    ```python Python wrap
+    agent = client.agents.create(
+        name="support-bot",
+        description="Helps customers with orders.",
+        manifest={
+            "model": {"name": "anthropic/claude-sonnet-4-6"},
+            "instructions": "You help customers with orders. Always confirm before processing refunds.",
+        },
+    )
+    ```
+    </CodeGroup>
   </Step>
 
   <Step title="Open a session and run turns">
     Reference the saved agent by name, then stream a turn. See [Use an agent](/api/use-agent) for the full loop, including approvals and questions.
 
-    ```typescript
+    <CodeGroup>
+    ```typescript TypeScript wrap
     const { data: session } = await client.sessions.create({ agent: { name: 'support-bot' } });
 
     const stream = await client.sessions.createTurnStream(session.id, {
@@ -202,12 +240,25 @@ The [SDK](/api/overview) and HTTP API expose **every** option through the **agen
     });
     for await (const { data: event } of stream.withMetadata()) console.log(event.type);
     ```
+
+    ```python Python wrap
+    session = client.sessions.create(agent={"name": "support-bot"})
+
+    stream = client.sessions.create_turn_stream(
+        session_id=session.data.id,
+        input=[{"type": "user.message", "content": "Where is order ORD-2031?"}],
+    )
+    for event in stream:
+        print(event.type)
+    ```
+    </CodeGroup>
   </Step>
 </Steps>
 
 **Skip saving** — pass the spec inline when you create the session, and nothing is persisted to the registry:
 
-```typescript
+<CodeGroup>
+```typescript TypeScript wrap
 const { data: session } = await client.sessions.create({
   agent: {
     spec: {
@@ -217,6 +268,18 @@ const { data: session } = await client.sessions.create({
   },
 });
 ```
+
+```python Python wrap
+session = client.sessions.create(
+    agent={
+        "spec": {
+            "model": {"name": "anthropic/claude-sonnet-4-6"},
+            "instructions": "You are a concise research assistant.",
+        },
+    },
+)
+```
+</CodeGroup>
 
 **Manage saved agents** with the rest of the `agents` methods:
 
@@ -294,7 +357,7 @@ Optional array. Each entry attaches a [configured MCP server](/mcp-servers) by n
 | `enable_tools`               | `["@all"]`                   | API      | Tools exposed to the agent: `@all`, `@read-only`, or literal tool names.                                                         |
 | `disable_tools`              | `[]`                         | API      | Tools subtracted from the enabled set.                                                                                           |
 | `preload_tools`              | `[]`                         | API      | Tools loaded eagerly into context while the rest stay deferred.                                                                  |
-| `require_approval_for_tools` | `["@write", "@destructive"]` | API      | Tools that pause for [human approval](#whats-in-an-agent): `@all`, `@write`, `@destructive`, or literal names.                   |
+| `require_approval_for_tools` | `["@write", "@destructive"]` | UI + API | Tools that pause for [human approval](#whats-in-an-agent): `@all`, `@write`, `@destructive`, or literal names.                   |
 | `preload`                    | `false`                      | UI + API | Load all tool schemas upfront instead of [on demand](/key-features/deferred-tool-loading).                                       |
 
 The `@read-only`, `@write`, and `@destructive` selectors are resolved from the tool annotations published by the MCP server.

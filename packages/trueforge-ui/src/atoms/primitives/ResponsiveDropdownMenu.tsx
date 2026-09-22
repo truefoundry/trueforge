@@ -13,7 +13,7 @@ import {
 import { useCompactLayout } from '../lib/CompactLayoutContext.js';
 import { cn } from '../lib/cn.js';
 import { BottomSheet } from './BottomSheet.js';
-import { DropdownMenu, type DropdownMenuProps } from './DropdownMenu.js';
+import { DropdownMenu, isSurfaceClick, type DropdownMenuProps } from './DropdownMenu.js';
 
 type ResponsiveDropdownTriggerProps = {
   'aria-controls'?: string;
@@ -89,7 +89,14 @@ export function ResponsiveDropdownMenu({
         <BottomSheet id={sheetId} open onOpenChange={setOpen} aria-label={sheetLabel} className={sheetClassName}>
           <div
             className="flex min-h-0 flex-1 flex-col overflow-x-hidden overflow-y-auto"
-            onClick={closeOnClick ? () => setOpen(false) : undefined}
+            onClick={
+              closeOnClick
+                ? event => {
+                    if (isSurfaceClick(event)) return;
+                    setOpen(false);
+                  }
+                : undefined
+            }
           >
             {children}
           </div>

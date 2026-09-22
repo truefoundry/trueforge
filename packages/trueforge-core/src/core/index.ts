@@ -46,6 +46,14 @@ export {
   largeToolResponse,
 } from './capabilities/builtins/LargeToolResponse';
 export { openUI } from './capabilities/builtins/OpenUI';
+export {
+  WEB_FETCH_TOOL_NAME,
+  WEB_SEARCH_REMINDER_TAG,
+  WEB_SEARCH_SERVER_ID,
+  WEB_SEARCH_TOOL_NAME,
+  buildWebSearchInstruction,
+  webSearch,
+} from './capabilities/builtins/WebSearch';
 
 // MCP contracts
 export type { ApprovalDecision } from './events/schema';
@@ -68,6 +76,7 @@ export type { ToolDefinition } from './mcp/LocalToolMCP';
 // live in the harness-internal `remoteMcpClient` module.
 export { RemoteMCP } from './mcp/RemoteMCP';
 export type { RemoteMcpHeaders, ResolveHeadersResult } from './mcp/RemoteMCP';
+export { DEFAULT_MAX_MCP_RESPONSE_BYTES } from './mcp/remoteMcpClient';
 export type { RemoteMcpConnection, RemoteMcpTransportType } from './mcp/remoteMcpClient';
 export type { ToolSelectorConfig } from './mcp/ToolSelectorPolicy';
 export {
@@ -136,6 +145,7 @@ export { AgentHarnessError, McpConnectionError, McpDcrConfigurationError } from 
 export { REDIS_KEY_NAMESPACE, redisKey } from './redisKeys';
 export { describeUnknownError, extractErrorLogFields } from './util/errorLogFields';
 export { PromiseTimeoutError, withTimeout } from './util/promiseUtils';
+export { assertSafeOutboundUrl, configureOutboundUrlGuard, ssrfFetch } from './util/ssrfGuard';
 
 // Sandbox (concrete implementation; provider details exported for composition)
 export { CodeModeDispatcher } from './sandbox/codeMode/CodeModeDispatcher';
@@ -173,6 +183,18 @@ export {
 export { SANDBOX_IMAGE_URI } from './sandbox/sandboxImage';
 export { existingSandboxIdForProvider, formatSandboxId, parseSandboxId, rawSandboxId } from './sandbox/sandboxRef';
 export type { SandboxRefParts } from './sandbox/sandboxRef';
+
+// Web search
+export { ParallelWebSearchProvider } from './web-search/ParallelWebSearchProvider';
+export type { ParallelSearchMode, ParallelWebSearchProviderOptions } from './web-search/ParallelWebSearchProvider';
+export { WebSearchProviders } from './web-search/WebSearchProvider';
+export type {
+  IWebSearchProvider,
+  WebFetchPage,
+  WebFetchPages,
+  WebSearchHit,
+  WebSearchHits,
+} from './web-search/WebSearchProvider';
 
 // Skills: the ISkillMounter seam lets hosts plug in their own skill sources
 export { InstructionBuilder } from './InstructionBuilder';

@@ -12,20 +12,26 @@ import { NameSchema } from './common';
 
 const RESERVED_AGENT_NAMES = new Set(['tfg', 'trueforge']);
 
+export const AGENT_DESCRIPTION_MAX_LENGTH = 1024;
+
+export const AgentDescriptionSchema = z.string().trim().min(1).max(AGENT_DESCRIPTION_MAX_LENGTH);
+
 /** Create body: unique immutable `name` plus manifest. `id` is never client-supplied. */
 export const CreateAgentRequestSchema = z
   .object({
     name: NameSchema.refine(name => !RESERVED_AGENT_NAMES.has(name), {
       message: 'Agent name is reserved, cannot be used',
     }),
+    description: AgentDescriptionSchema,
     manifest: AgentSpecSchema,
   })
   .strict()
   .openapi('CreateAgentRequest');
 
-/** PUT body: full manifest replacement only. */
+/** PUT body: full manifest replacement; `description` optional. */
 export const UpdateAgentRequestSchema = z
   .object({
+    description: AgentDescriptionSchema.optional(),
     manifest: AgentSpecSchema,
   })
   .strict()
@@ -36,12 +42,12 @@ export const AgentSchema = z
   .object({
     id: z.string().min(1).describe('Immutable server-generated agent identifier.'),
     name: NameSchema,
+    description: AgentDescriptionSchema,
     manifest: AgentSpecSchema,
     created_by_subject: CreatedBySubjectSchema,
   })
   .strict()
   .openapi('Agent');
-
 export const GetAgentResponseSchema = z.object({ data: AgentSchema }).openapi('GetAgentResponse');
 export const ListAgentsResponseSchema = z
   .object({

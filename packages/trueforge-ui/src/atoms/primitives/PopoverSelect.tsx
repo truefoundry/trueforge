@@ -13,6 +13,40 @@ import {
 } from '../lib/selectClasses.js';
 import { themePortalRoot } from '../lib/themePortalRoot.js';
 
+const MENU_GAP_PX = 4;
+/** Matches `max-h-64` on the shared select menu chrome. */
+const MENU_MAX_HEIGHT_PX = 256;
+
+type MenuPlacement = 'top' | 'bottom';
+
+function estimateMenuHeight({ optionCount, hasFooter }: { optionCount: number; hasFooter: boolean }): number {
+  // Approximate option row (`text-sm` + `py-1.5`) plus menu `p-1` padding.
+  const rows = Math.max(optionCount, 1) * 32;
+  const footer = hasFooter ? 40 : 0;
+  return Math.min(8 + rows + footer, MENU_MAX_HEIGHT_PX);
+}
+
+function resolveMenuPlacement({
+  preferred,
+  spaceAbove,
+  spaceBelow,
+  menuHeight,
+}: {
+  preferred: MenuPlacement;
+  spaceAbove: number;
+  spaceBelow: number;
+  menuHeight: number;
+}): MenuPlacement {
+  if (preferred === 'bottom') {
+    if (spaceBelow >= menuHeight) return 'bottom';
+    if (spaceAbove >= menuHeight) return 'top';
+    return spaceAbove > spaceBelow ? 'top' : 'bottom';
+  }
+  if (spaceAbove >= menuHeight) return 'top';
+  if (spaceBelow >= menuHeight) return 'bottom';
+  return spaceBelow > spaceAbove ? 'bottom' : 'top';
+}
+
 export type PopoverSelectOption<T extends string> = {
   value: T;
   label: string;
@@ -25,8 +59,8 @@ type CommonPopoverSelectProps<T extends string> = {
   disabled?: boolean;
   className?: string;
   menuClassName?: string;
-  /** Which edge of the trigger the menu opens toward. Default `bottom`. */
-  menuPlacement?: 'top' | 'bottom';
+  /** Preferred open edge; flips when that side lacks room. Default `bottom`. */
+  menuPlacement?: MenuPlacement;
   /** When set, renders a labeled chip trigger (label | value chip + chevron). */
   prefix?: string;
   emptyContent?: ReactNode;
@@ -50,14 +84,16 @@ export type PopoverSelectProps<T extends string> = CommonPopoverSelectProps<T> &
 
 export function PopoverSelect<T extends string>(props: PopoverSelectProps<T>) {
   const [open, setOpen] = useState(false);
-  const [pos, setPos] = useState<{ top: number; left: number; width: number } | null>(null);
+  const [pos, setPos] = useState<{ top: number; left: number; width: number; placement: MenuPlacement } | null>(null);
   const rootRef = useRef<HTMLDivElement>(null);
   const triggerRef = useRef<HTMLButtonElement>(null);
   const menuRef = useRef<HTMLDivElement>(null);
   const listboxRef = useRef<HTMLDivElement>(null);
   const focusedOpenRef = useRef(false);
   const listboxId = useId();
-  const menuPlacement = props.menuPlacement ?? 'bottom';
+  const preferredPlacement = props.menuPlacement ?? 'bottom';
+  const hasFooter = props.footer != null;
+  const optionCount = props.options.length;
 
   useLayoutEffect(() => {
     if (!open) {
@@ -69,21 +105,36 @@ export function PopoverSelect<T extends string>(props: PopoverSelectProps<T>) {
       const el = triggerRef.current;
       if (!el) return;
       const rect = el.getBoundingClientRect();
+      const spaceBelow = window.innerHeight - rect.bottom - MENU_GAP_PX;
+      const spaceAbove = rect.top - MENU_GAP_PX;
+      const measuredHeight = menuRef.current?.offsetHeight;
+      const menuHeight =
+        measuredHeight != null && measuredHeight > 0 ? measuredHeight : estimateMenuHeight({ optionCount, hasFooter });
+      const placement = resolveMenuPlacement({
+        preferred: preferredPlacement,
+        spaceAbove,
+        spaceBelow,
+        menuHeight,
+      });
       setPos({
-        top: menuPlacement === 'top' ? rect.top - 4 : rect.bottom + 4,
+        top: placement === 'top' ? rect.top - MENU_GAP_PX : rect.bottom + MENU_GAP_PX,
         left: rect.left,
         width: rect.width,
+        placement,
       });
     };
 
     update();
+    // Remeasure after the menu mounts so flip uses the real height.
+    const rafId = requestAnimationFrame(update);
     window.addEventListener('scroll', update, true);
     window.addEventListener('resize', update);
     return () => {
+      cancelAnimationFrame(rafId);
       window.removeEventListener('scroll', update, true);
       window.removeEventListener('resize', update);
     };
-  }, [open, menuPlacement]);
+  }, [open, preferredPlacement, optionCount, hasFooter]);
 
   useEffect(() => {
     if (!open) return;
@@ -178,7 +229,7 @@ export function PopoverSelect<T extends string>(props: PopoverSelectProps<T>) {
               top: pos.top,
               left: pos.left,
               width: pos.width,
-              transform: menuPlacement === 'top' ? 'translateY(-100%)' : undefined,
+              transform: pos.placement === 'top' ? 'translateY(-100%)' : undefined,
             }}
             onMouseDown={event => event.stopPropagation()}
           >

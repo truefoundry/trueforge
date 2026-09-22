@@ -3,6 +3,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState, type ComponentType } from 'react';
 import { Group, Panel, Separator } from 'react-resizable-panels';
 
+import { useToasterOptional } from '../../containers/ToasterContainer.js';
 import { useResourcePermissions } from '../../hooks/useResourcePermissions.js';
 import { useSessionShareSearch } from '../../hooks/useSessionShareSearch.js';
 import { Icon } from '../../icons/Icon.js';
@@ -17,6 +18,8 @@ import { sessionTimeRangeFromCreatedAt } from '../../utils/sessionShareUrl.js';
 import { EmptyScreen } from '../EmptyScreen.js';
 import { cn } from '../lib/cn.js';
 import { sessionIsCreateAgent } from '../lib/sessionCreateAgent.js';
+import { Button } from '../primitives/Button.js';
+import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle } from '../primitives/Dialog.js';
 import { Skeleton } from '../primitives/Skeleton.js';
 import type { AgentSessionsProps } from './types.js';
 
@@ -41,14 +44,10 @@ function entrySourceType(entry: SessionListEntry): 'schedule' | undefined {
 export function AgentSessions({ agentId, startTimestamp, endTimestamp, shareView }: AgentSessionsProps) {
   const sessionsServer = useAgentSessionsServer();
   const chatServer = useServer();
+  const toaster = useToasterOptional();
   const shell = useOptionalShellMode();
   const routes = useOptionalResolvedRoutes();
   const { sessionId: selectedSessionId, updateShareSearch } = useSessionShareSearch();
-  const { allows } = useResourcePermissions({
-    resourceType: 'session',
-    resourceIds: selectedSessionId == null ? [] : [selectedSessionId],
-  });
-  const canResume = allows(selectedSessionId, 'MANAGE');
 
   const AgentSessionListRow = useSlot('AgentSessionListRow');
   const AgentSessionDetailHeader = useSlot('AgentSessionDetailHeader');
@@ -68,6 +67,19 @@ export function AgentSessions({ agentId, startTimestamp, endTimestamp, shareView
   const [detailSession, setDetailSession] = useState<Session>();
   const [detailLoading, setDetailLoading] = useState(false);
   const [detailFailed, setDetailFailed] = useState(false);
+  const [pendingDelete, setPendingDelete] = useState<SessionListEntry | null>(null);
+
+  const canDeleteSession = typeof chatServer.deleteSession === 'function';
+  const permissionResourceIds = useMemo(() => {
+    const ids = new Set(entries.map(entry => entry.id));
+    if (selectedSessionId != null && selectedSessionId.length > 0) ids.add(selectedSessionId);
+    return [...ids];
+  }, [entries, selectedSessionId]);
+  const { allows } = useResourcePermissions({
+    resourceType: 'session',
+    resourceIds: permissionResourceIds,
+  });
+  const canResume = allows(selectedSessionId, 'MANAGE');
 
   const listRequest = useMemo(
     () => ({
@@ -205,6 +217,20 @@ export function AgentSessions({ agentId, startTimestamp, endTimestamp, shareView
     updateShareSearch({ sessionId: null });
   };
 
+  const handleDelete = async (entry: SessionListEntry) => {
+    if (!allows(entry.id, 'DELETE') || typeof chatServer.deleteSession !== 'function') return;
+    setPendingDelete(null);
+    try {
+      await chatServer.deleteSession({ sessionId: entry.id });
+      setEntries(current => current.filter(item => item.id !== entry.id));
+      if (selectedSessionId === entry.id) {
+        updateShareSearch({ sessionId: null });
+      }
+    } catch (caught) {
+      toaster?.showError(caught);
+    }
+  };
+
   const selectedEntry = entries.find(entry => entry.id === selectedSessionId);
   const selectedTitle =
     detailSession != null
@@ -287,6 +313,12 @@ export function AgentSessions({ agentId, startTimestamp, endTimestamp, shareView
                   metrics={entry.metrics}
                   active={entry.id === selectedSessionId}
                   onSelect={() => selectSession(entry)}
+                  {...(canDeleteSession
+                    ? {
+                        onRequestDelete: () => setPendingDelete(entry),
+                        canDelete: allows(entry.id, 'DELETE'),
+                      }
+                    : {})}
                 />
               ))
             )}
@@ -368,6 +400,38 @@ export function AgentSessions({ agentId, startTimestamp, endTimestamp, shareView
           )}
         </section>
       </Panel>
+
+      {pendingDelete != null ? (
+        <Dialog
+          open
+          onOpenChange={open => {
+            if (!open) setPendingDelete(null);
+          }}
+          aria-label="Delete session"
+          className="max-w-md"
+        >
+          <DialogContent>
+            <DialogHeader>
+              <DialogTitle>Delete session</DialogTitle>
+              <p className="text-text-secondary text-sm">
+                “{sessionTitle(pendingDelete)}” will be permanently deleted. This cannot be undone.
+              </p>
+            </DialogHeader>
+          </DialogContent>
+          <DialogFooter>
+            <Button.Secondary type="button" onClick={() => setPendingDelete(null)}>
+              Cancel
+            </Button.Secondary>
+            <Button.Destructive
+              type="button"
+              disabled={!allows(pendingDelete.id, 'DELETE')}
+              onClick={() => void handleDelete(pendingDelete)}
+            >
+              Delete
+            </Button.Destructive>
+          </DialogFooter>
+        </Dialog>
+      ) : null}
     </Group>
   );
 }

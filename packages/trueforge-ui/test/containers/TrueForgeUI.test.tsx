@@ -45,6 +45,10 @@ vi.mock('thinking-orbs', () => ({
   ThinkingOrb: () => <div data-testid="thinking-orb" />,
 }));
 
+vi.mock('@/atoms/monacoPreload.js', () => ({
+  preloadMonaco: vi.fn(() => Promise.resolve({ editor: {} })),
+}));
+
 vi.mock('@/plugins/trueforge-agent-server-adapter/index.js', () => ({
   createTrueForgeAgentUIServer: vi.fn(async () =>
     createMockAgentUIServer({
@@ -160,7 +164,7 @@ describe('TrueForgeUI', () => {
     }
 
     const avatar = await screen.findByLabelText('Ada Lovelace');
-    expect(avatar).toHaveTextContent('AL');
+    expect(avatar.querySelector('[data-slot="avatar-fallback"]')).toHaveTextContent(/^A$/);
     expect(avatar).toHaveTextContent('Ada Lovelace');
     if (layout === 'sidebar') {
       expect(avatar.closest('aside')).not.toBeNull();
@@ -300,7 +304,7 @@ describe('TrueForgeUI', () => {
     fireEvent.click(await screen.findByRole('button', { name: 'Save Agent' }));
     const saveDialog = await screen.findByRole('dialog', { name: 'Save agent' });
     expect(within(saveDialog).getByLabelText('Agent name')).toBeInTheDocument();
-    expect(within(saveDialog).queryByLabelText('Description')).not.toBeInTheDocument();
+    expect(within(saveDialog).getByLabelText('Description')).toBeInTheDocument();
     expect(within(saveDialog).queryByRole('button', { name: 'Edit Model' })).not.toBeInTheDocument();
     expect(within(saveDialog).queryByRole('button', { name: 'Edit Connectors' })).not.toBeInTheDocument();
     expect(getModels).toHaveBeenCalled();

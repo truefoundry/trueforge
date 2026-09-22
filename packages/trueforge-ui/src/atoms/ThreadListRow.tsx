@@ -15,10 +15,19 @@ export type ThreadListRowProps = {
   agentName?: string;
   /** Shown as compact relative time on the right. */
   lastMessageAt?: Date;
-  /** Overflow actions (e.g. delete menu) — rendered as a sibling of the title button. */
+  /** Overflow actions (e.g. rename / delete menu) — rendered as a sibling of the title button. */
   actions?: ReactNode;
   className?: string;
 };
+
+function ThreadListAgentName({ agentName }: { agentName: string }) {
+  return (
+    <span className="mt-0.5 flex min-w-0 items-center gap-1 text-[0.75rem] text-text-secondary">
+      <Icon name="bot" className="shrink-0" />
+      <span className="truncate">{agentName}</span>
+    </span>
+  );
+}
 
 export function ThreadListRow({
   title,
@@ -37,7 +46,7 @@ export function ThreadListRow({
       data-slot="aui_thread-list-item"
       data-active={active || undefined}
       className={cn(
-        'group flex min-w-0 items-center gap-0.5 rounded-[0.75rem] transition-colors',
+        'group flex min-w-0 items-center gap-0.5 rounded-[0.5rem] transition-colors',
         active
           ? 'bg-dropdown-selected-item-bg text-dropdown-selected-item-text'
           : 'text-text-secondary hover:bg-ghost-button-hover hover:text-text-primary',
@@ -58,13 +67,8 @@ export function ThreadListRow({
         })}
       >
         <span className="min-w-0 flex-1">
-          <span className="block truncate text-sm font-medium text-text-primary">{title}</span>
-          {agentName != null ? (
-            <span className="mt-0.5 flex min-w-0 items-center gap-1 text-xs text-text-secondary">
-              <Icon name="agent-2" className="size-3 shrink-0" />
-              <span className="truncate">{agentName}</span>
-            </span>
-          ) : null}
+          <span className="block truncate text-sm font-normal text-text-primary">{title}</span>
+          {agentName != null ? <ThreadListAgentName agentName={agentName} /> : null}
         </span>
       </button>
       {hasTrailing ? (

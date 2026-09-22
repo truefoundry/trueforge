@@ -46,9 +46,13 @@ export function createAgentImportRouter(deps: AgentImportRouterDeps) {
         const created = await agentStore.createAgent({
           tenant_id: agent.tenant_id,
           name: agent.name,
+          description: agent.description ?? agent.name,
           manifest: agent.manifest,
           external_id: null,
           created_by_subject: agent.created_by_subject,
+          custom: {
+            trueFoundryManagedAgentId: agent.truefoundry_managed_agent_id,
+          },
         });
         results.push({
           name: created.name,

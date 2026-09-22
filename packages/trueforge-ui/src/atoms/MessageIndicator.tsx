@@ -1,3 +1,5 @@
+import { ThinkingOrb } from 'thinking-orbs';
+
 import { cn } from './lib/cn.js';
 
 export type MessageIndicatorProps = {
@@ -8,10 +10,11 @@ export function MessageIndicator({ className }: MessageIndicatorProps) {
   return (
     <span
       data-slot="aui_assistant-message-indicator"
-      className={cn('animate-pulse font-sans', className)}
-      aria-label="Assistant is working"
+      role="status"
+      className={cn('inline-flex items-center gap-1.5 font-sans text-sm text-text-secondary', className)}
     >
-      {'●'}
+      <ThinkingOrb state="listening" size={20} aria-hidden />
+      <span className="aui-message-indicator-shimmer">Working...</span>
     </span>
   );
 }

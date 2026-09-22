@@ -22,7 +22,7 @@ export function useNamedAgentHeaderState(): NamedAgentHeaderState | null {
   if (identity != null && identity.length > 0) {
     return {
       name: identity,
-      isEditing: shell.mode.isMutable,
+      isEditing: shell.mode.isMutable && shell.mode.agentId != null,
       allowThreadTitle: false,
     };
   }

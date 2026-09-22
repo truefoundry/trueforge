@@ -34,8 +34,11 @@ describe('TrueForgeAuthorizer.getPermissions', () => {
         store: agentStore,
       }),
     ).toEqual({
-      'agent-1': ['USE', 'MANAGE', 'DELETE'],
-      'agent-2': ['USE'],
+      type: 'agent',
+      permissions: {
+        'agent-1': ['USE', 'MANAGE', 'DELETE'],
+        'agent-2': ['USE'],
+      },
     });
 
     expect(
@@ -46,7 +49,10 @@ describe('TrueForgeAuthorizer.getPermissions', () => {
         store: agentStore,
       }),
     ).toEqual({
-      'agent-1': ['USE'],
+      type: 'agent',
+      permissions: {
+        'agent-1': ['USE'],
+      },
     });
   });
 
@@ -65,8 +71,11 @@ describe('TrueForgeAuthorizer.getPermissions', () => {
         store: scheduleStore,
       }),
     ).toEqual({
-      'sched-1': ['MANAGE', 'DELETE'],
-      'sched-2': [],
+      type: 'schedule',
+      permissions: {
+        'sched-1': ['MANAGE', 'DELETE'],
+        'sched-2': [],
+      },
     });
 
     expect(
@@ -77,7 +86,23 @@ describe('TrueForgeAuthorizer.getPermissions', () => {
         store: scheduleStore,
       }),
     ).toEqual({
-      'sched-1': [],
+      type: 'schedule',
+      permissions: {
+        'sched-1': [],
+      },
+    });
+  });
+
+  it('always grants tenant agent CREATE in standalone mode', async () => {
+    expect(
+      await authorizer.getPermissions({
+        resourceType: 'tenant',
+        requestContext: ALICE,
+        resourceIds: [],
+      }),
+    ).toEqual({
+      type: 'tenant',
+      permissions: { agent: ['CREATE'] },
     });
   });
 });

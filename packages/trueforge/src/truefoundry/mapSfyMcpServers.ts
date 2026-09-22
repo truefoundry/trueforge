@@ -1,5 +1,5 @@
 import { z } from 'zod';
-import type { McpAuthStatus, McpServerManifest } from '../schemas/mcpServer';
+import type { McpAuthStatus, TrueFoundryMcpServerManifest } from '../schemas/mcpServer';
 
 /** Placeholder in upstream `proxyUrl` replaced with the tenant gateway base URL. */
 export const MCP_PROXY_BASE_URL_TEMPLATE = '{{mcpProxyBaseURL}}';
@@ -104,7 +104,7 @@ export function resolveMcpProxyUrl(input: { proxyUrl: string; gatewayBaseURL: st
 export function toTrueFoundryMcpManifest(input: {
   server: SfyMcpServerSummary;
   gatewayUrl: string;
-}): McpServerManifest {
+}): TrueFoundryMcpServerManifest {
   return {
     type: 'truefoundry',
     name: input.server.name,

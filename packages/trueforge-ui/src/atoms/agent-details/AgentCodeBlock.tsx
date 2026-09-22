@@ -13,7 +13,7 @@ export function AgentCodeBlock({ code, language }: AgentCodeBlockProps) {
       showLineNumbers
       darkTheme={mode === 'dark'}
       // Stretch the highlighted `pre` past the code so its theme background fills the panel.
-      className="m-0 flex min-h-full flex-col rounded-none [&>pre]:flex-1"
+      className="m-0 flex min-h-full flex-col rounded-none text-xs [&>pre]:flex-1"
     />
   );
 }

@@ -1,5 +1,11 @@
 import { OpenAPIHono, type RouteHandler } from '@hono/zod-openapi';
-import { extractErrorLogFields, isAuthRequired, McpConnectionError, RemoteMCP } from '@truefoundry/trueforge-core/core';
+import {
+  assertSafeOutboundUrl,
+  extractErrorLogFields,
+  isAuthRequired,
+  McpConnectionError,
+  RemoteMCP,
+} from '@truefoundry/trueforge-core/core';
 import type { Context } from 'hono';
 import { HTTPException } from 'hono/http-exception';
 import type { Logger } from 'winston';
@@ -191,6 +197,13 @@ export function createSettingsMcpServersRouter<TTransaction>(deps: McpServersRou
     const requestContext = deps.resolveRequestContext(c);
     const incomingManifest = body.manifest;
 
+    try {
+      await assertSafeOutboundUrl(incomingManifest.url);
+    } catch (error) {
+      const message = error instanceof Error ? error.message : 'Outbound URL blocked';
+      return c.json({ error: { message } }, 400);
+    }
+
     // DCR finishes before the txn (remote I/O stays out of withTransaction on create).
     let dcrClientToSave: OAuthClientRecord | undefined;
     if (incomingManifest.auth?.type === 'dcr') {
@@ -263,6 +276,13 @@ export function createSettingsMcpServersRouter<TTransaction>(deps: McpServersRou
     const userRef = requestContext.subject.id;
     const body: UpdateMcpServerRequest = c.req.valid('json');
     const incomingManifest = body.manifest;
+
+    try {
+      await assertSafeOutboundUrl(incomingManifest.url);
+    } catch (error) {
+      const message = error instanceof Error ? error.message : 'Outbound URL blocked';
+      return c.json({ error: { message } }, 400);
+    }
 
     try {
       // Lock → resolve secrets → DCR (if needed) → upsert + saveClient in one txn.
@@ -418,6 +438,7 @@ export function createMcpServersRouter<TTransaction>(deps: McpServersRouterDeps<
       headers: connection.headers,
       requestTimeoutMs: configuration.MCP_REQUEST_TIMEOUT_MS,
       connectTimeoutMs: configuration.MCP_CONNECT_TIMEOUT_MS,
+      maxResponseBytes: configuration.MCP_TOOL_CALL_MAX_RESPONSE_BYTES,
       logger: deps.logger,
       signal: c.req.raw.signal,
     });

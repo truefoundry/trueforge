@@ -1,4 +1,7 @@
-{{- if .Values.podDisruptionBudget.enabled }}
+{{- /* Guard on the guaranteed floor: minReplicas under autoscaling, else the
+fixed count. A PDB over a single replica would block node drains. */}}
+{{- $replicas := ternary .Values.autoscaling.minReplicas (include "trueforge.replicas" . | int) .Values.autoscaling.enabled | int }}
+{{- if and .Values.podDisruptionBudget.enabled (gt $replicas 1) }}
 {{- /* toString so integer 0 is distinct from unset ("" / nil); if/with treat 0 as falsy. */}}
 {{- $min := .Values.podDisruptionBudget.minAvailable | toString }}
 {{- $max := .Values.podDisruptionBudget.maxUnavailable | toString }}
@@ -11,7 +14,7 @@
 apiVersion: policy/v1
 kind: PodDisruptionBudget
 metadata:
-  name: {{ include "trueforge.fullname" . }}
+  name: {{ include "trueforge.server.fullname" . }}
   labels:
     {{- include "trueforge.labels" . | nindent 4 }}
   {{- with (include "trueforge.annotations" .) }}

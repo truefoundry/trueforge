@@ -26,7 +26,10 @@ describe('TFYSandboxProvider layout', () => {
     expect(install.remotePath.startsWith('/')).toBe(false);
     expect(install.pathBinSymlink).toBeUndefined();
     const instructions = provider.getAdditionalInstructions();
-    expect(instructions).toContain('uploads, skills, and tool-results live in the sandbox working directory');
+    expect(instructions).toContain(
+      "The Agent's first sandbox command should be `pwd` to discover the working directory.",
+    );
+    expect(instructions).toContain('uploads, skills, and tool-results live in that working directory');
     expect(instructions).not.toContain('/data/sandboxes');
   });
 

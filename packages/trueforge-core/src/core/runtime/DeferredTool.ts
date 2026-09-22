@@ -192,7 +192,9 @@ export class DeferredTool extends LocalToolMCP {
             mcpServer: input.mcp_server,
           });
           return toolResultResponse({
-            text: JSON.stringify({ error: `Failed to list tools for '${input.mcp_server}'.` }),
+            text: JSON.stringify({
+              error: `Failed to list tools for '${input.mcp_server}': ${error instanceof Error ? error.message : 'unknown'}`,
+            }),
             isError: true,
           });
         }

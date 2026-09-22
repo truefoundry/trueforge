@@ -128,6 +128,8 @@ export interface TurnTable {
    *      (spill through older turns); typed array
    */
   ancestor_ids: string[];
+  /** top: replica currently owning the in-memory ActiveTurn */
+  active_executor_id: string;
   /** top: big + written once at create; TOAST pointer stable after */
   // Insert arrays/objects via json() helper (bare JS arrays become PG arrays via node-pg).
   input: JSONColumnType<TurnInputItem[], TurnInputItem[] | string, TurnInputItem[] | string>;
@@ -383,6 +385,7 @@ export interface AgentTable {
   tenant_id: string;
   /** immutable natural uniqueness target within a tenant */
   name: string;
+  description: string;
   /** AgentSpec document; replaced whole on every upsert */
   manifest: JSONColumnType<AgentSpec, AgentSpec, AgentSpec>;
   external_id: string | null;

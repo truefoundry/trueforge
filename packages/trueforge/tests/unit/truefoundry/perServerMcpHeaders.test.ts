@@ -24,7 +24,8 @@ function unusedClient(): TrueFoundryMcpApiClient {
     getMcpAuthorize: async () => ({ status: 'authenticated' }),
     getMcpAuthStatus: unused,
     deleteMcpAuth: unused,
-    vendToken: () => Promise.resolve('caller-token'),
+    vendToken: () => Promise.resolve({ subjectToken: 'caller-token', actorToken: 'caller-token' }),
+    getTenantControlPlaneUrl: async () => 'https://tenant.example.com',
   };
 }
 

@@ -8,6 +8,7 @@ import { createClient, type RedisClientType } from 'redis';
 import type { Logger } from 'winston';
 
 export async function connectRedis(input: { url: string; logger: Logger }): Promise<RedisClientType> {
+  input.logger.info('Connecting to Redis');
   const client: RedisClientType = createClient({ url: input.url });
   // Without an 'error' listener node-redis crashes the process on emit;
   // reconnects are automatic, so log and keep running.
@@ -15,5 +16,6 @@ export async function connectRedis(input: { url: string; logger: Logger }): Prom
     input.logger.error('[Redis] Client error', extractErrorLogFields(error));
   });
   await client.connect();
+  input.logger.info('Connected to Redis');
   return client;
 }

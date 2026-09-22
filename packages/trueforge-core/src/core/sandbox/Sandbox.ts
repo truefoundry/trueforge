@@ -295,6 +295,9 @@ export class Sandbox extends LocalToolMCP {
     const sandboxInstructions = builder.beginSection('sandbox');
     sandboxInstructions.addContent('The Agent has access to a persistent sandbox environment for executing code.');
     sandboxInstructions.addContent('The Agent must NOT read or modify any git credential files.');
+    sandboxInstructions.addContent(
+      'Prefer OpenUI for inline charts when available; sandbox chart images only for downloads.',
+    );
 
     this.buildSchemaSection(sandboxInstructions);
     this.buildSkillsSection(sandboxInstructions);
@@ -345,7 +348,7 @@ export class Sandbox extends LocalToolMCP {
         [Human-readable label](/absolute/path/to/file.ext)
         \`\`\`
 
-        For large outputs or content that can be generated through code, prefer writing to a file and emitting the sandbox_artifacts block.
+        For large outputs or downloadable artifacts that can be generated through code, prefer writing to a file and emitting the sandbox_artifacts block.
 
         Rules:
         - Use absolute paths, not ~/ or relative paths.

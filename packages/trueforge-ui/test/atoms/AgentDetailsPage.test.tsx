@@ -79,6 +79,7 @@ beforeAll(() => {
 const detail: AgentDetail = {
   agentId: 'agent-1',
   name: 'release-notes-writer',
+  description: 'Produces concise release notes from merged PRs.',
   agentSpec: {
     model: { name: 'openai/gpt-5.1', params: { maxTokens: 16000 } },
     instructions: '# Who you are\n\nWrite concise release notes.',
@@ -193,6 +194,7 @@ describe('AgentDetailsPage', () => {
     const { getAgent } = renderPage();
 
     expect(await screen.findByText('release-notes-writer')).toBeInTheDocument();
+    expect(await screen.findByText('Produces concise release notes from merged PRs.')).toBeInTheDocument();
     expect(await screen.findByText('Write concise release notes.')).toBeInTheDocument();
     expect(await screen.findByText('github')).toBeInTheDocument();
     expect(await screen.findByText('release-writing')).toBeInTheDocument();
@@ -212,6 +214,15 @@ describe('AgentDetailsPage', () => {
     fireEvent.click(screen.getByRole('menuitem', { name: 'Delete' }));
 
     expect(screen.getByRole('dialog', { name: 'Delete agent' })).toBeInTheDocument();
+    expect(screen.getByText(/including any schedules for this agent/)).toBeInTheDocument();
+    expect(deleteAgent).not.toHaveBeenCalled();
+
+    fireEvent.click(screen.getByRole('button', { name: 'Cancel' }));
+    expect(screen.queryByRole('dialog', { name: 'Delete agent' })).not.toBeInTheDocument();
+    expect(deleteAgent).not.toHaveBeenCalled();
+
+    fireEvent.click(screen.getByRole('button', { name: 'Actions for release-notes-writer' }));
+    fireEvent.click(screen.getByRole('menuitem', { name: 'Delete' }));
     fireEvent.click(screen.getByRole('button', { name: 'Delete' }));
 
     await waitFor(() => {
@@ -223,7 +234,9 @@ describe('AgentDetailsPage', () => {
     renderPage({
       serverOverrides: {
         permissions: {
-          listPermissions: vi.fn(async (): Promise<ListPermissionsResponse> => ({ data: { 'agent-1': ['USE'] } })),
+          listPermissions: vi.fn(async (): Promise<ListPermissionsResponse> => ({
+            data: { type: 'agent', permissions: { 'agent-1': ['USE'] } },
+          })),
         },
       },
     });

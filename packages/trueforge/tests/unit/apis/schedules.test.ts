@@ -88,6 +88,7 @@ async function setup(authorizer: Authorizer = new TrueForgeAuthorizer()) {
       subject_display_name: 'alice',
     },
     name: 'reporter',
+    description: 'Test agent.',
     manifest: AgentSpecSchema.parse({ model: { name: 'test-provider/test-model' }, instructions: 'test' }),
     external_id: 'reporter-external-id',
   });
@@ -214,7 +215,10 @@ describe('schedule RBAC', () => {
             : { kind: 'agent_external_ids', agent_external_ids: [] },
         ),
       canAccessAgent: () => Promise.resolve(false),
-      getPermissions: async ({ resourceIds }) => Object.fromEntries(resourceIds.map(id => [id, []])),
+      getPermissions: async ({ resourceType, resourceIds }) => ({
+        type: resourceType,
+        permissions: Object.fromEntries(resourceIds.map(id => [id, []])),
+      }),
     });
     asUser(BOB);
     expect((await app.request(`/${id}`)).status).toBe(200);
@@ -247,6 +251,7 @@ describe('schedule list agent_names filter', () => {
         subject_display_name: 'alice',
       },
       name: 'reporter-two',
+      description: 'Test agent.',
       manifest: AgentSpecSchema.parse({ model: { name: 'test-provider/test-model' }, instructions: 'test' }),
       external_id: null,
     });
@@ -381,7 +386,10 @@ describe('create schedule run', () => {
     const denyAll: Authorizer = {
       listAgentAccess: () => Promise.resolve({ kind: 'agent_external_ids', agent_external_ids: [] }),
       canAccessAgent,
-      getPermissions: async ({ resourceIds }) => Object.fromEntries(resourceIds.map(id => [id, []])),
+      getPermissions: async ({ resourceType, resourceIds }) => ({
+        type: resourceType,
+        permissions: Object.fromEntries(resourceIds.map(id => [id, []])),
+      }),
     };
     const { postJson } = await setup(denyAll);
     const res = await postJson('/', 'POST', scheduleBody);
@@ -401,7 +409,10 @@ describe('create schedule run', () => {
     setAuthorizer({
       listAgentAccess: () => Promise.resolve({ kind: 'agent_external_ids', agent_external_ids: [] }),
       canAccessAgent,
-      getPermissions: async ({ resourceIds }) => Object.fromEntries(resourceIds.map(id => [id, []])),
+      getPermissions: async ({ resourceType, resourceIds }) => ({
+        type: resourceType,
+        permissions: Object.fromEntries(resourceIds.map(id => [id, []])),
+      }),
     });
 
     const res = await postJson('/runs', 'POST', { schedule_id: scheduleId });
@@ -436,6 +447,7 @@ describe('internal schedule execution', () => {
         subject_display_name: 'alice',
       },
       name: 'reporter',
+      description: 'reporter description',
       manifest: AgentSpecSchema.parse({ model: { name: 'test-provider/test-model' }, instructions: 'test' }),
       external_id: 'reporter-external-id',
     });

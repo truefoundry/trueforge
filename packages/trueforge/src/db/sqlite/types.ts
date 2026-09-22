@@ -98,6 +98,8 @@ export interface TurnTable {
   previous_turn_id: string | null;
   /** JSONB array of turn ids — topology only; not a SQL join key. */
   ancestor_ids: JsonbColumn<string[]>;
+  /** Replica currently owning the in-memory ActiveTurn. */
+  active_executor_id: string;
   input: JsonbColumn<TurnInputItem[]>;
   state: JsonbColumn<TurnState>;
   checkpoint: JsonbColumn<TurnCheckpoint>;
@@ -227,6 +229,7 @@ export interface AgentTable {
   tenant_id: string;
   /** natural uniqueness target within a tenant */
   name: string;
+  description: string;
   /** AgentSpec document; replaced whole on every upsert */
   manifest: JsonbColumn<AgentSpec>;
   external_id: string | null;

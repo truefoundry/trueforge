@@ -2,7 +2,7 @@
 apiVersion: apps/v1
 kind: Deployment
 metadata:
-  name: {{ include "trueforge.fullname" . }}-controller
+  name: {{ include "trueforge.controller.fullname" . }}
   labels:
     {{- include "trueforge.controller.labels" . | nindent 4 }}
   {{- with (mergeOverwrite (include "trueforge.annotations" . | fromYaml) (deepCopy .Values.controller.deploymentAnnotations)) }}
@@ -35,6 +35,7 @@ spec:
         {{- . | nindent 8 }}
       {{- end }}
       serviceAccountName: {{ include "trueforge.serviceAccountName" . }}
+      automountServiceAccountToken: {{ .Values.automountServiceAccountToken }}
       {{- with .Values.podSecurityContext }}
       securityContext:
         {{- toYaml . | nindent 8 }}

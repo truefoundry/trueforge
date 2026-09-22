@@ -50,6 +50,8 @@ describe('SideDrawer', () => {
 
     const dialog = screen.getByRole('dialog', { name: 'Drawer' });
     expect(dialog).toHaveAttribute('open');
+    expect(dialog).toHaveClass('aui-side-drawer');
+    expect(dialog).toHaveAttribute('data-anchor', 'right');
     expect(dialog.className).toContain('md:ml-auto');
     expect(dialog.className).toContain('md:w-[28rem]');
     expect(dialog.className).toContain('rounded-none');
@@ -78,6 +80,7 @@ describe('SideDrawer', () => {
     );
 
     const dialog = screen.getByRole('dialog', { name: 'Left' });
+    expect(dialog).toHaveAttribute('data-anchor', 'left');
     expect(dialog.className).toContain('md:mr-auto');
     expect(dialog.className).toContain('md:w-[42rem]');
   });

@@ -52,6 +52,7 @@ export function createHarnessAgentSessionsServer(
       return {
         agentId: data.id,
         name: data.name,
+        description: data.description,
         agentSpec: toUiAgentSpec(data.manifest),
       };
     },

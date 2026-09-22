@@ -1,5 +1,5 @@
 // @vitest-environment jsdom
-import { fireEvent, render, screen, waitFor } from '@testing-library/react';
+import { fireEvent, render, screen, waitFor, within } from '@testing-library/react';
 import type { ReactNode } from 'react';
 import { afterEach, beforeAll, describe, expect, it, vi } from 'vitest';
 
@@ -35,9 +35,9 @@ function mockServer(
   agents: Array<{
     name: string;
     agentId: string;
+    description?: string;
     agentSpec?: {
       model: { name: string };
-      description?: string;
       skills?: Array<{ id: string; name: string }>;
       mcpServers?: Array<{ id: string; name: string }>;
     };
@@ -146,7 +146,12 @@ describe('AgentsLibrary', () => {
 
   it('lists agents and selects a named agent (Try = immutable)', async () => {
     const server = mockServer([
-      { name: 'alpha-agent', agentId: 'alpha-agent' },
+      {
+        name: 'alpha-agent',
+        agentId: 'alpha-agent',
+        description: 'Alpha handles triage.',
+        agentSpec: { model: { name: 'openai/gpt-4.1' } },
+      },
       { name: 'beta-agent', agentId: 'beta-agent' },
     ]);
     const onSelectAgent = vi.fn();
@@ -158,12 +163,41 @@ describe('AgentsLibrary', () => {
     await waitFor(() => {
       expect(screen.getByRole('button', { name: 'Try agent alpha-agent' })).toBeInTheDocument();
     });
+    expect(screen.getByText('Alpha handles triage.')).toHaveClass('truncate');
 
     fireEvent.click(screen.getByRole('button', { name: 'Try agent beta-agent' }));
     expect(onSelectAgent).toHaveBeenCalledWith('beta-agent');
     await waitFor(() => {
       expect(screen.queryByRole('heading', { name: 'Agents' })).not.toBeInTheDocument();
     });
+  });
+
+  it('truncates long descriptions without hiding Try, and skips name-echo descriptions', async () => {
+    const longDescription = `${'Lorem ipsum dolor sit amet, '.repeat(20)}consectetur.`;
+    const server = mockServer([
+      {
+        name: 'verbose-agent',
+        agentId: 'verbose-agent',
+        description: longDescription,
+        agentSpec: { model: { name: 'openai/gpt-4.1' } },
+      },
+      {
+        name: 'echo-agent',
+        agentId: 'echo-agent',
+        description: 'echo-agent',
+        agentSpec: { model: { name: 'openai/gpt-4.1' } },
+      },
+    ]);
+
+    renderLibrary(<LibraryHarness />, { server });
+    fireEvent.click(screen.getByRole('button', { name: 'Open library' }));
+
+    await waitFor(() => {
+      expect(screen.getByRole('button', { name: 'Try agent verbose-agent' })).toBeInTheDocument();
+    });
+    expect(screen.getByRole('columnheader', { name: 'Configuration' })).toBeInTheDocument();
+    expect(screen.getByText(longDescription)).toHaveClass('truncate');
+    expect(screen.queryByText('echo-agent', { selector: '.text-xs' })).not.toBeInTheDocument();
   });
 
   it('shows Edit/Clone/Delete when composer is enabled and agentSpec is present', async () => {
@@ -208,7 +242,11 @@ describe('AgentsLibrary', () => {
         },
       ]),
       permissions: {
-        listPermissions: vi.fn(async (): Promise<ListPermissionsResponse> => ({ data: { 'shared-id': ['USE'] } })),
+        listPermissions: vi.fn(async ({ resourceType }): Promise<ListPermissionsResponse> =>
+          resourceType === 'tenant'
+            ? { data: { type: 'tenant', permissions: { agent: ['CREATE'] } } }
+            : { data: { type: 'agent', permissions: { 'shared-id': ['USE'] } } },
+        ),
       },
       sessions: createMockAgentSessionsServer(),
       schedules: createMockScheduleServer(),
@@ -233,13 +271,48 @@ describe('AgentsLibrary', () => {
     });
   });
 
-  it('clones an agent after confirm and stays on the library', async () => {
-    const saveAgent = vi.fn(async () => ({ agentId: 'writer-copy-id' }));
+  it('keeps Clone enabled without USE (read-only agent permissions)', async () => {
+    const server = createMockAgentUIServer({
+      searchAgents: vi.fn(async () => [
+        {
+          name: 'shared-agent',
+          agentId: 'shared-id',
+          agentSpec: { model: { name: 'openai/gpt-5' } },
+        },
+      ]),
+      permissions: {
+        listPermissions: vi.fn(async ({ resourceType }): Promise<ListPermissionsResponse> =>
+          resourceType === 'tenant'
+            ? { data: { type: 'tenant', permissions: { agent: ['CREATE'] } } }
+            : { data: { type: 'agent', permissions: { 'shared-id': [] } } },
+        ),
+      },
+      sessions: createMockAgentSessionsServer(),
+      schedules: createMockScheduleServer(),
+    });
+
+    renderLibrary(<LibraryHarness />, {
+      server,
+      agentConfig: { mode: 'AgentLibraryWithComposer' },
+    });
+    fireEvent.click(screen.getByRole('button', { name: 'Open library' }));
+
+    fireEvent.click(await screen.findByRole('button', { name: 'Actions for shared-agent' }));
+    await waitFor(() => {
+      expect(screen.getByRole('menuitem', { name: 'Edit' })).toBeDisabled();
+      expect(screen.getByRole('menuitem', { name: 'Delete' })).toBeDisabled();
+    });
+    expect(screen.getByRole('menuitem', { name: 'Clone' })).toBeEnabled();
+  });
+
+  it('opens Clone Agent drawer on Clone, creates on save, and stays on the library', async () => {
+    const saveAgent = vi.fn(async () => ({ agentId: 'writer-clone-id' }));
     const server = createMockAgentUIServer({
       searchAgents: vi.fn(async () => [
         {
           name: 'writer',
           agentId: 'writer-id',
+          description: 'Writes release notes.',
           agentSpec: { model: { name: 'openai-main/gpt-4.1' } },
         },
       ]),
@@ -256,21 +329,28 @@ describe('AgentsLibrary', () => {
     fireEvent.click(await screen.findByRole('button', { name: 'Actions for writer' }));
     fireEvent.click(screen.getByRole('menuitem', { name: 'Clone' }));
 
-    expect(screen.getByRole('dialog', { name: 'Clone agent' })).toBeInTheDocument();
-    expect(screen.getByText(/This will create “writer-copy”/)).toBeInTheDocument();
-    fireEvent.click(screen.getByRole('button', { name: 'Clone' }));
+    const drawer = await screen.findByRole('dialog', { name: 'Clone Agent' });
+    expect(within(drawer).getByLabelText('Agent name')).toHaveValue('writer-clone');
+    expect(within(drawer).getByLabelText('Description')).toHaveValue('Writes release notes.');
+    expect(saveAgent).not.toHaveBeenCalled();
+
+    fireEvent.click(within(drawer).getByRole('button', { name: 'Save changes' }));
 
     await waitFor(() => {
       expect(saveAgent).toHaveBeenCalledWith({
-        agentName: 'writer-copy',
+        agentName: 'writer-clone',
+        description: 'Writes release notes.',
         agentSpec: { model: { name: 'openai-main/gpt-4.1' } },
         intent: 'create',
       });
     });
     expect(screen.getByRole('heading', { name: 'Agents' })).toBeInTheDocument();
+    await waitFor(() => {
+      expect(screen.queryByRole('dialog', { name: 'Clone Agent' })).not.toBeInTheDocument();
+    });
   });
 
-  it('deletes an agent after confirm and stays on the library', async () => {
+  it('deletes an agent only after the confirmation dialog is accepted', async () => {
     const deleteAgent = vi.fn(async () => {});
     const server = createMockAgentUIServer({
       searchAgents: vi.fn(async () => [
@@ -293,6 +373,15 @@ describe('AgentsLibrary', () => {
     fireEvent.click(screen.getByRole('menuitem', { name: 'Delete' }));
 
     expect(screen.getByRole('dialog', { name: 'Delete agent' })).toBeInTheDocument();
+    expect(screen.getByText(/including any schedules for this agent/)).toBeInTheDocument();
+    expect(deleteAgent).not.toHaveBeenCalled();
+
+    fireEvent.click(screen.getByRole('button', { name: 'Cancel' }));
+    expect(screen.queryByRole('dialog', { name: 'Delete agent' })).not.toBeInTheDocument();
+    expect(deleteAgent).not.toHaveBeenCalled();
+
+    fireEvent.click(screen.getByRole('button', { name: 'Actions for writer' }));
+    fireEvent.click(screen.getByRole('menuitem', { name: 'Delete' }));
     fireEvent.click(screen.getByRole('button', { name: 'Delete' }));
 
     await waitFor(() => {
@@ -675,7 +764,7 @@ describe('AgentsLibraryButton', () => {
 
     expect(await screen.findByRole('columnheader', { name: 'Created by' })).toBeInTheDocument();
     expect(screen.getByText('alice@example.com')).toBeInTheDocument();
-    expect(document.querySelector('[data-slot="avatar-fallback"]')).toHaveTextContent('AL');
+    expect(document.querySelector('[data-slot="avatar-fallback"]')).toHaveTextContent(/^A$/);
   });
 
   it('hides Created by when no agent has createdBySubject', async () => {

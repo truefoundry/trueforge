@@ -1,7 +1,7 @@
 apiVersion: apps/v1
 kind: Deployment
 metadata:
-  name: {{ include "trueforge.fullname" . }}
+  name: {{ include "trueforge.server.fullname" . }}
   labels:
     {{- include "trueforge.labels" . | nindent 4 }}
   {{- with (mergeOverwrite (include "trueforge.annotations" . | fromYaml) (deepCopy .Values.server.deploymentAnnotations)) }}
@@ -36,6 +36,7 @@ spec:
         {{- . | nindent 8 }}
       {{- end }}
       serviceAccountName: {{ include "trueforge.serviceAccountName" . }}
+      automountServiceAccountToken: {{ .Values.automountServiceAccountToken }}
       {{- with .Values.podSecurityContext }}
       securityContext:
         {{- toYaml . | nindent 8 }}
@@ -56,7 +57,7 @@ spec:
         {{- end }}
       {{- end }}
       containers:
-        - name: server
+        - name: trueforge-server
           image: {{ include "trueforge.image" . | quote }}
           imagePullPolicy: {{ .Values.image.pullPolicy }}
           {{- with .Values.securityContext }}
@@ -119,7 +120,14 @@ spec:
       tolerations:
         {{- . | nindent 8 }}
       {{- end }}
-      {{- with .Values.topologySpreadConstraints }}
       topologySpreadConstraints:
+        {{- with .Values.topologySpreadConstraints }}
         {{- toYaml . | nindent 8 }}
-      {{- end }}
+        {{- else }}
+        - maxSkew: 1
+          topologyKey: kubernetes.io/hostname
+          whenUnsatisfiable: ScheduleAnyway
+          labelSelector:
+            matchLabels:
+              {{- include "trueforge.selectorLabels" . | nindent 14 }}
+        {{- end }}

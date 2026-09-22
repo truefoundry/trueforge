@@ -178,6 +178,7 @@ describe('AgentSessionTimelineContainer', () => {
     expect(await screen.findByText('Turn 1')).toBeInTheDocument();
     expect(screen.getByText('Turns')).toBeInTheDocument();
     expect(screen.getByText('Duration')).toBeInTheDocument();
+    expect(await screen.findAllByRole('button', { name: 'Copy' })).not.toHaveLength(0);
     fireEvent.click(screen.getByRole('button', { name: 'timeline turns=1' }));
     await waitFor(() => {
       expect(scrollIntoView).toHaveBeenCalled();
@@ -215,5 +216,58 @@ describe('AgentSessionTimelineContainer', () => {
     expect(within(turn2).getByText('turn two response')).toBeInTheDocument();
     expect(within(turn3).getByText('Cancelled: client-cancelled')).toBeInTheDocument();
     expect(within(turn4).getByText('model failed')).toBeInTheDocument();
+  });
+
+  it('disables sandbox artifact downloads in session turns', async () => {
+    const artifactEvents: SessionEventItem[] = [
+      {
+        turnId: 'turn-1',
+        event: {
+          type: 'turn.created',
+          id: 'c1',
+          turnId: 'turn-1',
+          previousTurnId: null,
+          input: [{ type: 'user.message', content: 'generate a file' }],
+          state: { status: 'running' },
+          createdAt: '2026-01-01T00:00:00.000Z',
+          threadId: null,
+        },
+      },
+      {
+        turnId: 'turn-1',
+        event: {
+          type: 'model.message',
+          id: 'm1',
+          threadId: 'main',
+          content: ['Files ready:', '', '```sandbox_artifacts', '[report.txt](/tmp/report.txt)', '```'].join('\n'),
+          createdAt: '2026-01-01T00:00:01.000Z',
+        },
+      },
+      {
+        turnId: 'turn-1',
+        event: {
+          type: 'turn.done',
+          id: 'd1',
+          state: doneState,
+          createdAt: doneState.completedAt,
+        },
+      },
+    ];
+
+    render(
+      <SlotsProvider overrides={{ AgentSessionEventTimeline: () => null }}>
+        <ServerProvider server={createMockAgentUIServer()}>
+          <AgentSessionTimelineContainer sessionId="sess-1" events={artifactEvents} />
+        </ServerProvider>
+      </SlotsProvider>,
+    );
+
+    expect(await screen.findByTestId('aui-sandbox-artifacts')).toBeInTheDocument();
+    expect(screen.getByText('report.txt')).toBeInTheDocument();
+    expect(screen.queryByLabelText(/Download /)).not.toBeInTheDocument();
+    expect(screen.queryAllByRole('link')).toHaveLength(0);
+
+    fireEvent.mouseEnter(screen.getByText('report.txt').parentElement ?? screen.getByText('report.txt'));
+    expect(screen.getByRole('tooltip')).toHaveTextContent('Download File is not available in read-only mode');
   });
 });

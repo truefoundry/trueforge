@@ -9,11 +9,13 @@ export const UpdateAgentRequest: core.serialization.Schema<
     serializers.UpdateAgentRequest.Raw,
     TrueForge.UpdateAgentRequest
 > = core.serialization.object({
+    description: core.serialization.string().optional(),
     manifest: AgentSpec,
 });
 
 export declare namespace UpdateAgentRequest {
     export interface Raw {
+        description?: string | null;
         manifest: AgentSpec.Raw;
     }
 }

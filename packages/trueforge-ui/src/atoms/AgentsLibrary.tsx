@@ -189,10 +189,14 @@ export function AgentLibraryRow({
   const skillsTitle = skillNames.length ? skillNames.join(', ') : `${skillsCount} skills`;
   const hasConfiguration = modelLabel != null || skillsCount > 0 || mcpCount > 0;
   const hasNoSchedules = scheduleSummary != null && scheduleSummary.count === 0;
+  const storedDescription = agent.description?.trim() || null;
+  // Create falls back to name when description is missing; don't echo it under the title.
+  const description = storedDescription != null && storedDescription !== agent.name ? storedDescription : null;
 
   return (
     <TableRow className={hasNoSchedules ? 'group' : undefined}>
-      <TableCell className="text-text-primary font-medium">
+      {/* Fixed width so truncate works; 24rem = 1.5× the prior min-w-64 name column. */}
+      <TableCell className="text-text-primary w-96 max-w-96 font-medium">
         {onOpen == null ? (
           <span className="block truncate">{agent.name}</span>
         ) : (
@@ -205,6 +209,15 @@ export function AgentLibraryRow({
             <span className="block truncate">{agent.name}</span>
           </button>
         )}
+        {description ? (
+          <Tooltip
+            content={description}
+            className="max-w-sm whitespace-normal text-left"
+            triggerClassName="block min-w-0 w-full max-w-full"
+          >
+            <span className="text-text-secondary block truncate text-xs font-normal">{description}</span>
+          </Tooltip>
+        ) : null}
       </TableCell>
       <TableCell>
         {hasConfiguration ? (
@@ -276,6 +289,7 @@ export function AgentLibraryRow({
           </PermissionGuard>
           <AgentOverflowMenu
             agentName={agent.name}
+            {...(storedDescription != null ? { description: storedDescription } : {})}
             {...(spec != null ? { agentSpec: spec } : {})}
             canMutate={canMutate}
             canUse={canUseAgent}
@@ -440,6 +454,7 @@ export function AgentsLibrary({ onSelectAgent }: AgentsLibraryProps) {
       isCreateAgent: true,
       agentId: libraryAgentId(agent),
       agentName: agent.name,
+      ...(agent.description === undefined ? {} : { description: agent.description }),
       agentSpec,
     });
   };
@@ -519,7 +534,7 @@ export function AgentsLibrary({ onSelectAgent }: AgentsLibraryProps) {
               <Table>
                 <TableHeader>
                   <TableRow className="hover:bg-transparent">
-                    <TableHead>Agent name</TableHead>
+                    <TableHead className="w-96 min-w-96">Agent name</TableHead>
                     <TableHead>Configuration</TableHead>
                     {showCreatedByColumn ? <TableHead>Created by</TableHead> : null}
                     {showSchedulesColumn ? <TableHead className="w-[14rem]">Schedules</TableHead> : null}

@@ -11,12 +11,13 @@
  * - `false`: Postgres + Redis (defaults to local trueforge credentials /
  *   `redis://localhost:6379`).
  */
-import { existsSync } from 'node:fs';
+import { existsSync, readFileSync } from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 
 import envPaths from 'env-paths';
+import { z } from 'zod';
 
 const DEFAULT_PORT = 8790;
 /** Loopback default; container images set HOST=0.0.0.0 so probes and Service traffic reach the process. */
@@ -37,7 +38,11 @@ const DEFAULT_POSTGRES_PASSWORD = 'trueforge';
 const DEFAULT_POSTGRES_DB = 'trueforge';
 const DEFAULT_POSTGRES_HOST = 'localhost';
 const DEFAULT_POSTGRES_PORT = 5432;
+/** Default Postgres schema for app tables + Kysely migration bookkeeping. */
+export const DEFAULT_POSTGRES_SCHEMA = 'trueforge';
 const DEFAULT_REDIS_URL = 'redis://localhost:6379';
+/** Unquoted Postgres identifier: letter/underscore start, then alnum/underscore, ≤63 chars. */
+const POSTGRES_SCHEMA_NAME_RE = /^[a-z_][a-z0-9_]{0,62}$/;
 /**
  * Fixed local service credential when `STANDALONE=true` and `TRUEFORGE_API_KEY` is unset.
  * Local testing only — not for distributed deployments.
@@ -57,6 +62,17 @@ const DEFAULT_OIDC_SCOPES = 'openid,profile,email';
 export interface GetEnvOptions {
   defaultValue?: string;
   required?: boolean;
+}
+
+const POSTGRES_SSL_MODES = ['disable', 'prefer', 'require', 'verify-ca', 'verify-full', 'no-verify'] as const;
+type PostgresSslMode = (typeof POSTGRES_SSL_MODES)[number];
+
+/** pg Pool `ssl` object fields (client certs / CA / no-verify). */
+export interface PostgresSslConfig {
+  cert?: string;
+  key?: string;
+  ca?: string;
+  rejectUnauthorized?: boolean;
 }
 
 function getEnv(key: string, options?: GetEnvOptions): string | undefined {
@@ -104,10 +120,9 @@ export function parseOidcScopes(raw: string): string[] {
 }
 
 /**
- * Parses `OIDC_ALLOWED_EMAILS`: comma-separated exact addresses and/or globs
- * (`*@company.com`). Empty / unset → no allowlist (any authenticated user may sign in).
+ * Parses a comma-separated env list (trim, drop empties). Empty / unset → `[]`.
  */
-export function parseOidcAllowedEmails(raw: string | undefined): string[] {
+export function parseCommaSeparatedEnvList(raw: string | undefined): string[] {
   if (raw === undefined || raw.trim() === '') {
     return [];
   }
@@ -115,6 +130,75 @@ export function parseOidcAllowedEmails(raw: string | undefined): string[] {
     .split(',')
     .map(part => part.trim())
     .filter(part => part.length > 0);
+}
+
+/** Parses a JSON string array env. Empty / unset → `[]`. */
+export function parseJsonStringArrayEnv({ envKey, raw }: { envKey: string; raw: string | undefined }): string[] {
+  if (raw === undefined || raw.trim() === '') {
+    return [];
+  }
+  try {
+    return z.array(z.string()).parse(JSON.parse(raw));
+  } catch (error) {
+    throw new Error(`Environment variable ${envKey} must be a JSON string array`, { cause: error });
+  }
+}
+
+/**
+ * Parses `OIDC_ALLOWED_EMAILS`: comma-separated exact addresses and/or globs
+ * (`*@company.com`). Empty / unset → no allowlist (any authenticated user may sign in).
+ */
+export function parseOidcAllowedEmails(raw: string | undefined): string[] {
+  return parseCommaSeparatedEnvList(raw);
+}
+
+/**
+ * Parses `TRUEFOUNDRY_TENANT_ID_TO_ALLOWED_MODEL_PROVIDER_ACCOUNTS` JSON.
+ * Empty / unset → `{}` (no filtering).
+ */
+export function parseTenantIdToAllowedModelProviderAccounts(raw: string | undefined): Record<string, string[]> {
+  if (raw === undefined || raw.trim() === '') {
+    return {};
+  }
+  try {
+    return z.record(z.string(), z.array(z.string())).parse(JSON.parse(raw));
+  } catch (error) {
+    throw new Error(
+      'Environment variable TRUEFOUNDRY_TENANT_ID_TO_ALLOWED_MODEL_PROVIDER_ACCOUNTS must be a JSON object of tenant_id → string[]',
+      { cause: error },
+    );
+  }
+}
+
+/**
+ * Parsed `TRUEFOUNDRY_WEB_SEARCH_PROVIDER` JSON. Empty / unset → `undefined` (feature off).
+ * Requires `name: "parallel"` and non-empty `api_key`.
+ */
+export interface TrueFoundryWebSearchProviderEnv {
+  name: 'parallel';
+  api_key: string;
+}
+
+export function parseTrueFoundryWebSearchProvider(
+  raw: string | undefined,
+): TrueFoundryWebSearchProviderEnv | undefined {
+  if (!raw?.trim()) {
+    return undefined;
+  }
+  try {
+    const parsed = z.record(z.string(), z.string()).parse(JSON.parse(raw));
+    const name = parsed['name']?.trim();
+    const apiKey = parsed['api_key']?.trim();
+    if (name !== 'parallel' || !apiKey) {
+      throw new Error('missing or unsupported name, or missing api_key');
+    }
+    return { name: 'parallel', api_key: apiKey };
+  } catch (error) {
+    throw new Error(
+      'Environment variable TRUEFOUNDRY_WEB_SEARCH_PROVIDER must be a JSON object with "name":"parallel" and non-empty "api_key" (e.g. {"name":"parallel","api_key":"..."})',
+      { cause: error },
+    );
+  }
 }
 
 /** Parses a positive-integer env var, falling back to `defaultValue` when unset/blank. */
@@ -144,6 +228,20 @@ function parseBoolean(options: { envKey: string; raw: string | undefined; defaul
     return false;
   }
   throw new Error(`Environment variable ${envKey} must be "true" or "false", got "${raw}"`);
+}
+
+function parsePostgresSchema(raw: string | undefined): string {
+  if (raw === undefined || raw.trim() === '') {
+    return DEFAULT_POSTGRES_SCHEMA;
+  }
+  const schema = raw.trim();
+  if (!POSTGRES_SCHEMA_NAME_RE.test(schema)) {
+    throw new Error(
+      `Environment variable POSTGRES_SCHEMA must be a lowercase Postgres identifier ` +
+        `(letter/underscore, then alnum/underscore, max 63 chars); got "${raw}"`,
+    );
+  }
+  return schema;
 }
 
 /**
@@ -185,28 +283,19 @@ function parseTrueFoundrySandboxProvider(raw: string | undefined): 'daytona' | '
 }
 
 /** Parses `POSTGRES_SSL_MODE`. Unset/blank → `''`. Unknown values throw. */
-function parsePostgresSslMode(raw: string | undefined): string {
-  if (!raw) {
+function validatePostgresSslMode(raw: string | undefined): PostgresSslMode | '' {
+  const mode = raw?.trim() ?? '';
+  if (!mode) {
     return '';
   }
-  const mode = raw.trim();
-  if (mode === '') {
-    return '';
+  for (const allowed of POSTGRES_SSL_MODES) {
+    if (mode === allowed) {
+      return allowed;
+    }
   }
-  switch (mode) {
-    case 'disable':
-    case 'prefer':
-    case 'require':
-    case 'verify-ca':
-    case 'verify-full':
-    case 'no-verify':
-      return mode;
-    default:
-      throw new Error(
-        'Environment variable POSTGRES_SSL_MODE must be one of disable, prefer, require, verify-ca, ' +
-          `verify-full, no-verify; got "${mode}"`,
-      );
-  }
+  throw new Error(
+    `Environment variable POSTGRES_SSL_MODE must be one of ${POSTGRES_SSL_MODES.join(', ')}; got "${mode}"`,
+  );
 }
 
 /**
@@ -272,6 +361,7 @@ function resolveRedisUrl(): string {
 /**
  * Postgres connection string for distributed mode.
  * Prefers `DATABASE_URL` when set (Railway / managed Postgres); otherwise builds from `POSTGRES_*`.
+ * TLS is not put on the URL — see `resolvePostgresSsl` / `DATABASE_SSL` (servicefoundry-style).
  */
 function resolvePostgresDatabaseUrl(): string {
   const databaseUrl = getEnv('DATABASE_URL');
@@ -289,7 +379,6 @@ function resolvePostgresDatabaseUrl(): string {
     raw: getEnv('POSTGRES_PORT'),
     defaultValue: DEFAULT_POSTGRES_PORT,
   });
-  const postgresSslMode = parsePostgresSslMode(getEnv('POSTGRES_SSL_MODE'));
   if (
     postgresUser.trim() === '' ||
     postgresPassword.trim() === '' ||
@@ -307,24 +396,61 @@ function resolvePostgresDatabaseUrl(): string {
     host: postgresHost,
     port: postgresPort,
     database: postgresDb,
-    sslMode: postgresSslMode,
   });
 }
 
-/** Builds a Postgres connection URL from discrete `POSTGRES_*` parts. */
+/**
+ * Postgres TLS for the pg Pool — same shape as servicefoundry `getSSLConfig`.
+ * Env: `POSTGRES_SSL_MODE`, `POSTGRES_SSL_CERT_PATH`, `POSTGRES_SSL_KEY_PATH`, `POSTGRES_SSL_CA_PATH`.
+ * Not written into `DATABASE_URL`. `prefer` / `require` / `verify-ca` / `verify-full` all map to
+ * `ssl: true` (or the cert object); use `no-verify` for encrypt-without-verify.
+ */
+function resolvePostgresSsl(): boolean | PostgresSslConfig {
+  const sslMode = getEnv('POSTGRES_SSL_MODE');
+  const cert = readOptionalFileContentsEnv('POSTGRES_SSL_CERT_PATH');
+  const key = readOptionalFileContentsEnv('POSTGRES_SSL_KEY_PATH');
+  // Cloud SQL / private CA often fail verify-full; Node cannot express verify-ca without hostname check.
+  const ca = readOptionalFileContentsEnv('POSTGRES_SSL_CA_PATH');
+
+  let ssl: boolean | PostgresSslConfig = false;
+  if (cert || key || ca) {
+    ssl = {
+      ...(cert ? { cert } : {}),
+      ...(key ? { key } : {}),
+      ...(ca ? { ca } : {}),
+    };
+  }
+
+  switch (validatePostgresSslMode(sslMode)) {
+    case 'disable':
+      return false;
+    case 'prefer':
+    case 'require':
+    case 'verify-ca':
+    case 'verify-full':
+      return ssl || true;
+    case 'no-verify':
+      return { ...(ssl || {}), rejectUnauthorized: false };
+    default:
+      return ssl;
+  }
+}
+
+/** Reads a PEM file from an optional path env; unset/blank → `undefined`. */
+function readOptionalFileContentsEnv(envKey: string): string | undefined {
+  const filePath = resolveOptionalPathEnv(envKey);
+  return filePath ? readFileSync(filePath, 'utf8') : undefined;
+}
+
+/** Builds a Postgres connection URL from discrete `POSTGRES_*` parts (no TLS query params). */
 function buildPostgresConnectionString(parts: {
   user: string;
   password: string;
   host: string;
   port: number;
   database: string;
-  sslMode: string;
 }): string {
-  let connectionString = `postgres://${encodeURIComponent(parts.user)}:${encodeURIComponent(parts.password)}@${parts.host}:${String(parts.port)}/${encodeURIComponent(parts.database)}`;
-  if (parts.sslMode !== '') {
-    connectionString += `?sslmode=${encodeURIComponent(parts.sslMode)}`;
-  }
-  return connectionString;
+  return `postgres://${encodeURIComponent(parts.user)}:${encodeURIComponent(parts.password)}@${parts.host}:${String(parts.port)}/${encodeURIComponent(parts.database)}`;
 }
 
 function resolveOIDCConfig(): OIDCConfig | undefined {
@@ -404,7 +530,7 @@ export interface OIDCConfig {
 export interface SharedServerConfiguration {
   /** Log level. Env: `LOG_LEVEL`. */
   LOG_LEVEL: string;
-  /** Log one line per HTTP request (except `/healthz`). Env: `ACCESS_LOGS`. Default true. */
+  /** Log one line per HTTP request (except `/healthz` and `/assets/`). Env: `ACCESS_LOGS`. Default true. */
   ACCESS_LOGS: boolean;
   /** Node environment. Env: `NODE_ENV`. */
   NODE_ENV: string | undefined;
@@ -448,6 +574,8 @@ export interface SharedServerConfiguration {
   MCP_REQUEST_TIMEOUT_MS: number;
   /** Max milliseconds for an MCP transport connection. Env: `MCP_CONNECT_TIMEOUT_MS`. Default 30 seconds. */
   MCP_CONNECT_TIMEOUT_MS: number;
+  /** Max bytes for one remote MCP tool-call HTTP response body (not GET SSE). Env: `MCP_TOOL_CALL_MAX_RESPONSE_BYTES`. Default 50 MB. */
+  MCP_TOOL_CALL_MAX_RESPONSE_BYTES: number;
   /**
    * Client name used for Dynamic Client Registration (DCR) of MCP servers.
    * This is the client name shown on authorization-server consent screens.
@@ -545,6 +673,12 @@ export interface SharedServerConfiguration {
    * `TRUEFORGE_MTLS_ENABLED` is true. Env: `TRUEFORGE_MTLS_CERTS_DIR`. Default `/etc/tls`.
    */
   TRUEFORGE_MTLS_CERTS_DIR: string;
+  /** Env: `NETWORK_POLICY_ENABLED`. Default true. `false` skips the outbound URL guard. */
+  NETWORK_POLICY_ENABLED: boolean;
+  /** Hosts always allowed. Env: `OUTBOUND_URL_ALLOWED_HOSTS` (JSON string array). Empty = none. */
+  OUTBOUND_URL_ALLOWED_HOSTS: string[];
+  /** Hosts always blocked. Env: `OUTBOUND_URL_BLOCKED_HOSTS` (JSON string array). Empty = none. */
+  OUTBOUND_URL_BLOCKED_HOSTS: string[];
 }
 
 export type StandaloneServerConfiguration = SharedServerConfiguration & {
@@ -577,11 +711,16 @@ export type DistributedServerConfiguration = SharedServerConfiguration & {
    */
   STANDALONE: false;
   /**
-   * Postgres connection string. Env: `DATABASE_URL` when set; otherwise built from `POSTGRES_*`
-   * (including optional `POSTGRES_SSL_MODE` as `sslmode`).
+   * Postgres connection string. Env: `DATABASE_URL` when set; otherwise built from `POSTGRES_*`.
    * Form: `postgres://USER:PASSWORD@HOST:PORT/DB` (or `postgresql://…`) with user/password URL-encoded.
+   * TLS is not encoded here — see `DATABASE_SSL`.
    */
   DATABASE_URL: string;
+  /**
+   * Postgres TLS for the pg Pool (servicefoundry-style).
+   * Env: `POSTGRES_SSL_MODE`, `POSTGRES_SSL_CERT_PATH`, `POSTGRES_SSL_KEY_PATH`, `POSTGRES_SSL_CA_PATH`.
+   */
+  DATABASE_SSL: boolean | PostgresSslConfig;
   /** Max connections in the `pg` Pool. Env: `DATABASE_POOL_MAX`. Default 10. */
   DATABASE_POOL_MAX: number;
   /**
@@ -594,6 +733,11 @@ export type DistributedServerConfiguration = SharedServerConfiguration & {
    * Env: `POSTGRES_IDLE_IN_TRANSACTION_SESSION_TIMEOUT_MS`. Default 60000.
    */
   POSTGRES_IDLE_IN_TRANSACTION_SESSION_TIMEOUT_MS: number;
+  /**
+   * Postgres schema for app tables and Kysely migration bookkeeping (`search_path`, Migrator).
+   * Env: `POSTGRES_SCHEMA`. Default `trueforge`.
+   */
+  POSTGRES_SCHEMA: string;
   /** Peering URL shared by all replicas. Env: `REDIS_URL`. Default `redis://localhost:6379`. */
   REDIS_URL: string;
   /**
@@ -604,6 +748,15 @@ export type DistributedServerConfiguration = SharedServerConfiguration & {
   /**
    * When set, models/MCP/agents are backed by the TrueFoundry ServiceFoundry server with the
    * caller's token. Unset = local Postgres stores. Mutually exclusive with OIDC.
+   * Env: `TRUEFOUNDRY_SERVICEFOUNDRY_SERVER_URL`.
+   */
+  /**
+   * When set, automatically move public TrueForge tables into `POSTGRES_SCHEMA` on first bootstrap.
+   * Env: `AUTOMATICALLY_MOVE_TRUEFORGE_TABLES_FROM_PUBLIC_TO_TRUEFORGE_SCHEMA`. Default true.
+   */
+  AUTOMATICALLY_MOVE_TRUEFORGE_TABLES_FROM_PUBLIC_TO_TRUEFORGE_SCHEMA: boolean;
+  /**
+   * The URL of the TrueFoundry ServiceFoundry server.
    * Env: `TRUEFOUNDRY_SERVICEFOUNDRY_SERVER_URL`.
    */
   TRUEFOUNDRY_SERVICEFOUNDRY_SERVER_URL: string | undefined;
@@ -654,6 +807,19 @@ export type DistributedServerConfiguration = SharedServerConfiguration & {
    * Env: `TRUEFOUNDRY_SANDBOX_SETTINGS`.
    */
   TRUEFOUNDRY_SANDBOX_SETTINGS: string | undefined;
+  /**
+   * Optional per-tenant allowlist of model provider account names. JSON object
+   * `Record<tenant_id, account_name[]>`. Empty / unset → no filtering. Tenants omitted from the
+   * map are unaffected; tenants present are limited to the listed provider accounts.
+   * Env: `TRUEFOUNDRY_TENANT_ID_TO_ALLOWED_MODEL_PROVIDER_ACCOUNTS`.
+   */
+  TRUEFOUNDRY_TENANT_ID_TO_ALLOWED_MODEL_PROVIDER_ACCOUNTS: Record<string, string[]>;
+  /**
+   * Optional built-in web search provider (TrueFoundry mode only). JSON object
+   * `Record<string, string>` with `name` (`parallel`) and `api_key`.
+   * Unset / empty → web search tools are not registered. Env: `TRUEFOUNDRY_WEB_SEARCH_PROVIDER`.
+   */
+  TRUEFOUNDRY_WEB_SEARCH_PROVIDER: TrueFoundryWebSearchProviderEnv | undefined;
 };
 
 export type ServerConfiguration = StandaloneServerConfiguration | DistributedServerConfiguration;
@@ -702,6 +868,11 @@ const shared: SharedServerConfiguration = {
     envKey: 'MCP_CONNECT_TIMEOUT_MS',
     raw: getEnv('MCP_CONNECT_TIMEOUT_MS'),
     defaultValue: 30 * 1000,
+  }),
+  MCP_TOOL_CALL_MAX_RESPONSE_BYTES: parsePositiveInt({
+    envKey: 'MCP_TOOL_CALL_MAX_RESPONSE_BYTES',
+    raw: getEnv('MCP_TOOL_CALL_MAX_RESPONSE_BYTES'),
+    defaultValue: 50 * 1024 * 1024,
   }),
   MCP_DCR_OAUTH_CLIENT_NAME:
     getEnv('MCP_DCR_OAUTH_CLIENT_NAME', { defaultValue: 'truefoundry-harness' }) ?? 'truefoundry-harness',
@@ -768,6 +939,19 @@ const shared: SharedServerConfiguration = {
     defaultValue: false,
   }),
   TRUEFORGE_MTLS_CERTS_DIR: getEnv('TRUEFORGE_MTLS_CERTS_DIR', { defaultValue: '/etc/tls' }) ?? '/etc/tls',
+  NETWORK_POLICY_ENABLED: parseBoolean({
+    envKey: 'NETWORK_POLICY_ENABLED',
+    raw: getEnv('NETWORK_POLICY_ENABLED'),
+    defaultValue: true,
+  }),
+  OUTBOUND_URL_ALLOWED_HOSTS: parseJsonStringArrayEnv({
+    envKey: 'OUTBOUND_URL_ALLOWED_HOSTS',
+    raw: getEnv('OUTBOUND_URL_ALLOWED_HOSTS'),
+  }),
+  OUTBOUND_URL_BLOCKED_HOSTS: parseJsonStringArrayEnv({
+    envKey: 'OUTBOUND_URL_BLOCKED_HOSTS',
+    raw: getEnv('OUTBOUND_URL_BLOCKED_HOSTS'),
+  }),
 };
 
 const configuration: ServerConfiguration = standalone
@@ -782,6 +966,7 @@ const configuration: ServerConfiguration = standalone
       ...shared,
       STANDALONE: false,
       DATABASE_URL: resolvePostgresDatabaseUrl(),
+      DATABASE_SSL: resolvePostgresSsl(),
       DATABASE_POOL_MAX: parsePositiveInt({
         envKey: 'DATABASE_POOL_MAX',
         raw: getEnv('DATABASE_POOL_MAX'),
@@ -797,8 +982,14 @@ const configuration: ServerConfiguration = standalone
         raw: getEnv('POSTGRES_IDLE_IN_TRANSACTION_SESSION_TIMEOUT_MS'),
         defaultValue: 60_000,
       }),
+      POSTGRES_SCHEMA: parsePostgresSchema(getEnv('POSTGRES_SCHEMA')),
       REDIS_URL: resolveRedisUrl(),
       OIDC: resolveOIDCConfig(),
+      AUTOMATICALLY_MOVE_TRUEFORGE_TABLES_FROM_PUBLIC_TO_TRUEFORGE_SCHEMA: parseBoolean({
+        envKey: 'AUTOMATICALLY_MOVE_TRUEFORGE_TABLES_FROM_PUBLIC_TO_TRUEFORGE_SCHEMA',
+        raw: getEnv('AUTOMATICALLY_MOVE_TRUEFORGE_TABLES_FROM_PUBLIC_TO_TRUEFORGE_SCHEMA'),
+        defaultValue: true,
+      }),
       TRUEFOUNDRY_SERVICEFOUNDRY_SERVER_URL: getEnv('TRUEFOUNDRY_SERVICEFOUNDRY_SERVER_URL', { required: false }),
       TRUEFOUNDRY_API_KEY: getEnv('TRUEFOUNDRY_API_KEY', { required: false }),
       TRUEFOUNDRY_SERVICEFOUNDRY_HTTP_TIMEOUT_MS: parsePositiveInt({
@@ -829,6 +1020,12 @@ const configuration: ServerConfiguration = standalone
       TRUEFOUNDRY_SANDBOX_API_KEY: getEnv('TRUEFOUNDRY_SANDBOX_API_KEY', { required: false }),
       TRUEFOUNDRY_SANDBOX_SERVER_URL: getEnv('TRUEFOUNDRY_SANDBOX_SERVER_URL', { required: false }),
       TRUEFOUNDRY_SANDBOX_SETTINGS: getEnv('TRUEFOUNDRY_SANDBOX_SETTINGS', { required: false }),
+      TRUEFOUNDRY_TENANT_ID_TO_ALLOWED_MODEL_PROVIDER_ACCOUNTS: parseTenantIdToAllowedModelProviderAccounts(
+        getEnv('TRUEFOUNDRY_TENANT_ID_TO_ALLOWED_MODEL_PROVIDER_ACCOUNTS', { required: false }),
+      ),
+      TRUEFOUNDRY_WEB_SEARCH_PROVIDER: parseTrueFoundryWebSearchProvider(
+        getEnv('TRUEFOUNDRY_WEB_SEARCH_PROVIDER', { required: false }),
+      ),
     };
 
 export function isOidcConfigured(

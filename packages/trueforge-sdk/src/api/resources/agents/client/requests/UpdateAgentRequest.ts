@@ -13,5 +13,6 @@ import type * as TrueForge from "../../../../index.js";
  *     }
  */
 export interface UpdateAgentRequest {
+    description?: string;
     manifest: TrueForge.AgentSpec;
 }

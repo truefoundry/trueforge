@@ -124,6 +124,7 @@ describe('turns', () => {
       const agent = await agentStore.createAgent({
         tenant_id: 'default',
         name: 'managed-agent',
+        description: 'Test agent.',
         manifest: AgentSpecSchema.parse({ model: { name: 'test-provider/test-model' } }),
         external_id: 'managed-agent-external',
         created_by_subject: { subject_id: 'owner', subject_type: 'user', subject_display_name: 'Owner' },
@@ -161,7 +162,10 @@ describe('turns', () => {
                   : { kind: 'agent_external_ids', agent_external_ids: [] },
               ),
             canAccessAgent: () => Promise.resolve(false),
-            getPermissions: async ({ resourceIds }) => Object.fromEntries(resourceIds.map(id => [id, []])),
+            getPermissions: async ({ resourceType, resourceIds }) => ({
+              type: resourceType,
+              permissions: Object.fromEntries(resourceIds.map(id => [id, []])),
+            }),
           },
         }),
       );
@@ -186,6 +190,62 @@ describe('turns', () => {
           })
         ).status,
       ).toBe(403);
+    });
+  });
+
+  describe('create turn x-tfy-metadata', () => {
+    it('rejects a malformed header before starting the turn', async () => {
+      const db = createSqliteDb(':memory:');
+      await migrateSqliteToLatest(db);
+      const sessionStore = new SqliteSessionStore(db);
+      const sessions = new Sessions({ sessionStore });
+      await sessionStore.createSession({
+        tenant_id: 'default',
+        session_id: 's1',
+        created_by_subject: {
+          subject_id: STANDALONE_REQUEST_CONTEXT.subject.id,
+          subject_type: STANDALONE_REQUEST_CONTEXT.subject.type,
+          subject_display_name: STANDALONE_REQUEST_CONTEXT.subject.display_name,
+        },
+        agent: {
+          type: 'inline',
+          spec: AgentSpecSchema.parse({
+            model: { name: 'test-provider/test-model' },
+            instructions: 'test',
+          }),
+        },
+        custom: null,
+        metadata: {},
+        external_id: null,
+        source: null,
+      });
+
+      const app = new OpenAPIHono();
+      app.route(
+        '/',
+        createTurnsRouter({
+          sessions,
+          sessionStore,
+          activeTurns: new ActiveTurnRegistry(),
+          resolveModelProviderStore: () => new SqliteModelProviderStore(db),
+          resolveMcpServerStore: () => mcpServerStoreWithAuth(db, new SqliteOAuthTokenStore(db)),
+          resolveSkillStore: () => new SqliteSkillStore(db),
+          resolveAgentStore: () => new SqliteAgentStore(db),
+          eventSubscriptions: new EventSubscriptionRegistry(undefined),
+          resolveSandboxProviderStore: () => new SqliteSandboxProviderStore(db),
+          logger: createLogger({ silent: true }),
+          resolveRequestContext: () => STANDALONE_REQUEST_CONTEXT,
+          authorizer: new TrueForgeAuthorizer(),
+        }),
+      );
+
+      const response = await app.request('/s1/turns', {
+        method: 'POST',
+        headers: { 'content-type': 'application/json', 'x-tfy-metadata': 'not-json' },
+        body: JSON.stringify({ stream: false }),
+      });
+      expect(response.status).toBe(400);
+      expect(await response.text()).toContain('x-tfy-metadata must be a JSON object');
     });
   });
 
@@ -416,7 +476,10 @@ describe('turns', () => {
     const denyAllAuthorizer: Authorizer = {
       listAgentAccess: () => Promise.resolve({ kind: 'agent_external_ids', agent_external_ids: [] }),
       canAccessAgent: deniedCanAccessAgent,
-      getPermissions: async ({ resourceIds }) => Object.fromEntries(resourceIds.map(id => [id, []])),
+      getPermissions: async ({ resourceType, resourceIds }) => ({
+        type: resourceType,
+        permissions: Object.fromEntries(resourceIds.map(id => [id, []])),
+      }),
     };
 
     async function referencedAgentHarness(authorizer: Authorizer) {
@@ -433,6 +496,7 @@ describe('turns', () => {
           subject_display_name: STANDALONE_REQUEST_CONTEXT.subject.display_name,
         },
         name: 'named-for-turn',
+        description: 'Test agent.',
         manifest: AgentSpecSchema.parse({
           model: { name: 'test-provider/test-model' },
           instructions: 'test',

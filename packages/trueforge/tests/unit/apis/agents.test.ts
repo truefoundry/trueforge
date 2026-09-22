@@ -39,10 +39,12 @@ const manifest = {
 
 const writeBody = {
   name: 'research',
+  description: 'Research helper.',
   manifest,
 };
 
 const updateBody = {
+  description: 'Updated research agent.',
   manifest: {
     model: { name: 'anthropic/claude-sonnet-4-6' },
     instructions: 'Updated instructions.',
@@ -52,6 +54,7 @@ const updateBody = {
 type WireAgent = {
   id: string;
   name: string;
+  description: string;
   manifest: {
     model: { name: string };
     instructions?: string;
@@ -79,7 +82,10 @@ const deniedCanAccessAgent = jest.fn((_input: Parameters<Authorizer['canAccessAg
 const denyAllAuthorizer: Authorizer = {
   listAgentAccess: deniedListAgentAccess,
   canAccessAgent: deniedCanAccessAgent,
-  getPermissions: async ({ resourceIds }) => Object.fromEntries(resourceIds.map(id => [id, []])),
+  getPermissions: async ({ resourceType, resourceIds }) => ({
+    type: resourceType,
+    permissions: Object.fromEntries(resourceIds.map(id => [id, []])),
+  }),
 };
 
 describe('agents router', () => {
@@ -115,12 +121,13 @@ describe('agents router', () => {
   });
 
   it('POST returns a wrapped Agent; PUT by immutable id keeps the same id', async () => {
-    const created = await router.request('/', jsonInit('POST', writeBody));
+    const created = await router.request('/', jsonInit('POST', { ...writeBody, description: '  Research helper.  ' }));
     expect(created.status).toBe(201);
     const createdJson = (await created.json()) as { data: WireAgent };
     expect(createdJson.data.id.length).toBeGreaterThan(0);
     expect(createdJson.data).toMatchObject({
       name: 'research',
+      description: 'Research helper.',
       manifest: {
         model: { name: 'anthropic/claude-sonnet-4-6' },
         instructions: 'Be helpful.',
@@ -141,8 +148,24 @@ describe('agents router', () => {
     const updatedJson = (await updated.json()) as { data: WireAgent };
     expect(updatedJson.data.id).toBe(createdJson.data.id);
     expect(updatedJson.data.name).toBe('research');
+    expect(updatedJson.data.description).toBe('Updated research agent.');
     expect(updatedJson.data.manifest.instructions).toBe('Updated instructions.');
     expect(updatedJson.data).not.toHaveProperty('metadata');
+  });
+
+  it('PUT with only manifest keeps the stored description', async () => {
+    const created = await router.request(
+      '/',
+      jsonInit('POST', { ...writeBody, name: 'keep-desc', description: 'Keep me.' }),
+    );
+    expect(created.status).toBe(201);
+    const createdJson = (await created.json()) as { data: WireAgent };
+
+    const updated = await router.request(`/${createdJson.data.id}`, jsonInit('PUT', { manifest: updateBody.manifest }));
+    expect(updated.status).toBe(200);
+    const updatedJson = (await updated.json()) as { data: WireAgent };
+    expect(updatedJson.data.description).toBe('Keep me.');
+    expect(updatedJson.data.manifest.instructions).toBe('Updated instructions.');
   });
 
   it('PUT rejects metadata in the request body', async () => {
@@ -175,7 +198,7 @@ describe('agents router', () => {
     const body = (await response.json()) as {
       data: {
         base_url: string;
-        snippets: Array<{ sample_code: { stream: string; non_stream: string } }>;
+        snippets: Array<{ language: string; sample_code: { stream: string; non_stream: string } }>;
       };
     };
     expect(body.data.base_url).toBe(
@@ -183,9 +206,17 @@ describe('agents router', () => {
         ? new URL(new URL(configuration.PUBLIC_BASE_URL).pathname, 'http://localhost').href
         : 'http://localhost',
     );
-    expect(body.data.snippets.length).toBeGreaterThan(0);
-    expect(body.data.snippets[0]?.sample_code.stream).not.toContain('USER_API_KEY');
-    expect(body.data.snippets[0]?.sample_code.non_stream).not.toContain('USER_API_KEY');
+    expect(body.data.snippets.map(snippet => snippet.language)).toEqual(['typescript', 'python']);
+    const python = body.data.snippets.find(snippet => snippet.language === 'python');
+    const typescript = body.data.snippets.find(snippet => snippet.language === 'typescript');
+    expect(python?.sample_code.stream).toContain('create_turn_stream');
+    expect(python?.sample_code.stream).toContain('merge_event_delta');
+    expect(python?.sample_code.non_stream).toContain('create_turn');
+    expect(typescript?.sample_code.stream).toContain('mergeEventDelta');
+    for (const snippet of body.data.snippets) {
+      expect(snippet.sample_code.stream).not.toContain('USER_API_KEY');
+      expect(snippet.sample_code.non_stream).not.toContain('USER_API_KEY');
+    }
 
     const overridden = await router.request(
       `/${createdJson.data.id}/code-snippets?base_url=${encodeURIComponent('https://sample.com/trueforge')}`,
@@ -213,6 +244,12 @@ describe('agents router', () => {
     const badName = await router.request('/', jsonInit('POST', { ...writeBody, name: 'Not A Name' }));
     expect(badName.status).toBe(400);
 
+    const dotted = await router.request('/', jsonInit('POST', { ...writeBody, name: 'my.agent' }));
+    expect(dotted.status).toBe(400);
+
+    const underscored = await router.request('/', jsonInit('POST', { ...writeBody, name: 'my_agent' }));
+    expect(underscored.status).toBe(400);
+
     const reservedTfg = await router.request('/', jsonInit('POST', { ...writeBody, name: 'tfg' }));
     expect(reservedTfg.status).toBe(400);
 
@@ -223,10 +260,20 @@ describe('agents router', () => {
       '/',
       jsonInit('POST', {
         name: 'other',
+        description: 'Other agent.',
         manifest: { ...manifest, model: { name: 'missing/model' } },
       }),
     );
     expect(unknownModel.status).toBe(422);
+
+    const blankDescription = await router.request(
+      '/',
+      jsonInit('POST', { ...writeBody, name: 'blank-desc', description: '   ' }),
+    );
+    expect(blankDescription.status).toBe(400);
+
+    const missingDescription = await router.request('/', jsonInit('POST', { name: 'no-desc', manifest }));
+    expect(missingDescription.status).toBe(400);
 
     const first = await router.request('/', jsonInit('POST', { ...writeBody, name: 'alpha' }));
     expect(first.status).toBe(201);
