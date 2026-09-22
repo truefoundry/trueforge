@@ -95,7 +95,7 @@ describe("WebSearchProvidersClient", () => {
     test("create_or_update (1)", async () => {
         const server = mockServerPool.createServer();
         const client = new TrueForge({ maxRetries: 0, token: "test", baseUrl: server.baseUrl });
-        const rawRequestBody = { manifest: { type: "parallel" } };
+        const rawRequestBody = { manifest: { auth: { api_key: "api_key" }, type: "parallel" } };
         const rawResponseBody = {
             data: { manifest: { auth: { api_key: "api_key" }, type: "parallel" }, name: "name" },
         };
@@ -111,6 +111,9 @@ describe("WebSearchProvidersClient", () => {
 
         const response = await client.settings.webSearchProviders.createOrUpdate({
             manifest: {
+                auth: {
+                    apiKey: "api_key",
+                },
                 type: "parallel",
             },
         });
@@ -130,7 +133,7 @@ describe("WebSearchProvidersClient", () => {
     test("create_or_update (2)", async () => {
         const server = mockServerPool.createServer();
         const client = new TrueForge({ maxRetries: 0, token: "test", baseUrl: server.baseUrl });
-        const rawRequestBody = { manifest: { type: "parallel" } };
+        const rawRequestBody = { manifest: { auth: { api_key: "x" }, type: "parallel" } };
         const rawResponseBody = { error: { message: "message" } };
 
         server
@@ -145,6 +148,9 @@ describe("WebSearchProvidersClient", () => {
         await expect(async () => {
             return await client.settings.webSearchProviders.createOrUpdate({
                 manifest: {
+                    auth: {
+                        apiKey: "x",
+                    },
                     type: "parallel",
                 },
             });
@@ -154,7 +160,7 @@ describe("WebSearchProvidersClient", () => {
     test("create_or_update (3)", async () => {
         const server = mockServerPool.createServer();
         const client = new TrueForge({ maxRetries: 0, token: "test", baseUrl: server.baseUrl });
-        const rawRequestBody = { manifest: { type: "parallel" } };
+        const rawRequestBody = { manifest: { auth: { api_key: "x" }, type: "parallel" } };
         const rawResponseBody = { error: { message: "message" } };
 
         server
@@ -169,6 +175,9 @@ describe("WebSearchProvidersClient", () => {
         await expect(async () => {
             return await client.settings.webSearchProviders.createOrUpdate({
                 manifest: {
+                    auth: {
+                        apiKey: "x",
+                    },
                     type: "parallel",
                 },
             });

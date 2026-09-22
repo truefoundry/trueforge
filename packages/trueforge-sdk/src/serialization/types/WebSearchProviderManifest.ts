@@ -9,13 +9,13 @@ export const WebSearchProviderManifest: core.serialization.ObjectSchema<
     serializers.WebSearchProviderManifest.Raw,
     TrueForge.WebSearchProviderManifest
 > = core.serialization.object({
-    auth: ParallelWebSearchProviderAuth.optional(),
+    auth: ParallelWebSearchProviderAuth,
     type: core.serialization.stringLiteral("parallel"),
 });
 
 export declare namespace WebSearchProviderManifest {
     export interface Raw {
-        auth?: ParallelWebSearchProviderAuth.Raw | null;
+        auth: ParallelWebSearchProviderAuth.Raw;
         type: "parallel";
     }
 }

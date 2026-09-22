@@ -5870,7 +5870,8 @@
               }
             },
             "required": [
-              "type"
+              "type",
+              "auth"
             ],
             "type": "object"
           }

@@ -74,14 +74,22 @@ class WebSearchProvidersClient:
 
         Examples
         --------
-        from trueforge_sdk import TrueForge, WebSearchProviderManifest
+        from trueforge_sdk import (
+            ParallelWebSearchProviderAuth,
+            TrueForge,
+            WebSearchProviderManifest,
+        )
 
         client = TrueForge(
             token="YOUR_TOKEN",
             base_url="https://yourhost.com/path/to/api",
         )
         client.settings.web_search_providers.create_or_update(
-            manifest=WebSearchProviderManifest(),
+            manifest=WebSearchProviderManifest(
+                auth=ParallelWebSearchProviderAuth(
+                    api_key="api_key",
+                ),
+            ),
         )
         """
         _response = self._raw_client.create_or_update(manifest=manifest, request_options=request_options)
@@ -160,7 +168,11 @@ class AsyncWebSearchProvidersClient:
         --------
         import asyncio
 
-        from trueforge_sdk import AsyncTrueForge, WebSearchProviderManifest
+        from trueforge_sdk import (
+            AsyncTrueForge,
+            ParallelWebSearchProviderAuth,
+            WebSearchProviderManifest,
+        )
 
         client = AsyncTrueForge(
             token="YOUR_TOKEN",
@@ -170,7 +182,11 @@ class AsyncWebSearchProvidersClient:
 
         async def main() -> None:
             await client.settings.web_search_providers.create_or_update(
-                manifest=WebSearchProviderManifest(),
+                manifest=WebSearchProviderManifest(
+                    auth=ParallelWebSearchProviderAuth(
+                        api_key="api_key",
+                    ),
+                ),
             )
 
 

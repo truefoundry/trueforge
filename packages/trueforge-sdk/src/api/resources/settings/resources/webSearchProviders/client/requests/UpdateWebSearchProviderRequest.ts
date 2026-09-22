@@ -6,6 +6,9 @@ import type * as TrueForge from "../../../../../../index.js";
  * @example
  *     {
  *         manifest: {
+ *             auth: {
+ *                 apiKey: "api_key"
+ *             },
  *             type: "parallel"
  *         }
  *     }

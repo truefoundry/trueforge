@@ -146,6 +146,9 @@ export class WebSearchProvidersClient {
      * @example
      *     await client.settings.webSearchProviders.createOrUpdate({
      *         manifest: {
+     *             auth: {
+     *                 apiKey: "api_key"
+     *             },
      *             type: "parallel"
      *         }
      *     })

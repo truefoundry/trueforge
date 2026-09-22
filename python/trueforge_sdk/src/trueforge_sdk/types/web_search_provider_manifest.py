@@ -9,7 +9,7 @@ from .parallel_web_search_provider_auth import ParallelWebSearchProviderAuth
 
 
 class WebSearchProviderManifest(UncheckedBaseModel):
-    auth: typing.Optional[ParallelWebSearchProviderAuth] = None
+    auth: ParallelWebSearchProviderAuth
     type: typing.Literal["parallel"] = pydantic.Field(default="parallel")
     """
     Parallel web-search provider.

@@ -3,7 +3,7 @@
 import type * as TrueForge from "../index.js";
 
 export interface WebSearchProviderManifest {
-    auth?: TrueForge.ParallelWebSearchProviderAuth;
+    auth: TrueForge.ParallelWebSearchProviderAuth;
     /** Parallel web-search provider. */
     type: "parallel";
 }

@@ -4129,6 +4129,9 @@ Upserts the single web search provider for this tenant. `auth.api_key`: real val
 ```typescript
 await client.settings.webSearchProviders.createOrUpdate({
     manifest: {
+        auth: {
+            apiKey: "api_key"
+        },
         type: "parallel"
     }
 });

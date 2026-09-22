@@ -4843,7 +4843,7 @@ Upserts the single web search provider for this tenant. `auth.api_key`: real val
 <dd>
 
 ```python
-from trueforge_sdk import TrueForge, WebSearchProviderManifest
+from trueforge_sdk import TrueForge, WebSearchProviderManifest, ParallelWebSearchProviderAuth
 
 client = TrueForge(
     token="<token>",
@@ -4852,6 +4852,9 @@ client = TrueForge(
 
 client.settings.web_search_providers.create_or_update(
     manifest=WebSearchProviderManifest(
+        auth=ParallelWebSearchProviderAuth(
+            api_key="api_key",
+        ),
         type="parallel",
     ),
 )
