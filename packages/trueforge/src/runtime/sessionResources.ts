@@ -21,6 +21,7 @@ import type { ISandboxProviderStore } from '../db/sandboxProviderStore';
 import type { ISkillStore } from '../db/skillStore';
 import type { IWebSearchProviderStore } from '../db/webSearchProviderStore';
 import { LocalSandboxProvider } from '../sandbox/local/provider/LocalSandboxProvider';
+import { localSandboxSessionSegment } from '../sandbox/localLifecycle';
 import { getCachedLocalSandboxSupport, isLocalSandboxFallbackEnabled } from '../sandbox/localRuntime';
 import { toSandboxProviderFromRecord } from '../sandbox/providerUtils';
 import type { ReasoningEffort } from '../schemas/modelProvider';
@@ -234,14 +235,6 @@ export async function getMcpConnection({
  * in-memory local fallback when standalone + the cached probe is supported.
  * Builds a fresh provider client per call (no network I/O).
  */
-/** Single path segment under the sandboxes parent (`_` when sessionId is missing or unsafe). */
-export function localSandboxSessionSegment(sessionId: string | undefined): string {
-  if (sessionId === undefined || sessionId.length === 0 || sessionId.includes('/') || sessionId.includes('..')) {
-    return '_';
-  }
-  return sessionId;
-}
-
 export async function resolveSandboxProvider({
   tenant_id,
   store,
