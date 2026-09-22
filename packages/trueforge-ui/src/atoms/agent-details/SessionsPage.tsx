@@ -1,6 +1,6 @@
 'use client';
 
-import { Suspense, useEffect, useMemo, useState } from 'react';
+import { Suspense, useCallback, useEffect, useMemo, useState } from 'react';
 
 import { useSessionShareSearch } from '../../hooks/useSessionShareSearch.js';
 import { useOptionalAgentSessionsServer } from '../../server/ServerContext.js';
@@ -9,6 +9,7 @@ import {
   defaultSessionTimeRange,
   readSessionShareSearch,
   resolveSessionTimeRange,
+  SESSION_SHARE_CHANGE_EVENT,
   type SessionTimeRange,
 } from '../../utils/sessionShareUrl.js';
 import { PageHeader } from '../PageHeader.js';
@@ -26,6 +27,10 @@ export function SessionsPage() {
   const [timeRange, setTimeRange] = useState<SessionTimeRange>(
     () => readSessionShareSearch(window.location.search).timeRange ?? defaultSessionTimeRange(),
   );
+  const [showLoadRecentSessions, setShowLoadRecentSessions] = useState(() => {
+    const share = readSessionShareSearch(window.location.search);
+    return share.sessionId != null && share.timeRange != null && share.timeRange.timeWindowMs == null;
+  });
 
   useEffect(() => {
     const share = readSessionShareSearch(window.location.search);
@@ -47,9 +52,21 @@ export function SessionsPage() {
     return () => window.removeEventListener('popstate', syncFilters);
   }, []);
 
+  useEffect(() => {
+    const hideLoadRecentSessions = () => setShowLoadRecentSessions(false);
+    window.addEventListener(SESSION_SHARE_CHANGE_EVENT, hideLoadRecentSessions);
+    return () => window.removeEventListener(SESSION_SHARE_CHANGE_EVENT, hideLoadRecentSessions);
+  }, []);
+
   // Resolve relative presets only when the filter changes. Unrelated query
   // updates (such as selecting a session) must not shift/refetch the list.
   const resolved = useMemo(() => resolveSessionTimeRange(timeRange), [timeRange]);
+  const loadRecentSessions = useCallback(() => {
+    const recentRange = defaultSessionTimeRange();
+    setShowLoadRecentSessions(false);
+    setTimeRange(recentRange);
+    updateShareSearch({ timeRange: recentRange, sessionId: null, view: 'sessions' });
+  }, [updateShareSearch]);
 
   return (
     <div className="flex h-full min-h-0 w-full flex-col bg-primary-bg">
@@ -86,6 +103,7 @@ export function SessionsPage() {
               startTimestamp={new Date(resolved.startTs).toISOString()}
               endTimestamp={new Date(resolved.endTs).toISOString()}
               shareView="sessions"
+              {...(showLoadRecentSessions ? { onLoadRecentSessions: loadRecentSessions } : {})}
             />
           </Suspense>
         )}

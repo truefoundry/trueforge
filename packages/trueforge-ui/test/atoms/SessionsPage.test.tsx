@@ -241,6 +241,39 @@ describe('SessionsPage', () => {
     expect(resizer).toHaveClass('w-0');
     expect(resizer.querySelector('.w-px')).toBeInTheDocument();
     expect(screen.getByRole('heading', { name: 'Named session' })).toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: 'Load recent sessions' })).not.toBeInTheDocument();
+  });
+
+  it('loads the recent 30-day window from a timestamp-pinned session and clears its selection', async () => {
+    const now = Date.parse('2026-01-31T00:10:00.000Z');
+    vi.spyOn(Date, 'now').mockReturnValue(now);
+    const createdAtMs = Date.parse(namedRow.createdAt);
+    window.history.replaceState(
+      null,
+      '',
+      `/?view=sessions&sessionId=sess-1&s_sts=${String(createdAtMs - SESSION_TIME_BUFFER_MS)}&s_ets=${String(createdAtMs + SESSION_TIME_BUFFER_MS)}`,
+    );
+    const { listSessions } = renderPage();
+
+    const loadRecentButton = await screen.findByRole('button', { name: 'Load recent sessions' });
+    expect(loadRecentButton.closest('aside')).not.toBeNull();
+    fireEvent.click(loadRecentButton);
+
+    await waitFor(() => {
+      expect(listSessions).toHaveBeenLastCalledWith(
+        expect.objectContaining({
+          startTimestamp: new Date(now - DEFAULT_SESSION_TIME_WINDOW_MS).toISOString(),
+          endTimestamp: new Date(now).toISOString(),
+        }),
+      );
+    });
+    const params = new URLSearchParams(window.location.search);
+    expect(params.get('sessionId')).toBeNull();
+    expect(params.get('s_tw')).toBe(String(DEFAULT_SESSION_TIME_WINDOW_MS));
+    expect(params.get('s_sts')).toBeNull();
+    expect(params.get('s_ets')).toBeNull();
+    expect(screen.getByText('Select a session to view details')).toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: 'Load recent sessions' })).not.toBeInTheDocument();
   });
 
   it('deletes only after the confirmation dialog is accepted', async () => {
