@@ -202,6 +202,9 @@ importers:
       kysely:
         specifier: ^0.29.5
         version: 0.29.5
+      lru-cache:
+        specifier: ^11.5.3
+        version: 11.5.3
       openid-client:
         specifier: ^6.8.7
         version: 6.8.7

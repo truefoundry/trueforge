@@ -111,13 +111,13 @@ export function AgentModelEditorContent({
   if (compact) {
     if (compactProvider === null) {
       return (
-        <div className="flex min-h-0 flex-1 flex-col">
+        <div className="flex min-h-0 flex-auto flex-col">
           <div className="shrink-0 border-b border-border px-3 py-2">
             <p className="text-text-primary mb-2 text-base font-medium">Select provider</p>
             {search}
           </div>
           {error ? <p className="text-failure-bg px-3 pt-3 text-sm">{error}</p> : null}
-          <div className="min-h-0 flex-1 overflow-y-auto p-2">
+          <div className="min-h-0 flex-auto overflow-y-auto p-2">
             {visibleProviders.length === 0 ? (
               <p className="text-text-secondary px-2 py-6 text-center text-sm" role="status">
                 {loading ? 'Loading…' : 'No providers'}
@@ -145,7 +145,7 @@ export function AgentModelEditorContent({
     }
 
     return (
-      <div className="flex min-h-0 flex-1 flex-col">
+      <div className="flex min-h-0 flex-auto flex-col">
         <div className="shrink-0 border-b border-border px-3 py-2">
           <div className="mb-2 flex items-center gap-1">
             <button

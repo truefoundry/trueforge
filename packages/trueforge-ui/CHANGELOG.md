@@ -1,5 +1,14 @@
 # Changelog
 
+## 0.3.1
+
+### Patch Changes
+
+- 56b3a59: Keep newly saved builders editable until the user leaves the build-agent page, then start fresh when they return.
+- a122ba1: Show successful MCP authentication in chat, automatically continue after every required server connects, and indicate while the turn is starting. Confirm OAuth against the chat MCP connector read (`getMcpConnector`) so non-admins are not blocked by settings-only catalog GETs, and ignore authorize callbacks after the prompt unmounts.
+- acad1a1: Add chat-history rename for servers that implement `renameSession`, including TrueForge harness title updates.
+- a08c75a: Show absolute session activity timestamps on hover, label deferred MCP tools in the session timeline, and fix Safari collapsing contentSized modal bodies (flex-auto).
+
 ## 0.3.0
 
 ### Minor Changes

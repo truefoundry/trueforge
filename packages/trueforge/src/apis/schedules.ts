@@ -52,6 +52,7 @@ import {
 import type { ActiveTurnRegistry } from '../runtime/activeTurns';
 import { minIntervalSeconds, nextTriggerAfter } from '../runtime/cron';
 import type { EventSubscriptionRegistry } from '../runtime/event-subscription';
+import { gatewayTurnHeaders } from '../runtime/sessionResources';
 import {
   InvalidCronError,
   SCHEDULE_MIN_INTERVAL_SECONDS,
@@ -86,8 +87,7 @@ export interface SchedulesRouterDeps<TTransaction> extends ScheduleTurnExecution
 
 /**
  * Prepare and start a schedule run using Context-based store resolvers. Caller must set
- * `request_context` (typically via {@link requestContextFromCreatedBySubject})
- * before calling.
+ * `request_context` (typically via requestContextFromCreatedBySubject) before calling.
  */
 export async function startScheduleRunOnRequest<TTransaction>(params: {
   c: Context;
@@ -108,6 +108,7 @@ export async function startScheduleRunOnRequest<TTransaction>(params: {
     input: prepared.input,
     previous_turn_id: prepared.previous_turn_id,
     userRef: prepared.userRef,
+    resolveTurnHeaders: gatewayTurnHeaders,
     deps: {
       activeTurns: deps.activeTurns,
       eventSubscriptions: deps.eventSubscriptions,

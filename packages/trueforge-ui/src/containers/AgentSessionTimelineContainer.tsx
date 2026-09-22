@@ -5,6 +5,8 @@ import { convertTurnsToThreadMessages } from '@truefoundry/trueforge-assistant-u
 import { Suspense, useCallback, useEffect, useMemo, useRef, useState, type ComponentType } from 'react';
 
 import { Markdown, type MarkdownProps } from '../atoms/Markdown.js';
+import { MessageActionBar } from '../atoms/MessageActionBar.js';
+import type { UserMessageActionBarProps } from '../atoms/UserMessageActionBar.js';
 import { useServer } from '../server/ServerContext.js';
 import type { AgentChatServer, SessionEventItem } from '../server/types.js';
 import type { SlotOverrides } from '../theme/SlotsProvider.js';
@@ -29,9 +31,13 @@ function ReadOnlyMarkdown(props: MarkdownProps) {
   );
 }
 
+/** Copy + timestamp only — edit/retry are not meaningful in session details. */
+function ReadOnlyUserMessageActionBar({ isCopied, onCopy, createdAt, className }: UserMessageActionBarProps) {
+  return <MessageActionBar isCopied={isCopied} onCopy={onCopy} createdAt={createdAt} className={className} />;
+}
+
 const READ_ONLY_SLOT_OVERRIDES: SlotOverrides = {
-  UserMessageActionBar: () => <></>,
-  MessageActionBar: () => <></>,
+  UserMessageActionBar: ReadOnlyUserMessageActionBar,
   Markdown: ReadOnlyMarkdown,
 };
 
