@@ -8,7 +8,7 @@
  *
  * `STANDALONE` is a discriminated mode selector:
  * - `true` (default): SQLite only; no Redis / executor peering.
- * - `false`: Postgres + Redis (exactly one of `REDIS_URL`, `REDIS_HOST`, or Sentinel).
+ * - `false`: Postgres; Redis required for the server (optional for controller / migrate).
  */
 import { existsSync, readFileSync } from 'node:fs';
 import os from 'node:os';
@@ -373,10 +373,12 @@ function optionalNonEmptyEnv(envKey: string): string | undefined {
 }
 
 /**
- * Exactly one Redis transport for distributed mode.
+ * Exactly one Redis transport when configured.
  * Transports are mutually exclusive: Sentinel, `REDIS_URL`, or `REDIS_HOST`.
+ * Returns undefined when none are set so controller / migrate can boot without Redis;
+ * the server fails at connect time if still unset.
  */
-function resolveRedisConnection(): RedisConnection {
+function resolveRedisConnection(): RedisConnection | undefined {
   const sentinelEnabled = parseBoolean({
     envKey: 'REDIS_SENTINEL_ENABLED',
     raw: getEnv('REDIS_SENTINEL_ENABLED'),
@@ -446,10 +448,7 @@ function resolveRedisConnection(): RedisConnection {
     };
   }
 
-  throw new Error(
-    'Set exactly one Redis transport when STANDALONE=false: REDIS_URL, REDIS_HOST, or ' +
-      'REDIS_SENTINEL_ENABLED with REDIS_SENTINEL_NODES and REDIS_SENTINEL_MASTER_NAME.',
-  );
+  return undefined;
 }
 
 /**
@@ -839,10 +838,11 @@ export type DistributedServerConfiguration = SharedServerConfiguration & {
    */
   POSTGRES_SCHEMA: string;
   /**
-   * Resolved Redis transport (exactly one of url / host / sentinel).
+   * Resolved Redis transport (exactly one of url / host / sentinel), or undefined.
+   * Required for the server process; optional for controller / migrate (no peering).
    * Env: mutually exclusive `REDIS_URL`, `REDIS_HOST`, or `REDIS_SENTINEL_*`.
    */
-  REDIS_CONNECTION: RedisConnection;
+  REDIS_CONNECTION: RedisConnection | undefined;
   /** Socket connect timeout for Redis clients. Env: `REDIS_CONNECT_TIMEOUT_MS`. Default 20000. */
   REDIS_CONNECT_TIMEOUT_MS: number;
   /** Client ping interval for Redis keepalive. Env: `REDIS_PING_INTERVAL_MS`. Default 5000. */

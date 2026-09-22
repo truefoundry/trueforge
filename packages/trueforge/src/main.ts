@@ -437,6 +437,12 @@ async function createDistributedPersistence(options: {
   });
   await migrateToLatest(db);
   logger.info(`Executor id: ${executorId}`);
+  if (redisConnection === undefined) {
+    throw new Error(
+      'Set exactly one Redis transport for the server when STANDALONE=false: REDIS_URL, REDIS_HOST, or ' +
+        'REDIS_SENTINEL_ENABLED with REDIS_SENTINEL_NODES and REDIS_SENTINEL_MASTER_NAME.',
+    );
+  }
   const serviceFoundryClient = createServiceFoundryServerClient(logger);
   const tokenStore = new PostgresOAuthTokenStore(db);
   const modelProviderStore = new PostgresModelProviderStore(db);
