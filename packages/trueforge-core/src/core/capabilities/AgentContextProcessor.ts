@@ -31,10 +31,7 @@ export type AgentContextProcessorOutput =
   | AgentContextProcessorCapabilityState;
 
 export interface PreSendContextProcessor {
-  processPreSend(
-    execution: Readonly<AgentThreadExecutionContext>,
-    options: { userMessageIncoming: boolean },
-  ): AsyncIterable<AgentContextProcessorAppendContext>;
+  processPreSend(execution: Readonly<AgentThreadExecutionContext>): AsyncIterable<AgentContextProcessorAppendContext>;
 }
 
 // NOTE: Saved in Redis, Saved in AgentThread in memory. Persisted accross Agent Loop.

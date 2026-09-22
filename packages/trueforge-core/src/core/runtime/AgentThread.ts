@@ -60,6 +60,7 @@ import type {
   AgentThreadConstructorInput,
   AgentThreadRuntimeSendBatch,
   AgentThreadRuntimeSendInput,
+  AgentThreadSendMode,
   AgentThreadSnapshot,
 } from './AgentThread.types';
 import {
@@ -94,7 +95,7 @@ import {
 } from './contextUtils';
 import { DeferredTool } from './DeferredTool';
 import { createEmptyAgentThreadMetrics, updateMetricsFromUsage, type AgentThreadMetrics } from './metrics';
-import { OpenToolCallCloser } from './OpenToolCallCloser';
+import { buildOpenToolCallClosure } from './OpenToolCallCloser';
 import { isEmptyMessageContent, processAgentUserInput, type AgentInputUserMessage } from './UserInputMessage';
 
 const DEFAULT_ITERATION_LIMIT = 25;
@@ -323,7 +324,7 @@ function validateInputMessageTypesGivenContext(
     }
   }
 
-  // User messages interrupt pending work (OpenToolCallCloser synthesizes responses).
+  // User messages interrupt pending work after AgentThread repairs the open tool calls.
   if (messages.some(isInputUserMessage)) {
     return;
   }
@@ -517,9 +518,7 @@ export class AgentThread {
     this.postToolCallContextProcessor = capabilities.flatMap(c => c.postToolCallProcessors ?? []);
     this.toolResponseProcessors = capabilities.flatMap(c => c.toolResponseProcessors ?? []);
     this.instructionBuilders = capabilities.flatMap(c => c.instructionBuilders ?? []);
-    const capabilityPreSend = capabilities.flatMap(c => c.preSendProcessors ?? []);
-    // OpenToolCallCloser is fixed core before contributed preSend processors.
-    this.preSendContextProcessors = [new OpenToolCallCloser(), ...capabilityPreSend];
+    this.preSendContextProcessors = capabilities.flatMap(c => c.preSendProcessors ?? []);
 
     assertUniqueStateKeys(capabilities);
     const claimed = claimCapabilityState(capabilities, input.capabilityState, this.logger);
@@ -578,9 +577,9 @@ export class AgentThread {
 
     this.contextBusy = true;
     try {
-      for await (const event of this.executeContextProcessors('preSend', {
-        userMessageIncoming: messages.some(isInputUserMessage),
-      })) {
+      const sendMode: AgentThreadSendMode = messages.some(isInputUserMessage) ? 'interrupt' : 'resume';
+      yield* this.closeOpenToolCalls(sendMode);
+      for await (const event of this.executeContextProcessors('preSend')) {
         yield event;
       }
       this.preSendRanThisTurn = true;
@@ -857,10 +856,25 @@ export class AgentThread {
     };
   }
 
-  private executeContextProcessors(
-    hook: 'preSend',
-    options: { userMessageIncoming: boolean },
-  ): AsyncGenerator<AgentThreadAppendContext, void, unknown>;
+  private *closeOpenToolCalls(mode: AgentThreadSendMode): Generator<AgentThreadAppendContext, void, unknown> {
+    const closure = buildOpenToolCallClosure({
+      context: this.context,
+      currentContextUsage: this.currentContextUsage,
+      mode,
+    });
+    if (!closure) {
+      return;
+    }
+
+    yield* this.appendToContext({
+      context: closure.context,
+      output: closure.output,
+      currentContextUsage: closure.current_context_usage,
+      usage: undefined,
+    });
+  }
+
+  private executeContextProcessors(hook: 'preSend'): AsyncGenerator<AgentThreadAppendContext, void, unknown>;
   private executeContextProcessors(
     hook: 'preLLM' | 'postToolCall',
   ): AsyncGenerator<
@@ -873,7 +887,6 @@ export class AgentThread {
   >;
   private async *executeContextProcessors(
     hook: 'preSend' | 'preLLM' | 'postToolCall',
-    options?: { userMessageIncoming: boolean },
   ): AsyncGenerator<
     | ThreadOverwriteContextEvent
     | AgentThreadAppendContext
@@ -887,10 +900,7 @@ export class AgentThread {
     ) => AsyncIterable<AgentContextProcessorOutput>)[];
     switch (hook) {
       case 'preSend':
-        processors = this.preSendContextProcessors.map(
-          p => (execution: Readonly<AgentThreadExecutionContext>) =>
-            p.processPreSend(execution, { userMessageIncoming: options?.userMessageIncoming === true }),
-        );
+        processors = this.preSendContextProcessors.map(p => p.processPreSend.bind(p));
         break;
       case 'preLLM':
         processors = this.preLLMContextProcessors.map(p => p.processPreLLM.bind(p));
@@ -1304,7 +1314,8 @@ export class AgentThread {
       }
 
       if (!this.preSendRanThisTurn) {
-        for await (const event of this.executeContextProcessors('preSend', { userMessageIncoming: false })) {
+        yield* this.closeOpenToolCalls('resume');
+        for await (const event of this.executeContextProcessors('preSend')) {
           yield event;
         }
       }
