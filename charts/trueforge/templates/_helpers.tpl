@@ -500,7 +500,7 @@ fields, wires bundled Postgres/Redis, optional OIDC, then server.extraEnv.
 {{- $env = append $env (include "trueforge.env.fromStringOrValueFrom" (dict "name" "REDIS_TLS_CA_CERT" "field" "externalRedis.tls.caCert" "value" $tls.caCert) | fromJson) -}}
 {{- end -}}
 {{- if $tls.serverName -}}
-{{- $env = append $env (dict "name" "REDIS_TLS_SERVERNAME" "value" $tls.serverName) -}}
+{{- $env = append $env (include "trueforge.env.fromStringOrValueFrom" (dict "name" "REDIS_TLS_SERVERNAME" "field" "externalRedis.tls.serverName" "value" $tls.serverName) | fromJson) -}}
 {{- end -}}
 {{- if $tls.cert -}}
 {{- $env = append $env (include "trueforge.env.fromStringOrValueFrom" (dict "name" "REDIS_TLS_CERT" "field" "externalRedis.tls.cert" "value" $tls.cert) | fromJson) -}}
