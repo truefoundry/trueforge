@@ -1,6 +1,6 @@
 ---
-'@truefoundry/trueforge-assistant-ui-runtime': major
-'@truefoundry/trueforge-ui': major
+'@truefoundry/trueforge-assistant-ui-runtime': minor
+'@truefoundry/trueforge-ui': minor
 '@truefoundry/trueforge': patch
 ---
 
