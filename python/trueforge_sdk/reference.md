@@ -3320,7 +3320,7 @@ client.catalogs.skills.list()
 <dl>
 <dd>
 
-Shipped web-search-provider presets (discovery-only). Copy into POST/PUT /settings/web-search-providers to configure.
+Shipped web-search provider presets.
 </dd>
 </dl>
 </dd>
@@ -4754,7 +4754,7 @@ client.settings.skills.create_or_update(
 </details>
 
 ## Settings WebSearchProviders
-<details><summary><code>client.settings.web_search_providers.<a href="src/trueforge_sdk/settings/web_search_providers/client.py">list</a>() -> ListWebSearchProvidersResponse</code></summary>
+<details><summary><code>client.settings.web_search_providers.<a href="src/trueforge_sdk/settings/web_search_providers/client.py">get</a>() -> GetWebSearchProviderResponse</code></summary>
 <dl>
 <dd>
 
@@ -4766,7 +4766,7 @@ client.settings.skills.create_or_update(
 <dl>
 <dd>
 
-All configured providers with nested manifests. `auth.api_key` is redacted.
+The configured provider for this tenant. `auth.api_key` is redacted when present.
 </dd>
 </dl>
 </dd>
@@ -4788,7 +4788,7 @@ client = TrueForge(
     base_url="https://yourhost.com/path/to/api",
 )
 
-client.settings.web_search_providers.list()
+client.settings.web_search_providers.get()
 
 ```
 </dd>
@@ -4800,84 +4800,6 @@ client.settings.web_search_providers.list()
 
 <dl>
 <dd>
-
-<dl>
-<dd>
-
-**request_options:** `typing.Optional[RequestOptions]` — Request-specific configuration.
-    
-</dd>
-</dl>
-</dd>
-</dl>
-
-
-</dd>
-</dl>
-</details>
-
-<details><summary><code>client.settings.web_search_providers.<a href="src/trueforge_sdk/settings/web_search_providers/client.py">create</a>(...) -> GetWebSearchProviderResponse</code></summary>
-<dl>
-<dd>
-
-#### 📝 Description
-
-<dl>
-<dd>
-
-<dl>
-<dd>
-
-Creates a provider. Fails if `name` is already taken. Well-known types use `type` as `name` (one each). `auth.api_key`: real value required; redacted with no stored secret returns 400.
-</dd>
-</dl>
-</dd>
-</dl>
-
-#### 🔌 Usage
-
-<dl>
-<dd>
-
-<dl>
-<dd>
-
-```python
-from trueforge_sdk import TrueForge, WebSearchProviderManifest, ParallelWebSearchProviderAuth, ParallelWebSearchMode
-
-client = TrueForge(
-    token="<token>",
-    base_url="https://yourhost.com/path/to/api",
-)
-
-client.settings.web_search_providers.create(
-    manifest=WebSearchProviderManifest(
-        auth=ParallelWebSearchProviderAuth(
-            api_key="api_key",
-        ),
-        mode=ParallelWebSearchMode.TURBO,
-        type="parallel",
-    ),
-)
-
-```
-</dd>
-</dl>
-</dd>
-</dl>
-
-#### ⚙️ Parameters
-
-<dl>
-<dd>
-
-<dl>
-<dd>
-
-**manifest:** `WebSearchProviderManifest` 
-    
-</dd>
-</dl>
 
 <dl>
 <dd>
@@ -4906,7 +4828,7 @@ client.settings.web_search_providers.create(
 <dl>
 <dd>
 
-Create or replace a provider. Well-known types use `type` as `name` (one each). `auth.api_key`: real value sets/rotates; redacted keeps existing (400 if none).
+Upserts the single web search provider for this tenant. `auth.api_key`: real value sets/rotates; redacted keeps existing (400 if none).
 </dd>
 </dl>
 </dd>
@@ -4921,7 +4843,7 @@ Create or replace a provider. Well-known types use `type` as `name` (one each). 
 <dd>
 
 ```python
-from trueforge_sdk import TrueForge, WebSearchProviderManifest, ParallelWebSearchProviderAuth, ParallelWebSearchMode
+from trueforge_sdk import TrueForge, WebSearchProviderManifest
 
 client = TrueForge(
     token="<token>",
@@ -4930,10 +4852,6 @@ client = TrueForge(
 
 client.settings.web_search_providers.create_or_update(
     manifest=WebSearchProviderManifest(
-        auth=ParallelWebSearchProviderAuth(
-            api_key="api_key",
-        ),
-        mode=ParallelWebSearchMode.TURBO,
         type="parallel",
     ),
 )

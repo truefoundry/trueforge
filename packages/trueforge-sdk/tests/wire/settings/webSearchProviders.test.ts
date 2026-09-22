@@ -5,12 +5,12 @@ import { TrueForge } from "../../../src/Client";
 import { mockServerPool } from "../../mock-server/MockServerPool";
 
 describe("WebSearchProvidersClient", () => {
-    test("list (1)", async () => {
+    test("get (1)", async () => {
         const server = mockServerPool.createServer();
         const client = new TrueForge({ maxRetries: 0, token: "test", baseUrl: server.baseUrl });
 
         const rawResponseBody = {
-            data: [{ manifest: { auth: { api_key: "api_key" }, mode: "turbo", type: "parallel" }, name: "name" }],
+            data: { manifest: { auth: { api_key: "api_key" }, type: "parallel" }, name: "name" },
         };
 
         server
@@ -21,24 +21,21 @@ describe("WebSearchProvidersClient", () => {
             .jsonBody(rawResponseBody)
             .build();
 
-        const response = await client.settings.webSearchProviders.list();
+        const response = await client.settings.webSearchProviders.get();
         expect(response).toEqual({
-            data: [
-                {
-                    manifest: {
-                        auth: {
-                            apiKey: "api_key",
-                        },
-                        mode: "turbo",
-                        type: "parallel",
+            data: {
+                manifest: {
+                    auth: {
+                        apiKey: "api_key",
                     },
-                    name: "name",
+                    type: "parallel",
                 },
-            ],
+                name: "name",
+            },
         });
     });
 
-    test("list (2)", async () => {
+    test("get (2)", async () => {
         const server = mockServerPool.createServer();
         const client = new TrueForge({ maxRetries: 0, token: "test", baseUrl: server.baseUrl });
 
@@ -53,11 +50,11 @@ describe("WebSearchProvidersClient", () => {
             .build();
 
         await expect(async () => {
-            return await client.settings.webSearchProviders.list();
+            return await client.settings.webSearchProviders.get();
         }).rejects.toThrow(TrueForgeTypes.UnauthorizedError);
     });
 
-    test("list (3)", async () => {
+    test("get (3)", async () => {
         const server = mockServerPool.createServer();
         const client = new TrueForge({ maxRetries: 0, token: "test", baseUrl: server.baseUrl });
 
@@ -72,140 +69,35 @@ describe("WebSearchProvidersClient", () => {
             .build();
 
         await expect(async () => {
-            return await client.settings.webSearchProviders.list();
+            return await client.settings.webSearchProviders.get();
         }).rejects.toThrow(TrueForgeTypes.ForbiddenError);
     });
 
-    test("create (1)", async () => {
+    test("get (4)", async () => {
         const server = mockServerPool.createServer();
         const client = new TrueForge({ maxRetries: 0, token: "test", baseUrl: server.baseUrl });
-        const rawRequestBody = { manifest: { auth: { api_key: "api_key" }, mode: "turbo", type: "parallel" } };
-        const rawResponseBody = {
-            data: { manifest: { auth: { api_key: "api_key" }, mode: "turbo", type: "parallel" }, name: "name" },
-        };
 
-        server
-            .mockEndpoint()
-            .post("/api/v1/settings/web-search-providers")
-            .jsonBody(rawRequestBody)
-            .respondWith()
-            .statusCode(200)
-            .jsonBody(rawResponseBody)
-            .build();
-
-        const response = await client.settings.webSearchProviders.create({
-            manifest: {
-                auth: {
-                    apiKey: "api_key",
-                },
-                mode: "turbo",
-                type: "parallel",
-            },
-        });
-        expect(response).toEqual({
-            data: {
-                manifest: {
-                    auth: {
-                        apiKey: "api_key",
-                    },
-                    mode: "turbo",
-                    type: "parallel",
-                },
-                name: "name",
-            },
-        });
-    });
-
-    test("create (2)", async () => {
-        const server = mockServerPool.createServer();
-        const client = new TrueForge({ maxRetries: 0, token: "test", baseUrl: server.baseUrl });
-        const rawRequestBody = { manifest: { auth: { api_key: "x" }, mode: "turbo", type: "parallel" } };
         const rawResponseBody = { error: { message: "message" } };
 
         server
             .mockEndpoint()
-            .post("/api/v1/settings/web-search-providers")
-            .jsonBody(rawRequestBody)
+            .get("/api/v1/settings/web-search-providers")
             .respondWith()
-            .statusCode(400)
+            .statusCode(404)
             .jsonBody(rawResponseBody)
             .build();
 
         await expect(async () => {
-            return await client.settings.webSearchProviders.create({
-                manifest: {
-                    auth: {
-                        apiKey: "x",
-                    },
-                    mode: "turbo",
-                    type: "parallel",
-                },
-            });
-        }).rejects.toThrow(TrueForgeTypes.BadRequestError);
-    });
-
-    test("create (3)", async () => {
-        const server = mockServerPool.createServer();
-        const client = new TrueForge({ maxRetries: 0, token: "test", baseUrl: server.baseUrl });
-        const rawRequestBody = { manifest: { auth: { api_key: "x" }, mode: "turbo", type: "parallel" } };
-        const rawResponseBody = { error: { message: "message" } };
-
-        server
-            .mockEndpoint()
-            .post("/api/v1/settings/web-search-providers")
-            .jsonBody(rawRequestBody)
-            .respondWith()
-            .statusCode(409)
-            .jsonBody(rawResponseBody)
-            .build();
-
-        await expect(async () => {
-            return await client.settings.webSearchProviders.create({
-                manifest: {
-                    auth: {
-                        apiKey: "x",
-                    },
-                    mode: "turbo",
-                    type: "parallel",
-                },
-            });
-        }).rejects.toThrow(TrueForgeTypes.ConflictError);
-    });
-
-    test("create (4)", async () => {
-        const server = mockServerPool.createServer();
-        const client = new TrueForge({ maxRetries: 0, token: "test", baseUrl: server.baseUrl });
-        const rawRequestBody = { manifest: { auth: { api_key: "x" }, mode: "turbo", type: "parallel" } };
-        const rawResponseBody = { error: { message: "message" } };
-
-        server
-            .mockEndpoint()
-            .post("/api/v1/settings/web-search-providers")
-            .jsonBody(rawRequestBody)
-            .respondWith()
-            .statusCode(424)
-            .jsonBody(rawResponseBody)
-            .build();
-
-        await expect(async () => {
-            return await client.settings.webSearchProviders.create({
-                manifest: {
-                    auth: {
-                        apiKey: "x",
-                    },
-                    mode: "turbo",
-                    type: "parallel",
-                },
-            });
-        }).rejects.toThrow(TrueForgeTypes.FailedDependencyError);
+            return await client.settings.webSearchProviders.get();
+        }).rejects.toThrow(TrueForgeTypes.NotFoundError);
     });
 
     test("create_or_update (1)", async () => {
         const server = mockServerPool.createServer();
         const client = new TrueForge({ maxRetries: 0, token: "test", baseUrl: server.baseUrl });
-        const rawRequestBody = { manifest: { auth: { api_key: "api_key" }, mode: "turbo", type: "parallel" } };
+        const rawRequestBody = { manifest: { type: "parallel" } };
         const rawResponseBody = {
-            data: { manifest: { auth: { api_key: "api_key" }, mode: "turbo", type: "parallel" }, name: "name" },
+            data: { manifest: { auth: { api_key: "api_key" }, type: "parallel" }, name: "name" },
         };
 
         server
@@ -219,10 +111,6 @@ describe("WebSearchProvidersClient", () => {
 
         const response = await client.settings.webSearchProviders.createOrUpdate({
             manifest: {
-                auth: {
-                    apiKey: "api_key",
-                },
-                mode: "turbo",
                 type: "parallel",
             },
         });
@@ -232,7 +120,6 @@ describe("WebSearchProvidersClient", () => {
                     auth: {
                         apiKey: "api_key",
                     },
-                    mode: "turbo",
                     type: "parallel",
                 },
                 name: "name",
@@ -243,7 +130,7 @@ describe("WebSearchProvidersClient", () => {
     test("create_or_update (2)", async () => {
         const server = mockServerPool.createServer();
         const client = new TrueForge({ maxRetries: 0, token: "test", baseUrl: server.baseUrl });
-        const rawRequestBody = { manifest: { auth: { api_key: "x" }, mode: "turbo", type: "parallel" } };
+        const rawRequestBody = { manifest: { type: "parallel" } };
         const rawResponseBody = { error: { message: "message" } };
 
         server
@@ -258,10 +145,6 @@ describe("WebSearchProvidersClient", () => {
         await expect(async () => {
             return await client.settings.webSearchProviders.createOrUpdate({
                 manifest: {
-                    auth: {
-                        apiKey: "x",
-                    },
-                    mode: "turbo",
                     type: "parallel",
                 },
             });
@@ -271,7 +154,7 @@ describe("WebSearchProvidersClient", () => {
     test("create_or_update (3)", async () => {
         const server = mockServerPool.createServer();
         const client = new TrueForge({ maxRetries: 0, token: "test", baseUrl: server.baseUrl });
-        const rawRequestBody = { manifest: { auth: { api_key: "x" }, mode: "turbo", type: "parallel" } };
+        const rawRequestBody = { manifest: { type: "parallel" } };
         const rawResponseBody = { error: { message: "message" } };
 
         server
@@ -286,10 +169,6 @@ describe("WebSearchProvidersClient", () => {
         await expect(async () => {
             return await client.settings.webSearchProviders.createOrUpdate({
                 manifest: {
-                    auth: {
-                        apiKey: "x",
-                    },
-                    mode: "turbo",
                     type: "parallel",
                 },
             });

@@ -5,11 +5,9 @@ import typing
 import pydantic
 from ..core.pydantic_utilities import IS_PYDANTIC_V2
 from ..core.unchecked_base_model import UncheckedBaseModel
-from .parallel_web_search_mode import ParallelWebSearchMode
 
 
 class CatalogWebSearchProvider(UncheckedBaseModel):
-    mode: ParallelWebSearchMode
     type: typing.Literal["parallel"] = pydantic.Field(default="parallel")
     """
     Parallel web-search provider.

@@ -2810,7 +2810,7 @@ await client.catalogs.skills.list();
 <dl>
 <dd>
 
-Shipped web-search-provider presets (discovery-only). Copy into POST/PUT /settings/web-search-providers to configure.
+Shipped web-search provider presets.
 </dd>
 </dl>
 </dd>
@@ -4045,7 +4045,7 @@ await client.settings.skills.createOrUpdate({
 </details>
 
 ## Settings WebSearchProviders
-<details><summary><code>client.settings.webSearchProviders.<a href="/src/api/resources/settings/resources/webSearchProviders/client/Client.ts">list</a>() -> TrueForge.ListWebSearchProvidersResponse</code></summary>
+<details><summary><code>client.settings.webSearchProviders.<a href="/src/api/resources/settings/resources/webSearchProviders/client/Client.ts">get</a>() -> TrueForge.GetWebSearchProviderResponse</code></summary>
 <dl>
 <dd>
 
@@ -4057,7 +4057,7 @@ await client.settings.skills.createOrUpdate({
 <dl>
 <dd>
 
-All configured providers with nested manifests. `auth.api_key` is redacted.
+The configured provider for this tenant. `auth.api_key` is redacted when present.
 </dd>
 </dl>
 </dd>
@@ -4072,7 +4072,7 @@ All configured providers with nested manifests. `auth.api_key` is redacted.
 <dd>
 
 ```typescript
-await client.settings.webSearchProviders.list();
+await client.settings.webSearchProviders.get();
 
 ```
 </dd>
@@ -4084,77 +4084,6 @@ await client.settings.webSearchProviders.list();
 
 <dl>
 <dd>
-
-<dl>
-<dd>
-
-**requestOptions:** `WebSearchProvidersClient.RequestOptions` 
-    
-</dd>
-</dl>
-</dd>
-</dl>
-
-
-</dd>
-</dl>
-</details>
-
-<details><summary><code>client.settings.webSearchProviders.<a href="/src/api/resources/settings/resources/webSearchProviders/client/Client.ts">create</a>({ ...params }) -> TrueForge.GetWebSearchProviderResponse</code></summary>
-<dl>
-<dd>
-
-#### 📝 Description
-
-<dl>
-<dd>
-
-<dl>
-<dd>
-
-Creates a provider. Fails if `name` is already taken. Well-known types use `type` as `name` (one each). `auth.api_key`: real value required; redacted with no stored secret returns 400.
-</dd>
-</dl>
-</dd>
-</dl>
-
-#### 🔌 Usage
-
-<dl>
-<dd>
-
-<dl>
-<dd>
-
-```typescript
-await client.settings.webSearchProviders.create({
-    manifest: {
-        auth: {
-            apiKey: "api_key"
-        },
-        mode: "turbo",
-        type: "parallel"
-    }
-});
-
-```
-</dd>
-</dl>
-</dd>
-</dl>
-
-#### ⚙️ Parameters
-
-<dl>
-<dd>
-
-<dl>
-<dd>
-
-**request:** `TrueForge.settings.CreateWebSearchProviderRequest` 
-    
-</dd>
-</dl>
 
 <dl>
 <dd>
@@ -4183,7 +4112,7 @@ await client.settings.webSearchProviders.create({
 <dl>
 <dd>
 
-Create or replace a provider. Well-known types use `type` as `name` (one each). `auth.api_key`: real value sets/rotates; redacted keeps existing (400 if none).
+Upserts the single web search provider for this tenant. `auth.api_key`: real value sets/rotates; redacted keeps existing (400 if none).
 </dd>
 </dl>
 </dd>
@@ -4200,10 +4129,6 @@ Create or replace a provider. Well-known types use `type` as `name` (one each). 
 ```typescript
 await client.settings.webSearchProviders.createOrUpdate({
     manifest: {
-        auth: {
-            apiKey: "api_key"
-        },
-        mode: "turbo",
         type: "parallel"
     }
 });

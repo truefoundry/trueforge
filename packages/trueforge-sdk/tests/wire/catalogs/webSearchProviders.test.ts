@@ -9,7 +9,7 @@ describe("WebSearchProvidersClient", () => {
         const server = mockServerPool.createServer();
         const client = new TrueForge({ maxRetries: 0, token: "test", baseUrl: server.baseUrl });
 
-        const rawResponseBody = { data: [{ mode: "turbo", type: "parallel" }] };
+        const rawResponseBody = { data: [{ type: "parallel" }] };
 
         server
             .mockEndpoint()
@@ -23,7 +23,6 @@ describe("WebSearchProvidersClient", () => {
         expect(response).toEqual({
             data: [
                 {
-                    mode: "turbo",
                     type: "parallel",
                 },
             ],

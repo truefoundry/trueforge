@@ -23,7 +23,7 @@ export class WebSearchProvidersClient {
     }
 
     /**
-     * Shipped web-search-provider presets (discovery-only). Copy into POST/PUT /settings/web-search-providers to configure.
+     * Shipped web-search provider presets.
      *
      * @param {WebSearchProvidersClient.RequestOptions} requestOptions - Request-specific configuration.
      *

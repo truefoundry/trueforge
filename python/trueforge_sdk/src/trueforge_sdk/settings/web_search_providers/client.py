@@ -5,7 +5,6 @@ import typing
 from ...core.client_wrapper import AsyncClientWrapper, SyncClientWrapper
 from ...core.request_options import RequestOptions
 from ...types.get_web_search_provider_response import GetWebSearchProviderResponse
-from ...types.list_web_search_providers_response import ListWebSearchProvidersResponse
 from ...types.web_search_provider_manifest import WebSearchProviderManifest
 from .raw_client import AsyncRawWebSearchProvidersClient, RawWebSearchProvidersClient
 
@@ -28,9 +27,9 @@ class WebSearchProvidersClient:
         """
         return self._raw_client
 
-    def list(self, *, request_options: typing.Optional[RequestOptions] = None) -> ListWebSearchProvidersResponse:
+    def get(self, *, request_options: typing.Optional[RequestOptions] = None) -> GetWebSearchProviderResponse:
         """
-        All configured providers with nested manifests. `auth.api_key` is redacted.
+        The configured provider for this tenant. `auth.api_key` is redacted when present.
 
         Parameters
         ----------
@@ -39,8 +38,8 @@ class WebSearchProvidersClient:
 
         Returns
         -------
-        ListWebSearchProvidersResponse
-            All configured web-search providers
+        GetWebSearchProviderResponse
+            The configured web search provider.
 
         Examples
         --------
@@ -50,59 +49,16 @@ class WebSearchProvidersClient:
             token="YOUR_TOKEN",
             base_url="https://yourhost.com/path/to/api",
         )
-        client.settings.web_search_providers.list()
+        client.settings.web_search_providers.get()
         """
-        _response = self._raw_client.list(request_options=request_options)
-        return _response.data
-
-    def create(
-        self, *, manifest: WebSearchProviderManifest, request_options: typing.Optional[RequestOptions] = None
-    ) -> GetWebSearchProviderResponse:
-        """
-        Creates a provider. Fails if `name` is already taken. Well-known types use `type` as `name` (one each). `auth.api_key`: real value required; redacted with no stored secret returns 400.
-
-        Parameters
-        ----------
-        manifest : WebSearchProviderManifest
-
-        request_options : typing.Optional[RequestOptions]
-            Request-specific configuration.
-
-        Returns
-        -------
-        GetWebSearchProviderResponse
-            The created provider
-
-        Examples
-        --------
-        from trueforge_sdk import (
-            ParallelWebSearchMode,
-            ParallelWebSearchProviderAuth,
-            TrueForge,
-            WebSearchProviderManifest,
-        )
-
-        client = TrueForge(
-            token="YOUR_TOKEN",
-            base_url="https://yourhost.com/path/to/api",
-        )
-        client.settings.web_search_providers.create(
-            manifest=WebSearchProviderManifest(
-                auth=ParallelWebSearchProviderAuth(
-                    api_key="api_key",
-                ),
-                mode=ParallelWebSearchMode.TURBO,
-            ),
-        )
-        """
-        _response = self._raw_client.create(manifest=manifest, request_options=request_options)
+        _response = self._raw_client.get(request_options=request_options)
         return _response.data
 
     def create_or_update(
         self, *, manifest: WebSearchProviderManifest, request_options: typing.Optional[RequestOptions] = None
     ) -> GetWebSearchProviderResponse:
         """
-        Create or replace a provider. Well-known types use `type` as `name` (one each). `auth.api_key`: real value sets/rotates; redacted keeps existing (400 if none).
+        Upserts the single web search provider for this tenant. `auth.api_key`: real value sets/rotates; redacted keeps existing (400 if none).
 
         Parameters
         ----------
@@ -114,28 +70,18 @@ class WebSearchProvidersClient:
         Returns
         -------
         GetWebSearchProviderResponse
-            The saved provider
+            The saved provider.
 
         Examples
         --------
-        from trueforge_sdk import (
-            ParallelWebSearchMode,
-            ParallelWebSearchProviderAuth,
-            TrueForge,
-            WebSearchProviderManifest,
-        )
+        from trueforge_sdk import TrueForge, WebSearchProviderManifest
 
         client = TrueForge(
             token="YOUR_TOKEN",
             base_url="https://yourhost.com/path/to/api",
         )
         client.settings.web_search_providers.create_or_update(
-            manifest=WebSearchProviderManifest(
-                auth=ParallelWebSearchProviderAuth(
-                    api_key="api_key",
-                ),
-                mode=ParallelWebSearchMode.TURBO,
-            ),
+            manifest=WebSearchProviderManifest(),
         )
         """
         _response = self._raw_client.create_or_update(manifest=manifest, request_options=request_options)
@@ -157,9 +103,9 @@ class AsyncWebSearchProvidersClient:
         """
         return self._raw_client
 
-    async def list(self, *, request_options: typing.Optional[RequestOptions] = None) -> ListWebSearchProvidersResponse:
+    async def get(self, *, request_options: typing.Optional[RequestOptions] = None) -> GetWebSearchProviderResponse:
         """
-        All configured providers with nested manifests. `auth.api_key` is redacted.
+        The configured provider for this tenant. `auth.api_key` is redacted when present.
 
         Parameters
         ----------
@@ -168,8 +114,8 @@ class AsyncWebSearchProvidersClient:
 
         Returns
         -------
-        ListWebSearchProvidersResponse
-            All configured web-search providers
+        GetWebSearchProviderResponse
+            The configured web search provider.
 
         Examples
         --------
@@ -184,70 +130,19 @@ class AsyncWebSearchProvidersClient:
 
 
         async def main() -> None:
-            await client.settings.web_search_providers.list()
+            await client.settings.web_search_providers.get()
 
 
         asyncio.run(main())
         """
-        _response = await self._raw_client.list(request_options=request_options)
-        return _response.data
-
-    async def create(
-        self, *, manifest: WebSearchProviderManifest, request_options: typing.Optional[RequestOptions] = None
-    ) -> GetWebSearchProviderResponse:
-        """
-        Creates a provider. Fails if `name` is already taken. Well-known types use `type` as `name` (one each). `auth.api_key`: real value required; redacted with no stored secret returns 400.
-
-        Parameters
-        ----------
-        manifest : WebSearchProviderManifest
-
-        request_options : typing.Optional[RequestOptions]
-            Request-specific configuration.
-
-        Returns
-        -------
-        GetWebSearchProviderResponse
-            The created provider
-
-        Examples
-        --------
-        import asyncio
-
-        from trueforge_sdk import (
-            AsyncTrueForge,
-            ParallelWebSearchMode,
-            ParallelWebSearchProviderAuth,
-            WebSearchProviderManifest,
-        )
-
-        client = AsyncTrueForge(
-            token="YOUR_TOKEN",
-            base_url="https://yourhost.com/path/to/api",
-        )
-
-
-        async def main() -> None:
-            await client.settings.web_search_providers.create(
-                manifest=WebSearchProviderManifest(
-                    auth=ParallelWebSearchProviderAuth(
-                        api_key="api_key",
-                    ),
-                    mode=ParallelWebSearchMode.TURBO,
-                ),
-            )
-
-
-        asyncio.run(main())
-        """
-        _response = await self._raw_client.create(manifest=manifest, request_options=request_options)
+        _response = await self._raw_client.get(request_options=request_options)
         return _response.data
 
     async def create_or_update(
         self, *, manifest: WebSearchProviderManifest, request_options: typing.Optional[RequestOptions] = None
     ) -> GetWebSearchProviderResponse:
         """
-        Create or replace a provider. Well-known types use `type` as `name` (one each). `auth.api_key`: real value sets/rotates; redacted keeps existing (400 if none).
+        Upserts the single web search provider for this tenant. `auth.api_key`: real value sets/rotates; redacted keeps existing (400 if none).
 
         Parameters
         ----------
@@ -259,18 +154,13 @@ class AsyncWebSearchProvidersClient:
         Returns
         -------
         GetWebSearchProviderResponse
-            The saved provider
+            The saved provider.
 
         Examples
         --------
         import asyncio
 
-        from trueforge_sdk import (
-            AsyncTrueForge,
-            ParallelWebSearchMode,
-            ParallelWebSearchProviderAuth,
-            WebSearchProviderManifest,
-        )
+        from trueforge_sdk import AsyncTrueForge, WebSearchProviderManifest
 
         client = AsyncTrueForge(
             token="YOUR_TOKEN",
@@ -280,12 +170,7 @@ class AsyncWebSearchProvidersClient:
 
         async def main() -> None:
             await client.settings.web_search_providers.create_or_update(
-                manifest=WebSearchProviderManifest(
-                    auth=ParallelWebSearchProviderAuth(
-                        api_key="api_key",
-                    ),
-                    mode=ParallelWebSearchMode.TURBO,
-                ),
+                manifest=WebSearchProviderManifest(),
             )
 
 

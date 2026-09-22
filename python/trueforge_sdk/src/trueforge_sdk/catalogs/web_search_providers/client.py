@@ -25,7 +25,7 @@ class WebSearchProvidersClient:
 
     def list(self, *, request_options: typing.Optional[RequestOptions] = None) -> GetWebSearchProviderCatalogResponse:
         """
-        Shipped web-search-provider presets (discovery-only). Copy into POST/PUT /settings/web-search-providers to configure.
+        Shipped web-search provider presets.
 
         Parameters
         ----------
@@ -35,7 +35,7 @@ class WebSearchProvidersClient:
         Returns
         -------
         GetWebSearchProviderCatalogResponse
-            Shipped web-search-provider presets.
+            Shipped web-search provider presets.
 
         Examples
         --------
@@ -70,7 +70,7 @@ class AsyncWebSearchProvidersClient:
         self, *, request_options: typing.Optional[RequestOptions] = None
     ) -> GetWebSearchProviderCatalogResponse:
         """
-        Shipped web-search-provider presets (discovery-only). Copy into POST/PUT /settings/web-search-providers to configure.
+        Shipped web-search provider presets.
 
         Parameters
         ----------
@@ -80,7 +80,7 @@ class AsyncWebSearchProvidersClient:
         Returns
         -------
         GetWebSearchProviderCatalogResponse
-            Shipped web-search-provider presets.
+            Shipped web-search provider presets.
 
         Examples
         --------

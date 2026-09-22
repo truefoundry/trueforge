@@ -3,22 +3,19 @@
 import type * as TrueForge from "../../api/index.js";
 import * as core from "../../core/index.js";
 import type * as serializers from "../index.js";
-import { ParallelWebSearchMode } from "./ParallelWebSearchMode.js";
 import { ParallelWebSearchProviderAuth } from "./ParallelWebSearchProviderAuth.js";
 
 export const WebSearchProviderManifest: core.serialization.ObjectSchema<
     serializers.WebSearchProviderManifest.Raw,
     TrueForge.WebSearchProviderManifest
 > = core.serialization.object({
-    auth: ParallelWebSearchProviderAuth,
-    mode: ParallelWebSearchMode,
+    auth: ParallelWebSearchProviderAuth.optional(),
     type: core.serialization.stringLiteral("parallel"),
 });
 
 export declare namespace WebSearchProviderManifest {
     export interface Raw {
-        auth: ParallelWebSearchProviderAuth.Raw;
-        mode: ParallelWebSearchMode.Raw;
+        auth?: ParallelWebSearchProviderAuth.Raw | null;
         type: "parallel";
     }
 }

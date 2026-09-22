@@ -3,19 +3,16 @@
 import type * as TrueForge from "../../api/index.js";
 import * as core from "../../core/index.js";
 import type * as serializers from "../index.js";
-import { ParallelWebSearchMode } from "./ParallelWebSearchMode.js";
 
 export const CatalogWebSearchProvider: core.serialization.ObjectSchema<
     serializers.CatalogWebSearchProvider.Raw,
     TrueForge.CatalogWebSearchProvider
 > = core.serialization.object({
-    mode: ParallelWebSearchMode,
     type: core.serialization.stringLiteral("parallel"),
 });
 
 export declare namespace CatalogWebSearchProvider {
     export interface Raw {
-        mode: ParallelWebSearchMode.Raw;
         type: "parallel";
     }
 }

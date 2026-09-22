@@ -24,27 +24,28 @@ export class WebSearchProvidersClient {
     }
 
     /**
-     * All configured providers with nested manifests. `auth.api_key` is redacted.
+     * The configured provider for this tenant. `auth.api_key` is redacted when present.
      *
      * @param {WebSearchProvidersClient.RequestOptions} requestOptions - Request-specific configuration.
      *
      * @throws {@link TrueForge.UnauthorizedError}
      * @throws {@link TrueForge.ForbiddenError}
+     * @throws {@link TrueForge.NotFoundError}
      * @throws {@link errors.TrueForgeError}
      * @throws {@link errors.TrueForgeTimeoutError}
      *
      * @example
-     *     await client.settings.webSearchProviders.list()
+     *     await client.settings.webSearchProviders.get()
      */
-    public list(
+    public get(
         requestOptions?: WebSearchProvidersClient.RequestOptions,
-    ): core.HttpResponsePromise<TrueForge.ListWebSearchProvidersResponse> {
-        return core.HttpResponsePromise.fromPromise(this.__list(requestOptions));
+    ): core.HttpResponsePromise<TrueForge.GetWebSearchProviderResponse> {
+        return core.HttpResponsePromise.fromPromise(this.__get(requestOptions));
     }
 
-    private async __list(
+    private async __get(
         requestOptions?: WebSearchProvidersClient.RequestOptions,
-    ): Promise<core.WithRawResponse<TrueForge.ListWebSearchProvidersResponse>> {
+    ): Promise<core.WithRawResponse<TrueForge.GetWebSearchProviderResponse>> {
         const _authRequest: core.AuthRequest = await this._options.authProvider.getAuthRequest();
         const _headers: core.Fetcher.Args["headers"] = mergeHeaders(
             _authRequest.headers,
@@ -68,7 +69,7 @@ export class WebSearchProvidersClient {
         });
         if (_response.ok) {
             return {
-                data: serializers.ListWebSearchProvidersResponse.parseOrThrow(_response.body, {
+                data: serializers.GetWebSearchProviderResponse.parseOrThrow(_response.body, {
                     unrecognizedObjectKeys: "passthrough",
                     allowUnrecognizedUnionMembers: true,
                     allowUnrecognizedEnumValues: true,
@@ -103,6 +104,17 @@ export class WebSearchProvidersClient {
                         }),
                         _response.rawResponse,
                     );
+                case 404:
+                    throw new TrueForge.NotFoundError(
+                        serializers.RequestErrorResponse.parseOrThrow(_response.error.body, {
+                            unrecognizedObjectKeys: "passthrough",
+                            allowUnrecognizedUnionMembers: true,
+                            allowUnrecognizedEnumValues: true,
+                            skipValidation: true,
+                            breadcrumbsPrefix: ["response"],
+                        }),
+                        _response.rawResponse,
+                    );
                 default:
                     throw new errors.TrueForgeError({
                         statusCode: _response.error.statusCode,
@@ -121,138 +133,7 @@ export class WebSearchProvidersClient {
     }
 
     /**
-     * Creates a provider. Fails if `name` is already taken. Well-known types use `type` as `name` (one each). `auth.api_key`: real value required; redacted with no stored secret returns 400.
-     *
-     * @param {TrueForge.settings.CreateWebSearchProviderRequest} request
-     * @param {WebSearchProvidersClient.RequestOptions} requestOptions - Request-specific configuration.
-     *
-     * @throws {@link TrueForge.BadRequestError}
-     * @throws {@link TrueForge.ConflictError}
-     * @throws {@link TrueForge.FailedDependencyError}
-     * @throws {@link errors.TrueForgeError}
-     * @throws {@link errors.TrueForgeTimeoutError}
-     *
-     * @example
-     *     await client.settings.webSearchProviders.create({
-     *         manifest: {
-     *             auth: {
-     *                 apiKey: "api_key"
-     *             },
-     *             mode: "turbo",
-     *             type: "parallel"
-     *         }
-     *     })
-     */
-    public create(
-        request: TrueForge.settings.CreateWebSearchProviderRequest,
-        requestOptions?: WebSearchProvidersClient.RequestOptions,
-    ): core.HttpResponsePromise<TrueForge.GetWebSearchProviderResponse> {
-        return core.HttpResponsePromise.fromPromise(this.__create(request, requestOptions));
-    }
-
-    private async __create(
-        request: TrueForge.settings.CreateWebSearchProviderRequest,
-        requestOptions?: WebSearchProvidersClient.RequestOptions,
-    ): Promise<core.WithRawResponse<TrueForge.GetWebSearchProviderResponse>> {
-        const _authRequest: core.AuthRequest = await this._options.authProvider.getAuthRequest();
-        const _headers: core.Fetcher.Args["headers"] = mergeHeaders(
-            _authRequest.headers,
-            this._options?.headers,
-            requestOptions?.headers,
-        );
-        const _response = await (this._options.fetcher ?? core.fetcher)({
-            url: core.url.join(
-                (await core.Supplier.get(this._options.baseUrl)) ??
-                    (await core.Supplier.get(this._options.environment)),
-                "api/v1/settings/web-search-providers",
-            ),
-            method: "POST",
-            headers: _headers,
-            contentType: "application/json",
-            queryString: core.url.queryBuilder().mergeAdditional(requestOptions?.queryParams).build(),
-            requestType: "json",
-            body: mergeAdditionalBodyParameters(
-                serializers.settings.CreateWebSearchProviderRequest.jsonOrThrow(request, {
-                    unrecognizedObjectKeys: "passthrough",
-                    allowUnrecognizedUnionMembers: true,
-                    allowUnrecognizedEnumValues: true,
-                    omitUndefined: true,
-                }),
-                requestOptions?.additionalBodyParameters,
-            ),
-            timeoutMs: (requestOptions?.timeoutInSeconds ?? this._options?.timeoutInSeconds ?? 60) * 1000,
-            maxRetries: requestOptions?.maxRetries ?? this._options?.maxRetries,
-            abortSignal: requestOptions?.abortSignal,
-            fetchFn: this._options?.fetch,
-            logging: this._options.logging,
-        });
-        if (_response.ok) {
-            return {
-                data: serializers.GetWebSearchProviderResponse.parseOrThrow(_response.body, {
-                    unrecognizedObjectKeys: "passthrough",
-                    allowUnrecognizedUnionMembers: true,
-                    allowUnrecognizedEnumValues: true,
-                    skipValidation: true,
-                    breadcrumbsPrefix: ["response"],
-                }),
-                rawResponse: _response.rawResponse,
-            };
-        }
-
-        if (_response.error.reason === "status-code") {
-            switch (_response.error.statusCode) {
-                case 400:
-                    throw new TrueForge.BadRequestError(
-                        serializers.RequestErrorResponse.parseOrThrow(_response.error.body, {
-                            unrecognizedObjectKeys: "passthrough",
-                            allowUnrecognizedUnionMembers: true,
-                            allowUnrecognizedEnumValues: true,
-                            skipValidation: true,
-                            breadcrumbsPrefix: ["response"],
-                        }),
-                        _response.rawResponse,
-                    );
-                case 409:
-                    throw new TrueForge.ConflictError(
-                        serializers.RequestErrorResponse.parseOrThrow(_response.error.body, {
-                            unrecognizedObjectKeys: "passthrough",
-                            allowUnrecognizedUnionMembers: true,
-                            allowUnrecognizedEnumValues: true,
-                            skipValidation: true,
-                            breadcrumbsPrefix: ["response"],
-                        }),
-                        _response.rawResponse,
-                    );
-                case 424:
-                    throw new TrueForge.FailedDependencyError(
-                        serializers.RequestErrorResponse.parseOrThrow(_response.error.body, {
-                            unrecognizedObjectKeys: "passthrough",
-                            allowUnrecognizedUnionMembers: true,
-                            allowUnrecognizedEnumValues: true,
-                            skipValidation: true,
-                            breadcrumbsPrefix: ["response"],
-                        }),
-                        _response.rawResponse,
-                    );
-                default:
-                    throw new errors.TrueForgeError({
-                        statusCode: _response.error.statusCode,
-                        body: _response.error.body,
-                        rawResponse: _response.rawResponse,
-                    });
-            }
-        }
-
-        return handleNonStatusCodeError(
-            _response.error,
-            _response.rawResponse,
-            "POST",
-            "/api/v1/settings/web-search-providers",
-        );
-    }
-
-    /**
-     * Create or replace a provider. Well-known types use `type` as `name` (one each). `auth.api_key`: real value sets/rotates; redacted keeps existing (400 if none).
+     * Upserts the single web search provider for this tenant. `auth.api_key`: real value sets/rotates; redacted keeps existing (400 if none).
      *
      * @param {TrueForge.settings.UpdateWebSearchProviderRequest} request
      * @param {WebSearchProvidersClient.RequestOptions} requestOptions - Request-specific configuration.
@@ -265,10 +146,6 @@ export class WebSearchProvidersClient {
      * @example
      *     await client.settings.webSearchProviders.createOrUpdate({
      *         manifest: {
-     *             auth: {
-     *                 apiKey: "api_key"
-     *             },
-     *             mode: "turbo",
      *             type: "parallel"
      *         }
      *     })

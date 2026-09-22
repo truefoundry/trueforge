@@ -114,7 +114,6 @@ if typing.TYPE_CHECKING:
     from .list_turn_events_order import ListTurnEventsOrder
     from .list_turn_events_response import ListTurnEventsResponse
     from .list_turns_response import ListTurnsResponse
-    from .list_web_search_providers_response import ListWebSearchProvidersResponse
     from .mcp_auth_required_event import McpAuthRequiredEvent
     from .mcp_auth_status import McpAuthStatus
     from .mcp_auth_status_status import McpAuthStatusStatus
@@ -149,7 +148,6 @@ if typing.TYPE_CHECKING:
     from .model_provider_manifest import ModelProviderManifest
     from .moonshot_model_provider import MoonshotModelProvider
     from .open_ai_model_provider import OpenAiModelProvider
-    from .parallel_web_search_mode import ParallelWebSearchMode
     from .parallel_web_search_provider_auth import ParallelWebSearchProviderAuth
     from .permission_resource_type import PermissionResourceType
     from .previous_turn_id_input import PreviousTurnIdInput
@@ -360,7 +358,6 @@ _dynamic_imports: typing.Dict[str, str] = {
     "ListTurnEventsOrder": ".list_turn_events_order",
     "ListTurnEventsResponse": ".list_turn_events_response",
     "ListTurnsResponse": ".list_turns_response",
-    "ListWebSearchProvidersResponse": ".list_web_search_providers_response",
     "McpAuthRequiredEvent": ".mcp_auth_required_event",
     "McpAuthStatus": ".mcp_auth_status",
     "McpAuthStatusStatus": ".mcp_auth_status_status",
@@ -395,7 +392,6 @@ _dynamic_imports: typing.Dict[str, str] = {
     "ModelProviderManifest": ".model_provider_manifest",
     "MoonshotModelProvider": ".moonshot_model_provider",
     "OpenAiModelProvider": ".open_ai_model_provider",
-    "ParallelWebSearchMode": ".parallel_web_search_mode",
     "ParallelWebSearchProviderAuth": ".parallel_web_search_provider_auth",
     "PermissionResourceType": ".permission_resource_type",
     "PreviousTurnIdInput": ".previous_turn_id_input",
@@ -630,7 +626,6 @@ __all__ = [
     "ListTurnEventsOrder",
     "ListTurnEventsResponse",
     "ListTurnsResponse",
-    "ListWebSearchProvidersResponse",
     "McpAuthRequiredEvent",
     "McpAuthStatus",
     "McpAuthStatusStatus",
@@ -665,7 +660,6 @@ __all__ = [
     "ModelProviderManifest",
     "MoonshotModelProvider",
     "OpenAiModelProvider",
-    "ParallelWebSearchMode",
     "ParallelWebSearchProviderAuth",
     "PermissionResourceType",
     "PreviousTurnIdInput",

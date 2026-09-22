@@ -23,7 +23,7 @@ class RawWebSearchProvidersClient:
         self, *, request_options: typing.Optional[RequestOptions] = None
     ) -> HttpResponse[GetWebSearchProviderCatalogResponse]:
         """
-        Shipped web-search-provider presets (discovery-only). Copy into POST/PUT /settings/web-search-providers to configure.
+        Shipped web-search provider presets.
 
         Parameters
         ----------
@@ -33,7 +33,7 @@ class RawWebSearchProvidersClient:
         Returns
         -------
         HttpResponse[GetWebSearchProviderCatalogResponse]
-            Shipped web-search-provider presets.
+            Shipped web-search provider presets.
         """
         _response = self._client_wrapper.httpx_client.request(
             "api/v1/catalogs/web-search-providers",
@@ -79,7 +79,7 @@ class AsyncRawWebSearchProvidersClient:
         self, *, request_options: typing.Optional[RequestOptions] = None
     ) -> AsyncHttpResponse[GetWebSearchProviderCatalogResponse]:
         """
-        Shipped web-search-provider presets (discovery-only). Copy into POST/PUT /settings/web-search-providers to configure.
+        Shipped web-search provider presets.
 
         Parameters
         ----------
@@ -89,7 +89,7 @@ class AsyncRawWebSearchProvidersClient:
         Returns
         -------
         AsyncHttpResponse[GetWebSearchProviderCatalogResponse]
-            Shipped web-search-provider presets.
+            Shipped web-search provider presets.
         """
         _response = await self._client_wrapper.httpx_client.request(
             "api/v1/catalogs/web-search-providers",

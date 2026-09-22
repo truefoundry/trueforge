@@ -11,12 +11,11 @@ from ...core.request_options import RequestOptions
 from ...core.serialization import convert_and_respect_annotation_metadata
 from ...core.unchecked_base_model import construct_type
 from ...errors.bad_request_error import BadRequestError
-from ...errors.conflict_error import ConflictError
 from ...errors.failed_dependency_error import FailedDependencyError
 from ...errors.forbidden_error import ForbiddenError
+from ...errors.not_found_error import NotFoundError
 from ...errors.unauthorized_error import UnauthorizedError
 from ...types.get_web_search_provider_response import GetWebSearchProviderResponse
-from ...types.list_web_search_providers_response import ListWebSearchProvidersResponse
 from ...types.request_error_response import RequestErrorResponse
 from ...types.web_search_provider_manifest import WebSearchProviderManifest
 from pydantic import ValidationError
@@ -29,11 +28,11 @@ class RawWebSearchProvidersClient:
     def __init__(self, *, client_wrapper: SyncClientWrapper):
         self._client_wrapper = client_wrapper
 
-    def list(
+    def get(
         self, *, request_options: typing.Optional[RequestOptions] = None
-    ) -> HttpResponse[ListWebSearchProvidersResponse]:
+    ) -> HttpResponse[GetWebSearchProviderResponse]:
         """
-        All configured providers with nested manifests. `auth.api_key` is redacted.
+        The configured provider for this tenant. `auth.api_key` is redacted when present.
 
         Parameters
         ----------
@@ -42,8 +41,8 @@ class RawWebSearchProvidersClient:
 
         Returns
         -------
-        HttpResponse[ListWebSearchProvidersResponse]
-            All configured web-search providers
+        HttpResponse[GetWebSearchProviderResponse]
+            The configured web search provider.
         """
         _response = self._client_wrapper.httpx_client.request(
             "api/v1/settings/web-search-providers",
@@ -53,9 +52,9 @@ class RawWebSearchProvidersClient:
         try:
             if 200 <= _response.status_code < 300:
                 _data = typing.cast(
-                    ListWebSearchProvidersResponse,
+                    GetWebSearchProviderResponse,
                     construct_type(
-                        type_=ListWebSearchProvidersResponse,  # type: ignore
+                        type_=GetWebSearchProviderResponse,  # type: ignore
                         object_=_response.json(),
                     ),
                 )
@@ -82,81 +81,8 @@ class RawWebSearchProvidersClient:
                         ),
                     ),
                 )
-            _response_json = _response.json()
-        except JSONDecodeError:
-            raise ApiError(status_code=_response.status_code, headers=dict(_response.headers), body=_response.text)
-        except ValidationError as e:
-            raise ParsingError(
-                status_code=_response.status_code, headers=dict(_response.headers), body=_response.json(), cause=e
-            )
-        raise ApiError(status_code=_response.status_code, headers=dict(_response.headers), body=_response_json)
-
-    def create(
-        self, *, manifest: WebSearchProviderManifest, request_options: typing.Optional[RequestOptions] = None
-    ) -> HttpResponse[GetWebSearchProviderResponse]:
-        """
-        Creates a provider. Fails if `name` is already taken. Well-known types use `type` as `name` (one each). `auth.api_key`: real value required; redacted with no stored secret returns 400.
-
-        Parameters
-        ----------
-        manifest : WebSearchProviderManifest
-
-        request_options : typing.Optional[RequestOptions]
-            Request-specific configuration.
-
-        Returns
-        -------
-        HttpResponse[GetWebSearchProviderResponse]
-            The created provider
-        """
-        _response = self._client_wrapper.httpx_client.request(
-            "api/v1/settings/web-search-providers",
-            method="POST",
-            json={
-                "manifest": convert_and_respect_annotation_metadata(
-                    object_=manifest, annotation=WebSearchProviderManifest, direction="write"
-                ),
-            },
-            headers={
-                "content-type": "application/json",
-            },
-            request_options=request_options,
-            omit=OMIT,
-        )
-        try:
-            if 200 <= _response.status_code < 300:
-                _data = typing.cast(
-                    GetWebSearchProviderResponse,
-                    construct_type(
-                        type_=GetWebSearchProviderResponse,  # type: ignore
-                        object_=_response.json(),
-                    ),
-                )
-                return HttpResponse(response=_response, data=_data)
-            if _response.status_code == 400:
-                raise BadRequestError(
-                    headers=dict(_response.headers),
-                    body=typing.cast(
-                        RequestErrorResponse,
-                        construct_type(
-                            type_=RequestErrorResponse,  # type: ignore
-                            object_=_response.json(),
-                        ),
-                    ),
-                )
-            if _response.status_code == 409:
-                raise ConflictError(
-                    headers=dict(_response.headers),
-                    body=typing.cast(
-                        RequestErrorResponse,
-                        construct_type(
-                            type_=RequestErrorResponse,  # type: ignore
-                            object_=_response.json(),
-                        ),
-                    ),
-                )
-            if _response.status_code == 424:
-                raise FailedDependencyError(
+            if _response.status_code == 404:
+                raise NotFoundError(
                     headers=dict(_response.headers),
                     body=typing.cast(
                         RequestErrorResponse,
@@ -179,7 +105,7 @@ class RawWebSearchProvidersClient:
         self, *, manifest: WebSearchProviderManifest, request_options: typing.Optional[RequestOptions] = None
     ) -> HttpResponse[GetWebSearchProviderResponse]:
         """
-        Create or replace a provider. Well-known types use `type` as `name` (one each). `auth.api_key`: real value sets/rotates; redacted keeps existing (400 if none).
+        Upserts the single web search provider for this tenant. `auth.api_key`: real value sets/rotates; redacted keeps existing (400 if none).
 
         Parameters
         ----------
@@ -191,7 +117,7 @@ class RawWebSearchProvidersClient:
         Returns
         -------
         HttpResponse[GetWebSearchProviderResponse]
-            The saved provider
+            The saved provider.
         """
         _response = self._client_wrapper.httpx_client.request(
             "api/v1/settings/web-search-providers",
@@ -253,11 +179,11 @@ class AsyncRawWebSearchProvidersClient:
     def __init__(self, *, client_wrapper: AsyncClientWrapper):
         self._client_wrapper = client_wrapper
 
-    async def list(
+    async def get(
         self, *, request_options: typing.Optional[RequestOptions] = None
-    ) -> AsyncHttpResponse[ListWebSearchProvidersResponse]:
+    ) -> AsyncHttpResponse[GetWebSearchProviderResponse]:
         """
-        All configured providers with nested manifests. `auth.api_key` is redacted.
+        The configured provider for this tenant. `auth.api_key` is redacted when present.
 
         Parameters
         ----------
@@ -266,8 +192,8 @@ class AsyncRawWebSearchProvidersClient:
 
         Returns
         -------
-        AsyncHttpResponse[ListWebSearchProvidersResponse]
-            All configured web-search providers
+        AsyncHttpResponse[GetWebSearchProviderResponse]
+            The configured web search provider.
         """
         _response = await self._client_wrapper.httpx_client.request(
             "api/v1/settings/web-search-providers",
@@ -277,9 +203,9 @@ class AsyncRawWebSearchProvidersClient:
         try:
             if 200 <= _response.status_code < 300:
                 _data = typing.cast(
-                    ListWebSearchProvidersResponse,
+                    GetWebSearchProviderResponse,
                     construct_type(
-                        type_=ListWebSearchProvidersResponse,  # type: ignore
+                        type_=GetWebSearchProviderResponse,  # type: ignore
                         object_=_response.json(),
                     ),
                 )
@@ -306,81 +232,8 @@ class AsyncRawWebSearchProvidersClient:
                         ),
                     ),
                 )
-            _response_json = _response.json()
-        except JSONDecodeError:
-            raise ApiError(status_code=_response.status_code, headers=dict(_response.headers), body=_response.text)
-        except ValidationError as e:
-            raise ParsingError(
-                status_code=_response.status_code, headers=dict(_response.headers), body=_response.json(), cause=e
-            )
-        raise ApiError(status_code=_response.status_code, headers=dict(_response.headers), body=_response_json)
-
-    async def create(
-        self, *, manifest: WebSearchProviderManifest, request_options: typing.Optional[RequestOptions] = None
-    ) -> AsyncHttpResponse[GetWebSearchProviderResponse]:
-        """
-        Creates a provider. Fails if `name` is already taken. Well-known types use `type` as `name` (one each). `auth.api_key`: real value required; redacted with no stored secret returns 400.
-
-        Parameters
-        ----------
-        manifest : WebSearchProviderManifest
-
-        request_options : typing.Optional[RequestOptions]
-            Request-specific configuration.
-
-        Returns
-        -------
-        AsyncHttpResponse[GetWebSearchProviderResponse]
-            The created provider
-        """
-        _response = await self._client_wrapper.httpx_client.request(
-            "api/v1/settings/web-search-providers",
-            method="POST",
-            json={
-                "manifest": convert_and_respect_annotation_metadata(
-                    object_=manifest, annotation=WebSearchProviderManifest, direction="write"
-                ),
-            },
-            headers={
-                "content-type": "application/json",
-            },
-            request_options=request_options,
-            omit=OMIT,
-        )
-        try:
-            if 200 <= _response.status_code < 300:
-                _data = typing.cast(
-                    GetWebSearchProviderResponse,
-                    construct_type(
-                        type_=GetWebSearchProviderResponse,  # type: ignore
-                        object_=_response.json(),
-                    ),
-                )
-                return AsyncHttpResponse(response=_response, data=_data)
-            if _response.status_code == 400:
-                raise BadRequestError(
-                    headers=dict(_response.headers),
-                    body=typing.cast(
-                        RequestErrorResponse,
-                        construct_type(
-                            type_=RequestErrorResponse,  # type: ignore
-                            object_=_response.json(),
-                        ),
-                    ),
-                )
-            if _response.status_code == 409:
-                raise ConflictError(
-                    headers=dict(_response.headers),
-                    body=typing.cast(
-                        RequestErrorResponse,
-                        construct_type(
-                            type_=RequestErrorResponse,  # type: ignore
-                            object_=_response.json(),
-                        ),
-                    ),
-                )
-            if _response.status_code == 424:
-                raise FailedDependencyError(
+            if _response.status_code == 404:
+                raise NotFoundError(
                     headers=dict(_response.headers),
                     body=typing.cast(
                         RequestErrorResponse,
@@ -403,7 +256,7 @@ class AsyncRawWebSearchProvidersClient:
         self, *, manifest: WebSearchProviderManifest, request_options: typing.Optional[RequestOptions] = None
     ) -> AsyncHttpResponse[GetWebSearchProviderResponse]:
         """
-        Create or replace a provider. Well-known types use `type` as `name` (one each). `auth.api_key`: real value sets/rotates; redacted keeps existing (400 if none).
+        Upserts the single web search provider for this tenant. `auth.api_key`: real value sets/rotates; redacted keeps existing (400 if none).
 
         Parameters
         ----------
@@ -415,7 +268,7 @@ class AsyncRawWebSearchProvidersClient:
         Returns
         -------
         AsyncHttpResponse[GetWebSearchProviderResponse]
-            The saved provider
+            The saved provider.
         """
         _response = await self._client_wrapper.httpx_client.request(
             "api/v1/settings/web-search-providers",
