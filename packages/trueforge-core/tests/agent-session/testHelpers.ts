@@ -3,7 +3,7 @@ import type { ITurnResourceResolver } from '../../src/agent-session/ITurnResourc
 import { MAIN_THREAD_ID, type TurnRecord } from '../../src/agent-session/models/TurnRecord';
 import { AgentSpecSchema, type AgentSpec } from '../../src/agent-session/schemas/agentSpec';
 import { EventType } from '../../src/agent-session/schemas/events';
-import { CancellationReason, type TerminalTurnState } from '../../src/agent-session/schemas/turn';
+import { CancellationReason, type TerminalTurnState, type TurnStatePaused } from '../../src/agent-session/schemas/turn';
 import type { CreateTurnInput, NewThreadInit, TurnContextAppend } from '../../src/agent-session/store/ISessionStore';
 import { TurnResourceResolver } from '../../src/agent-session/TurnResourceResolver';
 import type { AgentCapability } from '../../src/core/capabilities/AgentCapability';
@@ -89,11 +89,13 @@ export function makeTestResolver<TTurnCustom extends object = Record<string, nev
   sandbox?: Sandbox;
   close?: () => Promise<void>;
   usage?: CompletionUsage;
+  /** Override the mock LLM stream; defaults to {@link emptyLlmStream}. */
+  create?: () => AsyncGenerator<unknown, unknown, unknown>;
   /** Named-agent lookup for sessions bound by agent_id. */
   agent?: ((agentId: string) => Promise<AgentSpec>) | undefined;
 }): ITurnResourceResolver<TTurnCustom> {
   const llm = makeMockILLM({
-    create: jest.fn().mockImplementation(() => emptyLlmStream(options?.usage)),
+    create: jest.fn().mockImplementation(() => options?.create?.() ?? emptyLlmStream(options?.usage)),
   });
   const base = new TurnResourceResolver<TTurnCustom>({
     llm: () => Promise.resolve({ modelClient: llm, defaultModelParams: {} }),
@@ -154,6 +156,25 @@ export function makeTurnDoneEvent(state: TerminalTurnState) {
   };
 }
 
+export function makePausedTurnState(
+  action_required_on_events: { id: string }[] = [{ id: newEventId() }],
+): TurnStatePaused {
+  return {
+    status: 'paused',
+    action_required_on_events,
+  };
+}
+
+export function makeTurnUpdateEvent(state: TurnStatePaused) {
+  return {
+    type: EventType.TURN_UPDATE,
+    id: newEventId(),
+    created_at: new Date().toISOString(),
+    thread_id: null,
+    state,
+  };
+}
+
 const defaultRootThread: NewThreadInit = {
   thread_id: MAIN_THREAD_ID,
   parent: null,
@@ -195,7 +216,6 @@ export function makeDoneTurnState(): TerminalTurnState {
   return {
     status: 'done',
     output: null,
-    required_actions: [],
     completed_at: new Date().toISOString(),
   };
 }

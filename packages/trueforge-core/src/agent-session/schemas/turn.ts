@@ -1,8 +1,8 @@
 /** Turn product schemas: turn state, input items, and create-turn request. */
 import { z } from '@hono/zod-openapi';
 import {
-  ActionRequiredEventSchema,
   AgentInputUserMessageSchema,
+  EventIdSchema,
   ModelMessageEventSchema,
   UserToolApprovalMessageSchema,
   UserToolResponseMessageSchema,
@@ -91,17 +91,27 @@ export const TurnStateErrorSchema = z
   })
   .openapi('TurnStateError');
 
+export const ActionRequiredSchema = z
+  .object({
+    id: EventIdSchema,
+  })
+  .openapi('ActionRequired');
+
+export const TurnStatePausedSchema = z
+  .object({
+    status: z.literal('paused').describe('Turn is paused waiting for required actions.'),
+    action_required_on_events: z
+      .array(ActionRequiredSchema)
+      .describe('Events that still need a user or client action.'),
+  })
+  .openapi('TurnStatePaused');
+
 export const TurnStateDoneSchema = z
   .object({
-    status: z.literal('done').describe('Turn finished (possibly paused for required actions).'),
+    status: z.literal('done').describe('Turn finished with no open required actions.'),
     output: z
       .union([ModelMessageEventSchema, z.null()])
-      .describe('Final `model.message` for the turn, or null when the turn ended paused without a final message.'),
-    required_actions: z
-      .array(ActionRequiredEventSchema)
-      .describe(
-        'Pending actions (`tool.approval_required`, `tool.response_required`, `mcp.auth_required`); empty when none.',
-      ),
+      .describe('Final `model.message` for the turn, or null when the turn finished without one.'),
     completed_at: z.string().describe('ISO 8601 time when the turn reached a terminal state.'),
     metrics: TurnMetricsSchema.optional().describe('Optional billable aggregate for the whole turn.'),
   })
@@ -110,6 +120,7 @@ export const TurnStateDoneSchema = z
 export const TurnStateSchema = z
   .discriminatedUnion('status', [
     TurnStateRunningSchema,
+    TurnStatePausedSchema,
     TurnStateDoneSchema,
     TurnStateCancelledSchema,
     TurnStateErrorSchema,
@@ -179,5 +190,7 @@ export const CreateTurnRequestSchema = z
 export type Turn = z.infer<typeof TurnSchema>;
 export type TurnInputItem = z.infer<typeof TurnInputItemSchema>;
 export type TurnState = z.infer<typeof TurnStateSchema>;
-export type TerminalTurnState = Exclude<TurnState, { status: 'running' }>;
+export type TerminalTurnState = Exclude<TurnState, { status: 'running' } | { status: 'paused' }>;
+export type TurnStatePaused = z.infer<typeof TurnStatePausedSchema>;
+export type ActionRequired = z.infer<typeof ActionRequiredSchema>;
 export type TurnMetrics = z.infer<typeof TurnMetricsSchema>;

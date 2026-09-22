@@ -12,7 +12,7 @@ import type { TurnRecord } from '../models/TurnRecord';
 import type { PersistedTurnEvent, SessionEventItem } from '../schemas/events';
 import type { TokenPagination } from '../schemas/pagination';
 import type { SessionMetadata } from '../schemas/session';
-import type { CancellationReason, TerminalTurnState } from '../schemas/turn';
+import type { CancellationReason, TurnState } from '../schemas/turn';
 
 /**
  * Caller-supplied fields for creating a session; the store owns timestamps and tip state.
@@ -159,8 +159,7 @@ export interface ListTurnsInput {
 export interface UpdateTurnStateInput {
   session_id: string;
   turn_id: string;
-  state: TerminalTurnState;
-  /** Caller-built turn.done; written atomically with the state flip in the same tx. */
+  state: Exclude<TurnState, { status: 'running' }>;
   turn_done_event: PersistedTurnEvent;
 }
 
@@ -330,7 +329,7 @@ export interface ISessionStore<
 
   /**
    * Cancel if still running (persist `turn_done` and fold cost/duration into
-   * `session.metrics`); already-terminal turns are a read. Missing → {@link TurnNotFoundError}.
+   * `session.metrics`); paused or already-terminal turns are a read. Missing → {@link TurnNotFoundError}.
    */
   freezeAndGetTurn(input: FreezeAndGetTurnInput): Promise<TurnRecord<TTurnCustom>>;
 
@@ -343,9 +342,9 @@ export interface ISessionStore<
   ): Promise<{ data: TurnRecordWithoutSnapshot<TTurnCustom>[]; pagination: TokenPagination }>;
 
   /**
-   * First terminal write wins (`running` → done/cancelled/error); otherwise 409.
-   * Winning write also folds cost/duration into `session.metrics`. Missing → 404.
-   * Must use the same lock/CAS as other turn mutations.
+   * First non-running write wins (`running` → paused/done/cancelled/error); otherwise 409.
+   * Terminal winning writes also fold cost/duration into `session.metrics`; pause does not.
+   * Missing → 404. Must use the same lock/CAS as other turn mutations.
    */
   updateTurnState(input: UpdateTurnStateInput): Promise<void>;
 

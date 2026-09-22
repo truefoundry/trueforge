@@ -471,7 +471,9 @@ export class InMemorySessionStore<
     if (list) {
       list.push(deepCopy(input.turn_done_event));
     }
-    this.addTerminalSessionMetrics(input.session_id, turn.created_at, input.state);
+    if (input.state.status !== 'paused') {
+      this.addTerminalSessionMetrics(input.session_id, turn.created_at, input.state);
+    }
   }
 
   async appendToEvents(input: AppendToEventsInput): Promise<void> {

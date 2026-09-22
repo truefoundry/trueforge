@@ -26,8 +26,10 @@ import {
   makeCreateTurnInput,
   makeDoneTurnState,
   makeModelMessageEvent,
+  makePausedTurnState,
   makeTurnCreatedEvent,
   makeTurnDoneEvent,
+  makeTurnUpdateEvent,
   TEST_ACTIVE_EXECUTOR_ID,
 } from '../testHelpers';
 
@@ -2178,6 +2180,93 @@ export function runStoreContractSuite(createStore: () => ISessionStore) {
           turn_done_event: makeTurnDoneEvent(state),
         }),
       ).rejects.toBeInstanceOf(TurnNotFoundError);
+    });
+
+    it('allows running → paused and writes turn.update without session metrics', async () => {
+      const store = createStore();
+      await seedSession(store);
+      await store.createTurn(makeCreateTurnInput({ sessionId, turnId: 'turn-1' }));
+      const paused = makePausedTurnState([{ id: 'evt-approval' }]);
+      const turnUpdate = makeTurnUpdateEvent(paused);
+      await store.updateTurnState({
+        session_id: sessionId,
+        turn_id: 'turn-1',
+        state: paused,
+        turn_done_event: turnUpdate,
+      });
+
+      const turn = await store.getTurn({ session_id: sessionId, turn_id: 'turn-1' });
+      expect(mustGet(turn).state).toEqual(paused);
+      const { data } = await store.listTurnEvents({
+        session_id: sessionId,
+        turn_id: 'turn-1',
+        limit: 10,
+        page_token: undefined,
+        order: undefined,
+      });
+      const updates = data.filter(e => e.type === EventType.TURN_UPDATE);
+      expect(updates).toHaveLength(1);
+      expect(updates[0]).toEqual(turnUpdate);
+      expect(data.some(e => e.type === EventType.TURN_DONE)).toBe(false);
+
+      const session = await store.getSession({ tenant_id: tenant, session_id: sessionId });
+      expect(mustGet(session).metrics).toEqual({
+        total_duration_ms: 0,
+        total_turns: 1,
+      });
+      expect(mustGet(session).metrics.total_cost_in_usd).toBeUndefined();
+    });
+
+    it('rejects a second update after pause (first non-running write wins)', async () => {
+      const store = createStore();
+      await seedSession(store);
+      await store.createTurn(makeCreateTurnInput({ sessionId, turnId: 'turn-1' }));
+      const paused = makePausedTurnState();
+      await store.updateTurnState({
+        session_id: sessionId,
+        turn_id: 'turn-1',
+        state: paused,
+        turn_done_event: makeTurnUpdateEvent(paused),
+      });
+      const doneState = makeDoneTurnState();
+      await expect(
+        store.updateTurnState({
+          session_id: sessionId,
+          turn_id: 'turn-1',
+          state: doneState,
+          turn_done_event: makeTurnDoneEvent(doneState),
+        }),
+      ).rejects.toBeInstanceOf(SessionStoreConflictError);
+      const turn = await store.getTurn({ session_id: sessionId, turn_id: 'turn-1' });
+      expect(mustGet(turn).state.status).toBe('paused');
+    });
+
+    it('freezeAndGetTurn of a paused tip is a read', async () => {
+      const store = createStore();
+      await seedSession(store);
+      await store.createTurn(makeCreateTurnInput({ sessionId, turnId: 'turn-1' }));
+      const paused = makePausedTurnState();
+      await store.updateTurnState({
+        session_id: sessionId,
+        turn_id: 'turn-1',
+        state: paused,
+        turn_done_event: makeTurnUpdateEvent(paused),
+      });
+      const frozen = await store.freezeAndGetTurn({
+        session_id: sessionId,
+        turn_id: 'turn-1',
+        reason: CancellationReason.CancelledForNextTurn,
+        turn_done_event: makeTurnDoneEvent(makeCancelledTurnState(CancellationReason.CancelledForNextTurn)),
+      });
+      expect(frozen.state).toEqual(paused);
+      const { data } = await store.listTurnEvents({
+        session_id: sessionId,
+        turn_id: 'turn-1',
+        limit: 10,
+        page_token: undefined,
+        order: undefined,
+      });
+      expect(data.filter(e => e.type === EventType.TURN_DONE)).toHaveLength(0);
     });
   });
 

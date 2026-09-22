@@ -140,15 +140,11 @@ async function addSessionCostAndDuration(
     .execute();
 }
 
-function terminalTurnState(state: TurnState, turn_id: string): TerminalTurnState {
-  switch (state.status) {
-    case 'running':
-      throw new SessionStoreInvariantError(`expected terminal state for turn ${turn_id}, got running`);
-    case 'done':
-    case 'cancelled':
-    case 'error':
-      return state;
+function nonRunningTurnState(state: TurnState, turn_id: string): Exclude<TurnState, { status: 'running' }> {
+  if (state.status === 'running') {
+    throw new SessionStoreInvariantError(`expected non-running state for turn ${turn_id}, got running`);
   }
+  return state;
 }
 
 async function loadTurnState(db: DbOrTrx, keys: TurnKeys): Promise<TurnState | undefined> {
@@ -167,7 +163,7 @@ export async function classifyTurnFenceWriteFailure(db: DbOrTrx, keys: TurnKeys)
   if (!state) {
     throw new TurnNotFoundError(keys.turn_id);
   }
-  throw new TurnNotRunningError(keys.turn_id, terminalTurnState(state, keys.turn_id));
+  throw new TurnNotRunningError(keys.turn_id, nonRunningTurnState(state, keys.turn_id));
 }
 
 /**
@@ -179,7 +175,7 @@ export async function classifyTurnThreadWriteFailure(db: DbOrTrx, keys: TurnKeys
     throw new TurnNotFoundError(keys.turn_id);
   }
   if (state.status !== 'running') {
-    throw new TurnNotRunningError(keys.turn_id, terminalTurnState(state, keys.turn_id));
+    throw new TurnNotRunningError(keys.turn_id, nonRunningTurnState(state, keys.turn_id));
   }
   throw new SessionStoreInvariantError(`thread ${thread_id} not found in turn ${keys.turn_id}`);
 }
@@ -190,7 +186,7 @@ export async function assertTurnRunning(db: DbOrTrx, keys: TurnKeys): Promise<vo
     throw new TurnNotFoundError(keys.turn_id);
   }
   if (state.status !== 'running') {
-    throw new TurnNotRunningError(keys.turn_id, terminalTurnState(state, keys.turn_id));
+    throw new TurnNotRunningError(keys.turn_id, nonRunningTurnState(state, keys.turn_id));
   }
 }
 
@@ -798,7 +794,7 @@ export async function listTurns(db: Kysely<Database>, input: ListTurnsInput): Pr
 
 /**
  * updateTurnState — conditional on state->>'status'='running'.
- * 0 rows → SELECT by PK → missing NotFound, present Conflict (first terminal write wins).
+ * 0 rows → SELECT by PK → missing NotFound, present Conflict (first non-running write wins).
  */
 export async function updateTurnState(db: Kysely<Database>, input: UpdateTurnStateInput): Promise<void> {
   await db.transaction().execute(async trx => {
@@ -826,14 +822,16 @@ export async function updateTurnState(db: Kysely<Database>, input: UpdateTurnSta
       if (!existing) {
         throw new TurnNotFoundError(input.turn_id);
       }
-      throw new TurnNotRunningError(input.turn_id, terminalTurnState(existing.state, input.turn_id));
+      throw new TurnNotRunningError(input.turn_id, nonRunningTurnState(existing.state, input.turn_id));
     }
 
-    await addSessionCostAndDuration(trx, {
-      session_id: input.session_id,
-      turn_created_at: new Date(result.created_at),
-      turn_state: input.state,
-    });
+    if (input.state.status !== 'paused') {
+      await addSessionCostAndDuration(trx, {
+        session_id: input.session_id,
+        turn_created_at: new Date(result.created_at),
+        turn_state: input.state,
+      });
+    }
 
     await trx
       .insertInto('session_event')

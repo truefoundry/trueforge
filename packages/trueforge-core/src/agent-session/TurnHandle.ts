@@ -16,15 +16,15 @@ import { getEmptyCurrentContextUsage } from '../core/runtime/contextUsage';
 import type { AgentThreadMetrics } from '../core/runtime/metrics';
 import type { ITurnResourceResolver } from './ITurnResourceResolver';
 import type { TurnRecord } from './models/TurnRecord';
-import { EventType, type PersistedTurnEvent, type TurnCreatedEvent, type TurnDoneEvent } from './schemas/events';
-import type { TokenPagination } from './schemas/pagination';
 import {
-  CancellationReason,
-  type TerminalTurnState,
-  type TurnInputItem,
-  type TurnMetrics,
-  type TurnState,
-} from './schemas/turn';
+  EventType,
+  type PersistedTurnEvent,
+  type TurnCreatedEvent,
+  type TurnDoneEvent,
+  type TurnUpdateEvent,
+} from './schemas/events';
+import type { TokenPagination } from './schemas/pagination';
+import { CancellationReason, type TurnInputItem, type TurnMetrics, type TurnState } from './schemas/turn';
 import type { ISessionStore } from './store/ISessionStore';
 import { TurnNotRunningError } from './store/SessionStoreErrors';
 
@@ -82,6 +82,29 @@ function turnMetricsFromAgentThreadMetrics(metrics: AgentThreadMetrics): TurnMet
     total_cache_write_tokens: metrics.total_cache_write_tokens,
     total_reasoning_tokens: metrics.total_reasoning_tokens,
     total_cost_in_usd: metrics.total_cost_in_usd,
+  };
+}
+
+function streamEventForStoreState(input: {
+  state: Exclude<TurnState, { status: 'running' }>;
+  metrics: TurnMetrics;
+  created_at: string;
+}): TurnDoneEvent | TurnUpdateEvent {
+  if (input.state.status === 'paused') {
+    return {
+      type: EventType.TURN_UPDATE,
+      id: newEventId(),
+      created_at: input.created_at,
+      state: input.state,
+      thread_id: null,
+    };
+  }
+  return {
+    type: EventType.TURN_DONE,
+    id: newEventId(),
+    created_at: input.created_at,
+    state: { ...input.state, metrics: input.metrics },
+    thread_id: null,
   };
 }
 
@@ -169,10 +192,10 @@ export class TurnHandle<TTurnCustom extends object = Record<string, never>> {
    * Executes the turn. Single consumer, callable ONCE — a second call throws:
    * this generator IS the execution (persist-before-yield). Execute-only: the
    * input was already sent and validated in run(); nothing is sent here.
-   * Sole terminal writer — done/cancelled/error is written to the store from
-   * inside this generator; honors the AbortSignal passed to run(). On every
+   * Sole lifecycle writer — paused/done/cancelled/error is written to the store
+   * from inside this generator; honors the AbortSignal passed to run(). On every
    * exit path the resolver is closed best-effort in a finally, after the
-   * terminal write.
+   * lifecycle write.
    *
    * Two consumption patterns (both caller-side; this method is identical for both):
    *
@@ -251,18 +274,14 @@ export class TurnHandle<TTurnCustom extends object = Record<string, never>> {
             generator = undefined;
             const updatedAt = new Date();
             const createdAtIso = updatedAt.toISOString();
-            const state: TerminalTurnState = {
-              ...error.state,
-              metrics: turnMetricsFromAgentThreadMetrics(orchestrator.getMetrics()),
-            };
-            this.turn = { ...this.turn, state, updated_at: updatedAt };
-            yield {
-              type: EventType.TURN_DONE,
-              id: newEventId(),
+            const metrics = turnMetricsFromAgentThreadMetrics(orchestrator.getMetrics());
+            const yielded = streamEventForStoreState({
+              state: error.state,
+              metrics,
               created_at: createdAtIso,
-              state,
-              thread_id: null,
-            };
+            });
+            this.turn = { ...this.turn, state: yielded.state, updated_at: updatedAt };
+            yield yielded;
             return;
           }
           throw error;
@@ -284,23 +303,23 @@ export class TurnHandle<TTurnCustom extends object = Record<string, never>> {
       const updatedAt = new Date();
       const createdAtIso = updatedAt.toISOString();
       const metrics = turnMetricsFromAgentThreadMetrics(orchestrator.getMetrics());
-      let terminalState: TerminalTurnState;
+      let nextState: Exclude<TurnState, { status: 'running' }>;
       if (signal.aborted) {
-        terminalState = {
+        nextState = {
           status: 'cancelled',
           reason: cancellationReasonFromAbortReason(signal.reason),
           completed_at: createdAtIso,
           metrics,
         };
       } else if (caughtError) {
-        terminalState = {
+        nextState = {
           status: 'error',
           message: caughtError.message,
           completed_at: createdAtIso,
           metrics,
         };
       } else if (executeResult?.root_agent_error) {
-        terminalState = {
+        nextState = {
           status: 'error',
           message: executeResult.root_agent_error.error,
           completed_at: createdAtIso,
@@ -309,61 +328,61 @@ export class TurnHandle<TTurnCustom extends object = Record<string, never>> {
       } else if (executeResult === undefined) {
         // Consumer abandoned the generator (break/return) without aborting —
         // no executeResult, no error, signal not aborted.
-        terminalState = {
+        nextState = {
           status: 'cancelled',
           reason: CancellationReason.ClientCancelled,
           completed_at: createdAtIso,
           metrics,
         };
+      } else if (executeResult.required_actions.length > 0) {
+        nextState = {
+          status: 'paused',
+          action_required_on_events: executeResult.required_actions.map(({ id }) => ({ id })),
+        };
       } else {
-        terminalState = {
+        nextState = {
           status: 'done',
           output: executeResult.output,
-          required_actions: executeResult.required_actions,
           completed_at: createdAtIso,
           metrics,
         };
       }
 
-      const turnDone: TurnDoneEvent = {
-        type: EventType.TURN_DONE,
-        id: newEventId(),
+      const turnStateEvent = streamEventForStoreState({
+        state: nextState,
+        metrics,
         created_at: createdAtIso,
-        state: terminalState,
-        thread_id: null,
-      };
+      });
 
       if (!frozenByStore) {
         try {
           await this.store.updateTurnState({
             session_id: this.turn.session_id,
             turn_id: this.turn.turn_id,
-            state: terminalState,
-            turn_done_event: turnDone,
+            state: nextState,
+            turn_done_event: turnStateEvent,
           });
-          this.turn = { ...this.turn, state: terminalState, updated_at: updatedAt };
+          this.turn = { ...this.turn, state: nextState, updated_at: updatedAt };
         } catch (persistError) {
           if (persistError instanceof TurnNotRunningError) {
-            const state: TerminalTurnState = { ...persistError.state, metrics };
-            this.turn = { ...this.turn, state, updated_at: updatedAt };
+            const yielded = streamEventForStoreState({
+              state: persistError.state,
+              metrics,
+              created_at: createdAtIso,
+            });
+            this.turn = { ...this.turn, state: yielded.state, updated_at: updatedAt };
             await resolver.close().catch(() => {
               /* no-op */
             });
-            yield {
-              type: EventType.TURN_DONE,
-              id: newEventId(),
-              created_at: createdAtIso,
-              state,
-              thread_id: null,
-            };
-            // eslint-disable-next-line no-unsafe-finally -- deliberate: a concurrent freeze during the terminal write makes the store's state authoritative, so the stream ends here
+            yield yielded;
+            // eslint-disable-next-line no-unsafe-finally -- deliberate: a concurrent freeze during the lifecycle write makes the store's state authoritative, so the stream ends here
             return;
           }
           // Store-write failures reject the stream (caller drain .catch).
           await resolver.close().catch(() => {
             /* no-op */
           });
-          // eslint-disable-next-line no-unsafe-finally -- deliberate: the terminal-state write runs in finally and its failure must reject the stream
+          // eslint-disable-next-line no-unsafe-finally -- deliberate: the lifecycle-state write runs in finally and its failure must reject the stream
           throw persistError;
         }
       }
@@ -373,7 +392,7 @@ export class TurnHandle<TTurnCustom extends object = Record<string, never>> {
       });
 
       if (!frozenByStore) {
-        yield turnDone;
+        yield turnStateEvent;
       }
     }
   }

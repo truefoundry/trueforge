@@ -5,7 +5,6 @@ import typing
 import pydantic
 from ..core.pydantic_utilities import IS_PYDANTIC_V2
 from ..core.unchecked_base_model import UncheckedBaseModel
-from .action_required_event import ActionRequiredEvent
 from .model_message_event import ModelMessageEvent
 from .turn_metrics import TurnMetrics
 
@@ -19,12 +18,7 @@ class TurnStateDone(UncheckedBaseModel):
     metrics: typing.Optional[TurnMetrics] = None
     output: typing.Optional[ModelMessageEvent] = pydantic.Field(default=None)
     """
-    Final `model.message` for the turn, or null when the turn ended paused without a final message.
-    """
-
-    required_actions: typing.List[ActionRequiredEvent] = pydantic.Field()
-    """
-    Pending actions (`tool.approval_required`, `tool.response_required`, `mcp.auth_required`); empty when none.
+    Final `model.message` for the turn, or null when the turn finished without one.
     """
 
     status: typing.Literal["done"] = "done"

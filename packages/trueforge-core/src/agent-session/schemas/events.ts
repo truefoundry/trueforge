@@ -24,6 +24,7 @@ import {
   TurnStateCancelledSchema,
   TurnStateDoneSchema,
   TurnStateErrorSchema,
+  TurnStatePausedSchema,
   TurnStateRunningSchema,
 } from './turn';
 
@@ -60,29 +61,8 @@ export const TurnDoneEventSchema = z
   })
   .openapi('TurnDoneEvent');
 
-export const ActionRequiredSchema = z
-  .object({
-    id: EventIdSchema,
-  })
-  .openapi('ActionRequired');
-
-export const TurnUpdateStatePausedSchema = z
-  .object({
-    status: z.literal('paused').describe('Turn is paused waiting for required actions.'),
-    action_required_on_events: z
-      .array(ActionRequiredSchema)
-      .describe('Events that still need a user or client action.'),
-  })
-  .openapi('TurnUpdateStatePaused');
-
-export const TurnUpdateStateRunningSchema = z
-  .object({
-    status: z.literal('running').describe('Turn is executing.'),
-  })
-  .openapi('TurnUpdateStateRunning');
-
 export const TurnUpdateStateSchema = z
-  .discriminatedUnion('status', [TurnUpdateStatePausedSchema, TurnUpdateStateRunningSchema])
+  .discriminatedUnion('status', [TurnStatePausedSchema, TurnStateRunningSchema])
   .describe('Live non-terminal turn status.')
   .openapi('TurnUpdateState');
 
