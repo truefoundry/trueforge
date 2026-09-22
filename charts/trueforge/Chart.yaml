@@ -21,11 +21,11 @@ maintainers:
 # externalPostgres / externalRedis.
 dependencies:
   - name: postgresql
-    version: "16.7.27"
+    version: 18.11.6
     repository: oci://registry-1.docker.io/bitnamicharts
     condition: postgresql.enabled
   - name: redis
-    version: "24.0.0"
+    version: 28.2.3
     repository: oci://registry-1.docker.io/bitnamicharts
     condition: redis.enabled
   # Dev sandbox server, deployed only when a parent chart enables it.
