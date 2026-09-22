@@ -17,9 +17,6 @@ export interface WebSearchProvidersRouterDeps {
 }
 
 function redactWebSearchProvider(manifest: WebSearchProviderManifest): WebSearchProviderManifest {
-  if (!manifest.auth) {
-    return manifest;
-  }
   return {
     ...manifest,
     auth: { api_key: toRedactedSecretValue(manifest.auth.api_key) },
@@ -33,15 +30,12 @@ function resolveWebSearchProviderManifestForWrite({
   incoming: WebSearchProviderManifest;
   existing: WebSearchProviderManifest | undefined;
 }): WebSearchProviderManifest {
-  if (!incoming.auth) {
-    return incoming;
-  }
   return {
     ...incoming,
     auth: {
       api_key: resolveStoredSecretValue({
         incoming: incoming.auth.api_key,
-        existing: existing?.auth?.api_key,
+        existing: existing?.auth.api_key,
       }),
     },
   };

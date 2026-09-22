@@ -121,7 +121,7 @@ describe('capabilities routers', () => {
       getProvider: () =>
         Promise.resolve({
           tenant_id: 'default',
-          manifest: { type: 'parallel' },
+          manifest: { type: 'parallel', auth: { api_key: 'test-key' } },
           created_at: '2026-01-01T00:00:00.000Z',
           updated_at: '2026-01-01T00:00:00.000Z',
         }),

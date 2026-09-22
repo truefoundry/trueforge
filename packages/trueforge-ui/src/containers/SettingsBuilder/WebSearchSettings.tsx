@@ -5,31 +5,10 @@ import { useCallback, useEffect, useMemo, useState } from 'react';
 import { Button } from '../../atoms/primitives/Button.js';
 import { Icon } from '../../icons/Icon.js';
 import { useCatalogServer } from '../../server/ServerContext.js';
-import type {
-  WebSearchProviderBase,
-  WebSearchProviderCatalogEntry,
-  WebSearchProviderConfig,
-} from '../../server/types.js';
+import type { WebSearchProviderBase, WebSearchProviderCatalogEntry } from '../../server/types.js';
 import { getErrorMessage } from '../../utils/getErrorMessage.js';
 import { useToasterOptional } from '../ToasterContainer.js';
 import ConfigureWebSearchForm, { type WebSearchConfigDraft } from './ConfigureWebSearchForm.js';
-
-const configFrom = ({ mode }: WebSearchProviderConfig): WebSearchProviderConfig => ({ mode });
-
-const modeLabel = (mode: WebSearchProviderConfig['mode']): string => {
-  switch (mode) {
-    case 'turbo':
-      return 'Turbo';
-    case 'fast':
-      return 'Fast';
-    case 'basic':
-      return 'Basic';
-    case 'advanced':
-      return 'Advanced';
-    default:
-      return mode;
-  }
-};
 
 const WebSearchSettings = () => {
   const { webSearchCatalog } = useCatalogServer();
@@ -78,11 +57,6 @@ const WebSearchSettings = () => {
     return catalog.filter(entry => !connectedCatalogIds.has(entry.id));
   }, [catalog, providers, hasConfiguredProvider]);
 
-  const formInitialConfig = useMemo(
-    () => (updateProvider ? configFrom(updateProvider) : createEntry ? configFrom(createEntry) : null),
-    [updateProvider, createEntry],
-  );
-
   if (!webSearchCatalog) {
     return <p className="text-sm text-text-secondary">Web search provider catalog is not available.</p>;
   }
@@ -109,7 +83,6 @@ const WebSearchSettings = () => {
         catalogId: createEntry.id,
         name: createEntry.name,
         type: createEntry.type,
-        ...configFrom(draft),
         apiKey: draft.apiKey,
       });
     }, setFormError);
@@ -125,7 +98,6 @@ const WebSearchSettings = () => {
     await runMutation(async () => {
       await webSearchCatalog.updateWebSearchProvider({
         id: updateProvider.id,
-        ...configFrom(draft),
         ...(draft.apiKey ? { apiKey: draft.apiKey } : {}),
       });
     }, setFormError);
@@ -181,7 +153,7 @@ const WebSearchSettings = () => {
                         </span>
                         <div className="min-w-0">
                           <h5 className="truncate text-sm font-medium text-text-primary">{provider.name}</h5>
-                          <p className="truncate text-xs text-text-secondary">Mode · {modeLabel(provider.mode)}</p>
+                          <p className="truncate text-xs text-text-secondary">Parallel web search</p>
                         </div>
                       </div>
 
@@ -236,7 +208,7 @@ const WebSearchSettings = () => {
                           </span>
                           <div className="min-w-0">
                             <h5 className="truncate text-sm font-medium text-text-primary">{entry.name}</h5>
-                            <p className="truncate text-xs text-text-secondary">Mode · {modeLabel(entry.mode)}</p>
+                            <p className="truncate text-xs text-text-secondary">Parallel web search</p>
                           </div>
                         </div>
 
@@ -277,7 +249,6 @@ const WebSearchSettings = () => {
             ? 'Update this web search provider. Leave API key blank to keep the existing key.'
             : 'Configure this web search provider. API key is never stored in the catalog.'
         }
-        initialConfig={formInitialConfig}
         requireApiKey={!isUpdate}
         busy={busy}
         error={formError}

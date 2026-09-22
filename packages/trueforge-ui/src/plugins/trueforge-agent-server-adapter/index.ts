@@ -56,7 +56,6 @@ export {
   toHarnessManifest as toHarnessWebSearchManifest,
   toUiCatalogEntry as toUiWebSearchCatalogEntry,
   toUiWebSearchProvider,
-  configFromHarness as webSearchConfigFromHarness,
 } from './catalogs/webSearchProviderCatalog.js';
 export {
   createHarnessChatServer,

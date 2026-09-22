@@ -798,18 +798,7 @@ export interface SandboxCatalogServer<
 // Web-search providers catalog — public rows omit credentials; writes accept them
 // ---------------------------------------------------------------------------
 
-/**
- * Parallel Search mode preset (Parallel-specific, not a global web-search mode).
- * A future provider would carry its own config fields instead of sharing this enum.
- */
-export type ParallelWebSearchMode = 'turbo' | 'fast' | 'basic' | 'advanced';
-
-/** Mutable web-search settings shared by catalog rows, create, and update. */
-export interface WebSearchConfig {
-  mode: ParallelWebSearchMode;
-}
-
-export interface WebSearchCatalogEntry extends WebSearchConfig {
+export interface WebSearchCatalogEntry {
   id: string;
   name: string;
   type: string;
@@ -817,16 +806,15 @@ export interface WebSearchCatalogEntry extends WebSearchConfig {
 
 /**
  * Connected web-search provider row (settings/web-search). No raw `apiKey`.
- * Includes last-saved config so update forms can show previous values.
  */
-export interface WebSearchBase extends WebSearchConfig {
+export interface WebSearchBase {
   id: string;
   name: string;
   catalogId: string;
   isConnected: boolean;
 }
 
-export interface CreateWebSearchRequest extends WebSearchConfig {
+export interface CreateWebSearchRequest {
   /** `WebSearchCatalogEntry.id` used to create this web-search provider. */
   catalogId: string;
   name: string;
@@ -834,14 +822,13 @@ export interface CreateWebSearchRequest extends WebSearchConfig {
   apiKey: string;
 }
 
-export interface UpdateWebSearchRequest extends WebSearchConfig {
+export interface UpdateWebSearchRequest {
   id: string;
-  /** Omit to keep the existing key; send a value to rotate. */
+  /** Omit to keep the existing key; send a value to set/rotate. */
   apiKey?: string;
 }
 
 /** Host-facing aliases (trueforge-ui public names). */
-export type WebSearchProviderConfig = WebSearchConfig;
 export type WebSearchProviderCatalogEntry = WebSearchCatalogEntry;
 export type WebSearchProviderBase = WebSearchBase;
 export type CreateWebSearchProviderRequest = CreateWebSearchRequest;

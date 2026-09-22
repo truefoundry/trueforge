@@ -24,6 +24,5 @@ export async function resolveWebSearchProvider({
     return undefined;
   }
   const { manifest } = record;
-  const apiKey = manifest.auth?.api_key;
-  return new ParallelWebSearchProvider(apiKey ? { apiKey, mode: 'turbo' } : { mode: 'turbo' });
+  return new ParallelWebSearchProvider({ apiKey: manifest.auth.api_key, mode: 'turbo' });
 }

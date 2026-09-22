@@ -2,7 +2,6 @@ import assert from 'node:assert/strict';
 import { describe, it } from 'vitest';
 
 import {
-  configFromHarness,
   filterUiWebSearchProviders,
   toHarnessManifest,
   toUiCatalogEntry,
@@ -12,7 +11,6 @@ import {
 describe('webSearchProviderCatalog mappers', () => {
   const harnessCatalog = {
     type: 'parallel' as const,
-    mode: 'turbo' as const,
   };
 
   const harnessConfigured = {
@@ -25,7 +23,6 @@ describe('webSearchProviderCatalog mappers', () => {
       id: 'parallel',
       name: 'Parallel',
       type: 'parallel',
-      mode: 'turbo',
     });
   });
 
@@ -35,7 +32,6 @@ describe('webSearchProviderCatalog mappers', () => {
       name: 'Parallel',
       catalogId: 'parallel',
       isConnected: true,
-      mode: 'turbo',
     });
     assert.equal('auth' in toUiWebSearchProvider(harnessConfigured), false);
     assert.equal('apiKey' in toUiWebSearchProvider(harnessConfigured), false);
@@ -48,26 +44,11 @@ describe('webSearchProviderCatalog mappers', () => {
     assert.deepEqual(filterUiWebSearchProviders({ providers: [provider], query: 'missing' }), []);
   });
 
-  it('round-trips config fields into harness upsert body', () => {
-    assert.deepEqual(
-      toHarnessManifest({
-        type: 'parallel',
-        apiKey: 'par_secret',
-        ...configFromHarness(harnessCatalog),
-      }),
-      harnessConfigured,
-    );
+  it('round-trips apiKey into harness upsert body', () => {
+    assert.deepEqual(toHarnessManifest({ type: 'parallel', apiKey: 'par_secret' }), harnessConfigured);
   });
 
   it('rejects unsupported web-search provider types', () => {
-    assert.throws(
-      () =>
-        toHarnessManifest({
-          type: 'other',
-          apiKey: 'x',
-          mode: 'turbo',
-        }),
-      /Unsupported web-search provider type/,
-    );
+    assert.throws(() => toHarnessManifest({ type: 'other', apiKey: 'x' }), /Unsupported web-search provider type/);
   });
 });

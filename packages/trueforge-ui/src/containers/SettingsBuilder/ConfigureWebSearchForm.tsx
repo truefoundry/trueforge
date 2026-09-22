@@ -6,9 +6,8 @@ import { auiInputClass } from '../../atoms/lib/inputClasses.js';
 import { Button } from '../../atoms/primitives/Button.js';
 import { CenteredModal } from '../../atoms/primitives/CenteredModal.js';
 import { Icon } from '../../icons/Icon.js';
-import type { ParallelWebSearchMode, WebSearchProviderConfig } from '../../server/types.js';
 
-export type WebSearchConfigDraft = WebSearchProviderConfig & {
+export type WebSearchConfigDraft = {
   apiKey: string;
 };
 
@@ -18,30 +17,13 @@ type ConfigureWebSearchFormProps = {
   onSave: (draft: WebSearchConfigDraft) => void | Promise<void>;
   title: string;
   description?: string;
-  /** Prefills config fields; apiKey is never autofilled. */
-  initialConfig?: WebSearchProviderConfig | null;
   /** When false (updates), empty apiKey means keep the existing key. */
   requireApiKey?: boolean;
   busy?: boolean;
   error?: string | null;
 };
 
-const MODE_OPTIONS: Array<{ value: ParallelWebSearchMode; label: string }> = [
-  { value: 'turbo', label: 'Turbo' },
-  { value: 'fast', label: 'Fast' },
-  { value: 'basic', label: 'Basic' },
-  { value: 'advanced', label: 'Advanced' },
-];
-
-const EMPTY_CONFIG: WebSearchProviderConfig = {
-  mode: 'turbo',
-};
-
 const inputClassName = auiInputClass('h-11 shadow-sm');
-
-function isParallelWebSearchMode(value: string): value is ParallelWebSearchMode {
-  return MODE_OPTIONS.some(option => option.value === value);
-}
 
 const ConfigureWebSearchForm = ({
   open,
@@ -49,25 +31,20 @@ const ConfigureWebSearchForm = ({
   onSave,
   title,
   description,
-  initialConfig = null,
   requireApiKey = true,
   busy = false,
   error,
 }: ConfigureWebSearchFormProps) => {
-  const [mode, setMode] = useState<ParallelWebSearchMode>(EMPTY_CONFIG.mode);
   const [apiKey, setApiKey] = useState('');
 
   const resetForm = () => {
-    setMode(EMPTY_CONFIG.mode);
     setApiKey('');
   };
 
   useEffect(() => {
     if (!open) return;
-    const config = initialConfig ?? EMPTY_CONFIG;
-    setMode(config.mode);
     setApiKey('');
-  }, [open, initialConfig]);
+  }, [open]);
 
   const handleOpenChange = (nextOpen: boolean) => {
     if (!nextOpen) resetForm();
@@ -82,10 +59,7 @@ const ConfigureWebSearchForm = ({
     if (!isValid || busy) return;
 
     try {
-      await onSave({
-        mode,
-        apiKey: trimmedKey,
-      });
+      await onSave({ apiKey: trimmedKey });
       resetForm();
       onOpenChange(false);
     } catch {
@@ -128,30 +102,6 @@ const ConfigureWebSearchForm = ({
               autoFocus
               className={inputClassName}
             />
-          </div>
-
-          <div>
-            <label htmlFor="web-search-mode" className="mb-1.5 block text-sm font-medium text-text-primary">
-              Mode
-            </label>
-            <select
-              id="web-search-mode"
-              required
-              value={mode}
-              onChange={event => {
-                const next = event.target.value;
-                if (isParallelWebSearchMode(next)) {
-                  setMode(next);
-                }
-              }}
-              className={inputClassName}
-            >
-              {MODE_OPTIONS.map(option => (
-                <option key={option.value} value={option.value}>
-                  {option.label}
-                </option>
-              ))}
-            </select>
           </div>
         </div>
 

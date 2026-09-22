@@ -17,7 +17,7 @@ const ParallelWebSearchProviderAuthSchema = z
 export const ParallelWebSearchProviderSchema = z
   .object({
     type: z.literal('parallel').describe('Parallel web-search provider.'),
-    auth: ParallelWebSearchProviderAuthSchema.optional(),
+    auth: ParallelWebSearchProviderAuthSchema,
   })
   .strict();
 

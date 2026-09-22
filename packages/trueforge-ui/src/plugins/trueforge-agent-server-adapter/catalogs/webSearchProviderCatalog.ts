@@ -12,7 +12,6 @@ import type {
   WebSearchCatalogServer,
   WebSearchProviderBase,
   WebSearchProviderCatalogEntry,
-  WebSearchProviderConfig,
 } from '../../../server/types.js';
 
 export type UiWebSearchProvider = WebSearchProviderBase;
@@ -28,20 +27,11 @@ function displayNameForType(type: string): string {
   return type;
 }
 
-export function configFromHarness(
-  provider: TrueForgeApi.CatalogWebSearchProvider | TrueForgeApi.WebSearchProviderManifest,
-): WebSearchProviderConfig {
-  return {
-    mode: provider.mode,
-  };
-}
-
 export function toUiCatalogEntry(provider: TrueForgeApi.CatalogWebSearchProvider): UiWebSearchProviderCatalogEntry {
   return {
     id: provider.type,
     name: displayNameForType(provider.type),
     type: provider.type,
-    ...configFromHarness(provider),
   };
 }
 
@@ -51,7 +41,6 @@ export function toUiWebSearchProvider(provider: TrueForgeApi.WebSearchProviderMa
     name: displayNameForType(provider.type),
     catalogId: provider.type,
     isConnected: true,
-    ...configFromHarness(provider),
   };
 }
 
@@ -72,42 +61,31 @@ export function filterUiWebSearchProviders({
   );
 }
 
-export function toHarnessManifest(
-  req: {
-    type: string;
-    apiKey: string;
-  } & WebSearchProviderConfig,
-): TrueForgeApi.WebSearchProviderManifest {
-  if (req.type !== PARALLEL_TYPE) {
-    throw new Error(`Unsupported web-search provider type: ${req.type}`);
+export function toHarnessManifest({
+  type,
+  apiKey,
+}: {
+  type: string;
+  apiKey: string;
+}): TrueForgeApi.WebSearchProviderManifest {
+  if (type !== PARALLEL_TYPE) {
+    throw new Error(`Unsupported web-search provider type: ${type}`);
   }
   return {
     type: PARALLEL_TYPE,
-    mode: req.mode,
-    auth: { apiKey: req.apiKey },
+    auth: { apiKey },
   };
-}
-
-function findExistingProvider(
-  providers: TrueForgeApi.ConfiguredWebSearchProvider[],
-  id: string,
-): TrueForgeApi.ConfiguredWebSearchProvider | undefined {
-  return providers.find(provider => provider.name === id || provider.manifest.type === id);
 }
 
 /** Settings web-search-catalog port for `createTrueForgeServer`. Delete omitted (no BE route). */
 export function createWebSearchProviderCatalog(client: TrueForge): WebSearchCatalogServer {
-  async function resolveApiKey({ apiKey, id }: { apiKey: string | undefined; id: string }): Promise<string> {
+  async function resolveApiKey(apiKey: string | undefined): Promise<string> {
     const trimmed = apiKey?.trim();
     if (trimmed !== undefined && trimmed !== '') {
       return trimmed;
     }
-    const existing = await client.settings.webSearchProviders.list();
-    const match = findExistingProvider(existing.data, id);
-    if (match === undefined) {
-      throw new Error('API key is required');
-    }
-    return match.manifest.auth.apiKey;
+    const existing = await client.settings.webSearchProviders.get();
+    return existing.data.manifest.auth.apiKey;
   }
 
   return {
@@ -116,28 +94,29 @@ export function createWebSearchProviderCatalog(client: TrueForge): WebSearchCata
       return body.data.map(toUiCatalogEntry);
     },
     listWebSearchProviders: async req => {
-      const body = await client.settings.webSearchProviders.list();
-      const providers = body.data.map(entry => toUiWebSearchProvider(entry.manifest));
+      let providers: UiWebSearchProvider[];
+      try {
+        const body = await client.settings.webSearchProviders.get();
+        providers = [toUiWebSearchProvider(body.data.manifest)];
+      } catch (err) {
+        if (err instanceof TrueForgeApi.NotFoundError) {
+          providers = [];
+        } else {
+          throw err;
+        }
+      }
       return filterUiWebSearchProviders({ providers, query: req?.query });
     },
     createWebSearchProvider: async req => {
-      const body = await client.settings.webSearchProviders.create({
-        manifest: toHarnessManifest({
-          type: req.type,
-          apiKey: req.apiKey,
-          mode: req.mode,
-        }),
+      const body = await client.settings.webSearchProviders.createOrUpdate({
+        manifest: toHarnessManifest({ type: req.type, apiKey: req.apiKey }),
       });
       return toUiWebSearchProvider(body.data.manifest);
     },
     updateWebSearchProvider: async req => {
-      const apiKey = await resolveApiKey({ apiKey: req.apiKey, id: req.id });
+      const apiKey = await resolveApiKey(req.apiKey);
       const body = await client.settings.webSearchProviders.createOrUpdate({
-        manifest: toHarnessManifest({
-          type: req.id,
-          apiKey,
-          mode: req.mode,
-        }),
+        manifest: toHarnessManifest({ type: PARALLEL_TYPE, apiKey }),
       });
       return toUiWebSearchProvider(body.data.manifest);
     },

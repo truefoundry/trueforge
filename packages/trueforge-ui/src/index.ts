@@ -394,7 +394,6 @@ export type {
   ModelSelection,
   ModelSelectorEntry,
   PageParams,
-  ParallelWebSearchMode,
   PermissionResourceType,
   PermissionsServer,
   PreviousTurnIdInput,
@@ -440,7 +439,6 @@ export type {
   WebSearchCatalogServer,
   WebSearchProviderBase,
   WebSearchProviderCatalogEntry,
-  WebSearchProviderConfig,
 } from './server/types.js';
 
 export { AgentCodeBlock } from './atoms/agent-details/AgentCodeBlock.js';

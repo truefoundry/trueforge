@@ -32,22 +32,13 @@ describe('settings web-search-providers router', () => {
     expect(await response.json()).toEqual({ error: { message: 'No web search provider configured' } });
   });
 
-  it('PUT without api_key upserts the singleton and GET returns it', async () => {
+  it('PUT without auth is rejected', async () => {
     const { router } = await createRouter();
     const put = await router.request('/', putInit({ type: 'parallel' }));
-    expect(put.status).toBe(200);
-    expect(await put.json()).toEqual({
-      data: { name: 'parallel', manifest: { type: 'parallel' } },
-    });
-
-    const get = await router.request('/');
-    expect(get.status).toBe(200);
-    expect(await get.json()).toEqual({
-      data: { name: 'parallel', manifest: { type: 'parallel' } },
-    });
+    expect(put.status).toBe(400);
   });
 
-  it('PUT with api_key redacts on response and second PUT replaces the same row', async () => {
+  it('PUT with api_key upserts the singleton, redacts on response, and second PUT replaces the same row', async () => {
     const { router, store } = await createRouter();
     const apiKey = 'parallel-secret-key';
     const created = await router.request('/', putInit({ type: 'parallel', auth: { api_key: apiKey } }));
@@ -59,14 +50,23 @@ describe('settings web-search-providers router', () => {
       },
     });
 
+    const get = await router.request('/');
+    expect(get.status).toBe(200);
+    expect(await get.json()).toEqual({
+      data: {
+        name: 'parallel',
+        manifest: { type: 'parallel', auth: { api_key: toRedactedSecretValue(apiKey) } },
+      },
+    });
+
     const first = await store.getProvider('default');
-    expect(first?.manifest.auth?.api_key).toBe(apiKey);
+    expect(first?.manifest.auth.api_key).toBe(apiKey);
 
     const rotated = await router.request('/', putInit({ type: 'parallel', auth: { api_key: 'parallel-rotated-key' } }));
     expect(rotated.status).toBe(200);
 
     const second = await store.getProvider('default');
-    expect(second?.manifest.auth?.api_key).toBe('parallel-rotated-key');
+    expect(second?.manifest.auth.api_key).toBe('parallel-rotated-key');
     expect(second?.created_at).toBe(first?.created_at);
   });
 
@@ -80,6 +80,6 @@ describe('settings web-search-providers router', () => {
       putInit({ type: 'parallel', auth: { api_key: toRedactedSecretValue(apiKey) } }),
     );
     expect(keep.status).toBe(200);
-    expect((await store.getProvider('default'))?.manifest.auth?.api_key).toBe(apiKey);
+    expect((await store.getProvider('default'))?.manifest.auth.api_key).toBe(apiKey);
   });
 });

@@ -82,7 +82,6 @@ export type {
   ModelSelection,
   ModelSelectorEntry,
   PageParams,
-  ParallelWebSearchMode,
   PermissionResourceType,
   PermissionsServer,
   PreviousTurnIdInput,
@@ -142,10 +141,8 @@ export type {
   WebSearchBase,
   WebSearchCatalogEntry,
   WebSearchCatalogServer,
-  WebSearchConfig,
   WebSearchProviderBase,
   WebSearchProviderCatalogEntry,
-  WebSearchProviderConfig,
 } from './types.js';
 
 export type {
