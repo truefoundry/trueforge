@@ -53,9 +53,7 @@ export function SessionsPage() {
   const resolved = useMemo(() => resolveSessionTimeRange(timeRange), [timeRange]);
   const timeRangeDurationMs = timeRange.endTs - timeRange.startTs;
   const showLoadRecentSessions =
-    timeRange.timeWindowMs == null &&
-    timeRangeDurationMs > 0 &&
-    timeRangeDurationMs <= 2 * SESSION_TIME_BUFFER_MS;
+    timeRange.timeWindowMs == null && timeRangeDurationMs > 0 && timeRangeDurationMs <= 2 * SESSION_TIME_BUFFER_MS;
   const loadRecentSessions = useCallback(() => {
     const recentRange = defaultSessionTimeRange();
     setTimeRange(recentRange);
