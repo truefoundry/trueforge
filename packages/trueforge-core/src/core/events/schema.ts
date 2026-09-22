@@ -40,6 +40,7 @@ export const EventType = {
   TOOL_RESPONSE_REQUIRED: 'tool.response_required',
   USER_TOOL_APPROVAL: 'user.tool_approval',
   USER_TOOL_RESPONSE: 'user.tool_response',
+  USER_TOOL_APPROVAL_POLICY: 'user.tool_approval_policy',
   USER_MESSAGE: 'user.message',
 } as const;
 
@@ -95,6 +96,33 @@ export const UserToolResponseMessageSchema = z
     content: z.string().min(1, 'content cannot be empty').describe('Client-side tool result content.'),
   })
   .openapi('UserToolResponseInputEvent');
+
+  export const ToolApprovalPolicyAllowSessionSchema = z
+  .object({
+    type: z.literal('allow_session').describe('Allow matching tool calls for the rest of this session.'),
+    expire_at: z
+      .string()
+      .optional()
+      .describe('ISO 8601 timestamp when this session allow expires. Omit to allow for the whole session.'),
+  })
+  .openapi('ToolApprovalPolicyAllowSession');
+
+export const ToolApprovalPolicyItemSchema = z
+  .object({
+    server: z.string().min(1, 'server is required').describe('MCP server name the tool belongs to.'),
+    tool_name: z.string().min(1, 'tool_name is required').describe('Tool name this policy applies to.'),
+    action: z.discriminatedUnion('type', [ToolApprovalPolicyAllowSessionSchema]),
+  })
+  .openapi('ToolApprovalPolicyItem');
+
+export const UserToolApprovalPolicyMessageSchema = z
+  .object({
+    type: z
+      .literal(EventType.USER_TOOL_APPROVAL_POLICY)
+      .describe('Sticky allow-session policy for matching tools (optional expiry).'),
+    policies: z.array(ToolApprovalPolicyItemSchema).min(1).describe('One or more (server, tool_name) policy entries.'),
+  })
+  .openapi('UserToolApprovalPolicyMessage');
 
 export const TextContentPartSchema = z
   .object({
@@ -373,6 +401,8 @@ export type AgentInfo = z.infer<typeof AgentInfoSchema>;
 export type ApprovalDecision = z.infer<typeof ApprovalDecisionSchema>;
 export type UserToolApprovalMessage = z.infer<typeof UserToolApprovalMessageSchema>;
 export type UserToolResponseMessage = z.infer<typeof UserToolResponseMessageSchema>;
+export type ToolApprovalPolicyItem = z.infer<typeof ToolApprovalPolicyItemSchema>;
+export type UserToolApprovalPolicyMessage = z.infer<typeof UserToolApprovalPolicyMessageSchema>;
 export type AgentApprovalDecisionMessage = z.infer<typeof AgentApprovalDecisionMessageSchema>;
 export type InputTokensBreakdown = z.infer<typeof InputTokensBreakdownSchema>;
 export type ModelMessageUsage = z.infer<typeof ModelMessageUsageSchema>;
