@@ -9,7 +9,7 @@ import {
   defaultSessionTimeRange,
   readSessionShareSearch,
   resolveSessionTimeRange,
-  SESSION_SHARE_CHANGE_EVENT,
+  SESSION_TIME_BUFFER_MS,
   type SessionTimeRange,
 } from '../../utils/sessionShareUrl.js';
 import { PageHeader } from '../PageHeader.js';
@@ -27,10 +27,6 @@ export function SessionsPage() {
   const [timeRange, setTimeRange] = useState<SessionTimeRange>(
     () => readSessionShareSearch(window.location.search).timeRange ?? defaultSessionTimeRange(),
   );
-  const [showLoadRecentSessions, setShowLoadRecentSessions] = useState(() => {
-    const share = readSessionShareSearch(window.location.search);
-    return share.sessionId != null && share.timeRange != null && share.timeRange.timeWindowMs == null;
-  });
 
   useEffect(() => {
     const share = readSessionShareSearch(window.location.search);
@@ -52,18 +48,16 @@ export function SessionsPage() {
     return () => window.removeEventListener('popstate', syncFilters);
   }, []);
 
-  useEffect(() => {
-    const hideLoadRecentSessions = () => setShowLoadRecentSessions(false);
-    window.addEventListener(SESSION_SHARE_CHANGE_EVENT, hideLoadRecentSessions);
-    return () => window.removeEventListener(SESSION_SHARE_CHANGE_EVENT, hideLoadRecentSessions);
-  }, []);
-
   // Resolve relative presets only when the filter changes. Unrelated query
   // updates (such as selecting a session) must not shift/refetch the list.
   const resolved = useMemo(() => resolveSessionTimeRange(timeRange), [timeRange]);
+  const timeRangeDurationMs = timeRange.endTs - timeRange.startTs;
+  const showLoadRecentSessions =
+    timeRange.timeWindowMs == null &&
+    timeRangeDurationMs > 0 &&
+    timeRangeDurationMs <= 2 * SESSION_TIME_BUFFER_MS;
   const loadRecentSessions = useCallback(() => {
     const recentRange = defaultSessionTimeRange();
-    setShowLoadRecentSessions(false);
     setTimeRange(recentRange);
     updateShareSearch({ timeRange: recentRange, sessionId: null, view: 'sessions' });
   }, [updateShareSearch]);

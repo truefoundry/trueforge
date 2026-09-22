@@ -257,6 +257,8 @@ describe('SessionsPage', () => {
 
     const loadRecentButton = await screen.findByRole('button', { name: 'Load recent sessions' });
     expect(loadRecentButton.closest('aside')).not.toBeNull();
+    fireEvent.click(screen.getByRole('button', { name: 'Close session details' }));
+    expect(screen.getByRole('button', { name: 'Load recent sessions' })).toBeInTheDocument();
     fireEvent.click(loadRecentButton);
 
     await waitFor(() => {
@@ -274,6 +276,22 @@ describe('SessionsPage', () => {
     expect(params.get('s_ets')).toBeNull();
     expect(screen.getByText('Select a session to view details')).toBeInTheDocument();
     expect(screen.queryByRole('button', { name: 'Load recent sessions' })).not.toBeInTheDocument();
+  });
+
+  it('keeps the recent-sessions action while the narrow list range remains active', async () => {
+    const createdAtMs = Date.parse(namedRow.createdAt);
+    window.history.replaceState(
+      null,
+      '',
+      `/?view=sessions&sessionId=sess-1&s_sts=${String(createdAtMs - SESSION_TIME_BUFFER_MS)}&s_ets=${String(createdAtMs + SESSION_TIME_BUFFER_MS)}`,
+    );
+    renderPage();
+
+    expect(await screen.findByRole('button', { name: 'Load recent sessions' })).toBeInTheDocument();
+    const row = screen.getByText('Draft session');
+    fireEvent.click(row.closest('button') ?? row);
+
+    expect(screen.getByRole('button', { name: 'Load recent sessions' })).toBeInTheDocument();
   });
 
   it('deletes only after the confirmation dialog is accepted', async () => {
