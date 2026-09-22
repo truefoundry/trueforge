@@ -6,6 +6,12 @@ import type { IToolSet } from '../mcp/IMCPServer';
 export type ModelParams = Record<string, unknown>;
 
 /**
+ * Max tool calls executed per assistant step.
+ * 20 × 50MB MCP body cap ≈ 1GB worst-case peak under unbounded Promise.all.
+ */
+export const DEFAULT_MAX_TOOL_CALLS_PER_STEP = 20;
+
+/**
  * Static definition of an agent. Represents the authored configuration,
  * not the execution state. Inherited by sub-agent definitions.
  *
@@ -26,6 +32,8 @@ export interface AgentDefinition {
   /** Same wire shape as AgentSpec.response_format (Zod ResponseFormat). */
   responseFormat?: ResponseFormat | undefined;
   iterationLimit?: number | undefined;
+  /** Host-imposed cap on tool_calls executed per assistant step. */
+  maxToolCallsPerStep: number;
 
   toolSets?: readonly IToolSet[] | undefined;
 }

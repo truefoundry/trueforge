@@ -2,6 +2,7 @@ import type { AgentDefinition, CreateDynamicSubAgentThread } from '../../src/cor
 import { dynamicSubAgents } from '../../src/core/capabilities/builtins/DynamicSubAgents';
 import { EventType } from '../../src/core/events/schema';
 import type { ILLM } from '../../src/core/llm/ILLM';
+import { DEFAULT_MAX_TOOL_CALLS_PER_STEP } from '../../src/core/runtime/AgentDefinition';
 import { AgentThread } from '../../src/core/runtime/AgentThread';
 import { InternalEventType, type AgentThreadConstructorInput } from '../../src/core/runtime/AgentThread.types';
 import {
@@ -127,6 +128,7 @@ describe('orchestration: dynamic sub-agent', () => {
         modelParams: undefined,
         responseFormat: undefined,
         iterationLimit: undefined,
+        maxToolCallsPerStep: DEFAULT_MAX_TOOL_CALLS_PER_STEP,
         toolSets: undefined,
       },
       threadId: ROOT_ID,
@@ -166,6 +168,7 @@ describe('orchestration: dynamic sub-agent', () => {
         modelParams: parentDefinition.modelParams,
         responseFormat: undefined,
         iterationLimit: parentDefinition.iterationLimit,
+        maxToolCallsPerStep: parentDefinition.maxToolCallsPerStep,
         toolSets: undefined,
       };
       return new AgentThread({

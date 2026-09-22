@@ -4,6 +4,7 @@ import { Sessions } from '../../src/agent-session/Sessions';
 import { InMemorySessionStore } from '../../src/agent-session/store/InMemorySessionStore';
 import { TurnResourceResolver } from '../../src/agent-session/TurnResourceResolver';
 import { RemoteMCP } from '../../src/core/mcp/RemoteMCP';
+import { DEFAULT_MAX_TOOL_CALLS_PER_STEP } from '../../src/core/runtime/AgentDefinition';
 import { makeStubPublicSandbox } from '../core/harnessMocks';
 import {
   emptyLlmStream,
@@ -413,6 +414,7 @@ describe('TurnHandle.stream()', () => {
       mcp: () => Promise.resolve({ url: 'http://localhost' }),
       mcpRequestTimeoutMs: 60_000,
       mcpConnectTimeoutMs: 5_000,
+      maxToolCallsPerStep: DEFAULT_MAX_TOOL_CALLS_PER_STEP,
       sandboxProvider: () => Promise.resolve(sandbox),
       logger,
     });
@@ -468,6 +470,7 @@ describe('TurnResourceResolver caches', () => {
       mcp: () => Promise.resolve({ url: 'http://example.invalid' }),
       mcpRequestTimeoutMs: 60_000,
       mcpConnectTimeoutMs: 5_000,
+      maxToolCallsPerStep: DEFAULT_MAX_TOOL_CALLS_PER_STEP,
       logger,
     });
     await resolver.resolveTwice();
@@ -492,6 +495,7 @@ describe('TurnResourceResolver caches', () => {
       mcp: () => Promise.reject(new Error('unused')),
       mcpRequestTimeoutMs: 1_000,
       mcpConnectTimeoutMs: 1_000,
+      maxToolCallsPerStep: DEFAULT_MAX_TOOL_CALLS_PER_STEP,
       logger,
     });
     await resolver.resolveTwice();
@@ -512,6 +516,7 @@ describe('TurnResourceResolver caches', () => {
       mcp: () => Promise.resolve({ url: 'http://localhost' }),
       mcpRequestTimeoutMs: 60_000,
       mcpConnectTimeoutMs: 5_000,
+      maxToolCallsPerStep: DEFAULT_MAX_TOOL_CALLS_PER_STEP,
       sandboxProvider: () => {
         sandboxCreates += 1;
         return Promise.resolve(sandbox);

@@ -4,7 +4,7 @@ import type { ToolSource } from '../core/mcp/IMCPServer';
 import { RemoteMCP, type RemoteMcpHeaders } from '../core/mcp/RemoteMCP';
 import type { ToolSelectorConfig } from '../core/mcp/ToolSelectorPolicy';
 import { ToolSet } from '../core/mcp/ToolSet';
-import type { AgentDefinition, ModelParams } from '../core/runtime/AgentDefinition';
+import { type AgentDefinition, type ModelParams } from '../core/runtime/AgentDefinition';
 import type { AgentInfo } from '../core/runtime/AgentThread.types';
 import type { Sandbox, SandboxInfo } from '../core/sandbox/Sandbox';
 import type { AgentTracing } from '../core/tracing/AgentTracing';
@@ -77,6 +77,8 @@ export class TurnResourceResolver<
       mcpRequestTimeoutMs: number;
       mcpConnectTimeoutMs: number;
       mcpMaxResponseBytes?: number | undefined;
+      /** Cap on tool_calls executed per assistant step (from host env). */
+      maxToolCallsPerStep: number;
       /** One sandbox type per runtime. Omit = no sandbox support. */
       sandboxProvider?: TurnSandboxFactory | undefined;
       /**
@@ -222,6 +224,7 @@ export class TurnResourceResolver<
         messages: agentInfo
           ? [{ role: 'user' as const, content: agentInfo.input }]
           : spec.messages?.map(m => ({ role: 'user' as const, content: m.content })),
+        // No env max_tokens clamp: catalog/agent params already set it; output text is tiny vs 50MB tool bodies.
         modelParams: {
           ...resolvedModel.defaultModelParams,
           ...spec.model.params,
@@ -229,6 +232,7 @@ export class TurnResourceResolver<
         // Sub-agents should return free-form summaries to the parent, not the user-facing structured response.
         responseFormat: agentInfo ? undefined : spec.response_format,
         iterationLimit: spec.config.iteration_limit,
+        maxToolCallsPerStep: this.deps.maxToolCallsPerStep,
         toolSets,
       },
     };

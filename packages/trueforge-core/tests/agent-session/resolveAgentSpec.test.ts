@@ -3,6 +3,7 @@ import { EventType } from '../../src/agent-session/schemas/events';
 import { Sessions } from '../../src/agent-session/Sessions';
 import { InMemorySessionStore } from '../../src/agent-session/store/InMemorySessionStore';
 import { TurnResourceResolver } from '../../src/agent-session/TurnResourceResolver';
+import { DEFAULT_MAX_TOOL_CALLS_PER_STEP } from '../../src/core/runtime/AgentDefinition';
 import {
   makeAgentSpec,
   makeMockILLM,
@@ -19,6 +20,7 @@ describe('TurnResourceResolver.resolveAgentSpec', () => {
       mcp: () => Promise.reject(new Error('unused')),
       mcpRequestTimeoutMs: 1_000,
       mcpConnectTimeoutMs: 1_000,
+      maxToolCallsPerStep: DEFAULT_MAX_TOOL_CALLS_PER_STEP,
       logger: makeSilentLogger(),
     });
 
@@ -33,6 +35,7 @@ describe('TurnResourceResolver.resolveAgentDefinition', () => {
       mcp: () => Promise.reject(new Error('unused')),
       mcpRequestTimeoutMs: 1_000,
       mcpConnectTimeoutMs: 1_000,
+      maxToolCallsPerStep: DEFAULT_MAX_TOOL_CALLS_PER_STEP,
       logger: makeSilentLogger(),
     });
 
@@ -69,6 +72,7 @@ describe('TurnResourceResolver.resolveAgentDefinition', () => {
       mcp: () => Promise.reject(new Error('unused')),
       mcpRequestTimeoutMs: 1_000,
       mcpConnectTimeoutMs: 1_000,
+      maxToolCallsPerStep: DEFAULT_MAX_TOOL_CALLS_PER_STEP,
       logger: makeSilentLogger(),
     });
     const spec = AgentSpecSchema.parse({
@@ -86,6 +90,7 @@ describe('TurnResourceResolver.resolveAgentDefinition', () => {
 
     expect(definition.modelParams?.['max_tokens']).toBe(expected);
     expect(definition.modelProperties?.contextLength).toBe(128_000);
+    expect(definition.maxToolCallsPerStep).toBe(DEFAULT_MAX_TOOL_CALLS_PER_STEP);
   });
 });
 

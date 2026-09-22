@@ -9,6 +9,7 @@ import { Sessions } from '../../src/agent-session/Sessions';
 import { InMemorySessionStore } from '../../src/agent-session/store/InMemorySessionStore';
 import type { AgentCapability, JsonValue } from '../../src/core/capabilities/AgentCapability';
 import type { AgentContextProcessorOutput } from '../../src/core/capabilities/AgentContextProcessor';
+import { DEFAULT_MAX_TOOL_CALLS_PER_STEP } from '../../src/core/runtime/AgentDefinition';
 import { AgentThread } from '../../src/core/runtime/AgentThread';
 import { InternalEventType } from '../../src/core/runtime/AgentThread.types';
 import { NOOP_AGENT_TRACING } from '../../src/core/tracing/NoopAgentTracing';
@@ -281,6 +282,7 @@ describe('capability_state (tfy.plan fixture)', () => {
     const thread = new AgentThread({
       definition: {
         modelClient: makeMockILLM({ create: jest.fn().mockImplementation(() => emptyLlmStream()) }),
+        maxToolCallsPerStep: DEFAULT_MAX_TOOL_CALLS_PER_STEP,
       },
       threadId: MAIN_THREAD_ID,
       title: 'main',

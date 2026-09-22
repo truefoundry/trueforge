@@ -42,11 +42,13 @@ export async function executeToolCalls({
   toolMapping,
   threadId,
   approvalDecisions,
+  maxToolCallsPerStep,
 }: {
   assistantMessage: InternalEnrichedAssistantMessage;
   toolMapping: Map<string, MappedMCPTool>;
   threadId: string;
   approvalDecisions: Map<string, ApprovalDecision>;
+  maxToolCallsPerStep: number;
 }): Promise<ExecuteToolCallsResult> {
   const toolMessages: ToolCallResult[] = [];
   const initializationInfo: MCPServerInitInfo[] = [];
@@ -68,6 +70,12 @@ export async function executeToolCalls({
       clientSideToolCalls,
       events: passthroughEvents,
     };
+  }
+
+  if (assistantMessage.tool_calls.length > maxToolCallsPerStep) {
+    throw new Error(
+      `Tool call limit of ${String(maxToolCallsPerStep)} per step exceeded (${String(assistantMessage.tool_calls.length)} requested)`,
+    );
   }
 
   const toolCallPromises = assistantMessage.tool_calls.map(async toolCall => {
