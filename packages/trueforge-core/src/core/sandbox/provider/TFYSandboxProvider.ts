@@ -247,6 +247,12 @@ export class TFYSandboxProvider implements SandboxProvider {
     return context.with(suppressTracing(context.active()), async () => {
       const query = new URLSearchParams({ sandbox_id: params.sandboxId, path: params.remotePath });
       const uploadUrl = `${this.serverUrl}/files/upload?${query.toString()}`;
+      const bytes = params.content.byteLength;
+      this.logger.info('Uploading file to sandbox', {
+        sandboxId: params.sandboxId,
+        remotePath: params.remotePath,
+        bytes,
+      });
       let response: Response;
       try {
         response = await fetch(uploadUrl, {
@@ -268,6 +274,11 @@ export class TFYSandboxProvider implements SandboxProvider {
       if (!result.success) {
         throw new Error(`File upload to sandbox failed: ${result.error}`);
       }
+      this.logger.info('Uploaded file to sandbox', {
+        sandboxId: params.sandboxId,
+        remotePath: params.remotePath,
+        bytes,
+      });
     });
   }
 
