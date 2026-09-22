@@ -8,7 +8,7 @@
  *
  * `STANDALONE` is a discriminated mode selector:
  * - `true` (default): SQLite only; no Redis / executor peering.
- * - `false`: Postgres + Redis (`REDIS_URL`, `REDIS_HOST`, or Sentinel required).
+ * - `false`: Postgres + Redis (exactly one of `REDIS_URL`, `REDIS_HOST`, or Sentinel).
  */
 import { existsSync, readFileSync } from 'node:fs';
 import os from 'node:os';
@@ -17,6 +17,10 @@ import { fileURLToPath } from 'node:url';
 
 import envPaths from 'env-paths';
 import { z } from 'zod';
+
+import { parseRedisSentinelNodes, type RedisConnection } from './runtime/redis';
+
+export type { RedisConnection };
 
 const DEFAULT_PORT = 8790;
 /** Loopback default; container images set HOST=0.0.0.0 so probes and Service traffic reach the process. */
@@ -359,13 +363,93 @@ function resolveCodeModeSocketParent(): string {
   return path.join(os.tmpdir(), 'tf_cms');
 }
 
-/** Redis peering URL for distributed mode. Env: `REDIS_URL`. Preferred over `REDIS_HOST` when set. */
-function resolveRedisUrl(): string | undefined {
-  const raw = getEnv('REDIS_URL');
+/** Non-empty trimmed env string, or undefined. */
+function optionalNonEmptyEnv(envKey: string): string | undefined {
+  const raw = getEnv(envKey);
   if (raw === undefined || raw.trim() === '') {
     return undefined;
   }
-  return raw;
+  return raw.trim();
+}
+
+/**
+ * Exactly one Redis transport for distributed mode.
+ * Transports are mutually exclusive: Sentinel, `REDIS_URL`, or `REDIS_HOST`.
+ */
+function resolveRedisConnection(): RedisConnection {
+  const sentinelEnabled = parseBoolean({
+    envKey: 'REDIS_SENTINEL_ENABLED',
+    raw: getEnv('REDIS_SENTINEL_ENABLED'),
+    defaultValue: false,
+  });
+  const url = optionalNonEmptyEnv('REDIS_URL');
+  const host = optionalNonEmptyEnv('REDIS_HOST');
+  const database = parseNonNegativeInt({
+    envKey: 'REDIS_DB',
+    raw: getEnv('REDIS_DB'),
+    defaultValue: 0,
+  });
+  const username = optionalNonEmptyEnv('REDIS_USERNAME');
+  const password = getEnv('REDIS_PASSWORD');
+  const passwordOrUndefined = password === undefined || password === '' ? undefined : password;
+
+  if (sentinelEnabled) {
+    const nodes = optionalNonEmptyEnv('REDIS_SENTINEL_NODES');
+    const masterName = optionalNonEmptyEnv('REDIS_SENTINEL_MASTER_NAME');
+    if (!nodes || !masterName || parseRedisSentinelNodes(nodes).length === 0) {
+      throw new Error(
+        'REDIS_SENTINEL_ENABLED=true requires non-empty REDIS_SENTINEL_NODES and REDIS_SENTINEL_MASTER_NAME.',
+      );
+    }
+    if (url !== undefined || host !== undefined) {
+      throw new Error(
+        'Redis transports are mutually exclusive: unset REDIS_URL and REDIS_HOST when REDIS_SENTINEL_ENABLED=true.',
+      );
+    }
+    const sentinelUsername = optionalNonEmptyEnv('REDIS_SENTINEL_USERNAME');
+    const sentinelPasswordRaw = getEnv('REDIS_SENTINEL_PASSWORD');
+    const sentinelPassword =
+      sentinelPasswordRaw === undefined || sentinelPasswordRaw === '' ? undefined : sentinelPasswordRaw;
+    return {
+      mode: 'sentinel',
+      nodes,
+      masterName,
+      database,
+      ...(username !== undefined ? { username } : {}),
+      ...(passwordOrUndefined !== undefined ? { password: passwordOrUndefined } : {}),
+      ...(sentinelUsername !== undefined ? { sentinelUsername } : {}),
+      ...(sentinelPassword !== undefined ? { sentinelPassword } : {}),
+    };
+  }
+
+  if (url !== undefined && host !== undefined) {
+    throw new Error(
+      'Redis transports are mutually exclusive: set only one of REDIS_URL or REDIS_HOST (or enable Sentinel).',
+    );
+  }
+  if (url !== undefined) {
+    return { mode: 'url', url };
+  }
+  if (host !== undefined) {
+    const port = parsePositiveInt({
+      envKey: 'REDIS_PORT',
+      raw: getEnv('REDIS_PORT'),
+      defaultValue: 6379,
+    });
+    return {
+      mode: 'host',
+      host,
+      port,
+      database,
+      ...(username !== undefined ? { username } : {}),
+      ...(passwordOrUndefined !== undefined ? { password: passwordOrUndefined } : {}),
+    };
+  }
+
+  throw new Error(
+    'Set exactly one Redis transport when STANDALONE=false: REDIS_URL, REDIS_HOST, or ' +
+      'REDIS_SENTINEL_ENABLED with REDIS_SENTINEL_NODES and REDIS_SENTINEL_MASTER_NAME.',
+  );
 }
 
 /**
@@ -749,33 +833,14 @@ export type DistributedServerConfiguration = SharedServerConfiguration & {
    */
   POSTGRES_SCHEMA: string;
   /**
-   * Peering URL shared by all replicas. Preferred over `REDIS_HOST` when set (may include userinfo).
-   * Env: `REDIS_URL`. Required (with host or Sentinel) when `STANDALONE=false`.
+   * Resolved Redis transport (exactly one of url / host / sentinel).
+   * Env: mutually exclusive `REDIS_URL`, `REDIS_HOST`, or `REDIS_SENTINEL_*`.
    */
-  REDIS_URL: string | undefined;
-  /** Standalone Redis host. Used when `REDIS_URL` / Sentinel are unset. Env: `REDIS_HOST`. */
-  REDIS_HOST: string | undefined;
-  /** Redis port. Env: `REDIS_PORT`. Default 6379. */
-  REDIS_PORT: number;
-  /** Redis DB index. Env: `REDIS_DB`. Default 0. */
-  REDIS_DB: number;
-  /** Redis ACL username (data nodes). Env: `REDIS_USERNAME`. */
-  REDIS_USERNAME: string | undefined;
-  /** Redis password (data nodes). Env: `REDIS_PASSWORD`. */
-  REDIS_PASSWORD: string | undefined;
-  /**
-   * Opt into Redis Sentinel. Active only when nodes + master name are also set.
-   * Env: `REDIS_SENTINEL_ENABLED`. Default false.
-   */
-  REDIS_SENTINEL_ENABLED: boolean;
-  /** Comma-separated `host:port` Sentinel nodes. Env: `REDIS_SENTINEL_NODES`. */
-  REDIS_SENTINEL_NODES: string | undefined;
-  /** Sentinel monitored master name. Env: `REDIS_SENTINEL_MASTER_NAME`. */
-  REDIS_SENTINEL_MASTER_NAME: string | undefined;
-  /** Auth to Sentinel processes (not data nodes). Env: `REDIS_SENTINEL_USERNAME`. */
-  REDIS_SENTINEL_USERNAME: string | undefined;
-  /** Auth to Sentinel processes (not data nodes). Env: `REDIS_SENTINEL_PASSWORD`. */
-  REDIS_SENTINEL_PASSWORD: string | undefined;
+  REDIS_CONNECTION: RedisConnection;
+  /** Socket connect timeout for Redis clients. Env: `REDIS_CONNECT_TIMEOUT_MS`. Default 20000. */
+  REDIS_CONNECT_TIMEOUT_MS: number;
+  /** Client ping interval for Redis keepalive. Env: `REDIS_PING_INTERVAL_MS`. Default 5000. */
+  REDIS_PING_INTERVAL_MS: number;
   /** Enable TLS for Redis (and Sentinel when used). Env: `REDIS_TLS_ENABLED`. Default false. */
   REDIS_TLS_ENABLED: boolean;
   /** CA cert path or inline PEM. Env: `REDIS_TLS_CA_CERT`. */
@@ -1033,29 +1098,17 @@ const configuration: ServerConfiguration = standalone
         defaultValue: 60_000,
       }),
       POSTGRES_SCHEMA: parsePostgresSchema(getEnv('POSTGRES_SCHEMA')),
-      REDIS_URL: resolveRedisUrl(),
-      REDIS_HOST: getEnv('REDIS_HOST'),
-      REDIS_PORT: parsePositiveInt({
-        envKey: 'REDIS_PORT',
-        raw: getEnv('REDIS_PORT'),
-        defaultValue: 6379,
+      REDIS_CONNECTION: resolveRedisConnection(),
+      REDIS_CONNECT_TIMEOUT_MS: parsePositiveInt({
+        envKey: 'REDIS_CONNECT_TIMEOUT_MS',
+        raw: getEnv('REDIS_CONNECT_TIMEOUT_MS'),
+        defaultValue: 20_000,
       }),
-      REDIS_DB: parseNonNegativeInt({
-        envKey: 'REDIS_DB',
-        raw: getEnv('REDIS_DB'),
-        defaultValue: 0,
+      REDIS_PING_INTERVAL_MS: parsePositiveInt({
+        envKey: 'REDIS_PING_INTERVAL_MS',
+        raw: getEnv('REDIS_PING_INTERVAL_MS'),
+        defaultValue: 5_000,
       }),
-      REDIS_USERNAME: getEnv('REDIS_USERNAME'),
-      REDIS_PASSWORD: getEnv('REDIS_PASSWORD'),
-      REDIS_SENTINEL_ENABLED: parseBoolean({
-        envKey: 'REDIS_SENTINEL_ENABLED',
-        raw: getEnv('REDIS_SENTINEL_ENABLED'),
-        defaultValue: false,
-      }),
-      REDIS_SENTINEL_NODES: getEnv('REDIS_SENTINEL_NODES'),
-      REDIS_SENTINEL_MASTER_NAME: getEnv('REDIS_SENTINEL_MASTER_NAME'),
-      REDIS_SENTINEL_USERNAME: getEnv('REDIS_SENTINEL_USERNAME'),
-      REDIS_SENTINEL_PASSWORD: getEnv('REDIS_SENTINEL_PASSWORD'),
       REDIS_TLS_ENABLED: parseBoolean({
         envKey: 'REDIS_TLS_ENABLED',
         raw: getEnv('REDIS_TLS_ENABLED'),

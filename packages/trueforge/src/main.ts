@@ -94,7 +94,7 @@ import type { IOAuthTokenStore } from './mcp/auth/types';
 import { PACKAGE_VERSION } from './packageVersion';
 import { ActiveTurnRegistry } from './runtime/activeTurns';
 import { EventSubscriptionRegistry } from './runtime/event-subscription';
-import { isStandaloneRedisClient } from './runtime/redis';
+import type { ConnectedRedis } from './runtime/redis';
 import { printStandaloneStartupBanner } from './startupBanner';
 import { InlineMcpServerStore } from './truefoundry/InlineMcpServerStore';
 import { parseInlineMcpServers, parseInlineSkills, X_TFG_MCP, X_TFG_SKILLS } from './truefoundry/inlineResources';
@@ -136,7 +136,8 @@ interface ServerPersistence<TTransaction> {
   agentStore: IAgentStore<TTransaction>;
   turnSkillsResolverStore: Pick<ISkillStore<TTransaction>, 'resolveTurnSkills'>;
   destroyDb: () => Promise<void>;
-  redis: RedisPeerClient | undefined;
+  /** Connected Redis (client + mode) for distributed peering; undefined in standalone. */
+  redis: ConnectedRedis | undefined;
   /** One shared client for TrueFoundry store resolvers + auth; undefined when TrueFoundry mode is off. */
   serviceFoundryClient: TrueFoundryServiceFoundryServerClient | undefined;
 }
@@ -365,17 +366,9 @@ async function createDistributedPersistence(options: {
     DATABASE_POOL_MAX: databasePoolMax,
     POSTGRES_STATEMENT_TIMEOUT_MS: statementTimeoutMs,
     POSTGRES_IDLE_IN_TRANSACTION_SESSION_TIMEOUT_MS: idleInTransactionSessionTimeoutMs,
-    REDIS_URL: redisUrl,
-    REDIS_HOST: redisHost,
-    REDIS_PORT: redisPort,
-    REDIS_DB: redisDb,
-    REDIS_USERNAME: redisUsername,
-    REDIS_PASSWORD: redisPassword,
-    REDIS_SENTINEL_ENABLED: redisSentinelEnabled,
-    REDIS_SENTINEL_NODES: redisSentinelNodes,
-    REDIS_SENTINEL_MASTER_NAME: redisSentinelMasterName,
-    REDIS_SENTINEL_USERNAME: redisSentinelUsername,
-    REDIS_SENTINEL_PASSWORD: redisSentinelPassword,
+    REDIS_CONNECTION: redisConnection,
+    REDIS_CONNECT_TIMEOUT_MS: redisConnectTimeoutMs,
+    REDIS_PING_INTERVAL_MS: redisPingIntervalMs,
     REDIS_TLS_ENABLED: redisTlsEnabled,
     REDIS_TLS_CA_CERT: redisTlsCaCert,
     REDIS_TLS_REJECT_UNAUTHORIZED: redisTlsRejectUnauthorized,
@@ -499,20 +492,10 @@ async function createDistributedPersistence(options: {
     turnSkillsResolverStore,
     destroyDb: () => db.destroy(),
     redis: await connectRedis({
-      url: redisUrl,
-      host: redisHost,
-      port: redisPort,
-      database: redisDb,
-      username: redisUsername,
-      password: redisPassword,
+      connection: redisConnection,
+      connectTimeoutMs: redisConnectTimeoutMs,
+      pingIntervalMs: redisPingIntervalMs,
       logger,
-      sentinel: {
-        enabled: redisSentinelEnabled,
-        nodes: redisSentinelNodes,
-        masterName: redisSentinelMasterName,
-        username: redisSentinelUsername,
-        password: redisSentinelPassword,
-      },
       tls: {
         enabled: redisTlsEnabled,
         caCert: redisTlsCaCert,
@@ -546,7 +529,7 @@ async function createServerRuntime<TTransaction>(persistence: ServerPersistence<
 
   const activeTurns = new ActiveTurnRegistry();
   const requestReplyRouter = new RequestReplyRouter();
-  const eventSubscriptions = new EventSubscriptionRegistry<TurnStreamingEvent>(redis);
+  const eventSubscriptions = new EventSubscriptionRegistry<TurnStreamingEvent>(redis?.client);
   const sessions = new Sessions({ sessionStore });
 
   const oidc = isOidcConfigured(configuration) ? configuration.OIDC : undefined;
@@ -642,7 +625,7 @@ async function createServerRuntime<TTransaction>(persistence: ServerPersistence<
     sessionMetricsStore,
     sessions,
     activeTurns,
-    redis,
+    redis: redis?.client,
     requestReplyRouter,
     eventSubscriptions,
     logger,
@@ -718,19 +701,19 @@ try {
   let requestReplySubscriberOwned = false;
   let requestReplyExecutor: RequestReplyExecutor | undefined;
   if (redis) {
-    if (isStandaloneRedisClient(redis)) {
-      requestReplySubscriber = redis.duplicate();
+    if (redis.mode !== 'sentinel') {
+      requestReplySubscriber = redis.client.duplicate();
       requestReplySubscriberOwned = true;
       requestReplySubscriber.on('error', (error: Error) => {
         logger.error('[RedisSubscriber] Client error', extractErrorLogFields(error));
       });
       await requestReplySubscriber.connect();
     } else {
-      requestReplySubscriber = redis;
+      requestReplySubscriber = redis.client;
     }
     requestReplyExecutor = new RequestReplyExecutor({
       executorId: configuration.EXECUTOR_ID,
-      redis,
+      redis: redis.client,
       subscriberClient: requestReplySubscriber,
       requestHandler: requestReplyRouter.createRequestHandler(),
       logger,
@@ -809,7 +792,7 @@ try {
           logger.warn('[Redis] Error closing subscriber client during shutdown', extractErrorLogFields(error));
         });
       }
-      await redis?.close().catch((error: unknown) => {
+      await redis?.client.close().catch((error: unknown) => {
         logger.warn('[Redis] Error closing client during shutdown', extractErrorLogFields(error));
       });
       if (configuration.STANDALONE) {

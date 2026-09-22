@@ -273,16 +273,17 @@ externalPostgres:
 externalRedis:
   ## Use an external Redis instead of the bundled Redis (`redis.enabled` must be false).
   ## Set `enabled: true`, or set url/host/sentinel (enabled is optional for upgrade compat).
+  ## Exactly one transport: url, host, or sentinel (mutually exclusive).
   enabled: false
   ## Full connection URL, e.g. redis://:password@redis-master.databases.svc:6379.
-  ## string or valueFrom. Preferred over host when set (app REDIS_URL).
+  ## string or valueFrom. Mutually exclusive with host and sentinel.
   url: ""
-  ## Standalone Redis host (used when url is unset; optional when sentinel.enabled).
+  ## Standalone Redis host. Mutually exclusive with url and sentinel.
   host: ""
   port: 6379
   db: 0
   auth:
-    ## string or valueFrom
+    ## string or valueFrom (host/sentinel modes; put credentials in url when using url)
     username: ""
     password: ""
   tls:
@@ -294,6 +295,7 @@ externalRedis:
     key: ""
     keyPassphrase: ""
   sentinel:
+    ## Mutually exclusive with url and host. Requires nodes + masterName when enabled.
     enabled: false
     ## Array of host:port entries
     nodes: []

@@ -12,12 +12,35 @@ import { createClient, createSentinel, type RedisClientType } from 'redis';
 import type { Logger } from 'winston';
 
 const DEFAULT_SENTINEL_PORT = 26379;
-const DEFAULT_REDIS_PORT = 6379;
-const DEFAULT_REDIS_DB = 0;
-const CONNECT_TIMEOUT_MS = 20_000;
-const PING_INTERVAL_MS = 5_000;
 const SENTINEL_RETRY_BASE_MS = 200;
 const SENTINEL_RETRY_MAX_MS = 3_000;
+
+/** Exactly one Redis transport, resolved at config load. */
+export type RedisConnection =
+  | { mode: 'url'; url: string }
+  | {
+      mode: 'host';
+      host: string;
+      port: number;
+      database: number;
+      username?: string;
+      password?: string;
+    }
+  | {
+      mode: 'sentinel';
+      nodes: string;
+      masterName: string;
+      database: number;
+      username?: string;
+      password?: string;
+      sentinelUsername?: string;
+      sentinelPassword?: string;
+    };
+
+export type ConnectedRedis =
+  | { mode: 'url'; client: RedisClientType }
+  | { mode: 'host'; client: RedisClientType }
+  | { mode: 'sentinel'; client: RedisPeerClient };
 
 /** Parse comma-separated `host:port` list into Sentinel root nodes. */
 export function parseRedisSentinelNodes(raw: string): { host: string; port: number }[] {
@@ -36,24 +59,6 @@ export function parseRedisSentinelNodes(raw: string): { host: string; port: numb
     });
 }
 
-/** Sentinel is active only when explicitly enabled and fully configured. */
-export function isRedisSentinelConfigured(
-  input:
-    | {
-        enabled: boolean | undefined;
-        nodes: string | undefined;
-        masterName: string | undefined;
-      }
-    | undefined,
-): boolean {
-  return !!(
-    input?.enabled &&
-    input.masterName?.trim() &&
-    input.nodes?.trim() &&
-    parseRedisSentinelNodes(input.nodes).length
-  );
-}
-
 export interface RedisTlsInput {
   enabled: boolean | undefined;
   caCert: string | undefined;
@@ -64,13 +69,9 @@ export interface RedisTlsInput {
   keyPassphrase: string | undefined;
 }
 
-export function isStandaloneRedisClient(client: RedisPeerClient): client is RedisClientType {
-  return 'duplicate' in client;
-}
-
 const PEM_MARKER = '-----BEGIN';
 
-function resolvePemMaterial(value: string, label: string): string {
+function resolvePemMaterial({ value, label }: { value: string; label: string }): string {
   if (value.includes(PEM_MARKER)) {
     return value;
   }
@@ -112,9 +113,9 @@ function buildTlsSocketOptions(tls: RedisTlsInput | undefined):
   return {
     tls: true,
     rejectUnauthorized: tls.rejectUnauthorized ?? true,
-    ...(tls.caCert ? { ca: resolvePemMaterial(tls.caCert, 'REDIS_TLS_CA_CERT') } : {}),
-    ...(tls.cert ? { cert: resolvePemMaterial(tls.cert, 'REDIS_TLS_CERT') } : {}),
-    ...(tls.key ? { key: resolvePemMaterial(tls.key, 'REDIS_TLS_KEY') } : {}),
+    ...(tls.caCert ? { ca: resolvePemMaterial({ value: tls.caCert, label: 'REDIS_TLS_CA_CERT' }) } : {}),
+    ...(tls.cert ? { cert: resolvePemMaterial({ value: tls.cert, label: 'REDIS_TLS_CERT' }) } : {}),
+    ...(tls.key ? { key: resolvePemMaterial({ value: tls.key, label: 'REDIS_TLS_KEY' }) } : {}),
     ...(tls.keyPassphrase ? { passphrase: tls.keyPassphrase } : {}),
     ...(tls.serverName ? { servername: tls.serverName } : {}),
   };
@@ -134,14 +135,9 @@ function sleep(ms: number): Promise<void> {
  * only auth failures (`WRONGPASS` / `NOAUTH`) abort permanently.
  */
 async function connectSentinelWithRetry(input: {
-  sentinel: {
-    nodes: string | undefined;
-    masterName: string | undefined;
-    username: string | undefined;
-    password: string | undefined;
-  };
-  auth: { database: number; username?: string; password?: string };
+  connection: Extract<RedisConnection, { mode: 'sentinel' }>;
   clientDefaults: { disableOfflineQueue: true; pingInterval: number };
+  connectTimeoutMs: number;
   socketTls:
     | {
         tls: true;
@@ -155,20 +151,26 @@ async function connectSentinelWithRetry(input: {
     | undefined;
   logger: Logger;
 }): Promise<ReturnType<typeof createSentinel>> {
+  const { connection } = input;
+  const auth = {
+    database: connection.database,
+    ...(connection.username ? { username: connection.username } : {}),
+    ...(connection.password ? { password: connection.password } : {}),
+  };
   let attempt = 0;
   for (;;) {
     const client = createSentinel({
-      name: input.sentinel.masterName?.trim() ?? '',
-      sentinelRootNodes: parseRedisSentinelNodes(input.sentinel.nodes ?? ''),
+      name: connection.masterName,
+      sentinelRootNodes: parseRedisSentinelNodes(connection.nodes),
       nodeClientOptions: {
         ...input.clientDefaults,
-        ...input.auth,
-        socket: { connectTimeout: CONNECT_TIMEOUT_MS, ...(input.socketTls ?? {}) },
+        ...auth,
+        socket: { connectTimeout: input.connectTimeoutMs, ...(input.socketTls ?? {}) },
       },
       sentinelClientOptions: {
-        socket: { connectTimeout: CONNECT_TIMEOUT_MS, ...(input.socketTls ?? {}) },
-        ...(input.sentinel.username ? { username: input.sentinel.username } : {}),
-        ...(input.sentinel.password ? { password: input.sentinel.password } : {}),
+        socket: { connectTimeout: input.connectTimeoutMs, ...(input.socketTls ?? {}) },
+        ...(connection.sentinelUsername ? { username: connection.sentinelUsername } : {}),
+        ...(connection.sentinelPassword ? { password: connection.sentinelPassword } : {}),
       },
     });
     // Without an 'error' listener node-redis crashes the process on emit.
@@ -198,88 +200,75 @@ async function connectSentinelWithRetry(input: {
   }
 }
 
-export async function connectRedis(input: {
-  /** Preferred when set (may include userinfo). Env: `REDIS_URL`. */
-  url: string | undefined;
-  /** Used when `url` / Sentinel are unset. Env: `REDIS_HOST`. */
-  host: string | undefined;
-  /** Host mode only. Defaults to 6379. */
-  port: number | undefined;
-  /** Host / Sentinel mode only. Defaults to 0. */
-  database: number | undefined;
-  username: string | undefined;
-  password: string | undefined;
-  logger: Logger;
-  sentinel:
-    | {
-        enabled: boolean | undefined;
-        nodes: string | undefined;
-        masterName: string | undefined;
-        username: string | undefined;
-        password: string | undefined;
-      }
-    | undefined;
+export interface ConnectRedisInput {
+  connection: RedisConnection;
   tls: RedisTlsInput | undefined;
-}): Promise<RedisPeerClient> {
+  logger: Logger;
+  connectTimeoutMs: number;
+  pingIntervalMs: number;
+}
+
+export async function connectRedis(input: ConnectRedisInput): Promise<ConnectedRedis> {
   input.logger.info('Connecting to Redis');
 
   const socketTls = buildTlsSocketOptions(input.tls);
-  const auth = {
-    database: input.database ?? DEFAULT_REDIS_DB,
-    ...(input.username ? { username: input.username } : {}),
-    ...(input.password ? { password: input.password } : {}),
-  };
   const clientDefaults = {
     disableOfflineQueue: true,
-    pingInterval: PING_INTERVAL_MS,
+    pingInterval: input.pingIntervalMs,
   } as const;
-  const url = input.url?.trim();
 
-  let client: RedisPeerClient;
-  if (isRedisSentinelConfigured(input.sentinel) && input.sentinel) {
-    // createSentinel()'s return is not assignable to RedisSentinelType under exactOptionalPropertyTypes
-    // @ts-expect-error TS2375
-    client = await connectSentinelWithRetry({
-      sentinel: input.sentinel,
-      auth,
-      clientDefaults,
-      socketTls,
-      logger: input.logger,
-    });
-  } else if (url) {
-    client = createClient({
-      url,
-      ...clientDefaults,
-      socket: { connectTimeout: CONNECT_TIMEOUT_MS, ...(socketTls ?? {}) },
-    });
-    // Without an 'error' listener node-redis crashes the process on emit.
-    client.on('error', (error: Error) => {
-      input.logger.error('[Redis] Client error', extractErrorLogFields(error));
-    });
-    await client.connect();
-  } else if (input.host?.trim()) {
-    client = createClient({
-      ...clientDefaults,
-      ...auth,
-      socket: {
-        host: input.host.trim(),
-        port: input.port ?? DEFAULT_REDIS_PORT,
-        connectTimeout: CONNECT_TIMEOUT_MS,
-        ...(socketTls ?? {}),
-      },
-    });
-    // Without an 'error' listener node-redis crashes the process on emit.
-    client.on('error', (error: Error) => {
-      input.logger.error('[Redis] Client error', extractErrorLogFields(error));
-    });
-    await client.connect();
-  } else {
-    throw new Error(
-      '[Redis] No connection configured: set REDIS_URL, REDIS_HOST, or Redis Sentinel ' +
-        '(REDIS_SENTINEL_ENABLED with nodes and master name).',
-    );
+  switch (input.connection.mode) {
+    case 'sentinel': {
+      // @ts-expect-error TS2375 createSentinel return not assignable under EOPT
+      const client: RedisPeerClient = await connectSentinelWithRetry({
+        connection: input.connection,
+        clientDefaults,
+        connectTimeoutMs: input.connectTimeoutMs,
+        socketTls,
+        logger: input.logger,
+      });
+      input.logger.info('Connected to Redis');
+      return { mode: 'sentinel', client };
+    }
+    case 'url': {
+      const created = createClient({
+        url: input.connection.url,
+        ...clientDefaults,
+        socket: { connectTimeout: input.connectTimeoutMs, ...(socketTls ?? {}) },
+      });
+      // Without an 'error' listener node-redis crashes the process on emit.
+      created.on('error', (error: Error) => {
+        input.logger.error('[Redis] Client error', extractErrorLogFields(error));
+      });
+      await created.connect();
+      input.logger.info('Connected to Redis');
+      // @ts-expect-error TS2375 createClient return not assignable under EOPT
+      const client: RedisClientType = created;
+      return { mode: 'url', client };
+    }
+    case 'host': {
+      const { host, port, database, username, password } = input.connection;
+      const created = createClient({
+        ...clientDefaults,
+        database,
+        ...(username ? { username } : {}),
+        ...(password ? { password } : {}),
+        socket: {
+          host,
+          port,
+          connectTimeout: input.connectTimeoutMs,
+          ...(socketTls ?? {}),
+        },
+      });
+      // Without an 'error' listener node-redis crashes the process on emit.
+      created.on('error', (error: Error) => {
+        input.logger.error('[Redis] Client error', extractErrorLogFields(error));
+      });
+      await created.connect();
+      input.logger.info('Connected to Redis');
+      // @ts-expect-error TS2375 createClient return not assignable under EOPT
+      const client: RedisClientType = created;
+      return { mode: 'host', client };
+    }
   }
-
-  input.logger.info('Connected to Redis');
-  return client;
 }
