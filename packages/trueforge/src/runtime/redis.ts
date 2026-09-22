@@ -60,7 +60,7 @@ export interface RedisTlsInput {
 }
 
 /** node-redis socket TLS fields shared by data-node and Sentinel clients. */
-export type RedisTlsSocketOptions = {
+export interface RedisTlsSocketOptions {
   tls: true;
   rejectUnauthorized: boolean;
   ca?: string;
@@ -68,7 +68,7 @@ export type RedisTlsSocketOptions = {
   key?: string;
   passphrase?: string;
   servername?: string;
-};
+}
 
 const PEM_MARKER = '-----BEGIN';
 

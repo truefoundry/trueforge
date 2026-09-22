@@ -386,7 +386,7 @@ function buildRedisStandaloneUrl(parts: {
 }): string {
   let auth = '';
   if (parts.username !== undefined) {
-    auth = `${encodeURIComponent(parts.username)}`;
+    auth = encodeURIComponent(parts.username);
     if (parts.password !== undefined) {
       auth += `:${encodeURIComponent(parts.password)}`;
     }
