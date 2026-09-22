@@ -4,7 +4,7 @@ import type { SessionRecord } from '../models/SessionRecord';
 import type { TurnRecord, TurnSnapshot } from '../models/TurnRecord';
 import type { PersistedTurnEvent, SessionEventItem } from '../schemas/events';
 import type { TokenPagination } from '../schemas/pagination';
-import type { SessionInboundEventItem } from '../schemas/sendEvent';
+import type { TurnInboundEventItem } from '../schemas/sendEvent';
 import type { TerminalTurnState } from '../schemas/turn';
 import { assertCreateTurnThreadDelta } from './assertCreateTurnThreadDelta';
 import type {
@@ -19,22 +19,22 @@ import type {
   GetSessionByExternalIdInput,
   GetSessionInput,
   GetTurnInput,
-  InsertSessionInboundEventsInput,
+  InsertTurnInboundEventsInput,
   ISessionStore,
   ListSessionEventsInput,
   ListSessionsInput,
   ListTurnEventsInput,
   ListTurnsInput,
-  ListUnconsumedSessionInboundEventsInput,
-  MarkSessionInboundEventsConsumedInput,
+  ListUnconsumedTurnInboundEventsInput,
+  MarkTurnInboundEventsConsumedInput,
   NewThreadInit,
   OverwriteThreadContextInput,
   PatchMCPServersInput,
   PatchSandboxInfoInput,
   PatchThreadCapabilityStateInput,
   RemoveThreadsInput,
-  SessionInboundEventRecord,
   TurnContextAppend,
+  TurnInboundEventRecord,
   TurnRecordWithoutSnapshot,
   UpdateSessionInput,
   UpdateTurnStateInput,
@@ -50,10 +50,10 @@ import {
   PreviousTurnRunningError,
   SessionAlreadyExistsError,
   SessionExternalIdConflictError,
-  SessionInboundEventAlreadyExistsError,
   SessionNotFoundError,
   SessionStoreInvariantError,
   TurnAlreadyExistsError,
+  TurnInboundEventAlreadyExistsError,
   TurnNotFoundError,
   TurnNotRunningError,
 } from './SessionStoreErrors';
@@ -64,8 +64,8 @@ type StoredEvent = PersistedTurnEvent;
 
 interface StoredInboundEvent {
   event_id: string;
-  turn_id: string | null;
-  payload: SessionInboundEventItem;
+  turn_id: string;
+  payload: TurnInboundEventItem;
   created_at: string;
   consumed: boolean;
 }
@@ -234,8 +234,8 @@ export class InMemorySessionStore<
       const tKey = turnKey({ session_id: input.session_id, turn_id: turnId });
       this.turns.delete(tKey);
       this.events.delete(tKey);
+      this.inboundEvents.delete(tKey);
     }
-    this.inboundEvents.delete(sessionKey(input.session_id));
     this.sessions.delete(sKey);
   }
 
@@ -502,22 +502,22 @@ export class InMemorySessionStore<
     return;
   }
 
-  async insertSessionInboundEvents(input: InsertSessionInboundEventsInput): Promise<void> {
+  async insertTurnInboundEvents(input: InsertTurnInboundEventsInput): Promise<void> {
     if (input.events.length === 0) {
       return;
     }
     this.requireSession(input.session_id);
     this.requireRunningTurn(input.session_id, input.turn_id);
-    const sKey = sessionKey(input.session_id);
-    let list = this.inboundEvents.get(sKey);
+    const tKey = turnKey(input);
+    let list = this.inboundEvents.get(tKey);
     if (!list) {
       list = [];
-      this.inboundEvents.set(sKey, list);
+      this.inboundEvents.set(tKey, list);
     }
     const existing = new Set(list.map(row => row.event_id));
     for (const event of input.events) {
       if (existing.has(event.event_id)) {
-        throw new SessionInboundEventAlreadyExistsError(input.session_id, event.event_id);
+        throw new TurnInboundEventAlreadyExistsError(input.session_id, input.turn_id, event.event_id);
       }
       existing.add(event.event_id);
     }
@@ -532,24 +532,13 @@ export class InMemorySessionStore<
     }
   }
 
-  async listUnconsumedSessionInboundEvents(
-    input: ListUnconsumedSessionInboundEventsInput,
-  ): Promise<SessionInboundEventRecord[]> {
+  async listUnconsumedTurnInboundEvents(
+    input: ListUnconsumedTurnInboundEventsInput,
+  ): Promise<TurnInboundEventRecord[]> {
     this.requireSession(input.session_id);
-    const list = this.inboundEvents.get(sessionKey(input.session_id)) ?? [];
+    const list = this.inboundEvents.get(turnKey(input)) ?? [];
     return list
-      .filter(row => {
-        if (row.consumed) {
-          return false;
-        }
-        if (input.turn_id === undefined) {
-          return true;
-        }
-        if (input.turn_id === null) {
-          return row.turn_id === null;
-        }
-        return row.turn_id === input.turn_id;
-      })
+      .filter(row => !row.consumed)
       .slice()
       .sort((a, b) => (a.event_id < b.event_id ? -1 : a.event_id > b.event_id ? 1 : 0))
       .map(row => ({
@@ -560,12 +549,12 @@ export class InMemorySessionStore<
       }));
   }
 
-  async markSessionInboundEventsConsumed(input: MarkSessionInboundEventsConsumedInput): Promise<void> {
+  async markTurnInboundEventsConsumed(input: MarkTurnInboundEventsConsumedInput): Promise<void> {
     if (input.event_ids.length === 0) {
       return;
     }
     this.requireSession(input.session_id);
-    const list = this.inboundEvents.get(sessionKey(input.session_id));
+    const list = this.inboundEvents.get(turnKey(input));
     if (!list) {
       return;
     }

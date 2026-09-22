@@ -1,6 +1,6 @@
-import type { InsertSessionInboundEventsInput } from '@truefoundry/trueforge-core/agent-session/store/ISessionStore';
+import type { InsertTurnInboundEventsInput } from '@truefoundry/trueforge-core/agent-session/store/ISessionStore';
 
-type InboundInsertEvent = InsertSessionInboundEventsInput['events'][number];
+type InboundInsertEvent = InsertTurnInboundEventsInput['events'][number];
 
 /** First repeated `event_id` in the batch (input order), if any. */
 export function firstDuplicateEventIdInBatch(

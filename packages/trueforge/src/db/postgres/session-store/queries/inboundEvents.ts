@@ -1,18 +1,18 @@
 import type {
-  InsertSessionInboundEventsInput,
-  ListUnconsumedSessionInboundEventsInput,
-  MarkSessionInboundEventsConsumedInput,
-  SessionInboundEventRecord,
+  InsertTurnInboundEventsInput,
+  ListUnconsumedTurnInboundEventsInput,
+  MarkTurnInboundEventsConsumedInput,
+  TurnInboundEventRecord,
 } from '@truefoundry/trueforge-core/agent-session/store/ISessionStore';
 import {
-  SessionInboundEventAlreadyExistsError,
   SessionNotFoundError,
+  TurnInboundEventAlreadyExistsError,
   TurnNotFoundError,
   TurnNotRunningError,
 } from '@truefoundry/trueforge-core/agent-session/store/SessionStoreErrors';
 import type { Kysely } from 'kysely';
 import { sql } from 'kysely';
-import { firstCollidingEventId, firstDuplicateEventIdInBatch } from '../../../sessionInboundEvents';
+import { firstCollidingEventId, firstDuplicateEventIdInBatch } from '../../../turnInboundEvents';
 import { isUniqueViolation } from '../../client';
 import { json } from '../../sqlExpressions';
 import type { Database } from '../../types';
@@ -47,24 +47,26 @@ async function requireTurn(db: Kysely<Database>, sessionId: string, turnId: stri
 async function resolveCollidingEventId(
   db: Kysely<Database>,
   sessionId: string,
-  events: InsertSessionInboundEventsInput['events'],
+  turnId: string,
+  events: InsertTurnInboundEventsInput['events'],
 ): Promise<string> {
   const ids = [...new Set(events.map(e => e.event_id))];
   if (ids.length === 0) {
     return '';
   }
   const rows = await db
-    .selectFrom('session_inbound_events')
+    .selectFrom('turn_inbound_events')
     .select('event_id')
     .where('session_id', '=', sessionId)
+    .where('turn_id', '=', turnId)
     .where('event_id', 'in', ids)
     .execute();
   return firstCollidingEventId(events, new Set(rows.map(r => r.event_id)));
 }
 
-export async function insertSessionInboundEvents(
+export async function insertTurnInboundEvents(
   db: Kysely<Database>,
-  input: InsertSessionInboundEventsInput,
+  input: InsertTurnInboundEventsInput,
 ): Promise<void> {
   if (input.events.length === 0) {
     return;
@@ -74,17 +76,17 @@ export async function insertSessionInboundEvents(
 
   const duplicateInBatch = firstDuplicateEventIdInBatch(input.events);
   if (duplicateInBatch !== undefined) {
-    throw new SessionInboundEventAlreadyExistsError(input.session_id, duplicateInBatch);
+    throw new TurnInboundEventAlreadyExistsError(input.session_id, input.turn_id, duplicateInBatch);
   }
 
   try {
     await db
-      .insertInto('session_inbound_events')
+      .insertInto('turn_inbound_events')
       .values(
         input.events.map(event => ({
           session_id: input.session_id,
-          event_id: event.event_id,
           turn_id: input.turn_id,
+          event_id: event.event_id,
           payload: json(event.payload),
           consumed: false,
           created_at: sql<Date>`${event.created_at}::timestamptz`,
@@ -93,8 +95,8 @@ export async function insertSessionInboundEvents(
       .execute();
   } catch (error) {
     if (isUniqueViolation(error)) {
-      const eventId = await resolveCollidingEventId(db, input.session_id, input.events);
-      throw new SessionInboundEventAlreadyExistsError(input.session_id, eventId, {
+      const eventId = await resolveCollidingEventId(db, input.session_id, input.turn_id, input.events);
+      throw new TurnInboundEventAlreadyExistsError(input.session_id, input.turn_id, eventId, {
         cause: error,
       });
     }
@@ -102,25 +104,20 @@ export async function insertSessionInboundEvents(
   }
 }
 
-export async function listUnconsumedSessionInboundEvents(
+export async function listUnconsumedTurnInboundEvents(
   db: Kysely<Database>,
-  input: ListUnconsumedSessionInboundEventsInput,
-): Promise<SessionInboundEventRecord[]> {
+  input: ListUnconsumedTurnInboundEventsInput,
+): Promise<TurnInboundEventRecord[]> {
   await requireSession(db, input.session_id);
 
-  let query = db
-    .selectFrom('session_inbound_events')
+  const rows = await db
+    .selectFrom('turn_inbound_events')
     .select(['event_id', 'turn_id', 'payload', 'created_at'])
     .where('session_id', '=', input.session_id)
-    .where('consumed', '=', false);
-
-  if (input.turn_id === null) {
-    query = query.where('turn_id', 'is', null);
-  } else if (input.turn_id !== undefined) {
-    query = query.where('turn_id', '=', input.turn_id);
-  }
-
-  const rows = await query.orderBy('event_id', 'asc').execute();
+    .where('turn_id', '=', input.turn_id)
+    .where('consumed', '=', false)
+    .orderBy('event_id', 'asc')
+    .execute();
 
   return rows.map(row => ({
     event_id: row.event_id,
@@ -130,9 +127,9 @@ export async function listUnconsumedSessionInboundEvents(
   }));
 }
 
-export async function markSessionInboundEventsConsumed(
+export async function markTurnInboundEventsConsumed(
   db: Kysely<Database>,
-  input: MarkSessionInboundEventsConsumedInput,
+  input: MarkTurnInboundEventsConsumedInput,
 ): Promise<void> {
   if (input.event_ids.length === 0) {
     return;
@@ -140,9 +137,10 @@ export async function markSessionInboundEventsConsumed(
   await requireSession(db, input.session_id);
 
   await db
-    .updateTable('session_inbound_events')
+    .updateTable('turn_inbound_events')
     .set({ consumed: true })
     .where('session_id', '=', input.session_id)
+    .where('turn_id', '=', input.turn_id)
     .where('event_id', 'in', input.event_ids)
     .execute();
 }

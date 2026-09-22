@@ -74,14 +74,16 @@ export class TurnAlreadyExistsError extends SessionStoreConflictError {
   }
 }
 
-export class SessionInboundEventAlreadyExistsError extends SessionStoreConflictError {
+export class TurnInboundEventAlreadyExistsError extends SessionStoreConflictError {
   readonly session_id: string;
+  readonly turn_id: string;
   readonly event_id: string;
 
-  constructor(session_id: string, event_id: string, options?: ErrorOptions) {
-    super(`Session inbound event already exists: ${session_id}/${event_id}`, options);
-    this.name = 'SessionInboundEventAlreadyExistsError';
+  constructor(session_id: string, turn_id: string, event_id: string, options?: ErrorOptions) {
+    super(`Turn inbound event already exists: ${session_id}/${turn_id}/${event_id}`, options);
+    this.name = 'TurnInboundEventAlreadyExistsError';
     this.session_id = session_id;
+    this.turn_id = turn_id;
     this.event_id = event_id;
   }
 }

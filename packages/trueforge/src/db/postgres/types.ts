@@ -6,10 +6,10 @@ import type {
   AgentSpec,
   CreatedBySubject,
   PersistedTurnEvent,
-  SessionInboundEventItem,
   SessionMetadata,
   SessionMetrics,
   SessionSource,
+  TurnInboundEventItem,
   TurnInputItem,
   TurnState,
 } from '@truefoundry/trueforge-core/agent-session';
@@ -251,14 +251,14 @@ export interface SessionEventTable {
 }
 
 /**
- * Session inbound send-event inbox (tip HITL + future session-scoped payloads).
- * PRIMARY KEY (session_id, event_id). `turn_id` nullable.
+ * Turn-scoped inbound send-event inbox.
+ * PRIMARY KEY (session_id, turn_id, event_id).
  */
-export interface SessionInboundEventsTable {
+export interface TurnInboundEventsTable {
   session_id: string;
+  turn_id: string;
   event_id: string;
-  turn_id: string | null;
-  payload: JSONColumnType<SessionInboundEventItem, SessionInboundEventItem, SessionInboundEventItem>;
+  payload: JSONColumnType<TurnInboundEventItem, TurnInboundEventItem, TurnInboundEventItem>;
   consumed: boolean;
   created_at: Date;
 }
@@ -534,7 +534,7 @@ export interface Database {
   turn: TurnTable;
   turn_thread: TurnThreadTable;
   session_event: SessionEventTable;
-  session_inbound_events: SessionInboundEventsTable;
+  turn_inbound_events: TurnInboundEventsTable;
   thread_context_log: ThreadContextLogTable;
   thread_capability_state: ThreadCapabilityStateTable;
   model_provider: ModelProviderTable;
