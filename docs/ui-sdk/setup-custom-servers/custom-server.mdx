@@ -3,13 +3,9 @@ title: "Bring your own server"
 description: "Implement AgentUIServer and pass the object straight to the component."
 ---
 
-Use this when your backend owns the whole contract — sessions, chat streaming, and the agent builder. You implement `AgentUIServer` and pass the object straight to the component, with no `type` wrapper: every call the UI makes, including the `createTurn` event stream, hits your endpoints. Nothing here depends on TrueFoundry.
+Use this when your backend owns the whole contract — sessions, chat streaming, and the agent builder. You implement `AgentUIServer` and pass the object straight to the component, with no `type` wrapper: every call the UI makes, including the `createTurn` event stream, hits your endpoints.
 
 Because `server` accepts an `AgentUIServer` directly, you can front any backend — including your own proxy that keeps API keys server-side. The object is used immediately, so there is no loading indicator on mount.
-
-<Note>
-  To keep TrueFoundry's hosted chat and supply only your own builder callbacks, use the composition helpers on [Connect with TrueFoundry](/ui-sdk/setup-custom-servers/connect-with-truefoundry#truefoundry-chat-your-own-builder) instead. This page assumes your backend serves everything.
-</Note>
 
 ## Minimal implementation
 
@@ -167,7 +163,7 @@ Spreading `nextPageToken` in only when present keeps the result valid under `exa
 
 <AccordionGroup>
   <Accordion title="deleteSession / deleteAgent">
-    In a hand-written `AgentUIServer` like the one above, omitting these leaves the corresponding affordances unavailable rather than broken. (This differs from the [`createTrueFoundryServer` composition helper](/ui-sdk/setup-custom-servers/connect-with-truefoundry#truefoundry-chat-your-own-builder), where an omitted `deleteAgent` throws when called.)
+    In a hand-written `AgentUIServer` like the one above, omitting these leaves the corresponding affordances unavailable rather than broken. With [`createTrueForgeServer`](/ui-sdk/reference/server#factory), an omitted `deleteAgent` throws when called.
   </Accordion>
 
   <Accordion title="downloadSandboxFile">
@@ -204,7 +200,7 @@ See [Widening the types](/ui-sdk/setup-custom-servers/server-contract#widening-t
 
 ## Attachments
 
-Attachment handling defaults to `trueFoundryAttachmentAdapter`. Override it through the `adapters` prop on `TrueForgeUI` if your backend stores uploads differently.
+Attachment handling defaults to `trueForgeAttachmentAdapter`. Override it through the `adapters` prop on `TrueForgeUI` if your backend stores uploads differently.
 
 ```tsx
 <TrueForgeUI server={server} layout="sidebar" adapters={{ attachments: myAdapter }} />

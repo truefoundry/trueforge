@@ -13,20 +13,10 @@ import { TrueForgeUI } from "@truefoundry/trueforge-ui";
   Where the chat gets its data. Either a built-in config object or a ready `AgentUIServer`.
 
   <Expandable title="TrueForgeServerConfig">
-    <ParamField path="type" type='"truefoundry" | "trueforge"'>
+    <ParamField path="type" type='"trueforge"'>
       Omit entirely to pass an `AgentUIServer` object directly — there is no `"custom"` wrapper.
       `"trueforge"` loads the Harness adapter (`plugins/trueforge-agent-server-adapter`). See
       [Quickstart](/ui-sdk/get-started/quickstart).
-    </ParamField>
-    <ParamField path="apiKey" type="string" required>
-      TrueFoundry API key. Required when `type` is `"truefoundry"`. Client-side keys are for local
-      development only.
-    </ParamField>
-    <ParamField path="controlPlaneURL" type="string" required>
-      TrueFoundry control plane URL. Required when `type` is `"truefoundry"`.
-    </ParamField>
-    <ParamField path="gatewayPlaneURL" type="string">
-      Target a specific gateway. Resolved from the control plane when omitted.
     </ParamField>
     <ParamField path="baseUrl" type="string">
       TrueForge / Harness API root. Used when `type` is `"trueforge"`. Defaults to `'/'`.
@@ -40,6 +30,9 @@ import { TrueForgeUI } from "@truefoundry/trueforge-ui";
     </ParamField>
     <ParamField path="catalog" type="CatalogServer">
       Attach or override settings catalogs. See [Settings catalog](/ui-sdk/reference/catalog).
+    </ParamField>
+    <ParamField path="permissions" type="PermissionsServer">
+      Override the built-in permissions port.
     </ParamField>
   </Expandable>
 
@@ -223,7 +216,7 @@ import { TrueForgeUI } from "@truefoundry/trueforge-ui";
 </ParamField>
 
 <ParamField path="adapters" type="RuntimeAdapters">
-  Runtime adapter overrides. Attachments default to `trueFoundryAttachmentAdapter`.
+  Runtime adapter overrides. Attachments default to `trueForgeAttachmentAdapter`.
 </ParamField>
 
 <ParamField path="onError" type="(error: unknown) => void">
@@ -247,7 +240,7 @@ Persisted sessions remain available through the thread list.
 
 ```tsx
 <TrueForgeUI
-  server={{ type: "truefoundry", apiKey, controlPlaneURL }}
+  server={{ type: "trueforge", baseUrl, token }}
   layout="sidebar"
   agentConfig={{ mode: "AgentComposer", defaultAgentSpec: { model: { name: "openai-main/gpt-4.1" } } }}
   theme={{

@@ -1,0 +1,149 @@
+# @truefoundry/trueforge-assistant-ui-runtime
+
+Headless React runtime that maps TrueForge sessions, turns, streaming events, tool approvals, and sub-agent threads onto assistant-ui's external-store runtime.
+
+The package accepts a ready `AgentChatServer`. It does not construct backend clients, read credentials, or depend on a backend SDK.
+
+## Installation
+
+```bash
+pnpm add @truefoundry/trueforge-assistant-ui-runtime @assistant-ui/react
+```
+
+React 18 and 19 are supported. `@assistant-ui/core` and `@assistant-ui/store` are installed with the runtime.
+
+## Quick start
+
+```tsx
+'use client';
+
+import { AssistantRuntimeProvider } from '@assistant-ui/react';
+import { useTrueForgeAgentRuntime, type AgentChatServer } from '@truefoundry/trueforge-assistant-ui-runtime';
+
+function Chat({ server }: { server: AgentChatServer }) {
+  const runtime = useTrueForgeAgentRuntime({
+    server,
+    agent: { mode: 'named', agentName: 'support-agent' },
+  });
+
+  return (
+    <AssistantRuntimeProvider runtime={runtime}>
+      {/* Render assistant-ui Thread, Composer, and ThreadList primitives here. */}
+    </AssistantRuntimeProvider>
+  );
+}
+```
+
+For the complete TrueForge UI, use `@truefoundry/trueforge-ui`. It supplies the built-in TrueForge HTTP adapter and re-exports the host-facing server contracts.
+
+## Agent modes
+
+Named agents use an existing server-side agent:
+
+```ts
+import type { TrueForgeAgentConfig } from '@truefoundry/trueforge-assistant-ui-runtime';
+
+const agent = {
+  mode: 'named',
+  agentName: 'support-agent',
+} satisfies TrueForgeAgentConfig;
+```
+
+Draft agents run from an inline spec and synchronize edits through the server:
+
+```ts
+import type { TrueForgeAgentConfig } from '@truefoundry/trueforge-assistant-ui-runtime';
+
+const agent = {
+  mode: 'draft',
+  defaultAgentSpec: {
+    model: { name: 'openai-main/gpt-4.1' },
+    instructions: 'Answer concisely.',
+  },
+} satisfies TrueForgeAgentConfig;
+```
+
+`agentName` remains available as shorthand for named mode.
+
+## Runtime options
+
+`useTrueForgeAgentRuntime` accepts assistant-ui's external-store options plus:
+
+| Option                          | Purpose                                                     |
+| ------------------------------- | ----------------------------------------------------------- |
+| `server`                        | Ready `AgentChatServer` implementation                      |
+| `agent`                         | Named or draft agent configuration                          |
+| `agentName`                     | Legacy named-agent shorthand                                |
+| `initialSessionId`              | Initial session to load                                     |
+| `threadId` / `onThreadIdChange` | Controlled active session                                   |
+| `listSessionsAgentId`           | Optional history filter                                     |
+| `listSessionsCreatedByMe`       | Restrict history to the authenticated subject               |
+| `onError`                       | Load, turn, and stream error callback                       |
+| `adapters`                      | Attachment, speech, dictation, voice, and feedback adapters |
+
+## Runtime extras
+
+The package exposes typed hooks for TrueForge-specific state and actions:
+
+- `useTrueForgeApprovals`
+- `useTrueForgeToolResponses`
+- `useTrueForgeMcpAuth`
+- `useTrueForgeRespondToToolApproval`
+- `useTrueForgeRespondToToolResponse`
+- `useTrueForgeResumeMcpAuth`
+- `useTrueForgeDownloadSandboxFile`
+- `useTrueForgeCancel`
+- `useTrueForgeHistoryPagination`
+- `useTrueForgeResumeUnavailable`
+- `useTrueForgeResetFromTurn`
+- `useTrueForgeAgentSpec`
+- `useTrueForgeUpdateAgentSpec`
+- `useTrueForgeFlushAgentSpec`
+- `useTrueForgeAdoptAgentSpec`
+
+Use `trueForgeExtras`, `getTrueForgeExtras`, and `tryGetTrueForgeExtras` when integrating directly with assistant-ui state.
+
+## Server contracts
+
+Canonical server ports, DTOs, and stream events are exported from both the package root and the dedicated server entry:
+
+```ts
+import type {
+  AgentChatServer,
+  AgentUIServer,
+  Session,
+  Turn,
+  TurnStreamingEvent,
+} from '@truefoundry/trueforge-assistant-ui-runtime/server';
+```
+
+Important invariants:
+
+- One server session maps to one assistant-ui thread.
+- The root thread id is always `main`.
+- Sub-agent threads nest below their creating tool call.
+- Resuming a paused turn submits all pending approvals and tool responses across every thread in one request.
+- Credentials remain host-owned.
+
+## Attachments
+
+`trueForgeAttachmentAdapter` converts assistant-ui attachment input into TrueForge user-message content. Hosts can override it through the runtime `adapters` option.
+
+## Package exports
+
+- `@truefoundry/trueforge-assistant-ui-runtime`
+- `@truefoundry/trueforge-assistant-ui-runtime/server`
+
+## Development
+
+Run from the trueforge repository root:
+
+```bash
+pnpm --filter @truefoundry/trueforge-assistant-ui-runtime build
+pnpm test:assistant-ui-runtime
+pnpm --filter @truefoundry/trueforge-assistant-ui-runtime typecheck
+```
+
+## License
+
+MIT

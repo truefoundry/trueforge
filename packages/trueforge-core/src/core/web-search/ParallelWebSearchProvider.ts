@@ -1,4 +1,5 @@
 import Parallel from 'parallel-web';
+import { ssrfFetch } from '../util/ssrfGuard';
 import {
   WebSearchProviders,
   type IWebSearchProvider,
@@ -28,7 +29,10 @@ export class ParallelWebSearchProvider implements IWebSearchProvider {
   readonly #mode: ParallelSearchMode;
 
   constructor(options: ParallelWebSearchProviderOptions) {
-    this.#client = new Parallel({ apiKey: options.apiKey });
+    this.#client = new Parallel({
+      apiKey: options.apiKey,
+      fetch: ssrfFetch,
+    });
     this.#mode = options.mode;
   }
 

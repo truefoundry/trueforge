@@ -4,11 +4,13 @@ import type { McpCatalog } from '../catalog/McpCatalog';
 import type { ModelCatalog } from '../catalog/ModelCatalog';
 import type { SandboxCatalog } from '../catalog/SandboxCatalog';
 import type { SkillCatalog } from '../catalog/SkillCatalog';
+import type { WebSearchCatalog } from '../catalog/WebSearchCatalog';
 import {
   listMcpServerCatalogRoute,
   listModelProviderCatalogRoute,
   listSandboxProviderCatalogRoute,
   listSkillCatalogRoute,
+  listWebSearchProviderCatalogRoute,
 } from '../routes/catalogRoutes';
 import type { CatalogModelProvider } from '../schemas/modelCatalog';
 
@@ -17,6 +19,7 @@ export interface CatalogRouterDeps {
   mcpCatalog: McpCatalog;
   skillCatalog: SkillCatalog;
   sandboxCatalog: SandboxCatalog;
+  webSearchCatalog: WebSearchCatalog;
 }
 
 export function createCatalogRouter(deps: CatalogRouterDeps) {
@@ -43,10 +46,15 @@ export function createCatalogRouter(deps: CatalogRouterDeps) {
     return c.json({ data: [...deps.sandboxCatalog.list()] }, 200);
   };
 
+  const listWebSearchProvidersHandler: RouteHandler<typeof listWebSearchProviderCatalogRoute> = c => {
+    return c.json({ data: [...deps.webSearchCatalog.list()] }, 200);
+  };
+
   const router = new OpenAPIHono();
   router.openapi(listModelProviderCatalogRoute, listModelProvidersHandler);
   router.openapi(listMcpServerCatalogRoute, listMcpServersHandler);
   router.openapi(listSkillCatalogRoute, listSkillsHandler);
   router.openapi(listSandboxProviderCatalogRoute, listSandboxProvidersHandler);
+  router.openapi(listWebSearchProviderCatalogRoute, listWebSearchProvidersHandler);
   return router;
 }

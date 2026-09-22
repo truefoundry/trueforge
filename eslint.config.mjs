@@ -46,6 +46,7 @@ export default defineConfig(
       '**/node_modules/**',
       '**/dist/**',
       '**/coverage/**',
+      'data/**',
       '**/.pnpm-store/**',
       '**/.eslintcache',
       // Excluded from package tsconfigs; run via tsx/jest, not the type-aware ESLint project.
@@ -109,6 +110,10 @@ export default defineConfig(
         __dirname: 'readonly',
       },
     },
+  },
+  {
+    files: ['packages/assistant-ui-runtime/*.config.ts'],
+    extends: [tseslint.configs.disableTypeChecked],
   },
   {
     files: ['**/*.{js,mjs,cjs}'],

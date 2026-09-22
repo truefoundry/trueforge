@@ -32,6 +32,7 @@ import type {
 } from '../../schemas/sandboxProvider';
 import type { ScheduleManifest, ScheduleRunStatus, ScheduleStatus } from '../../schemas/schedule';
 import type { SkillManifest } from '../../schemas/skill';
+import type { WebSearchProviderManifest } from '../../schemas/webSearchProvider';
 import type { OAuthClient, OAuthPendingAuthorizationData, OAuthServer, OAuthToken } from '../mcpServerStore';
 
 /**
@@ -342,6 +343,17 @@ export interface ModelProviderTable {
 }
 
 /**
+ * Configured web-search provider — mirrors the Postgres `web_search_provider` table.
+ * PRIMARY KEY (tenant_id)
+ */
+export interface WebSearchProviderTable {
+  tenant_id: string;
+  manifest: JSONColumnType<WebSearchProviderManifest, WebSearchProviderManifest, WebSearchProviderManifest>;
+  created_at: Date;
+  updated_at: Date;
+}
+
+/**
  * Configured skills — mirrors the Postgres `skill` table.
  * PRIMARY KEY (tenant_id, name)
  */
@@ -523,6 +535,7 @@ export interface Database {
   thread_context_log: ThreadContextLogTable;
   thread_capability_state: ThreadCapabilityStateTable;
   model_provider: ModelProviderTable;
+  web_search_provider: WebSearchProviderTable;
   skill: SkillTable;
   sandbox_provider: SandboxProviderTable;
   agent: AgentTable;

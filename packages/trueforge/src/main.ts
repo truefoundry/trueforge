@@ -73,6 +73,7 @@ import { McpCatalog } from './catalog/McpCatalog';
 import { ModelCatalog } from './catalog/ModelCatalog';
 import { SandboxCatalog } from './catalog/SandboxCatalog';
 import { SkillCatalog } from './catalog/SkillCatalog';
+import { WebSearchCatalog } from './catalog/WebSearchCatalog';
 import { type DistributedServerConfiguration } from './config';
 import { createController } from './controller';
 import type { AgentRecord, IAgentStore } from './db/agentStore';
@@ -87,6 +88,7 @@ import type { ISessionMetricsStore } from './db/sessionMetricsStore';
 import type { ISkillStore } from './db/skillStore';
 import type { Database as SqliteDatabase } from './db/sqlite/types';
 import type { WithTransaction } from './db/transaction';
+import type { IWebSearchProviderStore } from './db/webSearchProviderStore';
 import { mountFrontend } from './frontend';
 import { serverTlsServeOptions } from './http/tls';
 import { createServerLogger, shouldColorize } from './logger';
@@ -111,6 +113,7 @@ import { TrueFoundryModelProviderStore } from './truefoundry/TrueFoundryModelPro
 import { TrueFoundrySandboxProviderStore } from './truefoundry/TrueFoundrySandboxProviderStore';
 import { TrueFoundryServiceFoundryServerClient } from './truefoundry/TrueFoundryServiceFoundryServerClient';
 import { TrueFoundryAdminSkillStore, TrueFoundrySkillStore } from './truefoundry/TrueFoundrySkillStore';
+import { TrueFoundryWebSearchProviderStore } from './truefoundry/TrueFoundryWebSearchProviderStore';
 
 /** Persistence + optional Redis wired for the selected topology. */
 interface ServerPersistence<TTransaction> {
@@ -127,6 +130,7 @@ interface ServerPersistence<TTransaction> {
     perServerHeaders?: PerServerMcpHeaders,
   ) => IMcpServerWithAuthStore<TTransaction>;
   resolveSandboxProviderStore: (rc: RequestContext) => ISandboxProviderStore<TTransaction>;
+  resolveWebSearchProviderStore: (rc: RequestContext) => IWebSearchProviderStore<TTransaction>;
   /** Per-request store: DB git skills, or TrueFoundry registry catalog in TrueFoundry mode. */
   resolveSkillStore: (rc: RequestContext) => ISkillStore<TTransaction>;
   resolveAgentStore: (rc: RequestContext) => IAgentStore<TTransaction>;
@@ -284,6 +288,16 @@ function buildResolveSandboxProviderStore<TTransaction>(options: {
   return () => persistenceStore;
 }
 
+function buildResolveWebSearchProviderStore<TTransaction>(options: {
+  persistenceStore: IWebSearchProviderStore<TTransaction>;
+}): (rc: RequestContext) => IWebSearchProviderStore<TTransaction> {
+  const { persistenceStore } = options;
+  if (isTrueFoundryModeEnabled(configuration)) {
+    return () => new TrueFoundryWebSearchProviderStore<TTransaction>();
+  }
+  return () => persistenceStore;
+}
+
 /** SQLite stores; Redis unused (executor peering disabled). */
 async function createStandalonePersistence(options: {
   sqlitePath: string;
@@ -302,6 +316,7 @@ async function createStandalonePersistence(options: {
       import('./db/sqlite/token-store/SqliteOAuthTokenStore'),
       import('./db/sqlite/skill-store/SqliteSkillStore'),
       import('./db/sqlite/sandbox-provider-store/SqliteSandboxProviderStore'),
+      import('./db/sqlite/web-search-provider-store/SqliteWebSearchProviderStore'),
       import('./db/sqlite/agent-store/SqliteAgentStore'),
       import('./db/sqlite/schedule-store/SqliteScheduleStore'),
     ]),
@@ -314,6 +329,7 @@ async function createStandalonePersistence(options: {
     { SqliteOAuthTokenStore },
     { SqliteSkillStore },
     { SqliteSandboxProviderStore },
+    { SqliteWebSearchProviderStore },
     { SqliteAgentStore },
     { SqliteScheduleStore },
   ] = sqliteStores;
@@ -332,6 +348,7 @@ async function createStandalonePersistence(options: {
     clientName: configuration.MCP_DCR_OAUTH_CLIENT_NAME,
   });
   const sandboxProviderStore = new SqliteSandboxProviderStore(db);
+  const webSearchProviderStore = new SqliteWebSearchProviderStore(db);
   const skillStore = new SqliteSkillStore(db);
   return {
     withTransaction: callback => db.transaction().execute(callback),
@@ -343,6 +360,7 @@ async function createStandalonePersistence(options: {
     resolveModelProviderStore: () => modelProviderStore,
     resolveMcpServerStore: () => mcpServerStore,
     resolveSandboxProviderStore: () => sandboxProviderStore,
+    resolveWebSearchProviderStore: () => webSearchProviderStore,
     resolveSkillStore: () => skillStore,
     resolveAgentStore: () => agentStore,
     resolveImportAgentStore: () => agentStore,
@@ -391,6 +409,7 @@ async function createDistributedPersistence(options: {
       import('./db/postgres/token-store/PostgresOAuthTokenStore'),
       import('./db/postgres/skill-store/PostgresSkillStore'),
       import('./db/postgres/sandbox-provider-store/PostgresSandboxProviderStore'),
+      import('./db/postgres/web-search-provider-store/PostgresWebSearchProviderStore'),
       import('./db/postgres/agent-store/PostgresAgentStore'),
       import('./db/postgres/schedule-store/PostgresScheduleStore'),
     ]),
@@ -403,6 +422,7 @@ async function createDistributedPersistence(options: {
     { PostgresOAuthTokenStore },
     { PostgresSkillStore },
     { PostgresSandboxProviderStore },
+    { PostgresWebSearchProviderStore },
     { PostgresAgentStore },
     { PostgresScheduleStore },
   ] = postgresStores;
@@ -427,6 +447,7 @@ async function createDistributedPersistence(options: {
     clientName: configuration.MCP_DCR_OAUTH_CLIENT_NAME,
   });
   const sandboxProviderStore = new PostgresSandboxProviderStore(db);
+  const webSearchProviderStore = new PostgresWebSearchProviderStore(db);
   const skillStore = new PostgresSkillStore(db);
   const agentStore = new PostgresAgentStore(db);
   const turnSkillsResolverStore = buildTurnSkillsResolverStore({
@@ -471,6 +492,9 @@ async function createDistributedPersistence(options: {
   const resolveSandboxProviderStore = buildResolveSandboxProviderStore({
     persistenceStore: sandboxProviderStore,
   });
+  const resolveWebSearchProviderStore = buildResolveWebSearchProviderStore({
+    persistenceStore: webSearchProviderStore,
+  });
   const resolveSkillStore = buildResolveSkillStore({
     persistenceStore: skillStore,
     client: serviceFoundryClient,
@@ -485,6 +509,7 @@ async function createDistributedPersistence(options: {
     resolveModelProviderStore,
     resolveMcpServerStore,
     resolveSandboxProviderStore,
+    resolveWebSearchProviderStore,
     resolveSkillStore,
     resolveAgentStore,
     resolveImportAgentStore,
@@ -594,6 +619,8 @@ async function createServerRuntime<TTransaction>(persistence: ServerPersistence<
   };
   const resolveAgentStore = (c: Context) => persistence.resolveAgentStore(resolveRequestContext(c));
   const resolveSandboxProviderStore = (c: Context) => persistence.resolveSandboxProviderStore(resolveRequestContext(c));
+  const resolveWebSearchProviderStore = (c: Context) =>
+    persistence.resolveWebSearchProviderStore(resolveRequestContext(c));
   const resolveSkillStore = (c: Context) => {
     const store = persistence.resolveSkillStore(resolveRequestContext(c));
     if (!isTrueFoundryModeEnabled(configuration)) {
@@ -610,11 +637,13 @@ async function createServerRuntime<TTransaction>(persistence: ServerPersistence<
     mcpCatalog: McpCatalog.load(),
     skillCatalog: SkillCatalog.load(),
     sandboxCatalog: SandboxCatalog.load(),
+    webSearchCatalog: WebSearchCatalog.load(),
     resolveModelProviderStore,
     resolveMcpServerStore,
     resolveAgentStore,
     resolveImportAgentStore,
     resolveSandboxProviderStore,
+    resolveWebSearchProviderStore,
     resolveSkillStore,
     withTransaction,
     tokenStore,
@@ -726,8 +755,8 @@ try {
   }
 
   const tlsServe = serverTlsServeOptions({
-    enabled: !configuration.STANDALONE && configuration.TRUEFORGE_MTLS_ENABLED,
-    dir: configuration.TRUEFORGE_MTLS_CERTS_DIR,
+    enabled: !configuration.STANDALONE && configuration.MTLS_ENABLED,
+    dir: configuration.MTLS_CERTS_DIR,
   });
   const server = serve(
     {

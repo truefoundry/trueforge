@@ -5,6 +5,7 @@ import { McpCatalog } from '../../../src/catalog/McpCatalog';
 import { ModelCatalog } from '../../../src/catalog/ModelCatalog';
 import { SandboxCatalog } from '../../../src/catalog/SandboxCatalog';
 import { SkillCatalog } from '../../../src/catalog/SkillCatalog';
+import { WebSearchCatalog } from '../../../src/catalog/WebSearchCatalog';
 import { migrateSqliteToLatest } from '../../../src/db/migrateSqlite';
 import { createSqliteDb } from '../../../src/db/sqlite/client';
 import { SqliteSkillStore } from '../../../src/db/sqlite/skill-store/SqliteSkillStore';
@@ -62,6 +63,7 @@ describe('skills routers', () => {
       mcpCatalog: McpCatalog.load(),
       skillCatalog: SkillCatalog.load(),
       sandboxCatalog: SandboxCatalog.load(),
+      webSearchCatalog: WebSearchCatalog.load(),
     });
     availableRouter = createAvailableSkillsRouter({
       resolveSkillStore: () => skillStore,

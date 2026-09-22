@@ -1,7 +1,7 @@
 // @vitest-environment jsdom
 import { AssistantRuntimeProvider, useExternalStoreRuntime, type ThreadMessageLike } from '@assistant-ui/react';
 import { render, screen } from '@testing-library/react';
-import { trueFoundryExtras } from '@truefoundry/assistant-ui-runtime';
+import { trueForgeExtras } from '@truefoundry/trueforge-assistant-ui-runtime';
 import { describe, expect, it } from 'vitest';
 
 import { ResumeUnavailableContainer } from '@/containers/ResumeUnavailableContainer.js';
@@ -14,7 +14,7 @@ function Harness({ resumeUnavailable }: { resumeUnavailable: boolean }) {
     isRunning: resumeUnavailable,
     convertMessage: (m: ThreadMessageLike) => m,
     onNew: async () => {},
-    extras: trueFoundryExtras.provide({
+    extras: trueForgeExtras.provide({
       pendingApprovals: [],
       pendingToolResponses: [],
       pendingMcpAuth: null,

@@ -8,6 +8,7 @@ import { GetMcpServerCatalogResponseSchema } from '../schemas/mcpCatalog';
 import { GetModelProviderCatalogResponseSchema } from '../schemas/modelCatalog';
 import { GetSandboxProviderCatalogResponseSchema } from '../schemas/sandboxCatalog';
 import { GetSkillCatalogResponseSchema } from '../schemas/skillCatalog';
+import { GetWebSearchProviderCatalogResponseSchema } from '../schemas/webSearchCatalog';
 import { OpenApiTag } from './openapiTags';
 
 export const listModelProviderCatalogRoute = createRoute({
@@ -85,6 +86,26 @@ export const listSandboxProviderCatalogRoute = createRoute({
     200: {
       content: { 'application/json': { schema: GetSandboxProviderCatalogResponseSchema } },
       description: 'Shipped sandbox-provider presets.',
+    },
+    401: {
+      content: { 'application/json': { schema: RequestErrorResponseSchema } },
+      description: 'Not authenticated.',
+    },
+  },
+});
+
+export const listWebSearchProviderCatalogRoute = createRoute({
+  method: 'get',
+  path: '/web-search-providers',
+  tags: [OpenApiTag.WEB_SEARCH],
+  summary: 'List web search providers',
+  description: 'Shipped web-search provider presets.',
+  'x-fern-sdk-group-name': ['catalogs', 'webSearchProviders'],
+  'x-fern-sdk-method-name': 'list',
+  responses: {
+    200: {
+      content: { 'application/json': { schema: GetWebSearchProviderCatalogResponseSchema } },
+      description: 'Shipped web-search provider presets.',
     },
     401: {
       content: { 'application/json': { schema: RequestErrorResponseSchema } },

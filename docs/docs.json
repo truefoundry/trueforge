@@ -77,6 +77,10 @@
               "chat-ui",
               "ui-sdk/get-started/quickstart",
               {
+                "group": "Server setup",
+                "pages": ["ui-sdk/setup-custom-servers/server-contract", "ui-sdk/setup-custom-servers/custom-server"]
+              },
+              {
                 "group": "Frontend Customisation",
                 "pages": [
                   "ui-sdk/guides/layouts-and-theme",

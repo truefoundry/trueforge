@@ -1,7 +1,7 @@
 /**
  * Built-in Harness → AgentUIServer factory for `<TrueForgeUI server={{ type: "trueforge", … }} />`.
  */
-import { createTrueFoundryServer } from '../../server/createTrueFoundryServer.js';
+import { createTrueForgeServer } from '../../server/createTrueForgeServer.js';
 import type { CatalogServer, PermissionsServer } from '../../server/types.js';
 import { createHarnessAgentMetricsServer } from './agentMetricsServer.js';
 import { createHarnessAgentSessionsServer } from './agentSessionsServer.js';
@@ -10,6 +10,7 @@ import { createConnectorCatalog } from './catalogs/connectorCatalog.js';
 import { createModelProviderCatalog } from './catalogs/modelProviderCatalog.js';
 import { createSandboxProviderCatalog } from './catalogs/sandboxProviderCatalog.js';
 import { createSkillCatalog } from './catalogs/skillCatalog.js';
+import { createWebSearchProviderCatalog } from './catalogs/webSearchProviderCatalog.js';
 import { createHarnessChatServer } from './chatServer.js';
 import { createTrueForgeClient, type CreateTrueForgeClientOptions } from './client.js';
 import { createHarnessPermissionsServer } from './permissionsServer.js';
@@ -50,6 +51,13 @@ export {
 } from './catalogs/sandboxProviderCatalog.js';
 export { createSkillCatalog, toHarnessManifest as toHarnessSkillManifest, toUiSkill } from './catalogs/skillCatalog.js';
 export {
+  createWebSearchProviderCatalog,
+  filterUiWebSearchProviders,
+  toHarnessManifest as toHarnessWebSearchManifest,
+  toUiCatalogEntry as toUiWebSearchCatalogEntry,
+  toUiWebSearchProvider,
+} from './catalogs/webSearchProviderCatalog.js';
+export {
   createHarnessChatServer,
   toHarnessAgentSpec,
   toUiAgentSpec,
@@ -82,9 +90,10 @@ export function createTrueForgeAgentUIServer(options: CreateTrueForgeAgentUIServ
       connectorCatalog: createConnectorCatalog(client),
       skillCatalog: createSkillCatalog(client),
       sandboxCatalog: createSandboxProviderCatalog(client),
+      webSearchCatalog: createWebSearchProviderCatalog(client),
     } satisfies CatalogServer);
 
-  return createTrueFoundryServer<HarnessAgentSpec>({
+  return createTrueForgeServer<HarnessAgentSpec>({
     chatServer: createHarnessChatServer({ client }),
     ...createHarnessBuilderServer({ client }),
     catalog,

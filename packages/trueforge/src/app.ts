@@ -37,6 +37,7 @@ import type { McpCatalog } from './catalog/McpCatalog';
 import type { ModelCatalog } from './catalog/ModelCatalog';
 import type { SandboxCatalog } from './catalog/SandboxCatalog';
 import type { SkillCatalog } from './catalog/SkillCatalog';
+import type { WebSearchCatalog } from './catalog/WebSearchCatalog';
 import configuration, { getPublicUiBasePath, getTrueForgeAuthMode, TrueForgeAuthMode } from './config';
 import type { AgentRecord, IAgentStore } from './db/agentStore';
 import type { IMcpServerWithAuthStore } from './db/mcpServerStore';
@@ -46,6 +47,7 @@ import type { IScheduleStore } from './db/scheduleStore';
 import type { ISessionMetricsStore } from './db/sessionMetricsStore';
 import type { ISkillStore } from './db/skillStore';
 import type { WithTransaction } from './db/transaction';
+import type { IWebSearchProviderStore } from './db/webSearchProviderStore';
 import { createClientCertificateMiddleware } from './http/tls';
 import type { IOAuthTokenStore } from './mcp/auth/types';
 import { PACKAGE_VERSION } from './packageVersion';
@@ -176,6 +178,7 @@ export interface ServerDeps<TTransaction> {
   mcpCatalog: McpCatalog;
   skillCatalog: SkillCatalog;
   sandboxCatalog: SandboxCatalog;
+  webSearchCatalog: WebSearchCatalog;
   /** Per-request store: DB singleton, or a token-bound TrueFoundry store in TrueFoundry mode. */
   resolveModelProviderStore: (c: Context, runAsAgent?: AgentRecord) => IModelProviderStore<TTransaction>;
   /**
@@ -192,6 +195,7 @@ export interface ServerDeps<TTransaction> {
    * (`TRUEFOUNDRY_SANDBOX_*` + static SETTINGS JSON).
    */
   resolveSandboxProviderStore: (c: Context) => ISandboxProviderStore<TTransaction>;
+  resolveWebSearchProviderStore: (c: Context) => IWebSearchProviderStore<TTransaction>;
   /** Per-request store: DB git skills, or TrueFoundry registry catalog in TrueFoundry mode. */
   resolveSkillStore: ResolveSkillStore<TTransaction>;
   withTransaction: WithTransaction<TTransaction>;
@@ -235,6 +239,7 @@ export function createServerApp<TTransaction>(deps: ServerDeps<TTransaction>) {
     resolveModelProviderStore: deps.resolveModelProviderStore,
     resolveMcpServerStore: deps.resolveMcpServerStore,
     resolveSandboxProviderStore: deps.resolveSandboxProviderStore,
+    resolveWebSearchProviderStore: deps.resolveWebSearchProviderStore,
     activeTurns: deps.activeTurns,
     turnSkillsResolverStore: deps.turnSkillsResolverStore,
   };
@@ -242,7 +247,7 @@ export function createServerApp<TTransaction>(deps: ServerDeps<TTransaction>) {
   if (configuration.ACCESS_LOGS) {
     app.use('*', createAccessLogMiddleware(deps.logger));
   }
-  if (!configuration.STANDALONE && configuration.TRUEFORGE_MTLS_ENABLED) {
+  if (!configuration.STANDALONE && configuration.MTLS_ENABLED) {
     app.use('*', createClientCertificateMiddleware(deps.logger));
   }
   app.use('*', createRequestBodyLimitMiddleware(configuration.MAX_REQUEST_BODY_BYTES));
@@ -262,6 +267,7 @@ export function createServerApp<TTransaction>(deps: ServerDeps<TTransaction>) {
     withAuth(
       createCapabilitiesRouter({
         resolveSandboxProviderStore: deps.resolveSandboxProviderStore,
+        resolveWebSearchProviderStore: deps.resolveWebSearchProviderStore,
         withTransaction: deps.withTransaction,
         logger: deps.logger,
         resolveRequestContext,
@@ -288,6 +294,7 @@ export function createServerApp<TTransaction>(deps: ServerDeps<TTransaction>) {
         mcpCatalog: deps.mcpCatalog,
         skillCatalog: deps.skillCatalog,
         sandboxCatalog: deps.sandboxCatalog,
+        webSearchCatalog: deps.webSearchCatalog,
       }),
       authMiddleware,
     ),
@@ -335,6 +342,7 @@ export function createServerApp<TTransaction>(deps: ServerDeps<TTransaction>) {
         resolveMcpServerStore: deps.resolveMcpServerStore,
         resolveSkillStore: deps.resolveSkillStore,
         resolveSandboxProviderStore: deps.resolveSandboxProviderStore,
+        resolveWebSearchProviderStore: deps.resolveWebSearchProviderStore,
         withTransaction: deps.withTransaction,
         resolveRequestContext,
         authorizer: deps.authorizer,
@@ -368,6 +376,7 @@ export function createServerApp<TTransaction>(deps: ServerDeps<TTransaction>) {
         tokenStore: deps.tokenStore,
         resolveSkillStore: deps.resolveSkillStore,
         resolveSandboxProviderStore: deps.resolveSandboxProviderStore,
+        resolveWebSearchProviderStore: deps.resolveWebSearchProviderStore,
         withTransaction: deps.withTransaction,
         logger: deps.logger,
         resolveRequestContext,
@@ -395,6 +404,7 @@ export function createServerApp<TTransaction>(deps: ServerDeps<TTransaction>) {
         resolveSkillStore: deps.resolveSkillStore,
         resolveAgentStore: deps.resolveAgentStore,
         resolveSandboxProviderStore: deps.resolveSandboxProviderStore,
+        resolveWebSearchProviderStore: deps.resolveWebSearchProviderStore,
         resolveRequestContext,
         authorizer: deps.authorizer,
       }),
@@ -438,6 +448,7 @@ export function createServerApp<TTransaction>(deps: ServerDeps<TTransaction>) {
         resolveSkillStore: deps.resolveSkillStore,
         resolveAgentStore: deps.resolveAgentStore,
         resolveSandboxProviderStore: deps.resolveSandboxProviderStore,
+        resolveWebSearchProviderStore: deps.resolveWebSearchProviderStore,
         redis: deps.redis,
         requestReplyRouter: deps.requestReplyRouter,
         resolveRequestContext,
@@ -460,6 +471,7 @@ export function createServerApp<TTransaction>(deps: ServerDeps<TTransaction>) {
         resolveAgentStore: deps.resolveAgentStore,
         eventSubscriptions: deps.eventSubscriptions,
         resolveSandboxProviderStore: deps.resolveSandboxProviderStore,
+        resolveWebSearchProviderStore: deps.resolveWebSearchProviderStore,
         logger: deps.logger,
         resolveRequestContext,
         authorizer: deps.authorizer,

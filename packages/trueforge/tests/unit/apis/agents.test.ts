@@ -9,6 +9,7 @@ import { SqliteMcpServerStore } from '../../../src/db/sqlite/mcp-server-store/Sq
 import { SqliteModelProviderStore } from '../../../src/db/sqlite/model-provider-store/SqliteModelProviderStore';
 import { SqliteSandboxProviderStore } from '../../../src/db/sqlite/sandbox-provider-store/SqliteSandboxProviderStore';
 import { SqliteSkillStore } from '../../../src/db/sqlite/skill-store/SqliteSkillStore';
+import { SqliteWebSearchProviderStore } from '../../../src/db/sqlite/web-search-provider-store/SqliteWebSearchProviderStore';
 import { ListAgentsResponseSchema } from '../../../src/schemas/agent';
 
 const modelProvider = {
@@ -104,6 +105,7 @@ describe('agents router', () => {
       resolveMcpServerStore: () => new SqliteMcpServerStore(db),
       resolveSkillStore: () => new SqliteSkillStore(db),
       resolveSandboxProviderStore: () => new SqliteSandboxProviderStore(db),
+      resolveWebSearchProviderStore: () => new SqliteWebSearchProviderStore(db),
       withTransaction: callback => db.transaction().execute(callback),
       resolveRequestContext: () => STANDALONE_REQUEST_CONTEXT,
       authorizer: new TrueForgeAuthorizer(),
@@ -114,6 +116,7 @@ describe('agents router', () => {
       resolveMcpServerStore: () => new SqliteMcpServerStore(db),
       resolveSkillStore: () => new SqliteSkillStore(db),
       resolveSandboxProviderStore: () => new SqliteSandboxProviderStore(db),
+      resolveWebSearchProviderStore: () => new SqliteWebSearchProviderStore(db),
       withTransaction: callback => db.transaction().execute(callback),
       resolveRequestContext: () => STANDALONE_REQUEST_CONTEXT,
       authorizer: denyAllAuthorizer,

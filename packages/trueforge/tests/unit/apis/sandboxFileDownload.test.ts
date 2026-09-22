@@ -15,6 +15,7 @@ import { SqliteSandboxProviderStore } from '../../../src/db/sqlite/sandbox-provi
 import { SqliteSessionStore } from '../../../src/db/sqlite/session-store/SqliteSessionStore';
 import { SqliteSkillStore } from '../../../src/db/sqlite/skill-store/SqliteSkillStore';
 import { SqliteOAuthTokenStore } from '../../../src/db/sqlite/token-store/SqliteOAuthTokenStore';
+import { SqliteWebSearchProviderStore } from '../../../src/db/sqlite/web-search-provider-store/SqliteWebSearchProviderStore';
 import { ActiveTurnRegistry } from '../../../src/runtime/activeTurns';
 import { EventSubscriptionRegistry } from '../../../src/runtime/event-subscription';
 
@@ -51,6 +52,7 @@ async function buildApp() {
       resolveAgentStore: () => new SqliteAgentStore(db),
       eventSubscriptions: new EventSubscriptionRegistry(undefined),
       resolveSandboxProviderStore: () => new SqliteSandboxProviderStore(db),
+      resolveWebSearchProviderStore: () => new SqliteWebSearchProviderStore(db),
       logger: createLogger({ silent: true }),
       resolveRequestContext: () => STANDALONE_REQUEST_CONTEXT,
       authorizer: new TrueForgeAuthorizer(),

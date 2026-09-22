@@ -1,5 +1,5 @@
 /**
- * AgentBuilderServer callbacks for createTrueFoundryServer.
+ * AgentBuilderServer callbacks for createTrueForgeServer.
  * Composer pickers + agent library backed by the Harness agents registry.
  */
 import type { TrueForge, TrueForgeApi } from '@truefoundry/trueforge-sdk';

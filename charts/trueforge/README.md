@@ -379,9 +379,9 @@ extraObjects:
 | `podSecurityContext`  | non-root UID/GID `10001`            | Pod-level restricted security defaults. |
 | `securityContext`     | read-only root FS + drop all capabilities | Container-level restricted security defaults. |
 | `resources`           | 100m/256Mi requests, 200m/512Mi limits | Server CPU, memory, and ephemeral-storage. Replaced when a resourceTier is set. |
-| `mtls.enabled`        | `false`                             | HTTPS listener + controller→server mTLS (`TRUEFORGE_MTLS_*`). When true, probes use `scheme: HTTPS`. |
+| `mtls.enabled`        | `false`                             | HTTPS listener + controller→server mTLS (`MTLS_*`). When true, probes use `scheme: HTTPS`. |
 | `mtls.secretName`     | `""`                                | Secret with `tls.crt` / `tls.key` / `ca.crt` (required when `mtls.enabled`). |
-| `mtls.certsDir`       | `/etc/tls`                          | Mount path / `TRUEFORGE_MTLS_CERTS_DIR`. |
+| `mtls.certsDir`       | `/etc/tls`                          | Mount path / `MTLS_CERTS_DIR`. |
 
 The server uses a RollingUpdate strategy by default (`server.strategy`); the
 controller is fixed to a single replica with `Recreate` and exposes neither.

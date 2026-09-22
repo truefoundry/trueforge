@@ -617,8 +617,8 @@ fields, wires bundled Postgres/Redis, optional OIDC, then server.extraEnv.
 
 {{- if .Values.mtls.enabled -}}
 {{- $_ := required "mtls.secretName is required when mtls.enabled is true" .Values.mtls.secretName -}}
-{{- $env = append $env (dict "name" "TRUEFORGE_MTLS_ENABLED" "value" "true") -}}
-{{- $env = append $env (dict "name" "TRUEFORGE_MTLS_CERTS_DIR" "value" .Values.mtls.certsDir) -}}
+{{- $env = append $env (dict "name" "MTLS_ENABLED" "value" "true") -}}
+{{- $env = append $env (dict "name" "MTLS_CERTS_DIR" "value" .Values.mtls.certsDir) -}}
 {{- end -}}
 
 {{- toYaml $env -}}

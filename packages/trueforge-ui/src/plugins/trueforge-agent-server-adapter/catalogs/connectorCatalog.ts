@@ -144,7 +144,7 @@ export function toHarnessManifest(req: {
   };
 }
 
-/** Settings connector port for `createTrueFoundryServer`. Delete omitted; disconnect unsupported. */
+/** Settings connector port for `createTrueForgeServer`. Delete omitted; disconnect unsupported. */
 export function createConnectorCatalog(
   client: TrueForge,
 ): ConnectorCatalogServer<
