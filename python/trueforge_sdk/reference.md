@@ -3307,6 +3307,69 @@ client.catalogs.skills.list()
 </dl>
 </details>
 
+## Catalogs WebSearchProviders
+<details><summary><code>client.catalogs.web_search_providers.<a href="src/trueforge_sdk/catalogs/web_search_providers/client.py">list</a>() -> GetWebSearchProviderCatalogResponse</code></summary>
+<dl>
+<dd>
+
+#### 📝 Description
+
+<dl>
+<dd>
+
+<dl>
+<dd>
+
+Shipped web-search provider presets.
+</dd>
+</dl>
+</dd>
+</dl>
+
+#### 🔌 Usage
+
+<dl>
+<dd>
+
+<dl>
+<dd>
+
+```python
+from trueforge_sdk import TrueForge
+
+client = TrueForge(
+    token="<token>",
+    base_url="https://yourhost.com/path/to/api",
+)
+
+client.catalogs.web_search_providers.list()
+
+```
+</dd>
+</dl>
+</dd>
+</dl>
+
+#### ⚙️ Parameters
+
+<dl>
+<dd>
+
+<dl>
+<dd>
+
+**request_options:** `typing.Optional[RequestOptions]` — Request-specific configuration.
+    
+</dd>
+</dl>
+</dd>
+</dl>
+
+
+</dd>
+</dl>
+</details>
+
 ## Internal Metrics
 <details><summary><code>client.internal.metrics.<a href="src/trueforge_sdk/internal/metrics/client.py">list_charts</a>() -> GetSessionMetricsChartResponse</code></summary>
 <dl>
@@ -4671,6 +4734,146 @@ client.settings.skills.create_or_update(
 <dd>
 
 **manifest:** `SkillManifest` 
+    
+</dd>
+</dl>
+
+<dl>
+<dd>
+
+**request_options:** `typing.Optional[RequestOptions]` — Request-specific configuration.
+    
+</dd>
+</dl>
+</dd>
+</dl>
+
+
+</dd>
+</dl>
+</details>
+
+## Settings WebSearchProviders
+<details><summary><code>client.settings.web_search_providers.<a href="src/trueforge_sdk/settings/web_search_providers/client.py">get</a>() -> GetWebSearchProviderResponse</code></summary>
+<dl>
+<dd>
+
+#### 📝 Description
+
+<dl>
+<dd>
+
+<dl>
+<dd>
+
+The configured provider for this tenant. `auth.api_key` is redacted when present.
+</dd>
+</dl>
+</dd>
+</dl>
+
+#### 🔌 Usage
+
+<dl>
+<dd>
+
+<dl>
+<dd>
+
+```python
+from trueforge_sdk import TrueForge
+
+client = TrueForge(
+    token="<token>",
+    base_url="https://yourhost.com/path/to/api",
+)
+
+client.settings.web_search_providers.get()
+
+```
+</dd>
+</dl>
+</dd>
+</dl>
+
+#### ⚙️ Parameters
+
+<dl>
+<dd>
+
+<dl>
+<dd>
+
+**request_options:** `typing.Optional[RequestOptions]` — Request-specific configuration.
+    
+</dd>
+</dl>
+</dd>
+</dl>
+
+
+</dd>
+</dl>
+</details>
+
+<details><summary><code>client.settings.web_search_providers.<a href="src/trueforge_sdk/settings/web_search_providers/client.py">create_or_update</a>(...) -> GetWebSearchProviderResponse</code></summary>
+<dl>
+<dd>
+
+#### 📝 Description
+
+<dl>
+<dd>
+
+<dl>
+<dd>
+
+Upserts the single web search provider for this tenant. `auth.api_key`: real value sets/rotates; redacted keeps existing (400 if none).
+</dd>
+</dl>
+</dd>
+</dl>
+
+#### 🔌 Usage
+
+<dl>
+<dd>
+
+<dl>
+<dd>
+
+```python
+from trueforge_sdk import TrueForge, WebSearchProviderManifest, ParallelWebSearchProviderAuth
+
+client = TrueForge(
+    token="<token>",
+    base_url="https://yourhost.com/path/to/api",
+)
+
+client.settings.web_search_providers.create_or_update(
+    manifest=WebSearchProviderManifest(
+        auth=ParallelWebSearchProviderAuth(
+            api_key="api_key",
+        ),
+        type="parallel",
+    ),
+)
+
+```
+</dd>
+</dl>
+</dd>
+</dl>
+
+#### ⚙️ Parameters
+
+<dl>
+<dd>
+
+<dl>
+<dd>
+
+**manifest:** `WebSearchProviderManifest` 
     
 </dd>
 </dl>

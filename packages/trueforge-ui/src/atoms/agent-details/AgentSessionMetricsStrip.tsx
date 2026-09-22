@@ -55,7 +55,7 @@ export function AgentSessionMetricsStrip({ metrics }: AgentSessionMetricsStripPr
           metrics.totalCostUsd == null ? '@min-[48rem]:grid-cols-7' : '@min-[48rem]:grid-cols-8',
         )}
       >
-        <SessionMetricTile id="turns" label="Turns" value={metrics.totalTurns} />
+        <SessionMetricTile id="turns" label={metrics.totalTurns > 1 ? 'Turns' : 'Turn'} value={metrics.totalTurns} />
         <SessionMetricTile
           id="wall-time"
           label="Duration"

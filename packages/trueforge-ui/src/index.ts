@@ -371,6 +371,7 @@ export type {
   CreateSessionRequest,
   CreateSkillRequest,
   CreateSkillRequestBase,
+  CreateWebSearchProviderRequest,
   CreatedBySubject,
   DefinedSkill,
   GithubSkill,
@@ -430,10 +431,14 @@ export type {
   UpdateModelProviderRequest,
   UpdateSandboxProviderRequest,
   UpdateSessionRequest,
+  UpdateWebSearchProviderRequest,
   UserMessage,
   UserMessageContent,
   UserToolApprovalEvent,
   UserToolResponseEvent,
+  WebSearchCatalogServer,
+  WebSearchProviderBase,
+  WebSearchProviderCatalogEntry,
 } from './server/types.js';
 
 export { AgentCodeBlock } from './atoms/agent-details/AgentCodeBlock.js';

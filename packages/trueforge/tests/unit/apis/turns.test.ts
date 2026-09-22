@@ -21,6 +21,7 @@ import { SqliteSessionStore } from '../../../src/db/sqlite/session-store/SqliteS
 import { SqliteSkillStore } from '../../../src/db/sqlite/skill-store/SqliteSkillStore';
 import { SqliteOAuthTokenStore } from '../../../src/db/sqlite/token-store/SqliteOAuthTokenStore';
 import type { Database } from '../../../src/db/sqlite/types';
+import { SqliteWebSearchProviderStore } from '../../../src/db/sqlite/web-search-provider-store/SqliteWebSearchProviderStore';
 import { ActiveTurnRegistry } from '../../../src/runtime/activeTurns';
 import { EventSubscriptionRegistry } from '../../../src/runtime/event-subscription/index.js';
 
@@ -75,6 +76,7 @@ describe('turns', () => {
           resolveAgentStore: () => new SqliteAgentStore(db),
           eventSubscriptions: new EventSubscriptionRegistry(undefined),
           resolveSandboxProviderStore: () => new SqliteSandboxProviderStore(db),
+          resolveWebSearchProviderStore: () => new SqliteWebSearchProviderStore(db),
           logger: createLogger({ silent: true }),
           resolveRequestContext: () => STANDALONE_REQUEST_CONTEXT,
           authorizer: new TrueForgeAuthorizer(),
@@ -152,6 +154,7 @@ describe('turns', () => {
           resolveAgentStore: () => agentStore,
           eventSubscriptions: new EventSubscriptionRegistry(undefined),
           resolveSandboxProviderStore: () => new SqliteSandboxProviderStore(db),
+          resolveWebSearchProviderStore: () => new SqliteWebSearchProviderStore(db),
           logger: createLogger({ silent: true }),
           resolveRequestContext: () => STANDALONE_REQUEST_CONTEXT,
           authorizer: {
@@ -233,6 +236,7 @@ describe('turns', () => {
           resolveAgentStore: () => new SqliteAgentStore(db),
           eventSubscriptions: new EventSubscriptionRegistry(undefined),
           resolveSandboxProviderStore: () => new SqliteSandboxProviderStore(db),
+          resolveWebSearchProviderStore: () => new SqliteWebSearchProviderStore(db),
           logger: createLogger({ silent: true }),
           resolveRequestContext: () => STANDALONE_REQUEST_CONTEXT,
           authorizer: new TrueForgeAuthorizer(),
@@ -339,6 +343,7 @@ describe('turns', () => {
           resolveSkillStore: () => new SqliteSkillStore(db),
           eventSubscriptions,
           resolveSandboxProviderStore: () => new SqliteSandboxProviderStore(db),
+          resolveWebSearchProviderStore: () => new SqliteWebSearchProviderStore(db),
           logger,
           resolveRequestContext: () => STANDALONE_REQUEST_CONTEXT,
           authorizer: new TrueForgeAuthorizer(),
@@ -446,6 +451,7 @@ describe('turns', () => {
           resolveAgentStore: () => new SqliteAgentStore(db),
           eventSubscriptions: new EventSubscriptionRegistry(undefined),
           resolveSandboxProviderStore: () => new SqliteSandboxProviderStore(db),
+          resolveWebSearchProviderStore: () => new SqliteWebSearchProviderStore(db),
           logger,
           resolveRequestContext: () => STANDALONE_REQUEST_CONTEXT,
           authorizer: new TrueForgeAuthorizer(),
@@ -531,6 +537,7 @@ describe('turns', () => {
           resolveAgentStore: () => agentStore,
           eventSubscriptions: new EventSubscriptionRegistry(undefined),
           resolveSandboxProviderStore: () => new SqliteSandboxProviderStore(db),
+          resolveWebSearchProviderStore: () => new SqliteWebSearchProviderStore(db),
           logger: createLogger({ silent: true }),
           resolveRequestContext: () => STANDALONE_REQUEST_CONTEXT,
           authorizer,

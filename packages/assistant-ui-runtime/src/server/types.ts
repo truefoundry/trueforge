@@ -794,6 +794,58 @@ export interface SandboxCatalogServer<
   deleteSandboxProvider?(req: { id: string }): Promise<void>;
 }
 
+// ---------------------------------------------------------------------------
+// Web-search providers catalog — public rows omit credentials; writes accept them
+// ---------------------------------------------------------------------------
+
+export interface WebSearchCatalogEntry {
+  id: string;
+  name: string;
+  type: string;
+}
+
+/**
+ * Connected web-search provider row (settings/web-search). No raw `apiKey`.
+ */
+export interface WebSearchBase {
+  id: string;
+  name: string;
+  catalogId: string;
+  isConnected: boolean;
+}
+
+export interface CreateWebSearchRequest {
+  /** `WebSearchCatalogEntry.id` used to create this web-search provider. */
+  catalogId: string;
+  name: string;
+  type: string;
+  apiKey: string;
+}
+
+export interface UpdateWebSearchRequest {
+  id: string;
+  /** Omit to keep the existing key; send a value to set/rotate. */
+  apiKey?: string;
+}
+
+/** Host-facing aliases (trueforge-ui public names). */
+export type WebSearchProviderCatalogEntry = WebSearchCatalogEntry;
+export type WebSearchProviderBase = WebSearchBase;
+export type CreateWebSearchProviderRequest = CreateWebSearchRequest;
+export type UpdateWebSearchProviderRequest = UpdateWebSearchRequest;
+
+export interface WebSearchCatalogServer<
+  TProvider extends WebSearchBase = WebSearchBase,
+  TCatalogEntry extends WebSearchCatalogEntry = WebSearchCatalogEntry,
+  TCreate extends CreateWebSearchRequest = CreateWebSearchRequest,
+  TUpdate extends UpdateWebSearchRequest = UpdateWebSearchRequest,
+> {
+  getWebSearchProviderCatalog(): Promise<TCatalogEntry[]>;
+  listWebSearchProviders(req?: { query?: string }): Promise<TProvider[]>;
+  createWebSearchProvider(req: TCreate): Promise<TProvider>;
+  updateWebSearchProvider(req: TUpdate): Promise<TProvider>;
+}
+
 /** Host-facing selector / compose aliases (trueforge-ui public names). */
 export type ModelSelection = ModelSelectorEntry;
 export type AgentSkill = SkillSelectorEntry;
@@ -803,7 +855,7 @@ export type SearchAgentsParams = SearchAgentSelectorParams;
 
 /**
  * Settings management aggregate — modelCatalog + connectorCatalog + optional
- * skill and sandbox catalogs.
+ * skill, sandbox, and web-search catalogs.
  * Hosts may pass the whole object to an app shell, or a focused sub-port to a page.
  */
 export interface CatalogServer<
@@ -811,6 +863,7 @@ export interface CatalogServer<
   TConnectorCatalog extends ConnectorCatalogServer = ConnectorCatalogServer,
   TSkillCatalog extends SkillCatalogServer = SkillCatalogServer,
   TSandboxCatalog extends SandboxCatalogServer = SandboxCatalogServer,
+  TWebSearchCatalog extends WebSearchCatalogServer = WebSearchCatalogServer,
 > {
   modelCatalog: TModelCatalog;
   connectorCatalog: TConnectorCatalog;
@@ -818,6 +871,8 @@ export interface CatalogServer<
   skillCatalog?: TSkillCatalog;
   /** Optional — omit when the host has no sandboxes settings surface. */
   sandboxCatalog?: TSandboxCatalog;
+  /** Optional — omit when the host has no web-search settings surface. */
+  webSearchCatalog?: TWebSearchCatalog;
 }
 
 // ---------------------------------------------------------------------------
