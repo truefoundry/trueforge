@@ -7,6 +7,7 @@ import { McpCatalog } from '../../../src/catalog/McpCatalog';
 import { ModelCatalog } from '../../../src/catalog/ModelCatalog';
 import { SandboxCatalog } from '../../../src/catalog/SandboxCatalog';
 import { SkillCatalog } from '../../../src/catalog/SkillCatalog';
+import { WebSearchCatalog } from '../../../src/catalog/WebSearchCatalog';
 import configuration from '../../../src/config';
 import { McpServerWithAuthStore } from '../../../src/db/McpServerWithAuthStore';
 import type { IMcpServerWithAuthStore } from '../../../src/db/mcpServerStore';
@@ -143,6 +144,7 @@ describe('mcp-servers routers', () => {
       mcpCatalog: McpCatalog.load(),
       skillCatalog: SkillCatalog.load(),
       sandboxCatalog: SandboxCatalog.load(),
+      webSearchCatalog: WebSearchCatalog.load(),
     });
     mcpServersRouter = createMcpServersRouter({
       resolveMcpServerStore: () => mcpServerStore,

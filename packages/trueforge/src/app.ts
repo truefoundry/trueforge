@@ -3,12 +3,11 @@ import { swaggerUI } from '@hono/swagger-ui';
 import { OpenAPIHono, z } from '@hono/zod-openapi';
 import type { ISessionStore, Sessions, TurnStreamingEvent } from '@truefoundry/trueforge-core/agent-session';
 import { extractErrorLogFields } from '@truefoundry/trueforge-core/core';
-import type { RequestReplyRouter } from '@truefoundry/trueforge-core/request-reply';
+import type { RedisClient, RequestReplyRouter } from '@truefoundry/trueforge-core/request-reply';
 import type { Context, ErrorHandler, MiddlewareHandler } from 'hono';
 import { bodyLimit } from 'hono/body-limit';
 import { HTTPException } from 'hono/http-exception';
 import type { Configuration } from 'openid-client';
-import type { RedisClientType } from 'redis';
 import type { Logger } from 'winston';
 import { createAgentImportRouter } from './apis/agentImport';
 import { createAgentsRouter } from './apis/agents';
@@ -38,6 +37,7 @@ import type { McpCatalog } from './catalog/McpCatalog';
 import type { ModelCatalog } from './catalog/ModelCatalog';
 import type { SandboxCatalog } from './catalog/SandboxCatalog';
 import type { SkillCatalog } from './catalog/SkillCatalog';
+import type { WebSearchCatalog } from './catalog/WebSearchCatalog';
 import configuration, { getPublicUiBasePath, getTrueForgeAuthMode, TrueForgeAuthMode } from './config';
 import type { AgentRecord, IAgentStore } from './db/agentStore';
 import type { IMcpServerWithAuthStore } from './db/mcpServerStore';
@@ -47,6 +47,7 @@ import type { IScheduleStore } from './db/scheduleStore';
 import type { ISessionMetricsStore } from './db/sessionMetricsStore';
 import type { ISkillStore } from './db/skillStore';
 import type { WithTransaction } from './db/transaction';
+import type { IWebSearchProviderStore } from './db/webSearchProviderStore';
 import { createClientCertificateMiddleware } from './http/tls';
 import type { IOAuthTokenStore } from './mcp/auth/types';
 import { PACKAGE_VERSION } from './packageVersion';
@@ -177,6 +178,7 @@ export interface ServerDeps<TTransaction> {
   mcpCatalog: McpCatalog;
   skillCatalog: SkillCatalog;
   sandboxCatalog: SandboxCatalog;
+  webSearchCatalog: WebSearchCatalog;
   /** Per-request store: DB singleton, or a token-bound TrueFoundry store in TrueFoundry mode. */
   resolveModelProviderStore: (c: Context, runAsAgent?: AgentRecord) => IModelProviderStore<TTransaction>;
   /**
@@ -193,6 +195,7 @@ export interface ServerDeps<TTransaction> {
    * (`TRUEFOUNDRY_SANDBOX_*` + static SETTINGS JSON).
    */
   resolveSandboxProviderStore: (c: Context) => ISandboxProviderStore<TTransaction>;
+  resolveWebSearchProviderStore: (c: Context) => IWebSearchProviderStore<TTransaction>;
   /** Per-request store: DB git skills, or TrueFoundry registry catalog in TrueFoundry mode. */
   resolveSkillStore: ResolveSkillStore<TTransaction>;
   withTransaction: WithTransaction<TTransaction>;
@@ -207,7 +210,7 @@ export interface ServerDeps<TTransaction> {
   sessions: Sessions;
   activeTurns: ActiveTurnRegistry;
   /** Primary Redis client (server-owned); undefined in standalone mode. */
-  redis?: RedisClientType | undefined;
+  redis?: RedisClient | undefined;
   /** Request-reply dispatch table served by this replica's executor. */
   requestReplyRouter: RequestReplyRouter;
   /** Hands out each turn's resumable event stream to the create and subscribe handlers. */
@@ -236,6 +239,7 @@ export function createServerApp<TTransaction>(deps: ServerDeps<TTransaction>) {
     resolveModelProviderStore: deps.resolveModelProviderStore,
     resolveMcpServerStore: deps.resolveMcpServerStore,
     resolveSandboxProviderStore: deps.resolveSandboxProviderStore,
+    resolveWebSearchProviderStore: deps.resolveWebSearchProviderStore,
     activeTurns: deps.activeTurns,
     turnSkillsResolverStore: deps.turnSkillsResolverStore,
   };
@@ -263,6 +267,7 @@ export function createServerApp<TTransaction>(deps: ServerDeps<TTransaction>) {
     withAuth(
       createCapabilitiesRouter({
         resolveSandboxProviderStore: deps.resolveSandboxProviderStore,
+        resolveWebSearchProviderStore: deps.resolveWebSearchProviderStore,
         withTransaction: deps.withTransaction,
         logger: deps.logger,
         resolveRequestContext,
@@ -289,6 +294,7 @@ export function createServerApp<TTransaction>(deps: ServerDeps<TTransaction>) {
         mcpCatalog: deps.mcpCatalog,
         skillCatalog: deps.skillCatalog,
         sandboxCatalog: deps.sandboxCatalog,
+        webSearchCatalog: deps.webSearchCatalog,
       }),
       authMiddleware,
     ),
@@ -336,6 +342,7 @@ export function createServerApp<TTransaction>(deps: ServerDeps<TTransaction>) {
         resolveMcpServerStore: deps.resolveMcpServerStore,
         resolveSkillStore: deps.resolveSkillStore,
         resolveSandboxProviderStore: deps.resolveSandboxProviderStore,
+        resolveWebSearchProviderStore: deps.resolveWebSearchProviderStore,
         withTransaction: deps.withTransaction,
         resolveRequestContext,
         authorizer: deps.authorizer,
@@ -369,6 +376,7 @@ export function createServerApp<TTransaction>(deps: ServerDeps<TTransaction>) {
         tokenStore: deps.tokenStore,
         resolveSkillStore: deps.resolveSkillStore,
         resolveSandboxProviderStore: deps.resolveSandboxProviderStore,
+        resolveWebSearchProviderStore: deps.resolveWebSearchProviderStore,
         withTransaction: deps.withTransaction,
         logger: deps.logger,
         resolveRequestContext,
@@ -396,6 +404,7 @@ export function createServerApp<TTransaction>(deps: ServerDeps<TTransaction>) {
         resolveSkillStore: deps.resolveSkillStore,
         resolveAgentStore: deps.resolveAgentStore,
         resolveSandboxProviderStore: deps.resolveSandboxProviderStore,
+        resolveWebSearchProviderStore: deps.resolveWebSearchProviderStore,
         resolveRequestContext,
         authorizer: deps.authorizer,
       }),
@@ -439,6 +448,7 @@ export function createServerApp<TTransaction>(deps: ServerDeps<TTransaction>) {
         resolveSkillStore: deps.resolveSkillStore,
         resolveAgentStore: deps.resolveAgentStore,
         resolveSandboxProviderStore: deps.resolveSandboxProviderStore,
+        resolveWebSearchProviderStore: deps.resolveWebSearchProviderStore,
         redis: deps.redis,
         requestReplyRouter: deps.requestReplyRouter,
         resolveRequestContext,
@@ -461,6 +471,7 @@ export function createServerApp<TTransaction>(deps: ServerDeps<TTransaction>) {
         resolveAgentStore: deps.resolveAgentStore,
         eventSubscriptions: deps.eventSubscriptions,
         resolveSandboxProviderStore: deps.resolveSandboxProviderStore,
+        resolveWebSearchProviderStore: deps.resolveWebSearchProviderStore,
         logger: deps.logger,
         resolveRequestContext,
         authorizer: deps.authorizer,

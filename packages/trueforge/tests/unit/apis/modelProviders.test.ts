@@ -8,6 +8,7 @@ import { McpCatalog } from '../../../src/catalog/McpCatalog';
 import { ModelCatalog } from '../../../src/catalog/ModelCatalog';
 import { SandboxCatalog } from '../../../src/catalog/SandboxCatalog';
 import { SkillCatalog } from '../../../src/catalog/SkillCatalog';
+import { WebSearchCatalog } from '../../../src/catalog/WebSearchCatalog';
 import configuration from '../../../src/config';
 import { McpServerWithAuthStore } from '../../../src/db/McpServerWithAuthStore';
 import { migrateSqliteToLatest } from '../../../src/db/migrateSqlite';
@@ -18,6 +19,7 @@ import { SqliteModelProviderStore } from '../../../src/db/sqlite/model-provider-
 import { SqliteSandboxProviderStore } from '../../../src/db/sqlite/sandbox-provider-store/SqliteSandboxProviderStore';
 import { SqliteSkillStore } from '../../../src/db/sqlite/skill-store/SqliteSkillStore';
 import { SqliteOAuthTokenStore } from '../../../src/db/sqlite/token-store/SqliteOAuthTokenStore';
+import { SqliteWebSearchProviderStore } from '../../../src/db/sqlite/web-search-provider-store/SqliteWebSearchProviderStore';
 import { toRedactedSecretValue } from '../../../src/utils/secretRedaction';
 
 const model = {
@@ -130,6 +132,7 @@ async function createRouters(): Promise<{
       tokenStore,
       resolveSkillStore: () => new SqliteSkillStore(db),
       resolveSandboxProviderStore: () => new SqliteSandboxProviderStore(db),
+      resolveWebSearchProviderStore: () => new SqliteWebSearchProviderStore(db),
       withTransaction: callback => db.transaction().execute(callback),
       logger: winston.createLogger({ silent: true }),
       resolveRequestContext: () => STANDALONE_REQUEST_CONTEXT,
@@ -139,6 +142,7 @@ async function createRouters(): Promise<{
       mcpCatalog: McpCatalog.load(),
       skillCatalog: SkillCatalog.load(),
       sandboxCatalog: SandboxCatalog.load(),
+      webSearchCatalog: WebSearchCatalog.load(),
     }),
     modelsRouter: createModelsRouter({
       resolveModelProviderStore: () => modelProviderStore,

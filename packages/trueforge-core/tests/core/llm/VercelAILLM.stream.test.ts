@@ -269,6 +269,7 @@ describe('mapStreamToChunks', () => {
     expect(reasoningChunks).toHaveLength(1);
     expect(reasoningChunks[0]?.choices[0]?.delta.reasoning_content).toBe('step one');
     expect(final.output.thinking_blocks).toEqual([{ type: 'thinking', thinking: 'step one' }]);
+    expect(final.output.reasoning_content).toBe('step one');
   });
 
   it('attaches signature from providerMetadata.*.reasoningEncryptedContent on reasoning-end (OpenAI)', async () => {
