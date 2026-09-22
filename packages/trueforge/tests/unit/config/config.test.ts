@@ -1,4 +1,5 @@
-import { getPublicUiBasePath, type ServerConfiguration } from '../../../src/config';
+import type { ServerConfiguration } from '../../../src/config';
+import { buildRedisStandaloneUrl, getPublicUiBasePath } from '../../../src/config';
 import { resolveTrueFoundrySandboxProviderConfig } from '../../../src/truefoundry/resolveTrueFoundrySandboxProviderConfig';
 
 /** Minimal distributed config slice for resolve tests (unused fields are irrelevant). */
@@ -127,5 +128,34 @@ describe('getPublicUiBasePath', () => {
         PUBLIC_BASE_URL: 'https://host.example/custom/proxy/path',
       } as ServerConfiguration),
     ).toBe('/custom/proxy/path/');
+  });
+});
+
+describe('buildRedisStandaloneUrl', () => {
+  const base = {
+    port: 6379,
+    database: 0,
+    username: undefined,
+    password: undefined,
+  };
+
+  it('builds a hostname URL', () => {
+    expect(buildRedisStandaloneUrl({ ...base, host: 'redis.internal' })).toBe('redis://redis.internal:6379');
+  });
+
+  it('brackets bare IPv6 hosts so the URL is parseable', () => {
+    const url = buildRedisStandaloneUrl({ ...base, host: '::1' });
+    expect(url).toBe('redis://[::1]:6379');
+    expect(() => new URL(url)).not.toThrow();
+  });
+
+  it('keeps already-bracketed IPv6 hosts', () => {
+    expect(buildRedisStandaloneUrl({ ...base, host: '[2001:db8::1]', port: 6380, database: 2 })).toBe(
+      'redis://[2001:db8::1]:6380/2',
+    );
+  });
+
+  it('leaves IPv4 hosts unbracketed', () => {
+    expect(buildRedisStandaloneUrl({ ...base, host: '127.0.0.1' })).toBe('redis://127.0.0.1:6379');
   });
 });

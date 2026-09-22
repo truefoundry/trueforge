@@ -11,6 +11,7 @@
  * - `false`: Postgres; Redis required for the server (optional for controller / migrate).
  */
 import { existsSync, readFileSync } from 'node:fs';
+import { isIPv6 } from 'node:net';
 import os from 'node:os';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
@@ -376,8 +377,9 @@ function optionalNonEmptyEnv(envKey: string): string | undefined {
  * Build a standalone `redis://` URL from discrete host fields.
  * TLS stays on socket options (`REDIS_TLS_*`), not the URL scheme — CA/cert/key
  * cannot be expressed in `rediss://`, and mixing scheme + socket TLS is ambiguous.
+ * IPv6 hosts are bracketed (`[::1]`) so `new URL()` / node-redis accept them.
  */
-function buildRedisStandaloneUrl(parts: {
+export function buildRedisStandaloneUrl(parts: {
   host: string;
   port: number;
   database: number;
@@ -394,8 +396,14 @@ function buildRedisStandaloneUrl(parts: {
   } else if (parts.password !== undefined) {
     auth = `:${encodeURIComponent(parts.password)}@`;
   }
+  const host =
+    parts.host.startsWith('[') && parts.host.endsWith(']')
+      ? parts.host
+      : isIPv6(parts.host)
+        ? `[${parts.host}]`
+        : parts.host;
   const dbPath = parts.database > 0 ? `/${String(parts.database)}` : '';
-  return `redis://${auth}${parts.host}:${String(parts.port)}${dbPath}`;
+  return `redis://${auth}${host}:${String(parts.port)}${dbPath}`;
 }
 
 /**
