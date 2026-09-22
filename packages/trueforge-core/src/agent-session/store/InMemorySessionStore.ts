@@ -48,6 +48,7 @@ import {
   SessionNotFoundError,
   SessionStoreInvariantError,
   TurnAlreadyExistsError,
+  TurnExecutorMismatchError,
   TurnNotFoundError,
   TurnNotRunningError,
 } from './SessionStoreErrors';
@@ -465,6 +466,13 @@ export class InMemorySessionStore<
     if (turn.state.status !== 'running') {
       throw new TurnNotRunningError(input.turn_id, turn.state);
     }
+    if (turn.active_executor_id !== input.expected_active_executor_id) {
+      throw new TurnExecutorMismatchError({
+        turn_id: input.turn_id,
+        expected_active_executor_id: input.expected_active_executor_id,
+        active_executor_id: turn.active_executor_id,
+      });
+    }
     turn.state = deepCopy(input.state);
     turn.updated_at = new Date();
     const list = this.events.get(tKey);
@@ -475,7 +483,7 @@ export class InMemorySessionStore<
   }
 
   async appendToEvents(input: AppendToEventsInput): Promise<void> {
-    this.requireRunningTurn(input.session_id, input.turn_id);
+    this.requireTurnProgressAllowed(input);
     const tKey = turnKey(input);
     const list = this.events.get(tKey);
     if (!list) {
@@ -507,16 +515,27 @@ export class InMemorySessionStore<
     return turn;
   }
 
-  private requireRunningTurn(sessionId: string, turnId: string): TurnRecord<TTurnCustom> {
-    const turn = this.requireTurn(sessionId, turnId);
+  private requireTurnProgressAllowed(input: {
+    session_id: string;
+    turn_id: string;
+    expected_active_executor_id: string;
+  }): TurnRecord<TTurnCustom> {
+    const turn = this.requireTurn(input.session_id, input.turn_id);
     if (turn.state.status !== 'running') {
-      throw new TurnNotRunningError(turnId, turn.state);
+      throw new TurnNotRunningError(input.turn_id, turn.state);
+    }
+    if (turn.active_executor_id !== input.expected_active_executor_id) {
+      throw new TurnExecutorMismatchError({
+        turn_id: input.turn_id,
+        expected_active_executor_id: input.expected_active_executor_id,
+        active_executor_id: turn.active_executor_id,
+      });
     }
     return turn;
   }
 
   async addThreads(input: AddThreadsInput): Promise<void> {
-    const turn = this.requireRunningTurn(input.session_id, input.turn_id);
+    const turn = this.requireTurnProgressAllowed(input);
     for (const thread of input.threads) {
       turn.snapshot.threads[thread.thread_id] = deepCopy(thread);
     }
@@ -528,7 +547,7 @@ export class InMemorySessionStore<
     if (input.thread_ids.length === 0) {
       return;
     }
-    const turn = this.requireRunningTurn(input.session_id, input.turn_id);
+    const turn = this.requireTurnProgressAllowed(input);
     for (const id of input.thread_ids) {
       Reflect.deleteProperty(turn.snapshot.threads, id);
     }
@@ -537,7 +556,7 @@ export class InMemorySessionStore<
   }
 
   async appendToThreadContext(input: AppendToThreadContextInput): Promise<void> {
-    const turn = this.requireRunningTurn(input.session_id, input.turn_id);
+    const turn = this.requireTurnProgressAllowed(input);
     const thread = turn.snapshot.threads[input.thread_id];
     if (!thread) {
       throw new SessionStoreInvariantError(`Thread not found: ${input.thread_id}`);
@@ -554,7 +573,7 @@ export class InMemorySessionStore<
   }
 
   async overwriteThreadContext(input: OverwriteThreadContextInput): Promise<void> {
-    const turn = this.requireRunningTurn(input.session_id, input.turn_id);
+    const turn = this.requireTurnProgressAllowed(input);
     const threadId = input.event.thread_id;
     const thread = turn.snapshot.threads[threadId];
     if (!thread) {
@@ -567,7 +586,7 @@ export class InMemorySessionStore<
   }
 
   async patchMCPServers(input: PatchMCPServersInput): Promise<void> {
-    const turn = this.requireRunningTurn(input.session_id, input.turn_id);
+    const turn = this.requireTurnProgressAllowed(input);
     turn.snapshot.mcp_servers ??= {};
     for (const server of input.mcp_servers) {
       turn.snapshot.mcp_servers[server.id] = deepCopy(server);
@@ -577,14 +596,14 @@ export class InMemorySessionStore<
   }
 
   async patchSandboxInfo(input: PatchSandboxInfoInput): Promise<void> {
-    const turn = this.requireRunningTurn(input.session_id, input.turn_id);
+    const turn = this.requireTurnProgressAllowed(input);
     turn.snapshot.sandbox_info = deepCopy(input.sandbox_info);
     turn.updated_at = new Date();
     return;
   }
 
   async patchThreadCapabilityState(input: PatchThreadCapabilityStateInput): Promise<void> {
-    const turn = this.requireRunningTurn(input.session_id, input.turn_id);
+    const turn = this.requireTurnProgressAllowed(input);
     const thread = turn.snapshot.threads[input.thread_id];
     if (!thread) {
       throw new SessionStoreInvariantError(`Thread not found: ${input.thread_id}`);

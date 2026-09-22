@@ -137,6 +137,19 @@ export class TurnHandle<TTurnCustom extends object = Record<string, never>> {
     return this.turn.turn_id;
   }
 
+  /** Keys for progress store writes: session, turn, and owning executor fence. */
+  private turnWriteScope(): {
+    session_id: string;
+    turn_id: string;
+    expected_active_executor_id: string;
+  } {
+    return {
+      session_id: this.turn.session_id,
+      turn_id: this.turn.turn_id,
+      expected_active_executor_id: this.turn.active_executor_id,
+    };
+  }
+
   get session_id(): string {
     return this.turn.session_id;
   }
@@ -224,8 +237,7 @@ export class TurnHandle<TTurnCustom extends object = Record<string, never>> {
         thread_id: null,
       };
       await this.store.appendToEvents({
-        session_id: this.turn.session_id,
-        turn_id: this.turn.turn_id,
+        ...this.turnWriteScope(),
         events: [turnCreated],
       });
       yield turnCreated;
@@ -336,8 +348,7 @@ export class TurnHandle<TTurnCustom extends object = Record<string, never>> {
       if (!frozenByStore) {
         try {
           await this.store.updateTurnState({
-            session_id: this.turn.session_id,
-            turn_id: this.turn.turn_id,
+            ...this.turnWriteScope(),
             state: terminalState,
             turn_done_event: turnDone,
           });
@@ -401,10 +412,7 @@ export class TurnHandle<TTurnCustom extends object = Record<string, never>> {
    * the event should be emitted to the consumer (null = side-effect only / skip).
    */
   private async persistExecutionEvent(event: AgentThreadExecutionEvent): Promise<TurnStreamingEvent | null> {
-    const scope = {
-      session_id: this.turn.session_id,
-      turn_id: this.turn.turn_id,
-    };
+    const scope = this.turnWriteScope();
 
     switch (event.type) {
       case HarnessEventType.MODEL_MESSAGE:
