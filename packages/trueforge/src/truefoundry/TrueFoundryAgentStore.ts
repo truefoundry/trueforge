@@ -180,7 +180,12 @@ export class TrueFoundryAgentStore implements IAgentStore<Transaction<Database>>
         });
         captureCriticalException(aggregate, {
           tags: { module: 'TrueFoundryAgentStore', operation: 'dualWrite' },
-          extra: { agent_id: created.id, tenant_id: input.tenant_id },
+          extra: {
+            agent_id: created.id,
+            agent_name: created.name,
+            tenant_id: input.tenant_id,
+            external_id: externalId,
+          },
         });
         throw aggregate;
       }
@@ -241,7 +246,12 @@ export class TrueFoundryAgentStore implements IAgentStore<Transaction<Database>>
           );
           captureCriticalException(aggregate, {
             tags: { module: 'TrueFoundryAgentStore', operation: 'dualWrite' },
-            extra: { agent_id: input.id, tenant_id: input.tenant_id },
+            extra: {
+              agent_id: input.id,
+              agent_name: previous.name,
+              tenant_id: input.tenant_id,
+              external_id: previous.external_id,
+            },
           });
           throw aggregate;
         }

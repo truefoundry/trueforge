@@ -306,7 +306,11 @@ export async function dispatchScheduledRuns<TTransaction>(params: {
         });
         captureCriticalException(error, {
           tags: { module: 'scheduleDispatch', operation: 'handoff' },
-          extra: { schedule_id: schedule.id, run_id: run.id },
+          extra: {
+            tenant_id: run.tenant_id,
+            schedule_id: schedule.id,
+            run_id: run.id,
+          },
         });
         await finishScheduledRun({
           store,
@@ -336,7 +340,11 @@ export async function dispatchScheduledRuns<TTransaction>(params: {
       });
       captureCriticalException(error, {
         tags: { module: 'scheduleDispatch', operation: 'processRun' },
-        extra: { schedule_id: run.schedule_id, run_id: run.id },
+        extra: {
+          tenant_id: run.tenant_id,
+          schedule_id: run.schedule_id,
+          run_id: run.id,
+        },
       });
     }
   }

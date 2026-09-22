@@ -18,7 +18,7 @@ import { createDb } from './db/postgres/client';
 import { PostgresScheduleStore } from './db/postgres/schedule-store/PostgresScheduleStore';
 import { createControllerLogger } from './logger';
 import { PACKAGE_VERSION } from './packageVersion';
-import { captureCriticalException, exitAfterFlushSentry, initSentry } from './sentry';
+import { initSentry } from './sentry';
 
 try {
   const logger = createControllerLogger({
@@ -60,6 +60,5 @@ try {
   });
 } catch (error) {
   console.error('Failed to start controller:', error instanceof Error ? error.message : error);
-  captureCriticalException(error, { tags: { module: 'controller', operation: 'boot' } });
-  await exitAfterFlushSentry(1);
+  process.exit(1);
 }

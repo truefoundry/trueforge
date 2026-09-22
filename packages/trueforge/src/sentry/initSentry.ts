@@ -9,6 +9,13 @@ function isLocalLikeEnv(nodeEnv: string | undefined): boolean {
   return nodeEnv === 'development' || nodeEnv === 'test' || nodeEnv === 'local';
 }
 
+function applyGlobalTags(tags: Record<string, string>): void {
+  const scope = Sentry.getGlobalScope();
+  for (const [key, value] of Object.entries(tags)) {
+    scope.setTag(key, value);
+  }
+}
+
 export interface InitSentryOptions {
   tags?: Record<string, string>;
 }
@@ -23,46 +30,29 @@ export async function initSentry(
     return;
   }
 
+  const globalTags: Record<string, string> = {
+    service: 'trueforge',
+    TRUEFORGE_VERSION: PACKAGE_VERSION,
+    ...config.SENTRY_ADDITIONAL_TAGS,
+    ...options?.tags,
+  };
+
   if (isTrueFoundryModeEnabled(config)) {
-    const authServerUrl = config.TRUEFOUNDRY_AUTH_SERVER_URL;
-    const apiKey = config.TRUEFOUNDRY_API_KEY;
-    if (authServerUrl === undefined || authServerUrl.trim() === '') {
-      logger.error('TRUEFOUNDRY_AUTH_SERVER_URL is required when SENTRY_ENABLED in TrueFoundry mode');
-      return;
-    }
-    if (apiKey === undefined || apiKey.trim() === '') {
-      logger.error('TRUEFOUNDRY_API_KEY is required when SENTRY_ENABLED in TrueFoundry mode');
-      return;
-    }
-    await initTrueFoundrySentry({
-      config: {
-        TRUEFOUNDRY_AUTH_SERVER_URL: authServerUrl,
-        TRUEFOUNDRY_API_KEY: apiKey,
-        TRUEFOUNDRY_TENANT_NAME: config.TRUEFOUNDRY_TENANT_NAME,
-        TRUEFOUNDRY_SERVICEFOUNDRY_HTTP_TIMEOUT_MS: config.TRUEFOUNDRY_SERVICEFOUNDRY_HTTP_TIMEOUT_MS,
-      },
-      logger,
-      version: PACKAGE_VERSION,
-      tags: options?.tags,
-    });
+    await initTrueFoundrySentry({ logger, tags: globalTags });
     return;
   }
 
   const dsn = config.SENTRY_DSN;
   if (dsn === undefined || dsn.trim() === '') {
-    logger.error('SENTRY_DSN is required when SENTRY_ENABLED outside TrueFoundry mode');
+    logger.error('SENTRY_DSN is required when SENTRY_ENABLED=true');
     return;
   }
   Sentry.init({
     dsn,
     includeLocalVariables: false,
+    defaultIntegrations: false,
     integrations: [],
   });
-  Sentry.getGlobalScope().setTag('TRUEFORGE_VERSION', PACKAGE_VERSION);
-  if (options?.tags) {
-    for (const [key, value] of Object.entries(options.tags)) {
-      Sentry.getGlobalScope().setTag(key, value);
-    }
-  }
+  applyGlobalTags(globalTags);
   logger.info('Sentry initialised');
 }

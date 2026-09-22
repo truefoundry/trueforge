@@ -297,6 +297,30 @@ function parseTrueFoundrySandboxProvider(raw: string | undefined): 'daytona' | '
   );
 }
 
+/** Parses `SENTRY_ADDITIONAL_TAGS` as a JSON object of string values. Unset/blank → `{}`. */
+function parseSentryAdditionalTags(raw: string | undefined): Record<string, string> {
+  if (raw === undefined || raw.trim() === '') {
+    return {};
+  }
+  let parsed: unknown;
+  try {
+    parsed = JSON.parse(raw);
+  } catch (error) {
+    throw new Error('SENTRY_ADDITIONAL_TAGS must be a JSON object of string values', { cause: error });
+  }
+  if (typeof parsed !== 'object' || parsed === null || Array.isArray(parsed)) {
+    throw new Error('SENTRY_ADDITIONAL_TAGS must be a JSON object of string values');
+  }
+  const tags: Record<string, string> = {};
+  for (const [key, value] of Object.entries(parsed)) {
+    if (typeof value !== 'string') {
+      throw new Error(`SENTRY_ADDITIONAL_TAGS.${key} must be a string`);
+    }
+    tags[key] = value;
+  }
+  return tags;
+}
+
 /** Parses `POSTGRES_SSL_MODE`. Unset/blank → `''`. Unknown values throw. */
 function validatePostgresSslMode(raw: string | undefined): PostgresSslMode | '' {
   const mode = raw?.trim() ?? '';
@@ -809,6 +833,7 @@ export interface SharedServerConfiguration {
   OUTBOUND_URL_BLOCKED_HOSTS: string[];
   SENTRY_ENABLED: boolean;
   SENTRY_DSN: string | undefined;
+  SENTRY_ADDITIONAL_TAGS: Record<string, string>;
 }
 
 export type StandaloneServerConfiguration = SharedServerConfiguration & {
@@ -1113,6 +1138,7 @@ const shared: SharedServerConfiguration = {
     defaultValue: false,
   }),
   SENTRY_DSN: getEnv('SENTRY_DSN', { required: false }),
+  SENTRY_ADDITIONAL_TAGS: parseSentryAdditionalTags(getEnv('SENTRY_ADDITIONAL_TAGS', { required: false })),
 };
 
 const configuration: ServerConfiguration = standalone
