@@ -7,7 +7,7 @@ import {
   type ReasoningMessagePart,
   type TextMessagePart,
 } from '@assistant-ui/react';
-import { useTrueFoundryDownloadSandboxFile } from '@truefoundry/assistant-ui-runtime';
+import { useTrueForgeDownloadSandboxFile } from '@truefoundry/trueforge-assistant-ui-runtime';
 import { useCallback, useMemo, useRef } from 'react';
 
 import { MARKDOWN_SMOOTH_BACKLOG_CHARS, useThrottledMarkdownText } from '../hooks/useThrottledMarkdownText.js';
@@ -31,7 +31,7 @@ function triggerBrowserDownload(blob: Blob, filename: string) {
 export function AssistantTextContainer() {
   const Markdown = useSlot('Markdown');
   const toaster = useToasterOptional();
-  const downloadSandboxFile = useTrueFoundryDownloadSandboxFile();
+  const downloadSandboxFile = useTrueForgeDownloadSandboxFile();
   // The download closure changes as the turn streams; a ref keeps onDownloadArtifact stable so
   // OpenUI does not remount.
   const downloadRef = useRef({ downloadSandboxFile, toaster });

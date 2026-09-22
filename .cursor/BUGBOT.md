@@ -36,7 +36,7 @@ If a `catch` throws a new error, flag unless the new error sets `{ cause: caught
 
 Flag duplicate type, schema, helper, or contract definitions and forwarding shims that hide ownership. Each must have one canonical owner.
 
-`AgentChatServer`, `AgentBuilderServer`, catalog ports, session/turn DTOs, and stream events must be defined only in `@truefoundry/assistant-ui-runtime` (`src/server/types.ts` / `events.ts`). Flag hand-written parallel definitions in `@truefoundry/trueforge-ui`. That package may only re-export them from `src/server/types.ts`. React wiring (`ServerContext`, `ShellModeContext`, `TrueForgeServerConfig`) may import those types; it must not redefine ports.
+`AgentChatServer`, `AgentBuilderServer`, catalog ports, session/turn DTOs, and stream events must be defined only in `@truefoundry/trueforge-assistant-ui-runtime` (`src/server/types.ts` / `events.ts`). Flag hand-written parallel definitions in `@truefoundry/trueforge-ui`. That package may only re-export them from `src/server/types.ts`. React wiring (`ServerContext`, `ShellModeContext`, `TrueForgeServerConfig`) may import those types; it must not redefine ports.
 
 Flag runtime types backed by Zod schemas that are duplicated as hand-written interfaces or indirect utility-type chains. They must be named `z.infer<typeof Schema>` aliases.
 

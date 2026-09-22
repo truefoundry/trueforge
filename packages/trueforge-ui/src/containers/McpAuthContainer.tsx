@@ -1,7 +1,7 @@
 'use client';
 
 import { useThreadIsRunning } from '@assistant-ui/core/react';
-import { useTrueFoundryMcpAuth } from '@truefoundry/assistant-ui-runtime';
+import { useTrueForgeMcpAuth } from '@truefoundry/trueforge-assistant-ui-runtime';
 import { useEffect, useRef, useState } from 'react';
 
 import { useDraftCatalog } from '@/atoms/draft/DraftCatalogProvider.js';
@@ -10,7 +10,7 @@ import { useOptionalCatalogServer } from '@/server/ServerContext.js';
 import { useSlot } from '../theme/SlotsProvider.js';
 
 type McpAuthPromptProps = {
-  servers: NonNullable<ReturnType<typeof useTrueFoundryMcpAuth>['pending']>['mcpServers'];
+  servers: NonNullable<ReturnType<typeof useTrueForgeMcpAuth>['pending']>['mcpServers'];
   onContinue: () => Promise<void>;
   readOnly: boolean;
 };
@@ -68,7 +68,7 @@ function CatalogMcpAuthPrompt({ servers, onContinue, readOnly }: McpAuthPromptPr
 
 export function McpAuthContainer({ disabled = false }: { disabled?: boolean }) {
   const McpAuthPrompt = useSlot('McpAuthPrompt');
-  const { pending, resume } = useTrueFoundryMcpAuth();
+  const { pending, resume } = useTrueForgeMcpAuth();
   const isRunning = useThreadIsRunning();
   const catalog = useOptionalCatalogServer();
 

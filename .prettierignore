@@ -10,6 +10,7 @@ docs/openapi.json
 # Helm chart sources and downloaded Bitnami subcharts; not ours to reformat.
 charts/
 coverage/
+data/
 # Prettier's markdown parser escapes `*` inside MDX `{/* */}` comments, breaking MDX parsing.
 *.mdx
 .turbo/

@@ -11,8 +11,8 @@ import {
 const useToolResponses = vi.hoisted(() => vi.fn());
 const useThreadRunning = vi.hoisted(() => vi.fn());
 
-vi.mock('@truefoundry/assistant-ui-runtime', () => ({
-  useTrueFoundryToolResponses: () => useToolResponses(),
+vi.mock('@truefoundry/trueforge-assistant-ui-runtime', () => ({
+  useTrueForgeToolResponses: () => useToolResponses(),
 }));
 
 vi.mock('@assistant-ui/core/react', () => ({

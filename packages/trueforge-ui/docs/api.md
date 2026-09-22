@@ -9,19 +9,18 @@ like `Button` / `IconButton` are styled via theme tokens / CSS (not
 
 ## Quick start
 
-| Export                           | Notes                                                                                |
-| -------------------------------- | ------------------------------------------------------------------------------------ |
-| `TrueForgeUI`                    | Slots + runtime + built-in layout                                                    |
-| `TrueForgeUIProps`, `ChatLayout` | Props / layout union                                                                 |
-| `TrueForgeServerConfig`          | `server` prop: `type: "truefoundry"` \| `type: "trueforge"` \| ready `AgentUIServer` |
+| Export                           | Notes                                                       |
+| -------------------------------- | ----------------------------------------------------------- |
+| `TrueForgeUI`                    | Slots + runtime + built-in layout                           |
+| `TrueForgeUIProps`, `ChatLayout` | Props / layout union                                        |
+| `TrueForgeServerConfig`          | `server` prop: `type: "trueforge"` or ready `AgentUIServer` |
 
 ### Built-in servers
 
-| `server` config                                                      | What the SDK does                                                                       |
-| -------------------------------------------------------------------- | --------------------------------------------------------------------------------------- |
-| `{ type: 'truefoundry', apiKey, controlPlaneURL, gatewayPlaneURL? }` | Calls runtime `createTrueFoundryAgentUIServer`                                          |
-| `{ type: 'trueforge', baseUrl?, token?, fetch?, catalog? }`          | Dynamic-imports `plugins/trueforge-agent-server-adapter` → full Harness `AgentUIServer` |
-| Ready `AgentUIServer`                                                | Passthrough (host-composed or `createTrueFoundryServer`)                                |
+| `server` config                                             | What the SDK does                                                                       |
+| ----------------------------------------------------------- | --------------------------------------------------------------------------------------- |
+| `{ type: 'trueforge', baseUrl?, token?, fetch?, catalog? }` | Dynamic-imports `plugins/trueforge-agent-server-adapter` → full Harness `AgentUIServer` |
+| Ready `AgentUIServer`                                       | Passthrough (host-composed or `createTrueForgeServer`)                                  |
 
 TrueForge hosts need `@truefoundry/trueforge-sdk`. Cookie apps pass `fetch`; embeds usually pass `token`.
 
@@ -53,16 +52,16 @@ surface is split across the `AgentMetrics`, `AgentMetricsView`,
 
 The built-in TrueForge config enables permissions automatically through the
 Harness endpoint and accepts an explicit `PermissionsServer` override.
-TrueFoundry and custom servers remain permissive unless they provide the optional
-port. `useResourcePermissions` reads `USE`, `MANAGE`, and `DELETE` grants, while
+Custom servers remain permissive unless they provide the optional port.
+`useResourcePermissions` reads `USE`, `MANAGE`, and `DELETE` grants, while
 `PermissionGuard` keeps denied actions visible and explained.
 
 ## Compose
 
 | Export                                                        | Notes                           |
 | ------------------------------------------------------------- | ------------------------------- |
-| `TrueFoundryChatProvider`                                     | Named-agent runtime + toasts    |
-| `TrueFoundryChatProviderProps`                                | `client` XOR `apiKey`+`baseUrl` |
+| `TrueForgeChatProvider`                                       | Named-agent runtime + toasts    |
+| `TrueForgeChatProviderProps`                                  | `client` XOR `apiKey`+`baseUrl` |
 | `Thread`                                                      | Full thread + composer          |
 | `ThreadContainer`, `ComposerContainer`, `ThreadListContainer` | Building blocks                 |
 | `ToasterProvider`, `useToaster`, `useToasterOptional`         | Success and error toasts        |
@@ -79,11 +78,11 @@ port. `useResourcePermissions` reads `USE`, `MANAGE`, and `DELETE` grants, while
 
 ## Chrome / runtime
 
-| Export                                                                                | Notes                                         |
-| ------------------------------------------------------------------------------------- | --------------------------------------------- |
-| `useAui`, `useAuiState`, `AssistantState`                                             | Also `@truefoundry/trueforge-ui/assistant-ui` |
-| `AgentSessionClient`                                                                  | Gateway client                                |
-| `useTrueFoundryAgentRuntime`, `trueFoundryAttachmentAdapter`, other `useTrueFoundry*` | Runtime hooks                                 |
+| Export                                                                          | Notes                                         |
+| ------------------------------------------------------------------------------- | --------------------------------------------- |
+| `useAui`, `useAuiState`, `AssistantState`                                       | Also `@truefoundry/trueforge-ui/assistant-ui` |
+| `AgentSessionClient`                                                            | Gateway client                                |
+| `useTrueForgeAgentRuntime`, `trueForgeAttachmentAdapter`, other `useTrueForge*` | Runtime hooks                                 |
 
 ## Types for overrides
 
