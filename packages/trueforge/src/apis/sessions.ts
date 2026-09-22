@@ -83,7 +83,6 @@ export interface SessionsRouterDeps {
   resolveSandboxProviderStore: (c: Context) => ISandboxProviderStore;
   redis?: RedisPeerClient | undefined;
   resolveWebSearchProviderStore: (c: Context) => IWebSearchProviderStore;
-  redis?: RedisClientType | undefined;
   requestReplyRouter: RequestReplyRouter;
   resolveRequestContext: ResolveRequestContext;
   logger: Logger;
