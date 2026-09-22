@@ -1,6 +1,6 @@
 'use client';
 
-import type { AgentRuntimeConfig } from '../../server/types.js';
+import type { AgentCompactionConfig, AgentRuntimeConfig } from '../../server/types.js';
 import { cn } from '../lib/cn.js';
 import { auiInputClass } from '../lib/inputClasses.js';
 import { Switch } from '../primitives/Switch.js';
@@ -30,6 +30,7 @@ function parsePositiveInteger(raw: string): number | null {
 }
 
 const NO_SANDBOX_PROVIDER_HINT = 'No sandbox provider yet, add one in Settings → Sandbox';
+const DEFAULT_COMPACTION_THRESHOLD_TOKENS = 50_000;
 
 type RuntimeSwitchField = {
   label: string;
@@ -50,6 +51,16 @@ export function AgentRuntimeConfigFields({
   layout = 'compact',
   onChange,
 }: AgentRuntimeConfigFieldsProps) {
+  const withCompaction = (compaction: AgentCompactionConfig): AgentRuntimeConfig => ({
+    ...value,
+    contextManagement: {
+      ...value.contextManagement,
+      compaction,
+      largeToolResponse: value.contextManagement?.largeToolResponse ?? { enabled: true },
+    },
+  });
+  const applyCompaction = (compaction: AgentCompactionConfig) => onChange(withCompaction(compaction));
+
   const capabilityFields: RuntimeSwitchField[] = [
     {
       label: 'Dynamic sub-agents',
@@ -72,6 +83,7 @@ export function AgentRuntimeConfigFields({
   ];
   const sandboxEnabled = value.sandbox?.enabled ?? false;
   const compactionEnabled = value.contextManagement?.compaction?.enabled ?? true;
+  const thresholdOverrideEnabled = value.contextManagement?.compaction?.trigger != null;
   const webSearchField: RuntimeSwitchField | null = webSearchAvailable
     ? {
         label: 'Web search',
@@ -104,16 +116,9 @@ export function AgentRuntimeConfigFields({
   };
   const compactionField: RuntimeSwitchField = {
     label: 'Context compaction',
-    description: 'Summarize older turns as the context window fills.',
+    description: 'Summarize older turns as context fills. Defaults to 80% of the model context window.',
     checked: compactionEnabled,
-    update: enabled => ({
-      ...value,
-      contextManagement: {
-        ...value.contextManagement,
-        compaction: { ...value.contextManagement?.compaction, enabled },
-        largeToolResponse: value.contextManagement?.largeToolResponse ?? { enabled: true },
-      },
-    }),
+    update: enabled => withCompaction({ ...value.contextManagement?.compaction, enabled }),
   };
   const largeToolResponseField: RuntimeSwitchField = {
     label: 'Large tool response offloading',
@@ -131,7 +136,8 @@ export function AgentRuntimeConfigFields({
     }),
   };
   const runtimeFields = [sandboxField, fileDownloadsField, compactionField, largeToolResponseField];
-  const compactionThreshold = value.contextManagement?.compaction?.trigger?.value ?? 50_000;
+  const compactionThreshold =
+    value.contextManagement?.compaction?.trigger?.value ?? DEFAULT_COMPACTION_THRESHOLD_TOKENS;
 
   const switchField = ({
     field,
@@ -215,43 +221,54 @@ export function AgentRuntimeConfigFields({
         </section>
         <section className="py-4">
           {switchField({ field: compactionField, className: rowClassName })}
-          <label
+          <div
             className={cn(
               'mt-3 flex border-l-2 border-primary-button-bg/50 pl-3',
               rowClassName,
               compactionEnabled ? '' : 'opacity-50',
             )}
           >
-            <span className="min-w-0">
-              <span className="text-text-primary block text-sm font-medium">Compaction threshold tokens</span>
-              <span className="text-text-secondary mt-0.5 block text-xs leading-snug">
-                Input-token threshold that triggers compaction.
+            <label className="flex min-w-0 flex-1 items-center justify-between gap-4">
+              <span className="min-w-0">
+                <span className="text-text-primary block text-sm font-medium">Compaction threshold tokens</span>
+                <span className="text-text-secondary mt-0.5 block text-xs leading-snug">
+                  Off derives the threshold from the model context window.
+                </span>
               </span>
-            </span>
-            <input
-              type="number"
-              min={1}
-              disabled={disabled || !compactionEnabled}
-              value={compactionThreshold}
-              className={auiInputClass('h-8 w-28 shrink-0 disabled:opacity-60')}
-              onChange={event => {
-                const threshold = parsePositiveInteger(event.target.value);
-                if (threshold === null) return;
-                onChange({
-                  ...value,
-                  contextManagement: {
-                    ...value.contextManagement,
-                    compaction: {
-                      ...value.contextManagement?.compaction,
+              {thresholdOverrideEnabled ? (
+                <input
+                  type="number"
+                  min={1}
+                  disabled={disabled || !compactionEnabled}
+                  value={compactionThreshold}
+                  className={auiInputClass('h-8 w-28 shrink-0 disabled:opacity-60')}
+                  onChange={event => {
+                    const threshold = parsePositiveInteger(event.target.value);
+                    if (threshold === null) return;
+                    applyCompaction({
                       enabled: compactionEnabled,
                       trigger: { type: 'input_tokens', value: threshold },
-                    },
-                    largeToolResponse: value.contextManagement?.largeToolResponse ?? { enabled: true },
-                  },
-                });
-              }}
+                    });
+                  }}
+                />
+              ) : null}
+            </label>
+            <Switch
+              checked={thresholdOverrideEnabled}
+              disabled={disabled || !compactionEnabled}
+              aria-label="Custom compaction threshold"
+              onCheckedChange={enabled =>
+                applyCompaction(
+                  enabled
+                    ? {
+                        enabled: compactionEnabled,
+                        trigger: { type: 'input_tokens', value: DEFAULT_COMPACTION_THRESHOLD_TOKENS },
+                      }
+                    : { enabled: compactionEnabled },
+                )
+              }
             />
-          </label>
+          </div>
         </section>
         {switchField({ field: largeToolResponseField, className: cn('py-4', rowClassName) })}
       </div>

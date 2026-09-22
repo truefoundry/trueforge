@@ -482,6 +482,8 @@ describe('AgentConfigEditors', () => {
 
     expect(screen.getByRole('switch', { name: 'File downloads' })).toBeDisabled();
     expect(screen.getByRole('switch', { name: 'File downloads' })).toHaveAttribute('aria-checked', 'false');
+    expect(screen.getByRole('switch', { name: 'Custom compaction threshold' })).toBeDisabled();
+    expect(screen.getByRole('switch', { name: 'Custom compaction threshold' })).toHaveAttribute('aria-checked', 'true');
     expect(screen.getByRole('spinbutton', { name: /Compaction threshold tokens/ })).toBeDisabled();
     expect(screen.getByRole('spinbutton', { name: /Compaction threshold tokens/ })).toHaveValue(42_000);
 
@@ -496,6 +498,92 @@ describe('AgentConfigEditors', () => {
             trigger: { type: 'input_tokens', value: 42_000 },
           },
           largeToolResponse: { enabled: false },
+        },
+      },
+    });
+  });
+
+  it('enables a custom compaction threshold with a 50000-token default', () => {
+    const onChange = vi.fn();
+    render(
+      <SlotsProvider>
+        <AgentConfigEditors
+          editor="runtime"
+          spec={{ model: { name: 'openai/gpt' } }}
+          models={[]}
+          connectors={[]}
+          skills={[]}
+          loading={false}
+          error={null}
+          sandboxAvailable
+          onChange={onChange}
+          onClose={vi.fn()}
+        />
+      </SlotsProvider>,
+    );
+
+    expect(screen.getByRole('switch', { name: 'Custom compaction threshold' })).toHaveAttribute(
+      'aria-checked',
+      'false',
+    );
+    expect(screen.queryByRole('spinbutton', { name: /Compaction threshold tokens/ })).not.toBeInTheDocument();
+
+    fireEvent.click(screen.getByRole('switch', { name: 'Custom compaction threshold' }));
+    expect(onChange).toHaveBeenCalledWith({
+      model: { name: 'openai/gpt' },
+      config: {
+        contextManagement: {
+          compaction: {
+            enabled: true,
+            trigger: { type: 'input_tokens', value: 50_000 },
+          },
+          largeToolResponse: { enabled: true },
+        },
+      },
+    });
+  });
+
+  it('clears the compaction trigger when the custom threshold is turned off', () => {
+    const spec: AgentSpec = {
+      model: { name: 'openai/gpt' },
+      config: {
+        contextManagement: {
+          compaction: {
+            enabled: true,
+            trigger: { type: 'input_tokens', value: 42_000 },
+          },
+          largeToolResponse: { enabled: true },
+        },
+      },
+    };
+    const onChange = vi.fn();
+    render(
+      <SlotsProvider>
+        <AgentConfigEditors
+          editor="runtime"
+          spec={spec}
+          models={[]}
+          connectors={[]}
+          skills={[]}
+          loading={false}
+          error={null}
+          sandboxAvailable
+          onChange={onChange}
+          onClose={vi.fn()}
+        />
+      </SlotsProvider>,
+    );
+
+    expect(screen.getByRole('spinbutton', { name: /Compaction threshold tokens/ })).toHaveValue(42_000);
+
+    fireEvent.click(screen.getByRole('switch', { name: 'Custom compaction threshold' }));
+    expect(onChange).toHaveBeenCalledWith({
+      ...spec,
+      config: {
+        ...spec.config,
+        contextManagement: {
+          compaction: { enabled: true },
+          largeToolResponse: { enabled: true },
         },
       },
     });
