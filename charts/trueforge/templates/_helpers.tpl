@@ -454,9 +454,6 @@ fields, wires bundled Postgres/Redis, optional OIDC, then server.extraEnv.
 {{- if and (not $sentinelEnabled) (not $externalRedis.url) (not $externalRedis.host) -}}
 {{- fail "externalRedis.url or externalRedis.host is required when using external Redis without sentinel" -}}
 {{- end -}}
-{{- if and (not $sentinelEnabled) $tlsEnabled (kindIs "string" $externalRedis.url) (hasPrefix "redis://" $externalRedis.url) -}}
-{{- fail "externalRedis.tls.enabled requires a rediss:// url; a redis:// url with TLS fails at startup" -}}
-{{- end -}}
 {{- if and (not $sentinelEnabled) $externalRedis.url (or $auth.username $auth.password (ne (($externalRedis.db | default 0) | toString) "0")) -}}
 {{- fail "externalRedis.auth and a non-zero externalRedis.db are ignored when externalRedis.url is set; encode them in the url or use host mode" -}}
 {{- end -}}
