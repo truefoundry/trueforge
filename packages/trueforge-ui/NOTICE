@@ -8,7 +8,7 @@ dependencies and their licenses include (non-exhaustive):
 
 - @assistant-ui/react / @assistant-ui/core — see their respective LICENSE files
 - @openuidev/react-ui and related OpenUI packages — see their LICENSE files
-- @truefoundry/assistant-ui-runtime — see its LICENSE
+- @truefoundry/trueforge-assistant-ui-runtime — see its LICENSE
 - lucide-react — ISC / Lucide license
 - monaco-editor — see its LICENSE
 - react-markdown / remark-gfm / react-syntax-highlighter — see their respective LICENSE files

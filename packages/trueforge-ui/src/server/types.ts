@@ -1,5 +1,5 @@
 /**
- * Host-facing server contract — re-exported from `@truefoundry/assistant-ui-runtime/server`
+ * Host-facing server contract — re-exported from `@truefoundry/trueforge-assistant-ui-runtime/server`
  * so hosts never import the runtime package directly.
  *
  * Canonical definitions live in the runtime; this module is aliases + pass-through only.
@@ -130,4 +130,4 @@ export type {
   UserMessageContent,
   UserToolApprovalEvent,
   UserToolResponseEvent,
-} from '@truefoundry/assistant-ui-runtime/server';
+} from '@truefoundry/trueforge-assistant-ui-runtime/server';

@@ -1,7 +1,7 @@
 'use client';
 
 import { ComposerPrimitive, useAui, useAuiState } from '@assistant-ui/react';
-import { useTrueFoundryAgentSpec, useTrueFoundryCancel } from '@truefoundry/assistant-ui-runtime';
+import { useTrueForgeAgentSpec, useTrueForgeCancel } from '@truefoundry/trueforge-assistant-ui-runtime';
 import { useRef } from 'react';
 
 import { DraftCatalogProvider } from '../atoms/draft/DraftCatalogProvider.js';
@@ -51,13 +51,13 @@ function ComposerBody({
   const shell = useOptionalShellMode();
   const hasText = useAuiState(s => s.composer.text.trim().length > 0);
   const hasAttachments = useAuiState(s => s.composer.attachments.length > 0);
-  const { agentSpec } = useTrueFoundryAgentSpec();
+  const { agentSpec } = useTrueForgeAgentSpec();
   // Named (immutable) agents use a server-side model; only draft/mutable composers pick one here.
   const requiresModel = shell == null || (shell.mode.status === 'active' && shell.mode.isMutable);
   const hasModel = Boolean(agentSpec?.model?.name?.trim());
   const { isBusy, send, resetBusy } = useComposerBusyState();
   const canManageSession = useActiveSessionCanManage();
-  const cancel = useTrueFoundryCancel();
+  const cancel = useTrueForgeCancel();
   const fileInputRef = useRef<HTMLInputElement>(null);
   const disabled = isBusy || forceDisabled || !canManageSession;
   const canSubmit = canSubmitComposer({ disabled, hasText, hasAttachments, requiresModel, hasModel });

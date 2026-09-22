@@ -1,5 +1,13 @@
 # @truefoundry/trueforge-core
 
+## 0.2.1
+
+### Patch Changes
+
+- f905d9f: Keep a shared remote MCP transport open while sibling tool calls are in flight so a session-expired reset cannot fail them with a non-retried close error.
+- 6a97f6a: Block RFC1918, CGNAT, reserved, link-local, and loopback destinations on outbound MCP and model-provider HTTP, plus in-cluster hostnames, with optional host allow/block lists and NETWORK_POLICY_ENABLED (default on).
+- e5e651c: Upload TFY sandbox files via POST /files/upload so large files are not stuffed onto exec argv.
+
 ## 0.2.0
 
 ### Minor Changes

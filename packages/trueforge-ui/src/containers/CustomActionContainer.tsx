@@ -1,7 +1,7 @@
 'use client';
 
 import { useThreadIsRunning } from '@assistant-ui/core/react';
-import { useTrueFoundryToolResponses } from '@truefoundry/assistant-ui-runtime';
+import { useTrueForgeToolResponses } from '@truefoundry/trueforge-assistant-ui-runtime';
 import { useCallback } from 'react';
 
 import { useOptionalCustomActionRenderers } from '../server/CustomActionRenderersContext.js';
@@ -9,7 +9,7 @@ import { useOptionalCustomActionRenderers } from '../server/CustomActionRenderer
 /** Host custom-action UI for a pending client-side tool response. */
 export function CustomActionContainer({ disabled = false }: { disabled?: boolean }) {
   const renderers = useOptionalCustomActionRenderers();
-  const { pending, respond } = useTrueFoundryToolResponses();
+  const { pending, respond } = useTrueForgeToolResponses();
   const isRunning = useThreadIsRunning();
   const item = pending[0];
 

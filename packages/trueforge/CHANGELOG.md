@@ -1,5 +1,17 @@
 # @truefoundry/trueforge
 
+## 0.2.1
+
+### Patch Changes
+
+- 13c7c4f: Keep TrueFoundry gateway metadata out of the turns engine behind a required per-turn headers resolver, and keep stamping harness `tfg.*` metadata on schedule-run turns.
+- 6a97f6a: Block RFC1918, CGNAT, reserved, link-local, and loopback destinations on outbound MCP and model-provider HTTP, plus in-cluster hostnames, with optional host allow/block lists and NETWORK_POLICY_ENABLED (default on).
+- 6b9b981: Resolve TrueFoundry MCP OAuth redirect origin from a cached tenant control-plane URL lookup instead of request context.
+- Updated dependencies [f905d9f]
+- Updated dependencies [6a97f6a]
+- Updated dependencies [e5e651c]
+  - @truefoundry/trueforge-core@0.2.1
+
 ## 0.2.0
 
 ### Minor Changes

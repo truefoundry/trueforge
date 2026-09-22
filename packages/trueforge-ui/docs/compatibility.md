@@ -3,9 +3,7 @@
 Peer and dependency ranges for `@truefoundry/trueforge-ui` (see
 `package.json` for authoritative versions).
 
-**Status:** this package is `0.x` (APIs may change). It currently depends on
-`truefoundry-gateway-sdk@^0.4.0-rc.6` — pin with a lockfile for reproducible
-installs until a stable gateway release is adopted.
+**Status:** this package is `0.x` and APIs may change.
 
 ## Required peers
 
@@ -17,18 +15,17 @@ Install once at the app root.
 
 ## Bundled dependencies (installed with the SDK)
 
-| Package                             | Range      |
-| ----------------------------------- | ---------- |
-| `@assistant-ui/core`                | `^0.2.22`  |
-| `@assistant-ui/react`               | `^0.14.24` |
-| `@truefoundry/assistant-ui-runtime` | `0.1.25`   |
-| `truefoundry-gateway-sdk`           | `^0.4.0`   |
-| `lucide-react`                      | `^0.562.0` |
+| Package                                       | Range             |
+| --------------------------------------------- | ----------------- |
+| `@assistant-ui/core`                          | `^0.2.22`         |
+| `@assistant-ui/react`                         | `^0.14.24`        |
+| `@truefoundry/trueforge-assistant-ui-runtime` | workspace release |
+| `lucide-react`                                | `^0.562.0`        |
 
 `@assistant-ui/*` are also listed as **optional** peers so hosts that install
 them directly for customization stay on a compatible range.
 
-Runtime + gateway are wired by `TrueFoundryChatProvider` and re-exported for
+The runtime is wired by `TrueForgeChatProvider` and re-exported for
 advanced use. `lucide-react` supplies default UI icons via `IconRegistry`;
 hosts may override via `theme.icons` or register custom SVGR components.
 

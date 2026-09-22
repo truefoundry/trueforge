@@ -18,7 +18,7 @@ interface TurnStreamData {
   page for you — emit an event whose fields do not match and it compiles cleanly, then fails to
   render. Treat these shapes as required regardless.
 
-  The named event interfaces below are declared in `@truefoundry/assistant-ui-runtime`. Import
+  The named event interfaces below are declared in `@truefoundry/trueforge-assistant-ui-runtime`. Import
   them from there if you want compile-time checking when building a server.
 </Note>
 
@@ -156,9 +156,9 @@ interface ToolCall {
 }
 
 type ToolInfo =
-  | { type: "truefoundry-system"; name: string }
+  | { type: "trueforge-system"; name: string }
   | { type: "mcp"; serverId: string; serverName: string; name: string }
-  | { type: string; name?: string; [key: string]: unknown };
+  | { type: string; name?: string };
 ```
 
 `function.arguments` is a JSON **string**, not an object. `toolInfo` drives presentation: the
