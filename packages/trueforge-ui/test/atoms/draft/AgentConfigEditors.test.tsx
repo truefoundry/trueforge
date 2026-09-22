@@ -482,10 +482,10 @@ describe('AgentConfigEditors', () => {
 
     expect(screen.getByRole('switch', { name: 'File downloads' })).toBeDisabled();
     expect(screen.getByRole('switch', { name: 'File downloads' })).toHaveAttribute('aria-checked', 'false');
-    expect(screen.getByRole('switch', { name: 'Custom compaction threshold' })).toBeDisabled();
-    expect(screen.getByRole('switch', { name: 'Custom compaction threshold' })).toHaveAttribute('aria-checked', 'true');
-    expect(screen.getByRole('spinbutton', { name: /Compaction threshold tokens/ })).toBeDisabled();
-    expect(screen.getByRole('spinbutton', { name: /Compaction threshold tokens/ })).toHaveValue(42_000);
+    expect(screen.getByRole('button', { name: 'Compaction threshold mode' })).toBeDisabled();
+    expect(screen.getByRole('button', { name: 'Compaction threshold mode' })).toHaveTextContent('Custom');
+    expect(screen.getByRole('spinbutton', { name: 'Compaction threshold tokens' })).toBeDisabled();
+    expect(screen.getByRole('spinbutton', { name: 'Compaction threshold tokens' })).toHaveValue(42_000);
 
     fireEvent.click(screen.getByRole('switch', { name: 'Context compaction' }));
     expect(onChange).toHaveBeenCalledWith({
@@ -522,13 +522,12 @@ describe('AgentConfigEditors', () => {
       </SlotsProvider>,
     );
 
-    expect(screen.getByRole('switch', { name: 'Custom compaction threshold' })).toHaveAttribute(
-      'aria-checked',
-      'false',
-    );
-    expect(screen.queryByRole('spinbutton', { name: /Compaction threshold tokens/ })).not.toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'Compaction threshold mode' })).toHaveTextContent('Auto');
+    expect(screen.getByText("Automatically trigger compaction at 80% of model's context window")).toBeInTheDocument();
+    expect(screen.queryByRole('spinbutton', { name: 'Compaction threshold tokens' })).not.toBeInTheDocument();
 
-    fireEvent.click(screen.getByRole('switch', { name: 'Custom compaction threshold' }));
+    fireEvent.click(screen.getByRole('button', { name: 'Compaction threshold mode' }));
+    fireEvent.click(screen.getByRole('option', { name: 'Custom' }));
     expect(onChange).toHaveBeenCalledWith({
       model: { name: 'openai/gpt' },
       config: {
@@ -543,7 +542,7 @@ describe('AgentConfigEditors', () => {
     });
   });
 
-  it('clears the compaction trigger when the custom threshold is turned off', () => {
+  it('clears the compaction trigger when the threshold mode is set to Auto', () => {
     const spec: AgentSpec = {
       model: { name: 'openai/gpt' },
       config: {
@@ -574,9 +573,11 @@ describe('AgentConfigEditors', () => {
       </SlotsProvider>,
     );
 
-    expect(screen.getByRole('spinbutton', { name: /Compaction threshold tokens/ })).toHaveValue(42_000);
+    expect(screen.getByRole('spinbutton', { name: 'Compaction threshold tokens' })).toHaveValue(42_000);
+    expect(screen.getByText('Trigger compaction when input reaches 42,000 tokens')).toBeInTheDocument();
 
-    fireEvent.click(screen.getByRole('switch', { name: 'Custom compaction threshold' }));
+    fireEvent.click(screen.getByRole('button', { name: 'Compaction threshold mode' }));
+    fireEvent.click(screen.getByRole('option', { name: 'Auto' }));
     expect(onChange).toHaveBeenCalledWith({
       ...spec,
       config: {

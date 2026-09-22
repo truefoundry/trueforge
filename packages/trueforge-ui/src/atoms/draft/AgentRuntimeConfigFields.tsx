@@ -3,6 +3,7 @@
 import type { AgentCompactionConfig, AgentRuntimeConfig } from '../../server/types.js';
 import { cn } from '../lib/cn.js';
 import { auiInputClass } from '../lib/inputClasses.js';
+import { PopoverSelect } from '../primitives/PopoverSelect.js';
 import { Switch } from '../primitives/Switch.js';
 import { Tooltip } from '../primitives/Tooltip.js';
 
@@ -31,6 +32,13 @@ function parsePositiveInteger(raw: string): number | null {
 
 const NO_SANDBOX_PROVIDER_HINT = 'No sandbox provider yet, add one in Settings → Sandbox';
 const DEFAULT_COMPACTION_THRESHOLD_TOKENS = 50_000;
+
+const COMPACTION_THRESHOLD_MODE_OPTIONS = [
+  { value: 'auto', label: 'Auto' },
+  { value: 'custom', label: 'Custom' },
+] as const;
+
+type CompactionThresholdMode = (typeof COMPACTION_THRESHOLD_MODE_OPTIONS)[number]['value'];
 
 type RuntimeSwitchField = {
   label: string;
@@ -83,7 +91,8 @@ export function AgentRuntimeConfigFields({
   ];
   const sandboxEnabled = value.sandbox?.enabled ?? false;
   const compactionEnabled = value.contextManagement?.compaction?.enabled ?? true;
-  const thresholdOverrideEnabled = value.contextManagement?.compaction?.trigger != null;
+  const thresholdMode: CompactionThresholdMode =
+    value.contextManagement?.compaction?.trigger != null ? 'custom' : 'auto';
   const webSearchField: RuntimeSwitchField | null = webSearchAvailable
     ? {
         label: 'Web search',
@@ -116,7 +125,7 @@ export function AgentRuntimeConfigFields({
   };
   const compactionField: RuntimeSwitchField = {
     label: 'Context compaction',
-    description: 'Summarize older turns as context fills. Defaults to 80% of the model context window.',
+    description: 'Summarize older turns as context fills.',
     checked: compactionEnabled,
     update: enabled => withCompaction({ ...value.contextManagement?.compaction, enabled }),
   };
@@ -228,20 +237,23 @@ export function AgentRuntimeConfigFields({
               compactionEnabled ? '' : 'opacity-50',
             )}
           >
-            <label className="flex min-w-0 flex-1 items-center justify-between gap-4">
-              <span className="min-w-0">
-                <span className="text-text-primary block text-sm font-medium">Compaction threshold tokens</span>
-                <span className="text-text-secondary mt-0.5 block text-xs leading-snug">
-                  Off derives the threshold from the model context window.
-                </span>
+            <span className="min-w-0 flex-1">
+              <span className="text-text-primary block text-sm font-medium">Compaction threshold tokens</span>
+              <span className="text-text-secondary mt-0.5 block text-xs leading-snug">
+                {thresholdMode === 'auto'
+                  ? "Automatically trigger compaction at 80% of model's context window"
+                  : `Trigger compaction when input reaches ${compactionThreshold.toLocaleString()} tokens`}
               </span>
-              {thresholdOverrideEnabled ? (
+            </span>
+            <div className="flex shrink-0 items-center gap-2">
+              {thresholdMode === 'custom' ? (
                 <input
                   type="number"
                   min={1}
                   disabled={disabled || !compactionEnabled}
                   value={compactionThreshold}
-                  className={auiInputClass('h-8 w-28 shrink-0 disabled:opacity-60')}
+                  aria-label="Compaction threshold tokens"
+                  className={auiInputClass('h-8 w-28 disabled:opacity-60')}
                   onChange={event => {
                     const threshold = parsePositiveInteger(event.target.value);
                     if (threshold === null) return;
@@ -252,22 +264,24 @@ export function AgentRuntimeConfigFields({
                   }}
                 />
               ) : null}
-            </label>
-            <Switch
-              checked={thresholdOverrideEnabled}
-              disabled={disabled || !compactionEnabled}
-              aria-label="Custom compaction threshold"
-              onCheckedChange={enabled =>
-                applyCompaction(
-                  enabled
-                    ? {
-                        enabled: compactionEnabled,
-                        trigger: { type: 'input_tokens', value: DEFAULT_COMPACTION_THRESHOLD_TOKENS },
-                      }
-                    : { enabled: compactionEnabled },
-                )
-              }
-            />
+              <PopoverSelect
+                aria-label="Compaction threshold mode"
+                value={thresholdMode}
+                options={COMPACTION_THRESHOLD_MODE_OPTIONS}
+                disabled={disabled || !compactionEnabled}
+                className="w-28"
+                onValueChange={mode =>
+                  applyCompaction(
+                    mode === 'custom'
+                      ? {
+                          enabled: compactionEnabled,
+                          trigger: { type: 'input_tokens', value: DEFAULT_COMPACTION_THRESHOLD_TOKENS },
+                        }
+                      : { enabled: compactionEnabled },
+                  )
+                }
+              />
+            </div>
           </div>
         </section>
         {switchField({ field: largeToolResponseField, className: cn('py-4', rowClassName) })}
