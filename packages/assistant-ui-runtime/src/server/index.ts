@@ -56,6 +56,8 @@ export type {
   CreateSessionRequest,
   CreateSkillRequest,
   CreateSkillRequestBase,
+  CreateWebSearchProviderRequest,
+  CreateWebSearchRequest,
   CreatedBySubject,
   DefinedSkill,
   GithubSkill,
@@ -130,10 +132,17 @@ export type {
   UpdateSandboxRequest,
   UpdateScheduleRequest,
   UpdateSessionRequest,
+  UpdateWebSearchProviderRequest,
+  UpdateWebSearchRequest,
   UserMessage,
   UserMessageContent,
   UserToolApprovalEvent,
   UserToolResponseEvent,
+  WebSearchBase,
+  WebSearchCatalogEntry,
+  WebSearchCatalogServer,
+  WebSearchProviderBase,
+  WebSearchProviderCatalogEntry,
 } from './types.js';
 
 export type {

@@ -4,9 +4,10 @@ import type { LLMUserMessage } from './LLMTypes';
 
 /**
  * Maps harness context messages to the OpenAI chat message param shape.
- * For assistants: spreads the message (preserving thinking_blocks, reasoning_content,
- * and tool-call provider_specific_fields), strips only `tool_info`, and omits empty
- * `tool_calls` (OpenAI rejects `tool_calls: []`).
+ * For assistants: spreads the message (preserving thinking_blocks and tool-call
+ * provider_specific_fields), strips only `tool_info`, and omits empty `tool_calls`
+ * (OpenAI rejects `tool_calls: []`). AgentThread context omits display-only
+ * `reasoning_content`; if present on a message it is forwarded unchanged.
  * User content is rebuilt field-by-field for exactOptionalPropertyTypes.
  */
 export function toOpenAIChatMessage(msg: LLMContextMessage): ChatCompletionMessageParam {
@@ -27,7 +28,7 @@ export function toOpenAIChatMessage(msg: LLMContextMessage): ChatCompletionMessa
     const { tool_calls: _omit, ...rest } = msg;
     void _omit;
     // Assert: OpenAI SDK message type omits gateway thinking-block / provider extensions
-    // (thinking_blocks, reasoning_content, …); we intentionally forward them for replay.
+    // (thinking_blocks, …); we intentionally forward them for LLM replay.
     return rest as ChatCompletionMessageParam;
   }
 

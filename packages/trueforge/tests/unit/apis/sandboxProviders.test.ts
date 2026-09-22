@@ -17,6 +17,7 @@ import { McpCatalog } from '../../../src/catalog/McpCatalog';
 import { ModelCatalog } from '../../../src/catalog/ModelCatalog';
 import { SandboxCatalog } from '../../../src/catalog/SandboxCatalog';
 import { SkillCatalog } from '../../../src/catalog/SkillCatalog';
+import { WebSearchCatalog } from '../../../src/catalog/WebSearchCatalog';
 import { migrateSqliteToLatest } from '../../../src/db/migrateSqlite';
 import type { ISandboxProviderStore } from '../../../src/db/sandboxProviderStore';
 import { createSqliteDb } from '../../../src/db/sqlite/client';
@@ -123,6 +124,7 @@ describe('sandboxProviders router', () => {
       mcpCatalog: McpCatalog.load(),
       skillCatalog: SkillCatalog.load(),
       sandboxCatalog: SandboxCatalog.load(),
+      webSearchCatalog: WebSearchCatalog.load(),
     });
   });
 

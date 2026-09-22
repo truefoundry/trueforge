@@ -20,6 +20,7 @@ import { SqliteSandboxProviderStore } from '../../../src/db/sqlite/sandbox-provi
 import { SqliteSessionMetricsStore } from '../../../src/db/sqlite/session-metrics/SqliteSessionMetricsStore';
 import { SqliteSessionStore } from '../../../src/db/sqlite/session-store/SqliteSessionStore';
 import { SqliteSkillStore } from '../../../src/db/sqlite/skill-store/SqliteSkillStore';
+import { SqliteWebSearchProviderStore } from '../../../src/db/sqlite/web-search-provider-store/SqliteWebSearchProviderStore';
 import { ActiveTurnRegistry } from '../../../src/runtime/activeTurns';
 import { ListSessionsResponseSchema } from '../../../src/schemas/session';
 import {
@@ -68,6 +69,7 @@ describe('sessions HTTP agent binding', () => {
     const mcpServerStore = new SqliteMcpServerStore(db);
     const skillStore = new SqliteSkillStore(db);
     const sandboxProviderStore = new SqliteSandboxProviderStore(db);
+    const webSearchProviderStore = new SqliteWebSearchProviderStore(db);
     agentStore = new SqliteAgentStore(db);
 
     await modelProviderStore.upsertProvider({
@@ -96,6 +98,7 @@ describe('sessions HTTP agent binding', () => {
       resolveSkillStore: () => skillStore,
       resolveAgentStore: () => agentStore,
       resolveSandboxProviderStore: () => sandboxProviderStore,
+      resolveWebSearchProviderStore: () => webSearchProviderStore,
       redis: createClient(),
       requestReplyRouter: new RequestReplyRouter(),
       resolveRequestContext: () => STANDALONE_REQUEST_CONTEXT,

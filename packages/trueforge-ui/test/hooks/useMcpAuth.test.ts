@@ -215,7 +215,7 @@ describe('useMCPAuth', () => {
     expect(callback).toHaveBeenCalledOnce();
     expect(callback).toHaveBeenCalledWith(true);
     expect(channel.close).toHaveBeenCalledOnce();
-    expect(close).toHaveBeenCalledOnce();
+    expect(close).not.toHaveBeenCalled();
     expect(showError).not.toHaveBeenCalled();
   });
 

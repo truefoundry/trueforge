@@ -7,7 +7,12 @@ import { DraftCatalogProvider } from '@/atoms/draft/DraftCatalogProvider.js';
 import TruefoundrySettingsBuilder from '@/containers/SettingsBuilder/index.js';
 import { ServerProvider } from '@/server/ServerContext.js';
 import { ShellModeProvider, useShellMode } from '@/server/ShellModeContext.js';
-import type { AgentUIServer, SandboxCatalogServer, SkillCatalogServer } from '@/server/types.js';
+import type {
+  AgentUIServer,
+  SandboxCatalogServer,
+  SkillCatalogServer,
+  WebSearchCatalogServer,
+} from '@/server/types.js';
 import { createMockAgentUIServer, createMockCatalog } from '../../server/mockServer.js';
 
 vi.mock('@/containers/SettingsBuilder/ModelSettings.js', () => ({
@@ -24,6 +29,10 @@ vi.mock('@/containers/SettingsBuilder/SkillSettings.js', () => ({
 
 vi.mock('@/containers/SettingsBuilder/SandboxSettings.js', () => ({
   default: () => <div>Sandbox settings content</div>,
+}));
+
+vi.mock('@/containers/SettingsBuilder/WebSearchSettings.js', () => ({
+  default: () => <div>Web search settings content</div>,
 }));
 
 async function unavailable(): Promise<never> {
@@ -43,7 +52,16 @@ const sandboxCatalog: SandboxCatalogServer = {
   updateSandboxProvider: unavailable,
 };
 
-function createServer(options: { catalog?: boolean; skills?: boolean; sandbox?: boolean } = {}): AgentUIServer {
+const webSearchCatalog: WebSearchCatalogServer = {
+  getWebSearchProviderCatalog: async () => [],
+  listWebSearchProviders: async () => [],
+  createWebSearchProvider: unavailable,
+  updateWebSearchProvider: unavailable,
+};
+
+function createServer(
+  options: { catalog?: boolean; skills?: boolean; sandbox?: boolean; webSearch?: boolean } = {},
+): AgentUIServer {
   if (options.catalog === false) {
     return createMockAgentUIServer();
   }
@@ -51,6 +69,7 @@ function createServer(options: { catalog?: boolean; skills?: boolean; sandbox?: 
     catalog: createMockCatalog({
       ...(options.skills ? { skillCatalog } : {}),
       ...(options.sandbox ? { sandboxCatalog } : {}),
+      ...(options.webSearch ? { webSearchCatalog } : {}),
     }),
   });
 }
@@ -113,11 +132,12 @@ describe('TruefoundrySettingsBuilder', () => {
     expect(screen.getByRole('button', { name: 'Connectors' })).toBeInTheDocument();
     expect(screen.queryByRole('button', { name: 'Skills' })).not.toBeInTheDocument();
     expect(screen.queryByRole('button', { name: 'Sandbox' })).not.toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: 'Web search' })).not.toBeInTheDocument();
     await waitFor(() => {
       expect(screen.getByText('Model settings content')).toBeInTheDocument();
     });
 
-    rerender(<TestShell server={createServer({ skills: true, sandbox: true })} />);
+    rerender(<TestShell server={createServer({ skills: true, sandbox: true, webSearch: true })} />);
 
     fireEvent.click(await screen.findByRole('button', { name: 'Skills' }));
     await waitFor(() => {
@@ -127,6 +147,11 @@ describe('TruefoundrySettingsBuilder', () => {
     fireEvent.click(screen.getByRole('button', { name: 'Sandbox providers' }));
     await waitFor(() => {
       expect(screen.getByText('Sandbox settings content')).toBeInTheDocument();
+    });
+
+    fireEvent.click(screen.getByRole('button', { name: 'Web search' }));
+    await waitFor(() => {
+      expect(screen.getByText('Web search settings content')).toBeInTheDocument();
     });
 
     fireEvent.click(screen.getByRole('button', { name: 'Connectors' }));

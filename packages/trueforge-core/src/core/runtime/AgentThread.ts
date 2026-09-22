@@ -213,6 +213,15 @@ function buildSandboxCreatedEvent(info: SandboxInfo): SandboxCreatedEvent {
   };
 }
 
+/** Reasoning content is display-only; omit from context so LLM replay uses thinking_blocks alone. */
+function toContextAssistantMessage(
+  assistantMessage: InternalEnrichedAssistantMessage,
+): InternalEnrichedAssistantMessage {
+  const { reasoning_content, ...forContext } = assistantMessage;
+  void reasoning_content;
+  return forContext;
+}
+
 function buildModelMessageEvent({
   assistantMessage,
   threadId,
@@ -227,6 +236,7 @@ function buildModelMessageEvent({
   id: string;
 }): ModelMessageEvent {
   // `thinking_blocks` / `source` stay on the context message for replay; strip them from the client event.
+  // `reasoning_content` stays on the event for UI replay (exact streamed concat).
   const { role, tool_calls, thinking_blocks, source, content, ...rest } = assistantMessage;
   void role;
   void thinking_blocks;
@@ -1075,6 +1085,7 @@ export class AgentThread {
       // Hence, we resolve the underlying tool to get the tool information.
       resolveUnderlyingTool: true,
     });
+    const contextAssistantMessage = toContextAssistantMessage(assistantMessage);
     const finishReason = result.value.finish_reason;
     const agentAssistantMessage = buildModelMessageEvent({
       assistantMessage: await enrichAssistantMessage({
@@ -1113,7 +1124,7 @@ export class AgentThread {
     }
 
     yield* this.appendToContext({
-      context: [assistantMessage],
+      context: [contextAssistantMessage],
       output: [agentAssistantMessage],
       currentContextUsage: currentContextUsageFromCompletion(result.value.usage),
       usage: result.value.usage,
