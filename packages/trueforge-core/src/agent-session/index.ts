@@ -112,7 +112,7 @@ export {
   SessionStoreInvariantError,
   SessionStoreNotFoundError,
   TurnAlreadyExistsError,
-  TurnInboundEventAlreadyExistsError,
+  TurnEventAlreadyExistsError,
   TurnNotFoundError,
   TurnNotRunningError,
 } from './store/SessionStoreErrors';

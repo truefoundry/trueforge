@@ -53,7 +53,7 @@ import {
   SessionNotFoundError,
   SessionStoreInvariantError,
   TurnAlreadyExistsError,
-  TurnInboundEventAlreadyExistsError,
+  TurnEventAlreadyExistsError,
   TurnNotFoundError,
   TurnNotRunningError,
 } from './SessionStoreErrors';
@@ -517,7 +517,11 @@ export class InMemorySessionStore<
     const existing = new Set(list.map(row => row.event_id));
     for (const event of input.events) {
       if (existing.has(event.event_id)) {
-        throw new TurnInboundEventAlreadyExistsError(input.session_id, input.turn_id, event.event_id);
+        throw new TurnEventAlreadyExistsError({
+          session_id: input.session_id,
+          turn_id: input.turn_id,
+          event_id: event.event_id,
+        });
       }
       existing.add(event.event_id);
     }

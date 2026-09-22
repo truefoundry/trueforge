@@ -1,4 +1,4 @@
-import type { TurnInboundEventItem, TurnState } from '@truefoundry/trueforge-core/agent-session';
+import type { TurnInboundEventItem } from '@truefoundry/trueforge-core/agent-session';
 import type {
   InsertTurnInboundEventsInput,
   ListUnconsumedTurnInboundEventsInput,
@@ -7,9 +7,7 @@ import type {
 } from '@truefoundry/trueforge-core/agent-session/store/ISessionStore';
 import {
   SessionNotFoundError,
-  TurnInboundEventAlreadyExistsError,
-  TurnNotFoundError,
-  TurnNotRunningError,
+  TurnEventAlreadyExistsError,
 } from '@truefoundry/trueforge-core/agent-session/store/SessionStoreErrors';
 import type { Kysely } from 'kysely';
 import { sql } from 'kysely';
@@ -17,6 +15,7 @@ import { firstCollidingEventId, firstDuplicateEventIdInBatch } from '../../../tu
 import { isUniqueViolation } from '../../client';
 import { jsonbBind, jsonText } from '../../sqlExpressions';
 import type { Database } from '../../types';
+import { assertTurnRunning, type TurnKeys } from './turns';
 
 async function requireSession(db: Kysely<Database>, sessionId: string): Promise<void> {
   const row = await db
@@ -26,22 +25,6 @@ async function requireSession(db: Kysely<Database>, sessionId: string): Promise<
     .executeTakeFirst();
   if (!row) {
     throw new SessionNotFoundError(sessionId);
-  }
-}
-
-/** Exists + non-terminal (v1: `running` only; `paused` will be allowed when that status lands). */
-async function requireTurn(db: Kysely<Database>, sessionId: string, turnId: string): Promise<void> {
-  const row = await db
-    .selectFrom('turn')
-    .select(['turn_id', jsonText<TurnState>(sql.ref('state')).as('state')])
-    .where('session_id', '=', sessionId)
-    .where('turn_id', '=', turnId)
-    .executeTakeFirst();
-  if (!row) {
-    throw new TurnNotFoundError(turnId);
-  }
-  if (row.state.status !== 'running') {
-    throw new TurnNotRunningError(turnId, row.state);
   }
 }
 
@@ -73,33 +56,50 @@ export async function insertTurnInboundEvents(
     return;
   }
   await requireSession(db, input.session_id);
-  await requireTurn(db, input.session_id, input.turn_id);
 
   const duplicateInBatch = firstDuplicateEventIdInBatch(input.events);
   if (duplicateInBatch !== undefined) {
-    throw new TurnInboundEventAlreadyExistsError(input.session_id, input.turn_id, duplicateInBatch);
+    throw new TurnEventAlreadyExistsError({
+      session_id: input.session_id,
+      turn_id: input.turn_id,
+      event_id: duplicateInBatch,
+    });
   }
 
+  const keys: TurnKeys = {
+    session_id: input.session_id,
+    turn_id: input.turn_id,
+  };
+
   try {
-    await db
-      .insertInto('turn_inbound_events')
-      .values(
-        input.events.map(event => ({
-          session_id: input.session_id,
-          turn_id: input.turn_id,
-          event_id: event.event_id,
-          payload: jsonbBind(event.payload),
-          consumed: 0,
-          created_at: event.created_at,
-        })),
-      )
-      .execute();
+    // Ensure the turn does not stop before we insert events.
+    await db.transaction().execute(async trx => {
+      await assertTurnRunning(trx, keys);
+      await trx
+        .insertInto('turn_inbound_events')
+        .values(
+          input.events.map(event => ({
+            session_id: input.session_id,
+            turn_id: input.turn_id,
+            event_id: event.event_id,
+            payload: jsonbBind(event.payload),
+            consumed: 0,
+            created_at: event.created_at,
+          })),
+        )
+        .execute();
+    });
   } catch (error) {
     if (isUniqueViolation(error)) {
       const eventId = await resolveCollidingEventId(db, input.session_id, input.turn_id, input.events);
-      throw new TurnInboundEventAlreadyExistsError(input.session_id, input.turn_id, eventId, {
-        cause: error,
-      });
+      throw new TurnEventAlreadyExistsError(
+        {
+          session_id: input.session_id,
+          turn_id: input.turn_id,
+          event_id: eventId,
+        },
+        { cause: error },
+      );
     }
     throw error;
   }

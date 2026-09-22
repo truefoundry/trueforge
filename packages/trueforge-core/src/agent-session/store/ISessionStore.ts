@@ -402,7 +402,7 @@ export interface ISessionStore<
    * (v1: `running`; `paused` when that status lands) — terminal tip →
    * {@link TurnNotRunningError}. Missing session → {@link SessionNotFoundError};
    * unknown turn → {@link TurnNotFoundError}. Duplicate `event_id` on that tip →
-   * {@link TurnInboundEventAlreadyExistsError}.
+   * {@link TurnEventAlreadyExistsError}.
    */
   insertTurnInboundEvents(input: InsertTurnInboundEventsInput): Promise<void>;
 

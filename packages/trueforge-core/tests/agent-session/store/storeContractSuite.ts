@@ -2287,7 +2287,7 @@ export function runStoreContractSuite(createStore: () => ISessionStore) {
           events: [later],
         }),
       ).rejects.toMatchObject({
-        name: 'TurnInboundEventAlreadyExistsError',
+        name: 'TurnEventAlreadyExistsError',
         event_id: later.event_id,
       });
 
@@ -2309,7 +2309,7 @@ export function runStoreContractSuite(createStore: () => ISessionStore) {
           events: [fresh, later],
         }),
       ).rejects.toMatchObject({
-        name: 'TurnInboundEventAlreadyExistsError',
+        name: 'TurnEventAlreadyExistsError',
         event_id: later.event_id,
       });
       expect(
@@ -2347,7 +2347,7 @@ export function runStoreContractSuite(createStore: () => ISessionStore) {
           ],
         }),
       ).rejects.toMatchObject({
-        name: 'TurnInboundEventAlreadyExistsError',
+        name: 'TurnEventAlreadyExistsError',
         event_id: dupId,
       });
       // Failed batch must not leave a partial row (SQL PK is all-or-nothing).
@@ -2382,6 +2382,52 @@ export function runStoreContractSuite(createStore: () => ISessionStore) {
           e => e.event_id,
         ),
       ).toEqual([later.event_id]);
+    });
+
+    it('concurrent freeze x insertTurnInboundEvents: terminal tip rejects or insert wins cleanly', async () => {
+      const store = createStore();
+      await seedSession(store);
+      await store.createTurn(makeCreateTurnInput({ sessionId, turnId: 'turn-1' }));
+      const cancelledState = makeCancelledTurnState(CancellationReason.CancelledForNextTurn);
+      const inbound = {
+        event_id: 'evt-race',
+        payload: {
+          type: 'user.tool_approval' as const,
+          thread_id: 'main',
+          tool_call_id: 'tc-race',
+          approval: { status: 'allow' as const },
+        },
+        created_at: new Date().toISOString(),
+      };
+
+      const results = await Promise.allSettled([
+        store.freezeAndGetTurn({
+          session_id: sessionId,
+          turn_id: 'turn-1',
+          reason: CancellationReason.CancelledForNextTurn,
+          turn_done_event: makeTurnDoneEvent(cancelledState),
+        }),
+        store.insertTurnInboundEvents({
+          session_id: sessionId,
+          turn_id: 'turn-1',
+          events: [inbound],
+        }),
+      ]);
+
+      const insertResult = results[1];
+      const pending = await store.listUnconsumedTurnInboundEvents({
+        session_id: sessionId,
+        turn_id: 'turn-1',
+      });
+      if (insertResult?.status === 'fulfilled') {
+        expect(pending.map(e => e.event_id)).toEqual([inbound.event_id]);
+      } else {
+        expect(insertResult?.reason).toBeInstanceOf(TurnNotRunningError);
+        expect(pending).toEqual([]);
+      }
+
+      const turn = await store.getTurn({ session_id: sessionId, turn_id: 'turn-1' });
+      expect(mustGet(turn).state.status).toBe('cancelled');
     });
 
     it('turn_inbound_events: list is turn-scoped', async () => {
