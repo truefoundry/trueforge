@@ -15,7 +15,8 @@ const PARALLEL_SEARCH_MAX_CHARS_PER_RESULT = 500;
 const PARALLEL_SEARCH_MAX_CHARS_TOTAL = 4000;
 
 export interface ParallelWebSearchProviderOptions {
-  apiKey: string;
+  /** Parallel API key; omit or empty when the account allows unauthenticated use. */
+  apiKey?: string;
   /** Parallel Search mode preset. Caller supplies the default (e.g. `turbo`). */
   mode: ParallelSearchMode;
 }
@@ -29,7 +30,10 @@ export class ParallelWebSearchProvider implements IWebSearchProvider {
   readonly #mode: ParallelSearchMode;
 
   constructor(options: ParallelWebSearchProviderOptions) {
-    this.#client = new Parallel({ apiKey: options.apiKey, fetch: ssrfFetch });
+    this.#client = new Parallel({
+      apiKey: options.apiKey ?? '',
+      fetch: ssrfFetch,
+    });
     this.#mode = options.mode;
   }
 

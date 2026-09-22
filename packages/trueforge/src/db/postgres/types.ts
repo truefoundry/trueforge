@@ -342,9 +342,12 @@ export interface ModelProviderTable {
   updated_at: Date;
 }
 
+/**
+ * Configured web-search provider — mirrors the Postgres `web_search_provider` table.
+ * PRIMARY KEY (tenant_id)
+ */
 export interface WebSearchProviderTable {
   tenant_id: string;
-  name: string;
   manifest: JSONColumnType<WebSearchProviderManifest, WebSearchProviderManifest, WebSearchProviderManifest>;
   created_at: Date;
   updated_at: Date;

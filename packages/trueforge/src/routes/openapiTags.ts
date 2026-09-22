@@ -7,7 +7,7 @@ export enum OpenApiTag {
   MCP_SERVERS = 'MCP Servers',
   SKILLS = 'Skills',
   SANDBOXES = 'Sandboxes',
-  WEB_SEARCH = 'Web Search',
+  WEB_SEARCH = 'Web Search Providers',
   AGENTS = 'Agents',
   SCHEDULES = 'Schedules',
   AGENT_SESSIONS = 'Agent Sessions',

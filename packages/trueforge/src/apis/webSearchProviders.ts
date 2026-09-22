@@ -1,33 +1,25 @@
 import { OpenAPIHono, type RouteHandler } from '@hono/zod-openapi';
 import type { Context } from 'hono';
 import type { ResolveRequestContext } from '../auth/identity';
-import type { WithTransaction } from '../db/transaction';
-import {
-  WebSearchProviderNameConflictError,
-  type IWebSearchProviderStore,
-  type WebSearchProviderRecord,
-} from '../db/webSearchProviderStore';
-import {
-  createWebSearchProviderRoute,
-  listWebSearchProvidersRoute,
-  putWebSearchProviderRoute,
-} from '../routes/webSearchProviderRoutes';
+import type { IWebSearchProviderStore, WebSearchProviderRecord } from '../db/webSearchProviderStore';
+import { getWebSearchProviderRoute, putWebSearchProviderRoute } from '../routes/webSearchProviderRoutes';
 import {
   webSearchProviderName,
   type ConfiguredWebSearchProvider,
-  type CreateWebSearchProviderRequest,
   type UpdateWebSearchProviderRequest,
   type WebSearchProviderManifest,
 } from '../schemas/webSearchProvider';
 import { MissingStoredSecretError, resolveStoredSecretValue, toRedactedSecretValue } from '../utils/secretRedaction';
 
-export interface WebSearchProvidersRouterDeps<TTransaction> {
-  resolveWebSearchProviderStore: (c: Context) => IWebSearchProviderStore<TTransaction>;
-  withTransaction: WithTransaction<TTransaction>;
+export interface WebSearchProvidersRouterDeps {
+  resolveWebSearchProviderStore: (c: Context) => IWebSearchProviderStore;
   resolveRequestContext: ResolveRequestContext;
 }
 
 function redactWebSearchProvider(manifest: WebSearchProviderManifest): WebSearchProviderManifest {
+  if (!manifest.auth) {
+    return manifest;
+  }
   return {
     ...manifest,
     auth: { api_key: toRedactedSecretValue(manifest.auth.api_key) },
@@ -41,12 +33,15 @@ function resolveWebSearchProviderManifestForWrite({
   incoming: WebSearchProviderManifest;
   existing: WebSearchProviderManifest | undefined;
 }): WebSearchProviderManifest {
+  if (!incoming.auth) {
+    return incoming;
+  }
   return {
     ...incoming,
     auth: {
       api_key: resolveStoredSecretValue({
         incoming: incoming.auth.api_key,
-        existing: existing?.auth.api_key,
+        existing: existing?.auth?.api_key,
       }),
     },
   };
@@ -54,40 +49,19 @@ function resolveWebSearchProviderManifestForWrite({
 
 function toWireProvider(record: WebSearchProviderRecord): ConfiguredWebSearchProvider {
   return {
-    name: record.name,
+    name: webSearchProviderName(record.manifest),
     manifest: redactWebSearchProvider(record.manifest),
   };
 }
 
-export function createWebSearchProvidersRouter<TTransaction>(deps: WebSearchProvidersRouterDeps<TTransaction>) {
-  const listHandler: RouteHandler<typeof listWebSearchProvidersRoute> = async c => {
+export function createWebSearchProvidersRouter(deps: WebSearchProvidersRouterDeps) {
+  const getHandler: RouteHandler<typeof getWebSearchProviderRoute> = async c => {
     const requestContext = deps.resolveRequestContext(c);
-    const records = await deps.resolveWebSearchProviderStore(c).listProviders({ tenant_id: requestContext.tenant_id });
-    return c.json({ data: records.map(toWireProvider) }, 200);
-  };
-
-  const createHandler: RouteHandler<typeof createWebSearchProviderRoute> = async c => {
-    const body: CreateWebSearchProviderRequest = c.req.valid('json');
-    const requestContext = deps.resolveRequestContext(c);
-    const provider = body.manifest;
-    const name = webSearchProviderName(provider);
-    try {
-      const manifest = resolveWebSearchProviderManifestForWrite({ incoming: provider, existing: undefined });
-      const record = await deps.resolveWebSearchProviderStore(c).createProvider({
-        tenant_id: requestContext.tenant_id,
-        name,
-        manifest,
-      });
-      return c.json({ data: toWireProvider(record) }, 201);
-    } catch (error) {
-      if (error instanceof MissingStoredSecretError) {
-        return c.json({ error: { message: 'API key is required' } }, 400);
-      }
-      if (error instanceof WebSearchProviderNameConflictError) {
-        return c.json({ error: { message: error.message } }, 409);
-      }
-      throw error;
+    const record = await deps.resolveWebSearchProviderStore(c).getProvider(requestContext.tenant_id);
+    if (!record) {
+      return c.json({ error: { message: 'No web search provider configured' } }, 404);
     }
+    return c.json({ data: toWireProvider(record) }, 200);
   };
 
   const putHandler: RouteHandler<typeof putWebSearchProviderRoute> = async c => {
@@ -95,16 +69,13 @@ export function createWebSearchProvidersRouter<TTransaction>(deps: WebSearchProv
     const body: UpdateWebSearchProviderRequest = c.req.valid('json');
     const requestContext = deps.resolveRequestContext(c);
     const provider = body.manifest;
-    const name = webSearchProviderName(provider);
     try {
-      const record = await deps.withTransaction(async transaction => {
-        const existing = await store.getProviderForUpdate({ tenant_id: requestContext.tenant_id, name }, transaction);
-        const manifest = resolveWebSearchProviderManifestForWrite({
-          incoming: provider,
-          existing: existing?.manifest,
-        });
-        return store.upsertProvider({ tenant_id: requestContext.tenant_id, name, manifest }, transaction);
+      const existing = await store.getProvider(requestContext.tenant_id);
+      const manifest = resolveWebSearchProviderManifestForWrite({
+        incoming: provider,
+        existing: existing?.manifest,
       });
+      const record = await store.upsertProvider({ tenant_id: requestContext.tenant_id, manifest });
       return c.json({ data: toWireProvider(record) }, 200);
     } catch (error) {
       if (error instanceof MissingStoredSecretError) {
@@ -115,8 +86,7 @@ export function createWebSearchProvidersRouter<TTransaction>(deps: WebSearchProv
   };
 
   const router = new OpenAPIHono();
-  router.openapi(listWebSearchProvidersRoute, listHandler);
-  router.openapi(createWebSearchProviderRoute, createHandler);
+  router.openapi(getWebSearchProviderRoute, getHandler);
   router.openapi(putWebSearchProviderRoute, putHandler);
   return router;
 }

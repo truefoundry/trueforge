@@ -98,15 +98,14 @@ export const listWebSearchProviderCatalogRoute = createRoute({
   method: 'get',
   path: '/web-search-providers',
   tags: [OpenApiTag.WEB_SEARCH],
-  summary: 'Get the web-search provider catalog',
-  description:
-    'Shipped web-search-provider presets (discovery-only). Copy into POST/PUT /settings/web-search-providers to configure.',
+  summary: 'List web search providers',
+  description: 'Shipped web-search provider presets.',
   'x-fern-sdk-group-name': ['catalogs', 'webSearchProviders'],
   'x-fern-sdk-method-name': 'list',
   responses: {
     200: {
       content: { 'application/json': { schema: GetWebSearchProviderCatalogResponseSchema } },
-      description: 'Shipped web-search-provider presets.',
+      description: 'Shipped web-search provider presets.',
     },
     401: {
       content: { 'application/json': { schema: RequestErrorResponseSchema } },

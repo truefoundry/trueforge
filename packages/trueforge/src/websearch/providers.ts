@@ -8,8 +8,8 @@ export async function hasConfiguredWebSearchProvider({
   tenant_id: string;
   store: IWebSearchProviderStore;
 }): Promise<boolean> {
-  const providers = await store.listProviders({ tenant_id });
-  return providers.length > 0;
+  const record = await store.getProvider(tenant_id);
+  return record !== undefined;
 }
 
 export async function resolveWebSearchProvider({
@@ -19,11 +19,11 @@ export async function resolveWebSearchProvider({
   tenant_id: string;
   store: IWebSearchProviderStore;
 }): Promise<IWebSearchProvider | undefined> {
-  const providers = await store.listProviders({ tenant_id });
-  const record = providers[0];
+  const record = await store.getProvider(tenant_id);
   if (!record) {
     return undefined;
   }
   const { manifest } = record;
-  return new ParallelWebSearchProvider({ apiKey: manifest.auth.api_key, mode: manifest.mode });
+  const apiKey = manifest.auth?.api_key;
+  return new ParallelWebSearchProvider(apiKey ? { apiKey, mode: 'turbo' } : { mode: 'turbo' });
 }

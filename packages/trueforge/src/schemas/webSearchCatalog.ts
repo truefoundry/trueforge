@@ -1,7 +1,6 @@
 import { z } from '@hono/zod-openapi';
 import { ParallelWebSearchProviderSchema } from './webSearchProvider';
 
-/** Single variant today (avoids one-member `oneOf` in OpenAPI). */
 export const CatalogWebSearchProviderSchema = ParallelWebSearchProviderSchema.omit({ auth: true })
   .strict()
   .openapi('CatalogWebSearchProvider');

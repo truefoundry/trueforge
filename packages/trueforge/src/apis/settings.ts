@@ -72,7 +72,6 @@ export function createSettingsRouter<TTransaction>(deps: SettingsRouterDeps<TTra
     '/web-search-providers',
     createWebSearchProvidersRouter({
       resolveWebSearchProviderStore: deps.resolveWebSearchProviderStore,
-      withTransaction: deps.withTransaction,
       resolveRequestContext: deps.resolveRequestContext,
     }),
   );

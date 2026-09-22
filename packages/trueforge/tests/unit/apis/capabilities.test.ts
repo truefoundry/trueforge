@@ -70,19 +70,22 @@ describe('capabilities routers', () => {
     setCachedLocalSandboxSupport(undefined);
   });
 
-  function makeRouter(authenticator: Authenticator = new StandaloneAuthenticator()): OpenAPIHono {
+  function makeRouter({
+    authenticator = new StandaloneAuthenticator(),
+    webSearchStore,
+  }: {
+    authenticator?: Authenticator;
+    webSearchStore?: IWebSearchProviderStore;
+  } = {}): OpenAPIHono {
     const db = createSqliteDb(':memory:');
     const emptyWebSearchStore: IWebSearchProviderStore = {
-      listProviders: () => Promise.resolve([]),
       getProvider: () => Promise.resolve(undefined),
-      getProviderForUpdate: () => Promise.resolve(undefined),
-      createProvider: () => Promise.reject(new Error('not used')),
       upsertProvider: () => Promise.reject(new Error('not used')),
     };
     return withAuth(
       createCapabilitiesRouter({
         resolveSandboxProviderStore: () => new SqliteSandboxProviderStore(db),
-        resolveWebSearchProviderStore: () => emptyWebSearchStore,
+        resolveWebSearchProviderStore: () => webSearchStore ?? emptyWebSearchStore,
         withTransaction: callback => db.transaction().execute(callback),
         logger: silentLogger,
         resolveRequestContext,
@@ -108,6 +111,28 @@ describe('capabilities routers', () => {
         settings: { enabled: true },
         web_search: { enabled: false },
       },
+    });
+  });
+
+  it('reports web_search enabled when a provider is configured', async () => {
+    disableOidcAuth();
+    mockStatus.mockResolvedValue(undefined);
+    const configuredStore: IWebSearchProviderStore = {
+      getProvider: () =>
+        Promise.resolve({
+          tenant_id: 'default',
+          manifest: { type: 'parallel' },
+          created_at: '2026-01-01T00:00:00.000Z',
+          updated_at: '2026-01-01T00:00:00.000Z',
+        }),
+      upsertProvider: () => Promise.reject(new Error('not used')),
+    };
+    const router = makeRouter({ webSearchStore: configuredStore });
+
+    const response = await router.request('/');
+    expect(response.status).toBe(200);
+    expect(await response.json()).toMatchObject({
+      data: { web_search: { enabled: true } },
     });
   });
 
@@ -257,10 +282,7 @@ describe('capabilities routers', () => {
       const db = createSqliteDb(':memory:');
       await migrateSqliteToLatest(db);
       const emptyWebSearchStore: IWebSearchProviderStore = {
-        listProviders: () => Promise.resolve([]),
         getProvider: () => Promise.resolve(undefined),
-        getProviderForUpdate: () => Promise.resolve(undefined),
-        createProvider: () => Promise.reject(new Error('not used')),
         upsertProvider: () => Promise.reject(new Error('not used')),
       };
       const router = withAuth(
