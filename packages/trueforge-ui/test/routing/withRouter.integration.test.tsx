@@ -54,6 +54,7 @@ vi.mock('@truefoundry/trueforge-assistant-ui-runtime', () => ({
   useTrueForgeUpdateAgentSpec: () => vi.fn(),
 }));
 
+import { SessionsPage } from '@/atoms/agent-details/SessionsPage.js';
 import { CompactLayoutProvider } from '@/atoms/lib/CompactLayoutContext.js';
 import { SessionsBrowserButton } from '@/atoms/SessionsBrowserButton.js';
 import type { ThreadListRowProps } from '@/atoms/ThreadListRow.js';
@@ -91,6 +92,7 @@ function ShellProbe() {
   return (
     <>
       <div data-testid="pending">{shell.pendingSessionId ?? 'none'}</div>
+      <div data-testid="shared-session">{shell.sharedSessionId ?? 'none'}</div>
       <div data-testid="binding">
         {mode.status === 'idle' ? 'idle' : `${mode.isMutable ? 'mutable' : 'immutable'}:${mode.agentName ?? '-'}`}
       </div>
@@ -106,6 +108,11 @@ function ThreadListHost() {
   );
 }
 
+function SessionsSurface() {
+  const shell = useShellMode();
+  return shell.sessionsOpen ? <SessionsPage /> : <ShellProbe />;
+}
+
 function renderApp() {
   return render(
     <TrueForgeUI
@@ -119,6 +126,62 @@ function renderApp() {
 }
 
 describe('withRouter end to end', () => {
+  it('opens /sessions/share/:id as shared-session detail', async () => {
+    window.history.replaceState(null, '', '/sessions/share/session-2');
+    render(
+      <TrueForgeUI
+        server={createMockAgentUIServer({ sessions: createMockAgentSessionsServer() })}
+        agentConfig={{ mode: 'AgentLibraryWithComposer' }}
+        withRouter
+        layout={() => <ShellProbe />}
+      />,
+    );
+
+    await waitFor(() => {
+      expect(screen.getByTestId('shared-session')).toHaveTextContent('session-2');
+    });
+    expect(screen.getByTestId('pending')).toHaveTextContent('none');
+    expect(window.location.pathname).toBe('/sessions/share/session-2');
+  });
+
+  it('renders shared-session detail without the list, resizer, or filters', async () => {
+    window.history.replaceState(null, '', '/sessions/share/session-2');
+    const listSessions = vi.fn(async () => ({ data: [] }));
+    render(
+      <TrueForgeUI
+        server={createMockAgentUIServer({
+          getSession: async () => ({
+            id: 'session-2',
+            title: 'Shared session',
+            isMutable: false,
+            createdAt: '2026-01-01T00:00:00Z',
+            updatedAt: '2026-01-01T00:00:00Z',
+          }),
+          sessions: createMockAgentSessionsServer({
+            listSessions,
+            listSessionEvents: async () => ({ data: [] }),
+          }),
+        })}
+        agentConfig={{ mode: 'AgentLibraryWithComposer' }}
+        withRouter
+        layout={() => <SessionsSurface />}
+        overrides={{ AgentSessionTimelineContainer: () => <div>Timeline</div> }}
+      />,
+    );
+
+    expect(await screen.findByRole('heading', { name: 'Shared session' })).toBeInTheDocument();
+    expect(screen.queryByRole('separator', { name: 'Resize session list' })).not.toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: 'Last 30 days' })).not.toBeInTheDocument();
+    expect(listSessions).not.toHaveBeenCalled();
+
+    fireEvent.click(screen.getByRole('button', { name: 'Close session details' }));
+    await waitFor(() => {
+      expect(window.location.pathname).toBe('/sessions');
+    });
+    expect(await screen.findByRole('button', { name: 'Last 30 days' })).toBeInTheDocument();
+    expect(listSessions).toHaveBeenCalled();
+  });
+
   it('applies a /sessions/:id deep link on boot', async () => {
     window.history.replaceState(null, '', '/sessions/session-2');
     renderApp();

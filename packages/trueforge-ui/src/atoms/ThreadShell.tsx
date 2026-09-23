@@ -2,8 +2,11 @@ import { forwardRef, type ComponentPropsWithRef, type CSSProperties } from 'reac
 
 import { cn } from './lib/cn.js';
 
+const THREAD_MAX_WIDTH = '44rem';
+const THREAD_CONTENT_MAX_WIDTH = `var(--thread-max-width, ${THREAD_MAX_WIDTH})`;
+
 const THREAD_CSS_VARS: CSSProperties = {
-  ['--thread-max-width' as string]: '44rem',
+  ['--thread-max-width' as string]: THREAD_MAX_WIDTH,
   ['--composer-padding' as string]: '8px',
 };
 
@@ -26,24 +29,28 @@ ThreadRootShell.displayName = 'ThreadRootShell';
 
 export type ThreadViewportShellProps = ComponentPropsWithRef<'div'> & {
   isEmpty?: boolean;
+  /** Disable the inner scroll root when an ancestor owns the combined surface scroll. */
+  scrollable?: boolean;
 };
 
 export const ThreadViewportShell = forwardRef<HTMLDivElement, ThreadViewportShellProps>(
-  ({ className, isEmpty, children, ...rest }, ref) => (
+  ({ className, isEmpty, scrollable = true, children, ...rest }, ref) => (
     <div
       ref={ref}
       data-slot="aui_thread-viewport"
       className={cn(
-        'relative flex min-h-0 min-w-0 flex-1 flex-col overflow-x-hidden overflow-y-auto overscroll-contain',
+        'relative flex min-h-0 min-w-0 flex-col',
+        scrollable ? 'flex-1 overflow-x-hidden overflow-y-auto overscroll-contain' : 'shrink-0 overflow-visible',
         className,
       )}
       {...rest}
     >
       <div
         className={cn(
-          'mx-auto flex w-full min-w-0 max-w-(--thread-max-width) flex-col px-3 pt-3',
+          'mx-auto flex w-full min-w-0 flex-col px-3 pt-3',
           isEmpty ? 'min-h-full justify-center pb-4' : 'pb-32',
         )}
+        style={{ maxWidth: THREAD_CONTENT_MAX_WIDTH }}
       >
         {children}
       </div>

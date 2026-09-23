@@ -44,8 +44,15 @@ type ListSessionsRequest = {
 
 const originalShowModal = Object.getOwnPropertyDescriptor(HTMLDialogElement.prototype, 'showModal');
 const originalClose = Object.getOwnPropertyDescriptor(HTMLDialogElement.prototype, 'close');
+const originalClipboard = Object.getOwnPropertyDescriptor(navigator, 'clipboard');
+let clipboardWriteText: ReturnType<typeof vi.fn>;
 
 beforeEach(() => {
+  clipboardWriteText = vi.fn(async () => undefined);
+  Object.defineProperty(navigator, 'clipboard', {
+    configurable: true,
+    value: { writeText: clipboardWriteText },
+  });
   Object.defineProperty(HTMLDialogElement.prototype, 'showModal', {
     configurable: true,
     value: function showModal(this: HTMLDialogElement) {
@@ -73,6 +80,11 @@ afterEach(() => {
     Reflect.deleteProperty(HTMLDialogElement.prototype, 'close');
   } else {
     Object.defineProperty(HTMLDialogElement.prototype, 'close', originalClose);
+  }
+  if (originalClipboard === undefined) {
+    Reflect.deleteProperty(navigator, 'clipboard');
+  } else {
+    Object.defineProperty(navigator, 'clipboard', originalClipboard);
   }
 });
 
@@ -185,6 +197,23 @@ describe('SessionsPage', () => {
     expect(await screen.findByText('Pinned session')).toBeInTheDocument();
     expect(screen.queryByText('No Sessions Found')).not.toBeInTheDocument();
     expect(getSession).toHaveBeenCalledWith({ sessionId: 'sess-1' });
+  });
+
+  it('copies the no-router shared-session query URL for the selected session', async () => {
+    window.history.replaceState(null, '', '/?view=sessions&sessionId=sess-1&agentId=agent-1&s_tw=30');
+    renderPage();
+
+    fireEvent.click(await screen.findByRole('button', { name: 'Copy shared link' }));
+
+    await waitFor(() => {
+      expect(clipboardWriteText).toHaveBeenCalledOnce();
+    });
+    const copied = new URL(String(clipboardWriteText.mock.calls[0]?.[0]));
+    expect(copied.pathname).toBe('/');
+    expect(copied.searchParams.get('view')).toBe('shared-session');
+    expect(copied.searchParams.get('sessionId')).toBe('sess-1');
+    expect(copied.searchParams.get('agentId')).toBeNull();
+    expect(copied.searchParams.get('s_tw')).toBeNull();
   });
 
   it('shows the custom range picker only after Custom Time Range is clicked', async () => {

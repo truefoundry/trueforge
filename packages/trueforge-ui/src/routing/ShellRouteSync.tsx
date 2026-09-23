@@ -29,6 +29,10 @@ function placeOwnsHistoryAgentSearch(place: RoutePlace): boolean {
   return place.type === 'root' || place.type === 'agent' || place.type === 'session';
 }
 
+function isSessionsPlace(place: RoutePlace): boolean {
+  return place.type === 'sessionsBrowser' || place.type === 'sharedSession';
+}
+
 /**
  * Single bidirectional bridge between shell state and the URL. Mounted under
  * `ShellModeProvider` but outside the keyed chat runtime so boot applies once.
@@ -62,6 +66,7 @@ export function ShellRouteSync({
   const routeGatesKey = [
     effectiveRoutes.settings,
     effectiveRoutes.sessionsBrowser,
+    effectiveRoutes.sharedSession,
     effectiveRoutes.libraryAgent,
     effectiveRoutes.schedules,
   ].join('\0');
@@ -70,6 +75,7 @@ export function ShellRouteSync({
     settingsOpen: shell.settingsOpen,
     libraryOpen: shell.libraryOpen,
     sessionsOpen: shell.sessionsOpen,
+    sharedSessionId: shell.sharedSessionId,
     libraryAgentId: shell.libraryAgentId,
     schedulesOpen: shell.schedulesOpen,
     pendingSessionId: shell.pendingSessionId,
@@ -194,6 +200,9 @@ export function ShellRouteSync({
           return;
         case 'sessionsBrowser':
           shell.setSessionsOpen(true);
+          return;
+        case 'sharedSession':
+          shell.openSharedSession(target.sessionId);
           return;
         case 'libraryAgent':
           shell.openLibraryAgent(target.agentId);
@@ -386,7 +395,7 @@ export function ShellRouteSync({
       if (urlPlace.type !== 'library' && urlPlace.type !== 'libraryAgent' && shell.libraryOpen) {
         shell.setLibraryOpen(false);
       }
-      if (urlPlace.type !== 'sessionsBrowser' && shell.sessionsOpen) {
+      if (!isSessionsPlace(urlPlace) && shell.sessionsOpen) {
         shell.setSessionsOpen(false);
       }
       if (urlPlace.type !== 'schedules' && shell.schedulesOpen) {

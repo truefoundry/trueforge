@@ -100,6 +100,7 @@ Places mirrored to the URL:
 - `/agents/:agentName` — immutable "Try" of a library agent
 - `/sessions` — all-user Sessions browser (named agents and drafts)
 - `/sessions/:sessionId` — a specific chat session
+- `/sessions/share/:sessionId` — detail-only session view without the Sessions list or filters
 - `/settings` — settings overlay (closing navigates to the chat place below it)
 - `/library` — Agents
 - `/library/:agentId` — agent details. `?tab=overview|sessions|code|metrics` selects the tab (default Overview);
@@ -117,6 +118,7 @@ to keep that place overlay-only with no URL:
     paths: {
       buildAgent: '/new-agent',
       session: '/chats/:sessionId',
+      sharedSession: '/sessions/share/:sessionId',
       libraryAgent: '/library/:agentId',
       settings: false,
     },
@@ -146,6 +148,9 @@ Notes on behaviour:
   (`agentId`, `s_tw` for a relative window, or `s_sts`/`s_ets` for an absolute
   range). Opening a session pins `s_sts`/`s_ets` around `created_at` (±5 min)
   so a refresh still finds that row on page 1 without scrolling the list.
+- A detail-only shared session is `/sessions/share/:sessionId` when
+  `withRouter` is on. Without SDK routing, the same view uses
+  `?view=shared-session&sessionId=:sessionId` on the host page.
 - A `/sessions/:sessionId` link is resolved through `getSession` so the chat
   opens with its own agent binding and mutability rather than as a new draft.
 - `/build-agent` is used for a fresh builder; after its draft session persists,

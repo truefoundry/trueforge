@@ -18,6 +18,10 @@ export type AgentSessionsProps = {
   endTimestamp?: string;
   /** When `sessions`, selection writes `view=sessions` and pins `s_sts`/`s_ets`. */
   shareView?: 'sessions' | null;
+  /** Render only the selected detail pane for a shared-session URL. */
+  detailOnly?: boolean;
+  detailSessionId?: string;
+  onCloseDetail?: () => void;
 };
 
 export type AgentSessionListRowProps = {
