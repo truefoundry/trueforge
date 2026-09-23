@@ -3,6 +3,8 @@ import { TurnNotFoundError } from '@truefoundry/trueforge-core/agent-session';
 import { NoResponderError, redisRequest, RequestTimeoutError } from '@truefoundry/trueforge-core/request-reply';
 import type { RedisClientType } from 'redis';
 import {
+  OwnershipRejectedError,
+  OwnershipRetryError,
   resolveOwnershipAction,
   resolveTurnOwnership,
   TURNS_LOCATE_PATH,
@@ -27,7 +29,20 @@ const redisRequestMock = jest.mocked(redisRequest);
 const SESSION_ID = 's1';
 const REDIS = {} as RedisClientType;
 const REMOTE_EXECUTOR = 'other1';
+const SEND_PATH = 'turns/send';
 const pausedState = { status: 'paused' as const, action_required_on_events: [] };
+
+function ownershipInput(turnId: string): {
+  sessionId: string;
+  turnId: string;
+  forward: { path: string; body: { session_id: string; turn_id: string } };
+} {
+  return {
+    sessionId: SESSION_ID,
+    turnId,
+    forward: { path: SEND_PATH, body: { session_id: SESSION_ID, turn_id: turnId } },
+  };
+}
 
 function silentLogger(): { warn: jest.Mock } {
   return { warn: jest.fn() };
@@ -102,10 +117,10 @@ describe('resolveTurnOwnership', () => {
 
   it('throws when the turn is missing', async () => {
     await expect(
-      resolveTurnOwnership(ownershipDeps({ activeTurns: new ActiveTurnRegistry(), turn: undefined }), {
-        sessionId: SESSION_ID,
-        turnId: 'missing',
-      }),
+      resolveTurnOwnership(
+        ownershipDeps({ activeTurns: new ActiveTurnRegistry(), turn: undefined }),
+        ownershipInput('missing'),
+      ),
     ).rejects.toBeInstanceOf(TurnNotFoundError);
   });
 
@@ -120,24 +135,36 @@ describe('resolveTurnOwnership', () => {
           activeTurns,
           turn: turnRecord({ turnId, state: { status: 'running' } }),
         }),
-        { sessionId: SESSION_ID, turnId },
+        ownershipInput(turnId),
       ),
-    ).resolves.toBe('run');
+    ).resolves.toBe(true);
   });
 
-  it('rebuilds when this executor owns a paused turn with no ActiveTurn', async () => {
+  it('rejects a local running turn with no ActiveTurn', async () => {
+    await expect(
+      resolveTurnOwnership(
+        ownershipDeps({
+          activeTurns: new ActiveTurnRegistry(),
+          turn: turnRecord({ turnId: 'gone-local', state: { status: 'running' } }),
+        }),
+        ownershipInput('gone-local'),
+      ),
+    ).rejects.toBeInstanceOf(OwnershipRejectedError);
+  });
+
+  it('retries when a local rebuild would be needed (not handled yet)', async () => {
     await expect(
       resolveTurnOwnership(
         ownershipDeps({
           activeTurns: new ActiveTurnRegistry(),
           turn: turnRecord({ turnId: 'paused-local', state: pausedState }),
         }),
-        { sessionId: SESSION_ID, turnId: 'paused-local' },
+        ownershipInput('paused-local'),
       ),
-    ).resolves.toBe('rebuild');
+    ).rejects.toBeInstanceOf(OwnershipRetryError);
   });
 
-  it('returns forward when the owning replica still has the turn', async () => {
+  it('forwards the request when the owning replica still has the turn', async () => {
     redisRequestMock.mockResolvedValue({ status: 200, body: {} });
 
     await expect(
@@ -147,15 +174,37 @@ describe('resolveTurnOwnership', () => {
           turn: turnRecord({ turnId: 'remote-ok', state: pausedState, activeExecutorId: REMOTE_EXECUTOR }),
           redis: REDIS,
         }),
-        { sessionId: SESSION_ID, turnId: 'remote-ok' },
+        ownershipInput('remote-ok'),
       ),
-    ).resolves.toBe('forward');
-    expect(redisRequestMock).toHaveBeenCalledWith(
+    ).resolves.toBe(false);
+    expect(redisRequestMock).toHaveBeenNthCalledWith(
+      1,
       expect.objectContaining({ executorId: REMOTE_EXECUTOR, path: TURNS_LOCATE_PATH }),
+    );
+    expect(redisRequestMock).toHaveBeenNthCalledWith(
+      2,
+      expect.objectContaining({ executorId: REMOTE_EXECUTOR, path: SEND_PATH }),
     );
   });
 
-  it('does not steal on 412 / timeout (unavailable)', async () => {
+  it('retries when the forwarded request fails', async () => {
+    redisRequestMock
+      .mockResolvedValueOnce({ status: 200, body: {} })
+      .mockResolvedValueOnce({ status: 412, body: { message: 'Turn is not on this executor' } });
+
+    await expect(
+      resolveTurnOwnership(
+        ownershipDeps({
+          activeTurns: new ActiveTurnRegistry(),
+          turn: turnRecord({ turnId: 'remote-forward-fail', state: pausedState, activeExecutorId: REMOTE_EXECUTOR }),
+          redis: REDIS,
+        }),
+        ownershipInput('remote-forward-fail'),
+      ),
+    ).rejects.toBeInstanceOf(OwnershipRetryError);
+  });
+
+  it('retries when locate is 412 / timeout (unavailable)', async () => {
     redisRequestMock.mockResolvedValue({ status: 412, body: { message: 'Turn is not on this executor' } });
 
     await expect(
@@ -165,12 +214,12 @@ describe('resolveTurnOwnership', () => {
           turn: turnRecord({ turnId: 'remote-412', state: pausedState, activeExecutorId: REMOTE_EXECUTOR }),
           redis: REDIS,
         }),
-        { sessionId: SESSION_ID, turnId: 'remote-412' },
+        ownershipInput('remote-412'),
       ),
-    ).resolves.toBe('retry');
+    ).rejects.toBeInstanceOf(OwnershipRetryError);
   });
 
-  it('claims a paused turn with no responder and rebuilds on a winning CAS', async () => {
+  it('claims a paused turn with no responder, then retries (rebuild not handled yet)', async () => {
     redisRequestMock.mockRejectedValue(new NoResponderError(REMOTE_EXECUTOR));
     const claimTurnOwnership = jest.fn().mockResolvedValue(true);
 
@@ -182,9 +231,9 @@ describe('resolveTurnOwnership', () => {
           redis: REDIS,
           claimTurnOwnership,
         }),
-        { sessionId: SESSION_ID, turnId: 'remote-steal' },
+        ownershipInput('remote-steal'),
       ),
-    ).resolves.toBe('rebuild');
+    ).rejects.toBeInstanceOf(OwnershipRetryError);
     expect(claimTurnOwnership).toHaveBeenCalledWith({
       session_id: SESSION_ID,
       turn_id: 'remote-steal',
@@ -195,6 +244,7 @@ describe('resolveTurnOwnership', () => {
 
   it('retries when the steal CAS loses', async () => {
     redisRequestMock.mockRejectedValue(new NoResponderError(REMOTE_EXECUTOR));
+    const claimTurnOwnership = jest.fn().mockResolvedValue(false);
 
     await expect(
       resolveTurnOwnership(
@@ -202,15 +252,17 @@ describe('resolveTurnOwnership', () => {
           activeTurns: new ActiveTurnRegistry(),
           turn: turnRecord({ turnId: 'remote-steal-lose', state: pausedState, activeExecutorId: REMOTE_EXECUTOR }),
           redis: REDIS,
-          claimTurnOwnership: () => Promise.resolve(false),
+          claimTurnOwnership,
         }),
-        { sessionId: SESSION_ID, turnId: 'remote-steal-lose' },
+        ownershipInput('remote-steal-lose'),
       ),
-    ).resolves.toBe('retry');
+    ).rejects.toBeInstanceOf(OwnershipRetryError);
+    expect(claimTurnOwnership).toHaveBeenCalled();
   });
 
   it('does not steal a running turn when there is no responder', async () => {
     redisRequestMock.mockRejectedValue(new NoResponderError(REMOTE_EXECUTOR));
+    const claimTurnOwnership = jest.fn();
 
     await expect(
       resolveTurnOwnership(
@@ -222,14 +274,17 @@ describe('resolveTurnOwnership', () => {
             activeExecutorId: REMOTE_EXECUTOR,
           }),
           redis: REDIS,
+          claimTurnOwnership,
         }),
-        { sessionId: SESSION_ID, turnId: 'remote-running' },
+        ownershipInput('remote-running'),
       ),
-    ).resolves.toBe('retry');
+    ).rejects.toBeInstanceOf(OwnershipRetryError);
+    expect(claimTurnOwnership).not.toHaveBeenCalled();
   });
 
   it('does not steal on peer timeout', async () => {
     redisRequestMock.mockRejectedValue(new RequestTimeoutError(60_000));
+    const claimTurnOwnership = jest.fn();
 
     await expect(
       resolveTurnOwnership(
@@ -237,10 +292,12 @@ describe('resolveTurnOwnership', () => {
           activeTurns: new ActiveTurnRegistry(),
           turn: turnRecord({ turnId: 'remote-timeout', state: pausedState, activeExecutorId: REMOTE_EXECUTOR }),
           redis: REDIS,
+          claimTurnOwnership,
         }),
-        { sessionId: SESSION_ID, turnId: 'remote-timeout' },
+        ownershipInput('remote-timeout'),
       ),
-    ).resolves.toBe('retry');
+    ).rejects.toBeInstanceOf(OwnershipRetryError);
+    expect(claimTurnOwnership).not.toHaveBeenCalled();
   });
 });
 
