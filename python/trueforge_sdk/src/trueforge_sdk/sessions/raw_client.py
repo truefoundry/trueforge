@@ -278,7 +278,7 @@ class RawSessionsClient:
         self, *, session_id: str, request_options: typing.Optional[RequestOptions] = None
     ) -> HttpResponse[GetSessionResponse]:
         """
-        Fetch a session by ID. Only the session creator may fetch it.
+        Fetch a session by ID. Allowed for the creator, a manager of the bound named agent, or any tenant member when the session is shared.
 
         Parameters
         ----------
@@ -389,11 +389,12 @@ class RawSessionsClient:
         session_id: str,
         agent: typing.Optional[SessionAgentSpecBody] = OMIT,
         metadata: typing.Optional[SessionMetadata] = OMIT,
+        shared: typing.Optional[bool] = OMIT,
         title: typing.Optional[str] = OMIT,
         request_options: typing.Optional[RequestOptions] = None,
     ) -> HttpResponse[GetSessionResponse]:
         """
-        Update a session: optional `title`, `metadata`, and (inline sessions only) `agent` as `{ spec: AgentSpec }`. Named sessions reject agent updates. An empty body is a valid no-op that refreshes `updated_at`. Only the session creator may update it.
+        Update a session: optional `title`, `metadata`, `shared`, and (inline sessions only) `agent` as `{ spec: AgentSpec }`. Named sessions reject agent updates. An empty body is a valid no-op that refreshes `updated_at`. Only the session creator may update it.
 
         Parameters
         ----------
@@ -403,6 +404,9 @@ class RawSessionsClient:
         agent : typing.Optional[SessionAgentSpecBody]
 
         metadata : typing.Optional[SessionMetadata]
+
+        shared : typing.Optional[bool]
+            When true, any subject in the tenant may fetch this session by id.
 
         title : typing.Optional[str]
             Human-readable session title.
@@ -423,6 +427,7 @@ class RawSessionsClient:
                     object_=agent, annotation=SessionAgentSpecBody, direction="write"
                 ),
                 "metadata": metadata,
+                "shared": shared,
                 "title": title,
             },
             headers={
@@ -1801,7 +1806,7 @@ class AsyncRawSessionsClient:
         self, *, session_id: str, request_options: typing.Optional[RequestOptions] = None
     ) -> AsyncHttpResponse[GetSessionResponse]:
         """
-        Fetch a session by ID. Only the session creator may fetch it.
+        Fetch a session by ID. Allowed for the creator, a manager of the bound named agent, or any tenant member when the session is shared.
 
         Parameters
         ----------
@@ -1914,11 +1919,12 @@ class AsyncRawSessionsClient:
         session_id: str,
         agent: typing.Optional[SessionAgentSpecBody] = OMIT,
         metadata: typing.Optional[SessionMetadata] = OMIT,
+        shared: typing.Optional[bool] = OMIT,
         title: typing.Optional[str] = OMIT,
         request_options: typing.Optional[RequestOptions] = None,
     ) -> AsyncHttpResponse[GetSessionResponse]:
         """
-        Update a session: optional `title`, `metadata`, and (inline sessions only) `agent` as `{ spec: AgentSpec }`. Named sessions reject agent updates. An empty body is a valid no-op that refreshes `updated_at`. Only the session creator may update it.
+        Update a session: optional `title`, `metadata`, `shared`, and (inline sessions only) `agent` as `{ spec: AgentSpec }`. Named sessions reject agent updates. An empty body is a valid no-op that refreshes `updated_at`. Only the session creator may update it.
 
         Parameters
         ----------
@@ -1928,6 +1934,9 @@ class AsyncRawSessionsClient:
         agent : typing.Optional[SessionAgentSpecBody]
 
         metadata : typing.Optional[SessionMetadata]
+
+        shared : typing.Optional[bool]
+            When true, any subject in the tenant may fetch this session by id.
 
         title : typing.Optional[str]
             Human-readable session title.
@@ -1948,6 +1957,7 @@ class AsyncRawSessionsClient:
                     object_=agent, annotation=SessionAgentSpecBody, direction="write"
                 ),
                 "metadata": metadata,
+                "shared": shared,
                 "title": title,
             },
             headers={

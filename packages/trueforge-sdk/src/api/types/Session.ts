@@ -11,6 +11,8 @@ export interface Session {
     id: string;
     metadata: TrueForge.SessionMetadata;
     metrics: TrueForge.SessionMetrics;
+    /** When true, any subject in the tenant may fetch this session by id. */
+    shared: boolean;
     source: TrueForge.SessionSource | null;
     /** Optional human-readable title; null until set. */
     title: string | null;

@@ -27,6 +27,11 @@ class Session(UncheckedBaseModel):
 
     metadata: SessionMetadata
     metrics: SessionMetrics
+    shared: bool = pydantic.Field()
+    """
+    When true, any subject in the tenant may fetch this session by id.
+    """
+
     source: typing.Optional[SessionSource] = None
     title: typing.Optional[str] = pydantic.Field(default=None)
     """

@@ -178,7 +178,7 @@ class SessionsClient:
 
     def get(self, *, session_id: str, request_options: typing.Optional[RequestOptions] = None) -> GetSessionResponse:
         """
-        Fetch a session by ID. Only the session creator may fetch it.
+        Fetch a session by ID. Allowed for the creator, a manager of the bound named agent, or any tenant member when the session is shared.
 
         Parameters
         ----------
@@ -245,11 +245,12 @@ class SessionsClient:
         session_id: str,
         agent: typing.Optional[SessionAgentSpecBody] = OMIT,
         metadata: typing.Optional[SessionMetadata] = OMIT,
+        shared: typing.Optional[bool] = OMIT,
         title: typing.Optional[str] = OMIT,
         request_options: typing.Optional[RequestOptions] = None,
     ) -> GetSessionResponse:
         """
-        Update a session: optional `title`, `metadata`, and (inline sessions only) `agent` as `{ spec: AgentSpec }`. Named sessions reject agent updates. An empty body is a valid no-op that refreshes `updated_at`. Only the session creator may update it.
+        Update a session: optional `title`, `metadata`, `shared`, and (inline sessions only) `agent` as `{ spec: AgentSpec }`. Named sessions reject agent updates. An empty body is a valid no-op that refreshes `updated_at`. Only the session creator may update it.
 
         Parameters
         ----------
@@ -259,6 +260,9 @@ class SessionsClient:
         agent : typing.Optional[SessionAgentSpecBody]
 
         metadata : typing.Optional[SessionMetadata]
+
+        shared : typing.Optional[bool]
+            When true, any subject in the tenant may fetch this session by id.
 
         title : typing.Optional[str]
             Human-readable session title.
@@ -284,7 +288,12 @@ class SessionsClient:
         )
         """
         _response = self._raw_client.update(
-            session_id=session_id, agent=agent, metadata=metadata, title=title, request_options=request_options
+            session_id=session_id,
+            agent=agent,
+            metadata=metadata,
+            shared=shared,
+            title=title,
+            request_options=request_options,
         )
         return _response.data
 
@@ -907,7 +916,7 @@ class AsyncSessionsClient:
         self, *, session_id: str, request_options: typing.Optional[RequestOptions] = None
     ) -> GetSessionResponse:
         """
-        Fetch a session by ID. Only the session creator may fetch it.
+        Fetch a session by ID. Allowed for the creator, a manager of the bound named agent, or any tenant member when the session is shared.
 
         Parameters
         ----------
@@ -990,11 +999,12 @@ class AsyncSessionsClient:
         session_id: str,
         agent: typing.Optional[SessionAgentSpecBody] = OMIT,
         metadata: typing.Optional[SessionMetadata] = OMIT,
+        shared: typing.Optional[bool] = OMIT,
         title: typing.Optional[str] = OMIT,
         request_options: typing.Optional[RequestOptions] = None,
     ) -> GetSessionResponse:
         """
-        Update a session: optional `title`, `metadata`, and (inline sessions only) `agent` as `{ spec: AgentSpec }`. Named sessions reject agent updates. An empty body is a valid no-op that refreshes `updated_at`. Only the session creator may update it.
+        Update a session: optional `title`, `metadata`, `shared`, and (inline sessions only) `agent` as `{ spec: AgentSpec }`. Named sessions reject agent updates. An empty body is a valid no-op that refreshes `updated_at`. Only the session creator may update it.
 
         Parameters
         ----------
@@ -1004,6 +1014,9 @@ class AsyncSessionsClient:
         agent : typing.Optional[SessionAgentSpecBody]
 
         metadata : typing.Optional[SessionMetadata]
+
+        shared : typing.Optional[bool]
+            When true, any subject in the tenant may fetch this session by id.
 
         title : typing.Optional[str]
             Human-readable session title.
@@ -1037,7 +1050,12 @@ class AsyncSessionsClient:
         asyncio.run(main())
         """
         _response = await self._raw_client.update(
-            session_id=session_id, agent=agent, metadata=metadata, title=title, request_options=request_options
+            session_id=session_id,
+            agent=agent,
+            metadata=metadata,
+            shared=shared,
+            title=title,
+            request_options=request_options,
         )
         return _response.data
 

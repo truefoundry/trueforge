@@ -17,6 +17,7 @@ export const Session: core.serialization.ObjectSchema<serializers.Session.Raw, T
         id: core.serialization.string(),
         metadata: SessionMetadata,
         metrics: SessionMetrics,
+        shared: core.serialization.boolean(),
         source: SessionSource.nullable(),
         title: core.serialization.string().nullable(),
         updatedAt: core.serialization.property("updated_at", core.serialization.string()),
@@ -30,6 +31,7 @@ export declare namespace Session {
         id: string;
         metadata: SessionMetadata.Raw;
         metrics: SessionMetrics.Raw;
+        shared: boolean;
         source?: SessionSource.Raw | null;
         title?: string | null;
         updated_at: string;
