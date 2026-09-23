@@ -31,10 +31,12 @@ export type ThreadViewportShellProps = ComponentPropsWithRef<'div'> & {
   isEmpty?: boolean;
   /** Disable the inner scroll root when an ancestor owns the combined surface scroll. */
   scrollable?: boolean;
+  /** Override the conversation content width without changing the scroll root width. */
+  contentMaxWidth?: string;
 };
 
 export const ThreadViewportShell = forwardRef<HTMLDivElement, ThreadViewportShellProps>(
-  ({ className, isEmpty, scrollable = true, children, ...rest }, ref) => (
+  ({ className, isEmpty, scrollable = true, contentMaxWidth, children, ...rest }, ref) => (
     <div
       ref={ref}
       data-slot="aui_thread-viewport"
@@ -50,7 +52,7 @@ export const ThreadViewportShell = forwardRef<HTMLDivElement, ThreadViewportShel
           'mx-auto flex w-full min-w-0 flex-col px-3 pt-3',
           isEmpty ? 'min-h-full justify-center pb-4' : 'pb-32',
         )}
-        style={{ maxWidth: THREAD_CONTENT_MAX_WIDTH }}
+        style={{ maxWidth: contentMaxWidth ?? THREAD_CONTENT_MAX_WIDTH }}
       >
         {children}
       </div>

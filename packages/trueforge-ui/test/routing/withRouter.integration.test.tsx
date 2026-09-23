@@ -165,13 +165,18 @@ describe('withRouter end to end', () => {
         agentConfig={{ mode: 'AgentLibraryWithComposer' }}
         withRouter
         layout={() => <SessionsSurface />}
-        overrides={{ AgentSessionTimelineContainer: () => <div>Timeline</div> }}
+        overrides={{
+          AgentSessionTimelineContainer: ({ contentMaxWidth }) => (
+            <div data-testid="shared-session-timeline">{contentMaxWidth}</div>
+          ),
+        }}
       />,
     );
 
     expect(await screen.findByRole('heading', { name: 'Shared session' })).toBeInTheDocument();
     expect(screen.queryByRole('separator', { name: 'Resize session list' })).not.toBeInTheDocument();
     expect(screen.queryByRole('button', { name: 'Last 30 days' })).not.toBeInTheDocument();
+    expect(screen.getByTestId('shared-session-timeline')).toHaveTextContent('60rem');
     expect(listSessions).not.toHaveBeenCalled();
 
     fireEvent.click(screen.getByRole('button', { name: 'Close session details' }));

@@ -323,6 +323,7 @@ export function AgentSessions({
               sessionId={selectedSessionId}
               events={detailEvents}
               listMetrics={selectedEntry?.metrics}
+              {...(detailOnly ? { contentMaxWidth: '60rem' } : {})}
             />
           )}
         </>

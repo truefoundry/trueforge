@@ -125,6 +125,7 @@ function messagesForTurn(messages: ThreadMessageLike[], turn: SessionTurnView): 
 export type AgentSessionTimelineContainerProps = {
   sessionId: string;
   events: SessionEventItem[];
+  contentMaxWidth?: string;
   listMetrics?: {
     totalTurns: number;
     totalCostInUsd?: number;
@@ -132,7 +133,12 @@ export type AgentSessionTimelineContainerProps = {
   };
 };
 
-export function AgentSessionTimelineContainer({ sessionId, events, listMetrics }: AgentSessionTimelineContainerProps) {
+export function AgentSessionTimelineContainer({
+  sessionId,
+  events,
+  contentMaxWidth,
+  listMetrics,
+}: AgentSessionTimelineContainerProps) {
   const server = useServer();
   const AgentSessionTurnHeader = useSlot('AgentSessionTurnHeader');
   const AgentSessionEventTimeline = useSlot('AgentSessionEventTimeline');
@@ -219,7 +225,11 @@ export function AgentSessionTimelineContainer({ sessionId, events, listMetrics }
           <AgentSessionEventTimeline turns={turnViews} segments={timelineSegments} onSelectTurn={handleSelectTurn} />
         </Suspense>
       </div>
-      <ThreadViewportShell scrollable={false} className="pb-4">
+      <ThreadViewportShell
+        scrollable={false}
+        className="pb-4"
+        {...(contentMaxWidth == null ? {} : { contentMaxWidth })}
+      >
         <div className="flex flex-col gap-4">
           {turnViews.map(turn => (
             <SessionTurnSection

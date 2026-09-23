@@ -2,10 +2,9 @@
 
 import { Suspense, useCallback, useEffect, useMemo, useState } from 'react';
 
+import { useCopySharedSessionLink } from '../../hooks/useCopySharedSessionLink.js';
 import { useSessionShareSearch } from '../../hooks/useSessionShareSearch.js';
 import { Icon } from '../../icons/Icon.js';
-import { buildSharedSessionHref } from '../../routing/paths.js';
-import { useOptionalResolvedRoutes } from '../../routing/ResolvedRoutesContext.js';
 import { useOptionalAgentSessionsServer } from '../../server/ServerContext.js';
 import { useShellMode } from '../../server/ShellModeContext.js';
 import { useSlot } from '../../theme/SlotsProvider.js';
@@ -23,13 +22,12 @@ import { Skeleton } from '../primitives/Skeleton.js';
 export function SessionsPage() {
   const sessionsServer = useOptionalAgentSessionsServer();
   const shell = useShellMode();
-  const routes = useOptionalResolvedRoutes();
   const { sessionId, updateShareSearch } = useSessionShareSearch();
   const AgentSessions = useSlot('AgentSessions');
   const AgentSessionsFilters = useSlot('AgentSessionsFilters');
   const sharedSessionId = shell.sharedSessionId;
   const selectedSessionId = sharedSessionId ?? sessionId;
-  const [copied, setCopied] = useState(false);
+  const { copied, copySharedSessionLink } = useCopySharedSessionLink(selectedSessionId);
 
   const [agentFilter, setAgentFilter] = useState<string | null>(
     () => readSessionShareSearch(window.location.search).agentId,
@@ -50,12 +48,6 @@ export function SessionsPage() {
   }, []);
 
   useEffect(() => {
-    if (!copied) return undefined;
-    const timer = window.setTimeout(() => setCopied(false), 2000);
-    return () => window.clearTimeout(timer);
-  }, [copied]);
-
-  useEffect(() => {
     const syncFilters = () => {
       const share = readSessionShareSearch(window.location.search);
       setAgentFilter(share.agentId);
@@ -68,20 +60,6 @@ export function SessionsPage() {
   // Resolve relative presets only when the filter changes. Unrelated query
   // updates (such as selecting a session) must not shift/refetch the list.
   const resolved = useMemo(() => resolveSessionTimeRange(timeRange), [timeRange]);
-  const copySharedSessionLink = async () => {
-    if (selectedSessionId == null) return;
-    try {
-      await navigator.clipboard.writeText(
-        buildSharedSessionHref({
-          sessionId: selectedSessionId,
-          routes,
-        }),
-      );
-      setCopied(true);
-    } catch {
-      // Clipboard access depends on the host browser and document permissions.
-    }
-  };
   const timeRangeDurationMs = timeRange.endTs - timeRange.startTs;
   const showLoadRecentSessions =
     timeRange.timeWindowMs == null && timeRangeDurationMs > 0 && timeRangeDurationMs <= 2 * SESSION_TIME_BUFFER_MS;

@@ -2,4 +2,4 @@
 "@truefoundry/trueforge-ui": minor
 ---
 
-Add a detail-only session sharing route with a query-string fallback for hosts that manage routing.
+Add detail-only session sharing routes, chat-header share links, and rename the active-chat reset action to New Chat.

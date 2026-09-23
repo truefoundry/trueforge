@@ -778,6 +778,10 @@ describe('layout slot overrides', () => {
     return <button type="button">custom clear</button>;
   }
 
+  function CustomShareChat() {
+    return <button type="button">custom share</button>;
+  }
+
   function CustomSaveAgent() {
     return <button type="button">custom save</button>;
   }
@@ -807,12 +811,17 @@ describe('layout slot overrides', () => {
     );
 
     expect(screen.getByRole('button', { name: 'custom clear' })).toBeInTheDocument();
-    expect(screen.queryByRole('button', { name: 'Clear chat' })).not.toBeInTheDocument();
   });
 
-  it.each(hosts)('%s places Clear Chat immediately before Save Agent', (_name, Layout) => {
+  it.each(hosts)('%s places Share, New Chat, and Save Agent in order', (_name, Layout) => {
     render(
-      <SlotsProvider overrides={{ ClearChatButton: CustomClearChat, SaveAgentButton: CustomSaveAgent }}>
+      <SlotsProvider
+        overrides={{
+          ShareChatButton: CustomShareChat,
+          ClearChatButton: CustomClearChat,
+          SaveAgentButton: CustomSaveAgent,
+        }}
+      >
         <ShellModeProvider agentConfig={{ mode: 'SingleAgent', name: 'a' }}>
           <RuntimeHarness messages={[]}>
             <div className="h-96">
@@ -823,8 +832,10 @@ describe('layout slot overrides', () => {
       </SlotsProvider>,
     );
 
+    const shareChat = screen.getByRole('button', { name: 'custom share' });
     const clearChat = screen.getByRole('button', { name: 'custom clear' });
     const saveAgent = screen.getByRole('button', { name: 'custom save' });
+    expect(shareChat.nextElementSibling).toBe(clearChat);
     expect(clearChat.nextElementSibling).toBe(saveAgent);
   });
 

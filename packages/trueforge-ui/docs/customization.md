@@ -65,7 +65,7 @@ Public override surface (primitives stay theme/CSS — not slots):
 - **Thread list:** `ThreadListShell`, `ThreadListNewButton`, `ThreadListRow`,
   `ThreadListRowSkeleton`, `ThreadListEmptyState`, `HistoryLoader`,
   `AgentsLibrary`, `AgentsLibraryButton`, `SessionsBrowserButton`,
-  `SaveAgentButton`, `SelectAgentEmptyState`, `ClearChatButton`
+  `SaveAgentButton`, `SelectAgentEmptyState`, `ClearChatButton`, `ShareChatButton`
 - **Agent details / sessions:** `AgentDetailsPage`, `AgentDetailsHeader`,
   `AgentDetailsTabs`, `AgentDetailsUnavailable`, `AgentOverview`,
   `AgentOverviewCard`, `AgentSessions`, `AgentSessionsFilters`, `SessionsPage`,

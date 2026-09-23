@@ -51,6 +51,12 @@ describe('ThreadViewportShell', () => {
     expect(screen.getByTestId('viewport')).toHaveClass('shrink-0', 'overflow-visible');
     expect(screen.getByTestId('viewport')).not.toHaveClass('overflow-y-auto');
   });
+
+  it('supports a wider content surface without changing the default', () => {
+    render(<ThreadViewportShell contentMaxWidth="60rem" data-testid="viewport" />);
+
+    expect(screen.getByTestId('viewport').firstElementChild).toHaveStyle({ maxWidth: '60rem' });
+  });
 });
 
 describe('ThreadComposerAreaShell', () => {

@@ -292,6 +292,7 @@ export {
   sessionIsCreateAgent,
 } from './atoms/lib/sessionCreateAgent.js';
 export { SelectAgentEmptyState } from './atoms/SelectAgentEmptyState.js';
+export { ShareChatButton } from './atoms/ShareChatButton.js';
 export { ShellActionsActionSlot } from './atoms/ShellActionsActionSlot.js';
 export { createTrueForgeServer } from './server/createTrueForgeServer.js';
 export type { CreateTrueForgeServerOptions, TrueForgeServer } from './server/createTrueForgeServer.js';
