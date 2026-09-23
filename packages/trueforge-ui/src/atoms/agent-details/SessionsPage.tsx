@@ -1,6 +1,6 @@
 'use client';
 
-import { Suspense, useEffect, useMemo, useState } from 'react';
+import { Suspense, useCallback, useEffect, useMemo, useState } from 'react';
 
 import { useSessionShareSearch } from '../../hooks/useSessionShareSearch.js';
 import { Icon } from '../../icons/Icon.js';
@@ -13,6 +13,7 @@ import {
   defaultSessionTimeRange,
   readSessionShareSearch,
   resolveSessionTimeRange,
+  SESSION_TIME_BUFFER_MS,
   type SessionTimeRange,
 } from '../../utils/sessionShareUrl.js';
 import { auiButtonClass } from '../lib/buttonClasses.js';
@@ -81,6 +82,14 @@ export function SessionsPage() {
       // Clipboard access depends on the host browser and document permissions.
     }
   };
+  const timeRangeDurationMs = timeRange.endTs - timeRange.startTs;
+  const showLoadRecentSessions =
+    timeRange.timeWindowMs == null && timeRangeDurationMs > 0 && timeRangeDurationMs <= 2 * SESSION_TIME_BUFFER_MS;
+  const loadRecentSessions = useCallback(() => {
+    const recentRange = defaultSessionTimeRange();
+    setTimeRange(recentRange);
+    updateShareSearch({ timeRange: recentRange, sessionId: null, view: 'sessions' });
+  }, [updateShareSearch]);
 
   return (
     <div className="flex h-full min-h-0 w-full flex-col bg-primary-bg">
@@ -131,7 +140,10 @@ export function SessionsPage() {
               startTimestamp={new Date(resolved.startTs).toISOString()}
               endTimestamp={new Date(resolved.endTs).toISOString()}
               {...(sharedSessionId == null
-                ? { shareView: 'sessions' as const }
+                ? {
+                    shareView: 'sessions' as const,
+                    ...(showLoadRecentSessions ? { onLoadRecentSessions: loadRecentSessions } : {}),
+                  }
                 : {
                     detailOnly: true,
                     detailSessionId: sharedSessionId,

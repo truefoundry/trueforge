@@ -22,6 +22,8 @@ export type AgentSessionsProps = {
   detailOnly?: boolean;
   detailSessionId?: string;
   onCloseDetail?: () => void;
+  /** Restores the rolling recent-session window from a URL-loaded session. */
+  onLoadRecentSessions?: () => void;
 };
 
 export type AgentSessionListRowProps = {

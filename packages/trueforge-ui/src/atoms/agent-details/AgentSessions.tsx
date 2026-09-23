@@ -49,6 +49,7 @@ export function AgentSessions({
   detailOnly = false,
   detailSessionId,
   onCloseDetail,
+  onLoadRecentSessions,
 }: AgentSessionsProps) {
   const sessionsServer = useAgentSessionsServer();
   const chatServer = useServer();
@@ -289,6 +290,7 @@ export function AgentSessions({
 
   const resumeProps =
     resumeHref != null ? { resumeHref, resumeLabel } : shell != null ? { onResume: handleResume, resumeLabel } : {};
+  const selectedCreatedAt = detailSession?.createdAt ?? selectedEntry?.createdAt;
 
   const detailPanel = (
     <section className="flex h-full min-w-0 flex-col bg-primary-bg">
@@ -306,7 +308,7 @@ export function AgentSessions({
             title={selectedTitle}
             sessionId={selectedSessionId}
             agentId={agentId}
-            createdAt={detailSession?.createdAt ?? selectedEntry?.createdAt}
+            createdAt={selectedCreatedAt}
             view={shareView}
             onClose={clearSelectedSession}
             canResume={canResume}
@@ -338,7 +340,8 @@ export function AgentSessions({
     !listLoading &&
     !listFailed &&
     entries.length === 0 &&
-    (selectedSessionId == null || selectedSessionId.length === 0)
+    (selectedSessionId == null || selectedSessionId.length === 0) &&
+    onLoadRecentSessions == null
   ) {
     return (
       <EmptyScreen
@@ -358,6 +361,13 @@ export function AgentSessions({
     >
       <Panel id="agent-sessions-list" defaultSize="35%" minSize="20%" maxSize="50%">
         <aside className="flex h-full min-h-0 w-full flex-col bg-sidebar-bg">
+          {onLoadRecentSessions != null ? (
+            <div className="flex shrink-0 justify-center border-b border-border p-3">
+              <Button.Secondary type="button" size="small" onClick={onLoadRecentSessions}>
+                Load recent sessions
+              </Button.Secondary>
+            </div>
+          ) : null}
           <div ref={setListEl} className="scrollbar-none min-h-0 flex-1 overflow-y-auto">
             {listLoading ? (
               <div className="space-y-2 p-3" role="status" aria-label="Loading sessions">

@@ -6,11 +6,14 @@ import { Spinner } from '@/atoms/primitives/Spinner.js';
 import { Button } from '../../atoms/primitives/Button.js';
 import { Tooltip } from '../../atoms/primitives/Tooltip.js';
 import { Icon } from '../../icons/Icon.js';
+import {
+  isDaytonaSandboxConfig,
+  type DaytonaSandboxConfig,
+} from '../../plugins/trueforge-agent-server-adapter/catalogs/sandboxProviderCatalog.js';
 import { useCatalogServer } from '../../server/ServerContext.js';
 import type {
   SandboxProviderBase,
   SandboxProviderCatalogEntry,
-  SandboxProviderConfig,
   SandboxProviderListEntry,
   SandboxSnapshotSyncStatus,
 } from '../../server/types.js';
@@ -25,7 +28,7 @@ const configFrom = ({
   autoStopIntervalInMinutes,
   autoArchiveIntervalInMinutes,
   autoDeleteIntervalInMinutes,
-}: SandboxProviderConfig): SandboxProviderConfig => ({
+}: DaytonaSandboxConfig): DaytonaSandboxConfig => ({
   execTimeoutMs,
   autoStopIntervalInMinutes,
   autoArchiveIntervalInMinutes,
@@ -144,10 +147,11 @@ const SandboxSettings = () => {
     return catalog.filter(entry => !connectedCatalogIds.has(entry.id));
   }, [catalog, providers, hasConfiguredProvider]);
 
-  const formInitialConfig = useMemo(
-    () => (updateProvider ? configFrom(updateProvider) : createEntry ? configFrom(createEntry) : null),
-    [updateProvider, createEntry],
-  );
+  const formInitialConfig = useMemo(() => {
+    const source = updateProvider ?? createEntry;
+    if (source == null || !isDaytonaSandboxConfig(source)) return null;
+    return configFrom(source);
+  }, [updateProvider, createEntry]);
 
   if (!sandboxCatalog) {
     return <p className="text-sm text-text-secondary">Sandbox provider catalog is not available.</p>;
@@ -202,6 +206,7 @@ const SandboxSettings = () => {
   };
 
   const handleRetry = (provider: SandboxProviderBase) => {
+    if (!isDaytonaSandboxConfig(provider)) return;
     void runMutation(async () => {
       await sandboxCatalog.updateSandboxProvider({
         id: provider.id,
