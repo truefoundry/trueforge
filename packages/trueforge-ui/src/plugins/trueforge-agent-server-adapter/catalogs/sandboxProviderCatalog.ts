@@ -5,20 +5,42 @@
  * UI: multi-row providers with `id` / `catalogId` / `name` / flat `apiKey`.
  * Harness: one Daytona provider per tenant; catalog YAML has no name — synthetic
  * identity uses `type` (`daytona`) as id/catalogId and display name `Daytona`.
+ *
+ * Daytona lifecycle fields live here as a host extension of the generic sandbox
+ * port types (identity + credentials only).
  */
 import type { TrueForge } from '@truefoundry/trueforge-sdk';
 import { TrueForgeApi } from '@truefoundry/trueforge-sdk';
 import type {
+  CreateSandboxProviderRequest,
   SandboxCatalogServer,
   SandboxProviderBase,
   SandboxProviderCatalogEntry,
-  SandboxProviderConfig,
   SandboxProviderListEntry,
+  UpdateSandboxProviderRequest,
 } from '../../../server/types.js';
 
-export type UiSandboxProvider = SandboxProviderBase;
-export type UiSandboxProviderCatalogEntry = SandboxProviderCatalogEntry;
-export type UiSandboxProviderListEntry = SandboxProviderListEntry;
+/** Daytona-only sandbox lifecycle settings. Not on the generic sandbox port. */
+export interface DaytonaSandboxConfig {
+  execTimeoutMs: number;
+  autoStopIntervalInMinutes: number;
+  autoArchiveIntervalInMinutes: number;
+  autoDeleteIntervalInMinutes: number;
+}
+
+export type UiSandboxProvider = SandboxProviderBase & DaytonaSandboxConfig;
+export type UiSandboxProviderCatalogEntry = SandboxProviderCatalogEntry & DaytonaSandboxConfig;
+export type UiSandboxProviderListEntry = SandboxProviderListEntry<UiSandboxProvider>;
+export type UiCreateSandboxProviderRequest = CreateSandboxProviderRequest & DaytonaSandboxConfig;
+export type UiUpdateSandboxProviderRequest = UpdateSandboxProviderRequest & DaytonaSandboxConfig;
+
+export type DaytonaSandboxCatalogServer = SandboxCatalogServer<
+  UiSandboxProvider,
+  UiSandboxProviderCatalogEntry,
+  UiCreateSandboxProviderRequest,
+  UiUpdateSandboxProviderRequest,
+  UiSandboxProviderListEntry
+>;
 
 const DAYTONA_TYPE = 'daytona';
 const DAYTONA_DISPLAY_NAME = 'Daytona';
@@ -30,9 +52,22 @@ function displayNameForType(type: string): string {
   return type;
 }
 
+export function isDaytonaSandboxConfig(value: object): value is DaytonaSandboxConfig {
+  return (
+    'execTimeoutMs' in value &&
+    typeof value.execTimeoutMs === 'number' &&
+    'autoStopIntervalInMinutes' in value &&
+    typeof value.autoStopIntervalInMinutes === 'number' &&
+    'autoArchiveIntervalInMinutes' in value &&
+    typeof value.autoArchiveIntervalInMinutes === 'number' &&
+    'autoDeleteIntervalInMinutes' in value &&
+    typeof value.autoDeleteIntervalInMinutes === 'number'
+  );
+}
+
 export function configFromHarness(
   provider: TrueForgeApi.CatalogSandboxProvider | TrueForgeApi.SandboxProviderManifest,
-): SandboxProviderConfig {
+): DaytonaSandboxConfig {
   return {
     execTimeoutMs: provider.execTimeoutMs,
     autoStopIntervalInMinutes: provider.autoStopIntervalInMinutes,
@@ -94,7 +129,7 @@ export function toHarnessManifest(
   req: {
     type: string;
     apiKey: string;
-  } & SandboxProviderConfig,
+  } & DaytonaSandboxConfig,
 ): TrueForgeApi.SandboxProviderManifest {
   if (req.type !== DAYTONA_TYPE) {
     throw new Error(`Unsupported sandbox provider type: ${req.type}`);
@@ -110,7 +145,7 @@ export function toHarnessManifest(
 }
 
 /** Settings sandbox-catalog port for `createTrueForgeServer`. Delete omitted (no BE route). */
-export function createSandboxProviderCatalog(client: TrueForge): SandboxCatalogServer {
+export function createSandboxProviderCatalog(client: TrueForge): DaytonaSandboxCatalogServer {
   async function resolveApiKey(apiKey: string | undefined): Promise<string> {
     const trimmed = apiKey?.trim();
     if (trimmed !== undefined && trimmed !== '') {
