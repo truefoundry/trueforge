@@ -12,7 +12,7 @@ export type { TrueForgeBuiltInServerConfig, TrueForgeServerConfig } from '../ser
 export type { LayoutProp } from '../theme/types.js';
 export type { ChatLayout, TrueForgeUIProps } from './TrueForgeUIShell.js';
 
-// Lazy so `react-router` stays out of the base bundle unless `withRouter` is set.
+// Lazy so `react-router` stays out of the base bundle when `withRouter={false}`.
 const TrueForgeUIWithRouter = lazy<ComponentType<Omit<TrueForgeUIProps, 'withRouter'>>>(() =>
   import('./TrueForgeUIWithRouter.js').then(m => ({ default: m.TrueForgeUIWithRouter })),
 );
@@ -34,7 +34,7 @@ export function TrueForgeUI(props: TrueForgeUIProps) {
     );
   }
 
-  const { withRouter, ...rest } = props;
+  const { withRouter = true, ...rest } = props;
   if (withRouter) {
     return (
       <Suspense fallback={<ServerInitLoader className={props.className} />}>

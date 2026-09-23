@@ -1,6 +1,6 @@
 'use client';
 
-import { lazy, Suspense, useRef } from 'react';
+import { lazy, Suspense, useEffect, useRef, useState } from 'react';
 
 import { useAui } from '../assistant-ui.js';
 import { NamedAgentHeaderLabel } from '../atoms/NamedAgentHeaderLabel.js';
@@ -12,14 +12,19 @@ import { useIsMobile } from '../atoms/lib/useIsMobile.js';
 import { Spinner } from '../atoms/primitives/Spinner.js';
 import { AgentConfigDrawerContainer } from '../containers/AgentConfigDrawerContainer.js';
 import { Thread } from '../containers/Thread.js';
+import { ThreadListContainer } from '../containers/ThreadListContainer.js';
 import { Icon } from '../icons/Icon.js';
-import { shellIsCreateAgent, useOptionalShellMode } from '../server/ShellModeContext.js';
+import { shellIsCreateAgent, useOptionalShellMode, type ShellMode } from '../server/ShellModeContext.js';
 import { useSlot } from '../theme/SlotsProvider.js';
 
 const TruefoundrySettingsBuilder = lazy(() => import('../containers/SettingsBuilder/index.js'));
 const SchedulesPage = lazy(() =>
   import('../atoms/schedules/SchedulesPage.js').then(m => ({ default: m.SchedulesPage })),
 );
+
+function isRecentHistoryAllowed({ overlayOpen, mode }: { overlayOpen: boolean; mode?: ShellMode }): boolean {
+  return !overlayOpen && mode?.status === 'active' && !mode.isCreateAgent;
+}
 
 export function DrawerLayout({ className }: { className?: string }) {
   const aui = useAui();
@@ -28,9 +33,13 @@ export function DrawerLayout({ className }: { className?: string }) {
   const ClearChatButton = useSlot('ClearChatButton');
   const AgentDetailsPage = useSlot('AgentDetailsPage');
   const AgentsLibrary = useSlot('AgentsLibrary');
+  const AgentsLibraryButton = useSlot('AgentsLibraryButton');
+  const SessionsBrowserButton = useSlot('SessionsBrowserButton');
+  const SchedulesButton = useSlot('SchedulesButton');
   const SessionsPage = useSlot('SessionsPage');
   const SaveAgentButton = useSlot('SaveAgentButton');
   const SelectAgentEmptyState = useSlot('SelectAgentEmptyState');
+  const DraftAgentConfigTrigger = useSlot('DraftAgentConfigTrigger');
   const UserAvatar = useSlot('UserAvatar');
   const mainRef = useRef<HTMLDivElement>(null);
   const isIdle = shell?.mode.status === 'idle';
@@ -41,27 +50,47 @@ export function DrawerLayout({ className }: { className?: string }) {
   const overlayOpen = settingsOpen || libraryOpen || sessionsOpen || schedulesOpen;
   const showAgentConfig =
     shell != null && shellIsCreateAgent(shell.mode) && !overlayOpen && (!isMobile || shell.agentConfigOpen);
+  const showConfigReopen =
+    shell != null && shellIsCreateAgent(shell.mode) && !overlayOpen && isMobile && !shell.agentConfigOpen;
+  const recentsAllowed = isRecentHistoryAllowed({ overlayOpen, mode: shell?.mode });
   const showNewActions = shell?.isNewChatEnabled !== false;
+  // Recents starts open in New Chat; users can collapse it from the top tab.
+  const [recentsOpen, setRecentsOpen] = useState(true);
+
+  useEffect(() => {
+    if (!recentsAllowed) setRecentsOpen(false);
+  }, [recentsAllowed]);
 
   const handleNewChat = () => {
     shell?.setLibraryOpen(false);
     shell?.setSessionsOpen(false);
     if (shell?.isComposerEnabled) {
       shell.openDraft();
+      setRecentsOpen(true);
       return;
     }
     shell?.setSettingsOpen(false);
     shell?.setSchedulesOpen(false);
     void Promise.resolve(aui.threads().switchToNewThread()).catch(() => undefined);
+    setRecentsOpen(true);
   };
 
   const handleNewAgent = () => {
     shell?.setLibraryOpen(false);
     shell?.setSessionsOpen(false);
+    setRecentsOpen(false);
     if (shell?.isComposerEnabled) {
       shell.openAgentBuilder();
     }
   };
+
+  const handleBackToChat = () => {
+    shell?.setLibraryOpen(false);
+    shell?.setSessionsOpen(false);
+    shell?.setSchedulesOpen(false);
+  };
+
+  const showRecentsPane = recentsAllowed && recentsOpen;
 
   return (
     <div className={cn('relative flex h-full min-h-0 w-full bg-primary-bg', className)}>
@@ -82,14 +111,11 @@ export function DrawerLayout({ className }: { className?: string }) {
           title={
             !overlayOpen ? (
               <NamedAgentHeaderLabel />
-            ) : libraryOpen || schedulesOpen ? (
+            ) : libraryOpen || sessionsOpen || schedulesOpen ? (
               <button
                 type="button"
                 className={auiButtonClass({ variant: 'ghost', size: 'small' })}
-                onClick={() => {
-                  shell?.setLibraryOpen(false);
-                  shell?.setSchedulesOpen(false);
-                }}
+                onClick={handleBackToChat}
               >
                 <Icon name="arrow-left" />
                 Back to chat
@@ -102,6 +128,10 @@ export function DrawerLayout({ className }: { className?: string }) {
                 <>
                   <ClearChatButton />
                   <SaveAgentButton />
+                  {showConfigReopen ? <DraftAgentConfigTrigger /> : null}
+                  <AgentsLibraryButton toolbar />
+                  <SessionsBrowserButton toolbar />
+                  <SchedulesButton toolbar />
                 </>
               ) : null}
               <ShellActions key="shell-actions" />
@@ -117,6 +147,25 @@ export function DrawerLayout({ className }: { className?: string }) {
                       onClick={handleNewChat}
                     >
                       <Icon name="square-pen" />
+                    </button>
+                  ) : null}
+                  {recentsAllowed ? (
+                    <button
+                      type="button"
+                      aria-label="Recents"
+                      title="Recents"
+                      aria-pressed={recentsOpen}
+                      className={auiButtonClass({
+                        variant: 'ghost',
+                        size: 'icon',
+                        className: cn(
+                          recentsOpen &&
+                            'bg-primary-button-bg font-medium text-primary-button-text hover:bg-primary-button-hover hover:text-primary-button-text',
+                        ),
+                      })}
+                      onClick={() => setRecentsOpen(open => !open)}
+                    >
+                      <Icon name="clock-rotate-left" />
                     </button>
                   ) : null}
                   {showNewActions && shell?.isComposerEnabled ? (
@@ -135,50 +184,65 @@ export function DrawerLayout({ className }: { className?: string }) {
             </>
           }
         />
-        <div ref={mainRef} className="min-h-0 min-w-0 flex-1">
-          {settingsOpen ? (
-            <Suspense
-              fallback={
-                <div
-                  className="flex h-full items-center justify-center"
-                  role="status"
-                  aria-live="polite"
-                  aria-busy="true"
-                >
-                  <Spinner size={28} className="text-text-primary" />
-                  <span className="sr-only">Loading</span>
-                </div>
-              }
+        <div className="flex min-h-0 min-w-0 flex-1">
+          <div ref={mainRef} className="min-h-0 min-w-0 flex-1">
+            {settingsOpen ? (
+              <Suspense
+                fallback={
+                  <div
+                    className="flex h-full items-center justify-center"
+                    role="status"
+                    aria-live="polite"
+                    aria-busy="true"
+                  >
+                    <Spinner size={28} className="text-text-primary" />
+                    <span className="sr-only">Loading</span>
+                  </div>
+                }
+              >
+                <TruefoundrySettingsBuilder />
+              </Suspense>
+            ) : sessionsOpen ? (
+              <SessionsPage />
+            ) : libraryOpen && shell?.libraryAgentId != null ? (
+              <AgentDetailsPage key={shell.libraryAgentId} agentId={shell.libraryAgentId} />
+            ) : libraryOpen ? (
+              <AgentsLibrary />
+            ) : schedulesOpen ? (
+              <Suspense
+                fallback={
+                  <div
+                    className="flex h-full items-center justify-center"
+                    role="status"
+                    aria-live="polite"
+                    aria-busy="true"
+                  >
+                    <Spinner size={28} className="text-text-primary" />
+                    <span className="sr-only">Loading</span>
+                  </div>
+                }
+              >
+                <SchedulesPage />
+              </Suspense>
+            ) : isIdle ? (
+              <SelectAgentEmptyState />
+            ) : (
+              <Thread />
+            )}
+          </div>
+          {showRecentsPane ? (
+            <aside
+              aria-label="Recent chats"
+              className="flex min-h-0 w-64 shrink-0 border-l border-border bg-sidebar-bg"
             >
-              <TruefoundrySettingsBuilder />
-            </Suspense>
-          ) : sessionsOpen ? (
-            <SessionsPage />
-          ) : libraryOpen && shell?.libraryAgentId != null ? (
-            <AgentDetailsPage key={shell.libraryAgentId} agentId={shell.libraryAgentId} />
-          ) : libraryOpen ? (
-            <AgentsLibrary />
-          ) : schedulesOpen ? (
-            <Suspense
-              fallback={
-                <div
-                  className="flex h-full items-center justify-center"
-                  role="status"
-                  aria-live="polite"
-                  aria-busy="true"
-                >
-                  <Spinner size={28} className="text-text-primary" />
-                  <span className="sr-only">Loading</span>
-                </div>
-              }
-            >
-              <SchedulesPage />
-            </Suspense>
-          ) : isIdle ? (
-            <SelectAgentEmptyState />
-          ) : (
-            <Thread />
-          )}
+              <ThreadListContainer
+                variant="recent-history"
+                onThreadOpen={() => {
+                  if (isMobile) setRecentsOpen(false);
+                }}
+              />
+            </aside>
+          ) : null}
         </div>
       </div>
     </div>

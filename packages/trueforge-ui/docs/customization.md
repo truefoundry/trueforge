@@ -84,13 +84,16 @@ Public override surface (primitives stay theme/CSS — not slots):
 
 ## URL routing (`withRouter`)
 
-Opt in to browser-URL sync for shell navigation. Requires `react-router-dom`
-(v6 or v7) in the host; it is an optional peer and stays out of the bundle
-unless `withRouter` is set, so dock/widget embeds and hosts that own their own
-router should leave it off (the default).
+Browser-URL sync for shell navigation is on by default. Requires `react-router-dom`
+(v6 or v7) in the host; it is an optional peer. Pass `withRouter={false}` for
+dock/widget embeds and hosts that own their own router (keeps `react-router` out
+of the bundle for that mount).
 
 ```tsx
-<TrueForgeUI server={server} layout="sidebar" withRouter />
+<TrueForgeUI server={server} layout="sidebar" />;
+{
+  /* or explicitly: withRouter={false} for embeds */
+}
 ```
 
 Places mirrored to the URL:

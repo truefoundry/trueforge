@@ -9,10 +9,13 @@ import { cn } from './lib/cn.js';
 
 export type SchedulesButtonProps = {
   className?: string;
+  /** Sidebar rail: icon + label stacked. */
   compact?: boolean;
+  /** Header/footer chrome: icon-only control. */
+  toolbar?: boolean;
 };
 
-export function SchedulesButton({ className, compact = false }: SchedulesButtonProps) {
+export function SchedulesButton({ className, compact = false, toolbar = false }: SchedulesButtonProps) {
   const shell = useOptionalShellMode();
   const scheduleServer = useOptionalScheduleServer();
 
@@ -20,6 +23,29 @@ export function SchedulesButton({ className, compact = false }: SchedulesButtonP
   const open = shell?.schedulesOpen === true;
 
   if (!enabled) return null;
+
+  if (toolbar) {
+    return (
+      <button
+        type="button"
+        aria-label="Schedules"
+        title="Schedules"
+        aria-current={open ? 'page' : undefined}
+        className={auiButtonClass({
+          variant: 'ghost',
+          size: 'icon',
+          className: cn(
+            open &&
+              'bg-primary-button-bg font-medium text-primary-button-text hover:bg-primary-button-hover hover:text-primary-button-text',
+            className,
+          ),
+        })}
+        onClick={() => shell.setSchedulesOpen(!open)}
+      >
+        <Icon name="calendar-clock" />
+      </button>
+    );
+  }
 
   return (
     <div className={cn('relative min-w-0', compact ? 'flex justify-center' : 'w-full', className)}>

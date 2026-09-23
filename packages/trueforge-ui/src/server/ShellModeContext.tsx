@@ -136,7 +136,7 @@ type ShellModeContextValue = {
   }) => void;
   /** Reset current chat; no-op when idle. */
   clearChat: () => void;
-  /** Return library-only mode to its idle landing; no-op in other modes. */
+  /** Return library-only mode to its Agents Library landing; no-op in other modes. */
   openLibraryHome: () => void;
   /** Changes only when the chat runtime must reset. */
   runtimeKey: string;
@@ -241,7 +241,8 @@ export function ShellModeProvider({
   const [settingsOpenState, setSettingsOpenState] = useState(initialSettingsOpen);
   const [settingsSection, setSettingsSection] = useState<SettingsSection>('models');
   const [agentConfigOpenState, setAgentConfigOpenState] = useState(false);
-  const [libraryOpenState, setLibraryOpenState] = useState(false);
+  // Library-only mode lands on the Agents screen instead of an empty select state.
+  const [libraryOpenState, setLibraryOpenState] = useState(() => agentConfig.mode === 'AgentLibrary');
   const [sessionsOpenState, setSessionsOpenState] = useState(false);
   const [libraryAgentId, setLibraryAgentId] = useState<string | null>(null);
   const [schedulesOpenState, setSchedulesOpenState] = useState(false);
@@ -621,16 +622,17 @@ export function ShellModeProvider({
   }, [effectiveMode, bumpEpoch]);
 
   const openLibraryHome = useCallback(() => {
-    // Only library-only mode has an idle landing; other modes root via openDraft / clearChat.
+    // Library-only home is the Agents Library overlay (idle chat underneath).
     if (!isLibraryEnabled || isComposerEnabled) return;
     setPendingSessionId(undefined);
     setSettingsOpen(false);
-    setLibraryOpenState(false);
+    setLibraryOpenState(true);
     setLibraryAgentId(null);
     setSchedulesOpen(false);
+    setSessionsOpen(false);
     setMode({ status: 'idle' });
     bumpEpoch(false);
-  }, [isLibraryEnabled, isComposerEnabled, setSettingsOpen, setSchedulesOpen, bumpEpoch]);
+  }, [isLibraryEnabled, isComposerEnabled, setSettingsOpen, setSchedulesOpen, setSessionsOpen, bumpEpoch]);
 
   // Only explicit resets remount the runtime; history and identity changes happen in place.
   const runtimeKey = useMemo(() => {

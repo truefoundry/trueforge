@@ -17,7 +17,9 @@ import { drainListPages } from '../../utils/drainListPages.js';
 import { sessionTimeRangeFromCreatedAt } from '../../utils/sessionShareUrl.js';
 import { EmptyScreen } from '../EmptyScreen.js';
 import { cn } from '../lib/cn.js';
+import { useCompactLayout } from '../lib/CompactLayoutContext.js';
 import { sessionIsCreateAgent } from '../lib/sessionCreateAgent.js';
+import { useIsMobile } from '../lib/useIsMobile.js';
 import { Button } from '../primitives/Button.js';
 import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle } from '../primitives/Dialog.js';
 import { Skeleton } from '../primitives/Skeleton.js';
@@ -47,6 +49,10 @@ export function AgentSessions({ agentId, startTimestamp, endTimestamp, shareView
   const toaster = useToasterOptional();
   const shell = useOptionalShellMode();
   const routes = useOptionalResolvedRoutes();
+  const compactLayout = useCompactLayout();
+  const isMobile = useIsMobile();
+  // dock/widget and mobile: list XOR detail. Desktop sidebar/drawer: resizable split.
+  const stacked = compactLayout || isMobile;
   const { sessionId: selectedSessionId, updateShareSearch } = useSessionShareSearch();
 
   const AgentSessionListRow = useSlot('AgentSessionListRow');
@@ -284,6 +290,139 @@ export function AgentSessions({ agentId, startTimestamp, endTimestamp, shareView
     );
   }
 
+  const showDetail = selectedSessionId != null && selectedSessionId.length > 0;
+
+  const listPane = (
+    <aside className="flex h-full min-h-0 w-full flex-col bg-sidebar-bg">
+      <div ref={setListEl} className="scrollbar-none min-h-0 flex-1 overflow-y-auto">
+        {listLoading ? (
+          <div className="space-y-2 p-3" role="status" aria-label="Loading sessions">
+            {['a', 'b', 'c'].map(key => (
+              <Skeleton key={key} className="h-16 rounded-md" />
+            ))}
+          </div>
+        ) : listFailed ? (
+          <p className="px-3 py-6 text-center text-xs text-text-secondary">Sessions could not be loaded.</p>
+        ) : (
+          entries.map(entry => (
+            <AgentSessionListRow
+              key={entry.id}
+              title={sessionTitle(entry)}
+              agentName={entry.agentName ?? undefined}
+              sourceType={entrySourceType(entry)}
+              lastActivityAt={entry.lastActivityAt}
+              metrics={entry.metrics}
+              active={entry.id === selectedSessionId}
+              onSelect={() => selectSession(entry)}
+              {...(canDeleteSession
+                ? {
+                    onRequestDelete: () => setPendingDelete(entry),
+                    canDelete: allows(entry.id, 'DELETE'),
+                  }
+                : {})}
+            />
+          ))
+        )}
+
+        {nextPageToken != null && !listLoading && !listFailed ? (
+          <div ref={setSentinelEl} className="px-3 py-2">
+            {listLoadingMore ? (
+              <Skeleton className="h-16 rounded-md" role="status" aria-label="Loading more sessions" />
+            ) : listLoadMoreFailed ? (
+              <button
+                type="button"
+                className="h-8 w-full rounded-md border border-border text-xs font-medium text-text-primary hover:bg-ghost-button-hover"
+                onClick={() => void loadMore()}
+              >
+                Retry loading sessions
+              </button>
+            ) : null}
+          </div>
+        ) : null}
+      </div>
+    </aside>
+  );
+
+  const detailPane = (
+    <section className="flex h-full min-w-0 flex-col bg-primary-bg">
+      {selectedSessionId == null || selectedSessionId.length === 0 ? (
+        <div className="flex flex-1 items-center justify-center px-6 text-sm text-text-secondary">
+          Select a session to view details
+        </div>
+      ) : detailFailed ? (
+        <div className="flex flex-1 items-center justify-center px-6 text-sm text-text-secondary">
+          Session details could not be loaded.
+        </div>
+      ) : (
+        <>
+          <AgentSessionDetailHeader
+            title={selectedTitle}
+            sessionId={selectedSessionId}
+            agentId={agentId}
+            createdAt={detailSession?.createdAt ?? selectedEntry?.createdAt}
+            view={shareView}
+            onClose={clearSelectedSession}
+            canResume={canResume}
+            {...resumeProps}
+          />
+          {detailLoading || detailEvents === undefined ? (
+            <div className="flex flex-1 flex-col p-4" role="status" aria-label="Loading session details">
+              <Skeleton className="min-h-64 flex-1 rounded-lg" />
+            </div>
+          ) : (
+            <AgentSessionTimelineContainer
+              sessionId={selectedSessionId}
+              events={detailEvents}
+              listMetrics={selectedEntry?.metrics}
+            />
+          )}
+        </>
+      )}
+    </section>
+  );
+
+  const deleteDialog =
+    pendingDelete != null ? (
+      <Dialog
+        open
+        onOpenChange={open => {
+          if (!open) setPendingDelete(null);
+        }}
+        aria-label="Delete session"
+        className="max-w-md"
+      >
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Delete session</DialogTitle>
+            <p className="text-text-secondary text-sm">
+              “{sessionTitle(pendingDelete)}” will be permanently deleted. This cannot be undone.
+            </p>
+          </DialogHeader>
+        </DialogContent>
+        <DialogFooter>
+          <Button.Secondary type="button" onClick={() => setPendingDelete(null)}>
+            Cancel
+          </Button.Secondary>
+          <Button.Destructive
+            type="button"
+            disabled={!allows(pendingDelete.id, 'DELETE')}
+            onClick={() => void handleDelete(pendingDelete)}
+          >
+            Delete
+          </Button.Destructive>
+        </DialogFooter>
+      </Dialog>
+    ) : null;
+
+  if (stacked) {
+    return (
+      <div className="flex h-full min-h-0 w-full flex-col">
+        {showDetail ? detailPane : listPane}
+        {deleteDialog}
+      </div>
+    );
+  }
+
   return (
     <Group
       id="agent-sessions-split"
@@ -292,54 +431,7 @@ export function AgentSessions({ agentId, startTimestamp, endTimestamp, shareView
       resizeTargetMinimumSize={{ coarse: 24, fine: 11 }}
     >
       <Panel id="agent-sessions-list" defaultSize="35%" minSize="20%" maxSize="50%">
-        <aside className="flex h-full min-h-0 w-full flex-col bg-sidebar-bg">
-          <div ref={setListEl} className="scrollbar-none min-h-0 flex-1 overflow-y-auto">
-            {listLoading ? (
-              <div className="space-y-2 p-3" role="status" aria-label="Loading sessions">
-                {['a', 'b', 'c'].map(key => (
-                  <Skeleton key={key} className="h-16 rounded-md" />
-                ))}
-              </div>
-            ) : listFailed ? (
-              <p className="px-3 py-6 text-center text-xs text-text-secondary">Sessions could not be loaded.</p>
-            ) : (
-              entries.map(entry => (
-                <AgentSessionListRow
-                  key={entry.id}
-                  title={sessionTitle(entry)}
-                  agentName={entry.agentName ?? undefined}
-                  sourceType={entrySourceType(entry)}
-                  lastActivityAt={entry.lastActivityAt}
-                  metrics={entry.metrics}
-                  active={entry.id === selectedSessionId}
-                  onSelect={() => selectSession(entry)}
-                  {...(canDeleteSession
-                    ? {
-                        onRequestDelete: () => setPendingDelete(entry),
-                        canDelete: allows(entry.id, 'DELETE'),
-                      }
-                    : {})}
-                />
-              ))
-            )}
-
-            {nextPageToken != null && !listLoading && !listFailed ? (
-              <div ref={setSentinelEl} className="px-3 py-2">
-                {listLoadingMore ? (
-                  <Skeleton className="h-16 rounded-md" role="status" aria-label="Loading more sessions" />
-                ) : listLoadMoreFailed ? (
-                  <button
-                    type="button"
-                    className="h-8 w-full rounded-md border border-border text-xs font-medium text-text-primary hover:bg-ghost-button-hover"
-                    onClick={() => void loadMore()}
-                  >
-                    Retry loading sessions
-                  </button>
-                ) : null}
-              </div>
-            ) : null}
-          </div>
-        </aside>
+        {listPane}
       </Panel>
 
       <Separator
@@ -364,74 +456,10 @@ export function AgentSessions({ agentId, startTimestamp, endTimestamp, shareView
       </Separator>
 
       <Panel id="agent-session-detail" defaultSize="65%" minSize="30%">
-        <section className="flex h-full min-w-0 flex-col bg-primary-bg">
-          {selectedSessionId == null ? (
-            <div className="flex flex-1 items-center justify-center px-6 text-sm text-text-secondary">
-              Select a session to view details
-            </div>
-          ) : detailFailed ? (
-            <div className="flex flex-1 items-center justify-center px-6 text-sm text-text-secondary">
-              Session details could not be loaded.
-            </div>
-          ) : (
-            <>
-              <AgentSessionDetailHeader
-                title={selectedTitle}
-                sessionId={selectedSessionId}
-                agentId={agentId}
-                createdAt={detailSession?.createdAt ?? selectedEntry?.createdAt}
-                view={shareView}
-                onClose={clearSelectedSession}
-                canResume={canResume}
-                {...resumeProps}
-              />
-              {detailLoading || detailEvents === undefined ? (
-                <div className="flex flex-1 flex-col p-4" role="status" aria-label="Loading session details">
-                  <Skeleton className="min-h-64 flex-1 rounded-lg" />
-                </div>
-              ) : (
-                <AgentSessionTimelineContainer
-                  sessionId={selectedSessionId}
-                  events={detailEvents}
-                  listMetrics={selectedEntry?.metrics}
-                />
-              )}
-            </>
-          )}
-        </section>
+        {detailPane}
       </Panel>
 
-      {pendingDelete != null ? (
-        <Dialog
-          open
-          onOpenChange={open => {
-            if (!open) setPendingDelete(null);
-          }}
-          aria-label="Delete session"
-          className="max-w-md"
-        >
-          <DialogContent>
-            <DialogHeader>
-              <DialogTitle>Delete session</DialogTitle>
-              <p className="text-text-secondary text-sm">
-                “{sessionTitle(pendingDelete)}” will be permanently deleted. This cannot be undone.
-              </p>
-            </DialogHeader>
-          </DialogContent>
-          <DialogFooter>
-            <Button.Secondary type="button" onClick={() => setPendingDelete(null)}>
-              Cancel
-            </Button.Secondary>
-            <Button.Destructive
-              type="button"
-              disabled={!allows(pendingDelete.id, 'DELETE')}
-              onClick={() => void handleDelete(pendingDelete)}
-            >
-              Delete
-            </Button.Destructive>
-          </DialogFooter>
-        </Dialog>
-      ) : null}
+      {deleteDialog}
     </Group>
   );
 }

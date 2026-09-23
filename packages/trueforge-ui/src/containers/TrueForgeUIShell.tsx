@@ -65,9 +65,9 @@ export type TrueForgeUIProps = {
    */
   customActionRenderers?: CustomActionRenderers;
   /**
-   * Sync shell navigation to the browser URL via react-router (opt-in).
-   * Requires `react-router-dom` in the host. Leave off for dock/widget embeds
-   * and hosts that own their own router. Defaults to `false`.
+   * Sync shell navigation to the browser URL via react-router.
+   * Requires `react-router-dom` in the host. Defaults to `true`.
+   * Set `false` for dock/widget embeds and hosts that own their own router.
    */
   withRouter?: boolean;
   /** URL path customization; only honored when `withRouter`. */

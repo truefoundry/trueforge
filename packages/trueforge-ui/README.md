@@ -361,12 +361,12 @@ show the title text (see [Custom layouts](#custom-layouts)).
 
 `agentConfig` controls library chrome, draft composer, and how New Chat / Clear Chat behave.
 
-| Mode                                   | Layout chrome                   | Agent selection / New Chat                                |
-| -------------------------------------- | ------------------------------- | --------------------------------------------------------- |
-| `AgentLibraryWithComposer` _(default)_ | Agents + draft builder          | New Chat opens draft; library picks a named agent         |
-| `SingleAgent`                          | Named-only, plain composer      | Locked to `name`; New Chat / Clear Chat = new thread      |
-| `AgentLibrary`                         | Agents only (no draft)          | Empty until pick; no New Chat; Clear Chat after selection |
-| `AgentComposer`                        | Draft builder only (no library) | Always draft; New Chat / Clear Chat = fresh draft         |
+| Mode                                   | Layout chrome                   | Agent selection / New Chat                                               |
+| -------------------------------------- | ------------------------------- | ------------------------------------------------------------------------ |
+| `AgentLibraryWithComposer` _(default)_ | Agents + draft builder          | New Chat opens draft; library picks a named agent                        |
+| `SingleAgent`                          | Named-only, plain composer      | Locked to `name`; New Chat / Clear Chat = new thread                     |
+| `AgentLibrary`                         | Agents only (no draft)          | Opens Agents Library by default; no New Chat; Clear Chat after selection |
+| `AgentComposer`                        | Draft builder only (no library) | Always draft; New Chat / Clear Chat = fresh draft                        |
 
 In library modes, picking an agent from Agents switches to a named chat for that agent **and remounts the runtime** so the new agent starts from a clean conversation. Draft chats can be promoted via **Save agent** (`server.saveAgent` on the resolved `AgentUIServer`). **Clear Chat** (thread header) resets the current named or draft session.
 
@@ -409,12 +409,14 @@ Mutable composers expose **Agent Config** for live model parameters, instruction
 
 Built-in `layout` values:
 
-| Value     | Description                                          |
-| --------- | ---------------------------------------------------- |
-| `sidebar` | Icon rail + recent session history + active thread   |
-| `drawer`  | Full-bleed thread; sessions open in a slide-over     |
-| `dock`    | Fixed-width right panel; list XOR thread stack       |
-| `widget`  | Same stack as `dock`, opened from a bottom-right FAB |
+| Value     | Description                                                                                        |
+| --------- | -------------------------------------------------------------------------------------------------- |
+| `sidebar` | Icon rail (New Chat / Build Agent / Agents / Sessions / Schedules) + recent chats + active thread  |
+| `drawer`  | Full-bleed thread; Recents top tab opens Chat History on the right; overlays replace the main pane |
+| `dock`    | Fixed-width right panel; thread stack with toolbar nav and overlay back navigation                 |
+| `widget`  | Same stack as `dock`, opened from a bottom-right FAB; Close stays available on overlays            |
+
+In every layout, Agents / Sessions / Schedules entry points appear when the host `agentConfig` mode and server ports enable them. Compact and mobile sessions use list → detail stack navigation; desktop sidebar/drawer keep the resizable split.
 
 ---
 

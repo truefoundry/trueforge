@@ -193,7 +193,8 @@ describe('ShellRouteSync', () => {
 
   it('pushes the URL when the shell selects an immutable agent', () => {
     renderSync({ initialEntries: ['/'], agentConfig: { mode: 'AgentLibrary' } });
-    expect(pathname).toBe('/');
+    expect(pathname).toBe('/library');
+    expect(shell.libraryOpen).toBe(true);
     act(() => shell.selectLibraryAgent({ isMutable: false, agentId: 'foo-id', agentName: 'foo' }));
     expect(pathname).toBe('/agents/foo');
     expect(search).toBe('?try_agent_name=foo');
