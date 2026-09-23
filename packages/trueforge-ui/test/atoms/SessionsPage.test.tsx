@@ -168,6 +168,33 @@ describe('SessionsPage', () => {
     expect(screen.queryByRole('separator', { name: 'Resize session list' })).not.toBeInTheDocument();
   });
 
+  it('keeps the recent-sessions action when a timestamp-pinned range is empty', async () => {
+    const now = Date.parse('2026-01-31T00:10:00.000Z');
+    vi.spyOn(Date, 'now').mockReturnValue(now);
+    const createdAtMs = Date.parse(namedRow.createdAt);
+    window.history.replaceState(
+      null,
+      '',
+      `/?view=sessions&s_sts=${String(createdAtMs - SESSION_TIME_BUFFER_MS)}&s_ets=${String(createdAtMs + SESSION_TIME_BUFFER_MS)}`,
+    );
+    const listSessions = vi.fn(async () => ({ data: [] as SessionListEntry[] }));
+    renderPage({ listSessions });
+
+    await waitFor(() => {
+      expect(screen.queryByRole('status', { name: 'Loading sessions' })).not.toBeInTheDocument();
+    });
+    fireEvent.click(screen.getByRole('button', { name: 'Load recent sessions' }));
+
+    await waitFor(() => {
+      expect(listSessions).toHaveBeenLastCalledWith(
+        expect.objectContaining({
+          startTimestamp: new Date(now - DEFAULT_SESSION_TIME_WINDOW_MS).toISOString(),
+          endTimestamp: new Date(now).toISOString(),
+        }),
+      );
+    });
+  });
+
   it('keeps session detail visible when the list is empty but a sessionId is selected', async () => {
     window.history.replaceState(null, '', '/?view=sessions&sessionId=sess-1');
     const getSession = vi.fn(async (): Promise<Session> => ({

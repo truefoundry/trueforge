@@ -280,7 +280,8 @@ export function AgentSessions({
     !listLoading &&
     !listFailed &&
     entries.length === 0 &&
-    (selectedSessionId == null || selectedSessionId.length === 0)
+    (selectedSessionId == null || selectedSessionId.length === 0) &&
+    onLoadRecentSessions == null
   ) {
     return (
       <EmptyScreen
