@@ -65,7 +65,7 @@ import { checkSnapshotStatus } from '../sandbox/providerUtils';
 import { MAX_SESSION_TITLE_LENGTH } from '../schemas/session';
 import { newId } from '../utils/id';
 import { resolveWebSearchProvider } from '../websearch/providers';
-import { canReadAgentBoundResource } from './agentAccess';
+import { canReadAgentBoundResource, canReadSession } from './agentAccess';
 
 export function toWireTurn(record: TurnRecordWithoutSnapshot): Turn {
   return {
@@ -574,15 +574,15 @@ export function createTurnsRouter(deps: TurnsRouterDeps) {
     if (!session) {
       return c.json({ error: { message: `Session not found: ${sessionId}` } }, 404);
     }
-    if (
-      !(await canReadAgentBoundResource({
-        store: deps.resolveAgentStore(c),
-        context: requestContext,
-        authorizer: deps.authorizer,
-        agent_id: session.record.agent.type === 'reference' ? session.record.agent.id : undefined,
-        created_by_subject_id: session.record.created_by_subject.subject_id,
-      }))
-    ) {
+    const allowed = await canReadSession({
+      shared: session.record.shared,
+      store: deps.resolveAgentStore(c),
+      context: requestContext,
+      authorizer: deps.authorizer,
+      agent_id: session.record.agent.type === 'reference' ? session.record.agent.id : undefined,
+      created_by_subject_id: session.record.created_by_subject.subject_id,
+    });
+    if (!allowed) {
       return c.json({ error: { message: FORBIDDEN_SESSION_ACCESS } }, 403);
     }
     try {
@@ -609,15 +609,15 @@ export function createTurnsRouter(deps: TurnsRouterDeps) {
     if (!session) {
       return c.json({ error: { message: `Session not found: ${sessionId}` } }, 404);
     }
-    if (
-      !(await canReadAgentBoundResource({
-        store: deps.resolveAgentStore(c),
-        context: requestContext,
-        authorizer: deps.authorizer,
-        agent_id: session.record.agent.type === 'reference' ? session.record.agent.id : undefined,
-        created_by_subject_id: session.record.created_by_subject.subject_id,
-      }))
-    ) {
+    const allowed = await canReadSession({
+      shared: session.record.shared,
+      store: deps.resolveAgentStore(c),
+      context: requestContext,
+      authorizer: deps.authorizer,
+      agent_id: session.record.agent.type === 'reference' ? session.record.agent.id : undefined,
+      created_by_subject_id: session.record.created_by_subject.subject_id,
+    });
+    if (!allowed) {
       return c.json({ error: { message: FORBIDDEN_SESSION_ACCESS } }, 403);
     }
     const turn = await session.getTurn(turnId);
@@ -709,15 +709,15 @@ export function createTurnsRouter(deps: TurnsRouterDeps) {
     if (!session) {
       return c.json({ error: { message: `Session not found: ${sessionId}` } }, 404);
     }
-    if (
-      !(await canReadAgentBoundResource({
-        store: deps.resolveAgentStore(c),
-        context: requestContext,
-        authorizer: deps.authorizer,
-        agent_id: session.record.agent.type === 'reference' ? session.record.agent.id : undefined,
-        created_by_subject_id: session.record.created_by_subject.subject_id,
-      }))
-    ) {
+    const allowed = await canReadSession({
+      shared: session.record.shared,
+      store: deps.resolveAgentStore(c),
+      context: requestContext,
+      authorizer: deps.authorizer,
+      agent_id: session.record.agent.type === 'reference' ? session.record.agent.id : undefined,
+      created_by_subject_id: session.record.created_by_subject.subject_id,
+    });
+    if (!allowed) {
       return c.json({ error: { message: FORBIDDEN_SESSION_ACCESS } }, 403);
     }
     const turn = await session.getTurn(turnId);
@@ -852,15 +852,14 @@ export function createTurnsRouter(deps: TurnsRouterDeps) {
     if (!session) {
       return c.json({ error: { message: `Session not found: ${sessionId}` } }, 404);
     }
-    if (
-      !(await canReadAgentBoundResource({
-        store: deps.resolveAgentStore(c),
-        context: requestContext,
-        authorizer: deps.authorizer,
-        agent_id: session.record.agent.type === 'reference' ? session.record.agent.id : undefined,
-        created_by_subject_id: session.record.created_by_subject.subject_id,
-      }))
-    ) {
+    const allowed = await canReadAgentBoundResource({
+      store: deps.resolveAgentStore(c),
+      context: requestContext,
+      authorizer: deps.authorizer,
+      agent_id: session.record.agent.type === 'reference' ? session.record.agent.id : undefined,
+      created_by_subject_id: session.record.created_by_subject.subject_id,
+    });
+    if (!allowed) {
       return c.json({ error: { message: FORBIDDEN_SESSION_ACCESS } }, 403);
     }
     const turn = await session.getTurn(turnId);
