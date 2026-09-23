@@ -18,6 +18,8 @@ import {
   ToolApprovalRequiredEventSchema,
   ToolResponseEventSchema,
   ToolResponseRequiredEventSchema,
+  UserToolApprovalMsgSchema,
+  UserToolResponseMsgSchema,
 } from '../../core/events/schema';
 import {
   TurnInputItemSchema,
@@ -139,3 +141,9 @@ export interface SessionEventItem {
   turn_id: string;
   event: PersistedTurnEvent;
 }
+
+export const TurnInboundEventItemSchema = z
+  .discriminatedUnion('type', [UserToolApprovalMsgSchema, UserToolResponseMsgSchema])
+  .openapi('TurnInboundEventItem');
+
+export type TurnInboundEventItem = z.infer<typeof TurnInboundEventItemSchema>;

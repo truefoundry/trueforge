@@ -78,6 +78,7 @@ export const ApprovalDecisionSchema = z
   .discriminatedUnion('status', [AgentApprovalDecisionAllowSchema, AgentApprovalDecisionDenySchema])
   .openapi('ApprovalDecision');
 
+// TODO: Remove this after we have migrated to the new schema.
 export const UserToolApprovalMessageSchema = z
   .object({
     type: z.literal(EventType.USER_TOOL_APPROVAL).describe('Client resume after tool.approval_required.'),
@@ -87,6 +88,16 @@ export const UserToolApprovalMessageSchema = z
   })
   .openapi('UserToolApprovalEvent');
 
+  export const UserToolApprovalMsgSchema = z
+  .object({
+    type: z.literal(EventType.USER_TOOL_APPROVAL).describe('Client resume after tool.approval_required.'),
+    thread_id: z.string().min(1, 'thread_id is required').describe('Thread that owns the pending tool call.'),
+    tool_call_id: z.string().min(1, 'tool_call_id is required').describe('Tool call id being approved or denied.'),
+    approval: ApprovalDecisionSchema,
+  })
+  .openapi('UserToolApprovalMessage');
+
+// TODO: Remove this after we have migrated to the new schema.
 export const UserToolResponseMessageSchema = z
   .object({
     type: z.literal(EventType.USER_TOOL_RESPONSE).describe('Client resume after tool.response_required.'),
@@ -95,6 +106,15 @@ export const UserToolResponseMessageSchema = z
     content: z.string().min(1, 'content cannot be empty').describe('Client-side tool result content.'),
   })
   .openapi('UserToolResponseEvent');
+
+export const UserToolResponseMsgSchema = z
+  .object({
+    type: z.literal(EventType.USER_TOOL_RESPONSE).describe('Client resume after tool.response_required.'),
+    thread_id: z.string().min(1, 'thread_id is required').describe('Thread that owns the pending tool call.'),
+    tool_call_id: z.string().min(1, 'tool_call_id is required').describe('Tool call id receiving the client response.'),
+    content: z.string().min(1, 'content cannot be empty').describe('Client-side tool result content.'),
+  })
+  .openapi('UserToolResponseMessage');
 
 export const TextContentPartSchema = z
   .object({
