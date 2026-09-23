@@ -166,9 +166,11 @@ if the version after `chart/v` does not match that package version.
 | ------------- | --------------------------------- | -------------------------------------------------------------- |
 | `app_version` | `packages/trueforge/package.json` | Used on dispatch; ignored when the trigger is a `chart/v*` tag |
 
-Always: build/push `{appVersion}-{shortSha}`, set chart `version` to the app
-major.minor (patch/RC may still advance), set `appVersion` and `image.tag`,
-lint, package, push OCI, then commit those chart files to `main`.
+Always: build/push `{appVersion}-{shortSha}`, replay chart `version` /
+`appVersion` / `image.tag` / controller command onto current `main`, lint,
+package, push OCI (idempotent if that chart version is already in the registry),
+then commit those files to `main`. The commit is replayed onto `origin/main` if
+`main` moved during the image build.
 
 ```bash
 gh workflow run release-chart.yml --ref main

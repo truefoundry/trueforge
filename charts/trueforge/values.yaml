@@ -117,10 +117,11 @@ controller:
   enabled: true
   # Annotations on the controller Deployment object (for example, Argo CD sync waves).
   deploymentAnnotations: {}
-  # Container command. Image WORKDIR is /app/packages/trueforge (from-source Dockerfile).
+  # Matches the pinned image.tag. release-chart.yml rewrites this to
+  # dist/controller-main.js when it publishes a from-source image.
   command:
     - node
-    - dist/controller-main.js
+    - node_modules/@truefoundry/trueforge/dist/controller-main.js
   # Base URL the controller uses to reach the server (SERVER_URL).
   # Empty → the in-cluster server Service (http(s)://<fullname>:<service.port>).
   serverUrl: ""

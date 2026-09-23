@@ -50,7 +50,7 @@ jobs:
           if [[ "$EVENT_NAME" == "push" && "$REF_NAME" == chart/v* ]]; then
             TAG_VERSION="${REF_NAME#chart/v}"
             if [[ "$TAG_VERSION" != "$PKG_VERSION" ]]; then
-              echo "Tag v$TAG_VERSION does not match package.json $PKG_VERSION" >&2
+              echo "Tag chart/v$TAG_VERSION does not match package.json $PKG_VERSION" >&2
               exit 1
             fi
             APP_VERSION="$PKG_VERSION"
@@ -106,10 +106,20 @@ jobs:
       HELM_REGISTRY_URL: ${{ vars.TRUEFOUNDRY_ARTIFACTORY_REGISTRY_URL }}
       HELM_CHART_REPOSITORY: ${{ vars.TRUEFOUNDRY_ARTIFACTORY_PUBLIC_HELM_REPOSITORY }}
     steps:
+      # App token: GITHUB_TOKEN cannot start workflows and often cannot push
+      # to protected main. Chart files are replayed onto origin/main so a tag
+      # or dispatch ref never force-updates main.
+      - id: app-token
+        uses: actions/create-github-app-token@v3
+        with:
+          client-id: ${{ secrets.TRUEFORGE_GENERATE_SDK_APP_ID }}
+          private-key: ${{ secrets.TRUEFORGE_GENERATE_SDK_APP_PRIVATE_KEY }}
+
       - name: Check out
         uses: actions/checkout@v7
         with:
           fetch-depth: 0
+          token: ${{ steps.app-token.outputs.token }}
 
       - name: Install yq
         run: |
@@ -121,19 +131,22 @@ jobs:
         with:
           version: v3.16.4
 
-      - name: Update chart metadata
+      - name: Update chart metadata on main
         id: chart
         env:
           IMAGE_TAG: ${{ needs.resolve.outputs.image_tag }}
           APP_VERSION: ${{ needs.resolve.outputs.app_version }}
         run: |
           set -euo pipefail
+          git fetch origin main
+          git checkout -B chart-release origin/main
           CURRENT=$(yq -r '.version' charts/trueforge/Chart.yaml)
           VERSION=$(bash scripts/resolve-chart-version.sh "$CURRENT" "$APP_VERSION")
           export VERSION IMAGE_TAG APP_VERSION
           yq -i '.version = strenv(VERSION)' charts/trueforge/Chart.yaml
           yq -i '.appVersion = strenv(APP_VERSION)' charts/trueforge/Chart.yaml
           yq -i '.image.tag = strenv(IMAGE_TAG)' charts/trueforge/values.yaml
+          yq -i '.controller.command = ["node", "dist/controller-main.js"]' charts/trueforge/values.yaml
           echo "version=$VERSION" >> "$GITHUB_OUTPUT"
           echo "app_version=$APP_VERSION" >> "$GITHUB_OUTPUT"
           echo "Chart version=$VERSION appVersion=$APP_VERSION image.tag=$IMAGE_TAG"
@@ -162,7 +175,18 @@ jobs:
           helm package "$CHART_DIR" --destination dist
           PACKAGE="dist/${CHART_NAME}-${VERSION}.tgz"
           echo "Pushing $PACKAGE to oci://$HELM_CHART_REPOSITORY"
-          helm push "$PACKAGE" "oci://$HELM_CHART_REPOSITORY"
+          set +e
+          PUSH_OUT=$(helm push "$PACKAGE" "oci://$HELM_CHART_REPOSITORY" 2>&1)
+          PUSH_RC=$?
+          set -e
+          printf '%s\n' "$PUSH_OUT"
+          if [[ "$PUSH_RC" -ne 0 ]]; then
+            if printf '%s' "$PUSH_OUT" | grep -qiE 'already exists|409'; then
+              echo "Chart $VERSION already in the registry; continuing so main can catch up"
+            else
+              exit "$PUSH_RC"
+            fi
+          fi
           {
             echo "### Helm chart"
             echo "Pushed \`oci://${HELM_CHART_REPOSITORY}/${CHART_NAME}:${VERSION}\`"
@@ -172,14 +196,35 @@ jobs:
       - name: Commit chart metadata to main
         env:
           VERSION: ${{ steps.chart.outputs.version }}
+          IMAGE_TAG: ${{ needs.resolve.outputs.image_tag }}
+          APP_VERSION: ${{ needs.resolve.outputs.app_version }}
         run: |
           set -euo pipefail
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
-          git add charts/trueforge/Chart.yaml charts/trueforge/values.yaml
-          if git diff --staged --quiet; then
-            echo "Chart metadata already matches $VERSION"
-            exit 0
-          fi
-          git commit -m "release(chart): ${VERSION}"
-          git push origin HEAD:main
+
+          apply_metadata() {
+            export VERSION IMAGE_TAG APP_VERSION
+            yq -i '.version = strenv(VERSION)' charts/trueforge/Chart.yaml
+            yq -i '.appVersion = strenv(APP_VERSION)' charts/trueforge/Chart.yaml
+            yq -i '.image.tag = strenv(IMAGE_TAG)' charts/trueforge/values.yaml
+            yq -i '.controller.command = ["node", "dist/controller-main.js"]' charts/trueforge/values.yaml
+          }
+
+          for attempt in 1 2 3; do
+            git add charts/trueforge/Chart.yaml charts/trueforge/values.yaml
+            if git diff --staged --quiet; then
+              echo "Chart metadata already matches $VERSION"
+              exit 0
+            fi
+            git commit -m "release(chart): ${VERSION}"
+            if git push origin HEAD:main; then
+              exit 0
+            fi
+            echo "Push to main failed (attempt $attempt); replay metadata onto origin/main"
+            git fetch origin main
+            git reset --hard origin/main
+            apply_metadata
+          done
+          echo "Could not fast-forward chart metadata onto main" >&2
+          exit 1
