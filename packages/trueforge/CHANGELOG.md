@@ -1,5 +1,24 @@
 # @truefoundry/trueforge
 
+## 0.3.0-rc.0
+
+### Minor Changes
+
+- 829ac6e: Add OSS web-search provider settings and catalog (Parallel): singleton settings/catalog APIs, optional API key, and UI adapter without mode config so built-in web search works outside TrueFoundry mode.
+- cf55de9: Add Redis Sentinel + TLS with exclusive transport fail-fast (`REDIS_CONNECTION` DU). Redis is optional at config load for controller/migrate; server still requires it at connect. Sentinel shared-client errors no longer stop the peering heartbeat.
+
+### Patch Changes
+
+- a855122: Rename the published runtime package to `@truefoundry/trueforge-assistant-ui-runtime`, move it into the TrueForge workspace, rename its public runtime APIs to TrueForge, and remove the legacy TrueFoundry server adapter and server configuration.
+- e8c500b: Rename server mTLS env vars from `TRUEFORGE_MTLS_ENABLED` / `TRUEFORGE_MTLS_CERTS_DIR` to `MTLS_ENABLED` / `MTLS_CERTS_DIR`. Independent of ServiceFoundry `TRUEFOUNDRY_MTLS_*`.
+- Updated dependencies [829ac6e]
+- Updated dependencies [5b209be]
+- Updated dependencies [829ac6e]
+- Updated dependencies [cf55de9]
+- Updated dependencies [1b1050a]
+  - @truefoundry/trueforge-sdk@0.2.1-rc.0
+  - @truefoundry/trueforge-core@0.3.0-rc.0
+
 ## 0.2.1
 
 ### Patch Changes

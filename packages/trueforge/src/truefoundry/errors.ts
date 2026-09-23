@@ -1,14 +1,26 @@
 import { HTTPException } from 'hono/http-exception';
 import type { AgentRecord } from '../db/agentStore';
+import { captureCriticalException } from '../sentry';
 
 export const AGENT_EXTERNAL_ID_REQUIRED = 'Agent is missing a TrueFoundry external id';
 export const TRUEFOUNDRY_MANAGED_STATUS = 424 as const;
 export const TRUEFOUNDRY_MANAGED_MESSAGE = 'This resource is managed by TrueFoundry';
 
 /** Require the remote identity needed for TrueFoundry agent operations. */
-export function requireTrueFoundryAgentExternalId(agent: Pick<AgentRecord, 'external_id'>): string {
+export function requireTrueFoundryAgentExternalId(
+  agent: Pick<AgentRecord, 'id' | 'tenant_id' | 'name' | 'external_id'>,
+): string {
   if (agent.external_id === null) {
-    throw new HTTPException(500, { message: AGENT_EXTERNAL_ID_REQUIRED });
+    const error = new HTTPException(500, { message: AGENT_EXTERNAL_ID_REQUIRED });
+    captureCriticalException(error, {
+      tags: { module: 'truefoundry', operation: 'requireExternalId' },
+      extra: {
+        agent_id: agent.id,
+        tenant_id: agent.tenant_id,
+        agent_name: agent.name,
+      },
+    });
+    throw error;
   }
   return agent.external_id;
 }

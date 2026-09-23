@@ -93,6 +93,7 @@ import { PACKAGE_VERSION } from './packageVersion';
 import { ActiveTurnRegistry } from './runtime/activeTurns';
 import { EventSubscriptionRegistry } from './runtime/event-subscription';
 import type { ConnectedRedis } from './runtime/redis';
+import { initSentry } from './sentry';
 import { printStandaloneStartupBanner } from './startupBanner';
 import { InlineMcpServerStore } from './truefoundry/InlineMcpServerStore';
 import { parseInlineMcpServers, parseInlineSkills, X_TFG_MCP, X_TFG_SKILLS } from './truefoundry/inlineResources';
@@ -674,6 +675,8 @@ try {
     standalone: configuration.STANDALONE,
     version: PACKAGE_VERSION,
   });
+
+  await initSentry(configuration, logger, { tags: { component: 'server' } });
 
   if (configuration.STANDALONE) {
     printStandaloneStartupBanner({ version: PACKAGE_VERSION, color: shouldColorize() });
