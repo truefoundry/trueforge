@@ -36,7 +36,11 @@ export function McpAuthPrompt({
 
   return (
     <div
-      className={cn('aui-mcp-auth-prompt mt-2 overflow-hidden rounded-lg border border-border', className)}
+      className={cn(
+        // Inset vs composer so stacked pause chrome matches the design (~1rem each side).
+        'aui-mcp-auth-prompt mx-auto w-[calc(100%-2rem)] min-w-0 overflow-hidden rounded-lg border border-border',
+        className,
+      )}
       data-testid={dataTestPrefix ? `${dataTestPrefix}-mcp-auth-card` : undefined}
     >
       <div className="border-b border-primary-button-bg/30 bg-primary-button-bg/10 px-4 py-2">
@@ -46,6 +50,7 @@ export function McpAuthPrompt({
         {servers.map(server => (
           <div key={server.id} className="flex items-center justify-between gap-4">
             <div className="flex min-w-0 items-center gap-1.5 text-sm">
+              <Icon name="mcp-server" size="0.875rem" className="shrink-0 text-text-secondary" />
               <span className="shrink-0 font-medium text-text-secondary">MCP Server Name</span>
               <span className="shrink-0 text-xs font-semibold text-text-secondary">:</span>
               <span className="truncate font-sans font-medium text-text-primary">{server.name}</span>
@@ -56,7 +61,7 @@ export function McpAuthPrompt({
                 Connected
               </span>
             ) : (
-              <Button.Primary
+              <Button.Secondary
                 size="small"
                 disabled={readOnly}
                 onClick={() => onConnect(server.id)}
@@ -64,13 +69,18 @@ export function McpAuthPrompt({
               >
                 Connect
                 <Icon name="external-link" size="0.75em" className="ml-1" />
-              </Button.Primary>
+              </Button.Secondary>
             )}
           </div>
         ))}
         {onContinue && (
-          <div className="flex justify-end border-t border-border pt-2">
-            <Button.Primary size="small" disabled={readOnly || continueLoading} onClick={onContinue}>
+          <div className="flex justify-end pt-1">
+            <Button.Primary
+              size="small"
+              disabled={readOnly || continueLoading}
+              onClick={onContinue}
+              className="bg-gray-850 text-white hover:bg-gray-850 dark:text-black"
+            >
               {continueLoading ? <Icon name="loader" className="animate-spin" /> : null}
               Continue
             </Button.Primary>

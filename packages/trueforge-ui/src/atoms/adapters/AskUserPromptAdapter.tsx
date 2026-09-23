@@ -22,6 +22,17 @@ export type AskUserAnswerDraft = {
 
 export const ASK_USER_CUSTOM_OPTION = '__tfy_ask_user_question_custom__';
 
+/** A, B, … Z, then AA, AB, … for option indices. */
+export function askUserOptionLetter(index: number): string {
+  let n = index;
+  let label = '';
+  do {
+    label = String.fromCharCode(65 + (n % 26)) + label;
+    n = Math.floor(n / 26) - 1;
+  } while (n >= 0);
+  return label;
+}
+
 export type AskUserPromptProps = {
   questions: Question[];
   answeredQuestions?: AnsweredQuestion[];
@@ -41,6 +52,23 @@ export type AskUserPromptProps = {
   dataTestPrefix?: string;
   className?: string;
 };
+
+function OptionLetterBadge({ letter, selected, className }: { letter: string; selected: boolean; className?: string }) {
+  return (
+    <span
+      aria-hidden
+      className={cn(
+        'inline-flex size-5 shrink-0 items-center justify-center rounded border font-sans text-[0.6875rem] font-semibold leading-none',
+        selected
+          ? 'border-primary-button-bg/50 bg-primary-button-bg/15 text-primary-button-bg'
+          : 'border-border bg-secondary-bg text-text-secondary',
+        className,
+      )}
+    >
+      {letter}
+    </span>
+  );
+}
 
 export function AskUserPrompt({
   questions,
@@ -92,6 +120,7 @@ export function AskUserPrompt({
 
   const isCustomSelected = currentAnswer.radioValue === ASK_USER_CUSTOM_OPTION;
   const hasOptions = currentQuestion.options.length > 0;
+  const customOptionLetter = askUserOptionLetter(currentQuestion.options.length);
 
   const handleOptionSelect = (value: string) => {
     if (readOnly) return;
@@ -138,11 +167,15 @@ export function AskUserPrompt({
 
   return (
     <div
-      className={cn('aui-ask-user-prompt', className)}
+      className={cn(
+        // Inset vs composer so stacked pause chrome matches the design (~1rem each side).
+        'aui-ask-user-prompt mx-auto w-[calc(100%-2rem)] min-w-0 overflow-hidden rounded-lg border border-border',
+        className,
+      )}
       data-testid={dataTestPrefix ? `${dataTestPrefix}-question-card` : undefined}
     >
-      <div className="flex items-center justify-between rounded-t-lg border border-primary-button-bg/30 bg-primary-button-bg/10 px-4 py-2">
-        <div className="font-sans text-sm font-medium text-primary-button-bg">
+      <div className="flex items-center justify-between border-b border-primary-button-bg/30 bg-primary-button-bg/10 px-4 py-2">
+        <div className="min-w-0 font-sans text-sm font-medium text-primary-button-bg">
           {totalQuestions > 1 ? 'Questions' : currentQuestion.question}
         </div>
         {readOnly ? (
@@ -151,7 +184,7 @@ export function AskUserPrompt({
           </div>
         ) : null}
         {!readOnly && isMultiQuestion && (
-          <div className="flex items-center gap-1">
+          <div className="flex shrink-0 items-center gap-1">
             <IconButton
               aria-label="Previous question"
               variant="ghost"
@@ -177,26 +210,27 @@ export function AskUserPrompt({
         )}
       </div>
 
-      <div className="flex flex-col gap-2 rounded-b-lg border border-t-0 border-border px-4 py-3">
-        <div className="flex flex-col gap-3">
+      <div className="flex flex-col gap-2 bg-primary-bg px-4 py-3">
+        <div className="flex min-w-0 flex-col gap-3">
           {isMultiQuestion && (
             <div className="font-sans text-xs font-medium text-text-primary">
               {currentQuestion.question || 'What would you like to do?'}
             </div>
           )}
           <div
-            className="flex flex-col gap-3 overflow-visible"
+            className="grid min-w-0 grid-cols-[auto_minmax(0,1fr)] gap-x-2 gap-y-3 overflow-visible"
             role={hasOptions ? 'radiogroup' : undefined}
             aria-label={hasOptions ? currentQuestion.question || 'Answer options' : undefined}
             onKeyDown={handleAnswerKeyDown}
           >
             {currentQuestion.options.map((opt, index) => {
               const isSelected = currentAnswer.radioValue === opt;
+              const letter = askUserOptionLetter(index);
               return (
                 <label
                   key={`${index}:${opt}`}
                   className={cn(
-                    'flex w-fit items-start gap-x-2 overflow-visible',
+                    'col-span-2 grid grid-cols-subgrid items-center overflow-visible',
                     readOnly ? 'cursor-default' : 'cursor-pointer',
                   )}
                 >
@@ -207,8 +241,9 @@ export function AskUserPrompt({
                     name={`ask-user-question-option-${currentQuestion.id}`}
                     checked={isSelected}
                     onChange={() => handleOptionSelect(opt)}
-                    className="mt-0.5 accent-primary-button-bg"
+                    className="sr-only"
                   />
+                  <OptionLetterBadge letter={letter} selected={isSelected} />
                   <span className="min-w-0 font-sans text-[0.8125rem] font-medium leading-snug text-text-primary">
                     {opt}
                   </span>
@@ -219,7 +254,8 @@ export function AskUserPrompt({
             {hasOptions ? (
               <label
                 className={cn(
-                  'flex items-start gap-x-2 overflow-visible',
+                  // Top-align so the letter stays on the first line as the textarea grows.
+                  'col-span-2 grid grid-cols-subgrid items-start overflow-visible',
                   readOnly ? 'cursor-default' : 'cursor-pointer',
                 )}
               >
@@ -230,12 +266,13 @@ export function AskUserPrompt({
                   name={`ask-user-question-option-${currentQuestion.id}`}
                   checked={isCustomSelected}
                   onChange={() => handleOptionSelect(ASK_USER_CUSTOM_OPTION)}
-                  className="mt-1 accent-primary-button-bg"
+                  className="sr-only"
                 />
-                <div className="min-w-0 flex-1">{answerInput}</div>
+                <OptionLetterBadge letter={customOptionLetter} selected={isCustomSelected} className="mt-0.5" />
+                <div className="min-w-0">{answerInput}</div>
               </label>
             ) : (
-              answerInput
+              <div className="col-span-2 min-w-0">{answerInput}</div>
             )}
           </div>
         </div>
@@ -253,12 +290,24 @@ export function AskUserPrompt({
               <span />
             )}
             {isNextStep ? (
-              <Button.Primary type="button" size="small" onClick={goToNextQuestion} disabled={isSubmitDisabled}>
+              <Button.Primary
+                type="button"
+                size="small"
+                onClick={goToNextQuestion}
+                disabled={isSubmitDisabled}
+                className="bg-gray-850 text-white hover:bg-gray-850 dark:text-black"
+              >
                 Next
               </Button.Primary>
             ) : (
-              <Button.Primary type="button" size="small" onClick={onSubmit} disabled={isSubmitAllDisabled}>
-                Submit
+              <Button.Primary
+                type="button"
+                size="small"
+                onClick={onSubmit}
+                disabled={isSubmitAllDisabled}
+                className="bg-gray-850 text-white hover:bg-gray-850 dark:text-black"
+              >
+                Continue
               </Button.Primary>
             )}
           </div>

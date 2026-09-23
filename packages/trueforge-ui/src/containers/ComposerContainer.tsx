@@ -202,10 +202,34 @@ export function ComposerContainer({
     return <ComposerWithOptionalDraft placeholder={placeholder} />;
   }
 
+  // Approval sits flush on the composer. Ask User keeps a small gap. MCP tucks the
+  // composer over the card’s bottom edge (screenshot stack).
+  if (pauseView.kind === 'approval') {
+    return (
+      <div data-slot="aui_composer-pause" data-pause-kind={pauseView.kind} className="flex w-full flex-col">
+        {pauseChrome}
+        <ComposerWithOptionalDraft placeholder={placeholder} connectedToBanner />
+      </div>
+    );
+  }
+
+  if (pauseView.kind === 'mcp') {
+    return (
+      <div data-slot="aui_composer-pause" data-pause-kind={pauseView.kind} className="relative flex w-full flex-col">
+        <div className="pb-2">{pauseChrome}</div>
+        <div className="relative z-10 -mt-3">
+          <ComposerWithOptionalDraft placeholder={placeholder} />
+        </div>
+      </div>
+    );
+  }
+
   return (
     <div data-slot="aui_composer-pause" data-pause-kind={pauseView.kind} className="flex w-full flex-col">
       {pauseChrome}
-      <ComposerWithOptionalDraft placeholder={placeholder} connectedToBanner />
+      <div className="relative z-10 -mt-1">
+        <ComposerWithOptionalDraft placeholder={placeholder} />
+      </div>
     </div>
   );
 }
