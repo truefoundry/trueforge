@@ -404,7 +404,6 @@ export type {
   SandboxCatalogServer,
   SandboxProviderBase,
   SandboxProviderCatalogEntry,
-  SandboxProviderConfig,
   SandboxProviderListEntry,
   SandboxSnapshotSyncStatus,
   SaveAgentRequest,
@@ -477,6 +476,7 @@ export type {
   AgentSessionsProps,
 } from './atoms/agent-details/types.js';
 export { AgentMetricsContainer } from './containers/AgentMetricsContainer.js';
+export type { DaytonaSandboxConfig } from './plugins/trueforge-agent-server-adapter/catalogs/sandboxProviderCatalog.js';
 export type { SessionEventTimelineSegment, SessionEventType } from './utils/sessionEventTimeline.js';
 export type { SessionTurnView } from './utils/sessionTurnViews.js';
 

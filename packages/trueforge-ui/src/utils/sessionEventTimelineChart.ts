@@ -72,7 +72,7 @@ export type TimelineHoverTarget =
   | { type: typeof TIMELINE_TYPE.turn; bar: TimelineTurnBar }
   | { type: typeof TIMELINE_TYPE.event; segment: SessionEventTimelineSegment }
   | { type: typeof TIMELINE_TYPE.markerGroup; group: TimelineMarkerGroup }
-  | { type: typeof TIMELINE_TYPE.toolCallGroup; group: TimelineToolCallGroup }
+  | { type: typeof TIMELINE_TYPE.toolCallGroup; group: TimelineToolCallGroup; subAgentLabel?: string }
   | { type: typeof TIMELINE_TYPE.subAgentGroup; group: TimelineSubAgentGroup };
 
 /** Stable identity used to avoid replacing tooltip state while hovering the same bar. */
