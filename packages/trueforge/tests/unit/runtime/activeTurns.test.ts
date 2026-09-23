@@ -42,13 +42,7 @@ describe('ActiveTurnRegistry', () => {
       seen.push(value);
     }
     expect(seen).toEqual([1, 2, 3]);
-    expect(
-      registry.cancelIfRunning({
-        sessionId: 's1',
-        turnId: 't1',
-        abortReason: CancellationReason.ClientCancelled,
-      }),
-    ).toBe(false);
+    expect(registry.has({ sessionId: 's1', turnId: 't1' })).toBe(false);
   });
 
   it('track cleans up when the consumer breaks early', async () => {
@@ -65,13 +59,7 @@ describe('ActiveTurnRegistry', () => {
       expect(value).toBe(1);
       break;
     }
-    expect(
-      registry.cancelIfRunning({
-        sessionId: 's1',
-        turnId: 't1',
-        abortReason: CancellationReason.ClientCancelled,
-      }),
-    ).toBe(false);
+    expect(registry.has({ sessionId: 's1', turnId: 't1' })).toBe(false);
   });
 
   it('track cleans up when the stream throws', async () => {
@@ -89,16 +77,27 @@ describe('ActiveTurnRegistry', () => {
         void value;
       }
     }).rejects.toThrow(/stream boom/);
-    expect(
-      registry.cancelIfRunning({
-        sessionId: 's1',
-        turnId: 't1',
-        abortReason: CancellationReason.ClientCancelled,
-      }),
-    ).toBe(false);
+    expect(registry.has({ sessionId: 's1', turnId: 't1' })).toBe(false);
   });
 
-  it('cancelIfRunning aborts with the given reason and returns true', () => {
+  it('has is true only while the run is tracked', async () => {
+    const registry = new ActiveTurnRegistry();
+    const abortController = new AbortController();
+    expect(registry.has({ sessionId: 's1', turnId: 't1' })).toBe(false);
+    const tracked = registry.track({
+      sessionId: 's1',
+      turnId: 't1',
+      abortController,
+      stream: values([1]),
+    });
+    expect(registry.has({ sessionId: 's1', turnId: 't1' })).toBe(true);
+    for await (const value of tracked) {
+      void value;
+    }
+    expect(registry.has({ sessionId: 's1', turnId: 't1' })).toBe(false);
+  });
+
+  it('cancel aborts with the given reason', () => {
     const registry = new ActiveTurnRegistry();
     const abortController = new AbortController();
     void registry.track({
@@ -108,29 +107,27 @@ describe('ActiveTurnRegistry', () => {
       stream: values([1]),
     });
 
-    expect(
-      registry.cancelIfRunning({
-        sessionId: 's1',
-        turnId: 't1',
-        abortReason: CancellationReason.ClientCancelled,
-      }),
-    ).toBe(true);
+    registry.cancel({
+      sessionId: 's1',
+      turnId: 't1',
+      abortReason: CancellationReason.ClientCancelled,
+    });
     expect(abortController.signal.aborted).toBe(true);
     expect(abortController.signal.reason).toBe(CancellationReason.ClientCancelled);
   });
 
-  it('cancelIfRunning returns false for unknown ids', () => {
+  it('cancel is a no-op for unknown ids', () => {
     const registry = new ActiveTurnRegistry();
-    expect(
-      registry.cancelIfRunning({
+    expect(() =>
+      registry.cancel({
         sessionId: 'missing',
         turnId: 'missing',
         abortReason: CancellationReason.ClientCancelled,
       }),
-    ).toBe(false);
+    ).not.toThrow();
   });
 
-  it('cancelIfRunning does not re-abort an already-aborted controller', () => {
+  it('cancel does not re-abort an already-aborted controller', () => {
     const registry = new ActiveTurnRegistry();
     const abortController = new AbortController();
     void registry.track({
@@ -141,13 +138,11 @@ describe('ActiveTurnRegistry', () => {
     });
     abortController.abort(CancellationReason.ClientCancelled);
 
-    expect(
-      registry.cancelIfRunning({
-        sessionId: 's1',
-        turnId: 't1',
-        abortReason: CancellationReason.Abandoned,
-      }),
-    ).toBe(true);
+    registry.cancel({
+      sessionId: 's1',
+      turnId: 't1',
+      abortReason: CancellationReason.Abandoned,
+    });
     expect(abortController.signal.reason).toBe(CancellationReason.ClientCancelled);
   });
 
@@ -171,13 +166,7 @@ describe('ActiveTurnRegistry', () => {
     expect(abortController.signal.aborted).toBe(true);
     expect(abortController.signal.reason).toBe(CancellationReason.Abandoned);
     await drain;
-    expect(
-      registry.cancelIfRunning({
-        sessionId: 's1',
-        turnId: 't1',
-        abortReason: CancellationReason.ClientCancelled,
-      }),
-    ).toBe(false);
+    expect(registry.has({ sessionId: 's1', turnId: 't1' })).toBe(false);
   });
 
   it('late track after shutdownAndWait aborts immediately with the shutdown reason', async () => {

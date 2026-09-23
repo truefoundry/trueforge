@@ -68,21 +68,20 @@ export class ActiveTurnRegistry {
     return tracked();
   }
 
+  has(input: { sessionId: string; turnId: string }): boolean {
+    return this.runs.has(activeTurnKey(input.sessionId, input.turnId));
+  }
+
   /**
-   * Aborts the given turn if it is running in this process. Returns true when
-   * the run was found (already-aborted runs are not re-aborted). Cancelling a
-   * turn that is not running is a no-op, mirroring the store's
-   * first-terminal-write-wins rule.
+   * Aborts the turn if it is tracked here. Missing and already-aborted runs
+   * are a no-op (first abort wins).
    */
-  cancelIfRunning(input: { sessionId: string; turnId: string; abortReason: CancellationReason }): boolean {
+  cancel(input: { sessionId: string; turnId: string; abortReason: CancellationReason }): void {
     const run = this.runs.get(activeTurnKey(input.sessionId, input.turnId));
-    if (!run) {
-      return false;
+    if (!run || run.abortController.signal.aborted) {
+      return;
     }
-    if (!run.abortController.signal.aborted) {
-      run.abortController.abort(input.abortReason);
-    }
-    return true;
+    run.abortController.abort(input.abortReason);
   }
 
   /**
