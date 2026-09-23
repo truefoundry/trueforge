@@ -3,6 +3,7 @@ import { z } from '@hono/zod-openapi';
 import {
   ActionRequiredEventSchema,
   AgentInputUserMessageSchema,
+  EventIdSchema,
   ModelMessageEventSchema,
   UserToolApprovalMessageSchema,
   UserToolApprovalPolicyMessageSchema,
@@ -25,6 +26,21 @@ export const TurnStateRunningSchema = z
     status: z.literal('running').describe('Turn is still executing.'),
   })
   .openapi('TurnStateRunning');
+
+export const ActionRequiredSchema = z
+  .object({
+    id: EventIdSchema,
+  })
+  .openapi('ActionRequired');
+
+export const TurnStatePausedSchema = z
+  .object({
+    status: z.literal('paused').describe('Turn is paused waiting for required actions.'),
+    action_required_on_events: z
+      .array(ActionRequiredSchema)
+      .describe('Events that still need a user or client action.'),
+  })
+  .openapi('TurnStatePaused');
 
 export const TurnStateCancelledReasonSchema = z
   .enum(CancellationReason)
@@ -94,10 +110,10 @@ export const TurnStateErrorSchema = z
 
 export const TurnStateDoneSchema = z
   .object({
-    status: z.literal('done').describe('Turn finished (possibly paused for required actions).'),
+    status: z.literal('done').describe('Turn finished with no open required actions.'),
     output: z
       .union([ModelMessageEventSchema, z.null()])
-      .describe('Final `model.message` for the turn, or null when the turn ended paused without a final message.'),
+      .describe('Final `model.message` for the turn, or null when the turn ended without a final message.'),
     required_actions: z
       .array(ActionRequiredEventSchema)
       .describe(
@@ -111,6 +127,7 @@ export const TurnStateDoneSchema = z
 export const TurnStateSchema = z
   .discriminatedUnion('status', [
     TurnStateRunningSchema,
+    TurnStatePausedSchema,
     TurnStateDoneSchema,
     TurnStateCancelledSchema,
     TurnStateErrorSchema,
@@ -188,6 +205,6 @@ export const TurnInboundEventItemSchema = z
 export type Turn = z.infer<typeof TurnSchema>;
 export type TurnInputItem = z.infer<typeof TurnInputItemSchema>;
 export type TurnState = z.infer<typeof TurnStateSchema>;
-export type TerminalTurnState = Exclude<TurnState, { status: 'running' }>;
+export type TerminalTurnState = Exclude<TurnState, { status: 'running' | 'paused' }>;
 export type TurnMetrics = z.infer<typeof TurnMetricsSchema>;
 export type TurnInboundEventItem = z.infer<typeof TurnInboundEventItemSchema>;

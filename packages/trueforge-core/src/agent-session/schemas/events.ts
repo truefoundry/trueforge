@@ -27,6 +27,7 @@ import {
   TurnStateCancelledSchema,
   TurnStateDoneSchema,
   TurnStateErrorSchema,
+  TurnStatePausedSchema,
   TurnStateRunningSchema,
 } from './turn';
 
@@ -63,20 +64,7 @@ export const TurnDoneEventSchema = z
   })
   .openapi('TurnDoneEvent');
 
-export const ActionRequiredSchema = z
-  .object({
-    id: EventIdSchema,
-  })
-  .openapi('ActionRequired');
-
-export const TurnUpdateStatePausedSchema = z
-  .object({
-    status: z.literal('paused').describe('Turn is paused waiting for required actions.'),
-    action_required_on_events: z
-      .array(ActionRequiredSchema)
-      .describe('Events that still need a user or client action.'),
-  })
-  .openapi('TurnUpdateStatePaused');
+export const TurnUpdateStatePausedSchema = TurnStatePausedSchema;
 
 export const TurnUpdateStateRunningSchema = z
   .object({
@@ -129,6 +117,7 @@ export const SessionEventItemSchema = z
   .openapi('SessionEventItem');
 
 export type TurnCreatedEvent = z.infer<typeof TurnCreatedEventSchema>;
+export type TurnUpdateState = z.infer<typeof TurnUpdateStateSchema>;
 export type TurnUpdateEvent = z.infer<typeof TurnUpdateEventSchema>;
 export type TurnDoneEvent = z.infer<typeof TurnDoneEventSchema>;
 export type SessionEvent = z.infer<typeof SessionEventSchema>;
