@@ -595,6 +595,21 @@
       "CatalogModel": {
         "additionalProperties": false,
         "properties": {
+          "base_url": {
+            "description": "Per-model API base URL. Used instead of the provider base URL for this model.",
+            "format": "uri",
+            "type": "string"
+          },
+          "chat_completions_path": {
+            "description": "Path appended for chat completions. Empty means the base URL is the full endpoint.",
+            "maxLength": 200,
+            "type": "string"
+          },
+          "invocation_error": {
+            "description": "Present when this model cannot run a chat completion.",
+            "minLength": 1,
+            "type": "string"
+          },
           "model_id": {
             "description": "Upstream, provider-specific identifier sent to the provider API.",
             "minLength": 1,
@@ -922,6 +937,21 @@
       "ConfiguredModel": {
         "additionalProperties": false,
         "properties": {
+          "base_url": {
+            "description": "Per-model API base URL. Used instead of the provider base URL for this model.",
+            "format": "uri",
+            "type": "string"
+          },
+          "chat_completions_path": {
+            "description": "Path appended for chat completions. Empty means the base URL is the full endpoint.",
+            "maxLength": 200,
+            "type": "string"
+          },
+          "invocation_error": {
+            "description": "Present when this model cannot run a chat completion.",
+            "minLength": 1,
+            "type": "string"
+          },
           "model_id": {
             "description": "Upstream, provider-specific identifier sent to the provider API.",
             "minLength": 1,

@@ -185,15 +185,20 @@ export async function getModelDetails({
       message: `Unknown model "${name}" — not configured on provider`,
     });
   }
+  if (model.invocation_error !== undefined) {
+    throw new HTTPException(422, { message: model.invocation_error });
+  }
   // Provider types are adapter names, so this assignment is what keeps them so: a type with no
   // `buildLanguageModel` case fails to compile here.
-  const { type, base_url: baseUrl } = provider.manifest;
+  const { type, base_url: providerBaseUrl } = provider.manifest;
+  const baseUrl = model.base_url ?? providerBaseUrl;
   return {
     providerConfig: {
       provider: { type, name: provider.name },
       model: { id: model.model_id, name: model.name },
       name,
       baseUrl,
+      ...(model.chat_completions_path !== undefined ? { chatCompletionsPath: model.chat_completions_path } : {}),
       apiKey: provider.manifest.auth?.api_key ?? '',
       headers: {},
     },

@@ -313,7 +313,15 @@ describe('TrueFoundry naming vs NameSchema', () => {
         },
       ],
     });
-    expect(models).toEqual([{ accountName: PROVIDER_ACCOUNT, modelName: MODEL_NAME, properties: {} }]);
+    expect(models).toEqual([
+      {
+        accountName: PROVIDER_ACCOUNT,
+        modelName: MODEL_NAME,
+        properties: {},
+        endpointKind: 'provider',
+        upstreamBaseUrl: undefined,
+      },
+    ]);
     const fqn = `${models[0]?.accountName}/${models[0]?.modelName}`;
     expect(fqn).toBe(`${PROVIDER_ACCOUNT}/${MODEL_NAME}`);
     expect(NameSchema.safeParse(fqn).success).toBe(false);
