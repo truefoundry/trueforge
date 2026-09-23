@@ -44,7 +44,11 @@ Each option below is part of the agent definition. The **Set in** line on each s
   <Accordion title="Tool approval" icon="user-shield">
     Some tool calls shouldn't run without a human's sign-off. **Tool approval** pauses the agent before such a call, shows the tool name and arguments, and resumes only after the user chooses **Allow** or **Deny** in the chat UI.
 
-    By default, the harness decides what to gate from the tool's own **MCP annotation**: if the server marks a tool as **write or destructive** (the default `["@write", "@destructive"]`), the agent pauses for approval before running it. Read-only tools run autonomously.
+    By default, the harness gates tools the MCP server marks **destructive** (`require_approval_for_tools` defaults to `["@destructive"]`). Read-only tools run autonomously. Add `@write` to also pause on tools the server marks as writes.
+
+    <Note>
+      `@write` and `@destructive` match only tools the server annotates. A tool with no annotations, or one the server marks read-only (`readOnlyHint: true`), matches neither tag and runs without approval — even when the call changes state. Most MCP servers omit annotations, so treating those tools as write or destructive would pause on every call. To require approval anyway, name the tool or set `require_approval_for_tools` to `@all`.
+    </Note>
 
     <Frame caption="The chat UI pauses on a sensitive tool call with Allow / Deny.">
       <img src="/images/hitl.png" alt="Chat UI pausing on a tool call, showing the request payload with Allow and Deny buttons" />
@@ -153,7 +157,7 @@ Open **Build Agent** from the sidebar. The **Agent Config** panel on the left is
 
 1. **Select a model** from the providers you configured under **Settings → Models**, and set its reasoning effort.
 2. Write focused **instructions** — role, audience, and behavior.
-3. **Add MCP servers** — open **Select MCP Tools**, pick the servers the agent should use, and choose which of their tools to enable. Use the shield on a tool to require **approval** before it runs — write and destructive tools are gated by default. Set a server's **preload** toggle on its chip to load its tools upfront.
+3. **Add MCP servers** — open **Select MCP Tools**, pick the servers the agent should use, and choose which of their tools to enable. Use the shield on a tool to require **approval** before it runs — destructive tools are gated by default. Set a server's **preload** toggle on its chip to load its tools upfront.
 4. **Add skills** if the agent should follow specialized procedures (requires [sandbox](/sandbox) enabled).
 5. Open **Runtime Config** to review execution and context behavior — Dynamic sub-agents, Generative UI, Ask user questions, the sandbox, iteration limit, and context compaction (all on by default).
 6. Click **Save Agent**, give it a name and description, and save. It then appears under [Agents](/agent-library).
@@ -357,10 +361,10 @@ Optional array. Each entry attaches a [configured MCP server](/mcp-servers) by n
 | `enable_tools`               | `["@all"]`                   | API      | Tools exposed to the agent: `@all`, `@read-only`, or literal tool names.                                                         |
 | `disable_tools`              | `[]`                         | API      | Tools subtracted from the enabled set.                                                                                           |
 | `preload_tools`              | `[]`                         | API      | Tools loaded eagerly into context while the rest stay deferred.                                                                  |
-| `require_approval_for_tools` | `["@write", "@destructive"]` | UI + API | Tools that pause for [human approval](#whats-in-an-agent): `@all`, `@write`, `@destructive`, or literal names.                   |
+| `require_approval_for_tools` | `["@destructive"]`           | UI + API | Tools that pause for [human approval](#whats-in-an-agent): `@all`, `@write`, `@destructive`, or literal names.                   |
 | `preload`                    | `false`                      | UI + API | Load all tool schemas upfront instead of [on demand](/key-features/deferred-tool-loading).                                       |
 
-The `@read-only`, `@write`, and `@destructive` selectors are resolved from the tool annotations published by the MCP server.
+The `@read-only`, `@write`, and `@destructive` selectors are resolved from the tool annotations published by the MCP server. `@write` matches `readOnlyHint: false` when the tool is not destructive; `@destructive` matches `destructiveHint: true`. A tool with no annotations, or one the server marks read-only, matches neither selector and runs without an approval pause. Name the tool, or use `@all`, to gate it anyway.
 
 ### `skills`
 
