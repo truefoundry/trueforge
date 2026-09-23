@@ -32,8 +32,10 @@ const approvalsState = vi.hoisted(() => ({
   }>,
 }));
 
+const cancelMock = vi.hoisted(() => vi.fn());
+
 vi.mock('@truefoundry/trueforge-assistant-ui-runtime', () => ({
-  useTrueForgeCancel: () => vi.fn(),
+  useTrueForgeCancel: () => cancelMock,
   useTrueForgeToolResponses: () => toolResponsesState,
   useTrueForgeApprovals: () => approvalsState,
   useTrueForgeAgentSpec: () => ({ agentSpec: agentSpecState.agentSpec }),
@@ -102,6 +104,7 @@ describe('ComposerContainer', () => {
     toolResponsesState.pending = [];
     toolResponsesState.respond = vi.fn();
     approvalsState.pending = [];
+    cancelMock.mockReset();
   });
   it('wraps the composer in an attachment dropzone by default', () => {
     renderComposer();
@@ -212,7 +215,7 @@ describe('ComposerContainer', () => {
     expect(screen.getByText('Custom right')).toBeInTheDocument();
   });
 
-  it('mounts a registered custom action renderer instead of the composer', () => {
+  it('keeps the composer enabled under a custom action renderer', () => {
     toolResponsesState.pending = [{ toolCallId: 'tc-1', toolName: 'secret_select', args: { secrets: ['a'] } }];
 
     render(
@@ -226,7 +229,8 @@ describe('ComposerContainer', () => {
     );
 
     expect(screen.getByRole('button', { name: 'Secret selector' })).toBeInTheDocument();
-    expect(screen.queryByRole('textbox', { name: 'Message input' })).not.toBeInTheDocument();
+    expect(screen.getByRole('textbox', { name: 'Message input' })).toBeEnabled();
+    expect(document.querySelector('[data-slot="aui_composer-pause"]')).toHaveAttribute('data-pause-kind', 'custom');
 
     fireEvent.click(screen.getByRole('button', { name: 'Secret selector' }));
     expect(toolResponsesState.respond).toHaveBeenCalledWith({
@@ -235,7 +239,7 @@ describe('ComposerContainer', () => {
     });
   });
 
-  it('shows the approval banner above a disabled composer while approvals are pending', () => {
+  it('keeps the composer enabled under the approval banner', () => {
     approvalsState.pending = [
       {
         approvalId: 'appr-1',
@@ -257,7 +261,54 @@ describe('ComposerContainer', () => {
 
     expect(screen.getByText('2 tools need your input')).toBeInTheDocument();
     expect(screen.getByText('(1/2)')).toBeInTheDocument();
-    expect(screen.getByRole('textbox', { name: 'Message input' })).toBeDisabled();
-    expect(document.querySelector('[data-slot="aui_composer-approval-pause"]')).toBeInTheDocument();
+    expect(screen.getByRole('textbox', { name: 'Message input' })).toBeEnabled();
+    expect(document.querySelector('[data-slot="aui_composer-pause"]')).toHaveAttribute('data-pause-kind', 'approval');
+  });
+
+  it('shows cancel while running with an empty composer', () => {
+    render(
+      <RuntimeHarness messages={[]} isRunning>
+        <ComposerBusyProvider>
+          <ComposerContainer />
+        </ComposerBusyProvider>
+      </RuntimeHarness>,
+    );
+
+    expect(screen.getByRole('textbox', { name: 'Message input' })).toBeEnabled();
+    expect(screen.getByRole('button', { name: 'Cancel' })).toBeEnabled();
+    expect(screen.queryByRole('button', { name: 'Send message' })).not.toBeInTheDocument();
+  });
+
+  it('sends while running without calling cancel', async () => {
+    const onNew = vi.fn(async () => {});
+    render(
+      <RuntimeHarness messages={[]} isRunning onNew={onNew}>
+        <ComposerBusyProvider>
+          <ComposerContainer />
+        </ComposerBusyProvider>
+      </RuntimeHarness>,
+    );
+
+    const input = screen.getByRole<HTMLTextAreaElement>('textbox', { name: 'Message input' });
+    fireEvent.change(input, { target: { value: 'follow up' } });
+    expect(screen.getByRole('button', { name: 'Send message' })).toBeEnabled();
+    expect(screen.queryByRole('button', { name: 'Cancel' })).not.toBeInTheDocument();
+
+    fireEvent.keyDown(input, { key: 'Enter' });
+    await waitFor(() => expect(onNew).toHaveBeenCalledTimes(1));
+    expect(cancelMock).not.toHaveBeenCalled();
+  });
+
+  it('does not cancel on empty Enter while running', () => {
+    render(
+      <RuntimeHarness messages={[]} isRunning>
+        <ComposerBusyProvider>
+          <ComposerContainer />
+        </ComposerBusyProvider>
+      </RuntimeHarness>,
+    );
+
+    fireEvent.keyDown(screen.getByRole('textbox', { name: 'Message input' }), { key: 'Enter' });
+    expect(cancelMock).not.toHaveBeenCalled();
   });
 });

@@ -49,6 +49,7 @@ export type {
 } from './messageCustomMetadata.js';
 export {
   collectRequiredActionInputs,
+  findCurrentPausedAssistantMessage,
   findPausedAssistantMessage,
   messageHasPendingRequiredActions,
 } from './requiredActionInputs.js';

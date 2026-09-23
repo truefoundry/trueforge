@@ -7,6 +7,7 @@ import type {
   ToolResponseRequiredEvent,
   Turn,
   TurnInputItem,
+  TurnStateCancelled,
   TurnStateDone,
 } from './server/index.js';
 import type { AgentChatServer } from './server/types.js';
@@ -25,11 +26,14 @@ import {
   type UserMessageContent,
 } from './convertTurnMessages.js';
 import { extractTurnUserText } from './extractTurnUserText.js';
+import { ingestTurnEvent } from './foldPeerThreads.js';
 import { loadSessionSnapshot } from './loadSessionSnapshot.js';
 import { MCP_AUTH_RESUME_RUN_CUSTOM_KEY } from './mcpAuth.js';
 import { isMcpServerAuthInfoList } from './messageCustomMetadata.js';
+import type { AssistantContentPart } from './modelMessageContent.js';
 import {
   collectRequiredActionInputs,
+  findCurrentPausedAssistantMessage,
   findPausedAssistantMessage,
   messageHasPendingRequiredActions,
   type RequiredActionInput,
@@ -97,6 +101,142 @@ function buildCompletedTurnState(
     requiredActions,
     completedAt,
   };
+}
+
+function buildCancelledTurnState(completedAt: string): TurnStateCancelled {
+  return {
+    status: 'cancelled',
+    reason: 'Superseded by a later message',
+    completedAt,
+  };
+}
+
+/**
+ * Custom stream adapters may yield projected content without fold events.
+ * Materialize that content so a cancelled commit still projects after
+ * `activeStream` is cleared for the next user turn.
+ */
+function materializeAbandonedStreamRootIds(options: {
+  fold: SessionSnapshot['fold'];
+  turnId: string;
+  content: readonly AssistantContentPart[];
+  existingRootIds: readonly string[];
+}): string[] {
+  if (options.existingRootIds.length > 0) {
+    return [...options.existingRootIds];
+  }
+  if (options.content.length === 0) {
+    return [];
+  }
+
+  const text = options.content
+    .filter((part): part is Extract<AssistantContentPart, { type: 'text' }> => part.type === 'text')
+    .map(part => part.text)
+    .join('');
+  const toolCalls = options.content
+    .filter((part): part is Extract<AssistantContentPart, { type: 'tool-call' }> => part.type === 'tool-call')
+    .map(part => ({
+      id: part.toolCallId,
+      type: 'function' as const,
+      function: {
+        name: part.toolName,
+        arguments: part.argsText,
+      },
+    }));
+  const modelId = `client-abandoned-${options.turnId}`;
+  ingestTurnEvent(options.fold, {
+    type: 'model.message',
+    id: modelId,
+    threadId: ROOT_THREAD_ID,
+    createdAt: new Date().toISOString(),
+    content: text.length > 0 ? text : null,
+    ...(toolCalls.length > 0 ? { toolCalls } : {}),
+  });
+  return [modelId];
+}
+
+/**
+ * Force-commits an in-flight client turn (optimistic user and/or incomplete
+ * stream) as cancelled so a superseding user send keeps that half-baked chat
+ * in history. Does not call cancelSession — the backend supersedes on its own.
+ */
+function abandonInFlightClientTurn(snapshot: SessionSnapshot): SessionSnapshot {
+  const active = snapshot.activeStream;
+  const hasIncompleteStream = active != null && active.streamComplete !== true;
+  const hasPendingUser = snapshot.pendingUser != null;
+
+  if (!hasIncompleteStream && !hasPendingUser) {
+    return snapshot;
+  }
+
+  const completedAt = new Date().toISOString();
+  const cancelledState = buildCancelledTurnState(completedAt);
+
+  if (hasIncompleteStream && active != null) {
+    const activeSandboxIdValue = active.update.metadata?.custom?.['sandboxId'];
+    const activeSandboxId = typeof activeSandboxIdValue === 'string' ? activeSandboxIdValue : undefined;
+    const baseline = snapshot.groupRootBaseline ?? computeGroupRootBaseline(snapshot.turns);
+    const rootModelMessageIds = materializeAbandonedStreamRootIds({
+      fold: snapshot.fold,
+      turnId: active.turnId,
+      content: active.update.content,
+      existingRootIds: rootModelMessageIdsSinceBaseline(snapshot.fold, baseline),
+    });
+
+    const lastTurn = snapshot.turns.at(-1);
+    if (lastTurn?.id === active.turnId) {
+      return replaceSessionSnapshot(snapshot, {
+        turns: snapshot.turns.map(turn =>
+          turn.id === active.turnId
+            ? {
+                ...turn,
+                state: cancelledState,
+                rootModelMessageIds,
+                ...(activeSandboxId != null ? { sandboxId: activeSandboxId } : {}),
+              }
+            : turn,
+        ),
+        pendingUser: undefined,
+        activeStream: undefined,
+      });
+    }
+
+    const record: SessionTurnRecord = {
+      id: active.turnId,
+      createdAt: snapshot.pendingUser?.createdAt.toISOString() ?? completedAt,
+      state: cancelledState,
+      input: snapshot.pendingUser ? [buildUserTurnInput(snapshot.pendingUser.content)] : [],
+      ...(snapshot.pendingUser ? { userText: userMessageContentToText(snapshot.pendingUser.content) } : {}),
+      rootModelMessageIds,
+      ...(activeSandboxId != null ? { sandboxId: activeSandboxId } : {}),
+    };
+
+    return replaceSessionSnapshot(snapshot, {
+      turns: [...snapshot.turns, record],
+      pendingUser: undefined,
+      activeStream: undefined,
+    });
+  }
+
+  const pending = snapshot.pendingUser;
+  if (pending == null) {
+    return snapshot;
+  }
+
+  const record: SessionTurnRecord = {
+    id: pending.turnId,
+    createdAt: pending.createdAt.toISOString(),
+    state: cancelledState,
+    input: [buildUserTurnInput(pending.content)],
+    userText: userMessageContentToText(pending.content),
+    rootModelMessageIds: [],
+  };
+
+  return replaceSessionSnapshot(snapshot, {
+    turns: [...snapshot.turns, record],
+    pendingUser: undefined,
+    activeStream: undefined,
+  });
 }
 
 /**
@@ -612,6 +752,14 @@ export function useTrueForgeAgentMessages({
       let runStreamStarted = false;
       let pendingUserTurnId: string | undefined;
 
+      // Invalidate the prior client stream before any await so a buffered RAF
+      // cannot restore stale activeStream after the optimistic user message.
+      // Continuations keep today's runStream abort; they must not race a user send.
+      if ('userMessage' in options) {
+        streamGenerationRef.current += 1;
+        abortControllerRef.current?.abort();
+      }
+
       try {
         let activeSessionId = sessionId;
         if (activeSessionId == null) {
@@ -694,9 +842,12 @@ export function useTrueForgeAgentMessages({
         if (branchBase != null && 'userMessage' in options) {
           // Atomic apply: never merge pendingUser onto a stale React `prev`
           // that still holds pre-branch turns (edit would show old + new).
-          const rootBucket = branchBase.fold.threads.get(ROOT_THREAD_ID);
+          // Commit any completed stream, then abandon incomplete in-flight chat
+          // into history before the new optimistic user message.
+          const abandoned = abandonInFlightClientTurn(commitActiveStream(branchBase));
+          const rootBucket = abandoned.fold.threads.get(ROOT_THREAD_ID);
           groupRootBaseline = [...(rootBucket?.modelMessageIds ?? [])];
-          const nextSnapshot = replaceSessionSnapshot(branchBase, {
+          const nextSnapshot = replaceSessionSnapshot(abandoned, {
             pendingUser: {
               turnId,
               content: options.userMessage,
@@ -704,36 +855,43 @@ export function useTrueForgeAgentMessages({
             },
             activeStream: undefined,
             groupRootBaseline,
+            requiredActions: {
+              approvals: new Map(),
+              toolResponses: new Map(),
+            },
           });
           snapshotRef.current = nextSnapshot;
           setSnapshot(nextSnapshot);
           pendingUserWasSet = true;
           pendingUserTurnId = turnId;
+        } else if ('userMessage' in options) {
+          // Sync from snapshotRef so groupRootBaseline is set before runStream
+          // (setState updaters after await are not guaranteed to flush first).
+          const abandoned = abandonInFlightClientTurn(commitActiveStream(snapshotRef.current));
+          const rootBucket = abandoned.fold.threads.get(ROOT_THREAD_ID);
+          groupRootBaseline = [...(rootBucket?.modelMessageIds ?? [])];
+          const next = replaceSessionSnapshot(abandoned, {
+            pendingUser: {
+              turnId,
+              content: options.userMessage,
+              createdAt: new Date(),
+            },
+            activeStream: undefined,
+            groupRootBaseline,
+            // Drop staged pause answers so they cannot resume behind this turn.
+            requiredActions: {
+              approvals: new Map(),
+              toolResponses: new Map(),
+            },
+          });
+          snapshotRef.current = next;
+          setSnapshot(next);
+          pendingUserWasSet = true;
+          pendingUserTurnId = turnId;
         } else {
           setSnapshot(prev => commitActiveStream(prev, 'inputs' in options ? options.inputs : undefined));
-
-          if ('userMessage' in options) {
-            const rootBucket = snapshotRef.current.fold.threads.get(ROOT_THREAD_ID);
-            groupRootBaseline = [...(rootBucket?.modelMessageIds ?? [])];
-            setSnapshot(prev => {
-              const next = replaceSessionSnapshot(prev, {
-                pendingUser: {
-                  turnId,
-                  content: options.userMessage,
-                  createdAt: new Date(),
-                },
-                activeStream: undefined,
-                groupRootBaseline,
-              });
-              snapshotRef.current = next;
-              return next;
-            });
-            pendingUserWasSet = true;
-            pendingUserTurnId = turnId;
-          } else {
-            groupRootBaseline =
-              snapshotRef.current.groupRootBaseline ?? computeGroupRootBaseline(snapshotRef.current.turns);
-          }
+          groupRootBaseline =
+            snapshotRef.current.groupRootBaseline ?? computeGroupRootBaseline(snapshotRef.current.turns);
         }
 
         runStreamStarted = true;
@@ -853,7 +1011,7 @@ export function useTrueForgeAgentMessages({
         return;
       }
       const projected = projectSessionMessages(nextSnapshot, projectOptions);
-      const paused = findPausedAssistantMessage(projected);
+      const paused = findCurrentPausedAssistantMessage(projected);
       if (paused == null || messageHasPendingRequiredActions(paused)) {
         return;
       }
@@ -1135,4 +1293,4 @@ export function useTrueForgeAgentMessages({
   };
 }
 
-export { findPausedAssistantMessage, MCP_AUTH_RESUME_RUN_CUSTOM_KEY };
+export { findCurrentPausedAssistantMessage, findPausedAssistantMessage, MCP_AUTH_RESUME_RUN_CUSTOM_KEY };

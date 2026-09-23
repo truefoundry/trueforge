@@ -902,6 +902,220 @@ describe('useTrueForgeAgentMessages', () => {
     });
   });
 
+  it('aborts the prior client stream on a new user send without cancelSession', async () => {
+    let firstSignal: AbortSignal | undefined;
+    let releaseFirstStream: (() => void) | undefined;
+    let releaseSecondStream: (() => void) | undefined;
+    const runningValues: boolean[] = [];
+
+    vi.mocked(streamTurnContent)
+      .mockImplementationOnce(async function* (_server, _sessionId, _fold, _options, signal) {
+        firstSignal = signal;
+        yield { content: [{ type: 'text' as const, text: 'first reply' }] };
+        await new Promise<void>(resolve => {
+          releaseFirstStream = resolve;
+        });
+      })
+      .mockImplementationOnce(async function* () {
+        yield { content: [{ type: 'text' as const, text: 'second reply' }] };
+        await new Promise<void>(resolve => {
+          releaseSecondStream = resolve;
+        });
+      });
+
+    const { result } = renderHook(() => useTrueForgeAgentMessages({ server: mockServer, sessionId: 'session-1' }));
+    await waitFor(() => expect(result.current.isLoading).toBe(false));
+
+    const firstSend = result.current.sendTurn({ userMessage: 'first' });
+    await waitFor(() => expect(streamTurnContent).toHaveBeenCalledTimes(1));
+    expect(result.current.isRunning).toBe(true);
+    runningValues.push(result.current.isRunning);
+
+    const secondSend = result.current.sendTurn({ userMessage: 'second' });
+    await waitFor(() => expect(streamTurnContent).toHaveBeenCalledTimes(2));
+    runningValues.push(result.current.isRunning);
+
+    expect(firstSignal?.aborted).toBe(true);
+    expect(mockServer.cancelSession).not.toHaveBeenCalled();
+    expect(runningValues.every(value => value)).toBe(true);
+
+    await act(async () => {
+      releaseFirstStream?.();
+      await firstSend.catch(() => undefined);
+    });
+    expect(result.current.isRunning).toBe(true);
+
+    await act(async () => {
+      releaseSecondStream?.();
+      await secondSend;
+    });
+  });
+
+  it('keeps mid-stream user and assistant content when a later user message supersedes', async () => {
+    let releaseFirstStream: (() => void) | undefined;
+    let releaseSecondStream: (() => void) | undefined;
+    const runningValues: boolean[] = [];
+
+    vi.stubGlobal(
+      'requestAnimationFrame',
+      vi.fn((callback: FrameRequestCallback) => {
+        callback(performance.now());
+        return 1;
+      }),
+    );
+    vi.stubGlobal('cancelAnimationFrame', vi.fn());
+
+    vi.mocked(streamTurnContent)
+      .mockImplementationOnce(async function* () {
+        yield { content: [{ type: 'text' as const, text: 'first partial' }] };
+        await new Promise<void>(resolve => {
+          releaseFirstStream = resolve;
+        });
+      })
+      .mockImplementationOnce(async function* () {
+        yield { content: [{ type: 'text' as const, text: 'second reply' }] };
+        await new Promise<void>(resolve => {
+          releaseSecondStream = resolve;
+        });
+      });
+
+    const { result } = renderHook(() => useTrueForgeAgentMessages({ server: mockServer, sessionId: 'session-1' }));
+    await waitFor(() => expect(result.current.isLoading).toBe(false));
+
+    const firstSend = result.current.sendTurn({ userMessage: 'first' });
+    await waitFor(() =>
+      expect(
+        result.current.messages.some(
+          message =>
+            message.role === 'assistant' &&
+            message.content.some(part => part.type === 'text' && part.text === 'first partial'),
+        ),
+      ).toBe(true),
+    );
+    runningValues.push(result.current.isRunning);
+
+    const secondSend = result.current.sendTurn({ userMessage: 'second' });
+    await waitFor(() => expect(streamTurnContent).toHaveBeenCalledTimes(2));
+    runningValues.push(result.current.isRunning);
+
+    expect(mockServer.cancelSession).not.toHaveBeenCalled();
+    expect(runningValues.every(value => value)).toBe(true);
+
+    const userTexts = result.current.messages
+      .filter(message => message.role === 'user')
+      .map(message =>
+        message.content
+          .filter((part): part is { type: 'text'; text: string } => part.type === 'text')
+          .map(part => part.text)
+          .join(''),
+      );
+    expect(userTexts).toEqual(['first', 'second']);
+
+    const cancelledAssistant = result.current.messages.find(
+      message =>
+        message.role === 'assistant' &&
+        message.content.some(part => part.type === 'text' && part.text === 'first partial'),
+    );
+    expect(cancelledAssistant).toMatchObject({
+      role: 'assistant',
+      status: { type: 'incomplete', reason: 'cancelled' },
+    });
+
+    await act(async () => {
+      releaseFirstStream?.();
+      await firstSend.catch(() => undefined);
+    });
+    expect(result.current.isRunning).toBe(true);
+
+    await act(async () => {
+      releaseSecondStream?.();
+      await secondSend;
+    });
+  });
+
+  it('keeps the first user message when a later send arrives before any assistant token', async () => {
+    let releaseFirstStream: (() => void) | undefined;
+    let releaseSecondStream: (() => void) | undefined;
+
+    vi.mocked(streamTurnContent)
+      .mockImplementationOnce(async function* () {
+        await new Promise<void>(resolve => {
+          releaseFirstStream = resolve;
+        });
+        yield { content: [{ type: 'text' as const, text: 'late first reply' }] };
+      })
+      .mockImplementationOnce(async function* () {
+        yield { content: [{ type: 'text' as const, text: 'second reply' }] };
+        await new Promise<void>(resolve => {
+          releaseSecondStream = resolve;
+        });
+      });
+
+    const { result } = renderHook(() => useTrueForgeAgentMessages({ server: mockServer, sessionId: 'session-1' }));
+    await waitFor(() => expect(result.current.isLoading).toBe(false));
+
+    const firstSend = result.current.sendTurn({ userMessage: 'first before tokens' });
+    await waitFor(() => expect(streamTurnContent).toHaveBeenCalledTimes(1));
+    await waitFor(() =>
+      expect(
+        result.current.messages.some(
+          message =>
+            message.role === 'user' &&
+            message.content.some(part => part.type === 'text' && part.text === 'first before tokens'),
+        ),
+      ).toBe(true),
+    );
+
+    const secondSend = result.current.sendTurn({ userMessage: 'second' });
+    await waitFor(() => expect(streamTurnContent).toHaveBeenCalledTimes(2));
+
+    expect(mockServer.cancelSession).not.toHaveBeenCalled();
+    const userTexts = result.current.messages
+      .filter(message => message.role === 'user')
+      .map(message =>
+        message.content
+          .filter((part): part is { type: 'text'; text: string } => part.type === 'text')
+          .map(part => part.text)
+          .join(''),
+      );
+    expect(userTexts).toEqual(['first before tokens', 'second']);
+    expect(result.current.isRunning).toBe(true);
+
+    await act(async () => {
+      releaseFirstStream?.();
+      await firstSend.catch(() => undefined);
+    });
+    expect(result.current.isRunning).toBe(true);
+
+    await act(async () => {
+      releaseSecondStream?.();
+      await secondSend;
+    });
+  });
+
+  it('drops ask-user pause chrome after a superseding user send', async () => {
+    vi.mocked(loadSessionSnapshot).mockResolvedValue(snapshotWithAskUserPendingInFold());
+    vi.mocked(streamTurnContent).mockReturnValue(
+      (async function* () {
+        yield { content: [{ type: 'text' as const, text: 'new reply' }] };
+      })(),
+    );
+
+    const { result } = renderHook(() => useTrueForgeAgentMessages({ server: mockServer, sessionId: 'session-1' }));
+    await waitFor(() => expect(collectPendingToolResponses(result.current.messages)).toHaveLength(1));
+
+    await act(async () => {
+      await result.current.sendTurn({ userMessage: 'ignore the question' });
+    });
+
+    expect(collectPendingToolResponses(result.current.messages)).toHaveLength(0);
+    expect(mockServer.cancelSession).not.toHaveBeenCalled();
+    const paused = result.current.messages.find(message => message.role === 'assistant' && message.id.includes('ask'));
+    if (paused?.role === 'assistant') {
+      expect(paused.status.type).not.toBe('requires-action');
+    }
+  });
+
   it('carries a streamed sandboxId through commit so it survives after the stream completes', async () => {
     vi.mocked(streamTurnContent).mockReturnValue(
       (async function* () {

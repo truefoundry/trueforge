@@ -177,7 +177,7 @@ export function AskUserPrompt({
         )}
       </div>
 
-      <div className="flex flex-col gap-4 rounded-b-lg border border-t-0 border-border px-4 py-3">
+      <div className="flex flex-col gap-2 rounded-b-lg border border-t-0 border-border px-4 py-3">
         <div className="flex flex-col gap-3">
           {isMultiQuestion && (
             <div className="font-sans text-xs font-medium text-text-primary">
@@ -244,7 +244,7 @@ export function AskUserPrompt({
           <div
             className={cn('flex items-center', {
               'justify-between': isMultiQuestion,
-              'justify-start': !isMultiQuestion,
+              'justify-end': !isMultiQuestion,
             })}
           >
             {isMultiQuestion && isLastQuestion && !allQuestionsAnswered ? (
