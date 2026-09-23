@@ -1,22 +1,22 @@
 # npm publish for the four public packages, plus PyPI for python/trueforge_sdk.
 #
-# npm and PyPI trusted publishers are bound to `release.yml`.
-# Do not rename this file without updating every package on npmjs.com and PyPI.
+# npm and PyPI trusted publishers are bound to this filename
+# (`release-packages.yml`). Update every package on npmjs.com and PyPI if you
+# rename it. They were previously bound to `release.yml`.
 #
 # On every push to main, changesets/action/select-mode chooses:
 #   - pending `.changeset/*.md` → version job opens/updates the Version Packages PR
 #     (install only; that PR is gated by CI.yml). When @truefoundry/trueforge-sdk
 #     moves, scripts/version.mjs mirrors that version into python/trueforge_sdk and rebakes Fern.
 #   - none pending + unpublished versions → pack (build/test) + Windows npx smoke,
-#     then npm publish, PyPI publish, and image+Helm release in parallel
+#     then npm publish and PyPI publish in parallel
 # Merge the Version Packages PR to publish. There is no separate publish Action
-# and no `v*` tag trigger.
+# and no `v*` tag trigger. Image and Helm are a separate workflow.
 #
 # Auth is GitHub OIDC (no NPM_TOKEN / PYPI_TOKEN). An `_authToken` in user `.npmrc`
 # disables pnpm's OIDC exchange, so the npm publish job must not set NPM_TOKEN /
-# NODE_AUTH_TOKEN. id-token is granted only on the npm/PyPI publish jobs (the
-# image workflow requests its own).
-name: Release
+# NODE_AUTH_TOKEN. id-token is granted only on the publish jobs.
+name: Version or publish packages
 
 on:
   push:
@@ -266,15 +266,3 @@ jobs:
         uses: pypa/gh-action-pypi-publish@release/v1
         with:
           packages-dir: python/trueforge_sdk/dist
-
-  # Same commit as this publish run (GITHUB_SHA). Does not wait for npm.
-  # A workflow_dispatch --ref SHA is rejected: the dispatch API only accepts
-  # a branch or tag name (HTTP 422).
-  release-image-and-chart:
-    name: Release image and Helm chart
-    needs: [pack, windows-npx-smoke]
-    uses: ./.github/workflows/release-image-chart.yml
-    permissions:
-      contents: write
-      id-token: write
-    secrets: inherit
