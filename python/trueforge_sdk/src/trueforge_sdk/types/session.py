@@ -29,7 +29,7 @@ class Session(UncheckedBaseModel):
     metrics: SessionMetrics
     shared: bool = pydantic.Field()
     """
-    When true, any subject in the tenant may fetch this session by id.
+    When true, any subject in the tenant may read this session and its turns/events by id.
     """
 
     source: typing.Optional[SessionSource] = None
