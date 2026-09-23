@@ -18,6 +18,7 @@ import { createDb } from './db/postgres/client';
 import { PostgresScheduleStore } from './db/postgres/schedule-store/PostgresScheduleStore';
 import { createControllerLogger } from './logger';
 import { PACKAGE_VERSION } from './packageVersion';
+import { initSentry } from './sentry';
 
 try {
   const logger = createControllerLogger({
@@ -25,6 +26,8 @@ try {
     standalone: configuration.STANDALONE,
     version: PACKAGE_VERSION,
   });
+
+  await initSentry(configuration, logger, { tags: { component: 'controller' } });
 
   if (configuration.STANDALONE) {
     // Not an error: in standalone the server process owns the controller in-process, so a
