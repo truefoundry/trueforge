@@ -8,9 +8,9 @@ import { Accordion, AccordionDetails, AccordionSummary } from '../../atoms/primi
 import { Button } from '../../atoms/primitives/Button.js';
 import { CenteredModal } from '../../atoms/primitives/CenteredModal.js';
 import { Icon } from '../../icons/Icon.js';
-import type { SandboxProviderConfig } from '../../server/types.js';
+import type { DaytonaSandboxConfig } from '../../plugins/trueforge-agent-server-adapter/catalogs/sandboxProviderCatalog.js';
 
-export type SandboxConfigDraft = SandboxProviderConfig & {
+export type SandboxConfigDraft = DaytonaSandboxConfig & {
   apiKey: string;
 };
 
@@ -21,7 +21,7 @@ type ConfigureSandboxFormProps = {
   title: string;
   description?: string;
   /** Prefills config fields; apiKey is never autofilled. */
-  initialConfig?: SandboxProviderConfig | null;
+  initialConfig?: DaytonaSandboxConfig | null;
   /** When false (updates), empty apiKey means keep the existing key. */
   requireApiKey?: boolean;
   busy?: boolean;
@@ -29,8 +29,7 @@ type ConfigureSandboxFormProps = {
 };
 
 /** Sensible defaults so the advanced fields are never blank, even without a catalog preset. */
-const EMPTY_CONFIG: SandboxProviderConfig = {
-  // Snapshot/image is release-owned now; kept only to satisfy the external SandboxProviderConfig type.
+const EMPTY_CONFIG: DaytonaSandboxConfig = {
   execTimeoutMs: 300000,
   autoStopIntervalInMinutes: 15,
   autoArchiveIntervalInMinutes: 10080,
@@ -110,7 +109,6 @@ const ConfigureSandboxForm = ({
 
     try {
       await onSave({
-        // Snapshot/image is release-owned; the field is retained only for the external type.
         execTimeoutMs: execTimeout,
         autoStopIntervalInMinutes: autoStop,
         autoArchiveIntervalInMinutes: autoArchive,

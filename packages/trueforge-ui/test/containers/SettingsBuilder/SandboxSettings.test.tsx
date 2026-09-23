@@ -4,15 +4,15 @@ import type { ReactNode } from 'react';
 import { afterEach, beforeAll, describe, expect, it, vi } from 'vitest';
 
 import SandboxSettings from '@/containers/SettingsBuilder/SandboxSettings.js';
-import { ServerProvider } from '@/server/ServerContext.js';
 import type {
-  CreateSandboxProviderRequest,
-  SandboxProviderBase,
-  SandboxProviderCatalogEntry,
-  SandboxProviderListEntry,
-  SandboxSnapshotSyncStatus,
-  UpdateSandboxProviderRequest,
-} from '@/server/types.js';
+  UiCreateSandboxProviderRequest,
+  UiSandboxProvider,
+  UiSandboxProviderCatalogEntry,
+  UiSandboxProviderListEntry,
+  UiUpdateSandboxProviderRequest,
+} from '@/plugins/trueforge-agent-server-adapter/catalogs/sandboxProviderCatalog.js';
+import { ServerProvider } from '@/server/ServerContext.js';
+import type { SandboxSnapshotSyncStatus } from '@/server/types.js';
 import { createMockAgentUIServer, createMockCatalog } from '../../server/mockServer.js';
 
 beforeAll(() => {
@@ -28,7 +28,7 @@ afterEach(() => {
   vi.useRealTimers();
 });
 
-const catalogEntry: SandboxProviderCatalogEntry = {
+const catalogEntry: UiSandboxProviderCatalogEntry = {
   id: 'cat-daytona',
   name: 'Daytona',
   type: 'daytona',
@@ -43,10 +43,10 @@ function sandboxEntry({
   status = 'ready',
   statusReason,
 }: {
-  provider: SandboxProviderBase;
+  provider: UiSandboxProvider;
   status?: SandboxSnapshotSyncStatus['status'];
   statusReason?: string;
-}): SandboxProviderListEntry {
+}): UiSandboxProviderListEntry {
   return {
     data: provider,
     snapshotSyncStatus: {
@@ -56,11 +56,11 @@ function sandboxEntry({
   };
 }
 
-function createFakeHost(initial: SandboxProviderListEntry[] = []) {
+function createFakeHost(initial: UiSandboxProviderListEntry[] = []) {
   let providers = [...initial];
   let listCalls = 0;
-  const created: CreateSandboxProviderRequest[] = [];
-  const updated: UpdateSandboxProviderRequest[] = [];
+  const created: UiCreateSandboxProviderRequest[] = [];
+  const updated: UiUpdateSandboxProviderRequest[] = [];
 
   const sandboxCatalog = {
     getSandboxProviderCatalog: async () => [catalogEntry],
@@ -68,9 +68,9 @@ function createFakeHost(initial: SandboxProviderListEntry[] = []) {
       listCalls += 1;
       return providers;
     },
-    createSandboxProvider: async (req: CreateSandboxProviderRequest) => {
+    createSandboxProvider: async (req: UiCreateSandboxProviderRequest) => {
       created.push(req);
-      const provider: SandboxProviderBase = {
+      const provider: UiSandboxProvider = {
         id: `sb-${req.catalogId}`,
         name: req.name,
         catalogId: req.catalogId,
@@ -83,7 +83,7 @@ function createFakeHost(initial: SandboxProviderListEntry[] = []) {
       providers = [...providers, sandboxEntry({ provider, status: 'pending' })];
       return provider;
     },
-    updateSandboxProvider: async (req: UpdateSandboxProviderRequest) => {
+    updateSandboxProvider: async (req: UiUpdateSandboxProviderRequest) => {
       updated.push(req);
       providers = providers.map(entry =>
         entry.data.id === req.id
@@ -116,7 +116,7 @@ function createFakeHost(initial: SandboxProviderListEntry[] = []) {
     updated,
     getListCalls: () => listCalls,
     getProviders: () => providers,
-    setProviders: (next: SandboxProviderListEntry[]) => {
+    setProviders: (next: UiSandboxProviderListEntry[]) => {
       providers = next;
     },
     wrapper: ({ children }: { children: ReactNode }) => <ServerProvider server={server}>{children}</ServerProvider>,
@@ -170,7 +170,7 @@ describe('SandboxSettings', () => {
   });
 
   it('prefills update form and allows saving without re-entering apiKey', async () => {
-    const existing: SandboxProviderBase = {
+    const existing: UiSandboxProvider = {
       id: 'sb-1',
       name: 'Daytona',
       catalogId: 'cat-daytona',
@@ -219,7 +219,7 @@ describe('SandboxSettings', () => {
   });
 
   it('hides other catalog providers once one is configured', async () => {
-    const existing: SandboxProviderBase = {
+    const existing: UiSandboxProvider = {
       id: 'sb-1',
       name: 'Daytona',
       catalogId: 'cat-daytona',
@@ -247,7 +247,7 @@ describe('SandboxSettings', () => {
   });
 
   it('renders pending and ready snapshot status badges', async () => {
-    const provider: SandboxProviderBase = {
+    const provider: UiSandboxProvider = {
       id: 'sb-1',
       name: 'Daytona',
       catalogId: 'cat-daytona',
@@ -289,7 +289,7 @@ describe('SandboxSettings', () => {
 
   it('polls pending snapshot status every ten seconds until it changes', async () => {
     vi.useFakeTimers();
-    const provider: SandboxProviderBase = {
+    const provider: UiSandboxProvider = {
       id: 'sb-1',
       name: 'Daytona',
       catalogId: 'cat-daytona',
@@ -331,7 +331,7 @@ describe('SandboxSettings', () => {
   });
 
   it('renders snapshot status badges and exposes failed status reason in a tooltip', async () => {
-    const provider: SandboxProviderBase = {
+    const provider: UiSandboxProvider = {
       id: 'sb-1',
       name: 'Daytona',
       catalogId: 'cat-daytona',
