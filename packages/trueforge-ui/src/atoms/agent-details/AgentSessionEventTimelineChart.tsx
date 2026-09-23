@@ -264,16 +264,12 @@ export function AgentSessionEventTimelineChart({
     () => [
       ...turnBars.map((bar): TimelineHoverTarget => ({ type: TIMELINE_TYPE.turn, bar })),
       ...markerGroups.map((group): TimelineHoverTarget => ({ type: TIMELINE_TYPE.markerGroup, group })),
-      ...subAgentEventSegments.map(
-        ({ segment }): TimelineHoverTarget => ({ type: TIMELINE_TYPE.event, segment }),
-      ),
-      ...subAgentToolCallGroups.map(
-        ({ group, subAgentLabel }): TimelineHoverTarget => ({
-          type: TIMELINE_TYPE.toolCallGroup,
-          group,
-          subAgentLabel,
-        }),
-      ),
+      ...subAgentEventSegments.map(({ segment }): TimelineHoverTarget => ({ type: TIMELINE_TYPE.event, segment })),
+      ...subAgentToolCallGroups.map(({ group, subAgentLabel }): TimelineHoverTarget => ({
+        type: TIMELINE_TYPE.toolCallGroup,
+        group,
+        subAgentLabel,
+      })),
       ...mainEventSegments.map((segment): TimelineHoverTarget | null => {
         if (segment.type !== 'sub_agent') return { type: TIMELINE_TYPE.event, segment };
         const group = subAgentGroups.find(candidate => candidate.barId === segment.id);
