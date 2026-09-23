@@ -34,11 +34,6 @@ mcp_servers:
     url: https://mcp.exa.ai/mcp
     description: Search the web, fetch page contents, and find similar pages.
   - type: remote
-    name: parallel-web
-    logo: https://assets.production.truefoundry.com/parallel-web.svg
-    url: https://search.parallel.ai/mcp
-    description: Search the web and get ranked results with extracted content.
-  - type: remote
     name: github
     logo: https://assets.production.truefoundry.com/github.svg
     url: https://api.githubcopilot.com/mcp/
