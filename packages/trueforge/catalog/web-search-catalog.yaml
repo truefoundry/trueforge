@@ -1,0 +1,2 @@
+providers:
+  - type: parallel

@@ -14,11 +14,11 @@ import { extractErrorLogFields } from '@truefoundry/trueforge-core/core';
 import {
   redisRequest,
   RequestTimeoutError,
+  type RedisClient,
   type RouteHandler as RequestReplyRouteHandler,
   type RequestReplyRouter,
 } from '@truefoundry/trueforge-core/request-reply';
 import type { Context } from 'hono';
-import type { RedisClientType } from 'redis';
 import type { Logger } from 'winston';
 import { z } from 'zod';
 import type { Authorizer } from '../auth/authorizer';
@@ -28,6 +28,7 @@ import type { IAgentStore } from '../db/agentStore';
 import type { IMcpServerStore } from '../db/mcpServerStore';
 import type { IModelProviderStore } from '../db/modelProviderStore';
 import type { ISandboxProviderStore } from '../db/sandboxProviderStore';
+import type { IWebSearchProviderStore } from '../db/webSearchProviderStore';
 import {
   cancelSessionRoute,
   createSessionRoute,
@@ -80,7 +81,8 @@ export interface SessionsRouterDeps {
   resolveSkillStore: ResolveSkillStore;
   resolveAgentStore: (c: Context) => IAgentStore;
   resolveSandboxProviderStore: (c: Context) => ISandboxProviderStore;
-  redis?: RedisClientType | undefined;
+  redis?: RedisClient | undefined;
+  resolveWebSearchProviderStore: (c: Context) => IWebSearchProviderStore;
   requestReplyRouter: RequestReplyRouter;
   resolveRequestContext: ResolveRequestContext;
   logger: Logger;
@@ -126,7 +128,7 @@ export interface CancelTurnDeps {
   activeTurns: ActiveTurnRegistry;
   session: Pick<SessionHandle, 'session_id' | 'freezeTurn'>;
   sessionStore: Pick<ISessionStore, 'getTurn'>;
-  redis?: RedisClientType | undefined;
+  redis?: RedisClient | undefined;
   logger: Pick<Logger, 'warn'>;
 }
 
@@ -236,6 +238,7 @@ type InternalSessionsRouterDeps = Pick<
   | 'resolveSkillStore'
   | 'resolveAgentStore'
   | 'resolveSandboxProviderStore'
+  | 'resolveWebSearchProviderStore'
   | 'resolveRequestContext'
   | 'authorizer'
 >;
@@ -289,6 +292,7 @@ function createGetOrCreateSessionByExternalIdHandler(
         mcpServerStore: deps.resolveMcpServerStore(c),
         skillStore: deps.resolveSkillStore(c),
         sandboxProviderStore: deps.resolveSandboxProviderStore(c),
+        webSearchProviderStore: deps.resolveWebSearchProviderStore(c),
       });
       agent = { type: 'inline', spec: body.agent.spec };
     }
@@ -361,6 +365,7 @@ export function createSessionsRouter(deps: SessionsRouterDeps) {
       mcpServerStore: deps.resolveMcpServerStore(c),
       skillStore: deps.resolveSkillStore(c),
       sandboxProviderStore: deps.resolveSandboxProviderStore(c),
+      webSearchProviderStore: deps.resolveWebSearchProviderStore(c),
     });
     const session = await deps.sessions.create({
       tenant_id: requestContext.tenant_id,
@@ -452,6 +457,7 @@ export function createSessionsRouter(deps: SessionsRouterDeps) {
         mcpServerStore: deps.resolveMcpServerStore(c),
         skillStore: deps.resolveSkillStore(c),
         sandboxProviderStore: deps.resolveSandboxProviderStore(c),
+        webSearchProviderStore: deps.resolveWebSearchProviderStore(c),
       });
     }
     try {
