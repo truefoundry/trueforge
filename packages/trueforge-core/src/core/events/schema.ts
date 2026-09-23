@@ -88,7 +88,7 @@ export const UserToolApprovalMessageSchema = z
   })
   .openapi('UserToolApprovalEvent');
 
-  export const UserToolApprovalMsgSchema = z
+export const UserToolApprovalMsgSchema = z
   .object({
     type: z.literal(EventType.USER_TOOL_APPROVAL).describe('Client resume after tool.approval_required.'),
     thread_id: z.string().min(1, 'thread_id is required').describe('Thread that owns the pending tool call.'),
