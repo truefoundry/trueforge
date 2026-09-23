@@ -3,27 +3,27 @@
 This repo ships npm packages, a production container image, a Helm chart, a
 sandbox image, and optional from-source **dev** images.
 
-| What                                | Trigger                                                                            | Workflow                                                                                       |
-| ----------------------------------- | ---------------------------------------------------------------------------------- | ---------------------------------------------------------------------------------------------- |
-| npm packages                        | Push to `main` (Changesets)                                                        | [`release.yml`](.github/workflows/release.yml)                                                 |
-| PyPI `trueforge-sdk`                | Same `mode=publish` run as npm (parallel OIDC job)                                 | [`release.yml`](.github/workflows/release.yml)                                                 |
-| Prod image + chart-release PR       | After `@truefoundry/trueforge` npm publish (reusable workflow), or manual dispatch | [`build-and-prepare-chart-release.yml`](.github/workflows/build-and-prepare-chart-release.yml) |
-| Chart tag, GitHub Release, OCI push | Merge of `release-chart/trueforge`, or push/dispatch of `charts/trueforge@*`       | [`release-chart.yml`](.github/workflows/release-chart.yml)                                     |
-| Sandbox image + pin PR              | Push to `main` when `scripts/sandbox/**` changes, or dispatch                      | [`push-sandbox-image.yml`](.github/workflows/push-sandbox-image.yml)                           |
-| Dev (from-source) image             | Manual `workflow_dispatch`                                                         | [`build-dev-image.yml`](.github/workflows/build-dev-image.yml)                                 |
+| What                    | Trigger                                                                            | Workflow                                                               |
+| ----------------------- | ---------------------------------------------------------------------------------- | ---------------------------------------------------------------------- |
+| npm packages            | Push to `main` (Changesets)                                                        | [`release.yml`](.github/workflows/release.yml)                         |
+| PyPI `trueforge-sdk`    | Same `mode=publish` run as npm (parallel OIDC job)                                 | [`release.yml`](.github/workflows/release.yml)                         |
+| Prod image + Helm chart | Same `mode=publish` run as npm (parallel, after pack/smoke; does not wait for npm) | [`release-image-chart.yml`](.github/workflows/release-image-chart.yml) |
+| Chart OCI retry         | Push or dispatch of `charts/trueforge@*`                                           | [`release-chart.yml`](.github/workflows/release-chart.yml)             |
+| Sandbox image + pin PR  | Push to `main` when `scripts/sandbox/**` changes, or dispatch                      | [`push-sandbox-image.yml`](.github/workflows/push-sandbox-image.yml)   |
+| Dev (from-source) image | Manual `workflow_dispatch`                                                         | [`build-dev-image.yml`](.github/workflows/build-dev-image.yml)         |
 
 ## Versioning
 
 | Artifact                     | Identity                                                                                                  |
 | ---------------------------- | --------------------------------------------------------------------------------------------------------- |
-| npm `@truefoundry/trueforge` | SemVer `X.Y.Z` — source of truth for app bits                                                             |
+| npm `@truefoundry/trueforge` | SemVer `X.Y.Z` - source of truth for published packages                                                   |
 | PyPI `trueforge-sdk`         | Same SemVer as `@truefoundry/trueforge-sdk` (mirrored into `pyproject.toml` on Version Packages)          |
-| Chart `appVersion`           | A **published** npm version                                                                               |
-| Prod image                   | Root [`Dockerfile`](Dockerfile): `npm install @truefoundry/trueforge@$APP_VERSION`                        |
+| Chart `appVersion`           | `packages/trueforge/package.json` version at the build commit                                             |
+| Prod image                   | Root [`Dockerfile`](Dockerfile): from-source workspace build                                              |
 | Prod image tag               | `{appVersion}-{shortSha}` (shortSha of the build commit)                                                  |
 | Chart `version`              | Independent SemVer; git tag `charts/trueforge@A.B.C` must match                                           |
 | Sandbox image                | [`sandbox.Dockerfile`](packages/trueforge-core/scripts/sandbox/sandbox.Dockerfile); tag = full commit SHA |
-| Dev image                    | [`Dockerfile.dev`](Dockerfile.dev); tag = full commit SHA                                                 |
+| Dev image                    | Same [`Dockerfile`](Dockerfile); tag = full commit SHA                                                    |
 
 Install a published chart:
 
@@ -39,7 +39,7 @@ helm install trueforge oci://tfy.jfrog.io/tfy-helm/trueforge --version <chart-se
 | ----------------------------- | ------------------------- | --------------------------------------------- |
 | `@truefoundry/trueforge-core` | `packages/trueforge-core` | Library                                       |
 | `@truefoundry/trueforge`      | `packages/trueforge`      | App + CLI; tarball includes `dist/_frontend/` |
-| `@truefoundry/trueforge-sdk`  | `packages/trueforge-sdk`  | Fern-generated — do not hand-edit             |
+| `@truefoundry/trueforge-sdk`  | `packages/trueforge-sdk`  | Fern-generated - do not hand-edit             |
 | `@truefoundry/trueforge-ui`   | `packages/trueforge-ui`   | Embeddable chat UI                            |
 
 `packages/frontend` is not published; its build is copied into `@truefoundry/trueforge`'s tarball.
@@ -47,8 +47,8 @@ helm install trueforge oci://tfy.jfrog.io/tfy-helm/trueforge --version <chart-se
 
 ## Flow
 
-No `v*` tag publish. [`release.yml`](.github/workflows/release.yml) does both version and publish
-(`select-mode` → `version` \| `pack` → `publish`):
+No `v*` tag publish. [`release.yml`](.github/workflows/release.yml) does version and
+package publish (`select-mode` → `version` \| `pack` → npm + PyPI + image/Helm):
 
 1. Add a changeset in the same PR as the code change (`pnpm changeset`, or
    `pnpm change --bump patch --summary "…" <pkg>`). SDK regen already adds
@@ -58,14 +58,10 @@ No `v*` tag publish. [`release.yml`](.github/workflows/release.yml) does both ve
    `scripts/version.mjs` mirrors that version into `python/trueforge_sdk` and
    regenerates both SDKs. Review and merge.
 3. With no pending changesets, **pack** (build/test) and **Windows npx smoke**
-   run in parallel, then **npm publish** and **PyPI publish** run in parallel
-   via trusted publishing (OIDC; no `NPM_TOKEN` / `PYPI_TOKEN`). PyPI skips when
-   that `pyproject.toml` version is already published.
-4. If `@truefoundry/trueforge` was published, **Release** calls **Build and
-   prepare chart release** as a reusable workflow on the same commit (so a
-   newer `main` push cannot change the Dockerfile / shortSha). GitHub's
-   `workflow_dispatch` API only accepts a branch or tag name, not a SHA.
-5. Pin dependents to exact versions during early `0.x`.
+   run in parallel, then **npm publish**, **PyPI publish**, and **image+Helm
+   release** run in parallel. PyPI skips when that `pyproject.toml` version is
+   already published. The image lane does not wait for npm.
+4. Pin dependents to exact versions during early `0.x`.
 
 `workflow_dispatch` on **Release** re-runs the same workflow.
 
@@ -89,8 +85,9 @@ Each public **npm** package must list this repo + workflow as a trusted publishe
 - Workflow: `release.yml` (exact filename)
 - No GitHub Environment name
 
-Do not set `NPM_TOKEN` / `_authToken` on the npm publish job — that disables OIDC.
-Only the **publish** / **publish-python** jobs use OIDC (`id-token: write`).
+Do not set `NPM_TOKEN` / `_authToken` on the npm publish job - that disables OIDC.
+Only the **publish** / **publish-python** jobs use OIDC (`id-token: write`) for
+registries. The image workflow uses Artifactory credentials.
 
 Publish attaches npm provenance (`NPM_CONFIG_PROVENANCE` on the publish job, and
 `publishConfig.provenance: true` on every public package). That publicly attests
@@ -114,92 +111,87 @@ pnpm clean && pnpm build && pnpm standalone:start
 
 ## Troubleshooting
 
-- **No Version Packages PR** — no `.changeset/*.md` on `main`. Add one, or re-run **Release**.
-- **Publish wants a tag** — RCs need the `rc` dist-tag (set automatically while `pre.json` exists).
-- **403** — version already on npm, or trusted-publisher config mismatch.
-- **OIDC fail** — pnpm >= 11.0.7; remove registry `_authToken`.
-- **Missing `dist/_frontend/index.html`** — root `pnpm build` must build `frontend` first.
-- **SDK not regenerated on Version PR** — only when `@truefoundry/trueforge-sdk` version moved
+- **No Version Packages PR** - no `.changeset/*.md` on `main`. Add one, or re-run **Release**.
+- **Publish wants a tag** - RCs need the `rc` dist-tag (set automatically while `pre.json` exists).
+- **403** - version already on npm, or trusted-publisher config mismatch.
+- **OIDC fail** - pnpm >= 11.0.7; remove registry `_authToken`.
+- **Missing `dist/_frontend/index.html`** - root `pnpm build` must build `frontend` first.
+- **SDK not regenerated on Version PR** - only when `@truefoundry/trueforge-sdk` version moved
   (`scripts/version.mjs`; needs Docker). That path also mirrors the version into `python/trueforge_sdk`.
-- **PyPI 403 / invalid-publisher** — register a trusted publisher for `trueforge-sdk` bound to
+- **PyPI 403 / invalid-publisher** - register a trusted publisher for `trueforge-sdk` bound to
   `release.yml` (and create the project if it does not exist yet).
-- **Prod image missing after npm publish** — dispatch the chart workflow on a
-  **branch or tag** (not a SHA): `gh workflow run build-and-prepare-chart-release.yml --ref main -f app_version=X.Y.Z -f update_app_version=true`.
+- **Prod image / chart missing after package publish** - dispatch the image workflow on a
+  **branch or tag** (not a SHA): `gh workflow run release-image-chart.yml --ref main`.
+- **Chart OCI retry** - `gh workflow run release-chart.yml -f tag=charts/trueforge@X.Y.Z`.
 
 ---
 
 # Image and Helm chart
 
 ```text
-npm publish @truefoundry/trueforge@X.Y.Z
-  → call build-and-prepare-chart-release (same commit as publish)
-  → build Dockerfile (APP_VERSION=X.Y.Z) → push X.Y.Z-<shortSha>
-  → open/update PR on branch release-chart/trueforge
-  → merge PR → tag + GH Release + OCI push (release-chart.yml)
+pack + Windows npx smoke
+  → in parallel: npm publish | PyPI publish | release-image-chart
+       → build from-source Dockerfile → push X.Y.Z-<shortSha>
+       → bump Chart.yaml / values.yaml, lint, package
+       → commit to main, tag charts/trueforge@A.B.C, GH Release, OCI push
 
-manual rebuild (same or other app version)
-  → workflow_dispatch build-and-prepare-chart-release
-  → same PR path
+manual rebuild
+  → workflow_dispatch release-image-chart
+  → same publish path
 
-chart-only
-  → human PR bumps Chart.yaml version
-  → human tags charts/trueforge@A.B.C (or gh release create)
+chart OCI retry
+  → human tags charts/trueforge@A.B.C (or gh workflow run release-chart.yml)
   → release-chart.yml publishes OCI (no image rebuild)
 ```
 
-## Dockerfiles
+## Dockerfile
 
-| File                               | Role                                                                                    |
-| ---------------------------------- | --------------------------------------------------------------------------------------- |
-| [`Dockerfile`](Dockerfile)         | Prod/OSS. `ARG APP_VERSION` → `npm install @truefoundry/trueforge@$APP_VERSION`         |
-| [`Dockerfile.dev`](Dockerfile.dev) | From-source. Used by [`docker-compose.yml`](docker-compose.yml) and **Build dev image** |
+| File                       | Role                                                                                             |
+| -------------------------- | ------------------------------------------------------------------------------------------------ |
+| [`Dockerfile`](Dockerfile) | From-source. Prod Helm, [`docker-compose.yml`](docker-compose.yml), Railway, **Build dev image** |
 
-Prod fails if that npm version is missing (no workspace fallback), so `appVersion` stays honest
-even when `main` has moved on.
+The image is the workspace at `GITHUB_SHA`. Chart `appVersion` is that commit's
+`packages/trueforge/package.json` version (not a requirement that npm already
+advertises the package).
 
-## Build and prepare chart release
+## Release image and Helm chart
 
-[`build-and-prepare-chart-release.yml`](.github/workflows/build-and-prepare-chart-release.yml)
+[`release-image-chart.yml`](.github/workflows/release-image-chart.yml)
 (`workflow_call` from **Release**, or manual `workflow_dispatch`):
 
-| Input                | Default                   | Meaning                                                              |
-| -------------------- | ------------------------- | -------------------------------------------------------------------- |
-| `app_version`        | `Chart.yaml` `appVersion` | npm version to install into the image                                |
-| `update_app_version` | `false`                   | Also write that version into `Chart.yaml` `appVersion` on the bot PR |
+| Input         | Default                           | Meaning                                      |
+| ------------- | --------------------------------- | -------------------------------------------- |
+| `app_version` | `packages/trueforge/package.json` | Version used in the image tag and appVersion |
 
-Always: build/push `{appVersion}-{shortSha}`, patch-bump chart `version`, set `image.tag`,
-open/update one PR on `release-chart/trueforge`.
+Always: build/push `{appVersion}-{shortSha}`, patch-bump chart `version`, set
+`appVersion` and `image.tag`, lint, package, push OCI, tag, GitHub Release, and
+commit the chart metadata to `main` with `GITHUB_TOKEN` (that push does not
+start another workflow).
 
 ```bash
-gh workflow run build-and-prepare-chart-release.yml
-gh workflow run build-and-prepare-chart-release.yml -f app_version=0.1.0
-# after npm publish of a new app version:
-gh workflow run build-and-prepare-chart-release.yml \
-  -f app_version=0.1.0 -f update_app_version=true
+gh workflow run release-image-chart.yml
+gh workflow run release-image-chart.yml -f app_version=0.1.0
 ```
 
-You may edit chart SemVer (minor/major) on the PR before merging; the tag follows
-`Chart.yaml` `version` at merge time. Each run rebuilds the `release-chart/trueforge` branch
-from `main`, but a chart `version` on the branch that outranks the patch bump is carried over,
-so a manual bump survives later image rebuilds. Other manual edits on that branch do not —
-commit them to `main` instead.
+Chart SemVer is chosen by [`scripts/resolve-chart-version.sh`](scripts/resolve-chart-version.sh)
+from the current `Chart.yaml` on the build commit.
 
-## Publish Helm chart
+## Publish Helm chart (retry)
 
-[`release-chart.yml`](.github/workflows/release-chart.yml) is one job with three entry points:
+[`release-chart.yml`](.github/workflows/release-chart.yml) publishes an existing
+tagged chart. It does not build an image.
 
-| Trigger                                                   | What it does                                                        |
-| --------------------------------------------------------- | ------------------------------------------------------------------- |
-| Merged PR from `release-chart/trueforge` (same repo only) | Create `charts/trueforge@<version>` + GitHub Release, then OCI push |
-| Push of tag `charts/trueforge@*`                          | OCI push only (tag already exists)                                  |
-| `workflow_dispatch` with `tag=`                           | OCI push for an existing tag (retry)                                |
+| Trigger                          | What it does                  |
+| -------------------------------- | ----------------------------- |
+| Push of tag `charts/trueforge@*` | OCI push (tag already exists) |
+| `workflow_dispatch` with `tag=`  | OCI push for an existing tag  |
 
-Only the `release-chart/trueforge` branch auto-tags. Ordinary merges never create chart tags.
+`GITHUB_TOKEN` tag pushes from **Release image and Helm chart** do not start this
+workflow; that job publishes OCI itself. A human PAT tag push does.
 
-Chart-only example:
+Chart-only example (already-bumped `Chart.yaml` on a commit):
 
 ```bash
-# after merging a PR that bumped Chart.yaml version:
 git tag charts/trueforge@0.1.0
 git push origin charts/trueforge@0.1.0
 ```
@@ -213,7 +205,7 @@ gh workflow run build-dev-image.yml --ref main
 # → tfy.jfrog.io/tfy-images/trueforge:<fullSha>
 ```
 
-Patch that SHA into `image.tag`. Secrets via `secretKeyRef` only — never plaintext in git.
+Patch that SHA into `image.tag`. Secrets via `secretKeyRef` only - never plaintext in git.
 Do not use SHA-tagged images as production chart defaults.
 
 ## Bundled chart dependencies

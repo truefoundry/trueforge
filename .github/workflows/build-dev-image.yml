@@ -1,7 +1,7 @@
 name: Build dev image
 
 # From-source image for floating-main / external deploy repos.
-# Builds Dockerfile.dev and pushes .../trueforge:<fullSha>. No chart publish.
+# Builds the root Dockerfile and pushes .../trueforge:<fullSha>. No chart publish.
 on:
   workflow_dispatch:
 
@@ -25,7 +25,7 @@ jobs:
       image_artifact_name: trueforge
       image_tag: ${{ github.sha }}
       image_context: .
-      dockerfile_path: Dockerfile.dev
+      dockerfile_path: Dockerfile
       platforms: linux/amd64
       enable_jfrog: true
       enable_public_ecr: false

@@ -1,11 +1,8 @@
 name: Publish Helm chart
 
-# A chart-release PR merge creates the tag/GitHub Release and publishes the
-# chart. Human charts/trueforge@* tags use the same publish job.
+# Retry / human-tag path. The prod lane publishes from release-image-chart.yml.
+# Human charts/trueforge@* tags and workflow_dispatch reuse this job.
 on:
-  pull_request:
-    types: [closed]
-    branches: [main]
   push:
     tags:
       - 'charts/trueforge@*'
@@ -24,14 +21,7 @@ permissions: {}
 
 jobs:
   release:
-    name: Create release and publish chart
-    if: >-
-      github.event_name != 'pull_request' ||
-      (
-        github.event.pull_request.merged == true &&
-        github.event.pull_request.head.ref == 'release-chart/trueforge' &&
-        github.event.pull_request.head.repo.full_name == github.repository
-      )
+    name: Publish chart
     runs-on: ubuntu-latest
     permissions:
       contents: write
@@ -43,7 +33,7 @@ jobs:
       - name: Check out chart commit
         uses: actions/checkout@v7
         with:
-          ref: ${{ github.event.pull_request.merge_commit_sha || inputs.tag || github.ref }}
+          ref: ${{ inputs.tag || github.ref }}
           fetch-depth: 0
 
       - name: Install yq
@@ -56,18 +46,12 @@ jobs:
         with:
           version: v3.16.4
 
-      - name: Resolve or create chart release
+      - name: Resolve chart tag
         env:
-          EVENT_NAME: ${{ github.event_name }}
-          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           INPUT_TAG: ${{ inputs.tag }}
-          MERGE_SHA: ${{ github.event.pull_request.merge_commit_sha }}
-          PR_BODY: ${{ github.event.pull_request.body }}
-          PR_NUMBER: ${{ github.event.pull_request.number }}
         run: |
           set -euo pipefail
 
-          # Read the chart identity from the checked-out commit.
           VERSION=$(yq -r '.version' charts/trueforge/Chart.yaml)
           APP_VERSION=$(yq -r '.appVersion' charts/trueforge/Chart.yaml)
           IMAGE_TAG=$(yq -r '.image.tag' charts/trueforge/values.yaml)
@@ -77,44 +61,12 @@ jobs:
             exit 1
           fi
 
-          # Path A: bot chart-release PR was merged.
-          # Create the charts/trueforge@<version> tag + GitHub Release here,
-          # because GITHUB_TOKEN tag pushes do not start a separate push workflow.
-          if [[ "$EVENT_NAME" == "pull_request" ]]; then
-            TAG="charts/trueforge@${VERSION}"
-
-            if git rev-parse "$TAG" >/dev/null 2>&1; then
-              echo "Tag $TAG already exists; refusing to move it" >&2
-              exit 1
-            fi
-
-            git config user.name "github-actions[bot]"
-            git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
-            git tag -a "$TAG" -m "Helm chart ${VERSION} (appVersion ${APP_VERSION}, image ${IMAGE_TAG})"
-            git push origin "$TAG"
-
-            # Write notes via a file so PR body cannot inject into the shell.
-            NOTES_FILE="$(mktemp)"
-            {
-              echo "Source PR: #${PR_NUMBER}"
-              echo
-              printf '%s\n' "$PR_BODY"
-            } >"$NOTES_FILE"
-            gh release create "$TAG" \
-              --target "$MERGE_SHA" \
-              --title "$TAG" \
-              --notes-file "$NOTES_FILE"
-            rm -f "$NOTES_FILE"
-          # Path B: manual retry via workflow_dispatch with an explicit tag.
-          elif [[ -n "${INPUT_TAG:-}" ]]; then
+          if [[ -n "${INPUT_TAG:-}" ]]; then
             TAG="$INPUT_TAG"
-
-          # Path C: human pushed charts/trueforge@* themselves.
           else
             TAG="${GITHUB_REF#refs/tags/}"
           fi
 
-          # Every path must publish the same chart version the tag names.
           case "$TAG" in
             charts/trueforge@*) EXPECTED="${TAG#charts/trueforge@}" ;;
             *) echo "Invalid chart tag: $TAG" >&2; exit 1 ;;
@@ -126,11 +78,9 @@ jobs:
             exit 1
           fi
 
-          # VERSION is consumed by the package/push step below.
           echo "VERSION=$VERSION" >> "$GITHUB_ENV"
           echo "Publishing chart version=$ACTUAL appVersion=$APP_VERSION image.tag=$IMAGE_TAG"
 
-      # Pull deps before registry login.
       - name: Build chart dependencies
         run: helm dependency build "$CHART_DIR"
 

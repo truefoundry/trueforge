@@ -1,16 +1,16 @@
 # trueforge Helm chart
 
 Deploys the TrueForge server, a single container image that serves both the API
-and the UI. **Production** images install `@truefoundry/trueforge` from npm
-(repository-root [`Dockerfile`](../../Dockerfile) with `APP_VERSION`).
-**Local smoke / from-source** builds use [`Dockerfile.dev`](../../Dockerfile.dev)
-(see [`docker-compose.yml`](../../docker-compose.yml)).
+and the UI. Production, Compose smoke, and Railway all build the repository-root
+[`Dockerfile`](../../Dockerfile) from the workspace checkout (see
+[`docker-compose.yml`](../../docker-compose.yml)).
 
 The chart always runs the server in **distributed** mode (`STANDALONE=false`) against
 Postgres and Redis.
 
-Chart `version` / `appVersion` / `image.tag` are maintained on `main` (chart-release
-bot PR or human). Publishing is gated by git tag `charts/trueforge@<version>`.
+Chart `version` / `appVersion` / `image.tag` are written on `main` by the
+image+Helm release workflow (or a human). Publishing is gated by git tag
+`charts/trueforge@<version>`.
 See [`RELEASING.md`](../../RELEASING.md).
 
 ## Dev defaults (read before exposing)

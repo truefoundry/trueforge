@@ -1,0 +1,203 @@
+name: Release image and Helm chart
+
+# Prod lane: build the from-source Dockerfile, push {appVersion}-{shortSha},
+# then package and publish the Helm chart (tag + GitHub Release + OCI).
+#
+# Called from release.yml after pack/smoke (same commit; does not wait for npm).
+# workflow_dispatch is for manual rebuilds. Do not use `gh workflow run --ref
+# $GITHUB_SHA`: the dispatch API only accepts a branch or tag name (HTTP 422).
+on:
+  workflow_call:
+    inputs:
+      app_version:
+        description: App version for the image tag (empty = packages/trueforge/package.json)
+        required: false
+        type: string
+  workflow_dispatch:
+    inputs:
+      app_version:
+        description: App version for the image tag (empty = packages/trueforge/package.json)
+        required: false
+        type: string
+
+concurrency:
+  group: release-image-and-chart
+  cancel-in-progress: false
+
+permissions: {}
+
+jobs:
+  resolve:
+    name: Resolve versions
+    runs-on: ubuntu-latest
+    outputs:
+      app_version: ${{ steps.resolve.outputs.app_version }}
+      image_tag: ${{ steps.resolve.outputs.image_tag }}
+      short_sha: ${{ steps.resolve.outputs.short_sha }}
+    permissions:
+      contents: read
+    steps:
+      - name: Check out
+        uses: actions/checkout@v7
+        with:
+          persist-credentials: false
+
+      - name: Resolve app version and image tag
+        id: resolve
+        env:
+          INPUT_APP_VERSION: ${{ inputs.app_version }}
+        run: |
+          set -euo pipefail
+          PKG_VERSION=$(node -p "require('./packages/trueforge/package.json').version")
+          if [[ -n "${INPUT_APP_VERSION}" ]]; then
+            APP_VERSION="$INPUT_APP_VERSION"
+          else
+            APP_VERSION="$PKG_VERSION"
+          fi
+          if [[ -z "$APP_VERSION" || "$APP_VERSION" == "undefined" ]]; then
+            echo "Could not resolve APP_VERSION" >&2
+            exit 1
+          fi
+          if ! printf '%s' "$APP_VERSION" | grep -Eq '^[0-9]+\.[0-9]+\.[0-9]+([.-][0-9A-Za-z.-]+)?$'; then
+            echo "APP_VERSION '$APP_VERSION' is not a semver-like version" >&2
+            exit 1
+          fi
+          SHORT_SHA="${GITHUB_SHA:0:7}"
+          IMAGE_TAG="${APP_VERSION}-${SHORT_SHA}"
+          echo "app_version=$APP_VERSION" >> "$GITHUB_OUTPUT"
+          echo "image_tag=$IMAGE_TAG" >> "$GITHUB_OUTPUT"
+          echo "short_sha=$SHORT_SHA" >> "$GITHUB_OUTPUT"
+          echo "Resolved APP_VERSION=$APP_VERSION IMAGE_TAG=$IMAGE_TAG (package.json=$PKG_VERSION)"
+
+  build:
+    name: Build and push server image
+    needs: [resolve]
+    uses: truefoundry/github-workflows-public/.github/workflows/build.yml@main
+    permissions:
+      id-token: write
+      contents: read
+    with:
+      artifactory_registry_url: ${{ vars.TRUEFOUNDRY_ARTIFACTORY_REGISTRY_URL }}
+      artifactory_repository_url: ${{ vars.TRUEFOUNDRY_ARTIFACTORY_PUBLIC_REPOSITORY }}
+      image_artifact_name: trueforge
+      image_tag: ${{ needs.resolve.outputs.image_tag }}
+      image_context: .
+      dockerfile_path: Dockerfile
+      platforms: linux/amd64
+      enable_jfrog: true
+      enable_public_ecr: false
+    secrets:
+      artifactory_username: ${{ secrets.TRUEFORGE_ARTIFACTORY_USERNAME }}
+      artifactory_password: ${{ secrets.TRUEFORGE_ARTIFACTORY_PASSWORD }}
+
+  publish-chart:
+    name: Publish Helm chart
+    needs: [resolve, build]
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    env:
+      CHART_DIR: charts/trueforge
+      HELM_REGISTRY_URL: ${{ vars.TRUEFOUNDRY_ARTIFACTORY_REGISTRY_URL }}
+      HELM_CHART_REPOSITORY: ${{ vars.TRUEFOUNDRY_ARTIFACTORY_PUBLIC_HELM_REPOSITORY }}
+    steps:
+      - name: Check out
+        uses: actions/checkout@v7
+        with:
+          fetch-depth: 0
+
+      - name: Install yq
+        run: |
+          sudo wget -q https://github.com/mikefarah/yq/releases/download/v4.53.3/yq_linux_amd64 -O /usr/bin/yq
+          sudo chmod +x /usr/bin/yq
+
+      - name: Install Helm
+        uses: azure/setup-helm@v5
+        with:
+          version: v3.16.4
+
+      - name: Update chart metadata
+        id: chart
+        env:
+          IMAGE_TAG: ${{ needs.resolve.outputs.image_tag }}
+          APP_VERSION: ${{ needs.resolve.outputs.app_version }}
+        run: |
+          set -euo pipefail
+          CURRENT=$(yq -r '.version' charts/trueforge/Chart.yaml)
+          VERSION=$(bash scripts/resolve-chart-version.sh "$CURRENT" "$APP_VERSION")
+          export VERSION IMAGE_TAG APP_VERSION
+          yq -i '.version = strenv(VERSION)' charts/trueforge/Chart.yaml
+          yq -i '.appVersion = strenv(APP_VERSION)' charts/trueforge/Chart.yaml
+          yq -i '.image.tag = strenv(IMAGE_TAG)' charts/trueforge/values.yaml
+          echo "version=$VERSION" >> "$GITHUB_OUTPUT"
+          echo "app_version=$APP_VERSION" >> "$GITHUB_OUTPUT"
+          echo "Chart version=$VERSION appVersion=$APP_VERSION image.tag=$IMAGE_TAG"
+
+      - name: Build chart dependencies
+        run: helm dependency build "$CHART_DIR"
+
+      - name: Lint chart
+        run: helm lint "$CHART_DIR" --values charts/trueforge/ci/lint-values.yaml
+
+      - name: Commit chart metadata, tag, and GitHub Release
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          VERSION: ${{ steps.chart.outputs.version }}
+          APP_VERSION: ${{ steps.chart.outputs.app_version }}
+          IMAGE_TAG: ${{ needs.resolve.outputs.image_tag }}
+        run: |
+          set -euo pipefail
+          TAG="charts/trueforge@${VERSION}"
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+
+          if git ls-remote --exit-code --tags origin "refs/tags/${TAG}" >/dev/null 2>&1; then
+            echo "Tag $TAG already exists; skipping commit and GitHub Release"
+          else
+            git add charts/trueforge/Chart.yaml charts/trueforge/values.yaml
+            if git diff --staged --quiet; then
+              echo "Chart metadata already matches $VERSION; skipping commit" >&2
+            else
+              git commit -m "release(chart): ${VERSION}"
+              git push origin HEAD:main
+            fi
+
+            git tag -a "$TAG" -m "Helm chart ${VERSION} (appVersion ${APP_VERSION}, image ${IMAGE_TAG})"
+            git push origin "$TAG"
+
+            NOTES_FILE="$(mktemp)"
+            {
+              echo "Chart version: ${VERSION}"
+              echo "appVersion: ${APP_VERSION}"
+              echo "image.tag: ${IMAGE_TAG}"
+            } >"$NOTES_FILE"
+            gh release create "$TAG" \
+              --title "$TAG" \
+              --notes-file "$NOTES_FILE"
+            rm -f "$NOTES_FILE"
+          fi
+
+      - name: Helm registry login
+        env:
+          HELM_REGISTRY_USERNAME: ${{ secrets.TRUEFORGE_ARTIFACTORY_USERNAME }}
+          HELM_REGISTRY_PASSWORD: ${{ secrets.TRUEFORGE_ARTIFACTORY_PASSWORD }}
+        run: |
+          printf '%s' "$HELM_REGISTRY_PASSWORD" \
+            | helm registry login -u "$HELM_REGISTRY_USERNAME" --password-stdin "$HELM_REGISTRY_URL"
+
+      - name: Package and push chart
+        env:
+          VERSION: ${{ steps.chart.outputs.version }}
+        run: |
+          set -euo pipefail
+          CHART_NAME=$(yq -r '.name' "$CHART_DIR/Chart.yaml")
+          mkdir -p dist
+          helm package "$CHART_DIR" --destination dist
+          PACKAGE="dist/${CHART_NAME}-${VERSION}.tgz"
+          echo "Pushing $PACKAGE to oci://$HELM_CHART_REPOSITORY"
+          helm push "$PACKAGE" "oci://$HELM_CHART_REPOSITORY"
+          {
+            echo "### Helm chart"
+            echo "Pushed \`oci://${HELM_CHART_REPOSITORY}/${CHART_NAME}:${VERSION}\`"
+            echo "Image tag \`${{ needs.resolve.outputs.image_tag }}\`"
+          } >> "$GITHUB_STEP_SUMMARY"
