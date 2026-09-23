@@ -98,7 +98,7 @@ export const UserToolResponseMessageSchema = z
   })
   .openapi('UserToolResponseMessage');
 
-  export const ToolApprovalPolicyAllowSessionSchema = z
+export const ToolApprovalPolicyAllowSessionSchema = z
   .object({
     type: z.literal('allow_session').describe('Allow matching tool calls for the rest of this session.'),
     expire_at: z
@@ -124,6 +124,33 @@ export const UserToolApprovalPolicyMessageSchema = z
     policies: z.array(ToolApprovalPolicyItemSchema).min(1).describe('One or more (server, tool_name) policy entries.'),
   })
   .openapi('UserToolApprovalPolicyMessage');
+
+/** Durable / SSE form of {@link UserToolApprovalMessageSchema}. */
+export const UserToolApprovalEventSchema = z
+  .object({
+    ...UserToolApprovalMessageSchema.shape,
+    id: EventIdSchema,
+    created_at: z.string().describe('ISO 8601 event timestamp.'),
+  })
+  .openapi('UserToolApprovalEvent');
+
+/** Durable / SSE form of {@link UserToolResponseMessageSchema}. */
+export const UserToolResponseEventSchema = z
+  .object({
+    ...UserToolResponseMessageSchema.shape,
+    id: EventIdSchema,
+    created_at: z.string().describe('ISO 8601 event timestamp.'),
+  })
+  .openapi('UserToolResponseEvent');
+
+/** Durable / SSE form of {@link UserToolApprovalPolicyMessageSchema}. */
+export const UserToolApprovalPolicyEventSchema = z
+  .object({
+    ...UserToolApprovalPolicyMessageSchema.shape,
+    id: EventIdSchema,
+    created_at: z.string().describe('ISO 8601 event timestamp.'),
+  })
+  .openapi('UserToolApprovalPolicyEvent');
 
 export const TextContentPartSchema = z
   .object({
@@ -404,6 +431,9 @@ export type UserToolApprovalMessage = z.infer<typeof UserToolApprovalMessageSche
 export type UserToolResponseMessage = z.infer<typeof UserToolResponseMessageSchema>;
 export type ToolApprovalPolicyItem = z.infer<typeof ToolApprovalPolicyItemSchema>;
 export type UserToolApprovalPolicyMessage = z.infer<typeof UserToolApprovalPolicyMessageSchema>;
+export type UserToolApprovalEvent = z.infer<typeof UserToolApprovalEventSchema>;
+export type UserToolResponseEvent = z.infer<typeof UserToolResponseEventSchema>;
+export type UserToolApprovalPolicyEvent = z.infer<typeof UserToolApprovalPolicyEventSchema>;
 export type AgentApprovalDecisionMessage = z.infer<typeof AgentApprovalDecisionMessageSchema>;
 export type InputTokensBreakdown = z.infer<typeof InputTokensBreakdownSchema>;
 export type ModelMessageUsage = z.infer<typeof ModelMessageUsageSchema>;

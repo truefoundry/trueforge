@@ -9,6 +9,7 @@ import {
   TokenPaginationSchema,
   TurnCreatedEventSchema,
   TurnDoneEventSchema,
+  TurnInboundEventItemSchema,
   TurnUpdateEventSchema,
 } from '@truefoundry/trueforge-core/agent-session';
 import {
@@ -22,11 +23,41 @@ import {
   ToolApprovalRequiredEventSchema,
   ToolResponseEventSchema,
   ToolResponseRequiredEventSchema,
+  UserToolApprovalEventSchema,
+  UserToolApprovalPolicyEventSchema,
+  UserToolResponseEventSchema,
 } from '@truefoundry/trueforge-core/core';
 import { EVENTS_PAGE_LIMIT } from './common';
 
 export type { TurnCreatedEvent } from '@truefoundry/trueforge-core/agent-session';
 export { EventType };
+
+/** Client → harness inbound events (tip HITL / sticky policy). Persisted to the turn inbox. */
+export const CreateTurnInboundEventRequestSchema = z
+  .object({
+    events: z
+      .array(TurnInboundEventItemSchema)
+      .min(1)
+      .describe('One or more inbound items (`user.tool_approval`, `user.tool_response`, `user.tool_approval_policy`).'),
+  })
+  .openapi('CreateTurnInboundEventRequest');
+
+/** Same shapes as the durable stream / {@link SessionEvent} members for these types. */
+export const CreatedTurnInboundEventSchema = z
+  .discriminatedUnion('type', [
+    UserToolApprovalEventSchema,
+    UserToolResponseEventSchema,
+    UserToolApprovalPolicyEventSchema,
+  ])
+  .openapi('CreatedTurnInboundEvent');
+
+export const CreateTurnInboundEventResponseSchema = z
+  .object({
+    data: z
+      .array(CreatedTurnInboundEventSchema)
+      .describe('Created inbox events with server-minted `id` and `created_at`, in request order.'),
+  })
+  .openapi('CreateTurnInboundEventResponse');
 
 /** Live SSE stream for session turns — content events, deltas and lifecycle. */
 export const TurnStreamingEventSchema = z
@@ -41,6 +72,9 @@ export const TurnStreamingEventSchema = z
     SandboxCreatedEventSchema,
     ToolApprovalRequiredEventSchema,
     ToolResponseRequiredEventSchema,
+    UserToolApprovalEventSchema,
+    UserToolResponseEventSchema,
+    UserToolApprovalPolicyEventSchema,
     TurnCreatedEventSchema,
     TurnUpdateEventSchema,
     TurnDoneEventSchema,

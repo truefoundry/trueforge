@@ -5,7 +5,11 @@
  */
 import { createRoute, z } from '@hono/zod-openapi';
 import { RequestErrorResponseSchema } from '../schemas/errors';
-import { TurnStreamingEventSchema } from '../schemas/events';
+import {
+  CreateTurnInboundEventRequestSchema,
+  CreateTurnInboundEventResponseSchema,
+  TurnStreamingEventSchema,
+} from '../schemas/events';
 import {
   CreateTurnRequestSchema,
   DownloadSandboxFileRequestQuerySchema,
@@ -164,6 +168,50 @@ export const listTurnEventsRoute = createRoute({
     404: {
       content: { 'application/json': { schema: RequestErrorResponseSchema } },
       description: 'Session or turn not found.',
+    },
+  },
+});
+
+/**
+ * Create inbound tip HITL / policy events in `turn_inbound_events`.
+ * Apply / wake / auto-continue land in follow-up work — this route only inserts.
+ */
+export const createTurnInboundEventRoute = createRoute({
+  method: 'post',
+  path: '/{session_id}/turns/{turn_id}/events',
+  tags: [OpenApiTag.AGENT_SESSIONS],
+  summary: 'Create turn inbound events',
+  description:
+    'Create inbound events (`user.tool_approval`, `user.tool_response`, `user.tool_approval_policy`) in the durable turn inbox. Only the session creator may create. Events are stored unconsumed; applying them to the turn is a separate step.',
+  'x-fern-sdk-group-name': ['sessions'],
+  'x-fern-sdk-method-name': 'create_turn_inbound_event',
+  request: {
+    params: TurnIdParamsSchema,
+    body: {
+      content: { 'application/json': { schema: CreateTurnInboundEventRequestSchema } },
+      required: true,
+    },
+  },
+  responses: {
+    201: {
+      content: { 'application/json': { schema: CreateTurnInboundEventResponseSchema } },
+      description: 'Events created in the turn inbox.',
+    },
+    400: {
+      content: { 'application/json': { schema: RequestErrorResponseSchema } },
+      description: 'Invalid request body.',
+    },
+    403: {
+      content: { 'application/json': { schema: RequestErrorResponseSchema } },
+      description: 'Caller is not the session creator.',
+    },
+    404: {
+      content: { 'application/json': { schema: RequestErrorResponseSchema } },
+      description: 'Session or turn not found.',
+    },
+    409: {
+      content: { 'application/json': { schema: RequestErrorResponseSchema } },
+      description: 'Turn is terminal, or an event id already exists.',
     },
   },
 });

@@ -22,6 +22,7 @@ import {
   isAgentInputUserMessage,
   isFileContentPart,
   McpConnectionError,
+  newEventId,
   rawSandboxId,
   redisKey,
   SandboxError,
@@ -42,6 +43,7 @@ import type { ISkillStore } from '../db/skillStore';
 import type { IWebSearchProviderStore } from '../db/webSearchProviderStore';
 import {
   createAndExecuteTurnRoute,
+  createTurnInboundEventRoute,
   downloadSandboxFileRoute,
   getTurnRoute,
   listTurnEventsRoute,
@@ -923,12 +925,63 @@ export function createTurnsRouter(deps: TurnsRouterDeps) {
     });
   };
 
+  /** Persist-only inbox write; apply / wake is follow-up work. */
+  const createTurnInboundEventHandler: RouteHandler<typeof createTurnInboundEventRoute> = async c => {
+    const { session_id: sessionId, turn_id: turnId } = c.req.valid('param');
+    const body = c.req.valid('json');
+    const requestContext = deps.resolveRequestContext(c);
+    const session = await deps.sessions.get({
+      tenant_id: requestContext.tenant_id,
+      session_id: sessionId,
+    });
+    if (!session) {
+      return c.json({ error: { message: `Session not found: ${sessionId}` } }, 404);
+    }
+    if (
+      !isSessionOwner({
+        subject_id: requestContext.subject.id,
+        created_by_subject: session.record.created_by_subject,
+      })
+    ) {
+      return c.json({ error: { message: FORBIDDEN_SESSION_ACCESS } }, 403);
+    }
+
+    const createdAt = new Date().toISOString();
+    const events = body.events.map(payload => {
+      const id = newEventId();
+      return {
+        event_id: id,
+        payload,
+        created_at: createdAt,
+        created: { ...payload, id, created_at: createdAt },
+      };
+    });
+
+    try {
+      await deps.sessionStore.insertTurnInboundEvents({
+        session_id: sessionId,
+        turn_id: turnId,
+        events: events.map(({ event_id, payload, created_at }) => ({ event_id, payload, created_at })),
+      });
+      return c.json({ data: events.map(e => e.created) }, 201);
+    } catch (error) {
+      if (error instanceof SessionStoreNotFoundError) {
+        return c.json({ error: { message: error.message } }, 404);
+      }
+      if (error instanceof SessionStoreConflictError) {
+        return c.json({ error: { message: error.message } }, 409);
+      }
+      throw error;
+    }
+  };
+
   const router = new OpenAPIHono();
   router.openapi(createAndExecuteTurnRoute, createAndExecuteTurnHandler);
   router.openapi(listTurnsRoute, listTurnsHandler);
   router.openapi(getTurnRoute, getTurnHandler);
   router.openapi(downloadSandboxFileRoute, downloadSandboxFileHandler);
   router.openapi(listTurnEventsRoute, listTurnEventsHandler);
+  router.openapi(createTurnInboundEventRoute, createTurnInboundEventHandler);
   router.openapi(subscribeTurnRoute, subscribeTurnHandler);
   return router;
 }

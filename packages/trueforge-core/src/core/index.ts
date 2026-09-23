@@ -113,8 +113,11 @@ export {
   ToolApprovalRequiredEventSchema,
   ToolResponseEventSchema,
   ToolResponseRequiredEventSchema,
+  UserToolApprovalEventSchema,
   UserToolApprovalMessageSchema,
+  UserToolApprovalPolicyEventSchema,
   UserToolApprovalPolicyMessageSchema,
+  UserToolResponseEventSchema,
   UserToolResponseMessageSchema,
   newEventId,
 } from './events/schema';
@@ -125,7 +128,10 @@ export type {
   MCPServerInitInfo,
   ThreadDoneEvent,
   ThreadOverwriteContextEvent,
+  UserToolApprovalEvent,
+  UserToolApprovalPolicyEvent,
   UserToolApprovalPolicyMessage,
+  UserToolResponseEvent,
 } from './events/schema';
 export { CompletionUsageSchema } from './llm/LLMTypes';
 export type { CompletionUsage } from './llm/LLMTypes';
