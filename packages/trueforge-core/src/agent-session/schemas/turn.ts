@@ -5,6 +5,7 @@ import {
   AgentInputUserMessageSchema,
   ModelMessageEventSchema,
   UserToolApprovalMessageSchema,
+  UserToolApprovalPolicyMessageSchema,
   UserToolResponseMessageSchema,
 } from '../../core/events/schema';
 
@@ -177,7 +178,11 @@ export const CreateTurnRequestSchema = z
   .openapi('CreateTurnRequest');
 
 export const TurnInboundEventItemSchema = z
-  .discriminatedUnion('type', [UserToolApprovalMessageSchema, UserToolResponseMessageSchema])
+  .discriminatedUnion('type', [
+    UserToolApprovalMessageSchema,
+    UserToolResponseMessageSchema,
+    UserToolApprovalPolicyMessageSchema,
+  ])
   .openapi('TurnInboundEventItem');
 
 export type Turn = z.infer<typeof TurnSchema>;
