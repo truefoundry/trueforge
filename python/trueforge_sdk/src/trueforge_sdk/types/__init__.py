@@ -56,7 +56,9 @@ if typing.TYPE_CHECKING:
     from .context_management_config import ContextManagementConfig
     from .create_schedule_run_response import CreateScheduleRunResponse
     from .create_session_agent import CreateSessionAgent
+    from .create_turn_inbound_event_response import CreateTurnInboundEventResponse
     from .created_by_subject import CreatedBySubject
+    from .created_turn_inbound_event import CreatedTurnInboundEvent
     from .cron_expression import CronExpression
     from .custom_model_provider import CustomModelProvider
     from .daytona_sandbox_provider_auth import DaytonaSandboxProviderAuth
@@ -211,6 +213,8 @@ if typing.TYPE_CHECKING:
     from .timezone import Timezone
     from .together_ai_model_provider import TogetherAiModelProvider
     from .token_pagination import TokenPagination
+    from .tool_approval_policy_allow_session import ToolApprovalPolicyAllowSession
+    from .tool_approval_policy_item import ToolApprovalPolicyItem
     from .tool_approval_required_event import ToolApprovalRequiredEvent
     from .tool_call import ToolCall
     from .tool_call_ref import ToolCallRef
@@ -225,6 +229,7 @@ if typing.TYPE_CHECKING:
     from .turn_created_event import TurnCreatedEvent
     from .turn_done_event import TurnDoneEvent
     from .turn_done_event_state import TurnDoneEventState
+    from .turn_inbound_event_item import TurnInboundEventItem
     from .turn_input_item import TurnInputItem
     from .turn_metrics import TurnMetrics
     from .turn_state import TurnState
@@ -243,7 +248,11 @@ if typing.TYPE_CHECKING:
     from .user_message import UserMessage
     from .user_message_content import UserMessageContent
     from .user_message_content_item import UserMessageContentItem
+    from .user_tool_approval_event import UserToolApprovalEvent
     from .user_tool_approval_message import UserToolApprovalMessage
+    from .user_tool_approval_policy_event import UserToolApprovalPolicyEvent
+    from .user_tool_approval_policy_message import UserToolApprovalPolicyMessage
+    from .user_tool_response_event import UserToolResponseEvent
     from .user_tool_response_message import UserToolResponseMessage
     from .web_search_capability import WebSearchCapability
     from .web_search_config import WebSearchConfig
@@ -300,7 +309,9 @@ _dynamic_imports: typing.Dict[str, str] = {
     "ContextManagementConfig": ".context_management_config",
     "CreateScheduleRunResponse": ".create_schedule_run_response",
     "CreateSessionAgent": ".create_session_agent",
+    "CreateTurnInboundEventResponse": ".create_turn_inbound_event_response",
     "CreatedBySubject": ".created_by_subject",
+    "CreatedTurnInboundEvent": ".created_turn_inbound_event",
     "CronExpression": ".cron_expression",
     "CustomModelProvider": ".custom_model_provider",
     "DaytonaSandboxProviderAuth": ".daytona_sandbox_provider_auth",
@@ -455,6 +466,8 @@ _dynamic_imports: typing.Dict[str, str] = {
     "Timezone": ".timezone",
     "TogetherAiModelProvider": ".together_ai_model_provider",
     "TokenPagination": ".token_pagination",
+    "ToolApprovalPolicyAllowSession": ".tool_approval_policy_allow_session",
+    "ToolApprovalPolicyItem": ".tool_approval_policy_item",
     "ToolApprovalRequiredEvent": ".tool_approval_required_event",
     "ToolCall": ".tool_call",
     "ToolCallRef": ".tool_call_ref",
@@ -469,6 +482,7 @@ _dynamic_imports: typing.Dict[str, str] = {
     "TurnCreatedEvent": ".turn_created_event",
     "TurnDoneEvent": ".turn_done_event",
     "TurnDoneEventState": ".turn_done_event_state",
+    "TurnInboundEventItem": ".turn_inbound_event_item",
     "TurnInputItem": ".turn_input_item",
     "TurnMetrics": ".turn_metrics",
     "TurnState": ".turn_state",
@@ -487,7 +501,11 @@ _dynamic_imports: typing.Dict[str, str] = {
     "UserMessage": ".user_message",
     "UserMessageContent": ".user_message_content",
     "UserMessageContentItem": ".user_message_content_item",
+    "UserToolApprovalEvent": ".user_tool_approval_event",
     "UserToolApprovalMessage": ".user_tool_approval_message",
+    "UserToolApprovalPolicyEvent": ".user_tool_approval_policy_event",
+    "UserToolApprovalPolicyMessage": ".user_tool_approval_policy_message",
+    "UserToolResponseEvent": ".user_tool_response_event",
     "UserToolResponseMessage": ".user_tool_response_message",
     "WebSearchCapability": ".web_search_capability",
     "WebSearchConfig": ".web_search_config",
@@ -568,7 +586,9 @@ __all__ = [
     "ContextManagementConfig",
     "CreateScheduleRunResponse",
     "CreateSessionAgent",
+    "CreateTurnInboundEventResponse",
     "CreatedBySubject",
+    "CreatedTurnInboundEvent",
     "CronExpression",
     "CustomModelProvider",
     "DaytonaSandboxProviderAuth",
@@ -723,6 +743,8 @@ __all__ = [
     "Timezone",
     "TogetherAiModelProvider",
     "TokenPagination",
+    "ToolApprovalPolicyAllowSession",
+    "ToolApprovalPolicyItem",
     "ToolApprovalRequiredEvent",
     "ToolCall",
     "ToolCallRef",
@@ -737,6 +759,7 @@ __all__ = [
     "TurnCreatedEvent",
     "TurnDoneEvent",
     "TurnDoneEventState",
+    "TurnInboundEventItem",
     "TurnInputItem",
     "TurnMetrics",
     "TurnState",
@@ -755,7 +778,11 @@ __all__ = [
     "UserMessage",
     "UserMessageContent",
     "UserMessageContentItem",
+    "UserToolApprovalEvent",
     "UserToolApprovalMessage",
+    "UserToolApprovalPolicyEvent",
+    "UserToolApprovalPolicyMessage",
+    "UserToolResponseEvent",
     "UserToolResponseMessage",
     "WebSearchCapability",
     "WebSearchConfig",

@@ -15,4 +15,7 @@ export type TurnStreamingEvent =
     | TrueForge.ToolResponseRequiredEvent
     | TrueForge.TurnCreatedEvent
     | TrueForge.TurnDoneEvent
-    | TrueForge.TurnUpdateEvent;
+    | TrueForge.TurnUpdateEvent
+    | TrueForge.UserToolApprovalEvent
+    | TrueForge.UserToolApprovalPolicyEvent
+    | TrueForge.UserToolResponseEvent;
