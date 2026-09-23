@@ -50,8 +50,14 @@ function turnRecord(input: { turnId: string; state: TurnState; activeExecutorId?
   };
 }
 
-function storeReturning(turn: TurnRecord | undefined): Pick<ISessionStore, 'getTurn'> {
-  return { getTurn: () => Promise.resolve(turn) };
+function storeReturning(
+  turn: TurnRecord | undefined,
+  claimTurnOwnership: ISessionStore['claimTurnOwnership'] = () => Promise.resolve(true),
+): Pick<ISessionStore, 'getTurn' | 'claimTurnOwnership'> {
+  return {
+    getTurn: () => Promise.resolve(turn),
+    claimTurnOwnership,
+  };
 }
 
 function ownershipDeps(input: {
@@ -59,15 +65,16 @@ function ownershipDeps(input: {
   turn: TurnRecord | undefined;
   redis?: RedisClientType;
   logger?: { warn: jest.Mock };
+  claimTurnOwnership?: ISessionStore['claimTurnOwnership'];
 }): {
   activeTurns: ActiveTurnRegistry;
-  sessionStore: Pick<ISessionStore, 'getTurn'>;
+  sessionStore: Pick<ISessionStore, 'getTurn' | 'claimTurnOwnership'>;
   redis?: RedisClientType;
   logger: { warn: jest.Mock };
 } {
   return {
     activeTurns: input.activeTurns,
-    sessionStore: storeReturning(input.turn),
+    sessionStore: storeReturning(input.turn, input.claimTurnOwnership),
     ...(input.redis === undefined ? {} : { redis: input.redis }),
     logger: input.logger ?? silentLogger(),
   };
@@ -163,8 +170,9 @@ describe('resolveTurnOwnership', () => {
     ).resolves.toBe('retry');
   });
 
-  it('steals a paused turn when there is no responder', async () => {
+  it('claims a paused turn with no responder and rebuilds on a winning CAS', async () => {
     redisRequestMock.mockRejectedValue(new NoResponderError(REMOTE_EXECUTOR));
+    const claimTurnOwnership = jest.fn().mockResolvedValue(true);
 
     await expect(
       resolveTurnOwnership(
@@ -172,10 +180,33 @@ describe('resolveTurnOwnership', () => {
           activeTurns: new ActiveTurnRegistry(),
           turn: turnRecord({ turnId: 'remote-steal', state: pausedState, activeExecutorId: REMOTE_EXECUTOR }),
           redis: REDIS,
+          claimTurnOwnership,
         }),
         { sessionId: SESSION_ID, turnId: 'remote-steal' },
       ),
-    ).resolves.toBe('steal');
+    ).resolves.toBe('rebuild');
+    expect(claimTurnOwnership).toHaveBeenCalledWith({
+      session_id: SESSION_ID,
+      turn_id: 'remote-steal',
+      expected_active_executor_id: REMOTE_EXECUTOR,
+      new_active_executor_id: configuration.EXECUTOR_ID,
+    });
+  });
+
+  it('retries when the steal CAS loses', async () => {
+    redisRequestMock.mockRejectedValue(new NoResponderError(REMOTE_EXECUTOR));
+
+    await expect(
+      resolveTurnOwnership(
+        ownershipDeps({
+          activeTurns: new ActiveTurnRegistry(),
+          turn: turnRecord({ turnId: 'remote-steal-lose', state: pausedState, activeExecutorId: REMOTE_EXECUTOR }),
+          redis: REDIS,
+          claimTurnOwnership: () => Promise.resolve(false),
+        }),
+        { sessionId: SESSION_ID, turnId: 'remote-steal-lose' },
+      ),
+    ).resolves.toBe('retry');
   });
 
   it('does not steal a running turn when there is no responder', async () => {

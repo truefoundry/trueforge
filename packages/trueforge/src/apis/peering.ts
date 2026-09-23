@@ -45,17 +45,17 @@ export type PeerResult = 'ok' | 'no_responder' | 'failed';
  * What this replica should do:
  *
  * - `run` — execute here (we own it and have an ActiveTurn).
- * - `rebuild` — rebuild ActiveTurn here (we own a paused tip with no run).
+ * - `rebuild` — rebuild ActiveTurn here (we own a paused turn with no run).
  * - `forward` — send the work to the remote owner.
- * - `steal` — claim ownership, then rebuild.
- * - `reject` — do not continue (tip terminal, or local running with no ActiveTurn).
+ * - `steal` — table-only: claim the paused turn (resolveTurnOwnership then rebuilds or retries).
+ * - `reject` — do not continue (turn terminal, or local running with no ActiveTurn).
  * - `retry` — do not continue now (remote owner not usable; caller may try again).
  */
 export type OwnershipAction = 'run' | 'rebuild' | 'forward' | 'steal' | 'reject' | 'retry';
 
 export interface ResolveTurnOwnershipDeps {
-  activeTurns: Pick<ActiveTurnRegistry, 'has'>;
-  sessionStore: Pick<ISessionStore, 'getTurn'>;
+  activeTurns: Pick<ActiveTurnRegistry, 'has' | 'withTurnLock'>;
+  sessionStore: Pick<ISessionStore, 'getTurn' | 'claimTurnOwnership'>;
   redis?: RedisClient | undefined;
   logger: Pick<Logger, 'warn'>;
 }
@@ -117,38 +117,52 @@ export async function callPeer(input: {
 }
 
 /**
- * Load the turn, peer if another replica owns it, then {@link resolveOwnershipAction}.
- * Steal is returned, not performed.
+ * Load the turn under the per-turn lock, peer if another replica owns it, then
+ * {@link resolveOwnershipAction}. A `steal` is claimed here (R5): winner →
+ * `rebuild`, loser → `retry`.
  */
 export async function resolveTurnOwnership(
   deps: ResolveTurnOwnershipDeps,
   input: { sessionId: string; turnId: string },
 ): Promise<OwnershipAction> {
-  const turn = await deps.sessionStore.getTurn({
-    session_id: input.sessionId,
-    turn_id: input.turnId,
-  });
-  if (!turn) {
-    throw new TurnNotFoundError(input.turnId);
-  }
+  return deps.activeTurns.withTurnLock({ sessionId: input.sessionId, turnId: input.turnId }, async () => {
+    const turn = await deps.sessionStore.getTurn({
+      session_id: input.sessionId,
+      turn_id: input.turnId,
+    });
+    if (!turn) {
+      throw new TurnNotFoundError(input.turnId);
+    }
 
-  const owner = turn.active_executor_id;
-  const ownerIsLocal = owner === configuration.EXECUTOR_ID;
-  const peerResult =
-    !ownerIsLocal && deps.redis
-      ? await callPeer({
-          redis: deps.redis,
-          executorId: owner,
-          path: TURNS_LOCATE_PATH,
-          body: { session_id: input.sessionId, turn_id: input.turnId },
-        })
-      : undefined;
+    const owner = turn.active_executor_id;
+    const ownerIsLocal = owner === configuration.EXECUTOR_ID;
+    const peerResult =
+      !ownerIsLocal && deps.redis
+        ? await callPeer({
+            redis: deps.redis,
+            executorId: owner,
+            path: TURNS_LOCATE_PATH,
+            body: { session_id: input.sessionId, turn_id: input.turnId },
+          })
+        : undefined;
 
-  return resolveOwnershipAction({
-    status: turn.state.status,
-    ownerIsLocal,
-    hasActiveTurn: deps.activeTurns.has({ sessionId: input.sessionId, turnId: input.turnId }),
-    ...(peerResult === undefined ? {} : { peerResult }),
+    const action = resolveOwnershipAction({
+      status: turn.state.status,
+      ownerIsLocal,
+      hasActiveTurn: deps.activeTurns.has({ sessionId: input.sessionId, turnId: input.turnId }),
+      ...(peerResult === undefined ? {} : { peerResult }),
+    });
+    if (action !== 'steal') {
+      return action;
+    }
+
+    const won = await deps.sessionStore.claimTurnOwnership({
+      session_id: input.sessionId,
+      turn_id: input.turnId,
+      expected_active_executor_id: owner,
+      new_active_executor_id: configuration.EXECUTOR_ID,
+    });
+    return won ? 'rebuild' : 'retry';
   });
 }
 

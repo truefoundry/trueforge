@@ -2199,6 +2199,68 @@ export function runStoreContractSuite(createStore: () => ISessionStore) {
     });
   });
 
+  describe('claimTurnOwnership', () => {
+    it('missing turn → not found', async () => {
+      const store = createStore();
+      await seedSession(store);
+      await expect(
+        store.claimTurnOwnership({
+          session_id: sessionId,
+          turn_id: missingTurnId,
+          expected_active_executor_id: TEST_ACTIVE_EXECUTOR_ID,
+          new_active_executor_id: 'stealer',
+        }),
+      ).rejects.toBeInstanceOf(TurnNotFoundError);
+    });
+
+    it('running turn → false and owner unchanged', async () => {
+      const store = createStore();
+      await seedSession(store);
+      await store.createTurn(makeCreateTurnInput({ sessionId, turnId: 'turn-1' }));
+      await expect(
+        store.claimTurnOwnership({
+          session_id: sessionId,
+          turn_id: 'turn-1',
+          expected_active_executor_id: TEST_ACTIVE_EXECUTOR_ID,
+          new_active_executor_id: 'stealer',
+        }),
+      ).resolves.toBe(false);
+      const turn = await store.getTurn({ session_id: sessionId, turn_id: 'turn-1' });
+      expect(mustGet(turn).active_executor_id).toBe(TEST_ACTIVE_EXECUTOR_ID);
+    });
+
+    it('wrong expected owner → false', async () => {
+      const store = createStore();
+      await seedSession(store);
+      await store.createTurn(makeCreateTurnInput({ sessionId, turnId: 'turn-1' }));
+      await expect(
+        store.claimTurnOwnership({
+          session_id: sessionId,
+          turn_id: 'turn-1',
+          expected_active_executor_id: 'someone-else',
+          new_active_executor_id: 'stealer',
+        }),
+      ).resolves.toBe(false);
+      const turn = await store.getTurn({ session_id: sessionId, turn_id: 'turn-1' });
+      expect(mustGet(turn).active_executor_id).toBe(TEST_ACTIVE_EXECUTOR_ID);
+    });
+
+    it('terminal turn → false', async () => {
+      const store = createStore();
+      await seedSession(store);
+      await store.createTurn(makeCreateTurnInput({ sessionId, turnId: 'turn-1' }));
+      await finishTurn(store, 'turn-1');
+      await expect(
+        store.claimTurnOwnership({
+          session_id: sessionId,
+          turn_id: 'turn-1',
+          expected_active_executor_id: TEST_ACTIVE_EXECUTOR_ID,
+          new_active_executor_id: 'stealer',
+        }),
+      ).resolves.toBe(false);
+    });
+  });
+
   describe('events + threads + capability_state', () => {
     it('appendToEvents orders by monotonic event id, not append call order', async () => {
       const store = createStore();

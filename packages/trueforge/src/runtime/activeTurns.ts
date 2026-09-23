@@ -18,7 +18,32 @@ function activeTurnKey(sessionId: string, turnId: string): string {
 
 export class ActiveTurnRegistry {
   private readonly runs = new Map<string, ActiveTurnRun>();
+  private readonly locks = new Map<string, Promise<unknown>>();
   private alreadyShutDownAbortReason: CancellationReason | undefined;
+
+  /**
+   * Serialize work for one turn in this process. Waiters queue; different keys
+   * run in parallel. Re-read registry / DB inside `fn` — do not trust values
+   * from before the lock.
+   */
+  async withTurnLock<T>(input: { sessionId: string; turnId: string }, fn: () => Promise<T>): Promise<T> {
+    const key = activeTurnKey(input.sessionId, input.turnId);
+    const previous = this.locks.get(key) ?? Promise.resolve();
+    let release!: () => void;
+    const held = new Promise<void>(resolve => {
+      release = resolve;
+    });
+    this.locks.set(key, held);
+    await previous;
+    try {
+      return await fn();
+    } finally {
+      release();
+      if (this.locks.get(key) === held) {
+        this.locks.delete(key);
+      }
+    }
+  }
 
   /**
    * Registers the run immediately, then returns a generator that forwards

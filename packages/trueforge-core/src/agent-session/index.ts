@@ -81,6 +81,7 @@ export type {
   AddThreadsInput,
   AppendToEventsInput,
   AppendToThreadContextInput,
+  ClaimTurnOwnershipInput,
   CreateSessionInput,
   CreateTurnInput,
   DeleteSessionInput,

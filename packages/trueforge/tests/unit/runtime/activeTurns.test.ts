@@ -188,4 +188,67 @@ describe('ActiveTurnRegistry', () => {
       void value;
     }
   });
+
+  it('withTurnLock serializes the same turn and runs different turns in parallel', async () => {
+    const registry = new ActiveTurnRegistry();
+    const order: string[] = [];
+    let releaseFirst!: () => void;
+    const firstHold = new Promise<void>(resolve => {
+      releaseFirst = resolve;
+    });
+    let firstEntered!: () => void;
+    const firstInside = new Promise<void>(resolve => {
+      firstEntered = resolve;
+    });
+
+    const first = registry.withTurnLock({ sessionId: 's1', turnId: 't1' }, async () => {
+      order.push('t1-a');
+      firstEntered();
+      await firstHold;
+      order.push('t1-a-done');
+      return 'a';
+    });
+    await firstInside;
+
+    let secondStarted = false;
+    const second = registry.withTurnLock({ sessionId: 's1', turnId: 't1' }, async () => {
+      secondStarted = true;
+      order.push('t1-b');
+      return 'b';
+    });
+
+    let otherEntered!: () => void;
+    const otherInside = new Promise<void>(resolve => {
+      otherEntered = resolve;
+    });
+    let releaseOther!: () => void;
+    const otherHold = new Promise<void>(resolve => {
+      releaseOther = resolve;
+    });
+    const other = registry.withTurnLock({ sessionId: 's1', turnId: 't2' }, async () => {
+      otherEntered();
+      await otherHold;
+      order.push('t2');
+      return 'other';
+    });
+
+    await otherInside;
+    expect(secondStarted).toBe(false);
+
+    releaseFirst();
+    releaseOther();
+    await expect(Promise.all([first, second, other])).resolves.toEqual(['a', 'b', 'other']);
+    expect(order.filter(step => step.startsWith('t1'))).toEqual(['t1-a', 't1-a-done', 't1-b']);
+    expect(order).toContain('t2');
+  });
+
+  it('withTurnLock releases after a thrown fn so the next waiter runs', async () => {
+    const registry = new ActiveTurnRegistry();
+    await expect(
+      registry.withTurnLock({ sessionId: 's1', turnId: 't1' }, async () => {
+        throw new Error('lock boom');
+      }),
+    ).rejects.toThrow(/lock boom/);
+    await expect(registry.withTurnLock({ sessionId: 's1', turnId: 't1' }, async () => 'ok')).resolves.toBe('ok');
+  });
 });

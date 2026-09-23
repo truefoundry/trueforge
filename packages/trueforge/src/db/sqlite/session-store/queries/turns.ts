@@ -7,6 +7,7 @@ import {
 } from '@truefoundry/trueforge-core/agent-session/schemas/turn';
 import { assertCreateTurnThreadDelta } from '@truefoundry/trueforge-core/agent-session/store/assertCreateTurnThreadDelta';
 import type {
+  ClaimTurnOwnershipInput,
   FreezeAndGetTurnInput,
   TurnRecordWithoutSnapshot,
   UpdateTurnStateInput,
@@ -847,4 +848,35 @@ export async function updateTurnState(db: Kysely<Database>, input: UpdateTurnSta
       })
       .execute();
   });
+}
+
+export async function claimTurnOwnership(db: Kysely<Database>, input: ClaimTurnOwnershipInput): Promise<boolean> {
+  const result = await db
+    .updateTable('turn')
+    .set({
+      active_executor_id: input.new_active_executor_id,
+      updated_at: nowIso(),
+    })
+    .where('session_id', '=', input.session_id)
+    .where('turn_id', '=', input.turn_id)
+    .where('active_executor_id', '=', input.expected_active_executor_id)
+    .where(sql<boolean>`state->>'status' = 'paused'`)
+    .returning(['turn_id'])
+    .executeTakeFirst();
+
+  if (result !== undefined) {
+    return true;
+  }
+
+  const existing = await db
+    .selectFrom('turn')
+    .select('turn_id')
+    .where('session_id', '=', input.session_id)
+    .where('turn_id', '=', input.turn_id)
+    .executeTakeFirst();
+
+  if (!existing) {
+    throw new TurnNotFoundError(input.turn_id);
+  }
+  return false;
 }

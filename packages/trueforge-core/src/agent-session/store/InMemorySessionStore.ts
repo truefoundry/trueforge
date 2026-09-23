@@ -10,6 +10,7 @@ import type {
   AddThreadsInput,
   AppendToEventsInput,
   AppendToThreadContextInput,
+  ClaimTurnOwnershipInput,
   CreateSessionInput,
   CreateTurnInput,
   DeleteSessionInput,
@@ -488,6 +489,16 @@ export class InMemorySessionStore<
       list.push(deepCopy(input.turn_done_event));
     }
     this.addTerminalSessionMetrics(input.session_id, turn.created_at, input.state);
+  }
+
+  async claimTurnOwnership(input: ClaimTurnOwnershipInput): Promise<boolean> {
+    const turn = this.requireTurn(input.session_id, input.turn_id);
+    if (turn.state.status !== 'paused' || turn.active_executor_id !== input.expected_active_executor_id) {
+      return false;
+    }
+    turn.active_executor_id = input.new_active_executor_id;
+    turn.updated_at = new Date();
+    return true;
   }
 
   async appendToEvents(input: AppendToEventsInput): Promise<void> {
