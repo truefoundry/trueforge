@@ -2,9 +2,8 @@ apiVersion: v2
 name: trueforge
 description: TrueForge server (API + UI) served from a single container image.
 type: application
-# version / appVersion / image.tag are written on main by the image+Helm release
-# workflow (or by a human). Publishing is gated by git tag charts/trueforge@<version>
-# (must match version).
+# version / appVersion / image.tag are written on main by release-chart.yml
+# after the chart/v* tag from release-packages.yml.
 version: "0.2.3-rc.0"
 appVersion: "0.3.0-rc.0"
 kubeVersion: ">=1.25.0-0"

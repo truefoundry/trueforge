@@ -1,14 +1,14 @@
 name: Build server image and publish Helm chart
 
-# Independent of release-packages.yml. Same Changesets select-mode:
-# pending changesets skip this lane; unpublished versions build the
-# from-source image, then package and publish the Helm chart.
+# Starts when release-packages.yml pushes chart/v<packageVersion> (App token).
+# Builds the from-source image, then packages and publishes the Helm chart.
 #
 # workflow_dispatch is for manual rebuilds. Do not use `gh workflow run --ref
 # $GITHUB_SHA`: the dispatch API only accepts a branch or tag name (HTTP 422).
 on:
   push:
-    branches: [main]
+    tags:
+      - 'chart/v[0-9]*'
   workflow_dispatch:
     inputs:
       app_version:
@@ -23,38 +23,8 @@ concurrency:
 permissions: {}
 
 jobs:
-  select-mode:
-    name: Select mode
-    runs-on: ubuntu-latest
-    timeout-minutes: 10
-    outputs:
-      mode: ${{ steps.select-mode.outputs.mode }}
-    permissions:
-      contents: read
-    steps:
-      - name: Check out repo
-        uses: actions/checkout@v7
-        with:
-          persist-credentials: false
-
-      - uses: pnpm/action-setup@v6
-
-      - name: Set up Node.js
-        uses: actions/setup-node@v7
-        with:
-          node-version: 24
-          cache: pnpm
-
-      - run: pnpm install --frozen-lockfile
-
-      - name: Select Changesets mode
-        id: select-mode
-        uses: changesets/action/select-mode@v2
-
   resolve:
     name: Resolve versions
-    if: github.event_name == 'workflow_dispatch' || needs.select-mode.outputs.mode == 'publish'
-    needs: select-mode
     runs-on: ubuntu-latest
     outputs:
       app_version: ${{ steps.resolve.outputs.app_version }}
@@ -72,10 +42,19 @@ jobs:
         id: resolve
         env:
           INPUT_APP_VERSION: ${{ inputs.app_version }}
+          EVENT_NAME: ${{ github.event_name }}
+          REF_NAME: ${{ github.ref_name }}
         run: |
           set -euo pipefail
           PKG_VERSION=$(node -p "require('./packages/trueforge/package.json').version")
-          if [[ -n "${INPUT_APP_VERSION}" ]]; then
+          if [[ "$EVENT_NAME" == "push" && "$REF_NAME" == chart/v* ]]; then
+            TAG_VERSION="${REF_NAME#chart/v}"
+            if [[ "$TAG_VERSION" != "$PKG_VERSION" ]]; then
+              echo "Tag v$TAG_VERSION does not match package.json $PKG_VERSION" >&2
+              exit 1
+            fi
+            APP_VERSION="$PKG_VERSION"
+          elif [[ -n "${INPUT_APP_VERSION}" ]]; then
             APP_VERSION="$INPUT_APP_VERSION"
           else
             APP_VERSION="$PKG_VERSION"
@@ -165,44 +144,6 @@ jobs:
       - name: Lint chart
         run: helm lint "$CHART_DIR" --values charts/trueforge/ci/lint-values.yaml
 
-      - name: Commit chart metadata, tag, and GitHub Release
-        env:
-          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-          VERSION: ${{ steps.chart.outputs.version }}
-          APP_VERSION: ${{ steps.chart.outputs.app_version }}
-          IMAGE_TAG: ${{ needs.resolve.outputs.image_tag }}
-        run: |
-          set -euo pipefail
-          TAG="charts/trueforge@${VERSION}"
-          git config user.name "github-actions[bot]"
-          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
-
-          if git ls-remote --exit-code --tags origin "refs/tags/${TAG}" >/dev/null 2>&1; then
-            echo "Tag $TAG already exists; skipping commit and GitHub Release"
-          else
-            git add charts/trueforge/Chart.yaml charts/trueforge/values.yaml
-            if git diff --staged --quiet; then
-              echo "Chart metadata already matches $VERSION; skipping commit" >&2
-            else
-              git commit -m "release(chart): ${VERSION}"
-              git push origin HEAD:main
-            fi
-
-            git tag -a "$TAG" -m "Helm chart ${VERSION} (appVersion ${APP_VERSION}, image ${IMAGE_TAG})"
-            git push origin "$TAG"
-
-            NOTES_FILE="$(mktemp)"
-            {
-              echo "Chart version: ${VERSION}"
-              echo "appVersion: ${APP_VERSION}"
-              echo "image.tag: ${IMAGE_TAG}"
-            } >"$NOTES_FILE"
-            gh release create "$TAG" \
-              --title "$TAG" \
-              --notes-file "$NOTES_FILE"
-            rm -f "$NOTES_FILE"
-          fi
-
       - name: Helm registry login
         env:
           HELM_REGISTRY_USERNAME: ${{ secrets.TRUEFORGE_ARTIFACTORY_USERNAME }}
@@ -227,3 +168,18 @@ jobs:
             echo "Pushed \`oci://${HELM_CHART_REPOSITORY}/${CHART_NAME}:${VERSION}\`"
             echo "Image tag \`${{ needs.resolve.outputs.image_tag }}\`"
           } >> "$GITHUB_STEP_SUMMARY"
+
+      - name: Commit chart metadata to main
+        env:
+          VERSION: ${{ steps.chart.outputs.version }}
+        run: |
+          set -euo pipefail
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add charts/trueforge/Chart.yaml charts/trueforge/values.yaml
+          if git diff --staged --quiet; then
+            echo "Chart metadata already matches $VERSION"
+            exit 0
+          fi
+          git commit -m "release(chart): ${VERSION}"
+          git push origin HEAD:main
