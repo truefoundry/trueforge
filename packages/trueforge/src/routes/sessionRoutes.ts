@@ -112,7 +112,8 @@ export const getSessionRoute = createRoute({
   path: '/{session_id}',
   tags: [OpenApiTag.AGENT_SESSIONS],
   summary: 'Get a session',
-  description: 'Fetch a session by ID. Only the session creator may fetch it.',
+  description:
+    'Fetch a session by ID. Allowed for the creator, a manager of the bound named agent, or any tenant member when the session is shared.',
   'x-fern-sdk-group-name': ['sessions'],
   'x-fern-sdk-method-name': 'get',
   request: {
@@ -125,7 +126,7 @@ export const getSessionRoute = createRoute({
     },
     403: {
       content: { 'application/json': { schema: RequestErrorResponseSchema } },
-      description: 'Caller is not the session creator.',
+      description: 'Caller cannot read this session.',
     },
     404: {
       content: { 'application/json': { schema: RequestErrorResponseSchema } },
@@ -163,7 +164,7 @@ export const updateSessionRoute = createRoute({
   tags: [OpenApiTag.AGENT_SESSIONS],
   summary: 'Update a session',
   description:
-    'Update a session: optional `title`, `metadata`, and (inline sessions only) `agent` as `{ spec: AgentSpec }`. Named sessions reject agent updates. An empty body is a valid no-op that refreshes `updated_at`. Only the session creator may update it.',
+    'Update a session: optional `title`, `metadata`, `shared`, and (inline sessions only) `agent` as `{ spec: AgentSpec }`. Named sessions reject agent updates. An empty body is a valid no-op that refreshes `updated_at`. Only the session creator may update it.',
   'x-fern-sdk-group-name': ['sessions'],
   'x-fern-sdk-method-name': 'update',
   request: {

@@ -282,6 +282,7 @@ export function runStoreContractSuite(createStore: () => ISessionStore) {
           agent: { type: 'inline', spec: makeAgentSpec({ instructions: 'nope' }) },
           title: undefined,
           metadata: undefined,
+          shared: undefined,
         }),
       ).rejects.toBeInstanceOf(SessionStoreInvariantError);
     });
@@ -307,6 +308,7 @@ export function runStoreContractSuite(createStore: () => ISessionStore) {
         agent: { type: 'inline', spec: nextSpec },
         title: 'Hello',
         metadata: undefined,
+        shared: undefined,
       });
       const after = await store.getSession({ tenant_id: tenant, session_id: sessionId });
       expect(mustGet(after).agent).toMatchObject({
@@ -353,6 +355,7 @@ export function runStoreContractSuite(createStore: () => ISessionStore) {
         agent: undefined,
         title: undefined,
         metadata: { b: '2' },
+        shared: undefined,
       });
       expect(mustGet(await store.getSession({ tenant_id: tenant, session_id: sessionId })).metadata).toEqual({
         b: '2',
@@ -364,6 +367,7 @@ export function runStoreContractSuite(createStore: () => ISessionStore) {
         agent: undefined,
         title: 'keep-meta',
         metadata: undefined,
+        shared: undefined,
       });
       const afterOmit = mustGet(await store.getSession({ tenant_id: tenant, session_id: sessionId }));
       expect(afterOmit.title).toBe('keep-meta');
@@ -375,6 +379,7 @@ export function runStoreContractSuite(createStore: () => ISessionStore) {
         agent: undefined,
         title: undefined,
         metadata: {},
+        shared: undefined,
       });
       expect(mustGet(await store.getSession({ tenant_id: tenant, session_id: sessionId })).metadata).toEqual({});
     });
@@ -648,6 +653,7 @@ export function runStoreContractSuite(createStore: () => ISessionStore) {
           agent: undefined,
           title: 'new-title',
           metadata: undefined,
+          shared: undefined,
         }),
       ).rejects.toBeInstanceOf(SessionNotFoundError);
       await expect(store.createTurn(makeCreateTurnInput({ sessionId, turnId: 'turn-2' }))).rejects.toBeInstanceOf(
@@ -802,6 +808,7 @@ export function runStoreContractSuite(createStore: () => ISessionStore) {
           agent: undefined,
           title: 'new-title',
           metadata: undefined,
+          shared: undefined,
         }),
       ).rejects.toBeInstanceOf(SessionNotFoundError);
       await expect(
@@ -989,6 +996,7 @@ export function runStoreContractSuite(createStore: () => ISessionStore) {
         agent: undefined,
         title: 'bumped',
         metadata: undefined,
+        shared: undefined,
       });
 
       const listArgs = {
@@ -2647,6 +2655,7 @@ export function runStoreContractSuite(createStore: () => ISessionStore) {
         agent: undefined,
         title: jsonLooking,
         metadata: undefined,
+        shared: undefined,
       });
       await store.createTurn(
         makeCreateTurnInput({

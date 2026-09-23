@@ -28,6 +28,7 @@ describe('Sessions / SessionHandle / TurnHandle (storage + createTurn)', () => {
       agent: undefined,
       title: undefined,
       metadata: { env: 'prod' },
+      shared: undefined,
     });
     const afterReplace = await sessions.get({ tenant_id: tenant, session_id: 's-meta' });
     expect(afterReplace?.metadata).toEqual({ env: 'prod' });
@@ -38,6 +39,7 @@ describe('Sessions / SessionHandle / TurnHandle (storage + createTurn)', () => {
       agent: undefined,
       title: 't',
       metadata: undefined,
+      shared: undefined,
     });
     const afterOmit = await sessions.get({ tenant_id: tenant, session_id: 's-meta' });
     expect(afterOmit?.record.title).toBe('t');

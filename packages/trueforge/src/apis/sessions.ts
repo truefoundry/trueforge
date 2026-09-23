@@ -63,6 +63,7 @@ export function toWireSession(record: SessionRecord): Session {
     id: record.session_id,
     agent: record.agent,
     title: record.title,
+    shared: record.shared,
     created_by_subject: record.created_by_subject,
     created_at: record.created_at.toISOString(),
     updated_at: record.updated_at.toISOString(),
@@ -389,6 +390,7 @@ export function createSessionsRouter(deps: SessionsRouterDeps) {
       return c.json({ error: { message: `Session not found: ${sessionId}` } }, 404);
     }
     if (
+      !record.shared &&
       !(await canReadAgentBoundResource({
         store: deps.resolveAgentStore(c),
         context: requestContext,
@@ -467,6 +469,7 @@ export function createSessionsRouter(deps: SessionsRouterDeps) {
         agent: body.agent === undefined ? undefined : { type: 'inline', spec: body.agent.spec },
         title: body.title,
         metadata: body.metadata,
+        shared: body.shared,
       });
     } catch (error) {
       if (error instanceof SessionStoreNotFoundError) {

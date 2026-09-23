@@ -37,6 +37,8 @@ export type UpdateSessionInput<TSessionCustom extends object = Record<string, ne
   agent: Extract<SessionRecord<TSessionCustom>['agent'], { type: 'inline' }> | undefined;
   title: SessionRecord<TSessionCustom>['title'] | undefined;
   metadata: SessionRecord<TSessionCustom>['metadata'] | undefined;
+  /** When omitted, the stored flag is left unchanged. */
+  shared: SessionRecord<TSessionCustom>['shared'] | undefined;
 };
 
 export interface GetSessionInput {
