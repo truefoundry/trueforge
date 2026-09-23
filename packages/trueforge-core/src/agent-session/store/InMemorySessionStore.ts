@@ -1,5 +1,6 @@
 import type { AgentThreadSnapshot } from '../../core/runtime/AgentThread.types';
 import { getEmptyCurrentContextUsage } from '../../core/runtime/contextUsage';
+import { mintActiveExecutorId } from '../activeExecutorId';
 import type { SessionRecord } from '../models/SessionRecord';
 import type { TurnRecord, TurnSnapshot } from '../models/TurnRecord';
 import type { PersistedTurnEvent, SessionEventItem } from '../schemas/events';
@@ -496,7 +497,7 @@ export class InMemorySessionStore<
     if (turn.state.status !== 'paused' || turn.active_executor_id !== input.expected_active_executor_id) {
       return false;
     }
-    turn.active_executor_id = input.new_active_executor_id;
+    turn.active_executor_id = mintActiveExecutorId(input.new_active_executor_id, turn.active_executor_id);
     turn.updated_at = new Date();
     return true;
   }

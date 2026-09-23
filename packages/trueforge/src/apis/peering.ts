@@ -3,7 +3,11 @@
  * and turn-ownership resolution used by send/subscribe/cancel.
  */
 import type { ISessionStore, TurnState } from '@truefoundry/trueforge-core/agent-session';
-import { CancellationReason, TurnNotFoundError } from '@truefoundry/trueforge-core/agent-session';
+import {
+  CancellationReason,
+  parseActiveExecutorId,
+  TurnNotFoundError,
+} from '@truefoundry/trueforge-core/agent-session';
 import {
   NoResponderError,
   redisRequest,
@@ -118,13 +122,14 @@ export async function callPeer(input: {
 
 /**
  * Load the turn under the per-turn lock, peer if another replica owns it, then
- * {@link resolveOwnershipAction}. A `steal` is claimed here (R5): winner →
- * `rebuild`, loser → `retry`.
+ * {@link resolveOwnershipAction}. A `steal` is claimed here.
  */
 export async function resolveTurnOwnership(
   deps: ResolveTurnOwnershipDeps,
   input: { sessionId: string; turnId: string },
 ): Promise<OwnershipAction> {
+  // One request at a time per turn so two handlers don't both steal or rebuild
+  // from a stale read. Re-read the row inside the lock.
   return deps.activeTurns.withTurnLock({ sessionId: input.sessionId, turnId: input.turnId }, async () => {
     const turn = await deps.sessionStore.getTurn({
       session_id: input.sessionId,
@@ -135,12 +140,13 @@ export async function resolveTurnOwnership(
     }
 
     const owner = turn.active_executor_id;
-    const ownerIsLocal = owner === configuration.EXECUTOR_ID;
+    const ownerExecutorId = parseActiveExecutorId(owner).executorId;
+    const ownerIsLocal = ownerExecutorId === configuration.EXECUTOR_ID;
     const peerResult =
       !ownerIsLocal && deps.redis
         ? await callPeer({
             redis: deps.redis,
-            executorId: owner,
+            executorId: ownerExecutorId,
             path: TURNS_LOCATE_PATH,
             body: { session_id: input.sessionId, turn_id: input.turnId },
           })

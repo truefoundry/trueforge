@@ -1,4 +1,4 @@
-import type { SessionMetrics } from '@truefoundry/trueforge-core/agent-session';
+import { mintActiveExecutorId, type SessionMetrics } from '@truefoundry/trueforge-core/agent-session';
 import type { TurnRecord, TurnSnapshot } from '@truefoundry/trueforge-core/agent-session/models/TurnRecord';
 import {
   type TerminalTurnState,
@@ -806,7 +806,7 @@ export async function claimTurnOwnership(db: Kysely<Database>, input: ClaimTurnO
   const result = await db
     .updateTable('turn')
     .set({
-      active_executor_id: input.new_active_executor_id,
+      active_executor_id: mintActiveExecutorId(input.new_active_executor_id, input.expected_active_executor_id),
       updated_at: sql`now()`,
     })
     .where('session_id', '=', input.session_id)

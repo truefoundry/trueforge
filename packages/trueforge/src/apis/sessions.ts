@@ -5,6 +5,7 @@ import { OpenAPIHono, type RouteHandler } from '@hono/zod-openapi';
 import type { ISessionStore, SessionHandle, SessionRecord, Sessions } from '@truefoundry/trueforge-core/agent-session';
 import {
   CancellationReason,
+  parseActiveExecutorId,
   SessionStoreConflictError,
   SessionStoreInvariantError,
   SessionStoreNotFoundError,
@@ -110,7 +111,8 @@ export async function cancelSessionTurn(
   }
 
   const owner = turn.active_executor_id;
-  const ownerIsLocal = owner === configuration.EXECUTOR_ID;
+  const ownerExecutorId = parseActiveExecutorId(owner).executorId;
+  const ownerIsLocal = ownerExecutorId === configuration.EXECUTOR_ID;
 
   if (ownerIsLocal && deps.activeTurns.has({ sessionId, turnId })) {
     deps.activeTurns.cancel({ sessionId, turnId, abortReason: reason });
@@ -120,7 +122,7 @@ export async function cancelSessionTurn(
   if (!ownerIsLocal && deps.redis) {
     const peerResult = await callPeer({
       redis: deps.redis,
-      executorId: owner,
+      executorId: ownerExecutorId,
       path: SESSIONS_CANCEL_PATH,
       body: { session_id: sessionId, turn_id: turnId, reason },
     });
