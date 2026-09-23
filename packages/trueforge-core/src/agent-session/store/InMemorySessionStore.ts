@@ -2,9 +2,8 @@ import type { AgentThreadSnapshot } from '../../core/runtime/AgentThread.types';
 import { getEmptyCurrentContextUsage } from '../../core/runtime/contextUsage';
 import type { SessionRecord } from '../models/SessionRecord';
 import type { TurnRecord, TurnSnapshot } from '../models/TurnRecord';
-import type { PersistedTurnEvent, SessionEventItem } from '../schemas/events';
+import type { PersistedTurnEvent, SessionEventItem, TurnInboundEventItem } from '../schemas/events';
 import type { TokenPagination } from '../schemas/pagination';
-import type { TurnInboundEventItem } from '../schemas/sendEvent';
 import type { TerminalTurnState } from '../schemas/turn';
 import { assertCreateTurnThreadDelta } from './assertCreateTurnThreadDelta';
 import type {

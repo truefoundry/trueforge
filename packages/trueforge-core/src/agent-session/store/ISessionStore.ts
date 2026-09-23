@@ -9,9 +9,8 @@ import type { CurrentContextUsage } from '../../core/runtime/contextUsage';
 import type { SandboxInfo } from '../../core/sandbox/Sandbox';
 import type { SessionRecord } from '../models/SessionRecord';
 import type { TurnRecord } from '../models/TurnRecord';
-import type { PersistedTurnEvent, SessionEventItem } from '../schemas/events';
+import type { PersistedTurnEvent, SessionEventItem, TurnInboundEventItem } from '../schemas/events';
 import type { TokenPagination } from '../schemas/pagination';
-import type { TurnInboundEventItem } from '../schemas/sendEvent';
 import type { SessionMetadata } from '../schemas/session';
 import type { CancellationReason, TerminalTurnState } from '../schemas/turn';
 
