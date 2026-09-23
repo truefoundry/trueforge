@@ -3,22 +3,23 @@
 import type * as TrueForge from "../../api/index.js";
 import * as core from "../../core/index.js";
 import type * as serializers from "../index.js";
+import { ApprovalDecision } from "./ApprovalDecision.js";
 
-export const UserToolResponseEvent: core.serialization.ObjectSchema<
-    serializers.UserToolResponseEvent.Raw,
-    TrueForge.UserToolResponseEvent
+export const UserToolApprovalMessage: core.serialization.ObjectSchema<
+    serializers.UserToolApprovalMessage.Raw,
+    TrueForge.UserToolApprovalMessage
 > = core.serialization.object({
-    content: core.serialization.string(),
+    approval: ApprovalDecision,
     threadId: core.serialization.property("thread_id", core.serialization.string()),
     toolCallId: core.serialization.property("tool_call_id", core.serialization.string()),
-    type: core.serialization.stringLiteral("user.tool_response"),
+    type: core.serialization.stringLiteral("user.tool_approval"),
 });
 
-export declare namespace UserToolResponseEvent {
+export declare namespace UserToolApprovalMessage {
     export interface Raw {
-        content: string;
+        approval: ApprovalDecision.Raw;
         thread_id: string;
         tool_call_id: string;
-        type: "user.tool_response";
+        type: "user.tool_approval";
     }
 }

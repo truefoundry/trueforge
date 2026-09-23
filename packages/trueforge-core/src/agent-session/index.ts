@@ -9,6 +9,7 @@ export type { AgentSpec, Skill } from './schemas/agentSpec';
 export {
   CancellationReason,
   CreateTurnRequestSchema,
+  TurnInboundEventItemSchema,
   TurnInputItemSchema,
   TurnMetricsSchema,
   TurnSchema,
@@ -19,7 +20,14 @@ export {
   TurnStateRunningSchema,
   TurnStateSchema,
 } from './schemas/turn';
-export type { TerminalTurnState, Turn, TurnInputItem, TurnMetrics, TurnState } from './schemas/turn';
+export type {
+  TerminalTurnState,
+  Turn,
+  TurnInboundEventItem,
+  TurnInputItem,
+  TurnMetrics,
+  TurnState,
+} from './schemas/turn';
 
 export {
   SessionMetadataSchema,
@@ -47,7 +55,6 @@ export {
   SessionEventSchema,
   TurnCreatedEventSchema,
   TurnDoneEventSchema,
-  TurnInboundEventItemSchema,
   TurnUpdateEventSchema,
 } from './schemas/events';
 export type {
@@ -56,7 +63,6 @@ export type {
   SessionEventItem,
   TurnCreatedEvent,
   TurnDoneEvent,
-  TurnInboundEventItem,
   TurnUpdateEvent,
 } from './schemas/events';
 

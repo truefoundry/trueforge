@@ -5232,8 +5232,8 @@
         "discriminator": {
           "mapping": {
             "user.message": "#/components/schemas/UserMessage",
-            "user.tool_approval": "#/components/schemas/UserToolApprovalEvent",
-            "user.tool_response": "#/components/schemas/UserToolResponseEvent"
+            "user.tool_approval": "#/components/schemas/UserToolApprovalMessage",
+            "user.tool_response": "#/components/schemas/UserToolResponseMessage"
           },
           "propertyName": "type"
         },
@@ -5242,10 +5242,10 @@
             "$ref": "#/components/schemas/UserMessage"
           },
           {
-            "$ref": "#/components/schemas/UserToolApprovalEvent"
+            "$ref": "#/components/schemas/UserToolApprovalMessage"
           },
           {
-            "$ref": "#/components/schemas/UserToolResponseEvent"
+            "$ref": "#/components/schemas/UserToolResponseMessage"
           }
         ]
       },
@@ -5764,7 +5764,7 @@
           }
         ]
       },
-      "UserToolApprovalEvent": {
+      "UserToolApprovalMessage": {
         "properties": {
           "approval": {
             "$ref": "#/components/schemas/ApprovalDecision"
@@ -5795,7 +5795,7 @@
         ],
         "type": "object"
       },
-      "UserToolResponseEvent": {
+      "UserToolResponseMessage": {
         "properties": {
           "content": {
             "description": "Client-side tool result content.",

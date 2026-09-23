@@ -4,12 +4,12 @@ import type * as TrueForge from "../../api/index.js";
 import * as core from "../../core/index.js";
 import type * as serializers from "../index.js";
 import { UserMessage } from "./UserMessage.js";
-import { UserToolApprovalEvent } from "./UserToolApprovalEvent.js";
-import { UserToolResponseEvent } from "./UserToolResponseEvent.js";
+import { UserToolApprovalMessage } from "./UserToolApprovalMessage.js";
+import { UserToolResponseMessage } from "./UserToolResponseMessage.js";
 
 export const TurnInputItem: core.serialization.Schema<serializers.TurnInputItem.Raw, TrueForge.TurnInputItem> =
-    core.serialization.undiscriminatedUnion([UserMessage, UserToolApprovalEvent, UserToolResponseEvent]);
+    core.serialization.undiscriminatedUnion([UserMessage, UserToolApprovalMessage, UserToolResponseMessage]);
 
 export declare namespace TurnInputItem {
-    export type Raw = UserMessage.Raw | UserToolApprovalEvent.Raw | UserToolResponseEvent.Raw;
+    export type Raw = UserMessage.Raw | UserToolApprovalMessage.Raw | UserToolResponseMessage.Raw;
 }

@@ -5,9 +5,7 @@ import {
   AgentInputUserMessageSchema,
   ModelMessageEventSchema,
   UserToolApprovalMessageSchema,
-  UserToolApprovalMsgSchema,
   UserToolResponseMessageSchema,
-  UserToolResponseMsgSchema,
 } from '../../core/events/schema';
 
 export enum CancellationReason {
@@ -179,7 +177,7 @@ export const CreateTurnRequestSchema = z
   .openapi('CreateTurnRequest');
 
 export const TurnInboundEventItemSchema = z
-  .discriminatedUnion('type', [UserToolApprovalMsgSchema, UserToolResponseMsgSchema])
+  .discriminatedUnion('type', [UserToolApprovalMessageSchema, UserToolResponseMessageSchema])
   .openapi('TurnInboundEventItem');
 
 export type Turn = z.infer<typeof TurnSchema>;

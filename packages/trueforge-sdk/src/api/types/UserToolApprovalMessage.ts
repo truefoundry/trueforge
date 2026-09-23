@@ -2,7 +2,7 @@
 
 import type * as TrueForge from "../index.js";
 
-export interface UserToolApprovalEvent {
+export interface UserToolApprovalMessage {
     approval: TrueForge.ApprovalDecision;
     /** Thread that owns the pending tool call. */
     threadId: string;
