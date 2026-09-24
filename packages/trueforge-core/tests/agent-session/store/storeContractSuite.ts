@@ -2377,7 +2377,7 @@ export function runStoreContractSuite(createStore: () => ISessionStore) {
       ]);
 
       const insertResult = results[1];
-      if (insertResult?.status === 'rejected') {
+      if (insertResult.status === 'rejected') {
         expect(insertResult.reason).toBeInstanceOf(TurnNotRunningError);
       }
 
