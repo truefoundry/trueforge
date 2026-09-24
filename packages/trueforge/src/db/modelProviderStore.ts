@@ -5,6 +5,7 @@
  */
 import type { ResourceName } from '../schemas/common';
 import type { AvailableModel, ModelProviderManifest } from '../schemas/modelProvider';
+import type { TurnMetadata } from './turnMetadata';
 
 export interface ModelProviderRecord {
   tenant_id: string;
@@ -72,6 +73,11 @@ export interface IModelProviderStore<TTransaction = never> {
   upsertProvider(input: UpsertModelProviderInput, transaction?: TTransaction): Promise<ModelProviderRecord>;
   /** Flattens manifests into the FQN read view for GET /models. */
   listModels(input: ListModelProvidersInput, transaction?: TTransaction): Promise<AvailableModel[]>;
+  /** Extra headers for a model invoke. */
+  resolveInvokeHeaders(input: {
+    record: ModelProviderRecord;
+    turnMetadata?: TurnMetadata;
+  }): Promise<Record<string, string>>;
 }
 
 /** Application-side flatten shared by both store implementations. */

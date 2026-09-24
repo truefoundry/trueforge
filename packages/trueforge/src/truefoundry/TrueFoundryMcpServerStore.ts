@@ -17,10 +17,12 @@ import {
   type ResolveMcpAuthStatusesInput,
   type UpsertMcpServerInput,
 } from '../db/mcpServerStore';
+import type { TurnMetadata } from '../db/turnMetadata';
 import type { OAuthClientRecord } from '../mcp/auth/types';
 import { resolveMcpAuthStatus, type McpAuthStatus } from '../schemas/mcpServer';
 import { accessTokenForRequest, asTrueFoundryRequestContext, type ResolveAccessToken } from './accessToken';
 import { trueFoundryManaged } from './errors';
+import { gatewayMetadataHeadersForTurn } from './gatewayMetadata';
 import { resolveDefaultGatewayUrl } from './mapEnabledModels';
 import {
   mapSfyMcpServers,
@@ -101,8 +103,12 @@ export class TrueFoundryMcpServerStore<TTransaction = never> implements IMcpServ
   }
 
   /** Gateway Bearer (+ optional per-server overrides); SFY authorize first, else authRequired. */
-  resolveInvokeHeaders(input: { record: McpServerRecord; userRef: string }): RemoteMcpHeaders {
-    const { record, userRef } = input;
+  resolveInvokeHeaders(input: {
+    record: McpServerRecord;
+    userRef: string;
+    turnMetadata?: TurnMetadata;
+  }): RemoteMcpHeaders {
+    const { record, userRef, turnMetadata } = input;
     const headers = async (): Promise<Record<string, string>> => ({
       ...withoutAuthorization(this.#perServerHeaders[record.name]),
       Authorization: `Bearer ${await this.#asUser()}`,
@@ -126,7 +132,11 @@ export class TrueFoundryMcpServerStore<TTransaction = never> implements IMcpServ
           },
         };
       }
-      return { headers: await headers() };
+      const invokeHeaders = await headers();
+      if (turnMetadata === undefined) {
+        return { headers: invokeHeaders };
+      }
+      return { headers: { ...invokeHeaders, ...gatewayMetadataHeadersForTurn(turnMetadata) } };
     };
   }
 

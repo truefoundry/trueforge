@@ -40,6 +40,7 @@ import type { IMcpServerWithAuthStore } from '../db/mcpServerStore';
 import type { IModelProviderStore } from '../db/modelProviderStore';
 import type { ISandboxProviderStore } from '../db/sandboxProviderStore';
 import type { ISkillStore } from '../db/skillStore';
+import type { TurnMetadata } from '../db/turnMetadata';
 import type { IWebSearchProviderStore } from '../db/webSearchProviderStore';
 import {
   createAndExecuteTurnRoute,
@@ -55,16 +56,13 @@ import { StreamGoneError, type EventSubscription, type EventSubscriptionRegistry
 import { validateSandboxFilePath } from '../runtime/sandboxFilePath';
 import {
   buildTurnSandbox,
-  gatewayTurnHeaders,
   getMcpConnection,
   getModelDetails,
-  parseGatewayMetadataHeader,
   resolveSandboxProvider,
-  withGatewayMetadataHeaders,
-  X_TFY_METADATA,
 } from '../runtime/sessionResources';
 import { checkSnapshotStatus } from '../sandbox/providerUtils';
 import { MAX_SESSION_TITLE_LENGTH } from '../schemas/session';
+import { assertGatewayMetadataRequestHeaders } from '../truefoundry/gatewayMetadata';
 import { newId } from '../utils/id';
 import { resolveWebSearchProvider } from '../websearch/providers';
 import { canReadAgentBoundResource } from './agentAccess';
@@ -142,15 +140,13 @@ export type BeginTurnExecutionDeps = Pick<TurnsRouterDeps, 'activeTurns' | 'even
   skillStore: Pick<ISkillStore, 'resolveTurnSkills'>;
 };
 
-/** Extra LLM/MCP headers resolved after turn id is minted. */
-type ResolveTurnHeaders = (input: { session: SessionHandle; turnId: string }) => Record<string, string>;
-
 interface BeginTurnExecutionParams {
   session: SessionHandle;
   input: TurnInputItem[] | undefined;
   previous_turn_id: string | undefined;
   userRef: string;
-  resolveTurnHeaders: ResolveTurnHeaders;
+  /** Raw inbound request headers. Absent for a schedule run. */
+  requestHeaders?: Record<string, string>;
   deps: BeginTurnExecutionDeps;
 }
 
@@ -169,7 +165,7 @@ function createTurnResolver(deps: {
   signal: AbortSignal;
   userRef: string;
   session: SessionHandle;
-  turnHeaders: Record<string, string>;
+  turnMetadata: TurnMetadata;
 }): TurnResourceResolver {
   const {
     mcpServerStore,
@@ -182,7 +178,7 @@ function createTurnResolver(deps: {
     signal,
     userRef,
     session,
-    turnHeaders,
+    turnMetadata,
   } = deps;
   const tenant_id = session.tenant_id;
   const sessionId = session.session_id;
@@ -193,13 +189,11 @@ function createTurnResolver(deps: {
         tenant_id,
         name,
         store: modelProviderStore,
+        turnMetadata,
       });
       return {
         modelClient: new VercelAILLM({
-          providerConfig: {
-            ...resolved.providerConfig,
-            headers: { ...resolved.providerConfig.headers, ...turnHeaders },
-          },
+          providerConfig: resolved.providerConfig,
           logger,
           signal,
         }),
@@ -213,6 +207,7 @@ function createTurnResolver(deps: {
         name,
         store: mcpServerStore,
         userRef,
+        turnMetadata,
       });
       if (connection === undefined) {
         throw new HTTPException(422, {
@@ -221,10 +216,7 @@ function createTurnResolver(deps: {
       }
       return {
         url: connection.url,
-        headers: withGatewayMetadataHeaders({
-          headers: connection.headers,
-          metadataHeaders: turnHeaders,
-        }),
+        headers: connection.headers,
       };
     },
     mcpRequestTimeoutMs: configuration.MCP_REQUEST_TIMEOUT_MS,
@@ -405,9 +397,12 @@ export interface TurnEventDrainInput {
 export async function beginTurnExecution(
   params: BeginTurnExecutionParams,
 ): Promise<{ turn: TurnHandle; drainInput: TurnEventDrainInput }> {
-  const { session, input, previous_turn_id: previousTurnId, userRef, resolveTurnHeaders, deps } = params;
+  const { session, input, previous_turn_id: previousTurnId, userRef, requestHeaders, deps } = params;
+  // Fail closed on a bad inbound header before minting a turn id / starting execution.
+  assertGatewayMetadataRequestHeaders(requestHeaders);
   const sessionId = session.session_id;
   const turnId = newId();
+  const sessionAgent = session.record.agent;
 
   const abortController = new AbortController();
   const tenant_id = session.tenant_id;
@@ -426,7 +421,12 @@ export async function beginTurnExecution(
     signal: abortController.signal,
     userRef,
     session,
-    turnHeaders: resolveTurnHeaders({ session, turnId }),
+    turnMetadata: {
+      sessionId: session.session_id,
+      turnId,
+      ...(sessionAgent.type === 'reference' ? { agent: { id: sessionAgent.id, name: sessionAgent.name } } : {}),
+      ...(requestHeaders === undefined ? {} : { requestHeaders }),
+    },
   });
 
   // First turn only: derive the title from the first user message. The store
@@ -783,15 +783,12 @@ export function createTurnsRouter(deps: TurnsRouterDeps) {
       referencedAgent = agent;
     }
 
-    const rawTfyMetadata = c.req.header(X_TFY_METADATA);
-    const requestMetadata = rawTfyMetadata === undefined ? undefined : parseGatewayMetadataHeader(rawTfyMetadata);
-
     const turnParams: BeginTurnExecutionParams = {
       session,
       input: body.input,
       previous_turn_id: body.previous_turn_id,
       userRef: requestContext.subject.id,
-      resolveTurnHeaders: input => gatewayTurnHeaders({ ...input, requestMetadata }),
+      requestHeaders: c.req.header(),
       deps: {
         ...deps,
         modelProviderStore: deps.resolveModelProviderStore(c, referencedAgent),
