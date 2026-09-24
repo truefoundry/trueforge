@@ -71,6 +71,7 @@ export type {
 export { TokenPaginationSchema } from './schemas/pagination';
 export type { TokenPagination } from './schemas/pagination';
 
+export { mintActiveExecutorId, parseActiveExecutorId } from './activeExecutorId';
 export type { SessionRecord } from './models/SessionRecord';
 export { MAIN_THREAD_ID } from './models/TurnRecord';
 export type { TurnRecord, TurnSnapshot } from './models/TurnRecord';
@@ -81,6 +82,7 @@ export type {
   AddThreadsInput,
   AppendToEventsInput,
   AppendToThreadContextInput,
+  ClaimTurnOwnershipInput,
   CreateSessionInput,
   CreateTurnInput,
   DeleteSessionInput,

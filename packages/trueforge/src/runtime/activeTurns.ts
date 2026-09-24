@@ -5,6 +5,7 @@
  * `track()` owns registration and cleanup around the stream lifecycle.
  */
 import { CancellationReason } from '@truefoundry/trueforge-core/agent-session';
+import { Mutex } from 'async-mutex';
 
 interface ActiveTurnRun {
   abortController: AbortController;
@@ -18,7 +19,25 @@ function activeTurnKey(sessionId: string, turnId: string): string {
 
 export class ActiveTurnRegistry {
   private readonly runs = new Map<string, ActiveTurnRun>();
+  private readonly locks = new Map<string, Mutex>();
   private alreadyShutDownAbortReason: CancellationReason | undefined;
+
+  /**
+   * Serialize work for one turn in this process. Waiters queue; different keys
+   * run in parallel.
+   */
+  async withTurnLock<T>(input: { sessionId: string; turnId: string }, fn: () => Promise<T>): Promise<T> {
+    const key = activeTurnKey(input.sessionId, input.turnId);
+    const mutex = this.locks.get(key) ?? new Mutex();
+    this.locks.set(key, mutex);
+    try {
+      return await mutex.runExclusive(fn);
+    } finally {
+      if (!mutex.isLocked() && this.locks.get(key) === mutex) {
+        this.locks.delete(key);
+      }
+    }
+  }
 
   /**
    * Registers the run immediately, then returns a generator that forwards
@@ -68,21 +87,20 @@ export class ActiveTurnRegistry {
     return tracked();
   }
 
+  has(input: { sessionId: string; turnId: string }): boolean {
+    return this.runs.has(activeTurnKey(input.sessionId, input.turnId));
+  }
+
   /**
-   * Aborts the given turn if it is running in this process. Returns true when
-   * the run was found (already-aborted runs are not re-aborted). Cancelling a
-   * turn that is not running is a no-op, mirroring the store's
-   * first-terminal-write-wins rule.
+   * Aborts the turn if it is tracked here. Missing and already-aborted runs
+   * are a no-op (first abort wins).
    */
-  cancelIfRunning(input: { sessionId: string; turnId: string; abortReason: CancellationReason }): boolean {
+  cancel(input: { sessionId: string; turnId: string; abortReason: CancellationReason }): void {
     const run = this.runs.get(activeTurnKey(input.sessionId, input.turnId));
-    if (!run) {
-      return false;
+    if (!run || run.abortController.signal.aborted) {
+      return;
     }
-    if (!run.abortController.signal.aborted) {
-      run.abortController.abort(input.abortReason);
-    }
-    return true;
+    run.abortController.abort(input.abortReason);
   }
 
   /**

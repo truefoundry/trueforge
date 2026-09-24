@@ -18,6 +18,7 @@ import {
 import type { CreateDynamicSubAgentThread } from '../core/runtime/CreateDynamicSubAgentThread';
 import type { Sandbox } from '../core/sandbox/Sandbox';
 import type { AgentTracing } from '../core/tracing/AgentTracing';
+import { mintActiveExecutorId } from './activeExecutorId';
 import { builtinsFromSpec } from './builtinsFromSpec';
 import type { ITurnResourceResolver, ResolvedAgentDefinition } from './ITurnResourceResolver';
 import type { SessionRecord } from './models/SessionRecord';
@@ -285,7 +286,7 @@ export class SessionHandle<
         first_turn_id: previous?.first_turn_id ?? turnId,
         ancestor_ids: previous ? [...previous.ancestor_ids, previous.turn_id].slice(-MAX_TURN_ANCESTORS) : [],
         previous_turn_id: previousTurnId,
-        active_executor_id: input.active_executor_id,
+        active_executor_id: mintActiveExecutorId(input.active_executor_id),
         state: { status: 'running' },
         input: input.input ?? [],
         created_at: now,

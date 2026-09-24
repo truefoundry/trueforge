@@ -42,13 +42,7 @@ describe('ActiveTurnRegistry', () => {
       seen.push(value);
     }
     expect(seen).toEqual([1, 2, 3]);
-    expect(
-      registry.cancelIfRunning({
-        sessionId: 's1',
-        turnId: 't1',
-        abortReason: CancellationReason.ClientCancelled,
-      }),
-    ).toBe(false);
+    expect(registry.has({ sessionId: 's1', turnId: 't1' })).toBe(false);
   });
 
   it('track cleans up when the consumer breaks early', async () => {
@@ -65,13 +59,7 @@ describe('ActiveTurnRegistry', () => {
       expect(value).toBe(1);
       break;
     }
-    expect(
-      registry.cancelIfRunning({
-        sessionId: 's1',
-        turnId: 't1',
-        abortReason: CancellationReason.ClientCancelled,
-      }),
-    ).toBe(false);
+    expect(registry.has({ sessionId: 's1', turnId: 't1' })).toBe(false);
   });
 
   it('track cleans up when the stream throws', async () => {
@@ -89,16 +77,27 @@ describe('ActiveTurnRegistry', () => {
         void value;
       }
     }).rejects.toThrow(/stream boom/);
-    expect(
-      registry.cancelIfRunning({
-        sessionId: 's1',
-        turnId: 't1',
-        abortReason: CancellationReason.ClientCancelled,
-      }),
-    ).toBe(false);
+    expect(registry.has({ sessionId: 's1', turnId: 't1' })).toBe(false);
   });
 
-  it('cancelIfRunning aborts with the given reason and returns true', () => {
+  it('has is true only while the run is tracked', async () => {
+    const registry = new ActiveTurnRegistry();
+    const abortController = new AbortController();
+    expect(registry.has({ sessionId: 's1', turnId: 't1' })).toBe(false);
+    const tracked = registry.track({
+      sessionId: 's1',
+      turnId: 't1',
+      abortController,
+      stream: values([1]),
+    });
+    expect(registry.has({ sessionId: 's1', turnId: 't1' })).toBe(true);
+    for await (const value of tracked) {
+      void value;
+    }
+    expect(registry.has({ sessionId: 's1', turnId: 't1' })).toBe(false);
+  });
+
+  it('cancel aborts with the given reason', () => {
     const registry = new ActiveTurnRegistry();
     const abortController = new AbortController();
     void registry.track({
@@ -108,29 +107,27 @@ describe('ActiveTurnRegistry', () => {
       stream: values([1]),
     });
 
-    expect(
-      registry.cancelIfRunning({
-        sessionId: 's1',
-        turnId: 't1',
-        abortReason: CancellationReason.ClientCancelled,
-      }),
-    ).toBe(true);
+    registry.cancel({
+      sessionId: 's1',
+      turnId: 't1',
+      abortReason: CancellationReason.ClientCancelled,
+    });
     expect(abortController.signal.aborted).toBe(true);
     expect(abortController.signal.reason).toBe(CancellationReason.ClientCancelled);
   });
 
-  it('cancelIfRunning returns false for unknown ids', () => {
+  it('cancel is a no-op for unknown ids', () => {
     const registry = new ActiveTurnRegistry();
-    expect(
-      registry.cancelIfRunning({
+    expect(() =>
+      registry.cancel({
         sessionId: 'missing',
         turnId: 'missing',
         abortReason: CancellationReason.ClientCancelled,
       }),
-    ).toBe(false);
+    ).not.toThrow();
   });
 
-  it('cancelIfRunning does not re-abort an already-aborted controller', () => {
+  it('cancel does not re-abort an already-aborted controller', () => {
     const registry = new ActiveTurnRegistry();
     const abortController = new AbortController();
     void registry.track({
@@ -141,13 +138,11 @@ describe('ActiveTurnRegistry', () => {
     });
     abortController.abort(CancellationReason.ClientCancelled);
 
-    expect(
-      registry.cancelIfRunning({
-        sessionId: 's1',
-        turnId: 't1',
-        abortReason: CancellationReason.Abandoned,
-      }),
-    ).toBe(true);
+    registry.cancel({
+      sessionId: 's1',
+      turnId: 't1',
+      abortReason: CancellationReason.Abandoned,
+    });
     expect(abortController.signal.reason).toBe(CancellationReason.ClientCancelled);
   });
 
@@ -171,13 +166,7 @@ describe('ActiveTurnRegistry', () => {
     expect(abortController.signal.aborted).toBe(true);
     expect(abortController.signal.reason).toBe(CancellationReason.Abandoned);
     await drain;
-    expect(
-      registry.cancelIfRunning({
-        sessionId: 's1',
-        turnId: 't1',
-        abortReason: CancellationReason.ClientCancelled,
-      }),
-    ).toBe(false);
+    expect(registry.has({ sessionId: 's1', turnId: 't1' })).toBe(false);
   });
 
   it('late track after shutdownAndWait aborts immediately with the shutdown reason', async () => {
@@ -198,5 +187,68 @@ describe('ActiveTurnRegistry', () => {
     for await (const value of tracked) {
       void value;
     }
+  });
+
+  it('withTurnLock serializes the same turn and runs different turns in parallel', async () => {
+    const registry = new ActiveTurnRegistry();
+    const order: string[] = [];
+    let releaseFirst!: () => void;
+    const firstHold = new Promise<void>(resolve => {
+      releaseFirst = resolve;
+    });
+    let firstEntered!: () => void;
+    const firstInside = new Promise<void>(resolve => {
+      firstEntered = resolve;
+    });
+
+    const first = registry.withTurnLock({ sessionId: 's1', turnId: 't1' }, async () => {
+      order.push('t1-a');
+      firstEntered();
+      await firstHold;
+      order.push('t1-a-done');
+      return 'a';
+    });
+    await firstInside;
+
+    let secondStarted = false;
+    const second = registry.withTurnLock({ sessionId: 's1', turnId: 't1' }, async () => {
+      secondStarted = true;
+      order.push('t1-b');
+      return 'b';
+    });
+
+    let otherEntered!: () => void;
+    const otherInside = new Promise<void>(resolve => {
+      otherEntered = resolve;
+    });
+    let releaseOther!: () => void;
+    const otherHold = new Promise<void>(resolve => {
+      releaseOther = resolve;
+    });
+    const other = registry.withTurnLock({ sessionId: 's1', turnId: 't2' }, async () => {
+      otherEntered();
+      await otherHold;
+      order.push('t2');
+      return 'other';
+    });
+
+    await otherInside;
+    expect(secondStarted).toBe(false);
+
+    releaseFirst();
+    releaseOther();
+    await expect(Promise.all([first, second, other])).resolves.toEqual(['a', 'b', 'other']);
+    expect(order.filter(step => step.startsWith('t1'))).toEqual(['t1-a', 't1-a-done', 't1-b']);
+    expect(order).toContain('t2');
+  });
+
+  it('withTurnLock releases after a thrown fn so the next waiter runs', async () => {
+    const registry = new ActiveTurnRegistry();
+    await expect(
+      registry.withTurnLock({ sessionId: 's1', turnId: 't1' }, async () => {
+        throw new Error('lock boom');
+      }),
+    ).rejects.toThrow(/lock boom/);
+    await expect(registry.withTurnLock({ sessionId: 's1', turnId: 't1' }, async () => 'ok')).resolves.toBe('ok');
   });
 });

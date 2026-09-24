@@ -2,6 +2,7 @@ import type { ISessionStore, SessionHandle, TurnRecord, TurnState } from '@truef
 import { CancellationReason, TurnNotFoundError } from '@truefoundry/trueforge-core/agent-session';
 import { NoResponderError, redisRequest, RequestTimeoutError } from '@truefoundry/trueforge-core/request-reply';
 import type { RedisClientType } from 'redis';
+import { SESSIONS_CANCEL_PATH } from '../../../src/apis/peering';
 import { cancelSessionTurn } from '../../../src/apis/sessions';
 import configuration from '../../../src/config';
 import { ActiveTurnRegistry } from '../../../src/runtime/activeTurns';
@@ -171,6 +172,7 @@ describe('cancelSessionTurn', () => {
     expect(redisRequestMock).toHaveBeenCalledWith(
       expect.objectContaining({
         executorId: REMOTE_EXECUTOR,
+        path: SESSIONS_CANCEL_PATH,
       }),
     );
     expect(session.freezeTurn).not.toHaveBeenCalled();
@@ -180,6 +182,7 @@ describe('cancelSessionTurn', () => {
     const activeTurns = new ActiveTurnRegistry();
     const turnId = 'turn-remote-412';
     const session = sessionHandle();
+    const logger = silentLogger();
     redisRequestMock.mockResolvedValue({ status: 412, body: { message: 'Turn is not running on this executor' } });
 
     await cancelSessionTurn(
@@ -188,11 +191,21 @@ describe('cancelSessionTurn', () => {
         turn: turnRecord({ turnId: turnId, state: { status: 'running' }, activeExecutorId: REMOTE_EXECUTOR }),
         session,
         redis: REDIS,
+        logger,
       }),
       { turnId },
     );
 
     expect(session.freezeTurn).toHaveBeenCalled();
+    expect(logger.warn).toHaveBeenCalledWith(
+      'Owning executor not usable; freezing the running turn',
+      expect.objectContaining({
+        sessionId: SESSION_ID,
+        turnId,
+        owner: REMOTE_EXECUTOR,
+        peerResult: 'failed',
+      }),
+    );
   });
 
   it('freezes when the owning executor is unreachable', async () => {
@@ -216,8 +229,13 @@ describe('cancelSessionTurn', () => {
     ).resolves.toBeUndefined();
     expect(session.freezeTurn).toHaveBeenCalled();
     expect(logger.warn).toHaveBeenCalledWith(
-      'Failed to reach owning executor over Redis; freezing the running turn',
-      expect.objectContaining({ sessionId: SESSION_ID, turnId, owner: REMOTE_EXECUTOR }),
+      'Owning executor not usable; freezing the running turn',
+      expect.objectContaining({
+        sessionId: SESSION_ID,
+        turnId,
+        owner: REMOTE_EXECUTOR,
+        peerResult: 'no_responder',
+      }),
     );
   });
 
@@ -242,8 +260,13 @@ describe('cancelSessionTurn', () => {
     ).resolves.toBeUndefined();
     expect(session.freezeTurn).toHaveBeenCalled();
     expect(logger.warn).toHaveBeenCalledWith(
-      'Timed out waiting for owning executor to cancel; freezing the running turn',
-      expect.objectContaining({ sessionId: SESSION_ID, turnId, owner: REMOTE_EXECUTOR }),
+      'Owning executor not usable; freezing the running turn',
+      expect.objectContaining({
+        sessionId: SESSION_ID,
+        turnId,
+        owner: REMOTE_EXECUTOR,
+        peerResult: 'failed',
+      }),
     );
   });
 
@@ -268,12 +291,12 @@ describe('cancelSessionTurn', () => {
     ).resolves.toBeUndefined();
     expect(session.freezeTurn).toHaveBeenCalled();
     expect(logger.warn).toHaveBeenCalledWith(
-      'Failed to reach owning executor over Redis; freezing the running turn',
+      'Owning executor not usable; freezing the running turn',
       expect.objectContaining({
         sessionId: SESSION_ID,
         turnId,
         owner: REMOTE_EXECUTOR,
-        error: 'Redis connection closed',
+        peerResult: 'failed',
       }),
     );
   });

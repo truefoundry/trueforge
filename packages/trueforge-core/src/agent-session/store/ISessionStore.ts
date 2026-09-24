@@ -164,6 +164,14 @@ export interface UpdateTurnStateInput {
   turn_done_event: PersistedTurnEvent;
 }
 
+/** Steal: one winner when two replicas claim a paused turn. */
+export interface ClaimTurnOwnershipInput {
+  session_id: string;
+  turn_id: string;
+  expected_active_executor_id: string;
+  new_active_executor_id: string;
+}
+
 export interface AppendToEventsInput {
   session_id: string;
   turn_id: string;
@@ -363,6 +371,13 @@ export interface ISessionStore<
    * Must use the same lock/CAS as other turn mutations.
    */
   updateTurnState(input: UpdateTurnStateInput): Promise<void>;
+
+  /**
+   * Claim `active_executor_id` when the turn is owned by
+   * `expected_active_executor_id`. True if this caller won. False if another
+   * replica already claimed or the tip is not stealable. Missing → {@link TurnNotFoundError}.
+   */
+  claimTurnOwnership(input: ClaimTurnOwnershipInput): Promise<boolean>;
 
   /**
    * Durable event log for the turn. MUST include lifecycle rows: a
