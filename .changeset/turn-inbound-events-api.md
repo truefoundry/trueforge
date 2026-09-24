@@ -3,4 +3,5 @@
 "@truefoundry/trueforge-core": patch
 ---
 
-Add `POST /sessions/{session_id}/turns/{turn_id}/events` for tip HITL / policy events. Response items use the same `UserToolApprovalEvent` / `UserToolResponseEvent` / `UserToolApprovalPolicyEvent` shapes as `SessionEvent` and the turn SSE stream.
+Add `POST /sessions/{session_id}/turns/{turn_id}/events` for tip HITL / policy events.
+
