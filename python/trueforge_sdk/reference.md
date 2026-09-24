@@ -2858,7 +2858,7 @@ Create events for a turn. Only the session creator may create them.
 <dd>
 
 ```python
-from trueforge_sdk import TrueForge, UserToolApprovalInputEvent, ApprovalAllow
+from trueforge_sdk import TrueForge, UserMcpAuthContinueInputEvent
 
 client = TrueForge(
     token="<token>",
@@ -2869,13 +2869,8 @@ client.sessions.create_turn_event(
     session_id="session_id",
     turn_id="turn_id",
     events=[
-        UserToolApprovalInputEvent(
-            approval=ApprovalAllow(
-                status="allow",
-            ),
-            thread_id="thread_id",
-            tool_call_id="tool_call_id",
-            type="user.tool_approval",
+        UserMcpAuthContinueInputEvent(
+            type="user.mcp_auth_continue",
         )
     ],
 )
@@ -2910,7 +2905,7 @@ client.sessions.create_turn_event(
 <dl>
 <dd>
 
-**events:** `typing.List[TurnInboundEventItem]` — One or more events (`user.tool_approval`, `user.tool_response`, `user.tool_approval_policy`).
+**events:** `typing.List[TurnInboundEventItem]` — One or more user events.
     
 </dd>
 </dl>

@@ -15,7 +15,10 @@ export function toUiTurnDoneMetrics(metrics: TrueForgeApi.TurnMetrics): TurnDone
 }
 
 export function toUiTurnState(state: TrueForgeApi.TurnState | TrueForgeApi.TurnDoneEventState): TurnState {
-  return state.status === 'running' ? { status: 'running' } : toUiTerminalTurnState(state);
+  if (state.status === 'running' || state.status === 'paused') {
+    return { status: 'running' };
+  }
+  return toUiTerminalTurnState(state);
 }
 
 function toUiTerminalTurnState(state: TrueForgeApi.TurnDoneEventState): Exclude<TurnState, { status: 'running' }> {
@@ -40,14 +43,20 @@ function toUiTerminalTurnState(state: TrueForgeApi.TurnDoneEventState): Exclude<
 function isUnmappedSdkEvent(event: TrueForgeApi.SessionEvent | TrueForgeApi.TurnStreamingEvent): event is Extract<
   TrueForgeApi.SessionEvent | TrueForgeApi.TurnStreamingEvent,
   {
-    type: 'turn.update' | 'user.tool_approval' | 'user.tool_response' | 'user.tool_approval_policy';
+    type:
+      | 'turn.update'
+      | 'user.tool_approval'
+      | 'user.tool_response'
+      | 'user.tool_approval_policy'
+      | 'user.mcp_auth_continue';
   }
 > {
   return (
     event.type === 'turn.update' ||
     event.type === 'user.tool_approval' ||
     event.type === 'user.tool_response' ||
-    event.type === 'user.tool_approval_policy'
+    event.type === 'user.tool_approval_policy' ||
+    event.type === 'user.mcp_auth_continue'
   );
 }
 

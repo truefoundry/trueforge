@@ -3,6 +3,7 @@
 import type * as TrueForge from "../../api/index.js";
 import * as core from "../../core/index.js";
 import type * as serializers from "../index.js";
+import { UserMcpAuthContinueInputEvent } from "./UserMcpAuthContinueInputEvent.js";
 import { UserToolApprovalInputEvent } from "./UserToolApprovalInputEvent.js";
 import { UserToolApprovalPolicyMessage } from "./UserToolApprovalPolicyMessage.js";
 import { UserToolResponseInputEvent } from "./UserToolResponseInputEvent.js";
@@ -11,6 +12,7 @@ export const TurnInboundEventItem: core.serialization.Schema<
     serializers.TurnInboundEventItem.Raw,
     TrueForge.TurnInboundEventItem
 > = core.serialization.undiscriminatedUnion([
+    UserMcpAuthContinueInputEvent,
     UserToolApprovalInputEvent,
     UserToolApprovalPolicyMessage,
     UserToolResponseInputEvent,
@@ -18,6 +20,7 @@ export const TurnInboundEventItem: core.serialization.Schema<
 
 export declare namespace TurnInboundEventItem {
     export type Raw =
+        | UserMcpAuthContinueInputEvent.Raw
         | UserToolApprovalInputEvent.Raw
         | UserToolApprovalPolicyMessage.Raw
         | UserToolResponseInputEvent.Raw;

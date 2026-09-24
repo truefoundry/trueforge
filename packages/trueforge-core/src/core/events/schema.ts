@@ -41,6 +41,7 @@ export const EventType = {
   USER_TOOL_APPROVAL: 'user.tool_approval',
   USER_TOOL_RESPONSE: 'user.tool_response',
   USER_TOOL_APPROVAL_POLICY: 'user.tool_approval_policy',
+  USER_MCP_AUTH_CONTINUE: 'user.mcp_auth_continue',
   USER_MESSAGE: 'user.message',
 } as const;
 
@@ -124,6 +125,14 @@ export const UserToolApprovalPolicyMessageSchema = z
   })
   .openapi('UserToolApprovalPolicyMessage');
 
+export const UserMCPAuthContinueMessageSchema = z
+  .object({
+    type: z
+      .literal(EventType.USER_MCP_AUTH_CONTINUE)
+      .describe('Client resume after mcp.auth_required (OAuth completed).'),
+  })
+  .openapi('UserMCPAuthContinueInputEvent');
+
 /** Durable / SSE form of {@link UserToolApprovalMessageSchema}. */
 export const UserToolApprovalEventSchema = z
   .object({
@@ -150,6 +159,15 @@ export const UserToolApprovalPolicyEventSchema = z
     created_at: z.string().describe('ISO 8601 event timestamp.'),
   })
   .openapi('UserToolApprovalPolicyEvent');
+
+/** Durable / SSE form of {@link UserMCPAuthContinueMessageSchema}. */
+export const UserMCPAuthContinueEventSchema = z
+  .object({
+    ...UserMCPAuthContinueMessageSchema.shape,
+    id: EventIdSchema,
+    created_at: z.string().describe('ISO 8601 event timestamp.'),
+  })
+  .openapi('UserMCPAuthContinueEvent');
 
 export const TextContentPartSchema = z
   .object({
@@ -433,6 +451,8 @@ export type UserToolApprovalPolicyMessage = z.infer<typeof UserToolApprovalPolic
 export type UserToolApprovalEvent = z.infer<typeof UserToolApprovalEventSchema>;
 export type UserToolResponseEvent = z.infer<typeof UserToolResponseEventSchema>;
 export type UserToolApprovalPolicyEvent = z.infer<typeof UserToolApprovalPolicyEventSchema>;
+export type UserMCPAuthContinueMessage = z.infer<typeof UserMCPAuthContinueMessageSchema>;
+export type UserMCPAuthContinueEvent = z.infer<typeof UserMCPAuthContinueEventSchema>;
 export type AgentApprovalDecisionMessage = z.infer<typeof AgentApprovalDecisionMessageSchema>;
 export type InputTokensBreakdown = z.infer<typeof InputTokensBreakdownSchema>;
 export type ModelMessageUsage = z.infer<typeof ModelMessageUsageSchema>;

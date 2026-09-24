@@ -6,16 +6,11 @@ import type * as TrueForge from "../../../../index.js";
  * @example
  *     {
  *         events: [{
- *                 approval: {
- *                     status: "allow"
- *                 },
- *                 threadId: "thread_id",
- *                 toolCallId: "tool_call_id",
- *                 type: "user.tool_approval"
+ *                 type: "user.mcp_auth_continue"
  *             }]
  *     }
  */
 export interface CreateTurnEventRequest {
-    /** One or more events (`user.tool_approval`, `user.tool_response`, `user.tool_approval_policy`). */
+    /** One or more user events. */
     events: TrueForge.TurnInboundEventItem[];
 }

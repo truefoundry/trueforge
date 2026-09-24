@@ -475,6 +475,9 @@ export class InMemorySessionStore<
     // Same as createTurn: synchronous body ⇒ atomic under run-to-completion.
     const tKey = turnKey(input);
     const turn = this.requireTurn(input.session_id, input.turn_id);
+    if (turn.state.status === 'paused') {
+      throw new SessionStoreInvariantError(`expected running state for turn ${input.turn_id}, got paused`);
+    }
     if (turn.state.status !== 'running') {
       throw new TurnNotRunningError(input.turn_id, turn.state);
     }
@@ -564,6 +567,9 @@ export class InMemorySessionStore<
 
   private requireRunningTurn(sessionId: string, turnId: string): TurnRecord<TTurnCustom> {
     const turn = this.requireTurn(sessionId, turnId);
+    if (turn.state.status === 'paused') {
+      throw new SessionStoreInvariantError(`expected running state for turn ${turnId}, got paused`);
+    }
     if (turn.state.status !== 'running') {
       throw new TurnNotRunningError(turnId, turn.state);
     }

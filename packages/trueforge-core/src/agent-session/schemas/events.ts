@@ -18,6 +18,7 @@ import {
   ToolApprovalRequiredEventSchema,
   ToolResponseEventSchema,
   ToolResponseRequiredEventSchema,
+  UserMCPAuthContinueEventSchema,
   UserToolApprovalEventSchema,
   UserToolApprovalPolicyEventSchema,
   UserToolResponseEventSchema,
@@ -27,6 +28,7 @@ import {
   TurnStateCancelledSchema,
   TurnStateDoneSchema,
   TurnStateErrorSchema,
+  TurnStatePausedSchema,
   TurnStateRunningSchema,
 } from './turn';
 
@@ -63,37 +65,13 @@ export const TurnDoneEventSchema = z
   })
   .openapi('TurnDoneEvent');
 
-export const ActionRequiredSchema = z
-  .object({
-    id: EventIdSchema,
-  })
-  .openapi('ActionRequired');
-
-export const TurnUpdateStatePausedSchema = z
-  .object({
-    status: z.literal('paused').describe('Turn is paused waiting for required actions.'),
-    action_required_on_events: z
-      .array(ActionRequiredSchema)
-      .describe('Events that still need a user or client action.'),
-  })
-  .openapi('TurnUpdateStatePaused');
-
-export const TurnUpdateStateRunningSchema = z
-  .object({
-    status: z.literal('running').describe('Turn is executing.'),
-  })
-  .openapi('TurnUpdateStateRunning');
-
-export const TurnUpdateStateSchema = z
-  .discriminatedUnion('status', [TurnUpdateStatePausedSchema, TurnUpdateStateRunningSchema])
-  .describe('Live non-terminal turn status.')
-  .openapi('TurnUpdateState');
-
 export const TurnUpdateEventSchema = z
   .object({
     type: z.literal(EventType.TURN_UPDATE).describe('Emitted when a turn pauses or resumes.'),
     id: EventIdSchema,
-    state: TurnUpdateStateSchema,
+    state: z
+      .discriminatedUnion('status', [TurnStatePausedSchema, TurnStateRunningSchema])
+      .describe('Live non-terminal turn state (paused or running).'),
     created_at: z.string().describe('ISO 8601 event timestamp.'),
     thread_id: z.string().nullable().describe('Thread that owns the event; null for turn-level lifecycle events.'),
   })
@@ -117,6 +95,7 @@ export const SessionEventSchema = z
     UserToolApprovalEventSchema,
     UserToolResponseEventSchema,
     UserToolApprovalPolicyEventSchema,
+    UserMCPAuthContinueEventSchema,
   ])
   .openapi('SessionEvent');
 

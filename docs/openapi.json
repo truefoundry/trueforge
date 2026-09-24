@@ -1166,7 +1166,7 @@
       "CreateTurnEventRequest": {
         "properties": {
           "events": {
-            "description": "One or more events (`user.tool_approval`, `user.tool_response`, `user.tool_approval_policy`).",
+            "description": "One or more user events.",
             "items": {
               "$ref": "#/components/schemas/TurnInboundEventItem"
             },
@@ -1186,6 +1186,7 @@
             "items": {
               "discriminator": {
                 "mapping": {
+                  "user.mcp_auth_continue": "#/components/schemas/UserMCPAuthContinueEvent",
                   "user.tool_approval": "#/components/schemas/UserToolApprovalEvent",
                   "user.tool_approval_policy": "#/components/schemas/UserToolApprovalPolicyEvent",
                   "user.tool_response": "#/components/schemas/UserToolResponseEvent"
@@ -1201,6 +1202,9 @@
                 },
                 {
                   "$ref": "#/components/schemas/UserToolApprovalPolicyEvent"
+                },
+                {
+                  "$ref": "#/components/schemas/UserMCPAuthContinueEvent"
                 }
               ]
             },
@@ -4158,6 +4162,7 @@
             "turn.created": "#/components/schemas/TurnCreatedEvent",
             "turn.done": "#/components/schemas/TurnDoneEvent",
             "turn.update": "#/components/schemas/TurnUpdateEvent",
+            "user.mcp_auth_continue": "#/components/schemas/UserMCPAuthContinueEvent",
             "user.tool_approval": "#/components/schemas/UserToolApprovalEvent",
             "user.tool_approval_policy": "#/components/schemas/UserToolApprovalPolicyEvent",
             "user.tool_response": "#/components/schemas/UserToolResponseEvent"
@@ -4209,6 +4214,9 @@
           },
           {
             "$ref": "#/components/schemas/UserToolApprovalPolicyEvent"
+          },
+          {
+            "$ref": "#/components/schemas/UserMCPAuthContinueEvent"
           }
         ]
       },
@@ -5344,6 +5352,7 @@
       "TurnInboundEventItem": {
         "discriminator": {
           "mapping": {
+            "user.mcp_auth_continue": "#/components/schemas/UserMCPAuthContinueInputEvent",
             "user.tool_approval": "#/components/schemas/UserToolApprovalInputEvent",
             "user.tool_approval_policy": "#/components/schemas/UserToolApprovalPolicyMessage",
             "user.tool_response": "#/components/schemas/UserToolResponseInputEvent"
@@ -5359,6 +5368,9 @@
           },
           {
             "$ref": "#/components/schemas/UserToolApprovalPolicyMessage"
+          },
+          {
+            "$ref": "#/components/schemas/UserMCPAuthContinueInputEvent"
           }
         ]
       },
@@ -5430,6 +5442,7 @@
             "cancelled": "#/components/schemas/TurnStateCancelled",
             "done": "#/components/schemas/TurnStateDone",
             "error": "#/components/schemas/TurnStateError",
+            "paused": "#/components/schemas/TurnStatePaused",
             "running": "#/components/schemas/TurnStateRunning"
           },
           "propertyName": "status"
@@ -5437,6 +5450,9 @@
         "oneOf": [
           {
             "$ref": "#/components/schemas/TurnStateRunning"
+          },
+          {
+            "$ref": "#/components/schemas/TurnStatePaused"
           },
           {
             "$ref": "#/components/schemas/TurnStateDone"
@@ -5511,7 +5527,7 @@
                 "type": "null"
               }
             ],
-            "description": "Final `model.message` for the turn, or null when the turn ended paused without a final message."
+            "description": "Final `model.message` for the turn, or null when the turn ended without a final message."
           },
           "required_actions": {
             "description": "Pending actions (`tool.approval_required`, `tool.response_required`, `mcp.auth_required`); empty when none.",
@@ -5521,7 +5537,7 @@
             "type": "array"
           },
           "status": {
-            "description": "Turn finished (possibly paused for required actions).",
+            "description": "Turn finished with no open required actions.",
             "enum": [
               "done"
             ],
@@ -5571,6 +5587,29 @@
         ],
         "type": "object"
       },
+      "TurnStatePaused": {
+        "properties": {
+          "action_required_on_events": {
+            "description": "Events that still need a user or client action.",
+            "items": {
+              "$ref": "#/components/schemas/ActionRequired"
+            },
+            "type": "array"
+          },
+          "status": {
+            "description": "Turn is paused waiting for required actions.",
+            "enum": [
+              "paused"
+            ],
+            "type": "string"
+          }
+        },
+        "required": [
+          "status",
+          "action_required_on_events"
+        ],
+        "type": "object"
+      },
       "TurnStateRunning": {
         "properties": {
           "status": {
@@ -5602,6 +5641,7 @@
             "turn.created": "#/components/schemas/TurnCreatedEvent",
             "turn.done": "#/components/schemas/TurnDoneEvent",
             "turn.update": "#/components/schemas/TurnUpdateEvent",
+            "user.mcp_auth_continue": "#/components/schemas/UserMCPAuthContinueEvent",
             "user.tool_approval": "#/components/schemas/UserToolApprovalEvent",
             "user.tool_approval_policy": "#/components/schemas/UserToolApprovalPolicyEvent",
             "user.tool_response": "#/components/schemas/UserToolResponseEvent"
@@ -5649,6 +5689,9 @@
             "$ref": "#/components/schemas/UserToolApprovalPolicyEvent"
           },
           {
+            "$ref": "#/components/schemas/UserMCPAuthContinueEvent"
+          },
+          {
             "$ref": "#/components/schemas/TurnCreatedEvent"
           },
           {
@@ -5670,7 +5713,22 @@
             "type": "string"
           },
           "state": {
-            "$ref": "#/components/schemas/TurnUpdateState"
+            "description": "Live non-terminal turn state (paused or running).",
+            "discriminator": {
+              "mapping": {
+                "paused": "#/components/schemas/TurnStatePaused",
+                "running": "#/components/schemas/TurnStateRunning"
+              },
+              "propertyName": "status"
+            },
+            "oneOf": [
+              {
+                "$ref": "#/components/schemas/TurnStatePaused"
+              },
+              {
+                "$ref": "#/components/schemas/TurnStateRunning"
+              }
+            ]
           },
           "thread_id": {
             "description": "Thread that owns the event; null for turn-level lifecycle events.",
@@ -5693,62 +5751,6 @@
           "state",
           "created_at",
           "thread_id"
-        ],
-        "type": "object"
-      },
-      "TurnUpdateState": {
-        "description": "Live non-terminal turn status.",
-        "discriminator": {
-          "mapping": {
-            "paused": "#/components/schemas/TurnUpdateStatePaused",
-            "running": "#/components/schemas/TurnUpdateStateRunning"
-          },
-          "propertyName": "status"
-        },
-        "oneOf": [
-          {
-            "$ref": "#/components/schemas/TurnUpdateStatePaused"
-          },
-          {
-            "$ref": "#/components/schemas/TurnUpdateStateRunning"
-          }
-        ]
-      },
-      "TurnUpdateStatePaused": {
-        "properties": {
-          "action_required_on_events": {
-            "description": "Events that still need a user or client action.",
-            "items": {
-              "$ref": "#/components/schemas/ActionRequired"
-            },
-            "type": "array"
-          },
-          "status": {
-            "description": "Turn is paused waiting for required actions.",
-            "enum": [
-              "paused"
-            ],
-            "type": "string"
-          }
-        },
-        "required": [
-          "status",
-          "action_required_on_events"
-        ],
-        "type": "object"
-      },
-      "TurnUpdateStateRunning": {
-        "properties": {
-          "status": {
-            "description": "Turn is executing.",
-            "enum": [
-              "running"
-            ],
-            "type": "string"
-          }
-        },
-        "required": [
-          "status"
         ],
         "type": "object"
       },
@@ -5860,6 +5862,46 @@
         },
         "required": [
           "manifest"
+        ],
+        "type": "object"
+      },
+      "UserMCPAuthContinueEvent": {
+        "properties": {
+          "created_at": {
+            "description": "ISO 8601 event timestamp.",
+            "type": "string"
+          },
+          "id": {
+            "description": "Unique identifier for the event (monotonic ULID).",
+            "type": "string"
+          },
+          "type": {
+            "description": "Client resume after mcp.auth_required (OAuth completed).",
+            "enum": [
+              "user.mcp_auth_continue"
+            ],
+            "type": "string"
+          }
+        },
+        "required": [
+          "type",
+          "id",
+          "created_at"
+        ],
+        "type": "object"
+      },
+      "UserMCPAuthContinueInputEvent": {
+        "properties": {
+          "type": {
+            "description": "Client resume after mcp.auth_required (OAuth completed).",
+            "enum": [
+              "user.mcp_auth_continue"
+            ],
+            "type": "string"
+          }
+        },
+        "required": [
+          "type"
         ],
         "type": "object"
       },

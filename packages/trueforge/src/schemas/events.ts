@@ -23,6 +23,7 @@ import {
   ToolApprovalRequiredEventSchema,
   ToolResponseEventSchema,
   ToolResponseRequiredEventSchema,
+  UserMCPAuthContinueEventSchema,
   UserToolApprovalEventSchema,
   UserToolApprovalPolicyEventSchema,
   UserToolResponseEventSchema,
@@ -34,10 +35,7 @@ export { EventType };
 
 export const CreateTurnEventRequestSchema = z
   .object({
-    events: z
-      .array(TurnInboundEventItemSchema)
-      .min(1)
-      .describe('One or more events (`user.tool_approval`, `user.tool_response`, `user.tool_approval_policy`).'),
+    events: z.array(TurnInboundEventItemSchema).min(1).describe('One or more user events.'),
   })
   .openapi('CreateTurnEventRequest');
 
@@ -49,6 +47,7 @@ export const CreateTurnEventResponseSchema = z
           UserToolApprovalEventSchema,
           UserToolResponseEventSchema,
           UserToolApprovalPolicyEventSchema,
+          UserMCPAuthContinueEventSchema,
         ]),
       )
       .describe('Events with server-minted `id` and `created_at`, in request order.'),
@@ -71,6 +70,7 @@ export const TurnStreamingEventSchema = z
     UserToolApprovalEventSchema,
     UserToolResponseEventSchema,
     UserToolApprovalPolicyEventSchema,
+    UserMCPAuthContinueEventSchema,
     TurnCreatedEventSchema,
     TurnUpdateEventSchema,
     TurnDoneEventSchema,

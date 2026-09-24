@@ -707,7 +707,7 @@ class SessionsClient:
             Turn identifier.
 
         events : typing.Sequence[TurnInboundEventItem]
-            One or more events (`user.tool_approval`, `user.tool_response`, `user.tool_approval_policy`).
+            One or more user events.
 
         request_options : typing.Optional[RequestOptions]
             Request-specific configuration.
@@ -719,7 +719,7 @@ class SessionsClient:
 
         Examples
         --------
-        from trueforge_sdk import ApprovalAllow, TrueForge, UserToolApprovalInputEvent
+        from trueforge_sdk import TrueForge, UserMcpAuthContinueInputEvent
 
         client = TrueForge(
             token="YOUR_TOKEN",
@@ -728,13 +728,7 @@ class SessionsClient:
         client.sessions.create_turn_event(
             session_id="session_id",
             turn_id="turn_id",
-            events=[
-                UserToolApprovalInputEvent(
-                    approval=ApprovalAllow(),
-                    thread_id="thread_id",
-                    tool_call_id="tool_call_id",
-                )
-            ],
+            events=[UserMcpAuthContinueInputEvent()],
         )
         """
         _response = self._raw_client.create_turn_event(
@@ -1586,7 +1580,7 @@ class AsyncSessionsClient:
             Turn identifier.
 
         events : typing.Sequence[TurnInboundEventItem]
-            One or more events (`user.tool_approval`, `user.tool_response`, `user.tool_approval_policy`).
+            One or more user events.
 
         request_options : typing.Optional[RequestOptions]
             Request-specific configuration.
@@ -1600,11 +1594,7 @@ class AsyncSessionsClient:
         --------
         import asyncio
 
-        from trueforge_sdk import (
-            ApprovalAllow,
-            AsyncTrueForge,
-            UserToolApprovalInputEvent,
-        )
+        from trueforge_sdk import AsyncTrueForge, UserMcpAuthContinueInputEvent
 
         client = AsyncTrueForge(
             token="YOUR_TOKEN",
@@ -1616,13 +1606,7 @@ class AsyncSessionsClient:
             await client.sessions.create_turn_event(
                 session_id="session_id",
                 turn_id="turn_id",
-                events=[
-                    UserToolApprovalInputEvent(
-                        approval=ApprovalAllow(),
-                        thread_id="thread_id",
-                        tool_call_id="tool_call_id",
-                    )
-                ],
+                events=[UserMcpAuthContinueInputEvent()],
             )
 
 

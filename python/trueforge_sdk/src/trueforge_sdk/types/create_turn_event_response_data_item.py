@@ -2,10 +2,11 @@
 
 import typing
 
+from .user_mcp_auth_continue_event import UserMcpAuthContinueEvent
 from .user_tool_approval_event import UserToolApprovalEvent
 from .user_tool_approval_policy_event import UserToolApprovalPolicyEvent
 from .user_tool_response_event import UserToolResponseEvent
 
 CreateTurnEventResponseDataItem = typing.Union[
-    UserToolApprovalEvent, UserToolApprovalPolicyEvent, UserToolResponseEvent
+    UserMcpAuthContinueEvent, UserToolApprovalEvent, UserToolApprovalPolicyEvent, UserToolResponseEvent
 ]

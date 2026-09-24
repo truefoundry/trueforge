@@ -3,6 +3,7 @@
 import type * as TrueForge from "../index.js";
 
 export type CreateTurnEventResponseDataItem =
+    | TrueForge.UserMcpAuthContinueEvent
     | TrueForge.UserToolApprovalEvent
     | TrueForge.UserToolApprovalPolicyEvent
     | TrueForge.UserToolResponseEvent;

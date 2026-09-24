@@ -239,12 +239,13 @@ if typing.TYPE_CHECKING:
     from .turn_state_done import TurnStateDone
     from .turn_state_error import TurnStateError
     from .turn_state_error_metrics import TurnStateErrorMetrics
+    from .turn_state_paused import TurnStatePaused
     from .turn_state_running import TurnStateRunning
     from .turn_streaming_event import TurnStreamingEvent
     from .turn_update_event import TurnUpdateEvent
-    from .turn_update_state import TurnUpdateState
-    from .turn_update_state_paused import TurnUpdateStatePaused
-    from .turn_update_state_running import TurnUpdateStateRunning
+    from .turn_update_event_state import TurnUpdateEventState
+    from .user_mcp_auth_continue_event import UserMcpAuthContinueEvent
+    from .user_mcp_auth_continue_input_event import UserMcpAuthContinueInputEvent
     from .user_message import UserMessage
     from .user_message_content import UserMessageContent
     from .user_message_content_item import UserMessageContentItem
@@ -492,12 +493,13 @@ _dynamic_imports: typing.Dict[str, str] = {
     "TurnStateDone": ".turn_state_done",
     "TurnStateError": ".turn_state_error",
     "TurnStateErrorMetrics": ".turn_state_error_metrics",
+    "TurnStatePaused": ".turn_state_paused",
     "TurnStateRunning": ".turn_state_running",
     "TurnStreamingEvent": ".turn_streaming_event",
     "TurnUpdateEvent": ".turn_update_event",
-    "TurnUpdateState": ".turn_update_state",
-    "TurnUpdateStatePaused": ".turn_update_state_paused",
-    "TurnUpdateStateRunning": ".turn_update_state_running",
+    "TurnUpdateEventState": ".turn_update_event_state",
+    "UserMcpAuthContinueEvent": ".user_mcp_auth_continue_event",
+    "UserMcpAuthContinueInputEvent": ".user_mcp_auth_continue_input_event",
     "UserMessage": ".user_message",
     "UserMessageContent": ".user_message_content",
     "UserMessageContentItem": ".user_message_content_item",
@@ -769,12 +771,13 @@ __all__ = [
     "TurnStateDone",
     "TurnStateError",
     "TurnStateErrorMetrics",
+    "TurnStatePaused",
     "TurnStateRunning",
     "TurnStreamingEvent",
     "TurnUpdateEvent",
-    "TurnUpdateState",
-    "TurnUpdateStatePaused",
-    "TurnUpdateStateRunning",
+    "TurnUpdateEventState",
+    "UserMcpAuthContinueEvent",
+    "UserMcpAuthContinueInputEvent",
     "UserMessage",
     "UserMessageContent",
     "UserMessageContentItem",
