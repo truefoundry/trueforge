@@ -91,9 +91,6 @@ export function resolveOwnershipAction(input: {
   }
 
   if (input.ownerIsLocal) {
-    if (input.peerResult === 'ok') {
-      throw new Error('peerResult "ok" is only valid for a remote owner');
-    }
     if (input.hasActiveTurn) {
       return 'run';
     }
