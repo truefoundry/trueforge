@@ -90,11 +90,10 @@ The package exposes typed hooks for TrueForge-specific state and actions:
 - `useTrueForgeMcpAuth`
 - `useTrueForgeRespondToToolApproval`
 - `useTrueForgeRespondToToolResponse`
-- `useTrueForgeResumeMcpAuth`
+- `useTrueForgeContinueMcpAuth`
 - `useTrueForgeDownloadSandboxFile`
 - `useTrueForgeCancel`
 - `useTrueForgeHistoryPagination`
-- `useTrueForgeResumeUnavailable`
 - `useTrueForgeResetFromTurn`
 - `useTrueForgeAgentSpec`
 - `useTrueForgeUpdateAgentSpec`
@@ -122,8 +121,19 @@ Important invariants:
 - One server session maps to one assistant-ui thread.
 - The root thread id is always `main`.
 - Sub-agent threads nest below their creating tool call.
-- Resuming a paused turn submits all pending approvals and tool responses across every thread in one request.
+- One logical turn may span multiple SSE segments.
+- A paused segment can close without completing its turn.
+- Approval, tool-response, and MCP-auth continuation events are sent to the existing turn; the server automatically emits `turn.update: running` when all required actions are resolved.
+- `subscribeToTurn` reconnects transport for the same turn and never resumes execution itself.
 - Credentials remain host-owned.
+
+### Paused turn lifecycle
+
+`createTurn` is only for a real user-message turn. When execution requires human input, the server emits the requirement events followed by `turn.update` with `status: "paused"` and may close that SSE segment. The runtime keeps the same turn and assistant message active.
+
+Each user action is submitted through `AgentChatServer.sendTurnEvents`. The runtime subscribes to the same turn with the last observed sequence number, folds the persisted user event, and waits for the server’s authoritative `turn.update: running`. Only `turn.done` commits the turn as terminal.
+
+The host adapter and backend must expose the same paused-turn schema before enabling this flow, including `pausedAt`, optional `expiresAt`, and `user.mcp_auth_continue`. The runtime deliberately has no continuation-turn compatibility fallback.
 
 ## Attachments
 

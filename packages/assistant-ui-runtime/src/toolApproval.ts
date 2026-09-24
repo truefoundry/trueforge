@@ -4,10 +4,21 @@ import type {
   ThreadAssistantMessagePart,
   ThreadMessage,
 } from '@assistant-ui/core';
-import type { ToolApprovalRequiredEvent, Turn, UserToolApprovalEvent } from './server/index.js';
+import {
+  completeAssistantStatus,
+  isRequiresActionToolCalls,
+  toolCallsRequiredAssistantStatus,
+} from './assistantMessageStatus.js';
+import type {
+  ApprovalDecision as ServerApprovalDecision,
+  ToolApprovalRequiredEvent,
+  Turn,
+  UserToolApprovalInputEvent,
+} from './server/index.js';
+import { APPROVAL_DECISION_STATUS, EVENT_TYPE, TURN_STATUS } from './server/index.js';
 
 import { ROOT_THREAD_ID } from './constants.js';
-import type { ToolApprovalMessageCustomMetadata } from './messageCustomMetadata.js';
+import { MESSAGE_CUSTOM_KEY, type ToolApprovalMessageCustomMetadata } from './messageCustomMetadata.js';
 import type { TurnStreamUpdate } from './turnStreamUpdate.js';
 
 export { ROOT_THREAD_ID } from './constants.js';
@@ -17,8 +28,6 @@ export interface StoredApprovalDecision {
   reason?: string;
 }
 
-export const TOOL_APPROVAL_THREAD_ID_CUSTOM_KEY = 'toolApprovalThreadId';
-
 export interface RespondToToolApprovalOptions {
   approvalId: string;
   approved: boolean;
@@ -26,7 +35,7 @@ export interface RespondToToolApprovalOptions {
   reason?: string;
 }
 
-type ApprovalDecision = UserToolApprovalEvent['approval'];
+type ApprovalDecision = ServerApprovalDecision;
 
 type ToolCallPart = Extract<ThreadMessage['content'][number], { type: 'tool-call' }>;
 
@@ -107,12 +116,12 @@ export function applyApprovalDecisionsToMessage(
 }
 
 export function toolApprovalStatus(): MessageStatus {
-  return { type: 'requires-action', reason: 'tool-calls' };
+  return toolCallsRequiredAssistantStatus();
 }
 
 export function toolApprovalMessageCustom(threadId: string): ToolApprovalMessageCustomMetadata {
   return {
-    [TOOL_APPROVAL_THREAD_ID_CUSTOM_KEY]: threadId === ROOT_THREAD_ID ? ROOT_THREAD_ID : threadId,
+    [MESSAGE_CUSTOM_KEY.TOOL_APPROVAL_THREAD_ID]: threadId === ROOT_THREAD_ID ? ROOT_THREAD_ID : threadId,
   };
 }
 
@@ -120,16 +129,18 @@ export function getToolApprovalThreadId(message: ThreadMessage | undefined): str
   if (message?.role !== 'assistant') {
     return undefined;
   }
-  const threadId = message.metadata.custom[TOOL_APPROVAL_THREAD_ID_CUSTOM_KEY];
+  const threadId = message.metadata.custom[MESSAGE_CUSTOM_KEY.TOOL_APPROVAL_THREAD_ID];
   return typeof threadId === 'string' ? threadId : undefined;
 }
 
 export function findApprovalRequiredInTurn(turn: Pick<Turn, 'state'>): ToolApprovalRequiredEvent | undefined {
-  if (turn.state.status !== 'done') {
+  // Historical turns encoded pauses as done + requiredActions. New paused
+  // turns derive pending approvals from their persisted event fold instead.
+  if (turn.state.status !== TURN_STATUS.DONE) {
     return undefined;
   }
-  const found = turn.state.requiredActions?.find(action => action.type === 'tool.approval_required');
-  return found?.type === 'tool.approval_required' ? found : undefined;
+  const found = turn.state.requiredActions?.find(action => action.type === EVENT_TYPE.TOOL_APPROVAL_REQUIRED);
+  return found?.type === EVENT_TYPE.TOOL_APPROVAL_REQUIRED ? found : undefined;
 }
 
 function toolCallPartHasPendingApproval(part: ToolCallPart): boolean {
@@ -257,10 +268,10 @@ export function mergeDecidedApprovalsIntoContent(
   return applyApprovalDecisionsToContent(incoming, decided);
 }
 
-export function extractToolApprovalsFromTurnInput(input: Turn['input'] | undefined): UserToolApprovalEvent[] {
-  const events: UserToolApprovalEvent[] = [];
+export function extractToolApprovalsFromTurnInput(input: Turn['input'] | undefined): UserToolApprovalInputEvent[] {
+  const events: UserToolApprovalInputEvent[] = [];
   for (const item of input ?? []) {
-    if (item.type === 'user.tool_approval') {
+    if (item.type === EVENT_TYPE.USER_TOOL_APPROVAL) {
       events.push(item);
     }
   }
@@ -275,14 +286,16 @@ export function collectSubsequentApprovalDecisions(
 
   for (let index = fromIndex + 1; index < turns.length; index++) {
     const input = turns[index]?.input ?? [];
-    if (input.some(item => item.type === 'user.message')) {
+    if (input.some(item => item.type === EVENT_TYPE.USER_MESSAGE)) {
       break;
     }
 
     for (const event of extractToolApprovalsFromTurnInput(input)) {
       decisions.set(event.toolCallId, {
-        approved: event.approval.status === 'allow',
-        ...(event.approval.status === 'deny' && event.approval.reason != null ? { reason: event.approval.reason } : {}),
+        approved: event.approval.status === APPROVAL_DECISION_STATUS.ALLOW,
+        ...(event.approval.status === APPROVAL_DECISION_STATUS.DENY && event.approval.reason != null
+          ? { reason: event.approval.reason }
+          : {}),
       });
     }
   }
@@ -296,8 +309,10 @@ export function collectApprovalDecisionsFromTurnInput(
   const decisions = new Map<string, StoredApprovalDecision>();
   for (const event of extractToolApprovalsFromTurnInput(input)) {
     decisions.set(event.toolCallId, {
-      approved: event.approval.status === 'allow',
-      ...(event.approval.status === 'deny' && event.approval.reason != null ? { reason: event.approval.reason } : {}),
+      approved: event.approval.status === APPROVAL_DECISION_STATUS.ALLOW,
+      ...(event.approval.status === APPROVAL_DECISION_STATUS.DENY && event.approval.reason != null
+        ? { reason: event.approval.reason }
+        : {}),
     });
   }
   return decisions;
@@ -308,7 +323,7 @@ function contentHasPendingApprovals(content: readonly ThreadAssistantMessagePart
     id: 'pending-check',
     role: 'assistant',
     content,
-    status: { type: 'complete', reason: 'stop' },
+    status: completeAssistantStatus(),
     createdAt: new Date(),
     metadata: {
       unstable_state: null,
@@ -329,11 +344,7 @@ export function resolveToolApprovalUpdate(
     content = applyApprovalDecisionsToContent(content, priorDecisions);
   }
 
-  if (
-    contentHasPendingApprovals(content) ||
-    update.status?.type !== 'requires-action' ||
-    update.status.reason !== 'tool-calls'
-  ) {
+  if (contentHasPendingApprovals(content) || !isRequiresActionToolCalls(update.status)) {
     return { ...update, content };
   }
 
@@ -342,72 +353,7 @@ export function resolveToolApprovalUpdate(
 
 export function mapApprovalDecision(approved: boolean, reason?: string): ApprovalDecision {
   if (approved) {
-    return { status: 'allow' };
+    return { status: APPROVAL_DECISION_STATUS.ALLOW };
   }
-  return { status: 'deny', ...(reason != null ? { reason } : {}) };
-}
-
-function isDecidedApprovalAwaitingSdk(part: ToolCallPart): boolean {
-  const { approval, result, isError } = part;
-  if (approval?.id == null || approval.approved === undefined) {
-    return false;
-  }
-  if (approval.approved) {
-    return result === undefined;
-  }
-  return isError === true;
-}
-
-function collectApprovalInputsFromMessages(
-  messages: readonly ThreadMessage[],
-  defaultThreadId: string,
-): UserToolApprovalEvent[] {
-  const events: UserToolApprovalEvent[] = [];
-  for (const message of messages) {
-    events.push(...collectApprovalInputs(message, defaultThreadId));
-  }
-  return events;
-}
-
-export function collectApprovalInputs(message: ThreadMessage, threadId: string): UserToolApprovalEvent[] {
-  if (message.role !== 'assistant' || !threadId) {
-    return [];
-  }
-  if (messageHasPendingApprovals(message)) {
-    return [];
-  }
-
-  const scopedThreadId = getToolApprovalThreadId(message) ?? threadId;
-  const events: UserToolApprovalEvent[] = [];
-
-  for (const part of message.content) {
-    if (part.type !== 'tool-call') {
-      continue;
-    }
-    if (isDecidedApprovalAwaitingSdk(part)) {
-      const { approval } = part;
-      if (approval?.approved === undefined) {
-        continue;
-      }
-      events.push({
-        type: 'user.tool_approval',
-        threadId: scopedThreadId,
-        toolCallId: approval.id,
-        approval: mapApprovalDecision(approval.approved, approval.reason),
-      });
-    }
-    if (part.messages != null) {
-      events.push(...collectApprovalInputsFromMessages(part.messages, scopedThreadId));
-    }
-  }
-  return events;
-}
-
-export function toTrueForgeApprovalInputs(
-  message: Extract<ThreadMessage, { role: 'assistant' }>,
-  response: RespondToToolApprovalOptions,
-  defaultThreadId: string = ROOT_THREAD_ID,
-): UserToolApprovalEvent[] {
-  const updated = applyApprovalDecisionsToMessage(message, response);
-  return collectApprovalInputs(updated, defaultThreadId);
+  return { status: APPROVAL_DECISION_STATUS.DENY, ...(reason != null ? { reason } : {}) };
 }

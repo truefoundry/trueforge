@@ -402,6 +402,27 @@ describe('foldPeerThreads', () => {
     expect(toolCall.approval?.approved).toBe(true);
   });
 
+  it('deduplicates persisted inbound events replayed after POST', () => {
+    const state = seedPendingApproval();
+    const event = {
+      type: 'user.tool_approval' as const,
+      id: 'user-approval-1',
+      createdAt: new Date().toISOString(),
+      threadId: ROOT_THREAD_ID,
+      toolCallId: 'tool-1',
+      approval: { status: 'allow' as const },
+    };
+
+    ingestTurnEvent(state, event);
+    ingestTurnEvent(state, event);
+
+    const bucket = state.threads.get(ROOT_THREAD_ID);
+    expect(bucket?.pendingApprovals.has('tool-1')).toBe(false);
+    expect(bucket?.approvalDecisions.size).toBe(1);
+    expect(state.ingestedEventIds.has('user-approval-1')).toBe(true);
+    expect(state.ingestedEventIds.size).toBe(3);
+  });
+
   it('recordToolApprovalInFold synthesizes an error result on deny', () => {
     const state = seedPendingApproval();
 

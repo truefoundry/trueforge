@@ -1,7 +1,10 @@
 - One server session maps to one assistant-ui thread (`session.id` is the thread `remoteId`).
 - The root thread id is always `main`; sub-agent threads nest beneath their creating tool call.
 - The runtime accepts a ready `AgentUIServer` and MUST NOT own credentials or construct backend clients.
-- Resuming a paused turn MUST include every pending tool approval and tool response across root and sub-agent threads in one turn request.
+- A logical turn MAY span multiple SSE segments; a paused segment ending MUST NOT complete the turn.
+- Required-action responses MUST be sent to the existing turn through `sendTurnEvents`; only the server may transition it back to running.
+- `subscribeToTurn` is transport reconnection, never an execution-resume command.
 - Named and draft agent modes share the same runtime; draft spec updates remain synchronized through the server port.
 - Canonical server ports, DTOs, and events live in `src/server/types.ts` and `src/server/events.ts`.
+- Wire event/status constants live beside those canonical contracts; runtime code MUST reuse them instead of repeating protocol strings.
 - Public runtime names use `TrueForge`, never the removed `TrueFoundry` backend name.
