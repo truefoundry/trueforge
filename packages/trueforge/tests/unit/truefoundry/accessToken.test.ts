@@ -3,11 +3,13 @@ import { HTTPException } from 'hono/http-exception';
 import type { RequestContext } from '../../../src/auth/identity';
 import type { AgentRecord } from '../../../src/db/agentStore';
 import {
+  ACTOR_AUTHORIZATION_HEADER,
   accessTokenForRequest,
-  agentAccessToken,
   asTrueFoundryRequestContext,
   callerAccessToken,
   createTrueFoundryRequestContext,
+  gatewayHeaders,
+  savedAgentAccess,
 } from '../../../src/truefoundry/accessToken';
 
 const CONTEXT: RequestContext = {
@@ -44,14 +46,32 @@ describe('callerAccessToken', () => {
   });
 });
 
-describe('agentAccessToken', () => {
-  it('vends dual tokens scoped to the agent, naming the caller as the subject', async () => {
+describe('gatewayHeaders', () => {
+  it('sends the actor header only when the credential has one', () => {
+    expect(gatewayHeaders({ type: 'caller', subjectToken: 'caller-token' })).toEqual({
+      Authorization: 'Bearer caller-token',
+    });
+    expect(gatewayHeaders({ type: 'delegated', subjectToken: 'caller-token', actorAgentToken: 'agent-token' })).toEqual(
+      {
+        Authorization: 'Bearer caller-token',
+        [ACTOR_AUTHORIZATION_HEADER]: 'Bearer agent-token',
+      },
+    );
+  });
+});
+
+describe('savedAgentAccess', () => {
+  it('delegates when the caller credential is present', async () => {
     const client = { vendToken: jest.fn().mockResolvedValue(VENDED) };
     const logger = { info: jest.fn() };
 
-    const tokens = agentAccessToken({ client, requestContext: CONTEXT, agent: AGENT, logger });
-    await expect(tokens.asAgent()).resolves.toBe('agent-token');
-    await expect(tokens.asUser()).resolves.toBe('user-token');
+    const access = savedAgentAccess({ client, requestContext: CONTEXT, agent: AGENT, logger });
+    await expect(access.resolveServiceFoundryAuthorization()).resolves.toBe('agent-token');
+    await expect(access.resolveGatewayAuthorization()).resolves.toEqual({
+      type: 'delegated',
+      subjectToken: 'caller-token',
+      actorToken: 'agent-token',
+    });
     expect(logger.info).toHaveBeenCalledWith('Exchanging user context for agent access token', {
       subject: 'user-1',
       agentId: 'ext-agent',
@@ -61,17 +81,23 @@ describe('agentAccessToken', () => {
       agentId: 'ext-agent',
       tenantName: 'acme',
     });
+    expect(client.vendToken).toHaveBeenCalledTimes(1);
   });
 
-  it('vends once and reuses both tokens for later calls', async () => {
+  it('exchanges when the caller credential is absent', async () => {
     const client = { vendToken: jest.fn().mockResolvedValue(VENDED) };
-    const tokens = agentAccessToken({ client, requestContext: CONTEXT, agent: AGENT, logger: LOGGER });
+    const access = savedAgentAccess({
+      client,
+      requestContext: { ...CONTEXT, user_credential: null },
+      agent: AGENT,
+      logger: LOGGER,
+    });
 
-    await expect(Promise.all([tokens.asAgent(), tokens.asUser(), tokens.asAgent()])).resolves.toEqual([
-      'agent-token',
-      'user-token',
-      'agent-token',
-    ]);
+    await expect(access.resolveGatewayAuthorization()).resolves.toEqual({
+      type: 'exchanged',
+      subjectToken: 'user-token',
+    });
+    await expect(access.resolveServiceFoundryAuthorization()).resolves.toBe('agent-token');
     expect(client.vendToken).toHaveBeenCalledTimes(1);
   });
 
@@ -79,10 +105,14 @@ describe('agentAccessToken', () => {
     const client = {
       vendToken: jest.fn().mockRejectedValueOnce(new Error('vend failed')).mockResolvedValue(VENDED),
     };
-    const tokens = agentAccessToken({ client, requestContext: CONTEXT, agent: AGENT, logger: LOGGER });
+    const access = savedAgentAccess({ client, requestContext: CONTEXT, agent: AGENT, logger: LOGGER });
 
-    await expect(tokens.asAgent()).rejects.toThrow('vend failed');
-    await expect(tokens.asUser()).resolves.toBe('user-token');
+    await expect(access.resolveServiceFoundryAuthorization()).rejects.toThrow('vend failed');
+    await expect(access.resolveGatewayAuthorization()).resolves.toEqual({
+      type: 'delegated',
+      subjectToken: 'caller-token',
+      actorToken: 'agent-token',
+    });
     expect(client.vendToken).toHaveBeenCalledTimes(2);
   });
 
@@ -90,7 +120,7 @@ describe('agentAccessToken', () => {
     const client = { vendToken: jest.fn() };
 
     expect(() =>
-      agentAccessToken({
+      savedAgentAccess({
         client,
         requestContext: CONTEXT,
         agent: { ...AGENT, external_id: null },
@@ -108,29 +138,35 @@ describe('asTrueFoundryRequestContext', () => {
 });
 
 describe('accessTokenForRequest', () => {
-  it('uses the caller token for both identities without an agent', async () => {
+  it('uses the caller token for catalog and gateway without an agent', async () => {
     const client = { vendToken: jest.fn() };
     const context = createTrueFoundryRequestContext(CONTEXT);
 
-    const tokens = accessTokenForRequest({
+    const access = accessTokenForRequest({
       client,
       requestContext: context,
       agent: undefined,
       logger: LOGGER,
     });
-    await expect(tokens.asAgent()).resolves.toBe('caller-token');
-    await expect(tokens.asUser()).resolves.toBe('caller-token');
-    expect(tokens.asAgent).toBe(tokens.asUser);
+    await expect(access.resolveServiceFoundryAuthorization()).resolves.toBe('caller-token');
+    await expect(access.resolveGatewayAuthorization()).resolves.toEqual({
+      type: 'caller',
+      subjectToken: 'caller-token',
+    });
     expect(client.vendToken).not.toHaveBeenCalled();
   });
 
-  it('maps vend actorToken to asAgent and subjectToken to asUser', async () => {
+  it('delegates a saved agent that still has the caller credential', async () => {
     const client = { vendToken: jest.fn().mockResolvedValue(VENDED) };
     const context = createTrueFoundryRequestContext(CONTEXT);
 
-    const tokens = accessTokenForRequest({ client, requestContext: context, agent: AGENT, logger: LOGGER });
-    await expect(tokens.asAgent()).resolves.toBe('agent-token');
-    await expect(tokens.asUser()).resolves.toBe('user-token');
+    const access = accessTokenForRequest({ client, requestContext: context, agent: AGENT, logger: LOGGER });
+    await expect(access.resolveServiceFoundryAuthorization()).resolves.toBe('agent-token');
+    await expect(access.resolveGatewayAuthorization()).resolves.toEqual({
+      type: 'delegated',
+      subjectToken: 'caller-token',
+      actorToken: 'agent-token',
+    });
     expect(client.vendToken).toHaveBeenCalledTimes(1);
   });
 
@@ -142,11 +178,12 @@ describe('accessTokenForRequest', () => {
     const mcp = accessTokenForRequest({ client, requestContext: context, agent: AGENT, logger: LOGGER });
 
     expect(model).toBe(mcp);
-    await expect(Promise.all([model.asAgent(), mcp.asUser(), model.asUser()])).resolves.toEqual([
-      'agent-token',
-      'user-token',
-      'user-token',
-    ]);
+    await expect(model.resolveServiceFoundryAuthorization()).resolves.toBe('agent-token');
+    await expect(mcp.resolveGatewayAuthorization()).resolves.toEqual({
+      type: 'delegated',
+      subjectToken: 'caller-token',
+      actorToken: 'agent-token',
+    });
     expect(client.vendToken).toHaveBeenCalledTimes(1);
   });
 
@@ -156,11 +193,21 @@ describe('accessTokenForRequest', () => {
     const secondRequest = createTrueFoundryRequestContext(CONTEXT);
 
     await expect(
-      accessTokenForRequest({ client, requestContext: firstRequest, agent: AGENT, logger: LOGGER }).asAgent(),
+      accessTokenForRequest({
+        client,
+        requestContext: firstRequest,
+        agent: AGENT,
+        logger: LOGGER,
+      }).resolveServiceFoundryAuthorization(),
     ).resolves.toBe('agent-token');
     await expect(
-      accessTokenForRequest({ client, requestContext: secondRequest, agent: AGENT, logger: LOGGER }).asUser(),
-    ).resolves.toBe('user-token');
+      accessTokenForRequest({
+        client,
+        requestContext: secondRequest,
+        agent: AGENT,
+        logger: LOGGER,
+      }).resolveGatewayAuthorization(),
+    ).resolves.toMatchObject({ type: 'delegated', subjectToken: 'caller-token' });
     expect(client.vendToken).toHaveBeenCalledTimes(2);
   });
 });

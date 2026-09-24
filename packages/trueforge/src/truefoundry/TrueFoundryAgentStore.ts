@@ -17,7 +17,7 @@ import { PostgresAgentStore } from '../db/postgres/agent-store/PostgresAgentStor
 import type { Database } from '../db/postgres/types';
 import { AGENT_DESCRIPTION_MAX_LENGTH } from '../schemas/agent';
 import { captureCriticalException } from '../sentry';
-import { callerAccessToken, type ResolveAccessToken } from './accessToken';
+import { callerAccessToken, type ResolveServiceFoundryAuthorization } from './accessToken';
 import {
   TrueFoundryServiceFoundryServerClient,
   type PutRemoteAgentInput,
@@ -78,7 +78,7 @@ function toPutRemoteAgentPayload({
 export class TrueFoundryAgentStore implements IAgentStore<Transaction<Database>> {
   readonly #inner: PostgresAgentStore;
   readonly #client: TrueFoundryServiceFoundryServerClient;
-  readonly #resolveAccessToken: ResolveAccessToken;
+  readonly #resolveAccessToken: ResolveServiceFoundryAuthorization;
   readonly #db: Kysely<Database>;
 
   constructor(input: {

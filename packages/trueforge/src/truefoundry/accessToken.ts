@@ -5,20 +5,30 @@ import type { AgentRecord } from '../db/agentStore';
 import { requireTrueFoundryAgentExternalId } from './errors';
 import type { TrueFoundryServiceFoundryServerClient, VendedTokens } from './TrueFoundryServiceFoundryServerClient';
 
-/**
- * Token for one TrueFoundry call. Resolved on first use and reused for later calls on the same
- * callable.
- */
-export type ResolveAccessToken = () => Promise<string>;
+/** Token for one TrueFoundry call. Resolved on first use and reused for later calls on the same callable. */
+export type ResolveServiceFoundryAuthorization = () => Promise<string>;
+export type ResolveGatewayAuthorization = () => Promise<GatewayAuthorization>;
+export const ACTOR_AUTHORIZATION_HEADER = 'x-tfy-actor-authorization';
 
 /**
- * Dual tokens from vend-token (or the caller credential when there is no saved agent).
- * - `asAgent` — agent identity (vend-token `actorToken`)
- * - `asUser` — triggering user with agent in `act` (vend-token `subjectToken`)
+ * Model gateway and MCP gateway invoke authorization.
+ * - caller — unsaved agent; authorization is the live caller token
+ * - delegated — saved agent with a caller token; actorAuthorization is vend actorToken
+ * - exchanged — saved agent with no caller token; authorization is vend subjectToken
  */
-export interface AccessTokens {
-  asAgent: ResolveAccessToken;
-  asUser: ResolveAccessToken;
+export type AuthorizationType = 'caller' | 'delegated' | 'exchanged';
+
+export interface GatewayAuthorization {
+  type: AuthorizationType;
+  subjectToken: string;
+  /** Set only for delegated. Do not send with exchanged: the subject token already carries the actor. */
+  actorAgentToken?: string;
+}
+
+export interface TrueFoundryAccess {
+  /** ServiceFoundry list/get. Saved agent: vend actorToken. Otherwise the caller token. */
+  resolveServiceFoundryAuthorization: ResolveServiceFoundryAuthorization;
+  resolveGatewayAuthorization: ResolveGatewayAuthorization;
 }
 
 type AgentTokenVendor = Pick<TrueFoundryServiceFoundryServerClient, 'vendToken'>;
@@ -31,7 +41,7 @@ const accessTokenCache: unique symbol = Symbol('truefoundryAccessTokenCache');
  * lifetime of one HTTP request; a later request gets a new context and vends again.
  */
 export type TrueFoundryRequestContext = RequestContext & {
-  readonly [accessTokenCache]: Map<string, AccessTokens>;
+  readonly [accessTokenCache]: Map<string, TrueFoundryAccess>;
 };
 
 export function createTrueFoundryRequestContext(base: RequestContext): TrueFoundryRequestContext {
@@ -49,27 +59,31 @@ export function asTrueFoundryRequestContext(context: RequestContext): TrueFoundr
   return context;
 }
 
-function accessTokensFromCaller(context: RequestContext): AccessTokens {
+function callerAccess(context: RequestContext): TrueFoundryAccess {
   const resolve = callerAccessToken(context);
-  return { asAgent: resolve, asUser: resolve };
+  return {
+    resolveServiceFoundryAuthorization: resolve,
+    resolveGatewayAuthorization: async () => ({ type: 'caller', subjectToken: await resolve() }),
+  };
 }
 
 /**
- * Dual tokens scoped to a saved agent, for work the agent does on the caller's behalf.
+ * Saved-agent authorization. Vends once.
+ * Caller token present → delegated. Absent → exchanged (schedule creator on the subject).
  * Throws 500 up front when the agent was never registered with TrueFoundry.
- * Vends once; callers pick `asAgent` or `asUser`.
  */
-export function agentAccessToken(input: {
+export function savedAgentAccess(input: {
   client: AgentTokenVendor;
-  requestContext: Pick<RequestContext, 'tenant_id' | 'subject'>;
+  requestContext: Pick<RequestContext, 'tenant_id' | 'subject' | 'user_credential'>;
   agent: AgentRecord;
   logger: Pick<Logger, 'info'>;
-}): AccessTokens {
+}): TrueFoundryAccess {
   const { client, requestContext: context } = input;
   const agentId = requireTrueFoundryAgentExternalId(input.agent);
+  const callerAuthorization = context.user_credential;
   let pending: Promise<VendedTokens> | undefined;
 
-  const vended = (): Promise<VendedTokens> => {
+  const vendToken = (): Promise<VendedTokens> => {
     if (pending === undefined) {
       input.logger.info('Exchanging user context for agent access token', {
         subject: context.subject.id,
@@ -86,13 +100,26 @@ export function agentAccessToken(input: {
   };
 
   return {
-    asAgent: async () => (await vended()).actorToken,
-    asUser: async () => (await vended()).subjectToken,
+    resolveServiceFoundryAuthorization: async () => {
+      const vendTokenResult = await vendToken();
+      return vendTokenResult.actorToken;
+    },
+    resolveGatewayAuthorization: async () => {
+      const vendTokenResult = await vendToken();
+      if (callerAuthorization !== null) {
+        return {
+          type: 'delegated',
+          subjectToken: callerAuthorization,
+          actorAgentToken: vendTokenResult.actorToken,
+        };
+      }
+      return { type: 'exchanged', subjectToken: vendTokenResult.subjectToken };
+    },
   };
 }
 
 /** Token of whoever made the request. */
-export function callerAccessToken(context: RequestContext): ResolveAccessToken {
+export function callerAccessToken(context: RequestContext): ResolveServiceFoundryAuthorization {
   if (context.user_credential === null) {
     throw new HTTPException(401, {
       message: 'Authentication token required to list or call TrueFoundry models, MCP servers, skills, and agents',
@@ -111,9 +138,9 @@ export function accessTokenForRequest(input: {
   requestContext: TrueFoundryRequestContext;
   agent: AgentRecord | undefined;
   logger: Pick<Logger, 'info'>;
-}): AccessTokens {
+}): TrueFoundryAccess {
   if (input.agent === undefined) {
-    return accessTokensFromCaller(input.requestContext);
+    return callerAccess(input.requestContext);
   }
   const agentId = requireTrueFoundryAgentExternalId(input.agent);
   const cache = input.requestContext[accessTokenCache];
@@ -121,7 +148,7 @@ export function accessTokenForRequest(input: {
   if (existing !== undefined) {
     return existing;
   }
-  const tokens = agentAccessToken({
+  const tokens = savedAgentAccess({
     client: input.client,
     requestContext: input.requestContext,
     agent: input.agent,
@@ -129,4 +156,19 @@ export function accessTokenForRequest(input: {
   });
   cache.set(agentId, tokens);
   return tokens;
+}
+
+/** Actor header for delegated mode. Empty for caller and exchanged. */
+export function actorAuthorizationHeaders(authorization: GatewayAuthorization): Record<string, string> {
+  if (authorization.actorAgentToken === undefined) {
+    return {};
+  }
+  return { [ACTOR_AUTHORIZATION_HEADER]: `Bearer ${authorization.actorAgentToken}` };
+}
+
+export function gatewayHeaders(authorization: GatewayAuthorization): Record<string, string> {
+  return {
+    Authorization: `Bearer ${authorization.subjectToken}`,
+    ...actorAuthorizationHeaders(authorization),
+  };
 }

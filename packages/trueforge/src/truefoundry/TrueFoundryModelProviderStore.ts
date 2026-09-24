@@ -13,7 +13,13 @@ import {
 } from '../db/modelProviderStore';
 import type { TurnMetadata } from '../db/turnMetadata';
 import type { AvailableModel, ModelProviderManifest } from '../schemas/modelProvider';
-import { accessTokenForRequest, asTrueFoundryRequestContext, type ResolveAccessToken } from './accessToken';
+import {
+  accessTokenForRequest,
+  actorAuthorizationHeaders,
+  asTrueFoundryRequestContext,
+  type ResolveGatewayAuthorization,
+  type ResolveServiceFoundryAuthorization,
+} from './accessToken';
 import { trueFoundryManaged } from './errors';
 import { gatewayMetadataHeadersForTurn } from './gatewayMetadata';
 import {
@@ -26,8 +32,8 @@ import { TrueFoundryServiceFoundryServerClient } from './TrueFoundryServiceFound
 
 export class TrueFoundryModelProviderStore<TTransaction = never> implements IModelProviderStore<TTransaction> {
   readonly #client: TrueFoundryServiceFoundryServerClient;
-  readonly #asAgent: ResolveAccessToken;
-  readonly #asUser: ResolveAccessToken;
+  readonly #resolveServiceFoundryAuthorization: ResolveServiceFoundryAuthorization;
+  readonly #resolveGatewayAuthorization: ResolveGatewayAuthorization;
 
   constructor(input: {
     client: TrueFoundryServiceFoundryServerClient;
@@ -42,8 +48,8 @@ export class TrueFoundryModelProviderStore<TTransaction = never> implements IMod
       agent: input.agent,
       logger: input.logger,
     });
-    this.#asAgent = tokens.asAgent;
-    this.#asUser = tokens.asUser;
+    this.#resolveServiceFoundryAuthorization = tokens.resolveServiceFoundryAuthorization;
+    this.#resolveGatewayAuthorization = tokens.resolveGatewayAuthorization;
   }
 
   async listProviders(input: ListModelProvidersInput, transaction?: TTransaction): Promise<ModelProviderRecord[]> {
@@ -88,28 +94,32 @@ export class TrueFoundryModelProviderStore<TTransaction = never> implements IMod
     return flattenProviderModels(await this.listProviders(input, transaction));
   }
 
-  resolveInvokeHeaders(input: {
+  async resolveInvokeHeaders(input: {
     record: ModelProviderRecord;
     turnMetadata?: TurnMetadata;
   }): Promise<Record<string, string>> {
     void input.record;
-    if (input.turnMetadata === undefined) {
-      return Promise.resolve({});
-    }
-    return Promise.resolve(gatewayMetadataHeadersForTurn(input.turnMetadata));
+    const authorization = await this.#resolveGatewayAuthorization();
+    return {
+      ...actorAuthorizationHeaders(authorization),
+      ...gatewayMetadataHeadersForTurn(input.turnMetadata),
+    };
   }
 
   async #records(input: {
     tenant_id: string;
     filter?: { provider_account_name: string; name: string };
   }): Promise<ModelProviderRecord[]> {
-    const [agentToken, userToken] = await Promise.all([this.#asAgent(), this.#asUser()]);
+    const [serviceFoundryAccessToken, gatewayAuthorization] = await Promise.all([
+      this.#resolveServiceFoundryAuthorization(),
+      this.#resolveGatewayAuthorization(),
+    ]);
     const [integrations, installations] = await Promise.all([
       this.#client.listProviderIntegrations({
-        accessToken: agentToken,
+        accessToken: serviceFoundryAccessToken,
         ...(input.filter !== undefined ? { filter: input.filter } : {}),
       }),
-      this.#client.listGatewayInstallations(agentToken),
+      this.#client.listGatewayInstallations(serviceFoundryAccessToken),
     ]);
     const gatewayUrl = resolveDefaultGatewayUrl(installations);
     const models = filterEnvModels({
@@ -119,7 +129,7 @@ export class TrueFoundryModelProviderStore<TTransaction = never> implements IMod
     return toRecords({
       tenant_id: input.tenant_id,
       gatewayUrl,
-      accessToken: userToken,
+      accessToken: gatewayAuthorization.subjectToken,
       models,
     });
   }
