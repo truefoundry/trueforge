@@ -18,6 +18,7 @@ import {
   ToolApprovalRequiredEventSchema,
   ToolResponseEventSchema,
   ToolResponseRequiredEventSchema,
+  UserMCPAuthContinueEventSchema,
   UserToolApprovalEventSchema,
   UserToolApprovalPolicyEventSchema,
   UserToolResponseEventSchema,
@@ -105,6 +106,7 @@ export const SessionEventSchema = z
     UserToolApprovalEventSchema,
     UserToolResponseEventSchema,
     UserToolApprovalPolicyEventSchema,
+    UserMCPAuthContinueEventSchema,
   ])
   .openapi('SessionEvent');
 

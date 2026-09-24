@@ -160,7 +160,7 @@ export const UserToolApprovalPolicyEventSchema = z
   })
   .openapi('UserToolApprovalPolicyEvent');
 
-/** Minted POST /events form. Not on the session event log or SSE stream. */
+/** Durable / SSE form of {@link UserMCPAuthContinueMessageSchema}. */
 export const UserMCPAuthContinueEventSchema = z
   .object({
     ...UserMCPAuthContinueMessageSchema.shape,

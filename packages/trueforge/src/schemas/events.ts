@@ -70,6 +70,7 @@ export const TurnStreamingEventSchema = z
     UserToolApprovalEventSchema,
     UserToolResponseEventSchema,
     UserToolApprovalPolicyEventSchema,
+    UserMCPAuthContinueEventSchema,
     TurnCreatedEventSchema,
     TurnUpdateEventSchema,
     TurnDoneEventSchema,
