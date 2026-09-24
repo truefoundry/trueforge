@@ -1,14 +1,12 @@
 name: Build server image and publish Helm chart
 
-# Starts when release-packages.yml pushes chart/v<packageVersion> (App token).
-# Builds the from-source image, then packages and publishes the Helm chart.
+# Starts when release.yml dispatches this workflow (App token). Builds the
+# from-source image, publishes the Helm chart, commits metadata to main, then
+# tags charts/trueforge@<chartVersion> on that commit.
 #
-# workflow_dispatch is for manual rebuilds. Do not use `gh workflow run --ref
+# workflow_dispatch is also for manual rebuilds. Do not use `gh workflow run --ref
 # $GITHUB_SHA`: the dispatch API only accepts a branch or tag name (HTTP 422).
 on:
-  push:
-    tags:
-      - 'chart/v[0-9]*'
   workflow_dispatch:
     inputs:
       app_version:
@@ -42,19 +40,10 @@ jobs:
         id: resolve
         env:
           INPUT_APP_VERSION: ${{ inputs.app_version }}
-          EVENT_NAME: ${{ github.event_name }}
-          REF_NAME: ${{ github.ref_name }}
         run: |
           set -euo pipefail
           PKG_VERSION=$(node -p "require('./packages/trueforge/package.json').version")
-          if [[ "$EVENT_NAME" == "push" && "$REF_NAME" == chart/v* ]]; then
-            TAG_VERSION="${REF_NAME#chart/v}"
-            if [[ "$TAG_VERSION" != "$PKG_VERSION" ]]; then
-              echo "Tag chart/v$TAG_VERSION does not match package.json $PKG_VERSION" >&2
-              exit 1
-            fi
-            APP_VERSION="$PKG_VERSION"
-          elif [[ -n "${INPUT_APP_VERSION}" ]]; then
+          if [[ -n "${INPUT_APP_VERSION}" ]]; then
             APP_VERSION="$INPUT_APP_VERSION"
           else
             APP_VERSION="$PKG_VERSION"
@@ -67,12 +56,14 @@ jobs:
             echo "APP_VERSION '$APP_VERSION' is not a semver-like version" >&2
             exit 1
           fi
-          SHORT_SHA="${GITHUB_SHA:0:7}"
+          # Peel annotated tags: GITHUB_SHA is the tag object, not the commit.
+          COMMIT_SHA=$(git rev-parse --verify HEAD)
+          SHORT_SHA=$(git rev-parse --short=7 HEAD)
           IMAGE_TAG="${APP_VERSION}-${SHORT_SHA}"
           echo "app_version=$APP_VERSION" >> "$GITHUB_OUTPUT"
           echo "image_tag=$IMAGE_TAG" >> "$GITHUB_OUTPUT"
           echo "short_sha=$SHORT_SHA" >> "$GITHUB_OUTPUT"
-          echo "Resolved APP_VERSION=$APP_VERSION IMAGE_TAG=$IMAGE_TAG (package.json=$PKG_VERSION)"
+          echo "Resolved APP_VERSION=$APP_VERSION IMAGE_TAG=$IMAGE_TAG commit=$COMMIT_SHA (package.json=$PKG_VERSION)"
 
   build:
     name: Build and push server image
@@ -146,7 +137,6 @@ jobs:
           yq -i '.version = strenv(VERSION)' charts/trueforge/Chart.yaml
           yq -i '.appVersion = strenv(APP_VERSION)' charts/trueforge/Chart.yaml
           yq -i '.image.tag = strenv(IMAGE_TAG)' charts/trueforge/values.yaml
-          yq -i '.controller.command = ["node", "dist/controller-main.js"]' charts/trueforge/values.yaml
           echo "version=$VERSION" >> "$GITHUB_OUTPUT"
           echo "app_version=$APP_VERSION" >> "$GITHUB_OUTPUT"
           echo "Chart version=$VERSION appVersion=$APP_VERSION image.tag=$IMAGE_TAG"
@@ -177,14 +167,14 @@ jobs:
           echo "Pushing $PACKAGE to oci://$HELM_CHART_REPOSITORY"
           set +e
           PUSH_OUT=$(helm push "$PACKAGE" "oci://$HELM_CHART_REPOSITORY" 2>&1)
-          PUSH_RC=$?
+          PUSH_STATUS=$?
           set -e
           printf '%s\n' "$PUSH_OUT"
-          if [[ "$PUSH_RC" -ne 0 ]]; then
+          if [[ "$PUSH_STATUS" -ne 0 ]]; then
             if printf '%s' "$PUSH_OUT" | grep -qiE 'already exists|409'; then
               echo "Chart $VERSION already in the registry; continuing so main can catch up"
             else
-              exit "$PUSH_RC"
+              exit "$PUSH_STATUS"
             fi
           fi
           {
@@ -208,17 +198,29 @@ jobs:
             yq -i '.version = strenv(VERSION)' charts/trueforge/Chart.yaml
             yq -i '.appVersion = strenv(APP_VERSION)' charts/trueforge/Chart.yaml
             yq -i '.image.tag = strenv(IMAGE_TAG)' charts/trueforge/values.yaml
-            yq -i '.controller.command = ["node", "dist/controller-main.js"]' charts/trueforge/values.yaml
+          }
+
+          tag_chart() {
+            TAG="charts/trueforge@${VERSION}"
+            if git ls-remote --exit-code --tags origin "refs/tags/${TAG}" >/dev/null 2>&1; then
+              echo "Tag $TAG already exists"
+              return 0
+            fi
+            git tag -a "$TAG" -m "Helm chart ${VERSION}"
+            git push origin "$TAG"
+            echo "Pushed $TAG"
           }
 
           for attempt in 1 2 3; do
             git add charts/trueforge/Chart.yaml charts/trueforge/values.yaml
             if git diff --staged --quiet; then
               echo "Chart metadata already matches $VERSION"
+              tag_chart
               exit 0
             fi
             git commit -m "release(chart): ${VERSION}"
             if git push origin HEAD:main; then
+              tag_chart
               exit 0
             fi
             echo "Push to main failed (attempt $attempt); replay metadata onto origin/main"

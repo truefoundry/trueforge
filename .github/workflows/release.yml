@@ -1,17 +1,22 @@
 # npm publish for the four public packages, plus PyPI for python/trueforge_sdk.
 #
-# npm and PyPI trusted publishers are bound to this filename
-# (`release-packages.yml`). Update every package on npmjs.com and PyPI if you
-# rename it. They were previously bound to `release.yml`.
+# npm and PyPI trusted publishers are bound to this filename (`release.yml`).
+# Do not rename it without updating every package on npmjs.com and PyPI.
 #
 # On every push to main, changesets/action/select-mode chooses:
 #   - pending `.changeset/*.md` → version job opens/updates the Version Packages PR
 #     (install only; that PR is gated by CI.yml). When @truefoundry/trueforge-sdk
 #     moves, scripts/version.mjs mirrors that version into python/trueforge_sdk and rebakes Fern.
 #   - none pending + unpublished versions → pack (build/test) + Windows npx smoke,
-#     then npm publish, PyPI publish, and a chart/v* tag in parallel.
-# Merge the Version Packages PR to publish. The chart/v* tag (pushed with the
-# GitHub App token) starts the image + Helm workflow.
+#     then npm publish, PyPI publish, and the image+Helm workflow in parallel.
+# Merge the Version Packages PR to publish. The chart workflow is started with
+# the GitHub App token (`gh workflow run`); GITHUB_TOKEN cannot dispatch it.
+# After Helm publish, that workflow tags charts/trueforge@<chartVersion> on the
+# metadata commit.
+#
+# Auth is GitHub OIDC (no NPM_TOKEN / PYPI_TOKEN). An `_authToken` in user `.npmrc`
+# disables pnpm's OIDC exchange, so the npm publish job must not set NPM_TOKEN /
+# NODE_AUTH_TOKEN. id-token is granted only on the publish jobs.
 #
 # Auth is GitHub OIDC (no NPM_TOKEN / PYPI_TOKEN). An `_authToken` in user `.npmrc`
 # disables pnpm's OIDC exchange, so the npm publish job must not set NPM_TOKEN /
@@ -267,14 +272,15 @@ jobs:
         with:
           packages-dir: python/trueforge_sdk/dist
 
-  # App token so the tag push can start release-chart.yml (GITHUB_TOKEN cannot).
-  create-release-tag:
-    name: Create release tag
+  # App token: GITHUB_TOKEN cannot dispatch another workflow.
+  dispatch-chart-release:
+    name: Start image and Helm release
     needs: [pack, windows-npx-smoke]
     runs-on: ubuntu-latest
     timeout-minutes: 10
     permissions:
-      contents: write
+      actions: write
+      contents: read
     steps:
       - id: app-token
         uses: actions/create-github-app-token@v3
@@ -282,28 +288,9 @@ jobs:
           client-id: ${{ secrets.TRUEFORGE_GENERATE_SDK_APP_ID }}
           private-key: ${{ secrets.TRUEFORGE_GENERATE_SDK_APP_PRIVATE_KEY }}
 
-      - name: Check out repo
-        uses: actions/checkout@v7
-        with:
-          token: ${{ steps.app-token.outputs.token }}
-
-      - name: Tag package version
+      - name: Dispatch release-chart.yml
         env:
           GH_TOKEN: ${{ steps.app-token.outputs.token }}
         run: |
           set -euo pipefail
-          VERSION=$(node -p "require('./packages/trueforge/package.json').version")
-          if ! printf '%s' "$VERSION" | grep -Eq '^[0-9]+\.[0-9]+\.[0-9]+([.-][0-9A-Za-z.-]+)?$'; then
-            echo "package.json version '$VERSION' is not semver-like" >&2
-            exit 1
-          fi
-          TAG="chart/v${VERSION}"
-          if git ls-remote --exit-code --tags origin "refs/tags/${TAG}" >/dev/null 2>&1; then
-            echo "Tag $TAG already exists; not moving it"
-            exit 0
-          fi
-          git config user.name "github-actions[bot]"
-          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
-          git tag -a "$TAG" -m "@truefoundry/trueforge ${VERSION}"
-          git push origin "$TAG"
-          echo "Pushed $TAG"
+          gh workflow run release-chart.yml --repo "$GITHUB_REPOSITORY" --ref "${GITHUB_REF_NAME}"

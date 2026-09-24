@@ -101,7 +101,7 @@ jobs:
           commit-message: 'chore: update sandbox image ${{ github.sha }}'
           title: 'chore: update sandbox image ${{ github.sha }}'
           body: |
-            Pushed `${{ steps.image.outputs.uri }}`. Merge so `release-packages.yml` can publish the pin.
+            Pushed `${{ steps.image.outputs.uri }}`. Merge so `release.yml` can publish the pin.
             Existing tenants stay on `build_metadata`.
           add-paths: |
             packages/trueforge-core/src/core/sandbox/sandboxImage.json

@@ -28,7 +28,9 @@ export default defineRailway(_ctx => {
     // Deploys from this repository's default branch. Forks: change owner/repo
     // (and optionally branch) to build your own copy.
     source: github('truefoundry/trueforge'),
-    // Railway uses the root from-source Dockerfile by default.
+    // Railway uses the root from-source Dockerfile by default. Existing
+    // services may still set RAILWAY_DOCKERFILE_PATH=Dockerfile.dev; that file
+    // is kept as a copy of Dockerfile until IaC is re-applied.
     healthcheck: '/healthz',
     healthcheckTimeout: 300,
     deploy: {

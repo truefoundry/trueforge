@@ -1,4 +1,4 @@
-name: Build dev image
+name: Build image
 
 # From-source image for floating-main / external deploy repos.
 # Builds the root Dockerfile and pushes .../trueforge:<fullSha>. No chart publish.
@@ -6,7 +6,7 @@ on:
   workflow_dispatch:
 
 concurrency:
-  group: build-dev-image
+  group: build-image
   cancel-in-progress: false
 
 permissions:
@@ -47,7 +47,7 @@ jobs:
           set -euo pipefail
           echo "Pushed image URI: $IMAGE_URI"
           {
-            echo "### Dev image (from-source)"
+            echo "### Image (from-source)"
             echo "\`$IMAGE_URI\`"
             echo ""
             echo "Patch this SHA into your external \`truefoundry.yaml\` as \`image.tag\`."
