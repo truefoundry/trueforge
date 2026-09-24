@@ -4,5 +4,5 @@ import type * as TrueForge from "../index.js";
 
 export type TurnInputItem =
     | TrueForge.UserMessage
-    | TrueForge.UserToolApprovalMessage
-    | TrueForge.UserToolResponseMessage;
+    | TrueForge.UserToolApprovalInputEvent
+    | TrueForge.UserToolResponseInputEvent;
