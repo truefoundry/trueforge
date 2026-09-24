@@ -925,9 +925,8 @@ export function createTurnsRouter(deps: TurnsRouterDeps) {
     });
   };
 
-  /** Accept send-events. Persist / apply / wake land later. */
   const createTurnEventHandler: RouteHandler<typeof createTurnEventRoute> = async c => {
-    const { session_id: sessionId, turn_id: turnId } = c.req.valid('param');
+    const { session_id: sessionId } = c.req.valid('param');
     const body = c.req.valid('json');
     const requestContext = deps.resolveRequestContext(c);
     const session = await deps.sessions.get({
