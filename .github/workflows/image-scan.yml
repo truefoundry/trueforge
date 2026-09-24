@@ -8,10 +8,25 @@ on:
     - cron: '0 9 * * *'
 
 jobs:
+  resolve:
+    name: Resolve APP_VERSION
+    runs-on: ubuntu-latest
+    outputs:
+      app_version: ${{ steps.app.outputs.app_version }}
+    steps:
+      - uses: actions/checkout@v7
+      - id: app
+        run: |
+          APP_VERSION=$(yq -r '.appVersion' charts/trueforge/Chart.yaml)
+          echo "app_version=$APP_VERSION" >> "$GITHUB_OUTPUT"
+
   image-scan:
     name: Image Vulnerability Scan
+    needs: [resolve]
     uses: truefoundry/github-workflows-public/.github/workflows/update-grype-report.yml@main
     with:
       dockerfile_path: 'Dockerfile'
       image_artifact_name: 'trueforge'
       artifactory_repository_url: ${{ vars.TRUEFOUNDRY_ARTIFACTORY_PUBLIC_REPOSITORY }}
+      image_build_args: |
+        APP_VERSION=${{ needs.resolve.outputs.app_version }}
