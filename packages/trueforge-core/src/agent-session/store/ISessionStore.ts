@@ -178,11 +178,11 @@ export interface InsertTurnInboundEventsInput {
    * Caller mints `event_id` (monotonic ULID) — same contract as session_event.
    * Empty array is a no-op.
    */
-  events: Array<{
+  events: {
     event_id: string;
     payload: TurnInboundEventItem;
     created_at: string;
-  }>;
+  }[];
 }
 
 export interface AddThreadsInput {
