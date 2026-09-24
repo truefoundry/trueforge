@@ -170,16 +170,6 @@ export interface AppendToEventsInput {
   events: PersistedTurnEvent[];
 }
 
-/** One durable inbound send-event row for a tip. */
-export interface TurnInboundEventRecord {
-  event_id: string;
-  turn_id: string;
-  /** Validated {@link TurnInboundEventItem} body. */
-  payload: TurnInboundEventItem;
-  /** ISO-8601; copied from insert input. Ordering uses `event_id`. */
-  created_at: string;
-}
-
 export interface InsertTurnInboundEventsInput {
   session_id: string;
   /** Tip that receives this batch. One send = one tip; stamp every row with this id. */
@@ -188,22 +178,11 @@ export interface InsertTurnInboundEventsInput {
    * Caller mints `event_id` (monotonic ULID) — same contract as session_event.
    * Empty array is a no-op.
    */
-  events: Array<{
+  events: {
     event_id: string;
     payload: TurnInboundEventItem;
     created_at: string;
-  }>;
-}
-
-export interface ListUnconsumedTurnInboundEventsInput {
-  session_id: string;
-  turn_id: string;
-}
-
-export interface MarkTurnInboundEventsConsumedInput {
-  session_id: string;
-  turn_id: string;
-  event_ids: string[];
+  }[];
 }
 
 export interface AddThreadsInput {
@@ -404,18 +383,6 @@ export interface ISessionStore<
    * {@link TurnEventAlreadyExistsError}.
    */
   insertTurnInboundEvents(input: InsertTurnInboundEventsInput): Promise<void>;
-
-  /**
-   * Unconsumed inbox rows for a tip, ordered by monotonic `event_id` ascending.
-   * Missing session → {@link SessionNotFoundError}.
-   */
-  listUnconsumedTurnInboundEvents(input: ListUnconsumedTurnInboundEventsInput): Promise<TurnInboundEventRecord[]>;
-
-  /**
-   * Marks inbox rows consumed for a tip. Already-consumed or unknown ids are ignored.
-   * Empty `event_ids` is a no-op. Missing session → {@link SessionNotFoundError}.
-   */
-  markTurnInboundEventsConsumed(input: MarkTurnInboundEventsConsumedInput): Promise<void>;
 
   /** Adds thread snapshots to the turn (sub-agent spawns). */
   addThreads(input: AddThreadsInput): Promise<void>;

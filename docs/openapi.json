@@ -4876,20 +4876,20 @@
               }
             ]
           },
-          "server": {
-            "description": "MCP server name the tool belongs to.",
+          "server_name": {
+            "description": "Configured MCP server name (same as tool_info.server_name on model.message).",
             "minLength": 1,
             "type": "string"
           },
-          "tool_name": {
-            "description": "Tool name this policy applies to.",
+          "name": {
+            "description": "Tool name on that server (same as tool_info.name on model.message).",
             "minLength": 1,
             "type": "string"
           }
         },
         "required": [
-          "server",
-          "tool_name",
+          "server_name",
+          "name",
           "action"
         ],
         "type": "object"
@@ -5369,8 +5369,8 @@
         "discriminator": {
           "mapping": {
             "user.message": "#/components/schemas/UserMessage",
-            "user.tool_approval": "#/components/schemas/UserToolApprovalMessage",
-            "user.tool_response": "#/components/schemas/UserToolResponseMessage"
+            "user.tool_approval": "#/components/schemas/UserToolApprovalInputEvent",
+            "user.tool_response": "#/components/schemas/UserToolResponseInputEvent"
           },
           "propertyName": "type"
         },
@@ -5379,10 +5379,10 @@
             "$ref": "#/components/schemas/UserMessage"
           },
           {
-            "$ref": "#/components/schemas/UserToolApprovalMessage"
+            "$ref": "#/components/schemas/UserToolApprovalInputEvent"
           },
           {
-            "$ref": "#/components/schemas/UserToolResponseMessage"
+            "$ref": "#/components/schemas/UserToolResponseInputEvent"
           }
         ]
       },
@@ -5954,6 +5954,37 @@
         ],
         "type": "object"
       },
+      "UserToolApprovalInputEvent": {
+        "properties": {
+          "approval": {
+            "$ref": "#/components/schemas/ApprovalDecision"
+          },
+          "thread_id": {
+            "description": "Thread that owns the pending tool call.",
+            "minLength": 1,
+            "type": "string"
+          },
+          "tool_call_id": {
+            "description": "Tool call id being approved or denied.",
+            "minLength": 1,
+            "type": "string"
+          },
+          "type": {
+            "description": "Client resume after tool.approval_required.",
+            "enum": [
+              "user.tool_approval"
+            ],
+            "type": "string"
+          }
+        },
+        "required": [
+          "type",
+          "thread_id",
+          "tool_call_id",
+          "approval"
+        ],
+        "type": "object"
+      },
       "UserToolApprovalMessage": {
         "properties": {
           "approval": {
@@ -5996,7 +6027,7 @@
             "type": "string"
           },
           "policies": {
-            "description": "One or more (server, tool_name) policy entries.",
+            "description": "One or more (server_name, name) policy entries.",
             "items": {
               "$ref": "#/components/schemas/ToolApprovalPolicyItem"
             },
@@ -6022,7 +6053,7 @@
       "UserToolApprovalPolicyMessage": {
         "properties": {
           "policies": {
-            "description": "One or more (server, tool_name) policy entries.",
+            "description": "One or more (server_name, name) policy entries.",
             "items": {
               "$ref": "#/components/schemas/ToolApprovalPolicyItem"
             },
@@ -6083,6 +6114,39 @@
           "content",
           "id",
           "created_at"
+        ],
+        "type": "object"
+      },
+      "UserToolResponseInputEvent": {
+        "properties": {
+          "content": {
+            "description": "Client-side tool result content.",
+            "minLength": 1,
+            "type": "string"
+          },
+          "thread_id": {
+            "description": "Thread that owns the pending tool call.",
+            "minLength": 1,
+            "type": "string"
+          },
+          "tool_call_id": {
+            "description": "Tool call id receiving the client response.",
+            "minLength": 1,
+            "type": "string"
+          },
+          "type": {
+            "description": "Client resume after tool.response_required.",
+            "enum": [
+              "user.tool_response"
+            ],
+            "type": "string"
+          }
+        },
+        "required": [
+          "type",
+          "thread_id",
+          "tool_call_id",
+          "content"
         ],
         "type": "object"
       },

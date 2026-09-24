@@ -5,20 +5,25 @@ import typing
 import pydantic
 from ..core.pydantic_utilities import IS_PYDANTIC_V2
 from ..core.unchecked_base_model import UncheckedBaseModel
-from .tool_approval_policy_allow_session import ToolApprovalPolicyAllowSession
 
 
-class ToolApprovalPolicyItem(UncheckedBaseModel):
-    action: ToolApprovalPolicyAllowSession
-    server_name: str = pydantic.Field()
+class UserToolResponseInputEvent(UncheckedBaseModel):
+    content: str = pydantic.Field()
     """
-    Configured MCP server name (same as tool_info.server_name on model.message).
+    Client-side tool result content.
     """
 
-    name: str = pydantic.Field()
+    thread_id: str = pydantic.Field()
     """
-    Tool name on that server (same as tool_info.name on model.message).
+    Thread that owns the pending tool call.
     """
+
+    tool_call_id: str = pydantic.Field()
+    """
+    Tool call id receiving the client response.
+    """
+
+    type: typing.Literal["user.tool_response"] = "user.tool_response"
 
     if IS_PYDANTIC_V2:
         model_config: typing.ClassVar[pydantic.ConfigDict] = pydantic.ConfigDict(extra="allow")  # type: ignore # Pydantic v2

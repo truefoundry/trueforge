@@ -45,9 +45,18 @@ export {
   configFromHarness,
   createSandboxProviderCatalog,
   filterUiSandboxProviders,
+  isDaytonaSandboxConfig,
   toHarnessManifest as toHarnessSandboxManifest,
+  toUiCatalogEntry as toUiSandboxCatalogEntry,
   toUiSandboxProvider,
   toUiSandboxProviderListEntry,
+  type DaytonaSandboxCatalogServer,
+  type DaytonaSandboxConfig,
+  type UiCreateSandboxProviderRequest,
+  type UiSandboxProvider,
+  type UiSandboxProviderCatalogEntry,
+  type UiSandboxProviderListEntry,
+  type UiUpdateSandboxProviderRequest,
 } from './catalogs/sandboxProviderCatalog.js';
 export { createSkillCatalog, toHarnessManifest as toHarnessSkillManifest, toUiSkill } from './catalogs/skillCatalog.js';
 export {

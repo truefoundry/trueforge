@@ -94,7 +94,6 @@ export type {
   SandboxCatalogServer,
   SandboxProviderBase,
   SandboxProviderCatalogEntry,
-  SandboxProviderConfig,
   SandboxProviderListEntry,
   SandboxSnapshotSyncStatus,
   SaveAgentRequest,

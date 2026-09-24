@@ -205,6 +205,28 @@ export function AgentSessionEventTimelineChart({
     () => getSubAgentLanes({ subAgentSegments, threadSegments: durationSegments, minWidthMs: MARKER_PX * msPerPx }),
     [durationSegments, msPerPx, subAgentSegments],
   );
+  const subAgentToolCallGroups = useMemo(
+    () =>
+      subAgentLanes.flatMap(lane =>
+        groupOverlappingToolCalls(lane.segments.filter(segment => segment.type === 'tool_call'))
+          .filter(group => group.segments.length > 1)
+          .map(group => ({ group, lane: lane.lane, subAgentLabel: lane.track.description })),
+      ),
+    [subAgentLanes],
+  );
+  const groupedSubAgentToolCallIds = useMemo(
+    () => new Set(subAgentToolCallGroups.flatMap(({ group }) => group.segments.map(segment => segment.id))),
+    [subAgentToolCallGroups],
+  );
+  const subAgentEventSegments = useMemo(
+    () =>
+      subAgentLanes.flatMap(lane =>
+        lane.segments
+          .filter(segment => !groupedSubAgentToolCallIds.has(segment.id))
+          .map(segment => ({ segment, lane: lane.lane })),
+      ),
+    [groupedSubAgentToolCallIds, subAgentLanes],
+  );
   const mainCandidates = useMemo(() => {
     return [...durationSegments.filter(segment => segment.threadId === MAIN_THREAD_ID), ...mainSubAgents].sort(
       (left, right) => left.startMs - right.startMs || left.endMs - right.endMs,
@@ -242,9 +264,12 @@ export function AgentSessionEventTimelineChart({
     () => [
       ...turnBars.map((bar): TimelineHoverTarget => ({ type: TIMELINE_TYPE.turn, bar })),
       ...markerGroups.map((group): TimelineHoverTarget => ({ type: TIMELINE_TYPE.markerGroup, group })),
-      ...subAgentLanes.flatMap(lane =>
-        lane.segments.map((segment): TimelineHoverTarget => ({ type: TIMELINE_TYPE.event, segment })),
-      ),
+      ...subAgentEventSegments.map(({ segment }): TimelineHoverTarget => ({ type: TIMELINE_TYPE.event, segment })),
+      ...subAgentToolCallGroups.map(({ group, subAgentLabel }): TimelineHoverTarget => ({
+        type: TIMELINE_TYPE.toolCallGroup,
+        group,
+        subAgentLabel,
+      })),
       ...mainEventSegments.map((segment): TimelineHoverTarget | null => {
         if (segment.type !== 'sub_agent') return { type: TIMELINE_TYPE.event, segment };
         const group = subAgentGroups.find(candidate => candidate.barId === segment.id);
@@ -252,7 +277,15 @@ export function AgentSessionEventTimelineChart({
       }),
       ...toolCallGroups.map((group): TimelineHoverTarget => ({ type: TIMELINE_TYPE.toolCallGroup, group })),
     ],
-    [mainEventSegments, markerGroups, subAgentGroups, subAgentLanes, toolCallGroups, turnBars],
+    [
+      mainEventSegments,
+      markerGroups,
+      subAgentEventSegments,
+      subAgentGroups,
+      subAgentToolCallGroups,
+      toolCallGroups,
+      turnBars,
+    ],
   );
 
   const barDataset = ({
@@ -319,19 +352,29 @@ export function AgentSessionEventTimelineChart({
             order: 0,
           } satisfies ChartDataset<'scatter', MarkerPoint[]>;
         }),
-        ...subAgentLanes.flatMap(lane =>
-          lane.segments.map(segment =>
-            barDataset({
-              label: `${getSessionEventLabel(segment.type)}: ${segment.title}`,
-              range: segment,
-              y: centers[eventRow + 1 + lane.lane] ?? 0,
-              color: getSessionEventColor(segment.type, isDark),
-              hover: getSessionEventHoverColor(segment.type, isDark),
-              thickness: 12,
-              order: eventOrder(segment.type),
-              inflateAmount: 0.5,
-            }),
-          ),
+        ...subAgentEventSegments.map(({ segment, lane }) =>
+          barDataset({
+            label: `${getSessionEventLabel(segment.type)}: ${segment.title}`,
+            range: segment,
+            y: centers[eventRow + 1 + lane] ?? 0,
+            color: getSessionEventColor(segment.type, isDark),
+            hover: getSessionEventHoverColor(segment.type, isDark),
+            thickness: 12,
+            order: eventOrder(segment.type),
+            inflateAmount: 0.5,
+          }),
+        ),
+        ...subAgentToolCallGroups.map(({ group, lane }) =>
+          barDataset({
+            label: 'Parallel tool calls',
+            range: group,
+            y: centers[eventRow + 1 + lane] ?? 0,
+            color: getSessionEventColor('tool_call', isDark),
+            hover: getSessionEventHoverColor('tool_call', isDark),
+            thickness: 12,
+            order: eventOrder('tool_call'),
+            inflateAmount: 0.5,
+          }),
         ),
         ...mainEventSegments.map(segment =>
           barDataset({
@@ -366,7 +409,8 @@ export function AgentSessionEventTimelineChart({
       mainEventSegments,
       markerGroups,
       markerRow,
-      subAgentLanes,
+      subAgentEventSegments,
+      subAgentToolCallGroups,
       toolCallGroups,
       turnBars,
       turnFill,
@@ -512,7 +556,10 @@ export function AgentSessionEventTimelineChart({
         }
       />
     ) : tooltipTarget?.type === TIMELINE_TYPE.toolCallGroup ? (
-      <SessionToolCallGroupTooltip group={tooltipTarget.group} />
+      <SessionToolCallGroupTooltip
+        group={tooltipTarget.group}
+        {...(tooltipTarget.subAgentLabel == null ? {} : { subAgentLabel: tooltipTarget.subAgentLabel })}
+      />
     ) : tooltipTarget?.type === TIMELINE_TYPE.markerGroup ? (
       <SessionMarkerGroupTooltip group={tooltipTarget.group} />
     ) : tooltipTarget?.type === TIMELINE_TYPE.subAgentGroup ? (

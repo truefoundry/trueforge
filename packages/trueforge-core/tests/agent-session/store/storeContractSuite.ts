@@ -706,9 +706,6 @@ export function runStoreContractSuite(createStore: () => ISessionStore) {
         }),
       ).rejects.toBeInstanceOf(SessionNotFoundError);
       await expect(
-        store.listUnconsumedTurnInboundEvents({ session_id: sessionId, turn_id: 'turn-1' }),
-      ).rejects.toBeInstanceOf(SessionNotFoundError);
-      await expect(
         store.listSessionEvents({
           session_id: sessionId,
           limit: 10,
@@ -2229,7 +2226,7 @@ export function runStoreContractSuite(createStore: () => ISessionStore) {
       expect(data.map(e => e.id)).toEqual([created.id, model.id]);
     });
 
-    it('turn_inbound_events: insert, list unconsumed, mark consumed, duplicate id', async () => {
+    it('turn_inbound_events: insert, duplicate id, terminal tip rejects', async () => {
       const store = createStore();
       await seedSession(store);
       await store.createTurn(makeCreateTurnInput({ sessionId, turnId: 'turn-1' }));
@@ -2260,25 +2257,6 @@ export function runStoreContractSuite(createStore: () => ISessionStore) {
         turn_id: 'turn-1',
         events: [later, earlier],
       });
-
-      let pending = await store.listUnconsumedTurnInboundEvents({
-        session_id: sessionId,
-        turn_id: 'turn-1',
-      });
-      expect(pending.map(e => e.event_id)).toEqual([earlier.event_id, later.event_id]);
-      expect(pending[0]?.payload).toEqual(earlier.payload);
-      expect(pending[0]?.turn_id).toBe('turn-1');
-
-      await store.markTurnInboundEventsConsumed({
-        session_id: sessionId,
-        turn_id: 'turn-1',
-        event_ids: [earlier.event_id],
-      });
-      pending = await store.listUnconsumedTurnInboundEvents({
-        session_id: sessionId,
-        turn_id: 'turn-1',
-      });
-      expect(pending.map(e => e.event_id)).toEqual([later.event_id]);
 
       await expect(
         store.insertTurnInboundEvents({
@@ -2312,11 +2290,6 @@ export function runStoreContractSuite(createStore: () => ISessionStore) {
         name: 'TurnEventAlreadyExistsError',
         event_id: later.event_id,
       });
-      expect(
-        (await store.listUnconsumedTurnInboundEvents({ session_id: sessionId, turn_id: 'turn-1' })).map(
-          e => e.event_id,
-        ),
-      ).toEqual([later.event_id]);
 
       const dupId = 'evt-dup';
       await expect(
@@ -2350,12 +2323,6 @@ export function runStoreContractSuite(createStore: () => ISessionStore) {
         name: 'TurnEventAlreadyExistsError',
         event_id: dupId,
       });
-      // Failed batch must not leave a partial row (SQL PK is all-or-nothing).
-      expect(
-        (await store.listUnconsumedTurnInboundEvents({ session_id: sessionId, turn_id: 'turn-1' })).map(
-          e => e.event_id,
-        ),
-      ).toEqual([later.event_id]);
 
       // Terminal tip rejects inbox writes.
       await finishTurn(store, 'turn-1');
@@ -2377,11 +2344,6 @@ export function runStoreContractSuite(createStore: () => ISessionStore) {
           ],
         }),
       ).rejects.toBeInstanceOf(TurnNotRunningError);
-      expect(
-        (await store.listUnconsumedTurnInboundEvents({ session_id: sessionId, turn_id: 'turn-1' })).map(
-          e => e.event_id,
-        ),
-      ).toEqual([later.event_id]);
     });
 
     it('concurrent freeze x insertTurnInboundEvents: terminal tip rejects or insert wins cleanly', async () => {
@@ -2415,80 +2377,12 @@ export function runStoreContractSuite(createStore: () => ISessionStore) {
       ]);
 
       const insertResult = results[1];
-      const pending = await store.listUnconsumedTurnInboundEvents({
-        session_id: sessionId,
-        turn_id: 'turn-1',
-      });
-      if (insertResult?.status === 'fulfilled') {
-        expect(pending.map(e => e.event_id)).toEqual([inbound.event_id]);
-      } else {
-        expect(insertResult?.reason).toBeInstanceOf(TurnNotRunningError);
-        expect(pending).toEqual([]);
+      if (insertResult.status === 'rejected') {
+        expect(insertResult.reason).toBeInstanceOf(TurnNotRunningError);
       }
 
       const turn = await store.getTurn({ session_id: sessionId, turn_id: 'turn-1' });
       expect(mustGet(turn).state.status).toBe('cancelled');
-    });
-
-    it('turn_inbound_events: list is turn-scoped', async () => {
-      const store = createStore();
-      await seedSession(store);
-      await store.createTurn(makeCreateTurnInput({ sessionId, turnId: 'turn-a' }));
-
-      const forA = {
-        event_id: 'evt-a',
-        payload: {
-          type: 'user.tool_approval' as const,
-          thread_id: 'main',
-          tool_call_id: 'tc-a',
-          approval: { status: 'allow' as const },
-        },
-        created_at: new Date().toISOString(),
-      };
-      await store.insertTurnInboundEvents({
-        session_id: sessionId,
-        turn_id: 'turn-a',
-        events: [forA],
-      });
-
-      await finishTurn(store, 'turn-a');
-      await store.createTurn(
-        makeCreateTurnInput({ sessionId, turnId: 'turn-b', previousTurnId: 'turn-a', firstTurnId: 'turn-a' }),
-      );
-
-      const forB = {
-        event_id: 'evt-b',
-        payload: {
-          type: 'user.tool_approval' as const,
-          thread_id: 'main',
-          tool_call_id: 'tc-b',
-          approval: { status: 'allow' as const },
-        },
-        created_at: new Date().toISOString(),
-      };
-
-      await store.insertTurnInboundEvents({
-        session_id: sessionId,
-        turn_id: 'turn-b',
-        events: [forB],
-      });
-
-      expect(
-        (
-          await store.listUnconsumedTurnInboundEvents({
-            session_id: sessionId,
-            turn_id: 'turn-a',
-          })
-        ).map(e => e.event_id),
-      ).toEqual([forA.event_id]);
-      expect(
-        (
-          await store.listUnconsumedTurnInboundEvents({
-            session_id: sessionId,
-            turn_id: 'turn-b',
-          })
-        ).map(e => e.event_id),
-      ).toEqual([forB.event_id]);
     });
 
     it('turn_inbound_events cascade away with deleteSession', async () => {
@@ -2513,7 +2407,22 @@ export function runStoreContractSuite(createStore: () => ISessionStore) {
       });
       await store.deleteSession({ tenant_id: tenant, session_id: sessionId });
       await expect(
-        store.listUnconsumedTurnInboundEvents({ session_id: sessionId, turn_id: 'turn-1' }),
+        store.insertTurnInboundEvents({
+          session_id: sessionId,
+          turn_id: 'turn-1',
+          events: [
+            {
+              event_id: newEventId(),
+              payload: {
+                type: 'user.tool_approval',
+                thread_id: 'main',
+                tool_call_id: 'tc-after-delete',
+                approval: { status: 'allow' },
+              },
+              created_at: new Date().toISOString(),
+            },
+          ],
+        }),
       ).rejects.toBeInstanceOf(SessionNotFoundError);
     });
 

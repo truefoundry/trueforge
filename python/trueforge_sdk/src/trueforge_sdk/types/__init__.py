@@ -249,10 +249,12 @@ if typing.TYPE_CHECKING:
     from .user_message_content import UserMessageContent
     from .user_message_content_item import UserMessageContentItem
     from .user_tool_approval_event import UserToolApprovalEvent
+    from .user_tool_approval_input_event import UserToolApprovalInputEvent
     from .user_tool_approval_message import UserToolApprovalMessage
     from .user_tool_approval_policy_event import UserToolApprovalPolicyEvent
     from .user_tool_approval_policy_message import UserToolApprovalPolicyMessage
     from .user_tool_response_event import UserToolResponseEvent
+    from .user_tool_response_input_event import UserToolResponseInputEvent
     from .user_tool_response_message import UserToolResponseMessage
     from .web_search_capability import WebSearchCapability
     from .web_search_config import WebSearchConfig
@@ -502,10 +504,12 @@ _dynamic_imports: typing.Dict[str, str] = {
     "UserMessageContent": ".user_message_content",
     "UserMessageContentItem": ".user_message_content_item",
     "UserToolApprovalEvent": ".user_tool_approval_event",
+    "UserToolApprovalInputEvent": ".user_tool_approval_input_event",
     "UserToolApprovalMessage": ".user_tool_approval_message",
     "UserToolApprovalPolicyEvent": ".user_tool_approval_policy_event",
     "UserToolApprovalPolicyMessage": ".user_tool_approval_policy_message",
     "UserToolResponseEvent": ".user_tool_response_event",
+    "UserToolResponseInputEvent": ".user_tool_response_input_event",
     "UserToolResponseMessage": ".user_tool_response_message",
     "WebSearchCapability": ".web_search_capability",
     "WebSearchConfig": ".web_search_config",
@@ -779,10 +783,12 @@ __all__ = [
     "UserMessageContent",
     "UserMessageContentItem",
     "UserToolApprovalEvent",
+    "UserToolApprovalInputEvent",
     "UserToolApprovalMessage",
     "UserToolApprovalPolicyEvent",
     "UserToolApprovalPolicyMessage",
     "UserToolResponseEvent",
+    "UserToolResponseInputEvent",
     "UserToolResponseMessage",
     "WebSearchCapability",
     "WebSearchConfig",

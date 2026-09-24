@@ -1,9 +1,4 @@
-import type {
-  InsertTurnInboundEventsInput,
-  ListUnconsumedTurnInboundEventsInput,
-  MarkTurnInboundEventsConsumedInput,
-  TurnInboundEventRecord,
-} from '@truefoundry/trueforge-core/agent-session/store/ISessionStore';
+import type { InsertTurnInboundEventsInput } from '@truefoundry/trueforge-core/agent-session/store/ISessionStore';
 import {
   SessionNotFoundError,
   TurnEventAlreadyExistsError,
@@ -102,45 +97,4 @@ export async function insertTurnInboundEvents(
     }
     throw error;
   }
-}
-
-export async function listUnconsumedTurnInboundEvents(
-  db: Kysely<Database>,
-  input: ListUnconsumedTurnInboundEventsInput,
-): Promise<TurnInboundEventRecord[]> {
-  await requireSession(db, input.session_id);
-
-  const rows = await db
-    .selectFrom('turn_inbound_events')
-    .select(['event_id', 'turn_id', 'payload', 'created_at'])
-    .where('session_id', '=', input.session_id)
-    .where('turn_id', '=', input.turn_id)
-    .where('consumed', '=', false)
-    .orderBy('event_id', 'asc')
-    .execute();
-
-  return rows.map(row => ({
-    event_id: row.event_id,
-    turn_id: row.turn_id,
-    payload: row.payload,
-    created_at: new Date(row.created_at).toISOString(),
-  }));
-}
-
-export async function markTurnInboundEventsConsumed(
-  db: Kysely<Database>,
-  input: MarkTurnInboundEventsConsumedInput,
-): Promise<void> {
-  if (input.event_ids.length === 0) {
-    return;
-  }
-  await requireSession(db, input.session_id);
-
-  await db
-    .updateTable('turn_inbound_events')
-    .set({ consumed: true })
-    .where('session_id', '=', input.session_id)
-    .where('turn_id', '=', input.turn_id)
-    .where('event_id', 'in', input.event_ids)
-    .execute();
 }

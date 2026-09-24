@@ -24,8 +24,6 @@ import type {
   ListSessionsInput,
   ListTurnEventsInput,
   ListTurnsInput,
-  ListUnconsumedTurnInboundEventsInput,
-  MarkTurnInboundEventsConsumedInput,
   NewThreadInit,
   OverwriteThreadContextInput,
   PatchMCPServersInput,
@@ -33,7 +31,6 @@ import type {
   PatchThreadCapabilityStateInput,
   RemoveThreadsInput,
   TurnContextAppend,
-  TurnInboundEventRecord,
   TurnRecordWithoutSnapshot,
   UpdateSessionInput,
   UpdateTurnStateInput,
@@ -532,40 +529,6 @@ export class InMemorySessionStore<
         created_at: event.created_at,
         consumed: false,
       });
-    }
-  }
-
-  async listUnconsumedTurnInboundEvents(
-    input: ListUnconsumedTurnInboundEventsInput,
-  ): Promise<TurnInboundEventRecord[]> {
-    this.requireSession(input.session_id);
-    const list = this.inboundEvents.get(turnKey(input)) ?? [];
-    return list
-      .filter(row => !row.consumed)
-      .slice()
-      .sort((a, b) => (a.event_id < b.event_id ? -1 : a.event_id > b.event_id ? 1 : 0))
-      .map(row => ({
-        event_id: row.event_id,
-        turn_id: row.turn_id,
-        payload: deepCopy(row.payload),
-        created_at: row.created_at,
-      }));
-  }
-
-  async markTurnInboundEventsConsumed(input: MarkTurnInboundEventsConsumedInput): Promise<void> {
-    if (input.event_ids.length === 0) {
-      return;
-    }
-    this.requireSession(input.session_id);
-    const list = this.inboundEvents.get(turnKey(input));
-    if (!list) {
-      return;
-    }
-    const wanted = new Set(input.event_ids);
-    for (const row of list) {
-      if (wanted.has(row.event_id)) {
-        row.consumed = true;
-      }
     }
   }
 

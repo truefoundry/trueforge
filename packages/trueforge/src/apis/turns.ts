@@ -925,7 +925,7 @@ export function createTurnsRouter(deps: TurnsRouterDeps) {
     });
   };
 
-  /** Persist-only inbox write; apply / wake is follow-up work. */
+  /** Accept inbound send-events. Persist / apply / wake land later. */
   const createTurnInboundEventHandler: RouteHandler<typeof createTurnInboundEventRoute> = async c => {
     const { session_id: sessionId, turn_id: turnId } = c.req.valid('param');
     const body = c.req.valid('json');
@@ -957,22 +957,13 @@ export function createTurnsRouter(deps: TurnsRouterDeps) {
       };
     });
 
-    try {
-      await deps.sessionStore.insertTurnInboundEvents({
-        session_id: sessionId,
-        turn_id: turnId,
-        events: events.map(({ event_id, payload, created_at }) => ({ event_id, payload, created_at })),
-      });
-      return c.json({ data: events.map(e => e.created) }, 201);
-    } catch (error) {
-      if (error instanceof SessionStoreNotFoundError) {
-        return c.json({ error: { message: error.message } }, 404);
-      }
-      if (error instanceof SessionStoreConflictError) {
-        return c.json({ error: { message: error.message } }, 409);
-      }
-      throw error;
-    }
+    // Persist + apply/wake land later. Mint ids now so the client contract is stable.
+    // await deps.sessionStore.insertTurnInboundEvents({
+    //   session_id: sessionId,
+    //   turn_id: turnId,
+    //   events: events.map(({ event_id, payload, created_at }) => ({ event_id, payload, created_at })),
+    // });
+    return c.json({ data: events.map(e => e.created) }, 201);
   };
 
   const router = new OpenAPIHono();

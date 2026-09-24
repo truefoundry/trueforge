@@ -152,6 +152,59 @@ describe('AgentSessionEventTimelineChart', () => {
     expect(screen.queryByRole('tooltip')).not.toBeInTheDocument();
   });
 
+  it('groups overlapping tool calls within a sub-agent lane', async () => {
+    const subAgentSegments: SessionEventTimelineSegment[] = [
+      ...segments,
+      {
+        id: 'sub-agent',
+        type: 'sub_agent',
+        title: 'thread.created',
+        description: 'Researcher',
+        startMs: 100,
+        endMs: 900,
+        turnIndex: 0,
+        threadId: 'sub-agent-thread',
+      },
+      {
+        id: 'sub-tool-1',
+        type: 'tool_call',
+        title: 'tool.call',
+        description: 'search',
+        startMs: 200,
+        endMs: 600,
+        turnIndex: 0,
+        threadId: 'sub-agent-thread',
+      },
+      {
+        id: 'sub-tool-2',
+        type: 'tool_call',
+        title: 'tool.call',
+        description: 'fetch',
+        startMs: 300,
+        endMs: 700,
+        turnIndex: 0,
+        threadId: 'sub-agent-thread',
+      },
+    ];
+    render(<AgentSessionEventTimelineChart turns={turns} segments={subAgentSegments} hiddenTypes={new Set()} />);
+
+    const datasets = Reflect.get(capturedData ?? {}, 'datasets');
+    if (!Array.isArray(datasets)) throw new Error('Expected chart datasets');
+    const groupedDatasetIndex = datasets.findIndex(dataset => Reflect.get(dataset, 'label') === 'Parallel tool calls');
+    expect(groupedDatasetIndex).toBeGreaterThanOrEqual(0);
+    expect(datasets.some(dataset => Reflect.get(dataset, 'label') === 'Tool call: search')).toBe(false);
+    expect(datasets.some(dataset => Reflect.get(dataset, 'label') === 'Tool call: fetch')).toBe(false);
+
+    const onHover = Reflect.get(capturedOptions ?? {}, 'onHover');
+    if (typeof onHover !== 'function') throw new Error('Expected Chart.js onHover callback');
+    act(() => onHover({ native: null }, [{ datasetIndex: groupedDatasetIndex }]));
+
+    expect(await screen.findByText('Sub-Agent: Researcher')).toBeInTheDocument();
+    expect(await screen.findByText('Tool calls')).toBeInTheDocument();
+    expect(screen.getByText('search').parentElement?.parentElement).not.toHaveClass('border-t');
+    expect(screen.getByText('fetch')).toBeInTheDocument();
+  });
+
   it('summarizes every sub-agent represented by a shared bar', () => {
     render(
       <SessionSubAgentGroupTooltip
