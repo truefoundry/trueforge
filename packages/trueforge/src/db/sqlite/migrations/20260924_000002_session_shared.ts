@@ -2,7 +2,7 @@ import { sql, type Kysely } from 'kysely';
 
 /**
  * Tenant-visible share flag. Existing sessions stay private.
- * Mirrors db/postgres/migrations/20260923_000001_session_shared.ts.
+ * Mirrors db/postgres/migrations/20260924_000002_session_shared.ts.
  * Kysely does not wrap SQLite migrations — keep schema changes in a transaction.
  */
 export async function up(db: Kysely<unknown>): Promise<void> {
