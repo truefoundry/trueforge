@@ -147,11 +147,10 @@ The package workflow starts the chart workflow with the GitHub App token.
 
 ## Dockerfile
 
-| File                               | Role                                                                                                    |
-| ---------------------------------- | ------------------------------------------------------------------------------------------------------- |
-| [`Dockerfile`](Dockerfile)         | From-source. Prod Helm, [`docker-compose.yml`](docker-compose.yml), Railway                             |
-| [`Dockerfile.dev`](Dockerfile.dev) | Same as `Dockerfile`. Kept for Railway services that still set `RAILWAY_DOCKERFILE_PATH=Dockerfile.dev` |
-| [`Dockerfile.npm`](Dockerfile.npm) | Previous npm-install image (`APP_VERSION` from the registry)                                            |
+| File                               | Role                                                                        |
+| ---------------------------------- | --------------------------------------------------------------------------- |
+| [`Dockerfile`](Dockerfile)         | From-source. Prod Helm, [`docker-compose.yml`](docker-compose.yml), Railway |
+| [`Dockerfile.npm`](Dockerfile.npm) | Previous npm-install image (`APP_VERSION` from the registry)                |
 
 The image is the workspace at the dispatched commit. Chart `appVersion` is that
 commit's `packages/trueforge/package.json` version. Image tags use the peeled
