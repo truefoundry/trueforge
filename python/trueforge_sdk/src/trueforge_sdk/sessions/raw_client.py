@@ -1459,7 +1459,7 @@ class RawSessionsClient:
             Turn identifier.
 
         events : typing.Sequence[TurnInboundEventItem]
-            One or more events (`user.tool_approval`, `user.tool_response`, `user.tool_approval_policy`).
+            One or more user events.
 
         request_options : typing.Optional[RequestOptions]
             Request-specific configuration.
@@ -3101,7 +3101,7 @@ class AsyncRawSessionsClient:
             Turn identifier.
 
         events : typing.Sequence[TurnInboundEventItem]
-            One or more events (`user.tool_approval`, `user.tool_response`, `user.tool_approval_policy`).
+            One or more user events.
 
         request_options : typing.Optional[RequestOptions]
             Request-specific configuration.

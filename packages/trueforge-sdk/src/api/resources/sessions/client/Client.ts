@@ -1760,12 +1760,7 @@ export class SessionsClient {
      * @example
      *     await client.sessions.createTurnEvent("session_id", "turn_id", {
      *         events: [{
-     *                 approval: {
-     *                     status: "allow"
-     *                 },
-     *                 threadId: "thread_id",
-     *                 toolCallId: "tool_call_id",
-     *                 type: "user.tool_approval"
+     *                 type: "user.mcp_auth_continue"
      *             }]
      *     })
      */

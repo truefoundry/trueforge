@@ -1401,28 +1401,8 @@ describe("SessionsClient", () => {
     test("create_turn_event (1)", async () => {
         const server = mockServerPool.createServer();
         const client = new TrueForge({ maxRetries: 0, token: "test", baseUrl: server.baseUrl });
-        const rawRequestBody = {
-            events: [
-                {
-                    approval: { status: "allow" },
-                    thread_id: "thread_id",
-                    tool_call_id: "tool_call_id",
-                    type: "user.tool_approval",
-                },
-            ],
-        };
-        const rawResponseBody = {
-            data: [
-                {
-                    approval: { status: "allow" },
-                    created_at: "created_at",
-                    id: "id",
-                    thread_id: "thread_id",
-                    tool_call_id: "tool_call_id",
-                    type: "user.tool_approval",
-                },
-            ],
-        };
+        const rawRequestBody = { events: [{ type: "user.mcp_auth_continue" }] };
+        const rawResponseBody = { data: [{ created_at: "created_at", id: "id", type: "user.mcp_auth_continue" }] };
 
         server
             .mockEndpoint()
@@ -1436,26 +1416,16 @@ describe("SessionsClient", () => {
         const response = await client.sessions.createTurnEvent("session_id", "turn_id", {
             events: [
                 {
-                    approval: {
-                        status: "allow",
-                    },
-                    threadId: "thread_id",
-                    toolCallId: "tool_call_id",
-                    type: "user.tool_approval",
+                    type: "user.mcp_auth_continue",
                 },
             ],
         });
         expect(response).toEqual({
             data: [
                 {
-                    approval: {
-                        status: "allow",
-                    },
                     createdAt: "created_at",
                     id: "id",
-                    threadId: "thread_id",
-                    toolCallId: "tool_call_id",
-                    type: "user.tool_approval",
+                    type: "user.mcp_auth_continue",
                 },
             ],
         });
@@ -1464,12 +1434,7 @@ describe("SessionsClient", () => {
     test("create_turn_event (2)", async () => {
         const server = mockServerPool.createServer();
         const client = new TrueForge({ maxRetries: 0, token: "test", baseUrl: server.baseUrl });
-        const rawRequestBody = {
-            events: [
-                { approval: { status: "allow" }, thread_id: "x", tool_call_id: "x", type: "user.tool_approval" },
-                { approval: { status: "allow" }, thread_id: "x", tool_call_id: "x", type: "user.tool_approval" },
-            ],
-        };
+        const rawRequestBody = { events: [{ type: "user.mcp_auth_continue" }, { type: "user.mcp_auth_continue" }] };
         const rawResponseBody = { error: { message: "message" } };
 
         server
@@ -1485,20 +1450,10 @@ describe("SessionsClient", () => {
             return await client.sessions.createTurnEvent("session_id", "turn_id", {
                 events: [
                     {
-                        approval: {
-                            status: "allow",
-                        },
-                        threadId: "x",
-                        toolCallId: "x",
-                        type: "user.tool_approval",
+                        type: "user.mcp_auth_continue",
                     },
                     {
-                        approval: {
-                            status: "allow",
-                        },
-                        threadId: "x",
-                        toolCallId: "x",
-                        type: "user.tool_approval",
+                        type: "user.mcp_auth_continue",
                     },
                 ],
             });
@@ -1508,12 +1463,7 @@ describe("SessionsClient", () => {
     test("create_turn_event (3)", async () => {
         const server = mockServerPool.createServer();
         const client = new TrueForge({ maxRetries: 0, token: "test", baseUrl: server.baseUrl });
-        const rawRequestBody = {
-            events: [
-                { approval: { status: "allow" }, thread_id: "x", tool_call_id: "x", type: "user.tool_approval" },
-                { approval: { status: "allow" }, thread_id: "x", tool_call_id: "x", type: "user.tool_approval" },
-            ],
-        };
+        const rawRequestBody = { events: [{ type: "user.mcp_auth_continue" }, { type: "user.mcp_auth_continue" }] };
         const rawResponseBody = { error: { message: "message" } };
 
         server
@@ -1529,20 +1479,10 @@ describe("SessionsClient", () => {
             return await client.sessions.createTurnEvent("session_id", "turn_id", {
                 events: [
                     {
-                        approval: {
-                            status: "allow",
-                        },
-                        threadId: "x",
-                        toolCallId: "x",
-                        type: "user.tool_approval",
+                        type: "user.mcp_auth_continue",
                     },
                     {
-                        approval: {
-                            status: "allow",
-                        },
-                        threadId: "x",
-                        toolCallId: "x",
-                        type: "user.tool_approval",
+                        type: "user.mcp_auth_continue",
                     },
                 ],
             });
@@ -1552,12 +1492,7 @@ describe("SessionsClient", () => {
     test("create_turn_event (4)", async () => {
         const server = mockServerPool.createServer();
         const client = new TrueForge({ maxRetries: 0, token: "test", baseUrl: server.baseUrl });
-        const rawRequestBody = {
-            events: [
-                { approval: { status: "allow" }, thread_id: "x", tool_call_id: "x", type: "user.tool_approval" },
-                { approval: { status: "allow" }, thread_id: "x", tool_call_id: "x", type: "user.tool_approval" },
-            ],
-        };
+        const rawRequestBody = { events: [{ type: "user.mcp_auth_continue" }, { type: "user.mcp_auth_continue" }] };
         const rawResponseBody = { error: { message: "message" } };
 
         server
@@ -1573,20 +1508,10 @@ describe("SessionsClient", () => {
             return await client.sessions.createTurnEvent("session_id", "turn_id", {
                 events: [
                     {
-                        approval: {
-                            status: "allow",
-                        },
-                        threadId: "x",
-                        toolCallId: "x",
-                        type: "user.tool_approval",
+                        type: "user.mcp_auth_continue",
                     },
                     {
-                        approval: {
-                            status: "allow",
-                        },
-                        threadId: "x",
-                        toolCallId: "x",
-                        type: "user.tool_approval",
+                        type: "user.mcp_auth_continue",
                     },
                 ],
             });
@@ -1596,12 +1521,7 @@ describe("SessionsClient", () => {
     test("create_turn_event (5)", async () => {
         const server = mockServerPool.createServer();
         const client = new TrueForge({ maxRetries: 0, token: "test", baseUrl: server.baseUrl });
-        const rawRequestBody = {
-            events: [
-                { approval: { status: "allow" }, thread_id: "x", tool_call_id: "x", type: "user.tool_approval" },
-                { approval: { status: "allow" }, thread_id: "x", tool_call_id: "x", type: "user.tool_approval" },
-            ],
-        };
+        const rawRequestBody = { events: [{ type: "user.mcp_auth_continue" }, { type: "user.mcp_auth_continue" }] };
         const rawResponseBody = { error: { message: "message" } };
 
         server
@@ -1617,20 +1537,10 @@ describe("SessionsClient", () => {
             return await client.sessions.createTurnEvent("session_id", "turn_id", {
                 events: [
                     {
-                        approval: {
-                            status: "allow",
-                        },
-                        threadId: "x",
-                        toolCallId: "x",
-                        type: "user.tool_approval",
+                        type: "user.mcp_auth_continue",
                     },
                     {
-                        approval: {
-                            status: "allow",
-                        },
-                        threadId: "x",
-                        toolCallId: "x",
-                        type: "user.tool_approval",
+                        type: "user.mcp_auth_continue",
                     },
                 ],
             });
