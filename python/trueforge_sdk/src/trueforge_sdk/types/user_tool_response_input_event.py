@@ -5,11 +5,14 @@ import typing
 import pydantic
 from ..core.pydantic_utilities import IS_PYDANTIC_V2
 from ..core.unchecked_base_model import UncheckedBaseModel
-from .approval_decision import ApprovalDecision
 
 
-class UserToolApprovalMessage(UncheckedBaseModel):
-    approval: ApprovalDecision
+class UserToolResponseInputEvent(UncheckedBaseModel):
+    content: str = pydantic.Field()
+    """
+    Client-side tool result content.
+    """
+
     thread_id: str = pydantic.Field()
     """
     Thread that owns the pending tool call.
@@ -17,10 +20,10 @@ class UserToolApprovalMessage(UncheckedBaseModel):
 
     tool_call_id: str = pydantic.Field()
     """
-    Tool call id being approved or denied.
+    Tool call id receiving the client response.
     """
 
-    type: typing.Literal["user.tool_approval"] = "user.tool_approval"
+    type: typing.Literal["user.tool_response"] = "user.tool_response"
 
     if IS_PYDANTIC_V2:
         model_config: typing.ClassVar[pydantic.ConfigDict] = pydantic.ConfigDict(extra="allow")  # type: ignore # Pydantic v2
