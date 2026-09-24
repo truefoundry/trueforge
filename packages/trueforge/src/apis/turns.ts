@@ -62,6 +62,7 @@ import {
 } from '../runtime/sessionResources';
 import { checkSnapshotStatus } from '../sandbox/providerUtils';
 import { MAX_SESSION_TITLE_LENGTH } from '../schemas/session';
+import { assertGatewayMetadataRequestHeaders } from '../truefoundry/gatewayMetadata';
 import { newId } from '../utils/id';
 import { resolveWebSearchProvider } from '../websearch/providers';
 import { canReadAgentBoundResource } from './agentAccess';
@@ -397,8 +398,11 @@ export async function beginTurnExecution(
   params: BeginTurnExecutionParams,
 ): Promise<{ turn: TurnHandle; drainInput: TurnEventDrainInput }> {
   const { session, input, previous_turn_id: previousTurnId, userRef, requestHeaders, deps } = params;
+  // Fail closed on a bad inbound header before minting a turn id / starting execution.
+  assertGatewayMetadataRequestHeaders(requestHeaders);
   const sessionId = session.session_id;
   const turnId = newId();
+  const sessionAgent = session.record.agent;
 
   const abortController = new AbortController();
   const tenant_id = session.tenant_id;
@@ -420,7 +424,7 @@ export async function beginTurnExecution(
     turnMetadata: {
       sessionId: session.session_id,
       turnId,
-      ...(session.agent.type === 'reference' ? { agent: { id: session.agent.id, name: session.agent.name } } : {}),
+      ...(sessionAgent.type === 'reference' ? { agent: { id: sessionAgent.id, name: sessionAgent.name } } : {}),
       ...(requestHeaders === undefined ? {} : { requestHeaders }),
     },
   });
