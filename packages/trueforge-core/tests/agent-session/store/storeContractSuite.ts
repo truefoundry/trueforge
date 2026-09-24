@@ -384,6 +384,50 @@ export function runStoreContractSuite(createStore: () => ISessionStore) {
       expect(mustGet(await store.getSession({ tenant_id: tenant, session_id: sessionId })).metadata).toEqual({});
     });
 
+    it('createSession defaults shared to false', async () => {
+      const store = createStore();
+      await seedSession(store);
+      expect(mustGet(await store.getSession({ tenant_id: tenant, session_id: sessionId })).shared).toBe(false);
+    });
+
+    it('updateSession patches shared when set and leaves it when omitted', async () => {
+      const store = createStore();
+      await seedSession(store);
+      expect(mustGet(await store.getSession({ tenant_id: tenant, session_id: sessionId })).shared).toBe(false);
+
+      await store.updateSession({
+        tenant_id: tenant,
+        session_id: sessionId,
+        agent: undefined,
+        title: undefined,
+        metadata: undefined,
+        shared: true,
+      });
+      expect(mustGet(await store.getSession({ tenant_id: tenant, session_id: sessionId })).shared).toBe(true);
+
+      await store.updateSession({
+        tenant_id: tenant,
+        session_id: sessionId,
+        agent: undefined,
+        title: 'keep-shared',
+        metadata: undefined,
+        shared: undefined,
+      });
+      const afterOmit = mustGet(await store.getSession({ tenant_id: tenant, session_id: sessionId }));
+      expect(afterOmit.title).toBe('keep-shared');
+      expect(afterOmit.shared).toBe(true);
+
+      await store.updateSession({
+        tenant_id: tenant,
+        session_id: sessionId,
+        agent: undefined,
+        title: undefined,
+        metadata: undefined,
+        shared: false,
+      });
+      expect(mustGet(await store.getSession({ tenant_id: tenant, session_id: sessionId })).shared).toBe(false);
+    });
+
     it('createSession conflict when session already exists', async () => {
       const store = createStore();
       await seedSession(store);

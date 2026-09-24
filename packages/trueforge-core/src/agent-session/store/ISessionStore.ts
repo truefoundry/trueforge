@@ -295,6 +295,7 @@ export interface ISessionStore<
    * - agent: replace inline binding (inline sessions only; reference → invariant error).
    * - title: set/replace the session title.
    * - metadata: full replace of the caller-owned string map when set.
+   * - shared: set/replace the share flag when set; omitted leaves the stored value.
    * Bumps `last_activity_timestamp_ms` (= now) in the same update.
    */
   updateSession(input: UpdateSessionInput<TSessionCustom>): Promise<void>;
