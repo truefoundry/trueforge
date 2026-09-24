@@ -43,6 +43,27 @@ function shellBaseTokenPlugin(): Plugin {
   };
 }
 
+/** Dev-only: production leaves `<!-- trueforge-app-brand -->` for the server to fill. */
+function serveDefaultBrandPlugin(): Plugin {
+  const brandHtml = [
+    '    <title>TrueForge</title>',
+    '    <meta name="title" content="TrueForge" />',
+    '    <meta content="TrueForge" property="og:title" />',
+    '    <meta content="TrueForge" property="twitter:title" />',
+    '    <meta property="og:type" content="website" />',
+    '    <meta property="twitter:card" content="summary_large_image" />',
+  ].join('\n');
+  return {
+    name: 'trueforge-serve-default-brand',
+    transformIndexHtml(html) {
+      if (!html.includes('<!-- trueforge-app-brand -->')) {
+        return html;
+      }
+      return html.replace(/^[ \t]*<!-- trueforge-app-brand -->\n?/m, `${brandHtml}\n`);
+    },
+  };
+}
+
 export default defineConfig(({ command }) => ({
   base: command === 'build' ? './' : '/',
   plugins: [
@@ -58,7 +79,7 @@ export default defineConfig(({ command }) => ({
       threshold: 1024,
       skipIfLargerOrEqual: true,
     }),
-    ...(command === 'build' ? [shellBaseTokenPlugin()] : []),
+    ...(command === 'build' ? [shellBaseTokenPlugin()] : [serveDefaultBrandPlugin()]),
   ],
   // Single React / assistant-ui Context instance (avoids "requires an AuiProvider").
   resolve: {

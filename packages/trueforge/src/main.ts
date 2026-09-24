@@ -715,6 +715,17 @@ try {
     mountFrontend(app, {
       dir: configuration.FRONTEND_DIR,
       uiBasePath: getPublicUiBasePath(),
+      brand: {
+        title: configuration.APP_TITLE,
+        description: configuration.APP_DESCRIPTION,
+        ogImage: configuration.APP_OG_IMAGE,
+        ogUrl: configuration.APP_OG_URL,
+        twitterImage: configuration.APP_TWITTER_IMAGE,
+        favicon: configuration.APP_FAVICON,
+        favicon16: configuration.APP_FAVICON_16,
+        favicon32: configuration.APP_FAVICON_32,
+        manifest: configuration.APP_MANIFEST,
+      },
     })
   ) {
     logger.info(`Serving frontend from ${configuration.FRONTEND_DIR}`);
