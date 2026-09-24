@@ -97,9 +97,9 @@ function renderPage({
 } = {}) {
   const server = createMockAgentUIServer({
     getSession,
-    searchAgents: vi.fn(async () => [
-      { agentId: 'agent-1', name: 'release-notes-writer', agentSpec: { model: { name: 'openai/gpt-5.1' } } },
-    ]),
+    searchAgents: vi.fn(async () => ({
+      data: [{ agentId: 'agent-1', name: 'release-notes-writer', agentSpec: { model: { name: 'openai/gpt-5.1' } } }],
+    })),
     sessions: { getAgent: vi.fn(), getCodeSnippets: vi.fn(), listSessions, listSessionEvents },
     ...(deleteSession == null ? {} : { deleteSession }),
     ...(permissions == null ? {} : { permissions }),

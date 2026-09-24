@@ -31,8 +31,8 @@ describe('AgentSearchPicker', () => {
         { name: 'alpha-bot', agentId: 'alpha-bot' },
         { name: 'beta-bot', agentId: 'beta-bot' },
       ];
-      if (query == null || query === '') return agents;
-      return agents.filter(agent => agent.name.includes(query));
+      if (query == null || query === '') return { data: agents };
+      return { data: agents.filter(agent => agent.name.includes(query)) };
     });
     const onValueChange = vi.fn();
     const onAgentPicked = vi.fn();
@@ -82,8 +82,8 @@ describe('AgentSearchPicker', () => {
         { name: 'alpha-bot', agentId: 'alpha-bot' },
         { name: 'beta-bot', agentId: 'beta-bot' },
       ];
-      if (query == null || query === '') return agents;
-      return agents.filter(agent => agent.name.includes(query));
+      if (query == null || query === '') return { data: agents };
+      return { data: agents.filter(agent => agent.name.includes(query)) };
     });
     const onValueChange = vi.fn();
 

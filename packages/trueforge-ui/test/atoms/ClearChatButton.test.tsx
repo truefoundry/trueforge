@@ -22,7 +22,7 @@ const startedMessages = [{ role: 'user' as const, content: 'hello', id: 'm1' }];
 
 function mockServer() {
   return createMockAgentUIServer({
-    searchAgents: vi.fn(async () => [{ name: 'alpha', agentId: 'alpha' }]),
+    searchAgents: vi.fn(async () => ({ data: [{ name: 'alpha', agentId: 'alpha' }] })),
   });
 }
 

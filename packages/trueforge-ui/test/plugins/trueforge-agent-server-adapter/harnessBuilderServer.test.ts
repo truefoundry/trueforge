@@ -345,8 +345,8 @@ describe('harnessBuilderServer', () => {
 
     const builder = createHarnessBuilderServer({ fetch: fetchMock });
     const all = await builder.searchAgents();
-    assert.equal(all.length, 2);
-    assert.deepEqual(all[0], {
+    assert.equal(all.data.length, 2);
+    assert.deepEqual(all.data[0], {
       name: 'reviewer',
       agentId: 'agt_1',
       createdBySubject: {
@@ -365,13 +365,13 @@ describe('harnessBuilderServer', () => {
 
     const filtered = await builder.searchAgents({ query: ' write ' });
     assert.deepEqual(
-      filtered.map(row => row.name),
+      filtered.data.map(row => row.name),
       ['writer'],
     );
     assert.deepEqual(requestedAgentNames, [null, 'write']);
   });
 
-  it('searchAgents advances offset via page_token on a later API page', async () => {
+  it('searchAgents advances via pageToken on a later API page', async () => {
     const fetchMock: typeof fetch = async input => {
       const url = String(input instanceof Request ? input.url : input);
       const parsed = new URL(url);
@@ -392,18 +392,20 @@ describe('harnessBuilderServer', () => {
       if (pageToken === 'tok_2') {
         return Response.json({
           data: [{ id: 'agt_2', name: 'beta', manifest: { model: { name: 'test/model' } } }],
-          pagination: { limit: 1 },
+          pagination: { limit: 1, previous_page_token: 'tok_1' },
         });
       }
       return new Response(`Unexpected page_token: ${pageToken}`, { status: 500 });
     };
 
     const builder = createHarnessBuilderServer({ fetch: fetchMock });
-    const page = await builder.searchAgents({ query: 'a', limit: 1, offset: 1 });
+    const page = await builder.searchAgents({ query: 'a', limit: 1, pageToken: 'tok_2' });
     assert.deepEqual(
-      page.map(row => row.name),
+      page.data.map(row => row.name),
       ['beta'],
     );
+    assert.equal(page.previousPageToken, 'tok_1');
+    assert.equal(page.nextPageToken, undefined);
   });
 
   it('searchAgents caps limit at 100', async () => {
