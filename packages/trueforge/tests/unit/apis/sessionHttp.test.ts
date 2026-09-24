@@ -498,6 +498,9 @@ describe('sessions HTTP agent binding', () => {
               },
             ],
           },
+          {
+            type: 'user.mcp_auth_continue',
+          },
         ],
       }),
     );
@@ -513,7 +516,7 @@ describe('sessions HTTP agent binding', () => {
         policies?: unknown[];
       }>;
     };
-    expect(body.data).toHaveLength(2);
+    expect(body.data).toHaveLength(3);
     expect(body.data[0]).toMatchObject({
       type: 'user.tool_approval',
       thread_id: 'main',
@@ -532,6 +535,9 @@ describe('sessions HTTP agent binding', () => {
         },
       ],
     });
+    expect(body.data[2]).toMatchObject({ type: 'user.mcp_auth_continue' });
+    expect(body.data[2]?.id).toEqual(expect.any(String));
+    expect(body.data[2]?.created_at).toEqual(expect.any(String));
   });
 
   it('rejects PATCH agent on a named session', async () => {

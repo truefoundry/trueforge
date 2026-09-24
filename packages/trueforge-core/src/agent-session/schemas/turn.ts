@@ -5,6 +5,7 @@ import {
   AgentInputUserMessageSchema,
   EventIdSchema,
   ModelMessageEventSchema,
+  UserMCPAuthContinueMessageSchema,
   UserToolApprovalMessageSchema,
   UserToolApprovalPolicyMessageSchema,
   UserToolResponseMessageSchema,
@@ -199,6 +200,7 @@ export const TurnInboundEventItemSchema = z
     UserToolApprovalMessageSchema,
     UserToolResponseMessageSchema,
     UserToolApprovalPolicyMessageSchema,
+    UserMCPAuthContinueMessageSchema,
   ])
   .openapi('TurnInboundEventItem');
 
