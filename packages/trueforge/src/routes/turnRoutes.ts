@@ -6,8 +6,8 @@
 import { createRoute, z } from '@hono/zod-openapi';
 import { RequestErrorResponseSchema } from '../schemas/errors';
 import {
-  CreateTurnInboundEventRequestSchema,
-  CreateTurnInboundEventResponseSchema,
+  CreateTurnEventRequestSchema,
+  CreateTurnEventResponseSchema,
   TurnStreamingEventSchema,
 } from '../schemas/events';
 import {
@@ -172,30 +172,25 @@ export const listTurnEventsRoute = createRoute({
   },
 });
 
-/**
- * Create inbound tip HITL / policy events in `turn_inbound_events`.
- * Apply / wake / auto-continue land in follow-up work — this route only inserts.
- */
-export const createTurnInboundEventRoute = createRoute({
+export const createTurnEventRoute = createRoute({
   method: 'post',
   path: '/{session_id}/turns/{turn_id}/events',
   tags: [OpenApiTag.AGENT_SESSIONS],
-  summary: 'Create turn inbound events',
-  description:
-    'Create inbound events (`user.tool_approval`, `user.tool_response`, `user.tool_approval_policy`) in the durable turn inbox. Only the session creator may create. Events are stored unconsumed; applying them to the turn is a separate step.',
+  summary: 'Create turn events',
+  description: 'Create events for a turn. Only the session creator may create them.',
   'x-fern-sdk-group-name': ['sessions'],
-  'x-fern-sdk-method-name': 'create_turn_inbound_event',
+  'x-fern-sdk-method-name': 'create_turn_event',
   request: {
     params: TurnIdParamsSchema,
     body: {
-      content: { 'application/json': { schema: CreateTurnInboundEventRequestSchema } },
+      content: { 'application/json': { schema: CreateTurnEventRequestSchema } },
       required: true,
     },
   },
   responses: {
     201: {
-      content: { 'application/json': { schema: CreateTurnInboundEventResponseSchema } },
-      description: 'Events created in the turn inbox.',
+      content: { 'application/json': { schema: CreateTurnEventResponseSchema } },
+      description: 'Events created.',
     },
     400: {
       content: { 'application/json': { schema: RequestErrorResponseSchema } },

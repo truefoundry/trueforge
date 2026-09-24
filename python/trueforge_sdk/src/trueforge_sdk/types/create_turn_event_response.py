@@ -5,22 +5,14 @@ import typing
 import pydantic
 from ..core.pydantic_utilities import IS_PYDANTIC_V2
 from ..core.unchecked_base_model import UncheckedBaseModel
-from .approval_decision import ApprovalDecision
+from .create_turn_event_response_data_item import CreateTurnEventResponseDataItem
 
 
-class UserToolApprovalMessage(UncheckedBaseModel):
-    approval: ApprovalDecision
-    thread_id: str = pydantic.Field()
+class CreateTurnEventResponse(UncheckedBaseModel):
+    data: typing.List[CreateTurnEventResponseDataItem] = pydantic.Field()
     """
-    Thread that owns the pending tool call.
+    Events with server-minted `id` and `created_at`, in request order.
     """
-
-    tool_call_id: str = pydantic.Field()
-    """
-    Tool call id being approved or denied.
-    """
-
-    type: typing.Literal["user.tool_approval"] = "user.tool_approval"
 
     if IS_PYDANTIC_V2:
         model_config: typing.ClassVar[pydantic.ConfigDict] = pydantic.ConfigDict(extra="allow")  # type: ignore # Pydantic v2

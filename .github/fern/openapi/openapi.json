@@ -1163,10 +1163,10 @@
         ],
         "type": "object"
       },
-      "CreateTurnInboundEventRequest": {
+      "CreateTurnEventRequest": {
         "properties": {
           "events": {
-            "description": "One or more inbound items (`user.tool_approval`, `user.tool_response`, `user.tool_approval_policy`).",
+            "description": "One or more events (`user.tool_approval`, `user.tool_response`, `user.tool_approval_policy`).",
             "items": {
               "$ref": "#/components/schemas/TurnInboundEventItem"
             },
@@ -1179,12 +1179,30 @@
         ],
         "type": "object"
       },
-      "CreateTurnInboundEventResponse": {
+      "CreateTurnEventResponse": {
         "properties": {
           "data": {
-            "description": "Created inbox events with server-minted `id` and `created_at`, in request order.",
+            "description": "Events with server-minted `id` and `created_at`, in request order.",
             "items": {
-              "$ref": "#/components/schemas/CreatedTurnInboundEvent"
+              "discriminator": {
+                "mapping": {
+                  "user.tool_approval": "#/components/schemas/UserToolApprovalEvent",
+                  "user.tool_approval_policy": "#/components/schemas/UserToolApprovalPolicyEvent",
+                  "user.tool_response": "#/components/schemas/UserToolResponseEvent"
+                },
+                "propertyName": "type"
+              },
+              "oneOf": [
+                {
+                  "$ref": "#/components/schemas/UserToolApprovalEvent"
+                },
+                {
+                  "$ref": "#/components/schemas/UserToolResponseEvent"
+                },
+                {
+                  "$ref": "#/components/schemas/UserToolApprovalPolicyEvent"
+                }
+              ]
             },
             "type": "array"
           }
@@ -1240,27 +1258,6 @@
           "subject_display_name"
         ],
         "type": "object"
-      },
-      "CreatedTurnInboundEvent": {
-        "discriminator": {
-          "mapping": {
-            "user.tool_approval": "#/components/schemas/UserToolApprovalEvent",
-            "user.tool_approval_policy": "#/components/schemas/UserToolApprovalPolicyEvent",
-            "user.tool_response": "#/components/schemas/UserToolResponseEvent"
-          },
-          "propertyName": "type"
-        },
-        "oneOf": [
-          {
-            "$ref": "#/components/schemas/UserToolApprovalEvent"
-          },
-          {
-            "$ref": "#/components/schemas/UserToolResponseEvent"
-          },
-          {
-            "$ref": "#/components/schemas/UserToolApprovalPolicyEvent"
-          }
-        ]
       },
       "CronExpression": {
         "description": "Standard 5-field cron expression, evaluated in `timezone`.",
@@ -4876,13 +4873,13 @@
               }
             ]
           },
-          "server_name": {
-            "description": "Configured MCP server name (same as tool_info.server_name on model.message).",
+          "name": {
+            "description": "Tool name on that server.",
             "minLength": 1,
             "type": "string"
           },
-          "name": {
-            "description": "Tool name on that server (same as tool_info.name on model.message).",
+          "server_name": {
+            "description": "MCP server name.",
             "minLength": 1,
             "type": "string"
           }
@@ -5347,18 +5344,18 @@
       "TurnInboundEventItem": {
         "discriminator": {
           "mapping": {
-            "user.tool_approval": "#/components/schemas/UserToolApprovalMessage",
+            "user.tool_approval": "#/components/schemas/UserToolApprovalInputEvent",
             "user.tool_approval_policy": "#/components/schemas/UserToolApprovalPolicyMessage",
-            "user.tool_response": "#/components/schemas/UserToolResponseMessage"
+            "user.tool_response": "#/components/schemas/UserToolResponseInputEvent"
           },
           "propertyName": "type"
         },
         "oneOf": [
           {
-            "$ref": "#/components/schemas/UserToolApprovalMessage"
+            "$ref": "#/components/schemas/UserToolApprovalInputEvent"
           },
           {
-            "$ref": "#/components/schemas/UserToolResponseMessage"
+            "$ref": "#/components/schemas/UserToolResponseInputEvent"
           },
           {
             "$ref": "#/components/schemas/UserToolApprovalPolicyMessage"
@@ -5985,37 +5982,6 @@
         ],
         "type": "object"
       },
-      "UserToolApprovalMessage": {
-        "properties": {
-          "approval": {
-            "$ref": "#/components/schemas/ApprovalDecision"
-          },
-          "thread_id": {
-            "description": "Thread that owns the pending tool call.",
-            "minLength": 1,
-            "type": "string"
-          },
-          "tool_call_id": {
-            "description": "Tool call id being approved or denied.",
-            "minLength": 1,
-            "type": "string"
-          },
-          "type": {
-            "description": "Client resume after tool.approval_required.",
-            "enum": [
-              "user.tool_approval"
-            ],
-            "type": "string"
-          }
-        },
-        "required": [
-          "type",
-          "thread_id",
-          "tool_call_id",
-          "approval"
-        ],
-        "type": "object"
-      },
       "UserToolApprovalPolicyEvent": {
         "properties": {
           "created_at": {
@@ -6118,39 +6084,6 @@
         "type": "object"
       },
       "UserToolResponseInputEvent": {
-        "properties": {
-          "content": {
-            "description": "Client-side tool result content.",
-            "minLength": 1,
-            "type": "string"
-          },
-          "thread_id": {
-            "description": "Thread that owns the pending tool call.",
-            "minLength": 1,
-            "type": "string"
-          },
-          "tool_call_id": {
-            "description": "Tool call id receiving the client response.",
-            "minLength": 1,
-            "type": "string"
-          },
-          "type": {
-            "description": "Client resume after tool.response_required.",
-            "enum": [
-              "user.tool_response"
-            ],
-            "type": "string"
-          }
-        },
-        "required": [
-          "type",
-          "thread_id",
-          "tool_call_id",
-          "content"
-        ],
-        "type": "object"
-      },
-      "UserToolResponseMessage": {
         "properties": {
           "content": {
             "description": "Client-side tool result content.",
@@ -9706,7 +9639,7 @@
         "x-fern-sdk-method-name": "list_turn_events"
       },
       "post": {
-        "description": "Create inbound events (`user.tool_approval`, `user.tool_response`, `user.tool_approval_policy`) in the durable turn inbox. Only the session creator may create. Events are stored unconsumed; applying them to the turn is a separate step.",
+        "description": "Create events for a turn. Only the session creator may create them.",
         "parameters": [
           {
             "description": "Session identifier.",
@@ -9736,7 +9669,7 @@
           "content": {
             "application/json": {
               "schema": {
-                "$ref": "#/components/schemas/CreateTurnInboundEventRequest"
+                "$ref": "#/components/schemas/CreateTurnEventRequest"
               }
             }
           },
@@ -9747,11 +9680,11 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/CreateTurnInboundEventResponse"
+                  "$ref": "#/components/schemas/CreateTurnEventResponse"
                 }
               }
             },
-            "description": "Events created in the turn inbox."
+            "description": "Events created."
           },
           "400": {
             "content": {
@@ -9794,14 +9727,14 @@
             "description": "Turn is terminal, or an event id already exists."
           }
         },
-        "summary": "Create turn inbound events",
+        "summary": "Create turn events",
         "tags": [
           "Agent Sessions"
         ],
         "x-fern-sdk-group-name": [
           "sessions"
         ],
-        "x-fern-sdk-method-name": "create_turn_inbound_event"
+        "x-fern-sdk-method-name": "create_turn_event"
       }
     },
     "/api/v1/sessions/{session_id}/turns/{turn_id}/subscribe": {

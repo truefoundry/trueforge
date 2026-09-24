@@ -31,7 +31,7 @@ from ..errors.unauthorized_error import UnauthorizedError
 from ..errors.unprocessable_entity_error import UnprocessableEntityError
 from ..types.cancel_session_response import CancelSessionResponse
 from ..types.create_session_agent import CreateSessionAgent
-from ..types.create_turn_inbound_event_response import CreateTurnInboundEventResponse
+from ..types.create_turn_event_response import CreateTurnEventResponse
 from ..types.get_session_response import GetSessionResponse
 from ..types.get_turn_response import GetTurnResponse
 from ..types.list_session_events_response import ListSessionEventsResponse
@@ -1439,16 +1439,16 @@ class RawSessionsClient:
             )
         raise ApiError(status_code=_response.status_code, headers=dict(_response.headers), body=_response_json)
 
-    def create_turn_inbound_event(
+    def create_turn_event(
         self,
         *,
         session_id: str,
         turn_id: str,
         events: typing.Sequence[TurnInboundEventItem],
         request_options: typing.Optional[RequestOptions] = None,
-    ) -> HttpResponse[CreateTurnInboundEventResponse]:
+    ) -> HttpResponse[CreateTurnEventResponse]:
         """
-        Create inbound events (`user.tool_approval`, `user.tool_response`, `user.tool_approval_policy`) in the durable turn inbox. Only the session creator may create. Events are stored unconsumed; applying them to the turn is a separate step.
+        Create events for a turn. Only the session creator may create them.
 
         Parameters
         ----------
@@ -1459,15 +1459,15 @@ class RawSessionsClient:
             Turn identifier.
 
         events : typing.Sequence[TurnInboundEventItem]
-            One or more inbound items (`user.tool_approval`, `user.tool_response`, `user.tool_approval_policy`).
+            One or more events (`user.tool_approval`, `user.tool_response`, `user.tool_approval_policy`).
 
         request_options : typing.Optional[RequestOptions]
             Request-specific configuration.
 
         Returns
         -------
-        HttpResponse[CreateTurnInboundEventResponse]
-            Events created in the turn inbox.
+        HttpResponse[CreateTurnEventResponse]
+            Events created.
         """
         _response = self._client_wrapper.httpx_client.request(
             f"api/v1/sessions/{encode_path_param(session_id)}/turns/{encode_path_param(turn_id)}/events",
@@ -1486,9 +1486,9 @@ class RawSessionsClient:
         try:
             if 200 <= _response.status_code < 300:
                 _data = typing.cast(
-                    CreateTurnInboundEventResponse,
+                    CreateTurnEventResponse,
                     construct_type(
-                        type_=CreateTurnInboundEventResponse,  # type: ignore
+                        type_=CreateTurnEventResponse,  # type: ignore
                         object_=_response.json(),
                     ),
                 )
@@ -3081,16 +3081,16 @@ class AsyncRawSessionsClient:
             )
         raise ApiError(status_code=_response.status_code, headers=dict(_response.headers), body=_response_json)
 
-    async def create_turn_inbound_event(
+    async def create_turn_event(
         self,
         *,
         session_id: str,
         turn_id: str,
         events: typing.Sequence[TurnInboundEventItem],
         request_options: typing.Optional[RequestOptions] = None,
-    ) -> AsyncHttpResponse[CreateTurnInboundEventResponse]:
+    ) -> AsyncHttpResponse[CreateTurnEventResponse]:
         """
-        Create inbound events (`user.tool_approval`, `user.tool_response`, `user.tool_approval_policy`) in the durable turn inbox. Only the session creator may create. Events are stored unconsumed; applying them to the turn is a separate step.
+        Create events for a turn. Only the session creator may create them.
 
         Parameters
         ----------
@@ -3101,15 +3101,15 @@ class AsyncRawSessionsClient:
             Turn identifier.
 
         events : typing.Sequence[TurnInboundEventItem]
-            One or more inbound items (`user.tool_approval`, `user.tool_response`, `user.tool_approval_policy`).
+            One or more events (`user.tool_approval`, `user.tool_response`, `user.tool_approval_policy`).
 
         request_options : typing.Optional[RequestOptions]
             Request-specific configuration.
 
         Returns
         -------
-        AsyncHttpResponse[CreateTurnInboundEventResponse]
-            Events created in the turn inbox.
+        AsyncHttpResponse[CreateTurnEventResponse]
+            Events created.
         """
         _response = await self._client_wrapper.httpx_client.request(
             f"api/v1/sessions/{encode_path_param(session_id)}/turns/{encode_path_param(turn_id)}/events",
@@ -3128,9 +3128,9 @@ class AsyncRawSessionsClient:
         try:
             if 200 <= _response.status_code < 300:
                 _data = typing.cast(
-                    CreateTurnInboundEventResponse,
+                    CreateTurnEventResponse,
                     construct_type(
-                        type_=CreateTurnInboundEventResponse,  # type: ignore
+                        type_=CreateTurnEventResponse,  # type: ignore
                         object_=_response.json(),
                     ),
                 )

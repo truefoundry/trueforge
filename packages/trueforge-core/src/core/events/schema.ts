@@ -79,7 +79,6 @@ export const ApprovalDecisionSchema = z
   .discriminatedUnion('status', [AgentApprovalDecisionAllowSchema, AgentApprovalDecisionDenySchema])
   .openapi('ApprovalDecision');
 
-// TODO: Remove this after we have migrated to the new schema.
 export const UserToolApprovalMessageSchema = z
   .object({
     type: z.literal(EventType.USER_TOOL_APPROVAL).describe('Client resume after tool.approval_required.'),

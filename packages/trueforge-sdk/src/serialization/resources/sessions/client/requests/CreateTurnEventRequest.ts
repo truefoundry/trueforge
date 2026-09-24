@@ -5,14 +5,14 @@ import * as core from "../../../../../core/index.js";
 import type * as serializers from "../../../../index.js";
 import { TurnInboundEventItem } from "../../../../types/TurnInboundEventItem.js";
 
-export const CreateTurnInboundEventRequest: core.serialization.Schema<
-    serializers.CreateTurnInboundEventRequest.Raw,
-    TrueForge.CreateTurnInboundEventRequest
+export const CreateTurnEventRequest: core.serialization.Schema<
+    serializers.CreateTurnEventRequest.Raw,
+    TrueForge.CreateTurnEventRequest
 > = core.serialization.object({
     events: core.serialization.list(TurnInboundEventItem),
 });
 
-export declare namespace CreateTurnInboundEventRequest {
+export declare namespace CreateTurnEventRequest {
     export interface Raw {
         events: TurnInboundEventItem.Raw[];
     }

@@ -2,8 +2,10 @@
 
 import typing
 
-from .user_tool_approval_message import UserToolApprovalMessage
+from .user_tool_approval_input_event import UserToolApprovalInputEvent
 from .user_tool_approval_policy_message import UserToolApprovalPolicyMessage
-from .user_tool_response_message import UserToolResponseMessage
+from .user_tool_response_input_event import UserToolResponseInputEvent
 
-TurnInboundEventItem = typing.Union[UserToolApprovalMessage, UserToolApprovalPolicyMessage, UserToolResponseMessage]
+TurnInboundEventItem = typing.Union[
+    UserToolApprovalInputEvent, UserToolApprovalPolicyMessage, UserToolResponseInputEvent
+]

@@ -11,7 +11,7 @@ from .tool_approval_policy_item import ToolApprovalPolicyItem
 class UserToolApprovalPolicyMessage(UncheckedBaseModel):
     policies: typing.List[ToolApprovalPolicyItem] = pydantic.Field()
     """
-    One or more (server, tool_name) policy entries.
+    One or more (server_name, name) policy entries.
     """
 
     type: typing.Literal["user.tool_approval_policy"] = "user.tool_approval_policy"

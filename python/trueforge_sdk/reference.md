@@ -2831,7 +2831,7 @@ client.sessions.list_turn_events(
 </dl>
 </details>
 
-<details><summary><code>client.sessions.<a href="src/trueforge_sdk/sessions/client.py">create_turn_inbound_event</a>(...) -> CreateTurnInboundEventResponse</code></summary>
+<details><summary><code>client.sessions.<a href="src/trueforge_sdk/sessions/client.py">create_turn_event</a>(...) -> CreateTurnEventResponse</code></summary>
 <dl>
 <dd>
 
@@ -2843,7 +2843,7 @@ client.sessions.list_turn_events(
 <dl>
 <dd>
 
-Create inbound events (`user.tool_approval`, `user.tool_response`, `user.tool_approval_policy`) in the durable turn inbox. Only the session creator may create. Events are stored unconsumed; applying them to the turn is a separate step.
+Create events for a turn. Only the session creator may create them.
 </dd>
 </dl>
 </dd>
@@ -2858,18 +2858,18 @@ Create inbound events (`user.tool_approval`, `user.tool_response`, `user.tool_ap
 <dd>
 
 ```python
-from trueforge_sdk import TrueForge, UserToolApprovalMessage, ApprovalAllow
+from trueforge_sdk import TrueForge, UserToolApprovalInputEvent, ApprovalAllow
 
 client = TrueForge(
     token="<token>",
     base_url="https://yourhost.com/path/to/api",
 )
 
-client.sessions.create_turn_inbound_event(
+client.sessions.create_turn_event(
     session_id="session_id",
     turn_id="turn_id",
     events=[
-        UserToolApprovalMessage(
+        UserToolApprovalInputEvent(
             approval=ApprovalAllow(
                 status="allow",
             ),
@@ -2910,7 +2910,7 @@ client.sessions.create_turn_inbound_event(
 <dl>
 <dd>
 
-**events:** `typing.List[TurnInboundEventItem]` — One or more inbound items (`user.tool_approval`, `user.tool_response`, `user.tool_approval_policy`).
+**events:** `typing.List[TurnInboundEventItem]` — One or more events (`user.tool_approval`, `user.tool_response`, `user.tool_approval_policy`).
     
 </dd>
 </dl>

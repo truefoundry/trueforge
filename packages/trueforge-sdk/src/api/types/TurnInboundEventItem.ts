@@ -3,6 +3,6 @@
 import type * as TrueForge from "../index.js";
 
 export type TurnInboundEventItem =
-    | TrueForge.UserToolApprovalMessage
+    | TrueForge.UserToolApprovalInputEvent
     | TrueForge.UserToolApprovalPolicyMessage
-    | TrueForge.UserToolResponseMessage;
+    | TrueForge.UserToolResponseInputEvent;

@@ -6,4 +6,6 @@ from .user_tool_approval_event import UserToolApprovalEvent
 from .user_tool_approval_policy_event import UserToolApprovalPolicyEvent
 from .user_tool_response_event import UserToolResponseEvent
 
-CreatedTurnInboundEvent = typing.Union[UserToolApprovalEvent, UserToolApprovalPolicyEvent, UserToolResponseEvent]
+CreateTurnEventResponseDataItem = typing.Union[
+    UserToolApprovalEvent, UserToolApprovalPolicyEvent, UserToolResponseEvent
+]

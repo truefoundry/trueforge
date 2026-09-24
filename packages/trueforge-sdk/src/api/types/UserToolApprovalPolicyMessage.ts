@@ -3,7 +3,7 @@
 import type * as TrueForge from "../index.js";
 
 export interface UserToolApprovalPolicyMessage {
-    /** One or more (server, tool_name) policy entries. */
+    /** One or more (server_name, name) policy entries. */
     policies: TrueForge.ToolApprovalPolicyItem[];
     type: "user.tool_approval_policy";
 }

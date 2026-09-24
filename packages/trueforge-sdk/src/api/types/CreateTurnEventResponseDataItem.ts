@@ -2,7 +2,7 @@
 
 import type * as TrueForge from "../index.js";
 
-export type CreatedTurnInboundEvent =
+export type CreateTurnEventResponseDataItem =
     | TrueForge.UserToolApprovalEvent
     | TrueForge.UserToolApprovalPolicyEvent
     | TrueForge.UserToolResponseEvent;

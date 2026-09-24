@@ -10,14 +10,14 @@ from .tool_approval_policy_allow_session import ToolApprovalPolicyAllowSession
 
 class ToolApprovalPolicyItem(UncheckedBaseModel):
     action: ToolApprovalPolicyAllowSession
-    server_name: str = pydantic.Field()
-    """
-    Configured MCP server name (same as tool_info.server_name on model.message).
-    """
-
     name: str = pydantic.Field()
     """
-    Tool name on that server (same as tool_info.name on model.message).
+    Tool name on that server.
+    """
+
+    server_name: str = pydantic.Field()
+    """
+    MCP server name.
     """
 
     if IS_PYDANTIC_V2:

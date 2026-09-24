@@ -3,19 +3,22 @@
 import type * as TrueForge from "../../api/index.js";
 import * as core from "../../core/index.js";
 import type * as serializers from "../index.js";
-import { UserToolApprovalMessage } from "./UserToolApprovalMessage.js";
+import { UserToolApprovalInputEvent } from "./UserToolApprovalInputEvent.js";
 import { UserToolApprovalPolicyMessage } from "./UserToolApprovalPolicyMessage.js";
-import { UserToolResponseMessage } from "./UserToolResponseMessage.js";
+import { UserToolResponseInputEvent } from "./UserToolResponseInputEvent.js";
 
 export const TurnInboundEventItem: core.serialization.Schema<
     serializers.TurnInboundEventItem.Raw,
     TrueForge.TurnInboundEventItem
 > = core.serialization.undiscriminatedUnion([
-    UserToolApprovalMessage,
+    UserToolApprovalInputEvent,
     UserToolApprovalPolicyMessage,
-    UserToolResponseMessage,
+    UserToolResponseInputEvent,
 ]);
 
 export declare namespace TurnInboundEventItem {
-    export type Raw = UserToolApprovalMessage.Raw | UserToolApprovalPolicyMessage.Raw | UserToolResponseMessage.Raw;
+    export type Raw =
+        | UserToolApprovalInputEvent.Raw
+        | UserToolApprovalPolicyMessage.Raw
+        | UserToolResponseInputEvent.Raw;
 }

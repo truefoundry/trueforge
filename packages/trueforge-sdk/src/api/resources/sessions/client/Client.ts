@@ -1743,11 +1743,11 @@ export class SessionsClient {
     }
 
     /**
-     * Create inbound events (`user.tool_approval`, `user.tool_response`, `user.tool_approval_policy`) in the durable turn inbox. Only the session creator may create. Events are stored unconsumed; applying them to the turn is a separate step.
+     * Create events for a turn. Only the session creator may create them.
      *
      * @param {string} session_id - Session identifier.
      * @param {string} turn_id - Turn identifier.
-     * @param {TrueForge.CreateTurnInboundEventRequest} request
+     * @param {TrueForge.CreateTurnEventRequest} request
      * @param {SessionsClient.RequestOptions} requestOptions - Request-specific configuration.
      *
      * @throws {@link TrueForge.BadRequestError}
@@ -1758,7 +1758,7 @@ export class SessionsClient {
      * @throws {@link errors.TrueForgeTimeoutError}
      *
      * @example
-     *     await client.sessions.createTurnInboundEvent("session_id", "turn_id", {
+     *     await client.sessions.createTurnEvent("session_id", "turn_id", {
      *         events: [{
      *                 approval: {
      *                     status: "allow"
@@ -1769,23 +1769,23 @@ export class SessionsClient {
      *             }]
      *     })
      */
-    public createTurnInboundEvent(
+    public createTurnEvent(
         session_id: string,
         turn_id: string,
-        request: TrueForge.CreateTurnInboundEventRequest,
+        request: TrueForge.CreateTurnEventRequest,
         requestOptions?: SessionsClient.RequestOptions,
-    ): core.HttpResponsePromise<TrueForge.CreateTurnInboundEventResponse> {
+    ): core.HttpResponsePromise<TrueForge.CreateTurnEventResponse> {
         return core.HttpResponsePromise.fromPromise(
-            this.__createTurnInboundEvent(session_id, turn_id, request, requestOptions),
+            this.__createTurnEvent(session_id, turn_id, request, requestOptions),
         );
     }
 
-    private async __createTurnInboundEvent(
+    private async __createTurnEvent(
         session_id: string,
         turn_id: string,
-        request: TrueForge.CreateTurnInboundEventRequest,
+        request: TrueForge.CreateTurnEventRequest,
         requestOptions?: SessionsClient.RequestOptions,
-    ): Promise<core.WithRawResponse<TrueForge.CreateTurnInboundEventResponse>> {
+    ): Promise<core.WithRawResponse<TrueForge.CreateTurnEventResponse>> {
         const _authRequest: core.AuthRequest = await this._options.authProvider.getAuthRequest();
         const _headers: core.Fetcher.Args["headers"] = mergeHeaders(
             _authRequest.headers,
@@ -1804,7 +1804,7 @@ export class SessionsClient {
             queryString: core.url.queryBuilder().mergeAdditional(requestOptions?.queryParams).build(),
             requestType: "json",
             body: mergeAdditionalBodyParameters(
-                serializers.CreateTurnInboundEventRequest.jsonOrThrow(request, {
+                serializers.CreateTurnEventRequest.jsonOrThrow(request, {
                     unrecognizedObjectKeys: "passthrough",
                     allowUnrecognizedUnionMembers: true,
                     allowUnrecognizedEnumValues: true,
@@ -1820,7 +1820,7 @@ export class SessionsClient {
         });
         if (_response.ok) {
             return {
-                data: serializers.CreateTurnInboundEventResponse.parseOrThrow(_response.body, {
+                data: serializers.CreateTurnEventResponse.parseOrThrow(_response.body, {
                     unrecognizedObjectKeys: "passthrough",
                     allowUnrecognizedUnionMembers: true,
                     allowUnrecognizedEnumValues: true,

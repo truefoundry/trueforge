@@ -32,32 +32,28 @@ import { EVENTS_PAGE_LIMIT } from './common';
 export type { TurnCreatedEvent } from '@truefoundry/trueforge-core/agent-session';
 export { EventType };
 
-/** Client → harness inbound events (tip HITL / sticky policy). Persisted to the turn inbox. */
-export const CreateTurnInboundEventRequestSchema = z
+export const CreateTurnEventRequestSchema = z
   .object({
     events: z
       .array(TurnInboundEventItemSchema)
       .min(1)
-      .describe('One or more inbound items (`user.tool_approval`, `user.tool_response`, `user.tool_approval_policy`).'),
+      .describe('One or more events (`user.tool_approval`, `user.tool_response`, `user.tool_approval_policy`).'),
   })
-  .openapi('CreateTurnInboundEventRequest');
+  .openapi('CreateTurnEventRequest');
 
-/** Same shapes as the durable stream / {@link SessionEvent} members for these types. */
-export const CreatedTurnInboundEventSchema = z
-  .discriminatedUnion('type', [
-    UserToolApprovalEventSchema,
-    UserToolResponseEventSchema,
-    UserToolApprovalPolicyEventSchema,
-  ])
-  .openapi('CreatedTurnInboundEvent');
-
-export const CreateTurnInboundEventResponseSchema = z
+export const CreateTurnEventResponseSchema = z
   .object({
     data: z
-      .array(CreatedTurnInboundEventSchema)
-      .describe('Created inbox events with server-minted `id` and `created_at`, in request order.'),
+      .array(
+        z.discriminatedUnion('type', [
+          UserToolApprovalEventSchema,
+          UserToolResponseEventSchema,
+          UserToolApprovalPolicyEventSchema,
+        ]),
+      )
+      .describe('Events with server-minted `id` and `created_at`, in request order.'),
   })
-  .openapi('CreateTurnInboundEventResponse');
+  .openapi('CreateTurnEventResponse');
 
 /** Live SSE stream for session turns — content events, deltas and lifecycle. */
 export const TurnStreamingEventSchema = z

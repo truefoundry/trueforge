@@ -2370,7 +2370,7 @@ const response = page.response;
 </dl>
 </details>
 
-<details><summary><code>client.sessions.<a href="/src/api/resources/sessions/client/Client.ts">createTurnInboundEvent</a>(session_id, turn_id, { ...params }) -> TrueForge.CreateTurnInboundEventResponse</code></summary>
+<details><summary><code>client.sessions.<a href="/src/api/resources/sessions/client/Client.ts">createTurnEvent</a>(session_id, turn_id, { ...params }) -> TrueForge.CreateTurnEventResponse</code></summary>
 <dl>
 <dd>
 
@@ -2382,7 +2382,7 @@ const response = page.response;
 <dl>
 <dd>
 
-Create inbound events (`user.tool_approval`, `user.tool_response`, `user.tool_approval_policy`) in the durable turn inbox. Only the session creator may create. Events are stored unconsumed; applying them to the turn is a separate step.
+Create events for a turn. Only the session creator may create them.
 </dd>
 </dl>
 </dd>
@@ -2397,7 +2397,7 @@ Create inbound events (`user.tool_approval`, `user.tool_response`, `user.tool_ap
 <dd>
 
 ```typescript
-await client.sessions.createTurnInboundEvent("session_id", "turn_id", {
+await client.sessions.createTurnEvent("session_id", "turn_id", {
     events: [{
             approval: {
                 status: "allow"
@@ -2438,7 +2438,7 @@ await client.sessions.createTurnInboundEvent("session_id", "turn_id", {
 <dl>
 <dd>
 
-**request:** `TrueForge.CreateTurnInboundEventRequest` 
+**request:** `TrueForge.CreateTurnEventRequest` 
     
 </dd>
 </dl>

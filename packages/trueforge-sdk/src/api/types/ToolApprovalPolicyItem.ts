@@ -4,8 +4,8 @@ import type * as TrueForge from "../index.js";
 
 export interface ToolApprovalPolicyItem {
     action: TrueForge.ToolApprovalPolicyAllowSession;
-    /** Configured MCP server name (same as tool_info.server_name on model.message). */
-    serverName: string;
-    /** Tool name on that server (same as tool_info.name on model.message). */
+    /** Tool name on that server. */
     name: string;
+    /** MCP server name. */
+    serverName: string;
 }

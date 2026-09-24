@@ -15,7 +15,7 @@ import type * as TrueForge from "../../../../index.js";
  *             }]
  *     }
  */
-export interface CreateTurnInboundEventRequest {
-    /** One or more inbound items (`user.tool_approval`, `user.tool_response`, `user.tool_approval_policy`). */
+export interface CreateTurnEventRequest {
+    /** One or more events (`user.tool_approval`, `user.tool_response`, `user.tool_approval_policy`). */
     events: TrueForge.TurnInboundEventItem[];
 }

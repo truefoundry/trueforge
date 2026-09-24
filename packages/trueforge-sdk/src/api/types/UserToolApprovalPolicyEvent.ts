@@ -7,7 +7,7 @@ export interface UserToolApprovalPolicyEvent {
     createdAt: string;
     /** Unique identifier for the event (monotonic ULID). */
     id: string;
-    /** One or more (server, tool_name) policy entries. */
+    /** One or more (server_name, name) policy entries. */
     policies: TrueForge.ToolApprovalPolicyItem[];
     type: "user.tool_approval_policy";
 }

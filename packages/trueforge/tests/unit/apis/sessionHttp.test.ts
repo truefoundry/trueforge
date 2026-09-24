@@ -472,7 +472,7 @@ describe('sessions HTTP agent binding', () => {
     expect(allowed.status).toBe(200);
   });
 
-  it('POST /sessions/{id}/turns/{turn_id}/events mints ids for inbound send-events', async () => {
+  it('POST /sessions/{id}/turns/{turn_id}/events mints ids for events', async () => {
     const created = await app.request('/', jsonInit('POST', { agent: { spec: inlineSpec } }));
     expect(created.status).toBe(201);
     const { data: session } = (await created.json()) as { data: { id: string } };

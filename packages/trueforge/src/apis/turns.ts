@@ -43,7 +43,7 @@ import type { ISkillStore } from '../db/skillStore';
 import type { IWebSearchProviderStore } from '../db/webSearchProviderStore';
 import {
   createAndExecuteTurnRoute,
-  createTurnInboundEventRoute,
+  createTurnEventRoute,
   downloadSandboxFileRoute,
   getTurnRoute,
   listTurnEventsRoute,
@@ -925,8 +925,8 @@ export function createTurnsRouter(deps: TurnsRouterDeps) {
     });
   };
 
-  /** Accept inbound send-events. Persist / apply / wake land later. */
-  const createTurnInboundEventHandler: RouteHandler<typeof createTurnInboundEventRoute> = async c => {
+  /** Accept send-events. Persist / apply / wake land later. */
+  const createTurnEventHandler: RouteHandler<typeof createTurnEventRoute> = async c => {
     const { session_id: sessionId, turn_id: turnId } = c.req.valid('param');
     const body = c.req.valid('json');
     const requestContext = deps.resolveRequestContext(c);
@@ -972,7 +972,7 @@ export function createTurnsRouter(deps: TurnsRouterDeps) {
   router.openapi(getTurnRoute, getTurnHandler);
   router.openapi(downloadSandboxFileRoute, downloadSandboxFileHandler);
   router.openapi(listTurnEventsRoute, listTurnEventsHandler);
-  router.openapi(createTurnInboundEventRoute, createTurnInboundEventHandler);
+  router.openapi(createTurnEventRoute, createTurnEventHandler);
   router.openapi(subscribeTurnRoute, subscribeTurnHandler);
   return router;
 }
