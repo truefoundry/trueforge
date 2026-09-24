@@ -1000,6 +1000,8 @@ export interface ScheduleRun {
   name: string;
   scheduledFor: string;
   status: ScheduleRunStatus;
+  /** Failure reason supplied by the scheduler, when available. */
+  reason?: string | null;
   triggeredAt: string | null;
   triggeredBy: string;
 }

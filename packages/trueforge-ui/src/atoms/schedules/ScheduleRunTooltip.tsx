@@ -13,6 +13,9 @@ export function ScheduleRunTooltip({ run }: { run: ScheduleRun }) {
         <p className="text-text-secondary">Triggered at: {formatScheduleRunInstant(run.triggeredAt)}</p>
       ) : null}
       <p className="text-text-secondary">Triggered by: {run.triggeredBy}</p>
+      {run.status === 'failed' && run.reason ? (
+        <p className="text-text-secondary">Reason: {run.reason}</p>
+      ) : null}
     </div>
   );
 }
