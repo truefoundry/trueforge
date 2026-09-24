@@ -3,6 +3,7 @@ import { createLogger } from 'winston';
 import type { AgentRecord } from '../../../src/db/agentStore';
 import { McpServerNotFoundError, type McpServerRecord } from '../../../src/db/mcpServerStore';
 import { createTrueFoundryRequestContext } from '../../../src/truefoundry/accessToken';
+import { X_TFY_METADATA } from '../../../src/truefoundry/gatewayMetadata';
 import { MCP_PROXY_BASE_URL_TEMPLATE } from '../../../src/truefoundry/mapSfyMcpServers';
 import type { TrueFoundryMcpApiClient } from '../../../src/truefoundry/TrueFoundryMcpServerStore';
 import {
@@ -322,6 +323,44 @@ describe('TrueFoundryMcpServerStore', () => {
       const { store } = createStore();
       await expect(invoke(store)).resolves.toEqual({
         headers: { Authorization: `Bearer ${ACCESS_TOKEN}` },
+      });
+    });
+
+    it('merges turn metadata after auth headers and leaves authRequired untouched', async () => {
+      const { store, client } = createStore();
+      const headers = store.resolveInvokeHeaders({
+        record: dcrRecord(),
+        userRef: 'user-1',
+        turnMetadata: {
+          sessionId: 'sess-1',
+          turnId: 'turn-1',
+          agent: { id: 'agent-1', name: 'named' },
+          requestHeaders: { 'x-tfy-metadata': JSON.stringify({ env: 'prod' }) },
+        },
+      });
+      if (typeof headers !== 'function') {
+        throw new Error('expected async headers resolver for truefoundry MCP');
+      }
+      const resolved = await headers();
+      expect(resolved).toEqual({
+        headers: {
+          Authorization: `Bearer ${ACCESS_TOKEN}`,
+          [X_TFY_METADATA]: expect.any(String),
+        },
+      });
+      if (!('headers' in resolved) || resolved.headers === undefined) {
+        throw new Error('expected invoke headers');
+      }
+      expect(JSON.parse(resolved.headers[X_TFY_METADATA] ?? '')).toMatchObject({ env: 'prod' });
+
+      client.getMcpAuthorize.mockResolvedValue({
+        status: 'auth_required',
+        authorization_url: 'https://consent.example/authorize',
+      });
+      await expect(headers()).resolves.toEqual({
+        authRequired: {
+          servers: [{ id: 'github', name: 'github', auth_url: 'https://consent.example/authorize' }],
+        },
       });
     });
 

@@ -11,9 +11,11 @@ import {
   type ModelProviderRecord,
   type UpsertModelProviderInput,
 } from '../db/modelProviderStore';
+import type { TurnMetadata } from '../db/turnMetadata';
 import type { AvailableModel, ModelProviderManifest } from '../schemas/modelProvider';
 import { accessTokenForRequest, asTrueFoundryRequestContext, type ResolveAccessToken } from './accessToken';
 import { trueFoundryManaged } from './errors';
+import { gatewayMetadataHeadersForTurn } from './gatewayMetadata';
 import {
   filterEnvModels,
   mapEnabledModels,
@@ -84,6 +86,17 @@ export class TrueFoundryModelProviderStore<TTransaction = never> implements IMod
 
   async listModels(input: ListModelProvidersInput, transaction?: TTransaction): Promise<AvailableModel[]> {
     return flattenProviderModels(await this.listProviders(input, transaction));
+  }
+
+  resolveInvokeHeaders(input: {
+    record: ModelProviderRecord;
+    turnMetadata?: TurnMetadata;
+  }): Promise<Record<string, string>> {
+    void input.record;
+    if (input.turnMetadata === undefined) {
+      return Promise.resolve({});
+    }
+    return Promise.resolve(gatewayMetadataHeadersForTurn(input.turnMetadata));
   }
 
   async #records(input: {
