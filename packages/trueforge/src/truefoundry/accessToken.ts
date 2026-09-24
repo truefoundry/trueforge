@@ -22,7 +22,7 @@ export interface GatewayAuthorization {
   type: AuthorizationType;
   subjectToken: string;
   /** Set only for delegated. Do not send with exchanged: the subject token already carries the actor. */
-  actorToken?: string;
+  actorAgentToken?: string;
 }
 
 export interface TrueFoundryAccess {
@@ -110,7 +110,7 @@ export function savedAgentAccess(input: {
         return {
           type: 'delegated',
           subjectToken: callerAuthorization,
-          actorToken: vendTokenResult.actorToken,
+          actorAgentToken: vendTokenResult.actorToken,
         };
       }
       return { type: 'exchanged', subjectToken: vendTokenResult.subjectToken };
@@ -160,10 +160,10 @@ export function accessTokenForRequest(input: {
 
 /** Actor header for delegated mode. Empty for caller and exchanged. */
 export function actorAuthorizationHeaders(authorization: GatewayAuthorization): Record<string, string> {
-  if (authorization.actorToken === undefined) {
+  if (authorization.actorAgentToken === undefined) {
     return {};
   }
-  return { [ACTOR_AUTHORIZATION_HEADER]: `Bearer ${authorization.actorToken}` };
+  return { [ACTOR_AUTHORIZATION_HEADER]: `Bearer ${authorization.actorAgentToken}` };
 }
 
 export function gatewayHeaders(authorization: GatewayAuthorization): Record<string, string> {
