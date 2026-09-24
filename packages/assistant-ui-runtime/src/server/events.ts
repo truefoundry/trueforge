@@ -12,6 +12,7 @@ import type {
   TurnStateRunning,
   UserMcpAuthContinueInputEvent,
   UserToolApprovalInputEvent,
+  UserToolApprovalPolicyInputEvent,
   UserToolResponseInputEvent,
 } from './types.js';
 
@@ -32,6 +33,7 @@ export const EVENT_TYPE = {
   USER_MESSAGE: 'user.message',
   USER_MCP_AUTH_CONTINUE: 'user.mcp_auth_continue',
   USER_TOOL_APPROVAL: 'user.tool_approval',
+  USER_TOOL_APPROVAL_POLICY: 'user.tool_approval_policy',
   USER_TOOL_RESPONSE: 'user.tool_response',
 } as const;
 
@@ -255,11 +257,14 @@ interface PersistedInboundEvent {
 
 export interface UserToolApprovalEvent extends UserToolApprovalInputEvent, PersistedInboundEvent {}
 
+export interface UserToolApprovalPolicyEvent extends UserToolApprovalPolicyInputEvent, PersistedInboundEvent {}
+
 export interface UserToolResponseEvent extends UserToolResponseInputEvent, PersistedInboundEvent {}
 
 export interface UserMcpAuthContinueEvent extends UserMcpAuthContinueInputEvent, PersistedInboundEvent {}
 
-export type TurnInboundEvent = UserToolApprovalEvent | UserToolResponseEvent | UserMcpAuthContinueEvent;
+export type TurnInboundEvent =
+  UserToolApprovalEvent | UserToolApprovalPolicyEvent | UserToolResponseEvent | UserMcpAuthContinueEvent;
 
 // ---------------------------------------------------------------------------
 // Unions

@@ -223,12 +223,17 @@ function isContentAffectingEvent(message: TurnStreamingEvent): boolean {
   );
 }
 
+function isFoldNeutralInboundEvent(
+  message: TurnStreamingEvent,
+): message is Extract<
+  TurnStreamingEvent,
+  { type: typeof EVENT_TYPE.USER_MCP_AUTH_CONTINUE | typeof EVENT_TYPE.USER_TOOL_APPROVAL_POLICY }
+> {
+  return message.type === EVENT_TYPE.USER_MCP_AUTH_CONTINUE || message.type === EVENT_TYPE.USER_TOOL_APPROVAL_POLICY;
+}
+
 export function ingestStreamEvent(state: PeerThreadFoldState, message: TurnStreamingEvent): boolean {
-  if (
-    message.type === EVENT_TYPE.MCP_AUTH_REQUIRED ||
-    message.type === EVENT_TYPE.USER_MCP_AUTH_CONTINUE ||
-    isTurnScopedEvent(message)
-  ) {
+  if (message.type === EVENT_TYPE.MCP_AUTH_REQUIRED || isTurnScopedEvent(message)) {
     return false;
   }
 
@@ -237,6 +242,10 @@ export function ingestStreamEvent(state: PeerThreadFoldState, message: TurnStrea
       return false;
     }
     state.ingestedEventIds.add(message.id);
+  }
+
+  if (isFoldNeutralInboundEvent(message)) {
+    return false;
   }
 
   if (message.threadId == null) {
@@ -265,14 +274,13 @@ export function ingestStreamEvent(state: PeerThreadFoldState, message: TurnStrea
 }
 
 export function ingestTurnEvent(state: PeerThreadFoldState, event: TurnEvent): void {
-  if (event.type === EVENT_TYPE.USER_MCP_AUTH_CONTINUE) {
-    state.ingestedEventIds.add(event.id);
-    return;
-  }
   if (state.ingestedEventIds.has(event.id)) {
     return;
   }
   state.ingestedEventIds.add(event.id);
+  if (isFoldNeutralInboundEvent(event)) {
+    return;
+  }
   if (event.threadId == null) {
     return;
   }

@@ -336,7 +336,6 @@ describe('streamTurn', () => {
           state: {
             status: 'paused',
             actionRequiredOnEvents: [{ id: 'approval-required-1' }],
-            pausedAt: createdAt,
           },
         });
       });
@@ -352,7 +351,6 @@ describe('streamTurn', () => {
         turnState: {
           status: 'paused',
           actionRequiredOnEvents: [{ id: 'approval-required-1' }],
-          pausedAt: createdAt,
         },
       });
     });

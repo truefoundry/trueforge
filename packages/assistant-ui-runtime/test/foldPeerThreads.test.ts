@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import type { ModelMessageEvent, ThreadCreatedEvent, TurnEvent } from '../src/server/index.js';
+import { EVENT_TYPE, TOOL_APPROVAL_POLICY_ACTION_TYPE } from '../src/server/index.js';
 
 import { ROOT_THREAD_ID } from '../src/constants.js';
 import {
@@ -421,6 +422,36 @@ describe('foldPeerThreads', () => {
     expect(bucket?.approvalDecisions.size).toBe(1);
     expect(state.ingestedEventIds.has('user-approval-1')).toBe(true);
     expect(state.ingestedEventIds.size).toBe(3);
+  });
+
+  it('deduplicates fold-neutral MCP and approval-policy events without creating buckets', () => {
+    const state = new PeerThreadFoldState();
+    const events: TurnEvent[] = [
+      {
+        type: EVENT_TYPE.USER_MCP_AUTH_CONTINUE,
+        id: 'mcp-continue-1',
+        createdAt,
+      },
+      {
+        type: EVENT_TYPE.USER_TOOL_APPROVAL_POLICY,
+        id: 'policy-1',
+        createdAt,
+        policies: [
+          {
+            serverName: 'github',
+            name: 'create_issue',
+            action: { type: TOOL_APPROVAL_POLICY_ACTION_TYPE.ALLOW_SESSION },
+          },
+        ],
+      },
+    ];
+
+    for (const event of [...events, ...events]) {
+      ingestTurnEvent(state, event);
+    }
+
+    expect(state.threads.size).toBe(0);
+    expect(state.ingestedEventIds).toEqual(new Set(['mcp-continue-1', 'policy-1']));
   });
 
   it('recordToolApprovalInFold synthesizes an error result on deny', () => {

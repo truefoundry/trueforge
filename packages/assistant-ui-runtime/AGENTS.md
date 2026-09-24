@@ -3,6 +3,7 @@
 - The runtime accepts a ready `AgentUIServer` and MUST NOT own credentials or construct backend clients.
 - A logical turn MAY span multiple SSE segments; a paused segment ending MUST NOT complete the turn.
 - Required-action responses MUST be sent to the existing turn through `sendTurnEvents`; only the server may transition it back to running.
+- The inbound event union MUST stay aligned with backend approval, response, approval-policy, and MCP-auth-continue events.
 - `subscribeToTurn` is transport reconnection, never an execution-resume command.
 - Named and draft agent modes share the same runtime; draft spec updates remain synchronized through the server port.
 - Canonical server ports, DTOs, and events live in `src/server/types.ts` and `src/server/events.ts`.

@@ -248,6 +248,10 @@ export const APPROVAL_DECISION_STATUS = {
   DENY: 'deny',
 } as const;
 
+export const TOOL_APPROVAL_POLICY_ACTION_TYPE = {
+  ALLOW_SESSION: 'allow_session',
+} as const;
+
 // ---------------------------------------------------------------------------
 // Turn input / state — what runtime sends and reads
 // ---------------------------------------------------------------------------
@@ -277,6 +281,22 @@ export interface UserToolResponseInputEvent {
   content: string;
 }
 
+export interface ToolApprovalPolicyAllowSession {
+  type: typeof TOOL_APPROVAL_POLICY_ACTION_TYPE.ALLOW_SESSION;
+  expireAt?: string;
+}
+
+export interface ToolApprovalPolicyItem {
+  serverName: string;
+  name: string;
+  action: ToolApprovalPolicyAllowSession;
+}
+
+export interface UserToolApprovalPolicyInputEvent {
+  type: typeof EVENT_TYPE.USER_TOOL_APPROVAL_POLICY;
+  policies: ToolApprovalPolicyItem[];
+}
+
 /**
  * Reports that the browser-side MCP authorization flow completed. The server
  * remains authoritative: execution continues only after it emits `turn.update`
@@ -287,7 +307,10 @@ export interface UserMcpAuthContinueInputEvent {
 }
 
 export type TurnInboundEventItem =
-  UserToolApprovalInputEvent | UserToolResponseInputEvent | UserMcpAuthContinueInputEvent;
+  | UserToolApprovalInputEvent
+  | UserToolApprovalPolicyInputEvent
+  | UserToolResponseInputEvent
+  | UserMcpAuthContinueInputEvent;
 
 /** Includes legacy continuation inputs so previously persisted turns remain readable. */
 export type TurnInputItem = UserMessage | UserToolApprovalInputEvent | UserToolResponseInputEvent;
@@ -304,8 +327,6 @@ export interface ActionRequired {
 export interface TurnStatePaused {
   status: typeof TURN_STATUS.PAUSED;
   actionRequiredOnEvents: ActionRequired[];
-  pausedAt: string;
-  expiresAt?: string;
 }
 
 /**

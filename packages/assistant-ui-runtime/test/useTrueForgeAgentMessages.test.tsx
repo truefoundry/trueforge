@@ -1219,7 +1219,6 @@ describe('useTrueForgeAgentMessages', () => {
             turnState: {
               status: 'paused',
               actionRequiredOnEvents: [{ id: 'approval-required-1' }],
-              pausedAt: new Date().toISOString(),
             },
           };
           await new Promise<void>(resolve => {
@@ -1356,7 +1355,6 @@ describe('useTrueForgeAgentMessages', () => {
         state: {
           status: 'paused',
           actionRequiredOnEvents: [{ id: 'approval-required-1' }],
-          pausedAt: new Date().toISOString(),
         },
         createdAt: new Date().toISOString(),
       },
@@ -1407,7 +1405,6 @@ describe('useTrueForgeAgentMessages', () => {
           state: {
             status: 'paused',
             actionRequiredOnEvents: [{ id: 'approval-required-1' }],
-            pausedAt: new Date().toISOString(),
           },
           createdAt: new Date().toISOString(),
         },

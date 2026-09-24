@@ -581,8 +581,6 @@ function turnFromCreatedEvent(options: {
         ? {
             status: TURN_STATUS.PAUSED,
             actionRequiredOnEvents: update.state.actionRequiredOnEvents,
-            pausedAt: update.state.pausedAt,
-            ...(update.state.expiresAt != null ? { expiresAt: update.state.expiresAt } : {}),
           }
         : { status: TURN_STATUS.RUNNING },
     createdAt: event.createdAt,
@@ -1237,7 +1235,7 @@ function projectHistoryTurns(snapshot: SessionSnapshot, options?: ProjectSession
       record.state.status === TURN_STATUS.RUNNING
         ? record.createdAt
         : record.state.status === TURN_STATUS.PAUSED
-          ? record.state.pausedAt
+          ? record.createdAt
           : record.state.completedAt;
     const replaceAssistantCreatedAt = record.state.status !== TURN_STATUS.RUNNING;
 
@@ -1758,8 +1756,6 @@ export async function* streamTurnEvents(
         turnState: {
           status: TURN_STATUS.PAUSED,
           actionRequiredOnEvents: event.state.actionRequiredOnEvents,
-          pausedAt: event.state.pausedAt,
-          ...(event.state.expiresAt != null ? { expiresAt: event.state.expiresAt } : {}),
         },
       });
       return;

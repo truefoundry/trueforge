@@ -133,7 +133,9 @@ Important invariants:
 
 Each user action is submitted through `AgentChatServer.sendTurnEvents`. The runtime subscribes to the same turn with the last observed sequence number, folds the persisted user event, and waits for the server’s authoritative `turn.update: running`. Only `turn.done` commits the turn as terminal.
 
-The host adapter and backend must expose the same paused-turn schema before enabling this flow, including `pausedAt`, optional `expiresAt`, and `user.mcp_auth_continue`. The runtime deliberately has no continuation-turn compatibility fallback.
+The host adapter and backend must expose the same paused-turn schema before enabling this flow, including `actionRequiredOnEvents` and `user.mcp_auth_continue`. The runtime deliberately has no continuation-turn compatibility fallback.
+
+The server contract also accepts and preserves `user.tool_approval_policy` events. Applying session policy behavior and rendering “Always allow” controls remain host/UI concerns.
 
 ## Attachments
 

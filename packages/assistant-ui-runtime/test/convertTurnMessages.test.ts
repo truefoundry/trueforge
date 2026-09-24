@@ -1588,7 +1588,6 @@ describe('convertTurnMessages', () => {
               state: {
                 status: 'paused',
                 actionRequiredOnEvents: [{ id: 'approval-event' }],
-                pausedAt: createdAt,
               },
             },
           ]),
@@ -1634,7 +1633,6 @@ describe('convertTurnMessages', () => {
               state: {
                 status: 'paused',
                 actionRequiredOnEvents: [{ id: 'mcp-auth' }],
-                pausedAt: createdAt,
               },
             },
           ]),
@@ -1731,7 +1729,6 @@ describe('convertTurnMessages', () => {
               state: {
                 status: 'paused',
                 actionRequiredOnEvents: [{ id: 'mcp-auth' }],
-                pausedAt: createdAt,
               },
             },
           ]),
@@ -1848,7 +1845,6 @@ describe('convertTurnMessages', () => {
               state: {
                 status: 'paused',
                 actionRequiredOnEvents: [{ id: 'approval-event' }],
-                pausedAt: createdAt,
               },
             },
           ]),
@@ -1915,7 +1911,6 @@ describe('convertTurnMessages', () => {
               state: {
                 status: 'paused',
                 actionRequiredOnEvents: [{ id: 'resp-req-1' }],
-                pausedAt: createdAt,
               },
             },
           ]),
@@ -2554,7 +2549,6 @@ describe('buildSnapshotFromSessionEvents', () => {
       state: {
         status: 'paused',
         actionRequiredOnEvents: [{ id: 'approval-required-1' }],
-        pausedAt: createdAt,
       },
       input: [{ type: 'user.message', content: 'run it' }],
       createdAt,
@@ -2603,7 +2597,6 @@ describe('buildSnapshotFromSessionEvents', () => {
           state: {
             status: 'paused',
             actionRequiredOnEvents: [{ id: 'approval-required-1' }],
-            pausedAt: createdAt,
           },
         },
       },
@@ -2632,7 +2625,6 @@ describe('buildSnapshotFromSessionEvents', () => {
       state: {
         status: 'paused',
         actionRequiredOnEvents: [{ id: 'mcp-auth-1' }],
-        pausedAt: createdAt,
       },
       input: [{ type: 'user.message', content: 'use github' }],
       createdAt,
@@ -2673,7 +2665,6 @@ describe('buildSnapshotFromSessionEvents', () => {
           state: {
             status: 'paused',
             actionRequiredOnEvents: [{ id: 'mcp-auth-1' }],
-            pausedAt: createdAt,
           },
         },
       },

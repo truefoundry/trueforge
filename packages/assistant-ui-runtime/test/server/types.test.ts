@@ -6,7 +6,7 @@ import type {
   SendTurnEventsRequest,
   TurnUpdateStatePaused,
 } from '../../src/server/index.js';
-import { EVENT_TYPE, TURN_STATUS } from '../../src/server/index.js';
+import { EVENT_TYPE, TOOL_APPROVAL_POLICY_ACTION_TYPE, TURN_STATUS } from '../../src/server/index.js';
 
 describe('PermissionsServer', () => {
   it('supports USE grants for agents', async () => {
@@ -46,13 +46,37 @@ describe('AgentChatServer turn events', () => {
     const request = {
       sessionId: 'session-1',
       turnId: 'turn-1',
-      events: [{ type: EVENT_TYPE.USER_MCP_AUTH_CONTINUE }],
+      events: [
+        { type: EVENT_TYPE.USER_MCP_AUTH_CONTINUE },
+        {
+          type: EVENT_TYPE.USER_TOOL_APPROVAL_POLICY,
+          policies: [
+            {
+              serverName: 'github',
+              name: 'create_issue',
+              action: { type: TOOL_APPROVAL_POLICY_ACTION_TYPE.ALLOW_SESSION },
+            },
+          ],
+        },
+      ],
     } satisfies SendTurnEventsRequest;
 
     await expect(sendTurnEvents(request)).resolves.toEqual([
       {
         type: EVENT_TYPE.USER_MCP_AUTH_CONTINUE,
         id: 'event-0',
+        createdAt: '2026-09-24T00:00:00.000Z',
+      },
+      {
+        type: EVENT_TYPE.USER_TOOL_APPROVAL_POLICY,
+        policies: [
+          {
+            serverName: 'github',
+            name: 'create_issue',
+            action: { type: TOOL_APPROVAL_POLICY_ACTION_TYPE.ALLOW_SESSION },
+          },
+        ],
+        id: 'event-1',
         createdAt: '2026-09-24T00:00:00.000Z',
       },
     ]);
@@ -62,7 +86,6 @@ describe('AgentChatServer turn events', () => {
     const paused: TurnUpdateStatePaused = {
       status: TURN_STATUS.PAUSED,
       actionRequiredOnEvents: [{ id: 'approval-required-1' }],
-      pausedAt: '2026-09-24T00:00:00.000Z',
     };
 
     expect(paused.status).toBe(TURN_STATUS.PAUSED);
