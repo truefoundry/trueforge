@@ -51,10 +51,12 @@ describe('gatewayHeaders', () => {
     expect(gatewayHeaders({ type: 'caller', subjectToken: 'caller-token' })).toEqual({
       Authorization: 'Bearer caller-token',
     });
-    expect(gatewayHeaders({ type: 'delegated', subjectToken: 'caller-token', actorToken: 'agent-token' })).toEqual({
-      Authorization: 'Bearer caller-token',
-      [ACTOR_AUTHORIZATION_HEADER]: 'Bearer agent-token',
-    });
+    expect(gatewayHeaders({ type: 'delegated', subjectToken: 'caller-token', actorAgentToken: 'agent-token' })).toEqual(
+      {
+        Authorization: 'Bearer caller-token',
+        [ACTOR_AUTHORIZATION_HEADER]: 'Bearer agent-token',
+      },
+    );
   });
 });
 
