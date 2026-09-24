@@ -1,6 +1,6 @@
 'use client';
 
-import { Suspense, useEffect, useMemo, useState } from 'react';
+import { Suspense, useCallback, useEffect, useMemo, useState } from 'react';
 
 import { useSessionShareSearch } from '../../hooks/useSessionShareSearch.js';
 import { useOptionalAgentSessionsServer } from '../../server/ServerContext.js';
@@ -9,6 +9,7 @@ import {
   defaultSessionTimeRange,
   readSessionShareSearch,
   resolveSessionTimeRange,
+  SESSION_TIME_BUFFER_MS,
   type SessionTimeRange,
 } from '../../utils/sessionShareUrl.js';
 import { PageHeader } from '../PageHeader.js';
@@ -50,6 +51,14 @@ export function SessionsPage() {
   // Resolve relative presets only when the filter changes. Unrelated query
   // updates (such as selecting a session) must not shift/refetch the list.
   const resolved = useMemo(() => resolveSessionTimeRange(timeRange), [timeRange]);
+  const timeRangeDurationMs = timeRange.endTs - timeRange.startTs;
+  const showLoadRecentSessions =
+    timeRange.timeWindowMs == null && timeRangeDurationMs > 0 && timeRangeDurationMs <= 2 * SESSION_TIME_BUFFER_MS;
+  const loadRecentSessions = useCallback(() => {
+    const recentRange = defaultSessionTimeRange();
+    setTimeRange(recentRange);
+    updateShareSearch({ timeRange: recentRange, sessionId: null, view: 'sessions' });
+  }, [updateShareSearch]);
 
   return (
     <div className="flex h-full min-h-0 w-full flex-col bg-primary-bg">
@@ -86,6 +95,7 @@ export function SessionsPage() {
               startTimestamp={new Date(resolved.startTs).toISOString()}
               endTimestamp={new Date(resolved.endTs).toISOString()}
               shareView="sessions"
+              {...(showLoadRecentSessions ? { onLoadRecentSessions: loadRecentSessions } : {})}
             />
           </Suspense>
         )}

@@ -18,6 +18,8 @@ export type AgentSessionsProps = {
   endTimestamp?: string;
   /** When `sessions`, selection writes `view=sessions` and pins `s_sts`/`s_ets`. */
   shareView?: 'sessions' | null;
+  /** Restores the rolling recent-session window from a URL-loaded session. */
+  onLoadRecentSessions?: () => void;
 };
 
 export type AgentSessionListRowProps = {

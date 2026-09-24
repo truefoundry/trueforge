@@ -132,7 +132,8 @@ export function toolCallDescription(toolCall: Record<string, unknown>): string {
   const argumentsJson = typeof fn?.arguments === 'string' ? fn.arguments : undefined;
   if (SANDBOX_TOOL_NAMES.has(name) || name === 'code_sandbox') {
     const intent = parseSandboxArgs(argumentsJson).intent?.trim();
-    return intent != null && intent.length > 0 ? intent : name;
+    const sandboxTool = `Sandbox: ${name}`;
+    return intent != null && intent.length > 0 ? `${sandboxTool} - ${intent}` : sandboxTool;
   }
   // Deferred MCP wrappers store the real tool in args; surface it like ToolCallContainer.
   if (MCP_META_TOOLS.has(name)) {

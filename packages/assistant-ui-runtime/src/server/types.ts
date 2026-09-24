@@ -724,15 +724,8 @@ export interface SkillCatalogServer<
 // Sandbox providers catalog — public rows omit credentials; writes accept them
 // ---------------------------------------------------------------------------
 
-/** Mutable sandbox provider settings shared by catalog rows, create, and update. */
-export interface SandboxConfig {
-  execTimeoutMs: number;
-  autoStopIntervalInMinutes: number;
-  autoArchiveIntervalInMinutes: number;
-  autoDeleteIntervalInMinutes: number;
-}
-
-export interface SandboxCatalogEntry extends SandboxConfig {
+/** Discovery catalog row. Hosts extend for provider-specific defaults. */
+export interface SandboxCatalogEntry {
   id: string;
   name: string;
   type: string;
@@ -740,9 +733,9 @@ export interface SandboxCatalogEntry extends SandboxConfig {
 
 /**
  * Connected sandbox provider row (settings/sandboxes). No raw `apiKey`.
- * Includes last-saved config so update forms can show previous values.
+ * Hosts extend for provider-specific settings shown on update forms.
  */
-export interface SandboxBase extends SandboxConfig {
+export interface SandboxBase {
   id: string;
   name: string;
   catalogId: string;
@@ -759,7 +752,7 @@ export interface SandboxProviderListEntry<TSandbox extends SandboxBase = Sandbox
   snapshotSyncStatus: SandboxSnapshotSyncStatus;
 }
 
-export interface CreateSandboxRequest extends SandboxConfig {
+export interface CreateSandboxRequest {
   /** `SandboxCatalogEntry.id` used to create this sandbox provider. */
   catalogId: string;
   name: string;
@@ -767,14 +760,13 @@ export interface CreateSandboxRequest extends SandboxConfig {
   apiKey: string;
 }
 
-export interface UpdateSandboxRequest extends SandboxConfig {
+export interface UpdateSandboxRequest {
   id: string;
   /** Omit to keep the existing key; send a value to rotate. */
   apiKey?: string;
 }
 
 /** Host-facing aliases (trueforge-ui public names). */
-export type SandboxProviderConfig = SandboxConfig;
 export type SandboxProviderCatalogEntry = SandboxCatalogEntry;
 export type SandboxProviderBase = SandboxBase;
 export type CreateSandboxProviderRequest = CreateSandboxRequest;
