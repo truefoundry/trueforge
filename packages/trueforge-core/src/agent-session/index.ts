@@ -66,7 +66,6 @@ export type {
   TurnCreatedEvent,
   TurnDoneEvent,
   TurnUpdateEvent,
-  TurnUpdateState,
 } from './schemas/events';
 
 export { TokenPaginationSchema } from './schemas/pagination';

@@ -65,24 +65,13 @@ export const TurnDoneEventSchema = z
   })
   .openapi('TurnDoneEvent');
 
-export const TurnUpdateStatePausedSchema = TurnStatePausedSchema;
-
-export const TurnUpdateStateRunningSchema = z
-  .object({
-    status: z.literal('running').describe('Turn is executing.'),
-  })
-  .openapi('TurnUpdateStateRunning');
-
-export const TurnUpdateStateSchema = z
-  .discriminatedUnion('status', [TurnUpdateStatePausedSchema, TurnUpdateStateRunningSchema])
-  .describe('Live non-terminal turn status.')
-  .openapi('TurnUpdateState');
-
 export const TurnUpdateEventSchema = z
   .object({
     type: z.literal(EventType.TURN_UPDATE).describe('Emitted when a turn pauses or resumes.'),
     id: EventIdSchema,
-    state: TurnUpdateStateSchema,
+    state: z
+      .discriminatedUnion('status', [TurnStatePausedSchema, TurnStateRunningSchema])
+      .describe('Live non-terminal turn state (paused or running).'),
     created_at: z.string().describe('ISO 8601 event timestamp.'),
     thread_id: z.string().nullable().describe('Thread that owns the event; null for turn-level lifecycle events.'),
   })
@@ -119,7 +108,6 @@ export const SessionEventItemSchema = z
   .openapi('SessionEventItem');
 
 export type TurnCreatedEvent = z.infer<typeof TurnCreatedEventSchema>;
-export type TurnUpdateState = z.infer<typeof TurnUpdateStateSchema>;
 export type TurnUpdateEvent = z.infer<typeof TurnUpdateEventSchema>;
 export type TurnDoneEvent = z.infer<typeof TurnDoneEventSchema>;
 export type SessionEvent = z.infer<typeof SessionEventSchema>;
