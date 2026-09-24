@@ -7,6 +7,7 @@ import type {
 } from '../mcp/auth/types';
 import type { ResourceName } from '../schemas/common';
 import type { McpAuthStatus, McpServerManifest } from '../schemas/mcpServer';
+import type { TurnMetadata } from './turnMetadata';
 
 export interface McpServerRecord {
   id: string;
@@ -113,7 +114,11 @@ export interface IMcpServerWithAuthStore<TTransaction = never> extends IMcpServe
   deleteAuthorization(input: DeleteMcpAuthorizationInput): Promise<void>;
 
   /** Headers for MCP invoke; may be static or an async resolver that can return `authRequired`. */
-  resolveInvokeHeaders(input: { record: McpServerRecord; userRef: string }): RemoteMcpHeaders;
+  resolveInvokeHeaders(input: {
+    record: McpServerRecord;
+    userRef: string;
+    turnMetadata?: TurnMetadata;
+  }): RemoteMcpHeaders;
 }
 
 /**
