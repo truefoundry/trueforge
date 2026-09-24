@@ -1,19 +1,12 @@
-import type { TurnInboundEventItem } from '@truefoundry/trueforge-core/agent-session';
-import type {
-  InsertTurnInboundEventsInput,
-  ListUnconsumedTurnInboundEventsInput,
-  MarkTurnInboundEventsConsumedInput,
-  TurnInboundEventRecord,
-} from '@truefoundry/trueforge-core/agent-session/store/ISessionStore';
+import type { InsertTurnInboundEventsInput } from '@truefoundry/trueforge-core/agent-session/store/ISessionStore';
 import {
   SessionNotFoundError,
   TurnEventAlreadyExistsError,
 } from '@truefoundry/trueforge-core/agent-session/store/SessionStoreErrors';
 import type { Kysely } from 'kysely';
-import { sql } from 'kysely';
 import { firstCollidingEventId, firstDuplicateEventIdInBatch } from '../../../turnInboundEvents';
 import { isUniqueViolation } from '../../client';
-import { jsonbBind, jsonText } from '../../sqlExpressions';
+import { jsonbBind } from '../../sqlExpressions';
 import type { Database } from '../../types';
 import { assertTurnRunning, type TurnKeys } from './turns';
 
@@ -103,45 +96,4 @@ export async function insertTurnInboundEvents(
     }
     throw error;
   }
-}
-
-export async function listUnconsumedTurnInboundEvents(
-  db: Kysely<Database>,
-  input: ListUnconsumedTurnInboundEventsInput,
-): Promise<TurnInboundEventRecord[]> {
-  await requireSession(db, input.session_id);
-
-  const rows = await db
-    .selectFrom('turn_inbound_events')
-    .select(['event_id', 'turn_id', 'created_at', jsonText<TurnInboundEventItem>(sql.ref('payload')).as('payload')])
-    .where('session_id', '=', input.session_id)
-    .where('turn_id', '=', input.turn_id)
-    .where('consumed', '=', 0)
-    .orderBy('event_id', 'asc')
-    .execute();
-
-  return rows.map(row => ({
-    event_id: row.event_id,
-    turn_id: row.turn_id,
-    payload: row.payload,
-    created_at: row.created_at,
-  }));
-}
-
-export async function markTurnInboundEventsConsumed(
-  db: Kysely<Database>,
-  input: MarkTurnInboundEventsConsumedInput,
-): Promise<void> {
-  if (input.event_ids.length === 0) {
-    return;
-  }
-  await requireSession(db, input.session_id);
-
-  await db
-    .updateTable('turn_inbound_events')
-    .set({ consumed: 1 })
-    .where('session_id', '=', input.session_id)
-    .where('turn_id', '=', input.turn_id)
-    .where('event_id', 'in', input.event_ids)
-    .execute();
 }

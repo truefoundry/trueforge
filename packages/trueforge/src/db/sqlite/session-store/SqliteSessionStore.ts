@@ -20,14 +20,11 @@ import type {
   ListSessionsInput,
   ListTurnEventsInput,
   ListTurnsInput,
-  ListUnconsumedTurnInboundEventsInput,
-  MarkTurnInboundEventsConsumedInput,
   OverwriteThreadContextInput,
   PatchMCPServersInput,
   PatchSandboxInfoInput,
   PatchThreadCapabilityStateInput,
   RemoveThreadsInput,
-  TurnInboundEventRecord,
   TurnRecordWithoutSnapshot,
   UpdateSessionInput,
   UpdateTurnStateInput,
@@ -44,11 +41,7 @@ import {
   listSessionEvents as listSessionEventsQuery,
   listTurnEvents as listTurnEventsQuery,
 } from './queries/events';
-import {
-  insertTurnInboundEvents as insertTurnInboundEventsQuery,
-  listUnconsumedTurnInboundEvents as listUnconsumedTurnInboundEventsQuery,
-  markTurnInboundEventsConsumed as markTurnInboundEventsConsumedQuery,
-} from './queries/inboundEvents';
+import { insertTurnInboundEvents as insertTurnInboundEventsQuery } from './queries/inboundEvents';
 import {
   createSession as createSessionQuery,
   deleteSession as deleteSessionQuery,
@@ -202,14 +195,6 @@ export class SqliteSessionStore implements ISessionStore<SessionCustom, TurnCust
 
   insertTurnInboundEvents(input: InsertTurnInboundEventsInput): Promise<void> {
     return insertTurnInboundEventsQuery(this.db, input);
-  }
-
-  listUnconsumedTurnInboundEvents(input: ListUnconsumedTurnInboundEventsInput): Promise<TurnInboundEventRecord[]> {
-    return listUnconsumedTurnInboundEventsQuery(this.db, input);
-  }
-
-  markTurnInboundEventsConsumed(input: MarkTurnInboundEventsConsumedInput): Promise<void> {
-    return markTurnInboundEventsConsumedQuery(this.db, input);
   }
 
   addThreads(input: AddThreadsInput): Promise<void> {
