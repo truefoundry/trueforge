@@ -11,6 +11,7 @@ import type { Database, SandboxProviderTable } from '../types';
 function toRecord(row: Selectable<SandboxProviderTable>): SandboxProviderRecord {
   return {
     tenant_id: row.tenant_id,
+    name: row.name,
     manifest: row.manifest,
     status: row.status,
     status_reason: row.status_reason,
@@ -58,10 +59,13 @@ export class PostgresSandboxProviderStore implements ISandboxProviderStore<Trans
     transaction?: Transaction<Database>,
   ): Promise<SandboxProviderRecord> {
     const db = transaction ?? this.#db;
+    // TEMP: name is always manifest.type until providers can have distinct identities.
+    const name = input.manifest.type;
     const row = await db
       .insertInto('sandbox_provider')
       .values({
         tenant_id: input.tenant_id,
+        name,
         manifest: json(input.manifest),
         status: input.status,
         status_reason: input.status_reason,
@@ -71,6 +75,7 @@ export class PostgresSandboxProviderStore implements ISandboxProviderStore<Trans
       })
       .onConflict(oc =>
         oc.columns(['tenant_id']).doUpdateSet({
+          name,
           manifest: json(input.manifest),
           status: input.status,
           status_reason: input.status_reason,

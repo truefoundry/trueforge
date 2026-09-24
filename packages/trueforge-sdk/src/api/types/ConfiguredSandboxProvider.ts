@@ -4,6 +4,8 @@ import type * as TrueForge from "../index.js";
 
 export interface ConfiguredSandboxProvider {
     manifest: TrueForge.SandboxProviderManifest;
+    /** Sandbox provider name. */
+    name: string;
     status: TrueForge.SandboxBuildStatus;
     /** Human-readable detail for the current status; null when ready. */
     statusReason: string | null;
