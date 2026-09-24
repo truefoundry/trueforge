@@ -1,5 +1,6 @@
 import { HTTPException } from 'hono/http-exception';
 import {
+  assertGatewayMetadataRequestHeaders,
   buildGatewayMetadata,
   gatewayMetadataHeadersForTurn,
   mergeGatewayMetadata,
@@ -31,6 +32,17 @@ describe('parseGatewayMetadataHeader', () => {
     expect(() => parseGatewayMetadataHeader('not-json')).toThrow(
       expect.objectContaining({ cause: expect.any(SyntaxError) }),
     );
+  });
+});
+
+describe('assertGatewayMetadataRequestHeaders', () => {
+  it('is a no-op when the header is absent', () => {
+    expect(() => assertGatewayMetadataRequestHeaders(undefined)).not.toThrow();
+    expect(() => assertGatewayMetadataRequestHeaders({})).not.toThrow();
+  });
+
+  it('rejects a malformed header before callers mint a turn', () => {
+    expect(() => assertGatewayMetadataRequestHeaders({ [X_TFY_METADATA]: 'not-json' })).toThrow(HTTPException);
   });
 });
 

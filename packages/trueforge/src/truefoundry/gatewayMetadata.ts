@@ -29,6 +29,20 @@ export function parseGatewayMetadataHeader(raw: string): Record<string, string> 
   return parsed.data;
 }
 
+/**
+ * Reject a malformed inbound `x-tfy-metadata` before the turn starts.
+ * No-op when the header is absent (e.g. schedule runs).
+ */
+export function assertGatewayMetadataRequestHeaders(headers: Record<string, string> | undefined): void {
+  if (headers === undefined) {
+    return;
+  }
+  const raw = headerValue(headers, X_TFY_METADATA);
+  if (raw !== undefined) {
+    parseGatewayMetadataHeader(raw);
+  }
+}
+
 export function buildGatewayMetadata(input: {
   sessionId: string;
   turnId: string;
