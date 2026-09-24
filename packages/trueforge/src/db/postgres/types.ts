@@ -9,6 +9,7 @@ import type {
   SessionMetadata,
   SessionMetrics,
   SessionSource,
+  TurnInboundEventItem,
   TurnInputItem,
   TurnState,
 } from '@truefoundry/trueforge-core/agent-session';
@@ -247,6 +248,19 @@ export interface SessionEventTable {
    *      future time-range filters can be indexed without inspecting jsonb.
    *      Ordering still uses event_id.
    */
+  created_at: Date;
+}
+
+/**
+ * Turn-scoped inbound send-event inbox.
+ * PRIMARY KEY (session_id, turn_id, event_id).
+ */
+export interface TurnInboundEventsTable {
+  session_id: string;
+  turn_id: string;
+  event_id: string;
+  payload: JSONColumnType<TurnInboundEventItem, TurnInboundEventItem, TurnInboundEventItem>;
+  consumed: boolean;
   created_at: Date;
 }
 
@@ -532,6 +546,7 @@ export interface Database {
   turn: TurnTable;
   turn_thread: TurnThreadTable;
   session_event: SessionEventTable;
+  turn_inbound_events: TurnInboundEventsTable;
   thread_context_log: ThreadContextLogTable;
   thread_capability_state: ThreadCapabilityStateTable;
   model_provider: ModelProviderTable;

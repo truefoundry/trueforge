@@ -20,6 +20,7 @@ from ..core.serialization import convert_and_respect_annotation_metadata
 from ..core.stream import AsyncStream, Stream, StreamEvent
 from ..core.unchecked_base_model import construct_type
 from ..errors.bad_request_error import BadRequestError
+from ..errors.conflict_error import ConflictError
 from ..errors.content_too_large_error import ContentTooLargeError
 from ..errors.failed_dependency_error import FailedDependencyError
 from ..errors.forbidden_error import ForbiddenError
@@ -30,6 +31,7 @@ from ..errors.unauthorized_error import UnauthorizedError
 from ..errors.unprocessable_entity_error import UnprocessableEntityError
 from ..types.cancel_session_response import CancelSessionResponse
 from ..types.create_session_agent import CreateSessionAgent
+from ..types.create_turn_event_response import CreateTurnEventResponse
 from ..types.get_session_response import GetSessionResponse
 from ..types.get_turn_response import GetTurnResponse
 from ..types.list_session_events_response import ListSessionEventsResponse
@@ -47,6 +49,7 @@ from ..types.session_event_item import SessionEventItem
 from ..types.session_metadata import SessionMetadata
 from ..types.session_source_type import SessionSourceType
 from ..types.turn import Turn
+from ..types.turn_inbound_event_item import TurnInboundEventItem
 from ..types.turn_input_item import TurnInputItem
 from ..types.turn_streaming_event import TurnStreamingEvent
 from pydantic import ValidationError
@@ -1418,6 +1421,113 @@ class RawSessionsClient:
                 )
             if _response.status_code == 404:
                 raise NotFoundError(
+                    headers=dict(_response.headers),
+                    body=typing.cast(
+                        RequestErrorResponse,
+                        construct_type(
+                            type_=RequestErrorResponse,  # type: ignore
+                            object_=_response.json(),
+                        ),
+                    ),
+                )
+            _response_json = _response.json()
+        except JSONDecodeError:
+            raise ApiError(status_code=_response.status_code, headers=dict(_response.headers), body=_response.text)
+        except ValidationError as e:
+            raise ParsingError(
+                status_code=_response.status_code, headers=dict(_response.headers), body=_response.json(), cause=e
+            )
+        raise ApiError(status_code=_response.status_code, headers=dict(_response.headers), body=_response_json)
+
+    def create_turn_event(
+        self,
+        *,
+        session_id: str,
+        turn_id: str,
+        events: typing.Sequence[TurnInboundEventItem],
+        request_options: typing.Optional[RequestOptions] = None,
+    ) -> HttpResponse[CreateTurnEventResponse]:
+        """
+        Create events for a turn. Only the session creator may create them.
+
+        Parameters
+        ----------
+        session_id : str
+            Session identifier.
+
+        turn_id : str
+            Turn identifier.
+
+        events : typing.Sequence[TurnInboundEventItem]
+            One or more user events.
+
+        request_options : typing.Optional[RequestOptions]
+            Request-specific configuration.
+
+        Returns
+        -------
+        HttpResponse[CreateTurnEventResponse]
+            Events created.
+        """
+        _response = self._client_wrapper.httpx_client.request(
+            f"api/v1/sessions/{encode_path_param(session_id)}/turns/{encode_path_param(turn_id)}/events",
+            method="POST",
+            json={
+                "events": convert_and_respect_annotation_metadata(
+                    object_=events, annotation=typing.Sequence[TurnInboundEventItem], direction="write"
+                ),
+            },
+            headers={
+                "content-type": "application/json",
+            },
+            request_options=request_options,
+            omit=OMIT,
+        )
+        try:
+            if 200 <= _response.status_code < 300:
+                _data = typing.cast(
+                    CreateTurnEventResponse,
+                    construct_type(
+                        type_=CreateTurnEventResponse,  # type: ignore
+                        object_=_response.json(),
+                    ),
+                )
+                return HttpResponse(response=_response, data=_data)
+            if _response.status_code == 400:
+                raise BadRequestError(
+                    headers=dict(_response.headers),
+                    body=typing.cast(
+                        RequestErrorResponse,
+                        construct_type(
+                            type_=RequestErrorResponse,  # type: ignore
+                            object_=_response.json(),
+                        ),
+                    ),
+                )
+            if _response.status_code == 403:
+                raise ForbiddenError(
+                    headers=dict(_response.headers),
+                    body=typing.cast(
+                        RequestErrorResponse,
+                        construct_type(
+                            type_=RequestErrorResponse,  # type: ignore
+                            object_=_response.json(),
+                        ),
+                    ),
+                )
+            if _response.status_code == 404:
+                raise NotFoundError(
+                    headers=dict(_response.headers),
+                    body=typing.cast(
+                        RequestErrorResponse,
+                        construct_type(
+                            type_=RequestErrorResponse,  # type: ignore
+                            object_=_response.json(),
+                        ),
+                    ),
+                )
+            if _response.status_code == 409:
+                raise ConflictError(
                     headers=dict(_response.headers),
                     body=typing.cast(
                         RequestErrorResponse,
@@ -2953,6 +3063,113 @@ class AsyncRawSessionsClient:
                 )
             if _response.status_code == 404:
                 raise NotFoundError(
+                    headers=dict(_response.headers),
+                    body=typing.cast(
+                        RequestErrorResponse,
+                        construct_type(
+                            type_=RequestErrorResponse,  # type: ignore
+                            object_=_response.json(),
+                        ),
+                    ),
+                )
+            _response_json = _response.json()
+        except JSONDecodeError:
+            raise ApiError(status_code=_response.status_code, headers=dict(_response.headers), body=_response.text)
+        except ValidationError as e:
+            raise ParsingError(
+                status_code=_response.status_code, headers=dict(_response.headers), body=_response.json(), cause=e
+            )
+        raise ApiError(status_code=_response.status_code, headers=dict(_response.headers), body=_response_json)
+
+    async def create_turn_event(
+        self,
+        *,
+        session_id: str,
+        turn_id: str,
+        events: typing.Sequence[TurnInboundEventItem],
+        request_options: typing.Optional[RequestOptions] = None,
+    ) -> AsyncHttpResponse[CreateTurnEventResponse]:
+        """
+        Create events for a turn. Only the session creator may create them.
+
+        Parameters
+        ----------
+        session_id : str
+            Session identifier.
+
+        turn_id : str
+            Turn identifier.
+
+        events : typing.Sequence[TurnInboundEventItem]
+            One or more user events.
+
+        request_options : typing.Optional[RequestOptions]
+            Request-specific configuration.
+
+        Returns
+        -------
+        AsyncHttpResponse[CreateTurnEventResponse]
+            Events created.
+        """
+        _response = await self._client_wrapper.httpx_client.request(
+            f"api/v1/sessions/{encode_path_param(session_id)}/turns/{encode_path_param(turn_id)}/events",
+            method="POST",
+            json={
+                "events": convert_and_respect_annotation_metadata(
+                    object_=events, annotation=typing.Sequence[TurnInboundEventItem], direction="write"
+                ),
+            },
+            headers={
+                "content-type": "application/json",
+            },
+            request_options=request_options,
+            omit=OMIT,
+        )
+        try:
+            if 200 <= _response.status_code < 300:
+                _data = typing.cast(
+                    CreateTurnEventResponse,
+                    construct_type(
+                        type_=CreateTurnEventResponse,  # type: ignore
+                        object_=_response.json(),
+                    ),
+                )
+                return AsyncHttpResponse(response=_response, data=_data)
+            if _response.status_code == 400:
+                raise BadRequestError(
+                    headers=dict(_response.headers),
+                    body=typing.cast(
+                        RequestErrorResponse,
+                        construct_type(
+                            type_=RequestErrorResponse,  # type: ignore
+                            object_=_response.json(),
+                        ),
+                    ),
+                )
+            if _response.status_code == 403:
+                raise ForbiddenError(
+                    headers=dict(_response.headers),
+                    body=typing.cast(
+                        RequestErrorResponse,
+                        construct_type(
+                            type_=RequestErrorResponse,  # type: ignore
+                            object_=_response.json(),
+                        ),
+                    ),
+                )
+            if _response.status_code == 404:
+                raise NotFoundError(
+                    headers=dict(_response.headers),
+                    body=typing.cast(
+                        RequestErrorResponse,
+                        construct_type(
+                            type_=RequestErrorResponse,  # type: ignore
+                            object_=_response.json(),
+                        ),
+                    ),
+                )
+            if _response.status_code == 409:
+                raise ConflictError(
                     headers=dict(_response.headers),
                     body=typing.cast(
                         RequestErrorResponse,

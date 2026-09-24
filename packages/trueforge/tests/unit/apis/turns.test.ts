@@ -107,6 +107,23 @@ describe('turns', () => {
       expect(eventsResponse.status).toBe(403);
       expect(await eventsResponse.json()).toEqual(forbiddenAccess);
 
+      const createEventsResponse = await app.request('/s1/turns/any-turn/events', {
+        method: 'POST',
+        headers: { 'content-type': 'application/json' },
+        body: JSON.stringify({
+          events: [
+            {
+              type: 'user.tool_approval',
+              thread_id: 'main',
+              tool_call_id: 'tc-1',
+              approval: { status: 'allow' },
+            },
+          ],
+        }),
+      });
+      expect(createEventsResponse.status).toBe(403);
+      expect(await createEventsResponse.json()).toEqual(forbiddenAccess);
+
       const subscribeResponse = await app.request('/s1/turns/any-turn/subscribe');
       expect(subscribeResponse.status).toBe(403);
       expect(await subscribeResponse.json()).toEqual(forbiddenAccess);
@@ -190,6 +207,24 @@ describe('turns', () => {
             method: 'POST',
             headers: { 'content-type': 'application/json' },
             body: JSON.stringify({ stream: false }),
+          })
+        ).status,
+      ).toBe(403);
+      expect(
+        (
+          await app.request('/managed-session/turns/missing/events', {
+            method: 'POST',
+            headers: { 'content-type': 'application/json' },
+            body: JSON.stringify({
+              events: [
+                {
+                  type: 'user.tool_approval',
+                  thread_id: 'main',
+                  tool_call_id: 'tc-1',
+                  approval: { status: 'allow' },
+                },
+              ],
+            }),
           })
         ).status,
       ).toBe(403);

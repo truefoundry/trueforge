@@ -1163,6 +1163,59 @@
         ],
         "type": "object"
       },
+      "CreateTurnEventRequest": {
+        "properties": {
+          "events": {
+            "description": "One or more user events.",
+            "items": {
+              "$ref": "#/components/schemas/TurnInboundEventItem"
+            },
+            "minItems": 1,
+            "type": "array"
+          }
+        },
+        "required": [
+          "events"
+        ],
+        "type": "object"
+      },
+      "CreateTurnEventResponse": {
+        "properties": {
+          "data": {
+            "description": "Events with server-minted `id` and `created_at`, in request order.",
+            "items": {
+              "discriminator": {
+                "mapping": {
+                  "user.mcp_auth_continue": "#/components/schemas/UserMCPAuthContinueEvent",
+                  "user.tool_approval": "#/components/schemas/UserToolApprovalEvent",
+                  "user.tool_approval_policy": "#/components/schemas/UserToolApprovalPolicyEvent",
+                  "user.tool_response": "#/components/schemas/UserToolResponseEvent"
+                },
+                "propertyName": "type"
+              },
+              "oneOf": [
+                {
+                  "$ref": "#/components/schemas/UserToolApprovalEvent"
+                },
+                {
+                  "$ref": "#/components/schemas/UserToolResponseEvent"
+                },
+                {
+                  "$ref": "#/components/schemas/UserToolApprovalPolicyEvent"
+                },
+                {
+                  "$ref": "#/components/schemas/UserMCPAuthContinueEvent"
+                }
+              ]
+            },
+            "type": "array"
+          }
+        },
+        "required": [
+          "data"
+        ],
+        "type": "object"
+      },
       "CreateTurnRequest": {
         "properties": {
           "input": {
@@ -4108,7 +4161,11 @@
             "tool.response_required": "#/components/schemas/ToolResponseRequiredEvent",
             "turn.created": "#/components/schemas/TurnCreatedEvent",
             "turn.done": "#/components/schemas/TurnDoneEvent",
-            "turn.update": "#/components/schemas/TurnUpdateEvent"
+            "turn.update": "#/components/schemas/TurnUpdateEvent",
+            "user.mcp_auth_continue": "#/components/schemas/UserMCPAuthContinueEvent",
+            "user.tool_approval": "#/components/schemas/UserToolApprovalEvent",
+            "user.tool_approval_policy": "#/components/schemas/UserToolApprovalPolicyEvent",
+            "user.tool_response": "#/components/schemas/UserToolResponseEvent"
           },
           "propertyName": "type"
         },
@@ -4148,6 +4205,18 @@
           },
           {
             "$ref": "#/components/schemas/ToolResponseRequiredEvent"
+          },
+          {
+            "$ref": "#/components/schemas/UserToolApprovalEvent"
+          },
+          {
+            "$ref": "#/components/schemas/UserToolResponseEvent"
+          },
+          {
+            "$ref": "#/components/schemas/UserToolApprovalPolicyEvent"
+          },
+          {
+            "$ref": "#/components/schemas/UserMCPAuthContinueEvent"
           }
         ]
       },
@@ -4778,6 +4847,58 @@
         ],
         "type": "object"
       },
+      "ToolApprovalPolicyAllowSession": {
+        "properties": {
+          "expire_at": {
+            "description": "ISO 8601 timestamp when this session allow expires. Omit to allow for the whole session.",
+            "type": "string"
+          },
+          "type": {
+            "description": "Allow matching tool calls for the rest of this session.",
+            "enum": [
+              "allow_session"
+            ],
+            "type": "string"
+          }
+        },
+        "required": [
+          "type"
+        ],
+        "type": "object"
+      },
+      "ToolApprovalPolicyItem": {
+        "properties": {
+          "action": {
+            "discriminator": {
+              "mapping": {
+                "allow_session": "#/components/schemas/ToolApprovalPolicyAllowSession"
+              },
+              "propertyName": "type"
+            },
+            "oneOf": [
+              {
+                "$ref": "#/components/schemas/ToolApprovalPolicyAllowSession"
+              }
+            ]
+          },
+          "name": {
+            "description": "Tool name on that server.",
+            "minLength": 1,
+            "type": "string"
+          },
+          "server_name": {
+            "description": "MCP server name.",
+            "minLength": 1,
+            "type": "string"
+          }
+        },
+        "required": [
+          "server_name",
+          "name",
+          "action"
+        ],
+        "type": "object"
+      },
       "ToolApprovalRequiredEvent": {
         "properties": {
           "created_at": {
@@ -5228,12 +5349,37 @@
         ],
         "type": "object"
       },
+      "TurnInboundEventItem": {
+        "discriminator": {
+          "mapping": {
+            "user.mcp_auth_continue": "#/components/schemas/UserMCPAuthContinueInputEvent",
+            "user.tool_approval": "#/components/schemas/UserToolApprovalInputEvent",
+            "user.tool_approval_policy": "#/components/schemas/UserToolApprovalPolicyMessage",
+            "user.tool_response": "#/components/schemas/UserToolResponseInputEvent"
+          },
+          "propertyName": "type"
+        },
+        "oneOf": [
+          {
+            "$ref": "#/components/schemas/UserToolApprovalInputEvent"
+          },
+          {
+            "$ref": "#/components/schemas/UserToolResponseInputEvent"
+          },
+          {
+            "$ref": "#/components/schemas/UserToolApprovalPolicyMessage"
+          },
+          {
+            "$ref": "#/components/schemas/UserMCPAuthContinueInputEvent"
+          }
+        ]
+      },
       "TurnInputItem": {
         "discriminator": {
           "mapping": {
             "user.message": "#/components/schemas/UserMessage",
-            "user.tool_approval": "#/components/schemas/UserToolApprovalEvent",
-            "user.tool_response": "#/components/schemas/UserToolResponseEvent"
+            "user.tool_approval": "#/components/schemas/UserToolApprovalInputEvent",
+            "user.tool_response": "#/components/schemas/UserToolResponseInputEvent"
           },
           "propertyName": "type"
         },
@@ -5242,10 +5388,10 @@
             "$ref": "#/components/schemas/UserMessage"
           },
           {
-            "$ref": "#/components/schemas/UserToolApprovalEvent"
+            "$ref": "#/components/schemas/UserToolApprovalInputEvent"
           },
           {
-            "$ref": "#/components/schemas/UserToolResponseEvent"
+            "$ref": "#/components/schemas/UserToolResponseInputEvent"
           }
         ]
       },
@@ -5296,6 +5442,7 @@
             "cancelled": "#/components/schemas/TurnStateCancelled",
             "done": "#/components/schemas/TurnStateDone",
             "error": "#/components/schemas/TurnStateError",
+            "paused": "#/components/schemas/TurnStatePaused",
             "running": "#/components/schemas/TurnStateRunning"
           },
           "propertyName": "status"
@@ -5303,6 +5450,9 @@
         "oneOf": [
           {
             "$ref": "#/components/schemas/TurnStateRunning"
+          },
+          {
+            "$ref": "#/components/schemas/TurnStatePaused"
           },
           {
             "$ref": "#/components/schemas/TurnStateDone"
@@ -5377,7 +5527,7 @@
                 "type": "null"
               }
             ],
-            "description": "Final `model.message` for the turn, or null when the turn ended paused without a final message."
+            "description": "Final `model.message` for the turn, or null when the turn ended without a final message."
           },
           "required_actions": {
             "description": "Pending actions (`tool.approval_required`, `tool.response_required`, `mcp.auth_required`); empty when none.",
@@ -5387,7 +5537,7 @@
             "type": "array"
           },
           "status": {
-            "description": "Turn finished (possibly paused for required actions).",
+            "description": "Turn finished with no open required actions.",
             "enum": [
               "done"
             ],
@@ -5437,6 +5587,29 @@
         ],
         "type": "object"
       },
+      "TurnStatePaused": {
+        "properties": {
+          "action_required_on_events": {
+            "description": "Events that still need a user or client action.",
+            "items": {
+              "$ref": "#/components/schemas/ActionRequired"
+            },
+            "type": "array"
+          },
+          "status": {
+            "description": "Turn is paused waiting for required actions.",
+            "enum": [
+              "paused"
+            ],
+            "type": "string"
+          }
+        },
+        "required": [
+          "status",
+          "action_required_on_events"
+        ],
+        "type": "object"
+      },
       "TurnStateRunning": {
         "properties": {
           "status": {
@@ -5467,7 +5640,11 @@
             "tool.response_required": "#/components/schemas/ToolResponseRequiredEvent",
             "turn.created": "#/components/schemas/TurnCreatedEvent",
             "turn.done": "#/components/schemas/TurnDoneEvent",
-            "turn.update": "#/components/schemas/TurnUpdateEvent"
+            "turn.update": "#/components/schemas/TurnUpdateEvent",
+            "user.mcp_auth_continue": "#/components/schemas/UserMCPAuthContinueEvent",
+            "user.tool_approval": "#/components/schemas/UserToolApprovalEvent",
+            "user.tool_approval_policy": "#/components/schemas/UserToolApprovalPolicyEvent",
+            "user.tool_response": "#/components/schemas/UserToolResponseEvent"
           },
           "propertyName": "type"
         },
@@ -5503,6 +5680,18 @@
             "$ref": "#/components/schemas/ToolResponseRequiredEvent"
           },
           {
+            "$ref": "#/components/schemas/UserToolApprovalEvent"
+          },
+          {
+            "$ref": "#/components/schemas/UserToolResponseEvent"
+          },
+          {
+            "$ref": "#/components/schemas/UserToolApprovalPolicyEvent"
+          },
+          {
+            "$ref": "#/components/schemas/UserMCPAuthContinueEvent"
+          },
+          {
             "$ref": "#/components/schemas/TurnCreatedEvent"
           },
           {
@@ -5524,7 +5713,22 @@
             "type": "string"
           },
           "state": {
-            "$ref": "#/components/schemas/TurnUpdateState"
+            "description": "Live non-terminal turn state (paused or running).",
+            "discriminator": {
+              "mapping": {
+                "paused": "#/components/schemas/TurnStatePaused",
+                "running": "#/components/schemas/TurnStateRunning"
+              },
+              "propertyName": "status"
+            },
+            "oneOf": [
+              {
+                "$ref": "#/components/schemas/TurnStatePaused"
+              },
+              {
+                "$ref": "#/components/schemas/TurnStateRunning"
+              }
+            ]
           },
           "thread_id": {
             "description": "Thread that owns the event; null for turn-level lifecycle events.",
@@ -5547,62 +5751,6 @@
           "state",
           "created_at",
           "thread_id"
-        ],
-        "type": "object"
-      },
-      "TurnUpdateState": {
-        "description": "Live non-terminal turn status.",
-        "discriminator": {
-          "mapping": {
-            "paused": "#/components/schemas/TurnUpdateStatePaused",
-            "running": "#/components/schemas/TurnUpdateStateRunning"
-          },
-          "propertyName": "status"
-        },
-        "oneOf": [
-          {
-            "$ref": "#/components/schemas/TurnUpdateStatePaused"
-          },
-          {
-            "$ref": "#/components/schemas/TurnUpdateStateRunning"
-          }
-        ]
-      },
-      "TurnUpdateStatePaused": {
-        "properties": {
-          "action_required_on_events": {
-            "description": "Events that still need a user or client action.",
-            "items": {
-              "$ref": "#/components/schemas/ActionRequired"
-            },
-            "type": "array"
-          },
-          "status": {
-            "description": "Turn is paused waiting for required actions.",
-            "enum": [
-              "paused"
-            ],
-            "type": "string"
-          }
-        },
-        "required": [
-          "status",
-          "action_required_on_events"
-        ],
-        "type": "object"
-      },
-      "TurnUpdateStateRunning": {
-        "properties": {
-          "status": {
-            "description": "Turn is executing.",
-            "enum": [
-              "running"
-            ],
-            "type": "string"
-          }
-        },
-        "required": [
-          "status"
         ],
         "type": "object"
       },
@@ -5717,6 +5865,46 @@
         ],
         "type": "object"
       },
+      "UserMCPAuthContinueEvent": {
+        "properties": {
+          "created_at": {
+            "description": "ISO 8601 event timestamp.",
+            "type": "string"
+          },
+          "id": {
+            "description": "Unique identifier for the event (monotonic ULID).",
+            "type": "string"
+          },
+          "type": {
+            "description": "Client resume after mcp.auth_required (OAuth completed).",
+            "enum": [
+              "user.mcp_auth_continue"
+            ],
+            "type": "string"
+          }
+        },
+        "required": [
+          "type",
+          "id",
+          "created_at"
+        ],
+        "type": "object"
+      },
+      "UserMCPAuthContinueInputEvent": {
+        "properties": {
+          "type": {
+            "description": "Client resume after mcp.auth_required (OAuth completed).",
+            "enum": [
+              "user.mcp_auth_continue"
+            ],
+            "type": "string"
+          }
+        },
+        "required": [
+          "type"
+        ],
+        "type": "object"
+      },
       "UserMessage": {
         "properties": {
           "content": {
@@ -5769,6 +5957,47 @@
           "approval": {
             "$ref": "#/components/schemas/ApprovalDecision"
           },
+          "created_at": {
+            "description": "ISO 8601 event timestamp.",
+            "type": "string"
+          },
+          "id": {
+            "description": "Unique identifier for the event (monotonic ULID).",
+            "type": "string"
+          },
+          "thread_id": {
+            "description": "Thread that owns the pending tool call.",
+            "minLength": 1,
+            "type": "string"
+          },
+          "tool_call_id": {
+            "description": "Tool call id being approved or denied.",
+            "minLength": 1,
+            "type": "string"
+          },
+          "type": {
+            "description": "Client resume after tool.approval_required.",
+            "enum": [
+              "user.tool_approval"
+            ],
+            "type": "string"
+          }
+        },
+        "required": [
+          "type",
+          "thread_id",
+          "tool_call_id",
+          "approval",
+          "id",
+          "created_at"
+        ],
+        "type": "object"
+      },
+      "UserToolApprovalInputEvent": {
+        "properties": {
+          "approval": {
+            "$ref": "#/components/schemas/ApprovalDecision"
+          },
           "thread_id": {
             "description": "Thread that owns the pending tool call.",
             "minLength": 1,
@@ -5795,7 +6024,108 @@
         ],
         "type": "object"
       },
+      "UserToolApprovalPolicyEvent": {
+        "properties": {
+          "created_at": {
+            "description": "ISO 8601 event timestamp.",
+            "type": "string"
+          },
+          "id": {
+            "description": "Unique identifier for the event (monotonic ULID).",
+            "type": "string"
+          },
+          "policies": {
+            "description": "One or more (server_name, name) policy entries.",
+            "items": {
+              "$ref": "#/components/schemas/ToolApprovalPolicyItem"
+            },
+            "minItems": 1,
+            "type": "array"
+          },
+          "type": {
+            "description": "Sticky allow-session policy for matching tools (optional expiry).",
+            "enum": [
+              "user.tool_approval_policy"
+            ],
+            "type": "string"
+          }
+        },
+        "required": [
+          "type",
+          "policies",
+          "id",
+          "created_at"
+        ],
+        "type": "object"
+      },
+      "UserToolApprovalPolicyMessage": {
+        "properties": {
+          "policies": {
+            "description": "One or more (server_name, name) policy entries.",
+            "items": {
+              "$ref": "#/components/schemas/ToolApprovalPolicyItem"
+            },
+            "minItems": 1,
+            "type": "array"
+          },
+          "type": {
+            "description": "Sticky allow-session policy for matching tools (optional expiry).",
+            "enum": [
+              "user.tool_approval_policy"
+            ],
+            "type": "string"
+          }
+        },
+        "required": [
+          "type",
+          "policies"
+        ],
+        "type": "object"
+      },
       "UserToolResponseEvent": {
+        "properties": {
+          "content": {
+            "description": "Client-side tool result content.",
+            "minLength": 1,
+            "type": "string"
+          },
+          "created_at": {
+            "description": "ISO 8601 event timestamp.",
+            "type": "string"
+          },
+          "id": {
+            "description": "Unique identifier for the event (monotonic ULID).",
+            "type": "string"
+          },
+          "thread_id": {
+            "description": "Thread that owns the pending tool call.",
+            "minLength": 1,
+            "type": "string"
+          },
+          "tool_call_id": {
+            "description": "Tool call id receiving the client response.",
+            "minLength": 1,
+            "type": "string"
+          },
+          "type": {
+            "description": "Client resume after tool.response_required.",
+            "enum": [
+              "user.tool_response"
+            ],
+            "type": "string"
+          }
+        },
+        "required": [
+          "type",
+          "thread_id",
+          "tool_call_id",
+          "content",
+          "id",
+          "created_at"
+        ],
+        "type": "object"
+      },
+      "UserToolResponseInputEvent": {
         "properties": {
           "content": {
             "description": "Client-side tool result content.",
@@ -9349,6 +9679,104 @@
           "sessions"
         ],
         "x-fern-sdk-method-name": "list_turn_events"
+      },
+      "post": {
+        "description": "Create events for a turn. Only the session creator may create them.",
+        "parameters": [
+          {
+            "description": "Session identifier.",
+            "in": "path",
+            "name": "session_id",
+            "required": true,
+            "schema": {
+              "description": "Session identifier.",
+              "maxLength": 64,
+              "minLength": 1,
+              "type": "string"
+            }
+          },
+          {
+            "description": "Turn identifier.",
+            "in": "path",
+            "name": "turn_id",
+            "required": true,
+            "schema": {
+              "description": "Turn identifier.",
+              "minLength": 1,
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CreateTurnEventRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "201": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CreateTurnEventResponse"
+                }
+              }
+            },
+            "description": "Events created."
+          },
+          "400": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/RequestErrorResponse"
+                }
+              }
+            },
+            "description": "Invalid request body."
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/RequestErrorResponse"
+                }
+              }
+            },
+            "description": "Caller is not the session creator."
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/RequestErrorResponse"
+                }
+              }
+            },
+            "description": "Session or turn not found."
+          },
+          "409": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/RequestErrorResponse"
+                }
+              }
+            },
+            "description": "Turn is terminal, or an event id already exists."
+          }
+        },
+        "summary": "Create turn events",
+        "tags": [
+          "Agent Sessions"
+        ],
+        "x-fern-sdk-group-name": [
+          "sessions"
+        ],
+        "x-fern-sdk-method-name": "create_turn_event"
       }
     },
     "/api/v1/sessions/{session_id}/turns/{turn_id}/subscribe": {

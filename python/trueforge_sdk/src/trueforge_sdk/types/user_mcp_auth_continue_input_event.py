@@ -5,16 +5,10 @@ import typing
 import pydantic
 from ..core.pydantic_utilities import IS_PYDANTIC_V2
 from ..core.unchecked_base_model import UncheckedBaseModel
-from .action_required import ActionRequired
 
 
-class TurnUpdateStatePaused(UncheckedBaseModel):
-    action_required_on_events: typing.List[ActionRequired] = pydantic.Field()
-    """
-    Events that still need a user or client action.
-    """
-
-    status: typing.Literal["paused"] = "paused"
+class UserMcpAuthContinueInputEvent(UncheckedBaseModel):
+    type: typing.Literal["user.mcp_auth_continue"] = "user.mcp_auth_continue"
 
     if IS_PYDANTIC_V2:
         model_config: typing.ClassVar[pydantic.ConfigDict] = pydantic.ConfigDict(extra="allow")  # type: ignore # Pydantic v2

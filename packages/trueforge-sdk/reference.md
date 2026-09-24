@@ -2370,6 +2370,89 @@ const response = page.response;
 </dl>
 </details>
 
+<details><summary><code>client.sessions.<a href="/src/api/resources/sessions/client/Client.ts">createTurnEvent</a>(session_id, turn_id, { ...params }) -> TrueForge.CreateTurnEventResponse</code></summary>
+<dl>
+<dd>
+
+#### 📝 Description
+
+<dl>
+<dd>
+
+<dl>
+<dd>
+
+Create events for a turn. Only the session creator may create them.
+</dd>
+</dl>
+</dd>
+</dl>
+
+#### 🔌 Usage
+
+<dl>
+<dd>
+
+<dl>
+<dd>
+
+```typescript
+await client.sessions.createTurnEvent("session_id", "turn_id", {
+    events: [{
+            type: "user.mcp_auth_continue"
+        }]
+});
+
+```
+</dd>
+</dl>
+</dd>
+</dl>
+
+#### ⚙️ Parameters
+
+<dl>
+<dd>
+
+<dl>
+<dd>
+
+**session_id:** `string` — Session identifier.
+    
+</dd>
+</dl>
+
+<dl>
+<dd>
+
+**turn_id:** `string` — Turn identifier.
+    
+</dd>
+</dl>
+
+<dl>
+<dd>
+
+**request:** `TrueForge.CreateTurnEventRequest` 
+    
+</dd>
+</dl>
+
+<dl>
+<dd>
+
+**requestOptions:** `SessionsClient.RequestOptions` 
+    
+</dd>
+</dl>
+</dd>
+</dl>
+
+
+</dd>
+</dl>
+</details>
+
 <details><summary><code>client.sessions.<a href="/src/api/resources/sessions/client/Client.ts">subscribeToTurn</a>(session_id, turn_id, { ...params }) -> core.Stream&lt;TrueForge.TurnStreamingEvent&gt;</code></summary>
 <dl>
 <dd>

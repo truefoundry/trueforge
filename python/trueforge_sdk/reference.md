@@ -2831,6 +2831,100 @@ client.sessions.list_turn_events(
 </dl>
 </details>
 
+<details><summary><code>client.sessions.<a href="src/trueforge_sdk/sessions/client.py">create_turn_event</a>(...) -> CreateTurnEventResponse</code></summary>
+<dl>
+<dd>
+
+#### 📝 Description
+
+<dl>
+<dd>
+
+<dl>
+<dd>
+
+Create events for a turn. Only the session creator may create them.
+</dd>
+</dl>
+</dd>
+</dl>
+
+#### 🔌 Usage
+
+<dl>
+<dd>
+
+<dl>
+<dd>
+
+```python
+from trueforge_sdk import TrueForge, UserMcpAuthContinueInputEvent
+
+client = TrueForge(
+    token="<token>",
+    base_url="https://yourhost.com/path/to/api",
+)
+
+client.sessions.create_turn_event(
+    session_id="session_id",
+    turn_id="turn_id",
+    events=[
+        UserMcpAuthContinueInputEvent(
+            type="user.mcp_auth_continue",
+        )
+    ],
+)
+
+```
+</dd>
+</dl>
+</dd>
+</dl>
+
+#### ⚙️ Parameters
+
+<dl>
+<dd>
+
+<dl>
+<dd>
+
+**session_id:** `str` — Session identifier.
+    
+</dd>
+</dl>
+
+<dl>
+<dd>
+
+**turn_id:** `str` — Turn identifier.
+    
+</dd>
+</dl>
+
+<dl>
+<dd>
+
+**events:** `typing.List[TurnInboundEventItem]` — One or more user events.
+    
+</dd>
+</dl>
+
+<dl>
+<dd>
+
+**request_options:** `typing.Optional[RequestOptions]` — Request-specific configuration.
+    
+</dd>
+</dl>
+</dd>
+</dl>
+
+
+</dd>
+</dl>
+</details>
+
 <details><summary><code>client.sessions.<a href="src/trueforge_sdk/sessions/client.py">subscribe_to_turn</a>(...) -> typing.Iterator[bytes]</code></summary>
 <dl>
 <dd>

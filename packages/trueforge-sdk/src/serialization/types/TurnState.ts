@@ -6,11 +6,23 @@ import type * as serializers from "../index.js";
 import { TurnStateCancelled } from "./TurnStateCancelled.js";
 import { TurnStateDone } from "./TurnStateDone.js";
 import { TurnStateError } from "./TurnStateError.js";
+import { TurnStatePaused } from "./TurnStatePaused.js";
 import { TurnStateRunning } from "./TurnStateRunning.js";
 
 export const TurnState: core.serialization.Schema<serializers.TurnState.Raw, TrueForge.TurnState> =
-    core.serialization.undiscriminatedUnion([TurnStateCancelled, TurnStateDone, TurnStateError, TurnStateRunning]);
+    core.serialization.undiscriminatedUnion([
+        TurnStateCancelled,
+        TurnStateDone,
+        TurnStateError,
+        TurnStatePaused,
+        TurnStateRunning,
+    ]);
 
 export declare namespace TurnState {
-    export type Raw = TurnStateCancelled.Raw | TurnStateDone.Raw | TurnStateError.Raw | TurnStateRunning.Raw;
+    export type Raw =
+        | TurnStateCancelled.Raw
+        | TurnStateDone.Raw
+        | TurnStateError.Raw
+        | TurnStatePaused.Raw
+        | TurnStateRunning.Raw;
 }

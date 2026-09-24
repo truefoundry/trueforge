@@ -7,7 +7,8 @@ export interface TurnUpdateEvent {
     createdAt: string;
     /** Unique identifier for the event (monotonic ULID). */
     id: string;
-    state: TrueForge.TurnUpdateState;
+    /** Live non-terminal turn state (paused or running). */
+    state: TrueForge.TurnUpdateEventState;
     /** Thread that owns the event; null for turn-level lifecycle events. */
     threadId: string | null;
     type: "turn.update";

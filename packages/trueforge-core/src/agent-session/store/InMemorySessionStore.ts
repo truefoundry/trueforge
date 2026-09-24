@@ -4,7 +4,7 @@ import type { SessionRecord } from '../models/SessionRecord';
 import type { TurnRecord, TurnSnapshot } from '../models/TurnRecord';
 import type { PersistedTurnEvent, SessionEventItem } from '../schemas/events';
 import type { TokenPagination } from '../schemas/pagination';
-import type { TerminalTurnState } from '../schemas/turn';
+import type { TerminalTurnState, TurnInboundEventItem } from '../schemas/turn';
 import { assertCreateTurnThreadDelta } from './assertCreateTurnThreadDelta';
 import type {
   AddThreadsInput,
@@ -18,6 +18,7 @@ import type {
   GetSessionByExternalIdInput,
   GetSessionInput,
   GetTurnInput,
+  InsertTurnInboundEventsInput,
   ISessionStore,
   ListSessionEventsInput,
   ListSessionsInput,
@@ -48,6 +49,7 @@ import {
   SessionNotFoundError,
   SessionStoreInvariantError,
   TurnAlreadyExistsError,
+  TurnEventAlreadyExistsError,
   TurnNotFoundError,
   TurnNotRunningError,
 } from './SessionStoreErrors';
@@ -55,6 +57,14 @@ import {
 /* eslint-disable @typescript-eslint/require-await -- in-memory store is synchronous; methods stay async so thrown SessionStore*Error reject as Promises for ISessionStore callers */
 
 type StoredEvent = PersistedTurnEvent;
+
+interface StoredInboundEvent {
+  event_id: string;
+  turn_id: string;
+  payload: TurnInboundEventItem;
+  created_at: string;
+  consumed: boolean;
+}
 
 interface StoredSession<TSessionCustom extends object> {
   record: SessionRecord<TSessionCustom>;
@@ -170,6 +180,8 @@ export class InMemorySessionStore<
   private readonly sessions = new Map<string, StoredSession<TSessionCustom>>();
   private readonly turns = new Map<string, TurnRecord<TTurnCustom>>();
   private readonly events = new Map<string, StoredEvent[]>();
+  /** session_id → inbound send-event inbox */
+  private readonly inboundEvents = new Map<string, StoredInboundEvent[]>();
 
   async createSession(input: CreateSessionInput<TSessionCustom>): Promise<void> {
     const key = sessionKey(input.session_id);
@@ -218,6 +230,7 @@ export class InMemorySessionStore<
       const tKey = turnKey({ session_id: input.session_id, turn_id: turnId });
       this.turns.delete(tKey);
       this.events.delete(tKey);
+      this.inboundEvents.delete(tKey);
     }
     this.sessions.delete(sKey);
   }
@@ -462,6 +475,9 @@ export class InMemorySessionStore<
     // Same as createTurn: synchronous body ⇒ atomic under run-to-completion.
     const tKey = turnKey(input);
     const turn = this.requireTurn(input.session_id, input.turn_id);
+    if (turn.state.status === 'paused') {
+      throw new SessionStoreInvariantError(`expected running state for turn ${input.turn_id}, got paused`);
+    }
     if (turn.state.status !== 'running') {
       throw new TurnNotRunningError(input.turn_id, turn.state);
     }
@@ -485,6 +501,40 @@ export class InMemorySessionStore<
     return;
   }
 
+  async insertTurnInboundEvents(input: InsertTurnInboundEventsInput): Promise<void> {
+    if (input.events.length === 0) {
+      return;
+    }
+    this.requireSession(input.session_id);
+    this.requireRunningTurn(input.session_id, input.turn_id);
+    const tKey = turnKey(input);
+    let list = this.inboundEvents.get(tKey);
+    if (!list) {
+      list = [];
+      this.inboundEvents.set(tKey, list);
+    }
+    const existing = new Set(list.map(row => row.event_id));
+    for (const event of input.events) {
+      if (existing.has(event.event_id)) {
+        throw new TurnEventAlreadyExistsError({
+          session_id: input.session_id,
+          turn_id: input.turn_id,
+          event_id: event.event_id,
+        });
+      }
+      existing.add(event.event_id);
+    }
+    for (const event of input.events) {
+      list.push({
+        event_id: event.event_id,
+        turn_id: input.turn_id,
+        payload: deepCopy(event.payload),
+        created_at: event.created_at,
+        consumed: false,
+      });
+    }
+  }
+
   /** Cost from turn metrics when present; duration is completed_at − created_at, floored at 0. */
   private addTerminalSessionMetrics(sessionId: string, created_at: Date, state: TerminalTurnState): void {
     const stored = this.sessions.get(sessionKey(sessionId));
@@ -499,6 +549,14 @@ export class InMemorySessionStore<
     stored.record.metrics.total_duration_ms += elapsed_ms > 0 ? Math.trunc(elapsed_ms) : 0;
   }
 
+  private requireSession(sessionId: string): StoredSession<TSessionCustom> {
+    const stored = this.sessions.get(sessionKey(sessionId));
+    if (!stored) {
+      throw new SessionNotFoundError(sessionId);
+    }
+    return stored;
+  }
+
   private requireTurn(sessionId: string, turnId: string): TurnRecord<TTurnCustom> {
     const turn = this.turns.get(turnKey({ session_id: sessionId, turn_id: turnId }));
     if (!turn) {
@@ -509,6 +567,9 @@ export class InMemorySessionStore<
 
   private requireRunningTurn(sessionId: string, turnId: string): TurnRecord<TTurnCustom> {
     const turn = this.requireTurn(sessionId, turnId);
+    if (turn.state.status === 'paused') {
+      throw new SessionStoreInvariantError(`expected running state for turn ${turnId}, got paused`);
+    }
     if (turn.state.status !== 'running') {
       throw new TurnNotRunningError(turnId, turn.state);
     }
