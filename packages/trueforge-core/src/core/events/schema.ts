@@ -97,7 +97,7 @@ export const UserToolResponseMessageSchema = z
   })
   .openapi('UserToolResponseInputEvent');
 
-  export const ToolApprovalPolicyAllowSessionSchema = z
+export const ToolApprovalPolicyAllowSessionSchema = z
   .object({
     type: z.literal('allow_session').describe('Allow matching tool calls for the rest of this session.'),
     expire_at: z
@@ -109,8 +109,14 @@ export const UserToolResponseMessageSchema = z
 
 export const ToolApprovalPolicyItemSchema = z
   .object({
-    server: z.string().min(1, 'server is required').describe('MCP server name the tool belongs to.'),
-    tool_name: z.string().min(1, 'tool_name is required').describe('Tool name this policy applies to.'),
+    server_name: z
+      .string()
+      .min(1, 'server_name is required')
+      .describe('Configured MCP server name (same as tool_info.server_name on model.message).'),
+    name: z
+      .string()
+      .min(1, 'name is required')
+      .describe('Tool name on that server (same as tool_info.name on model.message).'),
     action: z.discriminatedUnion('type', [ToolApprovalPolicyAllowSessionSchema]),
   })
   .openapi('ToolApprovalPolicyItem');
@@ -120,7 +126,7 @@ export const UserToolApprovalPolicyMessageSchema = z
     type: z
       .literal(EventType.USER_TOOL_APPROVAL_POLICY)
       .describe('Sticky allow-session policy for matching tools (optional expiry).'),
-    policies: z.array(ToolApprovalPolicyItemSchema).min(1).describe('One or more (server, tool_name) policy entries.'),
+    policies: z.array(ToolApprovalPolicyItemSchema).min(1).describe('One or more (server_name, name) policy entries.'),
   })
   .openapi('UserToolApprovalPolicyMessage');
 
