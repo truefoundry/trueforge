@@ -7,20 +7,11 @@ on:
   schedule:
     - cron: '0 9 * * *'
 
-permissions: {}
-
 jobs:
   image-scan:
     name: Image Vulnerability Scan
-    # The called workflow commits .grype.yaml updates and assumes the ECR role.
-    permissions:
-      contents: write
-      id-token: write
-    uses: truefoundry/workflows/.github/workflows/update-grype-report.yml@main
+    uses: truefoundry/github-workflows-public/.github/workflows/update-grype-report.yml@main
     with:
-      enable_ecr_auth: true
-      image_artifact_name: ${{ github.event.repository.name }}
-      artifactory_repository_url: ${{ vars.TRUEFOUNDRY_ARTIFACTORY_PRIVATE_REPOSITORY }}
-    secrets:
-      ecr_iam_role_arn: ${{ secrets.AWS_DEVTEST_ECR_IAM_ROLE_ARN }}
-      workflow_repo_token: ${{ secrets.TF_GITHUB_CI_ADMIN_TOKEN }}
+      dockerfile_path: 'Dockerfile'
+      image_artifact_name: 'trueforge'
+      artifactory_repository_url: ${{ vars.TRUEFOUNDRY_ARTIFACTORY_PUBLIC_REPOSITORY }}
