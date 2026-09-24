@@ -7,7 +7,12 @@ import { Icon } from '../icons/Icon.js';
 import { libraryAgentId } from '../server/ShellModeContext.js';
 import type { AgentLibraryEntry } from '../server/types.js';
 import { cn } from './lib/cn.js';
-import { auiSelectMenuClass, auiSelectOptionClass, auiSelectTriggerClass } from './lib/selectClasses.js';
+import {
+  auiSelectMenuClass,
+  auiSelectOptionClass,
+  auiSelectPrefixTriggerClass,
+  auiSelectTriggerClass,
+} from './lib/selectClasses.js';
 import { themePortalRoot } from './lib/themePortalRoot.js';
 import { useSearchAgentsList } from './lib/useSearchAgentsList.js';
 import { Button } from './primitives/Button.js';
@@ -21,6 +26,7 @@ export type AgentSearchPickerProps = {
   onBuildAgent?: () => void;
   /** When set, shows this option above results while the query is empty (e.g. filter "All agents"). */
   allOption?: { value: string; label: string };
+  prefix?: string;
   'aria-label'?: string;
   placeholder?: string;
   className?: string;
@@ -37,6 +43,7 @@ export function AgentSearchPicker({
   disabled = false,
   onBuildAgent,
   allOption,
+  prefix,
   'aria-label': ariaLabel = 'Agent',
   placeholder = 'Search agent',
   className,
@@ -229,8 +236,17 @@ export function AgentSearchPicker({
     <div ref={rootRef} className={cn('relative', className)}>
       <div
         ref={triggerRef}
-        className={auiSelectTriggerClass(disabled ? 'cursor-not-allowed opacity-50' : 'cursor-text')}
+        className={
+          prefix == null
+            ? auiSelectTriggerClass(disabled ? 'cursor-not-allowed opacity-50' : 'cursor-text')
+            : auiSelectPrefixTriggerClass(
+                cn('w-fit min-w-full', disabled ? 'cursor-not-allowed opacity-50' : 'cursor-text'),
+              )
+        }
       >
+        {prefix == null ? null : (
+          <span className="text-text-primary shrink-0 border-r border-border px-3 font-semibold">{prefix}</span>
+        )}
         <input
           ref={inputRef}
           type="text"
@@ -242,7 +258,12 @@ export function AgentSearchPicker({
           disabled={disabled}
           placeholder={placeholder}
           value={inputValue}
-          className="min-w-0 flex-1 bg-transparent outline-none placeholder:text-text-secondary/70 disabled:cursor-not-allowed"
+          className={cn(
+            'min-w-0 outline-none placeholder:text-text-secondary/70 disabled:cursor-not-allowed',
+            prefix == null
+              ? 'flex-1 bg-transparent'
+              : 'field-sizing-content mx-2 max-w-48 min-w-24 flex-none bg-transparent px-2 py-0.5 text-sm',
+          )}
           onFocus={() => {
             if (!disabled) setOpen(true);
           }}
@@ -264,7 +285,10 @@ export function AgentSearchPicker({
             }
           }}
         />
-        <Icon name="chevron-down" className="size-4 shrink-0 text-text-secondary" />
+        <Icon
+          name="chevron-down"
+          className={cn('size-4 shrink-0 text-text-secondary', prefix == null ? null : 'mr-2')}
+        />
       </div>
       {menu}
     </div>
