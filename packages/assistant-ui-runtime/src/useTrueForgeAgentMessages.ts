@@ -8,6 +8,7 @@ import type {
   UserMcpAuthContinueInputEvent,
   UserMessageContent,
   UserToolApprovalInputEvent,
+  UserToolApprovalPolicyInputEvent,
   UserToolResponseInputEvent,
 } from './server/index.js';
 import { EVENT_TYPE, TURN_STATUS } from './server/index.js';
@@ -26,7 +27,7 @@ import {
   rootModelMessageIdsSinceBaseline,
   userMessageContentToText,
 } from './convertTurnMessages.js';
-import { ingestTurnEvent } from './foldPeerThreads.js';
+import { ingestTurnEvent, resolveToolApprovalPolicyTarget } from './foldPeerThreads.js';
 import { loadSessionSnapshot } from './loadSessionSnapshot.js';
 import { MESSAGE_CUSTOM_KEY } from './messageCustomMetadata.js';
 import { findPausedAssistantMessage } from './requiredActionInputs.js';
@@ -789,13 +790,13 @@ export function useTrueForgeAgentMessages({
     setIsRunning(false);
   }, [ensureTurnSubscription, server, sessionId]);
 
-  const submitTurnEvent = useCallback(
+  const submitTurnEvents = useCallback(
     async ({
-      event,
+      events,
       submissionId,
       optimisticSnapshot,
     }: {
-      event: TurnInboundEventItem;
+      events: TurnInboundEventItem[];
       submissionId: string;
       optimisticSnapshot: SessionSnapshot;
     }): Promise<void> => {
@@ -822,7 +823,7 @@ export function useTrueForgeAgentMessages({
         const created = await server.sendTurnEvents({
           sessionId: conversationSessionId,
           turnId,
-          events: [event],
+          events,
         });
         updateSnapshot(previous => {
           for (const persisted of created) {
@@ -838,10 +839,12 @@ export function useTrueForgeAgentMessages({
         updateSnapshot(previous => {
           const approvals = new Map(previous.requiredActions.approvals);
           const toolResponses = new Map(previous.requiredActions.toolResponses);
-          if (event.type === EVENT_TYPE.USER_TOOL_APPROVAL) {
-            approvals.delete(event.toolCallId);
-          } else if (event.type === EVENT_TYPE.USER_TOOL_RESPONSE) {
-            toolResponses.delete(event.toolCallId);
+          for (const event of events) {
+            if (event.type === EVENT_TYPE.USER_TOOL_APPROVAL) {
+              approvals.delete(event.toolCallId);
+            } else if (event.type === EVENT_TYPE.USER_TOOL_RESPONSE) {
+              toolResponses.delete(event.toolCallId);
+            }
           }
           return replaceSessionSnapshot(previous, {
             requiredActions: { approvals, toolResponses },
@@ -871,20 +874,38 @@ export function useTrueForgeAgentMessages({
         toolCallId: response.approvalId,
         approval: mapApprovalDecision(response.approved, response.reason),
       };
+      const events: TurnInboundEventItem[] = [event];
+      if (response.policy != null) {
+        const target = resolveToolApprovalPolicyTarget({
+          state: previous.fold,
+          threadId: pending.threadId,
+          toolCallId: response.approvalId,
+        });
+        if (target == null) {
+          const error = new Error(`MCP policy target not found for approval: ${response.approvalId}`);
+          onErrorRef.current?.(error);
+          throw error;
+        }
+        const policyEvent: UserToolApprovalPolicyInputEvent = {
+          type: EVENT_TYPE.USER_TOOL_APPROVAL_POLICY,
+          policies: [{ ...target, action: response.policy }],
+        };
+        events.push(policyEvent);
+      }
       const approvals = new Map(previous.requiredActions.approvals);
       approvals.set(response.approvalId, {
         approved: response.approved,
         ...(response.reason != null ? { reason: response.reason } : {}),
       });
-      await submitTurnEvent({
-        event,
+      await submitTurnEvents({
+        events,
         submissionId: `approval:${response.approvalId}`,
         optimisticSnapshot: replaceSessionSnapshot(previous, {
           requiredActions: { ...previous.requiredActions, approvals },
         }),
       });
     },
-    [projectOptions, submitTurnEvent],
+    [projectOptions, submitTurnEvents],
   );
 
   const respondToToolResponse = useCallback(
@@ -904,25 +925,25 @@ export function useTrueForgeAgentMessages({
       };
       const toolResponses = new Map(previous.requiredActions.toolResponses);
       toolResponses.set(response.toolCallId, { content: response.content });
-      await submitTurnEvent({
-        event,
+      await submitTurnEvents({
+        events: [event],
         submissionId: `response:${response.toolCallId}`,
         optimisticSnapshot: replaceSessionSnapshot(previous, {
           requiredActions: { ...previous.requiredActions, toolResponses },
         }),
       });
     },
-    [projectOptions, submitTurnEvent],
+    [projectOptions, submitTurnEvents],
   );
 
   const continueMcpAuth = useCallback(async (): Promise<void> => {
     const event: UserMcpAuthContinueInputEvent = { type: EVENT_TYPE.USER_MCP_AUTH_CONTINUE };
-    await submitTurnEvent({
-      event,
+    await submitTurnEvents({
+      events: [event],
       submissionId: 'mcp-auth-continue',
       optimisticSnapshot: snapshotRef.current,
     });
-  }, [submitTurnEvent]);
+  }, [submitTurnEvents]);
 
   const resumeRun = useCallback(async () => {
     const turn = activeTurnRef.current;

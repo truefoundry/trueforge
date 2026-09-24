@@ -28,7 +28,9 @@ describe('ToolApprovalBar', () => {
     );
 
     fireEvent.click(screen.getByRole('button', { name: 'Allow once' }));
-    fireEvent.click(screen.getByRole('button', { name: 'Reject' }));
+    fireEvent.click(screen.getByRole('menuitem', { name: 'Allow once' }));
+    fireEvent.click(screen.getByRole('button', { name: 'Allow once' }));
+    fireEvent.click(screen.getByRole('menuitem', { name: 'Reject' }));
     expect(onSelect).toHaveBeenNthCalledWith(1, 'allow-once');
     expect(onSelect).toHaveBeenNthCalledWith(2, 'reject');
   });
@@ -46,7 +48,8 @@ describe('ToolApprovalBar', () => {
       />,
     );
 
-    fireEvent.click(screen.getByRole('button', { name: 'Deny' }));
+    fireEvent.click(screen.getByRole('button', { name: 'Approve once' }));
+    fireEvent.click(screen.getByRole('menuitem', { name: 'Deny' }));
     expect(onDenyOptionChange).toHaveBeenCalledWith('deny-with-reason');
 
     rerender(
@@ -83,13 +86,12 @@ describe('ToolApprovalBar', () => {
     const onSelect = vi.fn();
     const { rerender } = render(<ToolApprovalBar toolName="shell" onSelect={onSelect} disabled />);
 
-    expect(screen.getByRole('button', { name: 'Approve' })).toBeDisabled();
-    expect(screen.getByRole('button', { name: 'Deny' })).toBeDisabled();
-    fireEvent.click(screen.getByRole('button', { name: 'Approve' }));
+    expect(screen.getByRole('button', { name: 'Approve once' })).toBeDisabled();
+    fireEvent.click(screen.getByRole('button', { name: 'Approve once' }));
     expect(onSelect).not.toHaveBeenCalled();
 
     rerender(<ToolApprovalBar toolName="shell" onSelect={onSelect} readOnly />);
-    expect(screen.queryByRole('button', { name: 'Approve' })).not.toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: 'Approve once' })).not.toBeInTheDocument();
     expect(screen.queryByRole('button', { name: 'Deny' })).not.toBeInTheDocument();
     expect(screen.getByText('Tool Approval Required for')).toBeInTheDocument();
   });
@@ -99,7 +101,7 @@ describe('ToolApprovalBar', () => {
       <ToolApprovalBar toolName="shell" onSelect={() => {}} status={{ type: 'approved' }} dataTestPrefix="tool" />,
     );
     expect(screen.getByText('Tool Approved')).toBeInTheDocument();
-    expect(screen.queryByRole('button', { name: 'Approve' })).not.toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: 'Approve once' })).not.toBeInTheDocument();
 
     rerender(
       <ToolApprovalBar

@@ -4,7 +4,9 @@ import {
   APPROVAL_DECISION_STATUS,
   EVENT_TYPE,
   isEventDelta,
+  TOOL_INFO_TYPE,
   type ThreadCreatedEvent,
+  type ToolApprovalPolicyItem,
   type ToolResponseRequiredEvent,
   type TurnEvent,
   type TurnStreamingEvent,
@@ -327,6 +329,31 @@ function findToolCallInBucket(bucket: ThreadBucket, toolCallId: string): SdkTool
     }
   }
   return undefined;
+}
+
+export type ToolApprovalPolicyTarget = Pick<ToolApprovalPolicyItem, 'serverName' | 'name'>;
+
+/**
+ * Approval-required calls currently originate from MCP ToolSet, whose durable
+ * tool info owns the backend policy key.
+ */
+export function resolveToolApprovalPolicyTarget({
+  state,
+  threadId,
+  toolCallId,
+}: {
+  state: PeerThreadFoldState;
+  threadId: string;
+  toolCallId: string;
+}): ToolApprovalPolicyTarget | undefined {
+  const bucket = state.threads.get(threadId);
+  const toolInfo = bucket == null ? undefined : findToolCallInBucket(bucket, toolCallId)?.toolInfo;
+  if (toolInfo?.type !== TOOL_INFO_TYPE.MCP) {
+    return undefined;
+  }
+  const serverName: unknown = Reflect.get(toolInfo, 'serverName');
+  const name: unknown = Reflect.get(toolInfo, 'name');
+  return typeof serverName === 'string' && typeof name === 'string' ? { serverName, name } : undefined;
 }
 
 function isLinkedCreateSubAgentThread(state: PeerThreadFoldState, subThreadId: string): boolean {

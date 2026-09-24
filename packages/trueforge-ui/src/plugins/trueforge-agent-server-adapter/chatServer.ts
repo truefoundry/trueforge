@@ -19,11 +19,12 @@ import type {
   ListResult,
   Session,
   Turn,
+  TurnInboundEventItem,
   TurnInputItem,
   UserMessageContent,
 } from '../../server/types.js';
 import { createTrueForgeClient, type CreateTrueForgeClientOptions } from './client.js';
-import { toUiEventItem, toUiStreamingEvent, toUiTurnState } from './toUiTurnState.js';
+import { toUiEventItem, toUiInboundEvent, toUiStreamingEvent, toUiTurnState } from './toUiTurnState.js';
 import type { HarnessAgentSpec, HarnessMcpServerMount, HarnessSkillMount } from './types.js';
 
 export type { HarnessAgentSpec, HarnessMcpServerMount, HarnessSkillMount } from './types.js';
@@ -167,6 +168,10 @@ function toHarnessInput(input: TurnInputItem[]): TrueForgeApi.TurnInputItem[] {
   );
 }
 
+function toHarnessInboundEvents(events: TurnInboundEventItem[]): TrueForgeApi.TurnInboundEventItem[] {
+  return events.map(event => ({ ...event }));
+}
+
 export function createHarnessChatServer(
   options: CreateHarnessChatServerOptions = {},
 ): AgentChatServer<HarnessAgentSpec, HarnessUiSession, HarnessCreateSessionRequest> {
@@ -255,6 +260,13 @@ export function createHarnessChatServer(
         }
         fallbackSequence += 1;
       }
+    },
+
+    async sendTurnEvents({ sessionId, turnId, events }) {
+      const response = await client.sessions.createTurnEvent(sessionId, turnId, {
+        events: toHarnessInboundEvents(events),
+      });
+      return response.data.map(toUiInboundEvent);
     },
 
     /** Resume a live turn; omitted/0 `afterSequenceNumber` replays from the start. */

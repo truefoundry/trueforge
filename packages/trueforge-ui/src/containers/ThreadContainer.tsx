@@ -11,7 +11,6 @@ import { isNewChatView } from '../utils/isNewChatView.js';
 import { ApprovalFocusProvider } from './approvalFocus.js';
 import { AssistantMessageContainer } from './AssistantMessageContainer.js';
 import { HistoryLoaderContainer } from './HistoryLoaderContainer.js';
-import { ResumeUnavailableContainer } from './ResumeUnavailableContainer.js';
 import { UserEditComposerContainer } from './UserEditComposerContainer.js';
 import { UserMessageContainer } from './UserMessageContainer.js';
 
@@ -87,7 +86,6 @@ export function ThreadContainer({ composer }: ThreadContainerProps) {
                             </AnimatedMessageShell>
                           )}
                         </ThreadPrimitive.Messages>
-                        <ResumeUnavailableContainer />
                       </MessageGroup>
                     </>
                   )

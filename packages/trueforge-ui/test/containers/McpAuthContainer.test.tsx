@@ -22,7 +22,7 @@ function McpAuthHarness({
   server,
 }: {
   pendingMcpAuth: TrueForgeRuntimeExtras['pendingMcpAuth'];
-  resumeMcpAuth: TrueForgeRuntimeExtras['resumeMcpAuth'];
+  resumeMcpAuth: TrueForgeRuntimeExtras['continueMcpAuth'];
   isRunning?: boolean;
   server?: AgentUIServer;
 }) {
@@ -36,11 +36,10 @@ function McpAuthHarness({
       pendingApprovals: [],
       pendingToolResponses: [],
       pendingMcpAuth,
-      resumeUnavailable: false,
       sandboxId: undefined,
-      respondToToolApproval: () => {},
-      respondToToolResponse: () => {},
-      resumeMcpAuth,
+      respondToToolApproval: async () => {},
+      respondToToolResponse: async () => {},
+      continueMcpAuth: resumeMcpAuth,
       downloadSandboxFile: async () => new Blob(),
       cancel: async () => {},
       resetFromTurn: async () => {},

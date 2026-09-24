@@ -12,6 +12,7 @@ import {
 import type {
   ApprovalDecision as ServerApprovalDecision,
   ToolApprovalRequiredEvent,
+  ToolApprovalPolicyAllowSession,
   Turn,
   UserToolApprovalInputEvent,
 } from './server/index.js';
@@ -32,6 +33,7 @@ export interface RespondToToolApprovalOptions {
   approvalId: string;
   approved: boolean;
   optionId?: string;
+  policy?: ToolApprovalPolicyAllowSession;
   reason?: string;
 }
 

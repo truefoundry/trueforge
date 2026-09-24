@@ -5,7 +5,6 @@ import { AgentStepsCard } from '../atoms/adapters/AgentStepsCardAdapter.js';
 import { AskUserPrompt } from '../atoms/adapters/AskUserPromptAdapter.js';
 import { McpAuthPrompt } from '../atoms/adapters/McpAuthPromptAdapter.js';
 import { ReasoningCard } from '../atoms/adapters/ReasoningCardAdapter.js';
-import { ResumeUnavailable } from '../atoms/ResumeUnavailable.js';
 
 import { AgentCodeBlock } from '../atoms/agent-details/AgentCodeBlock.js';
 import { AgentDetailsHeader } from '../atoms/agent-details/AgentDetailsHeader.js';
@@ -201,7 +200,6 @@ export const defaultSlots = {
   ReasoningCard,
   AskUserPrompt,
   McpAuthPrompt,
-  ResumeUnavailable,
   AttachmentCard,
   AttachmentPreviewDialog,
   AttachmentPickerButton,

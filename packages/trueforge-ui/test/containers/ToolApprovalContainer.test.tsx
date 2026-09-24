@@ -1,9 +1,10 @@
 // @vitest-environment jsdom
-import { fireEvent, render, screen } from '@testing-library/react';
+import { fireEvent, render, screen, waitFor } from '@testing-library/react';
 import { describe, expect, it, vi } from 'vitest';
+import type { RespondToToolApprovalOptions } from '@truefoundry/trueforge-assistant-ui-runtime';
 
 import type { ToolApprovalBarProps } from '@/atoms/ToolApprovalBar.js';
-import { ToolApprovalContainer, type ToolApprovalOption } from '@/containers/ToolApprovalContainer.js';
+import { ToolApprovalContainer } from '@/containers/ToolApprovalContainer.js';
 import { SlotsProvider } from '@/theme/SlotsProvider.js';
 
 function ToolApprovalBarProbe({
@@ -66,57 +67,39 @@ function ToolApprovalBarProbe({
   );
 }
 
-const options: ToolApprovalOption[] = [
-  { id: 'allow-once', label: 'Allow once', isAllow: true },
-  { id: 'allow-session', label: 'Allow session', isAllow: true },
-  { id: 'reject-now', label: 'Reject now', isAllow: false },
-  {
-    id: 'reject-with-reason',
-    label: 'Reject with reason',
-    isAllow: false,
-    grants: ['filesystem:write'],
-    confirm: {
-      title: 'Explain rejection',
-      description: 'The agent will receive this reason.',
-    },
-  },
-];
-
 function renderSubject(
-  onSelectOption: (optionId: string, reason?: string) => void,
+  onRespond: (response: RespondToToolApprovalOptions) => Promise<void>,
   props: { toolName?: string; argsText?: string } = { toolName: 'shell' },
 ) {
   return render(
     <SlotsProvider overrides={{ ToolApprovalBar: ToolApprovalBarProbe }}>
       <ToolApprovalContainer
+        approvalId="approval-1"
         toolName={props.toolName}
         argsText={props.argsText}
-        options={options}
-        onSelectOption={onSelectOption}
+        onRespond={onRespond}
       />
     </SlotsProvider>,
   );
 }
 
 describe('ToolApprovalContainer', () => {
-  it('maps allow and deny options and forwards immediate selections', () => {
-    const onSelectOption = vi.fn();
-    renderSubject(onSelectOption);
+  it('maps the canonical allow and deny options', async () => {
+    const onRespond = vi.fn().mockResolvedValue(undefined);
+    renderSubject(onRespond);
 
     const probe = screen.getByTestId('approval-probe');
     expect(probe).toHaveAttribute('data-tool-name', 'shell');
-    expect(probe).toHaveAttribute('data-approve-variants', 'primary|secondary');
-    expect(probe).toHaveAttribute('data-deny-requires-reason', 'false|true');
+    expect(probe).toHaveAttribute('data-approve-variants', 'primary|secondary|secondary');
+    expect(probe).toHaveAttribute('data-deny-requires-reason', 'true');
 
-    fireEvent.click(screen.getByRole('button', { name: 'Allow once' }));
-    fireEvent.click(screen.getByRole('button', { name: 'Reject now' }));
-    expect(onSelectOption).toHaveBeenNthCalledWith(1, 'allow-once');
-    expect(onSelectOption).toHaveBeenNthCalledWith(2, 'reject-now');
+    fireEvent.click(screen.getByRole('button', { name: 'Approve once' }));
+    await waitFor(() => expect(onRespond).toHaveBeenCalledWith({ approvalId: 'approval-1', approved: true }));
   });
 
   it('shows MCP inner tool name with server when args include both fields', () => {
-    const onSelectOption = vi.fn();
-    renderSubject(onSelectOption, {
+    const onRespond = vi.fn().mockResolvedValue(undefined);
+    renderSubject(onRespond, {
       toolName: 'call_tool',
       argsText: JSON.stringify({ mcp_server: 'github', tool_name: 'search' }),
     });
@@ -125,8 +108,8 @@ describe('ToolApprovalContainer', () => {
   });
 
   it('falls back to toolName when MCP fields are missing', () => {
-    const onSelectOption = vi.fn();
-    renderSubject(onSelectOption, {
+    const onRespond = vi.fn().mockResolvedValue(undefined);
+    renderSubject(onRespond, {
       toolName: 'shell',
       argsText: JSON.stringify({ command: 'ls' }),
     });
@@ -134,20 +117,17 @@ describe('ToolApprovalContainer', () => {
     expect(screen.getByTestId('approval-probe')).toHaveAttribute('data-tool-name', 'shell');
   });
 
-  it('requires, trims, and submits a denial reason with confirmation metadata', () => {
-    const onSelectOption = vi.fn();
-    renderSubject(onSelectOption);
+  it('requires, trims, and submits a denial reason with confirmation metadata', async () => {
+    const onRespond = vi.fn().mockResolvedValue(undefined);
+    renderSubject(onRespond);
 
-    fireEvent.click(screen.getByRole('button', { name: 'Reject with reason' }));
+    fireEvent.click(screen.getByRole('button', { name: 'Deny' }));
 
     const probe = screen.getByTestId('approval-probe');
-    expect(probe).toHaveAttribute('data-selected-deny', 'reject-with-reason');
-    expect(screen.getByText('Explain rejection')).toBeInTheDocument();
-    expect(screen.getByText('The agent will receive this reason.')).toBeInTheDocument();
-    expect(screen.getByText('filesystem:write')).toBeInTheDocument();
+    expect(probe).toHaveAttribute('data-selected-deny', 'deny');
 
     fireEvent.click(screen.getByRole('button', { name: 'Submit denial' }));
-    expect(onSelectOption).not.toHaveBeenCalled();
+    expect(onRespond).not.toHaveBeenCalled();
     expect(probe).toHaveAttribute('data-show-reason-error', 'true');
 
     fireEvent.change(screen.getByRole('textbox', { name: 'Denial reason' }), {
@@ -156,7 +136,13 @@ describe('ToolApprovalContainer', () => {
     expect(probe).toHaveAttribute('data-show-reason-error', 'false');
 
     fireEvent.click(screen.getByRole('button', { name: 'Submit denial' }));
-    expect(onSelectOption).toHaveBeenCalledWith('reject-with-reason', 'policy blocked');
-    expect(probe).toHaveAttribute('data-selected-deny', '');
+    await waitFor(() =>
+      expect(onRespond).toHaveBeenCalledWith({
+        approvalId: 'approval-1',
+        approved: false,
+        reason: 'policy blocked',
+      }),
+    );
+    await waitFor(() => expect(probe).toHaveAttribute('data-selected-deny', ''));
   });
 });

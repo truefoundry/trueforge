@@ -3,6 +3,7 @@ import type { ThreadMessage } from '@assistant-ui/core';
 import { act, renderHook, waitFor } from '@testing-library/react';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import type { AgentChatServer, Turn } from '../src/server/index.js';
+import { TOOL_APPROVAL_POLICY_ACTION_TYPE } from '../src/server/index.js';
 
 import { collectPendingApprovals, collectPendingToolResponses } from '../src/collectPending.js';
 import { ROOT_THREAD_ID } from '../src/constants.js';
@@ -130,6 +131,49 @@ function snapshotWithAskUserPendingInFold(): SessionSnapshot {
         content,
         status: toolResponseStatus(),
         metadata: { custom: toolResponseMessageCustom(ROOT_THREAD_ID) },
+      },
+    },
+  });
+}
+
+function snapshotWithMcpApproval(): SessionSnapshot {
+  const fold = new PeerThreadFoldState();
+  ingestTurnEvent(fold, {
+    type: 'model.message',
+    id: 'model-approval',
+    createdAt: new Date().toISOString(),
+    threadId: ROOT_THREAD_ID,
+    toolCalls: [
+      {
+        id: 'approval-1',
+        type: 'function',
+        function: { name: 'create_issue', arguments: '{}' },
+        toolInfo: {
+          type: 'mcp',
+          name: 'create_issue',
+          serverId: 'github-id',
+          serverName: 'github',
+        },
+      },
+    ],
+  });
+  ingestTurnEvent(fold, {
+    type: 'tool.approval_required',
+    id: 'approval-required-1',
+    createdAt: new Date().toISOString(),
+    threadId: ROOT_THREAD_ID,
+    toolCalls: [{ id: 'approval-1', sourceEventId: 'model-approval' }],
+  });
+  const content = buildRootAssistantContent(fold);
+  return replaceSessionSnapshot(createEmptySessionSnapshot(), {
+    fold,
+    activeStream: {
+      turnId: 'turn-1',
+      segmentStatus: 'paused',
+      update: {
+        content,
+        status: { type: 'requires-action', reason: 'tool-calls' },
+        metadata: { custom: { [MESSAGE_CUSTOM_KEY.TOOL_APPROVAL_THREAD_ID]: ROOT_THREAD_ID } },
       },
     },
   });
@@ -995,6 +1039,73 @@ describe('useTrueForgeAgentMessages', () => {
     });
     expect(streamTurnContent).not.toHaveBeenCalled();
     expect(resumeTurnStream).toHaveBeenCalled();
+  });
+
+  it('batches an approval with its MCP session policy', async () => {
+    vi.mocked(loadSessionSnapshot).mockResolvedValue(snapshotWithMcpApproval());
+    const { result } = renderHook(() => useTrueForgeAgentMessages({ server: mockServer, sessionId: 'session-1' }));
+    await waitFor(() => expect(result.current.messages).toHaveLength(1));
+
+    await act(async () => {
+      await result.current.respondToToolApproval({
+        approvalId: 'approval-1',
+        approved: true,
+        policy: {
+          type: TOOL_APPROVAL_POLICY_ACTION_TYPE.ALLOW_SESSION,
+          expireAt: '2026-09-24T12:10:00.000Z',
+        },
+      });
+    });
+
+    expect(mockServer.sendTurnEvents).toHaveBeenCalledWith({
+      sessionId: 'session-1',
+      turnId: 'turn-1',
+      events: [
+        {
+          type: 'user.tool_approval',
+          threadId: ROOT_THREAD_ID,
+          toolCallId: 'approval-1',
+          approval: { status: 'allow' },
+        },
+        {
+          type: 'user.tool_approval_policy',
+          policies: [
+            {
+              serverName: 'github',
+              name: 'create_issue',
+              action: {
+                type: TOOL_APPROVAL_POLICY_ACTION_TYPE.ALLOW_SESSION,
+                expireAt: '2026-09-24T12:10:00.000Z',
+              },
+            },
+          ],
+        },
+      ],
+    });
+  });
+
+  it('rejects a policy when the approval has no MCP target', async () => {
+    vi.mocked(loadSessionSnapshot).mockResolvedValue(
+      snapshotWithAssistantMessage(assistantMessageWithPendingApproval()),
+    );
+    const onError = vi.fn();
+    const { result } = renderHook(() =>
+      useTrueForgeAgentMessages({ server: mockServer, sessionId: 'session-1', onError }),
+    );
+    await waitFor(() => expect(result.current.messages).toHaveLength(1));
+
+    await act(async () => {
+      await expect(
+        result.current.respondToToolApproval({
+          approvalId: 'approval-1',
+          approved: true,
+          policy: { type: TOOL_APPROVAL_POLICY_ACTION_TYPE.ALLOW_SESSION },
+        }),
+      ).rejects.toThrow('MCP policy target not found');
+    });
+
+    expect(mockServer.sendTurnEvents).not.toHaveBeenCalled();
+    expect(onError).toHaveBeenCalledWith(expect.any(Error));
   });
 
   it('submits each required action immediately on the same turn', async () => {

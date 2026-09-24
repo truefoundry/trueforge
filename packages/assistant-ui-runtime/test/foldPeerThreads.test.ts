@@ -10,6 +10,7 @@ import {
   PeerThreadFoldState,
   recordToolApprovalInFold,
   recordToolResponseInFold,
+  resolveToolApprovalPolicyTarget,
 } from '../src/foldPeerThreads.js';
 
 const createdAt = new Date().toISOString();
@@ -401,6 +402,38 @@ describe('foldPeerThreads', () => {
       throw new Error('expected a tool-call part');
     }
     expect(toolCall.approval?.approved).toBe(true);
+  });
+
+  it('resolves MCP policy targets on root and nested threads', () => {
+    const state = seedPendingApproval();
+    ingestTurnEvent(
+      state,
+      modelMessage({
+        id: 'nested-model',
+        threadId: 'child-1',
+        toolCalls: [
+          {
+            id: 'nested-tool',
+            type: 'function',
+            function: { name: 'create_issue', arguments: '{}' },
+            toolInfo: {
+              type: 'mcp',
+              name: 'create_issue',
+              serverId: 'github-id',
+              serverName: 'github',
+            },
+          },
+        ],
+      }),
+    );
+
+    expect(
+      resolveToolApprovalPolicyTarget({ state, threadId: ROOT_THREAD_ID, toolCallId: 'tool-1' }),
+    ).toEqual({ serverName: 'shell', name: 'run_shell' });
+    expect(resolveToolApprovalPolicyTarget({ state, threadId: 'child-1', toolCallId: 'nested-tool' })).toEqual({
+      serverName: 'github',
+      name: 'create_issue',
+    });
   });
 
   it('deduplicates persisted inbound events replayed after POST', () => {

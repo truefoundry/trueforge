@@ -51,6 +51,7 @@ export type {
 export { findPausedAssistantMessage, messageHasPendingRequiredActions } from './requiredActionInputs.js';
 export { getSession } from './sessions.js';
 export { messageHasPendingApprovals } from './toolApproval.js';
+export type { RespondToToolApprovalOptions } from './toolApproval.js';
 export { messageHasPendingResponses } from './toolResponse.js';
 export { getTrueForgeExtras, trueForgeExtras, tryGetTrueForgeExtras } from './trueforgeExtras.js';
 export type { TrueForgeDraftRuntimeExtras, TrueForgeRuntimeExtras } from './trueforgeExtras.js';
