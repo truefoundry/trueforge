@@ -7,9 +7,15 @@ on:
   schedule:
     - cron: '0 9 * * *'
 
+permissions: {}
+
 jobs:
   image-scan:
     name: Image Vulnerability Scan
+    # The called workflow commits .grype.yaml updates and assumes the ECR role.
+    permissions:
+      contents: write
+      id-token: write
     uses: truefoundry/workflows/.github/workflows/update-grype-report.yml@main
     with:
       enable_ecr_auth: true
