@@ -1,7 +1,7 @@
 # Releasing
 
-This repo ships npm packages, a production container image, a Helm chart, a
-sandbox image, and optional from-source **dev** images.
+This repo ships npm packages, a production container image, a Helm chart, and a
+sandbox image.
 
 | What                    | Trigger                                                       | Workflow                                                             |
 | ----------------------- | ------------------------------------------------------------- | -------------------------------------------------------------------- |
@@ -9,7 +9,6 @@ sandbox image, and optional from-source **dev** images.
 | PyPI `trueforge-sdk`    | Same `mode=publish` run as npm (parallel OIDC job)            | [`release.yml`](.github/workflows/release.yml)                       |
 | Prod image + Helm chart | Dispatch from the package workflow, or manual dispatch        | [`release-chart.yml`](.github/workflows/release-chart.yml)           |
 | Sandbox image + pin PR  | Push to `main` when `scripts/sandbox/**` changes, or dispatch | [`push-sandbox-image.yml`](.github/workflows/push-sandbox-image.yml) |
-| From-source image       | Manual `workflow_dispatch`                                    | [`build-image.yml`](.github/workflows/build-image.yml)               |
 | PR checks               | Pull request / merge group                                    | [`ci.yml`](.github/workflows/ci.yml)                                 |
 
 ## Versioning
@@ -23,7 +22,6 @@ sandbox image, and optional from-source **dev** images.
 | Prod image tag               | `{packageVersion}-{shortSha}`                                                                             |
 | Chart `version`              | Same major.minor as `@truefoundry/trueforge`; patch/RC may still advance                                  |
 | Sandbox image                | [`sandbox.Dockerfile`](packages/trueforge-core/scripts/sandbox/sandbox.Dockerfile); tag = full commit SHA |
-| Dev image                    | Same [`Dockerfile`](Dockerfile); tag = full commit SHA                                                    |
 
 Install a published chart:
 
@@ -151,7 +149,7 @@ The package workflow starts the chart workflow with the GitHub App token.
 
 | File                               | Role                                                                                                    |
 | ---------------------------------- | ------------------------------------------------------------------------------------------------------- |
-| [`Dockerfile`](Dockerfile)         | From-source. Prod Helm, [`docker-compose.yml`](docker-compose.yml), Railway, **Build image**            |
+| [`Dockerfile`](Dockerfile)         | From-source. Prod Helm, [`docker-compose.yml`](docker-compose.yml), Railway                             |
 | [`Dockerfile.dev`](Dockerfile.dev) | Same as `Dockerfile`. Kept for Railway services that still set `RAILWAY_DOCKERFILE_PATH=Dockerfile.dev` |
 | [`Dockerfile.npm`](Dockerfile.npm) | Previous npm-install image (`APP_VERSION` from the registry)                                            |
 
@@ -182,17 +180,11 @@ Chart major.minor is taken from [`scripts/resolve-chart-version.sh`](scripts/res
 so it matches `@truefoundry/trueforge` (and the docker tag prefix). Patch and RC
 still advance per chart release.
 
-## Dev / floating main
+## Devtest
 
-External deploy repo owns `truefoundry.yaml` (`git-helm-repo` @ `main`). Build a from-source image:
-
-```bash
-gh workflow run build-image.yml --ref main
-# → tfy.jfrog.io/tfy-images/trueforge:<fullSha>
-```
-
-Patch that SHA into `image.tag`. Secrets via `secretKeyRef` only - never plaintext in git.
-Do not use SHA-tagged images as production chart defaults.
+[`deploy-devtest.yml`](.github/workflows/deploy-devtest.yml) pins the current
+`main` SHA into `truefoundry/trueforge-devtest-deployment`. That environment
+builds from source. Secrets via `secretKeyRef` only - never plaintext in git.
 
 ## Bundled chart dependencies
 

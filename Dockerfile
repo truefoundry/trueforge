@@ -1,7 +1,7 @@
 # syntax=docker/dockerfile:1
 #
-# From-source multi-stage image for prod Helm, local smoke, Railway, and
-# SHA-tagged floating-main builds. Lives at the repository root because the
+# From-source multi-stage image for prod Helm, local smoke, and Railway.
+# Lives at the repository root because the
 # build needs the whole pnpm workspace as its context: the server depends on
 # the workspace package @truefoundry/trueforge-core.
 #
