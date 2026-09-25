@@ -86,8 +86,9 @@ KUBERNETES_SANDBOX_RESOURCES={"requests":{"cpu":"500m","memory":"512Mi"},"limits
 locations define resources, `KUBERNETES_SANDBOX_RESOURCES` takes precedence.
 
 When the Agent Sandbox controller and `sandboxes.agents.x-k8s.io` CRD are installed, TrueForge uses the CR backend.
-Without that CRD it falls back to labelled Pods. Both paths use the same provider contract and sandbox image. The Pod
-fallback stores session files in an `emptyDir`, so files survive container restarts but not pod rescheduling.
+Without that CRD it falls back to labelled Pods. Both paths use the same provider contract, sandbox image, and
+storage: session files live in an `emptyDir` mounted over the sandbox's working directory, so they survive a
+container restart but not the pod being rescheduled.
 
 The server's Kubernetes identity needs permission to create, get, list, and delete Pods, create `pods/exec`, and create
 `pods/portforward` when `KUBERNETES_SANDBOX_IN_CLUSTER=false`. It also needs to read the

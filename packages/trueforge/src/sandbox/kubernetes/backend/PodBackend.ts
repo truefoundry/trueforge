@@ -20,7 +20,8 @@ export const SANDBOX_CONTAINER_NAME = 'sandbox';
  */
 export const SANDBOX_WORKING_DIR = '/home/trueforge';
 
-const WORKSPACE_VOLUME_NAME = 'workspace';
+/** Shared with AgentSandboxBackend so both backends mount writable storage the same way. */
+export const WORKSPACE_VOLUME_NAME = 'workspace';
 
 /** Waiting reasons that never resolve on their own — surface them instead of waiting out the timeout. */
 const FATAL_WAITING_REASONS = new Set([

@@ -13,6 +13,7 @@ import { AgentSandboxBackend, type AgentSandboxApi } from './backend/AgentSandbo
 import { PodBackend, type PodApi } from './backend/PodBackend';
 import { type SandboxBackend } from './backend/SandboxBackend';
 import { toPodExecClient } from './core/kubeExec';
+import { memoizeByKey } from './core/memoizeByKey';
 import { KubernetesNatsHostUrlResolver } from './core/natsHostUrl';
 import { KubernetesSandboxProvider as KubernetesProvider } from './provider/KubernetesSandboxProvider';
 
@@ -67,8 +68,19 @@ async function hasAgentSandboxCrd(api: ApiextensionsV1Api): Promise<boolean> {
   }
 }
 
-/** Builds the Kubernetes provider and chooses the Agent Sandbox CR backend once at construction. */
-export async function createKubernetesSandboxProvider(options: {
+/**
+ * Per-tenant cache: `resolveSandboxProvider` is documented to "build a fresh provider client per
+ * call (no network I/O)" and is called on every turn, but building a Kubernetes provider does
+ * real network I/O (the CRD detection below) and owns real resources (the NATS resolver's
+ * port-forward listeners). Rebuilding either per call would mean a Kubernetes API round trip on
+ * every turn and an unbounded number of leaked listeners. Caching per tenant keeps both bounded
+ * by "distinct tenants this process has served" instead of "turns this process has served", and
+ * as a side effect lets KubernetesSandboxProvider's own per-sandbox layout cache actually work
+ * across turns instead of starting empty every time.
+ */
+const providerCache = new Map<string, Promise<SandboxProvider>>();
+
+export interface CreateKubernetesSandboxProviderOptions {
   manifest: KubernetesManifest;
   tenantId: string;
   fileMaxBytesForDownload: number;
@@ -77,7 +89,18 @@ export async function createKubernetesSandboxProvider(options: {
   pollIntervalMs: number;
   inCluster: boolean;
   logger: Logger;
-}): Promise<SandboxProvider> {
+}
+
+/** Builds the Kubernetes provider and chooses the Agent Sandbox CR backend once at construction. */
+export function createKubernetesSandboxProvider(
+  options: CreateKubernetesSandboxProviderOptions,
+): Promise<SandboxProvider> {
+  return memoizeByKey(providerCache, options.tenantId, () => buildKubernetesSandboxProvider(options));
+}
+
+async function buildKubernetesSandboxProvider(
+  options: CreateKubernetesSandboxProviderOptions,
+): Promise<SandboxProvider> {
   const kubeConfig = new KubeConfig();
   kubeConfig.loadFromDefault();
   const apis = clients(kubeConfig);

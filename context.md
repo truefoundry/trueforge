@@ -119,6 +119,7 @@ descope: no OpenAPI/SDK/catalog/UI files touched anywhere in the diff.
 | `src/sandbox/kubernetes/core/reaper.ts` **(new)**                                                                                                                                                                                                                    | `KubernetesSandboxReaper.reap()` — lists via the backend, deletes entries older than a TTL and owned by the current tenant, best-effort (a single delete failure is logged and skipped, doesn't abort the sweep). Wired into `KubernetesSandboxProvider.createSandbox()`, run-before-create (errors swallowed) — see Finding 2 on the latency this couples in.                                                                                                                                                                                                                                                                                                                                                                                                                                                |
 | `src/sandbox/kubernetes/provider/KubernetesSandboxProvider.ts`                                                                                                                                                                                                       | The `SandboxProvider` implementation: static-ready `buildImage`/`getImageBuildStatus` (now reporting `metadata: { backend: this.backend.kind }`, satisfying plan.md's "surface the backend choice" ask), `createSandbox` (reap, then create + wait-until-running), `exec` (layout-probed-and-cached PATH/PYTHONPATH absolutization, mirrors TFY), `uploadFile`/`downloadFile` (raw binary via `kubeExec`, no base64 — ruling below), cwd-relative layout getters, `createCodeModeTransport` wired to the injected `NatsHostUrlResolver`. **Fixed since first written:** the `JSON.parse(...) as StatResult` unsound assertion (a real AGENTS.md violation — "no `as T` escapes") was replaced with `parseStatResult()`, which validates the shape at runtime and throws a real error on a malformed response. |
 | `src/sandbox/kubernetes/createKubernetesSandboxProvider.ts` **(new)**                                                                                                                                                                                                | Top-level wiring: builds a `KubeConfig` (`loadFromDefault()`), detects the Agent Sandbox CRD once via `ApiextensionsV1Api.readCustomResourceDefinition` (404 → `PodBackend` fallback, anything else → `AgentSandboxBackend`), constructs the `Exec`/`CoreV1Api`/`CustomObjectsApi` clients and the `KubernetesNatsHostUrlResolver`, returns the assembled `KubernetesSandboxProvider`. Resolves the `KubernetesSandboxProvider` (class) vs. `KubernetesSandboxProvider` (schema type) name collision cleanly via import aliasing (`as KubernetesManifest` / `as KubernetesProvider`).                                                                                                                                                                                                                         |
+| `src/sandbox/kubernetes/core/memoizeByKey.ts` (new, added this pass)                                                                                                                                                                                                 | Generic per-key async memoization with in-flight dedup and eviction-on-rejection. `createKubernetesSandboxProvider` is the only consumer, but the utility itself has no Kubernetes-specific knowledge — see "Findings" below for why it was needed, not just an optimization.                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                 |
 | `src/schemas/sandboxProvider.ts`                                                                                                                                                                                                                                     | `KubernetesSandboxProviderSchema` (env-synthesized: `type`, `namespace`, optional `service_account_name`/`image_pull_secret_name`/`resources`, `exec_timeout_ms` — no API key) added to `StoredSandboxProviderManifestSchema` only. `KubernetesSandboxResourcesSchema` (requests/limits string maps) factored out as its own named schema, shared between the store manifest and the env-settings schema below. `SandboxProviderManifestSchema` (OpenAPI) is untouched.                                                                                                                                                                                                                                                                                                                                       |
 | `src/sandbox/providerUtils.ts`                                                                                                                                                                                                                                       | `toSandboxProviderFromRecord` is now `async` (Daytona/TFY branches wrapped in `Promise.resolve(...)`, all three call sites updated — see `sessionResources.ts` below) with a `case 'kubernetes':` that throws in `STANDALONE` mode (Kubernetes is distributed-only) and otherwise calls `createKubernetesSandboxProvider`. `checkSnapshotStatus` now short-circuits for `'truefoundry' \| 'kubernetes'` (both prebuilt-image, no snapshot refresh), mirroring the existing `truefoundry` branch exactly as plan.md asked.                                                                                                                                                                                                                                                                                     |
 | `src/runtime/sessionResources.ts`                                                                                                                                                                                                                                    | `return toSandboxProviderFromRecord(...)` → `return await toSandboxProviderFromRecord(...)`, updated for the new async signature.                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                             |
@@ -132,18 +133,37 @@ descope: no OpenAPI/SDK/catalog/UI files touched anywhere in the diff.
 | `.changeset/quiet-k8s-sandboxes.md` **(new)**                                                                                                                                                                                                                        | `@truefoundry/trueforge: minor`, `@truefoundry/trueforge-core: patch` — correct package names, correct bump types (additive feature / additive non-breaking export).                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                          |
 
 Test counts in `sandbox/kubernetes`: `kubeExec` 10, `PodBackend` 13, `podExecCommand` 10,
-`KubernetesSandboxProvider` 19, `KubernetesSandboxReaper` 2 — all passing as part of the 72/653
-full-suite run above. (`AgentSandboxBackend` and `natsHostUrl`/`createKubernetesSandboxProvider`
-have no dedicated unit test files yet — see Remaining work.)
+`KubernetesSandboxProvider` 19, `KubernetesSandboxReaper` 2, `AgentSandboxBackend` 13 (added in a
+later pass this session — see "Fixed: AgentSandboxBackend had no storage configuration" below) —
+74 suites / 677 tests in the full `packages/trueforge` run as of the latest root-level CI check
+(the `memoizeByKey` fix below added one more file / 8 more tests after this line was written).
+`natsHostUrl`/`createKubernetesSandboxProvider` still have no dedicated unit test files — see
+Remaining work.
 
 ## Findings from this review (non-blocking, worth a follow-up)
 
-1. **`KubernetesNatsHostUrlResolver.close()` is never called from any non-test source.** In the
-   out-of-cluster (port-forward) path, every distinct pod that ever needs a NATS connection gets
-   a permanent local TCP listener that's never torn down — not even after that sandbox is
-   deleted or reaped. Over a long-running process handling many sandboxes in out-of-cluster/dev
-   mode, this accumulates open listeners indefinitely. Needs wiring into provider/backend
-   disposal, or eviction keyed to `backend.delete()`.
+1. ~~`KubernetesNatsHostUrlResolver.close()` is never called from any non-test source~~ **Fixed —
+   and it turned out to be a bigger issue than a missing `close()` call.** Investigating this
+   found that `createKubernetesSandboxProvider` was being rebuilt from scratch on _every_ call —
+   including a real Kubernetes API request (the CRD detection) — even though
+   `sessionResources.ts`'s `resolveSandboxProvider()` (called from `turns.ts` on every turn)
+   is explicitly documented as "Builds a fresh provider client per call (**no network I/O**)".
+   So the port-forward listener leak wasn't "one per pod for the process lifetime" as first
+   described — it was **one new listener per turn, forever**, and every turn also paid a real
+   K8s API round trip it shouldn't have. Fixed at the root: added a generic, fully unit-tested
+   `memoizeByKey()` primitive (`core/memoizeByKey.ts`, 8 tests, including a concurrent-call
+   dedup case so many simultaneous turns before the first CRD check resolves don't each trigger
+   their own) and cached the whole built provider per tenant in `createKubernetesSandboxProvider`.
+   This fixes three things at once: no more per-call K8s API request, no more per-call listener
+   leak (bounded by distinct tenants now, not distinct turns), and — a bonus — the layout-caching
+   optimization already inside `KubernetesSandboxProvider` (probes `pwd`/`$PATH` once per
+   sandbox) now actually works across turns instead of starting from an empty `Map` every time,
+   since it's the _same_ provider instance being reused. TDD: a mutation test on the eviction
+   guard's `if (cache.get(key) === attempt)` check proved that condition was dead code (there's
+   no way for two attempts to coexist for one key given the closed API) — removed it rather than
+   keep untested defensive code, then verified the simplified version still fails 2/8 tests when
+   eviction itself is mutated away, confirming real coverage. Full suite re-verified after:
+   **74 suites / 677 tests**, all 5 root CI commands clean.
 2. **`createSandbox()` runs the reaper (a full `backend.list()` + potentially many deletes)
    synchronously before every single sandbox creation**, coupling reap latency to the create
    path rather than running it as a decoupled background sweep. Functionally correct (errors are
@@ -199,6 +219,12 @@ session introduced; consistent pre-existing repo structure.
    reuses `PodBackend`'s exact pod-spec shape** (working dir, container name, restart policy)
    inside the CR's `podTemplate`, so both backends produce behaviorally identical containers —
    the only difference is who owns pod lifecycle (the CR controller vs. `PodBackend` itself).
+7. **User decision, explicit:** asked whether to cut `AgentSandboxBackend` (the CR path) and/or
+   out-of-cluster port-forward support from Code Mode to shrink this PR, given CONTRIBUTING.md's
+   "keep PRs focused and reasonably small" and its current size (38 files / ~3700 insertions).
+   User chose to keep both. Consequence acted on: since out-of-cluster support stays, its
+   resource-leak gap (Finding 1, original numbering) got fixed properly rather than documented
+   as a known limitation — see the memoization fix above.
 
 ## Process note
 
@@ -254,10 +280,13 @@ https://tfy.jfrog.io/v2/tfy-images/trueforge-sandbox/manifests/0dab475d3d20a8333
 
 ## Remaining work
 
-- **Dedicated unit tests for `AgentSandboxBackend`** (mocked `AgentSandboxApi`/pod-read client,
-  mirroring `PodBackend.test.ts`'s structure) and for `createKubernetesSandboxProvider`'s CRD
-  auto-detection branch (mocked `ApiextensionsV1Api`). Neither exists yet.
-- **Fix or accept Findings 1–4 above.**
+- ~~Dedicated unit tests for `AgentSandboxBackend`~~ **Done** — 13 tests added
+  (`AgentSandboxBackend.test.ts`), mirroring `PodBackend.test.ts`'s structure. Uncovered a real
+  gap while writing them: see "Fixed: AgentSandboxBackend had no storage configuration" below.
+- Dedicated unit tests for `createKubernetesSandboxProvider`'s CRD auto-detection branch (mocked
+  `ApiextensionsV1Api`) — still not done.
+- **Fix or accept Findings 1–3** (the NATS port-forward leak, reaper/create latency coupling, and
+  the dual resource-config path). Finding 4 (`pending()`) was fixed earlier.
 - **Catalog preset** — intentionally still not done; only applies if/when the env-synthesized
   scoping is revisited (the shipped catalog backs `CatalogSandboxProviderSchema`, which stays
   Daytona-only per the PR 1 descope).
@@ -267,11 +296,57 @@ https://tfy.jfrog.io/v2/tfy-images/trueforge-sandbox/manifests/0dab475d3d20a8333
   in this design); restart-resumable ready/pull state (done implicitly — both backends always
   read live cluster state, no cached status); finding #6 (genericity) is PR 1, descoped.
 - **Verification section of plan.md** (kind cluster, six acceptance criteria through the chat
-  UI) — not attempted; needs `kind`/`kubectl`, not installed in this environment.
-- **Final pass**: run `pnpm build && pnpm test && pnpm typecheck && pnpm lint:ci &&
-pnpm format:check` (the exact five CI commands) once, end to end, before considering this
-  ready for a PR — this review ran the equivalent per-package but not the aggregated root
-  scripts.
+  UI) — not attempted. `kind`/`kubectl`/`docker` (client) are installed in this environment, but
+  the docker daemon denies this user and the pinned sandbox image is private — see "Environment
+  gaps" above.
+- ~~Final pass: run the exact 5 CI commands at the root~~ **Done**, twice (once mid-session, once
+  after the fixes in the next section) — both times all five passed cleanly.
+
+## Fixed: `AgentSandboxBackend` had no storage configuration
+
+Found while writing its test suite (the item above). Its pod template had **zero** volume
+configuration — no `emptyDir`, nothing — while `docs/sandbox.mdx` only called out a storage
+caveat for the Pod fallback, implying (by omission) that the CR-backed path was better. It
+wasn't: with no explicit mount, the CR path's container filesystem had no more durability
+guarantee than any unmounted container layer — arguably _worse_ than `PodBackend`'s explicit
+`emptyDir`, which at least survives a container restart. This also duplicated
+`SANDBOX_WORKING_DIR` as a bare `'/home/trueforge'` string literal instead of importing the
+existing constant.
+
+**Fix:** exported `WORKSPACE_VOLUME_NAME` from `PodBackend.ts` (matching the existing precedent
+of `SANDBOX_CONTAINER_NAME` already being shared that way), and `AgentSandboxBackend.body()` now
+mounts the same `emptyDir` over `SANDBOX_WORKING_DIR` that `PodBackend` does — both backends now
+have the identical, honestly-described durability characteristic (survives a container restart,
+not a pod reschedule). `docs/sandbox.mdx`'s storage paragraph corrected to say so plainly instead
+of implying an asymmetry that didn't exist in the code.
+
+TDD: wrote the test first (`mounts writable storage over the image working directory, same as
+PodBackend`), watched it fail (`expect(received).toBeDefined() — Received: undefined`), then
+implemented. Full `AgentSandboxBackend.test.ts` — 13 tests, all passing, no `as`/`any` (an early
+draft used `as Record<string, any>` to navigate the untyped CR body; replaced with runtime-guard
+helpers mirroring the `isRecord()` pattern `AgentSandboxBackend.ts` itself already uses, per
+AGENTS.md's "no assertion escapes" rule).
+
+## Two other fixes from this pass
+
+- **`README.md`** said sandbox support was "(Daytona today; more providers planned)" — stale
+  since this PR ships Kubernetes too. Updated to "(Daytona via Settings, Kubernetes via env
+  config for self-hosted deployments; more providers planned)". (`docs/roadmap.mdx` also has a
+  stale "Local sandbox execution" roadmap bullet — that's pre-existing docs debt unrelated to
+  this PR, since `LocalSandboxProvider` already shipped on `main` back in #306; left untouched to
+  avoid scope creep on an already-oversized PR.)
+- **Unrelated drive-by fix, `packages/trueforge-ui/src/atoms/primitives/DropdownMenu.tsx`** — 2
+  pre-existing `react-hooks/exhaustive-deps` warnings were real, not false positives: `setOpen` is
+  a `useCallback` with deps `[controlledOpen, onOpenChange]` (not React's always-stable
+  `useState` setter), so omitting it from the outside-click and keyboard-nav effects' dependency
+  arrays meant a controlled `DropdownMenu` with a changing `onOpenChange` prop could call a stale
+  closure. Fixed by including `setOpen` in both dependency arrays, as the lint rule itself
+  suggested. Verified: `trueforge-ui`'s full suite (199 files / 1516 tests, including a dedicated
+  `DropdownMenu.test.tsx`) still passes. This touches a published package
+  (`@truefoundry/trueforge-ui`), so it has its own changeset
+  (`.changeset/plain-dryers-relax.md`, patch) separate from the Kubernetes one — genuinely
+  unrelated to this PR's feature, worth considering as a separate commit/PR rather than folding
+  into the Kubernetes squash, at the user's discretion.
 
 ## Conventions confirmed followed
 
@@ -285,3 +360,42 @@ in-cluster auto-detection); static `import`/`import type` only; tests live under
 `tests/unit/sandbox/kubernetes/**` mirroring `src/sandbox/kubernetes/**`; options objects used
 throughout; `.changeset` added and correctly scoped to the two published packages that actually
 changed.
+
+## CONTRIBUTING.md compliance audit (run in full, this session)
+
+Fetched the live upstream copy (`raw.githubusercontent.com/truefoundry/trueforge/main/CONTRIBUTING.md`)
+and confirmed it's byte-identical to the local copy — no drift to account for.
+
+**Verified compliant:**
+
+- **The literal 5 CI commands, run at the root, for real** (previously only run scoped
+  per-package with various flags): `pnpm build`, `pnpm test`, `pnpm typecheck`, `pnpm lint:ci`,
+  `pnpm format:check` — **all exit 0**. `lint:ci` surfaces only 2 pre-existing warnings in an
+  untouched file (`trueforge-ui/src/atoms/primitives/DropdownMenu.tsx`), no errors.
+- No generated output touched: `git diff main --stat` against `packages/trueforge-sdk`,
+  `python/trueforge_sdk`, `.github/fern/openapi/openapi.json`, `docs/openapi.json`,
+  `packages/trueforge/catalog/` is empty.
+- Coding-conventions bullets re-audited across the **whole** diff (not just this session's own
+  pieces): no `as T` casts, no non-null `!`, no `require(`, no raw `process.env` outside
+  `config.ts`, in `packages/trueforge/src` + `packages/trueforge-core/src`. Every
+  catch-and-rethrow in the new backend files sets `{ cause }`; the handful of `throw new Error()`
+  calls without one are fresh validation errors with no caught exception in scope (verified by
+  reading each site), not swallowed causes.
+- All new/changed test files live under `tests/` mirroring `src/` — none inline (`git diff main
+--name-only -- '*.test.ts' | grep '/src/'` is empty).
+- Docker is not required for the standard build/test/lint/typecheck path — only for the
+  _optional_ `pnpm test:kubernetes-sandbox:contract` (kind cluster), matching how
+  `test:local-sandbox:contract` is already opt-in/no-CI.
+- `test:kubernetes-sandbox:contract` was added through `package.json` scripts (root + package),
+  not documented as an ad hoc command.
+
+**Not satisfied — known, not hidden:**
+
+- **"Please only submit pull requests for an issue when you have received approval from a
+  maintainer."** #817 has no maintainer approval and carries `needs-maintainer-attention`.
+  Already an accepted risk per `plan.md`'s own decision ("proceed and submit anyway"), restated
+  here because this audit is the place that should say it plainly rather than let it hide.
+- **"Keep PRs focused and reasonably small."** This is not small — 36 files, ~3600 insertions,
+  a full new provider plus a cross-cutting config-gating fix. A tradeoff already made in favor of
+  landing a working end-to-end feature rather than a chain of dependent micro-PRs (which would
+  only multiply review burden given the point above).

@@ -1,7 +1,7 @@
 import { ApiException, type V1Pod, type V1ResourceRequirements } from '@kubernetes/client-node';
 import { SandboxNotAvailableError } from '@truefoundry/trueforge-core/core';
 import type { Logger } from 'winston';
-import { SANDBOX_CONTAINER_NAME } from './PodBackend';
+import { SANDBOX_CONTAINER_NAME, SANDBOX_WORKING_DIR, WORKSPACE_VOLUME_NAME } from './PodBackend';
 import {
   SANDBOX_LABELS,
   SANDBOX_LABEL_SELECTOR,
@@ -144,10 +144,15 @@ export class AgentSandboxBackend implements SandboxBackend {
   }
 
   private body(params: { name: string; tenantId: string }): Record<string, unknown> {
+    // Same writable-storage shape as PodBackend: an emptyDir mounted over the image WORKDIR, so a
+    // container restart doesn't lose session files. The CR controller owns pod (re)scheduling,
+    // not this backend, so this is the same durability guarantee as the Pod fallback — no more,
+    // no less — until the CR spec grows a native persistent-storage field this can request instead.
     const container = {
       name: SANDBOX_CONTAINER_NAME,
       image: this.image,
-      workingDir: '/home/trueforge',
+      workingDir: SANDBOX_WORKING_DIR,
+      volumeMounts: [{ name: WORKSPACE_VOLUME_NAME, mountPath: SANDBOX_WORKING_DIR }],
       ...(this.resources === undefined ? {} : { resources: this.resources }),
     };
     return {
@@ -169,6 +174,7 @@ export class AgentSandboxBackend implements SandboxBackend {
               ? {}
               : { imagePullSecrets: [{ name: this.imagePullSecretName }] }),
             restartPolicy: 'Always',
+            volumes: [{ name: WORKSPACE_VOLUME_NAME, emptyDir: {} }],
             containers: [container],
           },
         },
