@@ -123,18 +123,18 @@ describe('attachment containers', () => {
     const file = new File(['image'], 'diagram.png', { type: 'image/png' });
     fireEvent.change(input, { target: { files: [file] } });
 
-    expect(await screen.findByText('diagram.png')).toBeInTheDocument();
     await waitFor(() => {
       expect(screen.getByTestId('attachment-preview-slot')).toHaveAttribute(
         'data-preview-src',
         'blob:composer-preview',
       );
     });
+    expect(screen.getByRole('img', { name: 'diagram.png' })).toBeInTheDocument();
 
     fireEvent.click(screen.getByRole('button', { name: 'Remove file' }));
 
     await waitFor(() => {
-      expect(screen.queryByText('diagram.png')).not.toBeInTheDocument();
+      expect(screen.queryByRole('img', { name: 'diagram.png' })).not.toBeInTheDocument();
     });
     expect(remove).toHaveBeenCalledTimes(1);
     expect(remove.mock.calls[0]?.[0]).toMatchObject({
@@ -142,6 +142,34 @@ describe('attachment containers', () => {
       name: 'diagram.png',
       contentType: 'image/png',
     });
+  });
+
+  it('shows the staged file name and size', async () => {
+    const adapter = createAttachmentAdapter(async () => {});
+
+    render(
+      <AttachmentRuntimeHarness adapter={adapter}>
+        <ComposerAttachmentPickerContainer />
+        <ComposerAttachmentsContainer />
+      </AttachmentRuntimeHarness>,
+    );
+
+    fireEvent.click(screen.getByRole('button', { name: 'Add Attachment' }));
+    const input = document.querySelector<HTMLInputElement>('input[type="file"]');
+    if (input === null) {
+      throw new Error('Expected attachment file input');
+    }
+
+    const file = new File([new Uint8Array(2048)], 'report.pdf', { type: 'application/pdf' });
+    fireEvent.change(input, { target: { files: [file] } });
+
+    expect(await screen.findByText('report.pdf')).toBeInTheDocument();
+    expect(screen.getByText('2.00 KB')).toBeInTheDocument();
+    expect(document.querySelector('.aui-composer-attachments')).toHaveClass(
+      'flex-nowrap',
+      'overflow-x-auto',
+      'overflow-y-hidden',
+    );
   });
 
   it('opens a full-size preview for a sent image attachment', () => {
