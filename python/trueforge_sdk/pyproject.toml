@@ -4,7 +4,7 @@ dynamic = ["version"]
 
 [tool.poetry]
 name = "trueforge_sdk"
-version = "0.2.1-rc.0"
+version = "0.2.1-rc.1"
 description = ""
 readme = "README.md"
 authors = []
