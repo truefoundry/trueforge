@@ -258,7 +258,7 @@ describe('ThreadListContainer', () => {
 
   it('uses filter intent to distinguish Try Agent from a filtered agent session', () => {
     const server = createMockAgentUIServer({
-      searchAgents: async () => [{ name: 'Support Agent', agentId: 'support-id' }],
+      searchAgents: async () => ({ data: [{ name: 'Support Agent', agentId: 'support-id' }] }),
     });
 
     render(

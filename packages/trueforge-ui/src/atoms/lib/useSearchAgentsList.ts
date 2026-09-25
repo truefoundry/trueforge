@@ -17,46 +17,56 @@ function clampPageSize(size: number): number {
   return Math.min(Math.max(size, 1), SEARCH_AGENTS_PAGE_MAX);
 }
 
-/** Drain every `searchAgents` page (offset pagination). */
+/** Drain every `searchAgents` page (token pagination). */
 export async function searchAllAgents(
   server: Pick<AgentBuilderServer, 'searchAgents'>,
-  offset = 0,
+  pageToken?: string,
 ): Promise<AgentLibraryEntry[]> {
-  const rows = await server.searchAgents({ limit: SEARCH_AGENTS_PAGE_SIZE, offset });
-  if (rows.length < SEARCH_AGENTS_PAGE_SIZE) return rows;
-  return [...rows, ...(await searchAllAgents(server, offset + rows.length))];
+  const page = await server.searchAgents({
+    limit: SEARCH_AGENTS_PAGE_SIZE,
+    ...(pageToken === undefined || pageToken === '' ? {} : { pageToken }),
+  });
+  if (page.nextPageToken == null || page.nextPageToken === '') return page.data;
+  return [...page.data, ...(await searchAllAgents(server, page.nextPageToken))];
 }
 
 /** Exact-name lookup walks server-filtered pages until a precise match is found. */
 export async function findAgentByName({
   server,
   agentName,
-  offset = 0,
+  pageToken,
 }: {
   server: Pick<AgentBuilderServer, 'searchAgents'>;
   agentName: string;
-  offset?: number;
+  pageToken?: string;
 }): Promise<AgentLibraryEntry | undefined> {
-  const rows = await server.searchAgents({ query: agentName, limit: SEARCH_AGENTS_PAGE_SIZE, offset });
-  const match = rows.find(agent => agent.name === agentName);
-  if (match != null || rows.length < SEARCH_AGENTS_PAGE_SIZE) return match;
-  return findAgentByName({ server, agentName, offset: offset + rows.length });
+  const page = await server.searchAgents({
+    query: agentName,
+    limit: SEARCH_AGENTS_PAGE_SIZE,
+    ...(pageToken === undefined || pageToken === '' ? {} : { pageToken }),
+  });
+  const match = page.data.find(agent => agent.name === agentName);
+  if (match != null || page.nextPageToken == null || page.nextPageToken === '') return match;
+  return findAgentByName({ server, agentName, pageToken: page.nextPageToken });
 }
 
 /** Resolve by agent id or exact name by walking unfiltered pages (ids are not name-searchable). */
 export async function findLibraryAgent({
   server,
   agentKey,
-  offset = 0,
+  pageToken,
 }: {
   server: Pick<AgentBuilderServer, 'searchAgents'>;
   agentKey: string;
-  offset?: number;
+  pageToken?: string;
 }): Promise<AgentLibraryEntry | undefined> {
-  const rows = await server.searchAgents({ limit: SEARCH_AGENTS_PAGE_SIZE, offset });
-  const match = rows.find(agent => agent.name === agentKey || agent.agentId === agentKey);
-  if (match != null || rows.length < SEARCH_AGENTS_PAGE_SIZE) return match;
-  return findLibraryAgent({ server, agentKey, offset: offset + rows.length });
+  const page = await server.searchAgents({
+    limit: SEARCH_AGENTS_PAGE_SIZE,
+    ...(pageToken === undefined || pageToken === '' ? {} : { pageToken }),
+  });
+  const match = page.data.find(agent => agent.name === agentKey || agent.agentId === agentKey);
+  if (match != null || page.nextPageToken == null || page.nextPageToken === '') return match;
+  return findLibraryAgent({ server, agentKey, pageToken: page.nextPageToken });
 }
 
 export type UseSearchAgentsListOptions = {
@@ -95,7 +105,7 @@ export type UseSearchAgentsListResult = {
 };
 
 /**
- * Debounced `searchAgents` with offset pagination.
+ * Debounced `searchAgents` with token pagination.
  * Infinite mode: attach `listRef` / `sentinelRef` for IntersectionObserver load-more.
  * Paged mode: use `goPrev` / `goNext` / `setPageSize` (rows replaced each fetch).
  */
@@ -117,12 +127,14 @@ export function useSearchAgentsList({
   const [error, setError] = useState<string | null>(null);
   const [hasMore, setHasMore] = useState(false);
   const [pageSize, setPageSizeState] = useState(() => clampPageSize(limitOption));
-  const [offset, setOffset] = useState(0);
+  const [pageToken, setPageToken] = useState<string | undefined>(undefined);
+  const [nextPageToken, setNextPageToken] = useState<string | undefined>(undefined);
+  const [previousPageToken, setPreviousPageToken] = useState<string | undefined>(undefined);
 
   const genRef = useRef(0);
   const loadMoreInflightRef = useRef(false);
   const hasMoreRef = useRef(false);
-  const agentsLenRef = useRef(0);
+  const nextPageTokenRef = useRef<string | undefined>(undefined);
   const listElRef = useRef<HTMLElement | null>(null);
   const sentinelElRef = useRef<HTMLElement | null>(null);
   const [listEl, setListEl] = useState<HTMLElement | null>(null);
@@ -131,7 +143,7 @@ export function useSearchAgentsList({
   const limit = mode === 'paged' ? pageSize : clampPageSize(limitOption);
 
   hasMoreRef.current = hasMore;
-  agentsLenRef.current = agents.length;
+  nextPageTokenRef.current = nextPageToken;
 
   const listRef = useCallback((node: HTMLElement | null) => {
     listElRef.current = node;
@@ -148,7 +160,7 @@ export function useSearchAgentsList({
   // Reset to first page when the query or catalog epoch changes.
   useEffect(() => {
     if (mode !== 'paged') return;
-    setOffset(0);
+    setPageToken(undefined);
   }, [mode, searchQuery, refreshKey]);
 
   useEffect(() => {
@@ -159,18 +171,26 @@ export function useSearchAgentsList({
     setLoading(true);
     setError(null);
 
-    const fetchOffset = mode === 'paged' ? offset : 0;
+    const fetchToken = mode === 'paged' ? pageToken : undefined;
 
     void server
-      .searchAgents({ query: searchQuery, limit, offset: fetchOffset })
-      .then(rows => {
+      .searchAgents({
+        query: searchQuery,
+        limit,
+        ...(fetchToken === undefined || fetchToken === '' ? {} : { pageToken: fetchToken }),
+      })
+      .then(page => {
         if (gen !== genRef.current) return;
-        setAgents(rows);
-        setHasMore(rows.length >= limit);
+        setAgents(page.data);
+        setNextPageToken(page.nextPageToken);
+        setPreviousPageToken(page.previousPageToken);
+        setHasMore(page.nextPageToken != null && page.nextPageToken !== '');
       })
       .catch((err: unknown) => {
         if (gen !== genRef.current) return;
         setAgents([]);
+        setNextPageToken(undefined);
+        setPreviousPageToken(undefined);
         setHasMore(false);
         setError(getErrorMessage(err, 'Failed to load agents.'));
       })
@@ -181,25 +201,34 @@ export function useSearchAgentsList({
     return () => {
       genRef.current += 1;
     };
-  }, [enabled, server, searchQuery, limit, refreshKey, mode, offset]);
+  }, [enabled, server, searchQuery, limit, refreshKey, mode, pageToken]);
 
   const loadMore = useCallback(() => {
     if (mode !== 'infinite') return;
-    if (!enabled || server == null || !hasMoreRef.current || loadMoreInflightRef.current || loading) {
+    const token = nextPageTokenRef.current;
+    if (
+      !enabled ||
+      server == null ||
+      !hasMoreRef.current ||
+      token == null ||
+      token === '' ||
+      loadMoreInflightRef.current ||
+      loading
+    ) {
       return;
     }
 
     const gen = genRef.current;
-    const nextOffset = agentsLenRef.current;
     loadMoreInflightRef.current = true;
     setLoadingMore(true);
 
     void server
-      .searchAgents({ query: searchQuery, limit, offset: nextOffset })
-      .then(rows => {
+      .searchAgents({ query: searchQuery, limit, pageToken: token })
+      .then(page => {
         if (gen !== genRef.current) return;
-        setAgents(prev => [...prev, ...rows]);
-        setHasMore(rows.length >= limit);
+        setAgents(prev => [...prev, ...page.data]);
+        setNextPageToken(page.nextPageToken);
+        setHasMore(page.nextPageToken != null && page.nextPageToken !== '');
       })
       .catch(() => {
         if (gen !== genRef.current) return;
@@ -228,18 +257,20 @@ export function useSearchAgentsList({
 
   const setPageSize = useCallback((size: number) => {
     setPageSizeState(clampPageSize(size));
-    setOffset(0);
+    setPageToken(undefined);
   }, []);
 
   const goNext = useCallback(() => {
-    if (mode !== 'paged' || !hasMoreRef.current || loading) return;
-    setOffset(current => current + pageSize);
-  }, [mode, loading, pageSize]);
+    if (mode !== 'paged' || loading) return;
+    const token = nextPageTokenRef.current;
+    if (token == null || token === '') return;
+    setPageToken(token);
+  }, [mode, loading]);
 
   const goPrev = useCallback(() => {
     if (mode !== 'paged' || loading) return;
-    setOffset(current => Math.max(0, current - pageSize));
-  }, [mode, loading, pageSize]);
+    setPageToken(previousPageToken === undefined || previousPageToken === '' ? undefined : previousPageToken);
+  }, [mode, loading, previousPageToken]);
 
   return {
     agents,
@@ -252,8 +283,8 @@ export function useSearchAgentsList({
     sentinelRef,
     pageSize,
     setPageSize,
-    canPrev: mode === 'paged' && offset > 0,
-    canNext: mode === 'paged' && hasMore,
+    canPrev: mode === 'paged' && previousPageToken != null && previousPageToken !== '',
+    canNext: mode === 'paged' && nextPageToken != null && nextPageToken !== '',
     goPrev,
     goNext,
   };

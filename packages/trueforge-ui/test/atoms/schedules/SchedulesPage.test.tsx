@@ -86,7 +86,7 @@ function renderPage(
     ...overrides,
   };
   const server = createMockAgentUIServer({
-    searchAgents: searchAgents ?? vi.fn(async () => [{ name: 'demo-agent', agentId: 'demo-agent' }]),
+    searchAgents: searchAgents ?? vi.fn(async () => ({ data: [{ name: 'demo-agent', agentId: 'demo-agent' }] })),
     schedules: scheduleServer,
     ...(options.permissions == null ? {} : { permissions: options.permissions }),
   });
@@ -221,6 +221,7 @@ describe('SchedulesPage', () => {
             name: 'weekly-digest',
           },
         ],
+        previousPageToken: 'page-1',
       });
     renderPage(sampleSchedules, {}, listSchedules);
 
@@ -231,6 +232,12 @@ describe('SchedulesPage', () => {
       expect(listSchedules).toHaveBeenLastCalledWith(expect.objectContaining({ pageToken: 'page-2', limit: 10 }));
     });
     expect(await screen.findByText('weekly-digest')).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'Previous page' })).toBeEnabled();
+
+    fireEvent.click(screen.getByRole('button', { name: 'Previous page' }));
+    await waitFor(() => {
+      expect(listSchedules).toHaveBeenLastCalledWith(expect.objectContaining({ pageToken: 'page-1', limit: 10 }));
+    });
   });
 
   it('ignores run history returned for a stale schedules page', async () => {
@@ -463,12 +470,12 @@ describe('SchedulesPage', () => {
       { agentId: 'beta-agent', name: 'beta-agent' },
     ];
     const searchAgents = vi.fn(
-      async ({ query, limit = 50, offset = 0 }: { query?: string; limit?: number; offset?: number } = {}) => {
+      async ({ query, limit = 50 }: { query?: string; limit?: number; pageToken?: string } = {}) => {
         const matched =
           query == null || query === ''
             ? agents
             : agents.filter(agent => agent.name.toLowerCase().includes(query.toLowerCase()));
-        return matched.slice(offset, offset + limit);
+        return { data: matched.slice(0, limit) };
       },
     );
     renderPage(sampleSchedules, {}, undefined, searchAgents);

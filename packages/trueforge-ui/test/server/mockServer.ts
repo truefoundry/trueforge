@@ -83,7 +83,7 @@ export function createMockAgentUIServer(overrides: Partial<AgentUIServer> = {}):
     getModels: async () => [],
     getSkills: async () => [],
     getMcp: async () => [],
-    searchAgents: async () => [],
+    searchAgents: async () => ({ data: [] }),
     saveAgent: unavailable,
     ...overrides,
   };

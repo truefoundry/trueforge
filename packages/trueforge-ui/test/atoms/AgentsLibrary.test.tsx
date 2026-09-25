@@ -49,7 +49,7 @@ function mockServer(
   }> = [{ name: 'alpha-agent', agentId: 'alpha-agent' }],
 ): AgentUIServer {
   return createMockAgentUIServer({
-    searchAgents: vi.fn(async () => agents),
+    searchAgents: vi.fn(async () => ({ data: agents })),
   });
 }
 
@@ -121,7 +121,7 @@ describe('AgentsLibrary', () => {
   it('opens agent details from the row only when the optional server is available', async () => {
     window.history.replaceState(null, '', '/library?theme=dark&sessionId=stale&view=sessions&s_sts=1&s_ets=2');
     const server = createMockAgentUIServer({
-      searchAgents: vi.fn(async () => [{ name: 'alpha-agent', agentId: 'agent-1' }]),
+      searchAgents: vi.fn(async () => ({ data: [{ name: 'alpha-agent', agentId: 'agent-1' }] })),
       sessions: {
         getAgent: vi.fn(),
         getCodeSnippets: vi.fn(),
@@ -234,13 +234,15 @@ describe('AgentsLibrary', () => {
 
   it('keeps Try and Clone available with USE while disabling Edit and Delete', async () => {
     const server = createMockAgentUIServer({
-      searchAgents: vi.fn(async () => [
-        {
-          name: 'shared-agent',
-          agentId: 'shared-id',
-          agentSpec: { model: { name: 'openai/gpt-5' } },
-        },
-      ]),
+      searchAgents: vi.fn(async () => ({
+        data: [
+          {
+            name: 'shared-agent',
+            agentId: 'shared-id',
+            agentSpec: { model: { name: 'openai/gpt-5' } },
+          },
+        ],
+      })),
       permissions: {
         listPermissions: vi.fn(async ({ resourceType }): Promise<ListPermissionsResponse> =>
           resourceType === 'tenant'
@@ -273,13 +275,15 @@ describe('AgentsLibrary', () => {
 
   it('keeps Clone enabled without USE (read-only agent permissions)', async () => {
     const server = createMockAgentUIServer({
-      searchAgents: vi.fn(async () => [
-        {
-          name: 'shared-agent',
-          agentId: 'shared-id',
-          agentSpec: { model: { name: 'openai/gpt-5' } },
-        },
-      ]),
+      searchAgents: vi.fn(async () => ({
+        data: [
+          {
+            name: 'shared-agent',
+            agentId: 'shared-id',
+            agentSpec: { model: { name: 'openai/gpt-5' } },
+          },
+        ],
+      })),
       permissions: {
         listPermissions: vi.fn(async ({ resourceType }): Promise<ListPermissionsResponse> =>
           resourceType === 'tenant'
@@ -308,14 +312,16 @@ describe('AgentsLibrary', () => {
   it('opens Clone Agent drawer on Clone, creates on save, and stays on the library', async () => {
     const saveAgent = vi.fn(async () => ({ agentId: 'writer-clone-id' }));
     const server = createMockAgentUIServer({
-      searchAgents: vi.fn(async () => [
-        {
-          name: 'writer',
-          agentId: 'writer-id',
-          description: 'Writes release notes.',
-          agentSpec: { model: { name: 'openai-main/gpt-4.1' } },
-        },
-      ]),
+      searchAgents: vi.fn(async () => ({
+        data: [
+          {
+            name: 'writer',
+            agentId: 'writer-id',
+            description: 'Writes release notes.',
+            agentSpec: { model: { name: 'openai-main/gpt-4.1' } },
+          },
+        ],
+      })),
       saveAgent,
       deleteAgent: vi.fn(async () => {}),
     });
@@ -353,13 +359,15 @@ describe('AgentsLibrary', () => {
   it('deletes an agent only after the confirmation dialog is accepted', async () => {
     const deleteAgent = vi.fn(async () => {});
     const server = createMockAgentUIServer({
-      searchAgents: vi.fn(async () => [
-        {
-          name: 'writer',
-          agentId: 'writer-id',
-          agentSpec: { model: { name: 'openai-main/gpt-4.1' } },
-        },
-      ]),
+      searchAgents: vi.fn(async () => ({
+        data: [
+          {
+            name: 'writer',
+            agentId: 'writer-id',
+            agentSpec: { model: { name: 'openai-main/gpt-4.1' } },
+          },
+        ],
+      })),
       deleteAgent,
     });
 
@@ -508,11 +516,13 @@ describe('AgentsLibraryButton', () => {
   it('re-fetches the agent count when agentsListEpoch bumps', async () => {
     const searchAgents = vi
       .fn()
-      .mockResolvedValueOnce([{ name: 'alpha', agentId: 'alpha' }])
-      .mockResolvedValueOnce([
-        { name: 'alpha', agentId: 'alpha' },
-        { name: 'beta', agentId: 'beta' },
-      ]);
+      .mockResolvedValueOnce({ data: [{ name: 'alpha', agentId: 'alpha' }] })
+      .mockResolvedValueOnce({
+        data: [
+          { name: 'alpha', agentId: 'alpha' },
+          { name: 'beta', agentId: 'beta' },
+        ],
+      });
     const server = createMockAgentUIServer({ searchAgents });
 
     function Invalidate() {
@@ -544,12 +554,14 @@ describe('AgentsLibraryButton', () => {
     expect(searchAgents).toHaveBeenCalledTimes(2);
   });
 
-  it('shows 50+ when the first page is full', async () => {
+  it('shows 50+ when the first page has a next token', async () => {
     const agents = Array.from({ length: 50 }, (_, i) => ({
       name: `agent-${i}`,
       agentId: `agent-${i}`,
     }));
-    const server = mockServer(agents);
+    const server = createMockAgentUIServer({
+      searchAgents: vi.fn(async () => ({ data: agents, nextPageToken: 'tok_2' })),
+    });
 
     renderLibrary(<AgentsLibraryButton />, { server });
 
@@ -559,7 +571,7 @@ describe('AgentsLibraryButton', () => {
   });
 
   it('does not fetch agent count when compact', () => {
-    const searchAgents = vi.fn(async () => [{ name: 'alpha', agentId: 'alpha' }]);
+    const searchAgents = vi.fn(async () => ({ data: [{ name: 'alpha', agentId: 'alpha' }] }));
     const server = createMockAgentUIServer({ searchAgents });
 
     renderLibrary(<AgentsLibraryButton compact />, { server });
@@ -596,10 +608,12 @@ describe('AgentsLibraryButton', () => {
       ],
     }));
     const server = createMockAgentUIServer({
-      searchAgents: vi.fn(async () => [
-        { name: 'alpha-agent', agentId: 'alpha-agent' },
-        { name: 'beta-agent', agentId: 'beta-agent' },
-      ]),
+      searchAgents: vi.fn(async () => ({
+        data: [
+          { name: 'alpha-agent', agentId: 'alpha-agent' },
+          { name: 'beta-agent', agentId: 'beta-agent' },
+        ],
+      })),
       sessions: {
         getAgent: vi.fn(),
         getCodeSnippets: vi.fn(),
@@ -671,7 +685,7 @@ describe('AgentsLibraryButton', () => {
       return { data: [] };
     });
     const server = createMockAgentUIServer({
-      searchAgents: vi.fn(async () => [{ name: 'alpha-agent', agentId: 'alpha-agent' }]),
+      searchAgents: vi.fn(async () => ({ data: [{ name: 'alpha-agent', agentId: 'alpha-agent' }] })),
       schedules: {
         listSchedules,
         getSchedule: vi.fn(),
@@ -703,27 +717,34 @@ describe('AgentsLibraryButton', () => {
     expect(screen.getByRole('button', { name: 'Previous page' })).toBeDisabled();
   });
 
-  it('paginates with next and previous and resets offset when page size changes', async () => {
+  it('paginates with next and previous and resets page token when page size changes', async () => {
     const all = Array.from({ length: 15 }, (_, i) => ({
       name: `agent-${String(i).padStart(2, '0')}`,
       agentId: `agent-${i}`,
     }));
-    const searchAgents = vi.fn(async ({ limit = 10, offset = 0 }: { limit?: number; offset?: number } = {}) =>
-      all.slice(offset, offset + limit),
-    );
+    const searchAgents = vi.fn(async ({ limit = 10, pageToken }: { limit?: number; pageToken?: string } = {}) => {
+      if (pageToken === 'tok_2') {
+        return { data: all.slice(10), previousPageToken: 'tok_1' };
+      }
+      const data = all.slice(0, limit);
+      return {
+        data,
+        ...(data.length < all.length ? { nextPageToken: 'tok_2' } : {}),
+      };
+    });
     const server = createMockAgentUIServer({ searchAgents });
 
     renderLibrary(<LibraryHarness />, { server });
     fireEvent.click(screen.getByRole('button', { name: 'Open library' }));
 
     await screen.findByRole('button', { name: 'Try agent agent-00' });
-    expect(searchAgents).toHaveBeenLastCalledWith({ query: undefined, limit: 10, offset: 0 });
+    expect(searchAgents).toHaveBeenLastCalledWith({ query: undefined, limit: 10 });
     expect(screen.getByRole('button', { name: 'Next page' })).toBeEnabled();
     expect(screen.getByRole('button', { name: 'Previous page' })).toBeDisabled();
 
     fireEvent.click(screen.getByRole('button', { name: 'Next page' }));
     await waitFor(() => {
-      expect(searchAgents).toHaveBeenLastCalledWith({ query: undefined, limit: 10, offset: 10 });
+      expect(searchAgents).toHaveBeenLastCalledWith({ query: undefined, limit: 10, pageToken: 'tok_2' });
     });
     await screen.findByRole('button', { name: 'Try agent agent-10' });
     expect(screen.getByRole('button', { name: 'Previous page' })).toBeEnabled();
@@ -731,20 +752,20 @@ describe('AgentsLibraryButton', () => {
 
     fireEvent.click(screen.getByRole('button', { name: 'Previous page' }));
     await waitFor(() => {
-      expect(searchAgents).toHaveBeenLastCalledWith({ query: undefined, limit: 10, offset: 0 });
+      expect(searchAgents).toHaveBeenLastCalledWith({ query: undefined, limit: 10, pageToken: 'tok_1' });
     });
     await screen.findByRole('button', { name: 'Try agent agent-00' });
 
     fireEvent.click(screen.getByRole('button', { name: 'Next page' }));
     await waitFor(() => {
-      expect(searchAgents).toHaveBeenLastCalledWith({ query: undefined, limit: 10, offset: 10 });
+      expect(searchAgents).toHaveBeenLastCalledWith({ query: undefined, limit: 10, pageToken: 'tok_2' });
     });
 
     // PopoverSelect: open rows-per-page and pick 25
     fireEvent.click(screen.getByRole('button', { name: 'Rows per page' }));
     fireEvent.click(await screen.findByRole('option', { name: '25' }));
     await waitFor(() => {
-      expect(searchAgents).toHaveBeenLastCalledWith({ query: undefined, limit: 25, offset: 0 });
+      expect(searchAgents).toHaveBeenLastCalledWith({ query: undefined, limit: 25 });
     });
   });
 

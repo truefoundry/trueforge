@@ -13,7 +13,12 @@ describe('AgentSessionsFilters', () => {
       agentId: `agent-${String(index + 1)}`,
       name: `Agent ${String(index + 1)}`,
     }));
-    const searchAgents = vi.fn(async ({ limit = 50, offset = 0 } = {}) => agents.slice(offset, offset + limit));
+    const searchAgents = vi.fn(async ({ limit = 50, pageToken }: { limit?: number; pageToken?: string } = {}) => {
+      if (pageToken === 'tok_2') {
+        return { data: agents.slice(50) };
+      }
+      return { data: agents.slice(0, limit), nextPageToken: 'tok_2' };
+    });
 
     render(
       <ServerProvider server={createMockAgentUIServer({ searchAgents })}>
@@ -29,8 +34,8 @@ describe('AgentSessionsFilters', () => {
     fireEvent.click(await screen.findByRole('button', { name: 'Filter sessions by agent' }));
 
     await waitFor(() => expect(screen.getByRole('option', { name: 'Agent 51' })).toBeInTheDocument());
-    expect(searchAgents).toHaveBeenNthCalledWith(1, { limit: 50, offset: 0 });
-    expect(searchAgents).toHaveBeenNthCalledWith(2, { limit: 50, offset: 50 });
+    expect(searchAgents).toHaveBeenNthCalledWith(1, { limit: 50 });
+    expect(searchAgents).toHaveBeenNthCalledWith(2, { limit: 50, pageToken: 'tok_2' });
   });
 
   it('can hide the custom time range option', () => {
