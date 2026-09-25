@@ -96,6 +96,12 @@ function getEnv(key: string, options?: GetEnvOptions): string | undefined {
   return undefined;
 }
 
+/** Non-empty trimmed env, or undefined when unset/blank. */
+function optionalTrimmedEnv(key: string): string | undefined {
+  const value = getEnv(key, { required: false })?.trim();
+  return value === undefined || value === '' ? undefined : value;
+}
+
 function randomAlphanumeric(length: number): string {
   return Array.from({ length }, () => Math.floor(Math.random() * 36).toString(36)).join('');
 }
@@ -722,6 +728,27 @@ export interface SharedServerConfiguration {
    * monorepo `packages/frontend/dist` — always absolute, independent of CWD.
    */
   FRONTEND_DIR: string;
+  /**
+   * Document title and Open Graph / Twitter title injected into the served `index.html`.
+   * Env: `APP_TITLE`. Default: `TrueForge`.
+   */
+  APP_TITLE: string;
+  /** Meta description / OG / Twitter description. Env: `APP_DESCRIPTION`. */
+  APP_DESCRIPTION: string | undefined;
+  /** Open Graph image URL or path. Env: `APP_OG_IMAGE`. */
+  APP_OG_IMAGE: string | undefined;
+  /** Canonical Open Graph / Twitter URL. Env: `APP_OG_URL`. */
+  APP_OG_URL: string | undefined;
+  /** Twitter card image URL or path. Env: `APP_TWITTER_IMAGE`. */
+  APP_TWITTER_IMAGE: string | undefined;
+  /** Favicon URL or path (`shortcut icon` + `icon`). Env: `APP_FAVICON`. */
+  APP_FAVICON: string | undefined;
+  /** 16×16 PNG favicon. Env: `APP_FAVICON_16`. */
+  APP_FAVICON_16: string | undefined;
+  /** 32×32 PNG favicon. Env: `APP_FAVICON_32`. */
+  APP_FAVICON_32: string | undefined;
+  /** Web app manifest URL or path. Env: `APP_MANIFEST`. */
+  APP_MANIFEST: string | undefined;
   /** Max milliseconds for one MCP request. Env: `MCP_REQUEST_TIMEOUT_MS`. Default 4 minutes. */
   MCP_REQUEST_TIMEOUT_MS: number;
   /** Max milliseconds for an MCP transport connection. Env: `MCP_CONNECT_TIMEOUT_MS`. Default 30 seconds. */
@@ -1038,6 +1065,15 @@ const shared: SharedServerConfiguration = {
   SANDBOX_CATALOG_PATH: resolveOptionalPathEnv('SANDBOX_CATALOG_PATH'),
   WEB_SEARCH_CATALOG_PATH: resolveOptionalPathEnv('WEB_SEARCH_CATALOG_PATH'),
   FRONTEND_DIR: resolveFrontendDir(),
+  APP_TITLE: getEnv('APP_TITLE', { defaultValue: 'TrueForge' }) ?? 'TrueForge',
+  APP_DESCRIPTION: optionalTrimmedEnv('APP_DESCRIPTION'),
+  APP_OG_IMAGE: optionalTrimmedEnv('APP_OG_IMAGE'),
+  APP_OG_URL: optionalTrimmedEnv('APP_OG_URL'),
+  APP_TWITTER_IMAGE: optionalTrimmedEnv('APP_TWITTER_IMAGE'),
+  APP_FAVICON: optionalTrimmedEnv('APP_FAVICON'),
+  APP_FAVICON_16: optionalTrimmedEnv('APP_FAVICON_16'),
+  APP_FAVICON_32: optionalTrimmedEnv('APP_FAVICON_32'),
+  APP_MANIFEST: optionalTrimmedEnv('APP_MANIFEST'),
 
   MCP_REQUEST_TIMEOUT_MS: parsePositiveInt({
     envKey: 'MCP_REQUEST_TIMEOUT_MS',

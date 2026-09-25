@@ -18,6 +18,99 @@ const REVALIDATE_CACHE_CONTROL = 'no-cache';
 /** Vite writes this into the production shell; replaced once at process start. Must not appear in JS identifiers. */
 const SHELL_BASE_TOKEN = '%%TRUEFORGE_BASE_PATH%%';
 
+/** Placeholder in `index.html`; filled once at process start from `APP_*` config. */
+const BRAND_MARKER = '<!-- trueforge-app-brand -->';
+
+/** Brand values injected into the served app shell. */
+export interface AppShellBrand {
+  title: string;
+  description: string | undefined;
+  ogImage: string | undefined;
+  ogUrl: string | undefined;
+  twitterImage: string | undefined;
+  favicon: string | undefined;
+  favicon16: string | undefined;
+  favicon32: string | undefined;
+  manifest: string | undefined;
+}
+
+function escapeAttr(value: string): string {
+  return value.replaceAll('&', '&amp;').replaceAll('"', '&quot;').replaceAll('<', '&lt;');
+}
+
+/** Builds title / OG / favicon tags; omits unset optional fields. */
+function buildBrandHtml(brand: AppShellBrand): string {
+  const title = brand.title.trim();
+  const description = brand.description?.trim() ?? '';
+  const ogImage = brand.ogImage?.trim() ?? '';
+  const twitterImage = brand.twitterImage?.trim() ?? '';
+  const ogUrl = brand.ogUrl?.trim() ?? '';
+  const favicon = brand.favicon?.trim() ?? '';
+  const favicon16 = brand.favicon16?.trim() ?? '';
+  const favicon32 = brand.favicon32?.trim() ?? '';
+  const manifest = brand.manifest?.trim() ?? '';
+
+  const tags: string[] = [];
+
+  if (title) {
+    const t = escapeAttr(title);
+    tags.push(`<title>${t}</title>`);
+    tags.push(`<meta name="title" content="${t}" />`);
+    tags.push(`<meta content="${t}" property="og:title" />`);
+    tags.push(`<meta content="${t}" property="twitter:title" />`);
+  }
+
+  if (description) {
+    const d = escapeAttr(description);
+    tags.push(`<meta name="description" content="${d}" />`);
+    tags.push(`<meta content="${d}" property="og:description" />`);
+    tags.push(`<meta content="${d}" property="twitter:description" />`);
+  }
+
+  if (ogImage) {
+    tags.push(`<meta content="${escapeAttr(ogImage)}" property="og:image" />`);
+  }
+
+  if (twitterImage) {
+    tags.push(`<meta content="${escapeAttr(twitterImage)}" property="twitter:image" />`);
+  }
+
+  if (ogUrl) {
+    const u = escapeAttr(ogUrl);
+    tags.push(`<meta content="${u}" property="og:url" />`);
+    tags.push(`<meta content="${u}" property="twitter:url" />`);
+  }
+
+  const hasOgOrTwitterContent = Boolean(title || description || ogImage || twitterImage || ogUrl);
+  if (hasOgOrTwitterContent) {
+    tags.push('<meta property="og:type" content="website" />');
+    tags.push('<meta property="twitter:card" content="summary_large_image" />');
+  }
+
+  if (favicon) {
+    const href = escapeAttr(favicon);
+    tags.push(`<link rel="shortcut icon" href="${href}" type="image/x-icon" />`);
+    tags.push(`<link rel="icon" href="${href}" type="image/x-icon" />`);
+  }
+
+  if (favicon32) {
+    tags.push(`<link rel="icon" type="image/png" sizes="32x32" href="${escapeAttr(favicon32)}" />`);
+  }
+
+  if (favicon16) {
+    tags.push(`<link rel="icon" type="image/png" sizes="16x16" href="${escapeAttr(favicon16)}" />`);
+  }
+
+  if (manifest) {
+    tags.push(`<link rel="manifest" href="${escapeAttr(manifest)}" />`);
+  }
+
+  if (tags.length === 0) {
+    return '';
+  }
+  return tags.map(tag => `    ${tag}`).join('\n');
+}
+
 function isServerPath(pathname: string): boolean {
   return SERVER_PATH_PREFIXES.some(prefix => pathname === prefix || pathname.startsWith(`${prefix}/`));
 }
@@ -26,8 +119,12 @@ function isAppShellPath(pathname: string): boolean {
   return pathname === '/' || pathname === '/index.html';
 }
 
-function applyShellTokens(options: { html: string; uiBasePath: string }): string {
-  return options.html.replaceAll(SHELL_BASE_TOKEN, options.uiBasePath);
+function applyShellTokens(options: { html: string; uiBasePath: string; brand: AppShellBrand }): string {
+  const brandHtml = buildBrandHtml(options.brand);
+  const withBrand = options.html.includes(BRAND_MARKER)
+    ? options.html.replace(/^[ \t]*<!-- trueforge-app-brand -->\n?/m, brandHtml ? `${brandHtml}\n` : '')
+    : options.html;
+  return withBrand.replaceAll(SHELL_BASE_TOKEN, options.uiBasePath);
 }
 
 function createShellResponse(options: { html: string; method: string }): Response {
@@ -46,7 +143,10 @@ function createShellResponse(options: { html: string; method: string }): Respons
  * Must be called after the API routes are registered, so those always win over the static handler.
  * Returns false when `dir` holds no build, leaving the server API-only for UI work behind Vite.
  */
-export function mountFrontend(app: OpenAPIHono, options: { dir: string; uiBasePath: string }): boolean {
+export function mountFrontend(
+  app: OpenAPIHono,
+  options: { dir: string; uiBasePath: string; brand: AppShellBrand },
+): boolean {
   const indexPath = path.join(options.dir, 'index.html');
   if (!existsSync(indexPath)) {
     return false;
@@ -55,6 +155,7 @@ export function mountFrontend(app: OpenAPIHono, options: { dir: string; uiBasePa
   const shellHtml = applyShellTokens({
     html: readFileSync(indexPath, 'utf8'),
     uiBasePath: options.uiBasePath,
+    brand: options.brand,
   });
 
   // serveStatic joins `root` with the request path, so an absolute dir is working-directory proof.

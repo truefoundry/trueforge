@@ -3,7 +3,19 @@ import { mkdirSync, mkdtempSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import path from 'node:path';
 
-import { mountFrontend } from '../../src/frontend';
+import { type AppShellBrand, mountFrontend } from '../../src/frontend';
+
+const defaultBrand = (): AppShellBrand => ({
+  title: 'TrueForge',
+  description: undefined,
+  ogImage: undefined,
+  ogUrl: undefined,
+  twitterImage: undefined,
+  favicon: undefined,
+  favicon16: undefined,
+  favicon32: undefined,
+  manifest: undefined,
+});
 
 function buildDir(): string {
   const dir = mkdtempSync(path.join(tmpdir(), 'trueforge-frontend-'));
@@ -16,7 +28,7 @@ function buildDir(): string {
 function appWithFrontend(dir: string): OpenAPIHono {
   const app = new OpenAPIHono();
   app.get('/api/v1/health', c => c.json({ ok: true }));
-  mountFrontend(app, { dir, uiBasePath: '/' });
+  mountFrontend(app, { dir, uiBasePath: '/', brand: defaultBrand() });
   return app;
 }
 
@@ -28,9 +40,10 @@ describe('mountFrontend', () => {
       mountFrontend(new OpenAPIHono(), {
         dir: path.join(tmpdir(), 'trueforge-missing-build'),
         uiBasePath: '/',
+        brand: defaultBrand(),
       }),
     ).toBe(false);
-    expect(mountFrontend(new OpenAPIHono(), { dir: buildDir(), uiBasePath: '/' })).toBe(true);
+    expect(mountFrontend(new OpenAPIHono(), { dir: buildDir(), uiBasePath: '/', brand: defaultBrand() })).toBe(true);
   });
 
   it('substitutes the public UI prefix into the cached app shell', async () => {
@@ -40,12 +53,59 @@ describe('mountFrontend', () => {
       "<html><script>window.__TRUEFORGE_BASE_PATH__='%%TRUEFORGE_BASE_PATH%%';</script></html>",
     );
     const app = new OpenAPIHono();
-    mountFrontend(app, { dir, uiBasePath: '/custom/proxy/path/' });
+    mountFrontend(app, { dir, uiBasePath: '/custom/proxy/path/', brand: defaultBrand() });
 
     const response = await app.request('/', { headers: HTML_ACCEPT });
     expect(response.status).toBe(200);
     const html = await response.text();
     expect(html).toContain("window.__TRUEFORGE_BASE_PATH__='/custom/proxy/path/'");
+  });
+
+  it('injects branded meta tags and escapes attribute values', async () => {
+    const dir = mkdtempSync(path.join(tmpdir(), 'trueforge-frontend-'));
+    writeFileSync(
+      path.join(dir, 'index.html'),
+      '<html><head>\n    <!-- trueforge-app-brand -->\n</head><body><div id="root"></div></body></html>',
+    );
+    const app = new OpenAPIHono();
+    mountFrontend(app, {
+      dir,
+      uiBasePath: '/',
+      brand: {
+        ...defaultBrand(),
+        title: 'Acme "Labs" <v2>',
+        description: 'Hello & welcome',
+        ogImage: '/og.png',
+        ogUrl: 'https://example.com/',
+      },
+    });
+
+    const html = await (await app.request('/', { headers: HTML_ACCEPT })).text();
+    expect(html).toContain('<title>Acme &quot;Labs&quot; &lt;v2></title>');
+    expect(html).toContain('content="Acme &quot;Labs&quot; &lt;v2>" property="og:title"');
+    expect(html).toContain('name="description" content="Hello &amp; welcome"');
+    expect(html).toContain('content="/og.png" property="og:image"');
+    expect(html).toContain('content="https://example.com/" property="og:url"');
+    expect(html).toContain('property="og:type" content="website"');
+    expect(html).not.toContain('<!-- trueforge-app-brand -->');
+    expect(html).not.toContain('property="twitter:image"');
+  });
+
+  it('emits og:type for title-only brand without empty description tags', async () => {
+    const dir = mkdtempSync(path.join(tmpdir(), 'trueforge-frontend-'));
+    writeFileSync(
+      path.join(dir, 'index.html'),
+      '<html><head>\n    <!-- trueforge-app-brand -->\n</head><body></body></html>',
+    );
+    const app = new OpenAPIHono();
+    mountFrontend(app, { dir, uiBasePath: '/', brand: defaultBrand() });
+
+    const html = await (await app.request('/', { headers: HTML_ACCEPT })).text();
+    expect(html).toContain('<title>TrueForge</title>');
+    expect(html).toContain('property="og:type" content="website"');
+    expect(html).not.toContain('name="description"');
+    expect(html).not.toContain('property="og:image"');
+    expect(html).not.toContain('rel="icon"');
   });
 
   it('serves the app shell for client-only deep links', async () => {
