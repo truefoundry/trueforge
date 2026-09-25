@@ -41,7 +41,13 @@ function entrySourceType(entry: SessionListEntry): 'schedule' | undefined {
   return 'sourceType' in entry && Reflect.get(entry, 'sourceType') === 'schedule' ? 'schedule' : undefined;
 }
 
-export function AgentSessions({ agentId, startTimestamp, endTimestamp, shareView }: AgentSessionsProps) {
+export function AgentSessions({
+  agentId,
+  startTimestamp,
+  endTimestamp,
+  shareView,
+  onLoadRecentSessions,
+}: AgentSessionsProps) {
   const sessionsServer = useAgentSessionsServer();
   const chatServer = useServer();
   const toaster = useToasterOptional();
@@ -266,6 +272,7 @@ export function AgentSessions({ agentId, startTimestamp, endTimestamp, shareView
 
   const resumeProps =
     resumeHref != null ? { resumeHref, resumeLabel } : shell != null ? { onResume: handleResume, resumeLabel } : {};
+  const selectedCreatedAt = detailSession?.createdAt ?? selectedEntry?.createdAt;
 
   // Full empty only when nothing is selected — keep the detail pane for deep-linked sessionIds
   // (filters/time range can empty the list while share state still points at a session).
@@ -273,7 +280,8 @@ export function AgentSessions({ agentId, startTimestamp, endTimestamp, shareView
     !listLoading &&
     !listFailed &&
     entries.length === 0 &&
-    (selectedSessionId == null || selectedSessionId.length === 0)
+    (selectedSessionId == null || selectedSessionId.length === 0) &&
+    onLoadRecentSessions == null
   ) {
     return (
       <EmptyScreen
@@ -293,6 +301,13 @@ export function AgentSessions({ agentId, startTimestamp, endTimestamp, shareView
     >
       <Panel id="agent-sessions-list" defaultSize="35%" minSize="20%" maxSize="50%">
         <aside className="flex h-full min-h-0 w-full flex-col bg-sidebar-bg">
+          {onLoadRecentSessions != null ? (
+            <div className="flex shrink-0 justify-center border-b border-border p-3">
+              <Button.Secondary type="button" size="small" onClick={onLoadRecentSessions}>
+                Load recent sessions
+              </Button.Secondary>
+            </div>
+          ) : null}
           <div ref={setListEl} className="scrollbar-none min-h-0 flex-1 overflow-y-auto">
             {listLoading ? (
               <div className="space-y-2 p-3" role="status" aria-label="Loading sessions">
@@ -379,7 +394,7 @@ export function AgentSessions({ agentId, startTimestamp, endTimestamp, shareView
                 title={selectedTitle}
                 sessionId={selectedSessionId}
                 agentId={agentId}
-                createdAt={detailSession?.createdAt ?? selectedEntry?.createdAt}
+                createdAt={selectedCreatedAt}
                 view={shareView}
                 onClose={clearSelectedSession}
                 canResume={canResume}

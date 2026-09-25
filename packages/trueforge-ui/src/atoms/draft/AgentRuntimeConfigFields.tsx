@@ -1,14 +1,16 @@
 'use client';
 
-import type { AgentRuntimeConfig } from '../../server/types.js';
+import type { AgentCompactionConfig, AgentRuntimeConfig } from '../../server/types.js';
 import { cn } from '../lib/cn.js';
 import { auiInputClass } from '../lib/inputClasses.js';
+import { PopoverSelect } from '../primitives/PopoverSelect.js';
 import { Switch } from '../primitives/Switch.js';
 import { Tooltip } from '../primitives/Tooltip.js';
 
 export type AgentRuntimeConfigFieldsProps = {
   value: AgentRuntimeConfig;
   sandboxAvailable: boolean;
+  webSearchAvailable?: boolean;
   hasSkills: boolean;
   disabled?: boolean;
   showCapabilities?: boolean;
@@ -29,6 +31,14 @@ function parsePositiveInteger(raw: string): number | null {
 }
 
 const NO_SANDBOX_PROVIDER_HINT = 'No sandbox provider yet, add one in Settings → Sandbox';
+const DEFAULT_COMPACTION_THRESHOLD_TOKENS = 50_000;
+
+const COMPACTION_THRESHOLD_MODE_OPTIONS = [
+  { value: 'auto', label: 'Auto' },
+  { value: 'custom', label: 'Custom' },
+] as const;
+
+type CompactionThresholdMode = (typeof COMPACTION_THRESHOLD_MODE_OPTIONS)[number]['value'];
 
 type RuntimeSwitchField = {
   label: string;
@@ -42,12 +52,23 @@ type RuntimeSwitchField = {
 export function AgentRuntimeConfigFields({
   value,
   sandboxAvailable,
+  webSearchAvailable = false,
   hasSkills,
   disabled = false,
   showCapabilities = true,
   layout = 'compact',
   onChange,
 }: AgentRuntimeConfigFieldsProps) {
+  const withCompaction = (compaction: AgentCompactionConfig): AgentRuntimeConfig => ({
+    ...value,
+    contextManagement: {
+      ...value.contextManagement,
+      compaction,
+      largeToolResponse: value.contextManagement?.largeToolResponse ?? { enabled: true },
+    },
+  });
+  const applyCompaction = (compaction: AgentCompactionConfig) => onChange(withCompaction(compaction));
+
   const capabilityFields: RuntimeSwitchField[] = [
     {
       label: 'Dynamic sub-agents',
@@ -70,6 +91,16 @@ export function AgentRuntimeConfigFields({
   ];
   const sandboxEnabled = value.sandbox?.enabled ?? false;
   const compactionEnabled = value.contextManagement?.compaction?.enabled ?? true;
+  const thresholdMode: CompactionThresholdMode =
+    value.contextManagement?.compaction?.trigger != null ? 'custom' : 'auto';
+  const webSearchField: RuntimeSwitchField | null = webSearchAvailable
+    ? {
+        label: 'Web search',
+        description: 'Allow the agent to search the web and fetch pages.',
+        checked: value.webSearch?.enabled ?? true,
+        update: enabled => ({ ...value, webSearch: { enabled } }),
+      }
+    : null;
   const sandboxField: RuntimeSwitchField = {
     label: 'Sandbox',
     description: 'Provide an isolated environment for code, files, and skills.',
@@ -94,16 +125,9 @@ export function AgentRuntimeConfigFields({
   };
   const compactionField: RuntimeSwitchField = {
     label: 'Context compaction',
-    description: 'Summarize older turns as the context window fills.',
+    description: 'Summarize older turns as context fills.',
     checked: compactionEnabled,
-    update: enabled => ({
-      ...value,
-      contextManagement: {
-        ...value.contextManagement,
-        compaction: { ...value.contextManagement?.compaction, enabled },
-        largeToolResponse: value.contextManagement?.largeToolResponse ?? { enabled: true },
-      },
-    }),
+    update: enabled => withCompaction({ ...value.contextManagement?.compaction, enabled }),
   };
   const largeToolResponseField: RuntimeSwitchField = {
     label: 'Large tool response offloading',
@@ -121,7 +145,8 @@ export function AgentRuntimeConfigFields({
     }),
   };
   const runtimeFields = [sandboxField, fileDownloadsField, compactionField, largeToolResponseField];
-  const compactionThreshold = value.contextManagement?.compaction?.trigger?.value ?? 50_000;
+  const compactionThreshold =
+    value.contextManagement?.compaction?.trigger?.value ?? DEFAULT_COMPACTION_THRESHOLD_TOKENS;
 
   const switchField = ({
     field,
@@ -139,7 +164,7 @@ export function AgentRuntimeConfigFields({
     >
       <div className={cn('flex w-full', className ?? 'items-center justify-between gap-3 py-1.5')}>
         <span className="min-w-0">
-          <span className={cn('text-text-primary text-xs', layout === 'detailed' && 'block font-medium')}>
+          <span className={cn('text-text-primary', layout === 'detailed' ? 'block text-sm font-medium' : 'text-xs')}>
             {field.label}
           </span>
           {layout === 'detailed' ? (
@@ -157,11 +182,12 @@ export function AgentRuntimeConfigFields({
   );
 
   if (layout === 'detailed') {
+    const rowClassName = 'items-center justify-between gap-4';
     return (
-      <div className="space-y-5">
+      <div className="divide-y divide-border">
         {showCapabilities ? (
           // Stack below `md` so narrow bottom sheets retain usable control widths.
-          <div className="flex flex-col gap-3 border-b border-border pb-5 md:flex-row">
+          <div className="flex flex-col gap-3 py-4 md:flex-row md:gap-4">
             {capabilityFields.map((field, index) =>
               switchField({
                 field,
@@ -169,16 +195,16 @@ export function AgentRuntimeConfigFields({
                 wrapperClassName: cn(
                   'flex-1',
                   index < capabilityFields.length - 1 &&
-                    'border-b border-border pb-3 md:border-b-0 md:border-r md:pb-0 md:pr-3',
+                    'border-b border-border pb-4 md:border-b-0 md:border-r md:pb-0 md:pr-4',
                 ),
               }),
             )}
           </div>
         ) : null}
-        <label className="flex items-center justify-between gap-4 border-b border-border py-3">
-          <span>
+        <label className={cn('flex py-4', rowClassName)}>
+          <span className="min-w-0">
             <span className="text-text-primary block text-sm font-medium">Iteration limit</span>
-            <span className="text-text-secondary mt-0.5 block text-xs">
+            <span className="text-text-secondary mt-0.5 block text-xs leading-snug">
               Maximum agent-loop iterations for one turn.
             </span>
           </span>
@@ -188,60 +214,77 @@ export function AgentRuntimeConfigFields({
             max={1024}
             disabled={disabled}
             value={value.iterationLimit ?? 100}
-            className={auiInputClass('h-8 w-24 disabled:opacity-60')}
+            className={auiInputClass('h-8 w-24 shrink-0 disabled:opacity-60')}
             onChange={event => {
               const iterationLimit = parseIterationLimit(event.target.value);
               if (iterationLimit !== null) onChange({ ...value, iterationLimit });
             }}
           />
         </label>
-        <div className="divide-y divide-border">
-          <section className="py-3">
-            {switchField({ field: sandboxField, className: 'items-center justify-between gap-4' })}
-            <div className={`mt-3 border-l-2 border-primary-button-bg/50 pl-3 ${sandboxEnabled ? '' : 'opacity-50'}`}>
-              {switchField({ field: fileDownloadsField, className: 'items-center justify-between gap-4' })}
-            </div>
-          </section>
-          <section className="py-3">
-            {switchField({ field: compactionField, className: 'items-center justify-between gap-4' })}
-            <label
-              className={`mt-3 flex items-center justify-between gap-4 border-l-2 border-primary-button-bg/50 pl-3 ${
-                compactionEnabled ? '' : 'opacity-50'
-              }`}
-            >
-              <span>
-                <span className="text-text-primary block text-xs font-medium">Compaction threshold tokens</span>
-                <span className="text-text-secondary mt-0.5 block text-xs">
-                  Input-token threshold that triggers compaction.
-                </span>
+        {webSearchField != null ? switchField({ field: webSearchField, className: cn('py-4', rowClassName) }) : null}
+        <section className="py-4">
+          {switchField({ field: sandboxField, className: rowClassName })}
+          <div className={`mt-3 border-l-2 border-primary-button-bg/50 pl-3 ${sandboxEnabled ? '' : 'opacity-50'}`}>
+            {switchField({ field: fileDownloadsField, className: rowClassName })}
+          </div>
+        </section>
+        <section className="py-4">
+          {switchField({ field: compactionField, className: rowClassName })}
+          <div
+            className={cn(
+              'mt-3 flex border-l-2 border-primary-button-bg/50 pl-3',
+              rowClassName,
+              compactionEnabled ? '' : 'opacity-50',
+            )}
+          >
+            <span className="min-w-0 flex-1">
+              <span className="text-text-primary block text-sm font-medium">Compaction threshold tokens</span>
+              <span className="text-text-secondary mt-0.5 block text-xs leading-snug">
+                {thresholdMode === 'auto'
+                  ? "Automatically trigger compaction at 80% of model's context window"
+                  : `Trigger compaction when input reaches ${compactionThreshold.toLocaleString()} tokens`}
               </span>
-              <input
-                type="number"
-                min={1}
+            </span>
+            <div className="flex shrink-0 items-center gap-2">
+              {thresholdMode === 'custom' ? (
+                <input
+                  type="number"
+                  min={1}
+                  disabled={disabled || !compactionEnabled}
+                  value={compactionThreshold}
+                  aria-label="Compaction threshold tokens"
+                  className={auiInputClass('h-8 w-28 disabled:opacity-60')}
+                  onChange={event => {
+                    const threshold = parsePositiveInteger(event.target.value);
+                    if (threshold === null) return;
+                    applyCompaction({
+                      enabled: compactionEnabled,
+                      trigger: { type: 'input_tokens', value: threshold },
+                    });
+                  }}
+                />
+              ) : null}
+              <PopoverSelect
+                aria-label="Compaction threshold mode"
+                value={thresholdMode}
+                options={COMPACTION_THRESHOLD_MODE_OPTIONS}
                 disabled={disabled || !compactionEnabled}
-                value={compactionThreshold}
-                className={auiInputClass('h-8 w-28 disabled:opacity-60')}
-                onChange={event => {
-                  const threshold = parsePositiveInteger(event.target.value);
-                  if (threshold === null) return;
-                  onChange({
-                    ...value,
-                    contextManagement: {
-                      ...value.contextManagement,
-                      compaction: {
-                        ...value.contextManagement?.compaction,
-                        enabled: compactionEnabled,
-                        trigger: { type: 'input_tokens', value: threshold },
-                      },
-                      largeToolResponse: value.contextManagement?.largeToolResponse ?? { enabled: true },
-                    },
-                  });
-                }}
+                className="w-28"
+                onValueChange={mode =>
+                  applyCompaction(
+                    mode === 'custom'
+                      ? {
+                          enabled: compactionEnabled,
+                          trigger: { type: 'input_tokens', value: DEFAULT_COMPACTION_THRESHOLD_TOKENS },
+                        }
+                      : { enabled: compactionEnabled },
+                  )
+                }
               />
-            </label>
-          </section>
-          {switchField({ field: largeToolResponseField, className: 'items-center justify-between gap-4 py-3' })}
-        </div>
+            </div>
+          </div>
+        </section>
+        {switchField({ field: largeToolResponseField, className: cn('py-4', rowClassName) })}
       </div>
     );
   }
@@ -263,7 +306,11 @@ export function AgentRuntimeConfigFields({
           }}
         />
       </label>
-      {[...runtimeFields, ...(showCapabilities ? capabilityFields : [])].map(field => switchField({ field }))}
+      {[
+        ...(webSearchField != null ? [webSearchField] : []),
+        ...runtimeFields,
+        ...(showCapabilities ? capabilityFields : []),
+      ].map(field => switchField({ field }))}
     </div>
   );
 }

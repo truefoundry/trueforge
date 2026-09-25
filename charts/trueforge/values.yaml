@@ -40,7 +40,7 @@ image:
   repository: tfy.jfrog.io/tfy-images/trueforge
   # Tag defaults to chart appVersion when empty. Prod chart-release PRs set this
   # to {appVersion}-{shortSha} for the npm-install image already in the registry.
-  tag: "0.2.0-rc.14-e1ebeda"
+  tag: "0.3.0-rc.0-346221b"
   pullPolicy: IfNotPresent
 imagePullSecrets: []
 # Default tfy.jfrog.io repos are anonymously pullable. Set secrets only when
@@ -170,6 +170,31 @@ configs:
     # Optional comma-separated exact emails and/or * globs (e.g. "*@company.com").
     # Empty = unrestricted. Matched against the ID token `email` claim.
     allowedEmails: ""
+# App-level outbound URL guard (MCP url / model-provider base_url). Not a K8s NetworkPolicy.
+# Full table: charts/trueforge/README.md (networkPolicy).
+#
+# enabled=false: guard skipped (all hosts allowed).
+# enabled=true: http(s) only; exact host match; blockedHosts before allowedHosts.
+#   "default" = deny private/loopback/link-local/in-cluster; allow public.
+#
+#   allowedHosts | blockedHosts | host a | host b | other (neither list)
+#   ------------ | ------------ | ------ | ------ | --------------------
+#   []           | []           | default| default| default
+#   []           | [b]          | default| denied | default
+#   [a]          | []           | allow* | default| default
+#   [a]          | [b]          | allow* | denied | default
+#   [a]          | [a]          | denied | default| default
+#   * allow = allowed even if private / in-cluster.
+networkPolicy:
+  # Env: NETWORK_POLICY_ENABLED. Chart default false.
+  enabled: false
+  outbound:
+    # Env: OUTBOUND_URL_ALLOWED_HOSTS (JSON string array). Empty = no allowlist entries.
+    # Example: ["localhost", "127.0.0.1", "llm-gateway.internal"]
+    allowedHosts: []
+    # Env: OUTBOUND_URL_BLOCKED_HOSTS (JSON string array). Empty = no blocklist entries.
+    # Example: ["evil.example.com"]
+    blockedHosts: []
 # Resource tier: small | medium | large presets for server and controller.
 # Empty = use `resources` / `controller.resources`. Wins over a parent chart's
 # global.resourceTier.
@@ -201,9 +226,9 @@ postgresql:
       size: 8Gi
 # --- Bundled Redis (Bitnami subchart) ------------------------------------------
 # Rendered only when redis.enabled is true. Auth is disabled (dev default) so
-# REDIS_URL is a plain redis://host:6379. Safe only while Redis stays inside
-# the cluster trust boundary. For passworded Redis, disable the subchart and
-# use externalRedis with a Secret.
+# Auth is disabled (dev default) so REDIS_HOST points at the bundled master
+# without credentials. Safe only while Redis stays inside the cluster trust
+# boundary. For passworded Redis, disable the subchart and use externalRedis.
 redis:
   enabled: true
   architecture: standalone
@@ -246,23 +271,40 @@ externalPostgres:
   sslKeyPath: ""
   sslCaPath: ""
 externalRedis:
-  # Full connection URL, e.g. redis://:password@redis-master.databases.svc:6379.
-  # string, or { valueFrom: { secretKeyRef: { name, key } } }. Prefer valueFrom in prod.
+  ## Use an external Redis instead of the bundled Redis (`redis.enabled` must be false).
+  ## Requires `enabled: true`, then exactly one transport: url, host, or sentinel.
+  enabled: false
+  ## Full connection URL, e.g. redis://:password@redis-master.databases.svc:6379.
+  ## string or valueFrom. Mutually exclusive with host and sentinel.
   url: ""
-  # Redis Sentinel connection settings, injected as REDIS_SENTINEL_* env.
-  # url:
-  #   valueFrom:
-  #     secretKeyRef:
-  #       name: my-redis-secret
-  #       key: redis-url
-  sentinel:
-    enabled: false
-    # Comma-separated host:port list -> REDIS_SENTINEL_HOSTS.
-    hosts: ""
-    # Monitored master name -> REDIS_SENTINEL_MASTER_NAME.
-    masterName: ""
-    # string or valueFrom -> REDIS_SENTINEL_PASSWORD.
+  ## Standalone Redis host. Mutually exclusive with url and sentinel.
+  host: ""
+  port: 6379
+  db: 0
+  auth:
+    ## string or valueFrom (host/sentinel modes; put credentials in url when using url)
+    username: ""
     password: ""
+  tls:
+    enabled: false
+    ## Path or inline PEM
+    caCert: ""
+    ## Verify the server certificate. Set false only for self-signed certs without a CA.
+    rejectUnauthorized: true
+    serverName: ""
+    cert: ""
+    key: ""
+    keyPassphrase: ""
+  sentinel:
+    ## Mutually exclusive with url and host. Requires nodes + masterName when enabled.
+    enabled: false
+    ## Array of host:port entries
+    nodes: []
+    masterName: ""
+    auth:
+      ## string or valueFrom
+      username: ""
+      password: ""
 # --- Bundled dev sandbox server (tfy-sandbox-server subchart) -------------------
 # Managed by the parent chart; off for standalone installs. When true, the
 # subchart is deployed and the app gets TRUEFOUNDRY_SANDBOX_* env pointing at it.

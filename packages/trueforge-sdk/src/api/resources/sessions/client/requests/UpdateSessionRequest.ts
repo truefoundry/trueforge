@@ -9,6 +9,8 @@ import type * as TrueForge from "../../../../index.js";
 export interface UpdateSessionRequest {
     agent?: TrueForge.SessionAgentSpecBody;
     metadata?: TrueForge.SessionMetadata;
+    /** When true, any subject in the tenant may read this session and its turns/events by id. */
+    shared?: boolean;
     /** Human-readable session title. */
     title?: string;
 }

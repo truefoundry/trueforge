@@ -1,9 +1,13 @@
 'use client';
 
-import { useTrueFoundryAgentSpec, useTrueFoundryUpdateAgentSpec } from '@truefoundry/assistant-ui-runtime';
+import { useTrueForgeAgentSpec, useTrueForgeUpdateAgentSpec } from '@truefoundry/trueforge-assistant-ui-runtime';
 import { useEffect } from 'react';
 
-import { type DraftPreferenceKind, withCapabilitiesSandbox } from '../../server/draftSpecPreferences.js';
+import {
+  type DraftPreferenceKind,
+  withCapabilitiesSandbox,
+  withCapabilitiesWebSearch,
+} from '../../server/draftSpecPreferences.js';
 import { useServerCapabilities } from '../../server/ServerContext.js';
 import { useShellMode } from '../../server/ShellModeContext.js';
 import type { AgentSkill, AgentSpec, ConnectorState, ModelSelection } from '../../server/types.js';
@@ -111,6 +115,19 @@ export function reconcileDraftSandbox({
   return nextSpec === agentSpec ? {} : { config: nextSpec.config };
 }
 
+export function reconcileDraftWebSearch({
+  agentSpec,
+  webSearchEnabled,
+  kind = 'agent',
+}: {
+  agentSpec: AgentSpec;
+  webSearchEnabled: boolean | null | undefined;
+  kind?: DraftPreferenceKind;
+}): Partial<AgentSpec> {
+  const nextSpec = withCapabilitiesWebSearch({ spec: agentSpec, webSearchEnabled, kind });
+  return nextSpec === agentSpec ? {} : { config: nextSpec.config };
+}
+
 /**
  * Mirrors plain-draft composer choices into the shell seed and removes catalog
  * entries that disappeared since those choices were stored.
@@ -118,13 +135,18 @@ export function reconcileDraftSandbox({
  */
 export function DraftSpecPreferenceBridge() {
   const { mode, pendingSessionId, rememberDraftSpec } = useShellMode();
-  const { agentSpec } = useTrueFoundryAgentSpec();
-  const updateAgentSpec = useTrueFoundryUpdateAgentSpec();
+  const { agentSpec } = useTrueForgeAgentSpec();
+  const updateAgentSpec = useTrueForgeUpdateAgentSpec();
   const capabilities = useServerCapabilities();
   const sandboxEnabled = capabilities?.sandbox.enabled;
+  const webSearchEnabled = capabilities?.webSearch?.enabled;
   const { models, skills, connectors, loaded, error, ensureLoaded } = useDraftCatalog();
-  const isPlainDraft = mode.status === 'active' && mode.isMutable && mode.agentId == null && pendingSessionId == null;
+  const isMutableDraft = mode.status === 'active' && mode.isMutable && pendingSessionId == null;
+  const isPlainDraft = isMutableDraft && mode.agentId == null;
   const preferenceKind = mode.status === 'active' && mode.isMutable && mode.isCreateAgent ? 'agent' : 'chat';
+  // New Chat forces on; New Agent + edit existing only fill when absent.
+  const webSearchKind: DraftPreferenceKind =
+    mode.status === 'active' && mode.isMutable && (mode.isCreateAgent || mode.agentId != null) ? 'agent' : 'chat';
 
   useEffect(() => {
     if (isPlainDraft) ensureLoaded();
@@ -144,6 +166,15 @@ export function DraftSpecPreferenceBridge() {
       updateAgentSpec(update);
     }
   }, [agentSpec, isPlainDraft, preferenceKind, sandboxEnabled, updateAgentSpec]);
+
+  useEffect(() => {
+    // Apply to New Chat / New Agent / edit-existing mutable drafts.
+    if (!isMutableDraft || agentSpec == null || updateAgentSpec == null) return;
+    const update = reconcileDraftWebSearch({ agentSpec, webSearchEnabled, kind: webSearchKind });
+    if (Object.keys(update).length > 0) {
+      updateAgentSpec(update);
+    }
+  }, [agentSpec, isMutableDraft, webSearchEnabled, webSearchKind, updateAgentSpec]);
 
   useEffect(() => {
     if (!isPlainDraft || agentSpec == null || updateAgentSpec == null || !loaded || error != null) return;

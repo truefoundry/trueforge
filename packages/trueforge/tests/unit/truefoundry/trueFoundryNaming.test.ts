@@ -265,6 +265,7 @@ describe('TrueFoundry naming vs NameSchema', () => {
       getMcpAuthStatus: jest.fn().mockResolvedValue({ status: 'authenticated' }),
       deleteMcpAuth: jest.fn(),
       vendToken: jest.fn(),
+      getTenantControlPlaneUrl: jest.fn().mockResolvedValue('https://tenant.example.com'),
     };
     const store = new TrueFoundryMcpServerStore({
       client,

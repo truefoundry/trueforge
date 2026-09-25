@@ -1,4 +1,4 @@
-import type { RedisClientType } from 'redis';
+import type { RedisClient } from '@truefoundry/trueforge-core/request-reply';
 import { InMemoryEventStreamStore, InMemoryEventSubscription } from './inMemory';
 import { RedisEventSubscription } from './redis';
 
@@ -47,7 +47,7 @@ export class EventSubscriptionRegistry<T extends object> {
   /** One store for the whole process so producers and subscribers share streams. */
   private readonly memoryStore = new InMemoryEventStreamStore<T>();
 
-  constructor(private readonly redis: RedisClientType | undefined) {}
+  constructor(private readonly redis: RedisClient | undefined) {}
 
   get(streamId: string): EventSubscription<T> {
     if (this.redis) {

@@ -1,6 +1,6 @@
 /**
  * Inlines catalog/*.yaml into generated TS modules so ModelCatalog / McpCatalog /
- * SkillCatalog / SandboxCatalog can load shipped catalogs with no loose YAML
+ * SkillCatalog / SandboxCatalog / WebSearchCatalog can load shipped catalogs with no loose YAML
  * beside the bundle. Plain generated `.ts` files work unchanged across tsup and tsx.
  *
  * Runs via the `build:gen` script before build/typecheck/test/dev. Generated
@@ -24,3 +24,4 @@ writeShippedCatalog('model-catalog.yaml', 'shippedModelCatalogYaml', 'modelCatal
 writeShippedCatalog('mcp-catalog.yaml', 'shippedMcpCatalogYaml', 'mcpCatalog.gen.ts');
 writeShippedCatalog('skill-catalog.yaml', 'shippedSkillCatalogYaml', 'skillCatalog.gen.ts');
 writeShippedCatalog('sandbox-catalog.yaml', 'shippedSandboxCatalogYaml', 'sandboxCatalog.gen.ts');
+writeShippedCatalog('web-search-catalog.yaml', 'shippedWebSearchCatalogYaml', 'webSearchCatalog.gen.ts');

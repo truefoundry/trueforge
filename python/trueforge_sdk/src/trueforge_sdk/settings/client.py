@@ -12,6 +12,7 @@ if typing.TYPE_CHECKING:
     from .model_providers.client import AsyncModelProvidersClient, ModelProvidersClient
     from .sandbox_providers.client import AsyncSandboxProvidersClient, SandboxProvidersClient
     from .skills.client import AsyncSkillsClient, SkillsClient
+    from .web_search_providers.client import AsyncWebSearchProvidersClient, WebSearchProvidersClient
 
 
 class SettingsClient:
@@ -22,6 +23,7 @@ class SettingsClient:
         self._model_providers: typing.Optional[ModelProvidersClient] = None
         self._sandbox_providers: typing.Optional[SandboxProvidersClient] = None
         self._skills: typing.Optional[SkillsClient] = None
+        self._web_search_providers: typing.Optional[WebSearchProvidersClient] = None
 
     @property
     def with_raw_response(self) -> RawSettingsClient:
@@ -66,6 +68,14 @@ class SettingsClient:
             self._skills = SkillsClient(client_wrapper=self._client_wrapper)
         return self._skills
 
+    @property
+    def web_search_providers(self):
+        if self._web_search_providers is None:
+            from .web_search_providers.client import WebSearchProvidersClient  # noqa: E402
+
+            self._web_search_providers = WebSearchProvidersClient(client_wrapper=self._client_wrapper)
+        return self._web_search_providers
+
 
 class AsyncSettingsClient:
     def __init__(self, *, client_wrapper: AsyncClientWrapper):
@@ -75,6 +85,7 @@ class AsyncSettingsClient:
         self._model_providers: typing.Optional[AsyncModelProvidersClient] = None
         self._sandbox_providers: typing.Optional[AsyncSandboxProvidersClient] = None
         self._skills: typing.Optional[AsyncSkillsClient] = None
+        self._web_search_providers: typing.Optional[AsyncWebSearchProvidersClient] = None
 
     @property
     def with_raw_response(self) -> AsyncRawSettingsClient:
@@ -118,3 +129,11 @@ class AsyncSettingsClient:
 
             self._skills = AsyncSkillsClient(client_wrapper=self._client_wrapper)
         return self._skills
+
+    @property
+    def web_search_providers(self):
+        if self._web_search_providers is None:
+            from .web_search_providers.client import AsyncWebSearchProvidersClient  # noqa: E402
+
+            self._web_search_providers = AsyncWebSearchProvidersClient(client_wrapper=self._client_wrapper)
+        return self._web_search_providers

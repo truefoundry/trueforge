@@ -1,6 +1,6 @@
 'use client';
 
-import { useTrueFoundryAgentSpec, useTrueFoundryUpdateAgentSpec } from '@truefoundry/assistant-ui-runtime';
+import { useTrueForgeAgentSpec, useTrueForgeUpdateAgentSpec } from '@truefoundry/trueforge-assistant-ui-runtime';
 import { useCallback, useEffect, useId, useMemo, useRef, useState, type ReactNode } from 'react';
 
 import { useMCPAuth } from '../../hooks/useMcpAuth.js';
@@ -248,8 +248,8 @@ export function DraftCompositeSelector({ disabled, isRunning, onAttach }: DraftC
   const capabilities = useServerCapabilities();
   const settingsCatalog = useOptionalCatalogServer();
   const shell = useOptionalShellMode();
-  const { agentSpec } = useTrueFoundryAgentSpec();
-  const updateAgentSpec = useTrueFoundryUpdateAgentSpec();
+  const { agentSpec } = useTrueForgeAgentSpec();
+  const updateAgentSpec = useTrueForgeUpdateAgentSpec();
   const [open, setOpen] = useState(false);
   const [tab, setTab] = useState<AttachTab>('connectors');
   const [query, setQuery] = useState('');

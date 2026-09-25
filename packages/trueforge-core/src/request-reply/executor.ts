@@ -1,9 +1,9 @@
 import { randomUUID } from 'node:crypto';
-import type { RedisClientType } from 'redis';
 import type { Logger } from 'winston';
 import z from 'zod';
 import { extractErrorLogFields } from '../core/util/errorLogFields';
 import { ReplyError } from './errors';
+import type { RedisClient } from './redisClient';
 import type { JSONReply, RequestHandler } from './types';
 import { publishedRequestSchema } from './types';
 import { heartbeatKey, requestChannel } from './utils';
@@ -44,8 +44,8 @@ export class RequestReplyExecutor {
   readonly executorId: string;
   /** `tfg:rr:req:<executorId>` — the channel this executor subscribes to. */
   readonly channel: string;
-  private readonly redis: RedisClientType;
-  private readonly subscriberClient: RedisClientType;
+  private readonly redis: RedisClient;
+  private readonly subscriberClient: RedisClient;
   private readonly logger: Logger;
   private readonly heartbeatIntervalMs: number;
   private readonly heartbeatTtlMs: number;
@@ -74,9 +74,9 @@ export class RequestReplyExecutor {
   }: {
     executorId: string;
     /** Connected command client, used only for SET (reply + heartbeat). Caller owns its lifecycle. */
-    redis: RedisClientType;
+    redis: RedisClient;
     /** Connected client to SUBSCRIBE on (duplicate or Sentinel). Caller owns its lifecycle. */
-    subscriberClient: RedisClientType;
+    subscriberClient: RedisClient;
     requestHandler: RequestHandler;
     onError?: RequestReplyErrorHandler | undefined;
     logger: Logger;
@@ -108,7 +108,7 @@ export class RequestReplyExecutor {
         ...extractErrorLogFields(err),
       });
       this.onError?.(err, { executorId: this.executorId, channel: this.channel });
-      this.stopHeartbeat();
+      // error is often transient; the client can reconnect and fire ready again. Do not stop the heartbeat.
     });
     this.subscriberClient.on('end', () => {
       this.logger.warn('[RequestReplyExecutor] Subscriber connection ended', { executorId: this.executorId });

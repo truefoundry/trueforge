@@ -8,31 +8,23 @@ The `server` prop accepts either a built-in config object or an object implement
 ```ts
 type TrueForgeServerConfig =
   | {
-      type: "truefoundry";
-      apiKey: string;
-      controlPlaneURL: string;
-      gatewayPlaneURL?: string;
-      catalog?: CatalogServer;
-    }
-  | {
       type: "trueforge";
       baseUrl?: string;
       token?: string;
       fetch?: typeof fetch;
       catalog?: CatalogServer;
+      permissions?: PermissionsServer;
     }
   | AgentUIServer;
 ```
 
-Each form resolves differently. An `AgentUIServer` object is used immediately. Built-in configs
-(`truefoundry` / `trueforge`) resolve asynchronously, so the SDK renders a loading indicator
-(`role="status"`) for a moment first. `type: "trueforge"` loads
+An `AgentUIServer` object is used immediately. The built-in `trueforge` config resolves
+asynchronously, so the SDK renders a loading indicator (`role="status"`) for a moment first. It loads
 `plugins/trueforge-agent-server-adapter` and composes a full Harness `AgentUIServer` — see
 [Quickstart](/ui-sdk/get-started/quickstart).
 
-`catalog` is optional on both built-in forms. For `truefoundry` it is attached after resolution; for
-`trueforge` it overrides the adapter's default settings catalogs. Either way it enables the
-[settings UI](/ui-sdk/reference/catalog) without hand-building a server.
+`catalog` and `permissions` optionally override the adapter's built-in ports. A custom
+`AgentUIServer` can expose the same optional ports directly.
 
 ## The composed contract
 
@@ -65,6 +57,7 @@ interface AgentChatServer {
 
   cancelSession(req: { sessionId: string }): Promise<void>;
   deleteSession?(req: { sessionId: string }): Promise<void>;
+  renameSession?(req: { sessionId: string; title: string }): Promise<void>;
 
   listTurns(req: {
     sessionId: string;
@@ -105,7 +98,7 @@ interface AgentChatServer {
 }
 ```
 
-Four methods are optional. `deleteSession` gates the delete control in the session list. `listTurnEvents` hydrates the events of a single in-flight turn when your backend can serve them per turn. `subscribeToTurn` lets a reconnecting client resume a stream from `afterSequenceNumber` rather than replaying it — pass the same `abortSignal` you use on `createTurn` to tear it down. `downloadSandboxFile` enables artifact downloads.
+`deleteSession` and `renameSession` are optional. Presence gates Delete and Rename in the session list; `renameSession` persists `{ sessionId, title }`. TrueForge implements both. TrueFoundry Gateway does not persist titles and should omit `renameSession`. `listTurnEvents` hydrates the events of a single in-flight turn when your backend can serve them per turn. `subscribeToTurn` lets a reconnecting client resume a stream from `afterSequenceNumber` rather than replaying it — pass the same `abortSignal` you use on `createTurn` to tear it down. `downloadSandboxFile` enables artifact downloads.
 
 <Note>
   `downloadSandboxFile` receives both `turnId` and `sandboxId` because backends address sandboxes differently. If your download route is scoped to a turn, resolve the sandbox from `turnId` and ignore `sandboxId`; if you address sandboxes directly, use `sandboxId`.
@@ -127,9 +120,9 @@ interface Session {
 }
 ```
 
-`id`, `isMutable`, `createdAt`, and `updatedAt` are required; timestamps are ISO strings. Set `isMutable: true` while the agent spec may still be edited — that is what permits `updateSession`.
+`id`, `isMutable`, `createdAt`, and `updatedAt` are required; timestamps are ISO strings. Set `isMutable: true` while the agent spec may still be edited. `renameSession` must work for named and inline sessions.
 
-`CreateSessionRequest` is `{ agentName?, agentSpec?, title? }`; `UpdateSessionRequest` is the same plus a required `sessionId`.
+`CreateSessionRequest` is `{ agentName?, agentSpec?, title? }`; `UpdateSessionRequest` is `{ sessionId, agentSpec?, title? }`.
 
 ## Pagination
 

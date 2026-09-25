@@ -38,7 +38,7 @@ docs.
 Postgres and Redis ship as **bundled** dependencies (the Bitnami `postgresql`
 and `redis` charts, pulled from the public Bitnami OCI archive and pinned by
 `Chart.lock`). They are enabled by default, so a basic install needs **no
-required values**. The chart wires the server's `POSTGRES_*` and `REDIS_URL`
+required values**. The chart wires the server's `POSTGRES_*` and `REDIS_*`
 env to the bundled services automatically.
 
 The Bitnami **charts** are still public, but the **container images** they
@@ -213,26 +213,33 @@ externalPostgres:
 The server always runs peered (`STANDALONE=false`), so Redis is always required.
 Bundled by default (`redis.enabled=true`, **auth disabled** — fine only when
 Redis stays unreachable outside the cluster trust boundary). To use an
-**external** Redis, set `redis.enabled=false` and provide `externalRedis.url`
-as a string or `valueFrom.secretKeyRef`:
+**external** Redis, set `redis.enabled=false`, `externalRedis.enabled=true`, and exactly one
+of `externalRedis.url`, `externalRedis.host`, or Sentinel. Fields accept a string or
+`valueFrom.secretKeyRef`. url, host, and sentinel are mutually exclusive:
 
 ```yaml
 redis:
   enabled: false
 externalRedis:
-  url:
-    valueFrom:
-      secretKeyRef:
-        name: my-redis-secret
-        key: redis-url
+  enabled: true
+  url: redis://:password@redis-master.databases.svc:6379
+  # or host + auth (not with url):
+  # host: redis-master.databases.svc
+  # port: 6379
+  # auth:
+  #   password:
+  #     valueFrom:
+  #       secretKeyRef:
+  #         name: my-redis-secret
+  #         key: redis-password
 ```
 
 `redis.nameOverride` defaults to `trueforge-redis` so bundled Redis objects do
 not share names with other Redis chart dependencies when this chart is a
 dependency of some other chart.
 
-For passworded Redis, prefer an external instance and load `REDIS_URL` via
-`valueFrom`.
+For passworded Redis, prefer an external instance and set `externalRedis.url` or
+`externalRedis.auth` (and TLS/Sentinel as needed) via string or `valueFrom`.
 
 ## OIDC
 
@@ -269,6 +276,35 @@ configs:
     # scopes: "openid,profile,email,groups"
     # Optional email allowlist (exact + * globs). Empty = unrestricted.
     # allowedEmails: "alice@acme.com,*@partner.com"
+networkPolicy:
+  # enabled: true
+  outbound:
+    # allowedHosts: ["llm-gateway.internal", "localhost"]
+    # blockedHosts: ["evil.example.com"]
+```
+
+### Outbound URL guard (`networkPolicy`)
+
+App-level check on MCP `url` and model-provider `base_url` (not a Kubernetes
+NetworkPolicy). When `enabled` is true (default), connections are http(s) only.
+Exact host match; `blockedHosts` is checked before `allowedHosts`.
+
+| allowedHosts | blockedHosts | a | b | c (in neither) |
+| --- | --- | --- | --- | --- |
+| `[]` | `[]` | default (deny private) | default (deny private) | default (deny private) |
+| `[]` | `[b]` | default (deny private) | denied | default (deny private) |
+| `[a]` | `[]` | allowed (even if private) | default (deny private) | default (deny private) |
+| `[a]` | `[b]` | allowed (even if private) | denied | default (deny private) |
+| `[a]` | `[a]` | denied (block wins) | default (deny private) | default (deny private) |
+
+Default (deny private) = deny private/loopback/link-local/in-cluster; allow public.
+
+Env (JSON string arrays):
+
+```bash
+NETWORK_POLICY_ENABLED=true
+OUTBOUND_URL_ALLOWED_HOSTS=["localhost","127.0.0.1","llm-gateway.internal"]
+OUTBOUND_URL_BLOCKED_HOSTS=["evil.example.com"]
 ```
 
 ## Using Secrets
@@ -279,8 +315,10 @@ chart does **not** create Secrets for chart-owned fields — supply
 
 Fields that accept string | `valueFrom.secretKeyRef`:
 `externalPostgres.host`, `externalPostgres.port`, `externalPostgres.database`,
-`externalPostgres.user`, `externalPostgres.password`, `externalRedis.url`,
-`configs.oidc.clientSecret`.
+`externalPostgres.user`, `externalPostgres.password`, `externalRedis.url` / `host` / `auth`,
+`externalRedis.tls` (`caCert`, `cert`, `key`, `keyPassphrase`, `serverName`),
+`externalRedis.sentinel.auth`, `configs.oidc.clientSecret`.
+`externalRedis.tls.rejectUnauthorized` is a plain boolean (default true).
 `configs.oidc.issuerUrl` and `clientId` are plain strings only.
 
 **Bundled Postgres password** still uses Bitnami's API (`postgresql.auth.existingSecret`,
@@ -342,9 +380,9 @@ extraObjects:
 | `podSecurityContext`  | non-root UID/GID `10001`            | Pod-level restricted security defaults. |
 | `securityContext`     | read-only root FS + drop all capabilities | Container-level restricted security defaults. |
 | `resources`           | 100m/256Mi requests, 200m/512Mi limits | Server CPU, memory, and ephemeral-storage. Replaced when a resourceTier is set. |
-| `mtls.enabled`        | `false`                             | HTTPS listener + controller→server mTLS (`TRUEFORGE_MTLS_*`). When true, probes use `scheme: HTTPS`. |
+| `mtls.enabled`        | `false`                             | HTTPS listener + controller→server mTLS (`MTLS_*`). When true, probes use `scheme: HTTPS`. |
 | `mtls.secretName`     | `""`                                | Secret with `tls.crt` / `tls.key` / `ca.crt` (required when `mtls.enabled`). |
-| `mtls.certsDir`       | `/etc/tls`                          | Mount path / `TRUEFORGE_MTLS_CERTS_DIR`. |
+| `mtls.certsDir`       | `/etc/tls`                          | Mount path / `MTLS_CERTS_DIR`. |
 
 The server uses a RollingUpdate strategy by default (`server.strategy`); the
 controller is fixed to a single replica with `Recreate` and exposes neither.
@@ -366,7 +404,7 @@ also sets the `/tmp` `emptyDir.sizeLimit`.
 - **Enable `configs.oidc`** — leaving it off grants shared admin to anyone who can reach the server.
 - **Replace the `apiKey` placeholder** — create a Secret for `TRUEFORGE_API_KEY` and set `apiKey.valueFrom.secretKeyRef` (do not leave `placeholder-value-please-generate-your-own`).
 - **Replace the bundled Postgres password** (`trueforge`) or set `postgresql.auth.existingSecret`.
-- Treat bundled Redis (`redis.auth.enabled: false`) as cluster-internal only, or switch to external passworded Redis via `externalRedis.url`.
+- Treat bundled Redis (`redis.auth.enabled: false`) as cluster-internal only, or switch to external passworded Redis via `externalRedis`.
 - Set `server.publicBaseUrl` to the real public application URL before using MCP OAuth or OIDC (include a pathname when the UI is served under a stripped prefix).
 - Prefer `valueFrom.secretKeyRef` for Postgres password, Redis URL, and OIDC client secret; do not commit secrets in values files.
 - Prefer external managed Postgres/Redis over the bundled subcharts for production HA.

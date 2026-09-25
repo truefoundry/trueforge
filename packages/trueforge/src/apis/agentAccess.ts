@@ -96,3 +96,22 @@ export async function canReadAgentBoundResource<TTransaction>(input: {
   const managedAgentIds = await resolveManagedAgentIds({ store, context, authorizer });
   return managedAgentIds.includes(agent_id);
 }
+
+/**
+ * Session conversation reads (get session, list events/turns). Shared sessions
+ * are readable by any tenant member; otherwise same as {@link canReadAgentBoundResource}.
+ * Mutating ops, subscribe, and sandbox downloads stay creator-only on purpose.
+ */
+export async function canReadSession<TTransaction>(input: {
+  shared: boolean;
+  store: IAgentStore<TTransaction>;
+  context: RequestContext;
+  authorizer: Authorizer;
+  created_by_subject_id: string;
+  agent_id: string | undefined;
+}): Promise<boolean> {
+  if (input.shared) {
+    return true;
+  }
+  return canReadAgentBoundResource(input);
+}

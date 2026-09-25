@@ -13,6 +13,7 @@ import type { WithTransaction } from '../db/transaction';
 import { createTlsFetch, normalizeTlsUrl } from '../http/tls';
 import { nextTriggerAfter } from '../runtime/cron';
 import { InvalidCronError, type ScheduleRunStatus } from '../schemas/schedule';
+import { captureCriticalException } from '../sentry';
 import type { ControlLoop } from './Controller';
 
 /**
@@ -46,8 +47,8 @@ export type ScheduleRunExecutor = (scheduleRunId: string) => Promise<void>;
 /** HTTP handoff to `POST /api/internal/schedules/runs/execute` (dedicated controller or standalone loopback). */
 export function createHttpScheduleRunExecutor(): ScheduleRunExecutor {
   const tls = {
-    enabled: configuration.TRUEFORGE_MTLS_ENABLED,
-    dir: configuration.TRUEFORGE_MTLS_CERTS_DIR,
+    enabled: configuration.MTLS_ENABLED,
+    dir: configuration.MTLS_CERTS_DIR,
   };
   const tlsFetch = createTlsFetch(tls);
   const client = new TrueForge({
@@ -303,6 +304,14 @@ export async function dispatchScheduledRuns<TTransaction>(params: {
           run_id: run.id,
           error,
         });
+        captureCriticalException(error, {
+          tags: { module: 'scheduleDispatch', operation: 'handoff' },
+          extra: {
+            tenant_id: run.tenant_id,
+            schedule_id: schedule.id,
+            run_id: run.id,
+          },
+        });
         await finishScheduledRun({
           store,
           run,
@@ -328,6 +337,14 @@ export async function dispatchScheduledRuns<TTransaction>(params: {
         schedule_id: run.schedule_id,
         run_id: run.id,
         error,
+      });
+      captureCriticalException(error, {
+        tags: { module: 'scheduleDispatch', operation: 'processRun' },
+        extra: {
+          tenant_id: run.tenant_id,
+          schedule_id: run.schedule_id,
+          run_id: run.id,
+        },
       });
     }
   }

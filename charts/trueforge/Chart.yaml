@@ -4,8 +4,8 @@ description: TrueForge server (API + UI) served from a single container image.
 type: application
 # version / appVersion are maintained on main (bot chart-release PR or human).
 # Publishing is gated by git tag charts/trueforge@<version> (must match version).
-version: "0.2.0-rc.13"
-appVersion: "0.2.0-rc.14"
+version: "0.2.3-rc.0"
+appVersion: "0.3.0-rc.0"
 kubeVersion: ">=1.25.0-0"
 home: https://truefoundry.com
 sources:
@@ -30,7 +30,7 @@ dependencies:
     condition: redis.enabled
   # Dev sandbox server, deployed only when a parent chart enables it.
   - name: tfy-sandbox-server
-    version: "0.3.3"
+    version: "0.3.4"
     repository: oci://tfy.jfrog.io/tfy-helm
     condition: truefoundry.devSandboxServerEnabled
     alias: tfy-sandbox-server

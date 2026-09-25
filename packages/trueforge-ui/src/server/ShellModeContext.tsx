@@ -8,6 +8,7 @@ import {
   readDraftSpecPreferences,
   selectDraftSpecPreferences,
   withCapabilitiesSandbox,
+  withCapabilitiesWebSearch,
   writeDraftSpecPreferences,
   type DraftPreferenceKind,
 } from './draftSpecPreferences.js';
@@ -70,7 +71,7 @@ export type SelectLibraryAgentRequest = {
   agentSpec?: AgentSpec;
 };
 
-export type SettingsSection = 'models' | 'connectors' | 'skills' | 'sandbox';
+export type SettingsSection = 'models' | 'connectors' | 'skills' | 'sandbox' | 'web-search';
 
 export type HistoryAgentFilter = {
   agentId?: string;
@@ -490,11 +491,12 @@ export function ShellModeProvider({
 
   const isActiveAgentBuilder =
     effectiveMode.status === 'active' && effectiveMode.isMutable && effectiveMode.isCreateAgent;
+  const isBoundAgentBuilder = isActiveAgentBuilder && effectiveMode.agentId != null;
   const openAgentBuilder = useCallback(() => {
     if (!isComposerEnabled) return;
     refreshCapabilities?.();
-    // Returning from an overlay must keep the live draft runtime and its unsaved instructions.
-    if (isActiveAgentBuilder) {
+    // Preserve unsaved drafts, saved builders start fresh when revisited.
+    if (isActiveAgentBuilder && !isBoundAgentBuilder) {
       setSettingsOpen(false);
       setLibraryOpenState(false);
       setLibraryAgentId(null);
@@ -506,6 +508,7 @@ export function ShellModeProvider({
     selectLibraryAgent({ isMutable: true, isCreateAgent: true, agentSpec: agentSeedRef.current });
   }, [
     isActiveAgentBuilder,
+    isBoundAgentBuilder,
     isComposerEnabled,
     refreshCapabilities,
     selectLibraryAgent,
@@ -515,19 +518,32 @@ export function ShellModeProvider({
   ]);
 
   const sandboxEnabled = capabilities?.sandbox.enabled;
+  const webSearchEnabled = capabilities?.webSearch?.enabled;
   const rememberDraftSpec = useCallback(
     (agentSpec: AgentSpec, kind: DraftPreferenceKind = 'chat') => {
       const selected = selectDraftSpecPreferences(agentSpec, kind);
-      const preferences = kind === 'agent' ? withCapabilitiesSandbox(selected, sandboxEnabled) : selected;
+      const withSandbox = kind === 'agent' ? withCapabilitiesSandbox(selected, sandboxEnabled) : selected;
+      const preferences =
+        kind === 'agent'
+          ? withCapabilitiesWebSearch({
+              spec: withSandbox,
+              webSearchEnabled,
+              kind: 'agent',
+            })
+          : withSandbox;
       if (kind === 'chat') {
         chatSeedRef.current = preferences;
       } else {
         // Keep the active builder intact in memory; storage remains limited to reusable preferences.
-        agentSeedRef.current = withCapabilitiesSandbox(agentSpec, sandboxEnabled);
+        agentSeedRef.current = withCapabilitiesWebSearch({
+          spec: withCapabilitiesSandbox(agentSpec, sandboxEnabled),
+          webSearchEnabled,
+          kind: 'agent',
+        });
       }
       writeDraftSpecPreferences(kind, preferences);
     },
-    [sandboxEnabled],
+    [sandboxEnabled, webSearchEnabled],
   );
 
   const openHistorySession = useCallback(

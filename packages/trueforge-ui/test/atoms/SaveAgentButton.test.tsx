@@ -25,11 +25,11 @@ const flushAgentSpec = vi.fn(async () => undefined);
 const adoptAgentSpec = vi.fn();
 const updateAgentSpec = vi.fn();
 
-vi.mock('@truefoundry/assistant-ui-runtime', () => ({
-  useTrueFoundryAgentSpec: () => ({ agentSpec, draftSessionId: 'draft-1' }),
-  useTrueFoundryFlushAgentSpec: () => flushAgentSpec,
-  useTrueFoundryAdoptAgentSpec: () => adoptAgentSpec,
-  useTrueFoundryUpdateAgentSpec: () => updateAgentSpec,
+vi.mock('@truefoundry/trueforge-assistant-ui-runtime', () => ({
+  useTrueForgeAgentSpec: () => ({ agentSpec, draftSessionId: 'draft-1' }),
+  useTrueForgeFlushAgentSpec: () => flushAgentSpec,
+  useTrueForgeAdoptAgentSpec: () => adoptAgentSpec,
+  useTrueForgeUpdateAgentSpec: () => updateAgentSpec,
 }));
 
 beforeAll(() => {
@@ -128,6 +128,20 @@ function BoundMutableSaveButton({
       agentSpec,
     });
   }, [agentId, agentName, description, selectLibraryAgent]);
+  return <SaveAgentButton />;
+}
+
+function CloneDraftSaveButton({ agentName, description }: { agentName: string; description?: string }) {
+  const { selectLibraryAgent } = useShellMode();
+  useEffect(() => {
+    selectLibraryAgent({
+      isMutable: true,
+      isCreateAgent: true,
+      agentName,
+      ...(description === undefined ? {} : { description }),
+      agentSpec,
+    });
+  }, [agentName, description, selectLibraryAgent]);
   return <SaveAgentButton />;
 }
 
@@ -359,6 +373,26 @@ describe('SaveAgentButton', () => {
     );
   });
 
+  it('treats a named create draft (clone) as Save Agent create, not update', async () => {
+    const saveAgent = vi.fn(async (): Promise<SaveAgentResult> => ({ agentId: 'writer-clone-id' }));
+    renderButton({
+      saveAgent,
+      children: <CloneDraftSaveButton agentName="writer-clone" description="Writes docs." />,
+    });
+
+    const trigger = await screen.findByRole('button', { name: 'Save Agent' });
+    expect(screen.queryByRole('button', { name: 'Update Agent' })).not.toBeInTheDocument();
+    fireEvent.click(trigger);
+    const dialog = await screen.findByRole('dialog', { name: 'Save agent' });
+    expect(within(dialog).getByLabelText('Agent name')).toHaveValue('writer-clone');
+    expect(within(dialog).getByLabelText('Description')).toHaveValue('Writes docs.');
+    fireEvent.click(within(dialog).getByRole('button', { name: 'Save changes' }));
+
+    await waitFor(() =>
+      expect(saveAgent).toHaveBeenCalledWith(expect.objectContaining({ agentName: 'writer-clone', intent: 'create' })),
+    );
+  });
+
   it('discards drawer-only changes when closed', async () => {
     renderButton();
     fireEvent.click(screen.getByRole('button', { name: 'Save Agent' }));
@@ -403,6 +437,8 @@ describe('SaveAgentButton', () => {
         updatedAt: '2026-08-12T08:00:00.000Z',
       }),
     );
+    expect(screen.getByRole('button', { name: 'Update Agent' })).toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: 'Save Agent' })).not.toBeInTheDocument();
   });
 
   it('preserves opaque mount fields without exposing resource editors', async () => {

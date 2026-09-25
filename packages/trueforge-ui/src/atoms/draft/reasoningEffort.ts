@@ -18,7 +18,7 @@ export function resolveReasoningEffort(efforts: ReasoningEfforts, current: strin
  * Draft model patch: preserve other params, set or clear `reasoningEffort`.
  *
  * When clearing, set `reasoningEffort: undefined` (do not omit the key).
- * `mergeAgentSpec` in `@truefoundry/assistant-ui-runtime` shallow-merges
+ * `mergeAgentSpec` in `@truefoundry/trueforge-assistant-ui-runtime` shallow-merges
  * `model.params`, so omitting the key leaves a sticky prior effort and the
  * server then 422s on models that do not advertise `reasoning_efforts`.
  */

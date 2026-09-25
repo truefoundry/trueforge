@@ -39,6 +39,7 @@ import {
 } from '../db/scheduleStore';
 import type { ISkillStore } from '../db/skillStore';
 import type { WithTransaction } from '../db/transaction';
+import type { IWebSearchProviderStore } from '../db/webSearchProviderStore';
 import {
   createScheduleRoute,
   createScheduleRunRoute,
@@ -52,6 +53,7 @@ import {
 import type { ActiveTurnRegistry } from '../runtime/activeTurns';
 import { minIntervalSeconds, nextTriggerAfter } from '../runtime/cron';
 import type { EventSubscriptionRegistry } from '../runtime/event-subscription';
+import { gatewayTurnHeaders } from '../runtime/sessionResources';
 import {
   InvalidCronError,
   SCHEDULE_MIN_INTERVAL_SECONDS,
@@ -72,6 +74,7 @@ export interface ScheduleTurnExecutionDeps<TTransaction> {
   resolveModelProviderStore: (c: Context, runAsAgent?: AgentRecord) => IModelProviderStore<TTransaction>;
   resolveMcpServerStore: (c: Context, runAsAgent?: AgentRecord) => IMcpServerWithAuthStore<TTransaction>;
   resolveSandboxProviderStore: (c: Context) => ISandboxProviderStore<TTransaction>;
+  resolveWebSearchProviderStore: (c: Context) => IWebSearchProviderStore<TTransaction>;
   /** Persistence agent store (schedule agent binding is not caller-scoped). */
   agentStore: IAgentStore<TTransaction>;
   turnSkillsResolverStore: Pick<ISkillStore, 'resolveTurnSkills'>;
@@ -86,8 +89,7 @@ export interface SchedulesRouterDeps<TTransaction> extends ScheduleTurnExecution
 
 /**
  * Prepare and start a schedule run using Context-based store resolvers. Caller must set
- * `request_context` (typically via {@link requestContextFromCreatedBySubject})
- * before calling.
+ * `request_context` (typically via requestContextFromCreatedBySubject) before calling.
  */
 export async function startScheduleRunOnRequest<TTransaction>(params: {
   c: Context;
@@ -108,6 +110,7 @@ export async function startScheduleRunOnRequest<TTransaction>(params: {
     input: prepared.input,
     previous_turn_id: prepared.previous_turn_id,
     userRef: prepared.userRef,
+    resolveTurnHeaders: gatewayTurnHeaders,
     deps: {
       activeTurns: deps.activeTurns,
       eventSubscriptions: deps.eventSubscriptions,
@@ -115,6 +118,7 @@ export async function startScheduleRunOnRequest<TTransaction>(params: {
       modelProviderStore: deps.resolveModelProviderStore(c, prepared.agent),
       mcpServerStore: deps.resolveMcpServerStore(c, prepared.agent),
       sandboxProviderStore: deps.resolveSandboxProviderStore(c),
+      webSearchProviderStore: deps.resolveWebSearchProviderStore(c),
       skillStore: deps.turnSkillsResolverStore,
       logger: deps.logger,
     },

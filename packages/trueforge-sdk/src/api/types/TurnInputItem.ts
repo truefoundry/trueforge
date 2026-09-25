@@ -2,4 +2,7 @@
 
 import type * as TrueForge from "../index.js";
 
-export type TurnInputItem = TrueForge.UserMessage | TrueForge.UserToolApprovalEvent | TrueForge.UserToolResponseEvent;
+export type TurnInputItem =
+    | TrueForge.UserMessage
+    | TrueForge.UserToolApprovalInputEvent
+    | TrueForge.UserToolResponseInputEvent;

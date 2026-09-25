@@ -5,7 +5,6 @@ import {
   type SessionAgent,
   type SessionHandle,
 } from '@truefoundry/trueforge-core/agent-session';
-import { WebSearchProviders, type IWebSearchProvider } from '@truefoundry/trueforge-core/core';
 import { HTTPException } from 'hono/http-exception';
 import { validateGitAgentSkills } from '../../../src/db/gitSkillMounts';
 import { migrateSqliteToLatest } from '../../../src/db/migrateSqlite';
@@ -15,6 +14,7 @@ import { SqliteMcpServerStore } from '../../../src/db/sqlite/mcp-server-store/Sq
 import { SqliteModelProviderStore } from '../../../src/db/sqlite/model-provider-store/SqliteModelProviderStore';
 import { SqliteSandboxProviderStore } from '../../../src/db/sqlite/sandbox-provider-store/SqliteSandboxProviderStore';
 import { SqliteSkillStore } from '../../../src/db/sqlite/skill-store/SqliteSkillStore';
+import { SqliteWebSearchProviderStore } from '../../../src/db/sqlite/web-search-provider-store/SqliteWebSearchProviderStore';
 import {
   buildGatewayMetadata,
   getModelDetails,
@@ -28,17 +28,11 @@ import {
 } from '../../../src/runtime/sessionResources';
 import { setCachedLocalSandboxSupport } from '../../../src/sandbox/localRuntime';
 import type { ReasoningEffort } from '../../../src/schemas/modelProvider';
-import { resolveWebSearchProvider } from '../../../src/websearch/providers';
+import { hasConfiguredWebSearchProvider } from '../../../src/websearch/providers';
 
 jest.mock('../../../src/websearch/providers', () => ({
-  resolveWebSearchProvider: jest.fn(() => undefined),
+  hasConfiguredWebSearchProvider: jest.fn(() => Promise.resolve(false)),
 }));
-
-const mockWebSearchProvider: IWebSearchProvider = {
-  id: WebSearchProviders.Parallel,
-  search: () => Promise.resolve({ hits: [] }),
-  fetch: () => Promise.resolve({ pages: [] }),
-};
 
 async function createGatewayMetadataSession(input: { agent: SessionAgent }): Promise<SessionHandle> {
   const sessions = new Sessions({ sessionStore: new InMemorySessionStore() });
@@ -92,7 +86,7 @@ describe('buildGatewayMetadata', () => {
 });
 
 describe('mergeGatewayMetadata', () => {
-  it('keeps tfyMetadata keys and overwrites spoofed tfg.* fields so order is maintained', async () => {
+  it('keeps requestMetadata keys and overwrites spoofed tfg.* fields so order is maintained', async () => {
     const session = await createGatewayMetadataSession({
       agent: { type: 'reference', id: 'agent-1', name: 'my-agent' },
     });
@@ -101,7 +95,7 @@ describe('mergeGatewayMetadata', () => {
       mergeGatewayMetadata({
         session,
         turnId: 'turn-1',
-        tfyMetadata: {
+        requestMetadata: {
           env: 'prod',
           [`${TFG_METADATA_PREFIX}.session_id`]: 'spoofed-session',
           [`${TFG_METADATA_PREFIX}.turn_id`]: 'spoofed-turn',
@@ -118,7 +112,7 @@ describe('mergeGatewayMetadata', () => {
     });
   });
 
-  it('matches harness-only stamps when tfyMetadata is absent', async () => {
+  it('matches harness-only stamps when requestMetadata is absent', async () => {
     const session = await createGatewayMetadataSession({
       agent: { type: 'reference', id: 'agent-1', name: 'my-agent' },
     });
@@ -176,8 +170,8 @@ describe('localSandboxSessionSegment', () => {
 describe('validateAgentSpec', () => {
   afterEach(() => {
     setCachedLocalSandboxSupport(undefined);
-    jest.mocked(resolveWebSearchProvider).mockReset();
-    jest.mocked(resolveWebSearchProvider).mockReturnValue(undefined);
+    jest.mocked(hasConfiguredWebSearchProvider).mockReset();
+    jest.mocked(hasConfiguredWebSearchProvider).mockResolvedValue(false);
   });
 
   async function setup(options?: { reasoningEfforts?: ReasoningEffort[] | undefined }) {
@@ -211,6 +205,7 @@ describe('validateAgentSpec', () => {
       mcpServerStore: new SqliteMcpServerStore(db),
       skillStore: new SqliteSkillStore(db),
       sandboxProviderStore: new SqliteSandboxProviderStore(db),
+      webSearchProviderStore: new SqliteWebSearchProviderStore(db),
     };
   }
 
@@ -376,7 +371,7 @@ describe('validateAgentSpec', () => {
 
   it('admits web_search.enabled when a web-search provider resolves', async () => {
     const stores = await setup();
-    jest.mocked(resolveWebSearchProvider).mockReturnValueOnce(mockWebSearchProvider);
+    jest.mocked(hasConfiguredWebSearchProvider).mockResolvedValueOnce(true);
     await expect(
       validateAgentSpec({
         spec: AgentSpecSchema.parse({

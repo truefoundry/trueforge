@@ -14,16 +14,17 @@ import { HTTPException } from 'hono/http-exception';
 import { join } from 'node:path';
 import type { Logger } from 'winston';
 import { z } from 'zod';
-import configuration from '../config';
+import configuration, { isTrueFoundryModeEnabled } from '../config';
 import type { IMcpServerStore, IMcpServerWithAuthStore } from '../db/mcpServerStore';
 import type { IModelProviderStore } from '../db/modelProviderStore';
 import type { ISandboxProviderStore } from '../db/sandboxProviderStore';
 import type { ISkillStore } from '../db/skillStore';
+import type { IWebSearchProviderStore } from '../db/webSearchProviderStore';
 import { LocalSandboxProvider } from '../sandbox/local/provider/LocalSandboxProvider';
 import { getCachedLocalSandboxSupport, isLocalSandboxFallbackEnabled } from '../sandbox/localRuntime';
 import { toSandboxProviderFromRecord } from '../sandbox/providerUtils';
 import type { ReasoningEffort } from '../schemas/modelProvider';
-import { resolveWebSearchProvider } from '../websearch/providers';
+import { hasConfiguredWebSearchProvider } from '../websearch/providers';
 
 export interface McpConnection {
   url: string;
@@ -73,14 +74,14 @@ export function buildGatewayMetadata(input: { session: SessionHandle; turnId: st
   return metadata;
 }
 
-/** Inbound x-tfy-metadata first; harness tfg.* always win */
+/** Caller requestMetadata first; harness tfg.* always win */
 export function mergeGatewayMetadata(input: {
   session: SessionHandle;
   turnId: string;
-  tfyMetadata?: Record<string, string> | undefined;
+  requestMetadata?: Record<string, string> | undefined;
 }): Record<string, string> {
   return {
-    ...input.tfyMetadata,
+    ...input.requestMetadata,
     ...buildGatewayMetadata({ session: input.session, turnId: input.turnId }),
   };
 }
@@ -90,6 +91,21 @@ export function gatewayMetadataHeaders(metadata: Record<string, string>): Record
     return {};
   }
   return { [X_TFY_METADATA]: JSON.stringify(metadata) };
+}
+
+/**
+ * Per-turn gateway headers for LLM/MCP calls: harness tfg.* stamps over caller
+ * metadata. Empty outside TrueFoundry mode. Every turn start must wire this in.
+ */
+export function gatewayTurnHeaders(input: {
+  session: SessionHandle;
+  turnId: string;
+  requestMetadata?: Record<string, string> | undefined;
+}): Record<string, string> {
+  if (!isTrueFoundryModeEnabled()) {
+    return {};
+  }
+  return gatewayMetadataHeaders(mergeGatewayMetadata(input));
 }
 
 /**
@@ -294,6 +310,7 @@ export async function validateAgentSpec({
   mcpServerStore,
   skillStore,
   sandboxProviderStore,
+  webSearchProviderStore,
 }: {
   spec: AgentSpec;
   tenant_id: string;
@@ -301,6 +318,7 @@ export async function validateAgentSpec({
   mcpServerStore: IMcpServerStore;
   skillStore: ISkillStore;
   sandboxProviderStore: ISandboxProviderStore;
+  webSearchProviderStore: IWebSearchProviderStore;
 }): Promise<void> {
   const resolved = await getModelDetails({
     tenant_id,
@@ -356,9 +374,12 @@ export async function validateAgentSpec({
     }
   }
 
-  if (spec.config.web_search.enabled && resolveWebSearchProvider() === undefined) {
-    throw new HTTPException(422, {
-      message: 'web_search is enabled but no web-search provider is configured',
-    });
+  if (spec.config.web_search.enabled) {
+    const hasProvider = await hasConfiguredWebSearchProvider({ tenant_id, store: webSearchProviderStore });
+    if (!hasProvider) {
+      throw new HTTPException(422, {
+        message: 'web_search is enabled but no web-search provider is configured',
+      });
+    }
   }
 }

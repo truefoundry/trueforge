@@ -1,6 +1,6 @@
 {
   "name": "@truefoundry/trueforge",
-  "version": "0.2.0-rc.14",
+  "version": "0.3.0-rc.0",
   "description": "TrueForge Agent Harness: server, HTTP API, and chat UI (npx @truefoundry/trueforge)",
   "author": "TrueFoundry",
   "license": "MIT",
@@ -66,6 +66,7 @@
     "@hono/swagger-ui": "^0.2.2",
     "@hono/zod-openapi": "^1.6.1",
     "@modelcontextprotocol/sdk": "^1.30.0",
+    "@sentry/node": "^10.74.0",
     "@truefoundry/trueforge-core": "workspace:*",
     "@truefoundry/trueforge-sdk": "workspace:*",
     "better-sqlite3": "^13.0.3",
@@ -74,6 +75,7 @@
     "hono": "^4.13.5",
     "jose": "^6.2.10",
     "kysely": "^0.29.5",
+    "lru-cache": "^11.5.3",
     "openid-client": "^6.8.7",
     "pg": "^8.23.0",
     "redis": "^5.12.1",

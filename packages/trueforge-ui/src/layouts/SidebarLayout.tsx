@@ -165,7 +165,7 @@ function SidebarRail({
       <SidebarNav />
       <footer className="flex shrink-0 flex-col items-center border-border p-2">
         <ShellActions labeled className="flex-col" />
-        <UserAvatar labeled className="mt-1" />
+        <UserAvatar labeled className="mt-2 py-1.5" />
       </footer>
     </aside>
   );

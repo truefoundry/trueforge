@@ -10,6 +10,16 @@ from .approval_decision import ApprovalDecision
 
 class UserToolApprovalEvent(UncheckedBaseModel):
     approval: ApprovalDecision
+    created_at: str = pydantic.Field()
+    """
+    ISO 8601 event timestamp.
+    """
+
+    id: str = pydantic.Field()
+    """
+    Unique identifier for the event (monotonic ULID).
+    """
+
     thread_id: str = pydantic.Field()
     """
     Thread that owns the pending tool call.

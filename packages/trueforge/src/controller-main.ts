@@ -10,7 +10,7 @@
  * Migrations are owned by the server (`main.ts`). This process only connects to the
  * already-migrated database; the loops have per-pass error boundaries, so they retry
  * each tick until the schema is present. The loops call the server over HTTP(S) at
- * `SERVER_URL` (mutual TLS when `TRUEFORGE_MTLS_ENABLED`), so no Redis peering is wired here.
+ * `SERVER_URL` (mutual TLS when `MTLS_ENABLED`), so no Redis peering is wired here.
  */
 import configuration from './config';
 import { runController } from './controller';
@@ -18,6 +18,7 @@ import { createDb } from './db/postgres/client';
 import { PostgresScheduleStore } from './db/postgres/schedule-store/PostgresScheduleStore';
 import { createControllerLogger } from './logger';
 import { PACKAGE_VERSION } from './packageVersion';
+import { initSentry } from './sentry';
 
 try {
   const logger = createControllerLogger({
@@ -25,6 +26,8 @@ try {
     standalone: configuration.STANDALONE,
     version: PACKAGE_VERSION,
   });
+
+  await initSentry(configuration, logger, { tags: { component: 'controller' } });
 
   if (configuration.STANDALONE) {
     // Not an error: in standalone the server process owns the controller in-process, so a
@@ -45,7 +48,7 @@ try {
 
   logger.info('Controller starting', {
     serverUrl: configuration.SERVER_URL,
-    mTlsEnabled: configuration.TRUEFORGE_MTLS_ENABLED,
+    mTlsEnabled: configuration.MTLS_ENABLED,
   });
 
   runController({

@@ -1,5 +1,5 @@
 /**
- * Host-facing server contract — re-exported from `@truefoundry/assistant-ui-runtime/server`
+ * Host-facing server contract — re-exported from `@truefoundry/trueforge-assistant-ui-runtime/server`
  * so hosts never import the runtime package directly.
  *
  * Canonical definitions live in the runtime; this module is aliases + pass-through only.
@@ -59,6 +59,7 @@ export type {
   CreateSessionRequest,
   CreateSkillRequest,
   CreateSkillRequestBase,
+  CreateWebSearchProviderRequest,
   CreatedBySubject,
   DefinedSkill,
   GithubSkill,
@@ -93,7 +94,6 @@ export type {
   SandboxCatalogServer,
   SandboxProviderBase,
   SandboxProviderCatalogEntry,
-  SandboxProviderConfig,
   SandboxProviderListEntry,
   SandboxSnapshotSyncStatus,
   SaveAgentRequest,
@@ -126,8 +126,14 @@ export type {
   UpdateSandboxProviderRequest,
   UpdateScheduleRequest,
   UpdateSessionRequest,
+  UpdateWebSearchProviderRequest,
   UserMessage,
   UserMessageContent,
   UserToolApprovalEvent,
   UserToolResponseEvent,
-} from '@truefoundry/assistant-ui-runtime/server';
+  WebSearchBase,
+  WebSearchCatalogEntry,
+  WebSearchCatalogServer,
+  WebSearchProviderBase,
+  WebSearchProviderCatalogEntry,
+} from '@truefoundry/trueforge-assistant-ui-runtime/server';

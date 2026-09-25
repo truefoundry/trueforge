@@ -3,6 +3,10 @@
 export interface UserToolResponseEvent {
     /** Client-side tool result content. */
     content: string;
+    /** ISO 8601 event timestamp. */
+    createdAt: string;
+    /** Unique identifier for the event (monotonic ULID). */
+    id: string;
     /** Thread that owns the pending tool call. */
     threadId: string;
     /** Tool call id receiving the client response. */

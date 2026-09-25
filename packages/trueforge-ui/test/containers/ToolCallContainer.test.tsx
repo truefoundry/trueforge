@@ -15,11 +15,11 @@ const { respondToNestedApproval } = vi.hoisted(() => ({
   respondToNestedApproval: vi.fn(),
 }));
 
-vi.mock('@truefoundry/assistant-ui-runtime', async importOriginal => {
-  const actual = await importOriginal<typeof import('@truefoundry/assistant-ui-runtime')>();
+vi.mock('@truefoundry/trueforge-assistant-ui-runtime', async importOriginal => {
+  const actual = await importOriginal<typeof import('@truefoundry/trueforge-assistant-ui-runtime')>();
   return {
     ...actual,
-    useTrueFoundryRespondToToolApproval: () => respondToNestedApproval,
+    useTrueForgeRespondToToolApproval: () => respondToNestedApproval,
   };
 });
 

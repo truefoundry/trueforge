@@ -1,3 +1,4 @@
+import { configureOutboundUrlGuard } from '@truefoundry/trueforge-core/core';
 import winston from 'winston';
 import { createCatalogRouter } from '../../../src/apis/catalog';
 import { createMcpServersRouter, createSettingsMcpServersRouter } from '../../../src/apis/mcpServers';
@@ -6,6 +7,7 @@ import { McpCatalog } from '../../../src/catalog/McpCatalog';
 import { ModelCatalog } from '../../../src/catalog/ModelCatalog';
 import { SandboxCatalog } from '../../../src/catalog/SandboxCatalog';
 import { SkillCatalog } from '../../../src/catalog/SkillCatalog';
+import { WebSearchCatalog } from '../../../src/catalog/WebSearchCatalog';
 import configuration from '../../../src/config';
 import { McpServerWithAuthStore } from '../../../src/db/McpServerWithAuthStore';
 import type { IMcpServerWithAuthStore } from '../../../src/db/mcpServerStore';
@@ -14,6 +16,17 @@ import { createSqliteDb } from '../../../src/db/sqlite/client';
 import { SqliteMcpServerStore } from '../../../src/db/sqlite/mcp-server-store/SqliteMcpServerStore';
 import { SqliteOAuthTokenStore } from '../../../src/db/sqlite/token-store/SqliteOAuthTokenStore';
 import { mcpOAuthCallbackUrl } from '../../../src/mcp/auth/mcpOAuthHelpers';
+
+jest.mock('undici', () => {
+  const actual = jest.requireActual<typeof import('undici')>('undici');
+  return {
+    ...actual,
+    fetch: (input: unknown, init?: RequestInit) => {
+      const url = input instanceof Request ? input.url : String(input);
+      return globalThis.fetch(url, init);
+    },
+  };
+});
 
 const putBody = {
   type: 'remote' as const,
@@ -92,6 +105,18 @@ describe('mcp-servers routers', () => {
   const originalFetch = globalThis.fetch;
 
   beforeAll(async () => {
+    configureOutboundUrlGuard({
+      allowedHosts: [
+        'mcp.deepwiki.com',
+        'mcp.linear.app',
+        'mcp.example.com',
+        'auth.example.com',
+        'auth-failure.example.com',
+        'mcp-failure.example.com',
+        'evil.example.com',
+      ],
+      blockedHosts: [],
+    });
     // Eager DCR dials the authorization server. Fail that outbound call fast so hermetic tests
     // without an OAuth mock hit the "DCR before write" path and must not create rows.
     globalThis.fetch = (async () => {
@@ -119,6 +144,7 @@ describe('mcp-servers routers', () => {
       mcpCatalog: McpCatalog.load(),
       skillCatalog: SkillCatalog.load(),
       sandboxCatalog: SandboxCatalog.load(),
+      webSearchCatalog: WebSearchCatalog.load(),
     });
     mcpServersRouter = createMcpServersRouter({
       resolveMcpServerStore: () => mcpServerStore,
@@ -154,6 +180,7 @@ describe('mcp-servers routers', () => {
   }
 
   afterAll(() => {
+    configureOutboundUrlGuard({ allowedHosts: [], blockedHosts: [] });
     globalThis.fetch = originalFetch;
   });
 
@@ -200,6 +227,31 @@ describe('mcp-servers routers', () => {
     expect(await clash.json()).toEqual({
       error: { message: 'MCP server name already exists: create-only-mcp' },
     });
+  });
+
+  it('PUT and POST reject private outbound URLs', async () => {
+    const blocked = {
+      type: 'remote' as const,
+      name: 'ssrf-mcp',
+      url: 'http://169.254.169.254/mcp',
+      description: 'Blocked.',
+    };
+    const put = await settingsRouter.request('/', putInit(wrapManifest(blocked)));
+    expect(put.status).toBe(400);
+    expect(await put.json()).toEqual({
+      error: { message: 'Outbound URL blocked for host "169.254.169.254"' },
+    });
+
+    const post = await settingsRouter.request(
+      '/',
+      postInit(wrapManifest({ ...blocked, name: 'ssrf-mcp-post', url: 'http://127.0.0.1/mcp' })),
+    );
+    expect(post.status).toBe(400);
+    expect(await post.json()).toEqual({
+      error: { message: 'Outbound URL blocked for host "127.0.0.1"' },
+    });
+    expect((await settingsRouter.request('/ssrf-mcp')).status).toBe(404);
+    expect((await settingsRouter.request('/ssrf-mcp-post')).status).toBe(404);
   });
 
   it('GET /{name} returns the configured server and 404s unknowns', async () => {

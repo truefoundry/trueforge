@@ -3,14 +3,17 @@ import { AgentSpecSchema, Sessions } from '@truefoundry/trueforge-core/agent-ses
 import { RequestReplyRouter } from '@truefoundry/trueforge-core/request-reply';
 import { createClient } from 'redis';
 import { createLogger } from 'winston';
+import { makeCreateTurnInput } from '../../../../trueforge-core/tests/agent-session/testHelpers';
 import { createInternalMetricsRouter } from '../../../src/apis/sessionMetrics';
 import {
   createInternalSessionsRouter,
   createSessionsRouter,
   type SessionsRouterDeps,
 } from '../../../src/apis/sessions';
+import { createTurnsRouter } from '../../../src/apis/turns';
 import { TrueForgeAuthorizer, type Authorizer } from '../../../src/auth/authorizer';
 import { STANDALONE_REQUEST_CONTEXT } from '../../../src/auth/identity';
+import { McpServerWithAuthStore } from '../../../src/db/McpServerWithAuthStore';
 import { migrateSqliteToLatest } from '../../../src/db/migrateSqlite';
 import { SqliteAgentStore } from '../../../src/db/sqlite/agent-store/SqliteAgentStore';
 import { createSqliteDb } from '../../../src/db/sqlite/client';
@@ -20,7 +23,10 @@ import { SqliteSandboxProviderStore } from '../../../src/db/sqlite/sandbox-provi
 import { SqliteSessionMetricsStore } from '../../../src/db/sqlite/session-metrics/SqliteSessionMetricsStore';
 import { SqliteSessionStore } from '../../../src/db/sqlite/session-store/SqliteSessionStore';
 import { SqliteSkillStore } from '../../../src/db/sqlite/skill-store/SqliteSkillStore';
+import { SqliteOAuthTokenStore } from '../../../src/db/sqlite/token-store/SqliteOAuthTokenStore';
+import { SqliteWebSearchProviderStore } from '../../../src/db/sqlite/web-search-provider-store/SqliteWebSearchProviderStore';
 import { ActiveTurnRegistry } from '../../../src/runtime/activeTurns';
+import { EventSubscriptionRegistry } from '../../../src/runtime/event-subscription/index.js';
 import { ListSessionsResponseSchema } from '../../../src/schemas/session';
 import {
   GetSessionMetricsChartDataResponseSchema,
@@ -68,6 +74,7 @@ describe('sessions HTTP agent binding', () => {
     const mcpServerStore = new SqliteMcpServerStore(db);
     const skillStore = new SqliteSkillStore(db);
     const sandboxProviderStore = new SqliteSandboxProviderStore(db);
+    const webSearchProviderStore = new SqliteWebSearchProviderStore(db);
     agentStore = new SqliteAgentStore(db);
 
     await modelProviderStore.upsertProvider({
@@ -96,6 +103,7 @@ describe('sessions HTTP agent binding', () => {
       resolveSkillStore: () => skillStore,
       resolveAgentStore: () => agentStore,
       resolveSandboxProviderStore: () => sandboxProviderStore,
+      resolveWebSearchProviderStore: () => webSearchProviderStore,
       redis: createClient(),
       requestReplyRouter: new RequestReplyRouter(),
       resolveRequestContext: () => STANDALONE_REQUEST_CONTEXT,
@@ -105,6 +113,30 @@ describe('sessions HTTP agent binding', () => {
     sessionDeps = deps;
     app = new OpenAPIHono();
     app.route('/', createSessionsRouter(deps));
+    const tokenStore = new SqliteOAuthTokenStore(db);
+    app.route(
+      '/',
+      createTurnsRouter({
+        sessions,
+        sessionStore,
+        activeTurns: deps.activeTurns,
+        resolveModelProviderStore: () => modelProviderStore,
+        resolveMcpServerStore: () =>
+          new McpServerWithAuthStore({
+            store: mcpServerStore,
+            tokenStore,
+            clientName: 'test-client',
+          }),
+        resolveSkillStore: () => skillStore,
+        resolveAgentStore: () => agentStore,
+        eventSubscriptions: new EventSubscriptionRegistry(undefined),
+        resolveSandboxProviderStore: () => sandboxProviderStore,
+        resolveWebSearchProviderStore: () => webSearchProviderStore,
+        logger: deps.logger,
+        resolveRequestContext: deps.resolveRequestContext,
+        authorizer: deps.authorizer,
+      }),
+    );
     app.route('/api/internal/sessions', createInternalSessionsRouter(deps));
     app.route(
       '/api/internal/metrics',
@@ -420,8 +452,92 @@ describe('sessions HTTP agent binding', () => {
     expect(eventsForbidden.status).toBe(403);
     expect(await eventsForbidden.json()).toEqual(forbiddenBody);
 
+    const sendEventsForbidden = await app.request(
+      '/other-user-session/turns/any-turn/events',
+      jsonInit('POST', {
+        events: [
+          {
+            type: 'user.tool_approval',
+            thread_id: 'main',
+            tool_call_id: 'tc-1',
+            approval: { status: 'allow' },
+          },
+        ],
+      }),
+    );
+    expect(sendEventsForbidden.status).toBe(403);
+    expect(await sendEventsForbidden.json()).toEqual(forbiddenBody);
+
     const allowed = await app.request(`/${json.data.id}`);
     expect(allowed.status).toBe(200);
+  });
+
+  it('POST /sessions/{id}/turns/{turn_id}/events mints ids for events', async () => {
+    const created = await app.request('/', jsonInit('POST', { agent: { spec: inlineSpec } }));
+    expect(created.status).toBe(201);
+    const { data: session } = (await created.json()) as { data: { id: string } };
+    await sessionStore.createTurn(makeCreateTurnInput({ sessionId: session.id, turnId: 'tip-1' }));
+
+    const res = await app.request(
+      `/${session.id}/turns/tip-1/events`,
+      jsonInit('POST', {
+        events: [
+          {
+            type: 'user.tool_approval',
+            thread_id: 'main',
+            tool_call_id: 'tc-1',
+            approval: { status: 'allow' },
+          },
+          {
+            type: 'user.tool_approval_policy',
+            policies: [
+              {
+                server_name: 'github',
+                name: 'create_issue',
+                action: { type: 'allow_session' },
+              },
+            ],
+          },
+          {
+            type: 'user.mcp_auth_continue',
+          },
+        ],
+      }),
+    );
+    expect(res.status).toBe(201);
+    const body = (await res.json()) as {
+      data: Array<{
+        id: string;
+        created_at: string;
+        type: string;
+        thread_id?: string;
+        tool_call_id?: string;
+        approval?: { status: string };
+        policies?: unknown[];
+      }>;
+    };
+    expect(body.data).toHaveLength(3);
+    expect(body.data[0]).toMatchObject({
+      type: 'user.tool_approval',
+      thread_id: 'main',
+      tool_call_id: 'tc-1',
+      approval: { status: 'allow' },
+    });
+    expect(body.data[0]?.id).toEqual(expect.any(String));
+    expect(body.data[0]?.created_at).toEqual(expect.any(String));
+    expect(body.data[1]).toMatchObject({
+      type: 'user.tool_approval_policy',
+      policies: [
+        {
+          server_name: 'github',
+          name: 'create_issue',
+          action: { type: 'allow_session' },
+        },
+      ],
+    });
+    expect(body.data[2]).toMatchObject({ type: 'user.mcp_auth_continue' });
+    expect(body.data[2]?.id).toEqual(expect.any(String));
+    expect(body.data[2]?.created_at).toEqual(expect.any(String));
   });
 
   it('rejects PATCH agent on a named session', async () => {

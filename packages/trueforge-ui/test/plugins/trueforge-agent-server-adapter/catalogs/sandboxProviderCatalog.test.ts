@@ -5,6 +5,7 @@ import { describe, it } from 'vitest';
 import {
   configFromHarness,
   filterUiSandboxProviders,
+  isDaytonaSandboxConfig,
   toHarnessManifest,
   toUiCatalogEntry,
   toUiSandboxProvider,
@@ -39,8 +40,6 @@ describe('sandboxProviderCatalog mappers', () => {
     };
   }
 
-  // Snapshot/image is release-owned now; mappers emit an empty snapshotName only to satisfy
-  // the external SandboxProviderConfig type, and toHarnessManifest omits it entirely.
   it('stamps catalog identity from type and strips auth', () => {
     assert.deepEqual(toUiCatalogEntry(harnessCatalog), {
       id: 'daytona',
@@ -123,5 +122,10 @@ describe('sandboxProviderCatalog mappers', () => {
         }),
       /Unsupported sandbox provider type/i,
     );
+  });
+
+  it('narrows DaytonaSandboxConfig via type guard', () => {
+    assert.equal(isDaytonaSandboxConfig(configFromHarness(harnessCatalog)), true);
+    assert.equal(isDaytonaSandboxConfig({ id: 'daytona' }), false);
   });
 });

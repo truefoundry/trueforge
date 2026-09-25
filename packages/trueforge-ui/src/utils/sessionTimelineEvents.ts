@@ -1,6 +1,12 @@
 import { MAIN_THREAD_ID } from './sessionEventTimeline.js';
 import type { SessionTurnView } from './sessionTurnViews.js';
-import { parseSandboxArgs, SANDBOX_TOOL_NAMES } from './toolCallParsing.js';
+import {
+  MCP_META_TOOLS,
+  mcpDisplayName,
+  parseMcpToolArgs,
+  parseSandboxArgs,
+  SANDBOX_TOOL_NAMES,
+} from './toolCallParsing.js';
 
 export type TimelineEvent = Record<string, unknown> & { type: string };
 
@@ -123,10 +129,16 @@ export function getSubAgentDescription(event: TimelineEvent): string {
 export function toolCallDescription(toolCall: Record<string, unknown>): string {
   const fn = isRecord(toolCall.function) ? toolCall.function : undefined;
   const name = typeof fn?.name === 'string' ? fn.name : '';
+  const argumentsJson = typeof fn?.arguments === 'string' ? fn.arguments : undefined;
   if (SANDBOX_TOOL_NAMES.has(name) || name === 'code_sandbox') {
-    const argumentsJson = typeof fn?.arguments === 'string' ? fn.arguments : undefined;
     const intent = parseSandboxArgs(argumentsJson).intent?.trim();
-    return intent != null && intent.length > 0 ? intent : name;
+    const sandboxTool = `Sandbox: ${name}`;
+    return intent != null && intent.length > 0 ? `${sandboxTool} - ${intent}` : sandboxTool;
+  }
+  // Deferred MCP wrappers store the real tool in args; surface it like ToolCallContainer.
+  if (MCP_META_TOOLS.has(name)) {
+    const { mcpServer, innerToolName } = parseMcpToolArgs(argumentsJson);
+    return mcpDisplayName(name, mcpServer, innerToolName);
   }
   return name;
 }

@@ -42,7 +42,7 @@ jobs:
           APP_SLUG: ${{ steps.app-token.outputs.app-slug }}
         run: |
           set -euo pipefail
-          for f in trueforge.truefoundry.yaml trueforge-controller.truefoundry.yaml; do
+          for f in trueforge.truefoundry.yaml trueforge-controller.truefoundry.yaml trueforge-clone-tfy-sandbox.truefoundry.yaml; do
             yq -i '
               .image.build_source.ref = strenv(SHA) |
               .image.build_source.branch_name = strenv(BRANCH)
@@ -51,7 +51,7 @@ jobs:
 
           git config user.name "${APP_SLUG}[bot]"
           git config user.email "${APP_SLUG}[bot]@users.noreply.github.com"
-          git add trueforge.truefoundry.yaml trueforge-controller.truefoundry.yaml
+          git add trueforge.truefoundry.yaml trueforge-controller.truefoundry.yaml trueforge-clone-tfy-sandbox.truefoundry.yaml
           if git diff --cached --quiet; then
             echo "Already pinned at $SHA"
             exit 0

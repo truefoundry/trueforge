@@ -113,7 +113,13 @@ export {
   ToolApprovalRequiredEventSchema,
   ToolResponseEventSchema,
   ToolResponseRequiredEventSchema,
+  UserMCPAuthContinueEventSchema,
+  UserMCPAuthContinueMessageSchema,
+  UserToolApprovalEventSchema,
   UserToolApprovalMessageSchema,
+  UserToolApprovalPolicyEventSchema,
+  UserToolApprovalPolicyMessageSchema,
+  UserToolResponseEventSchema,
   UserToolResponseMessageSchema,
   newEventId,
 } from './events/schema';
@@ -124,6 +130,12 @@ export type {
   MCPServerInitInfo,
   ThreadDoneEvent,
   ThreadOverwriteContextEvent,
+  UserMCPAuthContinueEvent,
+  UserMCPAuthContinueMessage,
+  UserToolApprovalEvent,
+  UserToolApprovalPolicyEvent,
+  UserToolApprovalPolicyMessage,
+  UserToolResponseEvent,
 } from './events/schema';
 export { CompletionUsageSchema } from './llm/LLMTypes';
 export type { CompletionUsage } from './llm/LLMTypes';
@@ -145,6 +157,7 @@ export { AgentHarnessError, McpConnectionError, McpDcrConfigurationError } from 
 export { REDIS_KEY_NAMESPACE, redisKey } from './redisKeys';
 export { describeUnknownError, extractErrorLogFields } from './util/errorLogFields';
 export { PromiseTimeoutError, withTimeout } from './util/promiseUtils';
+export { assertSafeOutboundUrl, configureOutboundUrlGuard, ssrfFetch } from './util/ssrfGuard';
 
 // Sandbox (concrete implementation; provider details exported for composition)
 export { CodeModeDispatcher } from './sandbox/codeMode/CodeModeDispatcher';

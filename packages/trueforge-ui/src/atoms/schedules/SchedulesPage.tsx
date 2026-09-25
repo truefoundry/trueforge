@@ -33,6 +33,7 @@ import {
   TableRow,
   TableTokenPagination,
 } from '../primitives/Table.js';
+import { Tooltip } from '../primitives/Tooltip.js';
 import { formatCadenceSummary } from './cadence.js';
 import { ScheduleFormDrawer } from './ScheduleFormDrawer.js';
 import { ScheduleLastRunsCell } from './ScheduleLastRunsCell.js';
@@ -382,7 +383,7 @@ export function SchedulesPage({ agentId }: SchedulesPageProps) {
   return (
     <div className="flex h-full min-h-0 flex-col bg-primary-bg">
       <PageHeader
-        title={agentId === undefined ? 'Scheduled Agents' : undefined}
+        title={agentId === undefined ? 'Agent Schedules' : undefined}
         end={
           <>
             <div className="w-full sm:w-60">
@@ -428,7 +429,7 @@ export function SchedulesPage({ agentId }: SchedulesPageProps) {
               }
             >
               <Icon name="plus" className="size-3.5" />
-              Create Schedule
+              New Schedule
             </Button.Primary>
           </>
         }
@@ -468,11 +469,11 @@ export function SchedulesPage({ agentId }: SchedulesPageProps) {
           </div>
         ) : (
           <div className="overflow-hidden rounded-lg border border-border">
-            <Table className="min-w-[48rem]">
+            <Table className="min-w-240">
               <TableHeader>
                 <TableRow className="hover:bg-transparent">
-                  <TableHead>Name</TableHead>
-                  <TableHead>Agent</TableHead>
+                  <TableHead>Schedule Name</TableHead>
+                  <TableHead>Task</TableHead>
                   {showCreatedByColumn ? <TableHead>Created by</TableHead> : null}
                   <TableHead>Frequency</TableHead>
                   <TableHead>Status</TableHead>
@@ -488,10 +489,22 @@ export function SchedulesPage({ agentId }: SchedulesPageProps) {
                   const agentLabel = schedule.agentName ?? agentLabelById[schedule.agentId] ?? schedule.agentId;
                   return (
                     <TableRow key={schedule.id}>
-                      <TableCell className="text-text-primary font-medium">
-                        <span className="text-left !no-underline">{schedule.name}</span>
+                      <TableCell className="w-48 max-w-48">
+                        <span className="text-text-primary block truncate font-medium">{schedule.name}</span>
+                        <span className="mt-1 flex min-w-0 items-center gap-1 text-xs">
+                          <Icon name="agent-2" className="size-3 shrink-0" />
+                          <span className="truncate">{agentLabel}</span>
+                        </span>
                       </TableCell>
-                      <TableCell>{agentLabel}</TableCell>
+                      <TableCell className="w-64 max-w-64">
+                        <Tooltip
+                          content={schedule.task}
+                          className="max-w-sm whitespace-normal text-left"
+                          triggerClassName="block min-w-0 w-full max-w-full"
+                        >
+                          <span className="block truncate">{schedule.task}</span>
+                        </Tooltip>
+                      </TableCell>
                       {showCreatedByColumn ? (
                         <TableCell>
                           <CreatedByCell subject={schedule.createdBySubject} />

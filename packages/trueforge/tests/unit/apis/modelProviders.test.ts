@@ -1,3 +1,4 @@
+import { configureOutboundUrlGuard } from '@truefoundry/trueforge-core/core';
 import winston from 'winston';
 import { createCatalogRouter } from '../../../src/apis/catalog';
 import { createModelsRouter } from '../../../src/apis/models';
@@ -7,6 +8,7 @@ import { McpCatalog } from '../../../src/catalog/McpCatalog';
 import { ModelCatalog } from '../../../src/catalog/ModelCatalog';
 import { SandboxCatalog } from '../../../src/catalog/SandboxCatalog';
 import { SkillCatalog } from '../../../src/catalog/SkillCatalog';
+import { WebSearchCatalog } from '../../../src/catalog/WebSearchCatalog';
 import configuration from '../../../src/config';
 import { McpServerWithAuthStore } from '../../../src/db/McpServerWithAuthStore';
 import { migrateSqliteToLatest } from '../../../src/db/migrateSqlite';
@@ -17,6 +19,7 @@ import { SqliteModelProviderStore } from '../../../src/db/sqlite/model-provider-
 import { SqliteSandboxProviderStore } from '../../../src/db/sqlite/sandbox-provider-store/SqliteSandboxProviderStore';
 import { SqliteSkillStore } from '../../../src/db/sqlite/skill-store/SqliteSkillStore';
 import { SqliteOAuthTokenStore } from '../../../src/db/sqlite/token-store/SqliteOAuthTokenStore';
+import { SqliteWebSearchProviderStore } from '../../../src/db/sqlite/web-search-provider-store/SqliteWebSearchProviderStore';
 import { toRedactedSecretValue } from '../../../src/utils/secretRedaction';
 
 const model = {
@@ -77,6 +80,29 @@ function postInit(manifest: unknown): RequestInit {
   };
 }
 
+beforeAll(() => {
+  configureOutboundUrlGuard({
+    allowedHosts: [
+      'api.openai.com',
+      'api.anthropic.com',
+      'generativelanguage.googleapis.com',
+      'api.fireworks.ai',
+      'api.z.ai',
+      'api.moonshot.ai',
+      'api.together.xyz',
+      'dashscope-intl.aliyuncs.com',
+      'llm.internal.example.com',
+      'gateway.internal.example.com',
+      'llm.eu.example.com',
+    ],
+    blockedHosts: [],
+  });
+});
+
+afterAll(() => {
+  configureOutboundUrlGuard({ allowedHosts: [], blockedHosts: [] });
+});
+
 function withRedactedApiKey<T extends { auth: { api_key: string } }>(provider: T): T {
   return {
     ...provider,
@@ -106,6 +132,7 @@ async function createRouters(): Promise<{
       tokenStore,
       resolveSkillStore: () => new SqliteSkillStore(db),
       resolveSandboxProviderStore: () => new SqliteSandboxProviderStore(db),
+      resolveWebSearchProviderStore: () => new SqliteWebSearchProviderStore(db),
       withTransaction: callback => db.transaction().execute(callback),
       logger: winston.createLogger({ silent: true }),
       resolveRequestContext: () => STANDALONE_REQUEST_CONTEXT,
@@ -115,6 +142,7 @@ async function createRouters(): Promise<{
       mcpCatalog: McpCatalog.load(),
       skillCatalog: SkillCatalog.load(),
       sandboxCatalog: SandboxCatalog.load(),
+      webSearchCatalog: WebSearchCatalog.load(),
     }),
     modelsRouter: createModelsRouter({
       resolveModelProviderStore: () => modelProviderStore,
@@ -227,7 +255,7 @@ describe('custom providers may omit auth', () => {
     const base = {
       type: 'custom' as const,
       name,
-      base_url: 'http://localhost:11434/v1',
+      base_url: 'http://93.184.216.34:11434/v1',
       models: [model],
     };
     const body = auth === undefined ? base : { ...base, auth };
@@ -249,7 +277,7 @@ describe('custom providers may omit auth', () => {
       putInit({
         type: 'custom',
         name: 'llama-empty-key',
-        base_url: 'http://localhost:11434/v1',
+        base_url: 'http://93.184.216.34:11434/v1',
         auth: { api_key: '' },
         models: [model],
       }),
@@ -264,12 +292,39 @@ describe('custom providers may omit auth', () => {
       putInit({
         type: 'custom',
         name: 'llama-empty-auth',
-        base_url: 'http://localhost:11434/v1',
+        base_url: 'http://93.184.216.34:11434/v1',
         auth: {},
         models: [model],
       }),
     );
     expect(put.status).toBe(400);
+  });
+
+  it('PUT and POST reject private outbound URLs', async () => {
+    const { settingsRouter } = await createRouters();
+    const blocked = {
+      type: 'custom' as const,
+      name: 'ssrf-provider',
+      base_url: 'http://169.254.169.254/v1',
+      models: [model],
+    };
+    const put = await settingsRouter.request('/model-providers', putInit(blocked));
+    expect(put.status).toBe(400);
+    expect(await put.json()).toEqual({
+      error: { message: 'Outbound URL blocked for host "169.254.169.254"' },
+    });
+
+    const post = await settingsRouter.request(
+      '/model-providers',
+      postInit({ ...blocked, name: 'ssrf-provider-post', base_url: 'http://127.0.0.1:11434/v1' }),
+    );
+    expect(post.status).toBe(400);
+    expect(await post.json()).toEqual({
+      error: { message: 'Outbound URL blocked for host "127.0.0.1"' },
+    });
+    const list = await settingsRouter.request('/model-providers');
+    expect(list.status).toBe(200);
+    expect(await list.json()).toEqual({ data: [] });
   });
 });
 

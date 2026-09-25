@@ -282,6 +282,7 @@ export function runStoreContractSuite(createStore: () => ISessionStore) {
           agent: { type: 'inline', spec: makeAgentSpec({ instructions: 'nope' }) },
           title: undefined,
           metadata: undefined,
+          shared: undefined,
         }),
       ).rejects.toBeInstanceOf(SessionStoreInvariantError);
     });
@@ -307,6 +308,7 @@ export function runStoreContractSuite(createStore: () => ISessionStore) {
         agent: { type: 'inline', spec: nextSpec },
         title: 'Hello',
         metadata: undefined,
+        shared: undefined,
       });
       const after = await store.getSession({ tenant_id: tenant, session_id: sessionId });
       expect(mustGet(after).agent).toMatchObject({
@@ -353,6 +355,7 @@ export function runStoreContractSuite(createStore: () => ISessionStore) {
         agent: undefined,
         title: undefined,
         metadata: { b: '2' },
+        shared: undefined,
       });
       expect(mustGet(await store.getSession({ tenant_id: tenant, session_id: sessionId })).metadata).toEqual({
         b: '2',
@@ -364,6 +367,7 @@ export function runStoreContractSuite(createStore: () => ISessionStore) {
         agent: undefined,
         title: 'keep-meta',
         metadata: undefined,
+        shared: undefined,
       });
       const afterOmit = mustGet(await store.getSession({ tenant_id: tenant, session_id: sessionId }));
       expect(afterOmit.title).toBe('keep-meta');
@@ -375,8 +379,53 @@ export function runStoreContractSuite(createStore: () => ISessionStore) {
         agent: undefined,
         title: undefined,
         metadata: {},
+        shared: undefined,
       });
       expect(mustGet(await store.getSession({ tenant_id: tenant, session_id: sessionId })).metadata).toEqual({});
+    });
+
+    it('createSession defaults shared to false', async () => {
+      const store = createStore();
+      await seedSession(store);
+      expect(mustGet(await store.getSession({ tenant_id: tenant, session_id: sessionId })).shared).toBe(false);
+    });
+
+    it('updateSession patches shared when set and leaves it when omitted', async () => {
+      const store = createStore();
+      await seedSession(store);
+      expect(mustGet(await store.getSession({ tenant_id: tenant, session_id: sessionId })).shared).toBe(false);
+
+      await store.updateSession({
+        tenant_id: tenant,
+        session_id: sessionId,
+        agent: undefined,
+        title: undefined,
+        metadata: undefined,
+        shared: true,
+      });
+      expect(mustGet(await store.getSession({ tenant_id: tenant, session_id: sessionId })).shared).toBe(true);
+
+      await store.updateSession({
+        tenant_id: tenant,
+        session_id: sessionId,
+        agent: undefined,
+        title: 'keep-shared',
+        metadata: undefined,
+        shared: undefined,
+      });
+      const afterOmit = mustGet(await store.getSession({ tenant_id: tenant, session_id: sessionId }));
+      expect(afterOmit.title).toBe('keep-shared');
+      expect(afterOmit.shared).toBe(true);
+
+      await store.updateSession({
+        tenant_id: tenant,
+        session_id: sessionId,
+        agent: undefined,
+        title: undefined,
+        metadata: undefined,
+        shared: false,
+      });
+      expect(mustGet(await store.getSession({ tenant_id: tenant, session_id: sessionId })).shared).toBe(false);
     });
 
     it('createSession conflict when session already exists', async () => {
@@ -648,6 +697,7 @@ export function runStoreContractSuite(createStore: () => ISessionStore) {
           agent: undefined,
           title: 'new-title',
           metadata: undefined,
+          shared: undefined,
         }),
       ).rejects.toBeInstanceOf(SessionNotFoundError);
       await expect(store.createTurn(makeCreateTurnInput({ sessionId, turnId: 'turn-2' }))).rejects.toBeInstanceOf(
@@ -687,6 +737,24 @@ export function runStoreContractSuite(createStore: () => ISessionStore) {
           order: undefined,
         }),
       ).rejects.toBeInstanceOf(TurnNotFoundError);
+      await expect(
+        store.insertTurnInboundEvents({
+          session_id: sessionId,
+          turn_id: 'turn-1',
+          events: [
+            {
+              event_id: newEventId(),
+              payload: {
+                type: 'user.tool_approval',
+                thread_id: 'main',
+                tool_call_id: 'tc-1',
+                approval: { status: 'allow' },
+              },
+              created_at: new Date().toISOString(),
+            },
+          ],
+        }),
+      ).rejects.toBeInstanceOf(SessionNotFoundError);
       await expect(
         store.listSessionEvents({
           session_id: sessionId,
@@ -784,6 +852,7 @@ export function runStoreContractSuite(createStore: () => ISessionStore) {
           agent: undefined,
           title: 'new-title',
           metadata: undefined,
+          shared: undefined,
         }),
       ).rejects.toBeInstanceOf(SessionNotFoundError);
       await expect(
@@ -971,6 +1040,7 @@ export function runStoreContractSuite(createStore: () => ISessionStore) {
         agent: undefined,
         title: 'bumped',
         metadata: undefined,
+        shared: undefined,
       });
 
       const listArgs = {
@@ -2208,6 +2278,206 @@ export function runStoreContractSuite(createStore: () => ISessionStore) {
       expect(data.map(e => e.id)).toEqual([created.id, model.id]);
     });
 
+    it('turn_inbound_events: insert, duplicate id, terminal tip rejects', async () => {
+      const store = createStore();
+      await seedSession(store);
+      await store.createTurn(makeCreateTurnInput({ sessionId, turnId: 'turn-1' }));
+
+      const earlier = {
+        event_id: 'evt-a',
+        payload: {
+          type: 'user.tool_approval' as const,
+          thread_id: 'main',
+          tool_call_id: 'tc-1',
+          approval: { status: 'allow' as const },
+        },
+        created_at: new Date().toISOString(),
+      };
+      const later = {
+        event_id: 'evt-b',
+        payload: {
+          type: 'user.tool_approval' as const,
+          thread_id: 'main',
+          tool_call_id: 'tc-2',
+          approval: { status: 'deny' as const, reason: 'nope' },
+        },
+        created_at: new Date().toISOString(),
+      };
+
+      await store.insertTurnInboundEvents({
+        session_id: sessionId,
+        turn_id: 'turn-1',
+        events: [later, earlier],
+      });
+
+      await expect(
+        store.insertTurnInboundEvents({
+          session_id: sessionId,
+          turn_id: 'turn-1',
+          events: [later],
+        }),
+      ).rejects.toMatchObject({
+        name: 'TurnEventAlreadyExistsError',
+        event_id: later.event_id,
+      });
+
+      // Later id in the batch collides — error must name that id.
+      const fresh = {
+        event_id: 'evt-fresh',
+        payload: {
+          type: 'user.tool_approval' as const,
+          thread_id: 'main',
+          tool_call_id: 'tc-fresh',
+          approval: { status: 'allow' as const },
+        },
+        created_at: new Date().toISOString(),
+      };
+      await expect(
+        store.insertTurnInboundEvents({
+          session_id: sessionId,
+          turn_id: 'turn-1',
+          events: [fresh, later],
+        }),
+      ).rejects.toMatchObject({
+        name: 'TurnEventAlreadyExistsError',
+        event_id: later.event_id,
+      });
+
+      const dupId = 'evt-dup';
+      await expect(
+        store.insertTurnInboundEvents({
+          session_id: sessionId,
+          turn_id: 'turn-1',
+          events: [
+            {
+              event_id: dupId,
+              payload: {
+                type: 'user.tool_approval' as const,
+                thread_id: 'main',
+                tool_call_id: 'tc-dup',
+                approval: { status: 'allow' as const },
+              },
+              created_at: new Date().toISOString(),
+            },
+            {
+              event_id: dupId,
+              payload: {
+                type: 'user.tool_approval' as const,
+                thread_id: 'main',
+                tool_call_id: 'tc-dup-2',
+                approval: { status: 'deny' as const, reason: 'dup' },
+              },
+              created_at: new Date().toISOString(),
+            },
+          ],
+        }),
+      ).rejects.toMatchObject({
+        name: 'TurnEventAlreadyExistsError',
+        event_id: dupId,
+      });
+
+      // Terminal tip rejects inbox writes.
+      await finishTurn(store, 'turn-1');
+      await expect(
+        store.insertTurnInboundEvents({
+          session_id: sessionId,
+          turn_id: 'turn-1',
+          events: [
+            {
+              event_id: 'evt-after-done',
+              payload: {
+                type: 'user.tool_response' as const,
+                thread_id: 'main',
+                tool_call_id: 'tc-3',
+                content: 'client result',
+              },
+              created_at: new Date().toISOString(),
+            },
+          ],
+        }),
+      ).rejects.toBeInstanceOf(TurnNotRunningError);
+    });
+
+    it('concurrent freeze x insertTurnInboundEvents: terminal tip rejects or insert wins cleanly', async () => {
+      const store = createStore();
+      await seedSession(store);
+      await store.createTurn(makeCreateTurnInput({ sessionId, turnId: 'turn-1' }));
+      const cancelledState = makeCancelledTurnState(CancellationReason.CancelledForNextTurn);
+      const inbound = {
+        event_id: 'evt-race',
+        payload: {
+          type: 'user.tool_approval' as const,
+          thread_id: 'main',
+          tool_call_id: 'tc-race',
+          approval: { status: 'allow' as const },
+        },
+        created_at: new Date().toISOString(),
+      };
+
+      const results = await Promise.allSettled([
+        store.freezeAndGetTurn({
+          session_id: sessionId,
+          turn_id: 'turn-1',
+          reason: CancellationReason.CancelledForNextTurn,
+          turn_done_event: makeTurnDoneEvent(cancelledState),
+        }),
+        store.insertTurnInboundEvents({
+          session_id: sessionId,
+          turn_id: 'turn-1',
+          events: [inbound],
+        }),
+      ]);
+
+      const insertResult = results[1];
+      if (insertResult.status === 'rejected') {
+        expect(insertResult.reason).toBeInstanceOf(TurnNotRunningError);
+      }
+
+      const turn = await store.getTurn({ session_id: sessionId, turn_id: 'turn-1' });
+      expect(mustGet(turn).state.status).toBe('cancelled');
+    });
+
+    it('turn_inbound_events cascade away with deleteSession', async () => {
+      const store = createStore();
+      await seedSession(store);
+      await store.createTurn(makeCreateTurnInput({ sessionId, turnId: 'turn-1' }));
+      await store.insertTurnInboundEvents({
+        session_id: sessionId,
+        turn_id: 'turn-1',
+        events: [
+          {
+            event_id: newEventId(),
+            payload: {
+              type: 'user.tool_approval',
+              thread_id: 'main',
+              tool_call_id: 'tc-x',
+              approval: { status: 'allow' },
+            },
+            created_at: new Date().toISOString(),
+          },
+        ],
+      });
+      await store.deleteSession({ tenant_id: tenant, session_id: sessionId });
+      await expect(
+        store.insertTurnInboundEvents({
+          session_id: sessionId,
+          turn_id: 'turn-1',
+          events: [
+            {
+              event_id: newEventId(),
+              payload: {
+                type: 'user.tool_approval',
+                thread_id: 'main',
+                tool_call_id: 'tc-after-delete',
+                approval: { status: 'allow' },
+              },
+              created_at: new Date().toISOString(),
+            },
+          ],
+        }),
+      ).rejects.toBeInstanceOf(SessionNotFoundError);
+    });
+
     it('add/remove threads and append/overwrite context', async () => {
       const store = createStore();
       await seedSession(store);
@@ -2429,6 +2699,7 @@ export function runStoreContractSuite(createStore: () => ISessionStore) {
         agent: undefined,
         title: jsonLooking,
         metadata: undefined,
+        shared: undefined,
       });
       await store.createTurn(
         makeCreateTurnInput({

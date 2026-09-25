@@ -9,6 +9,7 @@ import type {
   SessionMetadata,
   SessionMetrics,
   SessionSource,
+  TurnInboundEventItem,
   TurnInputItem,
   TurnState,
 } from '@truefoundry/trueforge-core/agent-session';
@@ -32,6 +33,7 @@ import type {
 } from '../../schemas/sandboxProvider';
 import type { ScheduleManifest, ScheduleRunStatus, ScheduleStatus } from '../../schemas/schedule';
 import type { SkillManifest } from '../../schemas/skill';
+import type { WebSearchProviderManifest } from '../../schemas/webSearchProvider';
 import type { OAuthClient, OAuthPendingAuthorizationData, OAuthServer, OAuthToken } from '../mcpServerStore';
 
 /**
@@ -85,6 +87,8 @@ export interface SessionTable {
    *      (COALESCE) targets it directly
    */
   title: string | null;
+  /** When true, any subject in the tenant may GET this session. */
+  shared: boolean;
   /**
    * top: HOT — bumped once per createTurn under the session lock;
    *      tiny fixed-width column keeps the bump a cheap HOT update
@@ -250,6 +254,19 @@ export interface SessionEventTable {
 }
 
 /**
+ * Turn-scoped inbound send-event inbox.
+ * PRIMARY KEY (session_id, turn_id, event_id).
+ */
+export interface TurnInboundEventsTable {
+  session_id: string;
+  turn_id: string;
+  event_id: string;
+  payload: JSONColumnType<TurnInboundEventItem, TurnInboundEventItem, TurnInboundEventItem>;
+  consumed: boolean;
+  created_at: Date;
+}
+
+/**
  * pure immutable CONTENT; no state → no checkpoint field
  * PRIMARY KEY (session_id, thread_id, append_id)
  * pure INSERT → default fillfactor 100, zero dead tuples;
@@ -337,6 +354,17 @@ export interface ModelProviderTable {
   name: string;
   /** ModelProvider document; replaced whole on every upsert */
   manifest: JSONColumnType<ModelProviderManifest, ModelProviderManifest, ModelProviderManifest>;
+  created_at: Date;
+  updated_at: Date;
+}
+
+/**
+ * Configured web-search provider — mirrors the Postgres `web_search_provider` table.
+ * PRIMARY KEY (tenant_id)
+ */
+export interface WebSearchProviderTable {
+  tenant_id: string;
+  manifest: JSONColumnType<WebSearchProviderManifest, WebSearchProviderManifest, WebSearchProviderManifest>;
   created_at: Date;
   updated_at: Date;
 }
@@ -520,9 +548,11 @@ export interface Database {
   turn: TurnTable;
   turn_thread: TurnThreadTable;
   session_event: SessionEventTable;
+  turn_inbound_events: TurnInboundEventsTable;
   thread_context_log: ThreadContextLogTable;
   thread_capability_state: ThreadCapabilityStateTable;
   model_provider: ModelProviderTable;
+  web_search_provider: WebSearchProviderTable;
   skill: SkillTable;
   sandbox_provider: SandboxProviderTable;
   agent: AgentTable;

@@ -35,18 +35,18 @@ That replacement is what `overrides` does: name a component, supply your own, an
 <SlotsProvider overrides={overrides} theme={theme}>
   <ServerProvider server={server}>
     <ShellModeProvider agentConfig={{ mode: "AgentLibrary" }}>
-      <TrueFoundryChatProvider server={server}>
+      <TrueForgeChatProvider server={server}>
         <MyLayout />
-      </TrueFoundryChatProvider>
+      </TrueForgeChatProvider>
     </ShellModeProvider>
   </ServerProvider>
 </SlotsProvider>
 ```
 
-Order matters: `SlotsProvider` must be outside `TrueFoundryChatProvider`.
+Order matters: `SlotsProvider` must be outside `TrueForgeChatProvider`.
 
 <Warning>
-  Composing manually means you own runtime resets. `TrueForgeUI` remounts the chat runtime when the selected agent changes, a new draft starts, or the chat is cleared; a hand-rolled stack does not. Change the `key` on `TrueFoundryChatProvider` yourself at those moments, or stale messages carry over between agents.
+  Composing manually means you own runtime resets. `TrueForgeUI` remounts the chat runtime when the selected agent changes, a new draft starts, or the chat is cleared; a hand-rolled stack does not. Change the `key` on `TrueForgeChatProvider` yourself at those moments, or stale messages carry over between agents.
 </Warning>
 
 ## Styling hooks

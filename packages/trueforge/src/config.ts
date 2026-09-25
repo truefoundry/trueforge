@@ -8,16 +8,20 @@
  *
  * `STANDALONE` is a discriminated mode selector:
  * - `true` (default): SQLite only; no Redis / executor peering.
- * - `false`: Postgres + Redis (defaults to local trueforge credentials /
- *   `redis://localhost:6379`).
+ * - `false`: Postgres; Redis required for the server (optional for controller / migrate).
  */
 import { existsSync, readFileSync } from 'node:fs';
+import { isIPv6 } from 'node:net';
 import os from 'node:os';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 
 import envPaths from 'env-paths';
 import { z } from 'zod';
+
+import { parseRedisSentinelNodes, type RedisConnection } from './runtime/redis';
+
+export type { RedisConnection };
 
 const DEFAULT_PORT = 8790;
 /** Loopback default; container images set HOST=0.0.0.0 so probes and Service traffic reach the process. */
@@ -40,7 +44,6 @@ const DEFAULT_POSTGRES_HOST = 'localhost';
 const DEFAULT_POSTGRES_PORT = 5432;
 /** Default Postgres schema for app tables + Kysely migration bookkeeping. */
 export const DEFAULT_POSTGRES_SCHEMA = 'trueforge';
-const DEFAULT_REDIS_URL = 'redis://localhost:6379';
 /** Unquoted Postgres identifier: letter/underscore start, then alnum/underscore, ≤63 chars. */
 const POSTGRES_SCHEMA_NAME_RE = /^[a-z_][a-z0-9_]{0,62}$/;
 /**
@@ -132,6 +135,18 @@ export function parseCommaSeparatedEnvList(raw: string | undefined): string[] {
     .filter(part => part.length > 0);
 }
 
+/** Parses a JSON string array env. Empty / unset → `[]`. */
+export function parseJsonStringArrayEnv({ envKey, raw }: { envKey: string; raw: string | undefined }): string[] {
+  if (raw === undefined || raw.trim() === '') {
+    return [];
+  }
+  try {
+    return z.array(z.string()).parse(JSON.parse(raw));
+  } catch (error) {
+    throw new Error(`Environment variable ${envKey} must be a JSON string array`, { cause: error });
+  }
+}
+
 /**
  * Parses `OIDC_ALLOWED_EMAILS`: comma-separated exact addresses and/or globs
  * (`*@company.com`). Empty / unset → no allowlist (any authenticated user may sign in).
@@ -198,6 +213,18 @@ function parsePositiveInt(options: { envKey: string; raw: string | undefined; de
   const value = Number(raw);
   if (!Number.isInteger(value) || value < 1) {
     throw new Error(`Environment variable ${envKey} must be a positive integer, got "${raw}"`);
+  }
+  return value;
+}
+
+function parseNonNegativeInt(options: { envKey: string; raw: string | undefined; defaultValue: number }): number {
+  const { envKey, raw, defaultValue } = options;
+  if (raw === undefined || raw.trim() === '') {
+    return defaultValue;
+  }
+  const value = Number(raw);
+  if (!Number.isInteger(value) || value < 0) {
+    throw new Error(`Environment variable ${envKey} must be a non-negative integer, got "${raw}"`);
   }
   return value;
 }
@@ -270,6 +297,30 @@ function parseTrueFoundrySandboxProvider(raw: string | undefined): 'daytona' | '
   );
 }
 
+/** Parses `SENTRY_ADDITIONAL_TAGS` as a JSON object of string values. Unset/blank → `{}`. */
+function parseSentryAdditionalTags(raw: string | undefined): Record<string, string> {
+  if (raw === undefined || raw.trim() === '') {
+    return {};
+  }
+  let parsed: unknown;
+  try {
+    parsed = JSON.parse(raw);
+  } catch (error) {
+    throw new Error('SENTRY_ADDITIONAL_TAGS must be a JSON object of string values', { cause: error });
+  }
+  if (typeof parsed !== 'object' || parsed === null || Array.isArray(parsed)) {
+    throw new Error('SENTRY_ADDITIONAL_TAGS must be a JSON object of string values');
+  }
+  const tags: Record<string, string> = {};
+  for (const [key, value] of Object.entries(parsed)) {
+    if (typeof value !== 'string') {
+      throw new Error(`SENTRY_ADDITIONAL_TAGS.${key} must be a string`);
+    }
+    tags[key] = value;
+  }
+  return tags;
+}
+
 /** Parses `POSTGRES_SSL_MODE`. Unset/blank → `''`. Unknown values throw. */
 function validatePostgresSslMode(raw: string | undefined): PostgresSslMode | '' {
   const mode = raw?.trim() ?? '';
@@ -337,13 +388,120 @@ function resolveCodeModeSocketParent(): string {
   return path.join(os.tmpdir(), 'tf_cms');
 }
 
-/** Redis peering URL for distributed mode. Env: `REDIS_URL`. */
-function resolveRedisUrl(): string {
-  const raw = getEnv('REDIS_URL', { defaultValue: DEFAULT_REDIS_URL }) ?? DEFAULT_REDIS_URL;
-  if (raw.trim() === '') {
-    throw new Error('Environment variable REDIS_URL must be non-empty when STANDALONE=false.');
+/** Env string as-is, or undefined when unset/empty (no trimming). */
+function optionalNonEmptyEnv(envKey: string): string | undefined {
+  const raw = getEnv(envKey);
+  if (raw === undefined || raw === '') {
+    return undefined;
   }
   return raw;
+}
+
+/**
+ * Build a standalone `redis://` URL from discrete host fields.
+ * TLS stays on socket options (`REDIS_TLS_*`), not the URL scheme — CA/cert/key
+ * cannot be expressed in `rediss://`, and mixing scheme + socket TLS is ambiguous.
+ * IPv6 hosts are bracketed so `new URL()` accepts them; username/password are
+ * percent-encoded by the URL setters.
+ */
+export function buildRedisStandaloneUrl(parts: {
+  host: string;
+  port: number;
+  database: number;
+  username: string | undefined;
+  password: string | undefined;
+}): string {
+  const bareHost = parts.host.startsWith('[') && parts.host.endsWith(']') ? parts.host.slice(1, -1) : parts.host;
+  const host = isIPv6(bareHost) ? `[${bareHost}]` : bareHost;
+  const url = new URL(`redis://${host}:${String(parts.port)}/${String(parts.database)}`);
+  if (parts.username !== undefined) {
+    url.username = parts.username;
+  }
+  if (parts.password !== undefined) {
+    url.password = parts.password;
+  }
+  return url.href;
+}
+
+/**
+ * Exactly one Redis transport when configured.
+ * Transports are mutually exclusive: Sentinel, `REDIS_URL`, or `REDIS_HOST`.
+ * Returns undefined when none are set so controller / migrate can boot without Redis;
+ * the server fails at connect time if still unset.
+ */
+function resolveRedisConnection(): RedisConnection | undefined {
+  const sentinelEnabled = parseBoolean({
+    envKey: 'REDIS_SENTINEL_ENABLED',
+    raw: getEnv('REDIS_SENTINEL_ENABLED'),
+    defaultValue: false,
+  });
+  const url = optionalNonEmptyEnv('REDIS_URL');
+  const host = optionalNonEmptyEnv('REDIS_HOST');
+  const database = parseNonNegativeInt({
+    envKey: 'REDIS_DB',
+    raw: getEnv('REDIS_DB'),
+    defaultValue: 0,
+  });
+  const username = optionalNonEmptyEnv('REDIS_USERNAME');
+  const password = getEnv('REDIS_PASSWORD');
+  const passwordOrUndefined = password === undefined || password === '' ? undefined : password;
+
+  if (sentinelEnabled) {
+    const nodes = optionalNonEmptyEnv('REDIS_SENTINEL_NODES');
+    const masterName = optionalNonEmptyEnv('REDIS_SENTINEL_MASTER_NAME');
+    if (!nodes || !masterName || parseRedisSentinelNodes(nodes).length === 0) {
+      throw new Error(
+        'REDIS_SENTINEL_ENABLED=true requires non-empty REDIS_SENTINEL_NODES and REDIS_SENTINEL_MASTER_NAME.',
+      );
+    }
+    if (url !== undefined || host !== undefined) {
+      throw new Error(
+        'Redis transports are mutually exclusive: unset REDIS_URL and REDIS_HOST when REDIS_SENTINEL_ENABLED=true.',
+      );
+    }
+    const sentinelUsername = optionalNonEmptyEnv('REDIS_SENTINEL_USERNAME');
+    const sentinelPasswordRaw = getEnv('REDIS_SENTINEL_PASSWORD');
+    const sentinelPassword =
+      sentinelPasswordRaw === undefined || sentinelPasswordRaw === '' ? undefined : sentinelPasswordRaw;
+    return {
+      mode: 'sentinel',
+      nodes,
+      masterName,
+      database,
+      ...(username !== undefined ? { username } : {}),
+      ...(passwordOrUndefined !== undefined ? { password: passwordOrUndefined } : {}),
+      ...(sentinelUsername !== undefined ? { sentinelUsername } : {}),
+      ...(sentinelPassword !== undefined ? { sentinelPassword } : {}),
+    };
+  }
+
+  if (url !== undefined && host !== undefined) {
+    throw new Error(
+      'Redis transports are mutually exclusive: set only one of REDIS_URL or REDIS_HOST (or enable Sentinel).',
+    );
+  }
+  if (url !== undefined) {
+    return { mode: 'standalone', url };
+  }
+  if (host !== undefined) {
+    const port = parsePositiveInt({
+      envKey: 'REDIS_PORT',
+      raw: getEnv('REDIS_PORT'),
+      defaultValue: 6379,
+    });
+    return {
+      mode: 'standalone',
+      url: buildRedisStandaloneUrl({
+        host,
+        port,
+        database,
+        username,
+        password: passwordOrUndefined,
+      }),
+    };
+  }
+
+  return undefined;
 }
 
 /**
@@ -528,6 +686,8 @@ export interface SharedServerConfiguration {
   HOST: string;
   /** Peering identity embedded in the turn ids this process mints; `local` in standalone mode. */
   EXECUTOR_ID: string;
+  /** Enable Swagger UI at `/api/v1/docs`. Env: `SWAGGER_ENABLED`. Default true. */
+  SWAGGER_ENABLED: boolean;
   /**
    * Optional override for the model catalog YAML (discovery presets for
    * GET /catalogs/model-providers). When unset, the catalog inlined at build
@@ -552,6 +712,12 @@ export interface SharedServerConfiguration {
    * time is used. Env: `SANDBOX_CATALOG_PATH`.
    */
   SANDBOX_CATALOG_PATH: string | undefined;
+  /**
+   * Optional override for the web-search catalog YAML (discovery presets for
+   * GET /catalogs/web-search-providers). When unset, the catalog inlined at build
+   * time is used. Env: `WEB_SEARCH_CATALOG_PATH`.
+   */
+  WEB_SEARCH_CATALOG_PATH: string | undefined;
   /**
    * Frontend build served alongside the API; a missing directory leaves the server API-only.
    * Env: `FRONTEND_DIR`. Default: packaged `dist/_frontend` (npx tarball) or
@@ -639,7 +805,7 @@ export interface SharedServerConfiguration {
    * Base URL the controller uses to reach the server's HTTP API. Dedicated controller
    * (`STANDALONE=false`, `dist/controller-main.js`) and the in-process standalone controller
    * both call the server over HTTP(S) at this URL (loopback in standalone). When
-   * `TRUEFORGE_MTLS_ENABLED` is true the controller upgrades an `http://` URL to `https://`
+   * `MTLS_ENABLED` is true the controller upgrades an `http://` URL to `https://`
    * and presents the client cert. Env: `SERVER_URL`.
    * Default: `http://localhost:$PORT`; in-cluster deployments MUST point this at the server Service.
    */
@@ -653,14 +819,23 @@ export interface SharedServerConfiguration {
   /**
    * Mutual TLS for this process's HTTPS listener and controller→server. When true, serves HTTPS
    * with client-cert enforcement (except `/healthz`) and the controller presents a client cert.
-   * Env: `TRUEFORGE_MTLS_ENABLED`. Default false.
+   * Env: `MTLS_ENABLED`. Default false.
    */
-  TRUEFORGE_MTLS_ENABLED: boolean;
+  MTLS_ENABLED: boolean;
   /**
    * Directory holding the TLS cert triple (`tls.crt` / `tls.key` / `ca.crt`) when
-   * `TRUEFORGE_MTLS_ENABLED` is true. Env: `TRUEFORGE_MTLS_CERTS_DIR`. Default `/etc/tls`.
+   * `MTLS_ENABLED` is true. Env: `MTLS_CERTS_DIR`. Default `/etc/tls`.
    */
-  TRUEFORGE_MTLS_CERTS_DIR: string;
+  MTLS_CERTS_DIR: string;
+  /** Env: `NETWORK_POLICY_ENABLED`. Default true. `false` skips the outbound URL guard. */
+  NETWORK_POLICY_ENABLED: boolean;
+  /** Hosts always allowed. Env: `OUTBOUND_URL_ALLOWED_HOSTS` (JSON string array). Empty = none. */
+  OUTBOUND_URL_ALLOWED_HOSTS: string[];
+  /** Hosts always blocked. Env: `OUTBOUND_URL_BLOCKED_HOSTS` (JSON string array). Empty = none. */
+  OUTBOUND_URL_BLOCKED_HOSTS: string[];
+  SENTRY_ENABLED: boolean;
+  SENTRY_DSN: string | undefined;
+  SENTRY_ADDITIONAL_TAGS: Record<string, string>;
 }
 
 export type StandaloneServerConfiguration = SharedServerConfiguration & {
@@ -720,8 +895,30 @@ export type DistributedServerConfiguration = SharedServerConfiguration & {
    * Env: `POSTGRES_SCHEMA`. Default `trueforge`.
    */
   POSTGRES_SCHEMA: string;
-  /** Peering URL shared by all replicas. Env: `REDIS_URL`. Default `redis://localhost:6379`. */
-  REDIS_URL: string;
+  /**
+   * Resolved Redis transport (exactly one of url / host / sentinel), or undefined.
+   * Required for the server process; optional for controller / migrate (no peering).
+   * Env: mutually exclusive `REDIS_URL`, `REDIS_HOST`, or `REDIS_SENTINEL_*`.
+   */
+  REDIS_CONNECTION: RedisConnection | undefined;
+  /** Socket connect timeout for Redis clients. Env: `REDIS_CONNECT_TIMEOUT_MS`. Default 20000. */
+  REDIS_CONNECT_TIMEOUT_MS: number;
+  /** Client ping interval for Redis keepalive. Env: `REDIS_PING_INTERVAL_MS`. Default 5000. */
+  REDIS_PING_INTERVAL_MS: number;
+  /** Enable TLS for Redis (and Sentinel when used). Env: `REDIS_TLS_ENABLED`. Default false. */
+  REDIS_TLS_ENABLED: boolean;
+  /** CA cert path or inline PEM. Env: `REDIS_TLS_CA_CERT`. */
+  REDIS_TLS_CA_CERT: string | undefined;
+  /** Verify server cert. Env: `REDIS_TLS_REJECT_UNAUTHORIZED`. Default true. */
+  REDIS_TLS_REJECT_UNAUTHORIZED: boolean;
+  /** TLS SNI server name. Env: `REDIS_TLS_SERVERNAME`. */
+  REDIS_TLS_SERVERNAME: string | undefined;
+  /** Client cert path or inline PEM (mTLS). Env: `REDIS_TLS_CERT`. */
+  REDIS_TLS_CERT: string | undefined;
+  /** Client key path or inline PEM (mTLS). Env: `REDIS_TLS_KEY`. */
+  REDIS_TLS_KEY: string | undefined;
+  /** Client key passphrase. Env: `REDIS_TLS_KEY_PASSPHRASE`. */
+  REDIS_TLS_KEY_PASSPHRASE: string | undefined;
   /**
    * OIDC configuration for server authentication.
    * Undefined means browser login is disabled.
@@ -802,6 +999,8 @@ export type DistributedServerConfiguration = SharedServerConfiguration & {
    * Unset / empty → web search tools are not registered. Env: `TRUEFOUNDRY_WEB_SEARCH_PROVIDER`.
    */
   TRUEFOUNDRY_WEB_SEARCH_PROVIDER: TrueFoundryWebSearchProviderEnv | undefined;
+  TRUEFOUNDRY_AUTH_SERVER_URL: string | undefined;
+  TRUEFOUNDRY_TENANT_NAME: string | undefined;
 };
 
 export type ServerConfiguration = StandaloneServerConfiguration | DistributedServerConfiguration;
@@ -813,7 +1012,7 @@ export type ServerConfiguration = StandaloneServerConfiguration | DistributedSer
 const serverExecutionTimeoutSeconds = parsePositiveInt({
   envKey: 'SERVER_EXECUTION_TIMEOUT_SECONDS',
   raw: getEnv('SERVER_EXECUTION_TIMEOUT_SECONDS'),
-  defaultValue: 600,
+  defaultValue: 3600,
 });
 
 const standalone = parseBoolean({
@@ -835,10 +1034,12 @@ const shared: SharedServerConfiguration = {
   PORT: port,
   HOST: host,
   EXECUTOR_ID: standalone ? LOCAL_EXECUTOR_ID : randomAlphanumeric(6),
+  SWAGGER_ENABLED: parseBoolean({ envKey: 'SWAGGER_ENABLED', raw: getEnv('SWAGGER_ENABLED'), defaultValue: true }),
   MODEL_CATALOG_PATH: resolveOptionalPathEnv('MODEL_CATALOG_PATH'),
   MCP_CATALOG_PATH: resolveOptionalPathEnv('MCP_CATALOG_PATH'),
   SKILL_CATALOG_PATH: resolveOptionalPathEnv('SKILL_CATALOG_PATH'),
   SANDBOX_CATALOG_PATH: resolveOptionalPathEnv('SANDBOX_CATALOG_PATH'),
+  WEB_SEARCH_CATALOG_PATH: resolveOptionalPathEnv('WEB_SEARCH_CATALOG_PATH'),
   FRONTEND_DIR: resolveFrontendDir(),
 
   MCP_REQUEST_TIMEOUT_MS: parsePositiveInt({
@@ -915,12 +1116,32 @@ const shared: SharedServerConfiguration = {
   TRUEFORGE_API_KEY: standalone
     ? (getEnv('TRUEFORGE_API_KEY', { defaultValue: STANDALONE_TRUEFORGE_API_KEY }) ?? STANDALONE_TRUEFORGE_API_KEY)
     : (getEnv('TRUEFORGE_API_KEY', { required: true }) ?? ''),
-  TRUEFORGE_MTLS_ENABLED: parseBoolean({
-    envKey: 'TRUEFORGE_MTLS_ENABLED',
-    raw: getEnv('TRUEFORGE_MTLS_ENABLED'),
+  MTLS_ENABLED: parseBoolean({
+    envKey: 'MTLS_ENABLED',
+    raw: getEnv('MTLS_ENABLED'),
     defaultValue: false,
   }),
-  TRUEFORGE_MTLS_CERTS_DIR: getEnv('TRUEFORGE_MTLS_CERTS_DIR', { defaultValue: '/etc/tls' }) ?? '/etc/tls',
+  MTLS_CERTS_DIR: getEnv('MTLS_CERTS_DIR', { defaultValue: '/etc/tls' }) ?? '/etc/tls',
+  NETWORK_POLICY_ENABLED: parseBoolean({
+    envKey: 'NETWORK_POLICY_ENABLED',
+    raw: getEnv('NETWORK_POLICY_ENABLED'),
+    defaultValue: true,
+  }),
+  OUTBOUND_URL_ALLOWED_HOSTS: parseJsonStringArrayEnv({
+    envKey: 'OUTBOUND_URL_ALLOWED_HOSTS',
+    raw: getEnv('OUTBOUND_URL_ALLOWED_HOSTS'),
+  }),
+  OUTBOUND_URL_BLOCKED_HOSTS: parseJsonStringArrayEnv({
+    envKey: 'OUTBOUND_URL_BLOCKED_HOSTS',
+    raw: getEnv('OUTBOUND_URL_BLOCKED_HOSTS'),
+  }),
+  SENTRY_ENABLED: parseBoolean({
+    envKey: 'SENTRY_ENABLED',
+    raw: getEnv('SENTRY_ENABLED'),
+    defaultValue: false,
+  }),
+  SENTRY_DSN: getEnv('SENTRY_DSN', { required: false }),
+  SENTRY_ADDITIONAL_TAGS: parseSentryAdditionalTags(getEnv('SENTRY_ADDITIONAL_TAGS', { required: false })),
 };
 
 const configuration: ServerConfiguration = standalone
@@ -952,7 +1173,32 @@ const configuration: ServerConfiguration = standalone
         defaultValue: 60_000,
       }),
       POSTGRES_SCHEMA: parsePostgresSchema(getEnv('POSTGRES_SCHEMA')),
-      REDIS_URL: resolveRedisUrl(),
+      REDIS_CONNECTION: resolveRedisConnection(),
+      REDIS_CONNECT_TIMEOUT_MS: parsePositiveInt({
+        envKey: 'REDIS_CONNECT_TIMEOUT_MS',
+        raw: getEnv('REDIS_CONNECT_TIMEOUT_MS'),
+        defaultValue: 20_000,
+      }),
+      REDIS_PING_INTERVAL_MS: parsePositiveInt({
+        envKey: 'REDIS_PING_INTERVAL_MS',
+        raw: getEnv('REDIS_PING_INTERVAL_MS'),
+        defaultValue: 5_000,
+      }),
+      REDIS_TLS_ENABLED: parseBoolean({
+        envKey: 'REDIS_TLS_ENABLED',
+        raw: getEnv('REDIS_TLS_ENABLED'),
+        defaultValue: false,
+      }),
+      REDIS_TLS_CA_CERT: getEnv('REDIS_TLS_CA_CERT'),
+      REDIS_TLS_REJECT_UNAUTHORIZED: parseBoolean({
+        envKey: 'REDIS_TLS_REJECT_UNAUTHORIZED',
+        raw: getEnv('REDIS_TLS_REJECT_UNAUTHORIZED'),
+        defaultValue: true,
+      }),
+      REDIS_TLS_SERVERNAME: getEnv('REDIS_TLS_SERVERNAME'),
+      REDIS_TLS_CERT: getEnv('REDIS_TLS_CERT'),
+      REDIS_TLS_KEY: getEnv('REDIS_TLS_KEY'),
+      REDIS_TLS_KEY_PASSPHRASE: getEnv('REDIS_TLS_KEY_PASSPHRASE'),
       OIDC: resolveOIDCConfig(),
       AUTOMATICALLY_MOVE_TRUEFORGE_TABLES_FROM_PUBLIC_TO_TRUEFORGE_SCHEMA: parseBoolean({
         envKey: 'AUTOMATICALLY_MOVE_TRUEFORGE_TABLES_FROM_PUBLIC_TO_TRUEFORGE_SCHEMA',
@@ -995,6 +1241,8 @@ const configuration: ServerConfiguration = standalone
       TRUEFOUNDRY_WEB_SEARCH_PROVIDER: parseTrueFoundryWebSearchProvider(
         getEnv('TRUEFOUNDRY_WEB_SEARCH_PROVIDER', { required: false }),
       ),
+      TRUEFOUNDRY_AUTH_SERVER_URL: getEnv('TRUEFOUNDRY_AUTH_SERVER_URL', { required: false }),
+      TRUEFOUNDRY_TENANT_NAME: getEnv('TRUEFOUNDRY_TENANT_NAME', { required: false }),
     };
 
 export function isOidcConfigured(

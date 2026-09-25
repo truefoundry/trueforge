@@ -21,6 +21,7 @@ import type {
   GetSessionByExternalIdInput,
   GetSessionInput,
   GetTurnInput,
+  InsertTurnInboundEventsInput,
   ISessionStore,
   ListSessionEventsInput,
   ListSessionsInput,
@@ -52,6 +53,7 @@ import {
   listSessionEvents as listSessionEventsQuery,
   listTurnEvents as listTurnEventsQuery,
 } from './queries/events';
+import { insertTurnInboundEvents as insertTurnInboundEventsQuery } from './queries/inboundEvents';
 import {
   createSession as createSessionQuery,
   deleteSession as deleteSessionQuery,
@@ -216,6 +218,10 @@ export class PostgresSessionStore implements ISessionStore<SessionCustom, TurnCu
     return appendToEventsQuery(this.db, input);
   }
 
+  insertTurnInboundEvents(input: InsertTurnInboundEventsInput): Promise<void> {
+    return insertTurnInboundEventsQuery(this.db, input);
+  }
+
   addThreads(input: AddThreadsInput): Promise<void> {
     return addThreadsQuery(this.db, input);
   }
@@ -337,6 +343,7 @@ export class PostgresSessionStore implements ISessionStore<SessionCustom, TurnCu
           agent_name: resolvedAgentName,
           agent_spec: resolvedAgentSpec !== null ? jsonUnknown<AgentSpec>(resolvedAgentSpec) : null,
           title: session.title,
+          shared: false,
           last_turn_id: session.last_turn_id,
           custom: session.custom !== null ? json(session.custom) : null,
           metadata: json(metadata),

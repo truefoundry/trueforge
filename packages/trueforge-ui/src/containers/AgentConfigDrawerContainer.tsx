@@ -1,10 +1,10 @@
 'use client';
 
 import {
-  useTrueFoundryAgentSpec,
-  useTrueFoundryFlushAgentSpec,
-  useTrueFoundryUpdateAgentSpec,
-} from '@truefoundry/assistant-ui-runtime';
+  useTrueForgeAgentSpec,
+  useTrueForgeFlushAgentSpec,
+  useTrueForgeUpdateAgentSpec,
+} from '@truefoundry/trueforge-assistant-ui-runtime';
 import { useCallback, useEffect, useState } from 'react';
 
 import type { AgentConfigEditor } from '../atoms/draft/AgentConfigEditors.js';
@@ -19,9 +19,9 @@ import type { AgentSpec, ConnectorState, McpToolSelection } from '../server/type
 import { useSlot } from '../theme/SlotsProvider.js';
 
 export function AgentConfigDrawerContainer({ showClose = false }: { showClose?: boolean }) {
-  const { agentSpec } = useTrueFoundryAgentSpec();
-  const updateAgentSpec = useTrueFoundryUpdateAgentSpec();
-  const flushAgentSpec = useTrueFoundryFlushAgentSpec();
+  const { agentSpec } = useTrueForgeAgentSpec();
+  const updateAgentSpec = useTrueForgeUpdateAgentSpec();
+  const flushAgentSpec = useTrueForgeFlushAgentSpec();
   const shell = useShellMode();
   const agentId = shell.mode.status === 'active' ? shell.mode.agentId : undefined;
   const { allows } = useResourcePermissions({
@@ -148,6 +148,7 @@ export function AgentConfigDrawerContainer({ showClose = false }: { showClose?: 
         modelsError={catalog.error}
         skills={catalog.skills}
         skillsAvailable={capabilities?.skill.enabled === true}
+        webSearchAvailable={capabilities?.webSearch?.enabled === true}
         instructions={instructionDraft}
         onOpenEditor={nextEditor => {
           if (canManageAgent) setEditor(nextEditor);
@@ -166,6 +167,7 @@ export function AgentConfigDrawerContainer({ showClose = false }: { showClose?: 
         error={catalog.error}
         skillsDisabled={capabilities?.skill.enabled !== true}
         sandboxAvailable={capabilities?.sandbox.enabled === true}
+        webSearchAvailable={capabilities?.webSearch?.enabled === true}
         instructions={instructionDraft}
         onInstructionsSave={saveInstructions}
         {...(server?.getMcpConnector === undefined ? {} : { loadMcpConnector })}
