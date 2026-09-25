@@ -364,6 +364,7 @@ export interface TurnStateError {
 }
 
 export type TurnState = TurnStateRunning | TurnStatePaused | TurnStateDone | TurnStateCancelled | TurnStateError;
+/** A turn that is still active: running, or paused until the user responds. */
 export type NonTerminalTurnState = TurnStateRunning | TurnStatePaused;
 export type TerminalTurnState = TurnStateDone | TurnStateCancelled | TurnStateError;
 
