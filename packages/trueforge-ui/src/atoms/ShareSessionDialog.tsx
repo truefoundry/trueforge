@@ -98,17 +98,8 @@ function AccessSelector({
 }
 
 export function ShareSessionDialog({ sessionId, trigger }: ShareSessionDialogProps) {
-  const {
-    permission,
-    canManage,
-    loading,
-    shareUrl,
-    copied,
-    tenantId,
-    load,
-    changePermission,
-    copySharedSessionLink,
-  } = useShareSessionDialog(sessionId);
+  const { permission, canManage, loading, shareUrl, copied, tenantId, load, changePermission, copySharedSessionLink } =
+    useShareSessionDialog(sessionId);
 
   return (
     <DropdownMenu

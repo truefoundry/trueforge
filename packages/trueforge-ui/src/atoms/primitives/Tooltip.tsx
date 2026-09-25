@@ -177,11 +177,7 @@ export function Tooltip({
       viewportWidth: window.innerWidth,
       viewportHeight: window.innerHeight,
     };
-    setPos(
-      isVerticalSide(side)
-        ? clampCenteredTooltip({ ...size, side })
-        : clampEdgeTooltip({ ...size, side }),
-    );
+    setPos(isVerticalSide(side) ? clampCenteredTooltip({ ...size, side }) : clampEdgeTooltip({ ...size, side }));
   };
 
   useLayoutEffect(() => {

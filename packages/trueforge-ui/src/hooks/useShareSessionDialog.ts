@@ -33,23 +33,22 @@ export function useShareSessionDialog(sessionId: string | null | undefined): {
   const [tenantId, setTenantId] = useState<string | undefined>();
   const [loading, setLoading] = useState(false);
 
-  const shareUrl =
-    sessionId == null || sessionId.length === 0 ? '' : buildSharedSessionHref({ sessionId, routes });
+  const shareUrl = sessionId == null || sessionId.length === 0 ? '' : buildSharedSessionHref({ sessionId, routes });
 
   const load = useCallback(async () => {
     if (sessionId == null || sessionId.length === 0 || server == null) return;
     setLoading(true);
     try {
-        const session = await server.getSession({ sessionId });
-        setPermission(session.shared === true ? 'tenant' : 'private');
-        if (server.getMe != null) {
-          try {
-            const me = await server.getMe();
-            if (me.tenantId.length > 0) setTenantId(me.tenantId);
-          } catch {
-            // Keep the generic tenant label when identity is unavailable.
-          }
+      const session = await server.getSession({ sessionId });
+      setPermission(session.shared === true ? 'tenant' : 'private');
+      if (server.getMe != null) {
+        try {
+          const me = await server.getMe();
+          if (me.tenantId.length > 0) setTenantId(me.tenantId);
+        } catch {
+          // Keep the generic tenant label when identity is unavailable.
         }
+      }
     } catch (caught) {
       toaster?.showError(caught);
     } finally {
