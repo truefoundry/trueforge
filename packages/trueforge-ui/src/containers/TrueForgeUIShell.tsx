@@ -62,7 +62,7 @@ export type TrueForgeUIProps = {
   initialSettingsOpen?: boolean;
   /**
    * Host UI for pending client-side tools, keyed by tool name.
-   * When a pending tool matches, the composer mounts that component instead of Ask User.
+   * When a pending tool matches, that component is shown above the composer instead of Ask User.
    */
   customActionRenderers?: CustomActionRenderers;
   /**

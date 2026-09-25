@@ -25,14 +25,36 @@ export function isRequiredActionInput(item: TurnInputItem): item is RequiredActi
   return item.type === 'user.tool_approval' || item.type === 'user.tool_response';
 }
 
-export function findPausedAssistantMessage(
+/**
+ * Most recent assistant that is still awaiting action, ignoring a trailing
+ * non-paused assistant (optimistic/running bubble). Returns undefined when a
+ * later user message has abandoned the pause.
+ */
+export function findCurrentPausedAssistantMessage(
   messages: readonly ThreadMessage[],
 ): Extract<ThreadMessage, { role: 'assistant' }> | undefined {
   for (let i = messages.length - 1; i >= 0; i--) {
     const candidate = messages[i];
-    if (candidate?.role === 'assistant' && candidate.status.type === 'requires-action') {
+    if (candidate == null) {
+      continue;
+    }
+    if (candidate.role === 'user') {
+      return undefined;
+    }
+    if (candidate.role !== 'assistant') {
+      continue;
+    }
+    if (candidate.status.type === 'requires-action') {
       return candidate;
     }
+    // Skip a trailing non-paused assistant (streaming/complete bubble).
   }
   return undefined;
+}
+
+/** @deprecated Prefer {@link findCurrentPausedAssistantMessage}. */
+export function findPausedAssistantMessage(
+  messages: readonly ThreadMessage[],
+): Extract<ThreadMessage, { role: 'assistant' }> | undefined {
+  return findCurrentPausedAssistantMessage(messages);
 }
