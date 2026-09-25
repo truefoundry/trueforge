@@ -14,6 +14,7 @@ import { ActiveSessionPermissionsProvider } from '@/hooks/useResourcePermissions
 import { resolveRoutesConfig } from '@/routing/paths.js';
 import { ResolvedRoutesProvider } from '@/routing/ResolvedRoutesContext.js';
 import { ServerProvider } from '@/server/ServerContext.js';
+import type { ListPermissionsResponse } from '@/server/types.js';
 import { SlotsProvider } from '@/theme/SlotsProvider.js';
 import { createMockAgentUIServer } from '../server/mockServer.js';
 
@@ -74,7 +75,7 @@ describe('ShareChatButton', () => {
     activeThread.remoteId = 'session-1';
     const server = createMockAgentUIServer({
       permissions: {
-        listPermissions: vi.fn(async () => ({
+        listPermissions: vi.fn(async (): Promise<ListPermissionsResponse> => ({
           data: { type: 'session', permissions: { 'session-1': [] } },
         })),
       },

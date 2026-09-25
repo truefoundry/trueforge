@@ -109,7 +109,7 @@ export function ShareSessionDialog({ sessionId, trigger }: ShareSessionDialogPro
       onOpenChange={open => {
         if (open) void load();
       }}
-      className="w-120 gap-5 rounded-[0.75rem] p-6 shadow-[0_0.5rem_0.75rem_rgba(0,0,0,0.05)]"
+      className="w-120 gap-5 rounded-[0.75rem] p-6 shadow-xs"
     >
       <div className="flex w-full items-center gap-2">
         <Icon name="user-cog" size="1.25rem" className="text-text-primary shrink-0" />
