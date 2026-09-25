@@ -767,7 +767,7 @@ export class AgentThread {
       throw new Error('unreachable: cancel() requires a parent thread');
     }
     this.preComputedCompletion ??= {
-      status: 'cancelled',
+      type: 'cancelled',
       reason,
       send_to_parent: {
         role: 'tool',
@@ -1168,7 +1168,7 @@ export class AgentThread {
           'max_tokens breached',
         );
         completion = {
-          status: 'error',
+          type: 'error',
           output: agentAssistantMessage,
           error: errorMessage,
           send_to_parent: { role: 'tool', tool_call_id: this.parent.tool_call_id, content: errorMessage },
@@ -1176,7 +1176,7 @@ export class AgentThread {
       } else if (!hasToolCalls(assistantMessage)) {
         const content = assistantMessageContentToStringForSubAgent(assistantMessage.content);
         completion = {
-          status: 'done',
+          type: 'done',
           output: agentAssistantMessage,
           send_to_parent: { role: 'tool', tool_call_id: this.parent.tool_call_id, content },
         };
@@ -1192,7 +1192,8 @@ export class AgentThread {
     });
 
     if (finishReason === 'length') {
-      const errorContent = completion?.status === 'error' ? completion.error : 'max_tokens breached';
+      const errorContent =
+        completion?.type === 'error' ? (completion.error ?? 'max_tokens breached') : 'max_tokens breached';
       yield this.generateErrorEvent(errorContent, agentAssistantMessage);
       return { outcome: 'exit', modelMessageEventId };
     }
@@ -1366,13 +1367,20 @@ export class AgentThread {
     if (this.parent === undefined) {
       throw new Error('unreachable: completion replay requires a parent thread');
     }
-    return {
+    const base = {
       type: InternalEventType.AGENT_DONE,
       thread_id: this.threadId,
       title: this.title,
       parent: this.parent,
-      ...c,
+      send_to_parent: c.send_to_parent,
     };
+    if (c.type === 'done') {
+      return { ...base, status: 'done', output: c.output };
+    }
+    if (c.type === 'error') {
+      return { ...base, status: 'error', error: c.error ?? 'Sub-agent errored', output: c.output };
+    }
+    return { ...base, status: 'cancelled', reason: c.reason };
   }
 
   private throwIfAlreadyComplete(): void {

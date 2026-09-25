@@ -137,13 +137,13 @@ describe('orchestration: user-message reset', () => {
 
     const { events, result } = await runExecute({ orchestrator });
 
-    expect(child.toSnapshot().completion).toEqual(expect.objectContaining({ status: 'cancelled', reason: CANCELED }));
+    expect(child.toSnapshot().completion).toEqual(expect.objectContaining({ type: 'cancelled', reason: CANCELED }));
     expect(sendEvents).toEqual(
       expect.arrayContaining([
         expect.objectContaining({
           type: InternalEventType.AGENT_CONTEXT_APPEND,
           thread_id: CHILD_ID,
-          completion: expect.objectContaining({ status: 'cancelled', reason: CANCELED }),
+          completion: expect.objectContaining({ type: 'cancelled', reason: CANCELED }),
         }),
         expect.objectContaining({
           type: InternalEventType.AGENT_CONTEXT_APPEND,
@@ -190,7 +190,7 @@ describe('orchestration: user-message reset', () => {
         parent: { thread_id: MAIN_ID, tool_call_id: TOOL_CALL_ID },
         agentInfo: { type: 'dynamic', name: 'worker', input: 'task' },
         preComputedCompletion: {
-          status: 'done',
+          type: 'done',
           output: {
             type: EventType.MODEL_MESSAGE,
             id: 'child-out',
@@ -238,6 +238,17 @@ describe('orchestration: user-message reset', () => {
       ]),
     );
     expect(JSON.stringify(sendEvents)).not.toContain(CANCELED);
+
+    const { events } = await runExecute({ orchestrator });
+    expect(events).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          type: InternalEventType.AGENT_DONE,
+          thread_id: CHILD_ID,
+          status: 'done',
+        }),
+      ]),
+    );
   });
 
   it('throws when send() is called on a thread with preComputedCompletion', async () => {
@@ -247,7 +258,7 @@ describe('orchestration: user-message reset', () => {
         title: 'worker',
         parent: { thread_id: MAIN_ID, tool_call_id: TOOL_CALL_ID },
         preComputedCompletion: {
-          status: 'cancelled',
+          type: 'cancelled',
           reason: CANCELED,
           send_to_parent: { role: 'tool', tool_call_id: TOOL_CALL_ID, content: CANCELED },
         },

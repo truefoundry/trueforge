@@ -1631,7 +1631,7 @@ export function runStoreContractSuite(createStore: () => ISessionStore) {
       );
 
       const cancelled = {
-        status: 'cancelled' as const,
+        type: 'cancelled' as const,
         reason: 'Canceled because user sent a new message.',
         send_to_parent: {
           role: 'tool' as const,
