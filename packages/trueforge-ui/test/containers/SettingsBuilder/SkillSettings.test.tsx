@@ -1,5 +1,5 @@
 // @vitest-environment jsdom
-import { fireEvent, render, screen, waitFor } from '@testing-library/react';
+import { fireEvent, render, screen, waitFor, within } from '@testing-library/react';
 import type { ReactNode } from 'react';
 import { beforeAll, describe, expect, it, vi } from 'vitest';
 
@@ -184,7 +184,10 @@ describe('SkillSettings', () => {
     expect(await screen.findByRole('alert')).toHaveTextContent(
       'Still in use — skill "house-style" is used by agent support-bot. Delete those agents first.',
     );
-    expect(screen.getByText('Remove skill?')).toBeTruthy();
+    const dialog = screen.getByRole('dialog');
+    expect(within(dialog).getByText("Can't remove skill")).toBeTruthy();
+    expect(within(dialog).queryByRole('button', { name: 'Remove' })).toBeNull();
+    expect(within(dialog).getByRole('button', { name: 'Close' })).toBeTruthy();
   });
 
   it('removes an imported github skill entirely', async () => {
