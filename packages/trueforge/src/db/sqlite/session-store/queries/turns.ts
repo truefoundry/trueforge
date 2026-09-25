@@ -23,7 +23,11 @@ import {
 } from '@truefoundry/trueforge-core/agent-session/store/SessionStoreErrors';
 import type { CapabilityState, JsonValue } from '@truefoundry/trueforge-core/core/capabilities/AgentCapability';
 import type { AgentInfo, AgentParent, MCPServerInitInfo } from '@truefoundry/trueforge-core/core/events/schema';
-import type { AgentThreadSnapshot, ContextMessage } from '@truefoundry/trueforge-core/core/runtime/AgentThread.types';
+import type {
+  AgentThreadSnapshot,
+  ContextMessage,
+  SubAgentCompletion,
+} from '@truefoundry/trueforge-core/core/runtime/AgentThread.types';
 import type { CurrentContextUsage } from '@truefoundry/trueforge-core/core/runtime/contextUsage';
 import { getEmptyCurrentContextUsage } from '@truefoundry/trueforge-core/core/runtime/contextUsage';
 import type { SandboxInfo } from '@truefoundry/trueforge-core/core/sandbox/Sandbox';
@@ -65,6 +69,7 @@ export interface NewContextAppend {
   thread_id: string;
   context: ContextMessage[];
   current_context_usage: CurrentContextUsage | null;
+  completion: SubAgentCompletion | null;
 }
 
 export interface CreateTurnTurnFields {
@@ -522,9 +527,13 @@ export async function createTurn(db: Kysely<Database>, input: CreateTurnInput): 
       }
 
       const appendUsageByThread = new Map<string, CurrentContextUsage>();
+      const appendCompletionByThread = new Map<string, SubAgentCompletion>();
       for (const append of input.new_context_appends) {
         if (append.current_context_usage !== null) {
           appendUsageByThread.set(append.thread_id, append.current_context_usage);
+        }
+        if (append.completion !== null) {
+          appendCompletionByThread.set(append.thread_id, append.completion);
         }
       }
 
@@ -549,11 +558,13 @@ export async function createTurn(db: Kysely<Database>, input: CreateTurnInput): 
 
       for (const parent of prevThreadRows) {
         const usage = appendUsageByThread.get(parent.thread_id) ?? parent.current_context_usage;
+        const completion = appendCompletionByThread.get(parent.thread_id);
+        const checkpoint = completion !== undefined ? { ...parent.checkpoint, completion } : parent.checkpoint;
         turnThreadRows.push({
           session_id: input.session_id,
           turn_id: input.turn.turn_id,
           thread_id: parent.thread_id,
-          checkpoint: jsonbBind(parent.checkpoint),
+          checkpoint: jsonbBind(checkpoint),
           agent_info: parent.agent_info !== null ? jsonbBind(parent.agent_info) : null,
           current_context_usage: jsonbBind(usage),
           updated_at: now,

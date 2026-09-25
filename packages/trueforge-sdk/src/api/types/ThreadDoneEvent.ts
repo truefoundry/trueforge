@@ -2,11 +2,16 @@
 
 import type * as TrueForge from "../index.js";
 
-export interface ThreadDoneEvent extends TrueForge.BaseThreadDoneEvent {
+export interface ThreadDoneEvent {
     /** ISO 8601 event timestamp. */
     createdAt: string;
     /** Unique identifier for the event (monotonic ULID). */
     id: string;
+    parent?: TrueForge.AgentParent;
     state: TrueForge.ThreadState;
+    /** Thread that finished. */
+    threadId: string;
+    /** Human-readable thread title. */
+    title: string;
     type: "thread.done";
 }

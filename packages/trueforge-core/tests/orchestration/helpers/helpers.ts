@@ -186,15 +186,11 @@ export function makeApprovalGatedWriteNoteToolSet(): {
   };
 }
 
-/** Consume send() then execute(); return raw events and the generator result. */
-export async function runTurn(input: {
+/** Consume execute(); return raw events and the generator result. */
+export async function runExecute(input: {
   orchestrator: AgentThreadOrchestrator;
-  sendBatch: AgentThreadSendBatch;
   signal?: AbortSignal | undefined;
 }): Promise<{ events: AgentThreadExecutionEvent[]; result: AgentThreadExecutionResult }> {
-  for await (const _event of input.orchestrator.send(input.sendBatch)) {
-    void _event;
-  }
   const events: AgentThreadExecutionEvent[] = [];
   const iterator = input.orchestrator.execute({
     signal: input.signal ?? new AbortController().signal,
@@ -205,6 +201,18 @@ export async function runTurn(input: {
     step = await iterator.next();
   }
   return { events, result: step.value };
+}
+
+/** Consume send() then execute(); return raw events and the generator result. */
+export async function runTurn(input: {
+  orchestrator: AgentThreadOrchestrator;
+  sendBatch: AgentThreadSendBatch;
+  signal?: AbortSignal | undefined;
+}): Promise<{ events: AgentThreadExecutionEvent[]; result: AgentThreadExecutionResult }> {
+  for await (const _event of input.orchestrator.send(input.sendBatch)) {
+    void _event;
+  }
+  return runExecute({ orchestrator: input.orchestrator, signal: input.signal });
 }
 
 export function llmCreateInputs(llm: ILLM): unknown[] {

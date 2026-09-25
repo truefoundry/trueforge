@@ -116,6 +116,9 @@ function applyContextAppends(threads: Record<string, AgentThreadSnapshot>, appen
     if (append.current_context_usage !== null) {
       thread.current_context_usage = deepCopy(append.current_context_usage);
     }
+    if (append.completion !== null) {
+      thread.completion = deepCopy(append.completion);
+    }
   }
 }
 

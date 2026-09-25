@@ -474,26 +474,6 @@
         ],
         "type": "object"
       },
-      "BaseThreadDoneEvent": {
-        "properties": {
-          "parent": {
-            "$ref": "#/components/schemas/AgentParent"
-          },
-          "thread_id": {
-            "description": "Thread that finished.",
-            "type": "string"
-          },
-          "title": {
-            "description": "Human-readable thread title.",
-            "type": "string"
-          }
-        },
-        "required": [
-          "thread_id",
-          "title"
-        ],
-        "type": "object"
-      },
       "CancelSessionRequest": {
         "description": "Empty request body. Cancel identifies the session via the path only.",
         "properties": {},
@@ -4697,40 +4677,46 @@
         "type": "object"
       },
       "ThreadDoneEvent": {
-        "allOf": [
-          {
-            "$ref": "#/components/schemas/BaseThreadDoneEvent"
+        "properties": {
+          "created_at": {
+            "description": "ISO 8601 event timestamp.",
+            "type": "string"
           },
-          {
-            "properties": {
-              "created_at": {
-                "description": "ISO 8601 event timestamp.",
-                "type": "string"
-              },
-              "id": {
-                "description": "Unique identifier for the event (monotonic ULID).",
-                "type": "string"
-              },
-              "state": {
-                "$ref": "#/components/schemas/ThreadState"
-              },
-              "type": {
-                "description": "A thread reached a terminal state.",
-                "enum": [
-                  "thread.done"
-                ],
-                "type": "string"
-              }
-            },
-            "required": [
-              "type",
-              "id",
-              "created_at",
-              "state"
+          "id": {
+            "description": "Unique identifier for the event (monotonic ULID).",
+            "type": "string"
+          },
+          "parent": {
+            "$ref": "#/components/schemas/AgentParent"
+          },
+          "state": {
+            "$ref": "#/components/schemas/ThreadState"
+          },
+          "thread_id": {
+            "description": "Thread that finished.",
+            "type": "string"
+          },
+          "title": {
+            "description": "Human-readable thread title.",
+            "type": "string"
+          },
+          "type": {
+            "description": "A thread reached a terminal state.",
+            "enum": [
+              "thread.done"
             ],
-            "type": "object"
+            "type": "string"
           }
-        ]
+        },
+        "required": [
+          "type",
+          "id",
+          "created_at",
+          "thread_id",
+          "title",
+          "state"
+        ],
+        "type": "object"
       },
       "ThreadState": {
         "discriminator": {

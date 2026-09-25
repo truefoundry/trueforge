@@ -70,7 +70,7 @@ import {
   type InternalCapabilityStateEvent,
   type InternalMCPAuthRequiredEvent,
   type InternalThreadDoneEvent,
-  type SubAgentCompletionMarker,
+  type SubAgentCompletion,
 } from './AgentThread.types';
 import {
   currentContextUsageFromCompletion,
@@ -523,7 +523,7 @@ export class AgentThread {
   private contextBusy = false;
   private preSendRanThisTurn = false;
   private currentState: AgentThreadState | null = null;
-  private readonly preComputedCompletion?: SubAgentCompletionMarker | undefined;
+  private preComputedCompletion?: SubAgentCompletion | undefined;
   /** Mirrored capability KV — source for toSnapshot().capability_state. */
   private capabilityState: CapabilityState = {};
   private readonly capabilityStateKeys: ReadonlySet<string>;
@@ -600,6 +600,7 @@ export class AgentThread {
   }
 
   public async *send(messages: AgentThreadRuntimeSendBatch): AsyncGenerator<AgentThreadAppendContext, void, unknown> {
+    this.throwIfAlreadyComplete();
     // An empty batch is a no-op only when the thread is not awaiting user input.
     // While awaiting input, fall through so the validator rejects the empty/incomplete batch.
     if (messages.length === 0 && !this.isAwaitingUserInput()) {
@@ -690,7 +691,7 @@ export class AgentThread {
     output: AgentOutputEvent[];
     currentContextUsage: CurrentContextUsage | undefined;
     usage: CompletionUsage | undefined;
-    completion?: SubAgentCompletionMarker | undefined;
+    completion?: SubAgentCompletion | undefined;
   }): Generator<AgentThreadAppendContext, void, unknown> {
     const { context, output, currentContextUsage, usage, completion } = opts;
 
@@ -735,22 +736,78 @@ export class AgentThread {
   }
 
   private generateErrorEvent(message: string, output?: ModelMessageEvent): InternalThreadDoneEvent {
+    if (this.parent !== undefined) {
+      return {
+        type: InternalEventType.AGENT_DONE,
+        thread_id: this.threadId,
+        title: this.title,
+        parent: this.parent,
+        status: 'error',
+        error: message,
+        send_to_parent: {
+          role: 'tool',
+          content: message,
+          tool_call_id: this.parent.tool_call_id,
+        },
+        output,
+      };
+    }
     return {
       type: InternalEventType.AGENT_DONE,
-      status: 'error',
       thread_id: this.threadId,
       title: this.title,
+      status: 'error',
       error: message,
-      parent: this.parent,
-      send_to_parent: this.parent
-        ? {
-            role: 'tool',
-            content: message,
-            tool_call_id: this.parent.tool_call_id,
-          }
-        : undefined,
-      ...(output && { output }),
+      output,
     };
+  }
+
+  public cancel(reason: string): AgentThreadAppendContext {
+    if (this.parent === undefined) {
+      throw new Error('unreachable: cancel() requires a parent thread');
+    }
+    this.preComputedCompletion ??= {
+      type: 'cancelled',
+      reason,
+      send_to_parent: {
+        role: 'tool',
+        tool_call_id: this.parent.tool_call_id,
+        content: reason,
+      },
+    };
+    return {
+      type: InternalEventType.AGENT_CONTEXT_APPEND,
+      thread_id: this.threadId,
+      context: [],
+      output: [],
+      completion: this.preComputedCompletion,
+    };
+  }
+
+  public *closeAnyOpenToolCalls(
+    preferred: readonly LLMToolMessage[],
+    default_reason: string,
+  ): Generator<AgentThreadAppendContext, void, unknown> {
+    this.throwIfAlreadyComplete();
+    const open = getOpenToolCallIds(this.context);
+    const byId = new Map<string, LLMToolMessage>();
+    for (const m of preferred) {
+      if (open.has(m.tool_call_id)) {
+        byId.set(m.tool_call_id, m);
+      }
+    }
+    const closed: LLMToolMessage[] = [...open].map(
+      id => byId.get(id) ?? { role: 'tool', tool_call_id: id, content: default_reason },
+    );
+    if (closed.length === 0) {
+      return;
+    }
+    yield* this.appendToContext({
+      context: closed,
+      output: [],
+      currentContextUsage: undefined,
+      usage: undefined,
+    });
   }
 
   public hasOpenToolCallId(toolCallId: string): boolean {
@@ -768,6 +825,7 @@ export class AgentThread {
   // Pure validation of an input batch against this thread's current context; throws
   // on an invalid/incomplete batch without mutating the context.
   public validateSendInput(messages: AgentThreadRuntimeSendBatch): void {
+    this.throwIfAlreadyComplete();
     validateInputMessageTypesGivenContext(this.context, messages);
   }
 
@@ -1102,7 +1160,7 @@ export class AgentThread {
       id: modelMessageEventId,
     });
 
-    let completion: SubAgentCompletionMarker | undefined;
+    let completion: SubAgentCompletion | undefined;
     if (this.parent) {
       if (finishReason === 'length') {
         const errorMessage = assistantMessageContentToStringForSubAgent(
@@ -1112,7 +1170,7 @@ export class AgentThread {
         completion = {
           type: 'error',
           output: agentAssistantMessage,
-          error_message: errorMessage,
+          error: errorMessage,
           send_to_parent: { role: 'tool', tool_call_id: this.parent.tool_call_id, content: errorMessage },
         };
       } else if (!hasToolCalls(assistantMessage)) {
@@ -1134,25 +1192,33 @@ export class AgentThread {
     });
 
     if (finishReason === 'length') {
-      const errorContent = completion?.error_message ?? 'max_tokens breached';
+      const errorContent =
+        completion?.type === 'error' ? (completion.error ?? 'max_tokens breached') : 'max_tokens breached';
       yield this.generateErrorEvent(errorContent, agentAssistantMessage);
       return { outcome: 'exit', modelMessageEventId };
     }
 
-    if (!hasToolCalls(assistantMessage)) {
-      yield {
-        type: InternalEventType.AGENT_DONE,
-        status: 'done',
-        thread_id: this.threadId,
-        title: this.title,
-        output: agentAssistantMessage,
-        parent: this.parent,
-        send_to_parent: completion?.send_to_parent,
-      };
-      return { outcome: 'exit', modelMessageEventId };
+    if (hasToolCalls(assistantMessage)) {
+      return { outcome: 'continue', modelMessageEventId };
     }
 
-    return { outcome: 'continue', modelMessageEventId };
+    // No tool calls: this thread is finished. A child must already have send_to_parent
+    // from the completion built above; the root only reports the assistant output.
+    if (this.parent !== undefined) {
+      if (completion === undefined) {
+        throw new Error('unreachable: child finished without a completion');
+      }
+      yield this.buildReplayEvent(completion);
+    } else {
+      yield {
+        type: InternalEventType.AGENT_DONE,
+        thread_id: this.threadId,
+        title: this.title,
+        status: 'done',
+        output: agentAssistantMessage,
+      };
+    }
+    return { outcome: 'exit', modelMessageEventId };
   }
 
   private async *stepToolResponse(
@@ -1297,7 +1363,10 @@ export class AgentThread {
     return 'exit';
   }
 
-  private buildReplayEvent(c: SubAgentCompletionMarker): InternalThreadDoneEvent {
+  private buildReplayEvent(c: SubAgentCompletion): InternalThreadDoneEvent {
+    if (this.parent === undefined) {
+      throw new Error('unreachable: completion replay requires a parent thread');
+    }
     const base = {
       type: InternalEventType.AGENT_DONE,
       thread_id: this.threadId,
@@ -1305,9 +1374,19 @@ export class AgentThread {
       parent: this.parent,
       send_to_parent: c.send_to_parent,
     };
-    return c.type === 'done'
-      ? { ...base, status: 'done', output: c.output }
-      : { ...base, status: 'error', error: c.error_message ?? 'Sub-agent errored', output: c.output };
+    if (c.type === 'done') {
+      return { ...base, status: 'done', output: c.output };
+    }
+    if (c.type === 'error') {
+      return { ...base, status: 'error', error: c.error ?? 'Sub-agent errored', output: c.output };
+    }
+    return { ...base, status: 'cancelled', reason: c.reason };
+  }
+
+  private throwIfAlreadyComplete(): void {
+    if (this.preComputedCompletion !== undefined) {
+      throw new InvalidAgentSendInputError(`thread ${this.threadId} is already complete`);
+    }
   }
 
   public async *execute(options?: {

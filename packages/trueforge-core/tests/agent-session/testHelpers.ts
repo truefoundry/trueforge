@@ -168,7 +168,9 @@ export function makeCreateTurnInput(input: {
   previousTurnId?: string | null;
   firstTurnId?: string;
   new_threads?: NewThreadInit[];
-  new_context_appends?: TurnContextAppend[];
+  new_context_appends?: (Omit<TurnContextAppend, 'completion'> & {
+    completion?: TurnContextAppend['completion'];
+  })[];
   capability_states?: CreateTurnInput['capability_states'];
   update_session_title_if_not_exist?: string;
 }): CreateTurnInput {
@@ -185,7 +187,10 @@ export function makeCreateTurnInput(input: {
   return {
     turn: turnInit,
     new_threads: isFirstInChain ? (input.new_threads ?? [defaultRootThread]) : (input.new_threads ?? []),
-    new_context_appends: input.new_context_appends ?? [],
+    new_context_appends: (input.new_context_appends ?? []).map(append => ({
+      ...append,
+      completion: append.completion ?? null,
+    })),
     capability_states: input.capability_states ?? [{ thread_id: MAIN_THREAD_ID, capability_state: null }],
     update_session_title_if_not_exist: input.update_session_title_if_not_exist ?? null,
   };

@@ -296,20 +296,17 @@ export const ThreadStateSchema = z
   .discriminatedUnion('status', [ThreadStateDoneSchema, ThreadStateErrorSchema])
   .openapi('ThreadState');
 
-export const BaseThreadDoneEventSchema = z
+export const ThreadDoneEventSchema = z
   .object({
+    type: z.literal(EventType.THREAD_DONE).describe('A thread reached a terminal state.'),
+    id: EventIdSchema,
+    created_at: z.string().describe('ISO 8601 event timestamp.'),
     parent: AgentParentSchema.optional(),
     thread_id: z.string().describe('Thread that finished.'),
     title: z.string().describe('Human-readable thread title.'),
+    state: ThreadStateSchema,
   })
-  .openapi('BaseThreadDoneEvent');
-
-export const ThreadDoneEventSchema = BaseThreadDoneEventSchema.extend({
-  type: z.literal(EventType.THREAD_DONE).describe('A thread reached a terminal state.'),
-  id: EventIdSchema,
-  created_at: z.string().describe('ISO 8601 event timestamp.'),
-  state: ThreadStateSchema,
-}).openapi('ThreadDoneEvent');
+  .openapi('ThreadDoneEvent');
 
 const ContextMessageSchema = z.union([
   LLMUserMessageSchema,
@@ -462,7 +459,6 @@ export type ToolResponseEvent = z.infer<typeof ToolResponseEventSchema>;
 export type ThreadCreatedEvent = z.infer<typeof ThreadCreatedEventSchema>;
 export type ThreadStateError = z.infer<typeof ThreadStateErrorSchema>;
 export type ThreadState = z.infer<typeof ThreadStateSchema>;
-export type BaseThreadDoneEvent = z.infer<typeof BaseThreadDoneEventSchema>;
 export type ThreadDoneEvent = z.infer<typeof ThreadDoneEventSchema>;
 export type ThreadOverwriteContextEvent = z.infer<typeof ThreadOverwriteContextEventSchema>;
 export type BaseMCPAuthRequiredEvent = z.infer<typeof BaseMCPAuthRequiredEventSchema>;
