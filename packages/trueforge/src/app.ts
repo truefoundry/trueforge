@@ -483,7 +483,9 @@ export function createServerApp<TTransaction>(deps: ServerDeps<TTransaction>) {
   const uiBasePath = getPublicUiBasePath();
   const openApiSpecPath = `${uiBasePath}api/v1/openapi.json`;
   const openApiServerUrl = uiBasePath === '/' ? undefined : uiBasePath.replace(/\/$/, '');
-  app.get('/api/v1/docs', swaggerUI({ url: openApiSpecPath }));
+  if (configuration.SWAGGER_ENABLED) {
+    app.get('/api/v1/docs', swaggerUI({ url: openApiSpecPath }));
+  }
   app.get('/api/v1/openapi.json', c =>
     c.json(
       buildOpenApiDocument(app, {
