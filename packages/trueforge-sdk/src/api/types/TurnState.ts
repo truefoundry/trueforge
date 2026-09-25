@@ -6,4 +6,5 @@ export type TurnState =
     | TrueForge.TurnStateCancelled
     | TrueForge.TurnStateDone
     | TrueForge.TurnStateError
+    | TrueForge.TurnStatePaused
     | TrueForge.TurnStateRunning;

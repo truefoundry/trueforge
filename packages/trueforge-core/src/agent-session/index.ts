@@ -7,6 +7,7 @@ export { AgentSpecSchema, DEFAULT_AGENT_CONFIG_ITERATION_LIMIT, RuntimeConfigSch
 export type { AgentSpec, Skill } from './schemas/agentSpec';
 
 export {
+  ActionRequiredSchema,
   CancellationReason,
   CreateTurnRequestSchema,
   TurnInboundEventItemSchema,
@@ -17,6 +18,7 @@ export {
   TurnStateCancelledSchema,
   TurnStateDoneSchema,
   TurnStateErrorSchema,
+  TurnStatePausedSchema,
   TurnStateRunningSchema,
   TurnStateSchema,
 } from './schemas/turn';

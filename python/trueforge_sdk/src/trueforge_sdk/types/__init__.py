@@ -56,6 +56,8 @@ if typing.TYPE_CHECKING:
     from .context_management_config import ContextManagementConfig
     from .create_schedule_run_response import CreateScheduleRunResponse
     from .create_session_agent import CreateSessionAgent
+    from .create_turn_event_response import CreateTurnEventResponse
+    from .create_turn_event_response_data_item import CreateTurnEventResponseDataItem
     from .created_by_subject import CreatedBySubject
     from .cron_expression import CronExpression
     from .custom_model_provider import CustomModelProvider
@@ -211,6 +213,8 @@ if typing.TYPE_CHECKING:
     from .timezone import Timezone
     from .together_ai_model_provider import TogetherAiModelProvider
     from .token_pagination import TokenPagination
+    from .tool_approval_policy_allow_session import ToolApprovalPolicyAllowSession
+    from .tool_approval_policy_item import ToolApprovalPolicyItem
     from .tool_approval_required_event import ToolApprovalRequiredEvent
     from .tool_call import ToolCall
     from .tool_call_ref import ToolCallRef
@@ -225,6 +229,7 @@ if typing.TYPE_CHECKING:
     from .turn_created_event import TurnCreatedEvent
     from .turn_done_event import TurnDoneEvent
     from .turn_done_event_state import TurnDoneEventState
+    from .turn_inbound_event_item import TurnInboundEventItem
     from .turn_input_item import TurnInputItem
     from .turn_metrics import TurnMetrics
     from .turn_state import TurnState
@@ -234,16 +239,21 @@ if typing.TYPE_CHECKING:
     from .turn_state_done import TurnStateDone
     from .turn_state_error import TurnStateError
     from .turn_state_error_metrics import TurnStateErrorMetrics
+    from .turn_state_paused import TurnStatePaused
     from .turn_state_running import TurnStateRunning
     from .turn_streaming_event import TurnStreamingEvent
     from .turn_update_event import TurnUpdateEvent
-    from .turn_update_state import TurnUpdateState
-    from .turn_update_state_paused import TurnUpdateStatePaused
-    from .turn_update_state_running import TurnUpdateStateRunning
+    from .turn_update_event_state import TurnUpdateEventState
+    from .user_mcp_auth_continue_event import UserMcpAuthContinueEvent
+    from .user_mcp_auth_continue_input_event import UserMcpAuthContinueInputEvent
     from .user_message import UserMessage
     from .user_message_content import UserMessageContent
     from .user_message_content_item import UserMessageContentItem
+    from .user_tool_approval_event import UserToolApprovalEvent
     from .user_tool_approval_input_event import UserToolApprovalInputEvent
+    from .user_tool_approval_policy_event import UserToolApprovalPolicyEvent
+    from .user_tool_approval_policy_message import UserToolApprovalPolicyMessage
+    from .user_tool_response_event import UserToolResponseEvent
     from .user_tool_response_input_event import UserToolResponseInputEvent
     from .web_search_capability import WebSearchCapability
     from .web_search_config import WebSearchConfig
@@ -300,6 +310,8 @@ _dynamic_imports: typing.Dict[str, str] = {
     "ContextManagementConfig": ".context_management_config",
     "CreateScheduleRunResponse": ".create_schedule_run_response",
     "CreateSessionAgent": ".create_session_agent",
+    "CreateTurnEventResponse": ".create_turn_event_response",
+    "CreateTurnEventResponseDataItem": ".create_turn_event_response_data_item",
     "CreatedBySubject": ".created_by_subject",
     "CronExpression": ".cron_expression",
     "CustomModelProvider": ".custom_model_provider",
@@ -455,6 +467,8 @@ _dynamic_imports: typing.Dict[str, str] = {
     "Timezone": ".timezone",
     "TogetherAiModelProvider": ".together_ai_model_provider",
     "TokenPagination": ".token_pagination",
+    "ToolApprovalPolicyAllowSession": ".tool_approval_policy_allow_session",
+    "ToolApprovalPolicyItem": ".tool_approval_policy_item",
     "ToolApprovalRequiredEvent": ".tool_approval_required_event",
     "ToolCall": ".tool_call",
     "ToolCallRef": ".tool_call_ref",
@@ -469,6 +483,7 @@ _dynamic_imports: typing.Dict[str, str] = {
     "TurnCreatedEvent": ".turn_created_event",
     "TurnDoneEvent": ".turn_done_event",
     "TurnDoneEventState": ".turn_done_event_state",
+    "TurnInboundEventItem": ".turn_inbound_event_item",
     "TurnInputItem": ".turn_input_item",
     "TurnMetrics": ".turn_metrics",
     "TurnState": ".turn_state",
@@ -478,16 +493,21 @@ _dynamic_imports: typing.Dict[str, str] = {
     "TurnStateDone": ".turn_state_done",
     "TurnStateError": ".turn_state_error",
     "TurnStateErrorMetrics": ".turn_state_error_metrics",
+    "TurnStatePaused": ".turn_state_paused",
     "TurnStateRunning": ".turn_state_running",
     "TurnStreamingEvent": ".turn_streaming_event",
     "TurnUpdateEvent": ".turn_update_event",
-    "TurnUpdateState": ".turn_update_state",
-    "TurnUpdateStatePaused": ".turn_update_state_paused",
-    "TurnUpdateStateRunning": ".turn_update_state_running",
+    "TurnUpdateEventState": ".turn_update_event_state",
+    "UserMcpAuthContinueEvent": ".user_mcp_auth_continue_event",
+    "UserMcpAuthContinueInputEvent": ".user_mcp_auth_continue_input_event",
     "UserMessage": ".user_message",
     "UserMessageContent": ".user_message_content",
     "UserMessageContentItem": ".user_message_content_item",
+    "UserToolApprovalEvent": ".user_tool_approval_event",
     "UserToolApprovalInputEvent": ".user_tool_approval_input_event",
+    "UserToolApprovalPolicyEvent": ".user_tool_approval_policy_event",
+    "UserToolApprovalPolicyMessage": ".user_tool_approval_policy_message",
+    "UserToolResponseEvent": ".user_tool_response_event",
     "UserToolResponseInputEvent": ".user_tool_response_input_event",
     "WebSearchCapability": ".web_search_capability",
     "WebSearchConfig": ".web_search_config",
@@ -568,6 +588,8 @@ __all__ = [
     "ContextManagementConfig",
     "CreateScheduleRunResponse",
     "CreateSessionAgent",
+    "CreateTurnEventResponse",
+    "CreateTurnEventResponseDataItem",
     "CreatedBySubject",
     "CronExpression",
     "CustomModelProvider",
@@ -723,6 +745,8 @@ __all__ = [
     "Timezone",
     "TogetherAiModelProvider",
     "TokenPagination",
+    "ToolApprovalPolicyAllowSession",
+    "ToolApprovalPolicyItem",
     "ToolApprovalRequiredEvent",
     "ToolCall",
     "ToolCallRef",
@@ -737,6 +761,7 @@ __all__ = [
     "TurnCreatedEvent",
     "TurnDoneEvent",
     "TurnDoneEventState",
+    "TurnInboundEventItem",
     "TurnInputItem",
     "TurnMetrics",
     "TurnState",
@@ -746,16 +771,21 @@ __all__ = [
     "TurnStateDone",
     "TurnStateError",
     "TurnStateErrorMetrics",
+    "TurnStatePaused",
     "TurnStateRunning",
     "TurnStreamingEvent",
     "TurnUpdateEvent",
-    "TurnUpdateState",
-    "TurnUpdateStatePaused",
-    "TurnUpdateStateRunning",
+    "TurnUpdateEventState",
+    "UserMcpAuthContinueEvent",
+    "UserMcpAuthContinueInputEvent",
     "UserMessage",
     "UserMessageContent",
     "UserMessageContentItem",
+    "UserToolApprovalEvent",
     "UserToolApprovalInputEvent",
+    "UserToolApprovalPolicyEvent",
+    "UserToolApprovalPolicyMessage",
+    "UserToolResponseEvent",
     "UserToolResponseInputEvent",
     "WebSearchCapability",
     "WebSearchConfig",

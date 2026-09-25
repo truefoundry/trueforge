@@ -22,6 +22,7 @@ import {
   isAgentInputUserMessage,
   isFileContentPart,
   McpConnectionError,
+  newEventId,
   rawSandboxId,
   redisKey,
   SandboxError,
@@ -42,6 +43,7 @@ import type { ISkillStore } from '../db/skillStore';
 import type { IWebSearchProviderStore } from '../db/webSearchProviderStore';
 import {
   createAndExecuteTurnRoute,
+  createTurnEventRoute,
   downloadSandboxFileRoute,
   getTurnRoute,
   listTurnEventsRoute,
@@ -922,12 +924,53 @@ export function createTurnsRouter(deps: TurnsRouterDeps) {
     });
   };
 
+  const createTurnEventHandler: RouteHandler<typeof createTurnEventRoute> = async c => {
+    const { session_id: sessionId } = c.req.valid('param');
+    const body = c.req.valid('json');
+    const requestContext = deps.resolveRequestContext(c);
+    const session = await deps.sessions.get({
+      tenant_id: requestContext.tenant_id,
+      session_id: sessionId,
+    });
+    if (!session) {
+      return c.json({ error: { message: `Session not found: ${sessionId}` } }, 404);
+    }
+    if (
+      !isSessionOwner({
+        subject_id: requestContext.subject.id,
+        created_by_subject: session.record.created_by_subject,
+      })
+    ) {
+      return c.json({ error: { message: FORBIDDEN_SESSION_ACCESS } }, 403);
+    }
+
+    const createdAt = new Date().toISOString();
+    const events = body.events.map(payload => {
+      const id = newEventId();
+      return {
+        event_id: id,
+        payload,
+        created_at: createdAt,
+        created: { ...payload, id, created_at: createdAt },
+      };
+    });
+
+    // Persist + apply/wake land later. Mint ids now so the client contract is stable.
+    // await deps.sessionStore.insertTurnInboundEvents({
+    //   session_id: sessionId,
+    //   turn_id: turnId,
+    //   events: events.map(({ event_id, payload, created_at }) => ({ event_id, payload, created_at })),
+    // });
+    return c.json({ data: events.map(e => e.created) }, 201);
+  };
+
   const router = new OpenAPIHono();
   router.openapi(createAndExecuteTurnRoute, createAndExecuteTurnHandler);
   router.openapi(listTurnsRoute, listTurnsHandler);
   router.openapi(getTurnRoute, getTurnHandler);
   router.openapi(downloadSandboxFileRoute, downloadSandboxFileHandler);
   router.openapi(listTurnEventsRoute, listTurnEventsHandler);
+  router.openapi(createTurnEventRoute, createTurnEventHandler);
   router.openapi(subscribeTurnRoute, subscribeTurnHandler);
   return router;
 }

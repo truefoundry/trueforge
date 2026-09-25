@@ -5,7 +5,7 @@ import typing
 import pydantic
 from ..core.pydantic_utilities import IS_PYDANTIC_V2
 from ..core.unchecked_base_model import UncheckedBaseModel
-from .turn_update_state import TurnUpdateState
+from .turn_update_event_state import TurnUpdateEventState
 
 
 class TurnUpdateEvent(UncheckedBaseModel):
@@ -19,7 +19,11 @@ class TurnUpdateEvent(UncheckedBaseModel):
     Unique identifier for the event (monotonic ULID).
     """
 
-    state: TurnUpdateState
+    state: TurnUpdateEventState = pydantic.Field()
+    """
+    Live non-terminal turn state (paused or running).
+    """
+
     thread_id: typing.Optional[str] = pydantic.Field(default=None)
     """
     Thread that owns the event; null for turn-level lifecycle events.
