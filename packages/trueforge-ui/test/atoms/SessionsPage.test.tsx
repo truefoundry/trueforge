@@ -3,6 +3,7 @@ import { fireEvent, render, screen, waitFor } from '@testing-library/react';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 import { SessionsPage } from '@/atoms/agent-details/SessionsPage.js';
+import { ToasterProvider } from '@/containers/ToasterContainer.js';
 import { ServerProvider } from '@/server/ServerContext.js';
 import { ShellModeProvider } from '@/server/ShellModeContext.js';
 import type {
@@ -118,11 +119,13 @@ function renderPage({
   });
   render(
     <SlotsProvider>
-      <ServerProvider server={server}>
-        <ShellModeProvider>
-          <SessionsPage />
-        </ShellModeProvider>
-      </ServerProvider>
+      <ToasterProvider>
+        <ServerProvider server={server}>
+          <ShellModeProvider>
+            <SessionsPage />
+          </ShellModeProvider>
+        </ServerProvider>
+      </ToasterProvider>
     </SlotsProvider>,
   );
   return { listSessions, listSessionEvents, getSession, deleteSession };
@@ -224,6 +227,27 @@ describe('SessionsPage', () => {
     expect(await screen.findByText('Pinned session')).toBeInTheDocument();
     expect(screen.queryByText('No Sessions Found')).not.toBeInTheDocument();
     expect(getSession).toHaveBeenCalledWith({ sessionId: 'sess-1' });
+  });
+
+  it('toasts and keeps the inline failure when a non-share detail load is forbidden', async () => {
+    window.history.replaceState(null, '', '/?view=sessions&sessionId=sess-1');
+    const forbidden = Object.assign(new Error('Only the session creator can access this session'), {
+      statusCode: 403,
+    });
+    vi.spyOn(console, 'error').mockImplementation(() => {});
+    renderPage({
+      listSessions: vi.fn(async () => ({ data: [namedRow] })),
+      listSessionEvents: vi.fn(async () => {
+        throw forbidden;
+      }),
+      getSession: vi.fn(async () => {
+        throw forbidden;
+      }),
+    });
+
+    expect(await screen.findByText('Session details could not be loaded.')).toBeInTheDocument();
+    expect(await screen.findByText('Only the session creator can access this session')).toBeInTheDocument();
+    expect(window.location.search).toContain('sessionId=sess-1');
   });
 
   it('copies the no-router shared-session query URL for the selected session', async () => {

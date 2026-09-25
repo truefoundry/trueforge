@@ -14,6 +14,7 @@ import { useOptionalShellMode } from '../../server/ShellModeContext.js';
 import type { Session, SessionEventItem, SessionListEntry } from '../../server/types.js';
 import { useSlot } from '../../theme/SlotsProvider.js';
 import { drainListPages } from '../../utils/drainListPages.js';
+import { reportSessionAccessError } from '../../utils/sessionAccessError.js';
 import { sessionTimeRangeFromCreatedAt } from '../../utils/sessionShareUrl.js';
 import { EmptyScreen } from '../EmptyScreen.js';
 import { cn } from '../lib/cn.js';
@@ -203,15 +204,24 @@ export function AgentSessions({
             ...(pageToken == null ? {} : { pageToken }),
           }),
       }),
-      chatServer.getSession({ sessionId: selectedSessionId }).catch(() => undefined),
+      chatServer.getSession({ sessionId: selectedSessionId }),
     ])
       .then(([itemsNewestFirst, session]) => {
         if (cancelled) return;
         setDetailEvents([...itemsNewestFirst].reverse());
         setDetailSession(session);
       })
-      .catch(() => {
-        if (!cancelled) setDetailFailed(true);
+      .catch((error: unknown) => {
+        if (cancelled) return;
+        reportSessionAccessError({
+          error,
+          ...(toaster != null ? { showError: toaster.showError } : {}),
+        });
+        if (detailOnly) {
+          onCloseDetail?.();
+          return;
+        }
+        setDetailFailed(true);
       })
       .finally(() => {
         if (!cancelled) setDetailLoading(false);
@@ -220,7 +230,7 @@ export function AgentSessions({
     return () => {
       cancelled = true;
     };
-  }, [chatServer, selectedSessionId, sessionsServer]);
+  }, [chatServer, detailOnly, onCloseDetail, selectedSessionId, sessionsServer, toaster]);
 
   const selectSession = (entry: SessionListEntry) => {
     const pinned = shareView === 'sessions' ? sessionTimeRangeFromCreatedAt(entry.createdAt) : null;

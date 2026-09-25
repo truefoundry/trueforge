@@ -116,7 +116,15 @@ function SessionsSurface() {
 function renderApp() {
   return render(
     <TrueForgeUI
-      server={createMockAgentUIServer({})}
+      server={createMockAgentUIServer({
+        getSession: async ({ sessionId }) => ({
+          id: sessionId,
+          title: 'Session',
+          isMutable: true,
+          createdAt: '2026-01-01T00:00:00Z',
+          updatedAt: '2026-01-01T00:00:00Z',
+        }),
+      })}
       agentConfig={{ mode: 'AgentLibraryWithComposer' }}
       withRouter
       layout={() => <ShellProbe />}
@@ -185,6 +193,39 @@ describe('withRouter end to end', () => {
     });
     expect(await screen.findByRole('button', { name: 'Last 30 days' })).toBeInTheDocument();
     expect(listSessions).toHaveBeenCalled();
+  });
+
+  it('toasts and redirects to the sessions list when a shared session is forbidden', async () => {
+    window.history.replaceState(null, '', '/sessions/share/session-forbidden');
+    const forbidden = Object.assign(new Error('Only the session creator can access this session'), {
+      statusCode: 403,
+    });
+    vi.spyOn(console, 'error').mockImplementation(() => {});
+    render(
+      <TrueForgeUI
+        server={createMockAgentUIServer({
+          getSession: async () => {
+            throw forbidden;
+          },
+          sessions: createMockAgentSessionsServer({
+            listSessions: async () => ({ data: [] }),
+            listSessionEvents: async () => {
+              throw forbidden;
+            },
+          }),
+        })}
+        agentConfig={{ mode: 'AgentLibraryWithComposer' }}
+        withRouter
+        layout={() => <SessionsSurface />}
+      />,
+    );
+
+    expect(await screen.findByText('Only the session creator can access this session')).toBeInTheDocument();
+    await waitFor(() => {
+      expect(window.location.pathname).toBe('/sessions');
+    });
+    expect(await screen.findByRole('button', { name: 'Last 30 days' })).toBeInTheDocument();
+    expect(screen.queryByText('Session details could not be loaded.')).not.toBeInTheDocument();
   });
 
   it('applies a /sessions/:id deep link on boot', async () => {
