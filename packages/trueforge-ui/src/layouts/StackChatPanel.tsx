@@ -11,6 +11,7 @@ import { cn } from '../atoms/lib/cn.js';
 import { Spinner } from '../atoms/primitives/Spinner.js';
 import { AgentConfigDrawerContainer } from '../containers/AgentConfigDrawerContainer.js';
 import { Thread } from '../containers/Thread.js';
+import { useChatChromeActionsVisible } from '../hooks/useChatChromeActionsVisible.js';
 import { Icon } from '../icons/Icon.js';
 import { useOptionalShellMode } from '../server/ShellModeContext.js';
 import { useSlot } from '../theme/SlotsProvider.js';
@@ -37,6 +38,7 @@ export function StackChatPanel({ className, threadHeaderEnd }: StackChatPanelPro
   const AgentDetailsPage = useSlot('AgentDetailsPage');
   const AgentsLibrary = useSlot('AgentsLibrary');
   const SessionsPage = useSlot('SessionsPage');
+  const ShareChatButton = useSlot('ShareChatButton');
   const SaveAgentButton = useSlot('SaveAgentButton');
   const SelectAgentEmptyState = useSlot('SelectAgentEmptyState');
   const UserAvatar = useSlot('UserAvatar');
@@ -45,6 +47,7 @@ export function StackChatPanel({ className, threadHeaderEnd }: StackChatPanelPro
   const libraryOpen = shell?.libraryOpen === true;
   const sessionsOpen = shell?.sessionsOpen === true;
   const schedulesOpen = shell?.schedulesOpen === true;
+  const chatChromeActionsVisible = useChatChromeActionsVisible();
   const showNewActions = shell?.isNewChatEnabled !== false;
 
   useEffect(() => {
@@ -127,7 +130,7 @@ export function StackChatPanel({ className, threadHeaderEnd }: StackChatPanelPro
           <PageHeader
             start={
               <>
-                {showNewActions ? (
+                {showNewActions && !chatChromeActionsVisible ? (
                   <button
                     type="button"
                     aria-label="New Chat"
@@ -154,6 +157,7 @@ export function StackChatPanel({ className, threadHeaderEnd }: StackChatPanelPro
             title={<NamedAgentHeaderLabel />}
             end={
               <>
+                <ShareChatButton />
                 <ClearChatButton />
                 <SaveAgentButton />
                 {threadHeaderEnd}

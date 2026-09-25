@@ -110,5 +110,9 @@ export function createTrueForgeAgentUIServer(options: CreateTrueForgeAgentUIServ
     metrics: createHarnessAgentMetricsServer({ ...clientOptions, client }),
     schedules: createScheduleServer({ client }),
     permissions: permissions ?? createHarnessPermissionsServer({ client }),
+    getMe: async () => {
+      const { data } = await client.auth.me();
+      return { tenantId: data.tenantId };
+    },
   });
 }

@@ -34,7 +34,7 @@ export const listTurnsRoute = createRoute({
   tags: [OpenApiTag.AGENT_SESSIONS],
   summary: 'List turns in a session',
   description:
-    'List turns for a session (newest first by default), token-paginated. Only the session creator may list turns.',
+    'List turns for a session (newest first by default), token-paginated. Allowed for the creator, a manager of the bound named agent, or any tenant member when the session is shared.',
   'x-fern-sdk-group-name': ['sessions'],
   'x-fern-sdk-method-name': 'list_turns',
   'x-fern-pagination': TOKEN_PAGINATION,
@@ -53,7 +53,7 @@ export const listTurnsRoute = createRoute({
     },
     403: {
       content: { 'application/json': { schema: RequestErrorResponseSchema } },
-      description: 'Caller is not the session creator.',
+      description: 'Caller cannot read this session.',
     },
     404: {
       content: { 'application/json': { schema: RequestErrorResponseSchema } },
@@ -67,7 +67,8 @@ export const getTurnRoute = createRoute({
   path: '/{session_id}/turns/{turn_id}',
   tags: [OpenApiTag.AGENT_SESSIONS],
   summary: 'Get a turn',
-  description: 'Fetch a single turn by ID. Only the session creator may fetch it.',
+  description:
+    'Fetch a single turn by ID. Allowed for the creator, a manager of the bound named agent, or any tenant member when the session is shared.',
   'x-fern-sdk-group-name': ['sessions'],
   'x-fern-sdk-method-name': 'get_turn',
   request: {
@@ -80,7 +81,7 @@ export const getTurnRoute = createRoute({
     },
     403: {
       content: { 'application/json': { schema: RequestErrorResponseSchema } },
-      description: 'Caller is not the session creator.',
+      description: 'Caller cannot read this session.',
     },
     404: {
       content: { 'application/json': { schema: RequestErrorResponseSchema } },
@@ -144,7 +145,7 @@ export const listTurnEventsRoute = createRoute({
   tags: [OpenApiTag.AGENT_SESSIONS],
   summary: 'List turn events',
   description:
-    'Paginated persisted events for a turn (insertion order by default). Only the session creator may list events.',
+    'Paginated persisted events for a turn (insertion order by default). Allowed for the creator, a manager of the bound named agent, or any tenant member when the session is shared.',
   'x-fern-sdk-group-name': ['sessions'],
   'x-fern-sdk-method-name': 'list_turn_events',
   'x-fern-pagination': TOKEN_PAGINATION,
@@ -163,7 +164,7 @@ export const listTurnEventsRoute = createRoute({
     },
     403: {
       content: { 'application/json': { schema: RequestErrorResponseSchema } },
-      description: 'Caller is not the session creator.',
+      description: 'Caller cannot read this session.',
     },
     404: {
       content: { 'application/json': { schema: RequestErrorResponseSchema } },

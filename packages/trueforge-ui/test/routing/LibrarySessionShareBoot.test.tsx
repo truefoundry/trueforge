@@ -17,6 +17,7 @@ function Probe() {
     <div>
       <span>{shell.libraryAgentId ?? 'none'}</span>
       <span>{shell.sessionsOpen ? 'sessions-open' : 'sessions-closed'}</span>
+      <span>{shell.sharedSessionId ?? 'no-shared-session'}</span>
     </div>
   );
 }
@@ -53,6 +54,13 @@ describe('LibrarySessionShareBoot', () => {
     const { getByText } = renderBoot();
     expect(getByText('none')).toBeInTheDocument();
     expect(getByText('sessions-open')).toBeInTheDocument();
+  });
+
+  it('opens shared-session detail from the query fallback without a router', () => {
+    window.history.replaceState(null, '', '/?view=shared-session&sessionId=sess-1');
+    const { getByText } = renderBoot();
+    expect(getByText('sessions-open')).toBeInTheDocument();
+    expect(getByText('sess-1')).toBeInTheDocument();
   });
 
   it('ignores ?view=sessions when sessions port is missing', () => {

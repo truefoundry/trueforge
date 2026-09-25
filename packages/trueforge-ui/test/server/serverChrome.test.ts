@@ -59,6 +59,7 @@ describe('serverChrome', () => {
     });
     expect(disabled.settings).toBeNull();
     expect(disabled.sessionsBrowser).toBeNull();
+    expect(disabled.sharedSession).toBeNull();
     expect(disabled.libraryAgent).toBeNull();
     expect(disabled.schedules).toBeNull();
     expect(disabled.root).toBe('/');
@@ -73,6 +74,7 @@ describe('serverChrome', () => {
     });
     expect(enabled.settings).toBe('/settings');
     expect(enabled.sessionsBrowser).toBe('/sessions');
+    expect(enabled.sharedSession).toBe('/sessions/share/:sessionId');
     expect(enabled.libraryAgent).toBe('/library/:agentId');
     expect(enabled.schedules).toBe('/schedules');
   });

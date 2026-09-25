@@ -1871,7 +1871,7 @@ client.sessions.create(
 <dl>
 <dd>
 
-Fetch a session by ID. Only the session creator may fetch it.
+Fetch a session by ID. Allowed for the creator, a manager of the bound named agent, or any tenant member when the session is shared.
 </dd>
 </dl>
 </dd>
@@ -2015,7 +2015,7 @@ client.sessions.delete(
 <dl>
 <dd>
 
-Update a session: optional `title`, `metadata`, and (inline sessions only) `agent` as `{ spec: AgentSpec }`. Named sessions reject agent updates. An empty body is a valid no-op that refreshes `updated_at`. Only the session creator may update it.
+Update a session: optional `title`, `metadata`, `shared`, and (inline sessions only) `agent` as `{ spec: AgentSpec }`. Named sessions reject agent updates. An empty body is a valid no-op that refreshes `updated_at`. Only the session creator may update it.
 </dd>
 </dl>
 </dd>
@@ -2072,6 +2072,14 @@ client.sessions.update(
 <dd>
 
 **metadata:** `typing.Optional[SessionMetadata]` 
+    
+</dd>
+</dl>
+
+<dl>
+<dd>
+
+**shared:** `typing.Optional[bool]` — When true, any subject in the tenant may read this session and its turns/events by id.
     
 </dd>
 </dl>
@@ -2183,7 +2191,7 @@ client.sessions.cancel(
 <dl>
 <dd>
 
-List session events as `{ turn_id, event }` across the active turn branch (newest first), including persisted events from a running tip. Each turn contributes turn.created, content events (model.message, tool.call, …), and turn.done when terminal; streaming deltas are not included. Use `page_token` to paginate backward toward older events while retaining the original branch anchor. Only the session creator may list events.
+List session events as `{ turn_id, event }` across the active turn branch (newest first), including persisted events from a running tip. Each turn contributes turn.created, content events (model.message, tool.call, …), and turn.done when terminal; streaming deltas are not included. Use `page_token` to paginate backward toward older events while retaining the original branch anchor. Allowed for the creator, a manager of the bound named agent, or any tenant member when the session is shared.
 </dd>
 </dl>
 </dd>
@@ -2279,7 +2287,7 @@ client.sessions.list_events(
 <dl>
 <dd>
 
-List turns for a session (newest first by default), token-paginated. Only the session creator may list turns.
+List turns for a session (newest first by default), token-paginated. Allowed for the creator, a manager of the bound named agent, or any tenant member when the session is shared.
 </dd>
 </dl>
 </dd>
@@ -2567,7 +2575,7 @@ client.sessions.create_turn_stream(
 <dl>
 <dd>
 
-Fetch a single turn by ID. Only the session creator may fetch it.
+Fetch a single turn by ID. Allowed for the creator, a manager of the bound named agent, or any tenant member when the session is shared.
 </dd>
 </dl>
 </dd>
@@ -2738,7 +2746,7 @@ client.sessions.download_sandbox_file(
 <dl>
 <dd>
 
-Paginated persisted events for a turn (insertion order by default). Only the session creator may list events.
+Paginated persisted events for a turn (insertion order by default). Allowed for the creator, a manager of the bound named agent, or any tenant member when the session is shared.
 </dd>
 </dl>
 </dd>

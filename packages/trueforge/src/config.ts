@@ -686,6 +686,8 @@ export interface SharedServerConfiguration {
   HOST: string;
   /** Peering identity embedded in the turn ids this process mints; `local` in standalone mode. */
   EXECUTOR_ID: string;
+  /** Enable Swagger UI at `/api/v1/docs`. Env: `SWAGGER_ENABLED`. Default true. */
+  SWAGGER_ENABLED: boolean;
   /**
    * Optional override for the model catalog YAML (discovery presets for
    * GET /catalogs/model-providers). When unset, the catalog inlined at build
@@ -1010,7 +1012,7 @@ export type ServerConfiguration = StandaloneServerConfiguration | DistributedSer
 const serverExecutionTimeoutSeconds = parsePositiveInt({
   envKey: 'SERVER_EXECUTION_TIMEOUT_SECONDS',
   raw: getEnv('SERVER_EXECUTION_TIMEOUT_SECONDS'),
-  defaultValue: 600,
+  defaultValue: 3600,
 });
 
 const standalone = parseBoolean({
@@ -1032,6 +1034,7 @@ const shared: SharedServerConfiguration = {
   PORT: port,
   HOST: host,
   EXECUTOR_ID: standalone ? LOCAL_EXECUTOR_ID : randomAlphanumeric(6),
+  SWAGGER_ENABLED: parseBoolean({ envKey: 'SWAGGER_ENABLED', raw: getEnv('SWAGGER_ENABLED'), defaultValue: true }),
   MODEL_CATALOG_PATH: resolveOptionalPathEnv('MODEL_CATALOG_PATH'),
   MCP_CATALOG_PATH: resolveOptionalPathEnv('MCP_CATALOG_PATH'),
   SKILL_CATALOG_PATH: resolveOptionalPathEnv('SKILL_CATALOG_PATH'),

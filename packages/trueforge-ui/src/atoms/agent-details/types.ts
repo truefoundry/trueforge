@@ -18,6 +18,10 @@ export type AgentSessionsProps = {
   endTimestamp?: string;
   /** When `sessions`, selection writes `view=sessions` and pins `s_sts`/`s_ets`. */
   shareView?: 'sessions' | null;
+  /** Render only the selected detail pane for a shared-session URL. */
+  detailOnly?: boolean;
+  detailSessionId?: string;
+  onCloseDetail?: () => void;
   /** Restores the rolling recent-session window from a URL-loaded session. */
   onLoadRecentSessions?: () => void;
 };
@@ -43,9 +47,6 @@ export type AgentSessionListRowProps = {
 export type AgentSessionDetailHeaderProps = {
   title: string;
   sessionId: string;
-  agentId?: string;
-  createdAt?: string;
-  view?: 'sessions' | null;
   onClose: () => void;
   /**
    * When set with `resumeLabel`, shows Resume Chat / Resume Agent building as a
@@ -58,6 +59,8 @@ export type AgentSessionDetailHeaderProps = {
   resumeLabel?: string;
   /** Whether the current user may resume this session. */
   canResume?: boolean;
+  /** Whether the current user may share this session. Defaults to true. */
+  canShare?: boolean;
 };
 
 export type AgentSessionTurnHeaderProps = {

@@ -125,6 +125,7 @@ function messagesForTurn(messages: ThreadMessageLike[], turn: SessionTurnView): 
 export type AgentSessionTimelineContainerProps = {
   sessionId: string;
   events: SessionEventItem[];
+  contentMaxWidth?: string;
   listMetrics?: {
     totalTurns: number;
     totalCostInUsd?: number;
@@ -132,7 +133,12 @@ export type AgentSessionTimelineContainerProps = {
   };
 };
 
-export function AgentSessionTimelineContainer({ sessionId, events, listMetrics }: AgentSessionTimelineContainerProps) {
+export function AgentSessionTimelineContainer({
+  sessionId,
+  events,
+  contentMaxWidth,
+  listMetrics,
+}: AgentSessionTimelineContainerProps) {
   const server = useServer();
   const AgentSessionTurnHeader = useSlot('AgentSessionTurnHeader');
   const AgentSessionEventTimeline = useSlot('AgentSessionEventTimeline');
@@ -207,14 +213,23 @@ export function AgentSessionTimelineContainer({ sessionId, events, listMetrics }
   }
 
   return (
-    <div className="flex min-h-0 flex-1 flex-col overflow-hidden">
-      <div className="shrink-0 border-b border-border">
+    <div
+      className="min-h-0 flex-1 overflow-x-hidden overflow-y-auto overscroll-contain"
+      data-slot="agent-session-scroll"
+    >
+      <div className="sticky top-0 z-20 bg-primary-bg" data-slot="agent-session-metrics-sticky">
         <AgentSessionMetricsStrip metrics={sessionMetrics} />
+      </div>
+      <div className="border-b border-border">
         <Suspense fallback={null}>
           <AgentSessionEventTimeline turns={turnViews} segments={timelineSegments} onSelectTurn={handleSelectTurn} />
         </Suspense>
       </div>
-      <ThreadViewportShell className="flex-1 pb-4">
+      <ThreadViewportShell
+        scrollable={false}
+        className="pb-4"
+        {...(contentMaxWidth == null ? {} : { contentMaxWidth })}
+      >
         <div className="flex flex-col gap-4">
           {turnViews.map(turn => (
             <SessionTurnSection

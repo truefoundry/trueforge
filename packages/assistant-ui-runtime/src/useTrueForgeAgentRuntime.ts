@@ -35,6 +35,8 @@ import type { UseTrueForgeAgentRuntimeOptions } from './types.js';
 import { resolveTrueForgeAgentRuntimeOptions } from './types.js';
 import { useTrueForgeAgentMessages } from './useTrueForgeAgentMessages.js';
 
+const EMPTY_NAMED_DEFAULT_SPEC: AgentSpec = { model: { name: '' } };
+
 /**
  * Wraps the mode-specific adapter behind a stable object so assistant-ui does
  * not treat a draft/named mode switch as an adapter change (which would reset
@@ -61,6 +63,12 @@ function useTrueForgeAgentRuntimeImpl(
   const { server, agent, adapters, onError, ...sharedOptions } = options;
 
   const draftBridgeRef = useRef(agent.mode === 'draft' ? createDraftSessionBridge(server) : null);
+  if (agent.mode === 'draft' && draftBridgeRef.current == null) {
+    draftBridgeRef.current = createDraftSessionBridge(server);
+  }
+  // Named sessions keep the same runtimeKey as New Chat; do not keep the draft
+  // bridge armed or a fresh `{ model: { name: '' } }` will retrigger spec sync.
+  const draftBridge = agent.mode === 'draft' ? draftBridgeRef.current : null;
 
   const draftSessionId = useAuiState(state =>
     agent.mode === 'draft' ? (state.threadListItem.remoteId ?? undefined) : undefined,
@@ -73,8 +81,8 @@ function useTrueForgeAgentRuntimeImpl(
 
   const draftSpec = useDraftAgentSpec({
     draftSessionId,
-    draftBridge: draftBridgeRef.current,
-    defaultAgentSpec: agent.mode === 'draft' ? agent.defaultAgentSpec : { model: { name: '' } },
+    draftBridge,
+    defaultAgentSpec: agent.mode === 'draft' ? agent.defaultAgentSpec : EMPTY_NAMED_DEFAULT_SPEC,
     onAgentSpecChange: agent.mode === 'draft' ? agent.onAgentSpecChange : undefined,
     onError,
   });

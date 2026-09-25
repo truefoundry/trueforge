@@ -1,11 +1,9 @@
 // @vitest-environment jsdom
-import { fireEvent, render, screen, waitFor } from '@testing-library/react';
-import { afterEach, describe, expect, it, vi } from 'vitest';
+import { fireEvent, render, screen } from '@testing-library/react';
+import { describe, expect, it, vi } from 'vitest';
 
 import { AgentSessionDetailHeader } from '@/atoms/agent-details/AgentSessionDetailHeader.js';
 import { buildAgentSessionShareUrl } from '@/utils/sessionShareUrl.js';
-
-const clipboardDescriptor = Object.getOwnPropertyDescriptor(navigator, 'clipboard');
 
 describe('buildAgentSessionShareUrl', () => {
   it('puts agent id and session id on the current page URL', () => {
@@ -22,40 +20,26 @@ describe('buildAgentSessionShareUrl', () => {
 });
 
 describe('AgentSessionDetailHeader', () => {
-  afterEach(() => {
-    if (clipboardDescriptor === undefined) {
-      Reflect.deleteProperty(navigator, 'clipboard');
-    } else {
-      Object.defineProperty(navigator, 'clipboard', clipboardDescriptor);
-    }
-  });
-
-  it('keeps title and session id on one line and copies the session link', async () => {
-    const writeText = vi.fn(async () => undefined);
-    Object.defineProperty(navigator, 'clipboard', { configurable: true, value: { writeText } });
-
-    render(
-      <AgentSessionDetailHeader
-        title="Help me find more details"
-        sessionId="sess-1"
-        agentId="agent-1"
-        onClose={() => undefined}
-      />,
-    );
+  it('keeps title and session id on one line and shows Share', () => {
+    render(<AgentSessionDetailHeader title="Help me find more details" sessionId="sess-1" onClose={() => undefined} />);
 
     const heading = screen.getByRole('heading', { name: 'Help me find more details' });
     expect(heading.parentElement).toHaveClass('items-center');
     expect(heading.parentElement).toHaveTextContent('sess-1');
+    expect(screen.getByRole('button', { name: 'Share' })).toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: 'Copy session link' })).not.toBeInTheDocument();
+  });
 
-    const copyButton = screen.getByRole('button', { name: 'Copy session link' });
-    fireEvent.mouseEnter(copyButton);
-    expect(screen.getByRole('tooltip')).toHaveTextContent('Copy session link');
-
-    fireEvent.click(copyButton);
-    await waitFor(() => {
-      expect(writeText).toHaveBeenCalledWith(buildAgentSessionShareUrl({ sessionId: 'sess-1', agentId: 'agent-1' }));
-      expect(screen.getByRole('tooltip')).toHaveTextContent('Copied');
-    });
+  it('disables Share when canShare is false', () => {
+    render(
+      <AgentSessionDetailHeader
+        title="Help me find more details"
+        sessionId="sess-1"
+        onClose={() => undefined}
+        canShare={false}
+      />,
+    );
+    expect(screen.getByRole('button', { name: 'Share' })).toBeDisabled();
   });
 
   it('shows Resume Chat as a new-tab link with an external icon', () => {
@@ -103,5 +87,20 @@ describe('AgentSessionDetailHeader', () => {
     );
     expect(screen.getByRole('link', { name: /Resume Chat/i })).toBeInTheDocument();
     expect(screen.queryByRole('button', { name: 'Resume Chat' })).not.toBeInTheDocument();
+  });
+
+  it('disables Resume Chat when the session is read-only', () => {
+    render(
+      <AgentSessionDetailHeader
+        title="Help me find more details"
+        sessionId="sess-1"
+        onClose={() => undefined}
+        resumeHref="https://app.example/sessions/sess-1"
+        resumeLabel="Resume Chat"
+        canResume={false}
+      />,
+    );
+    expect(screen.getByRole('button', { name: 'Resume Chat' })).toBeDisabled();
+    expect(screen.queryByRole('link', { name: /Resume Chat/i })).not.toBeInTheDocument();
   });
 });
