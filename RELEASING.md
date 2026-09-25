@@ -3,13 +3,14 @@
 This repo ships npm packages, a production container image, a Helm chart, and a
 sandbox image.
 
-| What                    | Trigger                                                       | Workflow                                                             |
-| ----------------------- | ------------------------------------------------------------- | -------------------------------------------------------------------- |
-| npm packages            | Push to `main` (Changesets)                                   | [`release.yml`](.github/workflows/release.yml)                       |
-| PyPI `trueforge-sdk`    | Same `mode=publish` run as npm (parallel OIDC job)            | [`release.yml`](.github/workflows/release.yml)                       |
-| Prod image + Helm chart | Dispatch from the package workflow, or manual dispatch        | [`release-chart.yml`](.github/workflows/release-chart.yml)           |
-| Sandbox image + pin PR  | Push to `main` when `scripts/sandbox/**` changes, or dispatch | [`push-sandbox-image.yml`](.github/workflows/push-sandbox-image.yml) |
-| PR checks               | Pull request / merge group                                    | [`ci.yml`](.github/workflows/ci.yml)                                 |
+| What                   | Trigger                                                       | Workflow                                                             |
+| ---------------------- | ------------------------------------------------------------- | -------------------------------------------------------------------- |
+| npm packages           | Push to `main` (Changesets)                                   | [`release.yml`](.github/workflows/release.yml)                       |
+| PyPI `trueforge-sdk`   | Same `mode=publish` run as npm (parallel OIDC job)            | [`release.yml`](.github/workflows/release.yml)                       |
+| Prod image             | Same `mode=publish` run as npm (after pack + smoke)           | [`release.yml`](.github/workflows/release.yml)                       |
+| Helm chart             | Called from `release.yml` after the image, or manual dispatch | [`release-chart.yml`](.github/workflows/release-chart.yml)           |
+| Sandbox image + pin PR | Push to `main` when `scripts/sandbox/**` changes, or dispatch | [`push-sandbox-image.yml`](.github/workflows/push-sandbox-image.yml) |
+| PR checks              | Pull request / merge group                                    | [`ci.yml`](.github/workflows/ci.yml)                                 |
 
 ## Versioning
 
@@ -46,7 +47,7 @@ helm install trueforge oci://tfy.jfrog.io/tfy-helm/trueforge --version <chart-se
 ## Flow
 
 No extra GitHub tag on the Version Packages path. [`release.yml`](.github/workflows/release.yml)
-is packages plus a dispatch of the chart workflow (`select-mode` → `version` \| `pack` → npm + PyPI + image/Helm):
+is packages plus the from-source image (`select-mode` → `version` \| `pack` → npm + PyPI + image, then Helm):
 
 1. Add a changeset in the same PR as the code change (`pnpm changeset`, or
    `pnpm change --bump patch --summary "…" <pkg>`). SDK regen already adds
@@ -56,9 +57,11 @@ is packages plus a dispatch of the chart workflow (`select-mode` → `version` \
    `scripts/version.mjs` mirrors that version into `python/trueforge_sdk` and
    regenerates both SDKs. Review and merge.
 3. With no pending changesets, **pack** (build/test) and **Windows npx smoke**
-   run in parallel, then **npm publish**, **PyPI publish**, and **Start image and Helm release**
+   run in parallel, then **npm publish**, **PyPI publish**, and **Build and push server image**
    run in parallel. PyPI skips when that `pyproject.toml` version is already
-   published. The chart workflow is dispatched with the GitHub App token.
+   published. After the image is pushed, this workflow calls
+   [`release-chart.yml`](.github/workflows/release-chart.yml) with `branch=main`,
+   `app_version`, and `image_tag`. Helm does not wait on npm.
 4. Pin dependents to exact versions during early `0.x`.
 
 `workflow_dispatch` on **Version or publish packages** re-runs the same workflow.
@@ -87,7 +90,8 @@ Do not rename this file without updating every package on npmjs.com (and PyPI
 below), or OIDC will 403.
 
 Do not set `NPM_TOKEN` / `_authToken` on the npm publish job - that disables OIDC.
-Only the **publish** / **publish-python** jobs use OIDC (`id-token: write`).
+Only the **publish** / **publish-python** jobs use npm/PyPI OIDC (`id-token: write`).
+The image job also uses `id-token: write` for JFrog.
 
 Publish attaches npm provenance (`NPM_CONFIG_PROVENANCE` on the publish job, and
 `publishConfig.provenance: true` on every public package). That publicly attests
@@ -120,9 +124,9 @@ pnpm clean && pnpm build && pnpm standalone:start
   (`scripts/version.mjs`; needs Docker). That path also mirrors the version into `python/trueforge_sdk`.
 - **PyPI 403 / invalid-publisher** - register a trusted publisher for `trueforge-sdk` bound to
   `release.yml` (and create the project if it does not exist yet).
-- **Prod image / chart missing after package publish** - dispatch the chart
-  workflow on a **branch or tag** (not a SHA):
-  `gh workflow run release-chart.yml --ref main`.
+- **Prod image / chart missing after package publish** - re-run **Version or publish packages**,
+  or publish a chart for an image already in the registry:
+  `gh workflow run release-chart.yml --ref main -f branch=main -f app_version=X.Y.Z -f image_tag=X.Y.Z-<sha>`.
 
 ---
 
@@ -131,19 +135,16 @@ pnpm clean && pnpm build && pnpm standalone:start
 ```text
 push to main (no pending changesets, unpublished versions)
   → release.yml: pack + smoke
-       → npm | PyPI | dispatch release-chart.yml  (parallel)
+       → npm | PyPI | build image X.Y.Z-<shortSha>  (parallel)
+       → after image: call release-chart.yml (main, app_version, image_tag)
   → release-chart.yml
-       → build from-source Dockerfile → push X.Y.Z-<shortSha>
        → helm lint/package/push OCI
-       → commit Chart.yaml + values.yaml to main
+       → commit Chart.yaml + values.yaml to that branch
        → tag charts/trueforge@<chartVersion> on that commit
 
-manual rebuild
-  → workflow_dispatch release-chart.yml --ref main
+manual chart-only (image already in the registry)
+  → workflow_dispatch release-chart.yml --ref main -f branch=main
 ```
-
-The package workflow starts the chart workflow with the GitHub App token.
-`GITHUB_TOKEN` cannot dispatch other workflows.
 
 ## Dockerfile
 
@@ -152,27 +153,38 @@ The package workflow starts the chart workflow with the GitHub App token.
 | [`Dockerfile`](Dockerfile)         | From-source. Prod Helm, [`docker-compose.yml`](docker-compose.yml), Railway |
 | [`Dockerfile.npm`](Dockerfile.npm) | Previous npm-install image (`APP_VERSION` from the registry)                |
 
-The image is the workspace at the dispatched commit. Chart `appVersion` is that
-commit's `packages/trueforge/package.json` version. Image tags use the peeled
-commit SHA (`git rev-parse HEAD`), not an annotated-tag object.
+The image is the workspace at the package-publish commit. Chart `appVersion` is
+that commit's `packages/trueforge/package.json` version. Image tags use the
+peeled commit SHA (`git rev-parse HEAD`), not an annotated-tag object.
 
-## Build server image and publish Helm chart
+## Publish Helm chart
 
-[`release-chart.yml`](.github/workflows/release-chart.yml) (`workflow_dispatch`).
+[`release.yml`](.github/workflows/release.yml) builds/pushes `{appVersion}-{shortSha}`
+from the root [`Dockerfile`](Dockerfile), then calls
+[`release-chart.yml`](.github/workflows/release-chart.yml) (`workflow_call`) with
+`branch=main`, `app_version`, and `image_tag`. The chart workflow does not build images.
 
-| Input         | Default                           | Meaning                                      |
-| ------------- | --------------------------------- | -------------------------------------------- |
-| `app_version` | `packages/trueforge/package.json` | Version used in the image tag and appVersion |
+`--ref` selects which workflow file GitHub runs. `branch` is the git branch that
+receives `Chart.yaml` / `values.yaml`.
 
-Always: build/push `{appVersion}-{shortSha}`, replay chart `version` /
-`appVersion` / `image.tag` onto current `main`, lint, package, push OCI
-(idempotent if that chart version is already in the registry), commit those
-files to `main`, then tag `charts/trueforge@<chartVersion>` on that commit.
-The commit is replayed onto `origin/main` if `main` moved during the image build.
+| Input         | Default (manual dispatch only)                   | Meaning                                       |
+| ------------- | ------------------------------------------------ | --------------------------------------------- |
+| `branch`      | `main`                                           | Branch that receives the chart commit         |
+| `app_version` | `packages/trueforge/package.json` on that branch | Written to Chart.yaml `appVersion`            |
+| `image_tag`   | `{app_version}-{shortSha}` of that branch HEAD   | Existing registry tag; written to `image.tag` |
+
+Always: replay chart `version` / `appVersion` / `image.tag` onto current
+`origin/<branch>`, lint, package, push OCI (idempotent if that chart version is
+already in the registry), commit those files to that branch, then tag
+`charts/trueforge@<chartVersion>` on that commit. The commit is replayed onto
+`origin/<branch>` if the branch moved.
 
 ```bash
-gh workflow run release-chart.yml --ref main
-gh workflow run release-chart.yml --ref main -f app_version=0.1.0
+gh workflow run release-chart.yml --ref main -f branch=main
+gh workflow run release-chart.yml --ref main \
+  -f branch=main \
+  -f app_version=0.3.0-rc.0 \
+  -f image_tag=0.3.0-rc.0-abcdef1
 ```
 
 Chart major.minor is taken from [`scripts/resolve-chart-version.sh`](scripts/resolve-chart-version.sh)

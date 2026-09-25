@@ -8,9 +8,10 @@ and the UI. Production, Compose smoke, and Railway all build the repository-root
 The chart always runs the server in **distributed** mode (`STANDALONE=false`) against
 Postgres and Redis.
 
-Chart `version` / `appVersion` / `image.tag` are written on `main` by
-[`release-chart.yml`](../../.github/workflows/release-chart.yml). That workflow
-then tags `charts/trueforge@<version>` on the metadata commit. See
+Chart `version` / `appVersion` / `image.tag` are written on the branch passed to
+[`release-chart.yml`](../../.github/workflows/release-chart.yml) (`main` from
+[`release.yml`](../../.github/workflows/release.yml) after the image is pushed).
+That workflow then tags `charts/trueforge@<version>` on the metadata commit. See
 [`RELEASING.md`](../../RELEASING.md).
 
 ## Dev defaults (read before exposing)

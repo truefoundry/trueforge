@@ -1,95 +1,60 @@
-name: Build server image and publish Helm chart
+name: Publish Helm chart
 
-# Starts when release.yml dispatches this workflow (App token). Builds the
-# from-source image, publishes the Helm chart, commits metadata to main, then
-# tags charts/trueforge@<chartVersion> on that commit.
+# Publishes the Helm chart for an image that already exists in the registry.
+# Does not build images: release.yml builds {appVersion}-{shortSha} and then
+# calls this workflow with (branch, app_version, image_tag).
 #
-# workflow_dispatch is also for manual rebuilds. Do not use `gh workflow run --ref
-# $GITHUB_SHA`: the dispatch API only accepts a branch or tag name (HTTP 422).
+# Steps: resolve the next chart version from Chart.yaml on origin/<branch>, write
+# appVersion / image.tag / version, lint, package, push OCI, commit those files
+# to that branch, then tag charts/trueforge@<chartVersion> on that commit.
+#
+# Manual runs: `gh workflow run release-chart.yml --ref <workflow-file-ref>`.
+# --ref is the workflow file GitHub runs (branch or tag, not a SHA).
+# `branch` is the git branch that receives Chart.yaml / values.yaml.
+# Empty app_version / image_tag default to package.json and
+# {appVersion}-{shortSha} on origin/<branch>.
 on:
+  workflow_call:
+    inputs:
+      branch:
+        description: Git branch that receives the Chart.yaml / values.yaml commit
+        required: true
+        type: string
+      app_version:
+        description: Application version written to Chart.yaml appVersion
+        required: true
+        type: string
+      image_tag:
+        description: Image tag already pushed to the registry, written to values.yaml image.tag
+        required: true
+        type: string
   workflow_dispatch:
     inputs:
+      branch:
+        description: Git branch that receives the Chart.yaml / values.yaml commit
+        required: true
+        type: string
+        default: main
       app_version:
-        description: App version for the image tag (empty = packages/trueforge/package.json)
+        description: App version (empty = packages/trueforge/package.json on that branch)
         required: false
         type: string
-
-concurrency:
-  group: release-image-and-chart
-  cancel-in-progress: false
+      image_tag:
+        description: Existing image tag (empty = <app_version>-<shortSha> of that branch)
+        required: false
+        type: string
 
 permissions: {}
 
 jobs:
-  resolve:
-    name: Resolve versions
-    runs-on: ubuntu-latest
-    outputs:
-      app_version: ${{ steps.resolve.outputs.app_version }}
-      image_tag: ${{ steps.resolve.outputs.image_tag }}
-      short_sha: ${{ steps.resolve.outputs.short_sha }}
-    permissions:
-      contents: read
-    steps:
-      - name: Check out
-        uses: actions/checkout@v7
-        with:
-          persist-credentials: false
-
-      - name: Resolve app version and image tag
-        id: resolve
-        env:
-          INPUT_APP_VERSION: ${{ inputs.app_version }}
-        run: |
-          set -euo pipefail
-          PKG_VERSION=$(node -p "require('./packages/trueforge/package.json').version")
-          if [[ -n "${INPUT_APP_VERSION}" ]]; then
-            APP_VERSION="$INPUT_APP_VERSION"
-          else
-            APP_VERSION="$PKG_VERSION"
-          fi
-          if [[ -z "$APP_VERSION" || "$APP_VERSION" == "undefined" ]]; then
-            echo "Could not resolve APP_VERSION" >&2
-            exit 1
-          fi
-          if ! printf '%s' "$APP_VERSION" | grep -Eq '^[0-9]+\.[0-9]+\.[0-9]+([.-][0-9A-Za-z.-]+)?$'; then
-            echo "APP_VERSION '$APP_VERSION' is not a semver-like version" >&2
-            exit 1
-          fi
-          # Peel annotated tags: GITHUB_SHA is the tag object, not the commit.
-          COMMIT_SHA=$(git rev-parse --verify HEAD)
-          SHORT_SHA=$(git rev-parse --short=7 HEAD)
-          IMAGE_TAG="${APP_VERSION}-${SHORT_SHA}"
-          echo "app_version=$APP_VERSION" >> "$GITHUB_OUTPUT"
-          echo "image_tag=$IMAGE_TAG" >> "$GITHUB_OUTPUT"
-          echo "short_sha=$SHORT_SHA" >> "$GITHUB_OUTPUT"
-          echo "Resolved APP_VERSION=$APP_VERSION IMAGE_TAG=$IMAGE_TAG commit=$COMMIT_SHA (package.json=$PKG_VERSION)"
-
-  build:
-    name: Build and push server image
-    needs: [resolve]
-    uses: truefoundry/github-workflows-public/.github/workflows/build.yml@main
-    permissions:
-      id-token: write
-      contents: read
-    with:
-      artifactory_registry_url: ${{ vars.TRUEFOUNDRY_ARTIFACTORY_REGISTRY_URL }}
-      artifactory_repository_url: ${{ vars.TRUEFOUNDRY_ARTIFACTORY_PUBLIC_REPOSITORY }}
-      image_artifact_name: trueforge
-      image_tag: ${{ needs.resolve.outputs.image_tag }}
-      image_context: .
-      dockerfile_path: Dockerfile
-      platforms: linux/amd64
-      enable_jfrog: true
-      enable_public_ecr: false
-    secrets:
-      artifactory_username: ${{ secrets.TRUEFORGE_ARTIFACTORY_USERNAME }}
-      artifactory_password: ${{ secrets.TRUEFORGE_ARTIFACTORY_PASSWORD }}
-
   publish-chart:
     name: Publish Helm chart
-    needs: [resolve, build]
     runs-on: ubuntu-latest
+    timeout-minutes: 20
+    # Job-level so it also applies when this workflow is called from release.yml.
+    concurrency:
+      group: release-chart-${{ inputs.branch }}
+      cancel-in-progress: false
     permissions:
       contents: write
     env:
@@ -97,9 +62,7 @@ jobs:
       HELM_REGISTRY_URL: ${{ vars.TRUEFOUNDRY_ARTIFACTORY_REGISTRY_URL }}
       HELM_CHART_REPOSITORY: ${{ vars.TRUEFOUNDRY_ARTIFACTORY_PUBLIC_HELM_REPOSITORY }}
     steps:
-      # App token: GITHUB_TOKEN cannot start workflows and often cannot push
-      # to protected main. Chart files are replayed onto origin/main so a tag
-      # or dispatch ref never force-updates main.
+      # App token: GITHUB_TOKEN often cannot push to a protected branch.
       - id: app-token
         uses: actions/create-github-app-token@v3
         with:
@@ -122,30 +85,67 @@ jobs:
         with:
           version: v3.16.4
 
-      - name: Update chart metadata on main
-        id: chart
+      - name: Checkout branch and resolve versions
+        id: resolve
         env:
-          IMAGE_TAG: ${{ needs.resolve.outputs.image_tag }}
-          APP_VERSION: ${{ needs.resolve.outputs.app_version }}
+          INPUT_BRANCH: ${{ inputs.branch }}
+          INPUT_APP_VERSION: ${{ inputs.app_version }}
+          INPUT_IMAGE_TAG: ${{ inputs.image_tag }}
         run: |
           set -euo pipefail
-          git fetch origin main
-          git checkout -B chart-release origin/main
-          CURRENT=$(yq -r '.version' charts/trueforge/Chart.yaml)
+          BRANCH="$INPUT_BRANCH"
+          if [[ -z "$BRANCH" || "$BRANCH" == refs/* || "$BRANCH" == *..* ]] ||
+            ! printf '%s' "$BRANCH" | grep -Eq '^[A-Za-z0-9][A-Za-z0-9._/-]*$'; then
+            echo "branch '$BRANCH' is not a valid git branch name" >&2
+            exit 1
+          fi
+          git fetch origin "$BRANCH"
+          git checkout -B chart-release "origin/${BRANCH}"
+
+          SEMVER='^[0-9]+\.[0-9]+\.[0-9]+([.-][0-9A-Za-z.-]+)?$'
+          APP_VERSION="$INPUT_APP_VERSION"
+          if [[ -z "$APP_VERSION" ]]; then
+            APP_VERSION=$(node -p "require('./packages/trueforge/package.json').version")
+          fi
+          if [[ -z "$APP_VERSION" || "$APP_VERSION" == "undefined" ]] || ! printf '%s' "$APP_VERSION" | grep -Eq "$SEMVER"; then
+            echo "app_version '$APP_VERSION' is not a semver-like version" >&2
+            exit 1
+          fi
+          IMAGE_TAG="$INPUT_IMAGE_TAG"
+          if [[ -z "$IMAGE_TAG" ]]; then
+            # Peeled commit SHA: GITHUB_SHA on an annotated tag is the tag object.
+            IMAGE_TAG="${APP_VERSION}-$(git rev-parse --short=7 HEAD)"
+          fi
+          if ! printf '%s' "$IMAGE_TAG" | grep -Eq '^[A-Za-z0-9][A-Za-z0-9._-]{0,127}$'; then
+            echo "image_tag '$IMAGE_TAG' is not a valid OCI tag" >&2
+            exit 1
+          fi
+          echo "branch=$BRANCH" >> "$GITHUB_OUTPUT"
+          echo "app_version=$APP_VERSION" >> "$GITHUB_OUTPUT"
+          echo "image_tag=$IMAGE_TAG" >> "$GITHUB_OUTPUT"
+          echo "Resolved branch=$BRANCH app_version=$APP_VERSION image_tag=$IMAGE_TAG"
+
+      - name: Update chart metadata
+        id: chart
+        env:
+          APP_VERSION: ${{ steps.resolve.outputs.app_version }}
+          IMAGE_TAG: ${{ steps.resolve.outputs.image_tag }}
+        run: |
+          set -euo pipefail
+          CURRENT=$(yq -r '.version' "$CHART_DIR/Chart.yaml")
           VERSION=$(bash scripts/resolve-chart-version.sh "$CURRENT" "$APP_VERSION")
           export VERSION IMAGE_TAG APP_VERSION
-          yq -i '.version = strenv(VERSION)' charts/trueforge/Chart.yaml
-          yq -i '.appVersion = strenv(APP_VERSION)' charts/trueforge/Chart.yaml
-          yq -i '.image.tag = strenv(IMAGE_TAG)' charts/trueforge/values.yaml
+          yq -i '.version = strenv(VERSION)' "$CHART_DIR/Chart.yaml"
+          yq -i '.appVersion = strenv(APP_VERSION)' "$CHART_DIR/Chart.yaml"
+          yq -i '.image.tag = strenv(IMAGE_TAG)' "$CHART_DIR/values.yaml"
           echo "version=$VERSION" >> "$GITHUB_OUTPUT"
-          echo "app_version=$APP_VERSION" >> "$GITHUB_OUTPUT"
           echo "Chart version=$VERSION appVersion=$APP_VERSION image.tag=$IMAGE_TAG"
 
       - name: Build chart dependencies
         run: helm dependency build "$CHART_DIR"
 
       - name: Lint chart
-        run: helm lint "$CHART_DIR" --values charts/trueforge/ci/lint-values.yaml
+        run: helm lint "$CHART_DIR" --values "$CHART_DIR/ci/lint-values.yaml"
 
       - name: Helm registry login
         env:
@@ -158,6 +158,8 @@ jobs:
       - name: Package and push chart
         env:
           VERSION: ${{ steps.chart.outputs.version }}
+          IMAGE_TAG: ${{ steps.resolve.outputs.image_tag }}
+          BRANCH: ${{ steps.resolve.outputs.branch }}
         run: |
           set -euo pipefail
           CHART_NAME=$(yq -r '.name' "$CHART_DIR/Chart.yaml")
@@ -171,8 +173,9 @@ jobs:
           set -e
           printf '%s\n' "$PUSH_OUT"
           if [[ "$PUSH_STATUS" -ne 0 ]]; then
+            # A retry after a failed branch push must still be able to commit and tag.
             if printf '%s' "$PUSH_OUT" | grep -qiE 'already exists|409'; then
-              echo "Chart $VERSION already in the registry; continuing so main can catch up"
+              echo "Chart $VERSION already in the registry; continuing so $BRANCH can catch up"
             else
               exit "$PUSH_STATUS"
             fi
@@ -180,14 +183,16 @@ jobs:
           {
             echo "### Helm chart"
             echo "Pushed \`oci://${HELM_CHART_REPOSITORY}/${CHART_NAME}:${VERSION}\`"
-            echo "Image tag \`${{ needs.resolve.outputs.image_tag }}\`"
+            echo "Image tag \`${IMAGE_TAG}\`"
+            echo "Branch \`${BRANCH}\`"
           } >> "$GITHUB_STEP_SUMMARY"
 
-      - name: Commit chart metadata to main
+      - name: Commit chart metadata and tag
         env:
           VERSION: ${{ steps.chart.outputs.version }}
-          IMAGE_TAG: ${{ needs.resolve.outputs.image_tag }}
-          APP_VERSION: ${{ needs.resolve.outputs.app_version }}
+          APP_VERSION: ${{ steps.resolve.outputs.app_version }}
+          IMAGE_TAG: ${{ steps.resolve.outputs.image_tag }}
+          BRANCH: ${{ steps.resolve.outputs.branch }}
         run: |
           set -euo pipefail
           git config user.name "github-actions[bot]"
@@ -195,38 +200,40 @@ jobs:
 
           apply_metadata() {
             export VERSION IMAGE_TAG APP_VERSION
-            yq -i '.version = strenv(VERSION)' charts/trueforge/Chart.yaml
-            yq -i '.appVersion = strenv(APP_VERSION)' charts/trueforge/Chart.yaml
-            yq -i '.image.tag = strenv(IMAGE_TAG)' charts/trueforge/values.yaml
+            yq -i '.version = strenv(VERSION)' "$CHART_DIR/Chart.yaml"
+            yq -i '.appVersion = strenv(APP_VERSION)' "$CHART_DIR/Chart.yaml"
+            yq -i '.image.tag = strenv(IMAGE_TAG)' "$CHART_DIR/values.yaml"
           }
 
+          # Tag only after the metadata commit is on the branch, so the tag
+          # points at the commit that holds the published Chart.yaml / values.yaml.
           tag_chart() {
             TAG="charts/trueforge@${VERSION}"
             if git ls-remote --exit-code --tags origin "refs/tags/${TAG}" >/dev/null 2>&1; then
               echo "Tag $TAG already exists"
               return 0
             fi
-            git tag -a "$TAG" -m "Helm chart ${VERSION}"
+            git tag -a "$TAG" -m "Helm chart ${VERSION} (image ${IMAGE_TAG})"
             git push origin "$TAG"
-            echo "Pushed $TAG"
+            echo "Pushed $TAG at $(git rev-parse HEAD)"
           }
 
           for attempt in 1 2 3; do
-            git add charts/trueforge/Chart.yaml charts/trueforge/values.yaml
+            git add "$CHART_DIR/Chart.yaml" "$CHART_DIR/values.yaml"
             if git diff --staged --quiet; then
               echo "Chart metadata already matches $VERSION"
               tag_chart
               exit 0
             fi
             git commit -m "release(chart): ${VERSION}"
-            if git push origin HEAD:main; then
+            if git push origin "HEAD:${BRANCH}"; then
               tag_chart
               exit 0
             fi
-            echo "Push to main failed (attempt $attempt); replay metadata onto origin/main"
-            git fetch origin main
-            git reset --hard origin/main
+            echo "Push to $BRANCH failed (attempt $attempt); replay metadata onto origin/${BRANCH}"
+            git fetch origin "$BRANCH"
+            git reset --hard "origin/${BRANCH}"
             apply_metadata
           done
-          echo "Could not fast-forward chart metadata onto main" >&2
+          echo "Could not fast-forward chart metadata onto $BRANCH" >&2
           exit 1

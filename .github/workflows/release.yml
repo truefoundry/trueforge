@@ -8,15 +8,11 @@
 #     (install only; that PR is gated by CI.yml). When @truefoundry/trueforge-sdk
 #     moves, scripts/version.mjs mirrors that version into python/trueforge_sdk and rebakes Fern.
 #   - none pending + unpublished versions → pack (build/test) + Windows npx smoke,
-#     then npm publish, PyPI publish, and the image+Helm workflow in parallel.
-# Merge the Version Packages PR to publish. The chart workflow is started with
-# the GitHub App token (`gh workflow run`); GITHUB_TOKEN cannot dispatch it.
-# After Helm publish, that workflow tags charts/trueforge@<chartVersion> on the
-# metadata commit.
-#
-# Auth is GitHub OIDC (no NPM_TOKEN / PYPI_TOKEN). An `_authToken` in user `.npmrc`
-# disables pnpm's OIDC exchange, so the npm publish job must not set NPM_TOKEN /
-# NODE_AUTH_TOKEN. id-token is granted only on the publish jobs.
+#     then npm publish, PyPI publish, and the from-source image in parallel.
+#     After the image is pushed, this workflow calls release-chart.yml with
+#     branch main, app_version, and image_tag. Helm does not wait on npm.
+# Merge the Version Packages PR to publish. After Helm publish, release-chart.yml
+# tags charts/trueforge@<chartVersion> on the metadata commit.
 #
 # Auth is GitHub OIDC (no NPM_TOKEN / PYPI_TOKEN). An `_authToken` in user `.npmrc`
 # disables pnpm's OIDC exchange, so the npm publish job must not set NPM_TOKEN /
@@ -113,6 +109,8 @@ jobs:
     timeout-minutes: 30
     outputs:
       pack-dir-artifact-id: ${{ steps.pack.outputs.pack-dir-artifact-id }}
+      app_version: ${{ steps.image.outputs.app_version }}
+      image_tag: ${{ steps.image.outputs.image_tag }}
     permissions:
       contents: read
     steps:
@@ -145,6 +143,21 @@ jobs:
         uses: changesets/action/pack@v2
         with:
           publish-plan-artifact-id: ${{ needs.select-mode.outputs.publish-plan-artifact-id }}
+
+      - name: Resolve image identity
+        id: image
+        run: |
+          set -euo pipefail
+          SEMVER='^[0-9]+\.[0-9]+\.[0-9]+([.-][0-9A-Za-z.-]+)?$'
+          APP_VERSION=$(node -p "require('./packages/trueforge/package.json').version")
+          if [[ -z "$APP_VERSION" || "$APP_VERSION" == "undefined" ]] || ! printf '%s' "$APP_VERSION" | grep -Eq "$SEMVER"; then
+            echo "app_version '$APP_VERSION' is not a semver-like version" >&2
+            exit 1
+          fi
+          IMAGE_TAG="${APP_VERSION}-$(git rev-parse --short=7 HEAD)"
+          echo "app_version=$APP_VERSION" >> "$GITHUB_OUTPUT"
+          echo "image_tag=$IMAGE_TAG" >> "$GITHUB_OUTPUT"
+          echo "Resolved app_version=$APP_VERSION image_tag=$IMAGE_TAG"
 
   windows-npx-smoke:
     name: Windows npx smoke
@@ -272,25 +285,35 @@ jobs:
         with:
           packages-dir: python/trueforge_sdk/dist
 
-  # App token: GITHUB_TOKEN cannot dispatch another workflow.
-  dispatch-chart-release:
-    name: Start image and Helm release
+  build-image:
+    name: Build and push server image
     needs: [pack, windows-npx-smoke]
-    runs-on: ubuntu-latest
-    timeout-minutes: 10
+    uses: truefoundry/github-workflows-public/.github/workflows/build.yml@main
     permissions:
-      actions: write
+      id-token: write
       contents: read
-    steps:
-      - id: app-token
-        uses: actions/create-github-app-token@v3
-        with:
-          client-id: ${{ secrets.TRUEFORGE_GENERATE_SDK_APP_ID }}
-          private-key: ${{ secrets.TRUEFORGE_GENERATE_SDK_APP_PRIVATE_KEY }}
+    with:
+      artifactory_registry_url: ${{ vars.TRUEFOUNDRY_ARTIFACTORY_REGISTRY_URL }}
+      artifactory_repository_url: ${{ vars.TRUEFOUNDRY_ARTIFACTORY_PUBLIC_REPOSITORY }}
+      image_artifact_name: trueforge
+      image_tag: ${{ needs.pack.outputs.image_tag }}
+      image_context: .
+      dockerfile_path: Dockerfile
+      platforms: linux/amd64
+      enable_jfrog: true
+      enable_public_ecr: false
+    secrets:
+      artifactory_username: ${{ secrets.TRUEFORGE_ARTIFACTORY_USERNAME }}
+      artifactory_password: ${{ secrets.TRUEFORGE_ARTIFACTORY_PASSWORD }}
 
-      - name: Dispatch release-chart.yml
-        env:
-          GH_TOKEN: ${{ steps.app-token.outputs.token }}
-        run: |
-          set -euo pipefail
-          gh workflow run release-chart.yml --repo "$GITHUB_REPOSITORY" --ref "${GITHUB_REF_NAME}"
+  release-chart:
+    name: Publish Helm chart
+    needs: [pack, build-image]
+    uses: ./.github/workflows/release-chart.yml
+    permissions:
+      contents: write
+    with:
+      branch: main
+      app_version: ${{ needs.pack.outputs.app_version }}
+      image_tag: ${{ needs.pack.outputs.image_tag }}
+    secrets: inherit
