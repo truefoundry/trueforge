@@ -7,33 +7,33 @@ export type PresetTokens = {
 
 const trueforge: PresetTokens = {
   light: {
-    sidebarBg: '#FBFBFE',
-    sidebarText: '#263755',
-    topbarBg: '#FFFFFF',
-    primaryBg: '#FFFFFF',
-    secondaryBg: '#F4F4F5',
-    border: '#E4E4E7',
+    sidebarBg: '#EEF2FF1A', //indigo-50 10% opacity
+    sidebarText: '#3E5680', //gray-600
+    topbarBg: '#FFFFFF', //white
+    primaryBg: '#FFFFFF', //white
+    secondaryBg: '#FAFCFF', //global bg
+    border: '#E0ECFD', //gray-200
     fontFamily: '"Google Sans", ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto, sans-serif',
-    inputBoxBg: '#FAFAFA',
-    inputBorder: '#E4E4E7',
-    textPrimary: '#27272A',
-    textSecondary: '#62626A',
-    cardBg: '#FFFFFF',
-    dropdownSelectedItemBg: '#F1F1F2',
-    dropdownSelectedItemText: '#27272A',
-    userMessageBg: '#6366F1',
+    inputBoxBg: '#FAFCFF', //global bg
+    inputBorder: '#CEE0F8', //gray-250
+    textPrimary: '#162236', //gray-16
+    textSecondary: '#3E5680', //gray-600
+    cardBg: '#FFFFFF', //white
+    dropdownSelectedItemBg: '#E0E7FF', //indigo-100
+    dropdownSelectedItemText: '#162236', //gray-16
+    userMessageBg: '#6366F1', //indigo-500
     userMessageText: '#FFFFFF',
     assistantMessageBg: 'transparent',
-    assistantMessageText: '#27272A',
-    primaryButtonBg: '#6366F1',
-    primaryButtonHover: '#4F46E5',
-    primaryButtonText: '#FFFFFF',
-    secondaryButtonBg: '#FAFAFA',
-    secondaryButtonHover: '#E4E4E7',
-    secondaryButtonText: '#27272A',
+    assistantMessageText: '#162236', //gray-16
+    primaryButtonBg: '#6366F1', //indigo-500
+    primaryButtonHover: '#4F46E5', //indigo-600
+    primaryButtonText: '#FFFFFF', //white
+    secondaryButtonBg: '#FFFFFF', //white
+    secondaryButtonHover: '#EEF2FF', //indigo-50
+    secondaryButtonText: '#162236', //gray-16
     ghostButtonBg: 'transparent',
-    ghostButtonHover: '#F4F4F5',
-    ghostButtonText: '#27272A',
+    ghostButtonHover: '#EEF2FF', //indigo-50
+    ghostButtonText: '#162236', //gray-16
     successBg: '#16A34A',
     successText: '#FFFFFF',
     failureBg: '#EF4444',
@@ -44,7 +44,7 @@ const trueforge: PresetTokens = {
     radius: '0.375rem',
     composerRadius: '1.5rem',
     overlay: 'rgb(24 24 27 / 0.5)',
-    shadowColor: '#27272A',
+    shadowColor: '#162236', //gray-16
     scrollbarThumb: '#62626A',
   },
   dark: {
