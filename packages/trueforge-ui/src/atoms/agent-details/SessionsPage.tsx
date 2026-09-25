@@ -2,9 +2,7 @@
 
 import { Suspense, useCallback, useEffect, useMemo, useState } from 'react';
 
-import { useResourcePermissions } from '../../hooks/useResourcePermissions.js';
 import { useSessionShareSearch } from '../../hooks/useSessionShareSearch.js';
-import { Icon } from '../../icons/Icon.js';
 import { useOptionalAgentSessionsServer } from '../../server/ServerContext.js';
 import { useShellMode } from '../../server/ShellModeContext.js';
 import { useSlot } from '../../theme/SlotsProvider.js';
@@ -15,32 +13,16 @@ import {
   SESSION_TIME_BUFFER_MS,
   type SessionTimeRange,
 } from '../../utils/sessionShareUrl.js';
-import { auiButtonClass } from '../lib/buttonClasses.js';
 import { PageHeader } from '../PageHeader.js';
 import { Skeleton } from '../primitives/Skeleton.js';
-
-function SessionsShareTrigger({ disabled }: { disabled?: boolean }) {
-  return (
-    <button type="button" disabled={disabled} className={auiButtonClass({ variant: 'secondary', size: 'large' })}>
-      <Icon name="share" />
-      Share
-    </button>
-  );
-}
 
 export function SessionsPage() {
   const sessionsServer = useOptionalAgentSessionsServer();
   const shell = useShellMode();
-  const { sessionId, updateShareSearch } = useSessionShareSearch();
+  const { updateShareSearch } = useSessionShareSearch();
   const AgentSessions = useSlot('AgentSessions');
   const AgentSessionsFilters = useSlot('AgentSessionsFilters');
-  const ShareSessionDialog = useSlot('ShareSessionDialog');
-  const PermissionGuard = useSlot('PermissionGuard');
   const sharedSessionId = shell.sharedSessionId;
-  const selectedSessionId = sharedSessionId ?? sessionId;
-  const shareResourceIds = selectedSessionId == null ? [] : [selectedSessionId];
-  const { allows } = useResourcePermissions({ resourceType: 'session', resourceIds: shareResourceIds });
-  const canManageSession = allows(selectedSessionId, 'MANAGE');
 
   const [agentFilter, setAgentFilter] = useState<string | null>(
     () => readSessionShareSearch(window.location.search).agentId,
@@ -87,31 +69,20 @@ export function SessionsPage() {
       <PageHeader
         title="Agent Sessions"
         end={
-          <>
-            {selectedSessionId != null ? (
-              canManageSession ? (
-                <ShareSessionDialog sessionId={selectedSessionId} trigger={<SessionsShareTrigger />} />
-              ) : (
-                <PermissionGuard allowed={false}>
-                  <SessionsShareTrigger />
-                </PermissionGuard>
-              )
-            ) : null}
-            {sharedSessionId == null ? (
-              <AgentSessionsFilters
-                agentId={agentFilter}
-                timeRange={timeRange}
-                onAgentChange={nextAgentId => {
-                  setAgentFilter(nextAgentId);
-                  updateShareSearch({ agentId: nextAgentId, sessionId: null, view: 'sessions' });
-                }}
-                onTimeRangeChange={nextRange => {
-                  setTimeRange(nextRange);
-                  updateShareSearch({ timeRange: nextRange, sessionId: null, view: 'sessions' });
-                }}
-              />
-            ) : null}
-          </>
+          sharedSessionId == null ? (
+            <AgentSessionsFilters
+              agentId={agentFilter}
+              timeRange={timeRange}
+              onAgentChange={nextAgentId => {
+                setAgentFilter(nextAgentId);
+                updateShareSearch({ agentId: nextAgentId, sessionId: null, view: 'sessions' });
+              }}
+              onTimeRangeChange={nextRange => {
+                setTimeRange(nextRange);
+                updateShareSearch({ timeRange: nextRange, sessionId: null, view: 'sessions' });
+              }}
+            />
+          ) : null
         }
       />
       <div className="min-h-0 flex-1">

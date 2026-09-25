@@ -300,7 +300,6 @@ export function AgentSessions({
 
   const resumeProps =
     resumeHref != null ? { resumeHref, resumeLabel } : shell != null ? { onResume: handleResume, resumeLabel } : {};
-  const selectedCreatedAt = detailSession?.createdAt ?? selectedEntry?.createdAt;
 
   const detailPanel = (
     <section className="flex h-full min-w-0 flex-col bg-primary-bg">
@@ -317,11 +316,9 @@ export function AgentSessions({
           <AgentSessionDetailHeader
             title={selectedTitle}
             sessionId={selectedSessionId}
-            agentId={agentId}
-            createdAt={selectedCreatedAt}
-            view={shareView}
             onClose={clearSelectedSession}
             canResume={canResume}
+            canShare={canResume}
             {...resumeProps}
           />
           {detailLoading || detailEvents === undefined ? (
