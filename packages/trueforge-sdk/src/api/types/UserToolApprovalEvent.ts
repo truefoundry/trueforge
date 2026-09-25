@@ -4,6 +4,10 @@ import type * as TrueForge from "../index.js";
 
 export interface UserToolApprovalEvent {
     approval: TrueForge.ApprovalDecision;
+    /** ISO 8601 event timestamp. */
+    createdAt: string;
+    /** Unique identifier for the event (monotonic ULID). */
+    id: string;
     /** Thread that owns the pending tool call. */
     threadId: string;
     /** Tool call id being approved or denied. */

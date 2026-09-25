@@ -405,11 +405,11 @@ describe('StackChatPanel', () => {
     );
 
     fireEvent.click(screen.getByRole('button', { name: 'Open schedules' }));
-    expect(await screen.findByRole('heading', { name: 'Scheduled Agents' })).toBeInTheDocument();
+    expect(await screen.findByRole('heading', { name: 'Agent Schedules' })).toBeInTheDocument();
 
     fireEvent.click(screen.getByRole('button', { name: 'Back to chat' }));
     await waitFor(() => {
-      expect(screen.queryByRole('heading', { name: 'Scheduled Agents' })).not.toBeInTheDocument();
+      expect(screen.queryByRole('heading', { name: 'Agent Schedules' })).not.toBeInTheDocument();
     });
   });
 });

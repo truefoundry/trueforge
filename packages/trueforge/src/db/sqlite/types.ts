@@ -12,6 +12,7 @@ import type {
   SessionMetadata,
   SessionMetrics,
   SessionSource,
+  TurnInboundEventItem,
   TurnInputItem,
   TurnState,
 } from '@truefoundry/trueforge-core/agent-session';
@@ -77,6 +78,8 @@ export interface SessionTable {
   /** Inline spec binding; XOR with `agent_id`. */
   agent_spec: JsonbColumn<AgentSpec> | null;
   title: string | null;
+  /** 0/1. When 1, any subject in the tenant may GET this session. */
+  shared: number;
   last_turn_id: string | null;
   /** Optional unique key within `tenant_id` when set. */
   external_id: string | null;
@@ -145,6 +148,20 @@ export interface SessionEventTable {
   turn_id: string;
   event_id: string;
   event: JsonbColumn<PersistedTurnEvent>;
+  created_at: string;
+}
+
+/**
+ * Turn-scoped inbound send-event inbox.
+ * PRIMARY KEY (session_id, turn_id, event_id).
+ * `consumed` is INTEGER 0/1 (STRICT has no boolean).
+ */
+export interface TurnInboundEventsTable {
+  session_id: string;
+  turn_id: string;
+  event_id: string;
+  payload: JsonbColumn<TurnInboundEventItem>;
+  consumed: number;
   created_at: string;
 }
 
@@ -352,6 +369,7 @@ export interface Database {
   turn_thread: TurnThreadTable;
   turn_thread_context: TurnThreadContextTable;
   session_event: SessionEventTable;
+  turn_inbound_events: TurnInboundEventsTable;
   thread_context_log: ThreadContextLogTable;
   thread_capability_state: ThreadCapabilityStateTable;
   model_provider: ModelProviderTable;

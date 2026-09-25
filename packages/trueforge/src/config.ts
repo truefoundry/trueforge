@@ -1010,7 +1010,7 @@ export type ServerConfiguration = StandaloneServerConfiguration | DistributedSer
 const serverExecutionTimeoutSeconds = parsePositiveInt({
   envKey: 'SERVER_EXECUTION_TIMEOUT_SECONDS',
   raw: getEnv('SERVER_EXECUTION_TIMEOUT_SECONDS'),
-  defaultValue: 600,
+  defaultValue: 3600,
 });
 
 const standalone = parseBoolean({
