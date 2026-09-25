@@ -4,10 +4,11 @@
  * /api/v1/skills.
  * Discovery catalog lives at GET /api/v1/catalogs/skills.
  */
-import { createRoute } from '@hono/zod-openapi';
+import { createRoute, z } from '@hono/zod-openapi';
 import { RequestErrorResponseSchema } from '../schemas/errors';
 import {
   CreateSkillRequestSchema,
+  DeleteSkillResponseSchema,
   GetSkillResponseSchema,
   ListAvailableSkillsResponseSchema,
   ListSkillVersionsRequestQuerySchema,
@@ -16,6 +17,10 @@ import {
   UpdateSkillRequestSchema,
 } from '../schemas/skill';
 import { OpenApiTag } from './openapiTags';
+
+const SkillNameParamsSchema = z.object({
+  name: z.string().min(1).describe('Skill name.'),
+});
 
 /** Chat/composer read view — mounted at /api/v1/skills (not under settings). */
 export const listAvailableSkillsRoute = createRoute({
@@ -142,6 +147,37 @@ export const putSkillRoute = createRoute({
     400: {
       content: { 'application/json': { schema: RequestErrorResponseSchema } },
       description: 'Invalid request body.',
+    },
+    424: {
+      content: { 'application/json': { schema: RequestErrorResponseSchema } },
+      description: 'Unsupported because skills are managed by an external system.',
+    },
+  },
+});
+
+export const deleteSkillRoute = createRoute({
+  method: 'delete',
+  path: '/{name}',
+  tags: [OpenApiTag.SKILLS],
+  summary: 'Delete a skill',
+  description: 'Deletes a skill by `name`. Rejected while any agent still lists the skill.',
+  'x-fern-sdk-group-name': ['settings', 'skills'],
+  'x-fern-sdk-method-name': 'delete',
+  request: {
+    params: SkillNameParamsSchema,
+  },
+  responses: {
+    200: {
+      content: { 'application/json': { schema: DeleteSkillResponseSchema } },
+      description: 'Skill deleted.',
+    },
+    404: {
+      content: { 'application/json': { schema: RequestErrorResponseSchema } },
+      description: 'Skill not found.',
+    },
+    409: {
+      content: { 'application/json': { schema: RequestErrorResponseSchema } },
+      description: 'One or more agents still use this skill.',
     },
     424: {
       content: { 'application/json': { schema: RequestErrorResponseSchema } },

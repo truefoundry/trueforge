@@ -3,6 +3,7 @@
  * Runs under jest against a fresh store per test (see backend test files).
  */
 import { AgentSpecSchema, type AgentSpec, type CreatedBySubject } from '@truefoundry/trueforge-core/agent-session';
+import type { z } from 'zod';
 import { AgentExternalIdConflictError, AgentNameConflictError, type IAgentStore } from '../../src/db/agentStore';
 
 const TENANT = 'default';
@@ -13,7 +14,8 @@ const CREATED_BY_SUBJECT: CreatedBySubject = {
   subject_display_name: 'tester',
 };
 
-function manifest(overrides: Partial<AgentSpec> = {}): AgentSpec {
+/** Overrides are schema input, so callers may omit fields that carry defaults. */
+function manifest(overrides: Partial<z.input<typeof AgentSpecSchema>> = {}): AgentSpec {
   return AgentSpecSchema.parse({
     model: { name: 'anthropic/claude-sonnet-4-6' },
     instructions: 'Be helpful.',
@@ -421,6 +423,100 @@ export function runAgentStoreContractSuite(getStore: () => IAgentStore): void {
       external_id: null,
     });
     expect(cleared?.external_id).toBeNull();
+  });
+
+  describe('listAgentCatalogUsage', () => {
+    async function seedReferencingAgents(store: IAgentStore): Promise<void> {
+      await store.createAgent({
+        tenant_id: TENANT,
+        created_by_subject: CREATED_BY_SUBJECT,
+        name: 'support',
+        description: 'Test agent.',
+        manifest: manifest({
+          model: { name: 'openai/gpt-5' },
+          mcp_servers: [{ name: 'github' }],
+          skills: [{ name: 'pdf-extract' }],
+        }),
+        external_id: null,
+      });
+      await store.createAgent({
+        tenant_id: TENANT,
+        created_by_subject: CREATED_BY_SUBJECT,
+        name: 'triage',
+        description: 'Test agent.',
+        manifest: manifest({
+          model: { name: 'openai/gpt-5-mini' },
+          mcp_servers: [{ name: 'github' }, { name: 'linear' }],
+        }),
+        external_id: null,
+      });
+      await store.createAgent({
+        tenant_id: 'other-tenant',
+        created_by_subject: CREATED_BY_SUBJECT,
+        name: 'stranger',
+        description: 'Test agent.',
+        manifest: manifest({ model: { name: 'openai/gpt-5' }, mcp_servers: [{ name: 'github' }] }),
+        external_id: null,
+      });
+    }
+
+    it('matches a provider through the prefix of every model name it owns', async () => {
+      const store = getStore();
+      await seedReferencingAgents(store);
+
+      expect(
+        await store.listAgentCatalogUsage({ tenant_id: TENANT, entity: 'model_provider', names: ['openai'] }),
+      ).toEqual([
+        { agent_name: 'support', reference_name: 'openai' },
+        { agent_name: 'triage', reference_name: 'openai' },
+      ]);
+      expect(
+        await store.listAgentCatalogUsage({ tenant_id: TENANT, entity: 'model_provider', names: ['anthropic'] }),
+      ).toEqual([]);
+    });
+
+    it('matches a single model by its fully qualified name', async () => {
+      const store = getStore();
+      await seedReferencingAgents(store);
+
+      expect(
+        await store.listAgentCatalogUsage({ tenant_id: TENANT, entity: 'model', names: ['openai/gpt-5'] }),
+      ).toEqual([{ agent_name: 'support', reference_name: 'openai/gpt-5' }]);
+    });
+
+    it('matches MCP servers and skills nested in manifest arrays', async () => {
+      const store = getStore();
+      await seedReferencingAgents(store);
+
+      expect(
+        await store.listAgentCatalogUsage({ tenant_id: TENANT, entity: 'mcp_server', names: ['github', 'linear'] }),
+      ).toEqual([
+        { agent_name: 'support', reference_name: 'github' },
+        { agent_name: 'triage', reference_name: 'github' },
+        { agent_name: 'triage', reference_name: 'linear' },
+      ]);
+      expect(await store.listAgentCatalogUsage({ tenant_id: TENANT, entity: 'skill', names: ['pdf-extract'] })).toEqual(
+        [{ agent_name: 'support', reference_name: 'pdf-extract' }],
+      );
+      expect(await store.listAgentCatalogUsage({ tenant_id: TENANT, entity: 'skill', names: ['unused'] })).toEqual([]);
+    });
+
+    it('ignores agents without the array and returns nothing for an empty name list', async () => {
+      const store = getStore();
+      await store.createAgent({
+        tenant_id: TENANT,
+        created_by_subject: CREATED_BY_SUBJECT,
+        name: 'bare',
+        description: 'Test agent.',
+        manifest: manifest(),
+        external_id: null,
+      });
+
+      expect(await store.listAgentCatalogUsage({ tenant_id: TENANT, entity: 'mcp_server', names: ['github'] })).toEqual(
+        [],
+      );
+      expect(await store.listAgentCatalogUsage({ tenant_id: TENANT, entity: 'skill', names: [] })).toEqual([]);
+    });
   });
 
   it('updateAgent throws AgentExternalIdConflictError when external_id is taken', async () => {

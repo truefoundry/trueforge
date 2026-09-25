@@ -143,6 +143,8 @@ export const ListAvailableSkillsResponseSchema = z
   .object({ data: z.array(AvailableSkillSchema) })
   .openapi('ListAvailableSkillsResponse');
 
+export const DeleteSkillResponseSchema = z.object({}).openapi('DeleteSkillResponse');
+
 /** Versions list query — skill name (or registry FQN). */
 export const ListSkillVersionsRequestQuerySchema = z
   .object({
