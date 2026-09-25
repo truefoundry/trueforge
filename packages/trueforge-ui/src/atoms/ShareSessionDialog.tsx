@@ -52,7 +52,7 @@ function AccessSelector({
       align="start"
       captureOutsideClick
       containerClassName="w-full"
-      className="z-210 w-108 p-1"
+      className="z-210 w-108 p-1 gap-1"
       trigger={
         <button
           type="button"
