@@ -1,6 +1,7 @@
 import type { InternalEnrichedAssistantMessage, InternalEnrichedToolCall } from '../../../src/core/llm/LLMTypes';
-import type { ContextMessage } from '../../../src/core/runtime/AgentThread.types';
-import { getClosableOpenToolCallIds } from '../../../src/core/runtime/OpenToolCallCloser';
+import type { AgentThreadSendMode, ContextMessage } from '../../../src/core/runtime/AgentThread.types';
+import { getEmptyCurrentContextUsage } from '../../../src/core/runtime/contextUsage';
+import { buildOpenToolCallClosure, getClosableOpenToolCallIds } from '../../../src/core/runtime/OpenToolCallCloser';
 import '../harnessMocks';
 
 function makeToolCall(
@@ -35,7 +36,7 @@ function assistantWithToolCalls(toolCalls: InternalEnrichedToolCall[]): ContextM
 describe('getClosableOpenToolCallIds', () => {
   it('closes ordinary dangling tool calls on the last assistant message', () => {
     const context = assistantWithToolCalls([makeToolCall('tc-1'), makeToolCall('tc-2')]);
-    expect(getClosableOpenToolCallIds(context)).toEqual(new Set(['tc-1', 'tc-2']));
+    expect(getClosableOpenToolCallIds({ context, mode: 'resume' })).toEqual(new Set(['tc-1', 'tc-2']));
   });
 
   it('excludes tool calls that already have a matching tool response', () => {
@@ -43,7 +44,7 @@ describe('getClosableOpenToolCallIds', () => {
       ...assistantWithToolCalls([makeToolCall('tc-1'), makeToolCall('tc-2')]),
       { role: 'tool', tool_call_id: 'tc-1', content: 'done' },
     ];
-    expect(getClosableOpenToolCallIds(context)).toEqual(new Set(['tc-2']));
+    expect(getClosableOpenToolCallIds({ context, mode: 'resume' })).toEqual(new Set(['tc-2']));
   });
 
   it('returns empty when any open call requires approval', () => {
@@ -51,7 +52,7 @@ describe('getClosableOpenToolCallIds', () => {
       makeToolCall('tc-ordinary'),
       makeToolCall('tc-approval', { is_approval_required: true }),
     ]);
-    expect(getClosableOpenToolCallIds(context)).toEqual(new Set());
+    expect(getClosableOpenToolCallIds({ context, mode: 'resume' })).toEqual(new Set());
   });
 
   it('returns empty when any open call is client-side', () => {
@@ -59,7 +60,7 @@ describe('getClosableOpenToolCallIds', () => {
       makeToolCall('tc-ordinary'),
       makeToolCall('tc-client', { is_client_side: true }),
     ]);
-    expect(getClosableOpenToolCallIds(context)).toEqual(new Set());
+    expect(getClosableOpenToolCallIds({ context, mode: 'resume' })).toEqual(new Set());
   });
 
   it('excludes thread-creation tool calls (is_thread_creation)', () => {
@@ -67,7 +68,7 @@ describe('getClosableOpenToolCallIds', () => {
       makeToolCall('tc-regular'),
       makeToolCall('tc-sub-agent', { is_thread_creation: true }),
     ]);
-    expect(getClosableOpenToolCallIds(context)).toEqual(new Set(['tc-regular']));
+    expect(getClosableOpenToolCallIds({ context, mode: 'resume' })).toEqual(new Set(['tc-regular']));
   });
 
   it('treats legacy sub-agent calls without is_thread_creation as ordinary closable calls', () => {
@@ -78,7 +79,7 @@ describe('getClosableOpenToolCallIds', () => {
         original_tool_name: 'create_sub_agent',
       }),
     ]);
-    expect(getClosableOpenToolCallIds(context)).toEqual(new Set(['tc-legacy-sub-agent']));
+    expect(getClosableOpenToolCallIds({ context, mode: 'resume' })).toEqual(new Set(['tc-legacy-sub-agent']));
   });
 
   it('only inspects tool calls on the last assistant message', () => {
@@ -95,10 +96,44 @@ describe('getClosableOpenToolCallIds', () => {
         tool_calls: [makeToolCall('new-tc')],
       },
     ];
-    expect(getClosableOpenToolCallIds(context)).toEqual(new Set(['new-tc']));
+    expect(getClosableOpenToolCallIds({ context, mode: 'resume' })).toEqual(new Set(['new-tc']));
   });
 
   it('returns empty when there is no assistant message with tool calls', () => {
-    expect(getClosableOpenToolCallIds([{ role: 'user', content: 'hello' }])).toEqual(new Set());
+    expect(getClosableOpenToolCallIds({ context: [{ role: 'user', content: 'hello' }], mode: 'resume' })).toEqual(
+      new Set(),
+    );
+  });
+});
+
+describe('buildOpenToolCallClosure', () => {
+  function buildClosure(context: ContextMessage[], mode: AgentThreadSendMode) {
+    return buildOpenToolCallClosure({
+      currentContextUsage: getEmptyCurrentContextUsage(),
+      context,
+      mode,
+    });
+  }
+
+  it('closes every unmatched call in context without emitting output events for a new user message', () => {
+    const context: ContextMessage[] = [
+      ...assistantWithToolCalls([
+        makeToolCall('tc-regular'),
+        makeToolCall('tc-approval', { is_approval_required: true }),
+        makeToolCall('tc-client', { is_client_side: true }),
+        makeToolCall('tc-sub-agent', { is_thread_creation: true }),
+        makeToolCall('tc-resolved'),
+      ]),
+      { role: 'tool', tool_call_id: 'tc-resolved', content: 'done' },
+    ];
+    const closure = buildClosure(context, 'interrupt');
+    const cancelled = 'Tool call was cancelled: a new turn was started.';
+    expect(closure?.context).toEqual([
+      { role: 'tool', tool_call_id: 'tc-regular', content: cancelled },
+      { role: 'tool', tool_call_id: 'tc-approval', content: cancelled },
+      { role: 'tool', tool_call_id: 'tc-client', content: cancelled },
+      { role: 'tool', tool_call_id: 'tc-sub-agent', content: cancelled },
+    ]);
+    expect(closure?.output).toEqual([]);
   });
 });

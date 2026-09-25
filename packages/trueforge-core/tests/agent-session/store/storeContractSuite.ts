@@ -1597,6 +1597,60 @@ export function runStoreContractSuite(createStore: () => ISessionStore) {
       expect(main?.capability_state).toEqual({ 'tfy.plan': { step: 2 } });
     });
 
+    it('omits previous threads absent from the next turn live set', async () => {
+      const store = createStore();
+      await seedSession(store);
+      await store.createTurn(
+        makeCreateTurnInput({
+          sessionId,
+          turnId: 't1',
+          new_threads: [
+            {
+              thread_id: MAIN_THREAD_ID,
+              parent: null,
+              agent_info: null,
+            },
+            {
+              thread_id: 'child-a',
+              parent: { thread_id: MAIN_THREAD_ID, tool_call_id: 'tc-a' },
+              agent_info: { type: 'dynamic', name: 'child-a', input: 'task-a' },
+            },
+          ],
+          new_context_appends: [
+            {
+              thread_id: MAIN_THREAD_ID,
+              context: [userMessage('main-context')],
+              current_context_usage: getEmptyCurrentContextUsage(),
+            },
+            {
+              thread_id: 'child-a',
+              context: [userMessage('child-context')],
+              current_context_usage: getEmptyCurrentContextUsage(),
+            },
+          ],
+          capability_states: [
+            { thread_id: MAIN_THREAD_ID, capability_state: null },
+            { thread_id: 'child-a', capability_state: null },
+          ],
+        }),
+      );
+      await finishTurn(store, 't1');
+
+      await store.createTurn(
+        makeCreateTurnInput({
+          sessionId,
+          turnId: 't2',
+          previousTurnId: 't1',
+          firstTurnId: 't1',
+          capability_states: [{ thread_id: MAIN_THREAD_ID, capability_state: null }],
+        }),
+      );
+
+      const t2 = mustGet(await store.getTurn({ session_id: sessionId, turn_id: 't2' }));
+      expect(Object.keys(t2.snapshot.threads)).toEqual([MAIN_THREAD_ID]);
+      expect(contextContents(t2.snapshot.threads[MAIN_THREAD_ID]?.context)).toEqual(['main-context']);
+    });
+
     it('createTurn atomically persists the complete post-send capability map', async () => {
       const store = createStore();
       await seedSession(store);

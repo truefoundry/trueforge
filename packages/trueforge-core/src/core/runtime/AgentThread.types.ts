@@ -147,6 +147,8 @@ export type AgentThreadRuntimeSendInput = AgentSendInput | LLMToolMessage;
 /** Public homogeneous batches or an internal LLM tool-message batch. Not barrel-exported. */
 export type AgentThreadRuntimeSendBatch = AgentThreadSendBatch | LLMToolMessage[];
 
+export type AgentThreadSendMode = 'resume' | 'interrupt';
+
 export interface AgentThreadSnapshot {
   thread_id: string;
   context: ContextMessage[];

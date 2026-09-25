@@ -496,12 +496,13 @@ export async function createTurn(db: Kysely<Database>, input: CreateTurnInput): 
         }
       }
 
-      assertCreateTurnThreadDelta({
+      const liveThreadIds = assertCreateTurnThreadDelta({
         previousThreadIds: new Set(prevThreadRows.map(r => r.thread_id)),
         new_threads: input.new_threads,
         new_context_appends: input.new_context_appends,
         capability_states: input.capability_states,
       });
+      const carriedThreadRows = prevThreadRows.filter(row => liveThreadIds.has(row.thread_id));
 
       const checkpoint: TurnCheckpoint = {
         mcp_servers: input.mcp_servers ?? prevCheckpoint?.mcp_servers ?? null,
@@ -570,7 +571,7 @@ export async function createTurn(db: Kysely<Database>, input: CreateTurnInput): 
       // step5: child turn_thread rows — carried = parent || new ids; new = fresh row.
       const turnThreadRows: TurnThreadInsertRow[] = [];
 
-      for (const parent of prevThreadRows) {
+      for (const parent of carriedThreadRows) {
         const newIds = newIdsByThread.get(parent.thread_id) ?? [];
         const usage = appendUsageByThread.get(parent.thread_id) ?? parent.current_context_usage;
         turnThreadRows.push({

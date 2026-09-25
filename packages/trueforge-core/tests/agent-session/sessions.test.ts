@@ -1,9 +1,12 @@
+import { MAIN_THREAD_ID } from '../../src/agent-session/models/TurnRecord';
 import { EventType } from '../../src/agent-session/schemas/events';
 import { CancellationReason } from '../../src/agent-session/schemas/turn';
 import { Sessions } from '../../src/agent-session/Sessions';
 import { InMemorySessionStore } from '../../src/agent-session/store/InMemorySessionStore';
 import { TurnNotFoundError } from '../../src/agent-session/store/SessionStoreErrors';
 import { TurnHandle } from '../../src/agent-session/TurnHandle';
+import { InvalidAgentSendInputError } from '../../src/core/errors';
+import { getEmptyCurrentContextUsage } from '../../src/core/runtime/contextUsage';
 import { makeAgentSpec, makeTestResolver, mintTestTurnId, TEST_ACTIVE_EXECUTOR_ID } from './testHelpers';
 
 describe('Sessions / SessionHandle / TurnHandle (storage + createTurn)', () => {
@@ -296,6 +299,52 @@ describe('Sessions / SessionHandle / TurnHandle (storage + createTurn)', () => {
     expect(sessionRecord?.last_turn_id).toBe(root2.id);
   });
 
+  it('persists only live threads when a user message replaces pending child work', async () => {
+    const store = new InMemorySessionStore();
+    const sessions = new Sessions({ sessionStore: store });
+    const session = await sessions.create({
+      tenant_id: tenant,
+      session_id: 's1',
+      created_by_subject: { subject_id: 'user-1', subject_type: 'user', subject_display_name: 'user-1' },
+      agent: { type: 'inline', spec: makeAgentSpec() },
+      external_id: null,
+    });
+    const first = await session.createTurn({
+      turn_id: mintTestTurnId(),
+      active_executor_id: TEST_ACTIVE_EXECUTOR_ID,
+      previous_turn_id: 'none',
+      signal: new AbortController().signal,
+      resolver: makeTestResolver(),
+    });
+    await store.addThreads({
+      session_id: 's1',
+      turn_id: first.id,
+      threads: [
+        {
+          thread_id: 'child',
+          context: [{ role: 'user', content: 'pending task' }],
+          current_context_usage: getEmptyCurrentContextUsage(),
+          parent: { thread_id: MAIN_THREAD_ID, tool_call_id: 'call-child' },
+          agent_info: { type: 'dynamic', name: 'child', input: 'pending task' },
+          completion: null,
+          capability_state: null,
+        },
+      ],
+    });
+
+    const second = await session.createTurn({
+      turn_id: mintTestTurnId(),
+      active_executor_id: TEST_ACTIVE_EXECUTOR_ID,
+      input: [{ type: EventType.USER_MESSAGE, content: 'do something else' }],
+      previous_turn_id: 'auto',
+      signal: new AbortController().signal,
+      resolver: makeTestResolver(),
+    });
+
+    const persisted = await store.getTurn({ session_id: 's1', turn_id: second.id });
+    expect(Object.keys(persisted?.snapshot.threads ?? {})).toEqual([MAIN_THREAD_ID]);
+  });
+
   it('send/validation failure in run() persists no turn', async () => {
     const store = new InMemorySessionStore();
     const sessions = new Sessions({ sessionStore: store });
@@ -324,7 +373,7 @@ describe('Sessions / SessionHandle / TurnHandle (storage + createTurn)', () => {
         signal: new AbortController().signal,
         resolver: makeTestResolver(),
       }),
-    ).rejects.toThrow();
+    ).rejects.toThrow(InvalidAgentSendInputError);
     const turns = await store.listTurns({
       session_id: 's1',
       limit: 10,

@@ -45,10 +45,10 @@ function agentThreadEventToTerminalFields(event: AgentThreadExecutionEvent): {
       if ('parent' in event && event.parent) {
         return {};
       }
-      if (event.status === 'error') {
-        return {};
+      if (event.status === 'done') {
+        return { output: event.output };
       }
-      return { output: event.output };
+      return {};
     }
     case EventType.TOOL_APPROVAL_REQUIRED:
     case EventType.TOOL_RESPONSE_REQUIRED:
@@ -261,7 +261,20 @@ export class AgentThreadOrchestrator {
     return total;
   }
 
+  private dropNonRootThreads(): void {
+    for (const thread of [...this.agentThreads.values()]) {
+      if (thread.parent) {
+        addAgentThreadMetrics(this.finishedSubAgentMetrics, thread.getAgentThreadMetrics());
+        this.agentThreads.delete(thread.threadId);
+      }
+    }
+  }
+
   public async *send(messages: AgentThreadSendBatch): AsyncGenerator<AgentThreadAppendContext, void, unknown> {
+    if (messages.length > 0 && !isUserToolApprovalOrResponseBatch(messages)) {
+      this.dropNonRootThreads();
+    }
+
     const byThread = new Map<string, AgentThreadRuntimeSendBatch>();
     for (const thread of this.agentThreads.values()) {
       byThread.set(thread.threadId, []);
@@ -282,11 +295,6 @@ export class AgentThreadOrchestrator {
         byThread.set(threadId, batch);
       }
     } else if (messages.length > 0) {
-      if (this.agentThreads.size > 1) {
-        throw new InvalidAgentSendInputError(
-          'Cannot process user messages while sub agents are running, please send empty input for previous conversation to complete',
-        );
-      }
       byThread.set(getMainThreadId(this.agentThreads), messages);
     }
 

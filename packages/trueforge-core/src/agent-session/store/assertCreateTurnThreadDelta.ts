@@ -3,7 +3,7 @@ import { SessionStoreInvariantError } from './SessionStoreErrors';
 /**
  * Pure createTurn thread-graph checks shared by all ISessionStore backends.
  * Call after previous-turn thread ids are known; no DB I/O.
- * Returns the resulting thread-id set (previous ∪ new_threads).
+ * Returns the live thread ids declared by capability_states.
  */
 export function assertCreateTurnThreadDelta(input: {
   previousThreadIds: ReadonlySet<string>;
@@ -26,27 +26,28 @@ export function assertCreateTurnThreadDelta(input: {
     knownThreadIds.add(threadId);
   }
 
-  for (const append of input.new_context_appends) {
-    if (!knownThreadIds.has(append.thread_id)) {
-      throw new SessionStoreInvariantError(`new_context_appends references unknown thread ${append.thread_id}`);
-    }
-  }
-
-  const seenCapabilityThreads = new Set<string>();
+  const liveThreadIds = new Set<string>();
   for (const capability of input.capability_states) {
     if (!knownThreadIds.has(capability.thread_id)) {
       throw new SessionStoreInvariantError(`capability_states references unknown thread ${capability.thread_id}`);
     }
-    if (seenCapabilityThreads.has(capability.thread_id)) {
+    if (liveThreadIds.has(capability.thread_id)) {
       throw new SessionStoreInvariantError(`capability_states contains duplicate thread ${capability.thread_id}`);
     }
-    seenCapabilityThreads.add(capability.thread_id);
+    liveThreadIds.add(capability.thread_id);
   }
-  for (const threadId of knownThreadIds) {
-    if (!seenCapabilityThreads.has(threadId)) {
-      throw new SessionStoreInvariantError(`capability_states is missing thread ${threadId}`);
+
+  for (const threadId of newThreadIds) {
+    if (!liveThreadIds.has(threadId)) {
+      throw new SessionStoreInvariantError(`capability_states is missing new thread ${threadId}`);
     }
   }
 
-  return knownThreadIds;
+  for (const append of input.new_context_appends) {
+    if (!liveThreadIds.has(append.thread_id)) {
+      throw new SessionStoreInvariantError(`new_context_appends references non-live thread ${append.thread_id}`);
+    }
+  }
+
+  return liveThreadIds;
 }

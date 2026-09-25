@@ -119,7 +119,7 @@ export interface TurnContextAppend {
 
 export interface CreateTurnInput<TTurnCustom extends object = Record<string, never>> {
   turn: TurnRecordWithoutSnapshot<TTurnCustom>;
-  /** Threads absent on the previous turn (turn 1: the root thread; else empty). */
+  /** Live threads absent on the previous turn (turn 1: the root thread; else usually empty). */
   new_threads: NewThreadInit[];
   /**
    * All new messages, for new and carried-forward threads alike — collected by
@@ -130,8 +130,9 @@ export interface CreateTurnInput<TTurnCustom extends object = Record<string, nev
    */
   new_context_appends: TurnContextAppend[];
   /**
-   * Complete post-send capability maps: exactly one entry per turn thread.
-   * Authoritative for this turn; the store does not carry capability rows forward.
+   * Complete post-send capability maps: exactly one entry per live turn thread.
+   * Thread ids are the authoritative live set; omitted previous threads are not
+   * carried forward. The store does not carry capability rows forward.
    */
   capability_states: ThreadCapabilityStateInit[];
   /** Set only if session.title is NULL (first write wins). */
@@ -318,8 +319,9 @@ export interface ISessionStore<
    * Creates the turn AND advances `session.last_turn_id`. Context merging is the
    * store's responsibility: `new_context_appends` and `new_threads` are applied
    * on top of the previous turn's snapshot when `turn.previous_turn_id` is set.
-   * `capability_states` is the complete authoritative map for every resulting
-   * thread and is persisted directly without store-side carry-forward.
+   * `capability_states` is the complete authoritative map and live-id set for
+   * every resulting thread. Previous threads omitted from it are not carried
+   * forward; capability rows are persisted without store-side carry-forward.
    *
    * Atomicity (store contract): insert turn + set `last_turn_id` (+ session
    * turn-list append if the backend has one) MUST be one atomic unit per
