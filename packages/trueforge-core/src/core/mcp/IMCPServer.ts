@@ -107,7 +107,11 @@ export interface IToolSet {
 
   listTools(): Promise<ListToolsResponse>;
 
-  callTool(params: CallToolRequest['params'], approvalDecision?: ApprovalDecision): Promise<CallToolResponse>;
+  callTool(
+    params: CallToolRequest['params'],
+    approvalDecision?: ApprovalDecision,
+    signal?: AbortSignal,
+  ): Promise<CallToolResponse>;
 
   toolCallInfo(params: CallToolRequest['params'], resolveUnderlyingTool?: boolean): Promise<InternalToolCallInfo>;
 
@@ -124,7 +128,11 @@ export interface ToolSource {
 
   listTools(): Promise<ListToolsResolvedResponse | AuthRequiredResponse>;
 
-  callTool(params: CallToolRequest['params'], approvalDecision?: ApprovalDecision): Promise<CallToolResponse>;
+  callTool(
+    params: CallToolRequest['params'],
+    approvalDecision?: ApprovalDecision,
+    signal?: AbortSignal,
+  ): Promise<CallToolResponse>;
 
   toolCallInfo(params: CallToolRequest['params'], resolveUnderlyingTool?: boolean): Promise<InternalToolCallInfo>;
 }

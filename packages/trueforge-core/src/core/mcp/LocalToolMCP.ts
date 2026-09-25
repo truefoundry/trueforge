@@ -13,9 +13,9 @@ import {
 
 function withValidatedInput<T extends z.ZodType>(
   schema: T,
-  fn: (input: z.infer<T>, approvalDecision?: ApprovalDecision) => Promise<CallToolResponse>,
+  fn: (input: z.infer<T>, approvalDecision?: ApprovalDecision, signal?: AbortSignal) => Promise<CallToolResponse>,
 ) {
-  return async (raw: unknown, approvalDecision?: ApprovalDecision): Promise<CallToolResponse> => {
+  return async (raw: unknown, approvalDecision?: ApprovalDecision, signal?: AbortSignal): Promise<CallToolResponse> => {
     const parsed = schema.safeParse(raw);
     if (!parsed.success) {
       return toolResultResponse({
@@ -23,12 +23,12 @@ function withValidatedInput<T extends z.ZodType>(
         isError: true,
       });
     }
-    return fn(parsed.data, approvalDecision);
+    return fn(parsed.data, approvalDecision, signal);
   };
 }
 
 export type ToolDefinition = ListToolsResult['tools'][number] & {
-  execute: (raw: unknown, approvalDecision?: ApprovalDecision) => Promise<CallToolResponse>;
+  execute: (raw: unknown, approvalDecision?: ApprovalDecision, signal?: AbortSignal) => Promise<CallToolResponse>;
 };
 
 type ToolInputSchema = ListToolsResult['tools'][number]['inputSchema'];
@@ -39,7 +39,7 @@ export function defineTool<T extends z.ZodType>(config: {
   schema: T;
   // Handlers may opt into the approvalDecision (forwarded by the agent loop after the
   // user approves an approval-gated tool). Handlers that don't declare it ignore it.
-  handler: (input: z.infer<T>, approvalDecision?: ApprovalDecision) => Promise<CallToolResponse>;
+  handler: (input: z.infer<T>, approvalDecision?: ApprovalDecision, signal?: AbortSignal) => Promise<CallToolResponse>;
 }): ToolDefinition {
   // Advertise the *input* shape: fields with `.default()` are optional to callers
   // (Zod 4's default `io: "output"` would mark them required after defaults apply).
@@ -94,7 +94,11 @@ export abstract class LocalToolMCP implements IToolSet {
     });
   }
 
-  async callTool(params: CallToolRequest['params'], approvalDecision?: ApprovalDecision): Promise<CallToolResponse> {
+  async callTool(
+    params: CallToolRequest['params'],
+    approvalDecision?: ApprovalDecision,
+    signal?: AbortSignal,
+  ): Promise<CallToolResponse> {
     return this.tracing.withLocalToolSpan(
       {
         displayName: this.displayName,
@@ -103,7 +107,7 @@ export abstract class LocalToolMCP implements IToolSet {
         enabled: this.tracingEnabled,
       },
       async span => {
-        const response = await this.executeTool(params, approvalDecision);
+        const response = await this.executeTool(params, approvalDecision, signal);
         span.setOutput(JSON.stringify(response));
         if (isCallToolResponseResult(response) && response.sandboxInfo) {
           span.setSandboxId(response.sandboxInfo.sandbox_id);
@@ -129,11 +133,12 @@ export abstract class LocalToolMCP implements IToolSet {
   private async executeTool(
     params: CallToolRequest['params'],
     approvalDecision?: ApprovalDecision,
+    signal?: AbortSignal,
   ): Promise<CallToolResponse> {
     const tool = this.getTools().find(t => t.name === params.name);
     if (!tool) {
       return toolResultResponse({ text: JSON.stringify({ error: `Unknown tool: ${params.name}` }), isError: true });
     }
-    return tool.execute(params.arguments, approvalDecision);
+    return tool.execute(params.arguments, approvalDecision, signal);
   }
 }
