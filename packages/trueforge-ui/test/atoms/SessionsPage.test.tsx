@@ -402,6 +402,23 @@ describe('SessionsPage', () => {
     expect(screen.getByText('Draft session')).toBeInTheDocument();
   });
 
+  it('disables Share without session MANAGE permission', async () => {
+    window.history.replaceState(null, '', '/?view=sessions&sessionId=sess-1&s_tw=30');
+    renderPage({
+      permissions: {
+        listPermissions: vi.fn(async (): Promise<ListPermissionsResponse> => ({
+          data: { type: 'session', permissions: { 'sess-1': [], 'sess-draft': ['MANAGE'] } },
+        })),
+      },
+    });
+
+    await waitFor(() => {
+      expect(screen.getByRole('button', { name: 'Share' })).toBeDisabled();
+    });
+    fireEvent.click(screen.getByRole('button', { name: 'Share' }));
+    expect(screen.queryByText('Change permissions')).not.toBeInTheDocument();
+  });
+
   it('disables Delete without session DELETE permission', async () => {
     const deleteSession = vi.fn(async () => undefined);
     renderPage({

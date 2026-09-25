@@ -100,6 +100,30 @@ describe('ShareSessionDialog', () => {
     expect(screen.getByRole('button', { name: 'Copied' })).toBeInTheDocument();
   });
 
+  it('closes permission options on outside click without PATCHing', async () => {
+    const { updateSession } = renderDialog();
+    await openSharePopover();
+
+    fireEvent.click(await screen.findByRole('button', { name: 'Session sharing' }));
+    expect(await screen.findByRole('option', { name: 'Everyone within acme' })).toBeInTheDocument();
+
+    fireEvent.mouseDown(screen.getByText('Change permissions'));
+
+    expect(screen.queryByRole('option', { name: 'Everyone within acme' })).not.toBeInTheDocument();
+    expect(updateSession).not.toHaveBeenCalled();
+  });
+
+  it('closes the permission menu without PATCHing when the current option is clicked', async () => {
+    const { updateSession } = renderDialog();
+    await openSharePopover();
+
+    fireEvent.click(await screen.findByRole('button', { name: 'Session sharing' }));
+    fireEvent.click(await screen.findByRole('option', { name: 'Only you' }));
+
+    expect(screen.queryByRole('option', { name: 'Only you' })).not.toBeInTheDocument();
+    expect(updateSession).not.toHaveBeenCalled();
+  });
+
   it('PATCHes shared when the tenant permission is selected', async () => {
     const { updateSession } = renderDialog();
     await openSharePopover();

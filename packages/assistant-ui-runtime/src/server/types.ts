@@ -179,7 +179,7 @@ export interface Session<TSpec extends AgentSpec = AgentSpec> {
   agentSpec?: TSpec;
   /** true → mutable builder + updateSession(spec) allowed. */
   isMutable: boolean;
-  /** When true, any subject in the tenant may read this session by id. */
+  /** When true, any subject in the tenant may read this session and its turns/events by id. */
   shared?: boolean;
   createdAt: string;
   updatedAt: string;
@@ -195,7 +195,7 @@ export interface UpdateSessionRequest<TSpec extends AgentSpec = AgentSpec> {
   sessionId: string;
   agentSpec?: TSpec;
   title?: string;
-  /** When true, any subject in the tenant may read this session by id. */
+  /** When true, any subject in the tenant may read this session and its turns/events by id. */
   shared?: boolean;
 }
 

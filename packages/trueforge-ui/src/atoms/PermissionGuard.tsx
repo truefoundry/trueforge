@@ -23,8 +23,8 @@ export function PermissionGuard({
   if (allowed) return guardedChild;
 
   return (
-    <Tooltip content={deniedMessage}>
-      <span aria-disabled="true" className="inline-flex w-full cursor-not-allowed *:pointer-events-none">
+    <Tooltip content={deniedMessage} side="bottom">
+      <span aria-disabled="true" className="inline-flex cursor-not-allowed *:pointer-events-none">
         {guardedChild}
       </span>
     </Tooltip>

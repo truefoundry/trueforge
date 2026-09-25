@@ -7,6 +7,20 @@ import { cn } from '../lib/cn.js';
 import { themePortalRoot } from '../lib/themePortalRoot.js';
 
 const TOOLTIP_VIEWPORT_PAD = 8;
+const TOOLTIP_GAP = 6;
+
+export type TooltipSide = 'top' | 'bottom' | 'left' | 'right';
+
+function isVerticalSide(side: TooltipSide): side is 'top' | 'bottom' {
+  return side === 'top' || side === 'bottom';
+}
+
+function tooltipTransform(side: TooltipSide): string {
+  if (side === 'bottom') return 'translate(-50%, 0)';
+  if (side === 'top') return 'translate(-50%, -100%)';
+  if (side === 'right') return 'translate(0, -50%)';
+  return 'translate(-100%, -50%)';
+}
 
 /** `left`/`top` are the desired center and top-edge (bottom) or bottom-edge (top). */
 export function clampCenteredTooltip({
@@ -48,6 +62,41 @@ export function clampCenteredTooltip({
   return { top: nextTop, left: nextLeft };
 }
 
+/** `left` is the inner edge (right: tooltip start; left: tooltip end). `top` is the vertical center. */
+export function clampEdgeTooltip({
+  left,
+  top,
+  width,
+  height,
+  side,
+  viewportWidth,
+  viewportHeight,
+  pad = TOOLTIP_VIEWPORT_PAD,
+}: {
+  left: number;
+  top: number;
+  width: number;
+  height: number;
+  side: 'left' | 'right';
+  viewportWidth: number;
+  viewportHeight: number;
+  pad?: number;
+}): { top: number; left: number } {
+  let nextTop = top;
+  if (height > 0) {
+    const half = height / 2;
+    nextTop = Math.min(viewportHeight - pad - half, Math.max(pad + half, top));
+  }
+  let nextLeft = left;
+  if (width > 0) {
+    nextLeft =
+      side === 'right'
+        ? Math.min(viewportWidth - pad - width, Math.max(pad, left))
+        : Math.min(viewportWidth - pad, Math.max(pad + width, left));
+  }
+  return { top: nextTop, left: nextLeft };
+}
+
 function hasTooltipContent(content: React.ReactNode): boolean {
   if (content == null || content === false) return false;
   if (typeof content === 'string') return content.trim().length > 0;
@@ -64,7 +113,7 @@ export type TooltipProps = {
   children: React.ReactElement;
   className?: string;
   triggerClassName?: string;
-  side?: 'top' | 'bottom';
+  side?: TooltipSide;
   dismissOnClick?: boolean;
   followCursor?: boolean;
   /** When set, tooltip is pinned to these viewport coords instead of the trigger. */
@@ -99,27 +148,39 @@ export function Tooltip({
     const trigger = triggerWrapRef.current;
     let next: { top: number; left: number } | null = null;
     if (anchor != null) {
-      next = { top: side === 'bottom' ? anchor.top + 6 : anchor.top - 6, left: anchor.left };
+      next = {
+        top: side === 'bottom' ? anchor.top + TOOLTIP_GAP : anchor.top - TOOLTIP_GAP,
+        left: anchor.left,
+      };
     } else if (trigger) {
       const rect = trigger.getBoundingClientRect();
-      next = {
-        top: side === 'bottom' ? rect.bottom + 6 : rect.top - 6,
-        left: followCursor && cursorXRef.current != null ? cursorXRef.current : rect.left + rect.width / 2,
-      };
+      next = isVerticalSide(side)
+        ? {
+            top: side === 'bottom' ? rect.bottom + TOOLTIP_GAP : rect.top - TOOLTIP_GAP,
+            left: followCursor && cursorXRef.current != null ? cursorXRef.current : rect.left + rect.width / 2,
+          }
+        : {
+            top: rect.top + rect.height / 2,
+            left: side === 'right' ? rect.right + TOOLTIP_GAP : rect.left - TOOLTIP_GAP,
+          };
     }
     if (next == null) return;
     const tooltipEl = tooltipRef.current;
+    if (tooltipEl == null) {
+      setPos(next);
+      return;
+    }
+    const size = {
+      ...next,
+      width: tooltipEl.offsetWidth,
+      height: tooltipEl.offsetHeight,
+      viewportWidth: window.innerWidth,
+      viewportHeight: window.innerHeight,
+    };
     setPos(
-      tooltipEl
-        ? clampCenteredTooltip({
-            ...next,
-            width: tooltipEl.offsetWidth,
-            height: tooltipEl.offsetHeight,
-            side,
-            viewportWidth: window.innerWidth,
-            viewportHeight: window.innerHeight,
-          })
-        : next,
+      isVerticalSide(side)
+        ? clampCenteredTooltip({ ...size, side })
+        : clampEdgeTooltip({ ...size, side }),
     );
   };
 
@@ -184,7 +245,7 @@ export function Tooltip({
             style={{
               top: pos?.top ?? 0,
               left: pos?.left ?? 0,
-              transform: side === 'bottom' ? 'translate(-50%, 0)' : 'translate(-50%, -100%)',
+              transform: tooltipTransform(side),
               visibility: pos == null ? 'hidden' : undefined,
             }}
             className={cn(
@@ -213,7 +274,7 @@ export type LightTooltipProps = {
   className?: string;
   triggerClassName?: string;
   size?: string;
-  side?: 'top' | 'bottom';
+  side?: TooltipSide;
   dismissOnClick?: boolean;
   followCursor?: boolean;
   anchor?: TooltipAnchor | null;

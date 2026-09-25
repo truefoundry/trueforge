@@ -2,6 +2,7 @@
 
 import { Suspense, useCallback, useEffect, useMemo, useState } from 'react';
 
+import { useResourcePermissions } from '../../hooks/useResourcePermissions.js';
 import { useSessionShareSearch } from '../../hooks/useSessionShareSearch.js';
 import { Icon } from '../../icons/Icon.js';
 import { useOptionalAgentSessionsServer } from '../../server/ServerContext.js';
@@ -18,6 +19,15 @@ import { auiButtonClass } from '../lib/buttonClasses.js';
 import { PageHeader } from '../PageHeader.js';
 import { Skeleton } from '../primitives/Skeleton.js';
 
+function SessionsShareTrigger({ disabled }: { disabled?: boolean }) {
+  return (
+    <button type="button" disabled={disabled} className={auiButtonClass({ variant: 'secondary', size: 'large' })}>
+      <Icon name="share" />
+      Share
+    </button>
+  );
+}
+
 export function SessionsPage() {
   const sessionsServer = useOptionalAgentSessionsServer();
   const shell = useShellMode();
@@ -25,8 +35,12 @@ export function SessionsPage() {
   const AgentSessions = useSlot('AgentSessions');
   const AgentSessionsFilters = useSlot('AgentSessionsFilters');
   const ShareSessionDialog = useSlot('ShareSessionDialog');
+  const PermissionGuard = useSlot('PermissionGuard');
   const sharedSessionId = shell.sharedSessionId;
   const selectedSessionId = sharedSessionId ?? sessionId;
+  const shareResourceIds = selectedSessionId == null ? [] : [selectedSessionId];
+  const { allows } = useResourcePermissions({ resourceType: 'session', resourceIds: shareResourceIds });
+  const canManageSession = allows(selectedSessionId, 'MANAGE');
 
   const [agentFilter, setAgentFilter] = useState<string | null>(
     () => readSessionShareSearch(window.location.search).agentId,
@@ -75,15 +89,13 @@ export function SessionsPage() {
         end={
           <>
             {selectedSessionId != null ? (
-              <ShareSessionDialog
-                sessionId={selectedSessionId}
-                trigger={
-                  <button type="button" className={auiButtonClass({ variant: 'secondary', size: 'small' })}>
-                    <Icon name="share" />
-                    Share
-                  </button>
-                }
-              />
+              canManageSession ? (
+                <ShareSessionDialog sessionId={selectedSessionId} trigger={<SessionsShareTrigger />} />
+              ) : (
+                <PermissionGuard allowed={false}>
+                  <SessionsShareTrigger />
+                </PermissionGuard>
+              )
             ) : null}
             {sharedSessionId == null ? (
               <AgentSessionsFilters

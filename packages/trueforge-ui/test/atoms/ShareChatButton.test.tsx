@@ -10,9 +10,12 @@ vi.mock('@/assistant-ui.js', () => ({
 }));
 
 import { ShareChatButton } from '@/atoms/ShareChatButton.js';
+import { ActiveSessionPermissionsProvider } from '@/hooks/useResourcePermissions.js';
 import { resolveRoutesConfig } from '@/routing/paths.js';
 import { ResolvedRoutesProvider } from '@/routing/ResolvedRoutesContext.js';
+import { ServerProvider } from '@/server/ServerContext.js';
 import { SlotsProvider } from '@/theme/SlotsProvider.js';
+import { createMockAgentUIServer } from '../server/mockServer.js';
 
 const originalClipboard = Object.getOwnPropertyDescriptor(navigator, 'clipboard');
 let writeText: ReturnType<typeof vi.fn>;
@@ -65,5 +68,31 @@ describe('ShareChatButton', () => {
       expect(writeText).toHaveBeenCalledOnce();
     });
     expect(new URL(String(writeText.mock.calls[0]?.[0])).pathname).toBe('/sessions/share/session-1');
+  });
+
+  it('disables Share without session MANAGE permission', async () => {
+    activeThread.remoteId = 'session-1';
+    const server = createMockAgentUIServer({
+      permissions: {
+        listPermissions: vi.fn(async () => ({
+          data: { type: 'session', permissions: { 'session-1': [] } },
+        })),
+      },
+    });
+    render(
+      <SlotsProvider>
+        <ServerProvider server={server}>
+          <ActiveSessionPermissionsProvider sessionId="session-1">
+            <ShareChatButton />
+          </ActiveSessionPermissionsProvider>
+        </ServerProvider>
+      </SlotsProvider>,
+    );
+
+    await waitFor(() => {
+      expect(screen.getByRole('button', { name: 'Share' })).toBeDisabled();
+    });
+    fireEvent.click(screen.getByRole('button', { name: 'Share' }));
+    expect(screen.queryByText('Change permissions')).not.toBeInTheDocument();
   });
 });

@@ -59,6 +59,7 @@ export function useShareSessionDialog(sessionId: string | null | undefined): {
 
   const changePermission = useCallback(
     async (next: SessionSharePermission) => {
+      if (!canManage || next === permission) return;
       const previous = permission;
       setPermission(next);
       if (sessionId == null || sessionId.length === 0 || server == null) return;
@@ -69,7 +70,7 @@ export function useShareSessionDialog(sessionId: string | null | undefined): {
         toaster?.showError(caught);
       }
     },
-    [permission, server, sessionId, toaster],
+    [canManage, permission, server, sessionId, toaster],
   );
 
   return {
