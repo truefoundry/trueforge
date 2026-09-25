@@ -15,6 +15,7 @@ export type {
   AgentThreadEvent,
   AgentThreadExecutionEvent,
   AgentThreadExecutionResult,
+  SubAgentCompletion,
 } from './runtime/AgentThread.types';
 export { AgentThreadOrchestrator } from './runtime/AgentThreadOrchestrator';
 export type { CreateDynamicSubAgentThread } from './runtime/CreateDynamicSubAgentThread';

@@ -735,7 +735,7 @@ export class AgentThread {
     this.metrics.total_summarizations++;
   }
 
-  private generateErrorEvent(message: string, output?: ModelMessageEvent | undefined): InternalThreadDoneEvent {
+  private generateErrorEvent(message: string, output?: ModelMessageEvent): InternalThreadDoneEvent {
     if (this.parent !== undefined) {
       return {
         type: InternalEventType.AGENT_DONE,
@@ -766,17 +766,15 @@ export class AgentThread {
     if (this.parent === undefined) {
       throw new Error('cancel() requires a parent thread');
     }
-    if (this.preComputedCompletion === undefined) {
-      this.preComputedCompletion = {
-        status: 'cancelled',
-        reason,
-        send_to_parent: {
-          role: 'tool',
-          tool_call_id: this.parent.tool_call_id,
-          content: reason,
-        },
-      };
-    }
+    this.preComputedCompletion ??= {
+      status: 'cancelled',
+      reason,
+      send_to_parent: {
+        role: 'tool',
+        tool_call_id: this.parent.tool_call_id,
+        content: reason,
+      },
+    };
     return {
       type: InternalEventType.AGENT_CONTEXT_APPEND,
       thread_id: this.threadId,
