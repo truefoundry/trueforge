@@ -292,9 +292,6 @@ export class AgentThreadOrchestrator {
 
     const byThread = new Map<string, AgentThreadRuntimeSendBatch>();
     for (const thread of this.agentThreads.values()) {
-      if (thread.preComputedCompletion !== undefined) {
-        continue;
-      }
       byThread.set(thread.threadId, []);
     }
 

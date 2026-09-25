@@ -7,7 +7,7 @@ import { InternalEventType } from '../../src/core/runtime/AgentThread.types';
 import { AgentThreadOrchestrator } from '../../src/core/runtime/AgentThreadOrchestrator';
 import { NOOP_AGENT_TRACING } from '../../src/core/tracing/NoopAgentTracing';
 import { makeSilentLogger } from '../core/harnessMocks';
-import { llmCreateInputs, runTurn, textReplyStream } from './helpers/helpers';
+import { llmCreateInputs, runExecute, textReplyStream } from './helpers/helpers';
 
 const MAIN_ID = 'main';
 const CHILD_ID = 'child';
@@ -135,12 +135,9 @@ describe('orchestration: user-message reset', () => {
       sendEvents.push(event);
     }
 
-    const { events, result } = await runTurn({
-      orchestrator,
-      sendBatch: [],
-    });
+    const { events, result } = await runExecute({ orchestrator });
 
-    expect(child.preComputedCompletion).toBeDefined();
+    expect(child.toSnapshot().completion).toEqual(expect.objectContaining({ status: 'cancelled', reason: CANCELED }));
     expect(sendEvents).toEqual(
       expect.arrayContaining([
         expect.objectContaining({

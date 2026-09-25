@@ -523,7 +523,7 @@ export class AgentThread {
   private contextBusy = false;
   private preSendRanThisTurn = false;
   private currentState: AgentThreadState | null = null;
-  public preComputedCompletion?: SubAgentCompletion | undefined;
+  private preComputedCompletion?: SubAgentCompletion | undefined;
   /** Mirrored capability KV — source for toSnapshot().capability_state. */
   private capabilityState: CapabilityState = {};
   private readonly capabilityStateKeys: ReadonlySet<string>;
