@@ -75,7 +75,7 @@ export type InternalMCPAuthRequiredEvent = BaseMCPAuthRequiredEvent & {
 
 export type SubAgentCompletion =
   | { type: 'done'; output: ModelMessageEvent; send_to_parent: LLMToolMessage }
-  | { type: 'error'; output: ModelMessageEvent; error?: string | undefined; send_to_parent: LLMToolMessage }
+  | { type: 'error'; output: ModelMessageEvent; error: string; send_to_parent: LLMToolMessage }
   | { type: 'cancelled'; reason: string; send_to_parent: LLMToolMessage };
 
 export type InternalThreadDoneEvent = {
