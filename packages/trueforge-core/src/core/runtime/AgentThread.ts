@@ -764,7 +764,7 @@ export class AgentThread {
 
   public cancel(reason: string): AgentThreadAppendContext {
     if (this.parent === undefined) {
-      throw new Error('cancel() requires a parent thread');
+      throw new Error('unreachable: cancel() requires a parent thread');
     }
     this.preComputedCompletion ??= {
       status: 'cancelled',
