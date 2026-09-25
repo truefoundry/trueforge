@@ -1,5 +1,16 @@
 # @truefoundry/trueforge-assistant-ui-runtime
 
+## 0.2.0-rc.1
+
+### Minor Changes
+
+- c6b78d9: Make sandbox provider port types identity-only; move Daytona lifecycle fields (`execTimeoutMs`, auto-stop/archive/delete intervals) onto host `DaytonaSandboxConfig`.
+
+### Patch Changes
+
+- c783700: Show schedule tasks, agent context, and failed run reasons in the schedules table.
+- f4ee3dc: Share sessions with tenant members (popover, `shared` PATCH, share routes), toast and redirect on forbidden/missing deep links, and stop the New Chat → named-history max-update-depth loop.
+
 ## 0.2.0-rc.0
 
 ### Minor Changes

@@ -1,5 +1,28 @@
 # Changelog
 
+## 0.4.0-rc.1
+
+### Minor Changes
+
+- c6b78d9: Make sandbox provider port types identity-only; move Daytona lifecycle fields (`execTimeoutMs`, auto-stop/archive/delete intervals) onto host `DaytonaSandboxConfig`.
+- f4ee3dc: Share sessions with tenant members (popover, `shared` PATCH, share routes), toast and redirect on forbidden/missing deep links, and stop the New Chat → named-history max-update-depth loop.
+
+### Patch Changes
+
+- c783700: Show schedule tasks, agent context, and failed run reasons in the schedules table.
+- dd421b7: Add an action to restore the recent 30-day session list from a timestamp-pinned session.
+- 73e146e: Make the compaction threshold an Auto/Custom selector: Auto omits `trigger` (runtime derives ~80% of the model context window); Custom reveals a number input defaulting to 50000.
+- ff0cee5: Improve session timeline tooltips with sandbox tool details and grouped sub-agent tool calls.
+- 72a1168: Use the shared searchable agent picker in the sessions filter.
+- Updated dependencies [829ac6e]
+- Updated dependencies [829ac6e]
+- Updated dependencies [829ac6e]
+- Updated dependencies [c783700]
+- Updated dependencies [c6b78d9]
+- Updated dependencies [f4ee3dc]
+  - @truefoundry/trueforge-sdk@0.2.1-rc.1
+  - @truefoundry/trueforge-assistant-ui-runtime@0.2.0-rc.1
+
 ## 0.4.0-rc.0
 
 ### Minor Changes
