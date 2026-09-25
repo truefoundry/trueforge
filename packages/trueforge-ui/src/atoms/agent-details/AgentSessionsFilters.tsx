@@ -4,8 +4,7 @@ import { useEffect, useRef, useState } from 'react';
 
 import { Icon } from '../../icons/Icon.js';
 import { useOptionalServer } from '../../server/ServerContext.js';
-import { useOptionalShellMode } from '../../server/ShellModeContext.js';
-import type { AgentLibraryEntry } from '../../server/types.js';
+import { libraryAgentId } from '../../server/ShellModeContext.js';
 import { SESSION_CUSTOM_RANGE_MAX_DAYS, type SessionTimeRange } from '../../utils/sessionShareUrl.js';
 import {
   formatSessionTimePresetLabel,
@@ -14,12 +13,12 @@ import {
   SESSION_TIME_PRESETS,
   toDateTimeLocalValue,
 } from '../../utils/sessionTimePresets.js';
+import { AgentSearchPicker } from '../AgentSearchPicker.js';
 import { cn } from '../lib/cn.js';
 import { auiInputClass } from '../lib/inputClasses.js';
 import { auiSelectMenuClass, auiSelectOptionClass, auiSelectTriggerClass } from '../lib/selectClasses.js';
-import { searchAllAgents } from '../lib/useSearchAgentsList.js';
+import { findLibraryAgent } from '../lib/useSearchAgentsList.js';
 import { Button } from '../primitives/Button.js';
-import { PopoverSelect } from '../primitives/PopoverSelect.js';
 
 export type AgentSessionsFiltersProps = {
   agentId: string | null;
@@ -39,27 +38,29 @@ export function AgentSessionsFilters({
   showCustomTimeRange = true,
 }: AgentSessionsFiltersProps) {
   const server = useOptionalServer();
-  const shell = useOptionalShellMode();
-  const [agents, setAgents] = useState<AgentLibraryEntry[]>([]);
+  const [agentLabelById, setAgentLabelById] = useState<Record<string, string>>({});
   const [menuOpen, setMenuOpen] = useState(false);
   const [customPickerOpen, setCustomPickerOpen] = useState(false);
   const [fromValue, setFromValue] = useState(() => toDateTimeLocalValue(timeRange.startTs));
   const [toValue, setToValue] = useState(() => toDateTimeLocalValue(timeRange.endTs));
   const popoverRef = useRef<HTMLDivElement>(null);
+  const selectedAgentLabel = agentId == null ? undefined : agentLabelById[agentId];
 
+  // On refresh get the agent name from the server if we have agent id in url but no agent name in options
   useEffect(() => {
-    if (!showAgentFilter || server == null) return undefined;
+    if (server == null || agentId == null || selectedAgentLabel != null) return undefined;
     let cancelled = false;
-    void searchAllAgents(server).then(
-      rows => {
-        if (!cancelled) setAgents(rows);
+    void findLibraryAgent({ server, agentKey: agentId }).then(
+      agent => {
+        if (cancelled || agent == null) return;
+        setAgentLabelById(current => ({ ...current, [agentId]: agent.name }));
       },
       () => undefined,
     );
     return () => {
       cancelled = true;
     };
-  }, [server, shell?.agentsListEpoch, showAgentFilter]);
+  }, [agentId, selectedAgentLabel, server]);
 
   useEffect(() => {
     setFromValue(toDateTimeLocalValue(timeRange.startTs));
@@ -107,16 +108,20 @@ export function AgentSessionsFilters({
   return (
     <div className="flex min-w-0 items-center gap-2">
       {showAgentFilter ? (
-        <PopoverSelect
+        <AgentSearchPicker
           aria-label="Filter sessions by agent"
           prefix="Agents"
-          className="min-w-[12rem]"
+          className="min-w-40"
           value={agentId ?? ''}
-          options={[
-            { value: '', label: 'All' },
-            ...agents.map(agent => ({ value: agent.agentId ?? agent.name, label: agent.name })),
-          ]}
+          selectedLabel={agentId == null ? 'All' : (selectedAgentLabel ?? agentId)}
+          allOption={{ value: '', label: 'All' }}
           onValueChange={value => onAgentChange(value.length === 0 ? null : value)}
+          onAgentPicked={agent => {
+            setAgentLabelById(current => ({
+              ...current,
+              [libraryAgentId(agent)]: agent.name,
+            }));
+          }}
         />
       ) : null}
       <div className="relative" ref={popoverRef}>
