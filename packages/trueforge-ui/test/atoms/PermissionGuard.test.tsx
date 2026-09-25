@@ -29,6 +29,6 @@ describe('PermissionGuard', () => {
     fireEvent.mouseEnter(button.parentElement ?? button);
     const tooltip = screen.getByRole('tooltip');
     expect(tooltip).toHaveTextContent('Missing MANAGE permission');
-    expect(tooltip).toHaveStyle({ transform: 'translate(0, -50%)' });
+    expect(tooltip).toHaveStyle({ transform: 'translate(-50%, 0)' });
   });
 });
