@@ -91,6 +91,26 @@ export interface DeleteAgentInput {
   id: string;
 }
 
+/** Catalog entity kind an AgentSpec references by name. */
+export type AgentCatalogEntity = 'model_provider' | 'model' | 'mcp_server' | 'skill';
+
+export interface ListAgentCatalogUsageInput {
+  tenant_id: string;
+  entity: AgentCatalogEntity;
+  /**
+   * Fully-qualified `provider/model` names for `model`; the provider, server, or skill name
+   * otherwise. Empty returns `[]` without querying.
+   */
+  names: readonly string[];
+}
+
+/** One agent paired with one name it references; an agent repeats per matched name. */
+export interface AgentCatalogUsageRow {
+  agent_name: string;
+  /** The matched entry from the requested `names`. */
+  reference_name: string;
+}
+
 /** Unique `(tenant_id, name)` violation on create. */
 export class AgentNameConflictError extends Error {
   readonly tenant_id: string;
@@ -136,4 +156,9 @@ export interface IAgentStore<TTransaction = never> {
   updateAgent(input: UpdateAgentInput, transaction?: TTransaction): Promise<AgentRecord | undefined>;
   /** Deletes by immutable id. Idempotent if already missing. */
   deleteAgent(input: DeleteAgentInput, transaction?: TTransaction): Promise<void>;
+  /** Which agents reference the named catalog entries — the pre-check for deleting one. */
+  listAgentCatalogUsage(
+    input: ListAgentCatalogUsageInput,
+    transaction?: TTransaction,
+  ): Promise<readonly AgentCatalogUsageRow[]>;
 }

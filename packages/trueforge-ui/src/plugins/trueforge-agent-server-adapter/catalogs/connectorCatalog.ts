@@ -144,7 +144,7 @@ export function toHarnessManifest(req: {
   };
 }
 
-/** Settings connector port for `createTrueForgeServer`. Delete omitted; disconnect unsupported. */
+/** Settings connector port for `createTrueForgeServer`. */
 export function createConnectorCatalog(
   client: TrueForge,
 ): ConnectorCatalogServer<
@@ -258,6 +258,9 @@ export function createConnectorCatalog(
       }
       const body = await client.mcpServers.deleteAuthorization(req.id);
       return toUiConnector(body.data);
+    },
+    deleteConnector: async ({ id }) => {
+      await client.settings.mcpServers.delete(id);
     },
   };
 }

@@ -377,6 +377,7 @@ export function createServerApp<TTransaction>(deps: ServerDeps<TTransaction>) {
         resolveSkillStore: deps.resolveSkillStore,
         resolveSandboxProviderStore: deps.resolveSandboxProviderStore,
         resolveWebSearchProviderStore: deps.resolveWebSearchProviderStore,
+        resolveAgentStore: deps.resolveAgentStore,
         withTransaction: deps.withTransaction,
         logger: deps.logger,
         resolveRequestContext,

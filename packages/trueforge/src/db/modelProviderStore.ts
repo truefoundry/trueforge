@@ -41,6 +41,11 @@ export interface CreateModelProviderInput {
 /** Same shape as create for now; kept as a distinct name for the upsert path. */
 export type UpsertModelProviderInput = CreateModelProviderInput;
 
+export interface DeleteModelProviderInput {
+  tenant_id: string;
+  name: string;
+}
+
 /** Unique `(tenant_id, name)` violation on create. */
 export class ModelProviderNameConflictError extends Error {
   readonly tenant_id: string;
@@ -70,6 +75,8 @@ export interface IModelProviderStore<TTransaction = never> {
   createProvider(input: CreateModelProviderInput, transaction?: TTransaction): Promise<ModelProviderRecord>;
   /** Single-row write: creates the provider or replaces the whole manifest (models included). */
   upsertProvider(input: UpsertModelProviderInput, transaction?: TTransaction): Promise<ModelProviderRecord>;
+  /** Removes one provider and every model it declares. Resolves `false` when no row matched. */
+  deleteProvider(input: DeleteModelProviderInput, transaction?: TTransaction): Promise<boolean>;
   /** Flattens manifests into the FQN read view for GET /models. */
   listModels(input: ListModelProvidersInput, transaction?: TTransaction): Promise<AvailableModel[]>;
 }

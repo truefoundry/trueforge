@@ -1,8 +1,9 @@
+import { AgentSpecSchema } from '@truefoundry/trueforge-core/agent-session';
 import { configureOutboundUrlGuard } from '@truefoundry/trueforge-core/core';
 import winston from 'winston';
 import { createCatalogRouter } from '../../../src/apis/catalog';
 import { createMcpServersRouter, createSettingsMcpServersRouter } from '../../../src/apis/mcpServers';
-import { STANDALONE_REQUEST_CONTEXT } from '../../../src/auth/identity';
+import { createdBySubjectFromRequestContext, STANDALONE_REQUEST_CONTEXT } from '../../../src/auth/identity';
 import { McpCatalog } from '../../../src/catalog/McpCatalog';
 import { ModelCatalog } from '../../../src/catalog/ModelCatalog';
 import { SandboxCatalog } from '../../../src/catalog/SandboxCatalog';
@@ -12,6 +13,7 @@ import configuration from '../../../src/config';
 import { McpServerWithAuthStore } from '../../../src/db/McpServerWithAuthStore';
 import type { IMcpServerWithAuthStore } from '../../../src/db/mcpServerStore';
 import { migrateSqliteToLatest } from '../../../src/db/migrateSqlite';
+import { SqliteAgentStore } from '../../../src/db/sqlite/agent-store/SqliteAgentStore';
 import { createSqliteDb } from '../../../src/db/sqlite/client';
 import { SqliteMcpServerStore } from '../../../src/db/sqlite/mcp-server-store/SqliteMcpServerStore';
 import { SqliteOAuthTokenStore } from '../../../src/db/sqlite/token-store/SqliteOAuthTokenStore';
@@ -99,6 +101,7 @@ describe('mcp-servers routers', () => {
   let catalogRouter: ReturnType<typeof createCatalogRouter>;
   let mcpServersRouter: ReturnType<typeof createMcpServersRouter>;
   let mcpServerStore: IMcpServerWithAuthStore;
+  let agentStore: SqliteAgentStore;
   let tokenStore: SqliteOAuthTokenStore;
   let withTransaction: <T>(callback: (transaction: unknown) => Promise<T>) => Promise<T>;
   let logger: ReturnType<typeof winston.createLogger>;
@@ -132,8 +135,10 @@ describe('mcp-servers routers', () => {
     });
     withTransaction = callback => db.transaction().execute(callback);
     logger = winston.createLogger({ silent: true });
+    agentStore = new SqliteAgentStore(db);
     settingsRouter = createSettingsMcpServersRouter({
       resolveMcpServerStore: () => mcpServerStore,
+      resolveAgentStore: () => agentStore,
       tokenStore,
       withTransaction,
       logger,
@@ -973,5 +978,65 @@ describe('mcp-servers routers', () => {
 
     const missing = await mcpServersRouter.request('/missing/authorize', { method: 'DELETE' });
     expect(missing.status).toBe(404);
+  });
+
+  describe('DELETE /{name}', () => {
+    const disposable = { ...putBody, name: 'disposable', description: 'Disposable MCP server.' };
+
+    beforeEach(async () => {
+      await settingsRouter.request('/', putInit(wrapManifest(disposable)));
+    });
+
+    it('removes the server along with every user grant for it', async () => {
+      const record = await mcpServerStore.getServer({ tenant_id: 'default', name: disposable.name });
+      if (record === undefined) {
+        throw new Error('expected the disposable server to exist');
+      }
+      await tokenStore.saveToken({
+        id: record.id,
+        userRef: 'other-user',
+        token: {
+          accessToken: 'access-1',
+          refreshToken: null,
+          expiresAt: '2099-01-01T00:00:00.000Z',
+          scope: null,
+        },
+      });
+
+      const response = await settingsRouter.request(`/${disposable.name}`, { method: 'DELETE' });
+      expect(response.status).toBe(200);
+      expect(await response.json()).toEqual({});
+      expect(await mcpServerStore.getServer({ tenant_id: 'default', name: disposable.name })).toBeUndefined();
+      expect(await tokenStore.getToken({ id: record.id, userRef: 'other-user' })).toBeUndefined();
+    });
+
+    it('returns 404 for an unknown server', async () => {
+      const missing = await settingsRouter.request('/missing', { method: 'DELETE' });
+      expect(missing.status).toBe(404);
+      expect(await missing.json()).toEqual({ error: { message: 'MCP server not found: missing' } });
+    });
+
+    it('returns 409 naming the agents that still list the server', async () => {
+      await agentStore.createAgent({
+        tenant_id: 'default',
+        created_by_subject: createdBySubjectFromRequestContext(STANDALONE_REQUEST_CONTEXT),
+        name: 'connector-user',
+        description: 'Test agent.',
+        manifest: AgentSpecSchema.parse({
+          model: { name: 'anthropic/claude-sonnet-4-6' },
+          mcp_servers: [{ name: disposable.name }],
+        }),
+        external_id: null,
+      });
+
+      const blocked = await settingsRouter.request(`/${disposable.name}`, { method: 'DELETE' });
+      expect(blocked.status).toBe(409);
+      expect(await blocked.json()).toEqual({
+        error: {
+          message: 'Still in use — MCP server "disposable" is used by agent connector-user. Delete those agents first.',
+        },
+      });
+      expect(await mcpServerStore.getServer({ tenant_id: 'default', name: disposable.name })).toBeDefined();
+    });
   });
 });
