@@ -29,6 +29,7 @@ import type { AgentUIServer, CreateSessionRequest } from '../server/types.js';
 import { SlotsProvider, useThemeMode, type SlotOverrides } from '../theme/SlotsProvider.js';
 import type { LayoutProp, ThemeConfig } from '../theme/types.js';
 import { getErrorMessage } from '../utils/getErrorMessage.js';
+import { ToasterProvider } from './ToasterContainer.js';
 import { TrueForgeChatProvider, type TrueForgeChatProviderProps } from './TrueForgeChatProvider.js';
 import { useResolvedServer } from './useResolvedServer.js';
 
@@ -318,27 +319,33 @@ export function TrueForgeUIShell(props: TrueForgeUIShellProps) {
   const server = resolved.server;
   const layoutTree = <LayoutChildren layout={layout} className={className} />;
 
+  // Outer toaster so ShellRouteSync (sibling of chat provider) can toast access-denied
+  // deep links; nested ToasterProvider inside TrueForgeChatProvider stays for hosts
+  // that mount chat alone.
   const shellTree = (
-    <ShellModeProvider agentConfig={agentConfig} initialSettingsOpen={initialSettingsOpen}>
-      <LibrarySessionShareBoot />
-      {resolvedRoutes != null ? (
-        <Suspense fallback={null}>
-          <ShellRouteSync
-            routes={resolvedRoutes}
-            activeRemoteId={activeRemoteId}
-            initialSettingsOpen={initialSettingsOpen}
-          />
-        </Suspense>
-      ) : null}
-      <ChatProviderFromShell
-        server={server}
-        onError={onError}
-        onRemoteIdChange={resolvedRoutes != null ? handleRemoteIdChange : undefined}
-        {...providerRest}
-      >
-        {layoutTree}
-      </ChatProviderFromShell>
-    </ShellModeProvider>
+    <ToasterProvider>
+      <ShellModeProvider agentConfig={agentConfig} initialSettingsOpen={initialSettingsOpen}>
+        <LibrarySessionShareBoot />
+        {resolvedRoutes != null ? (
+          <Suspense fallback={null}>
+            <ShellRouteSync
+              routes={resolvedRoutes}
+              activeRemoteId={activeRemoteId}
+              initialSettingsOpen={initialSettingsOpen}
+              onError={onError}
+            />
+          </Suspense>
+        ) : null}
+        <ChatProviderFromShell
+          server={server}
+          onError={onError}
+          onRemoteIdChange={resolvedRoutes != null ? handleRemoteIdChange : undefined}
+          {...providerRest}
+        >
+          {layoutTree}
+        </ChatProviderFromShell>
+      </ShellModeProvider>
+    </ToasterProvider>
   );
   // Widget visibility provider is used to control the visibility of the widget with isolated state
   const visibilityTree =

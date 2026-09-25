@@ -5,6 +5,7 @@ import { useLocation, useNavigate } from 'react-router-dom';
 
 import { sessionIsCreateAgent } from '../atoms/lib/sessionCreateAgent.js';
 import { findAgentByName } from '../atoms/lib/useSearchAgentsList.js';
+import { useToasterOptional } from '../containers/ToasterContainer.js';
 import {
   useOptionalAgentSessionsServer,
   useOptionalCatalogServer,
@@ -20,6 +21,7 @@ import {
   updateHistoryAgentSearch,
   type HistoryAgentSearch,
 } from '../utils/historyAgentSearch.js';
+import { reportSessionAccessError } from '../utils/sessionAccessError.js';
 import { deriveChatPlace, derivePlace } from './derivePlace.js';
 import { buildPath, matchLocation, placesEqual, sanitizeSearchForPlace } from './paths.js';
 import type { ResolvedRoutes, RoutePlace, ShellSnapshot } from './types.js';
@@ -27,6 +29,10 @@ import type { ResolvedRoutes, RoutePlace, ShellSnapshot } from './types.js';
 // Filter intent follows chat history across chat/session URLs, but must not leak into unrelated surfaces.
 function placeOwnsHistoryAgentSearch(place: RoutePlace): boolean {
   return place.type === 'root' || place.type === 'agent' || place.type === 'session';
+}
+
+function isSessionsPlace(place: RoutePlace): boolean {
+  return place.type === 'sessionsBrowser' || place.type === 'sharedSession';
 }
 
 /**
@@ -37,10 +43,12 @@ export function ShellRouteSync({
   routes,
   activeRemoteId,
   initialSettingsOpen,
+  onError,
 }: {
   routes: ResolvedRoutes;
   activeRemoteId: string | undefined;
   initialSettingsOpen: boolean;
+  onError?: (error: unknown) => void;
 }) {
   const shell = useShellMode();
   const server = useOptionalServer();
@@ -49,6 +57,7 @@ export function ShellRouteSync({
   const schedules = useOptionalScheduleServer();
   const capabilities = useServerCapabilities();
   const capabilitiesSettled = useServerCapabilitiesSettled();
+  const toaster = useToasterOptional();
   const navigate = useNavigate();
   const location = useLocation();
   // Same gates as sidebar chrome: missing optional ports unregister their paths.
@@ -62,6 +71,7 @@ export function ShellRouteSync({
   const routeGatesKey = [
     effectiveRoutes.settings,
     effectiveRoutes.sessionsBrowser,
+    effectiveRoutes.sharedSession,
     effectiveRoutes.libraryAgent,
     effectiveRoutes.schedules,
   ].join('\0');
@@ -70,6 +80,7 @@ export function ShellRouteSync({
     settingsOpen: shell.settingsOpen,
     libraryOpen: shell.libraryOpen,
     sessionsOpen: shell.sessionsOpen,
+    sharedSessionId: shell.sharedSessionId,
     libraryAgentId: shell.libraryAgentId,
     schedulesOpen: shell.schedulesOpen,
     pendingSessionId: shell.pendingSessionId,
@@ -101,7 +112,26 @@ export function ShellRouteSync({
    * A URL carries only the id, so ask the server whether it names a mutable
    * draft or an agent chat; guessing "mutable" opens an agent session as a
    * blank draft. `requestedSessionRef` drops replies a later place superseded.
+   * Access denied / missing session: toast, then New Chat (do not bind the id).
    */
+  const goToRoot = useCallback(() => {
+    shell.setSettingsOpen(false);
+    shell.setLibraryOpen(false);
+    shell.setSchedulesOpen(false);
+    switch (shell.agentConfigMode) {
+      case 'AgentLibrary':
+        shell.openLibraryHome();
+        return;
+      case 'AgentComposer':
+      case 'AgentLibraryWithComposer':
+        shell.openDraft();
+        return;
+      case 'SingleAgent':
+        shell.clearChat();
+        return;
+    }
+  }, [shell]);
+
   const openSession = useCallback(
     (sessionId: string) => {
       requestedSessionRef.current = sessionId;
@@ -120,13 +150,20 @@ export function ShellRouteSync({
             ...(session.agentName != null ? { agentName: session.agentName } : {}),
           });
         })
-        .catch(() => {
+        .catch((error: unknown) => {
           if (requestedSessionRef.current !== sessionId) return;
-          // Unreachable session: bind by id alone rather than stranding the shell.
-          shell.openHistorySession({ sessionId });
+          requestedSessionRef.current = null;
+          // Drop boot's "wait until place matches URL" so shell→URL can leave /sessions/:id.
+          bootPlaceRef.current = null;
+          reportSessionAccessError({
+            error,
+            ...(onError != null ? { onError } : {}),
+            ...(toaster != null ? { showError: toaster.showError } : {}),
+          });
+          goToRoot();
         });
     },
-    [server, shell],
+    [goToRoot, onError, server, shell, toaster],
   );
 
   const applyHistoryAgentSearch = useCallback(
@@ -195,6 +232,9 @@ export function ShellRouteSync({
         case 'sessionsBrowser':
           shell.setSessionsOpen(true);
           return;
+        case 'sharedSession':
+          shell.openSharedSession(target.sessionId);
+          return;
         case 'libraryAgent':
           shell.openLibraryAgent(target.agentId);
           return;
@@ -214,24 +254,11 @@ export function ShellRouteSync({
           openAgent(target.agentName);
           return;
         case 'root':
-          shell.setSettingsOpen(false);
-          shell.setLibraryOpen(false);
-          shell.setSchedulesOpen(false);
-          switch (shell.agentConfigMode) {
-            case 'AgentLibrary':
-              shell.openLibraryHome();
-              return;
-            case 'AgentComposer':
-            case 'AgentLibraryWithComposer':
-              shell.openDraft();
-              return;
-            case 'SingleAgent':
-              shell.clearChat();
-              return;
-          }
+          goToRoot();
+          return;
       }
     },
-    [shell, activeRemoteId, openAgent, openSession],
+    [shell, activeRemoteId, goToRoot, openAgent, openSession],
   );
 
   // Boot: URL wins, except an explicit `initialSettingsOpen` overlay. Boot is the
@@ -386,7 +413,7 @@ export function ShellRouteSync({
       if (urlPlace.type !== 'library' && urlPlace.type !== 'libraryAgent' && shell.libraryOpen) {
         shell.setLibraryOpen(false);
       }
-      if (urlPlace.type !== 'sessionsBrowser' && shell.sessionsOpen) {
+      if (!isSessionsPlace(urlPlace) && shell.sessionsOpen) {
         shell.setSessionsOpen(false);
       }
       if (urlPlace.type !== 'schedules' && shell.schedulesOpen) {

@@ -17,6 +17,8 @@ export type DropdownMenuProps = {
   onOpenChange?: (open: boolean) => void;
   closeOnClick?: boolean;
   lockScroll?: boolean;
+  /** Capture-phase outside click. Needed when a parent menu stops mousedown bubbling. */
+  captureOutsideClick?: boolean;
 };
 
 // Returns true if the click was on the menu surface, not its contents or scrollbar.
@@ -35,6 +37,7 @@ export function DropdownMenu({
   onOpenChange,
   closeOnClick = true,
   lockScroll = false,
+  captureOutsideClick = false,
 }: DropdownMenuProps) {
   const [internalOpen, setInternalOpen] = useState(false);
   const open = controlledOpen ?? internalOpen;
@@ -85,9 +88,9 @@ export function DropdownMenu({
       if (menuRef.current?.contains(target)) return;
       setOpen(false);
     };
-    document.addEventListener('mousedown', handler);
-    return () => document.removeEventListener('mousedown', handler);
-  }, [open]);
+    document.addEventListener('mousedown', handler, captureOutsideClick);
+    return () => document.removeEventListener('mousedown', handler, captureOutsideClick);
+  }, [captureOutsideClick, open, setOpen]);
 
   useEffect(() => {
     if (!open || !lockScroll) return;

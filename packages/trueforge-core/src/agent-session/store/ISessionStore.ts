@@ -33,6 +33,8 @@ export type UpdateSessionInput<TSessionCustom extends object = Record<string, ne
   agent: Extract<SessionRecord<TSessionCustom>['agent'], { type: 'inline' }> | undefined;
   title: SessionRecord<TSessionCustom>['title'] | undefined;
   metadata: SessionRecord<TSessionCustom>['metadata'] | undefined;
+  /** When omitted, the stored flag is left unchanged. */
+  shared: SessionRecord<TSessionCustom>['shared'] | undefined;
 };
 
 export interface GetSessionInput {
@@ -290,6 +292,7 @@ export interface ISessionStore<
    * - agent: replace inline binding (inline sessions only; reference → invariant error).
    * - title: set/replace the session title.
    * - metadata: full replace of the caller-owned string map when set.
+   * - shared: set/replace the share flag when set; omitted leaves the stored value.
    * Bumps `last_activity_timestamp_ms` (= now) in the same update.
    */
   updateSession(input: UpdateSessionInput<TSessionCustom>): Promise<void>;

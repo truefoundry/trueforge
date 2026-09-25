@@ -78,6 +78,8 @@ export interface SessionTable {
   /** Inline spec binding; XOR with `agent_id`. */
   agent_spec: JsonbColumn<AgentSpec> | null;
   title: string | null;
+  /** 0/1. When 1, any subject in the tenant may GET this session. */
+  shared: number;
   last_turn_id: string | null;
   /** Optional unique key within `tenant_id` when set. */
   external_id: string | null;

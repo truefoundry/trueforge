@@ -8,6 +8,7 @@ function snap(partial: Partial<ShellSnapshot>): ShellSnapshot {
     settingsOpen: false,
     libraryOpen: false,
     sessionsOpen: false,
+    sharedSessionId: null,
     libraryAgentId: null,
     schedulesOpen: false,
     mode: { status: 'idle' },
@@ -27,6 +28,13 @@ describe('derivePlace', () => {
 
   it('sessions browser wins over the chat place when settings is closed', () => {
     expect(derivePlace(snap({ sessionsOpen: true, pendingSessionId: 'abc' }))).toEqual({ type: 'sessionsBrowser' });
+  });
+
+  it('shared session wins over the sessions browser', () => {
+    expect(derivePlace(snap({ sessionsOpen: true, sharedSessionId: 'shared-1' }))).toEqual({
+      type: 'sharedSession',
+      sessionId: 'shared-1',
+    });
   });
 
   it('library agent detail wins over the library list and chat place', () => {

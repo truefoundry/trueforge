@@ -28,6 +28,9 @@ export function deriveChatPlace(snapshot: ShellSnapshot): RoutePlace {
 export function derivePlace(snapshot: ShellSnapshot): RoutePlace {
   if (snapshot.settingsOpen) return { type: 'settings' };
   if (snapshot.schedulesOpen) return { type: 'schedules' };
+  if (snapshot.sessionsOpen && snapshot.sharedSessionId != null) {
+    return { type: 'sharedSession', sessionId: snapshot.sharedSessionId };
+  }
   if (snapshot.sessionsOpen) return { type: 'sessionsBrowser' };
   if (snapshot.libraryOpen && snapshot.libraryAgentId != null) {
     return { type: 'libraryAgent', agentId: snapshot.libraryAgentId };

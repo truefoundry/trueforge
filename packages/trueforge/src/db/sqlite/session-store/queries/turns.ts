@@ -148,7 +148,8 @@ async function addSessionCostAndDuration(
 function terminalTurnState(state: TurnState, turn_id: string): TerminalTurnState {
   switch (state.status) {
     case 'running':
-      throw new SessionStoreInvariantError(`expected terminal state for turn ${turn_id}, got running`);
+    case 'paused':
+      throw new SessionStoreInvariantError(`expected terminal state for turn ${turn_id}, got ${state.status}`);
     case 'done':
     case 'cancelled':
     case 'error':

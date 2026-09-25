@@ -206,6 +206,7 @@ export class InMemorySessionStore<
       created_by_subject: input.created_by_subject,
       agent: deepCopy(input.agent),
       title: null,
+      shared: false,
       last_turn_id: null,
       external_id: externalId,
       source: input.source !== null ? deepCopy(input.source) : null,
@@ -287,6 +288,9 @@ export class InMemorySessionStore<
     }
     if (input.metadata !== undefined) {
       stored.record.metadata = deepCopy(input.metadata);
+    }
+    if (input.shared !== undefined) {
+      stored.record.shared = input.shared;
     }
     const now = Date.now();
     stored.record.updated_at = new Date(now);
@@ -478,6 +482,9 @@ export class InMemorySessionStore<
     // Same as createTurn: synchronous body ⇒ atomic under run-to-completion.
     const tKey = turnKey(input);
     const turn = this.requireTurn(input.session_id, input.turn_id);
+    if (turn.state.status === 'paused') {
+      throw new SessionStoreInvariantError(`expected running state for turn ${input.turn_id}, got paused`);
+    }
     if (turn.state.status !== 'running') {
       throw new TurnNotRunningError(input.turn_id, turn.state);
     }
@@ -567,6 +574,9 @@ export class InMemorySessionStore<
 
   private requireRunningTurn(sessionId: string, turnId: string): TurnRecord<TTurnCustom> {
     const turn = this.requireTurn(sessionId, turnId);
+    if (turn.state.status === 'paused') {
+      throw new SessionStoreInvariantError(`expected running state for turn ${turnId}, got paused`);
+    }
     if (turn.state.status !== 'running') {
       throw new TurnNotRunningError(turnId, turn.state);
     }

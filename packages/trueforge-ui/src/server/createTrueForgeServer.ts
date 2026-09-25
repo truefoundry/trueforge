@@ -52,6 +52,8 @@ export type CreateTrueForgeServerOptions<
   schedules?: TSchedules;
   /** Per-resource grants. Omit to leave actions enabled. */
   permissions?: TPermissions;
+  /** Authenticated caller identity. Used for tenant-scoped share copy. */
+  getMe?: () => Promise<{ tenantId: string }>;
 };
 
 export type TrueForgeServer<
@@ -74,6 +76,7 @@ export type TrueForgeServer<
     metrics?: TMetrics;
     schedules?: TSchedules;
     permissions?: TPermissions;
+    getMe?: () => Promise<{ tenantId: string }>;
   };
 
 /**
@@ -162,6 +165,7 @@ export function createTrueForgeServer<
     ...(opts.metrics != null ? { metrics: opts.metrics } : {}),
     ...(opts.schedules != null ? { schedules: opts.schedules } : {}),
     ...(opts.permissions != null ? { permissions: opts.permissions } : {}),
+    ...(opts.getMe != null ? { getMe: opts.getMe } : {}),
   };
   return server;
 }

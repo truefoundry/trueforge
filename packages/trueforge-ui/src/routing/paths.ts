@@ -3,7 +3,11 @@ import {
   readScheduleShareSearch,
   writeScheduleShareSearch,
 } from '../utils/scheduleShareUrl.js';
-import { readSessionShareSearch, writeSessionShareSearch } from '../utils/sessionShareUrl.js';
+import {
+  readSessionShareSearch,
+  SHARED_SESSION_VIEW_VALUE,
+  writeSessionShareSearch,
+} from '../utils/sessionShareUrl.js';
 import type { ResolvedRoutes, RoutePlace, RoutesConfig } from './types.js';
 
 const DEFAULTS = {
@@ -15,6 +19,7 @@ const DEFAULTS = {
   buildAgent: '/build-agent',
   agent: '/agents/:agentName',
   session: '/sessions/:sessionId',
+  sharedSession: '/sessions/share/:sessionId',
   sessionsBrowser: '/sessions',
 } as const;
 
@@ -42,6 +47,7 @@ export function resolveRoutesConfig(routes?: RoutesConfig): ResolvedRoutes {
     buildAgent: resolveOptional(paths?.buildAgent, DEFAULTS.buildAgent),
     agent: resolveOptional(paths?.agent, DEFAULTS.agent),
     session: resolveOptional(paths?.session, DEFAULTS.session),
+    sharedSession: resolveOptional(paths?.sharedSession, DEFAULTS.sharedSession),
     sessionsBrowser: resolveOptional(paths?.sessionsBrowser, DEFAULTS.sessionsBrowser),
   };
 }
@@ -79,6 +85,8 @@ export function buildPath(place: RoutePlace, routes: ResolvedRoutes): string | n
       return routes.agent == null ? null : fillTemplate(routes.agent, place.agentName);
     case 'session':
       return routes.session == null ? null : fillTemplate(routes.session, place.sessionId);
+    case 'sharedSession':
+      return routes.sharedSession == null ? null : fillTemplate(routes.sharedSession, place.sessionId);
     case 'sessionsBrowser':
       return routes.sessionsBrowser;
   }
@@ -104,6 +112,36 @@ export function buildSessionResumeHref({
   url.pathname = `${basename}${sessionPath}` || '/';
   url.search = sanitizeSearchForPlace({ type: 'session', sessionId }, url.search);
   url.hash = '';
+  return url.toString();
+}
+
+/** Absolute detail-only share URL, with a query fallback when SDK routing is unavailable. */
+export function buildSharedSessionHref({
+  sessionId,
+  routes,
+  href = typeof window === 'undefined' ? 'http://localhost/' : window.location.href,
+}: {
+  sessionId: string;
+  routes: ResolvedRoutes | null;
+  href?: string;
+}): string {
+  const place: RoutePlace = { type: 'sharedSession', sessionId };
+  const sessionPath = routes == null ? null : buildPath(place, routes);
+  const url = new URL(href);
+  if (routes != null && sessionPath != null) {
+    const basename = routes.basename.endsWith('/') ? routes.basename.slice(0, -1) : routes.basename;
+    url.pathname = `${basename}${sessionPath}` || '/';
+    url.search = sanitizeSearchForPlace(place, url.search);
+    url.hash = '';
+    return url.toString();
+  }
+  writeSessionShareSearch(url.searchParams, {
+    sessionId,
+    agentId: null,
+    tab: null,
+    view: SHARED_SESSION_VIEW_VALUE,
+    timeRange: null,
+  });
   return url.toString();
 }
 
@@ -218,6 +256,10 @@ export function matchPath(pathname: string, routes: ResolvedRoutes): RoutePlace 
     const sessionId = matchTemplate(routes.session, segments);
     if (sessionId != null) return { type: 'session', sessionId };
   }
+  if (routes.sharedSession != null) {
+    const sessionId = matchTemplate(routes.sharedSession, segments);
+    if (sessionId != null) return { type: 'sharedSession', sessionId };
+  }
   if (normalized === routes.root) {
     return { type: 'root' };
   }
@@ -236,7 +278,8 @@ export function matchLocation({
 }): RoutePlace | null {
   const matched = matchPath(pathname, routes);
   if (matched == null || matched.type !== 'root') return matched;
-  const { agentId } = readSessionShareSearch(search);
+  const { agentId, sessionId, view } = readSessionShareSearch(search);
+  if (view === SHARED_SESSION_VIEW_VALUE && sessionId != null) return { type: 'sharedSession', sessionId };
   return agentId != null ? { type: 'libraryAgent', agentId } : matched;
 }
 
@@ -245,5 +288,6 @@ export function placesEqual(a: RoutePlace, b: RoutePlace): boolean {
   if (a.type === 'agent' && b.type === 'agent') return a.agentName === b.agentName;
   if (a.type === 'libraryAgent' && b.type === 'libraryAgent') return a.agentId === b.agentId;
   if (a.type === 'session' && b.type === 'session') return a.sessionId === b.sessionId;
+  if (a.type === 'sharedSession' && b.type === 'sharedSession') return a.sessionId === b.sessionId;
   return true;
 }

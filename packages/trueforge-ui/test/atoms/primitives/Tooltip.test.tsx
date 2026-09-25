@@ -1,7 +1,7 @@
 import { act, fireEvent, render, screen } from '@testing-library/react';
 import { describe, expect, it, vi } from 'vitest';
 
-import { clampCenteredTooltip, LightTooltip, Tooltip } from '@/atoms/primitives/Tooltip.js';
+import { clampCenteredTooltip, clampEdgeTooltip, LightTooltip, Tooltip } from '@/atoms/primitives/Tooltip.js';
 
 describe('Tooltip', () => {
   it('shows and hides on hover while merging the child callbacks', () => {
@@ -177,6 +177,34 @@ describe('Tooltip', () => {
         viewportHeight: 600,
       }),
     ).toEqual({ left: 108, top: 40 });
+  });
+
+  it('clamps a right-side tooltip so it stays inside the viewport', () => {
+    expect(
+      clampEdgeTooltip({
+        left: 860,
+        top: 40,
+        width: 200,
+        height: 32,
+        side: 'right',
+        viewportWidth: 900,
+        viewportHeight: 600,
+      }),
+    ).toEqual({ left: 692, top: 40 });
+  });
+
+  it('opens to the right of the trigger when side is right', () => {
+    render(
+      <Tooltip content="Beside tip" side="right">
+        <button>Anchor</button>
+      </Tooltip>,
+    );
+
+    fireEvent.mouseEnter(screen.getByRole('button', { name: 'Anchor' }));
+
+    const tooltip = screen.getByRole('tooltip');
+    expect(tooltip).toHaveTextContent('Beside tip');
+    expect(tooltip).toHaveStyle({ transform: 'translate(0, -50%)' });
   });
 
   it('opens below the trigger when side is bottom', () => {

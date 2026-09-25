@@ -158,7 +158,7 @@ describe('AgentSessionTimelineContainer', () => {
     const scrollIntoView = vi.fn();
     HTMLElement.prototype.scrollIntoView = scrollIntoView;
 
-    render(
+    const { container } = render(
       <SlotsProvider
         overrides={{
           AgentSessionEventTimeline: ({ turns, onSelectTurn }) => (
@@ -179,6 +179,13 @@ describe('AgentSessionTimelineContainer', () => {
     expect(screen.getByText('Turn')).toBeInTheDocument();
     expect(screen.getByText('Duration')).toBeInTheDocument();
     expect(await screen.findAllByRole('button', { name: 'Copy' })).not.toHaveLength(0);
+    expect(container.querySelector('[data-slot="agent-session-scroll"]')).toHaveClass('overflow-y-auto');
+    expect(container.querySelector('[data-slot="agent-session-metrics-sticky"]')).toHaveClass(
+      'sticky',
+      'top-0',
+      'bg-primary-bg',
+    );
+    expect(container.querySelector('[data-slot="aui_thread-viewport"]')).toHaveClass('overflow-visible');
     fireEvent.click(screen.getByRole('button', { name: 'timeline turns=1' }));
     await waitFor(() => {
       expect(scrollIntoView).toHaveBeenCalled();
