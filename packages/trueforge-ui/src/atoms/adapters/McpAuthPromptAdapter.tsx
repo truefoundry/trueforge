@@ -38,15 +38,15 @@ export function McpAuthPrompt({
     <div
       className={cn(
         // Inset vs composer so stacked pause chrome matches the design (~1rem each side).
-        'aui-mcp-auth-prompt mx-auto w-[calc(100%-2rem)] min-w-0 overflow-hidden rounded-lg border border-border',
+        'aui-mcp-auth-prompt mx-auto w-[calc(100%-2rem)] min-w-0 overflow-hidden rounded-lg',
         className,
       )}
       data-testid={dataTestPrefix ? `${dataTestPrefix}-mcp-auth-card` : undefined}
     >
-      <div className="border-b border-primary-button-bg/30 bg-primary-button-bg/10 px-4 py-2">
+      <div className="border rounded-t-lg border-primary-button-bg/30 bg-primary-button-bg/10 px-4 py-2.5">
         <div className="font-sans text-sm font-medium text-primary-button-bg">{title}</div>
       </div>
-      <div className="flex flex-col gap-3 bg-primary-bg px-4 py-3">
+      <div className="flex flex-col gap-3 bg-primary-bg px-4 py-3 border border-border border-t-0">
         {servers.map(server => (
           <div key={server.id} className="flex items-center justify-between gap-4">
             <div className="flex min-w-0 items-center gap-1.5 text-sm">

@@ -61,7 +61,7 @@ function OptionLetterBadge({ letter, selected, className }: { letter: string; se
         'inline-flex size-5 shrink-0 items-center justify-center rounded border font-sans text-[0.6875rem] font-semibold leading-none',
         selected
           ? 'border-primary-button-bg/50 bg-primary-button-bg/15 text-primary-button-bg'
-          : 'border-border bg-secondary-bg text-text-secondary',
+          : 'border-border bg-transparent text-text-secondary',
         className,
       )}
     >
@@ -159,8 +159,8 @@ export function AskUserPrompt({
       placeholder={hasOptions ? 'Other' : 'Type your answer'}
       aria-label={hasOptions ? 'Other (custom answer)' : 'Your answer'}
       className={cn(
-        'field-sizing-content min-h-6 max-h-[3lh] w-full resize-none overflow-y-auto rounded border border-input-border bg-primary-bg px-2 py-0.5 text-[0.8125rem] leading-snug text-text-primary',
-        'placeholder:text-[0.8125rem] focus:outline-none focus:ring-1 focus:ring-focus-ring',
+        'field-sizing-content min-h-8 max-h-[3lh] w-full resize-none overflow-y-auto rounded-md border border-input-border bg-primary-bg px-2.5 py-1 text-sm leading-5 text-text-primary',
+        'placeholder:text-sm focus:outline-none focus:ring-1 focus:ring-focus-ring',
       )}
     />
   );
@@ -169,12 +169,12 @@ export function AskUserPrompt({
     <div
       className={cn(
         // Inset vs composer so stacked pause chrome matches the design (~1rem each side).
-        'aui-ask-user-prompt mx-auto w-[calc(100%-2rem)] min-w-0 overflow-hidden rounded-lg border border-border',
+        'aui-ask-user-prompt mx-auto w-[calc(100%-2rem)] min-w-0 overflow-hidden rounded-lg',
         className,
       )}
       data-testid={dataTestPrefix ? `${dataTestPrefix}-question-card` : undefined}
     >
-      <div className="flex items-center justify-between border-b border-primary-button-bg/30 bg-primary-button-bg/10 px-4 py-2">
+      <div className="flex items-center justify-between border rounded-t-lg border-primary-button-bg/30 bg-primary-button-bg/10 px-4 py-2.5">
         <div className="min-w-0 font-sans text-sm font-medium text-primary-button-bg">
           {totalQuestions > 1 ? 'Questions' : currentQuestion.question}
         </div>
@@ -210,7 +210,7 @@ export function AskUserPrompt({
         )}
       </div>
 
-      <div className="flex flex-col gap-2 bg-primary-bg px-4 py-3">
+      <div className="flex flex-col gap-2 bg-primary-bg px-4 py-3 border border-t-0 border-border">
         <div className="flex min-w-0 flex-col gap-3">
           {isMultiQuestion && (
             <div className="font-sans text-xs font-medium text-text-primary">
@@ -244,7 +244,7 @@ export function AskUserPrompt({
                     className="sr-only"
                   />
                   <OptionLetterBadge letter={letter} selected={isSelected} />
-                  <span className="min-w-0 font-sans text-[0.8125rem] font-medium leading-snug text-text-primary">
+                  <span className="min-w-0 font-sans text-sm font-medium text-text-primary">
                     {opt}
                   </span>
                 </label>
@@ -268,7 +268,7 @@ export function AskUserPrompt({
                   onChange={() => handleOptionSelect(ASK_USER_CUSTOM_OPTION)}
                   className="sr-only"
                 />
-                <OptionLetterBadge letter={customOptionLetter} selected={isCustomSelected} className="mt-0.5" />
+                <OptionLetterBadge letter={customOptionLetter} selected={isCustomSelected} className="mt-1.5" />
                 <div className="min-w-0">{answerInput}</div>
               </label>
             ) : (
