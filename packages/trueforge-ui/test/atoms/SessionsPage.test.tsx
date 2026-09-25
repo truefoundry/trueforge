@@ -254,7 +254,10 @@ describe('SessionsPage', () => {
     window.history.replaceState(null, '', '/?view=sessions&sessionId=sess-1&agentId=agent-1&s_tw=30');
     renderPage();
 
-    fireEvent.click(await screen.findByRole('button', { name: 'Copy shared link' }));
+    fireEvent.click(await screen.findByRole('button', { name: 'Share' }));
+    expect(await screen.findByText('Change permissions')).toBeInTheDocument();
+    expect(screen.queryByRole('dialog')).not.toBeInTheDocument();
+    fireEvent.click(screen.getByRole('button', { name: 'Copy' }));
 
     await waitFor(() => {
       expect(clipboardWriteText).toHaveBeenCalledOnce();

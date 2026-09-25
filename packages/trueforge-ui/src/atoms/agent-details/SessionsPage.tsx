@@ -2,7 +2,6 @@
 
 import { Suspense, useCallback, useEffect, useMemo, useState } from 'react';
 
-import { useCopySharedSessionLink } from '../../hooks/useCopySharedSessionLink.js';
 import { useSessionShareSearch } from '../../hooks/useSessionShareSearch.js';
 import { Icon } from '../../icons/Icon.js';
 import { useOptionalAgentSessionsServer } from '../../server/ServerContext.js';
@@ -25,9 +24,9 @@ export function SessionsPage() {
   const { sessionId, updateShareSearch } = useSessionShareSearch();
   const AgentSessions = useSlot('AgentSessions');
   const AgentSessionsFilters = useSlot('AgentSessionsFilters');
+  const ShareSessionDialog = useSlot('ShareSessionDialog');
   const sharedSessionId = shell.sharedSessionId;
   const selectedSessionId = sharedSessionId ?? sessionId;
-  const { copied, copySharedSessionLink } = useCopySharedSessionLink(selectedSessionId);
 
   const [agentFilter, setAgentFilter] = useState<string | null>(
     () => readSessionShareSearch(window.location.search).agentId,
@@ -76,14 +75,15 @@ export function SessionsPage() {
         end={
           <>
             {selectedSessionId != null ? (
-              <button
-                type="button"
-                className={auiButtonClass({ variant: 'secondary', size: 'small' })}
-                onClick={() => void copySharedSessionLink()}
-              >
-                <Icon name="link" />
-                {copied ? 'Copied' : 'Copy shared link'}
-              </button>
+              <ShareSessionDialog
+                sessionId={selectedSessionId}
+                trigger={
+                  <button type="button" className={auiButtonClass({ variant: 'secondary', size: 'small' })}>
+                    <Icon name="share" />
+                    Share
+                  </button>
+                }
+              />
             ) : null}
             {sharedSessionId == null ? (
               <AgentSessionsFilters

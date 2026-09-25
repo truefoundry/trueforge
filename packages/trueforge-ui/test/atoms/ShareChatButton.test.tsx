@@ -12,6 +12,7 @@ vi.mock('@/assistant-ui.js', () => ({
 import { ShareChatButton } from '@/atoms/ShareChatButton.js';
 import { resolveRoutesConfig } from '@/routing/paths.js';
 import { ResolvedRoutesProvider } from '@/routing/ResolvedRoutesContext.js';
+import { SlotsProvider } from '@/theme/SlotsProvider.js';
 
 const originalClipboard = Object.getOwnPropertyDescriptor(navigator, 'clipboard');
 let writeText: ReturnType<typeof vi.fn>;
@@ -36,25 +37,33 @@ afterEach(() => {
 
 describe('ShareChatButton', () => {
   it('is hidden until the active chat has a persisted session id', () => {
-    render(<ShareChatButton />);
+    render(
+      <SlotsProvider>
+        <ShareChatButton />
+      </SlotsProvider>,
+    );
 
     expect(screen.queryByRole('button', { name: 'Share' })).not.toBeInTheDocument();
   });
 
-  it('copies the routed shared-session URL', async () => {
+  it('opens the share popover and copies the routed shared-session URL', async () => {
     activeThread.remoteId = 'session-1';
     render(
-      <ResolvedRoutesProvider routes={resolveRoutesConfig()}>
-        <ShareChatButton />
-      </ResolvedRoutesProvider>,
+      <SlotsProvider>
+        <ResolvedRoutesProvider routes={resolveRoutesConfig()}>
+          <ShareChatButton />
+        </ResolvedRoutesProvider>
+      </SlotsProvider>,
     );
 
     fireEvent.click(screen.getByRole('button', { name: 'Share' }));
+    expect(await screen.findByText('Change permissions')).toBeInTheDocument();
+    expect(screen.queryByRole('dialog')).not.toBeInTheDocument();
 
+    fireEvent.click(screen.getByRole('button', { name: 'Copy' }));
     await waitFor(() => {
       expect(writeText).toHaveBeenCalledOnce();
     });
     expect(new URL(String(writeText.mock.calls[0]?.[0])).pathname).toBe('/sessions/share/session-1');
-    expect(screen.getByRole('button', { name: 'Copied' })).toBeInTheDocument();
   });
 });

@@ -83,7 +83,12 @@ export function toUiAgentSpec(spec: TrueForgeApi.AgentSpec): HarnessAgentSpec {
   };
 }
 
+function readOptionalBoolean(value: unknown): boolean | undefined {
+  return typeof value === 'boolean' ? value : undefined;
+}
+
 function toUiSession(session: TrueForgeApi.Session): HarnessUiSession {
+  const shared = readOptionalBoolean(Reflect.get(session, 'shared'));
   return {
     id: session.id,
     isMutable: session.agent.type === 'inline',
@@ -91,6 +96,7 @@ function toUiSession(session: TrueForgeApi.Session): HarnessUiSession {
     createdAt: session.createdAt,
     updatedAt: session.updatedAt,
     ...(session.title === null ? {} : { title: session.title }),
+    ...(shared === undefined ? {} : { shared }),
     // `name` is a create-time snapshot, so references whose agent predates it stay
     // unlabelled; `isMutable` alone keeps them out of the composer.
     ...(session.agent.type === 'reference' && session.agent.name !== null ? { agentName: session.agent.name } : {}),
@@ -222,12 +228,16 @@ export function createHarnessChatServer(
       await client.sessions.update(sessionId, { title });
     },
 
-    async updateSession({ sessionId, agentSpec, title }) {
+    async updateSession({ sessionId, agentSpec, title, shared }) {
       // Named (reference) sessions reject agent updates server-side.
-      const response = await client.sessions.update(sessionId, {
+      const body: TrueForgeApi.UpdateSessionRequest = {
         ...(agentSpec === undefined ? {} : { agent: { spec: toHarnessAgentSpec(agentSpec) } }),
         ...(title === undefined ? {} : { title }),
-      });
+      };
+      if (shared !== undefined) {
+        Object.assign(body, { shared });
+      }
+      const response = await client.sessions.update(sessionId, body);
       return toUiSession(response.data);
     },
 

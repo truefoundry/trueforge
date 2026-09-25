@@ -1,26 +1,26 @@
 'use client';
 
 import { useAuiState } from '../assistant-ui.js';
-import { useCopySharedSessionLink } from '../hooks/useCopySharedSessionLink.js';
 import { Icon } from '../icons/Icon.js';
-import { auiButtonClass } from './lib/buttonClasses.js';
+import { useSlot } from '../theme/SlotsProvider.js';
+import { Button } from './primitives/Button.js';
 
 export function ShareChatButton() {
   const sessionId = useAuiState(state => state.threadListItem.remoteId);
-  const { copied, copySharedSessionLink } = useCopySharedSessionLink(sessionId);
+  const ShareSessionDialog = useSlot('ShareSessionDialog');
 
   if (sessionId == null) return null;
 
   return (
-    <button
-      type="button"
-      title="Copy shared link"
-      className={auiButtonClass({ variant: 'ghost', size: 'large' })}
-      onClick={() => void copySharedSessionLink()}
-    >
-      <Icon name="link" size="0.875rem" />
-      {copied ? 'Copied' : 'Share'}
-    </button>
+    <ShareSessionDialog
+      sessionId={sessionId}
+      trigger={
+        <Button.Ghost type="button" title="Share">
+          <Icon name="share" />
+          Share
+        </Button.Ghost>
+      }
+    />
   );
 }
 

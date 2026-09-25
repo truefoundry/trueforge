@@ -81,6 +81,7 @@ import { ScrollToBottomButton } from '../atoms/ScrollToBottomButton.js';
 import { SelectAgentEmptyState } from '../atoms/SelectAgentEmptyState.js';
 import { SessionsBrowserButton } from '../atoms/SessionsBrowserButton.js';
 import { ShareChatButton } from '../atoms/ShareChatButton.js';
+import { ShareSessionDialog } from '../atoms/ShareSessionDialog.js';
 import { ShellActionsActionSlot } from '../atoms/ShellActionsActionSlot.js';
 import { MessageListSkeleton } from '../atoms/Skeletons.js';
 import { SubAgentCard } from '../atoms/SubAgentCard.js';
@@ -245,6 +246,7 @@ export const defaultSlots = {
   SelectAgentEmptyState,
   ClearChatButton,
   ShareChatButton,
+  ShareSessionDialog,
   ThreadListRowSkeleton,
   ThreadListEmptyState,
   ThreadListShell,
