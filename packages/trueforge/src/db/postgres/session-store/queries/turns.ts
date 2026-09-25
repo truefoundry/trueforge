@@ -582,11 +582,12 @@ export async function createTurn(db: Kysely<Database>, input: CreateTurnInput): 
         const newIds = newIdsByThread.get(parent.thread_id) ?? [];
         const usage = appendUsageByThread.get(parent.thread_id) ?? parent.current_context_usage;
         const completion = appendCompletionByThread.get(parent.thread_id);
+        const checkpoint = completion !== undefined ? { ...parent.checkpoint, completion } : parent.checkpoint;
         turnThreadRows.push({
           session_id: input.session_id,
           turn_id: input.turn.turn_id,
           thread_id: parent.thread_id,
-          checkpoint: completion !== undefined ? { ...parent.checkpoint, completion } : parent.checkpoint,
+          checkpoint,
           agent_info: parent.agent_info !== null ? json(parent.agent_info) : null,
           current_context_usage: usage,
           context_ids: parent.context_ids.concat(newIds),

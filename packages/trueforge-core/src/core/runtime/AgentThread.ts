@@ -1199,31 +1199,27 @@ export class AgentThread {
       return { outcome: 'exit', modelMessageEventId };
     }
 
-    if (!hasToolCalls(assistantMessage)) {
-      if (this.parent !== undefined) {
-        if (completion === undefined || completion.status !== 'done') {
-          throw new Error('unreachable');
-        }
-        yield {
-          type: InternalEventType.AGENT_DONE,
-          thread_id: this.threadId,
-          title: this.title,
-          parent: this.parent,
-          ...completion,
-        };
-      } else {
-        yield {
-          type: InternalEventType.AGENT_DONE,
-          thread_id: this.threadId,
-          title: this.title,
-          status: 'done',
-          output: agentAssistantMessage,
-        };
-      }
-      return { outcome: 'exit', modelMessageEventId };
+    if (hasToolCalls(assistantMessage)) {
+      return { outcome: 'continue', modelMessageEventId };
     }
 
-    return { outcome: 'continue', modelMessageEventId };
+    // No tool calls: this thread is finished. A child must already have send_to_parent
+    // from the completion built above; the root only reports the assistant output.
+    if (this.parent !== undefined) {
+      if (completion === undefined) {
+        throw new Error('unreachable: child finished without a completion');
+      }
+      yield this.buildReplayEvent(completion);
+    } else {
+      yield {
+        type: InternalEventType.AGENT_DONE,
+        thread_id: this.threadId,
+        title: this.title,
+        status: 'done',
+        output: agentAssistantMessage,
+      };
+    }
+    return { outcome: 'exit', modelMessageEventId };
   }
 
   private async *stepToolResponse(

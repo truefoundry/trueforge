@@ -1564,9 +1564,19 @@ export function runStoreContractSuite(createStore: () => ISessionStore) {
             { thread_id: MAIN_THREAD_ID, capability_state: null },
             { thread_id: 'child', capability_state: null },
           ],
+          new_context_appends: [
+            {
+              thread_id: 'child',
+              context: [userMessage('child-t1')],
+              current_context_usage: null,
+            },
+          ],
         }),
       );
       await finishTurn(store, 't1');
+      const t1ChildContext = contextContents(
+        (await store.getTurn({ session_id: sessionId, turn_id: 't1' }))?.snapshot.threads['child']?.context,
+      );
 
       const cancelled = {
         status: 'cancelled' as const,
@@ -1599,7 +1609,9 @@ export function runStoreContractSuite(createStore: () => ISessionStore) {
       );
 
       const t2 = await store.getTurn({ session_id: sessionId, turn_id: 't2' });
-      expect(mustGet(t2).snapshot.threads['child']?.completion).toEqual(cancelled);
+      const child = mustGet(t2).snapshot.threads['child'];
+      expect(child?.completion).toEqual(cancelled);
+      expect(contextContents(child?.context)).toEqual(t1ChildContext);
       expect(mustGet(t2).snapshot.threads[MAIN_THREAD_ID]?.completion).toBeNull();
     });
 

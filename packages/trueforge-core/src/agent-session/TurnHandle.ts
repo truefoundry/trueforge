@@ -46,7 +46,8 @@ function cancellationReasonFromAbortReason(abortReason: unknown): CancellationRe
 
 function toThreadDoneEvent(event: InternalThreadDoneEvent): ThreadDoneEvent {
   if (event.status === 'cancelled') {
-    throw new Error('cancelled AGENT_DONE is not a public thread.done');
+    // Public thread.done is done|error only. Cancelled children are dropped, not shown.
+    throw new Error('cancelled AGENT_DONE cannot be converted to thread.done');
   }
   const state =
     event.status === 'error'
@@ -472,7 +473,11 @@ export class TurnHandle<TTurnCustom extends object = Record<string, never>> {
             thread_ids: [event.thread_id],
           });
         }
-        if (event.status === 'cancelled' || !event.parent) {
+        if (event.status === 'cancelled') {
+          // Do not send thread.done to the user for a cancelled child.
+          return null;
+        }
+        if (!event.parent) {
           return null;
         }
         const threadDone = toThreadDoneEvent(event);
