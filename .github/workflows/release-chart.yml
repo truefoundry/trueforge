@@ -11,8 +11,8 @@ name: Publish Helm chart
 # Manual runs: `gh workflow run release-chart.yml --ref <workflow-file-ref>`.
 # --ref is the workflow file GitHub runs (branch or tag, not a SHA).
 # `branch` is the git branch that receives Chart.yaml / values.yaml.
-# Empty app_version / image_tag default to package.json and
-# {appVersion}-{shortSha} on origin/<branch>.
+# Empty app_version / image_tag keep Chart.yaml appVersion and values.yaml image.tag
+# on origin/<branch>.
 on:
   workflow_call:
     inputs:
@@ -36,11 +36,11 @@ on:
         type: string
         default: main
       app_version:
-        description: App version (empty = packages/trueforge/package.json on that branch)
+        description: App version (empty = Chart.yaml appVersion on that branch)
         required: false
         type: string
       image_tag:
-        description: Existing image tag (empty = <app_version>-<shortSha> of that branch)
+        description: Existing image tag (empty = values.yaml image.tag on that branch)
         required: false
         type: string
 
@@ -100,23 +100,23 @@ jobs:
             exit 1
           fi
           git fetch origin "$BRANCH"
-          git checkout -B chart-release "origin/${BRANCH}"
+          git checkout -B "chart-release-${GITHUB_RUN_ID}-$(openssl rand -hex 4)" "origin/${BRANCH}"
 
           SEMVER='^[0-9]+\.[0-9]+\.[0-9]+([.-][0-9A-Za-z.-]+)?$'
           APP_VERSION="$INPUT_APP_VERSION"
           if [[ -z "$APP_VERSION" ]]; then
-            APP_VERSION=$(node -p "require('./packages/trueforge/package.json').version")
+            APP_VERSION=$(yq -r '.appVersion' "$CHART_DIR/Chart.yaml")
           fi
-          if [[ -z "$APP_VERSION" || "$APP_VERSION" == "undefined" ]] || ! printf '%s' "$APP_VERSION" | grep -Eq "$SEMVER"; then
+          if [[ -z "$APP_VERSION" || "$APP_VERSION" == "null" ]] || ! printf '%s' "$APP_VERSION" | grep -Eq "$SEMVER"; then
             echo "app_version '$APP_VERSION' is not a semver-like version" >&2
             exit 1
           fi
           IMAGE_TAG="$INPUT_IMAGE_TAG"
           if [[ -z "$IMAGE_TAG" ]]; then
-            # Peeled commit SHA: GITHUB_SHA on an annotated tag is the tag object.
-            IMAGE_TAG="${APP_VERSION}-$(git rev-parse --short=7 HEAD)"
+            IMAGE_TAG=$(yq -r '.image.tag' "$CHART_DIR/values.yaml")
           fi
-          if ! printf '%s' "$IMAGE_TAG" | grep -Eq '^[A-Za-z0-9][A-Za-z0-9._-]{0,127}$'; then
+          if [[ -z "$IMAGE_TAG" || "$IMAGE_TAG" == "null" ]] ||
+            ! printf '%s' "$IMAGE_TAG" | grep -Eq '^[A-Za-z0-9][A-Za-z0-9._-]{0,127}$'; then
             echo "image_tag '$IMAGE_TAG' is not a valid OCI tag" >&2
             exit 1
           fi
@@ -167,19 +167,7 @@ jobs:
           helm package "$CHART_DIR" --destination dist
           PACKAGE="dist/${CHART_NAME}-${VERSION}.tgz"
           echo "Pushing $PACKAGE to oci://$HELM_CHART_REPOSITORY"
-          set +e
-          PUSH_OUT=$(helm push "$PACKAGE" "oci://$HELM_CHART_REPOSITORY" 2>&1)
-          PUSH_STATUS=$?
-          set -e
-          printf '%s\n' "$PUSH_OUT"
-          if [[ "$PUSH_STATUS" -ne 0 ]]; then
-            # A retry after a failed branch push must still be able to commit and tag.
-            if printf '%s' "$PUSH_OUT" | grep -qiE 'already exists|409'; then
-              echo "Chart $VERSION already in the registry; continuing so $BRANCH can catch up"
-            else
-              exit "$PUSH_STATUS"
-            fi
-          fi
+          helm push "$PACKAGE" "oci://$HELM_CHART_REPOSITORY"
           {
             echo "### Helm chart"
             echo "Pushed \`oci://${HELM_CHART_REPOSITORY}/${CHART_NAME}:${VERSION}\`"
@@ -210,8 +198,8 @@ jobs:
           tag_chart() {
             TAG="charts/trueforge@${VERSION}"
             if git ls-remote --exit-code --tags origin "refs/tags/${TAG}" >/dev/null 2>&1; then
-              echo "Tag $TAG already exists"
-              return 0
+              echo "Tag $TAG already exists" >&2
+              exit 1
             fi
             git tag -a "$TAG" -m "Helm chart ${VERSION} (image ${IMAGE_TAG})"
             git push origin "$TAG"
@@ -221,9 +209,8 @@ jobs:
           for attempt in 1 2 3; do
             git add "$CHART_DIR/Chart.yaml" "$CHART_DIR/values.yaml"
             if git diff --staged --quiet; then
-              echo "Chart metadata already matches $VERSION"
-              tag_chart
-              exit 0
+              echo "Chart metadata already matches $VERSION; refusing to no-op" >&2
+              exit 1
             fi
             git commit -m "release(chart): ${VERSION}"
             if git push origin "HEAD:${BRANCH}"; then

@@ -47,7 +47,8 @@ helm install trueforge oci://tfy.jfrog.io/tfy-helm/trueforge --version <chart-se
 ## Flow
 
 No extra GitHub tag on the Version Packages path. [`release.yml`](.github/workflows/release.yml)
-is packages plus the from-source image (`select-mode` → `version` \| `pack` → npm + PyPI + image, then Helm):
+is packages plus the from-source image (`select-mode` → `version` \| `pack` in
+parallel with image after `npm view`, then Helm):
 
 1. Add a changeset in the same PR as the code change (`pnpm changeset`, or
    `pnpm change --bump patch --summary "…" <pkg>`). SDK regen already adds
@@ -57,11 +58,12 @@ is packages plus the from-source image (`select-mode` → `version` \| `pack` �
    `scripts/version.mjs` mirrors that version into `python/trueforge_sdk` and
    regenerates both SDKs. Review and merge.
 3. With no pending changesets, **pack** (build/test) and **Windows npx smoke**
-   run in parallel, then **npm publish**, **PyPI publish**, and **Build and push server image**
-   run in parallel. PyPI skips when that `pyproject.toml` version is already
-   published. After the image is pushed, this workflow calls
+   run in parallel with **Resolve image identity** (`npm view` of
+   `@truefoundry/trueforge@version`). If that version is already on npm, image
+   and Helm skip. If not, **Build and push server image** runs without waiting
+   on pack. After the image is pushed, this workflow calls
    [`release-chart.yml`](.github/workflows/release-chart.yml) with `branch=main`,
-   `app_version`, and `image_tag`. Helm does not wait on npm.
+   `app_version`, and `image_tag`. Helm does not wait on pack or npm.
 4. Pin dependents to exact versions during early `0.x`.
 
 `workflow_dispatch` on **Version or publish packages** re-runs the same workflow.
@@ -134,8 +136,9 @@ pnpm clean && pnpm build && pnpm standalone:start
 
 ```text
 push to main (no pending changesets, unpublished versions)
-  → release.yml: pack + smoke
-       → npm | PyPI | build image X.Y.Z-<shortSha>  (parallel)
+  → release.yml: pack + smoke  |  npm view @truefoundry/trueforge@version
+       → npm | PyPI
+       → if version not on npm: build image X.Y.Z-<shortSha>
        → after image: call release-chart.yml (main, app_version, image_tag)
   → release-chart.yml
        → helm lint/package/push OCI
@@ -144,6 +147,7 @@ push to main (no pending changesets, unpublished versions)
 
 manual chart-only (image already in the registry)
   → workflow_dispatch release-chart.yml --ref main -f branch=main
+     (empty app_version / image_tag keep Chart.yaml / values.yaml)
 ```
 
 ## Dockerfile
@@ -167,17 +171,17 @@ from the root [`Dockerfile`](Dockerfile), then calls
 `--ref` selects which workflow file GitHub runs. `branch` is the git branch that
 receives `Chart.yaml` / `values.yaml`.
 
-| Input         | Default (manual dispatch only)                   | Meaning                                       |
-| ------------- | ------------------------------------------------ | --------------------------------------------- |
-| `branch`      | `main`                                           | Branch that receives the chart commit         |
-| `app_version` | `packages/trueforge/package.json` on that branch | Written to Chart.yaml `appVersion`            |
-| `image_tag`   | `{app_version}-{shortSha}` of that branch HEAD   | Existing registry tag; written to `image.tag` |
+| Input         | Default (manual dispatch only)           | Meaning                                       |
+| ------------- | ---------------------------------------- | --------------------------------------------- |
+| `branch`      | `main`                                   | Branch that receives the chart commit         |
+| `app_version` | `Chart.yaml` `appVersion` on that branch | Written to Chart.yaml `appVersion`            |
+| `image_tag`   | `values.yaml` `image.tag` on that branch | Existing registry tag; written to `image.tag` |
 
 Always: replay chart `version` / `appVersion` / `image.tag` onto current
-`origin/<branch>`, lint, package, push OCI (idempotent if that chart version is
+`origin/<branch>`, lint, package, push OCI (fails if that chart version is
 already in the registry), commit those files to that branch, then tag
 `charts/trueforge@<chartVersion>` on that commit. The commit is replayed onto
-`origin/<branch>` if the branch moved.
+`origin/<branch>` if the branch moved. Tag and no-op metadata commits fail.
 
 ```bash
 gh workflow run release-chart.yml --ref main -f branch=main
