@@ -65,6 +65,7 @@ function mapRowToSessionRecord(row: {
   agent_name: string | null;
   agent_spec: AgentSpec | null;
   title: string | null;
+  shared: boolean;
   last_turn_id: string | null;
   external_id: string | null;
   custom: Record<string, unknown> | null;
@@ -86,6 +87,7 @@ function mapRowToSessionRecord(row: {
       agent_spec: row.agent_spec,
     }),
     title: row.title,
+    shared: row.shared,
     last_turn_id: row.last_turn_id,
     external_id: row.external_id,
     custom: parseSessionCustom(row.custom),
@@ -113,6 +115,7 @@ export async function createSession(db: Kysely<Database>, input: CreateSessionIn
         agent_name: columns.agent_name,
         agent_spec: columns.agent_spec !== null ? json(columns.agent_spec) : null,
         title: null,
+        shared: false,
         custom: input.custom !== null ? json(input.custom) : null,
         metadata: json(input.metadata),
         external_id: input.external_id,
@@ -198,6 +201,7 @@ export async function updateSession(db: Kysely<Database>, input: UpdateSessionIn
   const agent = input.agent;
   const title = input.title;
   const metadata = input.metadata;
+  const shared = input.shared;
 
   if (agent !== undefined) {
     const existing = await getSession(db, { tenant_id: input.tenant_id, session_id: input.session_id });
@@ -232,6 +236,12 @@ export async function updateSession(db: Kysely<Database>, input: UpdateSessionIn
         return qb;
       }
       return qb.set({ metadata: json(metadata) });
+    })
+    .$if(shared !== undefined, qb => {
+      if (shared === undefined) {
+        return qb;
+      }
+      return qb.set({ shared });
     })
     .where('tenant_id', '=', input.tenant_id)
     .where('session_id', '=', input.session_id)
