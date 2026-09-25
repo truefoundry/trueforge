@@ -1,7 +1,10 @@
-import type { ToolCall } from './server/index.js';
+import { SYSTEM_TOOL_NAME, TOOL_INFO_TYPE, type ToolCall } from './server/index.js';
 
 export function isAskUserQuestionToolCall(toolCall: Pick<ToolCall, 'toolInfo'>): boolean {
-  return toolCall.toolInfo?.type === 'trueforge-system' && toolCall.toolInfo.name === 'ask_user_question';
+  return (
+    toolCall.toolInfo?.type === TOOL_INFO_TYPE.TRUEFORGE_SYSTEM &&
+    toolCall.toolInfo.name === SYSTEM_TOOL_NAME.ASK_USER_QUESTION
+  );
 }
 
 export interface AskUserQuestionArgs {

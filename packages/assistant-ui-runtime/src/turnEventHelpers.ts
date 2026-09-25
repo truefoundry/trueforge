@@ -1,5 +1,7 @@
 import type { Turn } from './server/index.js';
+import { TURN_STATUS } from './server/index.js';
 
+import { isRequiresAction } from './assistantMessageStatus.js';
 import { buildMcpAuthTextParts, findMcpAuthRequired, mcpAuthAssistantStatus, mcpAuthMessageCustom } from './mcpAuth.js';
 import type { AssistantContentPart } from './modelMessageContent.js';
 import { findApprovalRequiredInTurn, toolApprovalMessageCustom, toolApprovalStatus } from './toolApproval.js';
@@ -37,14 +39,14 @@ function buildToolResponseUpdate(update: TurnStreamUpdate, turn: Pick<Turn, 'sta
 }
 
 export function appendToolResponseToTurnContent(update: TurnStreamUpdate, turn: Pick<Turn, 'state'>): TurnStreamUpdate {
-  if (update.status?.type === 'requires-action') {
+  if (isRequiresAction(update.status)) {
     return update;
   }
   return buildToolResponseUpdate(update, turn);
 }
 
 export function appendToolApprovalToTurnContent(update: TurnStreamUpdate, turn: Pick<Turn, 'state'>): TurnStreamUpdate {
-  if (update.status?.type === 'requires-action') {
+  if (isRequiresAction(update.status)) {
     return update;
   }
   const approvalUpdate = buildToolApprovalUpdate(update.content, turn);
@@ -55,7 +57,9 @@ export function appendMcpAuthToTurnContent(
   content: AssistantContentPart[],
   turn: Pick<Turn, 'state'>,
 ): TurnStreamUpdate {
-  const pendingMcpAuth = findMcpAuthRequired(turn.state.status === 'done' ? turn.state.requiredActions : undefined);
+  const pendingMcpAuth = findMcpAuthRequired(
+    turn.state.status === TURN_STATUS.DONE ? turn.state.requiredActions : undefined,
+  );
   if (pendingMcpAuth == null) {
     return appendToolApprovalToTurnContent({ content }, turn);
   }

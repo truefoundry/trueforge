@@ -4,6 +4,7 @@ import { Icon } from '../icons/Icon.js';
 import { StepIconBox } from './agent-chat/StepIconBox.js';
 import { cn } from './lib/cn.js';
 import { Button } from './primitives/Button.js';
+import { DropdownMenu, DropdownMenuItem, DropdownMenuSeparator } from './primitives/DropdownMenu.js';
 
 export type ApprovalOption = {
   id: string;
@@ -40,7 +41,7 @@ export type ToolApprovalBarProps = {
   className?: string;
 };
 
-const DEFAULT_APPROVE_OPTIONS: ApprovalOption[] = [{ id: 'approve', label: 'Approve', variant: 'primary' }];
+const DEFAULT_APPROVE_OPTIONS: ApprovalOption[] = [{ id: 'approve', label: 'Approve once', variant: 'primary' }];
 
 const DEFAULT_DENY_OPTIONS: ApprovalOption[] = [
   { id: 'deny', label: 'Deny', variant: 'secondary', requiresReason: true },
@@ -74,6 +75,7 @@ export function ToolApprovalBar({
   const isApproved = status?.type === 'approved';
   const isDenied = status?.type === 'denied';
   const interactionsLocked = disabled && !isDecided;
+  const defaultApproval = approveOptions[0];
 
   const headingText = isApproved ? 'Tool Approved' : isDenied ? 'Tool Approval Denied' : 'Tool Approval Required for';
 
@@ -111,24 +113,36 @@ export function ToolApprovalBar({
             )}
           </div>
           {!isDecided && !readOnly && !selectedDenyOption && (
-            <div className="flex gap-2">
-              {approveOptions.map(option => (
+            <DropdownMenu
+              align="end"
+              trigger={
                 <Button
-                  key={option.id}
                   size="small"
-                  variant={optionVariant(option)}
+                  variant={defaultApproval == null ? 'secondary' : optionVariant(defaultApproval)}
+                  disabled={interactionsLocked || defaultApproval == null}
+                >
+                  <Icon name="check" size="0.75rem" />
+                  {defaultApproval?.label ?? 'Approve'}
+                  <Icon name="chevron-down" className="size-3" />
+                </Button>
+              }
+              className="min-w-[16.25rem]"
+            >
+              {approveOptions.map((option, index) => (
+                <DropdownMenuItem
+                  key={option.id}
+                  aria-selected={index === 0}
                   disabled={interactionsLocked}
                   onClick={() => onSelect(option.id)}
                 >
-                  {option.variant === 'primary' && <Icon name="check" size="0.75rem" />}
+                  <span className="w-3 shrink-0">{index === 0 ? <Icon name="check" size="0.75rem" /> : null}</span>
                   {option.label}
-                </Button>
+                </DropdownMenuItem>
               ))}
+              {approveOptions.length > 0 && denyOptions.length > 0 ? <DropdownMenuSeparator /> : null}
               {denyOptions.map(option => (
-                <Button
+                <DropdownMenuItem
                   key={option.id}
-                  size="small"
-                  variant={optionVariant(option)}
                   disabled={interactionsLocked}
                   onClick={() => {
                     if (option.requiresReason) {
@@ -138,10 +152,11 @@ export function ToolApprovalBar({
                     }
                   }}
                 >
+                  <span className="w-3 shrink-0" />
                   {option.label}
-                </Button>
+                </DropdownMenuItem>
               ))}
-            </div>
+            </DropdownMenu>
           )}
         </div>
       </div>

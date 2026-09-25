@@ -33,6 +33,8 @@ function mockServer(): AgentChatServer {
     getSession: vi.fn(),
     updateSession: vi.fn(),
     createTurn: vi.fn(),
+    sendTurnEvents: vi.fn(async () => []),
+    subscribeToTurn: vi.fn(async function* () {}),
     cancelSession: vi.fn(),
     listTurns: vi.fn(),
     getTurn: vi.fn(),
