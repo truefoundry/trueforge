@@ -244,9 +244,7 @@ export function AskUserPrompt({
                     className="sr-only"
                   />
                   <OptionLetterBadge letter={letter} selected={isSelected} />
-                  <span className="min-w-0 font-sans text-sm font-medium text-text-primary">
-                    {opt}
-                  </span>
+                  <span className="min-w-0 font-sans text-sm font-medium text-text-primary">{opt}</span>
                 </label>
               );
             })}
