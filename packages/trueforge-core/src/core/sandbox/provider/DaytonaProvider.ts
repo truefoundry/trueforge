@@ -2,7 +2,7 @@ import type { Sandbox, Snapshot } from '@daytona/sdk';
 import { Daytona, DaytonaError } from '@daytona/sdk';
 import { context } from '@opentelemetry/api';
 import { suppressTracing } from '@opentelemetry/core';
-import { randomUUID } from 'node:crypto';
+import { createHash, randomUUID } from 'node:crypto';
 import { join } from 'node:path/posix';
 import type { Logger } from 'winston';
 import { extractErrorLogFields } from '../../util/errorLogFields';
@@ -99,6 +99,7 @@ export interface DaytonaSandboxProviderOptions {
   /** Defaults to 1 hour (same as the gateway's max agent execution time). */
   previewUrlExpirySeconds?: number;
   logger: Logger;
+  onError?: ((error: unknown) => Promise<void>) | undefined;
 }
 
 export class DaytonaSandboxProvider implements SandboxProvider {
@@ -118,6 +119,7 @@ export class DaytonaSandboxProvider implements SandboxProvider {
   private readonly apiKey: string;
   private readonly apiUrl: string;
   private readonly logger: Logger;
+  private readonly onError: ((error: unknown) => Promise<void>) | undefined;
   private readonly daytona: Daytona;
   private static readonly cachedSandboxes = new Map<string, { sandbox: Sandbox; defaultTimeoutMs: number }>();
   // De-dupes concurrent recovery attempts on the same sandbox to a single refreshData+start round-trip.
@@ -138,12 +140,21 @@ export class DaytonaSandboxProvider implements SandboxProvider {
     this.natsBridgePort = options.natsBridgePort ?? DEFAULT_SANDBOX_NATS_WS_PORT;
     this.previewUrlExpirySeconds = options.previewUrlExpirySeconds ?? DEFAULT_PREVIEW_URL_EXPIRY_SECONDS;
     this.logger = options.logger.child({ module: 'DaytonaProvider' });
+    this.onError = options.onError;
+  }
+
+  private async reportError(error: unknown): Promise<void> {
+    try {
+      await this.onError?.(error);
+    } catch (reportError) {
+      this.logger.error('Failed to report Daytona error', extractErrorLogFields(reportError));
+    }
   }
 
   private async getOrCreateSandbox(sandboxId?: string): Promise<{ sandbox: Sandbox; defaultTimeoutMs: number }> {
     if (sandboxId) {
       validateSandboxOwnedByTenant({ sandboxId, tenantName: this.tenantName });
-      const cached = DaytonaSandboxProvider.cachedSandboxes.get(sandboxId);
+      const cached = DaytonaSandboxProvider.cachedSandboxes.get(this.sandboxCacheKey(sandboxId));
       if (cached) {
         return cached;
       }
@@ -160,18 +171,30 @@ export class DaytonaSandboxProvider implements SandboxProvider {
         });
 
     const entry = { sandbox, defaultTimeoutMs: this.timeoutMs };
-    DaytonaSandboxProvider.cachedSandboxes.set(sandbox.name, entry);
+    DaytonaSandboxProvider.cachedSandboxes.set(this.sandboxCacheKey(sandbox.name), entry);
     return entry;
   }
 
+  /**
+   * A Sandbox object carries the Daytona client that restored it.  Include the client
+   * identity in the process-wide cache so a settings update with rotated credentials
+   * cannot reuse an object authenticated with the previous key.  Hashing avoids keeping
+   * the raw API key as a Map key or exposing it through diagnostics.
+   */
+  private sandboxCacheKey(sandboxId: string): string {
+    return createHash('sha256')
+      .update(`${this.tenantName}\u0000${this.apiUrl}\u0000${this.apiKey}\u0000${sandboxId}`)
+      .digest('hex');
+  }
+
   // Returns true iff the caller should retry: either we restarted a stopped sandbox, or the cache entry is missing and the retry will rebuild it via the cold path.
-  private static recoverSandboxIfStopped(sandboxId: string): Promise<boolean> {
-    const existing = DaytonaSandboxProvider.inFlightRecoveries.get(sandboxId);
+  private static recoverSandboxIfStopped(cacheKey: string): Promise<boolean> {
+    const existing = DaytonaSandboxProvider.inFlightRecoveries.get(cacheKey);
     if (existing) {
       return existing;
     }
 
-    const cached = DaytonaSandboxProvider.cachedSandboxes.get(sandboxId);
+    const cached = DaytonaSandboxProvider.cachedSandboxes.get(cacheKey);
     // Cache may have been evicted by a concurrent error path; signal retry so getOrCreateSandbox rebuilds via restoreExistingSandbox.
     if (!cached) {
       return Promise.resolve(true);
@@ -186,10 +209,10 @@ export class DaytonaSandboxProvider implements SandboxProvider {
       await cached.sandbox.start();
       return true;
     })().finally(() => {
-      DaytonaSandboxProvider.inFlightRecoveries.delete(sandboxId);
+      DaytonaSandboxProvider.inFlightRecoveries.delete(cacheKey);
     });
 
-    DaytonaSandboxProvider.inFlightRecoveries.set(sandboxId, recovery);
+    DaytonaSandboxProvider.inFlightRecoveries.set(cacheKey, recovery);
     return recovery;
   }
 
@@ -204,7 +227,7 @@ export class DaytonaSandboxProvider implements SandboxProvider {
 
       let recovered: boolean;
       try {
-        recovered = await DaytonaSandboxProvider.recoverSandboxIfStopped(sandboxId);
+        recovered = await DaytonaSandboxProvider.recoverSandboxIfStopped(this.sandboxCacheKey(sandboxId));
       } catch (recoveryError) {
         this.logger.error('Sandbox recovery failed', {
           ...extractErrorLogFields(recoveryError),
@@ -246,11 +269,16 @@ export class DaytonaSandboxProvider implements SandboxProvider {
   }
 
   async createSandbox(): Promise<{ sandboxId: string }> {
-    return context.with(suppressTracing(context.active()), async () => {
-      const { sandbox } = await this.getOrCreateSandbox();
-      this.logger.debug(`Sandbox created: name=${sandbox.name}`);
-      return { sandboxId: sandbox.name };
-    });
+    try {
+      return await context.with(suppressTracing(context.active()), async () => {
+        const { sandbox } = await this.getOrCreateSandbox();
+        this.logger.debug(`Sandbox created: name=${sandbox.name}`);
+        return { sandboxId: sandbox.name };
+      });
+    } catch (error) {
+      await this.reportError(error);
+      throw error;
+    }
   }
 
   /** Resolves undefined when no snapshot carries that name; auth/other failures throw. */
@@ -399,10 +427,11 @@ export class DaytonaSandboxProvider implements SandboxProvider {
           };
         });
       } catch (e: unknown) {
-        DaytonaSandboxProvider.cachedSandboxes.delete(params.sandboxId);
+        DaytonaSandboxProvider.cachedSandboxes.delete(this.sandboxCacheKey(params.sandboxId));
         if (e instanceof SandboxNotAvailableError) {
           throw e;
         }
+        await this.reportError(e);
         this.logger.error('Sandbox execution error', extractErrorLogFields(e));
         const message = e instanceof Error ? e.message : 'Unknown error';
         return { success: false, error: message };
@@ -438,7 +467,8 @@ export class DaytonaSandboxProvider implements SandboxProvider {
         if (e instanceof DaytonaError && e.statusCode === SANDBOX_NOT_FOUND_STATUS) {
           throw new SandboxFileNotFoundError(params.path);
         }
-        DaytonaSandboxProvider.cachedSandboxes.delete(params.sandboxId);
+        DaytonaSandboxProvider.cachedSandboxes.delete(this.sandboxCacheKey(params.sandboxId));
+        await this.reportError(e);
         throw e;
       }
     });
@@ -452,7 +482,8 @@ export class DaytonaSandboxProvider implements SandboxProvider {
           await sandbox.fs.uploadFile(params.content, params.remotePath);
         });
       } catch (e: unknown) {
-        DaytonaSandboxProvider.cachedSandboxes.delete(params.sandboxId);
+        DaytonaSandboxProvider.cachedSandboxes.delete(this.sandboxCacheKey(params.sandboxId));
+        await this.reportError(e);
         throw e;
       }
     });
@@ -468,7 +499,8 @@ export class DaytonaSandboxProvider implements SandboxProvider {
           return signed.url;
         });
       } catch (e: unknown) {
-        DaytonaSandboxProvider.cachedSandboxes.delete(params.sandboxId);
+        DaytonaSandboxProvider.cachedSandboxes.delete(this.sandboxCacheKey(params.sandboxId));
+        await this.reportError(e);
         this.logger.error('Failed to create signed preview URL', extractErrorLogFields(e));
         throw e;
       }
