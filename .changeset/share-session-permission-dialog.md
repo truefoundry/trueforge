@@ -1,6 +1,6 @@
 ---
+"@truefoundry/trueforge-ui": minor
 "@truefoundry/trueforge-assistant-ui-runtime": patch
-"@truefoundry/trueforge-ui": patch
 ---
 
-Add a share popover with tenant permission control (`shared` PATCH) and copyable share URL on chat and the sessions page.
+Share sessions with tenant members (popover, `shared` PATCH, share routes), toast and redirect on forbidden/missing deep links, and stop the New Chat → named-history max-update-depth loop.
