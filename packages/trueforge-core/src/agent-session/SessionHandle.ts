@@ -79,11 +79,15 @@ function collectContextAppends(
         if (event.current_context_usage !== undefined) {
           existing.current_context_usage = event.current_context_usage;
         }
+        if (event.completion !== undefined) {
+          existing.completion = event.completion;
+        }
       } else {
         appendMap.set(event.thread_id, {
           thread_id: event.thread_id,
           context: [...event.context],
           current_context_usage: event.current_context_usage ?? null,
+          completion: event.completion ?? null,
         });
       }
     }

@@ -8,10 +8,7 @@ import type {
 } from '@truefoundry/trueforge-core/agent-session/store/ISessionStore';
 import type { JsonValue } from '@truefoundry/trueforge-core/core/capabilities/AgentCapability';
 import type { AgentInfo } from '@truefoundry/trueforge-core/core/events/schema';
-import type {
-  ContextMessage,
-  SubAgentCompletionMarker,
-} from '@truefoundry/trueforge-core/core/runtime/AgentThread.types';
+import type { ContextMessage, SubAgentCompletion } from '@truefoundry/trueforge-core/core/runtime/AgentThread.types';
 import type { CurrentContextUsage } from '@truefoundry/trueforge-core/core/runtime/contextUsage';
 import { sql, type Kysely, type RawBuilder, type Transaction } from 'kysely';
 import { json, jsonbSet } from '../../sqlExpressions';
@@ -186,7 +183,7 @@ export async function removeThreads(db: Kysely<Database>, input: RemoveThreadsIn
   }
 }
 
-function completionPatchExpr(completion: SubAgentCompletionMarker | null): RawBuilder<TurnThreadCheckpoint> {
+function completionPatchExpr(completion: SubAgentCompletion | null): RawBuilder<TurnThreadCheckpoint> {
   if (completion === null) {
     return sql<TurnThreadCheckpoint>`checkpoint`;
   }
@@ -209,7 +206,7 @@ async function fencedTurnThreadContextUpdate(
     context: ContextMessage[];
     replace_array: boolean;
     current_context_usage: CurrentContextUsage | null;
-    completion: SubAgentCompletionMarker | null;
+    completion: SubAgentCompletion | null;
     /** When replace_array, usage is set unconditionally (overwrite contract). */
     usage_unconditional: CurrentContextUsage | null;
   },

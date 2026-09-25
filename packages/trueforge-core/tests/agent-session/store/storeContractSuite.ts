@@ -1545,6 +1545,64 @@ export function runStoreContractSuite(createStore: () => ISessionStore) {
       expect(main?.capability_state).toEqual({ 'tfy.plan': { step: 2 } });
     });
 
+    it('createTurn overlays completion from a completion-only append onto a copied thread', async () => {
+      const store = createStore();
+      await seedSession(store);
+      await store.createTurn(
+        makeCreateTurnInput({
+          sessionId,
+          turnId: 't1',
+          new_threads: [
+            { thread_id: MAIN_THREAD_ID, parent: null, agent_info: null },
+            {
+              thread_id: 'child',
+              parent: { thread_id: MAIN_THREAD_ID, tool_call_id: 'tc-child' },
+              agent_info: { type: 'dynamic', name: 'worker', input: 'task' },
+            },
+          ],
+          capability_states: [
+            { thread_id: MAIN_THREAD_ID, capability_state: null },
+            { thread_id: 'child', capability_state: null },
+          ],
+        }),
+      );
+      await finishTurn(store, 't1');
+
+      const cancelled = {
+        status: 'cancelled' as const,
+        reason: 'Canceled because user sent a new message.',
+        send_to_parent: {
+          role: 'tool' as const,
+          tool_call_id: 'tc-child',
+          content: 'Canceled because user sent a new message.',
+        },
+      };
+      await store.createTurn(
+        makeCreateTurnInput({
+          sessionId,
+          turnId: 't2',
+          previousTurnId: 't1',
+          firstTurnId: 't1',
+          capability_states: [
+            { thread_id: MAIN_THREAD_ID, capability_state: null },
+            { thread_id: 'child', capability_state: null },
+          ],
+          new_context_appends: [
+            {
+              thread_id: 'child',
+              context: [],
+              current_context_usage: null,
+              completion: cancelled,
+            },
+          ],
+        }),
+      );
+
+      const t2 = await store.getTurn({ session_id: sessionId, turn_id: 't2' });
+      expect(mustGet(t2).snapshot.threads['child']?.completion).toEqual(cancelled);
+      expect(mustGet(t2).snapshot.threads[MAIN_THREAD_ID]?.completion).toBeNull();
+    });
+
     it('createTurn atomically persists the complete post-send capability map', async () => {
       const store = createStore();
       await seedSession(store);

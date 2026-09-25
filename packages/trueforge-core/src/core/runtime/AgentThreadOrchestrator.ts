@@ -9,6 +9,7 @@ import {
   type UserToolApprovalMessage,
   type UserToolResponseMessage,
 } from '../events/schema';
+import type { LLMToolMessage } from '../llm/LLMTypes';
 import type { AgentExecutionTrace, AgentTracing } from '../tracing/AgentTracing';
 import { onSignalAbort } from '../util/abort';
 import { mergeAsyncGenerators } from '../util/promiseUtils';
@@ -29,12 +30,14 @@ import {
   getThreadId,
   isApprovalDecisionMessage,
   isClientSideToolResponseMessage,
+  isInputUserMessage,
   isInternalThreadDoneError,
 } from './contextUtils';
 import type { CreateDynamicSubAgentThread } from './CreateDynamicSubAgentThread';
 import { addAgentThreadMetrics, createEmptyAgentThreadMetrics, type AgentThreadMetrics } from './metrics';
 
 const MAX_PARALLEL_SUB_AGENTS = 5;
+const CANCELED_BECAUSE_USER_SENT_NEW_MESSAGE = 'Canceled because user sent a new message.';
 
 function agentThreadEventToTerminalFields(event: AgentThreadExecutionEvent): {
   output?: ModelMessageEvent | undefined;
@@ -45,7 +48,7 @@ function agentThreadEventToTerminalFields(event: AgentThreadExecutionEvent): {
       if ('parent' in event && event.parent) {
         return {};
       }
-      if (event.status === 'error') {
+      if (event.status !== 'done') {
         return {};
       }
       return { output: event.output };
@@ -65,15 +68,6 @@ function isUserToolApprovalOrResponseBatch(
 ): messages is UserToolApprovalOrResponseBatch {
   const first = messages[0];
   return first !== undefined && (isApprovalDecisionMessage(first) || isClientSideToolResponseMessage(first));
-}
-
-function getMainThreadId(agentThreads: Map<string, AgentThread>): string {
-  for (const thread of agentThreads.values()) {
-    if (!thread.parent) {
-      return thread.threadId;
-    }
-  }
-  throw new Error('Unreachable: no root thread found');
 }
 
 function getActiveAgentThreads(agentThreads: Map<string, AgentThread>): AgentThread[] {
@@ -165,6 +159,8 @@ function createRootAgentSpan(mainThread: AgentThread, tracing: AgentTracing): Ro
         if (isInternalThreadDoneError(chunk)) {
           rootAgentErrorMessage = chunk.error;
           trace.setOutput(JSON.stringify({ error: chunk.error }));
+        } else if (chunk.status === 'cancelled') {
+          trace.setOutput(JSON.stringify({ cancelled: chunk.reason }));
         } else {
           const content = assistantMessageContentToStringForSubAgent(chunk.output.content);
           trace.setOutput(JSON.stringify({ result: content }));
@@ -203,7 +199,11 @@ export async function* wrapWithSubAgentSpan(
   try {
     for await (const event of generator) {
       if (event.type === InternalEventType.AGENT_DONE) {
-        if (isInternalThreadDoneError(event)) {
+        if (event.status === 'cancelled') {
+          subTrace.setOutput(JSON.stringify({ cancelled: event.reason }));
+          subTrace.setMetrics(currentThread.getAgentThreadMetrics());
+          subTrace.setError(event.reason);
+        } else if (isInternalThreadDoneError(event)) {
           subTrace.setOutput(JSON.stringify({ error: event.error }));
           subTrace.setMetrics(currentThread.getAgentThreadMetrics());
           subTrace.setError(event.error);
@@ -261,9 +261,40 @@ export class AgentThreadOrchestrator {
     return total;
   }
 
+  private getMainThread(): AgentThread {
+    for (const thread of this.agentThreads.values()) {
+      if (!thread.parent) {
+        return thread;
+      }
+    }
+    throw new Error('Unreachable: no root thread found');
+  }
+
+  private getChildThreads(): AgentThread[] {
+    return [...this.agentThreads.values()].filter(thread => thread.parent !== undefined);
+  }
+
   public async *send(messages: AgentThreadSendBatch): AsyncGenerator<AgentThreadAppendContext, void, unknown> {
+    if (messages.some(isInputUserMessage)) {
+      const mainThread = this.getMainThread();
+      const preferred: LLMToolMessage[] = [];
+      for (const thread of this.getChildThreads()) {
+        const event = thread.cancel(CANCELED_BECAUSE_USER_SENT_NEW_MESSAGE);
+        yield event;
+        if (event.completion) {
+          preferred.push(event.completion.send_to_parent);
+        }
+      }
+      yield* mainThread.closeAnyOpenToolCalls(preferred, CANCELED_BECAUSE_USER_SENT_NEW_MESSAGE);
+      yield* this.sendToThread(mainThread.threadId, messages);
+      return;
+    }
+
     const byThread = new Map<string, AgentThreadRuntimeSendBatch>();
     for (const thread of this.agentThreads.values()) {
+      if (thread.preComputedCompletion !== undefined) {
+        continue;
+      }
       byThread.set(thread.threadId, []);
     }
 
@@ -282,12 +313,7 @@ export class AgentThreadOrchestrator {
         byThread.set(threadId, batch);
       }
     } else if (messages.length > 0) {
-      if (this.agentThreads.size > 1) {
-        throw new InvalidAgentSendInputError(
-          'Cannot process user messages while sub agents are running, please send empty input for previous conversation to complete',
-        );
-      }
-      byThread.set(getMainThreadId(this.agentThreads), messages);
+      byThread.set(this.getMainThread().threadId, messages);
     }
 
     const validationErrors: string[] = [];
@@ -352,9 +378,6 @@ export class AgentThreadOrchestrator {
         return { shouldStopExecution: true };
       case InternalEventType.AGENT_DONE: {
         if (chunk.parent) {
-          if (!chunk.send_to_parent) {
-            throw new Error('unreachable');
-          }
           const parentThread = this.agentThreads.get(chunk.parent.thread_id);
           if (!parentThread) {
             throw new Error('unreachable: parent thread missing');
@@ -432,10 +455,7 @@ export class AgentThreadOrchestrator {
     const requiredActions: ActionRequiredEvent[] = [];
     let rootAgentError: AgentThreadExecutionResult['root_agent_error'];
     const pendingAuthEvents: InternalMCPAuthRequiredEvent[] = [];
-    const mainThread = [...agentThreads.values()].find(e => !e.parent);
-    if (!mainThread) {
-      throw new Error('Unreachable: no root thread found');
-    }
+    const mainThread = this.getMainThread();
     const rootSpan = createRootAgentSpan(mainThread, this.tracing);
 
     onSignalAbort(signal, () => {

@@ -20,7 +20,7 @@ import type {
   JsonValue,
   MCPServerInitInfo,
   SandboxInfo,
-  SubAgentCompletionMarker,
+  SubAgentCompletion,
 } from '@truefoundry/trueforge-core/core';
 import type { CurrentContextUsage } from '@truefoundry/trueforge-core/core/runtime/contextUsage';
 import type { ColumnType, Generated, JSONColumnType } from 'kysely';
@@ -42,7 +42,7 @@ import type { OAuthClient, OAuthPendingAuthorizationData, OAuthServer, OAuthToke
  */
 export interface TurnThreadCheckpoint {
   parent: AgentParent | null;
-  completion: SubAgentCompletionMarker | null;
+  completion: SubAgentCompletion | null;
 }
 
 /** Turn-level checkpoint — threads live in `turn_thread`; only owned top-level keys remain. */
