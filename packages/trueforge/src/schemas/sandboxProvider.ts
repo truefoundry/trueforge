@@ -63,13 +63,36 @@ export const TrueFoundrySandboxProviderSchema = z
   })
   .strict();
 
+/** Kubernetes resource requests and limits shared by env settings and stored manifests. */
+export const KubernetesSandboxResourcesSchema = z
+  .object({
+    requests: z.record(z.string(), z.string()).optional(),
+    limits: z.record(z.string(), z.string()).optional(),
+  })
+  .strict();
+
+/** Kubernetes-backed sandbox provider config — env-synthesized store records only. */
+export const KubernetesSandboxProviderSchema = z
+  .object({
+    type: z.literal('kubernetes').describe('Kubernetes sandbox provider.'),
+    namespace: z.string().min(1).describe('Kubernetes namespace for sandbox resources.'),
+    service_account_name: z.string().min(1).optional().describe('Service account used by sandbox pods.'),
+    image_pull_secret_name: z.string().min(1).optional().describe('Image pull secret used by sandbox pods.'),
+    resources: KubernetesSandboxResourcesSchema.optional().describe(
+      'Optional Kubernetes resource requests and limits.',
+    ),
+    exec_timeout_ms: z.number().int().positive().describe('Default sandbox command exec timeout in milliseconds.'),
+  })
+  .strict();
+
 /**
- * Store / runtime jsonb: Daytona settings rows plus env-synthesized truefoundry.
+ * Store / runtime jsonb: Daytona settings rows plus env-synthesized providers.
  * Not an OpenAPI component.
  */
 export const StoredSandboxProviderManifestSchema = z.discriminatedUnion('type', [
   DaytonaSandboxProviderSchema,
   TrueFoundrySandboxProviderSchema,
+  KubernetesSandboxProviderSchema,
 ]);
 
 /** Named enum so the generated SDK exposes a reusable `SandboxBuildStatus` type. */
@@ -120,9 +143,10 @@ export const GetSandboxProviderResponseSchema = z
 /** Settings / OpenAPI — Daytona only. */
 export type SandboxProviderManifest = z.infer<typeof SandboxProviderManifestSchema>;
 export type DaytonaSandboxProvider = z.infer<typeof DaytonaSandboxProviderSchema>;
-/** Store/runtime jsonb — may be Daytona or env-synthesized truefoundry. */
+/** Store/runtime jsonb — may be Daytona or an env-synthesized provider. */
 export type StoredSandboxProviderManifest = z.infer<typeof StoredSandboxProviderManifestSchema>;
 export type TrueFoundrySandboxProvider = z.infer<typeof TrueFoundrySandboxProviderSchema>;
+export type KubernetesSandboxProvider = z.infer<typeof KubernetesSandboxProviderSchema>;
 export type SandboxBuildStatus = z.infer<typeof SandboxBuildStatusSchema>;
 export type SandboxBuildMetadata = z.infer<typeof SandboxBuildMetadataSchema>;
 export type SandboxStatus = z.infer<typeof SandboxStatusSchema>;

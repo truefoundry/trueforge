@@ -23,6 +23,7 @@ import { setCachedLocalSandboxSupport } from './sandbox/localRuntime';
 let configuration: typeof import('./config').default;
 let isOidcConfigured: typeof import('./config').isOidcConfigured;
 let isTrueFoundryModeEnabled: typeof import('./config').isTrueFoundryModeEnabled;
+let isEnvSandboxProviderEnabled: typeof import('./config').isEnvSandboxProviderEnabled;
 let getTrueForgeAuthMode: typeof import('./config').getTrueForgeAuthMode;
 let getPublicUiBasePath: typeof import('./config').getPublicUiBasePath;
 let TrueForgeAuthMode: typeof import('./config').TrueForgeAuthMode;
@@ -32,6 +33,7 @@ try {
     default: configuration,
     isOidcConfigured,
     isTrueFoundryModeEnabled,
+    isEnvSandboxProviderEnabled,
     getTrueForgeAuthMode,
     getPublicUiBasePath,
     TrueForgeAuthMode,
@@ -272,14 +274,17 @@ function buildResolveAgentStore(options: {
 }
 
 /**
- * Sandbox-provider store resolver. In TrueFoundry mode the shared env-backed store is reused;
- * otherwise the persistence store is reused as-is.
+ * Sandbox-provider store resolver. The shared env-backed store is reused in full TrueFoundry
+ * mode, and also in a self-hosted distributed deployment that opts in via
+ * `TRUEFOUNDRY_SANDBOX_ENABLED` without a TrueFoundry control-plane connection (needed for
+ * providers with no DB-backed settings path, such as Kubernetes); otherwise the persistence
+ * store is reused as-is.
  */
 function buildResolveSandboxProviderStore<TTransaction>(options: {
   persistenceStore: ISandboxProviderStore<TTransaction>;
 }): (rc: RequestContext) => ISandboxProviderStore<TTransaction> {
   const { persistenceStore } = options;
-  if (isTrueFoundryModeEnabled(configuration)) {
+  if (isTrueFoundryModeEnabled(configuration) || isEnvSandboxProviderEnabled(configuration)) {
     return () => new TrueFoundrySandboxProviderStore<TTransaction>();
   }
   return () => persistenceStore;

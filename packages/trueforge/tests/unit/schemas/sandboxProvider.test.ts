@@ -42,6 +42,22 @@ describe('StoredSandboxProviderManifestSchema', () => {
       exec_timeout_ms: 60_000,
     });
   });
+
+  it('parses a Kubernetes manifest for internal store use without credentials', () => {
+    expect(
+      StoredSandboxProviderManifestSchema.parse({
+        type: 'kubernetes',
+        namespace: 'sandboxes',
+        resources: { requests: { cpu: '500m' } },
+        exec_timeout_ms: 60_000,
+      }),
+    ).toEqual({
+      type: 'kubernetes',
+      namespace: 'sandboxes',
+      resources: { requests: { cpu: '500m' } },
+      exec_timeout_ms: 60_000,
+    });
+  });
 });
 
 describe('UpdateSandboxProviderRequestSchema', () => {

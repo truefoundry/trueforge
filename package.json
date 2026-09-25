@@ -45,6 +45,7 @@
     "test:trueforge-core": "pnpm --filter @truefoundry/trueforge-core test",
     "test:trueforge": "pnpm --filter @truefoundry/trueforge test",
     "test:local-sandbox:contract": "pnpm --filter @truefoundry/trueforge test:local-sandbox:contract",
+    "test:kubernetes-sandbox:contract": "pnpm --filter @truefoundry/trueforge test:kubernetes-sandbox:contract",
     "smoke:local-sandbox": "pnpm --filter @truefoundry/trueforge smoke:local-sandbox",
     "smoke:local-sandbox:lima": "pnpm --filter @truefoundry/trueforge smoke:local-sandbox:lima",
     "test:store:local": "bash scripts/test-store-local.sh",

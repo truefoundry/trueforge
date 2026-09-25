@@ -64,6 +64,36 @@ function synthesizeTrueFoundryRecord({
   };
 }
 
+function synthesizeKubernetesRecord({
+  tenantId,
+  providerConfig,
+}: {
+  tenantId: string;
+  providerConfig: Extract<TrueFoundrySandboxProviderConfig, { type: 'kubernetes' }>;
+}): SandboxProviderRecord {
+  const now = new Date().toISOString();
+  return {
+    tenant_id: tenantId,
+    manifest: {
+      type: 'kubernetes',
+      namespace: providerConfig.namespace,
+      ...(providerConfig.serviceAccountName === undefined
+        ? {}
+        : { service_account_name: providerConfig.serviceAccountName }),
+      ...(providerConfig.imagePullSecretName === undefined
+        ? {}
+        : { image_pull_secret_name: providerConfig.imagePullSecretName }),
+      ...(providerConfig.resources === undefined ? {} : { resources: providerConfig.resources }),
+      exec_timeout_ms: providerConfig.execTimeoutMs,
+    },
+    status: 'ready',
+    status_reason: null,
+    build_metadata: null,
+    created_at: now,
+    updated_at: now,
+  };
+}
+
 /** Env-backed shared sandbox; no per-request credentials (settings are static JSON). */
 export class TrueFoundrySandboxProviderStore<TTransaction = never> implements ISandboxProviderStore<TTransaction> {
   getSandboxProvider(tenantId: string, transaction?: TTransaction): Promise<SandboxProviderRecord | undefined> {
@@ -77,6 +107,8 @@ export class TrueFoundrySandboxProviderStore<TTransaction = never> implements IS
         return Promise.resolve(synthesizeDaytonaRecord({ tenantId, providerConfig }));
       case 'truefoundry':
         return Promise.resolve(synthesizeTrueFoundryRecord({ tenantId, providerConfig }));
+      case 'kubernetes':
+        return Promise.resolve(synthesizeKubernetesRecord({ tenantId, providerConfig }));
     }
   }
 

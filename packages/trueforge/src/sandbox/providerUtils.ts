@@ -17,6 +17,7 @@ import {
   type SandboxProviderManifest,
   type SandboxStatus,
 } from '../schemas/sandboxProvider';
+import { createKubernetesSandboxProvider } from './kubernetes/createKubernetesSandboxProvider';
 
 /** Daytona rejected the credentials (401 unauthorized); retrying the same key cannot succeed. */
 export function isDaytonaAuthError(error: unknown): boolean {
@@ -71,22 +72,40 @@ export function toSandboxProviderFromRecord({
   record: SandboxProviderRecord;
   tenant_id: string;
   logger: Logger;
-}): SandboxProvider {
+}): Promise<SandboxProvider> {
   switch (record.manifest.type) {
     case 'daytona':
-      return toDaytonaSandboxProvider({
-        manifest: record.manifest,
-        tenant_id,
-        logger,
-        build_metadata: record.build_metadata,
-      });
+      return Promise.resolve(
+        toDaytonaSandboxProvider({
+          manifest: record.manifest,
+          tenant_id,
+          logger,
+          build_metadata: record.build_metadata,
+        }),
+      );
     case 'truefoundry':
-      return new TFYSandboxProvider({
-        serverUrl: record.manifest.server_url,
-        natsBridgeUrl: record.manifest.nats_bridge_url,
-        tenantName: tenant_id,
+      return Promise.resolve(
+        new TFYSandboxProvider({
+          serverUrl: record.manifest.server_url,
+          natsBridgeUrl: record.manifest.nats_bridge_url,
+          tenantName: tenant_id,
+          fileMaxBytesForDownload: configuration.SANDBOX_FILE_MAX_BYTES_FOR_DOWNLOAD,
+          defaultExecTimeoutMs: record.manifest.exec_timeout_ms,
+          logger,
+        }),
+      );
+    case 'kubernetes':
+      if (configuration.STANDALONE) {
+        throw new Error('Kubernetes sandbox provider requires distributed configuration');
+      }
+      return createKubernetesSandboxProvider({
+        manifest: record.manifest,
+        tenantId: tenant_id,
         fileMaxBytesForDownload: configuration.SANDBOX_FILE_MAX_BYTES_FOR_DOWNLOAD,
-        defaultExecTimeoutMs: record.manifest.exec_timeout_ms,
+        createTimeoutMs: configuration.KUBERNETES_SANDBOX_CREATE_TIMEOUT_MS,
+        reaperTtlMs: configuration.KUBERNETES_SANDBOX_REAPER_TTL_MS,
+        pollIntervalMs: configuration.KUBERNETES_SANDBOX_POLL_INTERVAL_MS,
+        inCluster: configuration.KUBERNETES_SANDBOX_IN_CLUSTER,
         logger,
       });
   }
@@ -132,7 +151,7 @@ export async function checkSnapshotStatus({
   const persisted = sandboxStatusFromRecord(record);
 
   // Prebuilt image — no snapshot registration or refresh.
-  if (record.manifest.type === 'truefoundry') {
+  if (record.manifest.type === 'truefoundry' || record.manifest.type === 'kubernetes') {
     return persisted;
   }
 

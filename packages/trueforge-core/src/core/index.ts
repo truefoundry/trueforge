@@ -151,8 +151,10 @@ export { assertSafeOutboundUrl, configureOutboundUrlGuard, ssrfFetch } from './u
 export { CodeModeDispatcher } from './sandbox/codeMode/CodeModeDispatcher';
 export type { CodeModeLogger } from './sandbox/codeMode/CodeModeDispatcher';
 export type { CodeModeClientInstall, CodeModeTransport } from './sandbox/codeMode/CodeModeTransport';
+export { CodeModeNatsTransport } from './sandbox/codeMode/nats/CodeModeNatsTransport';
 export { CodeModeErrorSourceSchema, CodeModeReplySchema, CodeModeRequestSchema } from './sandbox/codeMode/types';
 export type { CodeModeErrorSource, CodeModeReply, CodeModeRequest } from './sandbox/codeMode/types';
+export { DEFAULT_SANDBOX_NATS_WS_PORT } from './sandbox/constants';
 export { DaytonaSandboxProvider } from './sandbox/provider/DaytonaProvider';
 export type { DaytonaSandboxProviderOptions } from './sandbox/provider/DaytonaProvider';
 export { absolutizeRelativeExecEnv } from './sandbox/provider/execEnv';
@@ -168,7 +170,7 @@ export type {
   SandboxInit,
   SandboxProvider,
 } from './sandbox/provider/Provider';
-export { TFYSandboxProvider } from './sandbox/provider/TFYSandboxProvider';
+export { TFYSandboxProvider, withMcpClientOnPath } from './sandbox/provider/TFYSandboxProvider';
 export { SKILL_DOWNLOAD_TIMEOUT_SECONDS, Sandbox, buildWriteAndRunScriptCommand } from './sandbox/Sandbox';
 export type { SandboxInfo } from './sandbox/Sandbox';
 export {
