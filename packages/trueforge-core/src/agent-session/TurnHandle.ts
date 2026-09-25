@@ -47,7 +47,7 @@ function cancellationReasonFromAbortReason(abortReason: unknown): CancellationRe
 function toThreadDoneEvent(event: InternalThreadDoneEvent): ThreadDoneEvent {
   if (event.status === 'cancelled') {
     // Public thread.done is done|error only. Cancelled children are dropped, not shown.
-    throw new Error('cancelled AGENT_DONE cannot be converted to thread.done');
+    throw new Error('unreachable: cancelled AGENT_DONE cannot be converted to thread.done');
   }
   const state =
     event.status === 'error'
