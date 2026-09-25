@@ -1,15 +1,15 @@
-/** One root thread, no tools: user message in, text reply out. */
 import { EventType } from '../../src/core/events/schema';
 import { AgentThread } from '../../src/core/runtime/AgentThread';
 import { InternalEventType } from '../../src/core/runtime/AgentThread.types';
 import { AgentThreadOrchestrator } from '../../src/core/runtime/AgentThreadOrchestrator';
 import { NOOP_AGENT_TRACING } from '../../src/core/tracing/NoopAgentTracing';
 import { makeSilentLogger } from '../core/harnessMocks';
-import { llmCreateInputs, runTurn, textReplyStream } from './helpers/helpers';
+import { llmCreateInputs, missingToolCallStream, runTurn, textReplyStream } from './helpers/helpers';
 
 const THREAD_ID = 'main';
 const REPLY = 'hello from the mocked model';
 const INSTRUCTION = 'You are running in a test setup.';
+const MISSING_TOOL_CALL_ERROR = 'Model finished with tool_calls but did not emit a tool call';
 
 const EXPECTED_EVENTS = [
   { type: EventType.MODEL_MESSAGE, thread_id: THREAD_ID },
@@ -37,43 +37,45 @@ const EXPECTED_LLM_INPUT = [
   },
 ];
 
+function setupOrchestrator(stream: () => ReturnType<typeof textReplyStream>) {
+  const thread = new AgentThread({
+    definition: {
+      modelClient: {
+        create: jest.fn().mockImplementation(stream),
+        createNonStream: jest.fn().mockImplementation(stream),
+      },
+      instruction: INSTRUCTION,
+      messages: undefined,
+      modelParams: undefined,
+      responseFormat: undefined,
+      iterationLimit: undefined,
+      toolSets: undefined,
+    },
+    threadId: THREAD_ID,
+    title: 'orchestration',
+    parent: undefined,
+    agentInfo: undefined,
+    context: undefined,
+    currentContextUsage: undefined,
+    preComputedCompletion: undefined,
+    sandbox: undefined,
+    capabilities: undefined,
+    capabilityState: undefined,
+    tracing: NOOP_AGENT_TRACING,
+    logger: makeSilentLogger(),
+  });
+  const orchestrator = new AgentThreadOrchestrator({
+    agentThreads: new Map([[thread.threadId, thread]]),
+    createDynamicSubAgentThread: () => Promise.reject(new Error('unexpected sub-agent in no-tool test')),
+    tracing: NOOP_AGENT_TRACING,
+    logger: makeSilentLogger(),
+  });
+  return { thread, orchestrator };
+}
+
 describe('orchestration: mocked LLM and no tools', () => {
   it('sends a user message and finishes the thread with a text reply', async () => {
-    const thread = new AgentThread({
-      definition: {
-        modelClient: {
-          create: jest.fn().mockImplementation(() => textReplyStream(REPLY)),
-          createNonStream: jest.fn().mockImplementation(() => textReplyStream(REPLY)),
-        },
-        instruction: INSTRUCTION,
-        messages: undefined,
-        modelParams: undefined,
-        responseFormat: undefined,
-        iterationLimit: undefined,
-        toolSets: undefined,
-      },
-      threadId: THREAD_ID,
-      title: 'orchestration',
-      parent: undefined,
-      agentInfo: undefined,
-      context: undefined,
-      currentContextUsage: undefined,
-      preComputedCompletion: undefined,
-      sandbox: undefined,
-      capabilities: undefined,
-      capabilityState: undefined,
-      tracing: NOOP_AGENT_TRACING,
-      logger: makeSilentLogger(),
-    });
-
-    // Orchestrator owns the thread map and fans send/execute across live threads.
-    // This case has only the root thread, so sub-agent creation must never run.
-    const orchestrator = new AgentThreadOrchestrator({
-      agentThreads: new Map([[thread.threadId, thread]]),
-      createDynamicSubAgentThread: () => Promise.reject(new Error('unexpected sub-agent in no-tool test')),
-      tracing: NOOP_AGENT_TRACING,
-      logger: makeSilentLogger(),
-    });
+    const { thread, orchestrator } = setupOrchestrator(() => textReplyStream(REPLY));
 
     const { events, result } = await runTurn({
       orchestrator,
@@ -84,5 +86,30 @@ describe('orchestration: mocked LLM and no tools', () => {
     expect(result).toMatchObject(OUTPUT);
     expect(result.root_agent_error).toBeUndefined();
     expect(llmCreateInputs(thread.definition.modelClient)).toMatchObject(EXPECTED_LLM_INPUT);
+  });
+
+  it('errors when the model reports a tool-call finish without a tool call', async () => {
+    const { orchestrator } = setupOrchestrator(missingToolCallStream);
+
+    const { events, result } = await runTurn({
+      orchestrator,
+      sendBatch: [{ type: EventType.USER_MESSAGE, content: 'use a tool' }],
+    });
+
+    expect(events).toContainEqual(
+      expect.objectContaining({
+        type: InternalEventType.AGENT_DONE,
+        status: 'error',
+        error: MISSING_TOOL_CALL_ERROR,
+      }),
+    );
+    expect(result).toMatchObject({
+      output: null,
+      required_actions: [],
+      root_agent_error: {
+        error: MISSING_TOOL_CALL_ERROR,
+        output: { finish_reason: 'tool_calls' },
+      },
+    });
   });
 });

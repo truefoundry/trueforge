@@ -1089,6 +1089,11 @@ export class AgentThread {
     });
     const contextAssistantMessage = toContextAssistantMessage(assistantMessage);
     const finishReason = result.value.finish_reason;
+    const assistantHasToolCalls = hasToolCalls(assistantMessage);
+    const missingToolCallError =
+      finishReason === 'tool_calls' && !assistantHasToolCalls
+        ? 'Model finished with tool_calls but did not emit a tool call'
+        : undefined;
     const agentAssistantMessage = buildModelMessageEvent({
       assistantMessage: await enrichAssistantMessage({
         assistantMessage: result.value.output,
@@ -1115,7 +1120,18 @@ export class AgentThread {
           error_message: errorMessage,
           send_to_parent: { role: 'tool', tool_call_id: this.parent.tool_call_id, content: errorMessage },
         };
-      } else if (!hasToolCalls(assistantMessage)) {
+      } else if (missingToolCallError) {
+        completion = {
+          type: 'error',
+          output: agentAssistantMessage,
+          error_message: missingToolCallError,
+          send_to_parent: {
+            role: 'tool',
+            tool_call_id: this.parent.tool_call_id,
+            content: missingToolCallError,
+          },
+        };
+      } else if (!assistantHasToolCalls) {
         const content = assistantMessageContentToStringForSubAgent(assistantMessage.content);
         completion = {
           type: 'done',
@@ -1139,7 +1155,12 @@ export class AgentThread {
       return { outcome: 'exit', modelMessageEventId };
     }
 
-    if (!hasToolCalls(assistantMessage)) {
+    if (missingToolCallError) {
+      yield this.generateErrorEvent(missingToolCallError, agentAssistantMessage);
+      return { outcome: 'exit', modelMessageEventId };
+    }
+
+    if (!assistantHasToolCalls) {
       yield {
         type: InternalEventType.AGENT_DONE,
         status: 'done',
