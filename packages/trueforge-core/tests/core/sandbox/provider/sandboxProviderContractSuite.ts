@@ -25,17 +25,41 @@ export function runSandboxProviderContractSuite(
       await fixture.dispose();
     }, 60_000);
 
-    it('exec cwd is the sandbox root so relative layout paths work', async () => {
+    it('exec runs in an absolute working directory', async () => {
       const { sandboxId } = await fixture.provider.createSandbox();
-      const result = await fixture.provider.exec({
-        sandboxId,
-        command: 'pwd && mkdir -p skills && test -d skills',
-      });
+      const result = await fixture.provider.exec({ sandboxId, command: 'pwd' });
       ensureExecSuccess(result);
       if (!result.success) {
         throw new Error('unreachable');
       }
-      expect(result.response.result.trim().split('\n')[0]).toBe(sandboxId);
+      const [cwd = ''] = result.response.result.trim().split('\n');
+      expect(isAbsolute(cwd)).toBe(true);
+      // Path-id backends (Local) name a sandbox by its root directory; id-based ones do not.
+      if (isAbsolute(sandboxId)) {
+        expect(cwd).toBe(sandboxId);
+      }
+    });
+
+    it('the layout the provider advertises is usable and stable across execs', async () => {
+      const { sandboxId } = await fixture.provider.createSandbox();
+      // Via the getter, not a literal: layout paths may be absolute or cwd-relative per provider.
+      const skillsDir = JSON.stringify(fixture.provider.getSkillsDir(sandboxId));
+      const write = await fixture.provider.exec({
+        sandboxId,
+        // `cd` rather than joining on the host: the sandbox's separator is not the host's.
+        command: `mkdir -p ${skillsDir} && cd ${skillsDir} && printf 'layout-ok\\n' > layout-probe.txt`,
+      });
+      ensureExecSuccess(write);
+
+      const read = await fixture.provider.exec({
+        sandboxId,
+        command: `cd ${skillsDir} && cat layout-probe.txt`,
+      });
+      ensureExecSuccess(read);
+      if (!read.success) {
+        throw new Error('unreachable');
+      }
+      expect(read.response.result).toBe('layout-ok\n');
     });
 
     it('exec is stateful across calls in the same sandbox', async () => {

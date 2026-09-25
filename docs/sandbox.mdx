@@ -27,7 +27,9 @@ That means:
 
 ## Configuring a provider
 
-**Daytona is the only sandbox provider supported today.** Support for additional providers is planned.
+The Settings UI currently exposes the [Daytona](https://www.daytona.io) provider. Hosted deployments can also use
+the Kubernetes provider through environment configuration; Kubernetes is not yet part of the Settings UI or the
+generated OpenAPI schema.
 
 Open **Settings → Sandbox providers**, pick the [Daytona](https://www.daytona.io) preset from the catalog, and paste your API key.
 
@@ -52,6 +54,88 @@ Open **Settings → Sandbox providers**, pick the [Daytona](https://www.daytona.
 </div>
 
 The provider presets come from the shipped sandbox catalog — see [Initial Setup](/harness/initial-setup#what-is-supported-out-of-the-box) for how catalogs work and how to change what the UI offers.
+
+## Kubernetes provider
+
+The Kubernetes provider is for hosted or distributed deployments. It creates one sandbox workload per session from
+TrueForge's pinned sandbox image and uses the cluster's credentials instead of an API key. Set these values on the
+TrueForge server:
+
+```dotenv
+STANDALONE=false
+TRUEFOUNDRY_SANDBOX_ENABLED=true
+TRUEFOUNDRY_SANDBOX_PROVIDER=kubernetes
+KUBERNETES_SANDBOX_NAMESPACE=trueforge-sandboxes
+KUBERNETES_SANDBOX_IN_CLUSTER=true
+KUBERNETES_SANDBOX_SERVICE_ACCOUNT_NAME=trueforge-sandbox
+KUBERNETES_SANDBOX_EXEC_TIMEOUT_MS=60000
+KUBERNETES_SANDBOX_POLL_INTERVAL_MS=1000
+KUBERNETES_SANDBOX_CREATE_TIMEOUT_MS=120000
+KUBERNETES_SANDBOX_REAPER_TTL_MS=86400000
+```
+
+`KUBERNETES_SANDBOX_IMAGE_PULL_SECRET_NAME` is needed when the cluster cannot pull the pinned sandbox image without
+registry credentials. Resource requests and limits can be supplied as JSON in
+`KUBERNETES_SANDBOX_RESOURCES`, for example:
+
+```dotenv
+KUBERNETES_SANDBOX_RESOURCES={"requests":{"cpu":"500m","memory":"512Mi"},"limits":{"cpu":"1","memory":"1Gi"}}
+```
+
+`TRUEFOUNDRY_SANDBOX_SETTINGS` may be `{}` for Kubernetes, or may contain a `resources` object. If both settings
+locations define resources, `KUBERNETES_SANDBOX_RESOURCES` takes precedence.
+
+When the Agent Sandbox controller and `sandboxes.agents.x-k8s.io` CRD are installed, TrueForge uses the CR backend.
+Without that CRD it falls back to labelled Pods. Both paths use the same provider contract, sandbox image, and
+storage: session files live in an `emptyDir` mounted over the sandbox's working directory, so they survive a
+container restart but not the pod being rescheduled.
+
+The server's Kubernetes identity needs permission to create, get, list, and delete Pods, create `pods/exec`, and create
+`pods/portforward` when `KUBERNETES_SANDBOX_IN_CLUSTER=false`. It also needs to read the
+`sandboxes.agents.x-k8s.io` CRD and, when the CRD is installed, create, get, list, and delete `sandboxes` resources.
+
+For an external server, set `KUBERNETES_SANDBOX_IN_CLUSTER=false` and make the server's kubeconfig available. The
+provider opens a local port-forward to the sandbox for Code Mode. For an in-cluster server, set it to `true` so Code
+Mode connects directly to the sandbox Pod IP.
+
+### Test the provider before opening a PR
+
+The contract suite exercises creation, command execution, file upload/download, layout paths, and Code Mode. Run it
+against a disposable kind cluster with the Agent Sandbox controller installed:
+
+```bash
+kind create cluster --name trueforge-sandbox
+kubectl apply --server-side \
+  -f https://github.com/kubernetes-sigs/agent-sandbox/releases/download/v1.0.2/sandbox.yaml
+kubectl wait --for=condition=Established \
+  crd/sandboxes.agents.x-k8s.io --timeout=120s
+kubectl wait --for=condition=Available \
+  deployment/agent-sandbox-controller -n agent-sandbox-system --timeout=180s
+
+export KUBERNETES_SANDBOX_NAMESPACE=default
+export KUBERNETES_SANDBOX_IN_CLUSTER=false
+pnpm test:kubernetes-sandbox:contract
+```
+
+To exercise the raw Pod fallback, create a second disposable cluster and do not install the Agent Sandbox manifest:
+
+```bash
+kind create cluster --name trueforge-sandbox-pod
+kubectl config use-context kind-trueforge-sandbox-pod
+export KUBERNETES_SANDBOX_NAMESPACE=default
+export KUBERNETES_SANDBOX_IN_CLUSTER=false
+pnpm test:kubernetes-sandbox:contract
+```
+
+Delete the test clusters when finished:
+
+```bash
+kind delete cluster --name trueforge-sandbox
+kind delete cluster --name trueforge-sandbox-pod
+```
+
+If the contract suite reports an image-pull error, configure `KUBERNETES_SANDBOX_IMAGE_PULL_SECRET_NAME` and create
+the matching `docker-registry` Secret in the sandbox namespace before rerunning it.
 
 ## Enabling the sandbox on an agent
 

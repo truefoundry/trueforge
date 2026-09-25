@@ -284,16 +284,18 @@ function parsePublicBaseUrl(raw: string | undefined): string {
   return `${parsed.origin}${path}`;
 }
 
-function parseTrueFoundrySandboxProvider(raw: string | undefined): 'daytona' | 'truefoundry' | undefined {
+function parseTrueFoundrySandboxProvider(
+  raw: string | undefined,
+): 'daytona' | 'truefoundry' | 'kubernetes' | undefined {
   if (raw === undefined || raw.trim() === '') {
     return undefined;
   }
   const value = raw.trim();
-  if (value === 'daytona' || value === 'truefoundry') {
+  if (value === 'daytona' || value === 'truefoundry' || value === 'kubernetes') {
     return value;
   }
   throw new Error(
-    `Environment variable TRUEFOUNDRY_SANDBOX_PROVIDER must be "daytona" or "truefoundry", got ${JSON.stringify(raw)}`,
+    `Environment variable TRUEFOUNDRY_SANDBOX_PROVIDER must be "daytona", "truefoundry", or "kubernetes", got ${JSON.stringify(raw)}`,
   );
 }
 
@@ -967,7 +969,7 @@ export type DistributedServerConfiguration = SharedServerConfiguration & {
    * Shared sandbox backend when `TRUEFOUNDRY_SANDBOX_ENABLED` is true.
    * Env: `TRUEFOUNDRY_SANDBOX_PROVIDER` (`daytona` | `truefoundry`).
    */
-  TRUEFOUNDRY_SANDBOX_PROVIDER: 'daytona' | 'truefoundry' | undefined;
+  TRUEFOUNDRY_SANDBOX_PROVIDER: 'daytona' | 'truefoundry' | 'kubernetes' | undefined;
   /**
    * Shared API key (required for Daytona; optional for truefoundry).
    * Env: `TRUEFOUNDRY_SANDBOX_API_KEY`.
@@ -984,6 +986,24 @@ export type DistributedServerConfiguration = SharedServerConfiguration & {
    * Env: `TRUEFOUNDRY_SANDBOX_SETTINGS`.
    */
   TRUEFOUNDRY_SANDBOX_SETTINGS: string | undefined;
+  /** Kubernetes namespace for env-synthesized sandbox resources. Env: `KUBERNETES_SANDBOX_NAMESPACE`. */
+  KUBERNETES_SANDBOX_NAMESPACE: string;
+  /** Optional Kubernetes service account for sandbox pods. Env: `KUBERNETES_SANDBOX_SERVICE_ACCOUNT_NAME`. */
+  KUBERNETES_SANDBOX_SERVICE_ACCOUNT_NAME: string | undefined;
+  /** Optional image pull secret for sandbox pods. Env: `KUBERNETES_SANDBOX_IMAGE_PULL_SECRET_NAME`. */
+  KUBERNETES_SANDBOX_IMAGE_PULL_SECRET_NAME: string | undefined;
+  /** Optional JSON resource requests/limits. Env: `KUBERNETES_SANDBOX_RESOURCES`. */
+  KUBERNETES_SANDBOX_RESOURCES: string | undefined;
+  /** Default Kubernetes sandbox command timeout. Env: `KUBERNETES_SANDBOX_EXEC_TIMEOUT_MS`. */
+  KUBERNETES_SANDBOX_EXEC_TIMEOUT_MS: number;
+  /** Poll interval while waiting for a sandbox pod. Env: `KUBERNETES_SANDBOX_POLL_INTERVAL_MS`. */
+  KUBERNETES_SANDBOX_POLL_INTERVAL_MS: number;
+  /** Maximum time to wait for a sandbox to become ready. Env: `KUBERNETES_SANDBOX_CREATE_TIMEOUT_MS`. */
+  KUBERNETES_SANDBOX_CREATE_TIMEOUT_MS: number;
+  /** TTL for server-side stale sandbox cleanup. Env: `KUBERNETES_SANDBOX_REAPER_TTL_MS`. */
+  KUBERNETES_SANDBOX_REAPER_TTL_MS: number;
+  /** Whether the TrueForge process runs inside the Kubernetes cluster. Env: `KUBERNETES_SANDBOX_IN_CLUSTER`. */
+  KUBERNETES_SANDBOX_IN_CLUSTER: boolean;
   /**
    * Optional per-tenant allowlist of model provider account names. JSON object
    * `Record<tenant_id, account_name[]>`. Empty / unset → no filtering. Tenants omitted from the
@@ -1232,6 +1252,39 @@ const configuration: ServerConfiguration = standalone
       TRUEFOUNDRY_SANDBOX_API_KEY: getEnv('TRUEFOUNDRY_SANDBOX_API_KEY', { required: false }),
       TRUEFOUNDRY_SANDBOX_SERVER_URL: getEnv('TRUEFOUNDRY_SANDBOX_SERVER_URL', { required: false }),
       TRUEFOUNDRY_SANDBOX_SETTINGS: getEnv('TRUEFOUNDRY_SANDBOX_SETTINGS', { required: false }),
+      KUBERNETES_SANDBOX_NAMESPACE: getEnv('KUBERNETES_SANDBOX_NAMESPACE', { defaultValue: 'default' }) ?? 'default',
+      KUBERNETES_SANDBOX_SERVICE_ACCOUNT_NAME: getEnv('KUBERNETES_SANDBOX_SERVICE_ACCOUNT_NAME', {
+        required: false,
+      }),
+      KUBERNETES_SANDBOX_IMAGE_PULL_SECRET_NAME: getEnv('KUBERNETES_SANDBOX_IMAGE_PULL_SECRET_NAME', {
+        required: false,
+      }),
+      KUBERNETES_SANDBOX_RESOURCES: getEnv('KUBERNETES_SANDBOX_RESOURCES', { required: false }),
+      KUBERNETES_SANDBOX_EXEC_TIMEOUT_MS: parsePositiveInt({
+        envKey: 'KUBERNETES_SANDBOX_EXEC_TIMEOUT_MS',
+        raw: getEnv('KUBERNETES_SANDBOX_EXEC_TIMEOUT_MS'),
+        defaultValue: 60_000,
+      }),
+      KUBERNETES_SANDBOX_POLL_INTERVAL_MS: parsePositiveInt({
+        envKey: 'KUBERNETES_SANDBOX_POLL_INTERVAL_MS',
+        raw: getEnv('KUBERNETES_SANDBOX_POLL_INTERVAL_MS'),
+        defaultValue: 1_000,
+      }),
+      KUBERNETES_SANDBOX_CREATE_TIMEOUT_MS: parsePositiveInt({
+        envKey: 'KUBERNETES_SANDBOX_CREATE_TIMEOUT_MS',
+        raw: getEnv('KUBERNETES_SANDBOX_CREATE_TIMEOUT_MS'),
+        defaultValue: 120_000,
+      }),
+      KUBERNETES_SANDBOX_REAPER_TTL_MS: parsePositiveInt({
+        envKey: 'KUBERNETES_SANDBOX_REAPER_TTL_MS',
+        raw: getEnv('KUBERNETES_SANDBOX_REAPER_TTL_MS'),
+        defaultValue: 24 * 60 * 60 * 1000,
+      }),
+      KUBERNETES_SANDBOX_IN_CLUSTER: parseBoolean({
+        envKey: 'KUBERNETES_SANDBOX_IN_CLUSTER',
+        raw: getEnv('KUBERNETES_SANDBOX_IN_CLUSTER'),
+        defaultValue: getEnv('KUBERNETES_SERVICE_HOST') !== undefined,
+      }),
       TRUEFOUNDRY_TENANT_ID_TO_ALLOWED_MODEL_PROVIDER_ACCOUNTS: parseTenantIdToAllowedModelProviderAccounts(
         getEnv('TRUEFOUNDRY_TENANT_ID_TO_ALLOWED_MODEL_PROVIDER_ACCOUNTS', { required: false }),
       ),
@@ -1256,6 +1309,19 @@ export function isTrueFoundryModeEnabled(
   config: ServerConfiguration = configuration,
 ): config is DistributedServerConfiguration & { TRUEFOUNDRY_SERVICEFOUNDRY_SERVER_URL: string } {
   return !config.STANDALONE && config.TRUEFOUNDRY_SERVICEFOUNDRY_SERVER_URL !== undefined;
+}
+
+/**
+ * Env-synthesized sandbox provider (Daytona/TrueFoundry/Kubernetes settings come from env, not
+ * the DB) should be used in place of DB-backed settings. True in full TrueFoundry mode, and also
+ * in a self-hosted distributed deployment that opts in via `TRUEFOUNDRY_SANDBOX_ENABLED` without
+ * a TrueFoundry control-plane connection — needed for providers with no DB-backed settings path,
+ * such as Kubernetes, which holds no credentials to store.
+ */
+export function isEnvSandboxProviderEnabled(
+  config: ServerConfiguration = configuration,
+): config is DistributedServerConfiguration {
+  return !config.STANDALONE && config.TRUEFOUNDRY_SANDBOX_ENABLED;
 }
 
 /** Runtime auth/integration mode for this process. */
@@ -1290,42 +1356,47 @@ if (isTrueFoundryModeEnabled(configuration)) {
   if (configuration.TRUEFOUNDRY_API_KEY === undefined) {
     throw new Error('TRUEFOUNDRY_API_KEY is required when TRUEFOUNDRY_SERVICEFOUNDRY_SERVER_URL is set.');
   }
+}
 
-  // Shared sandbox
-  if (configuration.TRUEFOUNDRY_SANDBOX_ENABLED) {
-    if (configuration.TRUEFOUNDRY_SANDBOX_PROVIDER === undefined) {
-      throw new Error(
-        'TRUEFOUNDRY_SANDBOX_ENABLED is true but TRUEFOUNDRY_SANDBOX_PROVIDER is not set. ' +
-          'Set TRUEFOUNDRY_SANDBOX_PROVIDER to "daytona" or "truefoundry", or set TRUEFOUNDRY_SANDBOX_ENABLED=false.',
-      );
-    }
-    if (configuration.TRUEFOUNDRY_SANDBOX_SETTINGS === undefined) {
-      throw new Error(
-        'TRUEFOUNDRY_SANDBOX_ENABLED is true but TRUEFOUNDRY_SANDBOX_SETTINGS is not set. ' +
-          'Provide a JSON settings object, or set TRUEFOUNDRY_SANDBOX_ENABLED=false.',
-      );
-    }
-    try {
-      JSON.parse(configuration.TRUEFOUNDRY_SANDBOX_SETTINGS);
-    } catch (error) {
-      throw new Error('TRUEFOUNDRY_SANDBOX_SETTINGS must be valid JSON', { cause: error });
-    }
-    if (
-      configuration.TRUEFOUNDRY_SANDBOX_PROVIDER === 'daytona' &&
-      configuration.TRUEFOUNDRY_SANDBOX_API_KEY === undefined
-    ) {
-      throw new Error(
-        'TRUEFOUNDRY_SANDBOX_PROVIDER=daytona requires TRUEFOUNDRY_SANDBOX_API_KEY, or set TRUEFOUNDRY_SANDBOX_ENABLED=false.',
-      );
-    }
-    if (
-      configuration.TRUEFOUNDRY_SANDBOX_PROVIDER === 'truefoundry' &&
-      configuration.TRUEFOUNDRY_SANDBOX_SERVER_URL === undefined
-    ) {
-      throw new Error(
-        'TRUEFOUNDRY_SANDBOX_PROVIDER=truefoundry requires TRUEFOUNDRY_SANDBOX_SERVER_URL, or set TRUEFOUNDRY_SANDBOX_ENABLED=false.',
-      );
-    }
+// Shared sandbox — env-synthesized in full TrueFoundry mode, or in a self-hosted distributed
+// deployment that opts in without a TrueFoundry control-plane connection (see
+// `isEnvSandboxProviderEnabled`).
+if (isEnvSandboxProviderEnabled(configuration)) {
+  if (configuration.TRUEFOUNDRY_SANDBOX_PROVIDER === undefined) {
+    throw new Error(
+      'TRUEFOUNDRY_SANDBOX_ENABLED is true but TRUEFOUNDRY_SANDBOX_PROVIDER is not set. ' +
+        'Set TRUEFOUNDRY_SANDBOX_PROVIDER to "daytona", "truefoundry", or "kubernetes", or set TRUEFOUNDRY_SANDBOX_ENABLED=false.',
+    );
+  }
+  if (
+    configuration.TRUEFOUNDRY_SANDBOX_SETTINGS === undefined &&
+    configuration.TRUEFOUNDRY_SANDBOX_PROVIDER !== 'kubernetes'
+  ) {
+    throw new Error(
+      'TRUEFOUNDRY_SANDBOX_ENABLED is true but TRUEFOUNDRY_SANDBOX_SETTINGS is not set. ' +
+        'Provide a JSON settings object, or set TRUEFOUNDRY_SANDBOX_ENABLED=false.',
+    );
+  }
+  try {
+    JSON.parse(configuration.TRUEFOUNDRY_SANDBOX_SETTINGS ?? '{}');
+  } catch (error) {
+    throw new Error('TRUEFOUNDRY_SANDBOX_SETTINGS must be valid JSON', { cause: error });
+  }
+  if (
+    configuration.TRUEFOUNDRY_SANDBOX_PROVIDER === 'daytona' &&
+    configuration.TRUEFOUNDRY_SANDBOX_API_KEY === undefined
+  ) {
+    throw new Error(
+      'TRUEFOUNDRY_SANDBOX_PROVIDER=daytona requires TRUEFOUNDRY_SANDBOX_API_KEY, or set TRUEFOUNDRY_SANDBOX_ENABLED=false.',
+    );
+  }
+  if (
+    configuration.TRUEFOUNDRY_SANDBOX_PROVIDER === 'truefoundry' &&
+    configuration.TRUEFOUNDRY_SANDBOX_SERVER_URL === undefined
+  ) {
+    throw new Error(
+      'TRUEFOUNDRY_SANDBOX_PROVIDER=truefoundry requires TRUEFOUNDRY_SANDBOX_SERVER_URL, or set TRUEFOUNDRY_SANDBOX_ENABLED=false.',
+    );
   }
 }
 

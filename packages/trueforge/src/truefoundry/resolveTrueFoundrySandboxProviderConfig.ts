@@ -1,6 +1,7 @@
 import { HTTPException } from 'hono/http-exception';
 import { z } from 'zod';
 import configuration, { type ServerConfiguration } from '../config';
+import { KubernetesSandboxResourcesSchema } from '../schemas/sandboxProvider';
 
 export const SANDBOX_DEFAULT_SETTINGS = {
   timeoutMs: 60_000,
@@ -27,13 +28,32 @@ export const TrueFoundrySandboxSettingsSchema = z.object({
 
 export type TrueFoundrySandboxSettings = z.infer<typeof TrueFoundrySandboxSettingsSchema>;
 
+export const KubernetesSandboxSettingsSchema = z
+  .object({
+    resources: KubernetesSandboxResourcesSchema.optional(),
+  })
+  .strict();
+
+export type KubernetesSandboxSettings = z.infer<typeof KubernetesSandboxSettingsSchema>;
+
 /**
  * Shared sandbox provider selected by env in TrueFoundry mode.
  * Settings come from static `TRUEFOUNDRY_SANDBOX_SETTINGS` JSON.
  */
 export type TrueFoundrySandboxProviderConfig =
   | { type: 'daytona'; apiKey: string; settings: DaytonaSandboxSettings }
-  | { type: 'truefoundry'; serverUrl: string; natsBridgeUrl: string };
+  | { type: 'truefoundry'; serverUrl: string; natsBridgeUrl: string }
+  | {
+      type: 'kubernetes';
+      namespace: string;
+      serviceAccountName: string | undefined;
+      imagePullSecretName: string | undefined;
+      resources: KubernetesSandboxSettings['resources'];
+      execTimeoutMs: number;
+      pollIntervalMs: number;
+      createTimeoutMs: number;
+      inCluster: boolean;
+    };
 
 function parseSettingsJson(raw: string): unknown {
   try {
@@ -58,8 +78,8 @@ export function resolveTrueFoundrySandboxProviderConfig(
   if (!config.TRUEFOUNDRY_SANDBOX_ENABLED) {
     return undefined;
   }
-  if (config.TRUEFOUNDRY_SANDBOX_PROVIDER !== undefined && config.TRUEFOUNDRY_SANDBOX_SETTINGS !== undefined) {
-    const settingsJson = parseSettingsJson(config.TRUEFOUNDRY_SANDBOX_SETTINGS);
+  if (config.TRUEFOUNDRY_SANDBOX_PROVIDER !== undefined) {
+    const settingsJson = parseSettingsJson(config.TRUEFOUNDRY_SANDBOX_SETTINGS ?? '{}');
     switch (config.TRUEFOUNDRY_SANDBOX_PROVIDER) {
       case 'daytona': {
         if (config.TRUEFOUNDRY_SANDBOX_API_KEY === undefined) {
@@ -82,6 +102,29 @@ export function resolveTrueFoundrySandboxProviderConfig(
           type: 'truefoundry',
           serverUrl: config.TRUEFOUNDRY_SANDBOX_SERVER_URL,
           natsBridgeUrl: settings.nats_bridge_url,
+        };
+      }
+      case 'kubernetes': {
+        const settings = KubernetesSandboxSettingsSchema.parse(settingsJson);
+        const resources = config.KUBERNETES_SANDBOX_RESOURCES;
+        let envResources: KubernetesSandboxSettings['resources'];
+        if (resources !== undefined) {
+          try {
+            envResources = KubernetesSandboxSettingsSchema.parse({ resources: parseSettingsJson(resources) }).resources;
+          } catch (error) {
+            throw new Error('KUBERNETES_SANDBOX_RESOURCES must be valid JSON resource settings', { cause: error });
+          }
+        }
+        return {
+          type: 'kubernetes',
+          namespace: config.KUBERNETES_SANDBOX_NAMESPACE,
+          serviceAccountName: config.KUBERNETES_SANDBOX_SERVICE_ACCOUNT_NAME,
+          imagePullSecretName: config.KUBERNETES_SANDBOX_IMAGE_PULL_SECRET_NAME,
+          resources: envResources ?? settings.resources,
+          execTimeoutMs: config.KUBERNETES_SANDBOX_EXEC_TIMEOUT_MS,
+          pollIntervalMs: config.KUBERNETES_SANDBOX_POLL_INTERVAL_MS,
+          createTimeoutMs: config.KUBERNETES_SANDBOX_CREATE_TIMEOUT_MS,
+          inCluster: config.KUBERNETES_SANDBOX_IN_CLUSTER,
         };
       }
     }

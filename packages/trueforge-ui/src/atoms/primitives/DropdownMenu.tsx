@@ -87,7 +87,7 @@ export function DropdownMenu({
     };
     document.addEventListener('mousedown', handler);
     return () => document.removeEventListener('mousedown', handler);
-  }, [open]);
+  }, [open, setOpen]);
 
   useEffect(() => {
     if (!open || !lockScroll) return;
@@ -148,7 +148,7 @@ export function DropdownMenu({
     };
     document.addEventListener('keydown', handler);
     return () => document.removeEventListener('keydown', handler);
-  }, [open]);
+  }, [open, setOpen]);
 
   const triggerEl = React.isValidElement(trigger)
     ? React.cloneElement(trigger as React.ReactElement<Record<string, unknown>>, {
