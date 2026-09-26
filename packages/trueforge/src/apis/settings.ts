@@ -39,6 +39,7 @@ export function createSettingsRouter<TTransaction>(deps: SettingsRouterDeps<TTra
       resolveModelProviderStore: deps.resolveModelProviderStore,
       withTransaction: deps.withTransaction,
       resolveRequestContext: deps.resolveRequestContext,
+      logger: deps.logger,
     }),
   );
   router.route(

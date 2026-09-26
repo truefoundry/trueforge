@@ -41,6 +41,7 @@ import type { IModelProviderStore } from '../db/modelProviderStore';
 import type { ISandboxProviderStore } from '../db/sandboxProviderStore';
 import type { ISkillStore } from '../db/skillStore';
 import type { IWebSearchProviderStore } from '../db/webSearchProviderStore';
+import { PACKAGE_VERSION } from '../packageVersion';
 import {
   createAndExecuteTurnRoute,
   createTurnEventRoute,
@@ -194,11 +195,23 @@ function createTurnResolver(deps: {
         name,
         store: modelProviderStore,
       });
+      const providerConfig = resolved.providerConfig;
       return {
         modelClient: new VercelAILLM({
           providerConfig: {
-            ...resolved.providerConfig,
-            headers: { ...resolved.providerConfig.headers, ...turnHeaders },
+            ...providerConfig,
+            headers: {
+              ...providerConfig.headers,
+              ...turnHeaders,
+              // OpenCode Go routes and caches per conversation; without a stable session id it
+              // rejects the request. One id per TrueForge session is exactly the lifetime it wants.
+              ...(providerConfig.provider.type === 'opencode-go'
+                ? {
+                    'x-opencode-session': sessionId,
+                    'user-agent': `TrueForge/${PACKAGE_VERSION}`,
+                  }
+                : {}),
+            },
           },
           logger,
           signal,

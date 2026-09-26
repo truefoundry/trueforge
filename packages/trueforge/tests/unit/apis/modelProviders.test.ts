@@ -480,6 +480,19 @@ describe('model-provider secret redaction and strict PUT', () => {
 });
 
 describe('catalog presets are configurable', () => {
+  const realFetch = globalThis.fetch;
+
+  beforeAll(() => {
+    // opencode-go refreshes its roster on save; fail discovery fast so presets stay hermetic.
+    globalThis.fetch = (async () => {
+      throw new Error('network disabled in tests');
+    }) as typeof fetch;
+  });
+
+  afterAll(() => {
+    globalThis.fetch = realFetch;
+  });
+
   // A preset is copied into a PUT body with an api_key added, so every catalog type must parse.
   // `custom` is appended by the catalog route, not ModelCatalog — only well-known presets appear here.
   it.each(ModelCatalog.load().list())('PUT accepts the $type preset', async preset => {
@@ -496,5 +509,118 @@ describe('catalog presets are configurable', () => {
     expect(response.status).toBe(200);
     const json = (await response.json()) as { data: { name: string; manifest: { auth: { api_key: string } } } };
     expect(json.data.manifest.auth.api_key).toBe(toRedactedSecretValue(`sk-${preset.type}`));
+  });
+});
+
+describe('opencode-go providers sync their model roster on every save', () => {
+  const realFetch = globalThis.fetch;
+
+  afterEach(() => {
+    globalThis.fetch = realFetch;
+  });
+
+  const opencodeGoBody = {
+    type: 'opencode-go',
+    auth: { api_key: 'oc-go-key' },
+    models: [
+      { model_id: 'glm-5.3-flash', name: 'glm-5-3-flash', properties: {} },
+      { model_id: 'glm-5.2', name: 'glm-5-2', properties: {} },
+      { model_id: 'kimi-k2.7-code', name: 'kimi-k2-7-code', properties: {} },
+    ],
+  };
+
+  type ListedProvider = {
+    name: string;
+    manifest: { models: Array<{ model_id: string; name: string; properties: unknown }> };
+  };
+
+  /** OpenAI-compatible /models stub; `failWith` returns an error response instead of the roster. */
+  function stubDiscovery({ ids, auths, failWith }: { ids: string[]; auths?: string[]; failWith?: number }): void {
+    globalThis.fetch = (async (input, init) => {
+      expect(String(input)).toBe('https://opencode.ai/zen/go/v1/models');
+      auths?.push(new Headers(init?.headers).get('authorization') ?? '');
+      if (failWith !== undefined) {
+        return new Response('upstream error', { status: failWith });
+      }
+      return new Response(JSON.stringify({ object: 'list', data: ids.map(id => ({ id, object: 'model' })) }), {
+        status: 200,
+        headers: { 'Content-Type': 'application/json' },
+      });
+    }) as typeof fetch;
+  }
+
+  it('PUT expands the shipped presets with the live roster, and GET /models exposes it', async () => {
+    const { settingsRouter, modelsRouter } = await createRouters();
+    const auths: string[] = [];
+    stubDiscovery({
+      ids: ['glm-5.3-flash', 'gpt-5.6-luna', 'kimi-k2.7-code', 'minimax-m2.7', 'deepseek-v4-flash-vision-exp'],
+      auths,
+    });
+
+    const put = await settingsRouter.request('/model-providers', putInit(opencodeGoBody));
+    expect(put.status).toBe(200);
+    expect(auths).toEqual(['Bearer oc-go-key']);
+
+    const list = await settingsRouter.request('/model-providers');
+    expect(list.status).toBe(200);
+    const listed = (await list.json()) as { data: ListedProvider[] };
+    expect(listed.data.find(provider => provider.name === 'opencode-go')?.manifest.models).toEqual([
+      { model_id: 'glm-5.3-flash', name: 'glm-5-3-flash', properties: {} },
+      { model_id: 'glm-5.2', name: 'glm-5-2', properties: {} },
+      { model_id: 'kimi-k2.7-code', name: 'kimi-k2-7-code', properties: {} },
+      { model_id: 'gpt-5.6-luna', name: 'gpt-5-6-luna', properties: {} },
+      { model_id: 'minimax-m2.7', name: 'minimax-m-2-7', properties: {} },
+      { model_id: 'deepseek-v4-flash-vision-exp', name: 'deepseek-v-4-flash-vision-exp', properties: {} },
+    ]);
+
+    const read = await modelsRouter.request('/');
+    expect(read.status).toBe(200);
+    const available = (await read.json()) as { data: { name: string; model_id: string; provider: { name: string } }[] };
+    expect(available.data).toContainEqual({
+      name: 'opencode-go/gpt-5-6-luna',
+      model_id: 'gpt-5.6-luna',
+      provider: { name: 'opencode-go' },
+      properties: {},
+    });
+  });
+
+  it('PUT with a redacted api_key discovers against the stored key', async () => {
+    const { settingsRouter } = await createRouters();
+    const auths: string[] = [];
+    stubDiscovery({ ids: ['glm-5.3-flash', 'gpt-5.6-luna'], auths });
+
+    expect((await settingsRouter.request('/model-providers', putInit(opencodeGoBody))).status).toBe(200);
+    expect((await settingsRouter.request('/model-providers', putInit(withRedactedApiKey(opencodeGoBody)))).status).toBe(
+      200,
+    );
+    expect(auths).toEqual(['Bearer oc-go-key', 'Bearer oc-go-key']);
+  });
+
+  it('keeps the saved models when the provider reports an HTTP failure', async () => {
+    const { settingsRouter } = await createRouters();
+    stubDiscovery({ ids: [], failWith: 500 });
+
+    const put = await settingsRouter.request('/model-providers', putInit(opencodeGoBody));
+    expect(put.status).toBe(200);
+    const list = await settingsRouter.request('/model-providers');
+    const listed = (await list.json()) as { data: ListedProvider[] };
+    expect(listed.data.find(provider => provider.name === 'opencode-go')?.manifest.models).toEqual(
+      opencodeGoBody.models,
+    );
+  });
+
+  it('keeps the saved models when discovery throws (network failure)', async () => {
+    const { settingsRouter } = await createRouters();
+    globalThis.fetch = (async () => {
+      throw new Error('network disabled in tests');
+    }) as typeof fetch;
+
+    const put = await settingsRouter.request('/model-providers', putInit(opencodeGoBody));
+    expect(put.status).toBe(200);
+    const list = await settingsRouter.request('/model-providers');
+    const listed = (await list.json()) as { data: ListedProvider[] };
+    expect(listed.data.find(provider => provider.name === 'opencode-go')?.manifest.models).toEqual(
+      opencodeGoBody.models,
+    );
   });
 });

@@ -127,6 +127,11 @@ const TogetherAIModelProviderSchema = wellKnownProviderSchema({
   base_url: 'https://api.together.xyz/v1',
 }).openapi('TogetherAIModelProvider');
 
+const OpencodeGoModelProviderSchema = wellKnownProviderSchema({
+  type: 'opencode-go',
+  base_url: 'https://opencode.ai/zen/go/v1',
+}).openapi('OpencodeGoModelProvider');
+
 const AlibabaModelProviderSchema = wellKnownProviderSchema({
   type: 'alibaba',
   base_url: 'https://dashscope-intl.aliyuncs.com/compatible-mode/v1',
@@ -177,6 +182,7 @@ const ModelProviderBodySchema = z
     ZaiModelProviderSchema,
     MoonshotModelProviderSchema,
     TogetherAIModelProviderSchema,
+    OpencodeGoModelProviderSchema,
     AlibabaModelProviderSchema,
     TrueFoundryModelProviderSchema,
     CustomModelProviderSchema,
@@ -254,6 +260,7 @@ export const ListAvailableModelsResponseSchema = z
   .openapi('ListAvailableModelsResponse');
 
 export type ModelProviderManifest = z.infer<typeof ModelProviderManifestSchema>;
+export type ConfiguredModel = z.infer<typeof ConfiguredModelSchema>;
 export type ConfiguredModelProvider = z.infer<typeof ConfiguredModelProviderSchema>;
 export type CreateModelProviderRequest = z.infer<typeof CreateModelProviderRequestSchema>;
 export type UpdateModelProviderRequest = z.infer<typeof UpdateModelProviderRequestSchema>;

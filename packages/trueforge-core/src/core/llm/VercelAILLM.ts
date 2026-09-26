@@ -63,6 +63,7 @@ export const VERCEL_AI_PROVIDER_NAMES = [
   'moonshot',
   'alibaba',
   'together',
+  'opencode-go',
   'custom',
   'truefoundry',
 ] as const;
@@ -124,7 +125,9 @@ function isFunctionToolCall<T extends { type: string }>(toolCall: T): toolCall i
 /**
  * Shared by every OpenAI-compatible provider, which differ only by endpoint. The provider type
  * doubles as the `providerOptions` key. Fireworks, Together and Z AI stay here rather than on their
- * own packages: those drop `json_schema`, and Fireworks also clamps efforts its models do accept.
+ * their own packages: those drop `json_schema`, and Fireworks also clamps efforts its models do accept.
+ * OpenCode Go ships chat-completions models only here; its Anthropic- and Responses-protocol models
+ * need a different adapter and stay out of this preset. See the catalog entry for supported models.
  * TODO: move Z AI to @ai-sdk/zai once https://github.com/vercel/ai/pull/17340 ships.
  */
 function compatibleModel(config: VercelAIProviderConfig): LanguageModel {
@@ -203,6 +206,7 @@ export function buildLanguageModel(config: VercelAIProviderConfig): LanguageMode
     case 'fireworks':
     case 'zai':
     case 'together':
+    case 'opencode-go':
     case 'custom':
     case 'truefoundry': {
       return compatibleModel(config);
