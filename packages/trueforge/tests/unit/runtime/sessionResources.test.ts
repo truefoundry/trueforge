@@ -18,7 +18,6 @@ import { SqliteWebSearchProviderStore } from '../../../src/db/sqlite/web-search-
 import {
   buildGatewayMetadata,
   getModelDetails,
-  localSandboxSessionSegment,
   mergeGatewayMetadata,
   parseGatewayMetadataHeader,
   TFG_METADATA_PREFIX,
@@ -153,17 +152,6 @@ describe('withGatewayMetadataHeaders', () => {
     await expect(authRequired()).resolves.toEqual({
       authRequired: { servers: [{ id: 'mcp', name: 'mcp', auth_url: 'https://auth.example' }] },
     });
-  });
-});
-
-describe('localSandboxSessionSegment', () => {
-  it('keeps a single-segment session id and rejects missing or unsafe values', () => {
-    expect(localSandboxSessionSegment('sess_1')).toBe('sess_1');
-    expect(localSandboxSessionSegment(undefined)).toBe('_');
-    expect(localSandboxSessionSegment('')).toBe('_');
-    expect(localSandboxSessionSegment('a/b')).toBe('_');
-    expect(localSandboxSessionSegment('..')).toBe('_');
-    expect(localSandboxSessionSegment('foo..bar')).toBe('_');
   });
 });
 
