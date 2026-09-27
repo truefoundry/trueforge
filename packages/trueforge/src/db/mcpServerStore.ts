@@ -39,6 +39,11 @@ export interface CreateMcpServerInput {
 /** Same shape as create for now; kept as a distinct name for the upsert path. */
 export type UpsertMcpServerInput = CreateMcpServerInput;
 
+export interface DeleteMcpServerInput {
+  tenant_id: string;
+  name: string;
+}
+
 /** Unique `(tenant_id, name)` violation on create. */
 export class McpServerNameConflictError extends Error {
   readonly tenant_id: string;
@@ -99,6 +104,11 @@ export interface IMcpServerStore<TTransaction = never> extends IOAuthClientStore
    * Never overwrites `id`, `oauth_server`, or `oauth_client`.
    */
   upsertServer(input: UpsertMcpServerInput, transaction?: TTransaction): Promise<McpServerRecord>;
+  /**
+   * Removes one server row. Resolves `false` when no row matched.
+   * Stored OAuth tokens and pending authorizations are the caller's to clear first.
+   */
+  deleteServer(input: DeleteMcpServerInput, transaction?: TTransaction): Promise<boolean>;
 }
 
 /** Persistence plus authorize / status / revoke and invoke headers. */

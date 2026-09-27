@@ -4,6 +4,7 @@ import {
   flattenProviderModels,
   ModelProviderNameConflictError,
   type CreateModelProviderInput,
+  type DeleteModelProviderInput,
   type GetModelProviderForUpdateInput,
   type GetModelProviderInput,
   type IModelProviderStore,
@@ -125,6 +126,16 @@ export class SqliteModelProviderStore implements IModelProviderStore<Transaction
       )
       .returning(recordColumns)
       .executeTakeFirstOrThrow();
+  }
+
+  async deleteProvider(input: DeleteModelProviderInput, transaction?: Transaction<Database>): Promise<boolean> {
+    const db = transaction ?? this.#db;
+    const result = await db
+      .deleteFrom('model_provider')
+      .where('tenant_id', '=', input.tenant_id)
+      .where('name', '=', input.name)
+      .executeTakeFirst();
+    return result.numDeletedRows > 0n;
   }
 
   async listModels(input: ListModelProvidersInput, transaction?: Transaction<Database>): Promise<AvailableModel[]> {

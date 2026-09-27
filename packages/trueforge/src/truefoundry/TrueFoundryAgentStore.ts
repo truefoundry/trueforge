@@ -2,6 +2,7 @@ import type { AgentSpec, TokenPagination } from '@truefoundry/trueforge-core/age
 import { sql, type Kysely, type Transaction } from 'kysely';
 import type { RequestContext } from '../auth/identity';
 import {
+  type AgentCatalogUsageRow,
   type AgentExternalIdRow,
   type AgentRecord,
   type CreateAgentInput,
@@ -10,6 +11,7 @@ import {
   type GetExternalIdsByIdsInput,
   type GetOwnedIdsInput,
   type IAgentStore,
+  type ListAgentCatalogUsageInput,
   type ListAgentsInput,
   type UpdateAgentInput,
 } from '../db/agentStore';
@@ -113,6 +115,13 @@ export class TrueFoundryAgentStore implements IAgentStore<Transaction<Database>>
 
   getAgent(input: GetAgentInput, transaction?: Transaction<Database>): Promise<AgentRecord | undefined> {
     return this.#inner.getAgent(input, transaction);
+  }
+
+  listAgentCatalogUsage(
+    input: ListAgentCatalogUsageInput,
+    transaction?: Transaction<Database>,
+  ): Promise<readonly AgentCatalogUsageRow[]> {
+    return this.#inner.listAgentCatalogUsage(input, transaction);
   }
 
   // Takes a Postgres transaction advisory lock for this tenant + agent id so concurrent

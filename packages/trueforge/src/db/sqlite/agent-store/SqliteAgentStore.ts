@@ -14,6 +14,8 @@ import {
   AgentExternalIdConflictError,
   AgentNameConflictError,
   parseStoredAgentSpec,
+  type AgentCatalogEntity,
+  type AgentCatalogUsageRow,
   type AgentExternalIdRow,
   type AgentRecord,
   type CreateAgentInput,
@@ -22,6 +24,7 @@ import {
   type GetExternalIdsByIdsInput,
   type GetOwnedIdsInput,
   type IAgentStore,
+  type ListAgentCatalogUsageInput,
   type ListAgentsInput,
   type UpdateAgentInput,
 } from '../../agentStore';
@@ -60,6 +63,39 @@ function toRecord(row: {
     manifest: parseStoredAgentSpec(row.manifest),
     created_by_subject: CreatedBySubjectSchema.parse(row.created_by_subject),
   };
+}
+
+/**
+ * Every `(agent, referenced name)` pair a manifest exposes for one entity kind.
+ * A provider is referenced through the segment of `model.name` before the first `/`; the
+ * appended separator keeps `instr` from returning 0 when a stored name has no `/`.
+ */
+function catalogUsagePairs({ entity, tenant_id }: { entity: AgentCatalogEntity; tenant_id: string }) {
+  switch (entity) {
+    case 'model_provider':
+      return sql`
+        SELECT name AS agent_name,
+          substr(
+            json_extract(manifest, '$.model.name'),
+            1,
+            instr(json_extract(manifest, '$.model.name') || '/', '/') - 1
+          ) AS reference_name
+        FROM agent WHERE tenant_id = ${tenant_id}`;
+    case 'model':
+      return sql`
+        SELECT name AS agent_name, json_extract(manifest, '$.model.name') AS reference_name
+        FROM agent WHERE tenant_id = ${tenant_id}`;
+    case 'mcp_server':
+      return sql`
+        SELECT agent.name AS agent_name, json_extract(entry.value, '$.name') AS reference_name
+        FROM agent, json_each(agent.manifest, '$.mcp_servers') AS entry
+        WHERE tenant_id = ${tenant_id}`;
+    case 'skill':
+      return sql`
+        SELECT agent.name AS agent_name, json_extract(entry.value, '$.name') AS reference_name
+        FROM agent, json_each(agent.manifest, '$.skills') AS entry
+        WHERE tenant_id = ${tenant_id}`;
+  }
 }
 
 export class SqliteAgentStore implements IAgentStore<Transaction<Database>> {
@@ -211,6 +247,23 @@ export class SqliteAgentStore implements IAgentStore<Transaction<Database>> {
   async deleteAgent(input: DeleteAgentInput, transaction?: Transaction<Database>): Promise<void> {
     const db = transaction ?? this.#db;
     await db.deleteFrom('agent').where('tenant_id', '=', input.tenant_id).where('id', '=', input.id).execute();
+  }
+
+  async listAgentCatalogUsage(
+    input: ListAgentCatalogUsageInput,
+    transaction?: Transaction<Database>,
+  ): Promise<readonly AgentCatalogUsageRow[]> {
+    if (input.names.length === 0) {
+      return [];
+    }
+    const db = transaction ?? this.#db;
+    const wanted = sql.join(input.names.map(name => sql`${name}`));
+    const { rows } = await sql<AgentCatalogUsageRow>`
+      SELECT agent_name, reference_name
+      FROM (${catalogUsagePairs({ entity: input.entity, tenant_id: input.tenant_id })})
+      WHERE reference_name IN (${wanted})
+      ORDER BY agent_name`.execute(db);
+    return rows;
   }
 
   /** Map unique violations to external_id vs name conflicts. */

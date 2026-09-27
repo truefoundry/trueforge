@@ -4,6 +4,7 @@ import type { AgentRecord } from '../db/agentStore';
 import {
   flattenProviderModels,
   type CreateModelProviderInput,
+  type DeleteModelProviderInput,
   type GetModelProviderForUpdateInput,
   type GetModelProviderInput,
   type IModelProviderStore,
@@ -77,6 +78,12 @@ export class TrueFoundryModelProviderStore<TTransaction = never> implements IMod
   }
 
   upsertProvider(input: UpsertModelProviderInput, transaction?: TTransaction): Promise<ModelProviderRecord> {
+    void input;
+    void transaction;
+    return trueFoundryManaged();
+  }
+
+  deleteProvider(input: DeleteModelProviderInput, transaction?: TTransaction): Promise<boolean> {
     void input;
     void transaction;
     return trueFoundryManaged();

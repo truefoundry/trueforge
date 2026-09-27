@@ -3,12 +3,14 @@ import {
   decodeOffsetPageToken,
   paginateOffsetRows,
 } from '@truefoundry/trueforge-core/agent-session/store/OffsetPageToken';
-import { sql, type Kysely, type Selectable, type Transaction } from 'kysely';
+import { sql, type Kysely, type RawBuilder, type Selectable, type Transaction } from 'kysely';
 import { newId } from '../../../utils/id';
 import {
   AgentExternalIdConflictError,
   AgentNameConflictError,
   parseStoredAgentSpec,
+  type AgentCatalogEntity,
+  type AgentCatalogUsageRow,
   type AgentExternalIdRow,
   type AgentRecord,
   type CreateAgentInput,
@@ -17,6 +19,7 @@ import {
   type GetExternalIdsByIdsInput,
   type GetOwnedIdsInput,
   type IAgentStore,
+  type ListAgentCatalogUsageInput,
   type ListAgentsInput,
   type UpdateAgentInput,
 } from '../../agentStore';
@@ -55,6 +58,40 @@ function throwAgentUniqueViolation({
     throw new AgentExternalIdConflictError({ tenant_id, external_id }, { cause: error });
   }
   throw new AgentNameConflictError({ tenant_id, name }, { cause: error });
+}
+
+/** `jsonb_array_elements` rejects anything but an array, so absent/null keys read as empty. */
+function jsonArray(path: RawBuilder<unknown>) {
+  return sql`CASE WHEN jsonb_typeof(${path}) = 'array' THEN ${path} ELSE '[]'::jsonb END`;
+}
+
+/**
+ * Every `(agent, referenced name)` pair a manifest exposes for one entity kind.
+ * A provider is referenced through the segment of `model.name` before the first `/`.
+ */
+function catalogUsagePairs({ entity, tenant_id }: { entity: AgentCatalogEntity; tenant_id: string }) {
+  switch (entity) {
+    case 'model_provider':
+      return sql`
+        SELECT name AS agent_name, split_part(manifest->'model'->>'name', '/', 1) AS reference_name
+        FROM agent WHERE tenant_id = ${tenant_id}`;
+    case 'model':
+      return sql`
+        SELECT name AS agent_name, manifest->'model'->>'name' AS reference_name
+        FROM agent WHERE tenant_id = ${tenant_id}`;
+    case 'mcp_server':
+      return sql`
+        SELECT agent.name AS agent_name, entry.value->>'name' AS reference_name
+        FROM agent
+        CROSS JOIN LATERAL jsonb_array_elements(${jsonArray(sql`manifest->'mcp_servers'`)}) AS entry(value)
+        WHERE tenant_id = ${tenant_id}`;
+    case 'skill':
+      return sql`
+        SELECT agent.name AS agent_name, entry.value->>'name' AS reference_name
+        FROM agent
+        CROSS JOIN LATERAL jsonb_array_elements(${jsonArray(sql`manifest->'skills'`)}) AS entry(value)
+        WHERE tenant_id = ${tenant_id}`;
+  }
 }
 
 export class PostgresAgentStore implements IAgentStore<Transaction<Database>> {
@@ -204,5 +241,22 @@ export class PostgresAgentStore implements IAgentStore<Transaction<Database>> {
   async deleteAgent(input: DeleteAgentInput, transaction?: Transaction<Database>): Promise<void> {
     const db = transaction ?? this.#db;
     await db.deleteFrom('agent').where('tenant_id', '=', input.tenant_id).where('id', '=', input.id).execute();
+  }
+
+  async listAgentCatalogUsage(
+    input: ListAgentCatalogUsageInput,
+    transaction?: Transaction<Database>,
+  ): Promise<readonly AgentCatalogUsageRow[]> {
+    if (input.names.length === 0) {
+      return [];
+    }
+    const db = transaction ?? this.#db;
+    const wanted = sql.join(input.names.map(name => sql`${name}`));
+    const { rows } = await sql<AgentCatalogUsageRow>`
+      SELECT agent_name, reference_name
+      FROM (${catalogUsagePairs({ entity: input.entity, tenant_id: input.tenant_id })}) AS agent_usage
+      WHERE reference_name IN (${wanted})
+      ORDER BY agent_name`.execute(db);
+    return rows;
   }
 }

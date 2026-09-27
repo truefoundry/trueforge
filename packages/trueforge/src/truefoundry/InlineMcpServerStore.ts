@@ -3,6 +3,7 @@ import type {
   AuthorizeMcpServerInput,
   CreateMcpServerInput,
   DeleteMcpAuthorizationInput,
+  DeleteMcpServerInput,
   GetMcpServerInput,
   IMcpServerWithAuthStore,
   ListMcpServersInput,
@@ -89,6 +90,10 @@ export class InlineMcpServerStore<TTransaction = never> implements IMcpServerWit
 
   upsertServer(input: UpsertMcpServerInput, transaction?: TTransaction): Promise<McpServerRecord> {
     return this.#inner.upsertServer(input, transaction);
+  }
+
+  deleteServer(input: DeleteMcpServerInput, transaction?: TTransaction): Promise<boolean> {
+    return this.#inner.deleteServer(input, transaction);
   }
 
   authorize(input: AuthorizeMcpServerInput): Promise<McpAuthStatus> {

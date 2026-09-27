@@ -1,15 +1,32 @@
+import { AgentSpecSchema } from '@truefoundry/trueforge-core/agent-session';
 import { createCatalogRouter } from '../../../src/apis/catalog';
 import { createAvailableSkillsRouter, createSkillsRouter } from '../../../src/apis/skills';
-import { STANDALONE_REQUEST_CONTEXT } from '../../../src/auth/identity';
+import { createdBySubjectFromRequestContext, STANDALONE_REQUEST_CONTEXT } from '../../../src/auth/identity';
 import { McpCatalog } from '../../../src/catalog/McpCatalog';
 import { ModelCatalog } from '../../../src/catalog/ModelCatalog';
 import { SandboxCatalog } from '../../../src/catalog/SandboxCatalog';
 import { SkillCatalog } from '../../../src/catalog/SkillCatalog';
 import { WebSearchCatalog } from '../../../src/catalog/WebSearchCatalog';
+import type { IAgentStore } from '../../../src/db/agentStore';
 import { migrateSqliteToLatest } from '../../../src/db/migrateSqlite';
+import { SqliteAgentStore } from '../../../src/db/sqlite/agent-store/SqliteAgentStore';
 import { createSqliteDb } from '../../../src/db/sqlite/client';
 import { SqliteSkillStore } from '../../../src/db/sqlite/skill-store/SqliteSkillStore';
 import { TRUEFOUNDRY_MANAGED_MESSAGE, trueFoundryManaged } from '../../../src/truefoundry/errors';
+
+/** Stand-in for the delete pre-check in tests that are not exercising agent usage. */
+function noAgentsUsingCatalog(): IAgentStore {
+  return {
+    listAgents: jest.fn(),
+    getOwnedIds: jest.fn(),
+    getExternalIdsByIds: jest.fn(),
+    getAgent: jest.fn(),
+    createAgent: jest.fn(),
+    updateAgent: jest.fn(),
+    deleteAgent: jest.fn(),
+    listAgentCatalogUsage: jest.fn().mockResolvedValue([]),
+  };
+}
 
 const putBody = {
   type: 'git' as const,
@@ -48,13 +65,16 @@ describe('skills routers', () => {
   let settingsRouter: ReturnType<typeof createSkillsRouter>;
   let catalogRouter: ReturnType<typeof createCatalogRouter>;
   let availableRouter: ReturnType<typeof createAvailableSkillsRouter>;
+  let agentStore: SqliteAgentStore;
 
   beforeAll(async () => {
     const db = createSqliteDb(':memory:');
     await migrateSqliteToLatest(db);
     const skillStore = new SqliteSkillStore(db);
+    agentStore = new SqliteAgentStore(db);
     settingsRouter = createSkillsRouter({
       resolveSkillStore: () => skillStore,
+      resolveAgentStore: () => agentStore,
       withTransaction: callback => db.transaction().execute(callback),
       resolveRequestContext: () => STANDALONE_REQUEST_CONTEXT,
     });
@@ -143,6 +163,7 @@ describe('skills routers', () => {
       ]),
       createSkill: jest.fn(),
       upsertSkill: jest.fn(),
+      deleteSkill: jest.fn(),
       listSkillVersions: jest.fn(),
       validateAgentSkills: jest.fn(),
       resolveTurnSkills: jest.fn(),
@@ -190,12 +211,14 @@ describe('skills routers', () => {
       listSkills: jest.fn(),
       createSkill: jest.fn().mockResolvedValue(record),
       upsertSkill: jest.fn().mockResolvedValue(record),
+      deleteSkill: jest.fn(),
       listSkillVersions: jest.fn(),
       validateAgentSkills: jest.fn(),
       resolveTurnSkills: jest.fn(),
     };
     const router = createSkillsRouter({
       resolveSkillStore: () => managedStore,
+      resolveAgentStore: noAgentsUsingCatalog,
       withTransaction: async callback => callback(undefined as never),
       resolveRequestContext: () => STANDALONE_REQUEST_CONTEXT,
     });
@@ -229,12 +252,14 @@ describe('skills routers', () => {
       listSkills: jest.fn(),
       createSkill: jest.fn(() => trueFoundryManaged()),
       upsertSkill: jest.fn(() => trueFoundryManaged()),
+      deleteSkill: jest.fn(() => trueFoundryManaged()),
       listSkillVersions: jest.fn(),
       validateAgentSkills: jest.fn(),
       resolveTurnSkills: jest.fn(),
     };
     const router = createSkillsRouter({
       resolveSkillStore: () => managedStore,
+      resolveAgentStore: noAgentsUsingCatalog,
       withTransaction: async callback => callback(undefined as never),
       resolveRequestContext: () => STANDALONE_REQUEST_CONTEXT,
     });
@@ -246,6 +271,55 @@ describe('skills routers', () => {
     const put = await router.request('/', putInit(wrapManifest(registryManifest)));
     expect(put.status).toBe(424);
     expect(await put.text()).toBe(TRUEFOUNDRY_MANAGED_MESSAGE);
+
+    const removed = await router.request('/echo', { method: 'DELETE' });
+    expect(removed.status).toBe(424);
+    expect(await removed.text()).toBe(TRUEFOUNDRY_MANAGED_MESSAGE);
+  });
+
+  describe('DELETE /{name}', () => {
+    const disposable = { ...putBody, name: 'disposable-skill', path: 'skills/disposable' };
+
+    beforeEach(async () => {
+      await settingsRouter.request('/', putInit(wrapManifest(disposable)));
+    });
+
+    it('removes an unused skill', async () => {
+      const response = await settingsRouter.request(`/${disposable.name}`, { method: 'DELETE' });
+      expect(response.status).toBe(200);
+      expect(await response.json()).toEqual({});
+
+      const list = (await (await settingsRouter.request('/')).json()) as { data: { name: string }[] };
+      expect(list.data.map(skill => skill.name)).not.toContain(disposable.name);
+    });
+
+    it('returns 404 for an unknown skill', async () => {
+      const missing = await settingsRouter.request('/missing', { method: 'DELETE' });
+      expect(missing.status).toBe(404);
+      expect(await missing.json()).toEqual({ error: { message: 'Skill not found: missing' } });
+    });
+
+    it('returns 409 naming the agents that still list the skill', async () => {
+      await agentStore.createAgent({
+        tenant_id: 'default',
+        created_by_subject: createdBySubjectFromRequestContext(STANDALONE_REQUEST_CONTEXT),
+        name: 'skill-user',
+        description: 'Test agent.',
+        manifest: AgentSpecSchema.parse({
+          model: { name: 'anthropic/claude-sonnet-4-6' },
+          skills: [{ name: disposable.name }],
+        }),
+        external_id: null,
+      });
+
+      const blocked = await settingsRouter.request(`/${disposable.name}`, { method: 'DELETE' });
+      expect(blocked.status).toBe(409);
+      expect(await blocked.json()).toEqual({
+        error: {
+          message: 'Still in use — skill "disposable-skill" is used by agent skill-user. Delete those agents first.',
+        },
+      });
+    });
   });
 
   it('PUT rejects invalid bodies at the Zod layer', async () => {

@@ -11,6 +11,7 @@ import configuration from '../../../src/config';
 import { McpServerWithAuthStore } from '../../../src/db/McpServerWithAuthStore';
 import type { IMcpServerWithAuthStore } from '../../../src/db/mcpServerStore';
 import { migrateSqliteToLatest } from '../../../src/db/migrateSqlite';
+import { SqliteAgentStore } from '../../../src/db/sqlite/agent-store/SqliteAgentStore';
 import { createSqliteDb } from '../../../src/db/sqlite/client';
 import { SqliteMcpServerStore } from '../../../src/db/sqlite/mcp-server-store/SqliteMcpServerStore';
 import { SqliteOAuthTokenStore } from '../../../src/db/sqlite/token-store/SqliteOAuthTokenStore';
@@ -112,6 +113,7 @@ describe('MCP OAuth authorize + callback', () => {
     logger = winston.createLogger({ silent: true });
     settingsRouter = createSettingsMcpServersRouter({
       resolveMcpServerStore: () => mcpServerStore,
+      resolveAgentStore: () => new SqliteAgentStore(db),
       tokenStore,
       withTransaction,
       logger,

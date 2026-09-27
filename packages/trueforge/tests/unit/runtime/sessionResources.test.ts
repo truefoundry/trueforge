@@ -500,6 +500,9 @@ describe('validateAgentSpec', () => {
       upsertSkill: async () => {
         throw new Error('unused');
       },
+      deleteSkill: async () => {
+        throw new Error('unused');
+      },
       listSkillVersions: async () => [],
       async validateAgentSkills(input) {
         return validateGitAgentSkills(this, input);
