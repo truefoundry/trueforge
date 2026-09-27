@@ -351,6 +351,10 @@ providers:
         properties:
           context_length: 1000000
           max_output_tokens: 131072
+          reasoning_efforts:
+            - low
+            - high
+            - max
   - type: moonshot
     logo: https://assets.production.truefoundry.com/moonshot.png
     models:
@@ -427,11 +431,6 @@ providers:
             - high
             - xhigh
             - max
-      - model_id: qwen3.8-max-prime
-        name: qwen3-8-max-prime
-        properties:
-          context_length: 1000000
-          max_output_tokens: 131072
   - type: together
     logo: https://assets.production.truefoundry.com/togetherai.svg
     models:
