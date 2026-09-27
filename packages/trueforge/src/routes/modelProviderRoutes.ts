@@ -3,15 +3,21 @@
  * Discovery catalog lives at GET /api/v1/catalogs/model-providers.
  * Handlers are registered in apis/modelProviders.ts.
  */
-import { createRoute } from '@hono/zod-openapi';
+import { createRoute, z } from '@hono/zod-openapi';
+import { NameSchema } from '../schemas/common';
 import { RequestErrorResponseSchema } from '../schemas/errors';
 import {
   CreateModelProviderRequestSchema,
+  DeleteModelProviderResponseSchema,
   GetModelProviderResponseSchema,
   ListModelProvidersResponseSchema,
   UpdateModelProviderRequestSchema,
 } from '../schemas/modelProvider';
 import { OpenApiTag } from './openapiTags';
+
+const ModelProviderNameParamsSchema = z.object({
+  name: NameSchema.describe('Model provider name.'),
+});
 
 export const listModelProvidersRoute = createRoute({
   method: 'get',
@@ -97,6 +103,37 @@ export const putModelProviderRoute = createRoute({
     400: {
       content: { 'application/json': { schema: RequestErrorResponseSchema } },
       description: 'Invalid request body, or redacted API key with no stored secret to keep.',
+    },
+    424: {
+      content: { 'application/json': { schema: RequestErrorResponseSchema } },
+      description: 'Unsupported operation because the model providers are managed by external system',
+    },
+  },
+});
+
+export const deleteModelProviderRoute = createRoute({
+  method: 'delete',
+  path: '/{name}',
+  tags: [OpenApiTag.MODELS],
+  summary: 'Delete a model provider',
+  description: 'Delete a configured model provider by name. Idempotent if already gone.',
+  'x-fern-sdk-group-name': ['settings', 'modelProviders'],
+  'x-fern-sdk-method-name': 'delete',
+  request: {
+    params: ModelProviderNameParamsSchema,
+  },
+  responses: {
+    200: {
+      content: { 'application/json': { schema: DeleteModelProviderResponseSchema } },
+      description: 'Model provider deleted.',
+    },
+    401: {
+      content: { 'application/json': { schema: RequestErrorResponseSchema } },
+      description: 'OIDC is configured and the request has no valid session cookie.',
+    },
+    403: {
+      content: { 'application/json': { schema: RequestErrorResponseSchema } },
+      description: 'OIDC is configured and the caller is authenticated but not an admin.',
     },
     424: {
       content: { 'application/json': { schema: RequestErrorResponseSchema } },

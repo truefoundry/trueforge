@@ -31,6 +31,11 @@ export interface GetModelProviderForUpdateInput {
   name: string;
 }
 
+export interface DeleteModelProviderInput {
+  tenant_id: string;
+  name: string;
+}
+
 export interface CreateModelProviderInput {
   tenant_id: string;
   /** Derived from the document by `modelProviderName`, never chosen by the caller. */
@@ -70,6 +75,8 @@ export interface IModelProviderStore<TTransaction = never> {
   createProvider(input: CreateModelProviderInput, transaction?: TTransaction): Promise<ModelProviderRecord>;
   /** Single-row write: creates the provider or replaces the whole manifest (models included). */
   upsertProvider(input: UpsertModelProviderInput, transaction?: TTransaction): Promise<ModelProviderRecord>;
+  /** Idempotent when the provider is already gone. */
+  deleteProvider(input: DeleteModelProviderInput, transaction?: TTransaction): Promise<void>;
   /** Flattens manifests into the FQN read view for GET /models. */
   listModels(input: ListModelProvidersInput, transaction?: TTransaction): Promise<AvailableModel[]>;
 }

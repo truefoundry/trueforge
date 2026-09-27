@@ -498,3 +498,35 @@ describe('catalog presets are configurable', () => {
     expect(json.data.manifest.auth.api_key).toBe(toRedactedSecretValue(`sk-${preset.type}`));
   });
 });
+
+describe('model provider delete', () => {
+  it('DELETE removes the provider and its models from the read view', async () => {
+    const { settingsRouter, modelsRouter } = await createRouters();
+    expect((await settingsRouter.request('/model-providers', putInit(anthropicBody))).status).toBe(200);
+
+    const deleted = await settingsRouter.request('/model-providers/anthropic', { method: 'DELETE' });
+    expect(deleted.status).toBe(200);
+    expect(await deleted.json()).toEqual({});
+
+    const list = await settingsRouter.request('/model-providers');
+    expect(list.status).toBe(200);
+    expect(await list.json()).toEqual({ data: [] });
+
+    const models = await modelsRouter.request('/');
+    expect(models.status).toBe(200);
+    expect(await models.json()).toEqual({ data: [] });
+  });
+
+  it('DELETE is idempotent for unknown providers', async () => {
+    const { settingsRouter } = await createRouters();
+    const deleted = await settingsRouter.request('/model-providers/anthropic', { method: 'DELETE' });
+    expect(deleted.status).toBe(200);
+    expect(await deleted.json()).toEqual({});
+  });
+
+  it('DELETE validates the name against the resource-name schema', async () => {
+    const { settingsRouter } = await createRouters();
+    const deleted = await settingsRouter.request('/model-providers/a', { method: 'DELETE' });
+    expect(deleted.status).toBe(400);
+  });
+});

@@ -120,6 +120,21 @@ export function runModelProviderStoreContractSuite(getStore: () => IModelProvide
     expect(manifest.base_url).toBe('https://llm.internal.example.com/v1');
   });
 
+  it('deleteProvider removes only the named provider in the tenant and is idempotent', async () => {
+    const store = getStore();
+    await store.upsertProvider({ tenant_id: TENANT, name: 'anthropic', manifest: anthropic });
+    await store.upsertProvider({ tenant_id: TENANT, name: 'openai', manifest: openai });
+    await store.upsertProvider({ tenant_id: 'other-tenant', name: 'anthropic', manifest: anthropic });
+
+    await expect(store.deleteProvider({ tenant_id: TENANT, name: 'anthropic' })).resolves.toBeUndefined();
+    await expect(store.deleteProvider({ tenant_id: TENANT, name: 'anthropic' })).resolves.toBeUndefined();
+
+    expect((await store.listProviders({ tenant_id: TENANT })).map(record => record.name)).toEqual(['openai']);
+    expect((await store.listProviders({ tenant_id: 'other-tenant' })).map(record => record.name)).toEqual([
+      'anthropic',
+    ]);
+  });
+
   it('listModels flattens documents into fully qualified names', async () => {
     const store = getStore();
     await store.upsertProvider({ tenant_id: TENANT, name: 'anthropic', manifest: anthropic });
