@@ -1,6 +1,7 @@
 import { HTTPException } from 'hono/http-exception';
 import type { IMcpServerWithAuthStore, McpServerRecord } from '../../../src/db/mcpServerStore';
 import type { ISkillStore, SkillRecord } from '../../../src/db/skillStore';
+import { TFG_METADATA_PREFIX, X_TFY_METADATA } from '../../../src/truefoundry/gatewayMetadata';
 import { InlineMcpServerStore } from '../../../src/truefoundry/InlineMcpServerStore';
 import { parseInlineMcpServers, parseInlineSkills } from '../../../src/truefoundry/inlineResources';
 import { InlineSkillStore } from '../../../src/truefoundry/InlineSkillStore';
@@ -122,6 +123,34 @@ describe('InlineMcpServerStore', () => {
 
     expect(store.resolveInvokeHeaders({ record, userRef: 'user-1' })).toEqual({
       Authorization: 'Bearer saas-token',
+    });
+  });
+
+  it('stamps x-tfy-metadata on inline invokes when turnMetadata is present', () => {
+    const { store } = mcpStoreWith({ 'docs-mcp': DOCS_MCP });
+    const record = { ...registryServer, name: 'docs-mcp' };
+
+    const headers = store.resolveInvokeHeaders({
+      record,
+      userRef: 'user-1',
+      turnMetadata: {
+        sessionId: 'sess-1',
+        turnId: 'turn-1',
+        agent: { id: 'agent-1', name: 'named' },
+        requestHeaders: { 'x-tfy-metadata': JSON.stringify({ env: 'prod' }) },
+      },
+    });
+
+    expect(headers).toEqual({
+      Authorization: 'Bearer saas-token',
+      [X_TFY_METADATA]: expect.any(String),
+    });
+    expect(JSON.parse((headers as Record<string, string>)[X_TFY_METADATA] ?? '')).toMatchObject({
+      env: 'prod',
+      [`${TFG_METADATA_PREFIX}.session_id`]: 'sess-1',
+      [`${TFG_METADATA_PREFIX}.turn_id`]: 'turn-1',
+      [`${TFG_METADATA_PREFIX}.agent_id`]: 'agent-1',
+      [`${TFG_METADATA_PREFIX}.agent_name`]: 'named',
     });
   });
 

@@ -10,8 +10,10 @@ import type {
   ResolveMcpAuthStatusesInput,
   UpsertMcpServerInput,
 } from '../db/mcpServerStore';
+import type { TurnMetadata } from '../db/turnMetadata';
 import type { OAuthClientRecord } from '../mcp/auth/types';
 import { resolveConfiguredMcpRequestHeaders, resolveMcpAuthStatus, type McpAuthStatus } from '../schemas/mcpServer';
+import { gatewayMetadataHeadersForTurn } from './gatewayMetadata';
 import type { InlineMcpServers } from './inlineResources';
 
 /**
@@ -34,13 +36,22 @@ export class InlineMcpServerStore<TTransaction = never> implements IMcpServerWit
   /**
    * The manifest carries its own credentials, so they go to the upstream as written — no caller
    * bearer is added and nothing is stripped. That is what lets a token rotate per request.
+   * When mid-turn, still stamp `x-tfy-metadata` the same way registry TrueFoundry invokes do.
    */
-  resolveInvokeHeaders(input: { record: McpServerRecord; userRef: string }): RemoteMcpHeaders {
+  resolveInvokeHeaders(input: {
+    record: McpServerRecord;
+    userRef: string;
+    turnMetadata?: TurnMetadata;
+  }): RemoteMcpHeaders {
     const manifest = this.#inline[input.record.name];
     if (manifest === undefined) {
       return this.#inner.resolveInvokeHeaders(input);
     }
-    return resolveConfiguredMcpRequestHeaders(manifest);
+    const configured = resolveConfiguredMcpRequestHeaders(manifest);
+    if (input.turnMetadata === undefined) {
+      return configured;
+    }
+    return { ...configured, ...gatewayMetadataHeadersForTurn(input.turnMetadata) };
   }
 
   async getServer(input: GetMcpServerInput, transaction?: TTransaction): Promise<McpServerRecord | undefined> {
