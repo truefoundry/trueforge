@@ -7,23 +7,8 @@ on:
 permissions: {}
 
 jobs:
-  resolve:
-    name: Resolve APP_VERSION
-    runs-on: ubuntu-latest
-    permissions:
-      contents: read
-    outputs:
-      app_version: ${{ steps.app.outputs.app_version }}
-    steps:
-      - uses: actions/checkout@v7
-      - id: app
-        run: |
-          APP_VERSION=$(yq -r '.appVersion' charts/trueforge/Chart.yaml)
-          echo "app_version=$APP_VERSION" >> "$GITHUB_OUTPUT"
-
   upload-grype:
     name: Upload Grype results
-    needs: [resolve]
     runs-on: ubuntu-latest
     permissions:
       actions: read
@@ -43,7 +28,6 @@ jobs:
           platforms: linux/amd64
           provenance: false
           tags: trueforge:grype-report
-          build-args: APP_VERSION=${{ needs.resolve.outputs.app_version }}
 
       - name: Scan image
         id: scan
