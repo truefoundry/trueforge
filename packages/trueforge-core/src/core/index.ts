@@ -197,6 +197,8 @@ export { existingSandboxIdForProvider, formatSandboxId, parseSandboxId, rawSandb
 export type { SandboxRefParts } from './sandbox/sandboxRef';
 
 // Web search
+export { ExaWebSearchProvider } from './web-search/ExaWebSearchProvider';
+export type { ExaWebSearchProviderOptions } from './web-search/ExaWebSearchProvider';
 export { ParallelWebSearchProvider } from './web-search/ParallelWebSearchProvider';
 export type { ParallelSearchMode, ParallelWebSearchProviderOptions } from './web-search/ParallelWebSearchProvider';
 export { WebSearchProviders } from './web-search/WebSearchProvider';

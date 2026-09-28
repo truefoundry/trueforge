@@ -30,12 +30,14 @@ function resolveWebSearchProviderManifestForWrite({
   incoming: WebSearchProviderManifest;
   existing: WebSearchProviderManifest | undefined;
 }): WebSearchProviderManifest {
+  // A stored key belongs to its provider; it must not carry over when the type changes.
+  const existingApiKey = existing?.type === incoming.type ? existing.auth.api_key : undefined;
   return {
     ...incoming,
     auth: {
       api_key: resolveStoredSecretValue({
         incoming: incoming.auth.api_key,
-        existing: existing?.auth.api_key,
+        existing: existingApiKey,
       }),
     },
   };

@@ -1,6 +1,7 @@
 /** Supported host web-search backends (env `TRUEFOUNDRY_WEB_SEARCH_PROVIDER.name`). */
 export enum WebSearchProviders {
   Parallel = 'parallel',
+  Exa = 'exa',
 }
 
 /** One search hit in the provider-normalized shape. */
