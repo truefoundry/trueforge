@@ -54,12 +54,12 @@ const mountedSpec: AgentSpec = {
 };
 
 describe('AgentMcpEditorContent tool approvals', () => {
-  it('marks only destructive tools as approval-gated by default', () => {
+  it('marks write and destructive tools as approval-gated by default', () => {
     renderEditor({ spec: mountedSpec, onChange: vi.fn() });
 
     expect(screen.getByRole('button', { name: 'Require approval for rename_item' })).toHaveAttribute(
       'aria-pressed',
-      'false',
+      'true',
     );
     expect(screen.getByRole('button', { name: 'Require approval for delete_item' })).toHaveAttribute(
       'aria-pressed',
@@ -111,7 +111,15 @@ describe('AgentMcpEditorContent tool approvals', () => {
 
   it('writes an empty list when the last gated tool is set to auto-run', () => {
     const onChange = vi.fn();
-    renderEditor({ spec: mountedSpec, onChange });
+    renderEditor({
+      spec: {
+        model: { name: 'openai/gpt' },
+        mcpServers: [
+          { id: 'linear', name: 'Linear', enableTools: ['@all'], requireApprovalForTools: ['@destructive'] },
+        ],
+      },
+      onChange,
+    });
 
     fireEvent.click(screen.getByRole('button', { name: 'Require approval for delete_item' }));
 
@@ -126,12 +134,14 @@ describe('AgentMcpEditorContent tool approvals', () => {
     renderEditor({
       spec: {
         model: { name: 'openai/gpt' },
-        mcpServers: [{ id: 'linear', name: 'Linear', enableTools: ['@all'], requireApprovalForTools: [] }],
+        mcpServers: [
+          { id: 'linear', name: 'Linear', enableTools: ['@all'], requireApprovalForTools: ['@destructive'] },
+        ],
       },
       onChange,
     });
 
-    fireEvent.click(screen.getByRole('button', { name: 'Require approval for delete_item' }));
+    fireEvent.click(screen.getByRole('button', { name: 'Require approval for rename_item' }));
 
     expect(onChange).toHaveBeenCalledWith({
       model: { name: 'openai/gpt' },
@@ -153,11 +163,11 @@ describe('AgentMcpEditorContent tool approvals', () => {
 
     expect(onChange).toHaveBeenCalledWith({
       model: { name: 'openai/gpt' },
-      mcpServers: [{ id: 'linear', name: 'Linear', enableTools: ['@all'] }],
+      mcpServers: [{ id: 'linear', name: 'Linear', enableTools: ['@all'], requireApprovalForTools: ['@destructive'] }],
     });
   });
 
-  it('starts the destructive section toggle on and clears approval when switched off', () => {
+  it('starts the destructive section toggle on and keeps write tools gated when switched off', () => {
     const onChange = vi.fn();
     renderEditor({ spec: mountedSpec, onChange });
     const toggle = screen.getByRole('switch', { name: 'Require approval for all destructive tools' });
@@ -167,7 +177,7 @@ describe('AgentMcpEditorContent tool approvals', () => {
 
     expect(onChange).toHaveBeenCalledWith({
       model: { name: 'openai/gpt' },
-      mcpServers: [{ id: 'linear', name: 'Linear', enableTools: ['@all'], requireApprovalForTools: [] }],
+      mcpServers: [{ id: 'linear', name: 'Linear', enableTools: ['@all'], requireApprovalForTools: ['@write'] }],
     });
   });
 
@@ -244,8 +254,8 @@ describe('AgentMcpEditorContent tool approvals', () => {
     });
 
     expect(screen.getByText('Selected Tools (3)')).toBeInTheDocument();
-    expect(screen.getByText('3 selected · 1 need approval')).toBeInTheDocument();
-    expect(screen.getAllByText('approval')).toHaveLength(1);
+    expect(screen.getByText('3 selected · 2 need approval')).toBeInTheDocument();
+    expect(screen.getAllByText('approval')).toHaveLength(2);
   });
 
   it('enables every tool in a section from its Enable all switch', () => {
@@ -260,7 +270,7 @@ describe('AgentMcpEditorContent tool approvals', () => {
     });
   });
 
-  it('turns approval off when selecting an Other tool even if the mount still gates @write', () => {
+  it('keeps write approval when selecting an Other tool under the harness default', () => {
     const onChange = vi.fn();
     renderEditor({
       spec: {
@@ -305,7 +315,14 @@ describe('AgentMcpEditorContent tool approvals', () => {
 
     expect(onChange).toHaveBeenCalledWith({
       model: { name: 'openai/gpt' },
-      mcpServers: [{ id: 'linear', name: 'Linear', enableTools: ['list_items', 'delete_item'] }],
+      mcpServers: [
+        {
+          id: 'linear',
+          name: 'Linear',
+          enableTools: ['list_items', 'delete_item'],
+          requireApprovalForTools: ['@destructive'],
+        },
+      ],
     });
   });
 });

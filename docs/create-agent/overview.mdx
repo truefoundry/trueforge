@@ -44,10 +44,10 @@ Each option below is part of the agent definition. The **Set in** line on each s
   <Accordion title="Tool approval" icon="user-shield">
     Some tool calls shouldn't run without a human's sign-off. **Tool approval** pauses the agent before such a call, shows the tool name and arguments, and resumes only after the user chooses **Allow** or **Deny** in the chat UI.
 
-    By default, the harness gates tools the MCP server marks **destructive** (`require_approval_for_tools` defaults to `["@destructive"]`). Read-only tools run autonomously. Add `@write` to also pause on tools the server marks as writes.
+    By default, the agent asks for approval before tools the MCP server marks as **write** or **destructive** (`require_approval_for_tools` defaults to `["@write", "@destructive"]`). Read-only tools run on their own.
 
     <Note>
-      `@write` and `@destructive` match only tools the server annotates. A tool with no annotations, or one the server marks read-only (`readOnlyHint: true`), matches neither tag and runs without approval — even when the call changes state. Most MCP servers omit annotations, so treating those tools as write or destructive would pause on every call. To require approval anyway, name the tool or set `require_approval_for_tools` to `@all`.
+      `@write` and `@destructive` only match tools the MCP server has labeled. Many servers skip labels, so those tools run without asking — even if they change data. To pause on a specific tool anyway, list it by name, or set `require_approval_for_tools` to `["@all"]`.
     </Note>
 
     <Frame caption="The chat UI pauses on a sensitive tool call with Allow / Deny.">
@@ -361,10 +361,10 @@ Optional array. Each entry attaches a [configured MCP server](/mcp-servers) by n
 | `enable_tools`               | `["@all"]`                   | API      | Tools exposed to the agent: `@all`, `@read-only`, or literal tool names.                                                         |
 | `disable_tools`              | `[]`                         | API      | Tools subtracted from the enabled set.                                                                                           |
 | `preload_tools`              | `[]`                         | API      | Tools loaded eagerly into context while the rest stay deferred.                                                                  |
-| `require_approval_for_tools` | `["@destructive"]`           | UI + API | Tools that pause for [human approval](#tool-approval): `@all`, `@write`, `@destructive`, or literal names.                   |
+| `require_approval_for_tools` | `["@write", "@destructive"]` | UI + API | Tools that pause for [human approval](#tool-approval): `@all`, `@write`, `@destructive`, or literal names.                   |
 | `preload`                    | `false`                      | UI + API | Load all tool schemas upfront instead of [on demand](/key-features/deferred-tool-loading).                                       |
 
-The `@read-only`, `@write`, and `@destructive` selectors are resolved from the tool annotations published by the MCP server. `@write` matches `readOnlyHint: false` when the tool is not destructive; `@destructive` matches `destructiveHint: true`. A tool with no annotations, or one the server marks read-only, matches neither selector and runs without an approval pause. Name the tool, or use `@all`, to gate it anyway.
+`@read-only`, `@write`, and `@destructive` follow the labels the MCP server puts on each tool. Unlabeled tools (and tools marked read-only) are not covered by `@write` / `@destructive`, so they run without an approval pause. Gate them by name, or use `@all`.
 
 ### `skills`
 

@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useRef, useState } from 'react';
+import { useState } from 'react';
 
 import { useMCPAuth } from '../../hooks/useMcpAuth.js';
 import { Icon } from '../../icons/Icon.js';
@@ -29,7 +29,6 @@ import {
   approvedToolNames,
   DEFAULT_APPROVAL_SELECTORS,
   namedToolRequiresApproval,
-  sameSelectors,
 } from './mcpToolApprovals.js';
 import {
   MCP_TOOL_SECTION_ENABLE_ALL_LABELS,
@@ -38,10 +37,7 @@ import {
   partitionMcpToolsBySection,
   type McpToolSectionId,
 } from './mcpToolSections.js';
-import { TOOL_TAG_DESTRUCTIVE, TOOL_TAG_WRITE, toolMatchesSelectors } from './mcpToolSelectors.js';
-
-/** Pre-change harness default; still present on mounts materialized before approval became destructive-only. */
-const LEGACY_APPROVAL_SELECTORS = [TOOL_TAG_WRITE, TOOL_TAG_DESTRUCTIVE] as const;
+import { toolMatchesSelectors } from './mcpToolSelectors.js';
 
 export type AgentMcpEditorContentProps = {
   spec: AgentSpec;
@@ -239,33 +235,6 @@ export function AgentMcpEditorContent({
       mcpServers: mcpMounts.map(item => (item.id === mountId ? value : item.value)),
     });
   };
-
-  // Specs saved under the old default still carry `@write`+`@destructive`. Rewrite once tools are
-  // known so Other tools show (and run) without approval unless the user opts in.
-  const migratedLegacyApprovalRef = useRef(new Set<string>());
-  useEffect(() => {
-    if (!activeMount || tools.length === 0) return;
-    if (migratedLegacyApprovalRef.current.has(activeMount.id)) return;
-    const selectors = approvalSelectorsFromMount(activeMount.value);
-    if (!sameSelectors(selectors, LEGACY_APPROVAL_SELECTORS)) {
-      migratedLegacyApprovalRef.current.add(activeMount.id);
-      return;
-    }
-    migratedLegacyApprovalRef.current.add(activeMount.id);
-    const enabled = enabledToolsFromMount(activeMount.value);
-    const names = enabled === 'all' ? tools.map(tool => tool.name) : enabled;
-    onChange({
-      ...spec,
-      mcpServers: mcpMounts.map(item =>
-        item.id === activeMount.id
-          ? withApprovalSelectors(
-              activeMount.value,
-              approvalSelectorsAfterEnabling({ tools, selectors, newlyEnabledNames: names }),
-            )
-          : item.value,
-      ),
-    });
-  }, [activeMount, tools, mcpMounts, onChange, spec]);
 
   const removeMount = (mountId: string) => {
     onChange({
