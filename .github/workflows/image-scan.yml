@@ -21,24 +21,6 @@ jobs:
           APP_VERSION=$(yq -r '.appVersion' charts/trueforge/Chart.yaml)
           echo "app_version=$APP_VERSION" >> "$GITHUB_OUTPUT"
 
-  image-scan:
-    name: Image Vulnerability Scan
-    needs: [resolve]
-    # The shared workflow declares contents write, so the caller must grant at least that.
-    # No pull-requests scope on purpose: the ignore-list PR is not wanted here.
-    permissions:
-      contents: write
-    uses: truefoundry/github-workflows-public/.github/workflows/update-grype-report.yml@main
-    with:
-      dockerfile_path: 'Dockerfile'
-      image_artifact_name: 'trueforge'
-      artifactory_repository_url: ${{ vars.TRUEFOUNDRY_ARTIFACTORY_PUBLIC_REPOSITORY }}
-      # Single-line on purpose: the called workflow passes this through toJSON,
-      # so a block scalar's trailing newline would leak into the build arg.
-      image_build_args: APP_VERSION=${{ needs.resolve.outputs.app_version }}
-
-  # The shared workflow writes JSON for the ignore-list PR and does not publish it.
-  # This job scans the same image to SARIF so findings land in Security > Code scanning.
   upload-grype:
     name: Upload Grype results
     needs: [resolve]
