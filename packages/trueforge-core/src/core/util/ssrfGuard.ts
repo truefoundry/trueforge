@@ -8,6 +8,24 @@ let allowedHosts: string[] = [];
 let blockedHosts: string[] = [];
 let guardEnabled = true;
 
+export const DEFAULT_OUTBOUND_HTTP_REQUEST_HEADERS_TIMEOUT_MS = 10_000;
+export const DEFAULT_OUTBOUND_HTTP_REQUEST_CONNECT_TIMEOUT_MS = 10_000;
+export const DEFAULT_OUTBOUND_HTTP_REQUEST_MAX_RETRIES = 2;
+
+const MCP_BODY_TIMEOUT_MS = 30 * 60 * 1000;
+const MAX_REDIRECTS = 20;
+const REDIRECT_STATUSES = new Set([301, 302, 303, 307, 308]);
+const CROSS_ORIGIN_STRIPPED_HEADERS = ['authorization', 'proxy-authorization', 'cookie', 'host'];
+const GATEWAY_RETRY_STATUSES = new Set([520, 521, 522, 523, 524, 530]);
+const RETRYABLE_TRANSPORT_CODES = new Set(['UND_ERR_CONNECT_TIMEOUT', 'UND_ERR_HEADERS_TIMEOUT']);
+const RETRY_INITIAL_DELAY_MS = 1_000;
+const RETRY_BACKOFF_FACTOR = 2;
+const RETRY_JITTER_FACTOR = 0.2;
+
+let headersTimeoutMs = DEFAULT_OUTBOUND_HTTP_REQUEST_HEADERS_TIMEOUT_MS;
+let connectTimeoutMs = DEFAULT_OUTBOUND_HTTP_REQUEST_CONNECT_TIMEOUT_MS;
+let maxRetries = DEFAULT_OUTBOUND_HTTP_REQUEST_MAX_RETRIES;
+
 const URL_VERIFY = {
   allowedProtocols: ['http:', 'https:'],
   denyCidrsV4: [
@@ -68,20 +86,6 @@ function addDenyCidrs(cidrs: readonly string[], family: 'ipv4' | 'ipv6'): void {
 }
 addDenyCidrs(URL_VERIFY.denyCidrsV4, 'ipv4');
 addDenyCidrs(URL_VERIFY.denyCidrsV6, 'ipv6');
-
-const MAX_REDIRECTS = 20;
-const REDIRECT_STATUSES = new Set([301, 302, 303, 307, 308]);
-const CROSS_ORIGIN_STRIPPED_HEADERS = ['authorization', 'proxy-authorization', 'cookie', 'host'];
-
-export function configureOutboundUrlGuard(config: {
-  enabled?: boolean;
-  allowedHosts: readonly string[];
-  blockedHosts: readonly string[];
-}): void {
-  guardEnabled = config.enabled ?? true;
-  allowedHosts = config.allowedHosts.map(normalizeHost);
-  blockedHosts = config.blockedHosts.map(normalizeHost);
-}
 
 function normalizeHost(hostname: string): string {
   const host = hostname.replace(/\.$/, '').toLowerCase();
@@ -174,17 +178,58 @@ const guardedLookup: LookupFunction = (hostname, options: LookupOptions, callbac
   });
 };
 
-const MCP_BODY_TIMEOUT_MS = 30 * 60 * 1000;
+function createOutboundAgent(): Agent {
+  return new Agent({
+    headersTimeout: headersTimeoutMs,
+    connectTimeout: connectTimeoutMs,
+    connect: { lookup: guardedLookup, timeout: connectTimeoutMs },
+  });
+}
 
-const outboundAgent = new Agent({
-  connect: { lookup: guardedLookup },
-});
+function createMcpOutboundAgent(): Agent {
+  return new Agent({
+    // MCP SSE/streamable-HTTP stays idle between tool calls; undici's 300s bodyTimeout kills it.
+    bodyTimeout: MCP_BODY_TIMEOUT_MS,
+    headersTimeout: headersTimeoutMs,
+    connectTimeout: connectTimeoutMs,
+    connect: { lookup: guardedLookup, timeout: connectTimeoutMs },
+  });
+}
 
-const mcpOutboundAgent = new Agent({
-  // MCP SSE/streamable-HTTP stays idle between tool calls; undici's 300s bodyTimeout kills it.
-  bodyTimeout: MCP_BODY_TIMEOUT_MS,
-  connect: { lookup: guardedLookup },
-});
+let outboundAgent = createOutboundAgent();
+let mcpOutboundAgent = createMcpOutboundAgent();
+
+function rebuildOutboundAgents(): void {
+  const previousOutbound = outboundAgent;
+  const previousMcp = mcpOutboundAgent;
+  outboundAgent = createOutboundAgent();
+  mcpOutboundAgent = createMcpOutboundAgent();
+  void previousOutbound.close().catch(() => undefined);
+  void previousMcp.close().catch(() => undefined);
+}
+
+export function configureOutboundUrlGuard(config: {
+  enabled?: boolean;
+  allowedHosts: readonly string[];
+  blockedHosts: readonly string[];
+  headersTimeoutMs?: number;
+  connectTimeoutMs?: number;
+  maxRetries?: number;
+}): void {
+  guardEnabled = config.enabled ?? true;
+  allowedHosts = config.allowedHosts.map(normalizeHost);
+  blockedHosts = config.blockedHosts.map(normalizeHost);
+  const nextHeadersTimeoutMs = config.headersTimeoutMs ?? DEFAULT_OUTBOUND_HTTP_REQUEST_HEADERS_TIMEOUT_MS;
+  const nextConnectTimeoutMs = config.connectTimeoutMs ?? DEFAULT_OUTBOUND_HTTP_REQUEST_CONNECT_TIMEOUT_MS;
+  const nextMaxRetries = config.maxRetries ?? DEFAULT_OUTBOUND_HTTP_REQUEST_MAX_RETRIES;
+  const timeoutsChanged = nextHeadersTimeoutMs !== headersTimeoutMs || nextConnectTimeoutMs !== connectTimeoutMs;
+  headersTimeoutMs = nextHeadersTimeoutMs;
+  connectTimeoutMs = nextConnectTimeoutMs;
+  maxRetries = nextMaxRetries;
+  if (timeoutsChanged) {
+    rebuildOutboundAgents();
+  }
+}
 
 export async function assertSafeOutboundUrl(input: string | URL | Request): Promise<void> {
   const url = parseOutboundUrl(input);
@@ -260,6 +305,71 @@ function mergeRequestInit(input: string | URL | Request, init: RequestInit): Req
   };
 }
 
+function getErrorCode(error: unknown): string | undefined {
+  let current: unknown = error;
+  for (let depth = 0; depth < 5 && current != null; depth += 1) {
+    if (typeof current === 'object' && 'code' in current) {
+      const code = Reflect.get(current, 'code');
+      if (typeof code === 'string') {
+        return code;
+      }
+    }
+    current = current instanceof Error ? current.cause : undefined;
+  }
+  return undefined;
+}
+
+/** Connect / headers-read timeouts from undici (including nested under TypeError: fetch failed). */
+export function isRetryableOutboundTransportError(error: unknown): boolean {
+  const code = getErrorCode(error);
+  return code !== undefined && RETRYABLE_TRANSPORT_CODES.has(code);
+}
+
+export function isRetryableOutboundGatewayStatus(status: number): boolean {
+  return GATEWAY_RETRY_STATUSES.has(status);
+}
+
+function abortError(signal: AbortSignal): Error {
+  if (signal.reason instanceof Error) {
+    return signal.reason;
+  }
+  const aborted = new Error('This operation was aborted');
+  aborted.name = 'AbortError';
+  return aborted;
+}
+
+function retryDelayMs(attempt: number): number {
+  const base = RETRY_INITIAL_DELAY_MS * RETRY_BACKOFF_FACTOR ** attempt;
+  const jitterMultiplier = 1 + (Math.random() - 0.5) * RETRY_JITTER_FACTOR;
+  return Math.max(0, Math.round(base * jitterMultiplier));
+}
+
+function sleep(ms: number, signal: AbortSignal | undefined): Promise<void> {
+  return new Promise((resolve, reject) => {
+    if (signal?.aborted) {
+      reject(abortError(signal));
+      return;
+    }
+    const timer = setTimeout(() => {
+      if (signal !== undefined) {
+        signal.removeEventListener('abort', onAbort);
+      }
+      resolve();
+    }, ms);
+    const onAbort = (): void => {
+      clearTimeout(timer);
+      if (signal !== undefined) {
+        reject(abortError(signal));
+        return;
+      }
+      reject(new Error('This operation was aborted'));
+    };
+    if (signal !== undefined) {
+      signal.addEventListener('abort', onAbort, { once: true });
+    }
+  });
+}
+
 async function guardedFetch(
   input: string | URL | Request,
   init: RequestInit,
@@ -304,11 +414,38 @@ async function guardedFetch(
   return guardedFetch(hop.url, hop.init, hopsLeft - 1, agent);
 }
 
+async function withOutboundHttpRetries(
+  input: string | URL | Request,
+  init: RequestInit,
+  agent: Agent,
+): Promise<Response> {
+  const signal = init.signal ?? (input instanceof Request ? input.signal : undefined);
+  let attempt = 0;
+  for (;;) {
+    if (signal?.aborted) {
+      throw abortError(signal);
+    }
+    try {
+      const response = await guardedFetch(input, init, MAX_REDIRECTS, agent);
+      if (!isRetryableOutboundGatewayStatus(response.status) || attempt >= maxRetries) {
+        return response;
+      }
+      void response.body?.cancel().catch(() => undefined);
+    } catch (error) {
+      if (!isRetryableOutboundTransportError(error) || attempt >= maxRetries || signal?.aborted) {
+        throw error;
+      }
+    }
+    await sleep(retryDelayMs(attempt), signal);
+    attempt += 1;
+  }
+}
+
 export async function ssrfFetch(input: string | URL | Request, init?: RequestInit): Promise<Response> {
-  return guardedFetch(input, init ?? {}, MAX_REDIRECTS, outboundAgent);
+  return withOutboundHttpRetries(input, init ?? {}, outboundAgent);
 }
 
 /** Same as `ssrfFetch` with a 30m bodyTimeout for idle MCP SSE / streamable-HTTP. */
 export async function mcpSsrfFetch(input: string | URL | Request, init?: RequestInit): Promise<Response> {
-  return guardedFetch(input, init ?? {}, MAX_REDIRECTS, mcpOutboundAgent);
+  return withOutboundHttpRetries(input, init ?? {}, mcpOutboundAgent);
 }
