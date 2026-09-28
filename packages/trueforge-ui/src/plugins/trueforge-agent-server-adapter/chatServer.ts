@@ -2,7 +2,7 @@
  * Harness `AgentChatServer` adapter for @truefoundry/trueforge-ui.
  *
  * Runtime contract: opaque mounts (`object`), flat `ListResult` (`data` +
- * `nextPageToken`), and `null` normalized to absent. Harness keys MCP mounts by
+ * page tokens), and `null` normalized to absent. Harness keys MCP mounts by
  * name and returns `null` for optional fields — the maps below bridge both.
  *
  * Skills are name (+ optional preload) refs on the wire (`Skill`).
@@ -88,6 +88,7 @@ function toUiSession(session: TrueForgeApi.Session): HarnessUiSession {
     id: session.id,
     isMutable: session.agent.type === 'inline',
     isCreateAgent: readSessionIsCreateAgent(session.metadata),
+    shared: session.shared,
     createdAt: session.createdAt,
     updatedAt: session.updatedAt,
     ...(session.title === null ? {} : { title: session.title }),
@@ -136,10 +137,12 @@ export function toListResult<TSource, TResult>(
     const mapped = map(item);
     if (mapped !== undefined) data.push(mapped);
   }
-  const token = page.response.pagination.nextPageToken;
+  const next = page.response.pagination.nextPageToken;
+  const previous = page.response.pagination.previousPageToken;
   return {
     data,
-    ...(token === undefined ? {} : { nextPageToken: token }),
+    ...(next === undefined ? {} : { nextPageToken: next }),
+    ...(previous === undefined ? {} : { previousPageToken: previous }),
   };
 }
 
@@ -222,12 +225,14 @@ export function createHarnessChatServer(
       await client.sessions.update(sessionId, { title });
     },
 
-    async updateSession({ sessionId, agentSpec, title }) {
+    async updateSession({ sessionId, agentSpec, title, shared }) {
       // Named (reference) sessions reject agent updates server-side.
-      const response = await client.sessions.update(sessionId, {
+      const body: TrueForgeApi.UpdateSessionRequest = {
         ...(agentSpec === undefined ? {} : { agent: { spec: toHarnessAgentSpec(agentSpec) } }),
         ...(title === undefined ? {} : { title }),
-      });
+        ...(shared === undefined ? {} : { shared }),
+      };
+      const response = await client.sessions.update(sessionId, body);
       return toUiSession(response.data);
     },
 

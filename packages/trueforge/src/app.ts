@@ -18,6 +18,7 @@ import { createMcpOAuthRouter } from './apis/mcpOAuth';
 import { createMcpServersRouter } from './apis/mcpServers';
 import { createModelsRouter } from './apis/models';
 import { createPermissionsRouter } from './apis/permissions';
+import { createSandboxEnvironmentsRouter } from './apis/sandboxEnvironments';
 import { createScheduleExecutionRouter, createSchedulesRouter } from './apis/schedules';
 import { createInternalMetricsRouter } from './apis/sessionMetrics';
 import { createInternalSessionsRouter, createSessionsRouter } from './apis/sessions';
@@ -350,6 +351,7 @@ export function createServerApp<TTransaction>(deps: ServerDeps<TTransaction>) {
       authMiddleware,
     ),
   );
+  app.route('/api/v1/sandbox-environments', withAuth(createSandboxEnvironmentsRouter(), authMiddleware));
   app.route(
     '/api/internal/schedules',
     withAuth(createScheduleExecutionRouter(scheduleTurnDeps), scheduleExecutionAuthMiddleware),
@@ -481,17 +483,19 @@ export function createServerApp<TTransaction>(deps: ServerDeps<TTransaction>) {
   );
 
   const uiBasePath = getPublicUiBasePath();
-  const openApiSpecPath = `${uiBasePath}api/v1/openapi.json`;
-  const openApiServerUrl = uiBasePath === '/' ? undefined : uiBasePath.replace(/\/$/, '');
-  app.get('/api/v1/docs', swaggerUI({ url: openApiSpecPath }));
-  app.get('/api/v1/openapi.json', c =>
-    c.json(
-      buildOpenApiDocument(app, {
-        authEnabled,
-        ...(openApiServerUrl === undefined ? {} : { serverUrl: openApiServerUrl }),
-      }),
-    ),
-  );
+  if (configuration.SWAGGER_ENABLED) {
+    const openApiSpecPath = `${uiBasePath}api/v1/openapi.json`;
+    const openApiServerUrl = uiBasePath === '/' ? undefined : uiBasePath.replace(/\/$/, '');
+    app.get('/api/v1/docs', swaggerUI({ url: openApiSpecPath }));
+    app.get('/api/v1/openapi.json', c =>
+      c.json(
+        buildOpenApiDocument(app, {
+          authEnabled,
+          ...(openApiServerUrl === undefined ? {} : { serverUrl: openApiServerUrl }),
+        }),
+      ),
+    );
+  }
 
   app.notFound(routeNotFound);
 

@@ -31,8 +31,8 @@ describe('AgentSearchPicker', () => {
         { name: 'alpha-bot', agentId: 'alpha-bot' },
         { name: 'beta-bot', agentId: 'beta-bot' },
       ];
-      if (query == null || query === '') return agents;
-      return agents.filter(agent => agent.name.includes(query));
+      if (query == null || query === '') return { data: agents };
+      return { data: agents.filter(agent => agent.name.includes(query)) };
     });
     const onValueChange = vi.fn();
     const onAgentPicked = vi.fn();
@@ -82,8 +82,8 @@ describe('AgentSearchPicker', () => {
         { name: 'alpha-bot', agentId: 'alpha-bot' },
         { name: 'beta-bot', agentId: 'beta-bot' },
       ];
-      if (query == null || query === '') return agents;
-      return agents.filter(agent => agent.name.includes(query));
+      if (query == null || query === '') return { data: agents };
+      return { data: agents.filter(agent => agent.name.includes(query)) };
     });
     const onValueChange = vi.fn();
 
@@ -114,5 +114,40 @@ describe('AgentSearchPicker', () => {
       expect(screen.queryByRole('option', { name: 'All agents' })).not.toBeInTheDocument();
       expect(screen.getByRole('option', { name: 'beta-bot' })).toBeInTheDocument();
     });
+  });
+
+  it('keeps a prefixed picker width stable and opens from its chrome', async () => {
+    render(
+      <AgentSearchPicker
+        value="alpha-bot"
+        selectedLabel="A long selected agent"
+        onValueChange={() => undefined}
+        prefix="Agents"
+      />,
+      {
+        wrapper: wrap(
+          createMockAgentUIServer({
+            searchAgents: vi.fn(async () => ({ data: [{ name: 'alpha-bot', agentId: 'alpha-bot' }] })),
+          }),
+        ),
+      },
+    );
+
+    const input = screen.getByRole('combobox', { name: 'Agent' });
+    const trigger = screen.getByText('Agents').parentElement;
+    if (trigger == null) throw new Error('expected prefixed picker trigger');
+
+    fireEvent.click(screen.getByText('Agents'));
+    expect(input).toHaveFocus();
+    expect(input).toHaveAttribute('aria-expanded', 'true');
+    expect(screen.getByText('A long selected agent')).toBeInTheDocument();
+    await screen.findByRole('option', { name: 'alpha-bot' });
+
+    fireEvent.keyDown(input, { key: 'Escape' });
+    const chevron = trigger.querySelector('svg');
+    if (chevron == null) throw new Error('expected picker chevron');
+    fireEvent.click(chevron);
+    expect(input).toHaveFocus();
+    expect(input).toHaveAttribute('aria-expanded', 'true');
   });
 });

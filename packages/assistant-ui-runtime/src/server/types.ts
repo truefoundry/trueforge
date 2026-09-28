@@ -74,7 +74,7 @@ export interface AgentSelectorEntry {
 export interface SearchAgentSelectorParams {
   query?: string;
   limit?: number;
-  offset?: number;
+  pageToken?: string;
 }
 
 // ---------------------------------------------------------------------------
@@ -179,6 +179,8 @@ export interface Session<TSpec extends AgentSpec = AgentSpec> {
   agentSpec?: TSpec;
   /** true → mutable builder + updateSession(spec) allowed. */
   isMutable: boolean;
+  /** When true, any subject in the tenant may read this session and its turns/events by id. */
+  shared?: boolean;
   createdAt: string;
   updatedAt: string;
 }
@@ -193,6 +195,8 @@ export interface UpdateSessionRequest<TSpec extends AgentSpec = AgentSpec> {
   sessionId: string;
   agentSpec?: TSpec;
   title?: string;
+  /** When true, any subject in the tenant may read this session and its turns/events by id. */
+  shared?: boolean;
 }
 
 // ---------------------------------------------------------------------------
@@ -202,6 +206,7 @@ export interface UpdateSessionRequest<TSpec extends AgentSpec = AgentSpec> {
 export interface ListResult<T> {
   data: T[];
   nextPageToken?: string;
+  previousPageToken?: string;
 }
 
 export type ListSessionsOrder = 'asc' | 'desc';
@@ -451,7 +456,7 @@ export interface AgentBuilderServer<
   getMcp(): Promise<TMcp[]>;
   getMcpConnector?(req: { connectorId: string }): Promise<TMcp>;
   getMcpTools?(req: { connectorId: string }): Promise<TMcpTool[]>;
-  searchAgents(req?: SearchAgentSelectorParams): Promise<TAgent[]>;
+  searchAgents(req?: SearchAgentSelectorParams): Promise<ListResult<TAgent>>;
   saveAgent(req: SaveAgentRequest<TSpec>): Promise<TSave>;
   deleteAgent?(req: { agentName: string }): Promise<void>;
 }
@@ -1179,6 +1184,8 @@ export type AgentUIServerPort<
     schedules?: TSchedules;
     metrics?: TMetrics;
     permissions?: TPermissions;
+    /** Authenticated caller identity. Used for tenant-scoped share copy. */
+    getMe?: () => Promise<{ tenantId: string }>;
   };
 
 /** Host-facing alias used by trueforge-ui. */

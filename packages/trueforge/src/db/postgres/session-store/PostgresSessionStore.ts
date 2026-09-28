@@ -343,6 +343,7 @@ export class PostgresSessionStore implements ISessionStore<SessionCustom, TurnCu
           agent_name: resolvedAgentName,
           agent_spec: resolvedAgentSpec !== null ? jsonUnknown<AgentSpec>(resolvedAgentSpec) : null,
           title: session.title,
+          shared: false,
           last_turn_id: session.last_turn_id,
           custom: session.custom !== null ? json(session.custom) : null,
           metadata: json(metadata),
