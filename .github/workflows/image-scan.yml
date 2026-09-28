@@ -7,10 +7,14 @@ on:
   schedule:
     - cron: '0 9 * * *'
 
+permissions: {}
+
 jobs:
   resolve:
     name: Resolve APP_VERSION
     runs-on: ubuntu-latest
+    permissions:
+      contents: read
     outputs:
       app_version: ${{ steps.app.outputs.app_version }}
     steps:
@@ -23,6 +27,9 @@ jobs:
   image-scan:
     name: Image Vulnerability Scan
     needs: [resolve]
+    # The shared workflow commits .grype.yaml and opens the ignore-list pull request.
+    permissions:
+      contents: write
     uses: truefoundry/github-workflows-public/.github/workflows/update-grype-report.yml@main
     with:
       dockerfile_path: 'Dockerfile'
