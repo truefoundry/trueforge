@@ -11,6 +11,7 @@ export const ConfiguredSandboxProvider: core.serialization.ObjectSchema<
     TrueForge.ConfiguredSandboxProvider
 > = core.serialization.object({
     manifest: SandboxProviderManifest,
+    name: core.serialization.string(),
     status: SandboxBuildStatus,
     statusReason: core.serialization.property("status_reason", core.serialization.string().nullable()),
 });
@@ -18,6 +19,7 @@ export const ConfiguredSandboxProvider: core.serialization.ObjectSchema<
 export declare namespace ConfiguredSandboxProvider {
     export interface Raw {
         manifest: SandboxProviderManifest.Raw;
+        name: string;
         status: SandboxBuildStatus.Raw;
         status_reason?: string | null;
     }

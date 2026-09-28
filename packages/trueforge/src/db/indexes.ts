@@ -27,3 +27,6 @@ export const SCHEDULE_AGENT_ID_IDX = 'schedule_agent_id_idx';
 
 /** `(tenant_id, created_by_subject.subject_id)` on schedule_run. */
 export const SCHEDULE_RUN_CREATED_BY_SUBJECT_ID_IDX = 'schedule_run_created_by_subject_id_idx';
+
+/** `(tenant_id, name)` unique on sandbox_provider. */
+export const SANDBOX_PROVIDER_TENANT_NAME_UQ = 'sandbox_provider_tenant_name_uq';

@@ -20,16 +20,19 @@ function synthesizeDaytonaRecord({
 }): SandboxProviderRecord {
   const { settings } = providerConfig;
   const now = new Date().toISOString();
+  const manifest = {
+    type: 'daytona' as const,
+    auth: { api_key: providerConfig.apiKey },
+    exec_timeout_ms: settings.timeoutMs,
+    auto_stop_interval_in_minutes: settings.autoStopIntervalInMinutes,
+    auto_archive_interval_in_minutes: settings.autoArchiveIntervalInMinutes,
+    auto_delete_interval_in_minutes: settings.autoDeleteIntervalInMinutes,
+  };
   return {
     tenant_id: tenantId,
-    manifest: {
-      type: 'daytona',
-      auth: { api_key: providerConfig.apiKey },
-      exec_timeout_ms: settings.timeoutMs,
-      auto_stop_interval_in_minutes: settings.autoStopIntervalInMinutes,
-      auto_archive_interval_in_minutes: settings.autoArchiveIntervalInMinutes,
-      auto_delete_interval_in_minutes: settings.autoDeleteIntervalInMinutes,
-    },
+    // TEMP: name is always manifest.type until providers can have distinct identities.
+    name: manifest.type,
+    manifest,
     status: 'ready',
     status_reason: null,
     // Snapshot name only — no image_uri; TrueFoundry mode never registers a snapshot.
@@ -48,14 +51,17 @@ function synthesizeTrueFoundryRecord({
   providerConfig: Extract<TrueFoundrySandboxProviderConfig, { type: 'truefoundry' }>;
 }): SandboxProviderRecord {
   const now = new Date().toISOString();
+  const manifest = {
+    type: 'truefoundry' as const,
+    server_url: providerConfig.serverUrl,
+    nats_bridge_url: providerConfig.natsBridgeUrl,
+    exec_timeout_ms: SANDBOX_DEFAULT_SETTINGS.timeoutMs,
+  };
   return {
     tenant_id: tenantId,
-    manifest: {
-      type: 'truefoundry',
-      server_url: providerConfig.serverUrl,
-      nats_bridge_url: providerConfig.natsBridgeUrl,
-      exec_timeout_ms: SANDBOX_DEFAULT_SETTINGS.timeoutMs,
-    },
+    // TEMP: name is always manifest.type until providers can have distinct identities.
+    name: manifest.type,
+    manifest,
     status: 'ready',
     status_reason: null,
     build_metadata: null,

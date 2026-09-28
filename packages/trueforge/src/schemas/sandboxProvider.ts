@@ -2,7 +2,9 @@
  * Sandbox-provider domain + wire schemas: configured provider jsonb and OpenAPI
  * request/response shapes. Catalog file schemas live in sandboxCatalog.ts.
  *
- * Singleton per tenant — no identity `name` (unlike model providers / skills).
+ * Singleton per tenant. Identity `name` is a DB column; writers set it from
+ * `manifest.type` for now (not accepted on PUT). Wire `ConfiguredSandboxProvider.name`
+ * mirrors the column.
  *
  * Settings OpenAPI stays Daytona-only (`SandboxProviderManifest`), matching main.
  * Env-synthesized truefoundry records use `StoredSandboxProviderManifest` (store/runtime only).
@@ -94,9 +96,10 @@ export const SandboxStatusSchema = z
   })
   .strict();
 
-/** Settings wire item: nested Daytona manifest plus build status (no build_metadata). */
+/** Settings wire item: identity name, nested Daytona manifest, build status (no build_metadata). */
 export const ConfiguredSandboxProviderSchema = z
   .object({
+    name: z.string().min(1).describe('Sandbox provider name.'),
     manifest: SandboxProviderManifestSchema,
     status: SandboxBuildStatusSchema,
     status_reason: z.string().nullable().describe('Human-readable detail for the current status; null when ready.'),

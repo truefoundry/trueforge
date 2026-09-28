@@ -12,6 +12,8 @@ import type {
 
 export interface SandboxProviderRecord {
   tenant_id: string;
+  /** Identity; currently always `manifest.type` (see upsert). */
+  name: string;
   manifest: StoredSandboxProviderManifest;
   /** Last persisted build status of the release sandbox image. */
   status: SandboxBuildStatus;
