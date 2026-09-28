@@ -1,9 +1,6 @@
 name: Scan and Generate Grype Report
 
 on:
-  # Temporary: remove after first successful run
-  workflow_dispatch:
-  pull_request:
   schedule:
     - cron: '0 9 * * *'
 

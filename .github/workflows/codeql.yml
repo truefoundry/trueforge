@@ -12,8 +12,6 @@
 name: "CodeQL Advanced"
 
 on:
-  # Temporary: remove after first successful run
-  workflow_dispatch:
   push:
     branches: [ "main" ]
   pull_request:
