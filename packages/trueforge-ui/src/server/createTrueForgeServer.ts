@@ -9,6 +9,7 @@ import type {
   AgentSpec,
   CatalogServer,
   ConnectorState,
+  ListResult,
   ModelSelection,
   PermissionsServer,
   SaveAgentRequest,
@@ -39,7 +40,7 @@ export type CreateTrueForgeServerOptions<
   getMcp: () => Promise<TMcp[]>;
   getMcpConnector?: AgentBuilderServer<TSpec, TModel, TSkill, TMcp, TAgent, TSave, TCapabilities>['getMcpConnector'];
   getMcpTools?: AgentBuilderServer<TSpec, TModel, TSkill, TMcp, TAgent, TSave, TCapabilities>['getMcpTools'];
-  searchAgents: (req?: SearchAgentsParams) => Promise<TAgent[]>;
+  searchAgents: (req?: SearchAgentsParams) => Promise<ListResult<TAgent>>;
   saveAgent: (req: SaveAgentRequest<TSpec>) => Promise<TSave>;
   deleteAgent?: (req: { agentName: string }) => Promise<void>;
   /** Settings catalog (models + connectors). Optional. */

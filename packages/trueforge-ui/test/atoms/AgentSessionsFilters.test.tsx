@@ -18,7 +18,9 @@ describe('AgentSessionsFilters', () => {
         { agentId: 'alpha-agent', name: 'Alpha agent' },
         { agentId: 'beta-agent', name: 'Beta agent' },
       ];
-      return query == null ? agents : agents.filter(agent => agent.name.toLowerCase().includes(query.toLowerCase()));
+      return {
+        data: query == null ? agents : agents.filter(agent => agent.name.toLowerCase().includes(query.toLowerCase())),
+      };
     });
     const onAgentChange = vi.fn();
 
@@ -52,7 +54,7 @@ describe('AgentSessionsFilters', () => {
   });
 
   it('resolves the selected agent name after a refresh', async () => {
-    const searchAgents = vi.fn(async () => [{ agentId: 'agent-id', name: 'Agent name' }]);
+    const searchAgents = vi.fn(async () => ({ data: [{ agentId: 'agent-id', name: 'Agent name' }] }));
 
     render(
       <ServerProvider server={createMockAgentUIServer({ searchAgents })}>
