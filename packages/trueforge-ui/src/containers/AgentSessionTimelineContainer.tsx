@@ -6,6 +6,7 @@ import { Suspense, useCallback, useEffect, useMemo, useRef, useState, type Compo
 
 import { Markdown, type MarkdownProps } from '../atoms/Markdown.js';
 import { MessageActionBar } from '../atoms/MessageActionBar.js';
+import { ToolApprovalBar, type ToolApprovalBarProps } from '../atoms/ToolApprovalBar.js';
 import type { UserMessageActionBarProps } from '../atoms/UserMessageActionBar.js';
 import { useServer } from '../server/ServerContext.js';
 import type { AgentChatServer, SessionEventItem } from '../server/types.js';
@@ -36,9 +37,15 @@ function ReadOnlyUserMessageActionBar({ isCopied, onCopy, createdAt, className }
   return <MessageActionBar isCopied={isCopied} onCopy={onCopy} createdAt={createdAt} className={className} />;
 }
 
+/** HITL Allow/Deny is only for live chat — session detail is a historical replay. */
+function ReadOnlyToolApprovalBar(props: ToolApprovalBarProps) {
+  return <ToolApprovalBar {...props} readOnly />;
+}
+
 const READ_ONLY_SLOT_OVERRIDES: SlotOverrides = {
   UserMessageActionBar: ReadOnlyUserMessageActionBar,
   Markdown: ReadOnlyMarkdown,
+  ToolApprovalBar: ReadOnlyToolApprovalBar,
 };
 
 type TurnCreatedEvent = Extract<SessionEventItem['event'], { type: 'turn.created' }>;
