@@ -29,7 +29,8 @@ export const SandboxEnvironmentVersionStatusSchema = z
   .describe('Build/activation status of an environment version.')
   .openapi('SandboxEnvironmentVersionStatus');
 
-export const SandboxEnvironmentBuildImageSchema = z
+/** Single image variant today; widen with discriminatedUnion when another type lands. */
+export const SandboxEnvironmentImageSchema = z
   .object({
     type: z.literal('build').describe('Build a snapshot from a script.'),
     build_script: z.string().min(1).optional().openapi({
@@ -38,9 +39,7 @@ export const SandboxEnvironmentBuildImageSchema = z
     }),
   })
   .strict()
-  .openapi('SandboxEnvironmentBuildImage');
-
-export const SandboxEnvironmentImageSchema = SandboxEnvironmentBuildImageSchema.openapi('SandboxEnvironmentImage');
+  .openapi('SandboxEnvironmentImage');
 
 export const SandboxEnvironmentResourcesSchema = z
   .object({
@@ -125,15 +124,14 @@ export const SandboxEnvironmentVersionSecretSchema = z
     key: z.string().min(1).describe('Env var name.'),
     id: z.string().min(1).describe('Secret store reference id.'),
   })
-  .strict()
-  .openapi('SandboxEnvironmentVersionSecret');
+  .strict();
 
+/** Version jsonb column only — not on CRUD wire responses. */
 export const SandboxEnvironmentVersionInternalMetadataSchema = z
   .object({
     secrets: z.array(SandboxEnvironmentVersionSecretSchema).describe('Resolved secret refs for this version.'),
   })
-  .strict()
-  .openapi('SandboxEnvironmentVersionInternalMetadata');
+  .strict();
 
 export const SandboxEnvironmentVersionSummarySchema = z
   .object({
@@ -141,7 +139,6 @@ export const SandboxEnvironmentVersionSummarySchema = z
     status: SandboxEnvironmentVersionStatusSchema,
     status_reason: z.string().nullable().describe('Failure detail when status is failed; null otherwise.'),
     external_ref: z.string().min(1).describe('Server-generated provider snapshot/build name.'),
-    internal_metadata: SandboxEnvironmentVersionInternalMetadataSchema,
   })
   .strict()
   .openapi('SandboxEnvironmentVersionSummary');

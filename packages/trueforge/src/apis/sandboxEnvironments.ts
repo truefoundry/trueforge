@@ -45,7 +45,6 @@ function dummyEnvironment(manifest: SandboxEnvironmentManifest = DUMMY_BASE_MANI
       status: 'active',
       status_reason: null,
       external_ref: 'trueforge-build-example',
-      internal_metadata: { secrets: [] },
     },
     created_by_subject: {
       subject_id: 'dummy-user',
