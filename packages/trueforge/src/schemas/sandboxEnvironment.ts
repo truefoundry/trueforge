@@ -11,6 +11,8 @@ import { NameSchema } from './common';
 
 export const SANDBOX_ENVIRONMENT_DESCRIPTION_MAX_LENGTH = 1024;
 
+const BUILD_SCRIPT_EXAMPLE = 'set -ex\npip install httpx\n';
+
 export const SandboxEnvironmentDescriptionSchema = z
   .string()
   .trim()
@@ -30,7 +32,10 @@ export const SandboxEnvironmentVersionStatusSchema = z
 export const SandboxEnvironmentBuildImageSchema = z
   .object({
     type: z.literal('build').describe('Build a snapshot from a script.'),
-    build_script: z.string().min(1).optional().describe('Shell script used to build the snapshot.'),
+    build_script: z.string().min(1).optional().openapi({
+      description: 'Shell script used to build the snapshot.',
+      example: BUILD_SCRIPT_EXAMPLE,
+    }),
   })
   .strict()
   .openapi('SandboxEnvironmentBuildImage');
@@ -61,11 +66,33 @@ export const SandboxEnvironmentSecretSchema = z
 
 export const SandboxEnvironmentNetworkingSchema = z
   .object({
+    network_block_all: z
+      .boolean()
+      .optional()
+      .describe('Block all outbound network access. When true, domain_allow_list and secrets are not used.'),
     domain_allow_list: z.string().min(1).optional().describe('Comma-separated allowed domains.'),
-    network_block_all: z.boolean().optional().describe('Block all outbound network access.'),
     secrets: z.array(SandboxEnvironmentSecretSchema).optional().describe('Network-scoped secrets.'),
   })
   .strict()
+  .superRefine((value, ctx) => {
+    if (value.network_block_all !== true) {
+      return;
+    }
+    if (value.domain_allow_list !== undefined) {
+      ctx.addIssue({
+        code: 'custom',
+        path: ['domain_allow_list'],
+        message: 'domain_allow_list is not allowed when network_block_all is true',
+      });
+    }
+    if (value.secrets !== undefined) {
+      ctx.addIssue({
+        code: 'custom',
+        path: ['secrets'],
+        message: 'secrets is not allowed when network_block_all is true',
+      });
+    }
+  })
   .openapi('SandboxEnvironmentNetworking');
 
 /** Wire + request/response document — no `type` / `sandbox_provider`. */
@@ -73,7 +100,7 @@ export const SandboxEnvironmentManifestSchema = z
   .object({
     name: NameSchema,
     description: SandboxEnvironmentDescriptionSchema.optional(),
-    image: SandboxEnvironmentImageSchema,
+    image: SandboxEnvironmentImageSchema.optional(),
     resources: SandboxEnvironmentResourcesSchema.default({ cpu: 1, memory: 1, disk: 3 }),
     environment_variables: z.record(z.string().min(1), z.string()).optional(),
     networking: SandboxEnvironmentNetworkingSchema.optional(),
@@ -93,28 +120,28 @@ export const StoredSandboxEnvironmentManifestSchema = z
   })
   .strict();
 
-export const SandboxEnvironmentSecretsMapEntrySchema = z
+export const SandboxEnvironmentVersionSecretSchema = z
   .object({
     key: z.string().min(1).describe('Env var name.'),
     id: z.string().min(1).describe('Secret store reference id.'),
   })
   .strict()
-  .openapi('SandboxEnvironmentSecretsMapEntry');
+  .openapi('SandboxEnvironmentVersionSecret');
 
-export const SandboxEnvironmentVersionMetadataSchema = z
+export const SandboxEnvironmentVersionInternalMetadataSchema = z
   .object({
-    secrets_map: z.array(SandboxEnvironmentSecretsMapEntrySchema).describe('Resolved secret refs for this version.'),
+    secrets: z.array(SandboxEnvironmentVersionSecretSchema).describe('Resolved secret refs for this version.'),
   })
   .strict()
-  .openapi('SandboxEnvironmentVersionMetadata');
+  .openapi('SandboxEnvironmentVersionInternalMetadata');
 
 export const SandboxEnvironmentVersionSummarySchema = z
   .object({
     version: z.number().int().positive().describe('Monotonic version number within the environment.'),
     status: SandboxEnvironmentVersionStatusSchema,
     status_reason: z.string().nullable().describe('Failure detail when status is failed; null otherwise.'),
-    build_ref: z.string().min(1).describe('Server-generated provider snapshot/build name.'),
-    metadata: SandboxEnvironmentVersionMetadataSchema,
+    external_ref: z.string().min(1).describe('Server-generated provider snapshot/build name.'),
+    internal_metadata: SandboxEnvironmentVersionInternalMetadataSchema,
   })
   .strict()
   .openapi('SandboxEnvironmentVersionSummary');
@@ -168,7 +195,7 @@ export type SandboxEnvironmentLifecycleStage = z.infer<typeof SandboxEnvironment
 export type SandboxEnvironmentVersionStatus = z.infer<typeof SandboxEnvironmentVersionStatusSchema>;
 export type SandboxEnvironmentManifest = z.infer<typeof SandboxEnvironmentManifestSchema>;
 export type StoredSandboxEnvironmentManifest = z.infer<typeof StoredSandboxEnvironmentManifestSchema>;
-export type SandboxEnvironmentVersionMetadata = z.infer<typeof SandboxEnvironmentVersionMetadataSchema>;
+export type SandboxEnvironmentVersionInternalMetadata = z.infer<typeof SandboxEnvironmentVersionInternalMetadataSchema>;
 export type SandboxEnvironmentVersionSummary = z.infer<typeof SandboxEnvironmentVersionSummarySchema>;
 export type CreateSandboxEnvironmentRequest = z.infer<typeof CreateSandboxEnvironmentRequestSchema>;
 export type UpdateSandboxEnvironmentRequest = z.infer<typeof UpdateSandboxEnvironmentRequestSchema>;

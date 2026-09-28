@@ -31,7 +31,7 @@ import type { McpServerManifest } from '../../schemas/mcpServer';
 import type { ModelProviderManifest } from '../../schemas/modelProvider';
 import type {
   SandboxEnvironmentLifecycleStage,
-  SandboxEnvironmentVersionMetadata,
+  SandboxEnvironmentVersionInternalMetadata,
   SandboxEnvironmentVersionStatus,
   StoredSandboxEnvironmentManifest,
 } from '../../schemas/sandboxEnvironment';
@@ -300,8 +300,8 @@ export interface SandboxEnvironmentVersionTable {
   manifest: JsonbColumn<StoredSandboxEnvironmentManifest>;
   status: SandboxEnvironmentVersionStatus;
   status_reason: string | null;
-  build_ref: string;
-  metadata: JsonbColumn<SandboxEnvironmentVersionMetadata>;
+  external_ref: string;
+  internal_metadata: JsonbColumn<SandboxEnvironmentVersionInternalMetadata>;
   created_by_subject: JsonbColumn<CreatedBySubject>;
   created_at: string;
   updated_at: string;

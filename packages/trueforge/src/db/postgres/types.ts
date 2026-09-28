@@ -28,7 +28,7 @@ import type { McpServerManifest } from '../../schemas/mcpServer';
 import type { ModelProviderManifest } from '../../schemas/modelProvider';
 import type {
   SandboxEnvironmentLifecycleStage,
-  SandboxEnvironmentVersionMetadata,
+  SandboxEnvironmentVersionInternalMetadata,
   SandboxEnvironmentVersionStatus,
   StoredSandboxEnvironmentManifest,
 } from '../../schemas/sandboxEnvironment';
@@ -459,11 +459,11 @@ export interface SandboxEnvironmentVersionTable {
   >;
   status: SandboxEnvironmentVersionStatus;
   status_reason: string | null;
-  build_ref: string;
-  metadata: JSONColumnType<
-    SandboxEnvironmentVersionMetadata,
-    SandboxEnvironmentVersionMetadata,
-    SandboxEnvironmentVersionMetadata
+  external_ref: string;
+  internal_metadata: JSONColumnType<
+    SandboxEnvironmentVersionInternalMetadata,
+    SandboxEnvironmentVersionInternalMetadata,
+    SandboxEnvironmentVersionInternalMetadata
   >;
   created_by_subject: JSONColumnType<CreatedBySubject, CreatedBySubject, CreatedBySubject>;
   created_at: Date;

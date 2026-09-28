@@ -1,6 +1,7 @@
 /**
  * Sandbox environments API (mounted at /api/v1/sandbox-environments).
  * Handlers return properly shaped dummy data; no DB persistence yet.
+ * OpenAPI / Fern registration intentionally deferred.
  */
 import { OpenAPIHono, z } from '@hono/zod-openapi';
 import type { Context } from 'hono';
@@ -25,8 +26,8 @@ const DUMMY_BASE_MANIFEST: SandboxEnvironmentManifest = {
   resources: { cpu: 1, memory: 1, disk: 3 },
   environment_variables: { FOO: 'bar' },
   networking: {
-    domain_allow_list: 'api.github.com,api.openai.com',
     network_block_all: false,
+    domain_allow_list: 'api.github.com,api.openai.com',
     secrets: [{ env: 'GITHUB_TOKEN', value: '*****', hosts: ['api.github.com'] }],
   },
 };
@@ -43,8 +44,8 @@ function dummyEnvironment(manifest: SandboxEnvironmentManifest = DUMMY_BASE_MANI
       version: 1,
       status: 'active',
       status_reason: null,
-      build_ref: 'trueforge-build-example',
-      metadata: { secrets_map: [] },
+      external_ref: 'trueforge-build-example',
+      internal_metadata: { secrets: [] },
     },
     created_by_subject: {
       subject_id: 'dummy-user',
@@ -68,7 +69,7 @@ async function validateJsonBody<T>(
   return { ok: true, data: parsed.data };
 }
 
-/** Dummy CRUD for sandbox environments. */
+/** Dummy CRUD for sandbox environments (no OpenAPI registration yet). */
 export function createSandboxEnvironmentsRouter(): OpenAPIHono {
   const router = new OpenAPIHono();
 
