@@ -60,7 +60,7 @@ async function validateJsonBody<T>(
   c: Context,
   schema: z.ZodType<T>,
 ): Promise<{ ok: true; data: T } | { ok: false; response: Response }> {
-  const raw = await c.req.json();
+  const raw: unknown = await c.req.json();
   const parsed = schema.safeParse(raw);
   if (!parsed.success) {
     return { ok: false, response: zodErrorResponse(c, parsed.error) };
