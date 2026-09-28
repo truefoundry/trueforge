@@ -7,6 +7,7 @@ import { Suspense, useCallback, useEffect, useMemo, useRef, useState, type Compo
 import { Markdown, type MarkdownProps } from '../atoms/Markdown.js';
 import { MessageActionBar } from '../atoms/MessageActionBar.js';
 import { ToolApprovalBar, type ToolApprovalBarProps } from '../atoms/ToolApprovalBar.js';
+import { ToolCallCard, type ToolCallCardProps } from '../atoms/ToolCallCard.js';
 import type { UserMessageActionBarProps } from '../atoms/UserMessageActionBar.js';
 import { useServer } from '../server/ServerContext.js';
 import type { AgentChatServer, SessionEventItem } from '../server/types.js';
@@ -42,10 +43,16 @@ function ReadOnlyToolApprovalBar(props: ToolApprovalBarProps) {
   return <ToolApprovalBar {...props} readOnly />;
 }
 
+/** Nothing will answer a paused approval in a replay, so drop the "Awaiting Response" spinner. */
+function ReadOnlyToolCallCard(props: ToolCallCardProps) {
+  return <ToolCallCard {...props} awaiting={props.approvalSlot ? false : props.awaiting} />;
+}
+
 const READ_ONLY_SLOT_OVERRIDES: SlotOverrides = {
   UserMessageActionBar: ReadOnlyUserMessageActionBar,
   Markdown: ReadOnlyMarkdown,
   ToolApprovalBar: ReadOnlyToolApprovalBar,
+  ToolCallCard: ReadOnlyToolCallCard,
 };
 
 type TurnCreatedEvent = Extract<SessionEventItem['event'], { type: 'turn.created' }>;

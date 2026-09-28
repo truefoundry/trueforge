@@ -363,5 +363,6 @@ describe('AgentSessionTimelineContainer', () => {
     expect(screen.queryByRole('button', { name: 'Allow' })).not.toBeInTheDocument();
     expect(screen.queryByRole('button', { name: 'Deny' })).not.toBeInTheDocument();
     expect(screen.queryByRole('button', { name: 'Approve' })).not.toBeInTheDocument();
+    expect(screen.queryByText(/Awaiting Response/)).not.toBeInTheDocument();
   });
 });
