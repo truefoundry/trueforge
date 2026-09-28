@@ -170,6 +170,7 @@ export async function resolveSandboxProvider({
   sessionId,
   environment_name,
   sandboxEnvironmentStore,
+  created_by_subject_id,
 }: {
   tenant_id: string;
   store: ISandboxProviderStore;
@@ -177,6 +178,8 @@ export async function resolveSandboxProvider({
   sessionId: string;
   environment_name?: string;
   sandboxEnvironmentStore?: ISandboxEnvironmentStore;
+  /** Session/request subject; required to load a named environment. */
+  created_by_subject_id: string;
 }): Promise<ResolvedSandboxProvider | undefined> {
   const record = await store.getSandboxProvider(tenant_id);
 
@@ -184,6 +187,7 @@ export async function resolveSandboxProvider({
     const loaded = await sandboxEnvironmentStore?.getEnvironment({
       tenant_id,
       name: environment_name,
+      created_by_subject_id,
     });
     if (loaded === undefined) {
       throw new HTTPException(422, {
