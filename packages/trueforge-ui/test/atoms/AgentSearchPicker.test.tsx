@@ -127,7 +127,7 @@ describe('AgentSearchPicker', () => {
       {
         wrapper: wrap(
           createMockAgentUIServer({
-            searchAgents: vi.fn(async () => [{ name: 'alpha-bot', agentId: 'alpha-bot' }]),
+            searchAgents: vi.fn(async () => ({ data: [{ name: 'alpha-bot', agentId: 'alpha-bot' }] })),
           }),
         ),
       },
