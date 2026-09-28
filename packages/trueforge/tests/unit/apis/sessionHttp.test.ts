@@ -134,6 +134,7 @@ describe('sessions HTTP agent binding', () => {
         resolveAgentStore: () => agentStore,
         eventSubscriptions: new EventSubscriptionRegistry(undefined),
         resolveSandboxProviderStore: () => sandboxProviderStore,
+        sandboxEnvironmentStore,
         resolveWebSearchProviderStore: () => webSearchProviderStore,
         logger: deps.logger,
         resolveRequestContext: deps.resolveRequestContext,

@@ -23,7 +23,7 @@ import type { TurnMetadata } from '../db/turnMetadata';
 import type { IWebSearchProviderStore } from '../db/webSearchProviderStore';
 import { LocalSandboxProvider } from '../sandbox/local/provider/LocalSandboxProvider';
 import { getCachedLocalSandboxSupport, isLocalSandboxFallbackEnabled } from '../sandbox/localRuntime';
-import { toSandboxProviderFromRecord } from '../sandbox/providerUtils';
+import { toSandboxCreateOptions, toSandboxProviderFromRecord } from '../sandbox/providerUtils';
 import type { ReasoningEffort } from '../schemas/modelProvider';
 import { hasConfiguredWebSearchProvider } from '../websearch/providers';
 
@@ -141,6 +141,10 @@ export async function getMcpConnection({
  * Build a runtime SandboxProvider from the configured store row, or the
  * in-memory local fallback when standalone + the cached probe is supported.
  * Builds a fresh provider client per call (no network I/O).
+ *
+ * When `environment_name` is set, loads that sandbox environment (must be
+ * `active`), applies create overlays, and for `image.type === 'build'` pins the
+ * Daytona snapshot to the environment version `external_ref`.
  */
 /** Single path segment under the sandboxes parent (`_` when sessionId is missing or unsafe). */
 export function localSandboxSessionSegment(sessionId: string | undefined): string {
@@ -150,20 +154,73 @@ export function localSandboxSessionSegment(sessionId: string | undefined): strin
   return sessionId;
 }
 
+export interface ResolvedSandboxProvider {
+  provider: SandboxProvider;
+  /**
+   * True when cloning an environment's built snapshot (`external_ref`).
+   * Callers should skip the tenant provider release-snapshot readiness check.
+   */
+  usesEnvironmentSnapshot: boolean;
+}
+
 export async function resolveSandboxProvider({
   tenant_id,
   store,
   logger,
   sessionId,
+  environment_name,
+  sandboxEnvironmentStore,
 }: {
   tenant_id: string;
   store: ISandboxProviderStore;
   logger: Logger;
   sessionId: string;
-}): Promise<SandboxProvider | undefined> {
+  environment_name?: string;
+  sandboxEnvironmentStore?: ISandboxEnvironmentStore;
+}): Promise<ResolvedSandboxProvider | undefined> {
   const record = await store.getSandboxProvider(tenant_id);
+
+  if (environment_name) {
+    const loaded = await sandboxEnvironmentStore?.getEnvironment({
+      tenant_id,
+      name: environment_name,
+    });
+    if (loaded === undefined) {
+      throw new HTTPException(422, {
+        message: `Unknown sandbox environment "${environment_name}" — not configured`,
+      });
+    }
+    if (loaded.version.status !== 'active') {
+      throw new HTTPException(422, {
+        message:
+          loaded.version.status === 'failed'
+            ? `sandbox environment build failed (${loaded.version.status_reason ?? 'unknown error'})`
+            : 'sandbox environment is activating — retry shortly',
+      });
+    }
+    if (record?.manifest.type !== 'daytona') {
+      throw new HTTPException(422, {
+        message: 'sandbox environments require a Daytona sandbox provider',
+      });
+    }
+    const usesEnvironmentSnapshot = loaded.version.manifest.image?.type === 'build';
+    return {
+      provider: toSandboxProviderFromRecord({
+        record,
+        tenant_id,
+        logger,
+        ...(usesEnvironmentSnapshot ? { build_metadata: { build_ref: loaded.version.external_ref } } : {}),
+        createOptions: toSandboxCreateOptions(loaded.version.manifest),
+      }),
+      usesEnvironmentSnapshot,
+    };
+  }
+
   if (record !== undefined) {
-    return toSandboxProviderFromRecord({ record, tenant_id, logger });
+    return {
+      provider: toSandboxProviderFromRecord({ record, tenant_id, logger }),
+      usesEnvironmentSnapshot: false,
+    };
   }
   if (!configuration.STANDALONE) {
     return undefined;
@@ -172,13 +229,16 @@ export async function resolveSandboxProvider({
   if (support?.supported !== true) {
     return undefined;
   }
-  return new LocalSandboxProvider({
-    sandboxRootPathParent: join(configuration.LOCAL_SANDBOX_ROOT_PARENT, localSandboxSessionSegment(sessionId)),
-    codeModeSocketParentPath: configuration.CODE_MODE_SOCKET_PARENT,
-    support,
-    fileMaxBytesForDownload: configuration.SANDBOX_FILE_MAX_BYTES_FOR_DOWNLOAD,
-    logger,
-  });
+  return {
+    provider: new LocalSandboxProvider({
+      sandboxRootPathParent: join(configuration.LOCAL_SANDBOX_ROOT_PARENT, localSandboxSessionSegment(sessionId)),
+      codeModeSocketParentPath: configuration.CODE_MODE_SOCKET_PARENT,
+      support,
+      fileMaxBytesForDownload: configuration.SANDBOX_FILE_MAX_BYTES_FOR_DOWNLOAD,
+      logger,
+    }),
+    usesEnvironmentSnapshot: false,
+  };
 }
 
 /**

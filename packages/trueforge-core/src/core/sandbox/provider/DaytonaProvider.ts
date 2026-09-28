@@ -1,4 +1,4 @@
-import type { Sandbox, Snapshot } from '@daytona/sdk';
+import type { CreateSandboxFromSnapshotParams, Sandbox, Snapshot } from '@daytona/sdk';
 import { Daytona, DaytonaError } from '@daytona/sdk';
 import { context } from '@opentelemetry/api';
 import { suppressTracing } from '@opentelemetry/core';
@@ -16,7 +16,14 @@ import {
 import type { CodeModeTransport } from '../codeMode/CodeModeTransport';
 import { CodeModeNatsTransport } from '../codeMode/nats/CodeModeNatsTransport';
 import { DEFAULT_PREVIEW_URL_EXPIRY_SECONDS, DEFAULT_SANDBOX_NATS_WS_PORT } from '../constants';
-import type { ExecResult, SandboxBuild, SandboxExecParams, SandboxFileInfo, SandboxProvider } from './Provider';
+import type {
+  ExecResult,
+  SandboxBuild,
+  SandboxCreateOptions,
+  SandboxExecParams,
+  SandboxFileInfo,
+  SandboxProvider,
+} from './Provider';
 
 const SANDBOX_NOT_FOUND_STATUS = 404;
 /** Another replica already registered this build name; its create is the one that counts. */
@@ -98,6 +105,8 @@ export interface DaytonaSandboxProviderOptions {
   natsBridgePort?: number;
   /** Defaults to 1 hour (same as the gateway's max agent execution time). */
   previewUrlExpirySeconds?: number;
+  /** Applied only on fresh `createSandbox` (not restore). */
+  createOptions?: SandboxCreateOptions;
   logger: Logger;
 }
 
@@ -117,6 +126,7 @@ export class DaytonaSandboxProvider implements SandboxProvider {
   private readonly previewUrlExpirySeconds: number;
   private readonly apiKey: string;
   private readonly apiUrl: string;
+  private readonly createOptions: SandboxCreateOptions | undefined;
   private readonly logger: Logger;
   private readonly daytona: Daytona;
   private static readonly cachedSandboxes = new Map<string, { sandbox: Sandbox; defaultTimeoutMs: number }>();
@@ -137,6 +147,7 @@ export class DaytonaSandboxProvider implements SandboxProvider {
     this.fileMaxBytesForDownload = options.fileMaxBytesForDownload;
     this.natsBridgePort = options.natsBridgePort ?? DEFAULT_SANDBOX_NATS_WS_PORT;
     this.previewUrlExpirySeconds = options.previewUrlExpirySeconds ?? DEFAULT_PREVIEW_URL_EXPIRY_SECONDS;
+    this.createOptions = options.createOptions;
     this.logger = options.logger.child({ module: 'DaytonaProvider' });
   }
 
@@ -151,17 +162,29 @@ export class DaytonaSandboxProvider implements SandboxProvider {
 
     const sandbox = sandboxId
       ? await this.restoreExistingSandbox(sandboxId)
-      : await this.daytona.create({
-          name: `${this.tenantName}.${randomUUID()}`,
-          snapshot: this.buildRef,
-          autoStopInterval: this.autoStopIntervalInMinutes,
-          autoArchiveInterval: this.autoArchiveIntervalInMinutes,
-          autoDeleteInterval: this.autoDeleteIntervalInMinutes,
-        });
+      : await this.daytona.create(this.buildCreateParams());
 
     const entry = { sandbox, defaultTimeoutMs: this.timeoutMs };
     DaytonaSandboxProvider.cachedSandboxes.set(sandbox.name, entry);
     return entry;
+  }
+
+  /** Snapshot create params plus optional resources (runtime accepts them; SDK snapshot typings omit them). */
+  private buildCreateParams(): CreateSandboxFromSnapshotParams & {
+    resources?: SandboxCreateOptions['resources'];
+  } {
+    const createOptions = this.createOptions;
+    return {
+      name: `${this.tenantName}.${randomUUID()}`,
+      snapshot: this.buildRef,
+      autoStopInterval: this.autoStopIntervalInMinutes,
+      autoArchiveInterval: this.autoArchiveIntervalInMinutes,
+      autoDeleteInterval: this.autoDeleteIntervalInMinutes,
+      ...(createOptions?.envVars ? { envVars: createOptions.envVars } : {}),
+      ...(createOptions?.networkBlockAll ? { networkBlockAll: createOptions.networkBlockAll } : {}),
+      ...(createOptions?.domainAllowList ? { domainAllowList: createOptions.domainAllowList } : {}),
+      ...(createOptions?.resources ? { resources: createOptions.resources } : {}),
+    };
   }
 
   // Returns true iff the caller should retry: either we restarted a stopped sandbox, or the cache entry is missing and the retry will rebuild it via the cold path.

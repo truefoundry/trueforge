@@ -80,6 +80,18 @@ export interface SandboxBuild {
   metadata: SandboxBuildMetadata | null;
 }
 
+/** Fresh-create knobs only (ignored on restore). Providers that do not support a field ignore it. */
+export interface SandboxCreateOptions {
+  resources?: {
+    cpu: number;
+    memory: number;
+    disk: number;
+  };
+  envVars?: Record<string, string>;
+  networkBlockAll?: boolean;
+  domainAllowList?: string;
+}
+
 export interface SandboxProvider {
   /** Stable provider kind used in fancy sandbox ids and carry-forward (plain string). */
   readonly type: string;

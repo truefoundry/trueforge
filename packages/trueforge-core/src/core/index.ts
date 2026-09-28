@@ -176,6 +176,7 @@ export type {
   SandboxBuild,
   SandboxBuildMetadata,
   SandboxBuildStatus,
+  SandboxCreateOptions,
   SandboxExecParams,
   SandboxInit,
   SandboxProvider,
