@@ -27,9 +27,10 @@ jobs:
   image-scan:
     name: Image Vulnerability Scan
     needs: [resolve]
-    # The shared workflow commits .grype.yaml and opens the ignore-list pull request.
+    # The shared workflow commits .grype.yaml (contents) and opens the ignore-list pull request.
     permissions:
       contents: write
+      pull-requests: write
     uses: truefoundry/github-workflows-public/.github/workflows/update-grype-report.yml@main
     with:
       dockerfile_path: 'Dockerfile'
