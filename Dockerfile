@@ -9,20 +9,12 @@
 # Example:
 #   docker build --build-arg APP_VERSION=0.1.0 -t trueforge:0.1.0 .
 
-# Debian 13. node:24-slim is still Debian 12, which has no fix for the critical
-# perl-base and glibc CVEs (fixed in trixie perl 5.40.1-6+deb13u1 and
-# glibc 2.41-12+deb13u4).
-FROM node:24-trixie-slim AS runner
+FROM node:24-slim AS runner
 WORKDIR /app
 # HOST=0.0.0.0 so Kubernetes Service/probe traffic reaches the process.
 ENV NODE_ENV=production \
     STANDALONE=false \
     HOST=0.0.0.0
-
-# Pick up security updates newer than the base image snapshot.
-RUN apt-get update \
-  && apt-get upgrade -y --no-install-recommends \
-  && rm -rf /var/lib/apt/lists/*
 
 ARG APP_VERSION
 RUN test -n "$APP_VERSION" || (echo "APP_VERSION build-arg is required" >&2 && exit 1)
