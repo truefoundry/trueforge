@@ -79,7 +79,7 @@ export function createSandboxEnvironmentsRouter(): OpenAPIHono {
     });
   });
 
-  router.get('/:sandbox_environment_id', c => {
+  router.get('/:name', c => {
     return c.json({ data: dummyEnvironment() });
   });
 
@@ -91,7 +91,7 @@ export function createSandboxEnvironmentsRouter(): OpenAPIHono {
     return c.json({ data: dummyEnvironment(body.data.manifest) }, 201);
   });
 
-  router.put('/:sandbox_environment_id', async c => {
+  router.put('/:name', async c => {
     const body = await validateJsonBody(c, UpdateSandboxEnvironmentRequestSchema);
     if (!body.ok) {
       return body.response;
@@ -99,7 +99,7 @@ export function createSandboxEnvironmentsRouter(): OpenAPIHono {
     return c.json({ data: dummyEnvironment(body.data.manifest) });
   });
 
-  router.delete('/:sandbox_environment_id', c => {
+  router.delete('/:name', c => {
     return c.json({});
   });
 
