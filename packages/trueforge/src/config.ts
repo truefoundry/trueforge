@@ -833,6 +833,21 @@ export interface SharedServerConfiguration {
   OUTBOUND_URL_ALLOWED_HOSTS: string[];
   /** Hosts always blocked. Env: `OUTBOUND_URL_BLOCKED_HOSTS` (JSON string array). Empty = none. */
   OUTBOUND_URL_BLOCKED_HOSTS: string[];
+  /**
+   * undici headersTimeout for model + MCP outbound fetch.
+   * Env: `OUTBOUND_HTTP_REQUEST_HEADERS_TIMEOUT_MS`. Default 10000.
+   */
+  OUTBOUND_HTTP_REQUEST_HEADERS_TIMEOUT_MS: number;
+  /**
+   * undici connect timeout for model + MCP outbound fetch.
+   * Env: `OUTBOUND_HTTP_REQUEST_CONNECT_TIMEOUT_MS`. Default 10000.
+   */
+  OUTBOUND_HTTP_REQUEST_CONNECT_TIMEOUT_MS: number;
+  /**
+   * Retries after the first outbound fetch attempt for connect/headers timeouts and gateway
+   * 520–524/530. Env: `OUTBOUND_HTTP_REQUEST_MAX_RETRIES`. Default 2.
+   */
+  OUTBOUND_HTTP_REQUEST_MAX_RETRIES: number;
   SENTRY_ENABLED: boolean;
   SENTRY_DSN: string | undefined;
   SENTRY_ADDITIONAL_TAGS: Record<string, string>;
@@ -1134,6 +1149,21 @@ const shared: SharedServerConfiguration = {
   OUTBOUND_URL_BLOCKED_HOSTS: parseJsonStringArrayEnv({
     envKey: 'OUTBOUND_URL_BLOCKED_HOSTS',
     raw: getEnv('OUTBOUND_URL_BLOCKED_HOSTS'),
+  }),
+  OUTBOUND_HTTP_REQUEST_HEADERS_TIMEOUT_MS: parsePositiveInt({
+    envKey: 'OUTBOUND_HTTP_REQUEST_HEADERS_TIMEOUT_MS',
+    raw: getEnv('OUTBOUND_HTTP_REQUEST_HEADERS_TIMEOUT_MS'),
+    defaultValue: 10_000,
+  }),
+  OUTBOUND_HTTP_REQUEST_CONNECT_TIMEOUT_MS: parsePositiveInt({
+    envKey: 'OUTBOUND_HTTP_REQUEST_CONNECT_TIMEOUT_MS',
+    raw: getEnv('OUTBOUND_HTTP_REQUEST_CONNECT_TIMEOUT_MS'),
+    defaultValue: 10_000,
+  }),
+  OUTBOUND_HTTP_REQUEST_MAX_RETRIES: parseNonNegativeInt({
+    envKey: 'OUTBOUND_HTTP_REQUEST_MAX_RETRIES',
+    raw: getEnv('OUTBOUND_HTTP_REQUEST_MAX_RETRIES'),
+    defaultValue: 2,
   }),
   SENTRY_ENABLED: parseBoolean({
     envKey: 'SENTRY_ENABLED',
