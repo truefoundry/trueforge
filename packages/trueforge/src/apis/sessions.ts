@@ -41,6 +41,7 @@ import {
 } from '../routes/sessionRoutes';
 import type { ActiveTurnRegistry } from '../runtime/activeTurns';
 import { validateAgentSpec } from '../runtime/sessionResources';
+import { removeLocalSandboxSessionRoot } from '../sandbox/localLifecycle';
 import { honoQueriesToRecord } from '../schemas/deepObjectQuery';
 import { isSessionAgentNameRef, parseListSessionsQuery, type Session } from '../schemas/session';
 import { newId } from '../utils/id';
@@ -425,6 +426,22 @@ export function createSessionsRouter(deps: SessionsRouterDeps) {
       tenant_id: requestContext.tenant_id,
       session_id: sessionId,
     });
+    // Standalone-only: the local sandbox root lives on this process's host filesystem.
+    // The database row is already gone, so a failure here must not turn a successful
+    // DELETE into an API error — log and continue.
+    if (configuration.STANDALONE) {
+      try {
+        await removeLocalSandboxSessionRoot({
+          sandboxRootPathParent: configuration.LOCAL_SANDBOX_ROOT_PARENT,
+          sessionId,
+        });
+      } catch (error) {
+        deps.logger.warn('Failed to remove local sandbox root after session deletion', {
+          session_id: sessionId,
+          ...extractErrorLogFields(error),
+        });
+      }
+    }
     return c.body(null, 204);
   };
 
