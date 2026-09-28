@@ -70,7 +70,7 @@ describe('savedAgentAccess', () => {
     await expect(access.resolveGatewayAuthorization()).resolves.toEqual({
       type: 'delegated',
       subjectToken: 'caller-token',
-      actorToken: 'agent-token',
+      actorAgentToken: 'agent-token',
     });
     expect(logger.info).toHaveBeenCalledWith('Exchanging user context for agent access token', {
       subject: 'user-1',
@@ -111,7 +111,7 @@ describe('savedAgentAccess', () => {
     await expect(access.resolveGatewayAuthorization()).resolves.toEqual({
       type: 'delegated',
       subjectToken: 'caller-token',
-      actorToken: 'agent-token',
+      actorAgentToken: 'agent-token',
     });
     expect(client.vendToken).toHaveBeenCalledTimes(2);
   });
@@ -165,7 +165,7 @@ describe('accessTokenForRequest', () => {
     await expect(access.resolveGatewayAuthorization()).resolves.toEqual({
       type: 'delegated',
       subjectToken: 'caller-token',
-      actorToken: 'agent-token',
+      actorAgentToken: 'agent-token',
     });
     expect(client.vendToken).toHaveBeenCalledTimes(1);
   });
@@ -182,7 +182,7 @@ describe('accessTokenForRequest', () => {
     await expect(mcp.resolveGatewayAuthorization()).resolves.toEqual({
       type: 'delegated',
       subjectToken: 'caller-token',
-      actorToken: 'agent-token',
+      actorAgentToken: 'agent-token',
     });
     expect(client.vendToken).toHaveBeenCalledTimes(1);
   });
