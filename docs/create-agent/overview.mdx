@@ -54,7 +54,7 @@ Each option below is part of the agent definition. The **Set in** line on each s
       <img src="/images/hitl.png" alt="Chat UI pausing on a tool call, showing the request payload with Allow and Deny buttons" />
     </Frame>
 
-    You can override which tools require approval per MCP server. In **Select MCP Tools**, the shield next to an enabled tool toggles approval for it, and the **Destructive Actions** header has an **Approval required** switch that covers all of them; via the API, set [`require_approval_for_tools`](#mcp_servers) to `@all`, `@write`, `@destructive`, or literal tool names.
+    You can override which tools require approval per MCP server. In **Select MCP Tools**, the shield next to an enabled tool toggles approval for it, and the **Other Actions** / **Destructive Actions** headers each have an **Approval required** switch for that group; via the API, set [`require_approval_for_tools`](#mcp_servers) to `@all`, `@write`, `@destructive`, or literal tool names.
 
     <Frame caption="The shield on an enabled tool row toggles approval; the Selected Tools panel counts how many are gated.">
       <img src="/images/mcp-tool-approval.png" alt="The Select MCP Tools dialog with a shielded web_search tool and a Selected Tools panel listing tools with approval badges" />

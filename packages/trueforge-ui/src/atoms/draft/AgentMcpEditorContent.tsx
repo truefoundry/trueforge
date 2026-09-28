@@ -31,6 +31,7 @@ import {
   namedToolRequiresApproval,
 } from './mcpToolApprovals.js';
 import {
+  MCP_TOOL_SECTION_APPROVAL_ALL_LABELS,
   MCP_TOOL_SECTION_ENABLE_ALL_LABELS,
   MCP_TOOL_SECTION_LABELS,
   MCP_TOOL_SECTION_ORDER,
@@ -510,6 +511,10 @@ export function AgentMcpEditorContent({
                           : sectionNames.filter(name => enabledTools.includes(name));
                       const sectionApproved =
                         sectionEnabledNames.length > 0 && sectionEnabledNames.every(name => approvedNames.has(name));
+                      const approvalAllLabel =
+                        sectionId === 'others' || sectionId === 'destructive'
+                          ? MCP_TOOL_SECTION_APPROVAL_ALL_LABELS[sectionId]
+                          : undefined;
                       return (
                         <div key={sectionId} className="mb-3">
                           {showSectionHeader ? (
@@ -523,7 +528,7 @@ export function AgentMcpEditorContent({
                                 {MCP_TOOL_SECTION_LABELS[sectionId]}
                               </p>
                               <div className="flex shrink-0 items-center gap-3">
-                                {sectionId !== 'destructive' || sectionEnabledNames.length === 0 ? null : (
+                                {approvalAllLabel === undefined || sectionEnabledNames.length === 0 ? null : (
                                   <label className="text-text-secondary flex shrink-0 cursor-pointer items-center gap-2 text-xs">
                                     Approval required
                                     <Switch
@@ -531,7 +536,7 @@ export function AgentMcpEditorContent({
                                       onCheckedChange={required =>
                                         setToolsApproval({ toolNames: sectionEnabledNames, required })
                                       }
-                                      aria-label="Require approval for all destructive tools"
+                                      aria-label={approvalAllLabel}
                                     />
                                   </label>
                                 )}
