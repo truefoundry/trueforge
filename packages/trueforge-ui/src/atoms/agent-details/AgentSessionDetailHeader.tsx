@@ -1,65 +1,49 @@
 'use client';
 
-import { useEffect, useState } from 'react';
-
 import { Icon } from '../../icons/Icon.js';
 import { useSlot } from '../../theme/SlotsProvider.js';
-import { buildAgentSessionShareUrl } from '../../utils/sessionShareUrl.js';
 import { auiButtonClass } from '../lib/buttonClasses.js';
 import { cn } from '../lib/cn.js';
 import { Button } from '../primitives/Button.js';
-import { LightTooltip } from '../primitives/Tooltip.js';
 import type { AgentSessionDetailHeaderProps } from './types.js';
 
 export { buildAgentSessionShareUrl } from '../../utils/sessionShareUrl.js';
 
+function SessionsShareTrigger({ disabled }: { disabled?: boolean }) {
+  return (
+    <button type="button" disabled={disabled} className={auiButtonClass({ variant: 'secondary', size: 'large' })}>
+      <Icon name="share" />
+      Share
+    </button>
+  );
+}
+
 export function AgentSessionDetailHeader({
   title,
   sessionId,
-  agentId,
-  createdAt,
-  view,
   onClose,
   resumeHref,
   onResume,
   resumeLabel,
   canResume = true,
+  canShare = true,
 }: AgentSessionDetailHeaderProps) {
-  const [copied, setCopied] = useState(false);
   const PermissionGuard = useSlot('PermissionGuard');
-
-  useEffect(() => {
-    if (!copied) return undefined;
-    const timer = window.setTimeout(() => setCopied(false), 2000);
-    return () => window.clearTimeout(timer);
-  }, [copied]);
-
-  const copySessionLink = async () => {
-    try {
-      await navigator.clipboard.writeText(buildAgentSessionShareUrl({ sessionId, agentId, createdAt, view }));
-      setCopied(true);
-    } catch {
-      // Clipboard may be unavailable; ignore.
-    }
-  };
+  const ShareSessionDialog = useSlot('ShareSessionDialog');
 
   return (
     <div className="flex shrink-0 items-center gap-3 border-b border-border p-3">
       <div className="flex min-w-0 flex-1 items-center gap-1.5 pb-0.5">
         <h2 className="min-w-0 truncate text-sm font-semibold leading-none text-text-primary">{title}</h2>
         <code className="min-w-0 truncate font-mono text-xs leading-none text-text-secondary">{sessionId}</code>
-        <LightTooltip title={copied ? 'Copied' : 'Copy session link'} dismissOnClick={false}>
-          <Button.Ghost
-            type="button"
-            size="icon"
-            aria-label="Copy session link"
-            className="size-6"
-            onClick={() => void copySessionLink()}
-          >
-            <Icon name="link" className="size-3.5" />
-          </Button.Ghost>
-        </LightTooltip>
       </div>
+      {canShare ? (
+        <ShareSessionDialog sessionId={sessionId} trigger={<SessionsShareTrigger />} />
+      ) : (
+        <PermissionGuard allowed={false}>
+          <SessionsShareTrigger />
+        </PermissionGuard>
+      )}
       {resumeLabel != null && resumeHref != null && canResume ? (
         <a
           href={resumeHref}

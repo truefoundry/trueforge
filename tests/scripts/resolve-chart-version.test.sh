@@ -21,12 +21,11 @@ assert_version() {
   fi
 }
 
-# Stable chart releases continue with patch bumps.
+# Same major.minor as the app: stable charts continue with patch bumps.
 assert_version 0.1.6 0.1.5 0.1.5
 assert_version 0.1.7 0.1.6 0.1.6
 
-# Entering prerelease mode starts the chart's own RC counter at zero. The app's
-# prerelease tag and counter do not influence the chart version.
+# Entering prerelease mode on the same line starts the chart RC counter at zero.
 assert_version 0.1.6-rc.0 0.1.5 0.1.5-rc.2
 
 # Merged chart RCs and RCs in the open chart PR both advance linearly.
@@ -39,11 +38,18 @@ assert_version 0.1.6-rc.5 0.1.6-rc.3 0.1.5-rc.7 0.1.6-rc.4
 assert_version 0.1.6 0.1.6-rc.4 0.1.6
 assert_version 0.1.6 0.1.5 0.1.6 0.1.6-rc.4
 
-# A reviewed higher chart core is preserved without coupling it to the app core.
-assert_version 0.2.0-rc.0 0.1.5 0.1.5-rc.3 0.2.0
-assert_version 0.2.0-rc.5 0.1.5 0.1.5-rc.3 0.2.0-rc.4
-assert_version 0.2.0 0.1.5 0.1.5 0.2.0-rc.4
-assert_version 0.1.6-rc.0 0.1.5 0.1.5-rc.3 0.1.4-rc.9
+# Chart major.minor follows the app (package / docker prefix).
+assert_version 0.3.0-rc.0 0.2.3-rc.0 0.3.0-rc.0
+assert_version 0.3.0 0.2.5 0.3.0
+assert_version 0.4.0-rc.0 0.3.1 0.4.0-rc.1
+
+# A reviewer patch bump on the open PR is kept when it stays on the app line.
+assert_version 0.3.1-rc.0 0.3.0 0.3.0-rc.1 0.3.1
+assert_version 0.3.0-rc.5 0.3.0-rc.3 0.3.0-rc.0 0.3.0-rc.4
+
+# A PR version on a different minor than the app is ignored.
+assert_version 0.3.0-rc.0 0.2.3-rc.0 0.3.0-rc.0 0.4.0
+assert_version 0.1.6-rc.0 0.1.5 0.1.5-rc.3 0.2.0
 
 if ((failures > 0)); then
   exit 1

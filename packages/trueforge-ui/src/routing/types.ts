@@ -8,6 +8,7 @@ export type RoutePlace =
   | { type: 'root' }
   | { type: 'agent'; agentName: string }
   | { type: 'session'; sessionId: string }
+  | { type: 'sharedSession'; sessionId: string }
   | { type: 'settings' }
   | { type: 'library' }
   | { type: 'libraryAgent'; agentId: string }
@@ -22,7 +23,7 @@ export type RoutePlace =
 export type RoutesConfig = {
   /** Passed to the router; not used for our own match/build (router strips it). */
   basename?: string;
-  /** `agent` and `session` templates MUST keep their `:param` segment to stay addressable. */
+  /** Parameterized templates MUST keep their `:param` segment to stay addressable. */
   paths?: {
     /** New-chat / landing. Default `'/'`. */
     root?: string;
@@ -40,6 +41,8 @@ export type RoutesConfig = {
     agent?: string | false;
     /** Session deep link. `false` disables. Default `'/sessions/:sessionId'`. */
     session?: string | false;
+    /** Detail-only session share link. `false` disables. Default `'/sessions/share/:sessionId'`. */
+    sharedSession?: string | false;
     /** All-user sessions browser. `false` disables. Default `'/sessions'`. */
     sessionsBrowser?: string | false;
   };
@@ -56,6 +59,7 @@ export type ResolvedRoutes = {
   buildAgent: string | null;
   agent: string | null;
   session: string | null;
+  sharedSession: string | null;
   sessionsBrowser: string | null;
 };
 
@@ -64,6 +68,7 @@ export type ShellSnapshot = {
   settingsOpen: boolean;
   libraryOpen: boolean;
   sessionsOpen: boolean;
+  sharedSessionId: string | null;
   libraryAgentId: string | null;
   schedulesOpen: boolean;
   pendingSessionId?: string;

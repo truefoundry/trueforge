@@ -4,6 +4,7 @@ import { Suspense, useCallback, useEffect, useMemo, useState } from 'react';
 
 import { useSessionShareSearch } from '../../hooks/useSessionShareSearch.js';
 import { useOptionalAgentSessionsServer } from '../../server/ServerContext.js';
+import { useShellMode } from '../../server/ShellModeContext.js';
 import { useSlot } from '../../theme/SlotsProvider.js';
 import {
   defaultSessionTimeRange,
@@ -17,9 +18,11 @@ import { Skeleton } from '../primitives/Skeleton.js';
 
 export function SessionsPage() {
   const sessionsServer = useOptionalAgentSessionsServer();
+  const shell = useShellMode();
   const { updateShareSearch } = useSessionShareSearch();
   const AgentSessions = useSlot('AgentSessions');
   const AgentSessionsFilters = useSlot('AgentSessionsFilters');
+  const sharedSessionId = shell.sharedSessionId;
 
   const [agentFilter, setAgentFilter] = useState<string | null>(
     () => readSessionShareSearch(window.location.search).agentId,
@@ -29,6 +32,7 @@ export function SessionsPage() {
   );
 
   useEffect(() => {
+    if (sharedSessionId != null) return;
     const share = readSessionShareSearch(window.location.search);
     updateShareSearch({
       view: 'sessions',
@@ -65,18 +69,20 @@ export function SessionsPage() {
       <PageHeader
         title="Agent Sessions"
         end={
-          <AgentSessionsFilters
-            agentId={agentFilter}
-            timeRange={timeRange}
-            onAgentChange={nextAgentId => {
-              setAgentFilter(nextAgentId);
-              updateShareSearch({ agentId: nextAgentId, sessionId: null, view: 'sessions' });
-            }}
-            onTimeRangeChange={nextRange => {
-              setTimeRange(nextRange);
-              updateShareSearch({ timeRange: nextRange, sessionId: null, view: 'sessions' });
-            }}
-          />
+          sharedSessionId == null ? (
+            <AgentSessionsFilters
+              agentId={agentFilter}
+              timeRange={timeRange}
+              onAgentChange={nextAgentId => {
+                setAgentFilter(nextAgentId);
+                updateShareSearch({ agentId: nextAgentId, sessionId: null, view: 'sessions' });
+              }}
+              onTimeRangeChange={nextRange => {
+                setTimeRange(nextRange);
+                updateShareSearch({ timeRange: nextRange, sessionId: null, view: 'sessions' });
+              }}
+            />
+          ) : null
         }
       />
       <div className="min-h-0 flex-1">
@@ -94,8 +100,16 @@ export function SessionsPage() {
               agentId={agentFilter ?? undefined}
               startTimestamp={new Date(resolved.startTs).toISOString()}
               endTimestamp={new Date(resolved.endTs).toISOString()}
-              shareView="sessions"
-              {...(showLoadRecentSessions ? { onLoadRecentSessions: loadRecentSessions } : {})}
+              {...(sharedSessionId == null
+                ? {
+                    shareView: 'sessions' as const,
+                    ...(showLoadRecentSessions ? { onLoadRecentSessions: loadRecentSessions } : {}),
+                  }
+                : {
+                    detailOnly: true,
+                    detailSessionId: sharedSessionId,
+                    onCloseDetail: shell.closeSharedSession,
+                  })}
             />
           </Suspense>
         )}

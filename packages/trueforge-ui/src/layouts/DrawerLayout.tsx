@@ -12,6 +12,7 @@ import { useIsMobile } from '../atoms/lib/useIsMobile.js';
 import { Spinner } from '../atoms/primitives/Spinner.js';
 import { AgentConfigDrawerContainer } from '../containers/AgentConfigDrawerContainer.js';
 import { Thread } from '../containers/Thread.js';
+import { useChatChromeActionsVisible } from '../hooks/useChatChromeActionsVisible.js';
 import { Icon } from '../icons/Icon.js';
 import { shellIsCreateAgent, useOptionalShellMode } from '../server/ShellModeContext.js';
 import { useSlot } from '../theme/SlotsProvider.js';
@@ -29,6 +30,7 @@ export function DrawerLayout({ className }: { className?: string }) {
   const AgentDetailsPage = useSlot('AgentDetailsPage');
   const AgentsLibrary = useSlot('AgentsLibrary');
   const SessionsPage = useSlot('SessionsPage');
+  const ShareChatButton = useSlot('ShareChatButton');
   const SaveAgentButton = useSlot('SaveAgentButton');
   const SelectAgentEmptyState = useSlot('SelectAgentEmptyState');
   const UserAvatar = useSlot('UserAvatar');
@@ -39,6 +41,7 @@ export function DrawerLayout({ className }: { className?: string }) {
   const sessionsOpen = shell?.sessionsOpen === true;
   const schedulesOpen = shell?.schedulesOpen === true;
   const overlayOpen = settingsOpen || libraryOpen || sessionsOpen || schedulesOpen;
+  const chatChromeActionsVisible = useChatChromeActionsVisible();
   const showAgentConfig =
     shell != null && shellIsCreateAgent(shell.mode) && !overlayOpen && (!isMobile || shell.agentConfigOpen);
   const showNewActions = shell?.isNewChatEnabled !== false;
@@ -100,6 +103,7 @@ export function DrawerLayout({ className }: { className?: string }) {
             <>
               {!overlayOpen ? (
                 <>
+                  <ShareChatButton />
                   <ClearChatButton />
                   <SaveAgentButton />
                 </>
@@ -108,7 +112,7 @@ export function DrawerLayout({ className }: { className?: string }) {
               <UserAvatar />
               {!overlayOpen ? (
                 <>
-                  {showNewActions ? (
+                  {showNewActions && !chatChromeActionsVisible ? (
                     <button
                       type="button"
                       aria-label="New Chat"

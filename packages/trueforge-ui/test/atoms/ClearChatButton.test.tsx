@@ -37,7 +37,7 @@ describe('ClearChatButton', () => {
         </ShellModeProvider>
       </SlotsProvider>,
     );
-    expect(screen.queryByRole('button', { name: 'Clear chat' })).not.toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: 'New Chat' })).not.toBeInTheDocument();
   });
 
   it('is hidden on a fresh chat with no messages', () => {
@@ -50,7 +50,7 @@ describe('ClearChatButton', () => {
         </ShellModeProvider>
       </SlotsProvider>,
     );
-    expect(screen.queryByRole('button', { name: 'Clear chat' })).not.toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: 'New Chat' })).not.toBeInTheDocument();
   });
 
   it('is hidden on a fresh draft (New Chat / New Agent)', () => {
@@ -63,7 +63,7 @@ describe('ClearChatButton', () => {
         </ShellModeProvider>
       </SlotsProvider>,
     );
-    expect(screen.queryByRole('button', { name: 'Clear chat' })).not.toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: 'New Chat' })).not.toBeInTheDocument();
   });
 
   it('is visible on mutable sessions', () => {
@@ -76,7 +76,7 @@ describe('ClearChatButton', () => {
         </ShellModeProvider>
       </SlotsProvider>,
     );
-    expect(screen.getByRole('button', { name: 'Clear chat' })).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'New Chat' })).toBeInTheDocument();
   });
 
   it('calls clearChat when clicked after a chat has started', () => {
@@ -89,8 +89,8 @@ describe('ClearChatButton', () => {
         </ShellModeProvider>
       </SlotsProvider>,
     );
-    expect(screen.getByRole('button', { name: 'Clear chat' })).toBeInTheDocument();
-    fireEvent.click(screen.getByRole('button', { name: 'Clear chat' }));
+    expect(screen.getByRole('button', { name: 'New Chat' })).toBeInTheDocument();
+    fireEvent.click(screen.getByRole('button', { name: 'New Chat' }));
   });
 });
 

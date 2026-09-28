@@ -99,6 +99,7 @@ function toUiScheduleRun(wire: TrueForgeApi.ScheduleRun): ScheduleRun {
     name: wire.name,
     scheduledFor: toIsoInstant(wire.scheduledFor),
     status: wire.status,
+    reason: wire.reason,
     triggeredAt: wire.triggeredAt == null ? null : toIsoInstant(wire.triggeredAt),
     triggeredBy: wire.createdBySubject.subjectDisplayName || wire.createdBySubject.subjectId,
   };

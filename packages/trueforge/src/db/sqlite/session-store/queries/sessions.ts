@@ -64,6 +64,7 @@ function mapRowToSessionRecord(row: {
   agent_name: string | null;
   agent_spec: AgentSpec | null;
   title: string | null;
+  shared: number;
   last_turn_id: string | null;
   external_id: string | null;
   custom: Record<string, unknown> | null;
@@ -85,6 +86,7 @@ function mapRowToSessionRecord(row: {
       agent_spec: row.agent_spec,
     }),
     title: row.title,
+    shared: row.shared !== 0,
     last_turn_id: row.last_turn_id,
     external_id: row.external_id,
     custom: parseSessionCustom(row.custom),
@@ -106,6 +108,7 @@ function sessionSelectColumns() {
     'agent_name' as const,
     jsonText<AgentSpec | null>(sql.ref('agent_spec')).as('agent_spec'),
     'title' as const,
+    'shared' as const,
     'last_turn_id' as const,
     'external_id' as const,
     jsonText<Record<string, unknown> | null>(sql.ref('custom')).as('custom'),
@@ -133,6 +136,7 @@ export async function createSession(db: Kysely<Database>, input: CreateSessionIn
         agent_name: columns.agent_name,
         agent_spec: columns.agent_spec !== null ? jsonbBind(columns.agent_spec) : null,
         title: null,
+        shared: 0,
         custom: input.custom !== null ? jsonbBind(input.custom) : null,
         metadata: jsonbBind(input.metadata),
         external_id: input.external_id,
@@ -228,6 +232,7 @@ export async function updateSession(db: Kysely<Database>, input: UpdateSessionIn
   const agent = input.agent;
   const title = input.title;
   const metadata = input.metadata;
+  const shared = input.shared;
 
   if (agent !== undefined) {
     const existing = await getSession(db, { tenant_id: input.tenant_id, session_id: input.session_id });
@@ -256,6 +261,9 @@ export async function updateSession(db: Kysely<Database>, input: UpdateSessionIn
   }
   if (metadata !== undefined) {
     qb = qb.set({ metadata: jsonbBind(metadata) });
+  }
+  if (shared !== undefined) {
+    qb = qb.set({ shared: shared ? 1 : 0 });
   }
 
   const result = await qb.executeTakeFirst();

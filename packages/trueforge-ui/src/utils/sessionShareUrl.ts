@@ -3,6 +3,7 @@ export const AGENT_ID_QUERY = 'agentId';
 export const AGENT_TAB_QUERY = 'tab';
 export const SESSIONS_VIEW_QUERY = 'view';
 export const SESSIONS_VIEW_VALUE = 'sessions';
+export const SHARED_SESSION_VIEW_VALUE = 'shared-session';
 export const SESSION_START_TIME_QUERY = 's_sts';
 export const SESSION_END_TIME_QUERY = 's_ets';
 export const SESSION_TIME_WINDOW_QUERY = 's_tw';
@@ -12,6 +13,7 @@ export const DEFAULT_SESSION_TIME_WINDOW_MS = 30 * 24 * 60 * 60 * 1000;
 export const DEFAULT_METRICS_TIME_WINDOW_MS = 24 * 60 * 60 * 1000;
 
 export type LibraryAgentTab = 'overview' | 'sessions' | 'schedules' | 'code' | 'metrics';
+export type SessionShareView = typeof SESSIONS_VIEW_VALUE | typeof SHARED_SESSION_VIEW_VALUE;
 
 export type SessionTimeRange = {
   startTs: number;
@@ -23,7 +25,7 @@ export type SessionShareSearch = {
   sessionId: string | null;
   agentId: string | null;
   tab: LibraryAgentTab | null;
-  view: typeof SESSIONS_VIEW_VALUE | null;
+  view: SessionShareView | null;
   timeRange: SessionTimeRange | null;
 };
 
@@ -31,7 +33,7 @@ export type SessionShareWrite = {
   sessionId?: string | null;
   agentId?: string | null;
   tab?: LibraryAgentTab | null;
-  view?: typeof SESSIONS_VIEW_VALUE | null;
+  view?: SessionShareView | null;
   timeRange?: SessionTimeRange | null;
 };
 
@@ -101,7 +103,7 @@ export function readSessionShareSearch(search: string): SessionShareSearch {
     sessionId: nonEmpty(params.get(SESSION_ID_QUERY)),
     agentId: nonEmpty(params.get(AGENT_ID_QUERY)),
     tab: parseLibraryAgentTab(params.get(AGENT_TAB_QUERY)),
-    view: view === SESSIONS_VIEW_VALUE ? SESSIONS_VIEW_VALUE : null,
+    view: view === SESSIONS_VIEW_VALUE || view === SHARED_SESSION_VIEW_VALUE ? view : null,
     timeRange:
       startTs != null && endTs != null
         ? { startTs, endTs }

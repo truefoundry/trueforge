@@ -19,7 +19,7 @@ class TurnStateDone(UncheckedBaseModel):
     metrics: typing.Optional[TurnMetrics] = None
     output: typing.Optional[ModelMessageEvent] = pydantic.Field(default=None)
     """
-    Final `model.message` for the turn, or null when the turn ended paused without a final message.
+    Final `model.message` for the turn, or null when the turn ended without a final message.
     """
 
     required_actions: typing.List[ActionRequiredEvent] = pydantic.Field()

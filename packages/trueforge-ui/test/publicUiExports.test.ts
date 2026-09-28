@@ -117,6 +117,8 @@ const expectedRuntimeExports: Array<keyof typeof sdk> = [
   'ServerProvider',
   'SessionsBrowserButton',
   'SessionsPage',
+  'ShareChatButton',
+  'ShareSessionDialog',
   'ShellActionsActionSlot',
   'ShellModeProvider',
   'SideDrawer',

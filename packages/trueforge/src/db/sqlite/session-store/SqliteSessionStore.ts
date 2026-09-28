@@ -14,6 +14,7 @@ import type {
   GetSessionByExternalIdInput,
   GetSessionInput,
   GetTurnInput,
+  InsertTurnInboundEventsInput,
   ISessionStore,
   ListSessionEventsInput,
   ListSessionsInput,
@@ -40,6 +41,7 @@ import {
   listSessionEvents as listSessionEventsQuery,
   listTurnEvents as listTurnEventsQuery,
 } from './queries/events';
+import { insertTurnInboundEvents as insertTurnInboundEventsQuery } from './queries/inboundEvents';
 import {
   createSession as createSessionQuery,
   deleteSession as deleteSessionQuery,
@@ -189,6 +191,10 @@ export class SqliteSessionStore implements ISessionStore<SessionCustom, TurnCust
 
   appendToEvents(input: AppendToEventsInput): Promise<void> {
     return appendToEventsQuery(this.db, input);
+  }
+
+  insertTurnInboundEvents(input: InsertTurnInboundEventsInput): Promise<void> {
+    return insertTurnInboundEventsQuery(this.db, input);
   }
 
   addThreads(input: AddThreadsInput): Promise<void> {

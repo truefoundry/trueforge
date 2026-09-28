@@ -7,8 +7,18 @@ from ..core.pydantic_utilities import IS_PYDANTIC_V2
 from ..core.unchecked_base_model import UncheckedBaseModel
 
 
-class TurnUpdateStateRunning(UncheckedBaseModel):
-    status: typing.Literal["running"] = "running"
+class UserMcpAuthContinueEvent(UncheckedBaseModel):
+    created_at: str = pydantic.Field()
+    """
+    ISO 8601 event timestamp.
+    """
+
+    id: str = pydantic.Field()
+    """
+    Unique identifier for the event (monotonic ULID).
+    """
+
+    type: typing.Literal["user.mcp_auth_continue"] = "user.mcp_auth_continue"
 
     if IS_PYDANTIC_V2:
         model_config: typing.ClassVar[pydantic.ConfigDict] = pydantic.ConfigDict(extra="allow")  # type: ignore # Pydantic v2

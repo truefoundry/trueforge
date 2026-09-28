@@ -141,6 +141,7 @@ const JSON_RESULT_COLUMNS = new Set([
   'turn_state',
   'thread_checkpoint',
   'event',
+  'payload',
   'manifest',
   'metadata',
   'build_metadata',

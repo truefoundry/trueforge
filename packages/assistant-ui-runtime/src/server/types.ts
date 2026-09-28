@@ -179,6 +179,8 @@ export interface Session<TSpec extends AgentSpec = AgentSpec> {
   agentSpec?: TSpec;
   /** true → mutable builder + updateSession(spec) allowed. */
   isMutable: boolean;
+  /** When true, any subject in the tenant may read this session and its turns/events by id. */
+  shared?: boolean;
   createdAt: string;
   updatedAt: string;
 }
@@ -193,6 +195,8 @@ export interface UpdateSessionRequest<TSpec extends AgentSpec = AgentSpec> {
   sessionId: string;
   agentSpec?: TSpec;
   title?: string;
+  /** When true, any subject in the tenant may read this session and its turns/events by id. */
+  shared?: boolean;
 }
 
 // ---------------------------------------------------------------------------
@@ -1001,6 +1005,8 @@ export interface ScheduleRun {
   name: string;
   scheduledFor: string;
   status: ScheduleRunStatus;
+  /** Failure reason supplied by the scheduler, when available. */
+  reason?: string | null;
   triggeredAt: string | null;
   triggeredBy: string;
 }
@@ -1178,6 +1184,8 @@ export type AgentUIServerPort<
     schedules?: TSchedules;
     metrics?: TMetrics;
     permissions?: TPermissions;
+    /** Authenticated caller identity. Used for tenant-scoped share copy. */
+    getMe?: () => Promise<{ tenantId: string }>;
   };
 
 /** Host-facing alias used by trueforge-ui. */

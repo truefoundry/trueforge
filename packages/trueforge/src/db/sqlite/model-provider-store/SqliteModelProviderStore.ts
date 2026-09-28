@@ -127,6 +127,10 @@ export class SqliteModelProviderStore implements IModelProviderStore<Transaction
       .executeTakeFirstOrThrow();
   }
 
+  resolveInvokeHeaders(): Promise<Record<string, string>> {
+    return Promise.resolve({});
+  }
+
   async listModels(input: ListModelProvidersInput, transaction?: Transaction<Database>): Promise<AvailableModel[]> {
     return flattenProviderModels(await this.listProviders(input, transaction));
   }

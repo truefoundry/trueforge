@@ -1,21 +1,24 @@
 # npm publish for the four public packages, plus PyPI for python/trueforge_sdk.
 #
-# npm and PyPI trusted publishers are bound to `release.yml`.
-# Do not rename this file without updating every package on npmjs.com and PyPI.
+# npm and PyPI trusted publishers are bound to this filename (`release.yml`).
+# Do not rename it without updating every package on npmjs.com and PyPI.
 #
 # On every push to main, changesets/action/select-mode chooses:
 #   - pending `.changeset/*.md` → version job opens/updates the Version Packages PR
 #     (install only; that PR is gated by CI.yml). When @truefoundry/trueforge-sdk
 #     moves, scripts/version.mjs mirrors that version into python/trueforge_sdk and rebakes Fern.
-#   - none pending + unpublished versions → pack (build/test) + Windows npx smoke,
-#     then npm publish and PyPI publish in parallel
-# Merge the Version Packages PR to publish. There is no separate publish Action
-# and no `v*` tag trigger.
+#   - none pending + unpublished versions → pack (build/test) + Windows npx smoke
+#     in parallel with the from-source image (image waits only on npm view of
+#     @truefoundry/trueforge@version; skip image+chart if that version is already
+#     on npm). After the image is pushed, this workflow calls release-chart.yml
+#     with branch main, app_version, and image_tag. Helm does not wait on pack.
+# Merge the Version Packages PR to publish. After Helm publish, release-chart.yml
+# tags charts/trueforge@<chartVersion> on the metadata commit.
 #
 # Auth is GitHub OIDC (no NPM_TOKEN / PYPI_TOKEN). An `_authToken` in user `.npmrc`
 # disables pnpm's OIDC exchange, so the npm publish job must not set NPM_TOKEN /
 # NODE_AUTH_TOKEN. id-token is granted only on the publish jobs.
-name: Release
+name: Version or publish packages
 
 on:
   push:
@@ -172,9 +175,6 @@ jobs:
     needs: [pack, windows-npx-smoke]
     runs-on: ubuntu-latest
     timeout-minutes: 20
-    outputs:
-      trueforge_published: ${{ steps.trueforge.outputs.published }}
-      trueforge_version: ${{ steps.trueforge.outputs.version }}
     permissions:
       contents: write
       id-token: write
@@ -208,51 +208,6 @@ jobs:
           # / pnpm honor (they do not accept `--provenance`).
           # publishConfig.provenance is true on every public package.
           NPM_CONFIG_PROVENANCE: 'true'
-
-      - name: Detect @truefoundry/trueforge publish
-        id: trueforge
-        env:
-          PUBLISHED: ${{ steps.publish.outputs.published }}
-          PACKAGES_KEBAB: ${{ steps.publish.outputs['published-packages'] }}
-          PACKAGES_CAMEL: ${{ steps.publish.outputs.publishedPackages }}
-        run: |
-          set -euo pipefail
-          if [[ "${PUBLISHED:-}" != "true" ]]; then
-            echo "published=false" >> "$GITHUB_OUTPUT"
-            echo "version=" >> "$GITHUB_OUTPUT"
-            exit 0
-          fi
-          PACKAGES="${PACKAGES_KEBAB:-${PACKAGES_CAMEL:-[]}}"
-          VERSION=$(printf '%s' "$PACKAGES" | python3 -c '
-          import json,sys
-          pkgs=json.load(sys.stdin)
-          for p in pkgs:
-            if p.get("name")=="@truefoundry/trueforge":
-              print(p["version"])
-              break
-          ')
-          if [[ -n "$VERSION" ]]; then
-            echo "published=true" >> "$GITHUB_OUTPUT"
-            echo "version=$VERSION" >> "$GITHUB_OUTPUT"
-            echo "Published @truefoundry/trueforge@$VERSION"
-          else
-            echo "published=false" >> "$GITHUB_OUTPUT"
-            echo "version=" >> "$GITHUB_OUTPUT"
-            echo "@truefoundry/trueforge was not in this publish set"
-          fi
-
-      - name: Wait for npm to advertise package
-        if: steps.trueforge.outputs.published == 'true'
-        env:
-          VERSION: ${{ steps.trueforge.outputs.version }}
-        run: |
-          echo "Newly published npm packages are typically available in about five minutes, and may take up to 15 minutes or more at peak times."
-          echo "https://github.blog/changelog/2026-07-28-npm-publish-time-malware-scanning-and-dual-use-metadata/"
-          for _ in $(seq 30); do
-            npm view "@truefoundry/trueforge@$VERSION" version && exit 0
-            sleep 30
-          done
-          exit 1
 
   # Sibling of npm publish (same gates). Skips when pyproject version is already on PyPI.
   publish-python:
@@ -314,18 +269,90 @@ jobs:
         with:
           packages-dir: python/trueforge_sdk/dist
 
-  # Same commit as this publish run (GITHUB_SHA). A workflow_dispatch --ref SHA
-  # is rejected: the dispatch API only accepts a branch or tag name (HTTP 422).
-  build-and-prepare-chart-release:
-    name: Build and prepare chart release
-    needs: publish
-    if: needs.publish.outputs.trueforge_published == 'true'
-    uses: ./.github/workflows/build-and-prepare-chart-release.yml
+  resolve-image:
+    name: Resolve image identity
+    if: needs.select-mode.outputs.mode == 'publish'
+    needs: select-mode
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    outputs:
+      app_version: ${{ steps.resolve.outputs.app_version }}
+      image_tag: ${{ steps.resolve.outputs.image_tag }}
+      skip: ${{ steps.resolve.outputs.skip }}
+    permissions:
+      contents: read
+    steps:
+      - name: Check out repo
+        uses: actions/checkout@v7
+        with:
+          persist-credentials: false
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v7
+        with:
+          node-version: 24
+
+      - name: Resolve image identity
+        id: resolve
+        run: |
+          set -euo pipefail
+          SEMVER='^[0-9]+\.[0-9]+\.[0-9]+([.-][0-9A-Za-z.-]+)?$'
+          APP_VERSION=$(node -p "require('./packages/trueforge/package.json').version")
+          if [[ -z "$APP_VERSION" || "$APP_VERSION" == "undefined" ]] || ! printf '%s' "$APP_VERSION" | grep -Eq "$SEMVER"; then
+            echo "app_version '$APP_VERSION' is not a semver-like version" >&2
+            exit 1
+          fi
+          IMAGE_TAG="${APP_VERSION}-$(git rev-parse --short=7 HEAD)"
+          echo "app_version=$APP_VERSION" >> "$GITHUB_OUTPUT"
+          echo "image_tag=$IMAGE_TAG" >> "$GITHUB_OUTPUT"
+
+          set +e
+          VIEW_OUT=$(npm view "@truefoundry/trueforge@${APP_VERSION}" version 2>&1)
+          VIEW_STATUS=$?
+          set -e
+          if [[ "$VIEW_STATUS" -eq 0 && -n "$VIEW_OUT" ]]; then
+            echo "skip=true" >> "$GITHUB_OUTPUT"
+            echo "@truefoundry/trueforge@$APP_VERSION is already on npm; skipping image and chart"
+          elif printf '%s' "$VIEW_OUT" | grep -qiE 'E404|404 Not Found|npm error 404'; then
+            echo "skip=false" >> "$GITHUB_OUTPUT"
+            echo "@truefoundry/trueforge@$APP_VERSION is not on npm; building image $IMAGE_TAG"
+          else
+            printf '%s\n' "$VIEW_OUT" >&2
+            echo "npm view failed for @truefoundry/trueforge@$APP_VERSION" >&2
+            exit 1
+          fi
+
+  build-image:
+    name: Build and push server image
+    if: needs.resolve-image.outputs.skip == 'false'
+    needs: [resolve-image]
+    uses: truefoundry/github-workflows-public/.github/workflows/build.yml@main
+    permissions:
+      id-token: write
+      contents: read
+    with:
+      artifactory_registry_url: ${{ vars.TRUEFOUNDRY_ARTIFACTORY_REGISTRY_URL }}
+      artifactory_repository_url: ${{ vars.TRUEFOUNDRY_ARTIFACTORY_PUBLIC_REPOSITORY }}
+      image_artifact_name: trueforge
+      image_tag: ${{ needs.resolve-image.outputs.image_tag }}
+      image_context: .
+      dockerfile_path: Dockerfile
+      platforms: linux/amd64
+      enable_jfrog: true
+      enable_public_ecr: false
+    secrets:
+      artifactory_username: ${{ secrets.TRUEFORGE_ARTIFACTORY_USERNAME }}
+      artifactory_password: ${{ secrets.TRUEFORGE_ARTIFACTORY_PASSWORD }}
+
+  release-chart:
+    name: Publish Helm chart
+    if: needs.resolve-image.outputs.skip == 'false'
+    needs: [resolve-image, build-image]
+    uses: ./.github/workflows/release-chart.yml
     permissions:
       contents: write
-      id-token: write
-      pull-requests: write
-    secrets: inherit
     with:
-      app_version: ${{ needs.publish.outputs.trueforge_version }}
-      update_app_version: true
+      branch: main
+      app_version: ${{ needs.resolve-image.outputs.app_version }}
+      image_tag: ${{ needs.resolve-image.outputs.image_tag }}
+    secrets: inherit

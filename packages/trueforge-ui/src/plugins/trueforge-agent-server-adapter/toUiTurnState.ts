@@ -15,7 +15,10 @@ export function toUiTurnDoneMetrics(metrics: TrueForgeApi.TurnMetrics): TurnDone
 }
 
 export function toUiTurnState(state: TrueForgeApi.TurnState | TrueForgeApi.TurnDoneEventState): TurnState {
-  return state.status === 'running' ? { status: 'running' } : toUiTerminalTurnState(state);
+  if (state.status === 'running' || state.status === 'paused') {
+    return { status: 'running' };
+  }
+  return toUiTerminalTurnState(state);
 }
 
 function toUiTerminalTurnState(state: TrueForgeApi.TurnDoneEventState): Exclude<TurnState, { status: 'running' }> {
@@ -35,16 +38,36 @@ function toUiTerminalTurnState(state: TrueForgeApi.TurnDoneEventState): Exclude<
   }
 }
 
+/** SDK stream types the assistant-ui-runtime union does not include yet. */
+// TODO: Remove this after we have migrated to the new schema.
+function isUnmappedSdkEvent(event: TrueForgeApi.SessionEvent | TrueForgeApi.TurnStreamingEvent): event is Extract<
+  TrueForgeApi.SessionEvent | TrueForgeApi.TurnStreamingEvent,
+  {
+    type:
+      | 'turn.update'
+      | 'user.tool_approval'
+      | 'user.tool_response'
+      | 'user.tool_approval_policy'
+      | 'user.mcp_auth_continue';
+  }
+> {
+  return (
+    event.type === 'turn.update' ||
+    event.type === 'user.tool_approval' ||
+    event.type === 'user.tool_response' ||
+    event.type === 'user.tool_approval_policy' ||
+    event.type === 'user.mcp_auth_continue'
+  );
+}
+
 export function toUiSessionEvent(event: TrueForgeApi.SessionEvent): SessionEventItem['event'] | undefined {
-  // TODO: map turn.update when the runtime event union includes it
-  if (event.type === 'turn.update') return undefined;
+  if (isUnmappedSdkEvent(event)) return undefined;
   if (event.type !== 'turn.done') return { ...event };
   return { ...event, state: toUiTerminalTurnState(event.state) };
 }
 
 export function toUiStreamingEvent(event: TrueForgeApi.TurnStreamingEvent): TurnStreamingEvent | undefined {
-  // TODO: map turn.update when the runtime event union includes it
-  if (event.type === 'turn.update') return undefined;
+  if (isUnmappedSdkEvent(event)) return undefined;
   if (event.type !== 'turn.done') return { ...event };
   return { ...event, state: toUiTerminalTurnState(event.state) };
 }

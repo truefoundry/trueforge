@@ -7,73 +7,86 @@ PR_VERSION=${3:-}
 
 SEMVER='^([0-9]+)\.([0-9]+)\.([0-9]+)(-[0-9A-Za-z.-]+)?$'
 
-if [[ ! "$CURRENT" =~ $SEMVER ]]; then
+parse() {
+  local v=$1
+  if [[ ! "$v" =~ $SEMVER ]]; then
+    return 1
+  fi
+  _major=${BASH_REMATCH[1]}
+  _minor=${BASH_REMATCH[2]}
+  _patch=${BASH_REMATCH[3]}
+  _pre=${BASH_REMATCH[4]:-}
+}
+
+if ! parse "$CURRENT"; then
   echo "Current chart version '$CURRENT' is not semver" >&2
   exit 1
 fi
+CUR_MAJOR=$_major
+CUR_MINOR=$_minor
+CUR_PATCH=$_patch
+CUR_PRE=$_pre
 
-MAJOR=${BASH_REMATCH[1]}
-MINOR=${BASH_REMATCH[2]}
-PATCH=${BASH_REMATCH[3]}
-CURRENT_PRERELEASE=${BASH_REMATCH[4]:-}
-SELECTED_MAJOR=$MAJOR
-SELECTED_MINOR=$MINOR
-SELECTED_PATCH=$PATCH
-
-# A stable chart starts the next patch. A prerelease chart is already on its
-# target core, so subsequent RCs and the stable release keep that core.
-if [[ -z "$CURRENT_PRERELEASE" ]]; then
-  SELECTED_PATCH=$((PATCH + 1))
-fi
-
-if [[ ! "$APP_VERSION" =~ $SEMVER ]]; then
+if ! parse "$APP_VERSION"; then
   echo "App version '$APP_VERSION' is not semver" >&2
   exit 1
 fi
+APP_MAJOR=$_major
+APP_MINOR=$_minor
+APP_PRE=$_pre
 
-APP_PRERELEASE=${BASH_REMATCH[4]:-}
-PR_PRERELEASE=""
+# Chart major.minor follows the app package (and thus the docker tag prefix).
+SELECTED_MAJOR=$APP_MAJOR
+SELECTED_MINOR=$APP_MINOR
+
+if ((CUR_MAJOR == APP_MAJOR && CUR_MINOR == APP_MINOR)); then
+  # Same line: a stable chart starts the next patch. A prerelease chart is
+  # already on its target core, so later RCs and the stable release keep it.
+  if [[ -z "$CUR_PRE" ]]; then
+    SELECTED_PATCH=$((CUR_PATCH + 1))
+  else
+    SELECTED_PATCH=$CUR_PATCH
+  fi
+else
+  SELECTED_PATCH=0
+fi
+
 PR_CORE_SELECTED=false
-
-if [[ -n "$PR_VERSION" && "$PR_VERSION" =~ $SEMVER ]]; then
-  PR_MAJOR=${BASH_REMATCH[1]}
-  PR_MINOR=${BASH_REMATCH[2]}
-  PR_PATCH=${BASH_REMATCH[3]}
-  PR_PRERELEASE=${BASH_REMATCH[4]:-}
-
-  if ((PR_MAJOR > SELECTED_MAJOR ||
-    (PR_MAJOR == SELECTED_MAJOR && PR_MINOR > SELECTED_MINOR) ||
-    (PR_MAJOR == SELECTED_MAJOR && PR_MINOR == SELECTED_MINOR && PR_PATCH > SELECTED_PATCH))); then
-    SELECTED_MAJOR=$PR_MAJOR
-    SELECTED_MINOR=$PR_MINOR
-    SELECTED_PATCH=$PR_PATCH
-    PR_CORE_SELECTED=true
-  elif ((PR_MAJOR == SELECTED_MAJOR && PR_MINOR == SELECTED_MINOR && PR_PATCH == SELECTED_PATCH)); then
-    PR_CORE_SELECTED=true
+PR_PRE=""
+if [[ -n "$PR_VERSION" ]] && parse "$PR_VERSION"; then
+  PR_MAJOR=$_major
+  PR_MINOR=$_minor
+  PR_PATCH=$_patch
+  PR_PRE=$_pre
+  # A reviewer bump on the open PR is kept only when it stays on the app line.
+  if ((PR_MAJOR == APP_MAJOR && PR_MINOR == APP_MINOR)); then
+    if ((PR_PATCH > SELECTED_PATCH)); then
+      SELECTED_PATCH=$PR_PATCH
+      PR_CORE_SELECTED=true
+    elif ((PR_PATCH == SELECTED_PATCH)); then
+      PR_CORE_SELECTED=true
+    fi
   fi
 fi
 
-# The app version only selects stable or prerelease mode. Chart RC counters are
-# derived from chart versions and advance independently from the app's suffix.
-SELECTED_PRERELEASE=""
-if [[ -n "$APP_PRERELEASE" ]]; then
+SELECTED_PRE=""
+if [[ -n "$APP_PRE" ]]; then
   RC_COUNTER='^-rc\.([0-9]+)$'
   HIGHEST_RC=-1
 
-  if ((MAJOR == SELECTED_MAJOR && MINOR == SELECTED_MINOR && PATCH == SELECTED_PATCH)) &&
-    [[ "$CURRENT_PRERELEASE" =~ $RC_COUNTER ]]; then
+  if ((CUR_MAJOR == SELECTED_MAJOR && CUR_MINOR == SELECTED_MINOR && CUR_PATCH == SELECTED_PATCH)) &&
+    [[ "$CUR_PRE" =~ $RC_COUNTER ]]; then
     HIGHEST_RC=${BASH_REMATCH[1]}
   fi
 
-  if [[ "$PR_CORE_SELECTED" == true && "$PR_PRERELEASE" =~ $RC_COUNTER ]]; then
+  if [[ "$PR_CORE_SELECTED" == true && "$PR_PRE" =~ $RC_COUNTER ]]; then
     PR_COUNTER=${BASH_REMATCH[1]}
     if ((PR_COUNTER > HIGHEST_RC)); then
       HIGHEST_RC=$PR_COUNTER
     fi
   fi
 
-  SELECTED_PRERELEASE="-rc.$((HIGHEST_RC + 1))"
+  SELECTED_PRE="-rc.$((HIGHEST_RC + 1))"
 fi
 
-VERSION="${SELECTED_MAJOR}.${SELECTED_MINOR}.${SELECTED_PATCH}${SELECTED_PRERELEASE}"
-printf '%s\n' "$VERSION"
+printf '%s\n' "${SELECTED_MAJOR}.${SELECTED_MINOR}.${SELECTED_PATCH}${SELECTED_PRE}"
