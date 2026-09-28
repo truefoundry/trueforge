@@ -96,6 +96,10 @@ describe('mergeGatewayMetadata', () => {
 });
 
 describe('gatewayMetadataHeadersForTurn', () => {
+  it('returns no header when the turn is absent', () => {
+    expect(gatewayMetadataHeadersForTurn(undefined)).toEqual({});
+  });
+
   it('reads x-tfy-metadata from the raw request headers', () => {
     const headers = gatewayMetadataHeadersForTurn({
       sessionId: 'sess-1',
