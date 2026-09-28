@@ -136,9 +136,9 @@ export class TrueFoundryMcpServerStore<TTransaction = never> implements IMcpServ
       }
       const authorization = await this.#resolveGatewayAuthorization();
       const invokeHeaders = {
-        ...gatewayMetadataHeadersForTurn(turnMetadata),
         ...withoutAuthorization(this.#perServerHeaders[record.name]),
         ...gatewayHeaders(authorization),
+        ...gatewayMetadataHeadersForTurn(turnMetadata),
       };
       return { headers: invokeHeaders };
     };
