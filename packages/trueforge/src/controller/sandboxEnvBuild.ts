@@ -1,10 +1,7 @@
 /**
  * Control loop: list pending sandbox-env versions and hand each to the server over HTTP.
- *
- * Uses raw fetch until CI regenerates `@truefoundry/trueforge-sdk` for
- * `environment_version_id` on the internal pending/progress routes; then switch
- * to `client.internal.sandboxEnvironments` like schedule dispatch.
  */
+import { TrueForge, TrueForgeApi } from '@truefoundry/trueforge-sdk';
 import type { Logger } from 'winston';
 import configuration from '../config';
 import { createTlsFetch, normalizeTlsUrl } from '../http/tls';
@@ -30,52 +27,32 @@ export function createHttpSandboxEnvBuildClient(): SandboxEnvBuildClient {
     dir: configuration.MTLS_CERTS_DIR,
   };
   const tlsFetch = createTlsFetch(tls);
-  const baseUrl = normalizeTlsUrl({ url: configuration.SERVER_URL, enabled: tls.enabled });
-  const fetchFn = tlsFetch ?? fetch;
-
-  async function request(path: string, init?: RequestInit): Promise<Response> {
-    const headers = new Headers(init?.headers);
-    headers.set('Authorization', `Bearer ${configuration.TRUEFORGE_API_KEY}`);
-    return fetchFn(`${baseUrl}${path}`, {
-      ...init,
-      headers,
-    });
-  }
+  const client = new TrueForge({
+    baseUrl: normalizeTlsUrl({ url: configuration.SERVER_URL, enabled: tls.enabled }),
+    token: configuration.TRUEFORGE_API_KEY,
+    timeoutInSeconds: 60,
+    ...(tlsFetch === undefined ? {} : { fetch: tlsFetch }),
+  });
 
   return {
     async listPending(limit) {
-      const response = await request(`/api/internal/sandbox-environments/pending?limit=${String(limit)}`);
-      if (!response.ok) {
-        throw new Error(`list pending sandbox env versions failed: ${String(response.status)}`);
-      }
-      const body: unknown = await response.json();
-      if (typeof body !== 'object' || body === null || !('data' in body) || !Array.isArray(body.data)) {
-        throw new Error('list pending sandbox env versions returned unexpected body');
-      }
-      return body.data.flatMap(row => {
-        if (
-          typeof row !== 'object' ||
-          row === null ||
-          !('environment_version_id' in row) ||
-          typeof row.environment_version_id !== 'string'
-        ) {
-          return [];
-        }
-        return [{ environment_version_id: row.environment_version_id }];
-      });
+      const response = await client.internal.sandboxEnvironments.listPending({ limit });
+      return response.data.map(row => ({
+        environment_version_id: row.environmentVersionId,
+      }));
     },
     async progress(item) {
-      const response = await request('/api/internal/sandbox-environments/progress', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          environment_version_id: item.environment_version_id,
-        }),
-      });
-      if (response.status === 204 || response.status === 404) {
-        return;
+      try {
+        await client.internal.sandboxEnvironments.progress({
+          environmentVersionId: item.environment_version_id,
+        });
+      } catch (error) {
+        // Missing version is a no-op (already progressed or deleted).
+        if (error instanceof TrueForgeApi.NotFoundError) {
+          return;
+        }
+        throw error;
       }
-      throw new Error(`progress sandbox env version failed: ${String(response.status)}`);
     },
   };
 }
