@@ -130,6 +130,7 @@ export type {
   MCPServerInitInfo,
   ThreadDoneEvent,
   ThreadOverwriteContextEvent,
+  ToolApprovalPolicyAction,
   UserMCPAuthContinueEvent,
   UserMCPAuthContinueMessage,
   UserToolApprovalEvent,
