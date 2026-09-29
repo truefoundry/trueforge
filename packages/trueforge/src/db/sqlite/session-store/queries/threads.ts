@@ -4,6 +4,7 @@ import type {
   OverwriteThreadContextInput,
   PatchMCPServersInput,
   PatchSandboxInfoInput,
+  PatchToolApprovalPoliciesInput,
   RemoveThreadsInput,
 } from '@truefoundry/trueforge-core/agent-session/store/ISessionStore';
 import type {
@@ -394,6 +395,66 @@ export async function patchMCPServers(db: Kysely<Database>, input: PatchMCPServe
             WHERE key NOT IN (SELECT key FROM json_each(${patchJson}))
             UNION ALL
             SELECT key, value FROM json_each(${patchJson})
+          )
+        ), jsonb('{}'))
+      )`,
+      updated_at: nowIso(),
+    })
+    .where('session_id', '=', keys.session_id)
+    .where('turn_id', '=', keys.turn_id)
+    .where(sql<boolean>`state->>'status' = 'running'`)
+    .executeTakeFirst();
+
+  if (Number(result.numUpdatedRows) === 0) {
+    await classifyTurnFenceWriteFailure(db, keys);
+  }
+}
+
+/**
+ * patchToolApprovalPolicies — conditional UPDATE fenced on state->>'status'='running'.
+ * Rebuilds mcp_servers via json_each, replacing one server entry's
+ * `approval_policies` wholesale (self-cleaning: pruned/expired grants drop)
+ * while preserving its other fields; creates a bare `{ id, name }` entry if
+ * absent.
+ */
+export async function patchToolApprovalPolicies(
+  db: Kysely<Database>,
+  input: PatchToolApprovalPoliciesInput,
+): Promise<void> {
+  const keys: TurnKeys = {
+    session_id: input.session_id,
+    turn_id: input.turn_id,
+  };
+
+  const serverName = input.server_name;
+  const policiesJson = JSON.stringify(input.approval_policies);
+  // Existing mcp_servers object as JSON text (empty object when absent/non-object).
+  const existingServers = sql`CASE WHEN json_type(checkpoint, '$.mcp_servers') = 'object'
+        THEN json(jsonb_extract(checkpoint, '$.mcp_servers'))
+        ELSE '{}' END`;
+
+  const result = await db
+    .updateTable('turn')
+    .set({
+      checkpoint: sql<string>`jsonb_set(
+        checkpoint,
+        '$.mcp_servers',
+        coalesce((
+          SELECT jsonb_group_object(key, jsonb(value))
+          FROM (
+            SELECT key, value
+            FROM json_each(${existingServers})
+            WHERE key != ${serverName}
+            UNION ALL
+            SELECT ${serverName} AS key,
+              json(jsonb_set(
+                coalesce(
+                  (SELECT jsonb(value) FROM json_each(${existingServers}) WHERE key = ${serverName}),
+                  jsonb_object('id', ${serverName}, 'name', ${serverName})
+                ),
+                '$.approval_policies',
+                jsonb(${policiesJson})
+              )) AS value
           )
         ), jsonb('{}'))
       )`,

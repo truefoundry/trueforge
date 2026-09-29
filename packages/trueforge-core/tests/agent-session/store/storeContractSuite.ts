@@ -1852,6 +1852,12 @@ export function runStoreContractSuite(createStore: () => ISessionStore) {
             ...keys,
             mcp_servers: [{ id: 'svc', name: 'svc', session_id: 'mcp-1', transport_type: 'streamable-http' }],
           }),
+        () =>
+          store.patchToolApprovalPolicies({
+            ...keys,
+            server_name: 'svc',
+            approval_policies: { write_note: { type: 'allow_session' } },
+          }),
         () => store.patchSandboxInfo({ ...keys, sandbox_info: { sandbox_id: 'sbx-1' } }),
         () =>
           store.patchThreadCapabilityState({
@@ -2764,6 +2770,95 @@ export function runStoreContractSuite(createStore: () => ISessionStore) {
       expect(mustGet(turn).snapshot.mcp_servers).toEqual({
         svc: { id: 'svc', name: 'svc', transport_type: 'sse' },
       });
+    });
+
+    it('patchToolApprovalPolicies sets grants while preserving other server fields', async () => {
+      const store = createStore();
+      await seedSession(store);
+      await store.createTurn(makeCreateTurnInput({ sessionId, turnId: 'turn-1' }));
+      await store.patchMCPServers({
+        session_id: sessionId,
+        turn_id: 'turn-1',
+        mcp_servers: [{ id: 'svc', name: 'svc', session_id: 'mcp-1', transport_type: 'streamable-http' }],
+      });
+      await store.patchToolApprovalPolicies({
+        session_id: sessionId,
+        turn_id: 'turn-1',
+        server_name: 'svc',
+        approval_policies: {
+          write_note: { type: 'allow_session' },
+          delete_note: { type: 'allow_session', expire_at: '2999-01-01T00:00:00.000Z' },
+        },
+      });
+      const turn = await store.getTurn({ session_id: sessionId, turn_id: 'turn-1' });
+      expect(mustGet(turn).snapshot.mcp_servers?.['svc']).toEqual({
+        id: 'svc',
+        name: 'svc',
+        session_id: 'mcp-1',
+        transport_type: 'streamable-http',
+        approval_policies: {
+          write_note: { type: 'allow_session' },
+          delete_note: { type: 'allow_session', expire_at: '2999-01-01T00:00:00.000Z' },
+        },
+      });
+    });
+
+    it('patchToolApprovalPolicies replaces the set wholesale (dropped grants do not linger)', async () => {
+      const store = createStore();
+      await seedSession(store);
+      await store.createTurn(makeCreateTurnInput({ sessionId, turnId: 'turn-1' }));
+      await store.patchToolApprovalPolicies({
+        session_id: sessionId,
+        turn_id: 'turn-1',
+        server_name: 'svc',
+        approval_policies: {
+          write_note: { type: 'allow_session' },
+          delete_note: { type: 'allow_session' },
+        },
+      });
+      // Second write drops delete_note (e.g. it expired and was pruned).
+      await store.patchToolApprovalPolicies({
+        session_id: sessionId,
+        turn_id: 'turn-1',
+        server_name: 'svc',
+        approval_policies: { write_note: { type: 'allow_session' } },
+      });
+      const turn = await store.getTurn({ session_id: sessionId, turn_id: 'turn-1' });
+      expect(mustGet(turn).snapshot.mcp_servers?.['svc']).toEqual({
+        id: 'svc',
+        name: 'svc',
+        approval_policies: { write_note: { type: 'allow_session' } },
+      });
+    });
+
+    it('patchToolApprovalPolicies is scoped per server and leaves others untouched', async () => {
+      const store = createStore();
+      await seedSession(store);
+      await store.createTurn(makeCreateTurnInput({ sessionId, turnId: 'turn-1' }));
+      await store.patchMCPServers({
+        session_id: sessionId,
+        turn_id: 'turn-1',
+        mcp_servers: [
+          { id: 'svc-a', name: 'svc-a', session_id: 'mcp-a' },
+          { id: 'svc-b', name: 'svc-b', session_id: 'mcp-b' },
+        ],
+      });
+      await store.patchToolApprovalPolicies({
+        session_id: sessionId,
+        turn_id: 'turn-1',
+        server_name: 'svc-a',
+        approval_policies: { write_note: { type: 'allow_session' } },
+      });
+      const turn = await store.getTurn({ session_id: sessionId, turn_id: 'turn-1' });
+      expect(mustGet(turn).snapshot.mcp_servers?.['svc-a']?.approval_policies).toEqual({
+        write_note: { type: 'allow_session' },
+      });
+      expect(mustGet(turn).snapshot.mcp_servers?.['svc-b']).toEqual({
+        id: 'svc-b',
+        name: 'svc-b',
+        session_id: 'mcp-b',
+      });
+      expect(mustGet(turn).snapshot.mcp_servers?.['svc-b']?.approval_policies).toBeUndefined();
     });
   });
 

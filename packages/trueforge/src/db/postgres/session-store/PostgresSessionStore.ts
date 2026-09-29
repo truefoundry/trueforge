@@ -31,6 +31,7 @@ import type {
   PatchMCPServersInput,
   PatchSandboxInfoInput,
   PatchThreadCapabilityStateInput,
+  PatchToolApprovalPoliciesInput,
   RemoveThreadsInput,
   TurnRecordWithoutSnapshot,
   UpdateSessionInput,
@@ -69,6 +70,7 @@ import {
   overwriteThreadContext as overwriteThreadContextQuery,
   patchMCPServers as patchMCPServersQuery,
   patchSandboxInfo as patchSandboxInfoQuery,
+  patchToolApprovalPolicies as patchToolApprovalPoliciesQuery,
   removeThreads as removeThreadsQuery,
 } from './queries/threads';
 import type { NewThreadRegistration } from './queries/turns';
@@ -240,6 +242,10 @@ export class PostgresSessionStore implements ISessionStore<SessionCustom, TurnCu
 
   patchMCPServers(input: PatchMCPServersInput): Promise<void> {
     return patchMCPServersQuery(this.db, input);
+  }
+
+  patchToolApprovalPolicies(input: PatchToolApprovalPoliciesInput): Promise<void> {
+    return patchToolApprovalPoliciesQuery(this.db, input);
   }
 
   patchSandboxInfo(input: PatchSandboxInfoInput): Promise<void> {
