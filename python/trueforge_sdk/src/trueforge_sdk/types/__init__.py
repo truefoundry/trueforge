@@ -107,6 +107,10 @@ if typing.TYPE_CHECKING:
     from .list_mcp_server_tools_response import ListMcpServerToolsResponse
     from .list_mcp_servers_response import ListMcpServersResponse
     from .list_model_providers_response import ListModelProvidersResponse
+    from .list_pending_sandbox_environment_versions_response import ListPendingSandboxEnvironmentVersionsResponse
+    from .list_pending_sandbox_environment_versions_response_data_item import (
+        ListPendingSandboxEnvironmentVersionsResponseDataItem,
+    )
     from .list_permissions_data import ListPermissionsData
     from .list_permissions_response import ListPermissionsResponse
     from .list_sandbox_environments_response import ListSandboxEnvironmentsResponse
@@ -373,6 +377,8 @@ _dynamic_imports: typing.Dict[str, str] = {
     "ListMcpServerToolsResponse": ".list_mcp_server_tools_response",
     "ListMcpServersResponse": ".list_mcp_servers_response",
     "ListModelProvidersResponse": ".list_model_providers_response",
+    "ListPendingSandboxEnvironmentVersionsResponse": ".list_pending_sandbox_environment_versions_response",
+    "ListPendingSandboxEnvironmentVersionsResponseDataItem": ".list_pending_sandbox_environment_versions_response_data_item",
     "ListPermissionsData": ".list_permissions_data",
     "ListPermissionsResponse": ".list_permissions_response",
     "ListSandboxEnvironmentsResponse": ".list_sandbox_environments_response",
@@ -663,6 +669,8 @@ __all__ = [
     "ListMcpServerToolsResponse",
     "ListMcpServersResponse",
     "ListModelProvidersResponse",
+    "ListPendingSandboxEnvironmentVersionsResponse",
+    "ListPendingSandboxEnvironmentVersionsResponseDataItem",
     "ListPermissionsData",
     "ListPermissionsResponse",
     "ListSandboxEnvironmentsResponse",

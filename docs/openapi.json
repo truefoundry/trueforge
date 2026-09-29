@@ -2387,6 +2387,51 @@
         ],
         "type": "object"
       },
+      "ListPendingSandboxEnvironmentVersionsResponse": {
+        "additionalProperties": false,
+        "properties": {
+          "data": {
+            "items": {
+              "additionalProperties": false,
+              "properties": {
+                "environment_id": {
+                  "minLength": 1,
+                  "type": "string"
+                },
+                "environment_name": {
+                  "minLength": 1,
+                  "type": "string"
+                },
+                "external_ref": {
+                  "minLength": 1,
+                  "type": "string"
+                },
+                "tenant_id": {
+                  "minLength": 1,
+                  "type": "string"
+                },
+                "version": {
+                  "exclusiveMinimum": 0,
+                  "type": "integer"
+                }
+              },
+              "required": [
+                "tenant_id",
+                "environment_id",
+                "environment_name",
+                "version",
+                "external_ref"
+              ],
+              "type": "object"
+            },
+            "type": "array"
+          }
+        },
+        "required": [
+          "data"
+        ],
+        "type": "object"
+      },
       "ListPermissionsData": {
         "properties": {
           "permissions": {
@@ -3510,6 +3555,26 @@
         ],
         "default": "auto",
         "description": "Defaults to 'auto' (chain to session last turn). Use 'none' for a new root turn."
+      },
+      "ProgressSandboxEnvironmentVersionRequest": {
+        "additionalProperties": false,
+        "properties": {
+          "environment_id": {
+            "description": "Parent environment id.",
+            "minLength": 1,
+            "type": "string"
+          },
+          "version": {
+            "description": "Version number to progress.",
+            "exclusiveMinimum": 0,
+            "type": "integer"
+          }
+        },
+        "required": [
+          "environment_id",
+          "version"
+        ],
+        "type": "object"
       },
       "RawToolCall": {
         "allOf": [
@@ -6936,6 +7001,108 @@
           "metrics"
         ],
         "x-fern-sdk-method-name": "get_meters"
+      }
+    },
+    "/api/internal/sandbox-environments/pending": {
+      "get": {
+        "description": "Returns pending environment versions for the build controller.",
+        "parameters": [
+          {
+            "description": "Max pending versions to return.",
+            "in": "query",
+            "name": "limit",
+            "required": false,
+            "schema": {
+              "default": 20,
+              "description": "Max pending versions to return.",
+              "exclusiveMinimum": 0,
+              "maximum": 100,
+              "type": "integer"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ListPendingSandboxEnvironmentVersionsResponse"
+                }
+              }
+            },
+            "description": "Pending versions oldest-first."
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/RequestErrorResponse"
+                }
+              }
+            },
+            "description": "Invalid service credential."
+          }
+        },
+        "summary": "List pending sandbox environment versions",
+        "tags": [
+          "Internal"
+        ],
+        "x-excluded": true,
+        "x-fern-sdk-group-name": [
+          "internal",
+          "sandbox_environments"
+        ],
+        "x-fern-sdk-method-name": "list_pending"
+      }
+    },
+    "/api/internal/sandbox-environments/progress": {
+      "post": {
+        "description": "Registers or polls the Daytona snapshot and updates version status.",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ProgressSandboxEnvironmentVersionRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "204": {
+            "description": "Progressed (or left pending)."
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/RequestErrorResponse"
+                }
+              }
+            },
+            "description": "Invalid service credential."
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/RequestErrorResponse"
+                }
+              }
+            },
+            "description": "Version not found."
+          }
+        },
+        "summary": "Progress a pending sandbox environment version",
+        "tags": [
+          "Internal"
+        ],
+        "x-excluded": true,
+        "x-fern-sdk-group-name": [
+          "internal",
+          "sandbox_environments"
+        ],
+        "x-fern-sdk-method-name": "progress"
       }
     },
     "/api/internal/schedules/runs/execute": {

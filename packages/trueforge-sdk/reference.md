@@ -3396,6 +3396,136 @@ await client.internal.metrics.getMeters({
 </dl>
 </details>
 
+## Internal SandboxEnvironments
+<details><summary><code>client.internal.sandboxEnvironments.<a href="/src/api/resources/internal/resources/sandboxEnvironments/client/Client.ts">listPending</a>({ ...params }) -> TrueForge.ListPendingSandboxEnvironmentVersionsResponse</code></summary>
+<dl>
+<dd>
+
+#### 📝 Description
+
+<dl>
+<dd>
+
+<dl>
+<dd>
+
+Returns pending environment versions for the build controller.
+</dd>
+</dl>
+</dd>
+</dl>
+
+#### 🔌 Usage
+
+<dl>
+<dd>
+
+<dl>
+<dd>
+
+```typescript
+await client.internal.sandboxEnvironments.listPending();
+
+```
+</dd>
+</dl>
+</dd>
+</dl>
+
+#### ⚙️ Parameters
+
+<dl>
+<dd>
+
+<dl>
+<dd>
+
+**request:** `TrueForge.internal.ListPendingSandboxEnvironmentsRequest` 
+    
+</dd>
+</dl>
+
+<dl>
+<dd>
+
+**requestOptions:** `SandboxEnvironmentsClient.RequestOptions` 
+    
+</dd>
+</dl>
+</dd>
+</dl>
+
+
+</dd>
+</dl>
+</details>
+
+<details><summary><code>client.internal.sandboxEnvironments.<a href="/src/api/resources/internal/resources/sandboxEnvironments/client/Client.ts">progress</a>({ ...params }) -> void</code></summary>
+<dl>
+<dd>
+
+#### 📝 Description
+
+<dl>
+<dd>
+
+<dl>
+<dd>
+
+Registers or polls the Daytona snapshot and updates version status.
+</dd>
+</dl>
+</dd>
+</dl>
+
+#### 🔌 Usage
+
+<dl>
+<dd>
+
+<dl>
+<dd>
+
+```typescript
+await client.internal.sandboxEnvironments.progress({
+    environmentId: "environment_id",
+    version: 1
+});
+
+```
+</dd>
+</dl>
+</dd>
+</dl>
+
+#### ⚙️ Parameters
+
+<dl>
+<dd>
+
+<dl>
+<dd>
+
+**request:** `TrueForge.internal.ProgressSandboxEnvironmentVersionRequest` 
+    
+</dd>
+</dl>
+
+<dl>
+<dd>
+
+**requestOptions:** `SandboxEnvironmentsClient.RequestOptions` 
+    
+</dd>
+</dl>
+</dd>
+</dl>
+
+
+</dd>
+</dl>
+</details>
+
 ## Internal Schedules
 <details><summary><code>client.internal.schedules.<a href="/src/api/resources/internal/resources/schedules/client/Client.ts">executeRun</a>({ ...params }) -> void</code></summary>
 <dl>

@@ -4023,6 +4023,158 @@ client.internal.metrics.get_meters(
 </dl>
 </details>
 
+## Internal SandboxEnvironments
+<details><summary><code>client.internal.sandbox_environments.<a href="src/trueforge_sdk/internal/sandbox_environments/client.py">list_pending</a>(...) -> ListPendingSandboxEnvironmentVersionsResponse</code></summary>
+<dl>
+<dd>
+
+#### 📝 Description
+
+<dl>
+<dd>
+
+<dl>
+<dd>
+
+Returns pending environment versions for the build controller.
+</dd>
+</dl>
+</dd>
+</dl>
+
+#### 🔌 Usage
+
+<dl>
+<dd>
+
+<dl>
+<dd>
+
+```python
+from trueforge_sdk import TrueForge
+
+client = TrueForge(
+    token="<token>",
+    base_url="https://yourhost.com/path/to/api",
+)
+
+client.internal.sandbox_environments.list_pending()
+
+```
+</dd>
+</dl>
+</dd>
+</dl>
+
+#### ⚙️ Parameters
+
+<dl>
+<dd>
+
+<dl>
+<dd>
+
+**limit:** `typing.Optional[int]` — Max pending versions to return.
+    
+</dd>
+</dl>
+
+<dl>
+<dd>
+
+**request_options:** `typing.Optional[RequestOptions]` — Request-specific configuration.
+    
+</dd>
+</dl>
+</dd>
+</dl>
+
+
+</dd>
+</dl>
+</details>
+
+<details><summary><code>client.internal.sandbox_environments.<a href="src/trueforge_sdk/internal/sandbox_environments/client.py">progress</a>(...)</code></summary>
+<dl>
+<dd>
+
+#### 📝 Description
+
+<dl>
+<dd>
+
+<dl>
+<dd>
+
+Registers or polls the Daytona snapshot and updates version status.
+</dd>
+</dl>
+</dd>
+</dl>
+
+#### 🔌 Usage
+
+<dl>
+<dd>
+
+<dl>
+<dd>
+
+```python
+from trueforge_sdk import TrueForge
+
+client = TrueForge(
+    token="<token>",
+    base_url="https://yourhost.com/path/to/api",
+)
+
+client.internal.sandbox_environments.progress(
+    environment_id="environment_id",
+    version=1,
+)
+
+```
+</dd>
+</dl>
+</dd>
+</dl>
+
+#### ⚙️ Parameters
+
+<dl>
+<dd>
+
+<dl>
+<dd>
+
+**environment_id:** `str` — Parent environment id.
+    
+</dd>
+</dl>
+
+<dl>
+<dd>
+
+**version:** `int` — Version number to progress.
+    
+</dd>
+</dl>
+
+<dl>
+<dd>
+
+**request_options:** `typing.Optional[RequestOptions]` — Request-specific configuration.
+    
+</dd>
+</dl>
+</dd>
+</dl>
+
+
+</dd>
+</dl>
+</details>
+
 ## Internal Schedules
 <details><summary><code>client.internal.schedules.<a href="src/trueforge_sdk/internal/schedules/client.py">execute_run</a>(...)</code></summary>
 <dl>
