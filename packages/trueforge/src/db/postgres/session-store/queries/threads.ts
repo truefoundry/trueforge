@@ -4,7 +4,6 @@ import type {
   OverwriteThreadContextInput,
   PatchMCPServersInput,
   PatchSandboxInfoInput,
-  PatchToolApprovalPoliciesInput,
   RemoveThreadsInput,
 } from '@truefoundry/trueforge-core/agent-session/store/ISessionStore';
 import type { JsonValue } from '@truefoundry/trueforge-core/core/capabilities/AgentCapability';
@@ -356,48 +355,6 @@ export async function patchMCPServers(db: Kysely<Database>, input: PatchMCPServe
     .set({ updated_at: sql`now()` })
     .where('session_id', '=', keys.session_id)
     .where('turn_id', '=', keys.turn_id)
-    .where(sql<boolean>`state->>'status' = 'running'`)
-    .executeTakeFirst();
-
-  if (Number(result.numUpdatedRows) === 0) {
-    await classifyTurnFenceWriteFailure(db, keys);
-  }
-}
-
-/**
- * patchToolApprovalPolicies — one-shot conditional UPDATE fenced on
- * `state->>'status' = 'running'`. Sets one server's `approval_policies`
- * wholesale (self-cleaning: pruned/expired grants drop) while preserving the
- * entry's other fields; creates a bare `{ id, name }` entry if absent.
- */
-export async function patchToolApprovalPolicies(
-  db: Kysely<Database>,
-  input: PatchToolApprovalPoliciesInput,
-): Promise<void> {
-  const keys: TurnKeys = {
-    session_id: input.session_id,
-    turn_id: input.turn_id,
-  };
-
-  const result = await db
-    .updateTable('turn')
-    .set(
-      sql`checkpoint['mcp_servers']`,
-      sql`(CASE WHEN jsonb_typeof(checkpoint->'mcp_servers') = 'object'
-            THEN checkpoint->'mcp_servers'
-            ELSE '{}'::jsonb END)
-          || jsonb_build_object(
-               ${input.server_name}::text,
-               (CASE WHEN jsonb_typeof(checkpoint->'mcp_servers'->${input.server_name}) = 'object'
-                     THEN checkpoint->'mcp_servers'->${input.server_name}
-                     ELSE jsonb_build_object('id', ${input.server_name}::text, 'name', ${input.server_name}::text) END)
-               || jsonb_build_object('approval_policies', ${json(input.approval_policies)})
-             )`,
-    )
-    .set({ updated_at: sql`now()` })
-    .where('session_id', '=', keys.session_id)
-    .where('turn_id', '=', keys.turn_id)
-    // TODO: add paused status as well.
     .where(sql<boolean>`state->>'status' = 'running'`)
     .executeTakeFirst();
 

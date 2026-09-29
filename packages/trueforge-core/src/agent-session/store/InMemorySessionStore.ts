@@ -29,7 +29,6 @@ import type {
   PatchMCPServersInput,
   PatchSandboxInfoInput,
   PatchThreadCapabilityStateInput,
-  PatchToolApprovalPoliciesInput,
   RemoveThreadsInput,
   TurnContextAppend,
   TurnRecordWithoutSnapshot,
@@ -638,21 +637,6 @@ export class InMemorySessionStore<
     for (const server of input.mcp_servers) {
       turn.snapshot.mcp_servers[server.id] = deepCopy(server);
     }
-    turn.updated_at = new Date();
-    return;
-  }
-
-  async patchToolApprovalPolicies(input: PatchToolApprovalPoliciesInput): Promise<void> {
-    const turn = this.requireRunningTurn(input.session_id, input.turn_id);
-    turn.snapshot.mcp_servers ??= {};
-    const existing = turn.snapshot.mcp_servers[input.server_name] ?? {
-      id: input.server_name,
-      name: input.server_name,
-    };
-    turn.snapshot.mcp_servers[input.server_name] = {
-      ...existing,
-      approval_policies: deepCopy(input.approval_policies),
-    };
     turn.updated_at = new Date();
     return;
   }

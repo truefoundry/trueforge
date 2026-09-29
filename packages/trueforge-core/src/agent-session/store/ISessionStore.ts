@@ -1,9 +1,5 @@
 import type { JsonValue } from '../../core/capabilities/AgentCapability';
-import type {
-  MCPServerInitInfo,
-  ThreadOverwriteContextEvent,
-  ToolApprovalPolicyAction,
-} from '../../core/events/schema';
+import type { MCPServerInitInfo, ThreadOverwriteContextEvent } from '../../core/events/schema';
 import type {
   AgentThreadSnapshot,
   ContextMessage,
@@ -230,14 +226,6 @@ export interface PatchSandboxInfoInput {
   sandbox_info: SandboxInfo;
 }
 
-export interface PatchToolApprovalPoliciesInput {
-  session_id: string;
-  turn_id: string;
-  server_name: string;
-  /* tool name to policy action map */
-  approval_policies: Record<string, ToolApprovalPolicyAction>;
-}
-
 export interface PatchThreadCapabilityStateInput {
   session_id: string;
   turn_id: string;
@@ -413,9 +401,6 @@ export interface ISessionStore<
 
   /** Patches the turn snapshot's MCP server init info (by source id). */
   patchMCPServers(input: PatchMCPServersInput): Promise<void>;
-
-  /** Patches the turn snapshot's per-tool approval grants for one MCP server (entry's other fields preserved). */
-  patchToolApprovalPolicies(input: PatchToolApprovalPoliciesInput): Promise<void>;
 
   /** Patches the turn snapshot's sandbox info (id for cross-turn reattach). */
   patchSandboxInfo(input: PatchSandboxInfoInput): Promise<void>;

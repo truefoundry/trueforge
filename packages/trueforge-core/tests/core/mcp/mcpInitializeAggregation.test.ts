@@ -1,4 +1,4 @@
-import type { MCPServerInitInfo } from '../../../src/core/events/schema';
+import type { MCPServerInitInfo, ToolApprovalPolicyAction } from '../../../src/core/events/schema';
 import { EventType } from '../../../src/core/events/schema';
 import type { AgentToolSchema, IToolSet, ListToolsResponse } from '../../../src/core/mcp/IMCPServer';
 import { convertMCPServersToTools } from '../../../src/core/mcp/convertMCPServers';
@@ -9,6 +9,7 @@ function makeServer(params: {
   name: string;
   initInfo?: MCPServerInitInfo;
   tools?: AgentToolSchema[] | undefined;
+  approvalPolicies?: Record<string, ToolApprovalPolicyAction>;
 }): IToolSet {
   const base = makeMockIMCPServer({
     name: params.name,
@@ -17,6 +18,7 @@ function makeServer(params: {
   });
   return {
     ...base,
+    ...(params.approvalPolicies ? { getApprovalPolicies: jest.fn(() => params.approvalPolicies ?? {}) } : {}),
     listTools: jest.fn((): Promise<ListToolsResponse> =>
       Promise.resolve({
         result: {
@@ -50,6 +52,29 @@ describe('convertMCPServersToTools initialization aggregation', () => {
 
     expect(initializationInfo).toEqual([alphaInit, betaInit]);
     expect(convertedTools.tools.length).toBe(2);
+  });
+
+  it('carries the tool set approval grants onto its init info', async () => {
+    const grantedInit: MCPServerInitInfo = { id: 'granted', name: 'granted', session_id: 'sess-granted' };
+    const grants: Record<string, ToolApprovalPolicyAction> = {
+      write_note: { type: 'allow_session' },
+      delete_note: { type: 'allow_session', expire_at: '2999-01-01T00:00:00.000Z' },
+    };
+    const bareInit: MCPServerInitInfo = { id: 'bare', name: 'bare', session_id: 'sess-bare' };
+
+    const { initializationInfo } = await convertMCPServersToTools({
+      tfyManagedServers: [],
+      userServers: [
+        makeServer({ name: 'granted', initInfo: grantedInit, approvalPolicies: grants }),
+        makeServer({ name: 'bare', initInfo: bareInit }),
+      ],
+    });
+
+    expect(initializationInfo).toEqual([
+      { ...grantedInit, approval_policies: grants },
+      // No grants → init info is left untouched (no empty approval_policies key).
+      bareInit,
+    ]);
   });
 
   it('skips initialization entries for OAuth-required servers', async () => {
