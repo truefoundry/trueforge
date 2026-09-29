@@ -1,35 +1,31 @@
 /**
  * Sandbox environments API (mounted at /api/v1/sandbox-environments).
  * Real DB CRUD; OpenAPI / Fern registration intentionally deferred.
+ * Snapshot builds are not started here — versions land in `created` for a future controller.
  */
 import { OpenAPIHono, z } from '@hono/zod-openapi';
 import { InvalidPageTokenError } from '@truefoundry/trueforge-core/agent-session';
-import { withTimeout } from '@truefoundry/trueforge-core/core';
 import type { Context } from 'hono';
-import type { Logger } from 'winston';
 import { createdBySubjectFromRequestContext, type ResolveRequestContext } from '../auth/identity';
 import type { IAgentStore } from '../db/agentStore';
 import {
   SandboxEnvironmentNameConflictError,
+  SandboxEnvironmentVersionConflictError,
   type ISandboxEnvironmentStore,
-  type SandboxEnvironmentVersionRecord,
   type SandboxEnvironmentWithVersion,
 } from '../db/sandboxEnvironmentStore';
-import type { ISandboxProviderStore } from '../db/sandboxProviderStore';
+import type { ISandboxProviderStore, SandboxProviderRecord } from '../db/sandboxProviderStore';
 import type { WithTransaction } from '../db/transaction';
-import { toSandboxProviderFromRecord } from '../sandbox/providerUtils';
 import { buildNextVersion, redactManifestSecrets } from '../sandbox/sandboxEnvironmentVersion';
 import { PAGE_LIMIT } from '../schemas/common';
 import {
-  CreateSandboxEnvironmentRequestSchema,
   UpdateSandboxEnvironmentRequestSchema,
   type SandboxEnvironment,
+  type SandboxEnvironmentManifest,
+  type StoredSandboxEnvironmentManifest,
 } from '../schemas/sandboxEnvironment';
 import { MissingStoredSecretError } from '../utils/secretRedaction';
 import { zodErrorResponse } from '../zodErrorResponse';
-
-/** Cap Daytona register so a slow provider cannot hold the HTTP request open. */
-const BUILD_REQUEST_TIMEOUT_MS = 3_000;
 
 export interface SandboxEnvironmentsRouterDeps<TTransaction> {
   sandboxEnvironmentStore: ISandboxEnvironmentStore<TTransaction>;
@@ -37,7 +33,6 @@ export interface SandboxEnvironmentsRouterDeps<TTransaction> {
   resolveSandboxProviderStore: (c: Context) => ISandboxProviderStore<TTransaction>;
   withTransaction: WithTransaction<TTransaction>;
   resolveRequestContext: ResolveRequestContext;
-  logger: Logger;
 }
 
 function toSandboxEnvironment({ environment, version }: SandboxEnvironmentWithVersion): SandboxEnvironment {
@@ -48,7 +43,6 @@ function toSandboxEnvironment({ environment, version }: SandboxEnvironmentWithVe
     id: environment.id,
     name: environment.name,
     description: environment.description,
-    active_version: environment.active_version,
     lifecycle_stage: environment.lifecycle_stage,
     status: version.status,
     status_reason: version.status_reason,
@@ -79,42 +73,64 @@ function parseListQuery(c: Context): { limit: number; page_token: string | undef
   };
 }
 
-async function startSnapshotBuild<TTransaction>({
-  store,
-  providerStore,
-  tenant_id,
-  version,
-  logger,
-}: {
-  store: ISandboxEnvironmentStore<TTransaction>;
-  providerStore: ISandboxProviderStore<TTransaction>;
-  tenant_id: string;
-  version: SandboxEnvironmentVersionRecord;
-  logger: Logger;
-}): Promise<SandboxEnvironmentVersionRecord> {
-  const fail = async (status_reason: string) =>
-    (await store.markVersionFailed({
-      environment_id: version.environment_id,
-      version: version.version,
-      status_reason,
-    })) ?? version;
+/** Resolve the tenant sandbox provider record; callers pass it into versioning helpers. */
+async function requireSandboxProviderRecord(
+  providerStore: ISandboxProviderStore,
+  tenant_id: string,
+): Promise<SandboxProviderRecord | undefined> {
+  return providerStore.getSandboxProvider(tenant_id);
+}
 
-  const providerRecord = await providerStore.getSandboxProvider(tenant_id);
-  if (!providerRecord) {
-    return fail('No sandbox provider configured');
-  }
-  try {
-    const provider = toSandboxProviderFromRecord({
-      record: providerRecord,
+function buildVersionForCreate({
+  tenant_id,
+  manifest,
+  provider,
+  created_by_subject,
+}: {
+  tenant_id: string;
+  manifest: SandboxEnvironmentManifest;
+  provider: SandboxProviderRecord;
+  created_by_subject: ReturnType<typeof createdBySubjectFromRequestContext>;
+}) {
+  return {
+    ...buildNextVersion({
       tenant_id,
-      logger,
-      build_metadata: { build_ref: version.external_ref },
-    });
-    await withTimeout(provider.buildImage(), BUILD_REQUEST_TIMEOUT_MS, 'sandbox buildImage');
-    return version;
-  } catch (error) {
-    return fail(error instanceof Error ? error.message : 'buildImage failed');
-  }
+      version: 1,
+      manifest,
+      provider_type: provider.manifest.type,
+    }),
+    created_by_subject,
+  };
+}
+
+function buildVersionForUpdate({
+  tenant_id,
+  manifest,
+  provider,
+  created_by_subject,
+  active_version,
+  previous_manifest,
+  previous_external_ref,
+}: {
+  tenant_id: string;
+  manifest: SandboxEnvironmentManifest;
+  provider: SandboxProviderRecord;
+  created_by_subject: ReturnType<typeof createdBySubjectFromRequestContext>;
+  active_version: number;
+  previous_manifest: StoredSandboxEnvironmentManifest;
+  previous_external_ref: string;
+}) {
+  return {
+    ...buildNextVersion({
+      tenant_id,
+      version: active_version + 1,
+      previous_manifest,
+      previous_external_ref,
+      manifest,
+      provider_type: provider.manifest.type,
+    }),
+    created_by_subject,
+  };
 }
 
 /** CRUD for sandbox environments (no OpenAPI registration yet). */
@@ -122,7 +138,7 @@ export function createSandboxEnvironmentsRouter<TTransaction>(
   deps: SandboxEnvironmentsRouterDeps<TTransaction>,
 ): OpenAPIHono {
   const router = new OpenAPIHono();
-  const { sandboxEnvironmentStore: store, resolveAgentStore, withTransaction, resolveRequestContext, logger } = deps;
+  const { sandboxEnvironmentStore: store, resolveAgentStore, withTransaction, resolveRequestContext } = deps;
 
   router.get('/', async c => {
     const { tenant_id, subject } = resolveRequestContext(c);
@@ -157,68 +173,6 @@ export function createSandboxEnvironmentsRouter<TTransaction>(
     return c.json({ data: toSandboxEnvironment(loaded) });
   });
 
-  router.post('/', async c => {
-    const body = await validateJsonBody(c, CreateSandboxEnvironmentRequestSchema);
-    if (!body.ok) {
-      return body.response;
-    }
-    const requestContext = resolveRequestContext(c);
-    const providerStore = deps.resolveSandboxProviderStore(c);
-    const providerRecord = await providerStore.getSandboxProvider(requestContext.tenant_id);
-    if (!providerRecord) {
-      return c.json({ error: { message: 'No sandbox provider configured' } }, 422);
-    }
-    const created_by_subject = createdBySubjectFromRequestContext(requestContext);
-    const { manifest } = body.data;
-
-    let created: SandboxEnvironmentWithVersion & { needs_snapshot: boolean };
-    try {
-      created = await withTransaction(transaction =>
-        store.createEnvironment(
-          {
-            tenant_id: requestContext.tenant_id,
-            name: manifest.name,
-            description: manifest.description ?? '',
-            created_by_subject,
-            buildVersion: () => ({
-              ...buildNextVersion({
-                tenant_id: requestContext.tenant_id,
-                version: 1,
-                manifest,
-                provider_type: providerRecord.manifest.type,
-              }),
-              created_by_subject,
-            }),
-          },
-          transaction,
-        ),
-      );
-    } catch (error) {
-      if (error instanceof SandboxEnvironmentNameConflictError) {
-        return c.json({ error: { message: error.message } }, 409);
-      }
-      if (error instanceof MissingStoredSecretError) {
-        return c.json({ error: { message: 'Secret value is required' } }, 400);
-      }
-      throw error;
-    }
-
-    if (created.needs_snapshot) {
-      created = {
-        ...created,
-        version: await startSnapshotBuild({
-          store,
-          providerStore,
-          tenant_id: requestContext.tenant_id,
-          version: created.version,
-          logger,
-        }),
-      };
-    }
-
-    return c.json({ data: toSandboxEnvironment(created) }, 201);
-  });
-
   router.put('/:name', async c => {
     const body = await validateJsonBody(c, UpdateSandboxEnvironmentRequestSchema);
     if (!body.ok) {
@@ -229,71 +183,75 @@ export function createSandboxEnvironmentsRouter<TTransaction>(
       return c.json({ error: { message: 'Path name must match manifest.name' } }, 400);
     }
     const requestContext = resolveRequestContext(c);
-    const providerStore = deps.resolveSandboxProviderStore(c);
-    const providerRecord = await providerStore.getSandboxProvider(requestContext.tenant_id);
-    if (!providerRecord) {
+    const provider = await requireSandboxProviderRecord(deps.resolveSandboxProviderStore(c), requestContext.tenant_id);
+    if (!provider) {
       return c.json({ error: { message: 'No sandbox provider configured' } }, 422);
-    }
-
-    const existing = await store.getEnvironment({
-      tenant_id: requestContext.tenant_id,
-      name,
-      created_by_subject_id: requestContext.subject.id,
-    });
-    if (!existing) {
-      return c.json({ error: { message: `Sandbox environment not found: ${name}` } }, 404);
     }
 
     const created_by_subject = createdBySubjectFromRequestContext(requestContext);
     const { manifest } = body.data;
-    const active_version = existing.environment.active_version + 1;
-    let next;
+
     try {
-      next = buildNextVersion({
+      const existing = await store.getEnvironment({
         tenant_id: requestContext.tenant_id,
-        version: active_version,
-        previous_manifest: existing.version.manifest,
-        previous_external_ref: existing.version.external_ref,
-        manifest,
-        provider_type: providerRecord.manifest.type,
+        name,
+        created_by_subject_id: requestContext.subject.id,
       });
+
+      const result = existing
+        ? await withTransaction(transaction =>
+            store.updateEnvironment(
+              {
+                tenant_id: requestContext.tenant_id,
+                id: existing.environment.id,
+                description: manifest.description ?? '',
+                buildVersion: previous =>
+                  buildVersionForUpdate({
+                    tenant_id: requestContext.tenant_id,
+                    manifest,
+                    provider,
+                    created_by_subject,
+                    ...previous,
+                  }),
+              },
+              transaction,
+            ),
+          )
+        : await withTransaction(transaction =>
+            store.createEnvironment(
+              {
+                tenant_id: requestContext.tenant_id,
+                name: manifest.name,
+                description: manifest.description ?? '',
+                created_by_subject,
+                buildVersion: () =>
+                  buildVersionForCreate({
+                    tenant_id: requestContext.tenant_id,
+                    manifest,
+                    provider,
+                    created_by_subject,
+                  }),
+              },
+              transaction,
+            ),
+          );
+
+      if (!result) {
+        throw new Error(`Sandbox environment disappeared during update: ${name}`);
+      }
+      return c.json({ data: toSandboxEnvironment(result) });
     } catch (error) {
+      if (error instanceof SandboxEnvironmentNameConflictError) {
+        return c.json({ error: { message: error.message } }, 409);
+      }
+      if (error instanceof SandboxEnvironmentVersionConflictError) {
+        return c.json({ error: { message: 'Sandbox environment was updated concurrently; retry' } }, 409);
+      }
       if (error instanceof MissingStoredSecretError) {
         return c.json({ error: { message: 'Secret value is required' } }, 400);
       }
       throw error;
     }
-
-    let result = await withTransaction(transaction =>
-      store.updateEnvironment(
-        {
-          tenant_id: requestContext.tenant_id,
-          id: existing.environment.id,
-          description: manifest.description ?? '',
-          active_version,
-          version: { ...next, created_by_subject },
-        },
-        transaction,
-      ),
-    );
-    if (!result) {
-      throw new Error(`Sandbox environment disappeared during update: ${name}`);
-    }
-
-    if (next.needs_snapshot) {
-      result = {
-        ...result,
-        version: await startSnapshotBuild({
-          store,
-          providerStore,
-          tenant_id: requestContext.tenant_id,
-          version: result.version,
-          logger,
-        }),
-      };
-    }
-
-    return c.json({ data: toSandboxEnvironment(result) });
   });
 
   router.delete('/:name', async c => {

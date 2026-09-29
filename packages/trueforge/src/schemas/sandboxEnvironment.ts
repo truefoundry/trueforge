@@ -25,8 +25,8 @@ export const SandboxEnvironmentLifecycleStageSchema = z
   .openapi('SandboxEnvironmentLifecycleStage');
 
 export const SandboxEnvironmentVersionStatusSchema = z
-  .enum(['pending', 'active', 'failed'])
-  .describe('Build/activation status of an environment version.')
+  .enum(['created', 'pending', 'active', 'failed'])
+  .describe('Build/activation status of the environment (active version under the hood).')
   .openapi('SandboxEnvironmentVersionStatus');
 
 /** Single image variant today; widen with discriminatedUnion when another type lands. */
@@ -132,13 +132,7 @@ export const SandboxEnvironmentVersionInternalMetadataSchema = z
   })
   .strict();
 
-export const CreateSandboxEnvironmentRequestSchema = z
-  .object({
-    manifest: SandboxEnvironmentManifestSchema,
-  })
-  .strict()
-  .openapi('CreateSandboxEnvironmentRequest');
-
+/** PUT create-or-update body (single write API). */
 export const UpdateSandboxEnvironmentRequestSchema = z
   .object({
     manifest: SandboxEnvironmentManifestSchema,
@@ -153,9 +147,8 @@ export const SandboxEnvironmentSchema = z
     id: z.string().min(1).describe('Immutable server-generated environment identifier.'),
     name: NameSchema,
     description: z.string().describe('Human-readable description; empty when unset.'),
-    active_version: z.number().int().positive().describe('Version currently pointed at by the environment.'),
     lifecycle_stage: SandboxEnvironmentLifecycleStageSchema,
-    status: SandboxEnvironmentVersionStatusSchema.describe('Status of the active version.'),
+    status: SandboxEnvironmentVersionStatusSchema.describe('Readiness of the environment.'),
     status_reason: z.string().nullable().describe('Failure detail when status is failed; null otherwise.'),
     manifest: SandboxEnvironmentManifestSchema,
     created_by_subject: CreatedBySubjectSchema,
@@ -183,6 +176,5 @@ export type SandboxEnvironmentVersionStatus = z.infer<typeof SandboxEnvironmentV
 export type SandboxEnvironmentManifest = z.infer<typeof SandboxEnvironmentManifestSchema>;
 export type StoredSandboxEnvironmentManifest = z.infer<typeof StoredSandboxEnvironmentManifestSchema>;
 export type SandboxEnvironmentVersionInternalMetadata = z.infer<typeof SandboxEnvironmentVersionInternalMetadataSchema>;
-export type CreateSandboxEnvironmentRequest = z.infer<typeof CreateSandboxEnvironmentRequestSchema>;
 export type UpdateSandboxEnvironmentRequest = z.infer<typeof UpdateSandboxEnvironmentRequestSchema>;
 export type SandboxEnvironment = z.infer<typeof SandboxEnvironmentSchema>;

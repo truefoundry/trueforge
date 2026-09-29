@@ -3,6 +3,7 @@
  * Implementations: PostgresSandboxEnvironmentStore and SqliteSandboxEnvironmentStore.
  */
 import type { CreatedBySubject, TokenPagination } from '@truefoundry/trueforge-core/agent-session';
+import type { NextSandboxEnvironmentVersion } from '../sandbox/sandboxEnvironmentVersion';
 import type { ResourceName } from '../schemas/common';
 import type {
   SandboxEnvironmentLifecycleStage,
@@ -68,14 +69,28 @@ export interface GetSandboxEnvironmentInput {
 }
 
 /** Version columns written on create/update (store fills environment_id). */
-export interface SandboxEnvironmentVersionWrite {
-  version: number;
-  manifest: StoredSandboxEnvironmentManifest;
-  status: SandboxEnvironmentVersionStatus;
-  status_reason: string | null;
-  external_ref: string;
-  internal_metadata: SandboxEnvironmentVersionInternalMetadata;
+export type SandboxEnvironmentVersionWrite = Omit<NextSandboxEnvironmentVersion, 'needs_snapshot'> & {
   created_by_subject: CreatedBySubject;
+};
+
+/** Callback result shared by create/update — same shape as {@link NextSandboxEnvironmentVersion} plus subject. */
+export type BuildSandboxEnvironmentVersion = NextSandboxEnvironmentVersion & {
+  created_by_subject: CreatedBySubject;
+};
+
+/** Drop `needs_snapshot` before persisting a version row. */
+export function toSandboxEnvironmentVersionWrite(
+  built: BuildSandboxEnvironmentVersion,
+): SandboxEnvironmentVersionWrite {
+  return {
+    version: built.version,
+    manifest: built.manifest,
+    status: built.status,
+    status_reason: built.status_reason,
+    external_ref: built.external_ref,
+    internal_metadata: built.internal_metadata,
+    created_by_subject: built.created_by_subject,
+  };
 }
 
 export interface CreateSandboxEnvironmentInput {
@@ -83,16 +98,22 @@ export interface CreateSandboxEnvironmentInput {
   name: ResourceName;
   description: string;
   created_by_subject: CreatedBySubject;
-  /** Called to build the first version row; `needs_snapshot` is passed through on the create result. */
-  buildVersion: () => SandboxEnvironmentVersionWrite & { needs_snapshot: boolean };
+  buildVersion: () => BuildSandboxEnvironmentVersion;
 }
 
 export interface UpdateSandboxEnvironmentInput {
   tenant_id: string;
   id: string;
   description: string;
-  active_version: number;
-  version: SandboxEnvironmentVersionWrite;
+  /**
+   * Called inside the write transaction after the parent row is locked / re-read,
+   * so concurrent PUTs cannot compute the same next version number.
+   */
+  buildVersion: (previous: {
+    active_version: number;
+    previous_manifest: StoredSandboxEnvironmentManifest;
+    previous_external_ref: string;
+  }) => BuildSandboxEnvironmentVersion;
 }
 
 export interface MarkSandboxEnvironmentVersionFailedInput {
@@ -121,6 +142,19 @@ export class SandboxEnvironmentNameConflictError extends Error {
   }
 }
 
+/** Unique `(environment_id, version)` violation from concurrent updates. */
+export class SandboxEnvironmentVersionConflictError extends Error {
+  readonly environment_id: string;
+  readonly version: number;
+
+  constructor({ environment_id, version }: { environment_id: string; version: number }, options?: ErrorOptions) {
+    super(`Sandbox environment version conflict: ${environment_id}@${String(version)}`, options);
+    this.name = 'SandboxEnvironmentVersionConflictError';
+    this.environment_id = environment_id;
+    this.version = version;
+  }
+}
+
 export interface ISandboxEnvironmentStore<TTransaction = never> {
   /** Active environments joined to the version pointed at by `active_version`. */
   listEnvironments(
@@ -136,7 +170,7 @@ export interface ISandboxEnvironmentStore<TTransaction = never> {
   createEnvironment(
     input: CreateSandboxEnvironmentInput,
     transaction?: TTransaction,
-  ): Promise<SandboxEnvironmentWithVersion & { needs_snapshot: boolean }>;
+  ): Promise<SandboxEnvironmentWithVersion>;
   /** Insert next version and bump parent `active_version` / `description`. */
   updateEnvironment(
     input: UpdateSandboxEnvironmentInput,

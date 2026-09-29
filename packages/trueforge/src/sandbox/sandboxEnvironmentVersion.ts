@@ -3,6 +3,7 @@
  * and buildNextVersion (no DB writes — store create/update persist the row).
  */
 import { randomUUID } from 'node:crypto';
+import { isDeepStrictEqual } from 'node:util';
 import {
   SandboxEnvironmentVersionInternalMetadataSchema,
   type SandboxEnvironmentManifest,
@@ -15,12 +16,13 @@ import { isRedactedSecretValue, resolveStoredSecretValue, toRedactedSecretValue 
 export type SandboxEnvironmentProviderType = StoredSandboxEnvironmentManifest['type'];
 
 export interface ManifestDiff {
-  build_script_changed: boolean;
+  build_changed: boolean;
   resources_changed: boolean;
   /** Request includes at least one non-redacted secret value (new material to sync). */
   secrets_changed: boolean;
 }
 
+/** Next version row fields plus whether a snapshot build will be needed later. */
 export interface NextSandboxEnvironmentVersion {
   needs_snapshot: boolean;
   version: number;
@@ -99,15 +101,9 @@ export function diffManifest({
   previous: StoredSandboxEnvironmentManifest | undefined;
   next: SandboxEnvironmentManifest;
 }): ManifestDiff {
-  const resources_changed =
-    previous === undefined
-      ? true
-      : previous.resources.cpu !== next.resources.cpu ||
-        previous.resources.memory !== next.resources.memory ||
-        previous.resources.disk !== next.resources.disk;
   return {
-    build_script_changed: previous?.image?.build_script !== next.image?.build_script,
-    resources_changed,
+    build_changed: previous?.image?.build_script !== next.image?.build_script,
+    resources_changed: previous === undefined || !isDeepStrictEqual(previous.resources, next.resources),
     secrets_changed: (next.networking?.secrets ?? []).some(secret => !isRedactedSecretValue(secret.value)),
   };
 }
@@ -137,7 +133,7 @@ export function buildNextVersion({
   // Detect only — do NOT call Daytona secrets APIs here.
   const needs_secrets = diff.secrets_changed;
   const needs_snapshot =
-    manifest.image?.type === 'build' && (diff.build_script_changed || diff.resources_changed || !previous_external_ref);
+    manifest.image?.type === 'build' && (diff.build_changed || diff.resources_changed || !previous_external_ref);
 
   const resolved = resolveManifestSecrets({
     manifest,
@@ -145,11 +141,12 @@ export function buildNextVersion({
   });
 
   // Populate after secretService exists. Secrets loop skipped (Daytona + DB later).
+  // `created` = waiting for a future controller to start snapshot/secret work.
   return {
     needs_snapshot,
     version,
     manifest: toStoredManifest({ manifest: resolved, provider_type }),
-    status: needs_secrets || needs_snapshot ? 'pending' : 'active',
+    status: needs_secrets || needs_snapshot ? 'created' : 'active',
     status_reason: null,
     external_ref: needs_snapshot || !previous_external_ref ? newExternalRef(tenant_id) : previous_external_ref,
     internal_metadata: SandboxEnvironmentVersionInternalMetadataSchema.parse({}),
