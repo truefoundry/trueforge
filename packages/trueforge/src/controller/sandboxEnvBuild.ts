@@ -1,5 +1,9 @@
 /**
  * Control loop: list pending sandbox-env versions and hand each to the server over HTTP.
+ *
+ * Uses raw fetch until CI regenerates `@truefoundry/trueforge-sdk` for
+ * `environment_version_id` on the internal pending/progress routes; then switch
+ * to `client.internal.sandboxEnvironments` like schedule dispatch.
  */
 import type { Logger } from 'winston';
 import configuration from '../config';
@@ -11,8 +15,7 @@ const SANDBOX_ENV_BUILD_INTERVAL_MS = 30_000;
 const SANDBOX_ENV_BUILD_LOOP_NAME = 'sandbox-env-build';
 
 export interface SandboxEnvPendingItem {
-  environment_id: string;
-  version: number;
+  environment_version_id: string;
 }
 
 export interface SandboxEnvBuildClient {
@@ -49,18 +52,24 @@ export function createHttpSandboxEnvBuildClient(): SandboxEnvBuildClient {
       if (typeof body !== 'object' || body === null || !('data' in body) || !Array.isArray(body.data)) {
         throw new Error('list pending sandbox env versions returned unexpected body');
       }
-      return (body as { data: SandboxEnvPendingItem[] }).data.map(row => ({
-        environment_id: row.environment_id,
-        version: row.version,
-      }));
+      return body.data.flatMap(row => {
+        if (
+          typeof row !== 'object' ||
+          row === null ||
+          !('environment_version_id' in row) ||
+          typeof row.environment_version_id !== 'string'
+        ) {
+          return [];
+        }
+        return [{ environment_version_id: row.environment_version_id }];
+      });
     },
     async progress(item) {
       const response = await request('/api/internal/sandbox-environments/progress', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          environment_id: item.environment_id,
-          version: item.version,
+          environment_version_id: item.environment_version_id,
         }),
       });
       if (response.status === 204 || response.status === 404) {
@@ -86,8 +95,7 @@ export async function dispatchSandboxEnvBuilds({
       await client.progress(item);
     } catch (error) {
       logger.error('Sandbox environment version progress failed', {
-        environment_id: item.environment_id,
-        version: item.version,
+        environment_version_id: item.environment_version_id,
         error: error instanceof Error ? error.message : String(error),
       });
     }

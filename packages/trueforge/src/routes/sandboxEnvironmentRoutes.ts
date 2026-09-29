@@ -37,7 +37,7 @@ export const listSandboxEnvironmentsRoute = createRoute({
   path: '/',
   tags: [OpenApiTag.SANDBOXES],
   summary: 'List sandbox environments',
-  description: 'List sandbox environments created by the authenticated subject, newest first.',
+  description: 'List the tenant default environment plus sandbox environments created by the authenticated subject.',
   'x-fern-sdk-group-name': ['sandboxEnvironments'],
   'x-fern-sdk-method-name': 'list',
   'x-fern-pagination': TOKEN_PAGINATION,
@@ -65,7 +65,8 @@ export const getSandboxEnvironmentRoute = createRoute({
   path: '/{name}',
   tags: [OpenApiTag.SANDBOXES],
   summary: 'Get a sandbox environment',
-  description: 'Get a sandbox environment by name for the authenticated subject.',
+  description:
+    'Get a sandbox environment by name. The tenant default is readable by any tenant member; custom environments are owner-scoped.',
   'x-fern-sdk-group-name': ['sandboxEnvironments'],
   'x-fern-sdk-method-name': 'get',
   request: {

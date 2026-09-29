@@ -14,17 +14,15 @@ import {
 export async function progressSandboxEnvironmentVersion({
   sandboxEnvironmentStore,
   sandboxProviderStore,
-  environment_id,
-  version,
+  environment_version_id,
   logger,
 }: {
   sandboxEnvironmentStore: ISandboxEnvironmentStore;
   sandboxProviderStore: ISandboxProviderStore;
-  environment_id: string;
-  version: number;
+  environment_version_id: string;
   logger: Logger;
 }): Promise<'ok' | 'not_found'> {
-  const pending = await sandboxEnvironmentStore.getVersionForProgress({ environment_id, version });
+  const pending = await sandboxEnvironmentStore.getVersionForProgress({ environment_version_id });
   if (pending === undefined) {
     return 'not_found';
   }
@@ -32,8 +30,7 @@ export async function progressSandboxEnvironmentVersion({
   const providerRecord = await sandboxProviderStore.getSandboxProvider(pending.tenant_id);
   if (providerRecord?.manifest.type !== 'daytona') {
     await sandboxEnvironmentStore.markVersionFailed({
-      environment_id,
-      version,
+      environment_version_id,
       status_reason: 'Sandbox environment build requires a Daytona sandbox provider',
     });
     return 'ok';
@@ -52,13 +49,12 @@ export async function progressSandboxEnvironmentVersion({
     // get → create-on-missing → map state (same path as former provider PUT build).
     const built = toSandboxStatus(await provider.buildImage());
     if (built.status === 'ready') {
-      await sandboxEnvironmentStore.markVersionActive({ environment_id, version });
+      await sandboxEnvironmentStore.markVersionActive({ environment_version_id });
       return 'ok';
     }
     if (built.status === 'failed') {
       await sandboxEnvironmentStore.markVersionFailed({
-        environment_id,
-        version,
+        environment_version_id,
         status_reason: built.status_reason ?? 'Sandbox environment snapshot build failed',
       });
       return 'ok';
@@ -70,10 +66,9 @@ export async function progressSandboxEnvironmentVersion({
       const status_reason = isDaytonaAuthError(error)
         ? 'Daytona rejected the API key — check the credentials'
         : 'Daytona denied access: the API key is missing required permissions';
-      await sandboxEnvironmentStore.markVersionFailed({ environment_id, version, status_reason });
+      await sandboxEnvironmentStore.markVersionFailed({ environment_version_id, status_reason });
       logger.warn('Sandbox environment build failed authz', {
-        environment_id,
-        version,
+        environment_version_id,
         status_reason,
       });
       return 'ok';

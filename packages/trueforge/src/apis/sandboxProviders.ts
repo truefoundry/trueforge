@@ -5,6 +5,7 @@ import type { ISandboxEnvironmentStore } from '../db/sandboxEnvironmentStore';
 import type { ISandboxProviderStore, SandboxProviderRecord } from '../db/sandboxProviderStore';
 import type { WithTransaction } from '../db/transaction';
 import { getSandboxProviderRoute, putSandboxProviderRoute } from '../routes/sandboxProviderRoutes';
+import { isDaytonaAuthError, isDaytonaPermissionError, validateDaytonaCredentials } from '../sandbox/providerUtils';
 import type { SandboxProviderManifest, UpdateSandboxProviderRequest } from '../schemas/sandboxProvider';
 import { MissingStoredSecretError, resolveStoredSecretValue, toRedactedSecretValue } from '../utils/secretRedaction';
 
@@ -13,6 +14,8 @@ export interface SandboxProvidersRouterDeps<TTransaction> {
   sandboxEnvironmentStore: ISandboxEnvironmentStore<TTransaction>;
   withTransaction: WithTransaction<TTransaction>;
   resolveRequestContext: ResolveRequestContext;
+  /** Override in tests; defaults to a live Daytona snapshot-list probe. */
+  validateDaytonaCredentials?: (input: { apiKey: string }) => Promise<void>;
 }
 
 function redactSandboxProvider(manifest: SandboxProviderManifest): SandboxProviderManifest {
@@ -24,6 +27,8 @@ function redactSandboxProvider(manifest: SandboxProviderManifest): SandboxProvid
 
 /** Admin/settings sandbox provider surface (mounted at /api/v1/settings/sandbox-providers). */
 export function createSandboxProvidersRouter<TTransaction>(deps: SandboxProvidersRouterDeps<TTransaction>) {
+  const checkCredentials = deps.validateDaytonaCredentials ?? validateDaytonaCredentials;
+
   const getHandler: RouteHandler<typeof getSandboxProviderRoute> = async c => {
     const requestContext = deps.resolveRequestContext(c);
     const store = deps.resolveSandboxProviderStore(c);
@@ -59,14 +64,19 @@ export function createSandboxProvidersRouter<TTransaction>(deps: SandboxProvider
       },
     });
     try {
+      // Resolve secrets + validate Daytona outside the txn (no remote I/O under an open txn).
+      const existing = await store.getSandboxProvider(requestContext.tenant_id);
+      const resolved = resolveManifest(existing);
+      await checkCredentials({ apiKey: resolved.auth.api_key });
+
       const { manifest, status, status_reason } = await deps.withTransaction(async transaction => {
         const locked = await store.getSandboxProviderForUpdate(requestContext.tenant_id, transaction);
-        const resolved = resolveManifest(locked);
-        // Persist credentials only; the controller builds the default env snapshot.
+        // Re-resolve under the lock in case another writer raced the redacted key.
+        const lockedResolved = resolveManifest(locked);
         const upserted = await store.upsertSandboxProvider(
           {
             tenant_id: requestContext.tenant_id,
-            manifest: resolved,
+            manifest: lockedResolved,
             status: 'ready',
             status_reason: null,
             build_metadata: locked?.build_metadata ?? null,
@@ -81,7 +91,7 @@ export function createSandboxProvidersRouter<TTransaction>(deps: SandboxProvider
           transaction,
         );
         return {
-          manifest: resolved,
+          manifest: lockedResolved,
           status: upserted.status,
           status_reason: upserted.status_reason,
         };
@@ -99,6 +109,20 @@ export function createSandboxProvidersRouter<TTransaction>(deps: SandboxProvider
     } catch (error) {
       if (error instanceof MissingStoredSecretError) {
         return c.json({ error: { message: 'API key is required' } }, 400);
+      }
+      if (isDaytonaAuthError(error)) {
+        return c.json({ error: { message: 'Daytona rejected the API key — check the credentials' } }, 422);
+      }
+      if (isDaytonaPermissionError(error)) {
+        return c.json(
+          {
+            error: {
+              message:
+                'Daytona denied access: the API key is missing required permissions. Grant write:sandboxes, write:snapshots, and delete:snapshots on the key in the Daytona dashboard, then try again.',
+            },
+          },
+          422,
+        );
       }
       throw error;
     }

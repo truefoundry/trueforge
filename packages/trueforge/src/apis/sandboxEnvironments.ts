@@ -117,13 +117,11 @@ export function createSandboxEnvironmentsRouter<TTransaction>(
   const getHandler: RouteHandler<typeof getSandboxEnvironmentRoute> = async c => {
     const { tenant_id, subject } = resolveRequestContext(c);
     const { name } = c.req.valid('param');
-    if (name === DEFAULT_SANDBOX_ENVIRONMENT_NAME) {
-      return c.json({ error: { message: `Sandbox environment not found: ${name}` } }, 404);
-    }
+    // System default is tenant-wide; custom envs stay owner-scoped.
     const loaded = await store.getEnvironment({
       tenant_id,
       name,
-      created_by_subject_id: subject.id,
+      ...(name === DEFAULT_SANDBOX_ENVIRONMENT_NAME ? {} : { created_by_subject_id: subject.id }),
     });
     if (!loaded) {
       return c.json({ error: { message: `Sandbox environment not found: ${name}` } }, 404);
@@ -142,9 +140,6 @@ export function createSandboxEnvironmentsRouter<TTransaction>(
 
     const created_by_subject = createdBySubjectFromRequestContext(requestContext);
     const { manifest } = body;
-    if (manifest.name === DEFAULT_SANDBOX_ENVIRONMENT_NAME) {
-      return c.json({ error: { message: 'name "default" is reserved' } }, 422);
-    }
 
     try {
       const result = await store.upsertEnvironment({

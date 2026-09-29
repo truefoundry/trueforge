@@ -24,11 +24,7 @@ export function createSandboxEnvironmentBuildRouter(deps: SandboxEnvironmentBuil
     return c.json(
       {
         data: pending.map(row => ({
-          tenant_id: row.tenant_id,
-          environment_id: row.environment_id,
-          environment_name: row.environment_name,
-          version: row.version,
-          external_ref: row.external_ref,
+          environment_version_id: row.id,
         })),
       },
       200,
@@ -40,8 +36,7 @@ export function createSandboxEnvironmentBuildRouter(deps: SandboxEnvironmentBuil
     const result = await progressSandboxEnvironmentVersion({
       sandboxEnvironmentStore: deps.sandboxEnvironmentStore,
       sandboxProviderStore: deps.sandboxProviderStore,
-      environment_id: body.environment_id,
-      version: body.version,
+      environment_version_id: body.environment_version_id,
       logger: deps.logger,
     });
     if (result === 'not_found') {

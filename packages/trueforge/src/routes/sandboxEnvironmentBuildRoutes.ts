@@ -14,11 +14,7 @@ export const ListPendingSandboxEnvironmentVersionsQuerySchema = z
 
 export const PendingSandboxEnvironmentVersionSchema = z
   .object({
-    tenant_id: z.string().min(1),
-    environment_id: z.string().min(1),
-    environment_name: z.string().min(1),
-    version: z.number().int().positive(),
-    external_ref: z.string().min(1),
+    environment_version_id: z.string().min(1).describe('Version row id to progress.'),
   })
   .strict();
 
@@ -31,8 +27,7 @@ export const ListPendingSandboxEnvironmentVersionsResponseSchema = z
 
 export const ProgressSandboxEnvironmentVersionRequestSchema = z
   .object({
-    environment_id: z.string().min(1).describe('Parent environment id.'),
-    version: z.number().int().positive().describe('Version number to progress.'),
+    environment_version_id: z.string().min(1).describe('Version row id to progress.'),
   })
   .strict()
   .openapi('ProgressSandboxEnvironmentVersionRequest');

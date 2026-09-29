@@ -86,12 +86,13 @@ export interface ListLatestPendingSandboxEnvironmentVersionsInput {
 }
 
 export interface GetSandboxEnvironmentVersionInput {
-  environment_id: string;
-  version: number;
+  environment_version_id: string;
 }
 
 /** Pending version row for the sandbox-env build controller. */
 export interface PendingSandboxEnvironmentVersion {
+  /** Version row primary key. */
+  id: string;
   tenant_id: string;
   environment_id: string;
   environment_name: string;
@@ -137,13 +138,11 @@ export interface UpsertSandboxEnvironmentInput {
 }
 
 export interface MarkSandboxEnvironmentVersionActiveInput {
-  environment_id: string;
-  version: number;
+  environment_version_id: string;
 }
 
 export interface MarkSandboxEnvironmentVersionFailedInput {
-  environment_id: string;
-  version: number;
+  environment_version_id: string;
   status_reason: string;
 }
 
@@ -181,15 +180,16 @@ export class SandboxEnvironmentVersionConflictError extends Error {
 }
 
 export interface ISandboxEnvironmentStore<TTransaction = never> {
-  /** Active environments joined to `active_version` (excludes system `"default"`). */
+  /** Active environments joined to `active_version` (includes tenant `"default"` for every caller). */
   listEnvironments(
     input: ListSandboxEnvironmentsInput,
     transaction?: TTransaction,
   ): Promise<{ data: SandboxEnvironmentWithVersion[]; pagination: TokenPagination }>;
   /**
    * Active environment by name, joined to its active version.
-   * Pass `created_by_subject_id` for owner-scoped CRUD/attach; omit it when an agent
-   * run resolves the env by name (caller already has access via the agent).
+   * Pass `created_by_subject_id` for owner-scoped CRUD/attach on custom envs; the tenant
+   * `"default"` ignores ownership (readable by any tenant member). Omit the subject filter
+   * when an agent run resolves an env by name.
    */
   getEnvironment(
     input: GetSandboxEnvironmentInput,

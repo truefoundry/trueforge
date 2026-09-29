@@ -29,6 +29,22 @@ export function isDaytonaPermissionError(error: unknown): boolean {
   return error instanceof DaytonaError && error.statusCode === 403;
 }
 
+/** Cap the credential probe so a slow/unreachable Daytona cannot hold the PUT open. */
+const DAYTONA_CREDENTIALS_CHECK_TIMEOUT_MS = 3_000;
+
+/**
+ * Lightweight Daytona authz probe (list one snapshot page). Throws {@link DaytonaError}
+ * with 401/403 on bad credentials or missing permissions — no snapshot build.
+ */
+export async function validateDaytonaCredentials({ apiKey }: { apiKey: string }): Promise<void> {
+  const client = new Daytona({ apiKey });
+  await withTimeout(
+    client.snapshot.list({ page: 1, limit: 1 }),
+    DAYTONA_CREDENTIALS_CHECK_TIMEOUT_MS,
+    'daytona credentials check',
+  );
+}
+
 /** Map host sandbox-environment manifest onto the Daytona provider environment. */
 export function toDaytonaSandboxEnvironment(manifest: StoredSandboxEnvironmentManifest): SandboxEnvironment {
   return {

@@ -197,8 +197,15 @@ export class SqliteSandboxEnvironmentStore implements ISandboxEnvironmentStore<T
     const query = activeVersionJoin(db)
       .where('env.tenant_id', '=', input.tenant_id)
       .where('env.lifecycle_stage', '=', 'active')
-      .where('env.name', '!=', DEFAULT_SANDBOX_ENVIRONMENT_NAME)
-      .where(sql`json_extract(env.created_by_subject, '$.subject_id')`, '=', input.created_by_subject_id)
+      .where(eb =>
+        eb.or([
+          eb('env.name', '=', DEFAULT_SANDBOX_ENVIRONMENT_NAME),
+          eb.and([
+            eb('env.name', '!=', DEFAULT_SANDBOX_ENVIRONMENT_NAME),
+            eb(sql`json_extract(env.created_by_subject, '$.subject_id')`, '=', input.created_by_subject_id),
+          ]),
+        ]),
+      )
       .orderBy('env.name');
     if (!input.limit) {
       const rows = await query.execute();
@@ -222,7 +229,7 @@ export class SqliteSandboxEnvironmentStore implements ISandboxEnvironmentStore<T
       .where('env.tenant_id', '=', input.tenant_id)
       .where('env.name', '=', input.name)
       .where('env.lifecycle_stage', '=', 'active');
-    if (input.created_by_subject_id) {
+    if (input.created_by_subject_id && input.name !== DEFAULT_SANDBOX_ENVIRONMENT_NAME) {
       query = query.where(sql`json_extract(env.created_by_subject, '$.subject_id')`, '=', input.created_by_subject_id);
     }
     const row = await query.executeTakeFirst();
@@ -320,6 +327,7 @@ export class SqliteSandboxEnvironmentStore implements ISandboxEnvironmentStore<T
       .selectFrom('sandbox_environment_version as ver')
       .innerJoin('sandbox_environment as env', 'env.id', 'ver.environment_id')
       .select([
+        'ver.id',
         'env.tenant_id',
         'env.name as environment_name',
         'ver.environment_id',
@@ -333,6 +341,7 @@ export class SqliteSandboxEnvironmentStore implements ISandboxEnvironmentStore<T
       .limit(input.limit)
       .execute();
     return rows.map(row => ({
+      id: row.id,
       tenant_id: row.tenant_id,
       environment_id: row.environment_id,
       environment_name: row.environment_name,
@@ -351,6 +360,7 @@ export class SqliteSandboxEnvironmentStore implements ISandboxEnvironmentStore<T
       .selectFrom('sandbox_environment_version as ver')
       .innerJoin('sandbox_environment as env', 'env.id', 'ver.environment_id')
       .select([
+        'ver.id',
         'env.tenant_id',
         'env.name as environment_name',
         'ver.environment_id',
@@ -358,14 +368,14 @@ export class SqliteSandboxEnvironmentStore implements ISandboxEnvironmentStore<T
         'ver.external_ref',
         jsonText<StoredSandboxEnvironmentManifest>(sql.ref('ver.manifest')).as('manifest'),
       ])
-      .where('ver.environment_id', '=', input.environment_id)
-      .where('ver.version', '=', input.version)
+      .where('ver.id', '=', input.environment_version_id)
       .where('env.lifecycle_stage', '=', 'active')
       .executeTakeFirst();
     if (!row) {
       return undefined;
     }
     return {
+      id: row.id,
       tenant_id: row.tenant_id,
       environment_id: row.environment_id,
       environment_name: row.environment_name,
@@ -515,6 +525,14 @@ export class SqliteSandboxEnvironmentStore implements ISandboxEnvironmentStore<T
     db: Transaction<Database>,
   ): Promise<SandboxEnvironmentWithVersion | undefined> {
     const updated_at = nowIso();
+    const versionRow = await db
+      .selectFrom('sandbox_environment_version')
+      .select(['id', 'environment_id', 'version'])
+      .where('id', '=', input.environment_version_id)
+      .executeTakeFirst();
+    if (!versionRow) {
+      return undefined;
+    }
     const versionResult = await db
       .updateTable('sandbox_environment_version')
       .set({
@@ -522,8 +540,7 @@ export class SqliteSandboxEnvironmentStore implements ISandboxEnvironmentStore<T
         status_reason: null,
         updated_at,
       })
-      .where('environment_id', '=', input.environment_id)
-      .where('version', '=', input.version)
+      .where('id', '=', input.environment_version_id)
       .executeTakeFirst();
     if (!Number(versionResult.numUpdatedRows)) {
       return undefined;
@@ -531,16 +548,16 @@ export class SqliteSandboxEnvironmentStore implements ISandboxEnvironmentStore<T
     const parentResult = await db
       .updateTable('sandbox_environment')
       .set({
-        active_version: input.version,
+        active_version: versionRow.version,
         updated_at,
       })
-      .where('id', '=', input.environment_id)
+      .where('id', '=', versionRow.environment_id)
       .where('lifecycle_stage', '=', 'active')
       .executeTakeFirst();
     if (!Number(parentResult.numUpdatedRows)) {
       return undefined;
     }
-    const row = await activeVersionJoin(db).where('env.id', '=', input.environment_id).executeTakeFirst();
+    const row = await activeVersionJoin(db).where('env.id', '=', versionRow.environment_id).executeTakeFirst();
     return row ? toWithVersion(row) : undefined;
   }
 
@@ -556,8 +573,7 @@ export class SqliteSandboxEnvironmentStore implements ISandboxEnvironmentStore<T
         status_reason: input.status_reason,
         updated_at: nowIso(),
       })
-      .where('environment_id', '=', input.environment_id)
-      .where('version', '=', input.version)
+      .where('id', '=', input.environment_version_id)
       .executeTakeFirst();
     if (!Number(result.numUpdatedRows)) {
       return undefined;
@@ -565,8 +581,7 @@ export class SqliteSandboxEnvironmentStore implements ISandboxEnvironmentStore<T
     const row = await db
       .selectFrom('sandbox_environment_version')
       .select(versionSelect())
-      .where('environment_id', '=', input.environment_id)
-      .where('version', '=', input.version)
+      .where('id', '=', input.environment_version_id)
       .executeTakeFirst();
     return row ? toVersionRecord(row) : undefined;
   }

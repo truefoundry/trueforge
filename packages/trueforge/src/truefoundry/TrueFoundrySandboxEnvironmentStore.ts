@@ -30,29 +30,30 @@ import { resolveTrueFoundrySandboxProviderConfig } from './resolveTrueFoundrySan
 
 const DEFAULT_ENVIRONMENT_ID = 'tfy-default-sandbox-environment';
 const DEFAULT_VERSION_ID = 'tfy-default-sandbox-environment-v1';
+const DEFAULT_NAME = NameSchema.parse(DEFAULT_SANDBOX_ENVIRONMENT_NAME);
+const SYSTEM_SUBJECT = {
+  subject_id: 'truefoundry',
+  subject_type: 'user' as const,
+  subject_display_name: 'TrueFoundry',
+};
+const EMPTY_INTERNAL_METADATA = SandboxEnvironmentVersionInternalMetadataSchema.parse({});
 
+/** In-memory always-active tenant default when TFY sandbox is enabled. */
 function synthesizeDefaultEnvironment(tenant_id: string): SandboxEnvironmentWithVersion | undefined {
-  const providerConfig = resolveTrueFoundrySandboxProviderConfig();
-  if (!providerConfig) {
+  const provider = resolveTrueFoundrySandboxProviderConfig();
+  if (!provider) {
     return undefined;
   }
   const now = new Date().toISOString();
-  const provider_type = providerConfig.type === 'daytona' ? 'daytona' : 'truefoundry';
-  const external_ref = providerConfig.type === 'daytona' ? providerConfig.settings.snapshotName : 'truefoundry-default';
-  const created_by_subject = {
-    subject_id: 'truefoundry',
-    subject_type: 'user' as const,
-    subject_display_name: 'TrueFoundry',
-  };
   return {
     environment: {
       id: DEFAULT_ENVIRONMENT_ID,
       tenant_id,
-      name: NameSchema.parse(DEFAULT_SANDBOX_ENVIRONMENT_NAME),
+      name: DEFAULT_NAME,
       description: '',
       active_version: 1,
       lifecycle_stage: 'active',
-      created_by_subject,
+      created_by_subject: SYSTEM_SUBJECT,
       created_at: now,
       updated_at: now,
     },
@@ -60,12 +61,12 @@ function synthesizeDefaultEnvironment(tenant_id: string): SandboxEnvironmentWith
       id: DEFAULT_VERSION_ID,
       environment_id: DEFAULT_ENVIRONMENT_ID,
       version: 1,
-      manifest: defaultSandboxEnvironmentStoredManifest(provider_type),
+      manifest: defaultSandboxEnvironmentStoredManifest(provider.type),
       status: 'active',
       status_reason: null,
-      external_ref,
-      internal_metadata: SandboxEnvironmentVersionInternalMetadataSchema.parse({}),
-      created_by_subject,
+      external_ref: provider.type === 'daytona' ? provider.settings.snapshotName : 'truefoundry-default',
+      internal_metadata: EMPTY_INTERNAL_METADATA,
+      created_by_subject: SYSTEM_SUBJECT,
       created_at: now,
       updated_at: now,
     },
@@ -84,11 +85,20 @@ export class TrueFoundrySandboxEnvironmentStore<
     this.#persistence = persistence;
   }
 
-  listEnvironments(
+  async listEnvironments(
     input: ListSandboxEnvironmentsInput,
     transaction?: TTransaction,
   ): Promise<{ data: SandboxEnvironmentWithVersion[]; pagination: TokenPagination }> {
-    return this.#persistence.listEnvironments(input, transaction);
+    const listed = await this.#persistence.listEnvironments(input, transaction);
+    const synthesized = synthesizeDefaultEnvironment(input.tenant_id);
+    if (!synthesized) {
+      return listed;
+    }
+    // Tenant default is always visible in TFY mode; custom envs stay owner-scoped via persistence.
+    return {
+      data: [synthesized, ...listed.data.filter(row => row.environment.name !== DEFAULT_SANDBOX_ENVIRONMENT_NAME)],
+      pagination: listed.pagination,
+    };
   }
 
   getEnvironment(
@@ -125,9 +135,6 @@ export class TrueFoundrySandboxEnvironmentStore<
     input: UpsertSandboxEnvironmentInput,
     transaction?: TTransaction,
   ): Promise<SandboxEnvironmentWithVersion> {
-    if (input.name === DEFAULT_SANDBOX_ENVIRONMENT_NAME) {
-      return trueFoundryManaged();
-    }
     return this.#persistence.upsertEnvironment(input, transaction);
   }
 
@@ -160,9 +167,6 @@ export class TrueFoundrySandboxEnvironmentStore<
   }
 
   deleteEnvironment(input: DeleteSandboxEnvironmentInput, transaction?: TTransaction): Promise<void> {
-    if (input.name === DEFAULT_SANDBOX_ENVIRONMENT_NAME) {
-      return trueFoundryManaged();
-    }
     return this.#persistence.deleteEnvironment(input, transaction);
   }
 }

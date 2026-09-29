@@ -234,23 +234,25 @@ export async function resolveSandboxProvider({
             : `Default sandbox environment is not ready (status: ${defaultEnv.version.status}) — retry shortly`,
       });
     }
-    if (record?.manifest.type === 'daytona') {
-      return {
-        provider: toDaytonaSandboxProvider({
-          manifest: record.manifest,
-          tenant_id,
-          logger,
-          build_metadata: { build_ref: defaultEnv.version.external_ref },
-          environment: defaultEnv.version.manifest,
-        }),
-        usesEnvironmentSnapshot: true,
-      };
-    }
     if (record !== undefined) {
-      return {
-        provider: toSandboxProviderFromRecord({ record, tenant_id, logger }),
-        usesEnvironmentSnapshot: false,
-      };
+      switch (record.manifest.type) {
+        case 'daytona':
+          return {
+            provider: toDaytonaSandboxProvider({
+              manifest: record.manifest,
+              tenant_id,
+              logger,
+              build_metadata: { build_ref: defaultEnv.version.external_ref },
+              environment: defaultEnv.version.manifest,
+            }),
+            usesEnvironmentSnapshot: true,
+          };
+        default:
+          return {
+            provider: toSandboxProviderFromRecord({ record, tenant_id, logger }),
+            usesEnvironmentSnapshot: false,
+          };
+      }
     }
   }
 

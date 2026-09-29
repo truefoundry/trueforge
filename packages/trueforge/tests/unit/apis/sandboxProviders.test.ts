@@ -66,6 +66,7 @@ async function createRouters(): Promise<{
       sandboxEnvironmentStore: new SqliteSandboxEnvironmentStore(db),
       withTransaction: callback => db.transaction().execute(callback),
       resolveRequestContext: () => STANDALONE_REQUEST_CONTEXT,
+      validateDaytonaCredentials: async () => undefined,
     }),
     sandboxProviderStore,
   };
@@ -85,6 +86,7 @@ describe('sandboxProviders router', () => {
       sandboxEnvironmentStore: new SqliteSandboxEnvironmentStore(db),
       withTransaction: callback => db.transaction().execute(callback),
       resolveRequestContext: () => STANDALONE_REQUEST_CONTEXT,
+      validateDaytonaCredentials: async () => undefined,
     });
     catalogRouter = createCatalogRouter({
       modelCatalog: ModelCatalog.load(),
