@@ -1,0 +1,46 @@
+name: Scan and Generate Grype Report
+
+on:
+  schedule:
+    - cron: '0 9 * * *'
+
+permissions: {}
+
+jobs:
+  upload-grype:
+    name: Upload Grype results
+    runs-on: ubuntu-latest
+    permissions:
+      actions: read
+      contents: read
+      security-events: write
+    steps:
+      - uses: actions/checkout@v7
+
+      - uses: docker/setup-buildx-action@v3
+
+      - name: Build image
+        uses: docker/build-push-action@v6
+        with:
+          load: true
+          file: Dockerfile
+          context: .
+          platforms: linux/amd64
+          provenance: false
+          tags: trueforge:grype-report
+
+      - name: Scan image
+        id: scan
+        uses: anchore/scan-action@v6
+        with:
+          image: trueforge:grype-report
+          fail-build: false
+          output-format: sarif
+          # Include every severity. fail-build is off, so findings are reported, not gating.
+          severity-cutoff: negligible
+
+      - name: Upload SARIF
+        uses: github/codeql-action/upload-sarif@v4
+        with:
+          sarif_file: ${{ steps.scan.outputs.sarif }}
+          category: grype-trueforge

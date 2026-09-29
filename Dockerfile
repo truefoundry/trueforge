@@ -9,8 +9,19 @@
 # the download layer stays cached when only package.json / scripts change.
 # See https://pnpm.io/cli/fetch. BuildKit cache mounts are avoided so the same
 # file builds on Railway Metal (which requires a hardcoded service id in mount ids).
+#
+# Base images are build args so a local or contributor build stays on the public
+# Docker Hub image. The release workflow overrides both with the hardened node
+# images from the TrueFoundry private registry (builder: node:24-dev, runtime:
+# node:24).
 
-FROM node:24-slim AS base
+ARG BUILD_BASE_IMAGE=node:24-slim
+ARG RUNTIME_BASE_IMAGE=node:24-slim
+
+FROM ${BUILD_BASE_IMAGE} AS base
+# The hardened bases default to uid 65532. Package install must run as root.
+# node:24-slim is already root.
+USER root
 ENV PNPM_HOME=/pnpm
 ENV PATH="$PNPM_HOME:$PATH"
 RUN corepack enable && pnpm config set store-dir /pnpm/store
@@ -79,8 +90,13 @@ RUN pnpm install --frozen-lockfile --offline --prod --filter @truefoundry/truefo
 
 # ---------------------------------------------------------------------------
 # runner: minimal image with prod node_modules + built artifacts.
+# Fresh FROM so a hardened runtime base does not keep the builder toolchain.
+# The default matches the builder, so local builds stay on node:24-slim.
 # ---------------------------------------------------------------------------
-FROM base AS runner
+FROM ${RUNTIME_BASE_IMAGE} AS runner
+
+USER root
+WORKDIR /app
 
 ENV NODE_ENV=production \
     HOST=0.0.0.0
@@ -105,11 +121,25 @@ COPY --from=frontend-builder /app/packages/frontend/dist ./packages/trueforge/di
 
 WORKDIR /app/packages/trueforge
 
-RUN groupadd --gid 10001 trueforge \
-  && useradd --uid 10001 --gid trueforge trueforge
+# Chart pods run as uid 10001. Debian has groupadd; the hardened base has
+# BusyBox addgroup. Fail loudly if a future base has neither, rather than on a
+# bare "not found".
+RUN if [ -x /usr/sbin/groupadd ]; then \
+      groupadd --gid 10001 trueforge \
+      && useradd --uid 10001 --gid trueforge trueforge; \
+    elif command -v addgroup >/dev/null 2>&1 && command -v adduser >/dev/null 2>&1; then \
+      addgroup -g 10001 trueforge \
+      && adduser -D -H -u 10001 -G trueforge trueforge; \
+    else \
+      echo "base image has neither groupadd nor addgroup; cannot create uid 10001" >&2; \
+      exit 1; \
+    fi
 
 EXPOSE 8790
 
-# Launch-only (matches root `pnpm start` / `standalone:start`). Image already contains dist.
 USER 10001:10001
+# The hardened base sets ENTRYPOINT to the node binary, the Docker Hub base to
+# docker-entrypoint.sh. Clear it so CMD is the whole command on both, and a
+# `command:` override stays a command rather than arguments to node.
+ENTRYPOINT []
 CMD ["node", "dist/main.js"]
