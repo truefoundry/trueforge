@@ -149,12 +149,14 @@ export class PostgresSandboxEnvironmentStore implements ISandboxEnvironmentStore
     transaction?: Transaction<Database>,
   ): Promise<SandboxEnvironmentWithVersion | undefined> {
     const db = transaction ?? this.#db;
-    const row = await activeVersionJoin(db)
+    let query = activeVersionJoin(db)
       .where('env.tenant_id', '=', input.tenant_id)
       .where('env.name', '=', input.name)
-      .where('env.lifecycle_stage', '=', 'active')
-      .where(sql`env.created_by_subject->>'subject_id'`, '=', input.created_by_subject_id)
-      .executeTakeFirst();
+      .where('env.lifecycle_stage', '=', 'active');
+    if (input.created_by_subject_id) {
+      query = query.where(sql`env.created_by_subject->>'subject_id'`, '=', input.created_by_subject_id);
+    }
+    const row = await query.executeTakeFirst();
     return row ? toWithVersion(row) : undefined;
   }
 

@@ -64,8 +64,12 @@ export interface ListSandboxEnvironmentsInput {
 export interface GetSandboxEnvironmentInput {
   tenant_id: string;
   name: string;
-  /** Only return the environment if created by this subject. */
-  created_by_subject_id: string;
+  /**
+   * When set (CRUD / agent attach), only return if this subject created the environment.
+   * Omit when resolving an env during agent execution: running the agent already
+   * implies access to its referenced sandbox environment, so ownership is not checked.
+   */
+  created_by_subject_id?: string;
 }
 
 /**
@@ -149,7 +153,11 @@ export interface ISandboxEnvironmentStore<TTransaction = never> {
     input: ListSandboxEnvironmentsInput,
     transaction?: TTransaction,
   ): Promise<{ data: SandboxEnvironmentWithVersion[]; pagination: TokenPagination }>;
-  /** Active environment by name, joined to its active version. */
+  /**
+   * Active environment by name, joined to its active version.
+   * Pass `created_by_subject_id` for owner-scoped CRUD/attach; omit it when an agent
+   * run resolves the env by name (caller already has access via the agent).
+   */
   getEnvironment(
     input: GetSandboxEnvironmentInput,
     transaction?: TTransaction,
