@@ -168,10 +168,6 @@ async function bootstrapZeroVersions(rootDir, chartVersion) {
     await writeFile(packagePath, next);
     changed.push(entry.name);
   }
-  if (changed.includes(tsSdkPackage)) {
-    await setPythonSdkVersion(rootDir, target);
-    changed.push(pythonSdkPyproject);
-  }
   return changed;
 }
 
