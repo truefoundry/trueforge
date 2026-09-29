@@ -108,9 +108,8 @@ export async function resolveOidcRequestContext(c: Context): Promise<RequestCont
 }
 
 /**
- * Soft authenticate — missing/invalid credentials return `undefined` instead of throwing.
- * Request-gate middleware uses this and throws 401 on miss; handlers that need a shaped
- * failure (e.g. MCP OAuth IdP callback after consent) consume `undefined` themselves.
+ * Soft authenticate — missing/invalid credentials (`401`) return `undefined` instead of throwing.
+ * Other failures (e.g. ServiceFoundry outage → 500) are rethrown.
  */
 export async function tryAuthenticate(params: {
   authenticator: Authenticator;
@@ -118,7 +117,10 @@ export async function tryAuthenticate(params: {
 }): Promise<RequestContext | undefined> {
   try {
     return await params.authenticator.authenticate(params.context);
-  } catch {
-    return undefined;
+  } catch (error) {
+    if (error instanceof HTTPException && error.status === 401) {
+      return undefined;
+    }
+    throw error;
   }
 }
