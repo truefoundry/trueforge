@@ -278,7 +278,7 @@ export class AgentThreadOrchestrator {
     const errors: string[] = [];
     policies.forEach((policy, index) => {
       if (!knownServerNames.has(policy.server_name)) {
-        errors.push(`policies[${index}]: unknown server_name '${policy.server_name}'`);
+        errors.push(`policies[${String(index)}]: unknown server_name '${policy.server_name}'`);
       }
     });
     if (errors.length > 0) {

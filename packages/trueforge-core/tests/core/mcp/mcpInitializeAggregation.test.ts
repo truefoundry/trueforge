@@ -70,11 +70,7 @@ describe('convertMCPServersToTools initialization aggregation', () => {
       ],
     });
 
-    expect(initializationInfo).toEqual([
-      { ...grantedInit, approval_policies: grants },
-      // No grants → init info is left untouched (no empty approval_policies key).
-      bareInit,
-    ]);
+    expect(initializationInfo).toEqual([bareInit, { ...grantedInit, approval_policies: grants }]);
   });
 
   it('skips initialization entries for OAuth-required servers', async () => {

@@ -30,10 +30,7 @@ export class ToolSet implements IToolSet {
   private readonly approvalPolicies = new Map<string, ToolApprovalPolicyAction>();
 
   private static isPolicyApplicable(policy: ToolApprovalPolicyAction, asOf: Date): boolean {
-    return (
-      policy.type === 'allow_session' &&
-      (policy.expire_at === undefined || new Date(policy.expire_at).getTime() > asOf.getTime())
-    );
+    return policy.expire_at === undefined || new Date(policy.expire_at).getTime() > asOf.getTime();
   }
 
   constructor(params: {
