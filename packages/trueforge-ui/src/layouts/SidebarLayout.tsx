@@ -254,7 +254,7 @@ export function SidebarLayout({ className }: { className?: string }) {
       className={cn(auiButtonClass({ variant: 'ghost', size: 'icon' }), 'md:hidden')}
       onClick={() => setMobileNavOpen(true)}
     >
-      <Icon name="bars" />
+      <Icon name="panel-left" />
     </button>
   );
 
