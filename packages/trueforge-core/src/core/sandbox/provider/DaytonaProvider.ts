@@ -5,7 +5,6 @@ import { suppressTracing } from '@opentelemetry/core';
 import { randomUUID } from 'node:crypto';
 import { join } from 'node:path/posix';
 import type { Logger } from 'winston';
-import { z } from 'zod';
 import { extractErrorLogFields } from '../../util/errorLogFields';
 import {
   SandboxFileNotFoundError,
@@ -76,62 +75,33 @@ function httpUrlToWsUrl(url: string): string {
  * Fresh create applies env vars + networking only; other fields are accepted unused for now.
  * Daytona networking modes are mutually exclusive (`network_block_all` vs `domain_allow_list`).
  */
-export const SandboxEnvironmentSchema = z
-  .object({
-    image: z
-      .object({
-        type: z.literal('build'),
-        build_script: z.string().min(1).optional(),
-      })
-      .strict()
-      .optional(),
-    resources: z
-      .object({
-        cpu: z.number().positive(),
-        memory: z.number().positive(),
-        disk: z.number().positive(),
-      })
-      .strict(),
-    environment_variables: z.record(z.string().min(1), z.string()).optional(),
-    networking: z
-      .object({
-        network_block_all: z.boolean().optional(),
-        domain_allow_list: z.string().min(1).optional(),
-        secrets: z
-          .array(
-            z.object({
-              env: z.string().min(1),
-              value: z.string().min(1),
-              hosts: z.array(z.string().min(1)),
-            }),
-          )
-          .optional(),
-      })
-      .strict()
-      .superRefine((value, ctx) => {
-        if (value.network_block_all !== true) {
-          return;
-        }
-        if (value.domain_allow_list !== undefined) {
-          ctx.addIssue({
-            code: 'custom',
-            path: ['domain_allow_list'],
-            message: 'domain_allow_list is not allowed when network_block_all is true',
-          });
-        }
-        if (value.secrets !== undefined) {
-          ctx.addIssue({
-            code: 'custom',
-            path: ['secrets'],
-            message: 'secrets is not allowed when network_block_all is true',
-          });
-        }
-      })
-      .optional(),
-  })
-  .strict();
-
-export type SandboxEnvironment = z.infer<typeof SandboxEnvironmentSchema>;
+export interface SandboxEnvironment {
+  image?:
+    | {
+        type: 'build';
+        build_script?: string | undefined;
+      }
+    | undefined;
+  resources: {
+    cpu: number;
+    memory: number;
+    disk: number;
+  };
+  environment_variables?: Record<string, string> | undefined;
+  networking?:
+    | {
+        network_block_all?: boolean | undefined;
+        domain_allow_list?: string | undefined;
+        secrets?:
+          | Array<{
+              env: string;
+              value: string;
+              hosts: string[];
+            }>
+          | undefined;
+      }
+    | undefined;
+}
 
 export interface DaytonaSandboxProviderOptions {
   /** Caller-owned Daytona SDK client (credentials / lifetime). */

@@ -3,7 +3,6 @@ import { Daytona, DaytonaError } from '@daytona/sdk';
 import {
   DaytonaSandboxProvider,
   SANDBOX_IMAGE_URI,
-  SandboxEnvironmentSchema,
   TFYSandboxProvider,
   withTimeout,
   type SandboxBuild,
@@ -32,7 +31,7 @@ export function isDaytonaPermissionError(error: unknown): boolean {
 
 /** Map host sandbox-environment manifest onto the Daytona provider environment. */
 export function toDaytonaSandboxEnvironment(manifest: SandboxEnvironmentManifest): SandboxEnvironment {
-  return SandboxEnvironmentSchema.parse({
+  return {
     resources: manifest.resources,
     ...(manifest.image ? { image: manifest.image } : {}),
     ...(manifest.environment_variables ? { environment_variables: manifest.environment_variables } : {}),
@@ -49,7 +48,7 @@ export function toDaytonaSandboxEnvironment(manifest: SandboxEnvironmentManifest
           },
         }
       : {}),
-  });
+  };
 }
 
 /**
