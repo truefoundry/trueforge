@@ -71,7 +71,7 @@ function buildUpsertVersion({
   // Label follows platform mode; create/build always use Daytona credentials + code.
   return {
     ...buildNextVersion({
-      version: previous ? previous.active_version + 1 : 1,
+      version: previous ? previous.latest_version + 1 : 1,
       ...(previous
         ? {
             previous_manifest: previous.previous_manifest,

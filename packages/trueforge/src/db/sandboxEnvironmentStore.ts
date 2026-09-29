@@ -88,9 +88,9 @@ export function toUpsertSandboxEnvironmentVersionWrite(
   return built;
 }
 
-/** Previous active version when updating; omitted on first create. */
+/** Latest version row when updating; omitted on first create. Used for numbering + secret/diff. */
 export interface UpsertSandboxEnvironmentPrevious {
-  active_version: number;
+  latest_version: number;
   previous_manifest: StoredSandboxEnvironmentManifest;
   previous_external_ref: string;
 }
@@ -106,6 +106,11 @@ export interface UpsertSandboxEnvironmentInput {
    * on the next version number.
    */
   buildVersion: (previous?: UpsertSandboxEnvironmentPrevious) => UpsertSandboxEnvironmentVersion;
+}
+
+export interface MarkSandboxEnvironmentVersionActiveInput {
+  environment_id: string;
+  version: number;
 }
 
 export interface MarkSandboxEnvironmentVersionFailedInput {
@@ -164,12 +169,22 @@ export interface ISandboxEnvironmentStore<TTransaction = never> {
   ): Promise<SandboxEnvironmentWithVersion | undefined>;
   /**
    * Create or replace by `(tenant_id, name)` for this subject — parent + new version row.
-   * Uses `transaction` when passed; otherwise opens its own (multi-write).
+   * On update, parent `active_version` advances only when the new version's status is
+   * `active` (otherwise use markVersionActive). Uses `transaction` when passed;
+   * otherwise opens its own (multi-write).
    */
   upsertEnvironment(
     input: UpsertSandboxEnvironmentInput,
     transaction?: TTransaction,
   ): Promise<SandboxEnvironmentWithVersion>;
+  /**
+   * Set version status to `active` and point the parent `active_version` at it.
+   * No-op (returns undefined) if the version row is missing.
+   */
+  markVersionActive(
+    input: MarkSandboxEnvironmentVersionActiveInput,
+    transaction?: TTransaction,
+  ): Promise<SandboxEnvironmentWithVersion | undefined>;
   markVersionFailed(
     input: MarkSandboxEnvironmentVersionFailedInput,
     transaction?: TTransaction,

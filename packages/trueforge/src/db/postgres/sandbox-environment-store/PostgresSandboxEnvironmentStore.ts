@@ -18,6 +18,7 @@ import {
   type GetSandboxEnvironmentInput,
   type ISandboxEnvironmentStore,
   type ListSandboxEnvironmentsInput,
+  type MarkSandboxEnvironmentVersionActiveInput,
   type MarkSandboxEnvironmentVersionFailedInput,
   type SandboxEnvironmentRecord,
   type SandboxEnvironmentVersionRecord,
@@ -187,6 +188,9 @@ export class PostgresSandboxEnvironmentStore implements ISandboxEnvironmentStore
     if (!environmentRow) {
       const environment_id = newId();
       const versionWrite = toUpsertSandboxEnvironmentVersionWrite(input.buildVersion());
+      // First version: point here so get/list join works; later versions only move the
+      // pointer when their status is (or becomes) active.
+      const active_version = versionWrite.version;
       try {
         const created = await db
           .insertInto('sandbox_environment')
@@ -195,7 +199,7 @@ export class PostgresSandboxEnvironmentStore implements ISandboxEnvironmentStore
             tenant_id: input.tenant_id,
             name: input.name,
             description: input.description,
-            active_version: 1,
+            active_version,
             lifecycle_stage: 'active',
             created_by_subject: json(input.created_by_subject),
             created_at: now(),
@@ -222,11 +226,11 @@ export class PostgresSandboxEnvironmentStore implements ISandboxEnvironmentStore
       .selectFrom('sandbox_environment_version')
       .selectAll()
       .where('environment_id', '=', environmentRow.id)
-      .where('version', '=', environmentRow.active_version)
+      .orderBy('version', 'desc')
       .executeTakeFirstOrThrow();
     const versionWrite = toUpsertSandboxEnvironmentVersionWrite(
       input.buildVersion({
-        active_version: environmentRow.active_version,
+        latest_version: previousVersion.version,
         previous_manifest: parseStoredSandboxEnvironmentManifest(previousVersion.manifest),
         previous_external_ref: previousVersion.external_ref,
       }),
@@ -235,7 +239,7 @@ export class PostgresSandboxEnvironmentStore implements ISandboxEnvironmentStore
     const updated = await db
       .updateTable('sandbox_environment')
       .set({
-        active_version: versionWrite.version,
+        ...(versionWrite.status === 'active' ? { active_version: versionWrite.version } : {}),
         description: input.description,
         updated_at: now(),
       })
@@ -251,6 +255,50 @@ export class PostgresSandboxEnvironmentStore implements ISandboxEnvironmentStore
       );
     }
     return { environment: toEnvironmentRecord(updated), version };
+  }
+
+  async markVersionActive(
+    input: MarkSandboxEnvironmentVersionActiveInput,
+    transaction?: Transaction<Database>,
+  ): Promise<SandboxEnvironmentWithVersion | undefined> {
+    if (transaction) {
+      return this.#markVersionActive(input, transaction);
+    }
+    return this.#db.transaction().execute(db => this.#markVersionActive(input, db));
+  }
+
+  async #markVersionActive(
+    input: MarkSandboxEnvironmentVersionActiveInput,
+    db: Transaction<Database>,
+  ): Promise<SandboxEnvironmentWithVersion | undefined> {
+    const versionRow = await db
+      .updateTable('sandbox_environment_version')
+      .set({
+        status: 'active',
+        status_reason: null,
+        updated_at: now(),
+      })
+      .where('environment_id', '=', input.environment_id)
+      .where('version', '=', input.version)
+      .returningAll()
+      .executeTakeFirst();
+    if (!versionRow) {
+      return undefined;
+    }
+    const parentUpdated = await db
+      .updateTable('sandbox_environment')
+      .set({
+        active_version: input.version,
+        updated_at: now(),
+      })
+      .where('id', '=', input.environment_id)
+      .where('lifecycle_stage', '=', 'active')
+      .executeTakeFirst();
+    if (!Number(parentUpdated.numUpdatedRows)) {
+      return undefined;
+    }
+    const row = await activeVersionJoin(db).where('env.id', '=', input.environment_id).executeTakeFirst();
+    return row ? toWithVersion(row) : undefined;
   }
 
   async markVersionFailed(
