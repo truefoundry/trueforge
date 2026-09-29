@@ -96,7 +96,15 @@ import type { ConnectedRedis } from './runtime/redis';
 import { initSentry } from './sentry';
 import { printStandaloneStartupBanner } from './startupBanner';
 import { InlineMcpServerStore } from './truefoundry/InlineMcpServerStore';
-import { parseInlineMcpServers, parseInlineSkills, X_TFG_MCP, X_TFG_SKILLS } from './truefoundry/inlineResources';
+import { InlineModelProviderStore } from './truefoundry/InlineModelProviderStore';
+import {
+  parseInlineMcpServers,
+  parseInlineModelProviders,
+  parseInlineSkills,
+  X_TFG_MCP,
+  X_TFG_MODELS,
+  X_TFG_SKILLS,
+} from './truefoundry/inlineResources';
 import { InlineSkillStore } from './truefoundry/InlineSkillStore';
 import {
   parsePerServerMcpHeaders,
@@ -599,8 +607,17 @@ async function createServerRuntime<TTransaction>(persistence: ServerPersistence<
     : undefined;
 
   // Hono handlers get Context; persistence resolvers take RequestContext.
-  const resolveModelProviderStore = (c: Context, runAsAgent?: AgentRecord) =>
-    persistence.resolveModelProviderStore(resolveRequestContext(c), runAsAgent);
+  const resolveModelProviderStore = (c: Context, runAsAgent?: AgentRecord) => {
+    const store = persistence.resolveModelProviderStore(resolveRequestContext(c), runAsAgent);
+    if (!isTrueFoundryModeEnabled(configuration)) {
+      return store;
+    }
+    const rawInline = c.req.header(X_TFG_MODELS);
+    if (rawInline === undefined) {
+      return store;
+    }
+    return new InlineModelProviderStore({ inner: store, inline: parseInlineModelProviders(rawInline) });
+  };
   const resolveMcpServerStore = (c?: Context, runAsAgent?: AgentRecord) => {
     if (c === undefined) {
       return mcpOAuthStore;
