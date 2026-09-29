@@ -3,10 +3,11 @@ import { Daytona, DaytonaError } from '@daytona/sdk';
 import {
   DaytonaSandboxProvider,
   SANDBOX_IMAGE_URI,
+  SandboxEnvironmentSchema,
   TFYSandboxProvider,
   withTimeout,
   type SandboxBuild,
-  type SandboxCreateOptions,
+  type SandboxEnvironment,
   type SandboxProvider,
 } from '@truefoundry/trueforge-core/core';
 import type { Logger } from 'winston';
@@ -29,26 +30,26 @@ export function isDaytonaPermissionError(error: unknown): boolean {
   return error instanceof DaytonaError && error.statusCode === 403;
 }
 
-/** Map a stored environment version manifest onto fresh-create options. */
-export function toSandboxCreateOptions(manifest: SandboxEnvironmentManifest): SandboxCreateOptions {
-  const createOptions: SandboxCreateOptions = {
-    resources: {
-      cpu: manifest.resources.cpu,
-      memory: manifest.resources.memory,
-      disk: manifest.resources.disk,
-    },
-  };
-  if (manifest.environment_variables) {
-    createOptions.envVars = manifest.environment_variables;
-  }
-  const networking = manifest.networking;
-  if (networking?.network_block_all) {
-    createOptions.networkBlockAll = networking.network_block_all;
-  }
-  if (networking?.domain_allow_list) {
-    createOptions.domainAllowList = networking.domain_allow_list;
-  }
-  return createOptions;
+/** Map host sandbox-environment manifest onto the Daytona provider environment. */
+export function toDaytonaSandboxEnvironment(manifest: SandboxEnvironmentManifest): SandboxEnvironment {
+  return SandboxEnvironmentSchema.parse({
+    resources: manifest.resources,
+    ...(manifest.image ? { image: manifest.image } : {}),
+    ...(manifest.environment_variables ? { environment_variables: manifest.environment_variables } : {}),
+    ...(manifest.networking
+      ? {
+          networking: {
+            ...(manifest.networking.network_block_all
+              ? { network_block_all: manifest.networking.network_block_all }
+              : {}),
+            ...(manifest.networking.domain_allow_list
+              ? { domain_allow_list: manifest.networking.domain_allow_list }
+              : {}),
+            ...(manifest.networking.secrets ? { secrets: manifest.networking.secrets } : {}),
+          },
+        }
+      : {}),
+  });
 }
 
 /**
@@ -64,13 +65,13 @@ export function toDaytonaSandboxProvider({
   tenant_id,
   logger,
   build_metadata,
-  createOptions,
+  environment,
 }: {
   manifest: SandboxProviderManifest;
   tenant_id: string;
   logger: Logger;
   build_metadata?: SandboxBuildMetadata | null;
-  createOptions?: SandboxCreateOptions;
+  environment?: SandboxEnvironmentManifest;
 }): DaytonaSandboxProvider {
   const { apiKey, ...settings } = toDaytonaSandboxProviderInput(manifest);
   return new DaytonaSandboxProvider({
@@ -81,7 +82,7 @@ export function toDaytonaSandboxProvider({
     sandboxImage: build_metadata?.['image_uri'] ?? SANDBOX_IMAGE_URI,
     buildRef: build_metadata?.['build_ref'],
     fileMaxBytesForDownload: configuration.SANDBOX_FILE_MAX_BYTES_FOR_DOWNLOAD,
-    ...(createOptions ? { createOptions } : {}),
+    ...(environment ? { environment: toDaytonaSandboxEnvironment(environment) } : {}),
     logger,
   });
 }
@@ -92,19 +93,16 @@ export function toDaytonaSandboxProvider({
  *
  * Optional `build_metadata` overrides the record's persisted metadata (e.g. env-version
  * snapshot `build_ref`); ignored for non-Daytona providers.
- * Optional `createOptions` apply on fresh Daytona sandbox create only.
  */
 export function toSandboxProviderFromRecord({
   record,
   tenant_id,
   logger,
   build_metadata,
-  createOptions,
 }: {
   record: SandboxProviderRecord;
   tenant_id: string;
   build_metadata?: SandboxBuildMetadata | null;
-  createOptions?: SandboxCreateOptions;
   logger: Logger;
 }): SandboxProvider {
   switch (record.manifest.type) {
@@ -114,7 +112,6 @@ export function toSandboxProviderFromRecord({
         tenant_id,
         logger,
         build_metadata: build_metadata ?? record.build_metadata,
-        ...(createOptions ? { createOptions } : {}),
       });
     case 'truefoundry':
       return new TFYSandboxProvider({

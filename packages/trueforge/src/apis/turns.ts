@@ -237,7 +237,7 @@ function createTurnResolver(deps: {
         logger,
         sessionId,
         sandboxEnvironmentStore,
-        ...(environment_name ? { environment_name } : {}),
+        environment_name,
       });
       if (resolved === undefined) {
         throw new HTTPException(422, {
@@ -682,6 +682,8 @@ export function createTurnsRouter(deps: TurnsRouterDeps) {
         store: deps.resolveSandboxProviderStore(c),
         logger: deps.logger,
         sessionId,
+        sandboxEnvironmentStore: deps.sandboxEnvironmentStore,
+        environment_name: undefined,
       });
       if (resolved === undefined) {
         return c.json({ error: { message: 'No sandbox provider configured' } }, 412);

@@ -23,11 +23,7 @@ import type { TurnMetadata } from '../db/turnMetadata';
 import type { IWebSearchProviderStore } from '../db/webSearchProviderStore';
 import { LocalSandboxProvider } from '../sandbox/local/provider/LocalSandboxProvider';
 import { getCachedLocalSandboxSupport, isLocalSandboxFallbackEnabled } from '../sandbox/localRuntime';
-import {
-  toDaytonaSandboxProvider,
-  toSandboxCreateOptions,
-  toSandboxProviderFromRecord,
-} from '../sandbox/providerUtils';
+import { toDaytonaSandboxProvider, toSandboxProviderFromRecord } from '../sandbox/providerUtils';
 import type { ReasoningEffort } from '../schemas/modelProvider';
 import { hasConfiguredWebSearchProvider } from '../websearch/providers';
 
@@ -146,11 +142,12 @@ export async function getMcpConnection({
  * in-memory local fallback when standalone + the cached probe is supported.
  * Builds a fresh provider client per call (no network I/O).
  *
- * When `environment_name` is set, loads that sandbox environment by tenant + name
- * (must be `active`) — no subject ownership check so anyone who can run the agent
- * can use its env. Always builds a Daytona provider (even if stored type is
- * `truefoundry`). Applies create overlays; for `image.type === 'build'` pins the
- * snapshot to the environment version `external_ref`.
+ * When `environment_name` is set (and not the reserved `default`), loads that
+ * sandbox environment by tenant + name (must be `active`) — no subject ownership
+ * check so anyone who can run the agent can use its env. `default` falls through
+ * to the tenant provider. Env create overlays use Daytona only (switch on
+ * provider type). For `image.type === 'build'` pins the snapshot to the
+ * environment version `external_ref`.
  */
 /** Single path segment under the sandboxes parent (`_` when sessionId is missing or unsafe). */
 export function localSandboxSessionSegment(sessionId: string | undefined): string {
@@ -181,13 +178,14 @@ export async function resolveSandboxProvider({
   store: ISandboxProviderStore;
   logger: Logger;
   sessionId: string;
-  environment_name?: string;
-  sandboxEnvironmentStore?: ISandboxEnvironmentStore;
+  environment_name: string | undefined;
+  sandboxEnvironmentStore: ISandboxEnvironmentStore;
 }): Promise<ResolvedSandboxProvider | undefined> {
   const record = await store.getSandboxProvider(tenant_id);
 
-  if (environment_name) {
-    const loaded = await sandboxEnvironmentStore?.getEnvironment({
+  // Reserved `default` means the tenant sandbox provider (no env overlay).
+  if (environment_name && environment_name !== 'default') {
+    const loaded = await sandboxEnvironmentStore.getEnvironment({
       tenant_id,
       name: environment_name,
     });
@@ -200,27 +198,35 @@ export async function resolveSandboxProvider({
       throw new HTTPException(422, {
         message:
           loaded.version.status === 'failed'
-            ? `sandbox environment build failed (${loaded.version.status_reason ?? 'unknown error'})`
-            : 'sandbox environment is activating — retry shortly',
+            ? `Sandbox environment "${environment_name}" build failed (${loaded.version.status_reason ?? 'unknown error'})`
+            : `Sandbox environment "${environment_name}" is not ready (status: ${loaded.version.status}) — retry shortly`,
       });
     }
-    // Env create/runtime always uses Daytona code, even when stored type is `truefoundry`.
-    if (record?.manifest.type !== 'daytona') {
+    if (record === undefined) {
       throw new HTTPException(422, {
-        message: 'sandbox environments require a Daytona sandbox provider',
+        message: `Sandbox environment "${environment_name}" requires a sandbox provider — configure via PUT /settings/sandbox-providers`,
       });
     }
     const usesEnvironmentSnapshot = loaded.version.manifest.image?.type === 'build';
-    return {
-      provider: toDaytonaSandboxProvider({
-        manifest: record.manifest,
-        tenant_id,
-        logger,
-        ...(usesEnvironmentSnapshot ? { build_metadata: { build_ref: loaded.version.external_ref } } : {}),
-        createOptions: toSandboxCreateOptions(loaded.version.manifest),
-      }),
-      usesEnvironmentSnapshot,
-    };
+    switch (record.manifest.type) {
+      case 'daytona':
+        return {
+          provider: toDaytonaSandboxProvider({
+            manifest: record.manifest,
+            tenant_id,
+            logger,
+            build_metadata: usesEnvironmentSnapshot
+              ? { build_ref: loaded.version.external_ref }
+              : record.build_metadata,
+            environment: loaded.version.manifest,
+          }),
+          usesEnvironmentSnapshot,
+        };
+      default:
+        throw new HTTPException(422, {
+          message: `Sandbox environment "${environment_name}" requires a Daytona sandbox provider (configured provider type: "${record.manifest.type}")`,
+        });
+    }
   }
 
   if (record !== undefined) {

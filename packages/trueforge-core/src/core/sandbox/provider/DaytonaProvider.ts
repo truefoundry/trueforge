@@ -5,6 +5,7 @@ import { suppressTracing } from '@opentelemetry/core';
 import { randomUUID } from 'node:crypto';
 import { join } from 'node:path/posix';
 import type { Logger } from 'winston';
+import { z } from 'zod';
 import { extractErrorLogFields } from '../../util/errorLogFields';
 import {
   SandboxFileNotFoundError,
@@ -16,14 +17,7 @@ import {
 import type { CodeModeTransport } from '../codeMode/CodeModeTransport';
 import { CodeModeNatsTransport } from '../codeMode/nats/CodeModeNatsTransport';
 import { DEFAULT_PREVIEW_URL_EXPIRY_SECONDS, DEFAULT_SANDBOX_NATS_WS_PORT } from '../constants';
-import type {
-  ExecResult,
-  SandboxBuild,
-  SandboxCreateOptions,
-  SandboxExecParams,
-  SandboxFileInfo,
-  SandboxProvider,
-} from './Provider';
+import type { ExecResult, SandboxBuild, SandboxExecParams, SandboxFileInfo, SandboxProvider } from './Provider';
 
 const SANDBOX_NOT_FOUND_STATUS = 404;
 /** Another replica already registered this build name; its create is the one that counts. */
@@ -77,6 +71,68 @@ function httpUrlToWsUrl(url: string): string {
   return parsed.toString();
 }
 
+/**
+ * Daytona-only environment (subset of the host sandbox-environment manifest).
+ * Fresh create applies env vars + networking only; other fields are accepted unused for now.
+ * Daytona networking modes are mutually exclusive (`network_block_all` vs `domain_allow_list`).
+ */
+export const SandboxEnvironmentSchema = z
+  .object({
+    image: z
+      .object({
+        type: z.literal('build'),
+        build_script: z.string().min(1).optional(),
+      })
+      .strict()
+      .optional(),
+    resources: z
+      .object({
+        cpu: z.number().positive(),
+        memory: z.number().positive(),
+        disk: z.number().positive(),
+      })
+      .strict(),
+    environment_variables: z.record(z.string().min(1), z.string()).optional(),
+    networking: z
+      .object({
+        network_block_all: z.boolean().optional(),
+        domain_allow_list: z.string().min(1).optional(),
+        secrets: z
+          .array(
+            z.object({
+              env: z.string().min(1),
+              value: z.string().min(1),
+              hosts: z.array(z.string().min(1)),
+            }),
+          )
+          .optional(),
+      })
+      .strict()
+      .superRefine((value, ctx) => {
+        if (value.network_block_all !== true) {
+          return;
+        }
+        if (value.domain_allow_list !== undefined) {
+          ctx.addIssue({
+            code: 'custom',
+            path: ['domain_allow_list'],
+            message: 'domain_allow_list is not allowed when network_block_all is true',
+          });
+        }
+        if (value.secrets !== undefined) {
+          ctx.addIssue({
+            code: 'custom',
+            path: ['secrets'],
+            message: 'secrets is not allowed when network_block_all is true',
+          });
+        }
+      })
+      .optional(),
+  })
+  .strict();
+
+export type SandboxEnvironment = z.infer<typeof SandboxEnvironmentSchema>;
+
 export interface DaytonaSandboxProviderOptions {
   /** Caller-owned Daytona SDK client (credentials / lifetime). */
   client: Daytona;
@@ -105,8 +161,8 @@ export interface DaytonaSandboxProviderOptions {
   natsBridgePort?: number;
   /** Defaults to 1 hour (same as the gateway's max agent execution time). */
   previewUrlExpirySeconds?: number;
-  /** Applied only on fresh `createSandbox` (not restore). */
-  createOptions?: SandboxCreateOptions;
+  /** Optional sandbox environment; applied only on fresh create (not restore). */
+  environment?: SandboxEnvironment;
   logger: Logger;
 }
 
@@ -126,7 +182,7 @@ export class DaytonaSandboxProvider implements SandboxProvider {
   private readonly previewUrlExpirySeconds: number;
   private readonly apiKey: string;
   private readonly apiUrl: string;
-  private readonly createOptions: SandboxCreateOptions | undefined;
+  private readonly environment: DaytonaSandboxProviderOptions['environment'];
   private readonly logger: Logger;
   private readonly daytona: Daytona;
   private static readonly cachedSandboxes = new Map<string, { sandbox: Sandbox; defaultTimeoutMs: number }>();
@@ -147,7 +203,7 @@ export class DaytonaSandboxProvider implements SandboxProvider {
     this.fileMaxBytesForDownload = options.fileMaxBytesForDownload;
     this.natsBridgePort = options.natsBridgePort ?? DEFAULT_SANDBOX_NATS_WS_PORT;
     this.previewUrlExpirySeconds = options.previewUrlExpirySeconds ?? DEFAULT_PREVIEW_URL_EXPIRY_SECONDS;
-    this.createOptions = options.createOptions;
+    this.environment = options.environment;
     this.logger = options.logger.child({ module: 'DaytonaProvider' });
   }
 
@@ -169,21 +225,18 @@ export class DaytonaSandboxProvider implements SandboxProvider {
     return entry;
   }
 
-  /** Snapshot create params plus optional resources (runtime accepts them; SDK snapshot typings omit them). */
-  private buildCreateParams(): CreateSandboxFromSnapshotParams & {
-    resources?: SandboxCreateOptions['resources'];
-  } {
-    const createOptions = this.createOptions;
+  private buildCreateParams(): CreateSandboxFromSnapshotParams {
+    const environment = this.environment;
+    const networking = environment?.networking;
     return {
       name: `${this.tenantName}.${randomUUID()}`,
       snapshot: this.buildRef,
       autoStopInterval: this.autoStopIntervalInMinutes,
       autoArchiveInterval: this.autoArchiveIntervalInMinutes,
       autoDeleteInterval: this.autoDeleteIntervalInMinutes,
-      ...(createOptions?.envVars ? { envVars: createOptions.envVars } : {}),
-      ...(createOptions?.networkBlockAll ? { networkBlockAll: createOptions.networkBlockAll } : {}),
-      ...(createOptions?.domainAllowList ? { domainAllowList: createOptions.domainAllowList } : {}),
-      ...(createOptions?.resources ? { resources: createOptions.resources } : {}),
+      ...(environment?.environment_variables ? { envVars: environment.environment_variables } : {}),
+      ...(networking?.network_block_all ? { networkBlockAll: networking.network_block_all } : {}),
+      ...(networking?.domain_allow_list ? { domainAllowList: networking.domain_allow_list } : {}),
     };
   }
 
