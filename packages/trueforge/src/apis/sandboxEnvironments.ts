@@ -1,6 +1,6 @@
 /**
  * Sandbox environments API (mounted at /api/v1/sandbox-environments).
- * Snapshot builds are not started here — versions land in `created` for a future controller.
+ * Snapshot builds are not started here — versions land in `pending` for a future controller.
  */
 import { OpenAPIHono, type RouteHandler } from '@hono/zod-openapi';
 import { InvalidPageTokenError } from '@truefoundry/trueforge-core/agent-session';

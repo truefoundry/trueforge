@@ -127,8 +127,7 @@ export function buildNextVersion({
   provider_type: SandboxEnvironmentProviderType;
 }): NextSandboxEnvironmentVersion {
   const diff = diffManifest({ previous: previous_manifest, next: manifest });
-  // Detect only — do NOT call Daytona secrets APIs here.
-  const needs_secrets = diff.secrets_changed;
+  // Detect only — do NOT call Daytona secrets/build APIs here.
   const needs_snapshot =
     manifest.image?.type === 'build' && (diff.build_changed || diff.resources_changed || !previous_external_ref);
 
@@ -137,12 +136,11 @@ export function buildNextVersion({
     ...(previous_manifest ? { previous: previous_manifest } : {}),
   });
 
-  // Populate after secretService exists. Secrets loop skipped (Daytona + DB later).
-  // `created` = waiting for a future controller to start snapshot/secret work.
+  // Always `pending` until a future controller activates (or fails) the version.
   return {
     version,
     manifest: toStoredManifest({ manifest: resolved, provider_type }),
-    status: needs_secrets || needs_snapshot ? 'created' : 'active',
+    status: 'pending',
     status_reason: null,
     external_ref: needs_snapshot || !previous_external_ref ? newExternalRef() : previous_external_ref,
     internal_metadata: SandboxEnvironmentVersionInternalMetadataSchema.parse({}),

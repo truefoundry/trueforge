@@ -25,7 +25,7 @@ export const SandboxEnvironmentLifecycleStageSchema = z
   .openapi('SandboxEnvironmentLifecycleStage');
 
 export const SandboxEnvironmentVersionStatusSchema = z
-  .enum(['created', 'pending', 'active', 'failed'])
+  .enum(['pending', 'active', 'failed'])
   .describe('Build/activation status of the environment (active version under the hood).')
   .openapi('SandboxEnvironmentVersionStatus');
 
