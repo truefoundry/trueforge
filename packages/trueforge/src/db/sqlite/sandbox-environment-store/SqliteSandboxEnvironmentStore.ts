@@ -21,7 +21,6 @@ import {
   SandboxEnvironmentNameConflictError,
   SandboxEnvironmentVersionConflictError,
   toSandboxEnvironmentVersionWrite,
-  type CreateSandboxEnvironmentInput,
   type DeleteSandboxEnvironmentInput,
   type GetSandboxEnvironmentInput,
   type ISandboxEnvironmentStore,
@@ -31,7 +30,7 @@ import {
   type SandboxEnvironmentVersionRecord,
   type SandboxEnvironmentVersionWrite,
   type SandboxEnvironmentWithVersion,
-  type UpdateSandboxEnvironmentInput,
+  type UpsertSandboxEnvironmentInput,
 } from '../../sandboxEnvironmentStore';
 import { isUniqueViolation } from '../client';
 import { jsonbBind, jsonText, nowIso } from '../sqlExpressions';
@@ -219,59 +218,10 @@ export class SqliteSandboxEnvironmentStore implements ISandboxEnvironmentStore<T
     return row ? toWithVersion(row) : undefined;
   }
 
-  async createEnvironment(
-    input: CreateSandboxEnvironmentInput,
+  async upsertEnvironment(
+    input: UpsertSandboxEnvironmentInput,
     transaction?: Transaction<Database>,
   ): Promise<SandboxEnvironmentWithVersion> {
-    const db = transaction ?? this.#db;
-    const environment_id = newId();
-    const versionWrite = toSandboxEnvironmentVersionWrite(input.buildVersion());
-    const created_at = nowIso();
-    try {
-      await db
-        .insertInto('sandbox_environment')
-        .values({
-          id: environment_id,
-          tenant_id: input.tenant_id,
-          name: input.name,
-          description: input.description,
-          active_version: 1,
-          lifecycle_stage: 'active',
-          created_by_subject: jsonbBind(input.created_by_subject),
-          created_at,
-          updated_at: created_at,
-        })
-        .execute();
-    } catch (error) {
-      if (isUniqueViolation(error)) {
-        throw new SandboxEnvironmentNameConflictError(
-          { tenant_id: input.tenant_id, name: input.name },
-          { cause: error },
-        );
-      }
-      throw error;
-    }
-    const version = await this.#insertVersionRow(db, environment_id, versionWrite);
-    return {
-      environment: {
-        id: environment_id,
-        tenant_id: input.tenant_id,
-        name: input.name,
-        description: input.description,
-        active_version: 1,
-        lifecycle_stage: 'active',
-        created_by_subject: input.created_by_subject,
-        created_at,
-        updated_at: created_at,
-      },
-      version,
-    };
-  }
-
-  async updateEnvironment(
-    input: UpdateSandboxEnvironmentInput,
-    transaction?: Transaction<Database>,
-  ): Promise<SandboxEnvironmentWithVersion | undefined> {
     const db = transaction ?? this.#db;
     const environmentRow = await db
       .selectFrom('sandbox_environment')
@@ -287,28 +237,70 @@ export class SqliteSandboxEnvironmentStore implements ISandboxEnvironmentStore<T
         'updated_at',
       ])
       .where('tenant_id', '=', input.tenant_id)
-      .where('id', '=', input.id)
+      .where('name', '=', input.name)
       .where('lifecycle_stage', '=', 'active')
+      .where(sql`json_extract(created_by_subject, '$.subject_id')`, '=', input.created_by_subject.subject_id)
       .executeTakeFirst();
+
     if (!environmentRow) {
-      return undefined;
+      const environment_id = newId();
+      const versionWrite = toSandboxEnvironmentVersionWrite(input.buildVersion());
+      const created_at = nowIso();
+      try {
+        await db
+          .insertInto('sandbox_environment')
+          .values({
+            id: environment_id,
+            tenant_id: input.tenant_id,
+            name: input.name,
+            description: input.description,
+            active_version: 1,
+            lifecycle_stage: 'active',
+            created_by_subject: jsonbBind(input.created_by_subject),
+            created_at,
+            updated_at: created_at,
+          })
+          .execute();
+      } catch (error) {
+        if (isUniqueViolation(error)) {
+          throw new SandboxEnvironmentNameConflictError(
+            { tenant_id: input.tenant_id, name: input.name },
+            { cause: error },
+          );
+        }
+        throw error;
+      }
+      const version = await this.#insertVersionRow(db, environment_id, versionWrite);
+      return {
+        environment: {
+          id: environment_id,
+          tenant_id: input.tenant_id,
+          name: input.name,
+          description: input.description,
+          active_version: 1,
+          lifecycle_stage: 'active',
+          created_by_subject: input.created_by_subject,
+          created_at,
+          updated_at: created_at,
+        },
+        version,
+      };
     }
+
     const previousVersion = await db
       .selectFrom('sandbox_environment_version')
       .select(versionSelect())
-      .where('environment_id', '=', input.id)
+      .where('environment_id', '=', environmentRow.id)
       .where('version', '=', environmentRow.active_version)
-      .executeTakeFirst();
-    if (!previousVersion) {
-      return undefined;
-    }
-    const built = input.buildVersion({
-      active_version: environmentRow.active_version,
-      previous_manifest: parseStoredSandboxEnvironmentManifest(previousVersion.manifest),
-      previous_external_ref: previousVersion.external_ref,
-    });
-    const versionWrite = toSandboxEnvironmentVersionWrite(built);
-    const version = await this.#insertVersionRow(db, input.id, versionWrite);
+      .executeTakeFirstOrThrow();
+    const versionWrite = toSandboxEnvironmentVersionWrite(
+      input.buildVersion({
+        active_version: environmentRow.active_version,
+        previous_manifest: parseStoredSandboxEnvironmentManifest(previousVersion.manifest),
+        previous_external_ref: previousVersion.external_ref,
+      }),
+    );
+    const version = await this.#insertVersionRow(db, environmentRow.id, versionWrite);
     const updated_at = nowIso();
     const result = await db
       .updateTable('sandbox_environment')
@@ -318,11 +310,14 @@ export class SqliteSandboxEnvironmentStore implements ISandboxEnvironmentStore<T
         updated_at,
       })
       .where('tenant_id', '=', input.tenant_id)
-      .where('id', '=', input.id)
+      .where('id', '=', environmentRow.id)
       .where('lifecycle_stage', '=', 'active')
       .executeTakeFirst();
     if (!Number(result.numUpdatedRows)) {
-      return undefined;
+      throw new SandboxEnvironmentVersionConflictError(
+        { environment_id: environmentRow.id, version: versionWrite.version },
+        { cause: new Error('Sandbox environment disappeared during upsert') },
+      );
     }
     return {
       environment: toEnvironmentRecord({

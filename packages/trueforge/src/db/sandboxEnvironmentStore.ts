@@ -93,27 +93,24 @@ export function toSandboxEnvironmentVersionWrite(
   };
 }
 
-export interface CreateSandboxEnvironmentInput {
+/** Previous active version when updating; omitted on first create. */
+export interface UpsertSandboxEnvironmentPrevious {
+  active_version: number;
+  previous_manifest: StoredSandboxEnvironmentManifest;
+  previous_external_ref: string;
+}
+
+export interface UpsertSandboxEnvironmentInput {
   tenant_id: string;
   name: ResourceName;
   description: string;
   created_by_subject: CreatedBySubject;
-  buildVersion: () => BuildSandboxEnvironmentVersion;
-}
-
-export interface UpdateSandboxEnvironmentInput {
-  tenant_id: string;
-  id: string;
-  description: string;
   /**
-   * Called inside the write transaction after the parent row is locked / re-read,
-   * so concurrent PUTs cannot compute the same next version number.
+   * Called inside the write transaction. `previous` is set when updating an existing
+   * env (after the parent row is locked / re-read) so concurrent PUTs cannot collide
+   * on the next version number.
    */
-  buildVersion: (previous: {
-    active_version: number;
-    previous_manifest: StoredSandboxEnvironmentManifest;
-    previous_external_ref: string;
-  }) => BuildSandboxEnvironmentVersion;
+  buildVersion: (previous?: UpsertSandboxEnvironmentPrevious) => BuildSandboxEnvironmentVersion;
 }
 
 export interface MarkSandboxEnvironmentVersionFailedInput {
@@ -166,16 +163,11 @@ export interface ISandboxEnvironmentStore<TTransaction = never> {
     input: GetSandboxEnvironmentInput,
     transaction?: TTransaction,
   ): Promise<SandboxEnvironmentWithVersion | undefined>;
-  /** Insert parent (`active_version=1`) + first version. */
-  createEnvironment(
-    input: CreateSandboxEnvironmentInput,
+  /** Create or replace by `(tenant_id, name)` for this subject — parent + new version row. */
+  upsertEnvironment(
+    input: UpsertSandboxEnvironmentInput,
     transaction?: TTransaction,
   ): Promise<SandboxEnvironmentWithVersion>;
-  /** Insert next version and bump parent `active_version` / `description`. */
-  updateEnvironment(
-    input: UpdateSandboxEnvironmentInput,
-    transaction?: TTransaction,
-  ): Promise<SandboxEnvironmentWithVersion | undefined>;
   markVersionFailed(
     input: MarkSandboxEnvironmentVersionFailedInput,
     transaction?: TTransaction,

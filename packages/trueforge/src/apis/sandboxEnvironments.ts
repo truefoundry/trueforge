@@ -13,6 +13,7 @@ import {
   SandboxEnvironmentVersionConflictError,
   type ISandboxEnvironmentStore,
   type SandboxEnvironmentWithVersion,
+  type UpsertSandboxEnvironmentPrevious,
 } from '../db/sandboxEnvironmentStore';
 import type { ISandboxProviderStore, SandboxProviderRecord } from '../db/sandboxProviderStore';
 import type { WithTransaction } from '../db/transaction';
@@ -22,7 +23,6 @@ import {
   UpdateSandboxEnvironmentRequestSchema,
   type SandboxEnvironment,
   type SandboxEnvironmentManifest,
-  type StoredSandboxEnvironmentManifest,
 } from '../schemas/sandboxEnvironment';
 import { MissingStoredSecretError } from '../utils/secretRedaction';
 import { zodErrorResponse } from '../zodErrorResponse';
@@ -81,51 +81,29 @@ async function requireSandboxProviderRecord(
   return providerStore.getSandboxProvider(tenant_id);
 }
 
-function buildVersionForCreate({
+function buildUpsertVersion({
   tenant_id,
   manifest,
   provider,
   created_by_subject,
+  previous,
 }: {
   tenant_id: string;
   manifest: SandboxEnvironmentManifest;
   provider: SandboxProviderRecord;
   created_by_subject: ReturnType<typeof createdBySubjectFromRequestContext>;
+  previous?: UpsertSandboxEnvironmentPrevious;
 }) {
   return {
     ...buildNextVersion({
       tenant_id,
-      version: 1,
-      manifest,
-      provider_type: provider.manifest.type,
-    }),
-    created_by_subject,
-  };
-}
-
-function buildVersionForUpdate({
-  tenant_id,
-  manifest,
-  provider,
-  created_by_subject,
-  active_version,
-  previous_manifest,
-  previous_external_ref,
-}: {
-  tenant_id: string;
-  manifest: SandboxEnvironmentManifest;
-  provider: SandboxProviderRecord;
-  created_by_subject: ReturnType<typeof createdBySubjectFromRequestContext>;
-  active_version: number;
-  previous_manifest: StoredSandboxEnvironmentManifest;
-  previous_external_ref: string;
-}) {
-  return {
-    ...buildNextVersion({
-      tenant_id,
-      version: active_version + 1,
-      previous_manifest,
-      previous_external_ref,
+      version: previous ? previous.active_version + 1 : 1,
+      ...(previous
+        ? {
+            previous_manifest: previous.previous_manifest,
+            previous_external_ref: previous.previous_external_ref,
+          }
+        : {}),
       manifest,
       provider_type: provider.manifest.type,
     }),
@@ -192,53 +170,25 @@ export function createSandboxEnvironmentsRouter<TTransaction>(
     const { manifest } = body.data;
 
     try {
-      const existing = await store.getEnvironment({
-        tenant_id: requestContext.tenant_id,
-        name,
-        created_by_subject_id: requestContext.subject.id,
-      });
-
-      const result = existing
-        ? await withTransaction(transaction =>
-            store.updateEnvironment(
-              {
+      const result = await withTransaction(transaction =>
+        store.upsertEnvironment(
+          {
+            tenant_id: requestContext.tenant_id,
+            name: manifest.name,
+            description: manifest.description ?? '',
+            created_by_subject,
+            buildVersion: previous =>
+              buildUpsertVersion({
                 tenant_id: requestContext.tenant_id,
-                id: existing.environment.id,
-                description: manifest.description ?? '',
-                buildVersion: previous =>
-                  buildVersionForUpdate({
-                    tenant_id: requestContext.tenant_id,
-                    manifest,
-                    provider,
-                    created_by_subject,
-                    ...previous,
-                  }),
-              },
-              transaction,
-            ),
-          )
-        : await withTransaction(transaction =>
-            store.createEnvironment(
-              {
-                tenant_id: requestContext.tenant_id,
-                name: manifest.name,
-                description: manifest.description ?? '',
+                manifest,
+                provider,
                 created_by_subject,
-                buildVersion: () =>
-                  buildVersionForCreate({
-                    tenant_id: requestContext.tenant_id,
-                    manifest,
-                    provider,
-                    created_by_subject,
-                  }),
-              },
-              transaction,
-            ),
-          );
-
-      if (!result) {
-        throw new Error(`Sandbox environment disappeared during update: ${name}`);
-      }
+                ...(previous ? { previous } : {}),
+              }),
+          },
+          transaction,
+        ),
+      );
       return c.json({ data: toSandboxEnvironment(result) });
     } catch (error) {
       if (error instanceof SandboxEnvironmentNameConflictError) {
