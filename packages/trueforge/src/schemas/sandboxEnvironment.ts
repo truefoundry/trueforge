@@ -93,7 +93,9 @@ export const SandboxEnvironmentNetworkingSchema = z
 /** Wire + request/response document — no `type` / `sandbox_provider`. */
 export const SandboxEnvironmentManifestSchema = z
   .object({
-    name: NameSchema,
+    name: NameSchema.refine(name => name !== 'default', {
+      message: 'name "default" is reserved',
+    }),
     description: SandboxEnvironmentDescriptionSchema.optional(),
     image: SandboxEnvironmentImageSchema.optional(),
     resources: SandboxEnvironmentResourcesSchema.default({ cpu: 1, memory: 1, disk: 3 }),

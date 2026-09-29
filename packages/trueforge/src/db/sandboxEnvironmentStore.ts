@@ -70,28 +70,18 @@ export interface GetSandboxEnvironmentInput {
 
 /**
  * Result of `buildVersion` during upsert — {@link NextSandboxEnvironmentVersion} plus subject.
- * Includes `needs_snapshot` for the caller; not a DB column.
  */
 export type UpsertSandboxEnvironmentVersion = NextSandboxEnvironmentVersion & {
   created_by_subject: CreatedBySubject;
 };
 
-/** Version row columns for insert (store fills `environment_id`); omits `needs_snapshot`. */
-export type UpsertSandboxEnvironmentVersionWrite = Omit<UpsertSandboxEnvironmentVersion, 'needs_snapshot'>;
+/** Version row columns for insert (store fills `environment_id`). */
+export type UpsertSandboxEnvironmentVersionWrite = UpsertSandboxEnvironmentVersion;
 
-/** Drop `needs_snapshot` before persisting a version row. */
 export function toUpsertSandboxEnvironmentVersionWrite(
   built: UpsertSandboxEnvironmentVersion,
 ): UpsertSandboxEnvironmentVersionWrite {
-  return {
-    version: built.version,
-    manifest: built.manifest,
-    status: built.status,
-    status_reason: built.status_reason,
-    external_ref: built.external_ref,
-    internal_metadata: built.internal_metadata,
-    created_by_subject: built.created_by_subject,
-  };
+  return built;
 }
 
 /** Previous active version when updating; omitted on first create. */

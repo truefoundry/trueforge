@@ -223,7 +223,7 @@ export class SqliteAgentStore implements IAgentStore<Transaction<Database>> {
       .selectFrom('agent')
       .select('name')
       .where('tenant_id', '=', input.tenant_id)
-      .where(sql`json_extract(manifest, '$.config.sandbox.environment')`, '=', input.environment_name)
+      .where(sql`json_extract(manifest, '$.config.sandbox.environment_name')`, '=', input.environment_name)
       .orderBy('name', 'asc')
       .execute();
     return rows.map(row => row.name);

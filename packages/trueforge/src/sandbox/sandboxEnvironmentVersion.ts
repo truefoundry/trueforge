@@ -22,9 +22,8 @@ export interface ManifestDiff {
   secrets_changed: boolean;
 }
 
-/** Next version row fields plus whether a snapshot build will be needed later. */
+/** Next version row fields (status/external_ref encode whether a future controller must build). */
 export interface NextSandboxEnvironmentVersion {
-  needs_snapshot: boolean;
   version: number;
   manifest: StoredSandboxEnvironmentManifest;
   status: SandboxEnvironmentVersionStatus;
@@ -108,21 +107,19 @@ export function diffManifest({
   };
 }
 
-/** Daytona snapshot name for an environment version. */
-export function newExternalRef(tenant_id: string): string {
-  return `trueforge-${tenant_id}-${randomUUID()}`;
+/** Opaque Daytona snapshot name for an environment version. */
+export function newExternalRef(): string {
+  return `trueforge-${randomUUID()}`;
 }
 
 /** Build the next version row fields (no insert). Secrets / Daytona sync intentionally skipped. */
 export function buildNextVersion({
-  tenant_id,
   version,
   previous_manifest,
   previous_external_ref,
   manifest,
   provider_type,
 }: {
-  tenant_id: string;
   version: number;
   previous_manifest?: StoredSandboxEnvironmentManifest;
   previous_external_ref?: string;
@@ -143,12 +140,11 @@ export function buildNextVersion({
   // Populate after secretService exists. Secrets loop skipped (Daytona + DB later).
   // `created` = waiting for a future controller to start snapshot/secret work.
   return {
-    needs_snapshot,
     version,
     manifest: toStoredManifest({ manifest: resolved, provider_type }),
     status: needs_secrets || needs_snapshot ? 'created' : 'active',
     status_reason: null,
-    external_ref: needs_snapshot || !previous_external_ref ? newExternalRef(tenant_id) : previous_external_ref,
+    external_ref: needs_snapshot || !previous_external_ref ? newExternalRef() : previous_external_ref,
     internal_metadata: SandboxEnvironmentVersionInternalMetadataSchema.parse({}),
   };
 }

@@ -51,8 +51,8 @@ function toSandboxEnvironment({ environment, version }: SandboxEnvironmentWithVe
   };
 }
 
-/** Resolve the tenant sandbox provider record; callers pass it into versioning helpers. */
-async function requireSandboxProviderRecord(
+/** Resolve the tenant sandbox provider record, if configured. */
+async function resolveSandboxProviderRecord(
   providerStore: ISandboxProviderStore,
   tenant_id: string,
 ): Promise<SandboxProviderRecord | undefined> {
@@ -60,12 +60,10 @@ async function requireSandboxProviderRecord(
 }
 
 function buildUpsertVersion({
-  tenant_id,
   manifest,
   created_by_subject,
   previous,
 }: {
-  tenant_id: string;
   manifest: SandboxEnvironmentManifest;
   created_by_subject: ReturnType<typeof createdBySubjectFromRequestContext>;
   previous?: UpsertSandboxEnvironmentPrevious;
@@ -73,7 +71,6 @@ function buildUpsertVersion({
   // Label follows platform mode; create/build always use Daytona credentials + code.
   return {
     ...buildNextVersion({
-      tenant_id,
       version: previous ? previous.active_version + 1 : 1,
       ...(previous
         ? {
@@ -131,7 +128,7 @@ export function createSandboxEnvironmentsRouter<TTransaction>(
   const putHandler: RouteHandler<typeof putSandboxEnvironmentRoute> = async c => {
     const body = c.req.valid('json');
     const requestContext = resolveRequestContext(c);
-    const provider = await requireSandboxProviderRecord(deps.resolveSandboxProviderStore(c), requestContext.tenant_id);
+    const provider = await resolveSandboxProviderRecord(deps.resolveSandboxProviderStore(c), requestContext.tenant_id);
     if (provider?.manifest.type !== 'daytona') {
       return c.json({ error: { message: 'Sandbox environments require a Daytona sandbox provider' } }, 422);
     }
@@ -147,7 +144,6 @@ export function createSandboxEnvironmentsRouter<TTransaction>(
         created_by_subject,
         buildVersion: previous =>
           buildUpsertVersion({
-            tenant_id: requestContext.tenant_id,
             manifest,
             created_by_subject,
             ...(previous ? { previous } : {}),
@@ -184,12 +180,10 @@ export function createSandboxEnvironmentsRouter<TTransaction>(
       environment_name: name,
     });
     if (agentNames.length > 0) {
-      const listed = agentNames.slice(0, 5).join(', ');
-      const more = agentNames.length > 5 ? ` (+${String(agentNames.length - 5)} more)` : '';
       return c.json(
         {
           error: {
-            message: `Sandbox environment "${name}" is referenced by agent(s): ${listed}${more}`,
+            message: `Sandbox environment "${name}" is referenced by agent(s): ${agentNames.join(', ')}`,
           },
         },
         409,

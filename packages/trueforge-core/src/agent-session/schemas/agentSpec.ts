@@ -166,7 +166,7 @@ const SandboxConfigSchema = z
       .boolean()
       .default(true)
       .describe('Allow downloading agent-produced files via the turn download endpoint. Default: true.'),
-    environment: z
+    environment_name: z
       .string()
       .min(1)
       .optional()

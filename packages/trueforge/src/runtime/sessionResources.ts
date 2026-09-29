@@ -286,7 +286,7 @@ export async function validateAgentSpec({
     }
   }
 
-  const environmentName = spec.config.sandbox.environment;
+  const environmentName = spec.config.sandbox.environment_name;
   if (environmentName) {
     const environment = await sandboxEnvironmentStore.getEnvironment({
       tenant_id,
