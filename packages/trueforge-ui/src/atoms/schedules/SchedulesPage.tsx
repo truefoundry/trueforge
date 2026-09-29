@@ -188,7 +188,7 @@ export function SchedulesPage({ agentId }: SchedulesPageProps) {
   const [pageSize, setPageSize] = useState(() => clampPageSize(DEFAULT_TABLE_PAGE_SIZE));
   const [pageToken, setPageToken] = useState<string | undefined>(undefined);
   const [nextPageToken, setNextPageToken] = useState<string | undefined>(undefined);
-  const [prevTokenStack, setPrevTokenStack] = useState<string[]>([]);
+  const [previousPageToken, setPreviousPageToken] = useState<string | undefined>(undefined);
   const loadGenRef = useRef(0);
   const didConsumeIsNewRef = useRef(false);
 
@@ -234,6 +234,7 @@ export function SchedulesPage({ agentId }: SchedulesPageProps) {
         if (gen !== loadGenRef.current) return;
         setSchedules(page.data);
         setNextPageToken(page.nextPageToken);
+        setPreviousPageToken(page.previousPageToken);
         void loadRunsForSchedules({ rows: page.data, gen });
       } catch (caught) {
         if (gen !== loadGenRef.current) return;
@@ -242,6 +243,7 @@ export function SchedulesPage({ agentId }: SchedulesPageProps) {
         setSchedules([]);
         setRunsByScheduleId({});
         setNextPageToken(undefined);
+        setPreviousPageToken(undefined);
       } finally {
         if (gen === loadGenRef.current) setLoading(false);
       }
@@ -254,7 +256,7 @@ export function SchedulesPage({ agentId }: SchedulesPageProps) {
       const size = next?.size ?? pageSize;
       const agentId = next?.agentId ?? agentFilter;
       setPageToken(undefined);
-      setPrevTokenStack([]);
+      setPreviousPageToken(undefined);
       void loadSchedules({ token: undefined, size, agentId });
     },
     [agentFilter, loadSchedules, pageSize],
@@ -274,7 +276,7 @@ export function SchedulesPage({ agentId }: SchedulesPageProps) {
     setAgentFilter(current => {
       if (current === agentId) return current;
       setPageToken(undefined);
-      setPrevTokenStack([]);
+      setPreviousPageToken(undefined);
       return agentId;
     });
   }, [agentId]);
@@ -297,7 +299,7 @@ export function SchedulesPage({ agentId }: SchedulesPageProps) {
         const nextAgentFilter = agentId ?? next.agentFilter;
         if (current === nextAgentFilter) return current;
         setPageToken(undefined);
-        setPrevTokenStack([]);
+        setPreviousPageToken(undefined);
         return nextAgentFilter;
       });
     };
@@ -323,7 +325,7 @@ export function SchedulesPage({ agentId }: SchedulesPageProps) {
 
   // Key off page data, not client filters — filtering must not toggle the column.
   const showCreatedByColumn = hasCreatedBySubject(schedules);
-  const hasPageNav = prevTokenStack.length > 0 || nextPageToken != null;
+  const hasPageNav = previousPageToken != null || nextPageToken != null;
 
   const handleTogglePause = async (schedule: Schedule) => {
     if (!allows(schedule.id, 'MANAGE')) return;
@@ -368,16 +370,12 @@ export function SchedulesPage({ agentId }: SchedulesPageProps) {
 
   const goNext = () => {
     if (nextPageToken == null) return;
-    setPrevTokenStack(stack => [...stack, pageToken ?? '']);
     setPageToken(nextPageToken);
   };
 
   const goPrev = () => {
-    if (prevTokenStack.length === 0) return;
-    const stack = [...prevTokenStack];
-    const prev = stack.pop();
-    setPrevTokenStack(stack);
-    setPageToken(prev === '' ? undefined : prev);
+    if (previousPageToken == null || previousPageToken === '') return;
+    setPageToken(previousPageToken);
   };
 
   return (
@@ -403,7 +401,7 @@ export function SchedulesPage({ agentId }: SchedulesPageProps) {
                 onValueChange={value => {
                   setAgentFilter(value);
                   setPageToken(undefined);
-                  setPrevTokenStack([]);
+                  setPreviousPageToken(undefined);
                 }}
                 onAgentPicked={agent => {
                   setAgentLabelById(current => ({
@@ -453,7 +451,7 @@ export function SchedulesPage({ agentId }: SchedulesPageProps) {
               <TableTokenPagination
                 pageSize={pageSize}
                 rowCount={0}
-                canPrev={prevTokenStack.length > 0}
+                canPrev={previousPageToken != null}
                 canNext={nextPageToken != null}
                 onPrev={goPrev}
                 onNext={goNext}
@@ -462,7 +460,7 @@ export function SchedulesPage({ agentId }: SchedulesPageProps) {
                   const next = clampPageSize(size);
                   setPageSize(next);
                   setPageToken(undefined);
-                  setPrevTokenStack([]);
+                  setPreviousPageToken(undefined);
                 }}
               />
             ) : null}
@@ -546,7 +544,7 @@ export function SchedulesPage({ agentId }: SchedulesPageProps) {
               <TableTokenPagination
                 pageSize={pageSize}
                 rowCount={filtered.length}
-                canPrev={prevTokenStack.length > 0}
+                canPrev={previousPageToken != null}
                 canNext={nextPageToken != null}
                 onPrev={goPrev}
                 onNext={goNext}
@@ -555,7 +553,7 @@ export function SchedulesPage({ agentId }: SchedulesPageProps) {
                   const next = clampPageSize(size);
                   setPageSize(next);
                   setPageToken(undefined);
-                  setPrevTokenStack([]);
+                  setPreviousPageToken(undefined);
                 }}
               />
             )}

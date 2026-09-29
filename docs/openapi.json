@@ -2712,9 +2712,10 @@
           },
           "require_approval_for_tools": {
             "default": [
+              "@write",
               "@destructive"
             ],
-            "description": "Tools that pause for human approval: `@all`, `@write`, `@destructive`, or literal names. Default: `[\"@destructive\"]`.",
+            "description": "Tools that pause for human approval: `@all`, `@write`, `@destructive`, or literal names. Default: `[\"@write\", \"@destructive\"]`.",
             "items": {
               "$ref": "#/components/schemas/MCPServerApprovalToolSelector"
             },

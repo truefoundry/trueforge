@@ -74,7 +74,7 @@ export interface AgentSelectorEntry {
 export interface SearchAgentSelectorParams {
   query?: string;
   limit?: number;
-  offset?: number;
+  pageToken?: string;
 }
 
 // ---------------------------------------------------------------------------
@@ -206,6 +206,7 @@ export interface UpdateSessionRequest<TSpec extends AgentSpec = AgentSpec> {
 export interface ListResult<T> {
   data: T[];
   nextPageToken?: string;
+  previousPageToken?: string;
 }
 
 export type ListSessionsOrder = 'asc' | 'desc';
@@ -455,7 +456,7 @@ export interface AgentBuilderServer<
   getMcp(): Promise<TMcp[]>;
   getMcpConnector?(req: { connectorId: string }): Promise<TMcp>;
   getMcpTools?(req: { connectorId: string }): Promise<TMcpTool[]>;
-  searchAgents(req?: SearchAgentSelectorParams): Promise<TAgent[]>;
+  searchAgents(req?: SearchAgentSelectorParams): Promise<ListResult<TAgent>>;
   saveAgent(req: SaveAgentRequest<TSpec>): Promise<TSave>;
   deleteAgent?(req: { agentName: string }): Promise<void>;
 }

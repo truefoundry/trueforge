@@ -144,6 +144,7 @@ const JSON_RESULT_COLUMNS = new Set([
   'payload',
   'manifest',
   'metadata',
+  'internal_metadata',
   'build_metadata',
   'oauth_server',
   'oauth_client',

@@ -63,11 +63,57 @@ providers:
             - high
             - xhigh
             - max
+      - model_id: gpt-6-astra
+        name: gpt-6-astra
+        properties:
+          context_length: 1050000
+          max_output_tokens: 128000
+          reasoning_efforts:
+            - low
+            - medium
+            - high
+            - xhigh
+            - max
+      - model_id: gpt-6-luna
+        name: gpt-6-luna
+        properties:
+          context_length: 1050000
+          max_output_tokens: 128000
+          reasoning_efforts:
+            - none
+            - low
+            - medium
+            - high
+            - xhigh
+            - max
+      - model_id: gpt-6-sol
+        name: gpt-6-sol
+        properties:
+          context_length: 1050000
+          max_output_tokens: 128000
+          reasoning_efforts:
+            - none
+            - low
+            - medium
+            - high
+            - xhigh
+            - max
   - type: anthropic
     logo: https://assets.production.truefoundry.com/anthropic.svg
     models:
       - model_id: claude-fable-5
         name: claude-fable-5
+        properties:
+          context_length: 1000000
+          max_output_tokens: 128000
+          reasoning_efforts:
+            - low
+            - medium
+            - high
+            - xhigh
+            - max
+      - model_id: claude-fable-5-1
+        name: claude-fable-5-1
         properties:
           context_length: 1000000
           max_output_tokens: 128000
@@ -95,6 +141,17 @@ providers:
             - max
       - model_id: claude-opus-5
         name: claude-opus-5
+        properties:
+          context_length: 1000000
+          max_output_tokens: 128000
+          reasoning_efforts:
+            - low
+            - medium
+            - high
+            - xhigh
+            - max
+      - model_id: claude-opus-5-5
+        name: claude-opus-5-5
         properties:
           context_length: 1000000
           max_output_tokens: 128000
@@ -147,6 +204,24 @@ providers:
             - low
             - medium
             - high
+      - model_id: gemini-3.7-flash
+        name: gemini-3-7-flash
+        properties:
+          context_length: 1048576
+          max_output_tokens: 65536
+          reasoning_efforts:
+            - low
+            - medium
+            - high
+      - model_id: gemini-3.8-flash
+        name: gemini-3-8-flash
+        properties:
+          context_length: 1048576
+          max_output_tokens: 65536
+          reasoning_efforts:
+            - low
+            - medium
+            - high
   - type: fireworks
     logo: https://assets.production.truefoundry.com/fireworks.svg
     models:
@@ -161,6 +236,10 @@ providers:
             - high
             - xhigh
             - max
+      - model_id: accounts/fireworks/models/deepseek-v4p1-flash
+        name: deepseek-v4p1-flash
+        properties:
+          context_length: 1000000
       - model_id: accounts/fireworks/models/glm-5p2
         name: glm-5p2
         properties:
@@ -171,6 +250,24 @@ providers:
             - medium
             - high
             - xhigh
+            - max
+      - model_id: accounts/fireworks/models/glm-5p3
+        name: glm-5p3
+        properties:
+          context_length: 1048576
+          max_output_tokens: 128000
+          reasoning_efforts:
+            - low
+            - high
+            - max
+      - model_id: accounts/fireworks/models/glm-5p3-flash
+        name: glm-5p3-flash
+        properties:
+          context_length: 1048576
+          max_output_tokens: 128000
+          reasoning_efforts:
+            - low
+            - high
             - max
       - model_id: accounts/fireworks/models/kimi-k2p7-code
         name: kimi-k2p7-code
@@ -240,6 +337,24 @@ providers:
             - low
             - high
             - max
+      - model_id: glm-5.3-flash
+        name: glm-5-3-flash
+        properties:
+          context_length: 1048576
+          max_output_tokens: 128000
+          reasoning_efforts:
+            - low
+            - high
+            - max
+      - model_id: glm-5.3-prime
+        name: glm-5-3-prime
+        properties:
+          context_length: 1000000
+          max_output_tokens: 131072
+          reasoning_efforts:
+            - low
+            - high
+            - max
   - type: moonshot
     logo: https://assets.production.truefoundry.com/moonshot.png
     models:
@@ -294,6 +409,15 @@ providers:
             - medium
             - high
             - xhigh
+      - model_id: qwen3.8-flash
+        name: qwen3-8-flash
+        properties:
+          context_length: 1000000
+          max_output_tokens: 131072
+          reasoning_efforts:
+            - low
+            - medium
+            - xhigh
       - model_id: qwen3.8-max
         name: qwen3-8-max
         properties:
@@ -317,6 +441,10 @@ providers:
           reasoning_efforts:
             - high
             - max
+      - model_id: deepseek-ai/DeepSeek-V4.1-Flash
+        name: deepseek-v4-1-flash
+        properties:
+          context_length: 1000000
       - model_id: MiniMaxAI/MiniMax-M3
         name: minimax-m3
         properties:
@@ -359,10 +487,46 @@ providers:
             - medium
             - high
             - xhigh
+      - model_id: Qwen/Qwen3.8-2.4T-A95B
+        name: qwen3-8-2-4t-a95b
+        properties:
+          context_length: 1000000
+          max_output_tokens: 128000
+          reasoning_efforts:
+            - low
+            - high
+            - xhigh
+      - model_id: Qwen/Qwen3.8-Flash
+        name: qwen3-8-flash
+        properties:
+          context_length: 1000000
+          max_output_tokens: 131072
+          reasoning_efforts:
+            - low
+            - medium
+            - xhigh
       - model_id: zai-org/GLM-5.2
         name: glm-5-2
         properties:
           context_length: 512000
           reasoning_efforts:
+            - high
+            - max
+      - model_id: zai-org/GLM-5.3
+        name: glm-5-3
+        properties:
+          context_length: 1048576
+          max_output_tokens: 128000
+          reasoning_efforts:
+            - low
+            - high
+            - max
+      - model_id: zai-org/GLM-5.3-Flash
+        name: glm-5-3-flash
+        properties:
+          context_length: 1048576
+          max_output_tokens: 128000
+          reasoning_efforts:
+            - low
             - high
             - max
