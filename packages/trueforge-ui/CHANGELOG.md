@@ -1,5 +1,12 @@
 # Changelog
 
+## 0.4.0-rc.1
+
+### Patch Changes
+
+- Updated dependencies [fae79d0]
+  - @truefoundry/trueforge-sdk@0.4.0-rc.1
+
 ## 0.4.0
 
 ### Minor Changes
