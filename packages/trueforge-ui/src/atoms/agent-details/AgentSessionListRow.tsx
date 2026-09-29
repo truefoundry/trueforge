@@ -2,6 +2,7 @@
 
 import { Icon } from '../../icons/Icon.js';
 import { useSlot } from '../../theme/SlotsProvider.js';
+import { createdByLabel } from '../../utils/createdBySubject.js';
 import { formatSessionListMetrics } from '../../utils/sessionDisplayFormat.js';
 import { auiButtonClass } from '../lib/buttonClasses.js';
 import { cn } from '../lib/cn.js';
@@ -14,6 +15,7 @@ import type { AgentSessionListRowProps } from './types.js';
 export function AgentSessionListRow({
   title,
   agentName,
+  createdBySubject,
   sourceType,
   lastActivityAt,
   metrics,
@@ -26,6 +28,7 @@ export function AgentSessionListRow({
   const activityAt = new Date(lastActivityAt);
   const relative = formatRelativeShort(activityAt);
   const absolute = formatAbsoluteDateTime(activityAt);
+  const subjectName = createdBySubject != null ? createdByLabel(createdBySubject) : undefined;
 
   return (
     <div
@@ -96,6 +99,27 @@ export function AgentSessionListRow({
             <>
               <Icon name="agent-2" className="size-3 shrink-0" />
               <span className="truncate">{agentName}</span>
+              <span aria-hidden="true">·</span>
+            </>
+          ) : null}
+          {subjectName != null && subjectName.length > 0 ? (
+            <>
+              <Tooltip
+                side="bottom"
+                triggerClassName="min-w-0 max-w-32"
+                content={
+                  <div className="flex flex-col gap-0.5 text-left text-xs">
+                    <div>
+                      <span className="font-medium text-text-primary">{subjectName}</span>
+                    </div>
+                  </div>
+                }
+              >
+                <span className="flex min-w-0 items-center gap-1">
+                  <Icon name="user" className="size-3 shrink-0" />
+                  <span className="truncate">{subjectName}</span>
+                </span>
+              </Tooltip>
               <span aria-hidden="true">·</span>
             </>
           ) : null}

@@ -935,6 +935,8 @@ export interface SessionListEntry<TSpec extends AgentSpec = AgentSpec> {
   agentName?: string | null;
   /** Present when bound to a mutable / draft agent spec. */
   agentSpec?: TSpec;
+  /** Creator when the host persists one; omit to hide Created-by UI. */
+  createdBySubject?: CreatedBySubject;
 }
 
 /** Params for `AgentSessionsServer.listSessionEvents` (session event timeline). */

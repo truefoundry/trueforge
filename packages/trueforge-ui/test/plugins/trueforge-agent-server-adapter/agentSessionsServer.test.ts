@@ -73,6 +73,11 @@ describe('createHarnessAgentSessionsServer', () => {
             name: 'writer',
           },
           createdBy: 'user-1',
+          createdBySubject: {
+            subjectId: 'user-1',
+            subjectType: 'user',
+            subjectDisplayName: 'Alice',
+          },
           metrics: {
             totalTurns: 3,
             totalCostInUsd: 0.25,
@@ -116,6 +121,11 @@ describe('createHarnessAgentSessionsServer', () => {
           metrics: { totalTurns: 3, totalCostInUsd: 0.25, totalDurationMs: 29_711 },
           agentName: 'writer',
           sourceType: 'schedule',
+          createdBySubject: {
+            subjectId: 'user-1',
+            subjectType: 'user',
+            subjectDisplayName: 'Alice',
+          },
         },
       ],
       nextPageToken: 'next-1',

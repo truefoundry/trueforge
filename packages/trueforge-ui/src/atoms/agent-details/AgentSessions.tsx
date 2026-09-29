@@ -391,6 +391,7 @@ export function AgentSessions({
                   key={entry.id}
                   title={sessionTitle(entry)}
                   agentName={entry.agentName ?? undefined}
+                  createdBySubject={entry.createdBySubject}
                   sourceType={entrySourceType(entry)}
                   lastActivityAt={entry.lastActivityAt}
                   metrics={entry.metrics}
