@@ -76,6 +76,7 @@ describe('public CRUD after session deletion', () => {
         resolveAgentStore: () => agentStore,
         eventSubscriptions: new EventSubscriptionRegistry(undefined),
         resolveSandboxProviderStore: () => sandboxProviderStore,
+        sandboxEnvironmentStore,
         resolveWebSearchProviderStore: () => webSearchProviderStore,
         logger: createLogger({ silent: true }),
         resolveRequestContext: () => STANDALONE_REQUEST_CONTEXT,
