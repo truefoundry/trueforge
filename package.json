@@ -42,7 +42,6 @@
     "test:frontend": "pnpm --filter frontend test",
     "test:assistant-ui-runtime": "pnpm --filter @truefoundry/trueforge-assistant-ui-runtime test",
     "test:chart-version": "bash tests/scripts/resolve-chart-version.test.sh",
-    "test:prepare-release": "node --test tests/scripts/prepare-release.test.mjs",
     "test:trueforge-core": "pnpm --filter @truefoundry/trueforge-core test",
     "test:trueforge": "pnpm --filter @truefoundry/trueforge test",
     "test:local-sandbox:contract": "pnpm --filter @truefoundry/trueforge test:local-sandbox:contract",

@@ -98,13 +98,9 @@ jobs:
               - 'package.json'
               - '.github/workflows/ci.yml'
             release:
-              - 'scripts/prepare-release.mjs'
               - 'scripts/resolve-chart-version.sh'
               - 'tests/scripts/**'
-              - 'python/trueforge_sdk/pyproject.toml'
               - 'package.json'
-              - '.github/workflows/release.yml'
-              - '.github/workflows/release-chart.yml'
               - '.github/workflows/ci.yml'
 
       - name: Build package matrix
@@ -303,9 +299,6 @@ jobs:
 
       - name: Chart version resolver
         run: pnpm test:chart-version
-
-      - name: Prepare-release script
-        run: pnpm test:prepare-release
 
   # Store contract suites when store paths change. Parallel with typecheck-and-build.
   store-tests:
