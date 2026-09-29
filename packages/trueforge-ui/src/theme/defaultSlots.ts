@@ -75,7 +75,9 @@ import { SandboxArtifactDownload } from '../atoms/SandboxArtifactDownload.js';
 import { SandboxToolCallCard } from '../atoms/SandboxToolCallCard.js';
 import { SaveAgentButton } from '../atoms/SaveAgentButton.js';
 import { SaveAgentForm } from '../atoms/SaveAgentForm.js';
+import type { EnvironmentsPageProps } from '../atoms/environments/EnvironmentsPage.js';
 import type { SchedulesPageProps } from '../atoms/schedules/SchedulesPage.js';
+import { EnvironmentsButton } from '../atoms/EnvironmentsButton.js';
 import { SchedulesButton } from '../atoms/SchedulesButton.js';
 import { ScrollToBottomButton } from '../atoms/ScrollToBottomButton.js';
 import { SelectAgentEmptyState } from '../atoms/SelectAgentEmptyState.js';
@@ -120,6 +122,10 @@ const AgentCodeSnippets: ComponentType<AgentCodeSnippetsProps> = lazy(
 const SchedulesPage: ComponentType<SchedulesPageProps> = lazy(async () => {
   const mod = await import('../atoms/schedules/SchedulesPage.js');
   return { default: mod.SchedulesPage };
+});
+const EnvironmentsPage: ComponentType<EnvironmentsPageProps> = lazy(async () => {
+  const mod = await import('../atoms/environments/EnvironmentsPage.js');
+  return { default: mod.EnvironmentsPage };
 });
 const AgentSessionEventTimeline: ComponentType<AgentSessionEventTimelineProps> = lazy(async () => {
   const mod = await import('../atoms/agent-details/AgentSessionEventTimeline.js');
@@ -241,6 +247,8 @@ export const defaultSlots = {
   AgentCodeBlock,
   SchedulesPage,
   SchedulesButton,
+  EnvironmentsPage,
+  EnvironmentsButton,
   SaveAgentButton,
   SaveAgentForm,
   SelectAgentEmptyState,

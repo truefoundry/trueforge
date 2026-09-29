@@ -82,6 +82,10 @@ export { TestScheduleScreen } from './atoms/schedules/TestScheduleScreen.js';
 export type { ScheduleMcpMount, TestScheduleScreenProps } from './atoms/schedules/TestScheduleScreen.js';
 export { SchedulesButton } from './atoms/SchedulesButton.js';
 export type { SchedulesButtonProps } from './atoms/SchedulesButton.js';
+export { EnvironmentsPage } from './atoms/environments/EnvironmentsPage.js';
+export type { EnvironmentsPageProps } from './atoms/environments/EnvironmentsPage.js';
+export { EnvironmentsButton } from './atoms/EnvironmentsButton.js';
+export type { EnvironmentsButtonProps } from './atoms/EnvironmentsButton.js';
 export { Icon } from './icons/Icon.js';
 export type { IconProps } from './icons/Icon.js';
 

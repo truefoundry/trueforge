@@ -15,6 +15,7 @@ import { createHarnessChatServer } from './chatServer.js';
 import { createTrueForgeClient, type CreateTrueForgeClientOptions } from './client.js';
 import { createHarnessPermissionsServer } from './permissionsServer.js';
 import { createScheduleServer } from './schedules/scheduleServer.js';
+import { createSandboxEnvironmentServer } from './sandboxEnvironments/sandboxEnvironmentServer.js';
 import type { HarnessAgentSpec } from './types.js';
 
 export { createHarnessAgentMetricsServer, type CreateHarnessAgentMetricsServerOptions } from './agentMetricsServer.js';
@@ -77,6 +78,7 @@ export type { CreateTrueForgeClientOptions } from './client.js';
 export { getCapabilities, listConfiguredMcpServers, listModels, listSkills } from './lists.js';
 export { createHarnessPermissionsServer, type CreateHarnessPermissionsServerOptions } from './permissionsServer.js';
 export { createScheduleServer } from './schedules/scheduleServer.js';
+export { createSandboxEnvironmentServer } from './sandboxEnvironments/sandboxEnvironmentServer.js';
 export type { HarnessAgentSpec, HarnessMcpServerMount, HarnessSkillMount } from './types.js';
 
 export type CreateTrueForgeAgentUIServerOptions = CreateTrueForgeClientOptions & {
@@ -109,6 +111,7 @@ export function createTrueForgeAgentUIServer(options: CreateTrueForgeAgentUIServ
     sessions: createHarnessAgentSessionsServer({ ...clientOptions, client }),
     metrics: createHarnessAgentMetricsServer({ ...clientOptions, client }),
     schedules: createScheduleServer({ client }),
+    sandboxEnvironments: createSandboxEnvironmentServer({ client }),
     permissions: permissions ?? createHarnessPermissionsServer({ client }),
     getMe: async () => {
       const { data } = await client.auth.me();
