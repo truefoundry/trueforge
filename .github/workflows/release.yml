@@ -3,20 +3,29 @@
 # npm and PyPI trusted publishers are bound to this filename (`release.yml`).
 # Do not rename it without updating every package on npmjs.com and PyPI.
 #
-# On every push to main, changesets/action/select-mode chooses:
-#   - pending `.changeset/*.md` → version job opens/updates the Version Packages PR
-#     (install only; that PR is gated by CI.yml). When @truefoundry/trueforge-sdk
-#     moves, scripts/version.mjs mirrors that version into python/trueforge_sdk and rebakes Fern.
+# Releases run on release-vX.Y.Z, not main. main only collects changesets.
+#
+# helm-charts dispatches this workflow with tfy_chart_version (X.Y.Z or
+# X.Y.Z-rc.N) on ref release-vX.Y.Z. That run prepares pre mode and any
+# 0.0.0 packages, runs changeset version, and auto-merges the Version
+# Packages PR. changesets/action/version hard-resets to the triggering SHA
+# before its script, which would drop that prep, so the dispatch job runs
+# `pnpm run version` itself and opens the same PR.
+#
+# The merge push to release-v* uses changesets/action/select-mode:
+#   - pending `.changeset/*.md` → version job opens/updates the Version Packages PR.
+#     When @truefoundry/trueforge-sdk moves, scripts/version.mjs mirrors that
+#     version into python/trueforge_sdk and rebakes Fern.
 #   - none pending + unpublished versions → pack (build/test) + Windows npx smoke
 #     in parallel with the from-source image (image waits only on npm view of
 #     @truefoundry/trueforge@version; skip image+chart if that version is already
-#     on npm). The release image is built on the hardened node bases from the
-#     TrueFoundry private registry. Local and contributor builds stay on
-#     node:24-slim.
-#     After the image is pushed, this workflow calls release-chart.yml with
-#     branch main, app_version, and image_tag. Helm does not wait on pack.
-# Merge the Version Packages PR to publish. After Helm publish, release-chart.yml
-# tags charts/trueforge@<chartVersion> on the metadata commit.
+#     on npm). The release builds two images with the same tag: a public image
+#     on node:24-slim, and a hardened image on the TrueFoundry private node
+#     bases. Local and contributor builds stay on node:24-slim.
+#     After both images are pushed, this workflow calls release-chart.yml
+#     with this branch, app_version, and image_tag. Helm does not wait on pack.
+# After Helm publish, release-chart.yml tags charts/trueforge@<chartVersion>
+# on the metadata commit and uploads the trueforge-chart-version artifact.
 #
 # Auth is GitHub OIDC (no NPM_TOKEN / PYPI_TOKEN). An `_authToken` in user `.npmrc`
 # disables pnpm's OIDC exchange, so the npm publish job must not set NPM_TOKEN /
@@ -26,8 +35,14 @@ name: Version or publish packages
 
 on:
   push:
-    branches: [main]
+    branches:
+      - 'release-v*'
   workflow_dispatch:
+    inputs:
+      tfy_chart_version:
+        description: 'TrueFoundry chart version: X.Y.Z or X.Y.Z-rc.N'
+        required: true
+        type: string
 
 concurrency:
   group: ${{ github.workflow }}-${{ github.ref }}
@@ -37,8 +52,96 @@ concurrency:
 permissions: {}
 
 jobs:
+  # Dispatch-only. Push runs take the select-mode path below.
+  version-release:
+    name: Version packages for TrueFoundry release
+    if: github.event_name == 'workflow_dispatch'
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    outputs:
+      mode: ${{ steps.finish.outputs.mode }}
+      publish-plan-artifact-id: ${{ steps.select-mode.outputs.publish-plan-artifact-id }}
+    permissions:
+      contents: write
+      pull-requests: write
+    steps:
+      - id: app-token
+        uses: actions/create-github-app-token@v3
+        with:
+          client-id: ${{ secrets.TRUEFORGE_GENERATE_SDK_APP_ID }}
+          private-key: ${{ secrets.TRUEFORGE_GENERATE_SDK_APP_PRIVATE_KEY }}
+
+      - name: Check out repo
+        uses: actions/checkout@v7
+        with:
+          fetch-depth: 0
+          persist-credentials: false
+          token: ${{ steps.app-token.outputs.token }}
+
+      - uses: pnpm/action-setup@v6
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v7
+        with:
+          node-version: 24
+          cache: pnpm
+
+      - run: pnpm install --frozen-lockfile
+
+      - name: Prepare release and version packages
+        env:
+          TFY_CHART_VERSION: ${{ inputs.tfy_chart_version }}
+          RELEASE_BRANCH: ${{ github.ref_name }}
+          FERN_TOKEN: ${{ secrets.FERN_TOKEN }}
+        run: |
+          node scripts/prepare-release.mjs
+          pnpm run version
+
+      - name: Open and auto-merge Version Packages PR
+        id: finish
+        env:
+          GH_TOKEN: ${{ steps.app-token.outputs.token }}
+          RELEASE_BRANCH: ${{ github.ref_name }}
+          TFY_CHART_VERSION: ${{ inputs.tfy_chart_version }}
+          HUSKY: '0'
+        run: |
+          set -euo pipefail
+          if [ -z "$(git status --porcelain)" ]; then
+            echo "mode=publish" >> "$GITHUB_OUTPUT"
+            echo "Nothing to version; publishing this branch"
+            exit 0
+          fi
+          gh auth setup-git
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          VERSION_BRANCH="changeset-release/${RELEASE_BRANCH}"
+          git checkout -B "$VERSION_BRANCH"
+          git add -A
+          git commit -m "Version Packages"
+          git push --force origin "HEAD:${VERSION_BRANCH}"
+          EXISTING="$(gh pr list --repo "$GITHUB_REPOSITORY" --head "$VERSION_BRANCH" --base "$RELEASE_BRANCH" --state open --json number --jq '.[0].number // empty')"
+          if [ -z "$EXISTING" ]; then
+            gh pr create \
+              --repo "$GITHUB_REPOSITORY" \
+              --base "$RELEASE_BRANCH" \
+              --head "$VERSION_BRANCH" \
+              --title "Version Packages" \
+              --body "Versions packages for TrueFoundry chart release ${TFY_CHART_VERSION} on ${RELEASE_BRANCH}. Auto-merge publishes npm, PyPI, the image, and the Helm chart from the merge push."
+            EXISTING="$(gh pr view "$VERSION_BRANCH" --repo "$GITHUB_REPOSITORY" --json number --jq .number)"
+          fi
+          gh pr merge "$EXISTING" --repo "$GITHUB_REPOSITORY" --merge --auto
+          echo "mode=version" >> "$GITHUB_OUTPUT"
+
+      # Same-run publish: pack/publish need a publish plan, and the push-path
+      # select-mode job never runs on a dispatch.
+      - name: Select Changesets mode
+        id: select-mode
+        if: steps.finish.outputs.mode == 'publish'
+        uses: changesets/action/select-mode@v2
+
   select-mode:
     name: Select mode
+    if: github.event_name == 'push'
     runs-on: ubuntu-latest
     timeout-minutes: 10
     outputs:
@@ -106,10 +209,12 @@ jobs:
           script: pnpm run version
           push-with-git-cli: true
 
+  # Exactly one of select-mode / version-release runs; the other is skipped and
+  # reports an empty mode. `!cancelled()` is what stops that skip from cascading.
   pack:
     name: Pack packages
-    if: needs.select-mode.outputs.mode == 'publish'
-    needs: select-mode
+    if: ${{ !cancelled() && (needs.select-mode.outputs.mode == 'publish' || needs.version-release.outputs.mode == 'publish') }}
+    needs: [select-mode, version-release]
     runs-on: ubuntu-latest
     timeout-minutes: 30
     outputs:
@@ -145,12 +250,12 @@ jobs:
         id: pack
         uses: changesets/action/pack@v2
         with:
-          publish-plan-artifact-id: ${{ needs.select-mode.outputs.publish-plan-artifact-id }}
+          publish-plan-artifact-id: ${{ needs.select-mode.outputs.publish-plan-artifact-id || needs.version-release.outputs.publish-plan-artifact-id }}
 
   windows-npx-smoke:
     name: Windows npx smoke
-    if: needs.select-mode.outputs.mode == 'publish'
-    needs: select-mode
+    if: ${{ !cancelled() && (needs.select-mode.outputs.mode == 'publish' || needs.version-release.outputs.mode == 'publish') }}
+    needs: [select-mode, version-release]
     runs-on: windows-latest
     timeout-minutes: 30
     permissions:
@@ -275,8 +380,8 @@ jobs:
 
   resolve-image:
     name: Resolve image identity
-    if: needs.select-mode.outputs.mode == 'publish'
-    needs: select-mode
+    if: ${{ !cancelled() && (needs.select-mode.outputs.mode == 'publish' || needs.version-release.outputs.mode == 'publish') }}
+    needs: [select-mode, version-release]
     runs-on: ubuntu-latest
     timeout-minutes: 10
     outputs:
@@ -392,7 +497,48 @@ jobs:
     permissions:
       contents: write
     with:
-      branch: main
+      branch: ${{ github.ref_name }}
       app_version: ${{ needs.resolve-image.outputs.app_version }}
       image_tag: ${{ needs.resolve-image.outputs.image_tag }}
     secrets: inherit
+
+  # release-chart.yml uploads trueforge-chart-version when it publishes.
+  # When the package is already on npm, image and chart are skipped and the
+  # chart version already on this commit is the one helm-charts should pin.
+  record-chart-version:
+    name: Record existing chart version
+    if: needs.resolve-image.outputs.skip == 'true'
+    needs: [resolve-image]
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    permissions:
+      contents: read
+    steps:
+      - name: Check out repo
+        uses: actions/checkout@v7
+        with:
+          persist-credentials: false
+
+      - name: Write chart version
+        run: |
+          set -euo pipefail
+          VERSION="$(node -e '
+            const fs = require("fs");
+            const text = fs.readFileSync("charts/trueforge/Chart.yaml", "utf8");
+            const match = text.match(/^version:\s*"?([^"\n]+)"?\s*$/m);
+            if (match === null) {
+              process.stderr.write("charts/trueforge/Chart.yaml is missing version\n");
+              process.exit(1);
+            }
+            process.stdout.write(match[1].trim());
+          ')"
+          printf '%s\n' "$VERSION" > "$RUNNER_TEMP/chart-version.txt"
+          echo "chart version $VERSION"
+
+      - name: Upload chart version
+        uses: actions/upload-artifact@v4
+        with:
+          name: trueforge-chart-version
+          path: ${{ runner.temp }}/chart-version.txt
+          retention-days: 5
+          if-no-files-found: error
