@@ -281,6 +281,9 @@ jobs:
 
   publish:
     name: Publish packages
+    # !cancelled() replaces the implicit success() check. select-mode or
+    # version-release is always skipped, and that skip would block this job.
+    if: ${{ !cancelled() && needs.pack.result == 'success' && needs.windows-npx-smoke.result == 'success' }}
     needs: [pack, windows-npx-smoke]
     runs-on: ubuntu-latest
     timeout-minutes: 20
@@ -321,6 +324,7 @@ jobs:
   # Sibling of npm publish (same gates). Skips when pyproject version is already on PyPI.
   publish-python:
     name: Publish Python SDK
+    if: ${{ !cancelled() && needs.pack.result == 'success' && needs.windows-npx-smoke.result == 'success' }}
     needs: [pack, windows-npx-smoke]
     runs-on: ubuntu-latest
     timeout-minutes: 20
@@ -439,7 +443,10 @@ jobs:
   # only goes to the private repo that TrueFoundry SaaS pulls from.
   build-image-public:
     name: Build and push public server image
-    if: needs.resolve-image.outputs.skip == 'build'
+    # !cancelled() replaces the implicit success() check. One of select-mode
+    # or version-release is always skipped, which would skip this job even
+    # when skip is build.
+    if: ${{ !cancelled() && needs.resolve-image.result == 'success' && needs.resolve-image.outputs.skip == 'build' }}
     needs: [resolve-image]
     uses: truefoundry/github-workflows-public/.github/workflows/build.yml@main
     permissions:
@@ -461,7 +468,7 @@ jobs:
 
   build-image-private:
     name: Build and push hardened server image
-    if: needs.resolve-image.outputs.skip == 'build'
+    if: ${{ !cancelled() && needs.resolve-image.result == 'success' && needs.resolve-image.outputs.skip == 'build' }}
     needs: [resolve-image]
     uses: truefoundry/github-workflows-public/.github/workflows/build.yml@main
     permissions:
@@ -493,7 +500,7 @@ jobs:
 
   release-chart:
     name: Publish Helm chart
-    if: needs.resolve-image.outputs.skip == 'build'
+    if: ${{ !cancelled() && needs.resolve-image.outputs.skip == 'build' && needs.build-image-public.result == 'success' && needs.build-image-private.result == 'success' }}
     needs: [resolve-image, build-image-public, build-image-private]
     uses: ./.github/workflows/release-chart.yml
     permissions:
@@ -509,7 +516,7 @@ jobs:
   # chart version already on this commit is the one helm-charts should pin.
   record-chart-version:
     name: Record existing chart version
-    if: needs.resolve-image.outputs.skip == 'skip'
+    if: ${{ !cancelled() && needs.resolve-image.result == 'success' && needs.resolve-image.outputs.skip == 'skip' }}
     needs: [resolve-image]
     runs-on: ubuntu-latest
     timeout-minutes: 10
