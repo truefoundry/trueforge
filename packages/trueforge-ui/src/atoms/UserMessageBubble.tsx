@@ -28,7 +28,13 @@ export function UserMessageBubble({ text, attachments, editAction, className }: 
         </div>
       ) : null}
       {editAction && (
-        <div className="flex max-w-[min(80%,100%)] justify-end opacity-0 transition-opacity group-hover/user-message:opacity-100 focus-within:opacity-100">
+        <div
+          className={cn(
+            'flex max-w-[min(80%,100%)] justify-end transition-opacity',
+            // Touch has no hover — keep actions visible below `md`; desktop still reveals on hover.
+            'md:opacity-0 md:group-hover/user-message:opacity-100 md:focus-within:opacity-100',
+          )}
+        >
           {editAction}
         </div>
       )}

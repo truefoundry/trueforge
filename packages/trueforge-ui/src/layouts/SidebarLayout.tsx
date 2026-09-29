@@ -36,7 +36,7 @@ const SchedulesPage = lazy(() =>
 );
 
 const brandLogoClassName = 'h-5 w-5 max-w-40 shrink-0 object-contain';
-const brandLogoExpandedClassName = 'h-6 max-w-40 shrink-0 object-contain';
+const brandLogoExpandedClassName = 'h-5 max-w-40 shrink-0 object-contain';
 const railWidthClassName = 'w-20';
 const mobileDrawerWidthClassName = 'w-80';
 
@@ -204,9 +204,10 @@ function MobileNavDrawer({ drawerRef, onClose }: { drawerRef: Ref<HTMLElement>; 
       <div className="min-h-0 flex-1">
         <ThreadListContainer variant="mobile-drawer" onThreadOpen={onClose} />
       </div>
-      <footer className="flex shrink-0 flex-col items-stretch gap-2 border-t border-border p-3">
-        <ShellActions labeled onAction={onClose} className="!w-full !flex-row !items-stretch justify-around gap-1" />
-        <UserAvatar labeled className="self-center py-1" />
+      <footer className="flex shrink-0 items-center justify-around gap-1 border-t border-border p-2 text-sidebar-text">
+        {/* `contents` lets Docs / Theme / Settings share this row with the avatar. */}
+        <ShellActions labeled onAction={onClose} className="contents" />
+        <UserAvatar labeled />
       </footer>
     </aside>
   );
