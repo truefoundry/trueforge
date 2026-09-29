@@ -1,9 +1,8 @@
 /**
  * Sandbox environments API (mounted at /api/v1/sandbox-environments).
- * Real DB CRUD; OpenAPI / Fern registration intentionally deferred.
  * Snapshot builds are not started here — versions land in `created` for a future controller.
  */
-import { OpenAPIHono, z } from '@hono/zod-openapi';
+import { OpenAPIHono, type RouteHandler } from '@hono/zod-openapi';
 import { InvalidPageTokenError } from '@truefoundry/trueforge-core/agent-session';
 import type { Context } from 'hono';
 import { createdBySubjectFromRequestContext, type ResolveRequestContext } from '../auth/identity';
@@ -17,15 +16,15 @@ import {
   type UpsertSandboxEnvironmentPrevious,
 } from '../db/sandboxEnvironmentStore';
 import type { ISandboxProviderStore, SandboxProviderRecord } from '../db/sandboxProviderStore';
-import { buildNextVersion, redactManifestSecrets } from '../sandbox/sandboxEnvironmentVersion';
-import { PAGE_LIMIT } from '../schemas/common';
 import {
-  UpdateSandboxEnvironmentRequestSchema,
-  type SandboxEnvironment,
-  type SandboxEnvironmentManifest,
-} from '../schemas/sandboxEnvironment';
+  deleteSandboxEnvironmentRoute,
+  getSandboxEnvironmentRoute,
+  listSandboxEnvironmentsRoute,
+  putSandboxEnvironmentRoute,
+} from '../routes/sandboxEnvironmentRoutes';
+import { buildNextVersion, redactManifestSecrets } from '../sandbox/sandboxEnvironmentVersion';
+import type { SandboxEnvironment, SandboxEnvironmentManifest } from '../schemas/sandboxEnvironment';
 import { MissingStoredSecretError } from '../utils/secretRedaction';
-import { zodErrorResponse } from '../zodErrorResponse';
 
 export interface SandboxEnvironmentsRouterDeps<TTransaction> {
   sandboxEnvironmentStore: ISandboxEnvironmentStore<TTransaction>;
@@ -49,26 +48,6 @@ function toSandboxEnvironment({ environment, version }: SandboxEnvironmentWithVe
     created_by_subject: environment.created_by_subject,
     created_at: environment.created_at,
     updated_at: environment.updated_at,
-  };
-}
-
-async function validateJsonBody<T>(
-  c: Context,
-  schema: z.ZodType<T>,
-): Promise<{ ok: true; data: T } | { ok: false; response: Response }> {
-  const parsed = schema.safeParse(await c.req.json());
-  if (!parsed.success) {
-    return { ok: false, response: zodErrorResponse(c, parsed.error) };
-  }
-  return { ok: true, data: parsed.data };
-}
-
-function parseListQuery(c: Context): { limit: number; page_token: string | undefined } {
-  const rawLimit = c.req.query('limit');
-  const limit = rawLimit ? Number(rawLimit) : PAGE_LIMIT;
-  return {
-    limit: Number.isInteger(limit) && limit > 0 ? limit : PAGE_LIMIT,
-    page_token: c.req.query('page_token'),
   };
 }
 
@@ -109,35 +88,34 @@ function buildUpsertVersion({
   };
 }
 
-/** CRUD for sandbox environments (no OpenAPI registration yet). */
+/** CRUD for sandbox environments. */
 export function createSandboxEnvironmentsRouter<TTransaction>(
   deps: SandboxEnvironmentsRouterDeps<TTransaction>,
 ): OpenAPIHono {
-  const router = new OpenAPIHono();
   const { sandboxEnvironmentStore: store, resolveAgentStore, resolveRequestContext } = deps;
 
-  router.get('/', async c => {
+  const listHandler: RouteHandler<typeof listSandboxEnvironmentsRoute> = async c => {
     const { tenant_id, subject } = resolveRequestContext(c);
-    const { limit, page_token } = parseListQuery(c);
+    const { limit, page_token: pageToken } = c.req.valid('query');
     try {
       const listed = await store.listEnvironments({
         tenant_id,
         created_by_subject_id: subject.id,
         limit,
-        page_token,
+        page_token: pageToken,
       });
-      return c.json({ data: listed.data.map(toSandboxEnvironment), pagination: listed.pagination });
+      return c.json({ data: listed.data.map(toSandboxEnvironment), pagination: listed.pagination }, 200);
     } catch (error) {
       if (error instanceof InvalidPageTokenError) {
         return c.json({ error: { message: error.message } }, 400);
       }
       throw error;
     }
-  });
+  };
 
-  router.get('/:name', async c => {
+  const getHandler: RouteHandler<typeof getSandboxEnvironmentRoute> = async c => {
     const { tenant_id, subject } = resolveRequestContext(c);
-    const name = c.req.param('name');
+    const { name } = c.req.valid('param');
     const loaded = await store.getEnvironment({
       tenant_id,
       name,
@@ -146,15 +124,12 @@ export function createSandboxEnvironmentsRouter<TTransaction>(
     if (!loaded) {
       return c.json({ error: { message: `Sandbox environment not found: ${name}` } }, 404);
     }
-    return c.json({ data: toSandboxEnvironment(loaded) });
-  });
+    return c.json({ data: toSandboxEnvironment(loaded) }, 200);
+  };
 
   // Create-or-update keyed by manifest.name.
-  router.put('/', async c => {
-    const body = await validateJsonBody(c, UpdateSandboxEnvironmentRequestSchema);
-    if (!body.ok) {
-      return body.response;
-    }
+  const putHandler: RouteHandler<typeof putSandboxEnvironmentRoute> = async c => {
+    const body = c.req.valid('json');
     const requestContext = resolveRequestContext(c);
     const provider = await requireSandboxProviderRecord(deps.resolveSandboxProviderStore(c), requestContext.tenant_id);
     if (provider?.manifest.type !== 'daytona') {
@@ -162,7 +137,7 @@ export function createSandboxEnvironmentsRouter<TTransaction>(
     }
 
     const created_by_subject = createdBySubjectFromRequestContext(requestContext);
-    const { manifest } = body.data;
+    const { manifest } = body;
 
     try {
       const result = await store.upsertEnvironment({
@@ -178,7 +153,7 @@ export function createSandboxEnvironmentsRouter<TTransaction>(
             ...(previous ? { previous } : {}),
           }),
       });
-      return c.json({ data: toSandboxEnvironment(result) });
+      return c.json({ data: toSandboxEnvironment(result) }, 200);
     } catch (error) {
       if (error instanceof SandboxEnvironmentNameConflictError) {
         return c.json({ error: { message: error.message } }, 409);
@@ -191,11 +166,11 @@ export function createSandboxEnvironmentsRouter<TTransaction>(
       }
       throw error;
     }
-  });
+  };
 
-  router.delete('/:name', async c => {
+  const deleteHandler: RouteHandler<typeof deleteSandboxEnvironmentRoute> = async c => {
     const { tenant_id, subject } = resolveRequestContext(c);
-    const name = c.req.param('name');
+    const { name } = c.req.valid('param');
     const existing = await store.getEnvironment({
       tenant_id,
       name,
@@ -225,8 +200,13 @@ export function createSandboxEnvironmentsRouter<TTransaction>(
       name,
       created_by_subject_id: subject.id,
     });
-    return c.json({});
-  });
+    return c.json({}, 200);
+  };
 
+  const router = new OpenAPIHono();
+  router.openapi(listSandboxEnvironmentsRoute, listHandler);
+  router.openapi(getSandboxEnvironmentRoute, getHandler);
+  router.openapi(putSandboxEnvironmentRoute, putHandler);
+  router.openapi(deleteSandboxEnvironmentRoute, deleteHandler);
   return router;
 }
