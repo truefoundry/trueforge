@@ -126,6 +126,33 @@ test('matching pre mode does not run changeset pre', async () => {
   assert.equal(result.pre, 'keep');
 });
 
+test('bootstrapping the TS SDK mirrors the version into the Python SDK', async () => {
+  const root = await scaffold(null);
+  await mkdir(path.join(root, 'packages', 'trueforge-sdk'), { recursive: true });
+  await mkdir(path.join(root, 'python', 'trueforge_sdk'), { recursive: true });
+  await writeFile(
+    path.join(root, 'packages', 'trueforge-sdk', 'package.json'),
+    '{"name":"@truefoundry/trueforge-sdk","version":"0.0.0"}\n',
+  );
+  await writeFile(
+    path.join(root, 'python', 'trueforge_sdk', 'pyproject.toml'),
+    '[project]\nname = "trueforge_sdk"\ndynamic = ["version"]\n\n[tool.poetry]\nversion = "0.0.0"\n',
+  );
+  const result = await prepareRelease({
+    rootDir: root,
+    chartVersion: '0.176.0-rc.2',
+    branch: 'release-v0.176.0',
+    run: async () => {
+      await writeFile(path.join(root, '.changeset', 'pre.json'), '{"mode":"pre","tag":"rc"}\n');
+    },
+  });
+  assert.ok(result.bootstrapped.includes('trueforge-sdk'));
+  assert.ok(result.bootstrapped.includes('python/trueforge_sdk/pyproject.toml'));
+  const pyproject = await readFile(path.join(root, 'python', 'trueforge_sdk', 'pyproject.toml'), 'utf8');
+  assert.match(pyproject, /^version = "0\.176\.0-rc\.0"$/m);
+  assert.match(pyproject, /dynamic = \["version"\]/);
+});
+
 test('release workflow publishes from release branches', async () => {
   const workflow = await readFile(path.join(repoRoot, '.github/workflows/release.yml'), 'utf8');
   assert.match(workflow, /release-v\*/);

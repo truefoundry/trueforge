@@ -60,6 +60,7 @@ jobs:
     timeout-minutes: 30
     outputs:
       mode: ${{ steps.finish.outputs.mode }}
+      publish-plan-artifact-id: ${{ steps.select-mode.outputs.publish-plan-artifact-id }}
     permissions:
       contents: write
       pull-requests: write
@@ -131,6 +132,13 @@ jobs:
           gh pr merge "$EXISTING" --repo "$GITHUB_REPOSITORY" --merge --auto
           echo "mode=version" >> "$GITHUB_OUTPUT"
 
+      # Same-run publish: pack/publish need a publish plan, and the push-path
+      # select-mode job never runs on a dispatch.
+      - name: Select Changesets mode
+        id: select-mode
+        if: steps.finish.outputs.mode == 'publish'
+        uses: changesets/action/select-mode@v2
+
   select-mode:
     name: Select mode
     if: github.event_name == 'push'
@@ -201,6 +209,8 @@ jobs:
           script: pnpm run version
           push-with-git-cli: true
 
+  # Exactly one of select-mode / version-release runs; the other is skipped and
+  # reports an empty mode. `!cancelled()` is what stops that skip from cascading.
   pack:
     name: Pack packages
     if: ${{ !cancelled() && (needs.select-mode.outputs.mode == 'publish' || needs.version-release.outputs.mode == 'publish') }}
@@ -240,7 +250,7 @@ jobs:
         id: pack
         uses: changesets/action/pack@v2
         with:
-          publish-plan-artifact-id: ${{ needs.select-mode.outputs.publish-plan-artifact-id }}
+          publish-plan-artifact-id: ${{ needs.select-mode.outputs.publish-plan-artifact-id || needs.version-release.outputs.publish-plan-artifact-id }}
 
   windows-npx-smoke:
     name: Windows npx smoke
@@ -503,7 +513,6 @@ jobs:
     timeout-minutes: 10
     permissions:
       contents: read
-      actions: write
     steps:
       - name: Check out repo
         uses: actions/checkout@v7

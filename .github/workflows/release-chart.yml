@@ -58,7 +58,6 @@ jobs:
       cancel-in-progress: false
     permissions:
       contents: write
-      actions: write
     env:
       CHART_DIR: charts/trueforge
       HELM_REGISTRY_URL: ${{ vars.TRUEFOUNDRY_ARTIFACTORY_REGISTRY_URL }}

@@ -5,7 +5,11 @@
  * `RELEASE_BRANCH` is `release-vX.Y.Z`.
  *
  * Changesets pre mode follows that version. Published packages still at
- * `0.0.0` move to `X.Y.0` or `X.Y.0-rc.0`. `packages/frontend` stays `0.0.0`.
+ * `0.0.0` move to `X.Y.0` or `X.Y.0-rc.0`; private packages (`packages/frontend`)
+ * stay `0.0.0`. Bootstrapping `packages/trueforge-sdk` also writes
+ * `python/trueforge_sdk/pyproject.toml`: `scripts/version.mjs` only mirrors the
+ * Python version when `changeset version` moves the TS SDK, so a bootstrap alone
+ * would leave Poetry behind.
  * `.changeset/config.json` `baseBranch` becomes the release branch so version
  * changelogs are computed against it. `main` is not rewritten here.
  */
@@ -15,6 +19,8 @@ import path from 'node:path';
 import { fileURLToPath, pathToFileURL } from 'node:url';
 
 const rootDirDefault = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
+const tsSdkPackage = 'trueforge-sdk';
+const pythonSdkPyproject = 'python/trueforge_sdk/pyproject.toml';
 const chartVersionPattern = /^(\d+)\.(\d+)\.\d+(?:-rc\.\d+)?$/;
 const releaseBranchPattern = /^release-v\d+\.\d+\.\d+$/;
 
@@ -119,13 +125,24 @@ async function applyPreMode(rootDir, chartVersion, run) {
   return command;
 }
 
+/** Poetry version tracks the TS SDK, the same lockstep `scripts/version.mjs` keeps. */
+async function setPythonSdkVersion(rootDir, version) {
+  const pyprojectPath = path.join(rootDir, pythonSdkPyproject);
+  const toml = await readFile(pyprojectPath, 'utf8');
+  const next = toml.replace(/^version\s*=\s*"[^"]+"/m, `version = "${version}"`);
+  if (next === toml) {
+    throw new Error(`${pyprojectPath} is missing version = "…"`);
+  }
+  await writeFile(pyprojectPath, next);
+}
+
 async function bootstrapZeroVersions(rootDir, chartVersion) {
   const target = bootstrapPackageVersion(chartVersion);
   const packagesDir = path.join(rootDir, 'packages');
   const entries = await readdir(packagesDir, { withFileTypes: true });
   const changed = [];
   for (const entry of entries) {
-    if (!entry.isDirectory() || entry.name === 'frontend') {
+    if (!entry.isDirectory()) {
       continue;
     }
     const packagePath = path.join(packagesDir, entry.name, 'package.json');
@@ -142,12 +159,18 @@ async function bootstrapZeroVersions(rootDir, chartVersion) {
     if (parsed.private === true || parsed.version !== '0.0.0') {
       continue;
     }
+    // Patch the one field instead of re-stringifying: these files are committed
+    // on the release branch, and JSON.stringify would reflow the whole manifest.
     const next = raw.replace(/("version"\s*:\s*")0\.0\.0(")/, `$1${target}$2`);
     if (next === raw) {
       throw new Error(`${packagePath} is 0.0.0 but the version field could not be replaced`);
     }
     await writeFile(packagePath, next);
     changed.push(entry.name);
+  }
+  if (changed.includes(tsSdkPackage)) {
+    await setPythonSdkVersion(rootDir, target);
+    changed.push(pythonSdkPyproject);
   }
   return changed;
 }
@@ -171,6 +194,7 @@ async function main() {
   });
 }
 
+// Run the release prep only when invoked as a script; tests import the exports.
 if (process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href) {
   main().catch(error => {
     console.error(error);
