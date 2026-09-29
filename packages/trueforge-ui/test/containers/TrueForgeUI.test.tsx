@@ -516,6 +516,39 @@ describe('SidebarLayout', () => {
     expect(screen.queryByRole('dialog', { name: 'Navigation' })).not.toBeInTheDocument();
   });
 
+  it('closes the mobile drawer on Escape without dismissing Settings underneath', async () => {
+    const originalMatchMedia = window.matchMedia;
+    Object.defineProperty(window, 'matchMedia', { configurable: true, value: mobileMatchMedia });
+
+    try {
+      render(
+        <SlotsProvider>
+          <ServerProvider server={mockServer(stubCatalog)}>
+            <ShellModeProvider agentConfig={{ mode: 'AgentLibraryWithComposer' }}>
+              <RuntimeHarness messages={[]}>
+                <div className="h-96">
+                  <SidebarLayout />
+                </div>
+              </RuntimeHarness>
+            </ShellModeProvider>
+          </ServerProvider>
+        </SlotsProvider>,
+      );
+
+      fireEvent.click(await screen.findByRole('button', { name: 'Settings' }));
+      expect(await screen.findByRole('heading', { name: 'Settings' })).toBeInTheDocument();
+
+      fireEvent.click(screen.getByRole('button', { name: 'Navigation' }));
+      expect(screen.getByRole('dialog', { name: 'Navigation' })).toBeInTheDocument();
+
+      fireEvent.keyDown(window, { key: 'Escape' });
+      expect(screen.queryByRole('dialog', { name: 'Navigation' })).not.toBeInTheDocument();
+      expect(screen.getByRole('heading', { name: 'Settings' })).toBeInTheDocument();
+    } finally {
+      Object.defineProperty(window, 'matchMedia', { configurable: true, value: originalMatchMedia });
+    }
+  });
+
   it('inlines the hamburger into Settings and Agents headers on mobile', async () => {
     const originalMatchMedia = window.matchMedia;
     Object.defineProperty(window, 'matchMedia', { configurable: true, value: mobileMatchMedia });
@@ -849,6 +882,58 @@ describe('DrawerLayout a11y', () => {
 
     expect(screen.getByRole('button', { name: 'New Chat' })).toBeInTheDocument();
     expect(screen.getByRole('button', { name: 'New Agent' })).toBeInTheDocument();
+  });
+
+  it('shows Back to chat on the mobile desktop-only notice', () => {
+    const originalMatchMedia = window.matchMedia;
+    Object.defineProperty(window, 'matchMedia', { configurable: true, value: mobileMatchMedia });
+
+    const server = createMockAgentUIServer({
+      schedules: {
+        listSchedules: vi.fn(async () => ({ data: [] })),
+        getSchedule: vi.fn(),
+        createSchedule: vi.fn(),
+        updateSchedule: vi.fn(),
+        deleteSchedule: vi.fn(),
+        listScheduleRuns: vi.fn(async () => []),
+        createScheduleRun: vi.fn(),
+      },
+    });
+
+    function OpenSchedules() {
+      const shell = useShellMode();
+      return (
+        <button type="button" onClick={() => shell.setSchedulesOpen(true)}>
+          Open schedules
+        </button>
+      );
+    }
+
+    try {
+      render(
+        <SlotsProvider>
+          <ServerProvider server={server}>
+            <ShellModeProvider agentConfig={{ mode: 'AgentLibraryWithComposer' }}>
+              <RuntimeHarness messages={[]}>
+                <OpenSchedules />
+                <div className="h-96">
+                  <DrawerLayout />
+                </div>
+              </RuntimeHarness>
+            </ShellModeProvider>
+          </ServerProvider>
+        </SlotsProvider>,
+      );
+
+      fireEvent.click(screen.getByRole('button', { name: 'Open schedules' }));
+      expect(screen.getByRole('heading', { name: 'Best viewed on desktop' })).toBeInTheDocument();
+      expect(screen.getByRole('button', { name: /Back to chat/i })).toBeInTheDocument();
+
+      fireEvent.click(screen.getByRole('button', { name: /Back to chat/i }));
+      expect(screen.queryByRole('heading', { name: 'Best viewed on desktop' })).not.toBeInTheDocument();
+    } finally {
+      Object.defineProperty(window, 'matchMedia', { configurable: true, value: originalMatchMedia });
+    }
   });
 });
 

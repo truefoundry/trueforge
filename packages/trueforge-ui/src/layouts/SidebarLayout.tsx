@@ -261,10 +261,13 @@ export function SidebarLayout({ className }: { className?: string }) {
   useEffect(() => {
     if (!mobileNavOpen) return;
     const onKeyDown = (event: KeyboardEvent) => {
-      if (event.key === 'Escape') setMobileNavOpen(false);
+      if (event.key !== 'Escape') return;
+      // Capture + stop so Settings / Agents / Agent Details Escape handlers do not steal this.
+      event.stopImmediatePropagation();
+      setMobileNavOpen(false);
     };
-    window.addEventListener('keydown', onKeyDown);
-    return () => window.removeEventListener('keydown', onKeyDown);
+    window.addEventListener('keydown', onKeyDown, true);
+    return () => window.removeEventListener('keydown', onKeyDown, true);
   }, [mobileNavOpen]);
 
   useEffect(() => {

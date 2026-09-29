@@ -69,6 +69,16 @@ export function DrawerLayout({ className }: { className?: string }) {
     }
   };
 
+  const handleBackToChat = () => {
+    shell?.setLibraryOpen(false);
+    shell?.setSchedulesOpen(false);
+    shell?.setSessionsOpen(false);
+    // Leave Build Agent notice; openDraft exits create-agent mode on mobile.
+    if (isCreateAgent) shell?.openDraft();
+  };
+
+  const showBackToChat = showDesktopOnlyNotice || libraryOpen || (schedulesOpen && !isMobile);
+
   return (
     <div className={cn('relative flex h-full min-h-0 w-full bg-primary-bg', className)}>
       {showAgentConfig ? (
@@ -86,20 +96,17 @@ export function DrawerLayout({ className }: { className?: string }) {
         <PageHeader
           className="bg-topbar-bg"
           title={
-            !overlayOpen && !showDesktopOnlyNotice ? (
-              <NamedAgentHeaderLabel />
-            ) : libraryOpen || (schedulesOpen && !isMobile) ? (
+            showBackToChat ? (
               <button
                 type="button"
                 className={auiButtonClass({ variant: 'ghost', size: 'small' })}
-                onClick={() => {
-                  shell?.setLibraryOpen(false);
-                  shell?.setSchedulesOpen(false);
-                }}
+                onClick={handleBackToChat}
               >
                 <Icon name="arrow-left" />
                 Back to chat
               </button>
+            ) : !overlayOpen ? (
+              <NamedAgentHeaderLabel />
             ) : null
           }
           end={

@@ -16,6 +16,7 @@ import { AgentOverflowMenu } from './AgentOverflowMenu.js';
 import { CreatedByCell } from './CreatedByCell.js';
 import { EmptyScreen, EmptyScreenQueryHighlight } from './EmptyScreen.js';
 import { cn } from './lib/cn.js';
+import { isMobileNavDrawerOpen } from './lib/isMobileNavDrawerOpen.js';
 import { mountName } from './lib/mountName.js';
 import { useIsMobile } from './lib/useIsMobile.js';
 import { useSearchAgentsList } from './lib/useSearchAgentsList.js';
@@ -542,6 +543,8 @@ export function AgentsLibrary({ onSelectAgent, headerStart }: AgentsLibraryProps
     if (!open) return;
     const onKeyDown = (event: KeyboardEvent) => {
       if (event.key !== 'Escape') return;
+      // Let the mobile nav drawer consume Escape when it is open on top.
+      if (isMobileNavDrawerOpen()) return;
       event.stopImmediatePropagation();
       closeLibrary();
     };

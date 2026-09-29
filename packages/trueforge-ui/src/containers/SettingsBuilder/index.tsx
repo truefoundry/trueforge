@@ -6,6 +6,7 @@ import { useDraftCatalog } from '@/atoms/draft/DraftCatalogProvider.js';
 import { auiButtonClass } from '@/atoms/lib/buttonClasses.js';
 import { cn } from '@/atoms/lib/cn.js';
 import { useCompactLayout } from '@/atoms/lib/CompactLayoutContext.js';
+import { isMobileNavDrawerOpen } from '@/atoms/lib/isMobileNavDrawerOpen.js';
 import { useIsMobile } from '@/atoms/lib/useIsMobile.js';
 import { PageHeader } from '@/atoms/PageHeader.js';
 import { Spinner } from '@/atoms/primitives/Spinner.js';
@@ -72,6 +73,8 @@ const TruefoundrySettingsBuilder = ({ headerStart }: { headerStart?: ReactNode }
     if (!settingsOpen) return;
     const onKeyDown = (event: KeyboardEvent) => {
       if (event.key !== 'Escape') return;
+      // Let the mobile nav drawer consume Escape when it is open on top.
+      if (isMobileNavDrawerOpen()) return;
       event.stopImmediatePropagation();
       closeSettings();
     };

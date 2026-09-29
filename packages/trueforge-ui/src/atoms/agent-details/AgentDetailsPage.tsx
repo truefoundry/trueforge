@@ -13,6 +13,7 @@ import type { AgentDetail, CodeSnippet } from '../../server/types.js';
 import { useSlot } from '../../theme/SlotsProvider.js';
 import { defaultMetricsTimeRange, libraryAgentTabFromSearch } from '../../utils/sessionShareUrl.js';
 import { DesktopOnlyNotice } from '../DesktopOnlyNotice.js';
+import { isMobileNavDrawerOpen } from '../lib/isMobileNavDrawerOpen.js';
 import { useIsMobile } from '../lib/useIsMobile.js';
 import { Skeleton } from '../primitives/Skeleton.js';
 import type { AgentDetailsPageProps } from './types.js';
@@ -61,6 +62,8 @@ export function AgentDetailsPage({ agentId }: AgentDetailsPageProps) {
   useEffect(() => {
     const onKeyDown = (event: KeyboardEvent) => {
       if (event.key !== 'Escape') return;
+      // Let the mobile nav drawer consume Escape when it is open on top.
+      if (isMobileNavDrawerOpen()) return;
       event.stopImmediatePropagation();
       goBack();
     };
