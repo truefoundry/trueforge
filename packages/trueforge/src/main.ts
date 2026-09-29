@@ -747,7 +747,6 @@ try {
   const logger = createServerLogger({
     level: configuration.LOG_LEVEL,
     standalone: configuration.STANDALONE,
-    version: PACKAGE_VERSION,
   });
 
   await initSentry(configuration, logger, { tags: { component: 'server' } });
