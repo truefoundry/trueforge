@@ -27,6 +27,12 @@ import type { ColumnType, Generated, JSONColumnType } from 'kysely';
 import type { McpServerManifest } from '../../schemas/mcpServer';
 import type { ModelProviderManifest } from '../../schemas/modelProvider';
 import type {
+  SandboxEnvironmentLifecycleStage,
+  SandboxEnvironmentVersionInternalMetadata,
+  SandboxEnvironmentVersionStatus,
+  StoredSandboxEnvironmentManifest,
+} from '../../schemas/sandboxEnvironment';
+import type {
   SandboxBuildMetadata,
   SandboxBuildStatus,
   StoredSandboxProviderManifest,
@@ -423,6 +429,48 @@ export interface AgentTable {
 }
 
 /**
+ * Sandbox environments — immutable ULID `id` PK.
+ * Partial unique (tenant_id, name) WHERE lifecycle_stage = 'active'.
+ */
+export interface SandboxEnvironmentTable {
+  id: string;
+  tenant_id: string;
+  name: string;
+  description: string;
+  active_version: number;
+  lifecycle_stage: SandboxEnvironmentLifecycleStage;
+  created_by_subject: JSONColumnType<CreatedBySubject, CreatedBySubject, CreatedBySubject>;
+  created_at: Date;
+  updated_at: Date;
+}
+
+/**
+ * Immutable sandbox environment versions.
+ * UNIQUE (environment_id, version); FK → sandbox_environment ON DELETE CASCADE.
+ */
+export interface SandboxEnvironmentVersionTable {
+  id: string;
+  environment_id: string;
+  version: number;
+  manifest: JSONColumnType<
+    StoredSandboxEnvironmentManifest,
+    StoredSandboxEnvironmentManifest,
+    StoredSandboxEnvironmentManifest
+  >;
+  status: SandboxEnvironmentVersionStatus;
+  status_reason: string | null;
+  external_ref: string;
+  internal_metadata: JSONColumnType<
+    SandboxEnvironmentVersionInternalMetadata,
+    SandboxEnvironmentVersionInternalMetadata,
+    SandboxEnvironmentVersionInternalMetadata
+  >;
+  created_by_subject: JSONColumnType<CreatedBySubject, CreatedBySubject, CreatedBySubject>;
+  created_at: Date;
+  updated_at: Date;
+}
+
+/**
  * Configured schedules — immutable ULID `id` PK.
  * PRIMARY KEY (id)
  * CREATE INDEX schedule_agent_idx ON schedule (tenant_id, agent_name)
@@ -556,6 +604,8 @@ export interface Database {
   skill: SkillTable;
   sandbox_provider: SandboxProviderTable;
   agent: AgentTable;
+  sandbox_environment: SandboxEnvironmentTable;
+  sandbox_environment_version: SandboxEnvironmentVersionTable;
   schedule: ScheduleTable;
   schedule_run: ScheduleRunTable;
   mcp_server: McpServerTable;
