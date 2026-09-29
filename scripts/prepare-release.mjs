@@ -19,7 +19,6 @@ import path from 'node:path';
 import { fileURLToPath, pathToFileURL } from 'node:url';
 
 const rootDirDefault = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
-const pythonSdkPyproject = 'python/trueforge_sdk/pyproject.toml';
 const chartVersionPattern = /^(\d+)\.(\d+)\.\d+(?:-rc\.\d+)?$/;
 const releaseBranchPattern = /^release-v\d+\.\d+\.\d+$/;
 
