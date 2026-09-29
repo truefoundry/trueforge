@@ -387,6 +387,8 @@ jobs:
     outputs:
       app_version: ${{ steps.resolve.outputs.app_version }}
       image_tag: ${{ steps.resolve.outputs.image_tag }}
+      # "build" or "skip", not true/false. GitHub drops a job output whose
+      # value is the string false, which would skip the image builds.
       skip: ${{ steps.resolve.outputs.skip }}
     permissions:
       contents: read
@@ -420,10 +422,10 @@ jobs:
           VIEW_STATUS=$?
           set -e
           if [[ "$VIEW_STATUS" -eq 0 && -n "$VIEW_OUT" ]]; then
-            echo "skip=true" >> "$GITHUB_OUTPUT"
+            echo "skip=skip" >> "$GITHUB_OUTPUT"
             echo "@truefoundry/trueforge@$APP_VERSION is already on npm; skipping image and chart"
           elif printf '%s' "$VIEW_OUT" | grep -qiE 'E404|404 Not Found|npm error 404'; then
-            echo "skip=false" >> "$GITHUB_OUTPUT"
+            echo "skip=build" >> "$GITHUB_OUTPUT"
             echo "@truefoundry/trueforge@$APP_VERSION is not on npm; building image $IMAGE_TAG"
           else
             printf '%s\n' "$VIEW_OUT" >&2
@@ -437,7 +439,7 @@ jobs:
   # only goes to the private repo that TrueFoundry SaaS pulls from.
   build-image-public:
     name: Build and push public server image
-    if: needs.resolve-image.outputs.skip == 'false'
+    if: needs.resolve-image.outputs.skip == 'build'
     needs: [resolve-image]
     uses: truefoundry/github-workflows-public/.github/workflows/build.yml@main
     permissions:
@@ -459,7 +461,7 @@ jobs:
 
   build-image-private:
     name: Build and push hardened server image
-    if: needs.resolve-image.outputs.skip == 'false'
+    if: needs.resolve-image.outputs.skip == 'build'
     needs: [resolve-image]
     uses: truefoundry/github-workflows-public/.github/workflows/build.yml@main
     permissions:
@@ -491,7 +493,7 @@ jobs:
 
   release-chart:
     name: Publish Helm chart
-    if: needs.resolve-image.outputs.skip == 'false'
+    if: needs.resolve-image.outputs.skip == 'build'
     needs: [resolve-image, build-image-public, build-image-private]
     uses: ./.github/workflows/release-chart.yml
     permissions:
@@ -507,7 +509,7 @@ jobs:
   # chart version already on this commit is the one helm-charts should pin.
   record-chart-version:
     name: Record existing chart version
-    if: needs.resolve-image.outputs.skip == 'true'
+    if: needs.resolve-image.outputs.skip == 'skip'
     needs: [resolve-image]
     runs-on: ubuntu-latest
     timeout-minutes: 10
