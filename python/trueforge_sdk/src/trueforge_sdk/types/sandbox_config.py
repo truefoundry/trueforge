@@ -13,7 +13,7 @@ class SandboxConfig(UncheckedBaseModel):
     Give the agent a sandbox. Required for skills and Code Mode.
     """
 
-    environment: typing.Optional[str] = pydantic.Field(default=None)
+    environment_name: typing.Optional[str] = pydantic.Field(default=None)
     """
     Name of a configured sandbox environment to use. Must exist when set.
     """

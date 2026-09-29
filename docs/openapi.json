@@ -3810,7 +3810,7 @@
             "description": "Give the agent a sandbox. Required for skills and Code Mode.",
             "type": "boolean"
           },
-          "environment": {
+          "environment_name": {
             "description": "Name of a configured sandbox environment to use. Must exist when set.",
             "minLength": 1,
             "type": "string"
