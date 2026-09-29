@@ -12,7 +12,7 @@ import {
 import type { Logger } from 'winston';
 import configuration from '../config';
 import type { ISandboxProviderStore, SandboxProviderRecord } from '../db/sandboxProviderStore';
-import type { SandboxEnvironmentManifest } from '../schemas/sandboxEnvironment';
+import type { StoredSandboxEnvironmentManifest } from '../schemas/sandboxEnvironment';
 import {
   toDaytonaSandboxProviderInput,
   type SandboxBuildMetadata,
@@ -30,7 +30,7 @@ export function isDaytonaPermissionError(error: unknown): boolean {
 }
 
 /** Map host sandbox-environment manifest onto the Daytona provider environment. */
-export function toDaytonaSandboxEnvironment(manifest: SandboxEnvironmentManifest): SandboxEnvironment {
+export function toDaytonaSandboxEnvironment(manifest: StoredSandboxEnvironmentManifest): SandboxEnvironment {
   return {
     resources: manifest.resources,
     ...(manifest.image ? { image: manifest.image } : {}),
@@ -70,7 +70,7 @@ export function toDaytonaSandboxProvider({
   tenant_id: string;
   logger: Logger;
   build_metadata?: SandboxBuildMetadata | null;
-  environment?: SandboxEnvironmentManifest;
+  environment?: StoredSandboxEnvironmentManifest;
 }): DaytonaSandboxProvider {
   const { apiKey, ...settings } = toDaytonaSandboxProviderInput(manifest);
   return new DaytonaSandboxProvider({

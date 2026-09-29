@@ -5,7 +5,10 @@
 import { randomUUID } from 'node:crypto';
 import { isDeepStrictEqual } from 'node:util';
 import {
+  DEFAULT_SANDBOX_ENVIRONMENT_NAME,
+  DEFAULT_SANDBOX_ENVIRONMENT_RESOURCES,
   SandboxEnvironmentVersionInternalMetadataSchema,
+  StoredSandboxEnvironmentManifestSchema,
   type SandboxEnvironmentManifest,
   type SandboxEnvironmentVersionInternalMetadata,
   type SandboxEnvironmentVersionStatus,
@@ -30,6 +33,18 @@ export interface NextSandboxEnvironmentVersion {
   status_reason: null;
   external_ref: string;
   internal_metadata: SandboxEnvironmentVersionInternalMetadata;
+}
+
+/** System default env stored jsonb (platform image; no networking/secrets). */
+export function defaultSandboxEnvironmentStoredManifest(
+  provider_type: SandboxEnvironmentProviderType,
+): StoredSandboxEnvironmentManifest {
+  return StoredSandboxEnvironmentManifestSchema.parse({
+    name: DEFAULT_SANDBOX_ENVIRONMENT_NAME,
+    resources: DEFAULT_SANDBOX_ENVIRONMENT_RESOURCES,
+    type: provider_type,
+    sandbox_provider: provider_type,
+  });
 }
 
 /** Merge redacted keep-as-is stand-ins with previously stored secret values (sandbox-provider style). */

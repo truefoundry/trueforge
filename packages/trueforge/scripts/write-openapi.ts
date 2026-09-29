@@ -89,6 +89,7 @@ const app = createServerApp({
   resolveImportAgentStore: () => agentStore,
   agentStore,
   sandboxEnvironmentStore,
+  sandboxProviderStore,
   turnSkillsResolverStore: skillStore,
   withTransaction: callback => db.transaction().execute(callback),
   scheduleStore: new SqliteScheduleStore(db),

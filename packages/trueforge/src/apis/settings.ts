@@ -9,6 +9,7 @@ import type { Logger } from 'winston';
 import type { ResolveRequestContext } from '../auth/identity';
 import type { IMcpServerWithAuthStore } from '../db/mcpServerStore';
 import type { IModelProviderStore } from '../db/modelProviderStore';
+import type { ISandboxEnvironmentStore } from '../db/sandboxEnvironmentStore';
 import type { ISandboxProviderStore } from '../db/sandboxProviderStore';
 import type { WithTransaction } from '../db/transaction';
 import type { IWebSearchProviderStore } from '../db/webSearchProviderStore';
@@ -25,6 +26,7 @@ export interface SettingsRouterDeps<TTransaction> {
   tokenStore: IOAuthTokenStore<TTransaction>;
   resolveSkillStore: ResolveSkillStore<TTransaction>;
   resolveSandboxProviderStore: (c: Context) => ISandboxProviderStore<TTransaction>;
+  sandboxEnvironmentStore: ISandboxEnvironmentStore<TTransaction>;
   resolveWebSearchProviderStore: (c: Context) => IWebSearchProviderStore<TTransaction>;
   withTransaction: WithTransaction<TTransaction>;
   logger: Logger;
@@ -63,8 +65,8 @@ export function createSettingsRouter<TTransaction>(deps: SettingsRouterDeps<TTra
     '/sandbox-providers',
     createSandboxProvidersRouter({
       resolveSandboxProviderStore: deps.resolveSandboxProviderStore,
+      sandboxEnvironmentStore: deps.sandboxEnvironmentStore,
       withTransaction: deps.withTransaction,
-      logger: deps.logger,
       resolveRequestContext: deps.resolveRequestContext,
     }),
   );

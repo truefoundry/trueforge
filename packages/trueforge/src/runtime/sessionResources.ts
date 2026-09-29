@@ -25,6 +25,7 @@ import { LocalSandboxProvider } from '../sandbox/local/provider/LocalSandboxProv
 import { getCachedLocalSandboxSupport, isLocalSandboxFallbackEnabled } from '../sandbox/localRuntime';
 import { toDaytonaSandboxProvider, toSandboxProviderFromRecord } from '../sandbox/providerUtils';
 import type { ReasoningEffort } from '../schemas/modelProvider';
+import { DEFAULT_SANDBOX_ENVIRONMENT_NAME } from '../schemas/sandboxEnvironment';
 import { hasConfiguredWebSearchProvider } from '../websearch/providers';
 
 export interface McpConnection {
@@ -142,12 +143,9 @@ export async function getMcpConnection({
  * in-memory local fallback when standalone + the cached probe is supported.
  * Builds a fresh provider client per call (no network I/O).
  *
- * When `environment_name` is set (and not the reserved `default`), loads that
- * sandbox environment by tenant + name (must be `active`) — no subject ownership
- * check so anyone who can run the agent can use its env. `default` falls through
- * to the tenant provider. Env create overlays use Daytona only (switch on
- * provider type). For `image.type === 'build'` pins the snapshot to the
- * environment version `external_ref`.
+ * Omitted / reserved `"default"` loads the tenant default environment (must be
+ * `active`) and pins the snapshot to that version's `external_ref`. Other names
+ * load a user env the same way. Env overlays use Daytona only.
  */
 /** Single path segment under the sandboxes parent (`_` when sessionId is missing or unsafe). */
 export function localSandboxSessionSegment(sessionId: string | undefined): string {
@@ -182,9 +180,9 @@ export async function resolveSandboxProvider({
   sandboxEnvironmentStore: ISandboxEnvironmentStore;
 }): Promise<ResolvedSandboxProvider | undefined> {
   const record = await store.getSandboxProvider(tenant_id);
+  const useDefault = environment_name === undefined || environment_name === DEFAULT_SANDBOX_ENVIRONMENT_NAME;
 
-  // Reserved `default` means the tenant sandbox provider (no env overlay).
-  if (environment_name && environment_name !== 'default') {
+  if (!useDefault) {
     const loaded = await sandboxEnvironmentStore.getEnvironment({
       tenant_id,
       name: environment_name,
@@ -207,7 +205,6 @@ export async function resolveSandboxProvider({
         message: `Sandbox environment "${environment_name}" requires a sandbox provider — configure via PUT /settings/sandbox-providers`,
       });
     }
-    const usesEnvironmentSnapshot = loaded.version.manifest.image?.type === 'build';
     switch (record.manifest.type) {
       case 'daytona':
         return {
@@ -215,17 +212,45 @@ export async function resolveSandboxProvider({
             manifest: record.manifest,
             tenant_id,
             logger,
-            build_metadata: usesEnvironmentSnapshot
-              ? { build_ref: loaded.version.external_ref }
-              : record.build_metadata,
+            build_metadata: { build_ref: loaded.version.external_ref },
             environment: loaded.version.manifest,
           }),
-          usesEnvironmentSnapshot,
+          usesEnvironmentSnapshot: true,
         };
       default:
         throw new HTTPException(422, {
           message: `Sandbox environment "${environment_name}" requires a Daytona sandbox provider (configured provider type: "${record.manifest.type}")`,
         });
+    }
+  }
+
+  const defaultEnv = await sandboxEnvironmentStore.getDefaultEnvironment({ tenant_id });
+  if (defaultEnv !== undefined) {
+    if (defaultEnv.version.status !== 'active') {
+      throw new HTTPException(422, {
+        message:
+          defaultEnv.version.status === 'failed'
+            ? `Default sandbox environment build failed (${defaultEnv.version.status_reason ?? 'unknown error'})`
+            : `Default sandbox environment is not ready (status: ${defaultEnv.version.status}) — retry shortly`,
+      });
+    }
+    if (record?.manifest.type === 'daytona') {
+      return {
+        provider: toDaytonaSandboxProvider({
+          manifest: record.manifest,
+          tenant_id,
+          logger,
+          build_metadata: { build_ref: defaultEnv.version.external_ref },
+          environment: defaultEnv.version.manifest,
+        }),
+        usesEnvironmentSnapshot: true,
+      };
+    }
+    if (record !== undefined) {
+      return {
+        provider: toSandboxProviderFromRecord({ record, tenant_id, logger }),
+        usesEnvironmentSnapshot: false,
+      };
     }
   }
 
@@ -360,7 +385,7 @@ export async function validateAgentSpec({
   }
 
   const environmentName = spec.config.sandbox.environment_name;
-  if (environmentName) {
+  if (environmentName && environmentName !== DEFAULT_SANDBOX_ENVIRONMENT_NAME) {
     const environment = await sandboxEnvironmentStore.getEnvironment({
       tenant_id,
       name: environmentName,

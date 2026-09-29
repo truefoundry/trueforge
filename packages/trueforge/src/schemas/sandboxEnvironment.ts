@@ -11,6 +11,11 @@ import { NameSchema } from './common';
 
 export const SANDBOX_ENVIRONMENT_DESCRIPTION_MAX_LENGTH = 1024;
 
+/** Reserved system environment name (tenant default; not creatable via public CRUD). */
+export const DEFAULT_SANDBOX_ENVIRONMENT_NAME = 'default';
+
+export const DEFAULT_SANDBOX_ENVIRONMENT_RESOURCES = { cpu: 1, memory: 1, disk: 3 } as const;
+
 const BUILD_SCRIPT_EXAMPLE = 'set -ex\npip install httpx\n';
 
 export const SandboxEnvironmentDescriptionSchema = z
@@ -90,29 +95,35 @@ export const SandboxEnvironmentNetworkingSchema = z
   })
   .openapi('SandboxEnvironmentNetworking');
 
-/** Wire + request/response document — no `type` / `sandbox_provider`. */
-export const SandboxEnvironmentManifestSchema = z
+/**
+ * Manifest fields shared by wire and storage. Wire rejects name `"default"`;
+ * stored jsonb may use it for the system default environment.
+ */
+const SandboxEnvironmentManifestFieldsSchema = z
   .object({
-    name: NameSchema.refine(name => name !== 'default', {
-      message: 'name "default" is reserved',
-    }),
+    name: NameSchema,
     description: SandboxEnvironmentDescriptionSchema.optional(),
     image: SandboxEnvironmentImageSchema.optional(),
-    resources: SandboxEnvironmentResourcesSchema.default({ cpu: 1, memory: 1, disk: 3 }),
+    resources: SandboxEnvironmentResourcesSchema.default(DEFAULT_SANDBOX_ENVIRONMENT_RESOURCES),
     environment_variables: z.record(z.string().min(1), z.string()).optional(),
     networking: SandboxEnvironmentNetworkingSchema.optional(),
   })
-  .strict()
-  .openapi('SandboxEnvironmentManifest');
+  .strict();
+
+/** Wire + request/response document — no `type` / `sandbox_provider`. */
+export const SandboxEnvironmentManifestSchema = SandboxEnvironmentManifestFieldsSchema.refine(
+  manifest => manifest.name !== DEFAULT_SANDBOX_ENVIRONMENT_NAME,
+  { message: 'name "default" is reserved', path: ['name'] },
+).openapi('SandboxEnvironmentManifest');
 
 /**
  * Persisted version jsonb — wire fields plus backend-resolved provider identity.
  * `truefoundry` = TrueFoundry platform mode label; runtime still uses Daytona for envs.
- * Not exposed on request/response wire types.
+ * Not exposed on request/response wire types. Allows name `"default"`.
  */
 export const StoredSandboxEnvironmentManifestSchema = z
   .object({
-    ...SandboxEnvironmentManifestSchema.shape,
+    ...SandboxEnvironmentManifestFieldsSchema.shape,
     type: z.enum(['daytona', 'truefoundry']),
     sandbox_provider: z.enum(['daytona', 'truefoundry']),
   })

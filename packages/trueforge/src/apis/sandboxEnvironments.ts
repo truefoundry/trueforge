@@ -23,7 +23,11 @@ import {
   putSandboxEnvironmentRoute,
 } from '../routes/sandboxEnvironmentRoutes';
 import { buildNextVersion, redactManifestSecrets } from '../sandbox/sandboxEnvironmentVersion';
-import type { SandboxEnvironment, SandboxEnvironmentManifest } from '../schemas/sandboxEnvironment';
+import {
+  DEFAULT_SANDBOX_ENVIRONMENT_NAME,
+  type SandboxEnvironment,
+  type SandboxEnvironmentManifest,
+} from '../schemas/sandboxEnvironment';
 import { MissingStoredSecretError } from '../utils/secretRedaction';
 
 export interface SandboxEnvironmentsRouterDeps<TTransaction> {
@@ -113,6 +117,9 @@ export function createSandboxEnvironmentsRouter<TTransaction>(
   const getHandler: RouteHandler<typeof getSandboxEnvironmentRoute> = async c => {
     const { tenant_id, subject } = resolveRequestContext(c);
     const { name } = c.req.valid('param');
+    if (name === DEFAULT_SANDBOX_ENVIRONMENT_NAME) {
+      return c.json({ error: { message: `Sandbox environment not found: ${name}` } }, 404);
+    }
     const loaded = await store.getEnvironment({
       tenant_id,
       name,
@@ -135,6 +142,9 @@ export function createSandboxEnvironmentsRouter<TTransaction>(
 
     const created_by_subject = createdBySubjectFromRequestContext(requestContext);
     const { manifest } = body;
+    if (manifest.name === DEFAULT_SANDBOX_ENVIRONMENT_NAME) {
+      return c.json({ error: { message: 'name "default" is reserved' } }, 422);
+    }
 
     try {
       const result = await store.upsertEnvironment({
@@ -167,6 +177,9 @@ export function createSandboxEnvironmentsRouter<TTransaction>(
   const deleteHandler: RouteHandler<typeof deleteSandboxEnvironmentRoute> = async c => {
     const { tenant_id, subject } = resolveRequestContext(c);
     const { name } = c.req.valid('param');
+    if (name === DEFAULT_SANDBOX_ENVIRONMENT_NAME) {
+      return c.json({ error: { message: 'Sandbox environment "default" cannot be deleted' } }, 409);
+    }
     const existing = await store.getEnvironment({
       tenant_id,
       name,

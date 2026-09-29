@@ -1,28 +1,17 @@
 import { OpenAPIHono, type RouteHandler } from '@hono/zod-openapi';
-import { withTimeout } from '@truefoundry/trueforge-core/core';
 import type { Context } from 'hono';
-import type { Logger } from 'winston';
-import type { ResolveRequestContext } from '../auth/identity';
+import { createdBySubjectFromRequestContext, type ResolveRequestContext } from '../auth/identity';
+import type { ISandboxEnvironmentStore } from '../db/sandboxEnvironmentStore';
 import type { ISandboxProviderStore, SandboxProviderRecord } from '../db/sandboxProviderStore';
 import type { WithTransaction } from '../db/transaction';
 import { getSandboxProviderRoute, putSandboxProviderRoute } from '../routes/sandboxProviderRoutes';
-import {
-  checkSnapshotStatus,
-  isDaytonaAuthError,
-  isDaytonaPermissionError,
-  toDaytonaSandboxProvider,
-  toSandboxStatus,
-} from '../sandbox/providerUtils';
 import type { SandboxProviderManifest, UpdateSandboxProviderRequest } from '../schemas/sandboxProvider';
 import { MissingStoredSecretError, resolveStoredSecretValue, toRedactedSecretValue } from '../utils/secretRedaction';
 
-/** Cap the Daytona register round-trip so a slow/unreachable provider can't hold the request (or DB txn) open. */
-const BUILD_REQUEST_TIMEOUT_MS = 3_000;
-
 export interface SandboxProvidersRouterDeps<TTransaction> {
   resolveSandboxProviderStore: (c: Context) => ISandboxProviderStore<TTransaction>;
+  sandboxEnvironmentStore: ISandboxEnvironmentStore<TTransaction>;
   withTransaction: WithTransaction<TTransaction>;
-  logger: Logger;
   resolveRequestContext: ResolveRequestContext;
 }
 
@@ -42,18 +31,13 @@ export function createSandboxProvidersRouter<TTransaction>(deps: SandboxProvider
     if (record?.manifest.type !== 'daytona') {
       return c.json({ error: { message: 'No sandbox provider configured' } }, 404);
     }
-    // Refresh the persisted build status (and re-activate an idle snapshot) on every GET.
-    const status = await checkSnapshotStatus({
-      store,
-      tenant_id: requestContext.tenant_id,
-      logger: deps.logger,
-    });
+    // Credentials only — snapshot readiness lives on the default sandbox environment.
     return c.json(
       {
         data: {
           manifest: redactSandboxProvider(record.manifest),
-          status: status?.status ?? record.status,
-          status_reason: status?.status_reason ?? record.status_reason,
+          status: record.status,
+          status_reason: record.status_reason,
         },
       },
       200,
@@ -75,33 +59,39 @@ export function createSandboxProvidersRouter<TTransaction>(deps: SandboxProvider
       },
     });
     try {
-      // NOTE: build (Daytona network I/O) runs inside the transaction for now; the design is being revisited.
-      const { manifest, status } = await deps.withTransaction(async transaction => {
+      const { manifest, status, status_reason } = await deps.withTransaction(async transaction => {
         const locked = await store.getSandboxProviderForUpdate(requestContext.tenant_id, transaction);
         const resolved = resolveManifest(locked);
-        // Pass persisted build_metadata so a settings re-save does not start a new snapshot for a
-        // bumped SANDBOX_IMAGE_URI (upgrades are unsupported — first configure has no metadata).
-        const provider = toDaytonaSandboxProvider({
-          manifest: resolved,
-          tenant_id: requestContext.tenant_id,
-          logger: deps.logger,
-          ...(locked ? { build_metadata: locked.build_metadata } : {}),
-        });
-        const built = toSandboxStatus(
-          await withTimeout(provider.buildImage(), BUILD_REQUEST_TIMEOUT_MS, 'sandbox buildImage'),
-        );
-        await store.upsertSandboxProvider(
-          { tenant_id: requestContext.tenant_id, manifest: resolved, ...built },
+        // Persist credentials only; the controller builds the default env snapshot.
+        const upserted = await store.upsertSandboxProvider(
+          {
+            tenant_id: requestContext.tenant_id,
+            manifest: resolved,
+            status: 'ready',
+            status_reason: null,
+            build_metadata: locked?.build_metadata ?? null,
+          },
           transaction,
         );
-        return { manifest: resolved, status: built };
+        await deps.sandboxEnvironmentStore.createDefaultEnvironment(
+          {
+            tenant_id: requestContext.tenant_id,
+            created_by_subject: createdBySubjectFromRequestContext(requestContext),
+          },
+          transaction,
+        );
+        return {
+          manifest: resolved,
+          status: upserted.status,
+          status_reason: upserted.status_reason,
+        };
       });
       return c.json(
         {
           data: {
             manifest: redactSandboxProvider(manifest),
-            status: status.status,
-            status_reason: status.status_reason,
+            status,
+            status_reason,
           },
         },
         200,
@@ -109,20 +99,6 @@ export function createSandboxProvidersRouter<TTransaction>(deps: SandboxProvider
     } catch (error) {
       if (error instanceof MissingStoredSecretError) {
         return c.json({ error: { message: 'API key is required' } }, 400);
-      }
-      if (isDaytonaAuthError(error)) {
-        return c.json({ error: { message: 'Daytona rejected the API key — check the credentials' } }, 422);
-      }
-      if (isDaytonaPermissionError(error)) {
-        return c.json(
-          {
-            error: {
-              message:
-                'Daytona denied access: the API key is missing required permissions. Grant write:sandboxes, write:snapshots, and delete:snapshots on the key in the Daytona dashboard, then try again.',
-            },
-          },
-          422,
-        );
       }
       throw error;
     }

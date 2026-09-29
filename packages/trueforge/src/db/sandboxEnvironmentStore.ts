@@ -72,6 +72,34 @@ export interface GetSandboxEnvironmentInput {
   created_by_subject_id?: string;
 }
 
+export interface GetDefaultSandboxEnvironmentInput {
+  tenant_id: string;
+}
+
+export interface CreateDefaultSandboxEnvironmentInput {
+  tenant_id: string;
+  created_by_subject: CreatedBySubject;
+}
+
+export interface ListLatestPendingSandboxEnvironmentVersionsInput {
+  limit: number;
+}
+
+export interface GetSandboxEnvironmentVersionInput {
+  environment_id: string;
+  version: number;
+}
+
+/** Pending version row for the sandbox-env build controller. */
+export interface PendingSandboxEnvironmentVersion {
+  tenant_id: string;
+  environment_id: string;
+  environment_name: string;
+  version: number;
+  external_ref: string;
+  manifest: StoredSandboxEnvironmentManifest;
+}
+
 /**
  * Result of `buildVersion` during upsert — {@link NextSandboxEnvironmentVersion} plus subject.
  */
@@ -153,7 +181,7 @@ export class SandboxEnvironmentVersionConflictError extends Error {
 }
 
 export interface ISandboxEnvironmentStore<TTransaction = never> {
-  /** Active environments joined to the version pointed at by `active_version`. */
+  /** Active environments joined to `active_version` (excludes system `"default"`). */
   listEnvironments(
     input: ListSandboxEnvironmentsInput,
     transaction?: TTransaction,
@@ -167,6 +195,19 @@ export interface ISandboxEnvironmentStore<TTransaction = never> {
     input: GetSandboxEnvironmentInput,
     transaction?: TTransaction,
   ): Promise<SandboxEnvironmentWithVersion | undefined>;
+  /** Tenant system default environment (`name = "default"`), if present. */
+  getDefaultEnvironment(
+    input: GetDefaultSandboxEnvironmentInput,
+    transaction?: TTransaction,
+  ): Promise<SandboxEnvironmentWithVersion | undefined>;
+  /**
+   * Idempotent: create the tenant `"default"` env as pending when missing; return the
+   * existing row when already present (no new version on re-call).
+   */
+  createDefaultEnvironment(
+    input: CreateDefaultSandboxEnvironmentInput,
+    transaction?: TTransaction,
+  ): Promise<SandboxEnvironmentWithVersion>;
   /**
    * Create or replace by `(tenant_id, name)` for this subject — parent + new version row.
    * On update, parent `active_version` advances only when the new version's status is
@@ -177,6 +218,16 @@ export interface ISandboxEnvironmentStore<TTransaction = never> {
     input: UpsertSandboxEnvironmentInput,
     transaction?: TTransaction,
   ): Promise<SandboxEnvironmentWithVersion>;
+  /** Pending versions across tenants for the build controller (oldest first). */
+  listLatestPendingVersions(
+    input: ListLatestPendingSandboxEnvironmentVersionsInput,
+    transaction?: TTransaction,
+  ): Promise<PendingSandboxEnvironmentVersion[]>;
+  /** Version row + parent tenant for controller progress. */
+  getVersionForProgress(
+    input: GetSandboxEnvironmentVersionInput,
+    transaction?: TTransaction,
+  ): Promise<PendingSandboxEnvironmentVersion | undefined>;
   /**
    * Set version status to `active` and point the parent `active_version` at it.
    * No-op (returns undefined) if the version row is missing.
