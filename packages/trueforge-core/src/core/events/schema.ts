@@ -373,7 +373,7 @@ export const MCPServerInitInfoSchema = z
     approval_policies: z
       .record(z.string(), ToolApprovalPolicyActionSchema)
       .optional()
-      .describe('Sticky per-tool approval grants (keyed by tool name) that auto-allow future calls.'),
+      .describe('Sticky per-tool approval policies (keyed by tool name) that auto-allow future calls.'),
   })
   .openapi('MCPServerInitInfo');
 

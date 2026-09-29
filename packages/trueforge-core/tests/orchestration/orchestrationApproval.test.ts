@@ -295,7 +295,7 @@ describe('orchestration: pause then resume on tool approval', () => {
 const POLICY_SERVER_NAME = 'notes';
 
 describe('AgentThreadOrchestrator.applyApprovalPolicies', () => {
-  // The grant applies to user MCP servers (definition.toolSets), unlike the
+  // The policy applies to user MCP servers (definition.toolSets), unlike the
   // approval-flow harness above which registers the tool set as a system tool set.
   let toolSet: IToolSet;
   let orchestrator: AgentThreadOrchestrator;

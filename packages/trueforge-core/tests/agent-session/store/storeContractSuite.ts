@@ -2818,7 +2818,7 @@ export function runStoreContractSuite(createStore: () => ISessionStore) {
           },
         ],
       });
-      // Next MCP init re-persists the entry without the pruned/expired grants.
+      // Next MCP init re-persists the entry without the pruned/expired policies.
       await store.patchMCPServers({
         session_id: sessionId,
         turn_id: 'turn-1',

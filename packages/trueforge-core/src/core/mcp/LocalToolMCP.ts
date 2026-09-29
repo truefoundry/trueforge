@@ -113,7 +113,7 @@ export abstract class LocalToolMCP implements IToolSet {
     );
   }
 
-  // System tool sets are never approval-gated, so grants are a no-op here.
+  // System tool sets are never approval-gated, so policies are a no-op here.
   applyApprovalPolicy(_toolName: string, _action: ToolApprovalPolicyAction): void {
     void _toolName;
     void _action;

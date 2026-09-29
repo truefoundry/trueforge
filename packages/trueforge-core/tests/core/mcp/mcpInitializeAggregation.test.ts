@@ -54,9 +54,13 @@ describe('convertMCPServersToTools initialization aggregation', () => {
     expect(convertedTools.tools.length).toBe(2);
   });
 
-  it('carries the tool set approval grants onto its init info', async () => {
-    const grantedInit: MCPServerInitInfo = { id: 'granted', name: 'granted', session_id: 'sess-granted' };
-    const grants: Record<string, ToolApprovalPolicyAction> = {
+  it('carries the tool set approval policies onto its init info', async () => {
+    const withPoliciesInit: MCPServerInitInfo = {
+      id: 'with-policies',
+      name: 'with-policies',
+      session_id: 'sess-with-policies',
+    };
+    const policies: Record<string, ToolApprovalPolicyAction> = {
       write_note: { type: 'allow_session' },
       delete_note: { type: 'allow_session', expire_at: '2999-01-01T00:00:00.000Z' },
     };
@@ -65,12 +69,12 @@ describe('convertMCPServersToTools initialization aggregation', () => {
     const { initializationInfo } = await convertMCPServersToTools({
       tfyManagedServers: [],
       userServers: [
-        makeServer({ name: 'granted', initInfo: grantedInit, approvalPolicies: grants }),
+        makeServer({ name: 'with-policies', initInfo: withPoliciesInit, approvalPolicies: policies }),
         makeServer({ name: 'bare', initInfo: bareInit }),
       ],
     });
 
-    expect(initializationInfo).toEqual([bareInit, { ...grantedInit, approval_policies: grants }]);
+    expect(initializationInfo).toEqual([bareInit, { ...withPoliciesInit, approval_policies: policies }]);
   });
 
   it('skips initialization entries for OAuth-required servers', async () => {
