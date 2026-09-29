@@ -4,7 +4,7 @@ import { sql, type Kysely } from 'kysely';
  * Backfill the tenant `"default"` sandbox environment for existing Daytona providers.
  * Mirrors postgres/20260929_000001_sandbox_environment_default_backfill.ts.
  *
- * Kysely does not wrap SQLite migrations — keep inserts in one transaction.
+ * Kysely does not wrap SQLite migrations — keep inserts + column drops in one transaction.
  */
 export async function up(db: Kysely<unknown>): Promise<void> {
   await db.transaction().execute(async trx => {
@@ -79,11 +79,19 @@ export async function up(db: Kysely<unknown>): Promise<void> {
         )
       `.execute(trx);
     }
+
+    await sql`ALTER TABLE sandbox_provider DROP COLUMN build_metadata`.execute(trx);
+    await sql`ALTER TABLE sandbox_provider DROP COLUMN status_reason`.execute(trx);
+    await sql`ALTER TABLE sandbox_provider DROP COLUMN status`.execute(trx);
   });
 }
 
 export async function down(db: Kysely<unknown>): Promise<void> {
   await db.transaction().execute(async trx => {
+    await sql`ALTER TABLE sandbox_provider ADD COLUMN status TEXT NOT NULL DEFAULT 'ready'`.execute(trx);
+    await sql`ALTER TABLE sandbox_provider ADD COLUMN status_reason TEXT`.execute(trx);
+    await sql`ALTER TABLE sandbox_provider ADD COLUMN build_metadata BLOB`.execute(trx);
+
     await sql`
       DELETE FROM sandbox_environment_version
       WHERE environment_id LIKE 'se_default_%'

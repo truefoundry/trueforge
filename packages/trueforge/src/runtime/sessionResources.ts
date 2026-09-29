@@ -176,11 +176,11 @@ export async function resolveSandboxProvider({
   store: ISandboxProviderStore;
   logger: Logger;
   sessionId: string;
-  environment_name: string | undefined;
+  environment_name: string;
   sandboxEnvironmentStore: ISandboxEnvironmentStore;
 }): Promise<ResolvedSandboxProvider | undefined> {
   const record = await store.getSandboxProvider(tenant_id);
-  const useDefault = environment_name === undefined || environment_name === DEFAULT_SANDBOX_ENVIRONMENT_NAME;
+  const useDefault = environment_name === DEFAULT_SANDBOX_ENVIRONMENT_NAME;
 
   if (!useDefault) {
     const loaded = await sandboxEnvironmentStore.getEnvironment({

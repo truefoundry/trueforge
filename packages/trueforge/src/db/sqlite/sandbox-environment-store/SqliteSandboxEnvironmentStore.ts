@@ -323,31 +323,50 @@ export class SqliteSandboxEnvironmentStore implements ISandboxEnvironmentStore<T
     transaction?: Transaction<Database>,
   ): Promise<PendingSandboxEnvironmentVersion[]> {
     const db = transaction ?? this.#db;
-    const rows = await db
-      .selectFrom('sandbox_environment_version as ver')
-      .innerJoin('sandbox_environment as env', 'env.id', 'ver.environment_id')
-      .select([
-        'ver.id',
-        'env.tenant_id',
-        'env.name as environment_name',
-        'ver.environment_id',
-        'ver.version',
-        'ver.external_ref',
-        jsonText<StoredSandboxEnvironmentManifest>(sql.ref('ver.manifest')).as('manifest'),
-      ])
-      .where('ver.status', '=', 'pending')
-      .where('env.lifecycle_stage', '=', 'active')
-      .orderBy('ver.created_at', 'asc')
-      .limit(input.limit)
-      .execute();
-    return rows.map(row => ({
+    // One pending tip per environment: join to MAX(version) among pending rows.
+    const rows = await sql<{
+      id: string;
+      tenant_id: string;
+      environment_name: string;
+      environment_id: string;
+      version: number;
+      external_ref: string;
+      manifest: string;
+    }>`
+      SELECT
+        version.id,
+        environment.tenant_id,
+        environment.name AS environment_name,
+        version.environment_id,
+        version.version,
+        version.external_ref,
+        json(version.manifest) AS manifest
+      FROM sandbox_environment_version AS version
+      INNER JOIN sandbox_environment AS environment
+        ON environment.id = version.environment_id
+      INNER JOIN (
+        SELECT environment_id, MAX(version) AS version
+        FROM sandbox_environment_version
+        WHERE status = 'pending'
+        GROUP BY environment_id
+      ) AS tip
+        ON tip.environment_id = version.environment_id
+       AND tip.version = version.version
+      WHERE version.status = 'pending'
+        AND environment.lifecycle_stage = 'active'
+      ORDER BY version.created_at ASC
+      LIMIT ${input.limit}
+    `.execute(db);
+    return rows.rows.map(row => ({
       id: row.id,
       tenant_id: row.tenant_id,
       environment_id: row.environment_id,
       environment_name: row.environment_name,
       version: row.version,
       external_ref: row.external_ref,
-      manifest: parseStoredSandboxEnvironmentManifest(row.manifest),
+      manifest: parseStoredSandboxEnvironmentManifest(
+        typeof row.manifest === 'string' ? JSON.parse(row.manifest) : row.manifest,
+      ),
     }));
   }
 

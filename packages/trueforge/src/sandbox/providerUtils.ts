@@ -1,4 +1,4 @@
-/** Sandbox provider construction + Daytona snapshot status refresh. */
+/** Sandbox provider construction + Daytona credential validation. */
 import { Daytona, DaytonaError } from '@daytona/sdk';
 import {
   DaytonaSandboxProvider,
@@ -11,7 +11,7 @@ import {
 } from '@truefoundry/trueforge-core/core';
 import type { Logger } from 'winston';
 import configuration from '../config';
-import type { ISandboxProviderStore, SandboxProviderRecord } from '../db/sandboxProviderStore';
+import type { SandboxProviderRecord } from '../db/sandboxProviderStore';
 import type { StoredSandboxEnvironmentManifest } from '../schemas/sandboxEnvironment';
 import {
   toDaytonaSandboxProviderInput,
@@ -106,8 +106,7 @@ export function toDaytonaSandboxProvider({
  * Builds the runtime SandboxProvider for a store record. One switch on `manifest.type`.
  * No network I/O until a provider method is called.
  *
- * Optional `build_metadata` overrides the record's persisted metadata (e.g. env-version
- * snapshot `build_ref`); ignored for non-Daytona providers.
+ * Optional `build_metadata` pins Daytona snapshot refs (e.g. env-version `external_ref`).
  */
 export function toSandboxProviderFromRecord({
   record,
@@ -126,7 +125,7 @@ export function toSandboxProviderFromRecord({
         manifest: record.manifest,
         tenant_id,
         logger,
-        build_metadata: build_metadata ?? record.build_metadata,
+        ...(build_metadata !== undefined ? { build_metadata } : {}),
       });
     case 'truefoundry':
       return new TFYSandboxProvider({
@@ -147,63 +146,4 @@ export function toSandboxStatus(build: SandboxBuild): SandboxStatus {
     status_reason: build.reason,
     build_metadata: build.metadata,
   };
-}
-
-function sandboxStatusFromRecord(record: SandboxProviderRecord): SandboxStatus {
-  return {
-    status: record.status,
-    status_reason: record.status_reason,
-    build_metadata: record.build_metadata,
-  };
-}
-
-// Daytona deactivates idle snapshots after 14 days; revalidate at 13 to stay a day ahead.
-const READY_REVALIDATE_INTERVAL_MS = 13 * 24 * 60 * 60 * 1000;
-
-/** Cap the Daytona round-trip for the refresh, which runs outside a transaction. */
-const STATUS_REFRESH_TIMEOUT_MS = 60_000;
-
-export async function checkSnapshotStatus({
-  store,
-  tenant_id,
-  logger,
-}: {
-  store: ISandboxProviderStore;
-  tenant_id: string;
-  logger: Logger;
-}): Promise<SandboxStatus | undefined> {
-  const record = await store.getSandboxProvider(tenant_id);
-  if (!record) {
-    return undefined;
-  }
-
-  const persisted = sandboxStatusFromRecord(record);
-
-  // Prebuilt image — no snapshot registration or refresh.
-  if (record.manifest.type === 'truefoundry') {
-    return persisted;
-  }
-
-  const readyIsFresh =
-    record.status === 'ready' && Date.now() - Date.parse(record.updated_at) < READY_REVALIDATE_INTERVAL_MS;
-  if (record.status === 'failed' || readyIsFresh) {
-    return persisted;
-  }
-
-  const provider = toDaytonaSandboxProvider({
-    manifest: record.manifest,
-    tenant_id,
-    logger,
-    build_metadata: record.build_metadata,
-  });
-  let build: SandboxBuild;
-  if (record.status === 'ready') {
-    // this is because image may have deactivated
-    build = await withTimeout(provider.buildImage(), STATUS_REFRESH_TIMEOUT_MS, 'sandbox buildImage');
-  } else {
-    build = await withTimeout(provider.getImageBuildStatus(), STATUS_REFRESH_TIMEOUT_MS, 'sandbox getImageBuildStatus');
-  }
-  const next = toSandboxStatus(build);
-  const updated = await store.updateSandboxStatus({ tenant_id, ...next });
-  return updated ? sandboxStatusFromRecord(updated) : next;
 }

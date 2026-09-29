@@ -6,6 +6,9 @@ import { sql, type Kysely } from 'kysely';
  * before sandbox environments existed.
  *
  * Version lands as `pending` so the build controller can activate the snapshot.
+ *
+ * Also drops provider-level build status columns — snapshot readiness lives on
+ * sandbox environment versions now.
  */
 export async function up(db: Kysely<unknown>): Promise<void> {
   await sql`SET LOCAL lock_timeout = '5s'`.execute(db);
@@ -92,10 +95,25 @@ export async function up(db: Kysely<unknown>): Promise<void> {
       NOW()
     FROM inserted_env ie
   `.execute(db);
+
+  await db.schema
+    .alterTable('sandbox_provider')
+    .dropColumn('build_metadata')
+    .dropColumn('status_reason')
+    .dropColumn('status')
+    .execute();
 }
 
 export async function down(db: Kysely<unknown>): Promise<void> {
   await sql`SET LOCAL lock_timeout = '5s'`.execute(db);
+
+  await db.schema
+    .alterTable('sandbox_provider')
+    .addColumn('status', 'text', col => col.notNull().defaultTo('ready'))
+    .addColumn('status_reason', 'text')
+    .addColumn('build_metadata', 'jsonb')
+    .execute();
+
   // Remove only rows this migration inserted (id prefix).
   await sql`
     DELETE FROM sandbox_environment_version

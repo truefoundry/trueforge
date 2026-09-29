@@ -61,7 +61,7 @@ import {
   getModelDetails,
   resolveSandboxProvider,
 } from '../runtime/sessionResources';
-import { checkSnapshotStatus } from '../sandbox/providerUtils';
+import { DEFAULT_SANDBOX_ENVIRONMENT_NAME } from '../schemas/sandboxEnvironment';
 import { MAX_SESSION_TITLE_LENGTH } from '../schemas/session';
 import { assertGatewayMetadataRequestHeaders } from '../truefoundry/gatewayMetadata';
 import { newId } from '../utils/id';
@@ -230,7 +230,7 @@ function createTurnResolver(deps: {
     mcpConnectTimeoutMs: configuration.MCP_CONNECT_TIMEOUT_MS,
     mcpMaxResponseBytes: configuration.MCP_TOOL_CALL_MAX_RESPONSE_BYTES,
     sandboxProvider: async ({ spec, existingSandboxId, tracing }) => {
-      const environment_name = spec.config.sandbox.environment_name;
+      const environment_name = spec.config.sandbox.environment_name ?? DEFAULT_SANDBOX_ENVIRONMENT_NAME;
       const resolved = await resolveSandboxProvider({
         tenant_id,
         store: sandboxProviderStore,
@@ -244,24 +244,12 @@ function createTurnResolver(deps: {
           message: 'no sandbox provider configured — PUT /settings/sandbox-providers',
         });
       }
-      const { provider, usesEnvironmentSnapshot } = resolved;
+      const { provider } = resolved;
       const carriedSandboxId = existingSandboxIdForProvider({
         existingSandboxId,
         currentProviderType: provider.type,
       });
-      // Fresh non-local create: env snapshot readiness is gated in resolveSandboxProvider;
-      // release snapshot still needs tenant provider status when not using an env build.
-      if (carriedSandboxId === undefined && provider.type !== 'local' && !usesEnvironmentSnapshot) {
-        const status = await checkSnapshotStatus({ store: sandboxProviderStore, tenant_id, logger });
-        if (status?.status !== 'ready') {
-          throw new HTTPException(422, {
-            message:
-              status?.status === 'failed'
-                ? `sandbox image build failed (${status.status_reason ?? 'unknown error'})`
-                : 'sandbox image is activating — retry shortly',
-          });
-        }
-      }
+      // Env snapshot readiness is gated in resolveSandboxProvider.
       const skills = spec.skills ?? [];
       const mountSkills =
         skills.length === 0
@@ -677,13 +665,28 @@ export function createTurnsRouter(deps: TurnsRouterDeps) {
         return c.json({ error: { message: `Turn has no sandbox: ${turnId}` } }, 412);
       }
 
+      const sessionAgent = session.record.agent;
+      let environment_name = DEFAULT_SANDBOX_ENVIRONMENT_NAME;
+      if (sessionAgent.type === 'inline') {
+        environment_name = sessionAgent.spec.config.sandbox.environment_name ?? DEFAULT_SANDBOX_ENVIRONMENT_NAME;
+      } else {
+        const agent = await deps.resolveAgentStore(c).getAgent({
+          tenant_id: requestContext.tenant_id,
+          id: sessionAgent.id,
+        });
+        if (agent === undefined) {
+          return c.json({ error: { message: `Agent not found: ${sessionAgent.id}` } }, 422);
+        }
+        environment_name = agent.manifest.config.sandbox.environment_name ?? DEFAULT_SANDBOX_ENVIRONMENT_NAME;
+      }
+
       const resolved = await resolveSandboxProvider({
         tenant_id: requestContext.tenant_id,
         store: deps.resolveSandboxProviderStore(c),
         logger: deps.logger,
         sessionId,
         sandboxEnvironmentStore: deps.sandboxEnvironmentStore,
-        environment_name: undefined,
+        environment_name,
       });
       if (resolved === undefined) {
         return c.json({ error: { message: 'No sandbox provider configured' } }, 412);

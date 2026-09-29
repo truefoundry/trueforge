@@ -1,12 +1,16 @@
 import { OpenAPIHono, type RouteHandler } from '@hono/zod-openapi';
 import type { Context } from 'hono';
 import { createdBySubjectFromRequestContext, type ResolveRequestContext } from '../auth/identity';
-import type { ISandboxEnvironmentStore } from '../db/sandboxEnvironmentStore';
+import type { ISandboxEnvironmentStore, SandboxEnvironmentVersionRecord } from '../db/sandboxEnvironmentStore';
 import type { ISandboxProviderStore, SandboxProviderRecord } from '../db/sandboxProviderStore';
 import type { WithTransaction } from '../db/transaction';
 import { getSandboxProviderRoute, putSandboxProviderRoute } from '../routes/sandboxProviderRoutes';
 import { isDaytonaAuthError, isDaytonaPermissionError, validateDaytonaCredentials } from '../sandbox/providerUtils';
-import type { SandboxProviderManifest, UpdateSandboxProviderRequest } from '../schemas/sandboxProvider';
+import type {
+  SandboxBuildStatus,
+  SandboxProviderManifest,
+  UpdateSandboxProviderRequest,
+} from '../schemas/sandboxProvider';
 import { MissingStoredSecretError, resolveStoredSecretValue, toRedactedSecretValue } from '../utils/secretRedaction';
 
 export interface SandboxProvidersRouterDeps<TTransaction> {
@@ -25,6 +29,24 @@ function redactSandboxProvider(manifest: SandboxProviderManifest): SandboxProvid
   };
 }
 
+/** Map default-env version status onto the settings wire build-status shape. */
+function wireStatusFromDefaultVersion(version: SandboxEnvironmentVersionRecord | undefined): {
+  status: SandboxBuildStatus;
+  status_reason: string | null;
+} {
+  if (version === undefined) {
+    return { status: 'pending', status_reason: null };
+  }
+  switch (version.status) {
+    case 'active':
+      return { status: 'ready', status_reason: null };
+    case 'pending':
+      return { status: 'pending', status_reason: version.status_reason };
+    case 'failed':
+      return { status: 'failed', status_reason: version.status_reason };
+  }
+}
+
 /** Admin/settings sandbox provider surface (mounted at /api/v1/settings/sandbox-providers). */
 export function createSandboxProvidersRouter<TTransaction>(deps: SandboxProvidersRouterDeps<TTransaction>) {
   const checkCredentials = deps.validateDaytonaCredentials ?? validateDaytonaCredentials;
@@ -36,13 +58,17 @@ export function createSandboxProvidersRouter<TTransaction>(deps: SandboxProvider
     if (record?.manifest.type !== 'daytona') {
       return c.json({ error: { message: 'No sandbox provider configured' } }, 404);
     }
-    // Credentials only — snapshot readiness lives on the default sandbox environment.
+    // Credentials only on the provider row — snapshot readiness from the default env.
+    const defaultEnv = await deps.sandboxEnvironmentStore.getDefaultEnvironment({
+      tenant_id: requestContext.tenant_id,
+    });
+    const { status, status_reason } = wireStatusFromDefaultVersion(defaultEnv?.version);
     return c.json(
       {
         data: {
           manifest: redactSandboxProvider(record.manifest),
-          status: record.status,
-          status_reason: record.status_reason,
+          status,
+          status_reason,
         },
       },
       200,
@@ -73,27 +99,25 @@ export function createSandboxProvidersRouter<TTransaction>(deps: SandboxProvider
         const locked = await store.getSandboxProviderForUpdate(requestContext.tenant_id, transaction);
         // Re-resolve under the lock in case another writer raced the redacted key.
         const lockedResolved = resolveManifest(locked);
-        const upserted = await store.upsertSandboxProvider(
+        await store.upsertSandboxProvider(
           {
             tenant_id: requestContext.tenant_id,
             manifest: lockedResolved,
-            status: 'ready',
-            status_reason: null,
-            build_metadata: locked?.build_metadata ?? null,
           },
           transaction,
         );
-        await deps.sandboxEnvironmentStore.createDefaultEnvironment(
+        const defaultEnv = await deps.sandboxEnvironmentStore.createDefaultEnvironment(
           {
             tenant_id: requestContext.tenant_id,
             created_by_subject: createdBySubjectFromRequestContext(requestContext),
           },
           transaction,
         );
+        const wire = wireStatusFromDefaultVersion(defaultEnv.version);
         return {
           manifest: lockedResolved,
-          status: upserted.status,
-          status_reason: upserted.status_reason,
+          status: wire.status,
+          status_reason: wire.status_reason,
         };
       });
       return c.json(

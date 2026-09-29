@@ -218,7 +218,7 @@ export interface ISandboxEnvironmentStore<TTransaction = never> {
     input: UpsertSandboxEnvironmentInput,
     transaction?: TTransaction,
   ): Promise<SandboxEnvironmentWithVersion>;
-  /** Pending versions across tenants for the build controller (oldest first). */
+  /** Latest pending version per environment across tenants (oldest first). At most one per env. */
   listLatestPendingVersions(
     input: ListLatestPendingSandboxEnvironmentVersionsInput,
     transaction?: TTransaction,

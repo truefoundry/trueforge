@@ -27,7 +27,7 @@ const putBody = {
 };
 
 const expectedStatus = {
-  status: 'ready' as const,
+  status: 'pending' as const,
   status_reason: null,
 };
 
@@ -119,9 +119,6 @@ describe('sandboxProviders router', () => {
         nats_bridge_url: 'ws://nats-bridge',
         exec_timeout_ms: 60_000,
       },
-      status: 'ready',
-      status_reason: null,
-      build_metadata: null,
     });
 
     const response = await router.request('/');

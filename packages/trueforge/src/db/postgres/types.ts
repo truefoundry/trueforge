@@ -32,11 +32,7 @@ import type {
   SandboxEnvironmentVersionStatus,
   StoredSandboxEnvironmentManifest,
 } from '../../schemas/sandboxEnvironment';
-import type {
-  SandboxBuildMetadata,
-  SandboxBuildStatus,
-  StoredSandboxProviderManifest,
-} from '../../schemas/sandboxProvider';
+import type { StoredSandboxProviderManifest } from '../../schemas/sandboxProvider';
 import type { ScheduleManifest, ScheduleRunStatus, ScheduleStatus } from '../../schemas/schedule';
 import type { SkillManifest } from '../../schemas/skill';
 import type { WebSearchProviderManifest } from '../../schemas/webSearchProvider';
@@ -399,12 +395,6 @@ export interface SandboxProviderTable {
   tenant_id: string;
   /** StoredSandboxProviderManifest document; replaced whole on every upsert */
   manifest: JSONColumnType<StoredSandboxProviderManifest, StoredSandboxProviderManifest, StoredSandboxProviderManifest>;
-  /** Last persisted build status of the release sandbox image. */
-  status: SandboxBuildStatus;
-  /** Human-readable detail for `status`; null when ready. */
-  status_reason: string | null;
-  /** SandboxBuildMetadata document (opaque string map); null when the provider has none. */
-  build_metadata: JSONColumnType<SandboxBuildMetadata | null, SandboxBuildMetadata | null, SandboxBuildMetadata | null>;
   created_at: Date;
   updated_at: Date;
 }
