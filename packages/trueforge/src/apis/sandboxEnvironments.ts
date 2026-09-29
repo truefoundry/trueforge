@@ -16,7 +16,6 @@ import {
   type UpsertSandboxEnvironmentPrevious,
 } from '../db/sandboxEnvironmentStore';
 import type { ISandboxProviderStore, SandboxProviderRecord } from '../db/sandboxProviderStore';
-import type { WithTransaction } from '../db/transaction';
 import { buildNextVersion, redactManifestSecrets } from '../sandbox/sandboxEnvironmentVersion';
 import { PAGE_LIMIT } from '../schemas/common';
 import {
@@ -31,7 +30,6 @@ export interface SandboxEnvironmentsRouterDeps<TTransaction> {
   sandboxEnvironmentStore: ISandboxEnvironmentStore<TTransaction>;
   resolveAgentStore: (c: Context) => IAgentStore<TTransaction>;
   resolveSandboxProviderStore: (c: Context) => ISandboxProviderStore<TTransaction>;
-  withTransaction: WithTransaction<TTransaction>;
   resolveRequestContext: ResolveRequestContext;
 }
 
@@ -116,7 +114,7 @@ export function createSandboxEnvironmentsRouter<TTransaction>(
   deps: SandboxEnvironmentsRouterDeps<TTransaction>,
 ): OpenAPIHono {
   const router = new OpenAPIHono();
-  const { sandboxEnvironmentStore: store, resolveAgentStore, withTransaction, resolveRequestContext } = deps;
+  const { sandboxEnvironmentStore: store, resolveAgentStore, resolveRequestContext } = deps;
 
   router.get('/', async c => {
     const { tenant_id, subject } = resolveRequestContext(c);
@@ -170,25 +168,20 @@ export function createSandboxEnvironmentsRouter<TTransaction>(
     const { manifest } = body.data;
 
     try {
-      const result = await withTransaction(transaction =>
-        store.upsertEnvironment(
-          {
+      const result = await store.upsertEnvironment({
+        tenant_id: requestContext.tenant_id,
+        name: manifest.name,
+        description: manifest.description ?? '',
+        created_by_subject,
+        buildVersion: previous =>
+          buildUpsertVersion({
             tenant_id: requestContext.tenant_id,
-            name: manifest.name,
-            description: manifest.description ?? '',
+            manifest,
+            provider,
             created_by_subject,
-            buildVersion: previous =>
-              buildUpsertVersion({
-                tenant_id: requestContext.tenant_id,
-                manifest,
-                provider,
-                created_by_subject,
-                ...(previous ? { previous } : {}),
-              }),
-          },
-          transaction,
-        ),
-      );
+            ...(previous ? { previous } : {}),
+          }),
+      });
       return c.json({ data: toSandboxEnvironment(result) });
     } catch (error) {
       if (error instanceof SandboxEnvironmentNameConflictError) {

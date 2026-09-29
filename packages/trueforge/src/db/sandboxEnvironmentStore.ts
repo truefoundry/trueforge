@@ -68,20 +68,21 @@ export interface GetSandboxEnvironmentInput {
   created_by_subject_id: string;
 }
 
-/** Version columns written on create/update (store fills environment_id). */
-export type SandboxEnvironmentVersionWrite = Omit<NextSandboxEnvironmentVersion, 'needs_snapshot'> & {
+/**
+ * Result of `buildVersion` during upsert — {@link NextSandboxEnvironmentVersion} plus subject.
+ * Includes `needs_snapshot` for the caller; not a DB column.
+ */
+export type UpsertSandboxEnvironmentVersion = NextSandboxEnvironmentVersion & {
   created_by_subject: CreatedBySubject;
 };
 
-/** Callback result shared by create/update — same shape as {@link NextSandboxEnvironmentVersion} plus subject. */
-export type BuildSandboxEnvironmentVersion = NextSandboxEnvironmentVersion & {
-  created_by_subject: CreatedBySubject;
-};
+/** Version row columns for insert (store fills `environment_id`); omits `needs_snapshot`. */
+export type UpsertSandboxEnvironmentVersionWrite = Omit<UpsertSandboxEnvironmentVersion, 'needs_snapshot'>;
 
 /** Drop `needs_snapshot` before persisting a version row. */
-export function toSandboxEnvironmentVersionWrite(
-  built: BuildSandboxEnvironmentVersion,
-): SandboxEnvironmentVersionWrite {
+export function toUpsertSandboxEnvironmentVersionWrite(
+  built: UpsertSandboxEnvironmentVersion,
+): UpsertSandboxEnvironmentVersionWrite {
   return {
     version: built.version,
     manifest: built.manifest,
@@ -110,7 +111,7 @@ export interface UpsertSandboxEnvironmentInput {
    * env (after the parent row is locked / re-read) so concurrent PUTs cannot collide
    * on the next version number.
    */
-  buildVersion: (previous?: UpsertSandboxEnvironmentPrevious) => BuildSandboxEnvironmentVersion;
+  buildVersion: (previous?: UpsertSandboxEnvironmentPrevious) => UpsertSandboxEnvironmentVersion;
 }
 
 export interface MarkSandboxEnvironmentVersionFailedInput {
@@ -163,7 +164,10 @@ export interface ISandboxEnvironmentStore<TTransaction = never> {
     input: GetSandboxEnvironmentInput,
     transaction?: TTransaction,
   ): Promise<SandboxEnvironmentWithVersion | undefined>;
-  /** Create or replace by `(tenant_id, name)` for this subject — parent + new version row. */
+  /**
+   * Create or replace by `(tenant_id, name)` for this subject — parent + new version row.
+   * Uses `transaction` when passed; otherwise opens its own (multi-write).
+   */
   upsertEnvironment(
     input: UpsertSandboxEnvironmentInput,
     transaction?: TTransaction,

@@ -13,7 +13,7 @@ import {
   SandboxEnvironmentNameConflictError,
   SandboxEnvironmentVersionConflictError,
   parseStoredSandboxEnvironmentManifest,
-  toSandboxEnvironmentVersionWrite,
+  toUpsertSandboxEnvironmentVersionWrite,
   type DeleteSandboxEnvironmentInput,
   type GetSandboxEnvironmentInput,
   type ISandboxEnvironmentStore,
@@ -21,9 +21,9 @@ import {
   type MarkSandboxEnvironmentVersionFailedInput,
   type SandboxEnvironmentRecord,
   type SandboxEnvironmentVersionRecord,
-  type SandboxEnvironmentVersionWrite,
   type SandboxEnvironmentWithVersion,
   type UpsertSandboxEnvironmentInput,
+  type UpsertSandboxEnvironmentVersionWrite,
 } from '../../sandboxEnvironmentStore';
 import { isPgConstraint, isUniqueViolation } from '../client';
 import { json, now } from '../sqlExpressions';
@@ -162,7 +162,16 @@ export class PostgresSandboxEnvironmentStore implements ISandboxEnvironmentStore
     input: UpsertSandboxEnvironmentInput,
     transaction?: Transaction<Database>,
   ): Promise<SandboxEnvironmentWithVersion> {
-    const db = transaction ?? this.#db;
+    if (transaction) {
+      return this.#upsertEnvironment(input, transaction);
+    }
+    return this.#db.transaction().execute(db => this.#upsertEnvironment(input, db));
+  }
+
+  async #upsertEnvironment(
+    input: UpsertSandboxEnvironmentInput,
+    db: Transaction<Database>,
+  ): Promise<SandboxEnvironmentWithVersion> {
     const environmentRow = await db
       .selectFrom('sandbox_environment')
       .selectAll()
@@ -175,7 +184,7 @@ export class PostgresSandboxEnvironmentStore implements ISandboxEnvironmentStore
 
     if (!environmentRow) {
       const environment_id = newId();
-      const versionWrite = toSandboxEnvironmentVersionWrite(input.buildVersion());
+      const versionWrite = toUpsertSandboxEnvironmentVersionWrite(input.buildVersion());
       try {
         const created = await db
           .insertInto('sandbox_environment')
@@ -213,7 +222,7 @@ export class PostgresSandboxEnvironmentStore implements ISandboxEnvironmentStore
       .where('environment_id', '=', environmentRow.id)
       .where('version', '=', environmentRow.active_version)
       .executeTakeFirstOrThrow();
-    const versionWrite = toSandboxEnvironmentVersionWrite(
+    const versionWrite = toUpsertSandboxEnvironmentVersionWrite(
       input.buildVersion({
         active_version: environmentRow.active_version,
         previous_manifest: parseStoredSandboxEnvironmentManifest(previousVersion.manifest),
@@ -279,7 +288,7 @@ export class PostgresSandboxEnvironmentStore implements ISandboxEnvironmentStore
   async #insertVersionRow(
     db: Kysely<Database> | Transaction<Database>,
     environment_id: string,
-    version: SandboxEnvironmentVersionWrite,
+    version: UpsertSandboxEnvironmentVersionWrite,
   ): Promise<SandboxEnvironmentVersionRecord> {
     try {
       const row = await db

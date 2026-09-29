@@ -20,7 +20,7 @@ import {
   parseStoredSandboxEnvironmentManifest,
   SandboxEnvironmentNameConflictError,
   SandboxEnvironmentVersionConflictError,
-  toSandboxEnvironmentVersionWrite,
+  toUpsertSandboxEnvironmentVersionWrite,
   type DeleteSandboxEnvironmentInput,
   type GetSandboxEnvironmentInput,
   type ISandboxEnvironmentStore,
@@ -28,9 +28,9 @@ import {
   type MarkSandboxEnvironmentVersionFailedInput,
   type SandboxEnvironmentRecord,
   type SandboxEnvironmentVersionRecord,
-  type SandboxEnvironmentVersionWrite,
   type SandboxEnvironmentWithVersion,
   type UpsertSandboxEnvironmentInput,
+  type UpsertSandboxEnvironmentVersionWrite,
 } from '../../sandboxEnvironmentStore';
 import { isUniqueViolation } from '../client';
 import { jsonbBind, jsonText, nowIso } from '../sqlExpressions';
@@ -222,7 +222,16 @@ export class SqliteSandboxEnvironmentStore implements ISandboxEnvironmentStore<T
     input: UpsertSandboxEnvironmentInput,
     transaction?: Transaction<Database>,
   ): Promise<SandboxEnvironmentWithVersion> {
-    const db = transaction ?? this.#db;
+    if (transaction) {
+      return this.#upsertEnvironment(input, transaction);
+    }
+    return this.#db.transaction().execute(db => this.#upsertEnvironment(input, db));
+  }
+
+  async #upsertEnvironment(
+    input: UpsertSandboxEnvironmentInput,
+    db: Transaction<Database>,
+  ): Promise<SandboxEnvironmentWithVersion> {
     const environmentRow = await db
       .selectFrom('sandbox_environment')
       .select([
@@ -244,7 +253,7 @@ export class SqliteSandboxEnvironmentStore implements ISandboxEnvironmentStore<T
 
     if (!environmentRow) {
       const environment_id = newId();
-      const versionWrite = toSandboxEnvironmentVersionWrite(input.buildVersion());
+      const versionWrite = toUpsertSandboxEnvironmentVersionWrite(input.buildVersion());
       const created_at = nowIso();
       try {
         await db
@@ -293,7 +302,7 @@ export class SqliteSandboxEnvironmentStore implements ISandboxEnvironmentStore<T
       .where('environment_id', '=', environmentRow.id)
       .where('version', '=', environmentRow.active_version)
       .executeTakeFirstOrThrow();
-    const versionWrite = toSandboxEnvironmentVersionWrite(
+    const versionWrite = toUpsertSandboxEnvironmentVersionWrite(
       input.buildVersion({
         active_version: environmentRow.active_version,
         previous_manifest: parseStoredSandboxEnvironmentManifest(previousVersion.manifest),
@@ -375,7 +384,7 @@ export class SqliteSandboxEnvironmentStore implements ISandboxEnvironmentStore<T
   async #insertVersionRow(
     db: Kysely<Database> | Transaction<Database>,
     environment_id: string,
-    version: SandboxEnvironmentVersionWrite,
+    version: UpsertSandboxEnvironmentVersionWrite,
   ): Promise<SandboxEnvironmentVersionRecord> {
     const id = newId();
     const created_at = nowIso();

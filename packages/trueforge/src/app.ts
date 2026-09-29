@@ -362,7 +362,6 @@ export function createServerApp<TTransaction>(deps: ServerDeps<TTransaction>) {
         sandboxEnvironmentStore: deps.sandboxEnvironmentStore,
         resolveAgentStore: deps.resolveAgentStore,
         resolveSandboxProviderStore: deps.resolveSandboxProviderStore,
-        withTransaction: deps.withTransaction,
         resolveRequestContext,
       }),
       authMiddleware,
