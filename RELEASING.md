@@ -145,7 +145,7 @@ pnpm clean && pnpm build && pnpm standalone:start
 
 ```text
 TrueFoundry chart release V
-  → branch release-vX.Y.Z (from main the first time; merge main when it exists)
+  → branch release-vX.Y.Z (from main the first time; fail if an existing branch is missing commits from main)
   → workflow_dispatch release.yml --ref release-vX.Y.Z -f tfy_chart_version=V
        → prepare pre mode + 0.0.0 bootstrap
        → changeset version, auto-merge Version Packages PR
