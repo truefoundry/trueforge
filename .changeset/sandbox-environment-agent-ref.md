@@ -4,4 +4,4 @@
 '@truefoundry/trueforge-assistant-ui-runtime': patch
 ---
 
-Add real sandbox-environment CRUD (versioning, soft-delete). Environments are subject-owned. AgentSpec `config.sandbox.environment_name` names a configured environment owned by the caller; delete returns 409 while agents reference it. Name `default` is reserved.
+Add sandbox-environment CRUD (tables, PUT upsert, subject ownership, soft-delete). Versions land as `pending` for a future controller. AgentSpec `config.sandbox.environment_name` names a caller-owned env; name `default` is reserved; delete returns 409 while agents reference it.
