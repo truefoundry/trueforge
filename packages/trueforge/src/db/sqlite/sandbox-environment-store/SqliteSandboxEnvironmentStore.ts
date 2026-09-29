@@ -214,7 +214,11 @@ export class SqliteSandboxEnvironmentStore implements ISandboxEnvironmentStore<T
       .where('env.name', '=', input.name)
       .where('env.lifecycle_stage', '=', 'active');
     if (input.created_by_subject_id) {
-      query = query.where(sql`json_extract(env.created_by_subject, '$.subject_id')`, '=', input.created_by_subject_id);
+      query = query.where(
+        sql`json_extract(env.created_by_subject, '$.subject_id')`,
+        '=',
+        input.created_by_subject_id,
+      );
     }
     const row = await query.executeTakeFirst();
     return row ? toWithVersion(row) : undefined;
