@@ -105,6 +105,7 @@ export const SandboxEnvironmentManifestSchema = z
 
 /**
  * Persisted version jsonb — wire fields plus backend-resolved provider identity.
+ * `truefoundry` = TrueFoundry platform mode label; runtime still uses Daytona for envs.
  * Not exposed on request/response wire types.
  */
 export const StoredSandboxEnvironmentManifestSchema = z

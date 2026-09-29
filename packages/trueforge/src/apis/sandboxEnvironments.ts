@@ -7,6 +7,7 @@ import { OpenAPIHono, z } from '@hono/zod-openapi';
 import { InvalidPageTokenError } from '@truefoundry/trueforge-core/agent-session';
 import type { Context } from 'hono';
 import { createdBySubjectFromRequestContext, type ResolveRequestContext } from '../auth/identity';
+import { isTrueFoundryModeEnabled } from '../config';
 import type { IAgentStore } from '../db/agentStore';
 import {
   SandboxEnvironmentNameConflictError,
@@ -82,16 +83,15 @@ async function requireSandboxProviderRecord(
 function buildUpsertVersion({
   tenant_id,
   manifest,
-  provider,
   created_by_subject,
   previous,
 }: {
   tenant_id: string;
   manifest: SandboxEnvironmentManifest;
-  provider: SandboxProviderRecord;
   created_by_subject: ReturnType<typeof createdBySubjectFromRequestContext>;
   previous?: UpsertSandboxEnvironmentPrevious;
 }) {
+  // Label follows platform mode; create/build always use Daytona credentials + code.
   return {
     ...buildNextVersion({
       tenant_id,
@@ -103,7 +103,7 @@ function buildUpsertVersion({
           }
         : {}),
       manifest,
-      provider_type: provider.manifest.type,
+      provider_type: isTrueFoundryModeEnabled() ? 'truefoundry' : 'daytona',
     }),
     created_by_subject,
   };
@@ -149,19 +149,16 @@ export function createSandboxEnvironmentsRouter<TTransaction>(
     return c.json({ data: toSandboxEnvironment(loaded) });
   });
 
-  router.put('/:name', async c => {
+  // Create-or-update keyed by manifest.name.
+  router.put('/', async c => {
     const body = await validateJsonBody(c, UpdateSandboxEnvironmentRequestSchema);
     if (!body.ok) {
       return body.response;
     }
-    const name = c.req.param('name');
-    if (body.data.manifest.name !== name) {
-      return c.json({ error: { message: 'Path name must match manifest.name' } }, 400);
-    }
     const requestContext = resolveRequestContext(c);
     const provider = await requireSandboxProviderRecord(deps.resolveSandboxProviderStore(c), requestContext.tenant_id);
-    if (!provider) {
-      return c.json({ error: { message: 'No sandbox provider configured' } }, 422);
+    if (provider?.manifest.type !== 'daytona') {
+      return c.json({ error: { message: 'Sandbox environments require a Daytona sandbox provider' } }, 422);
     }
 
     const created_by_subject = createdBySubjectFromRequestContext(requestContext);
@@ -177,7 +174,6 @@ export function createSandboxEnvironmentsRouter<TTransaction>(
           buildUpsertVersion({
             tenant_id: requestContext.tenant_id,
             manifest,
-            provider,
             created_by_subject,
             ...(previous ? { previous } : {}),
           }),
