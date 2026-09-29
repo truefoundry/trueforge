@@ -9,9 +9,11 @@ import { useOptionalCatalogServer, useServerCapabilities } from '../../server/Se
 import { useOptionalShellMode, type SettingsSection } from '../../server/ShellModeContext.js';
 import type { AgentSkill, ConnectorState } from '../../server/types.js';
 import { useSlot } from '../../theme/SlotsProvider.js';
+import { useReadySandboxEnvironments } from '../environments/useReadySandboxEnvironments.js';
 import { auiButtonClass } from '../lib/buttonClasses.js';
 import { cn } from '../lib/cn.js';
 import { useCompactLayout } from '../lib/CompactLayoutContext.js';
+import { formatRelativeTime } from '../lib/dateFormat.js';
 import { auiInputClass } from '../lib/inputClasses.js';
 import { useIsMobile } from '../lib/useIsMobile.js';
 import { BottomSheet } from '../primitives/BottomSheet.js';
@@ -19,8 +21,6 @@ import { Button } from '../primitives/Button.js';
 import { CatalogLogo } from '../primitives/CatalogLogo.js';
 import { Checkbox } from '../primitives/Checkbox.js';
 import { Tooltip } from '../primitives/Tooltip.js';
-import { formatRelativeTime } from '../lib/dateFormat.js';
-import { useReadySandboxEnvironments } from '../environments/useReadySandboxEnvironments.js';
 import { DraftCatalogEmptyState } from './DraftCatalogEmptyState.js';
 import { useDraftCatalog } from './DraftCatalogProvider.js';
 import { connectorsWithSelectedStubs } from './mcpConnectorStubs.js';
@@ -548,12 +548,7 @@ export function DraftCompositeSelector({ disabled, isRunning, onAttach }: DraftC
     <>
       <div className="flex shrink-0 border-b border-border">
         {TABS.map(t => {
-          const count =
-            t.id === 'connectors'
-              ? selectedMcp.length
-              : t.id === 'skills'
-                ? selectedSkills.length
-                : null;
+          const count = t.id === 'connectors' ? selectedMcp.length : t.id === 'skills' ? selectedSkills.length : null;
           const active = tab === t.id;
           return (
             <button
@@ -702,10 +697,14 @@ export function DraftCompositeSelector({ disabled, isRunning, onAttach }: DraftC
                   loading={environmentsLoading}
                   emptyLabel="No environments"
                   settingsTarget="Environments"
-                  onOpenSettings={shell ? () => {
-                    setOpenAndFlush(false);
-                    shell.setEnvironmentsOpen(true);
-                  } : undefined}
+                  onOpenSettings={
+                    shell
+                      ? () => {
+                          setOpenAndFlush(false);
+                          shell.setEnvironmentsOpen(true);
+                        }
+                      : undefined
+                  }
                 />
               ) : null}
             </>

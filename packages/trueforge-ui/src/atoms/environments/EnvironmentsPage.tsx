@@ -91,15 +91,7 @@ export function EnvironmentsPage(_props: EnvironmentsPageProps) {
   }, [catalog, providerReady]);
 
   const loadEnvironments = useCallback(
-    async ({
-      token,
-      size,
-      silent = false,
-    }: {
-      token: string | undefined;
-      size: number;
-      silent?: boolean;
-    }) => {
+    async ({ token, size, silent = false }: { token: string | undefined; size: number; silent?: boolean }) => {
       const gen = ++loadGenRef.current;
       if (!silent) {
         setLoading(true);
@@ -155,9 +147,7 @@ export function EnvironmentsPage(_props: EnvironmentsPageProps) {
     const intervalId = window.setInterval(async () => {
       try {
         const updates = await Promise.all(
-          pendingEnvs.map(env =>
-            environmentServer.getEnvironment({ name: env.name }).catch(() => null),
-          ),
+          pendingEnvs.map(env => environmentServer.getEnvironment({ name: env.name }).catch(() => null)),
         );
         const resolved = updates.filter((u): u is SandboxEnvironment => u != null);
         if (resolved.length === 0) return;

@@ -186,7 +186,10 @@ export function EnvironmentFormDrawer({ open, onOpenChange, mode, environment, o
       >
         <form
           id="environment-form"
-          className={cn('flex min-h-0 flex-1 flex-col gap-4 px-5 pt-4', editorMode === 'form' ? 'pb-10' : 'h-full pb-4')}
+          className={cn(
+            'flex min-h-0 flex-1 flex-col gap-4 px-5 pt-4',
+            editorMode === 'form' ? 'pb-10' : 'h-full pb-4',
+          )}
           onSubmit={event => void handleSave(event)}
         >
           {error != null ? <p className="text-sm text-failure-bg">{error}</p> : null}

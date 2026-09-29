@@ -459,4 +459,3 @@ describe('DraftCompositeSelector', () => {
     });
   });
 });
-

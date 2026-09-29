@@ -2,10 +2,7 @@
 import { act, render, screen, waitFor } from '@testing-library/react';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
-import {
-  EnvironmentsPage,
-  PENDING_ENVIRONMENTS_POLL_INTERVAL_MS,
-} from '@/atoms/environments/EnvironmentsPage.js';
+import { EnvironmentsPage, PENDING_ENVIRONMENTS_POLL_INTERVAL_MS } from '@/atoms/environments/EnvironmentsPage.js';
 import { ToasterProvider } from '@/containers/ToasterContainer.js';
 import { ServerProvider } from '@/server/ServerContext.js';
 import { ShellModeProvider } from '@/server/ShellModeContext.js';
@@ -183,4 +180,3 @@ describe('EnvironmentsPage', () => {
     }
   });
 });
-
