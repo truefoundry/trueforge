@@ -33,10 +33,10 @@ import {
   TableRow,
   TableTokenPagination,
 } from '../primitives/Table.js';
+import { formatRelativeTime } from '../lib/dateFormat.js';
 import { EnvironmentFormDrawer } from './EnvironmentFormDrawer.js';
 import {
   formatNetworkingSummary,
-  formatRelativeTime,
   formatResourcesSummary,
   isEnvironmentReadOnly,
 } from './environmentDisplay.js';

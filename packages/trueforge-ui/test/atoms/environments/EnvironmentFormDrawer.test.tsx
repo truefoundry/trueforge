@@ -100,7 +100,7 @@ describe('EnvironmentFormDrawer', () => {
     expect(await screen.findByRole('button', { name: 'Switch' })).toBeInTheDocument();
     fireEvent.click(screen.getByRole('button', { name: 'Switch' }));
     await waitFor(() => {
-      expect(screen.getByText('environment.yaml')).toBeInTheDocument();
+      expect(screen.queryByPlaceholderText('my-environment')).not.toBeInTheDocument();
     });
     expect(screen.queryByRole('button', { name: 'Switch' })).not.toBeInTheDocument();
   });

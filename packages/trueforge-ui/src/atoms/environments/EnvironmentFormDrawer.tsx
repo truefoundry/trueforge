@@ -154,6 +154,34 @@ export function EnvironmentFormDrawer({
         title={title}
         description="Configure the environment as a form or edit its manifest directly."
         size="xl"
+        headerActions={
+          <div className="inline-flex shrink-0 rounded-md border border-border p-0.5">
+            <button
+              type="button"
+              className={cn(
+                'rounded-sm px-2.5 py-1 text-xs font-medium',
+                editorMode === 'form'
+                  ? 'bg-primary-button-bg text-primary-button-text'
+                  : 'text-text-secondary hover:text-text-primary',
+              )}
+              onClick={() => requestSwitch('form')}
+            >
+              UI Form
+            </button>
+            <button
+              type="button"
+              className={cn(
+                'rounded-sm px-2.5 py-1 text-xs font-medium',
+                editorMode === 'yaml'
+                  ? 'bg-primary-button-bg text-primary-button-text'
+                  : 'text-text-secondary hover:text-text-primary',
+              )}
+              onClick={() => requestSwitch('yaml')}
+            >
+              YAML
+            </button>
+          </div>
+        }
         footer={
           <div className="flex justify-end gap-2">
             <Button.Secondary type="button" disabled={saving} onClick={() => onOpenChange(false)}>
@@ -167,38 +195,12 @@ export function EnvironmentFormDrawer({
       >
         <form
           id="environment-form"
-          className="flex flex-col gap-4 px-5 py-4"
+          className={cn(
+            'flex min-h-0 flex-1 flex-col gap-4 px-5 pt-4',
+            editorMode === 'form' ? 'pb-10' : 'pb-4',
+          )}
           onSubmit={event => void handleSave(event)}
         >
-          <div className="flex items-center justify-end">
-            <div className="inline-flex rounded-md border border-border p-0.5">
-              <button
-                type="button"
-                className={cn(
-                  'rounded-sm px-2.5 py-1 text-xs font-medium',
-                  editorMode === 'form'
-                    ? 'bg-primary-button-bg text-primary-button-text'
-                    : 'text-text-secondary hover:text-text-primary',
-                )}
-                onClick={() => requestSwitch('form')}
-              >
-                UI Form
-              </button>
-              <button
-                type="button"
-                className={cn(
-                  'rounded-sm px-2.5 py-1 text-xs font-medium',
-                  editorMode === 'yaml'
-                    ? 'bg-primary-button-bg text-primary-button-text'
-                    : 'text-text-secondary hover:text-text-primary',
-                )}
-                onClick={() => requestSwitch('yaml')}
-              >
-                YAML
-              </button>
-            </div>
-          </div>
-
           {error != null ? <p className="text-sm text-failure-bg">{error}</p> : null}
 
           {editorMode === 'form' ? (
@@ -211,8 +213,10 @@ export function EnvironmentFormDrawer({
             <CodeEditor
               language="yaml"
               value={yamlText}
-              height="28rem"
-              filename="environment.yaml"
+              height="100%"
+              showToolbar={false}
+              defaultShowLineNumbers
+              className="min-h-[28rem] flex-1"
               onChange={value => setYamlText(value)}
             />
           )}

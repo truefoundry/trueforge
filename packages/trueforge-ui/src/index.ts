@@ -32,6 +32,8 @@ export type {
 
 export { PermissionGuard } from './atoms/PermissionGuard.js';
 export type { PermissionGuardProps } from './atoms/PermissionGuard.js';
+export { Badge } from './atoms/primitives/Badge.js';
+export type { BadgeProps, BadgeShape, BadgeSize, BadgeVariant } from './atoms/primitives/Badge.js';
 export { BottomSheet } from './atoms/primitives/BottomSheet.js';
 export type { BottomSheetProps } from './atoms/primitives/BottomSheet.js';
 export { Button } from './atoms/primitives/Button.js';

@@ -47,6 +47,7 @@ const expectedRuntimeExports: Array<keyof typeof sdk> = [
   'Avatar',
   'AvatarFallback',
   'AvatarImage',
+  'Badge',
   'BottomSheet',
   'BrandLogo',
   'Button',
