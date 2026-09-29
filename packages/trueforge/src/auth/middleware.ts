@@ -13,14 +13,21 @@ export { extractRequestToken, readBearerToken };
 
 export function createAuthMiddleware(authenticator: Authenticator): MiddlewareHandler {
   return async (c, next) => {
-    c.set('request_context', await authenticator.authenticate(c));
+    const requestContext = await tryAuthenticate({ authenticator, context: c });
+    if (requestContext === undefined) {
+      throw new HTTPException(401, { message: 'Authentication required' });
+    }
+    c.set('request_context', requestContext);
     return next();
   };
 }
 
 export function createAdminAuthMiddleware(authenticator: Authenticator): MiddlewareHandler {
   return async (c, next) => {
-    const requestContext = await authenticator.authenticate(c);
+    const requestContext = await tryAuthenticate({ authenticator, context: c });
+    if (requestContext === undefined) {
+      throw new HTTPException(401, { message: 'Authentication required' });
+    }
     if (!hasAdminRole(requestContext)) {
       throw new HTTPException(403, { message: 'Admin access required' });
     }
@@ -98,4 +105,20 @@ export async function resolveOidcRequestContext(c: Context): Promise<RequestCont
     config: oidcVerify.oidcConfig,
     user_credential: token,
   });
+}
+
+/**
+ * Soft authenticate — missing/invalid credentials return `undefined` instead of throwing.
+ * Request-gate middleware uses this and throws 401 on miss; handlers that need a shaped
+ * failure (e.g. MCP OAuth IdP callback after consent) consume `undefined` themselves.
+ */
+export async function tryAuthenticate(params: {
+  authenticator: Authenticator;
+  context: Context;
+}): Promise<RequestContext | undefined> {
+  try {
+    return await params.authenticator.authenticate(params.context);
+  } catch {
+    return undefined;
+  }
 }
