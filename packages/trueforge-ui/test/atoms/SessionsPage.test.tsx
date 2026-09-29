@@ -174,21 +174,6 @@ describe('SessionsPage', () => {
     expect(await screen.findByRole('tooltip')).toHaveTextContent('Scheduled Session');
   });
 
-  it('renders creator subject name on session list rows', async () => {
-    const creatorRow: SessionListEntry = {
-      ...namedRow,
-      id: 'sess-creator',
-      createdBySubject: {
-        subjectId: 'user-1',
-        subjectType: 'user',
-        subjectDisplayName: 'Chirag Jain',
-      },
-    };
-    renderPage({ listSessions: vi.fn(async () => ({ data: [creatorRow] })) });
-
-    expect(await screen.findByText('Chirag Jain')).toBeInTheDocument();
-  });
-
   it('shows a single empty screen when there are no sessions', async () => {
     renderPage({ listSessions: vi.fn(async () => ({ data: [] })) });
     expect(await screen.findByRole('heading', { name: 'Agent Sessions' })).toBeInTheDocument();

@@ -5,7 +5,6 @@ import type {
   AgentMetricGraph,
   AgentMetricMeter,
   CodeSnippet,
-  CreatedBySubject,
 } from '../../server/types.js';
 import type { SessionMetrics } from '../../utils/buildSessionMetrics.js';
 import type { SessionEventTimelineSegment, SessionEventType } from '../../utils/sessionEventTimeline.js';
@@ -30,7 +29,6 @@ export type AgentSessionsProps = {
 export type AgentSessionListRowProps = {
   title: string;
   agentName?: string;
-  createdBySubject?: CreatedBySubject;
   sourceType?: 'schedule';
   lastActivityAt: string;
   metrics: {
