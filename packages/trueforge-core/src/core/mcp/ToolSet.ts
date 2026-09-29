@@ -1,6 +1,6 @@
 import type { CallToolRequest, ToolAnnotations } from '@modelcontextprotocol/sdk/types.js';
 import { McpConnectionError } from '../errors';
-import type { ApprovalDecision } from '../events/schema';
+import type { ApprovalDecision, ToolApprovalPolicyAction } from '../events/schema';
 import type { InternalToolCallInfo } from '../llm/LLMTypes';
 import {
   isAuthRequired,
@@ -27,6 +27,7 @@ export class ToolSet implements IToolSet {
 
   private readonly source: ToolSource;
   private readonly policy: ToolSelectorPolicy;
+  private readonly approvalPolicies = new Map<string, ToolApprovalPolicyAction>();
 
   constructor(params: { source: ToolSource; selectors: ToolSelectorConfig; preload: boolean }) {
     this.source = params.source;
@@ -43,6 +44,15 @@ export class ToolSet implements IToolSet {
 
   getAllowedToolNamesForSandbox(): string[] | undefined {
     return this.policy.allowedNamesForSandbox();
+  }
+
+  // Last write wins for a given tool.
+  applyApprovalPolicy(toolName: string, action: ToolApprovalPolicyAction): void {
+    this.approvalPolicies.set(toolName, action);
+  }
+
+  getApprovalPolicies(): Record<string, ToolApprovalPolicyAction> {
+    return Object.fromEntries(this.approvalPolicies);
   }
 
   async listTools(): Promise<ListToolsResponse> {

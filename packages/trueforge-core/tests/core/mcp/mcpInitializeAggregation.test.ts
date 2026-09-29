@@ -67,6 +67,8 @@ describe('convertMCPServersToTools initialization aggregation', () => {
       ),
       callTool: jest.fn(),
       toolCallInfo: jest.fn(),
+      applyApprovalPolicy: jest.fn(),
+      getApprovalPolicies: jest.fn(() => ({})),
     };
 
     const readyInit: MCPServerInitInfo = {

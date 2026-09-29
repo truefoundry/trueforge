@@ -1,5 +1,6 @@
 /** Pause on write_note approval, then resume after allow or deny. */
 import { EventType } from '../../src/core/events/schema';
+import type { IToolSet } from '../../src/core/mcp/IMCPServer';
 import { AgentThread } from '../../src/core/runtime/AgentThread';
 import { InternalEventType, type AgentThreadConstructorInput } from '../../src/core/runtime/AgentThread.types';
 import { AgentThreadOrchestrator } from '../../src/core/runtime/AgentThreadOrchestrator';
@@ -232,6 +233,100 @@ describe('orchestration: pause then resume on tool approval', () => {
         ...EXPECTED_TURN_1_LLM_INPUT,
         EXPECTED_TURN_2_INPUT,
       ]);
+    });
+  });
+});
+
+const POLICY_SERVER_NAME = 'notes';
+
+describe('AgentThreadOrchestrator.applyApprovalPolicies', () => {
+  // The grant applies to user MCP servers (definition.toolSets), unlike the
+  // approval-flow harness above which registers the tool set as a system tool set.
+  let toolSet: IToolSet;
+  let orchestrator: AgentThreadOrchestrator;
+
+  beforeEach(() => {
+    toolSet = makeApprovalGatedWriteNoteToolSet().toolSet;
+    const thread = new AgentThread({
+      definition: {
+        modelClient: { create: jest.fn(), createNonStream: jest.fn() },
+        instruction: INSTRUCTION,
+        messages: undefined,
+        modelParams: undefined,
+        responseFormat: undefined,
+        iterationLimit: undefined,
+        toolSets: [toolSet],
+      },
+      threadId: ROOT_ID,
+      title: 'orchestration-approval-policy',
+      parent: undefined,
+      agentInfo: undefined,
+      context: undefined,
+      currentContextUsage: undefined,
+      preComputedCompletion: undefined,
+      sandbox: undefined,
+      capabilities: undefined,
+      capabilityState: undefined,
+      tracing: NOOP_AGENT_TRACING,
+      logger: makeSilentLogger(),
+    });
+    orchestrator = new AgentThreadOrchestrator({
+      agentThreads: new Map([[thread.threadId, thread]]),
+      createDynamicSubAgentThread: () => Promise.reject(new Error('unexpected sub-agent in policy test')),
+      tracing: NOOP_AGENT_TRACING,
+      logger: makeSilentLogger(),
+    });
+  });
+
+  it('records a grant on the matching tool set for a known server', () => {
+    const result = orchestrator.applyApprovalPolicies([
+      { server_name: POLICY_SERVER_NAME, name: WRITE_NOTE_TOOL_NAME, action: { type: 'allow_session' } },
+    ]);
+
+    expect(result.errors).toEqual([]);
+    expect(toolSet.getApprovalPolicies()).toEqual({
+      [WRITE_NOTE_TOOL_NAME]: { type: 'allow_session' },
+    });
+  });
+
+  it('carries expiry through onto the recorded grant', () => {
+    const expire_at = '2099-01-01T00:00:00.000Z';
+
+    orchestrator.applyApprovalPolicies([
+      { server_name: POLICY_SERVER_NAME, name: WRITE_NOTE_TOOL_NAME, action: { type: 'allow_session', expire_at } },
+    ]);
+
+    expect(toolSet.getApprovalPolicies()).toEqual({
+      [WRITE_NOTE_TOOL_NAME]: { type: 'allow_session', expire_at },
+    });
+  });
+
+  it('rejects an unknown server name and applies nothing (fail-closed)', () => {
+    const result = orchestrator.applyApprovalPolicies([
+      { server_name: POLICY_SERVER_NAME, name: WRITE_NOTE_TOOL_NAME, action: { type: 'allow_session' } },
+      { server_name: 'does-not-exist', name: 'whatever', action: { type: 'allow_session' } },
+    ]);
+
+    expect(result.errors).toHaveLength(1);
+    expect(result.errors[0]).toContain('does-not-exist');
+    // Nothing applied because validation failed for one item.
+    expect(toolSet.getApprovalPolicies()).toEqual({});
+  });
+
+  it('last write wins for the same (server, tool)', () => {
+    orchestrator.applyApprovalPolicies([
+      { server_name: POLICY_SERVER_NAME, name: WRITE_NOTE_TOOL_NAME, action: { type: 'allow_session' } },
+    ]);
+    orchestrator.applyApprovalPolicies([
+      {
+        server_name: POLICY_SERVER_NAME,
+        name: WRITE_NOTE_TOOL_NAME,
+        action: { type: 'allow_session', expire_at: '2099-01-01T00:00:00.000Z' },
+      },
+    ]);
+
+    expect(toolSet.getApprovalPolicies()).toEqual({
+      [WRITE_NOTE_TOOL_NAME]: { type: 'allow_session', expire_at: '2099-01-01T00:00:00.000Z' },
     });
   });
 });
