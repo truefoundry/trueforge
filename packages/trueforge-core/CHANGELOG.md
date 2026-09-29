@@ -1,5 +1,23 @@
 # @truefoundry/trueforge-core
 
+## 0.3.0
+
+### Minor Changes
+
+- 829ac6e: Add OSS web-search provider settings and catalog (Parallel): singleton settings/catalog APIs, optional API key, and UI adapter without mode config so built-in web search works outside TrueFoundry mode.
+- cf55de9: Add Redis Sentinel + TLS with exclusive transport fail-fast (`REDIS_CONNECTION` DU). Redis is optional at config load for controller/migrate; server still requires it at connect. Sentinel shared-client errors no longer stop the peering heartbeat.
+
+### Patch Changes
+
+- 33cbe52: Default MCP tool approval to `@write` and `@destructive` again. Unlabeled tools still run without a pause unless named or covered by `@all`.
+- 4726a31: Let a session owner mark a session shared so any subject in the tenant can read it by id, including turns and events (not subscribe or sandbox downloads).
+- 0c82412: Add `POST /sessions/{session_id}/turns/{turn_id}/events` for tip HITL / policy events.
+- 5adde28: Add `turn_inbound_events` store API for durable tip HITL send-event inbox (insert / list unconsumed / mark consumed), with Postgres and SQLite migrations.
+- bbc4f7d: Add `user.mcp_auth_continue` (`{ "type": "user.mcp_auth_continue" }`) on POST `/events`, session events, and the SSE stream. Add paused to turn state.
+- b342a21: Add `user.tool_approval_policy` send-event schema (`allow_session`, optional ISO `expire_at`). Send-only like `user.tool_approval` / `user.tool_response` — not on the durable stream.
+- 5b209be: Persist exact streamed reasoning_content on model.message session events (omit from thread context).
+- 1b1050a: [truefoundry] Surface nested `Error.cause` and the sandbox URL when TFY sandbox fetch calls fail, so undici "fetch failed" errors include ECONNREFUSED (and similar) instead of an opaque message. Log when a TFY sandbox file upload starts and finishes.
+
 ## 0.3.0-rc.0
 
 ### Minor Changes
