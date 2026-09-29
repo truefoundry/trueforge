@@ -73,8 +73,9 @@ export function DrawerLayout({ className }: { className?: string }) {
     shell?.setLibraryOpen(false);
     shell?.setSchedulesOpen(false);
     shell?.setSessionsOpen(false);
-    // Leave Build Agent notice; openDraft exits create-agent mode on mobile.
-    if (isCreateAgent) shell?.openDraft();
+    // Only exit create-agent when leaving the mobile Build Agent notice — not when
+    // dismissing Agents/Schedules over an in-progress desktop builder.
+    if (showDesktopOnlyNotice && isCreateAgent) shell?.openDraft();
   };
 
   const showBackToChat = showDesktopOnlyNotice || libraryOpen || (schedulesOpen && !isMobile);

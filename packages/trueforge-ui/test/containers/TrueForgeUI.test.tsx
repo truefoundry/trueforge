@@ -935,6 +935,59 @@ describe('DrawerLayout a11y', () => {
       Object.defineProperty(window, 'matchMedia', { configurable: true, value: originalMatchMedia });
     }
   });
+
+  it('keeps the agent builder open when Back to chat dismisses Schedules on desktop', async () => {
+    const server = createMockAgentUIServer({
+      schedules: {
+        listSchedules: vi.fn(async () => ({ data: [] })),
+        getSchedule: vi.fn(),
+        createSchedule: vi.fn(),
+        updateSchedule: vi.fn(),
+        deleteSchedule: vi.fn(),
+        listScheduleRuns: vi.fn(async () => []),
+        createScheduleRun: vi.fn(),
+      },
+    });
+
+    function OpenSchedules() {
+      const shell = useShellMode();
+      return (
+        <button type="button" onClick={() => shell.setSchedulesOpen(true)}>
+          Open schedules
+        </button>
+      );
+    }
+
+    render(
+      <SlotsProvider>
+        <ServerProvider server={server}>
+          <ShellModeProvider agentConfig={{ mode: 'AgentLibraryWithComposer' }}>
+            <AgentConfigInstructionsProvider>
+              <RuntimeHarness messages={[]}>
+                <OpenSchedules />
+                <div className="h-96">
+                  <DrawerLayout />
+                </div>
+              </RuntimeHarness>
+            </AgentConfigInstructionsProvider>
+          </ShellModeProvider>
+        </ServerProvider>
+      </SlotsProvider>,
+    );
+
+    fireEvent.click(screen.getByRole('button', { name: 'New Agent' }));
+    expect(await screen.findByRole('dialog', { name: 'Agent Config' })).toBeInTheDocument();
+
+    fireEvent.click(screen.getByRole('button', { name: 'Open schedules' }));
+    expect(await screen.findByRole('heading', { name: 'Agent Schedules' })).toBeInTheDocument();
+    expect(screen.queryByRole('dialog', { name: 'Agent Config' })).not.toBeInTheDocument();
+
+    fireEvent.click(screen.getByRole('button', { name: /Back to chat/i }));
+    await waitFor(() => {
+      expect(screen.queryByRole('heading', { name: 'Agent Schedules' })).not.toBeInTheDocument();
+    });
+    expect(screen.getByRole('dialog', { name: 'Agent Config' })).toBeInTheDocument();
+  });
 });
 
 describe('layout slot overrides', () => {
