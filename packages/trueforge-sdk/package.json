@@ -99,6 +99,17 @@
             },
             "default": "./dist/cjs/api/resources/models/exports.js"
         },
+        "./sandboxEnvironments": {
+            "import": {
+                "types": "./dist/esm/api/resources/sandboxEnvironments/exports.d.mts",
+                "default": "./dist/esm/api/resources/sandboxEnvironments/exports.mjs"
+            },
+            "require": {
+                "types": "./dist/cjs/api/resources/sandboxEnvironments/exports.d.ts",
+                "default": "./dist/cjs/api/resources/sandboxEnvironments/exports.js"
+            },
+            "default": "./dist/cjs/api/resources/sandboxEnvironments/exports.js"
+        },
         "./schedules": {
             "import": {
                 "types": "./dist/esm/api/resources/schedules/exports.d.mts",

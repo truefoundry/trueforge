@@ -900,6 +900,275 @@ await client.models.list();
 </dl>
 </details>
 
+## SandboxEnvironments
+<details><summary><code>client.sandboxEnvironments.<a href="/src/api/resources/sandboxEnvironments/client/Client.ts">list</a>({ ...params }) -> core.Page&lt;TrueForge.SandboxEnvironment, TrueForge.ListSandboxEnvironmentsResponse&gt;</code></summary>
+<dl>
+<dd>
+
+#### 📝 Description
+
+<dl>
+<dd>
+
+<dl>
+<dd>
+
+List sandbox environments created by the authenticated subject, newest first.
+</dd>
+</dl>
+</dd>
+</dl>
+
+#### 🔌 Usage
+
+<dl>
+<dd>
+
+<dl>
+<dd>
+
+```typescript
+const pageableResponse = await client.sandboxEnvironments.list();
+for await (const item of pageableResponse) {
+    console.log(item);
+}
+
+// Or you can manually iterate page-by-page
+let page = await client.sandboxEnvironments.list();
+while (page.hasNextPage()) {
+    page = page.getNextPage();
+}
+
+// You can also access the underlying response
+const response = page.response;
+
+```
+</dd>
+</dl>
+</dd>
+</dl>
+
+#### ⚙️ Parameters
+
+<dl>
+<dd>
+
+<dl>
+<dd>
+
+**request:** `TrueForge.ListSandboxEnvironmentsRequest` 
+    
+</dd>
+</dl>
+
+<dl>
+<dd>
+
+**requestOptions:** `SandboxEnvironmentsClient.RequestOptions` 
+    
+</dd>
+</dl>
+</dd>
+</dl>
+
+
+</dd>
+</dl>
+</details>
+
+<details><summary><code>client.sandboxEnvironments.<a href="/src/api/resources/sandboxEnvironments/client/Client.ts">createOrUpdate</a>({ ...params }) -> TrueForge.GetSandboxEnvironmentResponse</code></summary>
+<dl>
+<dd>
+
+#### 📝 Description
+
+<dl>
+<dd>
+
+<dl>
+<dd>
+
+Create or replace by `manifest.name`. Requires a Daytona sandbox provider.
+</dd>
+</dl>
+</dd>
+</dl>
+
+#### 🔌 Usage
+
+<dl>
+<dd>
+
+<dl>
+<dd>
+
+```typescript
+await client.sandboxEnvironments.createOrUpdate({
+    manifest: {
+        name: "name"
+    }
+});
+
+```
+</dd>
+</dl>
+</dd>
+</dl>
+
+#### ⚙️ Parameters
+
+<dl>
+<dd>
+
+<dl>
+<dd>
+
+**request:** `TrueForge.UpdateSandboxEnvironmentRequest` 
+    
+</dd>
+</dl>
+
+<dl>
+<dd>
+
+**requestOptions:** `SandboxEnvironmentsClient.RequestOptions` 
+    
+</dd>
+</dl>
+</dd>
+</dl>
+
+
+</dd>
+</dl>
+</details>
+
+<details><summary><code>client.sandboxEnvironments.<a href="/src/api/resources/sandboxEnvironments/client/Client.ts">get</a>(name) -> TrueForge.GetSandboxEnvironmentResponse</code></summary>
+<dl>
+<dd>
+
+#### 📝 Description
+
+<dl>
+<dd>
+
+<dl>
+<dd>
+
+Get a sandbox environment by name for the authenticated subject.
+</dd>
+</dl>
+</dd>
+</dl>
+
+#### 🔌 Usage
+
+<dl>
+<dd>
+
+<dl>
+<dd>
+
+```typescript
+await client.sandboxEnvironments.get("name");
+
+```
+</dd>
+</dl>
+</dd>
+</dl>
+
+#### ⚙️ Parameters
+
+<dl>
+<dd>
+
+<dl>
+<dd>
+
+**name:** `string` — Sandbox environment name.
+    
+</dd>
+</dl>
+
+<dl>
+<dd>
+
+**requestOptions:** `SandboxEnvironmentsClient.RequestOptions` 
+    
+</dd>
+</dl>
+</dd>
+</dl>
+
+
+</dd>
+</dl>
+</details>
+
+<details><summary><code>client.sandboxEnvironments.<a href="/src/api/resources/sandboxEnvironments/client/Client.ts">delete</a>(name) -> TrueForge.DeleteSandboxEnvironmentResponse</code></summary>
+<dl>
+<dd>
+
+#### 📝 Description
+
+<dl>
+<dd>
+
+<dl>
+<dd>
+
+Delete by name. Fails if any agent still references the environment.
+</dd>
+</dl>
+</dd>
+</dl>
+
+#### 🔌 Usage
+
+<dl>
+<dd>
+
+<dl>
+<dd>
+
+```typescript
+await client.sandboxEnvironments.delete("name");
+
+```
+</dd>
+</dl>
+</dd>
+</dl>
+
+#### ⚙️ Parameters
+
+<dl>
+<dd>
+
+<dl>
+<dd>
+
+**name:** `string` — Sandbox environment name.
+    
+</dd>
+</dl>
+
+<dl>
+<dd>
+
+**requestOptions:** `SandboxEnvironmentsClient.RequestOptions` 
+    
+</dd>
+</dl>
+</dd>
+</dl>
+
+
+</dd>
+</dl>
+</details>
+
 ## Schedules
 <details><summary><code>client.schedules.<a href="/src/api/resources/schedules/client/Client.ts">list</a>({ ...params }) -> core.Page&lt;TrueForge.Schedule, TrueForge.ListSchedulesResponse&gt;</code></summary>
 <dl>
