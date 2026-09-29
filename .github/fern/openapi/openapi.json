@@ -4068,7 +4068,6 @@
       "SandboxEnvironmentVersionStatus": {
         "description": "Readiness of the environment.",
         "enum": [
-          "created",
           "pending",
           "active",
           "failed"

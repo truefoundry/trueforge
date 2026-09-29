@@ -2,7 +2,6 @@
 
 /** Readiness of the environment. */
 export const SandboxEnvironmentVersionStatus = {
-    Created: "created",
     Pending: "pending",
     Active: "active",
     Failed: "failed",

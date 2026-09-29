@@ -7,8 +7,8 @@ import type * as serializers from "../index.js";
 export const SandboxEnvironmentVersionStatus: core.serialization.Schema<
     serializers.SandboxEnvironmentVersionStatus.Raw,
     TrueForge.SandboxEnvironmentVersionStatus
-> = core.serialization.enum_(["created", "pending", "active", "failed"]);
+> = core.serialization.enum_(["pending", "active", "failed"]);
 
 export declare namespace SandboxEnvironmentVersionStatus {
-    export type Raw = "created" | "pending" | "active" | "failed";
+    export type Raw = "pending" | "active" | "failed";
 }

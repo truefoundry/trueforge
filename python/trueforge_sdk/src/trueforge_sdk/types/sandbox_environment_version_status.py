@@ -12,7 +12,6 @@ class SandboxEnvironmentVersionStatus(enum.StrEnum):
     Readiness of the environment.
     """
 
-    CREATED = "created"
     PENDING = "pending"
     ACTIVE = "active"
     FAILED = "failed"
@@ -29,14 +28,11 @@ class SandboxEnvironmentVersionStatus(enum.StrEnum):
 
     def visit(
         self,
-        created: typing.Callable[[], T_Result],
         pending: typing.Callable[[], T_Result],
         active: typing.Callable[[], T_Result],
         failed: typing.Callable[[], T_Result],
         _unknown_member: typing.Callable[[str], T_Result],
     ) -> T_Result:
-        if self is SandboxEnvironmentVersionStatus.CREATED:
-            return created()
         if self is SandboxEnvironmentVersionStatus.PENDING:
             return pending()
         if self is SandboxEnvironmentVersionStatus.ACTIVE:
