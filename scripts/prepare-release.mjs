@@ -19,7 +19,6 @@ import path from 'node:path';
 import { fileURLToPath, pathToFileURL } from 'node:url';
 
 const rootDirDefault = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
-const tsSdkPackage = 'trueforge-sdk';
 const pythonSdkPyproject = 'python/trueforge_sdk/pyproject.toml';
 const chartVersionPattern = /^(\d+)\.(\d+)\.\d+(?:-rc\.\d+)?$/;
 const releaseBranchPattern = /^release-v\d+\.\d+\.\d+$/;
@@ -123,17 +122,6 @@ async function applyPreMode(rootDir, chartVersion, run) {
   const args = command === 'enter' ? ['changeset', 'pre', 'enter', 'rc'] : ['changeset', 'pre', 'exit'];
   await run('pnpm', args, rootDir);
   return command;
-}
-
-/** Poetry version tracks the TS SDK, the same lockstep `scripts/version.mjs` keeps. */
-async function setPythonSdkVersion(rootDir, version) {
-  const pyprojectPath = path.join(rootDir, pythonSdkPyproject);
-  const toml = await readFile(pyprojectPath, 'utf8');
-  const next = toml.replace(/^version\s*=\s*"[^"]+"/m, `version = "${version}"`);
-  if (next === toml) {
-    throw new Error(`${pyprojectPath} is missing version = "…"`);
-  }
-  await writeFile(pyprojectPath, next);
 }
 
 async function bootstrapZeroVersions(rootDir, chartVersion) {
