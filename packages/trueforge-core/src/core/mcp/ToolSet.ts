@@ -29,7 +29,19 @@ export class ToolSet implements IToolSet {
   private readonly policy: ToolSelectorPolicy;
   private readonly approvalPolicies = new Map<string, ToolApprovalPolicyAction>();
 
-  constructor(params: { source: ToolSource; selectors: ToolSelectorConfig; preload: boolean }) {
+  private static isPolicyApplicable(policy: ToolApprovalPolicyAction, asOf: Date): boolean {
+    return (
+      policy.type === 'allow_session' &&
+      (policy.expire_at === undefined || new Date(policy.expire_at).getTime() > asOf.getTime())
+    );
+  }
+
+  constructor(params: {
+    source: ToolSource;
+    selectors: ToolSelectorConfig;
+    preload: boolean;
+    approvalPolicies: Record<string, ToolApprovalPolicyAction> | undefined;
+  }) {
     this.source = params.source;
     this.name = params.source.name;
     this.id = params.source.id;
@@ -40,6 +52,14 @@ export class ToolSet implements IToolSet {
     });
     this.preload = this.policy.preload;
     this.hasPreloadedTools = this.policy.hasPreloadedTools;
+    // Drop already-expired policies carried forward from the previous snapshot so
+    // dead policies don't accumulate and get re-persisted turn after turn.
+    const asOf = new Date();
+    for (const [toolName, action] of Object.entries(params.approvalPolicies ?? {})) {
+      if (ToolSet.isPolicyApplicable(action, asOf)) {
+        this.approvalPolicies.set(toolName, action);
+      }
+    }
   }
 
   getAllowedToolNamesForSandbox(): string[] | undefined {
@@ -53,6 +73,11 @@ export class ToolSet implements IToolSet {
 
   getApprovalPolicies(): Record<string, ToolApprovalPolicyAction> {
     return Object.fromEntries(this.approvalPolicies);
+  }
+
+  private hasApplicablePolicy(toolName: string): boolean {
+    const policy = this.approvalPolicies.get(toolName);
+    return policy !== undefined && ToolSet.isPolicyApplicable(policy, new Date());
   }
 
   async listTools(): Promise<ListToolsResponse> {
@@ -131,7 +156,8 @@ export class ToolSet implements IToolSet {
   ): Promise<InternalToolCallInfo> {
     return {
       ...(await this.source.toolCallInfo(params, resolveUnderlyingTool)),
-      is_approval_required: this.policy.requiresApproval(params.name, annotations),
+      is_approval_required:
+        this.policy.requiresApproval(params.name, annotations) && !this.hasApplicablePolicy(params.name),
     };
   }
 

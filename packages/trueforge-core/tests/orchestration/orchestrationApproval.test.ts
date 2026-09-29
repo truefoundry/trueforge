@@ -1,6 +1,8 @@
 /** Pause on write_note approval, then resume after allow or deny. */
 import { EventType } from '../../src/core/events/schema';
-import type { IToolSet } from '../../src/core/mcp/IMCPServer';
+import type { IToolSet, ToolSource } from '../../src/core/mcp/IMCPServer';
+import { toolResultResponse } from '../../src/core/mcp/IMCPServer';
+import { ToolSet } from '../../src/core/mcp/ToolSet';
 import { AgentThread } from '../../src/core/runtime/AgentThread';
 import { InternalEventType, type AgentThreadConstructorInput } from '../../src/core/runtime/AgentThread.types';
 import { AgentThreadOrchestrator } from '../../src/core/runtime/AgentThreadOrchestrator';
@@ -8,7 +10,6 @@ import { NOOP_AGENT_TRACING } from '../../src/core/tracing/NoopAgentTracing';
 import { makeSilentLogger } from '../core/harnessMocks';
 import {
   llmCreateInputs,
-  makeApprovalGatedWriteNoteToolSet,
   runTurn,
   textReplyStream,
   WRITE_NOTE_ARGUMENTS,
@@ -17,6 +18,60 @@ import {
   WRITE_NOTE_TOOL_NAME,
   writeNoteToolCallStream,
 } from './helpers/helpers';
+
+/** notes MCP server exposing an approval-gated write_note tool. */
+function makeWriteNoteSource(callTool: ToolSource['callTool']): ToolSource {
+  return {
+    name: 'notes',
+    id: 'notes',
+    listTools: () =>
+      Promise.resolve({
+        result: {
+          tools: [
+            {
+              name: WRITE_NOTE_TOOL_NAME,
+              description: 'Write a note',
+              inputSchema: { type: 'object', properties: { text: { type: 'string' } } },
+              preload: true,
+            },
+          ],
+        },
+        wasInitialized: undefined,
+      }),
+    callTool,
+    toolCallInfo: () =>
+      Promise.resolve({
+        type: 'mcp',
+        mcp_server_id: 'notes',
+        mcp_server_name: 'notes',
+        original_tool_name: WRITE_NOTE_TOOL_NAME,
+      }),
+  };
+}
+
+const GATED_WRITE_NOTE_SELECTORS = {
+  enableTools: ['@all'],
+  disableTools: [],
+  preloadTools: [],
+  requireApprovalForTools: [WRITE_NOTE_TOOL_NAME],
+};
+
+/** Approval-gated write_note tool set; `callTool` spy proves allow runs the source and deny does not. */
+function makeApprovalGatedWriteNoteToolSet(): {
+  toolSet: IToolSet;
+  callTool: jest.Mock;
+} {
+  const callTool = jest.fn(() => Promise.resolve(toolResultResponse({ text: WRITE_NOTE_RESULT })));
+  return {
+    toolSet: new ToolSet({
+      source: makeWriteNoteSource(callTool),
+      selectors: GATED_WRITE_NOTE_SELECTORS,
+      preload: true,
+      approvalPolicies: undefined,
+    }),
+    callTool,
+  };
+}
 
 const ROOT_ID = 'thread_root';
 const DENY_REASON = 'not allowed in this test';
@@ -278,7 +333,7 @@ describe('AgentThreadOrchestrator.applyApprovalPolicies', () => {
     });
   });
 
-  it('records a grant on the matching tool set for a known server', () => {
+  it('records a policy on the matching tool set for a known server', () => {
     const result = orchestrator.applyApprovalPolicies([
       { server_name: POLICY_SERVER_NAME, name: WRITE_NOTE_TOOL_NAME, action: { type: 'allow_session' } },
     ]);
@@ -289,7 +344,7 @@ describe('AgentThreadOrchestrator.applyApprovalPolicies', () => {
     });
   });
 
-  it('carries expiry through onto the recorded grant', () => {
+  it('carries expiry through onto the recorded policy', () => {
     const expire_at = '2099-01-01T00:00:00.000Z';
 
     orchestrator.applyApprovalPolicies([
@@ -328,6 +383,79 @@ describe('AgentThreadOrchestrator.applyApprovalPolicies', () => {
     expect(toolSet.getApprovalPolicies()).toEqual({
       [WRITE_NOTE_TOOL_NAME]: { type: 'allow_session', expire_at: '2099-01-01T00:00:00.000Z' },
     });
+  });
+});
+
+describe('ToolSet: policy-aware is_approval_required', () => {
+  const writeNoteParams = { name: WRITE_NOTE_TOOL_NAME, arguments: { text: 'hi' } };
+
+  it('requires approval by default for a gated tool', async () => {
+    const { toolSet } = makeApprovalGatedWriteNoteToolSet();
+    const info = await toolSet.toolCallInfo(writeNoteParams);
+    expect(info.is_approval_required).toBe(true);
+  });
+
+  it('without an applicable policy, callTool returns approvalRequired and does not run the tool', async () => {
+    const { toolSet, callTool } = makeApprovalGatedWriteNoteToolSet();
+    const response = await toolSet.callTool(writeNoteParams);
+    expect('approvalRequired' in response).toBe(true);
+    expect(callTool).not.toHaveBeenCalled();
+  });
+
+  it('an applicable policy auto-allows: no approval flag, callTool runs without a decision', async () => {
+    const { toolSet, callTool } = makeApprovalGatedWriteNoteToolSet();
+    toolSet.applyApprovalPolicy(WRITE_NOTE_TOOL_NAME, { type: 'allow_session' });
+
+    const info = await toolSet.toolCallInfo(writeNoteParams);
+    expect(info.is_approval_required).toBe(false);
+
+    const response = await toolSet.callTool(writeNoteParams);
+    expect('approvalRequired' in response).toBe(false);
+    expect(callTool).toHaveBeenCalledTimes(1);
+  });
+
+  it('an unexpired policy auto-allows', async () => {
+    const { toolSet } = makeApprovalGatedWriteNoteToolSet();
+    toolSet.applyApprovalPolicy(WRITE_NOTE_TOOL_NAME, {
+      type: 'allow_session',
+      expire_at: '2099-01-01T00:00:00.000Z',
+    });
+    const info = await toolSet.toolCallInfo(writeNoteParams);
+    expect(info.is_approval_required).toBe(false);
+  });
+
+  it('an expired policy still requires approval', async () => {
+    const { toolSet } = makeApprovalGatedWriteNoteToolSet();
+    toolSet.applyApprovalPolicy(WRITE_NOTE_TOOL_NAME, {
+      type: 'allow_session',
+      expire_at: '2000-01-01T00:00:00.000Z',
+    });
+    const info = await toolSet.toolCallInfo(writeNoteParams);
+    expect(info.is_approval_required).toBe(true);
+  });
+
+  it('carries an applicable policy forward from the previous snapshot at construction', async () => {
+    const toolSet = new ToolSet({
+      source: makeWriteNoteSource(jest.fn()),
+      selectors: GATED_WRITE_NOTE_SELECTORS,
+      preload: true,
+      approvalPolicies: { [WRITE_NOTE_TOOL_NAME]: { type: 'allow_session' } },
+    });
+    const info = await toolSet.toolCallInfo(writeNoteParams);
+    expect(info.is_approval_required).toBe(false);
+  });
+
+  it('drops already-expired policies carried forward from the snapshot', async () => {
+    const toolSet = new ToolSet({
+      source: makeWriteNoteSource(jest.fn()),
+      selectors: GATED_WRITE_NOTE_SELECTORS,
+      preload: true,
+      approvalPolicies: { [WRITE_NOTE_TOOL_NAME]: { type: 'allow_session', expire_at: '2000-01-01T00:00:00.000Z' } },
+    });
+    // Pruned at seed, so it is neither exposed nor auto-allowing.
+    expect(toolSet.getApprovalPolicies()).toEqual({});
+    const info = await toolSet.toolCallInfo(writeNoteParams);
+    expect(info.is_approval_required).toBe(true);
   });
 });
 
