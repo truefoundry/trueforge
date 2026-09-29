@@ -93,11 +93,11 @@ export interface SandboxEnvironment {
         network_block_all?: boolean | undefined;
         domain_allow_list?: string | undefined;
         secrets?:
-          | Array<{
+          | {
               env: string;
               value: string;
               hosts: string[];
-            }>
+            }[]
           | undefined;
       }
     | undefined;
