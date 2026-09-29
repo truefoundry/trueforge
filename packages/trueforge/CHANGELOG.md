@@ -1,5 +1,12 @@
 # @truefoundry/trueforge
 
+## 0.176.0-rc.1
+
+### Patch Changes
+
+- Updated dependencies [fae79d0]
+  - @truefoundry/trueforge-sdk@0.176.0-rc.1
+
 ## 0.3.0
 
 ### Minor Changes
