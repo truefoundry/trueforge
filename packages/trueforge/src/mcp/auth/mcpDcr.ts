@@ -279,7 +279,7 @@ export async function resolveMcpAuth(params: {
   if (token) {
     await params.tokenStore.deleteToken(tokenKey);
   }
-  const authUrl = await buildMcpAuthorizationUrl({
+  const { authorizationUrl: authUrl } = await buildMcpAuthorizationUrl({
     tokenStore: params.tokenStore,
     client,
     serverId: params.serverId,
