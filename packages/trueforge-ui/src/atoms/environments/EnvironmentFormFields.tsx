@@ -112,7 +112,7 @@ export function EnvironmentFormFields({
   const update = (patch: Partial<EnvironmentFormValues>) => onChange({ ...values, ...patch });
 
   return (
-    <div className="flex flex-col gap-5">
+    <div className="flex flex-col gap-5 pb-8">
       <label className="flex flex-col gap-1.5">
         <span className={labelClassName}>Name</span>
         <input

@@ -1,8 +1,11 @@
 // @vitest-environment jsdom
-import { render, screen, waitFor } from '@testing-library/react';
+import { act, render, screen, waitFor } from '@testing-library/react';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
-import { EnvironmentsPage } from '@/atoms/environments/EnvironmentsPage.js';
+import {
+  EnvironmentsPage,
+  PENDING_ENVIRONMENTS_POLL_INTERVAL_MS,
+} from '@/atoms/environments/EnvironmentsPage.js';
 import { ToasterProvider } from '@/containers/ToasterContainer.js';
 import { ServerProvider } from '@/server/ServerContext.js';
 import { ShellModeProvider } from '@/server/ShellModeContext.js';
@@ -140,4 +143,44 @@ describe('EnvironmentsPage', () => {
       expect(screen.getByText('New environment')).toBeInTheDocument();
     });
   });
+
+  it('polls pending environments using getEnvironment in the background', async () => {
+    vi.useFakeTimers({ shouldAdvanceTime: true });
+    const pendingEnv = {
+      id: 'env-1',
+      name: 'building-env',
+      description: '',
+      status: 'pending' as const,
+      statusReason: null,
+      manifest: { name: 'building-env' },
+      createdBySubject: { subjectId: 'u1', subjectType: 'user', subjectDisplayName: 'user-1' },
+      createdAt: '2026-09-01T10:00:00Z',
+      updatedAt: '2026-09-01T10:00:00Z',
+    };
+    const listEnvironments = vi.fn(async () => ({
+      data: [pendingEnv],
+    }));
+    const getEnvironment = vi.fn(async () => ({
+      ...pendingEnv,
+      status: 'active' as const,
+    }));
+
+    try {
+      renderPage({ environmentOverrides: { listEnvironments, getEnvironment } });
+      await waitFor(() => {
+        expect(screen.getByText('building-env')).toBeInTheDocument();
+      });
+
+      expect(getEnvironment).not.toHaveBeenCalled();
+
+      await act(async () => {
+        vi.advanceTimersByTime(PENDING_ENVIRONMENTS_POLL_INTERVAL_MS + 100);
+      });
+
+      expect(getEnvironment).toHaveBeenCalledWith({ name: 'building-env' });
+    } finally {
+      vi.useRealTimers();
+    }
+  });
 });
+

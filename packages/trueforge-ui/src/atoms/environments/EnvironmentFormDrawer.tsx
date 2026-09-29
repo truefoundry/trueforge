@@ -186,7 +186,7 @@ export function EnvironmentFormDrawer({ open, onOpenChange, mode, environment, o
       >
         <form
           id="environment-form"
-          className={cn('flex min-h-0 flex-1 flex-col gap-4 px-5 pt-4', editorMode === 'form' ? 'pb-10' : 'pb-4')}
+          className={cn('flex min-h-0 flex-1 flex-col gap-4 px-5 pt-4', editorMode === 'form' ? 'pb-10' : 'h-full pb-4')}
           onSubmit={event => void handleSave(event)}
         >
           {error != null ? <p className="text-sm text-failure-bg">{error}</p> : null}
@@ -194,15 +194,17 @@ export function EnvironmentFormDrawer({ open, onOpenChange, mode, environment, o
           {editorMode === 'form' ? (
             <EnvironmentFormFields values={form} onChange={setForm} nameDisabled={mode === 'edit'} />
           ) : (
-            <CodeEditor
-              language="yaml"
-              value={yamlText}
-              height="100%"
-              showToolbar={false}
-              defaultShowLineNumbers
-              className="min-h-[28rem] flex-1"
-              onChange={value => setYamlText(value)}
-            />
+            <div className="flex min-h-[30rem] flex-1 flex-col">
+              <CodeEditor
+                language="yaml"
+                value={yamlText}
+                height="100%"
+                showToolbar={false}
+                defaultShowLineNumbers
+                className="flex-1"
+                onChange={value => setYamlText(value)}
+              />
+            </div>
           )}
         </form>
       </SideDrawer>

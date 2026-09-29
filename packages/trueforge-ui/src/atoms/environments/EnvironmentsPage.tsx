@@ -38,6 +38,7 @@ import { EnvironmentStatusBadge } from './EnvironmentStatusBadge.js';
 type DrawerState = { kind: 'closed' } | { kind: 'create' } | { kind: 'edit'; environment: SandboxEnvironment };
 
 const ENVIRONMENTS_PAGE_SIZE_OPTIONS = [10, 25] as const;
+export const PENDING_ENVIRONMENTS_POLL_INTERVAL_MS = 10_000;
 
 function clampPageSize(size: number): number {
   return Math.min(Math.max(size, 1), 25);
@@ -71,6 +72,8 @@ export function EnvironmentsPage(_props: EnvironmentsPageProps) {
   const didConsumeIsNewRef = useRef(false);
 
   const checkProvider = useCallback(async () => {
+    // Only fetch providers if we don't already know providerReady
+    if (providerReady != null) return providerReady;
     const sandboxCatalog = catalog?.sandboxCatalog;
     if (sandboxCatalog == null) {
       setProviderReady(false);
@@ -85,13 +88,23 @@ export function EnvironmentsPage(_props: EnvironmentsPageProps) {
       setProviderReady(false);
       return false;
     }
-  }, [catalog]);
+  }, [catalog, providerReady]);
 
   const loadEnvironments = useCallback(
-    async ({ token, size }: { token: string | undefined; size: number }) => {
+    async ({
+      token,
+      size,
+      silent = false,
+    }: {
+      token: string | undefined;
+      size: number;
+      silent?: boolean;
+    }) => {
       const gen = ++loadGenRef.current;
-      setLoading(true);
-      setError(null);
+      if (!silent) {
+        setLoading(true);
+        setError(null);
+      }
       try {
         const ready = await checkProvider();
         if (!ready) {
@@ -111,12 +124,14 @@ export function EnvironmentsPage(_props: EnvironmentsPageProps) {
         setPreviousPageToken(page.previousPageToken);
       } catch (caught) {
         if (gen !== loadGenRef.current) return;
-        setError(getErrorMessage(caught, 'Failed to load environments'));
-        setEnvironments([]);
-        setNextPageToken(undefined);
-        setPreviousPageToken(undefined);
+        if (!silent) {
+          setError(getErrorMessage(caught, 'Failed to load environments'));
+          setEnvironments([]);
+          setNextPageToken(undefined);
+          setPreviousPageToken(undefined);
+        }
       } finally {
-        if (gen === loadGenRef.current) setLoading(false);
+        if (gen === loadGenRef.current && !silent) setLoading(false);
       }
     },
     [checkProvider, environmentServer],
@@ -131,6 +146,35 @@ export function EnvironmentsPage(_props: EnvironmentsPageProps) {
   useEffect(() => {
     void loadEnvironments({ token: pageToken, size: pageSize });
   }, [loadEnvironments, pageSize, pageToken]);
+
+  // Poll individual pending environments using single-environment get API
+  useEffect(() => {
+    const pendingEnvs = environments.filter(env => env.status === 'pending');
+    if (pendingEnvs.length === 0) return;
+
+    const intervalId = window.setInterval(async () => {
+      try {
+        const updates = await Promise.all(
+          pendingEnvs.map(env =>
+            environmentServer.getEnvironment({ name: env.name }).catch(() => null),
+          ),
+        );
+        const resolved = updates.filter((u): u is SandboxEnvironment => u != null);
+        if (resolved.length === 0) return;
+
+        setEnvironments(prev =>
+          prev.map(item => {
+            const updated = resolved.find(u => u.name === item.name);
+            return updated ?? item;
+          }),
+        );
+      } catch {
+        // Silently preserve current list on network error
+      }
+    }, PENDING_ENVIRONMENTS_POLL_INTERVAL_MS);
+
+    return () => window.clearInterval(intervalId);
+  }, [environments, environmentServer]);
 
   useEffect(() => {
     if (didConsumeIsNewRef.current) return;
