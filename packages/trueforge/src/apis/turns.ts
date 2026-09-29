@@ -237,7 +237,6 @@ function createTurnResolver(deps: {
         logger,
         sessionId,
         sandboxEnvironmentStore,
-        created_by_subject_id: session.record.created_by_subject.subject_id,
         ...(environment_name ? { environment_name } : {}),
       });
       if (resolved === undefined) {
@@ -683,7 +682,6 @@ export function createTurnsRouter(deps: TurnsRouterDeps) {
         store: deps.resolveSandboxProviderStore(c),
         logger: deps.logger,
         sessionId,
-        created_by_subject_id: requestContext.subject.id,
       });
       if (resolved === undefined) {
         return c.json({ error: { message: 'No sandbox provider configured' } }, 412);

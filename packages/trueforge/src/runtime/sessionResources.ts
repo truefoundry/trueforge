@@ -142,8 +142,9 @@ export async function getMcpConnection({
  * in-memory local fallback when standalone + the cached probe is supported.
  * Builds a fresh provider client per call (no network I/O).
  *
- * When `environment_name` is set, loads that sandbox environment (must be
- * `active`), applies create overlays, and for `image.type === 'build'` pins the
+ * When `environment_name` is set, loads that sandbox environment by tenant + name
+ * (must be `active`) — no subject ownership check so anyone who can run the agent
+ * can use its env. Applies create overlays; for `image.type === 'build'` pins the
  * Daytona snapshot to the environment version `external_ref`.
  */
 /** Single path segment under the sandboxes parent (`_` when sessionId is missing or unsafe). */
@@ -170,7 +171,6 @@ export async function resolveSandboxProvider({
   sessionId,
   environment_name,
   sandboxEnvironmentStore,
-  created_by_subject_id,
 }: {
   tenant_id: string;
   store: ISandboxProviderStore;
@@ -178,8 +178,6 @@ export async function resolveSandboxProvider({
   sessionId: string;
   environment_name?: string;
   sandboxEnvironmentStore?: ISandboxEnvironmentStore;
-  /** Session/request subject; required to load a named environment. */
-  created_by_subject_id: string;
 }): Promise<ResolvedSandboxProvider | undefined> {
   const record = await store.getSandboxProvider(tenant_id);
 
@@ -187,7 +185,6 @@ export async function resolveSandboxProvider({
     const loaded = await sandboxEnvironmentStore?.getEnvironment({
       tenant_id,
       name: environment_name,
-      created_by_subject_id,
     });
     if (loaded === undefined) {
       throw new HTTPException(422, {
