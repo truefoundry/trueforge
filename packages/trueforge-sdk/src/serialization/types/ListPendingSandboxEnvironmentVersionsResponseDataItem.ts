@@ -8,19 +8,11 @@ export const ListPendingSandboxEnvironmentVersionsResponseDataItem: core.seriali
     serializers.ListPendingSandboxEnvironmentVersionsResponseDataItem.Raw,
     TrueForge.ListPendingSandboxEnvironmentVersionsResponseDataItem
 > = core.serialization.object({
-    environmentId: core.serialization.property("environment_id", core.serialization.string()),
-    environmentName: core.serialization.property("environment_name", core.serialization.string()),
-    externalRef: core.serialization.property("external_ref", core.serialization.string()),
-    tenantId: core.serialization.property("tenant_id", core.serialization.string()),
-    version: core.serialization.number(),
+    environmentVersionId: core.serialization.property("environment_version_id", core.serialization.string()),
 });
 
 export declare namespace ListPendingSandboxEnvironmentVersionsResponseDataItem {
     export interface Raw {
-        environment_id: string;
-        environment_name: string;
-        external_ref: string;
-        tenant_id: string;
-        version: number;
+        environment_version_id: string;
     }
 }

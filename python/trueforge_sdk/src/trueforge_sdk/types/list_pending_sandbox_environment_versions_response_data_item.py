@@ -8,11 +8,10 @@ from ..core.unchecked_base_model import UncheckedBaseModel
 
 
 class ListPendingSandboxEnvironmentVersionsResponseDataItem(UncheckedBaseModel):
-    environment_id: str
-    environment_name: str
-    external_ref: str
-    tenant_id: str
-    version: int
+    environment_version_id: str = pydantic.Field()
+    """
+    Version row id to progress.
+    """
 
     if IS_PYDANTIC_V2:
         model_config: typing.ClassVar[pydantic.ConfigDict] = pydantic.ConfigDict(extra="allow")  # type: ignore # Pydantic v2

@@ -9,17 +9,7 @@ describe("SandboxEnvironmentsClient", () => {
         const server = mockServerPool.createServer();
         const client = new TrueForge({ maxRetries: 0, token: "test", baseUrl: server.baseUrl });
 
-        const rawResponseBody = {
-            data: [
-                {
-                    environment_id: "environment_id",
-                    environment_name: "environment_name",
-                    external_ref: "external_ref",
-                    tenant_id: "tenant_id",
-                    version: 1,
-                },
-            ],
-        };
+        const rawResponseBody = { data: [{ environment_version_id: "environment_version_id" }] };
 
         server
             .mockEndpoint()
@@ -33,11 +23,7 @@ describe("SandboxEnvironmentsClient", () => {
         expect(response).toEqual({
             data: [
                 {
-                    environmentId: "environment_id",
-                    environmentName: "environment_name",
-                    externalRef: "external_ref",
-                    tenantId: "tenant_id",
-                    version: 1,
+                    environmentVersionId: "environment_version_id",
                 },
             ],
         });
@@ -65,7 +51,7 @@ describe("SandboxEnvironmentsClient", () => {
     test("progress (1)", async () => {
         const server = mockServerPool.createServer();
         const client = new TrueForge({ maxRetries: 0, token: "test", baseUrl: server.baseUrl });
-        const rawRequestBody = { environment_id: "environment_id", version: 1 };
+        const rawRequestBody = { environment_version_id: "environment_version_id" };
 
         server
             .mockEndpoint()
@@ -76,8 +62,7 @@ describe("SandboxEnvironmentsClient", () => {
             .build();
 
         const response = await client.internal.sandboxEnvironments.progress({
-            environmentId: "environment_id",
-            version: 1,
+            environmentVersionId: "environment_version_id",
         });
         expect(response).toEqual(undefined);
     });
@@ -85,7 +70,7 @@ describe("SandboxEnvironmentsClient", () => {
     test("progress (2)", async () => {
         const server = mockServerPool.createServer();
         const client = new TrueForge({ maxRetries: 0, token: "test", baseUrl: server.baseUrl });
-        const rawRequestBody = { environment_id: "x", version: 1 };
+        const rawRequestBody = { environment_version_id: "x" };
         const rawResponseBody = { error: { message: "message" } };
 
         server
@@ -99,8 +84,7 @@ describe("SandboxEnvironmentsClient", () => {
 
         await expect(async () => {
             return await client.internal.sandboxEnvironments.progress({
-                environmentId: "x",
-                version: 1,
+                environmentVersionId: "x",
             });
         }).rejects.toThrow(TrueForgeTypes.UnauthorizedError);
     });
@@ -108,7 +92,7 @@ describe("SandboxEnvironmentsClient", () => {
     test("progress (3)", async () => {
         const server = mockServerPool.createServer();
         const client = new TrueForge({ maxRetries: 0, token: "test", baseUrl: server.baseUrl });
-        const rawRequestBody = { environment_id: "x", version: 1 };
+        const rawRequestBody = { environment_version_id: "x" };
         const rawResponseBody = { error: { message: "message" } };
 
         server
@@ -122,8 +106,7 @@ describe("SandboxEnvironmentsClient", () => {
 
         await expect(async () => {
             return await client.internal.sandboxEnvironments.progress({
-                environmentId: "x",
-                version: 1,
+                environmentVersionId: "x",
             });
         }).rejects.toThrow(TrueForgeTypes.NotFoundError);
     });

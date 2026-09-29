@@ -3,13 +3,10 @@
 /**
  * @example
  *     {
- *         environmentId: "environment_id",
- *         version: 1
+ *         environmentVersionId: "environment_version_id"
  *     }
  */
 export interface ProgressSandboxEnvironmentVersionRequest {
-    /** Parent environment id. */
-    environmentId: string;
-    /** Version number to progress. */
-    version: number;
+    /** Version row id to progress. */
+    environmentVersionId: string;
 }

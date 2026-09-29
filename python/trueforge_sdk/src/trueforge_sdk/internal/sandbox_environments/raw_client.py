@@ -81,18 +81,15 @@ class RawSandboxEnvironmentsClient:
         raise ApiError(status_code=_response.status_code, headers=dict(_response.headers), body=_response_json)
 
     def progress(
-        self, *, environment_id: str, version: int, request_options: typing.Optional[RequestOptions] = None
+        self, *, environment_version_id: str, request_options: typing.Optional[RequestOptions] = None
     ) -> HttpResponse[None]:
         """
         Registers or polls the Daytona snapshot and updates version status.
 
         Parameters
         ----------
-        environment_id : str
-            Parent environment id.
-
-        version : int
-            Version number to progress.
+        environment_version_id : str
+            Version row id to progress.
 
         request_options : typing.Optional[RequestOptions]
             Request-specific configuration.
@@ -105,8 +102,7 @@ class RawSandboxEnvironmentsClient:
             "api/internal/sandbox-environments/progress",
             method="POST",
             json={
-                "environment_id": environment_id,
-                "version": version,
+                "environment_version_id": environment_version_id,
             },
             headers={
                 "content-type": "application/json",
@@ -211,18 +207,15 @@ class AsyncRawSandboxEnvironmentsClient:
         raise ApiError(status_code=_response.status_code, headers=dict(_response.headers), body=_response_json)
 
     async def progress(
-        self, *, environment_id: str, version: int, request_options: typing.Optional[RequestOptions] = None
+        self, *, environment_version_id: str, request_options: typing.Optional[RequestOptions] = None
     ) -> AsyncHttpResponse[None]:
         """
         Registers or polls the Daytona snapshot and updates version status.
 
         Parameters
         ----------
-        environment_id : str
-            Parent environment id.
-
-        version : int
-            Version number to progress.
+        environment_version_id : str
+            Version row id to progress.
 
         request_options : typing.Optional[RequestOptions]
             Request-specific configuration.
@@ -235,8 +228,7 @@ class AsyncRawSandboxEnvironmentsClient:
             "api/internal/sandbox-environments/progress",
             method="POST",
             json={
-                "environment_id": environment_id,
-                "version": version,
+                "environment_version_id": environment_version_id,
             },
             headers={
                 "content-type": "application/json",

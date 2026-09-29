@@ -132,8 +132,7 @@ export class SandboxEnvironmentsClient {
      *
      * @example
      *     await client.internal.sandboxEnvironments.progress({
-     *         environmentId: "environment_id",
-     *         version: 1
+     *         environmentVersionId: "environment_version_id"
      *     })
      */
     public progress(

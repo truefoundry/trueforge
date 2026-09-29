@@ -24,7 +24,7 @@ export class SandboxEnvironmentsClient {
     }
 
     /**
-     * List sandbox environments created by the authenticated subject, newest first.
+     * List the tenant default environment plus sandbox environments created by the authenticated subject.
      *
      * @param {TrueForge.ListSandboxEnvironmentsRequest} request
      * @param {SandboxEnvironmentsClient.RequestOptions} requestOptions - Request-specific configuration.
@@ -276,7 +276,7 @@ export class SandboxEnvironmentsClient {
     }
 
     /**
-     * Get a sandbox environment by name for the authenticated subject.
+     * Get a sandbox environment by name. The tenant default is readable by any tenant member; custom environments are owner-scoped.
      *
      * @param {string} name - Sandbox environment name.
      * @param {SandboxEnvironmentsClient.RequestOptions} requestOptions - Request-specific configuration.

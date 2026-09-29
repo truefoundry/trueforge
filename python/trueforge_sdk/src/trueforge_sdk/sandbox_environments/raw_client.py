@@ -41,7 +41,7 @@ class RawSandboxEnvironmentsClient:
         request_options: typing.Optional[RequestOptions] = None,
     ) -> SyncPager[SandboxEnvironment, ListSandboxEnvironmentsResponse]:
         """
-        List sandbox environments created by the authenticated subject, newest first.
+        List the tenant default environment plus sandbox environments created by the authenticated subject.
 
         Parameters
         ----------
@@ -219,7 +219,7 @@ class RawSandboxEnvironmentsClient:
         self, *, name: str, request_options: typing.Optional[RequestOptions] = None
     ) -> HttpResponse[GetSandboxEnvironmentResponse]:
         """
-        Get a sandbox environment by name for the authenticated subject.
+        Get a sandbox environment by name. The tenant default is readable by any tenant member; custom environments are owner-scoped.
 
         Parameters
         ----------
@@ -369,7 +369,7 @@ class AsyncRawSandboxEnvironmentsClient:
         request_options: typing.Optional[RequestOptions] = None,
     ) -> AsyncPager[SandboxEnvironment, ListSandboxEnvironmentsResponse]:
         """
-        List sandbox environments created by the authenticated subject, newest first.
+        List the tenant default environment plus sandbox environments created by the authenticated subject.
 
         Parameters
         ----------
@@ -550,7 +550,7 @@ class AsyncRawSandboxEnvironmentsClient:
         self, *, name: str, request_options: typing.Optional[RequestOptions] = None
     ) -> AsyncHttpResponse[GetSandboxEnvironmentResponse]:
         """
-        Get a sandbox environment by name for the authenticated subject.
+        Get a sandbox environment by name. The tenant default is readable by any tenant member; custom environments are owner-scoped.
 
         Parameters
         ----------

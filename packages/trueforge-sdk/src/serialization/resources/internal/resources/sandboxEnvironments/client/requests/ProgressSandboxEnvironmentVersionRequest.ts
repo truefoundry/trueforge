@@ -8,13 +8,11 @@ export const ProgressSandboxEnvironmentVersionRequest: core.serialization.Schema
     serializers.internal.ProgressSandboxEnvironmentVersionRequest.Raw,
     TrueForge.internal.ProgressSandboxEnvironmentVersionRequest
 > = core.serialization.object({
-    environmentId: core.serialization.property("environment_id", core.serialization.string()),
-    version: core.serialization.number(),
+    environmentVersionId: core.serialization.property("environment_version_id", core.serialization.string()),
 });
 
 export declare namespace ProgressSandboxEnvironmentVersionRequest {
     export interface Raw {
-        environment_id: string;
-        version: number;
+        environment_version_id: string;
     }
 }

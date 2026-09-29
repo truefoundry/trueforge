@@ -1062,7 +1062,7 @@ client.models.list()
 <dl>
 <dd>
 
-List sandbox environments created by the authenticated subject, newest first.
+List the tenant default environment plus sandbox environments created by the authenticated subject.
 </dd>
 </dl>
 </dd>
@@ -1214,7 +1214,7 @@ client.sandbox_environments.create_or_update(
 <dl>
 <dd>
 
-Get a sandbox environment by name for the authenticated subject.
+Get a sandbox environment by name. The tenant default is readable by any tenant member; custom environments are owner-scoped.
 </dd>
 </dl>
 </dd>
@@ -4129,8 +4129,7 @@ client = TrueForge(
 )
 
 client.internal.sandbox_environments.progress(
-    environment_id="environment_id",
-    version=1,
+    environment_version_id="environment_version_id",
 )
 
 ```
@@ -4147,15 +4146,7 @@ client.internal.sandbox_environments.progress(
 <dl>
 <dd>
 
-**environment_id:** `str` — Parent environment id.
-    
-</dd>
-</dl>
-
-<dl>
-<dd>
-
-**version:** `int` — Version number to progress.
+**environment_version_id:** `str` — Version row id to progress.
     
 </dd>
 </dl>

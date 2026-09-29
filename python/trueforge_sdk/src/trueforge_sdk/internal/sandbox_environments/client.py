@@ -58,19 +58,14 @@ class SandboxEnvironmentsClient:
         _response = self._raw_client.list_pending(limit=limit, request_options=request_options)
         return _response.data
 
-    def progress(
-        self, *, environment_id: str, version: int, request_options: typing.Optional[RequestOptions] = None
-    ) -> None:
+    def progress(self, *, environment_version_id: str, request_options: typing.Optional[RequestOptions] = None) -> None:
         """
         Registers or polls the Daytona snapshot and updates version status.
 
         Parameters
         ----------
-        environment_id : str
-            Parent environment id.
-
-        version : int
-            Version number to progress.
+        environment_version_id : str
+            Version row id to progress.
 
         request_options : typing.Optional[RequestOptions]
             Request-specific configuration.
@@ -88,12 +83,11 @@ class SandboxEnvironmentsClient:
             base_url="https://yourhost.com/path/to/api",
         )
         client.internal.sandbox_environments.progress(
-            environment_id="environment_id",
-            version=1,
+            environment_version_id="environment_version_id",
         )
         """
         _response = self._raw_client.progress(
-            environment_id=environment_id, version=version, request_options=request_options
+            environment_version_id=environment_version_id, request_options=request_options
         )
         return _response.data
 
@@ -154,18 +148,15 @@ class AsyncSandboxEnvironmentsClient:
         return _response.data
 
     async def progress(
-        self, *, environment_id: str, version: int, request_options: typing.Optional[RequestOptions] = None
+        self, *, environment_version_id: str, request_options: typing.Optional[RequestOptions] = None
     ) -> None:
         """
         Registers or polls the Daytona snapshot and updates version status.
 
         Parameters
         ----------
-        environment_id : str
-            Parent environment id.
-
-        version : int
-            Version number to progress.
+        environment_version_id : str
+            Version row id to progress.
 
         request_options : typing.Optional[RequestOptions]
             Request-specific configuration.
@@ -188,14 +179,13 @@ class AsyncSandboxEnvironmentsClient:
 
         async def main() -> None:
             await client.internal.sandbox_environments.progress(
-                environment_id="environment_id",
-                version=1,
+                environment_version_id="environment_version_id",
             )
 
 
         asyncio.run(main())
         """
         _response = await self._raw_client.progress(
-            environment_id=environment_id, version=version, request_options=request_options
+            environment_version_id=environment_version_id, request_options=request_options
         )
         return _response.data

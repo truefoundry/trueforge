@@ -913,7 +913,7 @@ await client.models.list();
 <dl>
 <dd>
 
-List sandbox environments created by the authenticated subject, newest first.
+List the tenant default environment plus sandbox environments created by the authenticated subject.
 </dd>
 </dl>
 </dd>
@@ -1055,7 +1055,7 @@ await client.sandboxEnvironments.createOrUpdate({
 <dl>
 <dd>
 
-Get a sandbox environment by name for the authenticated subject.
+Get a sandbox environment by name. The tenant default is readable by any tenant member; custom environments are owner-scoped.
 </dd>
 </dl>
 </dd>
@@ -3488,8 +3488,7 @@ Registers or polls the Daytona snapshot and updates version status.
 
 ```typescript
 await client.internal.sandboxEnvironments.progress({
-    environmentId: "environment_id",
-    version: 1
+    environmentVersionId: "environment_version_id"
 });
 
 ```

@@ -2394,33 +2394,14 @@
             "items": {
               "additionalProperties": false,
               "properties": {
-                "environment_id": {
+                "environment_version_id": {
+                  "description": "Version row id to progress.",
                   "minLength": 1,
                   "type": "string"
-                },
-                "environment_name": {
-                  "minLength": 1,
-                  "type": "string"
-                },
-                "external_ref": {
-                  "minLength": 1,
-                  "type": "string"
-                },
-                "tenant_id": {
-                  "minLength": 1,
-                  "type": "string"
-                },
-                "version": {
-                  "exclusiveMinimum": 0,
-                  "type": "integer"
                 }
               },
               "required": [
-                "tenant_id",
-                "environment_id",
-                "environment_name",
-                "version",
-                "external_ref"
+                "environment_version_id"
               ],
               "type": "object"
             },
@@ -3559,20 +3540,14 @@
       "ProgressSandboxEnvironmentVersionRequest": {
         "additionalProperties": false,
         "properties": {
-          "environment_id": {
-            "description": "Parent environment id.",
+          "environment_version_id": {
+            "description": "Version row id to progress.",
             "minLength": 1,
             "type": "string"
-          },
-          "version": {
-            "description": "Version number to progress.",
-            "exclusiveMinimum": 0,
-            "type": "integer"
           }
         },
         "required": [
-          "environment_id",
-          "version"
+          "environment_version_id"
         ],
         "type": "object"
       },
@@ -8454,7 +8429,7 @@
     },
     "/api/v1/sandbox-environments": {
       "get": {
-        "description": "List sandbox environments created by the authenticated subject, newest first.",
+        "description": "List the tenant default environment plus sandbox environments created by the authenticated subject.",
         "parameters": [
           {
             "description": "Page size. Defaults to 25",
@@ -8673,7 +8648,7 @@
         "x-fern-sdk-method-name": "delete"
       },
       "get": {
-        "description": "Get a sandbox environment by name for the authenticated subject.",
+        "description": "Get a sandbox environment by name. The tenant default is readable by any tenant member; custom environments are owner-scoped.",
         "parameters": [
           {
             "description": "Sandbox environment name.",
