@@ -23,7 +23,11 @@ import type { TurnMetadata } from '../db/turnMetadata';
 import type { IWebSearchProviderStore } from '../db/webSearchProviderStore';
 import { LocalSandboxProvider } from '../sandbox/local/provider/LocalSandboxProvider';
 import { getCachedLocalSandboxSupport, isLocalSandboxFallbackEnabled } from '../sandbox/localRuntime';
-import { toSandboxCreateOptions, toSandboxProviderFromRecord } from '../sandbox/providerUtils';
+import {
+  toDaytonaSandboxProvider,
+  toSandboxCreateOptions,
+  toSandboxProviderFromRecord,
+} from '../sandbox/providerUtils';
 import type { ReasoningEffort } from '../schemas/modelProvider';
 import { hasConfiguredWebSearchProvider } from '../websearch/providers';
 
@@ -144,8 +148,9 @@ export async function getMcpConnection({
  *
  * When `environment_name` is set, loads that sandbox environment by tenant + name
  * (must be `active`) — no subject ownership check so anyone who can run the agent
- * can use its env. Applies create overlays; for `image.type === 'build'` pins the
- * Daytona snapshot to the environment version `external_ref`.
+ * can use its env. Always builds a Daytona provider (even if stored type is
+ * `truefoundry`). Applies create overlays; for `image.type === 'build'` pins the
+ * snapshot to the environment version `external_ref`.
  */
 /** Single path segment under the sandboxes parent (`_` when sessionId is missing or unsafe). */
 export function localSandboxSessionSegment(sessionId: string | undefined): string {
@@ -199,6 +204,7 @@ export async function resolveSandboxProvider({
             : 'sandbox environment is activating — retry shortly',
       });
     }
+    // Env create/runtime always uses Daytona code, even when stored type is `truefoundry`.
     if (record?.manifest.type !== 'daytona') {
       throw new HTTPException(422, {
         message: 'sandbox environments require a Daytona sandbox provider',
@@ -206,8 +212,8 @@ export async function resolveSandboxProvider({
     }
     const usesEnvironmentSnapshot = loaded.version.manifest.image?.type === 'build';
     return {
-      provider: toSandboxProviderFromRecord({
-        record,
+      provider: toDaytonaSandboxProvider({
+        manifest: record.manifest,
         tenant_id,
         logger,
         ...(usesEnvironmentSnapshot ? { build_metadata: { build_ref: loaded.version.external_ref } } : {}),
