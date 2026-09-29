@@ -9,4 +9,3 @@ export function ScheduleStatusBadge({ status }: { status: ScheduleStatus }) {
     </Badge>
   );
 }
-

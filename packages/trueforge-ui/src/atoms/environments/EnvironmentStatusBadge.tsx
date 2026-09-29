@@ -27,4 +27,3 @@ export function EnvironmentStatusBadge({
   }
   return badge;
 }
-

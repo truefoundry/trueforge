@@ -2,7 +2,6 @@ import { formatRelativeTime as formatRelativeTimeCommon } from '../lib/dateForma
 
 export type RecurrenceKind = 'hourly' | 'daily' | 'weekly' | 'custom';
 
-
 export type ScheduleFormValues = {
   name: string;
   task: string;
@@ -259,5 +258,3 @@ export function cronToFormValues(input: {
 export function formatRelativeTime(iso: string | null, nowMs = Date.now()): string {
   return formatRelativeTimeCommon(iso, { fallback: 'Never', nowMs });
 }
-
-

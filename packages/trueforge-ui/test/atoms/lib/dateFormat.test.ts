@@ -36,4 +36,3 @@ describe('formatRelativeTime', () => {
     expect(formatRelativeTime(new Date(now - 2 * 86400_000).toISOString(), { nowMs: now })).toBe('2 days ago');
   });
 });
-

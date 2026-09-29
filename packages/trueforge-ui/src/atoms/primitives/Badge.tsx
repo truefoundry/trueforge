@@ -14,18 +14,15 @@ export type BadgeProps = React.HTMLAttributes<HTMLSpanElement> & {
 };
 
 const VARIANT_STYLES: Record<BadgeVariant, string> = {
-  default:
-    'border-border bg-card-bg text-text-primary',
+  default: 'border-border bg-card-bg text-text-primary',
   success:
     'border-emerald-600/30 bg-emerald-500/10 text-emerald-700 dark:border-emerald-400/35 dark:bg-emerald-500/15 dark:text-emerald-300',
-  info:
-    'border-sky-600/30 bg-sky-500/10 text-sky-800 dark:border-sky-400/35 dark:bg-sky-500/15 dark:text-sky-300',
+  info: 'border-sky-600/30 bg-sky-500/10 text-sky-800 dark:border-sky-400/35 dark:bg-sky-500/15 dark:text-sky-300',
   warning:
     'border-amber-600/30 bg-amber-500/10 text-amber-800 dark:border-amber-400/35 dark:bg-amber-500/15 dark:text-amber-300',
   destructive:
     'border-red-600/30 bg-red-500/10 text-red-700 dark:border-red-400/35 dark:bg-red-500/15 dark:text-red-300',
-  outline:
-    'border-border bg-transparent text-text-secondary',
+  outline: 'border-border bg-transparent text-text-secondary',
 };
 
 const DOT_STYLES: Record<BadgeVariant, string> = {

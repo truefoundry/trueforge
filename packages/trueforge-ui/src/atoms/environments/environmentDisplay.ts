@@ -1,4 +1,8 @@
-import type { SandboxEnvironment, SandboxEnvironmentManifest, SandboxEnvironmentNetworking } from '../../server/types.js';
+import type {
+  SandboxEnvironment,
+  SandboxEnvironmentManifest,
+  SandboxEnvironmentNetworking,
+} from '../../server/types.js';
 
 export const RESERVED_ENVIRONMENT_NAME = 'default';
 
@@ -21,11 +25,13 @@ export function formatNetworkingSummary(networking: SandboxEnvironmentNetworking
   if (networking?.networkBlockAll === true) return 'Blocked';
   const allowList = networking?.domainAllowList?.trim() ?? '';
   if (allowList.length === 0) return 'Unrestricted';
-  const count = allowList.split(',').map(part => part.trim()).filter(part => part.length > 0).length;
+  const count = allowList
+    .split(',')
+    .map(part => part.trim())
+    .filter(part => part.length > 0).length;
   if (count === 0) return 'Unrestricted';
   return `${String(count)} allowed domain${count === 1 ? '' : 's'}`;
 }
-
 
 export function defaultEnvironmentManifest(): SandboxEnvironmentManifest {
   return {

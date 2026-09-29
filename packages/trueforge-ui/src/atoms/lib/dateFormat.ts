@@ -27,4 +27,3 @@ export function formatRelativeTime(
   const days = Math.round(hours / 24);
   return `${String(days)} day${days === 1 ? '' : 's'} ago`;
 }
-

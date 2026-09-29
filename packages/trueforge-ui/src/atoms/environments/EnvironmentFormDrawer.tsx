@@ -31,19 +31,11 @@ export type EnvironmentFormDrawerProps = {
 
 type EditorMode = 'form' | 'yaml';
 
-export function EnvironmentFormDrawer({
-  open,
-  onOpenChange,
-  mode,
-  environment,
-  onSaved,
-}: EnvironmentFormDrawerProps) {
+export function EnvironmentFormDrawer({ open, onOpenChange, mode, environment, onSaved }: EnvironmentFormDrawerProps) {
   const environmentServer = useSandboxEnvironmentServer();
   const toaster = useToasterOptional();
   const [editorMode, setEditorMode] = useState<EditorMode>('form');
-  const [form, setForm] = useState<EnvironmentFormValues>(() =>
-    manifestToFormValues(defaultEnvironmentManifest()),
-  );
+  const [form, setForm] = useState<EnvironmentFormValues>(() => manifestToFormValues(defaultEnvironmentManifest()));
   const [yamlText, setYamlText] = useState(() => manifestToYaml(defaultEnvironmentManifest()));
   const [baselineForm, setBaselineForm] = useState(form);
   const [baselineYaml, setBaselineYaml] = useState(yamlText);
@@ -59,8 +51,7 @@ export function EnvironmentFormDrawer({
       setSaving(false);
       return;
     }
-    const manifest =
-      mode === 'edit' && environment != null ? environment.manifest : defaultEnvironmentManifest();
+    const manifest = mode === 'edit' && environment != null ? environment.manifest : defaultEnvironmentManifest();
     const nextForm = manifestToFormValues(manifest);
     const nextYaml = manifestToYaml(manifest);
     setForm(nextForm);
@@ -195,20 +186,13 @@ export function EnvironmentFormDrawer({
       >
         <form
           id="environment-form"
-          className={cn(
-            'flex min-h-0 flex-1 flex-col gap-4 px-5 pt-4',
-            editorMode === 'form' ? 'pb-10' : 'pb-4',
-          )}
+          className={cn('flex min-h-0 flex-1 flex-col gap-4 px-5 pt-4', editorMode === 'form' ? 'pb-10' : 'pb-4')}
           onSubmit={event => void handleSave(event)}
         >
           {error != null ? <p className="text-sm text-failure-bg">{error}</p> : null}
 
           {editorMode === 'form' ? (
-            <EnvironmentFormFields
-              values={form}
-              onChange={setForm}
-              nameDisabled={mode === 'edit'}
-            />
+            <EnvironmentFormFields values={form} onChange={setForm} nameDisabled={mode === 'edit'} />
           ) : (
             <CodeEditor
               language="yaml"

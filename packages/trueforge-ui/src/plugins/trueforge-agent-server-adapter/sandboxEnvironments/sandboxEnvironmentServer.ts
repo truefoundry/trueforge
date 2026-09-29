@@ -86,9 +86,7 @@ function toWireManifest(manifest: SandboxEnvironmentManifest): TrueForgeApi.Sand
             disk: manifest.resources.disk,
           },
         }),
-    ...(manifest.environmentVariables === undefined
-      ? {}
-      : { environmentVariables: manifest.environmentVariables }),
+    ...(manifest.environmentVariables === undefined ? {} : { environmentVariables: manifest.environmentVariables }),
     ...(manifest.networking === undefined
       ? {}
       : {

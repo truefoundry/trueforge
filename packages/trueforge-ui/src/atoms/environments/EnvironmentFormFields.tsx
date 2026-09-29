@@ -60,9 +60,7 @@ export function formValuesToManifest(values: EnvironmentFormValues): SandboxEnvi
   return {
     name: values.name.trim(),
     ...(values.description.trim().length === 0 ? {} : { description: values.description.trim() }),
-    ...(values.buildScript.trim().length === 0
-      ? {}
-      : { image: { type: 'build', buildScript: values.buildScript } }),
+    ...(values.buildScript.trim().length === 0 ? {} : { image: { type: 'build', buildScript: values.buildScript } }),
     resources: {
       cpu: Number.isFinite(cpu) && cpu > 0 ? cpu : 1,
       memory: Number.isFinite(memory) && memory > 0 ? memory : 1,
@@ -73,9 +71,7 @@ export function formValuesToManifest(values: EnvironmentFormValues): SandboxEnvi
       ? { networkBlockAll: true }
       : {
           networkBlockAll: false,
-          ...(values.domainAllowList.trim().length === 0
-            ? {}
-            : { domainAllowList: values.domainAllowList.trim() }),
+          ...(values.domainAllowList.trim().length === 0 ? {} : { domainAllowList: values.domainAllowList.trim() }),
           ...(secrets == null || secrets.length === 0 ? {} : { secrets }),
         },
   };

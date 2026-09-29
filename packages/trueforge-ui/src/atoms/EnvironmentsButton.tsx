@@ -16,8 +16,7 @@ export function EnvironmentsButton({ className, compact = false }: EnvironmentsB
   const shell = useOptionalShellMode();
   const sandboxEnvironmentServer = useOptionalSandboxEnvironmentServer();
 
-  const enabled =
-    isEnvironmentsChromeEnabled({ sandboxEnvironments: sandboxEnvironmentServer }) && shell != null;
+  const enabled = isEnvironmentsChromeEnabled({ sandboxEnvironments: sandboxEnvironmentServer }) && shell != null;
   const open = shell?.environmentsOpen === true;
 
   if (!enabled) return null;

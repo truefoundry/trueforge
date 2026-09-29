@@ -4,20 +4,18 @@ import { useCallback, useEffect, useMemo, useRef, useState, type ComponentType }
 
 import { useToasterOptional } from '../../containers/ToasterContainer.js';
 import { Icon } from '../../icons/Icon.js';
-import {
-  useOptionalCatalogServer,
-  useSandboxEnvironmentServer,
-} from '../../server/ServerContext.js';
+import { useOptionalCatalogServer, useSandboxEnvironmentServer } from '../../server/ServerContext.js';
 import { useOptionalShellMode } from '../../server/ShellModeContext.js';
 import type { SandboxEnvironment } from '../../server/types.js';
-import { getErrorMessage } from '../../utils/getErrorMessage.js';
 import {
   ENVIRONMENT_SHARE_CHANGE_EVENT,
   readEnvironmentShareSearch,
   replaceEnvironmentShareSearch,
 } from '../../utils/environmentShareUrl.js';
+import { getErrorMessage } from '../../utils/getErrorMessage.js';
 import { EmptyScreen, EmptyScreenQueryHighlight } from '../EmptyScreen.js';
 import { auiButtonClass } from '../lib/buttonClasses.js';
+import { formatRelativeTime } from '../lib/dateFormat.js';
 import { PageHeader } from '../PageHeader.js';
 import { Button } from '../primitives/Button.js';
 import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle } from '../primitives/Dialog.js';
@@ -33,19 +31,11 @@ import {
   TableRow,
   TableTokenPagination,
 } from '../primitives/Table.js';
-import { formatRelativeTime } from '../lib/dateFormat.js';
+import { formatNetworkingSummary, formatResourcesSummary, isEnvironmentReadOnly } from './environmentDisplay.js';
 import { EnvironmentFormDrawer } from './EnvironmentFormDrawer.js';
-import {
-  formatNetworkingSummary,
-  formatResourcesSummary,
-  isEnvironmentReadOnly,
-} from './environmentDisplay.js';
 import { EnvironmentStatusBadge } from './EnvironmentStatusBadge.js';
 
-type DrawerState =
-  | { kind: 'closed' }
-  | { kind: 'create' }
-  | { kind: 'edit'; environment: SandboxEnvironment };
+type DrawerState = { kind: 'closed' } | { kind: 'create' } | { kind: 'edit'; environment: SandboxEnvironment };
 
 const ENVIRONMENTS_PAGE_SIZE_OPTIONS = [10, 25] as const;
 
@@ -163,9 +153,7 @@ export function EnvironmentsPage(_props: EnvironmentsPageProps) {
   const filtered = useMemo(() => {
     const q = nameQuery.trim().toLowerCase();
     if (q.length === 0) return environments;
-    return environments.filter(
-      env => env.name.toLowerCase().includes(q) || env.description.toLowerCase().includes(q),
-    );
+    return environments.filter(env => env.name.toLowerCase().includes(q) || env.description.toLowerCase().includes(q));
   }, [environments, nameQuery]);
 
   const hasPageNav = nextPageToken != null || previousPageToken != null || environments.length > 0;
@@ -285,9 +273,7 @@ export function EnvironmentsPage(_props: EnvironmentsPageProps) {
                       <TableCell className="text-sm text-text-secondary">
                         {formatNetworkingSummary(env.manifest.networking)}
                       </TableCell>
-                      <TableCell className="text-sm text-text-secondary">
-                        {formatRelativeTime(env.updatedAt)}
-                      </TableCell>
+                      <TableCell className="text-sm text-text-secondary">{formatRelativeTime(env.updatedAt)}</TableCell>
                       <TableCell>
                         {!readOnly ? (
                           <button
@@ -347,8 +333,8 @@ export function EnvironmentsPage(_props: EnvironmentsPageProps) {
             <DialogTitle>Delete environment</DialogTitle>
           </DialogHeader>
           <p className="text-sm text-text-secondary">
-            Delete <span className="font-medium text-text-primary">{pendingDelete?.name}</span>? This cannot be
-            undone. Delete fails if any agent still references the environment.
+            Delete <span className="font-medium text-text-primary">{pendingDelete?.name}</span>? This cannot be undone.
+            Delete fails if any agent still references the environment.
           </p>
           <DialogFooter>
             <Button.Secondary type="button" disabled={deleting} onClick={() => setPendingDelete(null)}>
