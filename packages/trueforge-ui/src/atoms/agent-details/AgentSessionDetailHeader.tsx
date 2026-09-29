@@ -5,6 +5,8 @@ import { useSlot } from '../../theme/SlotsProvider.js';
 import { auiButtonClass } from '../lib/buttonClasses.js';
 import { cn } from '../lib/cn.js';
 import { Button } from '../primitives/Button.js';
+import { DropdownMenu } from '../primitives/DropdownMenu.js';
+import { Tooltip } from '../primitives/Tooltip.js';
 import type { AgentSessionDetailHeaderProps } from './types.js';
 
 export { buildAgentSessionShareUrl } from '../../utils/sessionShareUrl.js';
@@ -22,6 +24,7 @@ export function AgentSessionDetailHeader({
   title,
   sessionId,
   onClose,
+  metadata,
   resumeHref,
   onResume,
   resumeLabel,
@@ -30,6 +33,7 @@ export function AgentSessionDetailHeader({
 }: AgentSessionDetailHeaderProps) {
   const PermissionGuard = useSlot('PermissionGuard');
   const ShareSessionDialog = useSlot('ShareSessionDialog');
+  const hasMetadata = metadata != null && Object.keys(metadata).length > 0;
 
   return (
     <div className="flex shrink-0 items-center gap-3 border-b border-border p-3">
@@ -37,6 +41,35 @@ export function AgentSessionDetailHeader({
         <h2 className="min-w-0 truncate text-sm font-semibold leading-none text-text-primary">{title}</h2>
         <code className="min-w-0 truncate font-mono text-xs leading-none text-text-secondary">{sessionId}</code>
       </div>
+      {hasMetadata ? (
+        <DropdownMenu
+          align="end"
+          className="z-50 w-72 max-w-[calc(100vw-2rem)] p-3"
+          trigger={
+            <Tooltip content="Session metadata">
+              <button
+                type="button"
+                className={auiButtonClass({ variant: 'ghost', size: 'icon', className: 'size-8' })}
+                aria-label="View session metadata"
+              >
+                <Icon name="info" className="size-4" />
+              </button>
+            </Tooltip>
+          }
+        >
+          <div className="flex flex-col gap-2">
+            <span className="text-xs font-semibold text-text-primary">Session Metadata</span>
+            <div className="flex max-h-60 flex-col gap-1.5 overflow-y-auto text-xs">
+              {Object.entries(metadata).map(([key, value]) => (
+                <div key={key} className="flex flex-col rounded bg-secondary-bg/50 px-2 py-1">
+                  <span className="font-mono text-[0.6875rem] text-text-secondary">{key}</span>
+                  <span className="break-all font-medium text-text-primary">{value}</span>
+                </div>
+              ))}
+            </div>
+          </div>
+        </DropdownMenu>
+      ) : null}
       {canShare ? (
         <ShareSessionDialog sessionId={sessionId} trigger={<SessionsShareTrigger />} />
       ) : (

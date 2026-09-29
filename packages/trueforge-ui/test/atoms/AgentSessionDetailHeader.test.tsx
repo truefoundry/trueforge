@@ -103,4 +103,46 @@ describe('AgentSessionDetailHeader', () => {
     expect(screen.getByRole('button', { name: 'Resume Chat' })).toBeDisabled();
     expect(screen.queryByRole('link', { name: /Resume Chat/i })).not.toBeInTheDocument();
   });
+
+  it('renders metadata button and reveals metadata when clicked', () => {
+    render(
+      <AgentSessionDetailHeader
+        title="Help me find more details"
+        sessionId="sess-1"
+        onClose={() => undefined}
+        metadata={{ agentName: 'ask-ai-devtest', tenantName: 'truefoundry' }}
+      />,
+    );
+
+    const infoButton = screen.getByRole('button', { name: 'View session metadata' });
+    expect(infoButton).toBeInTheDocument();
+
+    fireEvent.click(infoButton);
+    expect(screen.getByText('Session Metadata')).toBeInTheDocument();
+    expect(screen.getByText('agentName')).toBeInTheDocument();
+    expect(screen.getByText('ask-ai-devtest')).toBeInTheDocument();
+    expect(screen.getByText('tenantName')).toBeInTheDocument();
+    expect(screen.getByText('truefoundry')).toBeInTheDocument();
+  });
+
+  it('does not render metadata button when metadata is empty or undefined', () => {
+    const { rerender } = render(
+      <AgentSessionDetailHeader
+        title="Help me find more details"
+        sessionId="sess-1"
+        onClose={() => undefined}
+        metadata={{}}
+      />,
+    );
+    expect(screen.queryByRole('button', { name: 'View session metadata' })).not.toBeInTheDocument();
+
+    rerender(
+      <AgentSessionDetailHeader
+        title="Help me find more details"
+        sessionId="sess-1"
+        onClose={() => undefined}
+      />,
+    );
+    expect(screen.queryByRole('button', { name: 'View session metadata' })).not.toBeInTheDocument();
+  });
 });

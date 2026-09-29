@@ -316,6 +316,7 @@ export function AgentSessions({
           <AgentSessionDetailHeader
             title={selectedTitle}
             sessionId={selectedSessionId}
+            metadata={detailSession?.metadata ?? selectedEntry?.metadata}
             onClose={clearSelectedSession}
             canResume={canResume}
             canShare={canResume}
