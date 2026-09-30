@@ -1,5 +1,45 @@
 # @truefoundry/trueforge
 
+## 0.3.0
+
+### Minor Changes
+
+- 829ac6e: Add OSS web-search provider settings and catalog (Parallel): singleton settings/catalog APIs, optional API key, and UI adapter without mode config so built-in web search works outside TrueFoundry mode.
+- cf55de9: Add Redis Sentinel + TLS with exclusive transport fail-fast (`REDIS_CONNECTION` DU). Redis is optional at config load for controller/migrate; server still requires it at connect. Sentinel shared-client errors no longer stop the peering heartbeat.
+
+### Patch Changes
+
+- 33cbe52: Default MCP tool approval to `@write` and `@destructive` again. Unlabeled tools still run without a pause unless named or covered by `@all`.
+- a638cfc: Stop reflecting the raw token-exchange error into the OIDC failure redirect. The message carried upstream endpoint and issuer detail into the browser's address bar; failures now use the same generic `login_failed` reason as the other callback paths, with full detail kept in the server log.
+- b440969: Accept `x-tfg-models` in TrueFoundry mode alongside `x-tfg-mcp` and `x-tfg-skills`: model providers a request defines by name, each an OpenAI-compatible endpoint with its own `base_url`, optional `auth.api_key`, and `models`. A spec's `provider/model` resolves against them for validation and turn execution, taking precedence over the tenant registry for that request only; unfiltered provider and model lists still show only configured resources.
+- 8dd9bea: Bind MCP OAuth callbacks to the TrueForge session in the browser. Completing consent now requires an authenticated session whose subject matches the pending authorization's user, so a forwarded authorize URL cannot attach another user's grant to the initiator's account.
+- 46c8280: Add newer model presets to the shipped model catalog for the providers it already lists.
+- c023517: Add sandbox_environment / sandbox_environment_version tables and dummy CRUD APIs at `/api/v1/sandbox-environments`.
+- 4726a31: Let a session owner mark a session shared so any subject in the tenant can read it by id, including turns and events (not subscribe or sandbox downloads).
+- f98e575: Add Sentry for critical-flow error reporting (TrueFoundry auth-server or SENTRY_DSN init) with configurable additional tags.
+- 0c82412: Add `POST /sessions/{session_id}/turns/{turn_id}/events` for tip HITL / policy events.
+- 5adde28: Add `turn_inbound_events` store API for durable tip HITL send-event inbox (insert / list unconsumed / mark consumed), with Postgres and SQLite migrations.
+- bbc4f7d: Add `user.mcp_auth_continue` (`{ "type": "user.mcp_auth_continue" }`) on POST `/events`, session events, and the SSE stream. Add paused to turn state.
+- b342a21: Add `user.tool_approval_policy` send-event schema (`allow_session`, optional ISO `expire_at`). Send-only like `user.tool_approval` / `user.tool_response` — not on the durable stream.
+- a855122: Rename the published runtime package to `@truefoundry/trueforge-assistant-ui-runtime`, move it into the TrueForge workspace, rename its public runtime APIs to TrueForge, and remove the legacy TrueFoundry server adapter and server configuration.
+- e8c500b: Rename server mTLS env vars from `TRUEFORGE_MTLS_ENABLED` / `TRUEFORGE_MTLS_CERTS_DIR` to `MTLS_ENABLED` / `MTLS_CERTS_DIR`. Independent of ServiceFoundry `TRUEFOUNDRY_MTLS_*`.
+- Updated dependencies [829ac6e]
+- Updated dependencies [829ac6e]
+- Updated dependencies [829ac6e]
+- Updated dependencies [33cbe52]
+- Updated dependencies [4726a31]
+- Updated dependencies [0c82412]
+- Updated dependencies [5adde28]
+- Updated dependencies [bbc4f7d]
+- Updated dependencies [b342a21]
+- Updated dependencies [829ac6e]
+- Updated dependencies [5b209be]
+- Updated dependencies [829ac6e]
+- Updated dependencies [cf55de9]
+- Updated dependencies [1b1050a]
+  - @truefoundry/trueforge-sdk@0.2.1
+  - @truefoundry/trueforge-core@0.3.0
+
 ## 0.3.0-rc.0
 
 ### Minor Changes

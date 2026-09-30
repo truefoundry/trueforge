@@ -9,8 +9,22 @@ import {
   useResourcePermissions,
 } from '@/hooks/useResourcePermissions.js';
 import { ServerProvider } from '@/server/ServerContext.js';
-import type { ListPermissionsResponse } from '@/server/types.js';
+import type { ListPermissionsResponse, PermissionResourceType } from '@/server/types.js';
 import { createMockAgentUIServer } from '../server/mockServer.js';
+
+/** ServerProvider mounts CanCreateAgentProvider, which also calls listPermissions for tenant. */
+const TENANT_RESPONSE: ListPermissionsResponse = { data: { type: 'tenant', permissions: {} } };
+
+function listPermissionsMock(
+  impl: (args: { resourceType: PermissionResourceType; resourceIds: string[] }) => Promise<ListPermissionsResponse>,
+) {
+  return vi.fn(
+    async (args: { resourceType: PermissionResourceType; resourceIds: string[] }): Promise<ListPermissionsResponse> => {
+      if (args.resourceType === 'tenant') return TENANT_RESPONSE;
+      return impl(args);
+    },
+  );
+}
 
 describe('useResourcePermissions', () => {
   it('allows without a permissions port', () => {
@@ -22,7 +36,7 @@ describe('useResourcePermissions', () => {
 
   it('fails closed until grants load and denies missing ids', async () => {
     let resolvePermissions: ((value: ListPermissionsResponse) => void) | undefined;
-    const listPermissions = vi.fn(
+    const listPermissions = listPermissionsMock(
       () =>
         new Promise<ListPermissionsResponse>(resolve => {
           resolvePermissions = resolve;
@@ -49,14 +63,12 @@ describe('useResourcePermissions', () => {
   });
 
   it('chunks requests at 100 ids and fails closed on errors', async () => {
-    const listPermissions = vi.fn(
-      async ({ resourceIds }: { resourceIds: string[] }): Promise<ListPermissionsResponse> => ({
-        data: {
-          type: 'session',
-          permissions: Object.fromEntries(resourceIds.map(resourceId => [resourceId, ['DELETE']])),
-        },
-      }),
-    );
+    const listPermissions = listPermissionsMock(async ({ resourceIds }): Promise<ListPermissionsResponse> => ({
+      data: {
+        type: 'session',
+        permissions: Object.fromEntries(resourceIds.map(resourceId => [resourceId, ['DELETE']])),
+      },
+    }));
     const server = createMockAgentUIServer({ permissions: { listPermissions } });
     const wrapper = ({ children }: { children: ReactNode }) => (
       <ServerProvider server={server}>{children}</ServerProvider>
@@ -68,9 +80,12 @@ describe('useResourcePermissions', () => {
     );
 
     await waitFor(() => expect(result.current.allows('session-100', 'DELETE')).toBe(true));
-    expect(listPermissions).toHaveBeenCalledTimes(2);
+    expect(listPermissions.mock.calls.filter(([req]) => req.resourceType === 'session')).toHaveLength(2);
 
-    listPermissions.mockRejectedValueOnce(new Error('permission service unavailable'));
+    listPermissions.mockImplementationOnce(async args => {
+      if (args.resourceType === 'tenant') return TENANT_RESPONSE;
+      throw new Error('permission service unavailable');
+    });
     rerender({ ids: ['session-error'] });
     await waitFor(() => expect(result.current.error).toEqual(new Error('permission service unavailable')));
     expect(result.current.allows('session-error', 'DELETE')).toBe(false);
@@ -81,15 +96,14 @@ describe('useResourcePermissions', () => {
     const knownResponse: ListPermissionsResponse = {
       data: { type: 'session', permissions: { known: ['MANAGE'] } },
     };
-    const listPermissions = vi
-      .fn()
-      .mockResolvedValueOnce(knownResponse)
-      .mockImplementationOnce(
-        () =>
-          new Promise<ListPermissionsResponse>((_resolve, reject) => {
-            rejectExpanded = reject;
-          }),
-      );
+    let nonTenantCalls = 0;
+    const listPermissions = listPermissionsMock(() => {
+      nonTenantCalls += 1;
+      if (nonTenantCalls === 1) return Promise.resolve(knownResponse);
+      return new Promise<ListPermissionsResponse>((_resolve, reject) => {
+        rejectExpanded = reject;
+      });
+    });
     const server = createMockAgentUIServer({ permissions: { listPermissions } });
     const wrapper = ({ children }: { children: ReactNode }) => (
       <ServerProvider server={server}>{children}</ServerProvider>

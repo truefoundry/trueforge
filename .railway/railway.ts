@@ -28,7 +28,8 @@ export default defineRailway(_ctx => {
     // Deploys from this repository's default branch. Forks: change owner/repo
     // (and optionally branch) to build your own copy.
     source: github('truefoundry/trueforge'),
-    // Railway uses the root from-source Dockerfile by default.
+    // Pin the root from-source Dockerfile (not Dockerfile.dev — that path was removed).
+    build: { dockerfilePath: 'Dockerfile' },
     healthcheck: '/healthz',
     healthcheckTimeout: 300,
     deploy: {
@@ -66,6 +67,7 @@ export default defineRailway(_ctx => {
   // network (SERVER_URL); it needs no public domain or healthcheck.
   const controller = service('trueforge-controller', {
     source: github('truefoundry/trueforge'),
+    build: { dockerfilePath: 'Dockerfile' },
     startCommand: 'node dist/controller-main.js',
     replicas: 1,
     deploy: {

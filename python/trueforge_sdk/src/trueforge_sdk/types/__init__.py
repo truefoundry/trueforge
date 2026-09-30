@@ -63,6 +63,7 @@ if typing.TYPE_CHECKING:
     from .custom_model_provider import CustomModelProvider
     from .daytona_sandbox_provider_auth import DaytonaSandboxProviderAuth
     from .delete_agent_response import DeleteAgentResponse
+    from .delete_sandbox_environment_response import DeleteSandboxEnvironmentResponse
     from .delete_schedule_response import DeleteScheduleResponse
     from .dynamic_sub_agents_config import DynamicSubAgentsConfig
     from .extended_chunk_delta_tool_call import ExtendedChunkDeltaToolCall
@@ -80,6 +81,7 @@ if typing.TYPE_CHECKING:
     from .get_me_subject import GetMeSubject
     from .get_model_provider_catalog_response import GetModelProviderCatalogResponse
     from .get_model_provider_response import GetModelProviderResponse
+    from .get_sandbox_environment_response import GetSandboxEnvironmentResponse
     from .get_sandbox_provider_catalog_response import GetSandboxProviderCatalogResponse
     from .get_sandbox_provider_response import GetSandboxProviderResponse
     from .get_schedule_response import GetScheduleResponse
@@ -106,6 +108,7 @@ if typing.TYPE_CHECKING:
     from .list_model_providers_response import ListModelProvidersResponse
     from .list_permissions_data import ListPermissionsData
     from .list_permissions_response import ListPermissionsResponse
+    from .list_sandbox_environments_response import ListSandboxEnvironmentsResponse
     from .list_schedule_runs_response import ListScheduleRunsResponse
     from .list_schedules_response import ListSchedulesResponse
     from .list_session_events_response import ListSessionEventsResponse
@@ -170,6 +173,14 @@ if typing.TYPE_CHECKING:
     from .sandbox_capability import SandboxCapability
     from .sandbox_config import SandboxConfig
     from .sandbox_created_event import SandboxCreatedEvent
+    from .sandbox_environment import SandboxEnvironment
+    from .sandbox_environment_image import SandboxEnvironmentImage
+    from .sandbox_environment_lifecycle_stage import SandboxEnvironmentLifecycleStage
+    from .sandbox_environment_manifest import SandboxEnvironmentManifest
+    from .sandbox_environment_networking import SandboxEnvironmentNetworking
+    from .sandbox_environment_resources import SandboxEnvironmentResources
+    from .sandbox_environment_secret import SandboxEnvironmentSecret
+    from .sandbox_environment_version_status import SandboxEnvironmentVersionStatus
     from .sandbox_provider_manifest import SandboxProviderManifest
     from .schedule import Schedule
     from .schedule_manifest import ScheduleManifest
@@ -317,6 +328,7 @@ _dynamic_imports: typing.Dict[str, str] = {
     "CustomModelProvider": ".custom_model_provider",
     "DaytonaSandboxProviderAuth": ".daytona_sandbox_provider_auth",
     "DeleteAgentResponse": ".delete_agent_response",
+    "DeleteSandboxEnvironmentResponse": ".delete_sandbox_environment_response",
     "DeleteScheduleResponse": ".delete_schedule_response",
     "DynamicSubAgentsConfig": ".dynamic_sub_agents_config",
     "ExtendedChunkDeltaToolCall": ".extended_chunk_delta_tool_call",
@@ -334,6 +346,7 @@ _dynamic_imports: typing.Dict[str, str] = {
     "GetMeSubject": ".get_me_subject",
     "GetModelProviderCatalogResponse": ".get_model_provider_catalog_response",
     "GetModelProviderResponse": ".get_model_provider_response",
+    "GetSandboxEnvironmentResponse": ".get_sandbox_environment_response",
     "GetSandboxProviderCatalogResponse": ".get_sandbox_provider_catalog_response",
     "GetSandboxProviderResponse": ".get_sandbox_provider_response",
     "GetScheduleResponse": ".get_schedule_response",
@@ -360,6 +373,7 @@ _dynamic_imports: typing.Dict[str, str] = {
     "ListModelProvidersResponse": ".list_model_providers_response",
     "ListPermissionsData": ".list_permissions_data",
     "ListPermissionsResponse": ".list_permissions_response",
+    "ListSandboxEnvironmentsResponse": ".list_sandbox_environments_response",
     "ListScheduleRunsResponse": ".list_schedule_runs_response",
     "ListSchedulesResponse": ".list_schedules_response",
     "ListSessionEventsResponse": ".list_session_events_response",
@@ -424,6 +438,14 @@ _dynamic_imports: typing.Dict[str, str] = {
     "SandboxCapability": ".sandbox_capability",
     "SandboxConfig": ".sandbox_config",
     "SandboxCreatedEvent": ".sandbox_created_event",
+    "SandboxEnvironment": ".sandbox_environment",
+    "SandboxEnvironmentImage": ".sandbox_environment_image",
+    "SandboxEnvironmentLifecycleStage": ".sandbox_environment_lifecycle_stage",
+    "SandboxEnvironmentManifest": ".sandbox_environment_manifest",
+    "SandboxEnvironmentNetworking": ".sandbox_environment_networking",
+    "SandboxEnvironmentResources": ".sandbox_environment_resources",
+    "SandboxEnvironmentSecret": ".sandbox_environment_secret",
+    "SandboxEnvironmentVersionStatus": ".sandbox_environment_version_status",
     "SandboxProviderManifest": ".sandbox_provider_manifest",
     "Schedule": ".schedule",
     "ScheduleManifest": ".schedule_manifest",
@@ -595,6 +617,7 @@ __all__ = [
     "CustomModelProvider",
     "DaytonaSandboxProviderAuth",
     "DeleteAgentResponse",
+    "DeleteSandboxEnvironmentResponse",
     "DeleteScheduleResponse",
     "DynamicSubAgentsConfig",
     "ExtendedChunkDeltaToolCall",
@@ -612,6 +635,7 @@ __all__ = [
     "GetMeSubject",
     "GetModelProviderCatalogResponse",
     "GetModelProviderResponse",
+    "GetSandboxEnvironmentResponse",
     "GetSandboxProviderCatalogResponse",
     "GetSandboxProviderResponse",
     "GetScheduleResponse",
@@ -638,6 +662,7 @@ __all__ = [
     "ListModelProvidersResponse",
     "ListPermissionsData",
     "ListPermissionsResponse",
+    "ListSandboxEnvironmentsResponse",
     "ListScheduleRunsResponse",
     "ListSchedulesResponse",
     "ListSessionEventsResponse",
@@ -702,6 +727,14 @@ __all__ = [
     "SandboxCapability",
     "SandboxConfig",
     "SandboxCreatedEvent",
+    "SandboxEnvironment",
+    "SandboxEnvironmentImage",
+    "SandboxEnvironmentLifecycleStage",
+    "SandboxEnvironmentManifest",
+    "SandboxEnvironmentNetworking",
+    "SandboxEnvironmentResources",
+    "SandboxEnvironmentSecret",
+    "SandboxEnvironmentVersionStatus",
     "SandboxProviderManifest",
     "Schedule",
     "ScheduleManifest",

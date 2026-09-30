@@ -1,6 +1,6 @@
 {
   "name": "@truefoundry/trueforge",
-  "version": "0.3.0-rc.0",
+  "version": "0.0.0",
   "description": "TrueForge Agent Harness: server, HTTP API, and chat UI (npx @truefoundry/trueforge)",
   "author": "TrueFoundry",
   "license": "MIT",
@@ -80,7 +80,7 @@
     "pg": "^8.23.0",
     "redis": "^5.12.1",
     "ulid": "^3.0.2",
-    "undici": "7.29.0",
+    "undici": "7.29.1",
     "winston": "^3.19.0",
     "yaml": "^2.9.0",
     "zod": "^4.4.3"

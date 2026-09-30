@@ -1,5 +1,42 @@
 # Changelog
 
+## 0.4.0
+
+### Minor Changes
+
+- c6b78d9: Make sandbox provider port types identity-only; move Daytona lifecycle fields (`execTimeoutMs`, auto-stop/archive/delete intervals) onto host `DaytonaSandboxConfig`.
+- f4ee3dc: Share sessions with tenant members (popover, `shared` PATCH, share routes), toast and redirect on forbidden/missing deep links, and stop the New Chat → named-history max-update-depth loop.
+- a855122: Rename the published runtime package to `@truefoundry/trueforge-assistant-ui-runtime`, move it into the TrueForge workspace, rename its public runtime APIs to TrueForge, and remove the legacy TrueFoundry server adapter and server configuration.
+- 829ac6e: Add OSS web-search provider settings and catalog (Parallel): singleton settings/catalog APIs, optional API key, and UI adapter without mode config so built-in web search works outside TrueFoundry mode.
+- 829ac6e: Add web-search provider settings catalog port and Settings UI so admins can configure Parallel web search (API key + mode) in standalone/OIDC deployments.
+
+### Patch Changes
+
+- c783700: Show schedule tasks, agent context, and failed run reasons in the schedules table.
+- dd421b7: Add an action to restore the recent 30-day session list from a timestamp-pinned session.
+- 73e146e: Make the compaction threshold an Auto/Custom selector: Auto omits `trigger` (runtime derives ~80% of the model context window); Custom reveals a number input defaulting to 50000.
+- 33cbe52: Default MCP tool approval to `@write` and `@destructive` again. Unlabeled tools still run without a pause unless named or covered by `@all`.
+- ff0cee5: Improve session timeline tooltips with sandbox tool details and grouped sub-agent tool calls.
+- 72a1168: Use the shared searchable agent picker in the sessions filter.
+- ad66480: Hide tool approval Allow/Deny actions and the "Awaiting Response" spinner for paused approvals on session detail (read-only replay).
+- fdd8520: Drive Agents and Schedules table pagination from API next/previous page tokens instead of row-count heuristics.
+- 20f4179: Refresh trueforge light theme tokens toward indigo-tinted surfaces and cooler gray text.
+- 0da3794: Stop the MCP OAuth opener from closing the popup as soon as the callback broadcasts, so the success/failure screen can show before the popup closes itself.
+- Updated dependencies [829ac6e]
+- Updated dependencies [829ac6e]
+- Updated dependencies [829ac6e]
+- Updated dependencies [c783700]
+- Updated dependencies [c6b78d9]
+- Updated dependencies [33cbe52]
+- Updated dependencies [f4ee3dc]
+- Updated dependencies [fdd8520]
+- Updated dependencies [829ac6e]
+- Updated dependencies [a855122]
+- Updated dependencies [829ac6e]
+- Updated dependencies [829ac6e]
+  - @truefoundry/trueforge-sdk@0.2.1
+  - @truefoundry/trueforge-assistant-ui-runtime@0.2.0
+
 ## 0.4.0-rc.0
 
 ### Minor Changes

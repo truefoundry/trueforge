@@ -88,4 +88,53 @@ describe('AgentSessionsFilters', () => {
     fireEvent.click(screen.getByRole('button', { name: 'Last 24 hours' }));
     expect(screen.queryByRole('button', { name: 'Custom Time Range' })).not.toBeInTheDocument();
   });
+
+  it('renders and triggers the reload button when onReload is passed', () => {
+    const onReload = vi.fn();
+    render(
+      <AgentSessionsFilters
+        agentId={null}
+        timeRange={{ startTs: 1, endTs: 2 }}
+        onAgentChange={() => undefined}
+        onTimeRangeChange={() => undefined}
+        onReload={onReload}
+      />,
+    );
+
+    const reloadButton = screen.getByRole('button', { name: 'Reload sessions' });
+    expect(reloadButton).toBeInTheDocument();
+    expect(reloadButton).not.toBeDisabled();
+    fireEvent.click(reloadButton);
+    expect(onReload).toHaveBeenCalledOnce();
+  });
+
+  it('disables the reload button and spins icon when isReloading is true', () => {
+    render(
+      <AgentSessionsFilters
+        agentId={null}
+        timeRange={{ startTs: 1, endTs: 2 }}
+        onAgentChange={() => undefined}
+        onTimeRangeChange={() => undefined}
+        onReload={() => undefined}
+        isReloading={true}
+      />,
+    );
+
+    const reloadButton = screen.getByRole('button', { name: 'Reload sessions' });
+    expect(reloadButton).toBeDisabled();
+    expect(reloadButton.querySelector('.animate-spin')).toBeInTheDocument();
+  });
+
+  it('does not render reload button when onReload is omitted', () => {
+    render(
+      <AgentSessionsFilters
+        agentId={null}
+        timeRange={{ startTs: 1, endTs: 2 }}
+        onAgentChange={() => undefined}
+        onTimeRangeChange={() => undefined}
+      />,
+    );
+
+    expect(screen.queryByRole('button', { name: 'Reload sessions' })).not.toBeInTheDocument();
+  });
 });
