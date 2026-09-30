@@ -24,8 +24,7 @@ jest.mock('../../../src/sandbox/providerUtils', () => {
   };
 });
 
-const silentLogger = createLogger({ silent: true });
-void silentLogger;
+const logger = createLogger({ silent: true });
 
 const putBody = {
   type: 'daytona' as const,
@@ -67,6 +66,7 @@ async function createRouters(): Promise<{
       resolveSandboxProviderStore: () => sandboxProviderStore,
       sandboxEnvironmentStore: new SqliteSandboxEnvironmentStore(db),
       withTransaction: callback => db.transaction().execute(callback),
+      logger,
       resolveRequestContext: () => STANDALONE_REQUEST_CONTEXT,
     }),
     sandboxProviderStore,
@@ -86,6 +86,7 @@ describe('sandboxProviders router', () => {
       resolveSandboxProviderStore: () => sandboxProviderStore,
       sandboxEnvironmentStore: new SqliteSandboxEnvironmentStore(db),
       withTransaction: callback => db.transaction().execute(callback),
+      logger,
       resolveRequestContext: () => STANDALONE_REQUEST_CONTEXT,
     });
     catalogRouter = createCatalogRouter({

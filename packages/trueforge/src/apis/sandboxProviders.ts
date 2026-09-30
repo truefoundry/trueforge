@@ -1,6 +1,6 @@
 import { OpenAPIHono, type RouteHandler } from '@hono/zod-openapi';
 import type { Context } from 'hono';
-import { createLogger } from 'winston';
+import type { Logger } from 'winston';
 import { createdBySubjectFromRequestContext, type ResolveRequestContext } from '../auth/identity';
 import type { ISandboxEnvironmentStore } from '../db/sandboxEnvironmentStore';
 import type { ISandboxProviderStore, SandboxProviderRecord } from '../db/sandboxProviderStore';
@@ -11,12 +11,11 @@ import { isDaytonaAuthError, isDaytonaPermissionError, validateSandboxProviderAc
 import type { SandboxProviderManifest, UpdateSandboxProviderRequest } from '../schemas/sandboxProvider';
 import { MissingStoredSecretError, resolveStoredSecretValue, toRedactedSecretValue } from '../utils/secretRedaction';
 
-const silentLogger = createLogger({ silent: true });
-
 export interface SandboxProvidersRouterDeps<TTransaction> {
   resolveSandboxProviderStore: (c: Context) => ISandboxProviderStore<TTransaction>;
   sandboxEnvironmentStore: ISandboxEnvironmentStore<TTransaction>;
   withTransaction: WithTransaction<TTransaction>;
+  logger: Logger;
   resolveRequestContext: ResolveRequestContext;
 }
 
@@ -27,10 +26,10 @@ function redactSandboxProvider(manifest: SandboxProviderManifest): SandboxProvid
   };
 }
 
-/** Settings wire providers carry `auth`; env-synthesized rows may not. */
+/** Settings API is Daytona-only; TFY may synthesize a `truefoundry` row without `auth`. */
 function storedApiKey(record: SandboxProviderRecord | undefined): string | undefined {
   const manifest = record?.manifest;
-  if (manifest === undefined || !('auth' in manifest)) {
+  if (manifest?.type !== 'daytona') {
     return undefined;
   }
   return manifest.auth.api_key;
@@ -42,7 +41,7 @@ export function createSandboxProvidersRouter<TTransaction>(deps: SandboxProvider
     const requestContext = deps.resolveRequestContext(c);
     const store = deps.resolveSandboxProviderStore(c);
     const record = await store.getSandboxProvider(requestContext.tenant_id);
-    if (record === undefined || !('auth' in record.manifest)) {
+    if (record?.manifest.type !== 'daytona') {
       return c.json({ error: { message: 'No sandbox provider configured' } }, 404);
     }
     return c.json(
@@ -75,7 +74,7 @@ export function createSandboxProvidersRouter<TTransaction>(deps: SandboxProvider
       await validateSandboxProviderAccess({
         manifest: resolved,
         tenant_id: requestContext.tenant_id,
-        logger: silentLogger,
+        logger: deps.logger,
       });
 
       const manifest = await deps.withTransaction(async transaction => {

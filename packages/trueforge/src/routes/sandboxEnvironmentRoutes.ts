@@ -93,7 +93,7 @@ export const putSandboxEnvironmentRoute = createRoute({
   path: '/',
   tags: [OpenApiTag.SANDBOXES],
   summary: 'Create or update a sandbox environment',
-  description: 'Create or replace by `manifest.name`. Requires a snapshot-capable sandbox provider.',
+  description: 'Create or replace by `manifest.name`. Requires a configured sandbox provider.',
   'x-fern-sdk-group-name': ['sandboxEnvironments'],
   'x-fern-sdk-method-name': 'create_or_update',
   request: {
@@ -121,7 +121,7 @@ export const putSandboxEnvironmentRoute = createRoute({
     },
     422: {
       content: { 'application/json': { schema: RequestErrorResponseSchema } },
-      description: 'No snapshot-capable sandbox provider configured.',
+      description: 'No sandbox provider configured.',
     },
   },
 });

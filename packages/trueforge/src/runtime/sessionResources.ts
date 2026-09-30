@@ -219,7 +219,7 @@ export async function resolveSandboxProvider({
         };
       default:
         throw new HTTPException(422, {
-          message: `Sandbox environment "${environment_name}" requires a snapshot-capable sandbox provider (configured provider type: "${record.manifest.type}")`,
+          message: `Sandbox environment "${environment_name}" requires a Daytona sandbox provider (configured: "${record.manifest.type}")`,
         });
     }
   }

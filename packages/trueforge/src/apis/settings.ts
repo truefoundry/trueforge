@@ -67,6 +67,7 @@ export function createSettingsRouter<TTransaction>(deps: SettingsRouterDeps<TTra
       resolveSandboxProviderStore: deps.resolveSandboxProviderStore,
       sandboxEnvironmentStore: deps.sandboxEnvironmentStore,
       withTransaction: deps.withTransaction,
+      logger: deps.logger,
       resolveRequestContext: deps.resolveRequestContext,
     }),
   );

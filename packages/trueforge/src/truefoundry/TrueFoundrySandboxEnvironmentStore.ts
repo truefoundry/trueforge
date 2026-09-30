@@ -109,40 +109,36 @@ export class TrueFoundrySandboxEnvironmentStore<
     transaction?: TTransaction,
   ): Promise<{ data: SandboxEnvironmentWithVersion[]; pagination: TokenPagination }> {
     const synthesized = synthesizeDefaultEnvironment(input.tenant_id);
-    if (!synthesized) {
+    // Later pages / no in-memory default: persistence only (customs still listed after a provider flip).
+    if (!synthesized || input.page_token) {
       return this.#persistence.listEnvironments(input, transaction);
     }
-    // Later pages: customs only (default was injected on page one).
-    // Still list customs under TRUEFOUNDRY_SANDBOX_PROVIDER=truefoundry (e.g. after a provider flip).
-    if (input.page_token) {
-      return this.#persistence.listEnvironments(input, transaction);
-    }
+
     const withoutDefault = (rows: SandboxEnvironmentWithVersion[]) =>
       rows.filter(row => row.environment.name !== DEFAULT_SANDBOX_ENVIRONMENT_NAME);
 
-    if (input.limit === undefined) {
-      const listed = await this.#persistence.listEnvironments(input, transaction);
-      const customs = withoutDefault(listed.data);
-      return { data: [synthesized, ...customs], pagination: { limit: customs.length + 1 } };
-    }
-
-    // First page: reserve one slot for the in-memory default.
-    const customLimit = Math.max(input.limit - 1, 0);
+    // First page: inject default; when limited, reserve one slot for it.
+    const customLimit = input.limit === undefined ? undefined : Math.max(input.limit - 1, 0);
     if (customLimit === 0) {
       const peek = await this.#persistence.listEnvironments({ ...input, limit: 1 }, transaction);
       const hasMore = withoutDefault(peek.data).length > 0 || peek.pagination.next_page_token !== undefined;
       return {
         data: [synthesized],
         pagination: {
-          limit: input.limit,
+          limit: input.limit ?? 1,
           ...(hasMore ? { next_page_token: peek.pagination.next_page_token ?? encodeOffsetPageToken(0) } : {}),
         },
       };
     }
-    const listed = await this.#persistence.listEnvironments({ ...input, limit: customLimit }, transaction);
+
+    const listed = await this.#persistence.listEnvironments(
+      customLimit === undefined ? input : { ...input, limit: customLimit },
+      transaction,
+    );
+    const customs = withoutDefault(listed.data);
     return {
-      data: [synthesized, ...withoutDefault(listed.data)],
-      pagination: listed.pagination,
+      data: [synthesized, ...customs],
+      pagination: customLimit === undefined ? { limit: customs.length + 1 } : listed.pagination,
     };
   }
 
