@@ -1,5 +1,12 @@
 # @truefoundry/trueforge-assistant-ui-runtime
 
+## 0.2.1
+
+### Patch Changes
+
+- 66fb42f: Avoid throwing agentSpec error when switching chats or rendering immutable sessions in Chat History.
+- 5e6527f: Prevent duplicate assistant message IDs when a turn stream finishes on mcp.auth_required without model messages.
+
 ## 0.2.0
 
 ### Minor Changes

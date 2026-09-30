@@ -1,5 +1,13 @@
 # Changelog
 
+## 0.4.1
+
+### Patch Changes
+
+- Updated dependencies [66fb42f]
+- Updated dependencies [5e6527f]
+  - @truefoundry/trueforge-assistant-ui-runtime@0.2.1
+
 ## 0.4.0
 
 ### Minor Changes
