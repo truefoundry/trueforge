@@ -88,6 +88,11 @@ export interface SandboxProvider<TEnvironment = undefined> {
   /** Stable provider kind used in fancy sandbox ids and carry-forward (plain string). */
   readonly type: string;
   /**
+   * Whether this provider uses sandbox environments (snapshot tip / build).
+   * When false, env resolve and env-store builds are skipped.
+   */
+  readonly envSupported: boolean;
+  /**
    * Optional credential/access probe. Providers that need none may omit or resolve immediately.
    */
   validateAccess?(): Promise<void>;

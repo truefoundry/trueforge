@@ -72,6 +72,7 @@ export interface DaytonaSandboxProviderOptions {
 
 export class DaytonaSandboxProvider implements SandboxProvider<DaytonaSandboxEnvironment> {
   readonly type = 'daytona';
+  readonly envSupported = true;
   private readonly tenantName: string;
   private readonly timeoutMs: number;
   private readonly autoStopIntervalInMinutes: number;

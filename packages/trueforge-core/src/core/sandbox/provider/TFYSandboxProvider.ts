@@ -61,8 +61,9 @@ interface StatResult {
   type: string;
 }
 
-export class TFYSandboxProvider implements SandboxProvider {
+export class TFYSandboxProvider implements SandboxProvider<undefined> {
   readonly type = 'truefoundry';
+  readonly envSupported = false;
   private readonly serverUrl: string;
   private readonly natsBridgeUrl: string;
   private readonly tenantName: string;

@@ -14,6 +14,7 @@ function makeProvider(
 ): SandboxProvider {
   return {
     type: 'local',
+    envSupported: false,
     getAdditionalInstructions: () => undefined,
     getToolResultDumpDir: sandboxId => `${sandboxId}/tool-results`,
     getGitCredentialsPath: sandboxId => `${sandboxId}/.git-credentials`,

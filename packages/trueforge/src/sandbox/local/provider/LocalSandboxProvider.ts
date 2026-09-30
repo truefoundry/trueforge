@@ -220,8 +220,9 @@ export function localSandboxUploadCommand(remotePath: string): string {
   ].join(' && ');
 }
 
-export class LocalSandboxProvider implements SandboxProvider {
+export class LocalSandboxProvider implements SandboxProvider<undefined> {
   readonly type = 'local';
+  readonly envSupported = false;
   private readonly sandboxRootPathParent: string;
   private readonly codeModeSocketParentPath: string;
   private readonly support: LocalSandboxSupported;

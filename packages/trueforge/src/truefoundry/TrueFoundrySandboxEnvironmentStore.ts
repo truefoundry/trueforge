@@ -1,9 +1,9 @@
 /**
  * TrueFoundry-mode sandbox environments: in-memory always-ready `"default"` when the
- * shared provider is Daytona; custom env CRUD delegated to persistence.
+ * shared provider supports environments (Daytona); custom env CRUD delegated to persistence.
  *
- * When `TRUEFOUNDRY_SANDBOX_PROVIDER=truefoundry` there is no env/snapshot concept —
- * get/upsert/list-inject no-op (list still returns persistence leftovers after a flip).
+ * When the shared provider does not support environments (TFY on-prem sandbox) there is no
+ * env/snapshot concept — get/upsert/list-inject no-op (list still returns persistence leftovers).
  */
 import type { TokenPagination } from '@truefoundry/trueforge-core/agent-session';
 import { encodeOffsetPageToken } from '@truefoundry/trueforge-core/agent-session/store/OffsetPageToken';
@@ -21,85 +21,44 @@ import type {
   SandboxEnvironmentWithVersion,
   UpsertSandboxEnvironmentInput,
 } from '../db/sandboxEnvironmentStore';
-import { defaultSandboxEnvironmentStoredManifest } from '../sandbox/sandboxEnvironmentVersion';
-import { NameSchema } from '../schemas/common';
-import {
-  DEFAULT_SANDBOX_ENVIRONMENT_NAME,
-  SandboxEnvironmentVersionInternalMetadataSchema,
-} from '../schemas/sandboxEnvironment';
+import { DEFAULT_SANDBOX_ENVIRONMENT_NAME } from '../schemas/sandboxEnvironment';
 import { trueFoundryManaged } from './errors';
-import { isTfySandbox } from './isTfySandbox';
-import { resolveTrueFoundrySandboxProviderConfig } from './resolveTrueFoundrySandboxProviderConfig';
+import { synthesizeTrueFoundryDefaultSandboxEnvironment } from './synthesizeTrueFoundryDefaultSandboxEnvironment';
 
 const logger = createLogger({ defaultMeta: { module: 'TrueFoundrySandboxEnvironmentStore' } });
 
-const DEFAULT_ENVIRONMENT_ID = 'tfy-default-sandbox-environment';
-const DEFAULT_VERSION_ID = 'tfy-default-sandbox-environment-v1';
-const DEFAULT_NAME = NameSchema.parse(DEFAULT_SANDBOX_ENVIRONMENT_NAME);
-const SYSTEM_SUBJECT = {
-  subject_id: 'truefoundry',
-  subject_type: 'user' as const,
-  subject_display_name: 'TrueFoundry',
-};
-const EMPTY_INTERNAL_METADATA = SandboxEnvironmentVersionInternalMetadataSchema.parse({});
-
-/** In-memory always-ready tenant default (requires TFY sandbox provider config). */
-function synthesizeDefaultEnvironment(tenant_id: string): SandboxEnvironmentWithVersion {
-  const provider = resolveTrueFoundrySandboxProviderConfig();
-  if (!provider) {
-    throw new Error('TrueFoundry sandbox provider is not configured');
-  }
-  const now = new Date().toISOString();
-  return {
-    environment: {
-      id: DEFAULT_ENVIRONMENT_ID,
-      tenant_id,
-      name: DEFAULT_NAME,
-      description: '',
-      active_version: 1,
-      lifecycle_stage: 'active',
-      created_by_subject: SYSTEM_SUBJECT,
-      created_at: now,
-      updated_at: now,
-    },
-    version: {
-      id: DEFAULT_VERSION_ID,
-      environment_id: DEFAULT_ENVIRONMENT_ID,
-      version: 1,
-      manifest: defaultSandboxEnvironmentStoredManifest(provider.type),
-      status: 'ready',
-      status_reason: null,
-      external_ref: provider.type === 'daytona' ? provider.settings.snapshotName : 'truefoundry-default',
-      internal_metadata: EMPTY_INTERNAL_METADATA,
-      created_by_subject: SYSTEM_SUBJECT,
-      created_at: now,
-      updated_at: now,
-    },
-  };
+export interface TrueFoundrySandboxEnvironmentStoreOptions {
+  /**
+   * From the shared sandbox provider's `envSupported` (Daytona true; TFY on-prem false).
+   * When false, env CRUD/progress no-ops. Default tip comes from provider config via synthesize.
+   */
+  envSupported: boolean;
 }
 
 /**
- * Wraps persistence for custom envs; `"default"` is always in-memory when sandbox is enabled.
+ * Wraps persistence for custom envs; `"default"` is always in-memory when env is supported.
  */
 export class TrueFoundrySandboxEnvironmentStore<
   TTransaction = never,
 > implements ISandboxEnvironmentStore<TTransaction> {
   readonly #persistence: ISandboxEnvironmentStore<TTransaction>;
+  readonly #envSupported: boolean;
 
-  constructor(persistence: ISandboxEnvironmentStore<TTransaction>) {
+  constructor(persistence: ISandboxEnvironmentStore<TTransaction>, options: TrueFoundrySandboxEnvironmentStoreOptions) {
     this.#persistence = persistence;
+    this.#envSupported = options.envSupported;
   }
 
   async listEnvironments(
     input: ListSandboxEnvironmentsInput,
     transaction?: TTransaction,
   ): Promise<{ data: SandboxEnvironmentWithVersion[]; pagination: TokenPagination }> {
-    // On-prem TFY sandbox has no env/snapshot concept — persistence only (e.g. leftovers after a flip).
-    if (isTfySandbox() || input.page_token) {
+    // No env/snapshot concept — persistence only (e.g. leftovers after a flip).
+    if (!this.#envSupported || input.page_token) {
       return this.#persistence.listEnvironments(input, transaction);
     }
 
-    const synthesized = synthesizeDefaultEnvironment(input.tenant_id);
+    const synthesized = synthesizeTrueFoundryDefaultSandboxEnvironment(input.tenant_id);
     const withoutDefault = (rows: SandboxEnvironmentWithVersion[]) =>
       rows.filter(row => row.environment.name !== DEFAULT_SANDBOX_ENVIRONMENT_NAME);
 
@@ -132,15 +91,15 @@ export class TrueFoundrySandboxEnvironmentStore<
     input: GetSandboxEnvironmentInput,
     transaction?: TTransaction,
   ): Promise<SandboxEnvironmentWithVersion | undefined> {
-    if (isTfySandbox()) {
-      logger.info('Skipping sandbox environment get under TRUEFOUNDRY_SANDBOX_PROVIDER=truefoundry', {
+    if (!this.#envSupported) {
+      logger.info('Skipping sandbox environment get (provider does not support environments)', {
         name: input.name,
         tenant_id: input.tenant_id,
       });
       return Promise.resolve(undefined);
     }
     if (input.name === DEFAULT_SANDBOX_ENVIRONMENT_NAME) {
-      return Promise.resolve(synthesizeDefaultEnvironment(input.tenant_id));
+      return Promise.resolve(synthesizeTrueFoundryDefaultSandboxEnvironment(input.tenant_id));
     }
     return this.#persistence.getEnvironment(input, transaction);
   }
@@ -149,22 +108,22 @@ export class TrueFoundrySandboxEnvironmentStore<
     input: UpsertSandboxEnvironmentInput,
     transaction?: TTransaction,
   ): Promise<SandboxEnvironmentWithVersion> {
-    if (isTfySandbox()) {
-      logger.info('Skipping sandbox environment upsert under TRUEFOUNDRY_SANDBOX_PROVIDER=truefoundry', {
+    if (!this.#envSupported) {
+      logger.info('Skipping sandbox environment upsert (provider does not support environments)', {
         name: input.name,
         tenant_id: input.tenant_id,
       });
       return trueFoundryManaged();
     }
     if (input.name === DEFAULT_SANDBOX_ENVIRONMENT_NAME) {
-      return Promise.resolve(synthesizeDefaultEnvironment(input.tenant_id));
+      return Promise.resolve(synthesizeTrueFoundryDefaultSandboxEnvironment(input.tenant_id));
     }
     return this.#persistence.upsertEnvironment(input, transaction);
   }
 
   listLatestPendingVersions(transaction?: TTransaction): Promise<string[]> {
-    if (isTfySandbox()) {
-      logger.info('Skipping pending sandbox environment list under TRUEFOUNDRY_SANDBOX_PROVIDER=truefoundry');
+    if (!this.#envSupported) {
+      logger.info('Skipping pending sandbox environment list (provider does not support environments)');
       return Promise.resolve([]);
     }
     return this.#persistence.listLatestPendingVersions(transaction);
@@ -174,8 +133,8 @@ export class TrueFoundrySandboxEnvironmentStore<
     input: GetSandboxEnvironmentVersionInput,
     transaction?: TTransaction,
   ): Promise<SandboxEnvironmentVersionForProgress | undefined> {
-    if (isTfySandbox()) {
-      logger.info('Skipping sandbox environment version get under TRUEFOUNDRY_SANDBOX_PROVIDER=truefoundry', {
+    if (!this.#envSupported) {
+      logger.info('Skipping sandbox environment version get (provider does not support environments)', {
         environment_version_id: input.environment_version_id,
       });
       return Promise.resolve(undefined);
@@ -187,8 +146,8 @@ export class TrueFoundrySandboxEnvironmentStore<
     input: MarkSandboxEnvironmentVersionReadyInput,
     transaction?: TTransaction,
   ): Promise<SandboxEnvironmentWithVersion | undefined> {
-    if (isTfySandbox()) {
-      logger.info('Skipping sandbox environment mark ready under TRUEFOUNDRY_SANDBOX_PROVIDER=truefoundry', {
+    if (!this.#envSupported) {
+      logger.info('Skipping sandbox environment mark ready (provider does not support environments)', {
         environment_version_id: input.environment_version_id,
       });
       return Promise.resolve(undefined);
@@ -200,8 +159,8 @@ export class TrueFoundrySandboxEnvironmentStore<
     input: MarkSandboxEnvironmentVersionFailedInput,
     transaction?: TTransaction,
   ): Promise<SandboxEnvironmentVersionRecord | undefined> {
-    if (isTfySandbox()) {
-      logger.info('Skipping sandbox environment mark failed under TRUEFOUNDRY_SANDBOX_PROVIDER=truefoundry', {
+    if (!this.#envSupported) {
+      logger.info('Skipping sandbox environment mark failed (provider does not support environments)', {
         environment_version_id: input.environment_version_id,
       });
       return Promise.resolve(undefined);
@@ -210,8 +169,8 @@ export class TrueFoundrySandboxEnvironmentStore<
   }
 
   deleteEnvironment(input: DeleteSandboxEnvironmentInput, transaction?: TTransaction): Promise<void> {
-    if (isTfySandbox()) {
-      logger.info('Skipping sandbox environment delete under TRUEFOUNDRY_SANDBOX_PROVIDER=truefoundry', {
+    if (!this.#envSupported) {
+      logger.info('Skipping sandbox environment delete (provider does not support environments)', {
         name: input.name,
         tenant_id: input.tenant_id,
       });

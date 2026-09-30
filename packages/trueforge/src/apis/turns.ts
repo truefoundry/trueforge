@@ -17,7 +17,6 @@ import {
 import type { IWebSearchProvider } from '@truefoundry/trueforge-core/core';
 import {
   AgentHarnessError,
-  DaytonaSandboxProvider,
   existingSandboxIdForProvider,
   extractErrorLogFields,
   isAgentInputUserMessage,
@@ -262,9 +261,8 @@ function createTurnResolver(deps: {
         existingSandboxId: carriedSandboxId,
         tracing,
       };
-      // Daytona: resolve env (omit name → tenant `"default"`; soft-skip when default missing).
-      // Other providers have no env/snapshot concept.
-      if (provider instanceof DaytonaSandboxProvider) {
+      // Env-capable providers (Daytona): resolve env. Others skip (no snapshot concept).
+      if (provider.envSupported) {
         const environment = await resolveSandboxEnvironment({
           tenant_id,
           name: spec.config.sandbox.environment_name ?? DEFAULT_SANDBOX_ENVIRONMENT_NAME,

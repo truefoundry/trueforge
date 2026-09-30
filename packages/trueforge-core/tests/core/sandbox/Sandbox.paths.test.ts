@@ -13,6 +13,7 @@ function readyExec(): Promise<ExecResult> {
 function makeProvider(overrides: Partial<SandboxProvider> = {}): SandboxProvider {
   return {
     type: 'test',
+    envSupported: false,
     createSandbox: () => Promise.resolve({ sandboxId: 'raw-1' }),
     exec: () => readyExec(),
     getAdditionalInstructions: () => undefined,

@@ -18,6 +18,7 @@ function makeSandbox(options: {
   const transport = options.transport;
   const provider: SandboxProvider = {
     type: 'test',
+    envSupported: false,
     createSandbox: () => Promise.resolve({ sandboxId: 'test-tenant.sandbox-1' }),
     exec: (params): Promise<ExecResult> => {
       execCalls.push(params);
