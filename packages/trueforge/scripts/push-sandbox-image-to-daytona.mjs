@@ -18,6 +18,8 @@ Options:
   -h, --help        Show this help
 
 Requires DAYTONA_API_KEY in the environment.
+Set DAYTONA_API_URL to a self-hosted control plane (including the /api suffix);
+omit it to target Daytona Cloud.
 `);
 }
 
@@ -53,6 +55,7 @@ if (apiKey === undefined || apiKey === '') {
 const image = values.image;
 const name = values.name;
 const force = values.force;
+const apiUrl = process.env.DAYTONA_API_URL?.replace(/\/+$/, '');
 
 console.log(`image=${image}`);
 console.log(`name=${name}`);
@@ -60,6 +63,7 @@ console.log(`force=${String(force)}`);
 
 const daytona = new Daytona({
   apiKey,
+  ...(apiUrl === undefined || apiUrl === '' ? {} : { apiUrl }),
 });
 
 let existing = null;

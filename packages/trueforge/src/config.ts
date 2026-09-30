@@ -982,7 +982,7 @@ export type DistributedServerConfiguration = SharedServerConfiguration & {
   TRUEFOUNDRY_SANDBOX_SERVER_URL: string | undefined;
   /**
    * Static JSON settings for the shared sandbox (provider-specific).
-   * Daytona: `snapshotName`, intervals, `timeoutMs`. TrueFoundry: `nats_bridge_url`.
+   * Daytona: `snapshotName`, intervals, `timeoutMs`, optional `apiUrl`. TrueFoundry: `nats_bridge_url`.
    * Env: `TRUEFOUNDRY_SANDBOX_SETTINGS`.
    */
   TRUEFOUNDRY_SANDBOX_SETTINGS: string | undefined;

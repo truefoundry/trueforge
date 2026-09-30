@@ -23,6 +23,11 @@ const DaytonaSandboxProviderAuthSchema = z
   .describe('Daytona authentication credentials.')
   .openapi('DaytonaSandboxProviderAuth');
 
+/** Both static settings and persisted manifests use the same Daytona endpoint contract. */
+export const DaytonaApiUrlSchema = z
+  .url({ protocol: /^https?$/ })
+  .refine(value => !value.includes('?') && !value.includes('#'), 'Daytona API URL cannot contain a query or fragment');
+
 /**
  * Daytona-backed sandbox provider config. Persisted as `sandbox_provider.manifest`.
  */
@@ -30,6 +35,9 @@ export const DaytonaSandboxProviderSchema = z
   .object({
     type: z.literal('daytona').describe('Daytona sandbox provider.'),
     auth: DaytonaSandboxProviderAuthSchema,
+    api_url: DaytonaApiUrlSchema.optional().describe(
+      'Daytona HTTP(S) API base URL, including the /api suffix. Omit on create for Daytona Cloud; omit on update to retain the existing endpoint.',
+    ),
     exec_timeout_ms: z.number().int().positive().describe('Default sandbox command exec timeout in milliseconds.'),
     auto_stop_interval_in_minutes: z
       .number()
@@ -134,10 +142,12 @@ export function toDaytonaSandboxProviderInput(manifest: SandboxProviderManifest)
   apiKey: string;
 } & Pick<
   DaytonaSandboxProviderOptions,
-  'timeoutMs' | 'autoStopIntervalInMinutes' | 'autoArchiveIntervalInMinutes' | 'autoDeleteIntervalInMinutes'
+  'apiUrl' | 'timeoutMs' | 'autoStopIntervalInMinutes' | 'autoArchiveIntervalInMinutes' | 'autoDeleteIntervalInMinutes'
 > {
   return {
     apiKey: manifest.auth.api_key,
+    // The core provider appends `/snapshots` directly; a trailing slash would hit `/api//snapshots`.
+    apiUrl: manifest.api_url?.replace(/\/+$/, ''),
     timeoutMs: manifest.exec_timeout_ms,
     autoStopIntervalInMinutes: manifest.auto_stop_interval_in_minutes,
     autoArchiveIntervalInMinutes: manifest.auto_archive_interval_in_minutes,

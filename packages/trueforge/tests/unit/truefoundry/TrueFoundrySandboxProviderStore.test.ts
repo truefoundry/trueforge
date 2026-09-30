@@ -60,6 +60,19 @@ describe('TrueFoundrySandboxProviderStore', () => {
     });
   });
 
+  it('persists a self-hosted apiUrl as manifest api_url', async () => {
+    mockResolveConfig.mockReturnValue({
+      type: 'daytona',
+      apiKey: 'dtn-shared-key',
+      settings: { ...DAYTONA_SETTINGS, apiUrl: 'http://localhost:3000/api' },
+    });
+    const store = new TrueFoundrySandboxProviderStore();
+
+    const record = await store.getSandboxProvider(TENANT);
+
+    expect(record?.manifest).toMatchObject({ api_url: 'http://localhost:3000/api' });
+  });
+
   it('get returns ready truefoundry record from static settings', async () => {
     mockResolveConfig.mockReturnValue({
       type: 'truefoundry',

@@ -72,10 +72,11 @@ export function toDaytonaSandboxProvider({
   build_metadata?: SandboxBuildMetadata | null;
   environment?: SandboxEnvironmentManifest;
 }): DaytonaSandboxProvider {
-  const { apiKey, ...settings } = toDaytonaSandboxProviderInput(manifest);
+  const { apiKey, apiUrl, ...settings } = toDaytonaSandboxProviderInput(manifest);
   return new DaytonaSandboxProvider({
-    client: new Daytona({ apiKey }),
+    client: new Daytona({ apiKey, ...(apiUrl === undefined ? {} : { apiUrl }) }),
     apiKey,
+    apiUrl,
     ...settings,
     tenantName: tenant_id,
     sandboxImage: build_metadata?.['image_uri'] ?? SANDBOX_IMAGE_URI,

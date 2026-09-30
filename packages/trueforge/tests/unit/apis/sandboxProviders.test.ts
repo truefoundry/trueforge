@@ -258,6 +258,31 @@ describe('sandbox-provider secret redaction and strict PUT', () => {
     expect(stored?.manifest).toEqual({ ...putBody, exec_timeout_ms: 120000 });
   });
 
+  it('keeps a self-hosted URL when the settings UI omits it, but accepts an explicit Cloud URL', async () => {
+    const { settingsRouter, sandboxProviderStore } = await createRouters();
+    const api_url = 'http://localhost:3000/api';
+    expect((await settingsRouter.request('/', putInit({ ...putBody, api_url }))).status).toBe(200);
+
+    const uiSave = await settingsRouter.request(
+      '/',
+      putInit({
+        ...putBody,
+        exec_timeout_ms: 120_000,
+        auth: { api_key: toRedactedSecretValue(putBody.auth.api_key) },
+      }),
+    );
+    expect(uiSave.status).toBe(200);
+    expect(await uiSave.json()).toMatchObject({ data: { manifest: { api_url } } });
+    expect((await sandboxProviderStore.getSandboxProvider('default'))?.manifest).toMatchObject({ api_url });
+    expect(mockProviderFactory).toHaveBeenLastCalledWith(
+      expect.objectContaining({ manifest: expect.objectContaining({ api_url }) }),
+    );
+
+    const cloud = 'https://app.daytona.io/api';
+    expect((await settingsRouter.request('/', putInit({ ...putBody, api_url: cloud }))).status).toBe(200);
+    expect((await sandboxProviderStore.getSandboxProvider('default'))?.manifest).toMatchObject({ api_url: cloud });
+  });
+
   it('PUT with a different redacted api_key still keeps the stored secret', async () => {
     const { settingsRouter, sandboxProviderStore } = await createRouters();
     expect((await settingsRouter.request('/', putInit(putBody))).status).toBe(200);

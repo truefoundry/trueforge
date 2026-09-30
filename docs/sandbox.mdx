@@ -31,6 +31,13 @@ That means:
 
 Open **Settings → Sandbox providers**, pick the [Daytona](https://www.daytona.io) preset from the catalog, and paste your API key.
 
+By default the provider talks to Daytona Cloud. The settings form does not expose a custom endpoint yet. To use a
+self-hosted, Daytona-compatible control plane, set its API base URL — including the `/api` suffix — as `apiUrl` in
+`TRUEFOUNDRY_SANDBOX_SETTINGS` for a statically configured shared sandbox, or as `api_url` on the provider manifest through
+`PUT /api/v1/settings/sandbox-providers`. The sandbox image must be pullable from that instance. Omit the URL on initial
+configuration to use Daytona Cloud; on later PUTs omission retains the existing endpoint, so send
+`api_url: "https://app.daytona.io/api"` explicitly to switch back to Cloud.
+
 <Note>
   The Daytona API key needs permission to create **snapshots**, not only sandboxes. The first time you configure the
   provider, TrueForge builds a release snapshot in your Daytona account, and every sandbox it starts afterwards is

@@ -53,6 +53,36 @@ describe('resolveTrueFoundrySandboxProviderConfig', () => {
     });
   });
 
+  it('accepts a self-hosted Daytona API URL and rejects invalid settings URLs', () => {
+    const options: Parameters<typeof distributed>[0] = {
+      TRUEFOUNDRY_SANDBOX_ENABLED: true,
+      TRUEFOUNDRY_SANDBOX_PROVIDER: 'daytona',
+      TRUEFOUNDRY_SANDBOX_API_KEY: 'dtn-key',
+    };
+    expect(
+      resolveTrueFoundrySandboxProviderConfig(
+        distributed({
+          ...options,
+          TRUEFOUNDRY_SANDBOX_SETTINGS: JSON.stringify({
+            snapshotName: 'snap-1',
+            apiUrl: 'http://localhost:3000/api/',
+          }),
+        }),
+      ),
+    ).toMatchObject({ settings: { apiUrl: 'http://localhost:3000/api/' } });
+
+    for (const apiUrl of ['/api', 'ftp://localhost/api', 'http://localhost/api?x=1']) {
+      expect(() =>
+        resolveTrueFoundrySandboxProviderConfig(
+          distributed({
+            ...options,
+            TRUEFOUNDRY_SANDBOX_SETTINGS: JSON.stringify({ snapshotName: 'snap-1', apiUrl }),
+          }),
+        ),
+      ).toThrow();
+    }
+  });
+
   it('returns truefoundry with server URL and nats_bridge_url from settings', () => {
     expect(
       resolveTrueFoundrySandboxProviderConfig(

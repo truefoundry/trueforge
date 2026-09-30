@@ -25,6 +25,7 @@ function synthesizeDaytonaRecord({
     manifest: {
       type: 'daytona',
       auth: { api_key: providerConfig.apiKey },
+      api_url: settings.apiUrl,
       exec_timeout_ms: settings.timeoutMs,
       auto_stop_interval_in_minutes: settings.autoStopIntervalInMinutes,
       auto_archive_interval_in_minutes: settings.autoArchiveIntervalInMinutes,

@@ -67,6 +67,8 @@ export function createSandboxProvidersRouter<TTransaction>(deps: SandboxProvider
     const incoming = body.manifest;
     const resolveManifest = (existing: SandboxProviderRecord | undefined): SandboxProviderManifest => ({
       ...incoming,
+      // Older settings clients omit this field on full PUTs; keep the endpoint rather than silently switching to Cloud.
+      api_url: incoming.api_url ?? (existing?.manifest.type === 'daytona' ? existing.manifest.api_url : undefined),
       auth: {
         api_key: resolveStoredSecretValue({
           incoming: incoming.auth.api_key,
