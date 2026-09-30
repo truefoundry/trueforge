@@ -135,11 +135,20 @@ export type AgentThreadExecutionEvent = WithRegisteredPassthrough<
   ThreadCreatedEvent | Exclude<AgentThreadEvent, InternalPassthroughEvent>
 >;
 
-export interface AgentThreadExecutionResult {
-  output: ModelMessageEvent | null;
+/** HITL: waiting on required actions. No final output. */
+export type AgentThreadExecutionResultPaused = {
+  status: 'paused';
   required_actions: ActionRequiredEvent[];
+};
+
+/** Run finished (or root agent errored). No open required actions. */
+export type AgentThreadExecutionResultDone = {
+  status: 'done';
+  output: ModelMessageEvent | null;
   root_agent_error?: Pick<ThreadStateError, 'error' | 'output'> | undefined;
-}
+};
+
+export type AgentThreadExecutionResult = AgentThreadExecutionResultPaused | AgentThreadExecutionResultDone;
 
 /** Public send items plus internal LLM tool messages (child→parent delivery). */
 export type AgentThreadRuntimeSendInput = AgentSendInput | LLMToolMessage;

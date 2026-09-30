@@ -15,6 +15,8 @@ export type {
   AgentThreadEvent,
   AgentThreadExecutionEvent,
   AgentThreadExecutionResult,
+  AgentThreadExecutionResultDone,
+  AgentThreadExecutionResultPaused,
   SubAgentCompletionMarker,
 } from './runtime/AgentThread.types';
 export { AgentThreadOrchestrator } from './runtime/AgentThreadOrchestrator';

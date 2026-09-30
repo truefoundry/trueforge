@@ -74,8 +74,8 @@ const EXPECTED_EVENTS = [
 ];
 
 const OUTPUT = {
+  status: 'done',
   output: { thread_id: ROOT_ID, content: ROOT_FINAL },
-  required_actions: [],
 };
 
 const EXPECTED_ROOT_LLM_INPUT = [
@@ -201,7 +201,10 @@ describe('orchestration: dynamic sub-agent', () => {
 
     expect(events).toMatchObject(EXPECTED_EVENTS);
     expect(result).toMatchObject(OUTPUT);
-    expect(result.root_agent_error).toBeUndefined();
+    expect(result.status).toBe('done');
+    if (result.status === 'done') {
+      expect(result.root_agent_error).toBeUndefined();
+    }
     expect(llmCreateInputs(thread_1.definition.modelClient)).toMatchObject(EXPECTED_ROOT_LLM_INPUT);
     if (childLLM === undefined) {
       throw new Error('expected child LLM to be created');

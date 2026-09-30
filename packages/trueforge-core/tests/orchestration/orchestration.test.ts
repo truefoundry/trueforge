@@ -23,8 +23,8 @@ const EXPECTED_EVENTS = [
 ];
 
 const OUTPUT = {
+  status: 'done',
   output: { thread_id: THREAD_ID, content: REPLY },
-  required_actions: [],
 };
 
 const EXPECTED_LLM_INPUT = [
@@ -82,7 +82,10 @@ describe('orchestration: mocked LLM and no tools', () => {
 
     expect(events).toMatchObject(EXPECTED_EVENTS);
     expect(result).toMatchObject(OUTPUT);
-    expect(result.root_agent_error).toBeUndefined();
+    expect(result.status).toBe('done');
+    if (result.status === 'done') {
+      expect(result.root_agent_error).toBeUndefined();
+    }
     expect(llmCreateInputs(thread.definition.modelClient)).toMatchObject(EXPECTED_LLM_INPUT);
   });
 });

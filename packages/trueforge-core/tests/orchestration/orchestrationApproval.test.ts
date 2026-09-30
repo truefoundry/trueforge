@@ -55,7 +55,7 @@ const EXPECTED_TURN_1_EVENTS = [
 ];
 
 const TURN_1_OUTPUT = {
-  output: null,
+  status: 'paused',
   required_actions: [
     {
       type: EventType.TOOL_APPROVAL_REQUIRED,
@@ -97,8 +97,8 @@ describe('orchestration: pause then resume on tool approval', () => {
     ];
 
     const TURN_2_OUTPUT = {
+      status: 'done',
       output: { thread_id: ROOT_ID, content: ROOT_FINAL },
-      required_actions: [],
     };
 
     const EXPECTED_TURN_2_INPUT = {
@@ -130,7 +130,6 @@ describe('orchestration: pause then resume on tool approval', () => {
       });
       expect(paused.events).toMatchObject(EXPECTED_TURN_1_EVENTS);
       expect(paused.result).toMatchObject(TURN_1_OUTPUT);
-      expect(paused.result.root_agent_error).toBeUndefined();
       expect(llmCreateInputs(thread.definition.modelClient)).toMatchObject(EXPECTED_TURN_1_LLM_INPUT);
       expect(callTool).not.toHaveBeenCalled();
 
@@ -147,7 +146,10 @@ describe('orchestration: pause then resume on tool approval', () => {
       });
       expect(resumed.events).toMatchObject(EXPECTED_TURN_2_EVENTS);
       expect(resumed.result).toMatchObject(TURN_2_OUTPUT);
-      expect(resumed.result.root_agent_error).toBeUndefined();
+      expect(resumed.result.status).toBe('done');
+      if (resumed.result.status === 'done') {
+        expect(resumed.result.root_agent_error).toBeUndefined();
+      }
       expect(callTool).toHaveBeenCalledTimes(1);
       expect(llmCreateInputs(thread.definition.modelClient)).toMatchObject([
         ...EXPECTED_TURN_1_LLM_INPUT,
@@ -177,8 +179,8 @@ describe('orchestration: pause then resume on tool approval', () => {
     ];
 
     const TURN_2_OUTPUT = {
+      status: 'done',
       output: { thread_id: ROOT_ID, content: ROOT_FINAL },
-      required_actions: [],
     };
 
     const EXPECTED_TURN_2_INPUT = {
@@ -226,7 +228,10 @@ describe('orchestration: pause then resume on tool approval', () => {
       });
       expect(resumed.events).toMatchObject(EXPECTED_TURN_2_EVENTS);
       expect(resumed.result).toMatchObject(TURN_2_OUTPUT);
-      expect(resumed.result.root_agent_error).toBeUndefined();
+      expect(resumed.result.status).toBe('done');
+      if (resumed.result.status === 'done') {
+        expect(resumed.result.root_agent_error).toBeUndefined();
+      }
       expect(callTool).not.toHaveBeenCalled();
       expect(llmCreateInputs(thread.definition.modelClient)).toMatchObject([
         ...EXPECTED_TURN_1_LLM_INPUT,

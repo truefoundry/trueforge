@@ -20,6 +20,7 @@ import {
   type AgentThreadEvent,
   type AgentThreadExecutionEvent,
   type AgentThreadExecutionResult,
+  type AgentThreadExecutionResultDone,
   type AgentThreadSendBatch,
   type InternalMCPAuthRequiredEvent,
   type InternalMCPServerAuthInfo,
@@ -430,7 +431,7 @@ export class AgentThreadOrchestrator {
     let caughtError: unknown;
     let output: ModelMessageEvent | null = null;
     const requiredActions: ActionRequiredEvent[] = [];
-    let rootAgentError: AgentThreadExecutionResult['root_agent_error'];
+    let rootAgentError: AgentThreadExecutionResultDone['root_agent_error'];
     const pendingAuthEvents: InternalMCPAuthRequiredEvent[] = [];
     const mainThread = [...agentThreads.values()].find(e => !e.parent);
     if (!mainThread) {
@@ -519,10 +520,9 @@ export class AgentThreadOrchestrator {
       requiredActions.push(authRequiredAction);
     }
 
-    return {
-      output,
-      required_actions: requiredActions,
-      root_agent_error: rootAgentError,
-    };
+    if (!rootAgentError && requiredActions.length > 0) {
+      return { status: 'paused', required_actions: requiredActions };
+    }
+    return { status: 'done', output, root_agent_error: rootAgentError };
   }
 }

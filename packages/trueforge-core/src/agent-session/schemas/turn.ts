@@ -215,3 +215,7 @@ export type TurnInboundEventItem = z.infer<typeof TurnInboundEventItemSchema>;
 export function isNonTerminalTurnState(state: TurnState): state is NonTerminalTurnState {
   return state.status === 'running' || state.status === 'paused';
 }
+
+export function isTerminalTurnState(state: TurnState): state is TerminalTurnState {
+  return !isNonTerminalTurnState(state);
+}

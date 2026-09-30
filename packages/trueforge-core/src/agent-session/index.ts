@@ -22,6 +22,7 @@ export {
   TurnStateRunningSchema,
   TurnStateSchema,
   isNonTerminalTurnState,
+  isTerminalTurnState,
 } from './schemas/turn';
 export type {
   NonTerminalTurnState,
