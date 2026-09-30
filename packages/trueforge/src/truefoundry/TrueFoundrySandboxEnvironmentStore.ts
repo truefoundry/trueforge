@@ -29,10 +29,7 @@ import {
 } from '../schemas/sandboxEnvironment';
 import { trueFoundryManaged } from './errors';
 import { isTfySandbox } from './isTfySandbox';
-import {
-  resolveTrueFoundrySandboxProviderConfig,
-  type TrueFoundrySandboxProviderConfig,
-} from './resolveTrueFoundrySandboxProviderConfig';
+import { resolveTrueFoundrySandboxProviderConfig } from './resolveTrueFoundrySandboxProviderConfig';
 
 const logger = createLogger({ defaultMeta: { module: 'TrueFoundrySandboxEnvironmentStore' } });
 
@@ -46,21 +43,11 @@ const SYSTEM_SUBJECT = {
 };
 const EMPTY_INTERNAL_METADATA = SandboxEnvironmentVersionInternalMetadataSchema.parse({});
 
-/** In-memory always-ready tenant default when TFY sandbox is enabled. */
-function synthesizeDefaultEnvironment(tenant_id: string): SandboxEnvironmentWithVersion | undefined {
-  let provider: TrueFoundrySandboxProviderConfig | undefined;
-  try {
-    provider = resolveTrueFoundrySandboxProviderConfig();
-  } catch (error) {
-    throw new Error(
-      `TrueFoundry sandbox provider configuration is invalid after a provider change: ${
-        error instanceof Error ? error.message : String(error)
-      }`,
-      { cause: error },
-    );
-  }
+/** In-memory always-ready tenant default (requires TFY sandbox provider config). */
+function synthesizeDefaultEnvironment(tenant_id: string): SandboxEnvironmentWithVersion {
+  const provider = resolveTrueFoundrySandboxProviderConfig();
   if (!provider) {
-    return undefined;
+    throw new Error('TrueFoundry sandbox provider is not configured');
   }
   const now = new Date().toISOString();
   return {
@@ -107,12 +94,12 @@ export class TrueFoundrySandboxEnvironmentStore<
     input: ListSandboxEnvironmentsInput,
     transaction?: TTransaction,
   ): Promise<{ data: SandboxEnvironmentWithVersion[]; pagination: TokenPagination }> {
-    const synthesized = synthesizeDefaultEnvironment(input.tenant_id);
-    // Later pages / no in-memory default: persistence only (customs still listed after a provider flip).
-    if (!synthesized || input.page_token) {
+    // Later pages: customs only (default was injected on page one).
+    if (input.page_token) {
       return this.#persistence.listEnvironments(input, transaction);
     }
 
+    const synthesized = synthesizeDefaultEnvironment(input.tenant_id);
     const withoutDefault = (rows: SandboxEnvironmentWithVersion[]) =>
       rows.filter(row => row.environment.name !== DEFAULT_SANDBOX_ENVIRONMENT_NAME);
 
@@ -163,11 +150,7 @@ export class TrueFoundrySandboxEnvironmentStore<
     transaction?: TTransaction,
   ): Promise<SandboxEnvironmentWithVersion> {
     if (input.name === DEFAULT_SANDBOX_ENVIRONMENT_NAME) {
-      const synthesized = synthesizeDefaultEnvironment(input.tenant_id);
-      if (synthesized) {
-        return Promise.resolve(synthesized);
-      }
-      return trueFoundryManaged();
+      return Promise.resolve(synthesizeDefaultEnvironment(input.tenant_id));
     }
     if (isTfySandbox()) {
       logger.info('Skipping custom sandbox environment upsert under TRUEFOUNDRY_SANDBOX_PROVIDER=truefoundry', {
