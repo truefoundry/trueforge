@@ -134,8 +134,8 @@ export function createSandboxEnvironmentsRouter<TTransaction>(
     const body = c.req.valid('json');
     const requestContext = resolveRequestContext(c);
     const provider = await resolveSandboxProviderRecord(deps.resolveSandboxProviderStore(c), requestContext.tenant_id);
-    if (provider?.manifest.type !== 'daytona') {
-      return c.json({ error: { message: 'Sandbox environments require a Daytona sandbox provider' } }, 422);
+    if (provider === undefined) {
+      return c.json({ error: { message: 'Sandbox environments require a snapshot-capable sandbox provider' } }, 422);
     }
 
     const created_by_subject = createdBySubjectFromRequestContext(requestContext);

@@ -6,17 +6,12 @@ import { createRoute, z } from '@hono/zod-openapi';
 import { RequestErrorResponseSchema } from '../schemas/errors';
 import { OpenApiTag } from './openapiTags';
 
-export const ListPendingSandboxEnvironmentVersionsQuerySchema = z
-  .object({
-    limit: z.coerce.number().int().positive().max(100).default(20).describe('Max pending versions to return.'),
-  })
-  .strict();
-
 export const PendingSandboxEnvironmentVersionSchema = z
   .object({
     environment_version_id: z.string().min(1).describe('Version row id to progress.'),
   })
-  .strict();
+  .strict()
+  .openapi('PendingSandboxEnvironmentVersion');
 
 export const ListPendingSandboxEnvironmentVersionsResponseSchema = z
   .object({
@@ -41,9 +36,6 @@ export const listPendingSandboxEnvironmentVersionsRoute = createRoute({
   'x-fern-sdk-group-name': ['internal', 'sandbox_environments'],
   'x-fern-sdk-method-name': 'list_pending',
   'x-excluded': true,
-  request: {
-    query: ListPendingSandboxEnvironmentVersionsQuerySchema,
-  },
   responses: {
     200: {
       content: { 'application/json': { schema: ListPendingSandboxEnvironmentVersionsResponseSchema } },
@@ -61,7 +53,7 @@ export const progressSandboxEnvironmentVersionRoute = createRoute({
   path: '/progress',
   tags: [OpenApiTag.INTERNAL],
   summary: 'Progress a pending sandbox environment version',
-  description: 'Registers or polls the Daytona snapshot and updates version status.',
+  description: 'Registers or polls the snapshot build and updates version status.',
   'x-fern-sdk-group-name': ['internal', 'sandbox_environments'],
   'x-fern-sdk-method-name': 'progress',
   'x-excluded': true,

@@ -55,7 +55,7 @@ export function parseStoredSandboxEnvironmentManifest(manifest: unknown): Stored
 
 export interface ListSandboxEnvironmentsInput {
   tenant_id: string;
-  /** Only environments created by this subject. */
+  /** Only environments created by this subject (tenant `"default"` is always included). */
   created_by_subject_id: string;
   limit: number | undefined;
   page_token: string | undefined;
@@ -66,32 +66,18 @@ export interface GetSandboxEnvironmentInput {
   name: string;
   /**
    * When set (CRUD / agent attach), only return if this subject created the environment.
-   * Omit when resolving an env during agent execution: running the agent already
-   * implies access to its referenced sandbox environment, so ownership is not checked.
+   * Ignored for the tenant `"default"`. Omit when resolving an env during agent execution.
    */
   created_by_subject_id?: string;
 }
 
-export interface GetDefaultSandboxEnvironmentInput {
-  tenant_id: string;
+/** Pending tip id for the sandbox-env build controller list. */
+export interface PendingSandboxEnvironmentVersionId {
+  id: string;
 }
 
-export interface CreateDefaultSandboxEnvironmentInput {
-  tenant_id: string;
-  created_by_subject: CreatedBySubject;
-}
-
-export interface ListLatestPendingSandboxEnvironmentVersionsInput {
-  limit: number;
-}
-
-export interface GetSandboxEnvironmentVersionInput {
-  environment_version_id: string;
-}
-
-/** Pending version row for the sandbox-env build controller. */
-export interface PendingSandboxEnvironmentVersion {
-  /** Version row primary key. */
+/** Version + parent fields needed to progress a build. */
+export interface SandboxEnvironmentVersionForProgress {
   id: string;
   tenant_id: string;
   environment_id: string;
@@ -99,6 +85,10 @@ export interface PendingSandboxEnvironmentVersion {
   version: number;
   external_ref: string;
   manifest: StoredSandboxEnvironmentManifest;
+}
+
+export interface GetSandboxEnvironmentVersionInput {
+  environment_version_id: string;
 }
 
 /**
@@ -133,11 +123,14 @@ export interface UpsertSandboxEnvironmentInput {
    * Called inside the write transaction. `previous` is set when updating an existing
    * env (after the parent row is locked / re-read) so concurrent PUTs cannot collide
    * on the next version number.
+   *
+   * For the reserved `"default"` name, updates rewrite the single tip version in place
+   * (same version number) instead of inserting a new row.
    */
   buildVersion: (previous?: UpsertSandboxEnvironmentPrevious) => UpsertSandboxEnvironmentVersion;
 }
 
-export interface MarkSandboxEnvironmentVersionActiveInput {
+export interface MarkSandboxEnvironmentVersionReadyInput {
   environment_version_id: string;
 }
 
@@ -180,7 +173,7 @@ export class SandboxEnvironmentVersionConflictError extends Error {
 }
 
 export interface ISandboxEnvironmentStore<TTransaction = never> {
-  /** Active environments joined to `active_version` (includes tenant `"default"` for every caller). */
+  /** Active environments joined to `active_version` (includes tenant `"default"`). */
   listEnvironments(
     input: ListSandboxEnvironmentsInput,
     transaction?: TTransaction,
@@ -188,52 +181,35 @@ export interface ISandboxEnvironmentStore<TTransaction = never> {
   /**
    * Active environment by name, joined to its active version.
    * Pass `created_by_subject_id` for owner-scoped CRUD/attach on custom envs; the tenant
-   * `"default"` ignores ownership (readable by any tenant member). Omit the subject filter
-   * when an agent run resolves an env by name.
+   * `"default"` ignores ownership. Omit the subject filter when an agent run resolves an env.
    */
   getEnvironment(
     input: GetSandboxEnvironmentInput,
     transaction?: TTransaction,
   ): Promise<SandboxEnvironmentWithVersion | undefined>;
-  /** Tenant system default environment (`name = "default"`), if present. */
-  getDefaultEnvironment(
-    input: GetDefaultSandboxEnvironmentInput,
-    transaction?: TTransaction,
-  ): Promise<SandboxEnvironmentWithVersion | undefined>;
   /**
-   * Idempotent: create the tenant `"default"` env as pending when missing; return the
-   * existing row when already present (no new version on re-call).
-   */
-  createDefaultEnvironment(
-    input: CreateDefaultSandboxEnvironmentInput,
-    transaction?: TTransaction,
-  ): Promise<SandboxEnvironmentWithVersion>;
-  /**
-   * Create or replace by `(tenant_id, name)` for this subject — parent + new version row.
-   * On update, parent `active_version` advances only when the new version's status is
-   * `active` (otherwise use markVersionActive). Uses `transaction` when passed;
-   * otherwise opens its own (multi-write).
+   * Create or replace by `(tenant_id, name)` — parent + version row.
+   * Custom envs: new version on update; parent `active_version` advances only when status is
+   * `ready` (otherwise use markVersionReady). Reserved `"default"`: single version rewritten
+   * in place on update. Uses `transaction` when passed; otherwise opens its own.
    */
   upsertEnvironment(
     input: UpsertSandboxEnvironmentInput,
     transaction?: TTransaction,
   ): Promise<SandboxEnvironmentWithVersion>;
-  /** Latest pending version per environment across tenants (oldest first). At most one per env. */
-  listLatestPendingVersions(
-    input: ListLatestPendingSandboxEnvironmentVersionsInput,
-    transaction?: TTransaction,
-  ): Promise<PendingSandboxEnvironmentVersion[]>;
-  /** Version row + parent tenant for controller progress. */
-  getVersionForProgress(
+  /** Latest pending version id per environment across tenants (oldest first). */
+  listLatestPendingVersions(transaction?: TTransaction): Promise<PendingSandboxEnvironmentVersionId[]>;
+  /** Version row + parent fields for controller progress. */
+  getSandboxEnvironmentVersion(
     input: GetSandboxEnvironmentVersionInput,
     transaction?: TTransaction,
-  ): Promise<PendingSandboxEnvironmentVersion | undefined>;
+  ): Promise<SandboxEnvironmentVersionForProgress | undefined>;
   /**
-   * Set version status to `active` and point the parent `active_version` at it.
-   * No-op (returns undefined) if the version row is missing.
+   * Set version status to `ready` and point the parent `active_version` at it when
+   * `version >= active_version`. No-op (returns undefined) if the version row is missing.
    */
-  markVersionActive(
-    input: MarkSandboxEnvironmentVersionActiveInput,
+  markVersionReady(
+    input: MarkSandboxEnvironmentVersionReadyInput,
     transaction?: TTransaction,
   ): Promise<SandboxEnvironmentWithVersion | undefined>;
   markVersionFailed(

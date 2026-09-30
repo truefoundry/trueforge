@@ -1,58 +1,31 @@
 /**
  * Control loop: list pending sandbox-env versions and hand each to the server over HTTP.
  */
-import { TrueForge, TrueForgeApi } from '@truefoundry/trueforge-sdk';
+import { TrueForgeApi, type TrueForge } from '@truefoundry/trueforge-sdk';
 import type { Logger } from 'winston';
-import configuration from '../config';
-import { createTlsFetch, normalizeTlsUrl } from '../http/tls';
+import { captureCriticalException } from '../sentry';
 import type { ControlLoop } from './Controller';
+import { createInternalTrueForgeClient } from './internalTrueForgeClient';
 
-export const SANDBOX_ENV_BUILD_BATCH_LIMIT = 20;
-const SANDBOX_ENV_BUILD_INTERVAL_MS = 30_000;
+const SANDBOX_ENV_BUILD_INTERVAL_MS = 5_000;
 const SANDBOX_ENV_BUILD_LOOP_NAME = 'sandbox-env-build';
 
-export interface SandboxEnvPendingItem {
-  environment_version_id: string;
-}
-
 export interface SandboxEnvBuildClient {
-  listPending: (limit: number) => Promise<SandboxEnvPendingItem[]>;
-  progress: (item: SandboxEnvPendingItem) => Promise<void>;
+  listPending: () => Promise<string[]>;
+  progress: (environmentVersionId: string) => Promise<void>;
 }
 
 /** HTTP handoff to internal sandbox-environment build routes. */
-export function createHttpSandboxEnvBuildClient(): SandboxEnvBuildClient {
-  const tls = {
-    enabled: configuration.MTLS_ENABLED,
-    dir: configuration.MTLS_CERTS_DIR,
-  };
-  const tlsFetch = createTlsFetch(tls);
-  const client = new TrueForge({
-    baseUrl: normalizeTlsUrl({ url: configuration.SERVER_URL, enabled: tls.enabled }),
-    token: configuration.TRUEFORGE_API_KEY,
-    timeoutInSeconds: 60,
-    ...(tlsFetch === undefined ? {} : { fetch: tlsFetch }),
-  });
-
+export function createHttpSandboxEnvBuildClient(
+  client: TrueForge = createInternalTrueForgeClient(),
+): SandboxEnvBuildClient {
   return {
-    async listPending(limit) {
-      const response = await client.internal.sandboxEnvironments.listPending({ limit });
-      return response.data.map(row => ({
-        environment_version_id: row.environmentVersionId,
-      }));
+    async listPending() {
+      const response = await client.internal.sandboxEnvironments.listPending();
+      return response.data.map(row => row.environmentVersionId);
     },
-    async progress(item) {
-      try {
-        await client.internal.sandboxEnvironments.progress({
-          environmentVersionId: item.environment_version_id,
-        });
-      } catch (error) {
-        // Missing version is a no-op (already progressed or deleted).
-        if (error instanceof TrueForgeApi.NotFoundError) {
-          return;
-        }
-        throw error;
-      }
+    async progress(environmentVersionId) {
+      await client.internal.sandboxEnvironments.progress({ environmentVersionId });
     },
   };
 }
@@ -60,20 +33,37 @@ export function createHttpSandboxEnvBuildClient(): SandboxEnvBuildClient {
 export async function dispatchSandboxEnvBuilds({
   client,
   logger,
-  limit = SANDBOX_ENV_BUILD_BATCH_LIMIT,
 }: {
   client: SandboxEnvBuildClient;
   logger: Logger;
-  limit?: number;
 }): Promise<void> {
-  const pending = await client.listPending(limit);
-  for (const item of pending) {
+  const pending = await client.listPending();
+  logger.info('Sandbox environment build tick', { pending_count: pending.length });
+  for (const environmentVersionId of pending) {
+    logger.info('Progressing sandbox environment version', { environment_version_id: environmentVersionId });
     try {
-      await client.progress(item);
+      await client.progress(environmentVersionId);
+      logger.info('Sandbox environment version progress completed', {
+        environment_version_id: environmentVersionId,
+      });
     } catch (error) {
+      if (error instanceof TrueForgeApi.NotFoundError) {
+        logger.warn('Sandbox environment version not found; skipping', {
+          environment_version_id: environmentVersionId,
+        });
+        captureCriticalException(error, {
+          tags: { module: 'sandboxEnvBuild', operation: 'progressNotFound' },
+          extra: { environment_version_id: environmentVersionId },
+        });
+        continue;
+      }
       logger.error('Sandbox environment version progress failed', {
-        environment_version_id: item.environment_version_id,
+        environment_version_id: environmentVersionId,
         error: error instanceof Error ? error.message : String(error),
+      });
+      captureCriticalException(error, {
+        tags: { module: 'sandboxEnvBuild', operation: 'progress' },
+        extra: { environment_version_id: environmentVersionId },
       });
     }
   }

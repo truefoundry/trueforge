@@ -1,6 +1,7 @@
 /**
- * Progress a pending sandbox-environment version: get/create Daytona snapshot, update DB.
+ * Progress a pending sandbox-environment version: get/create snapshot, update DB.
  */
+import { HTTPException } from 'hono/http-exception';
 import type { Logger } from 'winston';
 import type { ISandboxEnvironmentStore } from '../db/sandboxEnvironmentStore';
 import type { ISandboxProviderStore } from '../db/sandboxProviderStore';
@@ -10,6 +11,8 @@ import {
   toDaytonaSandboxProvider,
   toSandboxStatus,
 } from '../sandbox/providerUtils';
+import { captureCriticalException } from '../sentry';
+import { isTfySandbox } from '../truefoundry/isTfySandbox';
 
 export async function progressSandboxEnvironmentVersion({
   sandboxEnvironmentStore,
@@ -21,58 +24,83 @@ export async function progressSandboxEnvironmentVersion({
   sandboxProviderStore: ISandboxProviderStore;
   environment_version_id: string;
   logger: Logger;
-}): Promise<'ok' | 'not_found'> {
-  const pending = await sandboxEnvironmentStore.getVersionForProgress({ environment_version_id });
+}): Promise<void> {
+  if (isTfySandbox()) {
+    logger.info('Skipping sandbox environment progress under TRUEFOUNDRY_SANDBOX_PROVIDER=truefoundry', {
+      environment_version_id,
+    });
+    return;
+  }
+
+  const pending = await sandboxEnvironmentStore.getSandboxEnvironmentVersion({ environment_version_id });
   if (pending === undefined) {
-    return 'not_found';
+    const error = new HTTPException(404, { message: 'Sandbox environment version not found' });
+    captureCriticalException(error, {
+      tags: { module: 'progressSandboxEnvironmentVersion', operation: 'notFound' },
+      extra: { environment_version_id },
+    });
+    throw error;
   }
 
   const providerRecord = await sandboxProviderStore.getSandboxProvider(pending.tenant_id);
-  if (providerRecord?.manifest.type !== 'daytona') {
+  if (providerRecord === undefined) {
     await sandboxEnvironmentStore.markVersionFailed({
       environment_version_id,
-      status_reason: 'Sandbox environment build requires a Daytona sandbox provider',
+      status_reason: 'Sandbox environment build requires a configured sandbox provider',
     });
-    return 'ok';
+    return;
   }
 
-  const provider = toDaytonaSandboxProvider({
-    manifest: providerRecord.manifest,
-    tenant_id: pending.tenant_id,
-    logger,
-    // Pin snapshot name to this version; platform image when env image is omitted.
-    build_metadata: { build_ref: pending.external_ref },
-    environment: pending.manifest,
-  });
+  switch (providerRecord.manifest.type) {
+    case 'truefoundry':
+      // `isTfySandbox` already covers TFY on-prem; keep exhaustiveness only.
+      return;
+    case 'daytona': {
+      const provider = toDaytonaSandboxProvider({
+        manifest: providerRecord.manifest,
+        tenant_id: pending.tenant_id,
+        logger,
+        build_metadata: { build_ref: pending.external_ref },
+        environment: pending.manifest,
+      });
 
-  try {
-    // get → create-on-missing → map state (same path as former provider PUT build).
-    const built = toSandboxStatus(await provider.buildImage());
-    if (built.status === 'ready') {
-      await sandboxEnvironmentStore.markVersionActive({ environment_version_id });
-      return 'ok';
+      try {
+        const built = toSandboxStatus(await provider.buildImage());
+        if (built.status === 'ready') {
+          await sandboxEnvironmentStore.markVersionReady({ environment_version_id });
+          return;
+        }
+        if (built.status === 'failed') {
+          await sandboxEnvironmentStore.markVersionFailed({
+            environment_version_id,
+            status_reason: built.status_reason ?? 'Sandbox environment snapshot build failed',
+          });
+          return;
+        }
+        // pending / building — leave as pending for the next tick.
+        return;
+      } catch (error) {
+        if (isDaytonaAuthError(error) || isDaytonaPermissionError(error)) {
+          const status_reason = isDaytonaAuthError(error)
+            ? 'Sandbox provider rejected the API key — check the credentials'
+            : 'Sandbox provider denied access: the API key is missing required permissions';
+          await sandboxEnvironmentStore.markVersionFailed({ environment_version_id, status_reason });
+          logger.warn('Sandbox environment build failed authz', {
+            environment_version_id,
+            status_reason,
+          });
+          captureCriticalException(error, {
+            tags: { module: 'progressSandboxEnvironmentVersion', operation: 'authz' },
+            extra: { environment_version_id, tenant_id: pending.tenant_id, status_reason },
+          });
+          return;
+        }
+        captureCriticalException(error, {
+          tags: { module: 'progressSandboxEnvironmentVersion', operation: 'build' },
+          extra: { environment_version_id, tenant_id: pending.tenant_id },
+        });
+        throw error;
+      }
     }
-    if (built.status === 'failed') {
-      await sandboxEnvironmentStore.markVersionFailed({
-        environment_version_id,
-        status_reason: built.status_reason ?? 'Sandbox environment snapshot build failed',
-      });
-      return 'ok';
-    }
-    // pending / building — leave as pending for the next tick.
-    return 'ok';
-  } catch (error) {
-    if (isDaytonaAuthError(error) || isDaytonaPermissionError(error)) {
-      const status_reason = isDaytonaAuthError(error)
-        ? 'Daytona rejected the API key — check the credentials'
-        : 'Daytona denied access: the API key is missing required permissions';
-      await sandboxEnvironmentStore.markVersionFailed({ environment_version_id, status_reason });
-      logger.warn('Sandbox environment build failed authz', {
-        environment_version_id,
-        status_reason,
-      });
-      return 'ok';
-    }
-    throw error;
   }
 }

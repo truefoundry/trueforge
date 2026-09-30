@@ -89,6 +89,10 @@ export class TFYSandboxProvider implements SandboxProvider {
     metadata: null,
   };
 
+  validateAccess(): Promise<void> {
+    return Promise.resolve();
+  }
+
   buildImage(): Promise<SandboxBuild> {
     return Promise.resolve(TFYSandboxProvider.readyBuild);
   }

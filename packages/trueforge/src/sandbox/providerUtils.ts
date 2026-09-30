@@ -1,10 +1,9 @@
-/** Sandbox provider construction + Daytona credential validation. */
+/** Sandbox provider construction + credential validation. */
 import { Daytona, DaytonaError } from '@daytona/sdk';
 import {
   DaytonaSandboxProvider,
   SANDBOX_IMAGE_URI,
   TFYSandboxProvider,
-  withTimeout,
   type SandboxBuild,
   type SandboxEnvironment,
   type SandboxProvider,
@@ -18,31 +17,16 @@ import {
   type SandboxBuildMetadata,
   type SandboxProviderManifest,
   type SandboxStatus,
+  type StoredSandboxProviderManifest,
 } from '../schemas/sandboxProvider';
 
-/** Daytona rejected the credentials (401 unauthorized); retrying the same key cannot succeed. */
+/** Provider rejected the credentials (401 unauthorized); retrying the same key cannot succeed. */
 export function isDaytonaAuthError(error: unknown): boolean {
   return error instanceof DaytonaError && error.statusCode === 401;
 }
 
 export function isDaytonaPermissionError(error: unknown): boolean {
   return error instanceof DaytonaError && error.statusCode === 403;
-}
-
-/** Cap the credential probe so a slow/unreachable Daytona cannot hold the PUT open. */
-const DAYTONA_CREDENTIALS_CHECK_TIMEOUT_MS = 3_000;
-
-/**
- * Lightweight Daytona authz probe (list one snapshot page). Throws {@link DaytonaError}
- * with 401/403 on bad credentials or missing permissions — no snapshot build.
- */
-export async function validateDaytonaCredentials({ apiKey }: { apiKey: string }): Promise<void> {
-  const client = new Daytona({ apiKey });
-  await withTimeout(
-    client.snapshot.list({ page: 1, limit: 1 }),
-    DAYTONA_CREDENTIALS_CHECK_TIMEOUT_MS,
-    'daytona credentials check',
-  );
 }
 
 /** Map host sandbox-environment manifest onto the Daytona provider environment. */
@@ -85,17 +69,19 @@ export function toDaytonaSandboxProvider({
   manifest: SandboxProviderManifest;
   tenant_id: string;
   logger: Logger;
-  build_metadata?: SandboxBuildMetadata | null;
-  environment?: StoredSandboxEnvironmentManifest;
+  build_metadata?: SandboxBuildMetadata | null | undefined;
+  environment?: StoredSandboxEnvironmentManifest | undefined;
 }): DaytonaSandboxProvider {
   const { apiKey, ...settings } = toDaytonaSandboxProviderInput(manifest);
+  const imageUri = build_metadata?.['image_uri'];
+  const buildRef = build_metadata?.['build_ref'];
   return new DaytonaSandboxProvider({
     client: new Daytona({ apiKey }),
     apiKey,
     ...settings,
     tenantName: tenant_id,
-    sandboxImage: build_metadata?.['image_uri'] ?? SANDBOX_IMAGE_URI,
-    buildRef: build_metadata?.['build_ref'],
+    sandboxImage: imageUri ?? SANDBOX_IMAGE_URI,
+    buildRef,
     fileMaxBytesForDownload: configuration.SANDBOX_FILE_MAX_BYTES_FOR_DOWNLOAD,
     ...(environment ? { environment: toDaytonaSandboxEnvironment(environment) } : {}),
     logger,
@@ -116,7 +102,7 @@ export function toSandboxProviderFromRecord({
 }: {
   record: SandboxProviderRecord;
   tenant_id: string;
-  build_metadata?: SandboxBuildMetadata | null;
+  build_metadata?: SandboxBuildMetadata | null | undefined;
   logger: Logger;
 }): SandboxProvider {
   switch (record.manifest.type) {
@@ -125,7 +111,7 @@ export function toSandboxProviderFromRecord({
         manifest: record.manifest,
         tenant_id,
         logger,
-        ...(build_metadata !== undefined ? { build_metadata } : {}),
+        build_metadata,
       });
     case 'truefoundry':
       return new TFYSandboxProvider({
@@ -136,6 +122,29 @@ export function toSandboxProviderFromRecord({
         defaultExecTimeoutMs: record.manifest.exec_timeout_ms,
         logger,
       });
+  }
+}
+
+/**
+ * Credential/access probe via the provider's `validateAccess` (no-op when unimplemented).
+ */
+export async function validateSandboxProviderAccess({
+  manifest,
+  tenant_id,
+  logger,
+}: {
+  manifest: StoredSandboxProviderManifest;
+  tenant_id: string;
+  logger: Logger;
+}): Promise<void> {
+  switch (manifest.type) {
+    case 'daytona': {
+      const provider = toDaytonaSandboxProvider({ manifest, tenant_id, logger });
+      await provider.validateAccess();
+      return;
+    }
+    case 'truefoundry':
+      return;
   }
 }
 

@@ -7,7 +7,7 @@ import type { WithTransaction } from '../db/transaction';
 import type { IWebSearchProviderStore } from '../db/webSearchProviderStore';
 import { getCapabilitiesRoute } from '../routes/capabilityRoutes';
 import { isLocalSandboxFallbackEnabled } from '../sandbox/localRuntime';
-import type { SandboxEnvironmentVersionStatus } from '../schemas/sandboxEnvironment';
+import { DEFAULT_SANDBOX_ENVIRONMENT_NAME, type SandboxEnvironmentVersionStatus } from '../schemas/sandboxEnvironment';
 import { hasConfiguredWebSearchProvider } from '../websearch/providers';
 
 /**
@@ -31,11 +31,12 @@ export function createCapabilitiesRouter<TTransaction>(deps: {
   const router = new OpenAPIHono();
   router.openapi(getCapabilitiesRoute, async c => {
     const requestContext = deps.resolveRequestContext(c);
-    const defaultEnv = await deps.sandboxEnvironmentStore.getDefaultEnvironment({
+    const defaultEnv = await deps.sandboxEnvironmentStore.getEnvironment({
       tenant_id: requestContext.tenant_id,
+      name: DEFAULT_SANDBOX_ENVIRONMENT_NAME,
     });
     const status = defaultEnv?.version.status;
-    const sandboxEnabled = status === 'active' || (defaultEnv === undefined && isLocalSandboxFallbackEnabled());
+    const sandboxEnabled = status === 'ready' || (defaultEnv === undefined && isLocalSandboxFallbackEnabled());
     const settingsEnabled = hasAdminRole(requestContext);
     const webSearchEnabled = await hasConfiguredWebSearchProvider({
       tenant_id: requestContext.tenant_id,

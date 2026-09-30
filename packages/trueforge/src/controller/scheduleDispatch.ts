@@ -1,7 +1,5 @@
 import type { SessionHandle, Sessions, TurnInputItem } from '@truefoundry/trueforge-core/agent-session';
-import { TrueForge } from '@truefoundry/trueforge-sdk';
 import type { Logger } from 'winston';
-import configuration from '../config';
 import type { AgentRecord, IAgentStore } from '../db/agentStore';
 import {
   cronRunName,
@@ -10,11 +8,11 @@ import {
   type ScheduleRunRecord,
 } from '../db/scheduleStore';
 import type { WithTransaction } from '../db/transaction';
-import { createTlsFetch, normalizeTlsUrl } from '../http/tls';
 import { nextTriggerAfter } from '../runtime/cron';
 import { InvalidCronError, type ScheduleRunStatus } from '../schemas/schedule';
 import { captureCriticalException } from '../sentry';
 import type { ControlLoop } from './Controller';
+import { createInternalTrueForgeClient } from './internalTrueForgeClient';
 
 /**
  * Rows examined per pass.
@@ -46,17 +44,7 @@ export type ScheduleRunExecutor = (scheduleRunId: string) => Promise<void>;
 
 /** HTTP handoff to `POST /api/internal/schedules/runs/execute` (dedicated controller or standalone loopback). */
 export function createHttpScheduleRunExecutor(): ScheduleRunExecutor {
-  const tls = {
-    enabled: configuration.MTLS_ENABLED,
-    dir: configuration.MTLS_CERTS_DIR,
-  };
-  const tlsFetch = createTlsFetch(tls);
-  const client = new TrueForge({
-    baseUrl: normalizeTlsUrl({ url: configuration.SERVER_URL, enabled: tls.enabled }),
-    token: configuration.TRUEFORGE_API_KEY,
-    timeoutInSeconds: 60,
-    ...(tlsFetch === undefined ? {} : { fetch: tlsFetch }),
-  });
+  const client = createInternalTrueForgeClient();
   return scheduleRunId => client.internal.schedules.executeRun({ scheduleRunId });
 }
 

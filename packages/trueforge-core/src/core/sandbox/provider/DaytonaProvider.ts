@@ -6,6 +6,7 @@ import { randomUUID } from 'node:crypto';
 import { join } from 'node:path/posix';
 import type { Logger } from 'winston';
 import { extractErrorLogFields } from '../../util/errorLogFields';
+import { withTimeout } from '../../util/promiseUtils';
 import {
   SandboxFileNotFoundError,
   SandboxFileTooLargeError,
@@ -175,6 +176,11 @@ export class DaytonaSandboxProvider implements SandboxProvider {
     this.previewUrlExpirySeconds = options.previewUrlExpirySeconds ?? DEFAULT_PREVIEW_URL_EXPIRY_SECONDS;
     this.environment = options.environment;
     this.logger = options.logger.child({ module: 'DaytonaProvider' });
+  }
+
+  /** Lightweight authz probe (list one snapshot page) — no snapshot build. */
+  async validateAccess(): Promise<void> {
+    await withTimeout(this.daytona.snapshot.list({ page: 1, limit: 1 }), 3_000, 'sandbox credentials check');
   }
 
   private async getOrCreateSandbox(sandboxId?: string): Promise<{ sandbox: Sandbox; defaultTimeoutMs: number }> {

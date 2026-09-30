@@ -30,8 +30,8 @@ export const SandboxEnvironmentLifecycleStageSchema = z
   .openapi('SandboxEnvironmentLifecycleStage');
 
 export const SandboxEnvironmentVersionStatusSchema = z
-  .enum(['pending', 'active', 'failed'])
-  .describe('Build/activation status of the environment (active version under the hood).')
+  .enum(['pending', 'ready', 'failed'])
+  .describe('Build readiness of the environment version.')
   .openapi('SandboxEnvironmentVersionStatus');
 
 /** Single image variant today; widen with discriminatedUnion when another type lands. */

@@ -84,6 +84,10 @@ export interface SandboxProvider {
   /** Stable provider kind used in fancy sandbox ids and carry-forward (plain string). */
   readonly type: string;
   /**
+   * Optional credential/access probe. Providers that need none may omit or resolve immediately.
+   */
+  validateAccess?(): Promise<void>;
+  /**
    * Ensures the release image is being built into the provider's backing store and
    * returns its current status. Idempotent: an already-built image reports `ready`;
    * a fresh build starts in the background and reports `pending`.

@@ -144,7 +144,7 @@ export async function getMcpConnection({
  * Builds a fresh provider client per call (no network I/O).
  *
  * Omitted / reserved `"default"` loads the tenant default environment (must be
- * `active`) and pins the snapshot to that version's `external_ref`. Other names
+ * `ready`) and pins the snapshot to that version's `external_ref`. Other names
  * load a user env the same way. Env overlays use Daytona only.
  */
 /** Single path segment under the sandboxes parent (`_` when sessionId is missing or unsafe). */
@@ -192,7 +192,7 @@ export async function resolveSandboxProvider({
         message: `Unknown sandbox environment "${environment_name}" — not configured`,
       });
     }
-    if (loaded.version.status !== 'active') {
+    if (loaded.version.status !== 'ready') {
       throw new HTTPException(422, {
         message:
           loaded.version.status === 'failed'
@@ -219,14 +219,17 @@ export async function resolveSandboxProvider({
         };
       default:
         throw new HTTPException(422, {
-          message: `Sandbox environment "${environment_name}" requires a Daytona sandbox provider (configured provider type: "${record.manifest.type}")`,
+          message: `Sandbox environment "${environment_name}" requires a snapshot-capable sandbox provider (configured provider type: "${record.manifest.type}")`,
         });
     }
   }
 
-  const defaultEnv = await sandboxEnvironmentStore.getDefaultEnvironment({ tenant_id });
+  const defaultEnv = await sandboxEnvironmentStore.getEnvironment({
+    tenant_id,
+    name: DEFAULT_SANDBOX_ENVIRONMENT_NAME,
+  });
   if (defaultEnv !== undefined) {
-    if (defaultEnv.version.status !== 'active') {
+    if (defaultEnv.version.status !== 'ready') {
       throw new HTTPException(422, {
         message:
           defaultEnv.version.status === 'failed'

@@ -22,7 +22,7 @@ let mockDefaultStatus: SandboxEnvironmentVersionStatus | undefined;
 
 function mockDefaultEnvStore(): ISandboxEnvironmentStore {
   return {
-    getDefaultEnvironment: () =>
+    getEnvironment: () =>
       Promise.resolve(
         mockDefaultStatus === undefined
           ? undefined
@@ -165,7 +165,7 @@ describe('capabilities routers', () => {
 
   it('reports sandbox + skill enabled only when the image is ready', async () => {
     disableOidcAuth();
-    mockDefaultStatus = 'active';
+    mockDefaultStatus = 'ready';
     const router = makeRouter();
 
     const response = await router.request('/');

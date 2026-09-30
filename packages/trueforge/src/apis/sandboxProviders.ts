@@ -1,25 +1,23 @@
 import { OpenAPIHono, type RouteHandler } from '@hono/zod-openapi';
 import type { Context } from 'hono';
+import { createLogger } from 'winston';
 import { createdBySubjectFromRequestContext, type ResolveRequestContext } from '../auth/identity';
-import type { ISandboxEnvironmentStore, SandboxEnvironmentVersionRecord } from '../db/sandboxEnvironmentStore';
+import type { ISandboxEnvironmentStore } from '../db/sandboxEnvironmentStore';
 import type { ISandboxProviderStore, SandboxProviderRecord } from '../db/sandboxProviderStore';
 import type { WithTransaction } from '../db/transaction';
 import { getSandboxProviderRoute, putSandboxProviderRoute } from '../routes/sandboxProviderRoutes';
-import { isDaytonaAuthError, isDaytonaPermissionError, validateDaytonaCredentials } from '../sandbox/providerUtils';
-import type {
-  SandboxBuildStatus,
-  SandboxProviderManifest,
-  UpdateSandboxProviderRequest,
-} from '../schemas/sandboxProvider';
+import { ensureDefaultSandboxEnvironment } from '../sandbox/ensureDefaultSandboxEnvironment';
+import { isDaytonaAuthError, isDaytonaPermissionError, validateSandboxProviderAccess } from '../sandbox/providerUtils';
+import type { SandboxProviderManifest, UpdateSandboxProviderRequest } from '../schemas/sandboxProvider';
 import { MissingStoredSecretError, resolveStoredSecretValue, toRedactedSecretValue } from '../utils/secretRedaction';
+
+const silentLogger = createLogger({ silent: true });
 
 export interface SandboxProvidersRouterDeps<TTransaction> {
   resolveSandboxProviderStore: (c: Context) => ISandboxProviderStore<TTransaction>;
   sandboxEnvironmentStore: ISandboxEnvironmentStore<TTransaction>;
   withTransaction: WithTransaction<TTransaction>;
   resolveRequestContext: ResolveRequestContext;
-  /** Override in tests; defaults to a live Daytona snapshot-list probe. */
-  validateDaytonaCredentials?: (input: { apiKey: string }) => Promise<void>;
 }
 
 function redactSandboxProvider(manifest: SandboxProviderManifest): SandboxProviderManifest {
@@ -29,46 +27,28 @@ function redactSandboxProvider(manifest: SandboxProviderManifest): SandboxProvid
   };
 }
 
-/** Map default-env version status onto the settings wire build-status shape. */
-function wireStatusFromDefaultVersion(version: SandboxEnvironmentVersionRecord | undefined): {
-  status: SandboxBuildStatus;
-  status_reason: string | null;
-} {
-  if (version === undefined) {
-    return { status: 'pending', status_reason: null };
+/** Settings wire providers carry `auth`; env-synthesized rows may not. */
+function storedApiKey(record: SandboxProviderRecord | undefined): string | undefined {
+  const manifest = record?.manifest;
+  if (manifest === undefined || !('auth' in manifest)) {
+    return undefined;
   }
-  switch (version.status) {
-    case 'active':
-      return { status: 'ready', status_reason: null };
-    case 'pending':
-      return { status: 'pending', status_reason: version.status_reason };
-    case 'failed':
-      return { status: 'failed', status_reason: version.status_reason };
-  }
+  return manifest.auth.api_key;
 }
 
 /** Admin/settings sandbox provider surface (mounted at /api/v1/settings/sandbox-providers). */
 export function createSandboxProvidersRouter<TTransaction>(deps: SandboxProvidersRouterDeps<TTransaction>) {
-  const checkCredentials = deps.validateDaytonaCredentials ?? validateDaytonaCredentials;
-
   const getHandler: RouteHandler<typeof getSandboxProviderRoute> = async c => {
     const requestContext = deps.resolveRequestContext(c);
     const store = deps.resolveSandboxProviderStore(c);
     const record = await store.getSandboxProvider(requestContext.tenant_id);
-    if (record?.manifest.type !== 'daytona') {
+    if (record === undefined || !('auth' in record.manifest)) {
       return c.json({ error: { message: 'No sandbox provider configured' } }, 404);
     }
-    // Credentials only on the provider row — snapshot readiness from the default env.
-    const defaultEnv = await deps.sandboxEnvironmentStore.getDefaultEnvironment({
-      tenant_id: requestContext.tenant_id,
-    });
-    const { status, status_reason } = wireStatusFromDefaultVersion(defaultEnv?.version);
     return c.json(
       {
         data: {
           manifest: redactSandboxProvider(record.manifest),
-          status,
-          status_reason,
         },
       },
       200,
@@ -85,20 +65,25 @@ export function createSandboxProvidersRouter<TTransaction>(deps: SandboxProvider
       auth: {
         api_key: resolveStoredSecretValue({
           incoming: incoming.auth.api_key,
-          existing: existing?.manifest.type === 'daytona' ? existing.manifest.auth.api_key : undefined,
+          existing: storedApiKey(existing),
         }),
       },
     });
     try {
-      // Resolve secrets + validate Daytona outside the txn (no remote I/O under an open txn).
       const existing = await store.getSandboxProvider(requestContext.tenant_id);
       const resolved = resolveManifest(existing);
-      await checkCredentials({ apiKey: resolved.auth.api_key });
+      await validateSandboxProviderAccess({
+        manifest: resolved,
+        tenant_id: requestContext.tenant_id,
+        logger: silentLogger,
+      });
 
-      const { manifest, status, status_reason } = await deps.withTransaction(async transaction => {
+      const manifest = await deps.withTransaction(async transaction => {
         const locked = await store.getSandboxProviderForUpdate(requestContext.tenant_id, transaction);
-        // Re-resolve under the lock in case another writer raced the redacted key.
         const lockedResolved = resolveManifest(locked);
+        const previousKey = storedApiKey(locked);
+        const keyChanged = previousKey !== undefined && previousKey !== lockedResolved.auth.api_key;
+
         await store.upsertSandboxProvider(
           {
             tenant_id: requestContext.tenant_id,
@@ -106,26 +91,22 @@ export function createSandboxProvidersRouter<TTransaction>(deps: SandboxProvider
           },
           transaction,
         );
-        const defaultEnv = await deps.sandboxEnvironmentStore.createDefaultEnvironment(
-          {
-            tenant_id: requestContext.tenant_id,
-            created_by_subject: createdBySubjectFromRequestContext(requestContext),
-          },
+
+        await ensureDefaultSandboxEnvironment({
+          store: deps.sandboxEnvironmentStore,
+          tenant_id: requestContext.tenant_id,
+          created_by_subject: createdBySubjectFromRequestContext(requestContext),
+          provider_type: lockedResolved.type,
+          resetPending: keyChanged,
           transaction,
-        );
-        const wire = wireStatusFromDefaultVersion(defaultEnv.version);
-        return {
-          manifest: lockedResolved,
-          status: wire.status,
-          status_reason: wire.status_reason,
-        };
+        });
+
+        return lockedResolved;
       });
       return c.json(
         {
           data: {
             manifest: redactSandboxProvider(manifest),
-            status,
-            status_reason,
           },
         },
         200,
@@ -135,14 +116,14 @@ export function createSandboxProvidersRouter<TTransaction>(deps: SandboxProvider
         return c.json({ error: { message: 'API key is required' } }, 400);
       }
       if (isDaytonaAuthError(error)) {
-        return c.json({ error: { message: 'Daytona rejected the API key — check the credentials' } }, 422);
+        return c.json({ error: { message: 'Sandbox provider rejected the API key — check the credentials' } }, 422);
       }
       if (isDaytonaPermissionError(error)) {
         return c.json(
           {
             error: {
               message:
-                'Daytona denied access: the API key is missing required permissions. Grant write:sandboxes, write:snapshots, and delete:snapshots on the key in the Daytona dashboard, then try again.',
+                'Sandbox provider denied access: the API key is missing required permissions. Grant write:sandboxes, write:snapshots, and delete:snapshots on the key, then try again.',
             },
           },
           422,

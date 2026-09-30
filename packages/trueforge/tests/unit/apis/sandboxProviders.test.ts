@@ -14,6 +14,16 @@ import { SqliteSandboxEnvironmentStore } from '../../../src/db/sqlite/sandbox-en
 import { SqliteSandboxProviderStore } from '../../../src/db/sqlite/sandbox-provider-store/SqliteSandboxProviderStore';
 import { toRedactedSecretValue } from '../../../src/utils/secretRedaction';
 
+jest.mock('../../../src/sandbox/providerUtils', () => {
+  const actual = jest.requireActual<typeof import('../../../src/sandbox/providerUtils')>(
+    '../../../src/sandbox/providerUtils',
+  );
+  return {
+    ...actual,
+    validateSandboxProviderAccess: jest.fn(async () => undefined),
+  };
+});
+
 const silentLogger = createLogger({ silent: true });
 void silentLogger;
 
@@ -26,20 +36,12 @@ const putBody = {
   auto_delete_interval_in_minutes: 7200,
 };
 
-const expectedStatus = {
-  status: 'pending' as const,
-  status_reason: null,
+const putBodyWire = {
+  manifest: {
+    ...putBody,
+    auth: { api_key: toRedactedSecretValue(putBody.auth.api_key) },
+  },
 };
-
-/** Wire GET/PUT response: the (redacted) manifest nested under `manifest`, plus stored status. */
-function wireResponse(manifest: Record<string, unknown>) {
-  return { manifest, ...expectedStatus };
-}
-
-const putBodyWire = wireResponse({
-  ...putBody,
-  auth: { api_key: toRedactedSecretValue(putBody.auth.api_key) },
-});
 
 function wrapManifest(manifest: unknown) {
   return { manifest };
@@ -66,7 +68,6 @@ async function createRouters(): Promise<{
       sandboxEnvironmentStore: new SqliteSandboxEnvironmentStore(db),
       withTransaction: callback => db.transaction().execute(callback),
       resolveRequestContext: () => STANDALONE_REQUEST_CONTEXT,
-      validateDaytonaCredentials: async () => undefined,
     }),
     sandboxProviderStore,
   };
@@ -86,7 +87,6 @@ describe('sandboxProviders router', () => {
       sandboxEnvironmentStore: new SqliteSandboxEnvironmentStore(db),
       withTransaction: callback => db.transaction().execute(callback),
       resolveRequestContext: () => STANDALONE_REQUEST_CONTEXT,
-      validateDaytonaCredentials: async () => undefined,
     });
     catalogRouter = createCatalogRouter({
       modelCatalog: ModelCatalog.load(),

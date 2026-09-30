@@ -962,22 +962,10 @@
         "properties": {
           "manifest": {
             "$ref": "#/components/schemas/SandboxProviderManifest"
-          },
-          "status": {
-            "$ref": "#/components/schemas/SandboxBuildStatus"
-          },
-          "status_reason": {
-            "description": "Human-readable detail for the current status; null when ready.",
-            "type": [
-              "string",
-              "null"
-            ]
           }
         },
         "required": [
-          "manifest",
-          "status",
-          "status_reason"
+          "manifest"
         ],
         "type": "object"
       },
@@ -2392,18 +2380,7 @@
         "properties": {
           "data": {
             "items": {
-              "additionalProperties": false,
-              "properties": {
-                "environment_version_id": {
-                  "description": "Version row id to progress.",
-                  "minLength": 1,
-                  "type": "string"
-                }
-              },
-              "required": [
-                "environment_version_id"
-              ],
-              "type": "object"
+              "$ref": "#/components/schemas/PendingSandboxEnvironmentVersion"
             },
             "type": "array"
           }
@@ -3505,6 +3482,20 @@
         ],
         "type": "object"
       },
+      "PendingSandboxEnvironmentVersion": {
+        "additionalProperties": false,
+        "properties": {
+          "environment_version_id": {
+            "description": "Version row id to progress.",
+            "minLength": 1,
+            "type": "string"
+          }
+        },
+        "required": [
+          "environment_version_id"
+        ],
+        "type": "object"
+      },
       "PermissionResourceType": {
         "description": "Resource type to evaluate permissions for.",
         "enum": [
@@ -3827,15 +3818,6 @@
         },
         "type": "object"
       },
-      "SandboxBuildStatus": {
-        "description": "Current build status.",
-        "enum": [
-          "pending",
-          "ready",
-          "failed"
-        ],
-        "type": "string"
-      },
       "SandboxCapability": {
         "properties": {
           "enabled": {
@@ -4117,7 +4099,7 @@
         "description": "Readiness of the environment.",
         "enum": [
           "pending",
-          "active",
+          "ready",
           "failed"
         ],
         "type": "string"
@@ -6981,21 +6963,6 @@
     "/api/internal/sandbox-environments/pending": {
       "get": {
         "description": "Returns pending environment versions for the build controller.",
-        "parameters": [
-          {
-            "description": "Max pending versions to return.",
-            "in": "query",
-            "name": "limit",
-            "required": false,
-            "schema": {
-              "default": 20,
-              "description": "Max pending versions to return.",
-              "exclusiveMinimum": 0,
-              "maximum": 100,
-              "type": "integer"
-            }
-          }
-        ],
         "responses": {
           "200": {
             "content": {
@@ -7032,7 +6999,7 @@
     },
     "/api/internal/sandbox-environments/progress": {
       "post": {
-        "description": "Registers or polls the Daytona snapshot and updates version status.",
+        "description": "Registers or polls the snapshot build and updates version status.",
         "requestBody": {
           "content": {
             "application/json": {
@@ -8502,7 +8469,7 @@
         "x-fern-sdk-method-name": "list"
       },
       "put": {
-        "description": "Create or replace by `manifest.name`. Requires a Daytona sandbox provider.",
+        "description": "Create or replace by `manifest.name`. Requires a snapshot-capable sandbox provider.",
         "requestBody": {
           "content": {
             "application/json": {
@@ -8562,7 +8529,7 @@
                 }
               }
             },
-            "description": "No Daytona sandbox provider configured."
+            "description": "No snapshot-capable sandbox provider configured."
           }
         },
         "summary": "Create or update a sandbox environment",
@@ -11064,7 +11031,7 @@
                 }
               }
             },
-            "description": "Daytona rejected the provided API key."
+            "description": "Sandbox provider rejected the provided API key."
           }
         },
         "summary": "Create or replace the sandbox provider",

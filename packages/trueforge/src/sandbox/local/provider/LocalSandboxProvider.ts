@@ -238,6 +238,10 @@ export class LocalSandboxProvider implements SandboxProvider {
     metadata: null,
   };
 
+  validateAccess(): Promise<void> {
+    return Promise.resolve();
+  }
+
   /**
    * Probe whether this host can run LocalSandboxProvider
    * (OS + Code Mode UDS listen + SRT host binaries + in-sandbox shell + Python 3).
