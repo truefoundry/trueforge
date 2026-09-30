@@ -31,6 +31,7 @@ import {
   TableRow,
   TableTokenPagination,
 } from '../primitives/Table.js';
+import { Tooltip } from '../primitives/Tooltip.js';
 import { formatNetworkingSummary, formatResourcesSummary, isEnvironmentReadOnly } from './environmentDisplay.js';
 import { EnvironmentFormDrawer } from './EnvironmentFormDrawer.js';
 import { EnvironmentStatusBadge } from './EnvironmentStatusBadge.js';
@@ -271,7 +272,7 @@ export function EnvironmentsPage(_props: EnvironmentsPageProps) {
             <Table className="min-w-240">
               <TableHeader>
                 <TableRow className="hover:bg-transparent">
-                  <TableHead>Name</TableHead>
+                  <TableHead className="w-96 max-w-96">Name</TableHead>
                   <TableHead>Status</TableHead>
                   <TableHead>Resources</TableHead>
                   <TableHead>Networking</TableHead>
@@ -290,11 +291,17 @@ export function EnvironmentsPage(_props: EnvironmentsPageProps) {
                         if (!readOnly) setDrawer({ kind: 'edit', environment: env });
                       }}
                     >
-                      <TableCell>
+                      <TableCell className="w-96 max-w-96">
                         <div className="flex flex-col gap-0.5">
-                          <span className="font-medium text-text-primary">{env.name}</span>
+                          <span className="truncate font-medium text-text-primary">{env.name}</span>
                           {env.description.length > 0 ? (
-                            <span className="text-xs text-text-secondary">{env.description}</span>
+                            <Tooltip
+                              content={env.description}
+                              className="max-w-sm whitespace-normal text-left"
+                              triggerClassName="block min-w-0 w-full max-w-full"
+                            >
+                              <span className="block truncate text-xs text-text-secondary">{env.description}</span>
+                            </Tooltip>
                           ) : null}
                         </div>
                       </TableCell>
