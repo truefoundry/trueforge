@@ -3,7 +3,7 @@
 import type * as TrueForge from "../index.js";
 
 export interface ToolApprovalPolicyItem {
-    action: TrueForge.ToolApprovalPolicyAllowSession;
+    action: TrueForge.ComponentsSchemasToolApprovalPolicyAllowSession;
     /** Tool name on that server. */
     name: string;
     /** MCP server name. */

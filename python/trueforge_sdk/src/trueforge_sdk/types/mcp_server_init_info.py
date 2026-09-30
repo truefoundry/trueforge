@@ -5,10 +5,18 @@ import typing
 import pydantic
 from ..core.pydantic_utilities import IS_PYDANTIC_V2
 from ..core.unchecked_base_model import UncheckedBaseModel
+from .components_schemas_tool_approval_policy_allow_session import ComponentsSchemasToolApprovalPolicyAllowSession
 from .mcp_server_init_info_transport_type import McpServerInitInfoTransportType
 
 
 class McpServerInitInfo(UncheckedBaseModel):
+    approval_policies: typing.Optional[typing.Dict[str, ComponentsSchemasToolApprovalPolicyAllowSession]] = (
+        pydantic.Field(default=None)
+    )
+    """
+    Sticky per-tool approval policies (keyed by tool name) that auto-allow future calls.
+    """
+
     id: str = pydantic.Field()
     """
     Internal MCP server id.
