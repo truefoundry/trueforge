@@ -366,7 +366,8 @@ extraObjects:
 | `server.replicaCount` | `""`                                | Number of server replicas. Empty derives from the resource tier (small=1, medium=2, large=3; 1 with no tier). |
 | `server.deploymentAnnotations` | `{}`                          | Annotations on the server Deployment, such as an Argo CD sync wave. |
 | `controller.deploymentAnnotations` | `{}`                      | Annotations on the controller Deployment, such as an Argo CD sync wave. |
-| `image.repository`    | `tfy.jfrog.io/tfy-images/trueforge` | Image repository.                     |
+| `image.registry`      | `""`                                | Image registry. Empty uses `global.image.registry`, then `tfy.jfrog.io`. |
+| `image.repository`    | `tfy-images/trueforge`              | Image repository without the registry. |
 | `image.tag`           | chart `appVersion`                  | Image tag; stamped on release.        |
 | `server.publicBaseUrl`| `""`                                | Public application URL for OAuth/OIDC callbacks (required for MCP OAuth / OIDC). A pathname is the UI/API public prefix. |
 | `configs.oidc.enabled`| `false`                             | Inject `OIDC_*` env for IdP login.    |
