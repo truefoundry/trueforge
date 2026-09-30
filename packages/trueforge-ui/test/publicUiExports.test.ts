@@ -53,6 +53,7 @@ const expectedRuntimeExports: Array<keyof typeof sdk> = [
   'CanCreateAgentProvider',
   'CenteredModal',
   'ChatFileDownload',
+  'FilePreviewPanel',
   'ClearChatButton',
   'CodeEditor',
   'ComposerAttachmentPickerContainer',

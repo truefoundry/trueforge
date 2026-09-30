@@ -94,6 +94,8 @@ export { ChatFileDownload } from './atoms/ChatFileDownload.js';
 export type { ChatFileDownloadFile, ChatFileDownloadProps } from './atoms/ChatFileDownload.js';
 export { CodeEditor } from './atoms/CodeEditor.js';
 export type { CodeEditorProps } from './atoms/CodeEditor.js';
+export { FilePreviewPanel } from './atoms/FilePreviewPanel.js';
+export type { FilePreviewPanelProps, FilePreviewView } from './atoms/FilePreviewPanel.js';
 export { HistoryLoader } from './atoms/HistoryLoader.js';
 export type { HistoryLoaderProps } from './atoms/HistoryLoader.js';
 export { Markdown, preloadMarkdownOpenUI } from './atoms/Markdown.js';
