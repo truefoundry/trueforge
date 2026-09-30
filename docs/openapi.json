@@ -8428,14 +8428,14 @@
         "description": "List the tenant default environment plus sandbox environments created by the authenticated subject.",
         "parameters": [
           {
-            "description": "Page size. Defaults to 25",
+            "description": "Page size. Defaults to 25, max 1000.",
             "in": "query",
             "name": "limit",
             "required": false,
             "schema": {
               "default": 25,
-              "description": "Page size. Defaults to 25",
-              "maximum": 25,
+              "description": "Page size. Defaults to 25, max 1000.",
+              "maximum": 1000,
               "minimum": 1,
               "type": "integer"
             }

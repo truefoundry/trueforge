@@ -46,7 +46,7 @@ class RawSandboxEnvironmentsClient:
         Parameters
         ----------
         limit : typing.Optional[int]
-            Page size. Defaults to 25
+            Page size. Defaults to 25, max 1000.
 
         page_token : typing.Optional[str]
             Opaque token from a previous response `next_page_token`.
@@ -377,7 +377,7 @@ class AsyncRawSandboxEnvironmentsClient:
         Parameters
         ----------
         limit : typing.Optional[int]
-            Page size. Defaults to 25
+            Page size. Defaults to 25, max 1000.
 
         page_token : typing.Optional[str]
             Opaque token from a previous response `next_page_token`.

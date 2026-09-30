@@ -1100,7 +1100,7 @@ client.sandbox_environments.list()
 <dl>
 <dd>
 
-**limit:** `typing.Optional[int]` — Page size. Defaults to 25
+**limit:** `typing.Optional[int]` — Page size. Defaults to 25, max 1000.
     
 </dd>
 </dl>
