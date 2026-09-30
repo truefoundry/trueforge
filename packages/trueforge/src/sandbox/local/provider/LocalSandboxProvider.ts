@@ -628,6 +628,7 @@ export class LocalSandboxProvider implements SandboxProvider {
         command: params.command,
         cwd,
         ...(env === undefined ? {} : { env }),
+        ...(params.signal !== undefined ? { signal: params.signal } : {}),
         timeoutMs: timeoutSeconds * 1000,
       });
       if (session.protocolError !== undefined) {

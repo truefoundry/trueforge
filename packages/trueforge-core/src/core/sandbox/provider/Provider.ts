@@ -46,6 +46,7 @@ export interface SandboxExecParams {
   env?: Record<string, string> | undefined;
   /** Overrides the provider's default exec timeout (e.g. for long skill downloads). */
   timeoutSeconds?: number | undefined;
+  signal?: AbortSignal | undefined;
 }
 
 /** File uploaded before a sandbox init command runs. */

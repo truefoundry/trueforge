@@ -158,13 +158,15 @@ export class TFYSandboxProvider implements SandboxProvider {
       const timer = setTimeout(() => {
         controller.abort();
       }, clientTimeoutMs);
+      const signal =
+        params.signal !== undefined ? AbortSignal.any([controller.signal, params.signal]) : controller.signal;
 
       try {
         const response = await fetch(execUrl, {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify(body),
-          signal: controller.signal,
+          signal,
         });
 
         if (!response.ok) {
@@ -179,6 +181,9 @@ export class TFYSandboxProvider implements SandboxProvider {
         const result = (await response.json()) as ExecResult;
         return result;
       } catch (e: unknown) {
+        if (params.signal?.aborted) {
+          return { success: false, error: 'Cancelled' };
+        }
         if (e instanceof Error && e.name === 'AbortError') {
           this.logger.error(`Sandbox exec timed out after ${String(timeoutSeconds)}s`, {
             url: execUrl,
