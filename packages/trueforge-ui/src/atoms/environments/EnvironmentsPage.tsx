@@ -159,13 +159,17 @@ export function EnvironmentsPage(_props: EnvironmentsPageProps) {
             return updated ?? item;
           }),
         );
+        // Pending envs becoming active (or failed) must refresh still-mounted pickers.
+        if (resolved.some(u => u.status !== 'pending')) {
+          shell?.invalidateEnvironmentsList();
+        }
       } catch {
         // Silently preserve current list on network error
       }
     }, PENDING_ENVIRONMENTS_POLL_INTERVAL_MS);
 
     return () => window.clearInterval(intervalId);
-  }, [environments, environmentServer]);
+  }, [environments, environmentServer, shell]);
 
   useEffect(() => {
     if (didConsumeIsNewRef.current) return;
@@ -206,6 +210,7 @@ export function EnvironmentsPage(_props: EnvironmentsPageProps) {
       toaster?.showSuccess({ title: 'Environment deleted' });
       setPendingDelete(null);
       setPageToken(undefined);
+      shell?.invalidateEnvironmentsList();
       void loadEnvironments({ token: undefined, size: pageSize });
     } catch (caught) {
       toaster?.showError(caught);
@@ -364,6 +369,7 @@ export function EnvironmentsPage(_props: EnvironmentsPageProps) {
         }}
         onSaved={() => {
           setPageToken(undefined);
+          shell?.invalidateEnvironmentsList();
           void loadEnvironments({ token: undefined, size: pageSize });
         }}
       />

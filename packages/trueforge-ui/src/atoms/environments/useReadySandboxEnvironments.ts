@@ -3,6 +3,7 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 
 import { useOptionalSandboxEnvironmentServer } from '../../server/ServerContext.js';
+import { useOptionalShellMode } from '../../server/ShellModeContext.js';
 import type { SandboxEnvironment } from '../../server/types.js';
 import { getErrorMessage } from '../../utils/getErrorMessage.js';
 
@@ -16,13 +17,21 @@ export type UseReadySandboxEnvironmentsResult = {
 /**
  * Loads sandbox environments and filters strictly to ready (`status === 'active'`) records.
  * Environments still building (`pending`) or failed (`failed`) are excluded.
+ *
+ * Re-fetches when the shell environments catalog epoch bumps (after manage CRUD /
+ * activation) and when the Manage Environments overlay closes, so still-mounted
+ * agent pickers stay in sync without remounting.
  */
 export function useReadySandboxEnvironments(): UseReadySandboxEnvironmentsResult {
   const environmentServer = useOptionalSandboxEnvironmentServer();
+  const shell = useOptionalShellMode();
+  const environmentsListEpoch = shell?.environmentsListEpoch ?? 0;
+  const environmentsOpen = shell?.environmentsOpen ?? false;
   const [environments, setEnvironments] = useState<SandboxEnvironment[]>([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const requestGenRef = useRef(0);
+  const wasEnvironmentsOpenRef = useRef(environmentsOpen);
 
   const fetchReadyEnvironments = useCallback(async () => {
     if (!environmentServer) {
@@ -55,7 +64,14 @@ export function useReadySandboxEnvironments(): UseReadySandboxEnvironmentsResult
 
   useEffect(() => {
     void fetchReadyEnvironments();
-  }, [fetchReadyEnvironments]);
+  }, [fetchReadyEnvironments, environmentsListEpoch]);
+
+  useEffect(() => {
+    if (wasEnvironmentsOpenRef.current && !environmentsOpen) {
+      void fetchReadyEnvironments();
+    }
+    wasEnvironmentsOpenRef.current = environmentsOpen;
+  }, [environmentsOpen, fetchReadyEnvironments]);
 
   return {
     environments,

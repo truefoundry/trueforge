@@ -483,12 +483,22 @@ export function DraftCompositeSelector({ disabled, isRunning, onAttach }: DraftC
     );
   };
 
+  const {
+    environments: readyEnvironments,
+    loading: environmentsLoading,
+    refetch: refetchEnvironments,
+  } = useReadySandboxEnvironments();
+
   const openPicker = (nextTab?: AttachTab) => {
     if (nextTab != null) {
       setTab(nextTab);
       setQuery('');
     }
-    if (open) return;
+    const showEnvironments = nextTab === 'environments' || (nextTab == null && tab === 'environments');
+    if (open) {
+      if (showEnvironments) void refetchEnvironments();
+      return;
+    }
     setLocalMcp(specMcp);
     setLocalSkills(specSkills);
     dirtyRef.current = false;
@@ -496,6 +506,7 @@ export function DraftCompositeSelector({ disabled, isRunning, onAttach }: DraftC
     setPinnedMcpIds(new Set(specMcp.map(m => m.id)));
     setPinnedSkillIds(new Set(specSkills.map(skill => skillFamilyId(skill.id))));
     setOpen(true);
+    if (showEnvironments) void refetchEnvironments();
   };
 
   const openSettings = (section: SettingsSection) => {
@@ -504,7 +515,6 @@ export function DraftCompositeSelector({ disabled, isRunning, onAttach }: DraftC
     shell?.setSettingsOpen(true, section);
   };
 
-  const { environments: readyEnvironments, loading: environmentsLoading } = useReadySandboxEnvironments();
   const currentEnvName = agentSpec?.config?.sandbox?.environment_name?.trim() || 'default';
 
   const defaultEnvItem = useMemo(
@@ -561,6 +571,9 @@ export function DraftCompositeSelector({ disabled, isRunning, onAttach }: DraftC
               onClick={() => {
                 setTab(t.id);
                 setQuery('');
+                if (t.id === 'environments') {
+                  void refetchEnvironments();
+                }
               }}
             >
               <Icon name={t.icon} className="size-3.5" />

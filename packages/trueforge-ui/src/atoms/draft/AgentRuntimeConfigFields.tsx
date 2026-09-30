@@ -65,7 +65,7 @@ export function AgentRuntimeConfigFields({
   onChange,
 }: AgentRuntimeConfigFieldsProps) {
   const shell = useOptionalShellMode();
-  const { environments: readyEnvironments } = useReadySandboxEnvironments();
+  const { environments: readyEnvironments, refetch: refetchEnvironments } = useReadySandboxEnvironments();
 
   const environmentOptions = useMemo(
     () => [
@@ -268,6 +268,9 @@ export function AgentRuntimeConfigFields({
                   options={environmentOptions}
                   disabled={disabled || !sandboxAvailable || !sandboxEnabled}
                   className="w-48"
+                  onOpenChange={nextOpen => {
+                    if (nextOpen) void refetchEnvironments();
+                  }}
                   onValueChange={selected =>
                     onChange({
                       ...value,

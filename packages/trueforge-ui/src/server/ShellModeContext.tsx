@@ -170,6 +170,12 @@ type ShellModeContextValue = {
    */
   agentsListEpoch: number;
   invalidateAgentsList: () => void;
+  /**
+   * Bumped when sandbox environments may have changed (create/update/delete/ready).
+   * Agent environment pickers should re-fetch when this changes.
+   */
+  environmentsListEpoch: number;
+  invalidateEnvironmentsList: () => void;
 };
 
 const ShellModeContext = createContext<ShellModeContextValue | null>(null);
@@ -251,6 +257,7 @@ export function ShellModeProvider({
   const [mutableEpoch, setMutableEpoch] = useState(0);
   const [clearEpoch, setClearEpoch] = useState(0);
   const [agentsListEpoch, setAgentsListEpoch] = useState(0);
+  const [environmentsListEpoch, setEnvironmentsListEpoch] = useState(0);
   const [settingsOpenState, setSettingsOpenState] = useState(initialSettingsOpen);
   const [settingsSection, setSettingsSection] = useState<SettingsSection>('models');
   const [agentConfigOpenState, setAgentConfigOpenState] = useState(false);
@@ -428,6 +435,10 @@ export function ShellModeProvider({
 
   const invalidateAgentsList = useCallback(() => {
     setAgentsListEpoch(n => n + 1);
+  }, []);
+
+  const invalidateEnvironmentsList = useCallback(() => {
+    setEnvironmentsListEpoch(n => n + 1);
   }, []);
 
   const lockedAgentName = agentConfig.mode === 'SingleAgent' ? agentConfig.name : '';
@@ -770,6 +781,8 @@ export function ShellModeProvider({
       pendingSessionEpoch,
       agentsListEpoch,
       invalidateAgentsList,
+      environmentsListEpoch,
+      invalidateEnvironmentsList,
     }),
     [
       effectiveMode,
@@ -812,6 +825,8 @@ export function ShellModeProvider({
       pendingSessionEpoch,
       agentsListEpoch,
       invalidateAgentsList,
+      environmentsListEpoch,
+      invalidateEnvironmentsList,
     ],
   );
 
