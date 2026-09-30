@@ -112,7 +112,6 @@ import {
   X_TFG_MCP_HEADERS,
   type PerServerMcpHeaders,
 } from './truefoundry/perServerMcpHeaders';
-import { resolveTrueFoundrySandboxProviderConfig } from './truefoundry/resolveTrueFoundrySandboxProviderConfig';
 import { TrueFoundryAgentStore } from './truefoundry/TrueFoundryAgentStore';
 import { TrueFoundryAuthorizer } from './truefoundry/TrueFoundryAuthorizer';
 import { TrueFoundryMcpServerStore } from './truefoundry/TrueFoundryMcpServerStore';
@@ -303,10 +302,9 @@ function wrapSandboxEnvironmentStore<TTransaction>(
   persistenceStore: ISandboxEnvironmentStore<TTransaction>,
 ): ISandboxEnvironmentStore<TTransaction> {
   if (isTrueFoundryModeEnabled(configuration)) {
-    // Match SandboxProvider.envSupported: Daytona true; TFY on-prem sandbox false.
-    const providerConfig = resolveTrueFoundrySandboxProviderConfig();
+    // Discriminator only — full resolve validates secrets/settings used elsewhere.
     return new TrueFoundrySandboxEnvironmentStore(persistenceStore, {
-      envSupported: providerConfig?.type === 'daytona',
+      envSupported: configuration.TRUEFOUNDRY_SANDBOX_PROVIDER === 'daytona',
     });
   }
   return persistenceStore;

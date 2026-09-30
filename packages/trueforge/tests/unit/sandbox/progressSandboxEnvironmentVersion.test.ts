@@ -181,4 +181,28 @@ describe('progressSandboxEnvironmentVersion', () => {
     expect(envStore.markVersionReady).not.toHaveBeenCalled();
     expect(envStore.markVersionFailed).not.toHaveBeenCalled();
   });
+
+  it('times out a hung getBuildStatus so the build loop can continue', async () => {
+    jest.useFakeTimers();
+    try {
+      const { sandboxEnvironmentStore, sandboxProviderStore } = makeStores();
+      mockProvider({
+        getBuildStatus: jest.fn().mockReturnValue(new Promise(() => undefined)),
+        build: jest.fn(),
+      });
+
+      const progressPromise = progressSandboxEnvironmentVersion({
+        sandboxEnvironmentStore,
+        sandboxProviderStore,
+        environment_version_id: 'ver-1',
+        logger,
+      });
+      const expectation = expect(progressPromise).rejects.toThrow(/Timed out.*getBuildStatus/);
+      await jest.advanceTimersByTimeAsync(30_000);
+      await expectation;
+      expect(sentry.captureCriticalException).toHaveBeenCalled();
+    } finally {
+      jest.useRealTimers();
+    }
+  });
 });

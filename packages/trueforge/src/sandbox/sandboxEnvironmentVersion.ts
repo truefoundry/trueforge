@@ -142,9 +142,9 @@ export function buildNextVersion({
   provider_type: SandboxEnvironmentProviderType;
 }): NextSandboxEnvironmentVersion {
   const diff = diffManifest({ previous: previous_manifest, next: manifest });
-  // Detect only — do NOT call Daytona secrets/build APIs here.
-  const needs_snapshot =
-    manifest.image?.type === 'build' && (diff.build_changed || diff.resources_changed || !previous_external_ref);
+  // Daytona bakes cpu/memory/disk into the snapshot; resource or build changes need a new ref.
+  // Env vars / networking apply at create time and can reuse previous_external_ref.
+  const needs_snapshot = !previous_external_ref || diff.build_changed || diff.resources_changed;
 
   const resolved = resolveManifestSecrets({
     manifest,
@@ -157,7 +157,7 @@ export function buildNextVersion({
     manifest: toStoredManifest({ manifest: resolved, provider_type }),
     status: 'pending',
     status_reason: null,
-    external_ref: needs_snapshot || !previous_external_ref ? newExternalRef() : previous_external_ref,
+    external_ref: needs_snapshot ? newExternalRef() : previous_external_ref,
     internal_metadata: SandboxEnvironmentVersionInternalMetadataSchema.parse({}),
   };
 }

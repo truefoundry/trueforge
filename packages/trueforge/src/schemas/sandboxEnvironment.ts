@@ -96,8 +96,8 @@ export const SandboxEnvironmentNetworkingSchema = z
   .openapi('SandboxEnvironmentNetworking');
 
 /**
- * Manifest fields shared by wire and storage. Wire rejects name `"default"`;
- * stored jsonb may use it for the system default environment.
+ * Manifest fields shared by wire and storage. Responses may use name `"default"`;
+ * create/update requests reject it (reserved system env).
  */
 const SandboxEnvironmentManifestFieldsSchema = z
   .object({
@@ -110,11 +110,15 @@ const SandboxEnvironmentManifestFieldsSchema = z
   })
   .strict();
 
-/** Wire + request/response document — no `type` / `sandbox_provider`. */
-export const SandboxEnvironmentManifestSchema = SandboxEnvironmentManifestFieldsSchema.refine(
+/** Wire document (list/get/response) — no `type` / `sandbox_provider`; name `"default"` allowed. */
+export const SandboxEnvironmentManifestSchema =
+  SandboxEnvironmentManifestFieldsSchema.openapi('SandboxEnvironmentManifest');
+
+/** PUT body manifest — rejects reserved name `"default"`. */
+const SandboxEnvironmentManifestRequestSchema = SandboxEnvironmentManifestFieldsSchema.refine(
   manifest => manifest.name !== DEFAULT_SANDBOX_ENVIRONMENT_NAME,
   { message: 'name "default" is reserved', path: ['name'] },
-).openapi('SandboxEnvironmentManifest');
+);
 
 /**
  * Persisted version jsonb — wire fields plus backend-resolved provider identity.
@@ -149,7 +153,7 @@ export const SandboxEnvironmentVersionInternalMetadataSchema = z
 /** PUT create-or-update body (single write API). */
 export const UpdateSandboxEnvironmentRequestSchema = z
   .object({
-    manifest: SandboxEnvironmentManifestSchema,
+    manifest: SandboxEnvironmentManifestRequestSchema,
   })
   .strict()
   .openapi('UpdateSandboxEnvironmentRequest');

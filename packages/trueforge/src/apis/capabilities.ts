@@ -2,14 +2,13 @@ import { OpenAPIHono } from '@hono/zod-openapi';
 import type { Context } from 'hono';
 import type { Logger } from 'winston';
 import { hasAdminRole, type ResolveRequestContext } from '../auth/identity';
-import configuration from '../config';
 import type { ISandboxEnvironmentStore } from '../db/sandboxEnvironmentStore';
 import type { WithTransaction } from '../db/transaction';
 import type { IWebSearchProviderStore } from '../db/webSearchProviderStore';
 import { getCapabilitiesRoute } from '../routes/capabilityRoutes';
 import { isLocalSandboxFallbackEnabled } from '../sandbox/localRuntime';
 import { DEFAULT_SANDBOX_ENVIRONMENT_NAME, type SandboxEnvironmentVersionStatus } from '../schemas/sandboxEnvironment';
-import { resolveTrueFoundrySandboxProviderConfig } from '../truefoundry/resolveTrueFoundrySandboxProviderConfig';
+import { hasTrueFoundrySandboxProviderConfig } from '../truefoundry/resolveTrueFoundrySandboxProviderConfig';
 import { hasConfiguredWebSearchProvider } from '../websearch/providers';
 
 /**
@@ -39,8 +38,9 @@ export function createCapabilitiesRouter<TTransaction>(deps: {
     });
     const status = defaultEnv?.version.status;
     // Shared TFY provider (incl. on-prem with no env tip), ready default env, or local fallback.
+    // hasTrueFoundrySandboxProviderConfig never throws — incomplete TFY settings stay "disabled".
     const sandboxEnabled =
-      (!configuration.STANDALONE && resolveTrueFoundrySandboxProviderConfig() !== undefined) ||
+      hasTrueFoundrySandboxProviderConfig() ||
       status === 'ready' ||
       (defaultEnv === undefined && isLocalSandboxFallbackEnabled());
     const settingsEnabled = hasAdminRole(requestContext);
