@@ -47,6 +47,7 @@ if typing.TYPE_CHECKING:
     from .chat_completion_message_tool_call import ChatCompletionMessageToolCall
     from .chat_completion_message_tool_call_function import ChatCompletionMessageToolCallFunction
     from .compaction_config import CompactionConfig
+    from .components_schemas_tool_approval_policy_allow_session import ComponentsSchemasToolApprovalPolicyAllowSession
     from .configured_mcp_server import ConfiguredMcpServer
     from .configured_model import ConfiguredModel
     from .configured_model_provider import ConfiguredModelProvider
@@ -312,6 +313,7 @@ _dynamic_imports: typing.Dict[str, str] = {
     "ChatCompletionMessageToolCall": ".chat_completion_message_tool_call",
     "ChatCompletionMessageToolCallFunction": ".chat_completion_message_tool_call_function",
     "CompactionConfig": ".compaction_config",
+    "ComponentsSchemasToolApprovalPolicyAllowSession": ".components_schemas_tool_approval_policy_allow_session",
     "ConfiguredMcpServer": ".configured_mcp_server",
     "ConfiguredModel": ".configured_model",
     "ConfiguredModelProvider": ".configured_model_provider",
@@ -601,6 +603,7 @@ __all__ = [
     "ChatCompletionMessageToolCall",
     "ChatCompletionMessageToolCallFunction",
     "CompactionConfig",
+    "ComponentsSchemasToolApprovalPolicyAllowSession",
     "ConfiguredMcpServer",
     "ConfiguredModel",
     "ConfiguredModelProvider",

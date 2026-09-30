@@ -205,6 +205,7 @@ export class TurnResourceResolver<
           source,
           selectors: toSelectors(entry),
           preload: entry.preload,
+          approvalPolicies: previousTurn?.snapshot.mcp_servers?.[entry.name]?.approval_policies,
         });
       }),
     );
