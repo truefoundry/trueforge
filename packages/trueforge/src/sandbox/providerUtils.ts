@@ -6,11 +6,13 @@ import {
   TFYSandboxProvider,
   withTimeout,
   type SandboxBuild,
+  type SandboxEnvironment,
   type SandboxProvider,
 } from '@truefoundry/trueforge-core/core';
 import type { Logger } from 'winston';
 import configuration from '../config';
 import type { ISandboxProviderStore, SandboxProviderRecord } from '../db/sandboxProviderStore';
+import type { SandboxEnvironmentManifest } from '../schemas/sandboxEnvironment';
 import {
   toDaytonaSandboxProviderInput,
   type SandboxBuildMetadata,
@@ -27,6 +29,28 @@ export function isDaytonaPermissionError(error: unknown): boolean {
   return error instanceof DaytonaError && error.statusCode === 403;
 }
 
+/** Map host sandbox-environment manifest onto the Daytona provider environment. */
+export function toDaytonaSandboxEnvironment(manifest: SandboxEnvironmentManifest): SandboxEnvironment {
+  return {
+    resources: manifest.resources,
+    ...(manifest.image ? { image: manifest.image } : {}),
+    ...(manifest.environment_variables ? { environment_variables: manifest.environment_variables } : {}),
+    ...(manifest.networking
+      ? {
+          networking: {
+            ...(manifest.networking.network_block_all
+              ? { network_block_all: manifest.networking.network_block_all }
+              : {}),
+            ...(manifest.networking.domain_allow_list
+              ? { domain_allow_list: manifest.networking.domain_allow_list }
+              : {}),
+            ...(manifest.networking.secrets ? { secrets: manifest.networking.secrets } : {}),
+          },
+        }
+      : {}),
+  };
+}
+
 /**
  * Builds the Daytona runtime provider for a stored Daytona manifest. No network I/O until a method is called.
  *
@@ -40,11 +64,13 @@ export function toDaytonaSandboxProvider({
   tenant_id,
   logger,
   build_metadata,
+  environment,
 }: {
   manifest: SandboxProviderManifest;
   tenant_id: string;
   logger: Logger;
   build_metadata?: SandboxBuildMetadata | null;
+  environment?: SandboxEnvironmentManifest;
 }): DaytonaSandboxProvider {
   const { apiKey, ...settings } = toDaytonaSandboxProviderInput(manifest);
   return new DaytonaSandboxProvider({
@@ -55,6 +81,7 @@ export function toDaytonaSandboxProvider({
     sandboxImage: build_metadata?.['image_uri'] ?? SANDBOX_IMAGE_URI,
     buildRef: build_metadata?.['build_ref'],
     fileMaxBytesForDownload: configuration.SANDBOX_FILE_MAX_BYTES_FOR_DOWNLOAD,
+    ...(environment ? { environment: toDaytonaSandboxEnvironment(environment) } : {}),
     logger,
   });
 }
@@ -62,14 +89,19 @@ export function toDaytonaSandboxProvider({
 /**
  * Builds the runtime SandboxProvider for a store record. One switch on `manifest.type`.
  * No network I/O until a provider method is called.
+ *
+ * Optional `build_metadata` overrides the record's persisted metadata (e.g. env-version
+ * snapshot `build_ref`); ignored for non-Daytona providers.
  */
 export function toSandboxProviderFromRecord({
   record,
   tenant_id,
   logger,
+  build_metadata,
 }: {
   record: SandboxProviderRecord;
   tenant_id: string;
+  build_metadata?: SandboxBuildMetadata | null;
   logger: Logger;
 }): SandboxProvider {
   switch (record.manifest.type) {
@@ -78,7 +110,7 @@ export function toSandboxProviderFromRecord({
         manifest: record.manifest,
         tenant_id,
         logger,
-        build_metadata: record.build_metadata,
+        build_metadata: build_metadata ?? record.build_metadata,
       });
     case 'truefoundry':
       return new TFYSandboxProvider({

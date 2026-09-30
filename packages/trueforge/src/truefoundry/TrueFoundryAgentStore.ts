@@ -10,6 +10,7 @@ import {
   type GetExternalIdsByIdsInput,
   type GetOwnedIdsInput,
   type IAgentStore,
+  type ListAgentNamesUsingSandboxEnvironmentInput,
   type ListAgentsInput,
   type UpdateAgentInput,
 } from '../db/agentStore';
@@ -113,6 +114,13 @@ export class TrueFoundryAgentStore implements IAgentStore<Transaction<Database>>
 
   getAgent(input: GetAgentInput, transaction?: Transaction<Database>): Promise<AgentRecord | undefined> {
     return this.#inner.getAgent(input, transaction);
+  }
+
+  listAgentNamesUsingSandboxEnvironment(
+    input: ListAgentNamesUsingSandboxEnvironmentInput,
+    transaction?: Transaction<Database>,
+  ): Promise<readonly string[]> {
+    return this.#inner.listAgentNamesUsingSandboxEnvironment(input, transaction);
   }
 
   // Takes a Postgres transaction advisory lock for this tenant + agent id so concurrent

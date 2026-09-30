@@ -143,7 +143,10 @@ Service account name.
 Container image reference; tag falls back to the chart appVersion.
 */}}
 {{- define "trueforge.image" -}}
-{{- printf "%s:%s" .Values.image.repository (.Values.image.tag | default .Chart.AppVersion) }}
+{{- $globalImage := .Values.global.image | default dict -}}
+{{- $registry := .Values.image.registry | default ($globalImage.registry | default "tfy.jfrog.io") -}}
+{{- $tag := .Values.image.tag | default .Chart.AppVersion -}}
+{{- printf "%s/%s:%s" $registry .Values.image.repository $tag -}}
 {{- end }}
 
 {{/*
@@ -665,10 +668,13 @@ Scheduling and pull secrets. A parent chart's global.* is the base; the chart's
 own value wins. Tolerations append rather than replace.
 */}}
 {{- define "trueforge.imagePullSecrets" -}}
-{{- $secrets := .Values.imagePullSecrets | default (.Values.global.imagePullSecrets | default list) -}}
-{{- with $secrets }}
-{{- toYaml . }}
-{{- end }}
+{{- if .Values.imagePullSecrets -}}
+{{- toYaml .Values.imagePullSecrets -}}
+{{- else if .Values.global.imagePullSecrets -}}
+{{- toYaml .Values.global.imagePullSecrets -}}
+{{- else if .Values.global.truefoundryImagePullConfigJSON -}}
+- name: truefoundry-image-pull-secret
+{{- end -}}
 {{- end }}
 
 {{- define "trueforge.nodeSelector" -}}

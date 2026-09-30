@@ -25,6 +25,7 @@ jobs:
       packages: ${{ steps.packages.outputs.list }}
       chart: ${{ steps.filter.outputs.chart }}
       store: ${{ steps.filter.outputs.store }}
+      release: ${{ steps.filter.outputs.release }}
 
     steps:
       - name: Check out repository code
@@ -94,6 +95,11 @@ jobs:
             chart:
               - 'charts/trueforge/**'
               - 'Dockerfile'
+              - 'package.json'
+              - '.github/workflows/ci.yml'
+            release:
+              - 'scripts/resolve-chart-version.sh'
+              - 'tests/scripts/**'
               - 'package.json'
               - '.github/workflows/ci.yml'
 
@@ -270,6 +276,30 @@ jobs:
       - name: Lint chart
         run: pnpm chart:lint
 
+  # Release-only scripts: not part of the shipped packages, so they stay off the
+  # always-on path and run when the release wiring or its tests change.
+  release-scripts:
+    name: Release Scripts
+    needs: detect-changes
+    if: needs.detect-changes.outputs.release == 'true'
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+
+    steps:
+      - name: Check out repository code
+        uses: actions/checkout@v7
+
+      - name: Setup pnpm
+        uses: pnpm/action-setup@v6
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v7
+        with:
+          node-version: '24'
+
+      - name: Chart version resolver
+        run: pnpm test:chart-version
+
   # Store contract suites when store paths change. Parallel with typecheck-and-build.
   store-tests:
     name: Store Tests
@@ -326,6 +356,7 @@ jobs:
       - typecheck-and-build
       - package-checks
       - chart-checks
+      - release-scripts
       - store-tests
     runs-on: ubuntu-latest
     timeout-minutes: 5
@@ -337,13 +368,15 @@ jobs:
           TYPECHECK_AND_BUILD: ${{ needs.typecheck-and-build.result }}
           PACKAGE_CHECKS: ${{ needs.package-checks.result }}
           CHART_CHECKS: ${{ needs.chart-checks.result }}
+          RELEASE_SCRIPTS: ${{ needs.release-scripts.result }}
           STORE_TESTS: ${{ needs.store-tests.result }}
         run: |
           ok() { [ "$1" = success ] || [ "$1" = skipped ]; }
-          echo "detect-changes=$DETECT_CHANGES migration-order=$MIGRATION_ORDER typecheck-and-build=$TYPECHECK_AND_BUILD package-checks=$PACKAGE_CHECKS chart-checks=$CHART_CHECKS store-tests=$STORE_TESTS"
+          echo "detect-changes=$DETECT_CHANGES migration-order=$MIGRATION_ORDER typecheck-and-build=$TYPECHECK_AND_BUILD package-checks=$PACKAGE_CHECKS chart-checks=$CHART_CHECKS release-scripts=$RELEASE_SCRIPTS store-tests=$STORE_TESTS"
           [ "$DETECT_CHANGES" = success ] || exit 1
           [ "$MIGRATION_ORDER" = success ] || exit 1
           [ "$TYPECHECK_AND_BUILD" = success ] || exit 1
           ok "$PACKAGE_CHECKS" || exit 1
           ok "$CHART_CHECKS" || exit 1
+          ok "$RELEASE_SCRIPTS" || exit 1
           ok "$STORE_TESTS" || exit 1

@@ -123,6 +123,8 @@ export interface AgentCapabilityConfig {
 
 export interface AgentSandboxConfig extends AgentCapabilityConfig {
   fileDownloads?: boolean;
+  /** Name of a configured sandbox environment. */
+  environment_name?: string;
 }
 
 export interface AgentInputTokensCompactionTrigger {
