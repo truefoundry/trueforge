@@ -81,11 +81,12 @@ describe('useReadySandboxEnvironments', () => {
 
     await waitFor(() => {
       expect(listEnvironments).toHaveBeenCalledTimes(2);
+      expect(result.current.ready.loading).toBe(false);
+      expect(result.current.ready.environments.map(e => e.name).sort()).toEqual([
+        'new-active',
+        'pending-env',
+        'python-data',
+      ]);
     });
-    expect(result.current.ready.environments.map(e => e.name).sort()).toEqual([
-      'new-active',
-      'pending-env',
-      'python-data',
-    ]);
   });
 });
