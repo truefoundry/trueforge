@@ -1,107 +1,206 @@
 /**
  * Sandbox environments API (mounted at /api/v1/sandbox-environments).
- * Handlers return properly shaped dummy data; no DB persistence yet.
- * OpenAPI / Fern registration intentionally deferred.
+ * Snapshot builds are not started here — versions land in `pending` for a future controller.
  */
-import { OpenAPIHono, z } from '@hono/zod-openapi';
+import { OpenAPIHono, type RouteHandler } from '@hono/zod-openapi';
+import { InvalidPageTokenError } from '@truefoundry/trueforge-core/agent-session';
 import type { Context } from 'hono';
-import { PAGE_LIMIT } from '../schemas/common';
+import { createdBySubjectFromRequestContext, type ResolveRequestContext } from '../auth/identity';
+import { isTrueFoundryModeEnabled } from '../config';
+import type { IAgentStore } from '../db/agentStore';
 import {
-  CreateSandboxEnvironmentRequestSchema,
-  UpdateSandboxEnvironmentRequestSchema,
-  type SandboxEnvironment,
-  type SandboxEnvironmentManifest,
-} from '../schemas/sandboxEnvironment';
-import { zodErrorResponse } from '../zodErrorResponse';
+  SandboxEnvironmentNameConflictError,
+  SandboxEnvironmentVersionConflictError,
+  type ISandboxEnvironmentStore,
+  type SandboxEnvironmentWithVersion,
+  type UpsertSandboxEnvironmentPrevious,
+} from '../db/sandboxEnvironmentStore';
+import type { ISandboxProviderStore, SandboxProviderRecord } from '../db/sandboxProviderStore';
+import {
+  deleteSandboxEnvironmentRoute,
+  getSandboxEnvironmentRoute,
+  listSandboxEnvironmentsRoute,
+  putSandboxEnvironmentRoute,
+} from '../routes/sandboxEnvironmentRoutes';
+import { buildNextVersion, redactManifestSecrets } from '../sandbox/sandboxEnvironmentVersion';
+import type { SandboxEnvironment, SandboxEnvironmentManifest } from '../schemas/sandboxEnvironment';
+import { MissingStoredSecretError } from '../utils/secretRedaction';
 
-const DUMMY_CREATED_AT = '2026-09-26T00:00:00.000Z';
+export interface SandboxEnvironmentsRouterDeps<TTransaction> {
+  sandboxEnvironmentStore: ISandboxEnvironmentStore<TTransaction>;
+  resolveAgentStore: (c: Context) => IAgentStore<TTransaction>;
+  resolveSandboxProviderStore: (c: Context) => ISandboxProviderStore<TTransaction>;
+  resolveRequestContext: ResolveRequestContext;
+}
 
-const DUMMY_BASE_MANIFEST: SandboxEnvironmentManifest = {
-  name: 'xyz',
-  description: 'my-env',
-  image: {
-    type: 'build',
-    build_script: 'set -ex\npip install httpx\n',
-  },
-  resources: { cpu: 1, memory: 1, disk: 3 },
-  environment_variables: { FOO: 'bar' },
-  networking: {
-    network_block_all: false,
-    domain_allow_list: 'api.github.com,api.openai.com',
-    secrets: [{ env: 'GITHUB_TOKEN', value: '*****', hosts: ['api.github.com'] }],
-  },
-};
-
-function dummyEnvironment(manifest: SandboxEnvironmentManifest = DUMMY_BASE_MANIFEST): SandboxEnvironment {
+function toSandboxEnvironment({ environment, version }: SandboxEnvironmentWithVersion): SandboxEnvironment {
+  const { type, sandbox_provider, ...manifest } = version.manifest;
+  void type;
+  void sandbox_provider;
   return {
-    id: '01HZXAMPLE0000000000000000',
-    name: manifest.name,
-    description: manifest.description ?? '',
-    active_version: 1,
-    lifecycle_stage: 'active',
-    manifest,
-    version: {
-      version: 1,
-      status: 'active',
-      status_reason: null,
-      external_ref: 'trueforge-build-example',
-    },
-    created_by_subject: {
-      subject_id: 'dummy-user',
-      subject_type: 'user',
-      subject_display_name: 'Dummy User',
-    },
-    created_at: DUMMY_CREATED_AT,
-    updated_at: DUMMY_CREATED_AT,
+    id: environment.id,
+    name: environment.name,
+    description: environment.description,
+    lifecycle_stage: environment.lifecycle_stage,
+    status: version.status,
+    status_reason: version.status_reason,
+    manifest: redactManifestSecrets(manifest),
+    created_by_subject: environment.created_by_subject,
+    created_at: environment.created_at,
+    updated_at: environment.updated_at,
   };
 }
 
-async function validateJsonBody<T>(
-  c: Context,
-  schema: z.ZodType<T>,
-): Promise<{ ok: true; data: T } | { ok: false; response: Response }> {
-  const raw: unknown = await c.req.json();
-  const parsed = schema.safeParse(raw);
-  if (!parsed.success) {
-    return { ok: false, response: zodErrorResponse(c, parsed.error) };
-  }
-  return { ok: true, data: parsed.data };
+/** Resolve the tenant sandbox provider record, if configured. */
+async function resolveSandboxProviderRecord(
+  providerStore: ISandboxProviderStore,
+  tenant_id: string,
+): Promise<SandboxProviderRecord | undefined> {
+  return providerStore.getSandboxProvider(tenant_id);
 }
 
-/** Dummy CRUD for sandbox environments (no OpenAPI registration yet). */
-export function createSandboxEnvironmentsRouter(): OpenAPIHono {
-  const router = new OpenAPIHono();
+function buildUpsertVersion({
+  manifest,
+  created_by_subject,
+  previous,
+}: {
+  manifest: SandboxEnvironmentManifest;
+  created_by_subject: ReturnType<typeof createdBySubjectFromRequestContext>;
+  previous?: UpsertSandboxEnvironmentPrevious;
+}) {
+  // Label follows platform mode; create/build always use Daytona credentials + code.
+  return {
+    ...buildNextVersion({
+      version: previous ? previous.latest_version + 1 : 1,
+      ...(previous
+        ? {
+            previous_manifest: previous.previous_manifest,
+            previous_external_ref: previous.previous_external_ref,
+          }
+        : {}),
+      manifest,
+      provider_type: isTrueFoundryModeEnabled() ? 'truefoundry' : 'daytona',
+    }),
+    created_by_subject,
+  };
+}
 
-  router.get('/', c => {
-    return c.json({
-      data: [dummyEnvironment()],
-      pagination: { limit: PAGE_LIMIT },
+/** CRUD for sandbox environments. */
+export function createSandboxEnvironmentsRouter<TTransaction>(
+  deps: SandboxEnvironmentsRouterDeps<TTransaction>,
+): OpenAPIHono {
+  const { sandboxEnvironmentStore: store, resolveAgentStore, resolveRequestContext } = deps;
+
+  const listHandler: RouteHandler<typeof listSandboxEnvironmentsRoute> = async c => {
+    const { tenant_id, subject } = resolveRequestContext(c);
+    const { limit, page_token: pageToken } = c.req.valid('query');
+    try {
+      const listed = await store.listEnvironments({
+        tenant_id,
+        created_by_subject_id: subject.id,
+        limit,
+        page_token: pageToken,
+      });
+      return c.json({ data: listed.data.map(toSandboxEnvironment), pagination: listed.pagination }, 200);
+    } catch (error) {
+      if (error instanceof InvalidPageTokenError) {
+        return c.json({ error: { message: error.message } }, 400);
+      }
+      throw error;
+    }
+  };
+
+  const getHandler: RouteHandler<typeof getSandboxEnvironmentRoute> = async c => {
+    const { tenant_id, subject } = resolveRequestContext(c);
+    const { name } = c.req.valid('param');
+    const loaded = await store.getEnvironment({
+      tenant_id,
+      name,
+      created_by_subject_id: subject.id,
     });
-  });
-
-  router.get('/:name', c => {
-    return c.json({ data: dummyEnvironment() });
-  });
-
-  router.post('/', async c => {
-    const body = await validateJsonBody(c, CreateSandboxEnvironmentRequestSchema);
-    if (!body.ok) {
-      return body.response;
+    if (!loaded) {
+      return c.json({ error: { message: `Sandbox environment not found: ${name}` } }, 404);
     }
-    return c.json({ data: dummyEnvironment(body.data.manifest) }, 201);
-  });
+    return c.json({ data: toSandboxEnvironment(loaded) }, 200);
+  };
 
-  router.put('/:name', async c => {
-    const body = await validateJsonBody(c, UpdateSandboxEnvironmentRequestSchema);
-    if (!body.ok) {
-      return body.response;
+  // Create-or-update keyed by manifest.name.
+  const putHandler: RouteHandler<typeof putSandboxEnvironmentRoute> = async c => {
+    const body = c.req.valid('json');
+    const requestContext = resolveRequestContext(c);
+    const provider = await resolveSandboxProviderRecord(deps.resolveSandboxProviderStore(c), requestContext.tenant_id);
+    if (provider?.manifest.type !== 'daytona') {
+      return c.json({ error: { message: 'Sandbox environments require a Daytona sandbox provider' } }, 422);
     }
-    return c.json({ data: dummyEnvironment(body.data.manifest) });
-  });
 
-  router.delete('/:name', c => {
-    return c.json({});
-  });
+    const created_by_subject = createdBySubjectFromRequestContext(requestContext);
+    const { manifest } = body;
 
+    try {
+      const result = await store.upsertEnvironment({
+        tenant_id: requestContext.tenant_id,
+        name: manifest.name,
+        description: manifest.description ?? '',
+        created_by_subject,
+        buildVersion: previous =>
+          buildUpsertVersion({
+            manifest,
+            created_by_subject,
+            ...(previous ? { previous } : {}),
+          }),
+      });
+      return c.json({ data: toSandboxEnvironment(result) }, 200);
+    } catch (error) {
+      if (error instanceof SandboxEnvironmentNameConflictError) {
+        return c.json({ error: { message: error.message } }, 409);
+      }
+      if (error instanceof SandboxEnvironmentVersionConflictError) {
+        return c.json({ error: { message: 'Sandbox environment was updated concurrently; retry' } }, 409);
+      }
+      if (error instanceof MissingStoredSecretError) {
+        return c.json({ error: { message: 'Secret value is required' } }, 400);
+      }
+      throw error;
+    }
+  };
+
+  const deleteHandler: RouteHandler<typeof deleteSandboxEnvironmentRoute> = async c => {
+    const { tenant_id, subject } = resolveRequestContext(c);
+    const { name } = c.req.valid('param');
+    const existing = await store.getEnvironment({
+      tenant_id,
+      name,
+      created_by_subject_id: subject.id,
+    });
+    if (!existing) {
+      return c.json({ error: { message: `Sandbox environment not found: ${name}` } }, 404);
+    }
+    const agentNames = await resolveAgentStore(c).listAgentNamesUsingSandboxEnvironment({
+      tenant_id,
+      environment_name: name,
+    });
+    if (agentNames.length > 0) {
+      return c.json(
+        {
+          error: {
+            message: `Sandbox environment "${name}" is referenced by agent(s): ${agentNames.join(', ')}`,
+          },
+        },
+        409,
+      );
+    }
+    await store.deleteEnvironment({
+      tenant_id,
+      name,
+      created_by_subject_id: subject.id,
+    });
+    return c.json({}, 200);
+  };
+
+  const router = new OpenAPIHono();
+  router.openapi(listSandboxEnvironmentsRoute, listHandler);
+  router.openapi(getSandboxEnvironmentRoute, getHandler);
+  router.openapi(putSandboxEnvironmentRoute, putHandler);
+  router.openapi(deleteSandboxEnvironmentRoute, deleteHandler);
   return router;
 }

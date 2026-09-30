@@ -27,6 +27,7 @@ import configuration from '../config';
 import type { IAgentStore } from '../db/agentStore';
 import type { IMcpServerStore } from '../db/mcpServerStore';
 import type { IModelProviderStore } from '../db/modelProviderStore';
+import type { ISandboxEnvironmentStore } from '../db/sandboxEnvironmentStore';
 import type { ISandboxProviderStore } from '../db/sandboxProviderStore';
 import type { IWebSearchProviderStore } from '../db/webSearchProviderStore';
 import {
@@ -82,6 +83,7 @@ export interface SessionsRouterDeps {
   resolveSkillStore: ResolveSkillStore;
   resolveAgentStore: (c: Context) => IAgentStore;
   resolveSandboxProviderStore: (c: Context) => ISandboxProviderStore;
+  sandboxEnvironmentStore: ISandboxEnvironmentStore;
   redis?: RedisClient | undefined;
   resolveWebSearchProviderStore: (c: Context) => IWebSearchProviderStore;
   requestReplyRouter: RequestReplyRouter;
@@ -239,6 +241,7 @@ type InternalSessionsRouterDeps = Pick<
   | 'resolveSkillStore'
   | 'resolveAgentStore'
   | 'resolveSandboxProviderStore'
+  | 'sandboxEnvironmentStore'
   | 'resolveWebSearchProviderStore'
   | 'resolveRequestContext'
   | 'authorizer'
@@ -288,10 +291,12 @@ function createGetOrCreateSessionByExternalIdHandler(
       await validateAgentSpec({
         spec: body.agent.spec,
         tenant_id: requestContext.tenant_id,
+        created_by_subject_id: requestContext.subject.id,
         modelProviderStore: deps.resolveModelProviderStore(c),
         mcpServerStore: deps.resolveMcpServerStore(c),
         skillStore: deps.resolveSkillStore(c),
         sandboxProviderStore: deps.resolveSandboxProviderStore(c),
+        sandboxEnvironmentStore: deps.sandboxEnvironmentStore,
         webSearchProviderStore: deps.resolveWebSearchProviderStore(c),
       });
       agent = { type: 'inline', spec: body.agent.spec };
@@ -361,10 +366,12 @@ export function createSessionsRouter(deps: SessionsRouterDeps) {
     await validateAgentSpec({
       spec: body.agent.spec,
       tenant_id: requestContext.tenant_id,
+      created_by_subject_id: requestContext.subject.id,
       modelProviderStore: deps.resolveModelProviderStore(c),
       mcpServerStore: deps.resolveMcpServerStore(c),
       skillStore: deps.resolveSkillStore(c),
       sandboxProviderStore: deps.resolveSandboxProviderStore(c),
+      sandboxEnvironmentStore: deps.sandboxEnvironmentStore,
       webSearchProviderStore: deps.resolveWebSearchProviderStore(c),
     });
     const session = await deps.sessions.create({
@@ -453,10 +460,12 @@ export function createSessionsRouter(deps: SessionsRouterDeps) {
       await validateAgentSpec({
         spec: body.agent.spec,
         tenant_id: requestContext.tenant_id,
+        created_by_subject_id: requestContext.subject.id,
         modelProviderStore: deps.resolveModelProviderStore(c),
         mcpServerStore: deps.resolveMcpServerStore(c),
         skillStore: deps.resolveSkillStore(c),
         sandboxProviderStore: deps.resolveSandboxProviderStore(c),
+        sandboxEnvironmentStore: deps.sandboxEnvironmentStore,
         webSearchProviderStore: deps.resolveWebSearchProviderStore(c),
       });
     }

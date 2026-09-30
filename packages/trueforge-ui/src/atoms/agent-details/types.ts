@@ -24,6 +24,10 @@ export type AgentSessionsProps = {
   onCloseDetail?: () => void;
   /** Restores the rolling recent-session window from a URL-loaded session. */
   onLoadRecentSessions?: () => void;
+  /** Bump to force a reload of the sessions list and active detail. */
+  refreshKey?: number;
+  /** Called when the loading state changes (list or detail). */
+  onLoadingChange?: (loading: boolean) => void;
 };
 
 export type AgentSessionListRowProps = {
