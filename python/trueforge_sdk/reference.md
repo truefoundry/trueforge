@@ -1155,8 +1155,7 @@ Create or replace by `manifest.name`. Requires a configured sandbox provider.
 <dd>
 
 ```python
-from trueforge_sdk import TrueForge
-from trueforge_sdk.sandbox_environments import UpdateSandboxEnvironmentRequestManifest
+from trueforge_sdk import TrueForge, SandboxEnvironmentManifestRequest
 
 client = TrueForge(
     token="<token>",
@@ -1164,7 +1163,7 @@ client = TrueForge(
 )
 
 client.sandbox_environments.create_or_update(
-    manifest=UpdateSandboxEnvironmentRequestManifest(
+    manifest=SandboxEnvironmentManifestRequest(
         name="name",
     ),
 )
@@ -1183,7 +1182,7 @@ client.sandbox_environments.create_or_update(
 <dl>
 <dd>
 
-**manifest:** `UpdateSandboxEnvironmentRequestManifest` 
+**manifest:** `SandboxEnvironmentManifestRequest` 
     
 </dd>
 </dl>

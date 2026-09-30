@@ -9,8 +9,8 @@ from ..types.delete_sandbox_environment_response import DeleteSandboxEnvironment
 from ..types.get_sandbox_environment_response import GetSandboxEnvironmentResponse
 from ..types.list_sandbox_environments_response import ListSandboxEnvironmentsResponse
 from ..types.sandbox_environment import SandboxEnvironment
+from ..types.sandbox_environment_manifest_request import SandboxEnvironmentManifestRequest
 from .raw_client import AsyncRawSandboxEnvironmentsClient, RawSandboxEnvironmentsClient
-from .types.update_sandbox_environment_request_manifest import UpdateSandboxEnvironmentRequestManifest
 
 # this is used as the default value for optional parameters
 OMIT = typing.cast(typing.Any, ...)
@@ -75,17 +75,14 @@ class SandboxEnvironmentsClient:
         return self._raw_client.list(limit=limit, page_token=page_token, request_options=request_options)
 
     def create_or_update(
-        self,
-        *,
-        manifest: UpdateSandboxEnvironmentRequestManifest,
-        request_options: typing.Optional[RequestOptions] = None,
+        self, *, manifest: SandboxEnvironmentManifestRequest, request_options: typing.Optional[RequestOptions] = None
     ) -> GetSandboxEnvironmentResponse:
         """
         Create or replace by `manifest.name`. Requires a configured sandbox provider.
 
         Parameters
         ----------
-        manifest : UpdateSandboxEnvironmentRequestManifest
+        manifest : SandboxEnvironmentManifestRequest
 
         request_options : typing.Optional[RequestOptions]
             Request-specific configuration.
@@ -97,17 +94,14 @@ class SandboxEnvironmentsClient:
 
         Examples
         --------
-        from trueforge_sdk import TrueForge
-        from trueforge_sdk.sandbox_environments import (
-            UpdateSandboxEnvironmentRequestManifest,
-        )
+        from trueforge_sdk import SandboxEnvironmentManifestRequest, TrueForge
 
         client = TrueForge(
             token="YOUR_TOKEN",
             base_url="https://yourhost.com/path/to/api",
         )
         client.sandbox_environments.create_or_update(
-            manifest=UpdateSandboxEnvironmentRequestManifest(
+            manifest=SandboxEnvironmentManifestRequest(
                 name="name",
             ),
         )
@@ -252,17 +246,14 @@ class AsyncSandboxEnvironmentsClient:
         return await self._raw_client.list(limit=limit, page_token=page_token, request_options=request_options)
 
     async def create_or_update(
-        self,
-        *,
-        manifest: UpdateSandboxEnvironmentRequestManifest,
-        request_options: typing.Optional[RequestOptions] = None,
+        self, *, manifest: SandboxEnvironmentManifestRequest, request_options: typing.Optional[RequestOptions] = None
     ) -> GetSandboxEnvironmentResponse:
         """
         Create or replace by `manifest.name`. Requires a configured sandbox provider.
 
         Parameters
         ----------
-        manifest : UpdateSandboxEnvironmentRequestManifest
+        manifest : SandboxEnvironmentManifestRequest
 
         request_options : typing.Optional[RequestOptions]
             Request-specific configuration.
@@ -276,10 +267,7 @@ class AsyncSandboxEnvironmentsClient:
         --------
         import asyncio
 
-        from trueforge_sdk import AsyncTrueForge
-        from trueforge_sdk.sandbox_environments import (
-            UpdateSandboxEnvironmentRequestManifest,
-        )
+        from trueforge_sdk import AsyncTrueForge, SandboxEnvironmentManifestRequest
 
         client = AsyncTrueForge(
             token="YOUR_TOKEN",
@@ -289,7 +277,7 @@ class AsyncSandboxEnvironmentsClient:
 
         async def main() -> None:
             await client.sandbox_environments.create_or_update(
-                manifest=UpdateSandboxEnvironmentRequestManifest(
+                manifest=SandboxEnvironmentManifestRequest(
                     name="name",
                 ),
             )

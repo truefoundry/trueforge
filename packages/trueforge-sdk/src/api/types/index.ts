@@ -171,6 +171,7 @@ export * from "./SandboxEnvironment.js";
 export * from "./SandboxEnvironmentImage.js";
 export * from "./SandboxEnvironmentLifecycleStage.js";
 export * from "./SandboxEnvironmentManifest.js";
+export * from "./SandboxEnvironmentManifestRequest.js";
 export * from "./SandboxEnvironmentNetworking.js";
 export * from "./SandboxEnvironmentResources.js";
 export * from "./SandboxEnvironmentSecret.js";

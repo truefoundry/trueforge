@@ -3,15 +3,15 @@
 import typing
 
 import pydantic
-from ...core.pydantic_utilities import IS_PYDANTIC_V2
-from ...core.unchecked_base_model import UncheckedBaseModel
-from ...types.resource_name import ResourceName
-from ...types.sandbox_environment_image import SandboxEnvironmentImage
-from ...types.sandbox_environment_networking import SandboxEnvironmentNetworking
-from ...types.sandbox_environment_resources import SandboxEnvironmentResources
+from ..core.pydantic_utilities import IS_PYDANTIC_V2
+from ..core.unchecked_base_model import UncheckedBaseModel
+from .resource_name import ResourceName
+from .sandbox_environment_image import SandboxEnvironmentImage
+from .sandbox_environment_networking import SandboxEnvironmentNetworking
+from .sandbox_environment_resources import SandboxEnvironmentResources
 
 
-class UpdateSandboxEnvironmentRequestManifest(UncheckedBaseModel):
+class SandboxEnvironmentManifestRequest(UncheckedBaseModel):
     description: typing.Optional[str] = pydantic.Field(default=None)
     """
     Optional human-readable description.

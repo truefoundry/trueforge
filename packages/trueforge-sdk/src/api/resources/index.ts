@@ -9,7 +9,6 @@ export * as mcpServers from "./mcpServers/index.js";
 export * as models from "./models/index.js";
 export * from "./sandboxEnvironments/client/requests/index.js";
 export * as sandboxEnvironments from "./sandboxEnvironments/index.js";
-export * from "./sandboxEnvironments/types/index.js";
 export * from "./schedules/client/requests/index.js";
 export * as schedules from "./schedules/index.js";
 export * as server from "./server/index.js";

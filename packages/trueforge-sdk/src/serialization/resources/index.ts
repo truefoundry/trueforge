@@ -4,7 +4,6 @@ export * from "./internal/client/requests/index.js";
 export * as internal from "./internal/index.js";
 export * from "./sandboxEnvironments/client/requests/index.js";
 export * as sandboxEnvironments from "./sandboxEnvironments/index.js";
-export * from "./sandboxEnvironments/types/index.js";
 export * from "./schedules/client/requests/index.js";
 export * as schedules from "./schedules/index.js";
 export * from "./sessions/client/requests/index.js";

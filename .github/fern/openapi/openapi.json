@@ -4015,6 +4015,38 @@
         ],
         "type": "object"
       },
+      "SandboxEnvironmentManifestRequest": {
+        "additionalProperties": false,
+        "properties": {
+          "description": {
+            "description": "Optional human-readable description.",
+            "maxLength": 1024,
+            "type": "string"
+          },
+          "environment_variables": {
+            "additionalProperties": {
+              "type": "string"
+            },
+            "type": "object"
+          },
+          "image": {
+            "$ref": "#/components/schemas/SandboxEnvironmentImage"
+          },
+          "name": {
+            "$ref": "#/components/schemas/ResourceName"
+          },
+          "networking": {
+            "$ref": "#/components/schemas/SandboxEnvironmentNetworking"
+          },
+          "resources": {
+            "$ref": "#/components/schemas/SandboxEnvironmentResources"
+          }
+        },
+        "required": [
+          "name"
+        ],
+        "type": "object"
+      },
       "SandboxEnvironmentNetworking": {
         "additionalProperties": false,
         "properties": {
@@ -6085,36 +6117,7 @@
         "additionalProperties": false,
         "properties": {
           "manifest": {
-            "additionalProperties": false,
-            "properties": {
-              "description": {
-                "description": "Optional human-readable description.",
-                "maxLength": 1024,
-                "type": "string"
-              },
-              "environment_variables": {
-                "additionalProperties": {
-                  "type": "string"
-                },
-                "type": "object"
-              },
-              "image": {
-                "$ref": "#/components/schemas/SandboxEnvironmentImage"
-              },
-              "name": {
-                "$ref": "#/components/schemas/ResourceName"
-              },
-              "networking": {
-                "$ref": "#/components/schemas/SandboxEnvironmentNetworking"
-              },
-              "resources": {
-                "$ref": "#/components/schemas/SandboxEnvironmentResources"
-              }
-            },
-            "required": [
-              "name"
-            ],
-            "type": "object"
+            "$ref": "#/components/schemas/SandboxEnvironmentManifestRequest"
           }
         },
         "required": [
