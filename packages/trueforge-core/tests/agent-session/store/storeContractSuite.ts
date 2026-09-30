@@ -3107,6 +3107,80 @@ export function runStoreContractSuite(createStore: () => ISessionStore) {
         svc: { id: 'svc', name: 'svc', transport_type: 'sse' },
       });
     });
+
+    it('patchMCPServers persists approval_policies on the entry (sole policy writer)', async () => {
+      const store = createStore();
+      await seedSession(store);
+      await store.createTurn(makeCreateTurnInput({ sessionId, turnId: 'turn-1' }));
+      await store.patchMCPServers({
+        session_id: sessionId,
+        turn_id: 'turn-1',
+        mcp_servers: [
+          {
+            id: 'svc',
+            name: 'svc',
+            session_id: 'mcp-1',
+            transport_type: 'streamable-http',
+            approval_policies: {
+              write_note: { type: 'allow_session' },
+              delete_note: { type: 'allow_session', expire_at: '2999-01-01T00:00:00.000Z' },
+            },
+          },
+        ],
+      });
+      const turn = await store.getTurn({ session_id: sessionId, turn_id: 'turn-1' });
+      expect(mustGet(turn).snapshot.mcp_servers?.['svc']).toEqual({
+        id: 'svc',
+        name: 'svc',
+        session_id: 'mcp-1',
+        transport_type: 'streamable-http',
+        approval_policies: {
+          write_note: { type: 'allow_session' },
+          delete_note: { type: 'allow_session', expire_at: '2999-01-01T00:00:00.000Z' },
+        },
+      });
+    });
+
+    it('patchMCPServers wholesale replace drops omitted approval_policies (self-cleaning)', async () => {
+      const store = createStore();
+      await seedSession(store);
+      await store.createTurn(makeCreateTurnInput({ sessionId, turnId: 'turn-1' }));
+      await store.patchMCPServers({
+        session_id: sessionId,
+        turn_id: 'turn-1',
+        mcp_servers: [
+          {
+            id: 'svc',
+            name: 'svc',
+            session_id: 'mcp-1',
+            approval_policies: {
+              write_note: { type: 'allow_session' },
+              delete_note: { type: 'allow_session' },
+            },
+          },
+        ],
+      });
+      // Next MCP init re-persists the entry without the pruned/expired policies.
+      await store.patchMCPServers({
+        session_id: sessionId,
+        turn_id: 'turn-1',
+        mcp_servers: [
+          {
+            id: 'svc',
+            name: 'svc',
+            session_id: 'mcp-1',
+            approval_policies: { write_note: { type: 'allow_session' } },
+          },
+        ],
+      });
+      const turn = await store.getTurn({ session_id: sessionId, turn_id: 'turn-1' });
+      expect(mustGet(turn).snapshot.mcp_servers?.['svc']).toEqual({
+        id: 'svc',
+        name: 'svc',
+        session_id: 'mcp-1',
+        approval_policies: { write_note: { type: 'allow_session' } },
+      });
+    });
   });
 
   describe('pagination', () => {

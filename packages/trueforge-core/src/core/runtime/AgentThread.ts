@@ -757,6 +757,12 @@ export class AgentThread {
     return getOpenToolCallIds(this.context).has(toolCallId);
   }
 
+  // User-configured MCP tool sets (spec.mcp_servers) for this thread. Excludes
+  // system tool sets (sandbox / deferred / capabilities).
+  public getUserToolSets(): readonly IToolSet[] {
+    return this.definition.toolSets ?? [];
+  }
+
   // True when this thread is paused waiting on the user to resolve a pending tool
   // approval or a client-side tool response.
   public isAwaitingUserInput(): boolean {

@@ -39,6 +39,7 @@ export * from "./ChatCompletionContentPartText.js";
 export * from "./ChatCompletionMessageToolCall.js";
 export * from "./ChatCompletionMessageToolCallFunction.js";
 export * from "./CompactionConfig.js";
+export * from "./ComponentsSchemasToolApprovalPolicyAllowSession.js";
 export * from "./ConfiguredMcpServer.js";
 export * from "./ConfiguredModel.js";
 export * from "./ConfiguredModelProvider.js";

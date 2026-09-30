@@ -591,6 +591,7 @@ export class TurnHandle<TTurnCustom extends object = Record<string, never>> {
             name: initInfo.name,
             session_id: initInfo.session_id,
             transport_type: initInfo.transport_type,
+            approval_policies: initInfo.approval_policies,
           })),
         });
         await this.store.appendToEvents({
