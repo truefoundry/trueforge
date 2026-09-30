@@ -54,6 +54,7 @@
   "sideEffects": false,
   "scripts": {
     "build": "tsup",
+    "format": "prettier --write \"src/**/*.{ts,tsx}\" \"test/**/*.{ts,tsx}\" \"*.md\" --config ../../.prettierrc",
     "lint": "eslint src --fix --cache --cache-location ../../.eslintcache --cache-strategy content",
     "lint:ci": "eslint src --cache --cache-location ../../.eslintcache",
     "pack:dry": "pnpm build && pnpm pack --dry-run",
