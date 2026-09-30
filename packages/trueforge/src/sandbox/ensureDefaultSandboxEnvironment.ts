@@ -18,7 +18,7 @@ const DEFAULT_NAME = NameSchema.parse(DEFAULT_SANDBOX_ENVIRONMENT_NAME);
 const EMPTY_INTERNAL_METADATA = SandboxEnvironmentVersionInternalMetadataSchema.parse({});
 
 /**
- * Returns the existing default env, or creates/re-pends its single version.
+ * Returns the existing default env, or creates it / appends a new pending version.
  * Pass `resetPending` when the provider API key rotated.
  */
 export async function ensureDefaultSandboxEnvironment<TTransaction>({
@@ -47,11 +47,11 @@ export async function ensureDefaultSandboxEnvironment<TTransaction>({
       description: '',
       created_by_subject,
       buildVersion: previous => ({
-        version: previous?.latest_version ?? 1,
+        version: previous ? previous.latest_version + 1 : 1,
         manifest: defaultSandboxEnvironmentStoredManifest(provider_type),
         status: 'pending',
         status_reason: null,
-        external_ref: resetPending || !previous ? newExternalRef() : previous.previous_external_ref,
+        external_ref: newExternalRef(),
         internal_metadata: EMPTY_INTERNAL_METADATA,
         created_by_subject,
       }),

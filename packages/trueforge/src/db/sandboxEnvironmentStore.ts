@@ -71,11 +71,6 @@ export interface GetSandboxEnvironmentInput {
   created_by_subject_id?: string;
 }
 
-/** Pending tip id for the sandbox-env build controller list. */
-export interface PendingSandboxEnvironmentVersionId {
-  id: string;
-}
-
 /** Version + parent fields needed to progress a build. */
 export interface SandboxEnvironmentVersionForProgress {
   id: string;
@@ -123,9 +118,6 @@ export interface UpsertSandboxEnvironmentInput {
    * Called inside the write transaction. `previous` is set when updating an existing
    * env (after the parent row is locked / re-read) so concurrent PUTs cannot collide
    * on the next version number.
-   *
-   * For the reserved `"default"` name, updates rewrite the single tip version in place
-   * (same version number) instead of inserting a new row.
    */
   buildVersion: (previous?: UpsertSandboxEnvironmentPrevious) => UpsertSandboxEnvironmentVersion;
 }
@@ -189,16 +181,16 @@ export interface ISandboxEnvironmentStore<TTransaction = never> {
   ): Promise<SandboxEnvironmentWithVersion | undefined>;
   /**
    * Create or replace by `(tenant_id, name)` — parent + version row.
-   * Custom envs: new version on update; parent `active_version` advances only when status is
-   * `ready` (otherwise use markVersionReady). Reserved `"default"`: single version rewritten
-   * in place on update. Uses `transaction` when passed; otherwise opens its own.
+   * Updates insert a new version; parent `active_version` advances only when status is
+   * `ready` (otherwise use markVersionReady). Uses `transaction` when passed; otherwise
+   * opens its own.
    */
   upsertEnvironment(
     input: UpsertSandboxEnvironmentInput,
     transaction?: TTransaction,
   ): Promise<SandboxEnvironmentWithVersion>;
   /** Latest pending version id per environment across tenants (oldest first). */
-  listLatestPendingVersions(transaction?: TTransaction): Promise<PendingSandboxEnvironmentVersionId[]>;
+  listLatestPendingVersions(transaction?: TTransaction): Promise<string[]>;
   /** Version row + parent fields for controller progress. */
   getSandboxEnvironmentVersion(
     input: GetSandboxEnvironmentVersionInput,

@@ -16,7 +16,6 @@ import type {
   ListSandboxEnvironmentsInput,
   MarkSandboxEnvironmentVersionFailedInput,
   MarkSandboxEnvironmentVersionReadyInput,
-  PendingSandboxEnvironmentVersionId,
   SandboxEnvironmentVersionForProgress,
   SandboxEnvironmentVersionRecord,
   SandboxEnvironmentWithVersion,
@@ -180,7 +179,7 @@ export class TrueFoundrySandboxEnvironmentStore<
     return this.#persistence.upsertEnvironment(input, transaction);
   }
 
-  listLatestPendingVersions(transaction?: TTransaction): Promise<PendingSandboxEnvironmentVersionId[]> {
+  listLatestPendingVersions(transaction?: TTransaction): Promise<string[]> {
     if (isTfySandbox()) {
       logger.info('Skipping pending sandbox environment list under TRUEFOUNDRY_SANDBOX_PROVIDER=truefoundry');
       return Promise.resolve([]);

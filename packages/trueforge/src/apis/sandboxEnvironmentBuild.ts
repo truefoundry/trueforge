@@ -23,9 +23,7 @@ export function createSandboxEnvironmentBuildRouter(deps: SandboxEnvironmentBuil
     const pending = await deps.sandboxEnvironmentStore.listLatestPendingVersions();
     return c.json(
       {
-        data: pending.map(row => ({
-          environment_version_id: row.id,
-        })),
+        data: pending.map(environment_version_id => ({ environment_version_id })),
       },
       200,
     );

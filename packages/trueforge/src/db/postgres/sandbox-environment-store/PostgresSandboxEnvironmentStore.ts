@@ -24,7 +24,6 @@ import {
   type ListSandboxEnvironmentsInput,
   type MarkSandboxEnvironmentVersionFailedInput,
   type MarkSandboxEnvironmentVersionReadyInput,
-  type PendingSandboxEnvironmentVersionId,
   type SandboxEnvironmentRecord,
   type SandboxEnvironmentVersionForProgress,
   type SandboxEnvironmentVersionRecord,
@@ -175,9 +174,9 @@ export class PostgresSandboxEnvironmentStore implements ISandboxEnvironmentStore
     return row ? toWithVersion(row) : undefined;
   }
 
-  async listLatestPendingVersions(transaction?: Transaction<Database>): Promise<PendingSandboxEnvironmentVersionId[]> {
+  async listLatestPendingVersions(transaction?: Transaction<Database>): Promise<string[]> {
     const db = transaction ?? this.#db;
-    // One pending tip per environment; only the version id is needed for the list wire.
+    // One pending tip per environment.
     const rows = await sql<{ id: string }>`
       SELECT version.id
       FROM sandbox_environment_version AS version
@@ -195,7 +194,7 @@ export class PostgresSandboxEnvironmentStore implements ISandboxEnvironmentStore
         AND environment.lifecycle_stage = 'active'
       ORDER BY version.created_at ASC
     `.execute(db);
-    return rows.rows.map(row => ({ id: row.id }));
+    return rows.rows.map(row => row.id);
   }
 
   async getSandboxEnvironmentVersion(
@@ -310,40 +309,6 @@ export class PostgresSandboxEnvironmentStore implements ISandboxEnvironmentStore
         previous_external_ref: previousVersion.external_ref,
       }),
     );
-
-    // Reserved `"default"` keeps a single version row — rewrite tip in place.
-    if (isDefault) {
-      const version = await db
-        .updateTable('sandbox_environment_version')
-        .set({
-          manifest: json(versionWrite.manifest),
-          status: versionWrite.status,
-          status_reason: versionWrite.status_reason,
-          external_ref: versionWrite.external_ref,
-          internal_metadata: json(versionWrite.internal_metadata),
-          updated_at: now(),
-        })
-        .where('id', '=', previousVersion.id)
-        .returningAll()
-        .executeTakeFirstOrThrow();
-      const updated = await db
-        .updateTable('sandbox_environment')
-        .set({
-          description: input.description,
-          updated_at: now(),
-        })
-        .where('id', '=', environmentRow.id)
-        .where('lifecycle_stage', '=', 'active')
-        .returningAll()
-        .executeTakeFirst();
-      if (!updated) {
-        throw new SandboxEnvironmentVersionConflictError(
-          { environment_id: environmentRow.id, version: previousVersion.version },
-          { cause: new Error('Sandbox environment disappeared during upsert') },
-        );
-      }
-      return { environment: toEnvironmentRecord(updated), version: toVersionRecord(version) };
-    }
 
     const version = await this.#insertVersionRow(db, environmentRow.id, versionWrite);
     const updated = await db

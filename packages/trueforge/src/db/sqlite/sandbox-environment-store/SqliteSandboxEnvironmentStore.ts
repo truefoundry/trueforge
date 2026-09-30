@@ -30,7 +30,6 @@ import {
   type ListSandboxEnvironmentsInput,
   type MarkSandboxEnvironmentVersionFailedInput,
   type MarkSandboxEnvironmentVersionReadyInput,
-  type PendingSandboxEnvironmentVersionId,
   type SandboxEnvironmentRecord,
   type SandboxEnvironmentVersionForProgress,
   type SandboxEnvironmentVersionRecord,
@@ -234,7 +233,7 @@ export class SqliteSandboxEnvironmentStore implements ISandboxEnvironmentStore<T
     return row ? toWithVersion(row) : undefined;
   }
 
-  async listLatestPendingVersions(transaction?: Transaction<Database>): Promise<PendingSandboxEnvironmentVersionId[]> {
+  async listLatestPendingVersions(transaction?: Transaction<Database>): Promise<string[]> {
     const db = transaction ?? this.#db;
     const rows = await sql<{ id: string }>`
       SELECT version.id
@@ -253,7 +252,7 @@ export class SqliteSandboxEnvironmentStore implements ISandboxEnvironmentStore<T
         AND environment.lifecycle_stage = 'active'
       ORDER BY version.created_at ASC
     `.execute(db);
-    return rows.rows.map(row => ({ id: row.id }));
+    return rows.rows.map(row => row.id);
   }
 
   async getSandboxEnvironmentVersion(
@@ -392,43 +391,6 @@ export class SqliteSandboxEnvironmentStore implements ISandboxEnvironmentStore<T
       }),
     );
     const updated_at = nowIso();
-
-    if (isDefault) {
-      await db
-        .updateTable('sandbox_environment_version')
-        .set({
-          manifest: jsonbBind(versionWrite.manifest),
-          status: versionWrite.status,
-          status_reason: versionWrite.status_reason,
-          external_ref: versionWrite.external_ref,
-          internal_metadata: jsonbBind(versionWrite.internal_metadata),
-          updated_at,
-        })
-        .where('id', '=', previousVersion.id)
-        .execute();
-      await db
-        .updateTable('sandbox_environment')
-        .set({
-          description: input.description,
-          updated_at,
-        })
-        .where('id', '=', environmentRow.id)
-        .where('lifecycle_stage', '=', 'active')
-        .execute();
-      const versionRow = await db
-        .selectFrom('sandbox_environment_version')
-        .select(versionSelect())
-        .where('id', '=', previousVersion.id)
-        .executeTakeFirstOrThrow();
-      return {
-        environment: toEnvironmentRecord({
-          ...environmentRow,
-          description: input.description,
-          updated_at,
-        }),
-        version: toVersionRecord(versionRow),
-      };
-    }
 
     const version = await this.#insertVersionRow(db, environmentRow.id, versionWrite);
     const result = await db

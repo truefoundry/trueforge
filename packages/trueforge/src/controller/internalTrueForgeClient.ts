@@ -5,8 +5,7 @@ import { TrueForge } from '@truefoundry/trueforge-sdk';
 import configuration from '../config';
 import { createTlsFetch, normalizeTlsUrl } from '../http/tls';
 
-/** One client shape for schedule dispatch and sandbox-env build loops. */
-export function createInternalTrueForgeClient(): TrueForge {
+function createClient(): TrueForge {
   const tls = {
     enabled: configuration.MTLS_ENABLED,
     dir: configuration.MTLS_CERTS_DIR,
@@ -19,3 +18,21 @@ export function createInternalTrueForgeClient(): TrueForge {
     ...(tlsFetch === undefined ? {} : { fetch: tlsFetch }),
   });
 }
+
+const client = createClient();
+
+/** Controller loops share this client for all internal HTTP handoffs. */
+export const internalTrueForgeClient = {
+  async executeScheduleRun(scheduleRunId: string): Promise<void> {
+    await client.internal.schedules.executeRun({ scheduleRunId });
+  },
+
+  async listPendingSandboxEnvironmentVersions(): Promise<string[]> {
+    const response = await client.internal.sandboxEnvironments.listPending();
+    return response.data.map(row => row.environmentVersionId);
+  },
+
+  async progressSandboxEnvironmentVersion(environmentVersionId: string): Promise<void> {
+    await client.internal.sandboxEnvironments.progress({ environmentVersionId });
+  },
+};

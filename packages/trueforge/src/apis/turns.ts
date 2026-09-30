@@ -61,7 +61,6 @@ import {
   getModelDetails,
   resolveSandboxProvider,
 } from '../runtime/sessionResources';
-import { DEFAULT_SANDBOX_ENVIRONMENT_NAME } from '../schemas/sandboxEnvironment';
 import { MAX_SESSION_TITLE_LENGTH } from '../schemas/session';
 import { assertGatewayMetadataRequestHeaders } from '../truefoundry/gatewayMetadata';
 import { newId } from '../utils/id';
@@ -230,26 +229,25 @@ function createTurnResolver(deps: {
     mcpConnectTimeoutMs: configuration.MCP_CONNECT_TIMEOUT_MS,
     mcpMaxResponseBytes: configuration.MCP_TOOL_CALL_MAX_RESPONSE_BYTES,
     sandboxProvider: async ({ spec, existingSandboxId, tracing }) => {
-      const environment_name = spec.config.sandbox.environment_name ?? DEFAULT_SANDBOX_ENVIRONMENT_NAME;
-      const resolved = await resolveSandboxProvider({
+      const provider = await resolveSandboxProvider({
         tenant_id,
         store: sandboxProviderStore,
         logger,
         sessionId,
         sandboxEnvironmentStore,
-        environment_name,
+        ...(spec.config.sandbox.environment_name !== undefined
+          ? { environment_name: spec.config.sandbox.environment_name }
+          : {}),
       });
-      if (resolved === undefined) {
+      if (provider === undefined) {
         throw new HTTPException(422, {
           message: 'no sandbox provider configured — PUT /settings/sandbox-providers',
         });
       }
-      const { provider } = resolved;
       const carriedSandboxId = existingSandboxIdForProvider({
         existingSandboxId,
         currentProviderType: provider.type,
       });
-      // Env snapshot readiness is gated in resolveSandboxProvider.
       const skills = spec.skills ?? [];
       const mountSkills =
         skills.length === 0
@@ -665,35 +663,19 @@ export function createTurnsRouter(deps: TurnsRouterDeps) {
         return c.json({ error: { message: `Turn has no sandbox: ${turnId}` } }, 412);
       }
 
-      const sessionAgent = session.record.agent;
-      let environment_name = DEFAULT_SANDBOX_ENVIRONMENT_NAME;
-      if (sessionAgent.type === 'inline') {
-        environment_name = sessionAgent.spec.config.sandbox.environment_name ?? DEFAULT_SANDBOX_ENVIRONMENT_NAME;
-      } else {
-        const agent = await deps.resolveAgentStore(c).getAgent({
-          tenant_id: requestContext.tenant_id,
-          id: sessionAgent.id,
-        });
-        if (agent === undefined) {
-          return c.json({ error: { message: `Agent not found: ${sessionAgent.id}` } }, 422);
-        }
-        environment_name = agent.manifest.config.sandbox.environment_name ?? DEFAULT_SANDBOX_ENVIRONMENT_NAME;
-      }
-
-      const resolved = await resolveSandboxProvider({
+      const provider = await resolveSandboxProvider({
         tenant_id: requestContext.tenant_id,
         store: deps.resolveSandboxProviderStore(c),
         logger: deps.logger,
         sessionId,
         sandboxEnvironmentStore: deps.sandboxEnvironmentStore,
-        environment_name,
       });
-      if (resolved === undefined) {
+      if (provider === undefined) {
         return c.json({ error: { message: 'No sandbox provider configured' } }, 412);
       }
 
       // TODO: stream the body instead of buffering the whole file in memory.
-      const content = await resolved.provider.downloadFile({ sandboxId: rawSandboxId(sandboxId), path });
+      const content = await provider.downloadFile({ sandboxId: rawSandboxId(sandboxId), path });
       return c.body(toArrayBuffer(content), 200, {
         'Content-Type': 'application/octet-stream',
         'Content-Length': String(content.byteLength),
