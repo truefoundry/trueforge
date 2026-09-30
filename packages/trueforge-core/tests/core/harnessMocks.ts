@@ -52,6 +52,8 @@ export function makeMockIMCPServer(params: {
     ),
     callTool: jest.fn(),
     toolCallInfo: jest.fn(),
+    setApprovalPolicy: jest.fn(),
+    getApprovalPolicies: jest.fn(() => ({})),
   };
 }
 
