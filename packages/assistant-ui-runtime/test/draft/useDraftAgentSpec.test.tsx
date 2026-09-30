@@ -273,14 +273,15 @@ describe('useDraftAgentSpec', () => {
       getDraftAgentSpec: vi.fn().mockResolvedValue(null),
       syncAgentSpec,
     };
+    const initialProps: { draftSessionId: string | undefined } = { draftSessionId: undefined };
     const { result, rerender } = renderHook(
-      ({ draftSessionId }: { draftSessionId: string | undefined }) =>
+      ({ draftSessionId }) =>
         useDraftAgentSpec({
           draftSessionId,
           draftBridge,
           defaultAgentSpec,
         }),
-      { initialProps: { draftSessionId: undefined } },
+      { initialProps },
     );
     await flushMicrotasks();
 
