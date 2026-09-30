@@ -22,7 +22,7 @@ from ..types.get_sandbox_environment_response import GetSandboxEnvironmentRespon
 from ..types.list_sandbox_environments_response import ListSandboxEnvironmentsResponse
 from ..types.request_error_response import RequestErrorResponse
 from ..types.sandbox_environment import SandboxEnvironment
-from ..types.sandbox_environment_manifest import SandboxEnvironmentManifest
+from .types.update_sandbox_environment_request_manifest import UpdateSandboxEnvironmentRequestManifest
 from pydantic import ValidationError
 
 # this is used as the default value for optional parameters
@@ -121,14 +121,17 @@ class RawSandboxEnvironmentsClient:
         raise ApiError(status_code=_response.status_code, headers=dict(_response.headers), body=_response_json)
 
     def create_or_update(
-        self, *, manifest: SandboxEnvironmentManifest, request_options: typing.Optional[RequestOptions] = None
+        self,
+        *,
+        manifest: UpdateSandboxEnvironmentRequestManifest,
+        request_options: typing.Optional[RequestOptions] = None,
     ) -> HttpResponse[GetSandboxEnvironmentResponse]:
         """
         Create or replace by `manifest.name`. Requires a configured sandbox provider.
 
         Parameters
         ----------
-        manifest : SandboxEnvironmentManifest
+        manifest : UpdateSandboxEnvironmentRequestManifest
 
         request_options : typing.Optional[RequestOptions]
             Request-specific configuration.
@@ -143,7 +146,7 @@ class RawSandboxEnvironmentsClient:
             method="PUT",
             json={
                 "manifest": convert_and_respect_annotation_metadata(
-                    object_=manifest, annotation=SandboxEnvironmentManifest, direction="write"
+                    object_=manifest, annotation=UpdateSandboxEnvironmentRequestManifest, direction="write"
                 ),
             },
             headers={
@@ -452,14 +455,17 @@ class AsyncRawSandboxEnvironmentsClient:
         raise ApiError(status_code=_response.status_code, headers=dict(_response.headers), body=_response_json)
 
     async def create_or_update(
-        self, *, manifest: SandboxEnvironmentManifest, request_options: typing.Optional[RequestOptions] = None
+        self,
+        *,
+        manifest: UpdateSandboxEnvironmentRequestManifest,
+        request_options: typing.Optional[RequestOptions] = None,
     ) -> AsyncHttpResponse[GetSandboxEnvironmentResponse]:
         """
         Create or replace by `manifest.name`. Requires a configured sandbox provider.
 
         Parameters
         ----------
-        manifest : SandboxEnvironmentManifest
+        manifest : UpdateSandboxEnvironmentRequestManifest
 
         request_options : typing.Optional[RequestOptions]
             Request-specific configuration.
@@ -474,7 +480,7 @@ class AsyncRawSandboxEnvironmentsClient:
             method="PUT",
             json={
                 "manifest": convert_and_respect_annotation_metadata(
-                    object_=manifest, annotation=SandboxEnvironmentManifest, direction="write"
+                    object_=manifest, annotation=UpdateSandboxEnvironmentRequestManifest, direction="write"
                 ),
             },
             headers={

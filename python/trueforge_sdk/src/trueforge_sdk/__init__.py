@@ -304,6 +304,7 @@ if typing.TYPE_CHECKING:
     )
     from ._default_clients import DefaultAioHttpClient, DefaultAsyncHttpxClient
     from .client import AsyncTrueForge, TrueForge
+    from .sandbox_environments import UpdateSandboxEnvironmentRequestManifest
     from .version import __version__
 _dynamic_imports: typing.Dict[str, str] = {
     "ActionRequired": ".types",
@@ -573,6 +574,7 @@ _dynamic_imports: typing.Dict[str, str] = {
     "TurnUpdateEventState": ".types",
     "UnauthorizedError": ".errors",
     "UnprocessableEntityError": ".errors",
+    "UpdateSandboxEnvironmentRequestManifest": ".sandbox_environments",
     "UserMcpAuthContinueEvent": ".types",
     "UserMcpAuthContinueInputEvent": ".types",
     "UserMessage": ".types",
@@ -893,6 +895,7 @@ __all__ = [
     "TurnUpdateEventState",
     "UnauthorizedError",
     "UnprocessableEntityError",
+    "UpdateSandboxEnvironmentRequestManifest",
     "UserMcpAuthContinueEvent",
     "UserMcpAuthContinueInputEvent",
     "UserMessage",

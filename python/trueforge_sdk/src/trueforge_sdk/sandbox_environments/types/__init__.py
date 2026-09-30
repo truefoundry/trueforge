@@ -6,8 +6,10 @@ import typing
 from importlib import import_module
 
 if typing.TYPE_CHECKING:
-    from .types import UpdateSandboxEnvironmentRequestManifest
-_dynamic_imports: typing.Dict[str, str] = {"UpdateSandboxEnvironmentRequestManifest": ".types"}
+    from .update_sandbox_environment_request_manifest import UpdateSandboxEnvironmentRequestManifest
+_dynamic_imports: typing.Dict[str, str] = {
+    "UpdateSandboxEnvironmentRequestManifest": ".update_sandbox_environment_request_manifest"
+}
 
 
 def __getattr__(attr_name: str) -> typing.Any:
