@@ -14,6 +14,8 @@ import {
 import { TOKEN_PAGINATION } from './fernExtensions';
 import { OpenApiTag } from './openapiTags';
 
+const SANDBOX_ENVIRONMENTS_PAGE_LIMIT = 1000;
+
 const SandboxEnvironmentNameParamsSchema = z.object({
   name: NameSchema.describe('Sandbox environment name.'),
 });
@@ -24,10 +26,10 @@ export const ListSandboxEnvironmentsQuerySchema = z
       .number()
       .int()
       .min(1)
-      .max(PAGE_LIMIT)
+      .max(SANDBOX_ENVIRONMENTS_PAGE_LIMIT)
       .optional()
       .default(PAGE_LIMIT)
-      .describe(`Page size. Defaults to ${String(PAGE_LIMIT)}`),
+      .describe(`Page size. Defaults to ${String(PAGE_LIMIT)}, max ${String(SANDBOX_ENVIRONMENTS_PAGE_LIMIT)}.`),
     page_token: z.string().optional().describe('Opaque token from a previous response `next_page_token`.'),
   })
   .openapi('ListSandboxEnvironmentsQuery');
@@ -37,7 +39,7 @@ export const listSandboxEnvironmentsRoute = createRoute({
   path: '/',
   tags: [OpenApiTag.SANDBOXES],
   summary: 'List sandbox environments',
-  description: 'List sandbox environments created by the authenticated subject, newest first.',
+  description: 'List the tenant default environment plus sandbox environments created by the authenticated subject.',
   'x-fern-sdk-group-name': ['sandboxEnvironments'],
   'x-fern-sdk-method-name': 'list',
   'x-fern-pagination': TOKEN_PAGINATION,
@@ -65,7 +67,8 @@ export const getSandboxEnvironmentRoute = createRoute({
   path: '/{name}',
   tags: [OpenApiTag.SANDBOXES],
   summary: 'Get a sandbox environment',
-  description: 'Get a sandbox environment by name for the authenticated subject.',
+  description:
+    'Get a sandbox environment by name. The tenant default is readable by any tenant member; custom environments are owner-scoped.',
   'x-fern-sdk-group-name': ['sandboxEnvironments'],
   'x-fern-sdk-method-name': 'get',
   request: {
@@ -92,7 +95,7 @@ export const putSandboxEnvironmentRoute = createRoute({
   path: '/',
   tags: [OpenApiTag.SANDBOXES],
   summary: 'Create or update a sandbox environment',
-  description: 'Create or replace by `manifest.name`. Requires a Daytona sandbox provider.',
+  description: 'Create or replace by `manifest.name`. Requires a configured sandbox provider.',
   'x-fern-sdk-group-name': ['sandboxEnvironments'],
   'x-fern-sdk-method-name': 'create_or_update',
   request: {
@@ -120,7 +123,7 @@ export const putSandboxEnvironmentRoute = createRoute({
     },
     422: {
       content: { 'application/json': { schema: RequestErrorResponseSchema } },
-      description: 'No Daytona sandbox provider configured.',
+      description: 'No sandbox provider configured.',
     },
   },
 });

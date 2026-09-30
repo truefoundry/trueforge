@@ -913,7 +913,7 @@ await client.models.list();
 <dl>
 <dd>
 
-List sandbox environments created by the authenticated subject, newest first.
+List the tenant default environment plus sandbox environments created by the authenticated subject.
 </dd>
 </dl>
 </dd>
@@ -988,7 +988,7 @@ const response = page.response;
 <dl>
 <dd>
 
-Create or replace by `manifest.name`. Requires a Daytona sandbox provider.
+Create or replace by `manifest.name`. Requires a configured sandbox provider.
 </dd>
 </dl>
 </dd>
@@ -1055,7 +1055,7 @@ await client.sandboxEnvironments.createOrUpdate({
 <dl>
 <dd>
 
-Get a sandbox environment by name for the authenticated subject.
+Get a sandbox environment by name. The tenant default is readable by any tenant member; custom environments are owner-scoped.
 </dd>
 </dl>
 </dd>
@@ -3385,6 +3385,127 @@ await client.internal.metrics.getMeters({
 <dd>
 
 **requestOptions:** `MetricsClient.RequestOptions` 
+    
+</dd>
+</dl>
+</dd>
+</dl>
+
+
+</dd>
+</dl>
+</details>
+
+## Internal SandboxEnvironments
+<details><summary><code>client.internal.sandboxEnvironments.<a href="/src/api/resources/internal/resources/sandboxEnvironments/client/Client.ts">listPending</a>() -> TrueForge.ListPendingSandboxEnvironmentVersionsResponse</code></summary>
+<dl>
+<dd>
+
+#### 📝 Description
+
+<dl>
+<dd>
+
+<dl>
+<dd>
+
+Returns pending environment versions for the build controller.
+</dd>
+</dl>
+</dd>
+</dl>
+
+#### 🔌 Usage
+
+<dl>
+<dd>
+
+<dl>
+<dd>
+
+```typescript
+await client.internal.sandboxEnvironments.listPending();
+
+```
+</dd>
+</dl>
+</dd>
+</dl>
+
+#### ⚙️ Parameters
+
+<dl>
+<dd>
+
+<dl>
+<dd>
+
+**requestOptions:** `SandboxEnvironmentsClient.RequestOptions` 
+    
+</dd>
+</dl>
+</dd>
+</dl>
+
+
+</dd>
+</dl>
+</details>
+
+<details><summary><code>client.internal.sandboxEnvironments.<a href="/src/api/resources/internal/resources/sandboxEnvironments/client/Client.ts">progress</a>({ ...params }) -> void</code></summary>
+<dl>
+<dd>
+
+#### 📝 Description
+
+<dl>
+<dd>
+
+<dl>
+<dd>
+
+Registers or polls the snapshot build and updates version status.
+</dd>
+</dl>
+</dd>
+</dl>
+
+#### 🔌 Usage
+
+<dl>
+<dd>
+
+<dl>
+<dd>
+
+```typescript
+await client.internal.sandboxEnvironments.progress({
+    environmentVersionId: "environment_version_id"
+});
+
+```
+</dd>
+</dl>
+</dd>
+</dl>
+
+#### ⚙️ Parameters
+
+<dl>
+<dd>
+
+<dl>
+<dd>
+
+**request:** `TrueForge.internal.ProgressSandboxEnvironmentVersionRequest` 
+    
+</dd>
+</dl>
+
+<dl>
+<dd>
+
+**requestOptions:** `SandboxEnvironmentsClient.RequestOptions` 
     
 </dd>
 </dl>

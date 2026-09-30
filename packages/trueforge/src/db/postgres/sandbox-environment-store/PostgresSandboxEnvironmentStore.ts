@@ -6,7 +6,10 @@ import {
 import type { Kysely, Selectable, Transaction } from 'kysely';
 import { sql } from 'kysely';
 import { NameSchema } from '../../../schemas/common';
-import { SandboxEnvironmentVersionInternalMetadataSchema } from '../../../schemas/sandboxEnvironment';
+import {
+  DEFAULT_SANDBOX_ENVIRONMENT_NAME,
+  SandboxEnvironmentVersionInternalMetadataSchema,
+} from '../../../schemas/sandboxEnvironment';
 import { newId } from '../../../utils/id';
 import { SANDBOX_ENVIRONMENT_TENANT_NAME_ACTIVE_UQ, SANDBOX_ENVIRONMENT_VERSION_UQ } from '../../indexes';
 import {
@@ -16,11 +19,13 @@ import {
   toUpsertSandboxEnvironmentVersionWrite,
   type DeleteSandboxEnvironmentInput,
   type GetSandboxEnvironmentInput,
+  type GetSandboxEnvironmentVersionInput,
   type ISandboxEnvironmentStore,
   type ListSandboxEnvironmentsInput,
-  type MarkSandboxEnvironmentVersionActiveInput,
   type MarkSandboxEnvironmentVersionFailedInput,
+  type MarkSandboxEnvironmentVersionReadyInput,
   type SandboxEnvironmentRecord,
+  type SandboxEnvironmentVersionForProgress,
   type SandboxEnvironmentVersionRecord,
   type SandboxEnvironmentWithVersion,
   type UpsertSandboxEnvironmentInput,
@@ -130,7 +135,15 @@ export class PostgresSandboxEnvironmentStore implements ISandboxEnvironmentStore
     const query = activeVersionJoin(db)
       .where('env.tenant_id', '=', input.tenant_id)
       .where('env.lifecycle_stage', '=', 'active')
-      .where(sql`env.created_by_subject->>'subject_id'`, '=', input.created_by_subject_id)
+      .where(eb =>
+        eb.or([
+          eb('env.name', '=', DEFAULT_SANDBOX_ENVIRONMENT_NAME),
+          eb.and([
+            eb('env.name', '!=', DEFAULT_SANDBOX_ENVIRONMENT_NAME),
+            eb(sql`env.created_by_subject->>'subject_id'`, '=', input.created_by_subject_id),
+          ]),
+        ]),
+      )
       .orderBy('env.name');
     if (!input.limit) {
       const rows = await query.execute();
@@ -154,11 +167,68 @@ export class PostgresSandboxEnvironmentStore implements ISandboxEnvironmentStore
       .where('env.tenant_id', '=', input.tenant_id)
       .where('env.name', '=', input.name)
       .where('env.lifecycle_stage', '=', 'active');
-    if (input.created_by_subject_id) {
+    if (input.created_by_subject_id && input.name !== DEFAULT_SANDBOX_ENVIRONMENT_NAME) {
       query = query.where(sql`env.created_by_subject->>'subject_id'`, '=', input.created_by_subject_id);
     }
     const row = await query.executeTakeFirst();
     return row ? toWithVersion(row) : undefined;
+  }
+
+  async listLatestPendingVersions(transaction?: Transaction<Database>): Promise<string[]> {
+    const db = transaction ?? this.#db;
+    // One pending tip per environment.
+    const rows = await sql<{ id: string }>`
+      SELECT version.id
+      FROM sandbox_environment_version AS version
+      INNER JOIN sandbox_environment AS environment
+        ON environment.id = version.environment_id
+      INNER JOIN (
+        SELECT environment_id, MAX(version) AS version
+        FROM sandbox_environment_version
+        WHERE status = 'pending'
+        GROUP BY environment_id
+      ) AS tip
+        ON tip.environment_id = version.environment_id
+       AND tip.version = version.version
+      WHERE version.status = 'pending'
+        AND environment.lifecycle_stage = 'active'
+      ORDER BY version.created_at ASC
+    `.execute(db);
+    return rows.rows.map(row => row.id);
+  }
+
+  async getSandboxEnvironmentVersion(
+    input: GetSandboxEnvironmentVersionInput,
+    transaction?: Transaction<Database>,
+  ): Promise<SandboxEnvironmentVersionForProgress | undefined> {
+    const db = transaction ?? this.#db;
+    const row = await db
+      .selectFrom('sandbox_environment_version as ver')
+      .innerJoin('sandbox_environment as env', 'env.id', 'ver.environment_id')
+      .select([
+        'ver.id',
+        'env.tenant_id',
+        'env.name as environment_name',
+        'ver.environment_id',
+        'ver.version',
+        'ver.external_ref',
+        'ver.manifest',
+      ])
+      .where('ver.id', '=', input.environment_version_id)
+      .where('env.lifecycle_stage', '=', 'active')
+      .executeTakeFirst();
+    if (!row) {
+      return undefined;
+    }
+    return {
+      id: row.id,
+      tenant_id: row.tenant_id,
+      environment_id: row.environment_id,
+      environment_name: row.environment_name,
+      version: row.version,
+      external_ref: row.external_ref,
+      manifest: parseStoredSandboxEnvironmentManifest(row.manifest),
+    };
   }
 
   async upsertEnvironment(
@@ -175,21 +245,27 @@ export class PostgresSandboxEnvironmentStore implements ISandboxEnvironmentStore
     input: UpsertSandboxEnvironmentInput,
     db: Transaction<Database>,
   ): Promise<SandboxEnvironmentWithVersion> {
-    const environmentRow = await db
+    const isDefault = input.name === DEFAULT_SANDBOX_ENVIRONMENT_NAME;
+    let environmentQuery = db
       .selectFrom('sandbox_environment')
       .selectAll()
       .where('tenant_id', '=', input.tenant_id)
       .where('name', '=', input.name)
-      .where('lifecycle_stage', '=', 'active')
-      .where(sql`created_by_subject->>'subject_id'`, '=', input.created_by_subject.subject_id)
-      .forUpdate()
-      .executeTakeFirst();
+      .where('lifecycle_stage', '=', 'active');
+    if (!isDefault) {
+      environmentQuery = environmentQuery.where(
+        sql`created_by_subject->>'subject_id'`,
+        '=',
+        input.created_by_subject.subject_id,
+      );
+    }
+    const environmentRow = await environmentQuery.forUpdate().executeTakeFirst();
 
     if (!environmentRow) {
       const environment_id = newId();
       const versionWrite = toUpsertSandboxEnvironmentVersionWrite(input.buildVersion());
       // First version: point here so get/list join works; later versions only move the
-      // pointer when their status is (or becomes) active.
+      // pointer when their status is (or becomes) ready.
       const active_version = versionWrite.version;
       try {
         const created = await db
@@ -207,10 +283,8 @@ export class PostgresSandboxEnvironmentStore implements ISandboxEnvironmentStore
           })
           .returningAll()
           .executeTakeFirstOrThrow();
-        return {
-          environment: toEnvironmentRecord(created),
-          version: await this.#insertVersionRow(db, environment_id, versionWrite),
-        };
+        const version = await this.#insertVersionRow(db, environment_id, versionWrite);
+        return { environment: toEnvironmentRecord(created), version };
       } catch (error) {
         if (isUniqueViolation(error) || isPgConstraint(error, SANDBOX_ENVIRONMENT_TENANT_NAME_ACTIVE_UQ)) {
           throw new SandboxEnvironmentNameConflictError(
@@ -235,11 +309,12 @@ export class PostgresSandboxEnvironmentStore implements ISandboxEnvironmentStore
         previous_external_ref: previousVersion.external_ref,
       }),
     );
+
     const version = await this.#insertVersionRow(db, environmentRow.id, versionWrite);
     const updated = await db
       .updateTable('sandbox_environment')
       .set({
-        ...(versionWrite.status === 'active' ? { active_version: versionWrite.version } : {}),
+        ...(versionWrite.status === 'ready' ? { active_version: versionWrite.version } : {}),
         description: input.description,
         updated_at: now(),
       })
@@ -257,47 +332,50 @@ export class PostgresSandboxEnvironmentStore implements ISandboxEnvironmentStore
     return { environment: toEnvironmentRecord(updated), version };
   }
 
-  async markVersionActive(
-    input: MarkSandboxEnvironmentVersionActiveInput,
+  async markVersionReady(
+    input: MarkSandboxEnvironmentVersionReadyInput,
     transaction?: Transaction<Database>,
   ): Promise<SandboxEnvironmentWithVersion | undefined> {
     if (transaction) {
-      return this.#markVersionActive(input, transaction);
+      return this.#markVersionReady(input, transaction);
     }
-    return this.#db.transaction().execute(db => this.#markVersionActive(input, db));
+    return this.#db.transaction().execute(db => this.#markVersionReady(input, db));
   }
 
-  async #markVersionActive(
-    input: MarkSandboxEnvironmentVersionActiveInput,
+  async #markVersionReady(
+    input: MarkSandboxEnvironmentVersionReadyInput,
     db: Transaction<Database>,
   ): Promise<SandboxEnvironmentWithVersion | undefined> {
     const versionRow = await db
       .updateTable('sandbox_environment_version')
       .set({
-        status: 'active',
+        status: 'ready',
         status_reason: null,
         updated_at: now(),
       })
-      .where('environment_id', '=', input.environment_id)
-      .where('version', '=', input.version)
+      .where('id', '=', input.environment_version_id)
       .returningAll()
       .executeTakeFirst();
     if (!versionRow) {
       return undefined;
     }
+    // Only advance the parent pointer forward (never roll back to an older tip).
     const parentUpdated = await db
       .updateTable('sandbox_environment')
       .set({
-        active_version: input.version,
+        active_version: versionRow.version,
         updated_at: now(),
       })
-      .where('id', '=', input.environment_id)
+      .where('id', '=', versionRow.environment_id)
       .where('lifecycle_stage', '=', 'active')
+      .where('active_version', '<=', versionRow.version)
       .executeTakeFirst();
     if (!Number(parentUpdated.numUpdatedRows)) {
-      return undefined;
+      // Version marked ready but pointer already ahead — still return the join on current tip.
+      const row = await activeVersionJoin(db).where('env.id', '=', versionRow.environment_id).executeTakeFirst();
+      return row ? toWithVersion(row) : undefined;
     }
-    const row = await activeVersionJoin(db).where('env.id', '=', input.environment_id).executeTakeFirst();
+    const row = await activeVersionJoin(db).where('env.id', '=', versionRow.environment_id).executeTakeFirst();
     return row ? toWithVersion(row) : undefined;
   }
 
@@ -313,8 +391,7 @@ export class PostgresSandboxEnvironmentStore implements ISandboxEnvironmentStore
         status_reason: input.status_reason,
         updated_at: now(),
       })
-      .where('environment_id', '=', input.environment_id)
-      .where('version', '=', input.version)
+      .where('id', '=', input.environment_version_id)
       .returningAll()
       .executeTakeFirst();
     return row ? toVersionRecord(row) : undefined;

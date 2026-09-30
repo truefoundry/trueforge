@@ -3,17 +3,17 @@
 import type * as TrueForge from "../../../../../api/index.js";
 import * as core from "../../../../../core/index.js";
 import type * as serializers from "../../../../index.js";
-import { SandboxEnvironmentManifest } from "../../../../types/SandboxEnvironmentManifest.js";
+import { SandboxEnvironmentManifestRequest } from "../../../../types/SandboxEnvironmentManifestRequest.js";
 
 export const UpdateSandboxEnvironmentRequest: core.serialization.Schema<
     serializers.UpdateSandboxEnvironmentRequest.Raw,
     TrueForge.UpdateSandboxEnvironmentRequest
 > = core.serialization.object({
-    manifest: SandboxEnvironmentManifest,
+    manifest: SandboxEnvironmentManifestRequest,
 });
 
 export declare namespace UpdateSandboxEnvironmentRequest {
     export interface Raw {
-        manifest: SandboxEnvironmentManifest.Raw;
+        manifest: SandboxEnvironmentManifestRequest.Raw;
     }
 }

@@ -962,22 +962,10 @@
         "properties": {
           "manifest": {
             "$ref": "#/components/schemas/SandboxProviderManifest"
-          },
-          "status": {
-            "$ref": "#/components/schemas/SandboxBuildStatus"
-          },
-          "status_reason": {
-            "description": "Human-readable detail for the current status; null when ready.",
-            "type": [
-              "string",
-              "null"
-            ]
           }
         },
         "required": [
-          "manifest",
-          "status",
-          "status_reason"
+          "manifest"
         ],
         "type": "object"
       },
@@ -2387,6 +2375,21 @@
         ],
         "type": "object"
       },
+      "ListPendingSandboxEnvironmentVersionsResponse": {
+        "additionalProperties": false,
+        "properties": {
+          "data": {
+            "items": {
+              "$ref": "#/components/schemas/PendingSandboxEnvironmentVersion"
+            },
+            "type": "array"
+          }
+        },
+        "required": [
+          "data"
+        ],
+        "type": "object"
+      },
       "ListPermissionsData": {
         "properties": {
           "permissions": {
@@ -3479,6 +3482,20 @@
         ],
         "type": "object"
       },
+      "PendingSandboxEnvironmentVersion": {
+        "additionalProperties": false,
+        "properties": {
+          "environment_version_id": {
+            "description": "Version row id to progress.",
+            "minLength": 1,
+            "type": "string"
+          }
+        },
+        "required": [
+          "environment_version_id"
+        ],
+        "type": "object"
+      },
       "PermissionResourceType": {
         "description": "Resource type to evaluate permissions for.",
         "enum": [
@@ -3510,6 +3527,20 @@
         ],
         "default": "auto",
         "description": "Defaults to 'auto' (chain to session last turn). Use 'none' for a new root turn."
+      },
+      "ProgressSandboxEnvironmentVersionRequest": {
+        "additionalProperties": false,
+        "properties": {
+          "environment_version_id": {
+            "description": "Version row id to progress.",
+            "minLength": 1,
+            "type": "string"
+          }
+        },
+        "required": [
+          "environment_version_id"
+        ],
+        "type": "object"
       },
       "RawToolCall": {
         "allOf": [
@@ -3787,15 +3818,6 @@
         },
         "type": "object"
       },
-      "SandboxBuildStatus": {
-        "description": "Current build status.",
-        "enum": [
-          "pending",
-          "ready",
-          "failed"
-        ],
-        "type": "string"
-      },
       "SandboxCapability": {
         "properties": {
           "enabled": {
@@ -3993,6 +4015,38 @@
         ],
         "type": "object"
       },
+      "SandboxEnvironmentManifestRequest": {
+        "additionalProperties": false,
+        "properties": {
+          "description": {
+            "description": "Optional human-readable description.",
+            "maxLength": 1024,
+            "type": "string"
+          },
+          "environment_variables": {
+            "additionalProperties": {
+              "type": "string"
+            },
+            "type": "object"
+          },
+          "image": {
+            "$ref": "#/components/schemas/SandboxEnvironmentImage"
+          },
+          "name": {
+            "$ref": "#/components/schemas/ResourceName"
+          },
+          "networking": {
+            "$ref": "#/components/schemas/SandboxEnvironmentNetworking"
+          },
+          "resources": {
+            "$ref": "#/components/schemas/SandboxEnvironmentResources"
+          }
+        },
+        "required": [
+          "name"
+        ],
+        "type": "object"
+      },
       "SandboxEnvironmentNetworking": {
         "additionalProperties": false,
         "properties": {
@@ -4077,7 +4131,7 @@
         "description": "Readiness of the environment.",
         "enum": [
           "pending",
-          "active",
+          "ready",
           "failed"
         ],
         "type": "string"
@@ -6063,7 +6117,7 @@
         "additionalProperties": false,
         "properties": {
           "manifest": {
-            "$ref": "#/components/schemas/SandboxEnvironmentManifest"
+            "$ref": "#/components/schemas/SandboxEnvironmentManifestRequest"
           }
         },
         "required": [
@@ -6936,6 +6990,93 @@
           "metrics"
         ],
         "x-fern-sdk-method-name": "get_meters"
+      }
+    },
+    "/api/internal/sandbox-environments/pending": {
+      "get": {
+        "description": "Returns pending environment versions for the build controller.",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ListPendingSandboxEnvironmentVersionsResponse"
+                }
+              }
+            },
+            "description": "Pending versions oldest-first."
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/RequestErrorResponse"
+                }
+              }
+            },
+            "description": "Invalid service credential."
+          }
+        },
+        "summary": "List pending sandbox environment versions",
+        "tags": [
+          "Internal"
+        ],
+        "x-excluded": true,
+        "x-fern-sdk-group-name": [
+          "internal",
+          "sandbox_environments"
+        ],
+        "x-fern-sdk-method-name": "list_pending"
+      }
+    },
+    "/api/internal/sandbox-environments/progress": {
+      "post": {
+        "description": "Registers or polls the snapshot build and updates version status.",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ProgressSandboxEnvironmentVersionRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "204": {
+            "description": "Progressed (or left pending)."
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/RequestErrorResponse"
+                }
+              }
+            },
+            "description": "Invalid service credential."
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/RequestErrorResponse"
+                }
+              }
+            },
+            "description": "Version not found."
+          }
+        },
+        "summary": "Progress a pending sandbox environment version",
+        "tags": [
+          "Internal"
+        ],
+        "x-excluded": true,
+        "x-fern-sdk-group-name": [
+          "internal",
+          "sandbox_environments"
+        ],
+        "x-fern-sdk-method-name": "progress"
       }
     },
     "/api/internal/schedules/runs/execute": {
@@ -8287,17 +8428,17 @@
     },
     "/api/v1/sandbox-environments": {
       "get": {
-        "description": "List sandbox environments created by the authenticated subject, newest first.",
+        "description": "List the tenant default environment plus sandbox environments created by the authenticated subject.",
         "parameters": [
           {
-            "description": "Page size. Defaults to 25",
+            "description": "Page size. Defaults to 25, max 1000.",
             "in": "query",
             "name": "limit",
             "required": false,
             "schema": {
               "default": 25,
-              "description": "Page size. Defaults to 25",
-              "maximum": 25,
+              "description": "Page size. Defaults to 25, max 1000.",
+              "maximum": 1000,
               "minimum": 1,
               "type": "integer"
             }
@@ -8360,7 +8501,7 @@
         "x-fern-sdk-method-name": "list"
       },
       "put": {
-        "description": "Create or replace by `manifest.name`. Requires a Daytona sandbox provider.",
+        "description": "Create or replace by `manifest.name`. Requires a configured sandbox provider.",
         "requestBody": {
           "content": {
             "application/json": {
@@ -8420,7 +8561,7 @@
                 }
               }
             },
-            "description": "No Daytona sandbox provider configured."
+            "description": "No sandbox provider configured."
           }
         },
         "summary": "Create or update a sandbox environment",
@@ -8506,7 +8647,7 @@
         "x-fern-sdk-method-name": "delete"
       },
       "get": {
-        "description": "Get a sandbox environment by name for the authenticated subject.",
+        "description": "Get a sandbox environment by name. The tenant default is readable by any tenant member; custom environments are owner-scoped.",
         "parameters": [
           {
             "description": "Sandbox environment name.",
@@ -10922,7 +11063,7 @@
                 }
               }
             },
-            "description": "Daytona rejected the provided API key."
+            "description": "Sandbox provider rejected the provided API key."
           }
         },
         "summary": "Create or replace the sandbox provider",
