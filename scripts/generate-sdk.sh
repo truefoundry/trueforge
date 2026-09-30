@@ -18,7 +18,7 @@ fern() {
 # version a human (or Changesets, for TS) already set.
 ts_version="$(node -p "require('./packages/trueforge-sdk/package.json').version")"
 # Prefer pyproject.toml (lockstep with TS on Version Packages); fallback for a fresh tree.
-py_version="0.1.0-rc.1"
+py_version="0.0.0"
 if [[ -f python/trueforge_sdk/pyproject.toml ]]; then
   py_version="$(node -p 'require("fs").readFileSync("python/trueforge_sdk/pyproject.toml","utf8").match(/^version\s*=\s*"([^"]+)"/m)[1]')"
 fi
