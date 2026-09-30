@@ -14,7 +14,7 @@
 #     TrueFoundry private registry. Local and contributor builds stay on
 #     node:24-slim.
 #     After the image is pushed, this workflow calls release-chart.yml with
-#     branch main, app_version, and image_tag. Helm does not wait on pack.
+#     the triggering branch, app_version, and image_tag. Helm does not wait on pack.
 # Merge the Version Packages PR to publish. After Helm publish, release-chart.yml
 # tags charts/trueforge@<chartVersion> on the metadata commit.
 #
@@ -26,7 +26,7 @@ name: Version or publish packages
 
 on:
   push:
-    branches: [main]
+    branches: [release-v0.3.0]
   workflow_dispatch:
 
 concurrency:
@@ -140,7 +140,6 @@ jobs:
         run: |
           test -f packages/trueforge/dist/cli.js
           test -f packages/trueforge/dist/_frontend/index.html
-
       - name: Pack packages
         id: pack
         uses: changesets/action/pack@v2
@@ -261,7 +260,6 @@ jobs:
             echo "Unexpected PyPI response HTTP $code for trueforge-sdk==$VERSION" >&2
             exit 1
           fi
-
       - name: Build distributions
         if: steps.version.outputs.already == 'false'
         working-directory: python/trueforge_sdk
@@ -309,7 +307,6 @@ jobs:
           IMAGE_TAG="${APP_VERSION}-$(git rev-parse --short=7 HEAD)"
           echo "app_version=$APP_VERSION" >> "$GITHUB_OUTPUT"
           echo "image_tag=$IMAGE_TAG" >> "$GITHUB_OUTPUT"
-
           set +e
           VIEW_OUT=$(npm view "@truefoundry/trueforge@${APP_VERSION}" version 2>&1)
           VIEW_STATUS=$?
@@ -325,7 +322,6 @@ jobs:
             echo "npm view failed for @truefoundry/trueforge@$APP_VERSION" >&2
             exit 1
           fi
-
   # Two images, same tag, different Artifactory repos. The public one keeps the
   # Dockerfile's public bases so it stays redistributable; the hardened one is
   # built from Chainguard bases whose licence forbids publishing them, so it
@@ -392,7 +388,9 @@ jobs:
     permissions:
       contents: write
     with:
-      branch: main
+      # Chart metadata is committed back to the same branch that triggered this
+      # release (e.g. release-v0.3.0), not hardcoded to main.
+      branch: ${{ github.ref_name }}
       app_version: ${{ needs.resolve-image.outputs.app_version }}
       image_tag: ${{ needs.resolve-image.outputs.image_tag }}
     secrets: inherit
