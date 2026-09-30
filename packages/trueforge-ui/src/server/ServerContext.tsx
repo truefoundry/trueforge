@@ -2,6 +2,7 @@
 
 import { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState, type ReactNode } from 'react';
 
+import { CanCreateAgentProvider } from '../hooks/useCanCreateAgent.js';
 import type {
   AgentBuilderCapabilitiesResponse,
   AgentMetricsServer,
@@ -59,7 +60,9 @@ export function ServerProvider({ server, children }: { server: AgentUIServer; ch
 
   return (
     <ServerContext.Provider value={server}>
-      <ServerCapabilitiesContext.Provider value={capabilitiesValue}>{children}</ServerCapabilitiesContext.Provider>
+      <ServerCapabilitiesContext.Provider value={capabilitiesValue}>
+        <CanCreateAgentProvider permissionsServer={server.permissions ?? null}>{children}</CanCreateAgentProvider>
+      </ServerCapabilitiesContext.Provider>
     </ServerContext.Provider>
   );
 }

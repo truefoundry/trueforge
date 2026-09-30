@@ -436,4 +436,59 @@ describe('SessionsPage', () => {
     });
     expect(deleteSession).not.toHaveBeenCalled();
   });
+
+  it('renders the reload button before the agent filter and refetches latest data on click', async () => {
+    let now = Date.parse('2026-01-01T12:00:00.000Z');
+    const nowSpy = vi.spyOn(Date, 'now').mockImplementation(() => now);
+    const listSessions = vi.fn(async (_req?: ListSessionsRequest) => ({ data: [namedRow] }));
+    renderPage({ listSessions });
+
+    const reloadButton = await screen.findByRole('button', { name: 'Reload sessions' });
+    expect(reloadButton).toBeInTheDocument();
+    expect(listSessions).toHaveBeenCalledTimes(1);
+
+    // Advance time and click reload
+    now = Date.parse('2026-01-01T13:00:00.000Z');
+    fireEvent.click(reloadButton);
+
+    await waitFor(() => {
+      expect(listSessions).toHaveBeenCalledTimes(2);
+      expect(listSessions).toHaveBeenLastCalledWith(
+        expect.objectContaining({
+          startTimestamp: new Date(now - DEFAULT_SESSION_TIME_WINDOW_MS).toISOString(),
+          endTimestamp: new Date(now).toISOString(),
+        }),
+      );
+    });
+
+    nowSpy.mockRestore();
+  });
+
+  it('refetches both session list and selected session detail on reload', async () => {
+    window.history.replaceState(null, '', '/?view=sessions&sessionId=sess-1');
+    const listSessions = vi.fn(async () => ({ data: [namedRow] }));
+    const listSessionEvents = vi.fn(async () => ({ data: [] as SessionEventItem[] }));
+    const getSession = vi.fn(async (): Promise<Session> => ({
+      id: 'sess-1',
+      title: 'Named session',
+      isMutable: false,
+      createdAt: namedRow.createdAt,
+      updatedAt: namedRow.updatedAt,
+    }));
+
+    renderPage({ listSessions, listSessionEvents, getSession });
+
+    const reloadButton = await screen.findByRole('button', { name: 'Reload sessions' });
+    await screen.findByRole('heading', { name: 'Named session' });
+
+    expect(listSessions).toHaveBeenCalledTimes(1);
+    expect(getSession).toHaveBeenCalledTimes(1);
+
+    fireEvent.click(reloadButton);
+
+    await waitFor(() => {
+      expect(listSessions).toHaveBeenCalledTimes(2);
+      expect(getSession).toHaveBeenCalledTimes(2);
+    });
+  });
 });
