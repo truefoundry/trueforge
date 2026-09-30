@@ -14,6 +14,8 @@ import {
 import { TOKEN_PAGINATION } from './fernExtensions';
 import { OpenApiTag } from './openapiTags';
 
+const SANDBOX_ENVIRONMENTS_PAGE_LIMIT = 1000;
+
 const SandboxEnvironmentNameParamsSchema = z.object({
   name: NameSchema.describe('Sandbox environment name.'),
 });
@@ -24,10 +26,10 @@ export const ListSandboxEnvironmentsQuerySchema = z
       .number()
       .int()
       .min(1)
-      .max(PAGE_LIMIT)
+      .max(SANDBOX_ENVIRONMENTS_PAGE_LIMIT)
       .optional()
       .default(PAGE_LIMIT)
-      .describe(`Page size. Defaults to ${String(PAGE_LIMIT)}`),
+      .describe(`Page size. Defaults to ${String(PAGE_LIMIT)}, max ${String(SANDBOX_ENVIRONMENTS_PAGE_LIMIT)}.`),
     page_token: z.string().optional().describe('Opaque token from a previous response `next_page_token`.'),
   })
   .openapi('ListSandboxEnvironmentsQuery');
