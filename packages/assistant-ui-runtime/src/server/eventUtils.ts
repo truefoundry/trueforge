@@ -12,6 +12,7 @@ import type {
   TurnEvent,
   TurnStreamingEvent,
 } from './events.js';
+import { EVENT_TYPE, TOOL_INFO_TYPE } from './events.js';
 
 /** True for `.delta` streaming events. */
 export function isEventDelta(event: TurnStreamingEvent): event is DeltaEvents {
@@ -26,7 +27,7 @@ export function mergeEventDelta(base: TurnEvent, delta: DeltaEvents): void {
   if (base.id !== delta.id) {
     throw new Error(`Cannot merge delta into a different event: base id "${base.id}" != delta id "${delta.id}".`);
   }
-  if (base.type === 'model.message') {
+  if (base.type === EVENT_TYPE.MODEL_MESSAGE) {
     mergeModelMessageDelta(base, delta);
   }
 }
@@ -40,10 +41,10 @@ function asToolInfo(value: unknown): ToolInfo | undefined {
     return undefined;
   }
   const name: unknown = Reflect.get(value, 'name');
-  if (type === 'trueforge-system') {
+  if (type === TOOL_INFO_TYPE.TRUEFORGE_SYSTEM) {
     return typeof name === 'string' ? { type, name } : undefined;
   }
-  if (type === 'mcp') {
+  if (type === TOOL_INFO_TYPE.MCP) {
     const serverId: unknown = Reflect.get(value, 'serverId');
     const serverName: unknown = Reflect.get(value, 'serverName');
     return typeof serverId === 'string' && typeof serverName === 'string' && typeof name === 'string'

@@ -4,25 +4,29 @@ import type {
   ThreadAssistantMessagePart,
   ThreadMessage,
 } from '@assistant-ui/core';
-import type { ToolResponseRequiredEvent, Turn, TurnInputItem, UserToolResponseEvent } from './server/index.js';
+import {
+  completeAssistantStatus,
+  isRequiresActionToolCalls,
+  toolCallsRequiredAssistantStatus,
+} from './assistantMessageStatus.js';
+import type { ToolResponseRequiredEvent, Turn, TurnInputItem, UserToolResponseInputEvent } from './server/index.js';
+import { APPROVAL_DECISION_STATUS, EVENT_TYPE, TURN_STATUS } from './server/index.js';
 
 import { ROOT_THREAD_ID } from './constants.js';
 import { recordToolApprovalInFold, recordToolResponseInFold, type PeerThreadFoldState } from './foldPeerThreads.js';
-import type { ToolResponseMessageCustomMetadata } from './messageCustomMetadata.js';
+import { MESSAGE_CUSTOM_KEY, type ToolResponseMessageCustomMetadata } from './messageCustomMetadata.js';
 import type { TurnStreamUpdate } from './turnStreamUpdate.js';
 
 export { ROOT_THREAD_ID } from './constants.js';
-
-export const TOOL_RESPONSE_THREAD_ID_CUSTOM_KEY = 'toolResponseThreadId';
 
 export interface AskUserQuestionInterruptPayload {
   question?: string;
   options?: string[];
 }
 
-export type StoredToolResponse = Pick<UserToolResponseEvent, 'content'>;
+export type StoredToolResponse = Pick<UserToolResponseInputEvent, 'content'>;
 
-export type RespondToToolResponseOptions = Pick<UserToolResponseEvent, 'toolCallId' | 'content'>;
+export type RespondToToolResponseOptions = Pick<UserToolResponseInputEvent, 'toolCallId' | 'content'>;
 
 type ToolCallPart = Extract<ThreadMessage['content'][number], { type: 'tool-call' }>;
 
@@ -37,12 +41,12 @@ function isStagedResponseAwaitingSdk(part: ToolCallPart): boolean {
 }
 
 export function toolResponseStatus(): MessageStatus {
-  return { type: 'requires-action', reason: 'tool-calls' };
+  return toolCallsRequiredAssistantStatus();
 }
 
 export function toolResponseMessageCustom(threadId: string): ToolResponseMessageCustomMetadata {
   return {
-    [TOOL_RESPONSE_THREAD_ID_CUSTOM_KEY]: threadId === ROOT_THREAD_ID ? ROOT_THREAD_ID : threadId,
+    [MESSAGE_CUSTOM_KEY.TOOL_RESPONSE_THREAD_ID]: threadId === ROOT_THREAD_ID ? ROOT_THREAD_ID : threadId,
   };
 }
 
@@ -50,16 +54,18 @@ export function getToolResponseThreadId(message: ThreadMessage | undefined): str
   if (message?.role !== 'assistant') {
     return undefined;
   }
-  const threadId = message.metadata.custom[TOOL_RESPONSE_THREAD_ID_CUSTOM_KEY];
+  const threadId = message.metadata.custom[MESSAGE_CUSTOM_KEY.TOOL_RESPONSE_THREAD_ID];
   return typeof threadId === 'string' ? threadId : undefined;
 }
 
 export function findResponseRequiredInTurn(turn: Pick<Turn, 'state'>): ToolResponseRequiredEvent | undefined {
-  if (turn.state.status !== 'done') {
+  // Historical turns encoded pauses as done + requiredActions. New paused
+  // turns derive pending responses from their persisted event fold instead.
+  if (turn.state.status !== TURN_STATUS.DONE) {
     return undefined;
   }
-  const found = turn.state.requiredActions?.find(action => action.type === 'tool.response_required');
-  return found?.type === 'tool.response_required' ? found : undefined;
+  const found = turn.state.requiredActions?.find(action => action.type === EVENT_TYPE.TOOL_RESPONSE_REQUIRED);
+  return found?.type === EVENT_TYPE.TOOL_RESPONSE_REQUIRED ? found : undefined;
 }
 
 function applyToolResponseToToolCall(part: AssistantToolCallPart, content: string): AssistantToolCallPart {
@@ -137,53 +143,12 @@ export function messageHasPendingResponses(message: ThreadMessage | undefined): 
   return false;
 }
 
-function collectResponseInputsFromMessages(
-  messages: readonly ThreadMessage[],
-  defaultThreadId: string,
-): UserToolResponseEvent[] {
-  const events: UserToolResponseEvent[] = [];
-  for (const message of messages) {
-    events.push(...collectResponseInputs(message, defaultThreadId));
-  }
-  return events;
-}
-
-export function collectResponseInputs(message: ThreadMessage, threadId: string): UserToolResponseEvent[] {
-  if (message.role !== 'assistant' || !threadId) {
-    return [];
-  }
-  if (messageHasPendingResponses(message)) {
-    return [];
-  }
-
-  const scopedThreadId = getToolResponseThreadId(message) ?? threadId;
-  const events: UserToolResponseEvent[] = [];
-
-  for (const part of message.content) {
-    if (part.type !== 'tool-call') {
-      continue;
-    }
-    if (isStagedResponseAwaitingSdk(part)) {
-      events.push({
-        type: 'user.tool_response',
-        threadId: scopedThreadId,
-        toolCallId: part.toolCallId,
-        content: String(part.result),
-      });
-    }
-    if (part.messages != null) {
-      events.push(...collectResponseInputsFromMessages(part.messages, scopedThreadId));
-    }
-  }
-  return events;
-}
-
 function contentHasPendingResponses(content: readonly ThreadAssistantMessagePart[]): boolean {
   return messageHasPendingResponses({
     id: 'pending-check',
     role: 'assistant',
     content,
-    status: { type: 'complete', reason: 'stop' },
+    status: completeAssistantStatus(),
     createdAt: new Date(),
     metadata: {
       unstable_state: null,
@@ -196,11 +161,7 @@ function contentHasPendingResponses(content: readonly ThreadAssistantMessagePart
 }
 
 export function resolveToolResponseUpdate(update: TurnStreamUpdate): TurnStreamUpdate {
-  if (
-    contentHasPendingResponses(update.content) ||
-    update.status?.type !== 'requires-action' ||
-    update.status.reason !== 'tool-calls'
-  ) {
+  if (contentHasPendingResponses(update.content) || !isRequiresActionToolCalls(update.status)) {
     return update;
   }
 
@@ -282,10 +243,10 @@ export function mergeStagedResponsesIntoContent(
   return applyStagedResponsesToContentMap(incoming, staged);
 }
 
-export function extractToolResponsesFromTurnInput(input: Turn['input'] | undefined): UserToolResponseEvent[] {
-  const events: UserToolResponseEvent[] = [];
+export function extractToolResponsesFromTurnInput(input: Turn['input'] | undefined): UserToolResponseInputEvent[] {
+  const events: UserToolResponseInputEvent[] = [];
   for (const item of input ?? []) {
-    if (item.type === 'user.tool_response') {
+    if (item.type === EVENT_TYPE.USER_TOOL_RESPONSE) {
       events.push(item);
     }
   }
@@ -294,16 +255,18 @@ export function extractToolResponsesFromTurnInput(input: Turn['input'] | undefin
 
 export function applyUserToolResponsesToFold(fold: PeerThreadFoldState, inputs: readonly TurnInputItem[]): void {
   for (const item of inputs) {
-    if (item.type === 'user.tool_response') {
+    if (item.type === EVENT_TYPE.USER_TOOL_RESPONSE) {
       recordToolResponseInFold(fold, {
         toolCallId: item.toolCallId,
         content: item.content,
       });
-    } else if (item.type === 'user.tool_approval') {
+    } else if (item.type === EVENT_TYPE.USER_TOOL_APPROVAL) {
       recordToolApprovalInFold(fold, {
         toolCallId: item.toolCallId,
-        approved: item.approval.status === 'allow',
-        ...(item.approval.status === 'deny' && item.approval.reason != null ? { reason: item.approval.reason } : {}),
+        approved: item.approval.status === APPROVAL_DECISION_STATUS.ALLOW,
+        ...(item.approval.status === APPROVAL_DECISION_STATUS.DENY && item.approval.reason != null
+          ? { reason: item.approval.reason }
+          : {}),
       });
     }
   }
@@ -317,7 +280,7 @@ export function collectSubsequentToolResponses(
 
   for (let index = fromIndex + 1; index < turns.length; index++) {
     const input = turns[index]?.input ?? [];
-    if (input.some(item => item.type === 'user.message')) {
+    if (input.some(item => item.type === EVENT_TYPE.USER_MESSAGE)) {
       break;
     }
 

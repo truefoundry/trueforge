@@ -68,7 +68,7 @@ function CatalogMcpAuthPrompt({ servers, onContinue, readOnly }: McpAuthPromptPr
 
 export function McpAuthContainer({ disabled = false }: { disabled?: boolean }) {
   const McpAuthPrompt = useSlot('McpAuthPrompt');
-  const { pending, resume } = useTrueForgeMcpAuth();
+  const { pending, continue: continueMcpAuth } = useTrueForgeMcpAuth();
   const isRunning = useThreadIsRunning();
   const catalog = useOptionalCatalogServer();
 
@@ -80,7 +80,7 @@ export function McpAuthContainer({ disabled = false }: { disabled?: boolean }) {
       <CatalogMcpAuthPrompt
         key={pendingServerKey}
         servers={pending.mcpServers}
-        onContinue={resume}
+        onContinue={continueMcpAuth}
         readOnly={isRunning || disabled}
       />
     );
@@ -98,7 +98,7 @@ export function McpAuthContainer({ disabled = false }: { disabled?: boolean }) {
       servers={pending.mcpServers}
       onConnect={handleConnect}
       onContinue={() => {
-        if (!disabled) void resume();
+        if (!disabled) void continueMcpAuth();
       }}
       readOnly={isRunning || disabled}
     />

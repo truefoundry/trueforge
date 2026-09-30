@@ -1,8 +1,9 @@
 import type { ThreadAssistantMessagePart, ThreadMessage } from '@assistant-ui/core';
 import type { McpAuthRequiredEvent } from './server/index.js';
 
+import { isRequiresAction } from './assistantMessageStatus.js';
 import { ROOT_THREAD_ID } from './constants.js';
-import { isMcpServerAuthInfoList, isUnknownRecord } from './messageCustomMetadata.js';
+import { isMcpServerAuthInfoList, isUnknownRecord, MESSAGE_CUSTOM_KEY } from './messageCustomMetadata.js';
 import { getToolApprovalThreadId, hasPendingToolApproval } from './toolApproval.js';
 import {
   getToolResponseThreadId,
@@ -132,14 +133,14 @@ export function derivePendingMcpAuth(
     if (message.role !== 'assistant') {
       continue;
     }
-    if (message.status.type !== 'requires-action') {
+    if (!isRequiresAction(message.status)) {
       continue;
     }
     const custom = message.metadata.custom;
-    if (custom['pendingMcpAuth'] !== true) {
+    if (custom[MESSAGE_CUSTOM_KEY.PENDING_MCP_AUTH] !== true) {
       continue;
     }
-    const servers = custom['mcpServers'];
+    const servers = custom[MESSAGE_CUSTOM_KEY.MCP_SERVERS];
     if (!isMcpServerAuthInfoList(servers)) {
       return { mcpServers: [] };
     }
@@ -158,7 +159,7 @@ export function deriveSandboxId(messages: readonly ThreadMessage[]): string | un
     if (message.role !== 'assistant') {
       continue;
     }
-    const sandboxId = message.metadata.custom['sandboxId'];
+    const sandboxId = message.metadata.custom[MESSAGE_CUSTOM_KEY.SANDBOX_ID];
     if (typeof sandboxId === 'string') {
       return sandboxId;
     }

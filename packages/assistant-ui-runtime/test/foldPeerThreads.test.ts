@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import type { ModelMessageEvent, ThreadCreatedEvent, TurnEvent } from '../src/server/index.js';
+import { EVENT_TYPE, TOOL_APPROVAL_POLICY_ACTION_TYPE } from '../src/server/index.js';
 
 import { ROOT_THREAD_ID } from '../src/constants.js';
 import {
@@ -9,6 +10,7 @@ import {
   PeerThreadFoldState,
   recordToolApprovalInFold,
   recordToolResponseInFold,
+  resolveToolApprovalPolicyTarget,
 } from '../src/foldPeerThreads.js';
 
 const createdAt = new Date().toISOString();
@@ -400,6 +402,89 @@ describe('foldPeerThreads', () => {
       throw new Error('expected a tool-call part');
     }
     expect(toolCall.approval?.approved).toBe(true);
+  });
+
+  it('resolves MCP policy targets on root and nested threads', () => {
+    const state = seedPendingApproval();
+    ingestTurnEvent(
+      state,
+      modelMessage({
+        id: 'nested-model',
+        threadId: 'child-1',
+        toolCalls: [
+          {
+            id: 'nested-tool',
+            type: 'function',
+            function: { name: 'create_issue', arguments: '{}' },
+            toolInfo: {
+              type: 'mcp',
+              name: 'create_issue',
+              serverId: 'github-id',
+              serverName: 'github',
+            },
+          },
+        ],
+      }),
+    );
+
+    expect(
+      resolveToolApprovalPolicyTarget({ state, threadId: ROOT_THREAD_ID, toolCallId: 'tool-1' }),
+    ).toEqual({ serverName: 'shell', name: 'run_shell' });
+    expect(resolveToolApprovalPolicyTarget({ state, threadId: 'child-1', toolCallId: 'nested-tool' })).toEqual({
+      serverName: 'github',
+      name: 'create_issue',
+    });
+  });
+
+  it('deduplicates persisted inbound events replayed after POST', () => {
+    const state = seedPendingApproval();
+    const event = {
+      type: 'user.tool_approval' as const,
+      id: 'user-approval-1',
+      createdAt: new Date().toISOString(),
+      threadId: ROOT_THREAD_ID,
+      toolCallId: 'tool-1',
+      approval: { status: 'allow' as const },
+    };
+
+    ingestTurnEvent(state, event);
+    ingestTurnEvent(state, event);
+
+    const bucket = state.threads.get(ROOT_THREAD_ID);
+    expect(bucket?.pendingApprovals.has('tool-1')).toBe(false);
+    expect(bucket?.approvalDecisions.size).toBe(1);
+    expect(state.ingestedEventIds.has('user-approval-1')).toBe(true);
+    expect(state.ingestedEventIds.size).toBe(3);
+  });
+
+  it('deduplicates fold-neutral MCP and approval-policy events without creating buckets', () => {
+    const state = new PeerThreadFoldState();
+    const events: TurnEvent[] = [
+      {
+        type: EVENT_TYPE.USER_MCP_AUTH_CONTINUE,
+        id: 'mcp-continue-1',
+        createdAt,
+      },
+      {
+        type: EVENT_TYPE.USER_TOOL_APPROVAL_POLICY,
+        id: 'policy-1',
+        createdAt,
+        policies: [
+          {
+            serverName: 'github',
+            name: 'create_issue',
+            action: { type: TOOL_APPROVAL_POLICY_ACTION_TYPE.ALLOW_SESSION },
+          },
+        ],
+      },
+    ];
+
+    for (const event of [...events, ...events]) {
+      ingestTurnEvent(state, event);
+    }
+
+    expect(state.threads.size).toBe(0);
+    expect(state.ingestedEventIds).toEqual(new Set(['mcp-continue-1', 'policy-1']));
   });
 
   it('recordToolApprovalInFold synthesizes an error result on deny', () => {

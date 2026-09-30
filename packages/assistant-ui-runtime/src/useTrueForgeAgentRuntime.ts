@@ -26,7 +26,6 @@ import {
 import { createDraftSessionBridge, DRAFT_SESSION_LAST_UPDATED_AT_HEADER } from './draft/draftSessionBridge.js';
 import { createTrueForgeDraftThreadListAdapter } from './draft/trueforgeDraftThreadListAdapter.js';
 import { useDraftAgentSpec } from './draft/useDraftAgentSpec.js';
-import { MCP_AUTH_RESUME_RUN_CUSTOM_KEY } from './mcpAuth.js';
 import { buildSandboxDownloadRequest } from './sandboxDownload.js';
 import type { AgentSpec } from './server/types.js';
 import { trueForgeExtras } from './trueforgeExtras.js';
@@ -109,7 +108,6 @@ function useTrueForgeAgentRuntimeImpl(
   const {
     messages,
     isRunning,
-    resumeUnavailable,
     isLoading,
     isLoadingOlderHistory,
     hasOlderHistory,
@@ -118,6 +116,7 @@ function useTrueForgeAgentRuntimeImpl(
     cancel,
     respondToToolApproval,
     respondToToolResponse,
+    continueMcpAuth,
     resumeRun,
     editFromTurn,
     resetFromTurn,
@@ -141,8 +140,6 @@ function useTrueForgeAgentRuntimeImpl(
   const pendingToolResponses = useMemo(() => collectPendingToolResponses(messages), [messages]);
   const pendingMcpAuth = useMemo(() => derivePendingMcpAuth(messages), [messages]);
   const sandboxId = useMemo(() => deriveSandboxId(messages), [messages]);
-
-  const resumeMcpAuth = useMemo(() => () => sendTurn({ resumeMcpAuth: true }), [sendTurn]);
 
   const downloadSandboxFile = useCallback(
     async ({ turnId, path }: { turnId: string; path: string }) => {
@@ -192,11 +189,10 @@ function useTrueForgeAgentRuntimeImpl(
       pendingApprovals,
       pendingToolResponses,
       pendingMcpAuth,
-      resumeUnavailable,
       sandboxId,
       respondToToolApproval,
       respondToToolResponse,
-      resumeMcpAuth,
+      continueMcpAuth,
       downloadSandboxFile,
       cancel,
       // resetFromTurn/branchFromTurn/sendTurn already report via onError.
@@ -221,13 +217,6 @@ function useTrueForgeAgentRuntimeImpl(
         return;
       }
 
-      const resumeMcpAuthFlag = message.runConfig?.custom?.[MCP_AUTH_RESUME_RUN_CUSTOM_KEY] === true;
-
-      if (resumeMcpAuthFlag) {
-        await sendTurn({ resumeMcpAuth: true });
-        return;
-      }
-
       const userMessage = buildUserMessageContent(message);
       await sendTurn({
         userMessage,
@@ -245,10 +234,7 @@ function useTrueForgeAgentRuntimeImpl(
     onCancel: async () => {
       await cancel();
     },
-    onRespondToToolApproval: response => {
-      respondToToolApproval(response);
-      return Promise.resolve();
-    },
+    onRespondToToolApproval: respondToToolApproval,
     onResume: async () => {
       await resumeRun();
     },
