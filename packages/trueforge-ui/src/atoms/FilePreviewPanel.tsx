@@ -66,8 +66,8 @@ function PreviewBody({ name, view }: { name: string; view: FilePreviewView }) {
     return (
       <iframe
         title={name}
-        // Scripts can paint generated pages; same-origin is omitted so they cannot read the chat.
-        sandbox="allow-scripts allow-forms allow-popups"
+        // Scripts and forms run only after the page is opened. Popups stay off, and same-origin is omitted so the page cannot read the chat.
+        sandbox="allow-scripts allow-forms"
         referrerPolicy="no-referrer"
         srcDoc={view.text}
         className="absolute inset-0 h-full w-full border-0 bg-white"

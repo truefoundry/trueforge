@@ -97,6 +97,12 @@ describe('sandbox file preview', () => {
   it('previews an html file in the chat, then enlarged and full page', async () => {
     const html = '<!doctype html><h1>Metrics</h1>';
     const downloadSandboxFile = vi.fn(async () => new Blob([html]));
+    let downloadedName = '';
+    const anchorClick = vi.spyOn(HTMLAnchorElement.prototype, 'click').mockImplementation(function mockClick(
+      this: HTMLAnchorElement,
+    ) {
+      downloadedName = this.download;
+    });
     if (typeof Element.prototype.scrollTo !== 'function') {
       Element.prototype.scrollTo = () => undefined;
     }
@@ -135,5 +141,11 @@ describe('sandbox file preview', () => {
     const side = screen.getByRole('complementary', { name: 'Preview of Metrics redesign' });
     expect(side).toHaveAttribute('data-placement', 'side');
     expect(side.parentElement).not.toBe(document.body);
+
+    fireEvent.click(within(side).getByRole('button', { name: 'Download Metrics redesign' }));
+    await waitFor(() => {
+      expect(downloadedName).toBe('metrics.html');
+    });
+    anchorClick.mockRestore();
   });
 });

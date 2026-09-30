@@ -29,7 +29,7 @@ const FilePreviewLoaderContext = createContext<((path: string) => Promise<Blob>)
 export function FilePreviewProvider({ children }: { children: ReactNode }) {
   const [target, setTarget] = useState<SandboxFilePreviewTarget | null>(null);
   const [presentation, setPresentation] = useState<FilePreviewPresentation>('panel');
-  const remoteId = useAuiState(state => state.threadListItem.remoteId);
+  const threadId = useAuiState(state => state.threadListItem.id);
   const isNewChat = useAuiState(isNewChatView);
   const targetKey = target == null ? null : `${target.turnId}:${target.path}`;
   const previousTargetKey = useRef(targetKey);
@@ -38,13 +38,11 @@ export function FilePreviewProvider({ children }: { children: ReactNode }) {
     if (presentation !== 'panel') setPresentation('panel');
   }
 
-  const previousRemoteId = useRef(remoteId);
-  if (previousRemoteId.current !== remoteId) {
-    const previous = previousRemoteId.current;
-    previousRemoteId.current = remoteId;
-    if (previous != null && previous !== remoteId) {
-      setTarget(null);
-    }
+  // Local id changes for unsaved threads too. remoteId stays null until the session is stored.
+  const previousThreadId = useRef(threadId);
+  if (previousThreadId.current !== threadId) {
+    previousThreadId.current = threadId;
+    setTarget(null);
   }
 
   const previousIsNewChat = useRef(isNewChat);

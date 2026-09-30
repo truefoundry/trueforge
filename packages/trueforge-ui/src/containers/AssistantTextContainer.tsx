@@ -13,12 +13,8 @@ import { useCallback, useMemo, useRef } from 'react';
 import { FilePreviewLoaderScope, FilePreviewTurnScope } from '../filePreview/FilePreviewContext.js';
 import { MARKDOWN_SMOOTH_BACKLOG_CHARS, useThrottledMarkdownText } from '../hooks/useThrottledMarkdownText.js';
 import { useSlot } from '../theme/SlotsProvider.js';
-import { triggerBrowserDownload } from '../utils/triggerBrowserDownload.js';
+import { filenameFromPath, triggerBrowserDownload } from '../utils/triggerBrowserDownload.js';
 import { useToasterOptional } from './ToasterContainer.js';
-
-function filenameFromPath(path: string): string {
-  return path.split('/').pop() || 'download';
-}
 
 export function AssistantTextContainer() {
   const Markdown = useSlot('Markdown');

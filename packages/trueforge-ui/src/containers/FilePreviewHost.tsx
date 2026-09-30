@@ -8,7 +8,7 @@ import { useFilePreview } from '../filePreview/FilePreviewContext.js';
 import { clampPreviewWidth, defaultPreviewWidth } from '../filePreview/previewPaneWidth.js';
 import { useLoadedFilePreview } from '../filePreview/useLoadedFilePreview.js';
 import { useSlot } from '../theme/SlotsProvider.js';
-import { triggerBrowserDownload } from '../utils/triggerBrowserDownload.js';
+import { filenameFromPath, triggerBrowserDownload } from '../utils/triggerBrowserDownload.js';
 import { useToasterOptional } from './ToasterContainer.js';
 
 const PREVIEW_WIDTH_KEY = 'trueforge.file-preview-width';
@@ -63,7 +63,7 @@ export function FilePreviewHost() {
     void (async () => {
       try {
         const blob = loaded.blob ?? (await target.load());
-        triggerBrowserDownload(blob, target.name);
+        triggerBrowserDownload(blob, filenameFromPath(target.path));
       } catch (error) {
         if (toaster != null) toaster.showError(error);
         else console.error('Failed to download sandbox file', error);

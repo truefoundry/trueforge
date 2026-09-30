@@ -38,8 +38,8 @@ function Thumbnail({ name, view }: { name: string; view: FilePreviewView }) {
       <div className="@container relative aspect-video overflow-hidden bg-white">
         <iframe
           title={`Thumbnail of ${name}`}
-          // Same sandbox as the side pane: scripts paint the page and cannot read the chat.
-          sandbox="allow-scripts allow-forms allow-popups"
+          // Scripts paint the page. Forms and popups stay off so a card cannot leave the thread on its own.
+          sandbox="allow-scripts"
           referrerPolicy="no-referrer"
           srcDoc={view.text}
           tabIndex={-1}

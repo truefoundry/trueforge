@@ -19,7 +19,8 @@ describe('FilePreviewPanel', () => {
 
     const frame = screen.getByTitle('dashboard.html');
     expect(frame.tagName).toBe('IFRAME');
-    expect(frame).toHaveAttribute('sandbox', 'allow-scripts allow-forms allow-popups');
+    expect(frame).toHaveAttribute('sandbox', 'allow-scripts allow-forms');
+    expect(frame.getAttribute('sandbox')).not.toContain('allow-popups');
     expect(frame.getAttribute('sandbox')).not.toContain('allow-same-origin');
     expect(frame).toHaveAttribute('srcdoc', '<h1>Dashboard</h1>');
 

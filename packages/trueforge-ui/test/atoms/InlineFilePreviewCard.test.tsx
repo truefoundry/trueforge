@@ -18,7 +18,9 @@ describe('InlineFilePreviewCard', () => {
     );
 
     const thumbnail = screen.getByTitle('Thumbnail of Metrics redesign');
-    expect(thumbnail).toHaveAttribute('sandbox', 'allow-scripts allow-forms allow-popups');
+    expect(thumbnail).toHaveAttribute('sandbox', 'allow-scripts');
+    expect(thumbnail.getAttribute('sandbox')).not.toContain('allow-popups');
+    expect(thumbnail.getAttribute('sandbox')).not.toContain('allow-forms');
     expect(thumbnail).toHaveAttribute('srcdoc', '<h1>Metrics</h1>');
     expect(screen.getByText('Metrics redesign')).toBeInTheDocument();
 
