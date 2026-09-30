@@ -1004,11 +1004,26 @@ export function describeStreamError(raw: unknown): string {
   return describeUnknownError(raw);
 }
 
+const MODEL_REQUEST_FAILED_PREFIX = 'Model request failed: ';
+
+function isAbortError(error: unknown): error is Error {
+  return error instanceof Error && error.name === 'AbortError';
+}
+
+/**
+ * Names the model request and keeps the provider or transport reason.
+ * Abort stays unchanged. A second wrap (stream throw, then create's catch) is a no-op.
+ */
 export function toStreamError(raw: unknown): Error {
-  if (raw instanceof Error) {
+  if (isAbortError(raw)) {
     return raw;
   }
-  return new Error(describeStreamError(raw), { cause: raw });
+  if (raw instanceof Error && raw.message.startsWith(MODEL_REQUEST_FAILED_PREFIX)) {
+    return raw;
+  }
+  const reason = describeStreamError(raw);
+  const message = reason.startsWith(MODEL_REQUEST_FAILED_PREFIX) ? reason : `${MODEL_REQUEST_FAILED_PREFIX}${reason}`;
+  return new Error(message, { cause: raw });
 }
 
 export function mapFinishReason(reason: FinishReason): RawAssistantMessageWithUsage['finish_reason'] {
@@ -1304,11 +1319,8 @@ export async function* mapStreamToChunks({
       }
 
       case 'error': {
-        const raw = part.error;
-        const message = describeStreamError(raw);
-        // Preserve the original stream error as cause; toast/turn use .message only.
-        const cause = raw instanceof Error ? raw : new Error(message);
-        throw new Error(message, { cause });
+        // Turn text is this message; the original stream error stays on cause.
+        throw toStreamError(part.error);
       }
 
       case 'abort': {
