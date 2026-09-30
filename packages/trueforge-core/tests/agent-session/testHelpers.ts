@@ -34,7 +34,7 @@ export function makeAgentSpec(
     model?: { name: string };
     config?: {
       iteration_limit?: number;
-      sandbox?: { enabled: boolean; file_downloads?: boolean };
+      sandbox?: { enabled: boolean; file_downloads?: boolean; environment_name?: string };
       ask_user_questions?: { enabled?: boolean };
       dynamic_sub_agents?: { enabled?: boolean };
       generative_ui?: { enabled?: boolean };

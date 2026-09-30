@@ -30,6 +30,12 @@ import type { ColumnType, Generated, JSONColumnType } from 'kysely';
 import type { McpServerManifest } from '../../schemas/mcpServer';
 import type { ModelProviderManifest } from '../../schemas/modelProvider';
 import type {
+  SandboxEnvironmentLifecycleStage,
+  SandboxEnvironmentVersionInternalMetadata,
+  SandboxEnvironmentVersionStatus,
+  StoredSandboxEnvironmentManifest,
+} from '../../schemas/sandboxEnvironment';
+import type {
   SandboxBuildMetadata,
   SandboxBuildStatus,
   StoredSandboxProviderManifest,
@@ -268,6 +274,40 @@ export interface AgentTable {
 }
 
 /**
+ * Sandbox environments — mirrors Postgres `sandbox_environment`.
+ * Partial unique (tenant_id, name) WHERE lifecycle_stage = 'active'.
+ */
+export interface SandboxEnvironmentTable {
+  id: string;
+  tenant_id: string;
+  name: string;
+  description: string;
+  active_version: number;
+  lifecycle_stage: SandboxEnvironmentLifecycleStage;
+  created_by_subject: JsonbColumn<CreatedBySubject>;
+  created_at: string;
+  updated_at: string;
+}
+
+/**
+ * Immutable sandbox environment versions — mirrors Postgres.
+ * UNIQUE (environment_id, version); FK → sandbox_environment ON DELETE CASCADE.
+ */
+export interface SandboxEnvironmentVersionTable {
+  id: string;
+  environment_id: string;
+  version: number;
+  manifest: JsonbColumn<StoredSandboxEnvironmentManifest>;
+  status: SandboxEnvironmentVersionStatus;
+  status_reason: string | null;
+  external_ref: string;
+  internal_metadata: JsonbColumn<SandboxEnvironmentVersionInternalMetadata>;
+  created_by_subject: JsonbColumn<CreatedBySubject>;
+  created_at: string;
+  updated_at: string;
+}
+
+/**
  * Configured schedules.
  * PRIMARY KEY (id).
  * FK (agent_id) → agent(id) ON DELETE CASCADE.
@@ -377,6 +417,8 @@ export interface Database {
   skill: SkillTable;
   sandbox_provider: SandboxProviderTable;
   agent: AgentTable;
+  sandbox_environment: SandboxEnvironmentTable;
+  sandbox_environment_version: SandboxEnvironmentVersionTable;
   schedule: ScheduleTable;
   schedule_run: ScheduleRunTable;
   mcp_server: McpServerTable;

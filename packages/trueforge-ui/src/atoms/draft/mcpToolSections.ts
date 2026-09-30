@@ -51,6 +51,12 @@ export const MCP_TOOL_SECTION_ENABLE_ALL_LABELS: Record<McpToolSectionId, string
   destructive: 'Enable all destructive tools',
 };
 
+/** Bulk approval toggle; omitted for read-only (auto-run by default). */
+export const MCP_TOOL_SECTION_APPROVAL_ALL_LABELS: Record<Exclude<McpToolSectionId, 'read-only'>, string> = {
+  others: 'Require approval for all other tools',
+  destructive: 'Require approval for all destructive tools',
+};
+
 export function partitionMcpToolsBySection(
   tools: readonly McpToolSelection[],
 ): Record<McpToolSectionId, McpToolSelection[]> {
