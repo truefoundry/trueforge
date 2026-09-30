@@ -1,11 +1,10 @@
 /** Sandbox provider construction + credential validation. */
 import { Daytona, DaytonaError } from '@daytona/sdk';
 import {
+  DaytonaSandboxEnvironment,
   DaytonaSandboxProvider,
-  SANDBOX_IMAGE_URI,
   TFYSandboxProvider,
   type SandboxBuild,
-  type SandboxEnvironment,
   type SandboxProvider,
 } from '@truefoundry/trueforge-core/core';
 import type { Logger } from 'winston';
@@ -14,7 +13,6 @@ import type { SandboxProviderRecord } from '../db/sandboxProviderStore';
 import type { StoredSandboxEnvironmentManifest } from '../schemas/sandboxEnvironment';
 import {
   toDaytonaSandboxProviderInput,
-  type SandboxBuildMetadata,
   type SandboxProviderManifest,
   type SandboxStatus,
   type StoredSandboxProviderManifest,
@@ -29,9 +27,16 @@ export function isDaytonaPermissionError(error: unknown): boolean {
   return error instanceof DaytonaError && error.statusCode === 403;
 }
 
-/** Map host sandbox-environment manifest onto the Daytona provider environment. */
-export function toDaytonaSandboxEnvironment(manifest: StoredSandboxEnvironmentManifest): SandboxEnvironment {
-  return {
+/** Map a ready env (external_ref + stored manifest) onto a Daytona create/build environment. */
+export function toSandboxEnvironment({
+  external_ref,
+  manifest,
+}: {
+  external_ref: string;
+  manifest: StoredSandboxEnvironmentManifest;
+}): DaytonaSandboxEnvironment {
+  return new DaytonaSandboxEnvironment({
+    snapshot_ref: external_ref,
     resources: manifest.resources,
     ...(manifest.image ? { image: manifest.image } : {}),
     ...(manifest.environment_variables ? { environment_variables: manifest.environment_variables } : {}),
@@ -48,42 +53,29 @@ export function toDaytonaSandboxEnvironment(manifest: StoredSandboxEnvironmentMa
           },
         }
       : {}),
-  };
+  });
 }
 
 /**
  * Builds the Daytona runtime provider for a stored Daytona manifest. No network I/O until a method is called.
- *
- * When `build_metadata` is present, pin both `sandboxImage` and `buildRef` to what was actually
- * built — image bumps in the running binary must not rewrite an existing tenant onto a new
- * snapshot (upgrades are not supported yet). First-time configure omits metadata and uses
- * {@link SANDBOX_IMAGE_URI}.
+ * Snapshot tips (ref + image) live on SandboxEnvironment, not on the provider.
  */
 export function toDaytonaSandboxProvider({
   manifest,
   tenant_id,
   logger,
-  build_metadata,
-  environment,
 }: {
   manifest: SandboxProviderManifest;
   tenant_id: string;
   logger: Logger;
-  build_metadata?: SandboxBuildMetadata | null | undefined;
-  environment?: StoredSandboxEnvironmentManifest | undefined;
 }): DaytonaSandboxProvider {
   const { apiKey, ...settings } = toDaytonaSandboxProviderInput(manifest);
-  const imageUri = build_metadata?.['image_uri'];
-  const buildRef = build_metadata?.['build_ref'];
   return new DaytonaSandboxProvider({
     client: new Daytona({ apiKey }),
     apiKey,
     ...settings,
     tenantName: tenant_id,
-    sandboxImage: imageUri ?? SANDBOX_IMAGE_URI,
-    buildRef,
     fileMaxBytesForDownload: configuration.SANDBOX_FILE_MAX_BYTES_FOR_DOWNLOAD,
-    ...(environment ? { environment: toDaytonaSandboxEnvironment(environment) } : {}),
     logger,
   });
 }
@@ -91,18 +83,14 @@ export function toDaytonaSandboxProvider({
 /**
  * Builds the runtime SandboxProvider for a store record. One switch on `manifest.type`.
  * No network I/O until a provider method is called.
- *
- * Optional `build_metadata` pins Daytona snapshot refs (e.g. env-version `external_ref`).
  */
 export function toSandboxProviderFromRecord({
   record,
   tenant_id,
   logger,
-  build_metadata,
 }: {
   record: SandboxProviderRecord;
   tenant_id: string;
-  build_metadata?: SandboxBuildMetadata | null | undefined;
   logger: Logger;
 }): SandboxProvider {
   switch (record.manifest.type) {
@@ -111,7 +99,6 @@ export function toSandboxProviderFromRecord({
         manifest: record.manifest,
         tenant_id,
         logger,
-        build_metadata,
       });
     case 'truefoundry':
       return new TFYSandboxProvider({

@@ -80,6 +80,15 @@ export interface SandboxBuild {
   metadata: SandboxBuildMetadata | null;
 }
 
+/**
+ * Opaque create/build environment — peer to SandboxProvider at composition time.
+ * Provider-specific environments are classes (e.g. DaytonaSandboxEnvironment).
+ */
+export interface SandboxEnvironment {
+  /** Provider kind this environment is for (matches SandboxProvider.type). */
+  readonly type: string;
+}
+
 export interface SandboxProvider {
   /** Stable provider kind used in fancy sandbox ids and carry-forward (plain string). */
   readonly type: string;
@@ -87,15 +96,8 @@ export interface SandboxProvider {
    * Optional credential/access probe. Providers that need none may omit or resolve immediately.
    */
   validateAccess?(): Promise<void>;
-  /**
-   * Ensures the release image is being built into the provider's backing store and
-   * returns its current status. Idempotent: an already-built image reports `ready`;
-   * a fresh build starts in the background and reports `pending`.
-   */
-  buildImage(): Promise<SandboxBuild>;
-  /** Current build status of the release image. Read-only: never kicks off a build. */
-  getImageBuildStatus(): Promise<SandboxBuild>;
-  createSandbox(): Promise<{ sandboxId: string }>;
+  /** Fresh sandbox; optional environment pins snapshot + create params. */
+  createSandbox(environment?: SandboxEnvironment): Promise<{ sandboxId: string }>;
   exec(params: SandboxExecParams): Promise<ExecResult>;
   /** Provider-specific instructions appended to the agent system prompt. */
   getAdditionalInstructions(): string | undefined;

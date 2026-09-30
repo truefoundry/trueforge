@@ -59,8 +59,10 @@ import {
   buildTurnSandbox,
   getMcpConnection,
   getModelDetails,
+  resolveSandboxEnvironment,
   resolveSandboxProvider,
 } from '../runtime/sessionResources';
+import { DEFAULT_SANDBOX_ENVIRONMENT_NAME } from '../schemas/sandboxEnvironment';
 import { MAX_SESSION_TITLE_LENGTH } from '../schemas/session';
 import { assertGatewayMetadataRequestHeaders } from '../truefoundry/gatewayMetadata';
 import { newId } from '../utils/id';
@@ -234,16 +236,20 @@ function createTurnResolver(deps: {
         store: sandboxProviderStore,
         logger,
         sessionId,
-        sandboxEnvironmentStore,
-        ...(spec.config.sandbox.environment_name !== undefined
-          ? { environment_name: spec.config.sandbox.environment_name }
-          : {}),
       });
       if (provider === undefined) {
         throw new HTTPException(422, {
           message: 'no sandbox provider configured — PUT /settings/sandbox-providers',
         });
       }
+      // Omit name → tenant `"default"`. Soft-skip when default is unavailable
+      // (e.g. truefoundry sandbox has no env/snapshot concept).
+      const environment = await resolveSandboxEnvironment({
+        tenant_id,
+        name: spec.config.sandbox.environment_name ?? DEFAULT_SANDBOX_ENVIRONMENT_NAME,
+        sandboxEnvironmentStore,
+        optional: spec.config.sandbox.environment_name === undefined,
+      });
       const carriedSandboxId = existingSandboxIdForProvider({
         existingSandboxId,
         currentProviderType: provider.type,
@@ -258,6 +264,7 @@ function createTurnResolver(deps: {
             });
       return buildTurnSandbox({
         provider,
+        ...(environment !== undefined ? { environment } : {}),
         logger,
         skills: mountSkills,
         fileDownloadEnabled: spec.config.sandbox.file_downloads,
@@ -668,7 +675,6 @@ export function createTurnsRouter(deps: TurnsRouterDeps) {
         store: deps.resolveSandboxProviderStore(c),
         logger: deps.logger,
         sessionId,
-        sandboxEnvironmentStore: deps.sandboxEnvironmentStore,
       });
       if (provider === undefined) {
         return c.json({ error: { message: 'No sandbox provider configured' } }, 412);

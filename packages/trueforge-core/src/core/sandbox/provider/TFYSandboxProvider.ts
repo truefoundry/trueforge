@@ -18,7 +18,7 @@ import { absolutizeRelativeExecEnv } from './execEnv';
 import {
   shellEscape,
   type ExecResult,
-  type SandboxBuild,
+  type SandboxEnvironment,
   type SandboxExecParams,
   type SandboxFileInfo,
   type SandboxProvider,
@@ -82,26 +82,11 @@ export class TFYSandboxProvider implements SandboxProvider {
     this.logger = options.logger.child({ module: 'TFYSandboxProvider' });
   }
 
-  // TFY sandboxes run a prebuilt server image with no per-image build step, so the image is always ready.
-  private static readonly readyBuild: SandboxBuild = {
-    status: 'ready',
-    reason: null,
-    metadata: null,
-  };
-
   validateAccess(): Promise<void> {
     return Promise.resolve();
   }
 
-  buildImage(): Promise<SandboxBuild> {
-    return Promise.resolve(TFYSandboxProvider.readyBuild);
-  }
-
-  getImageBuildStatus(): Promise<SandboxBuild> {
-    return Promise.resolve(TFYSandboxProvider.readyBuild);
-  }
-
-  createSandbox(): Promise<{ sandboxId: string }> {
+  createSandbox(_environment?: SandboxEnvironment): Promise<{ sandboxId: string }> {
     const sandboxId = `${this.tenantName}.${randomUUID()}`;
     this.logger.debug(`Sandbox created: id=${sandboxId}`);
     return Promise.resolve({ sandboxId });

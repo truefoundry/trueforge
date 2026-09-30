@@ -17,7 +17,7 @@ import type { AgentTracing } from '../tracing/AgentTracing';
 import { extractErrorLogFields } from '../util/errorLogFields';
 import { CodeModeDispatcher } from './codeMode/CodeModeDispatcher';
 import { type CodeModeClientInstall, type CodeModeTransport } from './codeMode/CodeModeTransport';
-import { ensureExecSuccess, shellEscape, type SandboxProvider } from './provider/Provider';
+import { ensureExecSuccess, shellEscape, type SandboxEnvironment, type SandboxProvider } from './provider/Provider';
 import { SandboxNotAvailableError, validateNoPathTraversal } from './SandboxErrors';
 import { formatSandboxId, rawSandboxId } from './sandboxRef';
 // Import submodules, not the ./skills barrel, to avoid a cycle (the mounters import from Sandbox).
@@ -86,6 +86,11 @@ export interface SandboxStoredFile {
 
 export interface SandboxOptions {
   provider: SandboxProvider;
+  /**
+   * Optional create-time environment (snapshot + create params). Ignored when restoring
+   * an existing sandbox id.
+   */
+  environment?: SandboxEnvironment | undefined;
   existingSandboxId?: string | undefined;
   skillMounter?: ISkillMounter | undefined;
   fileDownloadEnabled?: boolean | undefined;
@@ -197,6 +202,7 @@ export class Sandbox extends LocalToolMCP {
   override readonly description = 'Persistent sandbox environment for code execution';
 
   private readonly provider: SandboxProvider;
+  private readonly environment: SandboxEnvironment | undefined;
   private readonly existingSandboxId?: string | undefined;
   private existingSandboxInfo: SandboxInfo | undefined;
   // Cached promise to prevent concurrent sub-agents from creating duplicate sandboxes.
@@ -227,6 +233,7 @@ export class Sandbox extends LocalToolMCP {
   constructor(options: SandboxOptions) {
     super({ tracing: options.tracing });
     this.provider = options.provider;
+    this.environment = options.environment;
     this.existingSandboxId = options.existingSandboxId;
     this.skillMounter = options.skillMounter;
     this.fileDownloadEnabled = options.fileDownloadEnabled ?? false;
@@ -461,7 +468,7 @@ export class Sandbox extends LocalToolMCP {
     }
     // Provider returns a raw id; persist the fancy `v1:type:raw` session id.
     this.sandboxCreationPromise ??= this.provider
-      .createSandbox()
+      .createSandbox(this.environment)
       .then(({ sandboxId }) => ({
         sandbox_id: formatSandboxId({ providerType: this.provider.type, rawId: sandboxId }),
       }))

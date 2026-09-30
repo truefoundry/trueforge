@@ -13,8 +13,6 @@ function readyExec(): Promise<ExecResult> {
 function makeProvider(overrides: Partial<SandboxProvider> = {}): SandboxProvider {
   return {
     type: 'test',
-    buildImage: () => Promise.resolve({ status: 'ready', reason: null, metadata: null }),
-    getImageBuildStatus: () => Promise.resolve({ status: 'ready', reason: null, metadata: null }),
     createSandbox: () => Promise.resolve({ sandboxId: 'raw-1' }),
     exec: () => readyExec(),
     getAdditionalInstructions: () => undefined,

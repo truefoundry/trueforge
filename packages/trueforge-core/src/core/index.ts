@@ -167,7 +167,16 @@ export type { CodeModeClientInstall, CodeModeTransport } from './sandbox/codeMod
 export { CodeModeErrorSourceSchema, CodeModeReplySchema, CodeModeRequestSchema } from './sandbox/codeMode/types';
 export type { CodeModeErrorSource, CodeModeReply, CodeModeRequest } from './sandbox/codeMode/types';
 export { DaytonaSandboxProvider } from './sandbox/provider/DaytonaProvider';
-export type { DaytonaSandboxProviderOptions, SandboxEnvironment } from './sandbox/provider/DaytonaProvider';
+export type { DaytonaSandboxProviderOptions } from './sandbox/provider/DaytonaProvider';
+export {
+  DAYTONA_SNAPSHOT_NOT_STARTED_REASON,
+  DaytonaSandboxEnvironment,
+  isDaytonaSandboxEnvironment,
+} from './sandbox/provider/DaytonaSandboxEnvironment';
+export type {
+  DaytonaProviderContext,
+  DaytonaSandboxEnvironmentOptions,
+} from './sandbox/provider/DaytonaSandboxEnvironment';
 export { absolutizeRelativeExecEnv } from './sandbox/provider/execEnv';
 export { ensureExecSuccess, shellEscape } from './sandbox/provider/Provider';
 export type {
@@ -177,6 +186,7 @@ export type {
   SandboxBuild,
   SandboxBuildMetadata,
   SandboxBuildStatus,
+  SandboxEnvironment,
   SandboxExecParams,
   SandboxInit,
   SandboxProvider,

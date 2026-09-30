@@ -6,6 +6,7 @@ import {
   type AgentTracing,
   type ModelParams,
   type RemoteMcpHeaders,
+  type SandboxEnvironment,
   type SandboxProvider,
   type Skill,
   type VercelAIProviderConfig,
@@ -23,7 +24,7 @@ import type { TurnMetadata } from '../db/turnMetadata';
 import type { IWebSearchProviderStore } from '../db/webSearchProviderStore';
 import { LocalSandboxProvider } from '../sandbox/local/provider/LocalSandboxProvider';
 import { getCachedLocalSandboxSupport, isLocalSandboxFallbackEnabled } from '../sandbox/localRuntime';
-import { toDaytonaSandboxProvider, toSandboxProviderFromRecord } from '../sandbox/providerUtils';
+import { toSandboxEnvironment, toSandboxProviderFromRecord } from '../sandbox/providerUtils';
 import type { ReasoningEffort } from '../schemas/modelProvider';
 import { DEFAULT_SANDBOX_ENVIRONMENT_NAME } from '../schemas/sandboxEnvironment';
 import { hasConfiguredWebSearchProvider } from '../websearch/providers';
@@ -148,63 +149,21 @@ export function localSandboxSessionSegment(sessionId: string | undefined): strin
 
 /**
  * Configured provider client, or standalone local fallback.
- * When `environment_name` is set, load that ready env and pin Daytona to its snapshot.
  * Fresh client per call (no network I/O until a provider method runs).
+ * Environment is resolved separately via resolveSandboxEnvironment.
  */
 export async function resolveSandboxProvider({
   tenant_id,
   store,
   logger,
   sessionId,
-  environment_name,
-  sandboxEnvironmentStore,
 }: {
   tenant_id: string;
   store: ISandboxProviderStore;
   logger: Logger;
   sessionId: string;
-  environment_name?: string;
-  sandboxEnvironmentStore: ISandboxEnvironmentStore;
 }): Promise<SandboxProvider | undefined> {
   const record = await store.getSandboxProvider(tenant_id);
-
-  if (environment_name !== undefined) {
-    const loaded = await sandboxEnvironmentStore.getEnvironment({
-      tenant_id,
-      name: environment_name,
-    });
-    if (loaded === undefined) {
-      throw new HTTPException(422, {
-        message: `Unknown sandbox environment "${environment_name}" — not configured`,
-      });
-    }
-    if (loaded.version.status !== 'ready') {
-      throw new HTTPException(422, {
-        message:
-          loaded.version.status === 'failed'
-            ? `Sandbox environment "${environment_name}" build failed (${loaded.version.status_reason ?? 'unknown error'})`
-            : `Sandbox environment "${environment_name}" is not ready (status: ${loaded.version.status}) — retry shortly`,
-      });
-    }
-    if (record === undefined) {
-      throw new HTTPException(422, {
-        message: `Sandbox environment "${environment_name}" requires a sandbox provider — configure via PUT /settings/sandbox-providers`,
-      });
-    }
-    switch (record.manifest.type) {
-      case 'daytona':
-        return toDaytonaSandboxProvider({
-          manifest: record.manifest,
-          tenant_id,
-          logger,
-          build_metadata: { build_ref: loaded.version.external_ref },
-          environment: loaded.version.manifest,
-        });
-      case 'truefoundry':
-        return toSandboxProviderFromRecord({ record, tenant_id, logger });
-    }
-  }
-
   if (record !== undefined) {
     return toSandboxProviderFromRecord({ record, tenant_id, logger });
   }
@@ -225,10 +184,52 @@ export async function resolveSandboxProvider({
 }
 
 /**
- * Builds a Sandbox for one turn from a resolved provider and skill mounts.
+ * Load a ready sandbox environment for create. Throws 422 when missing or not ready.
+ * When `optional` is true, a missing environment returns undefined instead of 422.
+ */
+export async function resolveSandboxEnvironment({
+  tenant_id,
+  name,
+  sandboxEnvironmentStore,
+  optional = false,
+}: {
+  tenant_id: string;
+  name: string;
+  sandboxEnvironmentStore: ISandboxEnvironmentStore;
+  optional?: boolean;
+}): Promise<SandboxEnvironment | undefined> {
+  const loaded = await sandboxEnvironmentStore.getEnvironment({
+    tenant_id,
+    name,
+  });
+  if (loaded === undefined) {
+    if (optional) {
+      return undefined;
+    }
+    throw new HTTPException(422, {
+      message: `Unknown sandbox environment "${name}" — not configured`,
+    });
+  }
+  if (loaded.version.status !== 'ready') {
+    throw new HTTPException(422, {
+      message:
+        loaded.version.status === 'failed'
+          ? `Sandbox environment "${name}" build failed (${loaded.version.status_reason ?? 'unknown error'})`
+          : `Sandbox environment "${name}" is not ready (status: ${loaded.version.status}) — retry shortly`,
+    });
+  }
+  return toSandboxEnvironment({
+    external_ref: loaded.version.external_ref,
+    manifest: loaded.version.manifest,
+  });
+}
+
+/**
+ * Builds a Sandbox for one turn from a resolved provider, optional environment, and skill mounts.
  */
 export function buildTurnSandbox(input: {
   provider: SandboxProvider;
+  environment?: SandboxEnvironment | undefined;
   logger: Logger;
   skills?: readonly Skill[];
   fileDownloadEnabled: boolean;
@@ -238,6 +239,7 @@ export function buildTurnSandbox(input: {
   // Empty mounter still uploads requested-skills file so existing skills are cleaned up.
   return new Sandbox({
     provider: input.provider,
+    ...(input.environment !== undefined ? { environment: input.environment } : {}),
     existingSandboxId: input.existingSandboxId,
     fileDownloadEnabled: input.fileDownloadEnabled,
     blockDestructiveToolsInCodeMode: true,

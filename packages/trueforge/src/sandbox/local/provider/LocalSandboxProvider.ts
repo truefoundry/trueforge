@@ -4,7 +4,7 @@
 import type {
   CodeModeTransport,
   ExecResult,
-  SandboxBuild,
+  SandboxEnvironment,
   SandboxExecParams,
   SandboxProvider,
 } from '@truefoundry/trueforge-core/core';
@@ -230,13 +230,6 @@ export class LocalSandboxProvider implements SandboxProvider {
   private readonly defaultExecTimeoutSeconds: number;
   private srtInitialized = false;
   private readonly logger: Logger;
-
-  /** Local SRT has no image build step — always ready. */
-  private static readonly readyBuild: SandboxBuild = {
-    status: 'ready',
-    reason: null,
-    metadata: null,
-  };
 
   validateAccess(): Promise<void> {
     return Promise.resolve();
@@ -465,14 +458,6 @@ export class LocalSandboxProvider implements SandboxProvider {
     return this.pythonC(code, relPath);
   }
 
-  buildImage(): Promise<SandboxBuild> {
-    return Promise.resolve(LocalSandboxProvider.readyBuild);
-  }
-
-  getImageBuildStatus(): Promise<SandboxBuild> {
-    return Promise.resolve(LocalSandboxProvider.readyBuild);
-  }
-
   private async ensureSrt(): Promise<void> {
     if (this.srtInitialized) {
       return;
@@ -597,7 +582,7 @@ export class LocalSandboxProvider implements SandboxProvider {
     return XferFileInfoSchema.parse(JSON.parse(result.stdoutText.trim()));
   }
 
-  async createSandbox(): Promise<{ sandboxId: string }> {
+  async createSandbox(_environment?: SandboxEnvironment): Promise<{ sandboxId: string }> {
     await this.ensureSrt();
     const sandboxId = await createSandbox(join(this.sandboxRootPathParent, newId()));
     this.logger.info('LocalSandboxProvider created sandbox', {

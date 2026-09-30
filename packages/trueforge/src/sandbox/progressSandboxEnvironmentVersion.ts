@@ -1,6 +1,7 @@
 /**
  * Progress a pending sandbox-environment version: get/create snapshot, update DB.
  */
+import { DAYTONA_SNAPSHOT_NOT_STARTED_REASON } from '@truefoundry/trueforge-core/core';
 import { HTTPException } from 'hono/http-exception';
 import type { Logger } from 'winston';
 import type { ISandboxEnvironmentStore } from '../db/sandboxEnvironmentStore';
@@ -9,6 +10,7 @@ import {
   isDaytonaAuthError,
   isDaytonaPermissionError,
   toDaytonaSandboxProvider,
+  toSandboxEnvironment,
   toSandboxStatus,
 } from '../sandbox/providerUtils';
 import { captureCriticalException } from '../sentry';
@@ -47,12 +49,18 @@ export async function progressSandboxEnvironmentVersion({
     manifest: providerRecord.manifest,
     tenant_id: pending.tenant_id,
     logger,
-    build_metadata: { build_ref: pending.external_ref },
-    environment: pending.manifest,
   });
+  const environment = toSandboxEnvironment({
+    external_ref: pending.external_ref,
+    manifest: pending.manifest,
+  });
+  const ctx = provider.providerContext();
 
   try {
-    const built = toSandboxStatus(await provider.buildImage());
+    const status = await environment.getBuildStatus(ctx);
+    const built = toSandboxStatus(
+      status.reason === DAYTONA_SNAPSHOT_NOT_STARTED_REASON ? await environment.build(ctx) : status,
+    );
     if (built.status === 'ready') {
       await sandboxEnvironmentStore.markVersionReady({ environment_version_id });
       return;
