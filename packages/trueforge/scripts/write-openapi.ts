@@ -27,6 +27,7 @@ import { SqliteAgentStore } from '../src/db/sqlite/agent-store/SqliteAgentStore'
 import { createSqliteDb } from '../src/db/sqlite/client';
 import { SqliteMcpServerStore } from '../src/db/sqlite/mcp-server-store/SqliteMcpServerStore';
 import { SqliteModelProviderStore } from '../src/db/sqlite/model-provider-store/SqliteModelProviderStore';
+import { SqliteSandboxEnvironmentStore } from '../src/db/sqlite/sandbox-environment-store/SqliteSandboxEnvironmentStore';
 import { SqliteSandboxProviderStore } from '../src/db/sqlite/sandbox-provider-store/SqliteSandboxProviderStore';
 import { SqliteScheduleStore } from '../src/db/sqlite/schedule-store/SqliteScheduleStore';
 import { SqliteSessionMetricsStore } from '../src/db/sqlite/session-metrics/SqliteSessionMetricsStore';
@@ -64,6 +65,7 @@ const sessionStore = new InMemorySessionStore();
 const db = createSqliteDb(':memory:');
 const tokenStore = new SqliteOAuthTokenStore(db);
 const agentStore = new SqliteAgentStore(db);
+const sandboxEnvironmentStore = new SqliteSandboxEnvironmentStore(db);
 const skillStore = new SqliteSkillStore(db);
 const sandboxProviderStore = new SqliteSandboxProviderStore(db);
 const webSearchProviderStore = new SqliteWebSearchProviderStore(db);
@@ -86,6 +88,7 @@ const app = createServerApp({
   resolveAgentStore: () => agentStore,
   resolveImportAgentStore: () => agentStore,
   agentStore,
+  sandboxEnvironmentStore,
   turnSkillsResolverStore: skillStore,
   withTransaction: callback => db.transaction().execute(callback),
   scheduleStore: new SqliteScheduleStore(db),
