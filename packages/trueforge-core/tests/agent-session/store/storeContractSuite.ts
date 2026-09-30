@@ -1525,6 +1525,83 @@ export function runStoreContractSuite(createStore: () => ISessionStore) {
       ).rejects.toBeInstanceOf(PreviousTurnRunningError);
     });
 
+    it('rejects createTurn when previous turn is paused, then counts metrics once after resume', async () => {
+      const store = createStore();
+      await seedSession(store);
+      await store.createTurn(makeCreateTurnInput({ sessionId, turnId: 'turn-1' }));
+      const pausedState = makePausedTurnState(['required-event-1']);
+      await store.updateTurnNonTerminalState({
+        session_id: sessionId,
+        turn_id: 'turn-1',
+        state: pausedState,
+        turn_update_event: makeTurnUpdateEvent(pausedState),
+      });
+
+      await expect(
+        store.createTurn(
+          makeCreateTurnInput({ sessionId, turnId: 'turn-2', previousTurnId: 'turn-1', firstTurnId: 'turn-1' }),
+        ),
+      ).rejects.toBeInstanceOf(PreviousTurnRunningError);
+      expect(await store.getTurn({ session_id: sessionId, turn_id: 'turn-2' })).toBeUndefined();
+      const afterReject = mustGet(await store.getSession({ tenant_id: tenant, session_id: sessionId }));
+      expect(afterReject.last_turn_id).toBe('turn-1');
+      expect(afterReject.metrics.total_turns).toBe(1);
+
+      const runningState = { status: 'running' } as const;
+      await store.updateTurnNonTerminalState({
+        session_id: sessionId,
+        turn_id: 'turn-1',
+        state: runningState,
+        turn_update_event: makeTurnUpdateEvent(runningState),
+      });
+      const turn1 = mustGet(await store.getTurn({ session_id: sessionId, turn_id: 'turn-1' }));
+      const doneState = {
+        ...makeDoneTurnState(),
+        completed_at: new Date(turn1.created_at.getTime() + 1500).toISOString(),
+        metrics: { total_cost_in_usd: 1.25 },
+      };
+      await store.updateTurnTerminalState({
+        session_id: sessionId,
+        turn_id: 'turn-1',
+        state: doneState,
+        turn_done_event: makeTurnDoneEvent(doneState),
+      });
+
+      const session = mustGet(await store.getSession({ tenant_id: tenant, session_id: sessionId }));
+      expect(session.metrics).toEqual({
+        total_cost_in_usd: 1.25,
+        total_duration_ms: 1500,
+        total_turns: 1,
+      });
+    });
+
+    it('allows createTurn after a paused predecessor is frozen', async () => {
+      const store = createStore();
+      await seedSession(store);
+      await store.createTurn(makeCreateTurnInput({ sessionId, turnId: 'turn-1' }));
+      const pausedState = makePausedTurnState(['required-event-1']);
+      await store.updateTurnNonTerminalState({
+        session_id: sessionId,
+        turn_id: 'turn-1',
+        state: pausedState,
+        turn_update_event: makeTurnUpdateEvent(pausedState),
+      });
+      const cancelledState = makeCancelledTurnState(CancellationReason.CancelledForNextTurn);
+      await store.freezeAndGetTurn({
+        session_id: sessionId,
+        turn_id: 'turn-1',
+        reason: CancellationReason.CancelledForNextTurn,
+        turn_done_event: makeTurnDoneEvent(cancelledState),
+      });
+
+      await store.createTurn(
+        makeCreateTurnInput({ sessionId, turnId: 'turn-2', previousTurnId: 'turn-1', firstTurnId: 'turn-1' }),
+      );
+      const successor = mustGet(await store.getTurn({ session_id: sessionId, turn_id: 'turn-2' }));
+      expect(successor.state.status).toBe('running');
+      expect(successor.previous_turn_id).toBe('turn-1');
+    });
+
     it('rejects duplicate turn_id with conflict', async () => {
       const store = createStore();
       await seedSession(store);

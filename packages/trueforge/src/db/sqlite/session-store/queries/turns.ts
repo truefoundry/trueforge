@@ -427,7 +427,7 @@ export async function createTurn(db: Kysely<Database>, input: CreateTurnInput): 
 
         const first = prevRows[0];
         if (first !== undefined) {
-          if (first.turn_state.status === 'running') {
+          if (isNonTerminalTurnState(first.turn_state)) {
             throw new PreviousTurnRunningError(prevTurnId);
           }
           prevCheckpoint = first.turn_checkpoint;
@@ -688,7 +688,7 @@ export async function createTurn(db: Kysely<Database>, input: CreateTurnInput): 
 }
 
 /**
- * freezeAndGetTurn — cancel if still running, then return the assembled record.
+ * freezeAndGetTurn — cancel if still non-terminal (running or paused), then return the assembled record.
  * Terminal turns are returned unchanged (freeze is a plain read).
  */
 export async function freezeAndGetTurn(db: Kysely<Database>, input: FreezeAndGetTurnInput): Promise<TurnRecord> {

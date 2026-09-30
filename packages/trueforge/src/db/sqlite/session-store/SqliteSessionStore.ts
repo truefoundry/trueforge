@@ -85,8 +85,9 @@ type TurnCustom = Record<string, never>;
  * late appends touch only its OWN rows — structural leaks are impossible.
  *
  * Hard invariants:
- * 1. A turn cannot be used as `previous_turn_id` while it is still `running` —
- *    `createTurn` rejects that; callers must `freezeAndGetTurn` first.
+ * 1. A turn cannot be used as `previous_turn_id` while it is still non-terminal
+ *    (`running` or `paused`) — `createTurn` rejects that; callers must
+ *    `freezeAndGetTurn` first.
  *    Tip-equality is NOT required: new roots and concurrent forks from a
  *    finished tip can leave more than one turn `running` at once.
  * 2. Every turn-scoped write is fenced on `state->>'status' = 'running'`.

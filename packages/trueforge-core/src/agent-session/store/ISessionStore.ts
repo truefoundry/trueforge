@@ -349,7 +349,7 @@ export interface ISessionStore<
    * - string — fork/chain from that turn when it exists. Tip-equality is NOT
    *   required; concurrent forks from the same tip both succeed. Unknown id is
    *   allowed (relaxed) and treated as no inheritance. If that turn exists and
-   *   is still `running`, reject with {@link PreviousTurnRunningError} —
+   *   is still `running` or `paused`, reject with {@link PreviousTurnRunningError} —
    *   callers must {@link freezeAndGetTurn} first.
    * `last_turn_id` always advances to the new turn in the same atomic unit.
    *
@@ -361,8 +361,8 @@ export interface ISessionStore<
   createTurn(input: CreateTurnInput<TTurnCustom>): Promise<void>;
 
   /**
-   * Cancel if still running (persist `turn_done` and fold cost/duration into
-   * `session.metrics`); already-terminal turns are a read. Missing → {@link TurnNotFoundError}.
+   * Cancel a non-terminal turn (`running` or `paused`): persist `turn_done` and fold cost/duration into
+   * `session.metrics`. Already-terminal turns are a read. Missing → {@link TurnNotFoundError}.
    */
   freezeAndGetTurn(input: FreezeAndGetTurnInput): Promise<TurnRecord<TTurnCustom>>;
 

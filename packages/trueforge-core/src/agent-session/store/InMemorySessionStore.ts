@@ -392,9 +392,9 @@ export class InMemorySessionStore<
       const prevKey = turnKey({ session_id: input.turn.session_id, turn_id: previousTurnId });
       const prev = this.turns.get(prevKey);
       // Unknown previous_turn_id is allowed (relaxed): treat as no inheritance.
-      // A still-running previous must be frozen first.
+      // A still-live previous (running or paused) must be frozen first.
       if (prev !== undefined) {
-        if (prev.state.status === 'running') {
+        if (isNonTerminalTurnState(prev.state)) {
           throw new PreviousTurnRunningError(previousTurnId);
         }
         previousSnapshot = prev.snapshot;
