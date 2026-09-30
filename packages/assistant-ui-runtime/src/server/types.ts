@@ -1107,7 +1107,7 @@ export interface SandboxEnvironment {
   updatedAt: string;
 }
 
-export interface ListSandboxEnvironmentsParams extends Pick<PageParams, 'limit' | 'pageToken'> {}
+export type ListSandboxEnvironmentsParams = Pick<PageParams, 'limit' | 'pageToken'>;
 
 export interface SandboxEnvironmentServer<TEnvironment extends SandboxEnvironment = SandboxEnvironment> {
   listEnvironments(req?: ListSandboxEnvironmentsParams): Promise<ListResult<TEnvironment>>;
