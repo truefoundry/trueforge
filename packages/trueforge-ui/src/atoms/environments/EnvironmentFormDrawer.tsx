@@ -146,13 +146,13 @@ export function EnvironmentFormDrawer({ open, onOpenChange, mode, environment, o
         description="Configure the environment as a form or edit its manifest directly."
         size="xl"
         headerActions={
-          <div className="inline-flex shrink-0 rounded-md border border-border p-0.5">
+          <div className="inline-flex shrink-0 rounded-md bg-secondary-bg p-0.5 border border-border">
             <button
               type="button"
               className={cn(
-                'rounded-sm px-2.5 py-1 text-xs font-medium',
+                'rounded-sm px-2.5 py-1 text-xs font-medium transition-colors',
                 editorMode === 'form'
-                  ? 'bg-primary-button-bg text-primary-button-text'
+                  ? 'bg-primary-bg text-text-primary shadow-xs'
                   : 'text-text-secondary hover:text-text-primary',
               )}
               onClick={() => requestSwitch('form')}
@@ -162,9 +162,9 @@ export function EnvironmentFormDrawer({ open, onOpenChange, mode, environment, o
             <button
               type="button"
               className={cn(
-                'rounded-sm px-2.5 py-1 text-xs font-medium',
+                'rounded-sm px-2.5 py-1 text-xs font-medium transition-colors',
                 editorMode === 'yaml'
-                  ? 'bg-primary-button-bg text-primary-button-text'
+                  ? 'bg-primary-bg text-text-primary shadow-xs'
                   : 'text-text-secondary hover:text-text-primary',
               )}
               onClick={() => requestSwitch('yaml')}
@@ -179,7 +179,7 @@ export function EnvironmentFormDrawer({ open, onOpenChange, mode, environment, o
               Cancel
             </Button.Secondary>
             <Button.Primary type="submit" form="environment-form" disabled={saving}>
-              {saving ? 'Saving…' : 'Save'}
+              {saving ? 'Saving…' : mode === 'create' ? 'Create' : 'Save'}
             </Button.Primary>
           </div>
         }
@@ -220,7 +220,7 @@ export function EnvironmentFormDrawer({ open, onOpenChange, mode, environment, o
           <p className="text-sm text-text-secondary">
             {pendingSwitch === 'form'
               ? 'The YAML changes will be lost. Are you sure you want to switch to UI form?'
-              : 'The form changes will be lost. Are you sure you want to switch to YAML?'}
+              : 'You might lose all your changes from the form. Are you sure you want to switch to YAML Editor?'}
           </p>
           <DialogFooter>
             <Button.Secondary type="button" onClick={() => setPendingSwitch(null)}>
@@ -232,7 +232,7 @@ export function EnvironmentFormDrawer({ open, onOpenChange, mode, environment, o
                 if (pendingSwitch != null) applySwitch(pendingSwitch);
               }}
             >
-              Switch
+              Yes
             </Button.Primary>
           </DialogFooter>
         </DialogContent>

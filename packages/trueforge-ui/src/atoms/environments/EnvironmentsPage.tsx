@@ -220,7 +220,7 @@ export function EnvironmentsPage(_props: EnvironmentsPageProps) {
         title="Environments"
         end={
           <>
-            <div className="w-60">
+            <div className="w-64">
               <SearchInput query={nameQuery} setQuery={setNameQuery} placeholder="Search environments by name" />
             </div>
             <Button.Primary type="button" disabled={providerReady !== true} onClick={openCreate}>

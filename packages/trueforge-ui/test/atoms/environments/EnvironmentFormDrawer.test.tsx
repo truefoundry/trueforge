@@ -85,7 +85,7 @@ describe('EnvironmentFormDrawer', () => {
     const { createOrUpdateEnvironment, onSaved } = renderDrawer();
     const nameInput = screen.getByPlaceholderText('my-environment');
     fireEvent.change(nameInput, { target: { value: 'node-web' } });
-    fireEvent.click(screen.getByRole('button', { name: 'Save' }));
+    fireEvent.click(screen.getByRole('button', { name: 'Create' }));
     await waitFor(() => {
       expect(createOrUpdateEnvironment).toHaveBeenCalled();
     });
@@ -97,11 +97,11 @@ describe('EnvironmentFormDrawer', () => {
     renderDrawer();
     fireEvent.change(screen.getByPlaceholderText('my-environment'), { target: { value: 'dirty-env' } });
     fireEvent.click(screen.getByRole('button', { name: 'YAML' }));
-    expect(await screen.findByRole('button', { name: 'Switch' })).toBeInTheDocument();
-    fireEvent.click(screen.getByRole('button', { name: 'Switch' }));
+    expect(await screen.findByRole('button', { name: 'Yes' })).toBeInTheDocument();
+    fireEvent.click(screen.getByRole('button', { name: 'Yes' }));
     await waitFor(() => {
       expect(screen.queryByPlaceholderText('my-environment')).not.toBeInTheDocument();
     });
-    expect(screen.queryByRole('button', { name: 'Switch' })).not.toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: 'Yes' })).not.toBeInTheDocument();
   });
 });
