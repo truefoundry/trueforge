@@ -33,7 +33,12 @@ import {
 } from '../src/convertTurnMessages.js';
 import { buildRootAssistantContent, ingestTurnEvent, PeerThreadFoldState } from '../src/foldPeerThreads.js';
 import { findPausedAssistantMessage } from '../src/requiredActionInputs.js';
-import { createEmptySessionSnapshot, replaceSessionSnapshot, turnToSessionRecord } from '../src/sessionSnapshot.js';
+import {
+  createEmptySessionSnapshot,
+  replaceSessionSnapshot,
+  type SessionSnapshot,
+  turnToSessionRecord,
+} from '../src/sessionSnapshot.js';
 import { TOOL_APPROVAL_THREAD_ID_CUSTOM_KEY } from '../src/toolApproval.js';
 import {
   applyUserToolResponsesToFold,
@@ -1912,6 +1917,60 @@ describe('convertTurnMessages', () => {
         type: 'complete',
         reason: 'stop',
       });
+    });
+
+    it('prevents duplicate assistant message IDs if an activeStream matches an already projected turn', () => {
+      const foldState = new PeerThreadFoldState();
+      const mcpServers = [
+        {
+          id: 'test-mcp',
+          name: 'test-mcp',
+          authUrl: 'https://test/auth',
+        },
+      ];
+      const snapshot: SessionSnapshot = {
+        ...createEmptySessionSnapshot(),
+        fold: foldState,
+        turns: [
+          {
+            id: turnId,
+            userText: 'hello',
+            createdAt,
+            input: [{ type: 'user.message', content: 'hello' }],
+            rootModelMessageIds: [],
+            state: {
+              status: 'done',
+              completedAt: createdAt,
+              requiredActions: [
+                {
+                  type: 'mcp.auth_required',
+                  id: 'mcp-auth-1',
+                  createdAt,
+                  mcpServers,
+                },
+              ],
+            },
+          },
+        ],
+        activeStream: {
+          turnId,
+          update: {
+            content: [{ type: 'text', text: 'This agent needs access to external services before it can continue.' }],
+            status: { type: 'requires-action', reason: 'interrupt' },
+            metadata: { custom: { pendingMcpAuth: true, mcpServers } },
+          },
+          isContinuation: false,
+          streamComplete: true,
+        },
+      };
+
+      const messages = projectSessionMessages(snapshot);
+      const assistantMessages = messages.filter(m => m.role === 'assistant');
+      expect(assistantMessages).toHaveLength(1);
+      expect(assistantMessages[0]?.id).toBe(`${turnId}-assistant`);
+
+      const messageIds = messages.map(m => m.id);
+      expect(new Set(messageIds).size).toBe(messageIds.length);
     });
   });
 
