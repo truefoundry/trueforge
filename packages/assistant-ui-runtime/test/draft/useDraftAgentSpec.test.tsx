@@ -243,4 +243,27 @@ describe('useDraftAgentSpec', () => {
 
     await expect(result.current.takeTurnHeaderTimestamp()).resolves.toBe('2026-06-30T17:00:00.000Z');
   });
+
+  it('falls back to defaultAgentSpec and does not error when getDraftAgentSpec resolves to null', async () => {
+    const onError = vi.fn();
+    const draftBridge: DraftSessionBridge = {
+      getDraftAgentSpec: vi.fn().mockResolvedValue(null),
+      syncAgentSpec: vi.fn().mockResolvedValue('2026-06-30T17:00:00.000Z'),
+    };
+    const { result } = renderHook(() =>
+      useDraftAgentSpec({
+        draftSessionId: 'session-no-spec',
+        draftBridge,
+        defaultAgentSpec,
+        onError,
+      }),
+    );
+    await flushMicrotasks();
+
+    expect(draftBridge.getDraftAgentSpec).toHaveBeenCalledWith('session-no-spec');
+    expect(onError).not.toHaveBeenCalled();
+    expect(result.current.agentSpec).toEqual(defaultAgentSpec);
+    expect(result.current.specError).toBeNull();
+    expect(result.current.isSpecLoading).toBe(false);
+  });
 });

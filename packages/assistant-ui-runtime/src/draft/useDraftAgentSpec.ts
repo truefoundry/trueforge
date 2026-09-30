@@ -113,7 +113,9 @@ export function useDraftAgentSpec({
           return;
         }
 
-        setAgentSpec(loaded);
+        // If session has no custom draft spec (e.g. non-draft or immutable session),
+        // keep the default draft spec rather than failing.
+        setAgentSpec(loaded ?? defaultAgentSpec);
         setSpecError(null);
         setIsSpecLoading(false);
       } catch (error) {
