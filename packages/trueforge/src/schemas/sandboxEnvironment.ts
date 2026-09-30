@@ -118,7 +118,7 @@ export const SandboxEnvironmentManifestSchema =
 const SandboxEnvironmentManifestRequestSchema = SandboxEnvironmentManifestFieldsSchema.refine(
   manifest => manifest.name !== DEFAULT_SANDBOX_ENVIRONMENT_NAME,
   { message: 'name "default" is reserved', path: ['name'] },
-);
+).openapi('SandboxEnvironmentManifestRequest');
 
 /**
  * Persisted version jsonb — wire fields plus backend-resolved provider identity.
