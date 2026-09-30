@@ -170,11 +170,10 @@ export { DaytonaSandboxProvider } from './sandbox/provider/DaytonaProvider';
 export type { DaytonaSandboxProviderOptions } from './sandbox/provider/DaytonaProvider';
 export {
   DAYTONA_SNAPSHOT_NOT_STARTED_REASON,
-  DaytonaSandboxEnvironment,
-  isDaytonaSandboxEnvironment,
+  createDaytonaSandboxEnvironment,
 } from './sandbox/provider/DaytonaSandboxEnvironment';
 export type {
-  DaytonaProviderContext,
+  DaytonaSandboxEnvironment,
   DaytonaSandboxEnvironmentOptions,
 } from './sandbox/provider/DaytonaSandboxEnvironment';
 export { absolutizeRelativeExecEnv } from './sandbox/provider/execEnv';
@@ -186,14 +185,13 @@ export type {
   SandboxBuild,
   SandboxBuildMetadata,
   SandboxBuildStatus,
-  SandboxEnvironment,
   SandboxExecParams,
   SandboxInit,
   SandboxProvider,
 } from './sandbox/provider/Provider';
 export { TFYSandboxProvider } from './sandbox/provider/TFYSandboxProvider';
 export { SKILL_DOWNLOAD_TIMEOUT_SECONDS, Sandbox, buildWriteAndRunScriptCommand } from './sandbox/Sandbox';
-export type { SandboxInfo } from './sandbox/Sandbox';
+export type { ResolvedSandbox, SandboxInfo } from './sandbox/Sandbox';
 export {
   SandboxError,
   SandboxFileNotFoundError,

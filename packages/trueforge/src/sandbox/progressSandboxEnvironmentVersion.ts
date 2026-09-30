@@ -37,12 +37,8 @@ export async function progressSandboxEnvironmentVersion({
   }
 
   const providerRecord = await sandboxProviderStore.getSandboxProvider(pending.tenant_id);
-  if (providerRecord === undefined || providerRecord.manifest.type !== 'daytona') {
-    await sandboxEnvironmentStore.markVersionFailed({
-      environment_version_id,
-      status_reason: 'Sandbox environment build requires a configured Daytona sandbox provider',
-    });
-    return;
+  if (providerRecord === undefined) {
+    throw new Error('Sandbox environment build requires a configured Daytona sandbox provider');
   }
 
   const provider = toDaytonaSandboxProvider({
@@ -54,12 +50,11 @@ export async function progressSandboxEnvironmentVersion({
     external_ref: pending.external_ref,
     manifest: pending.manifest,
   });
-  const ctx = provider.providerContext();
 
   try {
-    const status = await environment.getBuildStatus(ctx);
+    const status = await provider.getBuildStatus(environment);
     const built = toSandboxStatus(
-      status.reason === DAYTONA_SNAPSHOT_NOT_STARTED_REASON ? await environment.build(ctx) : status,
+      status.reason === DAYTONA_SNAPSHOT_NOT_STARTED_REASON ? await provider.build(environment) : status,
     );
     if (built.status === 'ready') {
       await sandboxEnvironmentStore.markVersionReady({ environment_version_id });

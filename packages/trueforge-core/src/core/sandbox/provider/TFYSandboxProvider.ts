@@ -18,7 +18,6 @@ import { absolutizeRelativeExecEnv } from './execEnv';
 import {
   shellEscape,
   type ExecResult,
-  type SandboxEnvironment,
   type SandboxExecParams,
   type SandboxFileInfo,
   type SandboxProvider,
@@ -86,7 +85,7 @@ export class TFYSandboxProvider implements SandboxProvider {
     return Promise.resolve();
   }
 
-  createSandbox(_environment?: SandboxEnvironment): Promise<{ sandboxId: string }> {
+  createSandbox(): Promise<{ sandboxId: string }> {
     const sandboxId = `${this.tenantName}.${randomUUID()}`;
     this.logger.debug(`Sandbox created: id=${sandboxId}`);
     return Promise.resolve({ sandboxId });

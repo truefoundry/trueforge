@@ -81,15 +81,10 @@ export interface SandboxBuild {
 }
 
 /**
- * Opaque create/build environment — peer to SandboxProvider at composition time.
- * Provider-specific environments are classes (e.g. DaytonaSandboxEnvironment).
+ * Sandbox backend. `TEnvironment` is provider-specific create/build input
+ * (`DaytonaSandboxEnvironment` for Daytona; `undefined` when the provider has none).
  */
-export interface SandboxEnvironment {
-  /** Provider kind this environment is for (matches SandboxProvider.type). */
-  readonly type: string;
-}
-
-export interface SandboxProvider {
+export interface SandboxProvider<TEnvironment = undefined> {
   /** Stable provider kind used in fancy sandbox ids and carry-forward (plain string). */
   readonly type: string;
   /**
@@ -97,7 +92,10 @@ export interface SandboxProvider {
    */
   validateAccess?(): Promise<void>;
   /** Fresh sandbox; optional environment pins snapshot + create params. */
-  createSandbox(environment?: SandboxEnvironment): Promise<{ sandboxId: string }>;
+  createSandbox(environment?: TEnvironment): Promise<{ sandboxId: string }>;
+  /** Env snapshot/image build. Only providers that have environments implement these. */
+  build?(environment: TEnvironment): Promise<SandboxBuild>;
+  getBuildStatus?(environment: TEnvironment): Promise<SandboxBuild>;
   exec(params: SandboxExecParams): Promise<ExecResult>;
   /** Provider-specific instructions appended to the agent system prompt. */
   getAdditionalInstructions(): string | undefined;

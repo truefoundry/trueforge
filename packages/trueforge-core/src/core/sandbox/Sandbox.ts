@@ -17,7 +17,8 @@ import type { AgentTracing } from '../tracing/AgentTracing';
 import { extractErrorLogFields } from '../util/errorLogFields';
 import { CodeModeDispatcher } from './codeMode/CodeModeDispatcher';
 import { type CodeModeClientInstall, type CodeModeTransport } from './codeMode/CodeModeTransport';
-import { ensureExecSuccess, shellEscape, type SandboxEnvironment, type SandboxProvider } from './provider/Provider';
+import type { DaytonaSandboxEnvironment } from './provider/DaytonaSandboxEnvironment';
+import { ensureExecSuccess, shellEscape, type SandboxProvider } from './provider/Provider';
 import { SandboxNotAvailableError, validateNoPathTraversal } from './SandboxErrors';
 import { formatSandboxId, rawSandboxId } from './sandboxRef';
 // Import submodules, not the ./skills barrel, to avoid a cycle (the mounters import from Sandbox).
@@ -84,13 +85,13 @@ export interface SandboxStoredFile {
   sandboxCreated?: SandboxInfo | undefined;
 }
 
-export interface SandboxOptions {
-  provider: SandboxProvider;
+export interface SandboxOptions<TEnvironment = undefined> {
+  provider: SandboxProvider<TEnvironment>;
   /**
    * Optional create-time environment (snapshot + create params). Ignored when restoring
    * an existing sandbox id.
    */
-  environment?: SandboxEnvironment | undefined;
+  environment?: TEnvironment | undefined;
   existingSandboxId?: string | undefined;
   skillMounter?: ISkillMounter | undefined;
   fileDownloadEnabled?: boolean | undefined;
@@ -196,13 +197,13 @@ export function createSandboxLargeToolResponseGuidance(): string {
 export const SANDBOX_MCP_SERVER_ID = 'sandbox';
 type SandboxExecInput = z.infer<typeof sandboxExecSchema>;
 
-export class Sandbox extends LocalToolMCP {
+export class Sandbox<TEnvironment = undefined> extends LocalToolMCP {
   readonly name = SANDBOX_MCP_SERVER_ID;
   readonly displayName = 'Sandbox';
   override readonly description = 'Persistent sandbox environment for code execution';
 
-  private readonly provider: SandboxProvider;
-  private readonly environment: SandboxEnvironment | undefined;
+  private readonly provider: SandboxProvider<TEnvironment>;
+  private readonly environment: TEnvironment | undefined;
   private readonly existingSandboxId?: string | undefined;
   private existingSandboxInfo: SandboxInfo | undefined;
   // Cached promise to prevent concurrent sub-agents from creating duplicate sandboxes.
@@ -230,7 +231,7 @@ export class Sandbox extends LocalToolMCP {
     }),
   ];
 
-  constructor(options: SandboxOptions) {
+  constructor(options: SandboxOptions<TEnvironment>) {
     super({ tracing: options.tracing });
     this.provider = options.provider;
     this.environment = options.environment;
@@ -816,3 +817,6 @@ export class Sandbox extends LocalToolMCP {
     }
   }
 }
+
+/** Daytona (typed env) or providers with no env — the resolved handle for a turn/thread. */
+export type ResolvedSandbox = Sandbox<DaytonaSandboxEnvironment> | Sandbox;

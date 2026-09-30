@@ -1,11 +1,11 @@
 /** Sandbox provider construction + credential validation. */
 import { Daytona, DaytonaError } from '@daytona/sdk';
 import {
-  DaytonaSandboxEnvironment,
+  createDaytonaSandboxEnvironment,
   DaytonaSandboxProvider,
   TFYSandboxProvider,
+  type DaytonaSandboxEnvironment,
   type SandboxBuild,
-  type SandboxProvider,
 } from '@truefoundry/trueforge-core/core';
 import type { Logger } from 'winston';
 import configuration from '../config';
@@ -13,7 +13,6 @@ import type { SandboxProviderRecord } from '../db/sandboxProviderStore';
 import type { StoredSandboxEnvironmentManifest } from '../schemas/sandboxEnvironment';
 import {
   toDaytonaSandboxProviderInput,
-  type SandboxProviderManifest,
   type SandboxStatus,
   type StoredSandboxProviderManifest,
 } from '../schemas/sandboxProvider';
@@ -27,7 +26,10 @@ export function isDaytonaPermissionError(error: unknown): boolean {
   return error instanceof DaytonaError && error.statusCode === 403;
 }
 
-/** Map a ready env (external_ref + stored manifest) onto a Daytona create/build environment. */
+/** Configured tenant sandbox backends (not local fallback). */
+export type ResolvedSandboxProvider = DaytonaSandboxProvider | TFYSandboxProvider;
+
+/** Map a ready env (external_ref + stored manifest) onto Daytona create/build input data. */
 export function toSandboxEnvironment({
   external_ref,
   manifest,
@@ -35,7 +37,7 @@ export function toSandboxEnvironment({
   external_ref: string;
   manifest: StoredSandboxEnvironmentManifest;
 }): DaytonaSandboxEnvironment {
-  return new DaytonaSandboxEnvironment({
+  return createDaytonaSandboxEnvironment({
     snapshot_ref: external_ref,
     resources: manifest.resources,
     ...(manifest.image ? { image: manifest.image } : {}),
@@ -58,17 +60,20 @@ export function toSandboxEnvironment({
 
 /**
  * Builds the Daytona runtime provider for a stored Daytona manifest. No network I/O until a method is called.
- * Snapshot tips (ref + image) live on SandboxEnvironment, not on the provider.
+ * Snapshot tips (ref + image) are create/build input data, not provider config.
  */
 export function toDaytonaSandboxProvider({
   manifest,
   tenant_id,
   logger,
 }: {
-  manifest: SandboxProviderManifest;
+  manifest: StoredSandboxProviderManifest;
   tenant_id: string;
   logger: Logger;
 }): DaytonaSandboxProvider {
+  if (manifest.type !== 'daytona') {
+    throw new Error('Daytona sandbox provider required');
+  }
   const { apiKey, ...settings } = toDaytonaSandboxProviderInput(manifest);
   return new DaytonaSandboxProvider({
     client: new Daytona({ apiKey }),
@@ -92,7 +97,7 @@ export function toSandboxProviderFromRecord({
   record: SandboxProviderRecord;
   tenant_id: string;
   logger: Logger;
-}): SandboxProvider {
+}): ResolvedSandboxProvider {
   switch (record.manifest.type) {
     case 'daytona':
       return toDaytonaSandboxProvider({

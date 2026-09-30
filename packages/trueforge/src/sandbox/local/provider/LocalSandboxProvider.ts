@@ -4,7 +4,6 @@
 import type {
   CodeModeTransport,
   ExecResult,
-  SandboxEnvironment,
   SandboxExecParams,
   SandboxProvider,
 } from '@truefoundry/trueforge-core/core';
@@ -582,7 +581,7 @@ export class LocalSandboxProvider implements SandboxProvider {
     return XferFileInfoSchema.parse(JSON.parse(result.stdoutText.trim()));
   }
 
-  async createSandbox(_environment?: SandboxEnvironment): Promise<{ sandboxId: string }> {
+  async createSandbox(): Promise<{ sandboxId: string }> {
     await this.ensureSrt();
     const sandboxId = await createSandbox(join(this.sandboxRootPathParent, newId()));
     this.logger.info('LocalSandboxProvider created sandbox', {

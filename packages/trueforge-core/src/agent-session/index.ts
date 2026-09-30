@@ -124,6 +124,7 @@ export {
   TurnNotRunningError,
 } from './store/SessionStoreErrors';
 
+export type { ResolvedSandbox } from '../core/sandbox/Sandbox';
 export type { ITurnResourceResolver } from './ITurnResourceResolver';
 export { TurnResourceResolver } from './TurnResourceResolver';
 export type { TurnSandboxFactory } from './TurnResourceResolver';

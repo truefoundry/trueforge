@@ -17,6 +17,7 @@ import {
 import type { IWebSearchProvider } from '@truefoundry/trueforge-core/core';
 import {
   AgentHarnessError,
+  DaytonaSandboxProvider,
   existingSandboxIdForProvider,
   extractErrorLogFields,
   isAgentInputUserMessage,
@@ -242,18 +243,6 @@ function createTurnResolver(deps: {
           message: 'no sandbox provider configured — PUT /settings/sandbox-providers',
         });
       }
-      // Omit name → tenant `"default"`. Soft-skip when default is unavailable
-      // (e.g. truefoundry sandbox has no env/snapshot concept).
-      const environment = await resolveSandboxEnvironment({
-        tenant_id,
-        name: spec.config.sandbox.environment_name ?? DEFAULT_SANDBOX_ENVIRONMENT_NAME,
-        sandboxEnvironmentStore,
-        optional: spec.config.sandbox.environment_name === undefined,
-      });
-      const carriedSandboxId = existingSandboxIdForProvider({
-        existingSandboxId,
-        currentProviderType: provider.type,
-      });
       const skills = spec.skills ?? [];
       const mountSkills =
         skills.length === 0
@@ -262,14 +251,35 @@ function createTurnResolver(deps: {
               tenant_id,
               skills,
             });
-      return buildTurnSandbox({
-        provider,
-        ...(environment !== undefined ? { environment } : {}),
+      const carriedSandboxId = existingSandboxIdForProvider({
+        existingSandboxId,
+        currentProviderType: provider.type,
+      });
+      const turnSandboxBase = {
         logger,
         skills: mountSkills,
         fileDownloadEnabled: spec.config.sandbox.file_downloads,
         existingSandboxId: carriedSandboxId,
         tracing,
+      };
+      // Daytona: resolve env (omit name → tenant `"default"`; soft-skip when default missing).
+      // Other providers have no env/snapshot concept.
+      if (provider instanceof DaytonaSandboxProvider) {
+        const environment = await resolveSandboxEnvironment({
+          tenant_id,
+          name: spec.config.sandbox.environment_name ?? DEFAULT_SANDBOX_ENVIRONMENT_NAME,
+          sandboxEnvironmentStore,
+          optional: spec.config.sandbox.environment_name === undefined,
+        });
+        return buildTurnSandbox({
+          provider,
+          ...(environment !== undefined ? { environment } : {}),
+          ...turnSandboxBase,
+        });
+      }
+      return buildTurnSandbox({
+        provider,
+        ...turnSandboxBase,
       });
     },
     agent: async agentId => {

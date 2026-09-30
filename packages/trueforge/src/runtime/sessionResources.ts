@@ -4,9 +4,9 @@ import {
   SkillMounter,
   type AgentDefinition,
   type AgentTracing,
+  type DaytonaSandboxEnvironment,
   type ModelParams,
   type RemoteMcpHeaders,
-  type SandboxEnvironment,
   type SandboxProvider,
   type Skill,
   type VercelAIProviderConfig,
@@ -24,7 +24,11 @@ import type { TurnMetadata } from '../db/turnMetadata';
 import type { IWebSearchProviderStore } from '../db/webSearchProviderStore';
 import { LocalSandboxProvider } from '../sandbox/local/provider/LocalSandboxProvider';
 import { getCachedLocalSandboxSupport, isLocalSandboxFallbackEnabled } from '../sandbox/localRuntime';
-import { toSandboxEnvironment, toSandboxProviderFromRecord } from '../sandbox/providerUtils';
+import {
+  toSandboxEnvironment,
+  toSandboxProviderFromRecord,
+  type ResolvedSandboxProvider,
+} from '../sandbox/providerUtils';
 import type { ReasoningEffort } from '../schemas/modelProvider';
 import { DEFAULT_SANDBOX_ENVIRONMENT_NAME } from '../schemas/sandboxEnvironment';
 import { hasConfiguredWebSearchProvider } from '../websearch/providers';
@@ -162,7 +166,7 @@ export async function resolveSandboxProvider({
   store: ISandboxProviderStore;
   logger: Logger;
   sessionId: string;
-}): Promise<SandboxProvider | undefined> {
+}): Promise<ResolvedSandboxProvider | LocalSandboxProvider | undefined> {
   const record = await store.getSandboxProvider(tenant_id);
   if (record !== undefined) {
     return toSandboxProviderFromRecord({ record, tenant_id, logger });
@@ -197,7 +201,7 @@ export async function resolveSandboxEnvironment({
   name: string;
   sandboxEnvironmentStore: ISandboxEnvironmentStore;
   optional?: boolean;
-}): Promise<SandboxEnvironment | undefined> {
+}): Promise<DaytonaSandboxEnvironment | undefined> {
   const loaded = await sandboxEnvironmentStore.getEnvironment({
     tenant_id,
     name,
@@ -227,15 +231,15 @@ export async function resolveSandboxEnvironment({
 /**
  * Builds a Sandbox for one turn from a resolved provider, optional environment, and skill mounts.
  */
-export function buildTurnSandbox(input: {
-  provider: SandboxProvider;
-  environment?: SandboxEnvironment | undefined;
+export function buildTurnSandbox<TEnvironment = undefined>(input: {
+  provider: SandboxProvider<TEnvironment>;
+  environment?: TEnvironment | undefined;
   logger: Logger;
   skills?: readonly Skill[];
   fileDownloadEnabled: boolean;
   existingSandboxId?: string | undefined;
   tracing: AgentTracing;
-}): Sandbox {
+}): Sandbox<TEnvironment> {
   // Empty mounter still uploads requested-skills file so existing skills are cleaned up.
   return new Sandbox({
     provider: input.provider,
