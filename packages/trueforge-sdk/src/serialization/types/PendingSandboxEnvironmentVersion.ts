@@ -4,14 +4,14 @@ import type * as TrueForge from "../../api/index.js";
 import * as core from "../../core/index.js";
 import type * as serializers from "../index.js";
 
-export const ListPendingSandboxEnvironmentVersionsResponseDataItem: core.serialization.ObjectSchema<
-    serializers.ListPendingSandboxEnvironmentVersionsResponseDataItem.Raw,
-    TrueForge.ListPendingSandboxEnvironmentVersionsResponseDataItem
+export const PendingSandboxEnvironmentVersion: core.serialization.ObjectSchema<
+    serializers.PendingSandboxEnvironmentVersion.Raw,
+    TrueForge.PendingSandboxEnvironmentVersion
 > = core.serialization.object({
     environmentVersionId: core.serialization.property("environment_version_id", core.serialization.string()),
 });
 
-export declare namespace ListPendingSandboxEnvironmentVersionsResponseDataItem {
+export declare namespace PendingSandboxEnvironmentVersion {
     export interface Raw {
         environment_version_id: string;
     }

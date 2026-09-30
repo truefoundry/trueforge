@@ -3,5 +3,5 @@
 import type * as TrueForge from "../index.js";
 
 export interface ListPendingSandboxEnvironmentVersionsResponse {
-    data: TrueForge.ListPendingSandboxEnvironmentVersionsResponseDataItem[];
+    data: TrueForge.PendingSandboxEnvironmentVersion[];
 }

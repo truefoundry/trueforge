@@ -24,16 +24,13 @@ class RawSandboxEnvironmentsClient:
         self._client_wrapper = client_wrapper
 
     def list_pending(
-        self, *, limit: typing.Optional[int] = 20, request_options: typing.Optional[RequestOptions] = None
+        self, *, request_options: typing.Optional[RequestOptions] = None
     ) -> HttpResponse[ListPendingSandboxEnvironmentVersionsResponse]:
         """
         Returns pending environment versions for the build controller.
 
         Parameters
         ----------
-        limit : typing.Optional[int]
-            Max pending versions to return.
-
         request_options : typing.Optional[RequestOptions]
             Request-specific configuration.
 
@@ -45,9 +42,6 @@ class RawSandboxEnvironmentsClient:
         _response = self._client_wrapper.httpx_client.request(
             "api/internal/sandbox-environments/pending",
             method="GET",
-            params={
-                "limit": limit,
-            },
             request_options=request_options,
         )
         try:
@@ -84,7 +78,7 @@ class RawSandboxEnvironmentsClient:
         self, *, environment_version_id: str, request_options: typing.Optional[RequestOptions] = None
     ) -> HttpResponse[None]:
         """
-        Registers or polls the Daytona snapshot and updates version status.
+        Registers or polls the snapshot build and updates version status.
 
         Parameters
         ----------
@@ -150,16 +144,13 @@ class AsyncRawSandboxEnvironmentsClient:
         self._client_wrapper = client_wrapper
 
     async def list_pending(
-        self, *, limit: typing.Optional[int] = 20, request_options: typing.Optional[RequestOptions] = None
+        self, *, request_options: typing.Optional[RequestOptions] = None
     ) -> AsyncHttpResponse[ListPendingSandboxEnvironmentVersionsResponse]:
         """
         Returns pending environment versions for the build controller.
 
         Parameters
         ----------
-        limit : typing.Optional[int]
-            Max pending versions to return.
-
         request_options : typing.Optional[RequestOptions]
             Request-specific configuration.
 
@@ -171,9 +162,6 @@ class AsyncRawSandboxEnvironmentsClient:
         _response = await self._client_wrapper.httpx_client.request(
             "api/internal/sandbox-environments/pending",
             method="GET",
-            params={
-                "limit": limit,
-            },
             request_options=request_options,
         )
         try:
@@ -210,7 +198,7 @@ class AsyncRawSandboxEnvironmentsClient:
         self, *, environment_version_id: str, request_options: typing.Optional[RequestOptions] = None
     ) -> AsyncHttpResponse[None]:
         """
-        Registers or polls the Daytona snapshot and updates version status.
+        Registers or polls the snapshot build and updates version status.
 
         Parameters
         ----------

@@ -108,9 +108,6 @@ if typing.TYPE_CHECKING:
     from .list_mcp_servers_response import ListMcpServersResponse
     from .list_model_providers_response import ListModelProvidersResponse
     from .list_pending_sandbox_environment_versions_response import ListPendingSandboxEnvironmentVersionsResponse
-    from .list_pending_sandbox_environment_versions_response_data_item import (
-        ListPendingSandboxEnvironmentVersionsResponseDataItem,
-    )
     from .list_permissions_data import ListPermissionsData
     from .list_permissions_response import ListPermissionsResponse
     from .list_sandbox_environments_response import ListSandboxEnvironmentsResponse
@@ -159,6 +156,7 @@ if typing.TYPE_CHECKING:
     from .moonshot_model_provider import MoonshotModelProvider
     from .open_ai_model_provider import OpenAiModelProvider
     from .parallel_web_search_provider_auth import ParallelWebSearchProviderAuth
+    from .pending_sandbox_environment_version import PendingSandboxEnvironmentVersion
     from .permission_resource_type import PermissionResourceType
     from .previous_turn_id_input import PreviousTurnIdInput
     from .raw_tool_call import RawToolCall
@@ -174,7 +172,6 @@ if typing.TYPE_CHECKING:
     from .response_format_json_schema_json_schema import ResponseFormatJsonSchemaJsonSchema
     from .response_format_text import ResponseFormatText
     from .runtime_config import RuntimeConfig
-    from .sandbox_build_status import SandboxBuildStatus
     from .sandbox_capability import SandboxCapability
     from .sandbox_config import SandboxConfig
     from .sandbox_created_event import SandboxCreatedEvent
@@ -378,7 +375,6 @@ _dynamic_imports: typing.Dict[str, str] = {
     "ListMcpServersResponse": ".list_mcp_servers_response",
     "ListModelProvidersResponse": ".list_model_providers_response",
     "ListPendingSandboxEnvironmentVersionsResponse": ".list_pending_sandbox_environment_versions_response",
-    "ListPendingSandboxEnvironmentVersionsResponseDataItem": ".list_pending_sandbox_environment_versions_response_data_item",
     "ListPermissionsData": ".list_permissions_data",
     "ListPermissionsResponse": ".list_permissions_response",
     "ListSandboxEnvironmentsResponse": ".list_sandbox_environments_response",
@@ -427,6 +423,7 @@ _dynamic_imports: typing.Dict[str, str] = {
     "MoonshotModelProvider": ".moonshot_model_provider",
     "OpenAiModelProvider": ".open_ai_model_provider",
     "ParallelWebSearchProviderAuth": ".parallel_web_search_provider_auth",
+    "PendingSandboxEnvironmentVersion": ".pending_sandbox_environment_version",
     "PermissionResourceType": ".permission_resource_type",
     "PreviousTurnIdInput": ".previous_turn_id_input",
     "RawToolCall": ".raw_tool_call",
@@ -442,7 +439,6 @@ _dynamic_imports: typing.Dict[str, str] = {
     "ResponseFormatJsonSchemaJsonSchema": ".response_format_json_schema_json_schema",
     "ResponseFormatText": ".response_format_text",
     "RuntimeConfig": ".runtime_config",
-    "SandboxBuildStatus": ".sandbox_build_status",
     "SandboxCapability": ".sandbox_capability",
     "SandboxConfig": ".sandbox_config",
     "SandboxCreatedEvent": ".sandbox_created_event",
@@ -670,7 +666,6 @@ __all__ = [
     "ListMcpServersResponse",
     "ListModelProvidersResponse",
     "ListPendingSandboxEnvironmentVersionsResponse",
-    "ListPendingSandboxEnvironmentVersionsResponseDataItem",
     "ListPermissionsData",
     "ListPermissionsResponse",
     "ListSandboxEnvironmentsResponse",
@@ -719,6 +714,7 @@ __all__ = [
     "MoonshotModelProvider",
     "OpenAiModelProvider",
     "ParallelWebSearchProviderAuth",
+    "PendingSandboxEnvironmentVersion",
     "PermissionResourceType",
     "PreviousTurnIdInput",
     "RawToolCall",
@@ -734,7 +730,6 @@ __all__ = [
     "ResponseFormatJsonSchemaJsonSchema",
     "ResponseFormatText",
     "RuntimeConfig",
-    "SandboxBuildStatus",
     "SandboxCapability",
     "SandboxConfig",
     "SandboxCreatedEvent",

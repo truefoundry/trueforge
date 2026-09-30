@@ -988,7 +988,7 @@ const response = page.response;
 <dl>
 <dd>
 
-Create or replace by `manifest.name`. Requires a Daytona sandbox provider.
+Create or replace by `manifest.name`. Requires a configured sandbox provider.
 </dd>
 </dl>
 </dd>
@@ -3397,7 +3397,7 @@ await client.internal.metrics.getMeters({
 </details>
 
 ## Internal SandboxEnvironments
-<details><summary><code>client.internal.sandboxEnvironments.<a href="/src/api/resources/internal/resources/sandboxEnvironments/client/Client.ts">listPending</a>({ ...params }) -> TrueForge.ListPendingSandboxEnvironmentVersionsResponse</code></summary>
+<details><summary><code>client.internal.sandboxEnvironments.<a href="/src/api/resources/internal/resources/sandboxEnvironments/client/Client.ts">listPending</a>() -> TrueForge.ListPendingSandboxEnvironmentVersionsResponse</code></summary>
 <dl>
 <dd>
 
@@ -3440,14 +3440,6 @@ await client.internal.sandboxEnvironments.listPending();
 <dl>
 <dd>
 
-**request:** `TrueForge.internal.ListPendingSandboxEnvironmentsRequest` 
-    
-</dd>
-</dl>
-
-<dl>
-<dd>
-
 **requestOptions:** `SandboxEnvironmentsClient.RequestOptions` 
     
 </dd>
@@ -3472,7 +3464,7 @@ await client.internal.sandboxEnvironments.listPending();
 <dl>
 <dd>
 
-Registers or polls the Daytona snapshot and updates version status.
+Registers or polls the snapshot build and updates version status.
 </dd>
 </dl>
 </dd>

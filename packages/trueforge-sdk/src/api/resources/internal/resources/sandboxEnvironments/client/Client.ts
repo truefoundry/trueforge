@@ -26,7 +26,6 @@ export class SandboxEnvironmentsClient {
     /**
      * Returns pending environment versions for the build controller.
      *
-     * @param {TrueForge.internal.ListPendingSandboxEnvironmentsRequest} request
      * @param {SandboxEnvironmentsClient.RequestOptions} requestOptions - Request-specific configuration.
      *
      * @throws {@link TrueForge.UnauthorizedError}
@@ -37,20 +36,14 @@ export class SandboxEnvironmentsClient {
      *     await client.internal.sandboxEnvironments.listPending()
      */
     public listPending(
-        request: TrueForge.internal.ListPendingSandboxEnvironmentsRequest = {},
         requestOptions?: SandboxEnvironmentsClient.RequestOptions,
     ): core.HttpResponsePromise<TrueForge.ListPendingSandboxEnvironmentVersionsResponse> {
-        return core.HttpResponsePromise.fromPromise(this.__listPending(request, requestOptions));
+        return core.HttpResponsePromise.fromPromise(this.__listPending(requestOptions));
     }
 
     private async __listPending(
-        request: TrueForge.internal.ListPendingSandboxEnvironmentsRequest = {},
         requestOptions?: SandboxEnvironmentsClient.RequestOptions,
     ): Promise<core.WithRawResponse<TrueForge.ListPendingSandboxEnvironmentVersionsResponse>> {
-        const { limit = 20 } = request;
-        const _queryParams: Record<string, unknown> = {
-            limit,
-        };
         const _authRequest: core.AuthRequest = await this._options.authProvider.getAuthRequest();
         const _headers: core.Fetcher.Args["headers"] = mergeHeaders(
             _authRequest.headers,
@@ -65,11 +58,7 @@ export class SandboxEnvironmentsClient {
             ),
             method: "GET",
             headers: _headers,
-            queryString: core.url
-                .queryBuilder()
-                .addMany(_queryParams)
-                .mergeAdditional(requestOptions?.queryParams)
-                .build(),
+            queryString: core.url.queryBuilder().mergeAdditional(requestOptions?.queryParams).build(),
             timeoutMs: (requestOptions?.timeoutInSeconds ?? this._options?.timeoutInSeconds ?? 60) * 1000,
             maxRetries: requestOptions?.maxRetries ?? this._options?.maxRetries,
             abortSignal: requestOptions?.abortSignal,
@@ -120,7 +109,7 @@ export class SandboxEnvironmentsClient {
     }
 
     /**
-     * Registers or polls the Daytona snapshot and updates version status.
+     * Registers or polls the snapshot build and updates version status.
      *
      * @param {TrueForge.internal.ProgressSandboxEnvironmentVersionRequest} request
      * @param {SandboxEnvironmentsClient.RequestOptions} requestOptions - Request-specific configuration.

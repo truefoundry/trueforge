@@ -142,7 +142,7 @@ export class SandboxEnvironmentsClient {
     }
 
     /**
-     * Create or replace by `manifest.name`. Requires a Daytona sandbox provider.
+     * Create or replace by `manifest.name`. Requires a configured sandbox provider.
      *
      * @param {TrueForge.UpdateSandboxEnvironmentRequest} request
      * @param {SandboxEnvironmentsClient.RequestOptions} requestOptions - Request-specific configuration.

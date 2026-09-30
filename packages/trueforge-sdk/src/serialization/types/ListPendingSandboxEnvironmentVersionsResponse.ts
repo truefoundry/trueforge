@@ -3,17 +3,17 @@
 import type * as TrueForge from "../../api/index.js";
 import * as core from "../../core/index.js";
 import type * as serializers from "../index.js";
-import { ListPendingSandboxEnvironmentVersionsResponseDataItem } from "./ListPendingSandboxEnvironmentVersionsResponseDataItem.js";
+import { PendingSandboxEnvironmentVersion } from "./PendingSandboxEnvironmentVersion.js";
 
 export const ListPendingSandboxEnvironmentVersionsResponse: core.serialization.ObjectSchema<
     serializers.ListPendingSandboxEnvironmentVersionsResponse.Raw,
     TrueForge.ListPendingSandboxEnvironmentVersionsResponse
 > = core.serialization.object({
-    data: core.serialization.list(ListPendingSandboxEnvironmentVersionsResponseDataItem),
+    data: core.serialization.list(PendingSandboxEnvironmentVersion),
 });
 
 export declare namespace ListPendingSandboxEnvironmentVersionsResponse {
     export interface Raw {
-        data: ListPendingSandboxEnvironmentVersionsResponseDataItem.Raw[];
+        data: PendingSandboxEnvironmentVersion.Raw[];
     }
 }

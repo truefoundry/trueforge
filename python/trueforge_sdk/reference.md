@@ -1140,7 +1140,7 @@ client.sandbox_environments.list()
 <dl>
 <dd>
 
-Create or replace by `manifest.name`. Requires a Daytona sandbox provider.
+Create or replace by `manifest.name`. Requires a configured sandbox provider.
 </dd>
 </dl>
 </dd>
@@ -4024,7 +4024,7 @@ client.internal.metrics.get_meters(
 </details>
 
 ## Internal SandboxEnvironments
-<details><summary><code>client.internal.sandbox_environments.<a href="src/trueforge_sdk/internal/sandbox_environments/client.py">list_pending</a>(...) -> ListPendingSandboxEnvironmentVersionsResponse</code></summary>
+<details><summary><code>client.internal.sandbox_environments.<a href="src/trueforge_sdk/internal/sandbox_environments/client.py">list_pending</a>() -> ListPendingSandboxEnvironmentVersionsResponse</code></summary>
 <dl>
 <dd>
 
@@ -4074,14 +4074,6 @@ client.internal.sandbox_environments.list_pending()
 <dl>
 <dd>
 
-**limit:** `typing.Optional[int]` — Max pending versions to return.
-    
-</dd>
-</dl>
-
-<dl>
-<dd>
-
 **request_options:** `typing.Optional[RequestOptions]` — Request-specific configuration.
     
 </dd>
@@ -4106,7 +4098,7 @@ client.internal.sandbox_environments.list_pending()
 <dl>
 <dd>
 
-Registers or polls the Daytona snapshot and updates version status.
+Registers or polls the snapshot build and updates version status.
 </dd>
 </dl>
 </dd>

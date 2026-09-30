@@ -124,7 +124,7 @@ class RawSandboxEnvironmentsClient:
         self, *, manifest: SandboxEnvironmentManifest, request_options: typing.Optional[RequestOptions] = None
     ) -> HttpResponse[GetSandboxEnvironmentResponse]:
         """
-        Create or replace by `manifest.name`. Requires a Daytona sandbox provider.
+        Create or replace by `manifest.name`. Requires a configured sandbox provider.
 
         Parameters
         ----------
@@ -455,7 +455,7 @@ class AsyncRawSandboxEnvironmentsClient:
         self, *, manifest: SandboxEnvironmentManifest, request_options: typing.Optional[RequestOptions] = None
     ) -> AsyncHttpResponse[GetSandboxEnvironmentResponse]:
         """
-        Create or replace by `manifest.name`. Requires a Daytona sandbox provider.
+        Create or replace by `manifest.name`. Requires a configured sandbox provider.
 
         Parameters
         ----------

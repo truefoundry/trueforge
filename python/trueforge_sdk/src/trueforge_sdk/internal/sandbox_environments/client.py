@@ -27,16 +27,13 @@ class SandboxEnvironmentsClient:
         return self._raw_client
 
     def list_pending(
-        self, *, limit: typing.Optional[int] = 20, request_options: typing.Optional[RequestOptions] = None
+        self, *, request_options: typing.Optional[RequestOptions] = None
     ) -> ListPendingSandboxEnvironmentVersionsResponse:
         """
         Returns pending environment versions for the build controller.
 
         Parameters
         ----------
-        limit : typing.Optional[int]
-            Max pending versions to return.
-
         request_options : typing.Optional[RequestOptions]
             Request-specific configuration.
 
@@ -55,12 +52,12 @@ class SandboxEnvironmentsClient:
         )
         client.internal.sandbox_environments.list_pending()
         """
-        _response = self._raw_client.list_pending(limit=limit, request_options=request_options)
+        _response = self._raw_client.list_pending(request_options=request_options)
         return _response.data
 
     def progress(self, *, environment_version_id: str, request_options: typing.Optional[RequestOptions] = None) -> None:
         """
-        Registers or polls the Daytona snapshot and updates version status.
+        Registers or polls the snapshot build and updates version status.
 
         Parameters
         ----------
@@ -108,16 +105,13 @@ class AsyncSandboxEnvironmentsClient:
         return self._raw_client
 
     async def list_pending(
-        self, *, limit: typing.Optional[int] = 20, request_options: typing.Optional[RequestOptions] = None
+        self, *, request_options: typing.Optional[RequestOptions] = None
     ) -> ListPendingSandboxEnvironmentVersionsResponse:
         """
         Returns pending environment versions for the build controller.
 
         Parameters
         ----------
-        limit : typing.Optional[int]
-            Max pending versions to return.
-
         request_options : typing.Optional[RequestOptions]
             Request-specific configuration.
 
@@ -144,14 +138,14 @@ class AsyncSandboxEnvironmentsClient:
 
         asyncio.run(main())
         """
-        _response = await self._raw_client.list_pending(limit=limit, request_options=request_options)
+        _response = await self._raw_client.list_pending(request_options=request_options)
         return _response.data
 
     async def progress(
         self, *, environment_version_id: str, request_options: typing.Optional[RequestOptions] = None
     ) -> None:
         """
-        Registers or polls the Daytona snapshot and updates version status.
+        Registers or polls the snapshot build and updates version status.
 
         Parameters
         ----------

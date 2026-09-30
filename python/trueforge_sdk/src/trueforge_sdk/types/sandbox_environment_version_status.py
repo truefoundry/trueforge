@@ -13,7 +13,7 @@ class SandboxEnvironmentVersionStatus(enum.StrEnum):
     """
 
     PENDING = "pending"
-    ACTIVE = "active"
+    READY = "ready"
     FAILED = "failed"
     _UNKNOWN = "__SANDBOXENVIRONMENTVERSIONSTATUS_UNKNOWN__"
     """
@@ -29,14 +29,14 @@ class SandboxEnvironmentVersionStatus(enum.StrEnum):
     def visit(
         self,
         pending: typing.Callable[[], T_Result],
-        active: typing.Callable[[], T_Result],
+        ready: typing.Callable[[], T_Result],
         failed: typing.Callable[[], T_Result],
         _unknown_member: typing.Callable[[str], T_Result],
     ) -> T_Result:
         if self is SandboxEnvironmentVersionStatus.PENDING:
             return pending()
-        if self is SandboxEnvironmentVersionStatus.ACTIVE:
-            return active()
+        if self is SandboxEnvironmentVersionStatus.READY:
+            return ready()
         if self is SandboxEnvironmentVersionStatus.FAILED:
             return failed()
         return _unknown_member(self._value_)

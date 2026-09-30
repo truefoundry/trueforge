@@ -7,7 +7,7 @@ from ..core.pydantic_utilities import IS_PYDANTIC_V2
 from ..core.unchecked_base_model import UncheckedBaseModel
 
 
-class ListPendingSandboxEnvironmentVersionsResponseDataItem(UncheckedBaseModel):
+class PendingSandboxEnvironmentVersion(UncheckedBaseModel):
     environment_version_id: str = pydantic.Field()
     """
     Version row id to progress.

@@ -8469,7 +8469,7 @@
         "x-fern-sdk-method-name": "list"
       },
       "put": {
-        "description": "Create or replace by `manifest.name`. Requires a snapshot-capable sandbox provider.",
+        "description": "Create or replace by `manifest.name`. Requires a configured sandbox provider.",
         "requestBody": {
           "content": {
             "application/json": {
@@ -8529,7 +8529,7 @@
                 }
               }
             },
-            "description": "No snapshot-capable sandbox provider configured."
+            "description": "No sandbox provider configured."
           }
         },
         "summary": "Create or update a sandbox environment",
