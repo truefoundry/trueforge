@@ -289,7 +289,7 @@ export class AgentThreadOrchestrator {
       for (const thread of this.agentThreads.values()) {
         for (const toolSet of thread.getUserToolSets()) {
           if (toolSet.name === policy.server_name) {
-            toolSet.applyApprovalPolicy(policy.name, policy.action);
+            toolSet.setApprovalPolicy(policy.name, policy.action);
           }
         }
       }

@@ -404,7 +404,7 @@ describe('ToolSet: policy-aware is_approval_required', () => {
 
   it('an applicable policy auto-allows: no approval flag, callTool runs without a decision', async () => {
     const { toolSet, callTool } = makeApprovalGatedWriteNoteToolSet();
-    toolSet.applyApprovalPolicy(WRITE_NOTE_TOOL_NAME, { type: 'allow_session' });
+    toolSet.setApprovalPolicy(WRITE_NOTE_TOOL_NAME, { type: 'allow_session' });
 
     const info = await toolSet.toolCallInfo(writeNoteParams);
     expect(info.is_approval_required).toBe(false);
@@ -416,7 +416,7 @@ describe('ToolSet: policy-aware is_approval_required', () => {
 
   it('an unexpired policy auto-allows', async () => {
     const { toolSet } = makeApprovalGatedWriteNoteToolSet();
-    toolSet.applyApprovalPolicy(WRITE_NOTE_TOOL_NAME, {
+    toolSet.setApprovalPolicy(WRITE_NOTE_TOOL_NAME, {
       type: 'allow_session',
       expire_at: '2099-01-01T00:00:00.000Z',
     });
@@ -426,7 +426,7 @@ describe('ToolSet: policy-aware is_approval_required', () => {
 
   it('an expired policy still requires approval', async () => {
     const { toolSet } = makeApprovalGatedWriteNoteToolSet();
-    toolSet.applyApprovalPolicy(WRITE_NOTE_TOOL_NAME, {
+    toolSet.setApprovalPolicy(WRITE_NOTE_TOOL_NAME, {
       type: 'allow_session',
       expire_at: '2000-01-01T00:00:00.000Z',
     });

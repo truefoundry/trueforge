@@ -26,7 +26,7 @@ export class ToolSet implements IToolSet {
   readonly hasPreloadedTools: boolean;
 
   private readonly source: ToolSource;
-  private readonly policy: ToolSelectorPolicy;
+  private readonly toolSelectorPolicy: ToolSelectorPolicy;
   private readonly approvalPolicies = new Map<string, ToolApprovalPolicyAction>();
 
   private static isPolicyApplicable(policy: ToolApprovalPolicyAction, asOf: Date): boolean {
@@ -43,12 +43,12 @@ export class ToolSet implements IToolSet {
     this.name = params.source.name;
     this.id = params.source.id;
     this.description = params.source.description;
-    this.policy = new ToolSelectorPolicy({
+    this.toolSelectorPolicy = new ToolSelectorPolicy({
       selectors: params.selectors,
       preload: params.preload,
     });
-    this.preload = this.policy.preload;
-    this.hasPreloadedTools = this.policy.hasPreloadedTools;
+    this.preload = this.toolSelectorPolicy.preload;
+    this.hasPreloadedTools = this.toolSelectorPolicy.hasPreloadedTools;
     // Drop already-expired policies carried forward from the previous snapshot so
     // dead policies don't accumulate and get re-persisted turn after turn.
     const asOf = new Date();
@@ -60,11 +60,11 @@ export class ToolSet implements IToolSet {
   }
 
   getAllowedToolNamesForSandbox(): string[] | undefined {
-    return this.policy.allowedNamesForSandbox();
+    return this.toolSelectorPolicy.allowedNamesForSandbox();
   }
 
   // Last write wins for a given tool.
-  applyApprovalPolicy(toolName: string, action: ToolApprovalPolicyAction): void {
+  setApprovalPolicy(toolName: string, action: ToolApprovalPolicyAction): void {
     this.approvalPolicies.set(toolName, action);
   }
 
@@ -72,7 +72,7 @@ export class ToolSet implements IToolSet {
     return Object.fromEntries(this.approvalPolicies);
   }
 
-  private hasApplicablePolicy(toolName: string): boolean {
+  private hasApplicableApprovalPolicy(toolName: string): boolean {
     const policy = this.approvalPolicies.get(toolName);
     return policy !== undefined && ToolSet.isPolicyApplicable(policy, new Date());
   }
@@ -84,7 +84,7 @@ export class ToolSet implements IToolSet {
     }
 
     const tools = response.result.tools;
-    const missingTools = this.policy.missingEnableLiterals(tools);
+    const missingTools = this.toolSelectorPolicy.missingEnableLiterals(tools);
     if (missingTools.length > 0) {
       throw new McpConnectionError(
         `Requested tools not found in MCP server ${this.name}: ${missingTools.join(', ')}`,
@@ -93,7 +93,7 @@ export class ToolSet implements IToolSet {
     }
 
     return {
-      result: { tools: this.policy.filterAndAnnotate(tools) },
+      result: { tools: this.toolSelectorPolicy.filterAndAnnotate(tools) },
       wasInitialized: response.wasInitialized,
     };
   }
@@ -140,7 +140,7 @@ export class ToolSet implements IToolSet {
   }
 
   private async assertToolAllowed(toolName: string, annotations: ToolAnnotations | undefined): Promise<void> {
-    const allowed = await this.policy.isAllowed(toolName, () => Promise.resolve(annotations));
+    const allowed = await this.toolSelectorPolicy.isAllowed(toolName, () => Promise.resolve(annotations));
     if (!allowed) {
       throw new McpConnectionError(`Tool '${toolName}' is not allowed on MCP server ${this.name}`, 403);
     }
@@ -154,7 +154,8 @@ export class ToolSet implements IToolSet {
     return {
       ...(await this.source.toolCallInfo(params, resolveUnderlyingTool)),
       is_approval_required:
-        this.policy.requiresApproval(params.name, annotations) && !this.hasApplicablePolicy(params.name),
+        this.toolSelectorPolicy.requiresApproval(params.name, annotations) &&
+        !this.hasApplicableApprovalPolicy(params.name),
     };
   }
 

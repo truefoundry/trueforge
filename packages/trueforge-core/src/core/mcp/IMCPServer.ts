@@ -123,7 +123,7 @@ export interface IToolSet {
 
   // Per-tool approval policies. User MCP tool sets record and expose policies;
   // system tool sets are never approval-gated and implement these as no-ops.
-  applyApprovalPolicy(toolName: string, action: ToolApprovalPolicyAction): void;
+  setApprovalPolicy(toolName: string, action: ToolApprovalPolicyAction): void;
   getApprovalPolicies(): Record<string, ToolApprovalPolicyAction>;
 }
 
