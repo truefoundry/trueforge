@@ -33,7 +33,12 @@ import {
 } from '../src/convertTurnMessages.js';
 import { buildRootAssistantContent, ingestTurnEvent, PeerThreadFoldState } from '../src/foldPeerThreads.js';
 import { findPausedAssistantMessage } from '../src/requiredActionInputs.js';
-import { createEmptySessionSnapshot, replaceSessionSnapshot, type SessionSnapshot, turnToSessionRecord } from '../src/sessionSnapshot.js';
+import {
+  createEmptySessionSnapshot,
+  replaceSessionSnapshot,
+  type SessionSnapshot,
+  turnToSessionRecord,
+} from '../src/sessionSnapshot.js';
 import { TOOL_APPROVAL_THREAD_ID_CUSTOM_KEY } from '../src/toolApproval.js';
 import {
   applyUserToolResponsesToFold,

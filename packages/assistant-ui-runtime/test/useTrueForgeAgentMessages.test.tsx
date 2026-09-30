@@ -1516,7 +1516,9 @@ describe('useTrueForgeAgentMessages', () => {
         const turnId = 'gateway-turn-mcp-1';
         onTurnIdAvailable?.(turnId);
         yield {
-          content: [{ type: 'text' as const, text: 'This agent needs access to external services before it can continue.' }],
+          content: [
+            { type: 'text' as const, text: 'This agent needs access to external services before it can continue.' },
+          ],
           status: { type: 'requires-action' as const, reason: 'interrupt' as const },
           metadata: { custom: { pendingMcpAuth: true, mcpServers } },
         };
@@ -1547,4 +1549,3 @@ describe('useTrueForgeAgentMessages', () => {
     expect(ids.length).toBe(uniqueIds.size);
   });
 });
-
