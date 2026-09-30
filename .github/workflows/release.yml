@@ -18,6 +18,11 @@
 # Merge the Version Packages PR to publish. After Helm publish, release-chart.yml
 # tags charts/trueforge@<chartVersion> on the metadata commit.
 #
+# The chart metadata commit must not re-enter this workflow: release-chart.yml
+# pushes with an App token (so GitHub still fires push workflows) and stamps
+# `[skip ci]` on the commit. select-mode also skips trueforge-dev-bot pushes
+# (same App as generate-sdk) and chart-only path changes as a second line.
+#
 # Auth is GitHub OIDC (no NPM_TOKEN / PYPI_TOKEN). An `_authToken` in user `.npmrc`
 # disables pnpm's OIDC exchange, so the npm publish job must not set NPM_TOKEN /
 # NODE_AUTH_TOKEN. id-token is granted on the publish jobs and on the image job
@@ -27,6 +32,10 @@ name: Version or publish packages
 on:
   push:
     branches: [release-v0.3.0]
+    # Chart metadata commits only touch charts/; ignore them even if [skip ci]
+    # is missing from the commit message.
+    paths-ignore:
+      - 'charts/**'
   workflow_dispatch:
 
 concurrency:
@@ -39,6 +48,12 @@ permissions: {}
 jobs:
   select-mode:
     name: Select mode
+    # App-token chart pushes are authored as github-actions[bot] in git config
+    # but github.actor is the Generate SDK App slug (trueforge-dev-bot[bot]).
+    # workflow_dispatch is always allowed so a human can re-run publish.
+    if: >
+      github.event_name == 'workflow_dispatch' ||
+      github.actor != 'trueforge-dev-bot[bot]'
     runs-on: ubuntu-latest
     timeout-minutes: 10
     outputs:

@@ -6,7 +6,8 @@ name: Publish Helm chart
 #
 # Steps: resolve the next chart version from Chart.yaml on origin/<branch>, write
 # appVersion / image.tag / version, lint, package, push OCI, commit those files
-# to that branch, then tag charts/trueforge@<chartVersion> on that commit.
+# to that branch (message includes [skip ci] so App-token pushes do not re-enter
+# release.yml), then tag charts/trueforge@<chartVersion> on that commit.
 #
 # Manual runs: `gh workflow run release-chart.yml --ref <workflow-file-ref>`.
 # --ref is the workflow file GitHub runs (branch or tag, not a SHA).
@@ -212,7 +213,10 @@ jobs:
               echo "Chart metadata already matches $VERSION; refusing to no-op" >&2
               exit 1
             fi
-            git commit -m "release(chart): ${VERSION}"
+            # [skip ci]: App-token pushes still trigger workflows; without this,
+            # release.yml would re-run on the metadata commit (and can loop while
+            # npm is still validating the just-published package).
+            git commit -m "release(chart): ${VERSION} [skip ci]"
             if git push origin "HEAD:${BRANCH}"; then
               tag_chart
               exit 0
