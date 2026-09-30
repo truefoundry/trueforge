@@ -41,7 +41,7 @@ image:
   # Tag defaults to chart appVersion when empty. release-chart.yml sets this
   # to {appVersion}-{shortSha} for the from-source image already in the
   # registry.
-  tag: "0.3.0-ebbf6c0"
+  tag: "0.3.1-75e877f"
   pullPolicy: IfNotPresent
 imagePullSecrets: []
 # Default tfy.jfrog.io repos are anonymously pullable. Set secrets only when
