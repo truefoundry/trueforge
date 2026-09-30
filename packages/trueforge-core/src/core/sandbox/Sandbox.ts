@@ -196,6 +196,13 @@ export function createSandboxLargeToolResponseGuidance(): string {
 export const SANDBOX_MCP_SERVER_ID = 'sandbox';
 type SandboxExecInput = z.infer<typeof sandboxExecSchema>;
 
+/**
+ * Environment-erased sandbox for the harness (Daytona tip / TFY / local share one handle type).
+ * `any` is intentional here only — callers must not spread it as a general escape hatch.
+ */
+// eslint-disable-next-line @typescript-eslint/no-explicit-any -- harness erase across providers
+export type HarnessSandbox = Sandbox<any>;
+
 export class Sandbox<TEnvironment = undefined> extends LocalToolMCP {
   readonly name = SANDBOX_MCP_SERVER_ID;
   readonly displayName = 'Sandbox';

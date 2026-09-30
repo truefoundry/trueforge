@@ -220,7 +220,7 @@ export function localSandboxUploadCommand(remotePath: string): string {
   ].join(' && ');
 }
 
-export class LocalSandboxProvider implements SandboxProvider<undefined> {
+export class LocalSandboxProvider implements SandboxProvider {
   readonly type = 'local';
   readonly envSupported = false;
   private readonly sandboxRootPathParent: string;

@@ -52,7 +52,7 @@ import { estimateTokensForString } from '../llm/usage';
 import { convertMCPServersToTools, type ConvertToolsResult, type MappedMCPTool } from '../mcp/convertMCPServers';
 import { executeToolCalls } from '../mcp/executeToolCalls';
 import type { IToolSet, MCPAuthRequired } from '../mcp/IMCPServer';
-import type { Sandbox, SandboxInfo } from '../sandbox/Sandbox';
+import type { HarnessSandbox, SandboxInfo } from '../sandbox/Sandbox';
 import type { AgentTracing } from '../tracing/AgentTracing';
 import { describeUnknownError, extractErrorLogFields } from '../util/errorLogFields';
 import type { AgentDefinition } from './AgentDefinition';
@@ -513,7 +513,7 @@ export class AgentThread {
   private deferredTool?: DeferredTool | undefined;
   private convertedTools: ConvertToolsResult | undefined;
   private pendingSandboxCreatedEvents: SandboxCreatedEvent[] = [];
-  private sandbox?: Sandbox<any> | undefined;
+  private sandbox?: HarnessSandbox | undefined;
   private readonly tracing: AgentTracing;
   private readonly logger: Logger;
 
