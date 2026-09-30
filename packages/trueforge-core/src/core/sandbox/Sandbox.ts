@@ -17,7 +17,6 @@ import type { AgentTracing } from '../tracing/AgentTracing';
 import { extractErrorLogFields } from '../util/errorLogFields';
 import { CodeModeDispatcher } from './codeMode/CodeModeDispatcher';
 import { type CodeModeClientInstall, type CodeModeTransport } from './codeMode/CodeModeTransport';
-import type { DaytonaSandboxEnvironment } from './provider/DaytonaSandboxEnvironment';
 import { ensureExecSuccess, shellEscape, type SandboxProvider } from './provider/Provider';
 import { SandboxNotAvailableError, validateNoPathTraversal } from './SandboxErrors';
 import { formatSandboxId, rawSandboxId } from './sandboxRef';
@@ -817,6 +816,3 @@ export class Sandbox<TEnvironment = undefined> extends LocalToolMCP {
     }
   }
 }
-
-/** Daytona (typed env) or providers with no env — the resolved handle for a turn/thread. */
-export type ResolvedSandbox = Sandbox<DaytonaSandboxEnvironment> | Sandbox;

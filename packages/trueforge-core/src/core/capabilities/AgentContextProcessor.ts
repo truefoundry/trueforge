@@ -7,12 +7,12 @@ import type {
   InternalPassthroughEvent,
 } from '../runtime/AgentThread.types';
 import type { CurrentContextUsage } from '../runtime/contextUsage';
-import type { ResolvedSandbox } from '../sandbox/Sandbox';
+import type { Sandbox } from '../sandbox/Sandbox';
 
 /** Ambient thread snapshot passed Readonly to every capability processor hook. */
 export interface AgentThreadExecutionContext {
   threadId: string;
-  sandbox?: ResolvedSandbox | undefined;
+  sandbox?: Sandbox<any> | undefined;
   currentContextUsage: CurrentContextUsage;
   context: ContextMessage[];
 }

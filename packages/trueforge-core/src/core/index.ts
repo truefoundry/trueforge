@@ -191,7 +191,7 @@ export type {
 } from './sandbox/provider/Provider';
 export { TFYSandboxProvider } from './sandbox/provider/TFYSandboxProvider';
 export { SKILL_DOWNLOAD_TIMEOUT_SECONDS, Sandbox, buildWriteAndRunScriptCommand } from './sandbox/Sandbox';
-export type { ResolvedSandbox, SandboxInfo } from './sandbox/Sandbox';
+export type { SandboxInfo } from './sandbox/Sandbox';
 export {
   SandboxError,
   SandboxFileNotFoundError,

@@ -6,7 +6,7 @@ import type { ToolSelectorConfig } from '../core/mcp/ToolSelectorPolicy';
 import { ToolSet } from '../core/mcp/ToolSet';
 import type { AgentDefinition, ModelParams } from '../core/runtime/AgentDefinition';
 import type { AgentInfo } from '../core/runtime/AgentThread.types';
-import type { ResolvedSandbox, SandboxInfo } from '../core/sandbox/Sandbox';
+import type { Sandbox, SandboxInfo } from '../core/sandbox/Sandbox';
 import type { AgentTracing } from '../core/tracing/AgentTracing';
 import { NOOP_AGENT_TRACING } from '../core/tracing/NoopAgentTracing';
 import type { IWebSearchProvider } from '../core/web-search/WebSearchProvider';
@@ -25,7 +25,7 @@ export type TurnSandboxFactory = (input: {
   existingSandboxId?: string | undefined;
   signal: AbortSignal;
   tracing: AgentTracing;
-}) => Promise<ResolvedSandbox>;
+}) => Promise<Sandbox<any>>;
 
 function specWantsSandbox(spec: AgentSpec): boolean {
   return spec.config.sandbox.enabled;
@@ -61,7 +61,7 @@ export class TurnResourceResolver<
 > implements ITurnResourceResolver<TTurnCustom> {
   readonly #sources = new Map<string, Promise<ToolSource>>();
   readonly #models = new Map<string, Promise<ResolvedModel>>();
-  #sandbox?: ResolvedSandbox | undefined;
+  #sandbox?: Sandbox<any> | undefined;
 
   constructor(
     protected readonly deps: {
@@ -128,7 +128,7 @@ export class TurnResourceResolver<
     previousTurn?: TurnRecord<TTurnCustom> | undefined;
     signal: AbortSignal;
     tracing: AgentTracing;
-  }): Promise<ResolvedSandbox | undefined> {
+  }): Promise<Sandbox<any> | undefined> {
     if (!this.deps.sandboxProvider || !specWantsSandbox(input.spec)) {
       return undefined;
     }
