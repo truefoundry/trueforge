@@ -52,6 +52,7 @@ const expectedRuntimeExports: Array<keyof typeof sdk> = [
   'BottomSheet',
   'BrandLogo',
   'Button',
+  'CanCreateAgentProvider',
   'CenteredModal',
   'ChatFileDownload',
   'ClearChatButton',

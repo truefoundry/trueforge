@@ -2876,6 +2876,13 @@
       },
       "MCPServerInitInfo": {
         "properties": {
+          "approval_policies": {
+            "additionalProperties": {
+              "$ref": "#/components/schemas/ToolApprovalPolicyAction"
+            },
+            "description": "Sticky per-tool approval policies (keyed by tool name) that auto-allow future calls.",
+            "type": "object"
+          },
           "id": {
             "description": "Internal MCP server id.",
             "type": "string"
@@ -5101,6 +5108,19 @@
         ],
         "type": "object"
       },
+      "ToolApprovalPolicyAction": {
+        "discriminator": {
+          "mapping": {
+            "allow_session": "#/components/schemas/ToolApprovalPolicyAllowSession"
+          },
+          "propertyName": "type"
+        },
+        "oneOf": [
+          {
+            "$ref": "#/components/schemas/ToolApprovalPolicyAllowSession"
+          }
+        ]
+      },
       "ToolApprovalPolicyAllowSession": {
         "properties": {
           "expire_at": {
@@ -5123,17 +5143,7 @@
       "ToolApprovalPolicyItem": {
         "properties": {
           "action": {
-            "discriminator": {
-              "mapping": {
-                "allow_session": "#/components/schemas/ToolApprovalPolicyAllowSession"
-              },
-              "propertyName": "type"
-            },
-            "oneOf": [
-              {
-                "$ref": "#/components/schemas/ToolApprovalPolicyAllowSession"
-              }
-            ]
+            "$ref": "#/components/schemas/ToolApprovalPolicyAction"
           },
           "name": {
             "description": "Tool name on that server.",
