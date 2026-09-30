@@ -229,7 +229,7 @@ describe('SessionsPage', () => {
     expect(getSession).toHaveBeenCalledWith({ sessionId: 'sess-1' });
   });
 
-  it('renders session metadata button in detail header when session has metadata', async () => {
+  it('renders session metadata tags in detail header when session has metadata', async () => {
     window.history.replaceState(null, '', '/?view=sessions&sessionId=sess-1');
     const getSession = vi.fn(async (): Promise<Session> => ({
       id: 'sess-1',
@@ -244,9 +244,7 @@ describe('SessionsPage', () => {
       getSession,
     });
 
-    expect(await screen.findByRole('button', { name: 'View session metadata' })).toBeInTheDocument();
-    fireEvent.click(screen.getByRole('button', { name: 'View session metadata' }));
-    expect(screen.getByText('env')).toBeInTheDocument();
+    expect(await screen.findByText('env')).toBeInTheDocument();
     expect(screen.getByText('production')).toBeInTheDocument();
     expect(screen.getByText('cluster')).toBeInTheDocument();
     expect(screen.getByText('us-west-2')).toBeInTheDocument();

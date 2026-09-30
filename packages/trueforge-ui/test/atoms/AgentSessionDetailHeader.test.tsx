@@ -104,8 +104,8 @@ describe('AgentSessionDetailHeader', () => {
     expect(screen.queryByRole('link', { name: /Resume Chat/i })).not.toBeInTheDocument();
   });
 
-  it('renders metadata button and reveals metadata when clicked', () => {
-    render(
+  it('renders session metadata tags directly in the header when metadata is provided', () => {
+    const { container } = render(
       <AgentSessionDetailHeader
         title="Help me find more details"
         sessionId="sess-1"
@@ -114,19 +114,16 @@ describe('AgentSessionDetailHeader', () => {
       />,
     );
 
-    const infoButton = screen.getByRole('button', { name: 'View session metadata' });
-    expect(infoButton).toBeInTheDocument();
-
-    fireEvent.click(infoButton);
-    expect(screen.getByText('Session Metadata')).toBeInTheDocument();
+    const metadataContainer = container.querySelector('[data-slot="session-metadata-tags"]');
+    expect(metadataContainer).toBeInTheDocument();
     expect(screen.getByText('agentName')).toBeInTheDocument();
     expect(screen.getByText('ask-ai-devtest')).toBeInTheDocument();
     expect(screen.getByText('tenantName')).toBeInTheDocument();
     expect(screen.getByText('truefoundry')).toBeInTheDocument();
   });
 
-  it('does not render metadata button when metadata is empty or undefined', () => {
-    const { rerender } = render(
+  it('does not render session metadata section when metadata is empty or undefined', () => {
+    const { container, rerender } = render(
       <AgentSessionDetailHeader
         title="Help me find more details"
         sessionId="sess-1"
@@ -134,15 +131,11 @@ describe('AgentSessionDetailHeader', () => {
         metadata={{}}
       />,
     );
-    expect(screen.queryByRole('button', { name: 'View session metadata' })).not.toBeInTheDocument();
+    expect(container.querySelector('[data-slot="session-metadata-tags"]')).not.toBeInTheDocument();
 
     rerender(
-      <AgentSessionDetailHeader
-        title="Help me find more details"
-        sessionId="sess-1"
-        onClose={() => undefined}
-      />,
+      <AgentSessionDetailHeader title="Help me find more details" sessionId="sess-1" onClose={() => undefined} />,
     );
-    expect(screen.queryByRole('button', { name: 'View session metadata' })).not.toBeInTheDocument();
+    expect(container.querySelector('[data-slot="session-metadata-tags"]')).not.toBeInTheDocument();
   });
 });
