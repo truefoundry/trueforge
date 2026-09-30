@@ -1,9 +1,9 @@
 /**
- * TrueFoundry-mode sandbox environments: in-memory always-ready `"default"`,
- * with custom env CRUD delegated to the persistence store.
+ * TrueFoundry-mode sandbox environments: in-memory always-ready `"default"` when the
+ * shared provider is Daytona; custom env CRUD delegated to persistence.
  *
- * When `TRUEFOUNDRY_SANDBOX_PROVIDER=truefoundry`, custom env writes/progress no-op
- * (log and return). List still returns persistence customs so a provider flip remains visible.
+ * When `TRUEFOUNDRY_SANDBOX_PROVIDER=truefoundry` there is no env/snapshot concept —
+ * get/upsert/list-inject no-op (list still returns persistence leftovers after a flip).
  */
 import type { TokenPagination } from '@truefoundry/trueforge-core/agent-session';
 import { encodeOffsetPageToken } from '@truefoundry/trueforge-core/agent-session/store/OffsetPageToken';
@@ -94,8 +94,8 @@ export class TrueFoundrySandboxEnvironmentStore<
     input: ListSandboxEnvironmentsInput,
     transaction?: TTransaction,
   ): Promise<{ data: SandboxEnvironmentWithVersion[]; pagination: TokenPagination }> {
-    // Later pages: customs only (default was injected on page one).
-    if (input.page_token) {
+    // On-prem TFY sandbox has no env/snapshot concept — persistence only (e.g. leftovers after a flip).
+    if (isTfySandbox() || input.page_token) {
       return this.#persistence.listEnvironments(input, transaction);
     }
 
@@ -132,15 +132,15 @@ export class TrueFoundrySandboxEnvironmentStore<
     input: GetSandboxEnvironmentInput,
     transaction?: TTransaction,
   ): Promise<SandboxEnvironmentWithVersion | undefined> {
-    if (input.name === DEFAULT_SANDBOX_ENVIRONMENT_NAME) {
-      return Promise.resolve(synthesizeDefaultEnvironment(input.tenant_id));
-    }
     if (isTfySandbox()) {
-      logger.info('Skipping custom sandbox environment get under TRUEFOUNDRY_SANDBOX_PROVIDER=truefoundry', {
+      logger.info('Skipping sandbox environment get under TRUEFOUNDRY_SANDBOX_PROVIDER=truefoundry', {
         name: input.name,
         tenant_id: input.tenant_id,
       });
       return Promise.resolve(undefined);
+    }
+    if (input.name === DEFAULT_SANDBOX_ENVIRONMENT_NAME) {
+      return Promise.resolve(synthesizeDefaultEnvironment(input.tenant_id));
     }
     return this.#persistence.getEnvironment(input, transaction);
   }
@@ -149,15 +149,15 @@ export class TrueFoundrySandboxEnvironmentStore<
     input: UpsertSandboxEnvironmentInput,
     transaction?: TTransaction,
   ): Promise<SandboxEnvironmentWithVersion> {
-    if (input.name === DEFAULT_SANDBOX_ENVIRONMENT_NAME) {
-      return Promise.resolve(synthesizeDefaultEnvironment(input.tenant_id));
-    }
     if (isTfySandbox()) {
-      logger.info('Skipping custom sandbox environment upsert under TRUEFOUNDRY_SANDBOX_PROVIDER=truefoundry', {
+      logger.info('Skipping sandbox environment upsert under TRUEFOUNDRY_SANDBOX_PROVIDER=truefoundry', {
         name: input.name,
         tenant_id: input.tenant_id,
       });
       return trueFoundryManaged();
+    }
+    if (input.name === DEFAULT_SANDBOX_ENVIRONMENT_NAME) {
+      return Promise.resolve(synthesizeDefaultEnvironment(input.tenant_id));
     }
     return this.#persistence.upsertEnvironment(input, transaction);
   }
@@ -210,15 +210,15 @@ export class TrueFoundrySandboxEnvironmentStore<
   }
 
   deleteEnvironment(input: DeleteSandboxEnvironmentInput, transaction?: TTransaction): Promise<void> {
-    if (input.name === DEFAULT_SANDBOX_ENVIRONMENT_NAME) {
-      return trueFoundryManaged();
-    }
     if (isTfySandbox()) {
-      logger.info('Skipping custom sandbox environment delete under TRUEFOUNDRY_SANDBOX_PROVIDER=truefoundry', {
+      logger.info('Skipping sandbox environment delete under TRUEFOUNDRY_SANDBOX_PROVIDER=truefoundry', {
         name: input.name,
         tenant_id: input.tenant_id,
       });
       return Promise.resolve();
+    }
+    if (input.name === DEFAULT_SANDBOX_ENVIRONMENT_NAME) {
+      return trueFoundryManaged();
     }
     return this.#persistence.deleteEnvironment(input, transaction);
   }

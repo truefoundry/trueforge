@@ -8,6 +8,7 @@ import type { IWebSearchProviderStore } from '../db/webSearchProviderStore';
 import { getCapabilitiesRoute } from '../routes/capabilityRoutes';
 import { isLocalSandboxFallbackEnabled } from '../sandbox/localRuntime';
 import { DEFAULT_SANDBOX_ENVIRONMENT_NAME, type SandboxEnvironmentVersionStatus } from '../schemas/sandboxEnvironment';
+import { isTfySandbox } from '../truefoundry/isTfySandbox';
 import { hasConfiguredWebSearchProvider } from '../websearch/providers';
 
 /**
@@ -36,7 +37,9 @@ export function createCapabilitiesRouter<TTransaction>(deps: {
       name: DEFAULT_SANDBOX_ENVIRONMENT_NAME,
     });
     const status = defaultEnv?.version.status;
-    const sandboxEnabled = status === 'ready' || (defaultEnv === undefined && isLocalSandboxFallbackEnabled());
+    // On-prem TFY sandbox has no env tip — provider alone means sandbox is available.
+    const sandboxEnabled =
+      isTfySandbox() || status === 'ready' || (defaultEnv === undefined && isLocalSandboxFallbackEnabled());
     const settingsEnabled = hasAdminRole(requestContext);
     const webSearchEnabled = await hasConfiguredWebSearchProvider({
       tenant_id: requestContext.tenant_id,
