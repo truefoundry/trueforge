@@ -1946,6 +1946,146 @@ export function runStoreContractSuite(createStore: () => ISessionStore) {
       }
     });
 
+    it('cancels a paused turn, persists turn.done', async () => {
+      const store = createStore();
+      await seedSession(store);
+      await store.createTurn(makeCreateTurnInput({ sessionId, turnId: 'turn-1' }));
+      const pausedState = makePausedTurnState(['required-event-1']);
+      const turnUpdate = makeTurnUpdateEvent(pausedState);
+      await store.updateTurnNonTerminalState({
+        session_id: sessionId,
+        turn_id: 'turn-1',
+        state: pausedState,
+        turn_update_event: turnUpdate,
+      });
+
+      const cancelledState = makeCancelledTurnState(CancellationReason.CancelledForNextTurn);
+      const record = await store.freezeAndGetTurn({
+        session_id: sessionId,
+        turn_id: 'turn-1',
+        reason: CancellationReason.CancelledForNextTurn,
+        turn_done_event: makeTurnDoneEvent(cancelledState),
+      });
+      expect(record.state).toMatchObject({
+        status: 'cancelled',
+        reason: CancellationReason.CancelledForNextTurn,
+      });
+      if (record.state.status !== 'cancelled') {
+        throw new Error(`expected cancelled turn, got ${record.state.status}`);
+      }
+
+      const { data } = await store.listTurnEvents({
+        session_id: sessionId,
+        turn_id: 'turn-1',
+        limit: 10,
+        page_token: undefined,
+        order: undefined,
+      });
+      expect(data).toContainEqual(turnUpdate);
+      expect(data.filter(event => event.type === EventType.TURN_DONE)).toHaveLength(1);
+
+      const afterCancel = mustGet(await store.getSession({ tenant_id: tenant, session_id: sessionId }));
+      const elapsed_ms = Date.parse(record.state.completed_at) - record.created_at.getTime();
+      expect(afterCancel.metrics).toEqual({
+        total_duration_ms: elapsed_ms > 0 ? Math.trunc(elapsed_ms) : 0,
+        total_turns: 1,
+      });
+      await store.freezeAndGetTurn({
+        session_id: sessionId,
+        turn_id: 'turn-1',
+        reason: CancellationReason.CancelledForNextTurn,
+        turn_done_event: makeTurnDoneEvent(cancelledState),
+      });
+      const afterSecond = mustGet(await store.getSession({ tenant_id: tenant, session_id: sessionId }));
+      expect(afterSecond.metrics).toEqual(afterCancel.metrics);
+      const afterSecondEvents = await store.listTurnEvents({
+        session_id: sessionId,
+        turn_id: 'turn-1',
+        limit: 10,
+        page_token: undefined,
+        order: undefined,
+      });
+      expect(afterSecondEvents.data.filter(event => event.type === EventType.TURN_DONE)).toHaveLength(1);
+
+      const keys = { session_id: sessionId, turn_id: 'turn-1' };
+      const runningState = { status: 'running' } as const;
+      const doneState = makeDoneTurnState();
+      const fencedWrites: (() => Promise<unknown>)[] = [
+        () =>
+          store.updateTurnNonTerminalState({
+            ...keys,
+            state: runningState,
+            turn_update_event: makeTurnUpdateEvent(runningState),
+          }),
+        () =>
+          store.updateTurnTerminalState({
+            ...keys,
+            state: doneState,
+            turn_done_event: makeTurnDoneEvent(doneState),
+          }),
+        () =>
+          store.appendToEvents({
+            ...keys,
+            events: [makeTurnCreatedEvent('turn-1')],
+          }),
+        () =>
+          store.appendToThreadContext({
+            ...keys,
+            thread_id: MAIN_THREAD_ID,
+            context: [userMessage('late')],
+            current_context_usage: null,
+            completion: null,
+          }),
+        () =>
+          store.overwriteThreadContext({
+            ...keys,
+            event: {
+              type: EventType.AGENT_CONTEXT_OVERWRITE,
+              id: newEventId(),
+              created_at: new Date().toISOString(),
+              thread_id: MAIN_THREAD_ID,
+              reason: 'compaction',
+              context: [userMessage('late-overwrite')],
+              current_context_usage: getEmptyCurrentContextUsage(),
+              usage: getEmptyUsage(),
+            },
+          }),
+        () =>
+          store.addThreads({
+            ...keys,
+            threads: [
+              {
+                thread_id: 'child',
+                context: [],
+                current_context_usage: getEmptyCurrentContextUsage(),
+                parent: { thread_id: MAIN_THREAD_ID, tool_call_id: 'tc1' },
+                agent_info: { type: 'dynamic', name: 'child', input: 'do work' },
+                completion: null,
+                capability_state: null,
+              },
+            ],
+          }),
+        () => store.removeThreads({ ...keys, thread_ids: [MAIN_THREAD_ID] }),
+        () =>
+          store.patchMCPServers({
+            ...keys,
+            mcp_servers: [{ id: 'svc', name: 'svc', session_id: 'mcp-1', transport_type: 'streamable-http' }],
+          }),
+        () => store.patchSandboxInfo({ ...keys, sandbox_info: { sandbox_id: 'sbx-1' } }),
+        () =>
+          store.patchThreadCapabilityState({
+            ...keys,
+            thread_id: MAIN_THREAD_ID,
+            key: 'tfy.plan',
+            state: { v: 1 },
+          }),
+      ];
+
+      for (const write of fencedWrites) {
+        await expect(write()).rejects.toBeInstanceOf(TurnNotRunningError);
+      }
+    });
+
     it('cancels a running turn with the caller-supplied reason', async () => {
       const store = createStore();
       await seedSession(store);
