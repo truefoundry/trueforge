@@ -5,8 +5,8 @@ type: application
 # version / appVersion / image.tag are written on the branch passed to
 # release-chart.yml (main from release.yml). Image is built in release.yml.
 # That workflow then tags charts/trueforge@<version> on that commit.
-version: "0.2.3-rc.0"
-appVersion: "0.3.0-rc.0"
+version: "0.3.0"
+appVersion: "0.3.0"
 kubeVersion: ">=1.25.0-0"
 home: https://truefoundry.com
 sources:

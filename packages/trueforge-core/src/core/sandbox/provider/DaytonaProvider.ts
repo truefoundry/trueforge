@@ -1,4 +1,4 @@
-import type { Sandbox, Snapshot } from '@daytona/sdk';
+import type { CreateSandboxFromSnapshotParams, Sandbox, Snapshot } from '@daytona/sdk';
 import { Daytona, DaytonaError } from '@daytona/sdk';
 import { context } from '@opentelemetry/api';
 import { suppressTracing } from '@opentelemetry/core';
@@ -70,6 +70,39 @@ function httpUrlToWsUrl(url: string): string {
   return parsed.toString();
 }
 
+/**
+ * Daytona-only environment (subset of the host sandbox-environment manifest).
+ * Fresh create applies env vars + networking only; other fields are accepted unused for now.
+ * Daytona networking modes are mutually exclusive (`network_block_all` vs `domain_allow_list`).
+ */
+export interface SandboxEnvironment {
+  image?:
+    | {
+        type: 'build';
+        build_script?: string | undefined;
+      }
+    | undefined;
+  resources: {
+    cpu: number;
+    memory: number;
+    disk: number;
+  };
+  environment_variables?: Record<string, string> | undefined;
+  networking?:
+    | {
+        network_block_all?: boolean | undefined;
+        domain_allow_list?: string | undefined;
+        secrets?:
+          | {
+              env: string;
+              value: string;
+              hosts: string[];
+            }[]
+          | undefined;
+      }
+    | undefined;
+}
+
 export interface DaytonaSandboxProviderOptions {
   /** Caller-owned Daytona SDK client (credentials / lifetime). */
   client: Daytona;
@@ -98,6 +131,8 @@ export interface DaytonaSandboxProviderOptions {
   natsBridgePort?: number;
   /** Defaults to 1 hour (same as the gateway's max agent execution time). */
   previewUrlExpirySeconds?: number;
+  /** Optional sandbox environment; applied only on fresh create (not restore). */
+  environment?: SandboxEnvironment;
   logger: Logger;
 }
 
@@ -117,6 +152,7 @@ export class DaytonaSandboxProvider implements SandboxProvider {
   private readonly previewUrlExpirySeconds: number;
   private readonly apiKey: string;
   private readonly apiUrl: string;
+  private readonly environment: DaytonaSandboxProviderOptions['environment'];
   private readonly logger: Logger;
   private readonly daytona: Daytona;
   private static readonly cachedSandboxes = new Map<string, { sandbox: Sandbox; defaultTimeoutMs: number }>();
@@ -137,6 +173,7 @@ export class DaytonaSandboxProvider implements SandboxProvider {
     this.fileMaxBytesForDownload = options.fileMaxBytesForDownload;
     this.natsBridgePort = options.natsBridgePort ?? DEFAULT_SANDBOX_NATS_WS_PORT;
     this.previewUrlExpirySeconds = options.previewUrlExpirySeconds ?? DEFAULT_PREVIEW_URL_EXPIRY_SECONDS;
+    this.environment = options.environment;
     this.logger = options.logger.child({ module: 'DaytonaProvider' });
   }
 
@@ -151,17 +188,26 @@ export class DaytonaSandboxProvider implements SandboxProvider {
 
     const sandbox = sandboxId
       ? await this.restoreExistingSandbox(sandboxId)
-      : await this.daytona.create({
-          name: `${this.tenantName}.${randomUUID()}`,
-          snapshot: this.buildRef,
-          autoStopInterval: this.autoStopIntervalInMinutes,
-          autoArchiveInterval: this.autoArchiveIntervalInMinutes,
-          autoDeleteInterval: this.autoDeleteIntervalInMinutes,
-        });
+      : await this.daytona.create(this.buildCreateParams());
 
     const entry = { sandbox, defaultTimeoutMs: this.timeoutMs };
     DaytonaSandboxProvider.cachedSandboxes.set(sandbox.name, entry);
     return entry;
+  }
+
+  private buildCreateParams(): CreateSandboxFromSnapshotParams {
+    const environment = this.environment;
+    const networking = environment?.networking;
+    return {
+      name: `${this.tenantName}.${randomUUID()}`,
+      snapshot: this.buildRef,
+      autoStopInterval: this.autoStopIntervalInMinutes,
+      autoArchiveInterval: this.autoArchiveIntervalInMinutes,
+      autoDeleteInterval: this.autoDeleteIntervalInMinutes,
+      ...(environment?.environment_variables ? { envVars: environment.environment_variables } : {}),
+      ...(networking?.network_block_all ? { networkBlockAll: networking.network_block_all } : {}),
+      ...(networking?.domain_allow_list ? { domainAllowList: networking.domain_allow_list } : {}),
+    };
   }
 
   // Returns true iff the caller should retry: either we restarted a stopped sandbox, or the cache entry is missing and the retry will rebuild it via the cold path.

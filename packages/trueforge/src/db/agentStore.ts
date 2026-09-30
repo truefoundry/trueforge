@@ -91,6 +91,11 @@ export interface DeleteAgentInput {
   id: string;
 }
 
+export interface ListAgentNamesUsingSandboxEnvironmentInput {
+  tenant_id: string;
+  environment_name: string;
+}
+
 /** Unique `(tenant_id, name)` violation on create. */
 export class AgentNameConflictError extends Error {
   readonly tenant_id: string;
@@ -136,4 +141,9 @@ export interface IAgentStore<TTransaction = never> {
   updateAgent(input: UpdateAgentInput, transaction?: TTransaction): Promise<AgentRecord | undefined>;
   /** Deletes by immutable id. Idempotent if already missing. */
   deleteAgent(input: DeleteAgentInput, transaction?: TTransaction): Promise<void>;
+  /** Agent names whose manifest references the given sandbox environment name. */
+  listAgentNamesUsingSandboxEnvironment(
+    input: ListAgentNamesUsingSandboxEnvironmentInput,
+    transaction?: TTransaction,
+  ): Promise<readonly string[]>;
 }

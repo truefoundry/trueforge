@@ -17,6 +17,7 @@ import {
   type GetExternalIdsByIdsInput,
   type GetOwnedIdsInput,
   type IAgentStore,
+  type ListAgentNamesUsingSandboxEnvironmentInput,
   type ListAgentsInput,
   type UpdateAgentInput,
 } from '../../agentStore';
@@ -204,5 +205,20 @@ export class PostgresAgentStore implements IAgentStore<Transaction<Database>> {
   async deleteAgent(input: DeleteAgentInput, transaction?: Transaction<Database>): Promise<void> {
     const db = transaction ?? this.#db;
     await db.deleteFrom('agent').where('tenant_id', '=', input.tenant_id).where('id', '=', input.id).execute();
+  }
+
+  async listAgentNamesUsingSandboxEnvironment(
+    input: ListAgentNamesUsingSandboxEnvironmentInput,
+    transaction?: Transaction<Database>,
+  ): Promise<readonly string[]> {
+    const db = transaction ?? this.#db;
+    const rows = await db
+      .selectFrom('agent')
+      .select('name')
+      .where('tenant_id', '=', input.tenant_id)
+      .where(sql`manifest->'config'->'sandbox'->>'environment_name'`, '=', input.environment_name)
+      .orderBy('name', 'asc')
+      .execute();
+    return rows.map(row => row.name);
   }
 }

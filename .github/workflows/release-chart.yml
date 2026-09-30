@@ -3,6 +3,7 @@ name: Publish Helm chart
 # Publishes the Helm chart for an image that already exists in the registry.
 # Does not build images: release.yml builds {appVersion}-{shortSha} and then
 # calls this workflow with (branch, app_version, image_tag).
+# branch is the release-vX.Y.Z branch release.yml is running on.
 #
 # Steps: resolve the next chart version from Chart.yaml on origin/<branch>, write
 # appVersion / image.tag / version, lint, package, push OCI, commit those files
@@ -224,3 +225,16 @@ jobs:
           done
           echo "Could not fast-forward chart metadata onto $BRANCH" >&2
           exit 1
+
+      - name: Record published chart version
+        env:
+          VERSION: ${{ steps.chart.outputs.version }}
+        run: printf '%s\n' "$VERSION" > "$RUNNER_TEMP/chart-version.txt"
+
+      - name: Upload chart version
+        uses: actions/upload-artifact@v4
+        with:
+          name: trueforge-chart-version
+          path: ${{ runner.temp }}/chart-version.txt
+          retention-days: 5
+          if-no-files-found: error

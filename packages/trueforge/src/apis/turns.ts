@@ -38,6 +38,7 @@ import configuration from '../config';
 import type { AgentRecord, IAgentStore } from '../db/agentStore';
 import type { IMcpServerWithAuthStore } from '../db/mcpServerStore';
 import type { IModelProviderStore } from '../db/modelProviderStore';
+import type { ISandboxEnvironmentStore } from '../db/sandboxEnvironmentStore';
 import type { ISandboxProviderStore } from '../db/sandboxProviderStore';
 import type { ISkillStore } from '../db/skillStore';
 import type { TurnMetadata } from '../db/turnMetadata';
@@ -120,6 +121,7 @@ export interface TurnsRouterDeps {
   /** Resumable live turn-event transport: create-turn writes, subscribe polls. */
   eventSubscriptions: EventSubscriptionRegistry<TurnStreamingEvent>;
   resolveSandboxProviderStore: (c: Context) => ISandboxProviderStore;
+  sandboxEnvironmentStore: ISandboxEnvironmentStore;
   resolveWebSearchProviderStore: (c: Context) => IWebSearchProviderStore;
   logger: Logger;
   resolveRequestContext: ResolveRequestContext;
@@ -131,7 +133,10 @@ export interface TurnsRouterDeps {
  * stores; callers must resolve them from the request context (e.g. schedule `resolveTurnDeps(c, agent)`)
  * so TrueFoundry mode stays token-bound for models, MCP, and skills.
  */
-export type BeginTurnExecutionDeps = Pick<TurnsRouterDeps, 'activeTurns' | 'eventSubscriptions' | 'logger'> & {
+export type BeginTurnExecutionDeps = Pick<
+  TurnsRouterDeps,
+  'activeTurns' | 'eventSubscriptions' | 'logger' | 'sandboxEnvironmentStore'
+> & {
   agentStore: IAgentStore;
   modelProviderStore: IModelProviderStore;
   mcpServerStore: IMcpServerWithAuthStore;
@@ -158,6 +163,7 @@ function createTurnResolver(deps: {
   mcpServerStore: IMcpServerWithAuthStore;
   skillStore: Pick<ISkillStore, 'resolveTurnSkills'>;
   sandboxProviderStore: ISandboxProviderStore;
+  sandboxEnvironmentStore: ISandboxEnvironmentStore;
   agentStore: IAgentStore;
   modelProviderStore: IModelProviderStore;
   webSearchProvider: IWebSearchProvider | undefined;
@@ -171,6 +177,7 @@ function createTurnResolver(deps: {
     mcpServerStore,
     skillStore,
     sandboxProviderStore,
+    sandboxEnvironmentStore,
     agentStore,
     modelProviderStore,
     webSearchProvider,
@@ -223,25 +230,28 @@ function createTurnResolver(deps: {
     mcpConnectTimeoutMs: configuration.MCP_CONNECT_TIMEOUT_MS,
     mcpMaxResponseBytes: configuration.MCP_TOOL_CALL_MAX_RESPONSE_BYTES,
     sandboxProvider: async ({ spec, existingSandboxId, tracing }) => {
-      const provider = await resolveSandboxProvider({
+      const environment_name = spec.config.sandbox.environment_name;
+      const resolved = await resolveSandboxProvider({
         tenant_id,
         store: sandboxProviderStore,
         logger,
         sessionId,
+        sandboxEnvironmentStore,
+        environment_name,
       });
-      if (provider === undefined) {
+      if (resolved === undefined) {
         throw new HTTPException(422, {
           message: 'no sandbox provider configured — PUT /settings/sandbox-providers',
         });
       }
+      const { provider, usesEnvironmentSnapshot } = resolved;
       const carriedSandboxId = existingSandboxIdForProvider({
         existingSandboxId,
         currentProviderType: provider.type,
       });
-      // A fresh Daytona sandbox is cloned from the release snapshot, so the build must be ready first.
-      // Restoring an existing sandbox goes through daytona.get and never touches the snapshot.
-      // Local fallback has no image build.
-      if (carriedSandboxId === undefined && provider.type !== 'local') {
+      // Fresh non-local create: env snapshot readiness is gated in resolveSandboxProvider;
+      // release snapshot still needs tenant provider status when not using an env build.
+      if (carriedSandboxId === undefined && provider.type !== 'local' && !usesEnvironmentSnapshot) {
         const status = await checkSnapshotStatus({ store: sandboxProviderStore, tenant_id, logger });
         if (status?.status !== 'ready') {
           throw new HTTPException(422, {
@@ -414,6 +424,7 @@ export async function beginTurnExecution(
     mcpServerStore: deps.mcpServerStore,
     skillStore: deps.skillStore,
     sandboxProviderStore: deps.sandboxProviderStore,
+    sandboxEnvironmentStore: deps.sandboxEnvironmentStore,
     agentStore: deps.agentStore,
     modelProviderStore: deps.modelProviderStore,
     webSearchProvider,
@@ -666,18 +677,20 @@ export function createTurnsRouter(deps: TurnsRouterDeps) {
         return c.json({ error: { message: `Turn has no sandbox: ${turnId}` } }, 412);
       }
 
-      const provider = await resolveSandboxProvider({
+      const resolved = await resolveSandboxProvider({
         tenant_id: requestContext.tenant_id,
         store: deps.resolveSandboxProviderStore(c),
         logger: deps.logger,
         sessionId,
+        sandboxEnvironmentStore: deps.sandboxEnvironmentStore,
+        environment_name: undefined,
       });
-      if (provider === undefined) {
+      if (resolved === undefined) {
         return c.json({ error: { message: 'No sandbox provider configured' } }, 412);
       }
 
       // TODO: stream the body instead of buffering the whole file in memory.
-      const content = await provider.downloadFile({ sandboxId: rawSandboxId(sandboxId), path });
+      const content = await resolved.provider.downloadFile({ sandboxId: rawSandboxId(sandboxId), path });
       return c.body(toArrayBuffer(content), 200, {
         'Content-Type': 'application/octet-stream',
         'Content-Length': String(content.byteLength),
@@ -796,6 +809,7 @@ export function createTurnsRouter(deps: TurnsRouterDeps) {
         skillStore: deps.resolveSkillStore(c),
         agentStore: deps.resolveAgentStore(c),
         sandboxProviderStore: deps.resolveSandboxProviderStore(c),
+        sandboxEnvironmentStore: deps.sandboxEnvironmentStore,
         webSearchProviderStore: deps.resolveWebSearchProviderStore(c),
       },
     };

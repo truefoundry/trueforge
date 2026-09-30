@@ -78,6 +78,7 @@ import { McpServerWithAuthStore } from './db/McpServerWithAuthStore';
 import type { IModelProviderStore } from './db/modelProviderStore';
 import type { PostgresAgentStore } from './db/postgres/agent-store/PostgresAgentStore';
 import type { Database as PostgresDatabase } from './db/postgres/types';
+import type { ISandboxEnvironmentStore } from './db/sandboxEnvironmentStore';
 import type { ISandboxProviderStore } from './db/sandboxProviderStore';
 import type { IScheduleStore } from './db/scheduleStore';
 import type { ISessionMetricsStore } from './db/sessionMetricsStore';
@@ -143,6 +144,7 @@ interface ServerPersistence<TTransaction> {
   resolveImportAgentStore: (serviceFoundryServerHeaders: Record<string, string>) => IAgentStore<TTransaction>;
   /** extra pre-resolved stores for scheduled runs */
   agentStore: IAgentStore<TTransaction>;
+  sandboxEnvironmentStore: ISandboxEnvironmentStore<TTransaction>;
   turnSkillsResolverStore: Pick<ISkillStore<TTransaction>, 'resolveTurnSkills'>;
   destroyDb: () => Promise<void>;
   /** Connected Redis (client + mode) for distributed peering; undefined in standalone. */
@@ -324,6 +326,7 @@ async function createStandalonePersistence(options: {
       import('./db/sqlite/web-search-provider-store/SqliteWebSearchProviderStore'),
       import('./db/sqlite/agent-store/SqliteAgentStore'),
       import('./db/sqlite/schedule-store/SqliteScheduleStore'),
+      import('./db/sqlite/sandbox-environment-store/SqliteSandboxEnvironmentStore'),
     ]),
   ]);
   const [
@@ -337,6 +340,7 @@ async function createStandalonePersistence(options: {
     { SqliteWebSearchProviderStore },
     { SqliteAgentStore },
     { SqliteScheduleStore },
+    { SqliteSandboxEnvironmentStore },
   ] = sqliteStores;
 
   const db = createSqliteDb(sqlitePath);
@@ -346,6 +350,7 @@ async function createStandalonePersistence(options: {
 
   const tokenStore = new SqliteOAuthTokenStore(db);
   const agentStore = new SqliteAgentStore(db);
+  const sandboxEnvironmentStore = new SqliteSandboxEnvironmentStore(db);
   const modelProviderStore = new SqliteModelProviderStore(db);
   const mcpServerStore = new McpServerWithAuthStore({
     store: new SqliteMcpServerStore(db),
@@ -370,6 +375,7 @@ async function createStandalonePersistence(options: {
     resolveAgentStore: () => agentStore,
     resolveImportAgentStore: () => agentStore,
     agentStore,
+    sandboxEnvironmentStore,
     turnSkillsResolverStore: skillStore,
     destroyDb: () => db.destroy(),
     redis: undefined,
@@ -417,6 +423,7 @@ async function createDistributedPersistence(options: {
       import('./db/postgres/web-search-provider-store/PostgresWebSearchProviderStore'),
       import('./db/postgres/agent-store/PostgresAgentStore'),
       import('./db/postgres/schedule-store/PostgresScheduleStore'),
+      import('./db/postgres/sandbox-environment-store/PostgresSandboxEnvironmentStore'),
     ]),
   ]);
   const [
@@ -430,6 +437,7 @@ async function createDistributedPersistence(options: {
     { PostgresWebSearchProviderStore },
     { PostgresAgentStore },
     { PostgresScheduleStore },
+    { PostgresSandboxEnvironmentStore },
   ] = postgresStores;
 
   logger.info('Connecting to Postgres');
@@ -461,6 +469,7 @@ async function createDistributedPersistence(options: {
   const webSearchProviderStore = new PostgresWebSearchProviderStore(db);
   const skillStore = new PostgresSkillStore(db);
   const agentStore = new PostgresAgentStore(db);
+  const sandboxEnvironmentStore = new PostgresSandboxEnvironmentStore(db);
   const turnSkillsResolverStore = buildTurnSkillsResolverStore({
     persistenceStore: skillStore,
     client: serviceFoundryClient,
@@ -525,6 +534,7 @@ async function createDistributedPersistence(options: {
     resolveAgentStore,
     resolveImportAgentStore,
     agentStore,
+    sandboxEnvironmentStore,
     turnSkillsResolverStore,
     destroyDb: () => db.destroy(),
     redis: await connectRedis({
@@ -557,6 +567,7 @@ async function createServerRuntime<TTransaction>(persistence: ServerPersistence<
     mcpOAuthStore,
     resolveImportAgentStore,
     agentStore,
+    sandboxEnvironmentStore,
     turnSkillsResolverStore,
     destroyDb,
     redis,
@@ -669,6 +680,7 @@ async function createServerRuntime<TTransaction>(persistence: ServerPersistence<
     tokenStore,
     scheduleStore,
     agentStore,
+    sandboxEnvironmentStore,
     turnSkillsResolverStore,
     sessionStore,
     sessionMetricsStore,
