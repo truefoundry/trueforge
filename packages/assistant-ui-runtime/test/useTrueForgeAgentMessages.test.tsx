@@ -1501,4 +1501,50 @@ describe('useTrueForgeAgentMessages', () => {
       expect(onError).toHaveBeenCalledWith(expect.any(Error));
     });
   });
+
+  it('does not produce duplicate assistant message IDs when turn ends on mcp.auth_required with zero model messages', async () => {
+    const mcpServers = [
+      {
+        id: 'linear-mcp',
+        name: 'linear-mcp',
+        authUrl: 'https://internal.test/oauth',
+      },
+    ];
+
+    vi.mocked(streamTurnContent).mockImplementation(
+      async function* (_server, _sessionId, _fold, _options, _signal, _baseline, onTurnIdAvailable) {
+        const turnId = 'gateway-turn-mcp-1';
+        onTurnIdAvailable?.(turnId);
+        yield {
+          content: [{ type: 'text' as const, text: 'This agent needs access to external services before it can continue.' }],
+          status: { type: 'requires-action' as const, reason: 'interrupt' as const },
+          metadata: { custom: { pendingMcpAuth: true, mcpServers } },
+        };
+      },
+    );
+
+    const { result } = renderHook(() =>
+      useTrueForgeAgentMessages({
+        server: mockServer,
+        sessionId: 'session-1',
+      }),
+    );
+
+    await waitFor(() => expect(result.current.isLoading).toBe(false));
+
+    await act(async () => {
+      await result.current.sendTurn({ userMessage: 'hello' });
+    });
+
+    const assistantMessages = result.current.messages.filter(m => m.role === 'assistant');
+    expect(assistantMessages).toHaveLength(1);
+    expect(assistantMessages[0]?.id).toBe('gateway-turn-mcp-1-assistant');
+    expect(assistantMessages[0]?.status).toEqual({ type: 'requires-action', reason: 'interrupt' });
+    expect(assistantMessages[0]?.metadata.custom?.['pendingMcpAuth']).toBe(true);
+
+    const ids = result.current.messages.map(m => m.id);
+    const uniqueIds = new Set(ids);
+    expect(ids.length).toBe(uniqueIds.size);
+  });
 });
+

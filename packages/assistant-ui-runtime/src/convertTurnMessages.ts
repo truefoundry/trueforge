@@ -1193,7 +1193,15 @@ export function projectSessionMessages(
       };
     }
 
-    if (isContinuation && last?.role === 'assistant') {
+    // When a turn finishes with zero root model messages (e.g. an immediate
+    // mcp.auth_required pause), commitActiveStream adds the record to snapshot.turns
+    // while keeping activeStream. projectHistoryTurns above already emits an assistant
+    // message with `${turnId}-assistant`. Update that message in-place rather than
+    // appending a duplicate, which would crash assistant-ui's MessageRepository.
+    const existingIndex = messages.findIndex(m => m.id === assistantMessage.id);
+    if (existingIndex !== -1) {
+      messages = [...messages.slice(0, existingIndex), assistantMessage, ...messages.slice(existingIndex + 1)];
+    } else if (isContinuation && last?.role === 'assistant') {
       messages = [...messages.slice(0, -1), assistantMessage];
     } else {
       messages = [...messages, assistantMessage];
