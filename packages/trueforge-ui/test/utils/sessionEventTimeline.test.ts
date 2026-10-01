@@ -576,6 +576,22 @@ describe('sessionEventTimelineChart helpers', () => {
     );
   });
 
+  it('groups near-coincident markers within tolerance into one tooltip target', () => {
+    assert.deepEqual(
+      groupCoincidentTimelineMarkers(
+        [marker('auth', 'waiting_on_human', 10), marker('done', 'system', 14), marker('later', 'user', 40)],
+        { toleranceMs: 5 },
+      ).map(group => ({
+        startMs: group.startMs,
+        ids: group.segments.map(segment => segment.id),
+      })),
+      [
+        { startMs: 10, ids: ['auth', 'done'] },
+        { startMs: 40, ids: ['later'] },
+      ],
+    );
+  });
+
   it('maps clean active-time ticks around fixed turn separators', () => {
     const gaps = [{ startMs: 42_000, endMs: 43_000 }];
     const ticks = buildTimelineAxisTicks({
@@ -892,6 +908,21 @@ describe('buildSessionMetrics', () => {
     assert.equal(turns[1]?.renderable, false);
 
     const segments = buildSessionTimelineSegments(turns);
+    assert.equal(
+      segments.filter(segment => segment.type === 'user').length,
+      1,
+      'non-renderable resume turns must not emit phantom user markers',
+    );
+    assert.equal(segments.filter(segment => segment.type === 'user')[0]?.turnIndex, 0);
+    assert.ok(
+      segments.every(segment => segment.turnIndex === 0),
+      'resume-turn activity stays on the same timeline band as the user turn',
+    );
+    assert.deepEqual(
+      segments.filter(segment => segment.title === 'turn.done').map(segment => segment.id),
+      ['resume-turn.done'],
+      'auth turn.done is omitted so it does not cover the resume model/tool bars',
+    );
     const metrics = buildSessionMetrics({ turns, segments });
     assert.equal(metrics.totalTurns, 2);
     assert.equal(metrics.toolCalls, 3);

@@ -39,9 +39,9 @@ type SubAgentToolCallRequest = {
  * - approval-gated and sub-agent parent calls are excluded from ordinary tool
  *   bars because they have dedicated visual representations.
  *
- * The second pass emits one user marker per turn, then chronological event
- * segments for each thread. Finally, real idle gaps between turns are removed
- * so old sessions remain readable without changing durations inside a turn.
+ * The second pass emits one user marker per renderable turn, then chronological
+ * event segments for each thread. Finally, real idle gaps between turns are
+ * removed so old sessions remain readable without changing durations inside a turn.
  */
 export function buildSessionTimelineSegments(turns: SessionTurnView[]): SessionEventTimelineSegment[] {
   const originMs = parseTimestamp(turns[0]?.created.createdAt);
@@ -107,23 +107,32 @@ export function buildSessionTimelineSegments(turns: SessionTurnView[]): SessionE
 
   const segments: SessionEventTimelineSegment[] = [];
   const emittedWaitingRequestIds = new Set<string>();
+  // Only the last event-turn in a display band gets a "Turn completed" marker so
+  // MCP-auth resumes don't plant a mid-band diamond on top of the next model bar.
+  const lastTurnIdByNumber = new Map<number, string>();
+  for (const turn of turns) {
+    lastTurnIdByNumber.set(turn.turnNumber, turn.turnId);
+  }
 
   for (const turn of turns) {
     const createdMs = parseTimestamp(turn.created.createdAt);
     if (createdMs == null) continue;
     const turnIndex = turn.turnNumber - 1;
 
-    segments.push({
-      id: `${turn.turnId}-user`,
-      type: 'user',
-      title: getTurnInputType(turn),
-      description: getTurnInputSummary(turn),
-      startMs: createdMs - originMs,
-      endMs: createdMs - originMs,
-      turnIndex,
-      threadId: MAIN_THREAD_ID,
-      isMarker: true,
-    });
+    // Resume/MCP-auth turns have no user input; don't invent a user.message marker.
+    if (turn.renderable) {
+      segments.push({
+        id: `${turn.turnId}-user`,
+        type: 'user',
+        title: getTurnInputType(turn),
+        description: getTurnInputSummary(turn),
+        startMs: createdMs - originMs,
+        endMs: createdMs - originMs,
+        turnIndex,
+        threadId: MAIN_THREAD_ID,
+        isMarker: true,
+      });
+    }
 
     // Model intervals are independent per thread. Using one global previous
     // timestamp would make concurrent sub-agent bars consume each other's time.
@@ -160,7 +169,14 @@ export function buildSessionTimelineSegments(turns: SessionTurnView[]): SessionE
       lastTimestampByThreadId.set(threadId, eventMs);
     }
 
-    appendTerminalSegment({ turn, turnIndex, originMs, latestMs, segments });
+    appendTerminalSegment({
+      turn,
+      turnIndex,
+      originMs,
+      latestMs,
+      segments,
+      emitDoneMarker: lastTurnIdByNumber.get(turn.turnNumber) === turn.turnId,
+    });
   }
 
   return compressInterTurnGaps(
@@ -350,6 +366,9 @@ function appendEventSegments({
  * Errors use the latest observed timestamp when the backend omitted
  * `completed_at`, ensuring failures remain visible instead of being dropped.
  * Running/paused turns have no terminal marker because they have not ended.
+ * Intermediate `turn.done` markers are skipped when a later event-turn shares
+ * the same display band (MCP-auth resume), so the diamond does not cover the
+ * next model/tool bars.
  */
 function appendTerminalSegment({
   turn,
@@ -357,12 +376,14 @@ function appendTerminalSegment({
   originMs,
   latestMs,
   segments,
+  emitDoneMarker,
 }: {
   turn: SessionTurnView;
   turnIndex: number;
   originMs: number;
   latestMs: number;
   segments: SessionEventTimelineSegment[];
+  emitDoneMarker: boolean;
 }): void {
   const status = terminalStatus(turn.done?.state);
   if (status === 'error') {
@@ -380,7 +401,7 @@ function appendTerminalSegment({
     });
     return;
   }
-  if (status !== 'done') return;
+  if (status !== 'done' || !emitDoneMarker) return;
   const doneMs = parseTimestamp(terminalCompletedAt(turn.done?.state));
   if (doneMs == null) return;
   segments.push({

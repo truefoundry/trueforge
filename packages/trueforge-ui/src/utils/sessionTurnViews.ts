@@ -115,19 +115,22 @@ export function buildSessionTurnViews(itemsAsc: SessionEventItem[]): SessionTurn
     groupsByTurnId.set(turnId, group);
   }
 
-  // Include every turn.created (metrics/timeline need resume turns); mark renderable for transcript UI.
+  // Include every turn.created (metrics need resume turns). Number timeline/transcript
+  // bands by renderable turns only so MCP-auth resumes fold into the prior user turn.
   const groups = Array.from(groupsByTurnId.entries())
     .flatMap(([turnId, group]) => (group.created === undefined ? [] : [{ turnId, created: group.created, group }]))
     .sort((left, right) => timestampMs(left.created.createdAt) - timestampMs(right.created.createdAt));
 
-  return groups.map(({ turnId, created, group }, index) => {
+  let renderableTurnNumber = 0;
+  return groups.map(({ turnId, created, group }) => {
     const done = group.done;
     const renderable = isRenderableTurn(created);
+    if (renderable) renderableTurnNumber += 1;
     group.events.sort((left, right) => timestampMs(left.createdAt) - timestampMs(right.createdAt));
 
     return {
       turnId,
-      turnNumber: index + 1,
+      turnNumber: Math.max(1, renderableTurnNumber),
       renderable,
       showHeader: renderable,
       created,

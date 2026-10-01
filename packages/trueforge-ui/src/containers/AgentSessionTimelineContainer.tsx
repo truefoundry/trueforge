@@ -239,7 +239,11 @@ export function AgentSessionTimelineContainer({
       </div>
       <div className="border-b border-border">
         <Suspense fallback={null}>
-          <AgentSessionEventTimeline turns={allTurnViews} segments={timelineSegments} onSelectTurn={handleSelectTurn} />
+          <AgentSessionEventTimeline
+            turns={renderableTurnViews}
+            segments={timelineSegments}
+            onSelectTurn={handleSelectTurn}
+          />
         </Suspense>
       </div>
       <ThreadViewportShell

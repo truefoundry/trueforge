@@ -177,7 +177,10 @@ export function AgentSessionEventTimelineChart({
       }),
     [hiddenTypes, segments, turnGapMs, turnOrdinals],
   );
-  const markerGroups = useMemo(() => groupCoincidentTimelineMarkers(visibleSegments), [visibleSegments]);
+  const markerGroups = useMemo(
+    () => groupCoincidentTimelineMarkers(visibleSegments, { toleranceMs: MARKER_PX * msPerPx }),
+    [msPerPx, visibleSegments],
+  );
   const durationSegments = useMemo(() => visibleSegments.filter(segment => !segment.isMarker), [visibleSegments]);
   const turnBars = useMemo<TimelineTurnBar[]>(
     () =>

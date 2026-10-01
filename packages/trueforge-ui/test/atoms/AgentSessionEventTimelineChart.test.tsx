@@ -25,6 +25,7 @@ const turns: SessionTurnView[] = [
   {
     turnId: 'turn-1',
     turnNumber: 1,
+    renderable: true,
     showHeader: true,
     created: {
       type: 'turn.created',

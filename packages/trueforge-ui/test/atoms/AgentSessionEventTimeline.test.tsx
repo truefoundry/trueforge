@@ -7,10 +7,11 @@ import { SlotsProvider } from '@/theme/SlotsProvider.js';
 import type { SessionEventTimelineSegment } from '@/utils/sessionEventTimeline.js';
 import type { SessionTurnView } from '@/utils/sessionTurnViews.js';
 
-const turns = [
+const turns: SessionTurnView[] = [
   {
     turnId: 't1',
     turnNumber: 1,
+    renderable: true,
     showHeader: true,
     created: {
       type: 'turn.created',
@@ -24,7 +25,7 @@ const turns = [
     },
     events: [],
   },
-] as SessionTurnView[];
+];
 
 const segments: SessionEventTimelineSegment[] = [
   {

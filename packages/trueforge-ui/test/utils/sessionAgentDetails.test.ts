@@ -290,8 +290,34 @@ describe('buildSessionTurnViews', () => {
         showHeader: view.showHeader,
       })),
       [
+        // Empty-input resume before any user turn still lands in band 1.
         { turnId: 'hidden', turnNumber: 1, renderable: false, showHeader: false },
-        { turnId: 'shown', turnNumber: 2, renderable: true, showHeader: true },
+        { turnId: 'shown', turnNumber: 1, renderable: true, showHeader: true },
+      ],
+    );
+  });
+
+  it('folds MCP-auth resume turns into the prior renderable turn number', () => {
+    const views = buildSessionTurnViews([
+      createdItem({
+        turnId: 'user',
+        createdAt: '2026-01-01T00:00:00.000Z',
+        input: [{ type: 'user.message', content: 'hello' }],
+      }),
+      createdItem({ turnId: 'resume', createdAt: '2026-01-01T00:00:05.000Z' }),
+      createdItem({
+        turnId: 'next',
+        createdAt: '2026-01-01T00:00:10.000Z',
+        input: [{ type: 'user.message', content: 'again' }],
+      }),
+    ]);
+
+    assert.deepEqual(
+      views.map(view => ({ turnId: view.turnId, turnNumber: view.turnNumber, renderable: view.renderable })),
+      [
+        { turnId: 'user', turnNumber: 1, renderable: true },
+        { turnId: 'resume', turnNumber: 1, renderable: false },
+        { turnId: 'next', turnNumber: 2, renderable: true },
       ],
     );
   });
