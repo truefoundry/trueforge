@@ -497,8 +497,8 @@ export class AgentThread {
   readonly threadId: string;
   readonly parent?: AgentParent | undefined;
   readonly definition: AgentDefinition;
-  readonly title: string;
   readonly agentInfo?: AgentInfo | undefined;
+  private readonly title: string;
 
   private context: ContextMessage[];
   private currentContextUsage: CurrentContextUsage;
@@ -601,12 +601,15 @@ export class AgentThread {
   }
 
   public async *send(messages: AgentThreadRuntimeSendBatch): AsyncGenerator<AgentThreadAppendContext, void, unknown> {
-    this.throwIfAlreadyComplete();
     // An empty batch is a no-op only when the thread is not awaiting user input.
     // While awaiting input, fall through so the validator rejects the empty/incomplete batch.
+    // Already-complete threads (e.g. cancelled children left in a tip before AGENT_DONE
+    // removed them) must also no-op on [] so orchestrator fan-out resume/approval sends
+    // do not fail createTurn.
     if (messages.length === 0 && !this.isAwaitingUserInput()) {
       return;
     }
+    this.throwIfAlreadyComplete();
     this.throwIfContextBusy();
 
     this.contextBusy = true;
@@ -763,11 +766,11 @@ export class AgentThread {
     };
   }
 
-  public cancel(reason: string): AgentThreadAppendContext {
+  *cancel(reason: string): Generator<AgentThreadAppendContext, void, unknown> {
     if (this.parent === undefined) {
       throw new Error('unreachable: cancel() requires a parent thread');
     }
-    this.preComputedCompletion ??= {
+    const completion: SubAgentCompletion = this.preComputedCompletion ?? {
       type: 'cancelled',
       reason,
       send_to_parent: {
@@ -776,16 +779,17 @@ export class AgentThread {
         content: reason,
       },
     };
-    return {
+    yield {
       type: InternalEventType.AGENT_CONTEXT_APPEND,
       thread_id: this.threadId,
       context: [],
       output: [],
-      completion: this.preComputedCompletion,
+      completion,
     };
+    this.preComputedCompletion ??= completion;
   }
 
-  public *closeAnyOpenToolCalls(
+  *closeAnyOpenToolCalls(
     preferred: readonly LLMToolMessage[],
     default_reason: string,
   ): Generator<AgentThreadAppendContext, void, unknown> {
@@ -811,19 +815,19 @@ export class AgentThread {
     });
   }
 
-  public hasOpenToolCallId(toolCallId: string): boolean {
+  hasOpenToolCallId(toolCallId: string): boolean {
     return getOpenToolCallIds(this.context).has(toolCallId);
   }
 
   // User-configured MCP tool sets (spec.mcp_servers) for this thread. Excludes
   // system tool sets (sandbox / deferred / capabilities).
-  public getUserToolSets(): readonly IToolSet[] {
+  getUserToolSets(): readonly IToolSet[] {
     return this.definition.toolSets ?? [];
   }
 
   // True when this thread is paused waiting on the user to resolve a pending tool
   // approval or a client-side tool response.
-  public isAwaitingUserInput(): boolean {
+  private isAwaitingUserInput(): boolean {
     return (
       getPendingApprovalToolCalls(this.context).length > 0 || getPendingClientSideToolCalls(this.context).length > 0
     );
@@ -831,7 +835,11 @@ export class AgentThread {
 
   // Pure validation of an input batch against this thread's current context; throws
   // on an invalid/incomplete batch without mutating the context.
-  public validateSendInput(messages: AgentThreadRuntimeSendBatch): void {
+  validateSendInput(messages: AgentThreadRuntimeSendBatch): void {
+    // Match send(): empty + not awaiting is a no-op, including already-complete threads.
+    if (messages.length === 0 && !this.isAwaitingUserInput()) {
+      return;
+    }
     this.throwIfAlreadyComplete();
     validateInputMessageTypesGivenContext(this.context, messages);
   }
@@ -849,7 +857,7 @@ export class AgentThread {
     };
   }
 
-  public getAgentThreadMetrics(): AgentThreadMetrics {
+  getAgentThreadMetrics(): AgentThreadMetrics {
     return { ...this.metrics };
   }
 

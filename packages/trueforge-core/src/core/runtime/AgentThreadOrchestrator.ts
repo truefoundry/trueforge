@@ -318,18 +318,17 @@ export class AgentThreadOrchestrator {
       const mainThread = this.getMainThread();
       const preferred: LLMToolMessage[] = [];
       for (const thread of this.getChildThreads()) {
-        const event = thread.cancel(CANCELED_BECAUSE_USER_SENT_NEW_MESSAGE);
-        yield event;
-        if (event.completion) {
-          preferred.push(event.completion.send_to_parent);
+        for (const event of thread.cancel(CANCELED_BECAUSE_USER_SENT_NEW_MESSAGE)) {
+          yield event;
+          if (event.completion) {
+            preferred.push(event.completion.send_to_parent);
+          }
         }
       }
       yield* mainThread.closeAnyOpenToolCalls(preferred, CANCELED_BECAUSE_USER_SENT_NEW_MESSAGE);
-      // just send message to main thread and return
-      // if we fall through to rest of logic, we will send [] to all threads
-      // which will create issue because cancelled threads now have preComputedCompletion
-      // so validateSendInput([]) / send([]) hits throwIfAlreadyComplete()
-      // and fails with something like thread … is already complete
+      // Send only to main and return. Falling through would fan out [] to cancelled
+      // children (harmless no-op now) and also mis-route the user batch through the
+      // approval/empty grouping path.
       yield* this.sendToThread(mainThread.threadId, messages);
       return;
     }

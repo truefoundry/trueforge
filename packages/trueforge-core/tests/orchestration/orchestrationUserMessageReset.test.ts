@@ -251,7 +251,7 @@ describe('orchestration: user-message reset', () => {
     );
   });
 
-  it('throws when send() is called on a thread with preComputedCompletion', async () => {
+  it('ignores empty send/validate on a completed thread; non-empty still throws', async () => {
     const child = new AgentThread(
       baseThreadInput({
         threadId: CHILD_ID,
@@ -264,7 +264,54 @@ describe('orchestration: user-message reset', () => {
         },
       }),
     );
-    await expect(child.send([]).next()).rejects.toBeInstanceOf(InvalidAgentSendInputError);
-    expect(() => child.validateSendInput([])).toThrow(InvalidAgentSendInputError);
+    await expect(child.send([]).next()).resolves.toEqual({ done: true, value: undefined });
+    expect(() => child.validateSendInput([])).not.toThrow();
+    expect(() => child.validateSendInput([{ role: 'tool', tool_call_id: TOOL_CALL_ID, content: 'late' }])).toThrow(
+      InvalidAgentSendInputError,
+    );
+    await expect(
+      child.send([{ role: 'tool', tool_call_id: TOOL_CALL_ID, content: 'late' }]).next(),
+    ).rejects.toBeInstanceOf(InvalidAgentSendInputError);
+  });
+
+  it('empty orchestrator send ignores leftover children with preComputedCompletion', async () => {
+    const main = new AgentThread(
+      baseThreadInput({
+        threadId: MAIN_ID,
+        title: 'main',
+        context: [assistantWithCalls([threadCreationToolCall(TOOL_CALL_ID)])],
+      }),
+    );
+    const child = new AgentThread(
+      baseThreadInput({
+        threadId: CHILD_ID,
+        title: 'worker',
+        parent: { thread_id: MAIN_ID, tool_call_id: TOOL_CALL_ID },
+        agentInfo: { type: 'dynamic', name: 'worker', input: 'task' },
+        preComputedCompletion: {
+          type: 'cancelled',
+          reason: CANCELED,
+          send_to_parent: { role: 'tool', tool_call_id: TOOL_CALL_ID, content: CANCELED },
+        },
+      }),
+    );
+
+    const orchestrator = new AgentThreadOrchestrator({
+      agentThreads: new Map([
+        [main.threadId, main],
+        [child.threadId, child],
+      ]),
+      createDynamicSubAgentThread: () => Promise.reject(new Error('unexpected sub-agent')),
+      tracing: NOOP_AGENT_TRACING,
+      logger: makeSilentLogger(),
+    });
+
+    await expect(
+      (async () => {
+        for await (const _event of orchestrator.send([])) {
+          void _event;
+        }
+      })(),
+    ).resolves.toBeUndefined();
   });
 });
