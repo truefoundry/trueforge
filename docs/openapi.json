@@ -8560,6 +8560,16 @@
               }
             },
             "description": "No sandbox provider configured."
+          },
+          "502": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/RequestErrorResponse"
+                }
+              }
+            },
+            "description": "Sandbox provider secret synchronization failed."
           }
         },
         "summary": "Create or update a sandbox environment",
