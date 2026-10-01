@@ -68,10 +68,9 @@ import {
   type AgentThreadEvent,
   type ContextMessage,
   type InternalCapabilityStateEvent,
-  type InternalChildThreadDoneEvent,
   type InternalMCPAuthRequiredEvent,
   type InternalThreadDoneEvent,
-  type SubAgentCompletion,
+  type SubAgentCompletionMarker,
 } from './AgentThread.types';
 import {
   currentContextUsageFromCompletion,
@@ -497,8 +496,8 @@ export class AgentThread {
   readonly threadId: string;
   readonly parent?: AgentParent | undefined;
   readonly definition: AgentDefinition;
+  readonly title: string;
   readonly agentInfo?: AgentInfo | undefined;
-  private readonly title: string;
 
   private context: ContextMessage[];
   private currentContextUsage: CurrentContextUsage;
@@ -523,8 +522,10 @@ export class AgentThread {
 
   private contextBusy = false;
   private preSendRanThisTurn = false;
+  // Validated-but-not-yet-applied user events.
+  private pendingUserEvents: AgentThreadRuntimeSendInput[] = [];
   private currentState: AgentThreadState | null = null;
-  private preComputedCompletion?: SubAgentCompletion | undefined;
+  private readonly preComputedCompletion?: SubAgentCompletionMarker | undefined;
   /** Mirrored capability KV — source for toSnapshot().capability_state. */
   private capabilityState: CapabilityState = {};
   private readonly capabilityStateKeys: ReadonlySet<string>;
@@ -600,78 +601,93 @@ export class AgentThread {
     return builder.build();
   }
 
-  public async *send(messages: AgentThreadRuntimeSendBatch): AsyncGenerator<AgentThreadAppendContext, void, unknown> {
+  // Store-free generator (§3.1). Validate against committed context, hand the accepted batch to
+  // the caller to persist durably (the `yield`), then commit it to the in-memory queue only once
+  // the caller resumes us (persist-before-mutate). No context mutation, no preSend, no contextBusy —
+  // context application moves to execute()/applyUserEvents (§3.2).
+  public *send(messages: AgentThreadRuntimeSendBatch): Generator<AgentThreadRuntimeSendBatch, void, unknown> {
     // An empty batch is a no-op only when the thread is not awaiting user input.
     // While awaiting input, fall through so the validator rejects the empty/incomplete batch.
-    // Already-complete threads (e.g. cancelled children left in a tip before AGENT_DONE
-    // removed them) must also no-op on [] so orchestrator fan-out resume/approval sends
-    // do not fail createTurn.
     if (messages.length === 0 && !this.isAwaitingUserInput()) {
       return;
     }
-    this.throwIfAlreadyComplete();
-    this.throwIfContextBusy();
+    // Runs before the yield ⇒ an invalid batch throws before any persist or enqueue (fail-closed).
+    validateInputMessageTypesGivenContext(this.context, messages);
+    // Caller persists here (deferred for now). If it throws, we never resume ⇒ queue untouched.
+    yield messages;
+    this.pendingUserEvents.push(...messages);
+  }
 
-    this.contextBusy = true;
-    try {
+  public hasPendingUserEvents(): boolean {
+    return this.pendingUserEvents.length > 0;
+  }
+
+  // Apply already-validated user events to context (§3.2). Drains at the top of execute() and is
+  // also called directly for the initial createTurn input and internal child→parent delivery.
+  // This is the only place approval/response/user context is written.
+  public async *applyUserEvents(
+    events: AgentThreadRuntimeSendInput[],
+  ): AsyncGenerator<AgentThreadAppendContext, void, unknown> {
+    if (events.length === 0) {
+      return;
+    }
+    // preSend (e.g. OpenToolCallCloser) runs once per turn, before applying — matching the previous
+    // send() ordering. execute()'s own preSend block is skipped when we set the flag here.
+    if (!this.preSendRanThisTurn) {
       for await (const event of this.executeContextProcessors('preSend')) {
         yield event;
       }
       this.preSendRanThisTurn = true;
+    }
 
-      validateInputMessageTypesGivenContext(this.context, messages);
+    const approvals: UserToolApprovalMessage[] = [];
+    const clientSideToolResponses: UserToolResponseMessage[] = [];
+    const contextMessages: (LLMUserMessage | LLMToolMessage)[] = [];
 
-      const approvals: UserToolApprovalMessage[] = [];
-      const clientSideToolResponses: UserToolResponseMessage[] = [];
-      const contextMessages: (LLMUserMessage | LLMToolMessage)[] = [];
-
-      for (const m of messages) {
-        if (isApprovalDecisionMessage(m)) {
-          approvals.push(m);
-        } else if (isClientSideToolResponseMessage(m)) {
-          clientSideToolResponses.push(m);
-        } else if (isInputUserMessage(m)) {
-          const result = await processAgentUserInput(m, this.sandbox);
-          contextMessages.push(result.message);
-          if (result.sandboxCreated) {
-            this.pendingSandboxCreatedEvents.push(buildSandboxCreatedEvent(result.sandboxCreated));
-          }
-        } else if (isLLMToolMessage(m)) {
-          contextMessages.push(m);
-        } else {
-          const _exhaustive: never = m;
-          throw new InvalidAgentSendInputError(`Unsupported send input: ${JSON.stringify(_exhaustive)}`);
+    for (const m of events) {
+      if (isApprovalDecisionMessage(m)) {
+        approvals.push(m);
+      } else if (isClientSideToolResponseMessage(m)) {
+        clientSideToolResponses.push(m);
+      } else if (isInputUserMessage(m)) {
+        const result = await processAgentUserInput(m, this.sandbox);
+        contextMessages.push(result.message);
+        if (result.sandboxCreated) {
+          this.pendingSandboxCreatedEvents.push(buildSandboxCreatedEvent(result.sandboxCreated));
         }
+      } else if (isLLMToolMessage(m)) {
+        contextMessages.push(m);
+      } else {
+        const _exhaustive: never = m;
+        throw new InvalidAgentSendInputError(`Unsupported send input: ${JSON.stringify(_exhaustive)}`);
       }
+    }
 
-      if (approvals.length > 0 || clientSideToolResponses.length > 0) {
-        const approvalContext: AgentApprovalDecisionMessage[] = approvals.map(a => ({
-          type: EventType.USER_TOOL_APPROVAL,
-          tool_call_id: a.tool_call_id,
-          approval: a.approval,
-        }));
-        const toolResponseContext: LLMToolMessage[] = clientSideToolResponses.map(m => ({
-          role: 'tool',
-          tool_call_id: m.tool_call_id,
-          content: m.content,
-        }));
-        yield* this.appendToContext({
-          context: [...approvalContext, ...toolResponseContext],
-          output: [],
-          currentContextUsage: undefined,
-          usage: undefined,
-        });
-      }
-      if (contextMessages.length > 0) {
-        yield* this.appendToContext({
-          context: contextMessages,
-          output: [],
-          currentContextUsage: undefined,
-          usage: undefined,
-        });
-      }
-    } finally {
-      this.contextBusy = false;
+    if (approvals.length > 0 || clientSideToolResponses.length > 0) {
+      const approvalContext: AgentApprovalDecisionMessage[] = approvals.map(a => ({
+        type: EventType.USER_TOOL_APPROVAL,
+        tool_call_id: a.tool_call_id,
+        approval: a.approval,
+      }));
+      const toolResponseContext: LLMToolMessage[] = clientSideToolResponses.map(m => ({
+        role: 'tool',
+        tool_call_id: m.tool_call_id,
+        content: m.content,
+      }));
+      yield* this.appendToContext({
+        context: [...approvalContext, ...toolResponseContext],
+        output: [],
+        currentContextUsage: undefined,
+        usage: undefined,
+      });
+    }
+    if (contextMessages.length > 0) {
+      yield* this.appendToContext({
+        context: contextMessages,
+        output: [],
+        currentContextUsage: undefined,
+        usage: undefined,
+      });
     }
   }
 
@@ -695,7 +711,7 @@ export class AgentThread {
     output: AgentOutputEvent[];
     currentContextUsage: CurrentContextUsage | undefined;
     usage: CompletionUsage | undefined;
-    completion?: SubAgentCompletion | undefined;
+    completion?: SubAgentCompletionMarker | undefined;
   }): Generator<AgentThreadAppendContext, void, unknown> {
     const { context, output, currentContextUsage, usage, completion } = opts;
 
@@ -740,91 +756,37 @@ export class AgentThread {
   }
 
   private generateErrorEvent(message: string, output?: ModelMessageEvent): InternalThreadDoneEvent {
-    if (this.parent !== undefined) {
-      return {
-        type: InternalEventType.AGENT_DONE,
-        thread_id: this.threadId,
-        title: this.title,
-        parent: this.parent,
-        status: 'error',
-        error: message,
-        send_to_parent: {
-          role: 'tool',
-          content: message,
-          tool_call_id: this.parent.tool_call_id,
-        },
-        output,
-      };
-    }
     return {
       type: InternalEventType.AGENT_DONE,
+      status: 'error',
       thread_id: this.threadId,
       title: this.title,
-      status: 'error',
       error: message,
-      output,
+      parent: this.parent,
+      send_to_parent: this.parent
+        ? {
+            role: 'tool',
+            content: message,
+            tool_call_id: this.parent.tool_call_id,
+          }
+        : undefined,
+      ...(output && { output }),
     };
   }
 
-  *cancel(reason: string): Generator<AgentThreadAppendContext, void, unknown> {
-    if (this.parent === undefined) {
-      throw new Error('unreachable: cancel() requires a parent thread');
-    }
-    const completion: SubAgentCompletion = this.preComputedCompletion ?? {
-      type: 'cancelled',
-      reason,
-      send_to_parent: {
-        role: 'tool',
-        tool_call_id: this.parent.tool_call_id,
-        content: reason,
-      },
-    };
-    yield {
-      type: InternalEventType.AGENT_CONTEXT_APPEND,
-      thread_id: this.threadId,
-      context: [],
-      output: [],
-      completion,
-    };
-    this.preComputedCompletion ??= completion;
-  }
-
-  *closeAllOpenToolCalls({
-    toolIdToClosureMessages,
-    defaultToolClosureContent,
-  }: {
-    toolIdToClosureMessages: ReadonlyMap<string, LLMToolMessage>;
-    defaultToolClosureContent: string;
-  }): Generator<AgentThreadAppendContext, void, unknown> {
-    this.throwIfAlreadyComplete();
-    const openToolCallIds = getOpenToolCallIds(this.context);
-    const closed: LLMToolMessage[] = [...openToolCallIds].map(
-      id => toolIdToClosureMessages.get(id) ?? { role: 'tool', tool_call_id: id, content: defaultToolClosureContent },
-    );
-    if (closed.length === 0) {
-      return;
-    }
-    yield* this.appendToContext({
-      context: closed,
-      output: [],
-      currentContextUsage: undefined,
-      usage: undefined,
-    });
-  }
-
-  hasOpenToolCallId(toolCallId: string): boolean {
+  public hasOpenToolCallId(toolCallId: string): boolean {
     return getOpenToolCallIds(this.context).has(toolCallId);
   }
 
   // User-configured MCP tool sets (spec.mcp_servers) for this thread. Excludes
   // system tool sets (sandbox / deferred / capabilities).
-  getUserToolSets(): readonly IToolSet[] {
+  public getUserToolSets(): readonly IToolSet[] {
     return this.definition.toolSets ?? [];
   }
 
   // True when this thread is paused waiting on the user to resolve a pending tool
   // approval or a client-side tool response.
-  private isAwaitingUserInput(): boolean {
+  public isAwaitingUserInput(): boolean {
     return (
       getPendingApprovalToolCalls(this.context).length > 0 || getPendingClientSideToolCalls(this.context).length > 0
     );
@@ -832,12 +794,7 @@ export class AgentThread {
 
   // Pure validation of an input batch against this thread's current context; throws
   // on an invalid/incomplete batch without mutating the context.
-  validateSendInput(messages: AgentThreadRuntimeSendBatch): void {
-    // Match send(): empty + not awaiting is a no-op, including already-complete threads.
-    if (messages.length === 0 && !this.isAwaitingUserInput()) {
-      return;
-    }
-    this.throwIfAlreadyComplete();
+  public validateSendInput(messages: AgentThreadRuntimeSendBatch): void {
     validateInputMessageTypesGivenContext(this.context, messages);
   }
 
@@ -854,7 +811,7 @@ export class AgentThread {
     };
   }
 
-  getAgentThreadMetrics(): AgentThreadMetrics {
+  public getAgentThreadMetrics(): AgentThreadMetrics {
     return { ...this.metrics };
   }
 
@@ -1172,7 +1129,7 @@ export class AgentThread {
       id: modelMessageEventId,
     });
 
-    let completion: SubAgentCompletion | undefined;
+    let completion: SubAgentCompletionMarker | undefined;
     if (this.parent) {
       if (finishReason === 'length') {
         const errorMessage = assistantMessageContentToStringForSubAgent(
@@ -1204,32 +1161,25 @@ export class AgentThread {
     });
 
     if (finishReason === 'length') {
-      const errorContent = completion?.type === 'error' ? completion.error_message : 'max_tokens breached';
+      const errorContent = completion?.error_message ?? 'max_tokens breached';
       yield this.generateErrorEvent(errorContent, agentAssistantMessage);
       return { outcome: 'exit', modelMessageEventId };
     }
 
-    if (hasToolCalls(assistantMessage)) {
-      return { outcome: 'continue', modelMessageEventId };
-    }
-
-    // No tool calls: this thread is finished. A child must already have send_to_parent
-    // from the completion built above; the root only reports the assistant output.
-    if (this.parent !== undefined) {
-      if (completion === undefined) {
-        throw new Error('unreachable: child finished without a completion');
-      }
-      yield this.buildReplayEvent(completion);
-    } else {
+    if (!hasToolCalls(assistantMessage)) {
       yield {
         type: InternalEventType.AGENT_DONE,
+        status: 'done',
         thread_id: this.threadId,
         title: this.title,
-        status: 'done',
         output: agentAssistantMessage,
+        parent: this.parent,
+        send_to_parent: completion?.send_to_parent,
       };
+      return { outcome: 'exit', modelMessageEventId };
     }
-    return { outcome: 'exit', modelMessageEventId };
+
+    return { outcome: 'continue', modelMessageEventId };
   }
 
   private async *stepToolResponse(
@@ -1374,30 +1324,17 @@ export class AgentThread {
     return 'exit';
   }
 
-  private buildReplayEvent(c: SubAgentCompletion): InternalChildThreadDoneEvent {
-    if (this.parent === undefined) {
-      throw new Error('unreachable: completion replay requires a parent thread');
-    }
+  private buildReplayEvent(c: SubAgentCompletionMarker): InternalThreadDoneEvent {
     const base = {
       type: InternalEventType.AGENT_DONE,
       thread_id: this.threadId,
       title: this.title,
       parent: this.parent,
       send_to_parent: c.send_to_parent,
-    } satisfies Pick<InternalChildThreadDoneEvent, 'type' | 'thread_id' | 'title' | 'parent' | 'send_to_parent'>;
-    if (c.type === 'done') {
-      return { ...base, status: 'done', output: c.output };
-    }
-    if (c.type === 'error') {
-      return { ...base, status: 'error', error: c.error_message, output: c.output };
-    }
-    return { ...base, status: 'cancelled', reason: c.reason };
-  }
-
-  private throwIfAlreadyComplete(): void {
-    if (this.preComputedCompletion !== undefined) {
-      throw new InvalidAgentSendInputError(`thread ${this.threadId} is already complete`);
-    }
+    };
+    return c.type === 'done'
+      ? { ...base, status: 'done', output: c.output }
+      : { ...base, status: 'error', error: c.error_message ?? 'Sub-agent errored', output: c.output };
   }
 
   public async *execute(options?: {
@@ -1415,6 +1352,11 @@ export class AgentThread {
         yield this.buildReplayEvent(this.preComputedCompletion);
         return;
       }
+
+      // Drain + apply any queued user events first (§3.2). This runs preSend when there is work,
+      // so the block below is skipped in that case. When the queue is empty it is a no-op and the
+      // block below runs preSend for a fresh/resumed-without-new-events execute.
+      yield* this.applyUserEvents(this.pendingUserEvents.splice(0));
 
       if (!this.preSendRanThisTurn) {
         for await (const event of this.executeContextProcessors('preSend')) {

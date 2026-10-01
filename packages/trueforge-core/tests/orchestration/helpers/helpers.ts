@@ -130,11 +130,19 @@ export async function* writeNoteToolCallStream() {
   };
 }
 
-/** Consume execute(); return raw events and the generator result. */
-export async function runExecute(input: {
+/**
+ * Apply the batch (like SessionHandle.createTurn's atomic pre-send: validate + append,
+ * out-of-band from the execute() stream), then consume execute(); return the execute events
+ * and the generator result. The store-free send() enqueue path is exercised by the wiring layer.
+ */
+export async function runTurn(input: {
   orchestrator: AgentThreadOrchestrator;
+  sendBatch: AgentThreadSendBatch;
   signal?: AbortSignal | undefined;
 }): Promise<{ events: AgentThreadExecutionEvent[]; result: AgentThreadExecutionResult }> {
+  for await (const _event of input.orchestrator.applyUserEvents(input.sendBatch)) {
+    void _event;
+  }
   const events: AgentThreadExecutionEvent[] = [];
   const iterator = input.orchestrator.execute({
     signal: input.signal ?? new AbortController().signal,
@@ -145,18 +153,6 @@ export async function runExecute(input: {
     step = await iterator.next();
   }
   return { events, result: step.value };
-}
-
-/** Consume send() then execute(); return raw events and the generator result. */
-export async function runTurn(input: {
-  orchestrator: AgentThreadOrchestrator;
-  sendBatch: AgentThreadSendBatch;
-  signal?: AbortSignal | undefined;
-}): Promise<{ events: AgentThreadExecutionEvent[]; result: AgentThreadExecutionResult }> {
-  for await (const _event of input.orchestrator.send(input.sendBatch)) {
-    void _event;
-  }
-  return runExecute({ orchestrator: input.orchestrator, signal: input.signal });
 }
 
 export function llmCreateInputs(llm: ILLM): unknown[] {

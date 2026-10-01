@@ -262,9 +262,8 @@ export class SessionHandle<
         logger: input.resolver.logger,
       });
 
-      // SEND BEFORE COMMIT — validate + append; throw ⇒ nothing persisted.
       const sendBatch = toSendBatch(input.input);
-      const new_context_appends = await collectContextAppends(orchestrator.send(sendBatch));
+      const new_context_appends = await collectContextAppends(orchestrator.applyUserEvents(sendBatch));
 
       const turnId = input.turn_id;
       const now = new Date();
