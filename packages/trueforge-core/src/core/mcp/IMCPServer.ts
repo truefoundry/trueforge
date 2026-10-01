@@ -125,6 +125,7 @@ export interface IToolSet {
   // system tool sets are never approval-gated and implement these as no-ops.
   setApprovalPolicy(toolName: string, action: ToolApprovalPolicyAction): void;
   getApprovalPolicies(): Record<string, ToolApprovalPolicyAction>;
+  hasApplicableApprovalPolicy(toolName: string): boolean;
 }
 
 /** Policy-free tool provider; a {@link ToolSet} wraps it to layer per-agent selector policy on top. */
