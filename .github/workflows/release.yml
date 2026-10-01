@@ -531,13 +531,17 @@ jobs:
   back-merge-main:
     name: Back-merge changelogs to main
     needs: [version-release, release-chart]
-    # A skipped release-chart means this version was already published, which
-    # still satisfies "the release shipped" and lets a failed back-merge be
-    # retried by re-running the dispatch.
+    # release-chart must have actually SUCCEEDED. It is never legitimately
+    # skipped: it runs on a first cut, on a re-run of an already-cut version
+    # (idempotent - it finishes whatever the last attempt left), when there was
+    # nothing to version, and in a dry run. The only way it skips is a failure
+    # upstream, so accepting `skipped` here would drain consumed changesets off
+    # main for a release that never published a chart. A retry still works: the
+    # re-run's release-chart succeeds, and this job runs then.
     if: ${{ !cancelled()
       && needs.version-release.result == 'success'
       && needs.version-release.outputs.final_minor == 'true'
-      && (needs.release-chart.result == 'success' || needs.release-chart.result == 'skipped')
+      && needs.release-chart.result == 'success'
       && inputs.dry_run != true }} # DRY-RUN (temporary)
     runs-on: ubuntu-latest
     timeout-minutes: 60
