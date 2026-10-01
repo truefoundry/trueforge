@@ -1610,6 +1610,97 @@ describe('useTrueForgeAgentMessages', () => {
     expect(loadSessionSnapshot).toHaveBeenCalledTimes(1);
   });
 
+  it('clears isRunning when a supersede send fails before runStream starts', async () => {
+    let resolveFirstStream: (() => void) | undefined;
+    vi.mocked(streamTurnContent).mockReturnValue(
+      (async function* () {
+        yield { content: [{ type: 'text' as const, text: 'partial' }] };
+        await new Promise<void>(resolve => {
+          resolveFirstStream = resolve;
+        });
+      })(),
+    );
+
+    const getTurnHeaders = vi.fn();
+    const { result } = renderHook(() =>
+      useTrueForgeAgentMessages({
+        server: mockServer,
+        sessionId: 'session-1',
+        getTurnHeaders,
+      }),
+    );
+    await waitFor(() => expect(result.current.isLoading).toBe(false));
+
+    // First turn starts running
+    let firstTurnPromise: Promise<void> | undefined;
+    await act(async () => {
+      firstTurnPromise = result.current.sendTurn({ userMessage: 'turn 1' });
+    });
+    await waitFor(() => expect(result.current.isRunning).toBe(true));
+
+    // A second send supersedes the first one, but getTurnHeaders rejects
+    getTurnHeaders.mockRejectedValue(new Error('Auth token expired'));
+
+    await act(async () => {
+      await expect(result.current.sendTurn({ userMessage: 'turn 2' })).rejects.toThrow('Auth token expired');
+    });
+
+    // The first stream was aborted by the supersede, and wait for it to complete
+    resolveFirstStream?.();
+    await act(async () => {
+      await firstTurnPromise?.catch(() => undefined);
+    });
+
+    expect(result.current.isRunning).toBe(false);
+  });
+
+  it('cancel clears isRunning even after a failed supersede', async () => {
+    let resolveFirstStream: (() => void) | undefined;
+    vi.mocked(streamTurnContent).mockReturnValue(
+      (async function* () {
+        yield { content: [{ type: 'text' as const, text: 'partial' }] };
+        await new Promise<void>(resolve => {
+          resolveFirstStream = resolve;
+        });
+      })(),
+    );
+
+    const getTurnHeaders = vi.fn();
+    const { result } = renderHook(() =>
+      useTrueForgeAgentMessages({
+        server: mockServer,
+        sessionId: 'session-1',
+        getTurnHeaders,
+      }),
+    );
+    await waitFor(() => expect(result.current.isLoading).toBe(false));
+
+    // First turn starts running
+    let firstTurnPromise: Promise<void> | undefined;
+    await act(async () => {
+      firstTurnPromise = result.current.sendTurn({ userMessage: 'turn 1' });
+    });
+    await waitFor(() => expect(result.current.isRunning).toBe(true));
+
+    // Second turn supersedes and fails
+    getTurnHeaders.mockRejectedValue(new Error('Failed header resolution'));
+    await act(async () => {
+      await expect(result.current.sendTurn({ userMessage: 'turn 2' })).rejects.toThrow('Failed header resolution');
+    });
+
+    // User triggers cancel
+    vi.mocked(mockServer.cancelSession).mockImplementation(async () => {
+      resolveFirstStream?.();
+    });
+
+    await act(async () => {
+      await result.current.cancel();
+      await firstTurnPromise?.catch(() => undefined);
+    });
+
+    expect(result.current.isRunning).toBe(false);
+  });
+
   describe('pre-turn failure rollback', () => {
     it('reports and restores a user message when initializeSession fails', async () => {
       const onError = vi.fn();

@@ -611,6 +611,7 @@ export function useTrueForgeAgentMessages({
         .finally(() => {
           if (activeRunRef.current === run) {
             activeRunRef.current = null;
+            setIsRunning(false);
           }
         });
       return run;
@@ -964,6 +965,10 @@ export function useTrueForgeAgentMessages({
           options.onPreTurnFailure?.();
         }
         if (!runStreamStarted) {
+          if (abortControllerRef.current?.signal.aborted) {
+            abortControllerRef.current = null;
+          }
+          setIsRunning(false);
           onErrorRef.current?.(error);
         }
         throw error;
@@ -993,12 +998,8 @@ export function useTrueForgeAgentMessages({
     // reconcile is needed here — the cancelled turn is terminal and local
     // state reconciles against the event log on the next session load.
     await activeRunRef.current?.catch(() => undefined);
-    // Nothing drained when the load could not attach a stream, so clear the
-    // running flag here or the composer stays blocked until a reload.
-    if (resumeUnavailableRef.current) {
-      markResumeUnavailable(false);
-      setIsRunning(false);
-    }
+    markResumeUnavailable(false);
+    setIsRunning(false);
   }, [server, sessionId, markResumeUnavailable]);
 
   const isRunningRef = useRef(isRunning);
