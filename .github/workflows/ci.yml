@@ -98,7 +98,8 @@ jobs:
               - 'package.json'
               - '.github/workflows/ci.yml'
             release:
-              - 'scripts/resolve-chart-version.sh'
+              - 'scripts/prepare-release.mjs'
+              - 'scripts/version.mjs'
               - 'tests/scripts/**'
               - 'package.json'
               - '.github/workflows/ci.yml'
@@ -297,8 +298,8 @@ jobs:
         with:
           node-version: '24'
 
-      - name: Chart version resolver
-        run: pnpm test:chart-version
+      - name: Release script tests
+        run: pnpm test:release-scripts
 
   # Store contract suites when store paths change. Parallel with typecheck-and-build.
   store-tests:
