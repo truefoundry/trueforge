@@ -1,48 +1,55 @@
-# npm publish for the four public packages, plus PyPI for python/trueforge_sdk.
+# npm publish for the four public packages, PyPI for python/trueforge_sdk, two
+# server images, and the Helm chart. One dispatch, one run, one conclusion:
+# success means published.
 #
 # npm and PyPI trusted publishers are bound to this filename (`release.yml`).
 # Do not rename it without updating every package on npmjs.com and PyPI.
 #
-# Releases run on release-vX.Y.Z, not main. main only collects changesets.
-#
+# Releases run on release-vX.Y.Z, never on main. main only collects changesets.
 # helm-charts dispatches this workflow with tfy_chart_version (X.Y.Z or
-# X.Y.Z-rc.N) on ref release-vX.Y.Z. That run prepares pre mode and any
-# 0.0.0 packages, runs changeset version, and auto-merges the Version
-# Packages PR. changesets/action/version hard-resets to the triggering SHA
-# before its script, which would drop that prep, so the dispatch job runs
-# `pnpm run version` itself and opens the same PR.
+# X.Y.Z-rc.N) on ref release-vX.Y.Z. There is no push trigger: the orchestrator
+# is the only entry point, so a run's conclusion is the release outcome.
 #
-# The merge push to release-v* uses changesets/action/select-mode:
-#   - pending `.changeset/*.md` → version job opens/updates the Version Packages PR.
-#     When @truefoundry/trueforge-sdk moves, scripts/version.mjs mirrors that
-#     version into python/trueforge_sdk and rebakes Fern.
-#   - none pending + unpublished versions → pack (build/test) + Windows npx smoke
-#     in parallel with the from-source image (image waits only on npm view of
-#     @truefoundry/trueforge@version; skip image+chart if that version is already
-#     on npm). The release builds two images with the same tag: a public image
-#     on node:24-slim, and a hardened image on the TrueFoundry private node
-#     bases. Local and contributor builds stay on node:24-slim.
-#     After both images are pushed, this workflow calls release-chart.yml
-#     with this branch, app_version, and image_tag. Helm does not wait on pack.
-# After Helm publish, release-chart.yml tags charts/trueforge@<chartVersion>
-# on the metadata commit and uploads the trueforge-chart-version artifact.
+# version-release prepares pre mode and any 0.0.0 packages, runs
+# `changeset version`, and commits the result straight to the release branch.
+# Every later job checks out that commit: actions/checkout defaults to the SHA
+# at dispatch time, which predates the version bump.
 #
-# Auth is GitHub OIDC (no NPM_TOKEN / PYPI_TOKEN). An `_authToken` in user `.npmrc`
-# disables pnpm's OIDC exchange, so the npm publish job must not set NPM_TOKEN /
-# NODE_AUTH_TOKEN. id-token is granted on the publish jobs and on the image job
-# (OIDC into the private registry to pull the hardened bases, and Cosign signing).
+# changesets/action/select-mode then reports whether anything is left to
+# publish. `publish` means pack (build/test) + Windows npx smoke gate npm and
+# PyPI. `none` is normal and not an error: a line with no changesets since the
+# last release still has to publish a chart at the requested version.
+#
+# The image and chart path is independent of npm. It is gated on the
+# charts/trueforge@<tfy_chart_version> tag: absent means this version has not
+# been cut yet, so build both images (public on node:24-slim, hardened on the
+# private hardened node bases) and publish the chart. Present means a
+# re-run - reuse the images the tagged commit already references and let
+# release-chart.yml finish whatever is missing.
+#
+# Auth is GitHub OIDC (no NPM_TOKEN / PYPI_TOKEN). An `_authToken` in user
+# `.npmrc` disables pnpm's OIDC exchange, so the npm publish job must not set
+# NPM_TOKEN / NODE_AUTH_TOKEN. id-token is granted on the publish jobs and on
+# the image jobs (OIDC into the private registry for the hardened bases, and
+# Cosign signing).
 name: Version or publish packages
 
 on:
-  push:
-    branches:
-      - 'release-v*'
   workflow_dispatch:
     inputs:
       tfy_chart_version:
         description: 'TrueFoundry chart version: X.Y.Z or X.Y.Z-rc.N'
         required: true
         type: string
+      # DRY-RUN (temporary): exercise the whole pipeline without publishing
+      # anything outside this repo. Commits to the release branch still happen
+      # - downstream jobs check that commit out - so dispatch it on a scratch
+      # release-v* branch you are willing to delete. Grep DRY-RUN to remove.
+      dry_run:
+        description: 'Dry run: skip npm, PyPI, images, git tags, the OCI push and the back-merge'
+        required: false
+        default: false
+        type: boolean
 
 concurrency:
   group: ${{ github.workflow }}-${{ github.ref }}
@@ -52,18 +59,19 @@ concurrency:
 permissions: {}
 
 jobs:
-  # Dispatch-only. Push runs take the select-mode path below.
   version-release:
     name: Version packages for TrueFoundry release
-    if: github.event_name == 'workflow_dispatch'
     runs-on: ubuntu-latest
     timeout-minutes: 30
     outputs:
-      mode: ${{ steps.finish.outputs.mode }}
+      # Every downstream job checks this out; actions/checkout's default ref is
+      # the pre-version SHA from the dispatch.
+      sha: ${{ steps.commit.outputs.sha }}
+      final_minor: ${{ steps.commit.outputs.final_minor }}
+      mode: ${{ steps.select-mode.outputs.mode }}
       publish-plan-artifact-id: ${{ steps.select-mode.outputs.publish-plan-artifact-id }}
     permissions:
       contents: write
-      pull-requests: write
     steps:
       - id: app-token
         uses: actions/create-github-app-token@v3
@@ -74,6 +82,7 @@ jobs:
       - name: Check out repo
         uses: actions/checkout@v7
         with:
+          # Full history so `changeset version` can write CHANGELOG from commits.
           fetch-depth: 0
           persist-credentials: false
           token: ${{ steps.app-token.outputs.token }}
@@ -97,8 +106,8 @@ jobs:
           node scripts/prepare-release.mjs
           pnpm run version
 
-      - name: Open and auto-merge Version Packages PR
-        id: finish
+      - name: Commit versions to the release branch
+        id: commit
         env:
           GH_TOKEN: ${{ steps.app-token.outputs.token }}
           RELEASE_BRANCH: ${{ github.ref_name }}
@@ -106,115 +115,43 @@ jobs:
           HUSKY: '0'
         run: |
           set -euo pipefail
+
+          # Only a final minor drains main. A hotfix (X.Y.Z, Z>0) must not:
+          # its changeset still sits on main from the source PR and belongs in
+          # the next minor's changelog too.
+          if [[ "$TFY_CHART_VERSION" =~ ^[0-9]+\.[0-9]+\.0$ ]]; then
+            echo "final_minor=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "final_minor=false" >> "$GITHUB_OUTPUT"
+          fi
+
           if [ -z "$(git status --porcelain)" ]; then
-            echo "mode=publish" >> "$GITHUB_OUTPUT"
-            echo "Nothing to version; publishing this branch"
+            SHA="$(git rev-parse HEAD)"
+            echo "sha=$SHA" >> "$GITHUB_OUTPUT"
+            echo "Nothing to version; releasing ${RELEASE_BRANCH} at $SHA"
             exit 0
           fi
+
           gh auth setup-git
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
-          VERSION_BRANCH="changeset-release/${RELEASE_BRANCH}"
-          git checkout -B "$VERSION_BRANCH"
           git add -A
-          git commit -m "Version Packages"
-          git push --force origin "HEAD:${VERSION_BRANCH}"
-          EXISTING="$(gh pr list --repo "$GITHUB_REPOSITORY" --head "$VERSION_BRANCH" --base "$RELEASE_BRANCH" --state open --json number --jq '.[0].number // empty')"
-          if [ -z "$EXISTING" ]; then
-            gh pr create \
-              --repo "$GITHUB_REPOSITORY" \
-              --base "$RELEASE_BRANCH" \
-              --head "$VERSION_BRANCH" \
-              --title "Version Packages" \
-              --body "Versions packages for TrueFoundry chart release ${TFY_CHART_VERSION} on ${RELEASE_BRANCH}. Auto-merge publishes npm, PyPI, the image, and the Helm chart from the merge push."
-            EXISTING="$(gh pr view "$VERSION_BRANCH" --repo "$GITHUB_REPOSITORY" --json number --jq .number)"
-          fi
-          gh pr merge "$EXISTING" --repo "$GITHUB_REPOSITORY" --merge --auto
-          echo "mode=version" >> "$GITHUB_OUTPUT"
+          git commit -m "Version Packages for ${TFY_CHART_VERSION}"
+          git push origin "HEAD:${RELEASE_BRANCH}"
+          SHA="$(git rev-parse HEAD)"
+          echo "sha=$SHA" >> "$GITHUB_OUTPUT"
+          echo "Committed versions for ${TFY_CHART_VERSION} as $SHA"
 
-      # Same-run publish: pack/publish need a publish plan, and the push-path
-      # select-mode job never runs on a dispatch.
-      - name: Select Changesets mode
-        id: select-mode
-        if: steps.finish.outputs.mode == 'publish'
-        uses: changesets/action/select-mode@v2
-
-  select-mode:
-    name: Select mode
-    if: github.event_name == 'push'
-    runs-on: ubuntu-latest
-    timeout-minutes: 10
-    outputs:
-      mode: ${{ steps.select-mode.outputs.mode }}
-      publish-plan-artifact-id: ${{ steps.select-mode.outputs.publish-plan-artifact-id }}
-    permissions:
-      contents: read
-    steps:
-      - name: Check out repo
-        uses: actions/checkout@v7
-        with:
-          persist-credentials: false
-
-      - uses: pnpm/action-setup@v6
-
-      - name: Set up Node.js
-        uses: actions/setup-node@v7
-        with:
-          node-version: 24
-          cache: pnpm
-
-      - run: pnpm install --frozen-lockfile
-
+      # After the commit, so it reads the versioned tree. `none` is a valid
+      # outcome and is not treated as a failure.
       - name: Select Changesets mode
         id: select-mode
         uses: changesets/action/select-mode@v2
 
-  version:
-    name: Version packages
-    if: needs.select-mode.outputs.mode == 'version'
-    needs: select-mode
-    runs-on: ubuntu-latest
-    # Fern rebake when the sdk version moves.
-    timeout-minutes: 30
-    permissions:
-      contents: write
-      pull-requests: write
-    steps:
-      - name: Check out repo
-        uses: actions/checkout@v7
-        with:
-          # Full history so `changeset version` can write CHANGELOG from commits.
-          fetch-depth: 0
-          persist-credentials: false
-
-      - uses: pnpm/action-setup@v6
-
-      - name: Set up Node.js
-        uses: actions/setup-node@v7
-        with:
-          node-version: 24
-          cache: pnpm
-
-      - run: pnpm install --frozen-lockfile
-
-      # Must be @v2: @changesets/cli@3 stores applied RC changesets under
-      # `.changeset/pre/`; @v1 still expects folder-style `pre/changes.md` and
-      # fails with ENOENT right after the Version Packages merge.
-      - name: Version packages
-        id: version
-        uses: changesets/action/version@v2
-        env:
-          FERN_TOKEN: ${{ secrets.FERN_TOKEN }}
-        with:
-          script: pnpm run version
-          push-with-git-cli: true
-
-  # Exactly one of select-mode / version-release runs; the other is skipped and
-  # reports an empty mode. `!cancelled()` is what stops that skip from cascading.
   pack:
     name: Pack packages
-    if: ${{ !cancelled() && (needs.select-mode.outputs.mode == 'publish' || needs.version-release.outputs.mode == 'publish') }}
-    needs: [select-mode, version-release]
+    if: needs.version-release.outputs.mode == 'publish'
+    needs: [version-release]
     runs-on: ubuntu-latest
     timeout-minutes: 30
     outputs:
@@ -225,6 +162,7 @@ jobs:
       - name: Check out repo
         uses: actions/checkout@v7
         with:
+          ref: ${{ needs.version-release.outputs.sha }}
           persist-credentials: false
 
       - uses: pnpm/action-setup@v6
@@ -250,12 +188,12 @@ jobs:
         id: pack
         uses: changesets/action/pack@v2
         with:
-          publish-plan-artifact-id: ${{ needs.select-mode.outputs.publish-plan-artifact-id || needs.version-release.outputs.publish-plan-artifact-id }}
+          publish-plan-artifact-id: ${{ needs.version-release.outputs.publish-plan-artifact-id }}
 
   windows-npx-smoke:
     name: Windows npx smoke
-    if: ${{ !cancelled() && (needs.select-mode.outputs.mode == 'publish' || needs.version-release.outputs.mode == 'publish') }}
-    needs: [select-mode, version-release]
+    if: needs.version-release.outputs.mode == 'publish'
+    needs: [version-release]
     runs-on: windows-latest
     timeout-minutes: 30
     permissions:
@@ -264,6 +202,7 @@ jobs:
       - name: Check out repo
         uses: actions/checkout@v7
         with:
+          ref: ${{ needs.version-release.outputs.sha }}
           persist-credentials: false
 
       - uses: pnpm/action-setup@v6
@@ -272,7 +211,11 @@ jobs:
         uses: actions/setup-node@v7
         with:
           node-version: 24
-          cache: pnpm
+          # No package-manager cache: this job checks out a commit this run just
+          # created (version-release.outputs.sha), and writing an Actions cache
+          # from an expression-derived ref is the cache-poisoning shape CodeQL
+          # flags. The other two jobs on this ref already opt out.
+          package-manager-cache: false
 
       - run: pnpm install --frozen-lockfile
 
@@ -281,7 +224,8 @@ jobs:
 
   publish:
     name: Publish packages
-    needs: [pack, windows-npx-smoke]
+    needs: [version-release, pack, windows-npx-smoke]
+    if: ${{ inputs.dry_run != true }} # DRY-RUN (temporary)
     runs-on: ubuntu-latest
     timeout-minutes: 20
     permissions:
@@ -291,6 +235,7 @@ jobs:
       - name: Check out repo
         uses: actions/checkout@v7
         with:
+          ref: ${{ needs.version-release.outputs.sha }}
           persist-credentials: false
 
       - uses: pnpm/action-setup@v6
@@ -321,7 +266,8 @@ jobs:
   # Sibling of npm publish (same gates). Skips when pyproject version is already on PyPI.
   publish-python:
     name: Publish Python SDK
-    needs: [pack, windows-npx-smoke]
+    needs: [version-release, pack, windows-npx-smoke]
+    if: ${{ inputs.dry_run != true }} # DRY-RUN (temporary)
     runs-on: ubuntu-latest
     timeout-minutes: 20
     permissions:
@@ -331,6 +277,7 @@ jobs:
       - name: Check out repo
         uses: actions/checkout@v7
         with:
+          ref: ${{ needs.version-release.outputs.sha }}
           persist-credentials: false
 
       - name: Set up Python
@@ -378,10 +325,13 @@ jobs:
         with:
           packages-dir: python/trueforge_sdk/dist
 
+  # Independent of npm. The chart version is the dispatch input, so "already
+  # released?" is answered by the charts/trueforge@<version> tag, which
+  # release-chart.yml writes before it pushes to OCI. A line with no changesets
+  # since the last release publishes no packages and still needs a chart.
   resolve-image:
     name: Resolve image identity
-    if: ${{ !cancelled() && (needs.select-mode.outputs.mode == 'publish' || needs.version-release.outputs.mode == 'publish') }}
-    needs: [select-mode, version-release]
+    needs: [version-release]
     runs-on: ubuntu-latest
     timeout-minutes: 10
     outputs:
@@ -389,13 +339,14 @@ jobs:
       image_tag: ${{ steps.resolve.outputs.image_tag }}
       # "build" or "skip", not true/false. GitHub drops a job output whose
       # value is the string false, which would skip the image builds.
-      skip: ${{ steps.resolve.outputs.skip }}
+      image: ${{ steps.resolve.outputs.image }}
     permissions:
       contents: read
     steps:
       - name: Check out repo
         uses: actions/checkout@v7
         with:
+          ref: ${{ needs.version-release.outputs.sha }}
           persist-credentials: false
 
       - name: Set up Node.js
@@ -405,6 +356,9 @@ jobs:
 
       - name: Resolve image identity
         id: resolve
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          CHART_VERSION: ${{ inputs.tfy_chart_version }}
         run: |
           set -euo pipefail
           SEMVER='^[0-9]+\.[0-9]+\.[0-9]+([.-][0-9A-Za-z.-]+)?$'
@@ -414,24 +368,69 @@ jobs:
             exit 1
           fi
           IMAGE_TAG="${APP_VERSION}-$(git rev-parse --short=7 HEAD)"
-          echo "app_version=$APP_VERSION" >> "$GITHUB_OUTPUT"
-          echo "image_tag=$IMAGE_TAG" >> "$GITHUB_OUTPUT"
 
-          set +e
-          VIEW_OUT=$(npm view "@truefoundry/trueforge@${APP_VERSION}" version 2>&1)
-          VIEW_STATUS=$?
-          set -e
-          if [[ "$VIEW_STATUS" -eq 0 && -n "$VIEW_OUT" ]]; then
-            echo "skip=skip" >> "$GITHUB_OUTPUT"
-            echo "@truefoundry/trueforge@$APP_VERSION is already on npm; skipping image and chart"
-          elif printf '%s' "$VIEW_OUT" | grep -qiE 'E404|404 Not Found|npm error 404'; then
-            echo "skip=build" >> "$GITHUB_OUTPUT"
-            echo "@truefoundry/trueforge@$APP_VERSION is not on npm; building image $IMAGE_TAG"
-          else
-            printf '%s\n' "$VIEW_OUT" >&2
-            echo "npm view failed for @truefoundry/trueforge@$APP_VERSION" >&2
-            exit 1
+          # matching-refs, not git/ref: a miss returns 200 + [], so "absent" is
+          # distinguishable from an API error. It is a prefix match, hence the
+          # exact-.ref filter. git ls-remote is unavailable here because the
+          # checkout runs with persist-credentials: false.
+          TAG="charts/trueforge@${CHART_VERSION}"
+          FOUND=$(gh api "repos/${GITHUB_REPOSITORY}/git/matching-refs/tags/${TAG}" \
+            --jq "[.[] | select(.ref == \"refs/tags/${TAG}\")] | length")
+          if [[ "$FOUND" == "0" ]]; then
+            echo "image=build" >> "$GITHUB_OUTPUT"
+            echo "app_version=$APP_VERSION" >> "$GITHUB_OUTPUT"
+            echo "image_tag=$IMAGE_TAG" >> "$GITHUB_OUTPUT"
+            echo "$TAG does not exist; building image $IMAGE_TAG"
+            exit 0
           fi
+
+          # Re-run of an already-cut version. The tagged commit names the image
+          # that belongs to this chart version; rebuilding under a new SHA would
+          # make the same chart version disagree with itself. Empty outputs tell
+          # release-chart.yml to keep the values already on the branch.
+          echo "image=skip" >> "$GITHUB_OUTPUT"
+          echo "app_version=" >> "$GITHUB_OUTPUT"
+          echo "image_tag=" >> "$GITHUB_OUTPUT"
+          echo "$TAG already exists; reusing the image the tagged commit references"
+
+      # The two image jobs call a shared reusable workflow that checks out with
+      # no `ref`, so it gets `github.sha` - the pre-version dispatch commit,
+      # not the commit `version-release` just made. The tag and the chart's
+      # appVersion would then describe a tree the image was not built from.
+      #
+      # Refuse rather than ship a mislabelled image. This fires only when an
+      # image would actually be built AND the version commit moved:
+      #   - nothing to version (clean tree) -> sha == github.sha, image correct
+      #   - re-run of a cut version        -> image == skip, nothing is built
+      #   - dry run                        -> both build jobs are skipped
+      # Lifting this needs a `ref` input on
+      # truefoundry/github-workflows-public/.github/workflows/build.yml,
+      # passed as needs.version-release.outputs.sha from both image jobs.
+      - name: Refuse to build an image from the pre-version commit
+        if: ${{ steps.resolve.outputs.image == 'build' && inputs.dry_run != true }}
+        env:
+          VERSION_SHA: ${{ needs.version-release.outputs.sha }}
+          DISPATCH_SHA: ${{ github.sha }}
+        run: |
+          set -euo pipefail
+          if [[ "$VERSION_SHA" == "$DISPATCH_SHA" ]]; then
+            echo "Version commit is the dispatch commit; the image build sees the right tree."
+            exit 0
+          fi
+          {
+            echo "### Image build refused"
+            echo ""
+            echo "\`version-release\` committed \`$VERSION_SHA\`, but the shared"
+            echo "build workflow would check out \`$DISPATCH_SHA\` - the tree before"
+            echo "the version bump. The image would carry the wrong version while its"
+            echo "tag and the chart appVersion claim otherwise."
+            echo ""
+            echo "Add a \`ref\` input to \`github-workflows-public\`'s \`build.yml\` and"
+            echo "pass \`needs.version-release.outputs.sha\`, or re-run with \`dry_run\`"
+            echo "to exercise everything except the image and chart publish."
+          } >> "$GITHUB_STEP_SUMMARY"
+          echo "::error::refusing to build an image from $DISPATCH_SHA when the release commit is $VERSION_SHA"
+          exit 1
 
   # Two images, same tag, different Artifactory repos. The public one keeps the
   # Dockerfile's public bases so it stays redistributable; the hardened one is
@@ -439,7 +438,8 @@ jobs:
   # only goes to the private repo that TrueFoundry SaaS pulls from.
   build-image-public:
     name: Build and push public server image
-    if: needs.resolve-image.outputs.skip == 'build'
+    # DRY-RUN (temporary): `&& inputs.dry_run != true`
+    if: needs.resolve-image.outputs.image == 'build' && inputs.dry_run != true
     needs: [resolve-image]
     uses: truefoundry/github-workflows-public/.github/workflows/build.yml@main
     permissions:
@@ -461,7 +461,8 @@ jobs:
 
   build-image-private:
     name: Build and push hardened server image
-    if: needs.resolve-image.outputs.skip == 'build'
+    # DRY-RUN (temporary): `&& inputs.dry_run != true`
+    if: needs.resolve-image.outputs.image == 'build' && inputs.dry_run != true
     needs: [resolve-image]
     uses: truefoundry/github-workflows-public/.github/workflows/build.yml@main
     permissions:
@@ -493,54 +494,165 @@ jobs:
 
   release-chart:
     name: Publish Helm chart
-    if: needs.resolve-image.outputs.skip == 'build'
     needs: [resolve-image, build-image-public, build-image-private]
+    # The image jobs are legitimately skipped on a re-run of an already-tagged
+    # version, and a plain `needs` would skip the chart along with them. The
+    # chart job is idempotent, so it runs in both cases and finishes whatever
+    # the previous attempt left undone.
+    if: ${{ !cancelled()
+      && needs.resolve-image.result == 'success'
+      && (needs.build-image-public.result == 'success' || needs.build-image-public.result == 'skipped')
+      && (needs.build-image-private.result == 'success' || needs.build-image-private.result == 'skipped') }}
     uses: ./.github/workflows/release-chart.yml
     permissions:
       contents: write
     with:
       branch: ${{ github.ref_name }}
+      chart_version: ${{ inputs.tfy_chart_version }}
+      # Empty on a re-run: keep whatever the tagged metadata commit already has.
       app_version: ${{ needs.resolve-image.outputs.app_version }}
       image_tag: ${{ needs.resolve-image.outputs.image_tag }}
+      dry_run: ${{ inputs.dry_run }} # DRY-RUN (temporary)
     secrets: inherit
 
-  # release-chart.yml uploads trueforge-chart-version when it publishes.
-  # When the package is already on npm, image and chart are skipped and the
-  # chart version already on this commit is the one helm-charts should pin.
-  record-chart-version:
-    name: Record existing chart version
-    if: needs.resolve-image.outputs.skip == 'skip'
-    needs: [resolve-image]
+  # A final minor is the only release that drains main. main has been
+  # append-only for changesets since the release moved onto release-v* branches,
+  # so without this every new line re-consumes the backlog and repeats its
+  # changelog entries, and the CHANGELOG sections written here never reach main.
+  #
+  # Only .changeset/*.md deletions and packages/*/CHANGELOG.md move. Every
+  # version field is left alone: main stays at 0.0.0 by design, and excluding
+  # them is what keeps this conflict-free.
+  #
+  # continue-on-error: this job runs after release-chart has already pushed to
+  # OCI, inside the run helm-charts gates its helm phase on. A changelog drain
+  # must never fail a release whose chart is live and correct. A failure is
+  # reported as a ::error:: annotation and recovered by re-dispatching.
+  back-merge-main:
+    name: Back-merge changelogs to main
+    needs: [version-release, release-chart]
+    # release-chart must have actually SUCCEEDED. It is never legitimately
+    # skipped: it runs on a first cut, on a re-run of an already-cut version
+    # (idempotent - it finishes whatever the last attempt left), when there was
+    # nothing to version, and in a dry run. The only way it skips is a failure
+    # upstream, so accepting `skipped` here would drain consumed changesets off
+    # main for a release that never published a chart. A retry still works: the
+    # re-run's release-chart succeeds, and this job runs then.
+    if: ${{ !cancelled()
+      && needs.version-release.result == 'success'
+      && needs.version-release.outputs.final_minor == 'true'
+      && needs.release-chart.result == 'success'
+      && inputs.dry_run != true }} # DRY-RUN (temporary)
     runs-on: ubuntu-latest
-    timeout-minutes: 10
+    timeout-minutes: 60
+    continue-on-error: true
     permissions:
-      contents: read
+      contents: write
+      pull-requests: write
     steps:
+      - id: app-token
+        uses: actions/create-github-app-token@v3
+        with:
+          client-id: ${{ secrets.TRUEFORGE_GENERATE_SDK_APP_ID }}
+          private-key: ${{ secrets.TRUEFORGE_GENERATE_SDK_APP_PRIVATE_KEY }}
+
       - name: Check out repo
         uses: actions/checkout@v7
         with:
+          fetch-depth: 0
           persist-credentials: false
+          token: ${{ steps.app-token.outputs.token }}
 
-      - name: Write chart version
+      - name: Build the back-merge commit
+        id: build
+        env:
+          RELEASE_SHA: ${{ needs.version-release.outputs.sha }}
+          TFY_CHART_VERSION: ${{ inputs.tfy_chart_version }}
         run: |
           set -euo pipefail
-          VERSION="$(node -e '
-            const fs = require("fs");
-            const text = fs.readFileSync("charts/trueforge/Chart.yaml", "utf8");
-            const match = text.match(/^version:\s*"?([^"\n]+)"?\s*$/m);
-            if (match === null) {
-              process.stderr.write("charts/trueforge/Chart.yaml is missing version\n");
-              process.exit(1);
-            }
-            process.stdout.write(match[1].trim());
-          ')"
-          printf '%s\n' "$VERSION" > "$RUNNER_TEMP/chart-version.txt"
-          echo "chart version $VERSION"
+          git fetch --no-tags origin main
+          git fetch --no-tags origin "$RELEASE_SHA"
 
-      - name: Upload chart version
-        uses: actions/upload-artifact@v4
-        with:
-          name: trueforge-chart-version
-          path: ${{ runner.temp }}/chart-version.txt
-          retention-days: 5
-          if-no-files-found: error
+          # Consumed = present at the branch cut, absent on the release branch
+          # now. After `changeset pre exit` that covers both the files deleted
+          # outright and the ones that passed through .changeset/pre/.
+          # ls-tree is non-recursive on purpose: .changeset/pre/ contents are
+          # release-branch-only state and must not be listed.
+          base="$(git merge-base origin/main "$RELEASE_SHA")"
+          list() {
+            git ls-tree --name-only "$1" .changeset/ | grep '\.md$' | grep -v '/README\.md$' | sort
+          }
+          consumed="$(comm -23 <(list "$base") <(list "$RELEASE_SHA") || true)"
+
+          git checkout -B "back-merge/v${TFY_CHART_VERSION}" origin/main
+          if [ -n "$consumed" ]; then
+            printf '%s\n' "$consumed" | xargs -r git rm -q --ignore-unmatch --
+            printf 'dropping consumed changesets:\n%s\n' "$consumed"
+          fi
+
+          changelogs="$(git ls-tree --name-only -r "$RELEASE_SHA" packages/ | grep '/CHANGELOG\.md$' || true)"
+          if [ -n "$changelogs" ]; then
+            printf '%s\n' "$changelogs" | xargs -r git checkout "$RELEASE_SHA" --
+          fi
+
+          if git diff --staged --quiet; then
+            echo "changed=false" >> "$GITHUB_OUTPUT"
+            echo "main already carries this line's changesets and changelogs"
+            exit 0
+          fi
+          echo "changed=true" >> "$GITHUB_OUTPUT"
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git commit -m "Back-merge changelogs for ${TFY_CHART_VERSION}"
+
+      - name: Open and merge the back-merge PR
+        if: steps.build.outputs.changed == 'true'
+        env:
+          GH_TOKEN: ${{ steps.app-token.outputs.token }}
+          BACK_MERGE_BRANCH: back-merge/v${{ inputs.tfy_chart_version }}
+          TFY_CHART_VERSION: ${{ inputs.tfy_chart_version }}
+        run: |
+          set -euo pipefail
+          gh auth setup-git
+          git push --force origin "HEAD:refs/heads/${BACK_MERGE_BRANCH}"
+
+          find_pr() {
+            gh pr list --repo "$GITHUB_REPOSITORY" --head "$BACK_MERGE_BRANCH" \
+              --base main --state open --json number --jq '.[0].number // empty'
+          }
+          PR="$(find_pr)"
+          if [ -z "$PR" ]; then
+            gh pr create \
+              --repo "$GITHUB_REPOSITORY" \
+              --base main \
+              --head "$BACK_MERGE_BRANCH" \
+              --title "Back-merge changelogs for ${TFY_CHART_VERSION}" \
+              --body "Drains the changesets consumed by release-v${TFY_CHART_VERSION} and carries that line's packages/*/CHANGELOG.md back to main. No version field moves: main stays at 0.0.0."
+            PR="$(find_pr)"
+          fi
+          if [ -z "$PR" ]; then
+            echo "::error::could not open or find the back-merge PR"
+            exit 1
+          fi
+
+          # "Nothing to back-merge" was already handled above, so anything that
+          # stops this PR landing is reported loudly: silently skipping the
+          # drain leaves main re-consuming the backlog on the next line.
+          gh pr merge "$PR" --repo "$GITHUB_REPOSITORY" --squash --delete-branch --admin \
+            || echo "merge command failed; verifying PR state (it may already be merged)"
+          STATE="$(gh pr view "$PR" --repo "$GITHUB_REPOSITORY" --json state --jq .state)"
+          if [ "$STATE" != "MERGED" ]; then
+            echo "::error::back-merge PR #${PR} did not merge (state=${STATE})"
+            exit 1
+          fi
+          echo "Back-merged into main via #${PR}"
+
+      # The steps above annotate their own known failures, but a step dying
+      # under `set -euo pipefail` does not. The release is already published at
+      # this point, so surface the drain failure without failing the run.
+      - name: Report back-merge failure
+        if: failure()
+        env:
+          TFY_CHART_VERSION: ${{ inputs.tfy_chart_version }}
+        run: |
+          echo "::error::back-merge to main failed for ${TFY_CHART_VERSION}; main still carries this line's consumed changesets. Re-dispatch this release to retry the drain."
