@@ -2,6 +2,9 @@
 
 import { lazy, Suspense, useCallback, useEffect, useMemo } from 'react';
 
+import { useTrackAnalytics } from '@/analytics/AnalyticsProvider.js';
+import { AnalyticsEvents } from '@/analytics/events.js';
+
 import { useDraftCatalog } from '@/atoms/draft/DraftCatalogProvider.js';
 import { auiButtonClass } from '@/atoms/lib/buttonClasses.js';
 import { cn } from '@/atoms/lib/cn.js';
@@ -32,6 +35,7 @@ const TruefoundrySettingsBuilder = () => {
   const { settingsOpen, settingsSection: section, setSettingsOpen } = useShellMode();
   const catalog = useOptionalCatalogServer();
   const refreshServerCapabilities = useOptionalRefreshServerCapabilities();
+  const track = useTrackAnalytics();
   const { refresh: refreshDraftCatalog } = useDraftCatalog();
   // dock/widget panels are ~mobile width even on a wide viewport — keep Settings stacked.
   const compact = useCompactLayout();
@@ -40,8 +44,9 @@ const TruefoundrySettingsBuilder = () => {
   const hasWebSearch = catalog?.webSearchCatalog != null;
 
   const closeSettings = useCallback(() => {
+    track(AnalyticsEvents.Settings.CLOSED, { section });
     setSettingsOpen(false);
-  }, [setSettingsOpen]);
+  }, [section, setSettingsOpen, track]);
 
   // Refresh catalogs whenever settings are closed or navigated away from.
   useEffect(() => {
@@ -146,6 +151,7 @@ const TruefoundrySettingsBuilder = () => {
                   : 'text-text-secondary hover:bg-ghost-button-hover/60 hover:text-text-primary',
               )}
               onClick={() => {
+                track(AnalyticsEvents.Settings.SECTION_CHANGED, { section: item.id });
                 setSettingsOpen(true, item.id);
               }}
             >

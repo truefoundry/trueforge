@@ -3,6 +3,8 @@ import { fireEvent, render, screen, waitFor, within } from '@testing-library/rea
 import type { ReactNode } from 'react';
 import { afterEach, beforeAll, describe, expect, it, vi } from 'vitest';
 
+import { AnalyticsProvider } from '@/analytics/AnalyticsProvider.js';
+import { AnalyticsEvents } from '@/analytics/events.js';
 import { AgentsLibrary } from '@/atoms/AgentsLibrary.js';
 import { AgentsLibraryButton } from '@/atoms/AgentsLibraryButton.js';
 import { CenteredModal } from '@/atoms/primitives/CenteredModal.js';
@@ -58,18 +60,21 @@ function renderLibrary(
   {
     server = mockServer(),
     agentConfig,
+    track,
   }: {
     server?: AgentUIServer;
     agentConfig?: Parameters<typeof ShellModeProvider>[0]['agentConfig'];
+    track?: (eventName: string, data?: Record<string, string | number | boolean | undefined>) => void;
   } = {},
 ) {
-  return render(
+  const tree = (
     <SlotsProvider>
       <ServerProvider server={server}>
         <ShellModeProvider agentConfig={agentConfig}>{ui}</ShellModeProvider>
       </ServerProvider>
-    </SlotsProvider>,
+    </SlotsProvider>
   );
+  return render(track != null ? <AnalyticsProvider track={track}>{tree}</AnalyticsProvider> : tree);
 }
 
 function LibraryHarness({ children, onSelectAgent }: { children?: ReactNode; onSelectAgent?: (name: string) => void }) {
@@ -155,8 +160,9 @@ describe('AgentsLibrary', () => {
       { name: 'beta-agent', agentId: 'beta-agent' },
     ]);
     const onSelectAgent = vi.fn();
+    const track = vi.fn();
 
-    renderLibrary(<LibraryHarness onSelectAgent={onSelectAgent} />, { server });
+    renderLibrary(<LibraryHarness onSelectAgent={onSelectAgent} />, { server, track });
 
     fireEvent.click(screen.getByRole('button', { name: 'Open library' }));
     expect(screen.getByRole('heading', { name: 'Agents' })).toBeInTheDocument();
@@ -167,6 +173,11 @@ describe('AgentsLibrary', () => {
 
     fireEvent.click(screen.getByRole('button', { name: 'Try agent beta-agent' }));
     expect(onSelectAgent).toHaveBeenCalledWith('beta-agent');
+    expect(track).toHaveBeenCalledWith(
+      AnalyticsEvents.Library.AGENT_TRIED,
+      expect.objectContaining({ agent_id: 'beta-agent', agent_name: 'beta-agent' }),
+    );
+    expect(track.mock.calls.some(call => call[0] === AnalyticsEvents.Library.CLOSED)).toBe(false);
     await waitFor(() => {
       expect(screen.queryByRole('heading', { name: 'Agents' })).not.toBeInTheDocument();
     });
@@ -483,31 +494,37 @@ describe('AgentsLibrary', () => {
   });
 
   it('closes via Escape', () => {
-    renderLibrary(<LibraryHarness />);
+    const track = vi.fn();
+    renderLibrary(<LibraryHarness />, { track });
 
     fireEvent.click(screen.getByRole('button', { name: 'Open library' }));
     expect(screen.getByRole('heading', { name: 'Agents' })).toBeInTheDocument();
 
     fireEvent.keyDown(window, { key: 'Escape' });
     expect(screen.queryByRole('heading', { name: 'Agents' })).not.toBeInTheDocument();
+    expect(track).toHaveBeenCalledWith(AnalyticsEvents.Library.CLOSED, undefined);
   });
 });
 
 describe('AgentsLibraryButton', () => {
   it('opens the Agents panel from the trigger', async () => {
     const server = mockServer([{ name: 'alpha-agent', agentId: 'alpha-agent' }]);
+    const track = vi.fn();
 
     renderLibrary(
       <>
         <AgentsLibraryButton />
         <AgentsLibrary />
       </>,
-      { server },
+      { server, track },
     );
 
     fireEvent.click(screen.getByRole('button', { name: /Agents/ }));
     expect(screen.getByRole('heading', { name: 'Agents' })).toBeInTheDocument();
     expect(screen.getByRole('button', { name: /Agents/ })).toHaveAttribute('aria-current', 'page');
+    expect(track).toHaveBeenCalledWith(AnalyticsEvents.Library.OPENED, undefined);
+    fireEvent.click(screen.getByRole('button', { name: /Agents/ }));
+    expect(track).toHaveBeenCalledTimes(1);
     await waitFor(() => {
       expect(screen.getByRole('button', { name: 'Try agent alpha-agent' })).toBeInTheDocument();
     });

@@ -2,6 +2,8 @@
 
 import { useCallback, useEffect, useMemo, useRef, useState, type ComponentType } from 'react';
 
+import { useTrackAnalytics } from '../../analytics/AnalyticsProvider.js';
+import { AnalyticsEvents } from '../../analytics/events.js';
 import { useToasterOptional } from '../../containers/ToasterContainer.js';
 import { useResourcePermissions } from '../../hooks/useResourcePermissions.js';
 import { Icon } from '../../icons/Icon.js';
@@ -155,6 +157,7 @@ export function SchedulesPage({ agentId }: SchedulesPageProps) {
   const scheduleServer = useScheduleServer();
   const server = useServer();
   const toaster = useToasterOptional();
+  const track = useTrackAnalytics();
 
   const [schedules, setSchedules] = useState<Schedule[]>([]);
   const { allows } = useResourcePermissions({
@@ -332,6 +335,11 @@ export function SchedulesPage({ agentId }: SchedulesPageProps) {
     const nextStatus: ScheduleStatus = schedule.status === 'active' ? 'paused' : 'active';
     try {
       await scheduleServer.updateSchedule({ ...schedule, status: nextStatus });
+      track(AnalyticsEvents.Schedule.TOGGLED, {
+        schedule_id: schedule.id,
+        agent_id: schedule.agentId,
+        next_status: nextStatus,
+      });
       await loadSchedules({ token: pageToken, size: pageSize, agentId: agentFilter });
     } catch (caught) {
       toaster?.showError(caught);
@@ -343,6 +351,7 @@ export function SchedulesPage({ agentId }: SchedulesPageProps) {
     setRunningScheduleIds(prev => new Set(prev).add(schedule.id));
     try {
       await scheduleServer.createScheduleRun({ scheduleId: schedule.id });
+      track(AnalyticsEvents.Schedule.RUN_NOW, { schedule_id: schedule.id, agent_id: schedule.agentId });
       toaster?.showSuccess({ title: 'Run started' });
       const runs = await scheduleServer.listScheduleRuns({ scheduleId: schedule.id });
       setRunsByScheduleId(prev => ({ ...prev, [schedule.id]: runs }));
@@ -362,6 +371,7 @@ export function SchedulesPage({ agentId }: SchedulesPageProps) {
     setPendingDelete(null);
     try {
       await scheduleServer.deleteSchedule({ id: schedule.id });
+      track(AnalyticsEvents.Schedule.DELETED, { schedule_id: schedule.id, agent_id: schedule.agentId });
       resetToFirstPage();
     } catch (caught) {
       toaster?.showError(caught);

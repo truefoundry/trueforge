@@ -2,6 +2,8 @@
 
 import { useCallback, useEffect, useMemo, useState, type FormEvent } from 'react';
 
+import { useTrackAnalytics } from '@/analytics/AnalyticsProvider.js';
+import { AnalyticsEvents } from '@/analytics/events.js';
 import { cn } from '@/atoms/lib/cn.js';
 import { auiInputClass } from '@/atoms/lib/inputClasses.js';
 import { Button } from '@/atoms/primitives/Button.js';
@@ -28,6 +30,7 @@ type ConnectorsState = {
 const ConnectorSettings = () => {
   const { connectorCatalog } = useCatalogServer();
   const toaster = useToasterOptional();
+  const track = useTrackAnalytics();
 
   const [query, setQuery] = useState('');
   const [connectors, setConnectors] = useState<ConnectorsState>({
@@ -195,6 +198,7 @@ const ConnectorSettings = () => {
         toaster?.showSuccess({
           title: `${entry.name} connected`,
         });
+        track(AnalyticsEvents.Settings.CONNECTOR_SAVED, { connector_name: entry.name, mode: 'create' });
       }, 100);
     }, setFormError).catch(() => {});
   };
@@ -210,12 +214,17 @@ const ConnectorSettings = () => {
     }, setFormError);
     setTimeout(() => {
       toaster?.showSuccess({ title: `${draft.name} ${editingConnector ? 'updated' : 'added'}` });
+      track(AnalyticsEvents.Settings.CONNECTOR_SAVED, {
+        connector_name: draft.name,
+        mode: editingConnector ? 'update' : 'create',
+      });
     }, 0);
   };
 
   const handleDisconnect = (connector: ConnectorBase) => {
     void runMutation(async () => {
       await connectorCatalog.disconnectConnector({ id: connector.id });
+      track(AnalyticsEvents.Settings.CONNECTOR_DELETED, { connector_name: connector.name });
       setSelectedConnector(null);
     }).catch(() => {});
   };

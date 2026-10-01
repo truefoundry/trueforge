@@ -4,6 +4,9 @@ import { ComposerPrimitive, useAui, useAuiState } from '@assistant-ui/react';
 import { useTrueForgeAgentSpec, useTrueForgeCancel } from '@truefoundry/trueforge-assistant-ui-runtime';
 import { useRef } from 'react';
 
+import { useTrackAnalytics } from '../analytics/AnalyticsProvider.js';
+import { AnalyticsEvents } from '../analytics/events.js';
+import { withSessionProps } from '../analytics/sessionProps.js';
 import { DraftCatalogProvider } from '../atoms/draft/DraftCatalogProvider.js';
 import { useComposerBusyState } from '../hooks/useComposerBusyState.js';
 import { useComposerPauseView } from '../hooks/useComposerPauseView.js';
@@ -49,8 +52,11 @@ function ComposerBody({
   const ComposerShell = useSlot('ComposerShell');
   const aui = useAui();
   const shell = useOptionalShellMode();
+  const track = useTrackAnalytics();
+  const sessionId = useAuiState(s => s.threadListItem.remoteId);
   const hasText = useAuiState(s => s.composer.text.trim().length > 0);
-  const hasAttachments = useAuiState(s => s.composer.attachments.length > 0);
+  const attachmentCount = useAuiState(s => s.composer.attachments.length);
+  const hasAttachments = attachmentCount > 0;
   const { agentSpec } = useTrueForgeAgentSpec();
   // Named (immutable) agents use a server-side model; only draft/mutable composers pick one here.
   const requiresModel = shell == null || (shell.mode.status === 'active' && shell.mode.isMutable);
@@ -61,8 +67,23 @@ function ComposerBody({
   const fileInputRef = useRef<HTMLInputElement>(null);
   const disabled = isBusy || forceDisabled || !canManageSession;
   const canSubmit = canSubmitComposer({ disabled, hasText, hasAttachments, requiresModel, hasModel });
+  const shellAgent =
+    shell?.mode.status === 'active' ? { agentId: shell.mode.agentId, agentName: shell.mode.agentName } : {};
   const submit = () => {
     if (!canSubmit) return;
+    track(
+      AnalyticsEvents.Message.SENT,
+      withSessionProps(
+        {
+          has_text: hasText,
+          has_attachments: hasAttachments,
+          attachment_count: attachmentCount,
+          requires_model: requiresModel,
+          model: agentSpec?.model?.name,
+        },
+        { sessionId, ...shellAgent },
+      ),
+    );
     send(() => aui.composer().send());
   };
 
@@ -76,6 +97,10 @@ function ComposerBody({
         onChange={event => {
           const files = event.target.files;
           if (files) {
+            track(
+              AnalyticsEvents.Attachment.PICKED,
+              withSessionProps({ file_count: files.length }, { sessionId, ...shellAgent }),
+            );
             for (const file of files) {
               void aui.composer().addAttachment(file);
             }
@@ -122,6 +147,7 @@ function ComposerBody({
             onCancel={
               canManageSession
                 ? () => {
+                    track(AnalyticsEvents.Message.CANCELLED, withSessionProps(undefined, { sessionId, ...shellAgent }));
                     resetBusy();
                     void cancel();
                   }

@@ -1,5 +1,7 @@
 'use client';
 
+import { useTrackAnalytics } from '../analytics/AnalyticsProvider.js';
+import { AnalyticsEvents } from '../analytics/events.js';
 import { Icon } from '../icons/Icon.js';
 import { useOptionalCatalogServer, useServerCapabilities } from '../server/ServerContext.js';
 import { useOptionalShellMode } from '../server/ShellModeContext.js';
@@ -11,6 +13,7 @@ import { cn } from './lib/cn.js';
 
 export function ShellActions({ className, labeled = false }: { className?: string; labeled?: boolean }) {
   const shell = useOptionalShellMode();
+  const track = useTrackAnalytics();
   const catalog = useOptionalCatalogServer();
   const capabilities = useServerCapabilities();
   const { mode, setTheme } = useTheme();
@@ -75,7 +78,10 @@ export function ShellActions({ className, labeled = false }: { className?: strin
                 'bg-primary-button-bg font-medium text-primary-button-text hover:bg-primary-button-hover hover:text-primary-button-text',
             ),
           })}
-          onClick={() => shell.setSettingsOpen(true)}
+          onClick={() => {
+            track(AnalyticsEvents.Settings.OPENED);
+            shell.setSettingsOpen(true);
+          }}
         >
           <Icon name="settings" size={labeled ? 14 : undefined} />
           {labeled ? <span className="text-center">Settings</span> : null}
