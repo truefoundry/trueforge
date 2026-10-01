@@ -23,9 +23,9 @@
     "test": "cross-env NODE_OPTIONS=--conditions=trueforge-dev tsx --test \"tests/**/*.test.ts\""
   },
   "dependencies": {
-    "@assistant-ui/core": "0.2.22",
-    "@assistant-ui/react": "0.14.27",
-    "@assistant-ui/store": "0.2.21",
+    "@assistant-ui/core": "0.3.21",
+    "@assistant-ui/react": "0.15.22",
+    "@assistant-ui/store": "0.3.15",
     "@truefoundry/trueforge-assistant-ui-runtime": "workspace:*",
     "@truefoundry/trueforge-sdk": "workspace:*",
     "@truefoundry/trueforge-ui": "workspace:*",
