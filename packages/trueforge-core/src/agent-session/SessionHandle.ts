@@ -4,10 +4,11 @@
 import { newEventId } from '../core/events/schema';
 import type { AgentDefinition } from '../core/runtime/AgentDefinition';
 import { AgentThread } from '../core/runtime/AgentThread';
-import type {
-  AgentThreadAppendContext,
-  AgentThreadSendBatch,
-  AgentThreadSnapshot,
+import {
+  InternalEventType,
+  type AgentThreadSendBatch,
+  type AgentThreadSnapshot,
+  type ApplyUserEventsOutput,
 } from '../core/runtime/AgentThread.types';
 import { AgentThreadOrchestrator } from '../core/runtime/AgentThreadOrchestrator';
 import {
@@ -68,11 +69,16 @@ function toNewThreadInit(snapshot: AgentThreadSnapshot): NewThreadInit {
 }
 
 function collectContextAppends(
-  events: AsyncGenerator<AgentThreadAppendContext, void, unknown>,
+  events: AsyncGenerator<ApplyUserEventsOutput, void, unknown>,
 ): Promise<TurnContextAppend[]> {
   return (async () => {
     const appendMap = new Map<string, TurnContextAppend>();
     for await (const event of events) {
+      // Initial createTurn input only ever produces context appends (no mid-turn approvals), but the
+      // generator type is the broader applyUserEvents union — ignore the non-append members.
+      if (event.type !== InternalEventType.AGENT_CONTEXT_APPEND) {
+        continue;
+      }
       const existing = appendMap.get(event.thread_id);
       if (existing) {
         existing.context.push(...event.context);

@@ -4,12 +4,16 @@ import {
   EventType,
   newEventId,
   type InboundTurnUserEvent,
+  type MCPServerInitInfo,
   type ModelMessageEvent,
+  type ThreadOverwriteContextEvent,
   type ToolApprovalPolicyItem,
   type ToolResponseEvent,
   type UserToolApprovalMessage,
+  type UserToolApprovalPolicyEvent,
   type UserToolResponseMessage,
 } from '../events/schema';
+import type { IToolSet } from '../mcp/IMCPServer';
 import type { AgentExecutionTrace, AgentTracing } from '../tracing/AgentTracing';
 import { onSignalAbort } from '../util/abort';
 import { mergeAsyncGenerators, signalable, type Signalable } from '../util/promiseUtils';
@@ -17,12 +21,13 @@ import { AgentThread } from './AgentThread';
 import type { AgentThreadRuntimeSendBatch } from './AgentThread.types';
 import {
   InternalEventType,
-  type AgentThreadAppendContext,
   type AgentThreadEvent,
   type AgentThreadExecutionEvent,
   type AgentThreadExecutionResult,
   type AgentThreadSendBatch,
+  type ApplyUserEventsOutput,
   type InternalMCPAuthRequiredEvent,
+  type InternalMCPServersPatchEvent,
 } from './AgentThread.types';
 import {
   assistantMessageContentToStringForSubAgent,
@@ -200,6 +205,8 @@ export class AgentThreadOrchestrator {
   private readonly wake: Signalable = signalable();
   // Approval policies accepted but not yet applied
   private readonly pendingPolicies: ToolApprovalPolicyItem[] = [];
+  // Last-seen MCP server init records (by id)/
+  private readonly mcpServerInitInfoById = new Map<string, MCPServerInitInfo>();
 
   constructor(params: AgentThreadOrchestratorInput) {
     this.agentThreads = params.agentThreads;
@@ -249,7 +256,19 @@ export class AgentThreadOrchestrator {
   // Record each (already-validated) policy on its matching user tool sets, then resolve any
   // already-pending approvals the policy now covers. The orchestrator owns all policy semantics; the
   // thread only exposes its tool sets + context primitives. Last write wins for a given (server, tool).
-  private applyApprovalPolicies(policies: ToolApprovalPolicyItem[]): void {
+  //
+  // Yields:
+  //  - a per-thread context overwrite flushing the in-place approval markers it set (durable only);
+  //  - one MCP_SERVERS_PATCH with the merged full records for the affected servers (durable only,
+  //    so the sticky policy survives into future turns);
+  //  - the USER_TOOL_APPROVAL_POLICY echo of the accepted input (durable + streamed).
+  private *applyApprovalPolicies(
+    policies: ToolApprovalPolicyItem[],
+  ): Generator<
+    ThreadOverwriteContextEvent | InternalMCPServersPatchEvent | UserToolApprovalPolicyEvent,
+    void,
+    unknown
+  > {
     for (const thread of this.agentThreads.values()) {
       let appliedAny = false;
       for (const policy of policies) {
@@ -266,6 +285,7 @@ export class AgentThreadOrchestrator {
       // A still-pending approval was issued before any freshly-granted policy's expiry, so coverage
       // is a pure (server, tool) name match against the now-applied policies. Marking it resolves the
       // pause without a per-call decision; callTool re-derives the same gate when it runs the tool.
+      let coveredAny = false;
       for (const toolCall of thread.getPendingApprovalToolCalls()) {
         const covered = thread
           .getUserToolSets()
@@ -276,9 +296,55 @@ export class AgentThreadOrchestrator {
           );
         if (covered) {
           thread.setToolCallApprovalDecision(toolCall.id, { status: 'allow' });
+          coveredAny = true;
+        }
+      }
+      if (coveredAny) {
+        yield* thread.overwriteContextForApprovalResolution();
+      }
+    }
+
+    const patched = this.buildMCPServerPatchRecords(policies);
+    if (patched.length > 0) {
+      yield { type: InternalEventType.MCP_SERVERS_PATCH, mcp_servers: patched };
+    }
+    yield {
+      type: EventType.USER_TOOL_APPROVAL_POLICY,
+      // Copy: the caller empties the pendingPolicies array right after this generator drains.
+      policies: [...policies],
+      id: newEventId(),
+      created_at: new Date().toISOString(),
+    };
+  }
+
+  // Full MCPServerInitInfo records for the servers named by `policies`, with approval_policies
+  // refreshed from the (now-mutated) tool sets. Uses the captured init record for the immutable
+  // fields (session_id/transport_type) so patchMCPServers' wholesale per-id replace keeps them.
+  private buildMCPServerPatchRecords(policies: ToolApprovalPolicyItem[]): MCPServerInitInfo[] {
+    const affected = new Set(policies.map(p => p.server_name));
+    const records: MCPServerInitInfo[] = [];
+    for (const record of this.mcpServerInitInfoById.values()) {
+      if (!affected.has(record.name)) {
+        continue;
+      }
+      const toolSet = this.findUserToolSetByName(record.name);
+      records.push({
+        ...record,
+        approval_policies: toolSet ? toolSet.getApprovalPolicies() : record.approval_policies,
+      });
+    }
+    return records;
+  }
+
+  private findUserToolSetByName(name: string): IToolSet | undefined {
+    for (const thread of this.agentThreads.values()) {
+      for (const toolSet of thread.getUserToolSets()) {
+        if (toolSet.name === name) {
+          return toolSet;
         }
       }
     }
+    return undefined;
   }
 
   // Route a public send batch to the owning thread(s) and validate each per-thread batch against
@@ -373,9 +439,7 @@ export class AgentThreadOrchestrator {
 
   // Route + apply user events to context immediately, yielding context-append events (§8). Used by
   // createTurn for the initial input (atomic pre-send) and by sendToThread for child→parent delivery.
-  public async *applyUserEvents(
-    messages: AgentThreadSendBatch,
-  ): AsyncGenerator<AgentThreadAppendContext, void, unknown> {
+  public async *applyUserEvents(messages: AgentThreadSendBatch): AsyncGenerator<ApplyUserEventsOutput, void, unknown> {
     const byThread = this.routeSendBatch(messages);
     for (const [threadId, batch] of byThread) {
       yield* this.sendToThread(threadId, batch);
@@ -385,7 +449,7 @@ export class AgentThreadOrchestrator {
   private async *sendToThread(
     threadId: string,
     messages: AgentThreadRuntimeSendBatch,
-  ): AsyncGenerator<AgentThreadAppendContext, void, unknown> {
+  ): AsyncGenerator<ApplyUserEventsOutput, void, unknown> {
     const thread = this.agentThreads.get(threadId);
     if (!thread) {
       throw new Error(`AgentThreadOrchestrator.sendToThread: unknown threadId ${threadId}`);
@@ -413,6 +477,12 @@ export class AgentThreadOrchestrator {
     }
 
     switch (chunk.type) {
+      case EventType.MCP_INITIALIZE:
+        for (const server of chunk.mcp_servers) {
+          this.mcpServerInitInfoById.set(server.id, server);
+        }
+        yield chunk;
+        return;
       case EventType.TOOL_APPROVAL_REQUIRED:
       case EventType.TOOL_RESPONSE_REQUIRED:
         yield chunk;
@@ -531,7 +601,7 @@ export class AgentThreadOrchestrator {
 
         // Apply policies accepted since the last pass before deciding what is runnable.
         if (this.pendingPolicies.length > 0) {
-          this.applyApprovalPolicies(this.pendingPolicies);
+          yield* this.applyApprovalPolicies(this.pendingPolicies);
           this.pendingPolicies.length = 0;
         }
 
