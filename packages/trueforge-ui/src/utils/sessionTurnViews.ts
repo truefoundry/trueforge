@@ -7,6 +7,8 @@ type TurnEvent = Exclude<SessionEventItem['event'], TurnCreatedEvent | TurnDoneE
 export type SessionTurnView = {
   turnId: string;
   turnNumber: number;
+  /** True when the turn has user.message / tool_approval / tool_response input. */
+  renderable: boolean;
   showHeader: boolean;
   created: TurnCreatedEvent;
   done?: TurnDoneEvent;
@@ -113,23 +115,23 @@ export function buildSessionTurnViews(itemsAsc: SessionEventItem[]): SessionTurn
     groupsByTurnId.set(turnId, group);
   }
 
-  // Number only renderable turns so cards and the timeline share one index.
+  // Include every turn.created (metrics/timeline need resume turns); mark renderable for transcript UI.
   const groups = Array.from(groupsByTurnId.entries())
     .flatMap(([turnId, group]) =>
-      group.created === undefined || !isRenderableTurn(group.created)
-        ? []
-        : [{ turnId, created: group.created, group }],
+      group.created === undefined ? [] : [{ turnId, created: group.created, group }],
     )
     .sort((left, right) => timestampMs(left.created.createdAt) - timestampMs(right.created.createdAt));
 
   return groups.map(({ turnId, created, group }, index) => {
     const done = group.done;
+    const renderable = isRenderableTurn(created);
     group.events.sort((left, right) => timestampMs(left.createdAt) - timestampMs(right.createdAt));
 
     return {
       turnId,
       turnNumber: index + 1,
-      showHeader: true,
+      renderable,
+      showHeader: renderable,
       created,
       ...(done === undefined
         ? {}

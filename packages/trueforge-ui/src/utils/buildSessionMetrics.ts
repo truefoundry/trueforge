@@ -1,4 +1,4 @@
-import { getSessionEventColor, type SessionEventTimelineSegment } from './sessionEventTimeline.js';
+import { MAIN_THREAD_ID, getSessionEventColor, type SessionEventTimelineSegment } from './sessionEventTimeline.js';
 import type { SessionTurnView } from './sessionTurnViews.js';
 
 export type SessionMetricBarDatum = {
@@ -23,8 +23,8 @@ export type SessionMetrics = {
   toolCallFrequency: SessionMetricBarDatum[];
 };
 
+/** Optional getSession overrides for wall time and cost only — turn count always comes from events. */
 export type SessionMetricsHint = {
-  totalTurns: number;
   totalCostInUsd?: number;
   totalDurationMs: number;
 };
@@ -101,13 +101,13 @@ export function buildSessionMetrics({
   const waitingTimeMs = segments
     .filter(segment => segment.type === 'waiting_on_human' || segment.type === 'approval')
     .reduce((sum, segment) => sum + segmentDurationMs(segment), 0);
-  // Detail/list session metrics own wall time, cost, and turn count when present.
+  // Detail session metrics may override wall time and cost; turn count is always from events.
   const wallTimeMs = sessionMetrics != null ? sessionMetrics.totalDurationMs : derivedWallTimeMs;
   const overheadTimeMs = Math.max(0, wallTimeMs - modelTimeMs - toolTimeMs - waitingTimeMs);
 
   const toolCallCounts = new Map<string, number>();
   for (const segment of segments) {
-    if (segment.type !== 'tool_call') continue;
+    if (segment.type !== 'tool_call' || segment.threadId !== MAIN_THREAD_ID) continue;
     toolCallCounts.set(segment.description, (toolCallCounts.get(segment.description) ?? 0) + 1);
   }
   const toolCallFrequency = Array.from(toolCallCounts, ([label, value]) => ({
@@ -120,7 +120,7 @@ export function buildSessionMetrics({
     sessionMetrics != null ? sessionMetrics.totalCostInUsd : hasDerivedCost ? derivedCostUsd : undefined;
 
   return {
-    totalTurns: sessionMetrics != null ? sessionMetrics.totalTurns : turns.length,
+    totalTurns: turns.length,
     wallTimeMs,
     ...(totalCostUsd == null ? {} : { totalCostUsd }),
     totalTokens,

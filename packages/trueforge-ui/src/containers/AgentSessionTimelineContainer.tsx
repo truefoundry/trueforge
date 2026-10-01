@@ -141,7 +141,6 @@ export type AgentSessionTimelineContainerProps = {
   events: SessionEventItem[];
   contentMaxWidth?: string;
   sessionMetrics?: {
-    totalTurns: number;
     totalCostInUsd?: number;
     totalDurationMs: number;
   };
@@ -164,12 +163,17 @@ export function AgentSessionTimelineContainer({
   const [loadFailed, setLoadFailed] = useState(false);
   const sectionRefs = useRef(new Map<number, HTMLElement>());
 
-  const turnViews = useMemo(() => buildSessionTurnViews(events), [events]);
-  const projectionEvents = useMemo(() => buildProjectionEvents(events, turnViews), [events, turnViews]);
-  const timelineSegments = useMemo(() => buildSessionTimelineSegments(turnViews), [turnViews]);
+  const allTurnViews = useMemo(() => buildSessionTurnViews(events), [events]);
+  const renderableTurnViews = useMemo(() => allTurnViews.filter(turn => turn.renderable), [allTurnViews]);
+  const projectionEvents = useMemo(
+    () => buildProjectionEvents(events, renderableTurnViews),
+    [events, renderableTurnViews],
+  );
+  const timelineSegments = useMemo(() => buildSessionTimelineSegments(allTurnViews), [allTurnViews]);
   const sessionMetrics = useMemo(
-    () => buildSessionMetrics({ turns: turnViews, segments: timelineSegments, sessionMetrics: sessionMetricsHint }),
-    [sessionMetricsHint, timelineSegments, turnViews],
+    () =>
+      buildSessionMetrics({ turns: allTurnViews, segments: timelineSegments, sessionMetrics: sessionMetricsHint }),
+    [sessionMetricsHint, timelineSegments, allTurnViews],
   );
 
   const handleSelectTurn = useCallback((index: number) => {
@@ -218,7 +222,7 @@ export function AgentSessionTimelineContainer({
     );
   }
 
-  if (messages.length === 0 && turnViews.length === 0) {
+  if (messages.length === 0 && renderableTurnViews.length === 0) {
     return (
       <div className="flex flex-1 items-center justify-center px-6 text-sm text-text-secondary">
         This session has no messages yet.
@@ -236,7 +240,11 @@ export function AgentSessionTimelineContainer({
       </div>
       <div className="border-b border-border">
         <Suspense fallback={null}>
-          <AgentSessionEventTimeline turns={turnViews} segments={timelineSegments} onSelectTurn={handleSelectTurn} />
+          <AgentSessionEventTimeline
+            turns={allTurnViews}
+            segments={timelineSegments}
+            onSelectTurn={handleSelectTurn}
+          />
         </Suspense>
       </div>
       <ThreadViewportShell
@@ -245,7 +253,7 @@ export function AgentSessionTimelineContainer({
         {...(contentMaxWidth == null ? {} : { contentMaxWidth })}
       >
         <div className="flex flex-col gap-4">
-          {turnViews.map(turn => (
+          {renderableTurnViews.map(turn => (
             <SessionTurnSection
               key={turn.turnId}
               turn={turn}

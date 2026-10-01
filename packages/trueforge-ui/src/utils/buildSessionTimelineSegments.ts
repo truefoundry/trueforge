@@ -33,7 +33,8 @@ type SubAgentToolCallRequest = {
  *
  * The conversion runs in two passes because several bars need a later event
  * to determine their end:
- * - tool calls span from the model event that requested them to `tool.response`;
+ * - tool calls span from the model event that requested them to `tool.response`,
+ *   or to `tool.response_required` / turn end when still waiting on a human;
  * - sub-agent tracks span from `thread.created` to `thread.done`;
  * - approval-gated and sub-agent parent calls are excluded from ordinary tool
  *   bars because they have dedicated visual representations.
@@ -49,6 +50,7 @@ export function buildSessionTimelineSegments(turns: SessionTurnView[]): SessionE
   // Correlation indexes built up front let the emission pass calculate complete
   // intervals without depending on the source event order.
   const toolResponsesByTurnId = new Map<string, Map<string, TimelineEvent>>();
+  const toolResponseRequiredByTurnId = new Map<string, Map<string, TimelineEvent>>();
   const approvalRequiredIdsByTurnId = new Map<string, Set<string>>();
   const threadDoneEvents = new Map<string, TimelineEvent>();
   const subAgentToolCallIds = new Set<string>();
@@ -68,6 +70,12 @@ export function buildSessionTimelineSegments(turns: SessionTurnView[]): SessionE
         const responses = toolResponsesByTurnId.get(turn.turnId) ?? new Map();
         responses.set(toolCallId, event);
         toolResponsesByTurnId.set(turn.turnId, responses);
+      } else if (event.type === 'tool.response_required') {
+        const pending = toolResponseRequiredByTurnId.get(turn.turnId) ?? new Map();
+        for (const toolCall of toolCallsOf(event)) {
+          if (typeof toolCall.id === 'string') pending.set(toolCall.id, event);
+        }
+        toolResponseRequiredByTurnId.set(turn.turnId, pending);
       } else if (event.type === 'tool.approval_required') {
         const ids = approvalRequiredIdsByTurnId.get(turn.turnId) ?? new Set<string>();
         for (const toolCall of toolCallsOf(event)) {
@@ -141,6 +149,7 @@ export function buildSessionTimelineSegments(turns: SessionTurnView[]): SessionE
         threadId,
         lastTimestampByThreadId,
         toolResponsesByTurnId,
+        toolResponseRequiredByTurnId,
         approvalRequiredIdsByTurnId,
         subAgentToolCallIds,
         toolCallRequestsByTurnId,
@@ -179,6 +188,7 @@ function appendEventSegments({
   threadId,
   lastTimestampByThreadId,
   toolResponsesByTurnId,
+  toolResponseRequiredByTurnId,
   approvalRequiredIdsByTurnId,
   subAgentToolCallIds,
   toolCallRequestsByTurnId,
@@ -195,6 +205,7 @@ function appendEventSegments({
   threadId: string;
   lastTimestampByThreadId: Map<string, number>;
   toolResponsesByTurnId: Map<string, Map<string, TimelineEvent>>;
+  toolResponseRequiredByTurnId: Map<string, Map<string, TimelineEvent>>;
   approvalRequiredIdsByTurnId: Map<string, Set<string>>;
   subAgentToolCallIds: Set<string>;
   toolCallRequestsByTurnId: Map<string, Map<string, SubAgentToolCallRequest>>;
@@ -207,27 +218,35 @@ function appendEventSegments({
       const previousMs = lastTimestampByThreadId.get(threadId) ?? createdMs;
       const modelContent = extractText(event.content);
       const responses = toolResponsesByTurnId.get(turn.turnId);
+      const pendingRequired = toolResponseRequiredByTurnId.get(turn.turnId);
       const approvalIds = approvalRequiredIdsByTurnId.get(turn.turnId);
+      const turnDoneMs = parseTimestamp(terminalCompletedAt(turn.done?.state));
 
       // A model event can request several tools at once. Each tool gets its own
       // response-bounded interval; overlapping intervals are grouped later by
       // the chart-layout utility into one parallel-tool-call bar.
+      // Pending human-wait tools (ask-user) still emit a bar so strip Tool calls
+      // matches Agent steps even before tool.response arrives.
       for (const toolCall of toolCallsOf(event)) {
         const toolCallId = typeof toolCall.id === 'string' ? toolCall.id : undefined;
         // Skip parent create_sub_agent calls and approval-gated calls; they have their own segments.
         if (toolCallId == null || subAgentToolCallIds.has(toolCallId) || approvalIds?.has(toolCallId)) continue;
         const response = responses?.get(toolCallId);
         const responseMs = response == null ? null : parseTimestamp(eventCreatedAt(response));
-        if (responseMs == null || responseMs < eventMs) continue;
+        const required = pendingRequired?.get(toolCallId);
+        const requiredMs = required == null ? null : parseTimestamp(eventCreatedAt(required));
+        const endMs = responseMs ?? requiredMs ?? turnDoneMs ?? eventMs;
+        if (endMs < eventMs) continue;
         segments.push({
           id: `${eventId(event)}-${toolCallId}`,
           type: 'tool_call',
           title: 'tool.call',
           description: toolCallDescription(toolCall),
           startMs: eventMs - originMs,
-          endMs: responseMs - originMs,
+          endMs: endMs - originMs,
           turnIndex,
           threadId,
+          ...(responseMs == null && endMs <= eventMs ? { isMarker: true } : {}),
         });
       }
 
