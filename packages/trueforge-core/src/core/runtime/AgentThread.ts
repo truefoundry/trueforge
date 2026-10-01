@@ -37,6 +37,7 @@ import {
 import { InstructionBuilder, ROOT_AGENT_IDENTITY } from '../InstructionBuilder';
 import type { LLMCreateParamsStreaming } from '../llm/ILLM';
 import {
+  type ApprovalDecision,
   type CompletionUsage,
   type ExtendedChatCompletionChunk,
   type FinishReason,
@@ -125,9 +126,9 @@ function deriveAgentThreadState(context: ContextMessage[]): AgentThreadState {
   }
 
   const assistant = lastAssistantInContext(context);
-  const decisions = scanApprovalDecisions(context);
   const hasPendingApproval = assistant?.tool_calls?.some(
-    tc => openToolCallIds.has(tc.id) && tc.tool_info.is_approval_required === true && !decisions.has(tc.id),
+    tc =>
+      openToolCallIds.has(tc.id) && tc.tool_info.is_approval_required === true && tc.tool_info.approval === undefined,
   );
   const hasPendingClientSideTool = assistant?.tool_calls?.some(
     tc => openToolCallIds.has(tc.id) && tc.tool_info.is_client_side === true,
@@ -309,10 +310,10 @@ function validateApprovalMessage(
 
 function getPendingApprovalToolCalls(context: ContextMessage[]): InternalEnrichedToolCall[] {
   const openToolCallIds = getOpenToolCallIds(context);
-  const decisions = scanApprovalDecisions(context);
   const assistant = lastAssistantInContext(context);
   return (assistant?.tool_calls ?? []).filter(
-    tc => openToolCallIds.has(tc.id) && tc.tool_info.is_approval_required === true && !decisions.has(tc.id),
+    tc =>
+      openToolCallIds.has(tc.id) && tc.tool_info.is_approval_required === true && tc.tool_info.approval === undefined,
   );
 }
 
@@ -657,6 +658,9 @@ export class AgentThread {
         tool_call_id: a.tool_call_id,
         approval: a.approval,
       }));
+      for (const a of approvals) {
+        this.setToolCallApprovalDecision(a.tool_call_id, a.approval);
+      }
       const toolResponseContext: LLMToolMessage[] = clientSideToolResponses.map(m => ({
         role: 'tool',
         tool_call_id: m.tool_call_id,
@@ -682,6 +686,22 @@ export class AgentThread {
   private throwIfContextBusy(): void {
     if (this.contextBusy) {
       throw new Error(`context is busy for thread ${this.threadId}`);
+    }
+  }
+
+  // Still-open approval-required tool calls awaiting user input. Policy-agnostic view the
+  // orchestrator uses to decide which (if any) are now covered by an applicable policy.
+  public getPendingApprovalToolCalls(): InternalEnrichedToolCall[] {
+    return getPendingApprovalToolCalls(this.context);
+  }
+
+  // Record the approval decision on a specific still-open approval-required tool call. Used for both
+  // an explicit user decision (applyUserEvents — allow or deny) and a policy grant.
+  public setToolCallApprovalDecision(toolCallId: string, decision: ApprovalDecision): void {
+    const assistant = lastAssistantInContext(this.context);
+    const toolCall = assistant?.tool_calls?.find(tc => tc.id === toolCallId);
+    if (toolCall) {
+      toolCall.tool_info.approval = decision;
     }
   }
 

@@ -198,6 +198,8 @@ export class AgentThreadOrchestrator {
   private finishedSubAgentMetrics: AgentThreadMetrics = createEmptyAgentThreadMetrics();
   // Latching wake for execute()'s park/resume loop; notified by notifyWake() (send) and abort.
   private readonly wake: Signalable = signalable();
+  // Approval policies accepted but not yet applied
+  private readonly pendingPolicies: ToolApprovalPolicyItem[] = [];
 
   constructor(params: AgentThreadOrchestratorInput) {
     this.agentThreads = params.agentThreads;
@@ -225,12 +227,9 @@ export class AgentThreadOrchestrator {
     return total;
   }
 
-  /**
-   * Apply tool approval policies to the tool sets. Validates
-   * every `server_name` against the currently-configured MCP servers first —
-   * fail-closed: if any name is unknown nothing is applied.
-   */
-  public applyApprovalPolicies(policies: ToolApprovalPolicyItem[]): { errors: string[] } {
+  // Pure: every `server_name` must match a currently-configured user MCP tool set. Returns one
+  // error string per unknown name (empty when all valid). Applies nothing.
+  private validateApprovalPolicies(policies: ToolApprovalPolicyItem[]): string[] {
     const knownServerNames = new Set<string>();
     for (const thread of this.agentThreads.values()) {
       for (const toolSet of thread.getUserToolSets()) {
@@ -244,20 +243,42 @@ export class AgentThreadOrchestrator {
         errors.push(`policies[${String(index)}]: unknown server_name '${policy.server_name}'`);
       }
     });
-    if (errors.length > 0) {
-      return { errors };
-    }
+    return errors;
+  }
 
-    for (const policy of policies) {
-      for (const thread of this.agentThreads.values()) {
+  // Record each (already-validated) policy on its matching user tool sets, then resolve any
+  // already-pending approvals the policy now covers. The orchestrator owns all policy semantics; the
+  // thread only exposes its tool sets + context primitives. Last write wins for a given (server, tool).
+  private applyApprovalPolicies(policies: ToolApprovalPolicyItem[]): void {
+    for (const thread of this.agentThreads.values()) {
+      let appliedAny = false;
+      for (const policy of policies) {
         for (const toolSet of thread.getUserToolSets()) {
           if (toolSet.name === policy.server_name) {
             toolSet.setApprovalPolicy(policy.name, policy.action);
+            appliedAny = true;
           }
         }
       }
+      if (!appliedAny) {
+        continue;
+      }
+      // A still-pending approval was issued before any freshly-granted policy's expiry, so coverage
+      // is a pure (server, tool) name match against the now-applied policies. Marking it resolves the
+      // pause without a per-call decision; callTool re-derives the same gate when it runs the tool.
+      for (const toolCall of thread.getPendingApprovalToolCalls()) {
+        const covered = thread
+          .getUserToolSets()
+          .some(
+            toolSet =>
+              toolSet.name === toolCall.tool_info.mcp_server_name &&
+              toolSet.hasApplicableApprovalPolicy(toolCall.tool_info.original_tool_name),
+          );
+        if (covered) {
+          thread.setToolCallApprovalDecision(toolCall.id, { status: 'allow' });
+        }
+      }
     }
-    return { errors: [] };
   }
 
   // Route a public send batch to the owning thread(s) and validate each per-thread batch against
@@ -330,14 +351,17 @@ export class AgentThreadOrchestrator {
       }
     }
 
+    // All-or-nothing validation up front: routeSendBatch is pure (no enqueue), validateApprovalPolicies
+    // is pure (no apply). If either rejects, nothing below runs so nothing is partially accepted.
     const byThread = this.routeSendBatch(decisions);
-    const { errors } = this.applyApprovalPolicies(policies);
-    if (errors.length > 0) {
-      throw new InvalidAgentSendInputError(`invalid approval policies: ${errors.join('; ')}`);
+    const policyErrors = this.validateApprovalPolicies(policies);
+    if (policyErrors.length > 0) {
+      throw new InvalidAgentSendInputError(`invalid approval policies: ${policyErrors.join('; ')}`);
     }
 
-    // Everything validated and policies now in effect → enqueue the decisions (yielded at the
-    // durability seam) for the parked executor.
+    // Everything validated → enqueue. Policies are applied by execute()'s drain (they mutate the
+    // ToolSets); decisions are yielded at the durability seam for the parked executor.
+    this.pendingPolicies.push(...policies);
     for (const [threadId, batch] of byThread) {
       const thread = this.agentThreads.get(threadId);
       if (!thread) {
@@ -503,6 +527,12 @@ export class AgentThreadOrchestrator {
       for (;;) {
         if (isAborted() || rootSettled()) {
           return done();
+        }
+
+        // Apply policies accepted since the last pass before deciding what is runnable.
+        if (this.pendingPolicies.length > 0) {
+          this.applyApprovalPolicies(this.pendingPolicies);
+          this.pendingPolicies.length = 0;
         }
 
         // Leaves that will make progress now: not blocked, or

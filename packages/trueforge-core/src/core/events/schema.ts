@@ -2,6 +2,7 @@
 import { z } from '@hono/zod-openapi';
 import { monotonicFactory } from 'ulid';
 import {
+  ApprovalDecisionSchema,
   CompletionUsageSchema,
   EnrichedAssistantMessageSchema,
   ExtendedChunkDeltaSchema,
@@ -65,20 +66,7 @@ export const AgentInfoSchema = z
   })
   .openapi('AgentInfo');
 
-export const AgentApprovalDecisionAllowSchema = z
-  .object({ status: z.literal('allow').describe('Allow the pending tool call(s).') })
-  .openapi('ApprovalAllow');
-
-export const AgentApprovalDecisionDenySchema = z
-  .object({
-    status: z.literal('deny').describe('Deny the pending tool call(s).'),
-    reason: z.string().optional().describe('Optional reason shown to the agent when denied.'),
-  })
-  .openapi('ApprovalDeny');
-
-export const ApprovalDecisionSchema = z
-  .discriminatedUnion('status', [AgentApprovalDecisionAllowSchema, AgentApprovalDecisionDenySchema])
-  .openapi('ApprovalDecision');
+export { ApprovalDecisionSchema };
 
 export const UserToolApprovalMessageSchema = z
   .object({
