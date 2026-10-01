@@ -121,13 +121,44 @@ export class DaytonaSandboxProvider implements SandboxProvider<DaytonaSandboxEnv
     envVars?: Record<string, string>;
     networkBlockAll?: boolean;
     domainAllowList?: string;
+    secrets?: Record<string, string>;
   } {
     const networking = environment.networking;
     return {
       ...(environment.environment_variables ? { envVars: environment.environment_variables } : {}),
       ...(networking?.network_block_all ? { networkBlockAll: networking.network_block_all } : {}),
       ...(networking?.domain_allow_list ? { domainAllowList: networking.domain_allow_list } : {}),
+      ...(environment.mounted_secrets ? { secrets: environment.mounted_secrets } : {}),
     };
+  }
+
+  /** Create a Daytona organization secret (value write-only). */
+  async createOrgSecret(params: {
+    name: string;
+    value: string;
+    description: string;
+    hosts: string[];
+  }): Promise<{ id: string; name: string }> {
+    const secret = await this.daytona.secret.create({
+      name: params.name,
+      value: params.value,
+      description: params.description,
+      hosts: params.hosts,
+    });
+    return { id: secret.id, name: secret.name };
+  }
+
+  /** Update a Daytona organization secret (hosts and optional value). */
+  async updateOrgSecret(params: { secretId: string; hosts: string[]; value?: string }): Promise<void> {
+    await this.daytona.secret.update(params.secretId, {
+      hosts: params.hosts,
+      ...(params.value ? { value: params.value } : {}),
+    });
+  }
+
+  /** Delete a Daytona organization secret by id. */
+  async deleteOrgSecret(params: { secretId: string }): Promise<void> {
+    await this.daytona.secret.delete(params.secretId);
   }
 
   private toBuild({

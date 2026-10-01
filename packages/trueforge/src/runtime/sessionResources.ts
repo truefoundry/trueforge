@@ -222,9 +222,11 @@ export async function resolveSandboxEnvironment({
           : `Sandbox environment "${name}" is not ready (status: ${loaded.version.status}) — retry shortly`,
     });
   }
+
   return toSandboxEnvironment({
     external_ref: loaded.version.external_ref,
     manifest: loaded.version.manifest,
+    ...(loaded.mounted_secrets ? { mounted_secrets: loaded.mounted_secrets } : {}),
   });
 }
 

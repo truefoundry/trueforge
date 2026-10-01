@@ -33,15 +33,19 @@ export type ResolvedSandboxProvider = DaytonaSandboxProvider | TFYSandboxProvide
 export function toSandboxEnvironment({
   external_ref,
   manifest,
+  mounted_secrets,
 }: {
   external_ref: string;
   manifest: StoredSandboxEnvironmentManifest;
+  /** env var → Daytona org secret name for create mounts. */
+  mounted_secrets?: Record<string, string>;
 }): DaytonaSandboxEnvironment {
   return createDaytonaSandboxEnvironment({
     snapshot_ref: external_ref,
     resources: manifest.resources,
     ...(manifest.image ? { image: manifest.image } : {}),
     ...(manifest.environment_variables ? { environment_variables: manifest.environment_variables } : {}),
+    ...(mounted_secrets ? { mounted_secrets } : {}),
     ...(manifest.networking
       ? {
           networking: {
