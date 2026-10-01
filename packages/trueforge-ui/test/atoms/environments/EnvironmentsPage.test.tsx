@@ -175,4 +175,38 @@ describe('EnvironmentsPage', () => {
       vi.useRealTimers();
     }
   });
+
+  it('displays error message when listing providers throws an error', async () => {
+    const listSandboxProviders = vi.fn(async () => {
+      throw new Error('Network timeout fetching providers');
+    });
+    const catalog = createMockCatalog({
+      sandboxCatalog: {
+        getSandboxProviderCatalog: async () => [],
+        listSandboxProviders,
+        createSandboxProvider: vi.fn(),
+        updateSandboxProvider: vi.fn(),
+      },
+    });
+    const environmentServer = createMockSandboxEnvironmentServer();
+    const server = createMockAgentUIServer({
+      catalog,
+      sandboxEnvironments: environmentServer,
+    });
+
+    render(
+      <ServerProvider server={server}>
+        <ShellModeProvider agentConfig={{ mode: 'AgentLibraryWithComposer' }}>
+          <ToasterProvider>
+            <EnvironmentsPage />
+          </ToasterProvider>
+        </ShellModeProvider>
+      </ServerProvider>,
+    );
+
+    await waitFor(() => {
+      expect(screen.getByText('Network timeout fetching providers')).toBeInTheDocument();
+    });
+    expect(screen.queryByText('Configure a sandbox provider first')).not.toBeInTheDocument();
+  });
 });

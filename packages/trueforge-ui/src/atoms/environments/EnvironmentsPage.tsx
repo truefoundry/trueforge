@@ -71,10 +71,11 @@ export function EnvironmentsPage(_props: EnvironmentsPageProps) {
   const [previousPageToken, setPreviousPageToken] = useState<string | undefined>(undefined);
   const loadGenRef = useRef(0);
   const didConsumeIsNewRef = useRef(false);
+  const wasSettingsOpenRef = useRef(shell?.settingsOpen ?? false);
+  const settingsOpen = shell?.settingsOpen ?? false;
+  const environmentsListEpoch = shell?.environmentsListEpoch ?? 0;
 
   const checkProvider = useCallback(async () => {
-    // Only fetch providers if we don't already know providerReady
-    if (providerReady != null) return providerReady;
     const sandboxCatalog = catalog?.sandboxCatalog;
     if (sandboxCatalog == null) {
       setProviderReady(false);
@@ -85,11 +86,11 @@ export function EnvironmentsPage(_props: EnvironmentsPageProps) {
       const ready = providers.length > 0;
       setProviderReady(ready);
       return ready;
-    } catch {
-      setProviderReady(false);
-      return false;
+    } catch (caught) {
+      setProviderReady(null);
+      throw caught;
     }
-  }, [catalog, providerReady]);
+  }, [catalog]);
 
   const loadEnvironments = useCallback(
     async ({ token, size, silent = false }: { token: string | undefined; size: number; silent?: boolean }) => {
@@ -138,7 +139,14 @@ export function EnvironmentsPage(_props: EnvironmentsPageProps) {
 
   useEffect(() => {
     void loadEnvironments({ token: pageToken, size: pageSize });
-  }, [loadEnvironments, pageSize, pageToken]);
+  }, [loadEnvironments, pageSize, pageToken, environmentsListEpoch]);
+
+  useEffect(() => {
+    if (wasSettingsOpenRef.current && !settingsOpen) {
+      void loadEnvironments({ token: pageToken, size: pageSize });
+    }
+    wasSettingsOpenRef.current = settingsOpen;
+  }, [settingsOpen, loadEnvironments, pageToken, pageSize]);
 
   // Poll individual pending environments using single-environment get API
   useEffect(() => {
@@ -237,7 +245,9 @@ export function EnvironmentsPage(_props: EnvironmentsPageProps) {
       />
 
       <div className="min-h-0 flex-1 overflow-auto px-4 py-4">
-        {loading || providerReady == null ? (
+        {error != null ? (
+          <p className="text-failure-bg px-3 py-8 text-center text-sm">{error}</p>
+        ) : loading || providerReady == null ? (
           <div className="flex flex-col gap-2" role="status" aria-label="Loading environments">
             {Array.from({ length: 5 }, (_, i) => (
               <Skeleton key={i} className="h-12 w-full rounded-md" />
@@ -254,8 +264,6 @@ export function EnvironmentsPage(_props: EnvironmentsPageProps) {
               Open Sandbox settings
             </Button.Primary>
           </div>
-        ) : error != null ? (
-          <p className="text-failure-bg px-3 py-8 text-center text-sm">{error}</p>
         ) : environments.length === 0 ? (
           <EmptyScreen
             title="No environments yet"
