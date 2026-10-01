@@ -522,6 +522,8 @@ export class AgentThread {
 
   private contextBusy = false;
   private preSendRanThisTurn = false;
+  // Validated-but-not-yet-applied user events.
+  private pendingUserEvents: AgentThreadRuntimeSendInput[] = [];
   private currentState: AgentThreadState | null = null;
   private readonly preComputedCompletion?: SubAgentCompletionMarker | undefined;
   /** Mirrored capability KV — source for toSnapshot().capability_state. */
@@ -599,74 +601,93 @@ export class AgentThread {
     return builder.build();
   }
 
-  public async *send(messages: AgentThreadRuntimeSendBatch): AsyncGenerator<AgentThreadAppendContext, void, unknown> {
+  // Store-free generator (§3.1). Validate against committed context, hand the accepted batch to
+  // the caller to persist durably (the `yield`), then commit it to the in-memory queue only once
+  // the caller resumes us (persist-before-mutate). No context mutation, no preSend, no contextBusy —
+  // context application moves to execute()/applyUserEvents (§3.2).
+  public *send(messages: AgentThreadRuntimeSendBatch): Generator<AgentThreadRuntimeSendBatch, void, unknown> {
     // An empty batch is a no-op only when the thread is not awaiting user input.
     // While awaiting input, fall through so the validator rejects the empty/incomplete batch.
     if (messages.length === 0 && !this.isAwaitingUserInput()) {
       return;
     }
-    this.throwIfContextBusy();
+    // Runs before the yield ⇒ an invalid batch throws before any persist or enqueue (fail-closed).
+    validateInputMessageTypesGivenContext(this.context, messages);
+    // Caller persists here (deferred for now). If it throws, we never resume ⇒ queue untouched.
+    yield messages;
+    this.pendingUserEvents.push(...messages);
+  }
 
-    this.contextBusy = true;
-    try {
+  public hasPendingUserEvents(): boolean {
+    return this.pendingUserEvents.length > 0;
+  }
+
+  // Apply already-validated user events to context (§3.2). Drains at the top of execute() and is
+  // also called directly for the initial createTurn input and internal child→parent delivery.
+  // This is the only place approval/response/user context is written.
+  public async *applyUserEvents(
+    events: AgentThreadRuntimeSendInput[],
+  ): AsyncGenerator<AgentThreadAppendContext, void, unknown> {
+    if (events.length === 0) {
+      return;
+    }
+    // preSend (e.g. OpenToolCallCloser) runs once per turn, before applying — matching the previous
+    // send() ordering. execute()'s own preSend block is skipped when we set the flag here.
+    if (!this.preSendRanThisTurn) {
       for await (const event of this.executeContextProcessors('preSend')) {
         yield event;
       }
       this.preSendRanThisTurn = true;
+    }
 
-      validateInputMessageTypesGivenContext(this.context, messages);
+    const approvals: UserToolApprovalMessage[] = [];
+    const clientSideToolResponses: UserToolResponseMessage[] = [];
+    const contextMessages: (LLMUserMessage | LLMToolMessage)[] = [];
 
-      const approvals: UserToolApprovalMessage[] = [];
-      const clientSideToolResponses: UserToolResponseMessage[] = [];
-      const contextMessages: (LLMUserMessage | LLMToolMessage)[] = [];
-
-      for (const m of messages) {
-        if (isApprovalDecisionMessage(m)) {
-          approvals.push(m);
-        } else if (isClientSideToolResponseMessage(m)) {
-          clientSideToolResponses.push(m);
-        } else if (isInputUserMessage(m)) {
-          const result = await processAgentUserInput(m, this.sandbox);
-          contextMessages.push(result.message);
-          if (result.sandboxCreated) {
-            this.pendingSandboxCreatedEvents.push(buildSandboxCreatedEvent(result.sandboxCreated));
-          }
-        } else if (isLLMToolMessage(m)) {
-          contextMessages.push(m);
-        } else {
-          const _exhaustive: never = m;
-          throw new InvalidAgentSendInputError(`Unsupported send input: ${JSON.stringify(_exhaustive)}`);
+    for (const m of events) {
+      if (isApprovalDecisionMessage(m)) {
+        approvals.push(m);
+      } else if (isClientSideToolResponseMessage(m)) {
+        clientSideToolResponses.push(m);
+      } else if (isInputUserMessage(m)) {
+        const result = await processAgentUserInput(m, this.sandbox);
+        contextMessages.push(result.message);
+        if (result.sandboxCreated) {
+          this.pendingSandboxCreatedEvents.push(buildSandboxCreatedEvent(result.sandboxCreated));
         }
+      } else if (isLLMToolMessage(m)) {
+        contextMessages.push(m);
+      } else {
+        const _exhaustive: never = m;
+        throw new InvalidAgentSendInputError(`Unsupported send input: ${JSON.stringify(_exhaustive)}`);
       }
+    }
 
-      if (approvals.length > 0 || clientSideToolResponses.length > 0) {
-        const approvalContext: AgentApprovalDecisionMessage[] = approvals.map(a => ({
-          type: EventType.USER_TOOL_APPROVAL,
-          tool_call_id: a.tool_call_id,
-          approval: a.approval,
-        }));
-        const toolResponseContext: LLMToolMessage[] = clientSideToolResponses.map(m => ({
-          role: 'tool',
-          tool_call_id: m.tool_call_id,
-          content: m.content,
-        }));
-        yield* this.appendToContext({
-          context: [...approvalContext, ...toolResponseContext],
-          output: [],
-          currentContextUsage: undefined,
-          usage: undefined,
-        });
-      }
-      if (contextMessages.length > 0) {
-        yield* this.appendToContext({
-          context: contextMessages,
-          output: [],
-          currentContextUsage: undefined,
-          usage: undefined,
-        });
-      }
-    } finally {
-      this.contextBusy = false;
+    if (approvals.length > 0 || clientSideToolResponses.length > 0) {
+      const approvalContext: AgentApprovalDecisionMessage[] = approvals.map(a => ({
+        type: EventType.USER_TOOL_APPROVAL,
+        tool_call_id: a.tool_call_id,
+        approval: a.approval,
+      }));
+      const toolResponseContext: LLMToolMessage[] = clientSideToolResponses.map(m => ({
+        role: 'tool',
+        tool_call_id: m.tool_call_id,
+        content: m.content,
+      }));
+      yield* this.appendToContext({
+        context: [...approvalContext, ...toolResponseContext],
+        output: [],
+        currentContextUsage: undefined,
+        usage: undefined,
+      });
+    }
+    if (contextMessages.length > 0) {
+      yield* this.appendToContext({
+        context: contextMessages,
+        output: [],
+        currentContextUsage: undefined,
+        usage: undefined,
+      });
     }
   }
 
@@ -1331,6 +1352,11 @@ export class AgentThread {
         yield this.buildReplayEvent(this.preComputedCompletion);
         return;
       }
+
+      // Drain + apply any queued user events first (§3.2). This runs preSend when there is work,
+      // so the block below is skipped in that case. When the queue is empty it is a no-op and the
+      // block below runs preSend for a fresh/resumed-without-new-events execute.
+      yield* this.applyUserEvents(this.pendingUserEvents.splice(0));
 
       if (!this.preSendRanThisTurn) {
         for await (const event of this.executeContextProcessors('preSend')) {

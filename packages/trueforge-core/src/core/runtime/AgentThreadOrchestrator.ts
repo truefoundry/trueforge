@@ -297,7 +297,10 @@ export class AgentThreadOrchestrator {
     return { errors: [] };
   }
 
-  public async *send(messages: AgentThreadSendBatch): AsyncGenerator<AgentThreadAppendContext, void, unknown> {
+  // Route a public send batch to the owning thread(s) and validate each per-thread batch against
+  // its committed context. Pure + synchronous: throws on unknown thread or an invalid/incomplete
+  // batch before anything is enqueued or applied. Shared by send() and applyUserEvents().
+  private routeSendBatch(messages: AgentThreadSendBatch): Map<string, AgentThreadRuntimeSendBatch> {
     const byThread = new Map<string, AgentThreadRuntimeSendBatch>();
     for (const thread of this.agentThreads.values()) {
       byThread.set(thread.threadId, []);
@@ -346,6 +349,29 @@ export class AgentThreadOrchestrator {
       throw new InvalidAgentSendInputError(validationErrors.join('; '));
     }
 
+    return byThread;
+  }
+
+  // Store-free generator (§4.1). Route + validate, then yield each accepted per-thread batch for
+  // the caller to persist durably; each thread commits to its in-memory queue only on resume.
+  // Does not mutate context — application happens later in execute()'s drain (§3.2).
+  public *send(messages: AgentThreadSendBatch): Generator<AgentThreadRuntimeSendBatch, void, unknown> {
+    const byThread = this.routeSendBatch(messages);
+    for (const [threadId, batch] of byThread) {
+      const thread = this.agentThreads.get(threadId);
+      if (!thread) {
+        throw new Error(`AgentThreadOrchestrator.send: unknown threadId ${threadId}`);
+      }
+      yield* thread.send(batch);
+    }
+  }
+
+  // Route + apply user events to context immediately, yielding context-append events (§8). Used by
+  // createTurn for the initial input (atomic pre-send) and by sendToThread for child→parent delivery.
+  public async *applyUserEvents(
+    messages: AgentThreadSendBatch,
+  ): AsyncGenerator<AgentThreadAppendContext, void, unknown> {
+    const byThread = this.routeSendBatch(messages);
     for (const [threadId, batch] of byThread) {
       yield* this.sendToThread(threadId, batch);
     }
@@ -359,7 +385,7 @@ export class AgentThreadOrchestrator {
     if (!thread) {
       throw new Error(`AgentThreadOrchestrator.sendToThread: unknown threadId ${threadId}`);
     }
-    yield* thread.send(messages);
+    yield* thread.applyUserEvents(messages);
   }
 
   private async *processAgentStreamChunk(
