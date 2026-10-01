@@ -224,7 +224,12 @@ jobs:
 
   publish:
     name: Publish packages
-    needs: [version-release, pack, windows-npx-smoke]
+    # resolve-image is in `needs` for its veto, not its outputs. npm and PyPI
+    # are the only irreversible steps in this workflow - npm allows 72h to
+    # unpublish, PyPI never does - so neither may run while any part of the
+    # release has already refused. Without this they publish in parallel with
+    # the image path and land a version no image or chart will ever match.
+    needs: [version-release, pack, windows-npx-smoke, resolve-image]
     if: ${{ inputs.dry_run != true }} # DRY-RUN (temporary)
     runs-on: ubuntu-latest
     timeout-minutes: 20
@@ -266,7 +271,9 @@ jobs:
   # Sibling of npm publish (same gates). Skips when pyproject version is already on PyPI.
   publish-python:
     name: Publish Python SDK
-    needs: [version-release, pack, windows-npx-smoke]
+    # Same veto as `publish`; PyPI is the one registry that never lets a
+    # version be reused, so it must not outrun a refusal either.
+    needs: [version-release, pack, windows-npx-smoke, resolve-image]
     if: ${{ inputs.dry_run != true }} # DRY-RUN (temporary)
     runs-on: ubuntu-latest
     timeout-minutes: 20
