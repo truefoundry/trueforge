@@ -182,6 +182,21 @@ describe('sandbox environment secrets', () => {
       environment_id: created.data.id,
     });
 
+    const unchangedResponse = await publicRouter.request('/', {
+      method: 'PUT',
+      headers: { 'content-type': 'application/json' },
+      body: JSON.stringify({
+        manifest: {
+          name: 'secret-env',
+          networking: {
+            secrets: [{ env: 'GITHUB_TOKEN', value: SECRET_REDACTION, hosts: ['github.com'] }],
+          },
+        },
+      }),
+    });
+    expect(unchangedResponse.status).toBe(200);
+    expect(updateSecret).not.toHaveBeenCalled();
+
     const updateResponse = await publicRouter.request('/', {
       method: 'PUT',
       headers: { 'content-type': 'application/json' },

@@ -1,7 +1,9 @@
 import type { SandboxProvider } from '@truefoundry/trueforge-core/core';
 import { withTimeout } from '@truefoundry/trueforge-core/core';
 import { randomUUID } from 'node:crypto';
+import { isDeepStrictEqual } from 'node:util';
 import type { SandboxEnvironmentSecretRecord, SyncedSandboxEnvironmentSecret } from '../db/sandboxEnvironmentStore';
+import type { SandboxEnvironmentSecret } from '../schemas/sandboxEnvironment';
 import { isRedactedSecretValue, MissingStoredSecretError } from '../utils/secretRedaction';
 import { DAYTONA_RPC_TIMEOUT_MS } from './providerUtils';
 
@@ -26,33 +28,40 @@ async function withSecretSyncError<T>(operation: Promise<T>): Promise<T> {
 /** Sync provider org secrets from in-memory PUT values before the environment upsert. */
 export async function syncSandboxEnvironmentSecrets({
   secrets,
+  previous,
   existing,
   provider,
   description,
 }: {
-  secrets: { env: string; value: string; hosts: string[] }[];
+  secrets: SandboxEnvironmentSecret[];
+  previous: SandboxEnvironmentSecret[];
   existing: SandboxEnvironmentSecretRecord[];
   provider: SandboxProvider<unknown>;
   description: string;
 }): Promise<SyncedSandboxEnvironmentSecret[]> {
   const desiredNames = new Set(secrets.map(secret => secret.env));
+  const previousByName = new Map(previous.map(secret => [secret.env, secret]));
   const byName = new Map(existing.map(row => [row.secret_name, row]));
   const synced: SyncedSandboxEnvironmentSecret[] = [];
 
   for (const secret of secrets) {
     const row = byName.get(secret.env);
     if (row !== undefined) {
-      await withSecretSyncError(
-        withTimeout(
-          provider.updateSecret({
-            secretId: row.external_secret_id,
-            hosts: secret.hosts,
-            ...(!isRedactedSecretValue(secret.value) ? { value: secret.value } : {}),
-          }),
-          DAYTONA_RPC_TIMEOUT_MS,
-          'sandbox environment secret update',
-        ),
-      );
+      const valueChanged = !isRedactedSecretValue(secret.value);
+      const hostsChanged = !isDeepStrictEqual(previousByName.get(secret.env)?.hosts, secret.hosts);
+      if (valueChanged || hostsChanged) {
+        await withSecretSyncError(
+          withTimeout(
+            provider.updateSecret({
+              secretId: row.external_secret_id,
+              hosts: secret.hosts,
+              ...(valueChanged ? { value: secret.value } : {}),
+            }),
+            DAYTONA_RPC_TIMEOUT_MS,
+            'sandbox environment secret update',
+          ),
+        );
+      }
       synced.push({
         secret_name: secret.env,
         external_secret_name: row.external_secret_name,
