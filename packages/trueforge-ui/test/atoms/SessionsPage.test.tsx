@@ -3,6 +3,7 @@ import { fireEvent, render, screen, waitFor } from '@testing-library/react';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 import { SessionsPage } from '@/atoms/agent-details/SessionsPage.js';
+import { ToasterProvider } from '@/containers/ToasterContainer.js';
 import { ServerProvider } from '@/server/ServerContext.js';
 import { ShellModeProvider } from '@/server/ShellModeContext.js';
 import type {
@@ -44,8 +45,15 @@ type ListSessionsRequest = {
 
 const originalShowModal = Object.getOwnPropertyDescriptor(HTMLDialogElement.prototype, 'showModal');
 const originalClose = Object.getOwnPropertyDescriptor(HTMLDialogElement.prototype, 'close');
+const originalClipboard = Object.getOwnPropertyDescriptor(navigator, 'clipboard');
+let clipboardWriteText: ReturnType<typeof vi.fn>;
 
 beforeEach(() => {
+  clipboardWriteText = vi.fn(async () => undefined);
+  Object.defineProperty(navigator, 'clipboard', {
+    configurable: true,
+    value: { writeText: clipboardWriteText },
+  });
   Object.defineProperty(HTMLDialogElement.prototype, 'showModal', {
     configurable: true,
     value: function showModal(this: HTMLDialogElement) {
@@ -74,6 +82,11 @@ afterEach(() => {
   } else {
     Object.defineProperty(HTMLDialogElement.prototype, 'close', originalClose);
   }
+  if (originalClipboard === undefined) {
+    Reflect.deleteProperty(navigator, 'clipboard');
+  } else {
+    Object.defineProperty(navigator, 'clipboard', originalClipboard);
+  }
 });
 
 function renderPage({
@@ -97,20 +110,22 @@ function renderPage({
 } = {}) {
   const server = createMockAgentUIServer({
     getSession,
-    searchAgents: vi.fn(async () => [
-      { agentId: 'agent-1', name: 'release-notes-writer', agentSpec: { model: { name: 'openai/gpt-5.1' } } },
-    ]),
+    searchAgents: vi.fn(async () => ({
+      data: [{ agentId: 'agent-1', name: 'release-notes-writer', agentSpec: { model: { name: 'openai/gpt-5.1' } } }],
+    })),
     sessions: { getAgent: vi.fn(), getCodeSnippets: vi.fn(), listSessions, listSessionEvents },
     ...(deleteSession == null ? {} : { deleteSession }),
     ...(permissions == null ? {} : { permissions }),
   });
   render(
     <SlotsProvider>
-      <ServerProvider server={server}>
-        <ShellModeProvider>
-          <SessionsPage />
-        </ShellModeProvider>
-      </ServerProvider>
+      <ToasterProvider>
+        <ServerProvider server={server}>
+          <ShellModeProvider>
+            <SessionsPage />
+          </ShellModeProvider>
+        </ServerProvider>
+      </ToasterProvider>
     </SlotsProvider>,
   );
   return { listSessions, listSessionEvents, getSession, deleteSession };
@@ -212,6 +227,47 @@ describe('SessionsPage', () => {
     expect(await screen.findByText('Pinned session')).toBeInTheDocument();
     expect(screen.queryByText('No Sessions Found')).not.toBeInTheDocument();
     expect(getSession).toHaveBeenCalledWith({ sessionId: 'sess-1' });
+  });
+
+  it('toasts and keeps the inline failure when a non-share detail load is forbidden', async () => {
+    window.history.replaceState(null, '', '/?view=sessions&sessionId=sess-1');
+    const forbidden = Object.assign(new Error('Only the session creator can access this session'), {
+      statusCode: 403,
+    });
+    vi.spyOn(console, 'error').mockImplementation(() => {});
+    renderPage({
+      listSessions: vi.fn(async () => ({ data: [namedRow] })),
+      listSessionEvents: vi.fn(async () => {
+        throw forbidden;
+      }),
+      getSession: vi.fn(async () => {
+        throw forbidden;
+      }),
+    });
+
+    expect(await screen.findByText('Session details could not be loaded.')).toBeInTheDocument();
+    expect(await screen.findByText('Only the session creator can access this session')).toBeInTheDocument();
+    expect(window.location.search).toContain('sessionId=sess-1');
+  });
+
+  it('copies the no-router shared-session query URL for the selected session', async () => {
+    window.history.replaceState(null, '', '/?view=sessions&sessionId=sess-1&agentId=agent-1&s_tw=30');
+    renderPage();
+
+    fireEvent.click(await screen.findByRole('button', { name: 'Share' }));
+    expect(await screen.findByText('Change permissions')).toBeInTheDocument();
+    expect(screen.queryByRole('dialog')).not.toBeInTheDocument();
+    fireEvent.click(screen.getByRole('button', { name: 'Copy' }));
+
+    await waitFor(() => {
+      expect(clipboardWriteText).toHaveBeenCalledOnce();
+    });
+    const copied = new URL(String(clipboardWriteText.mock.calls[0]?.[0]));
+    expect(copied.pathname).toBe('/');
+    expect(copied.searchParams.get('view')).toBe('shared-session');
+    expect(copied.searchParams.get('sessionId')).toBe('sess-1');
+    expect(copied.searchParams.get('agentId')).toBeNull();
+    expect(copied.searchParams.get('s_tw')).toBeNull();
   });
 
   it('shows the custom range picker only after Custom Time Range is clicked', async () => {
@@ -346,6 +402,23 @@ describe('SessionsPage', () => {
     expect(screen.getByText('Draft session')).toBeInTheDocument();
   });
 
+  it('disables Share without session MANAGE permission', async () => {
+    window.history.replaceState(null, '', '/?view=sessions&sessionId=sess-1&s_tw=30');
+    renderPage({
+      permissions: {
+        listPermissions: vi.fn(async (): Promise<ListPermissionsResponse> => ({
+          data: { type: 'session', permissions: { 'sess-1': [], 'sess-draft': ['MANAGE'] } },
+        })),
+      },
+    });
+
+    await waitFor(() => {
+      expect(screen.getByRole('button', { name: 'Share' })).toBeDisabled();
+    });
+    fireEvent.click(screen.getByRole('button', { name: 'Share' }));
+    expect(screen.queryByText('Change permissions')).not.toBeInTheDocument();
+  });
+
   it('disables Delete without session DELETE permission', async () => {
     const deleteSession = vi.fn(async () => undefined);
     renderPage({
@@ -362,5 +435,60 @@ describe('SessionsPage', () => {
       expect(screen.getByRole('menuitem', { name: 'Delete' })).toBeDisabled();
     });
     expect(deleteSession).not.toHaveBeenCalled();
+  });
+
+  it('renders the reload button before the agent filter and refetches latest data on click', async () => {
+    let now = Date.parse('2026-01-01T12:00:00.000Z');
+    const nowSpy = vi.spyOn(Date, 'now').mockImplementation(() => now);
+    const listSessions = vi.fn(async (_req?: ListSessionsRequest) => ({ data: [namedRow] }));
+    renderPage({ listSessions });
+
+    const reloadButton = await screen.findByRole('button', { name: 'Reload sessions' });
+    expect(reloadButton).toBeInTheDocument();
+    expect(listSessions).toHaveBeenCalledTimes(1);
+
+    // Advance time and click reload
+    now = Date.parse('2026-01-01T13:00:00.000Z');
+    fireEvent.click(reloadButton);
+
+    await waitFor(() => {
+      expect(listSessions).toHaveBeenCalledTimes(2);
+      expect(listSessions).toHaveBeenLastCalledWith(
+        expect.objectContaining({
+          startTimestamp: new Date(now - DEFAULT_SESSION_TIME_WINDOW_MS).toISOString(),
+          endTimestamp: new Date(now).toISOString(),
+        }),
+      );
+    });
+
+    nowSpy.mockRestore();
+  });
+
+  it('refetches both session list and selected session detail on reload', async () => {
+    window.history.replaceState(null, '', '/?view=sessions&sessionId=sess-1');
+    const listSessions = vi.fn(async () => ({ data: [namedRow] }));
+    const listSessionEvents = vi.fn(async () => ({ data: [] as SessionEventItem[] }));
+    const getSession = vi.fn(async (): Promise<Session> => ({
+      id: 'sess-1',
+      title: 'Named session',
+      isMutable: false,
+      createdAt: namedRow.createdAt,
+      updatedAt: namedRow.updatedAt,
+    }));
+
+    renderPage({ listSessions, listSessionEvents, getSession });
+
+    const reloadButton = await screen.findByRole('button', { name: 'Reload sessions' });
+    await screen.findByRole('heading', { name: 'Named session' });
+
+    expect(listSessions).toHaveBeenCalledTimes(1);
+    expect(getSession).toHaveBeenCalledTimes(1);
+
+    fireEvent.click(reloadButton);
+
+    await waitFor(() => {
+      expect(listSessions).toHaveBeenCalledTimes(2);
+      expect(getSession).toHaveBeenCalledTimes(2);
+    });
   });
 });

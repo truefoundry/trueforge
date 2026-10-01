@@ -33,6 +33,7 @@ import {
   TableRow,
   TableTokenPagination,
 } from '../primitives/Table.js';
+import { Tooltip } from '../primitives/Tooltip.js';
 import { formatCadenceSummary } from './cadence.js';
 import { ScheduleFormDrawer } from './ScheduleFormDrawer.js';
 import { ScheduleLastRunsCell } from './ScheduleLastRunsCell.js';
@@ -187,7 +188,7 @@ export function SchedulesPage({ agentId }: SchedulesPageProps) {
   const [pageSize, setPageSize] = useState(() => clampPageSize(DEFAULT_TABLE_PAGE_SIZE));
   const [pageToken, setPageToken] = useState<string | undefined>(undefined);
   const [nextPageToken, setNextPageToken] = useState<string | undefined>(undefined);
-  const [prevTokenStack, setPrevTokenStack] = useState<string[]>([]);
+  const [previousPageToken, setPreviousPageToken] = useState<string | undefined>(undefined);
   const loadGenRef = useRef(0);
   const didConsumeIsNewRef = useRef(false);
 
@@ -233,6 +234,7 @@ export function SchedulesPage({ agentId }: SchedulesPageProps) {
         if (gen !== loadGenRef.current) return;
         setSchedules(page.data);
         setNextPageToken(page.nextPageToken);
+        setPreviousPageToken(page.previousPageToken);
         void loadRunsForSchedules({ rows: page.data, gen });
       } catch (caught) {
         if (gen !== loadGenRef.current) return;
@@ -241,6 +243,7 @@ export function SchedulesPage({ agentId }: SchedulesPageProps) {
         setSchedules([]);
         setRunsByScheduleId({});
         setNextPageToken(undefined);
+        setPreviousPageToken(undefined);
       } finally {
         if (gen === loadGenRef.current) setLoading(false);
       }
@@ -253,7 +256,7 @@ export function SchedulesPage({ agentId }: SchedulesPageProps) {
       const size = next?.size ?? pageSize;
       const agentId = next?.agentId ?? agentFilter;
       setPageToken(undefined);
-      setPrevTokenStack([]);
+      setPreviousPageToken(undefined);
       void loadSchedules({ token: undefined, size, agentId });
     },
     [agentFilter, loadSchedules, pageSize],
@@ -273,7 +276,7 @@ export function SchedulesPage({ agentId }: SchedulesPageProps) {
     setAgentFilter(current => {
       if (current === agentId) return current;
       setPageToken(undefined);
-      setPrevTokenStack([]);
+      setPreviousPageToken(undefined);
       return agentId;
     });
   }, [agentId]);
@@ -296,7 +299,7 @@ export function SchedulesPage({ agentId }: SchedulesPageProps) {
         const nextAgentFilter = agentId ?? next.agentFilter;
         if (current === nextAgentFilter) return current;
         setPageToken(undefined);
-        setPrevTokenStack([]);
+        setPreviousPageToken(undefined);
         return nextAgentFilter;
       });
     };
@@ -322,7 +325,7 @@ export function SchedulesPage({ agentId }: SchedulesPageProps) {
 
   // Key off page data, not client filters — filtering must not toggle the column.
   const showCreatedByColumn = hasCreatedBySubject(schedules);
-  const hasPageNav = prevTokenStack.length > 0 || nextPageToken != null;
+  const hasPageNav = previousPageToken != null || nextPageToken != null;
 
   const handleTogglePause = async (schedule: Schedule) => {
     if (!allows(schedule.id, 'MANAGE')) return;
@@ -367,22 +370,18 @@ export function SchedulesPage({ agentId }: SchedulesPageProps) {
 
   const goNext = () => {
     if (nextPageToken == null) return;
-    setPrevTokenStack(stack => [...stack, pageToken ?? '']);
     setPageToken(nextPageToken);
   };
 
   const goPrev = () => {
-    if (prevTokenStack.length === 0) return;
-    const stack = [...prevTokenStack];
-    const prev = stack.pop();
-    setPrevTokenStack(stack);
-    setPageToken(prev === '' ? undefined : prev);
+    if (previousPageToken == null || previousPageToken === '') return;
+    setPageToken(previousPageToken);
   };
 
   return (
     <div className="flex h-full min-h-0 flex-col bg-primary-bg">
       <PageHeader
-        title={agentId === undefined ? 'Scheduled Agents' : undefined}
+        title={agentId === undefined ? 'Agent Schedules' : undefined}
         end={
           <>
             <div className="w-full sm:w-60">
@@ -402,7 +401,7 @@ export function SchedulesPage({ agentId }: SchedulesPageProps) {
                 onValueChange={value => {
                   setAgentFilter(value);
                   setPageToken(undefined);
-                  setPrevTokenStack([]);
+                  setPreviousPageToken(undefined);
                 }}
                 onAgentPicked={agent => {
                   setAgentLabelById(current => ({
@@ -452,7 +451,7 @@ export function SchedulesPage({ agentId }: SchedulesPageProps) {
               <TableTokenPagination
                 pageSize={pageSize}
                 rowCount={0}
-                canPrev={prevTokenStack.length > 0}
+                canPrev={previousPageToken != null}
                 canNext={nextPageToken != null}
                 onPrev={goPrev}
                 onNext={goNext}
@@ -461,18 +460,18 @@ export function SchedulesPage({ agentId }: SchedulesPageProps) {
                   const next = clampPageSize(size);
                   setPageSize(next);
                   setPageToken(undefined);
-                  setPrevTokenStack([]);
+                  setPreviousPageToken(undefined);
                 }}
               />
             ) : null}
           </div>
         ) : (
           <div className="overflow-hidden rounded-lg border border-border">
-            <Table className="min-w-[48rem]">
+            <Table className="min-w-240">
               <TableHeader>
                 <TableRow className="hover:bg-transparent">
-                  <TableHead>Name</TableHead>
-                  <TableHead>Agent</TableHead>
+                  <TableHead>Schedule Name</TableHead>
+                  <TableHead>Task</TableHead>
                   {showCreatedByColumn ? <TableHead>Created by</TableHead> : null}
                   <TableHead>Frequency</TableHead>
                   <TableHead>Status</TableHead>
@@ -488,10 +487,22 @@ export function SchedulesPage({ agentId }: SchedulesPageProps) {
                   const agentLabel = schedule.agentName ?? agentLabelById[schedule.agentId] ?? schedule.agentId;
                   return (
                     <TableRow key={schedule.id}>
-                      <TableCell className="text-text-primary font-medium">
-                        <span className="text-left !no-underline">{schedule.name}</span>
+                      <TableCell className="w-48 max-w-48">
+                        <span className="text-text-primary block truncate font-medium">{schedule.name}</span>
+                        <span className="mt-1 flex min-w-0 items-center gap-1 text-xs">
+                          <Icon name="agent-2" className="size-3 shrink-0" />
+                          <span className="truncate">{agentLabel}</span>
+                        </span>
                       </TableCell>
-                      <TableCell>{agentLabel}</TableCell>
+                      <TableCell className="w-64 max-w-64">
+                        <Tooltip
+                          content={schedule.task}
+                          className="max-w-sm whitespace-normal text-left"
+                          triggerClassName="block min-w-0 w-full max-w-full"
+                        >
+                          <span className="block truncate">{schedule.task}</span>
+                        </Tooltip>
+                      </TableCell>
                       {showCreatedByColumn ? (
                         <TableCell>
                           <CreatedByCell subject={schedule.createdBySubject} />
@@ -533,7 +544,7 @@ export function SchedulesPage({ agentId }: SchedulesPageProps) {
               <TableTokenPagination
                 pageSize={pageSize}
                 rowCount={filtered.length}
-                canPrev={prevTokenStack.length > 0}
+                canPrev={previousPageToken != null}
                 canNext={nextPageToken != null}
                 onPrev={goPrev}
                 onNext={goNext}
@@ -542,7 +553,7 @@ export function SchedulesPage({ agentId }: SchedulesPageProps) {
                   const next = clampPageSize(size);
                   setPageSize(next);
                   setPageToken(undefined);
-                  setPrevTokenStack([]);
+                  setPreviousPageToken(undefined);
                 }}
               />
             )}

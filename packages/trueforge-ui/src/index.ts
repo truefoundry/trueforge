@@ -94,6 +94,8 @@ export { ChatFileDownload } from './atoms/ChatFileDownload.js';
 export type { ChatFileDownloadFile, ChatFileDownloadProps } from './atoms/ChatFileDownload.js';
 export { CodeEditor } from './atoms/CodeEditor.js';
 export type { CodeEditorProps } from './atoms/CodeEditor.js';
+export { FilePreviewPanel } from './atoms/FilePreviewPanel.js';
+export type { FilePreviewPanelProps, FilePreviewView } from './atoms/FilePreviewPanel.js';
 export { HistoryLoader } from './atoms/HistoryLoader.js';
 export type { HistoryLoaderProps } from './atoms/HistoryLoader.js';
 export { Markdown, preloadMarkdownOpenUI } from './atoms/Markdown.js';
@@ -242,7 +244,7 @@ export { UserEditComposerContainer } from './containers/UserEditComposerContaine
 export { UserMessageContainer } from './containers/UserMessageContainer.js';
 export { useApprovalNav } from './hooks/useApprovalNav.js';
 export type { ApprovalNavState } from './hooks/useApprovalNav.js';
-export { useCanCreateAgent } from './hooks/useCanCreateAgent.js';
+export { CanCreateAgentProvider, useCanCreateAgent } from './hooks/useCanCreateAgent.js';
 export type { UseCanCreateAgentResult } from './hooks/useCanCreateAgent.js';
 export { ComposerBusyProvider, useComposerBusyState } from './hooks/useComposerBusyState.js';
 export type { ComposerBusyState } from './hooks/useComposerBusyState.js';
@@ -292,6 +294,9 @@ export {
   sessionIsCreateAgent,
 } from './atoms/lib/sessionCreateAgent.js';
 export { SelectAgentEmptyState } from './atoms/SelectAgentEmptyState.js';
+export { ShareChatButton } from './atoms/ShareChatButton.js';
+export { ShareSessionDialog } from './atoms/ShareSessionDialog.js';
+export type { ShareSessionDialogProps } from './atoms/ShareSessionDialog.js';
 export { ShellActionsActionSlot } from './atoms/ShellActionsActionSlot.js';
 export { createTrueForgeServer } from './server/createTrueForgeServer.js';
 export type { CreateTrueForgeServerOptions, TrueForgeServer } from './server/createTrueForgeServer.js';
@@ -404,9 +409,6 @@ export type {
   SandboxCatalogServer,
   SandboxProviderBase,
   SandboxProviderCatalogEntry,
-  SandboxProviderConfig,
-  SandboxProviderListEntry,
-  SandboxSnapshotSyncStatus,
   SaveAgentRequest,
   SaveAgentResult,
   SearchAgentsParams,
@@ -477,6 +479,7 @@ export type {
   AgentSessionsProps,
 } from './atoms/agent-details/types.js';
 export { AgentMetricsContainer } from './containers/AgentMetricsContainer.js';
+export type { DaytonaSandboxConfig } from './plugins/trueforge-agent-server-adapter/catalogs/sandboxProviderCatalog.js';
 export type { SessionEventTimelineSegment, SessionEventType } from './utils/sessionEventTimeline.js';
 export type { SessionTurnView } from './utils/sessionTurnViews.js';
 

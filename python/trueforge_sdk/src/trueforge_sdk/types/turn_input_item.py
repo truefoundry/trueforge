@@ -3,7 +3,7 @@
 import typing
 
 from .user_message import UserMessage
-from .user_tool_approval_event import UserToolApprovalEvent
-from .user_tool_response_event import UserToolResponseEvent
+from .user_tool_approval_input_event import UserToolApprovalInputEvent
+from .user_tool_response_input_event import UserToolResponseInputEvent
 
-TurnInputItem = typing.Union[UserMessage, UserToolApprovalEvent, UserToolResponseEvent]
+TurnInputItem = typing.Union[UserMessage, UserToolApprovalInputEvent, UserToolResponseInputEvent]

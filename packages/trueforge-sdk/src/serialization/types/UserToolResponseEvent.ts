@@ -9,6 +9,8 @@ export const UserToolResponseEvent: core.serialization.ObjectSchema<
     TrueForge.UserToolResponseEvent
 > = core.serialization.object({
     content: core.serialization.string(),
+    createdAt: core.serialization.property("created_at", core.serialization.string()),
+    id: core.serialization.string(),
     threadId: core.serialization.property("thread_id", core.serialization.string()),
     toolCallId: core.serialization.property("tool_call_id", core.serialization.string()),
     type: core.serialization.stringLiteral("user.tool_response"),
@@ -17,6 +19,8 @@ export const UserToolResponseEvent: core.serialization.ObjectSchema<
 export declare namespace UserToolResponseEvent {
     export interface Raw {
         content: string;
+        created_at: string;
+        id: string;
         thread_id: string;
         tool_call_id: string;
         type: "user.tool_response";

@@ -17,7 +17,7 @@ export function ScheduleRunChip({ run }: { run: ScheduleRun }) {
   const kind = runChipKind(run.status);
   const when = formatScheduleRunInstant(run.triggeredAt ?? run.scheduledFor);
   return (
-    <Tooltip content={<ScheduleRunTooltip run={run} />} side="top">
+    <Tooltip content={<ScheduleRunTooltip run={run} />} className="max-w-sm whitespace-normal" side="top">
       <span
         className={cn('inline-flex size-6 shrink-0 items-center justify-center rounded-md border', CHIP_STYLES[kind])}
         aria-label={`${runStatusLabel(run.status)} run at ${when}`}

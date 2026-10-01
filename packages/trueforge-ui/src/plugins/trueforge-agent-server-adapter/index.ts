@@ -45,9 +45,16 @@ export {
   configFromHarness,
   createSandboxProviderCatalog,
   filterUiSandboxProviders,
+  isDaytonaSandboxConfig,
   toHarnessManifest as toHarnessSandboxManifest,
+  toUiCatalogEntry as toUiSandboxCatalogEntry,
   toUiSandboxProvider,
-  toUiSandboxProviderListEntry,
+  type DaytonaSandboxCatalogServer,
+  type DaytonaSandboxConfig,
+  type UiCreateSandboxProviderRequest,
+  type UiSandboxProvider,
+  type UiSandboxProviderCatalogEntry,
+  type UiUpdateSandboxProviderRequest,
 } from './catalogs/sandboxProviderCatalog.js';
 export { createSkillCatalog, toHarnessManifest as toHarnessSkillManifest, toUiSkill } from './catalogs/skillCatalog.js';
 export {
@@ -101,5 +108,9 @@ export function createTrueForgeAgentUIServer(options: CreateTrueForgeAgentUIServ
     metrics: createHarnessAgentMetricsServer({ ...clientOptions, client }),
     schedules: createScheduleServer({ client }),
     permissions: permissions ?? createHarnessPermissionsServer({ client }),
+    getMe: async () => {
+      const { data } = await client.auth.me();
+      return { tenantId: data.tenantId };
+    },
   });
 }

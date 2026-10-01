@@ -15,7 +15,7 @@ railway config apply
 railway domain                  # public URL for the trueforge service
 ```
 
-- **Image:** `RAILWAY_DOCKERFILE_PATH=Dockerfile.dev` selects the from-source build.
+- **Image:** Railway builds the root from-source [`Dockerfile`](../Dockerfile).
 - **API key:** Set `TRUEFORGE_API_KEY` yourself as a Railway shared variable. IaC only wires `${{shared.TRUEFORGE_API_KEY}}` onto `trueforge` and `trueforge-controller`.
 - **Auth:** Off by default — anyone who can reach the URL is admin. Before sharing a deployment, enable [OIDC login](https://trueforge.dev/authentication/overview) (optional shared-variable block is commented in `railway.ts`).
 

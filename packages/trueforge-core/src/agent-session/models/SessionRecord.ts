@@ -18,6 +18,11 @@ export interface SessionRecord<TCustom extends object = Record<string, never>> {
    */
   title: string | null;
   /**
+   * When true, any subject in the tenant may GET this session.
+   * Mutations stay owner-only. List filtering ignores this flag.
+   */
+  shared: boolean;
+  /**
    * Optional caller-supplied key, unique within a tenant when set.
    * Null means the session has no external id.
    */

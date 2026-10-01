@@ -40,6 +40,8 @@ export const EventType = {
   TOOL_RESPONSE_REQUIRED: 'tool.response_required',
   USER_TOOL_APPROVAL: 'user.tool_approval',
   USER_TOOL_RESPONSE: 'user.tool_response',
+  USER_TOOL_APPROVAL_POLICY: 'user.tool_approval_policy',
+  USER_MCP_AUTH_CONTINUE: 'user.mcp_auth_continue',
   USER_MESSAGE: 'user.message',
 } as const;
 
@@ -85,7 +87,7 @@ export const UserToolApprovalMessageSchema = z
     tool_call_id: z.string().min(1, 'tool_call_id is required').describe('Tool call id being approved or denied.'),
     approval: ApprovalDecisionSchema,
   })
-  .openapi('UserToolApprovalEvent');
+  .openapi('UserToolApprovalInputEvent');
 
 export const UserToolResponseMessageSchema = z
   .object({
@@ -94,7 +96,82 @@ export const UserToolResponseMessageSchema = z
     tool_call_id: z.string().min(1, 'tool_call_id is required').describe('Tool call id receiving the client response.'),
     content: z.string().min(1, 'content cannot be empty').describe('Client-side tool result content.'),
   })
+  .openapi('UserToolResponseInputEvent');
+
+export const ToolApprovalPolicyAllowSessionSchema = z
+  .object({
+    type: z.literal('allow_session').describe('Allow matching tool calls for the rest of this session.'),
+    expire_at: z
+      .string()
+      .optional()
+      .describe('ISO 8601 timestamp when this session allow expires. Omit to allow for the whole session.'),
+  })
+  .openapi('ToolApprovalPolicyAllowSession');
+
+export const ToolApprovalPolicySchema = z
+  .discriminatedUnion('type', [ToolApprovalPolicyAllowSessionSchema])
+  .openapi('ToolApprovalPolicyAction');
+
+export const ToolApprovalPolicyItemSchema = z
+  .object({
+    server_name: z.string().min(1, 'server_name is required').describe('MCP server name.'),
+    name: z.string().min(1, 'name is required').describe('Tool name on that server.'),
+    action: ToolApprovalPolicySchema,
+  })
+  .openapi('ToolApprovalPolicyItem');
+
+export const UserToolApprovalPolicyMessageSchema = z
+  .object({
+    type: z
+      .literal(EventType.USER_TOOL_APPROVAL_POLICY)
+      .describe('Sticky allow-session policy for matching tools (optional expiry).'),
+    policies: z.array(ToolApprovalPolicyItemSchema).min(1).describe('One or more (server_name, name) policy entries.'),
+  })
+  .openapi('UserToolApprovalPolicyMessage');
+
+export const UserMCPAuthContinueMessageSchema = z
+  .object({
+    type: z
+      .literal(EventType.USER_MCP_AUTH_CONTINUE)
+      .describe('Client resume after mcp.auth_required (OAuth completed).'),
+  })
+  .openapi('UserMCPAuthContinueInputEvent');
+
+/** Durable / SSE form of {@link UserToolApprovalMessageSchema}. */
+export const UserToolApprovalEventSchema = z
+  .object({
+    ...UserToolApprovalMessageSchema.shape,
+    id: EventIdSchema,
+    created_at: z.string().describe('ISO 8601 event timestamp.'),
+  })
+  .openapi('UserToolApprovalEvent');
+
+/** Durable / SSE form of {@link UserToolResponseMessageSchema}. */
+export const UserToolResponseEventSchema = z
+  .object({
+    ...UserToolResponseMessageSchema.shape,
+    id: EventIdSchema,
+    created_at: z.string().describe('ISO 8601 event timestamp.'),
+  })
   .openapi('UserToolResponseEvent');
+
+/** Durable / SSE form of {@link UserToolApprovalPolicyMessageSchema}. */
+export const UserToolApprovalPolicyEventSchema = z
+  .object({
+    ...UserToolApprovalPolicyMessageSchema.shape,
+    id: EventIdSchema,
+    created_at: z.string().describe('ISO 8601 event timestamp.'),
+  })
+  .openapi('UserToolApprovalPolicyEvent');
+
+/** Durable / SSE form of {@link UserMCPAuthContinueMessageSchema}. */
+export const UserMCPAuthContinueEventSchema = z
+  .object({
+    ...UserMCPAuthContinueMessageSchema.shape,
+    id: EventIdSchema,
+    created_at: z.string().describe('ISO 8601 event timestamp.'),
+  })
+  .openapi('UserMCPAuthContinueEvent');
 
 export const TextContentPartSchema = z
   .object({
@@ -223,20 +300,17 @@ export const ThreadStateSchema = z
   .discriminatedUnion('status', [ThreadStateDoneSchema, ThreadStateErrorSchema])
   .openapi('ThreadState');
 
-export const BaseThreadDoneEventSchema = z
+export const ThreadDoneEventSchema = z
   .object({
+    type: z.literal(EventType.THREAD_DONE).describe('A thread reached a terminal state.'),
+    id: EventIdSchema,
+    created_at: z.string().describe('ISO 8601 event timestamp.'),
     parent: AgentParentSchema.optional(),
     thread_id: z.string().describe('Thread that finished.'),
     title: z.string().describe('Human-readable thread title.'),
+    state: ThreadStateSchema,
   })
-  .openapi('BaseThreadDoneEvent');
-
-export const ThreadDoneEventSchema = BaseThreadDoneEventSchema.extend({
-  type: z.literal(EventType.THREAD_DONE).describe('A thread reached a terminal state.'),
-  id: EventIdSchema,
-  created_at: z.string().describe('ISO 8601 event timestamp.'),
-  state: ThreadStateSchema,
-}).openapi('ThreadDoneEvent');
+  .openapi('ThreadDoneEvent');
 
 const ContextMessageSchema = z.union([
   LLMUserMessageSchema,
@@ -293,6 +367,10 @@ export const MCPServerInitInfoSchema = z
       .enum(['streamable-http', 'sse'])
       .optional()
       .describe('Transport used to connect to the MCP server.'),
+    approval_policies: z
+      .record(z.string(), ToolApprovalPolicySchema)
+      .optional()
+      .describe('Sticky per-tool approval policies (keyed by tool name) that auto-allow future calls.'),
   })
   .openapi('MCPServerInitInfo');
 
@@ -373,6 +451,14 @@ export type AgentInfo = z.infer<typeof AgentInfoSchema>;
 export type ApprovalDecision = z.infer<typeof ApprovalDecisionSchema>;
 export type UserToolApprovalMessage = z.infer<typeof UserToolApprovalMessageSchema>;
 export type UserToolResponseMessage = z.infer<typeof UserToolResponseMessageSchema>;
+export type ToolApprovalPolicyItem = z.infer<typeof ToolApprovalPolicyItemSchema>;
+export type ToolApprovalPolicyAction = z.infer<typeof ToolApprovalPolicySchema>;
+export type UserToolApprovalPolicyMessage = z.infer<typeof UserToolApprovalPolicyMessageSchema>;
+export type UserToolApprovalEvent = z.infer<typeof UserToolApprovalEventSchema>;
+export type UserToolResponseEvent = z.infer<typeof UserToolResponseEventSchema>;
+export type UserToolApprovalPolicyEvent = z.infer<typeof UserToolApprovalPolicyEventSchema>;
+export type UserMCPAuthContinueMessage = z.infer<typeof UserMCPAuthContinueMessageSchema>;
+export type UserMCPAuthContinueEvent = z.infer<typeof UserMCPAuthContinueEventSchema>;
 export type AgentApprovalDecisionMessage = z.infer<typeof AgentApprovalDecisionMessageSchema>;
 export type InputTokensBreakdown = z.infer<typeof InputTokensBreakdownSchema>;
 export type ModelMessageUsage = z.infer<typeof ModelMessageUsageSchema>;
@@ -382,7 +468,6 @@ export type ToolResponseEvent = z.infer<typeof ToolResponseEventSchema>;
 export type ThreadCreatedEvent = z.infer<typeof ThreadCreatedEventSchema>;
 export type ThreadStateError = z.infer<typeof ThreadStateErrorSchema>;
 export type ThreadState = z.infer<typeof ThreadStateSchema>;
-export type BaseThreadDoneEvent = z.infer<typeof BaseThreadDoneEventSchema>;
 export type ThreadDoneEvent = z.infer<typeof ThreadDoneEventSchema>;
 export type ThreadOverwriteContextEvent = z.infer<typeof ThreadOverwriteContextEventSchema>;
 export type BaseMCPAuthRequiredEvent = z.infer<typeof BaseMCPAuthRequiredEventSchema>;

@@ -87,7 +87,7 @@ describe('createScheduleServer.listSchedules', () => {
           },
         },
       ],
-      response: { pagination: { limit: 10, nextPageToken: 'tok' } },
+      response: { pagination: { limit: 10, nextPageToken: 'tok', previousPageToken: 'prev-tok' } },
       hasNextPage: () => true,
       getNextPage: async () => undefined,
     }));
@@ -109,6 +109,7 @@ describe('createScheduleServer.listSchedules', () => {
       subjectDisplayName: 'alice@example.com',
     });
     expect(page.nextPageToken).toBe('tok');
+    expect(page.previousPageToken).toBe('prev-tok');
   });
 
   it('caps limit at 25', async () => {
@@ -131,6 +132,7 @@ describe('createScheduleServer schedule runs', () => {
     name: 'manual-abc',
     scheduledFor: new Date('2024-06-01T12:00:00.000Z'),
     status: 'triggered' as const,
+    reason: 'The agent service rejected the scheduled run.',
     triggeredAt: new Date('2024-06-01T12:00:01.000Z'),
     createdBySubject: {
       subjectId: 'alice',
@@ -153,6 +155,7 @@ describe('createScheduleServer schedule runs', () => {
         name: 'manual-abc',
         scheduledFor: '2024-06-01T12:00:00.000Z',
         status: 'triggered',
+        reason: 'The agent service rejected the scheduled run.',
         triggeredAt: '2024-06-01T12:00:01.000Z',
         triggeredBy: 'alice',
       },

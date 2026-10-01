@@ -4,7 +4,7 @@ import type { SessionRecord } from '../models/SessionRecord';
 import type { TurnRecord, TurnSnapshot } from '../models/TurnRecord';
 import type { PersistedTurnEvent, SessionEventItem } from '../schemas/events';
 import type { TokenPagination } from '../schemas/pagination';
-import type { TerminalTurnState } from '../schemas/turn';
+import { isNonTerminalTurnState, type TerminalTurnState, type TurnInboundEventItem } from '../schemas/turn';
 import { assertCreateTurnThreadDelta } from './assertCreateTurnThreadDelta';
 import type {
   AddThreadsInput,
@@ -18,6 +18,7 @@ import type {
   GetSessionByExternalIdInput,
   GetSessionInput,
   GetTurnInput,
+  InsertTurnInboundEventsInput,
   ISessionStore,
   ListSessionEventsInput,
   ListSessionsInput,
@@ -32,7 +33,8 @@ import type {
   TurnContextAppend,
   TurnRecordWithoutSnapshot,
   UpdateSessionInput,
-  UpdateTurnStateInput,
+  UpdateTurnNonTerminalStateInput,
+  UpdateTurnTerminalStateInput,
 } from './ISessionStore';
 import { decodeOffsetPageToken, encodeOffsetPageToken } from './OffsetPageToken';
 import {
@@ -48,6 +50,7 @@ import {
   SessionNotFoundError,
   SessionStoreInvariantError,
   TurnAlreadyExistsError,
+  TurnEventAlreadyExistsError,
   TurnNotFoundError,
   TurnNotRunningError,
 } from './SessionStoreErrors';
@@ -55,6 +58,14 @@ import {
 /* eslint-disable @typescript-eslint/require-await -- in-memory store is synchronous; methods stay async so thrown SessionStore*Error reject as Promises for ISessionStore callers */
 
 type StoredEvent = PersistedTurnEvent;
+
+interface StoredInboundEvent {
+  event_id: string;
+  turn_id: string;
+  payload: TurnInboundEventItem;
+  created_at: string;
+  consumed: boolean;
+}
 
 interface StoredSession<TSessionCustom extends object> {
   record: SessionRecord<TSessionCustom>;
@@ -105,6 +116,9 @@ function applyContextAppends(threads: Record<string, AgentThreadSnapshot>, appen
     thread.context.push(...deepCopy(append.context));
     if (append.current_context_usage !== null) {
       thread.current_context_usage = deepCopy(append.current_context_usage);
+    }
+    if (append.completion !== null) {
+      thread.completion = deepCopy(append.completion);
     }
   }
 }
@@ -170,6 +184,8 @@ export class InMemorySessionStore<
   private readonly sessions = new Map<string, StoredSession<TSessionCustom>>();
   private readonly turns = new Map<string, TurnRecord<TTurnCustom>>();
   private readonly events = new Map<string, StoredEvent[]>();
+  /** session_id → inbound send-event inbox */
+  private readonly inboundEvents = new Map<string, StoredInboundEvent[]>();
 
   async createSession(input: CreateSessionInput<TSessionCustom>): Promise<void> {
     const key = sessionKey(input.session_id);
@@ -191,6 +207,7 @@ export class InMemorySessionStore<
       created_by_subject: input.created_by_subject,
       agent: deepCopy(input.agent),
       title: null,
+      shared: false,
       last_turn_id: null,
       external_id: externalId,
       source: input.source !== null ? deepCopy(input.source) : null,
@@ -218,6 +235,7 @@ export class InMemorySessionStore<
       const tKey = turnKey({ session_id: input.session_id, turn_id: turnId });
       this.turns.delete(tKey);
       this.events.delete(tKey);
+      this.inboundEvents.delete(tKey);
     }
     this.sessions.delete(sKey);
   }
@@ -271,6 +289,9 @@ export class InMemorySessionStore<
     }
     if (input.metadata !== undefined) {
       stored.record.metadata = deepCopy(input.metadata);
+    }
+    if (input.shared !== undefined) {
+      stored.record.shared = input.shared;
     }
     const now = Date.now();
     stored.record.updated_at = new Date(now);
@@ -374,9 +395,9 @@ export class InMemorySessionStore<
       const prevKey = turnKey({ session_id: input.turn.session_id, turn_id: previousTurnId });
       const prev = this.turns.get(prevKey);
       // Unknown previous_turn_id is allowed (relaxed): treat as no inheritance.
-      // A still-running previous must be frozen first.
+      // A still-live previous (running or paused) must be frozen first.
       if (prev !== undefined) {
-        if (prev.state.status === 'running') {
+        if (isNonTerminalTurnState(prev.state)) {
           throw new PreviousTurnRunningError(previousTurnId);
         }
         previousSnapshot = prev.snapshot;
@@ -416,7 +437,7 @@ export class InMemorySessionStore<
     const tKey = turnKey(input);
     const turn = this.requireTurn(input.session_id, input.turn_id);
 
-    if (turn.state.status === 'running') {
+    if (isNonTerminalTurnState(turn.state)) {
       const cancelledState: TerminalTurnState = {
         status: 'cancelled',
         reason: input.reason,
@@ -458,19 +479,41 @@ export class InMemorySessionStore<
     return paginate(records, input.limit, input.page_token);
   }
 
-  async updateTurnState(input: UpdateTurnStateInput): Promise<void> {
+  async updateTurnNonTerminalState(input: UpdateTurnNonTerminalStateInput): Promise<void> {
     // Same as createTurn: synchronous body ⇒ atomic under run-to-completion.
     const tKey = turnKey(input);
     const turn = this.requireTurn(input.session_id, input.turn_id);
-    if (turn.state.status !== 'running') {
+    const expectedSourceStatus = input.state.status === 'paused' ? 'running' : 'paused';
+    if (turn.state.status !== expectedSourceStatus) {
+      if (isNonTerminalTurnState(turn.state)) {
+        throw new SessionStoreInvariantError(
+          `expected ${expectedSourceStatus} state for turn ${input.turn_id}, got ${turn.state.status}`,
+        );
+      }
       throw new TurnNotRunningError(input.turn_id, turn.state);
+    }
+    const list = this.events.get(tKey);
+    if (!list) {
+      throw new TurnNotFoundError(input.turn_id);
     }
     turn.state = deepCopy(input.state);
     turn.updated_at = new Date();
-    const list = this.events.get(tKey);
-    if (list) {
-      list.push(deepCopy(input.turn_done_event));
+    list.push(deepCopy(input.turn_update_event));
+  }
+
+  async updateTurnTerminalState(input: UpdateTurnTerminalStateInput): Promise<void> {
+    const tKey = turnKey(input);
+    const turn = this.requireTurn(input.session_id, input.turn_id);
+    if (!isNonTerminalTurnState(turn.state)) {
+      throw new TurnNotRunningError(input.turn_id, turn.state);
     }
+    const list = this.events.get(tKey);
+    if (!list) {
+      throw new TurnNotFoundError(input.turn_id);
+    }
+    turn.state = deepCopy(input.state);
+    turn.updated_at = new Date();
+    list.push(deepCopy(input.turn_done_event));
     this.addTerminalSessionMetrics(input.session_id, turn.created_at, input.state);
   }
 
@@ -483,6 +526,40 @@ export class InMemorySessionStore<
     }
     list.push(...deepCopy(input.events));
     return;
+  }
+
+  async insertTurnInboundEvents(input: InsertTurnInboundEventsInput): Promise<void> {
+    if (input.events.length === 0) {
+      return;
+    }
+    this.requireSession(input.session_id);
+    this.requireRunningTurn(input.session_id, input.turn_id);
+    const tKey = turnKey(input);
+    let list = this.inboundEvents.get(tKey);
+    if (!list) {
+      list = [];
+      this.inboundEvents.set(tKey, list);
+    }
+    const existing = new Set(list.map(row => row.event_id));
+    for (const event of input.events) {
+      if (existing.has(event.event_id)) {
+        throw new TurnEventAlreadyExistsError({
+          session_id: input.session_id,
+          turn_id: input.turn_id,
+          event_id: event.event_id,
+        });
+      }
+      existing.add(event.event_id);
+    }
+    for (const event of input.events) {
+      list.push({
+        event_id: event.event_id,
+        turn_id: input.turn_id,
+        payload: deepCopy(event.payload),
+        created_at: event.created_at,
+        consumed: false,
+      });
+    }
   }
 
   /** Cost from turn metrics when present; duration is completed_at − created_at, floored at 0. */
@@ -499,6 +576,14 @@ export class InMemorySessionStore<
     stored.record.metrics.total_duration_ms += elapsed_ms > 0 ? Math.trunc(elapsed_ms) : 0;
   }
 
+  private requireSession(sessionId: string): StoredSession<TSessionCustom> {
+    const stored = this.sessions.get(sessionKey(sessionId));
+    if (!stored) {
+      throw new SessionNotFoundError(sessionId);
+    }
+    return stored;
+  }
+
   private requireTurn(sessionId: string, turnId: string): TurnRecord<TTurnCustom> {
     const turn = this.turns.get(turnKey({ session_id: sessionId, turn_id: turnId }));
     if (!turn) {
@@ -509,6 +594,9 @@ export class InMemorySessionStore<
 
   private requireRunningTurn(sessionId: string, turnId: string): TurnRecord<TTurnCustom> {
     const turn = this.requireTurn(sessionId, turnId);
+    if (turn.state.status === 'paused') {
+      throw new SessionStoreInvariantError(`expected running state for turn ${turnId}, got paused`);
+    }
     if (turn.state.status !== 'running') {
       throw new TurnNotRunningError(turnId, turn.state);
     }

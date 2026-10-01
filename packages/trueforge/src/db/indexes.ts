@@ -27,3 +27,12 @@ export const SCHEDULE_AGENT_ID_IDX = 'schedule_agent_id_idx';
 
 /** `(tenant_id, created_by_subject.subject_id)` on schedule_run. */
 export const SCHEDULE_RUN_CREATED_BY_SUBJECT_ID_IDX = 'schedule_run_created_by_subject_id_idx';
+
+/** Partial unique `(tenant_id, name) WHERE lifecycle_stage = 'active'` on sandbox_environment. */
+export const SANDBOX_ENVIRONMENT_TENANT_NAME_ACTIVE_UQ = 'sandbox_environment_tenant_name_active_uq';
+
+/** Unique `(environment_id, version)` on sandbox_environment_version. */
+export const SANDBOX_ENVIRONMENT_VERSION_UQ = 'sandbox_environment_version_uq';
+
+/** `(tenant_id, created_by_subject.subject_id)` on sandbox_environment. */
+export const SANDBOX_ENVIRONMENT_CREATED_BY_SUBJECT_ID_IDX = 'sandbox_environment_created_by_subject_id_idx';

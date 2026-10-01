@@ -9,6 +9,7 @@ import type {
   AgentSpec,
   CatalogServer,
   ConnectorState,
+  ListResult,
   ModelSelection,
   PermissionsServer,
   SaveAgentRequest,
@@ -39,7 +40,7 @@ export type CreateTrueForgeServerOptions<
   getMcp: () => Promise<TMcp[]>;
   getMcpConnector?: AgentBuilderServer<TSpec, TModel, TSkill, TMcp, TAgent, TSave, TCapabilities>['getMcpConnector'];
   getMcpTools?: AgentBuilderServer<TSpec, TModel, TSkill, TMcp, TAgent, TSave, TCapabilities>['getMcpTools'];
-  searchAgents: (req?: SearchAgentsParams) => Promise<TAgent[]>;
+  searchAgents: (req?: SearchAgentsParams) => Promise<ListResult<TAgent>>;
   saveAgent: (req: SaveAgentRequest<TSpec>) => Promise<TSave>;
   deleteAgent?: (req: { agentName: string }) => Promise<void>;
   /** Settings catalog (models + connectors). Optional. */
@@ -52,6 +53,8 @@ export type CreateTrueForgeServerOptions<
   schedules?: TSchedules;
   /** Per-resource grants. Omit to leave actions enabled. */
   permissions?: TPermissions;
+  /** Authenticated caller identity. Used for tenant-scoped share copy. */
+  getMe?: () => Promise<{ tenantId: string }>;
 };
 
 export type TrueForgeServer<
@@ -74,6 +77,7 @@ export type TrueForgeServer<
     metrics?: TMetrics;
     schedules?: TSchedules;
     permissions?: TPermissions;
+    getMe?: () => Promise<{ tenantId: string }>;
   };
 
 /**
@@ -162,6 +166,7 @@ export function createTrueForgeServer<
     ...(opts.metrics != null ? { metrics: opts.metrics } : {}),
     ...(opts.schedules != null ? { schedules: opts.schedules } : {}),
     ...(opts.permissions != null ? { permissions: opts.permissions } : {}),
+    ...(opts.getMe != null ? { getMe: opts.getMe } : {}),
   };
   return server;
 }

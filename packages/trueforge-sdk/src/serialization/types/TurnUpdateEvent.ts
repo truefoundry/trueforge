@@ -3,7 +3,7 @@
 import type * as TrueForge from "../../api/index.js";
 import * as core from "../../core/index.js";
 import type * as serializers from "../index.js";
-import { TurnUpdateState } from "./TurnUpdateState.js";
+import { TurnUpdateEventState } from "./TurnUpdateEventState.js";
 
 export const TurnUpdateEvent: core.serialization.ObjectSchema<
     serializers.TurnUpdateEvent.Raw,
@@ -11,7 +11,7 @@ export const TurnUpdateEvent: core.serialization.ObjectSchema<
 > = core.serialization.object({
     createdAt: core.serialization.property("created_at", core.serialization.string()),
     id: core.serialization.string(),
-    state: TurnUpdateState,
+    state: TurnUpdateEventState,
     threadId: core.serialization.property("thread_id", core.serialization.string().nullable()),
     type: core.serialization.stringLiteral("turn.update"),
 });
@@ -20,7 +20,7 @@ export declare namespace TurnUpdateEvent {
     export interface Raw {
         created_at: string;
         id: string;
-        state: TurnUpdateState.Raw;
+        state: TurnUpdateEventState.Raw;
         thread_id?: string | null;
         type: "turn.update";
     }

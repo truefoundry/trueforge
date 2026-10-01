@@ -243,4 +243,58 @@ describe('useDraftAgentSpec', () => {
 
     await expect(result.current.takeTurnHeaderTimestamp()).resolves.toBe('2026-06-30T17:00:00.000Z');
   });
+
+  it('falls back to defaultAgentSpec and does not error when getDraftAgentSpec resolves to null', async () => {
+    const onError = vi.fn();
+    const draftBridge: DraftSessionBridge = {
+      getDraftAgentSpec: vi.fn().mockResolvedValue(null),
+      syncAgentSpec: vi.fn().mockResolvedValue('2026-06-30T17:00:00.000Z'),
+    };
+    const { result } = renderHook(() =>
+      useDraftAgentSpec({
+        draftSessionId: 'session-no-spec',
+        draftBridge,
+        defaultAgentSpec,
+        onError,
+      }),
+    );
+    await flushMicrotasks();
+
+    expect(draftBridge.getDraftAgentSpec).toHaveBeenCalledWith('session-no-spec');
+    expect(onError).not.toHaveBeenCalled();
+    expect(result.current.agentSpec).toEqual(defaultAgentSpec);
+    expect(result.current.specError).toBeNull();
+    expect(result.current.isSpecLoading).toBe(false);
+  });
+
+  it('does not sync dirty edits if the loaded session returns null agentSpec', async () => {
+    const syncAgentSpec = vi.fn().mockResolvedValue('2026-06-30T17:00:00.000Z');
+    const draftBridge: DraftSessionBridge = {
+      getDraftAgentSpec: vi.fn().mockResolvedValue(null),
+      syncAgentSpec,
+    };
+    const initialProps: { draftSessionId: string | undefined } = { draftSessionId: undefined };
+    const { result, rerender } = renderHook(
+      ({ draftSessionId }) =>
+        useDraftAgentSpec({
+          draftSessionId,
+          draftBridge,
+          defaultAgentSpec,
+        }),
+      { initialProps },
+    );
+    await flushMicrotasks();
+
+    // User makes a local edit in New Chat (draftSessionId is undefined)
+    act(() => {
+      result.current.updateAgentSpec({ instructions: 'local edit' });
+    });
+
+    // Chat navigates or attaches to a named/immutable session where getDraftAgentSpec returns null
+    rerender({ draftSessionId: 'immutable-session-1' });
+    await flushMicrotasks();
+
+    expect(draftBridge.getDraftAgentSpec).toHaveBeenCalledWith('immutable-session-1');
+    expect(syncAgentSpec).not.toHaveBeenCalled();
+  });
 });

@@ -22,6 +22,7 @@ describe("SessionsClient", () => {
                     id: "id",
                     metadata: { key: "value" },
                     metrics: { total_duration_ms: 1, total_turns: 1 },
+                    shared: true,
                     source: { id: "id", run_id: "run_id", type: "schedule" },
                     title: "title",
                     updated_at: "updated_at",
@@ -63,6 +64,7 @@ describe("SessionsClient", () => {
                         totalDurationMs: 1,
                         totalTurns: 1,
                     },
+                    shared: true,
                     source: {
                         id: "id",
                         runId: "run_id",
@@ -115,6 +117,7 @@ describe("SessionsClient", () => {
                 id: "id",
                 metadata: { key: "value" },
                 metrics: { total_cost_in_usd: 1.1, total_duration_ms: 1, total_turns: 1 },
+                shared: true,
                 source: { id: "id", run_id: "run_id", type: "schedule" },
                 title: "title",
                 updated_at: "updated_at",
@@ -160,6 +163,7 @@ describe("SessionsClient", () => {
                     totalDurationMs: 1,
                     totalTurns: 1,
                 },
+                shared: true,
                 source: {
                     id: "id",
                     runId: "run_id",
@@ -259,6 +263,7 @@ describe("SessionsClient", () => {
                 id: "id",
                 metadata: { key: "value" },
                 metrics: { total_cost_in_usd: 1.1, total_duration_ms: 1, total_turns: 1 },
+                shared: true,
                 source: { id: "id", run_id: "run_id", type: "schedule" },
                 title: "title",
                 updated_at: "updated_at",
@@ -299,6 +304,7 @@ describe("SessionsClient", () => {
                     totalDurationMs: 1,
                     totalTurns: 1,
                 },
+                shared: true,
                 source: {
                     id: "id",
                     runId: "run_id",
@@ -393,6 +399,7 @@ describe("SessionsClient", () => {
                 id: "id",
                 metadata: { key: "value" },
                 metrics: { total_cost_in_usd: 1.1, total_duration_ms: 1, total_turns: 1 },
+                shared: true,
                 source: { id: "id", run_id: "run_id", type: "schedule" },
                 title: "title",
                 updated_at: "updated_at",
@@ -434,6 +441,7 @@ describe("SessionsClient", () => {
                     totalDurationMs: 1,
                     totalTurns: 1,
                 },
+                shared: true,
                 source: {
                     id: "id",
                     runId: "run_id",
@@ -1396,6 +1404,155 @@ describe("SessionsClient", () => {
         await expect(async () => {
             return await client.sessions.listTurnEvents("session_id", "turn_id");
         }).rejects.toThrow(TrueForgeTypes.NotFoundError);
+    });
+
+    test("create_turn_event (1)", async () => {
+        const server = mockServerPool.createServer();
+        const client = new TrueForge({ maxRetries: 0, token: "test", baseUrl: server.baseUrl });
+        const rawRequestBody = { events: [{ type: "user.mcp_auth_continue" }] };
+        const rawResponseBody = { data: [{ created_at: "created_at", id: "id", type: "user.mcp_auth_continue" }] };
+
+        server
+            .mockEndpoint()
+            .post("/api/v1/sessions/session_id/turns/turn_id/events")
+            .jsonBody(rawRequestBody)
+            .respondWith()
+            .statusCode(200)
+            .jsonBody(rawResponseBody)
+            .build();
+
+        const response = await client.sessions.createTurnEvent("session_id", "turn_id", {
+            events: [
+                {
+                    type: "user.mcp_auth_continue",
+                },
+            ],
+        });
+        expect(response).toEqual({
+            data: [
+                {
+                    createdAt: "created_at",
+                    id: "id",
+                    type: "user.mcp_auth_continue",
+                },
+            ],
+        });
+    });
+
+    test("create_turn_event (2)", async () => {
+        const server = mockServerPool.createServer();
+        const client = new TrueForge({ maxRetries: 0, token: "test", baseUrl: server.baseUrl });
+        const rawRequestBody = { events: [{ type: "user.mcp_auth_continue" }, { type: "user.mcp_auth_continue" }] };
+        const rawResponseBody = { error: { message: "message" } };
+
+        server
+            .mockEndpoint()
+            .post("/api/v1/sessions/session_id/turns/turn_id/events")
+            .jsonBody(rawRequestBody)
+            .respondWith()
+            .statusCode(400)
+            .jsonBody(rawResponseBody)
+            .build();
+
+        await expect(async () => {
+            return await client.sessions.createTurnEvent("session_id", "turn_id", {
+                events: [
+                    {
+                        type: "user.mcp_auth_continue",
+                    },
+                    {
+                        type: "user.mcp_auth_continue",
+                    },
+                ],
+            });
+        }).rejects.toThrow(TrueForgeTypes.BadRequestError);
+    });
+
+    test("create_turn_event (3)", async () => {
+        const server = mockServerPool.createServer();
+        const client = new TrueForge({ maxRetries: 0, token: "test", baseUrl: server.baseUrl });
+        const rawRequestBody = { events: [{ type: "user.mcp_auth_continue" }, { type: "user.mcp_auth_continue" }] };
+        const rawResponseBody = { error: { message: "message" } };
+
+        server
+            .mockEndpoint()
+            .post("/api/v1/sessions/session_id/turns/turn_id/events")
+            .jsonBody(rawRequestBody)
+            .respondWith()
+            .statusCode(403)
+            .jsonBody(rawResponseBody)
+            .build();
+
+        await expect(async () => {
+            return await client.sessions.createTurnEvent("session_id", "turn_id", {
+                events: [
+                    {
+                        type: "user.mcp_auth_continue",
+                    },
+                    {
+                        type: "user.mcp_auth_continue",
+                    },
+                ],
+            });
+        }).rejects.toThrow(TrueForgeTypes.ForbiddenError);
+    });
+
+    test("create_turn_event (4)", async () => {
+        const server = mockServerPool.createServer();
+        const client = new TrueForge({ maxRetries: 0, token: "test", baseUrl: server.baseUrl });
+        const rawRequestBody = { events: [{ type: "user.mcp_auth_continue" }, { type: "user.mcp_auth_continue" }] };
+        const rawResponseBody = { error: { message: "message" } };
+
+        server
+            .mockEndpoint()
+            .post("/api/v1/sessions/session_id/turns/turn_id/events")
+            .jsonBody(rawRequestBody)
+            .respondWith()
+            .statusCode(404)
+            .jsonBody(rawResponseBody)
+            .build();
+
+        await expect(async () => {
+            return await client.sessions.createTurnEvent("session_id", "turn_id", {
+                events: [
+                    {
+                        type: "user.mcp_auth_continue",
+                    },
+                    {
+                        type: "user.mcp_auth_continue",
+                    },
+                ],
+            });
+        }).rejects.toThrow(TrueForgeTypes.NotFoundError);
+    });
+
+    test("create_turn_event (5)", async () => {
+        const server = mockServerPool.createServer();
+        const client = new TrueForge({ maxRetries: 0, token: "test", baseUrl: server.baseUrl });
+        const rawRequestBody = { events: [{ type: "user.mcp_auth_continue" }, { type: "user.mcp_auth_continue" }] };
+        const rawResponseBody = { error: { message: "message" } };
+
+        server
+            .mockEndpoint()
+            .post("/api/v1/sessions/session_id/turns/turn_id/events")
+            .jsonBody(rawRequestBody)
+            .respondWith()
+            .statusCode(409)
+            .jsonBody(rawResponseBody)
+            .build();
+
+        await expect(async () => {
+            return await client.sessions.createTurnEvent("session_id", "turn_id", {
+                events: [
+                    {
+                        type: "user.mcp_auth_continue",
+                    },
+                    {
+                        type: "user.mcp_auth_continue",
+                    },
+                ],
+            });
+        }).rejects.toThrow(TrueForgeTypes.ConflictError);
     });
 
     test("subscribe_to_turn (1)", async () => {

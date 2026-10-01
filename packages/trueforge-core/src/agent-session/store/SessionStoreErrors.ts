@@ -74,12 +74,26 @@ export class TurnAlreadyExistsError extends SessionStoreConflictError {
   }
 }
 
+export class TurnEventAlreadyExistsError extends SessionStoreConflictError {
+  readonly session_id: string;
+  readonly turn_id: string;
+  readonly event_id: string;
+
+  constructor(input: { session_id: string; turn_id: string; event_id: string }, options?: ErrorOptions) {
+    super(`Turn event already exists: ${input.session_id}/${input.turn_id}/${input.event_id}`, options);
+    this.name = 'TurnEventAlreadyExistsError';
+    this.session_id = input.session_id;
+    this.turn_id = input.turn_id;
+    this.event_id = input.event_id;
+  }
+}
+
 export class PreviousTurnRunningError extends SessionStoreConflictError {
   readonly previous_turn_id: string;
 
   constructor(previous_turn_id: string) {
     super(
-      `Previous turn ${previous_turn_id} is still running; freezeAndGetTurn must be called before creating a successor`,
+      `Previous turn ${previous_turn_id} is still non-terminal; freezeAndGetTurn must be called before creating a successor`,
     );
     this.name = 'PreviousTurnRunningError';
     this.previous_turn_id = previous_turn_id;

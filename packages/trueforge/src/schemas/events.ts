@@ -9,6 +9,7 @@ import {
   TokenPaginationSchema,
   TurnCreatedEventSchema,
   TurnDoneEventSchema,
+  TurnInboundEventItemSchema,
   TurnUpdateEventSchema,
 } from '@truefoundry/trueforge-core/agent-session';
 import {
@@ -22,11 +23,36 @@ import {
   ToolApprovalRequiredEventSchema,
   ToolResponseEventSchema,
   ToolResponseRequiredEventSchema,
+  UserMCPAuthContinueEventSchema,
+  UserToolApprovalEventSchema,
+  UserToolApprovalPolicyEventSchema,
+  UserToolResponseEventSchema,
 } from '@truefoundry/trueforge-core/core';
 import { EVENTS_PAGE_LIMIT } from './common';
 
 export type { TurnCreatedEvent } from '@truefoundry/trueforge-core/agent-session';
 export { EventType };
+
+export const CreateTurnEventRequestSchema = z
+  .object({
+    events: z.array(TurnInboundEventItemSchema).min(1).describe('One or more user events.'),
+  })
+  .openapi('CreateTurnEventRequest');
+
+export const CreateTurnEventResponseSchema = z
+  .object({
+    data: z
+      .array(
+        z.discriminatedUnion('type', [
+          UserToolApprovalEventSchema,
+          UserToolResponseEventSchema,
+          UserToolApprovalPolicyEventSchema,
+          UserMCPAuthContinueEventSchema,
+        ]),
+      )
+      .describe('Events with server-minted `id` and `created_at`, in request order.'),
+  })
+  .openapi('CreateTurnEventResponse');
 
 /** Live SSE stream for session turns — content events, deltas and lifecycle. */
 export const TurnStreamingEventSchema = z
@@ -41,6 +67,10 @@ export const TurnStreamingEventSchema = z
     SandboxCreatedEventSchema,
     ToolApprovalRequiredEventSchema,
     ToolResponseRequiredEventSchema,
+    UserToolApprovalEventSchema,
+    UserToolResponseEventSchema,
+    UserToolApprovalPolicyEventSchema,
+    UserMCPAuthContinueEventSchema,
     TurnCreatedEventSchema,
     TurnUpdateEventSchema,
     TurnDoneEventSchema,

@@ -94,7 +94,6 @@ jobs:
             chart:
               - 'charts/trueforge/**'
               - 'Dockerfile'
-              - 'Dockerfile.dev'
               - 'package.json'
               - '.github/workflows/ci.yml'
 

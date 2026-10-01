@@ -62,6 +62,7 @@ import { DraftComposerActionsMenu } from '../atoms/draft/DraftComposerActionsMen
 import { DraftComposerLeftSection, DraftComposerRightSection } from '../atoms/draft/DraftComposerSections.js';
 import { CatalogRow, ConnectorConnectButton, DraftCompositeSelector } from '../atoms/draft/DraftCompositeSelector.js';
 import { DraftModelSelector } from '../atoms/draft/DraftModelSelector.js';
+import { FilePreviewPanel } from '../atoms/FilePreviewPanel.js';
 import { HistoryLoader } from '../atoms/HistoryLoader.js';
 import { Markdown } from '../atoms/Markdown.js';
 import { MessageActionBar } from '../atoms/MessageActionBar.js';
@@ -80,6 +81,8 @@ import { SchedulesButton } from '../atoms/SchedulesButton.js';
 import { ScrollToBottomButton } from '../atoms/ScrollToBottomButton.js';
 import { SelectAgentEmptyState } from '../atoms/SelectAgentEmptyState.js';
 import { SessionsBrowserButton } from '../atoms/SessionsBrowserButton.js';
+import { ShareChatButton } from '../atoms/ShareChatButton.js';
+import { ShareSessionDialog } from '../atoms/ShareSessionDialog.js';
 import { ShellActionsActionSlot } from '../atoms/ShellActionsActionSlot.js';
 import { MessageListSkeleton } from '../atoms/Skeletons.js';
 import { SubAgentCard } from '../atoms/SubAgentCard.js';
@@ -188,6 +191,7 @@ export const defaultSlots = {
   OpenUiFenceBlock,
   SandboxArtifactDownload,
   ChatFileDownload,
+  FilePreviewPanel,
   MonacoEditorCore,
   CodeEditor,
   WelcomeScreen,
@@ -243,6 +247,8 @@ export const defaultSlots = {
   SaveAgentForm,
   SelectAgentEmptyState,
   ClearChatButton,
+  ShareChatButton,
+  ShareSessionDialog,
   ThreadListRowSkeleton,
   ThreadListEmptyState,
   ThreadListShell,

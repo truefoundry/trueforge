@@ -26,7 +26,6 @@ if typing.TYPE_CHECKING:
     from .available_model_provider import AvailableModelProvider
     from .available_skill import AvailableSkill
     from .base_mcp_auth_required_event import BaseMcpAuthRequiredEvent
-    from .base_thread_done_event import BaseThreadDoneEvent
     from .cancel_session_response import CancelSessionResponse
     from .capabilities_data import CapabilitiesData
     from .catalog_custom_model_provider import CatalogCustomModelProvider
@@ -47,6 +46,7 @@ if typing.TYPE_CHECKING:
     from .chat_completion_message_tool_call import ChatCompletionMessageToolCall
     from .chat_completion_message_tool_call_function import ChatCompletionMessageToolCallFunction
     from .compaction_config import CompactionConfig
+    from .components_schemas_tool_approval_policy_allow_session import ComponentsSchemasToolApprovalPolicyAllowSession
     from .configured_mcp_server import ConfiguredMcpServer
     from .configured_model import ConfiguredModel
     from .configured_model_provider import ConfiguredModelProvider
@@ -56,11 +56,14 @@ if typing.TYPE_CHECKING:
     from .context_management_config import ContextManagementConfig
     from .create_schedule_run_response import CreateScheduleRunResponse
     from .create_session_agent import CreateSessionAgent
+    from .create_turn_event_response import CreateTurnEventResponse
+    from .create_turn_event_response_data_item import CreateTurnEventResponseDataItem
     from .created_by_subject import CreatedBySubject
     from .cron_expression import CronExpression
     from .custom_model_provider import CustomModelProvider
     from .daytona_sandbox_provider_auth import DaytonaSandboxProviderAuth
     from .delete_agent_response import DeleteAgentResponse
+    from .delete_sandbox_environment_response import DeleteSandboxEnvironmentResponse
     from .delete_schedule_response import DeleteScheduleResponse
     from .dynamic_sub_agents_config import DynamicSubAgentsConfig
     from .extended_chunk_delta_tool_call import ExtendedChunkDeltaToolCall
@@ -78,6 +81,7 @@ if typing.TYPE_CHECKING:
     from .get_me_subject import GetMeSubject
     from .get_model_provider_catalog_response import GetModelProviderCatalogResponse
     from .get_model_provider_response import GetModelProviderResponse
+    from .get_sandbox_environment_response import GetSandboxEnvironmentResponse
     from .get_sandbox_provider_catalog_response import GetSandboxProviderCatalogResponse
     from .get_sandbox_provider_response import GetSandboxProviderResponse
     from .get_schedule_response import GetScheduleResponse
@@ -102,8 +106,10 @@ if typing.TYPE_CHECKING:
     from .list_mcp_server_tools_response import ListMcpServerToolsResponse
     from .list_mcp_servers_response import ListMcpServersResponse
     from .list_model_providers_response import ListModelProvidersResponse
+    from .list_pending_sandbox_environment_versions_response import ListPendingSandboxEnvironmentVersionsResponse
     from .list_permissions_data import ListPermissionsData
     from .list_permissions_response import ListPermissionsResponse
+    from .list_sandbox_environments_response import ListSandboxEnvironmentsResponse
     from .list_schedule_runs_response import ListScheduleRunsResponse
     from .list_schedules_response import ListSchedulesResponse
     from .list_session_events_response import ListSessionEventsResponse
@@ -149,6 +155,7 @@ if typing.TYPE_CHECKING:
     from .moonshot_model_provider import MoonshotModelProvider
     from .open_ai_model_provider import OpenAiModelProvider
     from .parallel_web_search_provider_auth import ParallelWebSearchProviderAuth
+    from .pending_sandbox_environment_version import PendingSandboxEnvironmentVersion
     from .permission_resource_type import PermissionResourceType
     from .previous_turn_id_input import PreviousTurnIdInput
     from .raw_tool_call import RawToolCall
@@ -164,10 +171,18 @@ if typing.TYPE_CHECKING:
     from .response_format_json_schema_json_schema import ResponseFormatJsonSchemaJsonSchema
     from .response_format_text import ResponseFormatText
     from .runtime_config import RuntimeConfig
-    from .sandbox_build_status import SandboxBuildStatus
     from .sandbox_capability import SandboxCapability
     from .sandbox_config import SandboxConfig
     from .sandbox_created_event import SandboxCreatedEvent
+    from .sandbox_environment import SandboxEnvironment
+    from .sandbox_environment_image import SandboxEnvironmentImage
+    from .sandbox_environment_lifecycle_stage import SandboxEnvironmentLifecycleStage
+    from .sandbox_environment_manifest import SandboxEnvironmentManifest
+    from .sandbox_environment_manifest_request import SandboxEnvironmentManifestRequest
+    from .sandbox_environment_networking import SandboxEnvironmentNetworking
+    from .sandbox_environment_resources import SandboxEnvironmentResources
+    from .sandbox_environment_secret import SandboxEnvironmentSecret
+    from .sandbox_environment_version_status import SandboxEnvironmentVersionStatus
     from .sandbox_provider_manifest import SandboxProviderManifest
     from .schedule import Schedule
     from .schedule_manifest import ScheduleManifest
@@ -211,6 +226,8 @@ if typing.TYPE_CHECKING:
     from .timezone import Timezone
     from .together_ai_model_provider import TogetherAiModelProvider
     from .token_pagination import TokenPagination
+    from .tool_approval_policy_allow_session import ToolApprovalPolicyAllowSession
+    from .tool_approval_policy_item import ToolApprovalPolicyItem
     from .tool_approval_required_event import ToolApprovalRequiredEvent
     from .tool_call import ToolCall
     from .tool_call_ref import ToolCallRef
@@ -225,6 +242,7 @@ if typing.TYPE_CHECKING:
     from .turn_created_event import TurnCreatedEvent
     from .turn_done_event import TurnDoneEvent
     from .turn_done_event_state import TurnDoneEventState
+    from .turn_inbound_event_item import TurnInboundEventItem
     from .turn_input_item import TurnInputItem
     from .turn_metrics import TurnMetrics
     from .turn_state import TurnState
@@ -234,17 +252,22 @@ if typing.TYPE_CHECKING:
     from .turn_state_done import TurnStateDone
     from .turn_state_error import TurnStateError
     from .turn_state_error_metrics import TurnStateErrorMetrics
+    from .turn_state_paused import TurnStatePaused
     from .turn_state_running import TurnStateRunning
     from .turn_streaming_event import TurnStreamingEvent
     from .turn_update_event import TurnUpdateEvent
-    from .turn_update_state import TurnUpdateState
-    from .turn_update_state_paused import TurnUpdateStatePaused
-    from .turn_update_state_running import TurnUpdateStateRunning
+    from .turn_update_event_state import TurnUpdateEventState
+    from .user_mcp_auth_continue_event import UserMcpAuthContinueEvent
+    from .user_mcp_auth_continue_input_event import UserMcpAuthContinueInputEvent
     from .user_message import UserMessage
     from .user_message_content import UserMessageContent
     from .user_message_content_item import UserMessageContentItem
     from .user_tool_approval_event import UserToolApprovalEvent
+    from .user_tool_approval_input_event import UserToolApprovalInputEvent
+    from .user_tool_approval_policy_event import UserToolApprovalPolicyEvent
+    from .user_tool_approval_policy_message import UserToolApprovalPolicyMessage
     from .user_tool_response_event import UserToolResponseEvent
+    from .user_tool_response_input_event import UserToolResponseInputEvent
     from .web_search_capability import WebSearchCapability
     from .web_search_config import WebSearchConfig
     from .web_search_provider_manifest import WebSearchProviderManifest
@@ -270,7 +293,6 @@ _dynamic_imports: typing.Dict[str, str] = {
     "AvailableModelProvider": ".available_model_provider",
     "AvailableSkill": ".available_skill",
     "BaseMcpAuthRequiredEvent": ".base_mcp_auth_required_event",
-    "BaseThreadDoneEvent": ".base_thread_done_event",
     "CancelSessionResponse": ".cancel_session_response",
     "CapabilitiesData": ".capabilities_data",
     "CatalogCustomModelProvider": ".catalog_custom_model_provider",
@@ -291,6 +313,7 @@ _dynamic_imports: typing.Dict[str, str] = {
     "ChatCompletionMessageToolCall": ".chat_completion_message_tool_call",
     "ChatCompletionMessageToolCallFunction": ".chat_completion_message_tool_call_function",
     "CompactionConfig": ".compaction_config",
+    "ComponentsSchemasToolApprovalPolicyAllowSession": ".components_schemas_tool_approval_policy_allow_session",
     "ConfiguredMcpServer": ".configured_mcp_server",
     "ConfiguredModel": ".configured_model",
     "ConfiguredModelProvider": ".configured_model_provider",
@@ -300,11 +323,14 @@ _dynamic_imports: typing.Dict[str, str] = {
     "ContextManagementConfig": ".context_management_config",
     "CreateScheduleRunResponse": ".create_schedule_run_response",
     "CreateSessionAgent": ".create_session_agent",
+    "CreateTurnEventResponse": ".create_turn_event_response",
+    "CreateTurnEventResponseDataItem": ".create_turn_event_response_data_item",
     "CreatedBySubject": ".created_by_subject",
     "CronExpression": ".cron_expression",
     "CustomModelProvider": ".custom_model_provider",
     "DaytonaSandboxProviderAuth": ".daytona_sandbox_provider_auth",
     "DeleteAgentResponse": ".delete_agent_response",
+    "DeleteSandboxEnvironmentResponse": ".delete_sandbox_environment_response",
     "DeleteScheduleResponse": ".delete_schedule_response",
     "DynamicSubAgentsConfig": ".dynamic_sub_agents_config",
     "ExtendedChunkDeltaToolCall": ".extended_chunk_delta_tool_call",
@@ -322,6 +348,7 @@ _dynamic_imports: typing.Dict[str, str] = {
     "GetMeSubject": ".get_me_subject",
     "GetModelProviderCatalogResponse": ".get_model_provider_catalog_response",
     "GetModelProviderResponse": ".get_model_provider_response",
+    "GetSandboxEnvironmentResponse": ".get_sandbox_environment_response",
     "GetSandboxProviderCatalogResponse": ".get_sandbox_provider_catalog_response",
     "GetSandboxProviderResponse": ".get_sandbox_provider_response",
     "GetScheduleResponse": ".get_schedule_response",
@@ -346,8 +373,10 @@ _dynamic_imports: typing.Dict[str, str] = {
     "ListMcpServerToolsResponse": ".list_mcp_server_tools_response",
     "ListMcpServersResponse": ".list_mcp_servers_response",
     "ListModelProvidersResponse": ".list_model_providers_response",
+    "ListPendingSandboxEnvironmentVersionsResponse": ".list_pending_sandbox_environment_versions_response",
     "ListPermissionsData": ".list_permissions_data",
     "ListPermissionsResponse": ".list_permissions_response",
+    "ListSandboxEnvironmentsResponse": ".list_sandbox_environments_response",
     "ListScheduleRunsResponse": ".list_schedule_runs_response",
     "ListSchedulesResponse": ".list_schedules_response",
     "ListSessionEventsResponse": ".list_session_events_response",
@@ -393,6 +422,7 @@ _dynamic_imports: typing.Dict[str, str] = {
     "MoonshotModelProvider": ".moonshot_model_provider",
     "OpenAiModelProvider": ".open_ai_model_provider",
     "ParallelWebSearchProviderAuth": ".parallel_web_search_provider_auth",
+    "PendingSandboxEnvironmentVersion": ".pending_sandbox_environment_version",
     "PermissionResourceType": ".permission_resource_type",
     "PreviousTurnIdInput": ".previous_turn_id_input",
     "RawToolCall": ".raw_tool_call",
@@ -408,10 +438,18 @@ _dynamic_imports: typing.Dict[str, str] = {
     "ResponseFormatJsonSchemaJsonSchema": ".response_format_json_schema_json_schema",
     "ResponseFormatText": ".response_format_text",
     "RuntimeConfig": ".runtime_config",
-    "SandboxBuildStatus": ".sandbox_build_status",
     "SandboxCapability": ".sandbox_capability",
     "SandboxConfig": ".sandbox_config",
     "SandboxCreatedEvent": ".sandbox_created_event",
+    "SandboxEnvironment": ".sandbox_environment",
+    "SandboxEnvironmentImage": ".sandbox_environment_image",
+    "SandboxEnvironmentLifecycleStage": ".sandbox_environment_lifecycle_stage",
+    "SandboxEnvironmentManifest": ".sandbox_environment_manifest",
+    "SandboxEnvironmentManifestRequest": ".sandbox_environment_manifest_request",
+    "SandboxEnvironmentNetworking": ".sandbox_environment_networking",
+    "SandboxEnvironmentResources": ".sandbox_environment_resources",
+    "SandboxEnvironmentSecret": ".sandbox_environment_secret",
+    "SandboxEnvironmentVersionStatus": ".sandbox_environment_version_status",
     "SandboxProviderManifest": ".sandbox_provider_manifest",
     "Schedule": ".schedule",
     "ScheduleManifest": ".schedule_manifest",
@@ -455,6 +493,8 @@ _dynamic_imports: typing.Dict[str, str] = {
     "Timezone": ".timezone",
     "TogetherAiModelProvider": ".together_ai_model_provider",
     "TokenPagination": ".token_pagination",
+    "ToolApprovalPolicyAllowSession": ".tool_approval_policy_allow_session",
+    "ToolApprovalPolicyItem": ".tool_approval_policy_item",
     "ToolApprovalRequiredEvent": ".tool_approval_required_event",
     "ToolCall": ".tool_call",
     "ToolCallRef": ".tool_call_ref",
@@ -469,6 +509,7 @@ _dynamic_imports: typing.Dict[str, str] = {
     "TurnCreatedEvent": ".turn_created_event",
     "TurnDoneEvent": ".turn_done_event",
     "TurnDoneEventState": ".turn_done_event_state",
+    "TurnInboundEventItem": ".turn_inbound_event_item",
     "TurnInputItem": ".turn_input_item",
     "TurnMetrics": ".turn_metrics",
     "TurnState": ".turn_state",
@@ -478,17 +519,22 @@ _dynamic_imports: typing.Dict[str, str] = {
     "TurnStateDone": ".turn_state_done",
     "TurnStateError": ".turn_state_error",
     "TurnStateErrorMetrics": ".turn_state_error_metrics",
+    "TurnStatePaused": ".turn_state_paused",
     "TurnStateRunning": ".turn_state_running",
     "TurnStreamingEvent": ".turn_streaming_event",
     "TurnUpdateEvent": ".turn_update_event",
-    "TurnUpdateState": ".turn_update_state",
-    "TurnUpdateStatePaused": ".turn_update_state_paused",
-    "TurnUpdateStateRunning": ".turn_update_state_running",
+    "TurnUpdateEventState": ".turn_update_event_state",
+    "UserMcpAuthContinueEvent": ".user_mcp_auth_continue_event",
+    "UserMcpAuthContinueInputEvent": ".user_mcp_auth_continue_input_event",
     "UserMessage": ".user_message",
     "UserMessageContent": ".user_message_content",
     "UserMessageContentItem": ".user_message_content_item",
     "UserToolApprovalEvent": ".user_tool_approval_event",
+    "UserToolApprovalInputEvent": ".user_tool_approval_input_event",
+    "UserToolApprovalPolicyEvent": ".user_tool_approval_policy_event",
+    "UserToolApprovalPolicyMessage": ".user_tool_approval_policy_message",
     "UserToolResponseEvent": ".user_tool_response_event",
+    "UserToolResponseInputEvent": ".user_tool_response_input_event",
     "WebSearchCapability": ".web_search_capability",
     "WebSearchConfig": ".web_search_config",
     "WebSearchProviderManifest": ".web_search_provider_manifest",
@@ -538,7 +584,6 @@ __all__ = [
     "AvailableModelProvider",
     "AvailableSkill",
     "BaseMcpAuthRequiredEvent",
-    "BaseThreadDoneEvent",
     "CancelSessionResponse",
     "CapabilitiesData",
     "CatalogCustomModelProvider",
@@ -559,6 +604,7 @@ __all__ = [
     "ChatCompletionMessageToolCall",
     "ChatCompletionMessageToolCallFunction",
     "CompactionConfig",
+    "ComponentsSchemasToolApprovalPolicyAllowSession",
     "ConfiguredMcpServer",
     "ConfiguredModel",
     "ConfiguredModelProvider",
@@ -568,11 +614,14 @@ __all__ = [
     "ContextManagementConfig",
     "CreateScheduleRunResponse",
     "CreateSessionAgent",
+    "CreateTurnEventResponse",
+    "CreateTurnEventResponseDataItem",
     "CreatedBySubject",
     "CronExpression",
     "CustomModelProvider",
     "DaytonaSandboxProviderAuth",
     "DeleteAgentResponse",
+    "DeleteSandboxEnvironmentResponse",
     "DeleteScheduleResponse",
     "DynamicSubAgentsConfig",
     "ExtendedChunkDeltaToolCall",
@@ -590,6 +639,7 @@ __all__ = [
     "GetMeSubject",
     "GetModelProviderCatalogResponse",
     "GetModelProviderResponse",
+    "GetSandboxEnvironmentResponse",
     "GetSandboxProviderCatalogResponse",
     "GetSandboxProviderResponse",
     "GetScheduleResponse",
@@ -614,8 +664,10 @@ __all__ = [
     "ListMcpServerToolsResponse",
     "ListMcpServersResponse",
     "ListModelProvidersResponse",
+    "ListPendingSandboxEnvironmentVersionsResponse",
     "ListPermissionsData",
     "ListPermissionsResponse",
+    "ListSandboxEnvironmentsResponse",
     "ListScheduleRunsResponse",
     "ListSchedulesResponse",
     "ListSessionEventsResponse",
@@ -661,6 +713,7 @@ __all__ = [
     "MoonshotModelProvider",
     "OpenAiModelProvider",
     "ParallelWebSearchProviderAuth",
+    "PendingSandboxEnvironmentVersion",
     "PermissionResourceType",
     "PreviousTurnIdInput",
     "RawToolCall",
@@ -676,10 +729,18 @@ __all__ = [
     "ResponseFormatJsonSchemaJsonSchema",
     "ResponseFormatText",
     "RuntimeConfig",
-    "SandboxBuildStatus",
     "SandboxCapability",
     "SandboxConfig",
     "SandboxCreatedEvent",
+    "SandboxEnvironment",
+    "SandboxEnvironmentImage",
+    "SandboxEnvironmentLifecycleStage",
+    "SandboxEnvironmentManifest",
+    "SandboxEnvironmentManifestRequest",
+    "SandboxEnvironmentNetworking",
+    "SandboxEnvironmentResources",
+    "SandboxEnvironmentSecret",
+    "SandboxEnvironmentVersionStatus",
     "SandboxProviderManifest",
     "Schedule",
     "ScheduleManifest",
@@ -723,6 +784,8 @@ __all__ = [
     "Timezone",
     "TogetherAiModelProvider",
     "TokenPagination",
+    "ToolApprovalPolicyAllowSession",
+    "ToolApprovalPolicyItem",
     "ToolApprovalRequiredEvent",
     "ToolCall",
     "ToolCallRef",
@@ -737,6 +800,7 @@ __all__ = [
     "TurnCreatedEvent",
     "TurnDoneEvent",
     "TurnDoneEventState",
+    "TurnInboundEventItem",
     "TurnInputItem",
     "TurnMetrics",
     "TurnState",
@@ -746,17 +810,22 @@ __all__ = [
     "TurnStateDone",
     "TurnStateError",
     "TurnStateErrorMetrics",
+    "TurnStatePaused",
     "TurnStateRunning",
     "TurnStreamingEvent",
     "TurnUpdateEvent",
-    "TurnUpdateState",
-    "TurnUpdateStatePaused",
-    "TurnUpdateStateRunning",
+    "TurnUpdateEventState",
+    "UserMcpAuthContinueEvent",
+    "UserMcpAuthContinueInputEvent",
     "UserMessage",
     "UserMessageContent",
     "UserMessageContentItem",
     "UserToolApprovalEvent",
+    "UserToolApprovalInputEvent",
+    "UserToolApprovalPolicyEvent",
+    "UserToolApprovalPolicyMessage",
     "UserToolResponseEvent",
+    "UserToolResponseInputEvent",
     "WebSearchCapability",
     "WebSearchConfig",
     "WebSearchProviderManifest",

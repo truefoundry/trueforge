@@ -102,14 +102,23 @@ export function SessionTurnTooltip({
   );
 }
 
-export function SessionToolCallGroupTooltip({ group }: { group: TimelineToolCallGroup }) {
+export function SessionToolCallGroupTooltip({
+  group,
+  subAgentLabel,
+}: {
+  group: TimelineToolCallGroup;
+  subAgentLabel?: string;
+}) {
   return (
     <div className="max-h-72 w-80 max-w-full overflow-auto text-xs">
-      <div className="flex items-center justify-between gap-3">
+      {subAgentLabel != null ? (
+        <div className="border-b border-border py-1.5 text-text-secondary">{`Sub-Agent: ${subAgentLabel}`}</div>
+      ) : null}
+      <div className="flex items-center justify-between gap-3 pt-1">
         <span className="font-medium text-text-secondary">Tool calls</span>
         <span className="tabular-nums text-text-secondary">{formatTimelineDuration(group.endMs - group.startMs)}</span>
       </div>
-      <div className="mt-1.5 border-t border-border pt-1.5">
+      <div className={subAgentLabel == null ? 'mt-1.5 border-t border-border pt-1.5' : 'mt-1.5'}>
         {group.segments.map(segment => (
           <div key={segment.id} className="flex items-center justify-between gap-2 py-0.5">
             <span className="min-w-0 truncate font-medium text-text-primary">

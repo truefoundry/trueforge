@@ -1,4 +1,26 @@
+## [0.9992.1] - 2026-10-01
+
+## [0.0.0] - 2026-09-29
+
+## [0.2.1] - 2026-09-29
+
 ## [0.2.1-rc.0] - 2026-09-22
+
+## 0.9992.1
+
+### Patch Changes
+
+- fae79d0: Regenerate SDK from updated OpenAPI spec.
+
+## 0.2.1
+
+### Patch Changes
+
+- 829ac6e: Regenerate SDK from updated OpenAPI spec.
+- 829ac6e: Regenerate SDK from updated OpenAPI spec.
+- 829ac6e: Regenerate SDK from updated OpenAPI spec.
+- 33cbe52: Default MCP tool approval to `@write` and `@destructive` again. Unlabeled tools still run without a pause unless named or covered by `@all`.
+- 829ac6e: Regenerate SDK from updated OpenAPI spec.
 
 ## [0.2.0] - 2026-09-18
 

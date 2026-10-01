@@ -1,5 +1,5 @@
 // @vitest-environment jsdom
-import { act, fireEvent, render, screen, waitFor } from '@testing-library/react';
+import { act, fireEvent, render, screen, waitFor, within } from '@testing-library/react';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 import { SchedulesPage } from '@/atoms/schedules/SchedulesPage.js';
@@ -86,7 +86,7 @@ function renderPage(
     ...overrides,
   };
   const server = createMockAgentUIServer({
-    searchAgents: searchAgents ?? vi.fn(async () => [{ name: 'demo-agent', agentId: 'demo-agent' }]),
+    searchAgents: searchAgents ?? vi.fn(async () => ({ data: [{ name: 'demo-agent', agentId: 'demo-agent' }] })),
     schedules: scheduleServer,
     ...(options.permissions == null ? {} : { permissions: options.permissions }),
   });
@@ -103,11 +103,18 @@ function renderPage(
 describe('SchedulesPage', () => {
   it('lists schedules in the table', async () => {
     const { scheduleServer, searchAgents } = renderPage();
-    expect(await screen.findByRole('heading', { name: 'Scheduled Agents' })).toBeInTheDocument();
+    expect(await screen.findByRole('heading', { name: 'Agent Schedules' })).toBeInTheDocument();
     await waitFor(() => {
       expect(screen.getByText('daily-digest')).toBeInTheDocument();
     });
-    expect(screen.getAllByText('demo-agent').length).toBeGreaterThan(0);
+    expect(screen.getByRole('columnheader', { name: 'Schedule Name' })).toBeInTheDocument();
+    expect(screen.getByRole('columnheader', { name: 'Task' })).toBeInTheDocument();
+    const task = screen.getByText('summarize');
+    fireEvent.mouseEnter(task);
+    expect(await screen.findByRole('tooltip', { name: 'summarize' })).toBeInTheDocument();
+    const scheduleNameCell = screen.getByText('daily-digest').closest('td');
+    if (scheduleNameCell == null) throw new Error('expected schedule name table cell');
+    expect(within(scheduleNameCell).getByText('demo-agent')).toBeInTheDocument();
     expect(screen.getByText('—')).toBeInTheDocument();
     expect(screen.getByText('Showing 1')).toBeInTheDocument();
     expect(scheduleServer.listSchedules).toHaveBeenCalledWith(expect.objectContaining({ limit: 10 }));
@@ -192,7 +199,7 @@ describe('SchedulesPage', () => {
         expect.objectContaining({ agentIds: ['demo-agent'], limit: 10 }),
       );
     });
-    expect(screen.queryByRole('heading', { name: 'Scheduled Agents' })).not.toBeInTheDocument();
+    expect(screen.queryByRole('heading', { name: 'Agent Schedules' })).not.toBeInTheDocument();
     expect(screen.queryByRole('combobox', { name: 'Filter by agent' })).not.toBeInTheDocument();
   });
 
@@ -214,6 +221,7 @@ describe('SchedulesPage', () => {
             name: 'weekly-digest',
           },
         ],
+        previousPageToken: 'page-1',
       });
     renderPage(sampleSchedules, {}, listSchedules);
 
@@ -224,6 +232,12 @@ describe('SchedulesPage', () => {
       expect(listSchedules).toHaveBeenLastCalledWith(expect.objectContaining({ pageToken: 'page-2', limit: 10 }));
     });
     expect(await screen.findByText('weekly-digest')).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'Previous page' })).toBeEnabled();
+
+    fireEvent.click(screen.getByRole('button', { name: 'Previous page' }));
+    await waitFor(() => {
+      expect(listSchedules).toHaveBeenLastCalledWith(expect.objectContaining({ pageToken: 'page-1', limit: 10 }));
+    });
   });
 
   it('ignores run history returned for a stale schedules page', async () => {
@@ -320,6 +334,7 @@ describe('SchedulesPage', () => {
           name: 'sched-123',
           scheduledFor: '2024-06-01T10:00:00.000Z',
           status: 'failed',
+          reason: 'The agent service rejected the scheduled run.',
           triggeredAt: '2024-06-01T10:00:01.000Z',
           triggeredBy: 'alice',
         },
@@ -348,6 +363,8 @@ describe('SchedulesPage', () => {
       expect(screen.getByLabelText(/Failed run at/i)).toBeInTheDocument();
       expect(screen.getByLabelText(/Triggered run at/i)).toBeInTheDocument();
     });
+    fireEvent.mouseEnter(screen.getByLabelText(/Failed run at/i));
+    expect(await screen.findByText('Reason: The agent service rejected the scheduled run.')).toBeInTheDocument();
   });
 
   it('runs a schedule now from the table actions', async () => {
@@ -453,12 +470,12 @@ describe('SchedulesPage', () => {
       { agentId: 'beta-agent', name: 'beta-agent' },
     ];
     const searchAgents = vi.fn(
-      async ({ query, limit = 50, offset = 0 }: { query?: string; limit?: number; offset?: number } = {}) => {
+      async ({ query, limit = 50 }: { query?: string; limit?: number; pageToken?: string } = {}) => {
         const matched =
           query == null || query === ''
             ? agents
             : agents.filter(agent => agent.name.toLowerCase().includes(query.toLowerCase()));
-        return matched.slice(offset, offset + limit);
+        return { data: matched.slice(0, limit) };
       },
     );
     renderPage(sampleSchedules, {}, undefined, searchAgents);

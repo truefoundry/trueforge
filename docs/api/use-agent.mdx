@@ -287,8 +287,8 @@ Turn `input` accepts three item types (a single turn can't mix a `user.message` 
 | `type` | Purpose |
 | --- | --- |
 | `user.message` | A message. `content` is a string, or an array of `text` / `file` parts (files as data URIs). |
-| `user.tool_approval` | An [approval decision](/create-agent/overview#whats-in-an-agent) for a paused tool call. |
-| `user.tool_response` | An [answer](/create-agent/overview#whats-in-an-agent) for a paused client-side tool call. |
+| `user.tool_approval` | An [approval decision](/create-agent/overview#what’s-in-an-agent) for a paused tool call. |
+| `user.tool_response` | An [answer](/create-agent/overview#what’s-in-an-agent) for a paused client-side tool call. |
 
 ### Non-streaming turn
 
@@ -490,7 +490,7 @@ For approvals and questions, each pending ref carries the `sourceEventId` of the
 
 ### Tool approvals
 
-A gated tool ([human approval](/create-agent/overview#whats-in-an-agent)) emits [`tool.approval_required`](#tool-approval-required). Collect the pending events while streaming, then resume with one `user.tool_approval` per pending call, either allowing it or denying it with a reason. Look up each ref in the [event index](#create-and-stream-a-turn).
+A gated tool ([human approval](/create-agent/overview#what’s-in-an-agent)) emits [`tool.approval_required`](#tool-approval-required). Collect the pending events while streaming, then resume with one `user.tool_approval` per pending call, either allowing it or denying it with a reason. Look up each ref in the [event index](#create-and-stream-a-turn).
 
 <CodeGroup>
 ```typescript TypeScript wrap
@@ -594,7 +594,7 @@ for event in resume:
 
 ### Agent questions
 
-When the agent uses the built-in [`ask_user_question`](/create-agent/overview#whats-in-an-agent) tool, it emits [`tool.response_required`](#tool-response-required); the pending call's `arguments` carry the `question` and `options`. Resume with one `user.tool_response` per pending call.
+When the agent uses the built-in [`ask_user_question`](/create-agent/overview#what’s-in-an-agent) tool, it emits [`tool.response_required`](#tool-response-required); the pending call's `arguments` carry the `question` and `options`. Resume with one `user.tool_response` per pending call.
 
 <CodeGroup>
 ```typescript TypeScript wrap
@@ -1236,7 +1236,7 @@ The result of a tool the harness executed, linked to its call by `tool_call_id`:
 
 #### `tool.approval_required`
 
-A tool call needs [human approval](/create-agent/overview#whats-in-an-agent) before it can run. The turn ends after this event; resume with a `user.tool_approval` input.
+A tool call needs [human approval](/create-agent/overview#what’s-in-an-agent) before it can run. The turn ends after this event; resume with a `user.tool_approval` input.
 
 | Field        | Description                                                                                                                                       |
 | ------------ | ------------------------------------------------------------------------------------------------------------------------------------------------- |
@@ -1244,7 +1244,7 @@ A tool call needs [human approval](/create-agent/overview#whats-in-an-agent) bef
 
 #### `tool.response_required`
 
-A client-side tool (e.g. [`ask_user_question`](/create-agent/overview#whats-in-an-agent)) needs a result from your app. Same shape as `tool.approval_required`; resume with a `user.tool_response` input.
+A client-side tool (e.g. [`ask_user_question`](/create-agent/overview#what’s-in-an-agent)) needs a result from your app. Same shape as `tool.approval_required`; resume with a `user.tool_response` input.
 
 ### Subagent thread events
 

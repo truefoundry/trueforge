@@ -74,7 +74,7 @@ export interface AgentSelectorEntry {
 export interface SearchAgentSelectorParams {
   query?: string;
   limit?: number;
-  offset?: number;
+  pageToken?: string;
 }
 
 // ---------------------------------------------------------------------------
@@ -123,6 +123,8 @@ export interface AgentCapabilityConfig {
 
 export interface AgentSandboxConfig extends AgentCapabilityConfig {
   fileDownloads?: boolean;
+  /** Name of a configured sandbox environment. */
+  environment_name?: string;
 }
 
 export interface AgentInputTokensCompactionTrigger {
@@ -179,6 +181,10 @@ export interface Session<TSpec extends AgentSpec = AgentSpec> {
   agentSpec?: TSpec;
   /** true → mutable builder + updateSession(spec) allowed. */
   isMutable: boolean;
+  /** When true, any subject in the tenant may read this session and its turns/events by id. */
+  shared?: boolean;
+  /** Rolled-up turns/duration/cost from the session detail API when the host provides it. */
+  metrics?: SessionListMetrics;
   createdAt: string;
   updatedAt: string;
 }
@@ -193,6 +199,8 @@ export interface UpdateSessionRequest<TSpec extends AgentSpec = AgentSpec> {
   sessionId: string;
   agentSpec?: TSpec;
   title?: string;
+  /** When true, any subject in the tenant may read this session and its turns/events by id. */
+  shared?: boolean;
 }
 
 // ---------------------------------------------------------------------------
@@ -202,6 +210,7 @@ export interface UpdateSessionRequest<TSpec extends AgentSpec = AgentSpec> {
 export interface ListResult<T> {
   data: T[];
   nextPageToken?: string;
+  previousPageToken?: string;
 }
 
 export type ListSessionsOrder = 'asc' | 'desc';
@@ -273,6 +282,8 @@ export interface TurnDoneMetrics {
   totalCacheReadTokens: number;
   totalCacheWriteTokens: number;
   totalReasoningTokens: number;
+  /** Estimated total cost in USD for this turn when the host reports it. */
+  totalCostInUsd?: number;
 }
 
 export interface TurnStateDone {
@@ -451,7 +462,7 @@ export interface AgentBuilderServer<
   getMcp(): Promise<TMcp[]>;
   getMcpConnector?(req: { connectorId: string }): Promise<TMcp>;
   getMcpTools?(req: { connectorId: string }): Promise<TMcpTool[]>;
-  searchAgents(req?: SearchAgentSelectorParams): Promise<TAgent[]>;
+  searchAgents(req?: SearchAgentSelectorParams): Promise<ListResult<TAgent>>;
   saveAgent(req: SaveAgentRequest<TSpec>): Promise<TSave>;
   deleteAgent?(req: { agentName: string }): Promise<void>;
 }
@@ -724,15 +735,8 @@ export interface SkillCatalogServer<
 // Sandbox providers catalog — public rows omit credentials; writes accept them
 // ---------------------------------------------------------------------------
 
-/** Mutable sandbox provider settings shared by catalog rows, create, and update. */
-export interface SandboxConfig {
-  execTimeoutMs: number;
-  autoStopIntervalInMinutes: number;
-  autoArchiveIntervalInMinutes: number;
-  autoDeleteIntervalInMinutes: number;
-}
-
-export interface SandboxCatalogEntry extends SandboxConfig {
+/** Discovery catalog row. Hosts extend for provider-specific defaults. */
+export interface SandboxCatalogEntry {
   id: string;
   name: string;
   type: string;
@@ -740,26 +744,16 @@ export interface SandboxCatalogEntry extends SandboxConfig {
 
 /**
  * Connected sandbox provider row (settings/sandboxes). No raw `apiKey`.
- * Includes last-saved config so update forms can show previous values.
+ * Hosts extend for provider-specific settings shown on update forms.
  */
-export interface SandboxBase extends SandboxConfig {
+export interface SandboxBase {
   id: string;
   name: string;
   catalogId: string;
   isConnected: boolean;
 }
 
-export interface SandboxSnapshotSyncStatus {
-  status: 'pending' | 'ready' | 'failed';
-  statusReason?: string | null;
-}
-
-export interface SandboxProviderListEntry<TSandbox extends SandboxBase = SandboxBase> {
-  data: TSandbox;
-  snapshotSyncStatus: SandboxSnapshotSyncStatus;
-}
-
-export interface CreateSandboxRequest extends SandboxConfig {
+export interface CreateSandboxRequest {
   /** `SandboxCatalogEntry.id` used to create this sandbox provider. */
   catalogId: string;
   name: string;
@@ -767,14 +761,13 @@ export interface CreateSandboxRequest extends SandboxConfig {
   apiKey: string;
 }
 
-export interface UpdateSandboxRequest extends SandboxConfig {
+export interface UpdateSandboxRequest {
   id: string;
   /** Omit to keep the existing key; send a value to rotate. */
   apiKey?: string;
 }
 
 /** Host-facing aliases (trueforge-ui public names). */
-export type SandboxProviderConfig = SandboxConfig;
 export type SandboxProviderCatalogEntry = SandboxCatalogEntry;
 export type SandboxProviderBase = SandboxBase;
 export type CreateSandboxProviderRequest = CreateSandboxRequest;
@@ -785,10 +778,9 @@ export interface SandboxCatalogServer<
   TCatalogEntry extends SandboxCatalogEntry = SandboxCatalogEntry,
   TCreate extends CreateSandboxRequest = CreateSandboxRequest,
   TUpdate extends UpdateSandboxRequest = UpdateSandboxRequest,
-  TListEntry extends SandboxProviderListEntry<TProvider> = SandboxProviderListEntry<TProvider>,
 > {
   getSandboxProviderCatalog(): Promise<TCatalogEntry[]>;
-  listSandboxProviders(req?: { query?: string }): Promise<TListEntry[]>;
+  listSandboxProviders(req?: { query?: string }): Promise<TProvider[]>;
   createSandboxProvider(req: TCreate): Promise<TProvider>;
   updateSandboxProvider(req: TUpdate): Promise<TProvider>;
   deleteSandboxProvider?(req: { id: string }): Promise<void>;
@@ -1008,6 +1000,8 @@ export interface ScheduleRun {
   name: string;
   scheduledFor: string;
   status: ScheduleRunStatus;
+  /** Failure reason supplied by the scheduler, when available. */
+  reason?: string | null;
   triggeredAt: string | null;
   triggeredBy: string;
 }
@@ -1185,6 +1179,8 @@ export type AgentUIServerPort<
     schedules?: TSchedules;
     metrics?: TMetrics;
     permissions?: TPermissions;
+    /** Authenticated caller identity. Used for tenant-scoped share copy. */
+    getMe?: () => Promise<{ tenantId: string }>;
   };
 
 /** Host-facing alias used by trueforge-ui. */

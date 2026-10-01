@@ -14,6 +14,7 @@ import type {
   GetSessionByExternalIdInput,
   GetSessionInput,
   GetTurnInput,
+  InsertTurnInboundEventsInput,
   ISessionStore,
   ListSessionEventsInput,
   ListSessionsInput,
@@ -26,7 +27,8 @@ import type {
   RemoveThreadsInput,
   TurnRecordWithoutSnapshot,
   UpdateSessionInput,
-  UpdateTurnStateInput,
+  UpdateTurnNonTerminalStateInput,
+  UpdateTurnTerminalStateInput,
 } from '@truefoundry/trueforge-core/agent-session/store/ISessionStore';
 import {
   decodeOffsetPageToken,
@@ -40,6 +42,7 @@ import {
   listSessionEvents as listSessionEventsQuery,
   listTurnEvents as listTurnEventsQuery,
 } from './queries/events';
+import { insertTurnInboundEvents as insertTurnInboundEventsQuery } from './queries/inboundEvents';
 import {
   createSession as createSessionQuery,
   deleteSession as deleteSessionQuery,
@@ -63,7 +66,8 @@ import {
   freezeAndGetTurn as freezeAndGetTurnQuery,
   getTurn as getTurnQuery,
   listTurns as listTurnsQuery,
-  updateTurnState as updateTurnStateQuery,
+  updateTurnNonTerminalState as updateTurnNonTerminalStateQuery,
+  updateTurnTerminalState as updateTurnTerminalStateQuery,
 } from './queries/turns';
 
 type SessionCustom = Record<string, never>;
@@ -81,8 +85,9 @@ type TurnCustom = Record<string, never>;
  * late appends touch only its OWN rows — structural leaks are impossible.
  *
  * Hard invariants:
- * 1. A turn cannot be used as `previous_turn_id` while it is still `running` —
- *    `createTurn` rejects that; callers must `freezeAndGetTurn` first.
+ * 1. A turn cannot be used as `previous_turn_id` while it is still non-terminal
+ *    (`running` or `paused`) — `createTurn` rejects that; callers must
+ *    `freezeAndGetTurn` first.
  *    Tip-equality is NOT required: new roots and concurrent forks from a
  *    finished tip can leave more than one turn `running` at once.
  * 2. Every turn-scoped write is fenced on `state->>'status' = 'running'`.
@@ -183,12 +188,20 @@ export class SqliteSessionStore implements ISessionStore<SessionCustom, TurnCust
     return { data: result.turns, pagination };
   }
 
-  updateTurnState(input: UpdateTurnStateInput): Promise<void> {
-    return updateTurnStateQuery(this.db, input);
+  updateTurnNonTerminalState(input: UpdateTurnNonTerminalStateInput): Promise<void> {
+    return updateTurnNonTerminalStateQuery(this.db, input);
+  }
+
+  updateTurnTerminalState(input: UpdateTurnTerminalStateInput): Promise<void> {
+    return updateTurnTerminalStateQuery(this.db, input);
   }
 
   appendToEvents(input: AppendToEventsInput): Promise<void> {
     return appendToEventsQuery(this.db, input);
+  }
+
+  insertTurnInboundEvents(input: InsertTurnInboundEventsInput): Promise<void> {
+    return insertTurnInboundEventsQuery(this.db, input);
   }
 
   addThreads(input: AddThreadsInput): Promise<void> {
