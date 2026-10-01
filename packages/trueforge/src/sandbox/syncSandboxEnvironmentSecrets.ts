@@ -1,6 +1,6 @@
-import { DaytonaSandboxProvider, withTimeout } from '@truefoundry/trueforge-core/core';
+import type { SandboxProvider } from '@truefoundry/trueforge-core/core';
+import { withTimeout } from '@truefoundry/trueforge-core/core';
 import type { ISandboxEnvironmentStore, SandboxEnvironmentVersionForProgress } from '../db/sandboxEnvironmentStore';
-import type { ResolvedSandboxProvider } from '../sandbox/providerUtils';
 import type {
   SandboxEnvironmentVersionInternalMetadata,
   StoredSandboxEnvironmentManifest,
@@ -16,34 +16,14 @@ export interface SyncSandboxEnvironmentSecretsResult {
   internal_metadata: SandboxEnvironmentVersionInternalMetadata;
 }
 
-/** Sync org secrets for the version's provider, then redact the stored manifest. */
+/** Sync provider org secrets for the version, then redact the stored manifest. */
 export async function syncSandboxEnvironmentSecrets({
   pending,
   provider,
   store,
 }: {
   pending: SandboxEnvironmentVersionForProgress;
-  provider: ResolvedSandboxProvider;
-  store: ISandboxEnvironmentStore;
-}): Promise<SyncSandboxEnvironmentSecretsResult> {
-  switch (pending.manifest.type) {
-    case 'daytona':
-      if (!(provider instanceof DaytonaSandboxProvider)) {
-        throw new Error('Daytona sandbox provider required for secret sync');
-      }
-      return syncDaytonaSandboxEnvironmentSecrets({ pending, provider, store });
-    case 'truefoundry':
-      throw new Error('Sandbox environment secret sync is not supported for truefoundry providers');
-  }
-}
-
-async function syncDaytonaSandboxEnvironmentSecrets({
-  pending,
-  provider,
-  store,
-}: {
-  pending: SandboxEnvironmentVersionForProgress;
-  provider: DaytonaSandboxProvider;
+  provider: SandboxProvider<unknown>;
   store: ISandboxEnvironmentStore;
 }): Promise<SyncSandboxEnvironmentSecretsResult> {
   const desired = pending.manifest.networking?.secrets ?? [];
@@ -63,7 +43,7 @@ async function syncDaytonaSandboxEnvironmentSecrets({
         throw new Error(`Cannot create Daytona secret ${secret.env}: value is redacted`);
       }
       const created = await withTimeout(
-        provider.createOrgSecret({
+        provider.createSecret({
           name: row.external_secret_name,
           value: secret.value,
           description: row.description,
@@ -82,7 +62,7 @@ async function syncDaytonaSandboxEnvironmentSecrets({
       });
     } else {
       await withTimeout(
-        provider.updateOrgSecret({
+        provider.updateSecret({
           secretId: row.external_secret_id,
           hosts: secret.hosts,
           ...(!isRedactedSecretValue(secret.value) ? { value: secret.value } : {}),
@@ -98,7 +78,7 @@ async function syncDaytonaSandboxEnvironmentSecrets({
   for (const row of removed) {
     if (row.external_secret_id !== null) {
       await withTimeout(
-        provider.deleteOrgSecret({ secretId: row.external_secret_id }),
+        provider.deleteSecret({ secretId: row.external_secret_id }),
         DAYTONA_RPC_TIMEOUT_MS,
         'sandbox environment secret delete',
       );

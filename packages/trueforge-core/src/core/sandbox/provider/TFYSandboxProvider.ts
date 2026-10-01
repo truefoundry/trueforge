@@ -92,6 +92,18 @@ export class TFYSandboxProvider implements SandboxProvider {
     return Promise.resolve({ sandboxId });
   }
 
+  createSecret(): Promise<{ id: string; name: string }> {
+    return Promise.reject(new Error('TrueFoundry sandbox provider does not support org secrets'));
+  }
+
+  updateSecret(): Promise<void> {
+    return Promise.reject(new Error('TrueFoundry sandbox provider does not support org secrets'));
+  }
+
+  deleteSecret(): Promise<void> {
+    return Promise.reject(new Error('TrueFoundry sandbox provider does not support org secrets'));
+  }
+
   /**
    * No extra FS jail: exec cwd is the logical sandbox root. Layout getters are cwd-relative
    * so writes cannot escape it. `GIT_CONFIG` / PATH / PYTHONPATH must still be absolute so
