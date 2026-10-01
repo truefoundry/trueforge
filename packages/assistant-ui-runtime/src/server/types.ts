@@ -183,6 +183,8 @@ export interface Session<TSpec extends AgentSpec = AgentSpec> {
   isMutable: boolean;
   /** When true, any subject in the tenant may read this session and its turns/events by id. */
   shared?: boolean;
+  /** Rolled-up turns/duration/cost from the session detail API when the host provides it. */
+  metrics?: SessionListMetrics;
   createdAt: string;
   updatedAt: string;
 }

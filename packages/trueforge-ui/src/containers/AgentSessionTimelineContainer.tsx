@@ -140,7 +140,7 @@ export type AgentSessionTimelineContainerProps = {
   sessionId: string;
   events: SessionEventItem[];
   contentMaxWidth?: string;
-  listMetrics?: {
+  sessionMetrics?: {
     totalTurns: number;
     totalCostInUsd?: number;
     totalDurationMs: number;
@@ -151,7 +151,7 @@ export function AgentSessionTimelineContainer({
   sessionId,
   events,
   contentMaxWidth,
-  listMetrics,
+  sessionMetrics: sessionMetricsHint,
 }: AgentSessionTimelineContainerProps) {
   const server = useServer();
   const AgentSessionTurnHeader = useSlot('AgentSessionTurnHeader');
@@ -168,8 +168,8 @@ export function AgentSessionTimelineContainer({
   const projectionEvents = useMemo(() => buildProjectionEvents(events, turnViews), [events, turnViews]);
   const timelineSegments = useMemo(() => buildSessionTimelineSegments(turnViews), [turnViews]);
   const sessionMetrics = useMemo(
-    () => buildSessionMetrics({ turns: turnViews, segments: timelineSegments, listMetrics }),
-    [listMetrics, timelineSegments, turnViews],
+    () => buildSessionMetrics({ turns: turnViews, segments: timelineSegments, sessionMetrics: sessionMetricsHint }),
+    [sessionMetricsHint, timelineSegments, turnViews],
   );
 
   const handleSelectTurn = useCallback((index: number) => {

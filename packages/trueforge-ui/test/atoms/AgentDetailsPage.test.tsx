@@ -142,6 +142,8 @@ function renderPage({
     isMutable: false,
     createdAt: '2026-01-01T00:00:00.000Z',
     updatedAt: '2026-01-02T00:00:00.000Z',
+    // Distinct from list-row metrics so the strip proves it uses getSession.
+    metrics: { totalTurns: 4, totalCostInUsd: 1.25, totalDurationMs: 90_000 },
   })),
   withSessions = true,
   metrics,
@@ -604,11 +606,11 @@ describe('AgentDetailsPage', () => {
     expect(screen.getByText('timeline-body')).toBeInTheDocument();
   });
 
-  it('passes session API metrics into the selected session detail', async () => {
+  it('passes getSession metrics into the selected session detail', async () => {
     renderPage({
       overrides: {
-        AgentSessionTimelineContainer: ({ listMetrics }) => (
-          <div>{`${String(listMetrics?.totalTurns)} turns, ${String(listMetrics?.totalDurationMs)}ms, $${String(listMetrics?.totalCostInUsd)}`}</div>
+        AgentSessionTimelineContainer: ({ sessionMetrics }) => (
+          <div>{`${String(sessionMetrics?.totalTurns)} turns, ${String(sessionMetrics?.totalDurationMs)}ms, $${String(sessionMetrics?.totalCostInUsd)}`}</div>
         ),
       },
     });
@@ -616,7 +618,7 @@ describe('AgentDetailsPage', () => {
     fireEvent.click(screen.getByRole('tab', { name: 'Sessions' }));
     fireEvent.click(await screen.findByText('Release notes draft'));
 
-    expect(await screen.findByText('2 turns, 120000ms, $0.5')).toBeInTheDocument();
+    expect(await screen.findByText('4 turns, 90000ms, $1.25')).toBeInTheDocument();
   });
 
   it('shows the shared unavailable state without the optional server', () => {
