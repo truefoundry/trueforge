@@ -32,7 +32,7 @@ import {
   turnStreamUpdateToAssistantMessage,
 } from '../src/convertTurnMessages.js';
 import { buildRootAssistantContent, ingestTurnEvent, PeerThreadFoldState } from '../src/foldPeerThreads.js';
-import { findPausedAssistantMessage } from '../src/requiredActionInputs.js';
+import { findCurrentPausedAssistantMessage } from '../src/requiredActionInputs.js';
 import {
   createEmptySessionSnapshot,
   replaceSessionSnapshot,
@@ -936,7 +936,7 @@ describe('convertTurnMessages', () => {
         toolCallId: 'approval-1',
         approval: { id: 'approval-1' },
       });
-      expect(findPausedAssistantMessage(result.messages)).toBe(assistant);
+      expect(findCurrentPausedAssistantMessage(result.messages)).toBe(assistant);
     });
 
     it('downgrades to complete after a later turn submits user.tool_approval', async () => {
@@ -1089,7 +1089,7 @@ describe('convertTurnMessages', () => {
           payload: { question: 'Pick one', options: ['A', 'B'] },
         },
       });
-      expect(findPausedAssistantMessage(result.messages)).toBe(assistant);
+      expect(findCurrentPausedAssistantMessage(result.messages)).toBe(assistant);
     });
 
     it('downgrades to complete after a later turn submits user.tool_response', async () => {
@@ -1840,7 +1840,7 @@ describe('convertTurnMessages', () => {
         toolCallId: 'approval-1',
         approval: { id: 'approval-1' },
       });
-      expect(findPausedAssistantMessage(messages)).toBe(assistant);
+      expect(findCurrentPausedAssistantMessage(messages)).toBe(assistant);
     });
 
     it('preserves requires-action when streamComplete and update has ask-user status', async () => {
@@ -1899,7 +1899,7 @@ describe('convertTurnMessages', () => {
           payload: { question: 'Pick one', options: ['A', 'B'] },
         },
       });
-      expect(findPausedAssistantMessage(messages)).toBe(assistant);
+      expect(findCurrentPausedAssistantMessage(messages)).toBe(assistant);
     });
 
     it('forces complete when streamComplete and update has no explicit status', () => {
@@ -2092,7 +2092,7 @@ describe('convertTurnMessages', () => {
       // fabricated `TurnStateDone`. The pause must survive as a
       // `tool.response_required` required action, otherwise the projected
       // assistant message is not `requires-action` and
-      // `findPausedAssistantMessage` (the gate that fires the resume turn)
+      // `findCurrentPausedAssistantMessage` (the gate that fires the resume turn)
       // never sees it.
       const fold = new PeerThreadFoldState();
       const turnId = 'turn-ask';
@@ -2155,7 +2155,7 @@ describe('convertTurnMessages', () => {
       });
 
       const messages = projectSessionMessages(snapshot);
-      const paused = findPausedAssistantMessage(messages);
+      const paused = findCurrentPausedAssistantMessage(messages);
       expect(paused).toBeDefined();
       expect(paused?.status).toMatchObject({ type: 'requires-action' });
     });
