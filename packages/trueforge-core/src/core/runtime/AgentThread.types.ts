@@ -10,7 +10,6 @@ import type {
   AgentOutputEvent,
   AgentParent,
   BaseMCPAuthRequiredEvent,
-  BaseThreadDoneEvent,
   MCPInitializeEvent,
   MCPServerAuthInfo,
   ModelMessageDeltaEvent,
@@ -74,10 +73,33 @@ export type InternalMCPAuthRequiredEvent = BaseMCPAuthRequiredEvent & {
   mcp_servers: InternalMCPServerAuthInfo[];
 };
 
-export type InternalThreadDoneEvent = BaseThreadDoneEvent & {
+export type SubAgentCompletion =
+  | { type: 'done'; output: ModelMessageEvent; send_to_parent: LLMToolMessage }
+  | { type: 'error'; output: ModelMessageEvent; error_message: string; send_to_parent: LLMToolMessage }
+  | { type: 'cancelled'; reason: string; send_to_parent: LLMToolMessage };
+
+export type InternalMainThreadDoneEvent = {
   type: typeof InternalEventType.AGENT_DONE;
-  send_to_parent: LLMToolMessage | undefined;
-} & ({ status: 'done'; output: ModelMessageEvent } | { status: 'error'; error: string; output?: ModelMessageEvent });
+  thread_id: string;
+  title: string;
+  parent?: undefined; // TODO (chiragjn): we should drop this field
+} & (
+  | { status: 'done'; output: ModelMessageEvent }
+  | { status: 'error'; error: string; output?: ModelMessageEvent | undefined }
+);
+
+export type InternalChildThreadDoneEvent = {
+  type: typeof InternalEventType.AGENT_DONE;
+  thread_id: string;
+  title: string;
+  parent: AgentParent;
+} & (
+  | { status: 'done'; output: ModelMessageEvent; send_to_parent: LLMToolMessage }
+  | { status: 'error'; error: string; output?: ModelMessageEvent | undefined; send_to_parent: LLMToolMessage }
+  | { status: 'cancelled'; reason: string; send_to_parent: LLMToolMessage }
+);
+
+export type InternalThreadDoneEvent = InternalMainThreadDoneEvent | InternalChildThreadDoneEvent;
 
 export type LLMContextMessage = LLMUserMessage | InternalEnrichedAssistantMessage | LLMToolMessage;
 
@@ -90,20 +112,13 @@ export interface AgentThreadCreateSubAgent {
   agent_info: AgentInfo;
 }
 
-export interface SubAgentCompletionMarker {
-  type: 'done' | 'error';
-  output: ModelMessageEvent;
-  error_message?: string | undefined;
-  send_to_parent: LLMToolMessage;
-}
-
 export interface AgentThreadAppendContext {
   type: typeof InternalEventType.AGENT_CONTEXT_APPEND;
   thread_id: string;
   context: ContextMessage[];
   output: AgentOutputEvent[];
   current_context_usage?: CurrentContextUsage | undefined;
-  completion?: SubAgentCompletionMarker | undefined;
+  completion?: SubAgentCompletion | undefined;
 }
 
 /** Single public send item (no internal LLM tool messages). */
@@ -153,7 +168,7 @@ export interface AgentThreadSnapshot {
   current_context_usage: CurrentContextUsage;
   parent: AgentParent | null;
   agent_info: AgentInfo | null;
-  completion: SubAgentCompletionMarker | null;
+  completion: SubAgentCompletion | null;
   /** Cross-turn capability KV. Keys: capability.state.key; `tfy.` reserved for builtins. */
   capability_state: CapabilityState | null;
 }
@@ -166,7 +181,7 @@ export interface AgentThreadConstructorInput {
   agentInfo?: AgentInfo | undefined;
   context?: ContextMessage[] | undefined;
   currentContextUsage?: CurrentContextUsage | undefined;
-  preComputedCompletion?: SubAgentCompletionMarker | undefined;
+  preComputedCompletion?: SubAgentCompletion | undefined;
   sandbox?: HarnessSandbox | undefined;
   capabilities?: readonly AgentCapability[] | undefined;
   /**
