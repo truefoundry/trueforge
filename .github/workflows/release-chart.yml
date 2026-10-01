@@ -40,6 +40,13 @@ on:
         description: Image tag already pushed to the registry, written to values.yaml image.tag (empty = keep the value on that branch)
         required: false
         type: string
+      # DRY-RUN (temporary): resolve, lint and commit metadata, but push no tags
+      # and nothing to OCI. Grep DRY-RUN to remove.
+      dry_run:
+        description: 'Dry run: skip the git tags and the OCI push'
+        required: false
+        default: false
+        type: boolean
   workflow_dispatch:
     inputs:
       branch:
@@ -59,6 +66,11 @@ on:
         description: Existing image tag (empty = values.yaml image.tag on that branch)
         required: false
         type: string
+      dry_run: # DRY-RUN (temporary)
+        description: 'Dry run: skip the git tags and the OCI push'
+        required: false
+        default: false
+        type: boolean
 
 permissions: {}
 
@@ -206,6 +218,7 @@ jobs:
           APP_VERSION: ${{ steps.resolve.outputs.app_version }}
           IMAGE_TAG: ${{ steps.resolve.outputs.image_tag }}
           BRANCH: ${{ steps.resolve.outputs.branch }}
+          DRY_RUN: ${{ inputs.dry_run }} # DRY-RUN (temporary)
         run: |
           set -euo pipefail
           git config user.name "github-actions[bot]"
@@ -270,6 +283,12 @@ jobs:
             else
               git tag "$name"
             fi
+            if [[ "${DRY_RUN:-false}" == "true" ]]; then
+              # DRY-RUN (temporary)
+              echo "::notice::dry run - would push $kind tag $name at $head"
+              git tag -d "$name" >/dev/null
+              return 0
+            fi
             git push origin "refs/tags/${name}"
             echo "Pushed $name at $head"
           }
@@ -303,8 +322,29 @@ jobs:
           echo "Could not fast-forward chart metadata onto $BRANCH" >&2
           exit 1
 
+      - name: Dry run - report what would have been published
+        if: ${{ inputs.dry_run == true }} # DRY-RUN (temporary)
+        env:
+          VERSION: ${{ steps.resolve.outputs.chart_version }}
+          IMAGE_TAG: ${{ steps.resolve.outputs.image_tag }}
+          PUBLISHED: ${{ steps.registry.outputs.published }}
+        run: |
+          {
+            echo "### Dry run - nothing was published"
+            echo ""
+            echo "| Would have | Value |"
+            echo "| --- | --- |"
+            echo "| pushed chart | \`$VERSION\` |"
+            echo "| tagged | \`charts/trueforge@$VERSION\` (annotated), \`v$VERSION\` (lightweight) |"
+            echo "| image tag in values | \`${IMAGE_TAG:-unchanged on the branch}\` |"
+            echo "| already in OCI | \`$PUBLISHED\` |"
+          } >> "$GITHUB_STEP_SUMMARY"
+
       - name: Package and push chart
-        if: steps.registry.outputs.published != 'true'
+        # DRY-RUN (temporary): `&& inputs.dry_run != true`. The package+push is
+        # the one step with no idempotent re-entry, so it is skipped whole
+        # rather than short-circuited inside the script.
+        if: steps.registry.outputs.published != 'true' && inputs.dry_run != true
         env:
           VERSION: ${{ steps.resolve.outputs.chart_version }}
           IMAGE_TAG: ${{ steps.resolve.outputs.image_tag }}

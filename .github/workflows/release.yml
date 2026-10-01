@@ -41,6 +41,15 @@ on:
         description: 'TrueFoundry chart version: X.Y.Z or X.Y.Z-rc.N'
         required: true
         type: string
+      # DRY-RUN (temporary): exercise the whole pipeline without publishing
+      # anything outside this repo. Commits to the release branch still happen
+      # - downstream jobs check that commit out - so dispatch it on a scratch
+      # release-v* branch you are willing to delete. Grep DRY-RUN to remove.
+      dry_run:
+        description: 'Dry run: skip npm, PyPI, images, git tags, the OCI push and the back-merge'
+        required: false
+        default: false
+        type: boolean
 
 concurrency:
   group: ${{ github.workflow }}-${{ github.ref }}
@@ -216,6 +225,7 @@ jobs:
   publish:
     name: Publish packages
     needs: [version-release, pack, windows-npx-smoke]
+    if: ${{ inputs.dry_run != true }} # DRY-RUN (temporary)
     runs-on: ubuntu-latest
     timeout-minutes: 20
     permissions:
@@ -257,6 +267,7 @@ jobs:
   publish-python:
     name: Publish Python SDK
     needs: [version-release, pack, windows-npx-smoke]
+    if: ${{ inputs.dry_run != true }} # DRY-RUN (temporary)
     runs-on: ubuntu-latest
     timeout-minutes: 20
     permissions:
@@ -388,7 +399,8 @@ jobs:
   # only goes to the private repo that TrueFoundry SaaS pulls from.
   build-image-public:
     name: Build and push public server image
-    if: needs.resolve-image.outputs.image == 'build'
+    # DRY-RUN (temporary): `&& inputs.dry_run != true`
+    if: needs.resolve-image.outputs.image == 'build' && inputs.dry_run != true
     needs: [resolve-image]
     uses: truefoundry/github-workflows-public/.github/workflows/build.yml@main
     permissions:
@@ -410,7 +422,8 @@ jobs:
 
   build-image-private:
     name: Build and push hardened server image
-    if: needs.resolve-image.outputs.image == 'build'
+    # DRY-RUN (temporary): `&& inputs.dry_run != true`
+    if: needs.resolve-image.outputs.image == 'build' && inputs.dry_run != true
     needs: [resolve-image]
     uses: truefoundry/github-workflows-public/.github/workflows/build.yml@main
     permissions:
@@ -460,6 +473,7 @@ jobs:
       # Empty on a re-run: keep whatever the tagged metadata commit already has.
       app_version: ${{ needs.resolve-image.outputs.app_version }}
       image_tag: ${{ needs.resolve-image.outputs.image_tag }}
+      dry_run: ${{ inputs.dry_run }} # DRY-RUN (temporary)
     secrets: inherit
 
   # A final minor is the only release that drains main. main has been
@@ -484,7 +498,8 @@ jobs:
     if: ${{ !cancelled()
       && needs.version-release.result == 'success'
       && needs.version-release.outputs.final_minor == 'true'
-      && (needs.release-chart.result == 'success' || needs.release-chart.result == 'skipped') }}
+      && (needs.release-chart.result == 'success' || needs.release-chart.result == 'skipped')
+      && inputs.dry_run != true }} # DRY-RUN (temporary)
     runs-on: ubuntu-latest
     timeout-minutes: 60
     continue-on-error: true
