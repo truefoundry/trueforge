@@ -38,6 +38,7 @@ function toSessionListEntry(session: TrueForgeApi.Session): HarnessSessionListEn
     ...(session.agent.type === 'reference' && session.agent.name !== null ? { agentName: session.agent.name } : {}),
     ...(session.agent.type === 'inline' ? { agentSpec: toUiAgentSpec(session.agent.spec) } : {}),
     ...(session.source?.type === 'schedule' ? { sourceType: session.source.type } : {}),
+    ...(session.createdBySubject == null ? {} : { createdBySubject: session.createdBySubject }),
   };
 }
 

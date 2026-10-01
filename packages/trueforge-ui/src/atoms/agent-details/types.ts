@@ -5,6 +5,7 @@ import type {
   AgentMetricGraph,
   AgentMetricMeter,
   CodeSnippet,
+  CreatedBySubject,
 } from '../../server/types.js';
 import type { SessionMetrics } from '../../utils/buildSessionMetrics.js';
 import type { SessionEventTimelineSegment, SessionEventType } from '../../utils/sessionEventTimeline.js';
@@ -40,6 +41,8 @@ export type AgentSessionListRowProps = {
     totalCostInUsd?: number;
     totalDurationMs: number;
   };
+  /** Session creator; avatar shown in the meta row when present. */
+  createdBySubject?: CreatedBySubject;
   active: boolean;
   onSelect: () => void;
   /** Opens delete confirmation; does not call the API. */

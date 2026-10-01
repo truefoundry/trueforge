@@ -2,11 +2,14 @@
 
 import { Icon } from '../../icons/Icon.js';
 import { useSlot } from '../../theme/SlotsProvider.js';
+import { createdByLabel } from '../../utils/createdBySubject.js';
 import { formatSessionListMetrics } from '../../utils/sessionDisplayFormat.js';
+import { getUserInitials } from '../UserAvatar.js';
 import { auiButtonClass } from '../lib/buttonClasses.js';
 import { cn } from '../lib/cn.js';
 import { formatAbsoluteDateTime } from '../lib/dateFormat.js';
 import { formatRelativeShort } from '../lib/threadListMeta.js';
+import { Avatar, AvatarFallback } from '../primitives/Avatar.js';
 import { DropdownMenu, DropdownMenuItem } from '../primitives/DropdownMenu.js';
 import { Tooltip } from '../primitives/Tooltip.js';
 import type { AgentSessionListRowProps } from './types.js';
@@ -17,6 +20,7 @@ export function AgentSessionListRow({
   sourceType,
   lastActivityAt,
   metrics,
+  createdBySubject,
   active,
   onSelect,
   onRequestDelete,
@@ -26,6 +30,8 @@ export function AgentSessionListRow({
   const activityAt = new Date(lastActivityAt);
   const relative = formatRelativeShort(activityAt);
   const absolute = formatAbsoluteDateTime(activityAt);
+  const subjectLabel = createdBySubject != null ? createdByLabel(createdBySubject) : null;
+  const subjectInitials = subjectLabel != null ? getUserInitials(subjectLabel) || '?' : null;
 
   return (
     <div
@@ -91,7 +97,16 @@ export function AgentSessionListRow({
         onClick={onSelect}
         className="flex w-full items-end justify-between gap-2 px-4 pt-2 pb-3 text-left text-xs text-text-secondary"
       >
-        <span className="flex min-w-0 items-center gap-1">
+        <span className="flex min-w-0 items-center gap-1.5">
+          {subjectLabel != null && subjectInitials != null ? (
+            <Tooltip content={subjectLabel}>
+              <span aria-label={subjectLabel} className="inline-flex shrink-0">
+                <Avatar size="sm" aria-hidden>
+                  <AvatarFallback>{subjectInitials}</AvatarFallback>
+                </Avatar>
+              </span>
+            </Tooltip>
+          ) : null}
           {agentName != null ? (
             <>
               <Icon name="agent-2" className="size-3 shrink-0" />

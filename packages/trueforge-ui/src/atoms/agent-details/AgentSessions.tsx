@@ -399,6 +399,7 @@ export function AgentSessions({
                   sourceType={entrySourceType(entry)}
                   lastActivityAt={entry.lastActivityAt}
                   metrics={entry.metrics}
+                  {...(entry.createdBySubject == null ? {} : { createdBySubject: entry.createdBySubject })}
                   active={entry.id === selectedSessionId}
                   onSelect={() => selectSession(entry)}
                   {...(canDeleteSession
