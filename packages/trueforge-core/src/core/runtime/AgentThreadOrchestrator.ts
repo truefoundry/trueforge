@@ -316,16 +316,20 @@ export class AgentThreadOrchestrator {
     // this check and logic becomes invalid if we allow mixed batches
     if (messages.some(isInputUserMessage)) {
       const mainThread = this.getMainThread();
-      const preferred: LLMToolMessage[] = [];
+      const toolIdToClosureMessages = new Map<string, LLMToolMessage>();
       for (const thread of this.getChildThreads()) {
         for (const event of thread.cancel(CANCELED_BECAUSE_USER_SENT_NEW_MESSAGE)) {
           yield event;
           if (event.completion) {
-            preferred.push(event.completion.send_to_parent);
+            const toolMessage = event.completion.send_to_parent;
+            toolIdToClosureMessages.set(toolMessage.tool_call_id, toolMessage);
           }
         }
       }
-      yield* mainThread.closeAnyOpenToolCalls(preferred, CANCELED_BECAUSE_USER_SENT_NEW_MESSAGE);
+      yield* mainThread.closeAllOpenToolCalls({
+        toolIdToClosureMessages,
+        defaultToolClosureContent: CANCELED_BECAUSE_USER_SENT_NEW_MESSAGE,
+      });
       // Send only to main and return. Falling through would fan out [] to cancelled
       // children (harmless no-op now) and also mis-route the user batch through the
       // approval/empty grouping path.

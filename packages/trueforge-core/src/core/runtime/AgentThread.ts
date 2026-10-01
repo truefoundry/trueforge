@@ -789,20 +789,17 @@ export class AgentThread {
     this.preComputedCompletion ??= completion;
   }
 
-  *closeAnyOpenToolCalls(
-    preferred: readonly LLMToolMessage[],
-    default_reason: string,
-  ): Generator<AgentThreadAppendContext, void, unknown> {
+  *closeAllOpenToolCalls({
+    toolIdToClosureMessages,
+    defaultToolClosureContent,
+  }: {
+    toolIdToClosureMessages: ReadonlyMap<string, LLMToolMessage>;
+    defaultToolClosureContent: string;
+  }): Generator<AgentThreadAppendContext, void, unknown> {
     this.throwIfAlreadyComplete();
-    const open = getOpenToolCallIds(this.context);
-    const byId = new Map<string, LLMToolMessage>();
-    for (const m of preferred) {
-      if (open.has(m.tool_call_id)) {
-        byId.set(m.tool_call_id, m);
-      }
-    }
-    const closed: LLMToolMessage[] = [...open].map(
-      id => byId.get(id) ?? { role: 'tool', tool_call_id: id, content: default_reason },
+    const openToolCallIds = getOpenToolCallIds(this.context);
+    const closed: LLMToolMessage[] = [...openToolCallIds].map(
+      id => toolIdToClosureMessages.get(id) ?? { role: 'tool', tool_call_id: id, content: defaultToolClosureContent },
     );
     if (closed.length === 0) {
       return;
