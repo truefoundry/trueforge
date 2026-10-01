@@ -58,21 +58,17 @@ export interface SandboxEnvironmentSecretRecord {
   environment_id: string;
   secret_name: string;
   external_secret_name: string;
-  external_secret_id: string | null;
+  external_secret_id: string;
   description: string;
   hash: string;
   created_at: string;
   updated_at: string;
 }
 
-export interface UpsertSandboxEnvironmentSecretInput {
-  tenant_id: string;
-  environment_id: string;
+export interface SyncedSandboxEnvironmentSecret {
   secret_name: string;
-  description: string;
-  hash: string;
-  /** Omit to leave unchanged on update. */
-  external_secret_id?: string;
+  external_secret_name: string;
+  external_secret_id: string;
 }
 
 export function parseStoredSandboxEnvironmentManifest(manifest: unknown): StoredSandboxEnvironmentManifest {
@@ -120,14 +116,10 @@ export type UpsertSandboxEnvironmentVersion = NextSandboxEnvironmentVersion & {
   created_by_subject: CreatedBySubject;
 };
 
-/** Version row columns for insert (store fills `environment_id`). */
-export type UpsertSandboxEnvironmentVersionWrite = UpsertSandboxEnvironmentVersion;
-
-export function toUpsertSandboxEnvironmentVersionWrite(
-  built: UpsertSandboxEnvironmentVersion,
-): UpsertSandboxEnvironmentVersionWrite {
-  return built;
-}
+/** Complete version row fields after the store resolves secret-row references. */
+export type UpsertSandboxEnvironmentVersionWrite = UpsertSandboxEnvironmentVersion & {
+  internal_metadata: SandboxEnvironmentVersionInternalMetadata;
+};
 
 /** Args for `buildVersion` during upsert. Tip fields omitted on first create. */
 export interface ExistingSandboxEnvironmentVersion {
@@ -142,6 +134,8 @@ export interface UpsertSandboxEnvironmentInput {
   name: ResourceName;
   description: string;
   created_by_subject: CreatedBySubject;
+  /** Complete provider refs from a successful secret sync before upsert. */
+  synced_secrets: SyncedSandboxEnvironmentSecret[];
   /** Called after parent lock/create; store upserts secrets from the returned manifest. */
   buildVersion: (
     input: ExistingSandboxEnvironmentVersion,
@@ -150,9 +144,6 @@ export interface UpsertSandboxEnvironmentInput {
 
 export interface MarkSandboxEnvironmentVersionReadyInput {
   environment_version_id: string;
-  /** Optional rewrite before ready (e.g. redacted secrets). */
-  manifest?: StoredSandboxEnvironmentManifest;
-  internal_metadata?: SandboxEnvironmentVersionInternalMetadata;
 }
 
 export interface MarkSandboxEnvironmentVersionFailedInput {
@@ -243,10 +234,4 @@ export interface ISandboxEnvironmentStore<TTransaction = never> {
     input: { environment_id: string },
     transaction?: TTransaction,
   ): Promise<SandboxEnvironmentSecretRecord[]>;
-  /** Upsert by `(environment_id, secret_name)`. */
-  upsertSecret(
-    input: UpsertSandboxEnvironmentSecretInput,
-    transaction?: TTransaction,
-  ): Promise<SandboxEnvironmentSecretRecord>;
-  deleteSecretsByIds(input: { ids: string[] }, transaction?: TTransaction): Promise<void>;
 }

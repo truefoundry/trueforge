@@ -12,7 +12,7 @@ export async function up(db: Kysely<unknown>): Promise<void> {
     .addColumn('environment_id', 'text', col => col.notNull())
     .addColumn('secret_name', 'text', col => col.notNull())
     .addColumn('external_secret_name', 'text', col => col.notNull())
-    .addColumn('external_secret_id', 'text')
+    .addColumn('external_secret_id', 'text', col => col.notNull())
     .addColumn('description', 'text', col => col.notNull())
     .addColumn('hash', 'text', col => col.notNull())
     .addColumn('created_at', 'timestamptz', col => col.notNull())

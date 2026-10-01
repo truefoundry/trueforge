@@ -17,6 +17,9 @@ import {
   type StoredSandboxProviderManifest,
 } from '../schemas/sandboxProvider';
 
+/** Bound Daytona RPCs so API requests and controller ticks cannot hang indefinitely. */
+export const DAYTONA_RPC_TIMEOUT_MS = 30_000;
+
 /** Provider rejected the credentials (401 unauthorized); retrying the same key cannot succeed. */
 export function isDaytonaAuthError(error: unknown): boolean {
   return error instanceof DaytonaError && error.statusCode === 401;
@@ -24,6 +27,16 @@ export function isDaytonaAuthError(error: unknown): boolean {
 
 export function isDaytonaPermissionError(error: unknown): boolean {
   return error instanceof DaytonaError && error.statusCode === 403;
+}
+
+export function getDaytonaAuthorizationErrorMessage(error: unknown): string | undefined {
+  if (isDaytonaAuthError(error)) {
+    return 'Sandbox provider rejected the API key — check the credentials';
+  }
+  if (isDaytonaPermissionError(error)) {
+    return 'Sandbox provider denied access: the API key is missing required permissions';
+  }
+  return undefined;
 }
 
 /** Configured tenant sandbox backends (not local fallback). */

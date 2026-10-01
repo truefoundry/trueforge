@@ -47,6 +47,7 @@ describe('sandbox environment secrets', () => {
       resolveAgentStore: () => ({ listAgentNamesUsingSandboxEnvironment: jest.fn().mockResolvedValue([]) }) as never,
       resolveSandboxProviderStore: () => sandboxProviderStore,
       resolveRequestContext: () => STANDALONE_REQUEST_CONTEXT,
+      logger,
     });
     const buildRouter = createSandboxEnvironmentBuildRouter({
       sandboxEnvironmentStore,
@@ -56,8 +57,19 @@ describe('sandbox environment secrets', () => {
     return { publicRouter, buildRouter, sandboxEnvironmentStore };
   }
 
-  it('upserts secret rows on PUT, syncs to Daytona on progress, redacts, and mounts names', async () => {
+  it('upserts secret rows and syncs to Daytona on PUT, redacts, and mounts names after ready', async () => {
     const { publicRouter, buildRouter, sandboxEnvironmentStore } = await setup();
+
+    const createSecret = jest
+      .fn()
+      .mockImplementation(({ name }: { name: string }) => Promise.resolve({ id: 'daytona-sec-1', name }));
+    jest.mocked(providerUtils.toDaytonaSandboxProvider).mockReturnValue({
+      getBuildStatus: jest.fn().mockResolvedValue({ status: 'ready', reason: null, metadata: null }),
+      build: jest.fn(),
+      createSecret,
+      updateSecret: jest.fn(),
+      deleteSecret: jest.fn(),
+    } as never);
 
     const putRes = await publicRouter.request('/', {
       method: 'PUT',
@@ -81,28 +93,30 @@ describe('sandbox environment secrets', () => {
     expect(rows).toEqual([
       expect.objectContaining({
         secret_name: 'GITHUB_TOKEN',
-        external_secret_id: null,
+        external_secret_id: 'daytona-sec-1',
         external_secret_name: expect.stringMatching(/^trueforge-/),
       }),
     ]);
+    expect(createSecret).toHaveBeenCalledWith(
+      expect.objectContaining({
+        name: rows[0]?.external_secret_name,
+        value: 'ghp_plain',
+        hosts: ['github.com'],
+      }),
+    );
+
+    const pendingAfterPut = await sandboxEnvironmentStore.getEnvironment({
+      tenant_id: STANDALONE_REQUEST_CONTEXT.tenant_id,
+      name: 'secret-env',
+      created_by_subject_id: STANDALONE_REQUEST_CONTEXT.subject.id,
+    });
+    expect(pendingAfterPut?.version.manifest.networking?.secrets?.[0]?.value).toBe(SECRET_REDACTION);
 
     const pending = (await (await buildRouter.request('/pending')).json()) as {
       data: { environment_version_id: string }[];
     };
     const versionId = pending.data[0]?.environment_version_id;
     expect(versionId).toBeDefined();
-
-    const createSecret = jest.fn().mockResolvedValue({
-      id: 'daytona-sec-1',
-      name: rows[0]?.external_secret_name,
-    });
-    jest.mocked(providerUtils.toDaytonaSandboxProvider).mockReturnValue({
-      getBuildStatus: jest.fn().mockResolvedValue({ status: 'ready', reason: null, metadata: null }),
-      build: jest.fn(),
-      createSecret,
-      updateSecret: jest.fn(),
-      deleteSecret: jest.fn(),
-    } as never);
 
     expect(
       (
@@ -114,13 +128,7 @@ describe('sandbox environment secrets', () => {
       ).status,
     ).toBe(204);
 
-    expect(createSecret).toHaveBeenCalledWith(
-      expect.objectContaining({
-        name: rows[0]?.external_secret_name,
-        value: 'ghp_plain',
-        hosts: ['github.com'],
-      }),
-    );
+    expect(createSecret).toHaveBeenCalledTimes(1);
 
     const loaded = await sandboxEnvironmentStore.getEnvironment({
       tenant_id: STANDALONE_REQUEST_CONTEXT.tenant_id,
@@ -143,10 +151,20 @@ describe('sandbox environment secrets', () => {
     });
   });
 
-  it('marks the version failed when Daytona secret sync fails', async () => {
-    const { publicRouter, buildRouter, sandboxEnvironmentStore } = await setup();
+  it('updates a redacted secret and removes its Daytona and database refs on PUT', async () => {
+    const { publicRouter, sandboxEnvironmentStore } = await setup();
+    const createSecret = jest
+      .fn()
+      .mockImplementation(({ name }: { name: string }) => Promise.resolve({ id: 'daytona-sec-1', name }));
+    const updateSecret = jest.fn().mockResolvedValue(undefined);
+    const deleteSecret = jest.fn().mockResolvedValue(undefined);
+    jest.mocked(providerUtils.toDaytonaSandboxProvider).mockReturnValue({
+      createSecret,
+      updateSecret,
+      deleteSecret,
+    } as never);
 
-    await publicRouter.request('/', {
+    const createResponse = await publicRouter.request('/', {
       method: 'PUT',
       headers: { 'content-type': 'application/json' },
       body: JSON.stringify({
@@ -158,34 +176,79 @@ describe('sandbox environment secrets', () => {
         },
       }),
     });
-    const pending = (await (await buildRouter.request('/pending')).json()) as {
-      data: { environment_version_id: string }[];
-    };
+    expect(createResponse.status).toBe(200);
+    const created = (await createResponse.json()) as { data: { id: string } };
+    const originalRows = await sandboxEnvironmentStore.listSecretsByEnvironment({
+      environment_id: created.data.id,
+    });
+
+    const updateResponse = await publicRouter.request('/', {
+      method: 'PUT',
+      headers: { 'content-type': 'application/json' },
+      body: JSON.stringify({
+        manifest: {
+          name: 'secret-env',
+          networking: {
+            secrets: [{ env: 'GITHUB_TOKEN', value: SECRET_REDACTION, hosts: ['api.github.com'] }],
+          },
+        },
+      }),
+    });
+    expect(updateResponse.status).toBe(200);
+    expect(updateSecret).toHaveBeenCalledWith({
+      secretId: 'daytona-sec-1',
+      hosts: ['api.github.com'],
+    });
+    expect(await sandboxEnvironmentStore.listSecretsByEnvironment({ environment_id: created.data.id })).toEqual([
+      expect.objectContaining({
+        id: originalRows[0]?.id,
+        hash: originalRows[0]?.hash,
+        external_secret_name: originalRows[0]?.external_secret_name,
+        external_secret_id: 'daytona-sec-1',
+      }),
+    ]);
+
+    const removeResponse = await publicRouter.request('/', {
+      method: 'PUT',
+      headers: { 'content-type': 'application/json' },
+      body: JSON.stringify({ manifest: { name: 'secret-env' } }),
+    });
+    expect(removeResponse.status).toBe(200);
+    expect(deleteSecret).toHaveBeenCalledWith({ secretId: 'daytona-sec-1' });
+    expect(await sandboxEnvironmentStore.listSecretsByEnvironment({ environment_id: created.data.id })).toEqual([]);
+  });
+
+  it('returns 502 when Daytona secret sync fails on PUT', async () => {
+    const { publicRouter, sandboxEnvironmentStore } = await setup();
 
     jest.mocked(providerUtils.toDaytonaSandboxProvider).mockReturnValue({
-      getBuildStatus: jest.fn().mockResolvedValue({ status: 'ready', reason: null, metadata: null }),
-      build: jest.fn(),
       createSecret: jest.fn().mockRejectedValue(new Error('Daytona secret create failed')),
       updateSecret: jest.fn(),
       deleteSecret: jest.fn(),
     } as never);
 
-    expect(
-      (
-        await buildRouter.request('/progress', {
-          method: 'POST',
-          headers: { 'content-type': 'application/json' },
-          body: JSON.stringify({ environment_version_id: pending.data[0]?.environment_version_id }),
-        })
-      ).status,
-    ).toBe(204);
+    const putRes = await publicRouter.request('/', {
+      method: 'PUT',
+      headers: { 'content-type': 'application/json' },
+      body: JSON.stringify({
+        manifest: {
+          name: 'secret-env',
+          networking: {
+            secrets: [{ env: 'GITHUB_TOKEN', value: 'ghp_plain', hosts: ['github.com'] }],
+          },
+        },
+      }),
+    });
+    expect(putRes.status).toBe(502);
+    expect(await putRes.json()).toEqual({
+      error: { message: 'Daytona secret create failed' },
+    });
 
     const loaded = await sandboxEnvironmentStore.getEnvironment({
       tenant_id: STANDALONE_REQUEST_CONTEXT.tenant_id,
       name: 'secret-env',
       created_by_subject_id: STANDALONE_REQUEST_CONTEXT.subject.id,
     });
-    expect(loaded?.version.status).toBe('failed');
-    expect(loaded?.version.status_reason).toBe('Daytona secret create failed');
+    expect(loaded).toBeUndefined();
   });
 });

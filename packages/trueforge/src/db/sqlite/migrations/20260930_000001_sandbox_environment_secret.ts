@@ -11,7 +11,7 @@ export async function up(db: Kysely<unknown>): Promise<void> {
         environment_id TEXT NOT NULL,
         secret_name TEXT NOT NULL,
         external_secret_name TEXT NOT NULL,
-        external_secret_id TEXT,
+        external_secret_id TEXT NOT NULL,
         description TEXT NOT NULL,
         hash TEXT NOT NULL,
         created_at TEXT NOT NULL,

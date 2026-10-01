@@ -306,7 +306,7 @@ export interface SandboxEnvironmentSecretTable {
   environment_id: string;
   secret_name: string;
   external_secret_name: string;
-  external_secret_id: string | null;
+  external_secret_id: string;
   description: string;
   hash: string;
   created_at: string;

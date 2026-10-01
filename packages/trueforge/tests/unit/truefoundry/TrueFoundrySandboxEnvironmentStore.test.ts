@@ -68,6 +68,7 @@ describe('TrueFoundrySandboxEnvironmentStore', () => {
         subject_type: 'user',
         subject_display_name: 'User',
       },
+      synced_secrets: [],
       buildVersion: () => ({
         version: 1,
         manifest: {
@@ -79,7 +80,6 @@ describe('TrueFoundrySandboxEnvironmentStore', () => {
         status: 'pending',
         status_reason: null,
         external_ref: 'ref-1',
-        internal_metadata: { secrets: [] },
         created_by_subject: {
           subject_id: SUBJECT_ID,
           subject_type: 'user',

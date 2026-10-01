@@ -53,6 +53,7 @@ describe('sandbox environments API → build controller path', () => {
         }) as never,
       resolveSandboxProviderStore: () => sandboxProviderStore,
       resolveRequestContext: () => STANDALONE_REQUEST_CONTEXT,
+      logger,
     });
     const buildRouter = createSandboxEnvironmentBuildRouter({
       sandboxEnvironmentStore,
@@ -64,6 +65,22 @@ describe('sandbox environments API → build controller path', () => {
 
   it('PUT custom env lands pending; internal progress marks ready after build', async () => {
     const { publicRouter, buildRouter, sandboxEnvironmentStore } = await setup();
+
+    jest.mocked(providerUtils.toDaytonaSandboxProvider).mockReturnValue({
+      createSecret: jest.fn(),
+      updateSecret: jest.fn(),
+      deleteSecret: jest.fn(),
+      getBuildStatus: jest.fn().mockResolvedValue({
+        status: 'pending',
+        reason: DAYTONA_SNAPSHOT_NOT_STARTED_REASON,
+        metadata: null,
+      }),
+      build: jest.fn().mockResolvedValue({
+        status: 'ready',
+        reason: null,
+        metadata: null,
+      }),
+    } as never);
 
     const putRes = await publicRouter.request('/', {
       method: 'PUT',
@@ -86,19 +103,6 @@ describe('sandbox environments API → build controller path', () => {
     expect(pendingBody.data).toHaveLength(1);
     const versionId = pendingBody.data[0]?.environment_version_id;
     expect(versionId).toBeDefined();
-
-    jest.mocked(providerUtils.toDaytonaSandboxProvider).mockReturnValue({
-      getBuildStatus: jest.fn().mockResolvedValue({
-        status: 'pending',
-        reason: DAYTONA_SNAPSHOT_NOT_STARTED_REASON,
-        metadata: null,
-      }),
-      build: jest.fn().mockResolvedValue({
-        status: 'ready',
-        reason: null,
-        metadata: null,
-      }),
-    } as never);
 
     const progressRes = await buildRouter.request('/progress', {
       method: 'POST',
