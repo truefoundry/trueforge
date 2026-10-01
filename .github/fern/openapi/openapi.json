@@ -236,6 +236,13 @@
             "format": "uri",
             "type": "string"
           },
+          "invoke_headers": {
+            "additionalProperties": {
+              "type": "string"
+            },
+            "description": "Extra headers merged into every model invoke alongside gateway metadata.",
+            "type": "object"
+          },
           "models": {
             "description": "Models exposed by this provider (at least one).",
             "items": {
@@ -269,6 +276,13 @@
             "description": "Override of the provider's default API base URL.",
             "format": "uri",
             "type": "string"
+          },
+          "invoke_headers": {
+            "additionalProperties": {
+              "type": "string"
+            },
+            "description": "Extra headers merged into every model invoke alongside gateway metadata.",
+            "type": "object"
           },
           "models": {
             "description": "Models exposed by this provider (at least one).",
@@ -1247,6 +1261,13 @@
             "format": "uri",
             "type": "string"
           },
+          "invoke_headers": {
+            "additionalProperties": {
+              "type": "string"
+            },
+            "description": "Extra headers merged into every model invoke alongside gateway metadata.",
+            "type": "object"
+          },
           "models": {
             "description": "Models exposed by this provider (at least one).",
             "items": {
@@ -1394,6 +1415,13 @@
             "description": "Override of the provider's default API base URL.",
             "format": "uri",
             "type": "string"
+          },
+          "invoke_headers": {
+            "additionalProperties": {
+              "type": "string"
+            },
+            "description": "Extra headers merged into every model invoke alongside gateway metadata.",
+            "type": "object"
           },
           "models": {
             "description": "Models exposed by this provider (at least one).",
@@ -1787,6 +1815,13 @@
             "description": "Override of the provider's default API base URL.",
             "format": "uri",
             "type": "string"
+          },
+          "invoke_headers": {
+            "additionalProperties": {
+              "type": "string"
+            },
+            "description": "Extra headers merged into every model invoke alongside gateway metadata.",
+            "type": "object"
           },
           "models": {
             "description": "Models exposed by this provider (at least one).",
@@ -3391,6 +3426,13 @@
             "format": "uri",
             "type": "string"
           },
+          "invoke_headers": {
+            "additionalProperties": {
+              "type": "string"
+            },
+            "description": "Extra headers merged into every model invoke alongside gateway metadata.",
+            "type": "object"
+          },
           "models": {
             "description": "Models exposed by this provider (at least one).",
             "items": {
@@ -3424,6 +3466,13 @@
             "description": "Override of the provider's default API base URL.",
             "format": "uri",
             "type": "string"
+          },
+          "invoke_headers": {
+            "additionalProperties": {
+              "type": "string"
+            },
+            "description": "Extra headers merged into every model invoke alongside gateway metadata.",
+            "type": "object"
           },
           "models": {
             "description": "Models exposed by this provider (at least one).",
@@ -5105,6 +5154,13 @@
             "format": "uri",
             "type": "string"
           },
+          "invoke_headers": {
+            "additionalProperties": {
+              "type": "string"
+            },
+            "description": "Extra headers merged into every model invoke alongside gateway metadata.",
+            "type": "object"
+          },
           "models": {
             "description": "Models exposed by this provider (at least one).",
             "items": {
@@ -5414,6 +5470,13 @@
             "description": "Base URL of the TrueFoundry AI gateway the models are invoked against.",
             "format": "uri",
             "type": "string"
+          },
+          "invoke_headers": {
+            "additionalProperties": {
+              "type": "string"
+            },
+            "description": "Extra headers merged into every model invoke alongside gateway metadata.",
+            "type": "object"
           },
           "models": {
             "description": "Models exposed by this provider (at least one).",
@@ -6538,6 +6601,13 @@
             "description": "Override of the provider's default API base URL.",
             "format": "uri",
             "type": "string"
+          },
+          "invoke_headers": {
+            "additionalProperties": {
+              "type": "string"
+            },
+            "description": "Extra headers merged into every model invoke alongside gateway metadata.",
+            "type": "object"
           },
           "models": {
             "description": "Models exposed by this provider (at least one).",

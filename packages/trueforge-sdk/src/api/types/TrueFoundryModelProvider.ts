@@ -6,6 +6,8 @@ export interface TrueFoundryModelProvider {
     auth?: TrueForge.ModelProviderAuth;
     /** Base URL of the TrueFoundry AI gateway the models are invoked against. */
     baseUrl: string;
+    /** Extra headers merged into every model invoke alongside gateway metadata. */
+    invokeHeaders?: Record<string, string>;
     /** Models exposed by this provider (at least one). */
     models: TrueForge.ConfiguredModel[];
     type: "truefoundry";

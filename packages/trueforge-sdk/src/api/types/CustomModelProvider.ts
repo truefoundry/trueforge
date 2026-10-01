@@ -6,6 +6,8 @@ export interface CustomModelProvider {
     auth?: TrueForge.ModelProviderAuth;
     /** Base URL of the provider's API. */
     baseUrl: string;
+    /** Extra headers merged into every model invoke alongside gateway metadata. */
+    invokeHeaders?: Record<string, string>;
     /** Models exposed by this provider (at least one). */
     models: TrueForge.ConfiguredModel[];
     name: TrueForge.ResourceName;

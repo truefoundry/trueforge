@@ -12,6 +12,10 @@ export const MoonshotModelProvider: core.serialization.ObjectSchema<
 > = core.serialization.object({
     auth: ModelProviderAuth,
     baseUrl: core.serialization.property("base_url", core.serialization.string().optional()),
+    invokeHeaders: core.serialization.property(
+        "invoke_headers",
+        core.serialization.record(core.serialization.string(), core.serialization.string()).optional(),
+    ),
     models: core.serialization.list(ConfiguredModel),
     type: core.serialization.stringLiteral("moonshot"),
 });
@@ -20,6 +24,7 @@ export declare namespace MoonshotModelProvider {
     export interface Raw {
         auth: ModelProviderAuth.Raw;
         base_url?: string | null;
+        invoke_headers?: Record<string, string> | null;
         models: ConfiguredModel.Raw[];
         type: "moonshot";
     }

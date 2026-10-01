@@ -106,6 +106,7 @@ describe("ModelProvidersClient", () => {
                 manifest: {
                     auth: { api_key: "api_key" },
                     base_url: "base_url",
+                    invoke_headers: { key: "value" },
                     models: [{ model_id: "model_id", name: "name", properties: {} }],
                     type: "alibaba",
                 },
@@ -144,6 +145,9 @@ describe("ModelProvidersClient", () => {
                         apiKey: "api_key",
                     },
                     baseUrl: "base_url",
+                    invokeHeaders: {
+                        key: "value",
+                    },
                     models: [
                         {
                             modelId: "model_id",
@@ -317,6 +321,7 @@ describe("ModelProvidersClient", () => {
                 manifest: {
                     auth: { api_key: "api_key" },
                     base_url: "base_url",
+                    invoke_headers: { key: "value" },
                     models: [{ model_id: "model_id", name: "name", properties: {} }],
                     type: "alibaba",
                 },
@@ -355,6 +360,9 @@ describe("ModelProvidersClient", () => {
                         apiKey: "api_key",
                     },
                     baseUrl: "base_url",
+                    invokeHeaders: {
+                        key: "value",
+                    },
                     models: [
                         {
                             modelId: "model_id",

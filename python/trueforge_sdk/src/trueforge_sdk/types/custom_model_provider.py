@@ -17,6 +17,11 @@ class CustomModelProvider(UncheckedBaseModel):
     Base URL of the provider's API.
     """
 
+    invoke_headers: typing.Optional[typing.Dict[str, str]] = pydantic.Field(default=None)
+    """
+    Extra headers merged into every model invoke alongside gateway metadata.
+    """
+
     models: typing.List[ConfiguredModel] = pydantic.Field()
     """
     Models exposed by this provider (at least one).

@@ -16,6 +16,11 @@ class TrueFoundryModelProvider(UncheckedBaseModel):
     Base URL of the TrueFoundry AI gateway the models are invoked against.
     """
 
+    invoke_headers: typing.Optional[typing.Dict[str, str]] = pydantic.Field(default=None)
+    """
+    Extra headers merged into every model invoke alongside gateway metadata.
+    """
+
     models: typing.List[ConfiguredModel] = pydantic.Field()
     """
     Models exposed by this provider (at least one).

@@ -13,6 +13,10 @@ export const CustomModelProvider: core.serialization.ObjectSchema<
 > = core.serialization.object({
     auth: ModelProviderAuth.optional(),
     baseUrl: core.serialization.property("base_url", core.serialization.string()),
+    invokeHeaders: core.serialization.property(
+        "invoke_headers",
+        core.serialization.record(core.serialization.string(), core.serialization.string()).optional(),
+    ),
     models: core.serialization.list(ConfiguredModel),
     name: ResourceName,
     type: core.serialization.stringLiteral("custom"),
@@ -22,6 +26,7 @@ export declare namespace CustomModelProvider {
     export interface Raw {
         auth?: ModelProviderAuth.Raw | null;
         base_url: string;
+        invoke_headers?: Record<string, string> | null;
         models: ConfiguredModel.Raw[];
         name: ResourceName.Raw;
         type: "custom";
