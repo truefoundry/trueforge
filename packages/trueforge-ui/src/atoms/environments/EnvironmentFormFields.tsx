@@ -275,7 +275,10 @@ export function EnvironmentFormFields({
       {!values.networkBlockAll ? (
         <div className={sectionCardClassName}>
           <div className="flex items-center justify-between">
-            <h3 className="text-sm font-medium text-text-primary">Secrets</h3>
+            <div className="flex flex-col">
+              <h3 className="text-sm font-medium text-text-primary">Secrets</h3>
+              <span className="text-xs text-text-secondary">Synced immediately with existing sandboxes</span>
+            </div>
             <button
               type="button"
               className="cursor-pointer text-xs font-medium text-text-secondary transition-colors hover:text-text-primary"
