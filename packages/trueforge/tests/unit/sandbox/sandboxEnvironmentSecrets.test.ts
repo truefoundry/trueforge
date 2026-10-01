@@ -1,3 +1,4 @@
+import { DaytonaError } from '@daytona/sdk';
 import { createLogger } from 'winston';
 import { createSandboxEnvironmentBuildRouter } from '../../../src/apis/sandboxEnvironmentBuild';
 import { createSandboxEnvironmentsRouter } from '../../../src/apis/sandboxEnvironments';
@@ -265,5 +266,33 @@ describe('sandbox environment secrets', () => {
       created_by_subject_id: STANDALONE_REQUEST_CONTEXT.subject.id,
     });
     expect(loaded).toBeUndefined();
+  });
+
+  it('returns 422 when Daytona rejects the provider credentials', async () => {
+    const { publicRouter } = await setup();
+
+    jest.mocked(providerUtils.toDaytonaSandboxProvider).mockReturnValue({
+      createSecret: jest.fn().mockRejectedValue(new DaytonaError('Unauthorized', 401)),
+      updateSecret: jest.fn(),
+      deleteSecret: jest.fn(),
+    } as never);
+
+    const putRes = await publicRouter.request('/', {
+      method: 'PUT',
+      headers: { 'content-type': 'application/json' },
+      body: JSON.stringify({
+        manifest: {
+          name: 'secret-env',
+          networking: {
+            secrets: [{ env: 'GITHUB_TOKEN', value: 'ghp_plain', hosts: ['github.com'] }],
+          },
+        },
+      }),
+    });
+
+    expect(putRes.status).toBe(422);
+    expect(await putRes.json()).toEqual({
+      error: { message: 'Sandbox provider rejected the API key — check the credentials' },
+    });
   });
 });
