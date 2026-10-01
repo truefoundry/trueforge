@@ -140,6 +140,18 @@ function hasToolCalls(message: InternalEnrichedAssistantMessage): boolean {
   return Boolean(message.tool_calls && message.tool_calls.length > 0);
 }
 
+// Providers sometimes emit finish_reason=tool_calls with an empty or missing
+// tool_calls payload. That is not a successful stop — the model asked to call
+// a tool, but nothing is executable. Treat it like hitting the token limit.
+function isToolCallsFinishWithoutToolCalls(
+  finishReason: FinishReason | null,
+  message: InternalEnrichedAssistantMessage,
+): boolean {
+  return finishReason === 'tool_calls' && !hasToolCalls(message);
+}
+
+const TOOL_CALLS_FINISH_WITHOUT_CALLS_ERROR = 'finish_reason is tool_calls but the assistant message has no tool_calls';
+
 // Tool call ids issued by the last assistant message that have no matching
 // tool response after it. Walks the context tail-first and stops at the last
 // assistant message — under the invariant that older assistant tool_calls are
@@ -1172,13 +1184,14 @@ export class AgentThread {
       id: modelMessageEventId,
     });
 
+    const missingToolCalls = isToolCallsFinishWithoutToolCalls(finishReason, assistantMessage);
+    const abortedByLength = finishReason === 'length';
+
     let completion: SubAgentCompletion | undefined;
     if (this.parent) {
-      if (finishReason === 'length') {
-        const errorMessage = assistantMessageContentToStringForSubAgent(
-          assistantMessage.content,
-          'max_tokens breached',
-        );
+      if (abortedByLength || missingToolCalls) {
+        const fallback = abortedByLength ? 'max_tokens breached' : TOOL_CALLS_FINISH_WITHOUT_CALLS_ERROR;
+        const errorMessage = assistantMessageContentToStringForSubAgent(assistantMessage.content, fallback);
         completion = {
           type: 'error',
           output: agentAssistantMessage,
@@ -1203,8 +1216,9 @@ export class AgentThread {
       completion,
     });
 
-    if (finishReason === 'length') {
-      const errorContent = completion?.type === 'error' ? completion.error_message : 'max_tokens breached';
+    if (abortedByLength || missingToolCalls) {
+      const fallback = abortedByLength ? 'max_tokens breached' : TOOL_CALLS_FINISH_WITHOUT_CALLS_ERROR;
+      const errorContent = completion?.type === 'error' ? completion.error_message : fallback;
       yield this.generateErrorEvent(errorContent, agentAssistantMessage);
       return { outcome: 'exit', modelMessageEventId };
     }
