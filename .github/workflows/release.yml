@@ -202,7 +202,11 @@ jobs:
         uses: actions/setup-node@v7
         with:
           node-version: 24
-          cache: pnpm
+          # No package-manager cache: this job checks out a commit this run just
+          # created (version-release.outputs.sha), and writing an Actions cache
+          # from an expression-derived ref is the cache-poisoning shape CodeQL
+          # flags. The other two jobs on this ref already opt out.
+          package-manager-cache: false
 
       - run: pnpm install --frozen-lockfile
 
