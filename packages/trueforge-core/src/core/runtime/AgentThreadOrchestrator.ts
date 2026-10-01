@@ -312,6 +312,8 @@ export class AgentThreadOrchestrator {
   }
 
   public async *send(messages: AgentThreadSendBatch): AsyncGenerator<AgentThreadAppendContext, void, unknown> {
+    // "some" in this case means all messages are user messages because of the type
+    // this check and logic becomes invalid if we allow mixed batches
     if (messages.some(isInputUserMessage)) {
       const mainThread = this.getMainThread();
       const preferred: LLMToolMessage[] = [];
@@ -323,6 +325,11 @@ export class AgentThreadOrchestrator {
         }
       }
       yield* mainThread.closeAnyOpenToolCalls(preferred, CANCELED_BECAUSE_USER_SENT_NEW_MESSAGE);
+      // just send message to main thread and return
+      // if we fall through to rest of logic, we will send [] to all threads
+      // which will create issue because cancelled threads now have preComputedCompletion
+      // so validateSendInput([]) / send([]) hits throwIfAlreadyComplete()
+      // and fails with something like thread … is already complete
       yield* this.sendToThread(mainThread.threadId, messages);
       return;
     }
@@ -347,6 +354,7 @@ export class AgentThreadOrchestrator {
         byThread.set(threadId, batch);
       }
     } else if (messages.length > 0) {
+      // Note this branch is unreachable because we handle user messages at the beginning of the function
       byThread.set(this.getMainThread().threadId, messages);
     }
 
