@@ -3,7 +3,6 @@ import { z } from 'zod';
 import type { AgentCapability, CapabilityState, JsonValue } from '../capabilities/AgentCapability';
 import type { RegisteredPassthroughEvent, WithRegisteredPassthrough } from '../events/PassthroughEvents';
 import type {
-  ActionRequiredEvent,
   AgentApprovalDecisionMessage,
   AgentInfo,
   AgentInputUserMessage,
@@ -42,6 +41,8 @@ export const InternalEventType = {
   PASSTHROUGH: 'agent.passthrough',
   MCP_AUTH_REQUIRED: 'internal.mcp.auth_required',
   CAPABILITY_STATE: 'internal.capability.state',
+  // Turn lifecycle transition (paused ↔ running).
+  TURN_STATE: 'internal.turn.state',
 } as const;
 
 /**
@@ -131,13 +132,24 @@ export type AgentThreadEvent =
   | ToolResponseRequiredEvent
   | InternalPassthroughEvent;
 
-export type AgentThreadExecutionEvent = WithRegisteredPassthrough<
-  ThreadCreatedEvent | Exclude<AgentThreadEvent, InternalPassthroughEvent>
->;
+/** A turn-level non-terminal transition emitted by the executor loop when it parks/resumes. */
+export interface InternalTurnStateEvent {
+  type: typeof InternalEventType.TURN_STATE;
+  transition: { status: 'paused' } | { status: 'running' };
+}
 
+export type AgentThreadExecutionEvent =
+  | WithRegisteredPassthrough<ThreadCreatedEvent | Exclude<AgentThreadEvent, InternalPassthroughEvent>>
+  | InternalTurnStateEvent;
+
+/**
+ * Terminal result of an executor run. The executor parks internally while paused (surfacing
+ * pause/resume via the {@link InternalTurnStateEvent} stream), so it only ever *returns* once the
+ * run has finished or the root agent errored — hence a single 'done' shape, never 'paused'.
+ */
 export interface AgentThreadExecutionResult {
+  status: 'done';
   output: ModelMessageEvent | null;
-  required_actions: ActionRequiredEvent[];
   root_agent_error?: Pick<ThreadStateError, 'error' | 'output'> | undefined;
 }
 
