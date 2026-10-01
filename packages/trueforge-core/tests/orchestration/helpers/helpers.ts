@@ -1,12 +1,11 @@
 import type { ILLM } from '../../../src/core/llm/ILLM';
 import type { ExtendedChatCompletionChunk, RawAssistantMessageWithUsage } from '../../../src/core/llm/LLMTypes';
 import { getEmptyUsage } from '../../../src/core/llm/LLMTypes';
-import type {
-  AgentThreadExecutionEvent,
-  AgentThreadExecutionResult,
-  AgentThreadSendBatch,
+import {
+  InternalEventType,
+  type AgentThreadExecutionEvent,
+  type AgentThreadExecutionResult,
 } from '../../../src/core/runtime/AgentThread.types';
-import type { AgentThreadOrchestrator } from '../../../src/core/runtime/AgentThreadOrchestrator';
 
 export const WRITE_NOTE_TOOL_NAME = 'write_note';
 export const WRITE_NOTE_CALL_ID = 'call-write';
@@ -130,29 +129,35 @@ export async function* writeNoteToolCallStream() {
   };
 }
 
+export type DriveOutcome =
+  | { kind: 'paused'; events: AgentThreadExecutionEvent[] }
+  | { kind: 'done'; events: AgentThreadExecutionEvent[]; result: AgentThreadExecutionResult };
+
 /**
- * Apply the batch (like SessionHandle.createTurn's atomic pre-send: validate + append,
- * out-of-band from the execute() stream), then consume execute(); return the execute events
- * and the generator result. The store-free send() enqueue path is exercised by the wiring layer.
+ * Drive a live `execute()` generator exactly as the production wiring layer would: collect the
+ * non-turn-state events and stop when the executor parks (turn-state `paused`) or returns. On a
+ * park the generator is left suspended so the caller can resume the SAME `execute()` via
+ * `send()` + `notifyWake()`; on done the executor's own terminal result is returned. Nothing is
+ * synthesized and resume is never faked — `running` transitions are internal bookkeeping and dropped.
  */
-export async function runTurn(input: {
-  orchestrator: AgentThreadOrchestrator;
-  sendBatch: AgentThreadSendBatch;
-  signal?: AbortSignal | undefined;
-}): Promise<{ events: AgentThreadExecutionEvent[]; result: AgentThreadExecutionResult }> {
-  for await (const _event of input.orchestrator.applyUserEvents(input.sendBatch)) {
-    void _event;
-  }
+export async function driveUntilPauseOrDone(
+  iterator: AsyncGenerator<AgentThreadExecutionEvent, AgentThreadExecutionResult, unknown>,
+): Promise<DriveOutcome> {
   const events: AgentThreadExecutionEvent[] = [];
-  const iterator = input.orchestrator.execute({
-    signal: input.signal ?? new AbortController().signal,
-  });
   let step = await iterator.next();
   while (!step.done) {
-    events.push(step.value);
+    const event = step.value;
+    if (event.type === InternalEventType.TURN_STATE) {
+      if (event.transition.status === 'paused') {
+        return { kind: 'paused', events };
+      }
+      step = await iterator.next();
+      continue;
+    }
+    events.push(event);
     step = await iterator.next();
   }
-  return { events, result: step.value };
+  return { kind: 'done', events, result: step.value };
 }
 
 export function llmCreateInputs(llm: ILLM): unknown[] {

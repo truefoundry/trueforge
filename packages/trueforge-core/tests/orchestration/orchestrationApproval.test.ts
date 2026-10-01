@@ -9,8 +9,8 @@ import { AgentThreadOrchestrator } from '../../src/core/runtime/AgentThreadOrche
 import { NOOP_AGENT_TRACING } from '../../src/core/tracing/NoopAgentTracing';
 import { makeSilentLogger } from '../core/harnessMocks';
 import {
+  driveUntilPauseOrDone,
   llmCreateInputs,
-  runTurn,
   textReplyStream,
   WRITE_NOTE_ARGUMENTS,
   WRITE_NOTE_CALL_ID,
@@ -110,17 +110,6 @@ const EXPECTED_TURN_1_EVENTS = [
   },
 ];
 
-const TURN_1_OUTPUT = {
-  output: null,
-  required_actions: [
-    {
-      type: EventType.TOOL_APPROVAL_REQUIRED,
-      thread_id: ROOT_ID,
-      tool_calls: [{ id: WRITE_NOTE_CALL_ID }],
-    },
-  ],
-};
-
 const EXPECTED_TURN_1_LLM_INPUT = [
   {
     tools: WRITE_NOTE_TOOLS,
@@ -136,6 +125,14 @@ describe('orchestration: pause then resume on tool approval', () => {
     const ROOT_FINAL = 'note saved';
 
     const EXPECTED_TURN_2_EVENTS = [
+      // The resumed execute() drains the queued approval decision into context first.
+      {
+        type: InternalEventType.AGENT_CONTEXT_APPEND,
+        thread_id: ROOT_ID,
+        context: [
+          { type: EventType.USER_TOOL_APPROVAL, tool_call_id: WRITE_NOTE_CALL_ID, approval: { status: 'allow' } },
+        ],
+      },
       { type: EventType.TOOL_RESPONSE, thread_id: ROOT_ID, tool_call_id: WRITE_NOTE_CALL_ID },
       {
         type: InternalEventType.AGENT_CONTEXT_APPEND,
@@ -154,7 +151,6 @@ describe('orchestration: pause then resume on tool approval', () => {
 
     const TURN_2_OUTPUT = {
       output: { thread_id: ROOT_ID, content: ROOT_FINAL },
-      required_actions: [],
     };
 
     const EXPECTED_TURN_2_INPUT = {
@@ -180,27 +176,37 @@ describe('orchestration: pause then resume on tool approval', () => {
     it('pauses for write_note approval, then finishes after allow', async () => {
       const { orchestrator, thread, callTool } = makeApprovalHarness(ROOT_FINAL);
 
-      const paused = await runTurn({
-        orchestrator,
-        sendBatch: [{ type: EventType.USER_MESSAGE, content: 'hello' }],
-      });
+      // Atomic pre-send of the initial user message (like createTurn), then one long-lived execute().
+      for await (const _event of orchestrator.applyUserEvents([{ type: EventType.USER_MESSAGE, content: 'hello' }])) {
+        void _event;
+      }
+      const iterator = orchestrator.execute({ signal: new AbortController().signal });
+
+      const paused = await driveUntilPauseOrDone(iterator);
+      expect(paused.kind).toBe('paused');
       expect(paused.events).toMatchObject(EXPECTED_TURN_1_EVENTS);
-      expect(paused.result).toMatchObject(TURN_1_OUTPUT);
-      expect(paused.result.root_agent_error).toBeUndefined();
       expect(llmCreateInputs(thread.definition.modelClient)).toMatchObject(EXPECTED_TURN_1_LLM_INPUT);
       expect(callTool).not.toHaveBeenCalled();
 
-      const resumed = await runTurn({
-        orchestrator,
-        sendBatch: [
-          {
-            type: EventType.USER_TOOL_APPROVAL,
-            thread_id: ROOT_ID,
-            tool_call_id: WRITE_NOTE_CALL_ID,
-            approval: { status: 'allow' },
-          },
-        ],
-      });
+      // Resume the SAME execute(): enqueue the approval via send() (drain the generator so the
+      // enqueue runs), then wake the parked executor — no new execute().
+      for (const _batch of orchestrator.send([
+        {
+          type: EventType.USER_TOOL_APPROVAL,
+          thread_id: ROOT_ID,
+          tool_call_id: WRITE_NOTE_CALL_ID,
+          approval: { status: 'allow' },
+        },
+      ])) {
+        void _batch;
+      }
+      orchestrator.notifyWake();
+
+      const resumed = await driveUntilPauseOrDone(iterator);
+      expect(resumed.kind).toBe('done');
+      if (resumed.kind !== 'done') {
+        throw new Error('expected turn to finish after allow');
+      }
       expect(resumed.events).toMatchObject(EXPECTED_TURN_2_EVENTS);
       expect(resumed.result).toMatchObject(TURN_2_OUTPUT);
       expect(resumed.result.root_agent_error).toBeUndefined();
@@ -216,6 +222,18 @@ describe('orchestration: pause then resume on tool approval', () => {
     const ROOT_FINAL = 'ok, I will not write the note';
 
     const EXPECTED_TURN_2_EVENTS = [
+      // The resumed execute() drains the queued approval decision into context first.
+      {
+        type: InternalEventType.AGENT_CONTEXT_APPEND,
+        thread_id: ROOT_ID,
+        context: [
+          {
+            type: EventType.USER_TOOL_APPROVAL,
+            tool_call_id: WRITE_NOTE_CALL_ID,
+            approval: { status: 'deny', reason: DENY_REASON },
+          },
+        ],
+      },
       { type: EventType.TOOL_RESPONSE, thread_id: ROOT_ID, tool_call_id: WRITE_NOTE_CALL_ID },
       {
         type: InternalEventType.AGENT_CONTEXT_APPEND,
@@ -234,7 +252,6 @@ describe('orchestration: pause then resume on tool approval', () => {
 
     const TURN_2_OUTPUT = {
       output: { thread_id: ROOT_ID, content: ROOT_FINAL },
-      required_actions: [],
     };
 
     const EXPECTED_TURN_2_INPUT = {
@@ -260,26 +277,35 @@ describe('orchestration: pause then resume on tool approval', () => {
     it('pauses for write_note approval, then finishes after deny without running the tool', async () => {
       const { orchestrator, thread, callTool } = makeApprovalHarness(ROOT_FINAL);
 
-      const paused = await runTurn({
-        orchestrator,
-        sendBatch: [{ type: EventType.USER_MESSAGE, content: 'hello' }],
-      });
+      // Atomic pre-send of the initial user message (like createTurn), then one long-lived execute().
+      for await (const _event of orchestrator.applyUserEvents([{ type: EventType.USER_MESSAGE, content: 'hello' }])) {
+        void _event;
+      }
+      const iterator = orchestrator.execute({ signal: new AbortController().signal });
+
+      const paused = await driveUntilPauseOrDone(iterator);
+      expect(paused.kind).toBe('paused');
       expect(paused.events).toMatchObject(EXPECTED_TURN_1_EVENTS);
-      expect(paused.result).toMatchObject(TURN_1_OUTPUT);
       expect(callTool).not.toHaveBeenCalled();
 
-      // Deny is a new turn (send + execute), same as allow — turn 1 already stopped at approval.
-      const resumed = await runTurn({
-        orchestrator,
-        sendBatch: [
-          {
-            type: EventType.USER_TOOL_APPROVAL,
-            thread_id: ROOT_ID,
-            tool_call_id: WRITE_NOTE_CALL_ID,
-            approval: { status: 'deny', reason: DENY_REASON },
-          },
-        ],
-      });
+      // Resume the SAME execute() with a deny decision, then wake the parked executor.
+      for (const _batch of orchestrator.send([
+        {
+          type: EventType.USER_TOOL_APPROVAL,
+          thread_id: ROOT_ID,
+          tool_call_id: WRITE_NOTE_CALL_ID,
+          approval: { status: 'deny', reason: DENY_REASON },
+        },
+      ])) {
+        void _batch;
+      }
+      orchestrator.notifyWake();
+
+      const resumed = await driveUntilPauseOrDone(iterator);
+      expect(resumed.kind).toBe('done');
+      if (resumed.kind !== 'done') {
+        throw new Error('expected turn to finish after deny');
+      }
       expect(resumed.events).toMatchObject(EXPECTED_TURN_2_EVENTS);
       expect(resumed.result).toMatchObject(TURN_2_OUTPUT);
       expect(resumed.result.root_agent_error).toBeUndefined();
