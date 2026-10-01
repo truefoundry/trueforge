@@ -9,8 +9,8 @@ import { AgentThreadOrchestrator } from '../../src/core/runtime/AgentThreadOrche
 import { NOOP_AGENT_TRACING } from '../../src/core/tracing/NoopAgentTracing';
 import { makeSilentLogger } from '../core/harnessMocks';
 import {
+  driveUntilPauseOrDone,
   llmCreateInputs,
-  runTurn,
   textReplyStream,
   WRITE_NOTE_ARGUMENTS,
   WRITE_NOTE_CALL_ID,
@@ -110,17 +110,6 @@ const EXPECTED_TURN_1_EVENTS = [
   },
 ];
 
-const TURN_1_OUTPUT = {
-  output: null,
-  required_actions: [
-    {
-      type: EventType.TOOL_APPROVAL_REQUIRED,
-      thread_id: ROOT_ID,
-      tool_calls: [{ id: WRITE_NOTE_CALL_ID }],
-    },
-  ],
-};
-
 const EXPECTED_TURN_1_LLM_INPUT = [
   {
     tools: WRITE_NOTE_TOOLS,
@@ -136,6 +125,22 @@ describe('orchestration: pause then resume on tool approval', () => {
     const ROOT_FINAL = 'note saved';
 
     const EXPECTED_TURN_2_EVENTS = [
+      // The resumed execute() drains the queued approval decision into context first.
+      {
+        type: InternalEventType.AGENT_CONTEXT_APPEND,
+        thread_id: ROOT_ID,
+        context: [
+          { type: EventType.USER_TOOL_APPROVAL, tool_call_id: WRITE_NOTE_CALL_ID, approval: { status: 'allow' } },
+        ],
+      },
+      // Flushes the in-place tool_info.approval marker, then echoes the accepted input to the stream.
+      { type: EventType.AGENT_CONTEXT_OVERWRITE, thread_id: ROOT_ID, reason: 'approval_resolution' },
+      {
+        type: EventType.USER_TOOL_APPROVAL,
+        thread_id: ROOT_ID,
+        tool_call_id: WRITE_NOTE_CALL_ID,
+        approval: { status: 'allow' },
+      },
       { type: EventType.TOOL_RESPONSE, thread_id: ROOT_ID, tool_call_id: WRITE_NOTE_CALL_ID },
       {
         type: InternalEventType.AGENT_CONTEXT_APPEND,
@@ -154,7 +159,6 @@ describe('orchestration: pause then resume on tool approval', () => {
 
     const TURN_2_OUTPUT = {
       output: { thread_id: ROOT_ID, content: ROOT_FINAL },
-      required_actions: [],
     };
 
     const EXPECTED_TURN_2_INPUT = {
@@ -180,27 +184,37 @@ describe('orchestration: pause then resume on tool approval', () => {
     it('pauses for write_note approval, then finishes after allow', async () => {
       const { orchestrator, thread, callTool } = makeApprovalHarness(ROOT_FINAL);
 
-      const paused = await runTurn({
-        orchestrator,
-        sendBatch: [{ type: EventType.USER_MESSAGE, content: 'hello' }],
-      });
+      // Atomic pre-send of the initial user message (like createTurn), then one long-lived execute().
+      for await (const _event of orchestrator.applyUserEvents([{ type: EventType.USER_MESSAGE, content: 'hello' }])) {
+        void _event;
+      }
+      const iterator = orchestrator.execute({ signal: new AbortController().signal });
+
+      const paused = await driveUntilPauseOrDone(iterator);
+      expect(paused.kind).toBe('paused');
       expect(paused.events).toMatchObject(EXPECTED_TURN_1_EVENTS);
-      expect(paused.result).toMatchObject(TURN_1_OUTPUT);
-      expect(paused.result.root_agent_error).toBeUndefined();
       expect(llmCreateInputs(thread.definition.modelClient)).toMatchObject(EXPECTED_TURN_1_LLM_INPUT);
       expect(callTool).not.toHaveBeenCalled();
 
-      const resumed = await runTurn({
-        orchestrator,
-        sendBatch: [
-          {
-            type: EventType.USER_TOOL_APPROVAL,
-            thread_id: ROOT_ID,
-            tool_call_id: WRITE_NOTE_CALL_ID,
-            approval: { status: 'allow' },
-          },
-        ],
-      });
+      // Resume the SAME execute(): enqueue the approval via send() (drain the generator so the
+      // enqueue runs), then wake the parked executor — no new execute().
+      for (const _batch of orchestrator.send([
+        {
+          type: EventType.USER_TOOL_APPROVAL,
+          thread_id: ROOT_ID,
+          tool_call_id: WRITE_NOTE_CALL_ID,
+          approval: { status: 'allow' },
+        },
+      ])) {
+        void _batch;
+      }
+      orchestrator.notifyWake();
+
+      const resumed = await driveUntilPauseOrDone(iterator);
+      expect(resumed.kind).toBe('done');
+      if (resumed.kind !== 'done') {
+        throw new Error('expected turn to finish after allow');
+      }
       expect(resumed.events).toMatchObject(EXPECTED_TURN_2_EVENTS);
       expect(resumed.result).toMatchObject(TURN_2_OUTPUT);
       expect(resumed.result.root_agent_error).toBeUndefined();
@@ -216,6 +230,26 @@ describe('orchestration: pause then resume on tool approval', () => {
     const ROOT_FINAL = 'ok, I will not write the note';
 
     const EXPECTED_TURN_2_EVENTS = [
+      // The resumed execute() drains the queued approval decision into context first.
+      {
+        type: InternalEventType.AGENT_CONTEXT_APPEND,
+        thread_id: ROOT_ID,
+        context: [
+          {
+            type: EventType.USER_TOOL_APPROVAL,
+            tool_call_id: WRITE_NOTE_CALL_ID,
+            approval: { status: 'deny', reason: DENY_REASON },
+          },
+        ],
+      },
+      // Flushes the in-place tool_info.approval (deny) marker, then echoes the accepted input.
+      { type: EventType.AGENT_CONTEXT_OVERWRITE, thread_id: ROOT_ID, reason: 'approval_resolution' },
+      {
+        type: EventType.USER_TOOL_APPROVAL,
+        thread_id: ROOT_ID,
+        tool_call_id: WRITE_NOTE_CALL_ID,
+        approval: { status: 'deny', reason: DENY_REASON },
+      },
       { type: EventType.TOOL_RESPONSE, thread_id: ROOT_ID, tool_call_id: WRITE_NOTE_CALL_ID },
       {
         type: InternalEventType.AGENT_CONTEXT_APPEND,
@@ -234,7 +268,6 @@ describe('orchestration: pause then resume on tool approval', () => {
 
     const TURN_2_OUTPUT = {
       output: { thread_id: ROOT_ID, content: ROOT_FINAL },
-      required_actions: [],
     };
 
     const EXPECTED_TURN_2_INPUT = {
@@ -260,26 +293,35 @@ describe('orchestration: pause then resume on tool approval', () => {
     it('pauses for write_note approval, then finishes after deny without running the tool', async () => {
       const { orchestrator, thread, callTool } = makeApprovalHarness(ROOT_FINAL);
 
-      const paused = await runTurn({
-        orchestrator,
-        sendBatch: [{ type: EventType.USER_MESSAGE, content: 'hello' }],
-      });
+      // Atomic pre-send of the initial user message (like createTurn), then one long-lived execute().
+      for await (const _event of orchestrator.applyUserEvents([{ type: EventType.USER_MESSAGE, content: 'hello' }])) {
+        void _event;
+      }
+      const iterator = orchestrator.execute({ signal: new AbortController().signal });
+
+      const paused = await driveUntilPauseOrDone(iterator);
+      expect(paused.kind).toBe('paused');
       expect(paused.events).toMatchObject(EXPECTED_TURN_1_EVENTS);
-      expect(paused.result).toMatchObject(TURN_1_OUTPUT);
       expect(callTool).not.toHaveBeenCalled();
 
-      // Deny is a new turn (send + execute), same as allow — turn 1 already stopped at approval.
-      const resumed = await runTurn({
-        orchestrator,
-        sendBatch: [
-          {
-            type: EventType.USER_TOOL_APPROVAL,
-            thread_id: ROOT_ID,
-            tool_call_id: WRITE_NOTE_CALL_ID,
-            approval: { status: 'deny', reason: DENY_REASON },
-          },
-        ],
-      });
+      // Resume the SAME execute() with a deny decision, then wake the parked executor.
+      for (const _batch of orchestrator.send([
+        {
+          type: EventType.USER_TOOL_APPROVAL,
+          thread_id: ROOT_ID,
+          tool_call_id: WRITE_NOTE_CALL_ID,
+          approval: { status: 'deny', reason: DENY_REASON },
+        },
+      ])) {
+        void _batch;
+      }
+      orchestrator.notifyWake();
+
+      const resumed = await driveUntilPauseOrDone(iterator);
+      expect(resumed.kind).toBe('done');
+      if (resumed.kind !== 'done') {
+        throw new Error('expected turn to finish after deny');
+      }
       expect(resumed.events).toMatchObject(EXPECTED_TURN_2_EVENTS);
       expect(resumed.result).toMatchObject(TURN_2_OUTPUT);
       expect(resumed.result.root_agent_error).toBeUndefined();
@@ -294,11 +336,150 @@ describe('orchestration: pause then resume on tool approval', () => {
 
 const POLICY_SERVER_NAME = 'notes';
 
-describe('AgentThreadOrchestrator.applyApprovalPolicies', () => {
-  // The policy applies to user MCP servers (definition.toolSets), unlike the
-  // approval-flow harness above which registers the tool set as a system tool set.
+describe('orchestration: a policy that lands mid-pause resolves an existing pending approval', () => {
+  const ROOT_FINAL = 'note saved';
+
+  const EXPECTED_POLICY_RESUME_EVENTS = [
+    // The drain flushes the policy-covered marker, then echoes the accepted policy to the stream.
+    // (No MCP_SERVERS_PATCH here: this harness's source never emits MCP_INITIALIZE, so there is no
+    // captured server record to persist against.)
+    { type: EventType.AGENT_CONTEXT_OVERWRITE, thread_id: ROOT_ID, reason: 'approval_resolution' },
+    {
+      type: EventType.USER_TOOL_APPROVAL_POLICY,
+      policies: [{ server_name: POLICY_SERVER_NAME, name: WRITE_NOTE_TOOL_NAME, action: { type: 'allow_session' } }],
+    },
+    { type: EventType.TOOL_RESPONSE, thread_id: ROOT_ID, tool_call_id: WRITE_NOTE_CALL_ID },
+    {
+      type: InternalEventType.AGENT_CONTEXT_APPEND,
+      thread_id: ROOT_ID,
+      context: [{ role: 'tool', tool_call_id: WRITE_NOTE_CALL_ID, content: WRITE_NOTE_RESULT }],
+    },
+    { type: EventType.MODEL_MESSAGE, thread_id: ROOT_ID },
+    { type: EventType.MODEL_MESSAGE_DELTA, thread_id: ROOT_ID, content: ROOT_FINAL },
+    {
+      type: InternalEventType.AGENT_CONTEXT_APPEND,
+      thread_id: ROOT_ID,
+      context: [{ role: 'assistant', content: ROOT_FINAL }],
+    },
+    { type: InternalEventType.AGENT_DONE, thread_id: ROOT_ID, status: 'done' },
+  ];
+
+  it('sends only a policy (no decision) and the pending call runs via auto-allow', async () => {
+    const { orchestrator, callTool, toolSet } = makeApprovalHarnessWithUserToolSet(ROOT_FINAL);
+
+    for await (const _event of orchestrator.applyUserEvents([{ type: EventType.USER_MESSAGE, content: 'hello' }])) {
+      void _event;
+    }
+    const iterator = orchestrator.execute({ signal: new AbortController().signal });
+
+    const paused = await driveUntilPauseOrDone(iterator);
+    expect(paused.kind).toBe('paused');
+    expect(paused.events).toMatchObject(EXPECTED_TURN_1_EVENTS);
+    expect(callTool).not.toHaveBeenCalled();
+
+    // Resume the SAME execute() with ONLY a policy — no USER_TOOL_APPROVAL decision for the call.
+    for (const _batch of orchestrator.send([
+      {
+        type: EventType.USER_TOOL_APPROVAL_POLICY,
+        policies: [{ server_name: POLICY_SERVER_NAME, name: WRITE_NOTE_TOOL_NAME, action: { type: 'allow_session' } }],
+      },
+    ])) {
+      void _batch;
+    }
+    orchestrator.notifyWake();
+
+    const resumed = await driveUntilPauseOrDone(iterator);
+    expect(resumed.kind).toBe('done');
+    if (resumed.kind !== 'done') {
+      throw new Error('expected turn to finish after the policy landed');
+    }
+    expect(resumed.events).toMatchObject(EXPECTED_POLICY_RESUME_EVENTS);
+    // No synthesized approval-decision event: the policy resolves the call without one.
+    const approvalDecisionAppended = resumed.events.some(
+      e =>
+        e.type === InternalEventType.AGENT_CONTEXT_APPEND &&
+        e.context.some(c => 'type' in c && c.type === EventType.USER_TOOL_APPROVAL),
+    );
+    expect(approvalDecisionAppended).toBe(false);
+    // The policy was applied by execute()'s drain, not by send().
+    expect(toolSet.getApprovalPolicies()).toEqual({ [WRITE_NOTE_TOOL_NAME]: { type: 'allow_session' } });
+    expect(callTool).toHaveBeenCalledTimes(1);
+  });
+
+  it('an expired policy does not resolve the pending call — the turn stays paused', async () => {
+    const { orchestrator, callTool } = makeApprovalHarnessWithUserToolSet(ROOT_FINAL);
+
+    for await (const _event of orchestrator.applyUserEvents([{ type: EventType.USER_MESSAGE, content: 'hello' }])) {
+      void _event;
+    }
+    const iterator = orchestrator.execute({ signal: new AbortController().signal });
+
+    const paused = await driveUntilPauseOrDone(iterator);
+    expect(paused.kind).toBe('paused');
+
+    for (const _batch of orchestrator.send([
+      {
+        type: EventType.USER_TOOL_APPROVAL_POLICY,
+        policies: [
+          {
+            server_name: POLICY_SERVER_NAME,
+            name: WRITE_NOTE_TOOL_NAME,
+            action: { type: 'allow_session', expire_at: '2000-01-01T00:00:00.000Z' },
+          },
+        ],
+      },
+    ])) {
+      void _batch;
+    }
+    orchestrator.notifyWake();
+
+    const again = await driveUntilPauseOrDone(iterator);
+    expect(again.kind).toBe('paused');
+    // The policy is still accepted + echoed (acceptance != coverage), but it covers nothing (expired),
+    // so there is no approval_resolution overwrite and the call stays paused.
+    expect(again.events).toMatchObject([
+      {
+        type: EventType.USER_TOOL_APPROVAL_POLICY,
+        policies: [
+          {
+            server_name: POLICY_SERVER_NAME,
+            name: WRITE_NOTE_TOOL_NAME,
+            action: { type: 'allow_session', expire_at: '2000-01-01T00:00:00.000Z' },
+          },
+        ],
+      },
+    ]);
+    expect(callTool).not.toHaveBeenCalled();
+  });
+
+  it('send() rejects a policy for an unknown server and applies nothing (fail-closed)', () => {
+    const { orchestrator, toolSet } = makeApprovalHarnessWithUserToolSet(ROOT_FINAL);
+
+    expect(() => {
+      for (const _batch of orchestrator.send([
+        {
+          type: EventType.USER_TOOL_APPROVAL_POLICY,
+          policies: [{ server_name: 'does-not-exist', name: WRITE_NOTE_TOOL_NAME, action: { type: 'allow_session' } }],
+        },
+      ])) {
+        void _batch;
+      }
+    }).toThrow(/unknown server_name/);
+    expect(toolSet.getApprovalPolicies()).toEqual({});
+  });
+});
+
+describe('AgentThreadOrchestrator.send: approval policy validation', () => {
+  // Policies target user MCP servers (definition.toolSets). send() validates them (fail-closed) and
+  // enqueues; application happens later in execute()'s drain (covered by the policy-resume tests).
   let toolSet: IToolSet;
   let orchestrator: AgentThreadOrchestrator;
+
+  const drain = (gen: Iterable<unknown>): void => {
+    for (const _ of gen) {
+      void _;
+    }
+  };
 
   beforeEach(() => {
     toolSet = makeApprovalGatedWriteNoteToolSet().toolSet;
@@ -333,56 +514,39 @@ describe('AgentThreadOrchestrator.applyApprovalPolicies', () => {
     });
   });
 
-  it('records a policy on the matching tool set for a known server', () => {
-    const result = orchestrator.applyApprovalPolicies([
-      { server_name: POLICY_SERVER_NAME, name: WRITE_NOTE_TOOL_NAME, action: { type: 'allow_session' } },
-    ]);
-
-    expect(result.errors).toEqual([]);
-    expect(toolSet.getApprovalPolicies()).toEqual({
-      [WRITE_NOTE_TOOL_NAME]: { type: 'allow_session' },
-    });
-  });
-
-  it('carries expiry through onto the recorded policy', () => {
-    const expire_at = '2099-01-01T00:00:00.000Z';
-
-    orchestrator.applyApprovalPolicies([
-      { server_name: POLICY_SERVER_NAME, name: WRITE_NOTE_TOOL_NAME, action: { type: 'allow_session', expire_at } },
-    ]);
-
-    expect(toolSet.getApprovalPolicies()).toEqual({
-      [WRITE_NOTE_TOOL_NAME]: { type: 'allow_session', expire_at },
-    });
-  });
-
-  it('rejects an unknown server name and applies nothing (fail-closed)', () => {
-    const result = orchestrator.applyApprovalPolicies([
-      { server_name: POLICY_SERVER_NAME, name: WRITE_NOTE_TOOL_NAME, action: { type: 'allow_session' } },
-      { server_name: 'does-not-exist', name: 'whatever', action: { type: 'allow_session' } },
-    ]);
-
-    expect(result.errors).toHaveLength(1);
-    expect(result.errors[0]).toContain('does-not-exist');
-    // Nothing applied because validation failed for one item.
+  it('accepts a policy for a known server (does not throw; nothing applied until execute)', () => {
+    expect(() =>
+      drain(
+        orchestrator.send([
+          {
+            type: EventType.USER_TOOL_APPROVAL_POLICY,
+            policies: [
+              { server_name: POLICY_SERVER_NAME, name: WRITE_NOTE_TOOL_NAME, action: { type: 'allow_session' } },
+            ],
+          },
+        ]),
+      ),
+    ).not.toThrow();
+    // send() only enqueues; the ToolSet mutation happens in execute()'s drain.
     expect(toolSet.getApprovalPolicies()).toEqual({});
   });
 
-  it('last write wins for the same (server, tool)', () => {
-    orchestrator.applyApprovalPolicies([
-      { server_name: POLICY_SERVER_NAME, name: WRITE_NOTE_TOOL_NAME, action: { type: 'allow_session' } },
-    ]);
-    orchestrator.applyApprovalPolicies([
-      {
-        server_name: POLICY_SERVER_NAME,
-        name: WRITE_NOTE_TOOL_NAME,
-        action: { type: 'allow_session', expire_at: '2099-01-01T00:00:00.000Z' },
-      },
-    ]);
-
-    expect(toolSet.getApprovalPolicies()).toEqual({
-      [WRITE_NOTE_TOOL_NAME]: { type: 'allow_session', expire_at: '2099-01-01T00:00:00.000Z' },
-    });
+  it('rejects an unknown server name and enqueues nothing (fail-closed)', () => {
+    expect(() =>
+      drain(
+        orchestrator.send([
+          {
+            type: EventType.USER_TOOL_APPROVAL_POLICY,
+            policies: [
+              { server_name: POLICY_SERVER_NAME, name: WRITE_NOTE_TOOL_NAME, action: { type: 'allow_session' } },
+              { server_name: 'does-not-exist', name: 'whatever', action: { type: 'allow_session' } },
+            ],
+          },
+        ]),
+      ),
+    ).toThrow(/unknown server_name/);
+    // Validation runs before enqueue, so nothing was queued or applied.
+    expect(toolSet.getApprovalPolicies()).toEqual({});
   });
 });
 
@@ -393,6 +557,25 @@ describe('ToolSet: policy-aware is_approval_required', () => {
     const { toolSet } = makeApprovalGatedWriteNoteToolSet();
     const info = await toolSet.toolCallInfo(writeNoteParams);
     expect(info.is_approval_required).toBe(true);
+  });
+
+  it('getApprovalPolicies carries expire_at through', () => {
+    const { toolSet } = makeApprovalGatedWriteNoteToolSet();
+    const expire_at = '2099-01-01T00:00:00.000Z';
+    toolSet.setApprovalPolicy(WRITE_NOTE_TOOL_NAME, { type: 'allow_session', expire_at });
+    expect(toolSet.getApprovalPolicies()).toEqual({ [WRITE_NOTE_TOOL_NAME]: { type: 'allow_session', expire_at } });
+  });
+
+  it('setApprovalPolicy last write wins for the same tool', () => {
+    const { toolSet } = makeApprovalGatedWriteNoteToolSet();
+    toolSet.setApprovalPolicy(WRITE_NOTE_TOOL_NAME, { type: 'allow_session' });
+    toolSet.setApprovalPolicy(WRITE_NOTE_TOOL_NAME, {
+      type: 'allow_session',
+      expire_at: '2099-01-01T00:00:00.000Z',
+    });
+    expect(toolSet.getApprovalPolicies()).toEqual({
+      [WRITE_NOTE_TOOL_NAME]: { type: 'allow_session', expire_at: '2099-01-01T00:00:00.000Z' },
+    });
   });
 
   it('without an applicable policy, callTool returns approvalRequired and does not run the tool', async () => {
@@ -513,4 +696,51 @@ function makeApprovalHarness(finalReply: string): {
     logger: makeSilentLogger(),
   });
   return { orchestrator, thread, callTool };
+}
+
+function makeApprovalHarnessWithUserToolSet(finalReply: string): {
+  orchestrator: AgentThreadOrchestrator;
+  thread: AgentThread;
+  callTool: jest.Mock;
+  toolSet: IToolSet;
+} {
+  const { toolSet, callTool } = makeApprovalGatedWriteNoteToolSet();
+  const agentThreadInput: AgentThreadConstructorInput = {
+    definition: {
+      modelClient: {
+        create: jest
+          .fn()
+          .mockImplementationOnce(() => writeNoteToolCallStream())
+          .mockImplementation(() => textReplyStream(finalReply)),
+        createNonStream: jest.fn(),
+      },
+      instruction: INSTRUCTION,
+      messages: undefined,
+      modelParams: undefined,
+      responseFormat: undefined,
+      iterationLimit: undefined,
+      toolSets: [toolSet],
+    },
+    threadId: ROOT_ID,
+    title: 'orchestration-approval-policy-flow',
+    parent: undefined,
+    agentInfo: undefined,
+    context: undefined,
+    currentContextUsage: undefined,
+    preComputedCompletion: undefined,
+    sandbox: undefined,
+    capabilities: undefined,
+    capabilityState: undefined,
+    tracing: NOOP_AGENT_TRACING,
+    logger: makeSilentLogger(),
+  };
+
+  const thread = new AgentThread(agentThreadInput);
+  const orchestrator = new AgentThreadOrchestrator({
+    agentThreads: new Map([[thread.threadId, thread]]),
+    createDynamicSubAgentThread: () => Promise.reject(new Error('unexpected sub-agent in approval policy test')),
+    tracing: NOOP_AGENT_TRACING,
+    logger: makeSilentLogger(),
+  });
+  return { orchestrator, thread, callTool, toolSet };
 }

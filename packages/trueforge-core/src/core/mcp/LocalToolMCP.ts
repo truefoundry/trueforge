@@ -123,6 +123,12 @@ export abstract class LocalToolMCP implements IToolSet {
     return {};
   }
 
+  // System tool sets are never approval-gated, so no policy ever applies.
+  hasApplicableApprovalPolicy(_toolName: string): boolean {
+    void _toolName;
+    return false;
+  }
+
   // Local tools are not approval gated by default.
   // Second arg kept for IToolSet / DeferredTool compatibility (unused here).
   toolCallInfo(params: CallToolRequest['params'], _resolveUnderlyingTool?: boolean): Promise<InternalToolCallInfo> {

@@ -37,6 +37,7 @@ import {
 import { InstructionBuilder, ROOT_AGENT_IDENTITY } from '../InstructionBuilder';
 import type { LLMCreateParamsStreaming } from '../llm/ILLM';
 import {
+  type ApprovalDecision,
   type CompletionUsage,
   type ExtendedChatCompletionChunk,
   type FinishReason,
@@ -66,6 +67,7 @@ import {
   InternalEventType,
   type AgentThreadAppendContext,
   type AgentThreadEvent,
+  type ApplyUserEventsOutput,
   type ContextMessage,
   type InternalCapabilityStateEvent,
   type InternalMCPAuthRequiredEvent,
@@ -125,9 +127,9 @@ function deriveAgentThreadState(context: ContextMessage[]): AgentThreadState {
   }
 
   const assistant = lastAssistantInContext(context);
-  const decisions = scanApprovalDecisions(context);
   const hasPendingApproval = assistant?.tool_calls?.some(
-    tc => openToolCallIds.has(tc.id) && tc.tool_info.is_approval_required === true && !decisions.has(tc.id),
+    tc =>
+      openToolCallIds.has(tc.id) && tc.tool_info.is_approval_required === true && tc.tool_info.approval === undefined,
   );
   const hasPendingClientSideTool = assistant?.tool_calls?.some(
     tc => openToolCallIds.has(tc.id) && tc.tool_info.is_client_side === true,
@@ -309,10 +311,10 @@ function validateApprovalMessage(
 
 function getPendingApprovalToolCalls(context: ContextMessage[]): InternalEnrichedToolCall[] {
   const openToolCallIds = getOpenToolCallIds(context);
-  const decisions = scanApprovalDecisions(context);
   const assistant = lastAssistantInContext(context);
   return (assistant?.tool_calls ?? []).filter(
-    tc => openToolCallIds.has(tc.id) && tc.tool_info.is_approval_required === true && !decisions.has(tc.id),
+    tc =>
+      openToolCallIds.has(tc.id) && tc.tool_info.is_approval_required === true && tc.tool_info.approval === undefined,
   );
 }
 
@@ -522,6 +524,8 @@ export class AgentThread {
 
   private contextBusy = false;
   private preSendRanThisTurn = false;
+  // Validated-but-not-yet-applied user events.
+  private pendingUserEvents: AgentThreadRuntimeSendInput[] = [];
   private currentState: AgentThreadState | null = null;
   private readonly preComputedCompletion?: SubAgentCompletionMarker | undefined;
   /** Mirrored capability KV — source for toSnapshot().capability_state. */
@@ -599,80 +603,118 @@ export class AgentThread {
     return builder.build();
   }
 
-  public async *send(messages: AgentThreadRuntimeSendBatch): AsyncGenerator<AgentThreadAppendContext, void, unknown> {
-    // An empty batch is a no-op only when the thread is not awaiting user input.
-    // While awaiting input, fall through so the validator rejects the empty/incomplete batch.
-    if (messages.length === 0 && !this.isAwaitingUserInput()) {
+  public *send(messages: AgentThreadRuntimeSendBatch): Generator<AgentThreadRuntimeSendBatch, void, unknown> {
+    yield messages;
+    this.pendingUserEvents.push(...messages);
+  }
+
+  public hasPendingUserEvents(): boolean {
+    return this.pendingUserEvents.length > 0;
+  }
+
+  // Apply already-validated user events to context (§3.2). Drains at the top of execute() and is
+  // also called directly for the initial createTurn input and internal child→parent delivery.
+  // This is the only place approval/response/user context is written.
+  public async *applyUserEvents(
+    events: AgentThreadRuntimeSendInput[],
+  ): AsyncGenerator<ApplyUserEventsOutput, void, unknown> {
+    if (events.length === 0) {
       return;
     }
-    this.throwIfContextBusy();
-
-    this.contextBusy = true;
-    try {
+    // preSend (e.g. OpenToolCallCloser) runs once per turn, before applying — matching the previous
+    // send() ordering. execute()'s own preSend block is skipped when we set the flag here.
+    if (!this.preSendRanThisTurn) {
       for await (const event of this.executeContextProcessors('preSend')) {
         yield event;
       }
       this.preSendRanThisTurn = true;
+    }
 
-      validateInputMessageTypesGivenContext(this.context, messages);
+    const approvals: UserToolApprovalMessage[] = [];
+    const clientSideToolResponses: UserToolResponseMessage[] = [];
+    const contextMessages: (LLMUserMessage | LLMToolMessage)[] = [];
 
-      const approvals: UserToolApprovalMessage[] = [];
-      const clientSideToolResponses: UserToolResponseMessage[] = [];
-      const contextMessages: (LLMUserMessage | LLMToolMessage)[] = [];
-
-      for (const m of messages) {
-        if (isApprovalDecisionMessage(m)) {
-          approvals.push(m);
-        } else if (isClientSideToolResponseMessage(m)) {
-          clientSideToolResponses.push(m);
-        } else if (isInputUserMessage(m)) {
-          const result = await processAgentUserInput(m, this.sandbox);
-          contextMessages.push(result.message);
-          if (result.sandboxCreated) {
-            this.pendingSandboxCreatedEvents.push(buildSandboxCreatedEvent(result.sandboxCreated));
-          }
-        } else if (isLLMToolMessage(m)) {
-          contextMessages.push(m);
-        } else {
-          const _exhaustive: never = m;
-          throw new InvalidAgentSendInputError(`Unsupported send input: ${JSON.stringify(_exhaustive)}`);
+    for (const m of events) {
+      if (isApprovalDecisionMessage(m)) {
+        approvals.push(m);
+      } else if (isClientSideToolResponseMessage(m)) {
+        clientSideToolResponses.push(m);
+      } else if (isInputUserMessage(m)) {
+        const result = await processAgentUserInput(m, this.sandbox);
+        contextMessages.push(result.message);
+        if (result.sandboxCreated) {
+          this.pendingSandboxCreatedEvents.push(buildSandboxCreatedEvent(result.sandboxCreated));
         }
+      } else if (isLLMToolMessage(m)) {
+        contextMessages.push(m);
+      } else {
+        const _exhaustive: never = m;
+        throw new InvalidAgentSendInputError(`Unsupported send input: ${JSON.stringify(_exhaustive)}`);
       }
+    }
 
-      if (approvals.length > 0 || clientSideToolResponses.length > 0) {
-        const approvalContext: AgentApprovalDecisionMessage[] = approvals.map(a => ({
-          type: EventType.USER_TOOL_APPROVAL,
-          tool_call_id: a.tool_call_id,
-          approval: a.approval,
-        }));
-        const toolResponseContext: LLMToolMessage[] = clientSideToolResponses.map(m => ({
-          role: 'tool',
-          tool_call_id: m.tool_call_id,
-          content: m.content,
-        }));
-        yield* this.appendToContext({
-          context: [...approvalContext, ...toolResponseContext],
-          output: [],
-          currentContextUsage: undefined,
-          usage: undefined,
-        });
+    if (approvals.length > 0 || clientSideToolResponses.length > 0) {
+      const approvalContext: AgentApprovalDecisionMessage[] = approvals.map(a => ({
+        type: EventType.USER_TOOL_APPROVAL,
+        tool_call_id: a.tool_call_id,
+        approval: a.approval,
+      }));
+      for (const a of approvals) {
+        this.setToolCallApprovalDecision(a.tool_call_id, a.approval);
       }
-      if (contextMessages.length > 0) {
-        yield* this.appendToContext({
-          context: contextMessages,
-          output: [],
-          currentContextUsage: undefined,
-          usage: undefined,
-        });
+      const toolResponseContext: LLMToolMessage[] = clientSideToolResponses.map(m => ({
+        role: 'tool',
+        tool_call_id: m.tool_call_id,
+        content: m.content,
+      }));
+      yield* this.appendToContext({
+        context: [...approvalContext, ...toolResponseContext],
+        output: [],
+        currentContextUsage: undefined,
+        usage: undefined,
+      });
+      // Approvals mutate tool_info.approval in place on the (already-persisted) assistant message;
+      // appendToContext only persists the new decision message, so flush the marker via overwrite.
+      if (approvals.length > 0) {
+        yield* this.overwriteContextForApprovalResolution();
       }
-    } finally {
-      this.contextBusy = false;
+      // Stream the accepted inputs back to the consumer (durable + SSE) now that they are applied.
+      for (const a of approvals) {
+        yield { ...a, id: newEventId(), created_at: new Date().toISOString() };
+      }
+      for (const m of clientSideToolResponses) {
+        yield { ...m, id: newEventId(), created_at: new Date().toISOString() };
+      }
+    }
+    if (contextMessages.length > 0) {
+      yield* this.appendToContext({
+        context: contextMessages,
+        output: [],
+        currentContextUsage: undefined,
+        usage: undefined,
+      });
     }
   }
 
   private throwIfContextBusy(): void {
     if (this.contextBusy) {
       throw new Error(`context is busy for thread ${this.threadId}`);
+    }
+  }
+
+  // Still-open approval-required tool calls awaiting user input. Policy-agnostic view the
+  // orchestrator uses to decide which (if any) are now covered by an applicable policy.
+  public getPendingApprovalToolCalls(): InternalEnrichedToolCall[] {
+    return getPendingApprovalToolCalls(this.context);
+  }
+
+  // Record the approval decision on a specific still-open approval-required tool call. Used for both
+  // an explicit user decision (applyUserEvents — allow or deny) and a policy grant.
+  public setToolCallApprovalDecision(toolCallId: string, decision: ApprovalDecision): void {
+    const assistant = lastAssistantInContext(this.context);
+    const toolCall = assistant?.tool_calls?.find(tc => tc.id === toolCallId);
+    if (toolCall) {
+      toolCall.tool_info.approval = decision;
     }
   }
 
@@ -726,12 +768,30 @@ export class AgentThread {
       ...payload,
     };
     // Update metrics before yield so we still count it if the stream stops here.
-    updateMetricsFromUsage(this.metrics, payload.usage);
+    if (payload.usage) {
+      updateMetricsFromUsage(this.metrics, payload.usage);
+    }
 
     yield event;
     this.context = payload.context;
     this.currentContextUsage = payload.current_context_usage;
     this.metrics.total_summarizations++;
+  }
+
+  // Persist an in-place tool_info.approval mutation by rewriting the thread's context. Unlike
+  // compaction this involves no LLM call (no usage) and is not a summarization, so it bumps no
+  // metric. The context already carries the mutation (set via setToolCallApprovalDecision); this
+  // just flushes it to the durable store through the overwrite seam.
+  public *overwriteContextForApprovalResolution(): Generator<ThreadOverwriteContextEvent, void, unknown> {
+    yield {
+      type: EventType.AGENT_CONTEXT_OVERWRITE,
+      id: newEventId(),
+      created_at: new Date().toISOString(),
+      thread_id: this.threadId,
+      reason: 'approval_resolution',
+      context: this.context,
+      current_context_usage: this.currentContextUsage,
+    };
   }
 
   private generateErrorEvent(message: string, output?: ModelMessageEvent): InternalThreadDoneEvent {
@@ -1331,6 +1391,11 @@ export class AgentThread {
         yield this.buildReplayEvent(this.preComputedCompletion);
         return;
       }
+
+      // Drain + apply any queued user events first (§3.2). This runs preSend when there is work,
+      // so the block below is skipped in that case. When the queue is empty it is a no-op and the
+      // block below runs preSend for a fresh/resumed-without-new-events execute.
+      yield* this.applyUserEvents(this.pendingUserEvents.splice(0));
 
       if (!this.preSendRanThisTurn) {
         for await (const event of this.executeContextProcessors('preSend')) {

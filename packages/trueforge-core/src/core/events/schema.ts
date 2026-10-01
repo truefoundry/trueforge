@@ -2,6 +2,7 @@
 import { z } from '@hono/zod-openapi';
 import { monotonicFactory } from 'ulid';
 import {
+  ApprovalDecisionSchema,
   CompletionUsageSchema,
   EnrichedAssistantMessageSchema,
   ExtendedChunkDeltaSchema,
@@ -65,20 +66,7 @@ export const AgentInfoSchema = z
   })
   .openapi('AgentInfo');
 
-export const AgentApprovalDecisionAllowSchema = z
-  .object({ status: z.literal('allow').describe('Allow the pending tool call(s).') })
-  .openapi('ApprovalAllow');
-
-export const AgentApprovalDecisionDenySchema = z
-  .object({
-    status: z.literal('deny').describe('Deny the pending tool call(s).'),
-    reason: z.string().optional().describe('Optional reason shown to the agent when denied.'),
-  })
-  .openapi('ApprovalDeny');
-
-export const ApprovalDecisionSchema = z
-  .discriminatedUnion('status', [AgentApprovalDecisionAllowSchema, AgentApprovalDecisionDenySchema])
-  .openapi('ApprovalDecision');
+export { ApprovalDecisionSchema };
 
 export const UserToolApprovalMessageSchema = z
   .object({
@@ -136,6 +124,13 @@ export const UserMCPAuthContinueMessageSchema = z
       .describe('Client resume after mcp.auth_required (OAuth completed).'),
   })
   .openapi('UserMCPAuthContinueInputEvent');
+
+export const InboundTurnEventSchema = z.discriminatedUnion('type', [
+  UserToolApprovalMessageSchema,
+  UserToolResponseMessageSchema,
+  UserToolApprovalPolicyMessageSchema,
+  UserMCPAuthContinueMessageSchema,
+]);
 
 /** Durable / SSE form of {@link UserToolApprovalMessageSchema}. */
 export const UserToolApprovalEventSchema = z
@@ -332,11 +327,12 @@ export const ThreadOverwriteContextEventSchema = z.object({
   created_at: z.string(),
   thread_id: z.string(),
 
-  // NOTE: add other reasons here.
-  reason: z.literal('compaction'),
+  // `compaction` rewrites history via summarization (carries LLM `usage`); `approval_resolution`
+  // persists an in-place tool_info.approval mutation (no LLM call, so `usage` is omitted).
+  reason: z.enum(['compaction', 'approval_resolution']),
   context: z.array(ContextMessageSchema),
   current_context_usage: CurrentContextUsageSchema,
-  usage: CompletionUsageSchema,
+  usage: CompletionUsageSchema.optional(),
 });
 
 export const MCPServerAuthInfoSchema = z
@@ -462,6 +458,7 @@ export type UserToolResponseEvent = z.infer<typeof UserToolResponseEventSchema>;
 export type UserToolApprovalPolicyEvent = z.infer<typeof UserToolApprovalPolicyEventSchema>;
 export type UserMCPAuthContinueMessage = z.infer<typeof UserMCPAuthContinueMessageSchema>;
 export type UserMCPAuthContinueEvent = z.infer<typeof UserMCPAuthContinueEventSchema>;
+export type InboundTurnUserEvent = z.infer<typeof InboundTurnEventSchema>;
 export type AgentApprovalDecisionMessage = z.infer<typeof AgentApprovalDecisionMessageSchema>;
 export type InputTokensBreakdown = z.infer<typeof InputTokensBreakdownSchema>;
 export type ModelMessageUsage = z.infer<typeof ModelMessageUsageSchema>;

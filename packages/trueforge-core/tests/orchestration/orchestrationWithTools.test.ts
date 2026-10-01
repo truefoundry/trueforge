@@ -10,7 +10,7 @@ import {
 } from '../../src/core/runtime/AgentThreadOrchestrator';
 import { NOOP_AGENT_TRACING } from '../../src/core/tracing/NoopAgentTracing';
 import { makeSilentLogger } from '../core/harnessMocks';
-import { createSubAgentStream, llmCreateInputs, runTurn, textReplyStream } from './helpers/helpers';
+import { createSubAgentStream, driveUntilPauseOrDone, llmCreateInputs, textReplyStream } from './helpers/helpers';
 
 const ROOT_ID = 'thread_root';
 const TOOL_CALL_ID = 'call-sub';
@@ -75,7 +75,6 @@ const EXPECTED_EVENTS = [
 
 const OUTPUT = {
   output: { thread_id: ROOT_ID, content: ROOT_FINAL },
-  required_actions: [],
 };
 
 const EXPECTED_ROOT_LLM_INPUT = [
@@ -194,14 +193,19 @@ describe('orchestration: dynamic sub-agent', () => {
 
     const orchestrator = new AgentThreadOrchestrator(orchestratorInput);
 
-    const { events, result } = await runTurn({
-      orchestrator,
-      sendBatch: [{ type: EventType.USER_MESSAGE, content: 'hello' }],
-    });
+    // Atomic pre-send of the initial user message (like createTurn), then one long-lived execute().
+    for await (const _event of orchestrator.applyUserEvents([{ type: EventType.USER_MESSAGE, content: 'hello' }])) {
+      void _event;
+    }
+    const outcome = await driveUntilPauseOrDone(orchestrator.execute({ signal: new AbortController().signal }));
+    expect(outcome.kind).toBe('done');
+    if (outcome.kind !== 'done') {
+      throw new Error('expected turn to run to completion');
+    }
 
-    expect(events).toMatchObject(EXPECTED_EVENTS);
-    expect(result).toMatchObject(OUTPUT);
-    expect(result.root_agent_error).toBeUndefined();
+    expect(outcome.events).toMatchObject(EXPECTED_EVENTS);
+    expect(outcome.result).toMatchObject(OUTPUT);
+    expect(outcome.result.root_agent_error).toBeUndefined();
     expect(llmCreateInputs(thread_1.definition.modelClient)).toMatchObject(EXPECTED_ROOT_LLM_INPUT);
     if (childLLM === undefined) {
       throw new Error('expected child LLM to be created');

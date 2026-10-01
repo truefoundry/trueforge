@@ -3,7 +3,6 @@ import { z } from 'zod';
 import type { AgentCapability, CapabilityState, JsonValue } from '../capabilities/AgentCapability';
 import type { RegisteredPassthroughEvent, WithRegisteredPassthrough } from '../events/PassthroughEvents';
 import type {
-  ActionRequiredEvent,
   AgentApprovalDecisionMessage,
   AgentInfo,
   AgentInputUserMessage,
@@ -13,6 +12,7 @@ import type {
   BaseThreadDoneEvent,
   MCPInitializeEvent,
   MCPServerAuthInfo,
+  MCPServerInitInfo,
   ModelMessageDeltaEvent,
   ModelMessageEvent,
   SandboxCreatedEvent,
@@ -22,7 +22,10 @@ import type {
   ToolApprovalRequiredEvent,
   ToolResponseEvent,
   ToolResponseRequiredEvent,
+  UserToolApprovalEvent,
   UserToolApprovalMessage,
+  UserToolApprovalPolicyEvent,
+  UserToolResponseEvent,
   UserToolResponseMessage,
 } from '../events/schema';
 import type { InternalEnrichedAssistantMessage, LLMToolMessage, LLMUserMessage } from '../llm/LLMTypes';
@@ -38,10 +41,14 @@ export const InternalEventType = {
   AGENT_CREATE_SUBAGENT: 'internal.agent.create_subagent',
   AGENT_CONTEXT_APPEND: 'internal.agent.context.append',
   AGENT_DONE: 'internal.agent.done',
+  // Durable-only patch of the turn snapshot's MCP server records (e.g. an approval policy landed).
+  MCP_SERVERS_PATCH: 'internal.mcp.servers_patch',
   // TODO(agent): revisit broader internal.* naming scheme for harness-only event types.
   PASSTHROUGH: 'agent.passthrough',
   MCP_AUTH_REQUIRED: 'internal.mcp.auth_required',
   CAPABILITY_STATE: 'internal.capability.state',
+  // Turn lifecycle transition (paused ↔ running).
+  TURN_STATE: 'internal.turn.state',
 } as const;
 
 /**
@@ -82,6 +89,15 @@ export type InternalThreadDoneEvent = BaseThreadDoneEvent & {
 export type LLMContextMessage = LLMUserMessage | InternalEnrichedAssistantMessage | LLMToolMessage;
 
 export type ContextMessage = LLMContextMessage | AgentApprovalDecisionMessage;
+
+/**
+ * Durable-only (never streamed) patch of the turn snapshot's MCP server init records. Emitted by the
+ * executor when a landed approval policy must be persisted via the store's `patchMCPServers`.
+ */
+export interface InternalMCPServersPatchEvent {
+  type: typeof InternalEventType.MCP_SERVERS_PATCH;
+  mcp_servers: MCPServerInitInfo[];
+}
 
 export interface AgentThreadCreateSubAgent {
   type: typeof InternalEventType.AGENT_CREATE_SUBAGENT;
@@ -129,15 +145,33 @@ export type AgentThreadEvent =
   | SandboxCreatedEvent
   | ToolApprovalRequiredEvent
   | ToolResponseRequiredEvent
+  | UserToolApprovalEvent
+  | UserToolResponseEvent
+  | UserToolApprovalPolicyEvent
+  | InternalMCPServersPatchEvent
   | InternalPassthroughEvent;
 
-export type AgentThreadExecutionEvent = WithRegisteredPassthrough<
-  ThreadCreatedEvent | Exclude<AgentThreadEvent, InternalPassthroughEvent>
->;
+export type ApplyUserEventsOutput =
+  AgentThreadAppendContext | ThreadOverwriteContextEvent | UserToolApprovalEvent | UserToolResponseEvent;
 
+/** A turn-level non-terminal transition emitted by the executor loop when it parks/resumes. */
+export interface InternalTurnStateEvent {
+  type: typeof InternalEventType.TURN_STATE;
+  transition: { status: 'paused' } | { status: 'running' };
+}
+
+export type AgentThreadExecutionEvent =
+  | WithRegisteredPassthrough<ThreadCreatedEvent | Exclude<AgentThreadEvent, InternalPassthroughEvent>>
+  | InternalTurnStateEvent;
+
+/**
+ * Terminal result of an executor run. The executor parks internally while paused (surfacing
+ * pause/resume via the {@link InternalTurnStateEvent} stream), so it only ever *returns* once the
+ * run has finished or the root agent errored — hence a single 'done' shape, never 'paused'.
+ */
 export interface AgentThreadExecutionResult {
+  status: 'done';
   output: ModelMessageEvent | null;
-  required_actions: ActionRequiredEvent[];
   root_agent_error?: Pick<ThreadStateError, 'error' | 'output'> | undefined;
 }
 

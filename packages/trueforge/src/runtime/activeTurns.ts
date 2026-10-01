@@ -4,12 +4,15 @@
  * TurnHandle.stream() writes the terminal state when the signal fires.
  * `track()` owns registration and cleanup around the stream lifecycle.
  */
-import { CancellationReason } from '@truefoundry/trueforge-core/agent-session';
+import { CancellationReason, type TurnHandle } from '@truefoundry/trueforge-core/agent-session';
 
 interface ActiveTurnRun {
   abortController: AbortController;
   waitUntilCompleted: Promise<void>;
   markCompleted: () => void;
+  // Live handle for resuming a paused turn via POST /events (TurnHandle.send). Absent for runs that
+  // cannot be resumed.
+  turn: TurnHandle | undefined;
 }
 
 function activeTurnKey(sessionId: string, turnId: string): string {
@@ -31,6 +34,8 @@ export class ActiveTurnRegistry {
     turnId: string;
     abortController: AbortController;
     stream: AsyncIterable<T>;
+    /** Live handle for resuming via POST /events; omit for runs that cannot be resumed. */
+    turn?: TurnHandle;
   }): AsyncGenerator<T> {
     const key = activeTurnKey(input.sessionId, input.turnId);
     const { promise: waitUntilCompleted, resolve } = Promise.withResolvers<undefined>();
@@ -41,6 +46,7 @@ export class ActiveTurnRegistry {
       abortController: input.abortController,
       waitUntilCompleted,
       markCompleted,
+      turn: input.turn,
     };
     this.runs.set(key, run);
 
@@ -83,6 +89,22 @@ export class ActiveTurnRegistry {
       run.abortController.abort(input.abortReason);
     }
     return true;
+  }
+
+  /**
+   * The live turn handle for a turn executing in this process, or undefined when it is not
+   * resumable here — never started, already terminal (the stream removed its run), aborting, or
+   * registered without a handle. Callers map undefined to 409 (turn not running on this server).
+   */
+  getResumable(input: { sessionId: string; turnId: string }): TurnHandle | undefined {
+    const run = this.runs.get(activeTurnKey(input.sessionId, input.turnId));
+    if (!run) {
+      return undefined;
+    }
+    if (run.turn === undefined || run.abortController.signal.aborted) {
+      return undefined;
+    }
+    return run.turn;
   }
 
   /**

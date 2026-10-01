@@ -5,7 +5,7 @@ import { InternalEventType } from '../../src/core/runtime/AgentThread.types';
 import { AgentThreadOrchestrator } from '../../src/core/runtime/AgentThreadOrchestrator';
 import { NOOP_AGENT_TRACING } from '../../src/core/tracing/NoopAgentTracing';
 import { makeSilentLogger } from '../core/harnessMocks';
-import { llmCreateInputs, runTurn, textReplyStream } from './helpers/helpers';
+import { driveUntilPauseOrDone, llmCreateInputs, textReplyStream } from './helpers/helpers';
 
 const THREAD_ID = 'main';
 const REPLY = 'hello from the mocked model';
@@ -24,7 +24,6 @@ const EXPECTED_EVENTS = [
 
 const OUTPUT = {
   output: { thread_id: THREAD_ID, content: REPLY },
-  required_actions: [],
 };
 
 const EXPECTED_LLM_INPUT = [
@@ -75,14 +74,19 @@ describe('orchestration: mocked LLM and no tools', () => {
       logger: makeSilentLogger(),
     });
 
-    const { events, result } = await runTurn({
-      orchestrator,
-      sendBatch: [{ type: EventType.USER_MESSAGE, content: 'hello' }],
-    });
+    // Atomic pre-send of the initial user message (like createTurn), then one long-lived execute().
+    for await (const _event of orchestrator.applyUserEvents([{ type: EventType.USER_MESSAGE, content: 'hello' }])) {
+      void _event;
+    }
+    const outcome = await driveUntilPauseOrDone(orchestrator.execute({ signal: new AbortController().signal }));
+    expect(outcome.kind).toBe('done');
+    if (outcome.kind !== 'done') {
+      throw new Error('expected turn to run to completion');
+    }
 
-    expect(events).toMatchObject(EXPECTED_EVENTS);
-    expect(result).toMatchObject(OUTPUT);
-    expect(result.root_agent_error).toBeUndefined();
+    expect(outcome.events).toMatchObject(EXPECTED_EVENTS);
+    expect(outcome.result).toMatchObject(OUTPUT);
+    expect(outcome.result.root_agent_error).toBeUndefined();
     expect(llmCreateInputs(thread.definition.modelClient)).toMatchObject(EXPECTED_LLM_INPUT);
   });
 });

@@ -72,7 +72,7 @@ export class ToolSet implements IToolSet {
     return Object.fromEntries(this.approvalPolicies);
   }
 
-  private hasApplicableApprovalPolicy(toolName: string): boolean {
+  hasApplicableApprovalPolicy(toolName: string): boolean {
     const policy = this.approvalPolicies.get(toolName);
     return policy !== undefined && ToolSet.isPolicyApplicable(policy, new Date());
   }
