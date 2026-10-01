@@ -117,9 +117,7 @@ export function buildSessionTurnViews(itemsAsc: SessionEventItem[]): SessionTurn
 
   // Include every turn.created (metrics/timeline need resume turns); mark renderable for transcript UI.
   const groups = Array.from(groupsByTurnId.entries())
-    .flatMap(([turnId, group]) =>
-      group.created === undefined ? [] : [{ turnId, created: group.created, group }],
-    )
+    .flatMap(([turnId, group]) => (group.created === undefined ? [] : [{ turnId, created: group.created, group }]))
     .sort((left, right) => timestampMs(left.created.createdAt) - timestampMs(right.created.createdAt));
 
   return groups.map(({ turnId, created, group }, index) => {

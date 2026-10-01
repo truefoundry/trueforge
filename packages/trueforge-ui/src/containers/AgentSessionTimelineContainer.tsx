@@ -171,8 +171,7 @@ export function AgentSessionTimelineContainer({
   );
   const timelineSegments = useMemo(() => buildSessionTimelineSegments(allTurnViews), [allTurnViews]);
   const sessionMetrics = useMemo(
-    () =>
-      buildSessionMetrics({ turns: allTurnViews, segments: timelineSegments, sessionMetrics: sessionMetricsHint }),
+    () => buildSessionMetrics({ turns: allTurnViews, segments: timelineSegments, sessionMetrics: sessionMetricsHint }),
     [sessionMetricsHint, timelineSegments, allTurnViews],
   );
 
@@ -240,11 +239,7 @@ export function AgentSessionTimelineContainer({
       </div>
       <div className="border-b border-border">
         <Suspense fallback={null}>
-          <AgentSessionEventTimeline
-            turns={allTurnViews}
-            segments={timelineSegments}
-            onSelectTurn={handleSelectTurn}
-          />
+          <AgentSessionEventTimeline turns={allTurnViews} segments={timelineSegments} onSelectTurn={handleSelectTurn} />
         </Suspense>
       </div>
       <ThreadViewportShell

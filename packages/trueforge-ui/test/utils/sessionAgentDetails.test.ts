@@ -278,9 +278,7 @@ describe('buildSessionTurnViews', () => {
       createdItem({
         turnId: 'shown',
         createdAt: '2026-01-01T00:00:01.000Z',
-        input: [
-          { type: 'user.tool_approval', threadId: 'main', toolCallId: 'call-1', approval: { status: 'allow' } },
-        ],
+        input: [{ type: 'user.tool_approval', threadId: 'main', toolCallId: 'call-1', approval: { status: 'allow' } }],
       }),
     ]);
 
