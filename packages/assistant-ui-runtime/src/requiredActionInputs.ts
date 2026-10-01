@@ -51,10 +51,3 @@ export function findCurrentPausedAssistantMessage(
   }
   return undefined;
 }
-
-/** @deprecated Prefer {@link findCurrentPausedAssistantMessage}. */
-export function findPausedAssistantMessage(
-  messages: readonly ThreadMessage[],
-): Extract<ThreadMessage, { role: 'assistant' }> | undefined {
-  return findCurrentPausedAssistantMessage(messages);
-}

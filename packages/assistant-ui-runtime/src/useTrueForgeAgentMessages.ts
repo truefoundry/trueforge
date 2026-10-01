@@ -34,7 +34,6 @@ import type { AssistantContentPart } from './modelMessageContent.js';
 import {
   collectRequiredActionInputs,
   findCurrentPausedAssistantMessage,
-  findPausedAssistantMessage,
   messageHasPendingRequiredActions,
   type RequiredActionInput,
 } from './requiredActionInputs.js';
@@ -172,7 +171,7 @@ function abandonInFlightClientTurn(snapshot: SessionSnapshot): SessionSnapshot {
   const completedAt = new Date().toISOString();
   const cancelledState = buildCancelledTurnState(completedAt);
 
-  if (hasIncompleteStream && active != null) {
+  if (active != null && active.streamComplete !== true) {
     const activeSandboxIdValue = active.update.metadata?.custom?.['sandboxId'];
     const activeSandboxId = typeof activeSandboxIdValue === 'string' ? activeSandboxIdValue : undefined;
     const baseline = snapshot.groupRootBaseline ?? computeGroupRootBaseline(snapshot.turns);
@@ -248,7 +247,7 @@ function abandonInFlightClientTurn(snapshot: SessionSnapshot): SessionSnapshot {
  * status from `turn.state.requiredActions` (see `findApprovalRequiredInTurn` /
  * `findResponseRequiredInTurn` / `findMcpAuthRequired`). If we returned an empty
  * list here, the committed turn would look "complete", the projected message
- * would lose its `requires-action` status, and `findPausedAssistantMessage`
+ * would lose its `requires-action` status, and `findCurrentPausedAssistantMessage`
  * (used by `trySendCollectedRequiredActions`) would never see it — so answering
  * a tool approval or an `ask_user_question` would never send the resume turn.
  *
@@ -1293,4 +1292,4 @@ export function useTrueForgeAgentMessages({
   };
 }
 
-export { findCurrentPausedAssistantMessage, findPausedAssistantMessage, MCP_AUTH_RESUME_RUN_CUSTOM_KEY };
+export { findCurrentPausedAssistantMessage, MCP_AUTH_RESUME_RUN_CUSTOM_KEY };

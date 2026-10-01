@@ -50,7 +50,6 @@ export type {
 export {
   collectRequiredActionInputs,
   findCurrentPausedAssistantMessage,
-  findPausedAssistantMessage,
   messageHasPendingRequiredActions,
 } from './requiredActionInputs.js';
 export { getSession } from './sessions.js';
