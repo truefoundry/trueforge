@@ -334,7 +334,7 @@ export function AgentSessions({
             <AgentSessionTimelineContainer
               sessionId={selectedSessionId}
               events={detailEvents}
-              listMetrics={selectedEntry?.metrics}
+              sessionMetrics={detailSession?.metrics}
               {...(detailOnly ? { contentMaxWidth: '60rem' } : {})}
             />
           )}
