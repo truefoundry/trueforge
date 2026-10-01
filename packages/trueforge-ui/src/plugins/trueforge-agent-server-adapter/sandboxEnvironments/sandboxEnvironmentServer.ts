@@ -11,8 +11,10 @@ import type {
 } from '../../../server/types.js';
 import { toListResult } from '../chatServer.js';
 
-/** Matches API PAGE_LIMIT for sandbox environments list. */
-const ENVIRONMENTS_PAGE_LIMIT = 25;
+/** Default list environments page size. */
+const DEFAULT_PAGE_LIMIT = 25;
+/** Maximum allowed environments page size, matching backend route limit. */
+const MAX_PAGE_LIMIT = 1000;
 
 function toIsoInstant(value: Date | string): string {
   if (value instanceof Date) return value.toISOString();
@@ -130,7 +132,7 @@ export function createSandboxEnvironmentServer(options: { client: TrueForge }): 
 
   return {
     async listEnvironments(req?: ListSandboxEnvironmentsParams): Promise<ListResult<SandboxEnvironment>> {
-      const limit = Math.min(Math.max(req?.limit ?? ENVIRONMENTS_PAGE_LIMIT, 1), ENVIRONMENTS_PAGE_LIMIT);
+      const limit = Math.min(Math.max(req?.limit ?? DEFAULT_PAGE_LIMIT, 1), MAX_PAGE_LIMIT);
       const page = await client.sandboxEnvironments.list({
         limit,
         ...(req?.pageToken === undefined || req.pageToken === '' ? {} : { pageToken: req.pageToken }),

@@ -89,4 +89,36 @@ describe('useReadySandboxEnvironments', () => {
       ]);
     });
   });
+
+  it('drains multiple pages of environments using limit: 1000', async () => {
+    const page1Env = { ...readyEnv, id: 'e1', name: 'env-page-1' };
+    const page2Env = { ...readyEnv, id: 'e2', name: 'env-page-2' };
+    const listEnvironments = vi
+      .fn()
+      .mockResolvedValueOnce({ data: [page1Env], nextPageToken: 'token-page-2' })
+      .mockResolvedValueOnce({ data: [page2Env] });
+
+    const server = createMockAgentUIServer({
+      sandboxEnvironments: createMockSandboxEnvironmentServer({ listEnvironments }),
+    });
+
+    function wrapper({ children }: { children: ReactNode }) {
+      return (
+        <ServerProvider server={server}>
+          <ShellModeProvider agentConfig={{ mode: 'AgentLibraryWithComposer' }}>{children}</ShellModeProvider>
+        </ServerProvider>
+      );
+    }
+
+    const { result } = renderHook(() => useReadySandboxEnvironments(), { wrapper });
+
+    await waitFor(() => {
+      expect(result.current.loading).toBe(false);
+    });
+
+    expect(listEnvironments).toHaveBeenCalledTimes(2);
+    expect(listEnvironments).toHaveBeenNthCalledWith(1, { limit: 1000, pageToken: undefined });
+    expect(listEnvironments).toHaveBeenNthCalledWith(2, { limit: 1000, pageToken: 'token-page-2' });
+    expect(result.current.environments.map(e => e.name)).toEqual(['env-page-1', 'env-page-2']);
+  });
 });

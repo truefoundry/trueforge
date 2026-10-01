@@ -80,6 +80,9 @@ describe('createSandboxEnvironmentServer', () => {
     expect(page.data[0]?.name).toBe('python-data');
     expect(page.data[0]?.manifest.resources?.cpu).toBe(2);
     expect(page.nextPageToken).toBe('next-1');
+
+    await server.listEnvironments({ limit: 1000 });
+    expect(client.sandboxEnvironments.list).toHaveBeenCalledWith({ limit: 1000 });
   });
 
   it('createOrUpdate and delete call SDK methods', async () => {

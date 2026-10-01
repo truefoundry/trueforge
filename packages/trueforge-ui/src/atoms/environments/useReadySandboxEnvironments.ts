@@ -5,6 +5,7 @@ import { useCallback, useEffect, useRef, useState } from 'react';
 import { useOptionalSandboxEnvironmentServer } from '../../server/ServerContext.js';
 import { useOptionalShellMode } from '../../server/ShellModeContext.js';
 import type { SandboxEnvironment } from '../../server/types.js';
+import { drainListPages } from '../../utils/drainListPages.js';
 import { getErrorMessage } from '../../utils/getErrorMessage.js';
 
 export type UseReadySandboxEnvironmentsResult = {
@@ -46,10 +47,11 @@ export function useReadySandboxEnvironments(): UseReadySandboxEnvironmentsResult
     setError(null);
 
     try {
-      // Fetch all accessible environments (default page size up to max 25 or unpaginated list)
-      const res = await environmentServer.listEnvironments({ limit: 100 });
+      const all = await drainListPages({
+        fetchPage: pageToken => environmentServer.listEnvironments({ limit: 1000, pageToken }),
+      });
       if (gen !== requestGenRef.current) return;
-      const readyOnly = res.data.filter(env => env.status === 'ready');
+      const readyOnly = all.filter(env => env.status === 'ready');
       setEnvironments(readyOnly);
     } catch (caught) {
       if (gen !== requestGenRef.current) return;
