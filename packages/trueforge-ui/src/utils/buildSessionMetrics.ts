@@ -23,7 +23,7 @@ export type SessionMetrics = {
   toolCallFrequency: SessionMetricBarDatum[];
 };
 
-export type SessionListMetricsHint = {
+export type SessionMetricsHint = {
   totalTurns: number;
   totalCostInUsd?: number;
   totalDurationMs: number;
@@ -31,10 +31,6 @@ export type SessionListMetricsHint = {
 
 function segmentDurationMs(segment: SessionEventTimelineSegment): number {
   return Math.max(0, segment.endMs - segment.startMs);
-}
-
-function hintHasValues(hint?: SessionListMetricsHint): boolean {
-  return hint != null && (hint.totalTurns > 0 || hint.totalCostInUsd != null || hint.totalDurationMs > 0);
 }
 
 function turnHasMetrics(turn: SessionTurnView): boolean {
@@ -50,11 +46,11 @@ function turnHasMetrics(turn: SessionTurnView): boolean {
 export function buildSessionMetrics({
   turns,
   segments,
-  listMetrics,
+  sessionMetrics,
 }: {
   turns: SessionTurnView[];
   segments: SessionEventTimelineSegment[];
-  listMetrics?: SessionListMetricsHint;
+  sessionMetrics?: SessionMetricsHint;
 }): SessionMetrics {
   let derivedWallTimeMs = 0;
   let derivedCostUsd = 0;
@@ -105,9 +101,8 @@ export function buildSessionMetrics({
   const waitingTimeMs = segments
     .filter(segment => segment.type === 'waiting_on_human' || segment.type === 'approval')
     .reduce((sum, segment) => sum + segmentDurationMs(segment), 0);
-  const wallTimeMs = hintHasValues(listMetrics)
-    ? (listMetrics?.totalDurationMs ?? derivedWallTimeMs)
-    : derivedWallTimeMs;
+  // Detail/list session metrics own wall time, cost, and turn count when present.
+  const wallTimeMs = sessionMetrics != null ? sessionMetrics.totalDurationMs : derivedWallTimeMs;
   const overheadTimeMs = Math.max(0, wallTimeMs - modelTimeMs - toolTimeMs - waitingTimeMs);
 
   const toolCallCounts = new Map<string, number>();
@@ -121,10 +116,11 @@ export function buildSessionMetrics({
     color: getSessionEventColor('tool_call'),
   })).sort((left, right) => right.value - left.value);
 
-  const totalCostUsd = listMetrics?.totalCostInUsd ?? (hasDerivedCost ? derivedCostUsd : undefined);
+  const totalCostUsd =
+    sessionMetrics != null ? sessionMetrics.totalCostInUsd : hasDerivedCost ? derivedCostUsd : undefined;
 
   return {
-    totalTurns: hintHasValues(listMetrics) ? (listMetrics?.totalTurns ?? turns.length) : turns.length,
+    totalTurns: sessionMetrics != null ? sessionMetrics.totalTurns : turns.length,
     wallTimeMs,
     ...(totalCostUsd == null ? {} : { totalCostUsd }),
     totalTokens,

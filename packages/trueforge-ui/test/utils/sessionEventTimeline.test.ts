@@ -583,4 +583,43 @@ describe('buildSessionMetrics', () => {
     const metrics = buildSessionMetrics({ turns, segments: buildSessionTimelineSegments(turns) });
     assert.equal(metrics.totalCostUsd, undefined);
   });
+
+  it('uses sessionMetrics exclusively for turns, duration, and cost', () => {
+    const turns = buildSessionTurnViews([
+      created({ turnId: 't1', createdAt: '2026-01-01T00:00:00.000Z' }),
+      {
+        turnId: 't1',
+        event: {
+          type: 'turn.done',
+          id: 't1-done',
+          state: {
+            status: 'done',
+            completedAt: '2026-01-01T00:00:02.000Z',
+            output: null,
+            requiredActions: [],
+            metrics: {
+              totalTokens: 80,
+              totalCostInUsd: 0.5,
+              totalInputTokens: 50,
+              totalOutputTokens: 30,
+              totalCacheReadTokens: 0,
+              totalCacheWriteTokens: 0,
+              totalReasoningTokens: 0,
+            },
+          },
+          createdAt: '2026-01-01T00:00:02.000Z',
+          threadId: null,
+        },
+      },
+    ]);
+    const metrics = buildSessionMetrics({
+      turns,
+      segments: buildSessionTimelineSegments(turns),
+      sessionMetrics: { totalTurns: 3, totalDurationMs: 81_715, totalCostInUsd: 0.3106 },
+    });
+    assert.equal(metrics.totalTurns, 3);
+    assert.equal(metrics.wallTimeMs, 81_715);
+    assert.equal(metrics.totalCostUsd, 0.3106);
+    assert.equal(metrics.totalTokens, 80);
+  });
 });
