@@ -168,8 +168,11 @@ export function createSandboxEnvironmentsRouter<TTransaction>(
         return c.json({ error: { message: 'Secret value is required' } }, 400);
       }
       if (error instanceof SandboxEnvironmentSecretSyncError) {
-        const message = getDaytonaAuthorizationErrorMessage(error.cause) ?? error.message;
-        return c.json({ error: { message } }, 502);
+        const authorizationMessage = getDaytonaAuthorizationErrorMessage(error.cause);
+        if (authorizationMessage !== undefined) {
+          return c.json({ error: { message: authorizationMessage } }, 422);
+        }
+        return c.json({ error: { message: error.message } }, 502);
       }
       throw error;
     }
