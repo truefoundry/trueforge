@@ -26,7 +26,6 @@ if typing.TYPE_CHECKING:
     from .available_model_provider import AvailableModelProvider
     from .available_skill import AvailableSkill
     from .base_mcp_auth_required_event import BaseMcpAuthRequiredEvent
-    from .base_thread_done_event import BaseThreadDoneEvent
     from .cancel_session_response import CancelSessionResponse
     from .capabilities_data import CapabilitiesData
     from .catalog_custom_model_provider import CatalogCustomModelProvider
@@ -294,7 +293,6 @@ _dynamic_imports: typing.Dict[str, str] = {
     "AvailableModelProvider": ".available_model_provider",
     "AvailableSkill": ".available_skill",
     "BaseMcpAuthRequiredEvent": ".base_mcp_auth_required_event",
-    "BaseThreadDoneEvent": ".base_thread_done_event",
     "CancelSessionResponse": ".cancel_session_response",
     "CapabilitiesData": ".capabilities_data",
     "CatalogCustomModelProvider": ".catalog_custom_model_provider",
@@ -586,7 +584,6 @@ __all__ = [
     "AvailableModelProvider",
     "AvailableSkill",
     "BaseMcpAuthRequiredEvent",
-    "BaseThreadDoneEvent",
     "CancelSessionResponse",
     "CapabilitiesData",
     "CatalogCustomModelProvider",

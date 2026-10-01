@@ -18,7 +18,6 @@ export * from "./AvailableModel.js";
 export * from "./AvailableModelProvider.js";
 export * from "./AvailableSkill.js";
 export * from "./BaseMcpAuthRequiredEvent.js";
-export * from "./BaseThreadDoneEvent.js";
 export * from "./CancelSessionResponse.js";
 export * from "./CapabilitiesData.js";
 export * from "./CatalogCustomModelProvider.js";

@@ -1,5 +1,18 @@
 # @truefoundry/trueforge-core
 
+## 0.9993.0
+
+### Minor Changes
+
+- b28f291: Default sandbox environment on provider configure (with provider status-column drop), capabilities/resolve via default env status, and a controller loop that builds the latest pending environment version per env. Core: generic SandboxProvider/Sandbox, HarnessSandbox, and Daytona build/getBuildStatus on the provider.
+- 88024b6: Reset in-flight sub-agents and open tool calls when a turn starts with a user message, without emitting public thread.done for cancelled children.
+
+### Patch Changes
+
+- baf80b0: Bump dependencies to address known vulnerabilities (Dependabot), including `undici`, AI SDK providers, `zod`, and related transitive fixes.
+- 1bf436e: Add sandbox-environment CRUD (tables, PUT upsert, subject ownership, soft-delete). Versions land as `pending` for a future controller. AgentSpec `config.sandbox.environment_name` names a caller-owned env; name `default` is reserved; delete returns 409 while agents reference it. Turn create clones the env snapshot (when built) and applies resources, env vars, and networking.
+- 4f74f50: Treat `paused` as a live turn. `updateTurnNonTerminalState` switches `running` and `paused` and appends `turn.update` without session metrics. Terminal writes and `freezeAndGetTurn` accept a paused tip. `createTurn` rejects a paused predecessor until it is frozen. `updateTurnState` is now `updateTurnTerminalState`.
+
 ## 0.3.0
 
 ### Minor Changes
