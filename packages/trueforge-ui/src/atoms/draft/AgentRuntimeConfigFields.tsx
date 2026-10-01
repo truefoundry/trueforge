@@ -68,13 +68,11 @@ export function AgentRuntimeConfigFields({
   const { environments: readyEnvironments, refetch: refetchEnvironments } = useReadySandboxEnvironments();
 
   const environmentOptions = useMemo(
-    () => [
-      { value: 'default', label: 'default' },
-      ...readyEnvironments.map(env => ({
+    () =>
+      readyEnvironments.map(env => ({
         value: env.name,
         label: env.name,
       })),
-    ],
     [readyEnvironments],
   );
 

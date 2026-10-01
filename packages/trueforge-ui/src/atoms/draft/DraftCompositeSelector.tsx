@@ -517,28 +517,17 @@ export function DraftCompositeSelector({ disabled, isRunning, onAttach }: DraftC
 
   const currentEnvName = agentSpec?.config?.sandbox?.environment_name?.trim() || 'default';
 
-  const defaultEnvItem = useMemo(
-    () => ({
-      name: 'default',
-      description: 'Created when the sandbox provider was configured',
-    }),
-    [],
-  );
-
   const filteredEnvironments = useMemo(() => {
-    const all = [
-      defaultEnvItem,
-      ...readyEnvironments.map(e => ({
-        name: e.name,
-        description: e.manifest.description || `Created ${formatRelativeTime(e.createdAt)}`,
-      })),
-    ];
+    const all = readyEnvironments.map(e => ({
+      name: e.name,
+      description: e.manifest.description || `Created ${formatRelativeTime(e.createdAt)}`,
+    }));
     const needle = query.trim().toLowerCase();
     if (!needle) return all;
     return all.filter(
       item => item.name.toLowerCase().includes(needle) || (item.description?.toLowerCase().includes(needle) ?? false),
     );
-  }, [defaultEnvItem, readyEnvironments, query]);
+  }, [readyEnvironments, query]);
 
   const selectEnvironment = (envName: string) => {
     const isDefault = envName === 'default';

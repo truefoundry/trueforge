@@ -18,7 +18,7 @@ const sampleEnvironments: SandboxEnvironment[] = [
     id: 'e1',
     name: 'python-data',
     description: 'Python with httpx',
-    status: 'active',
+    status: 'ready',
     statusReason: null,
     manifest: {
       name: 'python-data',
@@ -72,11 +72,11 @@ afterEach(() => {
 
 function renderPage({
   environments = sampleEnvironments,
-  providers = [{ data: { id: 'daytona', name: 'Daytona', catalogId: 'daytona', isConnected: true } }],
+  providers = [{ id: 'daytona', name: 'Daytona', catalogId: 'daytona', isConnected: true }],
   environmentOverrides = {},
 }: {
   environments?: SandboxEnvironment[];
-  providers?: Array<{ data: { id: string; name: string; catalogId: string; isConnected: boolean } }>;
+  providers?: Array<{ id: string; name: string; catalogId: string; isConnected: boolean }>;
   environmentOverrides?: Partial<SandboxEnvironmentServer>;
 } = {}) {
   const environmentServer = createMockSandboxEnvironmentServer({
@@ -86,11 +86,7 @@ function renderPage({
   const catalog = createMockCatalog({
     sandboxCatalog: {
       getSandboxProviderCatalog: async () => [],
-      listSandboxProviders: async () =>
-        providers.map(entry => ({
-          data: entry.data,
-          snapshotSyncStatus: { status: 'ready' as const },
-        })),
+      listSandboxProviders: async () => providers,
       createSandboxProvider: vi.fn(),
       updateSandboxProvider: vi.fn(),
     },
@@ -159,7 +155,7 @@ describe('EnvironmentsPage', () => {
     }));
     const getEnvironment = vi.fn(async () => ({
       ...pendingEnv,
-      status: 'active' as const,
+      status: 'ready' as const,
     }));
 
     try {

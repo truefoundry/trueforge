@@ -19,7 +19,7 @@ function mockClient(
           name: 'python-data',
           description: 'Python with httpx',
           lifecycleStage: 'active' as const,
-          status: 'active' as const,
+          status: 'ready' as const,
           statusReason: null,
           createdAt: new Date('2024-01-01T00:00:00.000Z'),
           updatedAt: new Date('2024-01-02T00:00:00.000Z'),

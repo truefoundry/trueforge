@@ -4,7 +4,7 @@ import { Tooltip } from '../primitives/Tooltip.js';
 
 const STATUS_CONFIG: Record<SandboxEnvironmentStatus, { label: string; variant: BadgeVariant }> = {
   pending: { label: 'Pending', variant: 'info' },
-  active: { label: 'Active', variant: 'success' },
+  ready: { label: 'Ready', variant: 'success' },
   failed: { label: 'Failed', variant: 'destructive' },
 };
 

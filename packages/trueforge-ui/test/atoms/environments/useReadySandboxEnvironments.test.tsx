@@ -9,11 +9,11 @@ import { ShellModeProvider, useShellMode } from '@/server/ShellModeContext.js';
 import type { SandboxEnvironment } from '@/server/types.js';
 import { createMockAgentUIServer, createMockSandboxEnvironmentServer } from '../../server/mockServer.js';
 
-const activeEnv: SandboxEnvironment = {
+const readyEnv: SandboxEnvironment = {
   id: 'e1',
   name: 'python-data',
   description: 'Python',
-  status: 'active',
+  status: 'ready',
   statusReason: null,
   manifest: { name: 'python-data', description: 'Python' },
   createdBySubject: {
@@ -26,7 +26,7 @@ const activeEnv: SandboxEnvironment = {
 };
 
 const pendingEnv: SandboxEnvironment = {
-  ...activeEnv,
+  ...readyEnv,
   id: 'e2',
   name: 'pending-env',
   status: 'pending',
@@ -34,20 +34,20 @@ const pendingEnv: SandboxEnvironment = {
 };
 
 describe('useReadySandboxEnvironments', () => {
-  it('filters to active environments and refetches when the catalog epoch bumps', async () => {
+  it('filters to ready environments and refetches when the catalog epoch bumps', async () => {
     const listEnvironments = vi
       .fn()
-      .mockResolvedValueOnce({ data: [activeEnv, pendingEnv] })
+      .mockResolvedValueOnce({ data: [readyEnv, pendingEnv] })
       .mockResolvedValueOnce({
         data: [
-          activeEnv,
-          { ...pendingEnv, status: 'active' as const },
+          readyEnv,
+          { ...pendingEnv, status: 'ready' as const },
           {
-            ...activeEnv,
+            ...readyEnv,
             id: 'e3',
-            name: 'new-active',
-            status: 'active' as const,
-            manifest: { name: 'new-active', description: 'New' },
+            name: 'new-ready',
+            status: 'ready' as const,
+            manifest: { name: 'new-ready', description: 'New' },
           },
         ],
       });
@@ -83,7 +83,7 @@ describe('useReadySandboxEnvironments', () => {
       expect(listEnvironments).toHaveBeenCalledTimes(2);
       expect(result.current.ready.loading).toBe(false);
       expect(result.current.ready.environments.map(e => e.name).sort()).toEqual([
-        'new-active',
+        'new-ready',
         'pending-env',
         'python-data',
       ]);

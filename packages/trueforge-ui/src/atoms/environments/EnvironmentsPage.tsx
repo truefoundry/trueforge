@@ -159,7 +159,7 @@ export function EnvironmentsPage(_props: EnvironmentsPageProps) {
             return updated ?? item;
           }),
         );
-        // Pending envs becoming active (or failed) must refresh still-mounted pickers.
+        // Pending envs becoming ready (or failed) must refresh still-mounted pickers.
         if (resolved.some(u => u.status !== 'pending')) {
           shell?.invalidateEnvironmentsList();
         }
@@ -278,7 +278,7 @@ export function EnvironmentsPage(_props: EnvironmentsPageProps) {
               <TableHeader>
                 <TableRow className="hover:bg-transparent">
                   <TableHead className="w-96 max-w-96">Name</TableHead>
-                  <TableHead>Status</TableHead>
+                  <TableHead>Build Status</TableHead>
                   <TableHead>Resources</TableHead>
                   <TableHead>Networking</TableHead>
                   <TableHead>Updated</TableHead>

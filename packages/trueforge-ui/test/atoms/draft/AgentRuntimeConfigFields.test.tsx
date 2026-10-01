@@ -1,5 +1,4 @@
-// @vitest-environment jsdom
-import { fireEvent, render, screen } from '@testing-library/react';
+import { fireEvent, render, screen, waitFor } from '@testing-library/react';
 import { describe, expect, it, vi } from 'vitest';
 
 import { AgentRuntimeConfigFields } from '@/atoms/draft/AgentRuntimeConfigFields.js';
@@ -28,10 +27,21 @@ function renderRuntimeFields({
     listEnvironments: async () => ({
       data: [
         {
+          id: 'env-default',
+          name: 'default',
+          description: 'Default environment',
+          status: 'ready',
+          statusReason: null,
+          manifest: { name: 'default', description: 'Default environment' },
+          createdBySubject: { subjectId: 'u1', subjectType: 'user', subjectDisplayName: 'user-1' },
+          createdAt: '2026-09-01T10:00:00Z',
+          updatedAt: '2026-09-01T10:00:00Z',
+        },
+        {
           id: 'env-1',
           name: 'python-dev',
           description: 'Python 3.11 environment',
-          status: 'active',
+          status: 'ready',
           statusReason: null,
           manifest: { name: 'python-dev', description: 'Python 3.11 environment' },
           createdBySubject: { subjectId: 'u1', subjectType: 'user', subjectDisplayName: 'user-1' },
@@ -85,12 +95,14 @@ describe('AgentRuntimeConfigFields', () => {
     expect(setEnvironmentsOpen).toHaveBeenCalledWith(true);
   });
 
-  it('populates environment dropdown with default and active environments only', async () => {
+  it('populates environment dropdown with default and ready environments only', async () => {
     const onChange = vi.fn();
     renderRuntimeFields({ onChange });
 
     const trigger = screen.getByRole('button', { name: 'Environment' });
-    expect(trigger).toHaveTextContent('default');
+    await waitFor(() => {
+      expect(trigger).toHaveTextContent('default');
+    });
 
     fireEvent.click(trigger);
 

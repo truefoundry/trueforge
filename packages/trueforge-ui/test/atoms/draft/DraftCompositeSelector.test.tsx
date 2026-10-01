@@ -380,15 +380,26 @@ describe('DraftCompositeSelector', () => {
     expect(screen.queryByRole('button', { name: /Please configure a Sandbox/ })).not.toBeInTheDocument();
   });
 
-  it('renders environment tab with default and active environments only, excluding pending/failed and status badges', async () => {
+  it('renders environment tab with default and ready environments only, excluding pending/failed and status badges', async () => {
     const environmentServer = createMockSandboxEnvironmentServer({
       listEnvironments: async () => ({
         data: [
           {
+            id: 'env-default',
+            name: 'default',
+            description: 'Default environment',
+            status: 'ready',
+            statusReason: null,
+            manifest: { name: 'default', description: 'Default environment' },
+            createdBySubject: { subjectId: 'u1', subjectType: 'user', subjectDisplayName: 'user-1' },
+            createdAt: '2026-09-01T10:00:00Z',
+            updatedAt: '2026-09-01T10:00:00Z',
+          },
+          {
             id: 'env-1',
             name: 'python-dev',
             description: 'Python 3.11 environment with poetry',
-            status: 'active',
+            status: 'ready',
             statusReason: null,
             manifest: { name: 'python-dev', description: 'Python 3.11 environment with poetry' },
             createdBySubject: { subjectId: 'u1', subjectType: 'user', subjectDisplayName: 'user-1' },
@@ -426,7 +437,7 @@ describe('DraftCompositeSelector', () => {
     fireEvent.click(screen.getByRole('button', { name: /Environment/ }));
 
     expect(await screen.findByText('default')).toBeInTheDocument();
-    expect(screen.getByText('Created when the sandbox provider was configured')).toBeInTheDocument();
+    expect(screen.getByText('Default environment')).toBeInTheDocument();
     expect(await screen.findByText('python-dev')).toBeInTheDocument();
     expect(screen.getByText('Python 3.11 environment with poetry')).toBeInTheDocument();
 

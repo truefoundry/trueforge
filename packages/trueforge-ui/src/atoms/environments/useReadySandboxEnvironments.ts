@@ -15,7 +15,7 @@ export type UseReadySandboxEnvironmentsResult = {
 };
 
 /**
- * Loads sandbox environments and filters strictly to ready (`status === 'active'`) records.
+ * Loads sandbox environments and filters strictly to ready (`status === 'ready'`) records.
  * Environments still building (`pending`) or failed (`failed`) are excluded.
  *
  * Re-fetches when the shell environments catalog epoch bumps (after manage CRUD /
@@ -49,7 +49,7 @@ export function useReadySandboxEnvironments(): UseReadySandboxEnvironmentsResult
       // Fetch all accessible environments (default page size up to max 25 or unpaginated list)
       const res = await environmentServer.listEnvironments({ limit: 100 });
       if (gen !== requestGenRef.current) return;
-      const readyOnly = res.data.filter(env => env.status === 'active');
+      const readyOnly = res.data.filter(env => env.status === 'ready');
       setEnvironments(readyOnly);
     } catch (caught) {
       if (gen !== requestGenRef.current) return;

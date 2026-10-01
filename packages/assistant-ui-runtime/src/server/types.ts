@@ -1050,7 +1050,7 @@ export interface ScheduleServer<
 // Sandbox environments — optional Environments page CRUD
 // ---------------------------------------------------------------------------
 
-export type SandboxEnvironmentStatus = 'pending' | 'active' | 'failed';
+export type SandboxEnvironmentStatus = 'pending' | 'ready' | 'failed';
 
 export interface SandboxEnvironmentResources {
   cpu: number;
