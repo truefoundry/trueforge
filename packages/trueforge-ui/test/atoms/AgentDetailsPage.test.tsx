@@ -606,11 +606,11 @@ describe('AgentDetailsPage', () => {
     expect(screen.getByText('timeline-body')).toBeInTheDocument();
   });
 
-  it('passes getSession metrics into the selected session detail', async () => {
+  it('passes getSession duration and cost into the selected session detail', async () => {
     renderPage({
       overrides: {
         AgentSessionTimelineContainer: ({ sessionMetrics }) => (
-          <div>{`${String(sessionMetrics?.totalTurns)} turns, ${String(sessionMetrics?.totalDurationMs)}ms, $${String(sessionMetrics?.totalCostInUsd)}`}</div>
+          <div>{`${String(sessionMetrics?.totalDurationMs)}ms, $${String(sessionMetrics?.totalCostInUsd)}`}</div>
         ),
       },
     });
@@ -618,7 +618,7 @@ describe('AgentDetailsPage', () => {
     fireEvent.click(screen.getByRole('tab', { name: 'Sessions' }));
     fireEvent.click(await screen.findByText('Release notes draft'));
 
-    expect(await screen.findByText('4 turns, 90000ms, $1.25')).toBeInTheDocument();
+    expect(await screen.findByText('90000ms, $1.25')).toBeInTheDocument();
   });
 
   it('shows the shared unavailable state without the optional server', () => {

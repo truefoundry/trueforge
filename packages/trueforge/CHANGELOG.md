@@ -1,5 +1,28 @@
 # @truefoundry/trueforge
 
+## 0.9993.0
+
+### Minor Changes
+
+- b28f291: Default sandbox environment on provider configure (with provider status-column drop), capabilities/resolve via default env status, and a controller loop that builds the latest pending environment version per env. Core: generic SandboxProvider/Sandbox, HarnessSandbox, and Daytona build/getBuildStatus on the provider.
+- 88024b6: Reset in-flight sub-agents and open tool calls when a turn starts with a user message, without emitting public thread.done for cancelled children.
+
+### Patch Changes
+
+- 5577544: Bump `monaco-editor` to `^0.57.0` to address known vulnerabilities, and point the frontend Monaco worker plugin at the 0.56+ export paths so production builds resolve workers correctly.
+- baf80b0: Bump dependencies to address known vulnerabilities (Dependabot), including `undici`, AI SDK providers, `zod`, and related transitive fixes.
+- edbcba4: Stop `pnpm fetch` from leaving a full `node_modules/.pnpm` in the image store stage so the production install no longer copies build tooling (esbuild, TypeScript, etc.) into the runtime image.
+- 1bf436e: Add sandbox-environment CRUD (tables, PUT upsert, subject ownership, soft-delete). Versions land as `pending` for a future controller. AgentSpec `config.sandbox.environment_name` names a caller-owned env; name `default` is reserved; delete returns 409 while agents reference it. Turn create clones the env snapshot (when built) and applies resources, env vars, and networking.
+- 4f74f50: Treat `paused` as a live turn. `updateTurnNonTerminalState` switches `running` and `paused` and appends `turn.update` without session metrics. Terminal writes and `freezeAndGetTurn` accept a paused tip. `createTurn` rejects a paused predecessor until it is frozen. `updateTurnState` is now `updateTurnTerminalState`.
+- Updated dependencies [fae79d0]
+- Updated dependencies [b28f291]
+- Updated dependencies [baf80b0]
+- Updated dependencies [88024b6]
+- Updated dependencies [1bf436e]
+- Updated dependencies [4f74f50]
+  - @truefoundry/trueforge-sdk@0.9992.1
+  - @truefoundry/trueforge-core@0.9993.0
+
 ## 0.3.0
 
 ### Minor Changes

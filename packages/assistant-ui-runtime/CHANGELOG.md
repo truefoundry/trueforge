@@ -1,5 +1,14 @@
 # @truefoundry/trueforge-assistant-ui-runtime
 
+## 0.9992.1
+
+### Patch Changes
+
+- b58c47e: Avoid throwing agentSpec error when switching chats or rendering immutable sessions in Chat History.
+- 04c3aa7: Prevent duplicate assistant message IDs when a turn stream finishes on mcp.auth_required without model messages.
+- 1bf436e: Add sandbox-environment CRUD (tables, PUT upsert, subject ownership, soft-delete). Versions land as `pending` for a future controller. AgentSpec `config.sandbox.environment_name` names a caller-owned env; name `default` is reserved; delete returns 409 while agents reference it. Turn create clones the env snapshot (when built) and applies resources, env vars, and networking.
+- c0cd17b: Use session detail API metrics for the agent session strip Turns/Duration/Cost instead of list-row hints or turn-by-turn aggregation. Include optional totalCostInUsd on TurnDoneMetrics so turn.done cost matches the wire contract.
+
 ## 0.2.0
 
 ### Minor Changes

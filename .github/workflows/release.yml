@@ -224,7 +224,12 @@ jobs:
 
   publish:
     name: Publish packages
-    needs: [version-release, pack, windows-npx-smoke]
+    # resolve-image is in `needs` for its veto, not its outputs. npm and PyPI
+    # are the only irreversible steps in this workflow - npm allows 72h to
+    # unpublish, PyPI never does - so neither may run while any part of the
+    # release has already refused. Without this they publish in parallel with
+    # the image path and land a version no image or chart will ever match.
+    needs: [version-release, pack, windows-npx-smoke, resolve-image]
     if: ${{ inputs.dry_run != true }} # DRY-RUN (temporary)
     runs-on: ubuntu-latest
     timeout-minutes: 20
@@ -266,7 +271,9 @@ jobs:
   # Sibling of npm publish (same gates). Skips when pyproject version is already on PyPI.
   publish-python:
     name: Publish Python SDK
-    needs: [version-release, pack, windows-npx-smoke]
+    # Same veto as `publish`; PyPI is the one registry that never lets a
+    # version be reused, so it must not outrun a refusal either.
+    needs: [version-release, pack, windows-npx-smoke, resolve-image]
     if: ${{ inputs.dry_run != true }} # DRY-RUN (temporary)
     runs-on: ubuntu-latest
     timeout-minutes: 20
@@ -393,45 +400,6 @@ jobs:
           echo "image_tag=" >> "$GITHUB_OUTPUT"
           echo "$TAG already exists; reusing the image the tagged commit references"
 
-      # The two image jobs call a shared reusable workflow that checks out with
-      # no `ref`, so it gets `github.sha` - the pre-version dispatch commit,
-      # not the commit `version-release` just made. The tag and the chart's
-      # appVersion would then describe a tree the image was not built from.
-      #
-      # Refuse rather than ship a mislabelled image. This fires only when an
-      # image would actually be built AND the version commit moved:
-      #   - nothing to version (clean tree) -> sha == github.sha, image correct
-      #   - re-run of a cut version        -> image == skip, nothing is built
-      #   - dry run                        -> both build jobs are skipped
-      # Lifting this needs a `ref` input on
-      # truefoundry/github-workflows-public/.github/workflows/build.yml,
-      # passed as needs.version-release.outputs.sha from both image jobs.
-      - name: Refuse to build an image from the pre-version commit
-        if: ${{ steps.resolve.outputs.image == 'build' && inputs.dry_run != true }}
-        env:
-          VERSION_SHA: ${{ needs.version-release.outputs.sha }}
-          DISPATCH_SHA: ${{ github.sha }}
-        run: |
-          set -euo pipefail
-          if [[ "$VERSION_SHA" == "$DISPATCH_SHA" ]]; then
-            echo "Version commit is the dispatch commit; the image build sees the right tree."
-            exit 0
-          fi
-          {
-            echo "### Image build refused"
-            echo ""
-            echo "\`version-release\` committed \`$VERSION_SHA\`, but the shared"
-            echo "build workflow would check out \`$DISPATCH_SHA\` - the tree before"
-            echo "the version bump. The image would carry the wrong version while its"
-            echo "tag and the chart appVersion claim otherwise."
-            echo ""
-            echo "Add a \`ref\` input to \`github-workflows-public\`'s \`build.yml\` and"
-            echo "pass \`needs.version-release.outputs.sha\`, or re-run with \`dry_run\`"
-            echo "to exercise everything except the image and chart publish."
-          } >> "$GITHUB_STEP_SUMMARY"
-          echo "::error::refusing to build an image from $DISPATCH_SHA when the release commit is $VERSION_SHA"
-          exit 1
-
   # Two images, same tag, different Artifactory repos. The public one keeps the
   # Dockerfile's public bases so it stays redistributable; the hardened one is
   # built from Chainguard bases whose licence forbids publishing them, so it
@@ -440,12 +408,20 @@ jobs:
     name: Build and push public server image
     # DRY-RUN (temporary): `&& inputs.dry_run != true`
     if: needs.resolve-image.outputs.image == 'build' && inputs.dry_run != true
-    needs: [resolve-image]
+    # version-release must be a DIRECT dependency: the needs context only
+    # exposes outputs from jobs listed here, so checkout_ref below would be
+    # empty otherwise and checkout would silently fall back to github.sha.
+    needs: [version-release, resolve-image]
     uses: truefoundry/github-workflows-public/.github/workflows/build.yml@main
     permissions:
       id-token: write
       contents: read
     with:
+      # The shared build.yml inherits THIS run's github.sha, which is the
+      # pre-version dispatch commit. version-release has already pushed the
+      # bumped tree, so name it explicitly or the image ships the old
+      # versions baked into its generated SDK while the tag claims the new.
+      checkout_ref: ${{ needs.version-release.outputs.sha }}
       artifactory_registry_url: ${{ vars.TRUEFOUNDRY_ARTIFACTORY_REGISTRY_URL }}
       artifactory_repository_url: ${{ vars.TRUEFOUNDRY_ARTIFACTORY_PUBLIC_REPOSITORY }}
       image_artifact_name: trueforge
@@ -463,12 +439,18 @@ jobs:
     name: Build and push hardened server image
     # DRY-RUN (temporary): `&& inputs.dry_run != true`
     if: needs.resolve-image.outputs.image == 'build' && inputs.dry_run != true
-    needs: [resolve-image]
+    # version-release must be a DIRECT dependency: the needs context only
+    # exposes outputs from jobs listed here, so checkout_ref below would be
+    # empty otherwise and checkout would silently fall back to github.sha.
+    needs: [version-release, resolve-image]
     uses: truefoundry/github-workflows-public/.github/workflows/build.yml@main
     permissions:
       id-token: write
       contents: read
     with:
+      # Same reason as the public image: build the version commit, not the
+      # dispatch commit.
+      checkout_ref: ${{ needs.version-release.outputs.sha }}
       artifactory_registry_url: ${{ vars.TRUEFOUNDRY_ARTIFACTORY_REGISTRY_URL }}
       artifactory_repository_url: ${{ vars.TRUEFOUNDRY_ARTIFACTORY_PRIVATE_REPOSITORY }}
       image_artifact_name: trueforge

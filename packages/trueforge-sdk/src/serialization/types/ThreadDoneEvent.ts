@@ -3,26 +3,30 @@
 import type * as TrueForge from "../../api/index.js";
 import * as core from "../../core/index.js";
 import type * as serializers from "../index.js";
-import { BaseThreadDoneEvent } from "./BaseThreadDoneEvent.js";
+import { AgentParent } from "./AgentParent.js";
 import { ThreadState } from "./ThreadState.js";
 
 export const ThreadDoneEvent: core.serialization.ObjectSchema<
     serializers.ThreadDoneEvent.Raw,
     TrueForge.ThreadDoneEvent
-> = core.serialization
-    .object({
-        createdAt: core.serialization.property("created_at", core.serialization.string()),
-        id: core.serialization.string(),
-        state: ThreadState,
-        type: core.serialization.stringLiteral("thread.done"),
-    })
-    .extend(BaseThreadDoneEvent);
+> = core.serialization.object({
+    createdAt: core.serialization.property("created_at", core.serialization.string()),
+    id: core.serialization.string(),
+    parent: AgentParent.optional(),
+    state: ThreadState,
+    threadId: core.serialization.property("thread_id", core.serialization.string()),
+    title: core.serialization.string(),
+    type: core.serialization.stringLiteral("thread.done"),
+});
 
 export declare namespace ThreadDoneEvent {
-    export interface Raw extends BaseThreadDoneEvent.Raw {
+    export interface Raw {
         created_at: string;
         id: string;
+        parent?: AgentParent.Raw | null;
         state: ThreadState.Raw;
+        thread_id: string;
+        title: string;
         type: "thread.done";
     }
 }
