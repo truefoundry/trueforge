@@ -75,7 +75,6 @@ const EXPECTED_EVENTS = [
 
 const OUTPUT = {
   output: { thread_id: ROOT_ID, content: ROOT_FINAL },
-  required_actions: [],
 };
 
 const EXPECTED_ROOT_LLM_INPUT = [
