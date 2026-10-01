@@ -158,7 +158,16 @@ export { AgentHarnessError, McpConnectionError, McpDcrConfigurationError } from 
 export { REDIS_KEY_NAMESPACE, redisKey } from './redisKeys';
 export { describeUnknownError, extractErrorLogFields } from './util/errorLogFields';
 export { PromiseTimeoutError, withTimeout } from './util/promiseUtils';
-export { assertSafeOutboundUrl, configureOutboundUrlGuard, ssrfFetch } from './util/ssrfGuard';
+export {
+  DEFAULT_OUTBOUND_HTTP_REQUEST_CONNECT_TIMEOUT_MS,
+  DEFAULT_OUTBOUND_HTTP_REQUEST_HEADERS_TIMEOUT_MS,
+  DEFAULT_OUTBOUND_HTTP_REQUEST_MAX_RETRIES,
+  assertSafeOutboundUrl,
+  configureOutboundUrlGuard,
+  isRetryableOutboundGatewayStatus,
+  isRetryableOutboundTransportError,
+  ssrfFetch,
+} from './util/ssrfGuard';
 
 // Sandbox (concrete implementation; provider details exported for composition)
 export { CodeModeDispatcher } from './sandbox/codeMode/CodeModeDispatcher';

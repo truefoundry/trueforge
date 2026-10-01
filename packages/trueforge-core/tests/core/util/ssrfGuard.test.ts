@@ -1,8 +1,27 @@
 import http from 'node:http';
-import { assertSafeOutboundUrl, configureOutboundUrlGuard, ssrfFetch } from '../../../src/core/util/ssrfGuard';
+import {
+  assertSafeOutboundUrl,
+  configureOutboundUrlGuard,
+  DEFAULT_OUTBOUND_HTTP_REQUEST_CONNECT_TIMEOUT_MS,
+  DEFAULT_OUTBOUND_HTTP_REQUEST_HEADERS_TIMEOUT_MS,
+  DEFAULT_OUTBOUND_HTTP_REQUEST_MAX_RETRIES,
+  isRetryableOutboundGatewayStatus,
+  isRetryableOutboundTransportError,
+  ssrfFetch,
+} from '../../../src/core/util/ssrfGuard';
+
+function resetOutboundGuard(): void {
+  configureOutboundUrlGuard({
+    allowedHosts: [],
+    blockedHosts: [],
+    headersTimeoutMs: DEFAULT_OUTBOUND_HTTP_REQUEST_HEADERS_TIMEOUT_MS,
+    connectTimeoutMs: DEFAULT_OUTBOUND_HTTP_REQUEST_CONNECT_TIMEOUT_MS,
+    maxRetries: DEFAULT_OUTBOUND_HTTP_REQUEST_MAX_RETRIES,
+  });
+}
 
 afterEach(() => {
-  configureOutboundUrlGuard({ allowedHosts: [], blockedHosts: [] });
+  resetOutboundGuard();
 });
 
 async function listen(handler: http.RequestListener): Promise<{ server: http.Server; origin: string }> {
@@ -66,6 +85,28 @@ describe('assertSafeOutboundUrl', () => {
     configureOutboundUrlGuard({ enabled: false, allowedHosts: [], blockedHosts: [] });
     await expect(assertSafeOutboundUrl('http://127.0.0.1:6379/')).resolves.toBeUndefined();
     await expect(assertSafeOutboundUrl('http://redis/')).resolves.toBeUndefined();
+  });
+});
+
+describe('outbound retry classifiers', () => {
+  it('detects undici connect and headers timeout codes through Error.cause', () => {
+    const connect = new TypeError('fetch failed', {
+      cause: Object.assign(new Error('Connect Timeout Error'), { code: 'UND_ERR_CONNECT_TIMEOUT' }),
+    });
+    const headers = new TypeError('fetch failed', {
+      cause: Object.assign(new Error('Headers Timeout Error'), { code: 'UND_ERR_HEADERS_TIMEOUT' }),
+    });
+    expect(isRetryableOutboundTransportError(connect)).toBe(true);
+    expect(isRetryableOutboundTransportError(headers)).toBe(true);
+    expect(isRetryableOutboundTransportError(new Error('nope'))).toBe(false);
+  });
+
+  it('retries only the configured gateway statuses', () => {
+    expect(isRetryableOutboundGatewayStatus(520)).toBe(true);
+    expect(isRetryableOutboundGatewayStatus(524)).toBe(true);
+    expect(isRetryableOutboundGatewayStatus(530)).toBe(true);
+    expect(isRetryableOutboundGatewayStatus(500)).toBe(false);
+    expect(isRetryableOutboundGatewayStatus(400)).toBe(false);
   });
 });
 
@@ -142,6 +183,110 @@ describe('ssrfFetch', () => {
         authorization: 'Bearer t',
         body: 'hello',
       });
+    } finally {
+      await closeServer(server);
+    }
+  });
+
+  it('retries gateway 520 then returns success', async () => {
+    configureOutboundUrlGuard({ allowedHosts: ['127.0.0.1'], blockedHosts: [], maxRetries: 2 });
+    let hits = 0;
+    const { server, origin } = await listen((_req, res) => {
+      hits += 1;
+      if (hits === 1) {
+        res.writeHead(520, { 'content-type': 'text/plain' });
+        res.end('gateway');
+        return;
+      }
+      res.writeHead(200, { 'content-type': 'text/plain' });
+      res.end('ok');
+    });
+    try {
+      const response = await ssrfFetch(`${origin}/`);
+      expect(response.status).toBe(200);
+      await expect(response.text()).resolves.toBe('ok');
+      expect(hits).toBe(2);
+    } finally {
+      await closeServer(server);
+    }
+  });
+
+  it('does not retry 400 or 500', async () => {
+    configureOutboundUrlGuard({ allowedHosts: ['127.0.0.1'], blockedHosts: [], maxRetries: 2 });
+    for (const status of [400, 500]) {
+      let hits = 0;
+      const { server, origin } = await listen((_req, res) => {
+        hits += 1;
+        res.writeHead(status, { 'content-type': 'text/plain' });
+        res.end('nope');
+      });
+      try {
+        const response = await ssrfFetch(`${origin}/`);
+        expect(response.status).toBe(status);
+        expect(hits).toBe(1);
+      } finally {
+        await closeServer(server);
+      }
+    }
+  });
+
+  it('stops retrying gateway errors when maxRetries is 0', async () => {
+    configureOutboundUrlGuard({ allowedHosts: ['127.0.0.1'], blockedHosts: [], maxRetries: 0 });
+    let hits = 0;
+    const { server, origin } = await listen((_req, res) => {
+      hits += 1;
+      res.writeHead(522, { 'content-type': 'text/plain' });
+      res.end('down');
+    });
+    try {
+      const response = await ssrfFetch(`${origin}/`);
+      expect(response.status).toBe(522);
+      expect(hits).toBe(1);
+    } finally {
+      await closeServer(server);
+    }
+  });
+
+  it('retries headers timeout then returns success', async () => {
+    configureOutboundUrlGuard({
+      allowedHosts: ['127.0.0.1'],
+      blockedHosts: [],
+      headersTimeoutMs: 50,
+      maxRetries: 2,
+    });
+    let hits = 0;
+    const { server, origin } = await listen((_req, res) => {
+      hits += 1;
+      if (hits === 1) {
+        // Accept the socket but never send headers so undici hits headersTimeout.
+        return;
+      }
+      res.writeHead(200, { 'content-type': 'text/plain' });
+      res.end('ok');
+    });
+    try {
+      const response = await ssrfFetch(`${origin}/`);
+      expect(response.status).toBe(200);
+      await expect(response.text()).resolves.toBe('ok');
+      expect(hits).toBe(2);
+    } finally {
+      await closeServer(server);
+    }
+  }, 15_000);
+
+  it('does not continue retries after abort', async () => {
+    configureOutboundUrlGuard({ allowedHosts: ['127.0.0.1'], blockedHosts: [], maxRetries: 3 });
+    let hits = 0;
+    const { server, origin } = await listen((_req, res) => {
+      hits += 1;
+      res.writeHead(520, { 'content-type': 'text/plain' });
+      res.end('gateway');
+    });
+    const controller = new AbortController();
+    controller.abort();
+    try {
+      await expect(ssrfFetch(`${origin}/`, { signal: controller.signal })).rejects.toThrow();
+      expect(hits).toBe(0);
     } finally {
       await closeServer(server);
     }

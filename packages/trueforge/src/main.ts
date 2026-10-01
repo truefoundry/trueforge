@@ -40,6 +40,9 @@ try {
     enabled: configuration.NETWORK_POLICY_ENABLED,
     allowedHosts: configuration.OUTBOUND_URL_ALLOWED_HOSTS,
     blockedHosts: configuration.OUTBOUND_URL_BLOCKED_HOSTS,
+    headersTimeoutMs: configuration.OUTBOUND_HTTP_REQUEST_HEADERS_TIMEOUT_MS,
+    connectTimeoutMs: configuration.OUTBOUND_HTTP_REQUEST_CONNECT_TIMEOUT_MS,
+    maxRetries: configuration.OUTBOUND_HTTP_REQUEST_MAX_RETRIES,
   });
 } catch (error) {
   console.error(
