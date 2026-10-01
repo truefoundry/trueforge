@@ -59,8 +59,6 @@ function makeStores(options?: { pending?: typeof PENDING | null; provider?: type
     markVersionReady: jest.fn().mockResolvedValue(undefined),
     markVersionFailed: jest.fn().mockResolvedValue(undefined),
     listSecretsByEnvironment: jest.fn().mockResolvedValue([]),
-    upsertSecret: jest.fn(),
-    deleteSecretsByIds: jest.fn().mockResolvedValue(undefined),
   };
   return {
     sandboxEnvironmentStore: sandboxEnvironmentStore as unknown as ISandboxEnvironmentStore,
@@ -109,8 +107,6 @@ describe('progressSandboxEnvironmentVersion', () => {
 
     expect(envStore.markVersionReady).toHaveBeenCalledWith({
       environment_version_id: 'ver-1',
-      manifest: PENDING.manifest,
-      internal_metadata: { secrets: [] },
     });
   });
 

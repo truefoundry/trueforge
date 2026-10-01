@@ -125,6 +125,10 @@ export const putSandboxEnvironmentRoute = createRoute({
       content: { 'application/json': { schema: RequestErrorResponseSchema } },
       description: 'No sandbox provider configured.',
     },
+    502: {
+      content: { 'application/json': { schema: RequestErrorResponseSchema } },
+      description: 'Sandbox provider secret synchronization failed.',
+    },
   },
 });
 

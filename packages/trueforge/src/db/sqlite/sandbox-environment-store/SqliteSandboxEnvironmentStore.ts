@@ -9,7 +9,6 @@ import {
 } from '@truefoundry/trueforge-core/agent-session/store/OffsetPageToken';
 import type { Kysely, Transaction } from 'kysely';
 import { sql } from 'kysely';
-import { randomUUID } from 'node:crypto';
 import { NameSchema } from '../../../schemas/common';
 import {
   DEFAULT_SANDBOX_ENVIRONMENT_NAME,
@@ -18,12 +17,11 @@ import {
   type StoredSandboxEnvironmentManifest,
 } from '../../../schemas/sandboxEnvironment';
 import { newId } from '../../../utils/id';
-import { hashSandboxEnvironmentSecret, isRedactedSecretValue } from '../../../utils/secretRedaction';
+import { hashSandboxEnvironmentSecret, isRedactedSecretValue, SECRET_REDACTION } from '../../../utils/secretRedaction';
 import {
   parseStoredSandboxEnvironmentManifest,
   SandboxEnvironmentNameConflictError,
   SandboxEnvironmentVersionConflictError,
-  toUpsertSandboxEnvironmentVersionWrite,
   type DeleteSandboxEnvironmentInput,
   type GetSandboxEnvironmentInput,
   type GetSandboxEnvironmentVersionInput,
@@ -37,7 +35,6 @@ import {
   type SandboxEnvironmentVersionRecord,
   type SandboxEnvironmentWithVersion,
   type UpsertSandboxEnvironmentInput,
-  type UpsertSandboxEnvironmentSecretInput,
   type UpsertSandboxEnvironmentVersionWrite,
 } from '../../sandboxEnvironmentStore';
 import { isUniqueViolation } from '../client';
@@ -50,7 +47,7 @@ function toSecretRecord(row: {
   environment_id: string;
   secret_name: string;
   external_secret_name: string;
-  external_secret_id: string | null;
+  external_secret_id: string;
   description: string;
   hash: string;
   created_at: string;
@@ -487,8 +484,6 @@ export class SqliteSandboxEnvironmentStore implements ISandboxEnvironmentStore<T
       .set({
         status: 'ready',
         status_reason: null,
-        ...(input.manifest ? { manifest: jsonbBind(input.manifest) } : {}),
-        ...(input.internal_metadata ? { internal_metadata: jsonbBind(input.internal_metadata) } : {}),
         updated_at,
       })
       .where('id', '=', input.environment_version_id)
@@ -565,40 +560,81 @@ export class SqliteSandboxEnvironmentStore implements ISandboxEnvironmentStore<T
     existing_manifest?: StoredSandboxEnvironmentManifest;
     existing_external_ref?: string;
   }): Promise<UpsertSandboxEnvironmentVersionWrite> {
-    const built = toUpsertSandboxEnvironmentVersionWrite(
-      await input.buildVersion({
-        environment_id,
-        ...(existing_version ? { existing_version } : {}),
-        ...(existing_manifest ? { existing_manifest } : {}),
-        ...(existing_external_ref ? { existing_external_ref } : {}),
-      }),
-    );
+    const built = await input.buildVersion({
+      environment_id,
+      ...(existing_version ? { existing_version } : {}),
+      ...(existing_manifest ? { existing_manifest } : {}),
+      ...(existing_external_ref ? { existing_external_ref } : {}),
+    });
     const secretDescription = `Secret value of environment ${built.manifest.name}`;
     const existingSecretByName = new Map(
       (await this.listSecretsByEnvironment({ environment_id }, db)).map(row => [row.secret_name, row]),
     );
+    const syncedByName = new Map(input.synced_secrets.map(secret => [secret.secret_name, secret]));
+    const desiredNames = new Set((built.manifest.networking?.secrets ?? []).map(secret => secret.env));
     const secrets: { key: string; id: string }[] = [];
     for (const secret of built.manifest.networking?.secrets ?? []) {
       const existing = existingSecretByName.get(secret.env);
+      const synced = syncedByName.get(secret.env);
+      if (synced === undefined) {
+        throw new Error(`Synced sandbox environment secret missing for ${secret.env}`);
+      }
       const hash = !isRedactedSecretValue(secret.value)
         ? hashSandboxEnvironmentSecret({ tenant_id: input.tenant_id, value: secret.value })
         : existing?.hash;
       if (!hash) {
         throw new Error(`Sandbox environment secret hash missing for ${secret.env}`);
       }
-      const row = await this.upsertSecret(
-        {
+      const timestamp = nowIso();
+      const row = await db
+        .insertInto('sandbox_environment_secret')
+        .values({
+          id: newId(),
           tenant_id: input.tenant_id,
           environment_id,
           secret_name: secret.env,
+          external_secret_name: synced.external_secret_name,
+          external_secret_id: synced.external_secret_id,
           description: secretDescription,
           hash,
-        },
-        db,
-      );
+          created_at: timestamp,
+          updated_at: timestamp,
+        })
+        .onConflict(oc =>
+          oc.columns(['environment_id', 'secret_name']).doUpdateSet({
+            external_secret_name: synced.external_secret_name,
+            external_secret_id: synced.external_secret_id,
+            description: secretDescription,
+            hash,
+            updated_at: timestamp,
+          }),
+        )
+        .returning('id')
+        .executeTakeFirstOrThrow();
       secrets.push({ key: secret.env, id: row.id });
     }
-    return { ...built, internal_metadata: { secrets } };
+    const removedIds = [...existingSecretByName.values()]
+      .filter(row => !desiredNames.has(row.secret_name))
+      .map(row => row.id);
+    if (removedIds.length > 0) {
+      await db.deleteFrom('sandbox_environment_secret').where('id', 'in', removedIds).execute();
+    }
+    const networking = built.manifest.networking;
+    return {
+      ...built,
+      manifest: {
+        ...built.manifest,
+        ...(networking?.secrets
+          ? {
+              networking: {
+                ...networking,
+                secrets: networking.secrets.map(secret => ({ ...secret, value: SECRET_REDACTION })),
+              },
+            }
+          : {}),
+      },
+      internal_metadata: { secrets },
+    };
   }
 
   async listSecretsByEnvironment(
@@ -613,47 +649,6 @@ export class SqliteSandboxEnvironmentStore implements ISandboxEnvironmentStore<T
       .orderBy('secret_name', 'asc')
       .execute();
     return rows.map(toSecretRecord);
-  }
-
-  async upsertSecret(
-    input: UpsertSandboxEnvironmentSecretInput,
-    transaction?: Transaction<Database>,
-  ): Promise<SandboxEnvironmentSecretRecord> {
-    const db = transaction ?? this.#db;
-    const timestamp = nowIso();
-    const row = await db
-      .insertInto('sandbox_environment_secret')
-      .values({
-        id: newId(),
-        tenant_id: input.tenant_id,
-        environment_id: input.environment_id,
-        secret_name: input.secret_name,
-        external_secret_name: `trueforge-${randomUUID()}`,
-        external_secret_id: input.external_secret_id ?? null,
-        description: input.description,
-        hash: input.hash,
-        created_at: timestamp,
-        updated_at: timestamp,
-      })
-      .onConflict(oc =>
-        oc.columns(['environment_id', 'secret_name']).doUpdateSet({
-          description: input.description,
-          hash: input.hash,
-          updated_at: timestamp,
-          ...(input.external_secret_id ? { external_secret_id: input.external_secret_id } : {}),
-        }),
-      )
-      .returningAll()
-      .executeTakeFirstOrThrow();
-    return toSecretRecord(row);
-  }
-
-  async deleteSecretsByIds(input: { ids: string[] }, transaction?: Transaction<Database>): Promise<void> {
-    if (input.ids.length === 0) {
-      return;
-    }
-    const db = transaction ?? this.#db;
-    await db.deleteFrom('sandbox_environment_secret').where('id', 'in', input.ids).execute();
   }
 
   async #withMountedSecrets(

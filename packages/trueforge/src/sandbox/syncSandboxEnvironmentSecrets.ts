@@ -1,104 +1,99 @@
 import type { SandboxProvider } from '@truefoundry/trueforge-core/core';
 import { withTimeout } from '@truefoundry/trueforge-core/core';
-import type { ISandboxEnvironmentStore, SandboxEnvironmentVersionForProgress } from '../db/sandboxEnvironmentStore';
-import type {
-  SandboxEnvironmentVersionInternalMetadata,
-  StoredSandboxEnvironmentManifest,
-} from '../schemas/sandboxEnvironment';
-import { SandboxEnvironmentVersionInternalMetadataSchema } from '../schemas/sandboxEnvironment';
-import { isRedactedSecretValue, SECRET_REDACTION } from '../utils/secretRedaction';
+import { randomUUID } from 'node:crypto';
+import type { SandboxEnvironmentSecretRecord, SyncedSandboxEnvironmentSecret } from '../db/sandboxEnvironmentStore';
+import { isRedactedSecretValue, MissingStoredSecretError } from '../utils/secretRedaction';
+import { DAYTONA_RPC_TIMEOUT_MS } from './providerUtils';
 
-/** Bound hung Daytona RPCs so the sandbox-env-build tick can move on. */
-export const DAYTONA_RPC_TIMEOUT_MS = 30_000;
-
-export interface SyncSandboxEnvironmentSecretsResult {
-  manifest: StoredSandboxEnvironmentManifest;
-  internal_metadata: SandboxEnvironmentVersionInternalMetadata;
+export class SandboxEnvironmentSecretSyncError extends Error {
+  constructor(message: string, options: ErrorOptions) {
+    super(message, options);
+    this.name = 'SandboxEnvironmentSecretSyncError';
+  }
 }
 
-/** Sync provider org secrets for the version, then redact the stored manifest. */
-export async function syncSandboxEnvironmentSecrets({
-  pending,
-  provider,
-  store,
-}: {
-  pending: SandboxEnvironmentVersionForProgress;
-  provider: SandboxProvider<unknown>;
-  store: ISandboxEnvironmentStore;
-}): Promise<SyncSandboxEnvironmentSecretsResult> {
-  const desired = pending.manifest.networking?.secrets ?? [];
-  const desiredNames = new Set(desired.map(secret => secret.env));
-  const rows = await store.listSecretsByEnvironment({ environment_id: pending.environment_id });
-  const byName = new Map(rows.map(row => [row.secret_name, row]));
-  const secrets: { key: string; id: string }[] = [];
+async function withSecretSyncError<T>(operation: Promise<T>): Promise<T> {
+  try {
+    return await operation;
+  } catch (error) {
+    throw new SandboxEnvironmentSecretSyncError(
+      error instanceof Error ? error.message : 'Sandbox environment secret sync failed',
+      { cause: error },
+    );
+  }
+}
 
-  for (const secret of desired) {
+/** Sync provider org secrets from in-memory PUT values before the environment upsert. */
+export async function syncSandboxEnvironmentSecrets({
+  secrets,
+  existing,
+  provider,
+  description,
+}: {
+  secrets: { env: string; value: string; hosts: string[] }[];
+  existing: SandboxEnvironmentSecretRecord[];
+  provider: SandboxProvider<unknown>;
+  description: string;
+}): Promise<SyncedSandboxEnvironmentSecret[]> {
+  const desiredNames = new Set(secrets.map(secret => secret.env));
+  const byName = new Map(existing.map(row => [row.secret_name, row]));
+  const synced: SyncedSandboxEnvironmentSecret[] = [];
+
+  for (const secret of secrets) {
     const row = byName.get(secret.env);
-    if (row === undefined) {
-      throw new Error(`Sandbox environment secret row missing for ${secret.env}`);
+    if (row !== undefined) {
+      await withSecretSyncError(
+        withTimeout(
+          provider.updateSecret({
+            secretId: row.external_secret_id,
+            hosts: secret.hosts,
+            ...(!isRedactedSecretValue(secret.value) ? { value: secret.value } : {}),
+          }),
+          DAYTONA_RPC_TIMEOUT_MS,
+          'sandbox environment secret update',
+        ),
+      );
+      synced.push({
+        secret_name: secret.env,
+        external_secret_name: row.external_secret_name,
+        external_secret_id: row.external_secret_id,
+      });
+      continue;
     }
 
-    if (row.external_secret_id === null) {
-      if (isRedactedSecretValue(secret.value)) {
-        throw new Error(`Cannot create Daytona secret ${secret.env}: value is redacted`);
-      }
-      const created = await withTimeout(
+    if (isRedactedSecretValue(secret.value)) {
+      throw new MissingStoredSecretError();
+    }
+    const name = `trueforge-${randomUUID()}`;
+    const created = await withSecretSyncError(
+      withTimeout(
         provider.createSecret({
-          name: row.external_secret_name,
+          name,
           value: secret.value,
-          description: row.description,
+          description,
           hosts: secret.hosts,
         }),
         DAYTONA_RPC_TIMEOUT_MS,
         'sandbox environment secret create',
-      );
-      await store.upsertSecret({
-        tenant_id: row.tenant_id,
-        environment_id: row.environment_id,
-        secret_name: row.secret_name,
-        description: row.description,
-        hash: row.hash,
-        external_secret_id: created.id,
-      });
-    } else {
-      await withTimeout(
-        provider.updateSecret({
-          secretId: row.external_secret_id,
-          hosts: secret.hosts,
-          ...(!isRedactedSecretValue(secret.value) ? { value: secret.value } : {}),
-        }),
-        DAYTONA_RPC_TIMEOUT_MS,
-        'sandbox environment secret update',
-      );
-    }
-    secrets.push({ key: secret.env, id: row.id });
+      ),
+    );
+    synced.push({
+      secret_name: secret.env,
+      external_secret_name: name,
+      external_secret_id: created.id,
+    });
   }
 
-  const removed = rows.filter(row => !desiredNames.has(row.secret_name));
+  const removed = existing.filter(row => !desiredNames.has(row.secret_name));
   for (const row of removed) {
-    if (row.external_secret_id !== null) {
-      await withTimeout(
+    await withSecretSyncError(
+      withTimeout(
         provider.deleteSecret({ secretId: row.external_secret_id }),
         DAYTONA_RPC_TIMEOUT_MS,
         'sandbox environment secret delete',
-      );
-    }
+      ),
+    );
   }
-  await store.deleteSecretsByIds({ ids: removed.map(row => row.id) });
 
-  const networking = pending.manifest.networking;
-  return {
-    manifest: {
-      ...pending.manifest,
-      ...(networking?.secrets
-        ? {
-            networking: {
-              ...networking,
-              secrets: networking.secrets.map(secret => ({ ...secret, value: SECRET_REDACTION })),
-            },
-          }
-        : {}),
-    },
-    internal_metadata: SandboxEnvironmentVersionInternalMetadataSchema.parse({ secrets }),
-  };
+  return synced;
 }
