@@ -282,6 +282,8 @@ export interface TurnDoneMetrics {
   totalCacheReadTokens: number;
   totalCacheWriteTokens: number;
   totalReasoningTokens: number;
+  /** Estimated total cost in USD for this turn when the host reports it. */
+  totalCostInUsd?: number;
 }
 
 export interface TurnStateDone {
