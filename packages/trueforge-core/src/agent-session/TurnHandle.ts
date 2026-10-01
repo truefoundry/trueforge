@@ -10,7 +10,7 @@ import {
   type AgentThreadExecutionResult,
   type InternalMCPAuthRequiredEvent,
   type InternalThreadDoneEvent,
-  type TurnStateTransition,
+  type InternalTurnStateEvent,
 } from '../core/runtime/AgentThread.types';
 import type { AgentThreadOrchestrator } from '../core/runtime/AgentThreadOrchestrator';
 import { getEmptyCurrentContextUsage } from '../core/runtime/contextUsage';
@@ -134,9 +134,8 @@ function resolveTerminalState(input: {
   if (caughtError) {
     return { status: 'error', message: caughtError.message, completed_at, metrics };
   }
-  if (executeResult === undefined || executeResult.status === 'paused') {
-    // Consumer abandoned the stream, or (defensively) a paused result reached the terminal
-    // writer — never write done-with-actions; the executor only ever returns 'done'.
+  if (executeResult === undefined) {
+    // Consumer abandoned the stream before the executor returned a terminal result.
     return { status: 'cancelled', reason: CancellationReason.ClientCancelled, completed_at, metrics };
   }
   if (executeResult.root_agent_error) {
@@ -427,7 +426,9 @@ export class TurnHandle<TTurnCustom extends object = Record<string, never>> {
    * executor loop as it parks/resumes. Writes a `turn.update` event + the live state,
    * updates the in-memory turn, and returns the event to stream to the consumer.
    */
-  private async persistTurnNonTerminal(transition: TurnStateTransition): Promise<TurnUpdateEvent | null> {
+  private async persistTurnNonTerminal(
+    transition: InternalTurnStateEvent['transition'],
+  ): Promise<TurnUpdateEvent | null> {
     const state: NonTerminalTurnState =
       transition.status === 'paused'
         ? {
@@ -458,7 +459,9 @@ export class TurnHandle<TTurnCustom extends object = Record<string, never>> {
    * Persist side effects for one execution event; return a streaming yield when
    * the event should be emitted to the consumer (null = side-effect only / skip).
    */
-  private async persistExecutionEvent(event: AgentThreadExecutionEvent): Promise<TurnStreamingEvent | null> {
+  private async persistExecutionEvent(
+    event: Exclude<AgentThreadExecutionEvent, InternalTurnStateEvent>,
+  ): Promise<TurnStreamingEvent | null> {
     const scope = {
       session_id: this.turn.session_id,
       turn_id: this.turn.turn_id,
@@ -478,11 +481,6 @@ export class TurnHandle<TTurnCustom extends object = Record<string, never>> {
         return event;
 
       case InternalEventType.AGENT_CREATE_SUBAGENT:
-        return null;
-
-      case InternalEventType.TURN_STATE:
-        // Non-terminal turn-state transitions are handled by persistTurnNonTerminal
-        // in the drain loop and never reach here.
         return null;
 
       case InternalEventType.CAPABILITY_STATE: {
