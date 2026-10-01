@@ -19,8 +19,6 @@ describe("SandboxProvidersClient", () => {
                     exec_timeout_ms: 1,
                     type: "daytona",
                 },
-                status: "pending",
-                status_reason: "status_reason",
             },
         };
 
@@ -45,8 +43,6 @@ describe("SandboxProvidersClient", () => {
                     execTimeoutMs: 1,
                     type: "daytona",
                 },
-                status: "pending",
-                statusReason: "status_reason",
             },
         });
     });
@@ -93,8 +89,6 @@ describe("SandboxProvidersClient", () => {
                     exec_timeout_ms: 1,
                     type: "daytona",
                 },
-                status: "pending",
-                status_reason: "status_reason",
             },
         };
 
@@ -131,8 +125,6 @@ describe("SandboxProvidersClient", () => {
                     execTimeoutMs: 1,
                     type: "daytona",
                 },
-                status: "pending",
-                statusReason: "status_reason",
             },
         });
     });

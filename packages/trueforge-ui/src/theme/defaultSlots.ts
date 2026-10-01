@@ -62,6 +62,7 @@ import { DraftComposerActionsMenu } from '../atoms/draft/DraftComposerActionsMen
 import { DraftComposerLeftSection, DraftComposerRightSection } from '../atoms/draft/DraftComposerSections.js';
 import { CatalogRow, ConnectorConnectButton, DraftCompositeSelector } from '../atoms/draft/DraftCompositeSelector.js';
 import { DraftModelSelector } from '../atoms/draft/DraftModelSelector.js';
+import { FilePreviewPanel } from '../atoms/FilePreviewPanel.js';
 import type { EnvironmentsPageProps } from '../atoms/environments/EnvironmentsPage.js';
 import { EnvironmentsButton } from '../atoms/EnvironmentsButton.js';
 import { HistoryLoader } from '../atoms/HistoryLoader.js';
@@ -196,6 +197,7 @@ export const defaultSlots = {
   OpenUiFenceBlock,
   SandboxArtifactDownload,
   ChatFileDownload,
+  FilePreviewPanel,
   MonacoEditorCore,
   CodeEditor,
   WelcomeScreen,

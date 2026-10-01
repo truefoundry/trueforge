@@ -153,7 +153,8 @@ The chart's own value wins on conflict; `tolerations` append to
 
 `resourceTier` (`small` / `medium` / `large`) selects sizing presets for the
 server and the controller, and sets the server replica count (an explicit
-`server.replicaCount` overrides it; the controller is always 1 replica). When
+`server.replicaCount` overrides it, including `0` to scale the server down; the
+controller is always 1 replica). When
 set, it **replaces** the `resources` tables; an unknown tier fails the render.
 Empty (the default) keeps the explicit `resources` / `controller.resources`
 and 1 server replica. A parent chart may set `global.resourceTier` instead;
@@ -363,7 +364,7 @@ extraObjects:
 | Value                 | Default                             | Description                           |
 | --------------------- | ----------------------------------- | ------------------------------------- |
 | `resourceTier`        | `""`                                | Optional `small` / `medium` / `large` preset for resources and server replicas; empty uses `resources`. |
-| `server.replicaCount` | `""`                                | Number of server replicas. Empty derives from the resource tier (small=1, medium=2, large=3; 1 with no tier). |
+| `server.replicaCount` | `null`                              | Number of server replicas (`0` allowed to scale down). Empty/`null` derives from the resource tier (small=1, medium=2, large=3; 1 with no tier). |
 | `server.deploymentAnnotations` | `{}`                          | Annotations on the server Deployment, such as an Argo CD sync wave. |
 | `controller.deploymentAnnotations` | `{}`                      | Annotations on the controller Deployment, such as an Argo CD sync wave. |
 | `image.registry`      | `""`                                | Image registry. Empty uses `global.image.registry`, then `tfy.jfrog.io`. |

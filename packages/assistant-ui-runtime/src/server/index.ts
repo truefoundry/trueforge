@@ -103,8 +103,6 @@ export type {
   SandboxEnvironmentStatus,
   SandboxProviderBase,
   SandboxProviderCatalogEntry,
-  SandboxProviderListEntry,
-  SandboxSnapshotSyncStatus,
   SaveAgentRequest,
   SaveAgentResult,
   Schedule,

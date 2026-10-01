@@ -220,6 +220,17 @@
             },
             "default": "./dist/cjs/api/resources/internal/resources/metrics/exports.js"
         },
+        "./internal/sandboxEnvironments": {
+            "import": {
+                "types": "./dist/esm/api/resources/internal/resources/sandboxEnvironments/exports.d.mts",
+                "default": "./dist/esm/api/resources/internal/resources/sandboxEnvironments/exports.mjs"
+            },
+            "require": {
+                "types": "./dist/cjs/api/resources/internal/resources/sandboxEnvironments/exports.d.ts",
+                "default": "./dist/cjs/api/resources/internal/resources/sandboxEnvironments/exports.js"
+            },
+            "default": "./dist/cjs/api/resources/internal/resources/sandboxEnvironments/exports.js"
+        },
         "./internal/schedules": {
             "import": {
                 "types": "./dist/esm/api/resources/internal/resources/schedules/exports.d.mts",
