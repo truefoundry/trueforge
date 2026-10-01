@@ -61,17 +61,22 @@ export class InlineModelProviderStore<TTransaction = never> implements IModelPro
 
   /**
    * The manifest carries its own `api_key`, which the adapter sends as the bearer, so no caller
-   * token is resolved here. Mid-turn, still stamp `x-tfy-metadata` the same way registry
-   * TrueFoundry invokes do.
+   * token is resolved here. Optional `invoke_headers` carry per-request identity overrides such as
+   * `x-tfy-assume-user`. Mid-turn, still stamp `x-tfy-metadata` the same way registry TrueFoundry
+   * invokes do.
    */
   resolveInvokeHeaders(input: {
     record: ModelProviderRecord;
     turnMetadata?: TurnMetadata;
   }): Promise<Record<string, string>> {
-    if (this.#inline[input.record.name] === undefined) {
+    const manifest = this.#inline[input.record.name];
+    if (manifest === undefined) {
       return this.#inner.resolveInvokeHeaders(input);
     }
-    return Promise.resolve(gatewayMetadataHeadersForTurn(input.turnMetadata));
+    return Promise.resolve({
+      ...(manifest.invoke_headers ?? {}),
+      ...gatewayMetadataHeadersForTurn(input.turnMetadata),
+    });
   }
 
   #toRecord(input: { tenant_id: string; name: string }): ModelProviderRecord | undefined {

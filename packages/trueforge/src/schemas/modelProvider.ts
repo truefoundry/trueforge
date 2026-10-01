@@ -67,9 +67,14 @@ const ModelProviderAuthSchema = z
   .describe('Provider authentication credentials.')
   .openapi('ModelProviderAuth');
 
+const ModelProviderInvokeHeadersSchema = z
+  .record(z.string().min(1), z.string())
+  .describe('Extra headers merged into every model invoke alongside gateway metadata.');
+
 const ModelProviderManifestBaseSchema = z
   .object({
     auth: ModelProviderAuthSchema,
+    invoke_headers: ModelProviderInvokeHeadersSchema.optional(),
     models: z.array(ConfiguredModelSchema).min(1).describe('Models exposed by this provider (at least one).'),
   })
   .strict();

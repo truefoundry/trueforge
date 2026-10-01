@@ -232,8 +232,13 @@ describe('InlineModelProviderStore', () => {
     expect(models).toEqual([]);
   });
 
-  it('adds only x-tfy-metadata on inline invokes, since the manifest already carries the api_key', async () => {
-    const { store, inner } = modelProviderStoreWith({ 'tfy-gateway': GATEWAY_PROVIDER });
+  it('merges invoke_headers with x-tfy-metadata on inline invokes, since the manifest already carries the api_key', async () => {
+    const { store, inner } = modelProviderStoreWith({
+      'tfy-gateway': {
+        ...GATEWAY_PROVIDER,
+        invoke_headers: { 'x-tfy-assume-user': 'user/acme/alice@example.com/tfy-ai-gateway' },
+      },
+    });
     const record = { ...registryProvider, name: 'tfy-gateway' };
 
     const headers = await store.resolveInvokeHeaders({
@@ -246,7 +251,8 @@ describe('InlineModelProviderStore', () => {
       },
     });
 
-    expect(Object.keys(headers)).toEqual([X_TFY_METADATA]);
+    expect(headers['x-tfy-assume-user']).toBe('user/acme/alice@example.com/tfy-ai-gateway');
+    expect(Object.keys(headers).sort()).toEqual(['x-tfy-assume-user', X_TFY_METADATA].sort());
     expect(JSON.parse(headers[X_TFY_METADATA] ?? '')).toMatchObject({
       env: 'prod',
       [`${TFG_METADATA_PREFIX}.session_id`]: 'sess-1',
