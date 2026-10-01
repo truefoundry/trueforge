@@ -2,7 +2,12 @@
  * Durable turn handle. {@link TurnHandle.stream} is execute-once (persist-before-yield).
  */
 import { AgentHarnessError } from '../core/errors';
-import type { MCPAuthRequiredEvent, ModelMessageDeltaEvent, ThreadDoneEvent } from '../core/events/schema';
+import type {
+  InboundTurnUserEvent,
+  MCPAuthRequiredEvent,
+  ModelMessageDeltaEvent,
+  ThreadDoneEvent,
+} from '../core/events/schema';
 import { EventType as HarnessEventType, newEventId } from '../core/events/schema';
 import {
   InternalEventType,
@@ -228,6 +233,30 @@ export class TurnHandle<TTurnCustom extends object = Record<string, never>> {
 
   get record(): TurnRecord<TTurnCustom> {
     return this.turn;
+  }
+
+  /**
+   * Resume a live, paused turn with a mid-turn inbound event batch (approval decisions, tool
+   * responses, approval policies — any mix). The batch is forwarded untouched to the orchestrator,
+   * which routes each kind internally, then wakes the parked executor so {@link stream} emits the
+   * resulting events and the turn continues.
+   */
+  send(events: InboundTurnUserEvent[]): void {
+    const orchestrator = this.requireLiveOrchestrator('send');
+    for (const batch of orchestrator.send(events)) {
+      // TODO: persist `batch` here — under the per-turn transition lock — before resuming
+      // the generator to enqueue. Deferred for now; we drain the
+      // generator without a durable write so the in-memory flow can be exercised end to end.
+      void batch;
+    }
+    orchestrator.notifyWake();
+  }
+
+  private requireLiveOrchestrator(method: string): AgentThreadOrchestrator {
+    if (!this.orchestrator) {
+      throw new Error(`TurnHandle.${method}() is only available on a live turn from SessionHandle.createTurn()`);
+    }
+    return this.orchestrator;
   }
 
   /**

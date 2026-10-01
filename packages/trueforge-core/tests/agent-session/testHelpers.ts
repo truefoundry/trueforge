@@ -13,6 +13,7 @@ import type { CreateTurnInput, NewThreadInit, TurnContextAppend } from '../../sr
 import { TurnResourceResolver } from '../../src/agent-session/TurnResourceResolver';
 import type { AgentCapability } from '../../src/core/capabilities/AgentCapability';
 import { newEventId } from '../../src/core/events/schema';
+import type { ILLM } from '../../src/core/llm/ILLM';
 import type {
   CompletionUsage,
   ExtendedChatCompletionChunk,
@@ -96,9 +97,11 @@ export function makeTestResolver<TTurnCustom extends object = Record<string, nev
   usage?: CompletionUsage;
   /** Named-agent lookup for sessions bound by agent_id. */
   agent?: ((agentId: string) => Promise<AgentSpec>) | undefined;
+  /** Override the mock LLM `create` (e.g. to emit a tool call then a text reply). */
+  llmCreate?: ILLM['create'];
 }): ITurnResourceResolver<TTurnCustom> {
   const llm = makeMockILLM({
-    create: jest.fn().mockImplementation(() => emptyLlmStream(options?.usage)),
+    create: options?.llmCreate ?? jest.fn().mockImplementation(() => emptyLlmStream(options?.usage)),
   });
   const base = new TurnResourceResolver<TTurnCustom>({
     llm: () => Promise.resolve({ modelClient: llm, defaultModelParams: {} }),
