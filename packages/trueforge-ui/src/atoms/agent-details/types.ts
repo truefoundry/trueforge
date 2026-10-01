@@ -52,6 +52,8 @@ export type AgentSessionDetailHeaderProps = {
   title: string;
   sessionId: string;
   onClose: () => void;
+  /** Session metadata key-value pairs. */
+  metadata?: Record<string, string>;
   /**
    * When set with `resumeLabel`, shows Resume Chat / Resume Agent building as a
    * new-tab link (session deep link). Preferred over `onResume` when both are set.

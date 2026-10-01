@@ -185,6 +185,8 @@ export interface Session<TSpec extends AgentSpec = AgentSpec> {
   shared?: boolean;
   createdAt: string;
   updatedAt: string;
+  /** Arbitrary caller key-value metadata strings. */
+  metadata?: Record<string, string>;
 }
 
 export interface CreateSessionRequest<TSpec extends AgentSpec = AgentSpec> {
@@ -926,6 +928,8 @@ export interface SessionListEntry<TSpec extends AgentSpec = AgentSpec> {
   agentName?: string | null;
   /** Present when bound to a mutable / draft agent spec. */
   agentSpec?: TSpec;
+  /** Arbitrary caller key-value metadata strings. */
+  metadata?: Record<string, string>;
 }
 
 /** Params for `AgentSessionsServer.listSessionEvents` (session event timeline). */
