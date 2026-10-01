@@ -3,6 +3,7 @@ import { AgentHarnessError, InvalidAgentSendInputError } from '../errors';
 import {
   EventType,
   newEventId,
+  type InboundTurnUserEvent,
   type ModelMessageEvent,
   type ToolApprovalPolicyItem,
   type ToolResponseEvent,
@@ -311,10 +312,32 @@ export class AgentThreadOrchestrator {
     return byThread;
   }
 
-  // Route + validate, then yield each accepted per-thread batch for the caller to persist durably;
-  // Does not mutate context — application happens later in execute()'s drain.
-  public *send(messages: AgentThreadSendBatch): Generator<AgentThreadRuntimeSendBatch, void, unknown> {
-    const byThread = this.routeSendBatch(messages);
+  public *send(events: InboundTurnUserEvent[]): Generator<AgentThreadRuntimeSendBatch, void, unknown> {
+    const policies: ToolApprovalPolicyItem[] = [];
+    const decisions: UserToolApprovalOrResponseBatch = [];
+    for (const event of events) {
+      switch (event.type) {
+        case EventType.USER_TOOL_APPROVAL_POLICY:
+          policies.push(...event.policies);
+          break;
+        case EventType.USER_MCP_AUTH_CONTINUE:
+          // Run-level OAuth resume (no thread_id); not yet wired into the in-memory executor. Fail
+          // loudly rather than silently dropping it.
+          throw new InvalidAgentSendInputError('mcp.auth_continue is not yet supported by the in-memory executor');
+        default:
+          // UserToolApproval | UserToolResponse — a per-thread decision for the parked executor.
+          decisions.push(event);
+      }
+    }
+
+    const byThread = this.routeSendBatch(decisions);
+    const { errors } = this.applyApprovalPolicies(policies);
+    if (errors.length > 0) {
+      throw new InvalidAgentSendInputError(`invalid approval policies: ${errors.join('; ')}`);
+    }
+
+    // Everything validated and policies now in effect → enqueue the decisions (yielded at the
+    // durability seam) for the parked executor.
     for (const [threadId, batch] of byThread) {
       const thread = this.agentThreads.get(threadId);
       if (!thread) {

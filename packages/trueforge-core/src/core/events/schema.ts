@@ -137,6 +137,13 @@ export const UserMCPAuthContinueMessageSchema = z
   })
   .openapi('UserMCPAuthContinueInputEvent');
 
+export const InboundTurnEventSchema = z.discriminatedUnion('type', [
+  UserToolApprovalMessageSchema,
+  UserToolResponseMessageSchema,
+  UserToolApprovalPolicyMessageSchema,
+  UserMCPAuthContinueMessageSchema,
+]);
+
 /** Durable / SSE form of {@link UserToolApprovalMessageSchema}. */
 export const UserToolApprovalEventSchema = z
   .object({
@@ -462,6 +469,7 @@ export type UserToolResponseEvent = z.infer<typeof UserToolResponseEventSchema>;
 export type UserToolApprovalPolicyEvent = z.infer<typeof UserToolApprovalPolicyEventSchema>;
 export type UserMCPAuthContinueMessage = z.infer<typeof UserMCPAuthContinueMessageSchema>;
 export type UserMCPAuthContinueEvent = z.infer<typeof UserMCPAuthContinueEventSchema>;
+export type InboundTurnUserEvent = z.infer<typeof InboundTurnEventSchema>;
 export type AgentApprovalDecisionMessage = z.infer<typeof AgentApprovalDecisionMessageSchema>;
 export type InputTokensBreakdown = z.infer<typeof InputTokensBreakdownSchema>;
 export type ModelMessageUsage = z.infer<typeof ModelMessageUsageSchema>;
