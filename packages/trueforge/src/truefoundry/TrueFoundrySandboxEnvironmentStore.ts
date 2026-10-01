@@ -16,10 +16,12 @@ import type {
   ListSandboxEnvironmentsInput,
   MarkSandboxEnvironmentVersionFailedInput,
   MarkSandboxEnvironmentVersionReadyInput,
+  SandboxEnvironmentSecretRecord,
   SandboxEnvironmentVersionForProgress,
   SandboxEnvironmentVersionRecord,
   SandboxEnvironmentWithVersion,
   UpsertSandboxEnvironmentInput,
+  UpsertSandboxEnvironmentSecretInput,
 } from '../db/sandboxEnvironmentStore';
 import { DEFAULT_SANDBOX_ENVIRONMENT_NAME } from '../schemas/sandboxEnvironment';
 import { trueFoundryManaged } from './errors';
@@ -180,5 +182,23 @@ export class TrueFoundrySandboxEnvironmentStore<
       return trueFoundryManaged();
     }
     return this.#persistence.deleteEnvironment(input, transaction);
+  }
+
+  listSecretsByEnvironment(
+    input: { environment_id: string },
+    transaction?: TTransaction,
+  ): Promise<SandboxEnvironmentSecretRecord[]> {
+    return this.#persistence.listSecretsByEnvironment(input, transaction);
+  }
+
+  upsertSecret(
+    input: UpsertSandboxEnvironmentSecretInput,
+    transaction?: TTransaction,
+  ): Promise<SandboxEnvironmentSecretRecord> {
+    return this.#persistence.upsertSecret(input, transaction);
+  }
+
+  deleteSecretsByIds(input: { ids: string[] }, transaction?: TTransaction): Promise<void> {
+    return this.#persistence.deleteSecretsByIds(input, transaction);
   }
 }

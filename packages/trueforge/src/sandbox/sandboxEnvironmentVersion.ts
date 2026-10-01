@@ -127,19 +127,21 @@ export function newExternalRef(): string {
   return `trueforge-${randomUUID()}`;
 }
 
-/** Build the next version row fields (no insert). Secrets / Daytona sync intentionally skipped. */
+/** Next version row fields (no insert). */
 export function buildNextVersion({
   version,
   previous_manifest,
   previous_external_ref,
   manifest,
   provider_type,
+  secrets,
 }: {
   version: number;
   previous_manifest?: StoredSandboxEnvironmentManifest;
   previous_external_ref?: string;
   manifest: SandboxEnvironmentManifest;
   provider_type: SandboxEnvironmentProviderType;
+  secrets?: SandboxEnvironmentVersionInternalMetadata['secrets'];
 }): NextSandboxEnvironmentVersion {
   const diff = diffManifest({ previous: previous_manifest, next: manifest });
   // Daytona bakes cpu/memory/disk into the snapshot; resource or build changes need a new ref.
@@ -158,6 +160,8 @@ export function buildNextVersion({
     status: 'pending',
     status_reason: null,
     external_ref: needs_snapshot ? newExternalRef() : previous_external_ref,
-    internal_metadata: SandboxEnvironmentVersionInternalMetadataSchema.parse({}),
+    internal_metadata: SandboxEnvironmentVersionInternalMetadataSchema.parse({
+      secrets: secrets ?? [],
+    }),
   };
 }

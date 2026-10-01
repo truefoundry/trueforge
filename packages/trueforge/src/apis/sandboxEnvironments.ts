@@ -6,14 +6,12 @@ import { OpenAPIHono, type RouteHandler } from '@hono/zod-openapi';
 import { InvalidPageTokenError } from '@truefoundry/trueforge-core/agent-session';
 import type { Context } from 'hono';
 import { createdBySubjectFromRequestContext, type ResolveRequestContext } from '../auth/identity';
-import { isTrueFoundryModeEnabled } from '../config';
 import type { IAgentStore } from '../db/agentStore';
 import {
   SandboxEnvironmentNameConflictError,
   SandboxEnvironmentVersionConflictError,
   type ISandboxEnvironmentStore,
   type SandboxEnvironmentWithVersion,
-  type UpsertSandboxEnvironmentPrevious,
 } from '../db/sandboxEnvironmentStore';
 import type { ISandboxProviderStore, SandboxProviderRecord } from '../db/sandboxProviderStore';
 import {
@@ -23,11 +21,7 @@ import {
   putSandboxEnvironmentRoute,
 } from '../routes/sandboxEnvironmentRoutes';
 import { buildNextVersion, redactManifestSecrets } from '../sandbox/sandboxEnvironmentVersion';
-import {
-  DEFAULT_SANDBOX_ENVIRONMENT_NAME,
-  type SandboxEnvironment,
-  type SandboxEnvironmentManifest,
-} from '../schemas/sandboxEnvironment';
+import { DEFAULT_SANDBOX_ENVIRONMENT_NAME, type SandboxEnvironment } from '../schemas/sandboxEnvironment';
 import { MissingStoredSecretError } from '../utils/secretRedaction';
 
 export interface SandboxEnvironmentsRouterDeps<TTransaction> {
@@ -61,32 +55,6 @@ async function resolveSandboxProviderRecord(
   tenant_id: string,
 ): Promise<SandboxProviderRecord | undefined> {
   return providerStore.getSandboxProvider(tenant_id);
-}
-
-function buildUpsertVersion({
-  manifest,
-  created_by_subject,
-  previous,
-}: {
-  manifest: SandboxEnvironmentManifest;
-  created_by_subject: ReturnType<typeof createdBySubjectFromRequestContext>;
-  previous?: UpsertSandboxEnvironmentPrevious;
-}) {
-  // Label follows platform mode; create/build always use Daytona credentials + code.
-  return {
-    ...buildNextVersion({
-      version: previous ? previous.latest_version + 1 : 1,
-      ...(previous
-        ? {
-            previous_manifest: previous.previous_manifest,
-            previous_external_ref: previous.previous_external_ref,
-          }
-        : {}),
-      manifest,
-      provider_type: isTrueFoundryModeEnabled() ? 'truefoundry' : 'daytona',
-    }),
-    created_by_subject,
-  };
 }
 
 /** CRUD for sandbox environments. */
@@ -147,12 +115,16 @@ export function createSandboxEnvironmentsRouter<TTransaction>(
         name: manifest.name,
         description: manifest.description ?? '',
         created_by_subject,
-        buildVersion: previous =>
-          buildUpsertVersion({
+        buildVersion: ({ existing_version, existing_manifest, existing_external_ref }) => ({
+          ...buildNextVersion({
+            version: (existing_version ?? 0) + 1,
+            ...(existing_manifest ? { previous_manifest: existing_manifest } : {}),
+            ...(existing_external_ref ? { previous_external_ref: existing_external_ref } : {}),
             manifest,
-            created_by_subject,
-            ...(previous ? { previous } : {}),
+            provider_type: provider.manifest.type,
           }),
+          created_by_subject,
+        }),
       });
       return c.json({ data: toSandboxEnvironment(result) }, 200);
     } catch (error) {

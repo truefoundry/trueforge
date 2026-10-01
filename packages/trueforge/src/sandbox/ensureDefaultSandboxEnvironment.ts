@@ -46,8 +46,8 @@ export async function ensureDefaultSandboxEnvironment<TTransaction>({
       name: DEFAULT_NAME,
       description: '',
       created_by_subject,
-      buildVersion: previous => ({
-        version: previous ? previous.latest_version + 1 : 1,
+      buildVersion: ({ existing_version }) => ({
+        version: existing_version !== undefined ? existing_version + 1 : 1,
         manifest: defaultSandboxEnvironmentStoredManifest(provider_type),
         status: 'pending',
         status_reason: null,
