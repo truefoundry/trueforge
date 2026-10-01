@@ -117,11 +117,7 @@ export function buildSessionMetrics({
   })).sort((left, right) => right.value - left.value);
 
   const totalCostUsd =
-    sessionMetrics != null
-      ? sessionMetrics.totalCostInUsd
-      : hasDerivedCost
-        ? derivedCostUsd
-        : undefined;
+    sessionMetrics != null ? sessionMetrics.totalCostInUsd : hasDerivedCost ? derivedCostUsd : undefined;
 
   return {
     totalTurns: sessionMetrics != null ? sessionMetrics.totalTurns : turns.length,
