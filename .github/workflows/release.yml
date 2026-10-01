@@ -408,7 +408,10 @@ jobs:
     name: Build and push public server image
     # DRY-RUN (temporary): `&& inputs.dry_run != true`
     if: needs.resolve-image.outputs.image == 'build' && inputs.dry_run != true
-    needs: [resolve-image]
+    # version-release must be a DIRECT dependency: the needs context only
+    # exposes outputs from jobs listed here, so checkout_ref below would be
+    # empty otherwise and checkout would silently fall back to github.sha.
+    needs: [version-release, resolve-image]
     uses: truefoundry/github-workflows-public/.github/workflows/build.yml@main
     permissions:
       id-token: write
@@ -436,7 +439,10 @@ jobs:
     name: Build and push hardened server image
     # DRY-RUN (temporary): `&& inputs.dry_run != true`
     if: needs.resolve-image.outputs.image == 'build' && inputs.dry_run != true
-    needs: [resolve-image]
+    # version-release must be a DIRECT dependency: the needs context only
+    # exposes outputs from jobs listed here, so checkout_ref below would be
+    # empty otherwise and checkout would silently fall back to github.sha.
+    needs: [version-release, resolve-image]
     uses: truefoundry/github-workflows-public/.github/workflows/build.yml@main
     permissions:
       id-token: write
