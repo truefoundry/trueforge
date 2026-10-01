@@ -1062,7 +1062,8 @@ function stripInteractivePendingFromContent(
 
     let next: AssistantToolCallPart = part;
     if (hasPendingToolResponse(part)) {
-      const { interrupt: _interrupt, ...rest } = part;
+      const { interrupt, ...rest } = part;
+      void interrupt;
       next = rest;
     }
     const approval = next.approval;
