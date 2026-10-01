@@ -324,11 +324,12 @@ export const ThreadOverwriteContextEventSchema = z.object({
   created_at: z.string(),
   thread_id: z.string(),
 
-  // NOTE: add other reasons here.
-  reason: z.literal('compaction'),
+  // `compaction` rewrites history via summarization (carries LLM `usage`); `approval_resolution`
+  // persists an in-place tool_info.approval mutation (no LLM call, so `usage` is omitted).
+  reason: z.enum(['compaction', 'approval_resolution']),
   context: z.array(ContextMessageSchema),
   current_context_usage: CurrentContextUsageSchema,
-  usage: CompletionUsageSchema,
+  usage: CompletionUsageSchema.optional(),
 });
 
 export const MCPServerAuthInfoSchema = z

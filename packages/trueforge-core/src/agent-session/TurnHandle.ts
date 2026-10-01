@@ -552,6 +552,20 @@ export class TurnHandle<TTurnCustom extends object = Record<string, never>> {
         return null;
       }
 
+      case InternalEventType.MCP_SERVERS_PATCH: {
+        // Durable-only: persist a landed approval policy onto the turn's MCP server records.
+        await this.store.patchMCPServers({ ...scope, mcp_servers: event.mcp_servers });
+        return null;
+      }
+
+      case HarnessEventType.USER_TOOL_APPROVAL:
+      case HarnessEventType.USER_TOOL_RESPONSE:
+      case HarnessEventType.USER_TOOL_APPROVAL_POLICY: {
+        // Streamed echo of an accepted user input. Append to the event log and stream it.
+        await this.store.appendToEvents({ ...scope, events: [event] });
+        return event;
+      }
+
       case InternalEventType.AGENT_DONE: {
         if (event.parent) {
           await this.store.removeThreads({

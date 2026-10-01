@@ -67,6 +67,7 @@ import {
   InternalEventType,
   type AgentThreadAppendContext,
   type AgentThreadEvent,
+  type ApplyUserEventsOutput,
   type ContextMessage,
   type InternalCapabilityStateEvent,
   type InternalMCPAuthRequiredEvent,
@@ -616,7 +617,7 @@ export class AgentThread {
   // This is the only place approval/response/user context is written.
   public async *applyUserEvents(
     events: AgentThreadRuntimeSendInput[],
-  ): AsyncGenerator<AgentThreadAppendContext, void, unknown> {
+  ): AsyncGenerator<ApplyUserEventsOutput, void, unknown> {
     if (events.length === 0) {
       return;
     }
@@ -672,6 +673,18 @@ export class AgentThread {
         currentContextUsage: undefined,
         usage: undefined,
       });
+      // Approvals mutate tool_info.approval in place on the (already-persisted) assistant message;
+      // appendToContext only persists the new decision message, so flush the marker via overwrite.
+      if (approvals.length > 0) {
+        yield* this.overwriteContextForApprovalResolution();
+      }
+      // Stream the accepted inputs back to the consumer (durable + SSE) now that they are applied.
+      for (const a of approvals) {
+        yield { ...a, id: newEventId(), created_at: new Date().toISOString() };
+      }
+      for (const m of clientSideToolResponses) {
+        yield { ...m, id: newEventId(), created_at: new Date().toISOString() };
+      }
     }
     if (contextMessages.length > 0) {
       yield* this.appendToContext({
@@ -755,12 +768,30 @@ export class AgentThread {
       ...payload,
     };
     // Update metrics before yield so we still count it if the stream stops here.
-    updateMetricsFromUsage(this.metrics, payload.usage);
+    if (payload.usage) {
+      updateMetricsFromUsage(this.metrics, payload.usage);
+    }
 
     yield event;
     this.context = payload.context;
     this.currentContextUsage = payload.current_context_usage;
     this.metrics.total_summarizations++;
+  }
+
+  // Persist an in-place tool_info.approval mutation by rewriting the thread's context. Unlike
+  // compaction this involves no LLM call (no usage) and is not a summarization, so it bumps no
+  // metric. The context already carries the mutation (set via setToolCallApprovalDecision); this
+  // just flushes it to the durable store through the overwrite seam.
+  public *overwriteContextForApprovalResolution(): Generator<ThreadOverwriteContextEvent, void, unknown> {
+    yield {
+      type: EventType.AGENT_CONTEXT_OVERWRITE,
+      id: newEventId(),
+      created_at: new Date().toISOString(),
+      thread_id: this.threadId,
+      reason: 'approval_resolution',
+      context: this.context,
+      current_context_usage: this.currentContextUsage,
+    };
   }
 
   private generateErrorEvent(message: string, output?: ModelMessageEvent): InternalThreadDoneEvent {

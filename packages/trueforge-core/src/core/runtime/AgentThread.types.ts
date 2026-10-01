@@ -11,6 +11,7 @@ import type {
   BaseMCPAuthRequiredEvent,
   MCPInitializeEvent,
   MCPServerAuthInfo,
+  MCPServerInitInfo,
   ModelMessageDeltaEvent,
   ModelMessageEvent,
   SandboxCreatedEvent,
@@ -20,7 +21,10 @@ import type {
   ToolApprovalRequiredEvent,
   ToolResponseEvent,
   ToolResponseRequiredEvent,
+  UserToolApprovalEvent,
   UserToolApprovalMessage,
+  UserToolApprovalPolicyEvent,
+  UserToolResponseEvent,
   UserToolResponseMessage,
 } from '../events/schema';
 import type { InternalEnrichedAssistantMessage, LLMToolMessage, LLMUserMessage } from '../llm/LLMTypes';
@@ -36,6 +40,8 @@ export const InternalEventType = {
   AGENT_CREATE_SUBAGENT: 'internal.agent.create_subagent',
   AGENT_CONTEXT_APPEND: 'internal.agent.context.append',
   AGENT_DONE: 'internal.agent.done',
+  // Durable-only patch of the turn snapshot's MCP server records (e.g. an approval policy landed).
+  MCP_SERVERS_PATCH: 'internal.mcp.servers_patch',
   // TODO(agent): revisit broader internal.* naming scheme for harness-only event types.
   PASSTHROUGH: 'agent.passthrough',
   MCP_AUTH_REQUIRED: 'internal.mcp.auth_required',
@@ -106,6 +112,15 @@ export type LLMContextMessage = LLMUserMessage | InternalEnrichedAssistantMessag
 
 export type ContextMessage = LLMContextMessage | AgentApprovalDecisionMessage;
 
+/**
+ * Durable-only (never streamed) patch of the turn snapshot's MCP server init records. Emitted by the
+ * executor when a landed approval policy must be persisted via the store's `patchMCPServers`.
+ */
+export interface InternalMCPServersPatchEvent {
+  type: typeof InternalEventType.MCP_SERVERS_PATCH;
+  mcp_servers: MCPServerInitInfo[];
+}
+
 export interface AgentThreadCreateSubAgent {
   type: typeof InternalEventType.AGENT_CREATE_SUBAGENT;
   thread_id: string;
@@ -145,7 +160,14 @@ export type AgentThreadEvent =
   | SandboxCreatedEvent
   | ToolApprovalRequiredEvent
   | ToolResponseRequiredEvent
+  | UserToolApprovalEvent
+  | UserToolResponseEvent
+  | UserToolApprovalPolicyEvent
+  | InternalMCPServersPatchEvent
   | InternalPassthroughEvent;
+
+export type ApplyUserEventsOutput =
+  AgentThreadAppendContext | ThreadOverwriteContextEvent | UserToolApprovalEvent | UserToolResponseEvent;
 
 /** A turn-level non-terminal transition emitted by the executor loop when it parks/resumes. */
 export interface InternalTurnStateEvent {
