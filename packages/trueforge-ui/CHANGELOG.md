@@ -1,5 +1,22 @@
 # Changelog
 
+## 0.9992.1
+
+### Patch Changes
+
+- 5577544: Bump `monaco-editor` to `^0.57.0` to address known vulnerabilities, and point the frontend Monaco worker plugin at the 0.56+ export paths so production builds resolve workers correctly.
+- c88d850: Preview sandbox files the assistant generates in the chat, in a side panel, and full page, instead of requiring a download to see them.
+- 985ad24: Avoid redundant list-permissions API calls by sharing tenant permission state through CanCreateAgentProvider.
+- c0cd17b: Use session detail API metrics for the agent session strip Turns/Duration/Cost instead of list-row hints or turn-by-turn aggregation. Include optional totalCostInUsd on TurnDoneMetrics so turn.done cost matches the wire contract.
+- e8d58c3: Add a reload button before the agent filter on the Sessions page to fetch latest data without requiring a browser refresh.
+- Updated dependencies [fae79d0]
+- Updated dependencies [b58c47e]
+- Updated dependencies [04c3aa7]
+- Updated dependencies [1bf436e]
+- Updated dependencies [c0cd17b]
+  - @truefoundry/trueforge-sdk@0.9992.1
+  - @truefoundry/trueforge-assistant-ui-runtime@0.9992.1
+
 ## 0.4.0
 
 ### Minor Changes
