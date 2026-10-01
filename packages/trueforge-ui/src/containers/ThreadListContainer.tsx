@@ -42,8 +42,11 @@ import { useToasterOptional } from './ToasterContainer.js';
 export type ThreadListContainerProps = {
   /** Called after New chat or selecting a row — used by stack/drawer chrome. */
   onThreadOpen?: () => void;
-  /** `recent-history` hides navigation and lists only persisted sessions. */
-  variant?: 'default' | 'recent-history';
+  /**
+   * `recent-history` hides navigation and lists only persisted sessions.
+   * `mobile-drawer` shows New Chat + Agents Library, then persisted sessions (no Sessions/Schedules).
+   */
+  variant?: 'default' | 'recent-history' | 'mobile-drawer';
 };
 
 const actionItemClass =
@@ -309,6 +312,10 @@ function useThreadListIndicesByRecency(variant: NonNullable<ThreadListContainerP
   }, [threadIds, threadItems, variant]);
 }
 
+function isPersistedHistoryVariant(variant: NonNullable<ThreadListContainerProps['variant']>): boolean {
+  return variant === 'recent-history' || variant === 'mobile-drawer';
+}
+
 function ThreadListItemsByRecency({
   indices,
   onThreadOpen,
@@ -418,7 +425,8 @@ export function ThreadListContainer({ onThreadOpen, variant = 'default' }: Threa
 
   const showNewChat = shell?.isNewChatEnabled !== false;
   const isIdle = shell?.mode.status === 'idle';
-  const isRecentHistory = variant === 'recent-history';
+  const isPersistedHistory = isPersistedHistoryVariant(variant);
+  const isMobileDrawer = variant === 'mobile-drawer';
   const canRenameSession = typeof server?.renameSession === 'function';
   const canDeleteSession = typeof server?.deleteSession === 'function';
   const remoteSessionIds = useMemo(
@@ -482,11 +490,11 @@ export function ThreadListContainer({ onThreadOpen, variant = 'default' }: Threa
 
   let listBody: ReactNode;
   if (isIdle) {
-    listBody = <ThreadListEmptyState message={isRecentHistory ? 'No recent chats' : undefined} />;
+    listBody = <ThreadListEmptyState message={isPersistedHistory ? 'No recent chats' : undefined} />;
   } else if (isLoading) {
     listBody = <ThreadListRowSkeleton />;
   } else if (indices.length === 0) {
-    listBody = <ThreadListEmptyState message={isRecentHistory ? 'No recent chats' : undefined} />;
+    listBody = <ThreadListEmptyState message={isPersistedHistory ? 'No recent chats' : undefined} />;
   } else {
     listBody = (
       <ThreadListPrimitive.Root className="flex min-h-0 flex-col gap-0.5">
@@ -502,20 +510,30 @@ export function ThreadListContainer({ onThreadOpen, variant = 'default' }: Threa
     );
   }
 
-  return (
-    <ThreadListShell
-      header={
-        isRecentHistory ? null : (
-          <div className="flex flex-col gap-1">
-            {showNewChat ? <ThreadListNewButton onClick={handleNewChat} /> : null}
-            <AgentsLibraryButton />
+  const header =
+    variant === 'recent-history' ? null : (
+      <div className="flex flex-col gap-1">
+        {showNewChat ? <ThreadListNewButton onClick={handleNewChat} /> : null}
+        <div
+          className="contents"
+          onClick={() => {
+            if (isMobileDrawer) onThreadOpen?.();
+          }}
+        >
+          <AgentsLibraryButton />
+        </div>
+        {isMobileDrawer ? null : (
+          <>
             <SessionsBrowserButton />
             <SchedulesButton />
-          </div>
-        )
-      }
-    >
-      <RecentChatsSection viewportRef={viewportRef} hideScrollbar={isRecentHistory}>
+          </>
+        )}
+      </div>
+    );
+
+  return (
+    <ThreadListShell header={header}>
+      <RecentChatsSection viewportRef={viewportRef} hideScrollbar={isPersistedHistory}>
         {listBody}
         {!isIdle && hasMore ? <div className="h-4 shrink-0" aria-hidden /> : null}
       </RecentChatsSection>
