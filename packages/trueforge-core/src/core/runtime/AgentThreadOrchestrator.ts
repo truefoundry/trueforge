@@ -3,7 +3,6 @@ import { AgentHarnessError, InvalidAgentSendInputError } from '../errors';
 import {
   EventType,
   newEventId,
-  type ActionRequiredEvent,
   type ModelMessageEvent,
   type ToolApprovalPolicyItem,
   type ToolResponseEvent,
@@ -12,7 +11,7 @@ import {
 } from '../events/schema';
 import type { AgentExecutionTrace, AgentTracing } from '../tracing/AgentTracing';
 import { onSignalAbort } from '../util/abort';
-import { mergeAsyncGenerators } from '../util/promiseUtils';
+import { mergeAsyncGenerators, signalable, type Signalable } from '../util/promiseUtils';
 import { AgentThread } from './AgentThread';
 import type { AgentThreadRuntimeSendBatch } from './AgentThread.types';
 import {
@@ -23,7 +22,6 @@ import {
   type AgentThreadExecutionResult,
   type AgentThreadSendBatch,
   type InternalMCPAuthRequiredEvent,
-  type InternalMCPServerAuthInfo,
 } from './AgentThread.types';
 import {
   assistantMessageContentToStringForSubAgent,
@@ -36,28 +34,6 @@ import type { CreateDynamicSubAgentThread } from './CreateDynamicSubAgentThread'
 import { addAgentThreadMetrics, createEmptyAgentThreadMetrics, type AgentThreadMetrics } from './metrics';
 
 const MAX_PARALLEL_SUB_AGENTS = 5;
-
-function agentThreadEventToTerminalFields(event: AgentThreadExecutionEvent): {
-  output?: ModelMessageEvent | undefined;
-  requiredAction?: ActionRequiredEvent | undefined;
-} {
-  switch (event.type) {
-    case InternalEventType.AGENT_DONE: {
-      if ('parent' in event && event.parent) {
-        return {};
-      }
-      if (event.status === 'error') {
-        return {};
-      }
-      return { output: event.output };
-    }
-    case EventType.TOOL_APPROVAL_REQUIRED:
-    case EventType.TOOL_RESPONSE_REQUIRED:
-      return { requiredAction: event };
-    default:
-      return {};
-  }
-}
 
 type UserToolApprovalOrResponseBatch = (UserToolApprovalMessage | UserToolResponseMessage)[];
 
@@ -93,27 +69,6 @@ function getActiveAgentThreads(agentThreads: Map<string, AgentThread>): AgentThr
     }
     return agentThread;
   });
-}
-
-function mergeAuthEvents(events: InternalMCPAuthRequiredEvent[]): InternalMCPAuthRequiredEvent {
-  const serverMap = new Map<string, InternalMCPServerAuthInfo>();
-  for (const event of events) {
-    for (const entry of event.mcp_servers) {
-      const existing = serverMap.get(entry.id);
-      if (existing) {
-        existing.thread_ids.push(...entry.thread_ids);
-      } else {
-        serverMap.set(entry.id, { ...entry, thread_ids: [...entry.thread_ids] });
-      }
-    }
-  }
-  return {
-    type: InternalEventType.MCP_AUTH_REQUIRED,
-    id: newEventId(),
-    created_at: new Date().toISOString(),
-    thread_id: null,
-    mcp_servers: [...serverMap.values()],
-  };
 }
 
 function wrapGeneratorWithTrace<T, TReturn = void, TNext = unknown>(
@@ -240,12 +195,19 @@ export class AgentThreadOrchestrator {
   private readonly logger: Logger;
   // Finished sub-agents removed from `agentThreads`; kept so totals still include them.
   private finishedSubAgentMetrics: AgentThreadMetrics = createEmptyAgentThreadMetrics();
+  // Latching wake for execute()'s park/resume loop; notified by notifyWake() (send) and abort.
+  private readonly wake: Signalable = signalable();
 
   constructor(params: AgentThreadOrchestratorInput) {
     this.agentThreads = params.agentThreads;
     this.createDynamicSubAgentThread = params.createDynamicSubAgentThread;
     this.tracing = params.tracing;
     this.logger = params.logger.child({ module: 'AgentThreadOrchestrator' });
+  }
+
+  /** Wake a parked execute() loop (e.g. after send() enqueues user events). Latches if not parked. */
+  public notifyWake(): void {
+    this.wake.notify();
   }
 
   /**
@@ -298,19 +260,17 @@ export class AgentThreadOrchestrator {
   }
 
   // Route a public send batch to the owning thread(s) and validate each per-thread batch against
-  // its committed context. Pure + synchronous: throws on unknown thread or an invalid/incomplete
-  // batch before anything is enqueued or applied. Shared by send() and applyUserEvents().
+  // its committed context. Only threads that actually receive input are returned.
+  // Pure + synchronous: throws on unknown thread or an invalid batch before anything is enqueued
+  // or applied.
   private routeSendBatch(messages: AgentThreadSendBatch): Map<string, AgentThreadRuntimeSendBatch> {
     const byThread = new Map<string, AgentThreadRuntimeSendBatch>();
-    for (const thread of this.agentThreads.values()) {
-      byThread.set(thread.threadId, []);
-    }
 
     if (isUserToolApprovalOrResponseBatch(messages)) {
       const grouped = new Map<string, UserToolApprovalOrResponseBatch[number][]>();
       for (const msg of messages) {
         const threadId = msg.thread_id;
-        if (!byThread.has(threadId)) {
+        if (!this.agentThreads.has(threadId)) {
           throw new InvalidAgentSendInputError(`unknown thread_id: ${threadId}`);
         }
         const batch = grouped.get(threadId) ?? [];
@@ -348,13 +308,11 @@ export class AgentThreadOrchestrator {
     if (validationErrors.length > 0) {
       throw new InvalidAgentSendInputError(validationErrors.join('; '));
     }
-
     return byThread;
   }
 
-  // Store-free generator (§4.1). Route + validate, then yield each accepted per-thread batch for
-  // the caller to persist durably; each thread commits to its in-memory queue only on resume.
-  // Does not mutate context — application happens later in execute()'s drain (§3.2).
+  // Route + validate, then yield each accepted per-thread batch for the caller to persist durably;
+  // Does not mutate context — application happens later in execute()'s drain.
   public *send(messages: AgentThreadSendBatch): Generator<AgentThreadRuntimeSendBatch, void, unknown> {
     const byThread = this.routeSendBatch(messages);
     for (const [threadId, batch] of byThread) {
@@ -391,15 +349,15 @@ export class AgentThreadOrchestrator {
   private async *processAgentStreamChunk(
     chunk: Exclude<AgentThreadEvent, InternalMCPAuthRequiredEvent>,
     signal: AbortSignal,
-  ): AsyncGenerator<AgentThreadExecutionEvent, { shouldStopExecution: boolean }, unknown> {
+  ): AsyncGenerator<AgentThreadExecutionEvent, void, unknown> {
     if (chunk.type === InternalEventType.PASSTHROUGH) {
       yield chunk.event;
-      return { shouldStopExecution: false };
+      return;
     }
 
     if (!('thread_id' in chunk) || chunk.thread_id == null) {
       yield chunk;
-      return { shouldStopExecution: false };
+      return;
     }
 
     const currentThread = this.agentThreads.get(chunk.thread_id);
@@ -411,7 +369,7 @@ export class AgentThreadOrchestrator {
       case EventType.TOOL_APPROVAL_REQUIRED:
       case EventType.TOOL_RESPONSE_REQUIRED:
         yield chunk;
-        return { shouldStopExecution: true };
+        return;
       case InternalEventType.AGENT_DONE: {
         if (chunk.parent) {
           if (!chunk.send_to_parent) {
@@ -439,10 +397,10 @@ export class AgentThreadOrchestrator {
           // so getMetrics() counts this sub-agent once. After `yield chunk` per durable-state.
           addAgentThreadMetrics(this.finishedSubAgentMetrics, currentThread.getAgentThreadMetrics());
           this.agentThreads.delete(chunk.thread_id);
-          return { shouldStopExecution: false };
+          return;
         }
         yield chunk;
-        return { shouldStopExecution: true };
+        return;
       }
       case InternalEventType.AGENT_CREATE_SUBAGENT: {
         const parent = {
@@ -473,11 +431,11 @@ export class AgentThreadOrchestrator {
           thread_id: subAgentThreadId,
         };
         this.agentThreads.set(subAgentThreadId, subAgentThread);
-        return { shouldStopExecution: false };
+        return;
       }
       default:
         yield chunk;
-        return { shouldStopExecution: false };
+        return;
     }
   }
 
@@ -488,72 +446,117 @@ export class AgentThreadOrchestrator {
   }): AsyncGenerator<AgentThreadExecutionEvent, AgentThreadExecutionResult, unknown> {
     const { agentThreads } = this;
 
-    let shouldStopExecution = false;
     let caughtError: unknown;
     let output: ModelMessageEvent | null = null;
-    const requiredActions: ActionRequiredEvent[] = [];
     let rootAgentError: AgentThreadExecutionResult['root_agent_error'];
-    const pendingAuthEvents: InternalMCPAuthRequiredEvent[] = [];
+    let rootFinished = false;
+    // Threads parked on mcp-auth. Unlike approvals, this is not reflected by isAwaitingUserInput(),
+    // so track it explicitly to keep them out of `runnable` until a resolving event arrives.
+    const authBlocked = new Set<string>();
+
     const mainThread = [...agentThreads.values()].find(e => !e.parent);
     if (!mainThread) {
       throw new Error('Unreachable: no root thread found');
     }
     const rootSpan = createRootAgentSpan(mainThread, this.tracing);
 
+    // Abort unparks the loop; it then observes signal.aborted and returns.
     onSignalAbort(signal, () => {
-      shouldStopExecution = true;
+      this.wake.notify();
     });
 
+    const done = (): AgentThreadExecutionResult => ({
+      status: 'done',
+      output,
+      root_agent_error: rootAgentError,
+    });
+    // Read through a function so flow analysis doesn't narrow these across awaits / loop
+    // back-edges: `signal.aborted` can flip during `await wake.wait()` (abort callback), and
+    // `rootFinished` is set deep inside the batch loop.
+    const isAborted = (): boolean => signal.aborted;
+    const rootSettled = (): boolean => rootFinished || rootAgentError !== undefined;
+
     try {
-      while (agentThreads.size > 0) {
-        if (shouldStopExecution) {
-          break;
+      for (;;) {
+        if (isAborted() || rootSettled()) {
+          return done();
         }
 
-        const activeThreads = getActiveAgentThreads(agentThreads);
+        // Leaves that will make progress now: not blocked, or
+        // blocked but with queued user events to apply.
+        const runnable = getActiveAgentThreads(agentThreads).filter(
+          thread =>
+            thread.hasPendingUserEvents() || (!thread.isAwaitingUserInput() && !authBlocked.has(thread.threadId)),
+        );
 
-        for (let i = 0; i < activeThreads.length && !shouldStopExecution; i += MAX_PARALLEL_SUB_AGENTS) {
-          const batch = activeThreads.slice(i, i + MAX_PARALLEL_SUB_AGENTS);
-          const generators = batch.map(thread => {
-            if (!thread.parent) {
-              return rootSpan.wrapThreadWithContext(thread, signal);
-            }
-            return wrapWithSubAgentSpan(rootSpan.trace, thread, signal);
-          });
+        if (runnable.length === 0) {
+          // Nothing runnable and root not finished → the turn is paused waiting for user input.
+          yield { type: InternalEventType.TURN_STATE, transition: { status: 'paused' } };
+          await this.wake.wait();
+          if (isAborted()) {
+            return done();
+          }
+          yield { type: InternalEventType.TURN_STATE, transition: { status: 'running' } };
+          continue;
+        }
+
+        // These threads are about to run and resolve their wait — drop their recorded blocks.
+        for (const thread of runnable) {
+          authBlocked.delete(thread.threadId);
+        }
+
+        for (let i = 0; i < runnable.length; i += MAX_PARALLEL_SUB_AGENTS) {
+          const batch = runnable.slice(i, i + MAX_PARALLEL_SUB_AGENTS);
+          const generators = batch.map(thread =>
+            thread.parent
+              ? wrapWithSubAgentSpan(rootSpan.trace, thread, signal)
+              : rootSpan.wrapThreadWithContext(thread, signal),
+          );
 
           for await (const chunk of mergeAsyncGenerators(generators, this.logger)) {
-            if (chunk.type === InternalEventType.MCP_AUTH_REQUIRED) {
-              pendingAuthEvents.push(chunk);
-              shouldStopExecution = true;
-              continue;
-            }
-            if (chunk.type === InternalEventType.AGENT_DONE && !chunk.parent) {
-              // Root-thread only — sub-agent AGENT_DONE would overwrite root trace output /
-              // leave a stale error; sub-agent spans finalize in wrapWithSubAgentSpan.
-              rootSpan.setOutputFromEvent(chunk);
-            }
+            switch (chunk.type) {
+              case InternalEventType.MCP_AUTH_REQUIRED: {
+                // mcp-auth is just another per-thread wait: persist it and park the waiting
+                // thread(s) (their execute() already returned). No turn-wide stop. The event is
+                // run-level (thread_id === null); the threads blocked on each server are carried
+                // in mcp_servers[].thread_ids, so park those so they stay out of `runnable`.
+                yield chunk;
+                for (const server of chunk.mcp_servers) {
+                  for (const threadId of server.thread_ids) {
+                    authBlocked.add(threadId);
+                  }
+                }
+                break;
+              }
 
-            const result = yield* this.processAgentStreamChunk(chunk, signal);
-            if (result.shouldStopExecution) {
-              shouldStopExecution = true;
-              if (
-                !rootAgentError &&
-                chunk.type === InternalEventType.AGENT_DONE &&
-                isInternalThreadDoneError(chunk) &&
-                !chunk.parent
-              ) {
-                rootAgentError = { error: chunk.error, output: chunk.output };
+              case InternalEventType.AGENT_DONE: {
+                // Root-thread AGENT_DONE finalizes the turn: capture trace output before routing
+                // and record the terminal result after. Sub-agent done routes like any other event
+                // (its span finalizes in wrapWithSubAgentSpan), so would overwrite root output.
+                if (!chunk.parent) {
+                  rootSpan.setOutputFromEvent(chunk);
+                }
+                yield* this.processAgentStreamChunk(chunk, signal);
+                if (!chunk.parent) {
+                  rootFinished = true;
+                  if (isInternalThreadDoneError(chunk)) {
+                    rootAgentError = { error: chunk.error, output: chunk.output };
+                  } else {
+                    output = chunk.output;
+                  }
+                }
+                break;
               }
-              if (chunk.type !== InternalEventType.PASSTHROUGH) {
-                const { output: outputContribution, requiredAction } = agentThreadEventToTerminalFields(chunk);
-                if (outputContribution) {
-                  output = outputContribution;
-                }
-                if (requiredAction) {
-                  requiredActions.push(requiredAction);
-                }
+
+              default: {
+                yield* this.processAgentStreamChunk(chunk, signal);
+                break;
               }
             }
+          }
+
+          if (rootSettled() || isAborted()) {
+            break;
           }
         }
       }
@@ -564,27 +567,5 @@ export class AgentThreadOrchestrator {
       rootSpan.finalize(mainThread, caughtError);
       rootSpan.end();
     }
-
-    if (pendingAuthEvents.length > 0) {
-      const authEvent = mergeAuthEvents(pendingAuthEvents);
-      yield authEvent;
-      const authRequiredAction: ActionRequiredEvent = {
-        type: EventType.MCP_AUTH_REQUIRED,
-        id: authEvent.id,
-        created_at: authEvent.created_at,
-        thread_id: authEvent.thread_id,
-        mcp_servers: authEvent.mcp_servers.map(({ thread_ids, ...s }) => {
-          void thread_ids;
-          return s;
-        }),
-      };
-      requiredActions.push(authRequiredAction);
-    }
-
-    return {
-      output,
-      required_actions: requiredActions,
-      root_agent_error: rootAgentError,
-    };
   }
 }

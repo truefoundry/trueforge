@@ -601,19 +601,7 @@ export class AgentThread {
     return builder.build();
   }
 
-  // Store-free generator (§3.1). Validate against committed context, hand the accepted batch to
-  // the caller to persist durably (the `yield`), then commit it to the in-memory queue only once
-  // the caller resumes us (persist-before-mutate). No context mutation, no preSend, no contextBusy —
-  // context application moves to execute()/applyUserEvents (§3.2).
   public *send(messages: AgentThreadRuntimeSendBatch): Generator<AgentThreadRuntimeSendBatch, void, unknown> {
-    // An empty batch is a no-op only when the thread is not awaiting user input.
-    // While awaiting input, fall through so the validator rejects the empty/incomplete batch.
-    if (messages.length === 0 && !this.isAwaitingUserInput()) {
-      return;
-    }
-    // Runs before the yield ⇒ an invalid batch throws before any persist or enqueue (fail-closed).
-    validateInputMessageTypesGivenContext(this.context, messages);
-    // Caller persists here (deferred for now). If it throws, we never resume ⇒ queue untouched.
     yield messages;
     this.pendingUserEvents.push(...messages);
   }
