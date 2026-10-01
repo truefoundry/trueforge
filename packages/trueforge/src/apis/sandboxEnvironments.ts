@@ -121,15 +121,14 @@ export function createSandboxEnvironmentsRouter<TTransaction>(
       const existing = await store.getEnvironment({
         tenant_id: requestContext.tenant_id,
         name: manifest.name,
-        ...(manifest.name === DEFAULT_SANDBOX_ENVIRONMENT_NAME
-          ? {}
-          : { created_by_subject_id: requestContext.subject.id }),
+        created_by_subject_id: requestContext.subject.id,
       });
       const existingSecrets = existing
         ? await store.listSecretsByEnvironment({ environment_id: existing.environment.id })
         : [];
       const synced_secrets = await syncSandboxEnvironmentSecrets({
         secrets: manifest.networking?.secrets ?? [],
+        previous: existing?.version.manifest.networking?.secrets ?? [],
         existing: existingSecrets,
         provider: toDaytonaSandboxProvider({
           manifest: provider.manifest,
