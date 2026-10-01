@@ -92,16 +92,16 @@ describe('sandbox environment secrets', () => {
     const versionId = pending.data[0]?.environment_version_id;
     expect(versionId).toBeDefined();
 
-    const createOrgSecret = jest.fn().mockResolvedValue({
+    const createSecret = jest.fn().mockResolvedValue({
       id: 'daytona-sec-1',
       name: rows[0]?.external_secret_name,
     });
     jest.mocked(providerUtils.toDaytonaSandboxProvider).mockReturnValue({
       getBuildStatus: jest.fn().mockResolvedValue({ status: 'ready', reason: null, metadata: null }),
       build: jest.fn(),
-      createOrgSecret,
-      updateOrgSecret: jest.fn(),
-      deleteOrgSecret: jest.fn(),
+      createSecret,
+      updateSecret: jest.fn(),
+      deleteSecret: jest.fn(),
     } as never);
 
     expect(
@@ -114,7 +114,7 @@ describe('sandbox environment secrets', () => {
       ).status,
     ).toBe(204);
 
-    expect(createOrgSecret).toHaveBeenCalledWith(
+    expect(createSecret).toHaveBeenCalledWith(
       expect.objectContaining({
         name: rows[0]?.external_secret_name,
         value: 'ghp_plain',
@@ -165,9 +165,9 @@ describe('sandbox environment secrets', () => {
     jest.mocked(providerUtils.toDaytonaSandboxProvider).mockReturnValue({
       getBuildStatus: jest.fn().mockResolvedValue({ status: 'ready', reason: null, metadata: null }),
       build: jest.fn(),
-      createOrgSecret: jest.fn().mockRejectedValue(new Error('Daytona secret create failed')),
-      updateOrgSecret: jest.fn(),
-      deleteOrgSecret: jest.fn(),
+      createSecret: jest.fn().mockRejectedValue(new Error('Daytona secret create failed')),
+      updateSecret: jest.fn(),
+      deleteSecret: jest.fn(),
     } as never);
 
     expect(

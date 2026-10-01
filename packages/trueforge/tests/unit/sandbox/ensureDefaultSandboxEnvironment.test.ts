@@ -61,12 +61,12 @@ describe('ensureDefaultSandboxEnvironment', () => {
     );
     const buildVersion = store.upsertEnvironment.mock.calls[0]?.[0].buildVersion as (input: {
       existing_version?: number;
-    }) => Promise<{ status: string; version: number }>;
-    await expect(buildVersion({})).resolves.toMatchObject({
+    }) => { status: string; version: number };
+    expect(buildVersion({})).toMatchObject({
       status: 'pending',
       version: 1,
     });
-    await expect(buildVersion({ existing_version: 3 })).resolves.toMatchObject({
+    expect(buildVersion({ existing_version: 3 })).toMatchObject({
       status: 'pending',
       version: 4,
     });
