@@ -32,6 +32,7 @@ import {
   isApprovalDecisionMessage,
   isClientSideToolResponseMessage,
   isInputUserMessage,
+  isInternalThreadDoneCancelled,
   isInternalThreadDoneError,
 } from './contextUtils';
 import type { CreateDynamicSubAgentThread } from './CreateDynamicSubAgentThread';
@@ -160,7 +161,7 @@ function createRootAgentSpan(mainThread: AgentThread, tracing: AgentTracing): Ro
         if (isInternalThreadDoneError(chunk)) {
           rootAgentErrorMessage = chunk.error;
           trace.setOutput(JSON.stringify({ error: chunk.error }));
-        } else if (chunk.status === 'cancelled') {
+        } else if (isInternalThreadDoneCancelled(chunk)) {
           trace.setOutput(JSON.stringify({ cancelled: chunk.reason }));
         } else {
           const content = assistantMessageContentToStringForSubAgent(chunk.output.content);
@@ -200,7 +201,7 @@ export async function* wrapWithSubAgentSpan(
   try {
     for await (const event of generator) {
       if (event.type === InternalEventType.AGENT_DONE) {
-        if (event.status === 'cancelled') {
+        if (isInternalThreadDoneCancelled(event)) {
           subTrace.setOutput(JSON.stringify({ cancelled: event.reason }));
           subTrace.setMetrics(currentThread.getAgentThreadMetrics());
           subTrace.setError(event.reason);

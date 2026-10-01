@@ -68,6 +68,7 @@ import {
   type AgentThreadEvent,
   type ContextMessage,
   type InternalCapabilityStateEvent,
+  type InternalChildThreadDoneEvent,
   type InternalMCPAuthRequiredEvent,
   type InternalThreadDoneEvent,
   type SubAgentCompletion,
@@ -1176,7 +1177,7 @@ export class AgentThread {
         completion = {
           type: 'error',
           output: agentAssistantMessage,
-          error: errorMessage,
+          error_message: errorMessage,
           send_to_parent: { role: 'tool', tool_call_id: this.parent.tool_call_id, content: errorMessage },
         };
       } else if (!hasToolCalls(assistantMessage)) {
@@ -1198,7 +1199,7 @@ export class AgentThread {
     });
 
     if (finishReason === 'length') {
-      const errorContent = completion?.type === 'error' ? completion.error : 'max_tokens breached';
+      const errorContent = completion?.type === 'error' ? completion.error_message : 'max_tokens breached';
       yield this.generateErrorEvent(errorContent, agentAssistantMessage);
       return { outcome: 'exit', modelMessageEventId };
     }
@@ -1368,7 +1369,7 @@ export class AgentThread {
     return 'exit';
   }
 
-  private buildReplayEvent(c: SubAgentCompletion): InternalThreadDoneEvent {
+  private buildReplayEvent(c: SubAgentCompletion): InternalChildThreadDoneEvent {
     if (this.parent === undefined) {
       throw new Error('unreachable: completion replay requires a parent thread');
     }
@@ -1378,12 +1379,12 @@ export class AgentThread {
       title: this.title,
       parent: this.parent,
       send_to_parent: c.send_to_parent,
-    };
+    } satisfies Pick<InternalChildThreadDoneEvent, 'type' | 'thread_id' | 'title' | 'parent' | 'send_to_parent'>;
     if (c.type === 'done') {
       return { ...base, status: 'done', output: c.output };
     }
     if (c.type === 'error') {
-      return { ...base, status: 'error', error: c.error, output: c.output };
+      return { ...base, status: 'error', error: c.error_message, output: c.output };
     }
     return { ...base, status: 'cancelled', reason: c.reason };
   }

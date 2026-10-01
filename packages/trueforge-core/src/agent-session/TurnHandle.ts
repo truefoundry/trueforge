@@ -13,6 +13,7 @@ import {
 } from '../core/runtime/AgentThread.types';
 import type { AgentThreadOrchestrator } from '../core/runtime/AgentThreadOrchestrator';
 import { getEmptyCurrentContextUsage } from '../core/runtime/contextUsage';
+import { isInternalThreadDoneCancelled } from '../core/runtime/contextUtils';
 import type { AgentThreadMetrics } from '../core/runtime/metrics';
 import type { ITurnResourceResolver } from './ITurnResourceResolver';
 import type { TurnRecord } from './models/TurnRecord';
@@ -45,7 +46,7 @@ function cancellationReasonFromAbortReason(abortReason: unknown): CancellationRe
 }
 
 function toThreadDoneEvent(event: InternalThreadDoneEvent): ThreadDoneEvent {
-  if (event.status === 'cancelled') {
+  if (isInternalThreadDoneCancelled(event)) {
     // Public thread.done is done|error only. Cancelled children are dropped, not shown.
     throw new Error('unreachable: cancelled AGENT_DONE cannot be converted to thread.done');
   }
@@ -473,7 +474,7 @@ export class TurnHandle<TTurnCustom extends object = Record<string, never>> {
             thread_ids: [event.thread_id],
           });
         }
-        if (event.status === 'cancelled') {
+        if (isInternalThreadDoneCancelled(event)) {
           // Do not send thread.done to the user for a cancelled child.
           return null;
         }
