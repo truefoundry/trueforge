@@ -130,6 +130,7 @@ export type {
   MCPServerInitInfo,
   ThreadDoneEvent,
   ThreadOverwriteContextEvent,
+  ToolApprovalPolicyAction,
   UserMCPAuthContinueEvent,
   UserMCPAuthContinueMessage,
   UserToolApprovalEvent,
@@ -166,7 +167,15 @@ export type { CodeModeClientInstall, CodeModeTransport } from './sandbox/codeMod
 export { CodeModeErrorSourceSchema, CodeModeReplySchema, CodeModeRequestSchema } from './sandbox/codeMode/types';
 export type { CodeModeErrorSource, CodeModeReply, CodeModeRequest } from './sandbox/codeMode/types';
 export { DaytonaSandboxProvider } from './sandbox/provider/DaytonaProvider';
-export type { DaytonaSandboxProviderOptions, SandboxEnvironment } from './sandbox/provider/DaytonaProvider';
+export type { DaytonaSandboxProviderOptions } from './sandbox/provider/DaytonaProvider';
+export {
+  DAYTONA_SNAPSHOT_NOT_STARTED_REASON,
+  createDaytonaSandboxEnvironment,
+} from './sandbox/provider/DaytonaSandboxEnvironment';
+export type {
+  DaytonaSandboxEnvironment,
+  DaytonaSandboxEnvironmentOptions,
+} from './sandbox/provider/DaytonaSandboxEnvironment';
 export { absolutizeRelativeExecEnv } from './sandbox/provider/execEnv';
 export { ensureExecSuccess, shellEscape } from './sandbox/provider/Provider';
 export type {
@@ -182,7 +191,7 @@ export type {
 } from './sandbox/provider/Provider';
 export { TFYSandboxProvider } from './sandbox/provider/TFYSandboxProvider';
 export { SKILL_DOWNLOAD_TIMEOUT_SECONDS, Sandbox, buildWriteAndRunScriptCommand } from './sandbox/Sandbox';
-export type { SandboxInfo } from './sandbox/Sandbox';
+export type { HarnessSandbox, SandboxInfo } from './sandbox/Sandbox';
 export {
   SandboxError,
   SandboxFileNotFoundError,

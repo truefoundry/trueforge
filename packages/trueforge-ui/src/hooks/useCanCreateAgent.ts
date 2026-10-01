@@ -1,8 +1,8 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { createContext, createElement, useContext, useEffect, useState, type ReactNode } from 'react';
 
-import { useOptionalPermissionsServer } from '../server/ServerContext.js';
+import type { PermissionsServer } from '../server/types.js';
 
 export type UseCanCreateAgentResult = {
   loading: boolean;
@@ -10,26 +10,38 @@ export type UseCanCreateAgentResult = {
   canCreateAgent: boolean;
 };
 
+const CanCreateAgentContext = createContext<UseCanCreateAgentResult>({
+  loading: false,
+  canCreateAgent: true,
+});
+
 /**
- * Tenant-scoped create-agent grant via `list-permissions` (`resource_type: tenant`).
- * When no permissions server is configured (standalone without port), allows create.
+ * Fetches the tenant-scoped CREATE grant once for the given permissions server
+ * and broadcasts the result via context. Mount once high in the tree (inside
+ * ServerProvider) so every useCanCreateAgent consumer shares a single
+ * list-permissions call instead of each firing its own.
  */
-export function useCanCreateAgent(): UseCanCreateAgentResult {
-  const server = useOptionalPermissionsServer();
-  const [state, setState] = useState<{ loading: boolean; canCreateAgent: boolean }>({
-    loading: server != null,
-    canCreateAgent: server == null,
+export function CanCreateAgentProvider({
+  permissionsServer,
+  children,
+}: {
+  permissionsServer: PermissionsServer | null;
+  children: ReactNode;
+}) {
+  const [state, setState] = useState<UseCanCreateAgentResult>({
+    loading: permissionsServer != null,
+    canCreateAgent: permissionsServer == null,
   });
 
   useEffect(() => {
-    if (server == null) {
+    if (permissionsServer == null) {
       setState({ loading: false, canCreateAgent: true });
       return;
     }
 
     let cancelled = false;
     setState({ loading: true, canCreateAgent: false });
-    void server
+    void permissionsServer
       .listPermissions({ resourceType: 'tenant', resourceIds: [] })
       .then(response => {
         if (cancelled) return;
@@ -44,7 +56,15 @@ export function useCanCreateAgent(): UseCanCreateAgentResult {
     return () => {
       cancelled = true;
     };
-  }, [server]);
+  }, [permissionsServer]);
 
-  return state;
+  return createElement(CanCreateAgentContext.Provider, { value: state }, children);
+}
+
+/**
+ * Tenant-scoped create-agent grant. Reads from CanCreateAgentProvider (mounted
+ * inside ServerProvider). Falls back to allow-all when no permissions port is configured.
+ */
+export function useCanCreateAgent(): UseCanCreateAgentResult {
+  return useContext(CanCreateAgentContext);
 }

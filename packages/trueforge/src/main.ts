@@ -63,7 +63,7 @@ import type { Logger } from 'winston';
 import { createServerApp } from './app';
 import { TrueForgeAuthorizer, type Authorizer } from './auth/authorizer';
 import { createAuthenticator } from './auth/createAuthenticator';
-import { resolveRequestContext, type RequestContext } from './auth/identity';
+import { resolveRequestContext, STANDALONE_REQUEST_CONTEXT, type RequestContext } from './auth/identity';
 import { initOidc } from './auth/oidc';
 import { McpCatalog } from './catalog/McpCatalog';
 import { ModelCatalog } from './catalog/ModelCatalog';
@@ -116,6 +116,7 @@ import { TrueFoundryAgentStore } from './truefoundry/TrueFoundryAgentStore';
 import { TrueFoundryAuthorizer } from './truefoundry/TrueFoundryAuthorizer';
 import { TrueFoundryMcpServerStore } from './truefoundry/TrueFoundryMcpServerStore';
 import { TrueFoundryModelProviderStore } from './truefoundry/TrueFoundryModelProviderStore';
+import { TrueFoundrySandboxEnvironmentStore } from './truefoundry/TrueFoundrySandboxEnvironmentStore';
 import { TrueFoundrySandboxProviderStore } from './truefoundry/TrueFoundrySandboxProviderStore';
 import { TrueFoundryServiceFoundryServerClient } from './truefoundry/TrueFoundryServiceFoundryServerClient';
 import { TrueFoundryAdminSkillStore, TrueFoundrySkillStore } from './truefoundry/TrueFoundrySkillStore';
@@ -145,6 +146,8 @@ interface ServerPersistence<TTransaction> {
   /** extra pre-resolved stores for scheduled runs */
   agentStore: IAgentStore<TTransaction>;
   sandboxEnvironmentStore: ISandboxEnvironmentStore<TTransaction>;
+  /** Context-free provider store for internal sandbox-env build progress. */
+  sandboxProviderStore: ISandboxProviderStore<TTransaction>;
   turnSkillsResolverStore: Pick<ISkillStore<TTransaction>, 'resolveTurnSkills'>;
   destroyDb: () => Promise<void>;
   /** Connected Redis (client + mode) for distributed peering; undefined in standalone. */
@@ -295,6 +298,18 @@ function buildResolveSandboxProviderStore<TTransaction>(options: {
   return () => persistenceStore;
 }
 
+function wrapSandboxEnvironmentStore<TTransaction>(
+  persistenceStore: ISandboxEnvironmentStore<TTransaction>,
+): ISandboxEnvironmentStore<TTransaction> {
+  if (isTrueFoundryModeEnabled(configuration)) {
+    // Discriminator only — full resolve validates secrets/settings used elsewhere.
+    return new TrueFoundrySandboxEnvironmentStore(persistenceStore, {
+      envSupported: configuration.TRUEFOUNDRY_SANDBOX_PROVIDER === 'daytona',
+    });
+  }
+  return persistenceStore;
+}
+
 function buildResolveWebSearchProviderStore<TTransaction>(options: {
   persistenceStore: IWebSearchProviderStore<TTransaction>;
 }): (rc: RequestContext) => IWebSearchProviderStore<TTransaction> {
@@ -350,7 +365,7 @@ async function createStandalonePersistence(options: {
 
   const tokenStore = new SqliteOAuthTokenStore(db);
   const agentStore = new SqliteAgentStore(db);
-  const sandboxEnvironmentStore = new SqliteSandboxEnvironmentStore(db);
+  const sandboxEnvironmentStore = wrapSandboxEnvironmentStore(new SqliteSandboxEnvironmentStore(db));
   const modelProviderStore = new SqliteModelProviderStore(db);
   const mcpServerStore = new McpServerWithAuthStore({
     store: new SqliteMcpServerStore(db),
@@ -376,6 +391,7 @@ async function createStandalonePersistence(options: {
     resolveImportAgentStore: () => agentStore,
     agentStore,
     sandboxEnvironmentStore,
+    sandboxProviderStore,
     turnSkillsResolverStore: skillStore,
     destroyDb: () => db.destroy(),
     redis: undefined,
@@ -469,7 +485,7 @@ async function createDistributedPersistence(options: {
   const webSearchProviderStore = new PostgresWebSearchProviderStore(db);
   const skillStore = new PostgresSkillStore(db);
   const agentStore = new PostgresAgentStore(db);
-  const sandboxEnvironmentStore = new PostgresSandboxEnvironmentStore(db);
+  const sandboxEnvironmentStore = wrapSandboxEnvironmentStore(new PostgresSandboxEnvironmentStore(db));
   const turnSkillsResolverStore = buildTurnSkillsResolverStore({
     persistenceStore: skillStore,
     client: serviceFoundryClient,
@@ -535,6 +551,7 @@ async function createDistributedPersistence(options: {
     resolveImportAgentStore,
     agentStore,
     sandboxEnvironmentStore,
+    sandboxProviderStore: resolveSandboxProviderStore(STANDALONE_REQUEST_CONTEXT),
     turnSkillsResolverStore,
     destroyDb: () => db.destroy(),
     redis: await connectRedis({
@@ -681,6 +698,7 @@ async function createServerRuntime<TTransaction>(persistence: ServerPersistence<
     scheduleStore,
     agentStore,
     sandboxEnvironmentStore,
+    sandboxProviderStore: persistence.sandboxProviderStore,
     turnSkillsResolverStore,
     sessionStore,
     sessionMetricsStore,

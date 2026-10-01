@@ -14,8 +14,7 @@ function makeProvider(
 ): SandboxProvider {
   return {
     type: 'local',
-    buildImage: () => Promise.resolve({ status: 'ready', reason: null, metadata: null }),
-    getImageBuildStatus: () => Promise.resolve({ status: 'ready', reason: null, metadata: null }),
+    envSupported: false,
     getAdditionalInstructions: () => undefined,
     getToolResultDumpDir: sandboxId => `${sandboxId}/tool-results`,
     getGitCredentialsPath: sandboxId => `${sandboxId}/.git-credentials`,

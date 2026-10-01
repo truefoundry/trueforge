@@ -5,6 +5,7 @@ import {
   newEventId,
   type ActionRequiredEvent,
   type ModelMessageEvent,
+  type ToolApprovalPolicyItem,
   type ToolResponseEvent,
   type UserToolApprovalMessage,
   type UserToolResponseMessage,
@@ -259,6 +260,41 @@ export class AgentThreadOrchestrator {
       addAgentThreadMetrics(total, thread.getAgentThreadMetrics());
     }
     return total;
+  }
+
+  /**
+   * Apply tool approval policies to the tool sets. Validates
+   * every `server_name` against the currently-configured MCP servers first —
+   * fail-closed: if any name is unknown nothing is applied.
+   */
+  public applyApprovalPolicies(policies: ToolApprovalPolicyItem[]): { errors: string[] } {
+    const knownServerNames = new Set<string>();
+    for (const thread of this.agentThreads.values()) {
+      for (const toolSet of thread.getUserToolSets()) {
+        knownServerNames.add(toolSet.name);
+      }
+    }
+
+    const errors: string[] = [];
+    policies.forEach((policy, index) => {
+      if (!knownServerNames.has(policy.server_name)) {
+        errors.push(`policies[${String(index)}]: unknown server_name '${policy.server_name}'`);
+      }
+    });
+    if (errors.length > 0) {
+      return { errors };
+    }
+
+    for (const policy of policies) {
+      for (const thread of this.agentThreads.values()) {
+        for (const toolSet of thread.getUserToolSets()) {
+          if (toolSet.name === policy.server_name) {
+            toolSet.setApprovalPolicy(policy.name, policy.action);
+          }
+        }
+      }
+    }
+    return { errors: [] };
   }
 
   public async *send(messages: AgentThreadSendBatch): AsyncGenerator<AgentThreadAppendContext, void, unknown> {
