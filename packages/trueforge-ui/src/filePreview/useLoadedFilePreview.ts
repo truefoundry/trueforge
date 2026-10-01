@@ -13,19 +13,36 @@ export type LoadedFilePreview = {
 };
 
 const LOAD_ERROR_MESSAGE = "Couldn't load a preview of this file.";
+const EMPTY_LOADED: LoadedFilePreview = { view: { status: 'loading' }, blob: null };
+
+function loadedKey(target: SandboxFilePreviewTarget | null, reloadToken: number): string | null {
+  if (target == null) return null;
+  return `${target.turnId}\0${target.path}\0${reloadToken}`;
+}
 
 /**
  * Loads the open sandbox file once per target. The object URL created for images
  * and PDFs is revoked when that request is dropped.
+ *
+ * The host stays mounted across close and open, so a result for a different file
+ * is dropped during render. Otherwise the new title can paint the previous bytes,
+ * and download can save them under the new path.
  */
 export function useLoadedFilePreview(target: SandboxFilePreviewTarget | null, reloadToken: number): LoadedFilePreview {
-  const [loaded, setLoaded] = useState<LoadedFilePreview>({ view: { status: 'loading' }, blob: null });
+  const key = loadedKey(target, reloadToken);
+  const [loaded, setLoaded] = useState<LoadedFilePreview & { key: string | null }>({
+    key: null,
+    ...EMPTY_LOADED,
+  });
+  if (loaded.key !== key) {
+    setLoaded({ key, ...EMPTY_LOADED });
+  }
 
   useEffect(() => {
-    if (target == null) return;
+    if (target == null || key == null) return;
     let cancelled = false;
     let objectUrl: string | undefined;
-    setLoaded({ view: { status: 'loading' }, blob: null });
+    setLoaded({ key, ...EMPTY_LOADED });
 
     void (async () => {
       try {
@@ -40,15 +57,16 @@ export function useLoadedFilePreview(target: SandboxFilePreviewTarget | null, re
             return;
           }
           setLoaded({
+            key,
             blob,
             view: { status: 'media', media: result.media, objectUrl },
           });
           return;
         }
-        setLoaded({ blob, view: result });
+        setLoaded({ key, blob, view: result });
       } catch {
         if (!cancelled) {
-          setLoaded({ blob: null, view: { status: 'error', message: LOAD_ERROR_MESSAGE } });
+          setLoaded({ key, blob: null, view: { status: 'error', message: LOAD_ERROR_MESSAGE } });
         }
       }
     })();
@@ -57,7 +75,7 @@ export function useLoadedFilePreview(target: SandboxFilePreviewTarget | null, re
       cancelled = true;
       if (objectUrl != null) URL.revokeObjectURL(objectUrl);
     };
-  }, [target, reloadToken]);
+  }, [target, reloadToken, key]);
 
-  return loaded;
+  return loaded.key === key ? loaded : EMPTY_LOADED;
 }
