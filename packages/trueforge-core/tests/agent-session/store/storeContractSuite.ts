@@ -26,8 +26,10 @@ import {
   makeCreateTurnInput,
   makeDoneTurnState,
   makeModelMessageEvent,
+  makePausedTurnState,
   makeTurnCreatedEvent,
   makeTurnDoneEvent,
+  makeTurnUpdateEvent,
   TEST_ACTIVE_EXECUTOR_ID,
 } from '../testHelpers';
 
@@ -72,7 +74,7 @@ export function runStoreContractSuite(createStore: () => ISessionStore) {
 
   async function finishTurn(store: ISessionStore, turnId: string) {
     const state = makeDoneTurnState();
-    await store.updateTurnState({
+    await store.updateTurnTerminalState({
       session_id: sessionId,
       turn_id: turnId,
       state,
@@ -106,7 +108,7 @@ export function runStoreContractSuite(createStore: () => ISessionStore) {
           turn_done_event: makeTurnDoneEvent(makeCancelledTurnState(CancellationReason.ClientCancelled)),
         }),
       () =>
-        store.updateTurnState({
+        store.updateTurnTerminalState({
           ...keys,
           state: doneState,
           turn_done_event: makeTurnDoneEvent(doneState),
@@ -1523,6 +1525,83 @@ export function runStoreContractSuite(createStore: () => ISessionStore) {
       ).rejects.toBeInstanceOf(PreviousTurnRunningError);
     });
 
+    it('rejects createTurn when previous turn is paused, then counts metrics once after resume', async () => {
+      const store = createStore();
+      await seedSession(store);
+      await store.createTurn(makeCreateTurnInput({ sessionId, turnId: 'turn-1' }));
+      const pausedState = makePausedTurnState(['required-event-1']);
+      await store.updateTurnNonTerminalState({
+        session_id: sessionId,
+        turn_id: 'turn-1',
+        state: pausedState,
+        turn_update_event: makeTurnUpdateEvent(pausedState),
+      });
+
+      await expect(
+        store.createTurn(
+          makeCreateTurnInput({ sessionId, turnId: 'turn-2', previousTurnId: 'turn-1', firstTurnId: 'turn-1' }),
+        ),
+      ).rejects.toBeInstanceOf(PreviousTurnRunningError);
+      expect(await store.getTurn({ session_id: sessionId, turn_id: 'turn-2' })).toBeUndefined();
+      const afterReject = mustGet(await store.getSession({ tenant_id: tenant, session_id: sessionId }));
+      expect(afterReject.last_turn_id).toBe('turn-1');
+      expect(afterReject.metrics.total_turns).toBe(1);
+
+      const runningState = { status: 'running' } as const;
+      await store.updateTurnNonTerminalState({
+        session_id: sessionId,
+        turn_id: 'turn-1',
+        state: runningState,
+        turn_update_event: makeTurnUpdateEvent(runningState),
+      });
+      const turn1 = mustGet(await store.getTurn({ session_id: sessionId, turn_id: 'turn-1' }));
+      const doneState = {
+        ...makeDoneTurnState(),
+        completed_at: new Date(turn1.created_at.getTime() + 1500).toISOString(),
+        metrics: { total_cost_in_usd: 1.25 },
+      };
+      await store.updateTurnTerminalState({
+        session_id: sessionId,
+        turn_id: 'turn-1',
+        state: doneState,
+        turn_done_event: makeTurnDoneEvent(doneState),
+      });
+
+      const session = mustGet(await store.getSession({ tenant_id: tenant, session_id: sessionId }));
+      expect(session.metrics).toEqual({
+        total_cost_in_usd: 1.25,
+        total_duration_ms: 1500,
+        total_turns: 1,
+      });
+    });
+
+    it('allows createTurn after a paused predecessor is frozen', async () => {
+      const store = createStore();
+      await seedSession(store);
+      await store.createTurn(makeCreateTurnInput({ sessionId, turnId: 'turn-1' }));
+      const pausedState = makePausedTurnState(['required-event-1']);
+      await store.updateTurnNonTerminalState({
+        session_id: sessionId,
+        turn_id: 'turn-1',
+        state: pausedState,
+        turn_update_event: makeTurnUpdateEvent(pausedState),
+      });
+      const cancelledState = makeCancelledTurnState(CancellationReason.CancelledForNextTurn);
+      await store.freezeAndGetTurn({
+        session_id: sessionId,
+        turn_id: 'turn-1',
+        reason: CancellationReason.CancelledForNextTurn,
+        turn_done_event: makeTurnDoneEvent(cancelledState),
+      });
+
+      await store.createTurn(
+        makeCreateTurnInput({ sessionId, turnId: 'turn-2', previousTurnId: 'turn-1', firstTurnId: 'turn-1' }),
+      );
+      const successor = mustGet(await store.getTurn({ session_id: sessionId, turn_id: 'turn-2' }));
+      expect(successor.state.status).toBe('running');
+      expect(successor.previous_turn_id).toBe('turn-1');
+    });
+
     it('rejects duplicate turn_id with conflict', async () => {
       const store = createStore();
       await seedSession(store);
@@ -1937,6 +2016,146 @@ export function runStoreContractSuite(createStore: () => ISessionStore) {
       }
     });
 
+    it('cancels a paused turn, persists turn.done', async () => {
+      const store = createStore();
+      await seedSession(store);
+      await store.createTurn(makeCreateTurnInput({ sessionId, turnId: 'turn-1' }));
+      const pausedState = makePausedTurnState(['required-event-1']);
+      const turnUpdate = makeTurnUpdateEvent(pausedState);
+      await store.updateTurnNonTerminalState({
+        session_id: sessionId,
+        turn_id: 'turn-1',
+        state: pausedState,
+        turn_update_event: turnUpdate,
+      });
+
+      const cancelledState = makeCancelledTurnState(CancellationReason.CancelledForNextTurn);
+      const record = await store.freezeAndGetTurn({
+        session_id: sessionId,
+        turn_id: 'turn-1',
+        reason: CancellationReason.CancelledForNextTurn,
+        turn_done_event: makeTurnDoneEvent(cancelledState),
+      });
+      expect(record.state).toMatchObject({
+        status: 'cancelled',
+        reason: CancellationReason.CancelledForNextTurn,
+      });
+      if (record.state.status !== 'cancelled') {
+        throw new Error(`expected cancelled turn, got ${record.state.status}`);
+      }
+
+      const { data } = await store.listTurnEvents({
+        session_id: sessionId,
+        turn_id: 'turn-1',
+        limit: 10,
+        page_token: undefined,
+        order: undefined,
+      });
+      expect(data).toContainEqual(turnUpdate);
+      expect(data.filter(event => event.type === EventType.TURN_DONE)).toHaveLength(1);
+
+      const afterCancel = mustGet(await store.getSession({ tenant_id: tenant, session_id: sessionId }));
+      const elapsed_ms = Date.parse(record.state.completed_at) - record.created_at.getTime();
+      expect(afterCancel.metrics).toEqual({
+        total_duration_ms: elapsed_ms > 0 ? Math.trunc(elapsed_ms) : 0,
+        total_turns: 1,
+      });
+      await store.freezeAndGetTurn({
+        session_id: sessionId,
+        turn_id: 'turn-1',
+        reason: CancellationReason.CancelledForNextTurn,
+        turn_done_event: makeTurnDoneEvent(cancelledState),
+      });
+      const afterSecond = mustGet(await store.getSession({ tenant_id: tenant, session_id: sessionId }));
+      expect(afterSecond.metrics).toEqual(afterCancel.metrics);
+      const afterSecondEvents = await store.listTurnEvents({
+        session_id: sessionId,
+        turn_id: 'turn-1',
+        limit: 10,
+        page_token: undefined,
+        order: undefined,
+      });
+      expect(afterSecondEvents.data.filter(event => event.type === EventType.TURN_DONE)).toHaveLength(1);
+
+      const keys = { session_id: sessionId, turn_id: 'turn-1' };
+      const runningState = { status: 'running' } as const;
+      const doneState = makeDoneTurnState();
+      const fencedWrites: (() => Promise<unknown>)[] = [
+        () =>
+          store.updateTurnNonTerminalState({
+            ...keys,
+            state: runningState,
+            turn_update_event: makeTurnUpdateEvent(runningState),
+          }),
+        () =>
+          store.updateTurnTerminalState({
+            ...keys,
+            state: doneState,
+            turn_done_event: makeTurnDoneEvent(doneState),
+          }),
+        () =>
+          store.appendToEvents({
+            ...keys,
+            events: [makeTurnCreatedEvent('turn-1')],
+          }),
+        () =>
+          store.appendToThreadContext({
+            ...keys,
+            thread_id: MAIN_THREAD_ID,
+            context: [userMessage('late')],
+            current_context_usage: null,
+            completion: null,
+          }),
+        () =>
+          store.overwriteThreadContext({
+            ...keys,
+            event: {
+              type: EventType.AGENT_CONTEXT_OVERWRITE,
+              id: newEventId(),
+              created_at: new Date().toISOString(),
+              thread_id: MAIN_THREAD_ID,
+              reason: 'compaction',
+              context: [userMessage('late-overwrite')],
+              current_context_usage: getEmptyCurrentContextUsage(),
+              usage: getEmptyUsage(),
+            },
+          }),
+        () =>
+          store.addThreads({
+            ...keys,
+            threads: [
+              {
+                thread_id: 'child',
+                context: [],
+                current_context_usage: getEmptyCurrentContextUsage(),
+                parent: { thread_id: MAIN_THREAD_ID, tool_call_id: 'tc1' },
+                agent_info: { type: 'dynamic', name: 'child', input: 'do work' },
+                completion: null,
+                capability_state: null,
+              },
+            ],
+          }),
+        () => store.removeThreads({ ...keys, thread_ids: [MAIN_THREAD_ID] }),
+        () =>
+          store.patchMCPServers({
+            ...keys,
+            mcp_servers: [{ id: 'svc', name: 'svc', session_id: 'mcp-1', transport_type: 'streamable-http' }],
+          }),
+        () => store.patchSandboxInfo({ ...keys, sandbox_info: { sandbox_id: 'sbx-1' } }),
+        () =>
+          store.patchThreadCapabilityState({
+            ...keys,
+            thread_id: MAIN_THREAD_ID,
+            key: 'tfy.plan',
+            state: { v: 1 },
+          }),
+      ];
+
+      for (const write of fencedWrites) {
+        await expect(write()).rejects.toBeInstanceOf(TurnNotRunningError);
+      }
+    });
+
     it('cancels a running turn with the caller-supplied reason', async () => {
       const store = createStore();
       await seedSession(store);
@@ -2039,7 +2258,7 @@ export function runStoreContractSuite(createStore: () => ISessionStore) {
       expect(data.filter(e => e.type === EventType.TURN_DONE)).toHaveLength(1);
     });
 
-    it('concurrent freeze x updateTurnState: exactly one terminal transition wins', async () => {
+    it('concurrent freeze x updateTurnTerminalState: exactly one terminal transition wins', async () => {
       const store = createStore();
       await seedSession(store);
       await store.createTurn(makeCreateTurnInput({ sessionId, turnId: 'turn-1' }));
@@ -2052,7 +2271,7 @@ export function runStoreContractSuite(createStore: () => ISessionStore) {
           reason: CancellationReason.CancelledForNextTurn,
           turn_done_event: makeTurnDoneEvent(cancelledState),
         }),
-        store.updateTurnState({
+        store.updateTurnTerminalState({
           session_id: sessionId,
           turn_id: 'turn-1',
           state: doneState,
@@ -2079,7 +2298,130 @@ export function runStoreContractSuite(createStore: () => ISessionStore) {
     });
   });
 
-  describe('updateTurnState', () => {
+  describe('updateTurnNonTerminalState', () => {
+    it('writes paused state and turn.update atomically without terminal metrics', async () => {
+      const store = createStore();
+      await seedSession(store);
+      await store.createTurn(makeCreateTurnInput({ sessionId, turnId: 'turn-1' }));
+      const metricsBeforePause = mustGet(await store.getSession({ tenant_id: tenant, session_id: sessionId })).metrics;
+      const state = makePausedTurnState(['required-event-1']);
+      const turnUpdate = makeTurnUpdateEvent(state);
+
+      await store.updateTurnNonTerminalState({
+        session_id: sessionId,
+        turn_id: 'turn-1',
+        state,
+        turn_update_event: turnUpdate,
+      });
+
+      const turn = mustGet(await store.getTurn({ session_id: sessionId, turn_id: 'turn-1' }));
+      expect(turn.state).toEqual(state);
+      const { data } = await store.listTurnEvents({
+        session_id: sessionId,
+        turn_id: 'turn-1',
+        limit: 10,
+        page_token: undefined,
+        order: undefined,
+      });
+      expect(data).toContainEqual(turnUpdate);
+      expect(data.some(event => event.type === EventType.TURN_DONE)).toBe(false);
+
+      const session = mustGet(await store.getSession({ tenant_id: tenant, session_id: sessionId }));
+      expect(session.metrics).toEqual(metricsBeforePause);
+    });
+
+    it('writes paused → running and turn.update atomically without terminal metrics', async () => {
+      const store = createStore();
+      await seedSession(store);
+      await store.createTurn(makeCreateTurnInput({ sessionId, turnId: 'turn-1' }));
+      const pausedState = makePausedTurnState(['required-event-1']);
+      await store.updateTurnNonTerminalState({
+        session_id: sessionId,
+        turn_id: 'turn-1',
+        state: pausedState,
+        turn_update_event: makeTurnUpdateEvent(pausedState),
+      });
+      const metricsBeforeResume = mustGet(await store.getSession({ tenant_id: tenant, session_id: sessionId })).metrics;
+
+      const runningState = { status: 'running' } as const;
+      const turnUpdate = makeTurnUpdateEvent(runningState);
+      await store.updateTurnNonTerminalState({
+        session_id: sessionId,
+        turn_id: 'turn-1',
+        state: runningState,
+        turn_update_event: turnUpdate,
+      });
+
+      const turn = mustGet(await store.getTurn({ session_id: sessionId, turn_id: 'turn-1' }));
+      expect(turn.state).toEqual(runningState);
+      const { data } = await store.listTurnEvents({
+        session_id: sessionId,
+        turn_id: 'turn-1',
+        limit: 10,
+        page_token: undefined,
+        order: undefined,
+      });
+      expect(data).toContainEqual(turnUpdate);
+      expect(data.some(event => event.type === EventType.TURN_DONE)).toBe(false);
+      const session = mustGet(await store.getSession({ tenant_id: tenant, session_id: sessionId }));
+      expect(session.metrics).toEqual(metricsBeforeResume);
+    });
+
+    it('allows a paused turn to be cancelled exactly once', async () => {
+      const store = createStore();
+      await seedSession(store);
+      await store.createTurn(makeCreateTurnInput({ sessionId, turnId: 'turn-1' }));
+      const pausedState = makePausedTurnState(['required-event-1']);
+      await store.updateTurnNonTerminalState({
+        session_id: sessionId,
+        turn_id: 'turn-1',
+        state: pausedState,
+        turn_update_event: makeTurnUpdateEvent(pausedState),
+      });
+
+      const cancelledState = makeCancelledTurnState(CancellationReason.ClientCancelled);
+      await store.updateTurnTerminalState({
+        session_id: sessionId,
+        turn_id: 'turn-1',
+        state: cancelledState,
+        turn_done_event: makeTurnDoneEvent(cancelledState),
+      });
+
+      const turn = mustGet(await store.getTurn({ session_id: sessionId, turn_id: 'turn-1' }));
+      expect(turn.state).toEqual(cancelledState);
+      await expect(
+        store.updateTurnTerminalState({
+          session_id: sessionId,
+          turn_id: 'turn-1',
+          state: makeDoneTurnState(),
+          turn_done_event: makeTurnDoneEvent(makeDoneTurnState()),
+        }),
+      ).rejects.toBeInstanceOf(SessionStoreConflictError);
+    });
+
+    it('rejects a second pause transition', async () => {
+      const store = createStore();
+      await seedSession(store);
+      await store.createTurn(makeCreateTurnInput({ sessionId, turnId: 'turn-1' }));
+      const state = makePausedTurnState(['required-event-1']);
+      await store.updateTurnNonTerminalState({
+        session_id: sessionId,
+        turn_id: 'turn-1',
+        state,
+        turn_update_event: makeTurnUpdateEvent(state),
+      });
+      await expect(
+        store.updateTurnNonTerminalState({
+          session_id: sessionId,
+          turn_id: 'turn-1',
+          state,
+          turn_update_event: makeTurnUpdateEvent(state),
+        }),
+      ).rejects.toBeInstanceOf(SessionStoreInvariantError);
+    });
+  });
+
+  describe('updateTurnTerminalState', () => {
     it('allows running → done and rejects second terminal (first-terminal-wins)', async () => {
       const store = createStore();
       await seedSession(store);
@@ -2087,7 +2429,7 @@ export function runStoreContractSuite(createStore: () => ISessionStore) {
       await finishTurn(store, 'turn-1');
       const cancelledState = makeCancelledTurnState(CancellationReason.ClientCancelled);
       await expect(
-        store.updateTurnState({
+        store.updateTurnTerminalState({
           session_id: sessionId,
           turn_id: 'turn-1',
           state: cancelledState,
@@ -2102,7 +2444,7 @@ export function runStoreContractSuite(createStore: () => ISessionStore) {
       await store.createTurn(makeCreateTurnInput({ sessionId, turnId: 'turn-1' }));
       const state = makeDoneTurnState();
       const turnDone = makeTurnDoneEvent(state);
-      await store.updateTurnState({
+      await store.updateTurnTerminalState({
         session_id: sessionId,
         turn_id: 'turn-1',
         state,
@@ -2135,7 +2477,7 @@ export function runStoreContractSuite(createStore: () => ISessionStore) {
         completed_at: completedAt,
         metrics: { total_cost_in_usd: 1.25 },
       };
-      await store.updateTurnState({
+      await store.updateTurnTerminalState({
         session_id: sessionId,
         turn_id: 'turn-1',
         state,
@@ -2161,7 +2503,7 @@ export function runStoreContractSuite(createStore: () => ISessionStore) {
         completed_at: completedAt,
         metrics: { total_tokens: 10 },
       };
-      await store.updateTurnState({
+      await store.updateTurnTerminalState({
         session_id: sessionId,
         turn_id: 'turn-1',
         state,
@@ -2186,7 +2528,7 @@ export function runStoreContractSuite(createStore: () => ISessionStore) {
         completed_at: new Date(createdAt.getTime() + 1500).toISOString(),
         metrics: { total_cost_in_usd: 1.25 },
       };
-      await store.updateTurnState({
+      await store.updateTurnTerminalState({
         session_id: sessionId,
         turn_id: 'turn-1',
         state: doneState,
@@ -2200,7 +2542,7 @@ export function runStoreContractSuite(createStore: () => ISessionStore) {
         metrics: { total_cost_in_usd: 9.99 },
       };
       await expect(
-        store.updateTurnState({
+        store.updateTurnTerminalState({
           session_id: sessionId,
           turn_id: 'turn-1',
           state: losingState,
@@ -2227,7 +2569,7 @@ export function runStoreContractSuite(createStore: () => ISessionStore) {
         completed_at: new Date(mustGet(turn1).created_at.getTime() + 1500).toISOString(),
         metrics: { total_cost_in_usd: 1.25 },
       };
-      await store.updateTurnState({
+      await store.updateTurnTerminalState({
         session_id: sessionId,
         turn_id: 'turn-1',
         state: turn1Done,
@@ -2243,7 +2585,7 @@ export function runStoreContractSuite(createStore: () => ISessionStore) {
         completed_at: new Date(mustGet(turn2).created_at.getTime() + 800).toISOString(),
         metrics: { total_cost_in_usd: 0.5 },
       };
-      await store.updateTurnState({
+      await store.updateTurnTerminalState({
         session_id: sessionId,
         turn_id: 'turn-2',
         state: turn2Done,
@@ -2269,7 +2611,7 @@ export function runStoreContractSuite(createStore: () => ISessionStore) {
         completed_at: new Date(mustGet(turn1).created_at.getTime() + 1000).toISOString(),
         metrics: { total_cost_in_usd: 1.0 },
       };
-      await store.updateTurnState({
+      await store.updateTurnTerminalState({
         session_id: sessionId,
         turn_id: 'turn-1',
         state: turn1Done,
@@ -2311,7 +2653,7 @@ export function runStoreContractSuite(createStore: () => ISessionStore) {
       await seedSession(store);
       const state = makeDoneTurnState();
       await expect(
-        store.updateTurnState({
+        store.updateTurnTerminalState({
           session_id: sessionId,
           turn_id: missingTurnId,
           state,
@@ -2833,6 +3175,80 @@ export function runStoreContractSuite(createStore: () => ISessionStore) {
       const turn = await store.getTurn({ session_id: sessionId, turn_id: 'turn-1' });
       expect(mustGet(turn).snapshot.mcp_servers).toEqual({
         svc: { id: 'svc', name: 'svc', transport_type: 'sse' },
+      });
+    });
+
+    it('patchMCPServers persists approval_policies on the entry (sole policy writer)', async () => {
+      const store = createStore();
+      await seedSession(store);
+      await store.createTurn(makeCreateTurnInput({ sessionId, turnId: 'turn-1' }));
+      await store.patchMCPServers({
+        session_id: sessionId,
+        turn_id: 'turn-1',
+        mcp_servers: [
+          {
+            id: 'svc',
+            name: 'svc',
+            session_id: 'mcp-1',
+            transport_type: 'streamable-http',
+            approval_policies: {
+              write_note: { type: 'allow_session' },
+              delete_note: { type: 'allow_session', expire_at: '2999-01-01T00:00:00.000Z' },
+            },
+          },
+        ],
+      });
+      const turn = await store.getTurn({ session_id: sessionId, turn_id: 'turn-1' });
+      expect(mustGet(turn).snapshot.mcp_servers?.['svc']).toEqual({
+        id: 'svc',
+        name: 'svc',
+        session_id: 'mcp-1',
+        transport_type: 'streamable-http',
+        approval_policies: {
+          write_note: { type: 'allow_session' },
+          delete_note: { type: 'allow_session', expire_at: '2999-01-01T00:00:00.000Z' },
+        },
+      });
+    });
+
+    it('patchMCPServers wholesale replace drops omitted approval_policies (self-cleaning)', async () => {
+      const store = createStore();
+      await seedSession(store);
+      await store.createTurn(makeCreateTurnInput({ sessionId, turnId: 'turn-1' }));
+      await store.patchMCPServers({
+        session_id: sessionId,
+        turn_id: 'turn-1',
+        mcp_servers: [
+          {
+            id: 'svc',
+            name: 'svc',
+            session_id: 'mcp-1',
+            approval_policies: {
+              write_note: { type: 'allow_session' },
+              delete_note: { type: 'allow_session' },
+            },
+          },
+        ],
+      });
+      // Next MCP init re-persists the entry without the pruned/expired policies.
+      await store.patchMCPServers({
+        session_id: sessionId,
+        turn_id: 'turn-1',
+        mcp_servers: [
+          {
+            id: 'svc',
+            name: 'svc',
+            session_id: 'mcp-1',
+            approval_policies: { write_note: { type: 'allow_session' } },
+          },
+        ],
+      });
+      const turn = await store.getTurn({ session_id: sessionId, turn_id: 'turn-1' });
+      expect(mustGet(turn).snapshot.mcp_servers?.['svc']).toEqual({
+        id: 'svc',
+        name: 'svc',
+        session_id: 'mcp-1',
+        approval_policies: { write_note: { type: 'allow_session' } },
       });
     });
   });

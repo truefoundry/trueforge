@@ -339,7 +339,7 @@ export class TurnHandle<TTurnCustom extends object = Record<string, never>> {
 
       if (!frozenByStore) {
         try {
-          await this.store.updateTurnState({
+          await this.store.updateTurnTerminalState({
             session_id: this.turn.session_id,
             turn_id: this.turn.turn_id,
             state: terminalState,
@@ -527,6 +527,7 @@ export class TurnHandle<TTurnCustom extends object = Record<string, never>> {
             name: initInfo.name,
             session_id: initInfo.session_id,
             transport_type: initInfo.transport_type,
+            approval_policies: initInfo.approval_policies,
           })),
         });
         await this.store.appendToEvents({

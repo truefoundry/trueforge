@@ -1,4 +1,4 @@
-import type { Sandbox, Snapshot } from '@daytona/sdk';
+import type { CreateSandboxFromSnapshotParams, Sandbox, Snapshot } from '@daytona/sdk';
 import { Daytona, DaytonaError } from '@daytona/sdk';
 import { context } from '@opentelemetry/api';
 import { suppressTracing } from '@opentelemetry/core';
@@ -6,6 +6,7 @@ import { randomUUID } from 'node:crypto';
 import { join } from 'node:path/posix';
 import type { Logger } from 'winston';
 import { extractErrorLogFields } from '../../util/errorLogFields';
+import { withTimeout } from '../../util/promiseUtils';
 import {
   SandboxFileNotFoundError,
   SandboxFileTooLargeError,
@@ -16,47 +17,23 @@ import {
 import type { CodeModeTransport } from '../codeMode/CodeModeTransport';
 import { CodeModeNatsTransport } from '../codeMode/nats/CodeModeNatsTransport';
 import { DEFAULT_PREVIEW_URL_EXPIRY_SECONDS, DEFAULT_SANDBOX_NATS_WS_PORT } from '../constants';
+import { DAYTONA_SNAPSHOT_NOT_STARTED_REASON, type DaytonaSandboxEnvironment } from './DaytonaSandboxEnvironment';
 import type { ExecResult, SandboxBuild, SandboxExecParams, SandboxFileInfo, SandboxProvider } from './Provider';
 
 const SANDBOX_NOT_FOUND_STATUS = 404;
+const SANDBOX_STATE_STARTED = 'started';
 /** Another replica already registered this build name; its create is the one that counts. */
 const SNAPSHOT_CONFLICT_STATUS = 409;
-const SANDBOX_STATE_STARTED = 'started';
 
 const BUILD_STATE_ACTIVE = 'active';
-const BUILD_STATE_INACTIVE = 'inactive';
 const BUILD_STATE_ERROR = 'error';
 const BUILD_STATE_BUILD_FAILED = 'build_failed';
 
-const IMAGE_BUILD_NAME_PREFIX = 'trueforge-build-';
 /** Same default the Daytona SDK applies when `DaytonaConfig.apiUrl` is omitted. */
 const DEFAULT_DAYTONA_API_URL = 'https://app.daytona.io/api';
 
 function isRecord(value: unknown): value is Record<string, unknown> {
   return typeof value === 'object' && value !== null;
-}
-
-/**
- * Digest portion of a container image reference (the tag/digest after the final `:`)
- * The release image is always published with an explicit digest tag
- */
-function imageDigest(image: string): string {
-  const lastSegment = image.slice(image.lastIndexOf('/') + 1);
-  const colon = lastSegment.lastIndexOf(':');
-  if (colon === -1) {
-    throw new Error(`Sandbox image reference has no tag/digest: ${image}`);
-  }
-  return lastSegment.slice(colon + 1);
-}
-
-/** Deterministic build name per image digest so every server replica converges on one build. */
-function deriveImageBuildName(digest: string): string {
-  return `${IMAGE_BUILD_NAME_PREFIX}${digest}`;
-}
-
-/** Terminal-failure build states: a build stuck here never becomes ready on its own. */
-function isFailedBuildState(state: Snapshot['state']): boolean {
-  return state === BUILD_STATE_ERROR || state === BUILD_STATE_BUILD_FAILED;
 }
 
 /** Convert Daytona https preview URLs to wss for the NATS client. */
@@ -81,14 +58,6 @@ export interface DaytonaSandboxProviderOptions {
   /** Daytona API base URL (including `/api`). Defaults to the SDK's public cloud endpoint. */
   apiUrl?: string | undefined;
   tenantName: string;
-  /** Release-owned sandbox image reference; built into a Daytona snapshot and cloned per sandbox. */
-  sandboxImage: string;
-  /**
-   * Daytona snapshot name to clone sandboxes from. When omitted it is derived from the image
-   * digest. Callers that create sandboxes pass the persisted build_ref so cloning targets the
-   * snapshot that was actually built, not a speculative name derived from the current image.
-   */
-  buildRef?: string | undefined;
   timeoutMs: number;
   autoStopIntervalInMinutes: number;
   autoArchiveIntervalInMinutes: number;
@@ -101,13 +70,10 @@ export interface DaytonaSandboxProviderOptions {
   logger: Logger;
 }
 
-export class DaytonaSandboxProvider implements SandboxProvider {
+export class DaytonaSandboxProvider implements SandboxProvider<DaytonaSandboxEnvironment> {
   readonly type = 'daytona';
+  readonly envSupported = true;
   private readonly tenantName: string;
-  /** Release-owned sandbox image reference; built into a Daytona snapshot and cloned per sandbox. */
-  private readonly imageUri: string;
-  /** Daytona snapshot name sandboxes are cloned from; the persisted build_ref, or derived from the image digest. */
-  private readonly buildRef: string;
   private readonly timeoutMs: number;
   private readonly autoStopIntervalInMinutes: number;
   private readonly autoArchiveIntervalInMinutes: number;
@@ -128,8 +94,6 @@ export class DaytonaSandboxProvider implements SandboxProvider {
     this.apiKey = options.apiKey;
     this.apiUrl = options.apiUrl ?? DEFAULT_DAYTONA_API_URL;
     this.tenantName = options.tenantName;
-    this.imageUri = options.sandboxImage;
-    this.buildRef = options.buildRef ?? deriveImageBuildName(imageDigest(options.sandboxImage));
     this.timeoutMs = options.timeoutMs;
     this.autoStopIntervalInMinutes = options.autoStopIntervalInMinutes;
     this.autoArchiveIntervalInMinutes = options.autoArchiveIntervalInMinutes;
@@ -140,7 +104,193 @@ export class DaytonaSandboxProvider implements SandboxProvider {
     this.logger = options.logger.child({ module: 'DaytonaProvider' });
   }
 
-  private async getOrCreateSandbox(sandboxId?: string): Promise<{ sandbox: Sandbox; defaultTimeoutMs: number }> {
+  /** Require a Daytona environment for fresh creates. */
+  private requireEnvironment(environment?: DaytonaSandboxEnvironment): DaytonaSandboxEnvironment {
+    if (environment === undefined) {
+      throw new Error('Daytona sandbox create requires a DaytonaSandboxEnvironment');
+    }
+    return environment;
+  }
+
+  /** Lightweight authz probe (list one snapshot page) — no snapshot build. */
+  async validateAccess(): Promise<void> {
+    await withTimeout(this.daytona.snapshot.list({ page: 1, limit: 1 }), 3_000, 'sandbox credentials check');
+  }
+
+  private runtimeCreateParams(environment: DaytonaSandboxEnvironment): {
+    envVars?: Record<string, string>;
+    networkBlockAll?: boolean;
+    domainAllowList?: string;
+  } {
+    const networking = environment.networking;
+    return {
+      ...(environment.environment_variables ? { envVars: environment.environment_variables } : {}),
+      ...(networking?.network_block_all ? { networkBlockAll: networking.network_block_all } : {}),
+      ...(networking?.domain_allow_list ? { domainAllowList: networking.domain_allow_list } : {}),
+    };
+  }
+
+  private toBuild({
+    environment,
+    state,
+    errorReason,
+  }: {
+    environment: DaytonaSandboxEnvironment;
+    state: string;
+    errorReason: string | null;
+  }): SandboxBuild {
+    const metadata = { build_ref: environment.snapshot_ref, image_uri: environment.image_uri };
+    switch (state) {
+      case BUILD_STATE_ACTIVE:
+        return { status: 'ready', reason: null, metadata };
+      case BUILD_STATE_ERROR:
+      case BUILD_STATE_BUILD_FAILED:
+        return { status: 'failed', reason: errorReason ?? `Sandbox image build failed (${state}).`, metadata };
+      default:
+        return { status: 'pending', reason: `Sandbox image build in progress (${state}).`, metadata };
+    }
+  }
+
+  /** Resolves undefined when no snapshot carries that name; auth/other failures throw. */
+  private async getSnapshot(snapshotRef: string): Promise<Snapshot | undefined> {
+    try {
+      return await this.daytona.snapshot.get(snapshotRef);
+    } catch (error) {
+      if (error instanceof DaytonaError && error.statusCode === SANDBOX_NOT_FOUND_STATUS) {
+        return undefined;
+      }
+      throw error;
+    }
+  }
+
+  /**
+   * Dockerfile that layers `build_script` onto the release base image.
+   * JSON-array RUN keeps the script bytes intact (newlines, quotes) without shell-escaping hell.
+   */
+  private dockerfileFromBuildScript({ imageUri, buildScript }: { imageUri: string; buildScript: string }): string {
+    return `FROM ${imageUri}\nRUN ["bash", "-lc", ${JSON.stringify(buildScript)}]`;
+  }
+
+  /** Body for POST /snapshots — imageName XOR buildInfo (Daytona mutual exclusion). */
+  private createSnapshotBody(environment: DaytonaSandboxEnvironment): {
+    name: string;
+    cpu: number;
+    memory: number;
+    disk: number;
+    imageName?: string;
+    buildInfo?: { dockerfileContent: string };
+  } {
+    const body: {
+      name: string;
+      cpu: number;
+      memory: number;
+      disk: number;
+      imageName?: string;
+      buildInfo?: { dockerfileContent: string };
+    } = {
+      name: environment.snapshot_ref,
+      cpu: environment.resources.cpu,
+      memory: environment.resources.memory,
+      disk: environment.resources.disk,
+    };
+    const buildScript = environment.image?.type === 'build' ? environment.image.build_script : undefined;
+    if (buildScript !== undefined && buildScript.length > 0) {
+      body.buildInfo = {
+        dockerfileContent: this.dockerfileFromBuildScript({
+          imageUri: environment.image_uri,
+          buildScript,
+        }),
+      };
+    } else {
+      body.imageName = environment.image_uri;
+    }
+    return body;
+  }
+
+  /**
+   * Registers the snapshot and returns its initial state without waiting for the build.
+   *
+   * The SDK's `snapshot.create` issues this same POST and then polls until the snapshot is active
+   * or failed (minutes on a cold image pull). Progress only needs the registration result, so
+   * credential errors surface on the request while build progress stays observable via get.
+   */
+  private async registerSnapshot(
+    environment: DaytonaSandboxEnvironment,
+  ): Promise<{ state: string; errorReason: string | null }> {
+    let response: Response;
+    try {
+      response = await fetch(`${this.apiUrl}/snapshots`, {
+        method: 'POST',
+        headers: {
+          Authorization: `Bearer ${this.apiKey}`,
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify(this.createSnapshotBody(environment)),
+      });
+    } catch (error) {
+      throw new Error('Daytona snapshot registration request failed.', { cause: error });
+    }
+
+    const body: unknown = await response.json().catch(() => null);
+    if (!response.ok) {
+      const message =
+        isRecord(body) && typeof body['message'] === 'string'
+          ? body['message']
+          : `Daytona snapshot registration failed (${String(response.status)})`;
+      throw new DaytonaError(message, response.status);
+    }
+    if (!isRecord(body) || typeof body['state'] !== 'string') {
+      throw new DaytonaError("Failed to register snapshot. Daytona didn't return a snapshot state.");
+    }
+    return {
+      state: body['state'],
+      errorReason: typeof body['errorReason'] === 'string' ? body['errorReason'] : null,
+    };
+  }
+
+  /**
+   * Registers this environment's snapshot. Does not wait for the build to finish.
+   * Callers that are polling should use getBuildStatus; only call build when not started.
+   */
+  async build(environment: DaytonaSandboxEnvironment): Promise<SandboxBuild> {
+    try {
+      const registered = await this.registerSnapshot(environment);
+      return this.toBuild({
+        environment,
+        state: registered.state,
+        errorReason: registered.errorReason,
+      });
+    } catch (error) {
+      // A losing concurrent create is not a build failure: read whatever the winner registered.
+      if (error instanceof DaytonaError && error.statusCode === SNAPSHOT_CONFLICT_STATUS) {
+        this.logger.info(`Daytona snapshot already created concurrently: name=${environment.snapshot_ref}`);
+        return this.getBuildStatus(environment);
+      }
+      throw error;
+    }
+  }
+
+  /** Current build status for this environment. Read-only: never kicks off a build. */
+  async getBuildStatus(environment: DaytonaSandboxEnvironment): Promise<SandboxBuild> {
+    const snapshot = await this.getSnapshot(environment.snapshot_ref);
+    if (!snapshot) {
+      return {
+        status: 'pending',
+        reason: DAYTONA_SNAPSHOT_NOT_STARTED_REASON,
+        metadata: { build_ref: environment.snapshot_ref, image_uri: environment.image_uri },
+      };
+    }
+    return this.toBuild({
+      environment,
+      state: snapshot.state,
+      errorReason: snapshot.errorReason,
+    });
+  }
+
+  private async getOrCreateSandbox(
+    sandboxId?: string,
+    environment?: DaytonaSandboxEnvironment,
+  ): Promise<{ sandbox: Sandbox; defaultTimeoutMs: number }> {
     if (sandboxId) {
       validateSandboxOwnedByTenant({ sandboxId, tenantName: this.tenantName });
       const cached = DaytonaSandboxProvider.cachedSandboxes.get(sandboxId);
@@ -151,17 +301,23 @@ export class DaytonaSandboxProvider implements SandboxProvider {
 
     const sandbox = sandboxId
       ? await this.restoreExistingSandbox(sandboxId)
-      : await this.daytona.create({
-          name: `${this.tenantName}.${randomUUID()}`,
-          snapshot: this.buildRef,
-          autoStopInterval: this.autoStopIntervalInMinutes,
-          autoArchiveInterval: this.autoArchiveIntervalInMinutes,
-          autoDeleteInterval: this.autoDeleteIntervalInMinutes,
-        });
+      : await this.daytona.create(this.buildCreateParams(environment));
 
     const entry = { sandbox, defaultTimeoutMs: this.timeoutMs };
     DaytonaSandboxProvider.cachedSandboxes.set(sandbox.name, entry);
     return entry;
+  }
+
+  private buildCreateParams(environment?: DaytonaSandboxEnvironment): CreateSandboxFromSnapshotParams {
+    const env = this.requireEnvironment(environment);
+    return {
+      name: `${this.tenantName}.${randomUUID()}`,
+      snapshot: env.snapshot_ref,
+      autoStopInterval: this.autoStopIntervalInMinutes,
+      autoArchiveInterval: this.autoArchiveIntervalInMinutes,
+      autoDeleteInterval: this.autoDeleteIntervalInMinutes,
+      ...this.runtimeCreateParams(env),
+    };
   }
 
   // Returns true iff the caller should retry: either we restarted a stopped sandbox, or the cache entry is missing and the retry will rebuild it via the cold path.
@@ -245,141 +401,12 @@ export class DaytonaSandboxProvider implements SandboxProvider {
     }
   }
 
-  async createSandbox(): Promise<{ sandboxId: string }> {
+  async createSandbox(environment?: DaytonaSandboxEnvironment): Promise<{ sandboxId: string }> {
     return context.with(suppressTracing(context.active()), async () => {
-      const { sandbox } = await this.getOrCreateSandbox();
+      const { sandbox } = await this.getOrCreateSandbox(undefined, environment);
       this.logger.debug(`Sandbox created: name=${sandbox.name}`);
       return { sandboxId: sandbox.name };
     });
-  }
-
-  /** Resolves undefined when no snapshot carries that name; auth/other failures throw. */
-  private async getSnapshot(name: string): Promise<Snapshot | undefined> {
-    try {
-      return await this.daytona.snapshot.get(name);
-    } catch (error) {
-      if (error instanceof DaytonaError && error.statusCode === SANDBOX_NOT_FOUND_STATUS) {
-        return undefined;
-      }
-      throw error;
-    }
-  }
-
-  /**
-   * Drops a build stuck in a terminal-failure state so a fresh create can reuse its
-   * deterministic name. A concurrent replica may have deleted it already (404) — that
-   * is fine and treated as success.
-   */
-  private async deleteFailedBuild(snapshot: Snapshot): Promise<void> {
-    try {
-      await this.daytona.snapshot.delete(snapshot);
-    } catch (error) {
-      if (error instanceof DaytonaError && error.statusCode === SANDBOX_NOT_FOUND_STATUS) {
-        return;
-      }
-      throw error;
-    }
-  }
-
-  private toBuild(state: string, errorReason: string | null): SandboxBuild {
-    const metadata = { build_ref: this.buildRef, image_uri: this.imageUri };
-    switch (state) {
-      case BUILD_STATE_ACTIVE:
-        return { status: 'ready', reason: null, metadata };
-      case BUILD_STATE_ERROR:
-      case BUILD_STATE_BUILD_FAILED:
-        return { status: 'failed', reason: errorReason ?? `Sandbox image build failed (${state}).`, metadata };
-      default:
-        // pending / building / pulling / removing / future states: not ready yet.
-        return { status: 'pending', reason: `Sandbox image build in progress (${state}).`, metadata };
-    }
-  }
-
-  /**
-   * Registers the snapshot and returns its initial state without waiting for the build.
-   *
-   * The SDK's `snapshot.create` issues this same POST and then polls until the snapshot is active
-   * or failed (minutes on a cold image pull). Configure only needs the registration result, so
-   * credential errors surface on the request while build progress stays observable via `getSnapshot`.
-   */
-  private async registerSnapshot(): Promise<{ state: string; errorReason: string | null }> {
-    let response: Response;
-    try {
-      response = await fetch(`${this.apiUrl}/snapshots`, {
-        method: 'POST',
-        headers: {
-          Authorization: `Bearer ${this.apiKey}`,
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({ name: this.buildRef, imageName: this.imageUri }),
-      });
-    } catch (error) {
-      throw new Error('Daytona snapshot registration request failed.', { cause: error });
-    }
-
-    const body: unknown = await response.json().catch(() => null);
-    if (!response.ok) {
-      const message =
-        isRecord(body) && typeof body['message'] === 'string'
-          ? body['message']
-          : `Daytona snapshot registration failed (${String(response.status)})`;
-      throw new DaytonaError(message, response.status);
-    }
-    if (!isRecord(body) || typeof body['state'] !== 'string') {
-      throw new DaytonaError("Failed to register snapshot. Daytona didn't return a snapshot state.");
-    }
-    return {
-      state: body['state'],
-      errorReason: typeof body['errorReason'] === 'string' ? body['errorReason'] : null,
-    };
-  }
-
-  async buildImage(): Promise<SandboxBuild> {
-    const existing = await this.getSnapshot(this.buildRef);
-    if (existing) {
-      // Daytona parks unused snapshots as 'inactive' after ~2 idle weeks; reactivate rather than rebuild.
-      if (existing.state === BUILD_STATE_INACTIVE) {
-        const activated = await this.daytona.snapshot.activate(existing);
-        return this.toBuild(activated.state, activated.errorReason);
-      }
-      if (!isFailedBuildState(existing.state)) {
-        return this.toBuild(existing.state, existing.errorReason);
-      }
-      // A failed build keeps the deterministic name occupied and never self-heals, so
-      // re-saving settings (which calls buildImage) could never retry. Drop it, then recreate.
-      await this.deleteFailedBuild(existing);
-    }
-
-    try {
-      const registered = await this.registerSnapshot();
-      // Registration returns pending almost always; map whatever Daytona sent so a fast
-      // active/error still surfaces correctly without a follow-up GET.
-      return this.toBuild(registered.state, registered.errorReason);
-    } catch (error) {
-      // A losing concurrent create is not a build failure: the winner owns the deterministic name.
-      if (error instanceof DaytonaError && error.statusCode === SNAPSHOT_CONFLICT_STATUS) {
-        this.logger.info(`Daytona snapshot already created concurrently: name=${this.buildRef}`);
-        return {
-          status: 'pending',
-          reason: 'Sandbox image build started by another server replica.',
-          metadata: { build_ref: this.buildRef, image_uri: this.imageUri },
-        };
-      }
-      throw error;
-    }
-  }
-
-  async getImageBuildStatus(): Promise<SandboxBuild> {
-    const snapshot = await this.getSnapshot(this.buildRef);
-    // Read-only: a missing build reports pending; PUT /settings/sandbox-providers starts the build.
-    if (!snapshot) {
-      return {
-        status: 'pending',
-        reason: 'Sandbox image build not started.',
-        metadata: { build_ref: this.buildRef, image_uri: this.imageUri },
-      };
-    }
-    return this.toBuild(snapshot.state, snapshot.errorReason);
   }
 
   async exec(params: SandboxExecParams): Promise<ExecResult> {

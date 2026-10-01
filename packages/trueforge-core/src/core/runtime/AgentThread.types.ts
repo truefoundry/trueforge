@@ -25,7 +25,7 @@ import type {
   UserToolResponseMessage,
 } from '../events/schema';
 import type { InternalEnrichedAssistantMessage, LLMToolMessage, LLMUserMessage } from '../llm/LLMTypes';
-import type { Sandbox } from '../sandbox/Sandbox';
+import type { HarnessSandbox } from '../sandbox/Sandbox';
 import type { AgentTracing } from '../tracing/AgentTracing';
 import type { AgentDefinition } from './AgentDefinition';
 import type { CurrentContextUsage } from './contextUsage';
@@ -175,7 +175,7 @@ export interface AgentThreadConstructorInput {
   context?: ContextMessage[] | undefined;
   currentContextUsage?: CurrentContextUsage | undefined;
   preComputedCompletion?: SubAgentCompletion | undefined;
-  sandbox?: Sandbox | undefined;
+  sandbox?: HarnessSandbox | undefined;
   capabilities?: readonly AgentCapability[] | undefined;
   /**
    * Previous turn's capability_state for hydration. Optional — omit on first

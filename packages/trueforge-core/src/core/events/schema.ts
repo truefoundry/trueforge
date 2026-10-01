@@ -108,11 +108,15 @@ export const ToolApprovalPolicyAllowSessionSchema = z
   })
   .openapi('ToolApprovalPolicyAllowSession');
 
+export const ToolApprovalPolicySchema = z
+  .discriminatedUnion('type', [ToolApprovalPolicyAllowSessionSchema])
+  .openapi('ToolApprovalPolicyAction');
+
 export const ToolApprovalPolicyItemSchema = z
   .object({
     server_name: z.string().min(1, 'server_name is required').describe('MCP server name.'),
     name: z.string().min(1, 'name is required').describe('Tool name on that server.'),
-    action: z.discriminatedUnion('type', [ToolApprovalPolicyAllowSessionSchema]),
+    action: ToolApprovalPolicySchema,
   })
   .openapi('ToolApprovalPolicyItem');
 
@@ -363,6 +367,10 @@ export const MCPServerInitInfoSchema = z
       .enum(['streamable-http', 'sse'])
       .optional()
       .describe('Transport used to connect to the MCP server.'),
+    approval_policies: z
+      .record(z.string(), ToolApprovalPolicySchema)
+      .optional()
+      .describe('Sticky per-tool approval policies (keyed by tool name) that auto-allow future calls.'),
   })
   .openapi('MCPServerInitInfo');
 
@@ -444,6 +452,7 @@ export type ApprovalDecision = z.infer<typeof ApprovalDecisionSchema>;
 export type UserToolApprovalMessage = z.infer<typeof UserToolApprovalMessageSchema>;
 export type UserToolResponseMessage = z.infer<typeof UserToolResponseMessageSchema>;
 export type ToolApprovalPolicyItem = z.infer<typeof ToolApprovalPolicyItemSchema>;
+export type ToolApprovalPolicyAction = z.infer<typeof ToolApprovalPolicySchema>;
 export type UserToolApprovalPolicyMessage = z.infer<typeof UserToolApprovalPolicyMessageSchema>;
 export type UserToolApprovalEvent = z.infer<typeof UserToolApprovalEventSchema>;
 export type UserToolResponseEvent = z.infer<typeof UserToolResponseEventSchema>;

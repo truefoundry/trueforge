@@ -1,10 +1,4 @@
-import {
-  AgentSpecSchema,
-  InMemorySessionStore,
-  Sessions,
-  type SessionAgent,
-  type SessionHandle,
-} from '@truefoundry/trueforge-core/agent-session';
+import { AgentSpecSchema } from '@truefoundry/trueforge-core/agent-session';
 import { HTTPException } from 'hono/http-exception';
 import { validateGitAgentSkills } from '../../../src/db/gitSkillMounts';
 import { migrateSqliteToLatest } from '../../../src/db/migrateSqlite';
@@ -12,20 +6,11 @@ import type { ISkillStore } from '../../../src/db/skillStore';
 import { createSqliteDb } from '../../../src/db/sqlite/client';
 import { SqliteMcpServerStore } from '../../../src/db/sqlite/mcp-server-store/SqliteMcpServerStore';
 import { SqliteModelProviderStore } from '../../../src/db/sqlite/model-provider-store/SqliteModelProviderStore';
+import { SqliteSandboxEnvironmentStore } from '../../../src/db/sqlite/sandbox-environment-store/SqliteSandboxEnvironmentStore';
 import { SqliteSandboxProviderStore } from '../../../src/db/sqlite/sandbox-provider-store/SqliteSandboxProviderStore';
 import { SqliteSkillStore } from '../../../src/db/sqlite/skill-store/SqliteSkillStore';
 import { SqliteWebSearchProviderStore } from '../../../src/db/sqlite/web-search-provider-store/SqliteWebSearchProviderStore';
-import {
-  buildGatewayMetadata,
-  getModelDetails,
-  localSandboxSessionSegment,
-  mergeGatewayMetadata,
-  parseGatewayMetadataHeader,
-  TFG_METADATA_PREFIX,
-  validateAgentSpec,
-  withGatewayMetadataHeaders,
-  X_TFY_METADATA,
-} from '../../../src/runtime/sessionResources';
+import { getModelDetails, localSandboxSessionSegment, validateAgentSpec } from '../../../src/runtime/sessionResources';
 import { setCachedLocalSandboxSupport } from '../../../src/sandbox/localRuntime';
 import type { ReasoningEffort } from '../../../src/schemas/modelProvider';
 import { hasConfiguredWebSearchProvider } from '../../../src/websearch/providers';
@@ -33,128 +18,6 @@ import { hasConfiguredWebSearchProvider } from '../../../src/websearch/providers
 jest.mock('../../../src/websearch/providers', () => ({
   hasConfiguredWebSearchProvider: jest.fn(() => Promise.resolve(false)),
 }));
-
-async function createGatewayMetadataSession(input: { agent: SessionAgent }): Promise<SessionHandle> {
-  const sessions = new Sessions({ sessionStore: new InMemorySessionStore() });
-  return sessions.create({
-    tenant_id: 'tenant-1',
-    session_id: 'sess-1',
-    created_by_subject: { subject_id: 'user-1', subject_type: 'user', subject_display_name: 'user-1' },
-    agent: input.agent,
-    metadata: {},
-    external_id: null,
-  });
-}
-
-describe('parseGatewayMetadataHeader', () => {
-  it('parses a JSON object of string values', () => {
-    expect(parseGatewayMetadataHeader(JSON.stringify({ env: 'prod', team: 'platform' }))).toEqual({
-      env: 'prod',
-      team: 'platform',
-    });
-  });
-
-  it.each([
-    ['not json', 'not-json'],
-    ['an array', '[]'],
-    ['a scalar', '"nope"'],
-    ['a value that is not a string', JSON.stringify({ env: 1 })],
-  ])('rejects %s rather than silently dropping caller metadata', (_case, raw) => {
-    expect(() => parseGatewayMetadataHeader(raw)).toThrow(HTTPException);
-  });
-
-  it('keeps the parse failure as the cause, so a bad header can be debugged', () => {
-    expect(() => parseGatewayMetadataHeader('not-json')).toThrow(
-      expect.objectContaining({ cause: expect.any(SyntaxError) }),
-    );
-  });
-});
-
-describe('buildGatewayMetadata', () => {
-  it('stamps session/turn/agent fields only', async () => {
-    const session = await createGatewayMetadataSession({
-      agent: { type: 'reference', id: 'agent-1', name: 'my-agent' },
-    });
-
-    expect(buildGatewayMetadata({ session, turnId: 'turn-1' })).toEqual({
-      [`${TFG_METADATA_PREFIX}.session_id`]: 'sess-1',
-      [`${TFG_METADATA_PREFIX}.turn_id`]: 'turn-1',
-      [`${TFG_METADATA_PREFIX}.agent_id`]: 'agent-1',
-      [`${TFG_METADATA_PREFIX}.agent_name`]: 'my-agent',
-    });
-  });
-});
-
-describe('mergeGatewayMetadata', () => {
-  it('keeps requestMetadata keys and overwrites spoofed tfg.* fields so order is maintained', async () => {
-    const session = await createGatewayMetadataSession({
-      agent: { type: 'reference', id: 'agent-1', name: 'my-agent' },
-    });
-
-    expect(
-      mergeGatewayMetadata({
-        session,
-        turnId: 'turn-1',
-        requestMetadata: {
-          env: 'prod',
-          [`${TFG_METADATA_PREFIX}.session_id`]: 'spoofed-session',
-          [`${TFG_METADATA_PREFIX}.turn_id`]: 'spoofed-turn',
-          [`${TFG_METADATA_PREFIX}.agent_id`]: 'spoofed-agent',
-          [`${TFG_METADATA_PREFIX}.agent_name`]: 'spoofed-name',
-        },
-      }),
-    ).toEqual({
-      env: 'prod',
-      [`${TFG_METADATA_PREFIX}.session_id`]: 'sess-1',
-      [`${TFG_METADATA_PREFIX}.turn_id`]: 'turn-1',
-      [`${TFG_METADATA_PREFIX}.agent_id`]: 'agent-1',
-      [`${TFG_METADATA_PREFIX}.agent_name`]: 'my-agent',
-    });
-  });
-
-  it('matches harness-only stamps when requestMetadata is absent', async () => {
-    const session = await createGatewayMetadataSession({
-      agent: { type: 'reference', id: 'agent-1', name: 'my-agent' },
-    });
-
-    expect(mergeGatewayMetadata({ session, turnId: 'turn-1' })).toEqual(
-      buildGatewayMetadata({ session, turnId: 'turn-1' }),
-    );
-  });
-});
-
-describe('withGatewayMetadataHeaders', () => {
-  it('merges into async header resolvers and preserves authRequired', async () => {
-    const withAuth = withGatewayMetadataHeaders({
-      headers: async () => ({ headers: { Authorization: 'Bearer t' } }),
-      metadataHeaders: { [X_TFY_METADATA]: '{"k":"v"}' },
-    });
-    expect(typeof withAuth).toBe('function');
-    if (typeof withAuth !== 'function') {
-      throw new Error('expected async header resolver');
-    }
-    await expect(withAuth()).resolves.toEqual({
-      headers: {
-        Authorization: 'Bearer t',
-        [X_TFY_METADATA]: '{"k":"v"}',
-      },
-    });
-
-    const authRequired = withGatewayMetadataHeaders({
-      headers: async () => ({
-        authRequired: { servers: [{ id: 'mcp', name: 'mcp', auth_url: 'https://auth.example' }] },
-      }),
-      metadataHeaders: { [X_TFY_METADATA]: '{"k":"v"}' },
-    });
-    expect(typeof authRequired).toBe('function');
-    if (typeof authRequired !== 'function') {
-      throw new Error('expected async header resolver');
-    }
-    await expect(authRequired()).resolves.toEqual({
-      authRequired: { servers: [{ id: 'mcp', name: 'mcp', auth_url: 'https://auth.example' }] },
-    });
-  });
-});
 
 describe('localSandboxSessionSegment', () => {
   it('keeps a single-segment session id and rejects missing or unsafe values', () => {
@@ -205,6 +68,7 @@ describe('validateAgentSpec', () => {
       mcpServerStore: new SqliteMcpServerStore(db),
       skillStore: new SqliteSkillStore(db),
       sandboxProviderStore: new SqliteSandboxProviderStore(db),
+      sandboxEnvironmentStore: new SqliteSandboxEnvironmentStore(db),
       webSearchProviderStore: new SqliteWebSearchProviderStore(db),
     };
   }
@@ -238,6 +102,7 @@ describe('validateAgentSpec', () => {
           instructions: 'test',
         }),
         tenant_id: 'default',
+        created_by_subject_id: 'test-subject',
         ...stores,
       }),
     ).rejects.toMatchObject({
@@ -255,6 +120,7 @@ describe('validateAgentSpec', () => {
           instructions: 'test',
         }),
         tenant_id: 'default',
+        created_by_subject_id: 'test-subject',
         ...stores,
       }),
     ).rejects.toMatchObject({
@@ -272,6 +138,7 @@ describe('validateAgentSpec', () => {
           instructions: 'test',
         }),
         tenant_id: 'default',
+        created_by_subject_id: 'test-subject',
         ...stores,
       }),
     ).rejects.toMatchObject({
@@ -289,6 +156,7 @@ describe('validateAgentSpec', () => {
           instructions: 'test',
         }),
         tenant_id: 'default',
+        created_by_subject_id: 'test-subject',
         ...stores,
       }),
     ).rejects.toMatchObject({
@@ -307,6 +175,7 @@ describe('validateAgentSpec', () => {
           mcp_servers: [{ name: 'missing-mcp' }],
         }),
         tenant_id: 'default',
+        created_by_subject_id: 'test-subject',
         ...stores,
       }),
     ).rejects.toMatchObject({
@@ -325,6 +194,7 @@ describe('validateAgentSpec', () => {
           skills: [{ name: 'missing-skill' }],
         }),
         tenant_id: 'default',
+        created_by_subject_id: 'test-subject',
         ...stores,
       }),
     ).rejects.toMatchObject({
@@ -343,6 +213,7 @@ describe('validateAgentSpec', () => {
           config: { sandbox: { enabled: true } },
         }),
         tenant_id: 'default',
+        created_by_subject_id: 'test-subject',
         ...stores,
       }),
     ).rejects.toMatchObject({
@@ -361,6 +232,7 @@ describe('validateAgentSpec', () => {
           config: { web_search: { enabled: true } },
         }),
         tenant_id: 'default',
+        created_by_subject_id: 'test-subject',
         ...stores,
       }),
     ).rejects.toMatchObject({
@@ -380,6 +252,7 @@ describe('validateAgentSpec', () => {
           config: { web_search: { enabled: true } },
         }),
         tenant_id: 'default',
+        created_by_subject_id: 'test-subject',
         ...stores,
       }),
     ).resolves.toBeUndefined();
@@ -407,6 +280,7 @@ describe('validateAgentSpec', () => {
           skills: [{ name: 'demo' }],
         }),
         tenant_id: 'default',
+        created_by_subject_id: 'test-subject',
         ...stores,
       }),
     ).rejects.toMatchObject({
@@ -427,9 +301,6 @@ describe('validateAgentSpec', () => {
         auto_archive_interval_in_minutes: 60,
         auto_delete_interval_in_minutes: 7200,
       },
-      status: 'pending',
-      status_reason: 'Sandbox image build started.',
-      build_metadata: { build_ref: 'trueforge-build-029ea5ff', image_uri: 'tfy.jfrog.io/tfy-images/sandbox:029ea5ff' },
     });
 
     await expect(
@@ -440,6 +311,7 @@ describe('validateAgentSpec', () => {
           config: { sandbox: { enabled: true } },
         }),
         tenant_id: 'default',
+        created_by_subject_id: 'test-subject',
         ...stores,
       }),
     ).resolves.toBeUndefined();
@@ -461,6 +333,7 @@ describe('validateAgentSpec', () => {
           config: { sandbox: { enabled: true } },
         }),
         tenant_id: 'default',
+        created_by_subject_id: 'test-subject',
         ...stores,
       }),
     ).resolves.toBeUndefined();
@@ -516,6 +389,7 @@ describe('validateAgentSpec', () => {
           skills: [{ name: fqn }],
         }),
         tenant_id: 'default',
+        created_by_subject_id: 'test-subject',
         ...stores,
         skillStore,
       }),
@@ -542,6 +416,7 @@ describe('validateAgentSpec', () => {
           skills: [{ name: 'agent-skill:acme/team-a/echo:3', preload: false }],
         }),
         tenant_id: 'default',
+        created_by_subject_id: 'test-subject',
         ...stores,
       }),
     ).resolves.toBeUndefined();
@@ -578,6 +453,7 @@ describe('validateAgentSpec', () => {
           skills: [{ name: 'echo', preload: true }],
         }),
         tenant_id: 'default',
+        created_by_subject_id: 'test-subject',
         ...stores,
       }),
     ).rejects.toMatchObject({

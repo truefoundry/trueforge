@@ -1,18 +1,16 @@
 // @vitest-environment jsdom
-import { act, fireEvent, render, screen, waitFor } from '@testing-library/react';
+import { fireEvent, render, screen, waitFor } from '@testing-library/react';
 import type { ReactNode } from 'react';
-import { afterEach, beforeAll, describe, expect, it, vi } from 'vitest';
+import { beforeAll, describe, expect, it } from 'vitest';
 
 import SandboxSettings from '@/containers/SettingsBuilder/SandboxSettings.js';
 import type {
   UiCreateSandboxProviderRequest,
   UiSandboxProvider,
   UiSandboxProviderCatalogEntry,
-  UiSandboxProviderListEntry,
   UiUpdateSandboxProviderRequest,
 } from '@/plugins/trueforge-agent-server-adapter/catalogs/sandboxProviderCatalog.js';
 import { ServerProvider } from '@/server/ServerContext.js';
-import type { SandboxSnapshotSyncStatus } from '@/server/types.js';
 import { createMockAgentUIServer, createMockCatalog } from '../../server/mockServer.js';
 
 beforeAll(() => {
@@ -22,10 +20,6 @@ beforeAll(() => {
   HTMLDialogElement.prototype.close = function close() {
     this.removeAttribute('open');
   };
-});
-
-afterEach(() => {
-  vi.useRealTimers();
 });
 
 const catalogEntry: UiSandboxProviderCatalogEntry = {
@@ -38,36 +32,14 @@ const catalogEntry: UiSandboxProviderCatalogEntry = {
   autoDeleteIntervalInMinutes: 43200,
 };
 
-function sandboxEntry({
-  provider,
-  status = 'ready',
-  statusReason,
-}: {
-  provider: UiSandboxProvider;
-  status?: SandboxSnapshotSyncStatus['status'];
-  statusReason?: string;
-}): UiSandboxProviderListEntry {
-  return {
-    data: provider,
-    snapshotSyncStatus: {
-      status,
-      ...(statusReason ? { statusReason } : {}),
-    },
-  };
-}
-
-function createFakeHost(initial: UiSandboxProviderListEntry[] = []) {
+function createFakeHost(initial: UiSandboxProvider[] = []) {
   let providers = [...initial];
-  let listCalls = 0;
   const created: UiCreateSandboxProviderRequest[] = [];
   const updated: UiUpdateSandboxProviderRequest[] = [];
 
   const sandboxCatalog = {
     getSandboxProviderCatalog: async () => [catalogEntry],
-    listSandboxProviders: async () => {
-      listCalls += 1;
-      return providers;
-    },
+    listSandboxProviders: async () => providers,
     createSandboxProvider: async (req: UiCreateSandboxProviderRequest) => {
       created.push(req);
       const provider: UiSandboxProvider = {
@@ -80,30 +52,27 @@ function createFakeHost(initial: UiSandboxProviderListEntry[] = []) {
         autoArchiveIntervalInMinutes: req.autoArchiveIntervalInMinutes,
         autoDeleteIntervalInMinutes: req.autoDeleteIntervalInMinutes,
       };
-      providers = [...providers, sandboxEntry({ provider, status: 'pending' })];
+      providers = [...providers, provider];
       return provider;
     },
     updateSandboxProvider: async (req: UiUpdateSandboxProviderRequest) => {
       updated.push(req);
-      providers = providers.map(entry =>
-        entry.data.id === req.id
+      providers = providers.map(provider =>
+        provider.id === req.id
           ? {
-              ...entry,
-              data: {
-                ...entry.data,
-                execTimeoutMs: req.execTimeoutMs,
-                autoStopIntervalInMinutes: req.autoStopIntervalInMinutes,
-                autoArchiveIntervalInMinutes: req.autoArchiveIntervalInMinutes,
-                autoDeleteIntervalInMinutes: req.autoDeleteIntervalInMinutes,
-              },
+              ...provider,
+              execTimeoutMs: req.execTimeoutMs,
+              autoStopIntervalInMinutes: req.autoStopIntervalInMinutes,
+              autoArchiveIntervalInMinutes: req.autoArchiveIntervalInMinutes,
+              autoDeleteIntervalInMinutes: req.autoDeleteIntervalInMinutes,
             }
-          : entry,
+          : provider,
       );
-      const next = providers.find(entry => entry.data.id === req.id);
+      const next = providers.find(provider => provider.id === req.id);
       if (next === undefined) {
         throw new Error(`Sandbox provider "${req.id}" not found`);
       }
-      return next.data;
+      return next;
     },
   };
 
@@ -114,11 +83,6 @@ function createFakeHost(initial: UiSandboxProviderListEntry[] = []) {
   return {
     created,
     updated,
-    getListCalls: () => listCalls,
-    getProviders: () => providers,
-    setProviders: (next: UiSandboxProviderListEntry[]) => {
-      providers = next;
-    },
     wrapper: ({ children }: { children: ReactNode }) => <ServerProvider server={server}>{children}</ServerProvider>,
   };
 }
@@ -180,7 +144,7 @@ describe('SandboxSettings', () => {
       autoArchiveIntervalInMinutes: 1440,
       autoDeleteIntervalInMinutes: 10080,
     };
-    const host = createFakeHost([sandboxEntry({ provider: existing })]);
+    const host = createFakeHost([existing]);
     const { wrapper: Wrapper } = host;
     render(
       <Wrapper>
@@ -192,6 +156,7 @@ describe('SandboxSettings', () => {
       expect(screen.getByRole('button', { name: 'Update' })).toBeTruthy();
     });
     expect(screen.queryByRole('button', { name: 'Remove' })).toBeNull();
+    expect(screen.getByText('Connected')).toBeTruthy();
 
     fireEvent.click(screen.getByRole('button', { name: 'Update' }));
 
@@ -229,7 +194,7 @@ describe('SandboxSettings', () => {
       autoArchiveIntervalInMinutes: 1440,
       autoDeleteIntervalInMinutes: 10080,
     };
-    const host = createFakeHost([sandboxEntry({ provider: existing })]);
+    const host = createFakeHost([existing]);
     const { wrapper: Wrapper } = host;
     render(
       <Wrapper>
@@ -241,141 +206,7 @@ describe('SandboxSettings', () => {
       expect(screen.getByText('Sandbox providers')).toBeTruthy();
     });
     expect(screen.queryByRole('button', { name: 'Configure' })).toBeNull();
-    // Once a provider is configured, the whole "Available" section is hidden (heading + message).
     expect(screen.queryByText(/^Available ·/)).toBeNull();
     expect(screen.queryByText('One provider is set up. Update it or remove it to switch.')).toBeNull();
-  });
-
-  it('renders pending and ready snapshot status badges', async () => {
-    const provider: UiSandboxProvider = {
-      id: 'sb-1',
-      name: 'Daytona',
-      catalogId: 'cat-daytona',
-      isConnected: true,
-      execTimeoutMs: 60000,
-      autoStopIntervalInMinutes: 30,
-      autoArchiveIntervalInMinutes: 1440,
-      autoDeleteIntervalInMinutes: 10080,
-    };
-    const host = createFakeHost([
-      sandboxEntry({
-        provider,
-        status: 'pending',
-        statusReason: 'Snapshot build is queued',
-      }),
-      sandboxEntry({
-        provider: { ...provider, id: 'sb-2', name: 'Daytona ready' },
-        status: 'ready',
-      }),
-    ]);
-    const { wrapper: Wrapper } = host;
-    render(
-      <Wrapper>
-        <SandboxSettings />
-      </Wrapper>,
-    );
-
-    await waitFor(() => {
-      expect(screen.getByText('Syncing image...')).toBeTruthy();
-      expect(screen.getByText('Connected')).toBeTruthy();
-    });
-    expect(screen.queryByRole('button', { name: 'Retry' })).toBeNull();
-
-    fireEvent.mouseEnter(screen.getByLabelText('Snapshot sync status details'));
-    await waitFor(() => {
-      expect(screen.getByRole('tooltip')).toHaveTextContent('Snapshot build is queued');
-    });
-  });
-
-  it('polls pending snapshot status every ten seconds until it changes', async () => {
-    vi.useFakeTimers();
-    const provider: UiSandboxProvider = {
-      id: 'sb-1',
-      name: 'Daytona',
-      catalogId: 'cat-daytona',
-      isConnected: true,
-      execTimeoutMs: 60000,
-      autoStopIntervalInMinutes: 30,
-      autoArchiveIntervalInMinutes: 1440,
-      autoDeleteIntervalInMinutes: 10080,
-    };
-    const host = createFakeHost([sandboxEntry({ provider, status: 'pending' })]);
-    const { wrapper: Wrapper } = host;
-    render(
-      <Wrapper>
-        <SandboxSettings />
-      </Wrapper>,
-    );
-
-    await act(async () => {
-      await vi.advanceTimersByTimeAsync(0);
-    });
-    expect(host.getListCalls()).toBe(1);
-
-    host.setProviders([sandboxEntry({ provider, status: 'ready' })]);
-    await act(async () => {
-      await vi.advanceTimersByTimeAsync(9_999);
-    });
-    expect(host.getListCalls()).toBe(1);
-
-    await act(async () => {
-      await vi.advanceTimersByTimeAsync(1);
-    });
-    expect(host.getListCalls()).toBe(2);
-    expect(screen.getByText('Connected')).toBeTruthy();
-
-    await act(async () => {
-      await vi.advanceTimersByTimeAsync(20_000);
-    });
-    expect(host.getListCalls()).toBe(2);
-  });
-
-  it('renders snapshot status badges and exposes failed status reason in a tooltip', async () => {
-    const provider: UiSandboxProvider = {
-      id: 'sb-1',
-      name: 'Daytona',
-      catalogId: 'cat-daytona',
-      isConnected: true,
-      execTimeoutMs: 60000,
-      autoStopIntervalInMinutes: 30,
-      autoArchiveIntervalInMinutes: 1440,
-      autoDeleteIntervalInMinutes: 10080,
-    };
-    const host = createFakeHost([
-      sandboxEntry({
-        provider,
-        status: 'failed',
-        statusReason: 'Snapshot image could not be built',
-      }),
-    ]);
-    const { wrapper: Wrapper } = host;
-    render(
-      <Wrapper>
-        <SandboxSettings />
-      </Wrapper>,
-    );
-
-    await waitFor(() => {
-      expect(screen.getByText('Sync failed')).toBeTruthy();
-    });
-    expect(screen.queryByText('Connected')).toBeNull();
-
-    fireEvent.mouseEnter(screen.getByLabelText('Snapshot sync status details'));
-    await waitFor(() => {
-      expect(screen.getByRole('tooltip')).toHaveTextContent('Snapshot image could not be built');
-    });
-
-    fireEvent.click(screen.getByRole('button', { name: 'Retry' }));
-    await waitFor(() => {
-      expect(host.updated).toHaveLength(1);
-    });
-    expect(host.updated[0]).toEqual({
-      id: 'sb-1',
-      execTimeoutMs: 60000,
-      autoStopIntervalInMinutes: 30,
-      autoArchiveIntervalInMinutes: 1440,
-      autoDeleteIntervalInMinutes: 10080,
-    });
-    expect(host.updated[0]).not.toHaveProperty('apiKey');
   });
 });

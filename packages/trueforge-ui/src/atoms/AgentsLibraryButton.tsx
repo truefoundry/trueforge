@@ -29,10 +29,14 @@ export function AgentsLibraryButton({ className, compact = false }: AgentsLibrar
     let cancelled = false;
     void server
       .searchAgents({ limit: SEARCH_AGENTS_PAGE_SIZE })
-      .then(rows => {
+      .then(page => {
         if (cancelled) return;
-        // API has no total; a full page means there may be more.
-        setCountLabel(rows.length >= SEARCH_AGENTS_PAGE_SIZE ? `${SEARCH_AGENTS_PAGE_SIZE}+` : String(rows.length));
+        // API has no total; a next-page token means there may be more.
+        setCountLabel(
+          page.nextPageToken != null && page.nextPageToken !== ''
+            ? `${SEARCH_AGENTS_PAGE_SIZE}+`
+            : String(page.data.length),
+        );
       })
       .catch(() => undefined);
     return () => {

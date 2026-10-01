@@ -422,7 +422,7 @@ function googleGeminiThinkingConfig({
     return fromBody;
   }
   if (typeof fromBody === 'object' && fromBody !== null && !Array.isArray(fromBody)) {
-    return { includeThoughts: true, ...fromBody };
+    return Object.assign({ includeThoughts: true }, fromBody);
   }
   return { includeThoughts: true };
 }

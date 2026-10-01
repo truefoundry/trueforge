@@ -1,24 +1,23 @@
-/** Sandbox provider construction + Daytona snapshot status refresh. */
+/** Sandbox provider construction + credential validation. */
 import { Daytona, DaytonaError } from '@daytona/sdk';
 import {
+  createDaytonaSandboxEnvironment,
   DaytonaSandboxProvider,
-  SANDBOX_IMAGE_URI,
   TFYSandboxProvider,
-  withTimeout,
+  type DaytonaSandboxEnvironment,
   type SandboxBuild,
-  type SandboxProvider,
 } from '@truefoundry/trueforge-core/core';
 import type { Logger } from 'winston';
 import configuration from '../config';
-import type { ISandboxProviderStore, SandboxProviderRecord } from '../db/sandboxProviderStore';
+import type { SandboxProviderRecord } from '../db/sandboxProviderStore';
+import type { StoredSandboxEnvironmentManifest } from '../schemas/sandboxEnvironment';
 import {
   toDaytonaSandboxProviderInput,
-  type SandboxBuildMetadata,
-  type SandboxProviderManifest,
   type SandboxStatus,
+  type StoredSandboxProviderManifest,
 } from '../schemas/sandboxProvider';
 
-/** Daytona rejected the credentials (401 unauthorized); retrying the same key cannot succeed. */
+/** Provider rejected the credentials (401 unauthorized); retrying the same key cannot succeed. */
 export function isDaytonaAuthError(error: unknown): boolean {
   return error instanceof DaytonaError && error.statusCode === 401;
 }
@@ -27,33 +26,60 @@ export function isDaytonaPermissionError(error: unknown): boolean {
   return error instanceof DaytonaError && error.statusCode === 403;
 }
 
+/** Configured tenant sandbox backends (not local fallback). */
+export type ResolvedSandboxProvider = DaytonaSandboxProvider | TFYSandboxProvider;
+
+/** Map a ready env (external_ref + stored manifest) onto Daytona create/build input data. */
+export function toSandboxEnvironment({
+  external_ref,
+  manifest,
+}: {
+  external_ref: string;
+  manifest: StoredSandboxEnvironmentManifest;
+}): DaytonaSandboxEnvironment {
+  return createDaytonaSandboxEnvironment({
+    snapshot_ref: external_ref,
+    resources: manifest.resources,
+    ...(manifest.image ? { image: manifest.image } : {}),
+    ...(manifest.environment_variables ? { environment_variables: manifest.environment_variables } : {}),
+    ...(manifest.networking
+      ? {
+          networking: {
+            ...(manifest.networking.network_block_all
+              ? { network_block_all: manifest.networking.network_block_all }
+              : {}),
+            ...(manifest.networking.domain_allow_list
+              ? { domain_allow_list: manifest.networking.domain_allow_list }
+              : {}),
+            ...(manifest.networking.secrets ? { secrets: manifest.networking.secrets } : {}),
+          },
+        }
+      : {}),
+  });
+}
+
 /**
  * Builds the Daytona runtime provider for a stored Daytona manifest. No network I/O until a method is called.
- *
- * When `build_metadata` is present, pin both `sandboxImage` and `buildRef` to what was actually
- * built — image bumps in the running binary must not rewrite an existing tenant onto a new
- * snapshot (upgrades are not supported yet). First-time configure omits metadata and uses
- * {@link SANDBOX_IMAGE_URI}.
+ * Snapshot tips (ref + image) are create/build input data, not provider config.
  */
 export function toDaytonaSandboxProvider({
   manifest,
   tenant_id,
   logger,
-  build_metadata,
 }: {
-  manifest: SandboxProviderManifest;
+  manifest: StoredSandboxProviderManifest;
   tenant_id: string;
   logger: Logger;
-  build_metadata?: SandboxBuildMetadata | null;
 }): DaytonaSandboxProvider {
+  if (manifest.type !== 'daytona') {
+    throw new Error('Daytona sandbox provider required');
+  }
   const { apiKey, ...settings } = toDaytonaSandboxProviderInput(manifest);
   return new DaytonaSandboxProvider({
     client: new Daytona({ apiKey }),
     apiKey,
     ...settings,
     tenantName: tenant_id,
-    sandboxImage: build_metadata?.['image_uri'] ?? SANDBOX_IMAGE_URI,
-    buildRef: build_metadata?.['build_ref'],
     fileMaxBytesForDownload: configuration.SANDBOX_FILE_MAX_BYTES_FOR_DOWNLOAD,
     logger,
   });
@@ -71,14 +97,13 @@ export function toSandboxProviderFromRecord({
   record: SandboxProviderRecord;
   tenant_id: string;
   logger: Logger;
-}): SandboxProvider {
+}): ResolvedSandboxProvider {
   switch (record.manifest.type) {
     case 'daytona':
       return toDaytonaSandboxProvider({
         manifest: record.manifest,
         tenant_id,
         logger,
-        build_metadata: record.build_metadata,
       });
     case 'truefoundry':
       return new TFYSandboxProvider({
@@ -92,6 +117,29 @@ export function toSandboxProviderFromRecord({
   }
 }
 
+/**
+ * Credential/access probe via the provider's `validateAccess` (no-op when unimplemented).
+ */
+export async function validateSandboxProviderAccess({
+  manifest,
+  tenant_id,
+  logger,
+}: {
+  manifest: StoredSandboxProviderManifest;
+  tenant_id: string;
+  logger: Logger;
+}): Promise<void> {
+  switch (manifest.type) {
+    case 'daytona': {
+      const provider = toDaytonaSandboxProvider({ manifest, tenant_id, logger });
+      await provider.validateAccess();
+      return;
+    }
+    case 'truefoundry':
+      return;
+  }
+}
+
 /** Maps a core `SandboxBuild` onto the persisted/wire status shape (metadata passes through). */
 export function toSandboxStatus(build: SandboxBuild): SandboxStatus {
   return {
@@ -99,63 +147,4 @@ export function toSandboxStatus(build: SandboxBuild): SandboxStatus {
     status_reason: build.reason,
     build_metadata: build.metadata,
   };
-}
-
-function sandboxStatusFromRecord(record: SandboxProviderRecord): SandboxStatus {
-  return {
-    status: record.status,
-    status_reason: record.status_reason,
-    build_metadata: record.build_metadata,
-  };
-}
-
-// Daytona deactivates idle snapshots after 14 days; revalidate at 13 to stay a day ahead.
-const READY_REVALIDATE_INTERVAL_MS = 13 * 24 * 60 * 60 * 1000;
-
-/** Cap the Daytona round-trip for the refresh, which runs outside a transaction. */
-const STATUS_REFRESH_TIMEOUT_MS = 60_000;
-
-export async function checkSnapshotStatus({
-  store,
-  tenant_id,
-  logger,
-}: {
-  store: ISandboxProviderStore;
-  tenant_id: string;
-  logger: Logger;
-}): Promise<SandboxStatus | undefined> {
-  const record = await store.getSandboxProvider(tenant_id);
-  if (!record) {
-    return undefined;
-  }
-
-  const persisted = sandboxStatusFromRecord(record);
-
-  // Prebuilt image — no snapshot registration or refresh.
-  if (record.manifest.type === 'truefoundry') {
-    return persisted;
-  }
-
-  const readyIsFresh =
-    record.status === 'ready' && Date.now() - Date.parse(record.updated_at) < READY_REVALIDATE_INTERVAL_MS;
-  if (record.status === 'failed' || readyIsFresh) {
-    return persisted;
-  }
-
-  const provider = toDaytonaSandboxProvider({
-    manifest: record.manifest,
-    tenant_id,
-    logger,
-    build_metadata: record.build_metadata,
-  });
-  let build: SandboxBuild;
-  if (record.status === 'ready') {
-    // this is because image may have deactivated
-    build = await withTimeout(provider.buildImage(), STATUS_REFRESH_TIMEOUT_MS, 'sandbox buildImage');
-  } else {
-    build = await withTimeout(provider.getImageBuildStatus(), STATUS_REFRESH_TIMEOUT_MS, 'sandbox getImageBuildStatus');
-  }
-  const next = toSandboxStatus(build);
-  const updated = await store.updateSandboxStatus({ tenant_id, ...next });
-  return updated ? sandboxStatusFromRecord(updated) : next;
 }
