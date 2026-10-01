@@ -17,10 +17,10 @@ jobs:
     steps:
       - uses: actions/checkout@v7
 
-      - uses: docker/setup-buildx-action@v3
+      - uses: docker/setup-buildx-action@v4
 
       - name: Build image
-        uses: docker/build-push-action@v6
+        uses: docker/build-push-action@v7
         with:
           load: true
           file: Dockerfile
@@ -31,7 +31,7 @@ jobs:
 
       - name: Scan image
         id: scan
-        uses: anchore/scan-action@v6
+        uses: anchore/scan-action@v7
         with:
           image: trueforge:grype-report
           fail-build: false
