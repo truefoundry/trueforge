@@ -73,7 +73,6 @@ export function EnvironmentsPage(_props: EnvironmentsPageProps) {
   const didConsumeIsNewRef = useRef(false);
   const wasSettingsOpenRef = useRef(shell?.settingsOpen ?? false);
   const settingsOpen = shell?.settingsOpen ?? false;
-  const environmentsListEpoch = shell?.environmentsListEpoch ?? 0;
 
   const checkProvider = useCallback(async () => {
     const sandboxCatalog = catalog?.sandboxCatalog;
@@ -139,7 +138,7 @@ export function EnvironmentsPage(_props: EnvironmentsPageProps) {
 
   useEffect(() => {
     void loadEnvironments({ token: pageToken, size: pageSize });
-  }, [loadEnvironments, pageSize, pageToken, environmentsListEpoch]);
+  }, [loadEnvironments, pageSize, pageToken]);
 
   useEffect(() => {
     if (wasSettingsOpenRef.current && !settingsOpen) {
