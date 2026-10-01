@@ -23,7 +23,7 @@
 # The image and chart path is independent of npm. It is gated on the
 # charts/trueforge@<tfy_chart_version> tag: absent means this version has not
 # been cut yet, so build both images (public on node:24-slim, hardened on the
-# TrueFoundry private node bases) and publish the chart. Present means a
+# private hardened node bases) and publish the chart. Present means a
 # re-run - reuse the images the tagged commit already references and let
 # release-chart.yml finish whatever is missing.
 #
@@ -127,7 +127,7 @@ jobs:
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
           git add -A
-          git commit -m "Version Packages for TrueFoundry ${TFY_CHART_VERSION}"
+          git commit -m "Version Packages for ${TFY_CHART_VERSION}"
           git push origin "HEAD:${RELEASE_BRANCH}"
           SHA="$(git rev-parse HEAD)"
           echo "sha=$SHA" >> "$GITHUB_OUTPUT"

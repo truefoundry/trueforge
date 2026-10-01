@@ -5,7 +5,7 @@ name: Publish Helm chart
 # calls this workflow with (branch, chart_version, app_version, image_tag).
 # branch is the release-vX.Y.Z branch release.yml is running on.
 #
-# chart_version is the TrueFoundry chart version, verbatim. Nothing in this repo
+# chart_version is the parent chart version, verbatim. Nothing in this repo
 # computes it: one field, one owner. appVersion follows the npm package and
 # image.tag follows the image release.yml built.
 #
@@ -229,8 +229,8 @@ jobs:
           #                         helm-charts' resolve_ref_sha already does the
           #                         /git/tags/{sha} dereference hop for it.
           #   v<V>                  the release-line marker every other
-          #                         truefoundry repo publishes. Under verbatim
-          #                         versioning <V> is the TrueFoundry chart
+          #                         sibling repo publishes. Under verbatim
+          #                         versioning <V> is the parent chart
           #                         version, so release-app's hotfixBranchPlan
           #                         (git/matching-refs/tags/v<major>.<minor>.)
           #                         and helm-charts' compute_release both resolve
