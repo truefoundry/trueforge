@@ -42,6 +42,7 @@ import {
   type TimelineHoverTarget,
   type TimelineTurnBar,
 } from '../../utils/sessionEventTimelineChart.js';
+import { aggregateSessionTurnBand } from '../../utils/sessionTurnViews.js';
 import { LightTooltip } from '../primitives/Tooltip.js';
 import {
   hasSessionEventTooltip,
@@ -539,7 +540,8 @@ export function AgentSessionEventTimelineChart({
     ],
   );
 
-  const tooltipTurn = tooltipTarget?.type === TIMELINE_TYPE.turn ? turns[tooltipTarget.bar.turnIndex] : undefined;
+  const tooltipTurnNumber = tooltipTarget?.type === TIMELINE_TYPE.turn ? tooltipTarget.bar.ordinal + 1 : undefined;
+  const tooltipTurn = tooltipTurnNumber == null ? undefined : aggregateSessionTurnBand(turns, tooltipTurnNumber);
   const containerStyle = useMemo<CSSProperties>(() => ({ height: band + overheadPx }), [band, overheadPx]);
   const tooltipContent =
     tooltipTarget?.type === TIMELINE_TYPE.turn && tooltipTurn != null ? (

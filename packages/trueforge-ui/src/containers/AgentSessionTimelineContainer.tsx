@@ -17,7 +17,7 @@ import { buildSessionMetrics } from '../utils/buildSessionMetrics.js';
 import { buildSessionTimelineSegments } from '../utils/buildSessionTimelineSegments.js';
 import { createCachedListEventsBridge } from '../utils/cachedListEventsBridge.js';
 import { getTurnInputSummary } from '../utils/sessionTimelineEvents.js';
-import { buildSessionTurnViews, type SessionTurnView } from '../utils/sessionTurnViews.js';
+import { aggregateSessionTurnBand, buildSessionTurnViews, type SessionTurnView } from '../utils/sessionTurnViews.js';
 import { AssistantMessageContainer } from './AssistantMessageContainer.js';
 import { ReadOnlySessionTurnRuntime } from './ReadOnlySessionTurnRuntime.js';
 import { UserMessageContainer } from './UserMessageContainer.js';
@@ -239,11 +239,7 @@ export function AgentSessionTimelineContainer({
       </div>
       <div className="border-b border-border">
         <Suspense fallback={null}>
-          <AgentSessionEventTimeline
-            turns={renderableTurnViews}
-            segments={timelineSegments}
-            onSelectTurn={handleSelectTurn}
-          />
+          <AgentSessionEventTimeline turns={allTurnViews} segments={timelineSegments} onSelectTurn={handleSelectTurn} />
         </Suspense>
       </div>
       <ThreadViewportShell
@@ -255,7 +251,7 @@ export function AgentSessionTimelineContainer({
           {renderableTurnViews.map(turn => (
             <SessionTurnSection
               key={turn.turnId}
-              turn={turn}
+              turn={aggregateSessionTurnBand(allTurnViews, turn.turnNumber) ?? turn}
               messages={messagesForTurn(messages, turn)}
               AgentSessionTurnHeader={AgentSessionTurnHeader}
               onMount={node => {

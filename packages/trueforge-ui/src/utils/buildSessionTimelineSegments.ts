@@ -110,14 +110,18 @@ export function buildSessionTimelineSegments(turns: SessionTurnView[]): SessionE
   // Only the last event-turn in a display band gets a "Turn completed" marker so
   // MCP-auth resumes don't plant a mid-band diamond on top of the next model bar.
   const lastTurnIdByNumber = new Map<number, string>();
+  const displayTurnIndexByEventIndex = new Map<number, number>();
   for (const turn of turns) {
     lastTurnIdByNumber.set(turn.turnNumber, turn.turnId);
+    displayTurnIndexByEventIndex.set(turn.eventTurnNumber - 1, turn.turnNumber - 1);
   }
 
   for (const turn of turns) {
     const createdMs = parseTimestamp(turn.created.createdAt);
     if (createdMs == null) continue;
-    const turnIndex = turn.turnNumber - 1;
+    // Compress with unique event-turn indexes so MCP-auth idle between auth and
+    // resume is removed; remap to the display band afterward.
+    const turnIndex = turn.eventTurnNumber - 1;
 
     // Resume/MCP-auth turns have no user input; don't invent a user.message marker.
     if (turn.renderable) {
@@ -185,7 +189,12 @@ export function buildSessionTimelineSegments(turns: SessionTurnView[]): SessionE
       startMs: Math.max(0, segment.startMs),
       endMs: Math.max(0, segment.endMs),
     })),
-  ).sort((left, right) => left.startMs - right.startMs || left.endMs - right.endMs);
+  )
+    .map(segment => ({
+      ...segment,
+      turnIndex: displayTurnIndexByEventIndex.get(segment.turnIndex) ?? segment.turnIndex,
+    }))
+    .sort((left, right) => left.startMs - right.startMs || left.endMs - right.endMs);
 }
 
 /**

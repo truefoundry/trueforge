@@ -923,9 +923,17 @@ describe('buildSessionMetrics', () => {
       ['resume-turn.done'],
       'auth turn.done is omitted so it does not cover the resume model/tool bars',
     );
+    // Auth's last bar ends at +1.5s; resume wall-clock starts later — compression removes the idle.
+    const resumeModel = segments.find(segment => segment.id === 'resume-model');
+    assert.equal(resumeModel?.startMs, 1_500);
     const metrics = buildSessionMetrics({ turns, segments });
     assert.equal(metrics.totalTurns, 2);
     assert.equal(metrics.toolCalls, 3);
     assert.equal(metrics.totalTokens, 1000);
+    assert.deepEqual(
+      metrics.costPerTurn.map(row => row.label),
+      ['T1'],
+    );
+    assert.ok(Math.abs((metrics.costPerTurn[0]?.value ?? 0) - 0.1) < 1e-9);
   });
 });

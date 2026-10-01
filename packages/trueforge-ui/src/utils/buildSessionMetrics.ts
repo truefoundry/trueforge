@@ -59,16 +59,15 @@ export function buildSessionMetrics({
   let totalUncachedInputTokens = 0;
   let totalOutputTokens = 0;
   let totalCachedTokens = 0;
-  let contextTokens = 0;
-  const costPerTurn: SessionMetricBarDatum[] = [];
-  const contextByTurn: SessionMetricBarDatum[] = [];
+  // Aggregate by display band so MCP-auth resumes don't emit duplicate T1 chart keys.
+  const bandCostUsd = new Map<number, number>();
+  const bandTokens = new Map<number, number>();
 
   for (const turn of turns) {
-    const label = `T${turn.turnNumber}`;
     derivedWallTimeMs += turn.durationMs ?? 0;
     if (!turnHasMetrics(turn)) {
-      costPerTurn.push({ label, value: 0, color: getSessionEventColor('tool_call') });
-      contextByTurn.push({ label, value: contextTokens, color: getSessionEventColor('model') });
+      if (!bandCostUsd.has(turn.turnNumber)) bandCostUsd.set(turn.turnNumber, 0);
+      if (!bandTokens.has(turn.turnNumber)) bandTokens.set(turn.turnNumber, 0);
       continue;
     }
 
@@ -87,8 +86,21 @@ export function buildSessionMetrics({
     totalUncachedInputTokens += uncachedInputTokens;
     totalOutputTokens += outputTokens;
     totalCachedTokens += cachedTokens;
-    contextTokens += turnTotalTokens;
-    costPerTurn.push({ label, value: turnCostUsd ?? 0, color: getSessionEventColor('tool_call') });
+    bandCostUsd.set(turn.turnNumber, (bandCostUsd.get(turn.turnNumber) ?? 0) + (turnCostUsd ?? 0));
+    bandTokens.set(turn.turnNumber, (bandTokens.get(turn.turnNumber) ?? 0) + turnTotalTokens);
+  }
+
+  const costPerTurn: SessionMetricBarDatum[] = [];
+  const contextByTurn: SessionMetricBarDatum[] = [];
+  let contextTokens = 0;
+  for (const turnNumber of [...bandTokens.keys()].sort((left, right) => left - right)) {
+    const label = `T${turnNumber}`;
+    contextTokens += bandTokens.get(turnNumber) ?? 0;
+    costPerTurn.push({
+      label,
+      value: bandCostUsd.get(turnNumber) ?? 0,
+      color: getSessionEventColor('tool_call'),
+    });
     contextByTurn.push({ label, value: contextTokens, color: getSessionEventColor('model') });
   }
 

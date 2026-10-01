@@ -24,6 +24,7 @@ vi.mock('react-chartjs-2', () => ({
 const turns: SessionTurnView[] = [
   {
     turnId: 'turn-1',
+    eventTurnNumber: 1,
     turnNumber: 1,
     renderable: true,
     showHeader: true,

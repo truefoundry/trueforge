@@ -10,6 +10,7 @@ import type { SessionTurnView } from '@/utils/sessionTurnViews.js';
 const turns: SessionTurnView[] = [
   {
     turnId: 't1',
+    eventTurnNumber: 1,
     turnNumber: 1,
     renderable: true,
     showHeader: true,

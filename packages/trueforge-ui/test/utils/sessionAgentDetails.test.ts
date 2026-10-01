@@ -313,11 +313,16 @@ describe('buildSessionTurnViews', () => {
     ]);
 
     assert.deepEqual(
-      views.map(view => ({ turnId: view.turnId, turnNumber: view.turnNumber, renderable: view.renderable })),
+      views.map(view => ({
+        turnId: view.turnId,
+        eventTurnNumber: view.eventTurnNumber,
+        turnNumber: view.turnNumber,
+        renderable: view.renderable,
+      })),
       [
-        { turnId: 'user', turnNumber: 1, renderable: true },
-        { turnId: 'resume', turnNumber: 1, renderable: false },
-        { turnId: 'next', turnNumber: 2, renderable: true },
+        { turnId: 'user', eventTurnNumber: 1, turnNumber: 1, renderable: true },
+        { turnId: 'resume', eventTurnNumber: 2, turnNumber: 1, renderable: false },
+        { turnId: 'next', eventTurnNumber: 3, turnNumber: 2, renderable: true },
       ],
     );
   });
