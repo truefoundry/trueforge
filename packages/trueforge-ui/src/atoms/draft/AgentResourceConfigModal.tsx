@@ -30,6 +30,7 @@ export type AgentResourceConfigModalProps = {
 
 export function AgentResourceConfigModal({ editor, onClose, ...contentProps }: AgentResourceConfigModalProps) {
   const AgentResourceEditorContent = useSlot('AgentResourceEditorContent');
+  const AgentSkillsHeaderActionSlot = useSlot('AgentSkillsHeaderActionSlot');
   const selectingMcp = editor === 'mcp';
 
   return (
@@ -37,6 +38,7 @@ export function AgentResourceConfigModal({ editor, onClose, ...contentProps }: A
       open={editor !== null}
       onOpenChange={open => !open && onClose()}
       title={selectingMcp ? 'Select MCP Tools' : 'Skills'}
+      titleAccessory={selectingMcp ? undefined : <AgentSkillsHeaderActionSlot />}
       className={
         selectingMcp
           ? 'md:w-[min(64rem,calc(100%-3rem))] md:max-w-5xl'

@@ -56,6 +56,7 @@ import { AgentRuntimeConfigDrawer } from '../atoms/draft/AgentRuntimeConfigDrawe
 import { AgentRuntimeConfigFields } from '../atoms/draft/AgentRuntimeConfigFields.js';
 import { AgentRuntimeEditorContent } from '../atoms/draft/AgentRuntimeEditorContent.js';
 import { AgentSkillsEditorContent } from '../atoms/draft/AgentSkillsEditorContent.js';
+import { AgentSkillsHeaderActionSlot } from '../atoms/draft/AgentSkillsHeaderActionSlot.js';
 import { DraftAgentConfigTrigger } from '../atoms/draft/DraftAgentConfigTrigger.js';
 import { DraftCapabilitiesPanel } from '../atoms/draft/DraftCapabilitiesPanel.js';
 import { DraftComposerActionsMenu } from '../atoms/draft/DraftComposerActionsMenu.js';
@@ -168,6 +169,7 @@ export const defaultSlots = {
   AgentResourceEditorContent,
   AgentResourceConfigModal,
   AgentSkillsEditorContent,
+  AgentSkillsHeaderActionSlot,
   AgentConfigPanel,
   AgentConfigSection,
   AgentRuntimeConfigFields,

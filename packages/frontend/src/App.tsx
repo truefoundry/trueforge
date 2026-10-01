@@ -22,6 +22,7 @@ import { GetStartedScreen } from './GetStartedScreen';
 import { LogoutButton } from './LogoutButton';
 import { NewAgentWelcomeScreen } from './NewAgentWelcomeScreen';
 import { API_BASE_URL, uiRouterBasename } from './publicPath';
+import { RegisterSkillsLink } from './RegisterSkillsLink';
 
 /** Shared cookie/OIDC fetch for boot helpers and `<TrueForgeUI server />`. */
 const authAwareFetch = createAuthAwareFetch();
@@ -152,7 +153,11 @@ export function App() {
   }, [session]);
 
   const overrides: SlotOverrides = useMemo(
-    () => ({ ShellActionsActionSlot: LogoutButton, WelcomeScreen: NewAgentWelcomeScreen }),
+    () => ({
+      ShellActionsActionSlot: LogoutButton,
+      WelcomeScreen: NewAgentWelcomeScreen,
+      AgentSkillsHeaderActionSlot: RegisterSkillsLink,
+    }),
     [],
   );
 
