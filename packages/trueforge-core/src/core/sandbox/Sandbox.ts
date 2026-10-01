@@ -84,8 +84,13 @@ export interface SandboxStoredFile {
   sandboxCreated?: SandboxInfo | undefined;
 }
 
-export interface SandboxOptions {
-  provider: SandboxProvider;
+export interface SandboxOptions<TEnvironment = undefined> {
+  provider: SandboxProvider<TEnvironment>;
+  /**
+   * Optional create-time environment (snapshot + create params). Ignored when restoring
+   * an existing sandbox id.
+   */
+  environment?: TEnvironment | undefined;
   existingSandboxId?: string | undefined;
   skillMounter?: ISkillMounter | undefined;
   fileDownloadEnabled?: boolean | undefined;
@@ -191,12 +196,20 @@ export function createSandboxLargeToolResponseGuidance(): string {
 export const SANDBOX_MCP_SERVER_ID = 'sandbox';
 type SandboxExecInput = z.infer<typeof sandboxExecSchema>;
 
-export class Sandbox extends LocalToolMCP {
+/**
+ * Environment-erased sandbox for the harness (Daytona tip / TFY / local share one handle type).
+ * `any` is intentional here only — callers must not spread it as a general escape hatch.
+ */
+// eslint-disable-next-line @typescript-eslint/no-explicit-any -- harness erase across providers
+export type HarnessSandbox = Sandbox<any>;
+
+export class Sandbox<TEnvironment = undefined> extends LocalToolMCP {
   readonly name = SANDBOX_MCP_SERVER_ID;
   readonly displayName = 'Sandbox';
   override readonly description = 'Persistent sandbox environment for code execution';
 
-  private readonly provider: SandboxProvider;
+  private readonly provider: SandboxProvider<TEnvironment>;
+  private readonly environment: TEnvironment | undefined;
   private readonly existingSandboxId?: string | undefined;
   private existingSandboxInfo: SandboxInfo | undefined;
   // Cached promise to prevent concurrent sub-agents from creating duplicate sandboxes.
@@ -224,9 +237,10 @@ export class Sandbox extends LocalToolMCP {
     }),
   ];
 
-  constructor(options: SandboxOptions) {
+  constructor(options: SandboxOptions<TEnvironment>) {
     super({ tracing: options.tracing });
     this.provider = options.provider;
+    this.environment = options.environment;
     this.existingSandboxId = options.existingSandboxId;
     this.skillMounter = options.skillMounter;
     this.fileDownloadEnabled = options.fileDownloadEnabled ?? false;
@@ -461,7 +475,7 @@ export class Sandbox extends LocalToolMCP {
     }
     // Provider returns a raw id; persist the fancy `v1:type:raw` session id.
     this.sandboxCreationPromise ??= this.provider
-      .createSandbox()
+      .createSandbox(this.environment)
       .then(({ sandboxId }) => ({
         sandbox_id: formatSandboxId({ providerType: this.provider.type, rawId: sandboxId }),
       }))

@@ -52,14 +52,15 @@ export function makeMockIMCPServer(params: {
     ),
     callTool: jest.fn(),
     toolCallInfo: jest.fn(),
+    setApprovalPolicy: jest.fn(),
+    getApprovalPolicies: jest.fn(() => ({})),
   };
 }
 
 export function makeStubPublicSandbox(): Sandbox {
   const provider: SandboxProvider = {
     type: 'test',
-    buildImage: jest.fn(),
-    getImageBuildStatus: jest.fn(),
+    envSupported: false,
     createSandbox: jest.fn(),
     exec: jest.fn(),
     getAdditionalInstructions: () => undefined,

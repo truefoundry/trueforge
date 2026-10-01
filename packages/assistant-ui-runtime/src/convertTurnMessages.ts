@@ -1193,8 +1193,13 @@ export function projectSessionMessages(
       };
     }
 
-    if (isContinuation && last?.role === 'assistant') {
-      messages = [...messages.slice(0, -1), assistantMessage];
+    // Update existing assistant message in-place if already present (for
+    // continuation turns where assistantMessage reuses last.id, or when a turn
+    // with zero root model messages was already projected by projectHistoryTurns).
+    // Otherwise, append assistantMessage to the thread.
+    const existingIndex = messages.findIndex(m => m.id === assistantMessage.id);
+    if (existingIndex !== -1) {
+      messages = [...messages.slice(0, existingIndex), assistantMessage, ...messages.slice(existingIndex + 1)];
     } else {
       messages = [...messages, assistantMessage];
     }

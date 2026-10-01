@@ -3,7 +3,7 @@
 /** Readiness of the environment. */
 export const SandboxEnvironmentVersionStatus = {
     Pending: "pending",
-    Active: "active",
+    Ready: "ready",
     Failed: "failed",
 } as const;
 export type SandboxEnvironmentVersionStatus =

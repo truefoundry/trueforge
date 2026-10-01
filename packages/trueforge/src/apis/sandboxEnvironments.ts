@@ -23,7 +23,11 @@ import {
   putSandboxEnvironmentRoute,
 } from '../routes/sandboxEnvironmentRoutes';
 import { buildNextVersion, redactManifestSecrets } from '../sandbox/sandboxEnvironmentVersion';
-import type { SandboxEnvironment, SandboxEnvironmentManifest } from '../schemas/sandboxEnvironment';
+import {
+  DEFAULT_SANDBOX_ENVIRONMENT_NAME,
+  type SandboxEnvironment,
+  type SandboxEnvironmentManifest,
+} from '../schemas/sandboxEnvironment';
 import { MissingStoredSecretError } from '../utils/secretRedaction';
 
 export interface SandboxEnvironmentsRouterDeps<TTransaction> {
@@ -113,10 +117,11 @@ export function createSandboxEnvironmentsRouter<TTransaction>(
   const getHandler: RouteHandler<typeof getSandboxEnvironmentRoute> = async c => {
     const { tenant_id, subject } = resolveRequestContext(c);
     const { name } = c.req.valid('param');
+    // System default is tenant-wide; custom envs stay owner-scoped.
     const loaded = await store.getEnvironment({
       tenant_id,
       name,
-      created_by_subject_id: subject.id,
+      ...(name === DEFAULT_SANDBOX_ENVIRONMENT_NAME ? {} : { created_by_subject_id: subject.id }),
     });
     if (!loaded) {
       return c.json({ error: { message: `Sandbox environment not found: ${name}` } }, 404);
@@ -129,8 +134,8 @@ export function createSandboxEnvironmentsRouter<TTransaction>(
     const body = c.req.valid('json');
     const requestContext = resolveRequestContext(c);
     const provider = await resolveSandboxProviderRecord(deps.resolveSandboxProviderStore(c), requestContext.tenant_id);
-    if (provider?.manifest.type !== 'daytona') {
-      return c.json({ error: { message: 'Sandbox environments require a Daytona sandbox provider' } }, 422);
+    if (provider === undefined) {
+      return c.json({ error: { message: 'No sandbox provider configured' } }, 422);
     }
 
     const created_by_subject = createdBySubjectFromRequestContext(requestContext);
@@ -167,6 +172,9 @@ export function createSandboxEnvironmentsRouter<TTransaction>(
   const deleteHandler: RouteHandler<typeof deleteSandboxEnvironmentRoute> = async c => {
     const { tenant_id, subject } = resolveRequestContext(c);
     const { name } = c.req.valid('param');
+    if (name === DEFAULT_SANDBOX_ENVIRONMENT_NAME) {
+      return c.json({ error: { message: 'Sandbox environment "default" cannot be deleted' } }, 409);
+    }
     const existing = await store.getEnvironment({
       tenant_id,
       name,
