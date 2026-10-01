@@ -3,14 +3,14 @@
 This repo ships npm packages, a production container image, a Helm chart, and a
 sandbox image.
 
-| What                   | Trigger                                                                                                      | Workflow                                                             |
-| ---------------------- | ------------------------------------------------------------------------------------------------------------ | -------------------------------------------------------------------- |
-| npm packages           | `workflow_dispatch` from the TrueFoundry chart release, on `release-vX.Y.Z`. `main` collects changesets only | [`release.yml`](.github/workflows/release.yml)                       |
-| PyPI `trueforge-sdk`   | Same run as npm (parallel OIDC job)                                                                          | [`release.yml`](.github/workflows/release.yml)                       |
-| Prod image             | Same run as npm; independent of pack + smoke                                                                 | [`release.yml`](.github/workflows/release.yml)                       |
-| Helm chart             | Called from `release.yml` after the images, or manual dispatch                                               | [`release-chart.yml`](.github/workflows/release-chart.yml)           |
-| Sandbox image + pin PR | Push to `main` when `scripts/sandbox/**` changes, or dispatch                                                | [`push-sandbox-image.yml`](.github/workflows/push-sandbox-image.yml) |
-| PR checks              | Pull request / merge group                                                                                   | [`ci.yml`](.github/workflows/ci.yml)                                 |
+| What                   | Trigger                                                                                                 | Workflow                                                             |
+| ---------------------- | ------------------------------------------------------------------------------------------------------- | -------------------------------------------------------------------- |
+| npm packages           | `workflow_dispatch` from the parent chart release, on `release-vX.Y.Z`. `main` collects changesets only | [`release.yml`](.github/workflows/release.yml)                       |
+| PyPI `trueforge-sdk`   | Same run as npm (parallel OIDC job)                                                                     | [`release.yml`](.github/workflows/release.yml)                       |
+| Prod image             | Same run as npm; independent of pack + smoke                                                            | [`release.yml`](.github/workflows/release.yml)                       |
+| Helm chart             | Called from `release.yml` after the images, or manual dispatch                                          | [`release-chart.yml`](.github/workflows/release-chart.yml)           |
+| Sandbox image + pin PR | Push to `main` when `scripts/sandbox/**` changes, or dispatch                                           | [`push-sandbox-image.yml`](.github/workflows/push-sandbox-image.yml) |
+| PR checks              | Pull request / merge group                                                                              | [`ci.yml`](.github/workflows/ci.yml)                                 |
 
 ## Versioning
 
@@ -21,7 +21,7 @@ sandbox image.
 | Chart `appVersion`           | `packages/trueforge/package.json` version at the build commit                                             |
 | Prod image                   | Root [`Dockerfile`](Dockerfile): from-source workspace build                                              |
 | Prod image tag               | `{packageVersion}-{shortSha}`                                                                             |
-| Chart `version`              | The TrueFoundry chart version, verbatim (`tfy_chart_version`). Nothing in this repo computes it           |
+| Chart `version`              | The dispatching chart version, verbatim (`tfy_chart_version`). Nothing in this repo computes it           |
 | Sandbox image                | [`sandbox.Dockerfile`](packages/trueforge-core/scripts/sandbox/sandbox.Dockerfile); tag = full commit SHA |
 
 Install a published chart:
@@ -54,7 +54,7 @@ does not publish.
    `pnpm change --bump patch --summary "…" <pkg>`). SDK regen already adds
    `@truefoundry/trueforge-sdk` via `pnpm changeset:sdk-regen`.
 2. Merge to `main`.
-3. A TrueFoundry chart release of `V` (`X.Y.Z` or `X.Y.Z-rc.N`) creates
+3. A parent chart release of `V` (`X.Y.Z` or `X.Y.Z-rc.N`) creates
    `release-vX.Y.Z` in this repo (`X.Y.Z` is `V` with any `-rc.N` removed) and
    dispatches this workflow with `tfy_chart_version=V`. The first cut of a minor
    line is from `main`; a hotfix line is cut from `refs/tags/v<base>` so
@@ -155,7 +155,7 @@ pnpm clean && pnpm build && pnpm standalone:start
 # Image and Helm chart
 
 ```text
-TrueFoundry chart release V
+parent chart release V
   → branch release-vX.Y.Z (from main for a new minor; from
     refs/tags/v<base> for a hotfix; fail only on the FIRST rc if an existing
     minor branch is missing commits from main)
@@ -231,7 +231,7 @@ gh workflow run release-chart.yml --ref main \
 ```
 
 The chart version is the `chart_version` input, verbatim - the same value as the
-TrueFoundry chart release that dispatched it. Nothing in this repo derives it, so
+parent chart release that dispatched it. Nothing in this repo derives it, so
 `oci://tfy.jfrog.io/tfy-helm/trueforge:<V>` and `charts/trueforge@<V>` are known
 before the release starts. `appVersion` tracks `@truefoundry/trueforge` and the
 image tag prefix; those are separate fields with separate owners.
