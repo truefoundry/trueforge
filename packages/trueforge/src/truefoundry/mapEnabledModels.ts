@@ -23,11 +23,22 @@ const MetadataSchema = z.object({
 
 const IntegrationSchema = z.object({
   name: z.string().min(1),
-  manifest: z.object({ model_types: z.array(z.string()).optional() }),
-  providerAccount: z.object({ name: z.string().min(1) }),
+  type: z.string().optional(),
+  manifest: z.object({
+    type: z.string().optional(),
+    model_types: z.array(z.string()).optional(),
+    base_url: z.string().optional(),
+    baseUrl: z.string().optional(),
+    url: z.string().optional(),
+  }),
+  providerAccount: z.object({
+    name: z.string().min(1),
+    manifest: z.object({ type: z.string().optional() }).optional(),
+  }),
   metadata: MetadataSchema.optional(),
 });
 
+type Integration = z.infer<typeof IntegrationSchema>;
 type IntegrationMetadata = z.infer<typeof MetadataSchema>;
 
 function toReasoningEfforts(params: IntegrationMetadata['params']): ReasoningEffort[] | undefined {
@@ -65,6 +76,116 @@ export interface TrueFoundryEnabledModel {
   accountName: string;
   modelName: string;
   properties: ModelProperties;
+  endpointKind: 'provider' | 'custom-endpoint';
+  upstreamBaseUrl: string | undefined;
+}
+
+function integrationTypes(integration: Integration): string[] {
+  return [integration.type, integration.manifest.type, integration.providerAccount.manifest?.type].flatMap(type =>
+    type === undefined ? [] : [type],
+  );
+}
+
+function isCustomEndpoint(integration: Integration): boolean {
+  return integrationTypes(integration).some(type => type.includes('custom-endpoint'));
+}
+
+function upstreamBaseUrl(integration: Integration): string | undefined {
+  const { base_url: snake, baseUrl: camel, url } = integration.manifest;
+  const value = snake ?? camel ?? url;
+  if (value === undefined) {
+    return undefined;
+  }
+  const trimmed = value.trim();
+  return trimmed.length > 0 ? trimmed : undefined;
+}
+
+function pathnameOf(raw: string): string | undefined {
+  try {
+    return new URL(raw).pathname.replace(/\/+$/, '');
+  } catch {
+    return undefined;
+  }
+}
+
+function isOpenAiApiRoot(pathname: string): boolean {
+  return /(?:^|\/)v\d+(?:beta)?$/.test(pathname);
+}
+
+function isTypeSafeHost(raw: string): boolean {
+  const host = (() => {
+    try {
+      return new URL(raw).hostname;
+    } catch {
+      return undefined;
+    }
+  })();
+  return host === 'typesafe.ai' || host?.endsWith('.typesafe.ai') === true;
+}
+
+/** Joins path segments onto a gateway base, keeping an existing prefix such as `/api/llm`. */
+export function joinGatewayPath(input: { base: string; segments: readonly string[] }): string {
+  const url = new URL(input.base);
+  const prefix = url.pathname.replace(/\/+$/, '');
+  const suffix = input.segments
+    .map(segment => segment.replace(/^\/+|\/+$/g, ''))
+    .filter(segment => segment.length > 0)
+    .join('/');
+  url.pathname = suffix.length > 0 ? `${prefix}/${suffix}` : prefix || '/';
+  url.search = '';
+  url.hash = '';
+  const href = url.toString();
+  return href.endsWith('/') ? href.slice(0, -1) : href;
+}
+
+export type CustomEndpointCall =
+  { kind: 'chat'; baseUrl: string; chatCompletionsPath: string } | { kind: 'unsupported'; message: string };
+
+/**
+ * Custom endpoints are transparent proxies at `{gateway}/proxy-api/{account}/{endpoint}/{path}`.
+ * `/chat/completions` is only correct when the upstream base is an OpenAI `/vN` root.
+ * Jev's upstream is `POST /v1/systemone`, which 404s if that suffix is appended.
+ */
+export function resolveCustomEndpointCall(input: {
+  gatewayUrl: string;
+  accountName: string;
+  endpointName: string;
+  upstreamBaseUrl: string | undefined;
+  modelFqn: string;
+}): CustomEndpointCall {
+  const baseUrl = joinGatewayPath({
+    base: input.gatewayUrl,
+    segments: ['proxy-api', input.accountName, input.endpointName],
+  });
+  const upstream = input.upstreamBaseUrl;
+  if (upstream !== undefined && isTypeSafeHost(upstream)) {
+    return {
+      kind: 'unsupported',
+      message:
+        `Model "${input.modelFqn}" cannot run an agent turn. It is a TrueFoundry custom endpoint for TypeSafe Jev (${upstream}). ` +
+        'Jev answers typed questions at POST /v1/systemone and does not implement OpenAI chat completions, tools, or streaming. Pick a chat model instead.',
+    };
+  }
+  const path = upstream === undefined ? undefined : pathnameOf(upstream);
+  if (path !== undefined && isOpenAiApiRoot(path)) {
+    return { kind: 'chat', baseUrl, chatCompletionsPath: '/chat/completions' };
+  }
+  if (
+    upstream !== undefined &&
+    path !== undefined &&
+    path !== '' &&
+    !path.endsWith('/chat/completions') &&
+    !isOpenAiApiRoot(path)
+  ) {
+    return {
+      kind: 'unsupported',
+      message:
+        `Model "${input.modelFqn}" cannot run an agent turn. Its TrueFoundry custom endpoint (${upstream}) is not an OpenAI-compatible chat completions API. ` +
+        'Point the endpoint base URL at an OpenAI-compatible /v1 root, or pick a chat model.',
+    };
+  }
+  // Missing upstream, or a base URL that already includes `/chat/completions`: post to the proxy root.
+  return { kind: 'chat', baseUrl, chatCompletionsPath: '' };
 }
 
 export function mapEnabledModels(input: { integrations: readonly unknown[] }): TrueFoundryEnabledModel[] {
@@ -78,6 +199,8 @@ export function mapEnabledModels(input: { integrations: readonly unknown[] }): T
       accountName: integration.providerAccount.name,
       modelName: integration.name,
       properties: toProperties(integration.metadata),
+      endpointKind: isCustomEndpoint(integration) ? 'custom-endpoint' : 'provider',
+      upstreamBaseUrl: upstreamBaseUrl(integration),
     });
   }
   return models;
