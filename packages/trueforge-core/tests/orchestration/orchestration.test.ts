@@ -24,7 +24,6 @@ const EXPECTED_EVENTS = [
 
 const OUTPUT = {
   output: { thread_id: THREAD_ID, content: REPLY },
-  required_actions: [],
 };
 
 const EXPECTED_LLM_INPUT = [
