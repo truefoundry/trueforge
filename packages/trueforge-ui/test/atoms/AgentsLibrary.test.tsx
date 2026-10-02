@@ -482,6 +482,31 @@ describe('AgentsLibrary', () => {
     expect(screen.queryByText('Build one in a chat, then save it as an agent.')).not.toBeInTheDocument();
   });
 
+  it('seeds search from agent_name and keeps the URL in sync', async () => {
+    window.history.replaceState(null, '', '/library?agent_name=ask-ai-clone&theme=dark');
+    const searchAgents = vi.fn(async ({ query }: { query?: string } = {}) => ({
+      data: query === 'ask-ai-clone' ? [{ name: 'ask-ai-clone', agentId: 'agent-clone' }] : [],
+    }));
+    const server = createMockAgentUIServer({ searchAgents });
+
+    renderLibrary(<LibraryHarness />, { server });
+    fireEvent.click(screen.getByRole('button', { name: 'Open library' }));
+
+    expect(screen.getByPlaceholderText('Search agents')).toHaveValue('ask-ai-clone');
+    expect(new URL(window.location.href).searchParams.get('agent_name')).toBe('ask-ai-clone');
+    await waitFor(() => {
+      expect(searchAgents).toHaveBeenCalledWith(expect.objectContaining({ query: 'ask-ai-clone' }));
+    });
+    expect(await screen.findByRole('button', { name: 'Try agent ask-ai-clone' })).toBeInTheDocument();
+    expect(new URL(window.location.href).searchParams.get('theme')).toBe('dark');
+
+    fireEvent.change(screen.getByPlaceholderText('Search agents'), { target: { value: '' } });
+    await waitFor(() => {
+      expect(new URL(window.location.href).searchParams.get('agent_name')).toBeNull();
+    });
+    expect(new URL(window.location.href).searchParams.get('theme')).toBe('dark');
+  });
+
   it('closes via Escape', () => {
     renderLibrary(<LibraryHarness />);
 

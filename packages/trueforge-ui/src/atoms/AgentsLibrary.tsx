@@ -1,6 +1,6 @@
 'use client';
 
-import { useCallback, useEffect, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 
 import { useResourcePermissions } from '../hooks/useResourcePermissions.js';
 import { useSessionShareSearch } from '../hooks/useSessionShareSearch.js';
@@ -11,6 +11,7 @@ import { libraryAgentId, useShellMode } from '../server/ShellModeContext.js';
 import type { AgentLibraryEntry, AgentSpec, Schedule } from '../server/types.js';
 import { useSlot } from '../theme/SlotsProvider.js';
 import { hasCreatedBySubject } from '../utils/createdBySubject.js';
+import { readLibraryShareSearch, replaceLibraryShareSearch } from '../utils/libraryShareUrl.js';
 import { replaceScheduleShareSearch } from '../utils/scheduleShareUrl.js';
 import { AgentOverflowMenu } from './AgentOverflowMenu.js';
 import { CreatedByCell } from './CreatedByCell.js';
@@ -355,6 +356,7 @@ export function AgentsLibrary({ onSelectAgent }: AgentsLibraryProps) {
   const SlottedAgentLibraryRow = useSlot('AgentLibraryRow');
   const [query, setQuery] = useState('');
   const [scheduleByAgent, setScheduleByAgent] = useState<Map<string, AgentScheduleSummary> | null>(null);
+  const skipNextLibraryShareSyncRef = useRef(false);
   const open = shell.libraryOpen;
 
   const canMutate = shell.isComposerEnabled === true;
@@ -364,8 +366,25 @@ export function AgentsLibrary({ onSelectAgent }: AgentsLibraryProps) {
   const canOpenAgentSchedules = showSchedulesColumn && canOpenAgentDetails;
 
   useEffect(() => {
-    if (!open) setQuery('');
+    if (!open) {
+      setQuery('');
+      return;
+    }
+    // Seed from the URL when the library opens; skip one sync so we don't wipe it.
+    skipNextLibraryShareSyncRef.current = true;
+    setQuery(readLibraryShareSearch(window.location.search).agentName ?? '');
   }, [open]);
+
+  useEffect(() => {
+    if (!open) return;
+    if (skipNextLibraryShareSyncRef.current) {
+      skipNextLibraryShareSyncRef.current = false;
+      return;
+    }
+    replaceLibraryShareSearch({
+      agentName: query.trim().length === 0 ? null : query,
+    });
+  }, [open, query]);
 
   const closeLibrary = useCallback(() => {
     shell.setLibraryOpen(false);
