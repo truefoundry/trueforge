@@ -1,9 +1,10 @@
 'use client';
 
-import { ThreadPrimitive, type ThreadMessageLike } from '@assistant-ui/react';
-import { convertTurnsToThreadMessages } from '@truefoundry/trueforge-assistant-ui-runtime';
+import { ThreadPrimitive, useAuiState, type ThreadMessageLike } from '@assistant-ui/react';
+import { convertTurnsToThreadMessages, isMcpServerAuthInfoList } from '@truefoundry/trueforge-assistant-ui-runtime';
 import { Suspense, useCallback, useEffect, useMemo, useRef, useState, type ComponentType } from 'react';
 
+import { AssistantMessageBubble, type AssistantMessageBubbleProps } from '../atoms/AssistantMessageBubble.js';
 import { Markdown, type MarkdownProps } from '../atoms/Markdown.js';
 import { MessageActionBar } from '../atoms/MessageActionBar.js';
 import { ToolApprovalBar, type ToolApprovalBarProps } from '../atoms/ToolApprovalBar.js';
@@ -48,7 +49,25 @@ function ReadOnlyToolCallCard(props: ToolCallCardProps) {
   return <ToolCallCard {...props} awaiting={props.approvalSlot ? false : props.awaiting} />;
 }
 
+/** In session detail replay, render any pending MCP authorization prompt in readOnly mode. */
+function ReadOnlyAssistantMessageBubble(props: AssistantMessageBubbleProps) {
+  const McpAuthPrompt = useSlot('McpAuthPrompt');
+  const custom = useAuiState(s => s.message.metadata.custom);
+  const rawServers = custom?.pendingMcpAuth === true ? custom?.mcpServers : undefined;
+  const mcpServers = isMcpServerAuthInfoList(rawServers) ? rawServers : undefined;
+
+  return (
+    <AssistantMessageBubble {...props}>
+      {props.children}
+      {mcpServers != null && mcpServers.length > 0 ? (
+        <McpAuthPrompt servers={mcpServers} readOnly={true} onConnect={() => {}} />
+      ) : null}
+    </AssistantMessageBubble>
+  );
+}
+
 const READ_ONLY_SLOT_OVERRIDES: SlotOverrides = {
+  AssistantMessageBubble: ReadOnlyAssistantMessageBubble,
   UserMessageActionBar: ReadOnlyUserMessageActionBar,
   Markdown: ReadOnlyMarkdown,
   ToolApprovalBar: ReadOnlyToolApprovalBar,
