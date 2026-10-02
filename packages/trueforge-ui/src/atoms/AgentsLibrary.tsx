@@ -354,7 +354,7 @@ export function AgentsLibrary({ onSelectAgent }: AgentsLibraryProps) {
   const sessionsServer = useOptionalAgentSessionsServer();
   const scheduleServer = useOptionalScheduleServer();
   const SlottedAgentLibraryRow = useSlot('AgentLibraryRow');
-  const [query, setQuery] = useState('');
+  const [query, setQuery] = useState(() => readLibraryShareSearch(window.location.search).agentName ?? '');
   const [scheduleByAgent, setScheduleByAgent] = useState<Map<string, AgentScheduleSummary> | null>(null);
   const skipNextLibraryShareSyncRef = useRef(false);
   const open = shell.libraryOpen;
@@ -370,7 +370,7 @@ export function AgentsLibrary({ onSelectAgent }: AgentsLibraryProps) {
       setQuery('');
       return;
     }
-    // Seed from the URL when the library opens; skip one sync so we don't wipe it.
+    // Re-seed when a stay-mounted library reopens; skip one sync so we don't wipe the URL.
     skipNextLibraryShareSyncRef.current = true;
     setQuery(readLibraryShareSearch(window.location.search).agentName ?? '');
   }, [open]);
