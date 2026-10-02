@@ -216,6 +216,28 @@ describe('ToolCallContainer', () => {
     expect(AskUserPrompt).not.toHaveBeenCalled();
   });
 
+  it('hides streaming ask_user in live chat before interrupt is set', () => {
+    const AskUserPrompt = createAskUserPromptProbe();
+
+    renderToolCallMessage(
+      [
+        {
+          type: 'tool-call',
+          toolCallId: 'question-streaming',
+          toolName: 'ask_user_question',
+          args: {},
+          argsText: JSON.stringify({
+            question: 'Which environment?',
+            options: ['staging', 'production'],
+          }),
+        },
+      ],
+      { AskUserPrompt },
+    );
+
+    expect(AskUserPrompt).not.toHaveBeenCalled();
+  });
+
   it('renders pending ask_user as read-only Unanswered in session replay', () => {
     const AskUserPrompt = createAskUserPromptProbe();
     const message: ThreadMessageLike = {

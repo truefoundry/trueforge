@@ -22,7 +22,6 @@ import {
   getAskUserAnswerResult,
   getJsonDisplayValue,
   getToolResultContent,
-  hasPendingAskUserResponse,
   hasPendingToolApproval,
   mcpDisplayName,
   parseAskUserQuestionArgs,
@@ -183,9 +182,9 @@ export const ToolCallContainer: ToolCallMessagePartComponent = part => {
       );
     }
 
-    // Live chat: AskUserContainer in the composer owns pending prompts.
-    // Session replay has no composer — render a read-only Unanswered card here.
-    if (hasPendingAskUserResponse(part) && !isSessionReplay) {
+    // Live chat: hide until answered. Streaming parts have no interrupt yet;
+    // paused ones are owned by AskUserContainer in the composer.
+    if (!isSessionReplay) {
       return null;
     }
 
