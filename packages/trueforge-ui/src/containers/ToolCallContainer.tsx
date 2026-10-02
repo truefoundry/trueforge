@@ -36,6 +36,7 @@ import { useRegisterApprovalExpand } from './approvalFocus.js';
 import { AssistantTextContainer } from './AssistantTextContainer.js';
 import { NestedApprovalBridgeContext, useNestedApprovalBridge } from './nestedApprovalBridge.js';
 import { SandboxToolCallContainer } from './SandboxToolCallContainer.js';
+import { useSessionReplay } from './sessionReplayContext.js';
 import { ToolApprovalContainer } from './ToolApprovalContainer.js';
 import { ToolCallContentBlockContainer } from './ToolCallContentBlockContainer.js';
 
@@ -138,6 +139,7 @@ export const ToolCallContainer: ToolCallMessagePartComponent = part => {
   const ToolCallCard = useSlot('ToolCallCard');
   const SubAgentCard = useSlot('SubAgentCard');
   const AskUserPrompt = useSlot('AskUserPrompt');
+  const isSessionReplay = useSessionReplay();
   const elapsedMs = useToolCallElapsed();
   const isRequiresAction = part.status?.type === 'requires-action';
   const isSubAgent = part.toolName === SUB_AGENT_TOOL_NAME;
@@ -158,27 +160,45 @@ export const ToolCallContainer: ToolCallMessagePartComponent = part => {
   useRegisterApprovalExpand(isSubAgent ? part.toolCallId : '', expandSubAgent);
 
   if (part.toolName === ASK_USER_TOOL_NAME) {
-    if (hasPendingAskUserResponse(part)) {
-      return null;
-    }
-    const answer = getAskUserAnswerResult(part.result);
-    if (answer == null) {
-      return null;
-    }
     const { question, options = [] } = parseAskUserQuestionArgs(part.argsText);
-    const isCustom = options.length > 0 && !options.includes(answer);
+    const answer = getAskUserAnswerResult(part.result);
+
+    if (answer != null) {
+      const isCustom = options.length > 0 && !options.includes(answer);
+      return (
+        <AskUserPrompt
+          questions={[]}
+          answeredQuestions={[
+            {
+              id: part.toolCallId,
+              question: question ?? 'Question',
+              options,
+              answer,
+              isCustom,
+            },
+          ]}
+          onSubmit={() => {}}
+          readOnly
+        />
+      );
+    }
+
+    // Live chat: AskUserContainer in the composer owns pending prompts.
+    // Session replay has no composer — render a read-only Unanswered card here.
+    if (hasPendingAskUserResponse(part) && !isSessionReplay) {
+      return null;
+    }
+
+    const unhandledQuestion = {
+      id: part.toolCallId,
+      question: question ?? 'Question',
+      options,
+    };
     return (
       <AskUserPrompt
-        questions={[]}
-        answeredQuestions={[
-          {
-            id: part.toolCallId,
-            question: question ?? 'Question',
-            options,
-            answer,
-            isCustom,
-          },
-        ]}
+        questions={[unhandledQuestion]}
+        currentQuestion={unhandledQuestion}
+        currentAnswer={{ radioValue: '', custom: '' }}
         onSubmit={() => {}}
         readOnly
       />

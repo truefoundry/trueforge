@@ -130,6 +130,7 @@ export type {
   UpdateSessionRequest,
   UpdateWebSearchProviderRequest,
   UpdateWebSearchRequest,
+  UserMcpAuthContinueEvent,
   UserMessage,
   UserMessageContent,
   UserToolApprovalEvent,
