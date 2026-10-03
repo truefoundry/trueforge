@@ -16,6 +16,7 @@ import type {
   ListSandboxEnvironmentsInput,
   MarkSandboxEnvironmentVersionFailedInput,
   MarkSandboxEnvironmentVersionReadyInput,
+  SandboxEnvironmentSecretRecord,
   SandboxEnvironmentVersionForProgress,
   SandboxEnvironmentVersionRecord,
   SandboxEnvironmentWithVersion,
@@ -180,5 +181,12 @@ export class TrueFoundrySandboxEnvironmentStore<
       return trueFoundryManaged();
     }
     return this.#persistence.deleteEnvironment(input, transaction);
+  }
+
+  listSecretsByEnvironment(
+    input: { environment_id: string },
+    transaction?: TTransaction,
+  ): Promise<SandboxEnvironmentSecretRecord[]> {
+    return this.#persistence.listSecretsByEnvironment(input, transaction);
   }
 }

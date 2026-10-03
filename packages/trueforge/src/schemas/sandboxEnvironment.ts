@@ -191,6 +191,7 @@ export const DeleteSandboxEnvironmentResponseSchema = z.object({}).openapi('Dele
 
 export type SandboxEnvironmentLifecycleStage = z.infer<typeof SandboxEnvironmentLifecycleStageSchema>;
 export type SandboxEnvironmentVersionStatus = z.infer<typeof SandboxEnvironmentVersionStatusSchema>;
+export type SandboxEnvironmentSecret = z.infer<typeof SandboxEnvironmentSecretSchema>;
 export type SandboxEnvironmentManifest = z.infer<typeof SandboxEnvironmentManifestSchema>;
 export type StoredSandboxEnvironmentManifest = z.infer<typeof StoredSandboxEnvironmentManifestSchema>;
 export type SandboxEnvironmentVersionInternalMetadata = z.infer<typeof SandboxEnvironmentVersionInternalMetadataSchema>;

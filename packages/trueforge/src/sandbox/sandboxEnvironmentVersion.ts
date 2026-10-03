@@ -7,22 +7,18 @@ import { isDeepStrictEqual } from 'node:util';
 import {
   DEFAULT_SANDBOX_ENVIRONMENT_NAME,
   DEFAULT_SANDBOX_ENVIRONMENT_RESOURCES,
-  SandboxEnvironmentVersionInternalMetadataSchema,
   StoredSandboxEnvironmentManifestSchema,
   type SandboxEnvironmentManifest,
-  type SandboxEnvironmentVersionInternalMetadata,
   type SandboxEnvironmentVersionStatus,
   type StoredSandboxEnvironmentManifest,
 } from '../schemas/sandboxEnvironment';
-import { isRedactedSecretValue, resolveStoredSecretValue, toRedactedSecretValue } from '../utils/secretRedaction';
+import { resolveStoredSecretValue, toRedactedSecretValue } from '../utils/secretRedaction';
 
 export type SandboxEnvironmentProviderType = StoredSandboxEnvironmentManifest['type'];
 
 export interface ManifestDiff {
   build_changed: boolean;
   resources_changed: boolean;
-  /** Request includes at least one non-redacted secret value (new material to sync). */
-  secrets_changed: boolean;
 }
 
 /** Next version row fields (status/external_ref encode whether a future controller must build). */
@@ -32,7 +28,6 @@ export interface NextSandboxEnvironmentVersion {
   status: SandboxEnvironmentVersionStatus;
   status_reason: null;
   external_ref: string;
-  internal_metadata: SandboxEnvironmentVersionInternalMetadata;
 }
 
 /** System default env stored jsonb (platform image; no networking/secrets). */
@@ -118,7 +113,6 @@ export function diffManifest({
   return {
     build_changed: previous?.image?.build_script !== next.image?.build_script,
     resources_changed: previous === undefined || !isDeepStrictEqual(previous.resources, next.resources),
-    secrets_changed: (next.networking?.secrets ?? []).some(secret => !isRedactedSecretValue(secret.value)),
   };
 }
 
@@ -127,7 +121,7 @@ export function newExternalRef(): string {
   return `trueforge-${randomUUID()}`;
 }
 
-/** Build the next version row fields (no insert). Secrets / Daytona sync intentionally skipped. */
+/** Next version row fields (no insert). */
 export function buildNextVersion({
   version,
   previous_manifest,
@@ -158,6 +152,5 @@ export function buildNextVersion({
     status: 'pending',
     status_reason: null,
     external_ref: needs_snapshot ? newExternalRef() : previous_external_ref,
-    internal_metadata: SandboxEnvironmentVersionInternalMetadataSchema.parse({}),
   };
 }

@@ -4,10 +4,7 @@
 import type { CreatedBySubject } from '@truefoundry/trueforge-core/agent-session';
 import type { ISandboxEnvironmentStore, SandboxEnvironmentWithVersion } from '../db/sandboxEnvironmentStore';
 import { NameSchema } from '../schemas/common';
-import {
-  DEFAULT_SANDBOX_ENVIRONMENT_NAME,
-  SandboxEnvironmentVersionInternalMetadataSchema,
-} from '../schemas/sandboxEnvironment';
+import { DEFAULT_SANDBOX_ENVIRONMENT_NAME } from '../schemas/sandboxEnvironment';
 import {
   defaultSandboxEnvironmentStoredManifest,
   newExternalRef,
@@ -15,7 +12,6 @@ import {
 } from './sandboxEnvironmentVersion';
 
 const DEFAULT_NAME = NameSchema.parse(DEFAULT_SANDBOX_ENVIRONMENT_NAME);
-const EMPTY_INTERNAL_METADATA = SandboxEnvironmentVersionInternalMetadataSchema.parse({});
 
 /**
  * Returns the existing default env, or creates it / appends a new pending version.
@@ -46,13 +42,13 @@ export async function ensureDefaultSandboxEnvironment<TTransaction>({
       name: DEFAULT_NAME,
       description: '',
       created_by_subject,
-      buildVersion: previous => ({
-        version: previous ? previous.latest_version + 1 : 1,
+      synced_secrets: [],
+      buildVersion: ({ existing_version }) => ({
+        version: existing_version !== undefined ? existing_version + 1 : 1,
         manifest: defaultSandboxEnvironmentStoredManifest(provider_type),
         status: 'pending',
         status_reason: null,
         external_ref: newExternalRef(),
-        internal_metadata: EMPTY_INTERNAL_METADATA,
         created_by_subject,
       }),
     },

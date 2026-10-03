@@ -151,6 +151,7 @@ export class SandboxEnvironmentsClient {
      * @throws {@link TrueForge.UnauthorizedError}
      * @throws {@link TrueForge.ConflictError}
      * @throws {@link TrueForge.UnprocessableEntityError}
+     * @throws {@link TrueForge.BadGatewayError}
      * @throws {@link errors.TrueForgeError}
      * @throws {@link errors.TrueForgeTimeoutError}
      *
@@ -254,6 +255,17 @@ export class SandboxEnvironmentsClient {
                     );
                 case 422:
                     throw new TrueForge.UnprocessableEntityError(
+                        serializers.RequestErrorResponse.parseOrThrow(_response.error.body, {
+                            unrecognizedObjectKeys: "passthrough",
+                            allowUnrecognizedUnionMembers: true,
+                            allowUnrecognizedEnumValues: true,
+                            skipValidation: true,
+                            breadcrumbsPrefix: ["response"],
+                        }),
+                        _response.rawResponse,
+                    );
+                case 502:
+                    throw new TrueForge.BadGatewayError(
                         serializers.RequestErrorResponse.parseOrThrow(_response.error.body, {
                             unrecognizedObjectKeys: "passthrough",
                             allowUnrecognizedUnionMembers: true,

@@ -11,12 +11,12 @@ import {
   SandboxEnvironmentVersionInternalMetadataSchema,
 } from '../../../schemas/sandboxEnvironment';
 import { newId } from '../../../utils/id';
+import { hashSandboxEnvironmentSecret, isRedactedSecretValue, SECRET_REDACTION } from '../../../utils/secretRedaction';
 import { SANDBOX_ENVIRONMENT_TENANT_NAME_ACTIVE_UQ, SANDBOX_ENVIRONMENT_VERSION_UQ } from '../../indexes';
 import {
+  parseStoredSandboxEnvironmentManifest,
   SandboxEnvironmentNameConflictError,
   SandboxEnvironmentVersionConflictError,
-  parseStoredSandboxEnvironmentManifest,
-  toUpsertSandboxEnvironmentVersionWrite,
   type DeleteSandboxEnvironmentInput,
   type GetSandboxEnvironmentInput,
   type GetSandboxEnvironmentVersionInput,
@@ -25,6 +25,7 @@ import {
   type MarkSandboxEnvironmentVersionFailedInput,
   type MarkSandboxEnvironmentVersionReadyInput,
   type SandboxEnvironmentRecord,
+  type SandboxEnvironmentSecretRecord,
   type SandboxEnvironmentVersionForProgress,
   type SandboxEnvironmentVersionRecord,
   type SandboxEnvironmentWithVersion,
@@ -33,7 +34,27 @@ import {
 } from '../../sandboxEnvironmentStore';
 import { isPgConstraint, isUniqueViolation } from '../client';
 import { json, now } from '../sqlExpressions';
-import type { Database, SandboxEnvironmentTable, SandboxEnvironmentVersionTable } from '../types';
+import type {
+  Database,
+  SandboxEnvironmentSecretTable,
+  SandboxEnvironmentTable,
+  SandboxEnvironmentVersionTable,
+} from '../types';
+
+function toSecretRecord(row: Selectable<SandboxEnvironmentSecretTable>): SandboxEnvironmentSecretRecord {
+  return {
+    id: row.id,
+    tenant_id: row.tenant_id,
+    environment_id: row.environment_id,
+    secret_name: row.secret_name,
+    external_secret_name: row.external_secret_name,
+    external_secret_id: row.external_secret_id,
+    description: row.description,
+    hash: row.hash,
+    created_at: row.created_at.toISOString(),
+    updated_at: row.updated_at.toISOString(),
+  };
+}
 
 type JoinedRow = Selectable<SandboxEnvironmentTable> & {
   ver_id: string;
@@ -171,7 +192,10 @@ export class PostgresSandboxEnvironmentStore implements ISandboxEnvironmentStore
       query = query.where(sql`env.created_by_subject->>'subject_id'`, '=', input.created_by_subject_id);
     }
     const row = await query.executeTakeFirst();
-    return row ? toWithVersion(row) : undefined;
+    if (!row) {
+      return undefined;
+    }
+    return this.#withMountedSecrets(toWithVersion(row), db);
   }
 
   async listLatestPendingVersions(transaction?: Transaction<Database>): Promise<string[]> {
@@ -213,6 +237,7 @@ export class PostgresSandboxEnvironmentStore implements ISandboxEnvironmentStore
         'ver.version',
         'ver.external_ref',
         'ver.manifest',
+        'ver.internal_metadata',
       ])
       .where('ver.id', '=', input.environment_version_id)
       .where('env.lifecycle_stage', '=', 'active')
@@ -228,6 +253,7 @@ export class PostgresSandboxEnvironmentStore implements ISandboxEnvironmentStore
       version: row.version,
       external_ref: row.external_ref,
       manifest: parseStoredSandboxEnvironmentManifest(row.manifest),
+      internal_metadata: SandboxEnvironmentVersionInternalMetadataSchema.parse(row.internal_metadata),
     };
   }
 
@@ -263,10 +289,7 @@ export class PostgresSandboxEnvironmentStore implements ISandboxEnvironmentStore
 
     if (!environmentRow) {
       const environment_id = newId();
-      const versionWrite = toUpsertSandboxEnvironmentVersionWrite(input.buildVersion());
-      // First version: point here so get/list join works; later versions only move the
-      // pointer when their status is (or becomes) ready.
-      const active_version = versionWrite.version;
+      // Parent first so secret FKs can resolve in this transaction.
       try {
         const created = await db
           .insertInto('sandbox_environment')
@@ -275,7 +298,7 @@ export class PostgresSandboxEnvironmentStore implements ISandboxEnvironmentStore
             tenant_id: input.tenant_id,
             name: input.name,
             description: input.description,
-            active_version,
+            active_version: 1,
             lifecycle_stage: 'active',
             created_by_subject: json(input.created_by_subject),
             created_at: now(),
@@ -283,8 +306,19 @@ export class PostgresSandboxEnvironmentStore implements ISandboxEnvironmentStore
           })
           .returningAll()
           .executeTakeFirstOrThrow();
+        const versionWrite = await this.#buildVersion({
+          input,
+          environment_id,
+          db,
+        });
         const version = await this.#insertVersionRow(db, environment_id, versionWrite);
-        return { environment: toEnvironmentRecord(created), version };
+        return {
+          environment: toEnvironmentRecord({
+            ...created,
+            active_version: versionWrite.version,
+          }),
+          version,
+        };
       } catch (error) {
         if (isUniqueViolation(error) || isPgConstraint(error, SANDBOX_ENVIRONMENT_TENANT_NAME_ACTIVE_UQ)) {
           throw new SandboxEnvironmentNameConflictError(
@@ -302,13 +336,14 @@ export class PostgresSandboxEnvironmentStore implements ISandboxEnvironmentStore
       .where('environment_id', '=', environmentRow.id)
       .orderBy('version', 'desc')
       .executeTakeFirstOrThrow();
-    const versionWrite = toUpsertSandboxEnvironmentVersionWrite(
-      input.buildVersion({
-        latest_version: previousVersion.version,
-        previous_manifest: parseStoredSandboxEnvironmentManifest(previousVersion.manifest),
-        previous_external_ref: previousVersion.external_ref,
-      }),
-    );
+    const versionWrite = await this.#buildVersion({
+      input,
+      environment_id: environmentRow.id,
+      db,
+      existing_version: previousVersion.version,
+      existing_manifest: parseStoredSandboxEnvironmentManifest(previousVersion.manifest),
+      existing_external_ref: previousVersion.external_ref,
+    });
 
     const version = await this.#insertVersionRow(db, environmentRow.id, versionWrite);
     const updated = await db
@@ -445,5 +480,139 @@ export class PostgresSandboxEnvironmentStore implements ISandboxEnvironmentStore
       }
       throw error;
     }
+  }
+
+  async #buildVersion({
+    input,
+    environment_id,
+    db,
+    existing_version,
+    existing_manifest,
+    existing_external_ref,
+  }: {
+    input: UpsertSandboxEnvironmentInput;
+    environment_id: string;
+    db: Transaction<Database>;
+    existing_version?: number;
+    existing_manifest?: ReturnType<typeof parseStoredSandboxEnvironmentManifest>;
+    existing_external_ref?: string;
+  }): Promise<UpsertSandboxEnvironmentVersionWrite> {
+    const built = await input.buildVersion({
+      environment_id,
+      ...(existing_version ? { existing_version } : {}),
+      ...(existing_manifest ? { existing_manifest } : {}),
+      ...(existing_external_ref ? { existing_external_ref } : {}),
+    });
+    const secretDescription = `Secret value of environment ${built.manifest.name}`;
+    const existingSecretByName = new Map(
+      (await this.listSecretsByEnvironment({ environment_id }, db)).map(row => [row.secret_name, row]),
+    );
+    const syncedByName = new Map(input.synced_secrets.map(secret => [secret.secret_name, secret]));
+    const desiredNames = new Set((built.manifest.networking?.secrets ?? []).map(secret => secret.env));
+    const secrets: { key: string; id: string }[] = [];
+    for (const secret of built.manifest.networking?.secrets ?? []) {
+      const existing = existingSecretByName.get(secret.env);
+      const synced = syncedByName.get(secret.env);
+      if (synced === undefined) {
+        throw new Error(`Synced sandbox environment secret missing for ${secret.env}`);
+      }
+      const hash = !isRedactedSecretValue(secret.value)
+        ? hashSandboxEnvironmentSecret({ tenant_id: input.tenant_id, value: secret.value })
+        : existing?.hash;
+      if (!hash) {
+        throw new Error(`Sandbox environment secret hash missing for ${secret.env}`);
+      }
+      const timestamp = now();
+      const row = await db
+        .insertInto('sandbox_environment_secret')
+        .values({
+          id: newId(),
+          tenant_id: input.tenant_id,
+          environment_id,
+          secret_name: secret.env,
+          external_secret_name: synced.external_secret_name,
+          external_secret_id: synced.external_secret_id,
+          description: secretDescription,
+          hash,
+          created_at: timestamp,
+          updated_at: timestamp,
+        })
+        .onConflict(oc =>
+          oc.columns(['environment_id', 'secret_name']).doUpdateSet({
+            external_secret_name: synced.external_secret_name,
+            external_secret_id: synced.external_secret_id,
+            description: secretDescription,
+            hash,
+            updated_at: timestamp,
+          }),
+        )
+        .returning('id')
+        .executeTakeFirstOrThrow();
+      secrets.push({ key: secret.env, id: row.id });
+    }
+    const removedIds = [...existingSecretByName.values()]
+      .filter(row => !desiredNames.has(row.secret_name))
+      .map(row => row.id);
+    if (removedIds.length > 0) {
+      await db.deleteFrom('sandbox_environment_secret').where('id', 'in', removedIds).execute();
+    }
+    const networking = built.manifest.networking;
+    return {
+      ...built,
+      manifest: {
+        ...built.manifest,
+        ...(networking?.secrets
+          ? {
+              networking: {
+                ...networking,
+                secrets: networking.secrets.map(secret => ({ ...secret, value: SECRET_REDACTION })),
+              },
+            }
+          : {}),
+      },
+      internal_metadata: { secrets },
+    };
+  }
+
+  async listSecretsByEnvironment(
+    input: { environment_id: string },
+    transaction?: Transaction<Database>,
+  ): Promise<SandboxEnvironmentSecretRecord[]> {
+    const db = transaction ?? this.#db;
+    const rows = await db
+      .selectFrom('sandbox_environment_secret')
+      .selectAll()
+      .where('environment_id', '=', input.environment_id)
+      .orderBy('secret_name', 'asc')
+      .execute();
+    return rows.map(toSecretRecord);
+  }
+
+  async #withMountedSecrets(
+    loaded: SandboxEnvironmentWithVersion,
+    db: Kysely<Database> | Transaction<Database>,
+  ): Promise<SandboxEnvironmentWithVersion> {
+    const refs = loaded.version.internal_metadata.secrets;
+    if (refs.length === 0) {
+      return loaded;
+    }
+    const rows = await db
+      .selectFrom('sandbox_environment_secret')
+      .selectAll()
+      .where(
+        'id',
+        'in',
+        refs.map(ref => ref.id),
+      )
+      .execute();
+    const byId = new Map(rows.map(row => [row.id, row]));
+    const mounted_secrets: Record<string, string> = {};
+    for (const ref of refs) {
+      const row = byId.get(ref.id);
+      if (row !== undefined) {
+        mounted_secrets[ref.key] = row.external_secret_name;
+      }
+    }
+    return Object.keys(mounted_secrets).length > 0 ? { ...loaded, mounted_secrets } : loaded;
   }
 }
