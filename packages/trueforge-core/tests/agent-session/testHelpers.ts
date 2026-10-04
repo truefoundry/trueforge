@@ -99,6 +99,8 @@ export function makeTestResolver<TTurnCustom extends object = Record<string, nev
   agent?: ((agentId: string) => Promise<AgentSpec>) | undefined;
   /** Override the mock LLM `create` (e.g. to emit a tool call then a text reply). */
   llmCreate?: ILLM['create'];
+  /** When set, resolveSandbox rejects with this error — simulates a createTurn resolution failure. */
+  failResolveWith?: Error;
 }): ITurnResourceResolver<TTurnCustom> {
   const llm = makeMockILLM({
     create: options?.llmCreate ?? jest.fn().mockImplementation(() => emptyLlmStream(options?.usage)),
@@ -124,7 +126,7 @@ export function makeTestResolver<TTurnCustom extends object = Record<string, nev
       : {}),
   });
 
-  if (!options?.extraCapabilities && !options?.close && !options?.sandbox) {
+  if (!options?.extraCapabilities && !options?.close && !options?.sandbox && !options?.failResolveWith) {
     return base;
   }
 
@@ -134,7 +136,12 @@ export function makeTestResolver<TTurnCustom extends object = Record<string, nev
     },
     createTracing: () => base.createTracing(),
     resolveAgentSpec: input => base.resolveAgentSpec(input),
-    resolveSandbox: input => base.resolveSandbox(input),
+    resolveSandbox: input => {
+      if (options.failResolveWith) {
+        return Promise.reject(options.failResolveWith);
+      }
+      return base.resolveSandbox(input);
+    },
     resolveAgentDefinition: async input => {
       const resolved = await base.resolveAgentDefinition(input);
       return {

@@ -52,7 +52,7 @@ export function isInternalSystemMessage(m: ContextMessage): boolean {
   return m.role === 'user' && typeof m.content === 'string' && m.content.startsWith(SYSTEM_TAG_START);
 }
 
-export function isApprovalDecisionMessage(msg: AgentThreadRuntimeSendInput): msg is UserToolApprovalEvent {
+export function isApprovalDecisionEvent(msg: AgentThreadRuntimeSendInput): msg is UserToolApprovalEvent {
   return 'type' in msg && msg.type === EventType.USER_TOOL_APPROVAL;
 }
 
@@ -61,7 +61,7 @@ function isUserToolApprovalDecisionMessage(msg: ContextMessage): msg is AgentApp
   return 'type' in msg;
 }
 
-export function isClientSideToolResponseMessage(msg: AgentThreadRuntimeSendInput): msg is UserToolResponseEvent {
+export function isClientSideToolResponseEvent(msg: AgentThreadRuntimeSendInput): msg is UserToolResponseEvent {
   return 'type' in msg && msg.type === EventType.USER_TOOL_RESPONSE;
 }
 

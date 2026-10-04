@@ -3,6 +3,7 @@ import { AgentHarnessError, InvalidAgentSendInputError } from '../errors';
 import {
   EventType,
   newEventId,
+  type AgentInputUserMessage,
   type MCPServerInitInfo,
   type ModelMessageEvent,
   type ToolApprovalPolicyItem,
@@ -32,8 +33,8 @@ import {
 import {
   assistantMessageContentToStringForSubAgent,
   getThreadId,
-  isApprovalDecisionMessage,
-  isClientSideToolResponseMessage,
+  isApprovalDecisionEvent,
+  isClientSideToolResponseEvent,
   isInternalThreadDoneError,
 } from './contextUtils';
 import type { CreateDynamicSubAgentThread } from './CreateDynamicSubAgentThread';
@@ -47,7 +48,7 @@ function isUserToolApprovalOrResponseBatch(
   messages: AgentThreadSendBatch,
 ): messages is UserToolApprovalOrResponseBatch {
   const first = messages[0];
-  return first !== undefined && (isApprovalDecisionMessage(first) || isClientSideToolResponseMessage(first));
+  return first !== undefined && (isApprovalDecisionEvent(first) || isClientSideToolResponseEvent(first));
 }
 
 function getMainThreadId(agentThreads: Map<string, AgentThread>): string {
@@ -447,10 +448,10 @@ export class AgentThreadOrchestrator {
 
   // Route + apply createTurn's initial input to context immediately, yielding context-append events
   // (§8, atomic pre-send). createTurn input is user-messages-only — approval/tool-response resumes go
-  // through the turn events handler, never here — so this never produces a UserEventsCommitEvent. We
-  // enforce that invariant rather than silently dropping a commit.
+  // through the turn events handler, never here — so this never produces a UserEventsCommitEvent. The
+  // param type enforces this; the runtime guard below is defensive against future regressions.
   public async *applyInitialInput(
-    messages: AgentThreadSendBatch,
+    messages: AgentInputUserMessage[],
   ): AsyncGenerator<AgentThreadAppendContext, void, unknown> {
     const byThread = this.routeSendBatch(messages);
     for (const [threadId, batch] of byThread) {
