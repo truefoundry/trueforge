@@ -1,17 +1,12 @@
 /**
  * Bound session handle: starts turns via {@link SessionHandle.createTurn}.
  */
-import { newEventId, type UserToolApprovalMessage, type UserToolResponseMessage } from '../core/events/schema';
+import { newEventId } from '../core/events/schema';
 import type { AgentDefinition } from '../core/runtime/AgentDefinition';
 import { AgentThread } from '../core/runtime/AgentThread';
-import type {
-  AgentThreadAppendContext,
-  AgentThreadSendBatch,
-  AgentThreadSnapshot,
-} from '../core/runtime/AgentThread.types';
+import type { AgentThreadAppendContext, AgentThreadSnapshot } from '../core/runtime/AgentThread.types';
 import { AgentThreadOrchestrator } from '../core/runtime/AgentThreadOrchestrator';
 import type { CreateDynamicSubAgentThread } from '../core/runtime/CreateDynamicSubAgentThread';
-import type { AgentInputUserMessage } from '../core/runtime/UserInputMessage';
 import type { HarnessSandbox } from '../core/sandbox/Sandbox';
 import type { AgentTracing } from '../core/tracing/AgentTracing';
 import { builtinsFromSpec } from './builtinsFromSpec';
@@ -39,26 +34,6 @@ function resolvePreviousTurnId(requested: string | undefined, lastTurnId: string
     return lastTurnId ?? null;
   }
   return requested;
-}
-
-function toSendBatch(input: TurnInputItem[] | undefined): AgentThreadSendBatch {
-  if (!input || input.length === 0) {
-    return [];
-  }
-  if (input.every(msg => msg.type === EventType.USER_MESSAGE)) {
-    return input as AgentInputUserMessage[];
-  }
-  if (input.every(msg => msg.type === EventType.USER_TOOL_APPROVAL || msg.type === EventType.USER_TOOL_RESPONSE)) {
-    // Seed ids here (as on the POST /events path) so the runtime echo reuses them — decisions enter
-    // the runtime already in event form.
-    const createdAt = new Date().toISOString();
-    return (input as (UserToolApprovalMessage | UserToolResponseMessage)[]).map(msg => ({
-      ...msg,
-      id: newEventId(),
-      created_at: createdAt,
-    }));
-  }
-  throw new Error('input must be homogeneous: all user messages, or all approval/tool-response messages');
 }
 
 function toNewThreadInit(snapshot: AgentThreadSnapshot): NewThreadInit {
@@ -261,8 +236,8 @@ export class SessionHandle<
         logger: input.resolver.logger,
       });
 
-      const sendBatch = toSendBatch(input.input);
-      const new_context_appends = await collectContextAppends(orchestrator.applyInitialInput(sendBatch));
+      // createTurn accepts user messages only.
+      const new_context_appends = await collectContextAppends(orchestrator.applyInitialInput(input.input ?? []));
 
       const turnId = input.turn_id;
       const now = new Date();

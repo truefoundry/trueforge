@@ -87,8 +87,8 @@ import {
   assistantMessageContentToStringForSubAgent,
   estimateTokensForContextMessages,
   INTERNAL_SYSTEM_PROMPT,
-  isApprovalDecisionMessage,
-  isClientSideToolResponseMessage,
+  isApprovalDecisionEvent,
+  isClientSideToolResponseEvent,
   isInputUserMessage,
   isLLMContextMessage,
   isLLMToolMessage,
@@ -344,12 +344,12 @@ function validateInputMessageTypesGivenContext(
     if (m === undefined) {
       continue;
     }
-    if (isApprovalDecisionMessage(m)) {
+    if (isApprovalDecisionEvent(m)) {
       validateApprovalMessage(m, pendingApprovalIds, i);
       pendingApprovalIds.delete(m.tool_call_id);
     } else if (isInputUserMessage(m)) {
       validateUserMessage(m, blockingOpenToolCallIds, i);
-    } else if (isClientSideToolResponseMessage(m) || isLLMToolMessage(m)) {
+    } else if (isClientSideToolResponseEvent(m) || isLLMToolMessage(m)) {
       validateToolMessage(m, openToolCallIds, i);
       openToolCallIds.delete(m.tool_call_id);
       blockingOpenToolCallIds.delete(m.tool_call_id);
@@ -638,9 +638,9 @@ export class AgentThread {
     const contextMessages: (LLMUserMessage | LLMToolMessage)[] = [];
 
     for (const m of events) {
-      if (isApprovalDecisionMessage(m)) {
+      if (isApprovalDecisionEvent(m)) {
         approvals.push(m);
-      } else if (isClientSideToolResponseMessage(m)) {
+      } else if (isClientSideToolResponseEvent(m)) {
         clientSideToolResponses.push(m);
       } else if (isInputUserMessage(m)) {
         const result = await processAgentUserInput(m, this.sandbox);

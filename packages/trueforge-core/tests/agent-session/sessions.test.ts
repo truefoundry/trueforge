@@ -296,7 +296,7 @@ describe('Sessions / SessionHandle / TurnHandle (storage + createTurn)', () => {
     expect(sessionRecord?.last_turn_id).toBe(root2.id);
   });
 
-  it('send/validation failure in run() persists no turn', async () => {
+  it('resolution failure in createTurn() persists no turn', async () => {
     const store = new InMemorySessionStore();
     const sessions = new Sessions({ sessionStore: store });
     const session = await sessions.create({
@@ -310,19 +310,11 @@ describe('Sessions / SessionHandle / TurnHandle (storage + createTurn)', () => {
       session.createTurn({
         turn_id: mintTestTurnId(),
         active_executor_id: TEST_ACTIVE_EXECUTOR_ID,
-        // Mixed batch — rejected by SessionHandle.toSendBatch / orchestrator validation path.
-        input: [
-          { type: EventType.USER_MESSAGE, content: 'hi' },
-          {
-            type: EventType.USER_TOOL_APPROVAL,
-            thread_id: 'main',
-            tool_call_id: 'tc1',
-            approval: { status: 'allow' },
-          },
-        ],
+        input: [{ type: EventType.USER_MESSAGE, content: 'hi' }],
         previous_turn_id: 'none',
         signal: new AbortController().signal,
-        resolver: makeTestResolver(),
+        // Fails during resource resolution — the acquisition phase must persist no turn.
+        resolver: makeTestResolver({ failResolveWith: new Error('simulated resolution failure') }),
       }),
     ).rejects.toThrow();
     const turns = await store.listTurns({
@@ -352,19 +344,14 @@ describe('Sessions / SessionHandle / TurnHandle (storage + createTurn)', () => {
       session.createTurn({
         turn_id: mintTestTurnId(),
         active_executor_id: TEST_ACTIVE_EXECUTOR_ID,
-        // Mixed batch — rejected after sandbox/thread resolution.
-        input: [
-          { type: EventType.USER_MESSAGE, content: 'hi' },
-          {
-            type: EventType.USER_TOOL_APPROVAL,
-            thread_id: 'main',
-            tool_call_id: 'tc1',
-            approval: { status: 'allow' },
-          },
-        ],
+        input: [{ type: EventType.USER_MESSAGE, content: 'hi' }],
         previous_turn_id: 'none',
         signal: new AbortController().signal,
-        resolver: makeTestResolver({ close: closeOnFailure }),
+        // Fails during resource resolution, after the resolver is acquired.
+        resolver: makeTestResolver({
+          close: closeOnFailure,
+          failResolveWith: new Error('simulated resolution failure'),
+        }),
       }),
     ).rejects.toThrow();
     expect(closeOnFailure).toHaveBeenCalledTimes(1);

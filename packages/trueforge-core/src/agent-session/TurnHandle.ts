@@ -230,18 +230,10 @@ export class TurnHandle<TTurnCustom extends object = Record<string, never>> {
     return this.turn;
   }
 
-  /**
-   * Resume a live, paused turn with a mid-turn inbound event batch (approval decisions, tool
-   * responses, approval policies — any mix). The batch is forwarded untouched to the orchestrator,
-   * which routes each kind internally, then wakes the parked executor so {@link stream} emits the
-   * resulting events and the turn continues.
-   */
   send(events: TurnUserEvent[]): void {
     const orchestrator = this.requireLiveOrchestrator('send');
     for (const batch of orchestrator.send(events)) {
-      // TODO: persist `batch` here — under the per-turn transition lock — before resuming
-      // the generator to enqueue. Deferred for now; we drain the
-      // generator without a durable write so the in-memory flow can be exercised end to end.
+      // TODO: persist `batch` here before resuming the generator to enqueue.
       void batch;
     }
     orchestrator.notifyWake();
@@ -305,9 +297,6 @@ export class TurnHandle<TTurnCustom extends object = Record<string, never>> {
     } catch (error) {
       caughtError = error instanceof Error ? error : new Error(String(error));
     } finally {
-      // Sole terminal writer. A concurrent freeze (TurnNotRunningError) — whether it surfaced
-      // mid-drain (as caughtError) or on our own terminal write — makes the store's state
-      // authoritative, so we emit a turn.done built from that state instead of writing our own.
       let turnDone: TurnDoneEvent;
       try {
         turnDone =
@@ -346,12 +335,6 @@ export class TurnHandle<TTurnCustom extends object = Record<string, never>> {
     return turnCreated;
   }
 
-  /**
-   * Drain the executor, persisting each event (plus turn-state pause/resume transitions) and
-   * yielding anything the consumer should see; returns the terminal execution result. The
-   * executor parks internally while paused, so a paused turn simply blocks on `generator.next()`
-   * here until it is woken (new input) or the signal aborts.
-   */
   private async *executeAndPersist(
     orchestrator: AgentThreadOrchestrator,
     signal: AbortSignal,
@@ -449,11 +432,6 @@ export class TurnHandle<TTurnCustom extends object = Record<string, never>> {
     });
   }
 
-  /**
-   * Persist a non-terminal turn-state transition (paused ↔ running) emitted by the
-   * executor loop as it parks/resumes. Writes a `turn.update` event + the live state,
-   * updates the in-memory turn, and returns the event to stream to the consumer.
-   */
   private async persistTurnNonTerminal(
     transition: InternalTurnStateEvent['transition'],
   ): Promise<TurnUpdateEvent | null> {
@@ -483,10 +461,6 @@ export class TurnHandle<TTurnCustom extends object = Record<string, never>> {
     return turnUpdate;
   }
 
-  /**
-   * Persist side effects for one execution event; return a streaming yield when
-   * the event should be emitted to the consumer (null = side-effect only / skip).
-   */
   private async persistExecutionEvent(
     event: Exclude<AgentThreadExecutionEvent, InternalTurnStateEvent>,
   ): Promise<TurnStreamingEvent | TurnStreamingEvent[] | null> {
@@ -552,9 +526,7 @@ export class TurnHandle<TTurnCustom extends object = Record<string, never>> {
       }
 
       case InternalEventType.USER_EVENTS_COMMIT: {
-        // One applied batch of user events. Each write fires only if its array is non-empty. These
-        // run sequentially today; once a DB store lands they collapse into one transaction (and the
-        // consumed_event_ids drive a mark-consumed write against the durable inbound inbox).
+        // These run sequentially today; once a DB store lands they collapse into one transaction
         for (const append of event.context_appends) {
           await this.store.appendToThreadContext({
             ...scope,
@@ -576,8 +548,7 @@ export class TurnHandle<TTurnCustom extends object = Record<string, never>> {
         if (event.applied_user_events.length > 0) {
           await this.store.appendToEvents({ ...scope, events: event.applied_user_events });
         }
-        // TODO(durable-inbox): mark event.consumed_event_ids consumed once the DB store + inbound
-        // inbox land; today inbound events are not persisted at send, so there is nothing to mark.
+        // TODO(durable-inbox): mark event.consumed_event_ids consumed.
         return event.applied_user_events;
       }
 
