@@ -1419,9 +1419,7 @@ export class AgentThread {
         return;
       }
 
-      // Drain + apply any queued user events first (§3.2). This runs preSend when there is work,
-      // so the block below is skipped in that case. When the queue is empty it is a no-op and the
-      // block below runs preSend for a fresh/resumed-without-new-events execute.
+      // Drain + apply any queued user events first.
       yield* this.applyUserEvents(this.pendingUserEvents.splice(0));
 
       if (!this.preSendRanThisTurn) {

@@ -964,8 +964,6 @@ export function createTurnsRouter(deps: TurnsRouterDeps) {
       return c.json({ error: { message: `Turn is not running on this server: ${turnId}` } }, 409);
     }
 
-    // Seed ids once, here at the send boundary: the same id-bearing events are forwarded to the
-    // executor (so its stream echo reuses the id) and returned in this response.
     const createdAt = new Date().toISOString();
     const events: TurnUserEvent[] = body.events.map(payload => ({
       ...payload,
