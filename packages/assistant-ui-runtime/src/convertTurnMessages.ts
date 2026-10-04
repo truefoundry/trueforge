@@ -467,10 +467,18 @@ function attachRunningTurn(snapshot: SessionSnapshot, runningTurn: Turn | undefi
     return snapshot;
   }
   const pendingUserText = extractTurnUserText(runningTurn.input);
+  // Tip is not in `turns` yet. A new user tip must baseline every prior root
+  // model.message (same as live send) — otherwise computeGroupRootBaseline
+  // treats the last completed user turn as the active group and that turn's
+  // content leaks into resume after refresh.
+  const groupRootBaseline =
+    pendingUserText !== undefined
+      ? [...(snapshot.fold.threads.get(ROOT_THREAD_ID)?.modelMessageIds ?? [])]
+      : computeGroupRootBaseline(snapshot.turns);
   return replaceSessionSnapshot(snapshot, {
     runningTurn,
     unstable_resume: true,
-    groupRootBaseline: computeGroupRootBaseline(snapshot.turns),
+    groupRootBaseline,
     ...(pendingUserText !== undefined
       ? {
           pendingUser: {
