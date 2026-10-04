@@ -13,6 +13,7 @@ import {
   type UserToolApprovalPolicyEvent,
   type UserToolResponseEvent,
 } from '../events/schema';
+import type { LLMToolMessage } from '../llm/LLMTypes';
 import type { IToolSet } from '../mcp/IMCPServer';
 import type { AgentExecutionTrace, AgentTracing } from '../tracing/AgentTracing';
 import { onSignalAbort } from '../util/abort';
@@ -25,7 +26,6 @@ import {
   type AgentThreadEvent,
   type AgentThreadExecutionEvent,
   type AgentThreadExecutionResult,
-  type AgentThreadSendBatch,
   type ApplyUserEventsOutput,
   type InternalMCPAuthRequiredEvent,
   type UserEventsCommitEvent,
@@ -33,32 +33,16 @@ import {
 import {
   assistantMessageContentToStringForSubAgent,
   getThreadId,
-  isApprovalDecisionEvent,
-  isClientSideToolResponseEvent,
+  isInternalThreadDoneCancelled,
   isInternalThreadDoneError,
 } from './contextUtils';
 import type { CreateDynamicSubAgentThread } from './CreateDynamicSubAgentThread';
 import { addAgentThreadMetrics, createEmptyAgentThreadMetrics, type AgentThreadMetrics } from './metrics';
 
 const MAX_PARALLEL_SUB_AGENTS = 5;
+const CANCELED_BECAUSE_USER_SENT_NEW_MESSAGE = 'Canceled because user sent a new message.';
 
 type UserToolApprovalOrResponseBatch = (UserToolApprovalEvent | UserToolResponseEvent)[];
-
-function isUserToolApprovalOrResponseBatch(
-  messages: AgentThreadSendBatch,
-): messages is UserToolApprovalOrResponseBatch {
-  const first = messages[0];
-  return first !== undefined && (isApprovalDecisionEvent(first) || isClientSideToolResponseEvent(first));
-}
-
-function getMainThreadId(agentThreads: Map<string, AgentThread>): string {
-  for (const thread of agentThreads.values()) {
-    if (!thread.parent) {
-      return thread.threadId;
-    }
-  }
-  throw new Error('Unreachable: no root thread found');
-}
 
 function getActiveAgentThreads(agentThreads: Map<string, AgentThread>): AgentThread[] {
   const nodes = new Set(agentThreads.keys());
@@ -128,6 +112,8 @@ function createRootAgentSpan(mainThread: AgentThread, tracing: AgentTracing): Ro
         if (isInternalThreadDoneError(chunk)) {
           rootAgentErrorMessage = chunk.error;
           trace.setOutput(JSON.stringify({ error: chunk.error }));
+        } else if (isInternalThreadDoneCancelled(chunk)) {
+          trace.setOutput(JSON.stringify({ cancelled: chunk.reason }));
         } else {
           const content = assistantMessageContentToStringForSubAgent(chunk.output.content);
           trace.setOutput(JSON.stringify({ result: content }));
@@ -166,7 +152,11 @@ export async function* wrapWithSubAgentSpan(
   try {
     for await (const event of generator) {
       if (event.type === InternalEventType.AGENT_DONE) {
-        if (isInternalThreadDoneError(event)) {
+        if (isInternalThreadDoneCancelled(event)) {
+          subTrace.setOutput(JSON.stringify({ cancelled: event.reason }));
+          subTrace.setMetrics(currentThread.getAgentThreadMetrics());
+          subTrace.setError(event.reason);
+        } else if (isInternalThreadDoneError(event)) {
           subTrace.setOutput(JSON.stringify({ error: event.error }));
           subTrace.setMetrics(currentThread.getAgentThreadMetrics());
           subTrace.setError(event.error);
@@ -235,6 +225,19 @@ export class AgentThreadOrchestrator {
       addAgentThreadMetrics(total, thread.getAgentThreadMetrics());
     }
     return total;
+  }
+
+  private getMainThread(): AgentThread {
+    for (const thread of this.agentThreads.values()) {
+      if (!thread.parent) {
+        return thread;
+      }
+    }
+    throw new Error('Unreachable: no root thread found');
+  }
+
+  private getChildThreads(): AgentThread[] {
+    return [...this.agentThreads.values()].filter(thread => thread.parent !== undefined);
   }
 
   // Pure: every `server_name` must match a currently-configured user MCP tool set. Returns one
@@ -356,34 +359,25 @@ export class AgentThreadOrchestrator {
     return undefined;
   }
 
-  // Route a public send batch to the owning thread(s) and validate each per-thread batch against
-  // its committed context. Only threads that actually receive input are returned.
+  // Route decision events to their owning threads and validate each per-thread batch against its
+  // committed context. Only threads that actually receive input are returned.
   // Pure + synchronous: throws on unknown thread or an invalid batch before anything is enqueued
   // or applied.
-  private routeSendBatch(messages: AgentThreadSendBatch): Map<string, AgentThreadRuntimeSendBatch> {
+  private routeDecisionEvents(messages: UserToolApprovalOrResponseBatch): Map<string, AgentThreadRuntimeSendBatch> {
     const byThread = new Map<string, AgentThreadRuntimeSendBatch>();
 
-    if (isUserToolApprovalOrResponseBatch(messages)) {
-      const grouped = new Map<string, UserToolApprovalOrResponseBatch[number][]>();
-      for (const msg of messages) {
-        const threadId = msg.thread_id;
-        if (!this.agentThreads.has(threadId)) {
-          throw new InvalidAgentSendInputError(`unknown thread_id: ${threadId}`);
-        }
-        const batch = grouped.get(threadId) ?? [];
-        batch.push(msg);
-        grouped.set(threadId, batch);
+    const grouped = new Map<string, UserToolApprovalOrResponseBatch[number][]>();
+    for (const msg of messages) {
+      const threadId = msg.thread_id;
+      if (!this.agentThreads.has(threadId)) {
+        throw new InvalidAgentSendInputError(`unknown thread_id: ${threadId}`);
       }
-      for (const [threadId, batch] of grouped) {
-        byThread.set(threadId, batch);
-      }
-    } else if (messages.length > 0) {
-      if (this.agentThreads.size > 1) {
-        throw new InvalidAgentSendInputError(
-          'Cannot process user messages while sub agents are running, please send empty input for previous conversation to complete',
-        );
-      }
-      byThread.set(getMainThreadId(this.agentThreads), messages);
+      const batch = grouped.get(threadId) ?? [];
+      batch.push(msg);
+      grouped.set(threadId, batch);
+    }
+    for (const [threadId, batch] of grouped) {
+      byThread.set(threadId, batch);
     }
 
     const validationErrors: string[] = [];
@@ -426,9 +420,10 @@ export class AgentThreadOrchestrator {
       }
     }
 
-    // All-or-nothing validation up front: routeSendBatch is pure (no enqueue), validateApprovalPolicies
-    // is pure (no apply). If either rejects, nothing below runs so nothing is partially accepted.
-    const byThread = this.routeSendBatch(decisions);
+    // All-or-nothing validation up front: routeDecisionEvents is pure (no enqueue),
+    // validateApprovalPolicies is pure (no apply). If either rejects, nothing below runs so nothing
+    // is partially accepted.
+    const byThread = this.routeDecisionEvents(decisions);
     const policyErrors = this.validateApprovalPolicies(policyEvents.flatMap(event => event.policies));
     if (policyErrors.length > 0) {
       throw new InvalidAgentSendInputError(`invalid approval policies: ${policyErrors.join('; ')}`);
@@ -446,24 +441,38 @@ export class AgentThreadOrchestrator {
     }
   }
 
-  // Route + apply createTurn's initial input to context immediately, yielding context-append events
-  // (§8, atomic pre-send). createTurn input is user-messages-only — approval/tool-response resumes go
-  // through the turn events handler, never here — so this never produces a UserEventsCommitEvent. The
-  // param type enforces this; the runtime guard below is defensive against future regressions.
+  // Apply createTurn's user-message input immediately (§8, atomic pre-send). A new turn may be
+  // created while the previous turn is running or paused: cancel live children, close their open
+  // parent calls, then append the new user input to the main thread. Approval/tool-response resumes
+  // use send() through the turn-events endpoint instead.
   public async *applyInitialInput(
     messages: AgentInputUserMessage[],
   ): AsyncGenerator<AgentThreadAppendContext, void, unknown> {
-    const byThread = this.routeSendBatch(messages);
-    for (const [threadId, batch] of byThread) {
-      for await (const event of this.sendToThread(threadId, batch)) {
-        if (event.type !== InternalEventType.AGENT_CONTEXT_APPEND) {
-          throw new Error(
-            `applyInitialInput: createTurn input must be user messages only; received ${event.type}. ` +
-              'Approval/tool-response resumes must go through the turn events handler.',
-          );
-        }
+    if (messages.length === 0) {
+      return;
+    }
+
+    const mainThread = this.getMainThread();
+    const toolIdToClosureMessages = new Map<string, LLMToolMessage>();
+    for (const thread of this.getChildThreads()) {
+      for (const event of thread.cancel(CANCELED_BECAUSE_USER_SENT_NEW_MESSAGE)) {
         yield event;
+        if (event.completion) {
+          const toolMessage = event.completion.send_to_parent;
+          toolIdToClosureMessages.set(toolMessage.tool_call_id, toolMessage);
+        }
       }
+    }
+    yield* mainThread.closeAllOpenToolCalls({
+      toolIdToClosureMessages,
+      defaultToolClosureContent: CANCELED_BECAUSE_USER_SENT_NEW_MESSAGE,
+    });
+
+    for await (const event of this.sendToThread(mainThread.threadId, messages)) {
+      if (event.type !== InternalEventType.AGENT_CONTEXT_APPEND) {
+        throw new Error(`applyInitialInput: unexpected ${event.type}`);
+      }
+      yield event;
     }
   }
 
@@ -510,9 +519,6 @@ export class AgentThreadOrchestrator {
         return;
       case InternalEventType.AGENT_DONE: {
         if (chunk.parent) {
-          if (!chunk.send_to_parent) {
-            throw new Error('unreachable');
-          }
           const parentThread = this.agentThreads.get(chunk.parent.thread_id);
           if (!parentThread) {
             throw new Error('unreachable: parent thread missing');
@@ -592,10 +598,7 @@ export class AgentThreadOrchestrator {
     // so track it explicitly to keep them out of `runnable` until a resolving event arrives.
     const authBlocked = new Set<string>();
 
-    const mainThread = [...agentThreads.values()].find(e => !e.parent);
-    if (!mainThread) {
-      throw new Error('Unreachable: no root thread found');
-    }
+    const mainThread = this.getMainThread();
     const rootSpan = createRootAgentSpan(mainThread, this.tracing);
 
     // Abort unparks the loop; it then observes signal.aborted and returns.

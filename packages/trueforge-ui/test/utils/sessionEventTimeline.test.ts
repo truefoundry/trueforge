@@ -191,6 +191,144 @@ describe('buildSessionTimelineSegments', () => {
     assert.equal(groups[0]?.segments.length, 2);
   });
 
+  it('excludes sub-agent thread tool calls from strip Tool calls', () => {
+    const turns = buildSessionTurnViews([
+      created({ turnId: 't1', createdAt: '2026-01-01T00:00:00.000Z' }),
+      {
+        turnId: 't1',
+        event: {
+          type: 'model.message',
+          id: 'model-main',
+          threadId: 'main',
+          content: 'root',
+          createdAt: '2026-01-01T00:00:01.000Z',
+          toolCalls: [
+            { id: 'call-main', type: 'function', function: { name: 'search', arguments: '{}' } },
+            { id: 'call-sub', type: 'function', function: { name: 'create_sub_agent', arguments: '{}' } },
+          ],
+        },
+      },
+      {
+        turnId: 't1',
+        event: {
+          type: 'thread.created',
+          id: 'thread-1',
+          threadId: 'child',
+          title: 'Researcher',
+          createdAt: '2026-01-01T00:00:01.100Z',
+          agentInfo: { type: 'dynamic', name: 'researcher', input: 'research' },
+          parent: { threadId: 'main', toolCallId: 'call-sub' },
+        },
+      },
+      {
+        turnId: 't1',
+        event: {
+          type: 'model.message',
+          id: 'model-child',
+          threadId: 'child',
+          content: 'child work',
+          createdAt: '2026-01-01T00:00:02.000Z',
+          toolCalls: [
+            { id: 'call-child-a', type: 'function', function: { name: 'child_search', arguments: '{}' } },
+            { id: 'call-child-b', type: 'function', function: { name: 'child_fetch', arguments: '{}' } },
+          ],
+        },
+      },
+      {
+        turnId: 't1',
+        event: {
+          type: 'tool.response',
+          id: 'resp-main',
+          threadId: 'main',
+          toolCallId: 'call-main',
+          content: 'ok',
+          createdAt: '2026-01-01T00:00:03.000Z',
+        },
+      },
+      {
+        turnId: 't1',
+        event: {
+          type: 'tool.response',
+          id: 'resp-child-a',
+          threadId: 'child',
+          toolCallId: 'call-child-a',
+          content: 'a',
+          createdAt: '2026-01-01T00:00:03.500Z',
+        },
+      },
+      {
+        turnId: 't1',
+        event: {
+          type: 'tool.response',
+          id: 'resp-child-b',
+          threadId: 'child',
+          toolCallId: 'call-child-b',
+          content: 'b',
+          createdAt: '2026-01-01T00:00:04.000Z',
+        },
+      },
+      {
+        turnId: 't1',
+        event: {
+          type: 'thread.done',
+          id: 'thread-done',
+          threadId: 'child',
+          title: 'Researcher',
+          createdAt: '2026-01-01T00:00:04.500Z',
+          state: { status: 'completed' },
+        },
+      },
+      done({ turnId: 't1', createdAt: '2026-01-01T00:00:05.000Z' }),
+    ]);
+
+    const segments = buildSessionTimelineSegments(turns);
+    assert.equal(segments.filter(segment => segment.type === 'tool_call').length, 3);
+    assert.equal(buildSessionMetrics({ turns, segments }).toolCalls, 1);
+    assert.equal(buildSessionMetrics({ turns, segments }).subAgents, 1);
+  });
+
+  it('counts pending ask-user tool calls waiting on tool.response_required', () => {
+    const turns = buildSessionTurnViews([
+      created({ turnId: 't1', createdAt: '2026-01-01T00:00:00.000Z' }),
+      {
+        turnId: 't1',
+        event: {
+          type: 'model.message',
+          id: 'model-1',
+          threadId: 'main',
+          content: '',
+          createdAt: '2026-01-01T00:00:01.000Z',
+          toolCalls: [
+            {
+              id: 'call-ask',
+              type: 'function',
+              function: { name: 'ask_user_question', arguments: '{"question":"clarify?"}' },
+            },
+          ],
+        },
+      },
+      {
+        turnId: 't1',
+        event: {
+          type: 'tool.response_required',
+          id: 'required-1',
+          threadId: 'main',
+          createdAt: '2026-01-01T00:00:01.100Z',
+          toolCalls: [{ id: 'call-ask', sourceEventId: 'model-1' }],
+        },
+      },
+      done({ turnId: 't1', createdAt: '2026-01-01T00:00:01.200Z' }),
+    ]);
+
+    const segments = buildSessionTimelineSegments(turns);
+    const toolCalls = segments.filter(segment => segment.type === 'tool_call');
+    assert.equal(toolCalls.length, 1);
+    assert.equal(toolCalls[0]?.description, 'ask_user_question');
+    assert.equal(toolCalls[0]?.startMs, 1_000);
+    assert.equal(toolCalls[0]?.endMs, 1_100);
+    assert.equal(buildSessionMetrics({ turns, segments }).toolCalls, 1);
+  });
+
   it('labels deferred MCP meta-tool bars with the underlying tool name', () => {
     const turns = buildSessionTurnViews([
       created({ turnId: 't1', createdAt: '2026-01-01T00:00:00.000Z' }),
@@ -438,6 +576,22 @@ describe('sessionEventTimelineChart helpers', () => {
     );
   });
 
+  it('groups near-coincident markers within tolerance into one tooltip target', () => {
+    assert.deepEqual(
+      groupCoincidentTimelineMarkers(
+        [marker('auth', 'waiting_on_human', 10), marker('done', 'system', 14), marker('later', 'user', 40)],
+        { toleranceMs: 5 },
+      ).map(group => ({
+        startMs: group.startMs,
+        ids: group.segments.map(segment => segment.id),
+      })),
+      [
+        { startMs: 10, ids: ['auth', 'done'] },
+        { startMs: 40, ids: ['later'] },
+      ],
+    );
+  });
+
   it('maps clean active-time ticks around fixed turn separators', () => {
     const gaps = [{ startMs: 42_000, endMs: 43_000 }];
     const ticks = buildTimelineAxisTicks({
@@ -584,7 +738,7 @@ describe('buildSessionMetrics', () => {
     assert.equal(metrics.totalCostUsd, undefined);
   });
 
-  it('uses sessionMetrics exclusively for turns, duration, and cost', () => {
+  it('uses sessionMetrics for duration and cost; turn count always from events', () => {
     const turns = buildSessionTurnViews([
       created({ turnId: 't1', createdAt: '2026-01-01T00:00:00.000Z' }),
       {
@@ -615,11 +769,171 @@ describe('buildSessionMetrics', () => {
     const metrics = buildSessionMetrics({
       turns,
       segments: buildSessionTimelineSegments(turns),
-      sessionMetrics: { totalTurns: 3, totalDurationMs: 81_715, totalCostInUsd: 0.3106 },
+      sessionMetrics: { totalDurationMs: 81_715, totalCostInUsd: 0.3106 },
     });
-    assert.equal(metrics.totalTurns, 3);
+    assert.equal(metrics.totalTurns, 1);
     assert.equal(metrics.wallTimeMs, 81_715);
     assert.equal(metrics.totalCostUsd, 0.3106);
     assert.equal(metrics.totalTokens, 80);
+  });
+
+  it('counts turns and tool calls from non-renderable resume turns', () => {
+    const turns = buildSessionTurnViews([
+      created({
+        turnId: 'auth',
+        createdAt: '2026-01-01T00:00:00.000Z',
+      }),
+      {
+        turnId: 'auth',
+        event: {
+          type: 'model.message',
+          id: 'auth-model',
+          threadId: 'main',
+          createdAt: '2026-01-01T00:00:01.000Z',
+          content: '',
+          toolCalls: [{ id: 'call-auth', type: 'function', function: { name: 'list_tools', arguments: '{}' } }],
+        },
+      },
+      {
+        turnId: 'auth',
+        event: {
+          type: 'tool.response',
+          id: 'auth-resp',
+          threadId: 'main',
+          createdAt: '2026-01-01T00:00:01.500Z',
+          toolCallId: 'call-auth',
+          content: 'ok',
+        },
+      },
+      {
+        turnId: 'auth',
+        event: {
+          type: 'turn.done',
+          id: 'auth-done',
+          state: {
+            status: 'done',
+            completedAt: '2026-01-01T00:00:02.000Z',
+            output: null,
+            requiredActions: [],
+            metrics: {
+              totalTokens: 100,
+              totalCostInUsd: 0.01,
+              totalInputTokens: 80,
+              totalOutputTokens: 20,
+              totalCacheReadTokens: 0,
+              totalCacheWriteTokens: 0,
+              totalReasoningTokens: 0,
+            },
+          },
+          createdAt: '2026-01-01T00:00:02.000Z',
+          threadId: null,
+        },
+      },
+      {
+        turnId: 'resume',
+        event: {
+          type: 'turn.created',
+          id: 'resume-created',
+          turnId: 'resume',
+          previousTurnId: 'auth',
+          state: { status: 'running' },
+          createdAt: '2026-01-01T00:00:03.000Z',
+          threadId: null,
+        },
+      },
+      {
+        turnId: 'resume',
+        event: {
+          type: 'model.message',
+          id: 'resume-model',
+          threadId: 'main',
+          createdAt: '2026-01-01T00:00:04.000Z',
+          content: '',
+          toolCalls: [
+            { id: 'call-a', type: 'function', function: { name: 'exec', arguments: '{}' } },
+            { id: 'call-b', type: 'function', function: { name: 'call_tool', arguments: '{}' } },
+          ],
+        },
+      },
+      {
+        turnId: 'resume',
+        event: {
+          type: 'tool.response',
+          id: 'resume-resp-a',
+          threadId: 'main',
+          createdAt: '2026-01-01T00:00:05.000Z',
+          toolCallId: 'call-a',
+          content: 'a',
+        },
+      },
+      {
+        turnId: 'resume',
+        event: {
+          type: 'tool.response',
+          id: 'resume-resp-b',
+          threadId: 'main',
+          createdAt: '2026-01-01T00:00:05.500Z',
+          toolCallId: 'call-b',
+          content: 'b',
+        },
+      },
+      {
+        turnId: 'resume',
+        event: {
+          type: 'turn.done',
+          id: 'resume-done',
+          state: {
+            status: 'done',
+            completedAt: '2026-01-01T00:00:06.000Z',
+            output: null,
+            requiredActions: [],
+            metrics: {
+              totalTokens: 900,
+              totalCostInUsd: 0.09,
+              totalInputTokens: 700,
+              totalOutputTokens: 200,
+              totalCacheReadTokens: 0,
+              totalCacheWriteTokens: 0,
+              totalReasoningTokens: 0,
+            },
+          },
+          createdAt: '2026-01-01T00:00:06.000Z',
+          threadId: null,
+        },
+      },
+    ]);
+
+    assert.equal(turns.length, 2);
+    assert.equal(turns[0]?.renderable, true);
+    assert.equal(turns[1]?.renderable, false);
+
+    const segments = buildSessionTimelineSegments(turns);
+    assert.equal(
+      segments.filter(segment => segment.type === 'user').length,
+      1,
+      'non-renderable resume turns must not emit phantom user markers',
+    );
+    assert.equal(segments.filter(segment => segment.type === 'user')[0]?.turnIndex, 0);
+    assert.ok(
+      segments.every(segment => segment.turnIndex === 0),
+      'resume-turn activity stays on the same timeline band as the user turn',
+    );
+    assert.deepEqual(
+      segments.filter(segment => segment.title === 'turn.done').map(segment => segment.id),
+      ['resume-turn.done'],
+      'auth turn.done is omitted so it does not cover the resume model/tool bars',
+    );
+    // Auth's last bar ends at +1.5s; resume wall-clock starts later — compression removes the idle.
+    const resumeModel = segments.find(segment => segment.id === 'resume-model');
+    assert.equal(resumeModel?.startMs, 1_500);
+    const metrics = buildSessionMetrics({ turns, segments });
+    assert.equal(metrics.totalTurns, 2);
+    assert.equal(metrics.toolCalls, 3);
+    assert.equal(metrics.totalTokens, 1000);
+    assert.deepEqual(
+      metrics.costPerTurn.map(row => row.label),
+      ['T1'],
+    );
+    assert.ok(Math.abs((metrics.costPerTurn[0]?.value ?? 0) - 0.1) < 1e-9);
   });
 });

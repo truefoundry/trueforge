@@ -126,6 +126,7 @@ describe('buildSessionTurnViews', () => {
         ({
           turnId,
           turnNumber,
+          renderable,
           showHeader,
           durationMs,
           totalTokens,
@@ -136,6 +137,7 @@ describe('buildSessionTurnViews', () => {
         }) => ({
           turnId,
           turnNumber,
+          renderable,
           showHeader,
           durationMs,
           totalTokens,
@@ -149,6 +151,7 @@ describe('buildSessionTurnViews', () => {
         {
           turnId: 'turn-1',
           turnNumber: 1,
+          renderable: true,
           showHeader: true,
           durationMs: 60_000,
           totalTokens: 122_000,
@@ -161,6 +164,7 @@ describe('buildSessionTurnViews', () => {
         {
           turnId: 'turn-2',
           turnNumber: 2,
+          renderable: true,
           showHeader: true,
           durationMs: 60_000,
           totalTokens: 122_000,
@@ -268,19 +272,58 @@ describe('buildSessionTurnViews', () => {
     );
   });
 
-  it('skips turns that have no renderable user input', () => {
+  it('keeps turns without renderable user input marked non-renderable', () => {
+    const views = buildSessionTurnViews([
+      createdItem({ turnId: 'hidden', createdAt: '2026-01-01T00:00:00.000Z' }),
+      createdItem({
+        turnId: 'shown',
+        createdAt: '2026-01-01T00:00:01.000Z',
+        input: [{ type: 'user.tool_approval', threadId: 'main', toolCallId: 'call-1', approval: { status: 'allow' } }],
+      }),
+    ]);
+
     assert.deepEqual(
-      buildSessionTurnViews([
-        createdItem({ turnId: 'hidden', createdAt: '2026-01-01T00:00:00.000Z' }),
-        createdItem({
-          turnId: 'shown',
-          createdAt: '2026-01-01T00:00:01.000Z',
-          input: [
-            { type: 'user.tool_approval', threadId: 'main', toolCallId: 'call-1', approval: { status: 'allow' } },
-          ],
-        }),
-      ]).map(view => view.turnId),
-      ['shown'],
+      views.map(view => ({
+        turnId: view.turnId,
+        turnNumber: view.turnNumber,
+        renderable: view.renderable,
+        showHeader: view.showHeader,
+      })),
+      [
+        // Empty-input resume before any user turn still lands in band 1.
+        { turnId: 'hidden', turnNumber: 1, renderable: false, showHeader: false },
+        { turnId: 'shown', turnNumber: 1, renderable: true, showHeader: true },
+      ],
+    );
+  });
+
+  it('folds MCP-auth resume turns into the prior renderable turn number', () => {
+    const views = buildSessionTurnViews([
+      createdItem({
+        turnId: 'user',
+        createdAt: '2026-01-01T00:00:00.000Z',
+        input: [{ type: 'user.message', content: 'hello' }],
+      }),
+      createdItem({ turnId: 'resume', createdAt: '2026-01-01T00:00:05.000Z' }),
+      createdItem({
+        turnId: 'next',
+        createdAt: '2026-01-01T00:00:10.000Z',
+        input: [{ type: 'user.message', content: 'again' }],
+      }),
+    ]);
+
+    assert.deepEqual(
+      views.map(view => ({
+        turnId: view.turnId,
+        eventTurnNumber: view.eventTurnNumber,
+        turnNumber: view.turnNumber,
+        renderable: view.renderable,
+      })),
+      [
+        { turnId: 'user', eventTurnNumber: 1, turnNumber: 1, renderable: true },
+        { turnId: 'resume', eventTurnNumber: 2, turnNumber: 1, renderable: false },
+        { turnId: 'next', eventTurnNumber: 3, turnNumber: 2, renderable: true },
+      ],
     );
   });
 });

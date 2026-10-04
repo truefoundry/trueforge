@@ -6,6 +6,7 @@ import {
   type AgentThreadExecutionEvent,
   type AgentThreadExecutionResult,
 } from '../../../src/core/runtime/AgentThread.types';
+import type { AgentThreadOrchestrator } from '../../../src/core/runtime/AgentThreadOrchestrator';
 
 export const WRITE_NOTE_TOOL_NAME = 'write_note';
 export const WRITE_NOTE_CALL_ID = 'call-write';
@@ -158,6 +159,23 @@ export async function driveUntilPauseOrDone(
     step = await iterator.next();
   }
   return { kind: 'done', events, result: step.value };
+}
+
+/** Consume execute(); return raw events and the generator result. */
+export async function runExecute(input: {
+  orchestrator: AgentThreadOrchestrator;
+  signal?: AbortSignal | undefined;
+}): Promise<{ events: AgentThreadExecutionEvent[]; result: AgentThreadExecutionResult }> {
+  const events: AgentThreadExecutionEvent[] = [];
+  const iterator = input.orchestrator.execute({
+    signal: input.signal ?? new AbortController().signal,
+  });
+  let step = await iterator.next();
+  while (!step.done) {
+    events.push(step.value);
+    step = await iterator.next();
+  }
+  return { events, result: step.value };
 }
 
 export function llmCreateInputs(llm: ILLM): unknown[] {

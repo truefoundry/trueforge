@@ -33,7 +33,7 @@ export class ActiveTurnRegistry {
     turnId: string;
     abortController: AbortController;
     stream: AsyncIterable<T>;
-    turn: TurnHandle | undefined;
+    turn?: TurnHandle | undefined;
   }): AsyncGenerator<T> {
     const key = activeTurnKey(input.sessionId, input.turnId);
     const { promise: waitUntilCompleted, resolve } = Promise.withResolvers<undefined>();
