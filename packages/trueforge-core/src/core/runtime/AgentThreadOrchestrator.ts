@@ -7,10 +7,10 @@ import {
   type ModelMessageEvent,
   type ToolApprovalPolicyItem,
   type ToolResponseEvent,
-  type TurnUserEventMessage,
-  type UserToolApprovalMessage,
+  type TurnUserEvent,
+  type UserToolApprovalEvent,
   type UserToolApprovalPolicyEvent,
-  type UserToolResponseMessage,
+  type UserToolResponseEvent,
 } from '../events/schema';
 import type { IToolSet } from '../mcp/IMCPServer';
 import type { AgentExecutionTrace, AgentTracing } from '../tracing/AgentTracing';
@@ -20,6 +20,7 @@ import { AgentThread } from './AgentThread';
 import type { AgentThreadRuntimeSendBatch } from './AgentThread.types';
 import {
   InternalEventType,
+  type AgentThreadAppendContext,
   type AgentThreadEvent,
   type AgentThreadExecutionEvent,
   type AgentThreadExecutionResult,
@@ -40,7 +41,7 @@ import { addAgentThreadMetrics, createEmptyAgentThreadMetrics, type AgentThreadM
 
 const MAX_PARALLEL_SUB_AGENTS = 5;
 
-type UserToolApprovalOrResponseBatch = (UserToolApprovalMessage | UserToolResponseMessage)[];
+type UserToolApprovalOrResponseBatch = (UserToolApprovalEvent | UserToolResponseEvent)[];
 
 function isUserToolApprovalOrResponseBatch(
   messages: AgentThreadSendBatch,
@@ -406,15 +407,13 @@ export class AgentThreadOrchestrator {
     return byThread;
   }
 
-  public *send(events: TurnUserEventMessage[]): Generator<AgentThreadRuntimeSendBatch, void, unknown> {
+  public *send(events: TurnUserEvent[]): Generator<AgentThreadRuntimeSendBatch, void, unknown> {
     const policyEvents: UserToolApprovalPolicyEvent[] = [];
     const decisions: UserToolApprovalOrResponseBatch = [];
     for (const event of events) {
       switch (event.type) {
         case EventType.USER_TOOL_APPROVAL_POLICY:
-          // Upgrade to the event form here: the id stamped now is what the applied-policy echo
-          // carries on the stream, so (once inbound persistence lands) it keys consumption tracking.
-          policyEvents.push({ ...event, id: newEventId(), created_at: new Date().toISOString() });
+          policyEvents.push(event);
           break;
         case EventType.USER_MCP_AUTH_CONTINUE:
           // Run-level OAuth resume (no thread_id); not yet wired into the in-memory executor. Fail
@@ -446,12 +445,24 @@ export class AgentThreadOrchestrator {
     }
   }
 
-  // Route + apply user events to context immediately, yielding context-append events (§8). Used by
-  // createTurn for the initial input (atomic pre-send) and by sendToThread for child→parent delivery.
-  public async *applyUserEvents(messages: AgentThreadSendBatch): AsyncGenerator<ApplyUserEventsOutput, void, unknown> {
+  // Route + apply createTurn's initial input to context immediately, yielding context-append events
+  // (§8, atomic pre-send). createTurn input is user-messages-only — approval/tool-response resumes go
+  // through the turn events handler, never here — so this never produces a UserEventsCommitEvent. We
+  // enforce that invariant rather than silently dropping a commit.
+  public async *applyInitialInput(
+    messages: AgentThreadSendBatch,
+  ): AsyncGenerator<AgentThreadAppendContext, void, unknown> {
     const byThread = this.routeSendBatch(messages);
     for (const [threadId, batch] of byThread) {
-      yield* this.sendToThread(threadId, batch);
+      for await (const event of this.sendToThread(threadId, batch)) {
+        if (event.type !== InternalEventType.AGENT_CONTEXT_APPEND) {
+          throw new Error(
+            `applyInitialInput: createTurn input must be user messages only; received ${event.type}. ` +
+              'Approval/tool-response resumes must go through the turn events handler.',
+          );
+        }
+        yield event;
+      }
     }
   }
 

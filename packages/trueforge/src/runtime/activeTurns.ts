@@ -7,12 +7,11 @@
 import { CancellationReason, type TurnHandle } from '@truefoundry/trueforge-core/agent-session';
 
 interface ActiveTurnRun {
+  // Absent for runs that cannot be resumed.
+  turn: TurnHandle | undefined;
   abortController: AbortController;
   waitUntilCompleted: Promise<void>;
   markCompleted: () => void;
-  // Live handle for resuming a paused turn via POST /events (TurnHandle.send). Absent for runs that
-  // cannot be resumed.
-  turn: TurnHandle | undefined;
 }
 
 function activeTurnKey(sessionId: string, turnId: string): string {
@@ -34,8 +33,7 @@ export class ActiveTurnRegistry {
     turnId: string;
     abortController: AbortController;
     stream: AsyncIterable<T>;
-    /** Live handle for resuming via POST /events; omit for runs that cannot be resumed. */
-    turn?: TurnHandle;
+    turn: TurnHandle | undefined;
   }): AsyncGenerator<T> {
     const key = activeTurnKey(input.sessionId, input.turnId);
     const { promise: waitUntilCompleted, resolve } = Promise.withResolvers<undefined>();

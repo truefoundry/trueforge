@@ -9,6 +9,7 @@ import { EventType } from '../../src/agent-session/schemas/events';
 import { Sessions } from '../../src/agent-session/Sessions';
 import { InMemorySessionStore } from '../../src/agent-session/store/InMemorySessionStore';
 import type { AgentCapability } from '../../src/core/capabilities/AgentCapability';
+import { newEventId } from '../../src/core/events/schema';
 import type { IToolSet, ToolSource } from '../../src/core/mcp/IMCPServer';
 import { toolResultResponse } from '../../src/core/mcp/IMCPServer';
 import { ToolSet } from '../../src/core/mcp/ToolSet';
@@ -124,6 +125,8 @@ describe('TurnHandle.send() full-approval resume (agent-session e2e)', () => {
         turn.send([
           {
             type: EventType.USER_TOOL_APPROVAL,
+            id: newEventId(),
+            created_at: new Date().toISOString(),
             thread_id: MAIN_THREAD_ID,
             tool_call_id: WRITE_NOTE_CALL_ID,
             approval: { status: 'allow' },

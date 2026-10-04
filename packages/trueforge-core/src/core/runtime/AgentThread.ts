@@ -633,8 +633,8 @@ export class AgentThread {
       this.preSendRanThisTurn = true;
     }
 
-    const approvals: UserToolApprovalMessage[] = [];
-    const clientSideToolResponses: UserToolResponseMessage[] = [];
+    const approvals: UserToolApprovalEvent[] = [];
+    const clientSideToolResponses: UserToolResponseEvent[] = [];
     const contextMessages: (LLMUserMessage | LLMToolMessage)[] = [];
 
     for (const m of events) {
@@ -700,16 +700,15 @@ export class AgentThread {
       } else {
         commit.context_appends.push(...appendEvents);
       }
-      // One output event per accepted input (durable + SSE); its id is the consumption handle.
+      // One output event per accepted input (durable + SSE). Ids were seeded at the send boundary,
+      // so the echo reuses that id — the consumption handle matches what the send response returned.
       for (const a of approvals) {
-        const echo: UserToolApprovalEvent = { ...a, id: newEventId(), created_at: new Date().toISOString() };
-        commit.applied_user_events.push(echo);
-        commit.consumed_event_ids.push(echo.id);
+        commit.applied_user_events.push(a);
+        commit.consumed_event_ids.push(a.id);
       }
       for (const m of clientSideToolResponses) {
-        const echo: UserToolResponseEvent = { ...m, id: newEventId(), created_at: new Date().toISOString() };
-        commit.applied_user_events.push(echo);
-        commit.consumed_event_ids.push(echo.id);
+        commit.applied_user_events.push(m);
+        commit.consumed_event_ids.push(m.id);
       }
       yield commit;
     }
