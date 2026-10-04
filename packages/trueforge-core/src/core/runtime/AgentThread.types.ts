@@ -173,11 +173,6 @@ export type AgentThreadExecutionEvent =
   | WithRegisteredPassthrough<ThreadCreatedEvent | Exclude<AgentThreadEvent, InternalPassthroughEvent>>
   | InternalTurnStateEvent;
 
-/**
- * Terminal result of an executor run. The executor parks internally while paused (surfacing
- * pause/resume via the {@link InternalTurnStateEvent} stream), so it only ever *returns* once the
- * run has finished or the root agent errored — hence a single 'done' shape, never 'paused'.
- */
 export interface AgentThreadExecutionResult {
   status: 'done';
   output: ModelMessageEvent | null;
