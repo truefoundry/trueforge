@@ -1,22 +1,17 @@
 /**
  * Bound session handle: starts turns via {@link SessionHandle.createTurn}.
  */
-import { newEventId } from '../core/events/schema';
+import { newEventId, type UserToolApprovalMessage, type UserToolResponseMessage } from '../core/events/schema';
 import type { AgentDefinition } from '../core/runtime/AgentDefinition';
 import { AgentThread } from '../core/runtime/AgentThread';
-import {
-  InternalEventType,
-  type AgentThreadSendBatch,
-  type AgentThreadSnapshot,
-  type ApplyUserEventsOutput,
+import type {
+  AgentThreadAppendContext,
+  AgentThreadSendBatch,
+  AgentThreadSnapshot,
 } from '../core/runtime/AgentThread.types';
 import { AgentThreadOrchestrator } from '../core/runtime/AgentThreadOrchestrator';
-import {
-  isApprovalDecisionMessage,
-  isClientSideToolResponseMessage,
-  isInputUserMessage,
-} from '../core/runtime/contextUtils';
 import type { CreateDynamicSubAgentThread } from '../core/runtime/CreateDynamicSubAgentThread';
+import type { AgentInputUserMessage } from '../core/runtime/UserInputMessage';
 import type { HarnessSandbox } from '../core/sandbox/Sandbox';
 import type { AgentTracing } from '../core/tracing/AgentTracing';
 import { builtinsFromSpec } from './builtinsFromSpec';
@@ -50,11 +45,18 @@ function toSendBatch(input: TurnInputItem[] | undefined): AgentThreadSendBatch {
   if (!input || input.length === 0) {
     return [];
   }
-  if (input.every(msg => isApprovalDecisionMessage(msg) || isClientSideToolResponseMessage(msg))) {
-    return input;
+  if (input.every(msg => msg.type === EventType.USER_MESSAGE)) {
+    return input as AgentInputUserMessage[];
   }
-  if (input.every(isInputUserMessage)) {
-    return input;
+  if (input.every(msg => msg.type === EventType.USER_TOOL_APPROVAL || msg.type === EventType.USER_TOOL_RESPONSE)) {
+    // Seed ids here (as on the POST /events path) so the runtime echo reuses them — decisions enter
+    // the runtime already in event form.
+    const createdAt = new Date().toISOString();
+    return (input as (UserToolApprovalMessage | UserToolResponseMessage)[]).map(msg => ({
+      ...msg,
+      id: newEventId(),
+      created_at: createdAt,
+    }));
   }
   throw new Error('input must be homogeneous: all user messages, or all approval/tool-response messages');
 }
@@ -69,16 +71,11 @@ function toNewThreadInit(snapshot: AgentThreadSnapshot): NewThreadInit {
 }
 
 function collectContextAppends(
-  events: AsyncGenerator<ApplyUserEventsOutput, void, unknown>,
+  events: AsyncGenerator<AgentThreadAppendContext, void, unknown>,
 ): Promise<TurnContextAppend[]> {
   return (async () => {
     const appendMap = new Map<string, TurnContextAppend>();
     for await (const event of events) {
-      // Initial createTurn input only ever produces context appends (no mid-turn approvals), but the
-      // generator type is the broader applyUserEvents union — ignore the non-append members.
-      if (event.type !== InternalEventType.AGENT_CONTEXT_APPEND) {
-        continue;
-      }
       const existing = appendMap.get(event.thread_id);
       if (existing) {
         existing.context.push(...event.context);
@@ -269,7 +266,7 @@ export class SessionHandle<
       });
 
       const sendBatch = toSendBatch(input.input);
-      const new_context_appends = await collectContextAppends(orchestrator.applyUserEvents(sendBatch));
+      const new_context_appends = await collectContextAppends(orchestrator.applyInitialInput(sendBatch));
 
       const turnId = input.turn_id;
       const now = new Date();

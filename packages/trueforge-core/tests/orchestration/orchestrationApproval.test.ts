@@ -1,5 +1,5 @@
 /** Pause on write_note approval, then resume after allow or deny. */
-import { EventType } from '../../src/core/events/schema';
+import { EventType, newEventId } from '../../src/core/events/schema';
 import type { IToolSet, ToolSource } from '../../src/core/mcp/IMCPServer';
 import { toolResultResponse } from '../../src/core/mcp/IMCPServer';
 import { ToolSet } from '../../src/core/mcp/ToolSet';
@@ -198,8 +198,7 @@ describe('orchestration: pause then resume on tool approval', () => {
     it('pauses for write_note approval, then finishes after allow', async () => {
       const { orchestrator, thread, callTool } = makeApprovalHarness(ROOT_FINAL);
 
-      // Atomic pre-send of the initial user message (like createTurn), then one long-lived execute().
-      for await (const _event of orchestrator.applyUserEvents([{ type: EventType.USER_MESSAGE, content: 'hello' }])) {
+      for await (const _event of orchestrator.applyInitialInput([{ type: EventType.USER_MESSAGE, content: 'hello' }])) {
         void _event;
       }
       const iterator = orchestrator.execute({ signal: new AbortController().signal });
@@ -215,6 +214,8 @@ describe('orchestration: pause then resume on tool approval', () => {
       for (const _batch of orchestrator.send([
         {
           type: EventType.USER_TOOL_APPROVAL,
+          id: newEventId(),
+          created_at: new Date().toISOString(),
           thread_id: ROOT_ID,
           tool_call_id: WRITE_NOTE_CALL_ID,
           approval: { status: 'allow' },
@@ -316,8 +317,7 @@ describe('orchestration: pause then resume on tool approval', () => {
     it('pauses for write_note approval, then finishes after deny without running the tool', async () => {
       const { orchestrator, thread, callTool } = makeApprovalHarness(ROOT_FINAL);
 
-      // Atomic pre-send of the initial user message (like createTurn), then one long-lived execute().
-      for await (const _event of orchestrator.applyUserEvents([{ type: EventType.USER_MESSAGE, content: 'hello' }])) {
+      for await (const _event of orchestrator.applyInitialInput([{ type: EventType.USER_MESSAGE, content: 'hello' }])) {
         void _event;
       }
       const iterator = orchestrator.execute({ signal: new AbortController().signal });
@@ -331,6 +331,8 @@ describe('orchestration: pause then resume on tool approval', () => {
       for (const _batch of orchestrator.send([
         {
           type: EventType.USER_TOOL_APPROVAL,
+          id: newEventId(),
+          created_at: new Date().toISOString(),
           thread_id: ROOT_ID,
           tool_call_id: WRITE_NOTE_CALL_ID,
           approval: { status: 'deny', reason: DENY_REASON },
@@ -398,7 +400,7 @@ describe('orchestration: a policy that lands mid-pause resolves an existing pend
   it('sends only a policy (no decision) and the pending call runs via auto-allow', async () => {
     const { orchestrator, callTool, toolSet } = makeApprovalHarnessWithUserToolSet(ROOT_FINAL);
 
-    for await (const _event of orchestrator.applyUserEvents([{ type: EventType.USER_MESSAGE, content: 'hello' }])) {
+    for await (const _event of orchestrator.applyInitialInput([{ type: EventType.USER_MESSAGE, content: 'hello' }])) {
       void _event;
     }
     const iterator = orchestrator.execute({ signal: new AbortController().signal });
@@ -412,6 +414,8 @@ describe('orchestration: a policy that lands mid-pause resolves an existing pend
     for (const _batch of orchestrator.send([
       {
         type: EventType.USER_TOOL_APPROVAL_POLICY,
+        id: newEventId(),
+        created_at: new Date().toISOString(),
         policies: [{ server_name: POLICY_SERVER_NAME, name: WRITE_NOTE_TOOL_NAME, policy: { type: 'allow_session' } }],
       },
     ])) {
@@ -440,7 +444,7 @@ describe('orchestration: a policy that lands mid-pause resolves an existing pend
   it('an expired policy does not resolve the pending call — the turn stays paused', async () => {
     const { orchestrator, callTool } = makeApprovalHarnessWithUserToolSet(ROOT_FINAL);
 
-    for await (const _event of orchestrator.applyUserEvents([{ type: EventType.USER_MESSAGE, content: 'hello' }])) {
+    for await (const _event of orchestrator.applyInitialInput([{ type: EventType.USER_MESSAGE, content: 'hello' }])) {
       void _event;
     }
     const iterator = orchestrator.execute({ signal: new AbortController().signal });
@@ -451,6 +455,8 @@ describe('orchestration: a policy that lands mid-pause resolves an existing pend
     for (const _batch of orchestrator.send([
       {
         type: EventType.USER_TOOL_APPROVAL_POLICY,
+        id: newEventId(),
+        created_at: new Date().toISOString(),
         policies: [
           {
             server_name: POLICY_SERVER_NAME,
@@ -496,6 +502,8 @@ describe('orchestration: a policy that lands mid-pause resolves an existing pend
       for (const _batch of orchestrator.send([
         {
           type: EventType.USER_TOOL_APPROVAL_POLICY,
+          id: newEventId(),
+          created_at: new Date().toISOString(),
           policies: [{ server_name: 'does-not-exist', name: WRITE_NOTE_TOOL_NAME, policy: { type: 'allow_session' } }],
         },
       ])) {
@@ -557,6 +565,8 @@ describe('AgentThreadOrchestrator.send: approval policy validation', () => {
         orchestrator.send([
           {
             type: EventType.USER_TOOL_APPROVAL_POLICY,
+            id: newEventId(),
+            created_at: new Date().toISOString(),
             policies: [
               { server_name: POLICY_SERVER_NAME, name: WRITE_NOTE_TOOL_NAME, policy: { type: 'allow_session' } },
             ],
@@ -574,6 +584,8 @@ describe('AgentThreadOrchestrator.send: approval policy validation', () => {
         orchestrator.send([
           {
             type: EventType.USER_TOOL_APPROVAL_POLICY,
+            id: newEventId(),
+            created_at: new Date().toISOString(),
             policies: [
               { server_name: POLICY_SERVER_NAME, name: WRITE_NOTE_TOOL_NAME, policy: { type: 'allow_session' } },
               { server_name: 'does-not-exist', name: 'whatever', policy: { type: 'allow_session' } },

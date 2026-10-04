@@ -6,7 +6,7 @@ import type {
   MCPAuthRequiredEvent,
   ModelMessageDeltaEvent,
   ThreadDoneEvent,
-  TurnUserEventMessage,
+  TurnUserEvent,
 } from '../core/events/schema';
 import { EventType as HarnessEventType, newEventId } from '../core/events/schema';
 import {
@@ -241,7 +241,7 @@ export class TurnHandle<TTurnCustom extends object = Record<string, never>> {
    * which routes each kind internally, then wakes the parked executor so {@link stream} emits the
    * resulting events and the turn continues.
    */
-  send(events: TurnUserEventMessage[]): void {
+  send(events: TurnUserEvent[]): void {
     const orchestrator = this.requireLiveOrchestrator('send');
     for (const batch of orchestrator.send(events)) {
       // TODO: persist `batch` here — under the per-turn transition lock — before resuming

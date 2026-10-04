@@ -22,8 +22,8 @@ import type {
   ToolResponseEvent,
   ToolResponseRequiredEvent,
   TurnUserToolEvent,
-  UserToolApprovalMessage,
-  UserToolResponseMessage,
+  UserToolApprovalEvent,
+  UserToolResponseEvent,
 } from '../events/schema';
 import type { InternalEnrichedAssistantMessage, LLMToolMessage, LLMUserMessage } from '../llm/LLMTypes';
 import type { HarnessSandbox } from '../sandbox/Sandbox';
@@ -147,14 +147,17 @@ export interface UserEventsCommitEvent {
   consumed_event_ids: string[];
 }
 
-/** Single public send item (no internal LLM tool messages). */
-export type AgentSendInput = UserToolApprovalMessage | UserToolResponseMessage | AgentInputUserMessage;
+/**
+ * Single runtime send item (no internal LLM tool messages). Decisions are in event form — their ids
+ * are seeded at the send boundary (HTTP handler / createTurn `toSendBatch`) and reused downstream.
+ */
+export type AgentSendInput = UserToolApprovalEvent | UserToolResponseEvent | AgentInputUserMessage;
 
 /**
- * Homogeneous public send batch: all user messages, or all approval/tool-response
- * messages. Mixed batches are rejected at the HTTP/orchestrator boundary.
+ * Homogeneous send batch: all user messages, or all approval/tool-response events (id-seeded).
+ * Mixed batches are rejected at the HTTP/orchestrator boundary.
  */
-export type AgentThreadSendBatch = AgentInputUserMessage[] | (UserToolApprovalMessage | UserToolResponseMessage)[];
+export type AgentThreadSendBatch = AgentInputUserMessage[] | (UserToolApprovalEvent | UserToolResponseEvent)[];
 
 export type AgentThreadEvent =
   | ModelMessageEvent

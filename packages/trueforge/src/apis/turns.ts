@@ -13,13 +13,13 @@ import {
   type TurnHandle,
   type TurnInputItem,
   type TurnRecordWithoutSnapshot,
+  type TurnUserEvent,
 } from '@truefoundry/trueforge-core/agent-session';
 import type { IWebSearchProvider } from '@truefoundry/trueforge-core/core';
 import {
   AgentHarnessError,
   existingSandboxIdForProvider,
   extractErrorLogFields,
-  isAgentInputUserMessage,
   isFileContentPart,
   McpConnectionError,
   newEventId,
@@ -298,7 +298,7 @@ function createTurnResolver(deps: {
  * text is present (e.g. file-only or tool-approval input).
  */
 export function deriveSessionTitle(input: TurnInputItem[] | undefined): string | undefined {
-  const firstUserMessage = input?.find(isAgentInputUserMessage);
+  const firstUserMessage = input?.find(item => item.type === EventType.USER_MESSAGE);
   if (!firstUserMessage) {
     return undefined;
   }
@@ -964,8 +964,17 @@ export function createTurnsRouter(deps: TurnsRouterDeps) {
       return c.json({ error: { message: `Turn is not running on this server: ${turnId}` } }, 409);
     }
 
+    // Seed ids once, here at the send boundary: the same id-bearing events are forwarded to the
+    // executor (so its stream echo reuses the id) and returned in this response.
+    const createdAt = new Date().toISOString();
+    const events: TurnUserEvent[] = body.events.map(payload => ({
+      ...payload,
+      id: newEventId(),
+      created_at: createdAt,
+    }));
+
     try {
-      turnHandle.send(body.events);
+      turnHandle.send(events);
     } catch (error) {
       if (error instanceof AgentHarnessError && error.code === 'invalid_send_input') {
         return c.json({ error: { message: error.message } }, 400);
@@ -973,19 +982,8 @@ export function createTurnsRouter(deps: TurnsRouterDeps) {
       throw error;
     }
 
-    const createdAt = new Date().toISOString();
-    const events = body.events.map(payload => {
-      const id = newEventId();
-      return {
-        event_id: id,
-        payload,
-        created_at: createdAt,
-        created: { ...payload, id, created_at: createdAt },
-      };
-    });
-
     // TODO: durably persist inbound events.
-    return c.json({ data: events.map(e => e.created) }, 201);
+    return c.json({ data: events }, 201);
   };
 
   const router = new OpenAPIHono();

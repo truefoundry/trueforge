@@ -74,8 +74,7 @@ describe('orchestration: mocked LLM and no tools', () => {
       logger: makeSilentLogger(),
     });
 
-    // Atomic pre-send of the initial user message (like createTurn), then one long-lived execute().
-    for await (const _event of orchestrator.applyUserEvents([{ type: EventType.USER_MESSAGE, content: 'hello' }])) {
+    for await (const _event of orchestrator.applyInitialInput([{ type: EventType.USER_MESSAGE, content: 'hello' }])) {
       void _event;
     }
     const outcome = await driveUntilPauseOrDone(orchestrator.execute({ signal: new AbortController().signal }));

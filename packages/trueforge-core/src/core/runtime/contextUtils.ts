@@ -3,8 +3,8 @@ import type { ApprovalDecision } from '../events/schema';
 import {
   EventType,
   type AgentApprovalDecisionMessage,
-  type UserToolApprovalMessage,
-  type UserToolResponseMessage,
+  type UserToolApprovalEvent,
+  type UserToolResponseEvent,
 } from '../events/schema';
 import type {
   EnrichedToolCall,
@@ -52,7 +52,7 @@ export function isInternalSystemMessage(m: ContextMessage): boolean {
   return m.role === 'user' && typeof m.content === 'string' && m.content.startsWith(SYSTEM_TAG_START);
 }
 
-export function isApprovalDecisionMessage(msg: AgentThreadRuntimeSendInput): msg is UserToolApprovalMessage {
+export function isApprovalDecisionMessage(msg: AgentThreadRuntimeSendInput): msg is UserToolApprovalEvent {
   return 'type' in msg && msg.type === EventType.USER_TOOL_APPROVAL;
 }
 
@@ -61,7 +61,7 @@ function isUserToolApprovalDecisionMessage(msg: ContextMessage): msg is AgentApp
   return 'type' in msg;
 }
 
-export function isClientSideToolResponseMessage(msg: AgentThreadRuntimeSendInput): msg is UserToolResponseMessage {
+export function isClientSideToolResponseMessage(msg: AgentThreadRuntimeSendInput): msg is UserToolResponseEvent {
   return 'type' in msg && msg.type === EventType.USER_TOOL_RESPONSE;
 }
 
