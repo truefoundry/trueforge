@@ -20,7 +20,7 @@ import type {
   JsonValue,
   MCPServerInitInfo,
   SandboxInfo,
-  SubAgentCompletionMarker,
+  SubAgentCompletion,
 } from '@truefoundry/trueforge-core/core';
 import type { CurrentContextUsage } from '@truefoundry/trueforge-core/core/runtime/contextUsage';
 import type { ColumnType, Generated, JSONColumnType } from 'kysely';
@@ -32,11 +32,7 @@ import type {
   SandboxEnvironmentVersionStatus,
   StoredSandboxEnvironmentManifest,
 } from '../../schemas/sandboxEnvironment';
-import type {
-  SandboxBuildMetadata,
-  SandboxBuildStatus,
-  StoredSandboxProviderManifest,
-} from '../../schemas/sandboxProvider';
+import type { StoredSandboxProviderManifest } from '../../schemas/sandboxProvider';
 import type { ScheduleManifest, ScheduleRunStatus, ScheduleStatus } from '../../schemas/schedule';
 import type { SkillManifest } from '../../schemas/skill';
 import type { WebSearchProviderManifest } from '../../schemas/webSearchProvider';
@@ -48,7 +44,7 @@ import type { OAuthClient, OAuthPendingAuthorizationData, OAuthServer, OAuthToke
  */
 export interface TurnThreadCheckpoint {
   parent: AgentParent | null;
-  completion: SubAgentCompletionMarker | null;
+  completion: SubAgentCompletion | null;
 }
 
 /** Turn-level checkpoint — threads live in `turn_thread`; only owned top-level keys remain. */
@@ -399,12 +395,6 @@ export interface SandboxProviderTable {
   tenant_id: string;
   /** StoredSandboxProviderManifest document; replaced whole on every upsert */
   manifest: JSONColumnType<StoredSandboxProviderManifest, StoredSandboxProviderManifest, StoredSandboxProviderManifest>;
-  /** Last persisted build status of the release sandbox image. */
-  status: SandboxBuildStatus;
-  /** Human-readable detail for `status`; null when ready. */
-  status_reason: string | null;
-  /** SandboxBuildMetadata document (opaque string map); null when the provider has none. */
-  build_metadata: JSONColumnType<SandboxBuildMetadata | null, SandboxBuildMetadata | null, SandboxBuildMetadata | null>;
   created_at: Date;
   updated_at: Date;
 }

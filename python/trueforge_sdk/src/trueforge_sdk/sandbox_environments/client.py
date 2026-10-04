@@ -9,7 +9,7 @@ from ..types.delete_sandbox_environment_response import DeleteSandboxEnvironment
 from ..types.get_sandbox_environment_response import GetSandboxEnvironmentResponse
 from ..types.list_sandbox_environments_response import ListSandboxEnvironmentsResponse
 from ..types.sandbox_environment import SandboxEnvironment
-from ..types.sandbox_environment_manifest import SandboxEnvironmentManifest
+from ..types.sandbox_environment_manifest_request import SandboxEnvironmentManifestRequest
 from .raw_client import AsyncRawSandboxEnvironmentsClient, RawSandboxEnvironmentsClient
 
 # this is used as the default value for optional parameters
@@ -39,12 +39,12 @@ class SandboxEnvironmentsClient:
         request_options: typing.Optional[RequestOptions] = None,
     ) -> SyncPager[SandboxEnvironment, ListSandboxEnvironmentsResponse]:
         """
-        List sandbox environments created by the authenticated subject, newest first.
+        List the tenant default environment plus sandbox environments created by the authenticated subject.
 
         Parameters
         ----------
         limit : typing.Optional[int]
-            Page size. Defaults to 25
+            Page size. Defaults to 25, max 1000.
 
         page_token : typing.Optional[str]
             Opaque token from a previous response `next_page_token`.
@@ -75,14 +75,14 @@ class SandboxEnvironmentsClient:
         return self._raw_client.list(limit=limit, page_token=page_token, request_options=request_options)
 
     def create_or_update(
-        self, *, manifest: SandboxEnvironmentManifest, request_options: typing.Optional[RequestOptions] = None
+        self, *, manifest: SandboxEnvironmentManifestRequest, request_options: typing.Optional[RequestOptions] = None
     ) -> GetSandboxEnvironmentResponse:
         """
-        Create or replace by `manifest.name`. Requires a Daytona sandbox provider.
+        Create or replace by `manifest.name`. Requires a configured sandbox provider.
 
         Parameters
         ----------
-        manifest : SandboxEnvironmentManifest
+        manifest : SandboxEnvironmentManifestRequest
 
         request_options : typing.Optional[RequestOptions]
             Request-specific configuration.
@@ -94,14 +94,14 @@ class SandboxEnvironmentsClient:
 
         Examples
         --------
-        from trueforge_sdk import SandboxEnvironmentManifest, TrueForge
+        from trueforge_sdk import SandboxEnvironmentManifestRequest, TrueForge
 
         client = TrueForge(
             token="YOUR_TOKEN",
             base_url="https://yourhost.com/path/to/api",
         )
         client.sandbox_environments.create_or_update(
-            manifest=SandboxEnvironmentManifest(
+            manifest=SandboxEnvironmentManifestRequest(
                 name="name",
             ),
         )
@@ -113,7 +113,7 @@ class SandboxEnvironmentsClient:
         self, *, name: str, request_options: typing.Optional[RequestOptions] = None
     ) -> GetSandboxEnvironmentResponse:
         """
-        Get a sandbox environment by name for the authenticated subject.
+        Get a sandbox environment by name. The tenant default is readable by any tenant member; custom environments are owner-scoped.
 
         Parameters
         ----------
@@ -201,12 +201,12 @@ class AsyncSandboxEnvironmentsClient:
         request_options: typing.Optional[RequestOptions] = None,
     ) -> AsyncPager[SandboxEnvironment, ListSandboxEnvironmentsResponse]:
         """
-        List sandbox environments created by the authenticated subject, newest first.
+        List the tenant default environment plus sandbox environments created by the authenticated subject.
 
         Parameters
         ----------
         limit : typing.Optional[int]
-            Page size. Defaults to 25
+            Page size. Defaults to 25, max 1000.
 
         page_token : typing.Optional[str]
             Opaque token from a previous response `next_page_token`.
@@ -246,14 +246,14 @@ class AsyncSandboxEnvironmentsClient:
         return await self._raw_client.list(limit=limit, page_token=page_token, request_options=request_options)
 
     async def create_or_update(
-        self, *, manifest: SandboxEnvironmentManifest, request_options: typing.Optional[RequestOptions] = None
+        self, *, manifest: SandboxEnvironmentManifestRequest, request_options: typing.Optional[RequestOptions] = None
     ) -> GetSandboxEnvironmentResponse:
         """
-        Create or replace by `manifest.name`. Requires a Daytona sandbox provider.
+        Create or replace by `manifest.name`. Requires a configured sandbox provider.
 
         Parameters
         ----------
-        manifest : SandboxEnvironmentManifest
+        manifest : SandboxEnvironmentManifestRequest
 
         request_options : typing.Optional[RequestOptions]
             Request-specific configuration.
@@ -267,7 +267,7 @@ class AsyncSandboxEnvironmentsClient:
         --------
         import asyncio
 
-        from trueforge_sdk import AsyncTrueForge, SandboxEnvironmentManifest
+        from trueforge_sdk import AsyncTrueForge, SandboxEnvironmentManifestRequest
 
         client = AsyncTrueForge(
             token="YOUR_TOKEN",
@@ -277,7 +277,7 @@ class AsyncSandboxEnvironmentsClient:
 
         async def main() -> None:
             await client.sandbox_environments.create_or_update(
-                manifest=SandboxEnvironmentManifest(
+                manifest=SandboxEnvironmentManifestRequest(
                     name="name",
                 ),
             )
@@ -292,7 +292,7 @@ class AsyncSandboxEnvironmentsClient:
         self, *, name: str, request_options: typing.Optional[RequestOptions] = None
     ) -> GetSandboxEnvironmentResponse:
         """
-        Get a sandbox environment by name for the authenticated subject.
+        Get a sandbox environment by name. The tenant default is readable by any tenant member; custom environments are owner-scoped.
 
         Parameters
         ----------

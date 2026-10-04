@@ -7,26 +7,14 @@ import {
   type ReasoningMessagePart,
   type TextMessagePart,
 } from '@assistant-ui/react';
-import { useTrueForgeDownloadSandboxFile } from '@truefoundry/trueforge-assistant-ui-runtime';
+import { useTrueForgeDownloadSandboxFile, useTrueForgeTurnId } from '@truefoundry/trueforge-assistant-ui-runtime';
 import { useCallback, useMemo, useRef } from 'react';
 
+import { FilePreviewLoaderScope, FilePreviewTurnScope } from '../filePreview/FilePreviewContext.js';
 import { MARKDOWN_SMOOTH_BACKLOG_CHARS, useThrottledMarkdownText } from '../hooks/useThrottledMarkdownText.js';
 import { useSlot } from '../theme/SlotsProvider.js';
+import { filenameFromPath, triggerBrowserDownload } from '../utils/triggerBrowserDownload.js';
 import { useToasterOptional } from './ToasterContainer.js';
-
-function filenameFromPath(path: string): string {
-  return path.split('/').pop() || 'download';
-}
-
-function triggerBrowserDownload(blob: Blob, filename: string) {
-  if (typeof document === 'undefined') return;
-  const url = URL.createObjectURL(blob);
-  const anchor = document.createElement('a');
-  anchor.href = url;
-  anchor.download = filename;
-  anchor.click();
-  URL.revokeObjectURL(url);
-}
 
 export function AssistantTextContainer() {
   const Markdown = useSlot('Markdown');
@@ -36,6 +24,8 @@ export function AssistantTextContainer() {
   // OpenUI does not remount.
   const downloadRef = useRef({ downloadSandboxFile, toaster });
   downloadRef.current = { downloadSandboxFile, toaster };
+  const turnId = useTrueForgeTurnId();
+  const loadSandboxFile = useCallback((path: string) => downloadRef.current.downloadSandboxFile(path), []);
   const partState = useAuiState(s => s.part as MessagePartState & (TextMessagePart | ReasoningMessagePart));
 
   // Preserve the typewriter effect while it keeps pace. If its visible prefix falls too far
@@ -87,8 +77,16 @@ export function AssistantTextContainer() {
   }, []);
 
   // Skip markdown re-parse when a raw SSE tick did not advance the committed display text.
-  return useMemo(
+  const markdown = useMemo(
     () => <Markdown content={text} isStreaming={isStreaming} onDownloadArtifact={handleDownloadArtifact} />,
     [Markdown, text, isStreaming, handleDownloadArtifact],
+  );
+
+  if (turnId == null) return markdown;
+
+  return (
+    <FilePreviewTurnScope turnId={turnId}>
+      <FilePreviewLoaderScope load={loadSandboxFile}>{markdown}</FilePreviewLoaderScope>
+    </FilePreviewTurnScope>
   );
 }

@@ -22,7 +22,7 @@ from ..types.get_sandbox_environment_response import GetSandboxEnvironmentRespon
 from ..types.list_sandbox_environments_response import ListSandboxEnvironmentsResponse
 from ..types.request_error_response import RequestErrorResponse
 from ..types.sandbox_environment import SandboxEnvironment
-from ..types.sandbox_environment_manifest import SandboxEnvironmentManifest
+from ..types.sandbox_environment_manifest_request import SandboxEnvironmentManifestRequest
 from pydantic import ValidationError
 
 # this is used as the default value for optional parameters
@@ -41,12 +41,12 @@ class RawSandboxEnvironmentsClient:
         request_options: typing.Optional[RequestOptions] = None,
     ) -> SyncPager[SandboxEnvironment, ListSandboxEnvironmentsResponse]:
         """
-        List sandbox environments created by the authenticated subject, newest first.
+        List the tenant default environment plus sandbox environments created by the authenticated subject.
 
         Parameters
         ----------
         limit : typing.Optional[int]
-            Page size. Defaults to 25
+            Page size. Defaults to 25, max 1000.
 
         page_token : typing.Optional[str]
             Opaque token from a previous response `next_page_token`.
@@ -121,14 +121,14 @@ class RawSandboxEnvironmentsClient:
         raise ApiError(status_code=_response.status_code, headers=dict(_response.headers), body=_response_json)
 
     def create_or_update(
-        self, *, manifest: SandboxEnvironmentManifest, request_options: typing.Optional[RequestOptions] = None
+        self, *, manifest: SandboxEnvironmentManifestRequest, request_options: typing.Optional[RequestOptions] = None
     ) -> HttpResponse[GetSandboxEnvironmentResponse]:
         """
-        Create or replace by `manifest.name`. Requires a Daytona sandbox provider.
+        Create or replace by `manifest.name`. Requires a configured sandbox provider.
 
         Parameters
         ----------
-        manifest : SandboxEnvironmentManifest
+        manifest : SandboxEnvironmentManifestRequest
 
         request_options : typing.Optional[RequestOptions]
             Request-specific configuration.
@@ -143,7 +143,7 @@ class RawSandboxEnvironmentsClient:
             method="PUT",
             json={
                 "manifest": convert_and_respect_annotation_metadata(
-                    object_=manifest, annotation=SandboxEnvironmentManifest, direction="write"
+                    object_=manifest, annotation=SandboxEnvironmentManifestRequest, direction="write"
                 ),
             },
             headers={
@@ -219,7 +219,7 @@ class RawSandboxEnvironmentsClient:
         self, *, name: str, request_options: typing.Optional[RequestOptions] = None
     ) -> HttpResponse[GetSandboxEnvironmentResponse]:
         """
-        Get a sandbox environment by name for the authenticated subject.
+        Get a sandbox environment by name. The tenant default is readable by any tenant member; custom environments are owner-scoped.
 
         Parameters
         ----------
@@ -369,12 +369,12 @@ class AsyncRawSandboxEnvironmentsClient:
         request_options: typing.Optional[RequestOptions] = None,
     ) -> AsyncPager[SandboxEnvironment, ListSandboxEnvironmentsResponse]:
         """
-        List sandbox environments created by the authenticated subject, newest first.
+        List the tenant default environment plus sandbox environments created by the authenticated subject.
 
         Parameters
         ----------
         limit : typing.Optional[int]
-            Page size. Defaults to 25
+            Page size. Defaults to 25, max 1000.
 
         page_token : typing.Optional[str]
             Opaque token from a previous response `next_page_token`.
@@ -452,14 +452,14 @@ class AsyncRawSandboxEnvironmentsClient:
         raise ApiError(status_code=_response.status_code, headers=dict(_response.headers), body=_response_json)
 
     async def create_or_update(
-        self, *, manifest: SandboxEnvironmentManifest, request_options: typing.Optional[RequestOptions] = None
+        self, *, manifest: SandboxEnvironmentManifestRequest, request_options: typing.Optional[RequestOptions] = None
     ) -> AsyncHttpResponse[GetSandboxEnvironmentResponse]:
         """
-        Create or replace by `manifest.name`. Requires a Daytona sandbox provider.
+        Create or replace by `manifest.name`. Requires a configured sandbox provider.
 
         Parameters
         ----------
-        manifest : SandboxEnvironmentManifest
+        manifest : SandboxEnvironmentManifestRequest
 
         request_options : typing.Optional[RequestOptions]
             Request-specific configuration.
@@ -474,7 +474,7 @@ class AsyncRawSandboxEnvironmentsClient:
             method="PUT",
             json={
                 "manifest": convert_and_respect_annotation_metadata(
-                    object_=manifest, annotation=SandboxEnvironmentManifest, direction="write"
+                    object_=manifest, annotation=SandboxEnvironmentManifestRequest, direction="write"
                 ),
             },
             headers={
@@ -550,7 +550,7 @@ class AsyncRawSandboxEnvironmentsClient:
         self, *, name: str, request_options: typing.Optional[RequestOptions] = None
     ) -> AsyncHttpResponse[GetSandboxEnvironmentResponse]:
         """
-        Get a sandbox environment by name for the authenticated subject.
+        Get a sandbox environment by name. The tenant default is readable by any tenant member; custom environments are owner-scoped.
 
         Parameters
         ----------

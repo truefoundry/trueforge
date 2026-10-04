@@ -2,7 +2,7 @@ import type { TrueForgeApi } from '@truefoundry/trueforge-sdk';
 import type { SessionEventItem, TurnDoneMetrics, TurnState, TurnStreamingEvent } from '../../server/types.js';
 
 /** SDK token fields are optional; the UI contract requires numbers. Keep cost for session tiles. */
-export function toUiTurnDoneMetrics(metrics: TrueForgeApi.TurnMetrics): TurnDoneMetrics & { totalCostInUsd?: number } {
+export function toUiTurnDoneMetrics(metrics: TrueForgeApi.TurnMetrics): TurnDoneMetrics {
   return {
     totalInputTokens: metrics.totalInputTokens ?? 0,
     totalOutputTokens: metrics.totalOutputTokens ?? 0,
