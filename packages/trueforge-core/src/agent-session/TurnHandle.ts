@@ -3,10 +3,10 @@
  */
 import { AgentHarnessError } from '../core/errors';
 import type {
-  InboundTurnUserEvent,
   MCPAuthRequiredEvent,
   ModelMessageDeltaEvent,
   ThreadDoneEvent,
+  TurnUserEventMessage,
 } from '../core/events/schema';
 import { EventType as HarnessEventType, newEventId } from '../core/events/schema';
 import {
@@ -241,7 +241,7 @@ export class TurnHandle<TTurnCustom extends object = Record<string, never>> {
    * which routes each kind internally, then wakes the parked executor so {@link stream} emits the
    * resulting events and the turn continues.
    */
-  send(events: InboundTurnUserEvent[]): void {
+  send(events: TurnUserEventMessage[]): void {
     const orchestrator = this.requireLiveOrchestrator('send');
     for (const batch of orchestrator.send(events)) {
       // TODO: persist `batch` here — under the per-turn transition lock — before resuming
@@ -370,7 +370,11 @@ export class TurnHandle<TTurnCustom extends object = Record<string, never>> {
           event.type === InternalEventType.TURN_STATE
             ? await this.persistTurnNonTerminal(event.transition)
             : await this.persistExecutionEvent(event);
-        if (yielded) {
+        if (Array.isArray(yielded)) {
+          for (const e of yielded) {
+            yield e;
+          }
+        } else if (yielded) {
           yield yielded;
         }
         iterResult = await generator.next();
@@ -490,7 +494,7 @@ export class TurnHandle<TTurnCustom extends object = Record<string, never>> {
    */
   private async persistExecutionEvent(
     event: Exclude<AgentThreadExecutionEvent, InternalTurnStateEvent>,
-  ): Promise<TurnStreamingEvent | null> {
+  ): Promise<TurnStreamingEvent | TurnStreamingEvent[] | null> {
     const scope = {
       session_id: this.turn.session_id,
       turn_id: this.turn.turn_id,
@@ -552,18 +556,34 @@ export class TurnHandle<TTurnCustom extends object = Record<string, never>> {
         return null;
       }
 
-      case InternalEventType.MCP_SERVERS_PATCH: {
-        // Durable-only: persist a landed approval policy onto the turn's MCP server records.
-        await this.store.patchMCPServers({ ...scope, mcp_servers: event.mcp_servers });
-        return null;
-      }
-
-      case HarnessEventType.USER_TOOL_APPROVAL:
-      case HarnessEventType.USER_TOOL_RESPONSE:
-      case HarnessEventType.USER_TOOL_APPROVAL_POLICY: {
-        // Streamed echo of an accepted user input. Append to the event log and stream it.
-        await this.store.appendToEvents({ ...scope, events: [event] });
-        return event;
+      case InternalEventType.USER_EVENTS_COMMIT: {
+        // One applied batch of user events. Each write fires only if its array is non-empty. These
+        // run sequentially today; once a DB store lands they collapse into one transaction (and the
+        // consumed_event_ids drive a mark-consumed write against the durable inbound inbox).
+        for (const append of event.context_appends) {
+          await this.store.appendToThreadContext({
+            ...scope,
+            thread_id: append.thread_id,
+            context: append.context,
+            current_context_usage: append.current_context_usage ?? null,
+            completion: append.completion ?? null,
+          });
+          if (append.output.length > 0) {
+            await this.store.appendToEvents({ ...scope, events: append.output });
+          }
+        }
+        for (const overwrite of event.context_overwrites) {
+          await this.store.overwriteThreadContext({ ...scope, event: overwrite });
+        }
+        if (event.mcp_patch.length > 0) {
+          await this.store.patchMCPServers({ ...scope, mcp_servers: event.mcp_patch });
+        }
+        if (event.applied_user_events.length > 0) {
+          await this.store.appendToEvents({ ...scope, events: event.applied_user_events });
+        }
+        // TODO(durable-inbox): mark event.consumed_event_ids consumed once the DB store + inbound
+        // inbox land; today inbound events are not persisted at send, so there is nothing to mark.
+        return event.applied_user_events;
       }
 
       case InternalEventType.AGENT_DONE: {

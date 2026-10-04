@@ -959,18 +959,13 @@ export function createTurnsRouter(deps: TurnsRouterDeps) {
       return c.json({ error: { message: `Turn not found: ${turnId}` } }, 404);
     }
 
-    // Mid-turn events resume a live, non-terminal turn executing in THIS process (the run that
-    // holds the live orchestrator). A terminal turn, or one not running here, cannot be resumed.
-    const resumable = deps.activeTurns.getResumable({ sessionId, turnId });
-    if (!resumable) {
+    const turnHandle = deps.activeTurns.getTurnHandle({ sessionId, turnId });
+    if (!turnHandle) {
       return c.json({ error: { message: `Turn is not running on this server: ${turnId}` } }, 409);
     }
 
-    // Forward the whole batch untouched; the orchestrator routes by kind (policies applied,
-    // approval/response decisions enqueued) and the handle wakes the parked executor. Validation
-    // throws before anything is applied or the executor is woken (fail-closed).
     try {
-      resumable.send(body.events);
+      turnHandle.send(body.events);
     } catch (error) {
       if (error instanceof AgentHarnessError && error.code === 'invalid_send_input') {
         return c.json({ error: { message: error.message } }, 400);
@@ -989,8 +984,7 @@ export function createTurnsRouter(deps: TurnsRouterDeps) {
       };
     });
 
-    // TODO: durably persist inbound events under
-    // the per-turn transition lock. Ids are minted now so the client contract is stable.
+    // TODO: durably persist inbound events.
     return c.json({ data: events.map(e => e.created) }, 201);
   };
 

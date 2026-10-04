@@ -1,6 +1,10 @@
 import type { JsonValue } from '../../core/capabilities/AgentCapability';
-import type { MCPServerInitInfo, ThreadOverwriteContextEvent } from '../../core/events/schema';
-import type { AgentThreadSnapshot, ContextMessage, SubAgentCompletion } from '../../core/runtime/AgentThread.types';
+import type { MCPServerInitInfo, ThreadOverwriteContextEvent, TurnUserEventMessage } from '../../core/events/schema';
+import type {
+  AgentThreadSnapshot,
+  ContextMessage,
+  SubAgentCompletionMarker,
+} from '../../core/runtime/AgentThread.types';
 import type { CurrentContextUsage } from '../../core/runtime/contextUsage';
 import type { SandboxInfo } from '../../core/sandbox/Sandbox';
 import type { SessionRecord } from '../models/SessionRecord';
@@ -8,12 +12,7 @@ import type { TurnRecord } from '../models/TurnRecord';
 import type { PersistedTurnEvent, SessionEventItem, TurnUpdateEvent } from '../schemas/events';
 import type { TokenPagination } from '../schemas/pagination';
 import type { SessionMetadata } from '../schemas/session';
-import type {
-  CancellationReason,
-  NonTerminalTurnState,
-  TerminalTurnState,
-  TurnInboundEventItem,
-} from '../schemas/turn';
+import type { CancellationReason, NonTerminalTurnState, TerminalTurnState } from '../schemas/turn';
 
 /**
  * Caller-supplied fields for creating a session; the store owns timestamps and tip state.
@@ -116,7 +115,6 @@ export interface TurnContextAppend {
   thread_id: string;
   context: ContextMessage[];
   current_context_usage: CurrentContextUsage | null;
-  completion: SubAgentCompletion | null;
 }
 
 export interface CreateTurnInput<TTurnCustom extends object = Record<string, never>> {
@@ -193,7 +191,7 @@ export interface InsertTurnInboundEventsInput {
    */
   events: {
     event_id: string;
-    payload: TurnInboundEventItem;
+    payload: TurnUserEventMessage;
     created_at: string;
   }[];
 }
@@ -216,7 +214,7 @@ export interface AppendToThreadContextInput {
   thread_id: string;
   context: ContextMessage[];
   current_context_usage: CurrentContextUsage | null;
-  completion: SubAgentCompletion | null;
+  completion: SubAgentCompletionMarker | null;
 }
 
 export interface OverwriteThreadContextInput {

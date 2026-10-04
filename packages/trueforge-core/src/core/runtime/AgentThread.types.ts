@@ -21,10 +21,8 @@ import type {
   ToolApprovalRequiredEvent,
   ToolResponseEvent,
   ToolResponseRequiredEvent,
-  UserToolApprovalEvent,
+  TurnUserToolEvent,
   UserToolApprovalMessage,
-  UserToolApprovalPolicyEvent,
-  UserToolResponseEvent,
   UserToolResponseMessage,
 } from '../events/schema';
 import type { InternalEnrichedAssistantMessage, LLMToolMessage, LLMUserMessage } from '../llm/LLMTypes';
@@ -40,8 +38,8 @@ export const InternalEventType = {
   AGENT_CREATE_SUBAGENT: 'internal.agent.create_subagent',
   AGENT_CONTEXT_APPEND: 'internal.agent.context.append',
   AGENT_DONE: 'internal.agent.done',
-  // Durable-only patch of the turn snapshot's MCP server records (e.g. an approval policy landed).
-  MCP_SERVERS_PATCH: 'internal.mcp.servers_patch',
+  // Atomic commit of one applied batch of user events.
+  USER_EVENTS_COMMIT: 'internal.user_events.commit',
   // TODO(agent): revisit broader internal.* naming scheme for harness-only event types.
   PASSTHROUGH: 'agent.passthrough',
   MCP_AUTH_REQUIRED: 'internal.mcp.auth_required',
@@ -112,15 +110,6 @@ export type LLMContextMessage = LLMUserMessage | InternalEnrichedAssistantMessag
 
 export type ContextMessage = LLMContextMessage | AgentApprovalDecisionMessage;
 
-/**
- * Durable-only (never streamed) patch of the turn snapshot's MCP server init records. Emitted by the
- * executor when a landed approval policy must be persisted via the store's `patchMCPServers`.
- */
-export interface InternalMCPServersPatchEvent {
-  type: typeof InternalEventType.MCP_SERVERS_PATCH;
-  mcp_servers: MCPServerInitInfo[];
-}
-
 export interface AgentThreadCreateSubAgent {
   type: typeof InternalEventType.AGENT_CREATE_SUBAGENT;
   thread_id: string;
@@ -135,6 +124,27 @@ export interface AgentThreadAppendContext {
   output: AgentOutputEvent[];
   current_context_usage?: CurrentContextUsage | undefined;
   completion?: SubAgentCompletion | undefined;
+}
+
+/**
+ * Atomic commit of one applied batch of user events — the unit of "user events consumed". Groups
+ * every store write that must land together so TurnHandle can persist them in one transaction (once
+ * a DB store exists; sequential writes until then): context appends, approval-marker overwrites, an
+ * MCP server patch (policy only), the per-inbound-event output events, and the ids to mark consumed.
+ *
+ * Produced once per application step — by the thread for a decision-drain (single thread), and by the
+ * orchestrator for a policy apply (fans across threads, so `context_overwrites` may span thread ids).
+ * `applied_user_events` carries exactly one entry per inbound user event (the consumption handle),
+ * in output (id + created_at) form, to be streamed and appended to the event log. Empty arrays are
+ * skipped by the consumer.
+ */
+export interface UserEventsCommitEvent {
+  type: typeof InternalEventType.USER_EVENTS_COMMIT;
+  context_appends: AgentThreadAppendContext[];
+  context_overwrites: ThreadOverwriteContextEvent[];
+  mcp_patch: MCPServerInitInfo[];
+  applied_user_events: TurnUserToolEvent[];
+  consumed_event_ids: string[];
 }
 
 /** Single public send item (no internal LLM tool messages). */
@@ -160,14 +170,10 @@ export type AgentThreadEvent =
   | SandboxCreatedEvent
   | ToolApprovalRequiredEvent
   | ToolResponseRequiredEvent
-  | UserToolApprovalEvent
-  | UserToolResponseEvent
-  | UserToolApprovalPolicyEvent
-  | InternalMCPServersPatchEvent
+  | UserEventsCommitEvent
   | InternalPassthroughEvent;
 
-export type ApplyUserEventsOutput =
-  AgentThreadAppendContext | ThreadOverwriteContextEvent | UserToolApprovalEvent | UserToolResponseEvent;
+export type ApplyUserEventsOutput = AgentThreadAppendContext | UserEventsCommitEvent;
 
 /** A turn-level non-terminal transition emitted by the executor loop when it parks/resumes. */
 export interface InternalTurnStateEvent {

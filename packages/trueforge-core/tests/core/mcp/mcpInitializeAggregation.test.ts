@@ -1,4 +1,4 @@
-import type { MCPServerInitInfo, ToolApprovalPolicyAction } from '../../../src/core/events/schema';
+import type { MCPServerInitInfo, ToolApprovalPolicy } from '../../../src/core/events/schema';
 import { EventType } from '../../../src/core/events/schema';
 import type { AgentToolSchema, IToolSet, ListToolsResponse } from '../../../src/core/mcp/IMCPServer';
 import { convertMCPServersToTools } from '../../../src/core/mcp/convertMCPServers';
@@ -9,7 +9,7 @@ function makeServer(params: {
   name: string;
   initInfo?: MCPServerInitInfo;
   tools?: AgentToolSchema[] | undefined;
-  approvalPolicies?: Record<string, ToolApprovalPolicyAction>;
+  approvalPolicies?: Record<string, ToolApprovalPolicy>;
 }): IToolSet {
   const base = makeMockIMCPServer({
     name: params.name,
@@ -60,7 +60,7 @@ describe('convertMCPServersToTools initialization aggregation', () => {
       name: 'with-policies',
       session_id: 'sess-with-policies',
     };
-    const policies: Record<string, ToolApprovalPolicyAction> = {
+    const policies: Record<string, ToolApprovalPolicy> = {
       write_note: { type: 'allow_session' },
       delete_note: { type: 'allow_session', expire_at: '2999-01-01T00:00:00.000Z' },
     };

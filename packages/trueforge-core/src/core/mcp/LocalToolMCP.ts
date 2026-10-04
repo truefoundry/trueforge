@@ -1,6 +1,6 @@
 import type { CallToolRequest, ListToolsResult } from '@modelcontextprotocol/sdk/types.js';
 import { z } from 'zod';
-import type { ApprovalDecision, ToolApprovalPolicyAction } from '../events/schema';
+import type { ApprovalDecision, ToolApprovalPolicy } from '../events/schema';
 import type { InternalToolCallInfo } from '../llm/LLMTypes';
 import type { AgentTracing } from '../tracing/AgentTracing';
 import {
@@ -114,12 +114,12 @@ export abstract class LocalToolMCP implements IToolSet {
   }
 
   // System tool sets are never approval-gated, so policies are a no-op here.
-  setApprovalPolicy(_toolName: string, _action: ToolApprovalPolicyAction): void {
+  setApprovalPolicy(_toolName: string, _policy: ToolApprovalPolicy): void {
     void _toolName;
-    void _action;
+    void _policy;
   }
 
-  getApprovalPolicies(): Record<string, ToolApprovalPolicyAction> {
+  getApprovalPolicies(): Record<string, ToolApprovalPolicy> {
     return {};
   }
 
