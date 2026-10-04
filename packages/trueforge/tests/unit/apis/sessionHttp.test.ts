@@ -498,7 +498,7 @@ describe('sessions HTTP agent binding', () => {
               {
                 server_name: 'github',
                 name: 'create_issue',
-                action: { type: 'allow_session' },
+                policy: { type: 'allow_session' },
               },
             ],
           },
@@ -535,7 +535,7 @@ describe('sessions HTTP agent binding', () => {
         {
           server_name: 'github',
           name: 'create_issue',
-          action: { type: 'allow_session' },
+          policy: { type: 'allow_session' },
         },
       ],
     });

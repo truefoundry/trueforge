@@ -94,9 +94,9 @@ export class ActiveTurnRegistry {
   /**
    * The live turn handle for a turn executing in this process, or undefined when it is not
    * resumable here — never started, already terminal (the stream removed its run), aborting, or
-   * registered without a handle. Callers map undefined to 409 (turn not running on this server).
+   * registered without a handle.
    */
-  getResumable(input: { sessionId: string; turnId: string }): TurnHandle | undefined {
+  getTurnHandle(input: { sessionId: string; turnId: string }): TurnHandle | undefined {
     const run = this.runs.get(activeTurnKey(input.sessionId, input.turnId));
     if (!run) {
       return undefined;

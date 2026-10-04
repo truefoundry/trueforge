@@ -98,13 +98,13 @@ export const ToolApprovalPolicyAllowSessionSchema = z
 
 export const ToolApprovalPolicySchema = z
   .discriminatedUnion('type', [ToolApprovalPolicyAllowSessionSchema])
-  .openapi('ToolApprovalPolicyAction');
+  .openapi('ToolApprovalPolicy');
 
 export const ToolApprovalPolicyItemSchema = z
   .object({
     server_name: z.string().min(1, 'server_name is required').describe('MCP server name.'),
     name: z.string().min(1, 'name is required').describe('Tool name on that server.'),
-    action: ToolApprovalPolicySchema,
+    policy: ToolApprovalPolicySchema,
   })
   .openapi('ToolApprovalPolicyItem');
 
@@ -125,12 +125,14 @@ export const UserMCPAuthContinueMessageSchema = z
   })
   .openapi('UserMCPAuthContinueInputEvent');
 
-export const InboundTurnEventSchema = z.discriminatedUnion('type', [
-  UserToolApprovalMessageSchema,
-  UserToolResponseMessageSchema,
-  UserToolApprovalPolicyMessageSchema,
-  UserMCPAuthContinueMessageSchema,
-]);
+export const TurnUserEventMessageSchema = z
+  .discriminatedUnion('type', [
+    UserToolApprovalMessageSchema,
+    UserToolResponseMessageSchema,
+    UserToolApprovalPolicyMessageSchema,
+    UserMCPAuthContinueMessageSchema,
+  ])
+  .openapi('TurnUserEventMessage');
 
 /** Durable / SSE form of {@link UserToolApprovalMessageSchema}. */
 export const UserToolApprovalEventSchema = z
@@ -167,6 +169,15 @@ export const UserMCPAuthContinueEventSchema = z
     created_at: z.string().describe('ISO 8601 event timestamp.'),
   })
   .openapi('UserMCPAuthContinueEvent');
+
+export const TurnUserEventSchema = z
+  .discriminatedUnion('type', [
+    UserToolApprovalEventSchema,
+    UserToolResponseEventSchema,
+    UserToolApprovalPolicyEventSchema,
+    UserMCPAuthContinueEventSchema,
+  ])
+  .openapi('TurnUserEvent');
 
 export const TextContentPartSchema = z
   .object({
@@ -451,14 +462,16 @@ export type ApprovalDecision = z.infer<typeof ApprovalDecisionSchema>;
 export type UserToolApprovalMessage = z.infer<typeof UserToolApprovalMessageSchema>;
 export type UserToolResponseMessage = z.infer<typeof UserToolResponseMessageSchema>;
 export type ToolApprovalPolicyItem = z.infer<typeof ToolApprovalPolicyItemSchema>;
-export type ToolApprovalPolicyAction = z.infer<typeof ToolApprovalPolicySchema>;
+export type ToolApprovalPolicy = z.infer<typeof ToolApprovalPolicySchema>;
 export type UserToolApprovalPolicyMessage = z.infer<typeof UserToolApprovalPolicyMessageSchema>;
 export type UserToolApprovalEvent = z.infer<typeof UserToolApprovalEventSchema>;
 export type UserToolResponseEvent = z.infer<typeof UserToolResponseEventSchema>;
 export type UserToolApprovalPolicyEvent = z.infer<typeof UserToolApprovalPolicyEventSchema>;
+export type TurnUserToolEvent = UserToolApprovalEvent | UserToolResponseEvent | UserToolApprovalPolicyEvent;
 export type UserMCPAuthContinueMessage = z.infer<typeof UserMCPAuthContinueMessageSchema>;
 export type UserMCPAuthContinueEvent = z.infer<typeof UserMCPAuthContinueEventSchema>;
-export type InboundTurnUserEvent = z.infer<typeof InboundTurnEventSchema>;
+export type TurnUserEventMessage = z.infer<typeof TurnUserEventMessageSchema>;
+export type TurnUserEvent = z.infer<typeof TurnUserEventSchema>;
 export type AgentApprovalDecisionMessage = z.infer<typeof AgentApprovalDecisionMessageSchema>;
 export type InputTokensBreakdown = z.infer<typeof InputTokensBreakdownSchema>;
 export type ModelMessageUsage = z.infer<typeof ModelMessageUsageSchema>;

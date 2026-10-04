@@ -31,7 +31,9 @@ import {
   type ToolApprovalRequiredEvent,
   type ToolResponseEvent,
   type ToolResponseRequiredEvent,
+  type UserToolApprovalEvent,
   type UserToolApprovalMessage,
+  type UserToolResponseEvent,
   type UserToolResponseMessage,
 } from '../events/schema';
 import { InstructionBuilder, ROOT_AGENT_IDENTITY } from '../InstructionBuilder';
@@ -73,6 +75,7 @@ import {
   type InternalMCPAuthRequiredEvent,
   type InternalThreadDoneEvent,
   type SubAgentCompletionMarker,
+  type UserEventsCommitEvent,
 } from './AgentThread.types';
 import {
   currentContextUsageFromCompletion,
@@ -667,24 +670,48 @@ export class AgentThread {
         tool_call_id: m.tool_call_id,
         content: m.content,
       }));
-      yield* this.appendToContext({
-        context: [...approvalContext, ...toolResponseContext],
-        output: [],
-        currentContextUsage: undefined,
-        usage: undefined,
-      });
-      // Approvals mutate tool_info.approval in place on the (already-persisted) assistant message;
-      // appendToContext only persists the new decision message, so flush the marker via overwrite.
+
+      const commit: UserEventsCommitEvent = {
+        type: InternalEventType.USER_EVENTS_COMMIT,
+        context_appends: [],
+        context_overwrites: [],
+        mcp_patch: [],
+        applied_user_events: [],
+        consumed_event_ids: [],
+      };
+      // Drive appendToContext for its in-memory effect — the decision message must land in
+      // this.context (callTool reads it as the allow/deny execution input).
+      const appendEvents = [
+        ...this.appendToContext({
+          context: [...approvalContext, ...toolResponseContext],
+          output: [],
+          currentContextUsage: undefined,
+          usage: undefined,
+        }),
+      ];
       if (approvals.length > 0) {
-        yield* this.overwriteContextForApprovalResolution();
+        // Approvals also mutate tool_info.approval in place on the already-persisted assistant
+        // message, so we flush a full-context overwrite. That overwrite is snapshotted *after* the
+        // append above, so it already carries these same new messages — making it the sole context
+        // write; emitting the append too would just redundantly rewrite the same rows.
+        for (const ev of this.overwriteContextForApprovalResolution()) {
+          commit.context_overwrites.push(ev);
+        }
+      } else {
+        commit.context_appends.push(...appendEvents);
       }
-      // Stream the accepted inputs back to the consumer (durable + SSE) now that they are applied.
+      // One output event per accepted input (durable + SSE); its id is the consumption handle.
       for (const a of approvals) {
-        yield { ...a, id: newEventId(), created_at: new Date().toISOString() };
+        const echo: UserToolApprovalEvent = { ...a, id: newEventId(), created_at: new Date().toISOString() };
+        commit.applied_user_events.push(echo);
+        commit.consumed_event_ids.push(echo.id);
       }
       for (const m of clientSideToolResponses) {
-        yield { ...m, id: newEventId(), created_at: new Date().toISOString() };
+        const echo: UserToolResponseEvent = { ...m, id: newEventId(), created_at: new Date().toISOString() };
+        commit.applied_user_events.push(echo);
+        commit.consumed_event_ids.push(echo.id);
       }
+      yield commit;
     }
     if (contextMessages.length > 0) {
       yield* this.appendToContext({
@@ -775,23 +802,24 @@ export class AgentThread {
     yield event;
     this.context = payload.context;
     this.currentContextUsage = payload.current_context_usage;
-    this.metrics.total_summarizations++;
+    if (payload.reason === 'compaction') {
+      this.metrics.total_summarizations++;
+    }
   }
 
   // Persist an in-place tool_info.approval mutation by rewriting the thread's context. Unlike
   // compaction this involves no LLM call (no usage) and is not a summarization, so it bumps no
   // metric. The context already carries the mutation (set via setToolCallApprovalDecision); this
-  // just flushes it to the durable store through the overwrite seam.
+  // just flushes the current context through the shared overwrite seam with reason input.
   public *overwriteContextForApprovalResolution(): Generator<ThreadOverwriteContextEvent, void, unknown> {
-    yield {
+    yield* this.overwriteContext({
       type: EventType.AGENT_CONTEXT_OVERWRITE,
       id: newEventId(),
       created_at: new Date().toISOString(),
-      thread_id: this.threadId,
       reason: 'approval_resolution',
       context: this.context,
       current_context_usage: this.currentContextUsage,
-    };
+    });
   }
 
   private generateErrorEvent(message: string, output?: ModelMessageEvent): InternalThreadDoneEvent {

@@ -3,12 +3,11 @@ import { AgentHarnessError, InvalidAgentSendInputError } from '../errors';
 import {
   EventType,
   newEventId,
-  type InboundTurnUserEvent,
   type MCPServerInitInfo,
   type ModelMessageEvent,
-  type ThreadOverwriteContextEvent,
   type ToolApprovalPolicyItem,
   type ToolResponseEvent,
+  type TurnUserEventMessage,
   type UserToolApprovalMessage,
   type UserToolApprovalPolicyEvent,
   type UserToolResponseMessage,
@@ -27,7 +26,7 @@ import {
   type AgentThreadSendBatch,
   type ApplyUserEventsOutput,
   type InternalMCPAuthRequiredEvent,
-  type InternalMCPServersPatchEvent,
+  type UserEventsCommitEvent,
 } from './AgentThread.types';
 import {
   assistantMessageContentToStringForSubAgent,
@@ -203,8 +202,10 @@ export class AgentThreadOrchestrator {
   private finishedSubAgentMetrics: AgentThreadMetrics = createEmptyAgentThreadMetrics();
   // Latching wake for execute()'s park/resume loop; notified by notifyWake() (send) and abort.
   private readonly wake: Signalable = signalable();
-  // Approval policies accepted but not yet applied
-  private readonly pendingPolicies: ToolApprovalPolicyItem[] = [];
+  // Accepted-but-not-yet-applied approval policies, kept as whole UserToolApprovalPolicyEvents (id
+  // stamped at send) rather than flattened items — so each originating input yields its own stream
+  // echo carrying that id, which a consumer can later use to mark the inbound event consumed.
+  private readonly pendingPolicyEvents: UserToolApprovalPolicyEvent[] = [];
   // Last-seen MCP server init records (by id)/
   private readonly mcpServerInitInfoById = new Map<string, MCPServerInitInfo>();
 
@@ -257,24 +258,32 @@ export class AgentThreadOrchestrator {
   // already-pending approvals the policy now covers. The orchestrator owns all policy semantics; the
   // thread only exposes its tool sets + context primitives. Last write wins for a given (server, tool).
   //
-  // Yields:
-  //  - a per-thread context overwrite flushing the in-place approval markers it set (durable only);
-  //  - one MCP_SERVERS_PATCH with the merged full records for the affected servers (durable only,
-  //    so the sticky policy survives into future turns);
-  //  - the USER_TOOL_APPROVAL_POLICY echo of the accepted input (durable + streamed).
+  // Gathers everything into a single UserEventsCommitEvent (the orchestrator is the sole emitter for a
+  // policy, so the echo + patch fire exactly once even though application fans across threads):
+  //  - per-thread context overwrites flushing the in-place approval markers it set;
+  //  - one mcp_patch with the merged full records for the affected servers (so the sticky policy
+  //    survives into future turns);
+  //  - one UserToolApprovalPolicyEvent echo per originating input event, each carrying the id stamped
+  //    at send so a consumer can mark that inbound event consumed.
   private *applyApprovalPolicies(
-    policies: ToolApprovalPolicyItem[],
-  ): Generator<
-    ThreadOverwriteContextEvent | InternalMCPServersPatchEvent | UserToolApprovalPolicyEvent,
-    void,
-    unknown
-  > {
+    policyEvents: UserToolApprovalPolicyEvent[],
+  ): Generator<UserEventsCommitEvent, void, unknown> {
+    // Flatten to items only for applying/patching; the event boundaries drive the output events.
+    const policies = policyEvents.flatMap(event => event.policies);
+    const commit: UserEventsCommitEvent = {
+      type: InternalEventType.USER_EVENTS_COMMIT,
+      context_appends: [],
+      context_overwrites: [],
+      mcp_patch: [],
+      applied_user_events: [],
+      consumed_event_ids: [],
+    };
     for (const thread of this.agentThreads.values()) {
       let appliedAny = false;
       for (const policy of policies) {
         for (const toolSet of thread.getUserToolSets()) {
           if (toolSet.name === policy.server_name) {
-            toolSet.setApprovalPolicy(policy.name, policy.action);
+            toolSet.setApprovalPolicy(policy.name, policy.policy);
             appliedAny = true;
           }
         }
@@ -300,21 +309,19 @@ export class AgentThreadOrchestrator {
         }
       }
       if (coveredAny) {
-        yield* thread.overwriteContextForApprovalResolution();
+        for (const ev of thread.overwriteContextForApprovalResolution()) {
+          commit.context_overwrites.push(ev);
+        }
       }
     }
 
-    const patched = this.buildMCPServerPatchRecords(policies);
-    if (patched.length > 0) {
-      yield { type: InternalEventType.MCP_SERVERS_PATCH, mcp_servers: patched };
+    commit.mcp_patch = this.buildMCPServerPatchRecords(policies);
+    // One output event per originating input event, preserving its send-stamped id (the consumption handle).
+    for (const event of policyEvents) {
+      commit.applied_user_events.push(event);
+      commit.consumed_event_ids.push(event.id);
     }
-    yield {
-      type: EventType.USER_TOOL_APPROVAL_POLICY,
-      // Copy: the caller empties the pendingPolicies array right after this generator drains.
-      policies: [...policies],
-      id: newEventId(),
-      created_at: new Date().toISOString(),
-    };
+    yield commit;
   }
 
   // Full MCPServerInitInfo records for the servers named by `policies`, with approval_policies
@@ -399,13 +406,15 @@ export class AgentThreadOrchestrator {
     return byThread;
   }
 
-  public *send(events: InboundTurnUserEvent[]): Generator<AgentThreadRuntimeSendBatch, void, unknown> {
-    const policies: ToolApprovalPolicyItem[] = [];
+  public *send(events: TurnUserEventMessage[]): Generator<AgentThreadRuntimeSendBatch, void, unknown> {
+    const policyEvents: UserToolApprovalPolicyEvent[] = [];
     const decisions: UserToolApprovalOrResponseBatch = [];
     for (const event of events) {
       switch (event.type) {
         case EventType.USER_TOOL_APPROVAL_POLICY:
-          policies.push(...event.policies);
+          // Upgrade to the event form here: the id stamped now is what the applied-policy echo
+          // carries on the stream, so (once inbound persistence lands) it keys consumption tracking.
+          policyEvents.push({ ...event, id: newEventId(), created_at: new Date().toISOString() });
           break;
         case EventType.USER_MCP_AUTH_CONTINUE:
           // Run-level OAuth resume (no thread_id); not yet wired into the in-memory executor. Fail
@@ -420,14 +429,14 @@ export class AgentThreadOrchestrator {
     // All-or-nothing validation up front: routeSendBatch is pure (no enqueue), validateApprovalPolicies
     // is pure (no apply). If either rejects, nothing below runs so nothing is partially accepted.
     const byThread = this.routeSendBatch(decisions);
-    const policyErrors = this.validateApprovalPolicies(policies);
+    const policyErrors = this.validateApprovalPolicies(policyEvents.flatMap(event => event.policies));
     if (policyErrors.length > 0) {
       throw new InvalidAgentSendInputError(`invalid approval policies: ${policyErrors.join('; ')}`);
     }
 
     // Everything validated → enqueue. Policies are applied by execute()'s drain (they mutate the
     // ToolSets); decisions are yielded at the durability seam for the parked executor.
-    this.pendingPolicies.push(...policies);
+    this.pendingPolicyEvents.push(...policyEvents);
     for (const [threadId, batch] of byThread) {
       const thread = this.agentThreads.get(threadId);
       if (!thread) {
@@ -600,9 +609,9 @@ export class AgentThreadOrchestrator {
         }
 
         // Apply policies accepted since the last pass before deciding what is runnable.
-        if (this.pendingPolicies.length > 0) {
-          yield* this.applyApprovalPolicies(this.pendingPolicies);
-          this.pendingPolicies.length = 0;
+        if (this.pendingPolicyEvents.length > 0) {
+          yield* this.applyApprovalPolicies(this.pendingPolicyEvents);
+          this.pendingPolicyEvents.length = 0;
         }
 
         // Leaves that will make progress now: not blocked, or

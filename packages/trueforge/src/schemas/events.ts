@@ -9,8 +9,9 @@ import {
   TokenPaginationSchema,
   TurnCreatedEventSchema,
   TurnDoneEventSchema,
-  TurnInboundEventItemSchema,
   TurnUpdateEventSchema,
+  TurnUserEventMessageSchema,
+  TurnUserEventSchema,
 } from '@truefoundry/trueforge-core/agent-session';
 import {
   MCPAuthRequiredEventSchema,
@@ -35,22 +36,13 @@ export { EventType };
 
 export const CreateTurnEventRequestSchema = z
   .object({
-    events: z.array(TurnInboundEventItemSchema).min(1).describe('One or more user events.'),
+    events: z.array(TurnUserEventMessageSchema).min(1).describe('One or more user events.'),
   })
   .openapi('CreateTurnEventRequest');
 
 export const CreateTurnEventResponseSchema = z
   .object({
-    data: z
-      .array(
-        z.discriminatedUnion('type', [
-          UserToolApprovalEventSchema,
-          UserToolResponseEventSchema,
-          UserToolApprovalPolicyEventSchema,
-          UserMCPAuthContinueEventSchema,
-        ]),
-      )
-      .describe('Events with server-minted `id` and `created_at`, in request order.'),
+    data: z.array(TurnUserEventSchema).describe('Events with server-minted `id` and `created_at`, in request order.'),
   })
   .openapi('CreateTurnEventResponse');
 

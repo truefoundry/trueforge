@@ -4,11 +4,9 @@ import {
   ActionRequiredEventSchema,
   AgentInputUserMessageSchema,
   EventIdSchema,
-  InboundTurnEventSchema,
   ModelMessageEventSchema,
   UserToolApprovalMessageSchema,
   UserToolResponseMessageSchema,
-  type InboundTurnUserEvent,
 } from '../../core/events/schema';
 
 export enum CancellationReason {
@@ -195,15 +193,12 @@ export const CreateTurnRequestSchema = z
   })
   .openapi('CreateTurnRequest');
 
-export const TurnInboundEventItemSchema = InboundTurnEventSchema.openapi('TurnInboundEventItem');
-
 export type Turn = z.infer<typeof TurnSchema>;
 export type TurnInputItem = z.infer<typeof TurnInputItemSchema>;
 export type TurnState = z.infer<typeof TurnStateSchema>;
 export type NonTerminalTurnState = Extract<TurnState, { status: 'running' | 'paused' }>;
 export type TerminalTurnState = Exclude<TurnState, NonTerminalTurnState>;
 export type TurnMetrics = z.infer<typeof TurnMetricsSchema>;
-export type TurnInboundEventItem = InboundTurnUserEvent;
 
 export function isNonTerminalTurnState(state: TurnState): state is NonTerminalTurnState {
   return state.status === 'running' || state.status === 'paused';

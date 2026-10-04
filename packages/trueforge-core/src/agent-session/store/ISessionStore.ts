@@ -1,5 +1,5 @@
 import type { JsonValue } from '../../core/capabilities/AgentCapability';
-import type { MCPServerInitInfo, ThreadOverwriteContextEvent } from '../../core/events/schema';
+import type { MCPServerInitInfo, ThreadOverwriteContextEvent, TurnUserEventMessage } from '../../core/events/schema';
 import type {
   AgentThreadSnapshot,
   ContextMessage,
@@ -12,12 +12,7 @@ import type { TurnRecord } from '../models/TurnRecord';
 import type { PersistedTurnEvent, SessionEventItem, TurnUpdateEvent } from '../schemas/events';
 import type { TokenPagination } from '../schemas/pagination';
 import type { SessionMetadata } from '../schemas/session';
-import type {
-  CancellationReason,
-  NonTerminalTurnState,
-  TerminalTurnState,
-  TurnInboundEventItem,
-} from '../schemas/turn';
+import type { CancellationReason, NonTerminalTurnState, TerminalTurnState } from '../schemas/turn';
 
 /**
  * Caller-supplied fields for creating a session; the store owns timestamps and tip state.
@@ -196,7 +191,7 @@ export interface InsertTurnInboundEventsInput {
    */
   events: {
     event_id: string;
-    payload: TurnInboundEventItem;
+    payload: TurnUserEventMessage;
     created_at: string;
   }[];
 }

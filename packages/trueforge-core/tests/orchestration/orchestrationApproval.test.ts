@@ -125,21 +125,35 @@ describe('orchestration: pause then resume on tool approval', () => {
     const ROOT_FINAL = 'note saved';
 
     const EXPECTED_TURN_2_EVENTS = [
-      // The resumed execute() drains the queued approval decision into context first.
+      // The resumed execute() drains the queued approval decision into one commit: the decision
+      // append, the marker-flush overwrite, and the streamed echo all land together.
       {
-        type: InternalEventType.AGENT_CONTEXT_APPEND,
-        thread_id: ROOT_ID,
-        context: [
-          { type: EventType.USER_TOOL_APPROVAL, tool_call_id: WRITE_NOTE_CALL_ID, approval: { status: 'allow' } },
+        type: InternalEventType.USER_EVENTS_COMMIT,
+        // The decision message rides in the overwrite's full context (sole context write), not a
+        // separate append — see AgentThread.applyUserEvents.
+        context_appends: [],
+        context_overwrites: [
+          {
+            type: EventType.AGENT_CONTEXT_OVERWRITE,
+            thread_id: ROOT_ID,
+            reason: 'approval_resolution',
+            context: expect.arrayContaining([
+              expect.objectContaining({
+                type: EventType.USER_TOOL_APPROVAL,
+                tool_call_id: WRITE_NOTE_CALL_ID,
+                approval: { status: 'allow' },
+              }),
+            ]),
+          },
         ],
-      },
-      // Flushes the in-place tool_info.approval marker, then echoes the accepted input to the stream.
-      { type: EventType.AGENT_CONTEXT_OVERWRITE, thread_id: ROOT_ID, reason: 'approval_resolution' },
-      {
-        type: EventType.USER_TOOL_APPROVAL,
-        thread_id: ROOT_ID,
-        tool_call_id: WRITE_NOTE_CALL_ID,
-        approval: { status: 'allow' },
+        applied_user_events: [
+          {
+            type: EventType.USER_TOOL_APPROVAL,
+            thread_id: ROOT_ID,
+            tool_call_id: WRITE_NOTE_CALL_ID,
+            approval: { status: 'allow' },
+          },
+        ],
       },
       { type: EventType.TOOL_RESPONSE, thread_id: ROOT_ID, tool_call_id: WRITE_NOTE_CALL_ID },
       {
@@ -230,25 +244,34 @@ describe('orchestration: pause then resume on tool approval', () => {
     const ROOT_FINAL = 'ok, I will not write the note';
 
     const EXPECTED_TURN_2_EVENTS = [
-      // The resumed execute() drains the queued approval decision into context first.
+      // The resumed execute() drains the queued deny decision into one commit: the decision append,
+      // the marker-flush overwrite, and the streamed echo all land together.
       {
-        type: InternalEventType.AGENT_CONTEXT_APPEND,
-        thread_id: ROOT_ID,
-        context: [
+        type: InternalEventType.USER_EVENTS_COMMIT,
+        // The deny decision message rides in the overwrite's full context (sole context write).
+        context_appends: [],
+        context_overwrites: [
+          {
+            type: EventType.AGENT_CONTEXT_OVERWRITE,
+            thread_id: ROOT_ID,
+            reason: 'approval_resolution',
+            context: expect.arrayContaining([
+              expect.objectContaining({
+                type: EventType.USER_TOOL_APPROVAL,
+                tool_call_id: WRITE_NOTE_CALL_ID,
+                approval: { status: 'deny', reason: DENY_REASON },
+              }),
+            ]),
+          },
+        ],
+        applied_user_events: [
           {
             type: EventType.USER_TOOL_APPROVAL,
+            thread_id: ROOT_ID,
             tool_call_id: WRITE_NOTE_CALL_ID,
             approval: { status: 'deny', reason: DENY_REASON },
           },
         ],
-      },
-      // Flushes the in-place tool_info.approval (deny) marker, then echoes the accepted input.
-      { type: EventType.AGENT_CONTEXT_OVERWRITE, thread_id: ROOT_ID, reason: 'approval_resolution' },
-      {
-        type: EventType.USER_TOOL_APPROVAL,
-        thread_id: ROOT_ID,
-        tool_call_id: WRITE_NOTE_CALL_ID,
-        approval: { status: 'deny', reason: DENY_REASON },
       },
       { type: EventType.TOOL_RESPONSE, thread_id: ROOT_ID, tool_call_id: WRITE_NOTE_CALL_ID },
       {
@@ -340,13 +363,21 @@ describe('orchestration: a policy that lands mid-pause resolves an existing pend
   const ROOT_FINAL = 'note saved';
 
   const EXPECTED_POLICY_RESUME_EVENTS = [
-    // The drain flushes the policy-covered marker, then echoes the accepted policy to the stream.
-    // (No MCP_SERVERS_PATCH here: this harness's source never emits MCP_INITIALIZE, so there is no
-    // captured server record to persist against.)
-    { type: EventType.AGENT_CONTEXT_OVERWRITE, thread_id: ROOT_ID, reason: 'approval_resolution' },
+    // One commit: the policy-covered marker overwrite + the single policy echo. (mcp_patch is empty
+    // here — this harness's source never emits MCP_INITIALIZE, so there is no captured server record.)
     {
-      type: EventType.USER_TOOL_APPROVAL_POLICY,
-      policies: [{ server_name: POLICY_SERVER_NAME, name: WRITE_NOTE_TOOL_NAME, action: { type: 'allow_session' } }],
+      type: InternalEventType.USER_EVENTS_COMMIT,
+      context_overwrites: [
+        { type: EventType.AGENT_CONTEXT_OVERWRITE, thread_id: ROOT_ID, reason: 'approval_resolution' },
+      ],
+      applied_user_events: [
+        {
+          type: EventType.USER_TOOL_APPROVAL_POLICY,
+          policies: [
+            { server_name: POLICY_SERVER_NAME, name: WRITE_NOTE_TOOL_NAME, policy: { type: 'allow_session' } },
+          ],
+        },
+      ],
     },
     { type: EventType.TOOL_RESPONSE, thread_id: ROOT_ID, tool_call_id: WRITE_NOTE_CALL_ID },
     {
@@ -381,7 +412,7 @@ describe('orchestration: a policy that lands mid-pause resolves an existing pend
     for (const _batch of orchestrator.send([
       {
         type: EventType.USER_TOOL_APPROVAL_POLICY,
-        policies: [{ server_name: POLICY_SERVER_NAME, name: WRITE_NOTE_TOOL_NAME, action: { type: 'allow_session' } }],
+        policies: [{ server_name: POLICY_SERVER_NAME, name: WRITE_NOTE_TOOL_NAME, policy: { type: 'allow_session' } }],
       },
     ])) {
       void _batch;
@@ -424,7 +455,7 @@ describe('orchestration: a policy that lands mid-pause resolves an existing pend
           {
             server_name: POLICY_SERVER_NAME,
             name: WRITE_NOTE_TOOL_NAME,
-            action: { type: 'allow_session', expire_at: '2000-01-01T00:00:00.000Z' },
+            policy: { type: 'allow_session', expire_at: '2000-01-01T00:00:00.000Z' },
           },
         ],
       },
@@ -436,15 +467,21 @@ describe('orchestration: a policy that lands mid-pause resolves an existing pend
     const again = await driveUntilPauseOrDone(iterator);
     expect(again.kind).toBe('paused');
     // The policy is still accepted + echoed (acceptance != coverage), but it covers nothing (expired),
-    // so there is no approval_resolution overwrite and the call stays paused.
+    // so the commit carries no approval_resolution overwrite and the call stays paused.
     expect(again.events).toMatchObject([
       {
-        type: EventType.USER_TOOL_APPROVAL_POLICY,
-        policies: [
+        type: InternalEventType.USER_EVENTS_COMMIT,
+        context_overwrites: [],
+        applied_user_events: [
           {
-            server_name: POLICY_SERVER_NAME,
-            name: WRITE_NOTE_TOOL_NAME,
-            action: { type: 'allow_session', expire_at: '2000-01-01T00:00:00.000Z' },
+            type: EventType.USER_TOOL_APPROVAL_POLICY,
+            policies: [
+              {
+                server_name: POLICY_SERVER_NAME,
+                name: WRITE_NOTE_TOOL_NAME,
+                policy: { type: 'allow_session', expire_at: '2000-01-01T00:00:00.000Z' },
+              },
+            ],
           },
         ],
       },
@@ -459,7 +496,7 @@ describe('orchestration: a policy that lands mid-pause resolves an existing pend
       for (const _batch of orchestrator.send([
         {
           type: EventType.USER_TOOL_APPROVAL_POLICY,
-          policies: [{ server_name: 'does-not-exist', name: WRITE_NOTE_TOOL_NAME, action: { type: 'allow_session' } }],
+          policies: [{ server_name: 'does-not-exist', name: WRITE_NOTE_TOOL_NAME, policy: { type: 'allow_session' } }],
         },
       ])) {
         void _batch;
@@ -521,7 +558,7 @@ describe('AgentThreadOrchestrator.send: approval policy validation', () => {
           {
             type: EventType.USER_TOOL_APPROVAL_POLICY,
             policies: [
-              { server_name: POLICY_SERVER_NAME, name: WRITE_NOTE_TOOL_NAME, action: { type: 'allow_session' } },
+              { server_name: POLICY_SERVER_NAME, name: WRITE_NOTE_TOOL_NAME, policy: { type: 'allow_session' } },
             ],
           },
         ]),
@@ -538,8 +575,8 @@ describe('AgentThreadOrchestrator.send: approval policy validation', () => {
           {
             type: EventType.USER_TOOL_APPROVAL_POLICY,
             policies: [
-              { server_name: POLICY_SERVER_NAME, name: WRITE_NOTE_TOOL_NAME, action: { type: 'allow_session' } },
-              { server_name: 'does-not-exist', name: 'whatever', action: { type: 'allow_session' } },
+              { server_name: POLICY_SERVER_NAME, name: WRITE_NOTE_TOOL_NAME, policy: { type: 'allow_session' } },
+              { server_name: 'does-not-exist', name: 'whatever', policy: { type: 'allow_session' } },
             ],
           },
         ]),

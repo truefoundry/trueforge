@@ -6,11 +6,13 @@
 export { AgentSpecSchema, DEFAULT_AGENT_CONFIG_ITERATION_LIMIT, RuntimeConfigSchema } from './schemas/agentSpec';
 export type { AgentSpec, Skill } from './schemas/agentSpec';
 
+export { TurnUserEventMessageSchema, TurnUserEventSchema } from '../core/events/schema';
+export type { TurnUserEvent, TurnUserEventMessage } from '../core/events/schema';
+
 export {
   ActionRequiredSchema,
   CancellationReason,
   CreateTurnRequestSchema,
-  TurnInboundEventItemSchema,
   TurnInputItemSchema,
   TurnMetricsSchema,
   TurnSchema,
@@ -27,7 +29,6 @@ export type {
   NonTerminalTurnState,
   TerminalTurnState,
   Turn,
-  TurnInboundEventItem,
   TurnInputItem,
   TurnMetrics,
   TurnState,
