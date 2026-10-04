@@ -98,9 +98,6 @@ export type { VercelAILLMConfig, VercelAIProviderConfig, VercelAIProviderName } 
 
 // Event contracts
 export {
-  ActionRequiredEventSchema,
-  AgentInputUserMessageSchema,
-  EventIdSchema,
   EventType,
   MCPAuthRequiredEventSchema,
   MCPInitializeEventSchema,
@@ -109,20 +106,13 @@ export {
   SandboxCreatedEventSchema,
   ThreadCreatedEventSchema,
   ThreadDoneEventSchema,
-  ThreadOverwriteContextEventSchema,
   ToolApprovalRequiredEventSchema,
   ToolResponseEventSchema,
   ToolResponseRequiredEventSchema,
-  TurnUserEventMessageSchema,
-  TurnUserEventSchema,
   UserMCPAuthContinueEventSchema,
-  UserMCPAuthContinueMessageSchema,
   UserToolApprovalEventSchema,
-  UserToolApprovalMessageSchema,
   UserToolApprovalPolicyEventSchema,
-  UserToolApprovalPolicyMessageSchema,
   UserToolResponseEventSchema,
-  UserToolResponseMessageSchema,
   newEventId,
 } from './events/schema';
 export type {
@@ -133,14 +123,6 @@ export type {
   ThreadDoneEvent,
   ThreadOverwriteContextEvent,
   ToolApprovalPolicy,
-  TurnUserEvent,
-  TurnUserEventMessage,
-  UserMCPAuthContinueEvent,
-  UserMCPAuthContinueMessage,
-  UserToolApprovalEvent,
-  UserToolApprovalPolicyEvent,
-  UserToolApprovalPolicyMessage,
-  UserToolResponseEvent,
 } from './events/schema';
 export { CompletionUsageSchema } from './llm/LLMTypes';
 export type { CompletionUsage } from './llm/LLMTypes';
