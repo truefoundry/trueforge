@@ -36,10 +36,15 @@ function CatalogMcpAuthPrompt({ servers, onContinue, readOnly }: McpAuthPromptPr
     if (readOnly || resumedRef.current) return;
     resumedRef.current = true;
     setIsResuming(true);
-    void onContinue().catch(() => {
-      resumedRef.current = false;
-      setIsResuming(false);
-    });
+    // Always clear the in-flight lock when the call settles. A 2xx ack does not
+    // mean the turn woke (BE may stub the inbox or fail to resume); if this
+    // prompt is still mounted the user must be able to retry Continue.
+    void onContinue()
+      .catch(() => undefined)
+      .finally(() => {
+        resumedRef.current = false;
+        setIsResuming(false);
+      });
   };
 
   const handleConnect = (serverId: string) => {
