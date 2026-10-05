@@ -1,5 +1,11 @@
 # @truefoundry/trueforge
 
+## 0.177.0-rc.2
+
+### Patch Changes
+
+- 968b883: Add a frontend feature flag for sandbox-environment management.
+
 ## 0.177.0-rc.1
 
 ### Patch Changes
