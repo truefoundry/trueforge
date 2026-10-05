@@ -20,6 +20,7 @@ describe('resolveRoutesConfig', () => {
       library: '/library',
       libraryAgent: '/library/:agentId',
       schedules: '/schedules',
+      environments: '/environments',
       buildAgent: '/build-agent',
       agent: '/agents/:agentName',
       session: '/sessions/:sessionId',
@@ -57,6 +58,7 @@ describe('buildPath', () => {
     expect(buildPath({ type: 'library' }, routes)).toBe('/library');
     expect(buildPath({ type: 'libraryAgent', agentId: 'agent/id' }, routes)).toBe('/library/agent%2Fid');
     expect(buildPath({ type: 'schedules' }, routes)).toBe('/schedules');
+    expect(buildPath({ type: 'environments' }, routes)).toBe('/environments');
     expect(buildPath({ type: 'buildAgent' }, routes)).toBe('/build-agent');
     expect(buildPath({ type: 'agent', agentName: 'code-helper' }, routes)).toBe('/agents/code-helper');
     expect(buildPath({ type: 'session', sessionId: 'abc123' }, routes)).toBe('/sessions/abc123');
@@ -139,6 +141,16 @@ describe('sanitizeSearchForPlace', () => {
     expect(sanitizeSearchForPlace({ type: 'library' }, scheduleSearch)).toBe('?theme=dark');
   });
 
+  it('keeps library agent_name on the library place and clears it elsewhere', () => {
+    const librarySearch = '?theme=dark&agent_name=ask-ai-clone&sessionId=sess-1&agentId=agent-1&q=digest';
+    expect(sanitizeSearchForPlace({ type: 'library' }, librarySearch)).toBe('?theme=dark&agent_name=ask-ai-clone');
+    expect(sanitizeSearchForPlace({ type: 'root' }, librarySearch)).toBe('?theme=dark');
+    expect(sanitizeSearchForPlace({ type: 'schedules' }, librarySearch)).toBe('?theme=dark&q=digest');
+    expect(sanitizeSearchForPlace({ type: 'libraryAgent', agentId: 'agent-1' }, librarySearch)).toBe(
+      '?theme=dark&sessionId=sess-1&agentId=agent-1',
+    );
+  });
+
   it('keeps embedded schedule state on an agent Schedules tab', () => {
     const search = '?theme=dark&agentId=agent-1&tab=schedules&agent=stale&status=paused&q=digest&isNew=true';
     expect(sanitizeSearchForPlace({ type: 'libraryAgent', agentId: 'agent-1' }, search)).toBe(
@@ -156,6 +168,7 @@ describe('matchPath', () => {
     expect(matchPath('/library', routes)).toEqual({ type: 'library' });
     expect(matchPath('/library/agent%2Fid', routes)).toEqual({ type: 'libraryAgent', agentId: 'agent/id' });
     expect(matchPath('/schedules', routes)).toEqual({ type: 'schedules' });
+    expect(matchPath('/environments', routes)).toEqual({ type: 'environments' });
     expect(matchPath('/build-agent', routes)).toEqual({ type: 'buildAgent' });
     expect(matchPath('/agents/a%2Fb', routes)).toEqual({ type: 'agent', agentName: 'a/b' });
     expect(matchPath('/sessions', routes)).toEqual({ type: 'sessionsBrowser' });
@@ -187,6 +200,7 @@ describe('matchPath', () => {
       { type: 'library' as const },
       { type: 'libraryAgent' as const, agentId: 'agent id/1' },
       { type: 'schedules' as const },
+      { type: 'environments' as const },
       { type: 'buildAgent' as const },
       { type: 'agent' as const, agentName: 'weird name/1' },
       { type: 'session' as const, sessionId: 'sess 9' },

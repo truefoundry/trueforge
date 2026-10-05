@@ -298,6 +298,22 @@ export interface SandboxEnvironmentVersionTable {
 }
 
 /**
+ * Per-environment Daytona org secret refs — mirrors Postgres (no plaintext value).
+ */
+export interface SandboxEnvironmentSecretTable {
+  id: string;
+  tenant_id: string;
+  environment_id: string;
+  secret_name: string;
+  external_secret_name: string;
+  external_secret_id: string;
+  description: string;
+  hash: string;
+  created_at: string;
+  updated_at: string;
+}
+
+/**
  * Configured schedules.
  * PRIMARY KEY (id).
  * FK (agent_id) → agent(id) ON DELETE CASCADE.
@@ -409,6 +425,7 @@ export interface Database {
   agent: AgentTable;
   sandbox_environment: SandboxEnvironmentTable;
   sandbox_environment_version: SandboxEnvironmentVersionTable;
+  sandbox_environment_secret: SandboxEnvironmentSecretTable;
   schedule: ScheduleTable;
   schedule_run: ScheduleRunTable;
   mcp_server: McpServerTable;

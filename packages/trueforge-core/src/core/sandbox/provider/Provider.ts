@@ -80,6 +80,26 @@ export interface SandboxBuild {
   metadata: SandboxBuildMetadata | null;
 }
 
+/** Create a provider-managed secret for env networking mounts. */
+export interface SandboxCreateSecretParams {
+  name: string;
+  value: string;
+  description: string;
+  hosts: string[];
+}
+
+/** Update a provider-managed secret (hosts and optional value). */
+export interface SandboxUpdateSecretParams {
+  secretId: string;
+  hosts: string[];
+  value?: string | undefined;
+}
+
+/** Delete a provider-managed secret by id. */
+export interface SandboxDeleteSecretParams {
+  secretId: string;
+}
+
 /**
  * Sandbox backend. `TEnvironment` is provider-specific create/build input
  * (`DaytonaSandboxEnvironment` for Daytona; `undefined` when the provider has none).
@@ -101,6 +121,10 @@ export interface SandboxProvider<TEnvironment = undefined> {
   /** Env snapshot/image build. Only providers that have environments implement these. */
   build?(environment: TEnvironment): Promise<SandboxBuild>;
   getBuildStatus?(environment: TEnvironment): Promise<SandboxBuild>;
+  /** Provider-managed secrets for env networking mounts. Unsupported providers throw. */
+  createSecret(params: SandboxCreateSecretParams): Promise<{ id: string; name: string }>;
+  updateSecret(params: SandboxUpdateSecretParams): Promise<void>;
+  deleteSecret(params: SandboxDeleteSecretParams): Promise<void>;
   exec(params: SandboxExecParams): Promise<ExecResult>;
   /** Provider-specific instructions appended to the agent system prompt. */
   getAdditionalInstructions(): string | undefined;

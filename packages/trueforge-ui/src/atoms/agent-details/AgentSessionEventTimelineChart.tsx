@@ -578,6 +578,7 @@ export function AgentSessionEventTimelineChart({
         side="bottom"
         triggerClassName="block w-full"
         followCursor
+        interactive={false}
         open={tooltipTarget != null && tooltipContent != null}
         className="max-w-[min(25rem,calc(100vw-1rem))] whitespace-normal"
         anchor={tooltipAnchor}

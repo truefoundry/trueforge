@@ -83,6 +83,7 @@ vi.mock('@/server/ServerContext.js', () => ({
   useOptionalAgentSessionsServer: () => null,
   useOptionalPermissionsServer: () => null,
   useOptionalScheduleServer: () => null,
+  useOptionalSandboxEnvironmentServer: () => null,
 }));
 
 vi.mock('@/server/ShellModeContext.js', () => ({
@@ -102,6 +103,7 @@ vi.mock('@/server/ShellModeContext.js', () => ({
     setLibraryOpen: vi.fn(),
     setSchedulesOpen,
     setSessionsOpen,
+    setEnvironmentsOpen: vi.fn(),
     selectLibraryAgent: vi.fn(),
     openDraft: vi.fn(),
     openAgentBuilder: vi.fn(),

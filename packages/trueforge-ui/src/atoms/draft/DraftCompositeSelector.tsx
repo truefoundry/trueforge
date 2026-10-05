@@ -9,9 +9,11 @@ import { useOptionalCatalogServer, useServerCapabilities } from '../../server/Se
 import { useOptionalShellMode, type SettingsSection } from '../../server/ShellModeContext.js';
 import type { AgentSkill, ConnectorState } from '../../server/types.js';
 import { useSlot } from '../../theme/SlotsProvider.js';
+import { useReadySandboxEnvironments } from '../environments/useReadySandboxEnvironments.js';
 import { auiButtonClass } from '../lib/buttonClasses.js';
 import { cn } from '../lib/cn.js';
 import { useCompactLayout } from '../lib/CompactLayoutContext.js';
+import { formatRelativeTime } from '../lib/dateFormat.js';
 import { auiInputClass } from '../lib/inputClasses.js';
 import { useIsMobile } from '../lib/useIsMobile.js';
 import { BottomSheet } from '../primitives/BottomSheet.js';
@@ -50,11 +52,12 @@ export function draftMountsFromSpec(value: unknown): DraftMount[] {
   }
   return mounts;
 }
-type AttachTab = 'connectors' | 'skills';
+type AttachTab = 'connectors' | 'skills' | 'environments';
 
 const TABS: { id: AttachTab; label: string; icon: string }[] = [
   { id: 'connectors', label: 'Connectors', icon: 'plug' },
   { id: 'skills', label: 'Skills', icon: 'lightbulb' },
+  { id: 'environments', label: 'Environment', icon: 'monitor' },
 ];
 
 const SPEC_FLUSH_MS = 300;
@@ -67,6 +70,7 @@ export function CatalogRow({
   fallbackIcon,
   checked,
   disabled = false,
+  selectionControl = 'checkbox',
   onToggle,
   onActivate,
   action,
@@ -79,6 +83,7 @@ export function CatalogRow({
   fallbackIcon?: string;
   checked: boolean;
   disabled?: boolean;
+  selectionControl?: 'checkbox' | 'radio';
   onToggle: () => void;
   onActivate?: () => void;
   action?: ReactNode;
@@ -107,10 +112,27 @@ export function CatalogRow({
     </>
   );
 
+  const control =
+    selectionControl === 'radio' ? (
+      <span
+        className={cn(
+          'flex size-4 shrink-0 items-center justify-center rounded-full border transition-colors',
+          checked ? 'border-primary-button-bg bg-primary-button-bg' : 'border-text-secondary/60 bg-input-box-bg',
+        )}
+        aria-hidden
+      >
+        {checked ? <span className="size-1.5 rounded-full bg-primary-button-text" /> : null}
+      </span>
+    ) : (
+      <Checkbox checked={checked} />
+    );
+
+  const role = selectionControl === 'radio' ? 'menuitemradio' : 'menuitemcheckbox';
+
   if (action || onActivate) {
     return (
       <div
-        role="menuitemcheckbox"
+        role={role}
         aria-checked={checked}
         tabIndex={0}
         className="hover:bg-ghost-button-hover flex w-full cursor-pointer items-center gap-2 rounded-md px-2 py-2 text-left"
@@ -131,7 +153,7 @@ export function CatalogRow({
         </span>
         <button
           type="button"
-          role="checkbox"
+          role={selectionControl === 'radio' ? 'radio' : 'checkbox'}
           aria-checked={checked}
           aria-label={`${checked ? 'Deselect' : 'Select'} ${title}`}
           disabled={disabled}
@@ -141,7 +163,7 @@ export function CatalogRow({
             onToggle();
           }}
         >
-          <Checkbox checked={checked} />
+          {control}
         </button>
       </div>
     );
@@ -150,14 +172,14 @@ export function CatalogRow({
   return (
     <button
       type="button"
-      role="menuitemcheckbox"
+      role={role}
       aria-checked={checked}
       disabled={disabled}
       className="hover:bg-ghost-button-hover flex w-full cursor-pointer items-center gap-2 rounded-md px-2 py-2 text-left disabled:cursor-not-allowed disabled:opacity-50 disabled:hover:bg-transparent"
       onClick={onToggle}
     >
       {content}
-      {disabled ? <Icon name="lock" className="text-text-secondary size-3" /> : <Checkbox checked={checked} />}
+      {disabled ? <Icon name="lock" className="text-text-secondary size-3" /> : control}
     </button>
   );
 }
@@ -461,12 +483,22 @@ export function DraftCompositeSelector({ disabled, isRunning, onAttach }: DraftC
     );
   };
 
+  const {
+    environments: readyEnvironments,
+    loading: environmentsLoading,
+    refetch: refetchEnvironments,
+  } = useReadySandboxEnvironments();
+
   const openPicker = (nextTab?: AttachTab) => {
     if (nextTab != null) {
       setTab(nextTab);
       setQuery('');
     }
-    if (open) return;
+    const showEnvironments = nextTab === 'environments' || (nextTab == null && tab === 'environments');
+    if (open) {
+      if (showEnvironments) void refetchEnvironments();
+      return;
+    }
     setLocalMcp(specMcp);
     setLocalSkills(specSkills);
     dirtyRef.current = false;
@@ -474,12 +506,41 @@ export function DraftCompositeSelector({ disabled, isRunning, onAttach }: DraftC
     setPinnedMcpIds(new Set(specMcp.map(m => m.id)));
     setPinnedSkillIds(new Set(specSkills.map(skill => skillFamilyId(skill.id))));
     setOpen(true);
+    if (showEnvironments) void refetchEnvironments();
   };
 
   const openSettings = (section: SettingsSection) => {
     setOpenAndFlush(false);
     setQuery('');
     shell?.setSettingsOpen(true, section);
+  };
+
+  const currentEnvName = agentSpec?.config?.sandbox?.environment_name?.trim() || 'default';
+
+  const filteredEnvironments = useMemo(() => {
+    const all = readyEnvironments.map(e => ({
+      name: e.name,
+      description: e.manifest.description || `Created ${formatRelativeTime(e.createdAt)}`,
+    }));
+    const needle = query.trim().toLowerCase();
+    if (!needle) return all;
+    return all.filter(
+      item => item.name.toLowerCase().includes(needle) || (item.description?.toLowerCase().includes(needle) ?? false),
+    );
+  }, [readyEnvironments, query]);
+
+  const selectEnvironment = (envName: string) => {
+    const isDefault = envName === 'default';
+    updateAgentSpec?.({
+      config: {
+        ...agentSpec?.config,
+        sandbox: {
+          ...agentSpec?.config?.sandbox,
+          enabled: isDefault ? agentSpec?.config?.sandbox?.enabled : true,
+          environment_name: isDefault ? undefined : envName,
+        },
+      },
+    });
   };
 
   const content = (
@@ -499,6 +560,9 @@ export function DraftCompositeSelector({ disabled, isRunning, onAttach }: DraftC
               onClick={() => {
                 setTab(t.id);
                 setQuery('');
+                if (t.id === 'environments') {
+                  void refetchEnvironments();
+                }
               }}
             >
               <Icon name={t.icon} className="size-3.5" />
@@ -515,7 +579,13 @@ export function DraftCompositeSelector({ disabled, isRunning, onAttach }: DraftC
         <SearchField
           value={query}
           onChange={setQuery}
-          placeholder={tab === 'connectors' ? 'Search connectors...' : 'Search skills...'}
+          placeholder={
+            tab === 'connectors'
+              ? 'Search connectors...'
+              : tab === 'skills'
+                ? 'Search skills...'
+                : 'Search environment...'
+          }
         />
         {tab === 'skills' && skillsDisabled && skillsDisabledReason ? (
           <div
@@ -581,7 +651,7 @@ export function DraftCompositeSelector({ disabled, isRunning, onAttach }: DraftC
                 />
               ) : null}
             </>
-          ) : (
+          ) : tab === 'skills' ? (
             <>
               {pinnedSelectedSkills.length > 0 ? (
                 <>
@@ -603,6 +673,38 @@ export function DraftCompositeSelector({ disabled, isRunning, onAttach }: DraftC
                   onOpenSettings={
                     skills.length === 0 && shell && (needsSandbox ? canConfigureSandbox : canConfigureSkills)
                       ? () => openSettings(needsSandbox ? 'sandbox' : 'skills')
+                      : undefined
+                  }
+                />
+              ) : null}
+            </>
+          ) : (
+            <>
+              {filteredEnvironments.map(env => {
+                const isSelected = currentEnvName === env.name;
+                return (
+                  <CatalogRow
+                    key={env.name}
+                    title={env.name}
+                    description={env.description}
+                    fallbackIcon="monitor"
+                    selectionControl="radio"
+                    checked={isSelected}
+                    onToggle={() => selectEnvironment(env.name)}
+                  />
+                );
+              })}
+              {filteredEnvironments.length === 0 ? (
+                <DraftCatalogEmptyState
+                  loading={environmentsLoading}
+                  emptyLabel="No environments"
+                  settingsTarget="Environments"
+                  onOpenSettings={
+                    shell
+                      ? () => {
+                          setOpenAndFlush(false);
+                          shell.setEnvironmentsOpen(true);
+                        }
                       : undefined
                   }
                 />

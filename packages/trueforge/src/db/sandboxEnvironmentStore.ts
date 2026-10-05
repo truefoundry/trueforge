@@ -47,6 +47,28 @@ export interface SandboxEnvironmentVersionRecord {
 export interface SandboxEnvironmentWithVersion {
   environment: SandboxEnvironmentRecord;
   version: SandboxEnvironmentVersionRecord;
+  /** Env var → Daytona org secret name (from getEnvironment). */
+  mounted_secrets?: Record<string, string>;
+}
+
+/** Secret row (Daytona refs; no plaintext). */
+export interface SandboxEnvironmentSecretRecord {
+  id: string;
+  tenant_id: string;
+  environment_id: string;
+  secret_name: string;
+  external_secret_name: string;
+  external_secret_id: string;
+  description: string;
+  hash: string;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface SyncedSandboxEnvironmentSecret {
+  secret_name: string;
+  external_secret_name: string;
+  external_secret_id: string;
 }
 
 export function parseStoredSandboxEnvironmentManifest(manifest: unknown): StoredSandboxEnvironmentManifest {
@@ -80,6 +102,7 @@ export interface SandboxEnvironmentVersionForProgress {
   version: number;
   external_ref: string;
   manifest: StoredSandboxEnvironmentManifest;
+  internal_metadata: SandboxEnvironmentVersionInternalMetadata;
 }
 
 export interface GetSandboxEnvironmentVersionInput {
@@ -93,20 +116,17 @@ export type UpsertSandboxEnvironmentVersion = NextSandboxEnvironmentVersion & {
   created_by_subject: CreatedBySubject;
 };
 
-/** Version row columns for insert (store fills `environment_id`). */
-export type UpsertSandboxEnvironmentVersionWrite = UpsertSandboxEnvironmentVersion;
+/** Complete version row fields after the store resolves secret-row references. */
+export type UpsertSandboxEnvironmentVersionWrite = UpsertSandboxEnvironmentVersion & {
+  internal_metadata: SandboxEnvironmentVersionInternalMetadata;
+};
 
-export function toUpsertSandboxEnvironmentVersionWrite(
-  built: UpsertSandboxEnvironmentVersion,
-): UpsertSandboxEnvironmentVersionWrite {
-  return built;
-}
-
-/** Latest version row when updating; omitted on first create. Used for numbering + secret/diff. */
-export interface UpsertSandboxEnvironmentPrevious {
-  latest_version: number;
-  previous_manifest: StoredSandboxEnvironmentManifest;
-  previous_external_ref: string;
+/** Args for `buildVersion` during upsert. Tip fields omitted on first create. */
+export interface ExistingSandboxEnvironmentVersion {
+  environment_id: string;
+  existing_version?: number;
+  existing_manifest?: StoredSandboxEnvironmentManifest;
+  existing_external_ref?: string;
 }
 
 export interface UpsertSandboxEnvironmentInput {
@@ -114,12 +134,10 @@ export interface UpsertSandboxEnvironmentInput {
   name: ResourceName;
   description: string;
   created_by_subject: CreatedBySubject;
-  /**
-   * Called inside the write transaction. `previous` is set when updating an existing
-   * env (after the parent row is locked / re-read) so concurrent PUTs cannot collide
-   * on the next version number.
-   */
-  buildVersion: (previous?: UpsertSandboxEnvironmentPrevious) => UpsertSandboxEnvironmentVersion;
+  /** Complete provider refs from a successful secret sync before upsert. */
+  synced_secrets: SyncedSandboxEnvironmentSecret[];
+  /** Called after parent lock/create; store upserts secrets from the returned manifest. */
+  buildVersion: (input: ExistingSandboxEnvironmentVersion) => Promise<UpsertSandboxEnvironmentVersion>;
 }
 
 export interface MarkSandboxEnvironmentVersionReadyInput {
@@ -171,11 +189,16 @@ export interface ISandboxEnvironmentStore<TTransaction = never> {
     transaction?: TTransaction,
   ): Promise<{ data: SandboxEnvironmentWithVersion[]; pagination: TokenPagination }>;
   /**
-   * Active environment by name, joined to its active version.
+   * Active environment by name, joined to its latest version for management APIs.
    * Pass `created_by_subject_id` for owner-scoped CRUD/attach on custom envs; the tenant
-   * `"default"` ignores ownership. Omit the subject filter when an agent run resolves an env.
+   * `"default"` ignores ownership.
    */
   getEnvironment(
+    input: GetSandboxEnvironmentInput,
+    transaction?: TTransaction,
+  ): Promise<SandboxEnvironmentWithVersion | undefined>;
+  /** Active environment by name, joined to the version currently used for sandbox creation. */
+  getActiveEnvironment(
     input: GetSandboxEnvironmentInput,
     transaction?: TTransaction,
   ): Promise<SandboxEnvironmentWithVersion | undefined>;
@@ -210,4 +233,8 @@ export interface ISandboxEnvironmentStore<TTransaction = never> {
   ): Promise<SandboxEnvironmentVersionRecord | undefined>;
   /** Soft-delete: set lifecycle_stage = deleted. Idempotent if missing or already deleted. */
   deleteEnvironment(input: DeleteSandboxEnvironmentInput, transaction?: TTransaction): Promise<void>;
+  listSecretsByEnvironment(
+    input: { environment_id: string },
+    transaction?: TTransaction,
+  ): Promise<SandboxEnvironmentSecretRecord[]>;
 }
