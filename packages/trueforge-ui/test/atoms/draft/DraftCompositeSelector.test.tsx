@@ -143,6 +143,7 @@ describe('DraftCompositeSelector', () => {
     expect(screen.getByRole('dialog', { name: 'Add to composer' })).toBeInTheDocument();
     expect(screen.getByRole('button', { name: /Connectors/ })).toBeInTheDocument();
     expect(screen.getByRole('button', { name: /Skills/ })).toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: /Environment/ })).not.toBeInTheDocument();
     expect(screen.queryByRole('button', { name: /Capabilities/ })).not.toBeInTheDocument();
 
     agentSpec = { ...agentSpec, model: { name: '  ' } };
