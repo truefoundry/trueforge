@@ -3,17 +3,17 @@
 import type * as TrueForge from "../../api/index.js";
 import * as core from "../../core/index.js";
 import type * as serializers from "../index.js";
-import { CreateTurnEventResponseDataItem } from "./CreateTurnEventResponseDataItem.js";
+import { TurnUserEvent } from "./TurnUserEvent.js";
 
 export const CreateTurnEventResponse: core.serialization.ObjectSchema<
     serializers.CreateTurnEventResponse.Raw,
     TrueForge.CreateTurnEventResponse
 > = core.serialization.object({
-    data: core.serialization.list(CreateTurnEventResponseDataItem),
+    data: core.serialization.list(TurnUserEvent),
 });
 
 export declare namespace CreateTurnEventResponse {
     export interface Raw {
-        data: CreateTurnEventResponseDataItem.Raw[];
+        data: TurnUserEvent.Raw[];
     }
 }
