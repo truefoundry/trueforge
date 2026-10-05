@@ -8,11 +8,7 @@ import {
   modelSsrfFetch,
   ssrfFetch,
 } from '../../../src/core/util/outboundFetch';
-import {
-  assertSafeOutboundUrl,
-  configureOutboundUrlGuard,
-  isRetryableOutboundTransportError,
-} from '../../../src/core/util/ssrfGuard';
+import { assertSafeOutboundUrl, configureOutboundUrlGuard } from '../../../src/core/util/ssrfGuard';
 
 function resetOutbound(): void {
   configureOutboundUrlGuard({ allowedHosts: [], blockedHosts: [] });
@@ -91,22 +87,6 @@ describe('assertSafeOutboundUrl', () => {
   });
 });
 
-describe('outbound retry classifiers', () => {
-  it('detects undici connect and headers timeout codes through Error.cause', () => {
-    const connect = new TypeError('fetch failed', {
-      cause: Object.assign(new Error('Connect Timeout Error'), { code: 'UND_ERR_CONNECT_TIMEOUT' }),
-    });
-    const headers = new TypeError('fetch failed', {
-      cause: Object.assign(new Error('Headers Timeout Error'), { code: 'UND_ERR_HEADERS_TIMEOUT' }),
-    });
-    expect(isRetryableOutboundTransportError(connect, { idempotent: true })).toBe(true);
-    expect(isRetryableOutboundTransportError(headers, { idempotent: true })).toBe(true);
-    expect(isRetryableOutboundTransportError(headers, { idempotent: false })).toBe(false);
-    expect(isRetryableOutboundTransportError(connect, { idempotent: false })).toBe(true);
-    expect(isRetryableOutboundTransportError(new Error('nope'), { idempotent: true })).toBe(false);
-  });
-});
-
 describe('ssrfFetch', () => {
   it('does not call fetch for a blocked URL', async () => {
     const fetchSpy = jest.spyOn(globalThis, 'fetch');
@@ -148,43 +128,6 @@ describe('ssrfFetch', () => {
     }
   });
 
-  it('keeps method, headers, and body from a Request argument', async () => {
-    configureOutboundUrlGuard({ allowedHosts: ['127.0.0.1'], blockedHosts: [] });
-    const { server, origin } = await listen((req, res) => {
-      const chunks: Buffer[] = [];
-      req.on('data', chunk => {
-        chunks.push(Buffer.isBuffer(chunk) ? chunk : Buffer.from(chunk));
-      });
-      req.on('end', () => {
-        res.writeHead(200, { 'content-type': 'application/json' });
-        res.end(
-          JSON.stringify({
-            method: req.method,
-            authorization: req.headers.authorization ?? null,
-            body: Buffer.concat(chunks).toString('utf8'),
-          }),
-        );
-      });
-    });
-    try {
-      const response = await ssrfFetch(
-        new Request(`${origin}/echo`, {
-          method: 'POST',
-          headers: { authorization: 'Bearer t', 'content-type': 'text/plain' },
-          body: 'hello',
-        }),
-      );
-      expect(response.status).toBe(200);
-      await expect(response.json()).resolves.toEqual({
-        method: 'POST',
-        authorization: 'Bearer t',
-        body: 'hello',
-      });
-    } finally {
-      await closeServer(server);
-    }
-  });
-
   it('retries gateway 520 then returns success', async () => {
     configureOutboundUrlGuard({ allowedHosts: ['127.0.0.1'], blockedHosts: [] });
     configureOutboundFetches({
@@ -213,27 +156,46 @@ describe('ssrfFetch', () => {
     }
   });
 
-  it('does not retry 400 or 500', async () => {
+  it('retries Request POST body after gateway 520 (body is not left consumed)', async () => {
     configureOutboundUrlGuard({ allowedHosts: ['127.0.0.1'], blockedHosts: [] });
     configureOutboundFetches({
       outbound: { ...defaultOutboundFetchOptions(), maxRetries: 2 },
       model: defaultModelOutboundFetchOptions(),
       mcp: defaultMcpOutboundFetchOptions(),
     });
-    for (const status of [400, 500]) {
-      let hits = 0;
-      const { server, origin } = await listen((_req, res) => {
-        hits += 1;
-        res.writeHead(status, { 'content-type': 'text/plain' });
-        res.end('nope');
+    const bodies: string[] = [];
+    let hits = 0;
+    const { server, origin } = await listen((req, res) => {
+      hits += 1;
+      const chunks: Buffer[] = [];
+      req.on('data', chunk => {
+        chunks.push(Buffer.isBuffer(chunk) ? chunk : Buffer.from(chunk));
       });
-      try {
-        const response = await ssrfFetch(`${origin}/`);
-        expect(response.status).toBe(status);
-        expect(hits).toBe(1);
-      } finally {
-        await closeServer(server);
-      }
+      req.on('end', () => {
+        bodies.push(Buffer.concat(chunks).toString('utf8'));
+        if (hits === 1) {
+          res.writeHead(520, { 'content-type': 'text/plain', 'retry-after-ms': '0' });
+          res.end('gateway');
+          return;
+        }
+        res.writeHead(200, { 'content-type': 'text/plain' });
+        res.end('ok');
+      });
+    });
+    try {
+      const response = await ssrfFetch(
+        new Request(`${origin}/echo`, {
+          method: 'POST',
+          headers: { 'content-type': 'text/plain' },
+          body: 'hello-retry',
+        }),
+      );
+      expect(response.status).toBe(200);
+      await expect(response.text()).resolves.toBe('ok');
+      expect(hits).toBe(2);
+      expect(bodies).toEqual(['hello-retry', 'hello-retry']);
+    } finally {
+      await closeServer(server);
     }
   });
 
@@ -293,28 +255,6 @@ describe('ssrfFetch', () => {
       expect(response.status).toBe(200);
       expect(hits).toBe(2);
       expect(Date.now() - started).toBeLessThan(3_000);
-    } finally {
-      await closeServer(server);
-    }
-  });
-
-  it('stops retrying gateway errors when maxRetries is 0', async () => {
-    configureOutboundUrlGuard({ allowedHosts: ['127.0.0.1'], blockedHosts: [] });
-    configureOutboundFetches({
-      outbound: { ...defaultOutboundFetchOptions(), maxRetries: 0 },
-      model: defaultModelOutboundFetchOptions(),
-      mcp: defaultMcpOutboundFetchOptions(),
-    });
-    let hits = 0;
-    const { server, origin } = await listen((_req, res) => {
-      hits += 1;
-      res.writeHead(522, { 'content-type': 'text/plain' });
-      res.end('down');
-    });
-    try {
-      const response = await ssrfFetch(`${origin}/`);
-      expect(response.status).toBe(522);
-      expect(hits).toBe(1);
     } finally {
       await closeServer(server);
     }

@@ -275,6 +275,42 @@ function mergeRequestInit(input: string | URL | Request, init: RequestInit): Req
   };
 }
 
+/** Bodies that undici can send more than once without re-reading a stream. */
+function isReplayableBodyInit(body: NonNullable<RequestInit['body']>): boolean {
+  return (
+    typeof body === 'string' ||
+    body instanceof ArrayBuffer ||
+    ArrayBuffer.isView(body) ||
+    body instanceof Blob ||
+    body instanceof FormData ||
+    body instanceof URLSearchParams
+  );
+}
+
+/**
+ * Normalize to URL + init, buffering one-shot stream bodies so retries can replay them.
+ * `Request` bodies are always streams even when constructed from a string.
+ */
+async function materializeReplayableOutboundRequest(
+  input: string | URL | Request,
+  init: RequestInit,
+): Promise<{ input: URL; init: RequestInit }> {
+  const url = parseOutboundUrl(input);
+  const merged = mergeRequestInit(input, init);
+  const body = merged.body;
+  if (body == null || isReplayableBodyInit(body)) {
+    return { input: url, init: merged };
+  }
+  const buffer = await new Response(body).arrayBuffer();
+  return {
+    input: url,
+    init: {
+      ...merged,
+      body: buffer,
+    },
+  };
+}
+
 function getErrorCode(error: unknown): string | undefined {
   let current: unknown = error;
   for (let depth = 0; depth < 5 && current != null; depth += 1) {
@@ -413,6 +449,8 @@ async function withOutboundHttpRetries(
   options: { maxRetries: number; idempotent: boolean },
 ): Promise<Response> {
   const signal = init.signal ?? (input instanceof Request ? input.signal : undefined);
+  // Buffer stream / Request bodies once so a retry does not hit a consumed-body error.
+  const replayable = options.maxRetries > 0 ? await materializeReplayableOutboundRequest(input, init) : { input, init };
   let attempt = 0;
   for (;;) {
     if (signal?.aborted) {
@@ -420,7 +458,7 @@ async function withOutboundHttpRetries(
     }
     let delayMs = retryDelayMs(attempt);
     try {
-      const response = await guardedFetch(input, init, MAX_REDIRECTS, agent);
+      const response = await guardedFetch(replayable.input, replayable.init, MAX_REDIRECTS, agent);
       if (!isRetryableOutboundStatus(response.status, options) || attempt >= options.maxRetries) {
         return response;
       }
