@@ -13,6 +13,7 @@ describe('ComposerShell', () => {
         attachments={<div>design.png</div>}
         disabled={false}
         canSubmit
+        hasContent
         modelLabel="GPT 5"
         modelIcon={<span aria-label="Model icon">M</span>}
         connectorStatusLabel="Connected"
@@ -42,8 +43,9 @@ describe('ComposerShell', () => {
     render(
       <ComposerShell
         input={<textarea aria-label="Message" />}
-        disabled
+        disabled={false}
         canSubmit={false}
+        hasContent={false}
         isRunning
         onSubmit={onSubmit}
         onCancel={onCancel}
@@ -58,9 +60,34 @@ describe('ComposerShell', () => {
     expect(onSubmit).not.toHaveBeenCalled();
   });
 
+  it('shows send while running when hasContent is true', () => {
+    const onSubmit = vi.fn();
+    render(
+      <ComposerShell
+        input={<textarea aria-label="Message" />}
+        disabled={false}
+        canSubmit
+        hasContent
+        isRunning
+        onSubmit={onSubmit}
+        onCancel={() => {}}
+      />,
+    );
+
+    expect(screen.queryByRole('button', { name: 'Cancel' })).not.toBeInTheDocument();
+    fireEvent.click(screen.getByRole('button', { name: 'Send message' }));
+    expect(onSubmit).toHaveBeenCalledOnce();
+  });
+
   it('omits optional composer chrome when labels and attachment handling are absent', () => {
     render(
-      <ComposerShell input={<input aria-label="Message" />} disabled={false} canSubmit={false} onSubmit={() => {}} />,
+      <ComposerShell
+        input={<input aria-label="Message" />}
+        disabled={false}
+        canSubmit={false}
+        hasContent={false}
+        onSubmit={() => {}}
+      />,
     );
 
     expect(screen.queryByRole('button', { name: 'Attach' })).not.toBeInTheDocument();

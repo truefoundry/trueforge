@@ -35,7 +35,13 @@ describe('ComposerSendButton', () => {
   it('disables submission until the composer can submit', () => {
     const onSubmit = vi.fn();
     const { rerender } = render(
-      <ComposerSendButton disabled={false} canSubmit={false} isRunning={false} onSubmit={onSubmit} />,
+      <ComposerSendButton
+        disabled={false}
+        canSubmit={false}
+        isRunning={false}
+        hasContent={false}
+        onSubmit={onSubmit}
+      />,
     );
 
     const unavailableButton = screen.getByRole('button', { name: 'Send message' });
@@ -43,7 +49,7 @@ describe('ComposerSendButton', () => {
     fireEvent.click(unavailableButton);
     expect(onSubmit).not.toHaveBeenCalled();
 
-    rerender(<ComposerSendButton disabled={false} canSubmit isRunning={false} onSubmit={onSubmit} />);
+    rerender(<ComposerSendButton disabled={false} canSubmit isRunning={false} hasContent onSubmit={onSubmit} />);
     const availableButton = screen.getByRole('button', { name: 'Send message' });
     expect(availableButton).toBeEnabled();
     expect(availableButton).toHaveAttribute('title', 'Send message');
@@ -51,10 +57,19 @@ describe('ComposerSendButton', () => {
     expect(onSubmit).toHaveBeenCalledOnce();
   });
 
-  it('switches to a cancel action while running', () => {
+  it('shows cancel only while running with an empty composer', () => {
     const onSubmit = vi.fn();
     const onCancel = vi.fn();
-    render(<ComposerSendButton disabled={false} canSubmit isRunning onSubmit={onSubmit} onCancel={onCancel} />);
+    render(
+      <ComposerSendButton
+        disabled={false}
+        canSubmit={false}
+        isRunning
+        hasContent={false}
+        onSubmit={onSubmit}
+        onCancel={onCancel}
+      />,
+    );
 
     const cancelButton = screen.getByRole('button', { name: 'Cancel' });
     expect(cancelButton).toHaveTextContent('Cancel');
@@ -64,8 +79,37 @@ describe('ComposerSendButton', () => {
     expect(onSubmit).not.toHaveBeenCalled();
   });
 
+  it('shows send while running when the composer has content', () => {
+    const onSubmit = vi.fn();
+    const onCancel = vi.fn();
+    render(
+      <ComposerSendButton disabled={false} canSubmit isRunning hasContent onSubmit={onSubmit} onCancel={onCancel} />,
+    );
+
+    expect(screen.queryByRole('button', { name: 'Cancel' })).not.toBeInTheDocument();
+    fireEvent.click(screen.getByRole('button', { name: 'Send message' }));
+    expect(onSubmit).toHaveBeenCalledOnce();
+    expect(onCancel).not.toHaveBeenCalled();
+  });
+
+  it('shows disabled send while running with content that cannot submit', () => {
+    render(
+      <ComposerSendButton
+        disabled={false}
+        canSubmit={false}
+        isRunning
+        hasContent
+        onSubmit={() => {}}
+        onCancel={() => {}}
+      />,
+    );
+
+    expect(screen.queryByRole('button', { name: 'Cancel' })).not.toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'Send message' })).toBeDisabled();
+  });
+
   it('disables cancellation when no cancel handler is supplied', () => {
-    render(<ComposerSendButton disabled={false} canSubmit isRunning onSubmit={() => {}} />);
+    render(<ComposerSendButton disabled={false} canSubmit={false} isRunning hasContent={false} onSubmit={() => {}} />);
 
     expect(screen.getByRole('button', { name: 'Cancel' })).toBeDisabled();
   });
