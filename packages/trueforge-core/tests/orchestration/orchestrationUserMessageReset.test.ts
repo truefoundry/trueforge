@@ -131,7 +131,9 @@ describe('orchestration: user-message reset', () => {
     });
 
     const sendEvents = [];
-    for await (const event of orchestrator.send([{ type: EventType.USER_MESSAGE, content: 'new topic' }])) {
+    for await (const event of orchestrator.applyInitialInput([
+      { type: EventType.USER_MESSAGE, content: 'new topic' },
+    ])) {
       sendEvents.push(event);
     }
 
@@ -219,7 +221,9 @@ describe('orchestration: user-message reset', () => {
     });
 
     const sendEvents: unknown[] = [];
-    for await (const event of orchestrator.send([{ type: EventType.USER_MESSAGE, content: 'new topic' }])) {
+    for await (const event of orchestrator.applyInitialInput([
+      { type: EventType.USER_MESSAGE, content: 'new topic' },
+    ])) {
       sendEvents.push(event);
     }
 
@@ -264,14 +268,11 @@ describe('orchestration: user-message reset', () => {
         },
       }),
     );
-    await expect(child.send([]).next()).resolves.toEqual({ done: true, value: undefined });
+    expect(child.send([]).next()).toEqual({ done: true, value: undefined });
     expect(() => child.validateSendInput([])).not.toThrow();
     expect(() => child.validateSendInput([{ role: 'tool', tool_call_id: TOOL_CALL_ID, content: 'late' }])).toThrow(
       InvalidAgentSendInputError,
     );
-    await expect(
-      child.send([{ role: 'tool', tool_call_id: TOOL_CALL_ID, content: 'late' }]).next(),
-    ).rejects.toBeInstanceOf(InvalidAgentSendInputError);
   });
 
   it('empty orchestrator send ignores leftover children with preComputedCompletion', async () => {

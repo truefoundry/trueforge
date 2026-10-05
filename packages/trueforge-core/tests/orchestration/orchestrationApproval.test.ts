@@ -130,7 +130,7 @@ describe('orchestration: pause then resume on tool approval', () => {
       {
         type: InternalEventType.USER_EVENTS_COMMIT,
         // The decision message rides in the overwrite's full context (sole context write), not a
-        // separate append — see AgentThread.applyUserEvents.
+        // separate append — see AgentThread.apply.
         context_appends: [],
         context_overwrites: [
           {
