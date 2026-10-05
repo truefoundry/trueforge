@@ -604,10 +604,10 @@ export class AgentThreadOrchestrator {
         const runnable = active.filter(thread => thread.isRunnable(authBlocked.has(thread.threadId)));
 
         if (runnable.length === 0) {
-          // Re-emit paused after an apply-only wake so the caller can observe that accepted input
-          // was persisted but did not unblock the model.
-          yield { type: InternalEventType.TURN_STATE, transition: { status: 'paused' } };
-          turnPaused = true;
+          if (!turnPaused) {
+            yield { type: InternalEventType.TURN_STATE, transition: { status: 'paused' } };
+            turnPaused = true;
+          }
           await this.wakeSignal.wait();
           if (isAborted()) {
             return done();
