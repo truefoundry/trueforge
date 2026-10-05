@@ -251,7 +251,7 @@ describe('orchestration: user-message reset', () => {
     );
   });
 
-  it('ignores empty send/validate on a completed thread; non-empty still throws', async () => {
+  it('ignores empty validation on a completed thread; non-empty still throws', async () => {
     const child = new AgentThread(
       baseThreadInput({
         threadId: CHILD_ID,
@@ -264,7 +264,6 @@ describe('orchestration: user-message reset', () => {
         },
       }),
     );
-    expect(child.send([]).next()).toEqual({ done: true, value: undefined });
     expect(() => child.validateSendInput([])).not.toThrow();
     expect(() => child.validateSendInput([{ role: 'tool', tool_call_id: TOOL_CALL_ID, content: 'late' }])).toThrow(
       InvalidAgentSendInputError,

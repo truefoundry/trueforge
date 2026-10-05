@@ -125,25 +125,21 @@ describe('orchestration: pause then resume on tool approval', () => {
     const ROOT_FINAL = 'note saved';
 
     const EXPECTED_TURN_2_EVENTS = [
-      // The resumed execute() drains the queued approval decision into one commit: the decision
-      // append, the marker-flush overwrite, and the streamed echo all land together.
+      // The resumed execute() drains the queued approval decision into one commit: the context
+      // append and the streamed echo land together.
       {
         type: InternalEventType.USER_EVENTS_COMMIT,
-        // The decision message rides in the overwrite's full context (sole context write), not a
-        // separate append — see AgentThread.apply.
-        context_appends: [],
-        context_overwrites: [
+        context_appends: [
           {
-            type: EventType.AGENT_CONTEXT_OVERWRITE,
+            type: InternalEventType.AGENT_CONTEXT_APPEND,
             thread_id: ROOT_ID,
-            reason: 'approval_resolution',
-            context: expect.arrayContaining([
-              expect.objectContaining({
+            context: [
+              {
                 type: EventType.USER_TOOL_APPROVAL,
                 tool_call_id: WRITE_NOTE_CALL_ID,
                 approval: { status: 'allow' },
-              }),
-            ]),
+              },
+            ],
           },
         ],
         applied_user_events: [
@@ -245,24 +241,21 @@ describe('orchestration: pause then resume on tool approval', () => {
     const ROOT_FINAL = 'ok, I will not write the note';
 
     const EXPECTED_TURN_2_EVENTS = [
-      // The resumed execute() drains the queued deny decision into one commit: the decision append,
-      // the marker-flush overwrite, and the streamed echo all land together.
+      // The resumed execute() drains the queued deny decision into one commit: the context append
+      // and the streamed echo land together.
       {
         type: InternalEventType.USER_EVENTS_COMMIT,
-        // The deny decision message rides in the overwrite's full context (sole context write).
-        context_appends: [],
-        context_overwrites: [
+        context_appends: [
           {
-            type: EventType.AGENT_CONTEXT_OVERWRITE,
+            type: InternalEventType.AGENT_CONTEXT_APPEND,
             thread_id: ROOT_ID,
-            reason: 'approval_resolution',
-            context: expect.arrayContaining([
-              expect.objectContaining({
+            context: [
+              {
                 type: EventType.USER_TOOL_APPROVAL,
                 tool_call_id: WRITE_NOTE_CALL_ID,
                 approval: { status: 'deny', reason: DENY_REASON },
-              }),
-            ]),
+              },
+            ],
           },
         ],
         applied_user_events: [
@@ -365,12 +358,22 @@ describe('orchestration: a policy that lands mid-pause resolves an existing pend
   const ROOT_FINAL = 'note saved';
 
   const EXPECTED_POLICY_RESUME_EVENTS = [
-    // One commit: the policy-covered marker overwrite + the single policy echo. (mcp_patch is empty
+    // One commit: the policy-covered decision append + the single policy echo. (mcp_servers_patches is empty
     // here — this harness's source never emits MCP_INITIALIZE, so there is no captured server record.)
     {
       type: InternalEventType.USER_EVENTS_COMMIT,
-      context_overwrites: [
-        { type: EventType.AGENT_CONTEXT_OVERWRITE, thread_id: ROOT_ID, reason: 'approval_resolution' },
+      context_appends: [
+        {
+          type: InternalEventType.AGENT_CONTEXT_APPEND,
+          thread_id: ROOT_ID,
+          context: [
+            {
+              type: EventType.USER_TOOL_APPROVAL,
+              tool_call_id: WRITE_NOTE_CALL_ID,
+              approval: { status: 'allow' },
+            },
+          ],
+        },
       ],
       applied_user_events: [
         {
@@ -429,16 +432,56 @@ describe('orchestration: a policy that lands mid-pause resolves an existing pend
       throw new Error('expected turn to finish after the policy landed');
     }
     expect(resumed.events).toMatchObject(EXPECTED_POLICY_RESUME_EVENTS);
-    // No synthesized approval-decision event: the policy resolves the call without one.
-    const approvalDecisionAppended = resumed.events.some(
-      e =>
-        e.type === InternalEventType.AGENT_CONTEXT_APPEND &&
-        e.context.some(c => 'type' in c && c.type === EventType.USER_TOOL_APPROVAL),
-    );
-    expect(approvalDecisionAppended).toBe(false);
+    // Policy resolution is represented only by a synthesized context decision, not a public event.
+    expect(resumed.events[0]).toMatchObject({
+      type: InternalEventType.USER_EVENTS_COMMIT,
+      applied_user_events: [{ type: EventType.USER_TOOL_APPROVAL_POLICY }],
+    });
     // The policy was applied by execute()'s drain, not by send().
     expect(toolSet.getApprovalPolicies()).toEqual({ [WRITE_NOTE_TOOL_NAME]: { type: 'allow_session' } });
     expect(callTool).toHaveBeenCalledTimes(1);
+  });
+
+  it('applies a decision and policy in accepted order', async () => {
+    const { orchestrator, callTool } = makeApprovalHarnessWithUserToolSet(ROOT_FINAL);
+
+    for await (const _event of orchestrator.send([{ type: EventType.USER_MESSAGE, content: 'hello' }])) {
+      void _event;
+    }
+    const iterator = orchestrator.execute({ signal: new AbortController().signal });
+    expect((await driveUntilPauseOrDone(iterator)).kind).toBe('paused');
+
+    const createdAt = new Date().toISOString();
+    for await (const _batch of orchestrator.send([
+      {
+        type: EventType.USER_TOOL_APPROVAL,
+        id: newEventId(),
+        created_at: createdAt,
+        thread_id: ROOT_ID,
+        tool_call_id: WRITE_NOTE_CALL_ID,
+        approval: { status: 'deny', reason: DENY_REASON },
+      },
+      {
+        type: EventType.USER_TOOL_APPROVAL_POLICY,
+        id: newEventId(),
+        created_at: createdAt,
+        policies: [{ server_name: POLICY_SERVER_NAME, name: WRITE_NOTE_TOOL_NAME, policy: { type: 'allow_session' } }],
+      },
+    ])) {
+      void _batch;
+    }
+    orchestrator.wake();
+
+    const resumed = await driveUntilPauseOrDone(iterator);
+    expect(resumed.kind).toBe('done');
+    if (resumed.kind !== 'done') {
+      throw new Error('expected turn to finish after the decision and policy landed');
+    }
+    const appliedTypes = resumed.events
+      .filter(event => event.type === InternalEventType.USER_EVENTS_COMMIT)
+      .flatMap(event => event.applied_user_events.map(applied => applied.type));
+    expect(appliedTypes).toEqual([EventType.USER_TOOL_APPROVAL, EventType.USER_TOOL_APPROVAL_POLICY]);
+    expect(callTool).not.toHaveBeenCalled();
   });
 
   it('an expired policy does not resolve the pending call — the turn stays paused', async () => {
@@ -471,15 +514,13 @@ describe('orchestration: a policy that lands mid-pause resolves an existing pend
     }
     orchestrator.wake();
 
-    // The policy is still accepted + echoed (acceptance != coverage), but it covers nothing (expired),
-    // so the commit carries no approval_resolution overwrite and the call stays paused without
-    // emitting another paused transition.
+    // The policy is still accepted + echoed (acceptance != coverage), but it covers nothing
+    // (expired), so the call stays paused without emitting another paused transition.
     const commit = await iterator.next();
     expect(commit).toMatchObject({
       done: false,
       value: {
         type: InternalEventType.USER_EVENTS_COMMIT,
-        context_overwrites: [],
         applied_user_events: [
           {
             type: EventType.USER_TOOL_APPROVAL_POLICY,

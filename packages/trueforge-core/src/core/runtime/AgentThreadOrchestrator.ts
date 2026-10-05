@@ -10,9 +10,7 @@ import {
   type ToolApprovalPolicyItem,
   type ToolResponseEvent,
   type TurnUserEvent,
-  type UserToolApprovalEvent,
   type UserToolApprovalPolicyEvent,
-  type UserToolResponseEvent,
 } from '../events/schema';
 import type { LLMToolMessage } from '../llm/LLMTypes';
 import type { AgentExecutionTrace, AgentTracing } from '../tracing/AgentTracing';
@@ -41,8 +39,6 @@ import { addAgentThreadMetrics, createEmptyAgentThreadMetrics, type AgentThreadM
 
 const MAX_PARALLEL_SUB_AGENTS = 5;
 const CANCELED_BECAUSE_USER_SENT_NEW_MESSAGE = 'Canceled because user sent a new message.';
-
-type UserToolApprovalOrResponseBatch = (UserToolApprovalEvent | UserToolResponseEvent)[];
 
 function getActiveAgentThreads(agentThreads: Map<string, AgentThread>): AgentThread[] {
   const nodes = new Set(agentThreads.keys());
@@ -193,7 +189,7 @@ export class AgentThreadOrchestrator {
   // Finished sub-agents removed from `agentThreads`; kept so totals still include them.
   private finishedSubAgentMetrics: AgentThreadMetrics = createEmptyAgentThreadMetrics();
   private readonly wakeSignal: Signalable = signalable();
-  private readonly pendingPolicyEvents: UserToolApprovalPolicyEvent[] = [];
+  private readonly pendingTurnEvents: TurnUserEvent[] = [];
   // Last-seen MCP server init records (by id)/
   private readonly mcpServerInitInfoById = new Map<string, MCPServerInitInfo>();
 
@@ -271,8 +267,8 @@ export class AgentThreadOrchestrator {
   //
   // Gathers everything into a single UserEventsCommitEvent (the orchestrator is the sole emitter for a
   // policy, so the echo + patch fire exactly once even though application fans across threads):
-  //  - per-thread context overwrites flushing the in-place approval markers it set;
-  //  - one mcp_patch with the merged full records for the affected servers (so the sticky policy
+  //  - per-thread context appends recording approvals covered by the policy;
+  //  - MCP server patches with the merged full records for the affected servers (so the sticky policy
   //    survives into future turns);
   //  - one UserToolApprovalPolicyEvent echo per originating input event, each carrying the id stamped
   //    at send so a consumer can mark that inbound event consumed.
@@ -287,10 +283,8 @@ export class AgentThreadOrchestrator {
     const commit: UserEventsCommitEvent = {
       type: InternalEventType.USER_EVENTS_COMMIT,
       context_appends: [],
-      context_overwrites: [],
-      mcp_patch: [],
+      mcp_servers_patches: [],
       applied_user_events: [],
-      consumed_event_ids: [],
     };
 
     // Apply policies to tool sets.
@@ -310,10 +304,8 @@ export class AgentThreadOrchestrator {
       }
 
       // Resolve any already-pending approvals the new policies cover.
-      if (thread.resolveApprovalsCoveredByPolicy()) {
-        for (const ev of thread.overwriteContext({ reason: 'approval_resolution' })) {
-          commit.context_overwrites.push(ev);
-        }
+      for (const event of thread.resolveApprovalsCoveredByPolicy()) {
+        commit.context_appends.push(event);
       }
     }
 
@@ -322,7 +314,7 @@ export class AgentThreadOrchestrator {
       if (!affected.has(record.name)) {
         continue;
       }
-      commit.mcp_patch.push({
+      commit.mcp_servers_patches.push({
         ...record,
         approval_policies: approvalPoliciesByServer.get(record.name) ?? record.approval_policies,
       });
@@ -330,19 +322,24 @@ export class AgentThreadOrchestrator {
     // One output event per originating input event.
     for (const event of policyEvents) {
       commit.applied_user_events.push(event);
-      commit.consumed_event_ids.push(event.id);
     }
     yield commit;
   }
 
-  // Route decision events to their owning threads and validate each per-thread batch against its
-  // committed context. Only threads that actually receive input are returned.
-  // Pure + synchronous: throws on unknown thread or an invalid batch before anything is enqueued
-  // or applied.
-  private routeDecisionEvents(messages: UserToolApprovalOrResponseBatch): Map<string, UserToolApprovalOrResponseBatch> {
-    const byThread = new Map<string, UserToolApprovalOrResponseBatch>();
+  // Validate decisions against both committed context and decisions already accepted into the
+  // turn-level queue. Pure + synchronous: throws before anything is enqueued or applied.
+  private validateDecisionEvents(messages: Extract<TurnUserEvent, { thread_id: string }>[]): void {
+    const grouped = new Map<string, typeof messages>();
+    for (const event of this.pendingTurnEvents) {
+      if (event.type === EventType.USER_TOOL_APPROVAL_POLICY || event.type === EventType.USER_MCP_AUTH_CONTINUE) {
+        continue;
+      }
+      const queued = grouped.get(event.thread_id) ?? [];
+      queued.push(event);
+      grouped.set(event.thread_id, queued);
+    }
 
-    const grouped = new Map<string, UserToolApprovalOrResponseBatch[number][]>();
+    const affectedThreads = new Set<string>();
     for (const msg of messages) {
       const threadId = msg.thread_id;
       if (!this.agentThreads.has(threadId)) {
@@ -351,19 +348,17 @@ export class AgentThreadOrchestrator {
       const batch = grouped.get(threadId) ?? [];
       batch.push(msg);
       grouped.set(threadId, batch);
-    }
-    for (const [threadId, batch] of grouped) {
-      byThread.set(threadId, batch);
+      affectedThreads.add(threadId);
     }
 
     const validationErrors: string[] = [];
-    for (const [threadId, batch] of byThread) {
+    for (const threadId of affectedThreads) {
       const thread = this.agentThreads.get(threadId);
       if (!thread) {
         throw new Error(`AgentThreadOrchestrator.send: unknown threadId ${threadId}`);
       }
       try {
-        thread.validateSendInput(batch);
+        thread.validateSendInput(grouped.get(threadId) ?? []);
       } catch (e) {
         if (e instanceof AgentHarnessError && e.code === 'invalid_send_input') {
           validationErrors.push(`thread ${threadId}: ${e.message}`);
@@ -375,7 +370,6 @@ export class AgentThreadOrchestrator {
     if (validationErrors.length > 0) {
       throw new InvalidAgentSendInputError(validationErrors.join('; '));
     }
-    return byThread;
   }
 
   public async *send(
@@ -416,37 +410,31 @@ export class AgentThreadOrchestrator {
     }
 
     const events = input as TurnUserEvent[];
-    const policyEvents: UserToolApprovalPolicyEvent[] = [];
-    const decisions: UserToolApprovalOrResponseBatch = [];
+    const decisions: Extract<TurnUserEvent, { thread_id: string }>[] = [];
     for (const event of events) {
       switch (event.type) {
-        case EventType.USER_TOOL_APPROVAL_POLICY:
-          policyEvents.push(event);
-          break;
         case EventType.USER_MCP_AUTH_CONTINUE:
           // TODO: Implement MCP auth continue.
           throw new InvalidAgentSendInputError('mcp.auth_continue is not yet supported by the in-memory executor');
-        default:
+        case EventType.USER_TOOL_APPROVAL:
+        case EventType.USER_TOOL_RESPONSE:
           // UserToolApproval | UserToolResponse.
           decisions.push(event);
+          break;
       }
     }
 
-    // All-or-nothing validation up front: if either rejects, nothing is accepted.
-    const byThread = this.routeDecisionEvents(decisions);
-    const policyErrors = this.validateApprovalPolicies(policyEvents.flatMap(event => event.policies));
+    // All-or-nothing validation up front: if any event rejects, nothing is accepted.
+    this.validateDecisionEvents(decisions);
+    const policyErrors = this.validateApprovalPolicies(
+      events.flatMap(event => (event.type === EventType.USER_TOOL_APPROVAL_POLICY ? event.policies : [])),
+    );
     if (policyErrors.length > 0) {
       throw new InvalidAgentSendInputError(`invalid approval policies: ${policyErrors.join('; ')}`);
     }
 
-    this.pendingPolicyEvents.push(...policyEvents);
-    for (const [threadId, batch] of byThread) {
-      const thread = this.agentThreads.get(threadId);
-      if (!thread) {
-        throw new Error(`AgentThreadOrchestrator.send: unknown threadId ${threadId}`);
-      }
-      yield* thread.send(batch);
-    }
+    yield events;
+    this.pendingTurnEvents.push(...events);
   }
 
   private async *processAgentStreamChunk(
@@ -586,19 +574,22 @@ export class AgentThreadOrchestrator {
           return done();
         }
 
-        // Apply policies accepted since the last pass before deciding what is runnable.
-        if (this.pendingPolicyEvents.length > 0) {
-          yield* this.applyApprovalPolicies(this.pendingPolicyEvents);
-          this.pendingPolicyEvents.length = 0;
-        }
-
-        const active = getActiveAgentThreads(agentThreads);
-        for (const thread of active) {
-          if (thread.hasPendingUserEvents()) {
-            yield* thread.applyPendingEvents();
+        // Apply accepted user events in the same order they entered the turn-level queue.
+        for (const event of this.pendingTurnEvents.splice(0)) {
+          switch (event.type) {
+            case EventType.USER_TOOL_APPROVAL_POLICY:
+              yield* this.applyApprovalPolicies([event]);
+              break;
+            case EventType.USER_TOOL_APPROVAL:
+            case EventType.USER_TOOL_RESPONSE:
+              yield* this.applyToThread(event.thread_id, [event]);
+              break;
+            case EventType.USER_MCP_AUTH_CONTINUE:
+              throw new Error('unreachable: mcp.auth_continue is rejected by send');
           }
         }
 
+        const active = getActiveAgentThreads(agentThreads);
         const runnable = active.filter(thread => thread.isRunnable(authBlocked.has(thread.threadId)));
 
         if (runnable.length === 0) {
