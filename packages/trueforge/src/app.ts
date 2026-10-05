@@ -18,6 +18,7 @@ import { createMcpOAuthRouter } from './apis/mcpOAuth';
 import { createMcpServersRouter } from './apis/mcpServers';
 import { createModelsRouter } from './apis/models';
 import { createPermissionsRouter } from './apis/permissions';
+import { createSandboxEnvironmentBuildRouter } from './apis/sandboxEnvironmentBuild';
 import { createSandboxEnvironmentsRouter } from './apis/sandboxEnvironments';
 import { createScheduleExecutionRouter, createSchedulesRouter } from './apis/schedules';
 import { createInternalMetricsRouter } from './apis/sessionMetrics';
@@ -210,6 +211,11 @@ export interface ServerDeps<TTransaction> {
   agentStore: IAgentStore<TTransaction>;
   /** Sandbox environment parent + version persistence (no TrueFoundry dual-write). */
   sandboxEnvironmentStore: ISandboxEnvironmentStore<TTransaction>;
+  /**
+   * Context-free sandbox provider store for internal build progress (persistence or TFY).
+   * Same backing store as resolveSandboxProviderStore, without request context.
+   */
+  sandboxProviderStore: ISandboxProviderStore<TTransaction>;
   /** Resolve turn skills - persistence store or TrueFoundry resolve with Service API key (schedule runs do have any caller token). */
   turnSkillsResolverStore: Pick<ISkillStore<TTransaction>, 'resolveTurnSkills'>;
   sessions: Sessions;
@@ -272,7 +278,7 @@ export function createServerApp<TTransaction>(deps: ServerDeps<TTransaction>) {
     '/api/v1/capabilities',
     withAuth(
       createCapabilitiesRouter({
-        resolveSandboxProviderStore: deps.resolveSandboxProviderStore,
+        sandboxEnvironmentStore: deps.sandboxEnvironmentStore,
         resolveWebSearchProviderStore: deps.resolveWebSearchProviderStore,
         withTransaction: deps.withTransaction,
         logger: deps.logger,
@@ -375,6 +381,17 @@ export function createServerApp<TTransaction>(deps: ServerDeps<TTransaction>) {
     withAuth(createScheduleExecutionRouter(scheduleTurnDeps), scheduleExecutionAuthMiddleware),
   );
   app.route(
+    '/api/internal/sandbox-environments',
+    withAuth(
+      createSandboxEnvironmentBuildRouter({
+        sandboxEnvironmentStore: deps.sandboxEnvironmentStore,
+        sandboxProviderStore: deps.sandboxProviderStore,
+        logger: deps.logger,
+      }),
+      scheduleExecutionAuthMiddleware,
+    ),
+  );
+  app.route(
     '/api/v1/schedules',
     withAuth(
       createSchedulesRouter({
@@ -396,6 +413,7 @@ export function createServerApp<TTransaction>(deps: ServerDeps<TTransaction>) {
         tokenStore: deps.tokenStore,
         resolveSkillStore: deps.resolveSkillStore,
         resolveSandboxProviderStore: deps.resolveSandboxProviderStore,
+        sandboxEnvironmentStore: deps.sandboxEnvironmentStore,
         resolveWebSearchProviderStore: deps.resolveWebSearchProviderStore,
         withTransaction: deps.withTransaction,
         logger: deps.logger,

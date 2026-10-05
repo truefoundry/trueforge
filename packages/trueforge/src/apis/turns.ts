@@ -59,9 +59,10 @@ import {
   buildTurnSandbox,
   getMcpConnection,
   getModelDetails,
+  resolveSandboxEnvironment,
   resolveSandboxProvider,
 } from '../runtime/sessionResources';
-import { checkSnapshotStatus } from '../sandbox/providerUtils';
+import { DEFAULT_SANDBOX_ENVIRONMENT_NAME } from '../schemas/sandboxEnvironment';
 import { MAX_SESSION_TITLE_LENGTH } from '../schemas/session';
 import { assertGatewayMetadataRequestHeaders } from '../truefoundry/gatewayMetadata';
 import { newId } from '../utils/id';
@@ -230,37 +231,16 @@ function createTurnResolver(deps: {
     mcpConnectTimeoutMs: configuration.MCP_CONNECT_TIMEOUT_MS,
     mcpMaxResponseBytes: configuration.MCP_TOOL_CALL_MAX_RESPONSE_BYTES,
     sandboxProvider: async ({ spec, existingSandboxId, tracing }) => {
-      const environment_name = spec.config.sandbox.environment_name;
-      const resolved = await resolveSandboxProvider({
+      const provider = await resolveSandboxProvider({
         tenant_id,
         store: sandboxProviderStore,
         logger,
         sessionId,
-        sandboxEnvironmentStore,
-        environment_name,
       });
-      if (resolved === undefined) {
+      if (provider === undefined) {
         throw new HTTPException(422, {
           message: 'no sandbox provider configured — PUT /settings/sandbox-providers',
         });
-      }
-      const { provider, usesEnvironmentSnapshot } = resolved;
-      const carriedSandboxId = existingSandboxIdForProvider({
-        existingSandboxId,
-        currentProviderType: provider.type,
-      });
-      // Fresh non-local create: env snapshot readiness is gated in resolveSandboxProvider;
-      // release snapshot still needs tenant provider status when not using an env build.
-      if (carriedSandboxId === undefined && provider.type !== 'local' && !usesEnvironmentSnapshot) {
-        const status = await checkSnapshotStatus({ store: sandboxProviderStore, tenant_id, logger });
-        if (status?.status !== 'ready') {
-          throw new HTTPException(422, {
-            message:
-              status?.status === 'failed'
-                ? `sandbox image build failed (${status.status_reason ?? 'unknown error'})`
-                : 'sandbox image is activating — retry shortly',
-          });
-        }
       }
       const skills = spec.skills ?? [];
       const mountSkills =
@@ -270,13 +250,34 @@ function createTurnResolver(deps: {
               tenant_id,
               skills,
             });
-      return buildTurnSandbox({
-        provider,
+      const carriedSandboxId = existingSandboxIdForProvider({
+        existingSandboxId,
+        currentProviderType: provider.type,
+      });
+      const turnSandboxBase = {
         logger,
         skills: mountSkills,
         fileDownloadEnabled: spec.config.sandbox.file_downloads,
         existingSandboxId: carriedSandboxId,
         tracing,
+      };
+      // Env-capable providers (Daytona): resolve env. Others skip (no snapshot concept).
+      if (provider.envSupported) {
+        const environment = await resolveSandboxEnvironment({
+          tenant_id,
+          name: spec.config.sandbox.environment_name ?? DEFAULT_SANDBOX_ENVIRONMENT_NAME,
+          sandboxEnvironmentStore,
+          optional: spec.config.sandbox.environment_name === undefined,
+        });
+        return buildTurnSandbox({
+          provider,
+          ...(environment !== undefined ? { environment } : {}),
+          ...turnSandboxBase,
+        });
+      }
+      return buildTurnSandbox({
+        provider,
+        ...turnSandboxBase,
       });
     },
     agent: async agentId => {
@@ -677,20 +678,18 @@ export function createTurnsRouter(deps: TurnsRouterDeps) {
         return c.json({ error: { message: `Turn has no sandbox: ${turnId}` } }, 412);
       }
 
-      const resolved = await resolveSandboxProvider({
+      const provider = await resolveSandboxProvider({
         tenant_id: requestContext.tenant_id,
         store: deps.resolveSandboxProviderStore(c),
         logger: deps.logger,
         sessionId,
-        sandboxEnvironmentStore: deps.sandboxEnvironmentStore,
-        environment_name: undefined,
       });
-      if (resolved === undefined) {
+      if (provider === undefined) {
         return c.json({ error: { message: 'No sandbox provider configured' } }, 412);
       }
 
       // TODO: stream the body instead of buffering the whole file in memory.
-      const content = await resolved.provider.downloadFile({ sandboxId: rawSandboxId(sandboxId), path });
+      const content = await provider.downloadFile({ sandboxId: rawSandboxId(sandboxId), path });
       return c.body(toArrayBuffer(content), 200, {
         'Content-Type': 'application/octet-stream',
         'Content-Length': String(content.byteLength),

@@ -1,6 +1,9 @@
 import type { ServerConfiguration } from '../../../src/config';
 import { buildRedisStandaloneUrl, getPublicUiBasePath } from '../../../src/config';
-import { resolveTrueFoundrySandboxProviderConfig } from '../../../src/truefoundry/resolveTrueFoundrySandboxProviderConfig';
+import {
+  hasTrueFoundrySandboxProviderConfig,
+  resolveTrueFoundrySandboxProviderConfig,
+} from '../../../src/truefoundry/resolveTrueFoundrySandboxProviderConfig';
 
 /** Minimal distributed config slice for resolve tests (unused fields are irrelevant). */
 function distributed(overrides: {
@@ -105,6 +108,50 @@ describe('resolveTrueFoundrySandboxProviderConfig', () => {
         }),
       ),
     ).toThrow(/TRUEFOUNDRY_SANDBOX_SETTINGS must be valid JSON/);
+  });
+});
+
+describe('hasTrueFoundrySandboxProviderConfig', () => {
+  it('returns true when shared provider config resolves', () => {
+    expect(
+      hasTrueFoundrySandboxProviderConfig(
+        distributed({
+          TRUEFOUNDRY_SANDBOX_ENABLED: true,
+          TRUEFOUNDRY_SANDBOX_PROVIDER: 'truefoundry',
+          TRUEFOUNDRY_SANDBOX_SERVER_URL: 'http://sandbox-server',
+          TRUEFOUNDRY_SANDBOX_SETTINGS: JSON.stringify({ nats_bridge_url: 'ws://nats-bridge' }),
+        }),
+      ),
+    ).toBe(true);
+  });
+
+  it('returns false when sandbox is disabled', () => {
+    expect(hasTrueFoundrySandboxProviderConfig(distributed({}))).toBe(false);
+  });
+
+  it('returns false instead of throwing when settings are incomplete', () => {
+    expect(
+      hasTrueFoundrySandboxProviderConfig(
+        distributed({
+          TRUEFOUNDRY_SANDBOX_ENABLED: true,
+          TRUEFOUNDRY_SANDBOX_PROVIDER: 'truefoundry',
+          TRUEFOUNDRY_SANDBOX_SETTINGS: JSON.stringify({ nats_bridge_url: 'ws://nats-bridge' }),
+        }),
+      ),
+    ).toBe(false);
+  });
+
+  it('returns false instead of throwing when settings JSON is invalid', () => {
+    expect(
+      hasTrueFoundrySandboxProviderConfig(
+        distributed({
+          TRUEFOUNDRY_SANDBOX_ENABLED: true,
+          TRUEFOUNDRY_SANDBOX_PROVIDER: 'daytona',
+          TRUEFOUNDRY_SANDBOX_API_KEY: 'dtn-key',
+          TRUEFOUNDRY_SANDBOX_SETTINGS: '{not-json',
+        }),
+      ),
+    ).toBe(false);
   });
 });
 

@@ -16,7 +16,7 @@ import {
   isInputUserMessage,
 } from '../core/runtime/contextUtils';
 import type { CreateDynamicSubAgentThread } from '../core/runtime/CreateDynamicSubAgentThread';
-import type { Sandbox } from '../core/sandbox/Sandbox';
+import type { HarnessSandbox } from '../core/sandbox/Sandbox';
 import type { AgentTracing } from '../core/tracing/AgentTracing';
 import { builtinsFromSpec } from './builtinsFromSpec';
 import type { ITurnResourceResolver, ResolvedAgentDefinition } from './ITurnResourceResolver';
@@ -79,11 +79,15 @@ function collectContextAppends(
         if (event.current_context_usage !== undefined) {
           existing.current_context_usage = event.current_context_usage;
         }
+        if (event.completion !== undefined) {
+          existing.completion = event.completion;
+        }
       } else {
         appendMap.set(event.thread_id, {
           thread_id: event.thread_id,
           context: [...event.context],
           current_context_usage: event.current_context_usage ?? null,
+          completion: event.completion ?? null,
         });
       }
     }
@@ -424,7 +428,7 @@ export class SessionHandle<
     previous: TurnRecord<TTurnCustom> | undefined;
     resolver: ITurnResourceResolver<TTurnCustom>;
     spec: AgentSpec;
-    sandbox: Sandbox | undefined;
+    sandbox: HarnessSandbox | undefined;
     tracing: AgentTracing;
     definitionsByThreadId: ReadonlyMap<string, ResolvedAgentDefinition>;
   }): Map<string, AgentThread> {
@@ -456,7 +460,7 @@ export class SessionHandle<
     previousThreadSnapshot?: AgentThreadSnapshot | undefined;
     resolver: ITurnResourceResolver<TTurnCustom>;
     spec: AgentSpec;
-    sandbox: Sandbox | undefined;
+    sandbox: HarnessSandbox | undefined;
     tracing: AgentTracing;
     resolvedDefinition: ResolvedAgentDefinition;
   }): AgentThread {
@@ -495,7 +499,7 @@ export class SessionHandle<
     resolver: ITurnResourceResolver<TTurnCustom>;
     previous: TurnRecord<TTurnCustom> | undefined;
     spec: AgentSpec;
-    sandbox: Sandbox | undefined;
+    sandbox: HarnessSandbox | undefined;
     tracing: AgentTracing;
   }): CreateDynamicSubAgentThread {
     return async params => {

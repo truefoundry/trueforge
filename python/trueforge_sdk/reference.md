@@ -1062,7 +1062,7 @@ client.models.list()
 <dl>
 <dd>
 
-List sandbox environments created by the authenticated subject, newest first.
+List the tenant default environment plus sandbox environments created by the authenticated subject.
 </dd>
 </dl>
 </dd>
@@ -1100,7 +1100,7 @@ client.sandbox_environments.list()
 <dl>
 <dd>
 
-**limit:** `typing.Optional[int]` — Page size. Defaults to 25
+**limit:** `typing.Optional[int]` — Page size. Defaults to 25, max 1000.
     
 </dd>
 </dl>
@@ -1140,7 +1140,7 @@ client.sandbox_environments.list()
 <dl>
 <dd>
 
-Create or replace by `manifest.name`. Requires a Daytona sandbox provider.
+Create or replace by `manifest.name`. Requires a configured sandbox provider.
 </dd>
 </dl>
 </dd>
@@ -1155,7 +1155,7 @@ Create or replace by `manifest.name`. Requires a Daytona sandbox provider.
 <dd>
 
 ```python
-from trueforge_sdk import TrueForge, SandboxEnvironmentManifest
+from trueforge_sdk import TrueForge, SandboxEnvironmentManifestRequest
 
 client = TrueForge(
     token="<token>",
@@ -1163,7 +1163,7 @@ client = TrueForge(
 )
 
 client.sandbox_environments.create_or_update(
-    manifest=SandboxEnvironmentManifest(
+    manifest=SandboxEnvironmentManifestRequest(
         name="name",
     ),
 )
@@ -1182,7 +1182,7 @@ client.sandbox_environments.create_or_update(
 <dl>
 <dd>
 
-**manifest:** `SandboxEnvironmentManifest` 
+**manifest:** `SandboxEnvironmentManifestRequest` 
     
 </dd>
 </dl>
@@ -1214,7 +1214,7 @@ client.sandbox_environments.create_or_update(
 <dl>
 <dd>
 
-Get a sandbox environment by name for the authenticated subject.
+Get a sandbox environment by name. The tenant default is readable by any tenant member; custom environments are owner-scoped.
 </dd>
 </dl>
 </dd>
@@ -4004,6 +4004,141 @@ client.internal.metrics.get_meters(
 <dd>
 
 **end_timestamp:** `datetime.datetime` — Inclusive upper bound on session `created_at`.
+    
+</dd>
+</dl>
+
+<dl>
+<dd>
+
+**request_options:** `typing.Optional[RequestOptions]` — Request-specific configuration.
+    
+</dd>
+</dl>
+</dd>
+</dl>
+
+
+</dd>
+</dl>
+</details>
+
+## Internal SandboxEnvironments
+<details><summary><code>client.internal.sandbox_environments.<a href="src/trueforge_sdk/internal/sandbox_environments/client.py">list_pending</a>() -> ListPendingSandboxEnvironmentVersionsResponse</code></summary>
+<dl>
+<dd>
+
+#### 📝 Description
+
+<dl>
+<dd>
+
+<dl>
+<dd>
+
+Returns pending environment versions for the build controller.
+</dd>
+</dl>
+</dd>
+</dl>
+
+#### 🔌 Usage
+
+<dl>
+<dd>
+
+<dl>
+<dd>
+
+```python
+from trueforge_sdk import TrueForge
+
+client = TrueForge(
+    token="<token>",
+    base_url="https://yourhost.com/path/to/api",
+)
+
+client.internal.sandbox_environments.list_pending()
+
+```
+</dd>
+</dl>
+</dd>
+</dl>
+
+#### ⚙️ Parameters
+
+<dl>
+<dd>
+
+<dl>
+<dd>
+
+**request_options:** `typing.Optional[RequestOptions]` — Request-specific configuration.
+    
+</dd>
+</dl>
+</dd>
+</dl>
+
+
+</dd>
+</dl>
+</details>
+
+<details><summary><code>client.internal.sandbox_environments.<a href="src/trueforge_sdk/internal/sandbox_environments/client.py">progress</a>(...)</code></summary>
+<dl>
+<dd>
+
+#### 📝 Description
+
+<dl>
+<dd>
+
+<dl>
+<dd>
+
+Registers or polls the snapshot build and updates version status.
+</dd>
+</dl>
+</dd>
+</dl>
+
+#### 🔌 Usage
+
+<dl>
+<dd>
+
+<dl>
+<dd>
+
+```python
+from trueforge_sdk import TrueForge
+
+client = TrueForge(
+    token="<token>",
+    base_url="https://yourhost.com/path/to/api",
+)
+
+client.internal.sandbox_environments.progress(
+    environment_version_id="environment_version_id",
+)
+
+```
+</dd>
+</dl>
+</dd>
+</dl>
+
+#### ⚙️ Parameters
+
+<dl>
+<dd>
+
+<dl>
+<dd>
+
+**environment_version_id:** `str` — Version row id to progress.
     
 </dd>
 </dl>

@@ -1,6 +1,7 @@
 // @vitest-environment jsdom
 import { fireEvent, render, screen, waitFor, within } from '@testing-library/react';
 import type { ReactNode } from 'react';
+import { useEffect } from 'react';
 import { afterEach, beforeAll, describe, expect, it, vi } from 'vitest';
 
 import { AgentsLibrary } from '@/atoms/AgentsLibrary.js';
@@ -480,6 +481,41 @@ describe('AgentsLibrary', () => {
       expect(screen.getByText(/No search results found for/)).toBeInTheDocument();
     });
     expect(screen.queryByText('Build one in a chat, then save it as an agent.')).not.toBeInTheDocument();
+  });
+
+  it('seeds search from agent_name on first paint and keeps the URL in sync', async () => {
+    window.history.replaceState(null, '', '/library?agent_name=ask-ai-clone&theme=dark');
+    const searchAgents = vi.fn(async ({ query }: { query?: string } = {}) => ({
+      data: query === 'ask-ai-clone' ? [{ name: 'ask-ai-clone', agentId: 'agent-clone' }] : [],
+    }));
+    const server = createMockAgentUIServer({ searchAgents });
+
+    function DeepLinkLibrary() {
+      const shell = useShellMode();
+      useEffect(() => {
+        shell.setLibraryOpen(true);
+      }, [shell]);
+      if (!shell.libraryOpen) return null;
+      return <AgentsLibrary />;
+    }
+
+    renderLibrary(<DeepLinkLibrary />, { server });
+
+    expect(await screen.findByPlaceholderText('Search agents')).toHaveValue('ask-ai-clone');
+    expect(new URL(window.location.href).searchParams.get('agent_name')).toBe('ask-ai-clone');
+    await waitFor(() => {
+      expect(searchAgents).toHaveBeenCalled();
+    });
+    // First enabled fetch must already use the deep-link name (no unfiltered preamble).
+    expect(searchAgents.mock.calls[0]?.[0]).toEqual(expect.objectContaining({ query: 'ask-ai-clone' }));
+    expect(await screen.findByRole('button', { name: 'Try agent ask-ai-clone' })).toBeInTheDocument();
+    expect(new URL(window.location.href).searchParams.get('theme')).toBe('dark');
+
+    fireEvent.change(screen.getByPlaceholderText('Search agents'), { target: { value: '' } });
+    await waitFor(() => {
+      expect(new URL(window.location.href).searchParams.get('agent_name')).toBeNull();
+    });
+    expect(new URL(window.location.href).searchParams.get('theme')).toBe('dark');
   });
 
   it('closes via Escape', () => {

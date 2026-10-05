@@ -724,10 +724,6 @@ export interface SharedServerConfiguration {
    * monorepo `packages/frontend/dist` — always absolute, independent of CWD.
    */
   FRONTEND_DIR: string;
-  /** Max milliseconds for one MCP request. Env: `MCP_REQUEST_TIMEOUT_MS`. Default 4 minutes. */
-  MCP_REQUEST_TIMEOUT_MS: number;
-  /** Max milliseconds for an MCP transport connection. Env: `MCP_CONNECT_TIMEOUT_MS`. Default 30 seconds. */
-  MCP_CONNECT_TIMEOUT_MS: number;
   /** Max bytes for one remote MCP tool-call HTTP response body (not GET SSE). Env: `MCP_TOOL_CALL_MAX_RESPONSE_BYTES`. Default 50 MB. */
   MCP_TOOL_CALL_MAX_RESPONSE_BYTES: number;
   /**
@@ -833,6 +829,71 @@ export interface SharedServerConfiguration {
   OUTBOUND_URL_ALLOWED_HOSTS: string[];
   /** Hosts always blocked. Env: `OUTBOUND_URL_BLOCKED_HOSTS` (JSON string array). Empty = none. */
   OUTBOUND_URL_BLOCKED_HOSTS: string[];
+  /**
+   * undici headersTimeout for generic outbound fetch (not model or MCP).
+   * Env: `OUTBOUND_HTTP_HEADERS_TIMEOUT_MS`. Default 5000.
+   */
+  OUTBOUND_HTTP_HEADERS_TIMEOUT_MS: number;
+  /**
+   * undici connect timeout for generic outbound fetch.
+   * Env: `OUTBOUND_HTTP_CONNECT_TIMEOUT_MS`. Default 5000.
+   */
+  OUTBOUND_HTTP_CONNECT_TIMEOUT_MS: number;
+  /**
+   * undici bodyTimeout for generic outbound fetch (idle between body chunks).
+   * Env: `OUTBOUND_HTTP_BODY_TIMEOUT_MS`. Default 5000.
+   */
+  OUTBOUND_HTTP_BODY_TIMEOUT_MS: number;
+  /**
+   * Retries after the first generic outbound fetch for connect/headers timeouts and 408/409/429/520–524/530 (honors Retry-After up to 5s, else backoff).
+   * Env: `OUTBOUND_HTTP_MAX_RETRIES`. Default 2.
+   */
+  OUTBOUND_HTTP_MAX_RETRIES: number;
+  /**
+   * undici connect timeout for model-provider outbound fetch.
+   * Env: `MODEL_HTTP_CONNECT_TIMEOUT_MS`. Default 5000.
+   */
+  MODEL_HTTP_CONNECT_TIMEOUT_MS: number;
+  /**
+   * undici headersTimeout for model-provider outbound fetch.
+   * Env: `MODEL_HTTP_HEADERS_TIMEOUT_MS`. Default 5000.
+   */
+  MODEL_HTTP_HEADERS_TIMEOUT_MS: number;
+  /**
+   * undici bodyTimeout for model-provider outbound fetch (idle between body chunks).
+   * Env: `MODEL_HTTP_BODY_TIMEOUT_MS`. Default 5000.
+   */
+  MODEL_HTTP_BODY_TIMEOUT_MS: number;
+  /**
+   * Retries after the first model fetch for connect/headers timeouts and 408/409/429/520–524/530 (honors Retry-After up to 5s, else backoff).
+   * Env: `MODEL_HTTP_MAX_RETRIES`. Default 2.
+   */
+  MODEL_HTTP_MAX_RETRIES: number;
+  /** Max milliseconds for one MCP JSON-RPC request end to end. Env: `MCP_REQUEST_TIMEOUT_MS`. Default 4 minutes. */
+  MCP_REQUEST_TIMEOUT_MS: number;
+  /** Max milliseconds for the MCP initialize handshake per transport attempt. Env: `MCP_CONNECT_TIMEOUT_MS`. Default 30 seconds. */
+  MCP_CONNECT_TIMEOUT_MS: number;
+  /**
+   * undici connect timeout for MCP outbound fetch.
+   * Env: `MCP_HTTP_CONNECT_TIMEOUT_MS`. Default 5000.
+   */
+  MCP_HTTP_CONNECT_TIMEOUT_MS: number;
+  /**
+   * undici headersTimeout for MCP outbound fetch. JSON-response MCP servers send headers only after
+   * the tool finishes, so this should not be below `MCP_REQUEST_TIMEOUT_MS`.
+   * Env: `MCP_HTTP_HEADERS_TIMEOUT_MS`. Default `MCP_REQUEST_TIMEOUT_MS`.
+   */
+  MCP_HTTP_HEADERS_TIMEOUT_MS: number;
+  /**
+   * undici bodyTimeout for MCP outbound fetch (idle between body chunks). Default 30m so idle
+   * SSE/streamable-HTTP is not killed at undici's 300s. Env: `MCP_HTTP_BODY_TIMEOUT_MS`.
+   */
+  MCP_HTTP_BODY_TIMEOUT_MS: number;
+  /**
+   * Retries after the first MCP fetch for connect timeouts and 408/429/521–523/530 only (not headers
+   * timeouts or 409/520/524 — upstream may already have started the tool; honors Retry-After up to 5s, else backoff). Env: `MCP_HTTP_MAX_RETRIES`. Default 2.
+   */
+  MCP_HTTP_MAX_RETRIES: number;
   SENTRY_ENABLED: boolean;
   SENTRY_DSN: string | undefined;
   SENTRY_ADDITIONAL_TAGS: Record<string, string>;
@@ -1015,6 +1076,12 @@ const serverExecutionTimeoutSeconds = parsePositiveInt({
   defaultValue: 3600,
 });
 
+const mcpRequestTimeoutMs = parsePositiveInt({
+  envKey: 'MCP_REQUEST_TIMEOUT_MS',
+  raw: getEnv('MCP_REQUEST_TIMEOUT_MS'),
+  defaultValue: 4 * 60 * 1000,
+});
+
 const standalone = parseBoolean({
   envKey: 'STANDALONE',
   raw: getEnv('STANDALONE'),
@@ -1041,17 +1108,6 @@ const shared: SharedServerConfiguration = {
   SANDBOX_CATALOG_PATH: resolveOptionalPathEnv('SANDBOX_CATALOG_PATH'),
   WEB_SEARCH_CATALOG_PATH: resolveOptionalPathEnv('WEB_SEARCH_CATALOG_PATH'),
   FRONTEND_DIR: resolveFrontendDir(),
-
-  MCP_REQUEST_TIMEOUT_MS: parsePositiveInt({
-    envKey: 'MCP_REQUEST_TIMEOUT_MS',
-    raw: getEnv('MCP_REQUEST_TIMEOUT_MS'),
-    defaultValue: 4 * 60 * 1000,
-  }),
-  MCP_CONNECT_TIMEOUT_MS: parsePositiveInt({
-    envKey: 'MCP_CONNECT_TIMEOUT_MS',
-    raw: getEnv('MCP_CONNECT_TIMEOUT_MS'),
-    defaultValue: 30 * 1000,
-  }),
   MCP_TOOL_CALL_MAX_RESPONSE_BYTES: parsePositiveInt({
     envKey: 'MCP_TOOL_CALL_MAX_RESPONSE_BYTES',
     raw: getEnv('MCP_TOOL_CALL_MAX_RESPONSE_BYTES'),
@@ -1134,6 +1190,72 @@ const shared: SharedServerConfiguration = {
   OUTBOUND_URL_BLOCKED_HOSTS: parseJsonStringArrayEnv({
     envKey: 'OUTBOUND_URL_BLOCKED_HOSTS',
     raw: getEnv('OUTBOUND_URL_BLOCKED_HOSTS'),
+  }),
+  OUTBOUND_HTTP_CONNECT_TIMEOUT_MS: parsePositiveInt({
+    envKey: 'OUTBOUND_HTTP_CONNECT_TIMEOUT_MS',
+    raw: getEnv('OUTBOUND_HTTP_CONNECT_TIMEOUT_MS'),
+    defaultValue: 5_000,
+  }),
+  OUTBOUND_HTTP_HEADERS_TIMEOUT_MS: parsePositiveInt({
+    envKey: 'OUTBOUND_HTTP_HEADERS_TIMEOUT_MS',
+    raw: getEnv('OUTBOUND_HTTP_HEADERS_TIMEOUT_MS'),
+    defaultValue: 5_000,
+  }),
+  OUTBOUND_HTTP_BODY_TIMEOUT_MS: parsePositiveInt({
+    envKey: 'OUTBOUND_HTTP_BODY_TIMEOUT_MS',
+    raw: getEnv('OUTBOUND_HTTP_BODY_TIMEOUT_MS'),
+    defaultValue: 5_000,
+  }),
+  OUTBOUND_HTTP_MAX_RETRIES: parseNonNegativeInt({
+    envKey: 'OUTBOUND_HTTP_MAX_RETRIES',
+    raw: getEnv('OUTBOUND_HTTP_MAX_RETRIES'),
+    defaultValue: 2,
+  }),
+  MODEL_HTTP_CONNECT_TIMEOUT_MS: parsePositiveInt({
+    envKey: 'MODEL_HTTP_CONNECT_TIMEOUT_MS',
+    raw: getEnv('MODEL_HTTP_CONNECT_TIMEOUT_MS'),
+    defaultValue: 5_000,
+  }),
+  MODEL_HTTP_HEADERS_TIMEOUT_MS: parsePositiveInt({
+    envKey: 'MODEL_HTTP_HEADERS_TIMEOUT_MS',
+    raw: getEnv('MODEL_HTTP_HEADERS_TIMEOUT_MS'),
+    defaultValue: 5_000,
+  }),
+  MODEL_HTTP_BODY_TIMEOUT_MS: parsePositiveInt({
+    envKey: 'MODEL_HTTP_BODY_TIMEOUT_MS',
+    raw: getEnv('MODEL_HTTP_BODY_TIMEOUT_MS'),
+    defaultValue: 5_000,
+  }),
+  MODEL_HTTP_MAX_RETRIES: parseNonNegativeInt({
+    envKey: 'MODEL_HTTP_MAX_RETRIES',
+    raw: getEnv('MODEL_HTTP_MAX_RETRIES'),
+    defaultValue: 2,
+  }),
+  MCP_REQUEST_TIMEOUT_MS: mcpRequestTimeoutMs,
+  MCP_CONNECT_TIMEOUT_MS: parsePositiveInt({
+    envKey: 'MCP_CONNECT_TIMEOUT_MS',
+    raw: getEnv('MCP_CONNECT_TIMEOUT_MS'),
+    defaultValue: 30 * 1000,
+  }),
+  MCP_HTTP_HEADERS_TIMEOUT_MS: parsePositiveInt({
+    envKey: 'MCP_HTTP_HEADERS_TIMEOUT_MS',
+    raw: getEnv('MCP_HTTP_HEADERS_TIMEOUT_MS'),
+    defaultValue: mcpRequestTimeoutMs,
+  }),
+  MCP_HTTP_CONNECT_TIMEOUT_MS: parsePositiveInt({
+    envKey: 'MCP_HTTP_CONNECT_TIMEOUT_MS',
+    raw: getEnv('MCP_HTTP_CONNECT_TIMEOUT_MS'),
+    defaultValue: 5_000,
+  }),
+  MCP_HTTP_BODY_TIMEOUT_MS: parsePositiveInt({
+    envKey: 'MCP_HTTP_BODY_TIMEOUT_MS',
+    raw: getEnv('MCP_HTTP_BODY_TIMEOUT_MS'),
+    defaultValue: 1_800_000,
+  }),
+  MCP_HTTP_MAX_RETRIES: parseNonNegativeInt({
+    envKey: 'MCP_HTTP_MAX_RETRIES',
+    raw: getEnv('MCP_HTTP_MAX_RETRIES'),
+    defaultValue: 2,
   }),
   SENTRY_ENABLED: parseBoolean({
     envKey: 'SENTRY_ENABLED',

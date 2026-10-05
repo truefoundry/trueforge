@@ -171,8 +171,6 @@ export type {
   SandboxCreatedEvent,
   SandboxProviderBase,
   SandboxProviderCatalogEntry,
-  SandboxProviderListEntry,
-  SandboxSnapshotSyncStatus,
   SaveAgentRequest,
   SaveAgentResult,
   Schedule,

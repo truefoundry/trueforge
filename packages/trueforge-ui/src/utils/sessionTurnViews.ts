@@ -6,7 +6,12 @@ type TurnEvent = Exclude<SessionEventItem['event'], TurnCreatedEvent | TurnDoneE
 
 export type SessionTurnView = {
   turnId: string;
+  /** Chronological index among every event turn (1..N). Unique; used for gap compression. */
+  eventTurnNumber: number;
+  /** Display band among renderable turns (1..R); MCP-auth resumes inherit the prior band. */
   turnNumber: number;
+  /** True when the turn has user.message / tool_approval / tool_response input. */
+  renderable: boolean;
   showHeader: boolean;
   created: TurnCreatedEvent;
   done?: TurnDoneEvent;
@@ -113,23 +118,25 @@ export function buildSessionTurnViews(itemsAsc: SessionEventItem[]): SessionTurn
     groupsByTurnId.set(turnId, group);
   }
 
-  // Number only renderable turns so cards and the timeline share one index.
+  // Include every turn.created (metrics need resume turns). Number timeline/transcript
+  // bands by renderable turns only so MCP-auth resumes fold into the prior user turn.
   const groups = Array.from(groupsByTurnId.entries())
-    .flatMap(([turnId, group]) =>
-      group.created === undefined || !isRenderableTurn(group.created)
-        ? []
-        : [{ turnId, created: group.created, group }],
-    )
+    .flatMap(([turnId, group]) => (group.created === undefined ? [] : [{ turnId, created: group.created, group }]))
     .sort((left, right) => timestampMs(left.created.createdAt) - timestampMs(right.created.createdAt));
 
+  let renderableTurnNumber = 0;
   return groups.map(({ turnId, created, group }, index) => {
     const done = group.done;
+    const renderable = isRenderableTurn(created);
+    if (renderable) renderableTurnNumber += 1;
     group.events.sort((left, right) => timestampMs(left.createdAt) - timestampMs(right.createdAt));
 
     return {
       turnId,
-      turnNumber: index + 1,
-      showHeader: true,
+      eventTurnNumber: index + 1,
+      turnNumber: Math.max(1, renderableTurnNumber),
+      renderable,
+      showHeader: renderable,
       created,
       ...(done === undefined
         ? {}
@@ -141,4 +148,64 @@ export function buildSessionTurnViews(itemsAsc: SessionEventItem[]): SessionTurn
       events: group.events,
     };
   });
+}
+
+/** Sum tokens/cost/duration for every event-turn that shares a display band. */
+export function aggregateSessionTurnBand(
+  turns: readonly SessionTurnView[],
+  turnNumber: number,
+): SessionTurnView | undefined {
+  const band = turns.filter(turn => turn.turnNumber === turnNumber);
+  const primary = band.find(turn => turn.renderable) ?? band[0];
+  if (primary == null) return undefined;
+
+  let totalTokens = 0;
+  let inputTokens = 0;
+  let outputTokens = 0;
+  let cachedTokens = 0;
+  let totalCostInUsd = 0;
+  let durationMs = 0;
+  let hasTokens = false;
+  let hasInput = false;
+  let hasOutput = false;
+  let hasCached = false;
+  let hasCost = false;
+  let hasDuration = false;
+
+  for (const turn of band) {
+    if (turn.totalTokens != null) {
+      totalTokens += turn.totalTokens;
+      hasTokens = true;
+    }
+    if (turn.inputTokens != null) {
+      inputTokens += turn.inputTokens;
+      hasInput = true;
+    }
+    if (turn.outputTokens != null) {
+      outputTokens += turn.outputTokens;
+      hasOutput = true;
+    }
+    if (turn.cachedTokens != null) {
+      cachedTokens += turn.cachedTokens;
+      hasCached = true;
+    }
+    if (turn.totalCostInUsd != null) {
+      totalCostInUsd += turn.totalCostInUsd;
+      hasCost = true;
+    }
+    if (turn.durationMs != null) {
+      durationMs += turn.durationMs;
+      hasDuration = true;
+    }
+  }
+
+  return {
+    ...primary,
+    ...(hasTokens ? { totalTokens } : {}),
+    ...(hasInput ? { inputTokens } : {}),
+    ...(hasOutput ? { outputTokens } : {}),
+    ...(hasCached ? { cachedTokens } : {}),
+    ...(hasCost ? { totalCostInUsd } : {}),
+    ...(hasDuration ? { durationMs } : {}),
+  };
 }

@@ -467,10 +467,18 @@ function attachRunningTurn(snapshot: SessionSnapshot, runningTurn: Turn | undefi
     return snapshot;
   }
   const pendingUserText = extractTurnUserText(runningTurn.input);
+  // Tip is not in `turns` yet. A new user tip must baseline every prior root
+  // model.message (same as live send) — otherwise computeGroupRootBaseline
+  // treats the last completed user turn as the active group and that turn's
+  // content leaks into resume after refresh.
+  const groupRootBaseline =
+    pendingUserText !== undefined
+      ? [...(snapshot.fold.threads.get(ROOT_THREAD_ID)?.modelMessageIds ?? [])]
+      : computeGroupRootBaseline(snapshot.turns);
   return replaceSessionSnapshot(snapshot, {
     runningTurn,
     unstable_resume: true,
-    groupRootBaseline: computeGroupRootBaseline(snapshot.turns),
+    groupRootBaseline,
     ...(pendingUserText !== undefined
       ? {
           pendingUser: {
@@ -1193,8 +1201,13 @@ export function projectSessionMessages(
       };
     }
 
-    if (isContinuation && last?.role === 'assistant') {
-      messages = [...messages.slice(0, -1), assistantMessage];
+    // Update existing assistant message in-place if already present (for
+    // continuation turns where assistantMessage reuses last.id, or when a turn
+    // with zero root model messages was already projected by projectHistoryTurns).
+    // Otherwise, append assistantMessage to the thread.
+    const existingIndex = messages.findIndex(m => m.id === assistantMessage.id);
+    if (existingIndex !== -1) {
+      messages = [...messages.slice(0, existingIndex), assistantMessage, ...messages.slice(existingIndex + 1)];
     } else {
       messages = [...messages, assistantMessage];
     }

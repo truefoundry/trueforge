@@ -9,7 +9,6 @@ description = ""
 readme = "README.md"
 authors = []
 keywords = []
-
 classifiers = [
     "Intended Audience :: Developers",
     "Programming Language :: Python",

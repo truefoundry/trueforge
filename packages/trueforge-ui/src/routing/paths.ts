@@ -1,3 +1,4 @@
+import { clearLibraryShareSearch } from '../utils/libraryShareUrl.js';
 import {
   clearScheduleShareSearch,
   readScheduleShareSearch,
@@ -156,6 +157,17 @@ export function sanitizeSearchForPlace(place: RoutePlace, search: string): strin
   if (place.type === 'sessionsBrowser') {
     writeSessionShareSearch(params, { tab: null });
     clearScheduleShareSearch(params);
+    clearLibraryShareSearch(params);
+  } else if (place.type === 'library') {
+    writeSessionShareSearch(params, {
+      sessionId: null,
+      agentId: null,
+      tab: null,
+      view: null,
+      timeRange: null,
+    });
+    clearScheduleShareSearch(params);
+    // Keep `agent_name` — owned by the library place.
   } else if (place.type === 'libraryAgent') {
     const share = readSessionShareSearch(search);
     const scheduleShare = readScheduleShareSearch(search);
@@ -165,6 +177,7 @@ export function sanitizeSearchForPlace(place: RoutePlace, search: string): strin
       ...(share.sessionId != null && share.agentId !== place.agentId ? { sessionId: null, agentId: null } : {}),
     });
     clearScheduleShareSearch(params);
+    clearLibraryShareSearch(params);
     if (share.tab === 'schedules') {
       writeScheduleShareSearch(params, {
         status: scheduleShare.status,
@@ -180,6 +193,7 @@ export function sanitizeSearchForPlace(place: RoutePlace, search: string): strin
       view: null,
       timeRange: null,
     });
+    clearLibraryShareSearch(params);
     // Keep `agent` / `status` / `q` — owned by the schedules place.
   } else {
     writeSessionShareSearch(params, {
@@ -190,6 +204,7 @@ export function sanitizeSearchForPlace(place: RoutePlace, search: string): strin
       timeRange: null,
     });
     clearScheduleShareSearch(params);
+    clearLibraryShareSearch(params);
   }
   const next = params.toString();
   return next.length > 0 ? `?${next}` : '';
