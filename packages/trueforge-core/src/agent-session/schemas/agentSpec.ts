@@ -92,12 +92,12 @@ const MCPServerRequestSchema = z
       .describe(
         'Tools loaded eagerly into context while the rest stay deferred. A non-empty list implies `preload: false`.',
       ),
-    // Tools that require human approval before execution. Default: @destructive only.
+    // Tools that require human approval before execution. Default: @write + @destructive.
     require_approval_for_tools: z
       .array(RequireApprovalToolSelectorSchema)
       .default(DEFAULT_REQUIRE_APPROVAL_FOR_TOOLS)
       .describe(
-        'Tools that pause for human approval: `@all`, `@write`, `@destructive`, or literal names. Default: `["@destructive"]`.',
+        'Tools that pause for human approval: `@all`, `@write`, `@destructive`, or literal names. Default: `["@write", "@destructive"]`.',
       ),
     // Whether this server's tools are preloaded into context. Default: false.
     // When false, tools are discovered lazily and only `preload_tools` stay eager.
@@ -166,6 +166,11 @@ const SandboxConfigSchema = z
       .boolean()
       .default(true)
       .describe('Allow downloading agent-produced files via the turn download endpoint. Default: true.'),
+    environment_name: z
+      .string()
+      .min(1)
+      .optional()
+      .describe('Name of a configured sandbox environment to use. Must exist when set.'),
   })
   .openapi('SandboxConfig');
 

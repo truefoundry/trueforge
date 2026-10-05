@@ -6,6 +6,7 @@ import type { ISkillStore } from '../../../src/db/skillStore';
 import { createSqliteDb } from '../../../src/db/sqlite/client';
 import { SqliteMcpServerStore } from '../../../src/db/sqlite/mcp-server-store/SqliteMcpServerStore';
 import { SqliteModelProviderStore } from '../../../src/db/sqlite/model-provider-store/SqliteModelProviderStore';
+import { SqliteSandboxEnvironmentStore } from '../../../src/db/sqlite/sandbox-environment-store/SqliteSandboxEnvironmentStore';
 import { SqliteSandboxProviderStore } from '../../../src/db/sqlite/sandbox-provider-store/SqliteSandboxProviderStore';
 import { SqliteSkillStore } from '../../../src/db/sqlite/skill-store/SqliteSkillStore';
 import { SqliteWebSearchProviderStore } from '../../../src/db/sqlite/web-search-provider-store/SqliteWebSearchProviderStore';
@@ -67,6 +68,7 @@ describe('validateAgentSpec', () => {
       mcpServerStore: new SqliteMcpServerStore(db),
       skillStore: new SqliteSkillStore(db),
       sandboxProviderStore: new SqliteSandboxProviderStore(db),
+      sandboxEnvironmentStore: new SqliteSandboxEnvironmentStore(db),
       webSearchProviderStore: new SqliteWebSearchProviderStore(db),
     };
   }
@@ -100,6 +102,7 @@ describe('validateAgentSpec', () => {
           instructions: 'test',
         }),
         tenant_id: 'default',
+        created_by_subject_id: 'test-subject',
         ...stores,
       }),
     ).rejects.toMatchObject({
@@ -117,6 +120,7 @@ describe('validateAgentSpec', () => {
           instructions: 'test',
         }),
         tenant_id: 'default',
+        created_by_subject_id: 'test-subject',
         ...stores,
       }),
     ).rejects.toMatchObject({
@@ -134,6 +138,7 @@ describe('validateAgentSpec', () => {
           instructions: 'test',
         }),
         tenant_id: 'default',
+        created_by_subject_id: 'test-subject',
         ...stores,
       }),
     ).rejects.toMatchObject({
@@ -151,6 +156,7 @@ describe('validateAgentSpec', () => {
           instructions: 'test',
         }),
         tenant_id: 'default',
+        created_by_subject_id: 'test-subject',
         ...stores,
       }),
     ).rejects.toMatchObject({
@@ -169,6 +175,7 @@ describe('validateAgentSpec', () => {
           mcp_servers: [{ name: 'missing-mcp' }],
         }),
         tenant_id: 'default',
+        created_by_subject_id: 'test-subject',
         ...stores,
       }),
     ).rejects.toMatchObject({
@@ -187,6 +194,7 @@ describe('validateAgentSpec', () => {
           skills: [{ name: 'missing-skill' }],
         }),
         tenant_id: 'default',
+        created_by_subject_id: 'test-subject',
         ...stores,
       }),
     ).rejects.toMatchObject({
@@ -205,6 +213,7 @@ describe('validateAgentSpec', () => {
           config: { sandbox: { enabled: true } },
         }),
         tenant_id: 'default',
+        created_by_subject_id: 'test-subject',
         ...stores,
       }),
     ).rejects.toMatchObject({
@@ -223,6 +232,7 @@ describe('validateAgentSpec', () => {
           config: { web_search: { enabled: true } },
         }),
         tenant_id: 'default',
+        created_by_subject_id: 'test-subject',
         ...stores,
       }),
     ).rejects.toMatchObject({
@@ -242,6 +252,7 @@ describe('validateAgentSpec', () => {
           config: { web_search: { enabled: true } },
         }),
         tenant_id: 'default',
+        created_by_subject_id: 'test-subject',
         ...stores,
       }),
     ).resolves.toBeUndefined();
@@ -269,6 +280,7 @@ describe('validateAgentSpec', () => {
           skills: [{ name: 'demo' }],
         }),
         tenant_id: 'default',
+        created_by_subject_id: 'test-subject',
         ...stores,
       }),
     ).rejects.toMatchObject({
@@ -289,9 +301,6 @@ describe('validateAgentSpec', () => {
         auto_archive_interval_in_minutes: 60,
         auto_delete_interval_in_minutes: 7200,
       },
-      status: 'pending',
-      status_reason: 'Sandbox image build started.',
-      build_metadata: { build_ref: 'trueforge-build-029ea5ff', image_uri: 'tfy.jfrog.io/tfy-images/sandbox:029ea5ff' },
     });
 
     await expect(
@@ -302,6 +311,7 @@ describe('validateAgentSpec', () => {
           config: { sandbox: { enabled: true } },
         }),
         tenant_id: 'default',
+        created_by_subject_id: 'test-subject',
         ...stores,
       }),
     ).resolves.toBeUndefined();
@@ -323,6 +333,7 @@ describe('validateAgentSpec', () => {
           config: { sandbox: { enabled: true } },
         }),
         tenant_id: 'default',
+        created_by_subject_id: 'test-subject',
         ...stores,
       }),
     ).resolves.toBeUndefined();
@@ -378,6 +389,7 @@ describe('validateAgentSpec', () => {
           skills: [{ name: fqn }],
         }),
         tenant_id: 'default',
+        created_by_subject_id: 'test-subject',
         ...stores,
         skillStore,
       }),
@@ -404,6 +416,7 @@ describe('validateAgentSpec', () => {
           skills: [{ name: 'agent-skill:acme/team-a/echo:3', preload: false }],
         }),
         tenant_id: 'default',
+        created_by_subject_id: 'test-subject',
         ...stores,
       }),
     ).resolves.toBeUndefined();
@@ -440,6 +453,7 @@ describe('validateAgentSpec', () => {
           skills: [{ name: 'echo', preload: true }],
         }),
         tenant_id: 'default',
+        created_by_subject_id: 'test-subject',
         ...stores,
       }),
     ).rejects.toMatchObject({

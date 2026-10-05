@@ -3,6 +3,7 @@
 import { ThreadPrimitive, useAuiState } from '@assistant-ui/react';
 import { useEffect, type ReactNode } from 'react';
 import { preloadMarkdownOpenUI } from '../atoms/Markdown.js';
+import { FilePreviewBoundary } from '../filePreview/FilePreviewContext.js';
 import { ComposerBusyProvider } from '../hooks/useComposerBusyState.js';
 import { useSyncSessionTitle } from '../hooks/useSyncSessionTitle.js';
 import { useOptionalShellMode } from '../server/ShellModeContext.js';
@@ -10,6 +11,7 @@ import { useSlot } from '../theme/SlotsProvider.js';
 import { isNewChatView } from '../utils/isNewChatView.js';
 import { ApprovalFocusProvider } from './approvalFocus.js';
 import { AssistantMessageContainer } from './AssistantMessageContainer.js';
+import { FilePreviewHost } from './FilePreviewHost.js';
 import { HistoryLoaderContainer } from './HistoryLoaderContainer.js';
 import { ResumeUnavailableContainer } from './ResumeUnavailableContainer.js';
 import { UserEditComposerContainer } from './UserEditComposerContainer.js';
@@ -65,47 +67,54 @@ export function ThreadContainer({ composer }: ThreadContainerProps) {
       : undefined;
 
   return (
-    <ComposerBusyProvider>
-      <ApprovalFocusProvider>
-        <ThreadPrimitive.Root asChild>
-          <ThreadRootShell>
-            <ThreadPrimitive.Viewport asChild autoScroll>
-              <ThreadViewportShell isEmpty={isEmpty}>
-                {isEmpty && <WelcomeScreen heading={welcomeHeading} />}
-                {isEmpty && !isLoading && composer}
-                {isLoading ? (
-                  <MessageListSkeleton />
-                ) : (
-                  !isEmpty && (
-                    <>
-                      <HistoryLoaderContainer />
-                      <MessageGroup>
-                        <ThreadPrimitive.Messages>
-                          {({ message }) => (
-                            <AnimatedMessageShell>
-                              <ThreadMessage isEditing={message.role === 'user' && message.composer.isEditing} />
-                            </AnimatedMessageShell>
-                          )}
-                        </ThreadPrimitive.Messages>
-                        <ResumeUnavailableContainer />
-                      </MessageGroup>
-                    </>
-                  )
-                )}
-              </ThreadViewportShell>
-            </ThreadPrimitive.Viewport>
+    <FilePreviewBoundary>
+      <ComposerBusyProvider>
+        <ApprovalFocusProvider>
+          <ThreadPrimitive.Root asChild>
+            <ThreadRootShell>
+              <div data-slot="aui_file-preview-row" className="relative flex min-h-0 w-full min-w-0 flex-1">
+                <div className="flex min-h-0 min-w-0 flex-1 flex-col">
+                  <ThreadPrimitive.Viewport asChild autoScroll>
+                    <ThreadViewportShell isEmpty={isEmpty}>
+                      {isEmpty && <WelcomeScreen heading={welcomeHeading} />}
+                      {isEmpty && !isLoading && composer}
+                      {isLoading ? (
+                        <MessageListSkeleton />
+                      ) : (
+                        !isEmpty && (
+                          <>
+                            <HistoryLoaderContainer />
+                            <MessageGroup>
+                              <ThreadPrimitive.Messages>
+                                {({ message }) => (
+                                  <AnimatedMessageShell>
+                                    <ThreadMessage isEditing={message.role === 'user' && message.composer.isEditing} />
+                                  </AnimatedMessageShell>
+                                )}
+                              </ThreadPrimitive.Messages>
+                              <ResumeUnavailableContainer />
+                            </MessageGroup>
+                          </>
+                        )
+                      )}
+                    </ThreadViewportShell>
+                  </ThreadPrimitive.Viewport>
 
-            {!isLoading && !isEmpty && (
-              <ThreadComposerAreaShell isEmpty={isEmpty}>
-                <ThreadPrimitive.ScrollToBottom asChild>
-                  <ScrollToBottomButton />
-                </ThreadPrimitive.ScrollToBottom>
-                {composer}
-              </ThreadComposerAreaShell>
-            )}
-          </ThreadRootShell>
-        </ThreadPrimitive.Root>
-      </ApprovalFocusProvider>
-    </ComposerBusyProvider>
+                  {!isLoading && !isEmpty && (
+                    <ThreadComposerAreaShell isEmpty={isEmpty}>
+                      <ThreadPrimitive.ScrollToBottom asChild>
+                        <ScrollToBottomButton />
+                      </ThreadPrimitive.ScrollToBottom>
+                      {composer}
+                    </ThreadComposerAreaShell>
+                  )}
+                </div>
+                <FilePreviewHost />
+              </div>
+            </ThreadRootShell>
+          </ThreadPrimitive.Root>
+        </ApprovalFocusProvider>
+      </ComposerBusyProvider>
+    </FilePreviewBoundary>
   );
 }

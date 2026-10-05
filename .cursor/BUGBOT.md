@@ -18,6 +18,8 @@ Skip when:
 - Changes are docs, `AGENTS.md`, CI/workflows, charts, or docker-compose only
 - The PR is a Version Packages / `changeset-release/*` release PR
 
+If a new or changed `.changeset/*.md` uses `minor` or `major`, flag it. Only `patch` bumps are allowed in PR changesets; minor/major version bumps are controlled by an external release process.
+
 ## CI and release wiring
 
 If a workspace package is added, renamed, or moved, flag unless CI package path filters, matrix package ids, and root `test:*` scripts in `.github/workflows/ci.yml` and root `package.json` stay synchronized.

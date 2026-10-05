@@ -88,14 +88,17 @@ export function gatewayMetadataHeaders(metadata: Record<string, string>): Record
 }
 
 /** Metadata header for a turn. Reads `x-tfy-metadata` from the raw request headers. */
-export function gatewayMetadataHeadersForTurn(turnMetadata: TurnMetadata): Record<string, string> {
+export function gatewayMetadataHeadersForTurn(turnMetadata: TurnMetadata | undefined): Record<string, string> {
+  if (turnMetadata === undefined) {
+    return {};
+  }
   const raw = headerValue(turnMetadata.requestHeaders, X_TFY_METADATA);
   return gatewayMetadataHeaders(
     mergeGatewayMetadata({
       sessionId: turnMetadata.sessionId,
       turnId: turnMetadata.turnId,
       ...(turnMetadata.agent === undefined ? {} : { agent: turnMetadata.agent }),
-      requestMetadata: raw === undefined ? undefined : parseGatewayMetadataHeader(raw),
+      requestMetadata: raw === undefined ? {} : parseGatewayMetadataHeader(raw),
     }),
   );
 }

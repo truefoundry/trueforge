@@ -144,13 +144,17 @@ const JSON_RESULT_COLUMNS = new Set([
   'payload',
   'manifest',
   'metadata',
-  'build_metadata',
+  'internal_metadata',
   'oauth_server',
   'oauth_client',
   'token',
   'auth_data',
   'created_by_subject',
   'source',
+  // sandbox_environment ↔ version join aliases
+  'ver_manifest',
+  'ver_internal_metadata',
+  'ver_created_by_subject',
 ]);
 
 /** Top-level row field only — `$[0]."body"`, not `$[0]."body"."content"`. */

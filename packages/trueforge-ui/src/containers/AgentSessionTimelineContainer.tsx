@@ -6,6 +6,8 @@ import { Suspense, useCallback, useEffect, useMemo, useRef, useState, type Compo
 
 import { Markdown, type MarkdownProps } from '../atoms/Markdown.js';
 import { MessageActionBar } from '../atoms/MessageActionBar.js';
+import { ToolApprovalBar, type ToolApprovalBarProps } from '../atoms/ToolApprovalBar.js';
+import { ToolCallCard, type ToolCallCardProps } from '../atoms/ToolCallCard.js';
 import type { UserMessageActionBarProps } from '../atoms/UserMessageActionBar.js';
 import { useServer } from '../server/ServerContext.js';
 import type { AgentChatServer, SessionEventItem } from '../server/types.js';
@@ -15,7 +17,7 @@ import { buildSessionMetrics } from '../utils/buildSessionMetrics.js';
 import { buildSessionTimelineSegments } from '../utils/buildSessionTimelineSegments.js';
 import { createCachedListEventsBridge } from '../utils/cachedListEventsBridge.js';
 import { getTurnInputSummary } from '../utils/sessionTimelineEvents.js';
-import { buildSessionTurnViews, type SessionTurnView } from '../utils/sessionTurnViews.js';
+import { aggregateSessionTurnBand, buildSessionTurnViews, type SessionTurnView } from '../utils/sessionTurnViews.js';
 import { AssistantMessageContainer } from './AssistantMessageContainer.js';
 import { ReadOnlySessionTurnRuntime } from './ReadOnlySessionTurnRuntime.js';
 import { UserMessageContainer } from './UserMessageContainer.js';
@@ -36,9 +38,21 @@ function ReadOnlyUserMessageActionBar({ isCopied, onCopy, createdAt, className }
   return <MessageActionBar isCopied={isCopied} onCopy={onCopy} createdAt={createdAt} className={className} />;
 }
 
+/** HITL Allow/Deny is only for live chat — session detail is a historical replay. */
+function ReadOnlyToolApprovalBar(props: ToolApprovalBarProps) {
+  return <ToolApprovalBar {...props} readOnly />;
+}
+
+/** Nothing will answer a paused approval in a replay, so drop the "Awaiting Response" spinner. */
+function ReadOnlyToolCallCard(props: ToolCallCardProps) {
+  return <ToolCallCard {...props} awaiting={props.approvalSlot ? false : props.awaiting} />;
+}
+
 const READ_ONLY_SLOT_OVERRIDES: SlotOverrides = {
   UserMessageActionBar: ReadOnlyUserMessageActionBar,
   Markdown: ReadOnlyMarkdown,
+  ToolApprovalBar: ReadOnlyToolApprovalBar,
+  ToolCallCard: ReadOnlyToolCallCard,
 };
 
 type TurnCreatedEvent = Extract<SessionEventItem['event'], { type: 'turn.created' }>;
@@ -126,8 +140,7 @@ export type AgentSessionTimelineContainerProps = {
   sessionId: string;
   events: SessionEventItem[];
   contentMaxWidth?: string;
-  listMetrics?: {
-    totalTurns: number;
+  sessionMetrics?: {
     totalCostInUsd?: number;
     totalDurationMs: number;
   };
@@ -137,7 +150,7 @@ export function AgentSessionTimelineContainer({
   sessionId,
   events,
   contentMaxWidth,
-  listMetrics,
+  sessionMetrics: sessionMetricsHint,
 }: AgentSessionTimelineContainerProps) {
   const server = useServer();
   const AgentSessionTurnHeader = useSlot('AgentSessionTurnHeader');
@@ -150,12 +163,16 @@ export function AgentSessionTimelineContainer({
   const [loadFailed, setLoadFailed] = useState(false);
   const sectionRefs = useRef(new Map<number, HTMLElement>());
 
-  const turnViews = useMemo(() => buildSessionTurnViews(events), [events]);
-  const projectionEvents = useMemo(() => buildProjectionEvents(events, turnViews), [events, turnViews]);
-  const timelineSegments = useMemo(() => buildSessionTimelineSegments(turnViews), [turnViews]);
+  const allTurnViews = useMemo(() => buildSessionTurnViews(events), [events]);
+  const renderableTurnViews = useMemo(() => allTurnViews.filter(turn => turn.renderable), [allTurnViews]);
+  const projectionEvents = useMemo(
+    () => buildProjectionEvents(events, renderableTurnViews),
+    [events, renderableTurnViews],
+  );
+  const timelineSegments = useMemo(() => buildSessionTimelineSegments(allTurnViews), [allTurnViews]);
   const sessionMetrics = useMemo(
-    () => buildSessionMetrics({ turns: turnViews, segments: timelineSegments, listMetrics }),
-    [listMetrics, timelineSegments, turnViews],
+    () => buildSessionMetrics({ turns: allTurnViews, segments: timelineSegments, sessionMetrics: sessionMetricsHint }),
+    [sessionMetricsHint, timelineSegments, allTurnViews],
   );
 
   const handleSelectTurn = useCallback((index: number) => {
@@ -204,7 +221,7 @@ export function AgentSessionTimelineContainer({
     );
   }
 
-  if (messages.length === 0 && turnViews.length === 0) {
+  if (messages.length === 0 && renderableTurnViews.length === 0) {
     return (
       <div className="flex flex-1 items-center justify-center px-6 text-sm text-text-secondary">
         This session has no messages yet.
@@ -222,7 +239,7 @@ export function AgentSessionTimelineContainer({
       </div>
       <div className="border-b border-border">
         <Suspense fallback={null}>
-          <AgentSessionEventTimeline turns={turnViews} segments={timelineSegments} onSelectTurn={handleSelectTurn} />
+          <AgentSessionEventTimeline turns={allTurnViews} segments={timelineSegments} onSelectTurn={handleSelectTurn} />
         </Suspense>
       </div>
       <ThreadViewportShell
@@ -231,10 +248,10 @@ export function AgentSessionTimelineContainer({
         {...(contentMaxWidth == null ? {} : { contentMaxWidth })}
       >
         <div className="flex flex-col gap-4">
-          {turnViews.map(turn => (
+          {renderableTurnViews.map(turn => (
             <SessionTurnSection
               key={turn.turnId}
-              turn={turn}
+              turn={aggregateSessionTurnBand(allTurnViews, turn.turnNumber) ?? turn}
               messages={messagesForTurn(messages, turn)}
               AgentSessionTurnHeader={AgentSessionTurnHeader}
               onMount={node => {

@@ -8,7 +8,7 @@ import {
   type UserContentPart,
 } from '../events/schema';
 import type { LLMUserMessage } from '../llm/LLMTypes';
-import type { Sandbox, SandboxInfo } from '../sandbox/Sandbox';
+import type { HarnessSandbox, SandboxInfo } from '../sandbox/Sandbox';
 import type { AgentSendInput } from './AgentThread.types';
 import { internalSystemTag } from './contextUtils';
 
@@ -113,7 +113,7 @@ export interface ProcessAgentUserInputResult {
 
 export async function processAgentUserInput(
   msg: AgentInputUserMessage,
-  sandbox: Sandbox | undefined,
+  sandbox: HarnessSandbox | undefined,
 ): Promise<ProcessAgentUserInputResult> {
   if (typeof msg.content === 'string') {
     return { message: { role: 'user', content: msg.content }, sandboxCreated: undefined };

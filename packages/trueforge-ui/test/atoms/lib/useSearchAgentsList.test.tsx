@@ -31,8 +31,8 @@ describe('useSearchAgentsList', () => {
     }));
     const searchAgents = vi
       .fn()
-      .mockResolvedValueOnce(firstPage)
-      .mockResolvedValueOnce([{ name: 'helper', agentId: 'helper-id' }]);
+      .mockResolvedValueOnce({ data: firstPage, nextPageToken: 'tok_2' })
+      .mockResolvedValueOnce({ data: [{ name: 'helper', agentId: 'helper-id' }] });
 
     await expect(
       findAgentByName({
@@ -43,7 +43,7 @@ describe('useSearchAgentsList', () => {
     expect(searchAgents).toHaveBeenLastCalledWith({
       query: 'helper',
       limit: SEARCH_AGENTS_PAGE_SIZE,
-      offset: SEARCH_AGENTS_PAGE_SIZE,
+      pageToken: 'tok_2',
     });
   });
 
@@ -54,8 +54,8 @@ describe('useSearchAgentsList', () => {
     }));
     const searchAgents = vi
       .fn()
-      .mockResolvedValueOnce(firstPage)
-      .mockResolvedValueOnce([{ name: 'Demo Bot', agentId: 'agt_demo' }]);
+      .mockResolvedValueOnce({ data: firstPage, nextPageToken: 'tok_2' })
+      .mockResolvedValueOnce({ data: [{ name: 'Demo Bot', agentId: 'agt_demo' }] });
 
     await expect(
       findLibraryAgent({
@@ -65,7 +65,7 @@ describe('useSearchAgentsList', () => {
     ).resolves.toEqual({ name: 'Demo Bot', agentId: 'agt_demo' });
     expect(searchAgents).toHaveBeenLastCalledWith({
       limit: SEARCH_AGENTS_PAGE_SIZE,
-      offset: SEARCH_AGENTS_PAGE_SIZE,
+      pageToken: 'tok_2',
     });
   });
 
@@ -75,7 +75,10 @@ describe('useSearchAgentsList', () => {
       agentId: `agent-${i}`,
     }));
     const page2 = [{ name: 'agent-extra', agentId: 'agent-extra' }];
-    const searchAgents = vi.fn().mockResolvedValueOnce(page1).mockResolvedValueOnce(page2);
+    const searchAgents = vi
+      .fn()
+      .mockResolvedValueOnce({ data: page1, nextPageToken: 'tok_2' })
+      .mockResolvedValueOnce({ data: page2 });
 
     const server = createMockAgentUIServer({ searchAgents });
     const { result } = renderHook(() => useSearchAgentsList({ enabled: true, query: '' }), {
@@ -84,7 +87,7 @@ describe('useSearchAgentsList', () => {
 
     await waitFor(() => expect(result.current.agents).toHaveLength(SEARCH_AGENTS_PAGE_SIZE));
     expect(result.current.hasMore).toBe(true);
-    expect(searchAgents).toHaveBeenCalledWith({ query: undefined, limit: SEARCH_AGENTS_PAGE_SIZE, offset: 0 });
+    expect(searchAgents).toHaveBeenCalledWith({ query: undefined, limit: SEARCH_AGENTS_PAGE_SIZE });
 
     const observers: IntersectionObserverCallback[] = [];
     vi.stubGlobal(
@@ -126,16 +129,16 @@ describe('useSearchAgentsList', () => {
     expect(searchAgents).toHaveBeenCalledWith({
       query: undefined,
       limit: SEARCH_AGENTS_PAGE_SIZE,
-      offset: SEARCH_AGENTS_PAGE_SIZE,
+      pageToken: 'tok_2',
     });
     expect(result.current.hasMore).toBe(false);
   });
 
   it('debounces query changes before re-fetching', async () => {
     vi.useFakeTimers();
-    const searchAgents = vi.fn(async ({ query }: { query?: string } = {}) => [
-      { name: query ?? 'all', agentId: query ?? 'all' },
-    ]);
+    const searchAgents = vi.fn(async ({ query }: { query?: string } = {}) => ({
+      data: [{ name: query ?? 'all', agentId: query ?? 'all' }],
+    }));
     const server = createMockAgentUIServer({ searchAgents });
 
     const { result, rerender } = renderHook(
@@ -159,17 +162,21 @@ describe('useSearchAgentsList', () => {
       await Promise.resolve();
     });
     expect(searchAgents).toHaveBeenCalledTimes(2);
-    expect(searchAgents).toHaveBeenLastCalledWith({ query: 'alpha', limit: SEARCH_AGENTS_PAGE_SIZE, offset: 0 });
+    expect(searchAgents).toHaveBeenLastCalledWith({ query: 'alpha', limit: SEARCH_AGENTS_PAGE_SIZE });
     expect(result.current.agents).toEqual([{ name: 'alpha', agentId: 'alpha' } satisfies AgentLibraryEntry]);
   });
 
-  it('paged mode replaces rows and navigates by offset', async () => {
+  it('paged mode replaces rows and navigates by page tokens', async () => {
     const page1 = Array.from({ length: 10 }, (_, i) => ({
       name: `agent-${i}`,
       agentId: `agent-${i}`,
     }));
     const page2 = [{ name: 'agent-10', agentId: 'agent-10' }];
-    const searchAgents = vi.fn().mockResolvedValueOnce(page1).mockResolvedValueOnce(page2).mockResolvedValueOnce(page1);
+    const searchAgents = vi
+      .fn()
+      .mockResolvedValueOnce({ data: page1, nextPageToken: 'tok_2' })
+      .mockResolvedValueOnce({ data: page2, previousPageToken: 'tok_1' })
+      .mockResolvedValueOnce({ data: page1, nextPageToken: 'tok_2' });
 
     const server = createMockAgentUIServer({ searchAgents });
     const { result } = renderHook(() => useSearchAgentsList({ enabled: true, query: '', mode: 'paged', limit: 10 }), {
@@ -179,13 +186,13 @@ describe('useSearchAgentsList', () => {
     await waitFor(() => expect(result.current.agents).toHaveLength(10));
     expect(result.current.canNext).toBe(true);
     expect(result.current.canPrev).toBe(false);
-    expect(searchAgents).toHaveBeenCalledWith({ query: undefined, limit: 10, offset: 0 });
+    expect(searchAgents).toHaveBeenCalledWith({ query: undefined, limit: 10 });
 
     act(() => {
       result.current.goNext();
     });
     await waitFor(() => expect(result.current.agents).toEqual(page2));
-    expect(searchAgents).toHaveBeenCalledWith({ query: undefined, limit: 10, offset: 10 });
+    expect(searchAgents).toHaveBeenCalledWith({ query: undefined, limit: 10, pageToken: 'tok_2' });
     expect(result.current.canPrev).toBe(true);
     expect(result.current.canNext).toBe(false);
 
@@ -193,6 +200,22 @@ describe('useSearchAgentsList', () => {
       result.current.goPrev();
     });
     await waitFor(() => expect(result.current.agents).toHaveLength(10));
-    expect(searchAgents).toHaveBeenLastCalledWith({ query: undefined, limit: 10, offset: 0 });
+    expect(searchAgents).toHaveBeenLastCalledWith({ query: undefined, limit: 10, pageToken: 'tok_1' });
+  });
+
+  it('disables next when the only page is exactly full but has no next token', async () => {
+    const page = Array.from({ length: 10 }, (_, i) => ({
+      name: `agent-${i}`,
+      agentId: `agent-${i}`,
+    }));
+    const searchAgents = vi.fn().mockResolvedValue({ data: page });
+    const server = createMockAgentUIServer({ searchAgents });
+    const { result } = renderHook(() => useSearchAgentsList({ enabled: true, query: '', mode: 'paged', limit: 10 }), {
+      wrapper: wrapperFor(server),
+    });
+
+    await waitFor(() => expect(result.current.agents).toHaveLength(10));
+    expect(result.current.canNext).toBe(false);
+    expect(result.current.canPrev).toBe(false);
   });
 });
