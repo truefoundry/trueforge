@@ -235,9 +235,12 @@ export class TurnHandle<TTurnCustom extends object = Record<string, never>> {
     return this.turn;
   }
 
-  send(events: TurnUserEvent[]): void {
+  async send(events: TurnUserEvent[]): Promise<void> {
     const orchestrator = this.requireLiveOrchestrator('send');
-    for (const batch of orchestrator.send(events)) {
+    for await (const batch of orchestrator.send(events)) {
+      if (!Array.isArray(batch)) {
+        throw new Error('TurnHandle.send: unexpected context append from turn-event input');
+      }
       // TODO: persist `batch` here before resuming the generator to enqueue.
       void batch;
     }

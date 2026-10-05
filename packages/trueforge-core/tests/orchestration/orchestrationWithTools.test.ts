@@ -193,7 +193,7 @@ describe('orchestration: dynamic sub-agent', () => {
 
     const orchestrator = new AgentThreadOrchestrator(orchestratorInput);
 
-    for await (const _event of orchestrator.applyInitialInput([{ type: EventType.USER_MESSAGE, content: 'hello' }])) {
+    for await (const _event of orchestrator.send([{ type: EventType.USER_MESSAGE, content: 'hello' }])) {
       void _event;
     }
     const outcome = await driveUntilPauseOrDone(orchestrator.execute({ signal: new AbortController().signal }));

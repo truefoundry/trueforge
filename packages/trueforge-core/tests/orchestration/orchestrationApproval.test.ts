@@ -198,7 +198,7 @@ describe('orchestration: pause then resume on tool approval', () => {
     it('pauses for write_note approval, then finishes after allow', async () => {
       const { orchestrator, thread, callTool } = makeApprovalHarness(ROOT_FINAL);
 
-      for await (const _event of orchestrator.applyInitialInput([{ type: EventType.USER_MESSAGE, content: 'hello' }])) {
+      for await (const _event of orchestrator.send([{ type: EventType.USER_MESSAGE, content: 'hello' }])) {
         void _event;
       }
       const iterator = orchestrator.execute({ signal: new AbortController().signal });
@@ -211,7 +211,7 @@ describe('orchestration: pause then resume on tool approval', () => {
 
       // Resume the SAME execute(): enqueue the approval via send() (drain the generator so the
       // enqueue runs), then wake the parked executor — no new execute().
-      for (const _batch of orchestrator.send([
+      for await (const _batch of orchestrator.send([
         {
           type: EventType.USER_TOOL_APPROVAL,
           id: newEventId(),
@@ -317,7 +317,7 @@ describe('orchestration: pause then resume on tool approval', () => {
     it('pauses for write_note approval, then finishes after deny without running the tool', async () => {
       const { orchestrator, thread, callTool } = makeApprovalHarness(ROOT_FINAL);
 
-      for await (const _event of orchestrator.applyInitialInput([{ type: EventType.USER_MESSAGE, content: 'hello' }])) {
+      for await (const _event of orchestrator.send([{ type: EventType.USER_MESSAGE, content: 'hello' }])) {
         void _event;
       }
       const iterator = orchestrator.execute({ signal: new AbortController().signal });
@@ -328,7 +328,7 @@ describe('orchestration: pause then resume on tool approval', () => {
       expect(callTool).not.toHaveBeenCalled();
 
       // Resume the SAME execute() with a deny decision, then wake the parked executor.
-      for (const _batch of orchestrator.send([
+      for await (const _batch of orchestrator.send([
         {
           type: EventType.USER_TOOL_APPROVAL,
           id: newEventId(),
@@ -400,7 +400,7 @@ describe('orchestration: a policy that lands mid-pause resolves an existing pend
   it('sends only a policy (no decision) and the pending call runs via auto-allow', async () => {
     const { orchestrator, callTool, toolSet } = makeApprovalHarnessWithUserToolSet(ROOT_FINAL);
 
-    for await (const _event of orchestrator.applyInitialInput([{ type: EventType.USER_MESSAGE, content: 'hello' }])) {
+    for await (const _event of orchestrator.send([{ type: EventType.USER_MESSAGE, content: 'hello' }])) {
       void _event;
     }
     const iterator = orchestrator.execute({ signal: new AbortController().signal });
@@ -411,7 +411,7 @@ describe('orchestration: a policy that lands mid-pause resolves an existing pend
     expect(callTool).not.toHaveBeenCalled();
 
     // Resume the SAME execute() with ONLY a policy — no USER_TOOL_APPROVAL decision for the call.
-    for (const _batch of orchestrator.send([
+    for await (const _batch of orchestrator.send([
       {
         type: EventType.USER_TOOL_APPROVAL_POLICY,
         id: newEventId(),
@@ -444,7 +444,7 @@ describe('orchestration: a policy that lands mid-pause resolves an existing pend
   it('an expired policy does not resolve the pending call — the turn stays paused', async () => {
     const { orchestrator, callTool } = makeApprovalHarnessWithUserToolSet(ROOT_FINAL);
 
-    for await (const _event of orchestrator.applyInitialInput([{ type: EventType.USER_MESSAGE, content: 'hello' }])) {
+    for await (const _event of orchestrator.send([{ type: EventType.USER_MESSAGE, content: 'hello' }])) {
       void _event;
     }
     const abortController = new AbortController();
@@ -453,7 +453,7 @@ describe('orchestration: a policy that lands mid-pause resolves an existing pend
     const paused = await driveUntilPauseOrDone(iterator);
     expect(paused.kind).toBe('paused');
 
-    for (const _batch of orchestrator.send([
+    for await (const _batch of orchestrator.send([
       {
         type: EventType.USER_TOOL_APPROVAL_POLICY,
         id: newEventId(),
@@ -501,21 +501,25 @@ describe('orchestration: a policy that lands mid-pause resolves an existing pend
     await expect(finished).resolves.toMatchObject({ done: true });
   });
 
-  it('send() rejects a policy for an unknown server and applies nothing (fail-closed)', () => {
+  it('send() rejects a policy for an unknown server and applies nothing (fail-closed)', async () => {
     const { orchestrator, toolSet } = makeApprovalHarnessWithUserToolSet(ROOT_FINAL);
 
-    expect(() => {
-      for (const _batch of orchestrator.send([
-        {
-          type: EventType.USER_TOOL_APPROVAL_POLICY,
-          id: newEventId(),
-          created_at: new Date().toISOString(),
-          policies: [{ server_name: 'does-not-exist', name: WRITE_NOTE_TOOL_NAME, policy: { type: 'allow_session' } }],
-        },
-      ])) {
-        void _batch;
-      }
-    }).toThrow(/unknown server_name/);
+    await expect(
+      (async () => {
+        for await (const _batch of orchestrator.send([
+          {
+            type: EventType.USER_TOOL_APPROVAL_POLICY,
+            id: newEventId(),
+            created_at: new Date().toISOString(),
+            policies: [
+              { server_name: 'does-not-exist', name: WRITE_NOTE_TOOL_NAME, policy: { type: 'allow_session' } },
+            ],
+          },
+        ])) {
+          void _batch;
+        }
+      })(),
+    ).rejects.toThrow(/unknown server_name/);
     expect(toolSet.getApprovalPolicies()).toEqual({});
   });
 });
@@ -526,8 +530,8 @@ describe('AgentThreadOrchestrator.send: approval policy validation', () => {
   let toolSet: IToolSet;
   let orchestrator: AgentThreadOrchestrator;
 
-  const drain = (gen: Iterable<unknown>): void => {
-    for (const _ of gen) {
+  const drain = async (gen: AsyncIterable<unknown>): Promise<void> => {
+    for await (const _ of gen) {
       void _;
     }
   };
@@ -565,8 +569,8 @@ describe('AgentThreadOrchestrator.send: approval policy validation', () => {
     });
   });
 
-  it('accepts a policy for a known server (does not throw; nothing applied until execute)', () => {
-    expect(() =>
+  it('accepts a policy for a known server (does not throw; nothing applied until execute)', async () => {
+    await expect(
       drain(
         orchestrator.send([
           {
@@ -579,13 +583,13 @@ describe('AgentThreadOrchestrator.send: approval policy validation', () => {
           },
         ]),
       ),
-    ).not.toThrow();
+    ).resolves.toBeUndefined();
     // send() only enqueues; the ToolSet mutation happens in execute()'s drain.
     expect(toolSet.getApprovalPolicies()).toEqual({});
   });
 
-  it('rejects an unknown server name and enqueues nothing (fail-closed)', () => {
-    expect(() =>
+  it('rejects an unknown server name and enqueues nothing (fail-closed)', async () => {
+    await expect(
       drain(
         orchestrator.send([
           {
@@ -599,7 +603,7 @@ describe('AgentThreadOrchestrator.send: approval policy validation', () => {
           },
         ]),
       ),
-    ).toThrow(/unknown server_name/);
+    ).rejects.toThrow(/unknown server_name/);
     // Validation runs before enqueue, so nothing was queued or applied.
     expect(toolSet.getApprovalPolicies()).toEqual({});
   });

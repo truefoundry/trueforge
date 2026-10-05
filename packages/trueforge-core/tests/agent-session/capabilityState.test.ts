@@ -288,9 +288,9 @@ describe('capability_state (tfy.plan fixture)', () => {
       tracing: NOOP_AGENT_TRACING,
       logger: makeSilentLogger(),
     });
-    for await (const event of thread.send([{ type: EventType.USER_MESSAGE, content: 'x' }])) {
+    for await (const event of thread.apply([{ type: EventType.USER_MESSAGE, content: 'x' }])) {
       void event;
-      // drain send
+      // apply initial input
     }
     let errorMessage: string | undefined;
     for await (const event of thread.execute({ signal: new AbortController().signal })) {

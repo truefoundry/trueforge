@@ -298,7 +298,7 @@ function createTurnResolver(deps: {
  * text is present (e.g. file-only or tool-approval input).
  */
 export function deriveSessionTitle(input: TurnInputItem[] | undefined): string | undefined {
-  const firstUserMessage = input?.find(item => item.type === EventType.USER_MESSAGE);
+  const firstUserMessage = input?.[0];
   if (!firstUserMessage) {
     return undefined;
   }
@@ -972,7 +972,7 @@ export function createTurnsRouter(deps: TurnsRouterDeps) {
     }));
 
     try {
-      turnHandle.send(events);
+      await turnHandle.send(events);
     } catch (error) {
       if (error instanceof AgentHarnessError && error.code === 'invalid_send_input') {
         return c.json({ error: { message: error.message } }, 400);

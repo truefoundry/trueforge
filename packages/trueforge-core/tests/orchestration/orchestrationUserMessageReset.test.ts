@@ -131,9 +131,7 @@ describe('orchestration: user-message reset', () => {
     });
 
     const sendEvents = [];
-    for await (const event of orchestrator.applyInitialInput([
-      { type: EventType.USER_MESSAGE, content: 'new topic' },
-    ])) {
+    for await (const event of orchestrator.send([{ type: EventType.USER_MESSAGE, content: 'new topic' }])) {
       sendEvents.push(event);
     }
 
@@ -221,9 +219,7 @@ describe('orchestration: user-message reset', () => {
     });
 
     const sendEvents: unknown[] = [];
-    for await (const event of orchestrator.applyInitialInput([
-      { type: EventType.USER_MESSAGE, content: 'new topic' },
-    ])) {
+    for await (const event of orchestrator.send([{ type: EventType.USER_MESSAGE, content: 'new topic' }])) {
       sendEvents.push(event);
     }
 
