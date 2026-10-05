@@ -287,7 +287,9 @@ export function EnvironmentsPage(_props: EnvironmentsPageProps) {
                       <TableCell className="text-sm text-text-secondary">
                         {formatNetworkingSummary(env.manifest.networking)}
                       </TableCell>
-                      <TableCell className="text-sm text-text-secondary">{formatRelativeTime(env.updatedAt)}</TableCell>
+                      <TableCell className="text-sm text-text-secondary">
+                        {readOnly ? '—' : formatRelativeTime(env.updatedAt)}
+                      </TableCell>
                       <TableCell>
                         {!readOnly ? (
                           <button

@@ -248,7 +248,7 @@ export function AgentRuntimeConfigFields({
                 <span className="text-text-secondary mt-0.5 block text-xs leading-snug">
                   Image, resources, network and secrets the sandbox starts with. Stored by name.
                 </span>
-                {shell ? (
+                {shell && sandboxEnabled ? (
                   <button
                     type="button"
                     onClick={() => shell.setEnvironmentsOpen(true)}

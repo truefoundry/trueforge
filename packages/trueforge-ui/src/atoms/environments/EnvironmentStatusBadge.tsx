@@ -3,7 +3,7 @@ import { Badge, type BadgeVariant } from '../primitives/Badge.js';
 import { Tooltip } from '../primitives/Tooltip.js';
 
 const STATUS_CONFIG: Record<SandboxEnvironmentStatus, { label: string; variant: BadgeVariant }> = {
-  pending: { label: 'Pending', variant: 'info' },
+  pending: { label: 'Building', variant: 'info' },
   ready: { label: 'Ready', variant: 'success' },
   failed: { label: 'Failed', variant: 'destructive' },
 };
