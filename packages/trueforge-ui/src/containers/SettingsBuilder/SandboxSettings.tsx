@@ -13,6 +13,7 @@ import type { SandboxProviderBase, SandboxProviderCatalogEntry } from '../../ser
 import { getErrorMessage } from '../../utils/getErrorMessage.js';
 import { useToasterOptional } from '../ToasterContainer.js';
 import ConfigureSandboxForm, { type SandboxConfigDraft } from './ConfigureSandboxForm.js';
+import ConfirmDeleteDialog from './ConfirmDeleteDialog.js';
 
 const configFrom = ({
   execTimeoutMs,
@@ -39,6 +40,8 @@ const SandboxSettings = () => {
 
   const [createEntry, setCreateEntry] = useState<SandboxProviderCatalogEntry | null>(null);
   const [updateProvider, setUpdateProvider] = useState<SandboxProviderBase | null>(null);
+  const [pendingRemoval, setPendingRemoval] = useState<SandboxProviderBase | null>(null);
+  const [removeError, setRemoveError] = useState<string | null>(null);
 
   const refresh = useCallback(
     async ({ quiet = false }: { quiet?: boolean } = {}) => {
@@ -131,12 +134,20 @@ const SandboxSettings = () => {
     }, 0);
   };
 
+  const closeRemoveDialog = () => {
+    if (busy) return;
+    setPendingRemoval(null);
+    setRemoveError(null);
+  };
+
   const handleRemove = (provider: SandboxProviderBase) => {
     const deleteSandboxProvider = sandboxCatalog.deleteSandboxProvider;
     if (!deleteSandboxProvider) return;
+    setRemoveError(null);
     void runMutation(async () => {
       await deleteSandboxProvider({ id: provider.id });
-    }).catch(() => {});
+      setPendingRemoval(null);
+    }, setRemoveError).catch(() => {});
   };
 
   const formOpen = createEntry != null || updateProvider != null;
@@ -213,7 +224,8 @@ const SandboxSettings = () => {
                             type="button"
                             disabled={busy}
                             onClick={() => {
-                              handleRemove(provider);
+                              setRemoveError(null);
+                              setPendingRemoval(provider);
                             }}
                           >
                             Remove
@@ -221,7 +233,7 @@ const SandboxSettings = () => {
                         ) : null}
                       </div>
                     </article>
-                  ))}
+                  ))}{' '}
                 </div>
               </section>
             ) : null}
@@ -276,6 +288,19 @@ const SandboxSettings = () => {
           </div>
         )}
       </div>
+
+      {pendingRemoval ? (
+        <ConfirmDeleteDialog
+          title="Remove sandbox provider?"
+          description={`“${pendingRemoval.name}” will stop running sandboxes for code, files and shell commands.`}
+          busy={busy}
+          error={removeError}
+          onCancel={closeRemoveDialog}
+          onConfirm={() => {
+            handleRemove(pendingRemoval);
+          }}
+        />
+      ) : null}
 
       <ConfigureSandboxForm
         open={formOpen}
