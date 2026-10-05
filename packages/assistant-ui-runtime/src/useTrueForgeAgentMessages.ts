@@ -498,18 +498,16 @@ export function useTrueForgeAgentMessages({
                 : prev.activeTurn;
             const custom = update.metadata?.custom;
             let pendingMcpAuth: McpAuthRequiredEvent | undefined = prev.pendingMcpAuth;
+            const mcpServers = custom?.[MESSAGE_CUSTOM_KEY.MCP_SERVERS];
             if (turnState?.status === TURN_STATUS.RUNNING) {
               pendingMcpAuth = undefined;
-            } else if (
-              custom?.[MESSAGE_CUSTOM_KEY.PENDING_MCP_AUTH] === true &&
-              isMcpServerAuthInfoList(custom[MESSAGE_CUSTOM_KEY.MCP_SERVERS])
-            ) {
+            } else if (custom?.[MESSAGE_CUSTOM_KEY.PENDING_MCP_AUTH] === true && isMcpServerAuthInfoList(mcpServers)) {
               pendingMcpAuth = {
                 type: EVENT_TYPE.MCP_AUTH_REQUIRED,
                 id: 'live-mcp-auth',
                 createdAt: new Date().toISOString(),
                 threadId: null,
-                mcpServers: custom[MESSAGE_CUSTOM_KEY.MCP_SERVERS],
+                mcpServers,
               };
             }
             const next = replaceSessionSnapshot(prev, {
