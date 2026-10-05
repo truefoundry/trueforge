@@ -241,7 +241,7 @@ export class TurnHandle<TTurnCustom extends object = Record<string, never>> {
       // TODO: persist `batch` here before resuming the generator to enqueue.
       void batch;
     }
-    orchestrator.notifyWake();
+    orchestrator.wake();
   }
 
   private requireLiveOrchestrator(method: string): AgentThreadOrchestrator {
