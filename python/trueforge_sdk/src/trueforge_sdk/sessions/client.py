@@ -696,7 +696,7 @@ class SessionsClient:
             request_options=request_options,
         )
 
-    def create_turn_event(
+    def create_turn_events(
         self,
         *,
         session_id: str,
@@ -734,13 +734,13 @@ class SessionsClient:
             token="YOUR_TOKEN",
             base_url="https://yourhost.com/path/to/api",
         )
-        client.sessions.create_turn_event(
+        client.sessions.create_turn_events(
             session_id="session_id",
             turn_id="turn_id",
             events=[UserMcpAuthContinueInputEvent()],
         )
         """
-        _response = self._raw_client.create_turn_event(
+        _response = self._raw_client.create_turn_events(
             session_id=session_id, turn_id=turn_id, events=events, request_options=request_options
         )
         return _response.data
@@ -1578,7 +1578,7 @@ class AsyncSessionsClient:
             request_options=request_options,
         )
 
-    async def create_turn_event(
+    async def create_turn_events(
         self,
         *,
         session_id: str,
@@ -1621,7 +1621,7 @@ class AsyncSessionsClient:
 
 
         async def main() -> None:
-            await client.sessions.create_turn_event(
+            await client.sessions.create_turn_events(
                 session_id="session_id",
                 turn_id="turn_id",
                 events=[UserMcpAuthContinueInputEvent()],
@@ -1630,7 +1630,7 @@ class AsyncSessionsClient:
 
         asyncio.run(main())
         """
-        _response = await self._raw_client.create_turn_event(
+        _response = await self._raw_client.create_turn_events(
             session_id=session_id, turn_id=turn_id, events=events, request_options=request_options
         )
         return _response.data
