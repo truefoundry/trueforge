@@ -12,5 +12,5 @@ import type * as TrueForge from "../../../../index.js";
  */
 export interface CreateTurnEventRequest {
     /** One or more user events. */
-    events: TrueForge.TurnInboundEventItem[];
+    events: TrueForge.TurnUserEventMessage[];
 }

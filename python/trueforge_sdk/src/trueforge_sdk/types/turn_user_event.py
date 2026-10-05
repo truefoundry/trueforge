@@ -7,6 +7,6 @@ from .user_tool_approval_event import UserToolApprovalEvent
 from .user_tool_approval_policy_event import UserToolApprovalPolicyEvent
 from .user_tool_response_event import UserToolResponseEvent
 
-CreateTurnEventResponseDataItem = typing.Union[
+TurnUserEvent = typing.Union[
     UserMcpAuthContinueEvent, UserToolApprovalEvent, UserToolApprovalPolicyEvent, UserToolResponseEvent
 ]

@@ -7,7 +7,7 @@ import type * as TrueForge from "../../../../index.js";
  *     {}
  */
 export interface CreateTurnSessionsRequest {
-    /** Turn input items: user messages and/or approval/tool-response resumes. Do not mix user messages with approval or tool-response items. */
-    input?: TrueForge.TurnInputItem[];
+    /** Turn input items: user messages only. Approval decisions and client-side tool responses are sent to a running turn via the turn events endpoint, not at turn creation. */
+    input?: TrueForge.ComponentsSchemasUserMessage[];
     previousTurnId?: TrueForge.PreviousTurnIdInput;
 }
