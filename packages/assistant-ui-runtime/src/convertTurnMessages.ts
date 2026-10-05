@@ -1239,10 +1239,10 @@ function stripInteractivePendingFromAssistant(
   const custom = Object.fromEntries(
     Object.entries(message.metadata.custom).filter(
       ([key]) =>
-        key !== 'pendingMcpAuth' &&
-        key !== 'mcpServers' &&
-        key !== TOOL_APPROVAL_THREAD_ID_CUSTOM_KEY &&
-        key !== TOOL_RESPONSE_THREAD_ID_CUSTOM_KEY,
+        key !== MESSAGE_CUSTOM_KEY.PENDING_MCP_AUTH &&
+        key !== MESSAGE_CUSTOM_KEY.MCP_SERVERS &&
+        key !== MESSAGE_CUSTOM_KEY.TOOL_APPROVAL_THREAD_ID &&
+        key !== MESSAGE_CUSTOM_KEY.TOOL_RESPONSE_THREAD_ID,
     ),
   );
   return {
