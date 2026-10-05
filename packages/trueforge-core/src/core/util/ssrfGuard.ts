@@ -290,7 +290,7 @@ export function isRetryableOutboundTransportError(error: unknown, options: { ret
   return options.retryHeadersTimeout && code === 'UND_ERR_HEADERS_TIMEOUT';
 }
 
-export function isRetryableOutboundGatewayStatus(status: number): boolean {
+function isRetryableOutboundGatewayStatus(status: number): boolean {
   return GATEWAY_RETRY_STATUSES.has(status);
 }
 

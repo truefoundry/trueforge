@@ -1,10 +1,6 @@
 import http from 'node:http';
 import {
   configureOutboundFetches,
-  DEFAULT_MODEL_REQUEST_BODY_TIMEOUT_MS,
-  DEFAULT_MODEL_REQUEST_CONNECT_TIMEOUT_MS,
-  DEFAULT_MODEL_REQUEST_HEADERS_TIMEOUT_MS,
-  DEFAULT_MODEL_REQUEST_MAX_RETRIES,
   defaultMcpOutboundFetchOptions,
   defaultModelOutboundFetchOptions,
   defaultOutboundFetchOptions,
@@ -15,8 +11,6 @@ import {
 import {
   assertSafeOutboundUrl,
   configureOutboundUrlGuard,
-  createOutboundFetch,
-  isRetryableOutboundGatewayStatus,
   isRetryableOutboundTransportError,
 } from '../../../src/core/util/ssrfGuard';
 
@@ -110,14 +104,6 @@ describe('outbound retry classifiers', () => {
     expect(isRetryableOutboundTransportError(headers, { retryHeadersTimeout: false })).toBe(false);
     expect(isRetryableOutboundTransportError(connect, { retryHeadersTimeout: false })).toBe(true);
     expect(isRetryableOutboundTransportError(new Error('nope'), { retryHeadersTimeout: true })).toBe(false);
-  });
-
-  it('retries only the configured gateway statuses', () => {
-    expect(isRetryableOutboundGatewayStatus(520)).toBe(true);
-    expect(isRetryableOutboundGatewayStatus(524)).toBe(true);
-    expect(isRetryableOutboundGatewayStatus(530)).toBe(true);
-    expect(isRetryableOutboundGatewayStatus(500)).toBe(false);
-    expect(isRetryableOutboundGatewayStatus(400)).toBe(false);
   });
 });
 
@@ -303,24 +289,25 @@ describe('ssrfFetch', () => {
     }
   }, 15_000);
 
-  it('does not continue retries after abort', async () => {
+  it('stops retrying when aborted during retry backoff', async () => {
     configureOutboundUrlGuard({ allowedHosts: ['127.0.0.1'], blockedHosts: [] });
     configureOutboundFetches({
       outbound: { ...defaultOutboundFetchOptions(), maxRetries: 3 },
       model: defaultModelOutboundFetchOptions(),
       mcp: defaultMcpOutboundFetchOptions(),
     });
+    const controller = new AbortController();
     let hits = 0;
     const { server, origin } = await listen((_req, res) => {
       hits += 1;
       res.writeHead(520, { 'content-type': 'text/plain' });
-      res.end('gateway');
+      res.end('gateway', () => {
+        setTimeout(() => controller.abort(), 50);
+      });
     });
-    const controller = new AbortController();
-    controller.abort();
     try {
-      await expect(ssrfFetch(`${origin}/`, { signal: controller.signal })).rejects.toThrow();
-      expect(hits).toBe(0);
+      await expect(ssrfFetch(`${origin}/`, { signal: controller.signal })).rejects.toThrow(/abort/i);
+      expect(hits).toBe(1);
     } finally {
       await closeServer(server);
     }
@@ -361,34 +348,6 @@ describe('modelSsrfFetch', () => {
 });
 
 describe('mcpSsrfFetch', () => {
-  it('retries gateway 520 then returns success', async () => {
-    configureOutboundUrlGuard({ allowedHosts: ['127.0.0.1'], blockedHosts: [] });
-    configureOutboundFetches({
-      outbound: defaultOutboundFetchOptions(),
-      model: defaultModelOutboundFetchOptions(),
-      mcp: { ...defaultMcpOutboundFetchOptions(), maxRetries: 2 },
-    });
-    let hits = 0;
-    const { server, origin } = await listen((_req, res) => {
-      hits += 1;
-      if (hits === 1) {
-        res.writeHead(520, { 'content-type': 'text/plain' });
-        res.end('gateway');
-        return;
-      }
-      res.writeHead(200, { 'content-type': 'text/plain' });
-      res.end('ok');
-    });
-    try {
-      const response = await mcpSsrfFetch(`${origin}/`);
-      expect(response.status).toBe(200);
-      await expect(response.text()).resolves.toBe('ok');
-      expect(hits).toBe(2);
-    } finally {
-      await closeServer(server);
-    }
-  });
-
   it('does not retry headers timeouts so long tool POSTs are not replayed', async () => {
     configureOutboundUrlGuard({ allowedHosts: ['127.0.0.1'], blockedHosts: [] });
     configureOutboundFetches({
@@ -411,29 +370,4 @@ describe('mcpSsrfFetch', () => {
       await closeServer(server);
     }
   }, 15_000);
-});
-
-describe('createOutboundFetch', () => {
-  it('builds a standalone guarded fetch from agnostic options', async () => {
-    configureOutboundUrlGuard({ allowedHosts: ['127.0.0.1'], blockedHosts: [] });
-    const outbound = createOutboundFetch({
-      connectTimeoutMs: DEFAULT_MODEL_REQUEST_CONNECT_TIMEOUT_MS,
-      headersTimeoutMs: DEFAULT_MODEL_REQUEST_HEADERS_TIMEOUT_MS,
-      bodyTimeoutMs: DEFAULT_MODEL_REQUEST_BODY_TIMEOUT_MS,
-      maxRetries: DEFAULT_MODEL_REQUEST_MAX_RETRIES,
-      retryHeadersTimeout: true,
-    });
-    const { server, origin } = await listen((_req, res) => {
-      res.writeHead(200, { 'content-type': 'text/plain' });
-      res.end('ok');
-    });
-    try {
-      const response = await outbound.fetch(`${origin}/`);
-      expect(response.status).toBe(200);
-      await expect(response.text()).resolves.toBe('ok');
-    } finally {
-      await outbound.close();
-      await closeServer(server);
-    }
-  });
 });

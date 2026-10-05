@@ -183,7 +183,6 @@ export {
   assertSafeOutboundUrl,
   configureOutboundUrlGuard,
   createOutboundFetch,
-  isRetryableOutboundGatewayStatus,
   isRetryableOutboundTransportError,
 } from './util/ssrfGuard';
 export type { OutboundFetch, OutboundFetchOptions } from './util/ssrfGuard';
