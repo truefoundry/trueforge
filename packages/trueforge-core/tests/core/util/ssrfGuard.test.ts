@@ -237,6 +237,67 @@ describe('ssrfFetch', () => {
     }
   });
 
+  it('retries 429 after the server-requested Retry-After delay instead of backoff', async () => {
+    configureOutboundUrlGuard({ allowedHosts: ['127.0.0.1'], blockedHosts: [] });
+    configureOutboundFetches({
+      outbound: { ...defaultOutboundFetchOptions(), maxRetries: 2 },
+      model: defaultModelOutboundFetchOptions(),
+      mcp: defaultMcpOutboundFetchOptions(),
+    });
+    for (const retryAfter of [{ 'retry-after-ms': '50' }, { 'retry-after': '0' }]) {
+      let hits = 0;
+      const { server, origin } = await listen((_req, res) => {
+        hits += 1;
+        if (hits === 1) {
+          res.writeHead(429, { 'content-type': 'text/plain', ...retryAfter });
+          res.end('slow down');
+          return;
+        }
+        res.writeHead(200, { 'content-type': 'text/plain' });
+        res.end('ok');
+      });
+      try {
+        const started = Date.now();
+        const response = await ssrfFetch(`${origin}/`);
+        expect(response.status).toBe(200);
+        expect(hits).toBe(2);
+        // Default backoff is ~1s; a much shorter wait proves Retry-After was used.
+        expect(Date.now() - started).toBeLessThan(500);
+      } finally {
+        await closeServer(server);
+      }
+    }
+  });
+
+  it('falls back to backoff when Retry-After exceeds our cap', async () => {
+    configureOutboundUrlGuard({ allowedHosts: ['127.0.0.1'], blockedHosts: [] });
+    configureOutboundFetches({
+      outbound: { ...defaultOutboundFetchOptions(), maxRetries: 2 },
+      model: defaultModelOutboundFetchOptions(),
+      mcp: defaultMcpOutboundFetchOptions(),
+    });
+    let hits = 0;
+    const { server, origin } = await listen((_req, res) => {
+      hits += 1;
+      if (hits === 1) {
+        res.writeHead(429, { 'content-type': 'text/plain', 'retry-after': '120' });
+        res.end('slow down');
+        return;
+      }
+      res.writeHead(200, { 'content-type': 'text/plain' });
+      res.end('ok');
+    });
+    try {
+      const started = Date.now();
+      const response = await ssrfFetch(`${origin}/`);
+      expect(response.status).toBe(200);
+      expect(hits).toBe(2);
+      expect(Date.now() - started).toBeLessThan(3_000);
+    } finally {
+      await closeServer(server);
+    }
+  });
+
   it('stops retrying gateway errors when maxRetries is 0', async () => {
     configureOutboundUrlGuard({ allowedHosts: ['127.0.0.1'], blockedHosts: [] });
     configureOutboundFetches({
@@ -348,7 +409,7 @@ describe('modelSsrfFetch', () => {
 });
 
 describe('mcpSsrfFetch', () => {
-  it('retries gateway errors that never reached the origin but not 520/524', async () => {
+  it('retries statuses where the request was not processed but not 409/520/524', async () => {
     configureOutboundUrlGuard({ allowedHosts: ['127.0.0.1'], blockedHosts: [] });
     configureOutboundFetches({
       outbound: defaultOutboundFetchOptions(),
@@ -360,14 +421,18 @@ describe('mcpSsrfFetch', () => {
     const { server, origin } = await listen((_req, res) => {
       hits += 1;
       const status = hits === 1 ? firstStatus : 200;
-      res.writeHead(status, { 'content-type': 'text/plain' });
+      res.writeHead(status, { 'content-type': 'text/plain', 'retry-after-ms': '0' });
       res.end(String(status));
     });
     try {
-      const retried = await mcpSsrfFetch(`${origin}/`);
-      expect(retried.status).toBe(200);
-      expect(hits).toBe(2);
-      for (const status of [520, 524]) {
+      for (const status of [408, 429, 522]) {
+        firstStatus = status;
+        hits = 0;
+        const retried = await mcpSsrfFetch(`${origin}/`);
+        expect(retried.status).toBe(200);
+        expect(hits).toBe(2);
+      }
+      for (const status of [409, 520, 524]) {
         firstStatus = status;
         hits = 0;
         const response = await mcpSsrfFetch(`${origin}/`);

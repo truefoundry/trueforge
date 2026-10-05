@@ -11,13 +11,15 @@ let guardEnabled = true;
 const MAX_REDIRECTS = 20;
 const REDIRECT_STATUSES = new Set([301, 302, 303, 307, 308]);
 const CROSS_ORIGIN_STRIPPED_HEADERS = ['authorization', 'proxy-authorization', 'cookie', 'host'];
-// Gateway never reached the origin, so the request was not processed.
-const GATEWAY_UNREACHED_STATUSES = new Set([521, 522, 523, 530]);
-// Origin received the request (520 bad response, 524 origin timeout); replay may duplicate work.
-const GATEWAY_REACHED_STATUSES = new Set([520, 524]);
+// Rejected before processing (timeout, rate limit, gateway never reached the origin).
+const UNPROCESSED_RETRY_STATUSES = new Set([408, 429, 521, 522, 523, 530]);
+// Upstream may have processed the request (409 conflict, 520 bad origin response, 524 origin timeout).
+const MAYBE_PROCESSED_RETRY_STATUSES = new Set([409, 520, 524]);
 const RETRY_INITIAL_DELAY_MS = 1_000;
 const RETRY_BACKOFF_FACTOR = 2;
 const RETRY_JITTER_FACTOR = 0.2;
+// Longer server-requested waits fall back to backoff rather than stalling the caller.
+const MAX_RETRY_AFTER_MS = 5_000;
 
 export interface OutboundFetchOptions {
   connectTimeoutMs: number;
@@ -26,7 +28,7 @@ export interface OutboundFetchOptions {
   maxRetries: number;
   /**
    * Whether requests are safe to replay after upstream may have received them. When false, headers
-   * timeouts and gateway 520/524 are not retried.
+   * timeouts and 409/520/524 are not retried.
    */
   idempotent: boolean;
 }
@@ -296,8 +298,27 @@ export function isRetryableOutboundTransportError(error: unknown, options: { ide
   return options.idempotent && code === 'UND_ERR_HEADERS_TIMEOUT';
 }
 
-function isRetryableOutboundGatewayStatus(status: number, options: { idempotent: boolean }): boolean {
-  return GATEWAY_UNREACHED_STATUSES.has(status) || (options.idempotent && GATEWAY_REACHED_STATUSES.has(status));
+function isRetryableOutboundStatus(status: number, options: { idempotent: boolean }): boolean {
+  return UNPROCESSED_RETRY_STATUSES.has(status) || (options.idempotent && MAYBE_PROCESSED_RETRY_STATUSES.has(status));
+}
+
+/** Server-requested delay from `retry-after-ms` or `retry-after` (seconds or HTTP date), if usable. */
+function retryAfterMs(headers: { get(name: string): string | null }): number | undefined {
+  let delayMs: number | undefined;
+  const retryAfterMsHeader = headers.get('retry-after-ms');
+  if (retryAfterMsHeader !== null) {
+    delayMs = Number.parseFloat(retryAfterMsHeader);
+  } else {
+    const retryAfter = headers.get('retry-after');
+    if (retryAfter !== null) {
+      const seconds = Number(retryAfter);
+      delayMs = Number.isFinite(seconds) ? seconds * 1000 : Date.parse(retryAfter) - Date.now();
+    }
+  }
+  if (delayMs === undefined || !Number.isFinite(delayMs) || delayMs < 0 || delayMs > MAX_RETRY_AFTER_MS) {
+    return undefined;
+  }
+  return delayMs;
 }
 
 function abortError(signal: AbortSignal): Error {
@@ -397,18 +418,20 @@ async function withOutboundHttpRetries(
     if (signal?.aborted) {
       throw abortError(signal);
     }
+    let delayMs = retryDelayMs(attempt);
     try {
       const response = await guardedFetch(input, init, MAX_REDIRECTS, agent);
-      if (!isRetryableOutboundGatewayStatus(response.status, options) || attempt >= options.maxRetries) {
+      if (!isRetryableOutboundStatus(response.status, options) || attempt >= options.maxRetries) {
         return response;
       }
+      delayMs = retryAfterMs(response.headers) ?? delayMs;
       void response.body?.cancel().catch(() => undefined);
     } catch (error) {
       if (!isRetryableOutboundTransportError(error, options) || attempt >= options.maxRetries || signal?.aborted) {
         throw error;
       }
     }
-    await sleep(retryDelayMs(attempt), signal);
+    await sleep(delayMs, signal);
     attempt += 1;
   }
 }

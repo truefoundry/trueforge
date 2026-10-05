@@ -845,7 +845,7 @@ export interface SharedServerConfiguration {
    */
   OUTBOUND_HTTP_BODY_TIMEOUT_MS: number;
   /**
-   * Retries after the first generic outbound fetch for connect/headers timeouts and gateway 520–524/530.
+   * Retries after the first generic outbound fetch for connect/headers timeouts and 408/409/429/520–524/530 (honors Retry-After up to 5s, else backoff).
    * Env: `OUTBOUND_HTTP_MAX_RETRIES`. Default 2.
    */
   OUTBOUND_HTTP_MAX_RETRIES: number;
@@ -865,7 +865,7 @@ export interface SharedServerConfiguration {
    */
   MODEL_HTTP_BODY_TIMEOUT_MS: number;
   /**
-   * Retries after the first model fetch for connect/headers timeouts and gateway 520–524/530.
+   * Retries after the first model fetch for connect/headers timeouts and 408/409/429/520–524/530 (honors Retry-After up to 5s, else backoff).
    * Env: `MODEL_HTTP_MAX_RETRIES`. Default 2.
    */
   MODEL_HTTP_MAX_RETRIES: number;
@@ -890,8 +890,8 @@ export interface SharedServerConfiguration {
    */
   MCP_HTTP_BODY_TIMEOUT_MS: number;
   /**
-   * Retries after the first MCP fetch for connect timeouts and gateway 521–523/530 only (not headers
-   * timeouts or 520/524 — upstream may already have started the tool). Env: `MCP_HTTP_MAX_RETRIES`. Default 2.
+   * Retries after the first MCP fetch for connect timeouts and 408/429/521–523/530 only (not headers
+   * timeouts or 409/520/524 — upstream may already have started the tool; honors Retry-After up to 5s, else backoff). Env: `MCP_HTTP_MAX_RETRIES`. Default 2.
    */
   MCP_HTTP_MAX_RETRIES: number;
   SENTRY_ENABLED: boolean;
