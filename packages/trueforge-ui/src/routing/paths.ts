@@ -1,4 +1,5 @@
 import { clearEnvironmentShareSearch } from '../utils/environmentShareUrl.js';
+import { clearLibraryShareSearch } from '../utils/libraryShareUrl.js';
 import {
   clearScheduleShareSearch,
   readScheduleShareSearch,
@@ -162,6 +163,18 @@ export function sanitizeSearchForPlace(place: RoutePlace, search: string): strin
     writeSessionShareSearch(params, { tab: null });
     clearScheduleShareSearch(params);
     clearEnvironmentShareSearch(params);
+    clearLibraryShareSearch(params);
+  } else if (place.type === 'library') {
+    writeSessionShareSearch(params, {
+      sessionId: null,
+      agentId: null,
+      tab: null,
+      view: null,
+      timeRange: null,
+    });
+    clearScheduleShareSearch(params);
+    clearEnvironmentShareSearch(params);
+    // Keep `agent_name` — owned by the library place.
   } else if (place.type === 'libraryAgent') {
     const share = readSessionShareSearch(search);
     const scheduleShare = readScheduleShareSearch(search);
@@ -172,6 +185,7 @@ export function sanitizeSearchForPlace(place: RoutePlace, search: string): strin
     });
     clearScheduleShareSearch(params);
     clearEnvironmentShareSearch(params);
+    clearLibraryShareSearch(params);
     if (share.tab === 'schedules') {
       writeScheduleShareSearch(params, {
         status: scheduleShare.status,
@@ -188,6 +202,7 @@ export function sanitizeSearchForPlace(place: RoutePlace, search: string): strin
       timeRange: null,
     });
     clearEnvironmentShareSearch(params);
+    clearLibraryShareSearch(params);
     // Keep `agent` / `status` / `q` — owned by the schedules place.
   } else if (place.type === 'environments') {
     writeSessionShareSearch(params, {
@@ -198,6 +213,7 @@ export function sanitizeSearchForPlace(place: RoutePlace, search: string): strin
       timeRange: null,
     });
     clearScheduleShareSearch(params);
+    clearLibraryShareSearch(params);
     // Keep `envQ` / `envIsNew` — owned by the environments place.
   } else {
     writeSessionShareSearch(params, {
@@ -209,6 +225,7 @@ export function sanitizeSearchForPlace(place: RoutePlace, search: string): strin
     });
     clearScheduleShareSearch(params);
     clearEnvironmentShareSearch(params);
+    clearLibraryShareSearch(params);
   }
   const next = params.toString();
   return next.length > 0 ? `?${next}` : '';
