@@ -16,6 +16,7 @@ import {
   type ResolveMcpAuthStatusesInput,
   type UpsertMcpServerInput,
 } from './mcpServerStore';
+import type { TurnMetadata } from './turnMetadata';
 
 export class McpServerWithAuthStore<TTransaction = never> implements IMcpServerWithAuthStore<TTransaction> {
   readonly #store: IMcpServerStore<TTransaction>;
@@ -56,7 +57,11 @@ export class McpServerWithAuthStore<TTransaction = never> implements IMcpServerW
     return this.#store.deleteServer(input, transaction);
   }
 
-  resolveInvokeHeaders(input: { record: McpServerRecord; userRef: string }): RemoteMcpHeaders {
+  resolveInvokeHeaders(input: {
+    record: McpServerRecord;
+    userRef: string;
+    turnMetadata?: TurnMetadata;
+  }): RemoteMcpHeaders {
     const { record, userRef } = input;
     if (record.manifest.auth?.type === 'dcr') {
       return async () => {

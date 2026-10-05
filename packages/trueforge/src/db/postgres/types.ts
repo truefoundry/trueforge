@@ -20,17 +20,19 @@ import type {
   JsonValue,
   MCPServerInitInfo,
   SandboxInfo,
-  SubAgentCompletionMarker,
+  SubAgentCompletion,
 } from '@truefoundry/trueforge-core/core';
 import type { CurrentContextUsage } from '@truefoundry/trueforge-core/core/runtime/contextUsage';
 import type { ColumnType, Generated, JSONColumnType } from 'kysely';
 import type { McpServerManifest } from '../../schemas/mcpServer';
 import type { ModelProviderManifest } from '../../schemas/modelProvider';
 import type {
-  SandboxBuildMetadata,
-  SandboxBuildStatus,
-  StoredSandboxProviderManifest,
-} from '../../schemas/sandboxProvider';
+  SandboxEnvironmentLifecycleStage,
+  SandboxEnvironmentVersionInternalMetadata,
+  SandboxEnvironmentVersionStatus,
+  StoredSandboxEnvironmentManifest,
+} from '../../schemas/sandboxEnvironment';
+import type { StoredSandboxProviderManifest } from '../../schemas/sandboxProvider';
 import type { ScheduleManifest, ScheduleRunStatus, ScheduleStatus } from '../../schemas/schedule';
 import type { SkillManifest } from '../../schemas/skill';
 import type { WebSearchProviderManifest } from '../../schemas/webSearchProvider';
@@ -42,7 +44,7 @@ import type { OAuthClient, OAuthPendingAuthorizationData, OAuthServer, OAuthToke
  */
 export interface TurnThreadCheckpoint {
   parent: AgentParent | null;
-  completion: SubAgentCompletionMarker | null;
+  completion: SubAgentCompletion | null;
 }
 
 /** Turn-level checkpoint — threads live in `turn_thread`; only owned top-level keys remain. */
@@ -393,12 +395,6 @@ export interface SandboxProviderTable {
   tenant_id: string;
   /** StoredSandboxProviderManifest document; replaced whole on every upsert */
   manifest: JSONColumnType<StoredSandboxProviderManifest, StoredSandboxProviderManifest, StoredSandboxProviderManifest>;
-  /** Last persisted build status of the release sandbox image. */
-  status: SandboxBuildStatus;
-  /** Human-readable detail for `status`; null when ready. */
-  status_reason: string | null;
-  /** SandboxBuildMetadata document (opaque string map); null when the provider has none. */
-  build_metadata: JSONColumnType<SandboxBuildMetadata | null, SandboxBuildMetadata | null, SandboxBuildMetadata | null>;
   created_at: Date;
   updated_at: Date;
 }
@@ -417,6 +413,48 @@ export interface AgentTable {
   /** AgentSpec document; replaced whole on every upsert */
   manifest: JSONColumnType<AgentSpec, AgentSpec, AgentSpec>;
   external_id: string | null;
+  created_by_subject: JSONColumnType<CreatedBySubject, CreatedBySubject, CreatedBySubject>;
+  created_at: Date;
+  updated_at: Date;
+}
+
+/**
+ * Sandbox environments — immutable ULID `id` PK.
+ * Partial unique (tenant_id, name) WHERE lifecycle_stage = 'active'.
+ */
+export interface SandboxEnvironmentTable {
+  id: string;
+  tenant_id: string;
+  name: string;
+  description: string;
+  active_version: number;
+  lifecycle_stage: SandboxEnvironmentLifecycleStage;
+  created_by_subject: JSONColumnType<CreatedBySubject, CreatedBySubject, CreatedBySubject>;
+  created_at: Date;
+  updated_at: Date;
+}
+
+/**
+ * Immutable sandbox environment versions.
+ * UNIQUE (environment_id, version); FK → sandbox_environment ON DELETE CASCADE.
+ */
+export interface SandboxEnvironmentVersionTable {
+  id: string;
+  environment_id: string;
+  version: number;
+  manifest: JSONColumnType<
+    StoredSandboxEnvironmentManifest,
+    StoredSandboxEnvironmentManifest,
+    StoredSandboxEnvironmentManifest
+  >;
+  status: SandboxEnvironmentVersionStatus;
+  status_reason: string | null;
+  external_ref: string;
+  internal_metadata: JSONColumnType<
+    SandboxEnvironmentVersionInternalMetadata,
+    SandboxEnvironmentVersionInternalMetadata,
+    SandboxEnvironmentVersionInternalMetadata
+  >;
   created_by_subject: JSONColumnType<CreatedBySubject, CreatedBySubject, CreatedBySubject>;
   created_at: Date;
   updated_at: Date;
@@ -556,6 +594,8 @@ export interface Database {
   skill: SkillTable;
   sandbox_provider: SandboxProviderTable;
   agent: AgentTable;
+  sandbox_environment: SandboxEnvironmentTable;
+  sandbox_environment_version: SandboxEnvironmentVersionTable;
   schedule: ScheduleTable;
   schedule_run: ScheduleRunTable;
   mcp_server: McpServerTable;

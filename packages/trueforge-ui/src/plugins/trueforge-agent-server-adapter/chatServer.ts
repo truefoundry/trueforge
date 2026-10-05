@@ -2,7 +2,7 @@
  * Harness `AgentChatServer` adapter for @truefoundry/trueforge-ui.
  *
  * Runtime contract: opaque mounts (`object`), flat `ListResult` (`data` +
- * `nextPageToken`), and `null` normalized to absent. Harness keys MCP mounts by
+ * page tokens), and `null` normalized to absent. Harness keys MCP mounts by
  * name and returns `null` for optional fields — the maps below bridge both.
  *
  * Skills are name (+ optional preload) refs on the wire (`Skill`).
@@ -91,6 +91,11 @@ function toUiSession(session: TrueForgeApi.Session): HarnessUiSession {
     shared: session.shared,
     createdAt: session.createdAt,
     updatedAt: session.updatedAt,
+    metrics: {
+      totalTurns: session.metrics.totalTurns,
+      totalDurationMs: session.metrics.totalDurationMs,
+      ...(session.metrics.totalCostInUsd == null ? {} : { totalCostInUsd: session.metrics.totalCostInUsd }),
+    },
     ...(session.title === null ? {} : { title: session.title }),
     // `name` is a create-time snapshot, so references whose agent predates it stay
     // unlabelled; `isMutable` alone keeps them out of the composer.
@@ -137,10 +142,12 @@ export function toListResult<TSource, TResult>(
     const mapped = map(item);
     if (mapped !== undefined) data.push(mapped);
   }
-  const token = page.response.pagination.nextPageToken;
+  const next = page.response.pagination.nextPageToken;
+  const previous = page.response.pagination.previousPageToken;
   return {
     data,
-    ...(token === undefined ? {} : { nextPageToken: token }),
+    ...(next === undefined ? {} : { nextPageToken: next }),
+    ...(previous === undefined ? {} : { previousPageToken: previous }),
   };
 }
 

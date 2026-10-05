@@ -111,6 +111,11 @@ export interface AgentCatalogUsageRow {
   reference_name: string;
 }
 
+export interface ListAgentNamesUsingSandboxEnvironmentInput {
+  tenant_id: string;
+  environment_name: string;
+}
+
 /** Unique `(tenant_id, name)` violation on create. */
 export class AgentNameConflictError extends Error {
   readonly tenant_id: string;
@@ -161,4 +166,9 @@ export interface IAgentStore<TTransaction = never> {
     input: ListAgentCatalogUsageInput,
     transaction?: TTransaction,
   ): Promise<readonly AgentCatalogUsageRow[]>;
+  /** Agent names whose manifest references the given sandbox environment name. */
+  listAgentNamesUsingSandboxEnvironment(
+    input: ListAgentNamesUsingSandboxEnvironmentInput,
+    transaction?: TTransaction,
+  ): Promise<readonly string[]>;
 }

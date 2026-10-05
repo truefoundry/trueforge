@@ -51,6 +51,8 @@ export function AgentSessions({
   detailSessionId,
   onCloseDetail,
   onLoadRecentSessions,
+  refreshKey = 0,
+  onLoadingChange,
 }: AgentSessionsProps) {
   const sessionsServer = useAgentSessionsServer();
   const chatServer = useServer();
@@ -142,7 +144,7 @@ export function AgentSessions({
     return () => {
       cancelled = true;
     };
-  }, [detailOnly, listRequest, sessionsServer]);
+  }, [detailOnly, listRequest, refreshKey, sessionsServer]);
 
   const loadMore = useCallback(async () => {
     // A ref, not `listLoadingMore`: the observer can fire twice before a re-render.
@@ -230,7 +232,10 @@ export function AgentSessions({
     return () => {
       cancelled = true;
     };
-  }, [chatServer, detailOnly, onCloseDetail, selectedSessionId, sessionsServer, toaster]);
+  }, [chatServer, detailOnly, onCloseDetail, refreshKey, selectedSessionId, sessionsServer, toaster]);
+  useEffect(() => {
+    onLoadingChange?.(listLoading || detailLoading);
+  }, [detailLoading, listLoading, onLoadingChange]);
 
   const selectSession = (entry: SessionListEntry) => {
     const pinned = shareView === 'sessions' ? sessionTimeRangeFromCreatedAt(entry.createdAt) : null;
@@ -329,7 +334,7 @@ export function AgentSessions({
             <AgentSessionTimelineContainer
               sessionId={selectedSessionId}
               events={detailEvents}
-              listMetrics={selectedEntry?.metrics}
+              sessionMetrics={detailSession?.metrics}
               {...(detailOnly ? { contentMaxWidth: '60rem' } : {})}
             />
           )}

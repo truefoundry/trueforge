@@ -94,6 +94,8 @@ export { ChatFileDownload } from './atoms/ChatFileDownload.js';
 export type { ChatFileDownloadFile, ChatFileDownloadProps } from './atoms/ChatFileDownload.js';
 export { CodeEditor } from './atoms/CodeEditor.js';
 export type { CodeEditorProps } from './atoms/CodeEditor.js';
+export { FilePreviewPanel } from './atoms/FilePreviewPanel.js';
+export type { FilePreviewPanelProps, FilePreviewView } from './atoms/FilePreviewPanel.js';
 export { HistoryLoader } from './atoms/HistoryLoader.js';
 export type { HistoryLoaderProps } from './atoms/HistoryLoader.js';
 export { Markdown, preloadMarkdownOpenUI } from './atoms/Markdown.js';
@@ -242,7 +244,7 @@ export { UserEditComposerContainer } from './containers/UserEditComposerContaine
 export { UserMessageContainer } from './containers/UserMessageContainer.js';
 export { useApprovalNav } from './hooks/useApprovalNav.js';
 export type { ApprovalNavState } from './hooks/useApprovalNav.js';
-export { useCanCreateAgent } from './hooks/useCanCreateAgent.js';
+export { CanCreateAgentProvider, useCanCreateAgent } from './hooks/useCanCreateAgent.js';
 export type { UseCanCreateAgentResult } from './hooks/useCanCreateAgent.js';
 export { ComposerBusyProvider, useComposerBusyState } from './hooks/useComposerBusyState.js';
 export type { ComposerBusyState } from './hooks/useComposerBusyState.js';
@@ -407,8 +409,6 @@ export type {
   SandboxCatalogServer,
   SandboxProviderBase,
   SandboxProviderCatalogEntry,
-  SandboxProviderListEntry,
-  SandboxSnapshotSyncStatus,
   SaveAgentRequest,
   SaveAgentResult,
   SearchAgentsParams,

@@ -25,6 +25,7 @@ function noAgentsUsingCatalog(): IAgentStore {
     updateAgent: jest.fn(),
     deleteAgent: jest.fn(),
     listAgentCatalogUsage: jest.fn().mockResolvedValue([]),
+    listAgentNamesUsingSandboxEnvironment: jest.fn().mockResolvedValue([]),
   };
 }
 

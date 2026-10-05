@@ -1,4 +1,4 @@
-import { getSessionEventColor, type SessionEventTimelineSegment } from './sessionEventTimeline.js';
+import { MAIN_THREAD_ID, getSessionEventColor, type SessionEventTimelineSegment } from './sessionEventTimeline.js';
 import type { SessionTurnView } from './sessionTurnViews.js';
 
 export type SessionMetricBarDatum = {
@@ -23,18 +23,14 @@ export type SessionMetrics = {
   toolCallFrequency: SessionMetricBarDatum[];
 };
 
-export type SessionListMetricsHint = {
-  totalTurns: number;
+/** Optional getSession overrides for wall time and cost only — turn count always comes from events. */
+export type SessionMetricsHint = {
   totalCostInUsd?: number;
   totalDurationMs: number;
 };
 
 function segmentDurationMs(segment: SessionEventTimelineSegment): number {
   return Math.max(0, segment.endMs - segment.startMs);
-}
-
-function hintHasValues(hint?: SessionListMetricsHint): boolean {
-  return hint != null && (hint.totalTurns > 0 || hint.totalCostInUsd != null || hint.totalDurationMs > 0);
 }
 
 function turnHasMetrics(turn: SessionTurnView): boolean {
@@ -50,11 +46,11 @@ function turnHasMetrics(turn: SessionTurnView): boolean {
 export function buildSessionMetrics({
   turns,
   segments,
-  listMetrics,
+  sessionMetrics,
 }: {
   turns: SessionTurnView[];
   segments: SessionEventTimelineSegment[];
-  listMetrics?: SessionListMetricsHint;
+  sessionMetrics?: SessionMetricsHint;
 }): SessionMetrics {
   let derivedWallTimeMs = 0;
   let derivedCostUsd = 0;
@@ -63,16 +59,15 @@ export function buildSessionMetrics({
   let totalUncachedInputTokens = 0;
   let totalOutputTokens = 0;
   let totalCachedTokens = 0;
-  let contextTokens = 0;
-  const costPerTurn: SessionMetricBarDatum[] = [];
-  const contextByTurn: SessionMetricBarDatum[] = [];
+  // Aggregate by display band so MCP-auth resumes don't emit duplicate T1 chart keys.
+  const bandCostUsd = new Map<number, number>();
+  const bandTokens = new Map<number, number>();
 
   for (const turn of turns) {
-    const label = `T${turn.turnNumber}`;
     derivedWallTimeMs += turn.durationMs ?? 0;
     if (!turnHasMetrics(turn)) {
-      costPerTurn.push({ label, value: 0, color: getSessionEventColor('tool_call') });
-      contextByTurn.push({ label, value: contextTokens, color: getSessionEventColor('model') });
+      if (!bandCostUsd.has(turn.turnNumber)) bandCostUsd.set(turn.turnNumber, 0);
+      if (!bandTokens.has(turn.turnNumber)) bandTokens.set(turn.turnNumber, 0);
       continue;
     }
 
@@ -91,8 +86,21 @@ export function buildSessionMetrics({
     totalUncachedInputTokens += uncachedInputTokens;
     totalOutputTokens += outputTokens;
     totalCachedTokens += cachedTokens;
-    contextTokens += turnTotalTokens;
-    costPerTurn.push({ label, value: turnCostUsd ?? 0, color: getSessionEventColor('tool_call') });
+    bandCostUsd.set(turn.turnNumber, (bandCostUsd.get(turn.turnNumber) ?? 0) + (turnCostUsd ?? 0));
+    bandTokens.set(turn.turnNumber, (bandTokens.get(turn.turnNumber) ?? 0) + turnTotalTokens);
+  }
+
+  const costPerTurn: SessionMetricBarDatum[] = [];
+  const contextByTurn: SessionMetricBarDatum[] = [];
+  let contextTokens = 0;
+  for (const turnNumber of [...bandTokens.keys()].sort((left, right) => left - right)) {
+    const label = `T${turnNumber}`;
+    contextTokens += bandTokens.get(turnNumber) ?? 0;
+    costPerTurn.push({
+      label,
+      value: bandCostUsd.get(turnNumber) ?? 0,
+      color: getSessionEventColor('tool_call'),
+    });
     contextByTurn.push({ label, value: contextTokens, color: getSessionEventColor('model') });
   }
 
@@ -105,14 +113,13 @@ export function buildSessionMetrics({
   const waitingTimeMs = segments
     .filter(segment => segment.type === 'waiting_on_human' || segment.type === 'approval')
     .reduce((sum, segment) => sum + segmentDurationMs(segment), 0);
-  const wallTimeMs = hintHasValues(listMetrics)
-    ? (listMetrics?.totalDurationMs ?? derivedWallTimeMs)
-    : derivedWallTimeMs;
+  // Detail session metrics may override wall time and cost; turn count is always from events.
+  const wallTimeMs = sessionMetrics != null ? sessionMetrics.totalDurationMs : derivedWallTimeMs;
   const overheadTimeMs = Math.max(0, wallTimeMs - modelTimeMs - toolTimeMs - waitingTimeMs);
 
   const toolCallCounts = new Map<string, number>();
   for (const segment of segments) {
-    if (segment.type !== 'tool_call') continue;
+    if (segment.type !== 'tool_call' || segment.threadId !== MAIN_THREAD_ID) continue;
     toolCallCounts.set(segment.description, (toolCallCounts.get(segment.description) ?? 0) + 1);
   }
   const toolCallFrequency = Array.from(toolCallCounts, ([label, value]) => ({
@@ -121,10 +128,11 @@ export function buildSessionMetrics({
     color: getSessionEventColor('tool_call'),
   })).sort((left, right) => right.value - left.value);
 
-  const totalCostUsd = listMetrics?.totalCostInUsd ?? (hasDerivedCost ? derivedCostUsd : undefined);
+  const totalCostUsd =
+    sessionMetrics != null ? sessionMetrics.totalCostInUsd : hasDerivedCost ? derivedCostUsd : undefined;
 
   return {
-    totalTurns: hintHasValues(listMetrics) ? (listMetrics?.totalTurns ?? turns.length) : turns.length,
+    totalTurns: turns.length,
     wallTimeMs,
     ...(totalCostUsd == null ? {} : { totalCostUsd }),
     totalTokens,

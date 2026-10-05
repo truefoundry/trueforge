@@ -37,14 +37,20 @@ global:
       sslCerts:
         sizeLimit: 10Mi
 image:
-  repository: tfy.jfrog.io/tfy-images/trueforge
-  # Tag defaults to chart appVersion when empty. Prod chart-release PRs set this
-  # to {appVersion}-{shortSha} for the npm-install image already in the registry.
-  tag: "0.3.0-rc.0-346221b"
+  # Empty uses global.image.registry, then tfy.jfrog.io.
+  registry: ""
+  repository: tfy-images/trueforge
+  # Tag defaults to chart appVersion when empty. release-chart.yml sets this
+  # to {appVersion}-{shortSha} for the from-source image already in the
+  # registry.
+  tag: "0.3.0-ebbf6c0"
   pullPolicy: IfNotPresent
 imagePullSecrets: []
-# Default tfy.jfrog.io repos are anonymously pullable. Set secrets only when
-# overriding image.repository / subchart registries to a private registry.
+# Default tfy.jfrog.io repos are anonymously pullable. A parent chart's
+# global.imagePullSecrets wins when this list is empty. If that is also empty
+# and global.truefoundryImagePullConfigJSON is set, pods use the
+# truefoundry-image-pull-secret that chart creates. Set this list when the
+# pull secret has another name.
 nameOverride: ""
 fullnameOverride: ""
 serviceAccount:
@@ -85,7 +91,8 @@ service:
 server:
   # Number of server replicas (ignored when autoscaling.enabled is true).
   # null = derived from the resource tier (small=1, medium=2, large=3),
-  # or 1 when no tier is set. Set a number to override the tier.
+  # or 1 when no tier is set. Set a number (including 0 to scale down) to
+  # override the tier.
   replicaCount: null
   # Annotations on the server Deployment object (for example, Argo CD sync waves).
   deploymentAnnotations: {}
@@ -116,11 +123,10 @@ controller:
   enabled: true
   # Annotations on the controller Deployment object (for example, Argo CD sync waves).
   deploymentAnnotations: {}
-  # Container command. Runs the controller entry from the published package inside
-  # the image (root Dockerfile layout: /app/node_modules/@truefoundry/trueforge).
+  # Container command. Image WORKDIR is /app/packages/trueforge (from-source Dockerfile).
   command:
     - node
-    - node_modules/@truefoundry/trueforge/dist/controller-main.js
+    - dist/controller-main.js
   # Base URL the controller uses to reach the server (SERVER_URL).
   # Empty → the in-cluster server Service (http(s)://<fullname>:<service.port>).
   serverUrl: ""

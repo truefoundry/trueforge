@@ -22,6 +22,7 @@ import { ShellActions } from '../atoms/ShellActions.js';
 import { AgentConfigDrawerContainer } from '../containers/AgentConfigDrawerContainer.js';
 import { Thread } from '../containers/Thread.js';
 import { ThreadListContainer } from '../containers/ThreadListContainer.js';
+import { FilePreviewProvider, useFilePreview } from '../filePreview/FilePreviewContext.js';
 import { useChatHeaderContentVisible } from '../hooks/useChatChromeActionsVisible.js';
 import { Icon } from '../icons/Icon.js';
 import { shellIsCreateAgent, useOptionalShellMode, type ShellMode } from '../server/ShellModeContext.js';
@@ -44,6 +45,19 @@ const railSelectedClassName =
 
 function isRecentHistoryVisible({ overlayOpen, mode }: { overlayOpen: boolean; mode?: ShellMode }): boolean {
   return !overlayOpen && mode?.status === 'active' && !mode.isCreateAgent;
+}
+
+function RecentChatsAside() {
+  const preview = useFilePreview();
+  if (preview.presentation === 'full') return null;
+  return (
+    <aside
+      aria-label="Recent chats"
+      className="hidden min-h-0 w-64 shrink-0 border-r border-border bg-sidebar-bg md:flex"
+    >
+      <ThreadListContainer variant="recent-history" />
+    </aside>
+  );
 }
 
 function SidebarNav(): ReactNode {
@@ -273,62 +287,57 @@ export function SidebarLayout({ className }: { className?: string }) {
           }
         />
 
-        <div className="flex min-h-0 min-w-0 flex-1">
-          {showRecentHistory ? (
-            <aside
-              aria-label="Recent chats"
-              className="hidden min-h-0 w-64 shrink-0 border-r border-border bg-sidebar-bg md:flex"
-            >
-              <ThreadListContainer variant="recent-history" />
-            </aside>
-          ) : null}
+        <FilePreviewProvider>
+          <div className="flex min-h-0 min-w-0 flex-1">
+            {showRecentHistory ? <RecentChatsAside /> : null}
 
-          <div ref={mainRef} className="min-h-0 min-w-0 flex-1">
-            {settingsOpen ? (
-              <Suspense
-                fallback={
-                  <div
-                    className="flex h-full items-center justify-center"
-                    role="status"
-                    aria-live="polite"
-                    aria-busy="true"
-                  >
-                    <Spinner size={28} className="text-text-primary" />
-                    <span className="sr-only">Loading</span>
-                  </div>
-                }
-              >
-                <TruefoundrySettingsBuilder />
-              </Suspense>
-            ) : sessionsOpen ? (
-              <SessionsPage />
-            ) : libraryOpen && shell?.libraryAgentId != null ? (
-              <AgentDetailsPage key={shell.libraryAgentId} agentId={shell.libraryAgentId} />
-            ) : libraryOpen ? (
-              <AgentsLibrary onSelectAgent={() => setMobileNavOpen(false)} />
-            ) : schedulesOpen ? (
-              <Suspense
-                fallback={
-                  <div
-                    className="flex h-full items-center justify-center"
-                    role="status"
-                    aria-live="polite"
-                    aria-busy="true"
-                  >
-                    <Spinner size={28} className="text-text-primary" />
-                    <span className="sr-only">Loading</span>
-                  </div>
-                }
-              >
-                <SchedulesPage />
-              </Suspense>
-            ) : isIdle ? (
-              <SelectAgentEmptyState />
-            ) : (
-              <Thread />
-            )}
+            <div ref={mainRef} className="min-h-0 min-w-0 flex-1">
+              {settingsOpen ? (
+                <Suspense
+                  fallback={
+                    <div
+                      className="flex h-full items-center justify-center"
+                      role="status"
+                      aria-live="polite"
+                      aria-busy="true"
+                    >
+                      <Spinner size={28} className="text-text-primary" />
+                      <span className="sr-only">Loading</span>
+                    </div>
+                  }
+                >
+                  <TruefoundrySettingsBuilder />
+                </Suspense>
+              ) : sessionsOpen ? (
+                <SessionsPage />
+              ) : libraryOpen && shell?.libraryAgentId != null ? (
+                <AgentDetailsPage key={shell.libraryAgentId} agentId={shell.libraryAgentId} />
+              ) : libraryOpen ? (
+                <AgentsLibrary onSelectAgent={() => setMobileNavOpen(false)} />
+              ) : schedulesOpen ? (
+                <Suspense
+                  fallback={
+                    <div
+                      className="flex h-full items-center justify-center"
+                      role="status"
+                      aria-live="polite"
+                      aria-busy="true"
+                    >
+                      <Spinner size={28} className="text-text-primary" />
+                      <span className="sr-only">Loading</span>
+                    </div>
+                  }
+                >
+                  <SchedulesPage />
+                </Suspense>
+              ) : isIdle ? (
+                <SelectAgentEmptyState />
+              ) : (
+                <Thread />
+              )}
+            </div>
           </div>
-        </div>
+        </FilePreviewProvider>
       </div>
 
       {/* Mobile: same narrow rail as desktop */}

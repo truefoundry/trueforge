@@ -1,6 +1,8 @@
 import { OpenAPIHono, type RouteHandler } from '@hono/zod-openapi';
 import { extractErrorLogFields, McpConnectionError } from '@truefoundry/trueforge-core/core';
+import type { Context } from 'hono';
 import type { Logger } from 'winston';
+import type { RequestContext } from '../auth/identity';
 import { completeMcpAuthorization } from '../mcp/auth/mcpDcr';
 import type { IOAuthClientStore, IOAuthTokenStore, OAuthPendingAuthorization } from '../mcp/auth/types';
 import { mcpOAuthCallbackRoute } from '../routes/mcpOAuthRoutes';
@@ -9,6 +11,7 @@ export interface McpOAuthRouterDeps<TTransaction> {
   tokenStore: IOAuthTokenStore<TTransaction>;
   mcpServerStore: IOAuthClientStore<TTransaction>;
   logger: Logger;
+  resolveSession: (c: Context) => Promise<RequestContext | undefined>;
 }
 
 type McpOAuthCallbackContext = Parameters<RouteHandler<typeof mcpOAuthCallbackRoute>>[0];
@@ -67,12 +70,31 @@ export function createMcpOAuthRouter<TTransaction>(deps: McpOAuthRouterDeps<TTra
   const callbackHandler: RouteHandler<typeof mcpOAuthCallbackRoute> = async c => {
     const { state, code, error, error_description: errorDescription } = c.req.valid('query');
 
+    // Bind the grant to the TrueForge session in this browser.
+    const session = await deps.resolveSession(c);
+    if (!session) {
+      return callbackFailure({ c, pending: undefined, message: 'Authentication required to complete OAuth' });
+    }
+
     // Claimed up front: this row carries the FE landing path every branch below returns to, and
     // claiming it atomically means a duplicate callback loses the race.
     const pending = await deps.tokenStore.consumePendingAuthorization({ state });
     if (!pending) {
       deps.logger.warn('MCP OAuth callback has no pending authorization', { state, error, errorDescription });
       return callbackFailure({ c, pending, message: 'Unknown or expired OAuth state' });
+    }
+
+    if (session.subject.id !== pending.userRef) {
+      deps.logger.warn('MCP OAuth callback session does not match pending user', {
+        state,
+        sessionSubject: session.subject.id,
+        pendingUserRef: pending.userRef,
+      });
+      return callbackFailure({
+        c,
+        pending,
+        message: 'OAuth session does not match the authorizing user',
+      });
     }
 
     if (error) {

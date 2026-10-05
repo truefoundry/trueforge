@@ -74,7 +74,7 @@ export interface AgentSelectorEntry {
 export interface SearchAgentSelectorParams {
   query?: string;
   limit?: number;
-  offset?: number;
+  pageToken?: string;
 }
 
 // ---------------------------------------------------------------------------
@@ -123,6 +123,8 @@ export interface AgentCapabilityConfig {
 
 export interface AgentSandboxConfig extends AgentCapabilityConfig {
   fileDownloads?: boolean;
+  /** Name of a configured sandbox environment. */
+  environment_name?: string;
 }
 
 export interface AgentInputTokensCompactionTrigger {
@@ -181,6 +183,8 @@ export interface Session<TSpec extends AgentSpec = AgentSpec> {
   isMutable: boolean;
   /** When true, any subject in the tenant may read this session and its turns/events by id. */
   shared?: boolean;
+  /** Rolled-up turns/duration/cost from the session detail API when the host provides it. */
+  metrics?: SessionListMetrics;
   createdAt: string;
   updatedAt: string;
 }
@@ -206,6 +210,7 @@ export interface UpdateSessionRequest<TSpec extends AgentSpec = AgentSpec> {
 export interface ListResult<T> {
   data: T[];
   nextPageToken?: string;
+  previousPageToken?: string;
 }
 
 export type ListSessionsOrder = 'asc' | 'desc';
@@ -277,6 +282,8 @@ export interface TurnDoneMetrics {
   totalCacheReadTokens: number;
   totalCacheWriteTokens: number;
   totalReasoningTokens: number;
+  /** Estimated total cost in USD for this turn when the host reports it. */
+  totalCostInUsd?: number;
 }
 
 export interface TurnStateDone {
@@ -455,7 +462,7 @@ export interface AgentBuilderServer<
   getMcp(): Promise<TMcp[]>;
   getMcpConnector?(req: { connectorId: string }): Promise<TMcp>;
   getMcpTools?(req: { connectorId: string }): Promise<TMcpTool[]>;
-  searchAgents(req?: SearchAgentSelectorParams): Promise<TAgent[]>;
+  searchAgents(req?: SearchAgentSelectorParams): Promise<ListResult<TAgent>>;
   saveAgent(req: SaveAgentRequest<TSpec>): Promise<TSave>;
   deleteAgent?(req: { agentName: string }): Promise<void>;
 }
@@ -746,16 +753,6 @@ export interface SandboxBase {
   isConnected: boolean;
 }
 
-export interface SandboxSnapshotSyncStatus {
-  status: 'pending' | 'ready' | 'failed';
-  statusReason?: string | null;
-}
-
-export interface SandboxProviderListEntry<TSandbox extends SandboxBase = SandboxBase> {
-  data: TSandbox;
-  snapshotSyncStatus: SandboxSnapshotSyncStatus;
-}
-
 export interface CreateSandboxRequest {
   /** `SandboxCatalogEntry.id` used to create this sandbox provider. */
   catalogId: string;
@@ -781,10 +778,9 @@ export interface SandboxCatalogServer<
   TCatalogEntry extends SandboxCatalogEntry = SandboxCatalogEntry,
   TCreate extends CreateSandboxRequest = CreateSandboxRequest,
   TUpdate extends UpdateSandboxRequest = UpdateSandboxRequest,
-  TListEntry extends SandboxProviderListEntry<TProvider> = SandboxProviderListEntry<TProvider>,
 > {
   getSandboxProviderCatalog(): Promise<TCatalogEntry[]>;
-  listSandboxProviders(req?: { query?: string }): Promise<TListEntry[]>;
+  listSandboxProviders(req?: { query?: string }): Promise<TProvider[]>;
   createSandboxProvider(req: TCreate): Promise<TProvider>;
   updateSandboxProvider(req: TUpdate): Promise<TProvider>;
   deleteSandboxProvider?(req: { id: string }): Promise<void>;

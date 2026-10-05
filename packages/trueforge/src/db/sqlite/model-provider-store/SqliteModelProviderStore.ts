@@ -138,6 +138,10 @@ export class SqliteModelProviderStore implements IModelProviderStore<Transaction
     return result.numDeletedRows > 0n;
   }
 
+  resolveInvokeHeaders(): Promise<Record<string, string>> {
+    return Promise.resolve({});
+  }
+
   async listModels(input: ListModelProvidersInput, transaction?: Transaction<Database>): Promise<AvailableModel[]> {
     return flattenProviderModels(await this.listProviders(input, transaction));
   }

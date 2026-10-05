@@ -42,7 +42,9 @@ export function withJson(
         }
 
         const mismatches = findMismatches(actualBody, expectedBody);
-        const filteredMismatches = Object.keys(mismatches).filter((key) => !ignoredFields.includes(key));
+        const filteredMismatches = Object.entries(mismatches).filter(
+            ([key, mismatch]) => !isIgnoredMismatch(key, mismatch, ignoredFields),
+        );
         if (filteredMismatches.length > 0) {
             console.error("JSON body mismatch:", toJson(mismatches, undefined, 2));
             return passthrough();
@@ -50,6 +52,47 @@ export function withJson(
 
         return resolver(args);
     };
+}
+
+/**
+ * A mismatch is ignored when its path is listed in ignoredFields, or when it is an object
+ * that is absent from the expected body and every leaf inside it is listed in ignoredFields.
+ * The latter happens when an ignored field is nested (e.g. "options.offset") and the client
+ * creates the parent object to hold the next page value.
+ */
+function isIgnoredMismatch(
+    key: string,
+    mismatch: { actual: unknown; expected: unknown },
+    ignoredFields: string[],
+): boolean {
+    if (ignoredFields.includes(key)) {
+        return true;
+    }
+    if (mismatch.expected !== undefined || !isPlainObject(mismatch.actual)) {
+        return false;
+    }
+    const leafPaths = collectLeafPaths(mismatch.actual, key);
+    return leafPaths.length > 0 && leafPaths.every((path) => ignoredFields.includes(path));
+}
+
+function isPlainObject(value: unknown): value is Record<string, unknown> {
+    return typeof value === "object" && value !== null && !Array.isArray(value);
+}
+
+function collectLeafPaths(value: Record<string, unknown>, prefix: string): string[] {
+    const paths: string[] = [];
+    for (const [key, child] of Object.entries(value)) {
+        if (child === undefined) {
+            continue;
+        }
+        const path = `${prefix}.${key}`;
+        if (isPlainObject(child)) {
+            paths.push(...collectLeafPaths(child, path));
+        } else {
+            paths.push(path);
+        }
+    }
+    return paths;
 }
 
 function findMismatches(actual: any, expected: any): Record<string, { actual: any; expected: any }> {
