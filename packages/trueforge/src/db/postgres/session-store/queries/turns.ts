@@ -186,6 +186,16 @@ export function turnRunningFence(db: TurnFenceDb, keys: TurnKeys) {
     .forShare();
 }
 
+export function turnNonTerminalFence(db: TurnFenceDb, keys: TurnKeys) {
+  return db
+    .selectFrom('turn')
+    .select(sql`1`.as('one'))
+    .where('session_id', '=', keys.session_id)
+    .where('turn_id', '=', keys.turn_id)
+    .where(sql<boolean>`state->>'status' IN ('running', 'paused')`)
+    .forShare();
+}
+
 /** Classify a 0-row fenced write: missing turn vs frozen/non-running turn. */
 export async function classifyTurnFenceWriteFailure(db: Kysely<Database>, keys: TurnKeys): Promise<never> {
   const row = await db
@@ -201,10 +211,7 @@ export async function classifyTurnFenceWriteFailure(db: Kysely<Database>, keys: 
   throw new TurnNotRunningError(keys.turn_id, terminalTurnState(row.state, keys.turn_id));
 }
 
-/**
- * Classify a 0-row fenced turn_thread UPDATE: turn missing/terminal vs thread row missing.
- */
-export async function classifyTurnThreadWriteFailure(
+export async function classifyNonTerminalTurnThreadWriteFailure(
   db: Kysely<Database>,
   keys: TurnKeys,
   thread_id: string,
@@ -219,7 +226,7 @@ export async function classifyTurnThreadWriteFailure(
   if (!row) {
     throw new TurnNotFoundError(keys.turn_id);
   }
-  if (row.state.status !== 'running') {
+  if (row.state.status !== 'running' && row.state.status !== 'paused') {
     throw new TurnNotRunningError(keys.turn_id, terminalTurnState(row.state, keys.turn_id));
   }
   throw new SessionStoreInvariantError(`thread ${thread_id} not found in turn ${keys.turn_id}`);
@@ -239,6 +246,23 @@ export async function assertTurnRunning(db: DbOrTrx, keys: TurnKeys): Promise<vo
     throw new TurnNotFoundError(keys.turn_id);
   }
   if (row.state.status !== 'running') {
+    throw new TurnNotRunningError(keys.turn_id, terminalTurnState(row.state, keys.turn_id));
+  }
+}
+
+export async function assertTurnNonTerminal(db: DbOrTrx, keys: TurnKeys): Promise<void> {
+  const row = await db
+    .selectFrom('turn')
+    .select('state')
+    .where('session_id', '=', keys.session_id)
+    .where('turn_id', '=', keys.turn_id)
+    .forShare()
+    .executeTakeFirst();
+
+  if (!row) {
+    throw new TurnNotFoundError(keys.turn_id);
+  }
+  if (row.state.status !== 'running' && row.state.status !== 'paused') {
     throw new TurnNotRunningError(keys.turn_id, terminalTurnState(row.state, keys.turn_id));
   }
 }

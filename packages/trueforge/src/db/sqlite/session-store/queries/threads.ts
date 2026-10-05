@@ -13,9 +13,10 @@ import { jsonbBind, jsonbSet, nowIso } from '../../sqlExpressions';
 import type { Database, TurnThreadCheckpoint } from '../../types';
 import { sortedByAppendId } from '../sqlExpressions';
 import {
+  assertTurnNonTerminal,
   assertTurnRunning,
+  classifyNonTerminalTurnThreadWriteFailure,
   classifyTurnFenceWriteFailure,
-  classifyTurnThreadWriteFailure,
   type TurnKeys,
 } from './turns';
 
@@ -244,7 +245,7 @@ async function fencedTurnThreadContextUpdate(
   const { keys, thread_id, context, replace_array } = args;
 
   await db.transaction().execute(async trx => {
-    await assertTurnRunning(trx, keys);
+    await assertTurnNonTerminal(trx, keys);
 
     const now = nowIso();
 
@@ -312,7 +313,7 @@ async function fencedTurnThreadContextUpdate(
       .executeTakeFirst();
 
     if (Number(updateResult.numUpdatedRows) === 0) {
-      await classifyTurnThreadWriteFailure(trx, keys, thread_id);
+      await classifyNonTerminalTurnThreadWriteFailure(trx, keys, thread_id);
     }
   });
 }
@@ -356,7 +357,7 @@ export async function overwriteThreadContext(db: Kysely<Database>, input: Overwr
 }
 
 /**
- * patchMCPServers — conditional UPDATE fenced on state->>'status'='running'.
+ * patchMCPServers — conditional UPDATE fenced on a non-terminal turn.
  * Shallow merge by server id (Postgres `||`): patched ids replace wholesale.
  */
 export async function patchMCPServers(db: Kysely<Database>, input: PatchMCPServersInput): Promise<void> {
@@ -398,7 +399,7 @@ export async function patchMCPServers(db: Kysely<Database>, input: PatchMCPServe
     })
     .where('session_id', '=', keys.session_id)
     .where('turn_id', '=', keys.turn_id)
-    .where(sql<boolean>`state->>'status' = 'running'`)
+    .where(sql<boolean>`state->>'status' IN ('running', 'paused')`)
     .executeTakeFirst();
 
   if (Number(result.numUpdatedRows) === 0) {
