@@ -15,22 +15,19 @@ export type BadgeProps = React.HTMLAttributes<HTMLSpanElement> & {
 
 const VARIANT_STYLES: Record<BadgeVariant, string> = {
   default: 'border-border bg-card-bg text-text-primary',
-  success:
-    'border-emerald-600/30 bg-emerald-500/10 text-emerald-700 dark:border-emerald-400/35 dark:bg-emerald-500/15 dark:text-emerald-300',
-  info: 'border-sky-600/30 bg-sky-500/10 text-sky-800 dark:border-sky-400/35 dark:bg-sky-500/15 dark:text-sky-300',
-  warning:
-    'border-amber-600/30 bg-amber-500/10 text-amber-800 dark:border-amber-400/35 dark:bg-amber-500/15 dark:text-amber-300',
-  destructive:
-    'border-red-600/30 bg-red-500/10 text-red-700 dark:border-red-400/35 dark:bg-red-500/15 dark:text-red-300',
+  success: 'border-success-bg/30 bg-success-bg/10 text-success-bg',
+  info: 'border-primary-button-bg/30 bg-primary-button-bg/10 text-primary-button-bg',
+  warning: 'border-warning-bg/40 bg-warning-bg/10 text-warning-bg',
+  destructive: 'border-failure-bg/30 bg-failure-bg/10 text-failure-bg',
   outline: 'border-border bg-transparent text-text-secondary',
 };
 
 const DOT_STYLES: Record<BadgeVariant, string> = {
   default: 'bg-text-secondary',
-  success: 'bg-emerald-600 dark:bg-emerald-400',
-  info: 'bg-sky-600 dark:bg-sky-400',
-  warning: 'bg-amber-600 dark:bg-amber-400',
-  destructive: 'bg-red-600 dark:bg-red-400',
+  success: 'bg-success-bg',
+  info: 'bg-primary-button-bg',
+  warning: 'bg-warning-bg',
+  destructive: 'bg-failure-bg',
   outline: 'bg-text-secondary',
 };
 
