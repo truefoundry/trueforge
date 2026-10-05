@@ -491,19 +491,14 @@ function attachActiveTurn(
     return snapshot;
   }
   const pendingUserText = extractTurnUserText(activeTurn.input);
-  // Tip is not in `turns` yet. A new user tip must baseline every prior root
-  // model.message (same as live send) — otherwise computeGroupRootBaseline
-  // treats the last completed user turn as the active group and that turn's
-  // content leaks into resume after refresh.
-  const groupRootBaseline =
-    pendingUserText !== undefined
-      ? [...(snapshot.fold.threads.get(ROOT_THREAD_ID)?.modelMessageIds ?? [])]
-      : computeGroupRootBaseline(snapshot.turns);
-  // Tip events are already folded; project them for the initial paused /
-  // disconnected stream. Use completed-turn ids only so the tip's own
-  // model.messages are not baselined away (stored groupRootBaseline still
-  // excludes them from later live rebuilds once the stream carries content).
+  // Tip is not in `turns` yet. Baseline every completed turn's root
+  // model.message (same as live send) so computeGroupRootBaseline cannot
+  // treat the last completed user turn as the active group. Do NOT use the
+  // fold's modelMessageIds here — tip events are already folded from /events,
+  // and including them would make subscribe rebuilds baseline the tip away.
   const priorRootModelMessageIds = snapshot.turns.flatMap(turn => turn.rootModelMessageIds ?? []);
+  const groupRootBaseline =
+    pendingUserText !== undefined ? priorRootModelMessageIds : computeGroupRootBaseline(snapshot.turns);
   const rootModelMessageIds = rootModelMessageIdsSinceBaseline(snapshot.fold, priorRootModelMessageIds);
   const activeUpdate = buildTurnUpdateFromFold(
     snapshot.fold,
@@ -1124,18 +1119,11 @@ function projectActiveStreamUpdate(snapshot: SessionSnapshot): TurnStreamUpdate 
     throw new Error('projectActiveStreamUpdate requires an active stream');
   }
 
-  const hasStagedOverlay =
-    snapshot.requiredActions.approvals.size > 0 || snapshot.requiredActions.toolResponses.size > 0;
-
-  // While the user has staged a response locally, keep the paused projection
-  // so the interrupt and optimistic result stay paired until server acknowledgement.
-  if (hasStagedOverlay) {
-    return activeStream.update;
-  }
-
   // MCP auth is not stored in the fold. After a paused SSE segment ends we
   // rebuild from fold + snapshot.pendingMcpAuth; if only the live update has
   // the auth chrome, keep that update instead of wiping Connect/Continue.
+  // Do not short-circuit on staged approval overlays — rebuild so sibling
+  // pending approvals remain visible after a partial allow.
   const liveCustom = activeStream.update.metadata?.custom;
   if (liveCustom?.[MESSAGE_CUSTOM_KEY.PENDING_MCP_AUTH] === true && snapshot.pendingMcpAuth == null) {
     return activeStream.update;
@@ -1340,7 +1328,11 @@ export function projectSessionMessages(
 
   if (snapshot.activeStream != null) {
     const { turnId, update, segmentStatus } = snapshot.activeStream;
-    const resolvedUpdate = segmentStatus === STREAM_SEGMENT_STATUS.OPEN ? update : projectActiveStreamUpdate(snapshot);
+    // Content-only subscribe yields after a partial approval look "open" but the
+    // tip is still paused — rebuild so remaining approvals keep requires-action.
+    const tipStillPaused = snapshot.activeTurn?.state.status === TURN_STATUS.PAUSED;
+    const resolvedUpdate =
+      segmentStatus === STREAM_SEGMENT_STATUS.OPEN && !tipStillPaused ? update : projectActiveStreamUpdate(snapshot);
     const last = messages.at(-1);
     const existingAssistant =
       last?.role === 'assistant' && last.metadata.custom[MESSAGE_CUSTOM_KEY.TURN_ID] === turnId ? last : undefined;
@@ -1734,6 +1726,26 @@ export async function* streamTurnEvents(
     };
   };
 
+  /** Partial approvals: BE may echo user.tool_approval without another turn.update. */
+  const foldStillNeedsUserInput = (): boolean =>
+    pendingMcpAuth != null ||
+    findFirstPendingApprovalThreadId(foldState) != null ||
+    findFirstPendingResponseThreadId(foldState) != null;
+
+  const yieldContentOrRequiredAction = (sequenceNumber: number): TurnStreamUpdate => {
+    if (foldStillNeedsUserInput()) {
+      return {
+        ...buildRequiredActionUpdate(),
+        sequenceNumber,
+        turnState: {
+          status: TURN_STATUS.PAUSED,
+          actionRequiredOnEvents: [],
+        },
+      };
+    }
+    return { content: yieldContent() ?? [], sequenceNumber };
+  };
+
   for await (const data of stream) {
     const event = data.event;
 
@@ -1804,8 +1816,20 @@ export async function* streamTurnEvents(
       if (sandboxId != null) {
         sandboxIdYielded = true;
       }
-      yield withSandbox({ content, sequenceNumber: data.sequenceNumber });
+      yield withSandbox(yieldContentOrRequiredAction(data.sequenceNumber));
     }
+  }
+
+  if (foldStillNeedsUserInput()) {
+    // Subscribe can end after a partial user.tool_approval with no turn.update.
+    yield withSandbox({
+      ...buildRequiredActionUpdate(),
+      turnState: {
+        status: TURN_STATUS.PAUSED,
+        actionRequiredOnEvents: [],
+      },
+    });
+    return;
   }
 
   if (sandboxId != null && !sandboxIdYielded) {

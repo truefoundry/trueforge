@@ -55,6 +55,12 @@ function asToolInfo(value: unknown): ToolInfo | undefined {
 }
 
 function mergeModelMessageDelta(base: ModelMessageEvent, delta: ModelMessageDeltaEvent): void {
+  // History /events stores the finished message. Subscribe then replays the
+  // same id's deltas; appending those would duplicate text and invalidate JSON
+  // tool arguments (allow-once still works; session policy cannot parse args).
+  if (base.finishReason != null) {
+    return;
+  }
   if (delta.content) {
     if (base.content === undefined || base.content === null || typeof base.content === 'string') {
       base.content = (base.content ?? '') + delta.content;

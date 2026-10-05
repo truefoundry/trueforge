@@ -428,9 +428,10 @@ describe('foldPeerThreads', () => {
       }),
     );
 
-    expect(
-      resolveToolApprovalPolicyTarget({ state, threadId: ROOT_THREAD_ID, toolCallId: 'tool-1' }),
-    ).toEqual({ serverName: 'shell', name: 'run_shell' });
+    expect(resolveToolApprovalPolicyTarget({ state, threadId: ROOT_THREAD_ID, toolCallId: 'tool-1' })).toEqual({
+      serverName: 'shell',
+      name: 'run_shell',
+    });
     expect(resolveToolApprovalPolicyTarget({ state, threadId: 'child-1', toolCallId: 'nested-tool' })).toEqual({
       serverName: 'github',
       name: 'create_issue',
@@ -469,6 +470,99 @@ describe('foldPeerThreads', () => {
         toolCallId: 'toolu_deferred',
       }),
     ).toEqual({ serverName: 'linear', name: 'save_comment' });
+  });
+
+  it('does not append subscribe deltas onto a finished history model.message', () => {
+    const args = JSON.stringify({
+      mcp_server: 'linear',
+      tool_name: 'save_comment',
+      input: { issueId: 'FRONTEN-2512', body: 'test 2' },
+    });
+    const state = new PeerThreadFoldState();
+    ingestTurnEvent(
+      state,
+      modelMessage({
+        id: 'deferred-model',
+        threadId: ROOT_THREAD_ID,
+        content: 'creating the comment',
+        finishReason: 'tool_calls',
+        toolCalls: [
+          {
+            id: 'toolu_deferred',
+            type: 'function',
+            function: { name: 'call_tool', arguments: args },
+            toolInfo: { type: 'truefoundry-system', name: 'call_tool' },
+          },
+        ],
+      }),
+    );
+    ingestStreamEvent(state, {
+      type: 'model.message.delta',
+      id: 'deferred-model',
+      createdAt,
+      threadId: ROOT_THREAD_ID,
+      content: 'creating the comment',
+      toolCalls: [{ index: 0, function: { arguments: args } }],
+    });
+
+    const stored = state.threads.get(ROOT_THREAD_ID)?.events.get('deferred-model');
+    expect(stored?.type).toBe('model.message');
+    if (stored?.type !== 'model.message') {
+      return;
+    }
+    expect(stored.content).toBe('creating the comment');
+    expect(stored.toolCalls?.[0]?.function.arguments).toBe(args);
+    expect(
+      resolveToolApprovalPolicyTarget({
+        state,
+        threadId: ROOT_THREAD_ID,
+        toolCallId: 'toolu_deferred',
+      }),
+    ).toEqual({ serverName: 'linear', name: 'save_comment' });
+  });
+
+  it('still merges live deltas until finishReason is set', () => {
+    const state = new PeerThreadFoldState();
+    ingestStreamEvent(
+      state,
+      modelMessage({
+        id: 'live-model',
+        threadId: ROOT_THREAD_ID,
+        toolCalls: [
+          {
+            id: 'toolu_live',
+            type: 'function',
+            function: { name: 'call_tool', arguments: '' },
+            toolInfo: { type: 'truefoundry-system', name: 'call_tool' },
+          },
+        ],
+      }),
+    );
+    ingestStreamEvent(state, {
+      type: 'model.message.delta',
+      id: 'live-model',
+      createdAt,
+      threadId: ROOT_THREAD_ID,
+      content: 'creating',
+      toolCalls: [
+        {
+          index: 0,
+          function: {
+            arguments: JSON.stringify({ mcp_server: 'linear', tool_name: 'save_comment' }),
+          },
+        },
+      ],
+    });
+
+    const stored = state.threads.get(ROOT_THREAD_ID)?.events.get('live-model');
+    expect(stored?.type).toBe('model.message');
+    if (stored?.type !== 'model.message') {
+      return;
+    }
+    expect(stored.content).toBe('creating');
+    expect(stored.toolCalls?.[0]?.function.arguments).toBe(
+      JSON.stringify({ mcp_server: 'linear', tool_name: 'save_comment' }),
+    );
   });
 
   it('clears sibling pending approvals covered by a session policy', () => {

@@ -1608,6 +1608,72 @@ describe('convertTurnMessages', () => {
       expect(final?.metadata?.custom?.[MESSAGE_CUSTOM_KEY.TOOL_APPROVAL_THREAD_ID]).toBe(ROOT_THREAD_ID);
     });
 
+    it('keeps requires-action after a partial user.tool_approval with no turn.update', async () => {
+      const foldState = new PeerThreadFoldState();
+      // Tip already paused with two pending approvals; subscribe resumes with only
+      // the first allow echo (BE no longer re-emits paused for apply-only wakes).
+      ingestTurnEvent(
+        foldState,
+        modelMessage({
+          id: 'm1',
+          threadId: ROOT_THREAD_ID,
+          content: 'run tools',
+          toolCalls: [
+            {
+              id: 'approval-1',
+              type: 'function',
+              function: { name: 'bash', arguments: '{}' },
+            },
+            {
+              id: 'approval-2',
+              type: 'function',
+              function: { name: 'bash', arguments: '{}' },
+            },
+          ],
+        }),
+      );
+      ingestTurnEvent(
+        foldState,
+        approvalRequired({
+          id: 'approval-event',
+          threadId: ROOT_THREAD_ID,
+          toolCalls: [
+            { id: 'approval-1', sourceEventId: 'm1' },
+            { id: 'approval-2', sourceEventId: 'm1' },
+          ],
+        }),
+      );
+
+      const updates = await collectStream(
+        streamTurnEvents(
+          streamFrom([
+            {
+              type: 'user.tool_approval',
+              id: 'user-approval-1',
+              createdAt,
+              threadId: ROOT_THREAD_ID,
+              toolCallId: 'approval-1',
+              approval: { status: 'allow' },
+            },
+          ]),
+          foldState,
+        ),
+      );
+
+      expect(updates.length).toBeGreaterThanOrEqual(1);
+      const final = updates.at(-1);
+      expect(final?.status).toEqual({ type: 'requires-action', reason: 'tool-calls' });
+      expect(final?.turnState).toMatchObject({ status: 'paused' });
+      const content = final?.content ?? [];
+      const pending = content.filter(
+        part => part.type === 'tool-call' && part.approval != null && part.approval.approved === undefined,
+      );
+      const approved = content.filter(part => part.type === 'tool-call' && part.approval?.approved === true);
+      expect(approved).toHaveLength(1);
+      expect(pending).toHaveLength(1);
+      expect(pending[0]).toMatchObject({ toolCallId: 'approval-2' });
+    });
+
     it('defers mcp auth until stream end and appends auth prompt', async () => {
       const foldState = new PeerThreadFoldState();
       const updates = await collectStream(
@@ -2719,6 +2785,9 @@ describe('buildSnapshotFromSessionEvents', () => {
     expect(snapshot.activeTurn).toEqual(pausedTurn);
     expect(snapshot.pendingUser).toMatchObject({ turnId: pausedTurn.id, content: 'run it' });
     expect(snapshot.unstable_resume).toBe(true);
+    // Tip model ids are already in the fold — baseline must stay empty so
+    // subscribe rebuilds do not wipe tip content after refresh.
+    expect(snapshot.groupRootBaseline).toEqual([]);
     const messages = projectSessionMessages(snapshot);
     expect(messages).toHaveLength(2);
     expect(messages[1]).toMatchObject({
@@ -2727,6 +2796,175 @@ describe('buildSnapshotFromSessionEvents', () => {
       metadata: { custom: { turnId: pausedTurn.id } },
     });
     expect(collectPendingApprovals(messages)).toMatchObject([{ approvalId: 'approval-1', threadId: ROOT_THREAD_ID }]);
+
+    // Reproduce post-refresh subscribe: fold already has tip events; stream
+    // only delivers the pause update. Wrong baseline would yield empty content.
+    const updates = await collectStream(
+      streamTurnEvents(
+        streamFrom([
+          {
+            type: 'turn.update',
+            id: 'paused-update-replay',
+            createdAt,
+            threadId: null,
+            state: {
+              status: 'paused',
+              actionRequiredOnEvents: [{ id: 'approval-required-1' }],
+            },
+          },
+        ]),
+        snapshot.fold,
+        snapshot.groupRootBaseline,
+      ),
+    );
+    expect(updates).toHaveLength(1);
+    expect(updates[0]?.content.length).toBeGreaterThan(0);
+    expect(updates[0]?.status).toMatchObject({ type: 'requires-action', reason: 'tool-calls' });
+  });
+
+  it('does not baseline tip model messages that are already folded on refresh', async () => {
+    const priorDone: Turn = {
+      id: 't-prior',
+      sessionId: SESSION_ID,
+      state: { status: 'done', requiredActions: [], completedAt: createdAt },
+      input: [{ type: 'user.message', content: 'hi' }],
+      createdAt,
+    };
+    const pausedTip: Turn = {
+      id: 't-tip',
+      sessionId: SESSION_ID,
+      state: {
+        status: 'paused',
+        actionRequiredOnEvents: [],
+      },
+      input: [{ type: 'user.message', content: 'spawn two agents' }],
+      createdAt,
+    };
+    const items: SessionEventItem[] = [
+      {
+        turnId: priorDone.id,
+        event: {
+          type: 'turn.created',
+          id: 'created-prior',
+          turnId: priorDone.id,
+          input: [{ type: 'user.message', content: 'hi' }],
+          state: { status: 'running' },
+          createdAt,
+        },
+      },
+      {
+        turnId: priorDone.id,
+        event: modelMessage({ id: 'm-prior', threadId: ROOT_THREAD_ID, content: 'prior reply' }),
+      },
+      {
+        turnId: priorDone.id,
+        event: {
+          type: 'turn.done',
+          id: 'done-prior',
+          state: { status: 'done', requiredActions: [], completedAt: createdAt },
+          createdAt,
+        } as TurnDoneEvent,
+      },
+      {
+        turnId: pausedTip.id,
+        event: {
+          type: 'turn.created',
+          id: 'created-tip',
+          turnId: pausedTip.id,
+          input: [{ type: 'user.message', content: 'spawn two agents' }],
+          state: { status: 'running' },
+          createdAt,
+        },
+      },
+      {
+        turnId: pausedTip.id,
+        event: modelMessage({
+          id: 'm-tip',
+          threadId: ROOT_THREAD_ID,
+          content: 'Launching sub-agents',
+          toolCalls: [
+            {
+              id: 'sub-1',
+              type: 'function',
+              function: { name: 'create_sub_agent', arguments: '{}' },
+            },
+          ],
+        }),
+      },
+      {
+        turnId: pausedTip.id,
+        event: threadCreated({
+          id: 'thread-created-1',
+          threadId: 'sub-thread-1',
+          title: 'sub-1',
+          agentInfo: { type: 'dynamic', name: 'sub-1', input: 'work' },
+          parent: { toolCallId: 'sub-1', threadId: ROOT_THREAD_ID },
+        }),
+      },
+      {
+        turnId: pausedTip.id,
+        event: modelMessage({
+          id: 'm-sub',
+          threadId: 'sub-thread-1',
+          content: 'need approval',
+          toolCalls: [
+            {
+              id: 'nested-tool',
+              type: 'function',
+              function: { name: 'bash', arguments: '{}' },
+            },
+          ],
+        }),
+      },
+      {
+        turnId: pausedTip.id,
+        event: approvalRequired({
+          id: 'nested-approval',
+          threadId: 'sub-thread-1',
+          toolCalls: [{ id: 'nested-tool', sourceEventId: 'm-sub' }],
+        }),
+      },
+      {
+        turnId: pausedTip.id,
+        event: {
+          type: 'turn.update',
+          id: 'tip-paused',
+          createdAt,
+          threadId: null,
+          state: { status: 'paused', actionRequiredOnEvents: [] },
+        },
+      },
+    ];
+
+    const snapshot = await buildSnapshotFromSessionEvents(
+      mockServerWithEvents([priorDone, pausedTip], items),
+      SESSION_ID,
+    );
+
+    expect(snapshot.groupRootBaseline).toEqual(['m-prior']);
+    expect(snapshot.groupRootBaseline).not.toContain('m-tip');
+
+    const messages = projectSessionMessages(snapshot);
+    const assistant = messages.find(m => m.role === 'assistant' && m.metadata?.custom?.turnId === pausedTip.id);
+    expect(assistant?.content.some(part => part.type === 'text' && part.text.includes('Launching'))).toBe(true);
+    expect(collectPendingApprovals(messages)).toMatchObject([{ approvalId: 'nested-tool', threadId: 'sub-thread-1' }]);
+
+    const updates = await collectStream(
+      streamTurnEvents(
+        streamFrom([
+          {
+            type: 'turn.update',
+            id: 'tip-paused-replay',
+            createdAt,
+            threadId: null,
+            state: { status: 'paused', actionRequiredOnEvents: [] },
+          },
+        ]),
+        snapshot.fold,
+        snapshot.groupRootBaseline,
+      ),
+    );
+    expect(updates[0]?.content.some(part => part.type === 'text' && part.text.includes('Launching'))).toBe(true);
   });
 
   it('rehydrates pending MCP auth before subscription replay', async () => {

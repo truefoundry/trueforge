@@ -126,7 +126,7 @@ export function ToolApprovalBar({
                   <Icon name="chevron-down" className="size-3" />
                 </Button>
               }
-              className="min-w-[16.25rem]"
+              className="w-max min-w-[16.25rem]"
             >
               {approveOptions.map((option, index) => (
                 <DropdownMenuItem
@@ -134,6 +134,7 @@ export function ToolApprovalBar({
                   aria-selected={index === 0}
                   disabled={interactionsLocked}
                   onClick={() => onSelect(option.id)}
+                  className="whitespace-nowrap"
                 >
                   <span className="w-3 shrink-0">{index === 0 ? <Icon name="check" size="0.75rem" /> : null}</span>
                   {option.label}
@@ -151,6 +152,7 @@ export function ToolApprovalBar({
                       onSelect(option.id);
                     }
                   }}
+                  className="whitespace-nowrap"
                 >
                   <span className="w-3 shrink-0" />
                   {option.label}

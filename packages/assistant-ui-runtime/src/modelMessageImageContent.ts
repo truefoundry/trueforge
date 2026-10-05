@@ -87,6 +87,9 @@ export function mergeStreamEventDelta(base: TurnEvent, delta: TurnStreamingEvent
   if (!isEventDelta(delta)) {
     return;
   }
+  if (base.type === EVENT_TYPE.MODEL_MESSAGE && base.finishReason != null) {
+    return;
+  }
 
   mergeEventDelta(base, delta);
 
