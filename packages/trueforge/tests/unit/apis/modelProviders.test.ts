@@ -238,7 +238,8 @@ describe('settings model-providers and models routers', () => {
       expect(blocked.status).toBe(409);
       expect(await blocked.json()).toEqual({
         error: {
-          message: 'Still in use — model provider "anthropic" is used by agent support. Delete those agents first.',
+          message:
+            'Still in use — model provider "anthropic" is used by agent support. Update or delete those agents first.',
         },
       });
       expect(await (await fresh.request('/model-providers')).json()).toEqual({
@@ -254,7 +255,7 @@ describe('settings model-providers and models routers', () => {
       expect(await blocked.json()).toEqual({
         error: {
           message:
-            'Still in use — model "anthropic/claude-haiku-4-6" is used by agent support. Delete those agents first.',
+            'Still in use — model "anthropic/claude-haiku-4-6" is used by agent support. Update or delete those agents first.',
         },
       });
     });

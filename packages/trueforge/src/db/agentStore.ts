@@ -97,10 +97,7 @@ export type AgentCatalogEntity = 'model_provider' | 'model' | 'mcp_server' | 'sk
 export interface ListAgentCatalogUsageInput {
   tenant_id: string;
   entity: AgentCatalogEntity;
-  /**
-   * Fully-qualified `provider/model` names for `model`; the provider, server, or skill name
-   * otherwise. Empty returns `[]` without querying.
-   */
+  /** Fully-qualified `provider/model` names for `model`; the provider, server, or skill name otherwise. */
   names: readonly string[];
 }
 

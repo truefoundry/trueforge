@@ -317,7 +317,8 @@ describe('skills routers', () => {
       expect(blocked.status).toBe(409);
       expect(await blocked.json()).toEqual({
         error: {
-          message: 'Still in use — skill "disposable-skill" is used by agent skill-user. Delete those agents first.',
+          message:
+            'Still in use — skill "disposable-skill" is used by agent skill-user. Update or delete those agents first.',
         },
       });
     });

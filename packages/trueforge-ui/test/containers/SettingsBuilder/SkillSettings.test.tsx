@@ -163,7 +163,7 @@ describe('SkillSettings', () => {
               body: {
                 error: {
                   message:
-                    'Still in use — skill "house-style" is used by agent support-bot. Delete those agents first.',
+                    'Still in use — skill "house-style" is used by agent support-bot. Update or delete those agents first.',
                 },
               },
             });
@@ -182,7 +182,7 @@ describe('SkillSettings', () => {
     fireEvent.click(await screen.findByRole('button', { name: 'Remove' }));
 
     expect(await screen.findByRole('alert')).toHaveTextContent(
-      'Still in use — skill "house-style" is used by agent support-bot. Delete those agents first.',
+      'Still in use — skill "house-style" is used by agent support-bot. Update or delete those agents first.',
     );
     const dialog = screen.getByRole('dialog');
     expect(within(dialog).getByText("Can't remove skill")).toBeTruthy();

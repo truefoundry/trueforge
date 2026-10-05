@@ -1033,7 +1033,8 @@ describe('mcp-servers routers', () => {
       expect(blocked.status).toBe(409);
       expect(await blocked.json()).toEqual({
         error: {
-          message: 'Still in use — MCP server "disposable" is used by agent connector-user. Delete those agents first.',
+          message:
+            'Still in use — MCP server "disposable" is used by agent connector-user. Update or delete those agents first.',
         },
       });
       expect(await mcpServerStore.getServer({ tenant_id: 'default', name: disposable.name })).toBeDefined();

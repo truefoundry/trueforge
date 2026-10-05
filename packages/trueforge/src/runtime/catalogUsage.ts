@@ -1,7 +1,3 @@
-/**
- * Delete pre-check for settings catalog entries. Agents reference models, MCP servers, and
- * skills by name, so removing an entry an agent still lists would leave that agent unrunnable.
- */
 import type { AgentCatalogEntity, AgentCatalogUsageRow, IAgentStore } from '../db/agentStore';
 
 /** How many agent names a conflict message spells out before summarising the rest. */
@@ -27,7 +23,7 @@ function groupAgentsByReference(usage: readonly AgentCatalogUsageRow[]): Map<str
   return byReference;
 }
 
-/** Phrased without a leading verb so both delete and "update drops an entry" can use it. */
+/** Worded to fit both a delete and an update that drops an entry. */
 function conflictMessage({
   entity,
   usage,
@@ -42,10 +38,13 @@ function conflictMessage({
     const overflow = remaining > 0 ? `, and ${String(remaining)} more` : '';
     return `${label} "${reference}" is used by ${agents.length === 1 ? 'agent' : 'agents'} ${named}${overflow}`;
   });
-  return `Still in use — ${clauses.join('; ')}. Delete those agents first.`;
+  return `Still in use — ${clauses.join('; ')}. Update or delete those agents first.`;
 }
 
-/** Returns the 409 message when an agent still references one of `names`, else undefined. */
+/**
+ * Returns the 409 message when an agent still references one of `names`, else undefined.
+ * Removing a referenced entry would leave that agent unrunnable.
+ */
 export async function findCatalogUsageConflict<TTransaction>(
   input: {
     agentStore: IAgentStore<TTransaction>;
