@@ -8,6 +8,7 @@ from ..core.pagination import AsyncPager, SyncPager
 from ..core.request_options import RequestOptions
 from ..core.stream import AsyncStream, Stream, StreamEvent
 from ..types.cancel_session_response import CancelSessionResponse
+from ..types.components_schemas_user_message import ComponentsSchemasUserMessage
 from ..types.create_session_agent import CreateSessionAgent
 from ..types.create_turn_event_response import CreateTurnEventResponse
 from ..types.get_session_response import GetSessionResponse
@@ -26,9 +27,8 @@ from ..types.session_event_item import SessionEventItem
 from ..types.session_metadata import SessionMetadata
 from ..types.session_source_type import SessionSourceType
 from ..types.turn import Turn
-from ..types.turn_inbound_event_item import TurnInboundEventItem
-from ..types.turn_input_item import TurnInputItem
 from ..types.turn_streaming_event import TurnStreamingEvent
+from ..types.turn_user_event_message import TurnUserEventMessage
 from .raw_client import AsyncRawSessionsClient, RawSessionsClient
 
 # this is used as the default value for optional parameters
@@ -447,7 +447,7 @@ class SessionsClient:
         self,
         *,
         session_id: str,
-        input: typing.Optional[typing.Sequence[TurnInputItem]] = OMIT,
+        input: typing.Optional[typing.Sequence[ComponentsSchemasUserMessage]] = OMIT,
         previous_turn_id: typing.Optional[PreviousTurnIdInput] = OMIT,
         request_options: typing.Optional[RequestOptions] = None,
     ) -> Stream[TurnStreamingEvent]:
@@ -463,8 +463,8 @@ class SessionsClient:
         session_id : str
             Session identifier.
 
-        input : typing.Optional[typing.Sequence[TurnInputItem]]
-            Turn input items: user messages and/or approval/tool-response resumes. Do not mix user messages with approval or tool-response items.
+        input : typing.Optional[typing.Sequence[ComponentsSchemasUserMessage]]
+            Turn input items: user messages only. Approval decisions and client-side tool responses are sent to a running turn via the turn events endpoint, not at turn creation.
 
         previous_turn_id : typing.Optional[PreviousTurnIdInput]
 
@@ -503,7 +503,7 @@ class SessionsClient:
         self,
         *,
         session_id: str,
-        input: typing.Optional[typing.Sequence[TurnInputItem]] = OMIT,
+        input: typing.Optional[typing.Sequence[ComponentsSchemasUserMessage]] = OMIT,
         previous_turn_id: typing.Optional[PreviousTurnIdInput] = OMIT,
         request_options: typing.Optional[RequestOptions] = None,
     ) -> GetTurnResponse:
@@ -519,8 +519,8 @@ class SessionsClient:
         session_id : str
             Session identifier.
 
-        input : typing.Optional[typing.Sequence[TurnInputItem]]
-            Turn input items: user messages and/or approval/tool-response resumes. Do not mix user messages with approval or tool-response items.
+        input : typing.Optional[typing.Sequence[ComponentsSchemasUserMessage]]
+            Turn input items: user messages only. Approval decisions and client-side tool responses are sent to a running turn via the turn events endpoint, not at turn creation.
 
         previous_turn_id : typing.Optional[PreviousTurnIdInput]
 
@@ -701,7 +701,7 @@ class SessionsClient:
         *,
         session_id: str,
         turn_id: str,
-        events: typing.Sequence[TurnInboundEventItem],
+        events: typing.Sequence[TurnUserEventMessage],
         request_options: typing.Optional[RequestOptions] = None,
     ) -> CreateTurnEventResponse:
         """
@@ -715,7 +715,7 @@ class SessionsClient:
         turn_id : str
             Turn identifier.
 
-        events : typing.Sequence[TurnInboundEventItem]
+        events : typing.Sequence[TurnUserEventMessage]
             One or more user events.
 
         request_options : typing.Optional[RequestOptions]
@@ -1284,7 +1284,7 @@ class AsyncSessionsClient:
         self,
         *,
         session_id: str,
-        input: typing.Optional[typing.Sequence[TurnInputItem]] = OMIT,
+        input: typing.Optional[typing.Sequence[ComponentsSchemasUserMessage]] = OMIT,
         previous_turn_id: typing.Optional[PreviousTurnIdInput] = OMIT,
         request_options: typing.Optional[RequestOptions] = None,
     ) -> AsyncStream[TurnStreamingEvent]:
@@ -1300,8 +1300,8 @@ class AsyncSessionsClient:
         session_id : str
             Session identifier.
 
-        input : typing.Optional[typing.Sequence[TurnInputItem]]
-            Turn input items: user messages and/or approval/tool-response resumes. Do not mix user messages with approval or tool-response items.
+        input : typing.Optional[typing.Sequence[ComponentsSchemasUserMessage]]
+            Turn input items: user messages only. Approval decisions and client-side tool responses are sent to a running turn via the turn events endpoint, not at turn creation.
 
         previous_turn_id : typing.Optional[PreviousTurnIdInput]
 
@@ -1349,7 +1349,7 @@ class AsyncSessionsClient:
         self,
         *,
         session_id: str,
-        input: typing.Optional[typing.Sequence[TurnInputItem]] = OMIT,
+        input: typing.Optional[typing.Sequence[ComponentsSchemasUserMessage]] = OMIT,
         previous_turn_id: typing.Optional[PreviousTurnIdInput] = OMIT,
         request_options: typing.Optional[RequestOptions] = None,
     ) -> GetTurnResponse:
@@ -1365,8 +1365,8 @@ class AsyncSessionsClient:
         session_id : str
             Session identifier.
 
-        input : typing.Optional[typing.Sequence[TurnInputItem]]
-            Turn input items: user messages and/or approval/tool-response resumes. Do not mix user messages with approval or tool-response items.
+        input : typing.Optional[typing.Sequence[ComponentsSchemasUserMessage]]
+            Turn input items: user messages only. Approval decisions and client-side tool responses are sent to a running turn via the turn events endpoint, not at turn creation.
 
         previous_turn_id : typing.Optional[PreviousTurnIdInput]
 
@@ -1583,7 +1583,7 @@ class AsyncSessionsClient:
         *,
         session_id: str,
         turn_id: str,
-        events: typing.Sequence[TurnInboundEventItem],
+        events: typing.Sequence[TurnUserEventMessage],
         request_options: typing.Optional[RequestOptions] = None,
     ) -> CreateTurnEventResponse:
         """
@@ -1597,7 +1597,7 @@ class AsyncSessionsClient:
         turn_id : str
             Turn identifier.
 
-        events : typing.Sequence[TurnInboundEventItem]
+        events : typing.Sequence[TurnUserEventMessage]
             One or more user events.
 
         request_options : typing.Optional[RequestOptions]
