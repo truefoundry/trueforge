@@ -122,7 +122,7 @@ describe('TurnHandle.send() full-approval resume (agent-session e2e)', () => {
         // The gated tool has NOT run while we are parked awaiting the decision.
         expect(callTool).not.toHaveBeenCalled();
         expect(sent).toBe(false);
-        turn.send([
+        await turn.send([
           {
             type: EventType.USER_TOOL_APPROVAL,
             id: newEventId(),

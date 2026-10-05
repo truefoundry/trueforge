@@ -481,8 +481,8 @@ export class AgentThread {
 
   private contextBusy = false;
   private preSendRanThisTurn = false;
-  // Validated-but-not-yet-applied user events.
-  private pendingUserEvents: AgentThreadRuntimeSendInput[] = [];
+  // Validated-but-not-yet-applied approval decisions and client-side tool responses.
+  private pendingUserEvents: (UserToolApprovalEvent | UserToolResponseEvent)[] = [];
   private currentState: AgentThreadState | null = null;
   private preComputedCompletion?: SubAgentCompletion | undefined;
   /** Mirrored capability KV — source for toSnapshot().capability_state. */
@@ -668,7 +668,9 @@ export class AgentThread {
     }
   }
 
-  *send(messages: AgentThreadRuntimeSendBatch): Generator<AgentThreadRuntimeSendBatch, void, unknown> {
+  *send(
+    messages: (UserToolApprovalEvent | UserToolResponseEvent)[],
+  ): Generator<(UserToolApprovalEvent | UserToolResponseEvent)[], void, unknown> {
     if (messages.length === 0) {
       return;
     }
@@ -886,7 +888,7 @@ export class AgentThread {
     for (const queued of this.pendingUserEvents) {
       if (isApprovalDecisionEvent(queued)) {
         pendingApprovalIds.delete(queued.tool_call_id);
-      } else if (isClientSideToolResponseEvent(queued) || isLLMToolMessage(queued)) {
+      } else if (isClientSideToolResponseEvent(queued)) {
         openToolCallIds.delete(queued.tool_call_id);
         blockingOpenToolCallIds.delete(queued.tool_call_id);
       }

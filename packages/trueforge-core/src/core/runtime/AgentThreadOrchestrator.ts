@@ -339,8 +339,8 @@ export class AgentThreadOrchestrator {
   // committed context. Only threads that actually receive input are returned.
   // Pure + synchronous: throws on unknown thread or an invalid batch before anything is enqueued
   // or applied.
-  private routeDecisionEvents(messages: UserToolApprovalOrResponseBatch): Map<string, AgentThreadRuntimeSendBatch> {
-    const byThread = new Map<string, AgentThreadRuntimeSendBatch>();
+  private routeDecisionEvents(messages: UserToolApprovalOrResponseBatch): Map<string, UserToolApprovalOrResponseBatch> {
+    const byThread = new Map<string, UserToolApprovalOrResponseBatch>();
 
     const grouped = new Map<string, UserToolApprovalOrResponseBatch[number][]>();
     for (const msg of messages) {
@@ -378,7 +378,44 @@ export class AgentThreadOrchestrator {
     return byThread;
   }
 
-  public *send(events: TurnUserEvent[]): Generator<AgentThreadRuntimeSendBatch, void, unknown> {
+  public async *send(
+    input: AgentInputUserMessage[] | TurnUserEvent[],
+  ): AsyncGenerator<AgentThreadAppendContext | TurnUserEvent[], void, unknown> {
+    if (input.length === 0) {
+      return;
+    }
+
+    if (input[0]?.type === EventType.USER_MESSAGE) {
+      // A new turn may be created while the previous turn is running or paused:
+      // cancel live children, close their open parent calls, then append the new
+      // user input to the main thread immediately.
+      const messages = input as AgentInputUserMessage[];
+      const mainThread = this.getMainThread();
+      const toolIdToClosureMessages = new Map<string, LLMToolMessage>();
+      for (const thread of this.getChildThreads()) {
+        for (const event of thread.cancel(CANCELED_BECAUSE_USER_SENT_NEW_MESSAGE)) {
+          yield event;
+          if (event.completion) {
+            const toolMessage = event.completion.send_to_parent;
+            toolIdToClosureMessages.set(toolMessage.tool_call_id, toolMessage);
+          }
+        }
+      }
+      yield* mainThread.closeAllOpenToolCalls({
+        toolIdToClosureMessages,
+        defaultToolClosureContent: CANCELED_BECAUSE_USER_SENT_NEW_MESSAGE,
+      });
+
+      for await (const event of this.applyToThread(mainThread.threadId, messages)) {
+        if (event.type !== InternalEventType.AGENT_CONTEXT_APPEND) {
+          throw new Error(`AgentThreadOrchestrator.send: unexpected ${event.type}`);
+        }
+        yield event;
+      }
+      return;
+    }
+
+    const events = input as TurnUserEvent[];
     const policyEvents: UserToolApprovalPolicyEvent[] = [];
     const decisions: UserToolApprovalOrResponseBatch = [];
     for (const event of events) {
@@ -409,45 +446,6 @@ export class AgentThreadOrchestrator {
         throw new Error(`AgentThreadOrchestrator.send: unknown threadId ${threadId}`);
       }
       yield* thread.send(batch);
-    }
-  }
-
-  /**
-   * Apply createTurn's user-message input immediately.
-   *
-   * A new turn may be created while the previous turn is running or paused:
-   * - cancel live children,
-   * - close their open parent calls,
-   * - then append the new user input to the main thread.
-   */
-  public async *applyInitialInput(
-    messages: AgentInputUserMessage[],
-  ): AsyncGenerator<AgentThreadAppendContext, void, unknown> {
-    if (messages.length === 0) {
-      return;
-    }
-
-    const mainThread = this.getMainThread();
-    const toolIdToClosureMessages = new Map<string, LLMToolMessage>();
-    for (const thread of this.getChildThreads()) {
-      for (const event of thread.cancel(CANCELED_BECAUSE_USER_SENT_NEW_MESSAGE)) {
-        yield event;
-        if (event.completion) {
-          const toolMessage = event.completion.send_to_parent;
-          toolIdToClosureMessages.set(toolMessage.tool_call_id, toolMessage);
-        }
-      }
-    }
-    yield* mainThread.closeAllOpenToolCalls({
-      toolIdToClosureMessages,
-      defaultToolClosureContent: CANCELED_BECAUSE_USER_SENT_NEW_MESSAGE,
-    });
-
-    for await (const event of this.applyToThread(mainThread.threadId, messages)) {
-      if (event.type !== InternalEventType.AGENT_CONTEXT_APPEND) {
-        throw new Error(`applyInitialInput: unexpected ${event.type}`);
-      }
-      yield event;
     }
   }
 
