@@ -273,9 +273,6 @@ describe('orchestration: user-message reset', () => {
     expect(() => child.validateSendInput([{ role: 'tool', tool_call_id: TOOL_CALL_ID, content: 'late' }])).toThrow(
       InvalidAgentSendInputError,
     );
-    expect(() => child.send([{ role: 'tool', tool_call_id: TOOL_CALL_ID, content: 'late' }]).next()).toThrow(
-      InvalidAgentSendInputError,
-    );
   });
 
   it('empty orchestrator send ignores leftover children with preComputedCompletion', async () => {
