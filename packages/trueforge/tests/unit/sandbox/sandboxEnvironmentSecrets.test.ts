@@ -85,8 +85,15 @@ describe('sandbox environment secrets', () => {
       },
     });
     expect(putRes.status).toBe(200);
-    const putBody = (await putRes.json()) as { data: { id: string; status: string } };
+    const putBody = (await putRes.json()) as {
+      data: {
+        id: string;
+        status: string;
+        manifest: { networking?: { secrets?: { value: string }[] } };
+      };
+    };
     expect(putBody.data.status).toBe('pending');
+    expect(putBody.data.manifest.networking?.secrets?.[0]?.value).toBe(SECRET_REDACTION);
 
     const rows = await sandboxEnvironmentStore.listSecretsByEnvironment({
       environment_id: putBody.data.id,

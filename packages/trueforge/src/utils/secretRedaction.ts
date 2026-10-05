@@ -10,6 +10,9 @@ const MIN_LENGTH_FOR_PREFIX_SUFFIX = 10;
 
 /** Response mask: prefix/suffix for longer secrets; full mask when too short to hide. */
 export function toRedactedSecretValue(secret: string): string {
+  if (isRedactedSecretValue(secret)) {
+    return secret;
+  }
   if (secret.length < MIN_LENGTH_FOR_PREFIX_SUFFIX) {
     return SECRET_REDACTION;
   }
