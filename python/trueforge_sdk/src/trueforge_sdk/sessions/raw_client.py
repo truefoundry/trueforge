@@ -1444,7 +1444,7 @@ class RawSessionsClient:
             )
         raise ApiError(status_code=_response.status_code, headers=dict(_response.headers), body=_response_json)
 
-    def create_turn_event(
+    def create_turn_events(
         self,
         *,
         session_id: str,
@@ -3091,7 +3091,7 @@ class AsyncRawSessionsClient:
             )
         raise ApiError(status_code=_response.status_code, headers=dict(_response.headers), body=_response_json)
 
-    async def create_turn_event(
+    async def create_turn_events(
         self,
         *,
         session_id: str,

@@ -1758,24 +1758,24 @@ export class SessionsClient {
      * @throws {@link errors.TrueForgeTimeoutError}
      *
      * @example
-     *     await client.sessions.createTurnEvent("session_id", "turn_id", {
+     *     await client.sessions.createTurnEvents("session_id", "turn_id", {
      *         events: [{
      *                 type: "user.mcp_auth_continue"
      *             }]
      *     })
      */
-    public createTurnEvent(
+    public createTurnEvents(
         session_id: string,
         turn_id: string,
         request: TrueForge.CreateTurnEventRequest,
         requestOptions?: SessionsClient.RequestOptions,
     ): core.HttpResponsePromise<TrueForge.CreateTurnEventResponse> {
         return core.HttpResponsePromise.fromPromise(
-            this.__createTurnEvent(session_id, turn_id, request, requestOptions),
+            this.__createTurnEvents(session_id, turn_id, request, requestOptions),
         );
     }
 
-    private async __createTurnEvent(
+    private async __createTurnEvents(
         session_id: string,
         turn_id: string,
         request: TrueForge.CreateTurnEventRequest,
