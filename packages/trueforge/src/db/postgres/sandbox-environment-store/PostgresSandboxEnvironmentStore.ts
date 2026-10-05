@@ -629,7 +629,6 @@ export class PostgresSandboxEnvironmentStore implements ISandboxEnvironmentStore
       .selectFrom('sandbox_environment_secret')
       .selectAll()
       .where('environment_id', '=', input.environment_id)
-      .orderBy('secret_name', 'asc')
       .execute();
     return rows.map(toSecretRecord);
   }

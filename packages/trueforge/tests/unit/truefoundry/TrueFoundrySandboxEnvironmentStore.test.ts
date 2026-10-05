@@ -69,7 +69,7 @@ describe('TrueFoundrySandboxEnvironmentStore', () => {
         subject_display_name: 'User',
       },
       synced_secrets: [],
-      buildVersion: () => ({
+      buildVersion: async () => ({
         version: 1,
         manifest: {
           name: 'pyjokes-env',

@@ -18,7 +18,7 @@ import {
 } from '../schemas/sandboxProvider';
 
 /** Bound Daytona RPCs so API requests and controller ticks cannot hang indefinitely. */
-export const DAYTONA_RPC_TIMEOUT_MS = 30_000;
+export const DAYTONA_RPC_TIMEOUT_MS = 5_000;
 
 /** Provider rejected the credentials (401 unauthorized); retrying the same key cannot succeed. */
 export function isDaytonaAuthError(error: unknown): boolean {

@@ -700,7 +700,6 @@ export class SqliteSandboxEnvironmentStore implements ISandboxEnvironmentStore<T
       .selectFrom('sandbox_environment_secret')
       .selectAll()
       .where('environment_id', '=', input.environment_id)
-      .orderBy('secret_name', 'asc')
       .execute();
     return rows.map(toSecretRecord);
   }

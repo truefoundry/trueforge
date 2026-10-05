@@ -6,8 +6,8 @@ import type { ISandboxEnvironmentStore, SandboxEnvironmentWithVersion } from '..
 import { NameSchema } from '../schemas/common';
 import { DEFAULT_SANDBOX_ENVIRONMENT_NAME } from '../schemas/sandboxEnvironment';
 import {
+  buildNextVersion,
   defaultSandboxEnvironmentStoredManifest,
-  newExternalRef,
   type SandboxEnvironmentProviderType,
 } from './sandboxEnvironmentVersion';
 
@@ -43,14 +43,17 @@ export async function ensureDefaultSandboxEnvironment<TTransaction>({
       description: '',
       created_by_subject,
       synced_secrets: [],
-      buildVersion: ({ existing_version }) => ({
-        version: existing_version !== undefined ? existing_version + 1 : 1,
-        manifest: defaultSandboxEnvironmentStoredManifest(provider_type),
-        status: 'pending',
-        status_reason: null,
-        external_ref: newExternalRef(),
-        created_by_subject,
-      }),
+      buildVersion: ({ existing_version, existing_manifest, existing_external_ref }) =>
+        Promise.resolve({
+          ...buildNextVersion({
+            ...(existing_version !== undefined ? { existing_version } : {}),
+            ...(existing_manifest ? { previous_manifest: existing_manifest } : {}),
+            ...(existing_external_ref ? { previous_external_ref: existing_external_ref } : {}),
+            manifest: defaultSandboxEnvironmentStoredManifest(provider_type),
+            provider_type,
+          }),
+          created_by_subject,
+        }),
     },
     transaction,
   );

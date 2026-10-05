@@ -137,9 +137,7 @@ export interface UpsertSandboxEnvironmentInput {
   /** Complete provider refs from a successful secret sync before upsert. */
   synced_secrets: SyncedSandboxEnvironmentSecret[];
   /** Called after parent lock/create; store upserts secrets from the returned manifest. */
-  buildVersion: (
-    input: ExistingSandboxEnvironmentVersion,
-  ) => UpsertSandboxEnvironmentVersion | Promise<UpsertSandboxEnvironmentVersion>;
+  buildVersion: (input: ExistingSandboxEnvironmentVersion) => Promise<UpsertSandboxEnvironmentVersion>;
 }
 
 export interface MarkSandboxEnvironmentVersionReadyInput {

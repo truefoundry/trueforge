@@ -55,11 +55,17 @@ describe('sandbox environment secrets', () => {
       sandboxProviderStore,
       logger,
     });
-    return { publicRouter, buildRouter, sandboxEnvironmentStore };
+    const putEnvironment = (manifest: unknown) =>
+      publicRouter.request('/', {
+        method: 'PUT',
+        headers: { 'content-type': 'application/json' },
+        body: JSON.stringify({ manifest }),
+      });
+    return { publicRouter, buildRouter, sandboxEnvironmentStore, putEnvironment };
   }
 
   it('upserts secret rows and syncs to Daytona on PUT, redacts, and mounts names after ready', async () => {
-    const { publicRouter, buildRouter, sandboxEnvironmentStore } = await setup();
+    const { buildRouter, sandboxEnvironmentStore, putEnvironment } = await setup();
 
     const createSecret = jest
       .fn()
@@ -72,17 +78,11 @@ describe('sandbox environment secrets', () => {
       deleteSecret: jest.fn(),
     } as never);
 
-    const putRes = await publicRouter.request('/', {
-      method: 'PUT',
-      headers: { 'content-type': 'application/json' },
-      body: JSON.stringify({
-        manifest: {
-          name: 'secret-env',
-          networking: {
-            secrets: [{ env: 'GITHUB_TOKEN', value: 'ghp_plain', hosts: ['github.com'] }],
-          },
-        },
-      }),
+    const putRes = await putEnvironment({
+      name: 'secret-env',
+      networking: {
+        secrets: [{ env: 'GITHUB_TOKEN', value: 'ghp_plain', hosts: ['github.com'] }],
+      },
     });
     expect(putRes.status).toBe(200);
     const putBody = (await putRes.json()) as { data: { id: string; status: string } };
@@ -153,7 +153,7 @@ describe('sandbox environment secrets', () => {
   });
 
   it('updates a redacted secret and removes its Daytona and database refs on PUT', async () => {
-    const { publicRouter, sandboxEnvironmentStore } = await setup();
+    const { sandboxEnvironmentStore, putEnvironment } = await setup();
     const createSecret = jest
       .fn()
       .mockImplementation(({ name }: { name: string }) => Promise.resolve({ id: 'daytona-sec-1', name }));
@@ -165,17 +165,11 @@ describe('sandbox environment secrets', () => {
       deleteSecret,
     } as never);
 
-    const createResponse = await publicRouter.request('/', {
-      method: 'PUT',
-      headers: { 'content-type': 'application/json' },
-      body: JSON.stringify({
-        manifest: {
-          name: 'secret-env',
-          networking: {
-            secrets: [{ env: 'GITHUB_TOKEN', value: 'ghp_plain', hosts: ['github.com'] }],
-          },
-        },
-      }),
+    const createResponse = await putEnvironment({
+      name: 'secret-env',
+      networking: {
+        secrets: [{ env: 'GITHUB_TOKEN', value: 'ghp_plain', hosts: ['github.com'] }],
+      },
     });
     expect(createResponse.status).toBe(200);
     const created = (await createResponse.json()) as { data: { id: string } };
@@ -183,32 +177,20 @@ describe('sandbox environment secrets', () => {
       environment_id: created.data.id,
     });
 
-    const unchangedResponse = await publicRouter.request('/', {
-      method: 'PUT',
-      headers: { 'content-type': 'application/json' },
-      body: JSON.stringify({
-        manifest: {
-          name: 'secret-env',
-          networking: {
-            secrets: [{ env: 'GITHUB_TOKEN', value: SECRET_REDACTION, hosts: ['github.com'] }],
-          },
-        },
-      }),
+    const unchangedResponse = await putEnvironment({
+      name: 'secret-env',
+      networking: {
+        secrets: [{ env: 'GITHUB_TOKEN', value: SECRET_REDACTION, hosts: ['github.com'] }],
+      },
     });
     expect(unchangedResponse.status).toBe(200);
     expect(updateSecret).not.toHaveBeenCalled();
 
-    const updateResponse = await publicRouter.request('/', {
-      method: 'PUT',
-      headers: { 'content-type': 'application/json' },
-      body: JSON.stringify({
-        manifest: {
-          name: 'secret-env',
-          networking: {
-            secrets: [{ env: 'GITHUB_TOKEN', value: SECRET_REDACTION, hosts: ['api.github.com'] }],
-          },
-        },
-      }),
+    const updateResponse = await putEnvironment({
+      name: 'secret-env',
+      networking: {
+        secrets: [{ env: 'GITHUB_TOKEN', value: SECRET_REDACTION, hosts: ['api.github.com'] }],
+      },
     });
     expect(updateResponse.status).toBe(200);
     expect(updateSecret).toHaveBeenCalledWith({
@@ -224,18 +206,14 @@ describe('sandbox environment secrets', () => {
       }),
     ]);
 
-    const removeResponse = await publicRouter.request('/', {
-      method: 'PUT',
-      headers: { 'content-type': 'application/json' },
-      body: JSON.stringify({ manifest: { name: 'secret-env' } }),
-    });
+    const removeResponse = await putEnvironment({ name: 'secret-env' });
     expect(removeResponse.status).toBe(200);
     expect(deleteSecret).toHaveBeenCalledWith({ secretId: 'daytona-sec-1' });
     expect(await sandboxEnvironmentStore.listSecretsByEnvironment({ environment_id: created.data.id })).toEqual([]);
   });
 
   it('returns 502 when Daytona secret sync fails on PUT', async () => {
-    const { publicRouter, sandboxEnvironmentStore } = await setup();
+    const { sandboxEnvironmentStore, putEnvironment } = await setup();
 
     jest.mocked(providerUtils.toDaytonaSandboxProvider).mockReturnValue({
       createSecret: jest.fn().mockRejectedValue(new Error('Daytona secret create failed')),
@@ -243,17 +221,11 @@ describe('sandbox environment secrets', () => {
       deleteSecret: jest.fn(),
     } as never);
 
-    const putRes = await publicRouter.request('/', {
-      method: 'PUT',
-      headers: { 'content-type': 'application/json' },
-      body: JSON.stringify({
-        manifest: {
-          name: 'secret-env',
-          networking: {
-            secrets: [{ env: 'GITHUB_TOKEN', value: 'ghp_plain', hosts: ['github.com'] }],
-          },
-        },
-      }),
+    const putRes = await putEnvironment({
+      name: 'secret-env',
+      networking: {
+        secrets: [{ env: 'GITHUB_TOKEN', value: 'ghp_plain', hosts: ['github.com'] }],
+      },
     });
     expect(putRes.status).toBe(502);
     expect(await putRes.json()).toEqual({
@@ -269,7 +241,7 @@ describe('sandbox environment secrets', () => {
   });
 
   it('returns 422 when Daytona rejects the provider credentials', async () => {
-    const { publicRouter } = await setup();
+    const { putEnvironment } = await setup();
 
     jest.mocked(providerUtils.toDaytonaSandboxProvider).mockReturnValue({
       createSecret: jest.fn().mockRejectedValue(new DaytonaError('Unauthorized', 401)),
@@ -277,17 +249,11 @@ describe('sandbox environment secrets', () => {
       deleteSecret: jest.fn(),
     } as never);
 
-    const putRes = await publicRouter.request('/', {
-      method: 'PUT',
-      headers: { 'content-type': 'application/json' },
-      body: JSON.stringify({
-        manifest: {
-          name: 'secret-env',
-          networking: {
-            secrets: [{ env: 'GITHUB_TOKEN', value: 'ghp_plain', hosts: ['github.com'] }],
-          },
-        },
-      }),
+    const putRes = await putEnvironment({
+      name: 'secret-env',
+      networking: {
+        secrets: [{ env: 'GITHUB_TOKEN', value: 'ghp_plain', hosts: ['github.com'] }],
+      },
     });
 
     expect(putRes.status).toBe(422);

@@ -144,16 +144,17 @@ export function createSandboxEnvironmentsRouter<TTransaction>(
         description: manifest.description ?? '',
         created_by_subject,
         synced_secrets,
-        buildVersion: ({ existing_version, existing_manifest, existing_external_ref }) => ({
-          ...buildNextVersion({
-            version: (existing_version ?? 0) + 1,
-            ...(existing_manifest ? { previous_manifest: existing_manifest } : {}),
-            ...(existing_external_ref ? { previous_external_ref: existing_external_ref } : {}),
-            manifest,
-            provider_type: provider.manifest.type,
+        buildVersion: ({ existing_version, existing_manifest, existing_external_ref }) =>
+          Promise.resolve({
+            ...buildNextVersion({
+              ...(existing_version !== undefined ? { existing_version } : {}),
+              ...(existing_manifest ? { previous_manifest: existing_manifest } : {}),
+              ...(existing_external_ref ? { previous_external_ref: existing_external_ref } : {}),
+              manifest,
+              provider_type: provider.manifest.type,
+            }),
+            created_by_subject,
           }),
-          created_by_subject,
-        }),
       });
 
       return c.json({ data: toSandboxEnvironment(result) }, 200);

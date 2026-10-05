@@ -123,13 +123,13 @@ export function newExternalRef(): string {
 
 /** Next version row fields (no insert). */
 export function buildNextVersion({
-  version,
+  existing_version,
   previous_manifest,
   previous_external_ref,
   manifest,
   provider_type,
 }: {
-  version: number;
+  existing_version?: number;
   previous_manifest?: StoredSandboxEnvironmentManifest;
   previous_external_ref?: string;
   manifest: SandboxEnvironmentManifest;
@@ -147,7 +147,7 @@ export function buildNextVersion({
 
   // Always `pending` until a future controller activates (or fails) the version.
   return {
-    version,
+    version: (existing_version ?? 0) + 1,
     manifest: toStoredManifest({ manifest: resolved, provider_type }),
     status: 'pending',
     status_reason: null,
