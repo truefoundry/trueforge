@@ -6,6 +6,13 @@ on:
 
 permissions: {}
 
+env:
+  # Mirror targets from helm-charts scripts/sync-images/images.yaml, same as
+  # release.yml's hardened build. Unset variables fall back to those tags; an
+  # empty build arg would break FROM.
+  BUILD_BASE_IMAGE: ${{ vars.TRUEFORGE_NODE_BUILD_BASE_IMAGE || '526077812922.dkr.ecr.us-east-1.amazonaws.com/tfy-internal/node:24-dev' }}
+  RUNTIME_BASE_IMAGE: ${{ vars.TRUEFORGE_NODE_RUNTIME_BASE_IMAGE || '526077812922.dkr.ecr.us-east-1.amazonaws.com/tfy-internal/node:24' }}
+
 jobs:
   upload-grype:
     name: Upload Grype results
@@ -13,13 +20,28 @@ jobs:
     permissions:
       actions: read
       contents: read
+      id-token: write
       security-events: write
     steps:
       - uses: actions/checkout@v7
 
       - uses: docker/setup-buildx-action@v3
 
-      - name: Build image
+      # Pull-only credential for the devtest account that helm-charts mirrors
+      # the hardened bases into. Scanning the public-base image would report a
+      # different CVE set than the image TrueFoundry SaaS actually runs.
+      - name: Configure AWS credentials for private ECR
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          role-to-assume: ${{ secrets.AWS_DEVTEST_ECR_IAM_ROLE_ARN }}
+          aws-region: us-east-1
+
+      - name: Log in to private Amazon ECR
+        uses: aws-actions/amazon-ecr-login@v2
+        with:
+          registries: '526077812922'
+
+      - name: Build hardened image
         uses: docker/build-push-action@v6
         with:
           load: true
@@ -28,6 +50,9 @@ jobs:
           platforms: linux/amd64
           provenance: false
           tags: trueforge:grype-report
+          build-args: |
+            BUILD_BASE_IMAGE=${{ env.BUILD_BASE_IMAGE }}
+            RUNTIME_BASE_IMAGE=${{ env.RUNTIME_BASE_IMAGE }}
 
       - name: Scan image
         id: scan
