@@ -8,6 +8,36 @@ let allowedHosts: string[] = [];
 let blockedHosts: string[] = [];
 let guardEnabled = true;
 
+const MAX_REDIRECTS = 20;
+const REDIRECT_STATUSES = new Set([301, 302, 303, 307, 308]);
+const CROSS_ORIGIN_STRIPPED_HEADERS = ['authorization', 'proxy-authorization', 'cookie', 'host'];
+// Rejected before processing (timeout, rate limit, gateway never reached the origin).
+const UNPROCESSED_RETRY_STATUSES = new Set([408, 429, 521, 522, 523, 530]);
+// Upstream may have processed the request (409 conflict, 520 bad origin response, 524 origin timeout).
+const MAYBE_PROCESSED_RETRY_STATUSES = new Set([409, 520, 524]);
+const RETRY_INITIAL_DELAY_MS = 1_000;
+const RETRY_BACKOFF_FACTOR = 2;
+const RETRY_JITTER_FACTOR = 0.2;
+// Longer server-requested waits fall back to backoff rather than stalling the caller.
+const MAX_RETRY_AFTER_MS = 5_000;
+
+export interface OutboundFetchOptions {
+  connectTimeoutMs: number;
+  headersTimeoutMs: number;
+  bodyTimeoutMs: number;
+  maxRetries: number;
+  /**
+   * Whether requests are safe to replay after upstream may have received them. When false, headers
+   * timeouts and 409/520/524 are not retried.
+   */
+  idempotent: boolean;
+}
+
+export interface OutboundFetch {
+  fetch: (input: string | URL | Request, init?: RequestInit) => Promise<Response>;
+  close: () => Promise<void>;
+}
+
 const URL_VERIFY = {
   allowedProtocols: ['http:', 'https:'],
   denyCidrsV4: [
@@ -68,20 +98,6 @@ function addDenyCidrs(cidrs: readonly string[], family: 'ipv4' | 'ipv6'): void {
 }
 addDenyCidrs(URL_VERIFY.denyCidrsV4, 'ipv4');
 addDenyCidrs(URL_VERIFY.denyCidrsV6, 'ipv6');
-
-const MAX_REDIRECTS = 20;
-const REDIRECT_STATUSES = new Set([301, 302, 303, 307, 308]);
-const CROSS_ORIGIN_STRIPPED_HEADERS = ['authorization', 'proxy-authorization', 'cookie', 'host'];
-
-export function configureOutboundUrlGuard(config: {
-  enabled?: boolean;
-  allowedHosts: readonly string[];
-  blockedHosts: readonly string[];
-}): void {
-  guardEnabled = config.enabled ?? true;
-  allowedHosts = config.allowedHosts.map(normalizeHost);
-  blockedHosts = config.blockedHosts.map(normalizeHost);
-}
 
 function normalizeHost(hostname: string): string {
   const host = hostname.replace(/\.$/, '').toLowerCase();
@@ -174,17 +190,16 @@ const guardedLookup: LookupFunction = (hostname, options: LookupOptions, callbac
   });
 };
 
-const MCP_BODY_TIMEOUT_MS = 30 * 60 * 1000;
-
-const outboundAgent = new Agent({
-  connect: { lookup: guardedLookup },
-});
-
-const mcpOutboundAgent = new Agent({
-  // MCP SSE/streamable-HTTP stays idle between tool calls; undici's 300s bodyTimeout kills it.
-  bodyTimeout: MCP_BODY_TIMEOUT_MS,
-  connect: { lookup: guardedLookup },
-});
+/** SSRF allow/block policy for all outbound guarded fetches. Timeouts live on `createOutboundFetch`. */
+export function configureOutboundUrlGuard(config: {
+  enabled?: boolean;
+  allowedHosts: readonly string[];
+  blockedHosts: readonly string[];
+}): void {
+  guardEnabled = config.enabled ?? true;
+  allowedHosts = config.allowedHosts.map(normalizeHost);
+  blockedHosts = config.blockedHosts.map(normalizeHost);
+}
 
 export async function assertSafeOutboundUrl(input: string | URL | Request): Promise<void> {
   const url = parseOutboundUrl(input);
@@ -260,6 +275,129 @@ function mergeRequestInit(input: string | URL | Request, init: RequestInit): Req
   };
 }
 
+/** Bodies that undici can send more than once without re-reading a stream. */
+function isReplayableBodyInit(body: NonNullable<RequestInit['body']>): boolean {
+  return (
+    typeof body === 'string' ||
+    body instanceof ArrayBuffer ||
+    ArrayBuffer.isView(body) ||
+    body instanceof Blob ||
+    body instanceof FormData ||
+    body instanceof URLSearchParams
+  );
+}
+
+/**
+ * Normalize to URL + init, buffering one-shot stream bodies so retries can replay them.
+ * `Request` bodies are always streams even when constructed from a string.
+ */
+async function materializeReplayableOutboundRequest(
+  input: string | URL | Request,
+  init: RequestInit,
+): Promise<{ input: URL; init: RequestInit }> {
+  const url = parseOutboundUrl(input);
+  const merged = mergeRequestInit(input, init);
+  const body = merged.body;
+  if (body == null || isReplayableBodyInit(body)) {
+    return { input: url, init: merged };
+  }
+  const buffer = await new Response(body).arrayBuffer();
+  return {
+    input: url,
+    init: {
+      ...merged,
+      body: buffer,
+    },
+  };
+}
+
+function getErrorCode(error: unknown): string | undefined {
+  let current: unknown = error;
+  for (let depth = 0; depth < 5 && current != null; depth += 1) {
+    if (typeof current === 'object' && 'code' in current) {
+      const code = Reflect.get(current, 'code');
+      if (typeof code === 'string') {
+        return code;
+      }
+    }
+    current = current instanceof Error ? current.cause : undefined;
+  }
+  return undefined;
+}
+
+/** Connect / headers-read timeouts from undici (including nested under TypeError: fetch failed). */
+export function isRetryableOutboundTransportError(error: unknown, options: { idempotent: boolean }): boolean {
+  const code = getErrorCode(error);
+  if (code === 'UND_ERR_CONNECT_TIMEOUT') {
+    return true;
+  }
+  return options.idempotent && code === 'UND_ERR_HEADERS_TIMEOUT';
+}
+
+function isRetryableOutboundStatus(status: number, options: { idempotent: boolean }): boolean {
+  return UNPROCESSED_RETRY_STATUSES.has(status) || (options.idempotent && MAYBE_PROCESSED_RETRY_STATUSES.has(status));
+}
+
+/** Server-requested delay from `retry-after-ms` or `retry-after` (seconds or HTTP date), if usable. */
+function retryAfterMs(headers: { get(name: string): string | null }): number | undefined {
+  let delayMs: number | undefined;
+  const retryAfterMsHeader = headers.get('retry-after-ms');
+  if (retryAfterMsHeader !== null) {
+    delayMs = Number.parseFloat(retryAfterMsHeader);
+  } else {
+    const retryAfter = headers.get('retry-after');
+    if (retryAfter !== null) {
+      const seconds = Number(retryAfter);
+      delayMs = Number.isFinite(seconds) ? seconds * 1000 : Date.parse(retryAfter) - Date.now();
+    }
+  }
+  if (delayMs === undefined || !Number.isFinite(delayMs) || delayMs < 0 || delayMs > MAX_RETRY_AFTER_MS) {
+    return undefined;
+  }
+  return delayMs;
+}
+
+function abortError(signal: AbortSignal): Error {
+  if (signal.reason instanceof Error) {
+    return signal.reason;
+  }
+  const aborted = new Error('This operation was aborted');
+  aborted.name = 'AbortError';
+  return aborted;
+}
+
+function retryDelayMs(attempt: number): number {
+  const base = RETRY_INITIAL_DELAY_MS * RETRY_BACKOFF_FACTOR ** attempt;
+  const jitterMultiplier = 1 + (Math.random() - 0.5) * RETRY_JITTER_FACTOR;
+  return Math.max(0, Math.round(base * jitterMultiplier));
+}
+
+function sleep(ms: number, signal: AbortSignal | undefined): Promise<void> {
+  return new Promise((resolve, reject) => {
+    if (signal?.aborted) {
+      reject(abortError(signal));
+      return;
+    }
+    const timer = setTimeout(() => {
+      if (signal !== undefined) {
+        signal.removeEventListener('abort', onAbort);
+      }
+      resolve();
+    }, ms);
+    const onAbort = (): void => {
+      clearTimeout(timer);
+      if (signal !== undefined) {
+        reject(abortError(signal));
+        return;
+      }
+      reject(new Error('This operation was aborted'));
+    };
+    if (signal !== undefined) {
+      signal.addEventListener('abort', onAbort, { once: true });
+    }
+  });
+}
+
 async function guardedFetch(
   input: string | URL | Request,
   init: RequestInit,
@@ -304,11 +442,52 @@ async function guardedFetch(
   return guardedFetch(hop.url, hop.init, hopsLeft - 1, agent);
 }
 
-export async function ssrfFetch(input: string | URL | Request, init?: RequestInit): Promise<Response> {
-  return guardedFetch(input, init ?? {}, MAX_REDIRECTS, outboundAgent);
+async function withOutboundHttpRetries(
+  input: string | URL | Request,
+  init: RequestInit,
+  agent: Agent,
+  options: { maxRetries: number; idempotent: boolean },
+): Promise<Response> {
+  const signal = init.signal ?? (input instanceof Request ? input.signal : undefined);
+  // Buffer stream / Request bodies once so a retry does not hit a consumed-body error.
+  const replayable = options.maxRetries > 0 ? await materializeReplayableOutboundRequest(input, init) : { input, init };
+  let attempt = 0;
+  for (;;) {
+    if (signal?.aborted) {
+      throw abortError(signal);
+    }
+    let delayMs = retryDelayMs(attempt);
+    try {
+      const response = await guardedFetch(replayable.input, replayable.init, MAX_REDIRECTS, agent);
+      if (!isRetryableOutboundStatus(response.status, options) || attempt >= options.maxRetries) {
+        return response;
+      }
+      delayMs = retryAfterMs(response.headers) ?? delayMs;
+      void response.body?.cancel().catch(() => undefined);
+    } catch (error) {
+      if (!isRetryableOutboundTransportError(error, options) || attempt >= options.maxRetries || signal?.aborted) {
+        throw error;
+      }
+    }
+    await sleep(delayMs, signal);
+    attempt += 1;
+  }
 }
 
-/** Same as `ssrfFetch` with a 30m bodyTimeout for idle MCP SSE / streamable-HTTP. */
-export async function mcpSsrfFetch(input: string | URL | Request, init?: RequestInit): Promise<Response> {
-  return guardedFetch(input, init ?? {}, MAX_REDIRECTS, mcpOutboundAgent);
+/** Builds a pooled undici Agent + SSRF-guarded fetch with the given timeouts/retries. */
+export function createOutboundFetch(options: OutboundFetchOptions): OutboundFetch {
+  const agent = new Agent({
+    bodyTimeout: options.bodyTimeoutMs,
+    headersTimeout: options.headersTimeoutMs,
+    connectTimeout: options.connectTimeoutMs,
+    connect: { lookup: guardedLookup, timeout: options.connectTimeoutMs },
+  });
+  const maxRetries = options.maxRetries;
+  const idempotent = options.idempotent;
+  return {
+    fetch: (input, init) => withOutboundHttpRetries(input, init ?? {}, agent, { maxRetries, idempotent }),
+    close: async () => {
+      await agent.close().catch(() => undefined);
+    },
+  };
 }

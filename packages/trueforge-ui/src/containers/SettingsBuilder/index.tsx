@@ -1,11 +1,13 @@
 'use client';
 
-import { lazy, Suspense, useCallback, useEffect, useMemo } from 'react';
+import { lazy, Suspense, useCallback, useEffect, useMemo, type ReactNode } from 'react';
 
 import { useDraftCatalog } from '@/atoms/draft/DraftCatalogProvider.js';
 import { auiButtonClass } from '@/atoms/lib/buttonClasses.js';
 import { cn } from '@/atoms/lib/cn.js';
 import { useCompactLayout } from '@/atoms/lib/CompactLayoutContext.js';
+import { isMobileNavDrawerOpen } from '@/atoms/lib/isMobileNavDrawerOpen.js';
+import { useIsMobile } from '@/atoms/lib/useIsMobile.js';
 import { PageHeader } from '@/atoms/PageHeader.js';
 import { Spinner } from '@/atoms/primitives/Spinner.js';
 import { Icon } from '@/icons/Icon.js';
@@ -28,13 +30,16 @@ function SettingsSectionFallback() {
   );
 }
 
-const TruefoundrySettingsBuilder = () => {
+const TruefoundrySettingsBuilder = ({ headerStart }: { headerStart?: ReactNode } = {}) => {
   const { settingsOpen, settingsSection: section, setSettingsOpen } = useShellMode();
   const catalog = useOptionalCatalogServer();
   const refreshServerCapabilities = useOptionalRefreshServerCapabilities();
   const { refresh: refreshDraftCatalog } = useDraftCatalog();
   // dock/widget panels are ~mobile width even on a wide viewport — keep Settings stacked.
-  const compact = useCompactLayout();
+  // SidebarLayout mobile is not under CompactLayoutProvider, so treat it the same.
+  const compactLayout = useCompactLayout();
+  const isMobile = useIsMobile();
+  const compact = compactLayout || isMobile;
   const hasSkills = catalog?.skillCatalog != null;
   const hasSandbox = catalog?.sandboxCatalog != null;
   const hasWebSearch = catalog?.webSearchCatalog != null;
@@ -68,6 +73,8 @@ const TruefoundrySettingsBuilder = () => {
     if (!settingsOpen) return;
     const onKeyDown = (event: KeyboardEvent) => {
       if (event.key !== 'Escape') return;
+      // Let the mobile nav drawer consume Escape when it is open on top.
+      if (isMobileNavDrawerOpen()) return;
       event.stopImmediatePropagation();
       closeSettings();
     };
@@ -106,28 +113,32 @@ const TruefoundrySettingsBuilder = () => {
   if (!settingsOpen || !catalog) return null;
 
   return (
-    <div className="flex h-full min-h-0 w-full flex-col bg-primary-bg">
+    <div className="flex h-full min-h-0 w-full min-w-0 flex-col overflow-x-hidden bg-primary-bg">
       <PageHeader
         title="Settings"
         start={
-          <button
-            type="button"
-            aria-label="Back"
-            title="Back"
-            className={auiButtonClass({ variant: 'ghost', size: 'icon' })}
-            onClick={closeSettings}
-          >
-            <Icon name="arrow-left" />
-          </button>
+          headerStart ?? (
+            <button
+              type="button"
+              aria-label="Back"
+              title="Back"
+              className={auiButtonClass({ variant: 'ghost', size: 'icon' })}
+              onClick={closeSettings}
+            >
+              <Icon name="arrow-left" />
+            </button>
+          )
         }
       />
 
-      <div className={cn('flex min-h-0 flex-1 flex-col', !compact && 'md:flex-row')}>
+      <div className={cn('flex min-h-0 min-w-0 flex-1 flex-col', !compact && 'md:flex-row')}>
         <nav
           aria-label="Settings sections"
           className={cn(
-            'flex w-full gap-1 border-b border-border bg-secondary-bg/40 p-2',
-            compact ? 'min-w-0' : 'justify-center md:w-48 md:flex-col md:justify-start md:border-b-0 md:border-r',
+            'flex w-full min-w-0 gap-1 border-b border-border bg-secondary-bg/40 p-2',
+            compact
+              ? 'overflow-x-auto'
+              : 'justify-center md:w-48 md:flex-col md:justify-start md:border-b-0 md:border-r',
           )}
         >
           {sections.map(item => (
@@ -155,8 +166,8 @@ const TruefoundrySettingsBuilder = () => {
           ))}
         </nav>
 
-        <section className="flex flex-col h-full flex-1 overflow-y-hidden px-6 py-4">
-          <div className="w-full max-w-210 h-full min-h-0 flex flex-col mx-auto">
+        <section className="flex h-full min-h-0 min-w-0 flex-1 flex-col overflow-x-hidden overflow-y-hidden px-4 py-4 sm:px-6">
+          <div className="mx-auto flex h-full min-h-0 w-full min-w-0 max-w-210 flex-col">
             <Suspense fallback={<SettingsSectionFallback />}>
               {section === 'models' ? <ModelSettings /> : null}
               {section === 'connectors' ? <ConnectorSettings /> : null}

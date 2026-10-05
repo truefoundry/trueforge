@@ -12,11 +12,17 @@ import {
   writeDraftSpecPreferences,
   type DraftPreferenceKind,
 } from './draftSpecPreferences.js';
-import { isSchedulesChromeEnabled, isSessionsChromeEnabled, isSettingsChromeEnabled } from './serverChrome.js';
+import {
+  isEnvironmentsChromeEnabled,
+  isSchedulesChromeEnabled,
+  isSessionsChromeEnabled,
+  isSettingsChromeEnabled,
+} from './serverChrome.js';
 import {
   useOptionalAgentSessionsServer,
   useOptionalCatalogServer,
   useOptionalRefreshServerCapabilities,
+  useOptionalSandboxEnvironmentServer,
   useOptionalScheduleServer,
   useServerCapabilities,
 } from './ServerContext.js';
@@ -110,6 +116,8 @@ type ShellModeContextValue = {
   closeLibraryAgent: () => void;
   schedulesOpen: boolean;
   setSchedulesOpen: (open: boolean) => void;
+  environmentsOpen: boolean;
+  setEnvironmentsOpen: (open: boolean) => void;
   /**
    * Bind from Agents (Try = immutable, Edit = mutable + agentSpec).
    * Prefer this over `selectAgent` / `openDraft` when both fields are available.
@@ -162,6 +170,12 @@ type ShellModeContextValue = {
    */
   agentsListEpoch: number;
   invalidateAgentsList: () => void;
+  /**
+   * Bumped when sandbox environments may have changed (create/update/delete/ready).
+   * Agent environment pickers should re-fetch when this changes.
+   */
+  environmentsListEpoch: number;
+  invalidateEnvironmentsList: () => void;
 };
 
 const ShellModeContext = createContext<ShellModeContextValue | null>(null);
@@ -226,6 +240,7 @@ export function ShellModeProvider({
   const refreshCapabilities = useOptionalRefreshServerCapabilities();
   const sessionsServer = useOptionalAgentSessionsServer();
   const scheduleServer = useOptionalScheduleServer();
+  const sandboxEnvironmentServer = useOptionalSandboxEnvironmentServer();
   const chatSeedRef = useRef(
     readDraftSpecPreferences('chat') ?? selectDraftSpecPreferences(mutableSeedFromConfig(agentConfig), 'chat'),
   );
@@ -242,6 +257,7 @@ export function ShellModeProvider({
   const [mutableEpoch, setMutableEpoch] = useState(0);
   const [clearEpoch, setClearEpoch] = useState(0);
   const [agentsListEpoch, setAgentsListEpoch] = useState(0);
+  const [environmentsListEpoch, setEnvironmentsListEpoch] = useState(0);
   const [settingsOpenState, setSettingsOpenState] = useState(initialSettingsOpen);
   const [settingsSection, setSettingsSection] = useState<SettingsSection>('models');
   const [agentConfigOpenState, setAgentConfigOpenState] = useState(false);
@@ -250,6 +266,7 @@ export function ShellModeProvider({
   const [sharedSessionId, setSharedSessionId] = useState<string | null>(null);
   const [libraryAgentId, setLibraryAgentId] = useState<string | null>(null);
   const [schedulesOpenState, setSchedulesOpenState] = useState(false);
+  const [environmentsOpenState, setEnvironmentsOpenState] = useState(false);
   const [historyAgentFilter, setHistoryAgentFilter] = useState<HistoryAgentFilter | null>(null);
   const [pendingSessionId, setPendingSessionId] = useState<string | undefined>(undefined);
   const [pendingSessionEpoch, setPendingSessionEpoch] = useState(0);
@@ -258,6 +275,8 @@ export function ShellModeProvider({
   const sessionsEnabled = isSessionsChromeEnabled({ sessions: sessionsServer });
   const schedulesEnabled = isSchedulesChromeEnabled({ schedules: scheduleServer });
   const schedulesOpen = schedulesEnabled && schedulesOpenState;
+  const environmentsEnabled = isEnvironmentsChromeEnabled({ sandboxEnvironments: sandboxEnvironmentServer });
+  const environmentsOpen = environmentsEnabled && environmentsOpenState;
   const libraryOpen = isLibraryEnabled && libraryOpenState;
   const sessionsOpen = sessionsEnabled && sessionsOpenState;
   const setSessionsOpen = useCallback(
@@ -268,6 +287,7 @@ export function ShellModeProvider({
         setLibraryOpenState(false);
         setLibraryAgentId(null);
         setSchedulesOpenState(false);
+        setEnvironmentsOpenState(false);
       } else {
         replaceSessionShareSearch({
           view: null,
@@ -287,6 +307,7 @@ export function ShellModeProvider({
       setLibraryOpenState(false);
       setLibraryAgentId(null);
       setSchedulesOpenState(false);
+      setEnvironmentsOpenState(false);
       setSharedSessionId(sessionId);
       setSessionsOpenState(true);
     },
@@ -304,6 +325,7 @@ export function ShellModeProvider({
         setAgentConfigOpenState(false);
         setSessionsOpen(false);
         setSchedulesOpenState(false);
+        setEnvironmentsOpenState(false);
       }
       setLibraryAgentId(null);
       setLibraryOpenState(open);
@@ -317,6 +339,7 @@ export function ShellModeProvider({
       setAgentConfigOpenState(false);
       setSessionsOpen(false);
       setSchedulesOpenState(false);
+      setEnvironmentsOpenState(false);
       setLibraryOpenState(true);
       setLibraryAgentId(agentId);
     },
@@ -336,6 +359,7 @@ export function ShellModeProvider({
         setLibraryAgentId(null);
         setSessionsOpen(false);
         setSchedulesOpenState(false);
+        setEnvironmentsOpenState(false);
       }
       setSettingsOpenState(settingsEnabled && open);
     },
@@ -349,6 +373,7 @@ export function ShellModeProvider({
         setLibraryAgentId(null);
         setSessionsOpen(false);
         setSchedulesOpenState(false);
+        setEnvironmentsOpenState(false);
       }
       setAgentConfigOpenState(open);
     },
@@ -362,10 +387,25 @@ export function ShellModeProvider({
         setLibraryOpenState(false);
         setLibraryAgentId(null);
         setSessionsOpen(false);
+        setEnvironmentsOpenState(false);
       }
       setSchedulesOpenState(schedulesEnabled && open);
     },
     [schedulesEnabled, setSessionsOpen],
+  );
+  const setEnvironmentsOpen = useCallback(
+    (open: boolean) => {
+      if (open) {
+        setSettingsOpenState(false);
+        setAgentConfigOpenState(false);
+        setLibraryOpenState(false);
+        setLibraryAgentId(null);
+        setSessionsOpen(false);
+        setSchedulesOpenState(false);
+      }
+      setEnvironmentsOpenState(environmentsEnabled && open);
+    },
+    [environmentsEnabled, setSessionsOpen],
   );
 
   useEffect(() => {
@@ -387,8 +427,18 @@ export function ShellModeProvider({
     }
   }, [schedulesEnabled]);
 
+  useEffect(() => {
+    if (!environmentsEnabled) {
+      setEnvironmentsOpenState(false);
+    }
+  }, [environmentsEnabled]);
+
   const invalidateAgentsList = useCallback(() => {
     setAgentsListEpoch(n => n + 1);
+  }, []);
+
+  const invalidateEnvironmentsList = useCallback(() => {
+    setEnvironmentsListEpoch(n => n + 1);
   }, []);
 
   const lockedAgentName = agentConfig.mode === 'SingleAgent' ? agentConfig.name : '';
@@ -432,6 +482,7 @@ export function ShellModeProvider({
         setLibraryAgentId(null);
         setSessionsOpen(false);
         setSchedulesOpen(false);
+        setEnvironmentsOpen(false);
         setPendingSessionId(undefined);
         const isCreateAgent = resolveMutableIsCreateAgent(req);
         const kind: DraftPreferenceKind = isCreateAgent ? 'agent' : 'chat';
@@ -457,6 +508,7 @@ export function ShellModeProvider({
       setLibraryAgentId(null);
       setSessionsOpen(false);
       setSchedulesOpen(false);
+      setEnvironmentsOpen(false);
       setPendingSessionId(undefined);
       setAgentConfigOpenState(false);
       setMode({
@@ -478,7 +530,15 @@ export function ShellModeProvider({
       }
       bumpEpoch(false);
     },
-    [isComposerEnabled, isLibraryEnabled, bumpEpoch, setSettingsOpen, setSessionsOpen, setSchedulesOpen],
+    [
+      isComposerEnabled,
+      isLibraryEnabled,
+      bumpEpoch,
+      setSettingsOpen,
+      setSessionsOpen,
+      setSchedulesOpen,
+      setEnvironmentsOpen,
+    ],
   );
 
   const bindMutableAgent = useCallback(
@@ -528,6 +588,7 @@ export function ShellModeProvider({
       setLibraryAgentId(null);
       setSessionsOpen(false);
       setSchedulesOpen(false);
+      setEnvironmentsOpen(false);
       setAgentConfigOpenState(true);
       return;
     }
@@ -538,6 +599,7 @@ export function ShellModeProvider({
     isComposerEnabled,
     refreshCapabilities,
     selectLibraryAgent,
+    setEnvironmentsOpen,
     setSchedulesOpen,
     setSessionsOpen,
     setSettingsOpen,
@@ -598,6 +660,7 @@ export function ShellModeProvider({
       setLibraryAgentId(null);
       setSessionsOpen(false);
       setSchedulesOpen(false);
+      setEnvironmentsOpen(false);
       setPendingSessionId(sessionId);
       setPendingSessionEpoch(n => n + 1);
       if (isMutable) {
@@ -621,7 +684,16 @@ export function ShellModeProvider({
         ...(agentName != null ? { agentId: agentName, agentName } : {}),
       });
     },
-    [isLibraryEnabled, isComposerEnabled, locked, lockedAgentName, setSettingsOpen, setSessionsOpen, setSchedulesOpen],
+    [
+      isLibraryEnabled,
+      isComposerEnabled,
+      locked,
+      lockedAgentName,
+      setSettingsOpen,
+      setSessionsOpen,
+      setSchedulesOpen,
+      setEnvironmentsOpen,
+    ],
   );
 
   const clearChat = useCallback(() => {
@@ -654,9 +726,10 @@ export function ShellModeProvider({
     setLibraryOpenState(false);
     setLibraryAgentId(null);
     setSchedulesOpen(false);
+    setEnvironmentsOpen(false);
     setMode({ status: 'idle' });
     bumpEpoch(false);
-  }, [isLibraryEnabled, isComposerEnabled, setSettingsOpen, setSchedulesOpen, bumpEpoch]);
+  }, [isLibraryEnabled, isComposerEnabled, setSettingsOpen, setSchedulesOpen, setEnvironmentsOpen, bumpEpoch]);
 
   // Only explicit resets remount the runtime; history and identity changes happen in place.
   const runtimeKey = useMemo(() => {
@@ -689,6 +762,8 @@ export function ShellModeProvider({
       closeLibraryAgent,
       schedulesOpen,
       setSchedulesOpen,
+      environmentsOpen,
+      setEnvironmentsOpen,
       selectLibraryAgent,
       bindMutableAgent,
       selectAgent,
@@ -706,6 +781,8 @@ export function ShellModeProvider({
       pendingSessionEpoch,
       agentsListEpoch,
       invalidateAgentsList,
+      environmentsListEpoch,
+      invalidateEnvironmentsList,
     }),
     [
       effectiveMode,
@@ -730,6 +807,8 @@ export function ShellModeProvider({
       closeLibraryAgent,
       schedulesOpen,
       setSchedulesOpen,
+      environmentsOpen,
+      setEnvironmentsOpen,
       selectLibraryAgent,
       bindMutableAgent,
       selectAgent,
@@ -746,6 +825,8 @@ export function ShellModeProvider({
       pendingSessionEpoch,
       agentsListEpoch,
       invalidateAgentsList,
+      environmentsListEpoch,
+      invalidateEnvironmentsList,
     ],
   );
 
