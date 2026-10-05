@@ -61,6 +61,7 @@ import {
   applyApprovalDecisionsToContent,
   collectApprovalDecisionsFromTurnInput,
   collectSubsequentApprovalDecisions,
+  hasPendingToolApproval,
   messageHasPendingApprovals,
   toolApprovalMessageCustom,
   toolApprovalStatus,
@@ -70,6 +71,7 @@ import {
   applyUserToolResponsesToFold,
   collectSubsequentToolResponses,
   collectToolResponsesFromTurnInput,
+  hasPendingToolResponse,
   messageHasPendingResponses,
   toolResponseMessageCustom,
   toolResponseStatus,
@@ -1189,6 +1191,95 @@ function applyRequiredActionsOverlayToMessages(
   });
 }
 
+type ThreadAssistantMessagePart = Extract<ThreadMessage, { role: 'assistant' }>['content'][number];
+type AssistantToolCallPart = Extract<ThreadAssistantMessagePart, { type: 'tool-call' }>;
+
+function stripInteractivePendingFromContent(
+  content: readonly ThreadAssistantMessagePart[],
+): ThreadAssistantMessagePart[] {
+  return content.map(part => {
+    if (part.type !== 'tool-call') {
+      return part;
+    }
+
+    let next: AssistantToolCallPart = part;
+    if (hasPendingToolResponse(part)) {
+      const { interrupt, ...rest } = part;
+      void interrupt;
+      next = rest;
+    }
+    const approval = next.approval;
+    if (approval != null && hasPendingToolApproval(approval)) {
+      next = {
+        ...next,
+        approval: {
+          ...approval,
+          approved: false,
+          reason: 'Superseded by a later message',
+        },
+      };
+    }
+    if (next.messages != null) {
+      const nested = next.messages.map(message => {
+        if (message.role !== 'assistant' || message.status.type !== 'requires-action') {
+          return message;
+        }
+        return stripInteractivePendingFromAssistant(message);
+      });
+      next = { ...next, messages: nested };
+    }
+    return next;
+  });
+}
+
+function stripInteractivePendingFromAssistant(
+  message: Extract<ThreadMessage, { role: 'assistant' }>,
+): Extract<ThreadMessage, { role: 'assistant' }> {
+  const content = stripInteractivePendingFromContent(message.content);
+  const custom = Object.fromEntries(
+    Object.entries(message.metadata.custom).filter(
+      ([key]) =>
+        key !== 'pendingMcpAuth' &&
+        key !== 'mcpServers' &&
+        key !== TOOL_APPROVAL_THREAD_ID_CUSTOM_KEY &&
+        key !== TOOL_RESPONSE_THREAD_ID_CUSTOM_KEY,
+    ),
+  );
+  return {
+    ...message,
+    content,
+    status: { type: 'incomplete', reason: 'cancelled' },
+    metadata: {
+      ...message.metadata,
+      custom,
+    },
+  };
+}
+
+/** Clear interactive pause chrome on assistants that a later user message abandoned. */
+function abandonSupersededPausedMessages(messages: readonly ThreadMessage[]): ThreadMessage[] {
+  let lastUserIndex = -1;
+  for (let i = messages.length - 1; i >= 0; i--) {
+    if (messages[i]?.role === 'user') {
+      lastUserIndex = i;
+      break;
+    }
+  }
+  if (lastUserIndex < 0) {
+    return [...messages];
+  }
+
+  return messages.map((message, index) => {
+    if (index >= lastUserIndex) {
+      return message;
+    }
+    if (message.role !== 'assistant' || message.status.type !== 'requires-action') {
+      return message;
+    }
+    return stripInteractivePendingFromAssistant(message);
+  });
+}
+
 function projectHistoryTurns(snapshot: SessionSnapshot, options?: ProjectSessionMessagesOptions): ThreadMessage[] {
   const messages: ThreadMessage[] = [];
   let lastAssistantIndex: number | undefined;
@@ -1341,7 +1432,7 @@ export function projectSessionMessages(
       existingAssistant != null ? [...messages.slice(0, -1), assistantMessage] : [...messages, assistantMessage];
   }
 
-  return applyRequiredActionsOverlayToMessages(messages, snapshot.requiredActions);
+  return abandonSupersededPausedMessages(applyRequiredActionsOverlayToMessages(messages, snapshot.requiredActions));
 }
 
 const DEFAULT_LIST_EVENTS_CONCURRENCY = 5;

@@ -72,7 +72,9 @@ export function AgentsLibraryButton({ className, compact = false }: AgentsLibrar
           <>
             <span className="truncate">
               Agents
-              {countLabel != null ? <span className="text-text-secondary"> ({countLabel})</span> : null}
+              {countLabel != null ? (
+                <span className={cn(!libraryOpen && 'text-text-secondary')}> ({countLabel})</span>
+              ) : null}
             </span>
             <Icon name="chevron-right" className="ml-auto size-3.5 shrink-0 opacity-60" />
           </>

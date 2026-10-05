@@ -212,9 +212,12 @@ export type {
   SandboxBuild,
   SandboxBuildMetadata,
   SandboxBuildStatus,
+  SandboxCreateSecretParams,
+  SandboxDeleteSecretParams,
   SandboxExecParams,
   SandboxInit,
   SandboxProvider,
+  SandboxUpdateSecretParams,
 } from './sandbox/provider/Provider';
 export { TFYSandboxProvider } from './sandbox/provider/TFYSandboxProvider';
 export { SKILL_DOWNLOAD_TIMEOUT_SECONDS, Sandbox, buildWriteAndRunScriptCommand } from './sandbox/Sandbox';

@@ -12,6 +12,7 @@ import {
 } from 'react';
 
 import { useAui } from '../assistant-ui.js';
+import { DesktopOnlyNotice } from '../atoms/DesktopOnlyNotice.js';
 import { auiButtonClass, sidebarRailButtonClassName } from '../atoms/lib/buttonClasses.js';
 import { cn } from '../atoms/lib/cn.js';
 import { useIsMobile } from '../atoms/lib/useIsMobile.js';
@@ -26,7 +27,7 @@ import { FilePreviewProvider, useFilePreview } from '../filePreview/FilePreviewC
 import { useChatHeaderContentVisible } from '../hooks/useChatChromeActionsVisible.js';
 import { Icon } from '../icons/Icon.js';
 import { shellIsCreateAgent, useOptionalShellMode, type ShellMode } from '../server/ShellModeContext.js';
-import { resolveBrandChrome } from '../theme/brand.js';
+import { resolveBrandChrome, useBrandName } from '../theme/brand.js';
 import { useSlot } from '../theme/SlotsProvider.js';
 import { useBrand } from '../theme/ThemeProvider.js';
 
@@ -39,7 +40,9 @@ const EnvironmentsPage = lazy(() =>
 );
 
 const brandLogoClassName = 'h-5 w-5 max-w-40 shrink-0 object-contain';
+const brandLogoExpandedClassName = 'h-5 max-w-40 shrink-0 object-contain';
 const railWidthClassName = 'w-20';
+const mobileDrawerWidthClassName = 'w-80';
 
 const railActionButtonClassName = cn(sidebarRailButtonClassName, 'text-sidebar-text');
 
@@ -148,14 +151,12 @@ function SidebarNav(): ReactNode {
   );
 }
 
-/** Shared desktop + mobile icon+label rail (brand, nav, footer actions). */
+/** Desktop icon+label rail (brand, nav, footer actions). */
 function SidebarRail({
-  onNavigate,
   className,
   railRef,
   ...dialogProps
 }: {
-  onNavigate?: () => void;
   className?: string;
   railRef?: Ref<HTMLElement>;
 } & Omit<ComponentPropsWithoutRef<'aside'>, 'children' | 'className'>): ReactNode {
@@ -172,12 +173,6 @@ function SidebarRail({
         'flex min-h-0 shrink-0 flex-col border-r border-border bg-sidebar-bg',
         className,
       )}
-      onClick={event => {
-        if (onNavigate == null) return;
-        const target = event.target;
-        if (!(target instanceof Element)) return;
-        if (target.closest('button') != null) onNavigate();
-      }}
       {...dialogProps}
     >
       <div className="flex h-14 w-full shrink-0 items-center justify-center text-text-primary">
@@ -187,6 +182,53 @@ function SidebarRail({
       <footer className="flex shrink-0 flex-col items-center border-border p-2">
         <ShellActions labeled className="flex-col" />
         <UserAvatar labeled className="mt-2 py-1.5" />
+      </footer>
+    </aside>
+  );
+}
+
+/** Claude-style mobile side drawer: branding, New Chat + Agents, history, footer actions. */
+function MobileNavDrawer({ drawerRef, onClose }: { drawerRef: Ref<HTMLElement>; onClose: () => void }): ReactNode {
+  const brand = useBrand();
+  const chrome = resolveBrandChrome(brand);
+  const brandName = useBrandName();
+  const BrandLogo = useSlot('BrandLogo');
+  const UserAvatar = useSlot('UserAvatar');
+
+  return (
+    <aside
+      ref={drawerRef}
+      role="dialog"
+      aria-label="Navigation"
+      tabIndex={-1}
+      className={cn(
+        mobileDrawerWidthClassName,
+        'absolute inset-y-0 left-0 z-10 flex min-h-0 flex-col border-r border-border bg-sidebar-bg shadow-lg outline-none md:hidden',
+      )}
+    >
+      <div className="flex h-14 w-full shrink-0 items-center gap-2 border-b border-border px-3 text-text-primary">
+        <BrandLogo variant={chrome.expandedVariant} className={brandLogoExpandedClassName} />
+        {chrome.showTitle && brandName != null ? (
+          <span className="min-w-0 flex-1 truncate text-sm font-semibold">{brandName}</span>
+        ) : (
+          <span className="min-w-0 flex-1" />
+        )}
+        <button
+          type="button"
+          aria-label="Close navigation"
+          className={auiButtonClass({ variant: 'ghost', size: 'icon' })}
+          onClick={onClose}
+        >
+          <Icon name="xmark" />
+        </button>
+      </div>
+      <div className="min-h-0 flex-1">
+        <ThreadListContainer variant="mobile-drawer" onThreadOpen={onClose} />
+      </div>
+      <footer className="flex shrink-0 items-center justify-around gap-1 border-t border-border p-2 text-sidebar-text">
+        {/* `contents` lets Docs / Theme / Settings share this row with the avatar. */}
+        <ShellActions labeled onAction={onClose} className="contents" />
+        <UserAvatar labeled />
       </footer>
     </aside>
   );
@@ -210,22 +252,44 @@ export function SidebarLayout({ className }: { className?: string }) {
   const isIdle = shell?.mode.status === 'idle';
   const settingsOpen = shell?.settingsOpen === true;
   const libraryOpen = shell?.libraryOpen === true;
+  const libraryListOpen = libraryOpen && shell?.libraryAgentId == null;
   const sessionsOpen = shell?.sessionsOpen === true;
   const schedulesOpen = shell?.schedulesOpen === true;
   const environmentsOpen = shell?.environmentsOpen === true;
   const overlayOpen = settingsOpen || libraryOpen || sessionsOpen || schedulesOpen || environmentsOpen;
-  const showAgentConfig =
-    shell != null && shellIsCreateAgent(shell.mode) && !overlayOpen && (!isMobile || shell.agentConfigOpen);
+  const isCreateAgent = shell != null && shellIsCreateAgent(shell.mode);
+  // Build Agent, Sessions, Schedules, and Environments are desktop-only; keep the URL and show a notice.
+  const showDesktopOnlyNotice =
+    isMobile && (sessionsOpen || schedulesOpen || environmentsOpen || (isCreateAgent && !settingsOpen && !libraryOpen));
+  const showAgentConfig = isCreateAgent && !overlayOpen && !isMobile;
   const showRecentHistory = isRecentHistoryVisible({ overlayOpen, mode: shell?.mode });
   const hasChatHeaderContent = useChatHeaderContentVisible();
+  // Agents / Settings own a page header — put the hamburger there instead of a second top bar.
+  const inlineMobileNav = isMobile && (settingsOpen || libraryListOpen);
+  const closeMobileNav = () => setMobileNavOpen(false);
+  const mobileNavButton = (
+    <button
+      ref={menuBtnRef}
+      type="button"
+      aria-label="Navigation"
+      aria-expanded={mobileNavOpen}
+      className={cn(auiButtonClass({ variant: 'ghost', size: 'icon' }), 'md:hidden')}
+      onClick={() => setMobileNavOpen(true)}
+    >
+      <Icon name="panel-left" />
+    </button>
+  );
 
   useEffect(() => {
     if (!mobileNavOpen) return;
     const onKeyDown = (event: KeyboardEvent) => {
-      if (event.key === 'Escape') setMobileNavOpen(false);
+      if (event.key !== 'Escape') return;
+      // Capture + stop so Settings / Agents / Agent Details Escape handlers do not steal this.
+      event.stopImmediatePropagation();
+      setMobileNavOpen(false);
     };
-    window.addEventListener('keydown', onKeyDown);
-    return () => window.removeEventListener('keydown', onKeyDown);
+    window.addEventListener('keydown', onKeyDown, true);
+    return () => window.removeEventListener('keydown', onKeyDown, true);
   }, [mobileNavOpen]);
 
   useEffect(() => {
@@ -253,47 +317,36 @@ export function SidebarLayout({ className }: { className?: string }) {
           aria-label="Agent Config"
           className="absolute inset-y-0 left-0 z-20 w-full max-w-sm border-r border-border shadow-xl md:static md:z-auto md:max-w-140 md:flex-1 md:shadow-none 2xl:max-w-150"
         >
-          <AgentConfigDrawerContainer showClose={isMobile} />
+          <AgentConfigDrawerContainer />
         </aside>
       ) : null}
 
       <div className="flex min-h-0 min-w-0 flex-1 flex-col bg-primary-bg">
         {/* Desktop keeps shell chrome in the rail footer (always mounted, including
             when visually hidden on small screens so host action-slot state persists).
-            Mobile reaches theme/settings via the nav drawer rail. */}
-        <PageHeader
-          className={cn(
-            'bg-topbar-bg',
-            // Desktop: hide when settings/idle or the thread header has nothing to show
-            // (empty untitled draft). Mobile still needs the menu button.
-            // Builder mode keeps New Agent and its actions beside the persistent config.
-            (overlayOpen || isIdle || !hasChatHeaderContent) && 'md:hidden',
-          )}
-          start={
-            !overlayOpen ? (
-              <button
-                ref={menuBtnRef}
-                type="button"
-                aria-label="Navigation"
-                aria-expanded={mobileNavOpen}
-                className={cn(auiButtonClass({ variant: 'ghost', size: 'icon' }), 'md:hidden')}
-                onClick={() => setMobileNavOpen(true)}
-              >
-                <Icon name="bars" />
-              </button>
-            ) : null
-          }
-          title={!overlayOpen ? <NamedAgentHeaderLabel /> : null}
-          end={
-            !overlayOpen ? (
-              <>
-                <ShareChatButton />
-                <ClearChatButton />
-                <SaveAgentButton />
-              </>
-            ) : null
-          }
-        />
+            Mobile reaches theme/settings via the nav drawer. */}
+        {inlineMobileNav ? null : (
+          <PageHeader
+            className={cn(
+              'bg-topbar-bg',
+              // Desktop: hide when settings/idle or the thread header has nothing to show
+              // (empty untitled draft). Mobile still needs the menu button.
+              // Builder mode keeps New Agent and its actions beside the persistent config.
+              (overlayOpen || isIdle || !hasChatHeaderContent || showDesktopOnlyNotice) && 'md:hidden',
+            )}
+            start={mobileNavButton}
+            title={!overlayOpen && !showDesktopOnlyNotice ? <NamedAgentHeaderLabel /> : null}
+            end={
+              !overlayOpen && !showDesktopOnlyNotice ? (
+                <>
+                  <ShareChatButton />
+                  <ClearChatButton />
+                  <SaveAgentButton />
+                </>
+              ) : null
+            }
+          />
+        )}
 
         <FilePreviewProvider>
           <div className="flex min-h-0 min-w-0 flex-1">
@@ -314,14 +367,19 @@ export function SidebarLayout({ className }: { className?: string }) {
                     </div>
                   }
                 >
-                  <TruefoundrySettingsBuilder />
+                  <TruefoundrySettingsBuilder {...(inlineMobileNav ? { headerStart: mobileNavButton } : {})} />
                 </Suspense>
+              ) : showDesktopOnlyNotice ? (
+                <DesktopOnlyNotice />
               ) : sessionsOpen ? (
                 <SessionsPage />
               ) : libraryOpen && shell?.libraryAgentId != null ? (
                 <AgentDetailsPage key={shell.libraryAgentId} agentId={shell.libraryAgentId} />
               ) : libraryOpen ? (
-                <AgentsLibrary onSelectAgent={() => setMobileNavOpen(false)} />
+                <AgentsLibrary
+                  onSelectAgent={closeMobileNav}
+                  {...(inlineMobileNav ? { headerStart: mobileNavButton } : {})}
+                />
               ) : schedulesOpen ? (
                 <Suspense
                   fallback={
@@ -364,23 +422,15 @@ export function SidebarLayout({ className }: { className?: string }) {
         </FilePreviewProvider>
       </div>
 
-      {/* Mobile: same narrow rail as desktop */}
       {mobileNavOpen ? (
         <>
           <button
             type="button"
-            aria-label="Close navigation"
+            aria-label="Close navigation backdrop"
             className="absolute inset-0 z-[9] cursor-pointer bg-[var(--overlay)] md:hidden"
-            onClick={() => setMobileNavOpen(false)}
+            onClick={closeMobileNav}
           />
-          <SidebarRail
-            railRef={dialogRef}
-            role="dialog"
-            aria-label="Navigation"
-            tabIndex={-1}
-            onNavigate={() => setMobileNavOpen(false)}
-            className="absolute inset-y-0 left-0 z-10 shadow-lg outline-none md:hidden"
-          />
+          <MobileNavDrawer drawerRef={dialogRef} onClose={closeMobileNav} />
         </>
       ) : null}
     </div>

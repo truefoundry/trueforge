@@ -372,6 +372,7 @@ export function createServerApp<TTransaction>(deps: ServerDeps<TTransaction>) {
         resolveAgentStore: deps.resolveAgentStore,
         resolveSandboxProviderStore: deps.resolveSandboxProviderStore,
         resolveRequestContext,
+        logger: deps.logger,
       }),
       authMiddleware,
     ),

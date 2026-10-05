@@ -8559,7 +8559,17 @@
                 }
               }
             },
-            "description": "No sandbox provider configured."
+            "description": "Sandbox provider is missing or its credentials are invalid."
+          },
+          "502": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/RequestErrorResponse"
+                }
+              }
+            },
+            "description": "Sandbox provider secret synchronization failed."
           }
         },
         "summary": "Create or update a sandbox environment",
@@ -8633,6 +8643,26 @@
               }
             },
             "description": "Environment is referenced by one or more agents."
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/RequestErrorResponse"
+                }
+              }
+            },
+            "description": "Sandbox provider is missing or its credentials are invalid."
+          },
+          "502": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/RequestErrorResponse"
+                }
+              }
+            },
+            "description": "Sandbox provider secret deletion failed."
           }
         },
         "summary": "Delete a sandbox environment",

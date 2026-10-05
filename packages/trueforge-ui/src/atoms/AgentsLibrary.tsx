@@ -1,6 +1,6 @@
 'use client';
 
-import { useCallback, useEffect, useRef, useState } from 'react';
+import { useCallback, useEffect, useRef, useState, type ReactNode } from 'react';
 
 import { useResourcePermissions } from '../hooks/useResourcePermissions.js';
 import { useSessionShareSearch } from '../hooks/useSessionShareSearch.js';
@@ -16,7 +16,10 @@ import { replaceScheduleShareSearch } from '../utils/scheduleShareUrl.js';
 import { AgentOverflowMenu } from './AgentOverflowMenu.js';
 import { CreatedByCell } from './CreatedByCell.js';
 import { EmptyScreen, EmptyScreenQueryHighlight } from './EmptyScreen.js';
+import { cn } from './lib/cn.js';
+import { isMobileNavDrawerOpen } from './lib/isMobileNavDrawerOpen.js';
 import { mountName } from './lib/mountName.js';
+import { useIsMobile } from './lib/useIsMobile.js';
 import { useSearchAgentsList } from './lib/useSearchAgentsList.js';
 import { PageHeader } from './PageHeader.js';
 import { Button } from './primitives/Button.js';
@@ -39,6 +42,8 @@ const AGENTS_PAGE_SIZE_OPTIONS = [10, 25] as const;
 
 export type AgentsLibraryProps = {
   onSelectAgent?: (agentName: string) => void;
+  /** Leading chrome for the page header (e.g. mobile nav hamburger). */
+  headerStart?: ReactNode;
 };
 
 export type AgentScheduleSummary = {
@@ -63,6 +68,8 @@ export type AgentLibraryRowProps = {
   onTry: () => void;
   onEdit: () => void;
   onManageSchedules?: () => void;
+  /** `card` is the mobile stacked layout; desktop keeps the table `row`. */
+  variant?: 'row' | 'card';
 };
 
 /** Short label for model fqns like `provider/gpt-4.1` → `gpt-4.1`. */
@@ -75,28 +82,188 @@ function AgentSchedulesEmptyState({
   agentName,
   onOpen,
   disabled,
+  alwaysShowAdd = false,
 }: {
   agentName: string;
   onOpen?: () => void;
   disabled: boolean;
+  /** Touch has no hover — show the add button instead of the `-` placeholder. */
+  alwaysShowAdd?: boolean;
 }) {
   return (
     <>
-      <span aria-hidden className="text-text-secondary text-sm md:group-hover:hidden">
-        -
-      </span>
+      {alwaysShowAdd ? null : (
+        <span aria-hidden className="text-text-secondary text-sm md:group-hover:hidden">
+          -
+        </span>
+      )}
       <Button.Ghost
         type="button"
         size="small"
         disabled={disabled}
         aria-label={`Add schedule for ${agentName}`}
-        className="hidden md:group-hover:inline-flex"
+        className={alwaysShowAdd ? 'inline-flex' : 'hidden md:group-hover:inline-flex'}
         onClick={onOpen}
       >
         <Icon name="plus" className="size-3.5 shrink-0" />
         Schedule
       </Button.Ghost>
     </>
+  );
+}
+
+function AgentNameContent({
+  name,
+  description,
+  onOpen,
+  descriptionMode = 'tooltip',
+}: {
+  name: string;
+  description: string | null;
+  onOpen?: () => void;
+  descriptionMode?: 'tooltip' | 'clamp';
+}) {
+  const nameNode =
+    onOpen == null ? (
+      <span className="block truncate">{name}</span>
+    ) : (
+      <button
+        type="button"
+        className="block max-w-full cursor-pointer text-left"
+        aria-label={`Open ${name}`}
+        onClick={onOpen}
+      >
+        <span className="block truncate">{name}</span>
+      </button>
+    );
+
+  if (description == null) {
+    return <>{nameNode}</>;
+  }
+
+  if (descriptionMode === 'clamp') {
+    return (
+      <>
+        {nameNode}
+        <span className="text-text-secondary line-clamp-2 text-xs font-normal">{description}</span>
+      </>
+    );
+  }
+
+  return (
+    <>
+      {nameNode}
+      <Tooltip
+        content={description}
+        className="max-w-sm whitespace-normal text-left"
+        triggerClassName="block min-w-0 w-full max-w-full"
+      >
+        <span className="text-text-secondary block truncate text-xs font-normal">{description}</span>
+      </Tooltip>
+    </>
+  );
+}
+
+function AgentConfigurationChips({
+  agentName,
+  modelLabel,
+  modelTitle,
+  skillsCount,
+  skillsTitle,
+  mcpCount,
+  connectorsTitle,
+  className,
+}: {
+  agentName: string;
+  modelLabel: string | null;
+  modelTitle: string;
+  skillsCount: number;
+  skillsTitle: string;
+  mcpCount: number;
+  connectorsTitle: string;
+  className?: string;
+}) {
+  const hasConfiguration = modelLabel != null || skillsCount > 0 || mcpCount > 0;
+  if (!hasConfiguration) {
+    return (
+      <span className="text-text-secondary text-sm" aria-label={`Configuration unavailable for ${agentName}`}>
+        —
+      </span>
+    );
+  }
+  return (
+    <div className={cn('text-text-secondary flex min-w-0 items-center gap-2', className)}>
+      {modelLabel != null ? (
+        <Tooltip content={modelTitle}>
+          <span
+            className="bg-secondary-bg text-text-secondary inline-flex max-w-[10rem] items-center gap-1 truncate rounded-full px-2 py-0.5 text-xs font-medium"
+            aria-label={modelTitle}
+          >
+            <Icon name="cpu" className="size-3.5 shrink-0" />
+            <span className="truncate">{modelLabel}</span>
+          </span>
+        </Tooltip>
+      ) : null}
+      {skillsCount > 0 ? (
+        <Tooltip content={skillsTitle}>
+          <span className="inline-flex items-center gap-1 text-xs" aria-label={`Skills: ${skillsTitle}`}>
+            <Icon name="lightbulb" className="size-3.5 shrink-0" />
+            {skillsCount}
+          </span>
+        </Tooltip>
+      ) : null}
+      {mcpCount > 0 ? (
+        <Tooltip content={connectorsTitle}>
+          <span className="inline-flex items-center gap-1 text-xs" aria-label={`Connectors: ${connectorsTitle}`}>
+            <Icon name="plug" className="size-3.5 shrink-0" />
+            {mcpCount}
+          </span>
+        </Tooltip>
+      ) : null}
+    </div>
+  );
+}
+
+function AgentSchedulesContent({
+  scheduleSummary,
+  agentName,
+  onOpenSchedules,
+  onCreateSchedule,
+  canUseAgent,
+  alwaysShowAdd = false,
+}: {
+  scheduleSummary: AgentScheduleSummary | null | undefined;
+  agentName: string;
+  onOpenSchedules?: () => void;
+  onCreateSchedule?: () => void;
+  canUseAgent: boolean;
+  alwaysShowAdd?: boolean;
+}) {
+  if (scheduleSummary === undefined) return null;
+  if (scheduleSummary != null && scheduleSummary.count > 0) {
+    return (
+      <AgentSchedulesBadge
+        summary={scheduleSummary}
+        agentName={agentName}
+        onOpen={onOpenSchedules}
+        disabled={!canUseAgent}
+      />
+    );
+  }
+  if (scheduleSummary != null) {
+    return (
+      <AgentSchedulesEmptyState
+        agentName={agentName}
+        onOpen={onCreateSchedule}
+        disabled={!canUseAgent}
+        alwaysShowAdd={alwaysShowAdd}
+      />
+    );
+  }
+  return (
+    <span className="text-text-secondary text-sm" aria-label={`Schedule count unavailable for ${agentName}`}>
+      —
+    </span>
   );
 }
 
@@ -174,6 +341,7 @@ export function AgentLibraryRow({
   onTry,
   onEdit,
   onManageSchedules,
+  variant = 'row',
 }: AgentLibraryRowProps) {
   const PermissionGuard = useSlot('PermissionGuard');
   const spec = agent.agentSpec;
@@ -188,75 +356,96 @@ export function AgentLibraryRow({
   const modelTitle = modelName ?? '';
   const connectorsTitle = mcpNames.length ? mcpNames.join(', ') : `${mcpCount} connectors`;
   const skillsTitle = skillNames.length ? skillNames.join(', ') : `${skillsCount} skills`;
-  const hasConfiguration = modelLabel != null || skillsCount > 0 || mcpCount > 0;
   const hasNoSchedules = scheduleSummary != null && scheduleSummary.count === 0;
   const storedDescription = agent.description?.trim() || null;
   // Create falls back to name when description is missing; don't echo it under the title.
   const description = storedDescription != null && storedDescription !== agent.name ? storedDescription : null;
 
+  const overflowMenu = (
+    <AgentOverflowMenu
+      agentName={agent.name}
+      {...(storedDescription != null ? { description: storedDescription } : {})}
+      {...(spec != null ? { agentSpec: spec } : {})}
+      canMutate={canMutate}
+      canUse={canUseAgent}
+      canManage={canManageAgent}
+      canDelete={canDeleteAgent}
+      canManageSchedules={canManageSchedules}
+      onEdit={onEdit}
+      {...(onManageSchedules != null ? { onManageSchedules } : {})}
+    />
+  );
+
+  const tryButton = (
+    <PermissionGuard allowed={canUseAgent}>
+      <Button.Secondary type="button" aria-label={`Try agent ${agent.name}`} size="large" onClick={onTry}>
+        <Icon name="play" className="size-3.5" />
+        Try
+      </Button.Secondary>
+    </PermissionGuard>
+  );
+
+  const configurationChips = (
+    <AgentConfigurationChips
+      agentName={agent.name}
+      modelLabel={modelLabel}
+      modelTitle={modelTitle}
+      skillsCount={skillsCount}
+      skillsTitle={skillsTitle}
+      mcpCount={mcpCount}
+      connectorsTitle={connectorsTitle}
+    />
+  );
+
+  if (variant === 'card') {
+    return (
+      <li className="flex flex-col gap-3 rounded-xl border border-border bg-card-bg p-3">
+        <div className="flex items-start gap-2">
+          <div className="text-text-primary min-w-0 flex-1 font-medium">
+            <AgentNameContent
+              name={agent.name}
+              description={description}
+              {...(onOpen != null ? { onOpen } : {})}
+              descriptionMode="clamp"
+            />
+          </div>
+          {overflowMenu}
+        </div>
+        <AgentConfigurationChips
+          agentName={agent.name}
+          modelLabel={modelLabel}
+          modelTitle={modelTitle}
+          skillsCount={skillsCount}
+          skillsTitle={skillsTitle}
+          mcpCount={mcpCount}
+          connectorsTitle={connectorsTitle}
+          className="flex-wrap"
+        />
+        {showCreatedBy ? <CreatedByCell subject={agent.createdBySubject} /> : null}
+        <div className="flex items-center justify-between gap-2">
+          <div className="min-w-0">
+            <AgentSchedulesContent
+              scheduleSummary={scheduleSummary}
+              agentName={agent.name}
+              {...(onOpenSchedules != null ? { onOpenSchedules } : {})}
+              {...(onCreateSchedule != null ? { onCreateSchedule } : {})}
+              canUseAgent={canUseAgent}
+              alwaysShowAdd
+            />
+          </div>
+          {tryButton}
+        </div>
+      </li>
+    );
+  }
+
   return (
     <TableRow className={hasNoSchedules ? 'group' : undefined}>
       {/* Fixed width so truncate works; 24rem = 1.5× the prior min-w-64 name column. */}
       <TableCell className="text-text-primary w-96 max-w-96 font-medium">
-        {onOpen == null ? (
-          <span className="block truncate">{agent.name}</span>
-        ) : (
-          <button
-            type="button"
-            className="block max-w-full cursor-pointer text-left"
-            aria-label={`Open ${agent.name}`}
-            onClick={onOpen}
-          >
-            <span className="block truncate">{agent.name}</span>
-          </button>
-        )}
-        {description ? (
-          <Tooltip
-            content={description}
-            className="max-w-sm whitespace-normal text-left"
-            triggerClassName="block min-w-0 w-full max-w-full"
-          >
-            <span className="text-text-secondary block truncate text-xs font-normal">{description}</span>
-          </Tooltip>
-        ) : null}
+        <AgentNameContent name={agent.name} description={description} {...(onOpen != null ? { onOpen } : {})} />
       </TableCell>
-      <TableCell>
-        {hasConfiguration ? (
-          <div className="text-text-secondary flex min-w-0 items-center gap-2">
-            {modelLabel != null ? (
-              <Tooltip content={modelTitle}>
-                <span
-                  className="bg-secondary-bg text-text-secondary inline-flex max-w-[10rem] items-center gap-1 truncate rounded-full px-2 py-0.5 text-xs font-medium"
-                  aria-label={modelTitle}
-                >
-                  <Icon name="cpu" className="size-3.5 shrink-0" />
-                  <span className="truncate">{modelLabel}</span>
-                </span>
-              </Tooltip>
-            ) : null}
-            {skillsCount > 0 ? (
-              <Tooltip content={skillsTitle}>
-                <span className="inline-flex items-center gap-1 text-xs" aria-label={`Skills: ${skillsTitle}`}>
-                  <Icon name="lightbulb" className="size-3.5 shrink-0" />
-                  {skillsCount}
-                </span>
-              </Tooltip>
-            ) : null}
-            {mcpCount > 0 ? (
-              <Tooltip content={connectorsTitle}>
-                <span className="inline-flex items-center gap-1 text-xs" aria-label={`Connectors: ${connectorsTitle}`}>
-                  <Icon name="plug" className="size-3.5 shrink-0" />
-                  {mcpCount}
-                </span>
-              </Tooltip>
-            ) : null}
-          </div>
-        ) : (
-          <span className="text-text-secondary text-sm" aria-label={`Configuration unavailable for ${agent.name}`}>
-            —
-          </span>
-        )}
-      </TableCell>
+      <TableCell>{configurationChips}</TableCell>
       {showCreatedBy ? (
         <TableCell>
           <CreatedByCell subject={agent.createdBySubject} />
@@ -264,42 +453,19 @@ export function AgentLibraryRow({
       ) : null}
       {scheduleSummary !== undefined ? (
         <TableCell>
-          {scheduleSummary != null && scheduleSummary.count > 0 ? (
-            <AgentSchedulesBadge
-              summary={scheduleSummary}
-              agentName={agent.name}
-              onOpen={onOpenSchedules}
-              disabled={!canUseAgent}
-            />
-          ) : scheduleSummary != null ? (
-            <AgentSchedulesEmptyState agentName={agent.name} onOpen={onCreateSchedule} disabled={!canUseAgent} />
-          ) : (
-            <span className="text-text-secondary text-sm" aria-label={`Schedule count unavailable for ${agent.name}`}>
-              —
-            </span>
-          )}
+          <AgentSchedulesContent
+            scheduleSummary={scheduleSummary}
+            agentName={agent.name}
+            {...(onOpenSchedules != null ? { onOpenSchedules } : {})}
+            {...(onCreateSchedule != null ? { onCreateSchedule } : {})}
+            canUseAgent={canUseAgent}
+          />
         </TableCell>
       ) : null}
       <TableCell className="w-px">
         <div className="flex items-center justify-end gap-1.5">
-          <PermissionGuard allowed={canUseAgent}>
-            <Button.Secondary type="button" aria-label={`Try agent ${agent.name}`} size="large" onClick={onTry}>
-              <Icon name="play" className="size-3.5" />
-              Try
-            </Button.Secondary>
-          </PermissionGuard>
-          <AgentOverflowMenu
-            agentName={agent.name}
-            {...(storedDescription != null ? { description: storedDescription } : {})}
-            {...(spec != null ? { agentSpec: spec } : {})}
-            canMutate={canMutate}
-            canUse={canUseAgent}
-            canManage={canManageAgent}
-            canDelete={canDeleteAgent}
-            canManageSchedules={canManageSchedules}
-            onEdit={onEdit}
-            {...(onManageSchedules != null ? { onManageSchedules } : {})}
-          />
+          {tryButton}
+          {overflowMenu}
         </div>
       </TableCell>
     </TableRow>
@@ -348,8 +514,9 @@ async function listAllSchedulesForAgents({
   return rows;
 }
 
-export function AgentsLibrary({ onSelectAgent }: AgentsLibraryProps) {
+export function AgentsLibrary({ onSelectAgent, headerStart }: AgentsLibraryProps) {
   const shell = useShellMode();
+  const isMobile = useIsMobile();
   const { updateShareSearch } = useSessionShareSearch();
   const sessionsServer = useOptionalAgentSessionsServer();
   const scheduleServer = useOptionalScheduleServer();
@@ -395,6 +562,8 @@ export function AgentsLibrary({ onSelectAgent }: AgentsLibraryProps) {
     if (!open) return;
     const onKeyDown = (event: KeyboardEvent) => {
       if (event.key !== 'Escape') return;
+      // Let the mobile nav drawer consume Escape when it is open on top.
+      if (isMobileNavDrawerOpen()) return;
       event.stopImmediatePropagation();
       closeLibrary();
     };
@@ -480,10 +649,76 @@ export function AgentsLibrary({ onSelectAgent }: AgentsLibraryProps) {
 
   if (!open) return null;
 
+  const renderAgent = (agent: AgentLibraryEntry, variant: 'row' | 'card') => {
+    const agentSpec = agent.agentSpec;
+    const agentId = agent.agentId;
+    const id = libraryAgentId(agent);
+    const summary = showSchedulesColumn
+      ? (scheduleByAgent?.get(id) ??
+        scheduleByAgent?.get(agent.name) ??
+        (scheduleByAgent == null ? null : { count: 0, pausedCount: 0, activeNames: [], pausedNames: [] }))
+      : undefined;
+    return (
+      <SlottedAgentLibraryRow
+        key={id}
+        agent={agent}
+        canMutate={canMutate}
+        canUseAgent={allows(id, 'USE')}
+        canManageAgent={allows(id, 'MANAGE')}
+        canDeleteAgent={allows(id, 'DELETE')}
+        canManageSchedules={canOpenAgentSchedules}
+        showCreatedBy={showCreatedByColumn}
+        variant={variant}
+        {...(summary !== undefined ? { scheduleSummary: summary } : {})}
+        {...(canOpenAgentSchedules && agentId != null
+          ? {
+              onOpenSchedules: () => openSchedulesForAgent({ agentId }),
+              onCreateSchedule: () => openSchedulesForAgent({ agentId, isNew: true }),
+              onManageSchedules: () => openSchedulesForAgent({ agentId }),
+            }
+          : {})}
+        {...(canOpenAgentDetails && agentId != null
+          ? {
+              onOpen: () => {
+                updateShareSearch({
+                  agentId,
+                  tab: 'overview',
+                  sessionId: null,
+                  view: null,
+                  timeRange: null,
+                });
+                shell.openLibraryAgent(agentId);
+              },
+            }
+          : {})}
+        onTry={() => {
+          if (allows(id, 'USE')) handleTry(agent);
+        }}
+        onEdit={() => {
+          if (agentSpec != null && allows(id, 'MANAGE')) handleEdit(agent, agentSpec);
+        }}
+      />
+    );
+  };
+
+  const pagination = (
+    <TableTokenPagination
+      pageSize={pageSize}
+      rowCount={agents.length}
+      canPrev={canPrev}
+      canNext={canNext}
+      onPrev={goPrev}
+      onNext={goNext}
+      pageSizeOptions={AGENTS_PAGE_SIZE_OPTIONS}
+      onPageSizeChange={setPageSize}
+    />
+  );
+
   return (
     <div className="flex h-full min-h-0 w-full flex-col bg-primary-bg">
       <PageHeader
         title="Agents"
+        start={headerStart}
         end={
           <div className="w-56 shrink-0">
             <SearchInput query={query} setQuery={setQuery} placeholder="Search agents" />
@@ -502,7 +737,7 @@ export function AgentsLibrary({ onSelectAgent }: AgentsLibraryProps) {
           {isInitialLoading ? (
             <div className="flex flex-col gap-2 p-1" role="status" aria-label="Loading agents">
               {Array.from({ length: 6 }, (_, i) => (
-                <Skeleton key={i} className="h-11 w-full rounded-md" />
+                <Skeleton key={i} className={cn('w-full rounded-md', isMobile ? 'h-32' : 'h-11')} />
               ))}
             </div>
           ) : error ? (
@@ -548,6 +783,13 @@ export function AgentsLibrary({ onSelectAgent }: AgentsLibraryProps) {
                 />
               </div>
             </div>
+          ) : isMobile ? (
+            <div className="flex flex-col gap-3">
+              <ul aria-label="Agents" className="flex flex-col gap-3">
+                {agents.map(agent => renderAgent(agent, 'card'))}
+              </ul>
+              <div className="overflow-hidden rounded-lg border border-border">{pagination}</div>
+            </div>
           ) : (
             <div className="overflow-hidden rounded-lg border border-border">
               <Table>
@@ -562,71 +804,9 @@ export function AgentsLibrary({ onSelectAgent }: AgentsLibraryProps) {
                     </TableHead>
                   </TableRow>
                 </TableHeader>
-                <TableBody>
-                  {agents.map(agent => {
-                    const agentSpec = agent.agentSpec;
-                    const agentId = agent.agentId;
-                    const id = libraryAgentId(agent);
-                    const summary = showSchedulesColumn
-                      ? (scheduleByAgent?.get(id) ??
-                        scheduleByAgent?.get(agent.name) ??
-                        (scheduleByAgent == null
-                          ? null
-                          : { count: 0, pausedCount: 0, activeNames: [], pausedNames: [] }))
-                      : undefined;
-                    return (
-                      <SlottedAgentLibraryRow
-                        key={id}
-                        agent={agent}
-                        canMutate={canMutate}
-                        canUseAgent={allows(id, 'USE')}
-                        canManageAgent={allows(id, 'MANAGE')}
-                        canDeleteAgent={allows(id, 'DELETE')}
-                        canManageSchedules={canOpenAgentSchedules}
-                        showCreatedBy={showCreatedByColumn}
-                        {...(summary !== undefined ? { scheduleSummary: summary } : {})}
-                        {...(canOpenAgentSchedules && agentId != null
-                          ? {
-                              onOpenSchedules: () => openSchedulesForAgent({ agentId }),
-                              onCreateSchedule: () => openSchedulesForAgent({ agentId, isNew: true }),
-                              onManageSchedules: () => openSchedulesForAgent({ agentId }),
-                            }
-                          : {})}
-                        {...(canOpenAgentDetails && agentId != null
-                          ? {
-                              onOpen: () => {
-                                updateShareSearch({
-                                  agentId,
-                                  tab: 'overview',
-                                  sessionId: null,
-                                  view: null,
-                                  timeRange: null,
-                                });
-                                shell.openLibraryAgent(agentId);
-                              },
-                            }
-                          : {})}
-                        onTry={() => {
-                          if (allows(id, 'USE')) handleTry(agent);
-                        }}
-                        onEdit={() => {
-                          if (agentSpec != null && allows(id, 'MANAGE')) handleEdit(agent, agentSpec);
-                        }}
-                      />
-                    );
-                  })}
-                </TableBody>
+                <TableBody>{agents.map(agent => renderAgent(agent, 'row'))}</TableBody>
               </Table>
-              <TableTokenPagination
-                pageSize={pageSize}
-                rowCount={agents.length}
-                canPrev={canPrev}
-                canNext={canNext}
-                onPrev={goPrev}
-                onNext={goNext}
-                pageSizeOptions={AGENTS_PAGE_SIZE_OPTIONS}
-                onPageSizeChange={setPageSize}
-              />
+              {pagination}
             </div>
           )}
         </div>

@@ -13,7 +13,7 @@ describe('buildNextVersion', () => {
 
   it('allocates a new external_ref when resources change without a build image', () => {
     const next = buildNextVersion({
-      version: 2,
+      existing_version: 1,
       previous_manifest: previous,
       previous_external_ref: 'trueforge-old',
       manifest: {
@@ -24,13 +24,14 @@ describe('buildNextVersion', () => {
     });
 
     expect(next.external_ref).not.toBe('trueforge-old');
+    expect(next.version).toBe(2);
     expect(next.status).toBe('pending');
     expect(next.manifest.resources).toEqual({ cpu: 2, memory: 4, disk: 8 });
   });
 
   it('reuses previous_external_ref when only networking changes', () => {
     const next = buildNextVersion({
-      version: 2,
+      existing_version: 1,
       previous_manifest: previous,
       previous_external_ref: 'trueforge-old',
       manifest: {
@@ -50,7 +51,7 @@ describe('buildNextVersion', () => {
       image: { type: 'build' as const, build_script: 'pip install httpx' },
     };
     const next = buildNextVersion({
-      version: 2,
+      existing_version: 1,
       previous_manifest: withBuild,
       previous_external_ref: 'trueforge-old',
       manifest: {

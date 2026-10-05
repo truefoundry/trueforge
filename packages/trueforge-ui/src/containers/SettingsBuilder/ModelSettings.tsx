@@ -322,14 +322,15 @@ const ModelSettings = () => {
         </p>
       ) : null}
 
-      <div className="mt-4 flex-1 overflow-y-hidden">
-        <div className="flex h-full flex-col gap-3">
-          <div className="flex gap-2">
-            <div className="flex-1">
+      <div className="mt-4 min-h-0 min-w-0 flex-1 overflow-y-hidden">
+        <div className="flex h-full min-w-0 flex-col gap-3">
+          <div className="flex min-w-0 flex-col gap-2 sm:flex-row">
+            <div className="min-w-0 flex-1">
               <SearchInput query={query} setQuery={setQuery} placeholder="Search providers and models" />
             </div>
             <Button.Secondary
               type="button"
+              className="shrink-0 sm:self-auto"
               onClick={() => {
                 setFormError(null);
                 setCustomProviderToEdit(null);
@@ -508,7 +509,7 @@ const ModelSettings = () => {
                                 <Icon name="cpu" className="size-4.5" />
                               )}
                             </span>
-                            <div className="min-w-0">
+                            <div className="min-w-0 flex-1 overflow-hidden">
                               <h5 className="truncate text-base font-medium text-text-primary">{provider.name}</h5>
                               <p className="truncate text-sm text-text-secondary">
                                 {provider.models.map(model => model.name).join(' · ')}

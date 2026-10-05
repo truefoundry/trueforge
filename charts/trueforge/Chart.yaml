@@ -2,8 +2,9 @@ apiVersion: v2
 name: trueforge
 description: TrueForge server (API + UI) served from a single container image.
 type: application
-# version is the parent chart version, written verbatim from
-# release-chart.yml's chart_version input; nothing in this repo computes it.
+# version is written verbatim from release-chart.yml's chart_version input;
+# nothing in this repo computes it. The caller decides the number, and it need
+# not match the parent chart's own version.
 # appVersion follows packages/trueforge/package.json and image.tag follows the
 # image release.yml built. All three are written on the release-vX.Y.Z branch,
 # which is then tagged charts/trueforge@<version> on that commit.
