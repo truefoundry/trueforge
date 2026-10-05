@@ -102,16 +102,18 @@ function renderDrawer({
   const agentServer =
     server ??
     createMockAgentUIServer({
-      searchAgents: vi.fn(async () => [
-        {
-          name: 'demo-agent',
-          agentId: 'demo-agent',
-          agentSpec: {
-            model: { name: 'openai/gpt-4.1' },
-            mcpServers: [{ name: 'Slack 1234' }],
+      searchAgents: vi.fn(async () => ({
+        data: [
+          {
+            name: 'demo-agent',
+            agentId: 'demo-agent',
+            agentSpec: {
+              model: { name: 'openai/gpt-4.1' },
+              mcpServers: [{ name: 'Slack 1234' }],
+            },
           },
-        },
-      ]),
+        ],
+      })),
       getMcp: vi.fn(async () => [slackMcp]),
       catalog: createMockCatalog({
         connectorCatalog: {
@@ -177,8 +179,8 @@ describe('ScheduleFormDrawer', () => {
         },
         { name: 'other-agent', agentId: 'other-agent' },
       ];
-      if (query == null || query === '') return agents;
-      return agents.filter(agent => agent.name.toLowerCase().includes(query.toLowerCase()));
+      if (query == null || query === '') return { data: agents };
+      return { data: agents.filter(agent => agent.name.toLowerCase().includes(query.toLowerCase())) };
     });
     renderDrawer({ server: createMockAgentUIServer({ searchAgents }) });
 
@@ -197,7 +199,7 @@ describe('ScheduleFormDrawer', () => {
   it('offers to build an agent when none have been created', async () => {
     const onOpenChange = vi.fn();
     renderDrawer({
-      server: createMockAgentUIServer({ searchAgents: vi.fn(async () => []) }),
+      server: createMockAgentUIServer({ searchAgents: vi.fn(async () => ({ data: [] })) }),
       onOpenChange,
       withShell: true,
     });
@@ -365,16 +367,18 @@ describe('ScheduleFormDrawer', () => {
     const getMcp = vi.fn(async () => [{ ...slackMcp, authenticated }]);
     renderDrawer({
       server: createMockAgentUIServer({
-        searchAgents: vi.fn(async () => [
-          {
-            name: 'demo-agent',
-            agentId: 'demo-agent',
-            agentSpec: {
-              model: { name: 'openai/gpt-4.1' },
-              mcpServers: [{ name: 'Slack 1234' }],
+        searchAgents: vi.fn(async () => ({
+          data: [
+            {
+              name: 'demo-agent',
+              agentId: 'demo-agent',
+              agentSpec: {
+                model: { name: 'openai/gpt-4.1' },
+                mcpServers: [{ name: 'Slack 1234' }],
+              },
             },
-          },
-        ]),
+          ],
+        })),
         getMcp,
         catalog: createMockCatalog({
           connectorCatalog: {
@@ -461,16 +465,18 @@ describe('ScheduleFormDrawer', () => {
   });
 
   it('prefills create from an agent id that differs from the name', async () => {
-    const searchAgents = vi.fn(async (_opts: { query?: string; limit?: number; offset?: number } = {}) => [
-      {
-        name: 'Demo Bot',
-        agentId: 'agt_demo',
-        agentSpec: {
-          model: { name: 'openai/gpt-4.1' },
-          mcpServers: [{ name: 'Slack 1234' }],
+    const searchAgents = vi.fn(async (_opts: { query?: string; limit?: number; pageToken?: string } = {}) => ({
+      data: [
+        {
+          name: 'Demo Bot',
+          agentId: 'agt_demo',
+          agentSpec: {
+            model: { name: 'openai/gpt-4.1' },
+            mcpServers: [{ name: 'Slack 1234' }],
+          },
         },
-      },
-    ]);
+      ],
+    }));
     renderDrawer({
       server: createMockAgentUIServer({
         searchAgents,
@@ -494,7 +500,7 @@ describe('ScheduleFormDrawer', () => {
     await waitFor(() => {
       expect(screen.getByRole('combobox', { name: 'Agent' })).toHaveValue('Demo Bot');
     });
-    expect(searchAgents).toHaveBeenCalledWith(expect.objectContaining({ limit: expect.any(Number), offset: 0 }));
+    expect(searchAgents).toHaveBeenCalledWith(expect.objectContaining({ limit: expect.any(Number) }));
     expect(searchAgents.mock.calls.some(call => call[0]?.query != null)).toBe(false);
   });
 
@@ -506,21 +512,25 @@ describe('ScheduleFormDrawer', () => {
     const searchAgents = vi.fn(async ({ query }: { query?: string } = {}) => {
       if (query == null || query === '') {
         await prefillPromise;
-        return [
+        return {
+          data: [
+            {
+              name: 'Prefill Bot',
+              agentId: 'agt_prefill',
+              agentSpec: { model: { name: 'openai/gpt-4.1' }, mcpServers: [] },
+            },
+          ],
+        };
+      }
+      return {
+        data: [
           {
-            name: 'Prefill Bot',
-            agentId: 'agt_prefill',
+            name: 'Picked Bot',
+            agentId: 'agt_picked',
             agentSpec: { model: { name: 'openai/gpt-4.1' }, mcpServers: [] },
           },
-        ];
-      }
-      return [
-        {
-          name: 'Picked Bot',
-          agentId: 'agt_picked',
-          agentSpec: { model: { name: 'openai/gpt-4.1' }, mcpServers: [] },
-        },
-      ];
+        ],
+      };
     });
 
     renderDrawer({

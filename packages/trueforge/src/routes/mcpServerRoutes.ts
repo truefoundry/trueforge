@@ -2,6 +2,7 @@ import { createRoute, z } from '@hono/zod-openapi';
 import { RequestErrorResponseSchema } from '../schemas/errors';
 import {
   CreateMcpServerRequestSchema,
+  DeleteMcpServerResponseSchema,
   GetAvailableMcpServerResponseSchema,
   GetMcpServerResponseSchema,
   ListAvailableMcpServersResponseSchema,
@@ -179,6 +180,39 @@ export const putMcpServerRoute = createRoute({
     422: {
       content: { 'application/json': { schema: RequestErrorResponseSchema } },
       description: 'The server cannot satisfy `auth.type: dcr` (e.g. it advertises no registration_endpoint).',
+    },
+    424: {
+      content: { 'application/json': { schema: RequestErrorResponseSchema } },
+      description: 'Unsupported operation because the MCP servers are managed by external system',
+    },
+  },
+});
+
+export const deleteMcpServerRoute = createRoute({
+  method: 'delete',
+  path: '/{name}',
+  tags: [OpenApiTag.MCP_SERVERS],
+  summary: 'Delete an MCP server',
+  description:
+    'Deletes an MCP server by `name`, along with every stored OAuth token for it. ' +
+    'Rejected while any agent still lists the server.',
+  'x-fern-sdk-group-name': ['settings', 'mcpServers'],
+  'x-fern-sdk-method-name': 'delete',
+  request: {
+    params: McpServerNameParamsSchema,
+  },
+  responses: {
+    200: {
+      content: { 'application/json': { schema: DeleteMcpServerResponseSchema } },
+      description: 'MCP server deleted.',
+    },
+    404: {
+      content: { 'application/json': { schema: RequestErrorResponseSchema } },
+      description: 'MCP server not found.',
+    },
+    409: {
+      content: { 'application/json': { schema: RequestErrorResponseSchema } },
+      description: 'One or more agents still use this MCP server.',
     },
     424: {
       content: { 'application/json': { schema: RequestErrorResponseSchema } },

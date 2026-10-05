@@ -34,7 +34,8 @@ import type {
   RemoveThreadsInput,
   TurnRecordWithoutSnapshot,
   UpdateSessionInput,
-  UpdateTurnStateInput,
+  UpdateTurnNonTerminalStateInput,
+  UpdateTurnTerminalStateInput,
 } from '@truefoundry/trueforge-core/agent-session/store/ISessionStore';
 import {
   decodeOffsetPageToken,
@@ -77,7 +78,8 @@ import {
   freezeAndGetTurn as freezeAndGetTurnQuery,
   getTurn as getTurnQuery,
   listTurns as listTurnsQuery,
-  updateTurnState as updateTurnStateQuery,
+  updateTurnNonTerminalState as updateTurnNonTerminalStateQuery,
+  updateTurnTerminalState as updateTurnTerminalStateQuery,
 } from './queries/turns';
 
 /** Prefix on session.agent_id when the SF agent is not yet imported locally. */
@@ -108,9 +110,10 @@ type TurnCustom = Record<string, never>;
  *
  * Hard invariants (violations proven by failing tests during prototyping —
  * see the freeze/fence tests):
- * 1. A turn cannot be used as `previous_turn_id` while it is still `running` —
- *    `createTurn` rejects that with PreviousTurnRunningError; callers must
- *    `freezeAndGetTurn` first (barge-in IS cancellation of that predecessor).
+ * 1. A turn cannot be used as `previous_turn_id` while it is still non-terminal
+ *    (`running` or `paused`) — `createTurn` rejects that with
+ *    PreviousTurnRunningError; callers must `freezeAndGetTurn` first
+ *    (barge-in IS cancellation of that predecessor).
  *    Tip-equality is NOT required: new roots and concurrent forks from a
  *    finished tip can leave more than one turn `running` at once.
  * 2. Every turn-scoped write is fenced on `state->>'status' = 'running'`.
@@ -210,8 +213,12 @@ export class PostgresSessionStore implements ISessionStore<SessionCustom, TurnCu
     return { data: result.turns, pagination };
   }
 
-  updateTurnState(input: UpdateTurnStateInput): Promise<void> {
-    return updateTurnStateQuery(this.db, input);
+  updateTurnNonTerminalState(input: UpdateTurnNonTerminalStateInput): Promise<void> {
+    return updateTurnNonTerminalStateQuery(this.db, input);
+  }
+
+  updateTurnTerminalState(input: UpdateTurnTerminalStateInput): Promise<void> {
+    return updateTurnTerminalStateQuery(this.db, input);
   }
 
   appendToEvents(input: AppendToEventsInput): Promise<void> {
@@ -343,6 +350,7 @@ export class PostgresSessionStore implements ISessionStore<SessionCustom, TurnCu
           agent_name: resolvedAgentName,
           agent_spec: resolvedAgentSpec !== null ? jsonUnknown<AgentSpec>(resolvedAgentSpec) : null,
           title: session.title,
+          shared: false,
           last_turn_id: session.last_turn_id,
           custom: session.custom !== null ? json(session.custom) : null,
           metadata: json(metadata),

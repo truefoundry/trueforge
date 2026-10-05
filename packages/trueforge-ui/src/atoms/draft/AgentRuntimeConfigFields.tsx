@@ -1,6 +1,11 @@
 'use client';
 
+import { useMemo } from 'react';
+
+import { Icon } from '../../icons/Icon.js';
+import { useOptionalShellMode } from '../../server/ShellModeContext.js';
 import type { AgentCompactionConfig, AgentRuntimeConfig } from '../../server/types.js';
+import { useReadySandboxEnvironments } from '../environments/useReadySandboxEnvironments.js';
 import { cn } from '../lib/cn.js';
 import { auiInputClass } from '../lib/inputClasses.js';
 import { PopoverSelect } from '../primitives/PopoverSelect.js';
@@ -59,6 +64,18 @@ export function AgentRuntimeConfigFields({
   layout = 'compact',
   onChange,
 }: AgentRuntimeConfigFieldsProps) {
+  const shell = useOptionalShellMode();
+  const { environments: readyEnvironments, refetch: refetchEnvironments } = useReadySandboxEnvironments();
+
+  const environmentOptions = useMemo(
+    () =>
+      readyEnvironments.map(env => ({
+        value: env.name,
+        label: env.name,
+      })),
+    [readyEnvironments],
+  );
+
   const withCompaction = (compaction: AgentCompactionConfig): AgentRuntimeConfig => ({
     ...value,
     contextManagement: {
@@ -225,6 +242,45 @@ export function AgentRuntimeConfigFields({
         <section className="py-4">
           {switchField({ field: sandboxField, className: rowClassName })}
           <div className={`mt-3 border-l-2 border-primary-button-bg/50 pl-3 ${sandboxEnabled ? '' : 'opacity-50'}`}>
+            <div className={cn('flex py-4', rowClassName)}>
+              <span className="min-w-0 flex-1">
+                <span className="text-text-primary block text-sm font-medium">Environment</span>
+                <span className="text-text-secondary mt-0.5 block text-xs leading-snug">
+                  Image, resources, network and secrets the sandbox starts with. Stored by name.
+                </span>
+                {shell ? (
+                  <button
+                    type="button"
+                    onClick={() => shell.setEnvironmentsOpen(true)}
+                    className="text-primary-button-bg mt-1.5 inline-flex items-center gap-1 text-xs hover:underline"
+                  >
+                    <span>Manage Environments</span>
+                    <Icon name="external-link" className="size-3" />
+                  </button>
+                ) : null}
+              </span>
+              <div className="flex shrink-0 items-center">
+                <PopoverSelect
+                  aria-label="Environment"
+                  value={value.sandbox?.environment_name?.trim() || 'default'}
+                  options={environmentOptions}
+                  disabled={disabled || !sandboxAvailable || !sandboxEnabled}
+                  className="w-48"
+                  onOpenChange={nextOpen => {
+                    if (nextOpen) void refetchEnvironments();
+                  }}
+                  onValueChange={selected =>
+                    onChange({
+                      ...value,
+                      sandbox: {
+                        ...value.sandbox,
+                        environment_name: selected === 'default' ? undefined : selected,
+                      },
+                    })
+                  }
+                />
+              </div>
+            </div>
             {switchField({ field: fileDownloadsField, className: rowClassName })}
           </div>
         </section>

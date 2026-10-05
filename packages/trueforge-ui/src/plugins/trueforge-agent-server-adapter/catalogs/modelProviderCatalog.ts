@@ -108,7 +108,7 @@ export function toHarnessModelProvider(req: {
   return { type: req.type, auth, models };
 }
 
-/** Settings model-catalog port for `createTrueForgeServer`. Delete is omitted (no BE route). */
+/** Settings model-catalog port for `createTrueForgeServer`. */
 export function createModelProviderCatalog(
   client: TrueForge,
 ): ModelCatalogServer<
@@ -174,6 +174,9 @@ export function createModelProviderCatalog(
         }),
       });
       return toUiModelProvider(body.data);
+    },
+    deleteModelProvider: async ({ id }) => {
+      await client.settings.modelProviders.delete(id);
     },
   };
 }

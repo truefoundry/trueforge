@@ -8,11 +8,13 @@ export type RoutePlace =
   | { type: 'root' }
   | { type: 'agent'; agentName: string }
   | { type: 'session'; sessionId: string }
+  | { type: 'sharedSession'; sessionId: string }
   | { type: 'settings' }
   | { type: 'library' }
   | { type: 'libraryAgent'; agentId: string }
   | { type: 'sessionsBrowser' }
   | { type: 'schedules' }
+  | { type: 'environments' }
   | { type: 'buildAgent' };
 
 /**
@@ -22,7 +24,7 @@ export type RoutePlace =
 export type RoutesConfig = {
   /** Passed to the router; not used for our own match/build (router strips it). */
   basename?: string;
-  /** `agent` and `session` templates MUST keep their `:param` segment to stay addressable. */
+  /** Parameterized templates MUST keep their `:param` segment to stay addressable. */
   paths?: {
     /** New-chat / landing. Default `'/'`. */
     root?: string;
@@ -34,12 +36,16 @@ export type RoutesConfig = {
     libraryAgent?: string | false;
     /** Schedules page. `false` keeps schedules overlay-only (no URL). Default `'/schedules'`. */
     schedules?: string | false;
+    /** Environments page. `false` keeps environments overlay-only (no URL). Default `'/environments'`. */
+    environments?: string | false;
     /** Agent builder. `false` disables its dedicated URL. Default `'/build-agent'`. */
     buildAgent?: string | false;
     /** Immutable "Try" agent. `false` disables. Default `'/agents/:agentName'`. */
     agent?: string | false;
     /** Session deep link. `false` disables. Default `'/sessions/:sessionId'`. */
     session?: string | false;
+    /** Detail-only session share link. `false` disables. Default `'/sessions/share/:sessionId'`. */
+    sharedSession?: string | false;
     /** All-user sessions browser. `false` disables. Default `'/sessions'`. */
     sessionsBrowser?: string | false;
   };
@@ -53,9 +59,11 @@ export type ResolvedRoutes = {
   library: string | null;
   libraryAgent: string | null;
   schedules: string | null;
+  environments: string | null;
   buildAgent: string | null;
   agent: string | null;
   session: string | null;
+  sharedSession: string | null;
   sessionsBrowser: string | null;
 };
 
@@ -64,8 +72,10 @@ export type ShellSnapshot = {
   settingsOpen: boolean;
   libraryOpen: boolean;
   sessionsOpen: boolean;
+  sharedSessionId: string | null;
   libraryAgentId: string | null;
   schedulesOpen: boolean;
+  environmentsOpen: boolean;
   pendingSessionId?: string;
   /** Remote id of the active thread once a fresh chat is persisted. */
   activeRemoteId?: string;

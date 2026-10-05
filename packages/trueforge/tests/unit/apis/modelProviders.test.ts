@@ -1,9 +1,10 @@
+import { AgentSpecSchema } from '@truefoundry/trueforge-core/agent-session';
 import { configureOutboundUrlGuard } from '@truefoundry/trueforge-core/core';
 import winston from 'winston';
 import { createCatalogRouter } from '../../../src/apis/catalog';
 import { createModelsRouter } from '../../../src/apis/models';
 import { createSettingsRouter } from '../../../src/apis/settings';
-import { STANDALONE_REQUEST_CONTEXT } from '../../../src/auth/identity';
+import { createdBySubjectFromRequestContext, STANDALONE_REQUEST_CONTEXT } from '../../../src/auth/identity';
 import { McpCatalog } from '../../../src/catalog/McpCatalog';
 import { ModelCatalog } from '../../../src/catalog/ModelCatalog';
 import { SandboxCatalog } from '../../../src/catalog/SandboxCatalog';
@@ -13,9 +14,11 @@ import configuration from '../../../src/config';
 import { McpServerWithAuthStore } from '../../../src/db/McpServerWithAuthStore';
 import { migrateSqliteToLatest } from '../../../src/db/migrateSqlite';
 import type { IModelProviderStore } from '../../../src/db/modelProviderStore';
+import { SqliteAgentStore } from '../../../src/db/sqlite/agent-store/SqliteAgentStore';
 import { createSqliteDb } from '../../../src/db/sqlite/client';
 import { SqliteMcpServerStore } from '../../../src/db/sqlite/mcp-server-store/SqliteMcpServerStore';
 import { SqliteModelProviderStore } from '../../../src/db/sqlite/model-provider-store/SqliteModelProviderStore';
+import { SqliteSandboxEnvironmentStore } from '../../../src/db/sqlite/sandbox-environment-store/SqliteSandboxEnvironmentStore';
 import { SqliteSandboxProviderStore } from '../../../src/db/sqlite/sandbox-provider-store/SqliteSandboxProviderStore';
 import { SqliteSkillStore } from '../../../src/db/sqlite/skill-store/SqliteSkillStore';
 import { SqliteOAuthTokenStore } from '../../../src/db/sqlite/token-store/SqliteOAuthTokenStore';
@@ -115,11 +118,13 @@ async function createRouters(): Promise<{
   catalogRouter: ReturnType<typeof createCatalogRouter>;
   modelsRouter: ReturnType<typeof createModelsRouter>;
   modelProviderStore: IModelProviderStore;
+  agentStore: SqliteAgentStore;
 }> {
   const db = createSqliteDb(':memory:');
   await migrateSqliteToLatest(db);
   const modelProviderStore = new SqliteModelProviderStore(db);
   const tokenStore = new SqliteOAuthTokenStore(db);
+  const agentStore = new SqliteAgentStore(db);
   return {
     settingsRouter: createSettingsRouter({
       resolveModelProviderStore: () => modelProviderStore,
@@ -132,7 +137,9 @@ async function createRouters(): Promise<{
       tokenStore,
       resolveSkillStore: () => new SqliteSkillStore(db),
       resolveSandboxProviderStore: () => new SqliteSandboxProviderStore(db),
+      sandboxEnvironmentStore: new SqliteSandboxEnvironmentStore(db),
       resolveWebSearchProviderStore: () => new SqliteWebSearchProviderStore(db),
+      resolveAgentStore: () => agentStore,
       withTransaction: callback => db.transaction().execute(callback),
       logger: winston.createLogger({ silent: true }),
       resolveRequestContext: () => STANDALONE_REQUEST_CONTEXT,
@@ -150,6 +157,7 @@ async function createRouters(): Promise<{
       resolveRequestContext: () => STANDALONE_REQUEST_CONTEXT,
     }),
     modelProviderStore,
+    agentStore,
   };
 }
 
@@ -184,6 +192,81 @@ describe('settings model-providers and models routers', () => {
     const list = await settingsRouter.request('/model-providers');
     expect(list.status).toBe(200);
     expect(await list.json()).toEqual({ data: [configured('anthropic', anthropicProviderWire)] });
+  });
+
+  describe('delete and in-use guards', () => {
+    const secondModel = { model_id: 'claude-haiku-4-6', name: 'claude-haiku-4-6', properties: {} };
+
+    async function setup(modelName: string) {
+      const routers = await createRouters();
+      await routers.settingsRouter.request(
+        '/model-providers',
+        putInit({ ...anthropicBody, models: [model, secondModel] }),
+      );
+      await routers.agentStore.createAgent({
+        tenant_id: 'default',
+        created_by_subject: createdBySubjectFromRequestContext(STANDALONE_REQUEST_CONTEXT),
+        name: 'support',
+        description: 'Test agent.',
+        manifest: AgentSpecSchema.parse({ model: { name: modelName } }),
+        external_id: null,
+      });
+      return routers;
+    }
+
+    it('DELETE removes an unused provider', async () => {
+      const { settingsRouter: fresh } = await createRouters();
+      await fresh.request('/model-providers', putInit(anthropicBody));
+
+      const deleted = await fresh.request('/model-providers/anthropic', { method: 'DELETE' });
+      expect(deleted.status).toBe(200);
+      expect(await deleted.json()).toEqual({});
+      expect(await (await fresh.request('/model-providers')).json()).toEqual({ data: [] });
+    });
+
+    it('DELETE returns 404 for an unknown provider', async () => {
+      const { settingsRouter: fresh } = await createRouters();
+      const missing = await fresh.request('/model-providers/anthropic', { method: 'DELETE' });
+      expect(missing.status).toBe(404);
+      expect(await missing.json()).toEqual({ error: { message: 'Model provider not found: anthropic' } });
+    });
+
+    it('DELETE returns 409 naming the agents that still use one of its models', async () => {
+      const { settingsRouter: fresh } = await setup('anthropic/claude-sonnet-4-6');
+
+      const blocked = await fresh.request('/model-providers/anthropic', { method: 'DELETE' });
+      expect(blocked.status).toBe(409);
+      expect(await blocked.json()).toEqual({
+        error: {
+          message:
+            'Still in use — model provider "anthropic" is used by agent support. Update or delete those agents first.',
+        },
+      });
+      expect(await (await fresh.request('/model-providers')).json()).toEqual({
+        data: [configured('anthropic', { ...anthropicProviderWire, models: [model, secondModel] })],
+      });
+    });
+
+    it('PUT returns 409 when it would drop a model an agent still uses', async () => {
+      const { settingsRouter: fresh } = await setup('anthropic/claude-haiku-4-6');
+
+      const blocked = await fresh.request('/model-providers', putInit(anthropicBody));
+      expect(blocked.status).toBe(409);
+      expect(await blocked.json()).toEqual({
+        error: {
+          message:
+            'Still in use — model "anthropic/claude-haiku-4-6" is used by agent support. Update or delete those agents first.',
+        },
+      });
+    });
+
+    it('PUT still drops a model no agent references', async () => {
+      const { settingsRouter: fresh } = await setup('anthropic/claude-sonnet-4-6');
+
+      const shrunk = await fresh.request('/model-providers', putInit(anthropicBody));
+      expect(shrunk.status).toBe(200);
+      expect(await shrunk.json()).toEqual({ data: configured('anthropic', anthropicProviderWire) });
+    });
   });
 
   it('POST creates a provider and returns 409 on name clash', async () => {

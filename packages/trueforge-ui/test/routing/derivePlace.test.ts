@@ -8,8 +8,10 @@ function snap(partial: Partial<ShellSnapshot>): ShellSnapshot {
     settingsOpen: false,
     libraryOpen: false,
     sessionsOpen: false,
+    sharedSessionId: null,
     libraryAgentId: null,
     schedulesOpen: false,
+    environmentsOpen: false,
     mode: { status: 'idle' },
     agentConfigMode: 'AgentLibraryWithComposer',
     ...partial,
@@ -29,6 +31,13 @@ describe('derivePlace', () => {
     expect(derivePlace(snap({ sessionsOpen: true, pendingSessionId: 'abc' }))).toEqual({ type: 'sessionsBrowser' });
   });
 
+  it('shared session wins over the sessions browser', () => {
+    expect(derivePlace(snap({ sessionsOpen: true, sharedSessionId: 'shared-1' }))).toEqual({
+      type: 'sharedSession',
+      sessionId: 'shared-1',
+    });
+  });
+
   it('library agent detail wins over the library list and chat place', () => {
     expect(derivePlace(snap({ libraryOpen: true, libraryAgentId: 'agent-1', pendingSessionId: 'abc' }))).toEqual({
       type: 'libraryAgent',
@@ -46,6 +55,16 @@ describe('derivePlace', () => {
 
   it('settings wins over schedules when both are open', () => {
     expect(derivePlace(snap({ settingsOpen: true, schedulesOpen: true }))).toEqual({ type: 'settings' });
+  });
+
+  it('environments overlay wins over chat when settings/schedules are closed', () => {
+    expect(derivePlace(snap({ environmentsOpen: true, pendingSessionId: 'abc' }))).toEqual({
+      type: 'environments',
+    });
+  });
+
+  it('schedules wins over environments when both are open', () => {
+    expect(derivePlace(snap({ schedulesOpen: true, environmentsOpen: true }))).toEqual({ type: 'schedules' });
   });
 
   it('pendingSessionId maps to a session while no thread has reported yet', () => {

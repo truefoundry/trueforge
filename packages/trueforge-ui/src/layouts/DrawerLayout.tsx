@@ -12,6 +12,7 @@ import { useIsMobile } from '../atoms/lib/useIsMobile.js';
 import { Spinner } from '../atoms/primitives/Spinner.js';
 import { AgentConfigDrawerContainer } from '../containers/AgentConfigDrawerContainer.js';
 import { Thread } from '../containers/Thread.js';
+import { useChatChromeActionsVisible } from '../hooks/useChatChromeActionsVisible.js';
 import { Icon } from '../icons/Icon.js';
 import { shellIsCreateAgent, useOptionalShellMode } from '../server/ShellModeContext.js';
 import { useSlot } from '../theme/SlotsProvider.js';
@@ -19,6 +20,9 @@ import { useSlot } from '../theme/SlotsProvider.js';
 const TruefoundrySettingsBuilder = lazy(() => import('../containers/SettingsBuilder/index.js'));
 const SchedulesPage = lazy(() =>
   import('../atoms/schedules/SchedulesPage.js').then(m => ({ default: m.SchedulesPage })),
+);
+const EnvironmentsPage = lazy(() =>
+  import('../atoms/environments/EnvironmentsPage.js').then(m => ({ default: m.EnvironmentsPage })),
 );
 
 export function DrawerLayout({ className }: { className?: string }) {
@@ -29,6 +33,7 @@ export function DrawerLayout({ className }: { className?: string }) {
   const AgentDetailsPage = useSlot('AgentDetailsPage');
   const AgentsLibrary = useSlot('AgentsLibrary');
   const SessionsPage = useSlot('SessionsPage');
+  const ShareChatButton = useSlot('ShareChatButton');
   const SaveAgentButton = useSlot('SaveAgentButton');
   const SelectAgentEmptyState = useSlot('SelectAgentEmptyState');
   const UserAvatar = useSlot('UserAvatar');
@@ -38,7 +43,9 @@ export function DrawerLayout({ className }: { className?: string }) {
   const libraryOpen = shell?.libraryOpen === true;
   const sessionsOpen = shell?.sessionsOpen === true;
   const schedulesOpen = shell?.schedulesOpen === true;
-  const overlayOpen = settingsOpen || libraryOpen || sessionsOpen || schedulesOpen;
+  const environmentsOpen = shell?.environmentsOpen === true;
+  const overlayOpen = settingsOpen || libraryOpen || sessionsOpen || schedulesOpen || environmentsOpen;
+  const chatChromeActionsVisible = useChatChromeActionsVisible();
   const showAgentConfig =
     shell != null && shellIsCreateAgent(shell.mode) && !overlayOpen && (!isMobile || shell.agentConfigOpen);
   const showNewActions = shell?.isNewChatEnabled !== false;
@@ -52,6 +59,7 @@ export function DrawerLayout({ className }: { className?: string }) {
     }
     shell?.setSettingsOpen(false);
     shell?.setSchedulesOpen(false);
+    shell?.setEnvironmentsOpen(false);
     void Promise.resolve(aui.threads().switchToNewThread()).catch(() => undefined);
   };
 
@@ -82,13 +90,14 @@ export function DrawerLayout({ className }: { className?: string }) {
           title={
             !overlayOpen ? (
               <NamedAgentHeaderLabel />
-            ) : libraryOpen || schedulesOpen ? (
+            ) : libraryOpen || schedulesOpen || environmentsOpen ? (
               <button
                 type="button"
                 className={auiButtonClass({ variant: 'ghost', size: 'small' })}
                 onClick={() => {
                   shell?.setLibraryOpen(false);
                   shell?.setSchedulesOpen(false);
+                  shell?.setEnvironmentsOpen(false);
                 }}
               >
                 <Icon name="arrow-left" />
@@ -100,6 +109,7 @@ export function DrawerLayout({ className }: { className?: string }) {
             <>
               {!overlayOpen ? (
                 <>
+                  <ShareChatButton />
                   <ClearChatButton />
                   <SaveAgentButton />
                 </>
@@ -108,7 +118,7 @@ export function DrawerLayout({ className }: { className?: string }) {
               <UserAvatar />
               {!overlayOpen ? (
                 <>
-                  {showNewActions ? (
+                  {showNewActions && !chatChromeActionsVisible ? (
                     <button
                       type="button"
                       aria-label="New Chat"
@@ -173,6 +183,22 @@ export function DrawerLayout({ className }: { className?: string }) {
               }
             >
               <SchedulesPage />
+            </Suspense>
+          ) : environmentsOpen ? (
+            <Suspense
+              fallback={
+                <div
+                  className="flex h-full items-center justify-center"
+                  role="status"
+                  aria-live="polite"
+                  aria-busy="true"
+                >
+                  <Spinner size={28} className="text-text-primary" />
+                  <span className="sr-only">Loading</span>
+                </div>
+              }
+            >
+              <EnvironmentsPage />
             </Suspense>
           ) : isIdle ? (
             <SelectAgentEmptyState />

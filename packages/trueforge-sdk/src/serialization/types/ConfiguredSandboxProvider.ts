@@ -3,7 +3,6 @@
 import type * as TrueForge from "../../api/index.js";
 import * as core from "../../core/index.js";
 import type * as serializers from "../index.js";
-import { SandboxBuildStatus } from "./SandboxBuildStatus.js";
 import { SandboxProviderManifest } from "./SandboxProviderManifest.js";
 
 export const ConfiguredSandboxProvider: core.serialization.ObjectSchema<
@@ -11,14 +10,10 @@ export const ConfiguredSandboxProvider: core.serialization.ObjectSchema<
     TrueForge.ConfiguredSandboxProvider
 > = core.serialization.object({
     manifest: SandboxProviderManifest,
-    status: SandboxBuildStatus,
-    statusReason: core.serialization.property("status_reason", core.serialization.string().nullable()),
 });
 
 export declare namespace ConfiguredSandboxProvider {
     export interface Raw {
         manifest: SandboxProviderManifest.Raw;
-        status: SandboxBuildStatus.Raw;
-        status_reason?: string | null;
     }
 }

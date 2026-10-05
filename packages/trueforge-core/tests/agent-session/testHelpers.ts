@@ -2,8 +2,13 @@ import { ulid } from 'ulid';
 import type { ITurnResourceResolver } from '../../src/agent-session/ITurnResourceResolver';
 import { MAIN_THREAD_ID, type TurnRecord } from '../../src/agent-session/models/TurnRecord';
 import { AgentSpecSchema, type AgentSpec } from '../../src/agent-session/schemas/agentSpec';
-import { EventType } from '../../src/agent-session/schemas/events';
-import { CancellationReason, type TerminalTurnState } from '../../src/agent-session/schemas/turn';
+import { EventType, type TurnUpdateEvent } from '../../src/agent-session/schemas/events';
+import {
+  CancellationReason,
+  type NonTerminalTurnState,
+  type TerminalTurnState,
+  type TurnState,
+} from '../../src/agent-session/schemas/turn';
 import type { CreateTurnInput, NewThreadInit, TurnContextAppend } from '../../src/agent-session/store/ISessionStore';
 import { TurnResourceResolver } from '../../src/agent-session/TurnResourceResolver';
 import type { AgentCapability } from '../../src/core/capabilities/AgentCapability';
@@ -34,7 +39,7 @@ export function makeAgentSpec(
     model?: { name: string };
     config?: {
       iteration_limit?: number;
-      sandbox?: { enabled: boolean; file_downloads?: boolean };
+      sandbox?: { enabled: boolean; file_downloads?: boolean; environment_name?: string };
       ask_user_questions?: { enabled?: boolean };
       dynamic_sub_agents?: { enabled?: boolean };
       generative_ui?: { enabled?: boolean };
@@ -154,6 +159,23 @@ export function makeTurnDoneEvent(state: TerminalTurnState) {
   };
 }
 
+export function makePausedTurnState(actionIds: string[] = [newEventId()]): Extract<TurnState, { status: 'paused' }> {
+  return {
+    status: 'paused',
+    action_required_on_events: actionIds.map(id => ({ id })),
+  };
+}
+
+export function makeTurnUpdateEvent(state: NonTerminalTurnState): TurnUpdateEvent {
+  return {
+    type: EventType.TURN_UPDATE,
+    id: newEventId(),
+    created_at: new Date().toISOString(),
+    state,
+    thread_id: null,
+  };
+}
+
 const defaultRootThread: NewThreadInit = {
   thread_id: MAIN_THREAD_ID,
   parent: null,
@@ -168,7 +190,9 @@ export function makeCreateTurnInput(input: {
   previousTurnId?: string | null;
   firstTurnId?: string;
   new_threads?: NewThreadInit[];
-  new_context_appends?: TurnContextAppend[];
+  new_context_appends?: (Omit<TurnContextAppend, 'completion'> & {
+    completion?: TurnContextAppend['completion'];
+  })[];
   capability_states?: CreateTurnInput['capability_states'];
   update_session_title_if_not_exist?: string;
 }): CreateTurnInput {
@@ -185,7 +209,10 @@ export function makeCreateTurnInput(input: {
   return {
     turn: turnInit,
     new_threads: isFirstInChain ? (input.new_threads ?? [defaultRootThread]) : (input.new_threads ?? []),
-    new_context_appends: input.new_context_appends ?? [],
+    new_context_appends: (input.new_context_appends ?? []).map(append => ({
+      ...append,
+      completion: append.completion ?? null,
+    })),
     capability_states: input.capability_states ?? [{ thread_id: MAIN_THREAD_ID, capability_state: null }],
     update_session_title_if_not_exist: input.update_session_title_if_not_exist ?? null,
   };

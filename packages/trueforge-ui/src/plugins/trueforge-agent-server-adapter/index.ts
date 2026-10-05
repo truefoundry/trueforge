@@ -14,6 +14,7 @@ import { createWebSearchProviderCatalog } from './catalogs/webSearchProviderCata
 import { createHarnessChatServer } from './chatServer.js';
 import { createTrueForgeClient, type CreateTrueForgeClientOptions } from './client.js';
 import { createHarnessPermissionsServer } from './permissionsServer.js';
+import { createSandboxEnvironmentServer } from './sandboxEnvironments/sandboxEnvironmentServer.js';
 import { createScheduleServer } from './schedules/scheduleServer.js';
 import type { HarnessAgentSpec } from './types.js';
 
@@ -49,13 +50,11 @@ export {
   toHarnessManifest as toHarnessSandboxManifest,
   toUiCatalogEntry as toUiSandboxCatalogEntry,
   toUiSandboxProvider,
-  toUiSandboxProviderListEntry,
   type DaytonaSandboxCatalogServer,
   type DaytonaSandboxConfig,
   type UiCreateSandboxProviderRequest,
   type UiSandboxProvider,
   type UiSandboxProviderCatalogEntry,
-  type UiSandboxProviderListEntry,
   type UiUpdateSandboxProviderRequest,
 } from './catalogs/sandboxProviderCatalog.js';
 export { createSkillCatalog, toHarnessManifest as toHarnessSkillManifest, toUiSkill } from './catalogs/skillCatalog.js';
@@ -76,6 +75,7 @@ export { createTrueForgeClient } from './client.js';
 export type { CreateTrueForgeClientOptions } from './client.js';
 export { getCapabilities, listConfiguredMcpServers, listModels, listSkills } from './lists.js';
 export { createHarnessPermissionsServer, type CreateHarnessPermissionsServerOptions } from './permissionsServer.js';
+export { createSandboxEnvironmentServer } from './sandboxEnvironments/sandboxEnvironmentServer.js';
 export { createScheduleServer } from './schedules/scheduleServer.js';
 export type { HarnessAgentSpec, HarnessMcpServerMount, HarnessSkillMount } from './types.js';
 
@@ -109,6 +109,11 @@ export function createTrueForgeAgentUIServer(options: CreateTrueForgeAgentUIServ
     sessions: createHarnessAgentSessionsServer({ ...clientOptions, client }),
     metrics: createHarnessAgentMetricsServer({ ...clientOptions, client }),
     schedules: createScheduleServer({ client }),
+    sandboxEnvironments: createSandboxEnvironmentServer({ client }),
     permissions: permissions ?? createHarnessPermissionsServer({ client }),
+    getMe: async () => {
+      const { data } = await client.auth.me();
+      return { tenantId: data.tenantId };
+    },
   });
 }

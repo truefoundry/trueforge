@@ -4,13 +4,14 @@ import type { RequestContext } from '../auth/identity';
 import type {
   AgentSkillsInput,
   CreateSkillInput,
+  DeleteSkillInput,
   ISkillStore,
   ListSkillsInput,
   SkillRecord,
   UpsertSkillInput,
 } from '../db/skillStore';
 import type { SkillVersion, TrueFoundryRegistrySkill } from '../schemas/skill';
-import { callerAccessToken, type ResolveAccessToken } from './accessToken';
+import { callerAccessToken, type ResolveServiceFoundryAuthorization } from './accessToken';
 import { trueFoundryManaged } from './errors';
 import {
   mapSfyRegistrySkills,
@@ -110,7 +111,7 @@ export class TrueFoundrySkillStore<TTransaction = never>
   implements ISkillStore<TTransaction>
 {
   readonly #client: TrueFoundrySkillApiClient;
-  readonly #resolveAccessToken: ResolveAccessToken;
+  readonly #resolveAccessToken: ResolveServiceFoundryAuthorization;
 
   constructor(input: { client: TrueFoundrySkillApiClient; context: RequestContext }) {
     super(input);
@@ -138,6 +139,12 @@ export class TrueFoundrySkillStore<TTransaction = never>
   }
 
   upsertSkill(input: UpsertSkillInput, transaction?: TTransaction): Promise<SkillRecord> {
+    void input;
+    void transaction;
+    return trueFoundryManaged();
+  }
+
+  deleteSkill(input: DeleteSkillInput, transaction?: TTransaction): Promise<boolean> {
     void input;
     void transaction;
     return trueFoundryManaged();

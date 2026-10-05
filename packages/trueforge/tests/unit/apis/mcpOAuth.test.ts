@@ -6,11 +6,13 @@ import { configureOutboundUrlGuard } from '@truefoundry/trueforge-core/core';
 import winston from 'winston';
 import { createMcpOAuthRouter } from '../../../src/apis/mcpOAuth';
 import { createMcpServersRouter, createSettingsMcpServersRouter } from '../../../src/apis/mcpServers';
+import type { RequestContext } from '../../../src/auth/identity';
 import { STANDALONE_REQUEST_CONTEXT } from '../../../src/auth/identity';
 import configuration from '../../../src/config';
 import { McpServerWithAuthStore } from '../../../src/db/McpServerWithAuthStore';
 import type { IMcpServerWithAuthStore } from '../../../src/db/mcpServerStore';
 import { migrateSqliteToLatest } from '../../../src/db/migrateSqlite';
+import { SqliteAgentStore } from '../../../src/db/sqlite/agent-store/SqliteAgentStore';
 import { createSqliteDb } from '../../../src/db/sqlite/client';
 import { SqliteMcpServerStore } from '../../../src/db/sqlite/mcp-server-store/SqliteMcpServerStore';
 import { SqliteOAuthTokenStore } from '../../../src/db/sqlite/token-store/SqliteOAuthTokenStore';
@@ -94,6 +96,7 @@ describe('MCP OAuth authorize + callback', () => {
   let tokenStore: SqliteOAuthTokenStore;
   let withTransaction: <T>(callback: (transaction: unknown) => Promise<T>) => Promise<T>;
   let logger: ReturnType<typeof winston.createLogger>;
+  let callbackSession: RequestContext | undefined;
 
   beforeAll(async () => {
     configureOutboundUrlGuard({
@@ -112,6 +115,7 @@ describe('MCP OAuth authorize + callback', () => {
     logger = winston.createLogger({ silent: true });
     settingsRouter = createSettingsMcpServersRouter({
       resolveMcpServerStore: () => mcpServerStore,
+      resolveAgentStore: () => new SqliteAgentStore(db),
       tokenStore,
       withTransaction,
       logger,
@@ -128,11 +132,13 @@ describe('MCP OAuth authorize + callback', () => {
       tokenStore,
       mcpServerStore,
       logger,
+      resolveSession: async () => callbackSession,
     });
   });
 
   beforeEach(() => {
     stubOauthFetch();
+    callbackSession = STANDALONE_REQUEST_CONTEXT;
   });
 
   afterEach(() => {
@@ -217,12 +223,36 @@ describe('MCP OAuth authorize + callback', () => {
     expect(await reauthorize.json()).toEqual({ status: 'authenticated' });
   });
 
+  it('callback rejects when the completing browser has no session', async () => {
+    const state = await pendingState('oauth-mcp-no-session', FE_RETURN_TO);
+    callbackSession = undefined;
+
+    const callback = await oauthRouter.request(`/callback?state=${encodeURIComponent(state)}&code=auth-code-1`);
+    expect(callback.status).toBe(400);
+    expect(await callback.json()).toEqual({ error: { message: 'Authentication required to complete OAuth' } });
+  });
+
+  it('callback rejects when the session subject does not match the pending user', async () => {
+    const state = await pendingState('oauth-mcp-wrong-user', FE_RETURN_TO);
+    callbackSession = {
+      tenant_id: 'default',
+      subject: { id: 'other-user', type: 'user', display_name: 'other-user' },
+      roles: [],
+      user_credential: null,
+    };
+
+    const callback = await oauthRouter.request(`/callback?state=${encodeURIComponent(state)}&code=auth-code-1`);
+    expect(callback.status).toBe(302);
+    expect(callback.headers.get('location')).toBe(
+      `${FE_RETURN_TO}?isSuccess=false&reason=OAuth+session+does+not+match+the+authorizing+user`,
+    );
+  });
+
   it('callback returns 400 JSON when the pending row is gone, since its landing path went with it', async () => {
     const unknown = await oauthRouter.request('/callback?state=no-such-state&code=x');
     expect(unknown.status).toBe(400);
     expect(await unknown.json()).toEqual({ error: { message: 'Unknown or expired OAuth state' } });
 
-    // The missing row is the reason reported, even when the IdP also sent an `error`.
     const denied = await oauthRouter.request('/callback?state=any&error=access_denied&error_description=user%20denied');
     expect(denied.status).toBe(400);
     expect(await denied.json()).toEqual({ error: { message: 'Unknown or expired OAuth state' } });

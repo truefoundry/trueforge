@@ -34,6 +34,8 @@ import type { UseTrueForgeAgentRuntimeOptions } from './types.js';
 import { resolveTrueForgeAgentRuntimeOptions } from './types.js';
 import { useTrueForgeAgentMessages } from './useTrueForgeAgentMessages.js';
 
+const EMPTY_NAMED_DEFAULT_SPEC: AgentSpec = { model: { name: '' } };
+
 /**
  * Wraps the mode-specific adapter behind a stable object so assistant-ui does
  * not treat a draft/named mode switch as an adapter change (which would reset
@@ -60,10 +62,27 @@ function useTrueForgeAgentRuntimeImpl(
   const { server, agent, adapters, onError, ...sharedOptions } = options;
 
   const draftBridgeRef = useRef(agent.mode === 'draft' ? createDraftSessionBridge(server) : null);
+  if (agent.mode === 'draft' && draftBridgeRef.current == null) {
+    draftBridgeRef.current = createDraftSessionBridge(server);
+  }
+  // Named sessions keep the same runtimeKey as New Chat; do not keep the draft
+  // bridge armed or a fresh `{ model: { name: '' } }` will retrigger spec sync.
+  const draftBridge = agent.mode === 'draft' ? draftBridgeRef.current : null;
 
-  const draftSessionId = useAuiState(state =>
-    agent.mode === 'draft' ? (state.threadListItem.remoteId ?? undefined) : undefined,
-  );
+  // Only attach a draftSessionId if the thread itself is mutable.
+  // When browsing Chat History or switching to an immutable session, the shell
+  // may still be in draft mode, but immutable chats have no draft spec to sync.
+  const draftSessionId = useAuiState(state => {
+    if (agent.mode !== 'draft') {
+      return undefined;
+    }
+    const custom = state.threadListItem.custom;
+    const isMutable = custom != null && typeof custom['isMutable'] === 'boolean' ? custom['isMutable'] : true;
+    if (!isMutable) {
+      return undefined;
+    }
+    return state.threadListItem.remoteId ?? undefined;
+  });
   const sessionId = useAuiState(state => state.threadListItem.remoteId ?? undefined);
   const isMain = useAuiState(state => state.threads.mainThreadId === state.threadListItem.id);
   // On a hard refresh, the URL session runtime mounts before assistant-ui
@@ -72,8 +91,8 @@ function useTrueForgeAgentRuntimeImpl(
 
   const draftSpec = useDraftAgentSpec({
     draftSessionId,
-    draftBridge: draftBridgeRef.current,
-    defaultAgentSpec: agent.mode === 'draft' ? agent.defaultAgentSpec : { model: { name: '' } },
+    draftBridge,
+    defaultAgentSpec: agent.mode === 'draft' ? agent.defaultAgentSpec : EMPTY_NAMED_DEFAULT_SPEC,
     onAgentSpecChange: agent.mode === 'draft' ? agent.onAgentSpecChange : undefined,
     onError,
   });

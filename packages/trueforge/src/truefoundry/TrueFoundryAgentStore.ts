@@ -2,6 +2,7 @@ import type { AgentSpec, TokenPagination } from '@truefoundry/trueforge-core/age
 import { sql, type Kysely, type Transaction } from 'kysely';
 import type { RequestContext } from '../auth/identity';
 import {
+  type AgentCatalogUsageRow,
   type AgentExternalIdRow,
   type AgentRecord,
   type CreateAgentInput,
@@ -10,6 +11,8 @@ import {
   type GetExternalIdsByIdsInput,
   type GetOwnedIdsInput,
   type IAgentStore,
+  type ListAgentCatalogUsageInput,
+  type ListAgentNamesUsingSandboxEnvironmentInput,
   type ListAgentsInput,
   type UpdateAgentInput,
 } from '../db/agentStore';
@@ -17,7 +20,7 @@ import { PostgresAgentStore } from '../db/postgres/agent-store/PostgresAgentStor
 import type { Database } from '../db/postgres/types';
 import { AGENT_DESCRIPTION_MAX_LENGTH } from '../schemas/agent';
 import { captureCriticalException } from '../sentry';
-import { callerAccessToken, type ResolveAccessToken } from './accessToken';
+import { callerAccessToken, type ResolveServiceFoundryAuthorization } from './accessToken';
 import {
   TrueFoundryServiceFoundryServerClient,
   type PutRemoteAgentInput,
@@ -78,7 +81,7 @@ function toPutRemoteAgentPayload({
 export class TrueFoundryAgentStore implements IAgentStore<Transaction<Database>> {
   readonly #inner: PostgresAgentStore;
   readonly #client: TrueFoundryServiceFoundryServerClient;
-  readonly #resolveAccessToken: ResolveAccessToken;
+  readonly #resolveAccessToken: ResolveServiceFoundryAuthorization;
   readonly #db: Kysely<Database>;
 
   constructor(input: {
@@ -113,6 +116,20 @@ export class TrueFoundryAgentStore implements IAgentStore<Transaction<Database>>
 
   getAgent(input: GetAgentInput, transaction?: Transaction<Database>): Promise<AgentRecord | undefined> {
     return this.#inner.getAgent(input, transaction);
+  }
+
+  listAgentCatalogUsage(
+    input: ListAgentCatalogUsageInput,
+    transaction?: Transaction<Database>,
+  ): Promise<readonly AgentCatalogUsageRow[]> {
+    return this.#inner.listAgentCatalogUsage(input, transaction);
+  }
+
+  listAgentNamesUsingSandboxEnvironment(
+    input: ListAgentNamesUsingSandboxEnvironmentInput,
+    transaction?: Transaction<Database>,
+  ): Promise<readonly string[]> {
+    return this.#inner.listAgentNamesUsingSandboxEnvironment(input, transaction);
   }
 
   // Takes a Postgres transaction advisory lock for this tenant + agent id so concurrent

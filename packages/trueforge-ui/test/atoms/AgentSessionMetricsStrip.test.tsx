@@ -1,7 +1,8 @@
 // @vitest-environment jsdom
-import { render, screen } from '@testing-library/react';
+import { fireEvent, render, screen } from '@testing-library/react';
 import { describe, expect, it } from 'vitest';
 
+import { CostBreakdownRows } from '@/atoms/agent-details/AgentSessionMetricCharts.js';
 import { AgentSessionMetricsStrip } from '@/atoms/agent-details/AgentSessionMetricsStrip.js';
 import type { SessionMetrics } from '@/utils/buildSessionMetrics.js';
 
@@ -68,5 +69,41 @@ describe('AgentSessionMetricsStrip', () => {
     expect(document.querySelector('[data-slot="agent-session-metrics-strip"] > div')).toHaveClass(
       '@min-[48rem]:grid-cols-7',
     );
+  });
+
+  it.each(['wall-time', 'cost', 'tokens', 'context', 'tool-calls'] as const)(
+    'renders the %s tooltip with interactive pointer-events when hovered',
+    tileId => {
+      render(<AgentSessionMetricsStrip metrics={metrics} />);
+      const tile = document.querySelector(`[data-slot="session-metric-${tileId}"]`);
+      expect(tile).not.toBeNull();
+      fireEvent.mouseEnter(tile!);
+      const tooltip = document.querySelector('[role="tooltip"]');
+      expect(tooltip).not.toBeNull();
+      expect(tooltip!.className).toMatch(/pointer-events-auto/);
+    },
+  );
+});
+
+describe('CostBreakdownRows', () => {
+  it('renders a row for each datum with label and formatted cost', () => {
+    render(
+      <CostBreakdownRows
+        data={[
+          { label: 'T1', value: 2, color: '#f59e0b' },
+          { label: 'T2', value: 0.6, color: '#f59e0b' },
+        ]}
+      />,
+    );
+
+    expect(screen.getByText('T1')).toBeInTheDocument();
+    expect(screen.getByText('T2')).toBeInTheDocument();
+    expect(screen.getByText('$2.0000')).toBeInTheDocument();
+    expect(screen.getByText('$0.6000')).toBeInTheDocument();
+  });
+
+  it('renders nothing for an empty dataset', () => {
+    const { container } = render(<CostBreakdownRows data={[]} />);
+    expect(container.firstChild).toBeEmptyDOMElement();
   });
 });

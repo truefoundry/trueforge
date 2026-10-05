@@ -38,6 +38,12 @@ describe('sessionShareUrl', () => {
     );
   });
 
+  it('reads the detail-only shared-session view', () => {
+    const share = readSessionShareSearch('?view=shared-session&sessionId=sess-1');
+    assert.equal(share.view, 'shared-session');
+    assert.equal(share.sessionId, 'sess-1');
+  });
+
   it('reads an absolute pinned time range', () => {
     assert.deepEqual(readSessionShareSearch('?s_sts=1000&s_ets=2000'), {
       sessionId: null,

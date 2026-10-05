@@ -192,7 +192,11 @@ function ThreadListItemRow({
   const showActions = showRename || showDelete;
   const renameDisabled = remoteId != null && !canManageResource(remoteId);
   const deleteDisabled = remoteId != null && !canDeleteResource(remoteId);
-  const sidebarNavOpen = shell?.libraryOpen === true || shell?.sessionsOpen === true || shell?.schedulesOpen === true;
+  const sidebarNavOpen =
+    shell?.libraryOpen === true ||
+    shell?.sessionsOpen === true ||
+    shell?.schedulesOpen === true ||
+    shell?.environmentsOpen === true;
   const [renameOpen, setRenameOpen] = useState(false);
   const [renameSaving, setRenameSaving] = useState(false);
 
@@ -227,6 +231,7 @@ function ThreadListItemRow({
           shell?.setLibraryOpen(false);
           shell?.setSessionsOpen(false);
           shell?.setSchedulesOpen(false);
+          shell?.setEnvironmentsOpen(false);
 
           // Prefer custom.isMutable (session wire); agentName-only is a legacy fallback.
           const sessionMutable = threadListItemIsMutable(custom);
@@ -406,6 +411,7 @@ export function ThreadListContainer({ onThreadOpen, variant = 'default' }: Threa
   const AgentsLibraryButton = useSlot('AgentsLibraryButton');
   const SessionsBrowserButton = useSlot('SessionsBrowserButton');
   const SchedulesButton = useSlot('SchedulesButton');
+  const EnvironmentsButton = useSlot('EnvironmentsButton');
   const ThreadListRowSkeleton = useSlot('ThreadListRowSkeleton');
   const ThreadListEmptyState = useSlot('ThreadListEmptyState');
 
@@ -477,6 +483,7 @@ export function ThreadListContainer({ onThreadOpen, variant = 'default' }: Threa
     }
     shell?.setSettingsOpen(false);
     shell?.setSchedulesOpen(false);
+    shell?.setEnvironmentsOpen(false);
     void Promise.resolve(aui.threads().switchToNewThread()).catch(() => undefined);
   };
 
@@ -511,6 +518,7 @@ export function ThreadListContainer({ onThreadOpen, variant = 'default' }: Threa
             <AgentsLibraryButton />
             <SessionsBrowserButton />
             <SchedulesButton />
+            <EnvironmentsButton />
           </div>
         )
       }

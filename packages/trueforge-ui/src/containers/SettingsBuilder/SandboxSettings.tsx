@@ -2,26 +2,18 @@
 
 import { useCallback, useEffect, useMemo, useState } from 'react';
 
-import { Spinner } from '@/atoms/primitives/Spinner.js';
 import { Button } from '../../atoms/primitives/Button.js';
-import { Tooltip } from '../../atoms/primitives/Tooltip.js';
 import { Icon } from '../../icons/Icon.js';
 import {
   isDaytonaSandboxConfig,
   type DaytonaSandboxConfig,
 } from '../../plugins/trueforge-agent-server-adapter/catalogs/sandboxProviderCatalog.js';
 import { useCatalogServer } from '../../server/ServerContext.js';
-import type {
-  SandboxProviderBase,
-  SandboxProviderCatalogEntry,
-  SandboxProviderListEntry,
-  SandboxSnapshotSyncStatus,
-} from '../../server/types.js';
+import type { SandboxProviderBase, SandboxProviderCatalogEntry } from '../../server/types.js';
 import { getErrorMessage } from '../../utils/getErrorMessage.js';
 import { useToasterOptional } from '../ToasterContainer.js';
 import ConfigureSandboxForm, { type SandboxConfigDraft } from './ConfigureSandboxForm.js';
-
-const SNAPSHOT_STATUS_POLL_INTERVAL_MS = 10000;
+import ConfirmDeleteDialog from './ConfirmDeleteDialog.js';
 
 const configFrom = ({
   execTimeoutMs,
@@ -35,36 +27,11 @@ const configFrom = ({
   autoDeleteIntervalInMinutes,
 });
 
-const statusPresentation = (status: SandboxSnapshotSyncStatus['status']): { label: string; className: string } => {
-  switch (status) {
-    case 'pending':
-      return {
-        label: 'Syncing image...',
-        className: 'text-warning-bg',
-      };
-    case 'ready':
-      return {
-        label: 'Connected',
-        className: 'text-success-bg',
-      };
-    case 'failed':
-      return {
-        label: 'Sync failed',
-        className: 'text-failure-bg',
-      };
-    default:
-      return {
-        label: status,
-        className: 'text-text-secondary',
-      };
-  }
-};
-
 const SandboxSettings = () => {
   const { sandboxCatalog } = useCatalogServer();
   const toaster = useToasterOptional();
 
-  const [providers, setProviders] = useState<SandboxProviderListEntry[]>([]);
+  const [providers, setProviders] = useState<SandboxProviderBase[]>([]);
   const [catalog, setCatalog] = useState<SandboxProviderCatalogEntry[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -73,6 +40,8 @@ const SandboxSettings = () => {
 
   const [createEntry, setCreateEntry] = useState<SandboxProviderCatalogEntry | null>(null);
   const [updateProvider, setUpdateProvider] = useState<SandboxProviderBase | null>(null);
+  const [pendingRemoval, setPendingRemoval] = useState<SandboxProviderBase | null>(null);
+  const [removeError, setRemoveError] = useState<string | null>(null);
 
   const refresh = useCallback(
     async ({ quiet = false }: { quiet?: boolean } = {}) => {
@@ -99,51 +68,11 @@ const SandboxSettings = () => {
     void refresh();
   }, [refresh]);
 
-  const hasPendingProvider = providers.some(entry => entry.snapshotSyncStatus.status === 'pending');
-
-  useEffect(() => {
-    if (!sandboxCatalog || !hasPendingProvider) return;
-    const activeSandboxCatalog = sandboxCatalog;
-
-    let cancelled = false;
-    let timeoutId: number | undefined;
-
-    function schedulePoll() {
-      timeoutId = window.setTimeout(() => {
-        void poll();
-      }, SNAPSHOT_STATUS_POLL_INTERVAL_MS);
-    }
-
-    async function poll() {
-      try {
-        const listed = await activeSandboxCatalog.listSandboxProviders();
-        if (cancelled) return;
-        setProviders(listed);
-        setError(null);
-        if (listed.some(entry => entry.snapshotSyncStatus.status === 'pending')) {
-          schedulePoll();
-        }
-      } catch (err) {
-        if (cancelled) return;
-        setError(getErrorMessage(err, 'Failed to refresh sandbox providers'));
-        schedulePoll();
-      }
-    }
-
-    schedulePoll();
-    return () => {
-      cancelled = true;
-      if (timeoutId !== undefined) {
-        window.clearTimeout(timeoutId);
-      }
-    };
-  }, [sandboxCatalog, hasPendingProvider]);
-
   // Tenant/UI-wide: only one sandbox provider may be configured at a time.
   const hasConfiguredProvider = providers.length > 0;
   const availableEntries = useMemo(() => {
     if (hasConfiguredProvider) return [];
-    const connectedCatalogIds = new Set(providers.map(provider => provider.data.catalogId));
+    const connectedCatalogIds = new Set(providers.map(provider => provider.catalogId));
     return catalog.filter(entry => !connectedCatalogIds.has(entry.id));
   }, [catalog, providers, hasConfiguredProvider]);
 
@@ -205,22 +134,20 @@ const SandboxSettings = () => {
     }, 0);
   };
 
-  const handleRetry = (provider: SandboxProviderBase) => {
-    if (!isDaytonaSandboxConfig(provider)) return;
-    void runMutation(async () => {
-      await sandboxCatalog.updateSandboxProvider({
-        id: provider.id,
-        ...configFrom(provider),
-      });
-    }).catch(() => {});
+  const closeRemoveDialog = () => {
+    if (busy) return;
+    setPendingRemoval(null);
+    setRemoveError(null);
   };
 
   const handleRemove = (provider: SandboxProviderBase) => {
     const deleteSandboxProvider = sandboxCatalog.deleteSandboxProvider;
     if (!deleteSandboxProvider) return;
+    setRemoveError(null);
     void runMutation(async () => {
       await deleteSandboxProvider({ id: provider.id });
-    }).catch(() => {});
+      setPendingRemoval(null);
+    }, setRemoveError).catch(() => {});
   };
 
   const formOpen = createEntry != null || updateProvider != null;
@@ -255,94 +182,58 @@ const SandboxSettings = () => {
                   Configured · {providers.length}
                 </h4>
                 <div className="overflow-hidden rounded-xl border border-border bg-card-bg">
-                  {providers.map(entry => {
-                    const provider = entry.data;
-                    const status = statusPresentation(entry.snapshotSyncStatus.status);
-                    const statusReason = entry.snapshotSyncStatus.statusReason;
-                    const statusIndicator = (
-                      <span className={`inline-flex items-center gap-1.5 text-sm font-medium ${status.className}`}>
-                        {entry.snapshotSyncStatus.status === 'pending' ? (
-                          <Spinner size={16} aria-label="Syncing snapshot image" />
-                        ) : entry.snapshotSyncStatus.status === 'ready' ? (
-                          <span className="size-2 rounded-full bg-success-bg" aria-hidden />
-                        ) : entry.snapshotSyncStatus.status === 'failed' ? (
-                          <Icon name="triangle-exclamation" className="size-4" />
-                        ) : null}
-                        {status.label}
-                      </span>
-                    );
-                    return (
-                      <article
-                        key={provider.id}
-                        className="flex flex-col gap-3 border-b border-border p-3 last:border-b-0 sm:flex-row sm:items-center"
-                      >
-                        <div className="flex min-w-0 flex-1 items-center gap-3">
-                          <span
-                            className="flex size-9 shrink-0 items-center justify-center rounded-lg border border-border bg-secondary-bg text-text-primary"
-                            aria-hidden
-                          >
-                            <Icon name="cube" className="size-4.5" />
-                          </span>
-                          <div className="min-w-0">
-                            <h5 className="truncate text-sm font-medium text-text-primary">{provider.name}</h5>
-                          </div>
+                  {providers.map(provider => (
+                    <article
+                      key={provider.id}
+                      className="flex flex-col gap-3 border-b border-border p-3 last:border-b-0 sm:flex-row sm:items-center"
+                    >
+                      <div className="flex min-w-0 flex-1 items-center gap-3">
+                        <span
+                          className="flex size-9 shrink-0 items-center justify-center rounded-lg border border-border bg-secondary-bg text-text-primary"
+                          aria-hidden
+                        >
+                          <Icon name="cube" className="size-4.5" />
+                        </span>
+                        <div className="min-w-0">
+                          <h5 className="truncate text-sm font-medium text-text-primary">{provider.name}</h5>
                         </div>
+                      </div>
 
-                        <div className="flex flex-wrap items-center gap-2.5 sm:justify-end">
-                          {statusIndicator}
-                          {statusReason ? (
-                            <Tooltip content={statusReason}>
-                              <button
-                                type="button"
-                                aria-label="Snapshot sync status details"
-                                className="inline-flex text-text-secondary transition-colors hover:text-text-primary"
-                              >
-                                <Icon name="info" className="size-4" />
-                              </button>
-                            </Tooltip>
-                          ) : null}
-                          {entry.snapshotSyncStatus.status === 'failed' ? (
-                            <Button.Ghost
-                              size="small"
-                              type="button"
-                              disabled={busy}
-                              onClick={() => {
-                                handleRetry(provider);
-                              }}
-                            >
-                              Retry
-                            </Button.Ghost>
-                          ) : null}
-                          <Button.Secondary
+                      <div className="flex flex-wrap items-center gap-2.5 sm:justify-end">
+                        <span className="inline-flex items-center gap-1.5 text-sm font-medium text-success-bg">
+                          <span className="size-2 rounded-full bg-success-bg" aria-hidden />
+                          Connected
+                        </span>
+                        <Button.Secondary
+                          size="small"
+                          type="button"
+                          disabled={busy}
+                          onClick={() => {
+                            setFormError(null);
+                            setCreateEntry(null);
+                            setUpdateProvider(provider);
+                          }}
+                        >
+                          Update
+                        </Button.Secondary>
+
+                        {sandboxCatalog.deleteSandboxProvider ? (
+                          <Button.Ghost
                             size="small"
+                            className="text-text-secondary"
                             type="button"
                             disabled={busy}
                             onClick={() => {
-                              setFormError(null);
-                              setCreateEntry(null);
-                              setUpdateProvider(provider);
+                              setRemoveError(null);
+                              setPendingRemoval(provider);
                             }}
                           >
-                            Update
-                          </Button.Secondary>
-
-                          {sandboxCatalog.deleteSandboxProvider ? (
-                            <Button.Ghost
-                              size="small"
-                              className="text-text-secondary"
-                              type="button"
-                              disabled={busy}
-                              onClick={() => {
-                                handleRemove(provider);
-                              }}
-                            >
-                              Remove
-                            </Button.Ghost>
-                          ) : null}
-                        </div>
-                      </article>
-                    );
-                  })}
+                            Remove
+                          </Button.Ghost>
+                        ) : null}
+                      </div>
+                    </article>
+                  ))}{' '}
                 </div>
               </section>
             ) : null}
@@ -397,6 +288,19 @@ const SandboxSettings = () => {
           </div>
         )}
       </div>
+
+      {pendingRemoval ? (
+        <ConfirmDeleteDialog
+          title="Remove sandbox provider?"
+          description={`“${pendingRemoval.name}” will stop running sandboxes for code, files and shell commands.`}
+          busy={busy}
+          error={removeError}
+          onCancel={closeRemoveDialog}
+          onConfirm={() => {
+            handleRemove(pendingRemoval);
+          }}
+        />
+      ) : null}
 
       <ConfigureSandboxForm
         open={formOpen}

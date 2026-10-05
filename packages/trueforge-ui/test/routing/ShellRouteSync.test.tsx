@@ -2,7 +2,7 @@
 import { act, render, waitFor } from '@testing-library/react';
 import { StrictMode, useEffect, useState, type ReactNode } from 'react';
 import { MemoryRouter, useLocation } from 'react-router-dom';
-import { describe, expect, it } from 'vitest';
+import { describe, expect, it, vi } from 'vitest';
 
 import { resolveRoutesConfig } from '@/routing/paths.js';
 import { ShellRouteSync } from '@/routing/ShellRouteSync.js';
@@ -12,6 +12,7 @@ import {
   createMockAgentSessionsServer,
   createMockAgentUIServer,
   createMockCatalog,
+  createMockSandboxEnvironmentServer,
   createMockScheduleServer,
 } from '../server/mockServer.js';
 
@@ -47,6 +48,8 @@ function SettingsCatalogProvider({
   includeCatalog = true,
   includeSessions = true,
   includeSchedules = false,
+  includeEnvironments = false,
+  getSession,
 }: {
   children: ReactNode;
   settingsEnabled?: boolean;
@@ -54,11 +57,21 @@ function SettingsCatalogProvider({
   includeCatalog?: boolean;
   includeSessions?: boolean;
   includeSchedules?: boolean;
+  includeEnvironments?: boolean;
+  getSession?: (req: { sessionId: string }) => Promise<{
+    id: string;
+    title: string;
+    isMutable: boolean;
+    createdAt: string;
+    updatedAt: string;
+    agentName?: string;
+  }>;
 }) {
   const server = createMockAgentUIServer({
     ...(includeCatalog ? { catalog: createMockCatalog() } : {}),
     ...(includeSessions ? { sessions: createMockAgentSessionsServer() } : {}),
     ...(includeSchedules ? { schedules: createMockScheduleServer() } : {}),
+    ...(includeEnvironments ? { sandboxEnvironments: createMockSandboxEnvironmentServer() } : {}),
     getCapabilities: async () => {
       if (capabilitiesFail) throw new Error('Unavailable');
       return {
@@ -69,15 +82,17 @@ function SettingsCatalogProvider({
         },
       };
     },
-    getSession: async ({ sessionId }) => ({
-      id: sessionId,
-      title: 'Session',
-      isMutable: true,
-      createdAt: '2026-01-01T00:00:00Z',
-      updatedAt: '2026-01-01T00:00:00Z',
-    }),
+    getSession:
+      getSession ??
+      (async ({ sessionId }) => ({
+        id: sessionId,
+        title: 'Session',
+        isMutable: true,
+        createdAt: '2026-01-01T00:00:00Z',
+        updatedAt: '2026-01-01T00:00:00Z',
+      })),
     // findAgentByName walks unfiltered pages and matches by exact name client-side.
-    searchAgents: async () => [{ name: 'helper', agentId: 'helper-id' }],
+    searchAgents: async () => ({ data: [{ name: 'helper', agentId: 'helper-id' }] }),
   });
   return <ServerProvider server={server}>{children}</ServerProvider>;
 }
@@ -91,6 +106,9 @@ function Harness({
   includeCatalog = true,
   includeSessions = true,
   includeSchedules = false,
+  includeEnvironments = false,
+  getSession,
+  onError,
 }: {
   agentConfig?: AgentConfig;
   initialRemoteId?: string;
@@ -100,6 +118,16 @@ function Harness({
   includeCatalog?: boolean;
   includeSessions?: boolean;
   includeSchedules?: boolean;
+  includeEnvironments?: boolean;
+  getSession?: (req: { sessionId: string }) => Promise<{
+    id: string;
+    title: string;
+    isMutable: boolean;
+    createdAt: string;
+    updatedAt: string;
+    agentName?: string;
+  }>;
+  onError?: (error: unknown) => void;
 }) {
   const [remoteId, setId] = useState<string | undefined>(initialRemoteId);
   setRemoteId = setId;
@@ -110,11 +138,18 @@ function Harness({
       includeCatalog={includeCatalog}
       includeSessions={includeSessions}
       includeSchedules={includeSchedules}
+      includeEnvironments={includeEnvironments}
+      getSession={getSession}
     >
       <ShellModeProvider agentConfig={agentConfig} initialSettingsOpen={initialSettingsOpen}>
         <CaptureShell />
         <CaptureLocation />
-        <ShellRouteSync routes={routes} activeRemoteId={remoteId} initialSettingsOpen={initialSettingsOpen} />
+        <ShellRouteSync
+          routes={routes}
+          activeRemoteId={remoteId}
+          initialSettingsOpen={initialSettingsOpen}
+          onError={onError}
+        />
       </ShellModeProvider>
     </SettingsCatalogProvider>
   );
@@ -129,6 +164,16 @@ function renderSync(opts: {
   includeCatalog?: boolean;
   includeSessions?: boolean;
   includeSchedules?: boolean;
+  includeEnvironments?: boolean;
+  getSession?: (req: { sessionId: string }) => Promise<{
+    id: string;
+    title: string;
+    isMutable: boolean;
+    createdAt: string;
+    updatedAt: string;
+    agentName?: string;
+  }>;
+  onError?: (error: unknown) => void;
   strict?: boolean;
 }) {
   const tree = (
@@ -141,6 +186,9 @@ function renderSync(opts: {
         includeCatalog={opts.includeCatalog}
         includeSessions={opts.includeSessions}
         includeSchedules={opts.includeSchedules}
+        includeEnvironments={opts.includeEnvironments}
+        getSession={opts.getSession}
+        onError={opts.onError}
       />
     </MemoryRouter>
   );
@@ -152,6 +200,50 @@ describe('ShellRouteSync', () => {
     renderSync({ initialEntries: ['/sessions/abc'] });
     await waitFor(() => expect(shell.pendingSessionId).toBe('abc'));
     expect(pathname).toBe('/sessions/abc');
+  });
+
+  it('toasts and redirects to New Chat when a session deep link is forbidden', async () => {
+    const onError = vi.fn();
+    const forbidden = Object.assign(new Error('Only the session creator can access this session'), {
+      statusCode: 403,
+    });
+    renderSync({
+      initialEntries: ['/sessions/forbidden'],
+      getSession: async () => {
+        throw forbidden;
+      },
+      onError,
+    });
+
+    await waitFor(() => {
+      expect(onError).toHaveBeenCalledOnce();
+    });
+    expect(onError).toHaveBeenCalledWith(forbidden);
+    await waitFor(() => {
+      expect(pathname).toBe('/');
+    });
+    expect(shell.pendingSessionId).toBeUndefined();
+  });
+
+  it('toasts and redirects to New Chat when a session deep link is not found', async () => {
+    const onError = vi.fn();
+    const notFound = Object.assign(new Error('Session not found: missing'), { statusCode: 404 });
+    renderSync({
+      initialEntries: ['/sessions/missing'],
+      getSession: async () => {
+        throw notFound;
+      },
+      onError,
+    });
+
+    await waitFor(() => {
+      expect(onError).toHaveBeenCalledOnce();
+    });
+    expect(onError).toHaveBeenCalledWith(notFound);
+    await waitFor(() => {
+      expect(pathname).toBe('/');
+    });
+    expect(shell.pendingSessionId).toBeUndefined();
   });
 
   it('applies an agent deep link on boot and resolves its history filter id', async () => {
@@ -459,6 +551,32 @@ describe('ShellRouteSync', () => {
     act(() => shell.setSchedulesOpen(true));
     expect(shell.schedulesOpen).toBe(true);
     expect(pathname).toBe('/schedules');
+  });
+
+  it('unregisters /environments when sandboxEnvironments port is missing', async () => {
+    renderSync({
+      initialEntries: ['/environments'],
+      agentConfig: { mode: 'AgentLibraryWithComposer' },
+      includeEnvironments: false,
+    });
+    await waitFor(() => {
+      expect(shell.environmentsOpen).toBe(false);
+      expect(pathname).toBe('/');
+    });
+    act(() => shell.setEnvironmentsOpen(true));
+    expect(shell.environmentsOpen).toBe(false);
+    expect(pathname).toBe('/');
+  });
+
+  it('mirrors environments open through history when sandboxEnvironments port is present', () => {
+    renderSync({
+      initialEntries: ['/'],
+      agentConfig: { mode: 'AgentLibraryWithComposer' },
+      includeEnvironments: true,
+    });
+    act(() => shell.setEnvironmentsOpen(true));
+    expect(shell.environmentsOpen).toBe(true);
+    expect(pathname).toBe('/environments');
   });
 
   it('returns to the chat place when a /library deep link is closed', () => {

@@ -1,38 +1,88 @@
 name: Publish Helm chart
 
-# A chart-release PR merge creates the tag/GitHub Release and publishes the
-# chart. Human charts/trueforge@* tags use the same publish job.
+# Publishes the Helm chart for an image that already exists in the registry.
+# Does not build images: release.yml builds {appVersion}-{shortSha} and then
+# calls this workflow with (branch, chart_version, app_version, image_tag).
+# branch is the release-vX.Y.Z branch release.yml is running on.
+#
+# chart_version is the parent chart version, verbatim. Nothing in this repo
+# computes it: one field, one owner. appVersion follows the npm package and
+# image.tag follows the image release.yml built.
+#
+# Order matters. Metadata commit and tag come before `helm push`, so a failed
+# push leaves a recoverable branch state rather than an orphan chart in OCI.
+# Every step is idempotent: metadata already at the target version skips the
+# commit, the tag on the same commit is a no-op, the tag on a different commit
+# is a hard failure (same chart version, different content), and a chart version
+# already in the registry skips the push.
+#
+# Manual runs: `gh workflow run release-chart.yml --ref <workflow-file-ref>`.
+# --ref is the workflow file GitHub runs (branch or tag, not a SHA).
+# `branch` is the git branch that receives Chart.yaml / values.yaml.
+# Empty app_version / image_tag keep Chart.yaml appVersion and values.yaml
+# image.tag on origin/<branch>. chart_version is always required.
 on:
-  pull_request:
-    types: [closed]
-    branches: [main]
-  push:
-    tags:
-      - 'charts/trueforge@*'
-  workflow_dispatch:
+  workflow_call:
     inputs:
-      tag:
-        description: Existing tag to publish (e.g. charts/trueforge@0.1.0)
+      branch:
+        description: Git branch that receives the Chart.yaml / values.yaml commit
         required: true
         type: string
-
-concurrency:
-  group: publish-helm-chart
-  cancel-in-progress: false
+      chart_version:
+        description: 'Chart version to publish, verbatim: X.Y.Z or X.Y.Z-rc.N'
+        required: true
+        type: string
+      app_version:
+        description: Application version written to Chart.yaml appVersion (empty = keep the value on that branch)
+        required: false
+        type: string
+      image_tag:
+        description: Image tag already pushed to the registry, written to values.yaml image.tag (empty = keep the value on that branch)
+        required: false
+        type: string
+      # DRY-RUN (temporary): resolve, lint and commit metadata, but push no tags
+      # and nothing to OCI. Grep DRY-RUN to remove.
+      dry_run:
+        description: 'Dry run: skip the git tags and the OCI push'
+        required: false
+        default: false
+        type: boolean
+  workflow_dispatch:
+    inputs:
+      branch:
+        description: Git branch that receives the Chart.yaml / values.yaml commit
+        required: true
+        type: string
+        default: main
+      chart_version:
+        description: 'Chart version to publish, verbatim: X.Y.Z or X.Y.Z-rc.N'
+        required: true
+        type: string
+      app_version:
+        description: App version (empty = Chart.yaml appVersion on that branch)
+        required: false
+        type: string
+      image_tag:
+        description: Existing image tag (empty = values.yaml image.tag on that branch)
+        required: false
+        type: string
+      dry_run: # DRY-RUN (temporary)
+        description: 'Dry run: skip the git tags and the OCI push'
+        required: false
+        default: false
+        type: boolean
 
 permissions: {}
 
 jobs:
-  release:
-    name: Create release and publish chart
-    if: >-
-      github.event_name != 'pull_request' ||
-      (
-        github.event.pull_request.merged == true &&
-        github.event.pull_request.head.ref == 'release-chart/trueforge' &&
-        github.event.pull_request.head.repo.full_name == github.repository
-      )
+  publish-chart:
+    name: Publish Helm chart
     runs-on: ubuntu-latest
+    timeout-minutes: 20
+    # Job-level so it also applies when this workflow is called from release.yml.
+    concurrency:
+      group: release-chart-${{ inputs.branch }}
+      cancel-in-progress: false
     permissions:
       contents: write
     env:
@@ -40,11 +90,18 @@ jobs:
       HELM_REGISTRY_URL: ${{ vars.TRUEFOUNDRY_ARTIFACTORY_REGISTRY_URL }}
       HELM_CHART_REPOSITORY: ${{ vars.TRUEFOUNDRY_ARTIFACTORY_PUBLIC_HELM_REPOSITORY }}
     steps:
-      - name: Check out chart commit
+      # App token: GITHUB_TOKEN often cannot push to a protected branch.
+      - id: app-token
+        uses: actions/create-github-app-token@v3
+        with:
+          client-id: ${{ secrets.TRUEFORGE_GENERATE_SDK_APP_ID }}
+          private-key: ${{ secrets.TRUEFORGE_GENERATE_SDK_APP_PRIVATE_KEY }}
+
+      - name: Check out
         uses: actions/checkout@v7
         with:
-          ref: ${{ github.event.pull_request.merge_commit_sha || inputs.tag || github.ref }}
           fetch-depth: 0
+          token: ${{ steps.app-token.outputs.token }}
 
       - name: Install yq
         run: |
@@ -56,83 +113,70 @@ jobs:
         with:
           version: v3.16.4
 
-      - name: Resolve or create chart release
+      - name: Checkout branch and resolve versions
+        id: resolve
         env:
-          EVENT_NAME: ${{ github.event_name }}
-          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-          INPUT_TAG: ${{ inputs.tag }}
-          MERGE_SHA: ${{ github.event.pull_request.merge_commit_sha }}
-          PR_BODY: ${{ github.event.pull_request.body }}
-          PR_NUMBER: ${{ github.event.pull_request.number }}
+          INPUT_BRANCH: ${{ inputs.branch }}
+          INPUT_CHART_VERSION: ${{ inputs.chart_version }}
+          INPUT_APP_VERSION: ${{ inputs.app_version }}
+          INPUT_IMAGE_TAG: ${{ inputs.image_tag }}
         run: |
           set -euo pipefail
-
-          # Read the chart identity from the checked-out commit.
-          VERSION=$(yq -r '.version' charts/trueforge/Chart.yaml)
-          APP_VERSION=$(yq -r '.appVersion' charts/trueforge/Chart.yaml)
-          IMAGE_TAG=$(yq -r '.image.tag' charts/trueforge/values.yaml)
-
-          if ! [[ "$VERSION" =~ ^[0-9]+\.[0-9]+\.[0-9]+([.-][0-9A-Za-z.-]+)?$ ]]; then
-            echo "Invalid chart version: $VERSION" >&2
+          BRANCH="$INPUT_BRANCH"
+          if [[ -z "$BRANCH" || "$BRANCH" == refs/* || "$BRANCH" == *..* ]] ||
+            ! printf '%s' "$BRANCH" | grep -Eq '^[A-Za-z0-9][A-Za-z0-9._/-]*$'; then
+            echo "branch '$BRANCH' is not a valid git branch name" >&2
             exit 1
           fi
+          git fetch origin "$BRANCH"
+          git checkout -B "chart-release-${GITHUB_RUN_ID}-$(openssl rand -hex 4)" "origin/${BRANCH}"
 
-          # Path A: bot chart-release PR was merged.
-          # Create the charts/trueforge@<version> tag + GitHub Release here,
-          # because GITHUB_TOKEN tag pushes do not start a separate push workflow.
-          if [[ "$EVENT_NAME" == "pull_request" ]]; then
-            TAG="charts/trueforge@${VERSION}"
-
-            if git rev-parse "$TAG" >/dev/null 2>&1; then
-              echo "Tag $TAG already exists; refusing to move it" >&2
-              exit 1
-            fi
-
-            git config user.name "github-actions[bot]"
-            git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
-            git tag -a "$TAG" -m "Helm chart ${VERSION} (appVersion ${APP_VERSION}, image ${IMAGE_TAG})"
-            git push origin "$TAG"
-
-            # Write notes via a file so PR body cannot inject into the shell.
-            NOTES_FILE="$(mktemp)"
-            {
-              echo "Source PR: #${PR_NUMBER}"
-              echo
-              printf '%s\n' "$PR_BODY"
-            } >"$NOTES_FILE"
-            gh release create "$TAG" \
-              --target "$MERGE_SHA" \
-              --title "$TAG" \
-              --notes-file "$NOTES_FILE"
-            rm -f "$NOTES_FILE"
-          # Path B: manual retry via workflow_dispatch with an explicit tag.
-          elif [[ -n "${INPUT_TAG:-}" ]]; then
-            TAG="$INPUT_TAG"
-
-          # Path C: human pushed charts/trueforge@* themselves.
-          else
-            TAG="${GITHUB_REF#refs/tags/}"
-          fi
-
-          # Every path must publish the same chart version the tag names.
-          case "$TAG" in
-            charts/trueforge@*) EXPECTED="${TAG#charts/trueforge@}" ;;
-            *) echo "Invalid chart tag: $TAG" >&2; exit 1 ;;
-          esac
-
-          ACTUAL=$(yq -r '.version' "$CHART_DIR/Chart.yaml")
-          if [[ "$ACTUAL" != "$EXPECTED" ]]; then
-            echo "Chart.yaml version '$ACTUAL' does not match tag version '$EXPECTED'" >&2
+          SEMVER='^[0-9]+\.[0-9]+\.[0-9]+([.-][0-9A-Za-z.-]+)?$'
+          CHART_VERSION="$INPUT_CHART_VERSION"
+          if [[ -z "$CHART_VERSION" ]] || ! printf '%s' "$CHART_VERSION" | grep -Eq "$SEMVER"; then
+            echo "chart_version '$CHART_VERSION' is not a semver-like version" >&2
             exit 1
           fi
+          APP_VERSION="$INPUT_APP_VERSION"
+          if [[ -z "$APP_VERSION" ]]; then
+            APP_VERSION=$(yq -r '.appVersion' "$CHART_DIR/Chart.yaml")
+          fi
+          if [[ -z "$APP_VERSION" || "$APP_VERSION" == "null" ]] || ! printf '%s' "$APP_VERSION" | grep -Eq "$SEMVER"; then
+            echo "app_version '$APP_VERSION' is not a semver-like version" >&2
+            exit 1
+          fi
+          IMAGE_TAG="$INPUT_IMAGE_TAG"
+          if [[ -z "$IMAGE_TAG" ]]; then
+            IMAGE_TAG=$(yq -r '.image.tag' "$CHART_DIR/values.yaml")
+          fi
+          if [[ -z "$IMAGE_TAG" || "$IMAGE_TAG" == "null" ]] ||
+            ! printf '%s' "$IMAGE_TAG" | grep -Eq '^[A-Za-z0-9][A-Za-z0-9._-]{0,127}$'; then
+            echo "image_tag '$IMAGE_TAG' is not a valid OCI tag" >&2
+            exit 1
+          fi
+          echo "branch=$BRANCH" >> "$GITHUB_OUTPUT"
+          echo "chart_version=$CHART_VERSION" >> "$GITHUB_OUTPUT"
+          echo "app_version=$APP_VERSION" >> "$GITHUB_OUTPUT"
+          echo "image_tag=$IMAGE_TAG" >> "$GITHUB_OUTPUT"
+          echo "Resolved branch=$BRANCH chart_version=$CHART_VERSION app_version=$APP_VERSION image_tag=$IMAGE_TAG"
 
-          # VERSION is consumed by the package/push step below.
-          echo "VERSION=$VERSION" >> "$GITHUB_ENV"
-          echo "Publishing chart version=$ACTUAL appVersion=$APP_VERSION image.tag=$IMAGE_TAG"
+      - name: Update chart metadata
+        env:
+          VERSION: ${{ steps.resolve.outputs.chart_version }}
+          APP_VERSION: ${{ steps.resolve.outputs.app_version }}
+          IMAGE_TAG: ${{ steps.resolve.outputs.image_tag }}
+        run: |
+          set -euo pipefail
+          yq -i '.version = strenv(VERSION)' "$CHART_DIR/Chart.yaml"
+          yq -i '.appVersion = strenv(APP_VERSION)' "$CHART_DIR/Chart.yaml"
+          yq -i '.image.tag = strenv(IMAGE_TAG)' "$CHART_DIR/values.yaml"
+          echo "Chart version=$VERSION appVersion=$APP_VERSION image.tag=$IMAGE_TAG"
 
-      # Pull deps before registry login.
       - name: Build chart dependencies
         run: helm dependency build "$CHART_DIR"
+
+      - name: Lint chart
+        run: helm lint "$CHART_DIR" --values "$CHART_DIR/ci/lint-values.yaml"
 
       - name: Helm registry login
         env:
@@ -142,7 +186,169 @@ jobs:
           printf '%s' "$HELM_REGISTRY_PASSWORD" \
             | helm registry login -u "$HELM_REGISTRY_USERNAME" --password-stdin "$HELM_REGISTRY_URL"
 
+      # Answered before anything is written, so the push and the metadata commit
+      # can be skipped independently. Ambiguous failures fall through to
+      # published=false: attempting the push and letting helm fail is safer than
+      # skipping a release because the registry was unreachable.
+      - name: Check whether this chart version is already published
+        id: registry
+        env:
+          VERSION: ${{ steps.resolve.outputs.chart_version }}
+        run: |
+          set -euo pipefail
+          CHART_NAME=$(yq -r '.name' "$CHART_DIR/Chart.yaml")
+          set +e
+          SHOW_OUT=$(helm show chart "oci://${HELM_CHART_REPOSITORY}/${CHART_NAME}" --version "$VERSION" 2>&1)
+          SHOW_STATUS=$?
+          set -e
+          if [[ "$SHOW_STATUS" -eq 0 ]]; then
+            echo "published=true" >> "$GITHUB_OUTPUT"
+            echo "${CHART_NAME}:${VERSION} is already in oci://${HELM_CHART_REPOSITORY}; the push will be skipped"
+            exit 0
+          fi
+          echo "published=false" >> "$GITHUB_OUTPUT"
+          if ! printf '%s' "$SHOW_OUT" | grep -qiE 'not found|manifest unknown|MANIFEST_UNKNOWN|NAME_UNKNOWN|404'; then
+            printf '%s\n' "$SHOW_OUT"
+            echo "::warning::could not confirm ${CHART_NAME}:${VERSION} is absent from the registry; attempting the push"
+          fi
+
+      - name: Commit chart metadata and tag
+        env:
+          VERSION: ${{ steps.resolve.outputs.chart_version }}
+          APP_VERSION: ${{ steps.resolve.outputs.app_version }}
+          IMAGE_TAG: ${{ steps.resolve.outputs.image_tag }}
+          BRANCH: ${{ steps.resolve.outputs.branch }}
+          DRY_RUN: ${{ inputs.dry_run }} # DRY-RUN (temporary)
+        run: |
+          set -euo pipefail
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+
+          CHART_TAG="charts/trueforge@${VERSION}"
+          VTAG="v${VERSION}"
+
+          apply_metadata() {
+            yq -i '.version = strenv(VERSION)' "$CHART_DIR/Chart.yaml"
+            yq -i '.appVersion = strenv(APP_VERSION)' "$CHART_DIR/Chart.yaml"
+            yq -i '.image.tag = strenv(IMAGE_TAG)' "$CHART_DIR/values.yaml"
+          }
+
+          # Two tags, one commit. The tag is the record that this chart version's
+          # metadata is on the branch. Same commit is a re-run and a no-op. A
+          # different commit means the same chart version would ship different
+          # content: the version has to move instead.
+          #
+          #   charts/trueforge@<V>  this chart's own record. ANNOTATED, because
+          #                         helm-charts' resolve_ref_sha already does the
+          #                         /git/tags/{sha} dereference hop for it.
+          #   v<V>                  the release-line marker every other
+          #                         sibling repo publishes. Under verbatim
+          #                         versioning <V> is the parent chart
+          #                         version, so release-app's hotfixBranchPlan
+          #                         (git/matching-refs/tags/v<major>.<minor>.)
+          #                         and helm-charts' compute_release both resolve
+          #                         this repo with no TrueForge-specific code.
+          #                         LIGHTWEIGHT on purpose: release-app's
+          #                         getRefSha returns object.sha with NO
+          #                         annotated-tag dereference and hands it
+          #                         straight to createBranchFromSha, so an
+          #                         annotated v-tag would hand create-ref a
+          #                         tag-object sha. helm-charts creates every
+          #                         service v-tag the same way (publish_releases
+          #                         POSTs git/refs with a commit sha). Do not
+          #                         add -a here.
+          #
+          # This repo still carries dead v0.1.x tags from an abandoned scheme
+          # (highest final v0.1.9, 2026-08-09; plus a stray v0.1.10-rc.1 from
+          # 2026-08-13). They cannot collide: consumers query
+          # git/matching-refs/tags/v<major>.<minor>. and the umbrella is on 0.17x
+          # and up. Never dispatch a chart_version on the 0.1 line - it would
+          # revive that line underneath a live consumer.
+          push_tag() {
+            local name=$1 kind=$2 head existing
+            head=$(git rev-parse HEAD)
+            if git ls-remote --exit-code --tags origin "refs/tags/${name}" >/dev/null 2>&1; then
+              git fetch --force --no-tags origin "refs/tags/${name}:refs/tags/${name}"
+              existing=$(git rev-list -n 1 "refs/tags/${name}")
+              if [[ "$existing" == "$head" ]]; then
+                echo "Tag $name already points at $head"
+                return 0
+              fi
+              echo "Tag $name already exists at $existing but this run would publish $head" >&2
+              echo "Same chart version, different content. Bump chart_version instead." >&2
+              exit 1
+            fi
+            if [[ "$kind" == "annotated" ]]; then
+              git tag -a "$name" -m "Helm chart ${VERSION} (image ${IMAGE_TAG})"
+            else
+              git tag "$name"
+            fi
+            if [[ "${DRY_RUN:-false}" == "true" ]]; then
+              # DRY-RUN (temporary)
+              echo "::notice::dry run - would push $kind tag $name at $head"
+              git tag -d "$name" >/dev/null
+              return 0
+            fi
+            git push origin "refs/tags/${name}"
+            echo "Pushed $name at $head"
+          }
+
+          # Each tag is checked and pushed independently, so a run that died
+          # between the two pushes self-heals on re-run: the first is a no-op,
+          # the second is created.
+          tag_chart() {
+            push_tag "$CHART_TAG" annotated
+            push_tag "$VTAG" lightweight
+          }
+
+          for attempt in 1 2 3; do
+            git add "$CHART_DIR/Chart.yaml" "$CHART_DIR/values.yaml"
+            if git diff --staged --quiet; then
+              # Re-run: origin/<branch> already carries this version's metadata.
+              echo "Chart metadata on $BRANCH already matches $VERSION; nothing to commit"
+              tag_chart
+              exit 0
+            fi
+            git commit -m "release(chart): ${VERSION}"
+            if git push origin "HEAD:${BRANCH}"; then
+              tag_chart
+              exit 0
+            fi
+            echo "Push to $BRANCH failed (attempt $attempt); replay metadata onto origin/${BRANCH}"
+            git fetch origin "$BRANCH"
+            git reset --hard "origin/${BRANCH}"
+            apply_metadata
+          done
+          echo "Could not fast-forward chart metadata onto $BRANCH" >&2
+          exit 1
+
+      - name: Dry run - report what would have been published
+        if: ${{ inputs.dry_run == true }} # DRY-RUN (temporary)
+        env:
+          VERSION: ${{ steps.resolve.outputs.chart_version }}
+          IMAGE_TAG: ${{ steps.resolve.outputs.image_tag }}
+          PUBLISHED: ${{ steps.registry.outputs.published }}
+        run: |
+          {
+            echo "### Dry run - nothing was published"
+            echo ""
+            echo "| Would have | Value |"
+            echo "| --- | --- |"
+            echo "| pushed chart | \`$VERSION\` |"
+            echo "| tagged | \`charts/trueforge@$VERSION\` (annotated), \`v$VERSION\` (lightweight) |"
+            echo "| image tag in values | \`${IMAGE_TAG:-unchanged on the branch}\` |"
+            echo "| already in OCI | \`$PUBLISHED\` |"
+          } >> "$GITHUB_STEP_SUMMARY"
+
       - name: Package and push chart
+        # DRY-RUN (temporary): `&& inputs.dry_run != true`. The package+push is
+        # the one step with no idempotent re-entry, so it is skipped whole
+        # rather than short-circuited inside the script.
+        if: steps.registry.outputs.published != 'true' && inputs.dry_run != true
+        env:
+          VERSION: ${{ steps.resolve.outputs.chart_version }}
+          IMAGE_TAG: ${{ steps.resolve.outputs.image_tag }}
+          BRANCH: ${{ steps.resolve.outputs.branch }}
         run: |
           set -euo pipefail
           CHART_NAME=$(yq -r '.name' "$CHART_DIR/Chart.yaml")
@@ -154,4 +360,6 @@ jobs:
           {
             echo "### Helm chart"
             echo "Pushed \`oci://${HELM_CHART_REPOSITORY}/${CHART_NAME}:${VERSION}\`"
+            echo "Image tag \`${IMAGE_TAG}\`"
+            echo "Branch \`${BRANCH}\`"
           } >> "$GITHUB_STEP_SUMMARY"

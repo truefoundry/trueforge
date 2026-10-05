@@ -491,8 +491,20 @@ function attachActiveTurn(
     return snapshot;
   }
   const pendingUserText = extractTurnUserText(activeTurn.input);
-  const groupRootBaseline = computeGroupRootBaseline(snapshot.turns);
-  const rootModelMessageIds = rootModelMessageIdsSinceBaseline(snapshot.fold, groupRootBaseline);
+  // Tip is not in `turns` yet. A new user tip must baseline every prior root
+  // model.message (same as live send) — otherwise computeGroupRootBaseline
+  // treats the last completed user turn as the active group and that turn's
+  // content leaks into resume after refresh.
+  const groupRootBaseline =
+    pendingUserText !== undefined
+      ? [...(snapshot.fold.threads.get(ROOT_THREAD_ID)?.modelMessageIds ?? [])]
+      : computeGroupRootBaseline(snapshot.turns);
+  // Tip events are already folded; project them for the initial paused /
+  // disconnected stream. Use completed-turn ids only so the tip's own
+  // model.messages are not baselined away (stored groupRootBaseline still
+  // excludes them from later live rebuilds once the stream carries content).
+  const priorRootModelMessageIds = snapshot.turns.flatMap(turn => turn.rootModelMessageIds ?? []);
+  const rootModelMessageIds = rootModelMessageIdsSinceBaseline(snapshot.fold, priorRootModelMessageIds);
   const activeUpdate = buildTurnUpdateFromFold(
     snapshot.fold,
     {

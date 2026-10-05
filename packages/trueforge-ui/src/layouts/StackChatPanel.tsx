@@ -11,6 +11,7 @@ import { cn } from '../atoms/lib/cn.js';
 import { Spinner } from '../atoms/primitives/Spinner.js';
 import { AgentConfigDrawerContainer } from '../containers/AgentConfigDrawerContainer.js';
 import { Thread } from '../containers/Thread.js';
+import { useChatChromeActionsVisible } from '../hooks/useChatChromeActionsVisible.js';
 import { Icon } from '../icons/Icon.js';
 import { useOptionalShellMode } from '../server/ShellModeContext.js';
 import { useSlot } from '../theme/SlotsProvider.js';
@@ -18,6 +19,9 @@ import { useSlot } from '../theme/SlotsProvider.js';
 const TruefoundrySettingsBuilder = lazy(() => import('../containers/SettingsBuilder/index.js'));
 const SchedulesPage = lazy(() =>
   import('../atoms/schedules/SchedulesPage.js').then(m => ({ default: m.SchedulesPage })),
+);
+const EnvironmentsPage = lazy(() =>
+  import('../atoms/environments/EnvironmentsPage.js').then(m => ({ default: m.EnvironmentsPage })),
 );
 
 export type StackChatPanelProps = {
@@ -37,6 +41,7 @@ export function StackChatPanel({ className, threadHeaderEnd }: StackChatPanelPro
   const AgentDetailsPage = useSlot('AgentDetailsPage');
   const AgentsLibrary = useSlot('AgentsLibrary');
   const SessionsPage = useSlot('SessionsPage');
+  const ShareChatButton = useSlot('ShareChatButton');
   const SaveAgentButton = useSlot('SaveAgentButton');
   const SelectAgentEmptyState = useSlot('SelectAgentEmptyState');
   const UserAvatar = useSlot('UserAvatar');
@@ -45,6 +50,8 @@ export function StackChatPanel({ className, threadHeaderEnd }: StackChatPanelPro
   const libraryOpen = shell?.libraryOpen === true;
   const sessionsOpen = shell?.sessionsOpen === true;
   const schedulesOpen = shell?.schedulesOpen === true;
+  const environmentsOpen = shell?.environmentsOpen === true;
+  const chatChromeActionsVisible = useChatChromeActionsVisible();
   const showNewActions = shell?.isNewChatEnabled !== false;
 
   useEffect(() => {
@@ -61,6 +68,7 @@ export function StackChatPanel({ className, threadHeaderEnd }: StackChatPanelPro
     }
     shell?.setSettingsOpen(false);
     shell?.setSchedulesOpen(false);
+    shell?.setEnvironmentsOpen(false);
     void Promise.resolve(aui.threads().switchToNewThread()).catch(() => undefined);
   };
 
@@ -122,12 +130,30 @@ export function StackChatPanel({ className, threadHeaderEnd }: StackChatPanelPro
             <SchedulesPage />
           </Suspense>
         </div>
+      ) : environmentsOpen ? (
+        <div className="min-h-0 flex-1">
+          <Suspense
+            fallback={
+              <div
+                className="flex h-full items-center justify-center"
+                role="status"
+                aria-live="polite"
+                aria-busy="true"
+              >
+                <Spinner size={28} className="text-text-primary" />
+                <span className="sr-only">Loading</span>
+              </div>
+            }
+          >
+            <EnvironmentsPage />
+          </Suspense>
+        </div>
       ) : (
         <>
           <PageHeader
             start={
               <>
-                {showNewActions ? (
+                {showNewActions && !chatChromeActionsVisible ? (
                   <button
                     type="button"
                     aria-label="New Chat"
@@ -154,6 +180,7 @@ export function StackChatPanel({ className, threadHeaderEnd }: StackChatPanelPro
             title={<NamedAgentHeaderLabel />}
             end={
               <>
+                <ShareChatButton />
                 <ClearChatButton />
                 <SaveAgentButton />
                 {threadHeaderEnd}
@@ -166,13 +193,14 @@ export function StackChatPanel({ className, threadHeaderEnd }: StackChatPanelPro
       {/* Stable mount: only ShellActions needs to survive Settings / list / thread; host end chrome stays in the thread header. */}
       <footer className="flex shrink-0 items-center justify-between border-t border-border px-2 py-1.5">
         <div className="flex min-w-0 items-center gap-1">
-          {libraryOpen || schedulesOpen ? (
+          {libraryOpen || schedulesOpen || environmentsOpen ? (
             <button
               type="button"
               className={auiButtonClass({ variant: 'ghost', size: 'small' })}
               onClick={() => {
                 shell?.setLibraryOpen(false);
                 shell?.setSchedulesOpen(false);
+                shell?.setEnvironmentsOpen(false);
               }}
             >
               <Icon name="arrow-left" />

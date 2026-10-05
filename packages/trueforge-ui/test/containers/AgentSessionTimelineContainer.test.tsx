@@ -158,7 +158,7 @@ describe('AgentSessionTimelineContainer', () => {
     const scrollIntoView = vi.fn();
     HTMLElement.prototype.scrollIntoView = scrollIntoView;
 
-    render(
+    const { container } = render(
       <SlotsProvider
         overrides={{
           AgentSessionEventTimeline: ({ turns, onSelectTurn }) => (
@@ -179,6 +179,13 @@ describe('AgentSessionTimelineContainer', () => {
     expect(screen.getByText('Turn')).toBeInTheDocument();
     expect(screen.getByText('Duration')).toBeInTheDocument();
     expect(await screen.findAllByRole('button', { name: 'Copy' })).not.toHaveLength(0);
+    expect(container.querySelector('[data-slot="agent-session-scroll"]')).toHaveClass('overflow-y-auto');
+    expect(container.querySelector('[data-slot="agent-session-metrics-sticky"]')).toHaveClass(
+      'sticky',
+      'top-0',
+      'bg-primary-bg',
+    );
+    expect(container.querySelector('[data-slot="aui_thread-viewport"]')).toHaveClass('overflow-visible');
     fireEvent.click(screen.getByRole('button', { name: 'timeline turns=1' }));
     await waitFor(() => {
       expect(scrollIntoView).toHaveBeenCalled();
@@ -269,5 +276,93 @@ describe('AgentSessionTimelineContainer', () => {
 
     fireEvent.mouseEnter(screen.getByText('report.txt').parentElement ?? screen.getByText('report.txt'));
     expect(screen.getByRole('tooltip')).toHaveTextContent('Download File is not available in read-only mode');
+  });
+
+  it('hides tool approval Allow/Deny actions in session turns', async () => {
+    const approvalEvents: SessionEventItem[] = [
+      {
+        turnId: 'turn-1',
+        event: {
+          type: 'turn.created',
+          id: 'c1',
+          turnId: 'turn-1',
+          previousTurnId: null,
+          input: [{ type: 'user.message', content: 'run tool' }],
+          state: { status: 'running' },
+          createdAt: '2026-01-01T00:00:00.000Z',
+          threadId: null,
+        },
+      },
+      {
+        turnId: 'turn-1',
+        event: {
+          type: 'model.message',
+          id: 'm1',
+          threadId: 'main',
+          content: 'calling tool',
+          createdAt: '2026-01-01T00:00:01.000Z',
+          toolCalls: [
+            {
+              id: 'approval-1',
+              type: 'function',
+              function: { name: 'bash', arguments: '{}' },
+              toolInfo: {
+                type: 'mcp',
+                name: 'bash',
+                serverId: 'bash-server',
+                serverName: 'bash',
+              },
+            },
+          ],
+        },
+      },
+      {
+        turnId: 'turn-1',
+        event: {
+          type: 'tool.approval_required',
+          id: 'approval-event',
+          threadId: 'main',
+          createdAt: '2026-01-01T00:00:01.500Z',
+          toolCalls: [{ id: 'approval-1', sourceEventId: 'm1' }],
+        },
+      },
+      {
+        turnId: 'turn-1',
+        event: {
+          type: 'turn.done',
+          id: 'd1',
+          state: {
+            status: 'done',
+            completedAt: '2026-01-01T00:00:02.000Z',
+            output: null,
+            requiredActions: [
+              {
+                type: 'tool.approval_required',
+                id: 'approval-event',
+                threadId: 'main',
+                createdAt: '2026-01-01T00:00:01.500Z',
+                toolCalls: [{ id: 'approval-1', sourceEventId: 'm1' }],
+              },
+            ],
+          },
+          createdAt: '2026-01-01T00:00:02.000Z',
+          threadId: null,
+        },
+      },
+    ];
+
+    render(
+      <SlotsProvider overrides={{ AgentSessionEventTimeline: () => null }}>
+        <ServerProvider server={createMockAgentUIServer()}>
+          <AgentSessionTimelineContainer sessionId="sess-1" events={approvalEvents} />
+        </ServerProvider>
+      </SlotsProvider>,
+    );
+
+    expect(await screen.findByText('Tool Approval Required for')).toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: 'Allow' })).not.toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: 'Deny' })).not.toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: 'Approve' })).not.toBeInTheDocument();
+    expect(screen.queryByText(/Awaiting Response/)).not.toBeInTheDocument();
   });
 });
