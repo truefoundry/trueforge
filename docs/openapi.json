@@ -8559,7 +8559,7 @@
                 }
               }
             },
-            "description": "No sandbox provider configured."
+            "description": "Sandbox provider is missing or its credentials are invalid."
           },
           "502": {
             "content": {
