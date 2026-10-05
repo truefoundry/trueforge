@@ -139,6 +139,16 @@ describe('sanitizeSearchForPlace', () => {
     expect(sanitizeSearchForPlace({ type: 'library' }, scheduleSearch)).toBe('?theme=dark');
   });
 
+  it('keeps library agent_name on the library place and clears it elsewhere', () => {
+    const librarySearch = '?theme=dark&agent_name=ask-ai-clone&sessionId=sess-1&agentId=agent-1&q=digest';
+    expect(sanitizeSearchForPlace({ type: 'library' }, librarySearch)).toBe('?theme=dark&agent_name=ask-ai-clone');
+    expect(sanitizeSearchForPlace({ type: 'root' }, librarySearch)).toBe('?theme=dark');
+    expect(sanitizeSearchForPlace({ type: 'schedules' }, librarySearch)).toBe('?theme=dark&q=digest');
+    expect(sanitizeSearchForPlace({ type: 'libraryAgent', agentId: 'agent-1' }, librarySearch)).toBe(
+      '?theme=dark&sessionId=sess-1&agentId=agent-1',
+    );
+  });
+
   it('keeps embedded schedule state on an agent Schedules tab', () => {
     const search = '?theme=dark&agentId=agent-1&tab=schedules&agent=stale&status=paused&q=digest&isNew=true';
     expect(sanitizeSearchForPlace({ type: 'libraryAgent', agentId: 'agent-1' }, search)).toBe(

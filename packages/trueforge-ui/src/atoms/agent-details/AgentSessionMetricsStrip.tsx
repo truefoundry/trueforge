@@ -8,10 +8,10 @@ import { formatTimelineDuration } from '../../utils/sessionEventTimeline.js';
 import { cn } from '../lib/cn.js';
 import { LightTooltip } from '../primitives/Tooltip.js';
 import {
+  CostBreakdownRows,
   HorizontalBarRows,
   SessionMetricTooltipContent,
   StackedProportionBar,
-  VerticalBarColumns,
 } from './AgentSessionMetricCharts.js';
 import type { AgentSessionMetricsStripProps } from './types.js';
 
@@ -73,8 +73,8 @@ export function AgentSessionMetricsStrip({ metrics }: AgentSessionMetricsStripPr
             value={formatCostUsd(metrics.totalCostUsd)}
             tooltip={
               metrics.costPerTurn.length > 1 && metrics.totalCostUsd > 0 ? (
-                <SessionMetricTooltipContent title="Cost per turn" fitWidth>
-                  <VerticalBarColumns data={metrics.costPerTurn} formatValue={formatCostUsd} />
+                <SessionMetricTooltipContent title="Cost per turn">
+                  <CostBreakdownRows data={metrics.costPerTurn} />
                 </SessionMetricTooltipContent>
               ) : null
             }

@@ -10,6 +10,9 @@
 # See https://pnpm.io/cli/fetch. BuildKit cache mounts are avoided so the same
 # file builds on Railway Metal (which requires a hardcoded service id in mount ids).
 #
+# `pnpm fetch` also writes a full node_modules/.pnpm; remove it so --prod install
+# does not inherit build tooling into the runtime image.
+#
 # Base images are build args so a local or contributor build stays on the public
 # Docker Hub image. The release workflow overrides both with the hardened node
 # images from the TrueFoundry private registry (builder: node:24-dev, runtime:
@@ -36,7 +39,8 @@ WORKDIR /app
 # ---------------------------------------------------------------------------
 FROM base AS store
 COPY pnpm-lock.yaml pnpm-workspace.yaml ./
-RUN pnpm fetch
+# Populate /pnpm/store only; drop the full virtual store fetch also writes.
+RUN pnpm fetch && rm -rf node_modules
 
 # ---------------------------------------------------------------------------
 # workspace: install inputs shared by every stage below - the manifests plus the

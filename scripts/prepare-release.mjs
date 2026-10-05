@@ -6,10 +6,11 @@
  *
  * Changesets pre mode follows that version. Published packages still at
  * `0.0.0` move to `X.Y.0` or `X.Y.0-rc.0`; private packages (`packages/frontend`)
- * stay `0.0.0`. Bootstrapping `packages/trueforge-sdk` also writes
- * `python/trueforge_sdk/pyproject.toml`: `scripts/version.mjs` only mirrors the
- * Python version when `changeset version` moves the TS SDK, so a bootstrap alone
- * would leave Poetry behind.
+ * stay `0.0.0`. Bootstrapping `packages/trueforge-sdk` deliberately leaves
+ * `python/trueforge_sdk/pyproject.toml` alone: `pnpm run version` runs straight
+ * after this script, and `scripts/version.mjs` syncs Poetry whenever the Python
+ * version diverges from the TS SDK's - not only when `changeset version` moves
+ * it - so the bootstrap is picked up there.
  * `.changeset/config.json` `baseBranch` becomes the release branch so version
  * changelogs are computed against it. `main` is not rewritten here.
  */

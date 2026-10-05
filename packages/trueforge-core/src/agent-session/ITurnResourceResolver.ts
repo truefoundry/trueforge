@@ -2,7 +2,7 @@ import type { Logger } from 'winston';
 import type { AgentCapability } from '../core/capabilities/AgentCapability';
 import type { AgentDefinition } from '../core/runtime/AgentDefinition';
 import type { AgentInfo } from '../core/runtime/AgentThread.types';
-import type { Sandbox, SandboxInfo } from '../core/sandbox/Sandbox';
+import type { HarnessSandbox, SandboxInfo } from '../core/sandbox/Sandbox';
 import type { AgentTracing } from '../core/tracing/AgentTracing';
 import type { IWebSearchProvider } from '../core/web-search/WebSearchProvider';
 import type { TurnRecord } from './models/TurnRecord';
@@ -45,7 +45,7 @@ export interface ITurnResourceResolver<TTurnCustom extends object = Record<strin
     previousTurn?: TurnRecord<TTurnCustom> | undefined;
     signal: AbortSignal;
     tracing: AgentTracing;
-  }): Promise<Sandbox | undefined>;
+  }): Promise<HarnessSandbox | undefined>;
   /**
    * Called once per thread (rebuild or live sub-agent spawn); calls for different
    * threads may overlap, so implementations must be concurrency-safe.

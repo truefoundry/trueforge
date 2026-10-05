@@ -9,7 +9,7 @@ describe('Tooltip', () => {
     const onMouseLeave = vi.fn();
 
     render(
-      <Tooltip content="Copy message" className="host-tooltip">
+      <Tooltip content="Copy message" className="host-tooltip" interactive={false}>
         <button onMouseEnter={onMouseEnter} onMouseLeave={onMouseLeave}>
           Copy
         </button>
@@ -269,5 +269,113 @@ describe('LightTooltip', () => {
     const tooltip = screen.getByRole('tooltip');
     expect(tooltip).toHaveTextContent('Light help');
     expect(tooltip).toHaveClass('host-light-tooltip');
+  });
+});
+
+describe('Tooltip interactive mode', () => {
+  it('keeps the tooltip open when the cursor moves from the trigger into the popup', () => {
+    vi.useFakeTimers();
+    render(
+      <Tooltip content="Rich content" interactive>
+        <button>Trigger</button>
+      </Tooltip>,
+    );
+
+    const trigger = screen.getByRole('button', { name: 'Trigger' });
+    fireEvent.mouseEnter(trigger);
+    expect(screen.getByRole('tooltip')).toBeInTheDocument();
+
+    fireEvent.mouseLeave(trigger);
+    expect(screen.getByRole('tooltip')).toBeInTheDocument();
+
+    fireEvent.mouseEnter(screen.getByRole('tooltip'));
+    act(() => {
+      vi.advanceTimersByTime(250);
+    });
+    expect(screen.getByRole('tooltip')).toBeInTheDocument();
+    vi.useRealTimers();
+  });
+
+  it('hides only after the close delay when the cursor leaves without entering the popup', () => {
+    vi.useFakeTimers();
+    render(
+      <Tooltip content="Rich content" interactive>
+        <button>Trigger</button>
+      </Tooltip>,
+    );
+
+    const trigger = screen.getByRole('button', { name: 'Trigger' });
+    fireEvent.mouseEnter(trigger);
+    fireEvent.mouseLeave(trigger);
+    expect(screen.getByRole('tooltip')).toBeInTheDocument();
+
+    act(() => {
+      vi.advanceTimersByTime(99);
+    });
+    expect(screen.getByRole('tooltip')).toBeInTheDocument();
+
+    act(() => {
+      vi.advanceTimersByTime(1);
+    });
+    expect(screen.queryByRole('tooltip')).not.toBeInTheDocument();
+    vi.useRealTimers();
+  });
+
+  it('gives the tooltip element pointer-events-auto when interactive', () => {
+    render(
+      <Tooltip content="Rich content" interactive>
+        <button>Trigger</button>
+      </Tooltip>,
+    );
+
+    fireEvent.mouseEnter(screen.getByRole('button', { name: 'Trigger' }));
+    const tooltip = screen.getByRole('tooltip');
+    expect(tooltip.className).toMatch(/pointer-events-auto/);
+    expect(tooltip.className).not.toMatch(/pointer-events-none/);
+  });
+
+  it('is interactive by default', () => {
+    render(
+      <Tooltip content="Simple tip">
+        <button>Trigger</button>
+      </Tooltip>,
+    );
+
+    fireEvent.mouseEnter(screen.getByRole('button', { name: 'Trigger' }));
+    const tooltip = screen.getByRole('tooltip');
+    expect(tooltip.className).toMatch(/pointer-events-auto/);
+    expect(tooltip.className).not.toMatch(/pointer-events-none/);
+  });
+
+  it('uses pointer-events-none when interactive is false', () => {
+    render(
+      <Tooltip content="Simple tip" interactive={false}>
+        <button>Trigger</button>
+      </Tooltip>,
+    );
+
+    fireEvent.mouseEnter(screen.getByRole('button', { name: 'Trigger' }));
+    const tooltip = screen.getByRole('tooltip');
+    expect(tooltip.className).toMatch(/pointer-events-none/);
+  });
+
+  it('closes the previous tooltip immediately when another opens', () => {
+    render(
+      <>
+        <Tooltip content="Duration detail">
+          <button>Duration</button>
+        </Tooltip>
+        <Tooltip content="Tokens detail">
+          <button>Tokens</button>
+        </Tooltip>
+      </>,
+    );
+
+    fireEvent.mouseEnter(screen.getByRole('button', { name: 'Duration' }));
+    expect(screen.getByRole('tooltip')).toHaveTextContent('Duration detail');
+
+    fireEvent.mouseEnter(screen.getByRole('button', { name: 'Tokens' }));
+    expect(screen.getByRole('tooltip')).toHaveTextContent('Tokens detail');
+    expect(screen.queryByText('Duration detail')).not.toBeInTheDocument();
   });
 });
