@@ -1809,6 +1809,59 @@ describe('convertTurnMessages', () => {
       ]);
     });
 
+    it('keeps MCP auth composer chrome after a paused segment ends', () => {
+      const mcpServers = [
+        {
+          id: 'linear',
+          name: 'linear',
+          authUrl: 'https://example.com/auth',
+        },
+      ];
+      const messages = projectSessionMessages(
+        replaceSessionSnapshot(createEmptySessionSnapshot(), {
+          pendingUser: {
+            turnId,
+            content: 'use linear',
+            createdAt: new Date(createdAt),
+          },
+          activeTurn: {
+            id: turnId,
+            sessionId: SESSION_ID,
+            createdAt,
+            state: {
+              status: 'paused',
+              actionRequiredOnEvents: [{ id: 'mcp-auth-1' }],
+            },
+          },
+          activeStream: {
+            turnId,
+            update: {
+              content: [
+                { type: 'text', text: 'Waiting for user to authenticate.' },
+                {
+                  type: 'text',
+                  text: 'This agent needs access to external services before it can continue.\n\nClick the **Connect** button(s) to authorize the Connectors, then press **Continue**.',
+                },
+              ],
+              status: { type: 'requires-action', reason: 'interrupt' },
+              metadata: { custom: { pendingMcpAuth: true, mcpServers } },
+              turnState: {
+                status: 'paused',
+                actionRequiredOnEvents: [{ id: 'mcp-auth-1' }],
+              },
+            },
+            segmentStatus: 'paused',
+          },
+        }),
+      );
+
+      const assistant = messages.at(-1);
+      expect(assistant?.role).toBe('assistant');
+      expect(assistant?.status).toEqual({ type: 'requires-action', reason: 'interrupt' });
+      expect(assistant?.metadata.custom['pendingMcpAuth']).toBe(true);
+      expect(derivePendingMcpAuth(messages)).toEqual({ mcpServers });
+    });
+
     it('preserves requires-action when a paused segment has approval status', async () => {
       const foldState = new PeerThreadFoldState();
       const updates = await collectStream(

@@ -4,6 +4,7 @@ import { EVENT_TYPE, TOOL_APPROVAL_POLICY_ACTION_TYPE } from '../src/server/inde
 
 import { ROOT_THREAD_ID } from '../src/constants.js';
 import {
+  applyApprovalPoliciesToFold,
   buildRootAssistantContent,
   ingestStreamEvent,
   ingestTurnEvent,
@@ -434,6 +435,98 @@ describe('foldPeerThreads', () => {
       serverName: 'github',
       name: 'create_issue',
     });
+  });
+
+  it('resolves deferred call_tool policy targets from call arguments', () => {
+    const state = new PeerThreadFoldState();
+    ingestTurnEvent(
+      state,
+      modelMessage({
+        id: 'deferred-model',
+        threadId: ROOT_THREAD_ID,
+        toolCalls: [
+          {
+            id: 'toolu_deferred',
+            type: 'function',
+            function: {
+              name: 'call_tool',
+              arguments: JSON.stringify({
+                mcp_server: 'linear',
+                tool_name: 'save_comment',
+                input: { issueId: 'FRONTEN-2512', body: 'test 2' },
+              }),
+            },
+            toolInfo: { type: 'truefoundry-system', name: 'call_tool' },
+          },
+        ],
+      }),
+    );
+
+    expect(
+      resolveToolApprovalPolicyTarget({
+        state,
+        threadId: ROOT_THREAD_ID,
+        toolCallId: 'toolu_deferred',
+      }),
+    ).toEqual({ serverName: 'linear', name: 'save_comment' });
+  });
+
+  it('clears sibling pending approvals covered by a session policy', () => {
+    const state = new PeerThreadFoldState();
+    ingestTurnEvent(
+      state,
+      modelMessage({
+        id: 'deferred-model',
+        threadId: ROOT_THREAD_ID,
+        toolCalls: [
+          {
+            id: 'tool-a',
+            type: 'function',
+            function: {
+              name: 'call_tool',
+              arguments: JSON.stringify({
+                mcp_server: 'linear',
+                tool_name: 'save_comment',
+                input: { issueId: 'A' },
+              }),
+            },
+            toolInfo: { type: 'truefoundry-system', name: 'call_tool' },
+          },
+          {
+            id: 'tool-b',
+            type: 'function',
+            function: {
+              name: 'call_tool',
+              arguments: JSON.stringify({
+                mcp_server: 'linear',
+                tool_name: 'save_comment',
+                input: { issueId: 'B' },
+              }),
+            },
+            toolInfo: { type: 'truefoundry-system', name: 'call_tool' },
+          },
+        ],
+      }),
+    );
+    ingestTurnEvent(state, {
+      type: 'tool.approval_required',
+      id: 'appr-req-both',
+      createdAt,
+      threadId: ROOT_THREAD_ID,
+      toolCalls: [
+        { id: 'tool-a', sourceEventId: 'deferred-model' },
+        { id: 'tool-b', sourceEventId: 'deferred-model' },
+      ],
+    });
+
+    applyApprovalPoliciesToFold(state, [
+      { serverName: 'linear', name: 'save_comment', action: { type: TOOL_APPROVAL_POLICY_ACTION_TYPE.ALLOW_SESSION } },
+    ]);
+
+    const bucket = state.threads.get(ROOT_THREAD_ID);
+    expect(bucket?.pendingApprovals.size).toBe(0);
+    expect(bucket?.approvalDecisions.get('tool-a')?.approved).toBe(true);
+    expect(bucket?.approvalDecisions.get('tool-b')?.approved).toBe(true);
   });
 
   it('deduplicates persisted inbound events replayed after POST', () => {

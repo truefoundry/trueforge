@@ -227,11 +227,8 @@ function isContentAffectingEvent(message: TurnStreamingEvent): boolean {
 
 function isFoldNeutralInboundEvent(
   message: TurnStreamingEvent,
-): message is Extract<
-  TurnStreamingEvent,
-  { type: typeof EVENT_TYPE.USER_MCP_AUTH_CONTINUE | typeof EVENT_TYPE.USER_TOOL_APPROVAL_POLICY }
-> {
-  return message.type === EVENT_TYPE.USER_MCP_AUTH_CONTINUE || message.type === EVENT_TYPE.USER_TOOL_APPROVAL_POLICY;
+): message is Extract<TurnStreamingEvent, { type: typeof EVENT_TYPE.USER_MCP_AUTH_CONTINUE }> {
+  return message.type === EVENT_TYPE.USER_MCP_AUTH_CONTINUE;
 }
 
 export function ingestStreamEvent(state: PeerThreadFoldState, message: TurnStreamingEvent): boolean {
@@ -248,6 +245,10 @@ export function ingestStreamEvent(state: PeerThreadFoldState, message: TurnStrea
 
   if (isFoldNeutralInboundEvent(message)) {
     return false;
+  }
+
+  if (message.type === EVENT_TYPE.USER_TOOL_APPROVAL_POLICY) {
+    return applyApprovalPoliciesToFold(state, message.policies);
   }
 
   if (message.threadId == null) {
@@ -281,6 +282,10 @@ export function ingestTurnEvent(state: PeerThreadFoldState, event: TurnEvent): v
   }
   state.ingestedEventIds.add(event.id);
   if (isFoldNeutralInboundEvent(event)) {
+    return;
+  }
+  if (event.type === EVENT_TYPE.USER_TOOL_APPROVAL_POLICY) {
+    applyApprovalPoliciesToFold(state, event.policies);
     return;
   }
   if (event.threadId == null) {
@@ -333,9 +338,32 @@ function findToolCallInBucket(bucket: ThreadBucket, toolCallId: string): SdkTool
 
 export type ToolApprovalPolicyTarget = Pick<ToolApprovalPolicyItem, 'serverName' | 'name'>;
 
+/** Deferred MCP invoke wrapper — wire `toolInfo` stays system/`call_tool`; policy keys live in args. */
+const DEFERRED_CALL_TOOL_NAME = 'call_tool';
+
+function parseDeferredCallToolPolicyTarget(argsText: string): ToolApprovalPolicyTarget | undefined {
+  try {
+    const parsed: unknown = JSON.parse(argsText);
+    if (parsed == null || typeof parsed !== 'object') {
+      return undefined;
+    }
+    const serverName: unknown = Reflect.get(parsed, 'mcp_server');
+    const name: unknown = Reflect.get(parsed, 'tool_name');
+    return typeof serverName === 'string' &&
+      serverName.length > 0 &&
+      typeof name === 'string' &&
+      name.length > 0
+      ? { serverName, name }
+      : undefined;
+  } catch {
+    return undefined;
+  }
+}
+
 /**
- * Approval-required calls currently originate from MCP ToolSet, whose durable
- * tool info owns the backend policy key.
+ * Backend policy key is `(serverName, name)`. Direct MCP calls expose that on
+ * `toolInfo`; deferred tools stream as `call_tool` with system toolInfo, so
+ * the underlying target is read from the call arguments instead.
  */
 export function resolveToolApprovalPolicyTarget({
   state,
@@ -347,13 +375,59 @@ export function resolveToolApprovalPolicyTarget({
   toolCallId: string;
 }): ToolApprovalPolicyTarget | undefined {
   const bucket = state.threads.get(threadId);
-  const toolInfo = bucket == null ? undefined : findToolCallInBucket(bucket, toolCallId)?.toolInfo;
-  if (toolInfo?.type !== TOOL_INFO_TYPE.MCP) {
+  const toolCall = bucket == null ? undefined : findToolCallInBucket(bucket, toolCallId);
+  if (toolCall == null) {
     return undefined;
   }
-  const serverName: unknown = Reflect.get(toolInfo, 'serverName');
-  const name: unknown = Reflect.get(toolInfo, 'name');
-  return typeof serverName === 'string' && typeof name === 'string' ? { serverName, name } : undefined;
+  const toolInfo = toolCall.toolInfo;
+  if (toolInfo?.type === TOOL_INFO_TYPE.MCP) {
+    const serverName: unknown = Reflect.get(toolInfo, 'serverName');
+    const name: unknown = Reflect.get(toolInfo, 'name');
+    if (typeof serverName === 'string' && typeof name === 'string') {
+      return { serverName, name };
+    }
+  }
+  if (toolCall.function.name === DEFERRED_CALL_TOOL_NAME) {
+    return parseDeferredCallToolPolicyTarget(toolCall.function.arguments);
+  }
+  return undefined;
+}
+
+function samePolicyTarget(left: ToolApprovalPolicyTarget, right: ToolApprovalPolicyTarget): boolean {
+  return left.serverName === right.serverName && left.name === right.name;
+}
+
+/** Pending approval ids whose MCP target matches a session/timed policy. */
+export function collectPendingApprovalIdsMatchingPolicy(
+  state: PeerThreadFoldState,
+  target: ToolApprovalPolicyTarget,
+): string[] {
+  const ids: string[] = [];
+  for (const [threadId, bucket] of state.threads) {
+    for (const toolCallId of bucket.pendingApprovals.keys()) {
+      const resolved = resolveToolApprovalPolicyTarget({ state, threadId, toolCallId });
+      if (resolved != null && samePolicyTarget(resolved, target)) {
+        ids.push(toolCallId);
+      }
+    }
+  }
+  return ids;
+}
+
+/** BE auto-allows matching pending calls; no per-sibling `user.tool_approval` is emitted. */
+export function applyApprovalPoliciesToFold(
+  state: PeerThreadFoldState,
+  policies: readonly ToolApprovalPolicyItem[],
+): boolean {
+  let applied = false;
+  for (const policy of policies) {
+    const target = { serverName: policy.serverName, name: policy.name };
+    for (const toolCallId of collectPendingApprovalIdsMatchingPolicy(state, target)) {
+      recordToolApprovalInFold(state, { toolCallId, approved: true });
+      applied = true;
+    }
+  }
+  return applied;
 }
 
 function isLinkedCreateSubAgentThread(state: PeerThreadFoldState, subThreadId: string): boolean {

@@ -1121,6 +1121,14 @@ function projectActiveStreamUpdate(snapshot: SessionSnapshot): TurnStreamUpdate 
     return activeStream.update;
   }
 
+  // MCP auth is not stored in the fold. After a paused SSE segment ends we
+  // rebuild from fold + snapshot.pendingMcpAuth; if only the live update has
+  // the auth chrome, keep that update instead of wiping Connect/Continue.
+  const liveCustom = activeStream.update.metadata?.custom;
+  if (liveCustom?.[MESSAGE_CUSTOM_KEY.PENDING_MCP_AUTH] === true && snapshot.pendingMcpAuth == null) {
+    return activeStream.update;
+  }
+
   const baseline = snapshot.groupRootBaseline ?? computeGroupRootBaseline(snapshot.turns);
   const rootModelMessageIds = rootModelMessageIdsSinceBaseline(snapshot.fold, baseline);
 
@@ -1128,14 +1136,16 @@ function projectActiveStreamUpdate(snapshot: SessionSnapshot): TurnStreamUpdate 
   const content = foldContent.length > 0 ? foldContent : activeStream.update.content;
 
   const turnRecord = snapshot.turns.find(turn => turn.id === activeStream.turnId);
+  const pendingMcpAuth = turnRecord?.pendingMcpAuth ?? snapshot.pendingMcpAuth;
   const turnLike =
-    turnRecord ??
-    (snapshot.activeTurn == null
-      ? undefined
-      : {
-          state: snapshot.activeTurn.state,
-          pendingMcpAuth: snapshot.pendingMcpAuth,
-        });
+    turnRecord != null
+      ? { state: turnRecord.state, pendingMcpAuth }
+      : snapshot.activeTurn == null
+        ? undefined
+        : {
+            state: snapshot.activeTurn.state,
+            pendingMcpAuth,
+          };
 
   const rebuilt =
     turnLike != null ? buildTurnUpdateFromFold(snapshot.fold, turnLike, rootModelMessageIds) : { content };

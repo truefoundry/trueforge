@@ -2,6 +2,7 @@
 
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import type {
+  McpAuthRequiredEvent,
   Turn,
   TurnInboundEventItem,
   TurnInputItem,
@@ -27,9 +28,13 @@ import {
   rootModelMessageIdsSinceBaseline,
   userMessageContentToText,
 } from './convertTurnMessages.js';
-import { ingestTurnEvent, resolveToolApprovalPolicyTarget } from './foldPeerThreads.js';
+import {
+  collectPendingApprovalIdsMatchingPolicy,
+  ingestTurnEvent,
+  resolveToolApprovalPolicyTarget,
+} from './foldPeerThreads.js';
 import { loadSessionSnapshot } from './loadSessionSnapshot.js';
-import { MESSAGE_CUSTOM_KEY } from './messageCustomMetadata.js';
+import { isMcpServerAuthInfoList, MESSAGE_CUSTOM_KEY } from './messageCustomMetadata.js';
 import { findPausedAssistantMessage } from './requiredActionInputs.js';
 import {
   createEmptySessionSnapshot,
@@ -336,6 +341,22 @@ export function useTrueForgeAgentMessages({
               prev.activeTurn?.id === turnIdRef.current && turnState != null
                 ? { ...prev.activeTurn, state: turnState }
                 : prev.activeTurn;
+            const custom = update.metadata?.custom;
+            let pendingMcpAuth: McpAuthRequiredEvent | undefined = prev.pendingMcpAuth;
+            if (turnState?.status === TURN_STATUS.RUNNING) {
+              pendingMcpAuth = undefined;
+            } else if (
+              custom?.[MESSAGE_CUSTOM_KEY.PENDING_MCP_AUTH] === true &&
+              isMcpServerAuthInfoList(custom[MESSAGE_CUSTOM_KEY.MCP_SERVERS])
+            ) {
+              pendingMcpAuth = {
+                type: EVENT_TYPE.MCP_AUTH_REQUIRED,
+                id: 'live-mcp-auth',
+                createdAt: new Date().toISOString(),
+                threadId: null,
+                mcpServers: custom[MESSAGE_CUSTOM_KEY.MCP_SERVERS],
+              };
+            }
             const next = replaceSessionSnapshot(prev, {
               activeStream: {
                 turnId: turnIdRef.current,
@@ -343,6 +364,7 @@ export function useTrueForgeAgentMessages({
                 segmentStatus,
                 ...(update.sequenceNumber != null ? { lastSequenceNumber: update.sequenceNumber } : {}),
               },
+              pendingMcpAuth,
               ...(activeTurn != null ? { activeTurn } : {}),
               ...(turnState != null && turnState.status !== TURN_STATUS.PAUSED
                 ? {
@@ -875,6 +897,7 @@ export function useTrueForgeAgentMessages({
         approval: mapApprovalDecision(response.approved, response.reason),
       };
       const events: TurnInboundEventItem[] = [event];
+      const approvals = new Map(previous.requiredActions.approvals);
       if (response.policy != null) {
         const target = resolveToolApprovalPolicyTarget({
           state: previous.fold,
@@ -891,8 +914,10 @@ export function useTrueForgeAgentMessages({
           policies: [{ ...target, action: response.policy }],
         };
         events.push(policyEvent);
+        for (const toolCallId of collectPendingApprovalIdsMatchingPolicy(previous.fold, target)) {
+          approvals.set(toolCallId, { approved: true });
+        }
       }
-      const approvals = new Map(previous.requiredActions.approvals);
       approvals.set(response.approvalId, {
         approved: response.approved,
         ...(response.reason != null ? { reason: response.reason } : {}),
