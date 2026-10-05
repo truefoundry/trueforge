@@ -8,23 +8,27 @@ let allowedHosts: string[] = [];
 let blockedHosts: string[] = [];
 let guardEnabled = true;
 
-export const DEFAULT_OUTBOUND_HTTP_REQUEST_HEADERS_TIMEOUT_MS = 10_000;
-export const DEFAULT_OUTBOUND_HTTP_REQUEST_CONNECT_TIMEOUT_MS = 10_000;
-export const DEFAULT_OUTBOUND_HTTP_REQUEST_MAX_RETRIES = 2;
-
-const MCP_BODY_TIMEOUT_MS = 30 * 60 * 1000;
 const MAX_REDIRECTS = 20;
 const REDIRECT_STATUSES = new Set([301, 302, 303, 307, 308]);
 const CROSS_ORIGIN_STRIPPED_HEADERS = ['authorization', 'proxy-authorization', 'cookie', 'host'];
 const GATEWAY_RETRY_STATUSES = new Set([520, 521, 522, 523, 524, 530]);
-const RETRYABLE_TRANSPORT_CODES = new Set(['UND_ERR_CONNECT_TIMEOUT', 'UND_ERR_HEADERS_TIMEOUT']);
 const RETRY_INITIAL_DELAY_MS = 1_000;
 const RETRY_BACKOFF_FACTOR = 2;
 const RETRY_JITTER_FACTOR = 0.2;
 
-let headersTimeoutMs = DEFAULT_OUTBOUND_HTTP_REQUEST_HEADERS_TIMEOUT_MS;
-let connectTimeoutMs = DEFAULT_OUTBOUND_HTTP_REQUEST_CONNECT_TIMEOUT_MS;
-let maxRetries = DEFAULT_OUTBOUND_HTTP_REQUEST_MAX_RETRIES;
+export interface OutboundFetchOptions {
+  connectTimeoutMs: number;
+  headersTimeoutMs: number;
+  bodyTimeoutMs: number;
+  maxRetries: number;
+  /** When false, UND_ERR_HEADERS_TIMEOUT is not retried (upstream may already have started work). */
+  retryHeadersTimeout: boolean;
+}
+
+export interface OutboundFetch {
+  fetch: (input: string | URL | Request, init?: RequestInit) => Promise<Response>;
+  close: () => Promise<void>;
+}
 
 const URL_VERIFY = {
   allowedProtocols: ['http:', 'https:'],
@@ -178,57 +182,15 @@ const guardedLookup: LookupFunction = (hostname, options: LookupOptions, callbac
   });
 };
 
-function createOutboundAgent(): Agent {
-  return new Agent({
-    headersTimeout: headersTimeoutMs,
-    connectTimeout: connectTimeoutMs,
-    connect: { lookup: guardedLookup, timeout: connectTimeoutMs },
-  });
-}
-
-function createMcpOutboundAgent(): Agent {
-  return new Agent({
-    // MCP SSE/streamable-HTTP stays idle between tool calls; undici's 300s bodyTimeout kills it.
-    bodyTimeout: MCP_BODY_TIMEOUT_MS,
-    headersTimeout: headersTimeoutMs,
-    connectTimeout: connectTimeoutMs,
-    connect: { lookup: guardedLookup, timeout: connectTimeoutMs },
-  });
-}
-
-let outboundAgent = createOutboundAgent();
-let mcpOutboundAgent = createMcpOutboundAgent();
-
-function rebuildOutboundAgents(): void {
-  const previousOutbound = outboundAgent;
-  const previousMcp = mcpOutboundAgent;
-  outboundAgent = createOutboundAgent();
-  mcpOutboundAgent = createMcpOutboundAgent();
-  void previousOutbound.close().catch(() => undefined);
-  void previousMcp.close().catch(() => undefined);
-}
-
+/** SSRF allow/block policy for all outbound guarded fetches. Timeouts live on `createOutboundFetch`. */
 export function configureOutboundUrlGuard(config: {
   enabled?: boolean;
   allowedHosts: readonly string[];
   blockedHosts: readonly string[];
-  headersTimeoutMs?: number;
-  connectTimeoutMs?: number;
-  maxRetries?: number;
 }): void {
   guardEnabled = config.enabled ?? true;
   allowedHosts = config.allowedHosts.map(normalizeHost);
   blockedHosts = config.blockedHosts.map(normalizeHost);
-  const nextHeadersTimeoutMs = config.headersTimeoutMs ?? DEFAULT_OUTBOUND_HTTP_REQUEST_HEADERS_TIMEOUT_MS;
-  const nextConnectTimeoutMs = config.connectTimeoutMs ?? DEFAULT_OUTBOUND_HTTP_REQUEST_CONNECT_TIMEOUT_MS;
-  const nextMaxRetries = config.maxRetries ?? DEFAULT_OUTBOUND_HTTP_REQUEST_MAX_RETRIES;
-  const timeoutsChanged = nextHeadersTimeoutMs !== headersTimeoutMs || nextConnectTimeoutMs !== connectTimeoutMs;
-  headersTimeoutMs = nextHeadersTimeoutMs;
-  connectTimeoutMs = nextConnectTimeoutMs;
-  maxRetries = nextMaxRetries;
-  if (timeoutsChanged) {
-    rebuildOutboundAgents();
-  }
 }
 
 export async function assertSafeOutboundUrl(input: string | URL | Request): Promise<void> {
@@ -320,9 +282,12 @@ function getErrorCode(error: unknown): string | undefined {
 }
 
 /** Connect / headers-read timeouts from undici (including nested under TypeError: fetch failed). */
-export function isRetryableOutboundTransportError(error: unknown): boolean {
+export function isRetryableOutboundTransportError(error: unknown, options: { retryHeadersTimeout: boolean }): boolean {
   const code = getErrorCode(error);
-  return code !== undefined && RETRYABLE_TRANSPORT_CODES.has(code);
+  if (code === 'UND_ERR_CONNECT_TIMEOUT') {
+    return true;
+  }
+  return options.retryHeadersTimeout && code === 'UND_ERR_HEADERS_TIMEOUT';
 }
 
 export function isRetryableOutboundGatewayStatus(status: number): boolean {
@@ -418,6 +383,7 @@ async function withOutboundHttpRetries(
   input: string | URL | Request,
   init: RequestInit,
   agent: Agent,
+  options: { maxRetries: number; retryHeadersTimeout: boolean },
 ): Promise<Response> {
   const signal = init.signal ?? (input instanceof Request ? input.signal : undefined);
   let attempt = 0;
@@ -427,12 +393,18 @@ async function withOutboundHttpRetries(
     }
     try {
       const response = await guardedFetch(input, init, MAX_REDIRECTS, agent);
-      if (!isRetryableOutboundGatewayStatus(response.status) || attempt >= maxRetries) {
+      if (!isRetryableOutboundGatewayStatus(response.status) || attempt >= options.maxRetries) {
         return response;
       }
       void response.body?.cancel().catch(() => undefined);
     } catch (error) {
-      if (!isRetryableOutboundTransportError(error) || attempt >= maxRetries || signal?.aborted) {
+      if (
+        !isRetryableOutboundTransportError(error, {
+          retryHeadersTimeout: options.retryHeadersTimeout,
+        }) ||
+        attempt >= options.maxRetries ||
+        signal?.aborted
+      ) {
         throw error;
       }
     }
@@ -441,11 +413,20 @@ async function withOutboundHttpRetries(
   }
 }
 
-export async function ssrfFetch(input: string | URL | Request, init?: RequestInit): Promise<Response> {
-  return withOutboundHttpRetries(input, init ?? {}, outboundAgent);
-}
-
-/** Same as `ssrfFetch` with a 30m bodyTimeout for idle MCP SSE / streamable-HTTP. */
-export async function mcpSsrfFetch(input: string | URL | Request, init?: RequestInit): Promise<Response> {
-  return withOutboundHttpRetries(input, init ?? {}, mcpOutboundAgent);
+/** Builds a pooled undici Agent + SSRF-guarded fetch with the given timeouts/retries. */
+export function createOutboundFetch(options: OutboundFetchOptions): OutboundFetch {
+  const agent = new Agent({
+    bodyTimeout: options.bodyTimeoutMs,
+    headersTimeout: options.headersTimeoutMs,
+    connectTimeout: options.connectTimeoutMs,
+    connect: { lookup: guardedLookup, timeout: options.connectTimeoutMs },
+  });
+  const maxRetries = options.maxRetries;
+  const retryHeadersTimeout = options.retryHeadersTimeout;
+  return {
+    fetch: (input, init) => withOutboundHttpRetries(input, init ?? {}, agent, { maxRetries, retryHeadersTimeout }),
+    close: async () => {
+      await agent.close().catch(() => undefined);
+    },
+  };
 }

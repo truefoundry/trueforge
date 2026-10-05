@@ -1,27 +1,36 @@
 import http from 'node:http';
 import {
+  configureOutboundFetches,
+  DEFAULT_MODEL_REQUEST_BODY_TIMEOUT_MS,
+  DEFAULT_MODEL_REQUEST_CONNECT_TIMEOUT_MS,
+  DEFAULT_MODEL_REQUEST_HEADERS_TIMEOUT_MS,
+  DEFAULT_MODEL_REQUEST_MAX_RETRIES,
+  defaultMcpOutboundFetchOptions,
+  defaultModelOutboundFetchOptions,
+  defaultOutboundFetchOptions,
+  mcpSsrfFetch,
+  modelSsrfFetch,
+  ssrfFetch,
+} from '../../../src/core/util/outboundFetch';
+import {
   assertSafeOutboundUrl,
   configureOutboundUrlGuard,
-  DEFAULT_OUTBOUND_HTTP_REQUEST_CONNECT_TIMEOUT_MS,
-  DEFAULT_OUTBOUND_HTTP_REQUEST_HEADERS_TIMEOUT_MS,
-  DEFAULT_OUTBOUND_HTTP_REQUEST_MAX_RETRIES,
+  createOutboundFetch,
   isRetryableOutboundGatewayStatus,
   isRetryableOutboundTransportError,
-  ssrfFetch,
 } from '../../../src/core/util/ssrfGuard';
 
-function resetOutboundGuard(): void {
-  configureOutboundUrlGuard({
-    allowedHosts: [],
-    blockedHosts: [],
-    headersTimeoutMs: DEFAULT_OUTBOUND_HTTP_REQUEST_HEADERS_TIMEOUT_MS,
-    connectTimeoutMs: DEFAULT_OUTBOUND_HTTP_REQUEST_CONNECT_TIMEOUT_MS,
-    maxRetries: DEFAULT_OUTBOUND_HTTP_REQUEST_MAX_RETRIES,
+function resetOutbound(): void {
+  configureOutboundUrlGuard({ allowedHosts: [], blockedHosts: [] });
+  configureOutboundFetches({
+    outbound: defaultOutboundFetchOptions(),
+    model: defaultModelOutboundFetchOptions(),
+    mcp: defaultMcpOutboundFetchOptions(),
   });
 }
 
 afterEach(() => {
-  resetOutboundGuard();
+  resetOutbound();
 });
 
 async function listen(handler: http.RequestListener): Promise<{ server: http.Server; origin: string }> {
@@ -96,9 +105,11 @@ describe('outbound retry classifiers', () => {
     const headers = new TypeError('fetch failed', {
       cause: Object.assign(new Error('Headers Timeout Error'), { code: 'UND_ERR_HEADERS_TIMEOUT' }),
     });
-    expect(isRetryableOutboundTransportError(connect)).toBe(true);
-    expect(isRetryableOutboundTransportError(headers)).toBe(true);
-    expect(isRetryableOutboundTransportError(new Error('nope'))).toBe(false);
+    expect(isRetryableOutboundTransportError(connect, { retryHeadersTimeout: true })).toBe(true);
+    expect(isRetryableOutboundTransportError(headers, { retryHeadersTimeout: true })).toBe(true);
+    expect(isRetryableOutboundTransportError(headers, { retryHeadersTimeout: false })).toBe(false);
+    expect(isRetryableOutboundTransportError(connect, { retryHeadersTimeout: false })).toBe(true);
+    expect(isRetryableOutboundTransportError(new Error('nope'), { retryHeadersTimeout: true })).toBe(false);
   });
 
   it('retries only the configured gateway statuses', () => {
@@ -189,7 +200,12 @@ describe('ssrfFetch', () => {
   });
 
   it('retries gateway 520 then returns success', async () => {
-    configureOutboundUrlGuard({ allowedHosts: ['127.0.0.1'], blockedHosts: [], maxRetries: 2 });
+    configureOutboundUrlGuard({ allowedHosts: ['127.0.0.1'], blockedHosts: [] });
+    configureOutboundFetches({
+      outbound: { ...defaultOutboundFetchOptions(), maxRetries: 2 },
+      model: defaultModelOutboundFetchOptions(),
+      mcp: defaultMcpOutboundFetchOptions(),
+    });
     let hits = 0;
     const { server, origin } = await listen((_req, res) => {
       hits += 1;
@@ -212,7 +228,12 @@ describe('ssrfFetch', () => {
   });
 
   it('does not retry 400 or 500', async () => {
-    configureOutboundUrlGuard({ allowedHosts: ['127.0.0.1'], blockedHosts: [], maxRetries: 2 });
+    configureOutboundUrlGuard({ allowedHosts: ['127.0.0.1'], blockedHosts: [] });
+    configureOutboundFetches({
+      outbound: { ...defaultOutboundFetchOptions(), maxRetries: 2 },
+      model: defaultModelOutboundFetchOptions(),
+      mcp: defaultMcpOutboundFetchOptions(),
+    });
     for (const status of [400, 500]) {
       let hits = 0;
       const { server, origin } = await listen((_req, res) => {
@@ -231,7 +252,12 @@ describe('ssrfFetch', () => {
   });
 
   it('stops retrying gateway errors when maxRetries is 0', async () => {
-    configureOutboundUrlGuard({ allowedHosts: ['127.0.0.1'], blockedHosts: [], maxRetries: 0 });
+    configureOutboundUrlGuard({ allowedHosts: ['127.0.0.1'], blockedHosts: [] });
+    configureOutboundFetches({
+      outbound: { ...defaultOutboundFetchOptions(), maxRetries: 0 },
+      model: defaultModelOutboundFetchOptions(),
+      mcp: defaultMcpOutboundFetchOptions(),
+    });
     let hits = 0;
     const { server, origin } = await listen((_req, res) => {
       hits += 1;
@@ -248,17 +274,20 @@ describe('ssrfFetch', () => {
   });
 
   it('retries headers timeout then returns success', async () => {
-    configureOutboundUrlGuard({
-      allowedHosts: ['127.0.0.1'],
-      blockedHosts: [],
-      headersTimeoutMs: 50,
-      maxRetries: 2,
+    configureOutboundUrlGuard({ allowedHosts: ['127.0.0.1'], blockedHosts: [] });
+    configureOutboundFetches({
+      outbound: {
+        ...defaultOutboundFetchOptions(),
+        headersTimeoutMs: 50,
+        maxRetries: 2,
+      },
+      model: defaultModelOutboundFetchOptions(),
+      mcp: defaultMcpOutboundFetchOptions(),
     });
     let hits = 0;
     const { server, origin } = await listen((_req, res) => {
       hits += 1;
       if (hits === 1) {
-        // Accept the socket but never send headers so undici hits headersTimeout.
         return;
       }
       res.writeHead(200, { 'content-type': 'text/plain' });
@@ -275,7 +304,12 @@ describe('ssrfFetch', () => {
   }, 15_000);
 
   it('does not continue retries after abort', async () => {
-    configureOutboundUrlGuard({ allowedHosts: ['127.0.0.1'], blockedHosts: [], maxRetries: 3 });
+    configureOutboundUrlGuard({ allowedHosts: ['127.0.0.1'], blockedHosts: [] });
+    configureOutboundFetches({
+      outbound: { ...defaultOutboundFetchOptions(), maxRetries: 3 },
+      model: defaultModelOutboundFetchOptions(),
+      mcp: defaultMcpOutboundFetchOptions(),
+    });
     let hits = 0;
     const { server, origin } = await listen((_req, res) => {
       hits += 1;
@@ -288,6 +322,117 @@ describe('ssrfFetch', () => {
       await expect(ssrfFetch(`${origin}/`, { signal: controller.signal })).rejects.toThrow();
       expect(hits).toBe(0);
     } finally {
+      await closeServer(server);
+    }
+  });
+});
+
+describe('modelSsrfFetch', () => {
+  it('uses the model Agent, not the generic outbound Agent', async () => {
+    configureOutboundUrlGuard({ allowedHosts: ['127.0.0.1'], blockedHosts: [] });
+    configureOutboundFetches({
+      outbound: { ...defaultOutboundFetchOptions(), maxRetries: 0 },
+      model: { ...defaultModelOutboundFetchOptions(), maxRetries: 2 },
+      mcp: defaultMcpOutboundFetchOptions(),
+    });
+    let hits = 0;
+    const { server, origin } = await listen((_req, res) => {
+      hits += 1;
+      if (hits === 1) {
+        res.writeHead(520, { 'content-type': 'text/plain' });
+        res.end('gateway');
+        return;
+      }
+      res.writeHead(200, { 'content-type': 'text/plain' });
+      res.end('ok');
+    });
+    try {
+      const response = await modelSsrfFetch(`${origin}/`);
+      expect(response.status).toBe(200);
+      expect(hits).toBe(2);
+      hits = 0;
+      const generic = await ssrfFetch(`${origin}/`);
+      expect(generic.status).toBe(520);
+      expect(hits).toBe(1);
+    } finally {
+      await closeServer(server);
+    }
+  });
+});
+
+describe('mcpSsrfFetch', () => {
+  it('retries gateway 520 then returns success', async () => {
+    configureOutboundUrlGuard({ allowedHosts: ['127.0.0.1'], blockedHosts: [] });
+    configureOutboundFetches({
+      outbound: defaultOutboundFetchOptions(),
+      model: defaultModelOutboundFetchOptions(),
+      mcp: { ...defaultMcpOutboundFetchOptions(), maxRetries: 2 },
+    });
+    let hits = 0;
+    const { server, origin } = await listen((_req, res) => {
+      hits += 1;
+      if (hits === 1) {
+        res.writeHead(520, { 'content-type': 'text/plain' });
+        res.end('gateway');
+        return;
+      }
+      res.writeHead(200, { 'content-type': 'text/plain' });
+      res.end('ok');
+    });
+    try {
+      const response = await mcpSsrfFetch(`${origin}/`);
+      expect(response.status).toBe(200);
+      await expect(response.text()).resolves.toBe('ok');
+      expect(hits).toBe(2);
+    } finally {
+      await closeServer(server);
+    }
+  });
+
+  it('does not retry headers timeouts so long tool POSTs are not replayed', async () => {
+    configureOutboundUrlGuard({ allowedHosts: ['127.0.0.1'], blockedHosts: [] });
+    configureOutboundFetches({
+      outbound: defaultOutboundFetchOptions(),
+      model: defaultModelOutboundFetchOptions(),
+      mcp: {
+        ...defaultMcpOutboundFetchOptions(),
+        headersTimeoutMs: 50,
+        maxRetries: 2,
+      },
+    });
+    let hits = 0;
+    const { server, origin } = await listen((_req, _res) => {
+      hits += 1;
+    });
+    try {
+      await expect(mcpSsrfFetch(`${origin}/`)).rejects.toThrow();
+      expect(hits).toBe(1);
+    } finally {
+      await closeServer(server);
+    }
+  }, 15_000);
+});
+
+describe('createOutboundFetch', () => {
+  it('builds a standalone guarded fetch from agnostic options', async () => {
+    configureOutboundUrlGuard({ allowedHosts: ['127.0.0.1'], blockedHosts: [] });
+    const outbound = createOutboundFetch({
+      connectTimeoutMs: DEFAULT_MODEL_REQUEST_CONNECT_TIMEOUT_MS,
+      headersTimeoutMs: DEFAULT_MODEL_REQUEST_HEADERS_TIMEOUT_MS,
+      bodyTimeoutMs: DEFAULT_MODEL_REQUEST_BODY_TIMEOUT_MS,
+      maxRetries: DEFAULT_MODEL_REQUEST_MAX_RETRIES,
+      retryHeadersTimeout: true,
+    });
+    const { server, origin } = await listen((_req, res) => {
+      res.writeHead(200, { 'content-type': 'text/plain' });
+      res.end('ok');
+    });
+    try {
+      const response = await outbound.fetch(`${origin}/`);
+      expect(response.status).toBe(200);
+      await expect(response.text()).resolves.toBe('ok');
+    } finally {
+      await outbound.close();
       await closeServer(server);
     }
   });

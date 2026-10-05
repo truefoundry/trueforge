@@ -9,7 +9,11 @@
  * (migrate, Redis, listen) are caught below and exit non-zero. SQLite vs
  * Postgres store modules stay dynamic so only the active engine is loaded.
  */
-import { configureOutboundUrlGuard, extractErrorLogFields } from '@truefoundry/trueforge-core/core';
+import {
+  configureOutboundFetches,
+  configureOutboundUrlGuard,
+  extractErrorLogFields,
+} from '@truefoundry/trueforge-core/core';
 import type { Context } from 'hono';
 import { mkdir } from 'node:fs/promises';
 import path from 'node:path';
@@ -40,9 +44,29 @@ try {
     enabled: configuration.NETWORK_POLICY_ENABLED,
     allowedHosts: configuration.OUTBOUND_URL_ALLOWED_HOSTS,
     blockedHosts: configuration.OUTBOUND_URL_BLOCKED_HOSTS,
-    headersTimeoutMs: configuration.OUTBOUND_HTTP_REQUEST_HEADERS_TIMEOUT_MS,
-    connectTimeoutMs: configuration.OUTBOUND_HTTP_REQUEST_CONNECT_TIMEOUT_MS,
-    maxRetries: configuration.OUTBOUND_HTTP_REQUEST_MAX_RETRIES,
+  });
+  configureOutboundFetches({
+    outbound: {
+      connectTimeoutMs: configuration.OUTBOUND_REQUEST_CONNECT_TIMEOUT_MS,
+      headersTimeoutMs: configuration.OUTBOUND_REQUEST_HEADERS_TIMEOUT_MS,
+      bodyTimeoutMs: configuration.OUTBOUND_REQUEST_BODY_TIMEOUT_MS,
+      maxRetries: configuration.OUTBOUND_REQUEST_MAX_RETRIES,
+      retryHeadersTimeout: true,
+    },
+    model: {
+      connectTimeoutMs: configuration.MODEL_REQUEST_CONNECT_TIMEOUT_MS,
+      headersTimeoutMs: configuration.MODEL_REQUEST_HEADERS_TIMEOUT_MS,
+      bodyTimeoutMs: configuration.MODEL_REQUEST_BODY_TIMEOUT_MS,
+      maxRetries: configuration.MODEL_REQUEST_MAX_RETRIES,
+      retryHeadersTimeout: true,
+    },
+    mcp: {
+      connectTimeoutMs: configuration.MCP_REQUEST_CONNECT_TIMEOUT_MS,
+      headersTimeoutMs: configuration.MCP_REQUEST_HEADERS_TIMEOUT_MS,
+      bodyTimeoutMs: configuration.MCP_REQUEST_BODY_TIMEOUT_MS,
+      maxRetries: configuration.MCP_REQUEST_MAX_RETRIES,
+      retryHeadersTimeout: false,
+    },
   });
 } catch (error) {
   console.error(
