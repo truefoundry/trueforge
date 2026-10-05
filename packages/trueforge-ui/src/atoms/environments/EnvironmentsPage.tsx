@@ -4,7 +4,7 @@ import { useCallback, useEffect, useMemo, useRef, useState, type ComponentType }
 
 import { useToasterOptional } from '../../containers/ToasterContainer.js';
 import { Icon } from '../../icons/Icon.js';
-import { useOptionalCatalogServer, useSandboxEnvironmentServer } from '../../server/ServerContext.js';
+import { useSandboxEnvironmentServer } from '../../server/ServerContext.js';
 import { useOptionalShellMode } from '../../server/ShellModeContext.js';
 import type { SandboxEnvironment } from '../../server/types.js';
 import {
@@ -53,13 +53,11 @@ export type EnvironmentsPageProps = Record<string, never>;
 
 export function EnvironmentsPage(_props: EnvironmentsPageProps) {
   const environmentServer = useSandboxEnvironmentServer();
-  const catalog = useOptionalCatalogServer();
   const shell = useOptionalShellMode();
   const toaster = useToasterOptional();
 
   const [environments, setEnvironments] = useState<SandboxEnvironment[]>([]);
   const [loading, setLoading] = useState(true);
-  const [providerReady, setProviderReady] = useState<boolean | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [nameQuery, setNameQuery] = useState(() => readEnvironmentShareSearch(window.location.search).q ?? '');
   const [drawer, setDrawer] = useState<DrawerState>(() => initialDrawerState());
@@ -74,23 +72,6 @@ export function EnvironmentsPage(_props: EnvironmentsPageProps) {
   const wasSettingsOpenRef = useRef(shell?.settingsOpen ?? false);
   const settingsOpen = shell?.settingsOpen ?? false;
 
-  const checkProvider = useCallback(async () => {
-    const sandboxCatalog = catalog?.sandboxCatalog;
-    if (sandboxCatalog == null) {
-      setProviderReady(false);
-      return false;
-    }
-    try {
-      const providers = await sandboxCatalog.listSandboxProviders();
-      const ready = providers.length > 0;
-      setProviderReady(ready);
-      return ready;
-    } catch (caught) {
-      setProviderReady(null);
-      throw caught;
-    }
-  }, [catalog]);
-
   const loadEnvironments = useCallback(
     async ({ token, size, silent = false }: { token: string | undefined; size: number; silent?: boolean }) => {
       const gen = ++loadGenRef.current;
@@ -99,14 +80,6 @@ export function EnvironmentsPage(_props: EnvironmentsPageProps) {
         setError(null);
       }
       try {
-        const ready = await checkProvider();
-        if (!ready) {
-          if (gen !== loadGenRef.current) return;
-          setEnvironments([]);
-          setNextPageToken(undefined);
-          setPreviousPageToken(undefined);
-          return;
-        }
         const page = await environmentServer.listEnvironments({
           limit: clampPageSize(size),
           ...(token === undefined || token === '' ? {} : { pageToken: token }),
@@ -127,7 +100,7 @@ export function EnvironmentsPage(_props: EnvironmentsPageProps) {
         if (gen === loadGenRef.current && !silent) setLoading(false);
       }
     },
-    [checkProvider, environmentServer],
+    [environmentServer],
   );
 
   useEffect(() => {
@@ -205,7 +178,6 @@ export function EnvironmentsPage(_props: EnvironmentsPageProps) {
   const hasPageNav = nextPageToken != null || previousPageToken != null || environments.length > 0;
 
   const openCreate = () => {
-    if (providerReady !== true) return;
     setDrawer({ kind: 'create' });
   };
 
@@ -235,7 +207,7 @@ export function EnvironmentsPage(_props: EnvironmentsPageProps) {
             <div className="w-64">
               <SearchInput query={nameQuery} setQuery={setNameQuery} placeholder="Search environments by name" />
             </div>
-            <Button.Primary type="button" disabled={providerReady !== true} onClick={openCreate}>
+            <Button.Primary type="button" onClick={openCreate}>
               <Icon name="plus" className="size-3.5" />
               New Environment
             </Button.Primary>
@@ -246,22 +218,11 @@ export function EnvironmentsPage(_props: EnvironmentsPageProps) {
       <div className="min-h-0 flex-1 overflow-auto px-4 py-4">
         {error != null ? (
           <p className="text-failure-bg px-3 py-8 text-center text-sm">{error}</p>
-        ) : loading || providerReady == null ? (
+        ) : loading ? (
           <div className="flex flex-col gap-2" role="status" aria-label="Loading environments">
             {Array.from({ length: 5 }, (_, i) => (
               <Skeleton key={i} className="h-12 w-full rounded-md" />
             ))}
-          </div>
-        ) : providerReady === false ? (
-          <div className="flex min-h-full flex-col items-center justify-center gap-4">
-            <EmptyScreen
-              title="Configure a sandbox provider first"
-              description="Sandbox environments require a Daytona sandbox provider. Add one in Settings → Sandbox."
-              className="min-h-0 flex-none py-0"
-            />
-            <Button.Primary type="button" onClick={() => shell?.setSettingsOpen(true, 'sandbox')}>
-              Open Sandbox settings
-            </Button.Primary>
           </div>
         ) : environments.length === 0 ? (
           <EmptyScreen

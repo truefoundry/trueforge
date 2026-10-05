@@ -72,27 +72,17 @@ afterEach(() => {
 
 function renderPage({
   environments = sampleEnvironments,
-  providers = [{ id: 'daytona', name: 'Daytona', catalogId: 'daytona', isConnected: true }],
   environmentOverrides = {},
 }: {
   environments?: SandboxEnvironment[];
-  providers?: Array<{ id: string; name: string; catalogId: string; isConnected: boolean }>;
   environmentOverrides?: Partial<SandboxEnvironmentServer>;
 } = {}) {
   const environmentServer = createMockSandboxEnvironmentServer({
     listEnvironments: vi.fn(async () => ({ data: environments })),
     ...environmentOverrides,
   });
-  const catalog = createMockCatalog({
-    sandboxCatalog: {
-      getSandboxProviderCatalog: async () => [],
-      listSandboxProviders: async () => providers,
-      createSandboxProvider: vi.fn(),
-      updateSandboxProvider: vi.fn(),
-    },
-  });
   const server = createMockAgentUIServer({
-    catalog,
+    catalog: createMockCatalog(),
     sandboxEnvironments: environmentServer,
   });
 
@@ -108,15 +98,7 @@ function renderPage({
 }
 
 describe('EnvironmentsPage', () => {
-  it('shows configure-provider empty state when no sandbox provider exists', async () => {
-    renderPage({ providers: [] });
-    await waitFor(() => {
-      expect(screen.getByText('Configure a sandbox provider first')).toBeInTheDocument();
-    });
-    expect(screen.getByRole('button', { name: 'Open Sandbox settings' })).toBeInTheDocument();
-  });
-
-  it('lists environments when a provider is configured', async () => {
+  it('lists environments without calling sandbox providers', async () => {
     renderPage();
     await waitFor(() => {
       expect(screen.getByText('python-data')).toBeInTheDocument();
@@ -176,9 +158,12 @@ describe('EnvironmentsPage', () => {
     }
   });
 
-  it('displays error message when listing providers throws an error', async () => {
+  it('lists environments when sandbox provider listing is forbidden', async () => {
     const listSandboxProviders = vi.fn(async () => {
-      throw new Error('Network timeout fetching providers');
+      throw new Error('Forbidden');
+    });
+    const environmentServer = createMockSandboxEnvironmentServer({
+      listEnvironments: vi.fn(async () => ({ data: sampleEnvironments })),
     });
     const catalog = createMockCatalog({
       sandboxCatalog: {
@@ -188,7 +173,6 @@ describe('EnvironmentsPage', () => {
         updateSandboxProvider: vi.fn(),
       },
     });
-    const environmentServer = createMockSandboxEnvironmentServer();
     const server = createMockAgentUIServer({
       catalog,
       sandboxEnvironments: environmentServer,
@@ -205,8 +189,8 @@ describe('EnvironmentsPage', () => {
     );
 
     await waitFor(() => {
-      expect(screen.getByText('Network timeout fetching providers')).toBeInTheDocument();
+      expect(screen.getByText('python-data')).toBeInTheDocument();
     });
-    expect(screen.queryByText('Configure a sandbox provider first')).not.toBeInTheDocument();
+    expect(listSandboxProviders).not.toHaveBeenCalled();
   });
 });
