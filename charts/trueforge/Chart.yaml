@@ -8,7 +8,7 @@ type: application
 # appVersion follows packages/trueforge/package.json and image.tag follows the
 # image release.yml built. All three are written on the release-vX.Y.Z branch,
 # which is then tagged charts/trueforge@<version> on that commit.
-version: "0.177.0-rc.1"
+version: "0.177.0-rc.2"
 appVersion: "0.177.0-rc.1"
 kubeVersion: ">=1.25.0-0"
 home: https://truefoundry.com
