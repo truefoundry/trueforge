@@ -11,7 +11,10 @@ let guardEnabled = true;
 const MAX_REDIRECTS = 20;
 const REDIRECT_STATUSES = new Set([301, 302, 303, 307, 308]);
 const CROSS_ORIGIN_STRIPPED_HEADERS = ['authorization', 'proxy-authorization', 'cookie', 'host'];
-const GATEWAY_RETRY_STATUSES = new Set([520, 521, 522, 523, 524, 530]);
+// Gateway never reached the origin, so the request was not processed.
+const GATEWAY_UNREACHED_STATUSES = new Set([521, 522, 523, 530]);
+// Origin received the request (520 bad response, 524 origin timeout); replay may duplicate work.
+const GATEWAY_REACHED_STATUSES = new Set([520, 524]);
 const RETRY_INITIAL_DELAY_MS = 1_000;
 const RETRY_BACKOFF_FACTOR = 2;
 const RETRY_JITTER_FACTOR = 0.2;
@@ -21,8 +24,11 @@ export interface OutboundFetchOptions {
   headersTimeoutMs: number;
   bodyTimeoutMs: number;
   maxRetries: number;
-  /** When false, UND_ERR_HEADERS_TIMEOUT is not retried (upstream may already have started work). */
-  retryHeadersTimeout: boolean;
+  /**
+   * Whether requests are safe to replay after upstream may have received them. When false, headers
+   * timeouts and gateway 520/524 are not retried.
+   */
+  idempotent: boolean;
 }
 
 export interface OutboundFetch {
@@ -282,16 +288,16 @@ function getErrorCode(error: unknown): string | undefined {
 }
 
 /** Connect / headers-read timeouts from undici (including nested under TypeError: fetch failed). */
-export function isRetryableOutboundTransportError(error: unknown, options: { retryHeadersTimeout: boolean }): boolean {
+export function isRetryableOutboundTransportError(error: unknown, options: { idempotent: boolean }): boolean {
   const code = getErrorCode(error);
   if (code === 'UND_ERR_CONNECT_TIMEOUT') {
     return true;
   }
-  return options.retryHeadersTimeout && code === 'UND_ERR_HEADERS_TIMEOUT';
+  return options.idempotent && code === 'UND_ERR_HEADERS_TIMEOUT';
 }
 
-function isRetryableOutboundGatewayStatus(status: number): boolean {
-  return GATEWAY_RETRY_STATUSES.has(status);
+function isRetryableOutboundGatewayStatus(status: number, options: { idempotent: boolean }): boolean {
+  return GATEWAY_UNREACHED_STATUSES.has(status) || (options.idempotent && GATEWAY_REACHED_STATUSES.has(status));
 }
 
 function abortError(signal: AbortSignal): Error {
@@ -383,7 +389,7 @@ async function withOutboundHttpRetries(
   input: string | URL | Request,
   init: RequestInit,
   agent: Agent,
-  options: { maxRetries: number; retryHeadersTimeout: boolean },
+  options: { maxRetries: number; idempotent: boolean },
 ): Promise<Response> {
   const signal = init.signal ?? (input instanceof Request ? input.signal : undefined);
   let attempt = 0;
@@ -393,18 +399,12 @@ async function withOutboundHttpRetries(
     }
     try {
       const response = await guardedFetch(input, init, MAX_REDIRECTS, agent);
-      if (!isRetryableOutboundGatewayStatus(response.status) || attempt >= options.maxRetries) {
+      if (!isRetryableOutboundGatewayStatus(response.status, options) || attempt >= options.maxRetries) {
         return response;
       }
       void response.body?.cancel().catch(() => undefined);
     } catch (error) {
-      if (
-        !isRetryableOutboundTransportError(error, {
-          retryHeadersTimeout: options.retryHeadersTimeout,
-        }) ||
-        attempt >= options.maxRetries ||
-        signal?.aborted
-      ) {
+      if (!isRetryableOutboundTransportError(error, options) || attempt >= options.maxRetries || signal?.aborted) {
         throw error;
       }
     }
@@ -422,9 +422,9 @@ export function createOutboundFetch(options: OutboundFetchOptions): OutboundFetc
     connect: { lookup: guardedLookup, timeout: options.connectTimeoutMs },
   });
   const maxRetries = options.maxRetries;
-  const retryHeadersTimeout = options.retryHeadersTimeout;
+  const idempotent = options.idempotent;
   return {
-    fetch: (input, init) => withOutboundHttpRetries(input, init ?? {}, agent, { maxRetries, retryHeadersTimeout }),
+    fetch: (input, init) => withOutboundHttpRetries(input, init ?? {}, agent, { maxRetries, idempotent }),
     close: async () => {
       await agent.close().catch(() => undefined);
     },

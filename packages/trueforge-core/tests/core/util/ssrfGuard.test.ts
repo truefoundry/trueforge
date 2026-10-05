@@ -99,11 +99,11 @@ describe('outbound retry classifiers', () => {
     const headers = new TypeError('fetch failed', {
       cause: Object.assign(new Error('Headers Timeout Error'), { code: 'UND_ERR_HEADERS_TIMEOUT' }),
     });
-    expect(isRetryableOutboundTransportError(connect, { retryHeadersTimeout: true })).toBe(true);
-    expect(isRetryableOutboundTransportError(headers, { retryHeadersTimeout: true })).toBe(true);
-    expect(isRetryableOutboundTransportError(headers, { retryHeadersTimeout: false })).toBe(false);
-    expect(isRetryableOutboundTransportError(connect, { retryHeadersTimeout: false })).toBe(true);
-    expect(isRetryableOutboundTransportError(new Error('nope'), { retryHeadersTimeout: true })).toBe(false);
+    expect(isRetryableOutboundTransportError(connect, { idempotent: true })).toBe(true);
+    expect(isRetryableOutboundTransportError(headers, { idempotent: true })).toBe(true);
+    expect(isRetryableOutboundTransportError(headers, { idempotent: false })).toBe(false);
+    expect(isRetryableOutboundTransportError(connect, { idempotent: false })).toBe(true);
+    expect(isRetryableOutboundTransportError(new Error('nope'), { idempotent: true })).toBe(false);
   });
 });
 
@@ -348,6 +348,37 @@ describe('modelSsrfFetch', () => {
 });
 
 describe('mcpSsrfFetch', () => {
+  it('retries gateway errors that never reached the origin but not 520/524', async () => {
+    configureOutboundUrlGuard({ allowedHosts: ['127.0.0.1'], blockedHosts: [] });
+    configureOutboundFetches({
+      outbound: defaultOutboundFetchOptions(),
+      model: defaultModelOutboundFetchOptions(),
+      mcp: { ...defaultMcpOutboundFetchOptions(), maxRetries: 2 },
+    });
+    let firstStatus = 522;
+    let hits = 0;
+    const { server, origin } = await listen((_req, res) => {
+      hits += 1;
+      const status = hits === 1 ? firstStatus : 200;
+      res.writeHead(status, { 'content-type': 'text/plain' });
+      res.end(String(status));
+    });
+    try {
+      const retried = await mcpSsrfFetch(`${origin}/`);
+      expect(retried.status).toBe(200);
+      expect(hits).toBe(2);
+      for (const status of [520, 524]) {
+        firstStatus = status;
+        hits = 0;
+        const response = await mcpSsrfFetch(`${origin}/`);
+        expect(response.status).toBe(status);
+        expect(hits).toBe(1);
+      }
+    } finally {
+      await closeServer(server);
+    }
+  });
+
   it('does not retry headers timeouts so long tool POSTs are not replayed', async () => {
     configureOutboundUrlGuard({ allowedHosts: ['127.0.0.1'], blockedHosts: [] });
     configureOutboundFetches({

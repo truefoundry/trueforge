@@ -47,25 +47,25 @@ try {
   });
   configureOutboundFetches({
     outbound: {
-      connectTimeoutMs: configuration.OUTBOUND_REQUEST_CONNECT_TIMEOUT_MS,
-      headersTimeoutMs: configuration.OUTBOUND_REQUEST_HEADERS_TIMEOUT_MS,
-      bodyTimeoutMs: configuration.OUTBOUND_REQUEST_BODY_TIMEOUT_MS,
-      maxRetries: configuration.OUTBOUND_REQUEST_MAX_RETRIES,
-      retryHeadersTimeout: true,
+      connectTimeoutMs: configuration.OUTBOUND_HTTP_CONNECT_TIMEOUT_MS,
+      headersTimeoutMs: configuration.OUTBOUND_HTTP_HEADERS_TIMEOUT_MS,
+      bodyTimeoutMs: configuration.OUTBOUND_HTTP_BODY_TIMEOUT_MS,
+      maxRetries: configuration.OUTBOUND_HTTP_MAX_RETRIES,
+      idempotent: true,
     },
     model: {
-      connectTimeoutMs: configuration.MODEL_REQUEST_CONNECT_TIMEOUT_MS,
-      headersTimeoutMs: configuration.MODEL_REQUEST_HEADERS_TIMEOUT_MS,
-      bodyTimeoutMs: configuration.MODEL_REQUEST_BODY_TIMEOUT_MS,
-      maxRetries: configuration.MODEL_REQUEST_MAX_RETRIES,
-      retryHeadersTimeout: true,
+      connectTimeoutMs: configuration.MODEL_HTTP_CONNECT_TIMEOUT_MS,
+      headersTimeoutMs: configuration.MODEL_HTTP_HEADERS_TIMEOUT_MS,
+      bodyTimeoutMs: configuration.MODEL_HTTP_BODY_TIMEOUT_MS,
+      maxRetries: configuration.MODEL_HTTP_MAX_RETRIES,
+      idempotent: true,
     },
     mcp: {
-      connectTimeoutMs: configuration.MCP_REQUEST_CONNECT_TIMEOUT_MS,
-      headersTimeoutMs: configuration.MCP_REQUEST_HEADERS_TIMEOUT_MS,
-      bodyTimeoutMs: configuration.MCP_REQUEST_BODY_TIMEOUT_MS,
-      maxRetries: configuration.MCP_REQUEST_MAX_RETRIES,
-      retryHeadersTimeout: false,
+      connectTimeoutMs: configuration.MCP_HTTP_CONNECT_TIMEOUT_MS,
+      headersTimeoutMs: configuration.MCP_HTTP_HEADERS_TIMEOUT_MS,
+      bodyTimeoutMs: configuration.MCP_HTTP_BODY_TIMEOUT_MS,
+      maxRetries: configuration.MCP_HTTP_MAX_RETRIES,
+      idempotent: false,
     },
   });
 } catch (error) {

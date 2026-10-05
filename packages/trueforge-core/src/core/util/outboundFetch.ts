@@ -1,63 +1,66 @@
 import { createOutboundFetch, type OutboundFetch, type OutboundFetchOptions } from './ssrfGuard';
 
-/** Generic outbound undici headersTimeout. Env: `OUTBOUND_REQUEST_HEADERS_TIMEOUT_MS`. */
-export const DEFAULT_OUTBOUND_REQUEST_HEADERS_TIMEOUT_MS = 5_000;
-/** Generic outbound undici connect timeout. Env: `OUTBOUND_REQUEST_CONNECT_TIMEOUT_MS`. */
-export const DEFAULT_OUTBOUND_REQUEST_CONNECT_TIMEOUT_MS = 5_000;
-/** Generic outbound undici bodyTimeout. Env: `OUTBOUND_REQUEST_BODY_TIMEOUT_MS`. */
-export const DEFAULT_OUTBOUND_REQUEST_BODY_TIMEOUT_MS = 5_000;
-/** Generic outbound fetch retries. Env: `OUTBOUND_REQUEST_MAX_RETRIES`. */
-export const DEFAULT_OUTBOUND_REQUEST_MAX_RETRIES = 2;
+/** Generic outbound undici headersTimeout. Env: `OUTBOUND_HTTP_HEADERS_TIMEOUT_MS`. */
+export const DEFAULT_OUTBOUND_HTTP_HEADERS_TIMEOUT_MS = 5_000;
+/** Generic outbound undici connect timeout. Env: `OUTBOUND_HTTP_CONNECT_TIMEOUT_MS`. */
+export const DEFAULT_OUTBOUND_HTTP_CONNECT_TIMEOUT_MS = 5_000;
+/** Generic outbound undici bodyTimeout. Env: `OUTBOUND_HTTP_BODY_TIMEOUT_MS`. */
+export const DEFAULT_OUTBOUND_HTTP_BODY_TIMEOUT_MS = 5_000;
+/** Generic outbound fetch retries. Env: `OUTBOUND_HTTP_MAX_RETRIES`. */
+export const DEFAULT_OUTBOUND_HTTP_MAX_RETRIES = 2;
 
-/** Model outbound undici headersTimeout. Env: `MODEL_REQUEST_HEADERS_TIMEOUT_MS`. */
-export const DEFAULT_MODEL_REQUEST_HEADERS_TIMEOUT_MS = 5_000;
-/** Model outbound undici connect timeout. Env: `MODEL_REQUEST_CONNECT_TIMEOUT_MS`. */
-export const DEFAULT_MODEL_REQUEST_CONNECT_TIMEOUT_MS = 5_000;
-/** Model outbound undici bodyTimeout. Env: `MODEL_REQUEST_BODY_TIMEOUT_MS`. */
-export const DEFAULT_MODEL_REQUEST_BODY_TIMEOUT_MS = 5_000;
-/** Model outbound fetch retries. Env: `MODEL_REQUEST_MAX_RETRIES`. */
-export const DEFAULT_MODEL_REQUEST_MAX_RETRIES = 2;
+/** Model outbound undici headersTimeout. Env: `MODEL_HTTP_HEADERS_TIMEOUT_MS`. */
+export const DEFAULT_MODEL_HTTP_HEADERS_TIMEOUT_MS = 5_000;
+/** Model outbound undici connect timeout. Env: `MODEL_HTTP_CONNECT_TIMEOUT_MS`. */
+export const DEFAULT_MODEL_HTTP_CONNECT_TIMEOUT_MS = 5_000;
+/** Model outbound undici bodyTimeout. Env: `MODEL_HTTP_BODY_TIMEOUT_MS`. */
+export const DEFAULT_MODEL_HTTP_BODY_TIMEOUT_MS = 5_000;
+/** Model outbound fetch retries. Env: `MODEL_HTTP_MAX_RETRIES`. */
+export const DEFAULT_MODEL_HTTP_MAX_RETRIES = 2;
 
-/** MCP outbound undici headersTimeout. Env: `MCP_REQUEST_HEADERS_TIMEOUT_MS`. */
-export const DEFAULT_MCP_REQUEST_HEADERS_TIMEOUT_MS = 5_000;
-/** MCP outbound undici connect timeout. Env: `MCP_REQUEST_CONNECT_TIMEOUT_MS`. */
-export const DEFAULT_MCP_REQUEST_CONNECT_TIMEOUT_MS = 5_000;
 /**
- * MCP outbound undici bodyTimeout. Env: `MCP_REQUEST_BODY_TIMEOUT_MS`.
+ * MCP outbound undici headersTimeout. Env: `MCP_HTTP_HEADERS_TIMEOUT_MS`.
+ * Matches the default MCP request timeout: JSON-response servers send headers only after the tool finishes.
+ */
+export const DEFAULT_MCP_HTTP_HEADERS_TIMEOUT_MS = 4 * 60 * 1000;
+/** MCP outbound undici connect timeout. Env: `MCP_HTTP_CONNECT_TIMEOUT_MS`. */
+export const DEFAULT_MCP_HTTP_CONNECT_TIMEOUT_MS = 5_000;
+/**
+ * MCP outbound undici bodyTimeout. Env: `MCP_HTTP_BODY_TIMEOUT_MS`.
  * Default 30m so idle SSE/streamable-HTTP is not killed at undici's 300s.
  */
-export const DEFAULT_MCP_REQUEST_BODY_TIMEOUT_MS = 30 * 60 * 1000;
-/** MCP outbound fetch retries. Env: `MCP_REQUEST_MAX_RETRIES`. */
-export const DEFAULT_MCP_REQUEST_MAX_RETRIES = 2;
+export const DEFAULT_MCP_HTTP_BODY_TIMEOUT_MS = 30 * 60 * 1000;
+/** MCP outbound fetch retries. Env: `MCP_HTTP_MAX_RETRIES`. */
+export const DEFAULT_MCP_HTTP_MAX_RETRIES = 2;
 
 export function defaultOutboundFetchOptions(): OutboundFetchOptions {
   return {
-    connectTimeoutMs: DEFAULT_OUTBOUND_REQUEST_CONNECT_TIMEOUT_MS,
-    headersTimeoutMs: DEFAULT_OUTBOUND_REQUEST_HEADERS_TIMEOUT_MS,
-    bodyTimeoutMs: DEFAULT_OUTBOUND_REQUEST_BODY_TIMEOUT_MS,
-    maxRetries: DEFAULT_OUTBOUND_REQUEST_MAX_RETRIES,
-    retryHeadersTimeout: true,
+    connectTimeoutMs: DEFAULT_OUTBOUND_HTTP_CONNECT_TIMEOUT_MS,
+    headersTimeoutMs: DEFAULT_OUTBOUND_HTTP_HEADERS_TIMEOUT_MS,
+    bodyTimeoutMs: DEFAULT_OUTBOUND_HTTP_BODY_TIMEOUT_MS,
+    maxRetries: DEFAULT_OUTBOUND_HTTP_MAX_RETRIES,
+    idempotent: true,
   };
 }
 
 export function defaultModelOutboundFetchOptions(): OutboundFetchOptions {
   return {
-    connectTimeoutMs: DEFAULT_MODEL_REQUEST_CONNECT_TIMEOUT_MS,
-    headersTimeoutMs: DEFAULT_MODEL_REQUEST_HEADERS_TIMEOUT_MS,
-    bodyTimeoutMs: DEFAULT_MODEL_REQUEST_BODY_TIMEOUT_MS,
-    maxRetries: DEFAULT_MODEL_REQUEST_MAX_RETRIES,
-    retryHeadersTimeout: true,
+    connectTimeoutMs: DEFAULT_MODEL_HTTP_CONNECT_TIMEOUT_MS,
+    headersTimeoutMs: DEFAULT_MODEL_HTTP_HEADERS_TIMEOUT_MS,
+    bodyTimeoutMs: DEFAULT_MODEL_HTTP_BODY_TIMEOUT_MS,
+    maxRetries: DEFAULT_MODEL_HTTP_MAX_RETRIES,
+    idempotent: true,
   };
 }
 
 export function defaultMcpOutboundFetchOptions(): OutboundFetchOptions {
   return {
-    connectTimeoutMs: DEFAULT_MCP_REQUEST_CONNECT_TIMEOUT_MS,
-    headersTimeoutMs: DEFAULT_MCP_REQUEST_HEADERS_TIMEOUT_MS,
-    bodyTimeoutMs: DEFAULT_MCP_REQUEST_BODY_TIMEOUT_MS,
-    maxRetries: DEFAULT_MCP_REQUEST_MAX_RETRIES,
-    // Do not replay a tool POST after headers timeout; upstream may already have started work.
-    retryHeadersTimeout: false,
+    connectTimeoutMs: DEFAULT_MCP_HTTP_CONNECT_TIMEOUT_MS,
+    headersTimeoutMs: DEFAULT_MCP_HTTP_HEADERS_TIMEOUT_MS,
+    bodyTimeoutMs: DEFAULT_MCP_HTTP_BODY_TIMEOUT_MS,
+    maxRetries: DEFAULT_MCP_HTTP_MAX_RETRIES,
+    // Tool calls are not safe to replay once upstream may have received them.
+    idempotent: false,
   };
 }
 
