@@ -46,6 +46,7 @@ import {
   Menu,
   MessageSquareText,
   Minimize2,
+  Monitor,
   Moon,
   PanelLeft,
   PanelLeftClose,
@@ -211,6 +212,7 @@ const defaults: Record<string, IconEntry> = {
   'external-link': ExternalLink,
   'square-arrow-out-up-right': SquareArrowOutUpRight,
   github: Github,
+  monitor: Monitor,
 };
 
 for (const [name, icon] of Object.entries(defaults)) {

@@ -1,5 +1,5 @@
 // @vitest-environment jsdom
-import { fireEvent, render, screen, waitFor } from '@testing-library/react';
+import { fireEvent, render, screen, waitFor, within } from '@testing-library/react';
 import { beforeAll, describe, expect, it, vi } from 'vitest';
 
 import ConnectorSettings from '@/containers/SettingsBuilder/ConnectorSettings.js';
@@ -67,5 +67,45 @@ describe('ConnectorSettings edit flow', () => {
         auth: { type: 'none' },
       });
     });
+  });
+
+  it('asks for confirmation before deleting a configured connector', async () => {
+    const connector: ConnectorBase = {
+      id: 'custom-mcp',
+      name: 'Custom MCP',
+      description: 'Custom tools',
+      url: 'https://mcp.example.com/mcp',
+      authenticated: true,
+      requiresAuth: false,
+      auth: { type: 'none' },
+    };
+    const deleteConnector = vi.fn(async () => {});
+    const server = createMockAgentUIServer({
+      catalog: createMockCatalog({
+        connectorCatalog: {
+          getConnectorCatalog: async () => [],
+          listConnectors: async () => [connector],
+          getConnector: async () => connector,
+          getToolsByConnectorId: async () => [],
+          createConnector: async () => connector,
+          updateConnector: async () => connector,
+          authenticateConnector: async () => ({ authorization_endpoint: '' }),
+          disconnectConnector: async () => connector,
+          deleteConnector,
+        },
+      }),
+    });
+
+    render(
+      <ServerProvider server={server}>
+        <ConnectorSettings />
+      </ServerProvider>,
+    );
+
+    fireEvent.click(await screen.findByRole('button', { name: 'Remove Custom MCP' }));
+    expect(await screen.findByText('Remove connector?')).toBeInTheDocument();
+    fireEvent.click(within(screen.getByRole('dialog')).getByRole('button', { name: 'Remove' }));
+
+    await waitFor(() => expect(deleteConnector).toHaveBeenCalledWith({ id: connector.id }));
   });
 });

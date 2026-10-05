@@ -62,6 +62,8 @@ import { DraftComposerActionsMenu } from '../atoms/draft/DraftComposerActionsMen
 import { DraftComposerLeftSection, DraftComposerRightSection } from '../atoms/draft/DraftComposerSections.js';
 import { CatalogRow, ConnectorConnectButton, DraftCompositeSelector } from '../atoms/draft/DraftCompositeSelector.js';
 import { DraftModelSelector } from '../atoms/draft/DraftModelSelector.js';
+import type { EnvironmentsPageProps } from '../atoms/environments/EnvironmentsPage.js';
+import { EnvironmentsButton } from '../atoms/EnvironmentsButton.js';
 import { FilePreviewPanel } from '../atoms/FilePreviewPanel.js';
 import { HistoryLoader } from '../atoms/HistoryLoader.js';
 import { Markdown } from '../atoms/Markdown.js';
@@ -121,6 +123,10 @@ const AgentCodeSnippets: ComponentType<AgentCodeSnippetsProps> = lazy(
 const SchedulesPage: ComponentType<SchedulesPageProps> = lazy(async () => {
   const mod = await import('../atoms/schedules/SchedulesPage.js');
   return { default: mod.SchedulesPage };
+});
+const EnvironmentsPage: ComponentType<EnvironmentsPageProps> = lazy(async () => {
+  const mod = await import('../atoms/environments/EnvironmentsPage.js');
+  return { default: mod.EnvironmentsPage };
 });
 const AgentSessionEventTimeline: ComponentType<AgentSessionEventTimelineProps> = lazy(async () => {
   const mod = await import('../atoms/agent-details/AgentSessionEventTimeline.js');
@@ -243,6 +249,8 @@ export const defaultSlots = {
   AgentCodeBlock,
   SchedulesPage,
   SchedulesButton,
+  EnvironmentsPage,
+  EnvironmentsButton,
   SaveAgentButton,
   SaveAgentForm,
   SelectAgentEmptyState,

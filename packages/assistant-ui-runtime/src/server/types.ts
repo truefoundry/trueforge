@@ -1051,6 +1051,65 @@ export interface ScheduleServer<
 }
 
 // ---------------------------------------------------------------------------
+// Sandbox environments — optional Environments page CRUD
+// ---------------------------------------------------------------------------
+
+export type SandboxEnvironmentStatus = 'pending' | 'ready' | 'failed';
+
+export interface SandboxEnvironmentResources {
+  cpu: number;
+  memory: number;
+  disk: number;
+}
+
+export interface SandboxEnvironmentSecret {
+  env: string;
+  value: string;
+  hosts: string[];
+}
+
+export interface SandboxEnvironmentNetworking {
+  networkBlockAll?: boolean;
+  domainAllowList?: string;
+  secrets?: SandboxEnvironmentSecret[];
+}
+
+export interface SandboxEnvironmentImage {
+  type: 'build';
+  buildScript?: string;
+}
+
+export interface SandboxEnvironmentManifest {
+  name: string;
+  description?: string;
+  image?: SandboxEnvironmentImage;
+  resources?: SandboxEnvironmentResources;
+  environmentVariables?: Record<string, string>;
+  networking?: SandboxEnvironmentNetworking;
+}
+
+export interface SandboxEnvironment {
+  id: string;
+  name: string;
+  description: string;
+  status: SandboxEnvironmentStatus;
+  statusReason: string | null;
+  manifest: SandboxEnvironmentManifest;
+  createdBySubject: CreatedBySubject;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export type ListSandboxEnvironmentsParams = Pick<PageParams, 'limit' | 'pageToken'>;
+
+export interface SandboxEnvironmentServer<TEnvironment extends SandboxEnvironment = SandboxEnvironment> {
+  listEnvironments(req?: ListSandboxEnvironmentsParams): Promise<ListResult<TEnvironment>>;
+  getEnvironment(req: { name: string }): Promise<TEnvironment>;
+  createOrUpdateEnvironment(req: { manifest: SandboxEnvironmentManifest }): Promise<TEnvironment>;
+  deleteEnvironment(req: { name: string }): Promise<void>;
+}
+
+// ---------------------------------------------------------------------------
 // Permissions — optional resource mutation grants
 // ---------------------------------------------------------------------------
 
@@ -1159,6 +1218,9 @@ export interface AgentMetricsServer<
  * `useScheduleServer()` / list and manage schedules; if omitted, that surface
  * stays hidden.
  *
+ * `sandboxEnvironments` is optional — if the host passes it, Environments UI
+ * can call `useSandboxEnvironmentServer()`; if omitted, that surface stays hidden.
+ *
  * `metrics` is optional — if the host passes it, agent-detail UI can render
  * aggregate meter cards and time-series charts.
  *
@@ -1170,6 +1232,7 @@ export type AgentUIServerPort<
   TCatalog extends CatalogServer = CatalogServer,
   TSessions extends AgentSessionsServer = AgentSessionsServer,
   TSchedules extends ScheduleServer = ScheduleServer,
+  TSandboxEnvironments extends SandboxEnvironmentServer = SandboxEnvironmentServer,
   TMetrics extends AgentMetricsServer = AgentMetricsServer,
   TPermissions extends PermissionsServer = PermissionsServer,
 > = TChat &
@@ -1177,6 +1240,7 @@ export type AgentUIServerPort<
     catalog?: TCatalog;
     sessions?: TSessions;
     schedules?: TSchedules;
+    sandboxEnvironments?: TSandboxEnvironments;
     metrics?: TMetrics;
     permissions?: TPermissions;
     /** Authenticated caller identity. Used for tenant-scoped share copy. */

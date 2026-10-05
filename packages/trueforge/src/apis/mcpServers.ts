@@ -12,6 +12,7 @@ import type { Logger } from 'winston';
 import type { ResolveRequestContext } from '../auth/identity';
 import { safeReturnTo } from '../auth/safeReturnTo';
 import configuration from '../config';
+import type { IAgentStore } from '../db/agentStore';
 import {
   McpServerNameConflictError,
   McpServerNotFoundError,
@@ -26,6 +27,7 @@ import {
   authorizeMcpServerRoute,
   createMcpServerRoute,
   deleteAuthorizationMcpServerRoute,
+  deleteMcpServerRoute,
   getAvailableMcpServerRoute,
   getMcpServerRoute,
   listAvailableMcpServersRoute,
@@ -33,6 +35,7 @@ import {
   listMcpServerToolsRoute,
   putMcpServerRoute,
 } from '../routes/mcpServerRoutes';
+import { findCatalogUsageConflict } from '../runtime/catalogUsage';
 import { getMcpConnection } from '../runtime/sessionResources';
 import type {
   AvailableMcpServer,
@@ -50,6 +53,10 @@ export interface McpServersRouterDeps<TTransaction> {
   withTransaction: WithTransaction<TTransaction>;
   logger: Logger;
   resolveRequestContext: ResolveRequestContext;
+}
+
+export interface SettingsMcpServersRouterDeps<TTransaction> extends McpServersRouterDeps<TTransaction> {
+  resolveAgentStore: (c: Context) => IAgentStore<TTransaction>;
 }
 
 /** Omits keys whose value is `undefined` so wire objects satisfy JSONValue index signatures. */
@@ -149,7 +156,7 @@ async function resolveAvailableMcpServer<TTransaction>(params: {
 }
 
 /** Admin/settings MCP CRUD. */
-export function createSettingsMcpServersRouter<TTransaction>(deps: McpServersRouterDeps<TTransaction>) {
+export function createSettingsMcpServersRouter<TTransaction>(deps: SettingsMcpServersRouterDeps<TTransaction>) {
   const listHandler: RouteHandler<typeof listMcpServersRoute> = async c => {
     const requestContext = deps.resolveRequestContext(c);
     const userRef = requestContext.subject.id;
@@ -364,11 +371,49 @@ export function createSettingsMcpServersRouter<TTransaction>(deps: McpServersRou
     }
   };
 
+  const deleteHandler: RouteHandler<typeof deleteMcpServerRoute> = async c => {
+    const { name } = c.req.valid('param');
+    const requestContext = deps.resolveRequestContext(c);
+    const store = deps.resolveMcpServerStore(c);
+    const outcome = await deps.withTransaction(async transaction => {
+      const existing = await store.getServerForUpdate({ tenant_id: requestContext.tenant_id, name }, transaction);
+      if (existing === undefined) {
+        return { deleted: false, conflict: undefined };
+      }
+      const conflict = await findCatalogUsageConflict(
+        {
+          agentStore: deps.resolveAgentStore(c),
+          tenant_id: requestContext.tenant_id,
+          entity: 'mcp_server',
+          names: [name],
+        },
+        transaction,
+      );
+      if (conflict !== undefined) {
+        return { deleted: false, conflict };
+      }
+      // Every user's grant for this server dies with it; a later server of the same name
+      // is a different OAuth resource and must re-consent.
+      await deps.tokenStore.deleteTokensForServer({ id: existing.id }, transaction);
+      await deps.tokenStore.deletePendingAuthorizationsForServer({ id: existing.id }, transaction);
+      const deleted = await store.deleteServer({ tenant_id: requestContext.tenant_id, name }, transaction);
+      return { deleted, conflict: undefined };
+    });
+    if (outcome.conflict !== undefined) {
+      return c.json({ error: { message: outcome.conflict } }, 409);
+    }
+    if (!outcome.deleted) {
+      return c.json({ error: { message: `MCP server not found: ${name}` } }, 404);
+    }
+    return c.json({}, 200);
+  };
+
   const router = new OpenAPIHono();
   router.openapi(listMcpServersRoute, listHandler);
   router.openapi(createMcpServerRoute, createHandler);
   router.openapi(putMcpServerRoute, putHandler);
   router.openapi(getMcpServerRoute, getHandler);
+  router.openapi(deleteMcpServerRoute, deleteHandler);
   return router;
 }
 

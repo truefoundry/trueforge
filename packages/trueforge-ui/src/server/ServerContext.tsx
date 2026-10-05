@@ -10,6 +10,7 @@ import type {
   AgentUIServer,
   CatalogServer,
   PermissionsServer,
+  SandboxEnvironmentServer,
   ScheduleServer,
 } from './types.js';
 
@@ -136,6 +137,20 @@ export function useScheduleServer(): ScheduleServer {
 
 export function useOptionalScheduleServer(): ScheduleServer | null {
   return useOptionalServer()?.schedules ?? null;
+}
+
+export function useSandboxEnvironmentServer(): SandboxEnvironmentServer {
+  const server = useServer();
+  if (server.sandboxEnvironments == null) {
+    throw new Error(
+      'useSandboxEnvironmentServer requires AgentUIServer.sandboxEnvironments. Pass sandboxEnvironments to createTrueForgeServer.',
+    );
+  }
+  return server.sandboxEnvironments;
+}
+
+export function useOptionalSandboxEnvironmentServer(): SandboxEnvironmentServer | null {
+  return useOptionalServer()?.sandboxEnvironments ?? null;
 }
 
 export function useOptionalPermissionsServer(): PermissionsServer | null {

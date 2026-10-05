@@ -2,6 +2,7 @@ import { describe, expect, it } from 'vitest';
 
 import { resolveRoutesConfig } from '@/routing/paths.js';
 import {
+  isEnvironmentsChromeEnabled,
   isMetricsChromeEnabled,
   isSchedulesChromeEnabled,
   isSessionsChromeEnabled,
@@ -12,6 +13,7 @@ import {
   createMockAgentMetricsServer,
   createMockAgentSessionsServer,
   createMockCatalog,
+  createMockSandboxEnvironmentServer,
   createMockScheduleServer,
 } from './mockServer.js';
 
@@ -19,6 +21,7 @@ describe('serverChrome', () => {
   const catalog = createMockCatalog();
   const sessions = createMockAgentSessionsServer();
   const schedules = createMockScheduleServer();
+  const sandboxEnvironments = createMockSandboxEnvironmentServer();
   const metrics = createMockAgentMetricsServer();
   const routes = resolveRoutesConfig();
 
@@ -40,11 +43,13 @@ describe('serverChrome', () => {
     ).toBe(false);
   });
 
-  it('gates sessions / schedules / metrics on port presence', () => {
+  it('gates sessions / schedules / environments / metrics on port presence', () => {
     expect(isSessionsChromeEnabled({ sessions: null })).toBe(false);
     expect(isSessionsChromeEnabled({ sessions })).toBe(true);
     expect(isSchedulesChromeEnabled({ schedules: null })).toBe(false);
     expect(isSchedulesChromeEnabled({ schedules })).toBe(true);
+    expect(isEnvironmentsChromeEnabled({ sandboxEnvironments: null })).toBe(false);
+    expect(isEnvironmentsChromeEnabled({ sandboxEnvironments })).toBe(true);
     expect(isMetricsChromeEnabled({ metrics: null })).toBe(false);
     expect(isMetricsChromeEnabled({ metrics })).toBe(true);
   });
@@ -56,12 +61,14 @@ describe('serverChrome', () => {
       capabilities: null,
       sessions: null,
       schedules: null,
+      sandboxEnvironments: null,
     });
     expect(disabled.settings).toBeNull();
     expect(disabled.sessionsBrowser).toBeNull();
     expect(disabled.sharedSession).toBeNull();
     expect(disabled.libraryAgent).toBeNull();
     expect(disabled.schedules).toBeNull();
+    expect(disabled.environments).toBeNull();
     expect(disabled.root).toBe('/');
     expect(disabled.library).toBe('/library');
 
@@ -71,11 +78,13 @@ describe('serverChrome', () => {
       capabilities: { settings: { enabled: true } },
       sessions,
       schedules,
+      sandboxEnvironments,
     });
     expect(enabled.settings).toBe('/settings');
     expect(enabled.sessionsBrowser).toBe('/sessions');
     expect(enabled.sharedSession).toBe('/sessions/share/:sessionId');
     expect(enabled.libraryAgent).toBe('/library/:agentId');
     expect(enabled.schedules).toBe('/schedules');
+    expect(enabled.environments).toBe('/environments');
   });
 });
