@@ -59,8 +59,8 @@ does not publish.
    any `-rc.N` removed) and dispatches this workflow with
    `tfy_chart_version=V`. `V` is the caller's choice and need not match the
    parent chart's own version - this repo publishes what it is handed. The
-   first cut of a minor
-   line is from `main`; a hotfix line is cut from `refs/tags/v<base>` so
+   first cut of a minor line is from `main`; a hotfix line is cut from
+   `refs/tags/v<base>` so
    unreleased work on `main` cannot enter a patch. An existing branch is kept as
    is and **never** has `main` merged into it: only the **first** RC of a minor
    line fails when `main` has commits the branch is missing, because from `rc.2`
@@ -235,8 +235,9 @@ gh workflow run release-chart.yml --ref main \
 
 The chart version is the `chart_version` input, verbatim. Nothing in this repo
 derives it, so `oci://tfy.jfrog.io/tfy-helm/trueforge:<V>` and
-`charts/trueforge@<V>` are known to the caller before the release starts. `appVersion` tracks `@truefoundry/trueforge` and the
-image tag prefix; those are separate fields with separate owners.
+`charts/trueforge@<V>` are known to the caller before the release starts.
+`appVersion` tracks `@truefoundry/trueforge` and the image tag prefix; those are
+separate fields with separate owners.
 
 ## Devtest
 
