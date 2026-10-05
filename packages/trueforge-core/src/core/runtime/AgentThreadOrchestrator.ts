@@ -563,6 +563,7 @@ export class AgentThreadOrchestrator {
     let output: ModelMessageEvent | null = null;
     let rootAgentError: AgentThreadExecutionResult['root_agent_error'];
     let rootFinished = false;
+    let turnPaused = false;
     // Threads parked on mcp-auth. Unlike approvals, this is not on the thread: the event is
     // run-level and names the blocked thread ids. Cleared when that thread is selected to run.
     const authBlocked = new Set<string>();
@@ -598,19 +599,30 @@ export class AgentThreadOrchestrator {
           this.pendingPolicyEvents.length = 0;
         }
 
-        const runnable = getActiveAgentThreads(agentThreads).filter(thread =>
-          thread.isRunnable(authBlocked.has(thread.threadId)),
-        );
+        const active = getActiveAgentThreads(agentThreads);
+        for (const thread of active) {
+          if (thread.hasPendingUserEvents()) {
+            yield* thread.applyPendingEvents();
+          }
+        }
+
+        const runnable = active.filter(thread => thread.isRunnable(authBlocked.has(thread.threadId)));
 
         if (runnable.length === 0) {
-          // Nothing runnable and root not finished → the turn is paused waiting for user input.
+          // Re-emit paused after an apply-only wake so the caller can observe that accepted input
+          // was persisted but did not unblock the model.
           yield { type: InternalEventType.TURN_STATE, transition: { status: 'paused' } };
+          turnPaused = true;
           await this.wake.wait();
           if (isAborted()) {
             return done();
           }
-          yield { type: InternalEventType.TURN_STATE, transition: { status: 'running' } };
           continue;
+        }
+
+        if (turnPaused) {
+          yield { type: InternalEventType.TURN_STATE, transition: { status: 'running' } };
+          turnPaused = false;
         }
 
         // These threads are about to run and resolve their wait — drop their recorded blocks.

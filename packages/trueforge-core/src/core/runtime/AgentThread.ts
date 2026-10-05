@@ -669,7 +669,7 @@ export class AgentThread {
   }
 
   *send(messages: AgentThreadRuntimeSendBatch): Generator<AgentThreadRuntimeSendBatch, void, unknown> {
-    if (messages.length === 0 && !this.isAwaitingUserInput()) {
+    if (messages.length === 0) {
       return;
     }
     this.validateSendInput(messages);
@@ -679,6 +679,10 @@ export class AgentThread {
 
   hasPendingUserEvents(): boolean {
     return this.pendingUserEvents.length > 0;
+  }
+
+  async *applyPendingEvents(): AsyncGenerator<ApplyUserEventsOutput, void, unknown> {
+    yield* this.apply(this.pendingUserEvents.splice(0));
   }
 
   // Allow pending approvals that an applicable policy now covers. Returns true when at least one
@@ -861,12 +865,11 @@ export class AgentThread {
   }
 
   isRunnable(isAuthBlocked: boolean): boolean {
-    return this.hasPendingUserEvents() || (!this.isAwaitingUserInput() && !isAuthBlocked);
+    return !this.isAwaitingUserInput() && !isAuthBlocked;
   }
 
   validateSendInput(messages: AgentThreadRuntimeSendBatch): void {
-    // Match send(): empty + not awaiting is a no-op, including already-complete threads.
-    if (messages.length === 0 && !this.isAwaitingUserInput()) {
+    if (messages.length === 0) {
       return;
     }
     this.throwIfAlreadyComplete();
@@ -877,7 +880,17 @@ export class AgentThread {
     // during preSend, so a dangling regular tool call doesn't reject a user message it will repair.
     const blockingOpenToolCallIds = getUnclosableOpenToolCallIds(this.context, openToolCallIds);
     const pendingApprovalIds = new Set(getPendingApprovalToolCalls(this.context).map(tc => tc.id));
-    const pendingClientSideIds = new Set(getPendingClientSideToolCalls(this.context).map(tc => tc.id));
+
+    // Reserve calls already decided by accepted-but-not-yet-applied events. Validation reads
+    // committed context, so without this a second request could decide the same call again.
+    for (const queued of this.pendingUserEvents) {
+      if (isApprovalDecisionEvent(queued)) {
+        pendingApprovalIds.delete(queued.tool_call_id);
+      } else if (isClientSideToolResponseEvent(queued) || isLLMToolMessage(queued)) {
+        openToolCallIds.delete(queued.tool_call_id);
+        blockingOpenToolCallIds.delete(queued.tool_call_id);
+      }
+    }
 
     for (let i = 0; i < messages.length; i++) {
       const m = messages[i];
@@ -893,22 +906,12 @@ export class AgentThread {
         validateToolMessage(m, openToolCallIds, i);
         openToolCallIds.delete(m.tool_call_id);
         blockingOpenToolCallIds.delete(m.tool_call_id);
-        pendingClientSideIds.delete(m.tool_call_id);
       } else {
         const _exhaustive: never = m;
         throw new InvalidAgentSendInputError(
           `messages[${String(i)}] has unsupported type: ${JSON.stringify(_exhaustive)}`,
         );
       }
-    }
-
-    // A send for a thread awaiting user input must resolve every pending approval and client-side
-    // tool call in the same batch; any left unresolved (including an empty batch) is a blocker.
-    if (pendingApprovalIds.size > 0 || pendingClientSideIds.size > 0) {
-      const missing = [...pendingApprovalIds, ...pendingClientSideIds];
-      throw new InvalidAgentSendInputError(
-        `Send batch must resolve all pending tool calls awaiting user input. Missing: ${missing.join(', ')}`,
-      );
     }
   }
 
@@ -1484,9 +1487,6 @@ export class AgentThread {
         yield this.buildReplayEvent(this.preComputedCompletion);
         return;
       }
-
-      // Drain + apply any queued user events first.
-      yield* this.apply(this.pendingUserEvents.splice(0));
 
       if (!this.preSendRanThisTurn) {
         for await (const event of this.executeContextProcessors('preSend')) {
