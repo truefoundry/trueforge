@@ -1,11 +1,7 @@
-import { afterEach, describe, expect, it, vi } from 'vitest';
 import { TOOL_APPROVAL_POLICY_ACTION_TYPE } from '@truefoundry/trueforge-assistant-ui-runtime';
+import { afterEach, describe, expect, it, vi } from 'vitest';
 
-import {
-  approvalResponseForChoice,
-  TEN_MINUTES_MS,
-  TOOL_APPROVAL_OPTION_ID,
-} from '@/utils/toolApprovalOptions.js';
+import { approvalResponseForChoice, TEN_MINUTES_MS, TOOL_APPROVAL_OPTION_ID } from '@/utils/toolApprovalOptions.js';
 
 describe('toolApprovalOptions', () => {
   afterEach(() => {

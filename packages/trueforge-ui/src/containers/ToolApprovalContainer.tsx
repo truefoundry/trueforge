@@ -1,17 +1,17 @@
 'use client';
 
-import { useCallback, useMemo, useState } from 'react';
 import type { RespondToToolApprovalOptions } from '@truefoundry/trueforge-assistant-ui-runtime';
+import { useCallback, useMemo, useState } from 'react';
 
 import type { ApprovalOption } from '../atoms/ToolApprovalBar.js';
 
-import { parseMcpToolArgs } from '@/utils/toolCallParsing.js';
 import {
   approvalResponseForChoice,
   TOOL_APPROVAL_CHOICES,
   TOOL_APPROVAL_OPTION_ID,
   type ToolApprovalChoice,
 } from '@/utils/toolApprovalOptions.js';
+import { parseMcpToolArgs } from '@/utils/toolCallParsing.js';
 import { useActiveSessionCanManage } from '../hooks/useResourcePermissions.js';
 import { useSlot } from '../theme/SlotsProvider.js';
 
@@ -33,12 +33,7 @@ type ToolApprovalContainerProps = {
   onRespond: (response: RespondToToolApprovalOptions) => Promise<void>;
 };
 
-export function ToolApprovalContainer({
-  approvalId,
-  toolName = '',
-  argsText,
-  onRespond,
-}: ToolApprovalContainerProps) {
+export function ToolApprovalContainer({ approvalId, toolName = '', argsText, onRespond }: ToolApprovalContainerProps) {
   const ToolApprovalBar = useSlot('ToolApprovalBar');
   const canManageSession = useActiveSessionCanManage();
   const { mcpServer, innerToolName } = parseMcpToolArgs(argsText);

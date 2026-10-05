@@ -1,7 +1,7 @@
 // @vitest-environment jsdom
 import { fireEvent, render, screen, waitFor } from '@testing-library/react';
-import { describe, expect, it, vi } from 'vitest';
 import type { RespondToToolApprovalOptions } from '@truefoundry/trueforge-assistant-ui-runtime';
+import { describe, expect, it, vi } from 'vitest';
 
 import type { ToolApprovalBarProps } from '@/atoms/ToolApprovalBar.js';
 import { ToolApprovalContainer } from '@/containers/ToolApprovalContainer.js';

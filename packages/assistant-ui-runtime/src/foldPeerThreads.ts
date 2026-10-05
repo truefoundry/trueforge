@@ -349,10 +349,7 @@ function parseDeferredCallToolPolicyTarget(argsText: string): ToolApprovalPolicy
     }
     const serverName: unknown = Reflect.get(parsed, 'mcp_server');
     const name: unknown = Reflect.get(parsed, 'tool_name');
-    return typeof serverName === 'string' &&
-      serverName.length > 0 &&
-      typeof name === 'string' &&
-      name.length > 0
+    return typeof serverName === 'string' && serverName.length > 0 && typeof name === 'string' && name.length > 0
       ? { serverName, name }
       : undefined;
   } catch {
