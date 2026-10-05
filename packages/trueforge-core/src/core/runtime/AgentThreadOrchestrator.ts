@@ -192,11 +192,7 @@ export class AgentThreadOrchestrator {
   private readonly logger: Logger;
   // Finished sub-agents removed from `agentThreads`; kept so totals still include them.
   private finishedSubAgentMetrics: AgentThreadMetrics = createEmptyAgentThreadMetrics();
-  // Latching wake for execute()'s park/resume loop; notified by notifyWake() (send) and abort.
-  private readonly wake: Signalable = signalable();
-  // Accepted-but-not-yet-applied approval policies, kept as whole UserToolApprovalPolicyEvents (id
-  // stamped at send) rather than flattened items — so each originating input yields its own stream
-  // echo carrying that id, which a consumer can later use to mark the inbound event consumed.
+  private readonly wakeSignal: Signalable = signalable();
   private readonly pendingPolicyEvents: UserToolApprovalPolicyEvent[] = [];
   // Last-seen MCP server init records (by id)/
   private readonly mcpServerInitInfoById = new Map<string, MCPServerInitInfo>();
@@ -208,9 +204,8 @@ export class AgentThreadOrchestrator {
     this.logger = params.logger.child({ module: 'AgentThreadOrchestrator' });
   }
 
-  /** Wake a parked execute() loop (e.g. after send() enqueues user events). Latches if not parked. */
-  public notifyWake(): void {
-    this.wake.notify();
+  public wake(): void {
+    this.wakeSignal.notify();
   }
 
   /**
@@ -573,7 +568,7 @@ export class AgentThreadOrchestrator {
 
     // Abort unparks the loop; it then observes signal.aborted and returns.
     onSignalAbort(signal, () => {
-      this.wake.notify();
+      this.wakeSignal.notify();
     });
 
     const done = (): AgentThreadExecutionResult => ({
@@ -613,7 +608,7 @@ export class AgentThreadOrchestrator {
           // was persisted but did not unblock the model.
           yield { type: InternalEventType.TURN_STATE, transition: { status: 'paused' } };
           turnPaused = true;
-          await this.wake.wait();
+          await this.wakeSignal.wait();
           if (isAborted()) {
             return done();
           }

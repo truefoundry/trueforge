@@ -134,11 +134,7 @@ export type DriveOutcome =
   | { kind: 'done'; events: AgentThreadExecutionEvent[]; result: AgentThreadExecutionResult };
 
 /**
- * Drive a live `execute()` generator exactly as the production wiring layer would: collect the
- * non-turn-state events and stop when the executor parks (turn-state `paused`) or returns. On a
- * park the generator is left suspended so the caller can resume the SAME `execute()` via
- * `send()` + `notifyWake()`; on done the executor's own terminal result is returned. Nothing is
- * synthesized and resume is never faked — `running` transitions are internal bookkeeping and dropped.
+ * Drive a live `execute()` generator exactly as the production wiring layer would.
  */
 export async function driveUntilPauseOrDone(
   iterator: AsyncGenerator<AgentThreadExecutionEvent, AgentThreadExecutionResult, unknown>,
