@@ -191,11 +191,16 @@ export interface ISandboxEnvironmentStore<TTransaction = never> {
     transaction?: TTransaction,
   ): Promise<{ data: SandboxEnvironmentWithVersion[]; pagination: TokenPagination }>;
   /**
-   * Active environment by name, joined to its active version.
+   * Active environment by name, joined to its latest version for management APIs.
    * Pass `created_by_subject_id` for owner-scoped CRUD/attach on custom envs; the tenant
-   * `"default"` ignores ownership. Omit the subject filter when an agent run resolves an env.
+   * `"default"` ignores ownership.
    */
   getEnvironment(
+    input: GetSandboxEnvironmentInput,
+    transaction?: TTransaction,
+  ): Promise<SandboxEnvironmentWithVersion | undefined>;
+  /** Active environment by name, joined to the version currently used for sandbox creation. */
+  getActiveEnvironment(
     input: GetSandboxEnvironmentInput,
     transaction?: TTransaction,
   ): Promise<SandboxEnvironmentWithVersion | undefined>;

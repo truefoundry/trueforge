@@ -97,6 +97,41 @@ function activeVersionJoin(db: Kysely<Database> | Transaction<Database>) {
     ]);
 }
 
+function latestVersionJoin(db: Kysely<Database> | Transaction<Database>) {
+  return db
+    .selectFrom('sandbox_environment as env')
+    .innerJoin('sandbox_environment_version as ver', 'ver.environment_id', 'env.id')
+    .select([
+      'env.id',
+      'env.tenant_id',
+      'env.name',
+      'env.description',
+      'env.active_version',
+      'env.lifecycle_stage',
+      jsonText<CreatedBySubject>(sql.ref('env.created_by_subject')).as('created_by_subject'),
+      'env.created_at',
+      'env.updated_at',
+      'ver.id as ver_id',
+      'ver.environment_id as ver_environment_id',
+      'ver.version as ver_version',
+      jsonText<StoredSandboxEnvironmentManifest>(sql.ref('ver.manifest')).as('ver_manifest'),
+      'ver.status as ver_status',
+      'ver.status_reason as ver_status_reason',
+      'ver.external_ref as ver_external_ref',
+      jsonText<SandboxEnvironmentVersionInternalMetadata>(sql.ref('ver.internal_metadata')).as('ver_internal_metadata'),
+      jsonText<CreatedBySubject>(sql.ref('ver.created_by_subject')).as('ver_created_by_subject'),
+      'ver.created_at as ver_created_at',
+      'ver.updated_at as ver_updated_at',
+    ])
+    .where(
+      sql<boolean>`ver.version = (
+        SELECT MAX(latest.version)
+        FROM sandbox_environment_version AS latest
+        WHERE latest.environment_id = env.id
+      )`,
+    );
+}
+
 function versionSelect() {
   return [
     'id' as const,
@@ -217,7 +252,7 @@ export class SqliteSandboxEnvironmentStore implements ISandboxEnvironmentStore<T
     transaction?: Transaction<Database>,
   ): Promise<{ data: SandboxEnvironmentWithVersion[]; pagination: TokenPagination }> {
     const db = transaction ?? this.#db;
-    const query = activeVersionJoin(db)
+    const query = latestVersionJoin(db)
       .where('env.tenant_id', '=', input.tenant_id)
       .where('env.lifecycle_stage', '=', 'active')
       .where(eb =>
@@ -244,6 +279,25 @@ export class SqliteSandboxEnvironmentStore implements ISandboxEnvironmentStore<T
   }
 
   async getEnvironment(
+    input: GetSandboxEnvironmentInput,
+    transaction?: Transaction<Database>,
+  ): Promise<SandboxEnvironmentWithVersion | undefined> {
+    const db = transaction ?? this.#db;
+    let query = latestVersionJoin(db)
+      .where('env.tenant_id', '=', input.tenant_id)
+      .where('env.name', '=', input.name)
+      .where('env.lifecycle_stage', '=', 'active');
+    if (input.created_by_subject_id && input.name !== DEFAULT_SANDBOX_ENVIRONMENT_NAME) {
+      query = query.where(sql`json_extract(env.created_by_subject, '$.subject_id')`, '=', input.created_by_subject_id);
+    }
+    const row = await query.executeTakeFirst();
+    if (!row) {
+      return undefined;
+    }
+    return this.#withMountedSecrets(toWithVersion(row), db);
+  }
+
+  async getActiveEnvironment(
     input: GetSandboxEnvironmentInput,
     transaction?: Transaction<Database>,
   ): Promise<SandboxEnvironmentWithVersion | undefined> {

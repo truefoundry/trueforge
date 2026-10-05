@@ -118,6 +118,39 @@ describe('sandbox environments API → build controller path', () => {
 
     const pendingAfter = await sandboxEnvironmentStore.listLatestPendingVersions();
     expect(pendingAfter).toEqual([]);
+
+    const updateRes = await publicRouter.request('/', {
+      method: 'PUT',
+      headers: { 'content-type': 'application/json' },
+      body: JSON.stringify({
+        manifest: {
+          name: 'pyjokes-env',
+          description: 'has requests',
+          image: { type: 'build', build_script: 'pip install requests' },
+        },
+      }),
+    });
+    expect(updateRes.status).toBe(200);
+
+    const latestGetRes = await publicRouter.request('/pyjokes-env');
+    const latestGetBody = (await latestGetRes.json()) as {
+      data: { status: string; manifest: { image?: { build_script?: string } } };
+    };
+    expect(latestGetBody.data.status).toBe('pending');
+    expect(latestGetBody.data.manifest.image?.build_script).toBe('pip install requests');
+
+    const latestListBody = (await (await publicRouter.request('/')).json()) as {
+      data: { status: string }[];
+    };
+    expect(latestListBody.data[0]?.status).toBe('pending');
+
+    const active = await sandboxEnvironmentStore.getActiveEnvironment({
+      tenant_id: STANDALONE_REQUEST_CONTEXT.tenant_id,
+      name: 'pyjokes-env',
+      created_by_subject_id: STANDALONE_REQUEST_CONTEXT.subject.id,
+    });
+    expect(active?.version.status).toBe('ready');
+    expect(active?.version.manifest.image?.build_script).toBe('pip install pyjokes');
   });
 
   it('rejects creating the reserved default name', async () => {

@@ -202,7 +202,7 @@ export async function resolveSandboxEnvironment({
   sandboxEnvironmentStore: ISandboxEnvironmentStore;
   optional?: boolean;
 }): Promise<DaytonaSandboxEnvironment | undefined> {
-  const loaded = await sandboxEnvironmentStore.getEnvironment({
+  const loaded = await sandboxEnvironmentStore.getActiveEnvironment({
     tenant_id,
     name,
   });

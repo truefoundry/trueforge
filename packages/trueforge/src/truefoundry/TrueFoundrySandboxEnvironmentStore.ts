@@ -105,6 +105,23 @@ export class TrueFoundrySandboxEnvironmentStore<
     return this.#persistence.getEnvironment(input, transaction);
   }
 
+  getActiveEnvironment(
+    input: GetSandboxEnvironmentInput,
+    transaction?: TTransaction,
+  ): Promise<SandboxEnvironmentWithVersion | undefined> {
+    if (!this.#envSupported) {
+      logger.info('Skipping active sandbox environment get (provider does not support environments)', {
+        name: input.name,
+        tenant_id: input.tenant_id,
+      });
+      return Promise.resolve(undefined);
+    }
+    if (input.name === DEFAULT_SANDBOX_ENVIRONMENT_NAME) {
+      return Promise.resolve(synthesizeTrueFoundryDefaultSandboxEnvironment(input.tenant_id));
+    }
+    return this.#persistence.getActiveEnvironment(input, transaction);
+  }
+
   upsertEnvironment(
     input: UpsertSandboxEnvironmentInput,
     transaction?: TTransaction,
