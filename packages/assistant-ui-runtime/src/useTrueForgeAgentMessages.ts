@@ -755,8 +755,8 @@ export function useTrueForgeAgentMessages({
       // Invalidate the prior client stream before any await so a buffered RAF
       // cannot restore stale activeStream after the optimistic user message.
       // Continuations keep today's runStream abort; they must not race a user send.
+      const sendGeneration = 'userMessage' in options ? ++streamGenerationRef.current : streamGenerationRef.current;
       if ('userMessage' in options) {
-        streamGenerationRef.current += 1;
         abortControllerRef.current?.abort();
       }
 
@@ -776,6 +776,9 @@ export function useTrueForgeAgentMessages({
           resolveConversationSessionIdRef.current,
         );
         const turnHeaders = await getTurnHeadersRef.current?.();
+        if (sendGeneration !== streamGenerationRef.current) {
+          return;
+        }
         const streamHeaders = turnHeaders != null ? { headers: turnHeaders } : {};
         const isContinuation = 'inputs' in options || ('resumeMcpAuth' in options && options.resumeMcpAuth);
         const continuationTurnId = snapshotRef.current.activeStream?.turnId;
@@ -941,6 +944,9 @@ export function useTrueForgeAgentMessages({
           isContinuation,
         );
       } catch (error) {
+        if (!runStreamStarted && sendGeneration !== streamGenerationRef.current) {
+          return;
+        }
         if ('userMessage' in options && !gatewayTurnAccepted.current) {
           const branchRollbackSnapshot = options.branchRollbackSnapshot;
           const canRestoreBranch =
@@ -965,6 +971,11 @@ export function useTrueForgeAgentMessages({
           options.onPreTurnFailure?.();
         }
         if (!runStreamStarted) {
+          if ('userMessage' in options) {
+            const abandoned = abandonInFlightClientTurn(commitActiveStream(snapshotRef.current));
+            snapshotRef.current = abandoned;
+            setSnapshot(abandoned);
+          }
           if (abortControllerRef.current?.signal.aborted) {
             abortControllerRef.current = null;
           }

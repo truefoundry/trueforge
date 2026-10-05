@@ -1093,6 +1093,69 @@ describe('useTrueForgeAgentMessages', () => {
     });
   });
 
+  it('does not let a slower earlier send overwrite a later turn', async () => {
+    let releaseFirstHeaders: (() => void) | undefined;
+    const getTurnHeaders = vi.fn();
+    getTurnHeaders.mockImplementationOnce(
+      () =>
+        new Promise<Record<string, string> | undefined>(resolve => {
+          releaseFirstHeaders = () => resolve(undefined);
+        }),
+    );
+    getTurnHeaders.mockResolvedValue(undefined);
+
+    let releaseSecondStream: (() => void) | undefined;
+    vi.mocked(streamTurnContent).mockImplementation(async function* () {
+      yield { content: [{ type: 'text' as const, text: 'second reply' }] };
+      await new Promise<void>(resolve => {
+        releaseSecondStream = resolve;
+      });
+    });
+
+    const { result } = renderHook(() =>
+      useTrueForgeAgentMessages({
+        server: mockServer,
+        sessionId: 'session-1',
+        getTurnHeaders,
+      }),
+    );
+    await waitFor(() => expect(result.current.isLoading).toBe(false));
+
+    let firstSend: Promise<void> | undefined;
+    await act(async () => {
+      firstSend = result.current.sendTurn({ userMessage: 'first' });
+    });
+    await waitFor(() => expect(getTurnHeaders).toHaveBeenCalledTimes(1));
+    expect(streamTurnContent).not.toHaveBeenCalled();
+
+    let secondSend: Promise<void> | undefined;
+    await act(async () => {
+      secondSend = result.current.sendTurn({ userMessage: 'second' });
+    });
+    await waitFor(() => expect(streamTurnContent).toHaveBeenCalledTimes(1));
+
+    await act(async () => {
+      releaseFirstHeaders?.();
+      await firstSend;
+    });
+
+    expect(streamTurnContent).toHaveBeenCalledTimes(1);
+    const userTexts = result.current.messages
+      .filter(message => message.role === 'user')
+      .map(message =>
+        message.content
+          .filter((part): part is { type: 'text'; text: string } => part.type === 'text')
+          .map(part => part.text)
+          .join(''),
+      );
+    expect(userTexts).toEqual(['second']);
+
+    await act(async () => {
+      releaseSecondStream?.();
+      await secondSend;
+    });
+  });
+
   it('drops ask-user pause chrome after a superseding user send', async () => {
     vi.mocked(loadSessionSnapshot).mockResolvedValue(snapshotWithAskUserPendingInFold());
     vi.mocked(streamTurnContent).mockReturnValue(
@@ -1612,6 +1675,14 @@ describe('useTrueForgeAgentMessages', () => {
 
   it('clears isRunning when a supersede send fails before runStream starts', async () => {
     let resolveFirstStream: (() => void) | undefined;
+    vi.stubGlobal(
+      'requestAnimationFrame',
+      vi.fn((callback: FrameRequestCallback) => {
+        callback(performance.now());
+        return 1;
+      }),
+    );
+    vi.stubGlobal('cancelAnimationFrame', vi.fn());
     vi.mocked(streamTurnContent).mockReturnValue(
       (async function* () {
         yield { content: [{ type: 'text' as const, text: 'partial' }] };
@@ -1636,7 +1707,15 @@ describe('useTrueForgeAgentMessages', () => {
     await act(async () => {
       firstTurnPromise = result.current.sendTurn({ userMessage: 'turn 1' });
     });
-    await waitFor(() => expect(result.current.isRunning).toBe(true));
+    await waitFor(() =>
+      expect(
+        result.current.messages.some(
+          message =>
+            message.role === 'assistant' &&
+            message.content.some(part => part.type === 'text' && part.text === 'partial'),
+        ),
+      ).toBe(true),
+    );
 
     // A second send supersedes the first one, but getTurnHeaders rejects
     getTurnHeaders.mockRejectedValue(new Error('Auth token expired'));
@@ -1652,6 +1731,19 @@ describe('useTrueForgeAgentMessages', () => {
     });
 
     expect(result.current.isRunning).toBe(false);
+    const userTexts = result.current.messages
+      .filter(message => message.role === 'user')
+      .map(message =>
+        message.content
+          .filter((part): part is { type: 'text'; text: string } => part.type === 'text')
+          .map(part => part.text)
+          .join(''),
+      );
+    expect(userTexts).toEqual(['turn 1']);
+    expect(result.current.messages.find(message => message.role === 'assistant')).toMatchObject({
+      role: 'assistant',
+      status: { type: 'incomplete', reason: 'cancelled' },
+    });
   });
 
   it('cancel clears isRunning even after a failed supersede', async () => {
