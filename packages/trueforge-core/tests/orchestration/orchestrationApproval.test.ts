@@ -223,7 +223,7 @@ describe('orchestration: pause then resume on tool approval', () => {
       ])) {
         void _batch;
       }
-      orchestrator.notifyWake();
+      orchestrator.wake();
 
       const resumed = await driveUntilPauseOrDone(iterator);
       expect(resumed.kind).toBe('done');
@@ -340,7 +340,7 @@ describe('orchestration: pause then resume on tool approval', () => {
       ])) {
         void _batch;
       }
-      orchestrator.notifyWake();
+      orchestrator.wake();
 
       const resumed = await driveUntilPauseOrDone(iterator);
       expect(resumed.kind).toBe('done');
@@ -421,7 +421,7 @@ describe('orchestration: a policy that lands mid-pause resolves an existing pend
     ])) {
       void _batch;
     }
-    orchestrator.notifyWake();
+    orchestrator.wake();
 
     const resumed = await driveUntilPauseOrDone(iterator);
     expect(resumed.kind).toBe('done');
@@ -447,7 +447,8 @@ describe('orchestration: a policy that lands mid-pause resolves an existing pend
     for await (const _event of orchestrator.applyInitialInput([{ type: EventType.USER_MESSAGE, content: 'hello' }])) {
       void _event;
     }
-    const iterator = orchestrator.execute({ signal: new AbortController().signal });
+    const abortController = new AbortController();
+    const iterator = orchestrator.execute({ signal: abortController.signal });
 
     const paused = await driveUntilPauseOrDone(iterator);
     expect(paused.kind).toBe('paused');
@@ -468,14 +469,15 @@ describe('orchestration: a policy that lands mid-pause resolves an existing pend
     ])) {
       void _batch;
     }
-    orchestrator.notifyWake();
+    orchestrator.wake();
 
-    const again = await driveUntilPauseOrDone(iterator);
-    expect(again.kind).toBe('paused');
     // The policy is still accepted + echoed (acceptance != coverage), but it covers nothing (expired),
-    // so the commit carries no approval_resolution overwrite and the call stays paused.
-    expect(again.events).toMatchObject([
-      {
+    // so the commit carries no approval_resolution overwrite and the call stays paused without
+    // emitting another paused transition.
+    const commit = await iterator.next();
+    expect(commit).toMatchObject({
+      done: false,
+      value: {
         type: InternalEventType.USER_EVENTS_COMMIT,
         context_overwrites: [],
         applied_user_events: [
@@ -491,8 +493,12 @@ describe('orchestration: a policy that lands mid-pause resolves an existing pend
           },
         ],
       },
-    ]);
+    });
     expect(callTool).not.toHaveBeenCalled();
+
+    const finished = iterator.next();
+    abortController.abort();
+    await expect(finished).resolves.toMatchObject({ done: true });
   });
 
   it('send() rejects a policy for an unknown server and applies nothing (fail-closed)', () => {
