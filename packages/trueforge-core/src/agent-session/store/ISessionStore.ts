@@ -384,11 +384,12 @@ export interface ISessionStore<
    * `created_at`; `id` is a monotonic ULID and is the primary within-turn sort
    * key. `created_at` records event creation time but is not the order key.
    */
+  /** Appends events while the turn is `running` or `paused`; terminal turns are immutable. */
   appendToEvents(input: AppendToEventsInput): Promise<void>;
 
   /**
    * Durable inbound send-event inbox for a tip. Tip must be non-terminal
-   * (v1: `running`; `paused` when that status lands) — terminal tip →
+   * (`running` or `paused`) — terminal tip →
    * {@link TurnNotRunningError}. Missing session → {@link SessionNotFoundError};
    * unknown turn → {@link TurnNotFoundError}. Duplicate `event_id` on that tip →
    * {@link TurnEventAlreadyExistsError}.
@@ -401,13 +402,13 @@ export interface ISessionStore<
   /** Removes threads from the turn by id. */
   removeThreads(input: RemoveThreadsInput): Promise<void>;
 
-  /** Appends messages to a thread's context; optionally updates usage / completion marker. */
+  /** Appends messages while the turn is non-terminal; optionally updates usage / completion marker. */
   appendToThreadContext(input: AppendToThreadContextInput): Promise<void>;
 
-  /** Replaces a thread's context wholesale (context-overwrite event). */
+  /** Replaces a thread's context wholesale while the turn is non-terminal. */
   overwriteThreadContext(input: OverwriteThreadContextInput): Promise<void>;
 
-  /** Patches the turn snapshot's MCP server init info (by source id). */
+  /** Patches a non-terminal turn's MCP server init info (by source id). */
   patchMCPServers(input: PatchMCPServersInput): Promise<void>;
 
   /** Patches the turn snapshot's sandbox info (id for cross-turn reattach). */

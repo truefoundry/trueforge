@@ -23,7 +23,7 @@ import { sql } from 'kysely';
 import { json } from '../../sqlExpressions';
 import type { Database } from '../../types';
 import { unnestWithOrdinality, values } from '../sqlExpressions';
-import { classifyTurnFenceWriteFailure, turnRunningFence } from './turns';
+import { classifyTurnFenceWriteFailure, turnNonTerminalFence } from './turns';
 
 export async function appendToEvents(db: Kysely<Database>, input: AppendToEventsInput): Promise<void> {
   if (input.events.length === 0) {
@@ -43,7 +43,7 @@ export async function appendToEvents(db: Kysely<Database>, input: AppendToEvents
   }));
 
   const inserted = await db
-    .with('turn_fence', qb => turnRunningFence(qb, keys))
+    .with('turn_fence', qb => turnNonTerminalFence(qb, keys))
     .insertInto('session_event')
     .columns(['session_id', 'turn_id', 'event_id', 'event', 'created_at'])
     .expression(eb =>

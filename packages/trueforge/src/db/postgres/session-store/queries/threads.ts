@@ -16,8 +16,9 @@ import type { Database, TurnThreadCheckpoint } from '../../types';
 import { values } from '../sqlExpressions';
 import {
   assertTurnRunning,
+  classifyNonTerminalTurnThreadWriteFailure,
   classifyTurnFenceWriteFailure,
-  classifyTurnThreadWriteFailure,
+  turnNonTerminalFence,
   turnRunningFence,
   type TurnKeys,
 } from './turns';
@@ -216,7 +217,7 @@ async function fencedTurnThreadContextUpdate(
   if (context.length === 0) {
     // No log INSERT — still fence + patch usage/completion / clear-or-keep array.
     const emptyResult = await db
-      .with('turn_fence', qb => turnRunningFence(qb, keys))
+      .with('turn_fence', qb => turnNonTerminalFence(qb, keys))
       .updateTable('turn_thread')
       .set({
         context_ids: replace_array ? sql<number[]>`'{}'::bigint[]` : sql<number[]>`context_ids`,
@@ -231,7 +232,7 @@ async function fencedTurnThreadContextUpdate(
       .executeTakeFirst();
 
     if (Number(emptyResult.numUpdatedRows) === 0) {
-      await classifyTurnThreadWriteFailure(db, keys, thread_id);
+      await classifyNonTerminalTurnThreadWriteFailure(db, keys, thread_id);
     }
     return;
   }
@@ -248,7 +249,7 @@ async function fencedTurnThreadContextUpdate(
       >`context_ids || coalesce((SELECT array_agg(append_id ORDER BY append_id) FROM new_rows), '{}'::bigint[])`;
 
   const result = await db
-    .with('turn_fence', qb => turnRunningFence(qb, keys))
+    .with('turn_fence', qb => turnNonTerminalFence(qb, keys))
     .with('new_rows', qb =>
       qb
         .insertInto('thread_context_log')
@@ -282,7 +283,7 @@ async function fencedTurnThreadContextUpdate(
     .executeTakeFirst();
 
   if (Number(result.numUpdatedRows) === 0) {
-    await classifyTurnThreadWriteFailure(db, keys, thread_id);
+    await classifyNonTerminalTurnThreadWriteFailure(db, keys, thread_id);
   }
 }
 
@@ -327,7 +328,7 @@ export async function overwriteThreadContext(db: Kysely<Database>, input: Overwr
 
 /**
  * patchMCPServers — one-shot conditional UPDATE on the fence row itself
- * (`state->>'status' = 'running'`). No separate FOR SHARE fence CTE.
+ * (`state->>'status' IN ('running', 'paused')`). No separate FOR SHARE fence CTE.
  * Subscript LHS + expression RHS for shallow merge by server id.
  */
 export async function patchMCPServers(db: Kysely<Database>, input: PatchMCPServersInput): Promise<void> {
@@ -352,7 +353,7 @@ export async function patchMCPServers(db: Kysely<Database>, input: PatchMCPServe
     .set({ updated_at: sql`now()` })
     .where('session_id', '=', keys.session_id)
     .where('turn_id', '=', keys.turn_id)
-    .where(sql<boolean>`state->>'status' = 'running'`)
+    .where(sql<boolean>`state->>'status' IN ('running', 'paused')`)
     .executeTakeFirst();
 
   if (Number(result.numUpdatedRows) === 0) {

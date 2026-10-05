@@ -90,7 +90,8 @@ type TurnCustom = Record<string, never>;
  *    `freezeAndGetTurn` first.
  *    Tip-equality is NOT required: new roots and concurrent forks from a
  *    finished tip can leave more than one turn `running` at once.
- * 2. Every turn-scoped write is fenced on `state->>'status' = 'running'`.
+ * 2. Turn-scoped writes are fenced against terminal turns; execution-only writes
+ *    may additionally require `state->>'status' = 'running'`.
  * 3. Terminal turns are IMMUTABLE — a terminal read is a final read.
  * 4. BEGIN IMMEDIATE provides write locking (no FOR SHARE / FOR UPDATE).
  */
