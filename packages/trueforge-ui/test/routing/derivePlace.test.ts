@@ -11,6 +11,7 @@ function snap(partial: Partial<ShellSnapshot>): ShellSnapshot {
     sharedSessionId: null,
     libraryAgentId: null,
     schedulesOpen: false,
+    environmentsOpen: false,
     mode: { status: 'idle' },
     agentConfigMode: 'AgentLibraryWithComposer',
     ...partial,
@@ -54,6 +55,16 @@ describe('derivePlace', () => {
 
   it('settings wins over schedules when both are open', () => {
     expect(derivePlace(snap({ settingsOpen: true, schedulesOpen: true }))).toEqual({ type: 'settings' });
+  });
+
+  it('environments overlay wins over chat when settings/schedules are closed', () => {
+    expect(derivePlace(snap({ environmentsOpen: true, pendingSessionId: 'abc' }))).toEqual({
+      type: 'environments',
+    });
+  });
+
+  it('schedules wins over environments when both are open', () => {
+    expect(derivePlace(snap({ schedulesOpen: true, environmentsOpen: true }))).toEqual({ type: 'schedules' });
   });
 
   it('pendingSessionId maps to a session while no thread has reported yet', () => {

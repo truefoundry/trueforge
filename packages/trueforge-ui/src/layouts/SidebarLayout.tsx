@@ -34,6 +34,9 @@ const TruefoundrySettingsBuilder = lazy(() => import('../containers/SettingsBuil
 const SchedulesPage = lazy(() =>
   import('../atoms/schedules/SchedulesPage.js').then(m => ({ default: m.SchedulesPage })),
 );
+const EnvironmentsPage = lazy(() =>
+  import('../atoms/environments/EnvironmentsPage.js').then(m => ({ default: m.EnvironmentsPage })),
+);
 
 const brandLogoClassName = 'h-5 w-5 max-w-40 shrink-0 object-contain';
 const railWidthClassName = 'w-20';
@@ -66,12 +69,14 @@ function SidebarNav(): ReactNode {
   const AgentsLibraryButton = useSlot('AgentsLibraryButton');
   const SessionsBrowserButton = useSlot('SessionsBrowserButton');
   const SchedulesButton = useSlot('SchedulesButton');
+  const EnvironmentsButton = useSlot('EnvironmentsButton');
   const showNewActions = shell?.isNewChatEnabled !== false;
   const overlayOpen =
     shell?.settingsOpen === true ||
     shell?.libraryOpen === true ||
     shell?.sessionsOpen === true ||
-    shell?.schedulesOpen === true;
+    shell?.schedulesOpen === true ||
+    shell?.environmentsOpen === true;
   const mode = shell?.mode;
   const newChatSelected =
     !overlayOpen &&
@@ -89,6 +94,7 @@ function SidebarNav(): ReactNode {
     }
     shell?.setSettingsOpen(false);
     shell?.setSchedulesOpen(false);
+    shell?.setEnvironmentsOpen(false);
     void Promise.resolve(aui.threads().switchToNewThread()).catch(() => undefined);
   };
 
@@ -137,6 +143,7 @@ function SidebarNav(): ReactNode {
       <AgentsLibraryButton compact />
       <SessionsBrowserButton compact />
       <SchedulesButton compact />
+      <EnvironmentsButton compact />
     </nav>
   );
 }
@@ -205,7 +212,8 @@ export function SidebarLayout({ className }: { className?: string }) {
   const libraryOpen = shell?.libraryOpen === true;
   const sessionsOpen = shell?.sessionsOpen === true;
   const schedulesOpen = shell?.schedulesOpen === true;
-  const overlayOpen = settingsOpen || libraryOpen || sessionsOpen || schedulesOpen;
+  const environmentsOpen = shell?.environmentsOpen === true;
+  const overlayOpen = settingsOpen || libraryOpen || sessionsOpen || schedulesOpen || environmentsOpen;
   const showAgentConfig =
     shell != null && shellIsCreateAgent(shell.mode) && !overlayOpen && (!isMobile || shell.agentConfigOpen);
   const showRecentHistory = isRecentHistoryVisible({ overlayOpen, mode: shell?.mode });
@@ -329,6 +337,22 @@ export function SidebarLayout({ className }: { className?: string }) {
                   }
                 >
                   <SchedulesPage />
+                </Suspense>
+              ) : environmentsOpen ? (
+                <Suspense
+                  fallback={
+                    <div
+                      className="flex h-full items-center justify-center"
+                      role="status"
+                      aria-live="polite"
+                      aria-busy="true"
+                    >
+                      <Spinner size={28} className="text-text-primary" />
+                      <span className="sr-only">Loading</span>
+                    </div>
+                  }
+                >
+                  <EnvironmentsPage />
                 </Suspense>
               ) : isIdle ? (
                 <SelectAgentEmptyState />
