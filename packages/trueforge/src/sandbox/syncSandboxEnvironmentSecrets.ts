@@ -5,7 +5,7 @@ import { isDeepStrictEqual } from 'node:util';
 import type { SandboxEnvironmentSecretRecord, SyncedSandboxEnvironmentSecret } from '../db/sandboxEnvironmentStore';
 import type { SandboxEnvironmentSecret } from '../schemas/sandboxEnvironment';
 import { isRedactedSecretValue, MissingStoredSecretError } from '../utils/secretRedaction';
-import { DAYTONA_RPC_TIMEOUT_MS } from './providerUtils';
+import { DAYTONA_RPC_TIMEOUT_MS, isDaytonaNotFoundError } from './providerUtils';
 
 export class SandboxEnvironmentSecretSyncError extends Error {
   constructor(message: string, options: ErrorOptions) {
@@ -22,6 +22,31 @@ async function withSecretSyncError<T>(operation: Promise<T>): Promise<T> {
       error instanceof Error ? error.message : 'Sandbox environment secret sync failed',
       { cause: error },
     );
+  }
+}
+
+export async function deleteSandboxEnvironmentSecrets({
+  secrets,
+  provider,
+}: {
+  secrets: SandboxEnvironmentSecretRecord[];
+  provider: SandboxProvider<unknown>;
+}): Promise<void> {
+  for (const secret of secrets) {
+    try {
+      await withSecretSyncError(
+        withTimeout(
+          provider.deleteSecret({ secretId: secret.external_secret_id }),
+          DAYTONA_RPC_TIMEOUT_MS,
+          'sandbox environment secret delete',
+        ),
+      );
+    } catch (error) {
+      if (error instanceof SandboxEnvironmentSecretSyncError && isDaytonaNotFoundError(error.cause)) {
+        continue;
+      }
+      throw error;
+    }
   }
 }
 
@@ -94,15 +119,7 @@ export async function syncSandboxEnvironmentSecrets({
   }
 
   const removed = existing.filter(row => !desiredNames.has(row.secret_name));
-  for (const row of removed) {
-    await withSecretSyncError(
-      withTimeout(
-        provider.deleteSecret({ secretId: row.external_secret_id }),
-        DAYTONA_RPC_TIMEOUT_MS,
-        'sandbox environment secret delete',
-      ),
-    );
-  }
+  await deleteSandboxEnvironmentSecrets({ secrets: removed, provider });
 
   return synced;
 }

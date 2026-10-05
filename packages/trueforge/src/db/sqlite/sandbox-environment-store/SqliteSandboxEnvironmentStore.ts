@@ -585,17 +585,32 @@ export class SqliteSandboxEnvironmentStore implements ISandboxEnvironmentStore<T
   }
 
   async deleteEnvironment(input: DeleteSandboxEnvironmentInput, transaction?: Transaction<Database>): Promise<void> {
-    const db = transaction ?? this.#db;
+    if (transaction) {
+      return this.#deleteEnvironment(input, transaction);
+    }
+    return this.#db.transaction().execute(db => this.#deleteEnvironment(input, db));
+  }
+
+  async #deleteEnvironment(input: DeleteSandboxEnvironmentInput, db: Transaction<Database>): Promise<void> {
+    const environment = await db
+      .selectFrom('sandbox_environment')
+      .select('id')
+      .where('tenant_id', '=', input.tenant_id)
+      .where('name', '=', input.name)
+      .where('lifecycle_stage', '=', 'active')
+      .where(sql`json_extract(created_by_subject, '$.subject_id')`, '=', input.created_by_subject_id)
+      .executeTakeFirst();
+    if (environment === undefined) {
+      return;
+    }
+    await db.deleteFrom('sandbox_environment_secret').where('environment_id', '=', environment.id).execute();
     await db
       .updateTable('sandbox_environment')
       .set({
         lifecycle_stage: 'deleted',
         updated_at: nowIso(),
       })
-      .where('tenant_id', '=', input.tenant_id)
-      .where('name', '=', input.name)
-      .where('lifecycle_stage', '=', 'active')
-      .where(sql`json_extract(created_by_subject, '$.subject_id')`, '=', input.created_by_subject_id)
+      .where('id', '=', environment.id)
       .execute();
   }
 

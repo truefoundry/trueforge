@@ -29,6 +29,10 @@ export function isDaytonaPermissionError(error: unknown): boolean {
   return error instanceof DaytonaError && error.statusCode === 403;
 }
 
+export function isDaytonaNotFoundError(error: unknown): boolean {
+  return error instanceof DaytonaError && error.statusCode === 404;
+}
+
 export function getDaytonaAuthorizationErrorMessage(error: unknown): string | undefined {
   if (isDaytonaAuthError(error)) {
     return 'Sandbox provider rejected the API key — check the credentials';

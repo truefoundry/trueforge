@@ -25,6 +25,7 @@ import {
 import { getDaytonaAuthorizationErrorMessage, toDaytonaSandboxProvider } from '../sandbox/providerUtils';
 import { buildNextVersion, redactManifestSecrets } from '../sandbox/sandboxEnvironmentVersion';
 import {
+  deleteSandboxEnvironmentSecrets,
   SandboxEnvironmentSecretSyncError,
   syncSandboxEnvironmentSecrets,
 } from '../sandbox/syncSandboxEnvironmentSecrets';
@@ -63,6 +64,16 @@ async function resolveSandboxProviderRecord(
   tenant_id: string,
 ): Promise<SandboxProviderRecord | undefined> {
   return providerStore.getSandboxProvider(tenant_id);
+}
+
+function sandboxEnvironmentSecretHttpError(error: unknown): { status: 422 | 502; message: string } | undefined {
+  if (!(error instanceof SandboxEnvironmentSecretSyncError)) {
+    return undefined;
+  }
+  const authorizationMessage = getDaytonaAuthorizationErrorMessage(error.cause);
+  return authorizationMessage === undefined
+    ? { status: 502, message: error.message }
+    : { status: 422, message: authorizationMessage };
 }
 
 /** CRUD for sandbox environments. */
@@ -168,12 +179,9 @@ export function createSandboxEnvironmentsRouter<TTransaction>(
       if (error instanceof MissingStoredSecretError) {
         return c.json({ error: { message: 'Secret value is required' } }, 400);
       }
-      if (error instanceof SandboxEnvironmentSecretSyncError) {
-        const authorizationMessage = getDaytonaAuthorizationErrorMessage(error.cause);
-        if (authorizationMessage !== undefined) {
-          return c.json({ error: { message: authorizationMessage } }, 422);
-        }
-        return c.json({ error: { message: error.message } }, 502);
+      const secretError = sandboxEnvironmentSecretHttpError(error);
+      if (secretError !== undefined) {
+        return c.json({ error: { message: secretError.message } }, secretError.status);
       }
       throw error;
     }
@@ -207,12 +215,31 @@ export function createSandboxEnvironmentsRouter<TTransaction>(
         409,
       );
     }
-    await store.deleteEnvironment({
-      tenant_id,
-      name,
-      created_by_subject_id: subject.id,
-    });
-    return c.json({}, 200);
+    try {
+      const secrets = await store.listSecretsByEnvironment({ environment_id: existing.environment.id });
+      if (secrets.length > 0) {
+        const provider = await resolveSandboxProviderRecord(deps.resolveSandboxProviderStore(c), tenant_id);
+        if (provider === undefined) {
+          return c.json({ error: { message: 'No sandbox provider configured' } }, 422);
+        }
+        await deleteSandboxEnvironmentSecrets({
+          secrets,
+          provider: toDaytonaSandboxProvider({ manifest: provider.manifest, tenant_id, logger }),
+        });
+      }
+      await store.deleteEnvironment({
+        tenant_id,
+        name,
+        created_by_subject_id: subject.id,
+      });
+      return c.json({}, 200);
+    } catch (error) {
+      const secretError = sandboxEnvironmentSecretHttpError(error);
+      if (secretError !== undefined) {
+        return c.json({ error: { message: secretError.message } }, secretError.status);
+      }
+      throw error;
+    }
   };
 
   const router = new OpenAPIHono();

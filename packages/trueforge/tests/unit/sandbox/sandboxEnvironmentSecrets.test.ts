@@ -219,6 +219,67 @@ describe('sandbox environment secrets', () => {
     expect(await sandboxEnvironmentStore.listSecretsByEnvironment({ environment_id: created.data.id })).toEqual([]);
   });
 
+  it('deletes Daytona secrets and secret rows when deleting an environment', async () => {
+    const { publicRouter, sandboxEnvironmentStore, putEnvironment } = await setup();
+    const deleteSecret = jest.fn().mockResolvedValue(undefined);
+    jest.mocked(providerUtils.toDaytonaSandboxProvider).mockReturnValue({
+      createSecret: jest.fn().mockResolvedValue({ id: 'daytona-sec-1', name: 'trueforge-secret-1' }),
+      updateSecret: jest.fn(),
+      deleteSecret,
+    } as never);
+
+    const createResponse = await putEnvironment({
+      name: 'secret-env',
+      networking: {
+        secrets: [{ env: 'GITHUB_TOKEN', value: 'ghp_plain', hosts: ['github.com'] }],
+      },
+    });
+    const created = (await createResponse.json()) as { data: { id: string } };
+
+    const deleteResponse = await publicRouter.request('/secret-env', { method: 'DELETE' });
+
+    expect(deleteResponse.status).toBe(200);
+    expect(deleteSecret).toHaveBeenCalledWith({ secretId: 'daytona-sec-1' });
+    expect(await sandboxEnvironmentStore.listSecretsByEnvironment({ environment_id: created.data.id })).toEqual([]);
+    expect(
+      await sandboxEnvironmentStore.getEnvironment({
+        tenant_id: STANDALONE_REQUEST_CONTEXT.tenant_id,
+        name: 'secret-env',
+        created_by_subject_id: STANDALONE_REQUEST_CONTEXT.subject.id,
+      }),
+    ).toBeUndefined();
+  });
+
+  it('keeps the environment when Daytona secret deletion fails', async () => {
+    const { publicRouter, sandboxEnvironmentStore, putEnvironment } = await setup();
+    jest.mocked(providerUtils.toDaytonaSandboxProvider).mockReturnValue({
+      createSecret: jest.fn().mockResolvedValue({ id: 'daytona-sec-1', name: 'trueforge-secret-1' }),
+      updateSecret: jest.fn(),
+      deleteSecret: jest.fn().mockRejectedValue(new Error('Daytona secret delete failed')),
+    } as never);
+
+    await putEnvironment({
+      name: 'secret-env',
+      networking: {
+        secrets: [{ env: 'GITHUB_TOKEN', value: 'ghp_plain', hosts: ['github.com'] }],
+      },
+    });
+
+    const deleteResponse = await publicRouter.request('/secret-env', { method: 'DELETE' });
+
+    expect(deleteResponse.status).toBe(502);
+    expect(await deleteResponse.json()).toEqual({
+      error: { message: 'Daytona secret delete failed' },
+    });
+    expect(
+      await sandboxEnvironmentStore.getEnvironment({
+        tenant_id: STANDALONE_REQUEST_CONTEXT.tenant_id,
+        name: 'secret-env',
+        created_by_subject_id: STANDALONE_REQUEST_CONTEXT.subject.id,
+      }),
+    ).toBeDefined();
+  });
+
   it('returns 502 when Daytona secret sync fails on PUT', async () => {
     const { sandboxEnvironmentStore, putEnvironment } = await setup();
 
