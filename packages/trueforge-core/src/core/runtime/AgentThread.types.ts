@@ -126,25 +126,11 @@ export interface AgentThreadAppendContext {
   completion?: SubAgentCompletion | undefined;
 }
 
-/**
- * Atomic commit of one applied batch of user events — the unit of "user events consumed". Groups
- * every store write that must land together so TurnHandle can persist them in one transaction (once
- * a DB store exists; sequential writes until then): context appends, approval-marker overwrites, an
- * MCP server patch (policy only), the per-inbound-event output events, and the ids to mark consumed.
- *
- * Produced once per application step — by the thread for a decision-drain (single thread), and by the
- * orchestrator for a policy apply (fans across threads, so `context_overwrites` may span thread ids).
- * `applied_user_events` carries exactly one entry per inbound user event (the consumption handle),
- * in output (id + created_at) form, to be streamed and appended to the event log. Empty arrays are
- * skipped by the consumer.
- */
 export interface UserEventsCommitEvent {
   type: typeof InternalEventType.USER_EVENTS_COMMIT;
   context_appends: AgentThreadAppendContext[];
-  context_overwrites: ThreadOverwriteContextEvent[];
-  mcp_patch: MCPServerInitInfo[];
+  mcp_servers_patches: MCPServerInitInfo[];
   applied_user_events: TurnUserToolEvent[];
-  consumed_event_ids: string[];
 }
 
 /**

@@ -34,28 +34,12 @@ export const RedactedThinkingBlockSchema = z
 
 export const ThinkingBlockUnionSchema = z.union([ThinkingBlockSchema, RedactedThinkingBlockSchema]);
 
-export const AgentApprovalDecisionAllowSchema = z
-  .object({ status: z.literal('allow').describe('Allow the pending tool call(s).') })
-  .openapi('ApprovalAllow');
-
-export const AgentApprovalDecisionDenySchema = z
-  .object({
-    status: z.literal('deny').describe('Deny the pending tool call(s).'),
-    reason: z.string().optional().describe('Optional reason shown to the agent when denied.'),
-  })
-  .openapi('ApprovalDeny');
-
-export const ApprovalDecisionSchema = z
-  .discriminatedUnion('status', [AgentApprovalDecisionAllowSchema, AgentApprovalDecisionDenySchema])
-  .openapi('ApprovalDecision');
-
 export const InternalToolCallInfoSchema = z.object({
   type: z.enum(['truefoundry-system', 'mcp']).describe('Whether the tool is a system tool or MCP tool.'),
   mcp_server_id: z.string().describe('Internal MCP server id (empty for system tools).'),
   mcp_server_name: z.string().describe('Configured MCP server name (empty for system tools).'),
   original_tool_name: z.string().describe('Original tool name before any remapping.'),
   is_approval_required: z.boolean().optional().describe('Whether this tool call requires human approval.'),
-  approval: ApprovalDecisionSchema.optional().describe('Approval decision for this tool call.'),
   is_deferred: z.boolean().optional().describe('Whether the tool was loaded via deferred discovery.'),
   is_client_side: z.boolean().optional().describe('Whether the client must supply the tool result.'),
   // Runtime + wire: deviation from origin/main OpenAPI (which omitted this field) is accepted.
@@ -169,7 +153,6 @@ export const FinishReasonSchema = ChatCompletionChunkFinishReasonSchema.openapi(
 
 export type ThinkingBlock = z.infer<typeof ThinkingBlockSchema>;
 export type RedactedThinkingBlock = z.infer<typeof RedactedThinkingBlockSchema>;
-export type ApprovalDecision = z.infer<typeof ApprovalDecisionSchema>;
 export type InternalToolCallInfo = z.infer<typeof InternalToolCallInfoSchema>;
 export type TrueFoundrySystemToolInfo = z.infer<typeof TrueFoundrySystemToolInfoSchema>;
 export type MCPToolInfo = z.infer<typeof MCPToolInfoSchema>;

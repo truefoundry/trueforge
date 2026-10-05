@@ -547,16 +547,13 @@ export class TurnHandle<TTurnCustom extends object = Record<string, never>> {
             await this.store.appendToEvents({ ...scope, events: append.output });
           }
         }
-        for (const overwrite of event.context_overwrites) {
-          await this.store.overwriteThreadContext({ ...scope, event: overwrite });
-        }
-        if (event.mcp_patch.length > 0) {
-          await this.store.patchMCPServers({ ...scope, mcp_servers: event.mcp_patch });
+        if (event.mcp_servers_patches.length > 0) {
+          await this.store.patchMCPServers({ ...scope, mcp_servers: event.mcp_servers_patches });
         }
         if (event.applied_user_events.length > 0) {
           await this.store.appendToEvents({ ...scope, events: event.applied_user_events });
         }
-        // TODO(durable-inbox): mark event.consumed_event_ids consumed.
+        // TODO(durable-inbox): mark event.applied_user_events consumed.
         return event.applied_user_events;
       }
 

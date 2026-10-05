@@ -124,14 +124,14 @@ function assertValidTransition(from: AgentThreadState, to: AgentThreadState): vo
 
 function deriveAgentThreadState(context: ContextMessage[]): AgentThreadState {
   const openToolCallIds = getOpenToolCallIds(context);
+  const approvalDecisions = scanApprovalDecisions(context);
   if (openToolCallIds.size === 0) {
     return 'llm-call-required';
   }
 
   const assistant = lastAssistantInContext(context);
   const hasPendingApproval = assistant?.tool_calls?.some(
-    tc =>
-      openToolCallIds.has(tc.id) && tc.tool_info.is_approval_required === true && tc.tool_info.approval === undefined,
+    tc => openToolCallIds.has(tc.id) && tc.tool_info.is_approval_required === true && !approvalDecisions.has(tc.id),
   );
   const hasPendingClientSideTool = assistant?.tool_calls?.some(
     tc => openToolCallIds.has(tc.id) && tc.tool_info.is_client_side === true,
@@ -313,10 +313,10 @@ function validateApprovalMessage(
 
 function getPendingApprovalToolCalls(context: ContextMessage[]): InternalEnrichedToolCall[] {
   const openToolCallIds = getOpenToolCallIds(context);
+  const approvalDecisions = scanApprovalDecisions(context);
   const assistant = lastAssistantInContext(context);
   return (assistant?.tool_calls ?? []).filter(
-    tc =>
-      openToolCallIds.has(tc.id) && tc.tool_info.is_approval_required === true && tc.tool_info.approval === undefined,
+    tc => openToolCallIds.has(tc.id) && tc.tool_info.is_approval_required === true && !approvalDecisions.has(tc.id),
   );
 }
 
@@ -481,8 +481,6 @@ export class AgentThread {
 
   private contextBusy = false;
   private preSendRanThisTurn = false;
-  // Validated-but-not-yet-applied approval decisions and client-side tool responses.
-  private pendingUserEvents: (UserToolApprovalEvent | UserToolResponseEvent)[] = [];
   private currentState: AgentThreadState | null = null;
   private preComputedCompletion?: SubAgentCompletion | undefined;
   /** Mirrored capability KV — source for toSnapshot().capability_state. */
@@ -607,13 +605,6 @@ export class AgentThread {
         tool_call_id: a.tool_call_id,
         approval: a.approval,
       }));
-      const assistant = lastAssistantInContext(this.context);
-      for (const a of approvals) {
-        const toolCall = assistant?.tool_calls?.find(tc => tc.id === a.tool_call_id);
-        if (toolCall) {
-          toolCall.tool_info.approval = a.approval;
-        }
-      }
       const toolResponseContext: LLMToolMessage[] = clientSideToolResponses.map(m => ({
         role: 'tool',
         tool_call_id: m.tool_call_id,
@@ -623,39 +614,21 @@ export class AgentThread {
       const commit: UserEventsCommitEvent = {
         type: InternalEventType.USER_EVENTS_COMMIT,
         context_appends: [],
-        context_overwrites: [],
-        mcp_patch: [],
+        mcp_servers_patches: [],
         applied_user_events: [],
-        consumed_event_ids: [],
       };
 
-      const appendEvents = [
+      commit.context_appends.push(
         ...this.appendToContext({
           context: [...approvalContext, ...toolResponseContext],
           output: [],
           currentContextUsage: undefined,
           usage: undefined,
         }),
-      ];
-      if (approvals.length > 0) {
-        // Approvals also mutate tool_info.approval in place on the already-persisted assistant
-        // message, so we flush a full-context overwrite.
-        for (const ev of this.overwriteContext({ reason: 'approval_resolution' })) {
-          commit.context_overwrites.push(ev);
-        }
-      } else {
-        commit.context_appends.push(...appendEvents);
-      }
+      );
       // One output event per accepted input (durable + SSE). Ids were seeded at the send boundary,
       // so the echo reuses that id — the consumption handle matches what the send response returned.
-      for (const a of approvals) {
-        commit.applied_user_events.push(a);
-        commit.consumed_event_ids.push(a.id);
-      }
-      for (const m of clientSideToolResponses) {
-        commit.applied_user_events.push(m);
-        commit.consumed_event_ids.push(m.id);
-      }
+      commit.applied_user_events.push(...approvals, ...clientSideToolResponses);
       yield commit;
     }
     if (contextMessages.length > 0) {
@@ -668,41 +641,29 @@ export class AgentThread {
     }
   }
 
-  *send(
-    messages: (UserToolApprovalEvent | UserToolResponseEvent)[],
-  ): Generator<(UserToolApprovalEvent | UserToolResponseEvent)[], void, unknown> {
-    if (messages.length === 0) {
-      return;
+  *resolveApprovalsCoveredByPolicy(): Generator<AgentThreadAppendContext, void, unknown> {
+    const approvals: AgentApprovalDecisionMessage[] = getPendingApprovalToolCalls(this.context)
+      .filter(toolCall =>
+        this.getUserToolSets().some(
+          toolSet =>
+            toolSet.name === toolCall.tool_info.mcp_server_name &&
+            toolSet.hasApplicableApprovalPolicy(toolCall.tool_info.original_tool_name),
+        ),
+      )
+      .map(toolCall => ({
+        type: EventType.USER_TOOL_APPROVAL,
+        tool_call_id: toolCall.id,
+        approval: { status: 'allow' },
+      }));
+
+    if (approvals.length > 0) {
+      yield* this.appendToContext({
+        context: approvals,
+        output: [],
+        currentContextUsage: undefined,
+        usage: undefined,
+      });
     }
-    this.validateSendInput(messages);
-    yield messages;
-    this.pendingUserEvents.push(...messages);
-  }
-
-  hasPendingUserEvents(): boolean {
-    return this.pendingUserEvents.length > 0;
-  }
-
-  async *applyPendingEvents(): AsyncGenerator<ApplyUserEventsOutput, void, unknown> {
-    yield* this.apply(this.pendingUserEvents.splice(0));
-  }
-
-  // Allow pending approvals that an applicable policy now covers. Returns true when at least one
-  // decision was recorded, so the caller can flush the mutated context.
-  resolveApprovalsCoveredByPolicy(): boolean {
-    let coveredAny = false;
-    for (const toolCall of getPendingApprovalToolCalls(this.context)) {
-      const covered = this.getUserToolSets().some(
-        toolSet =>
-          toolSet.name === toolCall.tool_info.mcp_server_name &&
-          toolSet.hasApplicableApprovalPolicy(toolCall.tool_info.original_tool_name),
-      );
-      if (covered) {
-        toolCall.tool_info.approval = { status: 'allow' };
-        coveredAny = true;
-      }
-    }
-    return coveredAny;
   }
 
   private deriveState(): AgentThreadState {
@@ -748,7 +709,7 @@ export class AgentThread {
   }
 
   *overwriteContext(input: {
-    reason: 'compaction' | 'approval_resolution';
+    reason: 'compaction';
     context?: ContextMessage[] | undefined;
     current_context_usage?: CurrentContextUsage | undefined;
     usage?: CompletionUsage | undefined;
@@ -774,9 +735,7 @@ export class AgentThread {
     yield event;
     this.context = context;
     this.currentContextUsage = currentContextUsage;
-    if (input.reason === 'compaction') {
-      this.metrics.total_summarizations++;
-    }
+    this.metrics.total_summarizations++;
   }
 
   private generateErrorEvent(message: string, output?: ModelMessageEvent): InternalThreadDoneEvent {
@@ -882,17 +841,6 @@ export class AgentThread {
     // during preSend, so a dangling regular tool call doesn't reject a user message it will repair.
     const blockingOpenToolCallIds = getUnclosableOpenToolCallIds(this.context, openToolCallIds);
     const pendingApprovalIds = new Set(getPendingApprovalToolCalls(this.context).map(tc => tc.id));
-
-    // Reserve calls already decided by accepted-but-not-yet-applied events. Validation reads
-    // committed context, so without this a second request could decide the same call again.
-    for (const queued of this.pendingUserEvents) {
-      if (isApprovalDecisionEvent(queued)) {
-        pendingApprovalIds.delete(queued.tool_call_id);
-      } else if (isClientSideToolResponseEvent(queued)) {
-        openToolCallIds.delete(queued.tool_call_id);
-        blockingOpenToolCallIds.delete(queued.tool_call_id);
-      }
-    }
 
     for (let i = 0; i < messages.length; i++) {
       const m = messages[i];

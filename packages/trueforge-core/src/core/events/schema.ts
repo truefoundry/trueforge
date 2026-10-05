@@ -2,7 +2,6 @@
 import { z } from '@hono/zod-openapi';
 import { monotonicFactory } from 'ulid';
 import {
-  ApprovalDecisionSchema,
   CompletionUsageSchema,
   EnrichedAssistantMessageSchema,
   ExtendedChunkDeltaSchema,
@@ -66,7 +65,20 @@ export const AgentInfoSchema = z
   })
   .openapi('AgentInfo');
 
-export { ApprovalDecisionSchema };
+export const AgentApprovalDecisionAllowSchema = z
+  .object({ status: z.literal('allow').describe('Allow the pending tool call(s).') })
+  .openapi('ApprovalAllow');
+
+export const AgentApprovalDecisionDenySchema = z
+  .object({
+    status: z.literal('deny').describe('Deny the pending tool call(s).'),
+    reason: z.string().optional().describe('Optional reason shown to the agent when denied.'),
+  })
+  .openapi('ApprovalDeny');
+
+export const ApprovalDecisionSchema = z
+  .discriminatedUnion('status', [AgentApprovalDecisionAllowSchema, AgentApprovalDecisionDenySchema])
+  .openapi('ApprovalDecision');
 
 export const UserToolApprovalMessageSchema = z
   .object({
@@ -334,10 +346,7 @@ export const ThreadOverwriteContextEventSchema = z.object({
   id: EventIdSchema,
   created_at: z.string(),
   thread_id: z.string(),
-
-  // `compaction` rewrites history via summarization (carries LLM `usage`); `approval_resolution`
-  // persists an in-place tool_info.approval mutation (no LLM call, so `usage` is omitted).
-  reason: z.enum(['compaction', 'approval_resolution']),
+  reason: z.literal('compaction'),
   context: z.array(ContextMessageSchema),
   current_context_usage: CurrentContextUsageSchema,
   usage: CompletionUsageSchema.optional(),

@@ -7,8 +7,7 @@
 import { CancellationReason, type TurnHandle } from '@truefoundry/trueforge-core/agent-session';
 
 interface ActiveTurnRun {
-  // Absent for runs that cannot be resumed.
-  turn: TurnHandle | undefined;
+  turn: TurnHandle;
   abortController: AbortController;
   waitUntilCompleted: Promise<void>;
   markCompleted: () => void;
@@ -28,14 +27,8 @@ export class ActiveTurnRegistry {
    * exits early). If shutdown has already begun, aborts the controller with
    * the shutdown reason so the turn ends as abandoned.
    */
-  track<T>(input: {
-    sessionId: string;
-    turnId: string;
-    abortController: AbortController;
-    stream: AsyncIterable<T>;
-    turn?: TurnHandle | undefined;
-  }): AsyncGenerator<T> {
-    const key = activeTurnKey(input.sessionId, input.turnId);
+  track<T>(input: { abortController: AbortController; stream: AsyncIterable<T>; turn: TurnHandle }): AsyncGenerator<T> {
+    const key = activeTurnKey(input.turn.session_id, input.turn.id);
     const { promise: waitUntilCompleted, resolve } = Promise.withResolvers<undefined>();
     const markCompleted = (): void => {
       resolve(undefined);

@@ -45,11 +45,11 @@ import type { TurnMetadata } from '../db/turnMetadata';
 import type { IWebSearchProviderStore } from '../db/webSearchProviderStore';
 import {
   createAndExecuteTurnRoute,
-  createTurnEventRoute,
   downloadSandboxFileRoute,
   getTurnRoute,
   listTurnEventsRoute,
   listTurnsRoute,
+  postTurnEventsRoute,
   subscribeTurnRoute,
 } from '../routes/turnRoutes';
 import type { ActiveTurnRegistry } from '../runtime/activeTurns';
@@ -463,8 +463,6 @@ export async function beginTurnExecution(
   maxExecutionTimer.unref();
 
   const trackedStream = deps.activeTurns.track({
-    sessionId,
-    turnId: turn.id,
     abortController,
     stream: turn.stream(),
     turn,
@@ -935,7 +933,7 @@ export function createTurnsRouter(deps: TurnsRouterDeps) {
     });
   };
 
-  const createTurnEventHandler: RouteHandler<typeof createTurnEventRoute> = async c => {
+  const postTurnEventsHandler: RouteHandler<typeof postTurnEventsRoute> = async c => {
     const { session_id: sessionId, turn_id: turnId } = c.req.valid('param');
     const body = c.req.valid('json');
     const requestContext = deps.resolveRequestContext(c);
@@ -990,7 +988,7 @@ export function createTurnsRouter(deps: TurnsRouterDeps) {
   router.openapi(getTurnRoute, getTurnHandler);
   router.openapi(downloadSandboxFileRoute, downloadSandboxFileHandler);
   router.openapi(listTurnEventsRoute, listTurnEventsHandler);
-  router.openapi(createTurnEventRoute, createTurnEventHandler);
+  router.openapi(postTurnEventsRoute, postTurnEventsHandler);
   router.openapi(subscribeTurnRoute, subscribeTurnHandler);
   return router;
 }
