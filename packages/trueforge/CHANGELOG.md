@@ -1,5 +1,14 @@
 # @truefoundry/trueforge
 
+## 0.177.0-rc.3
+
+### Patch Changes
+
+- b9429a0: Raise the default model HTTP body timeout to 60s and shorten the default MCP request timeout to 2 minutes.
+- b9429a0: Time out a hung create-turn SSE write so turn drain and subscribe dual-writes keep running.
+- Updated dependencies [b9429a0]
+  - @truefoundry/trueforge-core@0.177.0-rc.2
+
 ## 0.177.0-rc.2
 
 ### Patch Changes

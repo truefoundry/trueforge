@@ -1,5 +1,13 @@
 # Changelog
 
+## 0.177.0-rc.3
+
+### Patch Changes
+
+- b9429a0: Preserve token and cost metrics on failed and cancelled turns in the UI adapter and types so turn headers and session totals include billable usage from non-done terminal turns.
+- Updated dependencies [b9429a0]
+  - @truefoundry/trueforge-assistant-ui-runtime@0.177.0-rc.2
+
 ## 0.177.0-rc.2
 
 ### Patch Changes

@@ -1,5 +1,11 @@
 # @truefoundry/trueforge-core
 
+## 0.177.0-rc.2
+
+### Patch Changes
+
+- b9429a0: Raise the default model HTTP body timeout to 60s and shorten the default MCP request timeout to 2 minutes.
+
 ## 0.177.0-rc.1
 
 ### Patch Changes
