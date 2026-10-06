@@ -1,4 +1,10 @@
-import type { ISessionStore, SessionHandle, TurnRecord, TurnState } from '@truefoundry/trueforge-core/agent-session';
+import type {
+  ISessionStore,
+  SessionHandle,
+  TurnHandle,
+  TurnRecord,
+  TurnState,
+} from '@truefoundry/trueforge-core/agent-session';
 import { CancellationReason, TurnNotFoundError } from '@truefoundry/trueforge-core/agent-session';
 import { NoResponderError, redisRequest, RequestTimeoutError } from '@truefoundry/trueforge-core/request-reply';
 import type { RedisClientType } from 'redis';
@@ -80,8 +86,7 @@ function cancelDeps(input: {
 function trackRun(registry: ActiveTurnRegistry, turnId: string): AbortController {
   const abortController = new AbortController();
   registry.track({
-    sessionId: SESSION_ID,
-    turnId,
+    turn: { session_id: SESSION_ID, id: turnId } as TurnHandle,
     abortController,
     stream: (async function* () {
       await new Promise(() => undefined);
