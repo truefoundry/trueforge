@@ -1740,7 +1740,9 @@ describe('convertTurnMessages', () => {
       const echoContent = afterEcho.at(-1)?.content ?? [];
       expect(echoContent.filter(part => part.type === 'tool-call' && part.approval?.approved === true)).toHaveLength(1);
       expect(
-        echoContent.filter(part => part.type === 'tool-call' && part.approval != null && part.approval.approved === undefined),
+        echoContent.filter(
+          part => part.type === 'tool-call' && part.approval != null && part.approval.approved === undefined,
+        ),
       ).toHaveLength(1);
 
       expect(updates.at(-1)).toMatchObject({
