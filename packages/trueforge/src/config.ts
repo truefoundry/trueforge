@@ -767,6 +767,11 @@ export interface SharedServerConfiguration {
    */
   TURN_SUBSCRIBE_TIMEOUT_MS: number;
   /**
+   * Max ms to wait for one create-turn SSE write before dropping that client
+   * and keeping the turn drain running. Env: `TURN_SSE_STREAM_WRITE_TIMEOUT_MS`. Default 60000.
+   */
+  TURN_SSE_STREAM_WRITE_TIMEOUT_MS: number;
+  /**
    * Max ms to wait for a peer executor's reply before failing with 424.
    * Env: `REDIS_REQUEST_REPLY_TIMEOUT_MS`. Default 60000.
    * Only used when a Redis client is wired (distributed mode).
@@ -856,12 +861,12 @@ export interface SharedServerConfiguration {
   MODEL_HTTP_CONNECT_TIMEOUT_MS: number;
   /**
    * undici headersTimeout for model-provider outbound fetch.
-   * Env: `MODEL_HTTP_HEADERS_TIMEOUT_MS`. Default 5000.
+   * Env: `MODEL_HTTP_HEADERS_TIMEOUT_MS`. Default 60000.
    */
   MODEL_HTTP_HEADERS_TIMEOUT_MS: number;
   /**
    * undici bodyTimeout for model-provider outbound fetch (idle between body chunks).
-   * Env: `MODEL_HTTP_BODY_TIMEOUT_MS`. Default 5000.
+   * Env: `MODEL_HTTP_BODY_TIMEOUT_MS`. Default 60000.
    */
   MODEL_HTTP_BODY_TIMEOUT_MS: number;
   /**
@@ -869,7 +874,7 @@ export interface SharedServerConfiguration {
    * Env: `MODEL_HTTP_MAX_RETRIES`. Default 2.
    */
   MODEL_HTTP_MAX_RETRIES: number;
-  /** Max milliseconds for one MCP JSON-RPC request end to end. Env: `MCP_REQUEST_TIMEOUT_MS`. Default 4 minutes. */
+  /** Max milliseconds for one MCP JSON-RPC request end to end. Env: `MCP_REQUEST_TIMEOUT_MS`. Default 2 minutes. */
   MCP_REQUEST_TIMEOUT_MS: number;
   /** Max milliseconds for the MCP initialize handshake per transport attempt. Env: `MCP_CONNECT_TIMEOUT_MS`. Default 30 seconds. */
   MCP_CONNECT_TIMEOUT_MS: number;
@@ -1079,7 +1084,7 @@ const serverExecutionTimeoutSeconds = parsePositiveInt({
 const mcpRequestTimeoutMs = parsePositiveInt({
   envKey: 'MCP_REQUEST_TIMEOUT_MS',
   raw: getEnv('MCP_REQUEST_TIMEOUT_MS'),
-  defaultValue: 4 * 60 * 1000,
+  defaultValue: 2 * 60 * 1000,
 });
 
 const standalone = parseBoolean({
@@ -1145,6 +1150,11 @@ const shared: SharedServerConfiguration = {
     envKey: 'TURN_SUBSCRIBE_TIMEOUT_MS',
     raw: getEnv('TURN_SUBSCRIBE_TIMEOUT_MS'),
     defaultValue: 600_000,
+  }),
+  TURN_SSE_STREAM_WRITE_TIMEOUT_MS: parsePositiveInt({
+    envKey: 'TURN_SSE_STREAM_WRITE_TIMEOUT_MS',
+    raw: getEnv('TURN_SSE_STREAM_WRITE_TIMEOUT_MS'),
+    defaultValue: 60_000,
   }),
   REDIS_REQUEST_REPLY_TIMEOUT_MS: parsePositiveInt({
     envKey: 'REDIS_REQUEST_REPLY_TIMEOUT_MS',
@@ -1219,12 +1229,12 @@ const shared: SharedServerConfiguration = {
   MODEL_HTTP_HEADERS_TIMEOUT_MS: parsePositiveInt({
     envKey: 'MODEL_HTTP_HEADERS_TIMEOUT_MS',
     raw: getEnv('MODEL_HTTP_HEADERS_TIMEOUT_MS'),
-    defaultValue: 5_000,
+    defaultValue: 60_000,
   }),
   MODEL_HTTP_BODY_TIMEOUT_MS: parsePositiveInt({
     envKey: 'MODEL_HTTP_BODY_TIMEOUT_MS',
     raw: getEnv('MODEL_HTTP_BODY_TIMEOUT_MS'),
-    defaultValue: 5_000,
+    defaultValue: 60_000,
   }),
   MODEL_HTTP_MAX_RETRIES: parseNonNegativeInt({
     envKey: 'MODEL_HTTP_MAX_RETRIES',
@@ -1250,7 +1260,7 @@ const shared: SharedServerConfiguration = {
   MCP_HTTP_BODY_TIMEOUT_MS: parsePositiveInt({
     envKey: 'MCP_HTTP_BODY_TIMEOUT_MS',
     raw: getEnv('MCP_HTTP_BODY_TIMEOUT_MS'),
-    defaultValue: 1_800_000,
+    defaultValue: 30 * 60 * 1000,
   }),
   MCP_HTTP_MAX_RETRIES: parseNonNegativeInt({
     envKey: 'MCP_HTTP_MAX_RETRIES',
