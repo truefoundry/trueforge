@@ -767,6 +767,11 @@ export interface SharedServerConfiguration {
    */
   TURN_SUBSCRIBE_TIMEOUT_MS: number;
   /**
+   * Max ms to wait for one create-turn SSE write before dropping that client
+   * and keeping the turn drain running. Env: `TURN_SSE_STREAM_WRITE_TIMEOUT_MS`. Default 60000.
+   */
+  TURN_SSE_STREAM_WRITE_TIMEOUT_MS: number;
+  /**
    * Max ms to wait for a peer executor's reply before failing with 424.
    * Env: `REDIS_REQUEST_REPLY_TIMEOUT_MS`. Default 60000.
    * Only used when a Redis client is wired (distributed mode).
@@ -1145,6 +1150,11 @@ const shared: SharedServerConfiguration = {
     envKey: 'TURN_SUBSCRIBE_TIMEOUT_MS',
     raw: getEnv('TURN_SUBSCRIBE_TIMEOUT_MS'),
     defaultValue: 600_000,
+  }),
+  TURN_SSE_STREAM_WRITE_TIMEOUT_MS: parsePositiveInt({
+    envKey: 'TURN_SSE_STREAM_WRITE_TIMEOUT_MS',
+    raw: getEnv('TURN_SSE_STREAM_WRITE_TIMEOUT_MS'),
+    defaultValue: 60_000,
   }),
   REDIS_REQUEST_REPLY_TIMEOUT_MS: parsePositiveInt({
     envKey: 'REDIS_REQUEST_REPLY_TIMEOUT_MS',
