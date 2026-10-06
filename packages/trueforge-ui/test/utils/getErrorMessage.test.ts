@@ -75,4 +75,25 @@ describe('getErrorMessage', () => {
   it('reads plain Error.message', () => {
     expect(getErrorMessage(new Error('boom'), 'fallback')).toBe('boom');
   });
+
+  it('uses fallback for browser network noise when provided', () => {
+    expect(getErrorMessage(new TypeError('Failed to fetch'), 'Check your connection.')).toBe('Check your connection.');
+    expect(getErrorMessage(new TypeError('Load failed'), 'Check your connection.')).toBe('Check your connection.');
+    expect(
+      getErrorMessage(new TypeError('NetworkError when attempting to fetch resource.'), 'Check your connection.'),
+    ).toBe('Check your connection.');
+    expect(getErrorMessage('Failed to fetch', 'Check your connection.')).toBe('Check your connection.');
+  });
+
+  it('keeps browser network noise when no fallback is provided', () => {
+    expect(getErrorMessage(new TypeError('Failed to fetch'))).toBe('Failed to fetch');
+  });
+
+  it('prefers HTTP body over browser network noise on the Error message', () => {
+    const err = Object.assign(new TypeError('Failed to fetch'), {
+      statusCode: 503,
+      body: { error: { message: 'Service unavailable' } },
+    });
+    expect(getErrorMessage(err, 'Check your connection.')).toBe('Service unavailable');
+  });
 });

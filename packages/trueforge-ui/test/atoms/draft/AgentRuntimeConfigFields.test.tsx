@@ -105,6 +105,13 @@ describe('AgentRuntimeConfigFields', () => {
     expect(setEnvironmentsOpen).toHaveBeenCalledWith(true);
   });
 
+  it('hides Manage Environments link when sandbox is off', () => {
+    renderRuntimeFields({ value: { sandbox: { enabled: false } } });
+
+    expect(screen.getByText('Environment')).toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: /Manage Environments/ })).not.toBeInTheDocument();
+  });
+
   it('populates environment dropdown with default and ready environments only', async () => {
     const onChange = vi.fn();
     renderRuntimeFields({ onChange });

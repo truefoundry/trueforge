@@ -277,7 +277,18 @@ export function EnvironmentFormFields({
           <div className="flex items-center justify-between">
             <div className="flex flex-col">
               <h3 className="text-sm font-medium text-text-primary">Secrets</h3>
-              <span className="text-xs text-text-secondary">Synced immediately with existing sandboxes</span>
+              <span className="text-xs text-text-secondary">
+                Synced immediately with existing sandboxes.{' '}
+                <a
+                  href="https://trueforge.dev/introduction"
+                  target="_blank"
+                  rel="noreferrer"
+                  className="text-primary-button-bg inline-flex items-center gap-1 hover:underline"
+                >
+                  Learn more
+                  <Icon name="external-link" className="size-3" />
+                </a>
+              </span>
             </div>
             <button
               type="button"
@@ -324,16 +335,19 @@ export function EnvironmentFormFields({
                   <Icon name="trash" className="size-3.5 text-failure-bg" />
                 </button>
               </div>
-              <input
-                className={fieldClassName}
-                value={secret.hosts.join(',')}
-                placeholder="Allowed hosts (comma-separated)"
-                onChange={event => {
-                  const hosts = event.target.value.split(',').map(part => part.trim());
-                  const secrets = values.secrets.map((row, i) => (i === index ? { ...row, hosts } : row));
-                  update({ secrets });
-                }}
-              />
+              <div className="flex flex-col gap-1">
+                <input
+                  className={fieldClassName}
+                  value={secret.hosts.join(',')}
+                  placeholder="api.github.com,api.openai.com"
+                  onChange={event => {
+                    const hosts = event.target.value.split(',').map(part => part.trim());
+                    const secrets = values.secrets.map((row, i) => (i === index ? { ...row, hosts } : row));
+                    update({ secrets });
+                  }}
+                />
+                <span className="text-xs text-text-secondary">Hosts allowed to resolve secret (comma-separated).</span>
+              </div>
             </div>
           ))}
         </div>
