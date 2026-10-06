@@ -10,11 +10,18 @@ import { CreatedBySubjectSchema, TokenPaginationSchema } from '@truefoundry/true
 import { NameSchema } from './common';
 
 export const SANDBOX_ENVIRONMENT_DESCRIPTION_MAX_LENGTH = 1024;
+export const SANDBOX_ENVIRONMENT_VARIABLE_NAME_MAX_LENGTH = 128;
+export const SANDBOX_ENVIRONMENT_VARIABLE_VALUE_MAX_LENGTH = 4096;
 
 /** Reserved system environment name (tenant default; not creatable via public CRUD). */
 export const DEFAULT_SANDBOX_ENVIRONMENT_NAME = 'default';
 
 export const DEFAULT_SANDBOX_ENVIRONMENT_RESOURCES = { cpu: 1, memory: 1, disk: 3 } as const;
+export const SANDBOX_ENVIRONMENT_RESOURCE_LIMITS = {
+  cpu: { min: 1, max: 4 },
+  memory: { min: 1, max: 8 },
+  disk: { min: 1, max: 10 },
+} as const;
 
 const BUILD_SCRIPT_EXAMPLE = 'set -ex\npip install httpx\n';
 
@@ -48,16 +55,39 @@ export const SandboxEnvironmentImageSchema = z
 
 export const SandboxEnvironmentResourcesSchema = z
   .object({
-    cpu: z.number().positive().default(1).describe('CPU allocation in cores.'),
-    memory: z.number().positive().default(1).describe('Memory allocation in GiB.'),
-    disk: z.number().positive().default(3).describe('Disk allocation in GiB.'),
+    cpu: z
+      .number()
+      .min(SANDBOX_ENVIRONMENT_RESOURCE_LIMITS.cpu.min)
+      .max(SANDBOX_ENVIRONMENT_RESOURCE_LIMITS.cpu.max)
+      .default(DEFAULT_SANDBOX_ENVIRONMENT_RESOURCES.cpu)
+      .describe('CPU allocation in cores (1–4).'),
+    memory: z
+      .number()
+      .min(SANDBOX_ENVIRONMENT_RESOURCE_LIMITS.memory.min)
+      .max(SANDBOX_ENVIRONMENT_RESOURCE_LIMITS.memory.max)
+      .default(DEFAULT_SANDBOX_ENVIRONMENT_RESOURCES.memory)
+      .describe('Memory allocation in GiB (1–8).'),
+    disk: z
+      .number()
+      .min(SANDBOX_ENVIRONMENT_RESOURCE_LIMITS.disk.min)
+      .max(SANDBOX_ENVIRONMENT_RESOURCE_LIMITS.disk.max)
+      .default(DEFAULT_SANDBOX_ENVIRONMENT_RESOURCES.disk)
+      .describe('Disk allocation in GiB (1–10).'),
   })
   .strict()
   .openapi('SandboxEnvironmentResources');
 
+const SandboxEnvironmentVariableNameSchema = z
+  .string()
+  .min(1)
+  .max(SANDBOX_ENVIRONMENT_VARIABLE_NAME_MAX_LENGTH)
+  .regex(/^[A-Za-z_][A-Za-z0-9_]*$/, 'must be a valid environment variable name');
+
+const SandboxEnvironmentVariableValueSchema = z.string().max(SANDBOX_ENVIRONMENT_VARIABLE_VALUE_MAX_LENGTH);
+
 export const SandboxEnvironmentSecretSchema = z
   .object({
-    env: z.string().min(1).describe('Environment variable name injected into the sandbox.'),
+    env: SandboxEnvironmentVariableNameSchema.describe('Environment variable name injected into the sandbox.'),
     value: z.string().min(1).describe('Secret value; GET responses use a redacted stand-in.'),
     hosts: z.array(z.string().min(1)).describe('Hosts this secret may be sent to.'),
   })
@@ -105,7 +135,9 @@ const SandboxEnvironmentManifestFieldsSchema = z
     description: SandboxEnvironmentDescriptionSchema.optional(),
     image: SandboxEnvironmentImageSchema.optional(),
     resources: SandboxEnvironmentResourcesSchema.default(DEFAULT_SANDBOX_ENVIRONMENT_RESOURCES),
-    environment_variables: z.record(z.string().min(1), z.string()).optional(),
+    environment_variables: z
+      .record(SandboxEnvironmentVariableNameSchema, SandboxEnvironmentVariableValueSchema)
+      .optional(),
     networking: SandboxEnvironmentNetworkingSchema.optional(),
   })
   .strict();

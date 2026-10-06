@@ -99,4 +99,54 @@ describe('sandbox environment wire schemas', () => {
       }),
     ).toThrow(/default/);
   });
+
+  it.each([
+    ['cpu', 5],
+    ['memory', 9],
+    ['disk', 11],
+  ] as const)('rejects %s above the sandbox resource limit', (resource, value) => {
+    expect(
+      UpdateSandboxEnvironmentRequestSchema.safeParse({
+        manifest: {
+          name: 'limited-env',
+          resources: { [resource]: value },
+        },
+      }).success,
+    ).toBe(false);
+  });
+
+  it('accepts the maximum sandbox resources', () => {
+    expect(
+      UpdateSandboxEnvironmentRequestSchema.safeParse({
+        manifest: {
+          name: 'max-env',
+          resources: { cpu: 4, memory: 8, disk: 10 },
+        },
+      }).success,
+    ).toBe(true);
+  });
+
+  it('rejects oversized environment variable values', () => {
+    expect(
+      UpdateSandboxEnvironmentRequestSchema.safeParse({
+        manifest: {
+          name: 'env-value-limit',
+          environment_variables: { CONFIG: 'x'.repeat(4097) },
+        },
+      }).success,
+    ).toBe(false);
+  });
+
+  it('rejects oversized secret names', () => {
+    expect(
+      UpdateSandboxEnvironmentRequestSchema.safeParse({
+        manifest: {
+          name: 'secret-name-limit',
+          networking: {
+            secrets: [{ env: `S${'E'.repeat(128)}`, value: 'value', hosts: [] }],
+          },
+        },
+      }).success,
+    ).toBe(false);
+  });
 });
