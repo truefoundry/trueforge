@@ -433,7 +433,9 @@ export function SchedulesPage({ agentId }: SchedulesPageProps) {
         }
       />
 
-      <div className="flex min-h-0 flex-1 flex-col overflow-auto px-4 py-4">
+      <div
+        className={cn('min-h-0 flex-1 overflow-auto px-4 py-4', error != null ? 'flex flex-col' : undefined)}
+      >
         {loading ? (
           <div className="flex flex-col gap-2" role="status" aria-label="Loading schedules">
             {Array.from({ length: 5 }, (_, i) => (

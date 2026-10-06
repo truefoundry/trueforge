@@ -15,6 +15,7 @@ import {
 import { getErrorMessage } from '../../utils/getErrorMessage.js';
 import { EmptyScreen, EmptyScreenQueryHighlight } from '../EmptyScreen.js';
 import { auiButtonClass } from '../lib/buttonClasses.js';
+import { cn } from '../lib/cn.js';
 import { formatRelativeTime } from '../lib/dateFormat.js';
 import { PageHeader } from '../PageHeader.js';
 import { Button } from '../primitives/Button.js';
@@ -215,7 +216,9 @@ export function EnvironmentsPage(_props: EnvironmentsPageProps) {
         }
       />
 
-      <div className="flex min-h-0 flex-1 flex-col overflow-auto px-4 py-4">
+      <div
+        className={cn('min-h-0 flex-1 overflow-auto px-4 py-4', error != null ? 'flex flex-col' : undefined)}
+      >
         {error != null ? (
           <div role="alert" className="flex flex-1 flex-col items-center justify-center">
             <EmptyScreen
