@@ -1841,7 +1841,7 @@ export async function* streamTurnEvents(
   let lastSequenceNumber: number | undefined;
 
   for await (const data of stream) {
-    lastSequenceNumber = data.sequenceNumber ?? lastSequenceNumber;
+    lastSequenceNumber = data.sequenceNumber;
     const event = data.event;
 
     if (event.type === EVENT_TYPE.TURN_CREATED) {
