@@ -92,7 +92,7 @@ export class ActiveTurnRegistry {
     if (!run) {
       return undefined;
     }
-    if (run.turn === undefined || run.abortController.signal.aborted) {
+    if (run.abortController.signal.aborted) {
       return undefined;
     }
     return run.turn;

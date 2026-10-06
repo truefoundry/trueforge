@@ -1,10 +1,6 @@
 import type { JsonValue } from '../../core/capabilities/AgentCapability';
 import type { MCPServerInitInfo, ThreadOverwriteContextEvent, TurnUserEventMessage } from '../../core/events/schema';
-import type {
-  AgentThreadSnapshot,
-  ContextMessage,
-  SubAgentCompletionMarker,
-} from '../../core/runtime/AgentThread.types';
+import type { AgentThreadSnapshot, ContextMessage, SubAgentCompletion } from '../../core/runtime/AgentThread.types';
 import type { CurrentContextUsage } from '../../core/runtime/contextUsage';
 import type { SandboxInfo } from '../../core/sandbox/Sandbox';
 import type { SessionRecord } from '../models/SessionRecord';
@@ -115,6 +111,7 @@ export interface TurnContextAppend {
   thread_id: string;
   context: ContextMessage[];
   current_context_usage: CurrentContextUsage | null;
+  completion: SubAgentCompletion | null;
 }
 
 export interface CreateTurnInput<TTurnCustom extends object = Record<string, never>> {
@@ -214,7 +211,7 @@ export interface AppendToThreadContextInput {
   thread_id: string;
   context: ContextMessage[];
   current_context_usage: CurrentContextUsage | null;
-  completion: SubAgentCompletionMarker | null;
+  completion: SubAgentCompletion | null;
 }
 
 export interface OverwriteThreadContextInput {
