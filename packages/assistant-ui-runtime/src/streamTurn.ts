@@ -42,6 +42,7 @@ export async function* streamTurnContent(
    * optimistic ID with the real turn ID.
    */
   onTurnIdAvailable?: (turnId: string) => void,
+  onSequenceNumber?: (sequenceNumber: number) => void,
 ): AsyncGenerator<TurnStreamUpdate> {
   // Aborting only detaches this client from the run; the turn keeps running on
   // the backend so switching sessions (or remounting) can reattach via
@@ -67,7 +68,7 @@ export async function* streamTurnContent(
   });
 
   try {
-    for await (const update of streamTurnEvents(stream, foldState, groupRootBaseline, notifyTurnId)) {
+    for await (const update of streamTurnEvents(stream, foldState, groupRootBaseline, notifyTurnId, onSequenceNumber)) {
       yield update;
     }
   } catch (error) {
@@ -78,7 +79,6 @@ export async function* streamTurnContent(
   }
 }
 
-/** TODO: wire `afterSequenceNumber` from the last ingested stream event to skip replay on reconnect. */
 export async function* resumeTurnStream(
   server: AgentChatServer,
   sessionId: string,
@@ -87,6 +87,7 @@ export async function* resumeTurnStream(
   abortSignal: AbortSignal,
   afterSequenceNumber?: number,
   groupRootBaseline?: readonly string[],
+  onSequenceNumber?: (sequenceNumber: number) => void,
 ): AsyncGenerator<TurnStreamUpdate> {
   // Optional on custom backends. Callers detect the gap and report it, so an
   // empty stream here is safer than throwing mid-render.
@@ -108,6 +109,8 @@ export async function* resumeTurnStream(
       }),
       foldState,
       groupRootBaseline,
+      undefined,
+      onSequenceNumber,
     );
   } catch (error) {
     if (error instanceof Error && error.name === 'AbortError') {

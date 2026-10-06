@@ -22,6 +22,7 @@ import {
   projectSessionMessages,
   resolveGatewayBranchPreviousTurnIdForTurn,
   rootModelMessageIdsSinceBaseline,
+  TurnFailedError,
   userMessageContentToText,
   type UserMessageContent,
 } from './convertTurnMessages.js';
@@ -43,6 +44,7 @@ import {
   type SessionSnapshot,
   type SessionTurnRecord,
 } from './sessionSnapshot.js';
+import { delayReconnect, isAbortError, STREAM_RECONNECT_MAX_ATTEMPTS } from './streamReconnect.js';
 import { resumeTurnStream, streamTurnContent } from './streamTurn.js';
 import { TOOL_APPROVAL_THREAD_ID_CUSTOM_KEY, type RespondToToolApprovalOptions } from './toolApproval.js';
 import {
@@ -428,6 +430,15 @@ function resolveTurnInput(snapshot: SessionSnapshot, turnId: string): TurnInputI
   return undefined;
 }
 
+interface StreamSequenceTrack {
+  onSequenceNumber: (sequenceNumber: number) => void;
+}
+
+interface RunStreamReconnect {
+  sessionId: string;
+  gatewayTurnAccepted: { current: boolean };
+}
+
 export function useTrueForgeAgentMessages({
   server,
   sessionId,
@@ -508,7 +519,7 @@ export function useTrueForgeAgentMessages({
 
   const runStream = useCallback(
     (
-      createStream: (signal: AbortSignal) => AsyncGenerator<TurnStreamUpdate>,
+      createStream: (signal: AbortSignal, track: StreamSequenceTrack) => AsyncGenerator<TurnStreamUpdate>,
       /**
        * A mutable ref whose `.current` is the turn ID to use for
        * `activeStream.turnId`. Callers that capture the gateway turn ID
@@ -518,6 +529,7 @@ export function useTrueForgeAgentMessages({
        */
       turnIdRef: { current: string },
       isContinuation: boolean,
+      reconnect: RunStreamReconnect,
     ): Promise<void> => {
       const streamGeneration = ++streamGenerationRef.current;
       abortControllerRef.current?.abort();
@@ -536,6 +548,18 @@ export function useTrueForgeAgentMessages({
           isContinuation: boolean;
         } | null = null;
         let streamUpdateRaf: number | null = null;
+        const lastSequenceNumberRef: { current: number | undefined } = {
+          current: snapshotRef.current.activeStream?.lastSequenceNumber,
+        };
+        let useSubscribe = false;
+        let consecutiveFailures = 0;
+
+        const track: StreamSequenceTrack = {
+          onSequenceNumber: sequenceNumber => {
+            lastSequenceNumberRef.current = sequenceNumber;
+            consecutiveFailures = 0;
+          },
+        };
 
         const flushPendingStreamUpdate = () => {
           streamUpdateRaf = null;
@@ -554,29 +578,67 @@ export function useTrueForgeAgentMessages({
                 turnId: turnIdRef.current,
                 update,
                 isContinuation: pendingIsContinuation,
+                ...(lastSequenceNumberRef.current != null ? { lastSequenceNumber: lastSequenceNumberRef.current } : {}),
               },
             }),
           );
         };
 
         const applyStreamUpdate = (update: TurnStreamUpdate) => {
+          if (update.sequenceNumber != null) {
+            lastSequenceNumberRef.current = update.sequenceNumber;
+            consecutiveFailures = 0;
+          }
           pendingStreamUpdate = { update, isContinuation };
           streamUpdateRaf ??= requestAnimationFrame(flushPendingStreamUpdate);
         };
 
+        const readStream = (signal: AbortSignal): AsyncGenerator<TurnStreamUpdate> => {
+          if (!useSubscribe) {
+            return createStream(signal, track);
+          }
+          return resumeTurnStream(
+            server,
+            reconnect.sessionId,
+            turnIdRef.current,
+            snapshotRef.current.fold,
+            signal,
+            lastSequenceNumberRef.current,
+            snapshotRef.current.groupRootBaseline,
+            track.onSequenceNumber,
+          );
+        };
+
         try {
-          for await (const update of createStream(abortController.signal)) {
-            if (abortController.signal.aborted) {
+          while (streamGeneration === streamGenerationRef.current) {
+            try {
+              for await (const update of readStream(abortController.signal)) {
+                if (streamGeneration !== streamGenerationRef.current) {
+                  return;
+                }
+                applyStreamUpdate(update);
+              }
               return;
+            } catch (error) {
+              if (isAbortError(error) || streamGeneration !== streamGenerationRef.current) {
+                return;
+              }
+              const canSubscribe =
+                server.subscribeToTurn != null &&
+                reconnect.gatewayTurnAccepted.current &&
+                !(error instanceof TurnFailedError);
+              if (!canSubscribe || consecutiveFailures >= STREAM_RECONNECT_MAX_ATTEMPTS) {
+                onErrorRef.current?.(error);
+                throw error;
+              }
+              consecutiveFailures += 1;
+              useSubscribe = true;
+              await delayReconnect(abortController.signal);
+              if (streamGeneration !== streamGenerationRef.current) {
+                return;
+              }
             }
-            applyStreamUpdate(update);
           }
-        } catch (error) {
-          if (error instanceof Error && error.name === 'AbortError') {
-            return;
-          }
-          onErrorRef.current?.(error);
-          throw error;
         } finally {
           cancelScheduledAnimationFrame(streamUpdateRaf);
           if (streamGeneration === streamGenerationRef.current) {
@@ -593,6 +655,9 @@ export function useTrueForgeAgentMessages({
                 activeStream: {
                   ...prev.activeStream,
                   streamComplete: true,
+                  ...(lastSequenceNumberRef.current != null
+                    ? { lastSequenceNumber: lastSequenceNumberRef.current }
+                    : {}),
                 },
                 requiredActions: {
                   approvals: new Map(),
@@ -616,7 +681,7 @@ export function useTrueForgeAgentMessages({
         });
       return run;
     },
-    [onError],
+    [markResumeUnavailable, server],
   );
 
   const load = useCallback(async () => {
@@ -703,23 +768,24 @@ export function useTrueForgeAgentMessages({
         }
 
         const isContinuation = extractTurnUserText(turn.input) === undefined;
-        // TODO: pass afterSequenceNumber once stream ingestion tracks sequence numbers.
         // Use loadedSnapshot directly — snapshotRef.current still points at
         // the empty snapshot cleared above until the setSnapshot(loadedSnapshot)
         // call re-renders.
         void runStream(
-          signal =>
+          (signal, track) =>
             resumeTurnStream(
               server,
               conversationSessionId,
               turn.id,
               loadedSnapshot.fold,
               signal,
-              undefined,
+              loadedSnapshot.activeStream?.lastSequenceNumber,
               loadedSnapshot.groupRootBaseline,
+              track.onSequenceNumber,
             ),
           { current: turn.id },
           isContinuation,
+          { sessionId: conversationSessionId, gatewayTurnAccepted: { current: true } },
         ).catch(() => undefined);
       }
     } catch (error) {
@@ -899,7 +965,7 @@ export function useTrueForgeAgentMessages({
 
         runStreamStarted = true;
         await runStream(
-          signal => {
+          (signal, track) => {
             if ('inputs' in options) {
               return streamTurnContent(
                 server,
@@ -909,6 +975,7 @@ export function useTrueForgeAgentMessages({
                 signal,
                 groupRootBaseline,
                 handleGatewayTurnId,
+                track.onSequenceNumber,
               );
             }
             if ('resumeMcpAuth' in options) {
@@ -920,6 +987,7 @@ export function useTrueForgeAgentMessages({
                 signal,
                 groupRootBaseline,
                 handleGatewayTurnId,
+                track.onSequenceNumber,
               );
             }
             return streamTurnContent(
@@ -938,10 +1006,12 @@ export function useTrueForgeAgentMessages({
               signal,
               groupRootBaseline,
               handleGatewayTurnId,
+              track.onSequenceNumber,
             );
           },
           turnIdRef,
           isContinuation,
+          { sessionId: conversationSessionId, gatewayTurnAccepted },
         );
       } catch (error) {
         if (!runStreamStarted && sendGeneration !== streamGenerationRef.current) {
@@ -1081,22 +1151,27 @@ export function useTrueForgeAgentMessages({
       markResumeUnavailable(true);
       return;
     }
-    // TODO: pass afterSequenceNumber once stream ingestion tracks sequence numbers.
+    const resumeSessionId = turn.sessionId !== '' ? turn.sessionId : sessionId;
+    if (resumeSessionId == null) {
+      return;
+    }
     await runStream(
-      signal =>
+      (signal, track) =>
         resumeTurnStream(
           server,
-          turn.sessionId,
+          resumeSessionId,
           turn.id,
           snapshotRef.current.fold,
           signal,
-          undefined,
+          snapshotRef.current.activeStream?.lastSequenceNumber,
           snapshotRef.current.groupRootBaseline,
+          track.onSequenceNumber,
         ),
       { current: turn.id },
       true,
+      { sessionId: resumeSessionId, gatewayTurnAccepted: { current: true } },
     );
-  }, [runStream, server]);
+  }, [runStream, server, sessionId]);
 
   const branchFromTurn = useCallback(
     async (turnId: string, userMessage: UserMessageContent) => {

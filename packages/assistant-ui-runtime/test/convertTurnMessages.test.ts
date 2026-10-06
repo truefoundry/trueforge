@@ -1465,7 +1465,42 @@ describe('convertTurnMessages', () => {
         ),
       );
 
-      expect(updates).toEqual([{ content: [{ type: 'text', text: 'streaming' }] }]);
+      expect(updates).toEqual([{ content: [{ type: 'text', text: 'streaming' }], sequenceNumber: 1 }]);
+    });
+
+    it('reports every stream sequence including events that do not yield UI', async () => {
+      const foldState = new PeerThreadFoldState();
+      const sequences: number[] = [];
+      const onSequenceNumber = vi.fn((sequenceNumber: number) => {
+        sequences.push(sequenceNumber);
+      });
+      const gatewayTurnId = 'turn-gw';
+
+      await collectStream(
+        streamTurnEvents(
+          streamFrom([
+            {
+              type: 'turn.created',
+              createdAt,
+              id: 'created-1',
+              turnId: gatewayTurnId,
+              input: [{ type: 'user.message', content: 'hello' }],
+            },
+            modelMessage({
+              id: 'm1',
+              threadId: ROOT_THREAD_ID,
+              content: 'hi',
+            }),
+          ]),
+          foldState,
+          undefined,
+          undefined,
+          onSequenceNumber,
+        ),
+      );
+
+      expect(sequences).toEqual([1, 2]);
+      expect(onSequenceNumber).toHaveBeenCalledTimes(2);
     });
 
     it('yields folded content after each ingested stream event', async () => {
@@ -1533,7 +1568,7 @@ describe('convertTurnMessages', () => {
         ),
       );
 
-      expect(updates).toEqual([{ content: [{ type: 'text', text: 'new turn only' }] }]);
+      expect(updates).toEqual([{ content: [{ type: 'text', text: 'new turn only' }], sequenceNumber: 1 }]);
     });
 
     it('throws when the turn ends in error', async () => {
@@ -1630,6 +1665,7 @@ describe('convertTurnMessages', () => {
       expect(updates).toHaveLength(2);
       expect(updates[0]).toEqual({
         content: [{ type: 'text', text: 'before auth' }],
+        sequenceNumber: 1,
       });
       expect(updates[1]?.status).toEqual({
         type: 'requires-action',

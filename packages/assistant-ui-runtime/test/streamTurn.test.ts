@@ -52,7 +52,7 @@ describe('streamTurn', () => {
         previousTurnId: 'auto',
         abortSignal: expect.any(AbortSignal),
       });
-      expect(updates).toEqual([{ content: [{ type: 'text', text: 'hello from stream' }] }]);
+      expect(updates).toEqual([{ content: [{ type: 'text', text: 'hello from stream' }], sequenceNumber: 1 }]);
     });
 
     it('passes required-action inputs through createTurn', async () => {
@@ -355,7 +355,7 @@ describe('streamTurn', () => {
         afterSequenceNumber: 1,
         abortSignal: expect.any(AbortSignal),
       });
-      expect(updates).toEqual([{ content: [{ type: 'text', text: 'resumed' }] }]);
+      expect(updates).toEqual([{ content: [{ type: 'text', text: 'resumed' }], sequenceNumber: 2 }]);
     });
 
     it('yields nothing when the server omits subscribeToTurn', async () => {
