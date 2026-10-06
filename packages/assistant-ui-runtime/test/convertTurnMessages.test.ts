@@ -29,6 +29,7 @@ import {
   repositoryItemsFromMessages,
   resolveGatewayBranchPreviousTurnIdForTurn,
   streamTurnEvents,
+  TurnStreamDisconnectedError,
   turnStreamUpdateToAssistantMessage,
 } from '../src/convertTurnMessages.js';
 import { buildRootAssistantContent, ingestTurnEvent, PeerThreadFoldState } from '../src/foldPeerThreads.js';
@@ -76,6 +77,15 @@ function sandboxCreated(event: { id: string; sandboxId: string; threadId?: strin
 
 function responseRequired(event: Omit<ToolResponseRequiredEvent, 'type' | 'createdAt'>): ToolResponseRequiredEvent {
   return { type: 'tool.response_required', createdAt, ...event };
+}
+
+function turnDone(id = 'turn-done'): TurnDoneEvent {
+  return {
+    type: 'turn.done',
+    id,
+    createdAt,
+    state: { status: 'done', requiredActions: [], completedAt: createdAt },
+  };
 }
 
 async function* streamFrom(events: TurnStreamData['event'][]): AsyncGenerator<TurnStreamData> {
@@ -1460,6 +1470,7 @@ describe('convertTurnMessages', () => {
               threadId: ROOT_THREAD_ID,
               content: 'streaming',
             }),
+            turnDone(),
           ]),
           foldState,
         ),
@@ -1491,6 +1502,7 @@ describe('convertTurnMessages', () => {
               threadId: ROOT_THREAD_ID,
               content: 'hi',
             }),
+            turnDone(),
           ]),
           foldState,
           undefined,
@@ -1499,8 +1511,8 @@ describe('convertTurnMessages', () => {
         ),
       );
 
-      expect(sequences).toEqual([1, 2]);
-      expect(onSequenceNumber).toHaveBeenCalledTimes(2);
+      expect(sequences).toEqual([1, 2, 3]);
+      expect(onSequenceNumber).toHaveBeenCalledTimes(3);
     });
 
     it('yields folded content after each ingested stream event', async () => {
@@ -1523,6 +1535,7 @@ describe('convertTurnMessages', () => {
               threadId: ROOT_THREAD_ID,
               content: 'third',
             }),
+            turnDone(),
           ]),
           foldState,
         ),
@@ -1562,6 +1575,7 @@ describe('convertTurnMessages', () => {
               threadId: ROOT_THREAD_ID,
               content: 'new turn only',
             }),
+            turnDone(),
           ]),
           foldState,
           ['prior'],
@@ -1677,6 +1691,24 @@ describe('convertTurnMessages', () => {
       });
     });
 
+    it('throws when the SSE body ends without turn.done or a pause', async () => {
+      const foldState = new PeerThreadFoldState();
+      await expect(
+        collectStream(
+          streamTurnEvents(
+            streamFrom([
+              modelMessage({
+                id: 'm1',
+                threadId: ROOT_THREAD_ID,
+                content: 'partial',
+              }),
+            ]),
+            foldState,
+          ),
+        ),
+      ).rejects.toThrow(TurnStreamDisconnectedError);
+    });
+
     it('stamps sandboxId onto every content yield after sandbox.created is seen', async () => {
       const foldState = new PeerThreadFoldState();
       const updates = await collectStream(
@@ -1693,6 +1725,7 @@ describe('convertTurnMessages', () => {
               threadId: ROOT_THREAD_ID,
               content: 'after sandbox',
             }),
+            turnDone(),
           ]),
           foldState,
         ),
@@ -1714,6 +1747,7 @@ describe('convertTurnMessages', () => {
               content: 'some content',
             }),
             sandboxCreated({ id: 'sandbox-evt', sandboxId: 'sbx-123' }),
+            turnDone(),
           ]),
           foldState,
         ),

@@ -10,6 +10,7 @@ import { prependOlderSessionHistory, TurnFailedError } from '../src/convertTurnM
 import { buildRootAssistantContent, ingestTurnEvent, PeerThreadFoldState } from '../src/foldPeerThreads.js';
 import { loadSessionSnapshot } from '../src/loadSessionSnapshot.js';
 import { createEmptySessionSnapshot, replaceSessionSnapshot, type SessionSnapshot } from '../src/sessionSnapshot.js';
+import { delayReconnect } from '../src/streamReconnect.js';
 import { resumeTurnStream, streamTurnContent } from '../src/streamTurn.js';
 import { messageHasPendingApprovals, TOOL_APPROVAL_THREAD_ID_CUSTOM_KEY } from '../src/toolApproval.js';
 import {
@@ -35,7 +36,9 @@ vi.mock('../src/streamReconnect.js', async importOriginal => {
     ...actual,
     delayReconnect: vi.fn(async (signal: AbortSignal) => {
       if (signal.aborted) {
-        return;
+        const error = new Error('Aborted');
+        error.name = 'AbortError';
+        throw error;
       }
     }),
   };
@@ -293,6 +296,13 @@ describe('useTrueForgeAgentMessages', () => {
     vi.mocked(loadSessionSnapshot).mockResolvedValue(createEmptySessionSnapshot());
     vi.mocked(streamTurnContent).mockReturnValue(singleUpdateStream());
     vi.mocked(resumeTurnStream).mockReturnValue(singleUpdateStream());
+    vi.mocked(delayReconnect).mockImplementation(async (signal: AbortSignal) => {
+      if (signal.aborted) {
+        const error = new Error('Aborted');
+        error.name = 'AbortError';
+        throw error;
+      }
+    });
   });
 
   afterEach(() => {
@@ -1991,6 +2001,61 @@ describe('useTrueForgeAgentMessages', () => {
     });
 
     await waitFor(() => expect(result.current.isRunning).toBe(false));
+    expect(onError).not.toHaveBeenCalled();
+  });
+
+  it('does not subscribe when cancel aborts a reconnect delay', async () => {
+    const onError = vi.fn();
+    let delayStarted: (() => void) | undefined;
+    const delayReady = new Promise<void>(resolve => {
+      delayStarted = resolve;
+    });
+    vi.mocked(delayReconnect).mockImplementation(async (signal: AbortSignal) => {
+      delayStarted?.();
+      await new Promise<void>((_resolve, reject) => {
+        const fail = (): void => {
+          const error = new Error('Aborted');
+          error.name = 'AbortError';
+          reject(error);
+        };
+        if (signal.aborted) {
+          fail();
+          return;
+        }
+        signal.addEventListener('abort', fail, { once: true });
+      });
+    });
+    vi.mocked(streamTurnContent).mockImplementation(
+      async function* (_server, _sessionId, _fold, _options, _signal, _baseline, onTurnIdAvailable) {
+        onTurnIdAvailable?.('gateway-turn-cancel-reconnect');
+        yield { content: [{ type: 'text' as const, text: 'partial' }], sequenceNumber: 1 };
+        throw new Error('network error');
+      },
+    );
+
+    const { result } = renderHook(() =>
+      useTrueForgeAgentMessages({
+        server: mockServer,
+        sessionId: 'session-1',
+        onError,
+      }),
+    );
+    await waitFor(() => expect(result.current.isLoading).toBe(false));
+
+    let sendPromise: Promise<void> | undefined;
+    await act(async () => {
+      sendPromise = result.current.sendTurn({ userMessage: 'hello' });
+    });
+    await delayReady;
+
+    await act(async () => {
+      await result.current.cancel();
+      await sendPromise;
+    });
+
+    expect(resumeTurnStream).not.toHaveBeenCalled();
+    expect(mockServer.cancelSession).toHaveBeenCalledWith({ sessionId: 'session-1' });
+    expect(result.current.isRunning).toBe(false);
     expect(onError).not.toHaveBeenCalled();
   });
 

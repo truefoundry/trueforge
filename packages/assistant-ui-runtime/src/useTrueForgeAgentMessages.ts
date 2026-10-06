@@ -486,6 +486,7 @@ export function useTrueForgeAgentMessages({
   const runningTurnRef = useRef<Turn | undefined>(undefined);
   const loadGenerationRef = useRef(0);
   const streamGenerationRef = useRef(0);
+  const streamReconnectPendingRef = useRef(false);
   const lazilyCreatedSessionIdRef = useRef<string | undefined>(undefined);
   const initialLoadStartedForRef = useRef<string | undefined>(undefined);
   const skipInitialPromotionLoadForRef = useRef<string | undefined>(undefined);
@@ -633,13 +634,24 @@ export function useTrueForgeAgentMessages({
               }
               consecutiveFailures += 1;
               useSubscribe = true;
-              await delayReconnect(abortController.signal);
+              streamReconnectPendingRef.current = true;
+              try {
+                await delayReconnect(abortController.signal);
+              } catch (error) {
+                if (isAbortError(error) || streamGeneration !== streamGenerationRef.current) {
+                  return;
+                }
+                throw error;
+              } finally {
+                streamReconnectPendingRef.current = false;
+              }
               if (streamGeneration !== streamGenerationRef.current) {
                 return;
               }
             }
           }
         } finally {
+          streamReconnectPendingRef.current = false;
           cancelScheduledAnimationFrame(streamUpdateRaf);
           if (streamGeneration === streamGenerationRef.current) {
             flushPendingStreamUpdate();
@@ -647,25 +659,29 @@ export function useTrueForgeAgentMessages({
               abortControllerRef.current = null;
             }
             setIsRunning(false);
-            setSnapshot(prev => {
-              if (prev.activeStream == null) {
-                return prev;
-              }
-              const marked = replaceSessionSnapshot(prev, {
-                activeStream: {
-                  ...prev.activeStream,
-                  streamComplete: true,
-                  ...(lastSequenceNumberRef.current != null
-                    ? { lastSequenceNumber: lastSequenceNumberRef.current }
-                    : {}),
-                },
-                requiredActions: {
-                  approvals: new Map(),
-                  toolResponses: new Map(),
-                },
+            if (abortController.signal.aborted) {
+              setSnapshot(prev => abandonInFlightClientTurn(prev));
+            } else {
+              setSnapshot(prev => {
+                if (prev.activeStream == null) {
+                  return prev;
+                }
+                const marked = replaceSessionSnapshot(prev, {
+                  activeStream: {
+                    ...prev.activeStream,
+                    streamComplete: true,
+                    ...(lastSequenceNumberRef.current != null
+                      ? { lastSequenceNumber: lastSequenceNumberRef.current }
+                      : {}),
+                  },
+                  requiredActions: {
+                    approvals: new Map(),
+                    toolResponses: new Map(),
+                  },
+                });
+                return commitActiveStream(marked);
               });
-              return commitActiveStream(marked);
-            });
+            }
           }
         }
       })();
@@ -1070,14 +1086,13 @@ export function useTrueForgeAgentMessages({
       activeSessionId,
       resolveConversationSessionIdRef.current,
     );
-    // Request cancellation but keep consuming the stream. After cancel(),
-    // the backend gracefully closes the SSE stream: it emits a terminal
-    // turn.done event and then ends the stream, which lets the active run
-    // drain to completion on its own instead of being torn down mid-flight.
+    // A live SSE is drained for cancelled turn.done. After a drop we are only
+    // waiting to resubscribe — abort that wait so cancel cannot start a new
+    // subscribe that finishes empty and looks like a completed turn.
+    if (streamReconnectPendingRef.current) {
+      abortControllerRef.current?.abort();
+    }
     await server.cancelSession({ sessionId: conversationSessionId }).catch(() => undefined);
-    // Wait for the in-flight stream to finish draining. No explicit
-    // reconcile is needed here — the cancelled turn is terminal and local
-    // state reconciles against the event log on the next session load.
     await activeRunRef.current?.catch(() => undefined);
     markResumeUnavailable(false);
     setIsRunning(false);

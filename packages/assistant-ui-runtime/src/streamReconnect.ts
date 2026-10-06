@@ -8,18 +8,31 @@ export function isAbortError(error: unknown): boolean {
   return error instanceof Error && error.name === 'AbortError';
 }
 
+export function createAbortError(): Error {
+  const error = new Error('Aborted');
+  error.name = 'AbortError';
+  return error;
+}
+
+export function throwIfAborted(signal: AbortSignal): void {
+  if (signal.aborted) {
+    throw createAbortError();
+  }
+}
+
 export async function delayReconnect(signal: AbortSignal, delayMs = STREAM_RECONNECT_DELAY_MS): Promise<void> {
-  if (signal.aborted || delayMs <= 0) {
+  throwIfAborted(signal);
+  if (delayMs <= 0) {
     return;
   }
-  await new Promise<void>(resolve => {
+  await new Promise<void>((resolve, reject) => {
     const timer = setTimeout(() => {
       signal.removeEventListener('abort', onAbort);
       resolve();
     }, delayMs);
     const onAbort = (): void => {
       clearTimeout(timer);
-      resolve();
+      reject(createAbortError());
     };
     signal.addEventListener('abort', onAbort, { once: true });
   });

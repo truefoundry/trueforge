@@ -1635,6 +1635,14 @@ export class TurnFailedError extends Error {
   }
 }
 
+/** SSE body ended without `turn.done` or a pause — subscribe-retry. */
+export class TurnStreamDisconnectedError extends Error {
+  constructor(message = 'Turn stream closed before turn.done') {
+    super(message);
+    this.name = 'TurnStreamDisconnectedError';
+  }
+}
+
 export async function* streamTurnEvents(
   stream: AsyncIterable<TurnStreamData>,
   foldState: PeerThreadFoldState,
@@ -1646,6 +1654,7 @@ export async function* streamTurnEvents(
   let sandboxId: string | undefined;
   let sandboxIdYielded = false;
   let lastSequenceNumber: number | undefined;
+  let sawTurnDone = false;
 
   const withCursor = (update: TurnStreamUpdate): TurnStreamUpdate => {
     const withSeq = lastSequenceNumber == null ? update : { ...update, sequenceNumber: lastSequenceNumber };
@@ -1697,6 +1706,7 @@ export async function* streamTurnEvents(
       // event, so we must stop consuming explicitly rather than waiting
       // for the underlying stream to end — otherwise `isRunning` never
       // clears and the composer's cancel/spinner button gets stuck.
+      sawTurnDone = true;
       break;
     }
 
@@ -1752,6 +1762,10 @@ export async function* streamTurnEvents(
         ? rootModelMessageIdsSinceBaseline(foldState, groupRootBaseline)
         : (foldState.threads.get(ROOT_THREAD_ID)?.modelMessageIds ?? []);
     yield withCursor({ content: buildRootAssistantContentForIds(foldState, ids) });
+  }
+
+  if (!sawTurnDone) {
+    throw new TurnStreamDisconnectedError();
   }
 }
 

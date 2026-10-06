@@ -4,6 +4,7 @@ import type { AgentChatServer, PreviousTurnIdInput, TurnInputItem } from './serv
 import { streamTurnEvents, type UserMessageContent } from './convertTurnMessages.js';
 import { PeerThreadFoldState } from './foldPeerThreads.js';
 import type { RequiredActionInput } from './requiredActionInputs.js';
+import { throwIfAborted } from './streamReconnect.js';
 import type { TurnStreamUpdate } from './turnStreamUpdate.js';
 
 export interface StreamTurnOptions {
@@ -47,9 +48,7 @@ export async function* streamTurnContent(
   // Aborting only detaches this client from the run; the turn keeps running on
   // the backend so switching sessions (or remounting) can reattach via
   // `subscribeToTurn`. Stopping the run is an explicit `cancelSession` call.
-  if (abortSignal.aborted) {
-    return;
-  }
+  throwIfAborted(abortSignal);
 
   let turnIdNotified = false;
   const notifyTurnId = (turnId: string) => {
@@ -67,16 +66,7 @@ export async function* streamTurnContent(
     ...(options.headers != null ? { headers: options.headers } : {}),
   });
 
-  try {
-    for await (const update of streamTurnEvents(stream, foldState, groupRootBaseline, notifyTurnId, onSequenceNumber)) {
-      yield update;
-    }
-  } catch (error) {
-    if (error instanceof Error && error.name === 'AbortError') {
-      return;
-    }
-    throw error;
-  }
+  yield* streamTurnEvents(stream, foldState, groupRootBaseline, notifyTurnId, onSequenceNumber);
 }
 
 export async function* resumeTurnStream(
@@ -95,27 +85,18 @@ export async function* resumeTurnStream(
     return;
   }
 
-  if (abortSignal.aborted) {
-    return;
-  }
+  throwIfAborted(abortSignal);
 
-  try {
-    yield* streamTurnEvents(
-      server.subscribeToTurn({
-        sessionId,
-        turnId,
-        ...(afterSequenceNumber != null ? { afterSequenceNumber } : {}),
-        abortSignal,
-      }),
-      foldState,
-      groupRootBaseline,
-      undefined,
-      onSequenceNumber,
-    );
-  } catch (error) {
-    if (error instanceof Error && error.name === 'AbortError') {
-      return;
-    }
-    throw error;
-  }
+  yield* streamTurnEvents(
+    server.subscribeToTurn({
+      sessionId,
+      turnId,
+      ...(afterSequenceNumber != null ? { afterSequenceNumber } : {}),
+      abortSignal,
+    }),
+    foldState,
+    groupRootBaseline,
+    undefined,
+    onSequenceNumber,
+  );
 }
