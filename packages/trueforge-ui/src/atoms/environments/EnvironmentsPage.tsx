@@ -216,9 +216,7 @@ export function EnvironmentsPage(_props: EnvironmentsPageProps) {
         }
       />
 
-      <div
-        className={cn('min-h-0 flex-1 overflow-auto px-4 py-4', error != null ? 'flex flex-col' : undefined)}
-      >
+      <div className={cn('min-h-0 flex-1 overflow-auto px-4 py-4', error != null ? 'flex flex-col' : undefined)}>
         {error != null ? (
           <div role="alert" className="flex flex-1 flex-col items-center justify-center">
             <EmptyScreen
