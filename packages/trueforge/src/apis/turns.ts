@@ -853,6 +853,9 @@ export function createTurnsRouter(deps: TurnsRouterDeps) {
             }
           },
         });
+        if (!stream.closed) {
+          stream.abort();
+        }
         await stream.close();
       });
     } catch (error) {
