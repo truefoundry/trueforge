@@ -271,15 +271,16 @@ describe('Sessions / SessionHandle / TurnHandle (storage + createTurn)', () => {
       agent: { type: 'inline', spec: makeAgentSpec() },
       external_id: null,
     });
+    const firstController = new AbortController();
     const first = await session.createTurn({
       turn_id: mintTestTurnId(),
       active_executor_id: TEST_ACTIVE_EXECUTOR_ID,
       input: [{ type: EventType.USER_MESSAGE, content: 'one' }],
       previous_turn_id: 'none',
-      signal: new AbortController().signal,
+      signal: firstController.signal,
       resolver: makeTestResolver(),
     });
-    for await (const event of first.stream()) {
+    for await (const event of first.stream(firstController)) {
       void event;
       // drain
     }
@@ -358,16 +359,17 @@ describe('Sessions / SessionHandle / TurnHandle (storage + createTurn)', () => {
 
     // Success path: run() must NOT close — TurnHandle.stream()'s finally owns it.
     const closeOnSuccess = jest.fn().mockResolvedValue(undefined);
+    const controller = new AbortController();
     const turn = await session.createTurn({
       turn_id: mintTestTurnId(),
       active_executor_id: TEST_ACTIVE_EXECUTOR_ID,
       input: [{ type: EventType.USER_MESSAGE, content: 'hello' }],
       previous_turn_id: 'none',
-      signal: new AbortController().signal,
+      signal: controller.signal,
       resolver: makeTestResolver({ close: closeOnSuccess }),
     });
     expect(closeOnSuccess).not.toHaveBeenCalled();
-    for await (const event of turn.stream()) {
+    for await (const event of turn.stream(controller)) {
       void event;
       // drain
     }

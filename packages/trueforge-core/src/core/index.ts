@@ -20,7 +20,7 @@ export type {
 export { AgentThreadOrchestrator } from './runtime/AgentThreadOrchestrator';
 export type { CreateDynamicSubAgentThread } from './runtime/CreateDynamicSubAgentThread';
 export { isAgentInputUserMessage, isEmptyMessageContent, isFileContentPart } from './runtime/UserInputMessage';
-export type { AgentInputUserMessage } from './runtime/UserInputMessage';
+export type { InputUserMessage } from './runtime/UserInputMessage';
 
 // Capability contracts
 export type { AgentCapability, CapabilityState, JsonValue } from './capabilities/AgentCapability';

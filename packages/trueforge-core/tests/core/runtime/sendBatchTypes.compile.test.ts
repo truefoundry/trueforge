@@ -5,9 +5,9 @@
 import type { UserToolApprovalEvent, UserToolResponseEvent } from '../../../src/core/events/schema';
 import type { LLMToolMessage } from '../../../src/core/llm/LLMTypes';
 import type { AgentThreadRuntimeSendBatch, AgentThreadSendBatch } from '../../../src/core/runtime/AgentThread.types';
-import type { AgentInputUserMessage } from '../../../src/core/runtime/UserInputMessage';
+import type { InputUserMessage } from '../../../src/core/runtime/UserInputMessage';
 
-const userMsg = { type: 'user.message' as const, content: 'hi' } satisfies AgentInputUserMessage;
+const userMsg = { type: 'user.message' as const, content: 'hi' } satisfies InputUserMessage;
 const approval = {
   type: 'user.tool_approval' as const,
   thread_id: 'main',

@@ -464,7 +464,7 @@ export async function beginTurnExecution(
 
   const trackedStream = deps.activeTurns.track({
     abortController,
-    stream: turn.stream(),
+    stream: turn.stream(abortController),
     turn,
   });
 

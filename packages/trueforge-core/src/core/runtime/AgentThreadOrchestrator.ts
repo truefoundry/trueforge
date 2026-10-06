@@ -3,21 +3,22 @@ import { AgentHarnessError, InvalidAgentSendInputError } from '../errors';
 import {
   EventType,
   newEventId,
-  type AgentInputUserMessage,
+  type InputUserMessage,
   type MCPServerInitInfo,
   type ModelMessageEvent,
   type ToolApprovalPolicy,
   type ToolApprovalPolicyItem,
   type ToolResponseEvent,
   type TurnUserEvent,
+  type UserToolApprovalEvent,
   type UserToolApprovalPolicyEvent,
+  type UserToolResponseEvent,
 } from '../events/schema';
 import type { LLMToolMessage } from '../llm/LLMTypes';
 import type { AgentExecutionTrace, AgentTracing } from '../tracing/AgentTracing';
 import { onSignalAbort } from '../util/abort';
 import { mergeAsyncGenerators, signalable, type Signalable } from '../util/promiseUtils';
 import { AgentThread } from './AgentThread';
-import type { AgentThreadRuntimeSendBatch } from './AgentThread.types';
 import {
   InternalEventType,
   type AgentThreadAppendContext,
@@ -231,15 +232,15 @@ export class AgentThreadOrchestrator {
     return [...this.agentThreads.values()].filter(thread => thread.parent !== undefined);
   }
 
-  private async *applyToThread(
+  private *applyToThread(
     threadId: string,
-    messages: AgentThreadRuntimeSendBatch,
-  ): AsyncGenerator<ApplyUserEventsOutput, void, unknown> {
+    messages: (UserToolApprovalEvent | UserToolResponseEvent | LLMToolMessage)[],
+  ): Generator<ApplyUserEventsOutput, void, unknown> {
     const thread = this.agentThreads.get(threadId);
     if (!thread) {
       throw new Error(`AgentThreadOrchestrator.applyToThread: unknown threadId ${threadId}`);
     }
-    yield* thread.apply(messages);
+    yield* thread.send(messages);
   }
 
   // Pure: every `server_name` must match a currently-configured user MCP tool set. Returns one
@@ -327,9 +328,10 @@ export class AgentThreadOrchestrator {
   }
 
   // Validate decisions against both committed context and decisions already accepted into the
-  // turn-level queue. Pure + synchronous: throws before anything is enqueued or applied.
-  private validateDecisionEvents(messages: Extract<TurnUserEvent, { thread_id: string }>[]): void {
+  // turn-level queue. Pure + synchronous: returns every validation error without applying anything.
+  private validateDecisionEvents(messages: (UserToolApprovalEvent | UserToolResponseEvent)[]): string[] {
     const grouped = new Map<string, typeof messages>();
+    const validationErrors: string[] = [];
     for (const event of this.pendingTurnEvents) {
       if (event.type === EventType.USER_TOOL_APPROVAL_POLICY || event.type === EventType.USER_MCP_AUTH_CONTINUE) {
         continue;
@@ -343,7 +345,8 @@ export class AgentThreadOrchestrator {
     for (const msg of messages) {
       const threadId = msg.thread_id;
       if (!this.agentThreads.has(threadId)) {
-        throw new InvalidAgentSendInputError(`unknown thread_id: ${threadId}`);
+        validationErrors.push(`unknown thread_id: ${threadId}`);
+        continue;
       }
       const batch = grouped.get(threadId) ?? [];
       batch.push(msg);
@@ -351,7 +354,6 @@ export class AgentThreadOrchestrator {
       affectedThreads.add(threadId);
     }
 
-    const validationErrors: string[] = [];
     for (const threadId of affectedThreads) {
       const thread = this.agentThreads.get(threadId);
       if (!thread) {
@@ -367,13 +369,13 @@ export class AgentThreadOrchestrator {
         }
       }
     }
-    if (validationErrors.length > 0) {
-      throw new InvalidAgentSendInputError(validationErrors.join('; '));
-    }
+    return validationErrors;
   }
 
+  public send(input: InputUserMessage[]): AsyncGenerator<AgentThreadAppendContext, void, unknown>;
+  public send(input: TurnUserEvent[]): AsyncGenerator<TurnUserEvent[], void, unknown>;
   public async *send(
-    input: AgentInputUserMessage[] | TurnUserEvent[],
+    input: InputUserMessage[] | TurnUserEvent[],
   ): AsyncGenerator<AgentThreadAppendContext | TurnUserEvent[], void, unknown> {
     if (input.length === 0) {
       return;
@@ -383,7 +385,7 @@ export class AgentThreadOrchestrator {
       // A new turn may be created while the previous turn is running or paused:
       // cancel live children, close their open parent calls, then append the new
       // user input to the main thread immediately.
-      const messages = input as AgentInputUserMessage[];
+      const messages = input as InputUserMessage[];
       const mainThread = this.getMainThread();
       const toolIdToClosureMessages = new Map<string, LLMToolMessage>();
       for (const thread of this.getChildThreads()) {
@@ -400,17 +402,12 @@ export class AgentThreadOrchestrator {
         defaultToolClosureContent: CANCELED_BECAUSE_USER_SENT_NEW_MESSAGE,
       });
 
-      for await (const event of this.applyToThread(mainThread.threadId, messages)) {
-        if (event.type !== InternalEventType.AGENT_CONTEXT_APPEND) {
-          throw new Error(`AgentThreadOrchestrator.send: unexpected ${event.type}`);
-        }
-        yield event;
-      }
+      yield* mainThread.sendUserMessages(messages);
       return;
     }
 
     const events = input as TurnUserEvent[];
-    const decisions: Extract<TurnUserEvent, { thread_id: string }>[] = [];
+    const decisions: (UserToolApprovalEvent | UserToolResponseEvent)[] = [];
     for (const event of events) {
       switch (event.type) {
         case EventType.USER_MCP_AUTH_CONTINUE:
@@ -424,13 +421,17 @@ export class AgentThreadOrchestrator {
       }
     }
 
-    // All-or-nothing validation up front: if any event rejects, nothing is accepted.
-    this.validateDecisionEvents(decisions);
+    // All-or-nothing validation up front: collect every decision and policy error before rejecting.
+    const decisionErrors = this.validateDecisionEvents(decisions);
     const policyErrors = this.validateApprovalPolicies(
       events.flatMap(event => (event.type === EventType.USER_TOOL_APPROVAL_POLICY ? event.policies : [])),
     );
-    if (policyErrors.length > 0) {
-      throw new InvalidAgentSendInputError(`invalid approval policies: ${policyErrors.join('; ')}`);
+    const validationErrors = [
+      ...decisionErrors.map(error => `invalid decision: ${error}`),
+      ...policyErrors.map(error => `invalid approval policy: ${error}`),
+    ];
+    if (validationErrors.length > 0) {
+      throw new InvalidAgentSendInputError(validationErrors.join('; '));
     }
 
     yield events;
@@ -590,7 +591,7 @@ export class AgentThreadOrchestrator {
         }
 
         const active = getActiveAgentThreads(agentThreads);
-        const runnable = active.filter(thread => thread.isRunnable(authBlocked.has(thread.threadId)));
+        const runnable = active.filter(thread => !thread.isAwaitingUserInput() && !authBlocked.has(thread.threadId));
 
         if (runnable.length === 0) {
           if (!turnPaused) {
@@ -607,11 +608,6 @@ export class AgentThreadOrchestrator {
         if (turnPaused) {
           yield { type: InternalEventType.TURN_STATE, transition: { status: 'running' } };
           turnPaused = false;
-        }
-
-        // These threads are about to run and resolve their wait — drop their recorded blocks.
-        for (const thread of runnable) {
-          authBlocked.delete(thread.threadId);
         }
 
         for (let i = 0; i < runnable.length; i += MAX_PARALLEL_SUB_AGENTS) {

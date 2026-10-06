@@ -3,12 +3,12 @@ import { z } from 'zod';
 import type { AgentCapability, CapabilityState, JsonValue } from '../capabilities/AgentCapability';
 import type { RegisteredPassthroughEvent, WithRegisteredPassthrough } from '../events/PassthroughEvents';
 import type {
-  AgentApprovalDecisionMessage,
   AgentInfo,
-  AgentInputUserMessage,
   AgentOutputEvent,
   AgentParent,
+  ApprovalDecisionMessage,
   BaseMCPAuthRequiredEvent,
+  InputUserMessage,
   MCPInitializeEvent,
   MCPServerAuthInfo,
   MCPServerInitInfo,
@@ -108,7 +108,7 @@ export type InternalThreadDoneEvent = InternalMainThreadDoneEvent | InternalChil
 
 export type LLMContextMessage = LLMUserMessage | InternalEnrichedAssistantMessage | LLMToolMessage;
 
-export type ContextMessage = LLMContextMessage | AgentApprovalDecisionMessage;
+export type ContextMessage = LLMContextMessage | ApprovalDecisionMessage;
 
 export interface AgentThreadCreateSubAgent {
   type: typeof InternalEventType.AGENT_CREATE_SUBAGENT;
@@ -137,13 +137,13 @@ export interface UserEventsCommitEvent {
  * Single runtime send item (no internal LLM tool messages). Decisions are in event form — their ids
  * are seeded at the send boundary (HTTP handler / createTurn `toSendBatch`) and reused downstream.
  */
-export type AgentSendInput = UserToolApprovalEvent | UserToolResponseEvent | AgentInputUserMessage;
+export type AgentSendInput = UserToolApprovalEvent | UserToolResponseEvent | InputUserMessage;
 
 /**
  * Homogeneous send batch: all user messages, or all approval/tool-response events (id-seeded).
  * Mixed batches are rejected at the HTTP/orchestrator boundary.
  */
-export type AgentThreadSendBatch = AgentInputUserMessage[] | (UserToolApprovalEvent | UserToolResponseEvent)[];
+export type AgentThreadSendBatch = InputUserMessage[] | (UserToolApprovalEvent | UserToolResponseEvent)[];
 
 export type AgentThreadEvent =
   | ModelMessageEvent

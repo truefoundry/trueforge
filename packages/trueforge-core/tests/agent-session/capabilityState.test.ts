@@ -73,12 +73,13 @@ describe('capability_state (tfy.plan fixture)', () => {
     };
     let loads: JsonValue[] = [];
 
+    const turn1Controller = new AbortController();
     const turn1 = await session.createTurn({
       turn_id: mintTestTurnId(),
       active_executor_id: TEST_ACTIVE_EXECUTOR_ID,
       input: [{ type: EventType.USER_MESSAGE, content: 'start' }],
       previous_turn_id: 'none',
-      signal: new AbortController().signal,
+      signal: turn1Controller.signal,
       resolver: makeTestResolver({
         extraCapabilities: [
           makePlanShapedCapability({
@@ -89,7 +90,7 @@ describe('capability_state (tfy.plan fixture)', () => {
         ],
       }),
     });
-    for await (const event of turn1.stream()) {
+    for await (const event of turn1.stream(turn1Controller)) {
       void event;
       // drain
     }
@@ -102,12 +103,13 @@ describe('capability_state (tfy.plan fixture)', () => {
     expect(loads).toHaveLength(0);
 
     loads = [];
+    const turn2Controller = new AbortController();
     const turn2 = await session.createTurn({
       turn_id: mintTestTurnId(),
       active_executor_id: TEST_ACTIVE_EXECUTOR_ID,
       input: [{ type: EventType.USER_MESSAGE, content: 'continue' }],
       previous_turn_id: 'auto',
-      signal: new AbortController().signal,
+      signal: turn2Controller.signal,
       resolver: makeTestResolver({
         extraCapabilities: [
           makePlanShapedCapability({
@@ -120,7 +122,7 @@ describe('capability_state (tfy.plan fixture)', () => {
     });
     // Hydration happens in run() when threads are built (before stream).
     expect(loads).toEqual([planV1]);
-    for await (const event of turn2.stream()) {
+    for await (const event of turn2.stream(turn2Controller)) {
       void event;
       // drain
     }
@@ -146,17 +148,18 @@ describe('capability_state (tfy.plan fixture)', () => {
       todo: [{ title: 'step', description: 'do it', status: 'done' }],
     };
 
+    const turn1Controller = new AbortController();
     const turn1 = await session.createTurn({
       turn_id: mintTestTurnId(),
       active_executor_id: TEST_ACTIVE_EXECUTOR_ID,
       input: [{ type: EventType.USER_MESSAGE, content: 'start' }],
       previous_turn_id: 'none',
-      signal: new AbortController().signal,
+      signal: turn1Controller.signal,
       resolver: makeTestResolver({
         extraCapabilities: [makePlanShapedCapability({ enabled: true, emitState: planV1 })],
       }),
     });
-    for await (const event of turn1.stream()) {
+    for await (const event of turn1.stream(turn1Controller)) {
       void event;
       // drain
     }
@@ -180,17 +183,18 @@ describe('capability_state (tfy.plan fixture)', () => {
       close: () => resolver.close(),
     };
 
+    const turn3Controller = new AbortController();
     const turn3 = await session.createTurn({
       turn_id: mintTestTurnId(),
       active_executor_id: TEST_ACTIVE_EXECUTOR_ID,
       input: [{ type: EventType.USER_MESSAGE, content: 'no plan' }],
       previous_turn_id: 'auto',
-      signal: new AbortController().signal,
+      signal: turn3Controller.signal,
       resolver: wrapped,
     });
     expect(warnSpy).toHaveBeenCalledWith(expect.stringContaining("Dropping unclaimed capability_state key 'tfy.plan'"));
 
-    for await (const event of turn3.stream()) {
+    for await (const event of turn3.stream(turn3Controller)) {
       void event;
       // drain
     }
@@ -238,16 +242,17 @@ describe('capability_state (tfy.plan fixture)', () => {
       agent: { type: 'inline', spec: makeAgentSpec() },
       external_id: null,
     });
+    const controller = new AbortController();
     const turn = await session.createTurn({
       turn_id: mintTestTurnId(),
       active_executor_id: TEST_ACTIVE_EXECUTOR_ID,
       input: [{ type: EventType.USER_MESSAGE, content: 'x' }],
       previous_turn_id: 'none',
-      signal: new AbortController().signal,
+      signal: controller.signal,
       resolver: makeTestResolver({ extraCapabilities: [undefinedStateCapability] }),
     });
     let errorMessage: string | undefined;
-    for await (const event of turn.stream()) {
+    for await (const event of turn.stream(controller)) {
       if (event.type === EventType.TURN_DONE && event.state.status === 'error') {
         errorMessage = event.state.message;
       }
@@ -288,9 +293,9 @@ describe('capability_state (tfy.plan fixture)', () => {
       tracing: NOOP_AGENT_TRACING,
       logger: makeSilentLogger(),
     });
-    for await (const event of thread.apply([{ type: EventType.USER_MESSAGE, content: 'x' }])) {
+    for await (const event of thread.sendUserMessages([{ type: EventType.USER_MESSAGE, content: 'x' }])) {
       void event;
-      // apply initial input
+      // send initial input
     }
     let errorMessage: string | undefined;
     for await (const event of thread.execute({ signal: new AbortController().signal })) {

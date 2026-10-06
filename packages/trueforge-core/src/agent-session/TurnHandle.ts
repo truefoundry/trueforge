@@ -45,6 +45,17 @@ import { TurnNotRunningError } from './store/SessionStoreErrors';
 /** Streaming yield union — deltas pass through; never persisted. No sequence_number. */
 export type TurnStreamingEvent = PersistedTurnEvent | ModelMessageDeltaEvent;
 
+function abortOnReturn<T>(generator: AsyncGenerator<T>, abortController: AbortController): AsyncGenerator<T> {
+  const returnGenerator = generator.return.bind(generator);
+  generator.return = value => {
+    if (!abortController.signal.aborted) {
+      abortController.abort(CancellationReason.ClientCancelled);
+    }
+    return returnGenerator(value);
+  };
+  return generator;
+}
+
 function cancellationReasonFromAbortReason(abortReason: unknown): CancellationReason {
   if (abortReason === CancellationReason.ServerExecutionTimeout) {
     return CancellationReason.ServerExecutionTimeout;
@@ -238,9 +249,6 @@ export class TurnHandle<TTurnCustom extends object = Record<string, never>> {
   async send(events: TurnUserEvent[]): Promise<void> {
     const orchestrator = this.requireLiveOrchestrator('send');
     for await (const batch of orchestrator.send(events)) {
-      if (!Array.isArray(batch)) {
-        throw new Error('TurnHandle.send: unexpected context append from turn-event input');
-      }
       // TODO: persist `batch` here before resuming the generator to enqueue.
       void batch;
     }
@@ -283,7 +291,7 @@ export class TurnHandle<TTurnCustom extends object = Record<string, never>> {
    * order ≡ persist order (single sequential generator), so callers that need
    * numbering (e.g. SSE resume) stamp it at their own transport boundary.
    */
-  async *stream(): AsyncGenerator<TurnStreamingEvent> {
+  stream(abortController: AbortController = new AbortController()): AsyncGenerator<TurnStreamingEvent> {
     if (this.streamStarted) {
       throw new Error('TurnHandle.stream() is single-use and was already called');
     }
@@ -296,9 +304,17 @@ export class TurnHandle<TTurnCustom extends object = Record<string, never>> {
       throw new Error('TurnHandle.stream() is only available on turns returned from SessionHandle.createTurn()');
     }
 
+    const executionSignal = AbortSignal.any([signal, abortController.signal]);
+    return abortOnReturn(this.streamExecution(orchestrator, resolver, executionSignal), abortController);
+  }
+
+  private async *streamExecution(
+    orchestrator: AgentThreadOrchestrator,
+    resolver: ITurnResourceResolver<TTurnCustom>,
+    signal: AbortSignal,
+  ): AsyncGenerator<TurnStreamingEvent> {
     let caughtError: Error | undefined;
     let executeResult: AgentThreadExecutionResult | undefined;
-
     try {
       yield await this.persistTurnCreated();
       executeResult = yield* this.executeAndPersist(orchestrator, signal);
@@ -309,7 +325,12 @@ export class TurnHandle<TTurnCustom extends object = Record<string, never>> {
       try {
         turnDone =
           this.eventFromStoreConflict(caughtError, orchestrator) ??
-          (await this.persistTurnTerminal({ signal, caughtError, executeResult, orchestrator }));
+          (await this.persistTurnTerminal({
+            signal,
+            caughtError,
+            executeResult,
+            orchestrator,
+          }));
       } catch (error) {
         const storeDone = this.eventFromStoreConflict(error, orchestrator);
         if (!storeDone) {
@@ -352,16 +373,13 @@ export class TurnHandle<TTurnCustom extends object = Record<string, never>> {
       let iterResult = await generator.next();
       while (!iterResult.done) {
         const event = iterResult.value;
-        const yielded =
-          event.type === InternalEventType.TURN_STATE
-            ? await this.persistTurnNonTerminal(event.transition)
-            : await this.persistExecutionEvent(event);
-        if (Array.isArray(yielded)) {
-          for (const e of yielded) {
-            yield e;
+        if (event.type === InternalEventType.TURN_STATE) {
+          const turnUpdate = await this.persistTurnNonTerminal(event.transition);
+          if (turnUpdate) {
+            yield turnUpdate;
           }
-        } else if (yielded) {
-          yield yielded;
+        } else {
+          yield* this.persistExecutionEvent(event);
         }
         iterResult = await generator.next();
       }
@@ -469,9 +487,9 @@ export class TurnHandle<TTurnCustom extends object = Record<string, never>> {
     return turnUpdate;
   }
 
-  private async persistExecutionEvent(
+  private async *persistExecutionEvent(
     event: Exclude<AgentThreadExecutionEvent, InternalTurnStateEvent>,
-  ): Promise<TurnStreamingEvent | TurnStreamingEvent[] | null> {
+  ): AsyncGenerator<TurnStreamingEvent, void, unknown> {
     const scope = {
       session_id: this.turn.session_id,
       turn_id: this.turn.turn_id,
@@ -481,17 +499,19 @@ export class TurnHandle<TTurnCustom extends object = Record<string, never>> {
       case HarnessEventType.MODEL_MESSAGE:
       case HarnessEventType.MODEL_MESSAGE_DELTA:
         // Stream only — durable model content lands via AGENT_CONTEXT_APPEND.output.
-        return event;
+        yield event;
+        return;
 
       case HarnessEventType.TOOL_RESPONSE:
         await this.store.appendToEvents({
           ...scope,
           events: [event],
         });
-        return event;
+        yield event;
+        return;
 
       case InternalEventType.AGENT_CREATE_SUBAGENT:
-        return null;
+        return;
 
       case InternalEventType.CAPABILITY_STATE: {
         // Persist boundary: types exclude undefined; reject it at runtime so stores never see it.
@@ -508,12 +528,12 @@ export class TurnHandle<TTurnCustom extends object = Record<string, never>> {
           key: event.key,
           state: event.state,
         });
-        return null;
+        return;
       }
 
       case HarnessEventType.AGENT_CONTEXT_OVERWRITE: {
         await this.store.overwriteThreadContext({ ...scope, event });
-        return null;
+        return;
       }
 
       case InternalEventType.AGENT_CONTEXT_APPEND: {
@@ -530,7 +550,7 @@ export class TurnHandle<TTurnCustom extends object = Record<string, never>> {
             events: event.output,
           });
         }
-        return null;
+        return;
       }
 
       case InternalEventType.USER_EVENTS_COMMIT: {
@@ -554,7 +574,8 @@ export class TurnHandle<TTurnCustom extends object = Record<string, never>> {
           await this.store.appendToEvents({ ...scope, events: event.applied_user_events });
         }
         // TODO(durable-inbox): mark event.applied_user_events consumed.
-        return event.applied_user_events;
+        yield* event.applied_user_events;
+        return;
       }
 
       case InternalEventType.AGENT_DONE: {
@@ -566,17 +587,18 @@ export class TurnHandle<TTurnCustom extends object = Record<string, never>> {
         }
         if (isInternalThreadDoneCancelled(event)) {
           // Do not send thread.done to the user for a cancelled child.
-          return null;
+          return;
         }
         if (!event.parent) {
-          return null;
+          return;
         }
         const threadDone = toThreadDoneEvent(event);
         await this.store.appendToEvents({
           ...scope,
           events: [threadDone],
         });
-        return threadDone;
+        yield threadDone;
+        return;
       }
 
       case HarnessEventType.THREAD_CREATED: {
@@ -598,7 +620,8 @@ export class TurnHandle<TTurnCustom extends object = Record<string, never>> {
           ...scope,
           events: [event],
         });
-        return event;
+        yield event;
+        return;
       }
 
       case InternalEventType.MCP_AUTH_REQUIRED: {
@@ -607,7 +630,8 @@ export class TurnHandle<TTurnCustom extends object = Record<string, never>> {
           ...scope,
           events: [authEvent],
         });
-        return authEvent;
+        yield authEvent;
+        return;
       }
 
       case HarnessEventType.MCP_INITIALIZE: {
@@ -625,7 +649,8 @@ export class TurnHandle<TTurnCustom extends object = Record<string, never>> {
           ...scope,
           events: [event],
         });
-        return event;
+        yield event;
+        return;
       }
 
       case HarnessEventType.SANDBOX_CREATED: {
@@ -637,7 +662,8 @@ export class TurnHandle<TTurnCustom extends object = Record<string, never>> {
           ...scope,
           events: [event],
         });
-        return event;
+        yield event;
+        return;
       }
 
       case HarnessEventType.TOOL_APPROVAL_REQUIRED:
@@ -646,7 +672,8 @@ export class TurnHandle<TTurnCustom extends object = Record<string, never>> {
           ...scope,
           events: [event],
         });
-        return event;
+        yield event;
+        return;
       }
 
       default: {
@@ -655,7 +682,8 @@ export class TurnHandle<TTurnCustom extends object = Record<string, never>> {
           ...scope,
           events: [event],
         });
-        return event;
+        yield event;
+        return;
       }
     }
   }

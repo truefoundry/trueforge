@@ -2,8 +2,8 @@
 import { z } from '@hono/zod-openapi';
 import {
   ActionRequiredEventSchema,
-  AgentInputUserMessageSchema,
   EventIdSchema,
+  InputUserMessageSchema,
   ModelMessageEventSchema,
 } from '../../core/events/schema';
 
@@ -131,7 +131,7 @@ export const TurnStateSchema = z
   ])
   .openapi('TurnState');
 
-export const TurnInputItemSchema = z.discriminatedUnion('type', [AgentInputUserMessageSchema]).openapi('TurnInputItem');
+export const TurnInputItemSchema = z.discriminatedUnion('type', [InputUserMessageSchema]).openapi('TurnInputItem');
 
 export const TurnSchema = z
   .object({

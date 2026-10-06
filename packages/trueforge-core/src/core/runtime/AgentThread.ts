@@ -16,10 +16,10 @@ import type { RegisteredPassthroughEvent } from '../events/PassthroughEvents';
 import {
   EventType,
   newEventId,
-  type AgentApprovalDecisionMessage,
   type AgentInfo,
   type AgentOutputEvent,
   type AgentParent,
+  type ApprovalDecisionMessage,
   type MCPInitializeEvent,
   type MCPServerInitInfo,
   type ModelMessageDeltaEvent,
@@ -60,7 +60,6 @@ import type { AgentDefinition } from './AgentDefinition';
 import type {
   AgentThreadConstructorInput,
   AgentThreadRuntimeSendBatch,
-  AgentThreadRuntimeSendInput,
   AgentThreadSnapshot,
 } from './AgentThread.types';
 import {
@@ -99,7 +98,7 @@ import {
 import { DeferredTool } from './DeferredTool';
 import { createEmptyAgentThreadMetrics, updateMetricsFromUsage, type AgentThreadMetrics } from './metrics';
 import { getClosableOpenToolCallIds, OpenToolCallCloser } from './OpenToolCallCloser';
-import { isEmptyMessageContent, processAgentUserInput, type AgentInputUserMessage } from './UserInputMessage';
+import { isEmptyMessageContent, processAgentUserInput, type InputUserMessage } from './UserInputMessage';
 
 const DEFAULT_ITERATION_LIMIT = 25;
 
@@ -275,7 +274,7 @@ function buildModelMessageEvent({
 }
 
 function validateUserMessage(
-  message: { content: AgentInputUserMessage['content'] },
+  message: { content: InputUserMessage['content'] },
   blockingOpenToolCallIds: Set<string>,
   index: number,
 ): void {
@@ -480,7 +479,6 @@ export class AgentThread {
   private tfyManagedServerNames = new Set<string>();
 
   private contextBusy = false;
-  private preSendRanThisTurn = false;
   private currentState: AgentThreadState | null = null;
   private preComputedCompletion?: SubAgentCompletion | undefined;
   /** Mirrored capability KV — source for toSnapshot().capability_state. */
@@ -564,35 +562,48 @@ export class AgentThread {
     }
   }
 
-  async *apply(events: AgentThreadRuntimeSendInput[]): AsyncGenerator<ApplyUserEventsOutput, void, unknown> {
-    if (events.length === 0) {
+  async *sendUserMessages(messages: InputUserMessage[]): AsyncGenerator<AgentThreadAppendContext, void, unknown> {
+    if (messages.length === 0) {
       return;
     }
-    // preSend (e.g. OpenToolCallCloser) runs once per turn.
-    if (!this.preSendRanThisTurn) {
-      for await (const event of this.executeContextProcessors('preSend')) {
-        yield event;
+
+    yield* this.executeContextProcessors('preSend');
+
+    const contextMessages: LLMUserMessage[] = [];
+    for (const message of messages) {
+      const result = await processAgentUserInput(message, this.sandbox);
+      contextMessages.push(result.message);
+      if (result.sandboxCreated) {
+        this.pendingSandboxCreatedEvents.push(buildSandboxCreatedEvent(result.sandboxCreated));
       }
-      this.preSendRanThisTurn = true;
+    }
+
+    yield* this.appendToContext({
+      context: contextMessages,
+      output: [],
+      currentContextUsage: undefined,
+      usage: undefined,
+    });
+  }
+
+  *send(
+    events: (UserToolApprovalEvent | UserToolResponseEvent | LLMToolMessage)[],
+  ): Generator<ApplyUserEventsOutput, void, unknown> {
+    if (events.length === 0) {
+      return;
     }
 
     const approvals: UserToolApprovalEvent[] = [];
     const clientSideToolResponses: UserToolResponseEvent[] = [];
-    const contextMessages: (LLMUserMessage | LLMToolMessage)[] = [];
+    const toolMessages: LLMToolMessage[] = [];
 
     for (const m of events) {
       if (isApprovalDecisionEvent(m)) {
         approvals.push(m);
       } else if (isClientSideToolResponseEvent(m)) {
         clientSideToolResponses.push(m);
-      } else if (isInputUserMessage(m)) {
-        const result = await processAgentUserInput(m, this.sandbox);
-        contextMessages.push(result.message);
-        if (result.sandboxCreated) {
-          this.pendingSandboxCreatedEvents.push(buildSandboxCreatedEvent(result.sandboxCreated));
-        }
       } else if (isLLMToolMessage(m)) {
-        contextMessages.push(m);
+        toolMessages.push(m);
       } else {
         const _exhaustive: never = m;
         throw new InvalidAgentSendInputError(`Unsupported send input: ${JSON.stringify(_exhaustive)}`);
@@ -600,7 +611,7 @@ export class AgentThread {
     }
 
     if (approvals.length > 0 || clientSideToolResponses.length > 0) {
-      const approvalContext: AgentApprovalDecisionMessage[] = approvals.map(a => ({
+      const approvalContext: ApprovalDecisionMessage[] = approvals.map(a => ({
         type: EventType.USER_TOOL_APPROVAL,
         tool_call_id: a.tool_call_id,
         approval: a.approval,
@@ -631,9 +642,9 @@ export class AgentThread {
       commit.applied_user_events.push(...approvals, ...clientSideToolResponses);
       yield commit;
     }
-    if (contextMessages.length > 0) {
+    if (toolMessages.length > 0) {
       yield* this.appendToContext({
-        context: contextMessages,
+        context: toolMessages,
         output: [],
         currentContextUsage: undefined,
         usage: undefined,
@@ -642,7 +653,7 @@ export class AgentThread {
   }
 
   *resolveApprovalsCoveredByPolicy(): Generator<AgentThreadAppendContext, void, unknown> {
-    const approvals: AgentApprovalDecisionMessage[] = getPendingApprovalToolCalls(this.context)
+    const approvals: ApprovalDecisionMessage[] = getPendingApprovalToolCalls(this.context)
       .filter(toolCall =>
         this.getUserToolSets().some(
           toolSet =>
@@ -819,14 +830,10 @@ export class AgentThread {
     return this.definition.toolSets ?? [];
   }
 
-  private isAwaitingUserInput(): boolean {
+  isAwaitingUserInput(): boolean {
     return (
       getPendingApprovalToolCalls(this.context).length > 0 || getPendingClientSideToolCalls(this.context).length > 0
     );
-  }
-
-  isRunnable(isAuthBlocked: boolean): boolean {
-    return !this.isAwaitingUserInput() && !isAuthBlocked;
   }
 
   validateSendInput(messages: AgentThreadRuntimeSendBatch): void {
@@ -1438,12 +1445,6 @@ export class AgentThread {
         return;
       }
 
-      if (!this.preSendRanThisTurn) {
-        for await (const event of this.executeContextProcessors('preSend')) {
-          yield event;
-        }
-      }
-      this.preSendRanThisTurn = false;
       const { initializationInfo, authRequirementInfo } = await this.tracing.withInitSpan(() => this.init());
 
       if (initializationInfo.length > 0) {

@@ -65,11 +65,11 @@ export const AgentInfoSchema = z
   })
   .openapi('AgentInfo');
 
-export const AgentApprovalDecisionAllowSchema = z
+export const ApprovalDecisionAllowSchema = z
   .object({ status: z.literal('allow').describe('Allow the pending tool call(s).') })
   .openapi('ApprovalAllow');
 
-export const AgentApprovalDecisionDenySchema = z
+export const ApprovalDecisionDenySchema = z
   .object({
     status: z.literal('deny').describe('Deny the pending tool call(s).'),
     reason: z.string().optional().describe('Optional reason shown to the agent when denied.'),
@@ -77,7 +77,7 @@ export const AgentApprovalDecisionDenySchema = z
   .openapi('ApprovalDeny');
 
 export const ApprovalDecisionSchema = z
-  .discriminatedUnion('status', [AgentApprovalDecisionAllowSchema, AgentApprovalDecisionDenySchema])
+  .discriminatedUnion('status', [ApprovalDecisionAllowSchema, ApprovalDecisionDenySchema])
   .openapi('ApprovalDecision');
 
 export const UserToolApprovalMessageSchema = z
@@ -213,7 +213,7 @@ export const UserContentPartSchema = z
   .openapi('UserMessageContentItem');
 export type UserContentPart = z.infer<typeof UserContentPartSchema>;
 
-export const AgentInputUserMessageSchema = z
+export const InputUserMessageSchema = z
   .object({
     type: z.literal(EventType.USER_MESSAGE).describe('User message input item.'),
     content: z
@@ -221,10 +221,10 @@ export const AgentInputUserMessageSchema = z
       .describe('Plain string or structured text/file content parts.'),
   })
   .openapi('UserMessage');
-export type AgentInputUserMessage = z.infer<typeof AgentInputUserMessageSchema>;
+export type InputUserMessage = z.infer<typeof InputUserMessageSchema>;
 
 // persisted to redis - thread_id is stripped
-export const AgentApprovalDecisionMessageSchema = UserToolApprovalMessageSchema.omit({
+export const ApprovalDecisionMessageSchema = UserToolApprovalMessageSchema.omit({
   thread_id: true,
 });
 
@@ -334,7 +334,7 @@ const ContextMessageSchema = z.union([
   LLMUserMessageSchema,
   InternalEnrichedAssistantMessageSchema,
   LLMToolMessageSchema,
-  AgentApprovalDecisionMessageSchema,
+  ApprovalDecisionMessageSchema,
 ]);
 
 export const ThreadOverwriteContextEventSchema = z.object({
@@ -475,7 +475,7 @@ export type UserToolApprovalPolicyEvent = z.infer<typeof UserToolApprovalPolicyE
 export type TurnUserToolEvent = UserToolApprovalEvent | UserToolResponseEvent | UserToolApprovalPolicyEvent;
 export type TurnUserEventMessage = z.infer<typeof TurnUserEventMessageSchema>;
 export type TurnUserEvent = z.infer<typeof TurnUserEventSchema>;
-export type AgentApprovalDecisionMessage = z.infer<typeof AgentApprovalDecisionMessageSchema>;
+export type ApprovalDecisionMessage = z.infer<typeof ApprovalDecisionMessageSchema>;
 export type InputTokensBreakdown = z.infer<typeof InputTokensBreakdownSchema>;
 export type ModelMessageUsage = z.infer<typeof ModelMessageUsageSchema>;
 export type ModelMessageEvent = z.infer<typeof ModelMessageEventSchema>;

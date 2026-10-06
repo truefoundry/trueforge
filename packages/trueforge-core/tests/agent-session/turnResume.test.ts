@@ -6,6 +6,7 @@
  */
 import { MAIN_THREAD_ID } from '../../src/agent-session/models/TurnRecord';
 import { EventType } from '../../src/agent-session/schemas/events';
+import { CancellationReason } from '../../src/agent-session/schemas/turn';
 import { Sessions } from '../../src/agent-session/Sessions';
 import { InMemorySessionStore } from '../../src/agent-session/store/InMemorySessionStore';
 import type { AgentCapability } from '../../src/core/capabilities/AgentCapability';
@@ -13,6 +14,7 @@ import { newEventId } from '../../src/core/events/schema';
 import type { IToolSet, ToolSource } from '../../src/core/mcp/IMCPServer';
 import { toolResultResponse } from '../../src/core/mcp/IMCPServer';
 import { ToolSet } from '../../src/core/mcp/ToolSet';
+import { withTimeout } from '../../src/core/util/promiseUtils';
 import {
   textReplyStream,
   WRITE_NOTE_CALL_ID,
@@ -93,13 +95,14 @@ describe('TurnHandle.send() full-approval resume (agent-session e2e)', () => {
       .fn()
       .mockImplementationOnce(() => writeNoteToolCallStream())
       .mockImplementation(() => textReplyStream(ROOT_FINAL));
+    const controller = new AbortController();
 
     const turn = await session.createTurn({
       turn_id: mintTestTurnId(),
       active_executor_id: TEST_ACTIVE_EXECUTOR_ID,
       input: [{ type: EventType.USER_MESSAGE, content: 'hello' }],
       previous_turn_id: 'none',
-      signal: new AbortController().signal,
+      signal: controller.signal,
       resolver: makeTestResolver({ extraCapabilities: [capability], llmCreate }),
     });
     expect(turn.state.status).toBe('running');
@@ -111,7 +114,7 @@ describe('TurnHandle.send() full-approval resume (agent-session e2e)', () => {
     const events: Array<{ type: string; [k: string]: unknown }> = [];
     let paused = false;
     let sent = false;
-    const iterator = turn.stream();
+    const iterator = turn.stream(controller);
     let step = await iterator.next();
     while (!step.done) {
       const event = step.value as { type: string; state?: { status: string }; [k: string]: unknown };
@@ -157,5 +160,51 @@ describe('TurnHandle.send() full-approval resume (agent-session e2e)', () => {
     expect(turn.state.status).toBe('done');
     const stored = await store.getTurn({ session_id: 's1', turn_id: turn.id });
     expect(stored?.state.status).toBe('done');
+  });
+
+  it('abandon while parked at approval wakes execution and persists client cancellation', async () => {
+    const { store, session } = await createSession();
+    const { capability } = makeApprovalGatedCapability();
+    const controller = new AbortController();
+    const turn = await session.createTurn({
+      turn_id: mintTestTurnId(),
+      active_executor_id: TEST_ACTIVE_EXECUTOR_ID,
+      input: [{ type: EventType.USER_MESSAGE, content: 'hello' }],
+      previous_turn_id: 'none',
+      signal: controller.signal,
+      resolver: makeTestResolver({
+        extraCapabilities: [capability],
+        llmCreate: jest.fn().mockImplementation(() => writeNoteToolCallStream()),
+      }),
+    });
+
+    const iterator = turn.stream(controller);
+    let step = await iterator.next();
+    while (!step.done && !(step.value.type === EventType.TURN_UPDATE && step.value.state.status === 'paused')) {
+      step = await iterator.next();
+    }
+    expect(step.done).toBe(false);
+
+    // Park execute() on wakeSignal.wait(), then abandon without aborting the caller's controller.
+    const pendingNext = iterator.next();
+    const close = iterator.return(undefined);
+    try {
+      await withTimeout(Promise.all([pendingNext, close]), 1_000, 'paused stream abandonment');
+    } finally {
+      // Releases the old broken implementation too, so a failed regression test cannot hang Jest.
+      if (!controller.signal.aborted) {
+        controller.abort(CancellationReason.ClientCancelled);
+      }
+    }
+
+    expect(turn.state).toMatchObject({
+      status: 'cancelled',
+      reason: CancellationReason.ClientCancelled,
+    });
+    const stored = await store.getTurn({ session_id: 's1', turn_id: turn.id });
+    expect(stored?.state).toMatchObject({
+      status: 'cancelled',
+      reason: CancellationReason.ClientCancelled,
+    });
   });
 });
