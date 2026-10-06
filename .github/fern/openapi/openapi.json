@@ -1153,9 +1153,9 @@
       "CreateTurnRequest": {
         "properties": {
           "input": {
-            "description": "Turn input items: user messages only. Approval decisions and client-side tool responses are sent to a running turn via the turn events endpoint, not at turn creation.",
+            "description": "User messages supplied when the turn is created.",
             "items": {
-              "$ref": "#/components/schemas/TurnInputItem"
+              "$ref": "#/components/schemas/UserMessage"
             },
             "type": "array"
           },
@@ -2228,6 +2228,27 @@
           }
         },
         "type": "object"
+      },
+      "LegacyTurnInputItem": {
+        "discriminator": {
+          "mapping": {
+            "user.message": "#/components/schemas/UserMessage",
+            "user.tool_approval": "#/components/schemas/UserToolApprovalInputEvent",
+            "user.tool_response": "#/components/schemas/UserToolResponseInputEvent"
+          },
+          "propertyName": "type"
+        },
+        "oneOf": [
+          {
+            "$ref": "#/components/schemas/UserMessage"
+          },
+          {
+            "$ref": "#/components/schemas/UserToolApprovalInputEvent"
+          },
+          {
+            "$ref": "#/components/schemas/UserToolResponseInputEvent"
+          }
+        ]
       },
       "ListAgentsResponse": {
         "properties": {
@@ -5488,9 +5509,9 @@
             "type": "string"
           },
           "input": {
-            "description": "Input items supplied when the turn was created.",
+            "description": "Inputs stored when the turn was created, including legacy continuation inputs.",
             "items": {
-              "$ref": "#/components/schemas/TurnInputItem"
+              "$ref": "#/components/schemas/LegacyTurnInputItem"
             },
             "type": "array"
           },
@@ -5529,9 +5550,9 @@
             "type": "string"
           },
           "input": {
-            "description": "Input items supplied when the turn was created.",
+            "description": "Inputs stored when the turn was created, including legacy continuation inputs.",
             "items": {
-              "$ref": "#/components/schemas/TurnInputItem"
+              "$ref": "#/components/schemas/LegacyTurnInputItem"
             },
             "type": "array"
           },
@@ -5630,19 +5651,6 @@
           "thread_id"
         ],
         "type": "object"
-      },
-      "TurnInputItem": {
-        "discriminator": {
-          "mapping": {
-            "user.message": "#/components/schemas/UserMessage"
-          },
-          "propertyName": "type"
-        },
-        "oneOf": [
-          {
-            "$ref": "#/components/schemas/UserMessage"
-          }
-        ]
       },
       "TurnMetrics": {
         "description": "Optional billable aggregate for the whole turn.",
