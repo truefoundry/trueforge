@@ -853,7 +853,7 @@ export function createTurnsRouter(deps: TurnsRouterDeps) {
             }
           },
         });
-        if (!stream.closed) {
+        if (!shouldWriteToSSEStream && !stream.closed) {
           stream.abort();
         }
         await stream.close();
