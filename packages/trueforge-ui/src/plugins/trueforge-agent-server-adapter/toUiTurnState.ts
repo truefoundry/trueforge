@@ -24,9 +24,19 @@ export function toUiTurnState(state: TrueForgeApi.TurnState | TrueForgeApi.TurnD
 function toUiTerminalTurnState(state: TrueForgeApi.TurnDoneEventState): Exclude<TurnState, { status: 'running' }> {
   switch (state.status) {
     case 'cancelled':
-      return { status: 'cancelled', reason: state.reason, completedAt: state.completedAt };
+      return {
+        status: 'cancelled',
+        reason: state.reason,
+        completedAt: state.completedAt,
+        ...(state.metrics == null ? {} : { metrics: toUiTurnDoneMetrics(state.metrics) }),
+      };
     case 'error':
-      return { status: 'error', message: state.message, completedAt: state.completedAt };
+      return {
+        status: 'error',
+        message: state.message,
+        completedAt: state.completedAt,
+        ...(state.metrics == null ? {} : { metrics: toUiTurnDoneMetrics(state.metrics) }),
+      };
     case 'done':
       return {
         status: 'done',

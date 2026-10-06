@@ -299,12 +299,16 @@ export interface TurnStateCancelled {
   status: 'cancelled';
   reason: string;
   completedAt: string;
+  /** Present when the host reports per-turn token totals before cancel. */
+  metrics?: TurnDoneMetrics;
 }
 
 export interface TurnStateError {
   status: 'error';
   message: string;
   completedAt: string;
+  /** Present when the host reports per-turn token totals before error. */
+  metrics?: TurnDoneMetrics;
 }
 
 export type TurnState = TurnStateRunning | TurnStateDone | TurnStateCancelled | TurnStateError;
