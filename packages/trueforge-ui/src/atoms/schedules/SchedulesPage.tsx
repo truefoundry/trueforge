@@ -10,6 +10,7 @@ import { libraryAgentId } from '../../server/ShellModeContext.js';
 import type { Schedule, ScheduleRun, ScheduleStatus } from '../../server/types.js';
 import { useSlot } from '../../theme/SlotsProvider.js';
 import { hasCreatedBySubject } from '../../utils/createdBySubject.js';
+import { getErrorMessage } from '../../utils/getErrorMessage.js';
 import { readScheduleShareSearch, replaceScheduleShareSearch } from '../../utils/scheduleShareUrl.js';
 import { AgentSearchPicker } from '../AgentSearchPicker.js';
 import { CreatedByCell } from '../CreatedByCell.js';
@@ -238,8 +239,7 @@ export function SchedulesPage({ agentId }: SchedulesPageProps) {
         void loadRunsForSchedules({ rows: page.data, gen });
       } catch (caught) {
         if (gen !== loadGenRef.current) return;
-        const message = caught instanceof Error ? caught.message : 'Failed to load schedules';
-        setError(message);
+        setError(getErrorMessage(caught, 'Check your connection and try again.'));
         setSchedules([]);
         setRunsByScheduleId({});
         setNextPageToken(undefined);
@@ -433,7 +433,7 @@ export function SchedulesPage({ agentId }: SchedulesPageProps) {
         }
       />
 
-      <div className="min-h-0 flex-1 overflow-auto px-4 py-4">
+      <div className={cn('min-h-0 flex-1 overflow-auto px-4 py-4', error != null ? 'flex flex-col' : undefined)}>
         {loading ? (
           <div className="flex flex-col gap-2" role="status" aria-label="Loading schedules">
             {Array.from({ length: 5 }, (_, i) => (
@@ -441,7 +441,13 @@ export function SchedulesPage({ agentId }: SchedulesPageProps) {
             ))}
           </div>
         ) : error != null ? (
-          <p className="text-failure-bg px-3 py-8 text-center text-sm">{error}</p>
+          <div role="alert" className="flex flex-1 flex-col items-center justify-center">
+            <EmptyScreen
+              title="Couldn't load schedules"
+              description={error}
+              className="h-auto min-h-0 flex-none py-0"
+            />
+          </div>
         ) : schedules.length === 0 ? (
           <EmptyScreen title="No Schedules Found" description="Create one to get started." className="min-h-full" />
         ) : filtered.length === 0 ? (

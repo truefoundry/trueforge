@@ -15,6 +15,7 @@ import {
 import { getErrorMessage } from '../../utils/getErrorMessage.js';
 import { EmptyScreen, EmptyScreenQueryHighlight } from '../EmptyScreen.js';
 import { auiButtonClass } from '../lib/buttonClasses.js';
+import { cn } from '../lib/cn.js';
 import { formatRelativeTime } from '../lib/dateFormat.js';
 import { PageHeader } from '../PageHeader.js';
 import { Button } from '../primitives/Button.js';
@@ -91,7 +92,7 @@ export function EnvironmentsPage(_props: EnvironmentsPageProps) {
       } catch (caught) {
         if (gen !== loadGenRef.current) return;
         if (!silent) {
-          setError(getErrorMessage(caught, 'Failed to load environments'));
+          setError(getErrorMessage(caught, 'Check your connection and try again.'));
           setEnvironments([]);
           setNextPageToken(undefined);
           setPreviousPageToken(undefined);
@@ -215,9 +216,15 @@ export function EnvironmentsPage(_props: EnvironmentsPageProps) {
         }
       />
 
-      <div className="min-h-0 flex-1 overflow-auto px-4 py-4">
+      <div className={cn('min-h-0 flex-1 overflow-auto px-4 py-4', error != null ? 'flex flex-col' : undefined)}>
         {error != null ? (
-          <p className="text-failure-bg px-3 py-8 text-center text-sm">{error}</p>
+          <div role="alert" className="flex flex-1 flex-col items-center justify-center">
+            <EmptyScreen
+              title="Couldn't load environments"
+              description={error}
+              className="h-auto min-h-0 flex-none py-0"
+            />
+          </div>
         ) : loading ? (
           <div className="flex flex-col gap-2" role="status" aria-label="Loading environments">
             {Array.from({ length: 5 }, (_, i) => (

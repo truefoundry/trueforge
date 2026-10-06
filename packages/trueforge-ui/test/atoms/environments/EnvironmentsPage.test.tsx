@@ -108,6 +108,22 @@ describe('EnvironmentsPage', () => {
     expect(screen.getByText('1 allowed domain')).toBeInTheDocument();
   });
 
+  it('shows a friendly load error instead of raw fetch failures', async () => {
+    renderPage({
+      environmentOverrides: {
+        listEnvironments: vi.fn(async () => {
+          throw new TypeError('Failed to fetch');
+        }),
+      },
+    });
+
+    expect(await screen.findByRole('heading', { name: "Couldn't load environments" })).toBeInTheDocument();
+    expect(screen.getByText('Check your connection and try again.')).toBeInTheDocument();
+    expect(screen.queryByText('Failed to fetch')).not.toBeInTheDocument();
+    expect(screen.queryByText('Failed to load environments')).not.toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: 'Retry' })).not.toBeInTheDocument();
+  });
+
   it('opens create drawer from New Environment', async () => {
     renderPage();
     await waitFor(() => {

@@ -140,6 +140,22 @@ describe('CenteredModal', () => {
 });
 
 describe('AgentsLibrary', () => {
+  it('shows a friendly load error instead of raw fetch failures', async () => {
+    const server = createMockAgentUIServer({
+      searchAgents: vi.fn(async () => {
+        throw new TypeError('Failed to fetch');
+      }),
+    });
+    renderLibrary(<LibraryHarness />, { server });
+    fireEvent.click(screen.getByRole('button', { name: 'Open library' }));
+
+    expect(await screen.findByRole('heading', { name: "Couldn't load agents" })).toBeInTheDocument();
+    expect(screen.getByText('Check your connection and try again.')).toBeInTheDocument();
+    expect(screen.queryByText('Failed to fetch')).not.toBeInTheDocument();
+    expect(screen.queryByText('Failed to load agents.')).not.toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: 'Retry' })).not.toBeInTheDocument();
+  });
+
   it('opens agent details from the row only when the optional server is available', async () => {
     window.history.replaceState(null, '', '/library?theme=dark&sessionId=stale&view=sessions&s_sts=1&s_ets=2');
     const server = createMockAgentUIServer({
