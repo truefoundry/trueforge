@@ -5,13 +5,25 @@ import typing
 import pydantic
 from ..core.pydantic_utilities import IS_PYDANTIC_V2
 from ..core.unchecked_base_model import UncheckedBaseModel
+from .turn_state_error_code import TurnStateErrorCode
 from .turn_state_error_metrics import TurnStateErrorMetrics
+from .turn_state_error_source import TurnStateErrorSource
 
 
 class TurnStateError(UncheckedBaseModel):
+    code: typing.Optional[TurnStateErrorCode] = pydantic.Field(default=None)
+    """
+    Machine-readable error code for this failure.
+    """
+
     completed_at: str = pydantic.Field()
     """
     ISO 8601 time when the error state was recorded.
+    """
+
+    detail: typing.Optional[str] = pydantic.Field(default=None)
+    """
+    Raw technical text behind the message, for debugging.
     """
 
     message: str = pydantic.Field()
@@ -22,6 +34,16 @@ class TurnStateError(UncheckedBaseModel):
     metrics: typing.Optional[TurnStateErrorMetrics] = pydantic.Field(default=None)
     """
     Optional billable aggregate for work done before the error.
+    """
+
+    retryable: typing.Optional[bool] = pydantic.Field(default=None)
+    """
+    Whether retrying the same request may succeed.
+    """
+
+    source: typing.Optional[TurnStateErrorSource] = pydantic.Field(default=None)
+    """
+    Which subsystem the failure came from.
     """
 
     status: typing.Literal["error"] = "error"
