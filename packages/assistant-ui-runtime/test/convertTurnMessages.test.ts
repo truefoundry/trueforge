@@ -2655,7 +2655,7 @@ describe('buildSnapshotFromSessionEvents', () => {
     });
   });
 
-  it('keeps the running tip\'s already-ingested model messages in live resume scope', async () => {
+  it("keeps the running tip's already-ingested model messages in live resume scope", async () => {
     const runningTurn = {
       id: 't2',
       state: { status: 'running' },
@@ -2729,9 +2729,7 @@ describe('buildSnapshotFromSessionEvents', () => {
       ),
     );
 
-    const texts = (updates.at(-1)?.content ?? [])
-      .filter(part => part.type === 'text')
-      .map(part => part.text);
+    const texts = (updates.at(-1)?.content ?? []).filter(part => part.type === 'text').map(part => part.text);
     expect(texts).toEqual(['Running 10 random sandbox commands at once:', 'I ran 10 sandbox commands']);
   });
 
