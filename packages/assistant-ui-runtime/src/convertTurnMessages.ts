@@ -1121,9 +1121,9 @@ function projectActiveStreamUpdate(snapshot: SessionSnapshot): TurnStreamUpdate 
     throw new Error('projectActiveStreamUpdate requires an active stream');
   }
 
-  // MCP auth is not stored in the fold. After a paused SSE segment ends we
-  // rebuild from fold + snapshot.pendingMcpAuth; if only the live update has
-  // the auth chrome, keep that update instead of wiping Connect/Continue.
+  // MCP auth is not stored in the fold. After pause we rebuild from fold +
+  // snapshot.pendingMcpAuth; if only the live update has the auth chrome, keep
+  // that update instead of wiping Connect/Continue.
   // Do not short-circuit on staged approval overlays — rebuild so sibling
   // pending approvals remain visible after a partial allow.
   const liveCustom = activeStream.update.metadata?.custom;
@@ -1837,6 +1837,8 @@ export async function* streamTurnEvents(
     return { content: yieldContent() ?? [], sequenceNumber };
   };
 
+  let yieldedPaused = false;
+
   for await (const data of stream) {
     const event = data.event;
 
@@ -1873,8 +1875,8 @@ export async function* streamTurnEvents(
         continue;
       }
 
-      // A paused SSE segment ending is expected. The logical turn remains
-      // active and can only transition back to running through server events.
+      // Pause is in-stream: the same SSE continues through apply-only echoes,
+      // turn.update running, and turn.done. Do not detach the consumer.
       yield withSandbox({
         ...buildRequiredActionUpdate(),
         sequenceNumber: data.sequenceNumber,
@@ -1883,7 +1885,8 @@ export async function* streamTurnEvents(
           actionRequiredOnEvents: event.state.actionRequiredOnEvents,
         },
       });
-      return;
+      yieldedPaused = true;
+      continue;
     }
 
     if (event.type === EVENT_TYPE.TURN_DONE) {
@@ -1913,13 +1916,15 @@ export async function* streamTurnEvents(
 
   if (foldStillNeedsUserInput()) {
     // Subscribe can end after a partial user.tool_approval with no turn.update.
-    yield withSandbox({
-      ...buildRequiredActionUpdate(),
-      turnState: {
-        status: TURN_STATUS.PAUSED,
-        actionRequiredOnEvents: [],
-      },
-    });
+    if (!yieldedPaused) {
+      yield withSandbox({
+        ...buildRequiredActionUpdate(),
+        turnState: {
+          status: TURN_STATUS.PAUSED,
+          actionRequiredOnEvents: [],
+        },
+      });
+    }
     return;
   }
 

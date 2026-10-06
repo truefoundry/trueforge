@@ -306,7 +306,7 @@ describe('streamTurn', () => {
       expect(updates).toEqual([{ content: [{ type: 'text', text: 'resumed' }], sequenceNumber: 2 }]);
     });
 
-    it('ends a stream segment at paused without terminalizing the turn', async () => {
+    it('keeps draining after paused until turn.done', async () => {
       const subscribeToTurn = vi.fn(async function* () {
         yield streamData(2, {
           type: 'model.message',
@@ -338,6 +338,20 @@ describe('streamTurn', () => {
             actionRequiredOnEvents: [{ id: 'approval-required-1' }],
           },
         });
+        yield streamData(5, {
+          type: 'turn.update',
+          id: 'run-1',
+          createdAt,
+          threadId: null,
+          state: { status: 'running' },
+        });
+        yield streamData(6, {
+          type: 'turn.done',
+          id: 'done-1',
+          createdAt,
+          threadId: null,
+          state: { status: 'done', requiredActions: [], completedAt: createdAt },
+        });
       });
       const server = mockServer({ subscribeToTurn });
 
@@ -345,14 +359,27 @@ describe('streamTurn', () => {
         resumeTurnStream(server, SESSION_ID, 'turn-1', new PeerThreadFoldState(), new AbortController().signal, 1),
       );
 
-      expect(updates.at(-1)).toMatchObject({
-        sequenceNumber: 4,
-        status: { type: 'requires-action', reason: 'tool-calls' },
-        turnState: {
-          status: 'paused',
-          actionRequiredOnEvents: [{ id: 'approval-required-1' }],
+      expect(updates).toMatchObject([
+        { sequenceNumber: 2 },
+        { sequenceNumber: 3 },
+        {
+          sequenceNumber: 4,
+          status: { type: 'requires-action', reason: 'tool-calls' },
+          turnState: {
+            status: 'paused',
+            actionRequiredOnEvents: [{ id: 'approval-required-1' }],
+          },
         },
-      });
+        {
+          sequenceNumber: 5,
+          status: { type: 'running' },
+          turnState: { status: 'running' },
+        },
+        {
+          sequenceNumber: 6,
+          turnState: { status: 'done' },
+        },
+      ]);
     });
 
     it('returns early when aborted before streaming starts', async () => {

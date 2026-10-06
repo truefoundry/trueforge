@@ -1,7 +1,7 @@
 - One server session maps to one assistant-ui thread (`session.id` is the thread `remoteId`).
 - The root thread id is always `main`; sub-agent threads nest beneath their creating tool call.
 - The runtime accepts a ready `AgentUIServer` and MUST NOT own credentials or construct backend clients.
-- A logical turn MAY span multiple SSE segments; a paused segment ending MUST NOT complete the turn.
+- Pause is in-stream: a `turn.update` paused event MUST NOT complete the stream consumer. Keep draining until `turn.done`.
 - Required-action responses MUST be sent to the existing turn through `sendTurnEvents`; only the server may transition it back to running.
 - The inbound event union MUST stay aligned with backend approval, response, approval-policy, and MCP-auth-continue events.
 - `subscribeToTurn` is transport reconnection, never an execution-resume command.

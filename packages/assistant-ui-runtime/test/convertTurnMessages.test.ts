@@ -1674,6 +1674,143 @@ describe('convertTurnMessages', () => {
       expect(pending[0]).toMatchObject({ toolCallId: 'approval-2' });
     });
 
+    it('keeps draining after pause through an apply-only echo then running', async () => {
+      const foldState = new PeerThreadFoldState();
+      const updates = await collectStream(
+        streamTurnEvents(
+          streamFrom([
+            modelMessage({
+              id: 'm1',
+              threadId: ROOT_THREAD_ID,
+              content: 'run tools',
+              toolCalls: [
+                {
+                  id: 'approval-1',
+                  type: 'function',
+                  function: { name: 'bash', arguments: '{}' },
+                },
+                {
+                  id: 'approval-2',
+                  type: 'function',
+                  function: { name: 'bash', arguments: '{}' },
+                },
+              ],
+            }),
+            approvalRequired({
+              id: 'approval-event',
+              threadId: ROOT_THREAD_ID,
+              toolCalls: [
+                { id: 'approval-1', sourceEventId: 'm1' },
+                { id: 'approval-2', sourceEventId: 'm1' },
+              ],
+            }),
+            {
+              type: 'turn.update',
+              id: 'pause-1',
+              createdAt,
+              threadId: null,
+              state: { status: 'paused', actionRequiredOnEvents: [] },
+            },
+            {
+              type: 'user.tool_approval',
+              id: 'user-approval-1',
+              createdAt,
+              threadId: ROOT_THREAD_ID,
+              toolCallId: 'approval-1',
+              approval: { status: 'allow' },
+            },
+            {
+              type: 'turn.update',
+              id: 'run-1',
+              createdAt,
+              threadId: null,
+              state: { status: 'running' },
+            },
+          ]),
+          foldState,
+        ),
+      );
+
+      const paused = updates.find(update => update.turnState?.status === 'paused');
+      expect(paused?.status).toEqual({ type: 'requires-action', reason: 'tool-calls' });
+
+      const afterEcho = updates.filter(update => update.sequenceNumber === 4);
+      expect(afterEcho.at(-1)?.status).toEqual({ type: 'requires-action', reason: 'tool-calls' });
+      expect(afterEcho.at(-1)?.turnState).toMatchObject({ status: 'paused' });
+      const echoContent = afterEcho.at(-1)?.content ?? [];
+      expect(echoContent.filter(part => part.type === 'tool-call' && part.approval?.approved === true)).toHaveLength(1);
+      expect(
+        echoContent.filter(part => part.type === 'tool-call' && part.approval != null && part.approval.approved === undefined),
+      ).toHaveLength(1);
+
+      expect(updates.at(-1)).toMatchObject({
+        status: { type: 'running' },
+        turnState: { status: 'running' },
+      });
+    });
+
+    it('folds a later approval_required after pause without another turn.update paused', async () => {
+      const foldState = new PeerThreadFoldState();
+      const updates = await collectStream(
+        streamTurnEvents(
+          streamFrom([
+            modelMessage({
+              id: 'm1',
+              threadId: ROOT_THREAD_ID,
+              content: 'first tool',
+              toolCalls: [
+                {
+                  id: 'approval-1',
+                  type: 'function',
+                  function: { name: 'bash', arguments: '{}' },
+                },
+              ],
+            }),
+            approvalRequired({
+              id: 'approval-event-1',
+              threadId: ROOT_THREAD_ID,
+              toolCalls: [{ id: 'approval-1', sourceEventId: 'm1' }],
+            }),
+            {
+              type: 'turn.update',
+              id: 'pause-1',
+              createdAt,
+              threadId: null,
+              state: { status: 'paused', actionRequiredOnEvents: [] },
+            },
+            modelMessage({
+              id: 'm2',
+              threadId: ROOT_THREAD_ID,
+              content: 'second tool',
+              toolCalls: [
+                {
+                  id: 'approval-2',
+                  type: 'function',
+                  function: { name: 'bash', arguments: '{}' },
+                },
+              ],
+            }),
+            approvalRequired({
+              id: 'approval-event-2',
+              threadId: ROOT_THREAD_ID,
+              toolCalls: [{ id: 'approval-2', sourceEventId: 'm2' }],
+            }),
+          ]),
+          foldState,
+        ),
+      );
+
+      const final = updates.at(-1);
+      expect(final?.status).toEqual({ type: 'requires-action', reason: 'tool-calls' });
+      const pending = (final?.content ?? []).filter(
+        part => part.type === 'tool-call' && part.approval != null && part.approval.approved === undefined,
+      );
+      expect(pending.map(part => (part.type === 'tool-call' ? part.toolCallId : undefined))).toEqual([
+        'approval-1',
+        'approval-2',
+      ]);
+    });
+
     it('defers mcp auth until stream end and appends auth prompt', async () => {
       const foldState = new PeerThreadFoldState();
       const updates = await collectStream(
