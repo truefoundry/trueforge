@@ -346,7 +346,7 @@ export function EnvironmentFormFields({
                     update({ secrets });
                   }}
                 />
-                <span className="text-xs text-text-secondary">Comma-separated hosts this secret is sent to.</span>
+                <span className="text-xs text-text-secondary">Hosts allowed to resolve secret (comma-separated).</span>
               </div>
             </div>
           ))}
