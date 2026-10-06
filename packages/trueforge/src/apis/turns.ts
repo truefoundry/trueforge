@@ -23,10 +23,12 @@ import {
   isFileContentPart,
   McpConnectionError,
   newEventId,
+  PromiseTimeoutError,
   rawSandboxId,
   redisKey,
   SandboxError,
   VercelAILLM,
+  withTimeout,
 } from '@truefoundry/trueforge-core/core';
 import type { Context } from 'hono';
 import { HTTPException } from 'hono/http-exception';
@@ -820,26 +822,40 @@ export function createTurnsRouter(deps: TurnsRouterDeps) {
         return c.json({ data: toWireTurn(turn.record) }, 200);
       }
 
-      // Stream: same engine; HTTP handler owns writing each event to SSE.
+      // Stream: same engine; a hung SSE write is timed out so drain/dual-write continue.
       const { drainInput } = await beginTurnExecution(turnParams);
       let shouldWriteToSSEStream = true;
       return streamSSE(c, async stream => {
         stream.onAbort(() => {
           shouldWriteToSSEStream = false;
+          deps.logger.info('Create-turn SSE client disconnected, continuing drain without writing', {
+            sessionId,
+            turnId: drainInput.turnId,
+          });
         });
         await drainTurnEvents({
           ...drainInput,
           onEvent: async (event, sequenceNumber) => {
             if (!stream.closed && !stream.aborted && shouldWriteToSSEStream) {
               try {
-                await stream.writeSSE(turnEventSsePayload(event, sequenceNumber));
+                await withTimeout(
+                  stream.writeSSE(turnEventSsePayload(event, sequenceNumber)),
+                  configuration.TURN_SSE_STREAM_WRITE_TIMEOUT_MS,
+                );
               } catch (error) {
-                deps.logger.error('SSE stream write error', extractErrorLogFields(error));
+                if (error instanceof PromiseTimeoutError) {
+                  deps.logger.error('SSE stream write timed out', extractErrorLogFields(error));
+                } else {
+                  deps.logger.error('SSE stream write error', extractErrorLogFields(error));
+                }
                 shouldWriteToSSEStream = false;
               }
             }
           },
         });
+        if (!shouldWriteToSSEStream && !stream.closed) {
+          stream.abort();
+        }
         await stream.close();
       });
     } catch (error) {
