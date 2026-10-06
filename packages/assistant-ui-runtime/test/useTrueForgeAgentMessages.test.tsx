@@ -6,7 +6,11 @@ import type { AgentChatServer, Turn } from '../src/server/index.js';
 
 import { collectPendingToolResponses } from '../src/collectPending.js';
 import { ROOT_THREAD_ID } from '../src/constants.js';
-import { prependOlderSessionHistory, TurnFailedError } from '../src/convertTurnMessages.js';
+import {
+  prependOlderSessionHistory,
+  TurnFailedError,
+  TurnStreamDisconnectedError,
+} from '../src/convertTurnMessages.js';
 import { buildRootAssistantContent, ingestTurnEvent, PeerThreadFoldState } from '../src/foldPeerThreads.js';
 import { loadSessionSnapshot } from '../src/loadSessionSnapshot.js';
 import { createEmptySessionSnapshot, replaceSessionSnapshot, type SessionSnapshot } from '../src/sessionSnapshot.js';
@@ -2047,6 +2051,50 @@ describe('useTrueForgeAgentMessages', () => {
       sendPromise = result.current.sendTurn({ userMessage: 'hello' });
     });
     await delayReady;
+
+    await act(async () => {
+      await result.current.cancel();
+      await sendPromise;
+    });
+
+    expect(resumeTurnStream).not.toHaveBeenCalled();
+    expect(mockServer.cancelSession).toHaveBeenCalledWith({ sessionId: 'session-1' });
+    expect(result.current.isRunning).toBe(false);
+    expect(onError).not.toHaveBeenCalled();
+  });
+
+  it('does not subscribe-retry when a cancelled live stream drops without turn.done', async () => {
+    const onError = vi.fn();
+    let dropStream: (() => void) | undefined;
+    vi.mocked(streamTurnContent).mockImplementation(
+      async function* (_server, _sessionId, _fold, _options, _signal, _baseline, onTurnIdAvailable) {
+        onTurnIdAvailable?.('gateway-turn-cancel-drop');
+        yield { content: [{ type: 'text' as const, text: 'partial' }], sequenceNumber: 1 };
+        await new Promise<void>((_resolve, reject) => {
+          dropStream = () => {
+            reject(new TurnStreamDisconnectedError());
+          };
+        });
+      },
+    );
+    vi.mocked(mockServer.cancelSession).mockImplementation(async () => {
+      dropStream?.();
+    });
+
+    const { result } = renderHook(() =>
+      useTrueForgeAgentMessages({
+        server: mockServer,
+        sessionId: 'session-1',
+        onError,
+      }),
+    );
+    await waitFor(() => expect(result.current.isLoading).toBe(false));
+
+    let sendPromise: Promise<void> | undefined;
+    await act(async () => {
+      sendPromise = result.current.sendTurn({ userMessage: 'hello' });
+    });
+    await waitFor(() => expect(result.current.isRunning).toBe(true));
 
     await act(async () => {
       await result.current.cancel();

@@ -487,6 +487,7 @@ export function useTrueForgeAgentMessages({
   const loadGenerationRef = useRef(0);
   const streamGenerationRef = useRef(0);
   const streamReconnectPendingRef = useRef(false);
+  const cancelRequestedRef = useRef(false);
   const lazilyCreatedSessionIdRef = useRef<string | undefined>(undefined);
   const initialLoadStartedForRef = useRef<string | undefined>(undefined);
   const skipInitialPromotionLoadForRef = useRef<string | undefined>(undefined);
@@ -536,6 +537,7 @@ export function useTrueForgeAgentMessages({
       abortControllerRef.current?.abort();
       const abortController = new AbortController();
       abortControllerRef.current = abortController;
+      cancelRequestedRef.current = false;
       setIsRunning(true);
       // This stream's `finally` owns the running flag from here on.
       markResumeUnavailable(false);
@@ -624,6 +626,12 @@ export function useTrueForgeAgentMessages({
               if (isAbortError(error) || streamGeneration !== streamGenerationRef.current) {
                 return;
               }
+              // Cancel keeps consuming a healthy live SSE for turn.done. A
+              // drop after cancelSession must not start subscribe-retry.
+              if (cancelRequestedRef.current) {
+                abortController.abort();
+                return;
+              }
               const canSubscribe =
                 server.subscribeToTurn != null &&
                 reconnect.gatewayTurnAccepted.current &&
@@ -634,6 +642,8 @@ export function useTrueForgeAgentMessages({
               }
               consecutiveFailures += 1;
               useSubscribe = true;
+              // Stay pending through delay and the subscribe attempt so
+              // cancel aborts a reconnect SSE, not only the wait.
               streamReconnectPendingRef.current = true;
               try {
                 await delayReconnect(abortController.signal);
@@ -642,11 +652,6 @@ export function useTrueForgeAgentMessages({
                   return;
                 }
                 throw error;
-              } finally {
-                streamReconnectPendingRef.current = false;
-              }
-              if (streamGeneration !== streamGenerationRef.current) {
-                return;
               }
             }
           }
@@ -1082,13 +1087,14 @@ export function useTrueForgeAgentMessages({
       abortControllerRef.current?.abort();
       return;
     }
+    cancelRequestedRef.current = true;
     const conversationSessionId = await resolveActiveSessionId(
       activeSessionId,
       resolveConversationSessionIdRef.current,
     );
-    // A live SSE is drained for cancelled turn.done. After a drop we are only
-    // waiting to resubscribe — abort that wait so cancel cannot start a new
-    // subscribe that finishes empty and looks like a completed turn.
+    // Drain a healthy live SSE for cancelled turn.done. Abort reconnect
+    // waits and reconnect subscribe so cancel cannot start or keep a new
+    // subscribe after the live stream dropped.
     if (streamReconnectPendingRef.current) {
       abortControllerRef.current?.abort();
     }
