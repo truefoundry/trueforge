@@ -1838,8 +1838,10 @@ export async function* streamTurnEvents(
   };
 
   let yieldedPaused = false;
+  let lastSequenceNumber: number | undefined;
 
   for await (const data of stream) {
+    lastSequenceNumber = data.sequenceNumber ?? lastSequenceNumber;
     const event = data.event;
 
     if (event.type === EVENT_TYPE.TURN_CREATED) {
@@ -1919,6 +1921,7 @@ export async function* streamTurnEvents(
     if (!yieldedPaused) {
       yield withSandbox({
         ...buildRequiredActionUpdate(),
+        ...(lastSequenceNumber != null ? { sequenceNumber: lastSequenceNumber } : {}),
         turnState: {
           status: TURN_STATUS.PAUSED,
           actionRequiredOnEvents: [],

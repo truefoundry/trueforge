@@ -510,12 +510,15 @@ export function useTrueForgeAgentMessages({
                 mcpServers,
               };
             }
+            const lastSequenceNumber =
+              update.sequenceNumber ??
+              (prev.activeStream?.turnId === turnIdRef.current ? prev.activeStream.lastSequenceNumber : undefined);
             const next = replaceSessionSnapshot(prev, {
               activeStream: {
                 turnId: turnIdRef.current,
                 update,
                 segmentStatus,
-                ...(update.sequenceNumber != null ? { lastSequenceNumber: update.sequenceNumber } : {}),
+                ...(lastSequenceNumber != null ? { lastSequenceNumber } : {}),
               },
               pendingMcpAuth,
               ...(activeTurn != null ? { activeTurn } : {}),
@@ -1087,18 +1090,15 @@ export function useTrueForgeAgentMessages({
           threadId: pending.threadId,
           toolCallId: response.approvalId,
         });
-        if (target == null) {
-          const error = new Error(`MCP policy target not found for approval: ${response.approvalId}`);
-          onErrorRef.current?.(error);
-          throw error;
-        }
-        const policyEvent: UserToolApprovalPolicyInputEvent = {
-          type: EVENT_TYPE.USER_TOOL_APPROVAL_POLICY,
-          policies: [{ ...target, policy: response.policy }],
-        };
-        events.push(policyEvent);
-        for (const toolCallId of collectPendingApprovalIdsMatchingPolicy(previous.fold, target)) {
-          approvals.set(toolCallId, { approved: true });
+        if (target != null) {
+          const policyEvent: UserToolApprovalPolicyInputEvent = {
+            type: EVENT_TYPE.USER_TOOL_APPROVAL_POLICY,
+            policies: [{ ...target, policy: response.policy }],
+          };
+          events.push(policyEvent);
+          for (const toolCallId of collectPendingApprovalIdsMatchingPolicy(previous.fold, target)) {
+            approvals.set(toolCallId, { approved: true });
+          }
         }
       }
       approvals.set(response.approvalId, {

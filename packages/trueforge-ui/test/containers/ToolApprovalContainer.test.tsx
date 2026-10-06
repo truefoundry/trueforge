@@ -90,11 +90,25 @@ describe('ToolApprovalContainer', () => {
 
     const probe = screen.getByTestId('approval-probe');
     expect(probe).toHaveAttribute('data-tool-name', 'shell');
-    expect(probe).toHaveAttribute('data-approve-variants', 'primary|secondary|secondary');
+    expect(probe).toHaveAttribute('data-approve-variants', 'primary');
     expect(probe).toHaveAttribute('data-deny-requires-reason', 'true');
 
     fireEvent.click(screen.getByRole('button', { name: 'Approve once' }));
     await waitFor(() => expect(onRespond).toHaveBeenCalledWith({ approvalId: 'approval-1', approved: true }));
+  });
+
+  it('offers session policy choices for deferred MCP call_tool args', () => {
+    const onRespond = vi.fn().mockResolvedValue(undefined);
+    renderSubject(onRespond, {
+      toolName: 'call_tool',
+      argsText: JSON.stringify({ mcp_server: 'github', tool_name: 'search' }),
+    });
+
+    expect(screen.getByTestId('approval-probe')).toHaveAttribute(
+      'data-approve-variants',
+      'primary|secondary|secondary',
+    );
+    expect(screen.getByRole('button', { name: 'Approve this tool in this session' })).toBeTruthy();
   });
 
   it('shows MCP inner tool name with server when args include both fields', () => {

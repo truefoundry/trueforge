@@ -1672,6 +1672,7 @@ describe('convertTurnMessages', () => {
       expect(approved).toHaveLength(1);
       expect(pending).toHaveLength(1);
       expect(pending[0]).toMatchObject({ toolCallId: 'approval-2' });
+      expect(final?.sequenceNumber).toBe(1);
     });
 
     it('keeps draining after pause through an apply-only echo then running', async () => {

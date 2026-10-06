@@ -226,6 +226,7 @@ const expectedRuntimeExports: Array<keyof typeof sdk> = [
   'useTrueForgeAgentSpec',
   'useTrueForgeApprovals',
   'useTrueForgeCancel',
+  'useTrueForgeContinueMcpAuth',
   'useTrueForgeDownloadSandboxFile',
   'useTrueForgeHistoryPagination',
   'useTrueForgeMcpAuth',

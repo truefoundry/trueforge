@@ -1,7 +1,12 @@
 import { TOOL_APPROVAL_POLICY_ACTION_TYPE } from '@truefoundry/trueforge-assistant-ui-runtime';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 
-import { approvalResponseForChoice, TEN_MINUTES_MS, TOOL_APPROVAL_OPTION_ID } from '@/utils/toolApprovalOptions.js';
+import {
+  approvalChoicesForTool,
+  approvalResponseForChoice,
+  TEN_MINUTES_MS,
+  TOOL_APPROVAL_OPTION_ID,
+} from '@/utils/toolApprovalOptions.js';
 
 describe('toolApprovalOptions', () => {
   afterEach(() => {
@@ -54,5 +59,24 @@ describe('toolApprovalOptions', () => {
         reason: 'unsafe',
       }),
     ).toEqual({ approvalId: 'approval-1', approved: false, reason: 'unsafe' });
+  });
+
+  it('omits session policy choices unless call_tool args name an MCP target', () => {
+    expect(approvalChoicesForTool().map(choice => choice.id)).toEqual([
+      TOOL_APPROVAL_OPTION_ID.APPROVE_ONCE,
+      TOOL_APPROVAL_OPTION_ID.DENY,
+    ]);
+    expect(approvalChoicesForTool(JSON.stringify({ command: 'ls' })).map(choice => choice.id)).toEqual([
+      TOOL_APPROVAL_OPTION_ID.APPROVE_ONCE,
+      TOOL_APPROVAL_OPTION_ID.DENY,
+    ]);
+    expect(
+      approvalChoicesForTool(JSON.stringify({ mcp_server: 'github', tool_name: 'search' })).map(choice => choice.id),
+    ).toEqual([
+      TOOL_APPROVAL_OPTION_ID.APPROVE_ONCE,
+      TOOL_APPROVAL_OPTION_ID.APPROVE_TEN_MINUTES,
+      TOOL_APPROVAL_OPTION_ID.APPROVE_SESSION,
+      TOOL_APPROVAL_OPTION_ID.DENY,
+    ]);
   });
 });

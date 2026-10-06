@@ -6,6 +6,7 @@ import { useCallback, useMemo, useState } from 'react';
 import type { ApprovalOption } from '../atoms/ToolApprovalBar.js';
 
 import {
+  approvalChoicesForTool,
   approvalResponseForChoice,
   TOOL_APPROVAL_CHOICES,
   TOOL_APPROVAL_OPTION_ID,
@@ -44,11 +45,11 @@ export function ToolApprovalContainer({ approvalId, toolName = '', argsText, onR
   const [isSubmitting, setIsSubmitting] = useState(false);
   const options = useMemo<ToolApprovalOption[]>(
     () =>
-      TOOL_APPROVAL_CHOICES.map(option => ({
+      approvalChoicesForTool(argsText).map(option => ({
         ...option,
         ...(option.id === TOOL_APPROVAL_OPTION_ID.DENY ? { confirm: {} } : {}),
       })),
-    [],
+    [argsText],
   );
   const approveOptions = useMemo<ApprovalOption[]>(
     () =>

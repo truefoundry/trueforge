@@ -1361,7 +1361,7 @@ describe('useTrueForgeAgentMessages', () => {
     });
   });
 
-  it('rejects a policy when the approval has no MCP target', async () => {
+  it('sends allow-once when a policy is requested without an MCP target', async () => {
     vi.mocked(loadSessionSnapshot).mockResolvedValue(
       snapshotWithAssistantMessage(assistantMessageWithPendingApproval()),
     );
@@ -1372,17 +1372,26 @@ describe('useTrueForgeAgentMessages', () => {
     await waitFor(() => expect(result.current.messages).toHaveLength(1));
 
     await act(async () => {
-      await expect(
-        result.current.respondToToolApproval({
-          approvalId: 'approval-1',
-          approved: true,
-          policy: { type: TOOL_APPROVAL_POLICY_ACTION_TYPE.ALLOW_SESSION },
-        }),
-      ).rejects.toThrow('MCP policy target not found');
+      await result.current.respondToToolApproval({
+        approvalId: 'approval-1',
+        approved: true,
+        policy: { type: TOOL_APPROVAL_POLICY_ACTION_TYPE.ALLOW_SESSION },
+      });
     });
 
-    expect(mockServer.sendTurnEvents).not.toHaveBeenCalled();
-    expect(onError).toHaveBeenCalledWith(expect.any(Error));
+    expect(mockServer.sendTurnEvents).toHaveBeenCalledWith({
+      sessionId: 'session-1',
+      turnId: 'turn-1',
+      events: [
+        {
+          type: 'user.tool_approval',
+          threadId: ROOT_THREAD_ID,
+          toolCallId: 'approval-1',
+          approval: { status: 'allow' },
+        },
+      ],
+    });
+    expect(onError).not.toHaveBeenCalled();
   });
 
   it('submits each required action immediately on the same turn', async () => {

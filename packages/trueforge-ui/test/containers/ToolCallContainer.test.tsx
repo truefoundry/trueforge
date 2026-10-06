@@ -1,6 +1,6 @@
 // @vitest-environment jsdom
 import { ThreadPrimitive, type ThreadMessage, type ThreadMessageLike } from '@assistant-ui/react';
-import { fireEvent, render, screen } from '@testing-library/react';
+import { fireEvent, render, screen, waitFor } from '@testing-library/react';
 import { describe, expect, it, vi } from 'vitest';
 
 import type { AskUserPromptProps } from '@/atoms/adapters/AskUserPromptAdapter.js';
@@ -22,6 +22,10 @@ vi.mock('@truefoundry/trueforge-assistant-ui-runtime', async importOriginal => {
     useTrueForgeRespondToToolApproval: () => respondToNestedApproval,
   };
 });
+
+function openApprovalMenu() {
+  fireEvent.click(screen.getByRole('button', { name: 'Approve once' }));
+}
 
 function renderToolCallMessage(content: ThreadMessageLike['content'], overrides?: SlotOverrides) {
   const message: ThreadMessageLike = { role: 'assistant', content };
@@ -58,17 +62,14 @@ function createSubAgentCardProbe() {
 }
 
 /** Pending approvals only surface part-level "requires-action" when the whole message is flagged too. */
-function renderPendingApprovalMessage(
-  content: ThreadMessageLike['content'],
-  options?: { onRespondToToolApproval?: (o: unknown) => void },
-) {
+function renderPendingApprovalMessage(content: ThreadMessageLike['content']) {
   const message: ThreadMessageLike = {
     role: 'assistant',
     content,
     status: { type: 'requires-action', reason: 'tool-calls' },
   };
   return render(
-    <RuntimeHarness messages={[message]} onRespondToToolApproval={options?.onRespondToToolApproval}>
+    <RuntimeHarness messages={[message]}>
       <ThreadPrimitive.Messages>{() => <AssistantMessageContainer />}</ThreadPrimitive.Messages>
     </RuntimeHarness>,
   );
@@ -296,7 +297,8 @@ describe('ToolCallContainer', () => {
       </SlotsProvider>,
     );
 
-    fireEvent.click(screen.getByRole('button', { name: 'Allow' }));
+    openApprovalMenu();
+    fireEvent.click(screen.getByRole('menuitem', { name: 'Approve once' }));
     expect(respondToNestedApproval).toHaveBeenCalledWith(
       expect.objectContaining({ approvalId: 'nested-approval-1', approved: true }),
     );
@@ -313,8 +315,9 @@ describe('ToolCallContainer', () => {
         approval: { id: 'approval-1', approved: undefined },
       },
     ]);
-    expect(screen.getByRole('button', { name: 'Allow' })).toBeInTheDocument();
-    expect(screen.getByRole('button', { name: 'Deny' })).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'Approve once' })).toBeInTheDocument();
+    openApprovalMenu();
+    expect(screen.getByRole('menuitem', { name: 'Deny' })).toBeInTheDocument();
   });
 
   it('shows the approval bar for a pending sandbox call', () => {
@@ -330,8 +333,9 @@ describe('ToolCallContainer', () => {
       },
     ]);
 
-    expect(screen.getByRole('button', { name: 'Allow' })).toBeInTheDocument();
-    expect(screen.getByRole('button', { name: 'Deny' })).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'Approve once' })).toBeInTheDocument();
+    openApprovalMenu();
+    expect(screen.getByRole('menuitem', { name: 'Deny' })).toBeInTheDocument();
   });
 
   it('shows the approval bar for a pending list_tools call', () => {
@@ -347,57 +351,58 @@ describe('ToolCallContainer', () => {
       },
     ]);
 
-    expect(screen.getByRole('button', { name: 'Allow' })).toBeInTheDocument();
-    expect(screen.getByRole('button', { name: 'Deny' })).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'Approve once' })).toBeInTheDocument();
+    openApprovalMenu();
+    expect(screen.getByRole('menuitem', { name: 'Deny' })).toBeInTheDocument();
   });
 
-  it('calls onRespondToToolApproval when Allow is clicked', () => {
-    const onRespondToToolApproval = vi.fn();
-    renderPendingApprovalMessage(
-      [
-        {
-          type: 'tool-call',
-          toolCallId: '1',
-          toolName: 'delete_file',
-          args: {},
-          interrupt: { type: 'human', payload: {} },
-          approval: { id: 'approval-1', approved: undefined },
-        },
-      ],
-      { onRespondToToolApproval },
-    );
-    fireEvent.click(screen.getByRole('button', { name: 'Allow' }));
-    expect(onRespondToToolApproval).toHaveBeenCalledWith(
-      expect.objectContaining({ approvalId: 'approval-1', approved: true }),
+  it('calls onRespondToToolApproval when Allow is clicked', async () => {
+    respondToNestedApproval.mockClear();
+    renderPendingApprovalMessage([
+      {
+        type: 'tool-call',
+        toolCallId: '1',
+        toolName: 'delete_file',
+        args: {},
+        interrupt: { type: 'human', payload: {} },
+        approval: { id: 'approval-1', approved: undefined },
+      },
+    ]);
+    openApprovalMenu();
+    fireEvent.click(screen.getByRole('menuitem', { name: 'Approve once' }));
+    await waitFor(() =>
+      expect(respondToNestedApproval).toHaveBeenCalledWith(
+        expect.objectContaining({ approvalId: 'approval-1', approved: true }),
+      ),
     );
   });
 
-  it('includes the denial reason when Deny is submitted', () => {
-    const onRespondToToolApproval = vi.fn();
-    renderPendingApprovalMessage(
-      [
-        {
-          type: 'tool-call',
-          toolCallId: '1',
-          toolName: 'delete_file',
-          args: {},
-          interrupt: { type: 'human', payload: {} },
-          approval: { id: 'approval-1', approved: undefined },
-        },
-      ],
-      { onRespondToToolApproval },
-    );
-    fireEvent.click(screen.getByRole('button', { name: 'Deny' }));
+  it('includes the denial reason when Deny is submitted', async () => {
+    respondToNestedApproval.mockClear();
+    renderPendingApprovalMessage([
+      {
+        type: 'tool-call',
+        toolCallId: '1',
+        toolName: 'delete_file',
+        args: {},
+        interrupt: { type: 'human', payload: {} },
+        approval: { id: 'approval-1', approved: undefined },
+      },
+    ]);
+    openApprovalMenu();
+    fireEvent.click(screen.getByRole('menuitem', { name: 'Deny' }));
     fireEvent.change(screen.getByPlaceholderText('Enter reason for denial'), {
       target: { value: 'Denied by user' },
     });
     fireEvent.click(screen.getByRole('button', { name: 'Submit' }));
-    expect(onRespondToToolApproval).toHaveBeenCalledWith(
-      expect.objectContaining({
-        approvalId: 'approval-1',
-        approved: false,
-        reason: 'Denied by user',
-      }),
+    await waitFor(() =>
+      expect(respondToNestedApproval).toHaveBeenCalledWith(
+        expect.objectContaining({
+          approvalId: 'approval-1',
+          approved: false,
+          reason: 'Denied by user',
+        }),
+      ),
     );
   });
 
@@ -419,11 +424,12 @@ describe('ToolCallContainer', () => {
         },
       },
     ]);
-    expect(screen.getByRole('button', { name: 'Allow' })).toBeInTheDocument();
-    expect(screen.getByRole('button', { name: 'Deny' })).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'Approve once' })).toBeInTheDocument();
+    openApprovalMenu();
+    expect(screen.getByRole('menuitem', { name: 'Deny' })).toBeInTheDocument();
   });
 
-  it('forwards confirmation copy and grants to the denial option', () => {
+  it('opens the denial reason field from the menu', () => {
     renderPendingApprovalMessage([
       {
         type: 'tool-call',
@@ -431,28 +437,13 @@ describe('ToolCallContainer', () => {
         toolName: 'run_migration',
         args: {},
         interrupt: { type: 'human', payload: {} },
-        approval: {
-          id: 'approval-1',
-          approved: undefined,
-          options: [
-            { id: 'opt-allow', kind: 'allow-once' },
-            {
-              id: 'opt-deny',
-              kind: 'reject-once',
-              grants: ['database:write'],
-              confirm: {
-                title: 'Confirm denial',
-                description: 'The migration will not run.',
-              },
-            },
-          ],
-        },
+        approval: { id: 'approval-1', approved: undefined },
       },
     ]);
-    fireEvent.click(screen.getByRole('button', { name: 'Deny' }));
-    expect(screen.getByText('Confirm denial')).toBeInTheDocument();
-    expect(screen.getByText('The migration will not run.')).toBeInTheDocument();
-    expect(screen.getByText('database:write')).toBeInTheDocument();
+    openApprovalMenu();
+    fireEvent.click(screen.getByRole('menuitem', { name: 'Deny' }));
+    expect(screen.getByPlaceholderText('Enter reason for denial')).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'Submit' })).toBeInTheDocument();
   });
 
   it.each([

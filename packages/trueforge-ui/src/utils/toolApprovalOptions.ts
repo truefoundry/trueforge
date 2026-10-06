@@ -3,6 +3,8 @@ import {
   type RespondToToolApprovalOptions,
 } from '@truefoundry/trueforge-assistant-ui-runtime';
 
+import { parseMcpToolArgs } from './toolCallParsing.js';
+
 export const TOOL_APPROVAL_OPTION_ID = {
   APPROVE_ONCE: 'approve-once',
   APPROVE_SESSION: 'approve-session',
@@ -33,6 +35,32 @@ export const TOOL_APPROVAL_CHOICES: readonly ToolApprovalChoice[] = [
   },
   { id: TOOL_APPROVAL_OPTION_ID.DENY, label: 'Deny', isAllow: false, requiresReason: true },
 ];
+
+const SESSION_POLICY_OPTION_IDS = new Set<ToolApprovalChoice['id']>([
+  TOOL_APPROVAL_OPTION_ID.APPROVE_SESSION,
+  TOOL_APPROVAL_OPTION_ID.APPROVE_TEN_MINUTES,
+]);
+
+// Session / 10-minute allow is a remembered yes. The backend can only store that
+// for an MCP tool, keyed by server name + inner tool name from call_tool args.
+// Hide those buttons when that pair is missing (shell, sandbox, incomplete args)
+// so the user is not offered a sticky allow that cannot be applied.
+export function toolSupportsSessionPolicy(argsText?: string): boolean {
+  const { mcpServer, innerToolName } = parseMcpToolArgs(argsText);
+  return (
+    typeof mcpServer === 'string' &&
+    mcpServer.length > 0 &&
+    typeof innerToolName === 'string' &&
+    innerToolName.length > 0
+  );
+}
+
+export function approvalChoicesForTool(argsText?: string): readonly ToolApprovalChoice[] {
+  if (toolSupportsSessionPolicy(argsText)) {
+    return TOOL_APPROVAL_CHOICES;
+  }
+  return TOOL_APPROVAL_CHOICES.filter(choice => !SESSION_POLICY_OPTION_IDS.has(choice.id));
+}
 
 export function approvalResponseForChoice({
   approvalId,
