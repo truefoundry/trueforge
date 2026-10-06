@@ -64,4 +64,6 @@ export async function up<DB>(db: Kysely<DB>): Promise<void> {
   });
 }
 
-export async function down<DB>(_db: Kysely<DB>): Promise<void> {}
+export function down(): Promise<void> {
+  return Promise.resolve();
+}
