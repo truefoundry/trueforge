@@ -1,5 +1,13 @@
 # @truefoundry/trueforge
 
+## 0.177.0-rc.4
+
+### Patch Changes
+
+- fc99f4e: Raise the default model HTTP headers timeout to 60 seconds so slow first-token responses are not dropped.
+- Updated dependencies [fc99f4e]
+  - @truefoundry/trueforge-core@0.177.0-rc.3
+
 ## 0.177.0-rc.3
 
 ### Patch Changes

@@ -1,5 +1,11 @@
 # @truefoundry/trueforge-assistant-ui-runtime
 
+## 0.177.0-rc.3
+
+### Patch Changes
+
+- fc99f4e: On refresh mid-turn, keep already-ingested running-tip model messages in live resume instead of hiding them behind the group baseline.
+
 ## 0.177.0-rc.2
 
 ### Patch Changes
