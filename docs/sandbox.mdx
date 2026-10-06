@@ -6,7 +6,7 @@ description: 'Connect an isolated execution environment for code, files, and she
 
 The sandbox gives your agent a secure, isolated environment to run code, manipulate files, and execute shell commands — separate from the TrueForge server and your infrastructure.
 
-Skills and [Code Mode](/key-features/code-mode) require a sandbox. Configure a provider once under **Settings → Sandbox providers**, then enable the sandbox on each agent that needs it.
+Skills and [Code Mode](/key-features/code-mode) require a sandbox. Configure a provider once under **Settings → Sandbox providers**, optionally create [environments](#environments), then enable the sandbox on each agent that needs it.
 
 ## TrueForge's approach
 
@@ -15,7 +15,7 @@ There are two common patterns for combining agents with sandboxes:
 | Pattern | Where the agent runs | Trade-off |
 | --- | --- | --- |
 | **Agent in sandbox** | Inside the sandbox image | Sandbox is provisioned even for the simplest request; secrets must live in the sandbox; updates mean rebuilding images |
-| **Sandbox as tool** | Outside, on the server | Sandbox is provisioned on demand when needed; secrets stay in the harness; sandbox is only for exec/files |
+| **Sandbox as tool** | Outside, on the server | Sandbox is provisioned on demand when needed; model and MCP credentials stay in the harness; sandbox is only for exec/files |
 
 TrueForge uses **sandbox as tool**: the agent loop and credentials stay in the harness; the sandbox only runs code, file, and shell operations.
 
@@ -32,12 +32,8 @@ That means:
 Open **Settings → Sandbox providers**, pick the [Daytona](https://www.daytona.io) preset from the catalog, and paste your API key.
 
 <Note>
-  The Daytona API key needs permission to create **snapshots**, not only sandboxes. The first time you configure the
-  provider, TrueForge builds a release snapshot in your Daytona account, and every sandbox it starts afterwards is
-  cloned from that snapshot. Create the key with **Sandboxes** access and **Snapshots** write (create) permission.
-
-  If the key is missing snapshot permission, configuring the provider fails 
-  even though the key is otherwise valid. If you hit that, check the key's permissions before regenerating it.
+  Create the Daytona API key with **write:sandboxes**, **write:snapshots**, **delete:snapshots**, and **manage:secrets**.
+  The save fails if those permissions are missing, even when the key is otherwise valid.
 </Note>
 
 <div style={{ position: "relative", boxSizing: "content-box", width: "100%", aspectRatio: "1.75", padding: "40px 0" }}>
@@ -53,6 +49,32 @@ Open **Settings → Sandbox providers**, pick the [Daytona](https://www.daytona.
 
 The provider presets come from the shipped sandbox catalog — see [Initial Setup](/harness/initial-setup#what-is-supported-out-of-the-box) for how catalogs work and how to change what the UI offers.
 
+## Environments
+
+A **sandbox environment** is the blueprint for sandboxes your agents create: base image and optional build script, CPU / memory / disk, environment variables, outbound network rules, and secrets.
+
+After the provider is configured, open **Environments** in the sidebar (or **Manage Environments** in the agent builder) to create named environments.
+
+<Note>
+  The tenant **default** environment is created for you when the provider is configured. It uses the platform sandbox
+  image and reserved name `default`. You cannot create or delete an environment named `default`.
+</Note>
+
+Use **New Environment**. Give it a name agents will reference, then set:
+
+| Field | What it controls | When it takes effect |
+| --- | --- | --- |
+| **Build script** | Shell that runs once while TrueForge builds a snapshot (for example `pip install httpx`) | Next **new** sandbox, after the environment is **Ready** |
+| **CPU / memory / disk** | Resources baked into that snapshot | Same as build script |
+| **Environment variables** | Ordinary `KEY=value` pairs in the sandbox process | When the sandbox is **created** (not live-updated on an existing sandbox) |
+| **Block all network** | No outbound network. Domain allow list and secrets are not used | When the sandbox is **created** |
+| **Domain allow list** | Comma-separated hosts the sandbox may reach | When the sandbox is **created** |
+| **Secrets** | Network-scoped credentials injected as env vars — see [Secrets](#secrets) | Value and host changes apply to **existing** sandboxes; newly **added** secrets apply on the next create |
+
+Status is **Building** until the snapshot is ready, then **Ready**. Only **Ready** environments can be selected on an agent. Changing the build script or resources starts a new snapshot; environment variables, networking, and secrets reuse the existing snapshot.
+
+Custom environments are owned by the user who created them. You cannot delete an environment while any saved agent still references it.
+
 ## Enabling the sandbox on an agent
 
 The sandbox is **off by default** per agent. Turn it on in the agent builder when you need code execution, skills, or Code Mode. You can also set `config.sandbox.enabled` in the [agent spec](/create-agent/overview#config) when creating agents via the SDK.
@@ -60,6 +82,41 @@ The sandbox is **off by default** per agent. Turn it on in the agent builder whe
 Optional controls:
 
 - **File downloads** — let users download files the agent produces (on by default in the chat UI).
+- **Environment** — which environment to clone (image, resources, network, secrets). Unset uses the tenant **default**. Via the API, set `config.sandbox.environment_name`; omit it to use `default`.
+
+A session reuses one sandbox across turns (files persist). The environment on the agent spec is resolved when that sandbox is provisioned.
+
+## Secrets
+
+Secrets are for credentials the **sandbox** needs for outbound calls (API tokens, git credentials). They are not model or MCP credentials — those stay in the harness. See [Credential safety](#credential-safety).
+
+Each secret has:
+
+- **Env name** — the environment variable in the sandbox (for example `GITHUB_TOKEN`)
+- **Value** — the credential. TrueForge does not persist plaintext; API and UI responses show a redacted stand-in. Leave that stand-in unchanged to keep the stored value, or type a new value to rotate.
+- **Hosts allowed to resolve secret** — destinations this secret may be sent to (comma-separated). The sandbox process can see the env var; the provider only forwards the value to those hosts.
+
+Secrets cannot be set when **Block all network** is on.
+
+### How secret changes affect sessions
+
+Saving the environment **syncs secrets to the sandbox provider immediately**, including while a snapshot rebuild is still **Building**. That is different from build script, resources, and ordinary environment variables.
+
+| You change | Existing session (sandbox already created) | New session (new sandbox) |
+| --- | --- | --- |
+| **Rotate the value** or **edit allowed hosts** of a secret the sandbox already has | Applies **immediately**. The next request from that sandbox uses the new value / hosts. You do not need a new chat. | Uses the updated secret |
+| **Add** a secret (new env name) | **Does not** appear in the already-created sandbox. Secrets are mounted only when the sandbox is created. | Gets the new secret |
+| **Remove** a secret | Injection **stops immediately** for that env name | Never receives it |
+| Ordinary **environment variables**, **domain allow list**, or **block all network** | Unchanged until this sandbox is gone and a new one is created | Uses the saved environment |
+| **Build script** or **CPU / memory / disk** | Keeps the old snapshot until a new sandbox is created | Waits until the environment is **Ready**, then uses the new snapshot |
+
+Idle stop archives the sandbox; after the provider **deletes** it, the next turn provisions a new sandbox and picks up add/remove secret, env vars, and networking as in the **New session** column.
+
+<Warning>
+  Rotating or deleting a secret is live for every running sandbox that already mounts it — including other chats using
+  the same environment. Adding a secret does not retrofit those sandboxes; start a new session (or wait until the old
+  sandbox is deleted) if the agent must see the new env var.
+</Warning>
 
 ## Lifecycle
 
@@ -71,3 +128,4 @@ Optional controls:
 
 - Model and MCP credentials stay in the harness.
 - MCP calls from [Code Mode](/key-features/code-mode) scripts are bridged back to the harness — the sandbox never holds those tokens.
+- Environment secrets are provider-managed and network-scoped. Rotating a value is live for existing session sandboxes; adding a secret is not. See [How secret changes affect sessions](#how-secret-changes-affect-sessions).
