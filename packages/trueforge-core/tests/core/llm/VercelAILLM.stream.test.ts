@@ -215,26 +215,26 @@ describe('describeStreamError', () => {
   });
 });
 
-const SOURCE = 'openai/prod/gpt';
+const MODEL_LABEL = 'prod/gpt';
 
 describe('toStreamError', () => {
   it('returns an abort unchanged', () => {
     const err = new Error('keep me');
     err.name = 'AbortError';
-    expect(toStreamError(err, SOURCE)).toBe(err);
+    expect(toStreamError(err, MODEL_LABEL)).toBe(err);
   });
 
   it('names the model call and keeps the original error as cause', () => {
     const err = new Error('Headers Timeout Error');
-    const wrapped = toStreamError(err, SOURCE);
-    expect(wrapped.message).toBe('Model request failed (openai/prod/gpt): Headers Timeout Error');
+    const wrapped = toStreamError(err, MODEL_LABEL);
+    expect(wrapped.message).toBe('Model request failed: prod/gpt: Headers Timeout Error');
     expect(wrapped.cause).toBe(err);
   });
 
   it('wraps plain objects using describeStreamError', () => {
-    const wrapped = toStreamError({ message: 'The requested model does not exist.' }, SOURCE);
+    const wrapped = toStreamError({ message: 'The requested model does not exist.' }, MODEL_LABEL);
     expect(wrapped).toBeInstanceOf(Error);
-    expect(wrapped.message).toBe('Model request failed (openai/prod/gpt): The requested model does not exist.');
+    expect(wrapped.message).toBe('Model request failed: prod/gpt: The requested model does not exist.');
     expect(wrapped.cause).toEqual({ message: 'The requested model does not exist.' });
   });
 });

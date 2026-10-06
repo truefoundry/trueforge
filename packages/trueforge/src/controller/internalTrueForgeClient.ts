@@ -4,6 +4,7 @@
 import { TrueForge } from '@truefoundry/trueforge-sdk';
 import configuration from '../config';
 import { createTlsFetch, normalizeTlsUrl } from '../http/tls';
+import { readLogContext, REQUEST_ID_HEADER } from '../logging/logContext';
 
 function createClient(): TrueForge {
   const tls = {
@@ -24,7 +25,12 @@ const client = createClient();
 /** Controller loops share this client for all internal HTTP handoffs. */
 export const internalTrueForgeClient = {
   async executeScheduleRun(scheduleRunId: string): Promise<void> {
-    await client.internal.schedules.executeRun({ scheduleRunId });
+    // Carries the dispatch's request id so the server's logs for this run share it.
+    const requestId = readLogContext()?.request_id;
+    await client.internal.schedules.executeRun(
+      { scheduleRunId },
+      requestId === undefined ? undefined : { headers: { [REQUEST_ID_HEADER]: requestId } },
+    );
   },
 
   async listPendingSandboxEnvironmentVersions(): Promise<string[]> {
