@@ -1,15 +1,7 @@
-import type { ToolApprovalOption as AuiToolApprovalOption, ToolCallMessagePartProps } from '@assistant-ui/react';
+import type { ToolCallMessagePartProps } from '@assistant-ui/react';
 import { parse as parsePartialJson } from 'partial-json';
 
 import type { ToolCallStatus } from '../atoms/ToolCallCard.js';
-
-export type ApprovalOptionView = {
-  id: string;
-  label: string;
-  isAllow: boolean;
-  grants?: unknown;
-  confirm?: Record<string, unknown>;
-};
 
 export const SUB_AGENT_TOOL_NAME = 'create_sub_agent';
 export const ASK_USER_TOOL_NAME = 'ask_user_question';
@@ -19,15 +11,6 @@ export const SANDBOX_TOOL_NAMES = new Set(['exec', 'sandbox_exec']);
 
 /** MCP meta-tools that wrap actual tool calls (deferred tool loading). */
 export const MCP_META_TOOLS = new Set(['call_tool', 'list_tools', 'get_tool_info', 'get_tool_output_schema']);
-
-const APPROVAL_OPTION_DEFAULT_LABELS: Record<string, string> = {
-  'allow-once': 'Allow',
-  'allow-always': 'Always allow',
-  'reject-once': 'Deny',
-  'reject-always': 'Always deny',
-};
-
-const isAllowKind = (kind: string) => kind === 'allow-once' || kind === 'allow-always';
 
 type JsonParseResult = { success: true; value: unknown; isPartial: boolean } | { success: false };
 
@@ -94,29 +77,6 @@ export function hasPendingToolApproval(
   approval: { approved?: boolean; resolution?: 'cancelled' | 'expired' } | undefined,
 ) {
   return approval != null && approval.approved === undefined && approval.resolution === undefined;
-}
-
-export function buildApprovalOptions(options: readonly AuiToolApprovalOption[] | undefined): ApprovalOptionView[] {
-  const declared = options?.filter(o => Object.hasOwn(APPROVAL_OPTION_DEFAULT_LABELS, o.kind));
-  if (declared && declared.length > 0) {
-    const allow = declared.filter(o => isAllowKind(o.kind));
-    const reject = declared.filter(o => !isAllowKind(o.kind));
-    const mapped: ApprovalOptionView[] = [...allow, ...reject].map(o => ({
-      id: o.id,
-      label: o.label ?? APPROVAL_OPTION_DEFAULT_LABELS[o.kind] ?? o.id,
-      isAllow: isAllowKind(o.kind),
-      grants: o.grants,
-      confirm: o.confirm != null ? (typeof o.confirm === 'object' ? o.confirm : {}) : undefined,
-    }));
-    if (reject.length === 0) {
-      mapped.push({ id: '__deny', label: 'Deny', isAllow: false, confirm: {} });
-    }
-    return mapped;
-  }
-  return [
-    { id: '__allow', label: 'Allow', isAllow: true },
-    { id: '__deny', label: 'Deny', isAllow: false, confirm: {} },
-  ];
 }
 
 export function formatDuration(ms: number): string {

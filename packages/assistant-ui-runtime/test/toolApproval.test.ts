@@ -1,10 +1,6 @@
 import { describe, expect, it } from 'vitest';
 
-import {
-  applyApprovalDecisionsToMessage,
-  collectApprovalInputs,
-  messageHasPendingApprovals,
-} from '../src/toolApproval.js';
+import { applyApprovalDecisionsToMessage, messageHasPendingApprovals } from '../src/toolApproval.js';
 
 describe('toolApproval', () => {
   it('detects pending nested approvals', () => {
@@ -59,7 +55,7 @@ describe('toolApproval', () => {
     expect(messageHasPendingApprovals(message)).toBe(true);
   });
 
-  it('collects decided approvals for sdk resume', () => {
+  it('applies an approval decision to the matching tool call', () => {
     const pending = {
       id: 'a1',
       role: 'assistant' as const,
@@ -90,15 +86,7 @@ describe('toolApproval', () => {
     });
 
     expect(messageHasPendingApprovals(decided)).toBe(false);
-    const inputs = collectApprovalInputs(decided, 'main');
-    expect(inputs).toEqual([
-      {
-        type: 'user.tool_approval',
-        threadId: 'main',
-        toolCallId: 'approval-1',
-        approval: { status: 'allow' },
-      },
-    ]);
+    expect(decided.content[0]).toMatchObject({ approval: { id: 'approval-1', approved: true } });
   });
 
   it('collects root approvals when custom thread id metadata is present', () => {
@@ -132,6 +120,5 @@ describe('toolApproval', () => {
     });
 
     expect(messageHasPendingApprovals(decided)).toBe(false);
-    expect(collectApprovalInputs(decided, 'main')).toHaveLength(1);
   });
 });

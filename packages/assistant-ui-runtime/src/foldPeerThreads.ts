@@ -1,7 +1,12 @@
 import type { MessageStatus, ThreadMessage } from '@assistant-ui/core';
+import { completeAssistantStatus, runningAssistantStatus } from './assistantMessageStatus.js';
 import {
+  APPROVAL_DECISION_STATUS,
+  EVENT_TYPE,
   isEventDelta,
+  TOOL_INFO_TYPE,
   type ThreadCreatedEvent,
+  type ToolApprovalPolicyItem,
   type ToolResponseRequiredEvent,
   type TurnEvent,
   type TurnStreamingEvent,
@@ -10,7 +15,7 @@ import {
 import { parseAskUserQuestionArgs } from './askUserQuestion.js';
 import { ROOT_THREAD_ID } from './constants.js';
 import { isCreateSubAgentToolCall } from './createSubAgent.js';
-import type { SubAgentMessageCustomMetadata } from './messageCustomMetadata.js';
+import { MESSAGE_CUSTOM_KEY, type SubAgentMessageCustomMetadata } from './messageCustomMetadata.js';
 import { buildAssistantContent, type AssistantContentPart, type SdkToolCall } from './modelMessageContent.js';
 import { mergeStreamEventDelta } from './modelMessageImageContent.js';
 import { toolApprovalMessageCustom, toolApprovalStatus } from './toolApproval.js';
@@ -95,6 +100,11 @@ function assertRootThreadEvent(threadId: string, eventType: string): void {
 export class PeerThreadFoldState {
   readonly threads = new Map<string, ThreadBucket>();
   readonly threadParents = new Map<string, ThreadParentLink>();
+  /**
+   * POST responses, live replay, and history can expose the same durable event.
+   * Delta events deliberately bypass this set because many chunks share an id.
+   */
+  readonly ingestedEventIds = new Set<string>();
 
   getOrCreateBucket(threadId: string): ThreadBucket {
     let bucket = this.threads.get(threadId);
@@ -116,8 +126,15 @@ export class PeerThreadFoldState {
 
 function isTurnScopedEvent(
   message: TurnStreamingEvent,
-): message is Extract<TurnStreamingEvent, { type: 'turn.created' | 'turn.done' }> {
-  return message.type === 'turn.created' || message.type === 'turn.done';
+): message is Extract<
+  TurnStreamingEvent,
+  { type: typeof EVENT_TYPE.TURN_CREATED | typeof EVENT_TYPE.TURN_UPDATE | typeof EVENT_TYPE.TURN_DONE }
+> {
+  return (
+    message.type === EVENT_TYPE.TURN_CREATED ||
+    message.type === EVENT_TYPE.TURN_UPDATE ||
+    message.type === EVENT_TYPE.TURN_DONE
+  );
 }
 
 function ingestEventIntoBucket(bucket: ThreadBucket, message: TurnStreamingEvent): void {
@@ -135,27 +152,45 @@ function ingestEventIntoBucket(bucket: ThreadBucket, message: TurnStreamingEvent
 
   bucket.events.set(message.id, message);
 
-  if (message.type === 'model.message') {
+  if (message.type === EVENT_TYPE.MODEL_MESSAGE) {
     if (!bucket.modelMessageIds.includes(message.id)) {
       bucket.modelMessageIds.push(message.id);
     }
     return;
   }
 
-  if (message.type === 'tool.response') {
+  if (message.type === EVENT_TYPE.TOOL_RESPONSE) {
     bucket.toolResults.set(message.toolCallId, message.content);
     bucket.pendingResponses.delete(message.toolCallId);
     return;
   }
 
-  if (message.type === 'tool.approval_required') {
+  if (message.type === EVENT_TYPE.USER_TOOL_APPROVAL) {
+    bucket.pendingApprovals.delete(message.toolCallId);
+    bucket.approvalDecisions.set(message.toolCallId, {
+      id: message.toolCallId,
+      approved: message.approval.status === APPROVAL_DECISION_STATUS.ALLOW,
+      ...(message.approval.status === APPROVAL_DECISION_STATUS.DENY && message.approval.reason != null
+        ? { reason: message.approval.reason }
+        : {}),
+    });
+    return;
+  }
+
+  if (message.type === EVENT_TYPE.USER_TOOL_RESPONSE) {
+    bucket.toolResults.set(message.toolCallId, message.content);
+    bucket.pendingResponses.delete(message.toolCallId);
+    return;
+  }
+
+  if (message.type === EVENT_TYPE.TOOL_APPROVAL_REQUIRED) {
     for (const ref of message.toolCalls) {
       bucket.pendingApprovals.set(ref.id, { id: ref.id });
     }
     return;
   }
 
-  if (message.type === 'tool.response_required') {
+  if (message.type === EVENT_TYPE.TOOL_RESPONSE_REQUIRED) {
     for (const ref of message.toolCalls) {
       const resolved = resolveAskUserQuestionFromBucket(bucket, ref);
       bucket.pendingResponses.set(ref.id, {
@@ -168,7 +203,7 @@ function ingestEventIntoBucket(bucket: ThreadBucket, message: TurnStreamingEvent
     return;
   }
 
-  if (message.type === 'thread.done') {
+  if (message.type === EVENT_TYPE.THREAD_DONE) {
     bucket.done = true;
     if (message.title) {
       bucket.title = message.title;
@@ -178,26 +213,49 @@ function ingestEventIntoBucket(bucket: ThreadBucket, message: TurnStreamingEvent
 
 function isContentAffectingEvent(message: TurnStreamingEvent): boolean {
   return (
-    message.type === 'thread.created' ||
-    message.type === 'thread.done' ||
-    message.type === 'model.message' ||
-    message.type === 'model.message.delta' ||
-    message.type === 'tool.response' ||
-    message.type === 'tool.approval_required' ||
-    message.type === 'tool.response_required'
+    message.type === EVENT_TYPE.THREAD_CREATED ||
+    message.type === EVENT_TYPE.THREAD_DONE ||
+    message.type === EVENT_TYPE.MODEL_MESSAGE ||
+    message.type === EVENT_TYPE.MODEL_MESSAGE_DELTA ||
+    message.type === EVENT_TYPE.TOOL_RESPONSE ||
+    message.type === EVENT_TYPE.TOOL_APPROVAL_REQUIRED ||
+    message.type === EVENT_TYPE.TOOL_RESPONSE_REQUIRED ||
+    message.type === EVENT_TYPE.USER_TOOL_APPROVAL ||
+    message.type === EVENT_TYPE.USER_TOOL_RESPONSE
   );
 }
 
+function isFoldNeutralInboundEvent(
+  message: TurnStreamingEvent,
+): message is Extract<TurnStreamingEvent, { type: typeof EVENT_TYPE.USER_MCP_AUTH_CONTINUE }> {
+  return message.type === EVENT_TYPE.USER_MCP_AUTH_CONTINUE;
+}
+
 export function ingestStreamEvent(state: PeerThreadFoldState, message: TurnStreamingEvent): boolean {
-  if (message.type === 'mcp.auth_required' || isTurnScopedEvent(message)) {
+  if (message.type === EVENT_TYPE.MCP_AUTH_REQUIRED || isTurnScopedEvent(message)) {
     return false;
+  }
+
+  if (!isEventDelta(message)) {
+    if (state.ingestedEventIds.has(message.id)) {
+      return false;
+    }
+    state.ingestedEventIds.add(message.id);
+  }
+
+  if (isFoldNeutralInboundEvent(message)) {
+    return false;
+  }
+
+  if (message.type === EVENT_TYPE.USER_TOOL_APPROVAL_POLICY) {
+    return applyApprovalPoliciesToFold(state, message.policies);
   }
 
   if (message.threadId == null) {
     return false;
   }
 
-  if (message.type === 'thread.created') {
+  if (message.type === EVENT_TYPE.THREAD_CREATED) {
     state.threadParents.set(message.threadId, {
       parentThreadId: message.parent.threadId,
       toolCallId: message.parent.toolCallId,
@@ -208,7 +266,7 @@ export function ingestStreamEvent(state: PeerThreadFoldState, message: TurnStrea
     return true;
   }
 
-  if (message.type === 'model.message' && message.threadId === ROOT_THREAD_ID) {
+  if (message.type === EVENT_TYPE.MODEL_MESSAGE && message.threadId === ROOT_THREAD_ID) {
     assertRootThreadEvent(message.threadId, message.type);
   }
 
@@ -219,11 +277,22 @@ export function ingestStreamEvent(state: PeerThreadFoldState, message: TurnStrea
 }
 
 export function ingestTurnEvent(state: PeerThreadFoldState, event: TurnEvent): void {
+  if (state.ingestedEventIds.has(event.id)) {
+    return;
+  }
+  state.ingestedEventIds.add(event.id);
+  if (isFoldNeutralInboundEvent(event)) {
+    return;
+  }
+  if (event.type === EVENT_TYPE.USER_TOOL_APPROVAL_POLICY) {
+    applyApprovalPoliciesToFold(state, event.policies);
+    return;
+  }
   if (event.threadId == null) {
     return;
   }
 
-  if (event.type === 'thread.created') {
+  if (event.type === EVENT_TYPE.THREAD_CREATED) {
     state.threadParents.set(event.threadId, {
       parentThreadId: event.parent.threadId,
       toolCallId: event.parent.toolCallId,
@@ -231,7 +300,7 @@ export function ingestTurnEvent(state: PeerThreadFoldState, event: TurnEvent): v
     const bucket = state.getOrCreateBucket(event.threadId);
     bucket.title = event.title;
     bucket.agentInfo = event.agentInfo;
-  } else if (event.type === 'model.message' && event.threadId === ROOT_THREAD_ID) {
+  } else if (event.type === EVENT_TYPE.MODEL_MESSAGE && event.threadId === ROOT_THREAD_ID) {
     assertRootThreadEvent(event.threadId, event.type);
   }
 
@@ -243,7 +312,7 @@ function resolveAskUserQuestionFromBucket(
   ref: Pick<ToolCallRef, 'id' | 'sourceEventId'>,
 ): { question?: string; options?: string[] } | undefined {
   const modelMessage = bucket.events.get(ref.sourceEventId);
-  if (modelMessage?.type !== 'model.message') {
+  if (modelMessage?.type !== EVENT_TYPE.MODEL_MESSAGE) {
     return undefined;
   }
   const toolCall = modelMessage.toolCalls?.find(call => call.id === ref.id);
@@ -256,7 +325,7 @@ function resolveAskUserQuestionFromBucket(
 function findToolCallInBucket(bucket: ThreadBucket, toolCallId: string): SdkToolCall | undefined {
   for (const id of bucket.modelMessageIds) {
     const event = bucket.events.get(id);
-    if (event?.type !== 'model.message') {
+    if (event?.type !== EVENT_TYPE.MODEL_MESSAGE) {
       continue;
     }
     const match = event.toolCalls?.find(toolCall => toolCall.id === toolCallId);
@@ -265,6 +334,97 @@ function findToolCallInBucket(bucket: ThreadBucket, toolCallId: string): SdkTool
     }
   }
   return undefined;
+}
+
+export type ToolApprovalPolicyTarget = Pick<ToolApprovalPolicyItem, 'serverName' | 'name'>;
+
+/** Deferred MCP invoke wrapper — wire `toolInfo` stays system/`call_tool`; policy keys live in args. */
+const DEFERRED_CALL_TOOL_NAME = 'call_tool';
+
+function parseDeferredCallToolPolicyTarget(argsText: string): ToolApprovalPolicyTarget | undefined {
+  try {
+    const parsed: unknown = JSON.parse(argsText);
+    if (parsed == null || typeof parsed !== 'object') {
+      return undefined;
+    }
+    const serverName: unknown = Reflect.get(parsed, 'mcp_server');
+    const name: unknown = Reflect.get(parsed, 'tool_name');
+    return typeof serverName === 'string' && serverName.length > 0 && typeof name === 'string' && name.length > 0
+      ? { serverName, name }
+      : undefined;
+  } catch {
+    return undefined;
+  }
+}
+
+/**
+ * Backend policy key is `(serverName, name)`. Direct MCP calls expose that on
+ * `toolInfo`; deferred tools stream as `call_tool` with system toolInfo, so
+ * the underlying target is read from the call arguments instead.
+ */
+export function resolveToolApprovalPolicyTarget({
+  state,
+  threadId,
+  toolCallId,
+}: {
+  state: PeerThreadFoldState;
+  threadId: string;
+  toolCallId: string;
+}): ToolApprovalPolicyTarget | undefined {
+  const bucket = state.threads.get(threadId);
+  const toolCall = bucket == null ? undefined : findToolCallInBucket(bucket, toolCallId);
+  if (toolCall == null) {
+    return undefined;
+  }
+  const toolInfo = toolCall.toolInfo;
+  if (toolInfo?.type === TOOL_INFO_TYPE.MCP) {
+    const serverName: unknown = Reflect.get(toolInfo, 'serverName');
+    const name: unknown = Reflect.get(toolInfo, 'name');
+    if (typeof serverName === 'string' && typeof name === 'string') {
+      return { serverName, name };
+    }
+  }
+  if (toolCall.function.name === DEFERRED_CALL_TOOL_NAME) {
+    return parseDeferredCallToolPolicyTarget(toolCall.function.arguments);
+  }
+  return undefined;
+}
+
+function samePolicyTarget(left: ToolApprovalPolicyTarget, right: ToolApprovalPolicyTarget): boolean {
+  return left.serverName === right.serverName && left.name === right.name;
+}
+
+/** Pending approval ids whose MCP target matches a session/timed policy. */
+export function collectPendingApprovalIdsMatchingPolicy(
+  state: PeerThreadFoldState,
+  target: ToolApprovalPolicyTarget,
+): string[] {
+  const ids: string[] = [];
+  for (const [threadId, bucket] of state.threads) {
+    for (const toolCallId of bucket.pendingApprovals.keys()) {
+      const resolved = resolveToolApprovalPolicyTarget({ state, threadId, toolCallId });
+      if (resolved != null && samePolicyTarget(resolved, target)) {
+        ids.push(toolCallId);
+      }
+    }
+  }
+  return ids;
+}
+
+/** BE auto-allows matching pending calls; no per-sibling `user.tool_approval` is emitted. */
+export function applyApprovalPoliciesToFold(
+  state: PeerThreadFoldState,
+  policies: readonly ToolApprovalPolicyItem[],
+): boolean {
+  let applied = false;
+  for (const policy of policies) {
+    const target = { serverName: policy.serverName, name: policy.name };
+    for (const toolCallId of collectPendingApprovalIdsMatchingPolicy(state, target)) {
+      recordToolApprovalInFold(state, { toolCallId, approved: true });
+      applied = true;
+    }
+  }
+  return applied;
 }
 
 function isLinkedCreateSubAgentThread(state: PeerThreadFoldState, subThreadId: string): boolean {
@@ -311,9 +471,9 @@ function bucketAssistantStatus(bucket: ThreadBucket): MessageStatus {
     return toolResponseStatus();
   }
   if (!bucket.done && bucket.modelMessageIds.length > 0) {
-    return { type: 'running' };
+    return runningAssistantStatus();
   }
-  return { type: 'complete', reason: 'stop' };
+  return completeAssistantStatus();
 }
 
 function buildSubAgentCustomMetadata(threadId: string, bucket: ThreadBucket): SubAgentMessageCustomMetadata {
@@ -324,7 +484,7 @@ function buildSubAgentCustomMetadata(threadId: string, bucket: ThreadBucket): Su
     ...(bucket.agentInfo?.model != null ? { model: bucket.agentInfo.model } : {}),
     ...(bucket.agentInfo?.input != null ? { input: bucket.agentInfo.input } : {}),
   };
-  return { subAgent: metadata };
+  return { [MESSAGE_CUSTOM_KEY.SUB_AGENT]: metadata };
 }
 
 function attachSubAgentMessages(
@@ -401,7 +561,7 @@ function buildThreadAssistantParts(
   const toolCallIndexById = new Map<string, number>();
   for (const id of ids) {
     const event = bucket.events.get(id);
-    if (event?.type !== 'model.message') {
+    if (event?.type !== EVENT_TYPE.MODEL_MESSAGE) {
       continue;
     }
     for (const part of buildAssistantContent(event, {
