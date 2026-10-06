@@ -111,6 +111,17 @@ describe('ToolApprovalContainer', () => {
     expect(screen.getByRole('button', { name: 'Approve this tool in this session' })).toBeTruthy();
   });
 
+  it('does not offer session policy for get_tool_info even when args name an MCP tool', () => {
+    const onRespond = vi.fn().mockResolvedValue(undefined);
+    renderSubject(onRespond, {
+      toolName: 'get_tool_info',
+      argsText: JSON.stringify({ mcp_server: 'github', tool_name: 'search' }),
+    });
+
+    expect(screen.getByTestId('approval-probe')).toHaveAttribute('data-approve-variants', 'primary');
+    expect(screen.queryByRole('button', { name: 'Approve this tool in this session' })).toBeNull();
+  });
+
   it('shows MCP inner tool name with server when args include both fields', () => {
     const onRespond = vi.fn().mockResolvedValue(undefined);
     renderSubject(onRespond, {

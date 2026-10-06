@@ -41,11 +41,15 @@ const SESSION_POLICY_OPTION_IDS = new Set<ToolApprovalChoice['id']>([
   TOOL_APPROVAL_OPTION_ID.APPROVE_TEN_MINUTES,
 ]);
 
-// Session / 10-minute allow is a remembered yes. The backend can only store that
-// for an MCP tool, keyed by server name + inner tool name from call_tool args.
-// Hide those buttons when that pair is missing (shell, sandbox, incomplete args)
-// so the user is not offered a sticky allow that cannot be applied.
-export function toolSupportsSessionPolicy(argsText?: string): boolean {
+const DEFERRED_CALL_TOOL_NAME = 'call_tool';
+
+// Session / 10-minute allow is a remembered yes. Only deferred `call_tool`
+// can attach that policy (needs mcp_server + tool_name). Meta-tools like
+// get_tool_info reuse those arg names but are not policy targets.
+export function toolSupportsSessionPolicy({ toolName, argsText }: { toolName?: string; argsText?: string }): boolean {
+  if (toolName !== DEFERRED_CALL_TOOL_NAME) {
+    return false;
+  }
   const { mcpServer, innerToolName } = parseMcpToolArgs(argsText);
   return (
     typeof mcpServer === 'string' &&
@@ -55,8 +59,14 @@ export function toolSupportsSessionPolicy(argsText?: string): boolean {
   );
 }
 
-export function approvalChoicesForTool(argsText?: string): readonly ToolApprovalChoice[] {
-  if (toolSupportsSessionPolicy(argsText)) {
+export function approvalChoicesForTool({
+  toolName,
+  argsText,
+}: {
+  toolName?: string;
+  argsText?: string;
+} = {}): readonly ToolApprovalChoice[] {
+  if (toolSupportsSessionPolicy({ toolName, argsText })) {
     return TOOL_APPROVAL_CHOICES;
   }
   return TOOL_APPROVAL_CHOICES.filter(choice => !SESSION_POLICY_OPTION_IDS.has(choice.id));

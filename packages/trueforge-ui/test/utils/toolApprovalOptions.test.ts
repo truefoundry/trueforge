@@ -61,18 +61,19 @@ describe('toolApprovalOptions', () => {
     ).toEqual({ approvalId: 'approval-1', approved: false, reason: 'unsafe' });
   });
 
-  it('omits session policy choices unless call_tool args name an MCP target', () => {
-    expect(approvalChoicesForTool().map(choice => choice.id)).toEqual([
-      TOOL_APPROVAL_OPTION_ID.APPROVE_ONCE,
-      TOOL_APPROVAL_OPTION_ID.DENY,
-    ]);
-    expect(approvalChoicesForTool(JSON.stringify({ command: 'ls' })).map(choice => choice.id)).toEqual([
-      TOOL_APPROVAL_OPTION_ID.APPROVE_ONCE,
-      TOOL_APPROVAL_OPTION_ID.DENY,
-    ]);
+  it('omits session policy choices unless the call is deferred call_tool with an MCP target', () => {
+    const onceAndDeny = [TOOL_APPROVAL_OPTION_ID.APPROVE_ONCE, TOOL_APPROVAL_OPTION_ID.DENY];
+    const mcpArgs = JSON.stringify({ mcp_server: 'github', tool_name: 'search' });
+    expect(approvalChoicesForTool().map(choice => choice.id)).toEqual(onceAndDeny);
     expect(
-      approvalChoicesForTool(JSON.stringify({ mcp_server: 'github', tool_name: 'search' })).map(choice => choice.id),
-    ).toEqual([
+      approvalChoicesForTool({ toolName: 'shell', argsText: JSON.stringify({ command: 'ls' }) }).map(
+        choice => choice.id,
+      ),
+    ).toEqual(onceAndDeny);
+    expect(approvalChoicesForTool({ toolName: 'get_tool_info', argsText: mcpArgs }).map(choice => choice.id)).toEqual(
+      onceAndDeny,
+    );
+    expect(approvalChoicesForTool({ toolName: 'call_tool', argsText: mcpArgs }).map(choice => choice.id)).toEqual([
       TOOL_APPROVAL_OPTION_ID.APPROVE_ONCE,
       TOOL_APPROVAL_OPTION_ID.APPROVE_TEN_MINUTES,
       TOOL_APPROVAL_OPTION_ID.APPROVE_SESSION,

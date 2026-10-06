@@ -45,11 +45,11 @@ export function ToolApprovalContainer({ approvalId, toolName = '', argsText, onR
   const [isSubmitting, setIsSubmitting] = useState(false);
   const options = useMemo<ToolApprovalOption[]>(
     () =>
-      approvalChoicesForTool(argsText).map(option => ({
+      approvalChoicesForTool({ toolName, argsText }).map(option => ({
         ...option,
         ...(option.id === TOOL_APPROVAL_OPTION_ID.DENY ? { confirm: {} } : {}),
       })),
-    [argsText],
+    [argsText, toolName],
   );
   const approveOptions = useMemo<ApprovalOption[]>(
     () =>
