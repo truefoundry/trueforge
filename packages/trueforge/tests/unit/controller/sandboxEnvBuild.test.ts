@@ -40,7 +40,7 @@ describe('sandboxEnvBuildLoop', () => {
     await dispatchSandboxEnvBuilds({ logger: logger as never });
 
     expect(progress).toHaveBeenCalledTimes(2);
-    expect(logger.warn).toHaveBeenCalled();
+    expect(logger.error).toHaveBeenCalled();
   });
 
   it('does not tick when aborted', async () => {

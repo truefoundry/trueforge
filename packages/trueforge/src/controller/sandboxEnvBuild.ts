@@ -22,7 +22,7 @@ export async function dispatchSandboxEnvBuilds({ logger }: { logger: Logger }): 
       });
     } catch (error) {
       if (error instanceof TrueForgeApi.NotFoundError) {
-        logger.warn('Sandbox environment version not found; skipping', {
+        logger.error('Sandbox environment version not found; skipping', {
           environment_version_id: environmentVersionId,
         });
         captureCriticalException(error, {
