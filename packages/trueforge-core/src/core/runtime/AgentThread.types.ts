@@ -134,8 +134,7 @@ export interface UserEventsCommitEvent {
 }
 
 /**
- * Single runtime send item (no internal LLM tool messages). Decisions are in event form — their ids
- * are seeded at the send boundary (HTTP handler / createTurn `toSendBatch`) and reused downstream.
+ * Single runtime send item (no internal LLM tool messages).
  */
 export type AgentSendInput = UserToolApprovalEvent | UserToolResponseEvent | InputUserMessage;
 

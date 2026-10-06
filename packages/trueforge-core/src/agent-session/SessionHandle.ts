@@ -1,7 +1,7 @@
 /**
  * Bound session handle: starts turns via {@link SessionHandle.createTurn}.
  */
-import { newEventId, type TurnUserEvent } from '../core/events/schema';
+import { newEventId } from '../core/events/schema';
 import type { AgentDefinition } from '../core/runtime/AgentDefinition';
 import { AgentThread } from '../core/runtime/AgentThread';
 import type { AgentThreadAppendContext, AgentThreadSnapshot } from '../core/runtime/AgentThread.types';
@@ -46,14 +46,11 @@ function toNewThreadInit(snapshot: AgentThreadSnapshot): NewThreadInit {
 }
 
 function collectContextAppends(
-  events: AsyncGenerator<AgentThreadAppendContext | TurnUserEvent[], void, unknown>,
+  events: AsyncGenerator<AgentThreadAppendContext, void, unknown>,
 ): Promise<TurnContextAppend[]> {
   return (async () => {
     const appendMap = new Map<string, TurnContextAppend>();
     for await (const event of events) {
-      if (Array.isArray(event)) {
-        throw new Error('SessionHandle.createTurn: unexpected queued event batch from user-message input');
-      }
       const existing = appendMap.get(event.thread_id);
       if (existing) {
         existing.context.push(...event.context);
