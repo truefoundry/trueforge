@@ -866,7 +866,7 @@ export interface SharedServerConfiguration {
   MODEL_HTTP_HEADERS_TIMEOUT_MS: number;
   /**
    * undici bodyTimeout for model-provider outbound fetch (idle between body chunks).
-   * Env: `MODEL_HTTP_BODY_TIMEOUT_MS`. Default 5000.
+   * Env: `MODEL_HTTP_BODY_TIMEOUT_MS`. Default 60000.
    */
   MODEL_HTTP_BODY_TIMEOUT_MS: number;
   /**
@@ -874,7 +874,7 @@ export interface SharedServerConfiguration {
    * Env: `MODEL_HTTP_MAX_RETRIES`. Default 2.
    */
   MODEL_HTTP_MAX_RETRIES: number;
-  /** Max milliseconds for one MCP JSON-RPC request end to end. Env: `MCP_REQUEST_TIMEOUT_MS`. Default 4 minutes. */
+  /** Max milliseconds for one MCP JSON-RPC request end to end. Env: `MCP_REQUEST_TIMEOUT_MS`. Default 2 minutes. */
   MCP_REQUEST_TIMEOUT_MS: number;
   /** Max milliseconds for the MCP initialize handshake per transport attempt. Env: `MCP_CONNECT_TIMEOUT_MS`. Default 30 seconds. */
   MCP_CONNECT_TIMEOUT_MS: number;
@@ -1084,7 +1084,7 @@ const serverExecutionTimeoutSeconds = parsePositiveInt({
 const mcpRequestTimeoutMs = parsePositiveInt({
   envKey: 'MCP_REQUEST_TIMEOUT_MS',
   raw: getEnv('MCP_REQUEST_TIMEOUT_MS'),
-  defaultValue: 4 * 60 * 1000,
+  defaultValue: 2 * 60 * 1000,
 });
 
 const standalone = parseBoolean({
@@ -1234,7 +1234,7 @@ const shared: SharedServerConfiguration = {
   MODEL_HTTP_BODY_TIMEOUT_MS: parsePositiveInt({
     envKey: 'MODEL_HTTP_BODY_TIMEOUT_MS',
     raw: getEnv('MODEL_HTTP_BODY_TIMEOUT_MS'),
-    defaultValue: 5_000,
+    defaultValue: 60_000,
   }),
   MODEL_HTTP_MAX_RETRIES: parseNonNegativeInt({
     envKey: 'MODEL_HTTP_MAX_RETRIES',
@@ -1260,7 +1260,7 @@ const shared: SharedServerConfiguration = {
   MCP_HTTP_BODY_TIMEOUT_MS: parsePositiveInt({
     envKey: 'MCP_HTTP_BODY_TIMEOUT_MS',
     raw: getEnv('MCP_HTTP_BODY_TIMEOUT_MS'),
-    defaultValue: 1_800_000,
+    defaultValue: 30 * 60 * 1000,
   }),
   MCP_HTTP_MAX_RETRIES: parseNonNegativeInt({
     envKey: 'MCP_HTTP_MAX_RETRIES',
