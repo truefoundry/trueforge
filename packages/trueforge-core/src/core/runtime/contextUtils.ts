@@ -2,7 +2,7 @@ import dedent from 'dedent';
 import type { ApprovalDecision } from '../events/schema';
 import {
   EventType,
-  type AgentApprovalDecisionMessage,
+  type ApprovalDecisionMessage,
   type UserToolApprovalEvent,
   type UserToolResponseEvent,
 } from '../events/schema';
@@ -23,7 +23,7 @@ import type {
   LLMContextMessage,
 } from './AgentThread.types';
 import type { CurrentContextUsage } from './contextUsage';
-import type { AgentInputUserMessage } from './UserInputMessage';
+import type { InputUserMessage } from './UserInputMessage';
 
 export const SYSTEM_TAG_START = '<tfy-internal>';
 const SYSTEM_TAG_END = '</tfy-internal>';
@@ -56,8 +56,8 @@ export function isApprovalDecisionEvent(msg: AgentThreadRuntimeSendInput): msg i
   return 'type' in msg && msg.type === EventType.USER_TOOL_APPROVAL;
 }
 
-function isUserToolApprovalDecisionMessage(msg: ContextMessage): msg is AgentApprovalDecisionMessage {
-  // `'type' in msg` already narrows to AgentApprovalDecisionMessage (literal type).
+function isUserToolApprovalDecisionMessage(msg: ContextMessage): msg is ApprovalDecisionMessage {
+  // `'type' in msg` already narrows to ApprovalDecisionMessage (literal type).
   return 'type' in msg;
 }
 
@@ -65,7 +65,7 @@ export function isClientSideToolResponseEvent(msg: AgentThreadRuntimeSendInput):
   return 'type' in msg && msg.type === EventType.USER_TOOL_RESPONSE;
 }
 
-export function isInputUserMessage(msg: AgentThreadRuntimeSendInput): msg is AgentInputUserMessage {
+export function isInputUserMessage(msg: AgentThreadRuntimeSendInput): msg is InputUserMessage {
   return 'type' in msg && msg.type === EventType.USER_MESSAGE;
 }
 

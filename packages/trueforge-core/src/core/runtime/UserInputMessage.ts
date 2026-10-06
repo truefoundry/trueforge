@@ -2,8 +2,8 @@ import type { ChatCompletionContentPart } from 'openai/resources/chat';
 import { AgentSandboxRequiredError, InvalidFileInputError } from '../errors';
 import {
   EventType,
-  type AgentInputUserMessage,
   type FileContentPart,
+  type InputUserMessage,
   type TextContentPart,
   type UserContentPart,
 } from '../events/schema';
@@ -12,16 +12,16 @@ import type { HarnessSandbox, SandboxInfo } from '../sandbox/Sandbox';
 import type { AgentSendInput } from './AgentThread.types';
 import { internalSystemTag } from './contextUtils';
 
-export type { AgentInputUserMessage, FileContentPart, TextContentPart, UserContentPart };
+export type { FileContentPart, InputUserMessage, TextContentPart, UserContentPart };
 
-export type AgentUserMessageContent = AgentInputUserMessage['content'];
+export type AgentUserMessageContent = InputUserMessage['content'];
 export type AgentUserContentPart = UserContentPart;
 
 export function isFileContentPart(part: UserContentPart): part is FileContentPart {
   return part.type === 'file';
 }
 
-export function isAgentInputUserMessage(msg: AgentSendInput): msg is AgentInputUserMessage {
+export function isAgentInputUserMessage(msg: AgentSendInput): msg is InputUserMessage {
   return 'type' in msg && msg.type === EventType.USER_MESSAGE;
 }
 
@@ -112,7 +112,7 @@ export interface ProcessAgentUserInputResult {
 }
 
 export async function processAgentUserInput(
-  msg: AgentInputUserMessage,
+  msg: InputUserMessage,
   sandbox: HarnessSandbox | undefined,
 ): Promise<ProcessAgentUserInputResult> {
   if (typeof msg.content === 'string') {
