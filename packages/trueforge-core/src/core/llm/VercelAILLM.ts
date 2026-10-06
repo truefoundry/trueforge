@@ -45,7 +45,6 @@ import {
   type RawAssistantMessageWithUsage,
   type ThinkingBlock,
 } from './LLMTypes';
-
 // ---------------------------------------------------------------------------
 // Public config
 // ---------------------------------------------------------------------------
@@ -1004,26 +1003,19 @@ export function describeStreamError(raw: unknown): string {
   return describeUnknownError(raw);
 }
 
-const MODEL_REQUEST_FAILED_PREFIX = 'Model request failed: ';
-
 function isAbortError(error: unknown): error is Error {
   return error instanceof Error && error.name === 'AbortError';
 }
 
 /**
- * Names the model request and keeps the provider or transport reason.
- * Abort stays unchanged. A second wrap (stream throw, then create's catch) is a no-op.
+ * Names the model call that failed (`provider.type/provider.name/model.name`) and keeps the
+ * provider or transport reason. Abort stays unchanged. Wrap exactly once, at the call site.
  */
-export function toStreamError(raw: unknown): Error {
+export function toStreamError(raw: unknown, source: string): Error {
   if (isAbortError(raw)) {
     return raw;
   }
-  if (raw instanceof Error && raw.message.startsWith(MODEL_REQUEST_FAILED_PREFIX)) {
-    return raw;
-  }
-  const reason = describeStreamError(raw);
-  const message = reason.startsWith(MODEL_REQUEST_FAILED_PREFIX) ? reason : `${MODEL_REQUEST_FAILED_PREFIX}${reason}`;
-  return new Error(message, { cause: raw });
+  return new Error(`Model request failed (${source}): ${describeStreamError(raw)}`, { cause: raw });
 }
 
 export function mapFinishReason(reason: FinishReason): RawAssistantMessageWithUsage['finish_reason'] {
@@ -1319,8 +1311,11 @@ export async function* mapStreamToChunks({
       }
 
       case 'error': {
-        // Turn text is this message; the original stream error stays on cause.
-        throw toStreamError(part.error);
+        const raw = part.error;
+        const message = describeStreamError(raw);
+        // Preserve the original stream error as cause; create() names the model call around it.
+        const cause = raw instanceof Error ? raw : new Error(message);
+        throw new Error(message, { cause });
       }
 
       case 'abort': {
@@ -1444,6 +1439,8 @@ export class VercelAILLM implements ILLM {
       abortSignal: this.signal,
     });
 
+    const source = `${provider.type}/${provider.name}/${model.name}`;
+
     let streamResult;
     try {
       streamResult = streamText({
@@ -1453,10 +1450,9 @@ export class VercelAILLM implements ILLM {
     } catch (error) {
       if (this.signal?.aborted) {
         this.logger.debug('LLM call aborted', extractErrorLogFields(error));
-      } else {
-        this.logger.error('Error creating streaming chat completion', extractErrorLogFields(error));
       }
-      throw toStreamError(error);
+      // Not logged here: the caller that turns this into a turn failure logs it once.
+      throw toStreamError(error, source);
     }
 
     // Detached: warnings resolve at stream start, and a pending or rejected promise must never
@@ -1486,15 +1482,13 @@ export class VercelAILLM implements ILLM {
 
     try {
       const result = yield* mapStreamToChunks({ stream: streamResult.stream, chunkMeta });
-      result.output.source = `${provider.type}/${provider.name}/${model.name}`;
+      result.output.source = source;
       return result;
     } catch (error) {
       if (this.signal?.aborted) {
         this.logger.debug('LLM stream aborted', extractErrorLogFields(error));
-      } else {
-        this.logger.error('Error reading LLM stream', extractErrorLogFields(error));
       }
-      throw toStreamError(error);
+      throw toStreamError(error, source);
     }
   }
 

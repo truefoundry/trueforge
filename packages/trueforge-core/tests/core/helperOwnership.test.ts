@@ -34,6 +34,17 @@ describe('canonical helper ownership fidelity', () => {
     expect(extractErrorLogFields(circular).error).toMatch(/^unserialisable error \(/);
   });
 
+  it('extractErrorLogFields never dumps an SDK error with a request body', () => {
+    const err = Object.assign(new Error(''), { requestBodyValues: { prompt: 'my-secret-prompt' } });
+    expect(JSON.stringify(extractErrorLogFields(err))).not.toContain('my-secret-prompt');
+  });
+
+  it('extractErrorLogFields appends the cause stack', () => {
+    const inner = new Error('inner');
+    const outer = new Error('outer', { cause: inner });
+    expect(extractErrorLogFields(outer).stack).toBe(`${outer.stack}\nCaused by: ${inner.stack}`);
+  });
+
   it('DaytonaProvider owns http→ws URL conversion (no shared helper module)', () => {
     // Folded into DaytonaProvider per ISSUE-042; assert the conversion contract via URL API.
     const https = new URL('https://example.com/path');

@@ -1497,6 +1497,7 @@ export class AgentThread {
     } catch (error) {
       // Providers / transports often reject with plain objects; instanceof Error would
       // otherwise collapse those into an opaque "Unknown error occurred" in Agent Steps.
+      // The single log for this failure; the model client rethrows without logging.
       this.logger.error('Agent thread execution failed', extractErrorLogFields(error));
       yield this.generateErrorEvent(describeUnknownError(error));
     } finally {

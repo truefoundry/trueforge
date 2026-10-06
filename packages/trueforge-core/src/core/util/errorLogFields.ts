@@ -69,12 +69,28 @@ export function describeUnknownError(error: unknown): string {
   return String(error);
 }
 
+/** `error.stack` alone drops the cause, which is usually where the real frames are (e.g. undici). */
+function stackWithCauses(error: Error): string | undefined {
+  const stacks: string[] = [];
+  const seen = new Set<unknown>();
+  let current: unknown = error;
+  while (current instanceof Error && !seen.has(current)) {
+    seen.add(current);
+    if (current.stack !== undefined) {
+      stacks.push(current.stack);
+    }
+    current = current.cause;
+  }
+  return stacks.length > 0 ? stacks.join('\nCaused by: ') : undefined;
+}
+
 export function extractErrorLogFields(error: unknown): ErrorLogFields {
   if (error instanceof Error) {
     const chain = describeErrorChain(error, new Set());
     return {
-      error: chain.length > 0 ? chain : formatObjectErrorForLog(error),
-      stack: error.stack,
+      // Not a JSON dump: SDK errors carry the request body (prompts) as an enumerable field.
+      error: chain.length > 0 ? chain : error.name,
+      stack: stackWithCauses(error),
     };
   }
   if (typeof error !== 'object' || error === null) {

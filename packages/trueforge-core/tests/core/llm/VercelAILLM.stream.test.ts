@@ -215,24 +215,26 @@ describe('describeStreamError', () => {
   });
 });
 
+const SOURCE = 'openai/prod/gpt';
+
 describe('toStreamError', () => {
   it('returns an abort unchanged', () => {
     const err = new Error('keep me');
     err.name = 'AbortError';
-    expect(toStreamError(err)).toBe(err);
+    expect(toStreamError(err, SOURCE)).toBe(err);
   });
 
-  it('prefixes the provider reason and keeps the original error as cause', () => {
+  it('names the model call and keeps the original error as cause', () => {
     const err = new Error('Headers Timeout Error');
-    const wrapped = toStreamError(err);
-    expect(wrapped.message).toBe('Model request failed: Headers Timeout Error');
+    const wrapped = toStreamError(err, SOURCE);
+    expect(wrapped.message).toBe('Model request failed (openai/prod/gpt): Headers Timeout Error');
     expect(wrapped.cause).toBe(err);
   });
 
   it('wraps plain objects using describeStreamError', () => {
-    const wrapped = toStreamError({ message: 'The requested model does not exist.' });
+    const wrapped = toStreamError({ message: 'The requested model does not exist.' }, SOURCE);
     expect(wrapped).toBeInstanceOf(Error);
-    expect(wrapped.message).toBe('Model request failed: The requested model does not exist.');
+    expect(wrapped.message).toBe('Model request failed (openai/prod/gpt): The requested model does not exist.');
     expect(wrapped.cause).toEqual({ message: 'The requested model does not exist.' });
   });
 });
@@ -607,7 +609,7 @@ describe('mapStreamToChunks', () => {
           chunkMeta: CHUNK_META,
         }),
       ),
-    ).rejects.toMatchObject({ message: 'Model request failed: upstream error', cause });
+    ).rejects.toMatchObject({ message: 'upstream error', cause });
   });
 
   it('rejects on an abort part rather than returning the partial message as a clean stop', async () => {
@@ -636,7 +638,7 @@ describe('mapStreamToChunks', () => {
         }),
       ),
     ).rejects.toMatchObject({
-      message: 'Model request failed: Request failed (401): invalid x-api-key',
+      message: 'Request failed (401): invalid x-api-key',
       cause,
     });
   });
@@ -650,7 +652,7 @@ describe('mapStreamToChunks', () => {
         }),
       ),
     ).rejects.toMatchObject({
-      message: 'Model request failed: The requested model does not exist.',
+      message: 'The requested model does not exist.',
       cause: { message: 'The requested model does not exist.' },
     });
   });
