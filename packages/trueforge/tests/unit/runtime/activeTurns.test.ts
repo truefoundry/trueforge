@@ -1,5 +1,9 @@
-import { CancellationReason } from '@truefoundry/trueforge-core/agent-session';
+import { CancellationReason, type TurnHandle } from '@truefoundry/trueforge-core/agent-session';
 import { ActiveTurnRegistry } from '../../../src/runtime/activeTurns';
+
+function turn(sessionId: string, turnId: string): TurnHandle {
+  return { session_id: sessionId, id: turnId } as TurnHandle;
+}
 
 async function* values<T>(items: T[]): AsyncGenerator<T> {
   for (const item of items) {
@@ -31,8 +35,7 @@ describe('ActiveTurnRegistry', () => {
     const registry = new ActiveTurnRegistry();
     const abortController = new AbortController();
     const tracked = registry.track({
-      sessionId: 's1',
-      turnId: 't1',
+      turn: turn('s1', 't1'),
       abortController,
       stream: values([1, 2, 3]),
     });
@@ -55,8 +58,7 @@ describe('ActiveTurnRegistry', () => {
     const registry = new ActiveTurnRegistry();
     const abortController = new AbortController();
     const tracked = registry.track({
-      sessionId: 's1',
-      turnId: 't1',
+      turn: turn('s1', 't1'),
       abortController,
       stream: values([1, 2, 3]),
     });
@@ -78,8 +80,7 @@ describe('ActiveTurnRegistry', () => {
     const registry = new ActiveTurnRegistry();
     const abortController = new AbortController();
     const tracked = registry.track({
-      sessionId: 's1',
-      turnId: 't1',
+      turn: turn('s1', 't1'),
       abortController,
       stream: throwingStream(),
     });
@@ -102,8 +103,7 @@ describe('ActiveTurnRegistry', () => {
     const registry = new ActiveTurnRegistry();
     const abortController = new AbortController();
     void registry.track({
-      sessionId: 's1',
-      turnId: 't1',
+      turn: turn('s1', 't1'),
       abortController,
       stream: values([1]),
     });
@@ -134,8 +134,7 @@ describe('ActiveTurnRegistry', () => {
     const registry = new ActiveTurnRegistry();
     const abortController = new AbortController();
     void registry.track({
-      sessionId: 's1',
-      turnId: 't1',
+      turn: turn('s1', 't1'),
       abortController,
       stream: values([1]),
     });
@@ -155,8 +154,7 @@ describe('ActiveTurnRegistry', () => {
     const registry = new ActiveTurnRegistry();
     const abortController = new AbortController();
     const tracked = registry.track({
-      sessionId: 's1',
-      turnId: 't1',
+      turn: turn('s1', 't1'),
       abortController,
       stream: gateOnAbort(abortController.signal),
     });
@@ -186,8 +184,7 @@ describe('ActiveTurnRegistry', () => {
 
     const abortController = new AbortController();
     const tracked = registry.track({
-      sessionId: 's1',
-      turnId: 'late',
+      turn: turn('s1', 'late'),
       abortController,
       stream: values(['x']),
     });
