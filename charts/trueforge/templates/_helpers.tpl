@@ -394,33 +394,73 @@ Replica count is always 1, even when a resourceTier is set.
 {{- end }}
 
 {{/*
+True when a value is a `${k8s-secret/...}` reference string.
+*/}}
+{{- define "trueforge.env.isSecretRef" -}}
+{{- $v := index . "value" -}}
+{{- if and (kindIs "string" $v) (hasPrefix "${k8s-secret" $v) -}}true{{- end -}}
+{{- end }}
+
+{{/*
+JSON `valueFrom` body from a `${k8s-secret/<secret>/<key>}` reference. The short
+`${k8s-secret/<key>}` form resolves against `envSecretName`. Lets a value carry a
+secretKeyRef as a plain string, which is the only shape a parent chart can
+override (Helm refuses to replace a map with a scalar).
+Expects: field (values path for errors), value, root (chart context).
+*/}}
+{{- define "trueforge.env.k8sSecretRef" -}}
+{{- $field := index . "field" -}}
+{{- $value := index . "value" -}}
+{{- $root := index . "root" -}}
+{{- $parts := regexSplit "/" (trimSuffix "}" $value) -1 -}}
+{{- if eq (len $parts) 2 -}}
+{{- $secret := $root.Values.envSecretName | default "" -}}
+{{- if not $secret -}}
+{{- fail (printf "%s uses ${k8s-secret/<key>} but envSecretName is empty; set envSecretName or use ${k8s-secret/<secret>/<key>}" $field) -}}
+{{- end -}}
+{{- dict "secretKeyRef" (dict "name" $secret "key" (index $parts 1) "optional" true) | toJson -}}
+{{- else if eq (len $parts) 3 -}}
+{{- dict "secretKeyRef" (dict "name" (index $parts 1) "key" (index $parts 2) "optional" true) | toJson -}}
+{{- else -}}
+{{- fail (printf "%s has an invalid secret reference %q; expected ${k8s-secret/<secret>/<key>} or ${k8s-secret/<key>}" $field $value) -}}
+{{- end -}}
+{{- end }}
+
+{{/*
 JSON env entry from a string | { valueFrom: ... } field.
-Expects: name (env var), field (values path for errors), value.
-Literals become env value; valueFrom maps are passed through. The chart does
-not create Secrets; callers who need secretKeyRef must supply valueFrom.
+Expects: name (env var), field (values path for errors), value, root (chart context).
+Literals become env value; valueFrom maps are passed through; `${k8s-secret/...}`
+strings become a secretKeyRef. The chart creates no Secrets either way.
 */}}
 {{- define "trueforge.env.fromStringOrValueFrom" -}}
 {{- $name := index . "name" -}}
 {{- $field := index . "field" -}}
 {{- $value := index . "value" -}}
+{{- $root := index . "root" -}}
 {{- include "trueforge.requireStringOrValueFrom" (dict "name" $field "value" $value) -}}
 {{- if kindIs "map" $value -}}
 {{- dict "name" $name "valueFrom" $value.valueFrom | toJson -}}
+{{- else if include "trueforge.env.isSecretRef" (dict "value" $value) -}}
+{{- dict "name" $name "valueFrom" (include "trueforge.env.k8sSecretRef" (dict "field" $field "value" $value "root" $root) | fromJson) | toJson -}}
 {{- else -}}
 {{- dict "name" $name "value" ($value | toString) | toJson -}}
 {{- end -}}
 {{- end }}
 
 {{/*
-One env entry from the `env` map. Scalars become a literal value; a map must
-carry valueFrom and is passed through untouched.
+One env entry from the `env` map. Scalars become a literal value, a map must
+carry valueFrom and is passed through untouched, and a `${k8s-secret/...}`
+string becomes a secretKeyRef.
 */}}
 {{- define "trueforge.env.item" -}}
 {{- $name := index . "name" -}}
 {{- $value := index . "value" -}}
+{{- $root := index . "root" -}}
 {{- if kindIs "map" $value -}}
 {{- if not $value.valueFrom -}}{{- fail (printf "env.%s must set valueFrom when given as a map" $name) -}}{{- end -}}
 {{- dict "name" $name "valueFrom" $value.valueFrom | toJson -}}
+{{- else if include "trueforge.env.isSecretRef" (dict "value" $value) -}}
+{{- dict "name" $name "valueFrom" (include "trueforge.env.k8sSecretRef" (dict "field" (printf "env.%s" $name) "value" $value "root" $root) | fromJson) | toJson -}}
 {{- else -}}
 {{- dict "name" $name "value" ($value | toString) | toJson -}}
 {{- end -}}
@@ -470,29 +510,29 @@ fields, wires bundled Postgres/Redis, optional OIDC, then server.extraEnv.
 {{- $env = append $env (dict "name" "REDIS_SENTINEL_MASTER_NAME" "value" $sentinel.masterName) -}}
 {{- $env = append $env (dict "name" "REDIS_DB" "value" (($externalRedis.db | default 0) | toString)) -}}
 {{- if $auth.username -}}
-{{- $env = append $env (include "trueforge.env.fromStringOrValueFrom" (dict "name" "REDIS_USERNAME" "field" "externalRedis.auth.username" "value" $auth.username) | fromJson) -}}
+{{- $env = append $env (include "trueforge.env.fromStringOrValueFrom" (dict "root" $ "name" "REDIS_USERNAME" "field" "externalRedis.auth.username" "value" $auth.username) | fromJson) -}}
 {{- end -}}
 {{- if $auth.password -}}
-{{- $env = append $env (include "trueforge.env.fromStringOrValueFrom" (dict "name" "REDIS_PASSWORD" "field" "externalRedis.auth.password" "value" $auth.password) | fromJson) -}}
+{{- $env = append $env (include "trueforge.env.fromStringOrValueFrom" (dict "root" $ "name" "REDIS_PASSWORD" "field" "externalRedis.auth.password" "value" $auth.password) | fromJson) -}}
 {{- end -}}
 {{- $sentinelAuth := $sentinel.auth | default dict -}}
 {{- if $sentinelAuth.username -}}
-{{- $env = append $env (include "trueforge.env.fromStringOrValueFrom" (dict "name" "REDIS_SENTINEL_USERNAME" "field" "externalRedis.sentinel.auth.username" "value" $sentinelAuth.username) | fromJson) -}}
+{{- $env = append $env (include "trueforge.env.fromStringOrValueFrom" (dict "root" $ "name" "REDIS_SENTINEL_USERNAME" "field" "externalRedis.sentinel.auth.username" "value" $sentinelAuth.username) | fromJson) -}}
 {{- end -}}
 {{- if $sentinelAuth.password -}}
-{{- $env = append $env (include "trueforge.env.fromStringOrValueFrom" (dict "name" "REDIS_SENTINEL_PASSWORD" "field" "externalRedis.sentinel.auth.password" "value" $sentinelAuth.password) | fromJson) -}}
+{{- $env = append $env (include "trueforge.env.fromStringOrValueFrom" (dict "root" $ "name" "REDIS_SENTINEL_PASSWORD" "field" "externalRedis.sentinel.auth.password" "value" $sentinelAuth.password) | fromJson) -}}
 {{- end -}}
 {{- else if $externalRedis.url -}}
-{{- $env = append $env (include "trueforge.env.fromStringOrValueFrom" (dict "name" "REDIS_URL" "field" "externalRedis.url" "value" $externalRedis.url) | fromJson) -}}
+{{- $env = append $env (include "trueforge.env.fromStringOrValueFrom" (dict "root" $ "name" "REDIS_URL" "field" "externalRedis.url" "value" $externalRedis.url) | fromJson) -}}
 {{- else -}}
-{{- $env = append $env (include "trueforge.env.fromStringOrValueFrom" (dict "name" "REDIS_HOST" "field" "externalRedis.host" "value" $externalRedis.host) | fromJson) -}}
+{{- $env = append $env (include "trueforge.env.fromStringOrValueFrom" (dict "root" $ "name" "REDIS_HOST" "field" "externalRedis.host" "value" $externalRedis.host) | fromJson) -}}
 {{- $env = append $env (dict "name" "REDIS_PORT" "value" (($externalRedis.port | default 6379) | toString)) -}}
 {{- $env = append $env (dict "name" "REDIS_DB" "value" (($externalRedis.db | default 0) | toString)) -}}
 {{- if $auth.username -}}
-{{- $env = append $env (include "trueforge.env.fromStringOrValueFrom" (dict "name" "REDIS_USERNAME" "field" "externalRedis.auth.username" "value" $auth.username) | fromJson) -}}
+{{- $env = append $env (include "trueforge.env.fromStringOrValueFrom" (dict "root" $ "name" "REDIS_USERNAME" "field" "externalRedis.auth.username" "value" $auth.username) | fromJson) -}}
 {{- end -}}
 {{- if $auth.password -}}
-{{- $env = append $env (include "trueforge.env.fromStringOrValueFrom" (dict "name" "REDIS_PASSWORD" "field" "externalRedis.auth.password" "value" $auth.password) | fromJson) -}}
+{{- $env = append $env (include "trueforge.env.fromStringOrValueFrom" (dict "root" $ "name" "REDIS_PASSWORD" "field" "externalRedis.auth.password" "value" $auth.password) | fromJson) -}}
 {{- end -}}
 {{- end -}}
 {{- $env = append $env (dict "name" "REDIS_TLS_ENABLED" "value" (ternary "true" "false" $tlsEnabled)) -}}
@@ -503,19 +543,19 @@ fields, wires bundled Postgres/Redis, optional OIDC, then server.extraEnv.
 {{- end -}}
 {{- $env = append $env (dict "name" "REDIS_TLS_REJECT_UNAUTHORIZED" "value" (ternary "true" "false" $rejectUnauthorized)) -}}
 {{- if $tls.caCert -}}
-{{- $env = append $env (include "trueforge.env.fromStringOrValueFrom" (dict "name" "REDIS_TLS_CA_CERT" "field" "externalRedis.tls.caCert" "value" $tls.caCert) | fromJson) -}}
+{{- $env = append $env (include "trueforge.env.fromStringOrValueFrom" (dict "root" $ "name" "REDIS_TLS_CA_CERT" "field" "externalRedis.tls.caCert" "value" $tls.caCert) | fromJson) -}}
 {{- end -}}
 {{- if $tls.serverName -}}
-{{- $env = append $env (include "trueforge.env.fromStringOrValueFrom" (dict "name" "REDIS_TLS_SERVERNAME" "field" "externalRedis.tls.serverName" "value" $tls.serverName) | fromJson) -}}
+{{- $env = append $env (include "trueforge.env.fromStringOrValueFrom" (dict "root" $ "name" "REDIS_TLS_SERVERNAME" "field" "externalRedis.tls.serverName" "value" $tls.serverName) | fromJson) -}}
 {{- end -}}
 {{- if $tls.cert -}}
-{{- $env = append $env (include "trueforge.env.fromStringOrValueFrom" (dict "name" "REDIS_TLS_CERT" "field" "externalRedis.tls.cert" "value" $tls.cert) | fromJson) -}}
+{{- $env = append $env (include "trueforge.env.fromStringOrValueFrom" (dict "root" $ "name" "REDIS_TLS_CERT" "field" "externalRedis.tls.cert" "value" $tls.cert) | fromJson) -}}
 {{- end -}}
 {{- if $tls.key -}}
-{{- $env = append $env (include "trueforge.env.fromStringOrValueFrom" (dict "name" "REDIS_TLS_KEY" "field" "externalRedis.tls.key" "value" $tls.key) | fromJson) -}}
+{{- $env = append $env (include "trueforge.env.fromStringOrValueFrom" (dict "root" $ "name" "REDIS_TLS_KEY" "field" "externalRedis.tls.key" "value" $tls.key) | fromJson) -}}
 {{- end -}}
 {{- if $tls.keyPassphrase -}}
-{{- $env = append $env (include "trueforge.env.fromStringOrValueFrom" (dict "name" "REDIS_TLS_KEY_PASSPHRASE" "field" "externalRedis.tls.keyPassphrase" "value" $tls.keyPassphrase) | fromJson) -}}
+{{- $env = append $env (include "trueforge.env.fromStringOrValueFrom" (dict "root" $ "name" "REDIS_TLS_KEY_PASSPHRASE" "field" "externalRedis.tls.keyPassphrase" "value" $tls.keyPassphrase) | fromJson) -}}
 {{- end -}}
 {{- end -}}
 {{- else -}}
@@ -529,11 +569,11 @@ fields, wires bundled Postgres/Redis, optional OIDC, then server.extraEnv.
 {{- $env = append $env (dict "name" "POSTGRES_USER" "value" (include "trueforge.postgres.user" .)) -}}
 {{- $env = append $env (dict "name" "POSTGRES_PASSWORD" "valueFrom" (dict "secretKeyRef" (dict "name" (include "trueforge.postgres.secretName" .) "key" "password"))) -}}
 {{- else -}}
-{{- $env = append $env (include "trueforge.env.fromStringOrValueFrom" (dict "name" "POSTGRES_HOST" "field" "externalPostgres.host" "value" .Values.externalPostgres.host) | fromJson) -}}
-{{- $env = append $env (include "trueforge.env.fromStringOrValueFrom" (dict "name" "POSTGRES_PORT" "field" "externalPostgres.port" "value" .Values.externalPostgres.port) | fromJson) -}}
-{{- $env = append $env (include "trueforge.env.fromStringOrValueFrom" (dict "name" "POSTGRES_DB" "field" "externalPostgres.database" "value" .Values.externalPostgres.database) | fromJson) -}}
-{{- $env = append $env (include "trueforge.env.fromStringOrValueFrom" (dict "name" "POSTGRES_USER" "field" "externalPostgres.user" "value" .Values.externalPostgres.user) | fromJson) -}}
-{{- $env = append $env (include "trueforge.env.fromStringOrValueFrom" (dict "name" "POSTGRES_PASSWORD" "field" "externalPostgres.password" "value" .Values.externalPostgres.password) | fromJson) -}}
+{{- $env = append $env (include "trueforge.env.fromStringOrValueFrom" (dict "root" $ "name" "POSTGRES_HOST" "field" "externalPostgres.host" "value" .Values.externalPostgres.host) | fromJson) -}}
+{{- $env = append $env (include "trueforge.env.fromStringOrValueFrom" (dict "root" $ "name" "POSTGRES_PORT" "field" "externalPostgres.port" "value" .Values.externalPostgres.port) | fromJson) -}}
+{{- $env = append $env (include "trueforge.env.fromStringOrValueFrom" (dict "root" $ "name" "POSTGRES_DB" "field" "externalPostgres.database" "value" .Values.externalPostgres.database) | fromJson) -}}
+{{- $env = append $env (include "trueforge.env.fromStringOrValueFrom" (dict "root" $ "name" "POSTGRES_USER" "field" "externalPostgres.user" "value" .Values.externalPostgres.user) | fromJson) -}}
+{{- $env = append $env (include "trueforge.env.fromStringOrValueFrom" (dict "root" $ "name" "POSTGRES_PASSWORD" "field" "externalPostgres.password" "value" .Values.externalPostgres.password) | fromJson) -}}
 {{- if .Values.externalPostgres.sslMode -}}
 {{- $env = append $env (dict "name" "POSTGRES_SSL_MODE" "value" .Values.externalPostgres.sslMode) -}}
 {{- end -}}
@@ -553,7 +593,7 @@ fields, wires bundled Postgres/Redis, optional OIDC, then server.extraEnv.
 {{- $_ := required "configs.oidc.clientId is required when configs.oidc.enabled is true" .Values.configs.oidc.clientId -}}
 {{- $env = append $env (dict "name" "OIDC_ISSUER_URL" "value" .Values.configs.oidc.issuerUrl) -}}
 {{- $env = append $env (dict "name" "OIDC_CLIENT_ID" "value" .Values.configs.oidc.clientId) -}}
-{{- $env = append $env (include "trueforge.env.fromStringOrValueFrom" (dict "name" "OIDC_CLIENT_SECRET" "field" "configs.oidc.clientSecret" "value" .Values.configs.oidc.clientSecret) | fromJson) -}}
+{{- $env = append $env (include "trueforge.env.fromStringOrValueFrom" (dict "root" $ "name" "OIDC_CLIENT_SECRET" "field" "configs.oidc.clientSecret" "value" .Values.configs.oidc.clientSecret) | fromJson) -}}
 {{- $env = append $env (dict "name" "OIDC_USER_REFERENCE_CLAIM" "value" .Values.configs.oidc.userReferenceClaim) -}}
 {{- $env = append $env (dict "name" "OIDC_USER_DISPLAY_NAME_CLAIM" "value" .Values.configs.oidc.userDisplayNameClaim) -}}
 {{- $env = append $env (dict "name" "OIDC_USER_ROLE_CLAIM" "value" .Values.configs.oidc.userRoleClaim) -}}
@@ -573,7 +613,7 @@ fields, wires bundled Postgres/Redis, optional OIDC, then server.extraEnv.
 {{- end -}}
 
 {{- /* Controller -> server auth. The app rejects an empty value when peered. */ -}}
-{{- $env = append $env (include "trueforge.env.fromStringOrValueFrom" (dict "name" "TRUEFORGE_API_KEY" "field" "apiKey" "value" .Values.apiKey) | fromJson) -}}
+{{- $env = append $env (include "trueforge.env.fromStringOrValueFrom" (dict "root" $ "name" "TRUEFORGE_API_KEY" "field" "apiKey" "value" .Values.apiKey) | fromJson) -}}
 
 {{- /* Node reads its own bundled CA store unless told otherwise. */ -}}
 {{- if eq (include "trueforge.customCA.enabled" .) "true" -}}
@@ -596,14 +636,21 @@ fields, wires bundled Postgres/Redis, optional OIDC, then server.extraEnv.
 {{- end -}}
 
 {{- /* env map: replace in place when the chart already emits the name, else
-       append. Keeps the pod spec free of duplicate env entries. */ -}}
-{{- $overrides := .Values.env | default dict -}}
+       append. Keeps the pod spec free of duplicate env entries. A null value
+       drops the override, so a parent chart can hand a key back to the chart
+       (Helm keeps null keys in subchart values rather than removing them). */ -}}
+{{- $overrides := dict -}}
+{{- range $name, $value := (.Values.env | default dict) -}}
+{{- if not (kindIs "invalid" $value) -}}
+{{- $_ := set $overrides $name $value -}}
+{{- end -}}
+{{- end -}}
 {{- if $overrides -}}
 {{- $out := list -}}
 {{- $seen := dict -}}
 {{- range $item := $env -}}
 {{- if hasKey $overrides $item.name -}}
-{{- $out = append $out (include "trueforge.env.item" (dict "name" $item.name "value" (index $overrides $item.name)) | fromJson) -}}
+{{- $out = append $out (include "trueforge.env.item" (dict "root" $ "name" $item.name "value" (index $overrides $item.name)) | fromJson) -}}
 {{- else -}}
 {{- $out = append $out $item -}}
 {{- end -}}
@@ -611,7 +658,7 @@ fields, wires bundled Postgres/Redis, optional OIDC, then server.extraEnv.
 {{- end -}}
 {{- range $name := (keys $overrides | sortAlpha) -}}
 {{- if not (hasKey $seen $name) -}}
-{{- $out = append $out (include "trueforge.env.item" (dict "name" $name "value" (index $overrides $name)) | fromJson) -}}
+{{- $out = append $out (include "trueforge.env.item" (dict "root" $ "name" $name "value" (index $overrides $name)) | fromJson) -}}
 {{- end -}}
 {{- end -}}
 {{- $env = $out -}}
