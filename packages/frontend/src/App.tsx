@@ -36,6 +36,7 @@ function initAnalytics(): void {
     api_host: POSTHOG_HOST,
     autocapture: false,
     capture_pageview: false,
+    disable_session_recording: true,
   });
 }
 
