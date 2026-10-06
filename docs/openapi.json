@@ -3985,6 +3985,7 @@
           },
           "environment_variables": {
             "additionalProperties": {
+              "maxLength": 4096,
               "type": "string"
             },
             "type": "object"
@@ -4017,6 +4018,7 @@
           },
           "environment_variables": {
             "additionalProperties": {
+              "maxLength": 4096,
               "type": "string"
             },
             "type": "object"
@@ -4071,20 +4073,23 @@
         "properties": {
           "cpu": {
             "default": 1,
-            "description": "CPU allocation in cores.",
-            "exclusiveMinimum": 0,
+            "description": "CPU allocation in cores (1–4).",
+            "maximum": 4,
+            "minimum": 1,
             "type": "number"
           },
           "disk": {
             "default": 3,
-            "description": "Disk allocation in GiB.",
-            "exclusiveMinimum": 0,
+            "description": "Disk allocation in GiB (1–10).",
+            "maximum": 10,
+            "minimum": 1,
             "type": "number"
           },
           "memory": {
             "default": 1,
-            "description": "Memory allocation in GiB.",
-            "exclusiveMinimum": 0,
+            "description": "Memory allocation in GiB (1–8).",
+            "maximum": 8,
+            "minimum": 1,
             "type": "number"
           }
         },
@@ -4095,7 +4100,9 @@
         "properties": {
           "env": {
             "description": "Environment variable name injected into the sandbox.",
+            "maxLength": 128,
             "minLength": 1,
+            "pattern": "^[A-Za-z_][A-Za-z0-9_]*$",
             "type": "string"
           },
           "hosts": {
