@@ -14,6 +14,29 @@ export function toUiTurnDoneMetrics(metrics: TrueForgeApi.TurnMetrics): TurnDone
   };
 }
 
+/**
+ * Classification fields are optional on the wire: an older server omits them, and the generated
+ * SDK types only gain them after the regen job runs. Read them structurally so a payload without
+ * them maps to a plain message exactly as before.
+ */
+function toUiErrorClassification(state: object): {
+  code?: string;
+  source?: string;
+  retryable?: boolean;
+  detail?: string;
+} {
+  const code: unknown = Reflect.get(state, 'code');
+  const source: unknown = Reflect.get(state, 'source');
+  const retryable: unknown = Reflect.get(state, 'retryable');
+  const detail: unknown = Reflect.get(state, 'detail');
+  return {
+    ...(typeof code === 'string' && code !== '' ? { code } : {}),
+    ...(typeof source === 'string' && source !== '' ? { source } : {}),
+    ...(typeof retryable === 'boolean' ? { retryable } : {}),
+    ...(typeof detail === 'string' && detail !== '' ? { detail } : {}),
+  };
+}
+
 export function toUiTurnState(state: TrueForgeApi.TurnState | TrueForgeApi.TurnDoneEventState): TurnState {
   if (state.status === 'running' || state.status === 'paused') {
     return { status: 'running' };
@@ -34,6 +57,7 @@ function toUiTerminalTurnState(state: TrueForgeApi.TurnDoneEventState): Exclude<
       return {
         status: 'error',
         message: state.message,
+        ...toUiErrorClassification(state),
         completedAt: state.completedAt,
         ...(state.metrics == null ? {} : { metrics: toUiTurnDoneMetrics(state.metrics) }),
       };

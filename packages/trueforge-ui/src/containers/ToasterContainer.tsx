@@ -35,12 +35,30 @@ function isHttpLikeError(error: unknown): error is Error & { statusCode?: number
   return error instanceof Error && ('statusCode' in error || 'body' in error);
 }
 
+/** `{ error: { message, code } }` is the server's error envelope; `code` marks a classified failure. */
+function errorCodeFromBody(body: unknown): string | undefined {
+  if (body == null || typeof body !== 'object') {
+    return undefined;
+  }
+  const inner: unknown = Reflect.get(body, 'error');
+  if (inner == null || typeof inner !== 'object') {
+    return undefined;
+  }
+  const code: unknown = Reflect.get(inner, 'code');
+  return typeof code === 'string' && code !== '' ? code : undefined;
+}
+
 function normalizeError(error: unknown): ToastContent {
   if (isHttpLikeError(error)) {
     const statusCode = error.statusCode;
     if (statusCode != null || error.body != null) {
-      const title = statusCode != null ? `Request failed (${statusCode})` : 'Request failed';
       const raw = getErrorMessage(error, 'The server returned an error.');
+      // A classified failure already carries a written-for-humans message, so it becomes the
+      // title; an unclassified one keeps the status prefix as the only context available.
+      if (errorCodeFromBody(error.body) != null) {
+        return { title: truncateDescription(raw) };
+      }
+      const title = statusCode != null ? `Request failed (${statusCode})` : 'Request failed';
       return { title, description: truncateDescription(raw) };
     }
   }

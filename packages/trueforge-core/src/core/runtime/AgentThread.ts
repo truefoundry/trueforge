@@ -54,7 +54,9 @@ import { executeToolCalls } from '../mcp/executeToolCalls';
 import type { IToolSet, MCPAuthRequired } from '../mcp/IMCPServer';
 import type { HarnessSandbox, SandboxInfo } from '../sandbox/Sandbox';
 import type { AgentTracing } from '../tracing/AgentTracing';
-import { describeUnknownError, extractErrorLogFields } from '../util/errorLogFields';
+import { classificationLogFields, classifyError } from '../util/classifyError';
+import { extractErrorLogFields } from '../util/errorLogFields';
+import { CODE_RETRYABLE, ERROR_COPY, type ErrorClassification } from '../util/errorTaxonomy';
 import type { AgentDefinition } from './AgentDefinition';
 import type {
   AgentThreadConstructorInput,
@@ -739,7 +741,8 @@ export class AgentThread {
     this.metrics.total_summarizations++;
   }
 
-  private generateErrorEvent(message: string, output?: ModelMessageEvent): InternalThreadDoneEvent {
+  private generateErrorEvent(classification: ErrorClassification, output?: ModelMessageEvent): InternalThreadDoneEvent {
+    const message = classification.title;
     if (this.parent !== undefined) {
       return {
         type: InternalEventType.AGENT_DONE,
@@ -748,6 +751,7 @@ export class AgentThread {
         parent: this.parent,
         status: 'error',
         error: message,
+        classification,
         send_to_parent: {
           role: 'tool',
           content: message,
@@ -762,6 +766,7 @@ export class AgentThread {
       title: this.title,
       status: 'error',
       error: message,
+      classification,
       output,
     };
   }
@@ -1183,6 +1188,13 @@ export class AgentThread {
           type: 'error',
           output: agentAssistantMessage,
           error_message: errorMessage,
+          classification: {
+            code: 'turn_max_tokens',
+            source: 'internal',
+            retryable: CODE_RETRYABLE.turn_max_tokens,
+            title: ERROR_COPY.turn_max_tokens,
+            detail: errorMessage,
+          },
           send_to_parent: { role: 'tool', tool_call_id: this.parent.tool_call_id, content: errorMessage },
         };
       } else if (!hasToolCalls(assistantMessage)) {
@@ -1205,7 +1217,16 @@ export class AgentThread {
 
     if (finishReason === 'length') {
       const errorContent = completion?.type === 'error' ? completion.error_message : 'max_tokens breached';
-      yield this.generateErrorEvent(errorContent, agentAssistantMessage);
+      yield this.generateErrorEvent(
+        {
+          code: 'turn_max_tokens',
+          source: 'internal',
+          retryable: CODE_RETRYABLE.turn_max_tokens,
+          title: ERROR_COPY.turn_max_tokens,
+          detail: errorContent,
+        },
+        agentAssistantMessage,
+      );
       return { outcome: 'exit', modelMessageEventId };
     }
 
@@ -1389,7 +1410,7 @@ export class AgentThread {
       return { ...base, status: 'done', output: c.output };
     }
     if (c.type === 'error') {
-      return { ...base, status: 'error', error: c.error_message, output: c.output };
+      return { ...base, status: 'error', error: c.error_message, classification: c.classification, output: c.output };
     }
     return { ...base, status: 'cancelled', reason: c.reason };
   }
@@ -1461,9 +1482,13 @@ export class AgentThread {
               return;
             }
             if (this.metrics.iterations >= iterationLimit) {
-              yield this.generateErrorEvent(
-                `You have reached iteration limit of ${String(iterationLimit)}, please request again`,
-              );
+              yield this.generateErrorEvent({
+                code: 'turn_iteration_limit',
+                source: 'internal',
+                retryable: CODE_RETRYABLE.turn_iteration_limit,
+                title: ERROR_COPY.turn_iteration_limit,
+                detail: `Reached the iteration limit of ${String(iterationLimit)} for this turn.`,
+              });
               return;
             }
             this.metrics.iterations++;
@@ -1497,8 +1522,15 @@ export class AgentThread {
     } catch (error) {
       // Providers / transports often reject with plain objects; instanceof Error would
       // otherwise collapse those into an opaque "Unknown error occurred" in Agent Steps.
-      this.logger.error('Agent thread execution failed', extractErrorLogFields(error));
-      yield this.generateErrorEvent(describeUnknownError(error));
+      const classification = classifyError({ error, source: 'internal' });
+      const logFields = { ...extractErrorLogFields(error), ...classificationLogFields(classification) };
+      // Shutdown aborts in-flight turns; that is an expected stop, not a fault worth paging on.
+      if (classification.code === 'turn_cancelled') {
+        this.logger.info('Agent thread execution stopped', logFields);
+      } else {
+        this.logger.error('Agent thread execution failed', logFields);
+      }
+      yield this.generateErrorEvent(classification);
     } finally {
       this.contextBusy = false;
     }

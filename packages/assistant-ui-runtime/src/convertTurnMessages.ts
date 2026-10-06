@@ -15,6 +15,7 @@ import type {
   TurnStreamData,
 } from './server/index.js';
 import type { AgentChatServer } from './server/types.js';
+import { toTurnErrorDetail } from './turnErrorDetail.js';
 
 import { ROOT_THREAD_ID } from './constants.js';
 import { extractTurnUserText } from './extractTurnUserText.js';
@@ -709,7 +710,8 @@ function assistantStatusFromTurnState(state: Turn['state']): MessageStatus {
     case 'done':
       return { type: 'complete', reason: 'stop' };
     case 'error':
-      return { type: 'incomplete', reason: 'error', error: state.message };
+      // Spread so the detail lands as a plain JSON object, which is what `error` is typed as.
+      return { type: 'incomplete', reason: 'error', error: { ...toTurnErrorDetail(state) } };
     case 'cancelled':
       return { type: 'incomplete', reason: 'cancelled' };
     case 'running':

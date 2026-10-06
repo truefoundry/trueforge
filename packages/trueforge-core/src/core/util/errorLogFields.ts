@@ -31,26 +31,33 @@ function messageOfUnknown(error: unknown): string {
 }
 
 /**
- * Walk `Error.cause` (and plain `{ cause }` objects) so undici-style
- * `TypeError: fetch failed` surfaces the nested `ECONNREFUSED` / cert reason.
+ * Walk `Error.cause` (and plain `{ cause }` objects) outermost first, so undici-style
+ * `TypeError: fetch failed` surfaces the nested `ECONNREFUSED` / cert reason. Cycle-safe.
  */
-function describeErrorChain(error: unknown, seen: Set<unknown>): string {
-  if (error === undefined || error === null || seen.has(error)) {
-    return '';
+export function errorChain(error: unknown): unknown[] {
+  const chain: unknown[] = [];
+  const seen = new Set<unknown>();
+  let current = error;
+  while (current !== undefined && current !== null && !seen.has(current)) {
+    seen.add(current);
+    chain.push(current);
+    current = typeof current === 'object' && 'cause' in current ? Reflect.get(current, 'cause') : undefined;
   }
-  seen.add(error);
+  return chain;
+}
 
-  const head = messageOfUnknown(error).trim();
-  const nestedCause = typeof error === 'object' && 'cause' in error ? Reflect.get(error, 'cause') : undefined;
-  const tail = describeErrorChain(nestedCause, seen).trim();
-
-  if (head.length === 0) {
-    return tail;
+/** Joins the chain's messages, dropping links whose text the outer link already contains. */
+function describeErrorChain(error: unknown): string {
+  const messages = errorChain(error).map(link => messageOfUnknown(link).trim());
+  let joined = '';
+  for (let i = messages.length - 1; i >= 0; i -= 1) {
+    const head = messages[i];
+    if (head === undefined || head.length === 0) {
+      continue;
+    }
+    joined = joined.length === 0 || head.includes(joined) ? head : `${head}: ${joined}`;
   }
-  if (tail.length === 0 || head.includes(tail)) {
-    return head;
-  }
-  return `${head}: ${tail}`;
+  return joined;
 }
 
 /**
@@ -59,7 +66,7 @@ function describeErrorChain(error: unknown, seen: Set<unknown>): string {
  * Includes nested `cause` messages when present (e.g. undici "fetch failed").
  */
 export function describeUnknownError(error: unknown): string {
-  const chain = describeErrorChain(error, new Set());
+  const chain = describeErrorChain(error);
   if (chain.length > 0) {
     return chain;
   }
@@ -71,7 +78,7 @@ export function describeUnknownError(error: unknown): string {
 
 export function extractErrorLogFields(error: unknown): ErrorLogFields {
   if (error instanceof Error) {
-    const chain = describeErrorChain(error, new Set());
+    const chain = describeErrorChain(error);
     return {
       error: chain.length > 0 ? chain : formatObjectErrorForLog(error),
       stack: error.stack,
@@ -80,7 +87,7 @@ export function extractErrorLogFields(error: unknown): ErrorLogFields {
   if (typeof error !== 'object' || error === null) {
     return { error: String(error) };
   }
-  const chain = describeErrorChain(error, new Set());
+  const chain = describeErrorChain(error);
   if (chain.length > 0) {
     return { error: chain };
   }

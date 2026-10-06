@@ -154,9 +154,21 @@ export type {
 } from './tracing/AgentTracing';
 
 // Errors / utils
-export { AgentHarnessError, McpConnectionError, McpDcrConfigurationError } from './errors';
+export { AgentHarnessError, ClassifiedHarnessError, McpConnectionError, McpDcrConfigurationError } from './errors';
 export { REDIS_KEY_NAMESPACE, redisKey } from './redisKeys';
-export { describeUnknownError, extractErrorLogFields } from './util/errorLogFields';
+export { attachedClassification, classificationLogFields, classifyError } from './util/classifyError';
+export { describeUnknownError, errorChain, extractErrorLogFields } from './util/errorLogFields';
+export {
+  CODE_KEEPS_UPSTREAM_TEXT,
+  CODE_RETRYABLE,
+  ERROR_CODES,
+  ERROR_COPY,
+  ERROR_SOURCES,
+  UNKNOWN_COPY,
+  type ErrorClassification,
+  type ErrorCode,
+  type ErrorSource,
+} from './util/errorTaxonomy';
 export {
   DEFAULT_MCP_HTTP_BODY_TIMEOUT_MS,
   DEFAULT_MCP_HTTP_CONNECT_TIMEOUT_MS,

@@ -17,7 +17,6 @@ import type {
   SandboxCreatedEvent,
   ThreadCreatedEvent,
   ThreadOverwriteContextEvent,
-  ThreadStateError,
   ToolApprovalRequiredEvent,
   ToolResponseEvent,
   ToolResponseRequiredEvent,
@@ -27,6 +26,7 @@ import type {
 import type { InternalEnrichedAssistantMessage, LLMToolMessage, LLMUserMessage } from '../llm/LLMTypes';
 import type { HarnessSandbox } from '../sandbox/Sandbox';
 import type { AgentTracing } from '../tracing/AgentTracing';
+import type { ErrorClassification } from '../util/errorTaxonomy';
 import type { AgentDefinition } from './AgentDefinition';
 import type { CurrentContextUsage } from './contextUsage';
 
@@ -75,7 +75,13 @@ export type InternalMCPAuthRequiredEvent = BaseMCPAuthRequiredEvent & {
 
 export type SubAgentCompletion =
   | { type: 'done'; output: ModelMessageEvent; send_to_parent: LLMToolMessage }
-  | { type: 'error'; output: ModelMessageEvent; error_message: string; send_to_parent: LLMToolMessage }
+  | {
+      type: 'error';
+      output: ModelMessageEvent;
+      error_message: string;
+      classification: ErrorClassification;
+      send_to_parent: LLMToolMessage;
+    }
   | { type: 'cancelled'; reason: string; send_to_parent: LLMToolMessage };
 
 export type InternalMainThreadDoneEvent = {
@@ -85,7 +91,7 @@ export type InternalMainThreadDoneEvent = {
   parent?: undefined; // TODO (chiragjn): we should drop this field
 } & (
   | { status: 'done'; output: ModelMessageEvent }
-  | { status: 'error'; error: string; output?: ModelMessageEvent | undefined }
+  | { status: 'error'; error: string; classification: ErrorClassification; output?: ModelMessageEvent | undefined }
 );
 
 export type InternalChildThreadDoneEvent = {
@@ -95,7 +101,13 @@ export type InternalChildThreadDoneEvent = {
   parent: AgentParent;
 } & (
   | { status: 'done'; output: ModelMessageEvent; send_to_parent: LLMToolMessage }
-  | { status: 'error'; error: string; output?: ModelMessageEvent | undefined; send_to_parent: LLMToolMessage }
+  | {
+      status: 'error';
+      error: string;
+      classification: ErrorClassification;
+      output?: ModelMessageEvent | undefined;
+      send_to_parent: LLMToolMessage;
+    }
   | { status: 'cancelled'; reason: string; send_to_parent: LLMToolMessage }
 );
 
@@ -150,10 +162,17 @@ export type AgentThreadExecutionEvent = WithRegisteredPassthrough<
   ThreadCreatedEvent | Exclude<AgentThreadEvent, InternalPassthroughEvent>
 >;
 
+/** Root-thread failure carried out of execution, with the classification decided at its source. */
+export interface RootAgentError {
+  error: string;
+  classification: ErrorClassification;
+  output?: ModelMessageEvent | undefined;
+}
+
 export interface AgentThreadExecutionResult {
   output: ModelMessageEvent | null;
   required_actions: ActionRequiredEvent[];
-  root_agent_error?: Pick<ThreadStateError, 'error' | 'output'> | undefined;
+  root_agent_error?: RootAgentError | undefined;
 }
 
 /** Public send items plus internal LLM tool messages (child→parent delivery). */

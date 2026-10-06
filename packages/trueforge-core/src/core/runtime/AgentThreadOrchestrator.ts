@@ -545,7 +545,7 @@ export class AgentThreadOrchestrator {
                 isInternalThreadDoneError(chunk) &&
                 !chunk.parent
               ) {
-                rootAgentError = { error: chunk.error, output: chunk.output };
+                rootAgentError = { error: chunk.error, classification: chunk.classification, output: chunk.output };
               }
               if (chunk.type !== InternalEventType.PASSTHROUGH) {
                 const { output: outputContribution, requiredAction } = agentThreadEventToTerminalFields(chunk);

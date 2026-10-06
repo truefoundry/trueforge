@@ -66,6 +66,48 @@ describe('toUiTurnState', () => {
     );
   });
 
+  it('carries classification fields through to the UI', () => {
+    // Spread: the generated SDK type only declares these after the regen job runs.
+    const classification = {
+      code: 'model_timeout',
+      source: 'model',
+      retryable: true,
+      detail: 'terminated: Body Timeout Error',
+    };
+    assert.deepEqual(
+      toUiTurnState({
+        status: 'error',
+        message: 'The model provider did not respond in time.',
+        ...classification,
+        completedAt: '2026-01-01T00:00:00.000Z',
+      }),
+      {
+        status: 'error',
+        message: 'The model provider did not respond in time.',
+        code: 'model_timeout',
+        source: 'model',
+        retryable: true,
+        detail: 'terminated: Body Timeout Error',
+        completedAt: '2026-01-01T00:00:00.000Z',
+      },
+    );
+  });
+
+  it('omits classification fields a server did not send', () => {
+    assert.deepEqual(
+      toUiTurnState({
+        status: 'error',
+        message: 'Something went wrong',
+        completedAt: '2026-01-01T00:00:00.000Z',
+      }),
+      {
+        status: 'error',
+        message: 'Something went wrong',
+        completedAt: '2026-01-01T00:00:00.000Z',
+      },
+    );
+  });
+
   it('maps a cancelled state with metrics', () => {
     assert.deepEqual(
       toUiTurnState({

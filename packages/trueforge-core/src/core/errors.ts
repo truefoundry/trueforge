@@ -1,3 +1,5 @@
+import type { ErrorClassification } from './util/errorTaxonomy';
+
 export type AgentHarnessErrorCode =
   | 'invalid_file_input'
   | 'invalid_send_input'
@@ -68,5 +70,22 @@ export class McpDcrConfigurationError extends McpConnectionError {
   constructor(message: string, options?: ErrorOptions) {
     super(message, 422, options);
     this.name = 'McpDcrConfigurationError';
+  }
+}
+
+/**
+ * Carries a classification decided where the failure happened. Boundaries know which subsystem
+ * they are; the turn/HTTP funnels that catch the error later do not, so they read this instead
+ * of re-deriving it.
+ */
+export class ClassifiedHarnessError extends Error {
+  constructor(
+    readonly classification: ErrorClassification,
+    options?: ErrorOptions,
+  ) {
+    // `message` stays the raw technical text so logs and `.message` consumers are unchanged;
+    // user-facing copy is `classification.title`.
+    super(classification.detail, options);
+    this.name = 'ClassifiedHarnessError';
   }
 }

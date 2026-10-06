@@ -1,7 +1,7 @@
 'use client';
 
 import { ThreadPrimitive, type ThreadMessageLike } from '@assistant-ui/react';
-import { convertTurnsToThreadMessages } from '@truefoundry/trueforge-assistant-ui-runtime';
+import { convertTurnsToThreadMessages, toTurnErrorDetail } from '@truefoundry/trueforge-assistant-ui-runtime';
 import { Suspense, useCallback, useEffect, useMemo, useRef, useState, type ComponentType } from 'react';
 
 import { Markdown, type MarkdownProps } from '../atoms/Markdown.js';
@@ -113,7 +113,7 @@ function applyTerminalState(messages: ThreadMessageLike[], turn: SessionTurnView
             createdAt,
             metadata: { custom: { turnId: turn.turnId } },
           }),
-          status: { type: 'incomplete', reason: 'error', error: state.message },
+          status: { type: 'incomplete', reason: 'error', error: { ...toTurnErrorDetail(state) } },
         }
       : {
           ...(assistant ?? {

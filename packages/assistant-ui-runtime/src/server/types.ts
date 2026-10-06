@@ -306,6 +306,14 @@ export interface TurnStateCancelled {
 export interface TurnStateError {
   status: 'error';
   message: string;
+  /** Machine-readable code for the failure; absent when the host could not classify it. */
+  code?: string;
+  /** Subsystem the failure came from (model, sandbox, mcp, control_plane, internal). */
+  source?: string;
+  /** Whether retrying the same request may succeed. */
+  retryable?: boolean;
+  /** Raw technical text behind `message`, shown on demand for debugging. */
+  detail?: string;
   completedAt: string;
   /** Present when the host reports per-turn token totals before error. */
   metrics?: TurnDoneMetrics;

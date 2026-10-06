@@ -17,6 +17,7 @@ import {
 } from '../mcp/IMCPServer';
 import { defineTool, LocalToolMCP, type ToolDefinition } from '../mcp/LocalToolMCP';
 import type { AgentTracing } from '../tracing/AgentTracing';
+import { classificationLogFields, classifyError } from '../util/classifyError';
 import { extractErrorLogFields } from '../util/errorLogFields';
 
 export const DEFERRED_TOOLS_SERVER_ID = 'deferred-tools';
@@ -187,13 +188,15 @@ export class DeferredTool extends LocalToolMCP {
             overrides: metadata,
           });
         } catch (error) {
+          const classification = classifyError({ error, source: 'mcp' });
           this.logger.error('list_tools failed', {
             ...extractErrorLogFields(error),
+            ...classificationLogFields(classification),
             mcpServer: input.mcp_server,
           });
           return toolResultResponse({
             text: JSON.stringify({
-              error: `Failed to list tools for '${input.mcp_server}': ${error instanceof Error ? error.message : 'unknown'}`,
+              error: `Failed to list tools for '${input.mcp_server}': ${classification.title}`,
             }),
             isError: true,
           });
@@ -335,13 +338,15 @@ export class DeferredTool extends LocalToolMCP {
 
           return response;
         } catch (error) {
+          const classification = classifyError({ error, source: 'mcp' });
           this.logger.error('call_tool failed', {
             ...extractErrorLogFields(error),
+            ...classificationLogFields(classification),
             mcpServer: input.mcp_server,
             toolName: input.tool_name,
           });
           return toolResultResponse({
-            text: JSON.stringify({ error: `Tool call failed: ${error instanceof Error ? error.message : 'unknown'}` }),
+            text: JSON.stringify({ error: `Tool call failed: ${classification.title}` }),
             isError: true,
           });
         }

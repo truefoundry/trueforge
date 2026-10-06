@@ -2,7 +2,12 @@
 import { swaggerUI } from '@hono/swagger-ui';
 import { OpenAPIHono, z } from '@hono/zod-openapi';
 import type { ISessionStore, Sessions, TurnStreamingEvent } from '@truefoundry/trueforge-core/agent-session';
-import { extractErrorLogFields } from '@truefoundry/trueforge-core/core';
+import {
+  attachedClassification,
+  classificationLogFields,
+  classifyError,
+  extractErrorLogFields,
+} from '@truefoundry/trueforge-core/core';
 import type { RedisClient, RequestReplyRouter } from '@truefoundry/trueforge-core/request-reply';
 import type { Context, ErrorHandler, MiddlewareHandler } from 'hono';
 import { bodyLimit } from 'hono/body-limit';
@@ -113,16 +118,29 @@ export function createAppErrorHandler(params: { logger: Logger }): ErrorHandler 
       return c.json({ error: { message: error.message } }, 400);
     }
     if (error instanceof HTTPException) {
+      // Routes author their own messages; only report a code when one was attached at the source,
+      // so an unclassified route failure is never labelled with a guess.
+      const classification = attachedClassification(error);
+      const codeFields = classification === undefined ? {} : classificationLogFields(classification);
       if (error.status >= 500) {
         params.logger.error('Server API error', {
           status: error.status,
           ...extractErrorLogFields(error),
+          ...codeFields,
         });
       }
-      return c.json({ error: { message: error.message } }, error.status);
+      const body =
+        classification === undefined
+          ? { message: error.message }
+          : { message: error.message, code: classification.code, type: classification.source };
+      return c.json({ error: body }, error.status);
     }
-    params.logger.error('Unhandled error', extractErrorLogFields(error));
-    return c.json({ error: { message: 'Internal server error' } }, 500);
+    const classification = classifyError({ error, source: 'internal' });
+    params.logger.error('Unhandled error', {
+      ...extractErrorLogFields(error),
+      ...classificationLogFields(classification),
+    });
+    return c.json({ error: { message: 'Internal server error', code: classification.code } }, 500);
   };
 }
 

@@ -10,6 +10,7 @@ import {
   UserToolApprovalPolicyMessageSchema,
   UserToolResponseMessageSchema,
 } from '../../core/events/schema';
+import { ERROR_CODES, ERROR_SOURCES } from '../../core/util/errorTaxonomy';
 
 export enum CancellationReason {
   // AbortController.abort() reason for the max-execution timer.
@@ -104,6 +105,10 @@ export const TurnStateErrorSchema = z
   .object({
     status: z.literal('error').describe('Turn ended with an error.'),
     message: z.string().describe('Human-readable error message.'),
+    code: z.enum(ERROR_CODES).optional().describe('Machine-readable error code for this failure.'),
+    source: z.enum(ERROR_SOURCES).optional().describe('Which subsystem the failure came from.'),
+    retryable: z.boolean().optional().describe('Whether retrying the same request may succeed.'),
+    detail: z.string().optional().describe('Raw technical text behind the message, for debugging.'),
     completed_at: z.string().describe('ISO 8601 time when the error state was recorded.'),
     metrics: TurnMetricsSchema.optional().describe('Optional billable aggregate for work done before the error.'),
   })

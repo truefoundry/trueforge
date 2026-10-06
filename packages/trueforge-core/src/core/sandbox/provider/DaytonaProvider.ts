@@ -5,6 +5,7 @@ import { suppressTracing } from '@opentelemetry/core';
 import { randomUUID } from 'node:crypto';
 import { join } from 'node:path/posix';
 import type { Logger } from 'winston';
+import { classificationLogFields, classifyError } from '../../util/classifyError';
 import { extractErrorLogFields } from '../../util/errorLogFields';
 import { withTimeout } from '../../util/promiseUtils';
 import {
@@ -399,6 +400,7 @@ export class DaytonaSandboxProvider implements SandboxProvider<DaytonaSandboxEnv
       } catch (recoveryError) {
         this.logger.error('Sandbox recovery failed', {
           ...extractErrorLogFields(recoveryError),
+          ...classificationLogFields(classifyError({ error: recoveryError, source: 'sandbox' })),
           originalError: extractErrorLogFields(originalError),
         });
         throw new Error('Sandbox is unavailable; recovery attempt failed.', { cause: recoveryError });
@@ -465,9 +467,12 @@ export class DaytonaSandboxProvider implements SandboxProvider<DaytonaSandboxEnv
         if (e instanceof SandboxNotAvailableError) {
           throw e;
         }
-        this.logger.error('Sandbox execution error', extractErrorLogFields(e));
-        const message = e instanceof Error ? e.message : 'Unknown error';
-        return { success: false, error: message };
+        const classification = classifyError({ error: e, source: 'sandbox' });
+        this.logger.error('Sandbox execution error', {
+          ...extractErrorLogFields(e),
+          ...classificationLogFields(classification),
+        });
+        return { success: false, error: classification.title };
       }
     });
   }
