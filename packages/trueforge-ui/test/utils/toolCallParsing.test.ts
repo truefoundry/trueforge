@@ -1,7 +1,6 @@
 import { describe, expect, it } from 'vitest';
 
 import {
-  buildApprovalOptions,
   formatDuration,
   getAskUserAnswerResult,
   getJsonDisplayValue,
@@ -105,12 +104,5 @@ describe('toolCallParsing', () => {
       data: '{\n  "ok": true\n}',
       isJson: true,
     });
-  });
-
-  it('builds default approval options when none declared', () => {
-    expect(buildApprovalOptions(undefined)).toEqual([
-      { id: '__allow', label: 'Allow', isAllow: true },
-      { id: '__deny', label: 'Deny', isAllow: false, confirm: {} },
-    ]);
   });
 });

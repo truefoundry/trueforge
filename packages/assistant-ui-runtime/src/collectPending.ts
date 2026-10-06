@@ -2,8 +2,8 @@ import type { ThreadAssistantMessagePart, ThreadMessage } from '@assistant-ui/co
 import type { McpAuthRequiredEvent } from './server/index.js';
 
 import { ROOT_THREAD_ID } from './constants.js';
-import { isMcpServerAuthInfoList, isUnknownRecord } from './messageCustomMetadata.js';
-import { findCurrentPausedAssistantMessage } from './requiredActionInputs.js';
+import { isMcpServerAuthInfoList, isUnknownRecord, MESSAGE_CUSTOM_KEY } from './messageCustomMetadata.js';
+import { findPausedAssistantMessage } from './requiredActionInputs.js';
 import { getToolApprovalThreadId, hasPendingToolApproval } from './toolApproval.js';
 import {
   getToolResponseThreadId,
@@ -56,7 +56,7 @@ function walkToolCallParts(
 
 export function collectPendingApprovals(messages: readonly ThreadMessage[]): PendingApproval[] {
   const pending: PendingApproval[] = [];
-  const paused = findCurrentPausedAssistantMessage(messages);
+  const paused = findPausedAssistantMessage(messages);
   if (paused == null) {
     return pending;
   }
@@ -85,7 +85,7 @@ export function collectPendingApprovals(messages: readonly ThreadMessage[]): Pen
 
 export function collectPendingToolResponses(messages: readonly ThreadMessage[]): PendingToolResponse[] {
   const pending: PendingToolResponse[] = [];
-  const paused = findCurrentPausedAssistantMessage(messages);
+  const paused = findPausedAssistantMessage(messages);
   if (paused == null) {
     return pending;
   }
@@ -127,15 +127,15 @@ export function collectPendingToolResponses(messages: readonly ThreadMessage[]):
 export function derivePendingMcpAuth(
   messages: readonly ThreadMessage[],
 ): { mcpServers: McpAuthRequiredEvent['mcpServers'] } | null {
-  const paused = findCurrentPausedAssistantMessage(messages);
+  const paused = findPausedAssistantMessage(messages);
   if (paused == null) {
     return null;
   }
   const custom = paused.metadata.custom;
-  if (custom['pendingMcpAuth'] !== true) {
+  if (custom[MESSAGE_CUSTOM_KEY.PENDING_MCP_AUTH] !== true) {
     return null;
   }
-  const servers = custom['mcpServers'];
+  const servers = custom[MESSAGE_CUSTOM_KEY.MCP_SERVERS];
   if (!isMcpServerAuthInfoList(servers)) {
     return { mcpServers: [] };
   }
@@ -152,7 +152,7 @@ export function deriveSandboxId(messages: readonly ThreadMessage[]): string | un
     if (message.role !== 'assistant') {
       continue;
     }
-    const sandboxId = message.metadata.custom['sandboxId'];
+    const sandboxId = message.metadata.custom[MESSAGE_CUSTOM_KEY.SANDBOX_ID];
     if (typeof sandboxId === 'string') {
       return sandboxId;
     }
