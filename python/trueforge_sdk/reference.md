@@ -3136,7 +3136,7 @@ client.sessions.list_turn_events(
 </dl>
 </details>
 
-<details><summary><code>client.sessions.<a href="src/trueforge_sdk/sessions/client.py">create_turn_event</a>(...) -> CreateTurnEventResponse</code></summary>
+<details><summary><code>client.sessions.<a href="src/trueforge_sdk/sessions/client.py">create_turn_events</a>(...) -> CreateTurnEventResponse</code></summary>
 <dl>
 <dd>
 
@@ -3170,7 +3170,7 @@ client = TrueForge(
     base_url="https://yourhost.com/path/to/api",
 )
 
-client.sessions.create_turn_event(
+client.sessions.create_turn_events(
     session_id="session_id",
     turn_id="turn_id",
     events=[
