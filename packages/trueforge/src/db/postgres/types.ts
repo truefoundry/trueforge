@@ -5,11 +5,11 @@
 import type {
   AgentSpec,
   CreatedBySubject,
+  LegacyTurnInputItem,
   PersistedTurnEvent,
   SessionMetadata,
   SessionMetrics,
   SessionSource,
-  TurnInputItem,
   TurnState,
   TurnUserEventMessage,
 } from '@truefoundry/trueforge-core/agent-session';
@@ -138,7 +138,7 @@ export interface TurnTable {
   active_executor_id: string;
   /** top: big + written once at create; TOAST pointer stable after */
   // Insert arrays/objects via json() helper (bare JS arrays become PG arrays via node-pg).
-  input: JSONColumnType<TurnInputItem[], TurnInputItem[] | string, TurnInputItem[] | string>;
+  input: JSONColumnType<LegacyTurnInputItem[], LegacyTurnInputItem[] | string, LegacyTurnInputItem[] | string>;
   /**
    * top: THE fence/freeze target — every gated write predicates on
    *      state->>'status'; exactly one terminal flip per turn

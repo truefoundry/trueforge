@@ -8,11 +8,12 @@ export type { AgentSpec, Skill } from './schemas/agentSpec';
 
 export { TurnUserEventMessageSchema, TurnUserEventSchema } from '../core/events/schema';
 export type { TurnUserEvent, TurnUserEventMessage } from '../core/events/schema';
+export type { InputUserMessage } from '../core/runtime/UserInputMessage';
 
 export {
   CancellationReason,
   CreateTurnRequestSchema,
-  TurnInputItemSchema,
+  LegacyTurnInputItemSchema,
   TurnMetricsSchema,
   TurnSchema,
   TurnStateCancelledReasonSchema,
@@ -25,10 +26,10 @@ export {
   isNonTerminalTurnState,
 } from './schemas/turn';
 export type {
+  LegacyTurnInputItem,
   NonTerminalTurnState,
   TerminalTurnState,
   Turn,
-  TurnInputItem,
   TurnMetrics,
   TurnState,
 } from './schemas/turn';

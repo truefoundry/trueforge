@@ -9,9 +9,9 @@ import {
   SessionStoreConflictError,
   SessionStoreNotFoundError,
   TurnResourceResolver,
+  type InputUserMessage,
   type SessionHandle,
   type TurnHandle,
-  type TurnInputItem,
   type TurnRecordWithoutSnapshot,
   type TurnUserEvent,
 } from '@truefoundry/trueforge-core/agent-session';
@@ -148,7 +148,7 @@ export type BeginTurnExecutionDeps = Pick<
 
 interface BeginTurnExecutionParams {
   session: SessionHandle;
-  input: TurnInputItem[] | undefined;
+  input: InputUserMessage[] | undefined;
   previous_turn_id: string | undefined;
   userRef: string;
   /** Raw inbound request headers. Absent for a schedule run. */
@@ -297,7 +297,7 @@ function createTurnResolver(deps: {
  * trimmed text (capped at {@link MAX_SESSION_TITLE_LENGTH}) or `undefined` when no usable
  * text is present (for example, a file-only message).
  */
-export function deriveSessionTitle(input: TurnInputItem[] | undefined): string | undefined {
+export function deriveSessionTitle(input: InputUserMessage[] | undefined): string | undefined {
   const firstUserMessage = input?.[0];
   if (!firstUserMessage) {
     return undefined;

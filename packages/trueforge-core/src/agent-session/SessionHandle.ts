@@ -1,7 +1,7 @@
 /**
  * Bound session handle: starts turns via {@link SessionHandle.createTurn}.
  */
-import { newEventId } from '../core/events/schema';
+import { newEventId, type InputUserMessage } from '../core/events/schema';
 import type { AgentDefinition } from '../core/runtime/AgentDefinition';
 import { AgentThread } from '../core/runtime/AgentThread';
 import type { AgentThreadAppendContext, AgentThreadSnapshot } from '../core/runtime/AgentThread.types';
@@ -18,7 +18,6 @@ import type { SessionEventItem } from './schemas/events';
 import { EventType, type TurnDoneEvent } from './schemas/events';
 import type { TokenPagination } from './schemas/pagination';
 import type { SessionAgent } from './schemas/session';
-import type { TurnInputItem } from './schemas/turn';
 import { CancellationReason } from './schemas/turn';
 import type { ISessionStore, NewThreadInit, TurnContextAppend, TurnRecordWithoutSnapshot } from './store/ISessionStore';
 import { TurnHandle } from './TurnHandle';
@@ -157,7 +156,7 @@ export class SessionHandle<
   async createTurn(input: {
     turn_id: string;
     active_executor_id: string;
-    input?: TurnInputItem[] | undefined;
+    input?: InputUserMessage[] | undefined;
     /** 'auto'/omitted → session.last_turn_id; 'none' → new root; id → fork from that turn. */
     previous_turn_id?: string | undefined;
     signal: AbortSignal;
