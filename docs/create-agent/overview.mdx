@@ -80,7 +80,7 @@ Each option below is part of the agent definition. The **Set in** line on each s
   <Accordion title="Sandbox" icon="box">
     An isolated environment for running code, files, and shell commands, separate from the server. It's **off by default** and provisioned only when the agent needs it. Required for [skills](/skills) and [Code Mode](/key-features/code-mode).
 
-    Optional extras: allow clients to **download files** the agent produces, and pick a [sandbox environment](/sandbox#environments) (image, resources, network, secrets). Unset uses the tenant **default**. Secret rotations apply to running session sandboxes; newly added secrets do not — see [How secret changes affect sessions](/sandbox#how-secret-changes-affect-sessions).
+    Optional extras: allow clients to **download files** the agent produces, and pick a [sandbox environment](/sandbox#environments). Unset uses the tenant **default**.
 
     **Set in:** UI (on/off + file downloads + environment) · API (same)
   </Accordion>
