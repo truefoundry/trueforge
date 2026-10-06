@@ -32,7 +32,7 @@ That means:
 Open **Settings → Sandbox providers**, pick the [Daytona](https://www.daytona.io) preset from the catalog, and paste your API key.
 
 <Note>
-  Create the Daytona API key with **write:sandboxes**, **write:snapshots**, **delete:snapshots**, and **manage:secrets**.
+  Create the Daytona API key with **write:sandboxes**, **write:snapshots**, and **manage:secrets**.
   The save fails if those permissions are missing, even when the key is otherwise valid.
 </Note>
 
@@ -110,12 +110,10 @@ Saving the environment **syncs secrets to the sandbox provider immediately**, in
 | Ordinary **environment variables**, **domain allow list**, or **block all network** | Unchanged until this sandbox is gone and a new one is created | Uses the saved environment |
 | **Build script** or **CPU / memory / disk** | Keeps the old snapshot until a new sandbox is created | Waits until the environment is **Ready**, then uses the new snapshot |
 
-Idle stop archives the sandbox; after the provider **deletes** it, the next turn provisions a new sandbox and picks up add/remove secret, env vars, and networking as in the **New session** column.
-
 <Warning>
   Rotating or deleting a secret is live for every running sandbox that already mounts it — including other chats using
-  the same environment. Adding a secret does not retrofit those sandboxes; start a new session (or wait until the old
-  sandbox is deleted) if the agent must see the new env var.
+  the same environment. Adding a secret does not retrofit those sandboxes; start a new session if the agent must see
+  the new env var.
 </Warning>
 
 ## Lifecycle
