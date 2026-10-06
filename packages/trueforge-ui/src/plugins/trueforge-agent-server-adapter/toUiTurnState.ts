@@ -1,5 +1,13 @@
 import type { TrueForgeApi } from '@truefoundry/trueforge-sdk';
-import type { SessionEventItem, TurnDoneMetrics, TurnState, TurnStreamingEvent } from '../../server/types.js';
+import type {
+  NonTerminalTurnState,
+  SessionEventItem,
+  TurnDoneMetrics,
+  TurnInboundEvent,
+  TurnState,
+  TurnStatePaused,
+  TurnStreamingEvent,
+} from '../../server/types.js';
 
 /** SDK token fields are optional; the UI contract requires numbers. Keep cost for session tiles. */
 export function toUiTurnDoneMetrics(metrics: TrueForgeApi.TurnMetrics): TurnDoneMetrics {
@@ -14,14 +22,46 @@ export function toUiTurnDoneMetrics(metrics: TrueForgeApi.TurnMetrics): TurnDone
   };
 }
 
+function actionRequiredFromUnknown(value: unknown): TurnStatePaused['actionRequiredOnEvents'] {
+  if (!Array.isArray(value)) {
+    return [];
+  }
+  const events: TurnStatePaused['actionRequiredOnEvents'] = [];
+  for (const item of value) {
+    if (item != null && typeof item === 'object' && 'id' in item && typeof item.id === 'string') {
+      events.push({ id: item.id });
+    }
+  }
+  return events;
+}
+
+/** SDK paused may omit the list (always empty on the wire); the UI type still requires it. */
+function toUiPausedTurnState(state: { status: 'paused' }): TurnStatePaused {
+  return {
+    status: 'paused',
+    actionRequiredOnEvents: actionRequiredFromUnknown(
+      Reflect.get(state, 'actionRequiredOnEvents') ?? Reflect.get(state, 'action_required_on_events'),
+    ),
+  };
+}
+
 export function toUiTurnState(state: TrueForgeApi.TurnState | TrueForgeApi.TurnDoneEventState): TurnState {
-  if (state.status === 'running' || state.status === 'paused') {
+  if (state.status === 'running') {
     return { status: 'running' };
+  }
+  if (state.status === 'paused') {
+    return toUiPausedTurnState(state);
   }
   return toUiTerminalTurnState(state);
 }
 
-function toUiTerminalTurnState(state: TrueForgeApi.TurnDoneEventState): Exclude<TurnState, { status: 'running' }> {
+function toUiTurnUpdateState(state: TrueForgeApi.TurnUpdateEventState): NonTerminalTurnState {
+  return state.status === 'running' ? { status: 'running' } : toUiPausedTurnState(state);
+}
+
+function toUiTerminalTurnState(
+  state: TrueForgeApi.TurnDoneEventState,
+): Exclude<TurnState, { status: 'running' | 'paused' }> {
   switch (state.status) {
     case 'cancelled':
       return {
@@ -48,36 +88,14 @@ function toUiTerminalTurnState(state: TrueForgeApi.TurnDoneEventState): Exclude<
   }
 }
 
-/** SDK stream types the assistant-ui-runtime union does not include yet. */
-// TODO: Remove this after we have migrated to the new schema.
-function isUnmappedSdkEvent(event: TrueForgeApi.SessionEvent | TrueForgeApi.TurnStreamingEvent): event is Extract<
-  TrueForgeApi.SessionEvent | TrueForgeApi.TurnStreamingEvent,
-  {
-    type:
-      | 'turn.update'
-      | 'user.tool_approval'
-      | 'user.tool_response'
-      | 'user.tool_approval_policy'
-      | 'user.mcp_auth_continue';
-  }
-> {
-  return (
-    event.type === 'turn.update' ||
-    event.type === 'user.tool_approval' ||
-    event.type === 'user.tool_response' ||
-    event.type === 'user.tool_approval_policy' ||
-    event.type === 'user.mcp_auth_continue'
-  );
-}
-
 export function toUiSessionEvent(event: TrueForgeApi.SessionEvent): SessionEventItem['event'] | undefined {
-  if (isUnmappedSdkEvent(event)) return undefined;
+  if (event.type === 'turn.update') return { ...event, state: toUiTurnUpdateState(event.state) };
   if (event.type !== 'turn.done') return { ...event };
   return { ...event, state: toUiTerminalTurnState(event.state) };
 }
 
 export function toUiStreamingEvent(event: TrueForgeApi.TurnStreamingEvent): TurnStreamingEvent | undefined {
-  if (isUnmappedSdkEvent(event)) return undefined;
+  if (event.type === 'turn.update') return { ...event, state: toUiTurnUpdateState(event.state) };
   if (event.type !== 'turn.done') return { ...event };
   return { ...event, state: toUiTerminalTurnState(event.state) };
 }
@@ -85,4 +103,8 @@ export function toUiStreamingEvent(event: TrueForgeApi.TurnStreamingEvent): Turn
 export function toUiEventItem(item: TrueForgeApi.SessionEventItem): SessionEventItem | undefined {
   const event = toUiSessionEvent(item.event);
   return event === undefined ? undefined : { turnId: item.turnId, event };
+}
+
+export function toUiInboundEvent(event: TrueForgeApi.TurnUserEvent): TurnInboundEvent {
+  return { ...event };
 }

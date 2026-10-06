@@ -4,7 +4,6 @@ import {
   MessagePartPrimitive,
   MessagePrimitive,
   useToolCallElapsed,
-  type ToolApprovalResponse,
   type ToolCallMessagePartComponent,
   type ToolCallMessagePartProps,
 } from '@assistant-ui/react';
@@ -17,7 +16,6 @@ import {
   MCP_META_TOOLS,
   SANDBOX_TOOL_NAMES,
   SUB_AGENT_TOOL_NAME,
-  buildApprovalOptions,
   formatDuration,
   getAskUserAnswerResult,
   getJsonDisplayValue,
@@ -34,7 +32,7 @@ import {
 } from '../utils/toolCallParsing.js';
 import { useRegisterApprovalExpand } from './approvalFocus.js';
 import { AssistantTextContainer } from './AssistantTextContainer.js';
-import { NestedApprovalBridgeContext, useNestedApprovalBridge } from './nestedApprovalBridge.js';
+import { NestedApprovalBridgeContext } from './nestedApprovalBridge.js';
 import { SandboxToolCallContainer } from './SandboxToolCallContainer.js';
 import { ToolApprovalContainer } from './ToolApprovalContainer.js';
 import { ToolCallContentBlockContainer } from './ToolCallContentBlockContainer.js';
@@ -60,52 +58,15 @@ function NestedSubAgentAssistantMessage() {
 }
 
 function ToolApprovalSlot({ part }: { part: ToolCallMessagePartProps }) {
-  const isNestedReadonly = useNestedApprovalBridge();
-  const respondToNestedApproval = useTrueForgeRespondToToolApproval();
-
-  const respond = (response: ToolApprovalResponse) => {
-    if (!isNestedReadonly) {
-      part.respondToApproval(response);
-      return;
-    }
-    // Readonly nested thread: use this part's approval id, not the outer
-    // create_sub_agent tool (which usually has no approval of its own).
-    if (part.approval == null) return;
-
-    let approved: boolean | undefined;
-    let optionId: string | undefined;
-    if ('approved' in response) {
-      approved = response.approved;
-    } else if ('optionId' in response) {
-      const option = buildApprovalOptions(part.approval.options).find(o => o.id === response.optionId);
-      if (option == null) return;
-      approved = option.isAllow;
-      optionId = response.optionId;
-    }
-    if (approved === undefined) return;
-
-    respondToNestedApproval({
-      approvalId: part.approval.id,
-      approved,
-      ...(optionId != null && optionId !== '__allow' && optionId !== '__deny' ? { optionId } : {}),
-      ...('reason' in response && response.reason != null ? { reason: response.reason } : {}),
-    });
-  };
-
-  const onSelectOption = (optionId: string, reason?: string) => {
-    if (optionId === '__allow') return respond({ approved: true });
-    if (optionId === '__deny') return respond({ approved: false, reason });
-    return respond({ optionId, reason });
-  };
+  const respondToApproval = useTrueForgeRespondToToolApproval();
+  if (part.approval == null) return null;
 
   return (
     <ToolApprovalContainer
+      approvalId={part.approval.id}
       toolName={part.toolName}
       argsText={part.argsText}
-      options={
-        buildApprovalOptions(part.approval?.options) as import('./ToolApprovalContainer.js').ToolApprovalOption[]
-      }
-      onSelectOption={onSelectOption}
+      onRespond={respondToApproval}
     />
   );
 }

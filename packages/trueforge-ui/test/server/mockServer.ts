@@ -86,6 +86,8 @@ export function createMockAgentUIServer(overrides: Partial<AgentUIServer> = {}):
     getSession: unavailable,
     updateSession: unavailable,
     createTurn: emptyTurnStream,
+    sendTurnEvents: unavailable,
+    subscribeToTurn: emptyTurnStream,
     cancelSession: unavailable,
     listTurns: unavailable,
     getTurn: unavailable,

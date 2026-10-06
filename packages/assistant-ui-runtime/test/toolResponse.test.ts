@@ -5,7 +5,6 @@ import { PeerThreadFoldState } from '../src/foldPeerThreads.js';
 import {
   applyToolResponseToMessage,
   applyUserToolResponsesToFold,
-  collectResponseInputs,
   messageHasPendingResponses,
 } from '../src/toolResponse.js';
 
@@ -68,7 +67,7 @@ describe('toolResponse', () => {
     expect(messageHasPendingResponses(message)).toBe(true);
   });
 
-  it('collects staged tool responses for sdk resume', () => {
+  it('applies a tool response to the matching interrupt', () => {
     const pending = {
       id: 'a1',
       role: 'assistant' as const,
@@ -102,14 +101,7 @@ describe('toolResponse', () => {
     });
 
     expect(messageHasPendingResponses(answered)).toBe(false);
-    expect(collectResponseInputs(answered, 'main')).toEqual([
-      {
-        type: 'user.tool_response',
-        threadId: 'main',
-        toolCallId: 'question-1',
-        content: 'A',
-      },
-    ]);
+    expect(answered.content[0]).toMatchObject({ toolCallId: 'question-1', result: 'A' });
   });
 
   it('applyUserToolResponsesToFold records answers from turn input', () => {
