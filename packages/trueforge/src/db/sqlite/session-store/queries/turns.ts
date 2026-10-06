@@ -178,15 +178,16 @@ export async function classifyTurnFenceWriteFailure(db: DbOrTrx, keys: TurnKeys)
   throw new TurnNotRunningError(keys.turn_id, terminalTurnState(state, keys.turn_id));
 }
 
-/**
- * Classify a 0-row fenced turn_thread UPDATE: turn missing/terminal vs thread row missing.
- */
-export async function classifyTurnThreadWriteFailure(db: DbOrTrx, keys: TurnKeys, thread_id: string): Promise<never> {
+export async function classifyNonTerminalTurnThreadWriteFailure(
+  db: DbOrTrx,
+  keys: TurnKeys,
+  thread_id: string,
+): Promise<never> {
   const state = await loadTurnState(db, keys);
   if (!state) {
     throw new TurnNotFoundError(keys.turn_id);
   }
-  if (state.status !== 'running') {
+  if (state.status !== 'running' && state.status !== 'paused') {
     throw new TurnNotRunningError(keys.turn_id, terminalTurnState(state, keys.turn_id));
   }
   throw new SessionStoreInvariantError(`thread ${thread_id} not found in turn ${keys.turn_id}`);
@@ -198,6 +199,16 @@ export async function assertTurnRunning(db: DbOrTrx, keys: TurnKeys): Promise<vo
     throw new TurnNotFoundError(keys.turn_id);
   }
   if (state.status !== 'running') {
+    throw new TurnNotRunningError(keys.turn_id, terminalTurnState(state, keys.turn_id));
+  }
+}
+
+export async function assertTurnNonTerminal(db: DbOrTrx, keys: TurnKeys): Promise<void> {
+  const state = await loadTurnState(db, keys);
+  if (!state) {
+    throw new TurnNotFoundError(keys.turn_id);
+  }
+  if (state.status !== 'running' && state.status !== 'paused') {
     throw new TurnNotRunningError(keys.turn_id, terminalTurnState(state, keys.turn_id));
   }
 }

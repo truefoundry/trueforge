@@ -46,6 +46,55 @@ describe('toUiTurnState', () => {
     );
   });
 
+  it('maps an error state with metrics', () => {
+    assert.deepEqual(
+      toUiTurnState({
+        status: 'error',
+        message: 'Something went wrong',
+        completedAt: '2026-01-01T00:00:00.000Z',
+        metrics: { totalTokens: 15, totalCostInUsd: 0.05 },
+      }),
+      {
+        status: 'error',
+        message: 'Something went wrong',
+        completedAt: '2026-01-01T00:00:00.000Z',
+        metrics: {
+          totalInputTokens: 0,
+          totalOutputTokens: 0,
+          totalTokens: 15,
+          totalCacheReadTokens: 0,
+          totalCacheWriteTokens: 0,
+          totalReasoningTokens: 0,
+          totalCostInUsd: 0.05,
+        },
+      },
+    );
+  });
+
+  it('maps a cancelled state with metrics', () => {
+    assert.deepEqual(
+      toUiTurnState({
+        status: 'cancelled',
+        reason: 'client-cancelled',
+        completedAt: '2026-01-01T00:00:00.000Z',
+        metrics: { totalInputTokens: 20, totalOutputTokens: 5, totalTokens: 25 },
+      }),
+      {
+        status: 'cancelled',
+        reason: 'client-cancelled',
+        completedAt: '2026-01-01T00:00:00.000Z',
+        metrics: {
+          totalInputTokens: 20,
+          totalOutputTokens: 5,
+          totalTokens: 25,
+          totalCacheReadTokens: 0,
+          totalCacheWriteTokens: 0,
+          totalReasoningTokens: 0,
+        },
+      },
+    );
+  });
+
   it('preserves paused turn state and lifecycle updates', () => {
     const paused = {
       status: 'paused' as const,
@@ -76,13 +125,13 @@ describe('toUiTurnState', () => {
         type: 'user.tool_approval_policy',
         id: 'policy-1',
         createdAt: '2026-01-01T00:00:00.000Z',
-        policies: [{ serverName: 'github', name: 'create_issue', action: { type: 'allow_session' } }],
+        policies: [{ serverName: 'github', name: 'create_issue', policy: { type: 'allow_session' } }],
       }),
       {
         type: 'user.tool_approval_policy',
         id: 'policy-1',
         createdAt: '2026-01-01T00:00:00.000Z',
-        policies: [{ serverName: 'github', name: 'create_issue', action: { type: 'allow_session' } }],
+        policies: [{ serverName: 'github', name: 'create_issue', policy: { type: 'allow_session' } }],
       },
     );
     assert.deepEqual(

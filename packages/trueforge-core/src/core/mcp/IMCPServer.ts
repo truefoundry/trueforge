@@ -5,7 +5,7 @@ import type {
   ApprovalDecision,
   MCPServerAuthInfo,
   MCPServerInitInfo,
-  ToolApprovalPolicyAction,
+  ToolApprovalPolicy,
 } from '../events/schema';
 import type { InternalToolCallInfo } from '../llm/LLMTypes';
 import type { SandboxInfo } from '../sandbox/Sandbox';
@@ -123,8 +123,9 @@ export interface IToolSet {
 
   // Per-tool approval policies. User MCP tool sets record and expose policies;
   // system tool sets are never approval-gated and implement these as no-ops.
-  setApprovalPolicy(toolName: string, action: ToolApprovalPolicyAction): void;
-  getApprovalPolicies(): Record<string, ToolApprovalPolicyAction>;
+  setApprovalPolicy(toolName: string, policy: ToolApprovalPolicy): void;
+  getApprovalPolicies(): Record<string, ToolApprovalPolicy>;
+  hasApplicableApprovalPolicy(toolName: string): boolean;
 }
 
 /** Policy-free tool provider; a {@link ToolSet} wraps it to layer per-agent selector policy on top. */

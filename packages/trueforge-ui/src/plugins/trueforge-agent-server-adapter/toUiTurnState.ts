@@ -42,9 +42,19 @@ function toUiTerminalTurnState(
 ): Exclude<TurnState, { status: 'running' | 'paused' }> {
   switch (state.status) {
     case 'cancelled':
-      return { status: 'cancelled', reason: state.reason, completedAt: state.completedAt };
+      return {
+        status: 'cancelled',
+        reason: state.reason,
+        completedAt: state.completedAt,
+        ...(state.metrics == null ? {} : { metrics: toUiTurnDoneMetrics(state.metrics) }),
+      };
     case 'error':
-      return { status: 'error', message: state.message, completedAt: state.completedAt };
+      return {
+        status: 'error',
+        message: state.message,
+        completedAt: state.completedAt,
+        ...(state.metrics == null ? {} : { metrics: toUiTurnDoneMetrics(state.metrics) }),
+      };
     case 'done':
       return {
         status: 'done',
@@ -73,6 +83,6 @@ export function toUiEventItem(item: TrueForgeApi.SessionEventItem): SessionEvent
   return event === undefined ? undefined : { turnId: item.turnId, event };
 }
 
-export function toUiInboundEvent(event: TrueForgeApi.CreateTurnEventResponseDataItem): TurnInboundEvent {
+export function toUiInboundEvent(event: TrueForgeApi.TurnUserEvent): TurnInboundEvent {
   return { ...event };
 }

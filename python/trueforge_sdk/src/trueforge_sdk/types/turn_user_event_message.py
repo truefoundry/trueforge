@@ -7,6 +7,6 @@ from .user_tool_approval_input_event import UserToolApprovalInputEvent
 from .user_tool_approval_policy_message import UserToolApprovalPolicyMessage
 from .user_tool_response_input_event import UserToolResponseInputEvent
 
-TurnInboundEventItem = typing.Union[
+TurnUserEventMessage = typing.Union[
     UserMcpAuthContinueInputEvent, UserToolApprovalInputEvent, UserToolApprovalPolicyMessage, UserToolResponseInputEvent
 ]

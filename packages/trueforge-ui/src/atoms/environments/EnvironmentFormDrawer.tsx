@@ -143,35 +143,41 @@ export function EnvironmentFormDrawer({ open, onOpenChange, mode, environment, o
         open={open}
         onOpenChange={onOpenChange}
         title={title}
-        description="Configure the environment as a form or edit its manifest directly."
+        description={
+          mode === 'create'
+            ? 'Configure the environment.'
+            : 'Configure the environment as a form or edit its manifest directly.'
+        }
         size="xl"
         headerActions={
-          <div className="inline-flex shrink-0 rounded-md bg-secondary-bg p-0.5 border border-border">
-            <button
-              type="button"
-              className={cn(
-                'rounded-sm px-2.5 py-1 text-xs font-medium transition-colors',
-                editorMode === 'form'
-                  ? 'bg-primary-bg text-text-primary shadow-xs'
-                  : 'text-text-secondary hover:text-text-primary',
-              )}
-              onClick={() => requestSwitch('form')}
-            >
-              UI Form
-            </button>
-            <button
-              type="button"
-              className={cn(
-                'rounded-sm px-2.5 py-1 text-xs font-medium transition-colors',
-                editorMode === 'yaml'
-                  ? 'bg-primary-bg text-text-primary shadow-xs'
-                  : 'text-text-secondary hover:text-text-primary',
-              )}
-              onClick={() => requestSwitch('yaml')}
-            >
-              YAML
-            </button>
-          </div>
+          mode === 'edit' ? (
+            <div className="inline-flex shrink-0 rounded-md bg-secondary-bg p-0.5 border border-border">
+              <button
+                type="button"
+                className={cn(
+                  'rounded-sm px-2.5 py-1 text-xs font-medium transition-colors',
+                  editorMode === 'form'
+                    ? 'bg-primary-bg text-text-primary shadow-xs'
+                    : 'text-text-secondary hover:text-text-primary',
+                )}
+                onClick={() => requestSwitch('form')}
+              >
+                UI Form
+              </button>
+              <button
+                type="button"
+                className={cn(
+                  'rounded-sm px-2.5 py-1 text-xs font-medium transition-colors',
+                  editorMode === 'yaml'
+                    ? 'bg-primary-bg text-text-primary shadow-xs'
+                    : 'text-text-secondary hover:text-text-primary',
+                )}
+                onClick={() => requestSwitch('yaml')}
+              >
+                YAML
+              </button>
+            </div>
+          ) : undefined
         }
         footer={
           <div className="flex justify-end gap-2">

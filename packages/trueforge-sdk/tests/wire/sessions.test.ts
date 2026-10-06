@@ -1406,7 +1406,7 @@ describe("SessionsClient", () => {
         }).rejects.toThrow(TrueForgeTypes.NotFoundError);
     });
 
-    test("create_turn_event (1)", async () => {
+    test("create_turn_events (1)", async () => {
         const server = mockServerPool.createServer();
         const client = new TrueForge({ maxRetries: 0, token: "test", baseUrl: server.baseUrl });
         const rawRequestBody = { events: [{ type: "user.mcp_auth_continue" }] };
@@ -1421,7 +1421,7 @@ describe("SessionsClient", () => {
             .jsonBody(rawResponseBody)
             .build();
 
-        const response = await client.sessions.createTurnEvent("session_id", "turn_id", {
+        const response = await client.sessions.createTurnEvents("session_id", "turn_id", {
             events: [
                 {
                     type: "user.mcp_auth_continue",
@@ -1439,7 +1439,7 @@ describe("SessionsClient", () => {
         });
     });
 
-    test("create_turn_event (2)", async () => {
+    test("create_turn_events (2)", async () => {
         const server = mockServerPool.createServer();
         const client = new TrueForge({ maxRetries: 0, token: "test", baseUrl: server.baseUrl });
         const rawRequestBody = { events: [{ type: "user.mcp_auth_continue" }, { type: "user.mcp_auth_continue" }] };
@@ -1455,7 +1455,7 @@ describe("SessionsClient", () => {
             .build();
 
         await expect(async () => {
-            return await client.sessions.createTurnEvent("session_id", "turn_id", {
+            return await client.sessions.createTurnEvents("session_id", "turn_id", {
                 events: [
                     {
                         type: "user.mcp_auth_continue",
@@ -1468,7 +1468,7 @@ describe("SessionsClient", () => {
         }).rejects.toThrow(TrueForgeTypes.BadRequestError);
     });
 
-    test("create_turn_event (3)", async () => {
+    test("create_turn_events (3)", async () => {
         const server = mockServerPool.createServer();
         const client = new TrueForge({ maxRetries: 0, token: "test", baseUrl: server.baseUrl });
         const rawRequestBody = { events: [{ type: "user.mcp_auth_continue" }, { type: "user.mcp_auth_continue" }] };
@@ -1484,7 +1484,7 @@ describe("SessionsClient", () => {
             .build();
 
         await expect(async () => {
-            return await client.sessions.createTurnEvent("session_id", "turn_id", {
+            return await client.sessions.createTurnEvents("session_id", "turn_id", {
                 events: [
                     {
                         type: "user.mcp_auth_continue",
@@ -1497,7 +1497,7 @@ describe("SessionsClient", () => {
         }).rejects.toThrow(TrueForgeTypes.ForbiddenError);
     });
 
-    test("create_turn_event (4)", async () => {
+    test("create_turn_events (4)", async () => {
         const server = mockServerPool.createServer();
         const client = new TrueForge({ maxRetries: 0, token: "test", baseUrl: server.baseUrl });
         const rawRequestBody = { events: [{ type: "user.mcp_auth_continue" }, { type: "user.mcp_auth_continue" }] };
@@ -1513,7 +1513,7 @@ describe("SessionsClient", () => {
             .build();
 
         await expect(async () => {
-            return await client.sessions.createTurnEvent("session_id", "turn_id", {
+            return await client.sessions.createTurnEvents("session_id", "turn_id", {
                 events: [
                     {
                         type: "user.mcp_auth_continue",
@@ -1526,7 +1526,7 @@ describe("SessionsClient", () => {
         }).rejects.toThrow(TrueForgeTypes.NotFoundError);
     });
 
-    test("create_turn_event (5)", async () => {
+    test("create_turn_events (5)", async () => {
         const server = mockServerPool.createServer();
         const client = new TrueForge({ maxRetries: 0, token: "test", baseUrl: server.baseUrl });
         const rawRequestBody = { events: [{ type: "user.mcp_auth_continue" }, { type: "user.mcp_auth_continue" }] };
@@ -1542,7 +1542,7 @@ describe("SessionsClient", () => {
             .build();
 
         await expect(async () => {
-            return await client.sessions.createTurnEvent("session_id", "turn_id", {
+            return await client.sessions.createTurnEvents("session_id", "turn_id", {
                 events: [
                     {
                         type: "user.mcp_auth_continue",

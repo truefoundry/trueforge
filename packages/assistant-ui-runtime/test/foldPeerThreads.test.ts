@@ -614,7 +614,7 @@ describe('foldPeerThreads', () => {
     });
 
     applyApprovalPoliciesToFold(state, [
-      { serverName: 'linear', name: 'save_comment', action: { type: TOOL_APPROVAL_POLICY_ACTION_TYPE.ALLOW_SESSION } },
+      { serverName: 'linear', name: 'save_comment', policy: { type: TOOL_APPROVAL_POLICY_ACTION_TYPE.ALLOW_SESSION } },
     ]);
 
     const bucket = state.threads.get(ROOT_THREAD_ID);
@@ -660,7 +660,7 @@ describe('foldPeerThreads', () => {
           {
             serverName: 'github',
             name: 'create_issue',
-            action: { type: TOOL_APPROVAL_POLICY_ACTION_TYPE.ALLOW_SESSION },
+            policy: { type: TOOL_APPROVAL_POLICY_ACTION_TYPE.ALLOW_SESSION },
           },
         ],
       },

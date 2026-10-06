@@ -1350,7 +1350,7 @@ describe('useTrueForgeAgentMessages', () => {
             {
               serverName: 'github',
               name: 'create_issue',
-              action: {
+              policy: {
                 type: TOOL_APPROVAL_POLICY_ACTION_TYPE.ALLOW_SESSION,
                 expireAt: '2026-09-24T12:10:00.000Z',
               },

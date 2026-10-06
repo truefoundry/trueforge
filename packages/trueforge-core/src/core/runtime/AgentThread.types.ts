@@ -3,15 +3,15 @@ import { z } from 'zod';
 import type { AgentCapability, CapabilityState, JsonValue } from '../capabilities/AgentCapability';
 import type { RegisteredPassthroughEvent, WithRegisteredPassthrough } from '../events/PassthroughEvents';
 import type {
-  ActionRequiredEvent,
-  AgentApprovalDecisionMessage,
   AgentInfo,
-  AgentInputUserMessage,
   AgentOutputEvent,
   AgentParent,
+  ApprovalDecisionMessage,
   BaseMCPAuthRequiredEvent,
+  InputUserMessage,
   MCPInitializeEvent,
   MCPServerAuthInfo,
+  MCPServerInitInfo,
   ModelMessageDeltaEvent,
   ModelMessageEvent,
   SandboxCreatedEvent,
@@ -21,8 +21,9 @@ import type {
   ToolApprovalRequiredEvent,
   ToolResponseEvent,
   ToolResponseRequiredEvent,
-  UserToolApprovalMessage,
-  UserToolResponseMessage,
+  TurnUserToolEvent,
+  UserToolApprovalEvent,
+  UserToolResponseEvent,
 } from '../events/schema';
 import type { InternalEnrichedAssistantMessage, LLMToolMessage, LLMUserMessage } from '../llm/LLMTypes';
 import type { HarnessSandbox } from '../sandbox/Sandbox';
@@ -37,10 +38,14 @@ export const InternalEventType = {
   AGENT_CREATE_SUBAGENT: 'internal.agent.create_subagent',
   AGENT_CONTEXT_APPEND: 'internal.agent.context.append',
   AGENT_DONE: 'internal.agent.done',
+  // Atomic commit of one applied batch of user events.
+  USER_EVENTS_COMMIT: 'internal.user_events.commit',
   // TODO(agent): revisit broader internal.* naming scheme for harness-only event types.
   PASSTHROUGH: 'agent.passthrough',
   MCP_AUTH_REQUIRED: 'internal.mcp.auth_required',
   CAPABILITY_STATE: 'internal.capability.state',
+  // Turn lifecycle transition (paused ↔ running).
+  TURN_STATE: 'internal.turn.state',
 } as const;
 
 /**
@@ -103,7 +108,7 @@ export type InternalThreadDoneEvent = InternalMainThreadDoneEvent | InternalChil
 
 export type LLMContextMessage = LLMUserMessage | InternalEnrichedAssistantMessage | LLMToolMessage;
 
-export type ContextMessage = LLMContextMessage | AgentApprovalDecisionMessage;
+export type ContextMessage = LLMContextMessage | ApprovalDecisionMessage;
 
 export interface AgentThreadCreateSubAgent {
   type: typeof InternalEventType.AGENT_CREATE_SUBAGENT;
@@ -121,14 +126,24 @@ export interface AgentThreadAppendContext {
   completion?: SubAgentCompletion | undefined;
 }
 
-/** Single public send item (no internal LLM tool messages). */
-export type AgentSendInput = UserToolApprovalMessage | UserToolResponseMessage | AgentInputUserMessage;
+export interface UserEventsCommitEvent {
+  type: typeof InternalEventType.USER_EVENTS_COMMIT;
+  context_appends: AgentThreadAppendContext[];
+  mcp_servers_patches: MCPServerInitInfo[];
+  applied_user_events: TurnUserToolEvent[];
+}
 
 /**
- * Homogeneous public send batch: all user messages, or all approval/tool-response
- * messages. Mixed batches are rejected at the HTTP/orchestrator boundary.
+ * Single runtime send item (no internal LLM tool messages). Decisions are in event form — their ids
+ * are seeded at the send boundary (HTTP handler / createTurn `toSendBatch`) and reused downstream.
  */
-export type AgentThreadSendBatch = AgentInputUserMessage[] | (UserToolApprovalMessage | UserToolResponseMessage)[];
+export type AgentSendInput = UserToolApprovalEvent | UserToolResponseEvent | InputUserMessage;
+
+/**
+ * Homogeneous send batch: all user messages, or all approval/tool-response events (id-seeded).
+ * Mixed batches are rejected at the HTTP/orchestrator boundary.
+ */
+export type AgentThreadSendBatch = InputUserMessage[] | (UserToolApprovalEvent | UserToolResponseEvent)[];
 
 export type AgentThreadEvent =
   | ModelMessageEvent
@@ -144,15 +159,24 @@ export type AgentThreadEvent =
   | SandboxCreatedEvent
   | ToolApprovalRequiredEvent
   | ToolResponseRequiredEvent
+  | UserEventsCommitEvent
   | InternalPassthroughEvent;
 
-export type AgentThreadExecutionEvent = WithRegisteredPassthrough<
-  ThreadCreatedEvent | Exclude<AgentThreadEvent, InternalPassthroughEvent>
->;
+export type ApplyUserEventsOutput = AgentThreadAppendContext | UserEventsCommitEvent;
+
+/** A turn-level non-terminal transition emitted by the executor loop when it parks/resumes. */
+export interface InternalTurnStateEvent {
+  type: typeof InternalEventType.TURN_STATE;
+  transition: { status: 'paused' } | { status: 'running' };
+}
+
+export type AgentThreadExecutionEvent =
+  | WithRegisteredPassthrough<ThreadCreatedEvent | Exclude<AgentThreadEvent, InternalPassthroughEvent>>
+  | InternalTurnStateEvent;
 
 export interface AgentThreadExecutionResult {
+  status: 'done';
   output: ModelMessageEvent | null;
-  required_actions: ActionRequiredEvent[];
   root_agent_error?: Pick<ThreadStateError, 'error' | 'output'> | undefined;
 }
 

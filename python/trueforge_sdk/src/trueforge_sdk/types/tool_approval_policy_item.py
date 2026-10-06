@@ -9,12 +9,12 @@ from .components_schemas_tool_approval_policy_allow_session import ComponentsSch
 
 
 class ToolApprovalPolicyItem(UncheckedBaseModel):
-    action: ComponentsSchemasToolApprovalPolicyAllowSession
     name: str = pydantic.Field()
     """
     Tool name on that server.
     """
 
+    policy: ComponentsSchemasToolApprovalPolicyAllowSession
     server_name: str = pydantic.Field()
     """
     MCP server name.

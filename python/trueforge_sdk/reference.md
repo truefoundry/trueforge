@@ -2732,7 +2732,7 @@ client.sessions.create_turn_stream(
 <dl>
 <dd>
 
-**input:** `typing.Optional[typing.List[TurnInputItem]]` — Turn input items: user messages and/or approval/tool-response resumes. Do not mix user messages with approval or tool-response items.
+**input:** `typing.Optional[typing.List[ComponentsSchemasUserMessage]]` — Turn input items: user messages only. Approval decisions and client-side tool responses are sent to a running turn via the turn events endpoint, not at turn creation.
     
 </dd>
 </dl>
@@ -2832,7 +2832,7 @@ client.sessions.create_turn_stream(
 <dl>
 <dd>
 
-**input:** `typing.Optional[typing.List[TurnInputItem]]` — Turn input items: user messages and/or approval/tool-response resumes. Do not mix user messages with approval or tool-response items.
+**input:** `typing.Optional[typing.List[ComponentsSchemasUserMessage]]` — Turn input items: user messages only. Approval decisions and client-side tool responses are sent to a running turn via the turn events endpoint, not at turn creation.
     
 </dd>
 </dl>
@@ -3136,7 +3136,7 @@ client.sessions.list_turn_events(
 </dl>
 </details>
 
-<details><summary><code>client.sessions.<a href="src/trueforge_sdk/sessions/client.py">create_turn_event</a>(...) -> CreateTurnEventResponse</code></summary>
+<details><summary><code>client.sessions.<a href="src/trueforge_sdk/sessions/client.py">create_turn_events</a>(...) -> CreateTurnEventResponse</code></summary>
 <dl>
 <dd>
 
@@ -3170,7 +3170,7 @@ client = TrueForge(
     base_url="https://yourhost.com/path/to/api",
 )
 
-client.sessions.create_turn_event(
+client.sessions.create_turn_events(
     session_id="session_id",
     turn_id="turn_id",
     events=[
@@ -3210,7 +3210,7 @@ client.sessions.create_turn_event(
 <dl>
 <dd>
 
-**events:** `typing.List[TurnInboundEventItem]` — One or more user events.
+**events:** `typing.List[TurnUserEventMessage]` — One or more user events.
     
 </dd>
 </dl>

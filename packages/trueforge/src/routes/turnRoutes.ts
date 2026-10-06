@@ -173,14 +173,14 @@ export const listTurnEventsRoute = createRoute({
   },
 });
 
-export const createTurnEventRoute = createRoute({
+export const postTurnEventsRoute = createRoute({
   method: 'post',
   path: '/{session_id}/turns/{turn_id}/events',
   tags: [OpenApiTag.AGENT_SESSIONS],
   summary: 'Create turn events',
   description: 'Create events for a turn. Only the session creator may create them.',
   'x-fern-sdk-group-name': ['sessions'],
-  'x-fern-sdk-method-name': 'create_turn_event',
+  'x-fern-sdk-method-name': 'create_turn_events',
   request: {
     params: TurnIdParamsSchema,
     body: {

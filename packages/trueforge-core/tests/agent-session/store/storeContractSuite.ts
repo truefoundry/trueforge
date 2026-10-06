@@ -1929,6 +1929,57 @@ export function runStoreContractSuite(createStore: () => ISessionStore) {
   });
 
   describe('freezeAndGetTurn', () => {
+    it('allows resume commits while a turn is paused', async () => {
+      const store = createStore();
+      await seedSession(store);
+      await store.createTurn(makeCreateTurnInput({ sessionId, turnId: 'turn-1' }));
+      const pausedState = makePausedTurnState(['required-event-1']);
+      await store.updateTurnNonTerminalState({
+        session_id: sessionId,
+        turn_id: 'turn-1',
+        state: pausedState,
+        turn_update_event: makeTurnUpdateEvent(pausedState),
+      });
+
+      const keys = { session_id: sessionId, turn_id: 'turn-1' };
+      const committedEvent = makeTurnCreatedEvent('turn-1');
+      await store.appendToEvents({ ...keys, events: [committedEvent] });
+      await store.overwriteThreadContext({
+        ...keys,
+        event: {
+          type: EventType.AGENT_CONTEXT_OVERWRITE,
+          id: newEventId(),
+          created_at: new Date().toISOString(),
+          thread_id: MAIN_THREAD_ID,
+          reason: 'compaction',
+          context: [userMessage('committed while paused')],
+          current_context_usage: getEmptyCurrentContextUsage(),
+          usage: getEmptyUsage(),
+        },
+      });
+      await store.appendToThreadContext({
+        ...keys,
+        thread_id: MAIN_THREAD_ID,
+        context: [userMessage('also committed while paused')],
+        current_context_usage: null,
+        completion: null,
+      });
+      await store.patchMCPServers({
+        ...keys,
+        mcp_servers: [{ id: 'svc', name: 'svc', session_id: 'mcp-1', transport_type: 'streamable-http' }],
+      });
+
+      const turn = mustGet(await store.getTurn(keys));
+      expect(turn.state.status).toBe('paused');
+      expect(contextContents(turn.snapshot.threads[MAIN_THREAD_ID]?.context)).toEqual([
+        'committed while paused',
+        'also committed while paused',
+      ]);
+      expect(turn.snapshot.mcp_servers?.['svc']).toMatchObject({ session_id: 'mcp-1' });
+      const events = await store.listTurnEvents({ ...keys, limit: 20, page_token: undefined, order: undefined });
+      expect(events.data).toContainEqual(committedEvent);
+    });
+
     it('cancels a running turn, persists turn.done, and fences all turn-scoped writes', async () => {
       const store = createStore();
       await seedSession(store);

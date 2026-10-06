@@ -65,11 +65,11 @@ export const AgentInfoSchema = z
   })
   .openapi('AgentInfo');
 
-export const AgentApprovalDecisionAllowSchema = z
+export const ApprovalDecisionAllowSchema = z
   .object({ status: z.literal('allow').describe('Allow the pending tool call(s).') })
   .openapi('ApprovalAllow');
 
-export const AgentApprovalDecisionDenySchema = z
+export const ApprovalDecisionDenySchema = z
   .object({
     status: z.literal('deny').describe('Deny the pending tool call(s).'),
     reason: z.string().optional().describe('Optional reason shown to the agent when denied.'),
@@ -77,7 +77,7 @@ export const AgentApprovalDecisionDenySchema = z
   .openapi('ApprovalDeny');
 
 export const ApprovalDecisionSchema = z
-  .discriminatedUnion('status', [AgentApprovalDecisionAllowSchema, AgentApprovalDecisionDenySchema])
+  .discriminatedUnion('status', [ApprovalDecisionAllowSchema, ApprovalDecisionDenySchema])
   .openapi('ApprovalDecision');
 
 export const UserToolApprovalMessageSchema = z
@@ -110,13 +110,13 @@ export const ToolApprovalPolicyAllowSessionSchema = z
 
 export const ToolApprovalPolicySchema = z
   .discriminatedUnion('type', [ToolApprovalPolicyAllowSessionSchema])
-  .openapi('ToolApprovalPolicyAction');
+  .openapi('ToolApprovalPolicy');
 
 export const ToolApprovalPolicyItemSchema = z
   .object({
     server_name: z.string().min(1, 'server_name is required').describe('MCP server name.'),
     name: z.string().min(1, 'name is required').describe('Tool name on that server.'),
-    action: ToolApprovalPolicySchema,
+    policy: ToolApprovalPolicySchema,
   })
   .openapi('ToolApprovalPolicyItem');
 
@@ -136,6 +136,15 @@ export const UserMCPAuthContinueMessageSchema = z
       .describe('Client resume after mcp.auth_required (OAuth completed).'),
   })
   .openapi('UserMCPAuthContinueInputEvent');
+
+export const TurnUserEventMessageSchema = z
+  .discriminatedUnion('type', [
+    UserToolApprovalMessageSchema,
+    UserToolResponseMessageSchema,
+    UserToolApprovalPolicyMessageSchema,
+    UserMCPAuthContinueMessageSchema,
+  ])
+  .openapi('TurnUserEventMessage');
 
 /** Durable / SSE form of {@link UserToolApprovalMessageSchema}. */
 export const UserToolApprovalEventSchema = z
@@ -173,6 +182,15 @@ export const UserMCPAuthContinueEventSchema = z
   })
   .openapi('UserMCPAuthContinueEvent');
 
+export const TurnUserEventSchema = z
+  .discriminatedUnion('type', [
+    UserToolApprovalEventSchema,
+    UserToolResponseEventSchema,
+    UserToolApprovalPolicyEventSchema,
+    UserMCPAuthContinueEventSchema,
+  ])
+  .openapi('TurnUserEvent');
+
 export const TextContentPartSchema = z
   .object({
     type: z.literal('text').describe('Text content part.'),
@@ -195,7 +213,7 @@ export const UserContentPartSchema = z
   .openapi('UserMessageContentItem');
 export type UserContentPart = z.infer<typeof UserContentPartSchema>;
 
-export const AgentInputUserMessageSchema = z
+export const InputUserMessageSchema = z
   .object({
     type: z.literal(EventType.USER_MESSAGE).describe('User message input item.'),
     content: z
@@ -203,10 +221,10 @@ export const AgentInputUserMessageSchema = z
       .describe('Plain string or structured text/file content parts.'),
   })
   .openapi('UserMessage');
-export type AgentInputUserMessage = z.infer<typeof AgentInputUserMessageSchema>;
+export type InputUserMessage = z.infer<typeof InputUserMessageSchema>;
 
 // persisted to redis - thread_id is stripped
-export const AgentApprovalDecisionMessageSchema = UserToolApprovalMessageSchema.omit({
+export const ApprovalDecisionMessageSchema = UserToolApprovalMessageSchema.omit({
   thread_id: true,
 });
 
@@ -316,7 +334,7 @@ const ContextMessageSchema = z.union([
   LLMUserMessageSchema,
   InternalEnrichedAssistantMessageSchema,
   LLMToolMessageSchema,
-  AgentApprovalDecisionMessageSchema,
+  ApprovalDecisionMessageSchema,
 ]);
 
 export const ThreadOverwriteContextEventSchema = z.object({
@@ -328,12 +346,10 @@ export const ThreadOverwriteContextEventSchema = z.object({
   id: EventIdSchema,
   created_at: z.string(),
   thread_id: z.string(),
-
-  // NOTE: add other reasons here.
   reason: z.literal('compaction'),
   context: z.array(ContextMessageSchema),
   current_context_usage: CurrentContextUsageSchema,
-  usage: CompletionUsageSchema,
+  usage: CompletionUsageSchema.optional(),
 });
 
 export const MCPServerAuthInfoSchema = z
@@ -452,14 +468,14 @@ export type ApprovalDecision = z.infer<typeof ApprovalDecisionSchema>;
 export type UserToolApprovalMessage = z.infer<typeof UserToolApprovalMessageSchema>;
 export type UserToolResponseMessage = z.infer<typeof UserToolResponseMessageSchema>;
 export type ToolApprovalPolicyItem = z.infer<typeof ToolApprovalPolicyItemSchema>;
-export type ToolApprovalPolicyAction = z.infer<typeof ToolApprovalPolicySchema>;
-export type UserToolApprovalPolicyMessage = z.infer<typeof UserToolApprovalPolicyMessageSchema>;
+export type ToolApprovalPolicy = z.infer<typeof ToolApprovalPolicySchema>;
 export type UserToolApprovalEvent = z.infer<typeof UserToolApprovalEventSchema>;
 export type UserToolResponseEvent = z.infer<typeof UserToolResponseEventSchema>;
 export type UserToolApprovalPolicyEvent = z.infer<typeof UserToolApprovalPolicyEventSchema>;
-export type UserMCPAuthContinueMessage = z.infer<typeof UserMCPAuthContinueMessageSchema>;
-export type UserMCPAuthContinueEvent = z.infer<typeof UserMCPAuthContinueEventSchema>;
-export type AgentApprovalDecisionMessage = z.infer<typeof AgentApprovalDecisionMessageSchema>;
+export type TurnUserToolEvent = UserToolApprovalEvent | UserToolResponseEvent | UserToolApprovalPolicyEvent;
+export type TurnUserEventMessage = z.infer<typeof TurnUserEventMessageSchema>;
+export type TurnUserEvent = z.infer<typeof TurnUserEventSchema>;
+export type ApprovalDecisionMessage = z.infer<typeof ApprovalDecisionMessageSchema>;
 export type InputTokensBreakdown = z.infer<typeof InputTokensBreakdownSchema>;
 export type ModelMessageUsage = z.infer<typeof ModelMessageUsageSchema>;
 export type ModelMessageEvent = z.infer<typeof ModelMessageEventSchema>;

@@ -41,3 +41,20 @@ describe('createTrueForgeAgentUIServer permissions', () => {
     expect(server.permissions).toBe(permissions);
   });
 });
+
+describe('createTrueForgeAgentUIServer feature flags', () => {
+  it('enables sandbox environments by default', () => {
+    const server = createTrueForgeAgentUIServer({ fetch: vi.fn() });
+
+    expect(server.sandboxEnvironments).toBeDefined();
+  });
+
+  it('omits sandbox environments when disabled', () => {
+    const server = createTrueForgeAgentUIServer({
+      fetch: vi.fn(),
+      sandboxEnvironments: false,
+    });
+
+    expect(server.sandboxEnvironments).toBeUndefined();
+  });
+});

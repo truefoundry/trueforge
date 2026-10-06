@@ -54,7 +54,7 @@ describe('AgentChatServer turn events', () => {
             {
               serverName: 'github',
               name: 'create_issue',
-              action: { type: TOOL_APPROVAL_POLICY_ACTION_TYPE.ALLOW_SESSION },
+              policy: { type: TOOL_APPROVAL_POLICY_ACTION_TYPE.ALLOW_SESSION },
             },
           ],
         },
@@ -73,7 +73,7 @@ describe('AgentChatServer turn events', () => {
           {
             serverName: 'github',
             name: 'create_issue',
-            action: { type: TOOL_APPROVAL_POLICY_ACTION_TYPE.ALLOW_SESSION },
+            policy: { type: TOOL_APPROVAL_POLICY_ACTION_TYPE.ALLOW_SESSION },
           },
         ],
         id: 'event-1',

@@ -298,7 +298,7 @@ export interface ToolApprovalPolicyAllowSession {
 export interface ToolApprovalPolicyItem {
   serverName: string;
   name: string;
-  action: ToolApprovalPolicyAllowSession;
+  policy: ToolApprovalPolicyAllowSession;
 }
 
 export interface UserToolApprovalPolicyInputEvent {
@@ -366,12 +366,16 @@ export interface TurnStateCancelled {
   status: typeof TURN_STATUS.CANCELLED;
   reason: string;
   completedAt: string;
+  /** Present when the host reports per-turn token totals before cancel. */
+  metrics?: TurnDoneMetrics;
 }
 
 export interface TurnStateError {
   status: typeof TURN_STATUS.ERROR;
   message: string;
   completedAt: string;
+  /** Present when the host reports per-turn token totals before error. */
+  metrics?: TurnDoneMetrics;
 }
 
 export type TurnState = TurnStateRunning | TurnStatePaused | TurnStateDone | TurnStateCancelled | TurnStateError;

@@ -733,7 +733,10 @@ export function AgentsLibrary({ onSelectAgent, headerStart }: AgentsLibraryProps
 
       <div className="bg-secondary-bg/40 flex min-h-0 flex-1 flex-col">
         {/* Not flex-col: overflow-hidden table chrome would clip instead of letting this scroll. */}
-        <div className="min-h-0 flex-1 overflow-y-auto p-4" aria-label="Agents">
+        <div
+          className={cn('min-h-0 flex-1 overflow-y-auto p-4', error ? 'flex flex-col' : undefined)}
+          aria-label="Agents"
+        >
           {isInitialLoading ? (
             <div className="flex flex-col gap-2 p-1" role="status" aria-label="Loading agents">
               {Array.from({ length: 6 }, (_, i) => (
@@ -741,7 +744,9 @@ export function AgentsLibrary({ onSelectAgent, headerStart }: AgentsLibraryProps
               ))}
             </div>
           ) : error ? (
-            <p className="text-failure-bg px-3 py-8 text-center text-sm">{error}</p>
+            <div role="alert" className="flex flex-1 flex-col items-center justify-center">
+              <EmptyScreen title="Couldn't load agents" description={error} className="h-auto min-h-0 flex-none py-0" />
+            </div>
           ) : agents.length === 0 && !hasPageNav ? (
             <EmptyScreen
               title="No Agents Found"

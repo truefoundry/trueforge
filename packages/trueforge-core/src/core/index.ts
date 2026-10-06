@@ -20,7 +20,7 @@ export type {
 export { AgentThreadOrchestrator } from './runtime/AgentThreadOrchestrator';
 export type { CreateDynamicSubAgentThread } from './runtime/CreateDynamicSubAgentThread';
 export { isAgentInputUserMessage, isEmptyMessageContent, isFileContentPart } from './runtime/UserInputMessage';
-export type { AgentInputUserMessage } from './runtime/UserInputMessage';
+export type { InputUserMessage } from './runtime/UserInputMessage';
 
 // Capability contracts
 export type { AgentCapability, CapabilityState, JsonValue } from './capabilities/AgentCapability';
@@ -98,9 +98,6 @@ export type { VercelAILLMConfig, VercelAIProviderConfig, VercelAIProviderName } 
 
 // Event contracts
 export {
-  ActionRequiredEventSchema,
-  AgentInputUserMessageSchema,
-  EventIdSchema,
   EventType,
   MCPAuthRequiredEventSchema,
   MCPInitializeEventSchema,
@@ -109,18 +106,13 @@ export {
   SandboxCreatedEventSchema,
   ThreadCreatedEventSchema,
   ThreadDoneEventSchema,
-  ThreadOverwriteContextEventSchema,
   ToolApprovalRequiredEventSchema,
   ToolResponseEventSchema,
   ToolResponseRequiredEventSchema,
   UserMCPAuthContinueEventSchema,
-  UserMCPAuthContinueMessageSchema,
   UserToolApprovalEventSchema,
-  UserToolApprovalMessageSchema,
   UserToolApprovalPolicyEventSchema,
-  UserToolApprovalPolicyMessageSchema,
   UserToolResponseEventSchema,
-  UserToolResponseMessageSchema,
   newEventId,
 } from './events/schema';
 export type {
@@ -130,18 +122,12 @@ export type {
   MCPServerInitInfo,
   ThreadDoneEvent,
   ThreadOverwriteContextEvent,
-  ToolApprovalPolicyAction,
-  UserMCPAuthContinueEvent,
-  UserMCPAuthContinueMessage,
-  UserToolApprovalEvent,
-  UserToolApprovalPolicyEvent,
-  UserToolApprovalPolicyMessage,
-  UserToolResponseEvent,
+  ToolApprovalPolicy,
 } from './events/schema';
 export { CompletionUsageSchema } from './llm/LLMTypes';
 export type { CompletionUsage } from './llm/LLMTypes';
 export { InternalEventType } from './runtime/AgentThread.types';
-export type { AgentThreadSendBatch, ContextMessage } from './runtime/AgentThread.types';
+export type { ContextMessage } from './runtime/AgentThread.types';
 export { AgentThreadMetricsSchema } from './runtime/metrics';
 export type { AgentThreadMetrics } from './runtime/metrics';
 

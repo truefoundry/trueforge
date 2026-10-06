@@ -2,13 +2,9 @@
 import { z } from '@hono/zod-openapi';
 import {
   ActionRequiredEventSchema,
-  AgentInputUserMessageSchema,
   EventIdSchema,
+  InputUserMessageSchema,
   ModelMessageEventSchema,
-  UserMCPAuthContinueMessageSchema,
-  UserToolApprovalMessageSchema,
-  UserToolApprovalPolicyMessageSchema,
-  UserToolResponseMessageSchema,
 } from '../../core/events/schema';
 
 export enum CancellationReason {
@@ -135,13 +131,7 @@ export const TurnStateSchema = z
   ])
   .openapi('TurnState');
 
-export const TurnInputItemSchema = z
-  .discriminatedUnion('type', [
-    AgentInputUserMessageSchema,
-    UserToolApprovalMessageSchema,
-    UserToolResponseMessageSchema,
-  ])
-  .openapi('TurnInputItem');
+export const TurnInputItemSchema = z.discriminatedUnion('type', [InputUserMessageSchema]).openapi('TurnInputItem');
 
 export const TurnSchema = z
   .object({
@@ -164,7 +154,7 @@ export const CreateTurnRequestSchema = z
       .array(TurnInputItemSchema)
       .optional()
       .describe(
-        'Turn input items: user messages and/or approval/tool-response resumes. Do not mix user messages with approval or tool-response items.',
+        'Turn input items: user messages only. Approval decisions and client-side tool responses are sent to a running turn via the turn events endpoint, not at turn creation.',
       ),
     previous_turn_id: z
       .union([z.literal('auto'), z.literal('none'), z.string().min(1)])
@@ -178,31 +168,7 @@ export const CreateTurnRequestSchema = z
       .default(true)
       .describe('When true (default), stream turn events as SSE. When false, return the running turn immediately.'),
   })
-  .superRefine((data, ctx) => {
-    if (!data.input) {
-      return;
-    }
-    const hasUser = data.input.some(msg => 'type' in msg && msg.type === 'user.message');
-    const hasApprovalOrToolResponse = data.input.some(
-      msg => 'type' in msg && (msg.type === 'user.tool_approval' || msg.type === 'user.tool_response'),
-    );
-    if (hasUser && hasApprovalOrToolResponse) {
-      ctx.addIssue({
-        code: 'custom',
-        message: 'input must not mix user messages with approval decisions or client-side tool responses',
-      });
-    }
-  })
   .openapi('CreateTurnRequest');
-
-export const TurnInboundEventItemSchema = z
-  .discriminatedUnion('type', [
-    UserToolApprovalMessageSchema,
-    UserToolResponseMessageSchema,
-    UserToolApprovalPolicyMessageSchema,
-    UserMCPAuthContinueMessageSchema,
-  ])
-  .openapi('TurnInboundEventItem');
 
 export type Turn = z.infer<typeof TurnSchema>;
 export type TurnInputItem = z.infer<typeof TurnInputItemSchema>;
@@ -210,7 +176,6 @@ export type TurnState = z.infer<typeof TurnStateSchema>;
 export type NonTerminalTurnState = Extract<TurnState, { status: 'running' | 'paused' }>;
 export type TerminalTurnState = Exclude<TurnState, NonTerminalTurnState>;
 export type TurnMetrics = z.infer<typeof TurnMetricsSchema>;
-export type TurnInboundEventItem = z.infer<typeof TurnInboundEventItemSchema>;
 
 export function isNonTerminalTurnState(state: TurnState): state is NonTerminalTurnState {
   return state.status === 'running' || state.status === 'paused';

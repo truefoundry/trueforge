@@ -47,6 +47,7 @@ if typing.TYPE_CHECKING:
     from .chat_completion_message_tool_call_function import ChatCompletionMessageToolCallFunction
     from .compaction_config import CompactionConfig
     from .components_schemas_tool_approval_policy_allow_session import ComponentsSchemasToolApprovalPolicyAllowSession
+    from .components_schemas_user_message import ComponentsSchemasUserMessage
     from .configured_mcp_server import ConfiguredMcpServer
     from .configured_model import ConfiguredModel
     from .configured_model_provider import ConfiguredModelProvider
@@ -57,7 +58,6 @@ if typing.TYPE_CHECKING:
     from .create_schedule_run_response import CreateScheduleRunResponse
     from .create_session_agent import CreateSessionAgent
     from .create_turn_event_response import CreateTurnEventResponse
-    from .create_turn_event_response_data_item import CreateTurnEventResponseDataItem
     from .created_by_subject import CreatedBySubject
     from .cron_expression import CronExpression
     from .custom_model_provider import CustomModelProvider
@@ -245,8 +245,6 @@ if typing.TYPE_CHECKING:
     from .turn_created_event import TurnCreatedEvent
     from .turn_done_event import TurnDoneEvent
     from .turn_done_event_state import TurnDoneEventState
-    from .turn_inbound_event_item import TurnInboundEventItem
-    from .turn_input_item import TurnInputItem
     from .turn_metrics import TurnMetrics
     from .turn_state import TurnState
     from .turn_state_cancelled import TurnStateCancelled
@@ -260,6 +258,8 @@ if typing.TYPE_CHECKING:
     from .turn_streaming_event import TurnStreamingEvent
     from .turn_update_event import TurnUpdateEvent
     from .turn_update_event_state import TurnUpdateEventState
+    from .turn_user_event import TurnUserEvent
+    from .turn_user_event_message import TurnUserEventMessage
     from .user_mcp_auth_continue_event import UserMcpAuthContinueEvent
     from .user_mcp_auth_continue_input_event import UserMcpAuthContinueInputEvent
     from .user_message import UserMessage
@@ -317,6 +317,7 @@ _dynamic_imports: typing.Dict[str, str] = {
     "ChatCompletionMessageToolCallFunction": ".chat_completion_message_tool_call_function",
     "CompactionConfig": ".compaction_config",
     "ComponentsSchemasToolApprovalPolicyAllowSession": ".components_schemas_tool_approval_policy_allow_session",
+    "ComponentsSchemasUserMessage": ".components_schemas_user_message",
     "ConfiguredMcpServer": ".configured_mcp_server",
     "ConfiguredModel": ".configured_model",
     "ConfiguredModelProvider": ".configured_model_provider",
@@ -327,7 +328,6 @@ _dynamic_imports: typing.Dict[str, str] = {
     "CreateScheduleRunResponse": ".create_schedule_run_response",
     "CreateSessionAgent": ".create_session_agent",
     "CreateTurnEventResponse": ".create_turn_event_response",
-    "CreateTurnEventResponseDataItem": ".create_turn_event_response_data_item",
     "CreatedBySubject": ".created_by_subject",
     "CronExpression": ".cron_expression",
     "CustomModelProvider": ".custom_model_provider",
@@ -515,8 +515,6 @@ _dynamic_imports: typing.Dict[str, str] = {
     "TurnCreatedEvent": ".turn_created_event",
     "TurnDoneEvent": ".turn_done_event",
     "TurnDoneEventState": ".turn_done_event_state",
-    "TurnInboundEventItem": ".turn_inbound_event_item",
-    "TurnInputItem": ".turn_input_item",
     "TurnMetrics": ".turn_metrics",
     "TurnState": ".turn_state",
     "TurnStateCancelled": ".turn_state_cancelled",
@@ -530,6 +528,8 @@ _dynamic_imports: typing.Dict[str, str] = {
     "TurnStreamingEvent": ".turn_streaming_event",
     "TurnUpdateEvent": ".turn_update_event",
     "TurnUpdateEventState": ".turn_update_event_state",
+    "TurnUserEvent": ".turn_user_event",
+    "TurnUserEventMessage": ".turn_user_event_message",
     "UserMcpAuthContinueEvent": ".user_mcp_auth_continue_event",
     "UserMcpAuthContinueInputEvent": ".user_mcp_auth_continue_input_event",
     "UserMessage": ".user_message",
@@ -611,6 +611,7 @@ __all__ = [
     "ChatCompletionMessageToolCallFunction",
     "CompactionConfig",
     "ComponentsSchemasToolApprovalPolicyAllowSession",
+    "ComponentsSchemasUserMessage",
     "ConfiguredMcpServer",
     "ConfiguredModel",
     "ConfiguredModelProvider",
@@ -621,7 +622,6 @@ __all__ = [
     "CreateScheduleRunResponse",
     "CreateSessionAgent",
     "CreateTurnEventResponse",
-    "CreateTurnEventResponseDataItem",
     "CreatedBySubject",
     "CronExpression",
     "CustomModelProvider",
@@ -809,8 +809,6 @@ __all__ = [
     "TurnCreatedEvent",
     "TurnDoneEvent",
     "TurnDoneEventState",
-    "TurnInboundEventItem",
-    "TurnInputItem",
     "TurnMetrics",
     "TurnState",
     "TurnStateCancelled",
@@ -824,6 +822,8 @@ __all__ = [
     "TurnStreamingEvent",
     "TurnUpdateEvent",
     "TurnUpdateEventState",
+    "TurnUserEvent",
+    "TurnUserEventMessage",
     "UserMcpAuthContinueEvent",
     "UserMcpAuthContinueInputEvent",
     "UserMessage",

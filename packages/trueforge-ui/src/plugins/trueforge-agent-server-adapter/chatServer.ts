@@ -115,7 +115,9 @@ function toUiContent(content: TrueForgeApi.UserMessageContent): UserMessageConte
   return typeof content === 'string' ? content : content.map(part => ({ ...part }));
 }
 
-function toUiInput(input: TrueForgeApi.TurnInputItem[]): TurnInputItem[] {
+type HarnessTurnInput = NonNullable<TrueForgeApi.Turn['input']>;
+
+function toUiInput(input: HarnessTurnInput): TurnInputItem[] {
   return input.map(item => (item.type === 'user.message' ? { ...item, content: toUiContent(item.content) } : item));
 }
 
@@ -170,13 +172,16 @@ function toHarnessContent(content: UserMessageContent): TrueForgeApi.UserMessage
   });
 }
 
-function toHarnessInput(input: TurnInputItem[]): TrueForgeApi.TurnInputItem[] {
-  return input.map(item =>
-    item.type === 'user.message' ? { ...item, content: toHarnessContent(item.content) } : item,
-  );
+function toHarnessInput(input: TurnInputItem[]): HarnessTurnInput {
+  return input.map(item => {
+    if (item.type !== 'user.message') {
+      throw new Error(`Turn creation does not accept ${item.type}; send it to the live turn events endpoint`);
+    }
+    return { ...item, content: toHarnessContent(item.content) };
+  });
 }
 
-function toHarnessInboundEvents(events: TurnInboundEventItem[]): TrueForgeApi.TurnInboundEventItem[] {
+function toHarnessInboundEvents(events: TurnInboundEventItem[]): TrueForgeApi.TurnUserEventMessage[] {
   return events.map(event => ({ ...event }));
 }
 
@@ -273,7 +278,7 @@ export function createHarnessChatServer(
     },
 
     async sendTurnEvents({ sessionId, turnId, events }) {
-      const response = await client.sessions.createTurnEvent(sessionId, turnId, {
+      const response = await client.sessions.createTurnEvents(sessionId, turnId, {
         events: toHarnessInboundEvents(events),
       });
       return response.data.map(toUiInboundEvent);

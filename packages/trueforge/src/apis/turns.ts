@@ -13,13 +13,13 @@ import {
   type TurnHandle,
   type TurnInputItem,
   type TurnRecordWithoutSnapshot,
+  type TurnUserEvent,
 } from '@truefoundry/trueforge-core/agent-session';
 import type { IWebSearchProvider } from '@truefoundry/trueforge-core/core';
 import {
   AgentHarnessError,
   existingSandboxIdForProvider,
   extractErrorLogFields,
-  isAgentInputUserMessage,
   isFileContentPart,
   McpConnectionError,
   newEventId,
@@ -45,11 +45,11 @@ import type { TurnMetadata } from '../db/turnMetadata';
 import type { IWebSearchProviderStore } from '../db/webSearchProviderStore';
 import {
   createAndExecuteTurnRoute,
-  createTurnEventRoute,
   downloadSandboxFileRoute,
   getTurnRoute,
   listTurnEventsRoute,
   listTurnsRoute,
+  postTurnEventsRoute,
   subscribeTurnRoute,
 } from '../routes/turnRoutes';
 import type { ActiveTurnRegistry } from '../runtime/activeTurns';
@@ -298,7 +298,7 @@ function createTurnResolver(deps: {
  * text is present (e.g. file-only or tool-approval input).
  */
 export function deriveSessionTitle(input: TurnInputItem[] | undefined): string | undefined {
-  const firstUserMessage = input?.find(isAgentInputUserMessage);
+  const firstUserMessage = input?.[0];
   if (!firstUserMessage) {
     return undefined;
   }
@@ -463,10 +463,9 @@ export async function beginTurnExecution(
   maxExecutionTimer.unref();
 
   const trackedStream = deps.activeTurns.track({
-    sessionId,
-    turnId: turn.id,
     abortController,
-    stream: turn.stream(),
+    stream: turn.stream(abortController),
+    turn,
   });
 
   // Held for the whole turn; the stream's sequence counter dies with it.
@@ -934,8 +933,8 @@ export function createTurnsRouter(deps: TurnsRouterDeps) {
     });
   };
 
-  const createTurnEventHandler: RouteHandler<typeof createTurnEventRoute> = async c => {
-    const { session_id: sessionId } = c.req.valid('param');
+  const postTurnEventsHandler: RouteHandler<typeof postTurnEventsRoute> = async c => {
+    const { session_id: sessionId, turn_id: turnId } = c.req.valid('param');
     const body = c.req.valid('json');
     const requestContext = deps.resolveRequestContext(c);
     const session = await deps.sessions.get({
@@ -953,25 +952,34 @@ export function createTurnsRouter(deps: TurnsRouterDeps) {
     ) {
       return c.json({ error: { message: FORBIDDEN_SESSION_ACCESS } }, 403);
     }
+    const turn = await session.getTurn(turnId);
+    if (!turn) {
+      return c.json({ error: { message: `Turn not found: ${turnId}` } }, 404);
+    }
+
+    const turnHandle = deps.activeTurns.getTurnHandle({ sessionId, turnId });
+    if (!turnHandle) {
+      return c.json({ error: { message: `Turn is not running on this server: ${turnId}` } }, 409);
+    }
 
     const createdAt = new Date().toISOString();
-    const events = body.events.map(payload => {
-      const id = newEventId();
-      return {
-        event_id: id,
-        payload,
-        created_at: createdAt,
-        created: { ...payload, id, created_at: createdAt },
-      };
-    });
+    const events: TurnUserEvent[] = body.events.map(payload => ({
+      ...payload,
+      id: newEventId(),
+      created_at: createdAt,
+    }));
 
-    // Persist + apply/wake land later. Mint ids now so the client contract is stable.
-    // await deps.sessionStore.insertTurnInboundEvents({
-    //   session_id: sessionId,
-    //   turn_id: turnId,
-    //   events: events.map(({ event_id, payload, created_at }) => ({ event_id, payload, created_at })),
-    // });
-    return c.json({ data: events.map(e => e.created) }, 201);
+    try {
+      await turnHandle.send(events);
+    } catch (error) {
+      if (error instanceof AgentHarnessError && error.code === 'invalid_send_input') {
+        return c.json({ error: { message: error.message } }, 400);
+      }
+      throw error;
+    }
+
+    // TODO: durably persist inbound events.
+    return c.json({ data: events }, 201);
   };
 
   const router = new OpenAPIHono();
@@ -980,7 +988,7 @@ export function createTurnsRouter(deps: TurnsRouterDeps) {
   router.openapi(getTurnRoute, getTurnHandler);
   router.openapi(downloadSandboxFileRoute, downloadSandboxFileHandler);
   router.openapi(listTurnEventsRoute, listTurnEventsHandler);
-  router.openapi(createTurnEventRoute, createTurnEventHandler);
+  router.openapi(postTurnEventsRoute, postTurnEventsHandler);
   router.openapi(subscribeTurnRoute, subscribeTurnHandler);
   return router;
 }

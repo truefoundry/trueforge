@@ -1136,7 +1136,7 @@
           "events": {
             "description": "One or more user events.",
             "items": {
-              "$ref": "#/components/schemas/TurnInboundEventItem"
+              "$ref": "#/components/schemas/TurnUserEventMessage"
             },
             "minItems": 1,
             "type": "array"
@@ -1152,29 +1152,7 @@
           "data": {
             "description": "Events with server-minted `id` and `created_at`, in request order.",
             "items": {
-              "discriminator": {
-                "mapping": {
-                  "user.mcp_auth_continue": "#/components/schemas/UserMCPAuthContinueEvent",
-                  "user.tool_approval": "#/components/schemas/UserToolApprovalEvent",
-                  "user.tool_approval_policy": "#/components/schemas/UserToolApprovalPolicyEvent",
-                  "user.tool_response": "#/components/schemas/UserToolResponseEvent"
-                },
-                "propertyName": "type"
-              },
-              "oneOf": [
-                {
-                  "$ref": "#/components/schemas/UserToolApprovalEvent"
-                },
-                {
-                  "$ref": "#/components/schemas/UserToolResponseEvent"
-                },
-                {
-                  "$ref": "#/components/schemas/UserToolApprovalPolicyEvent"
-                },
-                {
-                  "$ref": "#/components/schemas/UserMCPAuthContinueEvent"
-                }
-              ]
+              "$ref": "#/components/schemas/TurnUserEvent"
             },
             "type": "array"
           }
@@ -1187,7 +1165,7 @@
       "CreateTurnRequest": {
         "properties": {
           "input": {
-            "description": "Turn input items: user messages and/or approval/tool-response resumes. Do not mix user messages with approval or tool-response items.",
+            "description": "Turn input items: user messages only. Approval decisions and client-side tool responses are sent to a running turn via the turn events endpoint, not at turn creation.",
             "items": {
               "$ref": "#/components/schemas/TurnInputItem"
             },
@@ -2873,7 +2851,7 @@
         "properties": {
           "approval_policies": {
             "additionalProperties": {
-              "$ref": "#/components/schemas/ToolApprovalPolicyAction"
+              "$ref": "#/components/schemas/ToolApprovalPolicy"
             },
             "description": "Sticky per-tool approval policies (keyed by tool name) that auto-allow future calls.",
             "type": "object"
@@ -5160,7 +5138,7 @@
         ],
         "type": "object"
       },
-      "ToolApprovalPolicyAction": {
+      "ToolApprovalPolicy": {
         "discriminator": {
           "mapping": {
             "allow_session": "#/components/schemas/ToolApprovalPolicyAllowSession"
@@ -5194,13 +5172,13 @@
       },
       "ToolApprovalPolicyItem": {
         "properties": {
-          "action": {
-            "$ref": "#/components/schemas/ToolApprovalPolicyAction"
-          },
           "name": {
             "description": "Tool name on that server.",
             "minLength": 1,
             "type": "string"
+          },
+          "policy": {
+            "$ref": "#/components/schemas/ToolApprovalPolicy"
           },
           "server_name": {
             "description": "MCP server name.",
@@ -5211,7 +5189,7 @@
         "required": [
           "server_name",
           "name",
-          "action"
+          "policy"
         ],
         "type": "object"
       },
@@ -5665,49 +5643,16 @@
         ],
         "type": "object"
       },
-      "TurnInboundEventItem": {
-        "discriminator": {
-          "mapping": {
-            "user.mcp_auth_continue": "#/components/schemas/UserMCPAuthContinueInputEvent",
-            "user.tool_approval": "#/components/schemas/UserToolApprovalInputEvent",
-            "user.tool_approval_policy": "#/components/schemas/UserToolApprovalPolicyMessage",
-            "user.tool_response": "#/components/schemas/UserToolResponseInputEvent"
-          },
-          "propertyName": "type"
-        },
-        "oneOf": [
-          {
-            "$ref": "#/components/schemas/UserToolApprovalInputEvent"
-          },
-          {
-            "$ref": "#/components/schemas/UserToolResponseInputEvent"
-          },
-          {
-            "$ref": "#/components/schemas/UserToolApprovalPolicyMessage"
-          },
-          {
-            "$ref": "#/components/schemas/UserMCPAuthContinueInputEvent"
-          }
-        ]
-      },
       "TurnInputItem": {
         "discriminator": {
           "mapping": {
-            "user.message": "#/components/schemas/UserMessage",
-            "user.tool_approval": "#/components/schemas/UserToolApprovalInputEvent",
-            "user.tool_response": "#/components/schemas/UserToolResponseInputEvent"
+            "user.message": "#/components/schemas/UserMessage"
           },
           "propertyName": "type"
         },
         "oneOf": [
           {
             "$ref": "#/components/schemas/UserMessage"
-          },
-          {
-            "$ref": "#/components/schemas/UserToolApprovalInputEvent"
-          },
-          {
-            "$ref": "#/components/schemas/UserToolResponseInputEvent"
           }
         ]
       },
@@ -6069,6 +6014,56 @@
           "thread_id"
         ],
         "type": "object"
+      },
+      "TurnUserEvent": {
+        "discriminator": {
+          "mapping": {
+            "user.mcp_auth_continue": "#/components/schemas/UserMCPAuthContinueEvent",
+            "user.tool_approval": "#/components/schemas/UserToolApprovalEvent",
+            "user.tool_approval_policy": "#/components/schemas/UserToolApprovalPolicyEvent",
+            "user.tool_response": "#/components/schemas/UserToolResponseEvent"
+          },
+          "propertyName": "type"
+        },
+        "oneOf": [
+          {
+            "$ref": "#/components/schemas/UserToolApprovalEvent"
+          },
+          {
+            "$ref": "#/components/schemas/UserToolResponseEvent"
+          },
+          {
+            "$ref": "#/components/schemas/UserToolApprovalPolicyEvent"
+          },
+          {
+            "$ref": "#/components/schemas/UserMCPAuthContinueEvent"
+          }
+        ]
+      },
+      "TurnUserEventMessage": {
+        "discriminator": {
+          "mapping": {
+            "user.mcp_auth_continue": "#/components/schemas/UserMCPAuthContinueInputEvent",
+            "user.tool_approval": "#/components/schemas/UserToolApprovalInputEvent",
+            "user.tool_approval_policy": "#/components/schemas/UserToolApprovalPolicyMessage",
+            "user.tool_response": "#/components/schemas/UserToolResponseInputEvent"
+          },
+          "propertyName": "type"
+        },
+        "oneOf": [
+          {
+            "$ref": "#/components/schemas/UserToolApprovalInputEvent"
+          },
+          {
+            "$ref": "#/components/schemas/UserToolResponseInputEvent"
+          },
+          {
+            "$ref": "#/components/schemas/UserToolApprovalPolicyMessage"
+          },
+          {
+            "$ref": "#/components/schemas/UserMCPAuthContinueInputEvent"
+          }
+        ]
       },
       "UpdateAgentRequest": {
         "additionalProperties": false,
@@ -10507,7 +10502,7 @@
         "x-fern-sdk-group-name": [
           "sessions"
         ],
-        "x-fern-sdk-method-name": "create_turn_event"
+        "x-fern-sdk-method-name": "create_turn_events"
       }
     },
     "/api/v1/sessions/{session_id}/turns/{turn_id}/subscribe": {

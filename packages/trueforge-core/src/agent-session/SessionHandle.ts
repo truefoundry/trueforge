@@ -1,20 +1,11 @@
 /**
  * Bound session handle: starts turns via {@link SessionHandle.createTurn}.
  */
-import { newEventId } from '../core/events/schema';
+import { newEventId, type TurnUserEvent } from '../core/events/schema';
 import type { AgentDefinition } from '../core/runtime/AgentDefinition';
 import { AgentThread } from '../core/runtime/AgentThread';
-import type {
-  AgentThreadAppendContext,
-  AgentThreadSendBatch,
-  AgentThreadSnapshot,
-} from '../core/runtime/AgentThread.types';
+import type { AgentThreadAppendContext, AgentThreadSnapshot } from '../core/runtime/AgentThread.types';
 import { AgentThreadOrchestrator } from '../core/runtime/AgentThreadOrchestrator';
-import {
-  isApprovalDecisionMessage,
-  isClientSideToolResponseMessage,
-  isInputUserMessage,
-} from '../core/runtime/contextUtils';
 import type { CreateDynamicSubAgentThread } from '../core/runtime/CreateDynamicSubAgentThread';
 import type { HarnessSandbox } from '../core/sandbox/Sandbox';
 import type { AgentTracing } from '../core/tracing/AgentTracing';
@@ -45,19 +36,6 @@ function resolvePreviousTurnId(requested: string | undefined, lastTurnId: string
   return requested;
 }
 
-function toSendBatch(input: TurnInputItem[] | undefined): AgentThreadSendBatch {
-  if (!input || input.length === 0) {
-    return [];
-  }
-  if (input.every(msg => isApprovalDecisionMessage(msg) || isClientSideToolResponseMessage(msg))) {
-    return input;
-  }
-  if (input.every(isInputUserMessage)) {
-    return input;
-  }
-  throw new Error('input must be homogeneous: all user messages, or all approval/tool-response messages');
-}
-
 function toNewThreadInit(snapshot: AgentThreadSnapshot): NewThreadInit {
   const { context, current_context_usage, completion, capability_state, ...rest } = snapshot;
   void context;
@@ -68,11 +46,14 @@ function toNewThreadInit(snapshot: AgentThreadSnapshot): NewThreadInit {
 }
 
 function collectContextAppends(
-  events: AsyncGenerator<AgentThreadAppendContext, void, unknown>,
+  events: AsyncGenerator<AgentThreadAppendContext | TurnUserEvent[], void, unknown>,
 ): Promise<TurnContextAppend[]> {
   return (async () => {
     const appendMap = new Map<string, TurnContextAppend>();
     for await (const event of events) {
+      if (Array.isArray(event)) {
+        throw new Error('SessionHandle.createTurn: unexpected queued event batch from user-message input');
+      }
       const existing = appendMap.get(event.thread_id);
       if (existing) {
         existing.context.push(...event.context);
@@ -262,9 +243,7 @@ export class SessionHandle<
         logger: input.resolver.logger,
       });
 
-      // SEND BEFORE COMMIT — validate + append; throw ⇒ nothing persisted.
-      const sendBatch = toSendBatch(input.input);
-      const new_context_appends = await collectContextAppends(orchestrator.send(sendBatch));
+      const new_context_appends = await collectContextAppends(orchestrator.send(input.input ?? []));
 
       const turnId = input.turn_id;
       const now = new Date();

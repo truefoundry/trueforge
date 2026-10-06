@@ -1094,7 +1094,7 @@ export function useTrueForgeAgentMessages({
         }
         const policyEvent: UserToolApprovalPolicyInputEvent = {
           type: EVENT_TYPE.USER_TOOL_APPROVAL_POLICY,
-          policies: [{ ...target, action: response.policy }],
+          policies: [{ ...target, policy: response.policy }],
         };
         events.push(policyEvent);
         for (const toolCallId of collectPendingApprovalIdsMatchingPolicy(previous.fold, target)) {

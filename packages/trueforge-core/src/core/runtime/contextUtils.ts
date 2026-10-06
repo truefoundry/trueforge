@@ -2,9 +2,9 @@ import dedent from 'dedent';
 import type { ApprovalDecision } from '../events/schema';
 import {
   EventType,
-  type AgentApprovalDecisionMessage,
-  type UserToolApprovalMessage,
-  type UserToolResponseMessage,
+  type ApprovalDecisionMessage,
+  type UserToolApprovalEvent,
+  type UserToolResponseEvent,
 } from '../events/schema';
 import type {
   EnrichedToolCall,
@@ -23,7 +23,7 @@ import type {
   LLMContextMessage,
 } from './AgentThread.types';
 import type { CurrentContextUsage } from './contextUsage';
-import type { AgentInputUserMessage } from './UserInputMessage';
+import type { InputUserMessage } from './UserInputMessage';
 
 export const SYSTEM_TAG_START = '<tfy-internal>';
 const SYSTEM_TAG_END = '</tfy-internal>';
@@ -52,20 +52,20 @@ export function isInternalSystemMessage(m: ContextMessage): boolean {
   return m.role === 'user' && typeof m.content === 'string' && m.content.startsWith(SYSTEM_TAG_START);
 }
 
-export function isApprovalDecisionMessage(msg: AgentThreadRuntimeSendInput): msg is UserToolApprovalMessage {
+export function isApprovalDecisionEvent(msg: AgentThreadRuntimeSendInput): msg is UserToolApprovalEvent {
   return 'type' in msg && msg.type === EventType.USER_TOOL_APPROVAL;
 }
 
-function isUserToolApprovalDecisionMessage(msg: ContextMessage): msg is AgentApprovalDecisionMessage {
-  // `'type' in msg` already narrows to AgentApprovalDecisionMessage (literal type).
+function isUserToolApprovalDecisionMessage(msg: ContextMessage): msg is ApprovalDecisionMessage {
+  // `'type' in msg` already narrows to ApprovalDecisionMessage (literal type).
   return 'type' in msg;
 }
 
-export function isClientSideToolResponseMessage(msg: AgentThreadRuntimeSendInput): msg is UserToolResponseMessage {
+export function isClientSideToolResponseEvent(msg: AgentThreadRuntimeSendInput): msg is UserToolResponseEvent {
   return 'type' in msg && msg.type === EventType.USER_TOOL_RESPONSE;
 }
 
-export function isInputUserMessage(msg: AgentThreadRuntimeSendInput): msg is AgentInputUserMessage {
+export function isInputUserMessage(msg: AgentThreadRuntimeSendInput): msg is InputUserMessage {
   return 'type' in msg && msg.type === EventType.USER_MESSAGE;
 }
 

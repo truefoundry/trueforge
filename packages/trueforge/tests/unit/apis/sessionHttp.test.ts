@@ -1,5 +1,5 @@
 import { OpenAPIHono } from '@hono/zod-openapi';
-import { AgentSpecSchema, Sessions } from '@truefoundry/trueforge-core/agent-session';
+import { AgentSpecSchema, Sessions, type TurnHandle } from '@truefoundry/trueforge-core/agent-session';
 import { RequestReplyRouter } from '@truefoundry/trueforge-core/request-reply';
 import { createClient } from 'redis';
 import { createLogger } from 'winston';
@@ -481,6 +481,8 @@ describe('sessions HTTP agent binding', () => {
     expect(created.status).toBe(201);
     const { data: session } = (await created.json()) as { data: { id: string } };
     await sessionStore.createTurn(makeCreateTurnInput({ sessionId: session.id, turnId: 'tip-1' }));
+    const send = jest.fn().mockResolvedValue(undefined);
+    jest.spyOn(sessionDeps.activeTurns, 'getTurnHandle').mockReturnValue({ send } as unknown as TurnHandle);
 
     const res = await app.request(
       `/${session.id}/turns/tip-1/events`,
@@ -498,7 +500,7 @@ describe('sessions HTTP agent binding', () => {
               {
                 server_name: 'github',
                 name: 'create_issue',
-                action: { type: 'allow_session' },
+                policy: { type: 'allow_session' },
               },
             ],
           },
@@ -535,13 +537,14 @@ describe('sessions HTTP agent binding', () => {
         {
           server_name: 'github',
           name: 'create_issue',
-          action: { type: 'allow_session' },
+          policy: { type: 'allow_session' },
         },
       ],
     });
     expect(body.data[2]).toMatchObject({ type: 'user.mcp_auth_continue' });
     expect(body.data[2]?.id).toEqual(expect.any(String));
     expect(body.data[2]?.created_at).toEqual(expect.any(String));
+    expect(send).toHaveBeenCalledWith(body.data);
   });
 
   it('rejects PATCH agent on a named session', async () => {

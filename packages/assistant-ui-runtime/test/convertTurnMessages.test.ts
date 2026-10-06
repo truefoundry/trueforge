@@ -2945,7 +2945,9 @@ describe('buildSnapshotFromSessionEvents', () => {
     expect(snapshot.groupRootBaseline).not.toContain('m-tip');
 
     const messages = projectSessionMessages(snapshot);
-    const assistant = messages.find(m => m.role === 'assistant' && m.metadata?.custom?.turnId === pausedTip.id);
+    const assistant = messages.find(
+      m => m.role === 'assistant' && m.metadata?.custom?.[MESSAGE_CUSTOM_KEY.TURN_ID] === pausedTip.id,
+    );
     expect(assistant?.content.some(part => part.type === 'text' && part.text.includes('Launching'))).toBe(true);
     expect(collectPendingApprovals(messages)).toMatchObject([{ approvalId: 'nested-tool', threadId: 'sub-thread-1' }]);
 

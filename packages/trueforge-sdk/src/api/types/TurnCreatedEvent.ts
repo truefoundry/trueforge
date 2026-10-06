@@ -8,7 +8,7 @@ export interface TurnCreatedEvent {
     /** Unique identifier for the event (monotonic ULID). */
     id: string;
     /** Input items supplied when the turn was created. */
-    input?: TrueForge.TurnInputItem[];
+    input?: TrueForge.ComponentsSchemasUserMessage[];
     /** Prior turn this turn chains from; null for a root turn. */
     previousTurnId: string | null;
     state: TrueForge.TurnStateRunning;

@@ -62,7 +62,7 @@ const fetchMock: typeof fetch = async (input, init) => {
               {
                 server_name: 'github',
                 name: 'create_issue',
-                action: { type: 'allow_session' },
+                policy: { type: 'allow_session' },
               },
             ],
             id: 'policy-event-1',
@@ -400,7 +400,7 @@ describe('createHarnessChatServer', () => {
         },
         {
           type: 'user.tool_approval_policy',
-          policies: [{ serverName: 'github', name: 'create_issue', action: { type: 'allow_session' } }],
+          policies: [{ serverName: 'github', name: 'create_issue', policy: { type: 'allow_session' } }],
         },
       ],
     });
@@ -415,7 +415,7 @@ describe('createHarnessChatServer', () => {
         },
         {
           type: 'user.tool_approval_policy',
-          policies: [{ server_name: 'github', name: 'create_issue', action: { type: 'allow_session' } }],
+          policies: [{ server_name: 'github', name: 'create_issue', policy: { type: 'allow_session' } }],
         },
       ],
     });
@@ -430,7 +430,7 @@ describe('createHarnessChatServer', () => {
       },
       {
         type: 'user.tool_approval_policy',
-        policies: [{ serverName: 'github', name: 'create_issue', action: { type: 'allow_session' } }],
+        policies: [{ serverName: 'github', name: 'create_issue', policy: { type: 'allow_session' } }],
         id: 'policy-event-1',
         createdAt: '2026-09-24T12:00:00.000Z',
       },

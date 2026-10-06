@@ -1,6 +1,6 @@
 import type { CallToolRequest, ToolAnnotations } from '@modelcontextprotocol/sdk/types.js';
 import { McpConnectionError } from '../errors';
-import type { ApprovalDecision, ToolApprovalPolicyAction } from '../events/schema';
+import type { ApprovalDecision, ToolApprovalPolicy } from '../events/schema';
 import type { InternalToolCallInfo } from '../llm/LLMTypes';
 import {
   isAuthRequired,
@@ -27,9 +27,9 @@ export class ToolSet implements IToolSet {
 
   private readonly source: ToolSource;
   private readonly toolSelectorPolicy: ToolSelectorPolicy;
-  private readonly approvalPolicies = new Map<string, ToolApprovalPolicyAction>();
+  private readonly approvalPolicies = new Map<string, ToolApprovalPolicy>();
 
-  private static isPolicyApplicable(policy: ToolApprovalPolicyAction, asOf: Date): boolean {
+  private static isPolicyApplicable(policy: ToolApprovalPolicy, asOf: Date): boolean {
     return policy.expire_at === undefined || new Date(policy.expire_at).getTime() > asOf.getTime();
   }
 
@@ -37,7 +37,7 @@ export class ToolSet implements IToolSet {
     source: ToolSource;
     selectors: ToolSelectorConfig;
     preload: boolean;
-    approvalPolicies: Record<string, ToolApprovalPolicyAction> | undefined;
+    approvalPolicies: Record<string, ToolApprovalPolicy> | undefined;
   }) {
     this.source = params.source;
     this.name = params.source.name;
@@ -52,9 +52,9 @@ export class ToolSet implements IToolSet {
     // Drop already-expired policies carried forward from the previous snapshot so
     // dead policies don't accumulate and get re-persisted turn after turn.
     const asOf = new Date();
-    for (const [toolName, action] of Object.entries(params.approvalPolicies ?? {})) {
-      if (ToolSet.isPolicyApplicable(action, asOf)) {
-        this.approvalPolicies.set(toolName, action);
+    for (const [toolName, policy] of Object.entries(params.approvalPolicies ?? {})) {
+      if (ToolSet.isPolicyApplicable(policy, asOf)) {
+        this.approvalPolicies.set(toolName, policy);
       }
     }
   }
@@ -64,15 +64,15 @@ export class ToolSet implements IToolSet {
   }
 
   // Last write wins for a given tool.
-  setApprovalPolicy(toolName: string, action: ToolApprovalPolicyAction): void {
-    this.approvalPolicies.set(toolName, action);
+  setApprovalPolicy(toolName: string, policy: ToolApprovalPolicy): void {
+    this.approvalPolicies.set(toolName, policy);
   }
 
-  getApprovalPolicies(): Record<string, ToolApprovalPolicyAction> {
+  getApprovalPolicies(): Record<string, ToolApprovalPolicy> {
     return Object.fromEntries(this.approvalPolicies);
   }
 
-  private hasApplicableApprovalPolicy(toolName: string): boolean {
+  hasApplicableApprovalPolicy(toolName: string): boolean {
     const policy = this.approvalPolicies.get(toolName);
     return policy !== undefined && ToolSet.isPolicyApplicable(policy, new Date());
   }
