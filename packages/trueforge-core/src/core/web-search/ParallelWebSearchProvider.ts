@@ -1,5 +1,5 @@
 import Parallel from 'parallel-web';
-import { ssrfFetch } from '../util/ssrfGuard';
+import { ssrfFetch } from '../util/outboundFetch';
 import {
   WebSearchProviders,
   type IWebSearchProvider,

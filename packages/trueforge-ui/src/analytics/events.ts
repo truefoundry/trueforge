@@ -42,7 +42,6 @@ export const AnalyticsEvents = {
     SANDBOX_PROVIDER_SAVED: 'settings.sandbox_provider_saved',
     SANDBOX_PROVIDER_DELETED: 'settings.sandbox_provider_deleted',
     WEB_SEARCH_PROVIDER_SAVED: 'settings.web_search_provider_saved',
-    WEB_SEARCH_PROVIDER_DELETED: 'settings.web_search_provider_deleted',
   },
   Library: {
     OPENED: 'library.opened',
@@ -66,5 +65,11 @@ export const AnalyticsEvents = {
     DELETED: 'schedule.deleted',
     TOGGLED: 'schedule.toggled',
     RUN_NOW: 'schedule.run_now',
+  },
+  Environment: {
+    PAGE_OPENED: 'environment.page_opened',
+    CREATED: 'environment.created',
+    EDITED: 'environment.edited',
+    DELETED: 'environment.deleted',
   },
 } as const;

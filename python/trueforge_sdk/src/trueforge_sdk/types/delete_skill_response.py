@@ -5,21 +5,9 @@ import typing
 import pydantic
 from ..core.pydantic_utilities import IS_PYDANTIC_V2
 from ..core.unchecked_base_model import UncheckedBaseModel
-from .agent_parent import AgentParent
 
 
-class BaseThreadDoneEvent(UncheckedBaseModel):
-    parent: typing.Optional[AgentParent] = None
-    thread_id: str = pydantic.Field()
-    """
-    Thread that finished.
-    """
-
-    title: str = pydantic.Field()
-    """
-    Human-readable thread title.
-    """
-
+class DeleteSkillResponse(UncheckedBaseModel):
     if IS_PYDANTIC_V2:
         model_config: typing.ClassVar[pydantic.ConfigDict] = pydantic.ConfigDict(extra="allow")  # type: ignore # Pydantic v2
     else:

@@ -26,7 +26,6 @@ if typing.TYPE_CHECKING:
     from .available_model_provider import AvailableModelProvider
     from .available_skill import AvailableSkill
     from .base_mcp_auth_required_event import BaseMcpAuthRequiredEvent
-    from .base_thread_done_event import BaseThreadDoneEvent
     from .cancel_session_response import CancelSessionResponse
     from .capabilities_data import CapabilitiesData
     from .catalog_custom_model_provider import CatalogCustomModelProvider
@@ -64,8 +63,11 @@ if typing.TYPE_CHECKING:
     from .custom_model_provider import CustomModelProvider
     from .daytona_sandbox_provider_auth import DaytonaSandboxProviderAuth
     from .delete_agent_response import DeleteAgentResponse
+    from .delete_mcp_server_response import DeleteMcpServerResponse
+    from .delete_model_provider_response import DeleteModelProviderResponse
     from .delete_sandbox_environment_response import DeleteSandboxEnvironmentResponse
     from .delete_schedule_response import DeleteScheduleResponse
+    from .delete_skill_response import DeleteSkillResponse
     from .dynamic_sub_agents_config import DynamicSubAgentsConfig
     from .extended_chunk_delta_tool_call import ExtendedChunkDeltaToolCall
     from .file_content import FileContent
@@ -294,7 +296,6 @@ _dynamic_imports: typing.Dict[str, str] = {
     "AvailableModelProvider": ".available_model_provider",
     "AvailableSkill": ".available_skill",
     "BaseMcpAuthRequiredEvent": ".base_mcp_auth_required_event",
-    "BaseThreadDoneEvent": ".base_thread_done_event",
     "CancelSessionResponse": ".cancel_session_response",
     "CapabilitiesData": ".capabilities_data",
     "CatalogCustomModelProvider": ".catalog_custom_model_provider",
@@ -332,8 +333,11 @@ _dynamic_imports: typing.Dict[str, str] = {
     "CustomModelProvider": ".custom_model_provider",
     "DaytonaSandboxProviderAuth": ".daytona_sandbox_provider_auth",
     "DeleteAgentResponse": ".delete_agent_response",
+    "DeleteMcpServerResponse": ".delete_mcp_server_response",
+    "DeleteModelProviderResponse": ".delete_model_provider_response",
     "DeleteSandboxEnvironmentResponse": ".delete_sandbox_environment_response",
     "DeleteScheduleResponse": ".delete_schedule_response",
+    "DeleteSkillResponse": ".delete_skill_response",
     "DynamicSubAgentsConfig": ".dynamic_sub_agents_config",
     "ExtendedChunkDeltaToolCall": ".extended_chunk_delta_tool_call",
     "FileContent": ".file_content",
@@ -586,7 +590,6 @@ __all__ = [
     "AvailableModelProvider",
     "AvailableSkill",
     "BaseMcpAuthRequiredEvent",
-    "BaseThreadDoneEvent",
     "CancelSessionResponse",
     "CapabilitiesData",
     "CatalogCustomModelProvider",
@@ -624,8 +627,11 @@ __all__ = [
     "CustomModelProvider",
     "DaytonaSandboxProviderAuth",
     "DeleteAgentResponse",
+    "DeleteMcpServerResponse",
+    "DeleteModelProviderResponse",
     "DeleteSandboxEnvironmentResponse",
     "DeleteScheduleResponse",
+    "DeleteSkillResponse",
     "DynamicSubAgentsConfig",
     "ExtendedChunkDeltaToolCall",
     "FileContent",

@@ -20,7 +20,7 @@ import type {
   JsonValue,
   MCPServerInitInfo,
   SandboxInfo,
-  SubAgentCompletionMarker,
+  SubAgentCompletion,
 } from '@truefoundry/trueforge-core/core';
 import type { CurrentContextUsage } from '@truefoundry/trueforge-core/core/runtime/contextUsage';
 import type { ColumnType, Generated, JSONColumnType } from 'kysely';
@@ -44,7 +44,7 @@ import type { OAuthClient, OAuthPendingAuthorizationData, OAuthServer, OAuthToke
  */
 export interface TurnThreadCheckpoint {
   parent: AgentParent | null;
-  completion: SubAgentCompletionMarker | null;
+  completion: SubAgentCompletion | null;
 }
 
 /** Turn-level checkpoint — threads live in `turn_thread`; only owned top-level keys remain. */
@@ -461,6 +461,23 @@ export interface SandboxEnvironmentVersionTable {
 }
 
 /**
+ * Per-environment Daytona org secret refs (no plaintext value).
+ * UNIQUE (environment_id, secret_name); FK → sandbox_environment ON DELETE CASCADE.
+ */
+export interface SandboxEnvironmentSecretTable {
+  id: string;
+  tenant_id: string;
+  environment_id: string;
+  secret_name: string;
+  external_secret_name: string;
+  external_secret_id: string;
+  description: string;
+  hash: string;
+  created_at: Date;
+  updated_at: Date;
+}
+
+/**
  * Configured schedules — immutable ULID `id` PK.
  * PRIMARY KEY (id)
  * CREATE INDEX schedule_agent_idx ON schedule (tenant_id, agent_name)
@@ -596,6 +613,7 @@ export interface Database {
   agent: AgentTable;
   sandbox_environment: SandboxEnvironmentTable;
   sandbox_environment_version: SandboxEnvironmentVersionTable;
+  sandbox_environment_secret: SandboxEnvironmentSecretTable;
   schedule: ScheduleTable;
   schedule_run: ScheduleRunTable;
   mcp_server: McpServerTable;

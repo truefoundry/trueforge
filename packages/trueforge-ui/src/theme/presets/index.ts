@@ -7,7 +7,7 @@ export type PresetTokens = {
 
 const trueforge: PresetTokens = {
   light: {
-    sidebarBg: '#EEF2FF1A',
+    sidebarBg: '#FDFEFF', // indigo-50 10% opacity
     sidebarText: '#3E5680',
     topbarBg: '#FFFFFF',
     primaryBg: '#FFFFFF',

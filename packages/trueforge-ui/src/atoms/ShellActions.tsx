@@ -11,7 +11,16 @@ import { useTheme } from '../theme/ThemeProvider.js';
 import { auiButtonClass, sidebarRailButtonClassName } from './lib/buttonClasses.js';
 import { cn } from './lib/cn.js';
 
-export function ShellActions({ className, labeled = false }: { className?: string; labeled?: boolean }) {
+export function ShellActions({
+  className,
+  labeled = false,
+  onAction,
+}: {
+  className?: string;
+  labeled?: boolean;
+  /** Fired after Docs, theme, or Settings is activated — e.g. close a mobile drawer. */
+  onAction?: () => void;
+}) {
   const shell = useOptionalShellMode();
   const track = useTrackAnalytics();
   const catalog = useOptionalCatalogServer();
@@ -43,6 +52,7 @@ export function ShellActions({ className, labeled = false }: { className?: strin
           size: labeled ? undefined : 'icon',
           className: cn(hoverClass, labeled && sidebarRailButtonClassName),
         })}
+        onClick={() => onAction?.()}
       >
         <Icon name="book-open" size={labeled ? 14 : undefined} />
         {labeled ? <span className="text-center">Docs</span> : null}
@@ -56,7 +66,10 @@ export function ShellActions({ className, labeled = false }: { className?: strin
           size: labeled ? undefined : 'icon',
           className: cn(hoverClass, labeled && sidebarRailButtonClassName),
         })}
-        onClick={() => setTheme(isDark ? 'light' : 'dark')}
+        onClick={() => {
+          setTheme(isDark ? 'light' : 'dark');
+          onAction?.();
+        }}
       >
         <Icon name={isDark ? 'sun' : 'moon'} size={labeled ? 14 : undefined} />
         {labeled ? <span className="text-center">{themeLabel}</span> : null}
@@ -81,6 +94,7 @@ export function ShellActions({ className, labeled = false }: { className?: strin
           onClick={() => {
             track(AnalyticsEvents.Settings.OPENED);
             shell.setSettingsOpen(true);
+            onAction?.();
           }}
         >
           <Icon name="settings" size={labeled ? 14 : undefined} />

@@ -1,8 +1,11 @@
 // @vitest-environment jsdom
-import { fireEvent, render, screen, waitFor } from '@testing-library/react';
+import { fireEvent, render, screen, waitFor, within } from '@testing-library/react';
 import type { ReactNode } from 'react';
 import { beforeAll, describe, expect, it, vi } from 'vitest';
 
+import { AnalyticsProvider } from '@/analytics/AnalyticsProvider.js';
+import { AnalyticsEvents } from '@/analytics/events.js';
+import type { TrackAnalytics } from '@/analytics/types.js';
 import SkillSettings from '@/containers/SettingsBuilder/SkillSettings.js';
 import { ServerProvider } from '@/server/ServerContext.js';
 import type { CreateSkillRequest, DefinedSkill, SkillCatalogEntry } from '@/server/types.js';
@@ -27,7 +30,7 @@ const catalogEntry: SkillCatalogEntry = {
 };
 
 /** In-memory host: catalog is fixed, defined skills live in a mutable list. */
-function createFakeHost(initial: DefinedSkill[] = []) {
+function createFakeHost(initial: DefinedSkill[] = [], track?: TrackAnalytics) {
   let defined = [...initial];
   const created: CreateSkillRequest[] = [];
 
@@ -64,13 +67,17 @@ function createFakeHost(initial: DefinedSkill[] = []) {
   return {
     created,
     getDefined: () => defined,
-    wrapper: ({ children }: { children: ReactNode }) => <ServerProvider server={server}>{children}</ServerProvider>,
+    wrapper: ({ children }: { children: ReactNode }) => {
+      const tree = <ServerProvider server={server}>{children}</ServerProvider>;
+      return track != null ? <AnalyticsProvider track={track}>{tree}</AnalyticsProvider> : tree;
+    },
   };
 }
 
 describe('SkillSettings', () => {
   it('selects a catalog skill and moves it out of Available', async () => {
-    const host = createFakeHost();
+    const track = vi.fn();
+    const host = createFakeHost([], track);
     const { wrapper: Wrapper } = host;
 
     render(
@@ -95,6 +102,7 @@ describe('SkillSettings', () => {
         ref: catalogEntry.ref,
       },
     ]);
+    expect(track).toHaveBeenCalledWith(AnalyticsEvents.Settings.SKILL_IMPORTED, { skill_name: catalogEntry.name });
   });
 
   it('returns a removed registry skill to Available', async () => {
@@ -114,10 +122,80 @@ describe('SkillSettings', () => {
     );
 
     fireEvent.click(await screen.findByRole('button', { name: 'Remove Code Review' }));
+    fireEvent.click(await screen.findByRole('button', { name: 'Remove' }));
 
     await waitFor(() => {
       expect(screen.getByRole('button', { name: 'Enable Code Review' })).toBeTruthy();
     });
+  });
+
+  it('keeps the skill when the confirmation is cancelled', async () => {
+    const host = createFakeHost([
+      {
+        id: 'db-house-style',
+        name: 'House Style',
+        description: 'Writing rules and tone-of-voice for external copy.',
+      },
+    ]);
+    const { wrapper: Wrapper } = host;
+
+    render(
+      <Wrapper>
+        <SkillSettings />
+      </Wrapper>,
+    );
+
+    fireEvent.click(await screen.findByRole('button', { name: 'Remove House Style' }));
+    expect(await screen.findByText('Remove skill?')).toBeTruthy();
+
+    fireEvent.click(screen.getByRole('button', { name: 'Cancel' }));
+
+    await waitFor(() => {
+      expect(screen.queryByText('Remove skill?')).toBeNull();
+    });
+    expect(host.getDefined()).toHaveLength(1);
+  });
+
+  it('keeps the dialog open and shows why a refused removal failed', async () => {
+    const server = createMockAgentUIServer({
+      catalog: createMockCatalog({
+        skillCatalog: {
+          getSkillCatalog: async () => [],
+          listSkills: async () => [{ id: 'db-house-style', name: 'House Style', description: 'Writing rules.' }],
+          createSkill: async () => {
+            throw new Error('not used');
+          },
+          deleteSkill: async () => {
+            throw Object.assign(new Error('Conflict'), {
+              statusCode: 409,
+              body: {
+                error: {
+                  message:
+                    'Still in use — skill "house-style" is used by agent support-bot. Update or delete those agents first.',
+                },
+              },
+            });
+          },
+        },
+      }),
+    });
+
+    render(
+      <ServerProvider server={server}>
+        <SkillSettings />
+      </ServerProvider>,
+    );
+
+    fireEvent.click(await screen.findByRole('button', { name: 'Remove House Style' }));
+    fireEvent.click(await screen.findByRole('button', { name: 'Remove' }));
+
+    expect(await screen.findByRole('alert')).toHaveTextContent(
+      'Still in use — skill "house-style" is used by agent support-bot. Update or delete those agents first.',
+    );
+    const dialog = screen.getByRole('dialog');
+    expect(within(dialog).getByText("Can't remove skill")).toBeTruthy();
+    expect(within(dialog).queryByRole('button', { name: 'Remove' })).toBeNull();
+    expect(within(dialog).getByRole('button', { name: 'Close' })).toBeTruthy();
   });
 
   it('removes an imported github skill entirely', async () => {
@@ -137,6 +215,7 @@ describe('SkillSettings', () => {
     );
 
     fireEvent.click(await screen.findByRole('button', { name: 'Remove House Style' }));
+    fireEvent.click(await screen.findByRole('button', { name: 'Remove' }));
 
     await waitFor(() => {
       expect(screen.queryByText('House Style')).toBeNull();

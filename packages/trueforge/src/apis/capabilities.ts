@@ -32,7 +32,7 @@ export function createCapabilitiesRouter<TTransaction>(deps: {
   const router = new OpenAPIHono();
   router.openapi(getCapabilitiesRoute, async c => {
     const requestContext = deps.resolveRequestContext(c);
-    const defaultEnv = await deps.sandboxEnvironmentStore.getEnvironment({
+    const defaultEnv = await deps.sandboxEnvironmentStore.getActiveEnvironment({
       tenant_id: requestContext.tenant_id,
       name: DEFAULT_SANDBOX_ENVIRONMENT_NAME,
     });

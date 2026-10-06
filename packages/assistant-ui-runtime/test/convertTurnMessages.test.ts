@@ -32,7 +32,7 @@ import {
   turnStreamUpdateToAssistantMessage,
 } from '../src/convertTurnMessages.js';
 import { buildRootAssistantContent, ingestTurnEvent, PeerThreadFoldState } from '../src/foldPeerThreads.js';
-import { findPausedAssistantMessage } from '../src/requiredActionInputs.js';
+import { findCurrentPausedAssistantMessage } from '../src/requiredActionInputs.js';
 import {
   createEmptySessionSnapshot,
   replaceSessionSnapshot,
@@ -936,7 +936,7 @@ describe('convertTurnMessages', () => {
         toolCallId: 'approval-1',
         approval: { id: 'approval-1' },
       });
-      expect(findPausedAssistantMessage(result.messages)).toBe(assistant);
+      expect(findCurrentPausedAssistantMessage(result.messages)).toBe(assistant);
     });
 
     it('downgrades to complete after a later turn submits user.tool_approval', async () => {
@@ -1089,7 +1089,7 @@ describe('convertTurnMessages', () => {
           payload: { question: 'Pick one', options: ['A', 'B'] },
         },
       });
-      expect(findPausedAssistantMessage(result.messages)).toBe(assistant);
+      expect(findCurrentPausedAssistantMessage(result.messages)).toBe(assistant);
     });
 
     it('downgrades to complete after a later turn submits user.tool_response', async () => {
@@ -1840,7 +1840,7 @@ describe('convertTurnMessages', () => {
         toolCallId: 'approval-1',
         approval: { id: 'approval-1' },
       });
-      expect(findPausedAssistantMessage(messages)).toBe(assistant);
+      expect(findCurrentPausedAssistantMessage(messages)).toBe(assistant);
     });
 
     it('preserves requires-action when streamComplete and update has ask-user status', async () => {
@@ -1899,7 +1899,7 @@ describe('convertTurnMessages', () => {
           payload: { question: 'Pick one', options: ['A', 'B'] },
         },
       });
-      expect(findPausedAssistantMessage(messages)).toBe(assistant);
+      expect(findCurrentPausedAssistantMessage(messages)).toBe(assistant);
     });
 
     it('forces complete when streamComplete and update has no explicit status', () => {
@@ -2092,7 +2092,7 @@ describe('convertTurnMessages', () => {
       // fabricated `TurnStateDone`. The pause must survive as a
       // `tool.response_required` required action, otherwise the projected
       // assistant message is not `requires-action` and
-      // `findPausedAssistantMessage` (the gate that fires the resume turn)
+      // `findCurrentPausedAssistantMessage` (the gate that fires the resume turn)
       // never sees it.
       const fold = new PeerThreadFoldState();
       const turnId = 'turn-ask';
@@ -2155,7 +2155,7 @@ describe('convertTurnMessages', () => {
       });
 
       const messages = projectSessionMessages(snapshot);
-      const paused = findPausedAssistantMessage(messages);
+      const paused = findCurrentPausedAssistantMessage(messages);
       expect(paused).toBeDefined();
       expect(paused?.status).toMatchObject({ type: 'requires-action' });
     });
@@ -2553,10 +2553,104 @@ describe('buildSnapshotFromSessionEvents', () => {
     expect(snapshot.turns[0]?.id).toBe('t1');
     expect(snapshot.runningTurn).toBe(runningTurn);
     expect(snapshot.unstable_resume).toBe(true);
-    expect(snapshot.groupRootBaseline).toBeDefined();
+    expect(snapshot.groupRootBaseline).toEqual(['m1']);
     expect(snapshot.pendingUser).toMatchObject({
       turnId: 't2',
       content: 'in progress',
+    });
+  });
+
+  it('baselines all prior root model messages when resuming a new user tip', async () => {
+    const runningTurn = {
+      id: 't3',
+      state: { status: 'running' },
+      input: [{ type: 'user.message', content: 'search random opic' }],
+      createdAt,
+    } as unknown as Turn;
+
+    const items: SessionEventItem[] = [
+      {
+        turnId: 't1',
+        event: {
+          type: 'turn.created',
+          id: 'evt-c1',
+          turnId: 't1',
+          input: [{ type: 'user.message', content: 'test' }],
+          state: { status: 'running' },
+          createdAt,
+        },
+      },
+      {
+        turnId: 't1',
+        event: modelMessage({ id: 'm1', threadId: ROOT_THREAD_ID, content: 'Hello! How can I assist you today?' }),
+      },
+      {
+        turnId: 't1',
+        event: {
+          type: 'turn.done',
+          id: 'evt-d1',
+          state: { status: 'done', requiredActions: [], completedAt: createdAt },
+          createdAt,
+        } as TurnDoneEvent,
+      },
+      {
+        turnId: 't2',
+        event: {
+          type: 'turn.created',
+          id: 'evt-c2',
+          turnId: 't2',
+          input: [{ type: 'user.message', content: 'hello' }],
+          state: { status: 'running' },
+          createdAt,
+        },
+      },
+      {
+        turnId: 't2',
+        event: modelMessage({
+          id: 'm2',
+          threadId: ROOT_THREAD_ID,
+          content: 'Hello! How can I help you today?',
+          reasoningContent: 'The user says "test" then "hello".',
+        }),
+      },
+      {
+        turnId: 't2',
+        event: {
+          type: 'turn.done',
+          id: 'evt-d2',
+          state: { status: 'done', requiredActions: [], completedAt: createdAt },
+          createdAt,
+        } as TurnDoneEvent,
+      },
+      {
+        turnId: 't3',
+        event: {
+          type: 'turn.created',
+          id: 'evt-c3',
+          turnId: 't3',
+          input: [{ type: 'user.message', content: 'search random opic' }],
+          state: { status: 'running' },
+          createdAt,
+        },
+      },
+    ];
+
+    const snapshot = await buildSnapshotFromSessionEvents(mockServerWithEvents([runningTurn], items), SESSION_ID);
+
+    expect(snapshot.turns).toHaveLength(2);
+    // Must include m2 — computeGroupRootBaseline(completedTurns) would omit it and
+    // leak turn 2 content onto the resumed tip.
+    expect(snapshot.groupRootBaseline).toEqual(['m1', 'm2']);
+    expect(snapshot.pendingUser).toMatchObject({
+      turnId: 't3',
+      content: 'search random opic',
+    });
+
+    const messages = projectSessionMessages(snapshot);
+    expect(messages.map(message => message.role)).toEqual(['user', 'assistant', 'user', 'assistant', 'user']);
+    expect(messages.at(-1)).toMatchObject({
+      id: 't3-user',
+      role: 'user',
     });
   });
 

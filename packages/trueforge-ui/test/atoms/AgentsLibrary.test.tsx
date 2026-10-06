@@ -1,6 +1,7 @@
 // @vitest-environment jsdom
 import { fireEvent, render, screen, waitFor, within } from '@testing-library/react';
 import type { ReactNode } from 'react';
+import { useEffect } from 'react';
 import { afterEach, beforeAll, describe, expect, it, vi } from 'vitest';
 
 import { AnalyticsProvider } from '@/analytics/AnalyticsProvider.js';
@@ -32,6 +33,27 @@ beforeAll(() => {
 afterEach(() => {
   window.history.replaceState(null, '', '/');
 });
+
+function mobileMatchMedia(query: string): MediaQueryList {
+  return {
+    matches: query === '(max-width: 767px)',
+    media: query,
+    onchange: null,
+    addEventListener: vi.fn(),
+    removeEventListener: vi.fn(),
+    addListener: vi.fn(),
+    removeListener: vi.fn(),
+    dispatchEvent: vi.fn(() => true),
+  };
+}
+
+function withMobileViewport(run: () => Promise<void> | void) {
+  const originalMatchMedia = window.matchMedia;
+  Object.defineProperty(window, 'matchMedia', { configurable: true, value: mobileMatchMedia });
+  return Promise.resolve(run()).finally(() => {
+    Object.defineProperty(window, 'matchMedia', { configurable: true, value: originalMatchMedia });
+  });
+}
 
 function mockServer(
   agents: Array<{
@@ -123,6 +145,22 @@ describe('CenteredModal', () => {
 });
 
 describe('AgentsLibrary', () => {
+  it('shows a friendly load error instead of raw fetch failures', async () => {
+    const server = createMockAgentUIServer({
+      searchAgents: vi.fn(async () => {
+        throw new TypeError('Failed to fetch');
+      }),
+    });
+    renderLibrary(<LibraryHarness />, { server });
+    fireEvent.click(screen.getByRole('button', { name: 'Open library' }));
+
+    expect(await screen.findByRole('heading', { name: "Couldn't load agents" })).toBeInTheDocument();
+    expect(screen.getByText('Check your connection and try again.')).toBeInTheDocument();
+    expect(screen.queryByText('Failed to fetch')).not.toBeInTheDocument();
+    expect(screen.queryByText('Failed to load agents.')).not.toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: 'Retry' })).not.toBeInTheDocument();
+  });
+
   it('opens agent details from the row only when the optional server is available', async () => {
     window.history.replaceState(null, '', '/library?theme=dark&sessionId=stale&view=sessions&s_sts=1&s_ets=2');
     const server = createMockAgentUIServer({
@@ -180,6 +218,53 @@ describe('AgentsLibrary', () => {
     expect(track.mock.calls.some(call => call[0] === AnalyticsEvents.Library.CLOSED)).toBe(false);
     await waitFor(() => {
       expect(screen.queryByRole('heading', { name: 'Agents' })).not.toBeInTheDocument();
+    });
+  });
+
+  it('renders agents as cards on mobile instead of a table', async () => {
+    await withMobileViewport(async () => {
+      const server = createMockAgentUIServer({
+        searchAgents: vi.fn(async () => ({
+          data: [
+            {
+              name: 'alpha-agent',
+              agentId: 'alpha-agent',
+              description: 'Alpha handles triage.',
+              agentSpec: {
+                model: { name: 'openai/gpt-4.1' },
+                skills: [{ id: 's1', name: 'Skill' }],
+                mcpServers: [{ id: 'm1', name: 'Connector' }],
+              },
+            },
+          ],
+        })),
+        sessions: createMockAgentSessionsServer(),
+        schedules: createMockScheduleServer(),
+      });
+
+      renderLibrary(<LibraryHarness />, { server });
+      fireEvent.click(screen.getByRole('button', { name: 'Open library' }));
+
+      await waitFor(() => {
+        expect(screen.getByRole('button', { name: 'Try agent alpha-agent' })).toBeInTheDocument();
+      });
+
+      expect(screen.queryByRole('table')).not.toBeInTheDocument();
+      expect(screen.queryByRole('columnheader')).not.toBeInTheDocument();
+
+      const cards = screen.getAllByRole('listitem');
+      expect(cards).toHaveLength(1);
+      const card = cards[0]!;
+      expect(within(card).getByRole('button', { name: 'Open alpha-agent' })).toBeInTheDocument();
+      expect(within(card).getByRole('button', { name: 'Try agent alpha-agent' })).toBeInTheDocument();
+      expect(within(card).getByLabelText('openai/gpt-4.1')).toBeInTheDocument();
+      expect(within(card).getByLabelText(/Skills:/)).toBeInTheDocument();
+      expect(within(card).getByLabelText(/Connectors:/)).toBeInTheDocument();
+      expect(within(card).getByText('Alpha handles triage.')).toHaveClass('line-clamp-2');
+
+      const addSchedule = await within(card).findByRole('button', { name: 'Add schedule for alpha-agent' });
+      expect(addSchedule).toBeVisible();
+      expect(addSchedule).toHaveClass('inline-flex');
     });
   });
 
@@ -491,6 +576,41 @@ describe('AgentsLibrary', () => {
       expect(screen.getByText(/No search results found for/)).toBeInTheDocument();
     });
     expect(screen.queryByText('Build one in a chat, then save it as an agent.')).not.toBeInTheDocument();
+  });
+
+  it('seeds search from agent_name on first paint and keeps the URL in sync', async () => {
+    window.history.replaceState(null, '', '/library?agent_name=ask-ai-clone&theme=dark');
+    const searchAgents = vi.fn(async ({ query }: { query?: string } = {}) => ({
+      data: query === 'ask-ai-clone' ? [{ name: 'ask-ai-clone', agentId: 'agent-clone' }] : [],
+    }));
+    const server = createMockAgentUIServer({ searchAgents });
+
+    function DeepLinkLibrary() {
+      const shell = useShellMode();
+      useEffect(() => {
+        shell.setLibraryOpen(true);
+      }, [shell]);
+      if (!shell.libraryOpen) return null;
+      return <AgentsLibrary />;
+    }
+
+    renderLibrary(<DeepLinkLibrary />, { server });
+
+    expect(await screen.findByPlaceholderText('Search agents')).toHaveValue('ask-ai-clone');
+    expect(new URL(window.location.href).searchParams.get('agent_name')).toBe('ask-ai-clone');
+    await waitFor(() => {
+      expect(searchAgents).toHaveBeenCalled();
+    });
+    // First enabled fetch must already use the deep-link name (no unfiltered preamble).
+    expect(searchAgents.mock.calls[0]?.[0]).toEqual(expect.objectContaining({ query: 'ask-ai-clone' }));
+    expect(await screen.findByRole('button', { name: 'Try agent ask-ai-clone' })).toBeInTheDocument();
+    expect(new URL(window.location.href).searchParams.get('theme')).toBe('dark');
+
+    fireEvent.change(screen.getByPlaceholderText('Search agents'), { target: { value: '' } });
+    await waitFor(() => {
+      expect(new URL(window.location.href).searchParams.get('agent_name')).toBeNull();
+    });
+    expect(new URL(window.location.href).searchParams.get('theme')).toBe('dark');
   });
 
   it('closes via Escape', () => {

@@ -225,6 +225,8 @@ export const ListModelProvidersResponseSchema = z
   })
   .openapi('ListModelProvidersResponse');
 
+export const DeleteModelProviderResponseSchema = z.object({}).openapi('DeleteModelProviderResponse');
+
 /** Provider identity on the models list read view. */
 export const AvailableModelProviderSchema = z
   .object({

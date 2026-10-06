@@ -1,5 +1,5 @@
 // @vitest-environment jsdom
-import { fireEvent, render, screen, waitFor } from '@testing-library/react';
+import { fireEvent, render, screen, waitFor, within } from '@testing-library/react';
 import { beforeAll, describe, expect, it, vi } from 'vitest';
 
 import type { CustomProviderDraft } from '@/containers/SettingsBuilder/CustomModelProviderForm.js';
@@ -99,5 +99,59 @@ describe('ModelSettings custom provider editing', () => {
       apiKey: '',
       models: customProvider.models,
     });
+  });
+});
+
+describe('ModelSettings removal', () => {
+  const renderWithCatalog = ({
+    deleteModelProvider,
+    updateModelProvider = vi.fn(),
+  }: {
+    deleteModelProvider?: (req: { id: string }) => Promise<void>;
+    updateModelProvider?: (request: UpdateModelProviderRequest) => Promise<ModelProviderBase>;
+  }) => {
+    const server = createMockAgentUIServer({
+      catalog: createMockCatalog({
+        modelCatalog: {
+          getModelProviderCatalog: async () => [],
+          listModelProviders: async () => [builtInProvider],
+          createModelProvider: vi.fn(),
+          updateModelProvider,
+          ...(deleteModelProvider ? { deleteModelProvider } : {}),
+        },
+      }),
+    });
+
+    render(
+      <ServerProvider server={server}>
+        <ModelSettings />
+      </ServerProvider>,
+    );
+
+    return { updateModelProvider };
+  };
+
+  it('removes the provider when its last model is removed', async () => {
+    const deleteModelProvider = vi.fn(async () => {});
+    const { updateModelProvider } = renderWithCatalog({ deleteModelProvider });
+
+    fireEvent.click(await screen.findByRole('button', { name: 'Remove gpt-4-1' }));
+
+    expect(await screen.findByText('Remove provider?')).toBeInTheDocument();
+    expect(
+      screen.getByText('“gpt-4-1” is the only model left in OpenAI, so the whole provider will be removed.'),
+    ).toBeInTheDocument();
+
+    fireEvent.click(within(screen.getByRole('dialog')).getByRole('button', { name: 'Remove' }));
+
+    await waitFor(() => expect(deleteModelProvider).toHaveBeenCalledWith({ id: 'openai' }));
+    expect(updateModelProvider).not.toHaveBeenCalled();
+  });
+
+  it('hides the last model’s remove button when the host cannot delete providers', async () => {
+    renderWithCatalog({});
+
+    await screen.findByText('gpt-4-1');
+    expect(screen.queryByRole('button', { name: 'Remove gpt-4-1' })).toBeNull();
   });
 });

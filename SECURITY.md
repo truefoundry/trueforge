@@ -7,14 +7,13 @@ Please do **not** report security vulnerabilities through public GitHub issues, 
 Instead, report them privately through one of these channels:
 
 - Email: **[security@truefoundry.com](mailto:security@truefoundry.com)**
-- GitHub: use [private vulnerability reporting](https://github.com/truefoundry/trueforge/security/advisories/new) on this repository
 
 Please include as much of the following as you can:
 
-- A description of the vulnerability and its impact
-- Steps to reproduce, or a proof of concept
-- Affected versions or deployment modes (standalone / multi-replica / Helm)
-- Any suggested mitigations
+- A description of the vulnerability and its impact.
+- Steps to reproduce, or a proof of concept.
+- Affected versions or deployment modes (standalone / multi-replica / Helm).
+- Any suggested mitigations.
 
 ## What to expect
 
