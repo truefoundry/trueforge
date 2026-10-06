@@ -5,6 +5,7 @@ import type {
   TurnDoneMetrics,
   TurnInboundEvent,
   TurnState,
+  TurnStatePaused,
   TurnStreamingEvent,
 } from '../../server/types.js';
 
@@ -21,20 +22,41 @@ export function toUiTurnDoneMetrics(metrics: TrueForgeApi.TurnMetrics): TurnDone
   };
 }
 
+function actionRequiredFromUnknown(value: unknown): TurnStatePaused['actionRequiredOnEvents'] {
+  if (!Array.isArray(value)) {
+    return [];
+  }
+  const events: TurnStatePaused['actionRequiredOnEvents'] = [];
+  for (const item of value) {
+    if (item != null && typeof item === 'object' && 'id' in item && typeof item.id === 'string') {
+      events.push({ id: item.id });
+    }
+  }
+  return events;
+}
+
+/** SDK paused may omit the list (always empty on the wire); the UI type still requires it. */
+function toUiPausedTurnState(state: { status: 'paused' }): TurnStatePaused {
+  return {
+    status: 'paused',
+    actionRequiredOnEvents: actionRequiredFromUnknown(
+      Reflect.get(state, 'actionRequiredOnEvents') ?? Reflect.get(state, 'action_required_on_events'),
+    ),
+  };
+}
+
 export function toUiTurnState(state: TrueForgeApi.TurnState | TrueForgeApi.TurnDoneEventState): TurnState {
   if (state.status === 'running') {
     return { status: 'running' };
   }
   if (state.status === 'paused') {
-    return { status: 'paused', actionRequiredOnEvents: state.actionRequiredOnEvents };
+    return toUiPausedTurnState(state);
   }
   return toUiTerminalTurnState(state);
 }
 
 function toUiTurnUpdateState(state: TrueForgeApi.TurnUpdateEventState): NonTerminalTurnState {
-  return state.status === 'running'
-    ? { status: 'running' }
-    : { status: 'paused', actionRequiredOnEvents: state.actionRequiredOnEvents };
+  return state.status === 'running' ? { status: 'running' } : toUiPausedTurnState(state);
 }
 
 function toUiTerminalTurnState(
