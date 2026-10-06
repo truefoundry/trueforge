@@ -7,7 +7,6 @@ from importlib import import_module
 
 if typing.TYPE_CHECKING:
     from .types import (
-        ActionRequired,
         ActionRequiredEvent,
         Agent,
         AgentCodeSnippet,
@@ -309,7 +308,6 @@ if typing.TYPE_CHECKING:
     from .client import AsyncTrueForge, TrueForge
     from .version import __version__
 _dynamic_imports: typing.Dict[str, str] = {
-    "ActionRequired": ".types",
     "ActionRequiredEvent": ".types",
     "Agent": ".types",
     "AgentCodeSnippet": ".types",
@@ -632,7 +630,6 @@ def __dir__():
 
 
 __all__ = [
-    "ActionRequired",
     "ActionRequiredEvent",
     "Agent",
     "AgentCodeSnippet",

@@ -6,7 +6,6 @@ import typing
 from importlib import import_module
 
 if typing.TYPE_CHECKING:
-    from .action_required import ActionRequired
     from .action_required_event import ActionRequiredEvent
     from .agent import Agent
     from .agent_code_snippet import AgentCodeSnippet
@@ -276,7 +275,6 @@ if typing.TYPE_CHECKING:
     from .web_search_provider_manifest import WebSearchProviderManifest
     from .zai_model_provider import ZaiModelProvider
 _dynamic_imports: typing.Dict[str, str] = {
-    "ActionRequired": ".action_required",
     "ActionRequiredEvent": ".action_required_event",
     "Agent": ".agent",
     "AgentCodeSnippet": ".agent_code_snippet",
@@ -570,7 +568,6 @@ def __dir__():
 
 
 __all__ = [
-    "ActionRequired",
     "ActionRequiredEvent",
     "Agent",
     "AgentCodeSnippet",
