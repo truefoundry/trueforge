@@ -469,13 +469,14 @@ function attachRunningTurn(snapshot: SessionSnapshot, runningTurn: Turn | undefi
     return snapshot;
   }
   const pendingUserText = extractTurnUserText(runningTurn.input);
-  // Tip is not in `turns` yet. A new user tip must baseline every prior root
-  // model.message (same as live send) — otherwise computeGroupRootBaseline
-  // treats the last completed user turn as the active group and that turn's
-  // content leaks into resume after refresh.
+  // Tip is not in `turns`. Baseline committed groups only — fold already
+  // includes the open tip's messages, which must stay in live resume.
+  //2 scenario for Page Refresh:
+  //    1. only baseline the committed groups(there is only user msg no assistant msg)
+  //    2. the open tip's messages must stay in live resume (there is some assistant msg response in the fold)
   const groupRootBaseline =
     pendingUserText !== undefined
-      ? [...(snapshot.fold.threads.get(ROOT_THREAD_ID)?.modelMessageIds ?? [])]
+      ? snapshot.turns.flatMap(turn => turn.rootModelMessageIds ?? [])
       : computeGroupRootBaseline(snapshot.turns);
   return replaceSessionSnapshot(snapshot, {
     runningTurn,

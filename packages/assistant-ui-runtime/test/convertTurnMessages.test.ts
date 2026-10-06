@@ -28,6 +28,7 @@ import {
   projectSessionMessages,
   repositoryItemsFromMessages,
   resolveGatewayBranchPreviousTurnIdForTurn,
+  rootModelMessageIdsSinceBaseline,
   streamTurnEvents,
   turnStreamUpdateToAssistantMessage,
 } from '../src/convertTurnMessages.js';
@@ -2652,6 +2653,84 @@ describe('buildSnapshotFromSessionEvents', () => {
       id: 't3-user',
       role: 'user',
     });
+  });
+
+  it("keeps the running tip's already-ingested model messages in live resume scope", async () => {
+    const runningTurn = {
+      id: 't2',
+      state: { status: 'running' },
+      input: [{ type: 'user.message', content: 'can 10 random sandbox tool calll' }],
+      createdAt,
+    } as unknown as Turn;
+
+    const items: SessionEventItem[] = [
+      {
+        turnId: 't1',
+        event: {
+          type: 'turn.created',
+          id: 'evt-c1',
+          turnId: 't1',
+          input: [{ type: 'user.message', content: 'first' }],
+          state: { status: 'running' },
+          createdAt,
+        },
+      },
+      {
+        turnId: 't1',
+        event: modelMessage({ id: 'm1', threadId: ROOT_THREAD_ID, content: 'reply 1' }),
+      },
+      {
+        turnId: 't1',
+        event: {
+          type: 'turn.done',
+          id: 'evt-d1',
+          state: { status: 'done', requiredActions: [], completedAt: createdAt },
+          createdAt,
+        } as TurnDoneEvent,
+      },
+      {
+        turnId: 't2',
+        event: {
+          type: 'turn.created',
+          id: 'evt-c2',
+          turnId: 't2',
+          input: [{ type: 'user.message', content: 'can 10 random sandbox tool calll' }],
+          state: { status: 'running' },
+          createdAt,
+        },
+      },
+      {
+        turnId: 't2',
+        event: modelMessage({
+          id: 'm2',
+          threadId: ROOT_THREAD_ID,
+          content: 'Running 10 random sandbox commands at once:',
+        }),
+      },
+    ];
+
+    const snapshot = await buildSnapshotFromSessionEvents(mockServerWithEvents([runningTurn], items), SESSION_ID);
+
+    expect(snapshot.turns).toHaveLength(1);
+    expect(snapshot.groupRootBaseline).toEqual(['m1']);
+    expect(rootModelMessageIdsSinceBaseline(snapshot.fold, snapshot.groupRootBaseline ?? [])).toEqual(['m2']);
+
+    const updates = await collectStream(
+      streamTurnEvents(
+        streamFrom([
+          modelMessage({
+            id: 'm3',
+            threadId: ROOT_THREAD_ID,
+            content: 'I ran 10 sandbox commands',
+          }),
+        ]),
+        snapshot.fold,
+        snapshot.groupRootBaseline,
+      ),
+    );
+
+    const texts = (updates.at(-1)?.content ?? []).filter(part => part.type === 'text').map(part => part.text);
+    expect(texts).toEqual(['Running 10 random sandbox commands at once:', 'I ran 10 sandbox commands']);
   });
 
   it('calls onProgress after each completed turn', async () => {
