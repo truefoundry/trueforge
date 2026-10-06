@@ -169,11 +169,8 @@ export function makeTurnDoneEvent(state: TerminalTurnState) {
   };
 }
 
-export function makePausedTurnState(actionIds: string[] = [newEventId()]): Extract<TurnState, { status: 'paused' }> {
-  return {
-    status: 'paused',
-    action_required_on_events: actionIds.map(id => ({ id })),
-  };
+export function makePausedTurnState(): Extract<TurnState, { status: 'paused' }> {
+  return { status: 'paused' };
 }
 
 export function makeTurnUpdateEvent(state: NonTerminalTurnState): TurnUpdateEvent {

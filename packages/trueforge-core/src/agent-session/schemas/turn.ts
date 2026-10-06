@@ -1,11 +1,6 @@
 /** Turn product schemas: turn state, input items, and create-turn request. */
 import { z } from '@hono/zod-openapi';
-import {
-  ActionRequiredEventSchema,
-  EventIdSchema,
-  InputUserMessageSchema,
-  ModelMessageEventSchema,
-} from '../../core/events/schema';
+import { ActionRequiredEventSchema, InputUserMessageSchema, ModelMessageEventSchema } from '../../core/events/schema';
 
 export enum CancellationReason {
   // AbortController.abort() reason for the max-execution timer.
@@ -24,18 +19,9 @@ export const TurnStateRunningSchema = z
   })
   .openapi('TurnStateRunning');
 
-export const ActionRequiredSchema = z
-  .object({
-    id: EventIdSchema,
-  })
-  .openapi('ActionRequired');
-
 export const TurnStatePausedSchema = z
   .object({
-    status: z.literal('paused').describe('Turn is paused waiting for required actions.'),
-    action_required_on_events: z
-      .array(ActionRequiredSchema)
-      .describe('Events that still need a user or client action.'),
+    status: z.literal('paused').describe('Turn is paused waiting for user actions.'),
   })
   .openapi('TurnStatePaused');
 

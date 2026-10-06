@@ -1529,7 +1529,7 @@ export function runStoreContractSuite(createStore: () => ISessionStore) {
       const store = createStore();
       await seedSession(store);
       await store.createTurn(makeCreateTurnInput({ sessionId, turnId: 'turn-1' }));
-      const pausedState = makePausedTurnState(['required-event-1']);
+      const pausedState = makePausedTurnState();
       await store.updateTurnNonTerminalState({
         session_id: sessionId,
         turn_id: 'turn-1',
@@ -1579,7 +1579,7 @@ export function runStoreContractSuite(createStore: () => ISessionStore) {
       const store = createStore();
       await seedSession(store);
       await store.createTurn(makeCreateTurnInput({ sessionId, turnId: 'turn-1' }));
-      const pausedState = makePausedTurnState(['required-event-1']);
+      const pausedState = makePausedTurnState();
       await store.updateTurnNonTerminalState({
         session_id: sessionId,
         turn_id: 'turn-1',
@@ -1933,7 +1933,7 @@ export function runStoreContractSuite(createStore: () => ISessionStore) {
       const store = createStore();
       await seedSession(store);
       await store.createTurn(makeCreateTurnInput({ sessionId, turnId: 'turn-1' }));
-      const pausedState = makePausedTurnState(['required-event-1']);
+      const pausedState = makePausedTurnState();
       await store.updateTurnNonTerminalState({
         session_id: sessionId,
         turn_id: 'turn-1',
@@ -2071,7 +2071,7 @@ export function runStoreContractSuite(createStore: () => ISessionStore) {
       const store = createStore();
       await seedSession(store);
       await store.createTurn(makeCreateTurnInput({ sessionId, turnId: 'turn-1' }));
-      const pausedState = makePausedTurnState(['required-event-1']);
+      const pausedState = makePausedTurnState();
       const turnUpdate = makeTurnUpdateEvent(pausedState);
       await store.updateTurnNonTerminalState({
         session_id: sessionId,
@@ -2355,7 +2355,7 @@ export function runStoreContractSuite(createStore: () => ISessionStore) {
       await seedSession(store);
       await store.createTurn(makeCreateTurnInput({ sessionId, turnId: 'turn-1' }));
       const metricsBeforePause = mustGet(await store.getSession({ tenant_id: tenant, session_id: sessionId })).metrics;
-      const state = makePausedTurnState(['required-event-1']);
+      const state = makePausedTurnState();
       const turnUpdate = makeTurnUpdateEvent(state);
 
       await store.updateTurnNonTerminalState({
@@ -2385,7 +2385,7 @@ export function runStoreContractSuite(createStore: () => ISessionStore) {
       const store = createStore();
       await seedSession(store);
       await store.createTurn(makeCreateTurnInput({ sessionId, turnId: 'turn-1' }));
-      const pausedState = makePausedTurnState(['required-event-1']);
+      const pausedState = makePausedTurnState();
       await store.updateTurnNonTerminalState({
         session_id: sessionId,
         turn_id: 'turn-1',
@@ -2422,7 +2422,7 @@ export function runStoreContractSuite(createStore: () => ISessionStore) {
       const store = createStore();
       await seedSession(store);
       await store.createTurn(makeCreateTurnInput({ sessionId, turnId: 'turn-1' }));
-      const pausedState = makePausedTurnState(['required-event-1']);
+      const pausedState = makePausedTurnState();
       await store.updateTurnNonTerminalState({
         session_id: sessionId,
         turn_id: 'turn-1',
@@ -2454,7 +2454,7 @@ export function runStoreContractSuite(createStore: () => ISessionStore) {
       const store = createStore();
       await seedSession(store);
       await store.createTurn(makeCreateTurnInput({ sessionId, turnId: 'turn-1' }));
-      const state = makePausedTurnState(['required-event-1']);
+      const state = makePausedTurnState();
       await store.updateTurnNonTerminalState({
         session_id: sessionId,
         turn_id: 'turn-1',

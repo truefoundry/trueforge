@@ -461,14 +461,7 @@ export class TurnHandle<TTurnCustom extends object = Record<string, never>> {
   private async persistTurnNonTerminal(
     transition: InternalTurnStateEvent['transition'],
   ): Promise<TurnUpdateEvent | null> {
-    const state: NonTerminalTurnState =
-      transition.status === 'paused'
-        ? {
-            status: 'paused',
-            // No aggregate for now; per-event action requests are persisted on the stream.
-            action_required_on_events: [],
-          }
-        : { status: 'running' };
+    const state: NonTerminalTurnState = transition.status === 'paused' ? { status: 'paused' } : { status: 'running' };
     const updatedAt = new Date();
     const turnUpdate: TurnUpdateEvent = {
       type: EventType.TURN_UPDATE,

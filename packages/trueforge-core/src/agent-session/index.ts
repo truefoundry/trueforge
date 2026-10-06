@@ -10,7 +10,6 @@ export { TurnUserEventMessageSchema, TurnUserEventSchema } from '../core/events/
 export type { TurnUserEvent, TurnUserEventMessage } from '../core/events/schema';
 
 export {
-  ActionRequiredSchema,
   CancellationReason,
   CreateTurnRequestSchema,
   TurnInputItemSchema,
