@@ -173,6 +173,7 @@ export class TurnHandle<TTurnCustom extends object = Record<string, never>> {
   private readonly resolver: ITurnResourceResolver<TTurnCustom> | undefined;
   private readonly signal: AbortSignal | undefined;
   private streamStarted = false;
+  private sendTail: Promise<void> = Promise.resolve();
 
   constructor(options: {
     store: ISessionStore<object, TTurnCustom>;
@@ -247,12 +248,22 @@ export class TurnHandle<TTurnCustom extends object = Record<string, never>> {
   }
 
   async send(events: TurnUserEvent[]): Promise<void> {
-    const orchestrator = this.requireLiveOrchestrator('send');
-    for await (const batch of orchestrator.send(events)) {
-      // TODO: persist `batch` here before resuming the generator to enqueue.
-      void batch;
+    let release!: () => void;
+    const previous = this.sendTail;
+    this.sendTail = new Promise<void>(resolve => {
+      release = resolve;
+    });
+    await previous;
+    try {
+      const orchestrator = this.requireLiveOrchestrator('send');
+      for await (const batch of orchestrator.send(events)) {
+        // TODO: persist `batch` here before resuming the generator to enqueue.
+        void batch;
+      }
+      orchestrator.wake();
+    } finally {
+      release();
     }
-    orchestrator.wake();
   }
 
   private requireLiveOrchestrator(method: string): AgentThreadOrchestrator {
@@ -546,6 +557,20 @@ export class TurnHandle<TTurnCustom extends object = Record<string, never>> {
         return;
       }
 
+      case InternalEventType.MCP_AUTH_CONTINUE: {
+        await this.store.patchThreadsMCPAuth({
+          ...scope,
+          thread_ids: event.thread_ids,
+          pending_mcp_auth: false,
+        });
+        await this.store.appendToEvents({
+          ...scope,
+          events: [event.event],
+        });
+        yield event.event;
+        return;
+      }
+
       case InternalEventType.USER_EVENTS_COMMIT: {
         // These run sequentially today; once a DB store lands they collapse into one transaction
         for (const append of event.context_appends) {
@@ -605,6 +630,7 @@ export class TurnHandle<TTurnCustom extends object = Record<string, never>> {
               context: [],
               current_context_usage: getEmptyCurrentContextUsage(),
               completion: null,
+              pending_mcp_auth: false,
               capability_state: null,
             },
           ],
@@ -619,6 +645,19 @@ export class TurnHandle<TTurnCustom extends object = Record<string, never>> {
 
       case InternalEventType.MCP_AUTH_REQUIRED: {
         const authEvent = toMCPAuthRequiredEvent(event);
+        const threadIds = new Set(event.mcp_servers.flatMap(server => server.thread_ids));
+        if (threadIds.size !== 1) {
+          throw new Error('unreachable: an MCP auth-required event must belong to exactly one thread');
+        }
+        const threadId = [...threadIds][0];
+        if (!threadId) {
+          throw new Error('unreachable: MCP auth-required event is missing its thread');
+        }
+        await this.store.patchThreadsMCPAuth({
+          ...scope,
+          thread_ids: [threadId],
+          pending_mcp_auth: true,
+        });
         await this.store.appendToEvents({
           ...scope,
           events: [authEvent],

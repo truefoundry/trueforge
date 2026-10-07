@@ -82,6 +82,7 @@ function baseThreadInput(
     tracing: NOOP_AGENT_TRACING,
     logger: makeSilentLogger(),
     ...overrides,
+    pendingMCPAuth: overrides.pendingMCPAuth ?? false,
   };
 }
 

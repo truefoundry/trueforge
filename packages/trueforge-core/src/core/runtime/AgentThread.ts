@@ -30,6 +30,7 @@ import {
   type ToolApprovalRequiredEvent,
   type ToolResponseEvent,
   type ToolResponseRequiredEvent,
+  type UserMCPAuthContinueEvent,
   type UserToolApprovalEvent,
   type UserToolApprovalMessage,
   type UserToolResponseEvent,
@@ -90,6 +91,7 @@ import {
   isInputUserMessage,
   isLLMContextMessage,
   isLLMToolMessage,
+  isMCPAuthContinueEvent,
   makeUnknownToolInfo,
   scanApprovalDecisions,
   toEnrichedToolCall,
@@ -481,6 +483,7 @@ export class AgentThread {
   private contextBusy = false;
   private currentState: AgentThreadState | null = null;
   private preComputedCompletion?: SubAgentCompletion | undefined;
+  private pendingMCPAuth: boolean;
   /** Mirrored capability KV — source for toSnapshot().capability_state. */
   private capabilityState: CapabilityState = {};
   private readonly capabilityStateKeys: ReadonlySet<string>;
@@ -496,6 +499,7 @@ export class AgentThread {
     this.currentContextUsage = input.currentContextUsage ?? getEmptyCurrentContextUsage();
     this.agentInfo = input.agentInfo;
     this.preComputedCompletion = input.preComputedCompletion;
+    this.pendingMCPAuth = input.pendingMCPAuth;
     this.sandbox = input.sandbox;
 
     const capabilities = input.capabilities ?? [];
@@ -587,7 +591,7 @@ export class AgentThread {
   }
 
   *send(
-    events: (UserToolApprovalEvent | UserToolResponseEvent | LLMToolMessage)[],
+    events: (UserToolApprovalEvent | UserToolResponseEvent | UserMCPAuthContinueEvent | LLMToolMessage)[],
   ): Generator<ApplyUserEventsOutput, void, unknown> {
     if (events.length === 0) {
       return;
@@ -598,7 +602,9 @@ export class AgentThread {
     const toolMessages: LLMToolMessage[] = [];
 
     for (const m of events) {
-      if (isApprovalDecisionEvent(m)) {
+      if (isMCPAuthContinueEvent(m)) {
+        this.pendingMCPAuth = false;
+      } else if (isApprovalDecisionEvent(m)) {
         approvals.push(m);
       } else if (isClientSideToolResponseEvent(m)) {
         clientSideToolResponses.push(m);
@@ -830,9 +836,11 @@ export class AgentThread {
     return this.definition.toolSets ?? [];
   }
 
-  isAwaitingUserInput(): boolean {
+  isRunnable(): boolean {
     return (
-      getPendingApprovalToolCalls(this.context).length > 0 || getPendingClientSideToolCalls(this.context).length > 0
+      !this.pendingMCPAuth &&
+      getPendingApprovalToolCalls(this.context).length === 0 &&
+      getPendingClientSideToolCalls(this.context).length === 0
     );
   }
 
@@ -881,6 +889,7 @@ export class AgentThread {
       parent: this.parent ?? null,
       agent_info: this.agentInfo ?? null,
       completion: this.preComputedCompletion ?? null,
+      pending_mcp_auth: this.pendingMCPAuth,
       capability_state,
     };
   }
@@ -1100,7 +1109,10 @@ export class AgentThread {
       tfyManagedServers,
       userServers,
     });
-    this.convertedTools = convertedTools;
+    if (authRequirementInfo.length === 0) {
+      // Only set convertedTools if there are no MCP auth requirements.
+      this.convertedTools = convertedTools;
+    }
     this.tfyManagedServerNames = new Set(tfyManagedServers.map(s => s.name));
     return { initializationInfo, authRequirementInfo };
   }
@@ -1361,6 +1373,7 @@ export class AgentThread {
     });
 
     if (authRequirementInfo.length > 0) {
+      this.pendingMCPAuth = true;
       yield buildMCPAuthRequiredEvent(authRequirementInfo, this.threadId);
       return 'exit';
     }
@@ -1435,6 +1448,9 @@ export class AgentThread {
     const signal = options?.signal;
 
     this.throwIfContextBusy();
+    if (this.pendingMCPAuth) {
+      return;
+    }
     this.contextBusy = true;
     this.currentState = null;
 
@@ -1452,6 +1468,7 @@ export class AgentThread {
       }
 
       if (authRequirementInfo.length > 0) {
+        this.pendingMCPAuth = true;
         yield buildMCPAuthRequiredEvent(authRequirementInfo, this.threadId);
         return;
       }

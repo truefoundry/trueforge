@@ -10,6 +10,7 @@ import {
   type ToolApprovalPolicyItem,
   type ToolResponseEvent,
   type TurnUserEvent,
+  type UserMCPAuthContinueEvent,
   type UserToolApprovalEvent,
   type UserToolApprovalPolicyEvent,
   type UserToolResponseEvent,
@@ -26,12 +27,12 @@ import {
   type AgentThreadExecutionEvent,
   type AgentThreadExecutionResult,
   type ApplyUserEventsOutput,
-  type InternalMCPAuthRequiredEvent,
   type UserEventsCommitEvent,
 } from './AgentThread.types';
 import {
   assistantMessageContentToStringForSubAgent,
   getThreadId,
+  isInputUserMessageBatch,
   isInternalThreadDoneCancelled,
   isInternalThreadDoneError,
 } from './contextUtils';
@@ -234,7 +235,7 @@ export class AgentThreadOrchestrator {
 
   private *applyToThread(
     threadId: string,
-    messages: (UserToolApprovalEvent | UserToolResponseEvent | LLMToolMessage)[],
+    messages: (UserToolApprovalEvent | UserToolResponseEvent | UserMCPAuthContinueEvent | LLMToolMessage)[],
   ): Generator<ApplyUserEventsOutput, void, unknown> {
     const thread = this.agentThreads.get(threadId);
     if (!thread) {
@@ -381,11 +382,11 @@ export class AgentThreadOrchestrator {
       return;
     }
 
-    if (input[0]?.type === EventType.USER_MESSAGE) {
+    if (isInputUserMessageBatch(input)) {
       // A new turn may be created while the previous turn is running or paused:
       // cancel live children, close their open parent calls, then append the new
       // user input to the main thread immediately.
-      const messages = input as InputUserMessage[];
+      const messages = input;
       const mainThread = this.getMainThread();
       const toolIdToClosureMessages = new Map<string, LLMToolMessage>();
       for (const thread of this.getChildThreads()) {
@@ -406,13 +407,12 @@ export class AgentThreadOrchestrator {
       return;
     }
 
-    const events = input as TurnUserEvent[];
+    const events = input;
     const decisions: (UserToolApprovalEvent | UserToolResponseEvent)[] = [];
     for (const event of events) {
       switch (event.type) {
         case EventType.USER_MCP_AUTH_CONTINUE:
-          // TODO: Implement MCP auth continue.
-          throw new InvalidAgentSendInputError('mcp.auth_continue is not yet supported by the in-memory executor');
+          break;
         case EventType.USER_TOOL_APPROVAL:
         case EventType.USER_TOOL_RESPONSE:
           // UserToolApproval | UserToolResponse.
@@ -434,12 +434,14 @@ export class AgentThreadOrchestrator {
       throw new InvalidAgentSendInputError(validationErrors.join('; '));
     }
 
-    yield events;
-    this.pendingTurnEvents.push(...events);
+    if (events.length > 0) {
+      yield events;
+      this.pendingTurnEvents.push(...events);
+    }
   }
 
   private async *processAgentStreamChunk(
-    chunk: Exclude<AgentThreadEvent, InternalMCPAuthRequiredEvent>,
+    chunk: AgentThreadEvent,
     signal: AbortSignal,
   ): AsyncGenerator<AgentThreadExecutionEvent, void, unknown> {
     if (chunk.type === InternalEventType.PASSTHROUGH) {
@@ -546,9 +548,6 @@ export class AgentThreadOrchestrator {
     let rootAgentError: AgentThreadExecutionResult['root_agent_error'];
     let rootFinished = false;
     let turnPaused = false;
-    // Threads parked on mcp-auth. Unlike approvals, this is not on the thread: the event is
-    // run-level and names the blocked thread ids. Cleared when that thread is selected to run.
-    const authBlocked = new Set<string>();
 
     const mainThread = this.getMainThread();
     const rootSpan = createRootAgentSpan(mainThread, this.tracing);
@@ -585,13 +584,25 @@ export class AgentThreadOrchestrator {
             case EventType.USER_TOOL_RESPONSE:
               yield* this.applyToThread(event.thread_id, [event]);
               break;
-            case EventType.USER_MCP_AUTH_CONTINUE:
-              throw new Error('unreachable: mcp.auth_continue is rejected by send');
+            case EventType.USER_MCP_AUTH_CONTINUE: {
+              // MCP auth continue is applied to all threads, but
+              // event is only yielded once.
+              yield {
+                type: InternalEventType.MCP_AUTH_CONTINUE,
+                event,
+                thread_ids: [...this.agentThreads.keys()],
+              };
+
+              for (const threadId of this.agentThreads.keys()) {
+                yield* this.applyToThread(threadId, [event]);
+              }
+              break;
+            }
           }
         }
 
         const active = getActiveAgentThreads(agentThreads);
-        const runnable = active.filter(thread => !thread.isAwaitingUserInput() && !authBlocked.has(thread.threadId));
+        const runnable = active.filter(thread => thread.isRunnable());
 
         if (runnable.length === 0) {
           if (!turnPaused) {
@@ -620,20 +631,6 @@ export class AgentThreadOrchestrator {
 
           for await (const chunk of mergeAsyncGenerators(generators, this.logger)) {
             switch (chunk.type) {
-              case InternalEventType.MCP_AUTH_REQUIRED: {
-                // mcp-auth is just another per-thread wait: persist it and park the waiting
-                // thread(s) (their execute() already returned). No turn-wide stop. The event is
-                // run-level (thread_id === null); the threads blocked on each server are carried
-                // in mcp_servers[].thread_ids, so park those so they stay out of `runnable`.
-                yield chunk;
-                for (const server of chunk.mcp_servers) {
-                  for (const threadId of server.thread_ids) {
-                    authBlocked.add(threadId);
-                  }
-                }
-                break;
-              }
-
               case InternalEventType.AGENT_DONE: {
                 // Root-thread AGENT_DONE finalizes the turn: capture trace output before routing
                 // and record the terminal result after. Sub-agent done routes like any other event

@@ -467,6 +467,8 @@ export class SessionHandle<
       parent: input.previousThreadSnapshot?.parent ?? undefined,
       agentInfo: input.previousThreadSnapshot?.agent_info ?? undefined,
       preComputedCompletion: input.previousThreadSnapshot?.completion ?? undefined,
+      // MCP auth required is not carried into a newly-created turn.
+      pendingMCPAuth: false,
       capabilities,
       capabilityState: input.previousThreadSnapshot?.capability_state ?? undefined,
       tracing: input.tracing,
@@ -520,6 +522,7 @@ export class SessionHandle<
         sandbox: input.sandbox,
         parent: params.parent,
         agentInfo: params.request,
+        pendingMCPAuth: false,
         capabilities,
         tracing: input.tracing,
         logger: input.resolver.logger,

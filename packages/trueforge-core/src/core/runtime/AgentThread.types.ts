@@ -21,7 +21,8 @@ import type {
   ToolApprovalRequiredEvent,
   ToolResponseEvent,
   ToolResponseRequiredEvent,
-  TurnUserToolEvent,
+  TurnUserEvent,
+  UserMCPAuthContinueEvent,
   UserToolApprovalEvent,
   UserToolResponseEvent,
 } from '../events/schema';
@@ -43,6 +44,7 @@ export const InternalEventType = {
   // TODO(agent): revisit broader internal.* naming scheme for harness-only event types.
   PASSTHROUGH: 'agent.passthrough',
   MCP_AUTH_REQUIRED: 'internal.mcp.auth_required',
+  MCP_AUTH_CONTINUE: 'internal.mcp.auth_continue',
   CAPABILITY_STATE: 'internal.capability.state',
   // Turn lifecycle transition (paused ↔ running).
   TURN_STATE: 'internal.turn.state',
@@ -77,6 +79,12 @@ export type InternalMCPAuthRequiredEvent = BaseMCPAuthRequiredEvent & {
   type: typeof InternalEventType.MCP_AUTH_REQUIRED;
   mcp_servers: InternalMCPServerAuthInfo[];
 };
+
+export interface InternalMCPAuthContinueEvent {
+  type: typeof InternalEventType.MCP_AUTH_CONTINUE;
+  event: UserMCPAuthContinueEvent;
+  thread_ids: string[];
+}
 
 export type SubAgentCompletion =
   | { type: 'done'; output: ModelMessageEvent; send_to_parent: LLMToolMessage }
@@ -130,7 +138,7 @@ export interface UserEventsCommitEvent {
   type: typeof InternalEventType.USER_EVENTS_COMMIT;
   context_appends: AgentThreadAppendContext[];
   mcp_servers_patches: MCPServerInitInfo[];
-  applied_user_events: TurnUserToolEvent[];
+  applied_user_events: TurnUserEvent[];
 }
 
 /**
@@ -154,6 +162,7 @@ export type AgentThreadEvent =
   | ThreadOverwriteContextEvent
   | InternalThreadDoneEvent
   | InternalMCPAuthRequiredEvent
+  | InternalMCPAuthContinueEvent
   | InternalCapabilityStateEvent
   | MCPInitializeEvent
   | SandboxCreatedEvent
@@ -193,6 +202,7 @@ export interface AgentThreadSnapshot {
   parent: AgentParent | null;
   agent_info: AgentInfo | null;
   completion: SubAgentCompletion | null;
+  pending_mcp_auth: boolean;
   /** Cross-turn capability KV. Keys: capability.state.key; `tfy.` reserved for builtins. */
   capability_state: CapabilityState | null;
 }
@@ -206,6 +216,7 @@ export interface AgentThreadConstructorInput {
   context?: ContextMessage[] | undefined;
   currentContextUsage?: CurrentContextUsage | undefined;
   preComputedCompletion?: SubAgentCompletion | undefined;
+  pendingMCPAuth: boolean;
   sandbox?: HarnessSandbox | undefined;
   capabilities?: readonly AgentCapability[] | undefined;
   /**

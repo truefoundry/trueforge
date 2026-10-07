@@ -48,6 +48,7 @@ import type { OAuthClient, OAuthPendingAuthorizationData, OAuthServer, OAuthToke
 export interface TurnThreadCheckpoint {
   parent: AgentParent | null;
   completion: SubAgentCompletion | null;
+  pending_mcp_auth: boolean;
 }
 
 /** Turn-level checkpoint — threads live in `turn_thread`; only owned top-level keys remain. */

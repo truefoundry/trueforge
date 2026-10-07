@@ -3,6 +3,8 @@ import type { ApprovalDecision } from '../events/schema';
 import {
   EventType,
   type ApprovalDecisionMessage,
+  type TurnUserEvent,
+  type UserMCPAuthContinueEvent,
   type UserToolApprovalEvent,
   type UserToolResponseEvent,
 } from '../events/schema';
@@ -56,6 +58,12 @@ export function isApprovalDecisionEvent(msg: AgentThreadRuntimeSendInput): msg i
   return 'type' in msg && msg.type === EventType.USER_TOOL_APPROVAL;
 }
 
+export function isMCPAuthContinueEvent(
+  msg: AgentThreadRuntimeSendInput | UserMCPAuthContinueEvent,
+): msg is UserMCPAuthContinueEvent {
+  return 'type' in msg && msg.type === EventType.USER_MCP_AUTH_CONTINUE;
+}
+
 function isUserToolApprovalDecisionMessage(msg: ContextMessage): msg is ApprovalDecisionMessage {
   // `'type' in msg` already narrows to ApprovalDecisionMessage (literal type).
   return 'type' in msg;
@@ -67,6 +75,10 @@ export function isClientSideToolResponseEvent(msg: AgentThreadRuntimeSendInput):
 
 export function isInputUserMessage(msg: AgentThreadRuntimeSendInput): msg is InputUserMessage {
   return 'type' in msg && msg.type === EventType.USER_MESSAGE;
+}
+
+export function isInputUserMessageBatch(input: InputUserMessage[] | TurnUserEvent[]): input is InputUserMessage[] {
+  return input.every(event => event.type === EventType.USER_MESSAGE);
 }
 
 export function isLLMToolMessage(msg: AgentThreadRuntimeSendInput): msg is LLMToolMessage {

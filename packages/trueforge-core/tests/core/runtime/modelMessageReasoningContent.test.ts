@@ -66,6 +66,7 @@ describe('AgentThread model.message reasoning_content', () => {
     const thread = new AgentThread({
       threadId: 'main',
       title: 'Main',
+      pendingMCPAuth: false,
       tracing: NOOP_AGENT_TRACING,
       logger: silentLogger,
       definition: {
