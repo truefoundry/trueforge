@@ -3,13 +3,13 @@
 import type * as TrueForge from "../../api/index.js";
 import * as core from "../../core/index.js";
 import type * as serializers from "../index.js";
-import { ComponentsSchemasUserMessage } from "./ComponentsSchemasUserMessage.js";
+import { LegacyTurnInputItem } from "./LegacyTurnInputItem.js";
 import { TurnState } from "./TurnState.js";
 
 export const Turn: core.serialization.ObjectSchema<serializers.Turn.Raw, TrueForge.Turn> = core.serialization.object({
     createdAt: core.serialization.property("created_at", core.serialization.string()),
     id: core.serialization.string(),
-    input: core.serialization.list(ComponentsSchemasUserMessage).optional(),
+    input: core.serialization.list(LegacyTurnInputItem).optional(),
     previousTurnId: core.serialization.property("previous_turn_id", core.serialization.string().nullable()),
     sessionId: core.serialization.property("session_id", core.serialization.string()),
     state: TurnState,
@@ -19,7 +19,7 @@ export declare namespace Turn {
     export interface Raw {
         created_at: string;
         id: string;
-        input?: ComponentsSchemasUserMessage.Raw[] | null;
+        input?: LegacyTurnInputItem.Raw[] | null;
         previous_turn_id?: string | null;
         session_id: string;
         state: TurnState.Raw;

@@ -5,7 +5,7 @@ import typing
 import pydantic
 from ..core.pydantic_utilities import IS_PYDANTIC_V2
 from ..core.unchecked_base_model import UncheckedBaseModel
-from .components_schemas_user_message import ComponentsSchemasUserMessage
+from .legacy_turn_input_item import LegacyTurnInputItem
 from .turn_state import TurnState
 
 
@@ -20,9 +20,9 @@ class Turn(UncheckedBaseModel):
     Unique turn id.
     """
 
-    input: typing.Optional[typing.List[ComponentsSchemasUserMessage]] = pydantic.Field(default=None)
+    input: typing.Optional[typing.List[LegacyTurnInputItem]] = pydantic.Field(default=None)
     """
-    Input items supplied when the turn was created.
+    Inputs stored when the turn was created, including legacy continuation inputs.
     """
 
     previous_turn_id: typing.Optional[str] = pydantic.Field(default=None)

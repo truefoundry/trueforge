@@ -2732,7 +2732,7 @@ client.sessions.create_turn_stream(
 <dl>
 <dd>
 
-**input:** `typing.Optional[typing.List[ComponentsSchemasUserMessage]]` — Turn input items: user messages only. Approval decisions and client-side tool responses are sent to a running turn via the turn events endpoint, not at turn creation.
+**input:** `typing.Optional[typing.List[UserMessage]]` — User messages supplied when the turn is created.
     
 </dd>
 </dl>
@@ -2832,7 +2832,7 @@ client.sessions.create_turn_stream(
 <dl>
 <dd>
 
-**input:** `typing.Optional[typing.List[ComponentsSchemasUserMessage]]` — Turn input items: user messages only. Approval decisions and client-side tool responses are sent to a running turn via the turn events endpoint, not at turn creation.
+**input:** `typing.Optional[typing.List[UserMessage]]` — User messages supplied when the turn is created.
     
 </dd>
 </dl>
