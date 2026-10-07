@@ -45,6 +45,7 @@ import type { ISandboxProviderStore } from '../db/sandboxProviderStore';
 import type { ISkillStore } from '../db/skillStore';
 import type { TurnMetadata } from '../db/turnMetadata';
 import type { IWebSearchProviderStore } from '../db/webSearchProviderStore';
+import { logRequestError } from '../http/requestErrorLog';
 import {
   createAndExecuteTurnRoute,
   createTurnEventRoute,
@@ -609,6 +610,7 @@ export function createTurnsRouter(deps: TurnsRouterDeps) {
       return c.json({ data: data.map(toWireTurn), pagination }, 200);
     } catch (error) {
       if (error instanceof SessionStoreConflictError) {
+        logRequestError({ logger: deps.logger, c, status: 400, error, message: 'Client API error' });
         return c.json({ error: { message: error.message } }, 400);
       }
       throw error;
@@ -749,6 +751,7 @@ export function createTurnsRouter(deps: TurnsRouterDeps) {
       return c.json({ data, pagination }, 200);
     } catch (error) {
       if (error instanceof SessionStoreConflictError) {
+        logRequestError({ logger: deps.logger, c, status: 400, error, message: 'Client API error' });
         return c.json({ error: { message: error.message } }, 400);
       }
       throw error;

@@ -30,6 +30,7 @@ import type { IModelProviderStore } from '../db/modelProviderStore';
 import type { ISandboxEnvironmentStore } from '../db/sandboxEnvironmentStore';
 import type { ISandboxProviderStore } from '../db/sandboxProviderStore';
 import type { IWebSearchProviderStore } from '../db/webSearchProviderStore';
+import { logRequestError } from '../http/requestErrorLog';
 import {
   cancelSessionRoute,
   createSessionRoute,
@@ -483,6 +484,7 @@ export function createSessionsRouter(deps: SessionsRouterDeps) {
         return c.json({ error: { message: `Session not found: ${sessionId}` } }, 404);
       }
       if (error instanceof SessionStoreInvariantError) {
+        logRequestError({ logger: deps.logger, c, status: 422, error, message: 'Client API error' });
         return c.json({ error: { message: error.message } }, 422);
       }
       throw error;
@@ -527,6 +529,7 @@ export function createSessionsRouter(deps: SessionsRouterDeps) {
       return c.json({ data: data.map(toWireSession), pagination }, 200);
     } catch (error) {
       if (error instanceof SessionStoreConflictError) {
+        logRequestError({ logger: deps.logger, c, status: 400, error, message: 'Client API error' });
         return c.json({ error: { message: error.message } }, 400);
       }
       throw error;
@@ -591,6 +594,7 @@ export function createSessionsRouter(deps: SessionsRouterDeps) {
       return c.json({ data, pagination }, 200);
     } catch (error) {
       if (error instanceof SessionStoreConflictError) {
+        logRequestError({ logger: deps.logger, c, status: 400, error, message: 'Client API error' });
         return c.json({ error: { message: error.message } }, 400);
       }
       if (error instanceof SessionStoreNotFoundError) {

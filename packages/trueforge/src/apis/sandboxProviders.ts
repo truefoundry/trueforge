@@ -5,6 +5,7 @@ import { createdBySubjectFromRequestContext, type ResolveRequestContext } from '
 import type { ISandboxEnvironmentStore } from '../db/sandboxEnvironmentStore';
 import type { ISandboxProviderStore, SandboxProviderRecord } from '../db/sandboxProviderStore';
 import type { WithTransaction } from '../db/transaction';
+import { logRequestError } from '../http/requestErrorLog';
 import { getSandboxProviderRoute, putSandboxProviderRoute } from '../routes/sandboxProviderRoutes';
 import { ensureDefaultSandboxEnvironment } from '../sandbox/ensureDefaultSandboxEnvironment';
 import { isDaytonaAuthError, isDaytonaPermissionError, validateSandboxProviderAccess } from '../sandbox/providerUtils';
@@ -112,9 +113,11 @@ export function createSandboxProvidersRouter<TTransaction>(deps: SandboxProvider
       );
     } catch (error) {
       if (error instanceof MissingStoredSecretError) {
+        logRequestError({ logger: deps.logger, c, status: 400, error, message: 'Client API error' });
         return c.json({ error: { message: 'API key is required' } }, 400);
       }
       if (isDaytonaAuthError(error)) {
+        logRequestError({ logger: deps.logger, c, status: 422, error, message: 'Client API error' });
         return c.json({ error: { message: 'Sandbox provider rejected the API key — check the credentials' } }, 422);
       }
       if (isDaytonaPermissionError(error)) {

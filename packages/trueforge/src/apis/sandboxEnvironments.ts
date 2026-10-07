@@ -16,6 +16,7 @@ import {
   type SandboxEnvironmentWithVersion,
 } from '../db/sandboxEnvironmentStore';
 import type { ISandboxProviderStore, SandboxProviderRecord } from '../db/sandboxProviderStore';
+import { logRequestError } from '../http/requestErrorLog';
 import {
   deleteSandboxEnvironmentRoute,
   getSandboxEnvironmentRoute,
@@ -95,6 +96,7 @@ export function createSandboxEnvironmentsRouter<TTransaction>(
       return c.json({ data: listed.data.map(toSandboxEnvironment), pagination: listed.pagination }, 200);
     } catch (error) {
       if (error instanceof InvalidPageTokenError) {
+        logRequestError({ logger: deps.logger, c, status: 400, error, message: 'Client API error' });
         return c.json({ error: { message: error.message } }, 400);
       }
       throw error;
@@ -177,6 +179,7 @@ export function createSandboxEnvironmentsRouter<TTransaction>(
         return c.json({ error: { message: 'Sandbox environment was updated concurrently; retry' } }, 409);
       }
       if (error instanceof MissingStoredSecretError) {
+        logRequestError({ logger: deps.logger, c, status: 400, error, message: 'Client API error' });
         return c.json({ error: { message: 'Secret value is required' } }, 400);
       }
       const secretError = sandboxEnvironmentSecretHttpError(error);

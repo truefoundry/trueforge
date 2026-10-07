@@ -41,6 +41,7 @@ import {
 import type { ISkillStore } from '../db/skillStore';
 import type { WithTransaction } from '../db/transaction';
 import type { IWebSearchProviderStore } from '../db/webSearchProviderStore';
+import { logRequestError } from '../http/requestErrorLog';
 import {
   createScheduleRoute,
   createScheduleRunRoute,
@@ -249,6 +250,7 @@ export function createSchedulesRouter<TTransaction>(deps: SchedulesRouterDeps<TT
       return c.json({ data: data.map(toWireSchedule), pagination }, 200);
     } catch (error) {
       if (error instanceof InvalidPageTokenError) {
+        logRequestError({ logger: deps.logger, c, status: 400, error, message: 'Client API error' });
         return c.json({ error: { message: error.message } }, 400);
       }
       throw error;
@@ -287,6 +289,7 @@ export function createSchedulesRouter<TTransaction>(deps: SchedulesRouterDeps<TT
       return c.json({ data: data.map(toWireScheduleRun), pagination }, 200);
     } catch (error) {
       if (error instanceof InvalidPageTokenError) {
+        logRequestError({ logger: deps.logger, c, status: 400, error, message: 'Client API error' });
         return c.json({ error: { message: error.message } }, 400);
       }
       throw error;

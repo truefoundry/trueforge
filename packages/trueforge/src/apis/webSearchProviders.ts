@@ -1,7 +1,9 @@
 import { OpenAPIHono, type RouteHandler } from '@hono/zod-openapi';
 import type { Context } from 'hono';
+import type { Logger } from 'winston';
 import type { ResolveRequestContext } from '../auth/identity';
 import type { IWebSearchProviderStore, WebSearchProviderRecord } from '../db/webSearchProviderStore';
+import { logRequestError } from '../http/requestErrorLog';
 import { getWebSearchProviderRoute, putWebSearchProviderRoute } from '../routes/webSearchProviderRoutes';
 import {
   webSearchProviderName,
@@ -14,6 +16,7 @@ import { MissingStoredSecretError, resolveStoredSecretValue, toRedactedSecretVal
 export interface WebSearchProvidersRouterDeps {
   resolveWebSearchProviderStore: (c: Context) => IWebSearchProviderStore;
   resolveRequestContext: ResolveRequestContext;
+  logger: Logger;
 }
 
 function redactWebSearchProvider(manifest: WebSearchProviderManifest): WebSearchProviderManifest {
@@ -73,6 +76,7 @@ export function createWebSearchProvidersRouter(deps: WebSearchProvidersRouterDep
       return c.json({ data: toWireProvider(record) }, 200);
     } catch (error) {
       if (error instanceof MissingStoredSecretError) {
+        logRequestError({ logger: deps.logger, c, status: 400, error, message: 'Client API error' });
         return c.json({ error: { message: 'API key is required' } }, 400);
       }
       throw error;

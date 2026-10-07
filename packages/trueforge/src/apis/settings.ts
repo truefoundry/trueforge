@@ -45,6 +45,7 @@ export function createSettingsRouter<TTransaction>(deps: SettingsRouterDeps<TTra
       resolveAgentStore: deps.resolveAgentStore,
       withTransaction: deps.withTransaction,
       resolveRequestContext: deps.resolveRequestContext,
+      logger: deps.logger,
     }),
   );
   router.route(
@@ -82,6 +83,7 @@ export function createSettingsRouter<TTransaction>(deps: SettingsRouterDeps<TTra
     createWebSearchProvidersRouter({
       resolveWebSearchProviderStore: deps.resolveWebSearchProviderStore,
       resolveRequestContext: deps.resolveRequestContext,
+      logger: deps.logger,
     }),
   );
   return router;

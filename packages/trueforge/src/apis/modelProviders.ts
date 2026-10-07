@@ -1,6 +1,7 @@
 import { OpenAPIHono, type RouteHandler } from '@hono/zod-openapi';
 import { assertSafeOutboundUrl } from '@truefoundry/trueforge-core/core';
 import type { Context } from 'hono';
+import type { Logger } from 'winston';
 import type { ResolveRequestContext } from '../auth/identity';
 import type { IAgentStore } from '../db/agentStore';
 import {
@@ -9,6 +10,7 @@ import {
   type ModelProviderRecord,
 } from '../db/modelProviderStore';
 import type { WithTransaction } from '../db/transaction';
+import { logRequestError } from '../http/requestErrorLog';
 import {
   createModelProviderRoute,
   deleteModelProviderRoute,
@@ -30,6 +32,7 @@ export interface ModelProvidersRouterDeps<TTransaction> {
   resolveAgentStore: (c: Context) => IAgentStore<TTransaction>;
   withTransaction: WithTransaction<TTransaction>;
   resolveRequestContext: ResolveRequestContext;
+  logger: Logger;
 }
 
 /** Fully-qualified names an upsert would drop, so agents pointing at them can be caught first. */
@@ -104,6 +107,7 @@ export function createModelProvidersRouter<TTransaction>(deps: ModelProvidersRou
       await assertSafeOutboundUrl(provider.base_url);
     } catch (error) {
       const message = error instanceof Error ? error.message : 'Outbound URL blocked';
+      logRequestError({ logger: deps.logger, c, status: 400, error, message: 'Client API error' });
       return c.json({ error: { message } }, 400);
     }
     try {
@@ -117,6 +121,7 @@ export function createModelProvidersRouter<TTransaction>(deps: ModelProvidersRou
       return c.json({ data: toWireProvider(record) }, 201);
     } catch (error) {
       if (error instanceof MissingStoredSecretError) {
+        logRequestError({ logger: deps.logger, c, status: 400, error, message: 'Client API error' });
         return c.json({ error: { message: 'API key is required' } }, 400);
       }
       if (error instanceof ModelProviderNameConflictError) {
@@ -136,6 +141,7 @@ export function createModelProvidersRouter<TTransaction>(deps: ModelProvidersRou
       await assertSafeOutboundUrl(provider.base_url);
     } catch (error) {
       const message = error instanceof Error ? error.message : 'Outbound URL blocked';
+      logRequestError({ logger: deps.logger, c, status: 400, error, message: 'Client API error' });
       return c.json({ error: { message } }, 400);
     }
     try {
@@ -172,6 +178,7 @@ export function createModelProvidersRouter<TTransaction>(deps: ModelProvidersRou
       return c.json({ data: toWireProvider(outcome.record) }, 200);
     } catch (error) {
       if (error instanceof MissingStoredSecretError) {
+        logRequestError({ logger: deps.logger, c, status: 400, error, message: 'Client API error' });
         return c.json({ error: { message: 'API key is required' } }, 400);
       }
       throw error;

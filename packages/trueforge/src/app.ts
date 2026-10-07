@@ -2,7 +2,6 @@
 import { swaggerUI } from '@hono/swagger-ui';
 import { OpenAPIHono, z } from '@hono/zod-openapi';
 import type { ISessionStore, Sessions, TurnStreamingEvent } from '@truefoundry/trueforge-core/agent-session';
-import { extractErrorLogFields } from '@truefoundry/trueforge-core/core';
 import type { RedisClient, RequestReplyRouter } from '@truefoundry/trueforge-core/request-reply';
 import type { Context, ErrorHandler, MiddlewareHandler } from 'hono';
 import { bodyLimit } from 'hono/body-limit';
@@ -52,6 +51,7 @@ import type { ISessionMetricsStore } from './db/sessionMetricsStore';
 import type { ISkillStore } from './db/skillStore';
 import type { WithTransaction } from './db/transaction';
 import type { IWebSearchProviderStore } from './db/webSearchProviderStore';
+import { logRequestError } from './http/requestErrorLog';
 import { createClientCertificateMiddleware } from './http/tls';
 import type { IOAuthTokenStore } from './mcp/auth/types';
 import { PACKAGE_VERSION } from './packageVersion';
@@ -59,7 +59,7 @@ import { OPENAPI_DOCUMENT_TAGS } from './routes/openapiTags';
 import type { ActiveTurnRegistry } from './runtime/activeTurns';
 import type { EventSubscriptionRegistry } from './runtime/event-subscription';
 import { InvalidCronError } from './schemas/schedule';
-import { zodErrorResponse, zodValidationHook } from './zodErrorResponse';
+import { createZodValidationHook, zodErrorResponse } from './zodErrorResponse';
 
 const BEARER_AUTH_SCHEME = 'BearerAuth';
 
@@ -107,21 +107,24 @@ export function createRequestBodyLimitMiddleware(maxSize: number): MiddlewareHan
 export function createAppErrorHandler(params: { logger: Logger }): ErrorHandler {
   return (error, c) => {
     if (error instanceof z.ZodError) {
+      logRequestError({ logger: params.logger, c, status: 400, error, message: 'Client API error' });
       return zodErrorResponse(c, error);
     }
     if (error instanceof InvalidCronError) {
+      logRequestError({ logger: params.logger, c, status: 400, error, message: 'Client API error' });
       return c.json({ error: { message: error.message } }, 400);
     }
     if (error instanceof HTTPException) {
-      if (error.status >= 500) {
-        params.logger.error('Server API error', {
-          status: error.status,
-          ...extractErrorLogFields(error),
-        });
-      }
+      logRequestError({
+        logger: params.logger,
+        c,
+        status: error.status,
+        error,
+        message: error.status >= 500 ? 'Server API error' : 'Client API error',
+      });
       return c.json({ error: { message: error.message } }, error.status);
     }
-    params.logger.error('Unhandled error', extractErrorLogFields(error));
+    logRequestError({ logger: params.logger, c, status: 500, error, message: 'Unhandled error' });
     return c.json({ error: { message: 'Internal server error' } }, 500);
   };
 }
@@ -236,7 +239,7 @@ export interface ServerDeps<TTransaction> {
 }
 
 export function createServerApp<TTransaction>(deps: ServerDeps<TTransaction>) {
-  const app = new OpenAPIHono({ defaultHook: zodValidationHook });
+  const app = new OpenAPIHono({ defaultHook: createZodValidationHook(deps.logger) });
   const authMiddleware = createAuthMiddleware(deps.authenticator);
   const adminAuthMiddleware = createAdminAuthMiddleware(deps.authenticator);
   const scheduleExecutionAuthMiddleware = createApiKeyAuthMiddleware(configuration.TRUEFORGE_API_KEY);
@@ -360,6 +363,7 @@ export function createServerApp<TTransaction>(deps: ServerDeps<TTransaction>) {
         withTransaction: deps.withTransaction,
         resolveRequestContext,
         authorizer: deps.authorizer,
+        logger: deps.logger,
       }),
       authMiddleware,
     ),
@@ -430,6 +434,7 @@ export function createServerApp<TTransaction>(deps: ServerDeps<TTransaction>) {
       createAgentImportRouter({
         sessionStore: deps.sessionStore,
         resolveImportAgentStore: deps.resolveImportAgentStore,
+        logger: deps.logger,
       }),
       truefoundryAdminMiddleware,
     ),
