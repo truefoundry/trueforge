@@ -1628,23 +1628,43 @@ function buildMcpAuthUpdate(
   };
 }
 
+/** Terminal `turn.done` with `status: error`. Not a transport drop — do not subscribe-retry. */
+export class TurnFailedError extends Error {
+  constructor(message: string) {
+    super(message);
+    this.name = 'TurnFailedError';
+  }
+}
+
+/** SSE body ended without `turn.done` or a pause — subscribe-retry. */
+export class TurnStreamDisconnectedError extends Error {
+  constructor(message = 'Turn stream closed before turn.done') {
+    super(message);
+    this.name = 'TurnStreamDisconnectedError';
+  }
+}
+
 export async function* streamTurnEvents(
   stream: AsyncIterable<TurnStreamData>,
   foldState: PeerThreadFoldState,
   groupRootBaseline?: readonly string[],
   onTurnIdAvailable?: (turnId: string) => void,
+  onSequenceNumber?: (sequenceNumber: number) => void,
 ): AsyncGenerator<TurnStreamUpdate> {
   let pendingMcpAuth: McpAuthRequiredEvent | undefined;
   let sandboxId: string | undefined;
   let sandboxIdYielded = false;
+  let lastSequenceNumber: number | undefined;
+  let sawTurnDone = false;
 
-  const withSandbox = (update: TurnStreamUpdate): TurnStreamUpdate => {
+  const withCursor = (update: TurnStreamUpdate): TurnStreamUpdate => {
+    const withSeq = lastSequenceNumber == null ? update : { ...update, sequenceNumber: lastSequenceNumber };
     if (sandboxId == null) {
-      return update;
+      return withSeq;
     }
     return {
-      ...update,
-      metadata: { ...update.metadata, custom: { ...update.metadata?.custom, sandboxId } },
+      ...withSeq,
+      metadata: { ...withSeq.metadata, custom: { ...withSeq.metadata?.custom, sandboxId } },
     };
   };
 
@@ -1658,6 +1678,8 @@ export async function* streamTurnEvents(
   };
 
   for await (const data of stream) {
+    lastSequenceNumber = data.sequenceNumber;
+    onSequenceNumber?.(data.sequenceNumber);
     const event = data.event;
 
     if (event.type === 'turn.created') {
@@ -1677,7 +1699,7 @@ export async function* streamTurnEvents(
 
     if (event.type === 'turn.done') {
       if (event.state.status === 'error') {
-        throw new Error(event.state.message);
+        throw new TurnFailedError(event.state.message);
       }
       // The turn is logically complete once `turn.done` is observed. The
       // resumed-turn transport (`subscribeToTurn`) is a reconnectable live
@@ -1685,6 +1707,7 @@ export async function* streamTurnEvents(
       // event, so we must stop consuming explicitly rather than waiting
       // for the underlying stream to end — otherwise `isRunning` never
       // clears and the composer's cancel/spinner button gets stuck.
+      sawTurnDone = true;
       break;
     }
 
@@ -1697,12 +1720,12 @@ export async function* streamTurnEvents(
       if (sandboxId != null) {
         sandboxIdYielded = true;
       }
-      yield withSandbox({ content });
+      yield withCursor({ content });
     }
   }
 
   if (pendingMcpAuth != null) {
-    yield withSandbox(buildMcpAuthUpdate(pendingMcpAuth, foldState, groupRootBaseline));
+    yield withCursor(buildMcpAuthUpdate(pendingMcpAuth, foldState, groupRootBaseline));
     return;
   }
 
@@ -1726,7 +1749,7 @@ export async function* streamTurnEvents(
       groupRootBaseline != null
         ? rootModelMessageIdsSinceBaseline(foldState, groupRootBaseline)
         : (foldState.threads.get(ROOT_THREAD_ID)?.modelMessageIds ?? []);
-    yield withSandbox({
+    yield withCursor({
       content: buildRootAssistantContentForIds(foldState, ids),
       status: approvalThreadId != null ? toolApprovalStatus() : toolResponseStatus(),
       metadata: { custom },
@@ -1739,7 +1762,11 @@ export async function* streamTurnEvents(
       groupRootBaseline != null
         ? rootModelMessageIdsSinceBaseline(foldState, groupRootBaseline)
         : (foldState.threads.get(ROOT_THREAD_ID)?.modelMessageIds ?? []);
-    yield withSandbox({ content: buildRootAssistantContentForIds(foldState, ids) });
+    yield withCursor({ content: buildRootAssistantContentForIds(foldState, ids) });
+  }
+
+  if (!sawTurnDone) {
+    throw new TurnStreamDisconnectedError();
   }
 }
 
