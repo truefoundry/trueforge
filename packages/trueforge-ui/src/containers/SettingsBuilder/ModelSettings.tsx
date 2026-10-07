@@ -2,6 +2,8 @@
 
 import { useCallback, useEffect, useMemo, useState } from 'react';
 
+import { useTrackAnalytics } from '@/analytics/AnalyticsProvider.js';
+import { AnalyticsEvents } from '@/analytics/events.js';
 import { Button } from '@/atoms/primitives/Button.js';
 import { CatalogLogo } from '@/atoms/primitives/CatalogLogo.js';
 import SearchInput from '@/atoms/primitives/SearchInput.js';
@@ -47,6 +49,7 @@ function catalogBaseUrl(provider: ModelProviderCatalogEntry): string {
 const ModelSettings = () => {
   const { modelCatalog } = useCatalogServer();
   const toaster = useToasterOptional();
+  const track = useTrackAnalytics();
 
   const [query, setQuery] = useState('');
   const [configured, setConfigured] = useState<ModelProviderBase[]>([]);
@@ -182,6 +185,7 @@ const ModelSettings = () => {
       },
       err => setKeyError(getErrorMessage(err, 'Request failed')),
     );
+    track(AnalyticsEvents.Settings.MODEL_PROVIDER_SAVED, { provider_name: entry.name, mode: 'create' });
   };
 
   const handleReplaceKey = async (provider: ModelProviderBase, draft: ModelProviderKeyDraft) => {
@@ -201,6 +205,7 @@ const ModelSettings = () => {
       err => setKeyError(getErrorMessage(err, 'Request failed')),
     );
     toaster?.showSuccess({ title: `${provider.name} updated` });
+    track(AnalyticsEvents.Settings.MODEL_PROVIDER_SAVED, { provider_name: provider.name, mode: 'update' });
   };
 
   const closeRemoveDialog = () => {
@@ -243,6 +248,7 @@ const ModelSettings = () => {
       if (deleteModelProvider !== undefined) {
         removal = runMutation(async () => {
           await deleteModelProvider({ id: pending.provider.id });
+          track(AnalyticsEvents.Settings.MODEL_PROVIDER_DELETED, { provider_name: pending.provider.name });
         }, reportError);
       }
     }
@@ -267,6 +273,7 @@ const ModelSettings = () => {
     );
     setTimeout(() => {
       toaster?.showSuccess({ title: `${draft.name} added` });
+      track(AnalyticsEvents.Settings.MODEL_PROVIDER_SAVED, { provider_name: draft.name, mode: 'create' });
     }, 0);
   };
 
@@ -293,6 +300,7 @@ const ModelSettings = () => {
         title: 'Model provider updated',
         description: `${provider.name} was updated successfully.`,
       });
+      track(AnalyticsEvents.Settings.MODEL_PROVIDER_SAVED, { provider_name: provider.name, mode: 'update' });
     }, 0);
   };
 

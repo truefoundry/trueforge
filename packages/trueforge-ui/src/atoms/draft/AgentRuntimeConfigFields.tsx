@@ -249,7 +249,7 @@ export function AgentRuntimeConfigFields({
                 <span className="min-w-0 flex-1">
                   <span className="text-text-primary block text-sm font-medium">Environment</span>
                   <p className="text-text-secondary mt-0.5 text-xs leading-snug">
-                    Image, resources, network and secrets the sandbox starts with. Stored by name.
+                    Saved sandbox setup this agent uses when it runs.
                   </p>
                   {shell && sandboxEnabled ? (
                     <button

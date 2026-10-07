@@ -2,8 +2,11 @@
 
 import { useActionBarCopy, useMessageError, useThreadIsRunning, type PartState } from '@assistant-ui/core/react';
 import { MessagePrimitive, useAuiState, type EnrichedPartState, type GroupByContext } from '@assistant-ui/react';
-import { useTrueForgeResumeUnavailable } from '@truefoundry/trueforge-assistant-ui-runtime';
 
+import { useTrackAnalytics } from '../analytics/AnalyticsProvider.js';
+import { AnalyticsEvents } from '../analytics/events.js';
+import { withSessionProps } from '../analytics/sessionProps.js';
+import { useOptionalShellMode } from '../server/ShellModeContext.js';
 import { useSlot } from '../theme/SlotsProvider.js';
 import { computeAgentStepsSplit } from '../utils/computeAgentStepsSplit.js';
 import { AgentStepsContainer } from './AgentStepsContainer.js';
@@ -37,13 +40,21 @@ export function AssistantMessageContainer() {
   const MessageErrorBanner = useSlot('MessageErrorBanner');
   const MessageIndicator = useSlot('MessageIndicator');
   const isThreadRunning = useThreadIsRunning();
-  const resumeUnavailable = useTrueForgeResumeUnavailable();
   const error = useMessageError();
   const createdAt = useAuiState(s => s.message.createdAt);
+  const sessionId = useAuiState(s => s.threadListItem.remoteId);
   const isMessageRunning = useAuiState(s => s.message.status?.type === 'running');
+  const track = useTrackAnalytics();
+  const shell = useOptionalShellMode();
+  const shellAgent =
+    shell?.mode.status === 'active' ? { agentId: shell.mode.agentId, agentName: shell.mode.agentName } : {};
   const { copy, isCopied } = useActionBarCopy({
     copyToClipboard: text => navigator.clipboard.writeText(text),
   });
+  const onCopy = () => {
+    track(AnalyticsEvents.Message.COPIED, withSessionProps({ role: 'assistant' }, { sessionId, ...shellAgent }));
+    copy();
+  };
 
   const parts = useAuiState(s => s.message.parts);
 
@@ -72,7 +83,7 @@ export function AssistantMessageContainer() {
       <AssistantMessageBubble
         error={error !== undefined ? <MessageErrorBanner message={String(error)} /> : undefined}
         actionBar={
-          !isThreadRunning ? <MessageActionBar isCopied={isCopied} onCopy={copy} createdAt={createdAt} /> : undefined
+          !isThreadRunning ? <MessageActionBar isCopied={isCopied} onCopy={onCopy} createdAt={createdAt} /> : undefined
         }
       >
         <MessagePrimitive.GroupedParts groupBy={groupBy}>
@@ -104,7 +115,7 @@ export function AssistantMessageContainer() {
               case 'data':
                 return <AssistantLeafPartContainer part={part} />;
               case 'indicator':
-                return resumeUnavailable ? null : <MessageIndicator />;
+                return <MessageIndicator />;
               default:
                 return null;
             }

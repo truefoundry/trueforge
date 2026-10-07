@@ -22,7 +22,7 @@ function McpAuthHarness({
   server,
 }: {
   pendingMcpAuth: TrueForgeRuntimeExtras['pendingMcpAuth'];
-  resumeMcpAuth: TrueForgeRuntimeExtras['resumeMcpAuth'];
+  resumeMcpAuth: TrueForgeRuntimeExtras['continueMcpAuth'];
   isRunning?: boolean;
   server?: AgentUIServer;
 }) {
@@ -36,11 +36,10 @@ function McpAuthHarness({
       pendingApprovals: [],
       pendingToolResponses: [],
       pendingMcpAuth,
-      resumeUnavailable: false,
       sandboxId: undefined,
-      respondToToolApproval: () => {},
-      respondToToolResponse: () => {},
-      resumeMcpAuth,
+      respondToToolApproval: async () => {},
+      respondToToolResponse: async () => {},
+      continueMcpAuth: resumeMcpAuth,
       downloadSandboxFile: async () => new Blob(),
       cancel: async () => {},
       resetFromTurn: async () => {},
@@ -108,7 +107,13 @@ describe('McpAuthContainer', () => {
   });
 
   it('shows each successful catalog connection and resumes once all servers are connected', async () => {
-    const resumeMcpAuth = vi.fn().mockResolvedValue(undefined);
+    let resolveResume: (() => void) | undefined;
+    const resumeMcpAuth = vi.fn(
+      () =>
+        new Promise<void>(resolve => {
+          resolveResume = resolve;
+        }),
+    );
     const authenticateConnector = vi.fn().mockResolvedValue({ status: 'AUTHENTICATED' });
     const getConnector = vi.fn(async ({ id }: { id: string }) => ({
       id,
@@ -143,6 +148,12 @@ describe('McpAuthContainer', () => {
     await waitFor(() => expect(screen.getAllByText('Connected')).toHaveLength(2));
     await waitFor(() => expect(screen.getByRole('button', { name: 'Continue' })).toBeDisabled());
     expect(resumeMcpAuth).toHaveBeenCalledTimes(1);
+
+    await act(async () => {
+      resolveResume?.();
+    });
+    // Ack without clearing pending MCP auth must allow another Continue click.
+    await waitFor(() => expect(screen.getByRole('button', { name: 'Continue' })).toBeEnabled());
   });
 
   it('keeps a failed catalog connection available without resuming', async () => {

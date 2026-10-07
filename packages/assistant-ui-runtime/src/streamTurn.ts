@@ -1,15 +1,14 @@
 import type { TurnStreamData } from './server/events.js';
-import type { AgentChatServer, PreviousTurnIdInput, TurnInputItem } from './server/types.js';
+import { EVENT_TYPE } from './server/events.js';
+import type { AgentChatServer, PreviousTurnIdInput, UserMessageContent } from './server/types.js';
 
-import { streamTurnEvents, type UserMessageContent } from './convertTurnMessages.js';
+import { streamTurnEvents } from './convertTurnMessages.js';
 import { PeerThreadFoldState } from './foldPeerThreads.js';
-import type { RequiredActionInput } from './requiredActionInputs.js';
+import { throwIfAborted } from './streamReconnect.js';
 import type { TurnStreamUpdate } from './turnStreamUpdate.js';
 
 export interface StreamTurnOptions {
   userMessage?: UserMessageContent;
-  resumeMcpAuth?: boolean;
-  inputs?: RequiredActionInput[];
   /**
    * Branch anchor for createTurn. Omit for `"auto"`. Pass `"none"` for a fresh
    * root turn.
@@ -17,16 +16,6 @@ export interface StreamTurnOptions {
   previousTurnId?: PreviousTurnIdInput;
   /** Extra headers for the turn request. */
   headers?: Record<string, string>;
-}
-
-function buildTurnInput(options: StreamTurnOptions): TurnInputItem[] {
-  if (options.inputs != null) {
-    return options.inputs;
-  }
-  if (options.resumeMcpAuth === true) {
-    return [];
-  }
-  return [{ type: 'user.message', content: options.userMessage ?? '' }];
 }
 
 export async function* streamTurnContent(
@@ -42,13 +31,12 @@ export async function* streamTurnContent(
    * optimistic ID with the real turn ID.
    */
   onTurnIdAvailable?: (turnId: string) => void,
+  onSequenceNumber?: (sequenceNumber: number) => void,
 ): AsyncGenerator<TurnStreamUpdate> {
   // Aborting only detaches this client from the run; the turn keeps running on
   // the backend so switching sessions (or remounting) can reattach via
   // `subscribeToTurn`. Stopping the run is an explicit `cancelSession` call.
-  if (abortSignal.aborted) {
-    return;
-  }
+  throwIfAborted(abortSignal);
 
   let turnIdNotified = false;
   const notifyTurnId = (turnId: string) => {
@@ -60,16 +48,14 @@ export async function* streamTurnContent(
 
   const stream: AsyncIterable<TurnStreamData> = server.createTurn({
     sessionId,
-    input: buildTurnInput(options),
+    input: [{ type: EVENT_TYPE.USER_MESSAGE, content: options.userMessage ?? '' }],
     previousTurnId: options.previousTurnId ?? 'auto',
     abortSignal,
     ...(options.headers != null ? { headers: options.headers } : {}),
   });
 
   try {
-    for await (const update of streamTurnEvents(stream, foldState, groupRootBaseline, notifyTurnId)) {
-      yield update;
-    }
+    yield* streamTurnEvents(stream, foldState, groupRootBaseline, notifyTurnId, onSequenceNumber);
   } catch (error) {
     if (error instanceof Error && error.name === 'AbortError') {
       return;
@@ -78,7 +64,6 @@ export async function* streamTurnContent(
   }
 }
 
-/** TODO: wire `afterSequenceNumber` from the last ingested stream event to skip replay on reconnect. */
 export async function* resumeTurnStream(
   server: AgentChatServer,
   sessionId: string,
@@ -87,6 +72,7 @@ export async function* resumeTurnStream(
   abortSignal: AbortSignal,
   afterSequenceNumber?: number,
   groupRootBaseline?: readonly string[],
+  onSequenceNumber?: (sequenceNumber: number) => void,
 ): AsyncGenerator<TurnStreamUpdate> {
   // Optional on custom backends. Callers detect the gap and report it, so an
   // empty stream here is safer than throwing mid-render.
@@ -94,9 +80,7 @@ export async function* resumeTurnStream(
     return;
   }
 
-  if (abortSignal.aborted) {
-    return;
-  }
+  throwIfAborted(abortSignal);
 
   try {
     yield* streamTurnEvents(
@@ -108,6 +92,8 @@ export async function* resumeTurnStream(
       }),
       foldState,
       groupRootBaseline,
+      undefined,
+      onSequenceNumber,
     );
   } catch (error) {
     if (error instanceof Error && error.name === 'AbortError') {

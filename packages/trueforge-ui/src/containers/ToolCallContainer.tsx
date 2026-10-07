@@ -4,20 +4,20 @@ import {
   MessagePartPrimitive,
   MessagePrimitive,
   useToolCallElapsed,
-  type ToolApprovalResponse,
   type ToolCallMessagePartComponent,
   type ToolCallMessagePartProps,
 } from '@assistant-ui/react';
 import { useTrueForgeRespondToToolApproval } from '@truefoundry/trueforge-assistant-ui-runtime';
 import { useCallback, useState } from 'react';
 
+import { useTrackAnalytics } from '../analytics/AnalyticsProvider.js';
+import { AnalyticsEvents } from '../analytics/events.js';
 import { useSlot } from '../theme/SlotsProvider.js';
 import {
   ASK_USER_TOOL_NAME,
   MCP_META_TOOLS,
   SANDBOX_TOOL_NAMES,
   SUB_AGENT_TOOL_NAME,
-  buildApprovalOptions,
   formatDuration,
   getAskUserAnswerResult,
   getJsonDisplayValue,
@@ -61,51 +61,32 @@ function NestedSubAgentAssistantMessage() {
 
 function ToolApprovalSlot({ part }: { part: ToolCallMessagePartProps }) {
   const isNestedReadonly = useNestedApprovalBridge();
-  const respondToNestedApproval = useTrueForgeRespondToToolApproval();
+  const respondToApproval = useTrueForgeRespondToToolApproval();
+  // Fire here (not the bar atom) so nested + optionId/approved mapping stay correct.
+  const track = useTrackAnalytics();
+  const approval = part.approval;
+  if (approval == null) return null;
 
-  const respond = (response: ToolApprovalResponse) => {
-    if (!isNestedReadonly) {
-      part.respondToApproval(response);
-      return;
-    }
-    // Readonly nested thread: use this part's approval id, not the outer
-    // create_sub_agent tool (which usually has no approval of its own).
-    if (part.approval == null) return;
-
-    let approved: boolean | undefined;
-    let optionId: string | undefined;
-    if ('approved' in response) {
-      approved = response.approved;
-    } else if ('optionId' in response) {
-      const option = buildApprovalOptions(part.approval.options).find(o => o.id === response.optionId);
-      if (option == null) return;
-      approved = option.isAllow;
-      optionId = response.optionId;
-    }
-    if (approved === undefined) return;
-
-    respondToNestedApproval({
-      approvalId: part.approval.id,
-      approved,
-      ...(optionId != null && optionId !== '__allow' && optionId !== '__deny' ? { optionId } : {}),
-      ...('reason' in response && response.reason != null ? { reason: response.reason } : {}),
+  const onRespond = async (response: Parameters<typeof respondToApproval>[0]) => {
+    track(AnalyticsEvents.Tool.APPROVAL_RESOLVED, {
+      tool_name: part.toolName,
+      option_id: response.optionId ?? (response.approved ? '__allow' : '__deny'),
+      approved: response.approved,
+      has_reason: response.reason != null && response.reason.trim().length > 0,
+      nested: isNestedReadonly,
     });
-  };
-
-  const onSelectOption = (optionId: string, reason?: string) => {
-    if (optionId === '__allow') return respond({ approved: true });
-    if (optionId === '__deny') return respond({ approved: false, reason });
-    return respond({ optionId, reason });
+    await respondToApproval({
+      ...response,
+      approvalId: approval.id,
+    });
   };
 
   return (
     <ToolApprovalContainer
+      approvalId={approval.id}
       toolName={part.toolName}
       argsText={part.argsText}
-      options={
-        buildApprovalOptions(part.approval?.options) as import('./ToolApprovalContainer.js').ToolApprovalOption[]
-      }
-      onSelectOption={onSelectOption}
+      onRespond={onRespond}
     />
   );
 }

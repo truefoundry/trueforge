@@ -3,6 +3,9 @@
 import { useCallback, useEffect, useMemo, useRef, useState, type ComponentType } from 'react';
 import { Group, Panel, Separator } from 'react-resizable-panels';
 
+import { useTrackAnalytics } from '../../analytics/AnalyticsProvider.js';
+import { AnalyticsEvents } from '../../analytics/events.js';
+import { withSessionProps } from '../../analytics/sessionProps.js';
 import { useToasterOptional } from '../../containers/ToasterContainer.js';
 import { useResourcePermissions } from '../../hooks/useResourcePermissions.js';
 import { useSessionShareSearch } from '../../hooks/useSessionShareSearch.js';
@@ -57,6 +60,7 @@ export function AgentSessions({
   const sessionsServer = useAgentSessionsServer();
   const chatServer = useServer();
   const toaster = useToasterOptional();
+  const track = useTrackAnalytics();
   const shell = useOptionalShellMode();
   const routes = useOptionalResolvedRoutes();
   const { sessionId: querySessionId, updateShareSearch } = useSessionShareSearch();
@@ -261,6 +265,10 @@ export function AgentSessions({
     setPendingDelete(null);
     try {
       await chatServer.deleteSession({ sessionId: entry.id });
+      track(
+        AnalyticsEvents.Session.DELETED,
+        withSessionProps(undefined, { sessionId: entry.id, agentName: entry.agentName }),
+      );
       setEntries(current => current.filter(item => item.id !== entry.id));
       if (selectedSessionId === entry.id) {
         updateShareSearch({ sessionId: null });
