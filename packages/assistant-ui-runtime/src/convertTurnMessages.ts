@@ -1764,14 +1764,6 @@ function buildMcpAuthUpdate(
   };
 }
 
-/** Terminal `turn.done` with `status: error`. Not a transport drop — do not subscribe-retry. */
-export class TurnFailedError extends Error {
-  constructor(message: string) {
-    super(message);
-    this.name = 'TurnFailedError';
-  }
-}
-
 /** SSE body ended without `turn.done` or a pause — subscribe-retry. */
 export class TurnStreamDisconnectedError extends Error {
   constructor(message = 'Turn stream closed before turn.done') {
@@ -1856,7 +1848,6 @@ export async function* streamTurnEvents(
 
   let yieldedPaused = false;
   let lastSequenceNumber: number | undefined;
-  let sawTurnDone = false;
 
   for await (const data of stream) {
     lastSequenceNumber = data.sequenceNumber;
@@ -1913,10 +1904,8 @@ export async function* streamTurnEvents(
     if (event.type === EVENT_TYPE.TURN_DONE) {
       // turn.done is the only successful terminal boundary. Do not wait for
       // the transport body to close because resumable subscriptions may linger.
-      if (event.state.status === TURN_STATUS.ERROR) {
-        throw new TurnFailedError(event.state.message);
-      }
-      sawTurnDone = true;
+      // Yield error/complete state (HITL) rather than throwing — reconnect must
+      // not subscribe-retry a terminal turn; callers read `turnState` / status.
       yield withSandbox({
         content: yieldContent() ?? [],
         status: assistantStatusFromTurnState(event.state),
@@ -1963,9 +1952,9 @@ export async function* streamTurnEvents(
     return;
   }
 
-  if (!sawTurnDone) {
-    throw new TurnStreamDisconnectedError();
-  }
+  // Reached only when the SSE ended without turn.done / pause / sandbox-only
+  // terminal paths above — treat as a transport drop for subscribe-retry.
+  throw new TurnStreamDisconnectedError();
 }
 
 export function turnStreamUpdateToAssistantMessage(
