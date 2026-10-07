@@ -12,13 +12,18 @@
  * each tick until the schema is present. The loops call the server over HTTP(S) at
  * `SERVER_URL` (mutual TLS when `MTLS_ENABLED`), so no Redis peering is wired here.
  */
-import configuration from './config';
+import type { Transaction } from 'kysely';
+import configuration, { isTrueFoundryModeEnabled } from './config';
 import { runController } from './controller';
 import { createDb } from './db/postgres/client';
+import { PostgresSandboxProviderStore } from './db/postgres/sandbox-provider-store/PostgresSandboxProviderStore';
 import { PostgresScheduleStore } from './db/postgres/schedule-store/PostgresScheduleStore';
+import type { Database } from './db/postgres/types';
+import type { ISandboxProviderStore } from './db/sandboxProviderStore';
 import { createControllerLogger } from './logger';
 import { PACKAGE_VERSION } from './packageVersion';
 import { initSentry } from './sentry';
+import { TrueFoundrySandboxProviderStore } from './truefoundry/TrueFoundrySandboxProviderStore';
 
 try {
   const logger = createControllerLogger({
@@ -51,8 +56,13 @@ try {
     mTlsEnabled: configuration.MTLS_ENABLED,
   });
 
+  const sandboxProviderStore: ISandboxProviderStore<Transaction<Database>> = isTrueFoundryModeEnabled(configuration)
+    ? new TrueFoundrySandboxProviderStore<Transaction<Database>>()
+    : new PostgresSandboxProviderStore(db);
+
   runController({
     scheduleStore: new PostgresScheduleStore(db),
+    sandboxProviderStore,
     withTransaction: callback => db.transaction().execute(callback),
     logger,
     gracefulTimeoutSeconds: configuration.GRACEFUL_TIMEOUT_SECONDS,

@@ -612,6 +612,7 @@ async function createServerRuntime<TTransaction>(persistence: ServerPersistence<
     resolveImportAgentStore,
     agentStore,
     sandboxEnvironmentStore,
+    sandboxProviderStore,
     turnSkillsResolverStore,
     destroyDb,
     redis,
@@ -656,6 +657,7 @@ async function createServerRuntime<TTransaction>(persistence: ServerPersistence<
   const controller = configuration.STANDALONE
     ? createController({
         scheduleStore,
+        sandboxProviderStore,
         withTransaction,
         logger,
       })

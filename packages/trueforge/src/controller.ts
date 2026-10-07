@@ -1,7 +1,9 @@
 import type { Logger } from 'winston';
 import { Controller } from './controller/Controller';
+import { daytonaSnapshotActivationLoop } from './controller/daytonaSnapshotActivation';
 import { sandboxEnvBuildLoop } from './controller/sandboxEnvBuild';
 import { scheduleDispatchLoop } from './controller/scheduleDispatch';
+import type { ISandboxProviderStore } from './db/sandboxProviderStore';
 import type { IScheduleStore } from './db/scheduleStore';
 import type { WithTransaction } from './db/transaction';
 
@@ -10,9 +12,11 @@ import type { WithTransaction } from './db/transaction';
  * (`SERVER_URL` + `TRUEFORGE_API_KEY` from process config). Standalone uses
  * loopback; distributed uses the dedicated controller against the server Service.
  * Sandbox-env build loop lists/progresses pending versions over the same HTTP path.
+ * Shared Daytona deployments also reactivate inactive TrueForge snapshots.
  */
 export function createController<TTransaction>(params: {
   scheduleStore: IScheduleStore<TTransaction>;
+  sandboxProviderStore: ISandboxProviderStore<TTransaction>;
   withTransaction: WithTransaction<TTransaction>;
   logger: Logger;
 }): Controller {
@@ -24,6 +28,10 @@ export function createController<TTransaction>(params: {
         logger: params.logger,
       }),
       sandboxEnvBuildLoop({ logger: params.logger }),
+      daytonaSnapshotActivationLoop({
+        sandboxProviderStore: params.sandboxProviderStore,
+        logger: params.logger,
+      }),
     ],
     logger: params.logger,
   });
@@ -34,6 +42,7 @@ export function createController<TTransaction>(params: {
  */
 export function runController<TTransaction>(params: {
   scheduleStore: IScheduleStore<TTransaction>;
+  sandboxProviderStore: ISandboxProviderStore<TTransaction>;
   withTransaction: WithTransaction<TTransaction>;
   logger: Logger;
   gracefulTimeoutSeconds: number;
