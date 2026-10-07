@@ -619,7 +619,7 @@ export function useTrueForgeAgentMessages({
                 abortController.abort();
                 return;
               }
-              const canSubscribe = server.subscribeToTurn != null && options.reconnect.gatewayTurnAccepted.current;
+              const canSubscribe = options.reconnect.gatewayTurnAccepted.current;
               if (!canSubscribe || consecutiveFailures >= STREAM_RECONNECT_MAX_ATTEMPTS) {
                 onErrorRef.current?.(error);
                 throw error;
@@ -758,15 +758,6 @@ export function useTrueForgeAgentMessages({
 
       if (loadedSnapshot.runningTurn != null) {
         const turn = loadedSnapshot.runningTurn;
-
-        // subscribeToTurn is optional, so a server can leave us without
-        // a reconnect path. The turn still runs on the backend: show the
-        // loaded history as running and let the host explain the gap.
-        if (server.subscribeToTurn == null) {
-          setIsRunning(true);
-          markResumeUnavailable(true);
-          return;
-        }
 
         // Use loadedSnapshot directly — snapshotRef.current still points at
         // the empty snapshot cleared above until the setSnapshot(loadedSnapshot)
@@ -1281,10 +1272,6 @@ export function useTrueForgeAgentMessages({
     if (turn == null) {
       return;
     }
-    if (server.subscribeToTurn == null) {
-      markResumeUnavailable(true);
-      return;
-    }
     const resumeSessionId = turn.sessionId !== '' ? turn.sessionId : sessionId;
     if (resumeSessionId == null) {
       return;
@@ -1309,7 +1296,7 @@ export function useTrueForgeAgentMessages({
         reconnect: { sessionId: resumeSessionId, gatewayTurnAccepted: { current: true } },
       },
     );
-  }, [markResumeUnavailable, runStream, server, sessionId]);
+  }, [runStream, server, sessionId]);
 
   const branchFromTurn = useCallback(
     async (turnId: string, userMessage: UserMessageContent) => {

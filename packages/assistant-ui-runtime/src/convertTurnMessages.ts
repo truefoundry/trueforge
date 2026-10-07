@@ -1848,7 +1848,6 @@ export async function* streamTurnEvents(
 
   let yieldedPaused = false;
   let lastSequenceNumber: number | undefined;
-  let sawTurnDone = false;
 
   for await (const data of stream) {
     lastSequenceNumber = data.sequenceNumber;
@@ -1905,9 +1904,8 @@ export async function* streamTurnEvents(
     if (event.type === EVENT_TYPE.TURN_DONE) {
       // turn.done is the only successful terminal boundary. Do not wait for
       // the transport body to close because resumable subscriptions may linger.
-      // Yield error state (HITL) rather than throwing — reconnect must not
-      // subscribe-retry a terminal turn; callers read `turnState` / status.
-      sawTurnDone = true;
+      // Yield error/complete state (HITL) rather than throwing — reconnect must
+      // not subscribe-retry a terminal turn; callers read `turnState` / status.
       yield withSandbox({
         content: yieldContent() ?? [],
         status: assistantStatusFromTurnState(event.state),
@@ -1954,9 +1952,9 @@ export async function* streamTurnEvents(
     return;
   }
 
-  if (!sawTurnDone) {
-    throw new TurnStreamDisconnectedError();
-  }
+  // Reached only when the SSE ended without turn.done / pause / sandbox-only
+  // terminal paths above — treat as a transport drop for subscribe-retry.
+  throw new TurnStreamDisconnectedError();
 }
 
 export function turnStreamUpdateToAssistantMessage(
