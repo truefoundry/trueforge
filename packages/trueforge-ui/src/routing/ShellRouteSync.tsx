@@ -9,6 +9,7 @@ import { useToasterOptional } from '../containers/ToasterContainer.js';
 import {
   useOptionalAgentSessionsServer,
   useOptionalCatalogServer,
+  useOptionalSandboxEnvironmentServer,
   useOptionalScheduleServer,
   useOptionalServer,
   useServerCapabilities,
@@ -55,6 +56,7 @@ export function ShellRouteSync({
   const catalog = useOptionalCatalogServer();
   const sessions = useOptionalAgentSessionsServer();
   const schedules = useOptionalScheduleServer();
+  const sandboxEnvironments = useOptionalSandboxEnvironmentServer();
   const capabilities = useServerCapabilities();
   const capabilitiesSettled = useServerCapabilitiesSettled();
   const toaster = useToasterOptional();
@@ -62,8 +64,8 @@ export function ShellRouteSync({
   const location = useLocation();
   // Same gates as sidebar chrome: missing optional ports unregister their paths.
   const effectiveRoutes = useMemo(
-    () => toEffectiveRoutes({ routes, catalog, capabilities, sessions, schedules }),
-    [routes, catalog, capabilities, sessions, schedules],
+    () => toEffectiveRoutes({ routes, catalog, capabilities, sessions, schedules, sandboxEnvironments }),
+    [routes, catalog, capabilities, sessions, schedules, sandboxEnvironments],
   );
   const settingsChromeEnabled = effectiveRoutes.settings != null;
   // Gate identity only — avoid re-syncing when capabilities object identity churns
@@ -74,6 +76,7 @@ export function ShellRouteSync({
     effectiveRoutes.sharedSession,
     effectiveRoutes.libraryAgent,
     effectiveRoutes.schedules,
+    effectiveRoutes.environments,
   ].join('\0');
 
   const snapshot: ShellSnapshot = {
@@ -83,6 +86,7 @@ export function ShellRouteSync({
     sharedSessionId: shell.sharedSessionId,
     libraryAgentId: shell.libraryAgentId,
     schedulesOpen: shell.schedulesOpen,
+    environmentsOpen: shell.environmentsOpen,
     pendingSessionId: shell.pendingSessionId,
     activeRemoteId,
     mode: shell.mode,
@@ -118,6 +122,7 @@ export function ShellRouteSync({
     shell.setSettingsOpen(false);
     shell.setLibraryOpen(false);
     shell.setSchedulesOpen(false);
+    shell.setEnvironmentsOpen(false);
     switch (shell.agentConfigMode) {
       case 'AgentLibrary':
         shell.openLibraryHome();
@@ -241,6 +246,9 @@ export function ShellRouteSync({
         case 'schedules':
           shell.setSchedulesOpen(true);
           return;
+        case 'environments':
+          shell.setEnvironmentsOpen(true);
+          return;
         case 'buildAgent':
           shell.openAgentBuilder();
           return;
@@ -298,6 +306,8 @@ export function ShellRouteSync({
       shell.openLibraryAgent(urlPlace.agentId);
     } else if (urlPlace.type === 'schedules') {
       shell.setSchedulesOpen(true);
+    } else if (urlPlace.type === 'environments') {
+      shell.setEnvironmentsOpen(true);
     } else {
       const chatPlace = deriveChatPlace(snapshot);
       if (!placesEqual(chatPlace, urlPlace)) applyPlace(urlPlace);
@@ -419,6 +429,9 @@ export function ShellRouteSync({
       if (urlPlace.type !== 'schedules' && shell.schedulesOpen) {
         // Leaving schedules via Back to a chat place.
         shell.setSchedulesOpen(false);
+      }
+      if (urlPlace.type !== 'environments' && shell.environmentsOpen) {
+        shell.setEnvironmentsOpen(false);
       }
       applyPlace(urlPlace);
     }

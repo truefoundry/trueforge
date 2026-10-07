@@ -21,7 +21,7 @@ sandbox image.
 | Chart `appVersion`           | `packages/trueforge/package.json` version at the build commit                                             |
 | Prod image                   | Root [`Dockerfile`](Dockerfile): from-source workspace build                                              |
 | Prod image tag               | `{packageVersion}-{shortSha}`                                                                             |
-| Chart `version`              | The dispatching chart version, verbatim (`tfy_chart_version`). Nothing in this repo computes it           |
+| Chart `version`              | The `tfy_chart_version` input, verbatim. Nothing in this repo computes it                                 |
 | Sandbox image                | [`sandbox.Dockerfile`](packages/trueforge-core/scripts/sandbox/sandbox.Dockerfile); tag = full commit SHA |
 
 Install a published chart:
@@ -54,10 +54,13 @@ does not publish.
    `pnpm change --bump patch --summary "…" <pkg>`). SDK regen already adds
    `@truefoundry/trueforge-sdk` via `pnpm changeset:sdk-regen`.
 2. Merge to `main`.
-3. A parent chart release of `V` (`X.Y.Z` or `X.Y.Z-rc.N`) creates
-   `release-vX.Y.Z` in this repo (`X.Y.Z` is `V` with any `-rc.N` removed) and
-   dispatches this workflow with `tfy_chart_version=V`. The first cut of a minor
-   line is from `main`; a hotfix line is cut from `refs/tags/v<base>` so
+3. The dispatching workflow picks the version `V` (`X.Y.Z` or `X.Y.Z-rc.N`) it
+   wants published, creates `release-vX.Y.Z` in this repo (`X.Y.Z` is `V` with
+   any `-rc.N` removed) and dispatches this workflow with
+   `tfy_chart_version=V`. `V` is the caller's choice and need not match the
+   parent chart's own version - this repo publishes what it is handed. The
+   first cut of a minor line is from `main`; a hotfix line is cut from
+   `refs/tags/v<base>` so
    unreleased work on `main` cannot enter a patch. An existing branch is kept as
    is and **never** has `main` merged into it: only the **first** RC of a minor
    line fails when `main` has commits the branch is missing, because from `rc.2`
@@ -230,11 +233,11 @@ gh workflow run release-chart.yml --ref main \
   -f image_tag=0.3.0-rc.0-abcdef1
 ```
 
-The chart version is the `chart_version` input, verbatim - the same value as the
-parent chart release that dispatched it. Nothing in this repo derives it, so
-`oci://tfy.jfrog.io/tfy-helm/trueforge:<V>` and `charts/trueforge@<V>` are known
-before the release starts. `appVersion` tracks `@truefoundry/trueforge` and the
-image tag prefix; those are separate fields with separate owners.
+The chart version is the `chart_version` input, verbatim. Nothing in this repo
+derives it, so `oci://tfy.jfrog.io/tfy-helm/trueforge:<V>` and
+`charts/trueforge@<V>` are known to the caller before the release starts.
+`appVersion` tracks `@truefoundry/trueforge` and the image tag prefix; those are
+separate fields with separate owners.
 
 ## Devtest
 

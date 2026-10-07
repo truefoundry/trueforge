@@ -6,9 +6,10 @@
 # Do not rename it without updating every package on npmjs.com and PyPI.
 #
 # Releases run on release-vX.Y.Z, never on main. main only collects changesets.
-# helm-charts dispatches this workflow with tfy_chart_version (X.Y.Z or
-# X.Y.Z-rc.N) on ref release-vX.Y.Z. There is no push trigger: the orchestrator
-# is the only entry point, so a run's conclusion is the release outcome.
+# The parent chart's release dispatches this workflow with tfy_chart_version
+# (X.Y.Z or X.Y.Z-rc.N) on ref release-vX.Y.Z. There is no push trigger: that
+# dispatch is the only entry point, so a run's conclusion is the release
+# outcome.
 #
 # version-release prepares pre mode and any 0.0.0 packages, runs
 # `changeset version`, and commits the result straight to the release branch.
@@ -38,7 +39,7 @@ on:
   workflow_dispatch:
     inputs:
       tfy_chart_version:
-        description: 'TrueFoundry chart version: X.Y.Z or X.Y.Z-rc.N'
+        description: 'Chart version to publish: X.Y.Z or X.Y.Z-rc.N'
         required: true
         type: string
       # DRY-RUN (temporary): exercise the whole pipeline without publishing
@@ -60,7 +61,7 @@ permissions: {}
 
 jobs:
   version-release:
-    name: Version packages for TrueFoundry release
+    name: Version packages for the release
     runs-on: ubuntu-latest
     timeout-minutes: 30
     outputs:
@@ -507,8 +508,8 @@ jobs:
   # them is what keeps this conflict-free.
   #
   # continue-on-error: this job runs after release-chart has already pushed to
-  # OCI, inside the run helm-charts gates its helm phase on. A changelog drain
-  # must never fail a release whose chart is live and correct. A failure is
+  # OCI, inside the run the caller gates its own chart phase on. A changelog
+  # drain must never fail a release whose chart is live and correct. A failure is
   # reported as a ::error:: annotation and recovered by re-dispatching.
   back-merge-main:
     name: Back-merge changelogs to main

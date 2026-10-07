@@ -1,19 +1,19 @@
 /**
  * Sandbox environments API (mounted at /api/v1/sandbox-environments).
  * Snapshot builds are not started here — versions land in `pending` for a future controller.
+ * Networking secrets sync to Daytona on PUT (plaintext is never persisted).
  */
 import { OpenAPIHono, type RouteHandler } from '@hono/zod-openapi';
 import { InvalidPageTokenError } from '@truefoundry/trueforge-core/agent-session';
 import type { Context } from 'hono';
+import type { Logger } from 'winston';
 import { createdBySubjectFromRequestContext, type ResolveRequestContext } from '../auth/identity';
-import { isTrueFoundryModeEnabled } from '../config';
 import type { IAgentStore } from '../db/agentStore';
 import {
   SandboxEnvironmentNameConflictError,
   SandboxEnvironmentVersionConflictError,
   type ISandboxEnvironmentStore,
   type SandboxEnvironmentWithVersion,
-  type UpsertSandboxEnvironmentPrevious,
 } from '../db/sandboxEnvironmentStore';
 import type { ISandboxProviderStore, SandboxProviderRecord } from '../db/sandboxProviderStore';
 import {
@@ -22,12 +22,14 @@ import {
   listSandboxEnvironmentsRoute,
   putSandboxEnvironmentRoute,
 } from '../routes/sandboxEnvironmentRoutes';
+import { getDaytonaAuthorizationErrorMessage, toDaytonaSandboxProvider } from '../sandbox/providerUtils';
 import { buildNextVersion, redactManifestSecrets } from '../sandbox/sandboxEnvironmentVersion';
 import {
-  DEFAULT_SANDBOX_ENVIRONMENT_NAME,
-  type SandboxEnvironment,
-  type SandboxEnvironmentManifest,
-} from '../schemas/sandboxEnvironment';
+  deleteSandboxEnvironmentSecrets,
+  SandboxEnvironmentSecretSyncError,
+  syncSandboxEnvironmentSecrets,
+} from '../sandbox/syncSandboxEnvironmentSecrets';
+import { DEFAULT_SANDBOX_ENVIRONMENT_NAME, type SandboxEnvironment } from '../schemas/sandboxEnvironment';
 import { MissingStoredSecretError } from '../utils/secretRedaction';
 
 export interface SandboxEnvironmentsRouterDeps<TTransaction> {
@@ -35,6 +37,7 @@ export interface SandboxEnvironmentsRouterDeps<TTransaction> {
   resolveAgentStore: (c: Context) => IAgentStore<TTransaction>;
   resolveSandboxProviderStore: (c: Context) => ISandboxProviderStore<TTransaction>;
   resolveRequestContext: ResolveRequestContext;
+  logger: Logger;
 }
 
 function toSandboxEnvironment({ environment, version }: SandboxEnvironmentWithVersion): SandboxEnvironment {
@@ -63,37 +66,21 @@ async function resolveSandboxProviderRecord(
   return providerStore.getSandboxProvider(tenant_id);
 }
 
-function buildUpsertVersion({
-  manifest,
-  created_by_subject,
-  previous,
-}: {
-  manifest: SandboxEnvironmentManifest;
-  created_by_subject: ReturnType<typeof createdBySubjectFromRequestContext>;
-  previous?: UpsertSandboxEnvironmentPrevious;
-}) {
-  // Label follows platform mode; create/build always use Daytona credentials + code.
-  return {
-    ...buildNextVersion({
-      version: previous ? previous.latest_version + 1 : 1,
-      ...(previous
-        ? {
-            previous_manifest: previous.previous_manifest,
-            previous_external_ref: previous.previous_external_ref,
-          }
-        : {}),
-      manifest,
-      provider_type: isTrueFoundryModeEnabled() ? 'truefoundry' : 'daytona',
-    }),
-    created_by_subject,
-  };
+function sandboxEnvironmentSecretHttpError(error: unknown): { status: 422 | 502; message: string } | undefined {
+  if (!(error instanceof SandboxEnvironmentSecretSyncError)) {
+    return undefined;
+  }
+  const authorizationMessage = getDaytonaAuthorizationErrorMessage(error.cause);
+  return authorizationMessage === undefined
+    ? { status: 502, message: error.message }
+    : { status: 422, message: authorizationMessage };
 }
 
 /** CRUD for sandbox environments. */
 export function createSandboxEnvironmentsRouter<TTransaction>(
   deps: SandboxEnvironmentsRouterDeps<TTransaction>,
 ): OpenAPIHono {
-  const { sandboxEnvironmentStore: store, resolveAgentStore, resolveRequestContext } = deps;
+  const { sandboxEnvironmentStore: store, resolveAgentStore, resolveRequestContext, logger } = deps;
 
   const listHandler: RouteHandler<typeof listSandboxEnvironmentsRoute> = async c => {
     const { tenant_id, subject } = resolveRequestContext(c);
@@ -142,18 +129,45 @@ export function createSandboxEnvironmentsRouter<TTransaction>(
     const { manifest } = body;
 
     try {
+      const existing = await store.getEnvironment({
+        tenant_id: requestContext.tenant_id,
+        name: manifest.name,
+        created_by_subject_id: requestContext.subject.id,
+      });
+      const existingSecrets = existing
+        ? await store.listSecretsByEnvironment({ environment_id: existing.environment.id })
+        : [];
+      const synced_secrets = await syncSandboxEnvironmentSecrets({
+        secrets: manifest.networking?.secrets ?? [],
+        previous: existing?.version.manifest.networking?.secrets ?? [],
+        existing: existingSecrets,
+        provider: toDaytonaSandboxProvider({
+          manifest: provider.manifest,
+          tenant_id: requestContext.tenant_id,
+          logger,
+        }),
+        description: `Secret value of environment ${manifest.name}`,
+      });
+
       const result = await store.upsertEnvironment({
         tenant_id: requestContext.tenant_id,
         name: manifest.name,
         description: manifest.description ?? '',
         created_by_subject,
-        buildVersion: previous =>
-          buildUpsertVersion({
-            manifest,
+        synced_secrets,
+        buildVersion: ({ existing_version, existing_manifest, existing_external_ref }) =>
+          Promise.resolve({
+            ...buildNextVersion({
+              ...(existing_version !== undefined ? { existing_version } : {}),
+              ...(existing_manifest ? { previous_manifest: existing_manifest } : {}),
+              ...(existing_external_ref ? { previous_external_ref: existing_external_ref } : {}),
+              manifest,
+              provider_type: provider.manifest.type,
+            }),
             created_by_subject,
-            ...(previous ? { previous } : {}),
           }),
       });
+
       return c.json({ data: toSandboxEnvironment(result) }, 200);
     } catch (error) {
       if (error instanceof SandboxEnvironmentNameConflictError) {
@@ -164,6 +178,10 @@ export function createSandboxEnvironmentsRouter<TTransaction>(
       }
       if (error instanceof MissingStoredSecretError) {
         return c.json({ error: { message: 'Secret value is required' } }, 400);
+      }
+      const secretError = sandboxEnvironmentSecretHttpError(error);
+      if (secretError !== undefined) {
+        return c.json({ error: { message: secretError.message } }, secretError.status);
       }
       throw error;
     }
@@ -197,12 +215,31 @@ export function createSandboxEnvironmentsRouter<TTransaction>(
         409,
       );
     }
-    await store.deleteEnvironment({
-      tenant_id,
-      name,
-      created_by_subject_id: subject.id,
-    });
-    return c.json({}, 200);
+    try {
+      const secrets = await store.listSecretsByEnvironment({ environment_id: existing.environment.id });
+      if (secrets.length > 0) {
+        const provider = await resolveSandboxProviderRecord(deps.resolveSandboxProviderStore(c), tenant_id);
+        if (provider === undefined) {
+          return c.json({ error: { message: 'No sandbox provider configured' } }, 422);
+        }
+        await deleteSandboxEnvironmentSecrets({
+          secrets,
+          provider: toDaytonaSandboxProvider({ manifest: provider.manifest, tenant_id, logger }),
+        });
+      }
+      await store.deleteEnvironment({
+        tenant_id,
+        name,
+        created_by_subject_id: subject.id,
+      });
+      return c.json({}, 200);
+    } catch (error) {
+      const secretError = sandboxEnvironmentSecretHttpError(error);
+      if (secretError !== undefined) {
+        return c.json({ error: { message: secretError.message } }, secretError.status);
+      }
+      throw error;
+    }
   };
 
   const router = new OpenAPIHono();

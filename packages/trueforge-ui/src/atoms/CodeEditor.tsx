@@ -11,6 +11,7 @@ import type { MonacoEditorCoreProps } from './MonacoEditorCore.js';
 export type CodeEditorProps = Omit<MonacoEditorCoreProps, 'onAutoHeightChange' | 'options'> & {
   filename?: string;
   showToolbar?: boolean;
+  defaultShowLineNumbers?: boolean;
 };
 
 function ToolbarButton({
@@ -58,9 +59,10 @@ export function CodeEditor({
   className,
   height,
   showToolbar = true,
+  defaultShowLineNumbers = false,
 }: CodeEditorProps) {
   const MonacoEditorCore = useSlot('MonacoEditorCore');
-  const [showLineNumbers, setShowLineNumbers] = useState(false);
+  const [showLineNumbers, setShowLineNumbers] = useState(defaultShowLineNumbers);
   const [expanded, setExpanded] = useState(false);
   const [copied, setCopied] = useState(false);
 

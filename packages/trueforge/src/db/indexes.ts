@@ -36,3 +36,6 @@ export const SANDBOX_ENVIRONMENT_VERSION_UQ = 'sandbox_environment_version_uq';
 
 /** `(tenant_id, created_by_subject.subject_id)` on sandbox_environment. */
 export const SANDBOX_ENVIRONMENT_CREATED_BY_SUBJECT_ID_IDX = 'sandbox_environment_created_by_subject_id_idx';
+
+/** Unique `(environment_id, secret_name)` on sandbox_environment_secret. */
+export const SANDBOX_ENVIRONMENT_SECRET_ENV_NAME_UQ = 'sandbox_environment_secret_environment_id_secret_name_uq';

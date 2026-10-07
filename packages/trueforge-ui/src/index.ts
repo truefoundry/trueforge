@@ -30,8 +30,14 @@ export type {
   ThemePreset,
 } from './theme/types.js';
 
+export { EnvironmentsPage } from './atoms/environments/EnvironmentsPage.js';
+export type { EnvironmentsPageProps } from './atoms/environments/EnvironmentsPage.js';
+export { EnvironmentsButton } from './atoms/EnvironmentsButton.js';
+export type { EnvironmentsButtonProps } from './atoms/EnvironmentsButton.js';
 export { PermissionGuard } from './atoms/PermissionGuard.js';
 export type { PermissionGuardProps } from './atoms/PermissionGuard.js';
+export { Badge } from './atoms/primitives/Badge.js';
+export type { BadgeProps, BadgeShape, BadgeSize, BadgeVariant } from './atoms/primitives/Badge.js';
 export { BottomSheet } from './atoms/primitives/BottomSheet.js';
 export type { BottomSheetProps } from './atoms/primitives/BottomSheet.js';
 export { Button } from './atoms/primitives/Button.js';
@@ -139,6 +145,8 @@ export type { UserMessageEditProps } from './atoms/UserMessageEdit.js';
 export { WelcomeScreen } from './atoms/WelcomeScreen.js';
 export type { WelcomeScreenProps } from './atoms/WelcomeScreen.js';
 
+export { AnalyticsEvents, AnalyticsProvider, useTrackAnalytics, withSessionProps } from './analytics/index.js';
+export type { AnalyticsConfig, AnalyticsEventProps, TrackAnalytics } from './analytics/index.js';
 export { AgentStepsCard } from './atoms/adapters/AgentStepsCardAdapter.js';
 export type { AgentStepsCardProps } from './atoms/adapters/AgentStepsCardAdapter.js';
 export type {

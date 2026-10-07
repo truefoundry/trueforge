@@ -18,16 +18,15 @@ import type { SandboxEnvironmentVersionStatus } from '../../../src/schemas/sandb
 
 const silentLogger = createLogger({ silent: true });
 
-let mockDefaultStatus: SandboxEnvironmentVersionStatus | undefined;
+let mockActiveDefaultStatus: SandboxEnvironmentVersionStatus | undefined;
+let mockLatestDefaultStatus: SandboxEnvironmentVersionStatus | undefined;
 
 function mockDefaultEnvStore(): ISandboxEnvironmentStore {
+  const withStatus = (status: SandboxEnvironmentVersionStatus | undefined) =>
+    status === undefined ? undefined : ({ version: { status } } as unknown as SandboxEnvironmentWithVersion);
   return {
-    getEnvironment: () =>
-      Promise.resolve(
-        mockDefaultStatus === undefined
-          ? undefined
-          : ({ version: { status: mockDefaultStatus } } as unknown as SandboxEnvironmentWithVersion),
-      ),
+    getEnvironment: () => Promise.resolve(withStatus(mockLatestDefaultStatus)),
+    getActiveEnvironment: () => Promise.resolve(withStatus(mockActiveDefaultStatus)),
   } as unknown as ISandboxEnvironmentStore;
 }
 
@@ -62,7 +61,8 @@ function withAuth(router: OpenAPIHono, authenticator: Authenticator): OpenAPIHon
 
 describe('capabilities routers', () => {
   beforeEach(() => {
-    mockDefaultStatus = undefined;
+    mockActiveDefaultStatus = undefined;
+    mockLatestDefaultStatus = undefined;
     setCachedLocalSandboxSupport(undefined);
   });
 
@@ -100,7 +100,7 @@ describe('capabilities routers', () => {
 
   it('reports sandbox + skill disabled when no image status is available', async () => {
     disableOidcAuth();
-    mockDefaultStatus = undefined;
+    mockActiveDefaultStatus = undefined;
     const router = makeRouter();
 
     const response = await router.request('/');
@@ -120,7 +120,7 @@ describe('capabilities routers', () => {
 
   it('reports web_search enabled when a provider is configured', async () => {
     disableOidcAuth();
-    mockDefaultStatus = undefined;
+    mockActiveDefaultStatus = undefined;
     const configuredStore: IWebSearchProviderStore = {
       getProvider: () =>
         Promise.resolve({
@@ -142,7 +142,7 @@ describe('capabilities routers', () => {
 
   it('reports sandbox + skill enabled when local fallback is cached and no image status exists', async () => {
     disableOidcAuth();
-    mockDefaultStatus = undefined;
+    mockActiveDefaultStatus = undefined;
     setCachedLocalSandboxSupport({
       supported: true,
       platform: 'darwin',
@@ -165,7 +165,7 @@ describe('capabilities routers', () => {
 
   it('reports sandbox + skill enabled only when the image is ready', async () => {
     disableOidcAuth();
-    mockDefaultStatus = 'ready';
+    mockActiveDefaultStatus = 'ready';
     const router = makeRouter();
 
     const response = await router.request('/');
@@ -180,9 +180,26 @@ describe('capabilities routers', () => {
     });
   });
 
+  it('stays enabled while a newer default environment version is pending', async () => {
+    disableOidcAuth();
+    mockActiveDefaultStatus = 'ready';
+    mockLatestDefaultStatus = 'pending';
+    const router = makeRouter();
+
+    const response = await router.request('/');
+
+    expect(response.status).toBe(200);
+    expect(await response.json()).toMatchObject({
+      data: {
+        sandbox: { enabled: true },
+        skill: { enabled: true },
+      },
+    });
+  });
+
   it('reports sandbox disabled with a "being prepared" skill reason while the image is still pending', async () => {
     disableOidcAuth();
-    mockDefaultStatus = 'pending';
+    mockActiveDefaultStatus = 'pending';
     const router = makeRouter();
 
     const response = await router.request('/');
@@ -200,7 +217,7 @@ describe('capabilities routers', () => {
 
   it('reports "not configured" skill reason when the image build failed', async () => {
     disableOidcAuth();
-    mockDefaultStatus = 'failed';
+    mockActiveDefaultStatus = 'failed';
     const router = makeRouter();
 
     const response = await router.request('/');

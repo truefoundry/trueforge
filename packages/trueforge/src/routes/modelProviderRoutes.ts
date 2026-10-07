@@ -3,15 +3,20 @@
  * Discovery catalog lives at GET /api/v1/catalogs/model-providers.
  * Handlers are registered in apis/modelProviders.ts.
  */
-import { createRoute } from '@hono/zod-openapi';
+import { createRoute, z } from '@hono/zod-openapi';
 import { RequestErrorResponseSchema } from '../schemas/errors';
 import {
   CreateModelProviderRequestSchema,
+  DeleteModelProviderResponseSchema,
   GetModelProviderResponseSchema,
   ListModelProvidersResponseSchema,
   UpdateModelProviderRequestSchema,
 } from '../schemas/modelProvider';
 import { OpenApiTag } from './openapiTags';
+
+const ModelProviderNameParamsSchema = z.object({
+  name: z.string().min(1).describe('Model provider name.'),
+});
 
 export const listModelProvidersRoute = createRoute({
   method: 'get',
@@ -97,6 +102,41 @@ export const putModelProviderRoute = createRoute({
     400: {
       content: { 'application/json': { schema: RequestErrorResponseSchema } },
       description: 'Invalid request body, or redacted API key with no stored secret to keep.',
+    },
+    409: {
+      content: { 'application/json': { schema: RequestErrorResponseSchema } },
+      description: 'The update drops a model that one or more agents still use.',
+    },
+    424: {
+      content: { 'application/json': { schema: RequestErrorResponseSchema } },
+      description: 'Unsupported operation because the model providers are managed by external system',
+    },
+  },
+});
+
+export const deleteModelProviderRoute = createRoute({
+  method: 'delete',
+  path: '/{name}',
+  tags: [OpenApiTag.MODELS],
+  summary: 'Delete a model provider',
+  description: 'Deletes a provider and every model it declares. Rejected while any agent still uses one of them.',
+  'x-fern-sdk-group-name': ['settings', 'modelProviders'],
+  'x-fern-sdk-method-name': 'delete',
+  request: {
+    params: ModelProviderNameParamsSchema,
+  },
+  responses: {
+    200: {
+      content: { 'application/json': { schema: DeleteModelProviderResponseSchema } },
+      description: 'Model provider deleted.',
+    },
+    404: {
+      content: { 'application/json': { schema: RequestErrorResponseSchema } },
+      description: 'Model provider not found.',
+    },
+    409: {
+      content: { 'application/json': { schema: RequestErrorResponseSchema } },
+      description: 'One or more agents still use a model from this provider.',
     },
     424: {
       content: { 'application/json': { schema: RequestErrorResponseSchema } },
