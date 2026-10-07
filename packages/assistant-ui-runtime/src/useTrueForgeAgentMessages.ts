@@ -27,7 +27,6 @@ import {
   projectSessionMessages,
   resolveGatewayBranchPreviousTurnIdForTurn,
   rootModelMessageIdsSinceBaseline,
-  TurnFailedError,
   userMessageContentToText,
 } from './convertTurnMessages.js';
 import {
@@ -620,10 +619,7 @@ export function useTrueForgeAgentMessages({
                 abortController.abort();
                 return;
               }
-              const canSubscribe =
-                server.subscribeToTurn != null &&
-                options.reconnect.gatewayTurnAccepted.current &&
-                !(error instanceof TurnFailedError);
+              const canSubscribe = server.subscribeToTurn != null && options.reconnect.gatewayTurnAccepted.current;
               if (!canSubscribe || consecutiveFailures >= STREAM_RECONNECT_MAX_ATTEMPTS) {
                 onErrorRef.current?.(error);
                 throw error;

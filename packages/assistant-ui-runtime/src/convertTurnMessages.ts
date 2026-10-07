@@ -1764,14 +1764,6 @@ function buildMcpAuthUpdate(
   };
 }
 
-/** Terminal `turn.done` with `status: error`. Not a transport drop — do not subscribe-retry. */
-export class TurnFailedError extends Error {
-  constructor(message: string) {
-    super(message);
-    this.name = 'TurnFailedError';
-  }
-}
-
 /** SSE body ended without `turn.done` or a pause — subscribe-retry. */
 export class TurnStreamDisconnectedError extends Error {
   constructor(message = 'Turn stream closed before turn.done') {

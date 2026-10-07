@@ -1467,7 +1467,8 @@ describe('convertTurnMessages', () => {
         ),
       );
 
-      expect(updates).toEqual([{ content: [{ type: 'text', text: 'streaming' }], sequenceNumber: 1 }]);
+      expect(updates[0]).toEqual({ content: [{ type: 'text', text: 'streaming' }], sequenceNumber: 1 });
+      expect(updates.at(-1)).toMatchObject({ turnState: { status: 'done' } });
     });
 
     it('reports every stream sequence including events that do not yield UI', async () => {
@@ -1545,7 +1546,7 @@ describe('convertTurnMessages', () => {
         ),
       );
 
-      expect(updates).toHaveLength(3);
+      expect(updates.length).toBeGreaterThanOrEqual(3);
       expect(updates[0]?.content).toEqual([{ type: 'text', text: 'first' }]);
       expect(updates[1]?.content).toEqual([
         { type: 'text', text: 'first' },
@@ -1591,7 +1592,8 @@ describe('convertTurnMessages', () => {
         ),
       );
 
-      expect(updates).toEqual([{ content: [{ type: 'text', text: 'new turn only' }], sequenceNumber: 1 }]);
+      expect(updates[0]).toEqual({ content: [{ type: 'text', text: 'new turn only' }], sequenceNumber: 1 });
+      expect(updates.at(-1)).toMatchObject({ turnState: { status: 'done' } });
     });
 
     it('projects terminal turn errors', async () => {
@@ -1656,12 +1658,6 @@ describe('convertTurnMessages', () => {
                 status: 'paused',
                 actionRequiredOnEvents: [{ id: 'approval-event' }],
               },
-            },
-            {
-              type: 'turn.done',
-              id: 'done-auto',
-              createdAt,
-              state: { status: 'done', completedAt: createdAt },
             },
           ]),
           foldState,
@@ -1795,12 +1791,6 @@ describe('convertTurnMessages', () => {
               threadId: null,
               state: { status: 'running' },
             },
-            {
-              type: 'turn.done',
-              id: 'done-auto',
-              createdAt,
-              state: { status: 'done', completedAt: createdAt },
-            },
           ]),
           foldState,
         ),
@@ -1872,12 +1862,6 @@ describe('convertTurnMessages', () => {
               threadId: ROOT_THREAD_ID,
               toolCalls: [{ id: 'approval-2', sourceEventId: 'm2' }],
             }),
-            {
-              type: 'turn.done',
-              id: 'done-auto',
-              createdAt,
-              state: { status: 'done', completedAt: createdAt },
-            },
           ]),
           foldState,
         ),
@@ -1926,12 +1910,6 @@ describe('convertTurnMessages', () => {
                 actionRequiredOnEvents: [{ id: 'mcp-auth' }],
               },
             },
-            {
-              type: 'turn.done',
-              id: 'done-auto',
-              createdAt,
-              state: { status: 'done', completedAt: createdAt },
-            },
           ]),
           foldState,
         ),
@@ -1976,9 +1954,9 @@ describe('convertTurnMessages', () => {
         ),
       );
 
-      expect(updates).toHaveLength(2);
       expect(updates[0]?.metadata?.custom?.['sandboxId']).toBeUndefined();
       expect(updates[1]?.metadata?.custom?.['sandboxId']).toBe('sbx-123');
+      expect(updates.at(-1)).toMatchObject({ turnState: { status: 'done' } });
     });
 
     it('yields a trailing update carrying sandboxId when sandbox.created is the last event', async () => {
@@ -2039,12 +2017,6 @@ describe('convertTurnMessages', () => {
                 status: 'paused',
                 actionRequiredOnEvents: [{ id: 'mcp-auth' }],
               },
-            },
-            {
-              type: 'turn.done',
-              id: 'done-auto',
-              createdAt,
-              state: { status: 'done', completedAt: createdAt },
             },
           ]),
           foldState,

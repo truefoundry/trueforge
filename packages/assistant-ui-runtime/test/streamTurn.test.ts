@@ -24,6 +24,15 @@ async function collectUpdates(generator: AsyncGenerator<{ content: unknown[] }>)
   return updates;
 }
 
+async function* emptyCompletedTurnStream(): AsyncGenerator<TurnStreamData> {
+  yield streamData(1, {
+    type: 'turn.done',
+    createdAt,
+    id: 'done-empty',
+    state: { status: 'done', completedAt: createdAt },
+  });
+}
+
 describe('streamTurn', () => {
   describe('streamTurnContent', () => {
     it('prepares a user turn and yields folded stream updates', async () => {
@@ -58,11 +67,12 @@ describe('streamTurn', () => {
         previousTurnId: 'auto',
         abortSignal: expect.any(AbortSignal),
       });
-      expect(updates).toEqual([{ content: [{ type: 'text', text: 'hello from stream' }], sequenceNumber: 1 }]);
+      expect(updates[0]).toEqual({ content: [{ type: 'text', text: 'hello from stream' }], sequenceNumber: 1 });
+      expect(updates.at(-1)).toMatchObject({ turnState: { status: 'done' } });
     });
 
     it('forwards an explicit previousTurnId when branching', async () => {
-      const createTurn = vi.fn(async function* () {});
+      const createTurn = vi.fn(emptyCompletedTurnStream);
       const server = mockServer({
         createTurn,
         cancelSession: vi.fn().mockResolvedValue(undefined),
@@ -87,7 +97,7 @@ describe('streamTurn', () => {
     });
 
     it('forwards previousTurnId "none" when branching from root', async () => {
-      const createTurn = vi.fn(async function* () {});
+      const createTurn = vi.fn(emptyCompletedTurnStream);
       const server = mockServer({
         createTurn,
         cancelSession: vi.fn().mockResolvedValue(undefined),
@@ -168,7 +178,7 @@ describe('streamTurn', () => {
     });
 
     it('forwards headers to createTurn', async () => {
-      const createTurn = vi.fn(async function* () {});
+      const createTurn = vi.fn(emptyCompletedTurnStream);
       const server = mockServer({
         createTurn,
         cancelSession: vi.fn().mockResolvedValue(undefined),
@@ -321,7 +331,8 @@ describe('streamTurn', () => {
         afterSequenceNumber: 1,
         abortSignal: expect.any(AbortSignal),
       });
-      expect(updates).toEqual([{ content: [{ type: 'text', text: 'resumed' }], sequenceNumber: 2 }]);
+      expect(updates[0]).toEqual({ content: [{ type: 'text', text: 'resumed' }], sequenceNumber: 2 });
+      expect(updates.at(-1)).toMatchObject({ turnState: { status: 'done' } });
     });
 
     it('keeps draining after paused until turn.done', async () => {
