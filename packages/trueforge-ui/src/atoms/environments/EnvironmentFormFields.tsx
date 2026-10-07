@@ -20,32 +20,9 @@ export type EnvironmentFormValues = {
   environmentVariables: Array<{ key: string; value: string }>;
 };
 
-export const SANDBOX_ENVIRONMENT_RESOURCE_LIMITS = {
-  cpu: { min: 1, max: 4 },
-  memory: { min: 1, max: 8 },
-  disk: { min: 1, max: 10 },
-} as const;
 export const SANDBOX_ENVIRONMENT_VARIABLE_NAME_MAX_LENGTH = 128;
 export const SANDBOX_ENVIRONMENT_VARIABLE_VALUE_MAX_LENGTH = 4096;
 const ENVIRONMENT_VARIABLE_NAME_PATTERN = /^[A-Za-z_][A-Za-z0-9_]*$/;
-
-function resourceRangeError({
-  value,
-  label,
-  unit,
-  limits,
-}: {
-  value: string;
-  label: string;
-  unit: string;
-  limits: { min: number; max: number };
-}): string | null {
-  const parsed = Number(value);
-  if (Number.isFinite(parsed) && parsed >= limits.min && parsed <= limits.max) {
-    return null;
-  }
-  return `${label} must be between ${String(limits.min)} and ${String(limits.max)} ${unit}`;
-}
 
 export function manifestToFormValues(manifest: SandboxEnvironmentManifest): EnvironmentFormValues {
   return {
@@ -108,28 +85,12 @@ export function validateEnvironmentForm(values: EnvironmentFormValues): string |
   const name = values.name.trim();
   if (name.length === 0) return 'Name is required';
   if (isReservedEnvironmentName(name)) return 'Name "default" is reserved';
-  const resourceError =
-    resourceRangeError({
-      value: values.cpu,
-      label: 'CPU',
-      unit: 'vCPU',
-      limits: SANDBOX_ENVIRONMENT_RESOURCE_LIMITS.cpu,
-    }) ??
-    resourceRangeError({
-      value: values.memory,
-      label: 'Memory',
-      unit: 'GiB',
-      limits: SANDBOX_ENVIRONMENT_RESOURCE_LIMITS.memory,
-    }) ??
-    resourceRangeError({
-      value: values.disk,
-      label: 'Disk',
-      unit: 'GiB',
-      limits: SANDBOX_ENVIRONMENT_RESOURCE_LIMITS.disk,
-    });
-  if (resourceError !== null) {
-    return resourceError;
-  }
+  const cpu = Number(values.cpu);
+  const memory = Number(values.memory);
+  const disk = Number(values.disk);
+  if (!Number.isFinite(cpu) || cpu <= 0) return 'CPU must be a positive number';
+  if (!Number.isFinite(memory) || memory <= 0) return 'Memory must be a positive number';
+  if (!Number.isFinite(disk) || disk <= 0) return 'Disk must be a positive number';
   for (const variable of values.environmentVariables) {
     const variableName = variable.key.trim();
     if (variableName.length === 0) continue;
@@ -222,8 +183,7 @@ export function EnvironmentFormFields({
             <input
               className={fieldClassName}
               type="number"
-              min={SANDBOX_ENVIRONMENT_RESOURCE_LIMITS.cpu.min}
-              max={SANDBOX_ENVIRONMENT_RESOURCE_LIMITS.cpu.max}
+              min={0.1}
               step="any"
               value={values.cpu}
               placeholder="type..."
@@ -235,8 +195,7 @@ export function EnvironmentFormFields({
             <input
               className={fieldClassName}
               type="number"
-              min={SANDBOX_ENVIRONMENT_RESOURCE_LIMITS.memory.min}
-              max={SANDBOX_ENVIRONMENT_RESOURCE_LIMITS.memory.max}
+              min={0.1}
               step="any"
               value={values.memory}
               placeholder="type..."
@@ -248,8 +207,7 @@ export function EnvironmentFormFields({
             <input
               className={fieldClassName}
               type="number"
-              min={SANDBOX_ENVIRONMENT_RESOURCE_LIMITS.disk.min}
-              max={SANDBOX_ENVIRONMENT_RESOURCE_LIMITS.disk.max}
+              min={0.1}
               step="any"
               value={values.disk}
               placeholder="type..."

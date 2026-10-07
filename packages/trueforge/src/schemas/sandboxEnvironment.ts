@@ -17,11 +17,6 @@ export const SANDBOX_ENVIRONMENT_VARIABLE_VALUE_MAX_LENGTH = 4096;
 export const DEFAULT_SANDBOX_ENVIRONMENT_NAME = 'default';
 
 export const DEFAULT_SANDBOX_ENVIRONMENT_RESOURCES = { cpu: 1, memory: 1, disk: 3 } as const;
-export const SANDBOX_ENVIRONMENT_RESOURCE_LIMITS = {
-  cpu: { min: 1, max: 4 },
-  memory: { min: 1, max: 8 },
-  disk: { min: 1, max: 10 },
-} as const;
 
 const BUILD_SCRIPT_EXAMPLE = 'set -ex\npip install httpx\n';
 
@@ -55,24 +50,13 @@ export const SandboxEnvironmentImageSchema = z
 
 export const SandboxEnvironmentResourcesSchema = z
   .object({
-    cpu: z
-      .number()
-      .min(SANDBOX_ENVIRONMENT_RESOURCE_LIMITS.cpu.min)
-      .max(SANDBOX_ENVIRONMENT_RESOURCE_LIMITS.cpu.max)
-      .default(DEFAULT_SANDBOX_ENVIRONMENT_RESOURCES.cpu)
-      .describe('CPU allocation in cores (1–4).'),
+    cpu: z.number().positive().default(DEFAULT_SANDBOX_ENVIRONMENT_RESOURCES.cpu).describe('CPU allocation in cores.'),
     memory: z
       .number()
-      .min(SANDBOX_ENVIRONMENT_RESOURCE_LIMITS.memory.min)
-      .max(SANDBOX_ENVIRONMENT_RESOURCE_LIMITS.memory.max)
+      .positive()
       .default(DEFAULT_SANDBOX_ENVIRONMENT_RESOURCES.memory)
-      .describe('Memory allocation in GiB (1–8).'),
-    disk: z
-      .number()
-      .min(SANDBOX_ENVIRONMENT_RESOURCE_LIMITS.disk.min)
-      .max(SANDBOX_ENVIRONMENT_RESOURCE_LIMITS.disk.max)
-      .default(DEFAULT_SANDBOX_ENVIRONMENT_RESOURCES.disk)
-      .describe('Disk allocation in GiB (1–10).'),
+      .describe('Memory allocation in GiB.'),
+    disk: z.number().positive().default(DEFAULT_SANDBOX_ENVIRONMENT_RESOURCES.disk).describe('Disk allocation in GiB.'),
   })
   .strict()
   .openapi('SandboxEnvironmentResources');

@@ -8,6 +8,7 @@ import { InvalidPageTokenError } from '@truefoundry/trueforge-core/agent-session
 import type { Context } from 'hono';
 import type { Logger } from 'winston';
 import { createdBySubjectFromRequestContext, type ResolveRequestContext } from '../auth/identity';
+import configuration from '../config';
 import type { IAgentStore } from '../db/agentStore';
 import {
   SandboxEnvironmentNameConflictError,
@@ -29,7 +30,11 @@ import {
   SandboxEnvironmentSecretSyncError,
   syncSandboxEnvironmentSecrets,
 } from '../sandbox/syncSandboxEnvironmentSecrets';
-import { DEFAULT_SANDBOX_ENVIRONMENT_NAME, type SandboxEnvironment } from '../schemas/sandboxEnvironment';
+import {
+  DEFAULT_SANDBOX_ENVIRONMENT_NAME,
+  type SandboxEnvironment,
+  type SandboxEnvironmentManifest,
+} from '../schemas/sandboxEnvironment';
 import { MissingStoredSecretError } from '../utils/secretRedaction';
 
 export interface SandboxEnvironmentsRouterDeps<TTransaction> {
@@ -76,6 +81,14 @@ function sandboxEnvironmentSecretHttpError(error: unknown): { status: 422 | 502;
     : { status: 422, message: authorizationMessage };
 }
 
+function validateManifest(manifest: SandboxEnvironmentManifest): boolean {
+  return (
+    manifest.resources.cpu <= configuration.SANDBOX_ENVIRONMENT_CPU_MAX &&
+    manifest.resources.memory <= configuration.SANDBOX_ENVIRONMENT_MEMORY_GIB_MAX &&
+    manifest.resources.disk <= configuration.SANDBOX_ENVIRONMENT_DISK_GIB_MAX
+  );
+}
+
 /** CRUD for sandbox environments. */
 export function createSandboxEnvironmentsRouter<TTransaction>(
   deps: SandboxEnvironmentsRouterDeps<TTransaction>,
@@ -120,13 +133,16 @@ export function createSandboxEnvironmentsRouter<TTransaction>(
   const putHandler: RouteHandler<typeof putSandboxEnvironmentRoute> = async c => {
     const body = c.req.valid('json');
     const requestContext = resolveRequestContext(c);
+    const { manifest } = body;
+    if (!validateManifest(manifest)) {
+      return c.json({ error: { message: 'Sandbox environment resources exceed configured limits' } }, 400);
+    }
     const provider = await resolveSandboxProviderRecord(deps.resolveSandboxProviderStore(c), requestContext.tenant_id);
     if (provider === undefined) {
       return c.json({ error: { message: 'No sandbox provider configured' } }, 422);
     }
 
     const created_by_subject = createdBySubjectFromRequestContext(requestContext);
-    const { manifest } = body;
 
     try {
       const existing = await store.getEnvironment({
