@@ -5,6 +5,7 @@ import { OpenAPIHono, type RouteHandler } from '@hono/zod-openapi';
 import type { ISessionStore, SessionHandle, SessionRecord, Sessions } from '@truefoundry/trueforge-core/agent-session';
 import {
   CancellationReason,
+  isNonTerminalTurnState,
   SessionStoreConflictError,
   SessionStoreInvariantError,
   SessionStoreNotFoundError,
@@ -123,12 +124,13 @@ export interface CancelTurnDeps {
 }
 
 /**
- * Cancels the turn wherever it runs: locally or on the owning peer over Redis
- * request-reply. Callers state the motive; default is a plain client cancel.
+ * Cancels a `running` or `paused` turn wherever it lives: locally or on the
+ * owning peer over Redis request-reply. Callers state the motive; default is a
+ * plain client cancel.
  *
  * A confirmed abort (this process, or peer HTTP 200) lets TurnHandle persist
  * the terminal state. If abort cannot be confirmed, this replica freezes the
- * turn in the store so the session is not stuck `running`.
+ * turn in the store so the session is not stuck `running` or `paused`.
  *
  * Redis timeout and Redis/transport failures are not a clean cancellation —
  * the owning replica may still be executing — but the turn is still frozen.
@@ -145,8 +147,7 @@ export async function cancelSessionTurn(
     session_id: sessionId,
     turn_id: turnId,
   });
-  if (turn?.state.status !== 'running') {
-    // Missing or already terminal — nothing to cancel.
+  if (!turn || !isNonTerminalTurnState(turn.state)) {
     return;
   }
 
@@ -178,9 +179,9 @@ export async function cancelSessionTurn(
         ...extractErrorLogFields(error),
       };
       if (error instanceof RequestTimeoutError) {
-        deps.logger.warn('Timed out waiting for owning executor to cancel; freezing the running turn', fields);
+        deps.logger.warn('Timed out waiting for owning executor to cancel; freezing the turn', fields);
       } else {
-        deps.logger.warn('Failed to reach owning executor over Redis; freezing the running turn', fields);
+        deps.logger.warn('Failed to reach owning executor over Redis; freezing the turn', fields);
       }
     }
     await freezeTurnIgnoringMissing(deps.session, { turnId, reason });
@@ -196,7 +197,7 @@ export async function cancelSessionTurn(
   });
 }
 
-/** Freeze a running turn; missing turns are a no-op (already gone). */
+/** Freeze a non-terminal turn; missing turns are a no-op (already gone). */
 async function freezeTurnIgnoringMissing(
   session: Pick<SessionHandle, 'freezeTurn'>,
   input: { turnId: string; reason: CancellationReason },

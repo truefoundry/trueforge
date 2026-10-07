@@ -318,7 +318,7 @@ export class SessionHandle<
   }
 
   /**
-   * Conditionally cancel a running turn in this session and return the
+   * Conditionally cancel a running or paused turn in this session and return the
    * now-immutable record. Already-terminal turns are returned unchanged.
    * Missing turn → {@link TurnNotFoundError}.
    */
