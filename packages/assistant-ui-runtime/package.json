@@ -1,6 +1,6 @@
 {
   "name": "@truefoundry/trueforge-assistant-ui-runtime",
-  "version": "0.177.0-rc.3",
+  "version": "0.177.0-rc.4",
   "description": "TrueForge agent runtime adapter for assistant-ui",
   "author": "TrueFoundry",
   "license": "Apache-2.0",

@@ -1,5 +1,11 @@
 # @truefoundry/trueforge-assistant-ui-runtime
 
+## 0.177.0-rc.4
+
+### Patch Changes
+
+- 8057109: Reattach a live turn via subscribe after create/subscribe SSE drops, using the last ingested sequence number so the composer stays running instead of toasting a network error.
+
 ## 0.177.0-rc.3
 
 ### Patch Changes

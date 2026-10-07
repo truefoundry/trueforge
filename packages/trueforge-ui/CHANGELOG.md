@@ -1,5 +1,12 @@
 # Changelog
 
+## 0.177.0-rc.5
+
+### Patch Changes
+
+- Updated dependencies [8057109]
+  - @truefoundry/trueforge-assistant-ui-runtime@0.177.0-rc.4
+
 ## 0.177.0-rc.4
 
 ### Patch Changes
