@@ -2,6 +2,8 @@
 
 import { useEffect, useMemo, useState, type FormEvent } from 'react';
 
+import { useTrackAnalytics } from '../../analytics/AnalyticsProvider.js';
+import { AnalyticsEvents } from '../../analytics/events.js';
 import { useToasterOptional } from '../../containers/ToasterContainer.js';
 import { useSandboxEnvironmentServer } from '../../server/ServerContext.js';
 import type { SandboxEnvironment, SandboxEnvironmentManifest } from '../../server/types.js';
@@ -34,6 +36,7 @@ type EditorMode = 'form' | 'yaml';
 export function EnvironmentFormDrawer({ open, onOpenChange, mode, environment, onSaved }: EnvironmentFormDrawerProps) {
   const environmentServer = useSandboxEnvironmentServer();
   const toaster = useToasterOptional();
+  const track = useTrackAnalytics();
   const [editorMode, setEditorMode] = useState<EditorMode>('form');
   const [form, setForm] = useState<EnvironmentFormValues>(() => manifestToFormValues(defaultEnvironmentManifest()));
   const [yamlText, setYamlText] = useState(() => manifestToYaml(defaultEnvironmentManifest()));
@@ -122,7 +125,11 @@ export function EnvironmentFormDrawer({ open, onOpenChange, mode, environment, o
 
     setSaving(true);
     try {
-      await environmentServer.createOrUpdateEnvironment({ manifest });
+      const saved = await environmentServer.createOrUpdateEnvironment({ manifest });
+      track(mode === 'create' ? AnalyticsEvents.Environment.CREATED : AnalyticsEvents.Environment.EDITED, {
+        environment_name: saved.name,
+        environment_id: saved.id,
+      });
       toaster?.showSuccess({
         title: mode === 'create' ? 'Environment created' : 'Environment updated',
       });

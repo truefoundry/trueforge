@@ -9,6 +9,8 @@ import { fireEvent, render, screen, waitFor } from '@testing-library/react';
 import type { ReactNode } from 'react';
 import { beforeAll, describe, expect, it, vi } from 'vitest';
 
+import { AnalyticsProvider } from '@/analytics/AnalyticsProvider.js';
+import { AnalyticsEvents } from '@/analytics/events.js';
 import type { ThreadListRowProps } from '@/atoms/ThreadListRow.js';
 import { CompactLayoutProvider } from '@/atoms/lib/CompactLayoutContext.js';
 import { ThreadListContainer, type ThreadListContainerProps } from '@/containers/ThreadListContainer.js';
@@ -113,6 +115,7 @@ function renderThreadList({
   canRename = false,
   permissions,
   variant,
+  track,
 }: {
   adapter: ExternalStoreThreadListAdapter;
   onThreadOpen?: () => void;
@@ -122,6 +125,7 @@ function renderThreadList({
     listPermissions: (req: { resourceType: string; resourceIds: string[] }) => Promise<ListPermissionsResponse>;
   };
   variant?: ThreadListContainerProps['variant'];
+  track?: (eventName: string, data?: Record<string, string | number | boolean | undefined>) => void;
 }) {
   const list = (
     <SlotsProvider overrides={{ ThreadListRow: ThreadListRowOverride }}>
@@ -134,9 +138,10 @@ function renderThreadList({
       </ToasterProvider>
     </SlotsProvider>
   );
+  const withAnalytics = track != null ? <AnalyticsProvider track={track}>{list}</AnalyticsProvider> : list;
 
   if (!canDelete && !canRename) {
-    return render(list);
+    return render(withAnalytics);
   }
 
   return render(
@@ -147,7 +152,7 @@ function renderThreadList({
         ...(permissions === undefined ? {} : { permissions }),
       })}
     >
-      {list}
+      {withAnalytics}
     </ServerProvider>,
   );
 }
@@ -349,6 +354,7 @@ describe('ThreadListContainer', () => {
 
   it('exposes delete only for remote sessions and delegates deletion to the runtime', async () => {
     const onDelete = vi.fn(async () => {});
+    const track = vi.fn();
 
     renderThreadList({
       adapter: {
@@ -369,6 +375,7 @@ describe('ThreadListContainer', () => {
         onDelete,
       },
       canDelete: true,
+      track,
     });
 
     const actionButtons = screen.getAllByRole('button', { name: 'Session actions' });
@@ -383,6 +390,10 @@ describe('ThreadListContainer', () => {
     await waitFor(() => {
       expect(onDelete).toHaveBeenCalledWith('thread-1');
     });
+    expect(track).toHaveBeenCalledWith(
+      AnalyticsEvents.Session.DELETED,
+      expect.objectContaining({ session_id: 'session-1' }),
+    );
   });
 
   it('hides rename when the server does not opt in', () => {
