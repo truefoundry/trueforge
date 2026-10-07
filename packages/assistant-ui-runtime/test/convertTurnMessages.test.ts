@@ -2793,6 +2793,7 @@ describe('buildSnapshotFromSessionEvents', () => {
             threadId: ROOT_THREAD_ID,
             content: 'I ran 10 sandbox commands',
           }),
+          turnDone(),
         ]),
         snapshot.fold,
         snapshot.groupRootBaseline,
