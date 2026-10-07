@@ -141,6 +141,7 @@ export type AgentSessionTimelineContainerProps = {
   events: SessionEventItem[];
   contentMaxWidth?: string;
   sessionMetrics?: {
+    totalTurns?: number;
     totalCostInUsd?: number;
     totalDurationMs: number;
   };
