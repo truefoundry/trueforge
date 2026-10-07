@@ -53,3 +53,18 @@ Default atoms use CSS variables from the auto-injected stylesheet (scoped to
 
 `ToasterProvider` shows success and error toasts. Descriptions from gateway
 errors are truncated for display.
+
+## Analytics
+
+`AnalyticsProvider` forwards product events to a host-supplied `track` sink.
+The SDK never ships a vendor client (e.g. PostHog). Mount order inside
+`TrueForgeUI`: under `SlotsProvider` / `ServerProvider`, wrapping
+`ToasterProvider` so chrome and chat share one sink.
+
+- Pass `analytics={{ track }}` on `<TrueForgeUI />`, or mount
+  `AnalyticsProvider` yourself around a custom compose tree.
+- `useTrackAnalytics()` always returns a function (no-op when unset).
+- Event names live in `AnalyticsEvents` (`src/analytics/events.ts`).
+- Prefer firing from **containers** that wrap atom callbacks so visual slot
+  overrides keep tracking. Atom-owned chrome (settings, config trigger, share)
+  may call the hook directly.

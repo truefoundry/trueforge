@@ -12,6 +12,7 @@ import { buildRootAssistantContent, ingestTurnEvent, PeerThreadFoldState } from 
 import { loadSessionSnapshot } from '../src/loadSessionSnapshot.js';
 import { MESSAGE_CUSTOM_KEY } from '../src/messageCustomMetadata.js';
 import { createEmptySessionSnapshot, replaceSessionSnapshot, type SessionSnapshot } from '../src/sessionSnapshot.js';
+import { delayReconnect } from '../src/streamReconnect.js';
 import { resumeTurnStream, streamTurnContent } from '../src/streamTurn.js';
 import { messageHasPendingApprovals } from '../src/toolApproval.js';
 import { messageHasPendingResponses, toolResponseMessageCustom, toolResponseStatus } from '../src/toolResponse.js';
@@ -25,6 +26,20 @@ vi.mock('../src/streamTurn.js', () => ({
   streamTurnContent: vi.fn(),
   resumeTurnStream: vi.fn(),
 }));
+
+vi.mock('../src/streamReconnect.js', async importOriginal => {
+  const actual = await importOriginal<typeof import('../src/streamReconnect.js')>();
+  return {
+    ...actual,
+    delayReconnect: vi.fn(async (signal: AbortSignal) => {
+      if (signal.aborted) {
+        const error = new Error('Aborted');
+        error.name = 'AbortError';
+        throw error;
+      }
+    }),
+  };
+});
 
 vi.mock('../src/convertTurnMessages.js', async importOriginal => {
   const actual = await importOriginal<typeof import('../src/convertTurnMessages.js')>();
@@ -316,6 +331,13 @@ async function* singleUpdateStream() {
 describe('useTrueForgeAgentMessages', () => {
   beforeEach(() => {
     vi.clearAllMocks();
+    vi.mocked(delayReconnect).mockImplementation(async (signal: AbortSignal) => {
+      if (signal.aborted) {
+        const error = new Error('Aborted');
+        error.name = 'AbortError';
+        throw error;
+      }
+    });
     vi.mocked(mockServer.cancelSession).mockResolvedValue(undefined);
     vi.mocked(mockServer.sendTurnEvents).mockImplementation(async ({ events }) =>
       events.map(event => ({
@@ -531,7 +553,7 @@ describe('useTrueForgeAgentMessages', () => {
             input: [{ type: 'user.message', content: 'continue' }],
           },
         ],
-        activeTurn: runningTurn,
+        runningTurn: runningTurn,
         groupRootBaseline: [],
         unstable_resume: true,
       }),
@@ -570,7 +592,7 @@ describe('useTrueForgeAgentMessages', () => {
     } satisfies Turn;
     vi.mocked(loadSessionSnapshot).mockResolvedValue(
       replaceSessionSnapshot(createEmptySessionSnapshot(), {
-        activeTurn: runningTurn,
+        runningTurn: runningTurn,
         unstable_resume: true,
         pendingUser: {
           turnId: runningTurn.id,
@@ -1745,7 +1767,7 @@ describe('useTrueForgeAgentMessages', () => {
 
   it('subscribes before cancelling a paused turn and applies the terminal event', async () => {
     const pausedSnapshot = snapshotWithAssistantMessage(assistantMessageWithPendingApproval(), {
-      activeTurn: {
+      runningTurn: {
         id: 'turn-1',
         sessionId: 'session-1',
         input: [{ type: 'user.message', content: 'run it' }],
@@ -1868,7 +1890,7 @@ describe('useTrueForgeAgentMessages', () => {
   it('keeps paused state when the backend rejects cancellation', async () => {
     vi.mocked(loadSessionSnapshot).mockResolvedValue(
       snapshotWithAssistantMessage(assistantMessageWithPendingApproval(), {
-        activeTurn: {
+        runningTurn: {
           id: 'turn-1',
           sessionId: 'session-1',
           input: [{ type: 'user.message', content: 'run it' }],

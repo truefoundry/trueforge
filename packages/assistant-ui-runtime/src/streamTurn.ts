@@ -4,6 +4,7 @@ import type { AgentChatServer, PreviousTurnIdInput, UserMessageContent } from '.
 
 import { streamTurnEvents } from './convertTurnMessages.js';
 import { PeerThreadFoldState } from './foldPeerThreads.js';
+import { throwIfAborted } from './streamReconnect.js';
 import type { TurnStreamUpdate } from './turnStreamUpdate.js';
 
 export interface StreamTurnOptions {
@@ -30,13 +31,12 @@ export async function* streamTurnContent(
    * optimistic ID with the real turn ID.
    */
   onTurnIdAvailable?: (turnId: string) => void,
+  onSequenceNumber?: (sequenceNumber: number) => void,
 ): AsyncGenerator<TurnStreamUpdate> {
   // Aborting only detaches this client from the run; the turn keeps running on
   // the backend so switching sessions (or remounting) can reattach via
   // `subscribeToTurn`. Stopping the run is an explicit `cancelSession` call.
-  if (abortSignal.aborted) {
-    return;
-  }
+  throwIfAborted(abortSignal);
 
   let turnIdNotified = false;
   const notifyTurnId = (turnId: string) => {
@@ -55,9 +55,7 @@ export async function* streamTurnContent(
   });
 
   try {
-    for await (const update of streamTurnEvents(stream, foldState, groupRootBaseline, notifyTurnId)) {
-      yield update;
-    }
+    yield* streamTurnEvents(stream, foldState, groupRootBaseline, notifyTurnId, onSequenceNumber);
   } catch (error) {
     if (error instanceof Error && error.name === 'AbortError') {
       return;
@@ -74,10 +72,15 @@ export async function* resumeTurnStream(
   abortSignal: AbortSignal,
   afterSequenceNumber?: number,
   groupRootBaseline?: readonly string[],
+  onSequenceNumber?: (sequenceNumber: number) => void,
 ): AsyncGenerator<TurnStreamUpdate> {
-  if (abortSignal.aborted) {
+  // Optional on custom backends. Callers detect the gap and report it, so an
+  // empty stream here is safer than throwing mid-render.
+  if (server.subscribeToTurn == null) {
     return;
   }
+
+  throwIfAborted(abortSignal);
 
   try {
     yield* streamTurnEvents(
@@ -89,6 +92,8 @@ export async function* resumeTurnStream(
       }),
       foldState,
       groupRootBaseline,
+      undefined,
+      onSequenceNumber,
     );
   } catch (error) {
     if (error instanceof Error && error.name === 'AbortError') {

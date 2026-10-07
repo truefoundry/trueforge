@@ -10,6 +10,8 @@ import {
 import { useTrueForgeRespondToToolApproval } from '@truefoundry/trueforge-assistant-ui-runtime';
 import { useCallback, useState } from 'react';
 
+import { useTrackAnalytics } from '../analytics/AnalyticsProvider.js';
+import { AnalyticsEvents } from '../analytics/events.js';
 import { useSlot } from '../theme/SlotsProvider.js';
 import {
   ASK_USER_TOOL_NAME,
@@ -32,7 +34,7 @@ import {
 } from '../utils/toolCallParsing.js';
 import { useRegisterApprovalExpand } from './approvalFocus.js';
 import { AssistantTextContainer } from './AssistantTextContainer.js';
-import { NestedApprovalBridgeContext } from './nestedApprovalBridge.js';
+import { NestedApprovalBridgeContext, useNestedApprovalBridge } from './nestedApprovalBridge.js';
 import { SandboxToolCallContainer } from './SandboxToolCallContainer.js';
 import { ToolApprovalContainer } from './ToolApprovalContainer.js';
 import { ToolCallContentBlockContainer } from './ToolCallContentBlockContainer.js';
@@ -58,15 +60,33 @@ function NestedSubAgentAssistantMessage() {
 }
 
 function ToolApprovalSlot({ part }: { part: ToolCallMessagePartProps }) {
+  const isNestedReadonly = useNestedApprovalBridge();
   const respondToApproval = useTrueForgeRespondToToolApproval();
-  if (part.approval == null) return null;
+  // Fire here (not the bar atom) so nested + optionId/approved mapping stay correct.
+  const track = useTrackAnalytics();
+  const approval = part.approval;
+  if (approval == null) return null;
+
+  const onRespond = async (response: Parameters<typeof respondToApproval>[0]) => {
+    track(AnalyticsEvents.Tool.APPROVAL_RESOLVED, {
+      tool_name: part.toolName,
+      option_id: response.optionId ?? (response.approved ? '__allow' : '__deny'),
+      approved: response.approved,
+      has_reason: response.reason != null && response.reason.trim().length > 0,
+      nested: isNestedReadonly,
+    });
+    await respondToApproval({
+      ...response,
+      approvalId: approval.id,
+    });
+  };
 
   return (
     <ToolApprovalContainer
-      approvalId={part.approval.id}
+      approvalId={approval.id}
       toolName={part.toolName}
       argsText={part.argsText}
-      onRespond={respondToApproval}
+      onRespond={onRespond}
     />
   );
 }

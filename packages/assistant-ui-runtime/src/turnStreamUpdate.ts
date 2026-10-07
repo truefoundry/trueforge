@@ -6,7 +6,7 @@ import type { TurnState } from './server/index.js';
 export interface TurnStreamUpdate {
   content: AssistantContentPart[];
   status?: MessageStatus;
-  /** Latest durable sequence observed while producing this projection. */
+  /** Last SSE sequence number observed for this update (reconnect cursor). */
   sequenceNumber?: number;
   /**
    * Logical turn state is independent from the SSE connection. In particular,

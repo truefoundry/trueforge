@@ -3,6 +3,7 @@ import {
   ThemeProvider,
   TrueForgeUI,
   useTheme,
+  type AnalyticsConfig,
   type SlotOverrides,
   type ThemeConfig,
 } from '@truefoundry/trueforge-ui';
@@ -12,6 +13,7 @@ import {
   listModels,
   type HarnessAgentSpec,
 } from '@truefoundry/trueforge-ui/plugins/trueforge-agent-server-adapter';
+import posthog from 'posthog-js';
 import { useEffect, useMemo, useState } from 'react';
 import { ThinkingOrb } from 'thinking-orbs';
 import { AuthErrorScreen } from './AuthErrorScreen';
@@ -22,6 +24,31 @@ import { GetStartedScreen } from './GetStartedScreen';
 import { LogoutButton } from './LogoutButton';
 import { NewAgentWelcomeScreen } from './NewAgentWelcomeScreen';
 import { API_BASE_URL, uiRouterBasename } from './publicPath';
+
+const POSTHOG_API_KEY = import.meta.env.VITE_POSTHOG_API_KEY;
+const POSTHOG_HOST = import.meta.env.VITE_POSTHOG_HOST ?? 'https://us.i.posthog.com';
+
+function initAnalytics(): void {
+  if (!POSTHOG_API_KEY) {
+    return;
+  }
+  posthog.init(POSTHOG_API_KEY, {
+    api_host: POSTHOG_HOST,
+    autocapture: false,
+    capture_pageview: false,
+    disable_session_recording: true,
+  });
+}
+
+initAnalytics();
+
+const hostAnalytics: AnalyticsConfig | undefined = POSTHOG_API_KEY
+  ? {
+      track: (eventName, data) => {
+        posthog.capture(eventName, data);
+      },
+    }
+  : undefined;
 
 /** Shared cookie/OIDC fetch for boot helpers and `<TrueForgeUI server />`. */
 const authAwareFetch = createAuthAwareFetch();
@@ -221,6 +248,7 @@ export function App() {
         overrides={overrides}
         theme={appTheme}
         className="app-assistant"
+        {...(hostAnalytics ? { analytics: hostAnalytics } : {})}
       />
     </div>
   );

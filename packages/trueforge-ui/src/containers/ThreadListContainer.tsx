@@ -10,6 +10,9 @@ import {
 } from '@assistant-ui/react';
 import { useCallback, useEffect, useMemo, useRef, useState, type ReactNode, type Ref } from 'react';
 
+import { useTrackAnalytics } from '../analytics/AnalyticsProvider.js';
+import { AnalyticsEvents } from '../analytics/events.js';
+import { withSessionProps } from '../analytics/sessionProps.js';
 import { AgentHistoryFilterButton } from '../atoms/AgentHistoryFilterButton.js';
 import { auiButtonClass } from '../atoms/lib/buttonClasses.js';
 import { cn } from '../atoms/lib/cn.js';
@@ -61,12 +64,14 @@ function ThreadListItemActionsMenu({
   canDelete,
   deleteDisabled,
   onRename,
+  onDelete,
 }: {
   canRename: boolean;
   renameDisabled: boolean;
   canDelete: boolean;
   deleteDisabled: boolean;
   onRename: () => void;
+  onDelete: () => void;
 }) {
   const PermissionGuard = useSlot('PermissionGuard');
   const compact = useCompactLayout();
@@ -108,7 +113,9 @@ function ThreadListItemActionsMenu({
       <ThreadListItemPrimitive.Delete
         className={deleteItemClass}
         onClick={() => {
-          if (!deleteDisabled) setSheetOpen(false);
+          if (deleteDisabled) return;
+          setSheetOpen(false);
+          onDelete();
         }}
       >
         <Icon name="trash" className="size-3.5" />
@@ -181,6 +188,7 @@ function ThreadListItemRow({
 }) {
   const aui = useAui();
   const shell = useOptionalShellMode();
+  const track = useTrackAnalytics();
   const toaster = useToasterOptional();
   const ThreadListRow = useSlot('ThreadListRow');
   const id = useAuiState(s => s.threadListItem.id);
@@ -213,6 +221,7 @@ function ThreadListItemRow({
     setRenameSaving(true);
     try {
       await aui.threadListItem().rename(trimmed);
+      track(AnalyticsEvents.Session.RENAMED, withSessionProps(undefined, { sessionId: remoteId, agentName }));
       setRenameOpen(false);
     } catch (caught) {
       toaster?.showError(caught);
@@ -229,6 +238,10 @@ function ThreadListItemRow({
         agentName={agentName}
         lastMessageAt={lastMessageAt}
         onSelect={() => {
+          track(
+            AnalyticsEvents.Session.SELECTED,
+            withSessionProps({ is_mutable: threadListItemIsMutable(custom) }, { sessionId: remoteId, agentName }),
+          );
           onThreadOpen?.();
           shell?.setSettingsOpen(false);
           shell?.setLibraryOpen(false);
@@ -277,6 +290,9 @@ function ThreadListItemRow({
               canDelete={showDelete}
               deleteDisabled={deleteDisabled}
               onRename={() => setRenameOpen(true)}
+              onDelete={() => {
+                track(AnalyticsEvents.Session.DELETED, withSessionProps(undefined, { sessionId: remoteId, agentName }));
+              }}
             />
           ) : undefined
         }
@@ -406,6 +422,7 @@ function RecentChatsSection({
 export function ThreadListContainer({ onThreadOpen, variant = 'default' }: ThreadListContainerProps = {}) {
   const aui = useAui();
   const server = useOptionalServer();
+  const track = useTrackAnalytics();
   const isLoading = useAuiState(s => s.threads.isLoading);
   const isLoadingMore = useAuiState(s => s.threads.isLoadingMore);
   const hasMore = useAuiState(s => s.threads.hasMore);
@@ -482,6 +499,16 @@ export function ThreadListContainer({ onThreadOpen, variant = 'default' }: Threa
   }, [hasMore, isIdle, isLoading, isLoadingMore, threadIds.length]);
 
   const handleNewChat = () => {
+    // No session_id yet — attaching the prior thread's id would mis-join new-chat funnels.
+    track(
+      AnalyticsEvents.Session.NEW,
+      withSessionProps(
+        { is_composer_enabled: shell?.isComposerEnabled === true },
+        {
+          ...(shell?.mode.status === 'active' ? { agentId: shell.mode.agentId, agentName: shell.mode.agentName } : {}),
+        },
+      ),
+    );
     onThreadOpen?.();
     shell?.setLibraryOpen(false);
     shell?.setSessionsOpen(false);
