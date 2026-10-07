@@ -44,10 +44,7 @@ function useExternalUrlConfirm(): ExternalUrlConfirmContextValue {
  */
 function isDangerousNavigationUrl(url: string): boolean {
   try {
-    const protocol = new URL(
-      url,
-      typeof window !== 'undefined' ? window.location.href : 'http://localhost',
-    ).protocol;
+    const protocol = new URL(url, typeof window !== 'undefined' ? window.location.href : 'http://localhost').protocol;
     return protocol === 'javascript:' || protocol === 'data:' || protocol === 'vbscript:';
   } catch {
     return true;

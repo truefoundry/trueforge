@@ -95,10 +95,7 @@ describe('Markdown', () => {
     const link = screen.getByRole('link', { name: 'cdn' });
     expect(link).toHaveAttribute('href', '#');
 
-    fireEvent(
-      link,
-      new MouseEvent('auxclick', { bubbles: true, cancelable: true, button: 1 }),
-    );
+    fireEvent(link, new MouseEvent('auxclick', { bubbles: true, cancelable: true, button: 1 }));
     expect(openSpy).not.toHaveBeenCalled();
     expect(screen.getByRole('dialog', { name: 'Open external link' })).toBeInTheDocument();
     expect(screen.getByTestId('aui-external-url-confirm-url')).toHaveTextContent('//cdn.example.com/a');
