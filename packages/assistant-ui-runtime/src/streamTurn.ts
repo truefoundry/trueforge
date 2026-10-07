@@ -4,7 +4,6 @@ import type { AgentChatServer, PreviousTurnIdInput, UserMessageContent } from '.
 
 import { streamTurnEvents } from './convertTurnMessages.js';
 import { PeerThreadFoldState } from './foldPeerThreads.js';
-import { throwIfAborted } from './streamReconnect.js';
 import type { TurnStreamUpdate } from './turnStreamUpdate.js';
 
 export interface StreamTurnOptions {
@@ -36,7 +35,9 @@ export async function* streamTurnContent(
   // Aborting only detaches this client from the run; the turn keeps running on
   // the backend so switching sessions (or remounting) can reattach via
   // `subscribeToTurn`. Stopping the run is an explicit `cancelSession` call.
-  throwIfAborted(abortSignal);
+  if (abortSignal.aborted) {
+    return;
+  }
 
   let turnIdNotified = false;
   const notifyTurnId = (turnId: string) => {
@@ -80,7 +81,9 @@ export async function* resumeTurnStream(
     return;
   }
 
-  throwIfAborted(abortSignal);
+  if (abortSignal.aborted) {
+    return;
+  }
 
   try {
     yield* streamTurnEvents(

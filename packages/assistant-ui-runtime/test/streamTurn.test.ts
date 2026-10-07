@@ -36,6 +36,12 @@ describe('streamTurn', () => {
           threadId: ROOT_THREAD_ID,
           content: 'hello from stream',
         });
+        yield streamData(2, {
+          type: 'turn.done',
+          createdAt,
+          id: 'done-auto',
+          state: { status: 'done', completedAt: createdAt },
+        });
       });
       const server = mockServer({
         createTurn,
@@ -138,6 +144,12 @@ describe('streamTurn', () => {
           content: 'partial',
         });
         abortController.abort();
+        yield streamData(2, {
+          type: 'turn.done',
+          createdAt,
+          id: 'done-auto',
+          state: { status: 'done', completedAt: createdAt },
+        });
       });
       const cancelSession = vi.fn().mockResolvedValue(undefined);
       const server = mockServer({ createTurn, cancelSession });
@@ -287,6 +299,12 @@ describe('streamTurn', () => {
           id: 'm2',
           threadId: ROOT_THREAD_ID,
           content: 'resumed',
+        });
+        yield streamData(3, {
+          type: 'turn.done',
+          createdAt,
+          id: 'done-auto',
+          state: { status: 'done', completedAt: createdAt },
         });
       });
       const server = mockServer({

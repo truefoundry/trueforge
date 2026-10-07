@@ -1913,9 +1913,8 @@ export async function* streamTurnEvents(
     if (event.type === EVENT_TYPE.TURN_DONE) {
       // turn.done is the only successful terminal boundary. Do not wait for
       // the transport body to close because resumable subscriptions may linger.
-      if (event.state.status === TURN_STATUS.ERROR) {
-        throw new TurnFailedError(event.state.message);
-      }
+      // Yield error state (HITL) rather than throwing — reconnect must not
+      // subscribe-retry a terminal turn; callers read `turnState` / status.
       sawTurnDone = true;
       yield withSandbox({
         content: yieldContent() ?? [],
