@@ -1,14 +1,49 @@
 // @vitest-environment jsdom
-import { render, screen, waitFor } from '@testing-library/react';
+import { fireEvent, render, screen, waitFor, within } from '@testing-library/react';
 import { useEffect } from 'react';
-import { describe, expect, it } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
+import { EXTERNAL_URL_TRUST_STORAGE_KEY } from '@/atoms/externalUrlTrust.js';
 import { LARGE_STREAMING_FENCE_CHARS, Markdown, getActiveStreamingFenceCode } from '@/atoms/Markdown.js';
 import type { SyntaxHighlighterProps } from '@/atoms/SyntaxHighlighter.js';
 import { SlotsProvider } from '@/theme/SlotsProvider.js';
 
 // @openuidev mocks are in testSetup.ts; they make OpenUiFenceBlock render
 // a simple div with data-testid="aui-openui-renderer" synchronously.
+
+const originalShowModal = Object.getOwnPropertyDescriptor(HTMLDialogElement.prototype, 'showModal');
+const originalClose = Object.getOwnPropertyDescriptor(HTMLDialogElement.prototype, 'close');
+
+beforeEach(() => {
+  Object.defineProperty(HTMLDialogElement.prototype, 'showModal', {
+    configurable: true,
+    value: function showModal(this: HTMLDialogElement) {
+      this.open = true;
+    },
+  });
+  Object.defineProperty(HTMLDialogElement.prototype, 'close', {
+    configurable: true,
+    value: function close(this: HTMLDialogElement) {
+      this.open = false;
+      this.dispatchEvent(new Event('close'));
+    },
+  });
+});
+
+afterEach(() => {
+  window.localStorage.removeItem(EXTERNAL_URL_TRUST_STORAGE_KEY);
+  vi.restoreAllMocks();
+  if (originalShowModal === undefined) {
+    Reflect.deleteProperty(HTMLDialogElement.prototype, 'showModal');
+  } else {
+    Object.defineProperty(HTMLDialogElement.prototype, 'showModal', originalShowModal);
+  }
+  if (originalClose === undefined) {
+    Reflect.deleteProperty(HTMLDialogElement.prototype, 'close');
+  } else {
+    Object.defineProperty(HTMLDialogElement.prototype, 'close', originalClose);
+  }
+});
 
 describe('getActiveStreamingFenceCode', () => {
   it('returns null when every fence is closed', () => {
@@ -29,13 +64,75 @@ describe('Markdown', () => {
     expect(strong.closest('.markdown-body')).toBeTruthy();
   });
 
-  it('opens links in a new tab', () => {
+  it('marks external links for a new tab and confirms before opening', () => {
+    const openSpy = vi.spyOn(window, 'open').mockReturnValue(null);
     render(<Markdown content="See [docs](https://example.com/docs) for details." />);
     const link = screen.getByRole('link', { name: 'docs' });
     expect(link).toHaveAttribute('href', 'https://example.com/docs');
     expect(link).toHaveAttribute('target', '_blank');
     expect(link).toHaveAttribute('rel', 'noopener noreferrer');
     expect(link).not.toHaveAttribute('node');
+
+    fireEvent.click(link);
+    expect(openSpy).not.toHaveBeenCalled();
+    expect(screen.getByRole('dialog', { name: 'Open external link' })).toBeInTheDocument();
+    expect(screen.getByTestId('aui-external-url-confirm-url')).toHaveTextContent('https://example.com/docs');
+
+    fireEvent.click(screen.getByRole('button', { name: 'Cancel' }));
+    expect(screen.queryByRole('dialog', { name: 'Open external link' })).not.toBeInTheDocument();
+    expect(openSpy).not.toHaveBeenCalled();
+
+    fireEvent.click(link);
+    fireEvent.click(screen.getByRole('button', { name: 'Open link' }));
+    expect(openSpy).toHaveBeenCalledWith('https://example.com/docs', '_blank', 'noopener,noreferrer');
+  });
+
+  it('skips the link dialog after trusting a host', () => {
+    const openSpy = vi.spyOn(window, 'open').mockReturnValue(null);
+    render(<Markdown content="See [docs](https://example.com/docs) for details." />);
+    const link = screen.getByRole('link', { name: 'docs' });
+
+    fireEvent.click(link);
+    fireEvent.click(screen.getByRole('checkbox'));
+    fireEvent.click(screen.getByRole('button', { name: 'Open link' }));
+    expect(openSpy).toHaveBeenCalledTimes(1);
+
+    fireEvent.click(link);
+    expect(screen.queryByRole('dialog', { name: 'Open external link' })).not.toBeInTheDocument();
+    expect(openSpy).toHaveBeenCalledTimes(2);
+  });
+
+  it('does not confirm same-origin links', () => {
+    const openSpy = vi.spyOn(window, 'open').mockReturnValue(null);
+    const href = `${window.location.origin}/local-docs`;
+    render(<Markdown content={`See [local](${href}) for details.`} />);
+    fireEvent.click(screen.getByRole('link', { name: 'local' }));
+    expect(screen.queryByRole('dialog', { name: 'Open external link' })).not.toBeInTheDocument();
+    expect(openSpy).not.toHaveBeenCalled();
+  });
+
+  it('blocks external images until confirmed', () => {
+    render(<Markdown content={'![chart](https://cdn.example.com/a.png)'} />);
+    const placeholder = screen.getByTestId('aui-external-image-placeholder');
+    expect(placeholder).toBeInTheDocument();
+    expect(document.querySelector('img[src="https://cdn.example.com/a.png"]')).toBeNull();
+
+    fireEvent.click(within(placeholder).getByRole('button', { name: 'Show image' }));
+    const dialog = screen.getByRole('dialog', { name: 'Show external image' });
+    fireEvent.click(within(dialog).getByRole('button', { name: 'Show image' }));
+
+    expect(screen.queryByTestId('aui-external-image-placeholder')).not.toBeInTheDocument();
+    expect(document.querySelector('img[src="https://cdn.example.com/a.png"]')).toBeTruthy();
+  });
+
+  it('auto-loads external images for a trusted host', () => {
+    window.localStorage.setItem(
+      EXTERNAL_URL_TRUST_STORAGE_KEY,
+      JSON.stringify({ version: 1, links: [], images: ['cdn.example.com'] }),
+    );
+    render(<Markdown content={'![chart](https://cdn.example.com/a.png)'} />);
+    expect(screen.queryByTestId('aui-external-image-placeholder')).not.toBeInTheDocument();
+    expect(document.querySelector('img[src="https://cdn.example.com/a.png"]')).toBeTruthy();
   });
 
   it('renders openui fenced blocks via OpenUiFenceBlock', async () => {
