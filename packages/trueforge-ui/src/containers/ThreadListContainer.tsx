@@ -428,7 +428,6 @@ export function ThreadListContainer({ onThreadOpen, variant = 'default' }: Threa
   const hasMore = useAuiState(s => s.threads.hasMore);
   const threadIds = useAuiState(s => s.threads.threadIds);
   const threadItems = useAuiState(s => s.threads.threadItems);
-  const activeSessionId = useAuiState(s => s.threadListItem.remoteId);
   const shell = useOptionalShellMode();
 
   const ThreadListShell = useSlot('ThreadListShell');
@@ -500,12 +499,12 @@ export function ThreadListContainer({ onThreadOpen, variant = 'default' }: Threa
   }, [hasMore, isIdle, isLoading, isLoadingMore, threadIds.length]);
 
   const handleNewChat = () => {
+    // No session_id yet — attaching the prior thread's id would mis-join new-chat funnels.
     track(
       AnalyticsEvents.Session.NEW,
       withSessionProps(
         { is_composer_enabled: shell?.isComposerEnabled === true },
         {
-          sessionId: activeSessionId,
           ...(shell?.mode.status === 'active' ? { agentId: shell.mode.agentId, agentName: shell.mode.agentName } : {}),
         },
       ),

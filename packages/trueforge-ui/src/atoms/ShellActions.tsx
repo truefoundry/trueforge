@@ -92,7 +92,7 @@ export function ShellActions({
             ),
           })}
           onClick={() => {
-            track(AnalyticsEvents.Settings.OPENED);
+            if (!shell.settingsOpen) track(AnalyticsEvents.Settings.OPENED);
             shell.setSettingsOpen(true);
             onAction?.();
           }}
