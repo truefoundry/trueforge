@@ -11,6 +11,8 @@ import {
 import { useTrueForgeRespondToToolApproval } from '@truefoundry/trueforge-assistant-ui-runtime';
 import { useCallback, useState } from 'react';
 
+import { useTrackAnalytics } from '../analytics/AnalyticsProvider.js';
+import { AnalyticsEvents } from '../analytics/events.js';
 import { useSlot } from '../theme/SlotsProvider.js';
 import {
   ASK_USER_TOOL_NAME,
@@ -62,6 +64,8 @@ function NestedSubAgentAssistantMessage() {
 function ToolApprovalSlot({ part }: { part: ToolCallMessagePartProps }) {
   const isNestedReadonly = useNestedApprovalBridge();
   const respondToNestedApproval = useTrueForgeRespondToToolApproval();
+  // Fire here (not the bar atom) so nested + optionId/approved mapping stay correct.
+  const track = useTrackAnalytics();
 
   const respond = (response: ToolApprovalResponse) => {
     if (!isNestedReadonly) {
@@ -93,6 +97,16 @@ function ToolApprovalSlot({ part }: { part: ToolCallMessagePartProps }) {
   };
 
   const onSelectOption = (optionId: string, reason?: string) => {
+    const options = buildApprovalOptions(part.approval?.options);
+    const option = options.find(o => o.id === optionId);
+    const approved = optionId === '__allow' ? true : optionId === '__deny' ? false : option?.isAllow;
+    track(AnalyticsEvents.Tool.APPROVAL_RESOLVED, {
+      tool_name: part.toolName,
+      option_id: optionId,
+      approved,
+      has_reason: reason != null && reason.trim().length > 0,
+      nested: isNestedReadonly,
+    });
     if (optionId === '__allow') return respond({ approved: true });
     if (optionId === '__deny') return respond({ approved: false, reason });
     return respond({ optionId, reason });

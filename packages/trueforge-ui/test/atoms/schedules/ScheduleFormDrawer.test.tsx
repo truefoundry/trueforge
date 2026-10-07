@@ -3,6 +3,8 @@ import { fireEvent, render, screen, waitFor, within } from '@testing-library/rea
 import type { ComponentProps } from 'react';
 import { beforeAll, describe, expect, it, vi } from 'vitest';
 
+import { AnalyticsProvider } from '@/analytics/AnalyticsProvider.js';
+import { AnalyticsEvents } from '@/analytics/events.js';
 import { ScheduleFormDrawer } from '@/atoms/schedules/ScheduleFormDrawer.js';
 import { ToasterProvider } from '@/containers/ToasterContainer.js';
 import { ServerProvider } from '@/server/ServerContext.js';
@@ -92,12 +94,14 @@ function renderDrawer({
   scheduleServer,
   permissions,
   withShell = false,
+  track,
   ...props
 }: Partial<ComponentProps<typeof ScheduleFormDrawer>> & {
   server?: AgentUIServer;
   scheduleServer?: ScheduleServer;
   permissions?: PermissionsServer;
   withShell?: boolean;
+  track?: (eventName: string, data?: Record<string, string | number | boolean | undefined>) => void;
 }) {
   const agentServer =
     server ??
@@ -130,24 +134,25 @@ function renderDrawer({
     });
   const schedules = scheduleServer ?? mockScheduleServer();
   const drawer = <ScheduleFormDrawer open mode="create" onOpenChange={() => undefined} {...props} />;
+  const tree = (
+    <SlotsProvider>
+      <ToasterProvider>
+        <ServerProvider server={{ ...agentServer, schedules, ...(permissions == null ? {} : { permissions }) }}>
+          {withShell ? (
+            <ShellModeProvider>
+              {drawer}
+              <AgentBuilderProbe />
+            </ShellModeProvider>
+          ) : (
+            drawer
+          )}
+        </ServerProvider>
+      </ToasterProvider>
+    </SlotsProvider>
+  );
   return {
     schedules,
-    ...render(
-      <SlotsProvider>
-        <ToasterProvider>
-          <ServerProvider server={{ ...agentServer, schedules, ...(permissions == null ? {} : { permissions }) }}>
-            {withShell ? (
-              <ShellModeProvider>
-                {drawer}
-                <AgentBuilderProbe />
-              </ShellModeProvider>
-            ) : (
-              drawer
-            )}
-          </ServerProvider>
-        </ToasterProvider>
-      </SlotsProvider>,
-    ),
+    ...render(track != null ? <AnalyticsProvider track={track}>{tree}</AnalyticsProvider> : tree),
   };
 }
 
@@ -337,9 +342,11 @@ describe('ScheduleFormDrawer', () => {
         status: req.status,
       }),
     );
+    const track = vi.fn();
     renderDrawer({
       scheduleServer: mockScheduleServer({ createSchedule, updateSchedule }),
       initialAgentId: 'demo-agent',
+      track,
     });
 
     await saveCreateForm();
@@ -357,6 +364,10 @@ describe('ScheduleFormDrawer', () => {
       );
     });
     expect(createSchedule).toHaveBeenCalledTimes(1);
+    expect(track).toHaveBeenCalledWith(
+      AnalyticsEvents.Schedule.EDITED,
+      expect.objectContaining({ schedule_id: 'new', agent_id: 'demo-agent' }),
+    );
     expect(await screen.findByRole('heading', { name: 'Test Schedule' })).toBeInTheDocument();
     expect(screen.getByText('digest-v2')).toBeInTheDocument();
   });

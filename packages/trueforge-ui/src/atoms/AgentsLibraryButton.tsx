@@ -2,6 +2,8 @@
 
 import { useEffect, useState } from 'react';
 
+import { useTrackAnalytics } from '../analytics/AnalyticsProvider.js';
+import { AnalyticsEvents } from '../analytics/events.js';
 import { Icon } from '../icons/Icon.js';
 import { useOptionalServer } from '../server/ServerContext.js';
 import { useOptionalShellMode } from '../server/ShellModeContext.js';
@@ -17,6 +19,7 @@ export type AgentsLibraryButtonProps = {
 export function AgentsLibraryButton({ className, compact = false }: AgentsLibraryButtonProps) {
   const server = useOptionalServer();
   const shell = useOptionalShellMode();
+  const track = useTrackAnalytics();
   const [countLabel, setCountLabel] = useState<string | null>(null);
 
   const enabled = shell?.isLibraryEnabled === true && server != null;
@@ -63,7 +66,10 @@ export function AgentsLibraryButton({ className, compact = false }: AgentsLibrar
               'bg-primary-button-bg font-medium text-primary-button-text hover:bg-primary-button-hover hover:text-primary-button-text',
           ),
         })}
-        onClick={() => shell?.setLibraryOpen(true)}
+        onClick={() => {
+          if (!libraryOpen) track(AnalyticsEvents.Library.OPENED);
+          shell?.setLibraryOpen(true);
+        }}
       >
         <Icon name="library-big" size={compact ? 14 : undefined} />
         {compact ? (
