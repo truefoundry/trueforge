@@ -184,6 +184,13 @@ export function createSandboxEnvironmentsRouter<TTransaction>(
       }
       const secretError = sandboxEnvironmentSecretHttpError(error);
       if (secretError !== undefined) {
+        logRequestError({
+          logger: deps.logger,
+          c,
+          status: secretError.status,
+          error,
+          message: secretError.status >= 500 ? 'Sandbox secret sync failed' : 'Client API error',
+        });
         return c.json({ error: { message: secretError.message } }, secretError.status);
       }
       throw error;
@@ -239,6 +246,13 @@ export function createSandboxEnvironmentsRouter<TTransaction>(
     } catch (error) {
       const secretError = sandboxEnvironmentSecretHttpError(error);
       if (secretError !== undefined) {
+        logRequestError({
+          logger: deps.logger,
+          c,
+          status: secretError.status,
+          error,
+          message: secretError.status >= 500 ? 'Sandbox secret sync failed' : 'Client API error',
+        });
         return c.json({ error: { message: secretError.message } }, secretError.status);
       }
       throw error;

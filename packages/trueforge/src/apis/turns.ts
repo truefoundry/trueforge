@@ -703,6 +703,13 @@ export function createTurnsRouter(deps: TurnsRouterDeps) {
     } catch (error) {
       // Every guard and the provider itself raise SandboxError, whose statusCode is the contract.
       if (error instanceof SandboxError) {
+        logRequestError({
+          logger: deps.logger,
+          c,
+          status: error.statusCode,
+          error,
+          message: 'Client API error',
+        });
         return c.json({ error: { message: error.message } }, error.statusCode);
       }
       deps.logger.error('Sandbox file download failed', {
@@ -864,6 +871,7 @@ export function createTurnsRouter(deps: TurnsRouterDeps) {
     } catch (error) {
       const turnError = getTurnExecutionError(error);
       if (turnError) {
+        logRequestError({ logger: deps.logger, c, status: turnError.status, error, message: 'Client API error' });
         return c.json({ error: { message: turnError.message } }, turnError.status);
       }
       throw error;

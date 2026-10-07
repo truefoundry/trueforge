@@ -363,6 +363,7 @@ export function createSchedulesRouter<TTransaction>(deps: SchedulesRouterDeps<TT
       }
       const turnError = getTurnExecutionError(error);
       if (turnError) {
+        logRequestError({ logger: deps.logger, c, status: turnError.status, error, message: 'Client API error' });
         return c.json({ error: { message: turnError.message } }, turnError.status);
       }
       throw error;

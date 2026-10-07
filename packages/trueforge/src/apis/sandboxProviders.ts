@@ -121,6 +121,7 @@ export function createSandboxProvidersRouter<TTransaction>(deps: SandboxProvider
         return c.json({ error: { message: 'Sandbox provider rejected the API key — check the credentials' } }, 422);
       }
       if (isDaytonaPermissionError(error)) {
+        logRequestError({ logger: deps.logger, c, status: 422, error, message: 'Client API error' });
         return c.json(
           {
             error: {
