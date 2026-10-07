@@ -24,7 +24,7 @@ import {
   UserToolResponseEventSchema,
 } from '../../core/events/schema';
 import {
-  TurnInputItemSchema,
+  LegacyTurnInputItemSchema,
   TurnStateCancelledSchema,
   TurnStateDoneSchema,
   TurnStateErrorSchema,
@@ -46,7 +46,10 @@ export const TurnCreatedEventSchema = z
     id: EventIdSchema,
     turn_id: z.string().describe('Id of the newly created turn.'),
     previous_turn_id: z.string().nullable().describe('Prior turn this turn chains from; null for a root turn.'),
-    input: z.array(TurnInputItemSchema).optional().describe('Input items supplied when the turn was created.'),
+    input: z
+      .array(LegacyTurnInputItemSchema)
+      .optional()
+      .describe('Inputs stored when the turn was created, including legacy continuation inputs.'),
     state: TurnStateRunningSchema,
     created_at: z.string().describe('ISO 8601 event timestamp.'),
     thread_id: z.string().nullable().describe('Thread that owns the event; null for turn-level lifecycle events.'),

@@ -11,9 +11,9 @@ import {
   TurnResourceResolver,
   type SessionHandle,
   type TurnHandle,
-  type TurnInputItem,
   type TurnRecordWithoutSnapshot,
   type TurnUserEvent,
+  type UserMessage,
 } from '@truefoundry/trueforge-core/agent-session';
 import type { IWebSearchProvider } from '@truefoundry/trueforge-core/core';
 import {
@@ -150,7 +150,7 @@ export type BeginTurnExecutionDeps = Pick<
 
 interface BeginTurnExecutionParams {
   session: SessionHandle;
-  input: TurnInputItem[] | undefined;
+  input: UserMessage[] | undefined;
   previous_turn_id: string | undefined;
   userRef: string;
   /** Raw inbound request headers. Absent for a schedule run. */
@@ -297,9 +297,9 @@ function createTurnResolver(deps: {
 /**
  * Derives a session title from the first user message of the first turn. Returns the
  * trimmed text (capped at {@link MAX_SESSION_TITLE_LENGTH}) or `undefined` when no usable
- * text is present (e.g. file-only or tool-approval input).
+ * text is present (for example, a file-only message).
  */
-export function deriveSessionTitle(input: TurnInputItem[] | undefined): string | undefined {
+export function deriveSessionTitle(input: UserMessage[] | undefined): string | undefined {
   const firstUserMessage = input?.[0];
   if (!firstUserMessage) {
     return undefined;

@@ -1,9 +1,8 @@
-import type { SessionMetrics } from '@truefoundry/trueforge-core/agent-session';
+import type { LegacyTurnInputItem, SessionMetrics } from '@truefoundry/trueforge-core/agent-session';
 import type { TurnRecord, TurnSnapshot } from '@truefoundry/trueforge-core/agent-session/models/TurnRecord';
 import {
   isNonTerminalTurnState,
   type TerminalTurnState,
-  type TurnInputItem,
   type TurnState,
 } from '@truefoundry/trueforge-core/agent-session/schemas/turn';
 import { assertCreateTurnThreadDelta } from '@truefoundry/trueforge-core/agent-session/store/assertCreateTurnThreadDelta';
@@ -80,7 +79,7 @@ export interface CreateTurnTurnFields {
   previous_turn_id: string | null;
   ancestor_ids: string[];
   active_executor_id: string;
-  input: TurnInputItem[];
+  input: LegacyTurnInputItem[];
   state: TurnState;
   custom: Record<string, unknown> | null;
 }

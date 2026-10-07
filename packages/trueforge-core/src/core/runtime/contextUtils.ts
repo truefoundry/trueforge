@@ -23,7 +23,7 @@ import type {
   LLMContextMessage,
 } from './AgentThread.types';
 import type { CurrentContextUsage } from './contextUsage';
-import type { InputUserMessage } from './UserInputMessage';
+import type { UserMessage } from './UserInputMessage';
 
 export const SYSTEM_TAG_START = '<tfy-internal>';
 const SYSTEM_TAG_END = '</tfy-internal>';
@@ -65,7 +65,7 @@ export function isClientSideToolResponseEvent(msg: AgentThreadRuntimeSendInput):
   return 'type' in msg && msg.type === EventType.USER_TOOL_RESPONSE;
 }
 
-export function isInputUserMessage(msg: AgentThreadRuntimeSendInput): msg is InputUserMessage {
+export function isUserMessage(msg: AgentThreadRuntimeSendInput): msg is UserMessage {
   return 'type' in msg && msg.type === EventType.USER_MESSAGE;
 }
 
