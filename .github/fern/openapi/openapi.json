@@ -4073,23 +4073,20 @@
         "properties": {
           "cpu": {
             "default": 1,
-            "description": "CPU allocation in cores (1–4).",
-            "maximum": 4,
-            "minimum": 1,
+            "description": "CPU allocation in cores.",
+            "exclusiveMinimum": 0,
             "type": "number"
           },
           "disk": {
             "default": 3,
-            "description": "Disk allocation in GiB (1–10).",
-            "maximum": 10,
-            "minimum": 1,
+            "description": "Disk allocation in GiB.",
+            "exclusiveMinimum": 0,
             "type": "number"
           },
           "memory": {
             "default": 1,
-            "description": "Memory allocation in GiB (1–8).",
-            "maximum": 8,
-            "minimum": 1,
+            "description": "Memory allocation in GiB.",
+            "exclusiveMinimum": 0,
             "type": "number"
           }
         },
@@ -8536,7 +8533,7 @@
                 }
               }
             },
-            "description": "Invalid request body, or missing secret value."
+            "description": "Invalid request body, resource allocation, or missing secret value."
           },
           "401": {
             "content": {

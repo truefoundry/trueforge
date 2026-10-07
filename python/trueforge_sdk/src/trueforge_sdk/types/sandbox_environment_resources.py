@@ -10,17 +10,17 @@ from ..core.unchecked_base_model import UncheckedBaseModel
 class SandboxEnvironmentResources(UncheckedBaseModel):
     cpu: typing.Optional[float] = pydantic.Field(default=1.0)
     """
-    CPU allocation in cores (1–4).
+    CPU allocation in cores.
     """
 
     disk: typing.Optional[float] = pydantic.Field(default=3.0)
     """
-    Disk allocation in GiB (1–10).
+    Disk allocation in GiB.
     """
 
     memory: typing.Optional[float] = pydantic.Field(default=1.0)
     """
-    Memory allocation in GiB (1–8).
+    Memory allocation in GiB.
     """
 
     if IS_PYDANTIC_V2:
