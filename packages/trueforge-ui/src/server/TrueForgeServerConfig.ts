@@ -14,6 +14,8 @@ export type TrueForgeBuiltInServerConfig = {
   fetch?: typeof fetch;
   catalog?: CatalogServer;
   permissions?: PermissionsServer;
+  /** Enable sandbox-environment routes and UI. Defaults to true for compatibility. */
+  sandboxEnvironments?: boolean;
 };
 
 /**

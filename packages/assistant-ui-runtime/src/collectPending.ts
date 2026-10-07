@@ -3,6 +3,7 @@ import type { McpAuthRequiredEvent } from './server/index.js';
 
 import { ROOT_THREAD_ID } from './constants.js';
 import { isMcpServerAuthInfoList, isUnknownRecord } from './messageCustomMetadata.js';
+import { findCurrentPausedAssistantMessage } from './requiredActionInputs.js';
 import { getToolApprovalThreadId, hasPendingToolApproval } from './toolApproval.js';
 import {
   getToolResponseThreadId,
@@ -55,72 +56,70 @@ function walkToolCallParts(
 
 export function collectPendingApprovals(messages: readonly ThreadMessage[]): PendingApproval[] {
   const pending: PendingApproval[] = [];
-
-  for (const message of messages) {
-    if (message.role !== 'assistant') {
-      continue;
-    }
-    const rootThreadId = getToolApprovalThreadId(message) ?? ROOT_THREAD_ID;
-    walkToolCallParts(
-      message.content,
-      (part, threadId) => {
-        const approval = part.approval;
-        if (approval == null || !hasPendingToolApproval(approval)) {
-          return;
-        }
-        pending.push({
-          approvalId: approval.id,
-          threadId,
-          toolName: part.toolName,
-          args: { ...part.args },
-          argsText: part.argsText,
-        });
-      },
-      rootThreadId,
-    );
+  const paused = findCurrentPausedAssistantMessage(messages);
+  if (paused == null) {
+    return pending;
   }
+
+  const rootThreadId = getToolApprovalThreadId(paused) ?? ROOT_THREAD_ID;
+  walkToolCallParts(
+    paused.content,
+    (part, threadId) => {
+      const approval = part.approval;
+      if (approval == null || !hasPendingToolApproval(approval)) {
+        return;
+      }
+      pending.push({
+        approvalId: approval.id,
+        threadId,
+        toolName: part.toolName,
+        args: { ...part.args },
+        argsText: part.argsText,
+      });
+    },
+    rootThreadId,
+  );
 
   return pending;
 }
 
 export function collectPendingToolResponses(messages: readonly ThreadMessage[]): PendingToolResponse[] {
   const pending: PendingToolResponse[] = [];
-
-  for (const message of messages) {
-    if (message.role !== 'assistant') {
-      continue;
-    }
-    const rootThreadId = getToolResponseThreadId(message) ?? ROOT_THREAD_ID;
-    walkToolCallParts(
-      message.content,
-      (part, threadId) => {
-        if (!hasPendingToolResponse(part)) {
-          return;
-        }
-        const payload: AskUserQuestionInterruptPayload | undefined = isUnknownRecord(part.interrupt?.payload)
-          ? {
-              ...(typeof part.interrupt.payload['question'] === 'string'
-                ? { question: part.interrupt.payload['question'] }
-                : {}),
-              ...(Array.isArray(part.interrupt.payload['options']) &&
-              part.interrupt.payload['options'].every(option => typeof option === 'string')
-                ? { options: part.interrupt.payload['options'] }
-                : {}),
-            }
-          : undefined;
-        pending.push({
-          toolCallId: part.toolCallId,
-          threadId,
-          toolName: part.toolName,
-          args: { ...part.args },
-          argsText: part.argsText,
-          ...(payload?.question != null ? { question: payload.question } : {}),
-          ...(payload?.options != null ? { options: payload.options } : {}),
-        });
-      },
-      rootThreadId,
-    );
+  const paused = findCurrentPausedAssistantMessage(messages);
+  if (paused == null) {
+    return pending;
   }
+
+  const rootThreadId = getToolResponseThreadId(paused) ?? ROOT_THREAD_ID;
+  walkToolCallParts(
+    paused.content,
+    (part, threadId) => {
+      if (!hasPendingToolResponse(part)) {
+        return;
+      }
+      const payload: AskUserQuestionInterruptPayload | undefined = isUnknownRecord(part.interrupt?.payload)
+        ? {
+            ...(typeof part.interrupt.payload['question'] === 'string'
+              ? { question: part.interrupt.payload['question'] }
+              : {}),
+            ...(Array.isArray(part.interrupt.payload['options']) &&
+            part.interrupt.payload['options'].every(option => typeof option === 'string')
+              ? { options: part.interrupt.payload['options'] }
+              : {}),
+          }
+        : undefined;
+      pending.push({
+        toolCallId: part.toolCallId,
+        threadId,
+        toolName: part.toolName,
+        args: { ...part.args },
+        argsText: part.argsText,
+        ...(payload?.question != null ? { question: payload.question } : {}),
+        ...(payload?.options != null ? { options: payload.options } : {}),
+      });
+    },
+    rootThreadId,
+  );
 
   return pending;
 }
@@ -128,24 +127,19 @@ export function collectPendingToolResponses(messages: readonly ThreadMessage[]):
 export function derivePendingMcpAuth(
   messages: readonly ThreadMessage[],
 ): { mcpServers: McpAuthRequiredEvent['mcpServers'] } | null {
-  for (const message of messages.toReversed()) {
-    if (message.role !== 'assistant') {
-      continue;
-    }
-    if (message.status.type !== 'requires-action') {
-      continue;
-    }
-    const custom = message.metadata.custom;
-    if (custom['pendingMcpAuth'] !== true) {
-      continue;
-    }
-    const servers = custom['mcpServers'];
-    if (!isMcpServerAuthInfoList(servers)) {
-      return { mcpServers: [] };
-    }
-    return { mcpServers: servers };
+  const paused = findCurrentPausedAssistantMessage(messages);
+  if (paused == null) {
+    return null;
   }
-  return null;
+  const custom = paused.metadata.custom;
+  if (custom['pendingMcpAuth'] !== true) {
+    return null;
+  }
+  const servers = custom['mcpServers'];
+  if (!isMcpServerAuthInfoList(servers)) {
+    return { mcpServers: [] };
+  }
+  return { mcpServers: servers };
 }
 
 /**

@@ -50,7 +50,7 @@ export type {
 } from './messageCustomMetadata.js';
 export {
   collectRequiredActionInputs,
-  findPausedAssistantMessage,
+  findCurrentPausedAssistantMessage,
   messageHasPendingRequiredActions,
 } from './requiredActionInputs.js';
 export { getSession } from './sessions.js';

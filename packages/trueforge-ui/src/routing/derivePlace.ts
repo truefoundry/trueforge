@@ -24,10 +24,11 @@ export function deriveChatPlace(snapshot: ShellSnapshot): RoutePlace {
   return { type: 'root' };
 }
 
-/** Full place with overlay priority: settings, schedules, sessions, library, chat. */
+/** Full place with overlay priority: settings, schedules, environments, sessions, library, chat. */
 export function derivePlace(snapshot: ShellSnapshot): RoutePlace {
   if (snapshot.settingsOpen) return { type: 'settings' };
   if (snapshot.schedulesOpen) return { type: 'schedules' };
+  if (snapshot.environmentsOpen) return { type: 'environments' };
   if (snapshot.sessionsOpen && snapshot.sharedSessionId != null) {
     return { type: 'sharedSession', sessionId: snapshot.sharedSessionId };
   }

@@ -22,6 +22,8 @@ export interface DaytonaSandboxEnvironmentOptions {
       }
     | undefined;
   environment_variables?: Record<string, string> | undefined;
+  /** Env var → Daytona org secret name for create. */
+  mounted_secrets?: Record<string, string> | undefined;
   /**
    * Daytona networking modes are mutually exclusive
    * (`network_block_all` vs `domain_allow_list`).
@@ -48,6 +50,7 @@ export interface DaytonaSandboxEnvironment {
   resources: DaytonaSandboxEnvironmentOptions['resources'];
   image?: DaytonaSandboxEnvironmentOptions['image'];
   environment_variables?: DaytonaSandboxEnvironmentOptions['environment_variables'];
+  mounted_secrets?: DaytonaSandboxEnvironmentOptions['mounted_secrets'];
   networking?: DaytonaSandboxEnvironmentOptions['networking'];
 }
 
@@ -59,6 +62,7 @@ export function createDaytonaSandboxEnvironment(options: DaytonaSandboxEnvironme
     resources: options.resources,
     ...(options.image !== undefined ? { image: options.image } : {}),
     ...(options.environment_variables !== undefined ? { environment_variables: options.environment_variables } : {}),
+    ...(options.mounted_secrets !== undefined ? { mounted_secrets: options.mounted_secrets } : {}),
     ...(options.networking !== undefined ? { networking: options.networking } : {}),
   };
 }

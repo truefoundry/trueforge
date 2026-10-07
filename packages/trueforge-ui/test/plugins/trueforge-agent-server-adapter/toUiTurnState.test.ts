@@ -40,4 +40,53 @@ describe('toUiTurnState', () => {
       },
     );
   });
+
+  it('maps an error state with metrics', () => {
+    assert.deepEqual(
+      toUiTurnState({
+        status: 'error',
+        message: 'Something went wrong',
+        completedAt: '2026-01-01T00:00:00.000Z',
+        metrics: { totalTokens: 15, totalCostInUsd: 0.05 },
+      }),
+      {
+        status: 'error',
+        message: 'Something went wrong',
+        completedAt: '2026-01-01T00:00:00.000Z',
+        metrics: {
+          totalInputTokens: 0,
+          totalOutputTokens: 0,
+          totalTokens: 15,
+          totalCacheReadTokens: 0,
+          totalCacheWriteTokens: 0,
+          totalReasoningTokens: 0,
+          totalCostInUsd: 0.05,
+        },
+      },
+    );
+  });
+
+  it('maps a cancelled state with metrics', () => {
+    assert.deepEqual(
+      toUiTurnState({
+        status: 'cancelled',
+        reason: 'client-cancelled',
+        completedAt: '2026-01-01T00:00:00.000Z',
+        metrics: { totalInputTokens: 20, totalOutputTokens: 5, totalTokens: 25 },
+      }),
+      {
+        status: 'cancelled',
+        reason: 'client-cancelled',
+        completedAt: '2026-01-01T00:00:00.000Z',
+        metrics: {
+          totalInputTokens: 20,
+          totalOutputTokens: 5,
+          totalTokens: 25,
+          totalCacheReadTokens: 0,
+          totalCacheWriteTokens: 0,
+          totalReasoningTokens: 0,
+        },
+      },
+    );
+  });
 });

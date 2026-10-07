@@ -1,0 +1,13 @@
+---
+description: trueforge-ui product analytics — host sink, event catalog, container fire sites
+globs: packages/trueforge-ui/src/**/*.{ts,tsx}
+alwaysApply: false
+---
+
+# trueforge-ui analytics
+
+- Host plugs `analytics.track` on `<TrueForgeUI />` (or mounts `AnalyticsProvider`). Do **not** add PostHog or other vendor SDKs in this package.
+- Event names live in `src/analytics/events.ts` (`AnalyticsEvents`). New clicks add a catalog entry + fire site in the same PR.
+- Prefer wrapping **container** callbacks over atom internals so visual slot overrides keep tracking.
+- `useTrackAnalytics()` must no-op when unset; never throw for missing host.
+- Intent comments only on the provider and non-obvious fire sites (not restating the call).

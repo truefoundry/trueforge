@@ -1,6 +1,8 @@
 'use client';
 
 import { Suspense, useCallback, useEffect, useState } from 'react';
+import { useTrackAnalytics } from '../../analytics/AnalyticsProvider.js';
+import { AnalyticsEvents } from '../../analytics/events.js';
 import { useSessionShareSearch } from '../../hooks/useSessionShareSearch.js';
 import {
   useOptionalAgentMetricsServer,
@@ -12,6 +14,9 @@ import { isMetricsChromeEnabled, isSchedulesChromeEnabled } from '../../server/s
 import type { AgentDetail, CodeSnippet } from '../../server/types.js';
 import { useSlot } from '../../theme/SlotsProvider.js';
 import { defaultMetricsTimeRange, libraryAgentTabFromSearch } from '../../utils/sessionShareUrl.js';
+import { DesktopOnlyNotice } from '../DesktopOnlyNotice.js';
+import { isMobileNavDrawerOpen } from '../lib/isMobileNavDrawerOpen.js';
+import { useIsMobile } from '../lib/useIsMobile.js';
 import { Skeleton } from '../primitives/Skeleton.js';
 import type { AgentDetailsPageProps } from './types.js';
 
@@ -20,7 +25,9 @@ export function AgentDetailsPage({ agentId }: AgentDetailsPageProps) {
   const metricsServer = useOptionalAgentMetricsServer();
   const scheduleServer = useOptionalScheduleServer();
   const shell = useShellMode();
+  const isMobile = useIsMobile();
   const share = useSessionShareSearch();
+  const track = useTrackAnalytics();
   const { updateShareSearch } = share;
   const requestedTab = libraryAgentTabFromSearch(share, agentId);
   const showMetrics = isMetricsChromeEnabled({ metrics: metricsServer });
@@ -56,8 +63,16 @@ export function AgentDetailsPage({ agentId }: AgentDetailsPageProps) {
   }, [shell, updateShareSearch]);
 
   useEffect(() => {
+    track(AnalyticsEvents.AgentDetails.OPENED, { agent_id: agentId });
+    // Track only on mount (agentId-keyed remount boundary handles agent switches).
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  useEffect(() => {
     const onKeyDown = (event: KeyboardEvent) => {
       if (event.key !== 'Escape') return;
+      // Let the mobile nav drawer consume Escape when it is open on top.
+      if (isMobileNavDrawerOpen()) return;
       event.stopImmediatePropagation();
       goBack();
     };
@@ -125,9 +140,9 @@ export function AgentDetailsPage({ agentId }: AgentDetailsPageProps) {
   } else if (activeTab === 'overview') {
     content = <AgentOverview detail={detail} />;
   } else if (activeTab === 'sessions') {
-    content = <AgentSessions agentId={agentId} />;
+    content = isMobile ? <DesktopOnlyNotice /> : <AgentSessions agentId={agentId} />;
   } else if (activeTab === 'schedules') {
-    content = <SchedulesPage agentId={agentId} />;
+    content = isMobile ? <DesktopOnlyNotice /> : <SchedulesPage agentId={agentId} />;
   } else if (activeTab === 'metrics') {
     content = (
       <AgentMetrics
@@ -163,15 +178,16 @@ export function AgentDetailsPage({ agentId }: AgentDetailsPageProps) {
               <AgentMetricsTimeRangeFilter timeRange={metricsTimeRange} onTimeRangeChange={setMetricsTimeRange} />
             ) : null
           }
-          onTabChange={tab =>
+          onTabChange={tab => {
+            track(AnalyticsEvents.AgentDetails.TAB_CHANGED, { agent_id: agentId, tab });
             updateShareSearch({
               agentId,
               tab,
               view: null,
               timeRange: null,
               ...(tab === 'sessions' ? {} : { sessionId: null }),
-            })
-          }
+            });
+          }}
         />
       ) : null}
       {/* Tabs own their scrolling so long instructions / code samples stay inside their card. */}

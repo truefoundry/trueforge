@@ -7,6 +7,7 @@ import type {
   ToolResponseRequiredEvent,
   Turn,
   TurnInputItem,
+  TurnStateCancelled,
   TurnStateDone,
 } from './server/index.js';
 import type { AgentChatServer } from './server/types.js';
@@ -21,16 +22,19 @@ import {
   projectSessionMessages,
   resolveGatewayBranchPreviousTurnIdForTurn,
   rootModelMessageIdsSinceBaseline,
+  TurnFailedError,
   userMessageContentToText,
   type UserMessageContent,
 } from './convertTurnMessages.js';
 import { extractTurnUserText } from './extractTurnUserText.js';
+import { ingestTurnEvent } from './foldPeerThreads.js';
 import { loadSessionSnapshot } from './loadSessionSnapshot.js';
 import { MCP_AUTH_RESUME_RUN_CUSTOM_KEY } from './mcpAuth.js';
 import { isMcpServerAuthInfoList } from './messageCustomMetadata.js';
+import type { AssistantContentPart } from './modelMessageContent.js';
 import {
   collectRequiredActionInputs,
-  findPausedAssistantMessage,
+  findCurrentPausedAssistantMessage,
   messageHasPendingRequiredActions,
   type RequiredActionInput,
 } from './requiredActionInputs.js';
@@ -40,6 +44,7 @@ import {
   type SessionSnapshot,
   type SessionTurnRecord,
 } from './sessionSnapshot.js';
+import { delayReconnect, isAbortError, STREAM_RECONNECT_MAX_ATTEMPTS } from './streamReconnect.js';
 import { resumeTurnStream, streamTurnContent } from './streamTurn.js';
 import { TOOL_APPROVAL_THREAD_ID_CUSTOM_KEY, type RespondToToolApprovalOptions } from './toolApproval.js';
 import {
@@ -99,6 +104,142 @@ function buildCompletedTurnState(
   };
 }
 
+function buildCancelledTurnState(completedAt: string): TurnStateCancelled {
+  return {
+    status: 'cancelled',
+    reason: 'Superseded by a later message',
+    completedAt,
+  };
+}
+
+/**
+ * Custom stream adapters may yield projected content without fold events.
+ * Materialize that content so a cancelled commit still projects after
+ * `activeStream` is cleared for the next user turn.
+ */
+function materializeAbandonedStreamRootIds(options: {
+  fold: SessionSnapshot['fold'];
+  turnId: string;
+  content: readonly AssistantContentPart[];
+  existingRootIds: readonly string[];
+}): string[] {
+  if (options.existingRootIds.length > 0) {
+    return [...options.existingRootIds];
+  }
+  if (options.content.length === 0) {
+    return [];
+  }
+
+  const text = options.content
+    .filter((part): part is Extract<AssistantContentPart, { type: 'text' }> => part.type === 'text')
+    .map(part => part.text)
+    .join('');
+  const toolCalls = options.content
+    .filter((part): part is Extract<AssistantContentPart, { type: 'tool-call' }> => part.type === 'tool-call')
+    .map(part => ({
+      id: part.toolCallId,
+      type: 'function' as const,
+      function: {
+        name: part.toolName,
+        arguments: part.argsText,
+      },
+    }));
+  const modelId = `client-abandoned-${options.turnId}`;
+  ingestTurnEvent(options.fold, {
+    type: 'model.message',
+    id: modelId,
+    threadId: ROOT_THREAD_ID,
+    createdAt: new Date().toISOString(),
+    content: text.length > 0 ? text : null,
+    ...(toolCalls.length > 0 ? { toolCalls } : {}),
+  });
+  return [modelId];
+}
+
+/**
+ * Force-commits an in-flight client turn (optimistic user and/or incomplete
+ * stream) as cancelled so a superseding user send keeps that half-baked chat
+ * in history. Does not call cancelSession — the backend supersedes on its own.
+ */
+function abandonInFlightClientTurn(snapshot: SessionSnapshot): SessionSnapshot {
+  const active = snapshot.activeStream;
+  const hasIncompleteStream = active != null && active.streamComplete !== true;
+  const hasPendingUser = snapshot.pendingUser != null;
+
+  if (!hasIncompleteStream && !hasPendingUser) {
+    return snapshot;
+  }
+
+  const completedAt = new Date().toISOString();
+  const cancelledState = buildCancelledTurnState(completedAt);
+
+  if (active != null && active.streamComplete !== true) {
+    const activeSandboxIdValue = active.update.metadata?.custom?.['sandboxId'];
+    const activeSandboxId = typeof activeSandboxIdValue === 'string' ? activeSandboxIdValue : undefined;
+    const baseline = snapshot.groupRootBaseline ?? computeGroupRootBaseline(snapshot.turns);
+    const rootModelMessageIds = materializeAbandonedStreamRootIds({
+      fold: snapshot.fold,
+      turnId: active.turnId,
+      content: active.update.content,
+      existingRootIds: rootModelMessageIdsSinceBaseline(snapshot.fold, baseline),
+    });
+
+    const lastTurn = snapshot.turns.at(-1);
+    if (lastTurn?.id === active.turnId) {
+      return replaceSessionSnapshot(snapshot, {
+        turns: snapshot.turns.map(turn =>
+          turn.id === active.turnId
+            ? {
+                ...turn,
+                state: cancelledState,
+                rootModelMessageIds,
+                ...(activeSandboxId != null ? { sandboxId: activeSandboxId } : {}),
+              }
+            : turn,
+        ),
+        pendingUser: undefined,
+        activeStream: undefined,
+      });
+    }
+
+    const record: SessionTurnRecord = {
+      id: active.turnId,
+      createdAt: snapshot.pendingUser?.createdAt.toISOString() ?? completedAt,
+      state: cancelledState,
+      input: snapshot.pendingUser ? [buildUserTurnInput(snapshot.pendingUser.content)] : [],
+      ...(snapshot.pendingUser ? { userText: userMessageContentToText(snapshot.pendingUser.content) } : {}),
+      rootModelMessageIds,
+      ...(activeSandboxId != null ? { sandboxId: activeSandboxId } : {}),
+    };
+
+    return replaceSessionSnapshot(snapshot, {
+      turns: [...snapshot.turns, record],
+      pendingUser: undefined,
+      activeStream: undefined,
+    });
+  }
+
+  const pending = snapshot.pendingUser;
+  if (pending == null) {
+    return snapshot;
+  }
+
+  const record: SessionTurnRecord = {
+    id: pending.turnId,
+    createdAt: pending.createdAt.toISOString(),
+    state: cancelledState,
+    input: [buildUserTurnInput(pending.content)],
+    userText: userMessageContentToText(pending.content),
+    rootModelMessageIds: [],
+  };
+
+  return replaceSessionSnapshot(snapshot, {
+    turns: [...snapshot.turns, record],
+    pendingUser: undefined,
+    activeStream: undefined,
+  });
+}
+
 /**
  * Reconstructs the pending required actions a paused in-flight update carried,
  * so the pause survives `commitActiveStream`'s synthetic "done" state.
@@ -108,7 +249,7 @@ function buildCompletedTurnState(
  * status from `turn.state.requiredActions` (see `findApprovalRequiredInTurn` /
  * `findResponseRequiredInTurn` / `findMcpAuthRequired`). If we returned an empty
  * list here, the committed turn would look "complete", the projected message
- * would lose its `requires-action` status, and `findPausedAssistantMessage`
+ * would lose its `requires-action` status, and `findCurrentPausedAssistantMessage`
  * (used by `trySendCollectedRequiredActions`) would never see it — so answering
  * a tool approval or an `ask_user_question` would never send the resume turn.
  *
@@ -289,6 +430,15 @@ function resolveTurnInput(snapshot: SessionSnapshot, turnId: string): TurnInputI
   return undefined;
 }
 
+interface StreamSequenceTrack {
+  onSequenceNumber: (sequenceNumber: number) => void;
+}
+
+interface RunStreamReconnect {
+  sessionId: string;
+  gatewayTurnAccepted: { current: boolean };
+}
+
 export function useTrueForgeAgentMessages({
   server,
   sessionId,
@@ -336,6 +486,8 @@ export function useTrueForgeAgentMessages({
   const runningTurnRef = useRef<Turn | undefined>(undefined);
   const loadGenerationRef = useRef(0);
   const streamGenerationRef = useRef(0);
+  const streamReconnectPendingRef = useRef(false);
+  const cancelRequestedRef = useRef(false);
   const lazilyCreatedSessionIdRef = useRef<string | undefined>(undefined);
   const initialLoadStartedForRef = useRef<string | undefined>(undefined);
   const skipInitialPromotionLoadForRef = useRef<string | undefined>(undefined);
@@ -369,7 +521,7 @@ export function useTrueForgeAgentMessages({
 
   const runStream = useCallback(
     (
-      createStream: (signal: AbortSignal) => AsyncGenerator<TurnStreamUpdate>,
+      createStream: (signal: AbortSignal, track: StreamSequenceTrack) => AsyncGenerator<TurnStreamUpdate>,
       /**
        * A mutable ref whose `.current` is the turn ID to use for
        * `activeStream.turnId`. Callers that capture the gateway turn ID
@@ -379,11 +531,13 @@ export function useTrueForgeAgentMessages({
        */
       turnIdRef: { current: string },
       isContinuation: boolean,
+      reconnect: RunStreamReconnect,
     ): Promise<void> => {
       const streamGeneration = ++streamGenerationRef.current;
       abortControllerRef.current?.abort();
       const abortController = new AbortController();
       abortControllerRef.current = abortController;
+      cancelRequestedRef.current = false;
       setIsRunning(true);
       // This stream's `finally` owns the running flag from here on.
       markResumeUnavailable(false);
@@ -397,6 +551,18 @@ export function useTrueForgeAgentMessages({
           isContinuation: boolean;
         } | null = null;
         let streamUpdateRaf: number | null = null;
+        const lastSequenceNumberRef: { current: number | undefined } = {
+          current: snapshotRef.current.activeStream?.lastSequenceNumber,
+        };
+        let useSubscribe = false;
+        let consecutiveFailures = 0;
+
+        const track: StreamSequenceTrack = {
+          onSequenceNumber: sequenceNumber => {
+            lastSequenceNumberRef.current = sequenceNumber;
+            consecutiveFailures = 0;
+          },
+        };
 
         const flushPendingStreamUpdate = () => {
           streamUpdateRaf = null;
@@ -415,30 +581,82 @@ export function useTrueForgeAgentMessages({
                 turnId: turnIdRef.current,
                 update,
                 isContinuation: pendingIsContinuation,
+                ...(lastSequenceNumberRef.current != null ? { lastSequenceNumber: lastSequenceNumberRef.current } : {}),
               },
             }),
           );
         };
 
         const applyStreamUpdate = (update: TurnStreamUpdate) => {
+          if (update.sequenceNumber != null) {
+            lastSequenceNumberRef.current = update.sequenceNumber;
+            consecutiveFailures = 0;
+          }
           pendingStreamUpdate = { update, isContinuation };
           streamUpdateRaf ??= requestAnimationFrame(flushPendingStreamUpdate);
         };
 
+        const readStream = (signal: AbortSignal): AsyncGenerator<TurnStreamUpdate> => {
+          if (!useSubscribe) {
+            return createStream(signal, track);
+          }
+          return resumeTurnStream(
+            server,
+            reconnect.sessionId,
+            turnIdRef.current,
+            snapshotRef.current.fold,
+            signal,
+            lastSequenceNumberRef.current,
+            snapshotRef.current.groupRootBaseline,
+            track.onSequenceNumber,
+          );
+        };
+
         try {
-          for await (const update of createStream(abortController.signal)) {
-            if (abortController.signal.aborted) {
+          while (streamGeneration === streamGenerationRef.current) {
+            try {
+              for await (const update of readStream(abortController.signal)) {
+                if (streamGeneration !== streamGenerationRef.current) {
+                  return;
+                }
+                applyStreamUpdate(update);
+              }
               return;
+            } catch (error) {
+              if (isAbortError(error) || streamGeneration !== streamGenerationRef.current) {
+                return;
+              }
+              // Cancel keeps consuming a healthy live SSE for turn.done. A
+              // drop after cancelSession must not start subscribe-retry.
+              if (cancelRequestedRef.current) {
+                abortController.abort();
+                return;
+              }
+              const canSubscribe =
+                server.subscribeToTurn != null &&
+                reconnect.gatewayTurnAccepted.current &&
+                !(error instanceof TurnFailedError);
+              if (!canSubscribe || consecutiveFailures >= STREAM_RECONNECT_MAX_ATTEMPTS) {
+                onErrorRef.current?.(error);
+                throw error;
+              }
+              consecutiveFailures += 1;
+              useSubscribe = true;
+              // Stay pending through delay and the subscribe attempt so
+              // cancel aborts a reconnect SSE, not only the wait.
+              streamReconnectPendingRef.current = true;
+              try {
+                await delayReconnect(abortController.signal);
+              } catch (error) {
+                if (isAbortError(error) || streamGeneration !== streamGenerationRef.current) {
+                  return;
+                }
+                throw error;
+              }
             }
-            applyStreamUpdate(update);
           }
-        } catch (error) {
-          if (error instanceof Error && error.name === 'AbortError') {
-            return;
-          }
-          onErrorRef.current?.(error);
-          throw error;
         } finally {
+          streamReconnectPendingRef.current = false;
           cancelScheduledAnimationFrame(streamUpdateRaf);
           if (streamGeneration === streamGenerationRef.current) {
             flushPendingStreamUpdate();
@@ -446,22 +664,29 @@ export function useTrueForgeAgentMessages({
               abortControllerRef.current = null;
             }
             setIsRunning(false);
-            setSnapshot(prev => {
-              if (prev.activeStream == null) {
-                return prev;
-              }
-              const marked = replaceSessionSnapshot(prev, {
-                activeStream: {
-                  ...prev.activeStream,
-                  streamComplete: true,
-                },
-                requiredActions: {
-                  approvals: new Map(),
-                  toolResponses: new Map(),
-                },
+            if (abortController.signal.aborted) {
+              setSnapshot(prev => abandonInFlightClientTurn(prev));
+            } else {
+              setSnapshot(prev => {
+                if (prev.activeStream == null) {
+                  return prev;
+                }
+                const marked = replaceSessionSnapshot(prev, {
+                  activeStream: {
+                    ...prev.activeStream,
+                    streamComplete: true,
+                    ...(lastSequenceNumberRef.current != null
+                      ? { lastSequenceNumber: lastSequenceNumberRef.current }
+                      : {}),
+                  },
+                  requiredActions: {
+                    approvals: new Map(),
+                    toolResponses: new Map(),
+                  },
+                });
+                return commitActiveStream(marked);
               });
-              return commitActiveStream(marked);
-            });
+            }
           }
         }
       })();
@@ -472,11 +697,12 @@ export function useTrueForgeAgentMessages({
         .finally(() => {
           if (activeRunRef.current === run) {
             activeRunRef.current = null;
+            setIsRunning(false);
           }
         });
       return run;
     },
-    [onError],
+    [markResumeUnavailable, server],
   );
 
   const load = useCallback(async () => {
@@ -563,23 +789,24 @@ export function useTrueForgeAgentMessages({
         }
 
         const isContinuation = extractTurnUserText(turn.input) === undefined;
-        // TODO: pass afterSequenceNumber once stream ingestion tracks sequence numbers.
         // Use loadedSnapshot directly — snapshotRef.current still points at
         // the empty snapshot cleared above until the setSnapshot(loadedSnapshot)
         // call re-renders.
         void runStream(
-          signal =>
+          (signal, track) =>
             resumeTurnStream(
               server,
               conversationSessionId,
               turn.id,
               loadedSnapshot.fold,
               signal,
-              undefined,
+              loadedSnapshot.activeStream?.lastSequenceNumber,
               loadedSnapshot.groupRootBaseline,
+              track.onSequenceNumber,
             ),
           { current: turn.id },
           isContinuation,
+          { sessionId: conversationSessionId, gatewayTurnAccepted: { current: true } },
         ).catch(() => undefined);
       }
     } catch (error) {
@@ -612,6 +839,14 @@ export function useTrueForgeAgentMessages({
       let runStreamStarted = false;
       let pendingUserTurnId: string | undefined;
 
+      // Invalidate the prior client stream before any await so a buffered RAF
+      // cannot restore stale activeStream after the optimistic user message.
+      // Continuations keep today's runStream abort; they must not race a user send.
+      const sendGeneration = 'userMessage' in options ? ++streamGenerationRef.current : streamGenerationRef.current;
+      if ('userMessage' in options) {
+        abortControllerRef.current?.abort();
+      }
+
       try {
         let activeSessionId = sessionId;
         if (activeSessionId == null) {
@@ -628,6 +863,9 @@ export function useTrueForgeAgentMessages({
           resolveConversationSessionIdRef.current,
         );
         const turnHeaders = await getTurnHeadersRef.current?.();
+        if (sendGeneration !== streamGenerationRef.current) {
+          return;
+        }
         const streamHeaders = turnHeaders != null ? { headers: turnHeaders } : {};
         const isContinuation = 'inputs' in options || ('resumeMcpAuth' in options && options.resumeMcpAuth);
         const continuationTurnId = snapshotRef.current.activeStream?.turnId;
@@ -694,9 +932,12 @@ export function useTrueForgeAgentMessages({
         if (branchBase != null && 'userMessage' in options) {
           // Atomic apply: never merge pendingUser onto a stale React `prev`
           // that still holds pre-branch turns (edit would show old + new).
-          const rootBucket = branchBase.fold.threads.get(ROOT_THREAD_ID);
+          // Commit any completed stream, then abandon incomplete in-flight chat
+          // into history before the new optimistic user message.
+          const abandoned = abandonInFlightClientTurn(commitActiveStream(branchBase));
+          const rootBucket = abandoned.fold.threads.get(ROOT_THREAD_ID);
           groupRootBaseline = [...(rootBucket?.modelMessageIds ?? [])];
-          const nextSnapshot = replaceSessionSnapshot(branchBase, {
+          const nextSnapshot = replaceSessionSnapshot(abandoned, {
             pendingUser: {
               turnId,
               content: options.userMessage,
@@ -704,41 +945,48 @@ export function useTrueForgeAgentMessages({
             },
             activeStream: undefined,
             groupRootBaseline,
+            requiredActions: {
+              approvals: new Map(),
+              toolResponses: new Map(),
+            },
           });
           snapshotRef.current = nextSnapshot;
           setSnapshot(nextSnapshot);
           pendingUserWasSet = true;
           pendingUserTurnId = turnId;
+        } else if ('userMessage' in options) {
+          // Sync from snapshotRef so groupRootBaseline is set before runStream
+          // (setState updaters after await are not guaranteed to flush first).
+          const abandoned = abandonInFlightClientTurn(commitActiveStream(snapshotRef.current));
+          const rootBucket = abandoned.fold.threads.get(ROOT_THREAD_ID);
+          groupRootBaseline = [...(rootBucket?.modelMessageIds ?? [])];
+          const next = replaceSessionSnapshot(abandoned, {
+            pendingUser: {
+              turnId,
+              content: options.userMessage,
+              createdAt: new Date(),
+            },
+            activeStream: undefined,
+            groupRootBaseline,
+            // Drop staged pause answers so they cannot resume behind this turn.
+            requiredActions: {
+              approvals: new Map(),
+              toolResponses: new Map(),
+            },
+          });
+          snapshotRef.current = next;
+          setSnapshot(next);
+          pendingUserWasSet = true;
+          pendingUserTurnId = turnId;
         } else {
           setSnapshot(prev => commitActiveStream(prev, 'inputs' in options ? options.inputs : undefined));
-
-          if ('userMessage' in options) {
-            const rootBucket = snapshotRef.current.fold.threads.get(ROOT_THREAD_ID);
-            groupRootBaseline = [...(rootBucket?.modelMessageIds ?? [])];
-            setSnapshot(prev => {
-              const next = replaceSessionSnapshot(prev, {
-                pendingUser: {
-                  turnId,
-                  content: options.userMessage,
-                  createdAt: new Date(),
-                },
-                activeStream: undefined,
-                groupRootBaseline,
-              });
-              snapshotRef.current = next;
-              return next;
-            });
-            pendingUserWasSet = true;
-            pendingUserTurnId = turnId;
-          } else {
-            groupRootBaseline =
-              snapshotRef.current.groupRootBaseline ?? computeGroupRootBaseline(snapshotRef.current.turns);
-          }
+          groupRootBaseline =
+            snapshotRef.current.groupRootBaseline ?? computeGroupRootBaseline(snapshotRef.current.turns);
         }
 
         runStreamStarted = true;
         await runStream(
-          signal => {
+          (signal, track) => {
             if ('inputs' in options) {
               return streamTurnContent(
                 server,
@@ -748,6 +996,7 @@ export function useTrueForgeAgentMessages({
                 signal,
                 groupRootBaseline,
                 handleGatewayTurnId,
+                track.onSequenceNumber,
               );
             }
             if ('resumeMcpAuth' in options) {
@@ -759,6 +1008,7 @@ export function useTrueForgeAgentMessages({
                 signal,
                 groupRootBaseline,
                 handleGatewayTurnId,
+                track.onSequenceNumber,
               );
             }
             return streamTurnContent(
@@ -777,12 +1027,17 @@ export function useTrueForgeAgentMessages({
               signal,
               groupRootBaseline,
               handleGatewayTurnId,
+              track.onSequenceNumber,
             );
           },
           turnIdRef,
           isContinuation,
+          { sessionId: conversationSessionId, gatewayTurnAccepted },
         );
       } catch (error) {
+        if (!runStreamStarted && sendGeneration !== streamGenerationRef.current) {
+          return;
+        }
         if ('userMessage' in options && !gatewayTurnAccepted.current) {
           const branchRollbackSnapshot = options.branchRollbackSnapshot;
           const canRestoreBranch =
@@ -807,6 +1062,15 @@ export function useTrueForgeAgentMessages({
           options.onPreTurnFailure?.();
         }
         if (!runStreamStarted) {
+          if ('userMessage' in options) {
+            const abandoned = abandonInFlightClientTurn(commitActiveStream(snapshotRef.current));
+            snapshotRef.current = abandoned;
+            setSnapshot(abandoned);
+          }
+          if (abortControllerRef.current?.signal.aborted) {
+            abortControllerRef.current = null;
+          }
+          setIsRunning(false);
           onErrorRef.current?.(error);
         }
         throw error;
@@ -823,25 +1087,21 @@ export function useTrueForgeAgentMessages({
       abortControllerRef.current?.abort();
       return;
     }
+    cancelRequestedRef.current = true;
     const conversationSessionId = await resolveActiveSessionId(
       activeSessionId,
       resolveConversationSessionIdRef.current,
     );
-    // Request cancellation but keep consuming the stream. After cancel(),
-    // the backend gracefully closes the SSE stream: it emits a terminal
-    // turn.done event and then ends the stream, which lets the active run
-    // drain to completion on its own instead of being torn down mid-flight.
-    await server.cancelSession({ sessionId: conversationSessionId }).catch(() => undefined);
-    // Wait for the in-flight stream to finish draining. No explicit
-    // reconcile is needed here — the cancelled turn is terminal and local
-    // state reconciles against the event log on the next session load.
-    await activeRunRef.current?.catch(() => undefined);
-    // Nothing drained when the load could not attach a stream, so clear the
-    // running flag here or the composer stays blocked until a reload.
-    if (resumeUnavailableRef.current) {
-      markResumeUnavailable(false);
-      setIsRunning(false);
+    // Drain a healthy live SSE for cancelled turn.done. Abort reconnect
+    // waits and reconnect subscribe so cancel cannot start or keep a new
+    // subscribe after the live stream dropped.
+    if (streamReconnectPendingRef.current) {
+      abortControllerRef.current?.abort();
     }
+    await server.cancelSession({ sessionId: conversationSessionId }).catch(() => undefined);
+    await activeRunRef.current?.catch(() => undefined);
+    markResumeUnavailable(false);
+    setIsRunning(false);
   }, [server, sessionId, markResumeUnavailable]);
 
   const isRunningRef = useRef(isRunning);
@@ -853,7 +1113,7 @@ export function useTrueForgeAgentMessages({
         return;
       }
       const projected = projectSessionMessages(nextSnapshot, projectOptions);
-      const paused = findPausedAssistantMessage(projected);
+      const paused = findCurrentPausedAssistantMessage(projected);
       if (paused == null || messageHasPendingRequiredActions(paused)) {
         return;
       }
@@ -912,22 +1172,27 @@ export function useTrueForgeAgentMessages({
       markResumeUnavailable(true);
       return;
     }
-    // TODO: pass afterSequenceNumber once stream ingestion tracks sequence numbers.
+    const resumeSessionId = turn.sessionId !== '' ? turn.sessionId : sessionId;
+    if (resumeSessionId == null) {
+      return;
+    }
     await runStream(
-      signal =>
+      (signal, track) =>
         resumeTurnStream(
           server,
-          turn.sessionId,
+          resumeSessionId,
           turn.id,
           snapshotRef.current.fold,
           signal,
-          undefined,
+          snapshotRef.current.activeStream?.lastSequenceNumber,
           snapshotRef.current.groupRootBaseline,
+          track.onSequenceNumber,
         ),
       { current: turn.id },
       true,
+      { sessionId: resumeSessionId, gatewayTurnAccepted: { current: true } },
     );
-  }, [runStream, server]);
+  }, [runStream, server, sessionId]);
 
   const branchFromTurn = useCallback(
     async (turnId: string, userMessage: UserMessageContent) => {
@@ -1135,4 +1400,4 @@ export function useTrueForgeAgentMessages({
   };
 }
 
-export { findPausedAssistantMessage, MCP_AUTH_RESUME_RUN_CUSTOM_KEY };
+export { findCurrentPausedAssistantMessage, MCP_AUTH_RESUME_RUN_CUSTOM_KEY };

@@ -3,6 +3,7 @@
 import { lazy, Suspense, useRef } from 'react';
 
 import { useAui } from '../assistant-ui.js';
+import { DesktopOnlyNotice } from '../atoms/DesktopOnlyNotice.js';
 import { NamedAgentHeaderLabel } from '../atoms/NamedAgentHeaderLabel.js';
 import { PageHeader } from '../atoms/PageHeader.js';
 import { ShellActions } from '../atoms/ShellActions.js';
@@ -20,6 +21,9 @@ import { useSlot } from '../theme/SlotsProvider.js';
 const TruefoundrySettingsBuilder = lazy(() => import('../containers/SettingsBuilder/index.js'));
 const SchedulesPage = lazy(() =>
   import('../atoms/schedules/SchedulesPage.js').then(m => ({ default: m.SchedulesPage })),
+);
+const EnvironmentsPage = lazy(() =>
+  import('../atoms/environments/EnvironmentsPage.js').then(m => ({ default: m.EnvironmentsPage })),
 );
 
 export function DrawerLayout({ className }: { className?: string }) {
@@ -40,10 +44,13 @@ export function DrawerLayout({ className }: { className?: string }) {
   const libraryOpen = shell?.libraryOpen === true;
   const sessionsOpen = shell?.sessionsOpen === true;
   const schedulesOpen = shell?.schedulesOpen === true;
-  const overlayOpen = settingsOpen || libraryOpen || sessionsOpen || schedulesOpen;
+  const environmentsOpen = shell?.environmentsOpen === true;
+  const overlayOpen = settingsOpen || libraryOpen || sessionsOpen || schedulesOpen || environmentsOpen;
   const chatChromeActionsVisible = useChatChromeActionsVisible();
-  const showAgentConfig =
-    shell != null && shellIsCreateAgent(shell.mode) && !overlayOpen && (!isMobile || shell.agentConfigOpen);
+  const isCreateAgent = shell != null && shellIsCreateAgent(shell.mode);
+  const showDesktopOnlyNotice =
+    isMobile && (sessionsOpen || schedulesOpen || environmentsOpen || (isCreateAgent && !settingsOpen && !libraryOpen));
+  const showAgentConfig = isCreateAgent && !overlayOpen && !isMobile;
   const showNewActions = shell?.isNewChatEnabled !== false;
 
   const handleNewChat = () => {
@@ -55,6 +62,7 @@ export function DrawerLayout({ className }: { className?: string }) {
     }
     shell?.setSettingsOpen(false);
     shell?.setSchedulesOpen(false);
+    shell?.setEnvironmentsOpen(false);
     void Promise.resolve(aui.threads().switchToNewThread()).catch(() => undefined);
   };
 
@@ -66,6 +74,18 @@ export function DrawerLayout({ className }: { className?: string }) {
     }
   };
 
+  const handleBackToChat = () => {
+    shell?.setLibraryOpen(false);
+    shell?.setSchedulesOpen(false);
+    shell?.setSessionsOpen(false);
+    shell?.setEnvironmentsOpen(false);
+    // Only exit create-agent when leaving the mobile Build Agent notice — not when
+    // dismissing Agents/Schedules over an in-progress desktop builder.
+    if (showDesktopOnlyNotice && isCreateAgent) shell?.openDraft();
+  };
+
+  const showBackToChat = showDesktopOnlyNotice || libraryOpen || schedulesOpen || environmentsOpen;
+
   return (
     <div className={cn('relative flex h-full min-h-0 w-full bg-primary-bg', className)}>
       {showAgentConfig ? (
@@ -74,7 +94,7 @@ export function DrawerLayout({ className }: { className?: string }) {
           aria-label="Agent Config"
           className="absolute inset-y-0 left-0 z-20 w-full max-w-sm border-r border-border shadow-xl md:static md:z-auto md:w-88 md:max-w-none md:shrink-0 md:shadow-none"
         >
-          <AgentConfigDrawerContainer showClose={isMobile} />
+          <AgentConfigDrawerContainer />
         </aside>
       ) : null}
 
@@ -83,25 +103,22 @@ export function DrawerLayout({ className }: { className?: string }) {
         <PageHeader
           className="bg-topbar-bg"
           title={
-            !overlayOpen ? (
-              <NamedAgentHeaderLabel />
-            ) : libraryOpen || schedulesOpen ? (
+            showBackToChat ? (
               <button
                 type="button"
                 className={auiButtonClass({ variant: 'ghost', size: 'small' })}
-                onClick={() => {
-                  shell?.setLibraryOpen(false);
-                  shell?.setSchedulesOpen(false);
-                }}
+                onClick={handleBackToChat}
               >
                 <Icon name="arrow-left" />
                 Back to chat
               </button>
+            ) : !overlayOpen ? (
+              <NamedAgentHeaderLabel />
             ) : null
           }
           end={
             <>
-              {!overlayOpen ? (
+              {!overlayOpen && !showDesktopOnlyNotice ? (
                 <>
                   <ShareChatButton />
                   <ClearChatButton />
@@ -110,7 +127,7 @@ export function DrawerLayout({ className }: { className?: string }) {
               ) : null}
               <ShellActions key="shell-actions" />
               <UserAvatar />
-              {!overlayOpen ? (
+              {!overlayOpen && !showDesktopOnlyNotice ? (
                 <>
                   {showNewActions && !chatChromeActionsVisible ? (
                     <button
@@ -123,7 +140,7 @@ export function DrawerLayout({ className }: { className?: string }) {
                       <Icon name="square-pen" />
                     </button>
                   ) : null}
-                  {showNewActions && shell?.isComposerEnabled ? (
+                  {showNewActions && shell?.isComposerEnabled && !isMobile ? (
                     <button
                       type="button"
                       aria-label="New Agent"
@@ -156,6 +173,8 @@ export function DrawerLayout({ className }: { className?: string }) {
             >
               <TruefoundrySettingsBuilder />
             </Suspense>
+          ) : showDesktopOnlyNotice ? (
+            <DesktopOnlyNotice />
           ) : sessionsOpen ? (
             <SessionsPage />
           ) : libraryOpen && shell?.libraryAgentId != null ? (
@@ -177,6 +196,22 @@ export function DrawerLayout({ className }: { className?: string }) {
               }
             >
               <SchedulesPage />
+            </Suspense>
+          ) : environmentsOpen ? (
+            <Suspense
+              fallback={
+                <div
+                  className="flex h-full items-center justify-center"
+                  role="status"
+                  aria-live="polite"
+                  aria-busy="true"
+                >
+                  <Spinner size={28} className="text-text-primary" />
+                  <span className="sr-only">Loading</span>
+                </div>
+              }
+            >
+              <EnvironmentsPage />
             </Suspense>
           ) : isIdle ? (
             <SelectAgentEmptyState />

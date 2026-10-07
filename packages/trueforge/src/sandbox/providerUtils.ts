@@ -17,6 +17,9 @@ import {
   type StoredSandboxProviderManifest,
 } from '../schemas/sandboxProvider';
 
+/** Bound Daytona RPCs so API requests and controller ticks cannot hang indefinitely. */
+export const DAYTONA_RPC_TIMEOUT_MS = 5_000;
+
 /** Provider rejected the credentials (401 unauthorized); retrying the same key cannot succeed. */
 export function isDaytonaAuthError(error: unknown): boolean {
   return error instanceof DaytonaError && error.statusCode === 401;
@@ -26,6 +29,20 @@ export function isDaytonaPermissionError(error: unknown): boolean {
   return error instanceof DaytonaError && error.statusCode === 403;
 }
 
+export function isDaytonaNotFoundError(error: unknown): boolean {
+  return error instanceof DaytonaError && error.statusCode === 404;
+}
+
+export function getDaytonaAuthorizationErrorMessage(error: unknown): string | undefined {
+  if (isDaytonaAuthError(error)) {
+    return 'Sandbox provider rejected the API key — check the credentials';
+  }
+  if (isDaytonaPermissionError(error)) {
+    return 'Sandbox provider denied access: the API key is missing required permissions';
+  }
+  return undefined;
+}
+
 /** Configured tenant sandbox backends (not local fallback). */
 export type ResolvedSandboxProvider = DaytonaSandboxProvider | TFYSandboxProvider;
 
@@ -33,15 +50,19 @@ export type ResolvedSandboxProvider = DaytonaSandboxProvider | TFYSandboxProvide
 export function toSandboxEnvironment({
   external_ref,
   manifest,
+  mounted_secrets,
 }: {
   external_ref: string;
   manifest: StoredSandboxEnvironmentManifest;
+  /** env var → Daytona org secret name for create mounts. */
+  mounted_secrets?: Record<string, string>;
 }): DaytonaSandboxEnvironment {
   return createDaytonaSandboxEnvironment({
     snapshot_ref: external_ref,
     resources: manifest.resources,
     ...(manifest.image ? { image: manifest.image } : {}),
     ...(manifest.environment_variables ? { environment_variables: manifest.environment_variables } : {}),
+    ...(mounted_secrets ? { mounted_secrets } : {}),
     ...(manifest.networking
       ? {
           networking: {

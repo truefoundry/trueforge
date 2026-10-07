@@ -157,8 +157,35 @@ export type {
 export { AgentHarnessError, McpConnectionError, McpDcrConfigurationError } from './errors';
 export { REDIS_KEY_NAMESPACE, redisKey } from './redisKeys';
 export { describeUnknownError, extractErrorLogFields } from './util/errorLogFields';
+export {
+  DEFAULT_MCP_HTTP_BODY_TIMEOUT_MS,
+  DEFAULT_MCP_HTTP_CONNECT_TIMEOUT_MS,
+  DEFAULT_MCP_HTTP_HEADERS_TIMEOUT_MS,
+  DEFAULT_MCP_HTTP_MAX_RETRIES,
+  DEFAULT_MODEL_HTTP_BODY_TIMEOUT_MS,
+  DEFAULT_MODEL_HTTP_CONNECT_TIMEOUT_MS,
+  DEFAULT_MODEL_HTTP_HEADERS_TIMEOUT_MS,
+  DEFAULT_MODEL_HTTP_MAX_RETRIES,
+  DEFAULT_OUTBOUND_HTTP_BODY_TIMEOUT_MS,
+  DEFAULT_OUTBOUND_HTTP_CONNECT_TIMEOUT_MS,
+  DEFAULT_OUTBOUND_HTTP_HEADERS_TIMEOUT_MS,
+  DEFAULT_OUTBOUND_HTTP_MAX_RETRIES,
+  configureOutboundFetches,
+  defaultMcpOutboundFetchOptions,
+  defaultModelOutboundFetchOptions,
+  defaultOutboundFetchOptions,
+  mcpSsrfFetch,
+  modelSsrfFetch,
+  ssrfFetch,
+} from './util/outboundFetch';
 export { PromiseTimeoutError, withTimeout } from './util/promiseUtils';
-export { assertSafeOutboundUrl, configureOutboundUrlGuard, ssrfFetch } from './util/ssrfGuard';
+export {
+  assertSafeOutboundUrl,
+  configureOutboundUrlGuard,
+  createOutboundFetch,
+  isRetryableOutboundTransportError,
+} from './util/ssrfGuard';
+export type { OutboundFetch, OutboundFetchOptions } from './util/ssrfGuard';
 
 // Sandbox (concrete implementation; provider details exported for composition)
 export { CodeModeDispatcher } from './sandbox/codeMode/CodeModeDispatcher';
@@ -185,9 +212,12 @@ export type {
   SandboxBuild,
   SandboxBuildMetadata,
   SandboxBuildStatus,
+  SandboxCreateSecretParams,
+  SandboxDeleteSecretParams,
   SandboxExecParams,
   SandboxInit,
   SandboxProvider,
+  SandboxUpdateSecretParams,
 } from './sandbox/provider/Provider';
 export { TFYSandboxProvider } from './sandbox/provider/TFYSandboxProvider';
 export { SKILL_DOWNLOAD_TIMEOUT_SECONDS, Sandbox, buildWriteAndRunScriptCommand } from './sandbox/Sandbox';

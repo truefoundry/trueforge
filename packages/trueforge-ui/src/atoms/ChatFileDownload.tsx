@@ -30,6 +30,12 @@ export type ChatFileDownloadProps = {
   readOnlyTooltip?: string;
 };
 
+// Artifact paths are model-authored, so a name may carry characters that change what the
+// URL means. Encode per segment so `/` keeps its structural role and the rest stays literal.
+function encodeArtifactPath(path: string): string {
+  return path.split('/').map(encodeURIComponent).join('/');
+}
+
 export function ChatFileDownload({
   files,
   fileDownloadBaseUrl,
@@ -100,7 +106,7 @@ export function ChatFileDownload({
     <div className="my-2 flex flex-col gap-2">
       <div className="flex flex-wrap gap-2">
         {visualFiles.map(file => {
-          const href = fileDownloadBaseUrl ? `${fileDownloadBaseUrl}${file.path}` : undefined;
+          const href = fileDownloadBaseUrl ? `${fileDownloadBaseUrl}${encodeArtifactPath(file.path)}` : undefined;
           return (
             <VisualSandboxFile
               key={file.path}
@@ -217,7 +223,7 @@ function ArtifactChip({
     return <span className={itemClassName}>{label}</span>;
   }
 
-  const href = fileDownloadBaseUrl ? `${fileDownloadBaseUrl}${path}` : undefined;
+  const href = fileDownloadBaseUrl ? `${fileDownloadBaseUrl}${encodeArtifactPath(path)}` : undefined;
   const canDownload = Boolean(onDownloadArtifact || href);
   const isDownloading = downloadingPath === path;
 
