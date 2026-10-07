@@ -44,6 +44,7 @@
     --color-gray-700: #3f3f46;
     --color-gray-750: #303036;
     --color-gray-800: #27272a;
+    --color-gray-850: #18181b;
     --color-gray-1000: #09090b;
     --color-indigo-500: #6366f1;
     --color-red-500: #ef4444;
@@ -115,6 +116,7 @@
     --color-gray-700: #d4d4d8;
     --color-gray-750: #dfdfe2;
     --color-gray-800: #ececee;
+    --color-gray-850: #f5f5f7;
     --color-gray-1000: #fdfdfd;
 
     --sidebar-bg: var(--color-gray-200);
@@ -337,6 +339,7 @@
   --color-gray-700: var(--color-gray-700);
   --color-gray-750: var(--color-gray-750);
   --color-gray-800: var(--color-gray-800);
+  --color-gray-850: var(--color-gray-850);
   --color-gray-1000: var(--color-gray-1000);
   --color-indigo-500: var(--color-indigo-500);
   --color-red-500: var(--color-red-500);

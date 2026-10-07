@@ -76,6 +76,27 @@ beforeAll(() => {
   };
 });
 
+function mobileMatchMedia(query: string): MediaQueryList {
+  return {
+    matches: query === '(max-width: 767px)',
+    media: query,
+    onchange: null,
+    addEventListener: vi.fn(),
+    removeEventListener: vi.fn(),
+    addListener: vi.fn(),
+    removeListener: vi.fn(),
+    dispatchEvent: vi.fn(() => true),
+  };
+}
+
+function withMobileViewport(run: () => Promise<void> | void) {
+  const originalMatchMedia = window.matchMedia;
+  Object.defineProperty(window, 'matchMedia', { configurable: true, value: mobileMatchMedia });
+  return Promise.resolve(run()).finally(() => {
+    Object.defineProperty(window, 'matchMedia', { configurable: true, value: originalMatchMedia });
+  });
+}
+
 const detail: AgentDetail = {
   agentId: 'agent-1',
   name: 'release-notes-writer',
@@ -349,6 +370,62 @@ describe('AgentDetailsPage', () => {
     expect(screen.getByText('Schedules for agent-1')).toBeInTheDocument();
     expect(new URL(window.location.href).searchParams.get('tab')).toBe('schedules');
     expect(new URL(window.location.href).searchParams.get('agent')).toBeNull();
+  });
+
+  it('shows a desktop-only notice for Sessions and Schedules tabs on mobile', async () => {
+    await withMobileViewport(async () => {
+      const { listSessions } = renderPage({
+        schedules: createMockScheduleServer(),
+        overrides: {
+          AgentSessions: () => <div>Sessions mounted</div>,
+          SchedulesPage: () => <div>Schedules mounted</div>,
+        },
+      });
+
+      await screen.findByText('release-notes-writer');
+      fireEvent.click(screen.getByRole('tab', { name: 'Sessions' }));
+      expect(await screen.findByRole('heading', { name: 'Best viewed on desktop' })).toBeInTheDocument();
+      expect(screen.queryByText('Sessions mounted')).not.toBeInTheDocument();
+      expect(listSessions).not.toHaveBeenCalled();
+
+      fireEvent.click(screen.getByRole('tab', { name: 'Schedules' }));
+      expect(screen.getByRole('heading', { name: 'Best viewed on desktop' })).toBeInTheDocument();
+      expect(screen.queryByText('Schedules mounted')).not.toBeInTheDocument();
+    });
+  });
+
+  it('shows a desktop-only notice for a deep-linked Sessions tab on mobile', async () => {
+    await withMobileViewport(async () => {
+      window.history.replaceState(null, '', '/library/agent-1?tab=sessions&agentId=agent-1');
+      const { listSessions } = renderPage({
+        initialEntries: ['/library/agent-1?tab=sessions&agentId=agent-1'],
+        overrides: {
+          AgentSessions: () => <div>Sessions mounted</div>,
+        },
+      });
+
+      expect(await screen.findByRole('tab', { name: 'Sessions' })).toHaveAttribute('aria-selected', 'true');
+      expect(screen.getByRole('heading', { name: 'Best viewed on desktop' })).toBeInTheDocument();
+      expect(screen.queryByText('Sessions mounted')).not.toBeInTheDocument();
+      expect(listSessions).not.toHaveBeenCalled();
+    });
+  });
+
+  it('shows a desktop-only notice for a deep-linked Schedules tab on mobile', async () => {
+    await withMobileViewport(async () => {
+      window.history.replaceState(null, '', '/library/agent-1?tab=schedules&agentId=agent-1');
+      renderPage({
+        initialEntries: ['/library/agent-1?tab=schedules&agentId=agent-1'],
+        schedules: createMockScheduleServer(),
+        overrides: {
+          SchedulesPage: () => <div>Schedules mounted</div>,
+        },
+      });
+
+      expect(await screen.findByRole('tab', { name: 'Schedules' })).toHaveAttribute('aria-selected', 'true');
+      expect(screen.getByRole('heading', { name: 'Best viewed on desktop' })).toBeInTheDocument();
+      expect(screen.queryByText('Schedules mounted')).not.toBeInTheDocument();
+    });
   });
 
   it('opens the create schedule drawer after redirecting from + Schedule', async () => {

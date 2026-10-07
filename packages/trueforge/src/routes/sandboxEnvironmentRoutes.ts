@@ -123,7 +123,11 @@ export const putSandboxEnvironmentRoute = createRoute({
     },
     422: {
       content: { 'application/json': { schema: RequestErrorResponseSchema } },
-      description: 'No sandbox provider configured.',
+      description: 'Sandbox provider is missing or its credentials are invalid.',
+    },
+    502: {
+      content: { 'application/json': { schema: RequestErrorResponseSchema } },
+      description: 'Sandbox provider secret synchronization failed.',
     },
   },
 });
@@ -155,6 +159,14 @@ export const deleteSandboxEnvironmentRoute = createRoute({
     409: {
       content: { 'application/json': { schema: RequestErrorResponseSchema } },
       description: 'Environment is referenced by one or more agents.',
+    },
+    422: {
+      content: { 'application/json': { schema: RequestErrorResponseSchema } },
+      description: 'Sandbox provider is missing or its credentials are invalid.',
+    },
+    502: {
+      content: { 'application/json': { schema: RequestErrorResponseSchema } },
+      description: 'Sandbox provider secret deletion failed.',
     },
   },
 });

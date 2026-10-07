@@ -2,6 +2,8 @@
 
 import { useCallback, useEffect, useMemo, useState } from 'react';
 
+import { useTrackAnalytics } from '@/analytics/AnalyticsProvider.js';
+import { AnalyticsEvents } from '@/analytics/events.js';
 import { Button } from '../../atoms/primitives/Button.js';
 import { Icon } from '../../icons/Icon.js';
 import {
@@ -13,6 +15,7 @@ import type { SandboxProviderBase, SandboxProviderCatalogEntry } from '../../ser
 import { getErrorMessage } from '../../utils/getErrorMessage.js';
 import { useToasterOptional } from '../ToasterContainer.js';
 import ConfigureSandboxForm, { type SandboxConfigDraft } from './ConfigureSandboxForm.js';
+import ConfirmDeleteDialog from './ConfirmDeleteDialog.js';
 
 const configFrom = ({
   execTimeoutMs,
@@ -29,6 +32,7 @@ const configFrom = ({
 const SandboxSettings = () => {
   const { sandboxCatalog } = useCatalogServer();
   const toaster = useToasterOptional();
+  const track = useTrackAnalytics();
 
   const [providers, setProviders] = useState<SandboxProviderBase[]>([]);
   const [catalog, setCatalog] = useState<SandboxProviderCatalogEntry[]>([]);
@@ -39,6 +43,8 @@ const SandboxSettings = () => {
 
   const [createEntry, setCreateEntry] = useState<SandboxProviderCatalogEntry | null>(null);
   const [updateProvider, setUpdateProvider] = useState<SandboxProviderBase | null>(null);
+  const [pendingRemoval, setPendingRemoval] = useState<SandboxProviderBase | null>(null);
+  const [removeError, setRemoveError] = useState<string | null>(null);
 
   const refresh = useCallback(
     async ({ quiet = false }: { quiet?: boolean } = {}) => {
@@ -112,6 +118,7 @@ const SandboxSettings = () => {
     setCreateEntry(null);
     setTimeout(() => {
       toaster?.showSuccess({ title: `${createEntry.name} configured` });
+      track(AnalyticsEvents.Settings.SANDBOX_PROVIDER_SAVED, { provider_name: createEntry.name, mode: 'create' });
     }, 0);
   };
 
@@ -128,15 +135,25 @@ const SandboxSettings = () => {
     setUpdateProvider(null);
     setTimeout(() => {
       toaster?.showSuccess({ title: `${updateProvider.name} updated` });
+      track(AnalyticsEvents.Settings.SANDBOX_PROVIDER_SAVED, { provider_name: updateProvider.name, mode: 'update' });
     }, 0);
+  };
+
+  const closeRemoveDialog = () => {
+    if (busy) return;
+    setPendingRemoval(null);
+    setRemoveError(null);
   };
 
   const handleRemove = (provider: SandboxProviderBase) => {
     const deleteSandboxProvider = sandboxCatalog.deleteSandboxProvider;
     if (!deleteSandboxProvider) return;
+    setRemoveError(null);
     void runMutation(async () => {
       await deleteSandboxProvider({ id: provider.id });
-    }).catch(() => {});
+      track(AnalyticsEvents.Settings.SANDBOX_PROVIDER_DELETED, { provider_name: provider.name });
+      setPendingRemoval(null);
+    }, setRemoveError).catch(() => {});
   };
 
   const formOpen = createEntry != null || updateProvider != null;
@@ -213,7 +230,8 @@ const SandboxSettings = () => {
                             type="button"
                             disabled={busy}
                             onClick={() => {
-                              handleRemove(provider);
+                              setRemoveError(null);
+                              setPendingRemoval(provider);
                             }}
                           >
                             Remove
@@ -221,7 +239,7 @@ const SandboxSettings = () => {
                         ) : null}
                       </div>
                     </article>
-                  ))}
+                  ))}{' '}
                 </div>
               </section>
             ) : null}
@@ -276,6 +294,19 @@ const SandboxSettings = () => {
           </div>
         )}
       </div>
+
+      {pendingRemoval ? (
+        <ConfirmDeleteDialog
+          title="Remove sandbox provider?"
+          description={`“${pendingRemoval.name}” will stop running sandboxes for code, files and shell commands.`}
+          busy={busy}
+          error={removeError}
+          onCancel={closeRemoveDialog}
+          onConfirm={() => {
+            handleRemove(pendingRemoval);
+          }}
+        />
+      ) : null}
 
       <ConfigureSandboxForm
         open={formOpen}

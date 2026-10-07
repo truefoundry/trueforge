@@ -3,6 +3,7 @@ import type {
   AgentSessionsServer,
   AgentUIServer,
   CatalogServer,
+  SandboxEnvironmentServer,
   ScheduleServer,
 } from '@/server/types.js';
 
@@ -53,6 +54,18 @@ export function createMockScheduleServer(overrides: Partial<ScheduleServer> = {}
     deleteSchedule: unavailable,
     listScheduleRuns: async () => [],
     createScheduleRun: unavailable,
+    ...overrides,
+  };
+}
+
+export function createMockSandboxEnvironmentServer(
+  overrides: Partial<SandboxEnvironmentServer> = {},
+): SandboxEnvironmentServer {
+  return {
+    listEnvironments: async () => ({ data: [] }),
+    getEnvironment: unavailable,
+    createOrUpdateEnvironment: unavailable,
+    deleteEnvironment: unavailable,
     ...overrides,
   };
 }

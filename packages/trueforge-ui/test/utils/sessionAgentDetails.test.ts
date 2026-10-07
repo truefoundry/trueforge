@@ -240,10 +240,16 @@ describe('buildSessionTurnViews', () => {
       status: 'error',
       message: 'model failed',
       completedAt: '2026-01-01T00:00:03.000Z',
-      metrics: { totalTokens: 7, totalCostInUsd: 0.25 },
-    } satisfies TurnDoneEvent['state'] & {
-      metrics: { totalTokens: number; totalCostInUsd: number };
-    };
+      metrics: {
+        totalTokens: 7,
+        totalCostInUsd: 0.25,
+        totalInputTokens: 0,
+        totalOutputTokens: 0,
+        totalCacheReadTokens: 0,
+        totalCacheWriteTokens: 0,
+        totalReasoningTokens: 0,
+      },
+    } satisfies TurnDoneEvent['state'];
 
     const views = buildSessionTurnViews([
       createdItem({

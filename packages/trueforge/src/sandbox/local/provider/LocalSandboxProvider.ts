@@ -235,6 +235,18 @@ export class LocalSandboxProvider implements SandboxProvider {
     return Promise.resolve();
   }
 
+  createSecret(): Promise<{ id: string; name: string }> {
+    return Promise.reject(new Error('Local sandbox provider does not support org secrets'));
+  }
+
+  updateSecret(): Promise<void> {
+    return Promise.reject(new Error('Local sandbox provider does not support org secrets'));
+  }
+
+  deleteSecret(): Promise<void> {
+    return Promise.reject(new Error('Local sandbox provider does not support org secrets'));
+  }
+
   /**
    * Probe whether this host can run LocalSandboxProvider
    * (OS + Code Mode UDS listen + SRT host binaries + in-sandbox shell + Python 3).

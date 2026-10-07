@@ -59,11 +59,17 @@ describe('ensureDefaultSandboxEnvironment', () => {
       }),
       undefined,
     );
-    const buildVersion = store.upsertEnvironment.mock.calls[0]?.[0].buildVersion as (previous?: {
-      latest_version: number;
-    }) => { status: string; version: number };
-    expect(buildVersion(undefined)).toMatchObject({ status: 'pending', version: 1 });
-    expect(buildVersion({ latest_version: 3 })).toMatchObject({ status: 'pending', version: 4 });
+    const buildVersion = store.upsertEnvironment.mock.calls[0]?.[0].buildVersion as (input: {
+      existing_version?: number;
+    }) => Promise<{ status: string; version: number }>;
+    await expect(buildVersion({})).resolves.toMatchObject({
+      status: 'pending',
+      version: 1,
+    });
+    await expect(buildVersion({ existing_version: 3 })).resolves.toMatchObject({
+      status: 'pending',
+      version: 4,
+    });
   });
 
   it('upserts again when resetPending is true even if default exists', async () => {

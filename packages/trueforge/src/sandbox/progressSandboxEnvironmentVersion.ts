@@ -1,22 +1,17 @@
-/**
- * Progress a pending sandbox-environment version: get/create snapshot, update DB.
- */
+/** Progress pending env version: snapshot build only (secrets sync on PUT). */
 import { DAYTONA_SNAPSHOT_NOT_STARTED_REASON, withTimeout } from '@truefoundry/trueforge-core/core';
 import { HTTPException } from 'hono/http-exception';
 import type { Logger } from 'winston';
 import type { ISandboxEnvironmentStore } from '../db/sandboxEnvironmentStore';
 import type { ISandboxProviderStore } from '../db/sandboxProviderStore';
 import {
-  isDaytonaAuthError,
-  isDaytonaPermissionError,
+  DAYTONA_RPC_TIMEOUT_MS,
+  getDaytonaAuthorizationErrorMessage,
   toDaytonaSandboxProvider,
   toSandboxEnvironment,
   toSandboxStatus,
 } from '../sandbox/providerUtils';
 import { captureCriticalException } from '../sentry';
-
-/** Bound hung Daytona GET/POST so the sandbox-env-build tick can move on. */
-const DAYTONA_SNAPSHOT_RPC_TIMEOUT_MS = 30_000;
 
 export async function progressSandboxEnvironmentVersion({
   sandboxEnvironmentStore,
@@ -57,32 +52,26 @@ export async function progressSandboxEnvironmentVersion({
   try {
     const status = await withTimeout(
       provider.getBuildStatus(environment),
-      DAYTONA_SNAPSHOT_RPC_TIMEOUT_MS,
+      DAYTONA_RPC_TIMEOUT_MS,
       'sandbox environment getBuildStatus',
     );
     const built = toSandboxStatus(
       status.reason === DAYTONA_SNAPSHOT_NOT_STARTED_REASON
-        ? await withTimeout(provider.build(environment), DAYTONA_SNAPSHOT_RPC_TIMEOUT_MS, 'sandbox environment build')
+        ? await withTimeout(provider.build(environment), DAYTONA_RPC_TIMEOUT_MS, 'sandbox environment build')
         : status,
     );
     if (built.status === 'ready') {
       await sandboxEnvironmentStore.markVersionReady({ environment_version_id });
-      return;
-    }
-    if (built.status === 'failed') {
+    } else if (built.status === 'failed') {
       await sandboxEnvironmentStore.markVersionFailed({
         environment_version_id,
         status_reason: built.status_reason ?? 'Sandbox environment snapshot build failed',
       });
-      return;
     }
     // pending / building — leave as pending for the next tick.
-    return;
   } catch (error) {
-    if (isDaytonaAuthError(error) || isDaytonaPermissionError(error)) {
-      const status_reason = isDaytonaAuthError(error)
-        ? 'Sandbox provider rejected the API key — check the credentials'
-        : 'Sandbox provider denied access: the API key is missing required permissions';
+    const status_reason = getDaytonaAuthorizationErrorMessage(error);
+    if (status_reason !== undefined) {
       await sandboxEnvironmentStore.markVersionFailed({ environment_version_id, status_reason });
       logger.warn('Sandbox environment build failed authz', {
         environment_version_id,

@@ -1,5 +1,7 @@
 'use client';
 
+import { useTrackAnalytics } from '../analytics/AnalyticsProvider.js';
+import { AnalyticsEvents } from '../analytics/events.js';
 import { useSessionShareSearch } from '../hooks/useSessionShareSearch.js';
 import { Icon } from '../icons/Icon.js';
 import { useOptionalAgentSessionsServer } from '../server/ServerContext.js';
@@ -17,6 +19,7 @@ export type SessionsBrowserButtonProps = {
 export function SessionsBrowserButton({ className, compact = false }: SessionsBrowserButtonProps) {
   const sessionsServer = useOptionalAgentSessionsServer();
   const shell = useOptionalShellMode();
+  const track = useTrackAnalytics();
   const { updateShareSearch } = useSessionShareSearch();
   const sessionsOpen = shell?.sessionsOpen === true;
   const enabled = isSessionsChromeEnabled({ sessions: sessionsServer }) && shell != null;
@@ -42,6 +45,7 @@ export function SessionsBrowserButton({ className, compact = false }: SessionsBr
         })}
         onClick={() => {
           if (!sessionsOpen) {
+            track(AnalyticsEvents.SessionsBrowser.OPENED);
             const share = readSessionShareSearch(window.location.search);
             updateShareSearch({
               view: 'sessions',
