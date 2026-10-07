@@ -359,6 +359,7 @@ async function assembleTurnRecord(
       parent: meta.checkpoint.parent,
       agent_info: meta.agent_info,
       completion: meta.checkpoint.completion,
+      pending_mcp_auth: meta.checkpoint.pending_mcp_auth,
       capability_state,
     };
     threads[threadId] = snap;
@@ -609,7 +610,11 @@ export async function createTurn(db: Kysely<Database>, input: CreateTurnInput): 
         const newIds = newIdsByThread.get(parent.thread_id) ?? [];
         const usage = appendUsageByThread.get(parent.thread_id) ?? parent.current_context_usage;
         const completion = appendCompletionByThread.get(parent.thread_id);
-        const checkpoint = completion !== undefined ? { ...parent.checkpoint, completion } : parent.checkpoint;
+        const checkpoint: TurnThreadCheckpoint = {
+          ...parent.checkpoint,
+          ...(completion !== undefined ? { completion } : {}),
+          pending_mcp_auth: false,
+        };
         turnThreadRows.push({
           session_id: input.session_id,
           turn_id: input.turn.turn_id,
@@ -628,6 +633,7 @@ export async function createTurn(db: Kysely<Database>, input: CreateTurnInput): 
         const threadCheckpoint: TurnThreadCheckpoint = {
           parent: nt.parent,
           completion: null,
+          pending_mcp_auth: false,
         };
         turnThreadRows.push({
           session_id: input.session_id,

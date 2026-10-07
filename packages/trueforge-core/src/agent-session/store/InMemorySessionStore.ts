@@ -30,6 +30,7 @@ import type {
   PatchMCPServersInput,
   PatchSandboxInfoInput,
   PatchThreadCapabilityStateInput,
+  PatchThreadsMCPAuthInput,
   RemoveThreadsInput,
   TurnContextAppend,
   TurnRecordWithoutSnapshot,
@@ -105,6 +106,7 @@ function newThreadSnapshot(thread: NewThreadInit): AgentThreadSnapshot {
     context: [],
     current_context_usage: getEmptyCurrentContextUsage(),
     completion: null,
+    pending_mcp_auth: false,
   };
 }
 
@@ -133,6 +135,9 @@ function buildSnapshotFromDelta(input: {
   const threads: Record<string, AgentThreadSnapshot> = input.previousSnapshot
     ? deepCopy(input.previousSnapshot.threads)
     : {};
+  for (const thread of Object.values(threads)) {
+    thread.pending_mcp_auth = false;
+  }
 
   assertCreateTurnThreadDelta({
     previousThreadIds: new Set(Object.keys(threads)),
@@ -527,6 +532,21 @@ export class InMemorySessionStore<
     }
     list.push(...deepCopy(input.events));
     return;
+  }
+
+  async patchThreadsMCPAuth(input: PatchThreadsMCPAuthInput): Promise<void> {
+    const turn = this.requireNonTerminalTurn(input.session_id, input.turn_id);
+    const threads = input.thread_ids.map(threadId => {
+      const thread = turn.snapshot.threads[threadId];
+      if (!thread) {
+        throw new SessionStoreInvariantError(`Thread not found: ${threadId}`);
+      }
+      return thread;
+    });
+    for (const thread of threads) {
+      thread.pending_mcp_auth = input.pending_mcp_auth;
+    }
+    turn.updated_at = new Date();
   }
 
   async insertTurnInboundEvents(input: InsertTurnInboundEventsInput): Promise<void> {
