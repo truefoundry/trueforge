@@ -213,4 +213,50 @@ describe('ConnectorSettings edit flow', () => {
       connector_name: connector.name,
     });
   });
+
+  it('tracks connector disconnected without emitting deleted', async () => {
+    const connector: ConnectorBase = {
+      id: 'oauth-mcp',
+      name: 'OAuth MCP',
+      description: 'OAuth tools',
+      url: 'https://mcp.example.com/mcp',
+      authenticated: true,
+      requiresAuth: false,
+      auth: { type: 'dcr' },
+    };
+    const disconnectConnector = vi.fn(async () => ({ ...connector, authenticated: false, requiresAuth: true }));
+    const track = vi.fn();
+    const server = createMockAgentUIServer({
+      catalog: createMockCatalog({
+        connectorCatalog: {
+          getConnectorCatalog: async () => [],
+          listConnectors: async () => [connector],
+          getConnector: async () => connector,
+          getToolsByConnectorId: async () => [],
+          createConnector: async () => connector,
+          updateConnector: async () => connector,
+          authenticateConnector: async () => ({ authorization_endpoint: '' }),
+          disconnectConnector,
+          deleteConnector: async () => {},
+        },
+      }),
+    });
+
+    render(
+      <AnalyticsProvider track={track}>
+        <ServerProvider server={server}>
+          <ConnectorSettings />
+        </ServerProvider>
+      </AnalyticsProvider>,
+    );
+
+    fireEvent.click(await screen.findByText(connector.name));
+    fireEvent.click(await screen.findByRole('button', { name: 'Disconnect' }));
+
+    await waitFor(() => expect(disconnectConnector).toHaveBeenCalledWith({ id: connector.id }));
+    expect(track).toHaveBeenCalledWith(AnalyticsEvents.Settings.CONNECTOR_DISCONNECTED, {
+      connector_name: connector.name,
+    });
+    expect(track).not.toHaveBeenCalledWith(AnalyticsEvents.Settings.CONNECTOR_DELETED, expect.anything());
+  });
 });

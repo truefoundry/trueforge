@@ -231,7 +231,7 @@ const ConnectorSettings = () => {
   const handleDisconnect = (connector: ConnectorBase) => {
     void runMutation(async () => {
       await connectorCatalog.disconnectConnector({ id: connector.id });
-      track(AnalyticsEvents.Settings.CONNECTOR_DELETED, { connector_name: connector.name });
+      track(AnalyticsEvents.Settings.CONNECTOR_DISCONNECTED, { connector_name: connector.name });
       setSelectedConnector(null);
     }).catch(() => {});
   };

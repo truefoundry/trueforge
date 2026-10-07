@@ -122,6 +122,15 @@ function ComposerBody({
         disabled={disabled}
         data-slot="aui_composer-attachment-dropzone"
         className="w-full rounded-[0.75rem] transition-[box-shadow] data-[dragging=true]:ring-focus-ring/20 data-[dragging=true]:ring-3"
+        onDropCapture={event => {
+          if (disabled) return;
+          const files = event.dataTransfer?.files;
+          if (files == null || files.length === 0) return;
+          track(
+            AnalyticsEvents.Attachment.PICKED,
+            withSessionProps({ file_count: files.length }, { sessionId, ...shellAgent }),
+          );
+        }}
       >
         <ComposerPrimitive.Root
           data-slot="aui_composer-root"

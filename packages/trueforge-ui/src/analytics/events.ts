@@ -36,6 +36,7 @@ export const AnalyticsEvents = {
     MODEL_PROVIDER_SAVED: 'settings.model_provider_saved',
     MODEL_PROVIDER_DELETED: 'settings.model_provider_deleted',
     CONNECTOR_SAVED: 'settings.connector_saved',
+    CONNECTOR_DISCONNECTED: 'settings.connector_disconnected',
     CONNECTOR_DELETED: 'settings.connector_deleted',
     SKILL_IMPORTED: 'settings.skill_imported',
     SKILL_DELETED: 'settings.skill_deleted',

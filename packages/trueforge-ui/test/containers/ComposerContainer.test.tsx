@@ -215,6 +215,37 @@ describe('ComposerContainer', () => {
     );
   });
 
+  it('tracks attachment_picked on dropzone drop', () => {
+    const track = vi.fn();
+    render(
+      <AnalyticsProvider track={track}>
+        <ShellModeProvider agentConfig={{ mode: 'SingleAgent', name: 'support' }}>
+          <RuntimeHarness messages={[]}>
+            <ComposerBusyProvider>
+              <ComposerContainer />
+            </ComposerBusyProvider>
+          </RuntimeHarness>
+        </ShellModeProvider>
+      </AnalyticsProvider>,
+    );
+    const dropzone = document.querySelector('[data-slot="aui_composer-attachment-dropzone"]');
+    expect(dropzone).not.toBeNull();
+    if (dropzone === null) {
+      throw new Error('Expected attachment dropzone');
+    }
+
+    fireEvent.drop(dropzone, {
+      dataTransfer: {
+        files: [new File(['hello'], 'note.txt', { type: 'text/plain' })],
+      },
+    });
+
+    expect(track).toHaveBeenCalledWith(
+      AnalyticsEvents.Attachment.PICKED,
+      expect.objectContaining({ file_count: 1, agent_name: 'support' }),
+    );
+  });
+
   it('preserves consumer section overrides in draft mode', () => {
     render(
       <SlotsProvider
