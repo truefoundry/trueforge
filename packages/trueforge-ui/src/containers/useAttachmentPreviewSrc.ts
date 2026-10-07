@@ -1,7 +1,7 @@
 'use client';
 
 import { useAuiState } from '@assistant-ui/react';
-import { useEffect, useState } from 'react';
+import { useLayoutEffect, useState } from 'react';
 
 export function isImageAttachment(type: string, contentType?: string): boolean {
   return type === 'image' || (contentType?.startsWith('image/') ?? false);
@@ -10,7 +10,8 @@ export function isImageAttachment(type: string, contentType?: string): boolean {
 function useFileObjectUrl(file: File | undefined): string | undefined {
   const [src, setSrc] = useState<string | undefined>(undefined);
 
-  useEffect(() => {
+  // Before paint, so an image chip does not first render as a file chip.
+  useLayoutEffect(() => {
     if (!file) {
       setSrc(undefined);
       return;

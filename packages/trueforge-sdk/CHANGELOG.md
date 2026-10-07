@@ -1,8 +1,24 @@
+## [0.177.0] - 2026-10-07
+
+## [0.177.0-rc.1] - 2026-10-05
+
 ## [0.0.0] - 2026-09-29
 
 ## [0.2.1] - 2026-09-29
 
 ## [0.2.1-rc.0] - 2026-09-22
+
+## 0.177.0
+
+### Patch Changes
+
+- 5b7abb6: Regenerate SDK from updated OpenAPI spec.
+
+## 0.177.0-rc.1
+
+### Patch Changes
+
+- 5b7abb6: Regenerate SDK from updated OpenAPI spec.
 
 ## 0.2.1
 

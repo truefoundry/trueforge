@@ -1,5 +1,43 @@
 # @truefoundry/trueforge-core
 
+## 0.177.0
+
+### Patch Changes
+
+- 5b7abb6: Default sandbox environment on provider configure (with provider status-column drop), capabilities/resolve via default env status, and a controller loop that builds the latest pending environment version per env. Core: generic SandboxProvider/Sandbox, HarnessSandbox, and Daytona build/getBuildStatus on the provider.
+- 5b7abb6: Bump dependencies to address known vulnerabilities (Dependabot), including `undici`, AI SDK providers, `zod`, and related transitive fixes.
+- 5b7abb6: Reset in-flight sub-agents and open tool calls when a turn starts with a user message, without emitting public thread.done for cancelled children.
+- b9429a0: Raise the default model HTTP body timeout to 60s and shorten the default MCP request timeout to 2 minutes.
+- fc99f4e: Raise the default model HTTP headers timeout to 60 seconds so slow first-token responses are not dropped.
+- 4fde7e9: Split outbound HTTP into an agnostic SSRF `createOutboundFetch` plus separate generic/model/MCP Agents (`OUTBOUND_HTTP_*`, `MODEL_HTTP_*`, `MCP_HTTP_*`) with configurable connect/headers/body timeouts and retries.
+- 5b7abb6: Add sandbox-environment CRUD (tables, PUT upsert, subject ownership, soft-delete). Versions land as `pending` for a future controller. AgentSpec `config.sandbox.environment_name` names a caller-owned env; name `default` is reserved; delete returns 409 while agents reference it. Turn create clones the env snapshot (when built) and applies resources, env vars, and networking.
+- fde4d4a: Sync sandbox-environment networking secrets to Daytona org secrets on PUT (plaintext is never stored), keep Daytona refs in `sandbox_environment_secret`, and mount those secret names at sandbox create time.
+- 5b7abb6: Treat `paused` as a live turn. `updateTurnNonTerminalState` switches `running` and `paused` and appends `turn.update` without session metrics. Terminal writes and `freezeAndGetTurn` accept a paused tip. `createTurn` rejects a paused predecessor until it is frozen. `updateTurnState` is now `updateTurnTerminalState`.
+
+## 0.177.0-rc.3
+
+### Patch Changes
+
+- fc99f4e: Raise the default model HTTP headers timeout to 60 seconds so slow first-token responses are not dropped.
+
+## 0.177.0-rc.2
+
+### Patch Changes
+
+- b9429a0: Raise the default model HTTP body timeout to 60s and shorten the default MCP request timeout to 2 minutes.
+
+## 0.177.0-rc.1
+
+### Patch Changes
+
+- 5b7abb6: Default sandbox environment on provider configure (with provider status-column drop), capabilities/resolve via default env status, and a controller loop that builds the latest pending environment version per env. Core: generic SandboxProvider/Sandbox, HarnessSandbox, and Daytona build/getBuildStatus on the provider.
+- 5b7abb6: Bump dependencies to address known vulnerabilities (Dependabot), including `undici`, AI SDK providers, `zod`, and related transitive fixes.
+- 5b7abb6: Reset in-flight sub-agents and open tool calls when a turn starts with a user message, without emitting public thread.done for cancelled children.
+- 4fde7e9: Split outbound HTTP into an agnostic SSRF `createOutboundFetch` plus separate generic/model/MCP Agents (`OUTBOUND_HTTP_*`, `MODEL_HTTP_*`, `MCP_HTTP_*`) with configurable connect/headers/body timeouts and retries.
+- 5b7abb6: Add sandbox-environment CRUD (tables, PUT upsert, subject ownership, soft-delete). Versions land as `pending` for a future controller. AgentSpec `config.sandbox.environment_name` names a caller-owned env; name `default` is reserved; delete returns 409 while agents reference it. Turn create clones the env snapshot (when built) and applies resources, env vars, and networking.
+- fde4d4a: Sync sandbox-environment networking secrets to Daytona org secrets on PUT (plaintext is never stored), keep Daytona refs in `sandbox_environment_secret`, and mount those secret names at sandbox create time.
+- 5b7abb6: Treat `paused` as a live turn. `updateTurnNonTerminalState` switches `running` and `paused` and appends `turn.update` without session metrics. Terminal writes and `freezeAndGetTurn` accept a paused tip. `createTurn` rejects a paused predecessor until it is frozen. `updateTurnState` is now `updateTurnTerminalState`.
+
 ## 0.3.0
 
 ### Minor Changes
