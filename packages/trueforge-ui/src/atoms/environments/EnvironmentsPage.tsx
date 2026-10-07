@@ -2,6 +2,8 @@
 
 import { useCallback, useEffect, useMemo, useRef, useState, type ComponentType } from 'react';
 
+import { useTrackAnalytics } from '../../analytics/AnalyticsProvider.js';
+import { AnalyticsEvents } from '../../analytics/events.js';
 import { useToasterOptional } from '../../containers/ToasterContainer.js';
 import { Icon } from '../../icons/Icon.js';
 import { useSandboxEnvironmentServer } from '../../server/ServerContext.js';
@@ -56,6 +58,7 @@ export function EnvironmentsPage(_props: EnvironmentsPageProps) {
   const environmentServer = useSandboxEnvironmentServer();
   const shell = useOptionalShellMode();
   const toaster = useToasterOptional();
+  const track = useTrackAnalytics();
 
   const [environments, setEnvironments] = useState<SandboxEnvironment[]>([]);
   const [loading, setLoading] = useState(true);
@@ -187,6 +190,10 @@ export function EnvironmentsPage(_props: EnvironmentsPageProps) {
     setDeleting(true);
     try {
       await environmentServer.deleteEnvironment({ name: pendingDelete.name });
+      track(AnalyticsEvents.Environment.DELETED, {
+        environment_name: pendingDelete.name,
+        environment_id: pendingDelete.id,
+      });
       toaster?.showSuccess({ title: 'Environment deleted' });
       setPendingDelete(null);
       setPageToken(undefined);

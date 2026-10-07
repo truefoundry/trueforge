@@ -10,7 +10,7 @@ export const DEFAULT_OUTBOUND_HTTP_BODY_TIMEOUT_MS = 5_000;
 export const DEFAULT_OUTBOUND_HTTP_MAX_RETRIES = 2;
 
 /** Model outbound undici headersTimeout. Env: `MODEL_HTTP_HEADERS_TIMEOUT_MS`. */
-export const DEFAULT_MODEL_HTTP_HEADERS_TIMEOUT_MS = 5_000;
+export const DEFAULT_MODEL_HTTP_HEADERS_TIMEOUT_MS = 60_000;
 /** Model outbound undici connect timeout. Env: `MODEL_HTTP_CONNECT_TIMEOUT_MS`. */
 export const DEFAULT_MODEL_HTTP_CONNECT_TIMEOUT_MS = 5_000;
 /** Model outbound undici bodyTimeout. Env: `MODEL_HTTP_BODY_TIMEOUT_MS`. */

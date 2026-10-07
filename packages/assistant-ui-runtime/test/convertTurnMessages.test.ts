@@ -28,7 +28,9 @@ import {
   projectSessionMessages,
   repositoryItemsFromMessages,
   resolveGatewayBranchPreviousTurnIdForTurn,
+  rootModelMessageIdsSinceBaseline,
   streamTurnEvents,
+  TurnStreamDisconnectedError,
   turnStreamUpdateToAssistantMessage,
 } from '../src/convertTurnMessages.js';
 import { buildRootAssistantContent, ingestTurnEvent, PeerThreadFoldState } from '../src/foldPeerThreads.js';
@@ -76,6 +78,15 @@ function sandboxCreated(event: { id: string; sandboxId: string; threadId?: strin
 
 function responseRequired(event: Omit<ToolResponseRequiredEvent, 'type' | 'createdAt'>): ToolResponseRequiredEvent {
   return { type: 'tool.response_required', createdAt, ...event };
+}
+
+function turnDone(id = 'turn-done'): TurnDoneEvent {
+  return {
+    type: 'turn.done',
+    id,
+    createdAt,
+    state: { status: 'done', requiredActions: [], completedAt: createdAt },
+  };
 }
 
 async function* streamFrom(events: TurnStreamData['event'][]): AsyncGenerator<TurnStreamData> {
@@ -1460,12 +1471,49 @@ describe('convertTurnMessages', () => {
               threadId: ROOT_THREAD_ID,
               content: 'streaming',
             }),
+            turnDone(),
           ]),
           foldState,
         ),
       );
 
-      expect(updates).toEqual([{ content: [{ type: 'text', text: 'streaming' }] }]);
+      expect(updates).toEqual([{ content: [{ type: 'text', text: 'streaming' }], sequenceNumber: 1 }]);
+    });
+
+    it('reports every stream sequence including events that do not yield UI', async () => {
+      const foldState = new PeerThreadFoldState();
+      const sequences: number[] = [];
+      const onSequenceNumber = vi.fn((sequenceNumber: number) => {
+        sequences.push(sequenceNumber);
+      });
+      const gatewayTurnId = 'turn-gw';
+
+      await collectStream(
+        streamTurnEvents(
+          streamFrom([
+            {
+              type: 'turn.created',
+              createdAt,
+              id: 'created-1',
+              turnId: gatewayTurnId,
+              input: [{ type: 'user.message', content: 'hello' }],
+            },
+            modelMessage({
+              id: 'm1',
+              threadId: ROOT_THREAD_ID,
+              content: 'hi',
+            }),
+            turnDone(),
+          ]),
+          foldState,
+          undefined,
+          undefined,
+          onSequenceNumber,
+        ),
+      );
+
+      expect(sequences).toEqual([1, 2, 3]);
+      expect(onSequenceNumber).toHaveBeenCalledTimes(3);
     });
 
     it('yields folded content after each ingested stream event', async () => {
@@ -1488,6 +1536,7 @@ describe('convertTurnMessages', () => {
               threadId: ROOT_THREAD_ID,
               content: 'third',
             }),
+            turnDone(),
           ]),
           foldState,
         ),
@@ -1527,13 +1576,14 @@ describe('convertTurnMessages', () => {
               threadId: ROOT_THREAD_ID,
               content: 'new turn only',
             }),
+            turnDone(),
           ]),
           foldState,
           ['prior'],
         ),
       );
 
-      expect(updates).toEqual([{ content: [{ type: 'text', text: 'new turn only' }] }]);
+      expect(updates).toEqual([{ content: [{ type: 'text', text: 'new turn only' }], sequenceNumber: 1 }]);
     });
 
     it('throws when the turn ends in error', async () => {
@@ -1630,6 +1680,7 @@ describe('convertTurnMessages', () => {
       expect(updates).toHaveLength(2);
       expect(updates[0]).toEqual({
         content: [{ type: 'text', text: 'before auth' }],
+        sequenceNumber: 1,
       });
       expect(updates[1]?.status).toEqual({
         type: 'requires-action',
@@ -1639,6 +1690,24 @@ describe('convertTurnMessages', () => {
         type: 'text',
         text: expect.stringContaining('Connect'),
       });
+    });
+
+    it('throws when the SSE body ends without turn.done or a pause', async () => {
+      const foldState = new PeerThreadFoldState();
+      await expect(
+        collectStream(
+          streamTurnEvents(
+            streamFrom([
+              modelMessage({
+                id: 'm1',
+                threadId: ROOT_THREAD_ID,
+                content: 'partial',
+              }),
+            ]),
+            foldState,
+          ),
+        ),
+      ).rejects.toThrow(TurnStreamDisconnectedError);
     });
 
     it('stamps sandboxId onto every content yield after sandbox.created is seen', async () => {
@@ -1657,6 +1726,7 @@ describe('convertTurnMessages', () => {
               threadId: ROOT_THREAD_ID,
               content: 'after sandbox',
             }),
+            turnDone(),
           ]),
           foldState,
         ),
@@ -1678,6 +1748,7 @@ describe('convertTurnMessages', () => {
               content: 'some content',
             }),
             sandboxCreated({ id: 'sandbox-evt', sandboxId: 'sbx-123' }),
+            turnDone(),
           ]),
           foldState,
         ),
@@ -2652,6 +2723,85 @@ describe('buildSnapshotFromSessionEvents', () => {
       id: 't3-user',
       role: 'user',
     });
+  });
+
+  it("keeps the running tip's already-ingested model messages in live resume scope", async () => {
+    const runningTurn = {
+      id: 't2',
+      state: { status: 'running' },
+      input: [{ type: 'user.message', content: 'can 10 random sandbox tool calll' }],
+      createdAt,
+    } as unknown as Turn;
+
+    const items: SessionEventItem[] = [
+      {
+        turnId: 't1',
+        event: {
+          type: 'turn.created',
+          id: 'evt-c1',
+          turnId: 't1',
+          input: [{ type: 'user.message', content: 'first' }],
+          state: { status: 'running' },
+          createdAt,
+        },
+      },
+      {
+        turnId: 't1',
+        event: modelMessage({ id: 'm1', threadId: ROOT_THREAD_ID, content: 'reply 1' }),
+      },
+      {
+        turnId: 't1',
+        event: {
+          type: 'turn.done',
+          id: 'evt-d1',
+          state: { status: 'done', requiredActions: [], completedAt: createdAt },
+          createdAt,
+        } as TurnDoneEvent,
+      },
+      {
+        turnId: 't2',
+        event: {
+          type: 'turn.created',
+          id: 'evt-c2',
+          turnId: 't2',
+          input: [{ type: 'user.message', content: 'can 10 random sandbox tool calll' }],
+          state: { status: 'running' },
+          createdAt,
+        },
+      },
+      {
+        turnId: 't2',
+        event: modelMessage({
+          id: 'm2',
+          threadId: ROOT_THREAD_ID,
+          content: 'Running 10 random sandbox commands at once:',
+        }),
+      },
+    ];
+
+    const snapshot = await buildSnapshotFromSessionEvents(mockServerWithEvents([runningTurn], items), SESSION_ID);
+
+    expect(snapshot.turns).toHaveLength(1);
+    expect(snapshot.groupRootBaseline).toEqual(['m1']);
+    expect(rootModelMessageIdsSinceBaseline(snapshot.fold, snapshot.groupRootBaseline ?? [])).toEqual(['m2']);
+
+    const updates = await collectStream(
+      streamTurnEvents(
+        streamFrom([
+          modelMessage({
+            id: 'm3',
+            threadId: ROOT_THREAD_ID,
+            content: 'I ran 10 sandbox commands',
+          }),
+          turnDone(),
+        ]),
+        snapshot.fold,
+        snapshot.groupRootBaseline,
+      ),
+    );
+
+    const texts = (updates.at(-1)?.content ?? []).filter(part => part.type === 'text').map(part => part.text);
+    expect(texts).toEqual(['Running 10 random sandbox commands at once:', 'I ran 10 sandbox commands']);
   });
 
   it('calls onProgress after each completed turn', async () => {

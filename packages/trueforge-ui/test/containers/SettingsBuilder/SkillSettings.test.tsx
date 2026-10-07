@@ -3,6 +3,9 @@ import { fireEvent, render, screen, waitFor, within } from '@testing-library/rea
 import type { ReactNode } from 'react';
 import { beforeAll, describe, expect, it, vi } from 'vitest';
 
+import { AnalyticsProvider } from '@/analytics/AnalyticsProvider.js';
+import { AnalyticsEvents } from '@/analytics/events.js';
+import type { TrackAnalytics } from '@/analytics/types.js';
 import SkillSettings from '@/containers/SettingsBuilder/SkillSettings.js';
 import { ServerProvider } from '@/server/ServerContext.js';
 import type { CreateSkillRequest, DefinedSkill, SkillCatalogEntry } from '@/server/types.js';
@@ -27,7 +30,7 @@ const catalogEntry: SkillCatalogEntry = {
 };
 
 /** In-memory host: catalog is fixed, defined skills live in a mutable list. */
-function createFakeHost(initial: DefinedSkill[] = []) {
+function createFakeHost(initial: DefinedSkill[] = [], track?: TrackAnalytics) {
   let defined = [...initial];
   const created: CreateSkillRequest[] = [];
 
@@ -64,13 +67,17 @@ function createFakeHost(initial: DefinedSkill[] = []) {
   return {
     created,
     getDefined: () => defined,
-    wrapper: ({ children }: { children: ReactNode }) => <ServerProvider server={server}>{children}</ServerProvider>,
+    wrapper: ({ children }: { children: ReactNode }) => {
+      const tree = <ServerProvider server={server}>{children}</ServerProvider>;
+      return track != null ? <AnalyticsProvider track={track}>{tree}</AnalyticsProvider> : tree;
+    },
   };
 }
 
 describe('SkillSettings', () => {
   it('selects a catalog skill and moves it out of Available', async () => {
-    const host = createFakeHost();
+    const track = vi.fn();
+    const host = createFakeHost([], track);
     const { wrapper: Wrapper } = host;
 
     render(
@@ -95,6 +102,7 @@ describe('SkillSettings', () => {
         ref: catalogEntry.ref,
       },
     ]);
+    expect(track).toHaveBeenCalledWith(AnalyticsEvents.Settings.SKILL_IMPORTED, { skill_name: catalogEntry.name });
   });
 
   it('returns a removed registry skill to Available', async () => {

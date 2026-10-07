@@ -2,6 +2,8 @@
 
 import { useEffect, useState, type FormEvent } from 'react';
 
+import { useTrackAnalytics } from '../../analytics/AnalyticsProvider.js';
+import { AnalyticsEvents } from '../../analytics/events.js';
 import { useToasterOptional } from '../../containers/ToasterContainer.js';
 import { useSandboxEnvironmentServer } from '../../server/ServerContext.js';
 import type { SandboxEnvironment } from '../../server/types.js';
@@ -28,6 +30,7 @@ export type EnvironmentFormDrawerProps = {
 export function EnvironmentFormDrawer({ open, onOpenChange, mode, environment, onSaved }: EnvironmentFormDrawerProps) {
   const environmentServer = useSandboxEnvironmentServer();
   const toaster = useToasterOptional();
+  const track = useTrackAnalytics();
   const [form, setForm] = useState<EnvironmentFormValues>(() => manifestToFormValues(defaultEnvironmentManifest()));
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -54,7 +57,11 @@ export function EnvironmentFormDrawer({ open, onOpenChange, mode, environment, o
 
     setSaving(true);
     try {
-      await environmentServer.createOrUpdateEnvironment({ manifest: formValuesToManifest(form) });
+      const saved = await environmentServer.createOrUpdateEnvironment({ manifest: formValuesToManifest(form) });
+      track(mode === 'create' ? AnalyticsEvents.Environment.CREATED : AnalyticsEvents.Environment.EDITED, {
+        environment_name: saved.name,
+        environment_id: saved.id,
+      });
       toaster?.showSuccess({
         title: mode === 'create' ? 'Environment created' : 'Environment updated',
       });
