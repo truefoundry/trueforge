@@ -3,13 +3,13 @@ import { AgentHarnessError, InvalidAgentSendInputError } from '../errors';
 import {
   EventType,
   newEventId,
-  type InputUserMessage,
   type MCPServerInitInfo,
   type ModelMessageEvent,
   type ToolApprovalPolicy,
   type ToolApprovalPolicyItem,
   type ToolResponseEvent,
   type TurnUserEvent,
+  type UserMessage,
   type UserToolApprovalEvent,
   type UserToolApprovalPolicyEvent,
   type UserToolResponseEvent,
@@ -372,10 +372,10 @@ export class AgentThreadOrchestrator {
     return validationErrors;
   }
 
-  public send(input: InputUserMessage[]): AsyncGenerator<AgentThreadAppendContext, void, unknown>;
+  public send(input: UserMessage[]): AsyncGenerator<AgentThreadAppendContext, void, unknown>;
   public send(input: TurnUserEvent[]): AsyncGenerator<TurnUserEvent[], void, unknown>;
   public async *send(
-    input: InputUserMessage[] | TurnUserEvent[],
+    input: UserMessage[] | TurnUserEvent[],
   ): AsyncGenerator<AgentThreadAppendContext | TurnUserEvent[], void, unknown> {
     if (input.length === 0) {
       return;
@@ -385,7 +385,7 @@ export class AgentThreadOrchestrator {
       // A new turn may be created while the previous turn is running or paused:
       // cancel live children, close their open parent calls, then append the new
       // user input to the main thread immediately.
-      const messages = input as InputUserMessage[];
+      const messages = input as UserMessage[];
       const mainThread = this.getMainThread();
       const toolIdToClosureMessages = new Map<string, LLMToolMessage>();
       for (const thread of this.getChildThreads()) {

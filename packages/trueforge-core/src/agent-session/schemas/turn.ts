@@ -1,8 +1,8 @@
 import { z } from '@hono/zod-openapi';
 import {
   ActionRequiredEventSchema,
-  InputUserMessageSchema,
   ModelMessageEventSchema,
+  UserMessageSchema,
   UserToolApprovalMessageSchema,
   UserToolResponseMessageSchema,
 } from '../../core/events/schema';
@@ -125,10 +125,10 @@ export const TurnStateSchema = z
 /**
  * Historical turn rows may contain approval decisions and client-side tool responses
  * because those inputs created continuation turns before the turn-events endpoint existed.
- * New turns accept only InputUserMessageSchema through CreateTurnRequestSchema.
+ * New turns accept only UserMessageSchema through CreateTurnRequestSchema.
  */
 export const LegacyTurnInputItemSchema = z
-  .discriminatedUnion('type', [InputUserMessageSchema, UserToolApprovalMessageSchema, UserToolResponseMessageSchema])
+  .discriminatedUnion('type', [UserMessageSchema, UserToolApprovalMessageSchema, UserToolResponseMessageSchema])
   .openapi('LegacyTurnInputItem');
 
 export const TurnSchema = z
@@ -151,7 +151,7 @@ export const TurnSchema = z
  */
 export const CreateTurnRequestSchema = z
   .object({
-    input: z.array(InputUserMessageSchema).optional().describe('User messages supplied when the turn is created.'),
+    input: z.array(UserMessageSchema).optional().describe('User messages supplied when the turn is created.'),
     previous_turn_id: z
       .union([z.literal('auto'), z.literal('none'), z.string().min(1)])
       .optional()

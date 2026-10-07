@@ -3,25 +3,25 @@ import { AgentSandboxRequiredError, InvalidFileInputError } from '../errors';
 import {
   EventType,
   type FileContentPart,
-  type InputUserMessage,
   type TextContentPart,
   type UserContentPart,
+  type UserMessage,
 } from '../events/schema';
 import type { LLMUserMessage } from '../llm/LLMTypes';
 import type { HarnessSandbox, SandboxInfo } from '../sandbox/Sandbox';
 import type { AgentSendInput } from './AgentThread.types';
 import { internalSystemTag } from './contextUtils';
 
-export type { FileContentPart, InputUserMessage, TextContentPart, UserContentPart };
+export type { FileContentPart, TextContentPart, UserContentPart, UserMessage };
 
-export type AgentUserMessageContent = InputUserMessage['content'];
+export type AgentUserMessageContent = UserMessage['content'];
 export type AgentUserContentPart = UserContentPart;
 
 export function isFileContentPart(part: UserContentPart): part is FileContentPart {
   return part.type === 'file';
 }
 
-export function isAgentInputUserMessage(msg: AgentSendInput): msg is InputUserMessage {
+export function isAgentUserMessage(msg: AgentSendInput): msg is UserMessage {
   return 'type' in msg && msg.type === EventType.USER_MESSAGE;
 }
 
@@ -112,7 +112,7 @@ export interface ProcessAgentUserInputResult {
 }
 
 export async function processAgentUserInput(
-  msg: InputUserMessage,
+  msg: UserMessage,
   sandbox: HarnessSandbox | undefined,
 ): Promise<ProcessAgentUserInputResult> {
   if (typeof msg.content === 'string') {
