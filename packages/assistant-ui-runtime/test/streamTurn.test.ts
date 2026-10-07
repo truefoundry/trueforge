@@ -3,6 +3,7 @@ import type { AgentChatServer, TurnStreamData } from '../src/server/index.js';
 
 import { ROOT_THREAD_ID } from '../src/constants.js';
 import { PeerThreadFoldState } from '../src/foldPeerThreads.js';
+import { createAbortError } from '../src/streamReconnect.js';
 import { resumeTurnStream, streamTurnContent } from '../src/streamTurn.js';
 
 const createdAt = new Date().toISOString();
@@ -10,6 +11,15 @@ const SESSION_ID = 'session-1';
 
 function streamData(sequenceNumber: number, event: TurnStreamData['event'] | Record<string, unknown>): TurnStreamData {
   return { sequenceNumber, event: event as TurnStreamData['event'] };
+}
+
+function turnDoneEvent(): TurnStreamData['event'] {
+  return {
+    type: 'turn.done',
+    createdAt,
+    id: 'done-1',
+    state: { status: 'done', requiredActions: [], completedAt: createdAt },
+  };
 }
 
 function mockServer(partial: Record<string, unknown>): AgentChatServer {
@@ -36,6 +46,7 @@ describe('streamTurn', () => {
           threadId: ROOT_THREAD_ID,
           content: 'hello from stream',
         });
+        yield streamData(2, turnDoneEvent());
       });
       const server = mockServer({
         createTurn,
@@ -52,7 +63,7 @@ describe('streamTurn', () => {
         previousTurnId: 'auto',
         abortSignal: expect.any(AbortSignal),
       });
-      expect(updates).toEqual([{ content: [{ type: 'text', text: 'hello from stream' }] }]);
+      expect(updates).toEqual([{ content: [{ type: 'text', text: 'hello from stream' }], sequenceNumber: 1 }]);
     });
 
     it('passes required-action inputs through createTurn', async () => {
@@ -70,7 +81,9 @@ describe('streamTurn', () => {
           content: 'A',
         },
       ];
-      const createTurn = vi.fn(async function* () {});
+      const createTurn = vi.fn(async function* () {
+        yield streamData(1, turnDoneEvent());
+      });
       const server = mockServer({
         createTurn,
         cancelSession: vi.fn().mockResolvedValue(undefined),
@@ -89,7 +102,9 @@ describe('streamTurn', () => {
     });
 
     it('uses empty input when resuming after MCP auth', async () => {
-      const createTurn = vi.fn(async function* () {});
+      const createTurn = vi.fn(async function* () {
+        yield streamData(1, turnDoneEvent());
+      });
       const server = mockServer({
         createTurn,
         cancelSession: vi.fn().mockResolvedValue(undefined),
@@ -114,7 +129,9 @@ describe('streamTurn', () => {
     });
 
     it('forwards an explicit previousTurnId when branching', async () => {
-      const createTurn = vi.fn(async function* () {});
+      const createTurn = vi.fn(async function* () {
+        yield streamData(1, turnDoneEvent());
+      });
       const server = mockServer({
         createTurn,
         cancelSession: vi.fn().mockResolvedValue(undefined),
@@ -139,7 +156,9 @@ describe('streamTurn', () => {
     });
 
     it('forwards previousTurnId "none" when branching from root', async () => {
-      const createTurn = vi.fn(async function* () {});
+      const createTurn = vi.fn(async function* () {
+        yield streamData(1, turnDoneEvent());
+      });
       const server = mockServer({
         createTurn,
         cancelSession: vi.fn().mockResolvedValue(undefined),
@@ -163,26 +182,27 @@ describe('streamTurn', () => {
       });
     });
 
-    it('returns early without cancelling the backend run when already aborted', async () => {
+    it('throws when already aborted before streaming starts', async () => {
       const createTurn = vi.fn(async function* () {});
       const cancelSession = vi.fn().mockResolvedValue(undefined);
       const server = mockServer({ createTurn, cancelSession });
       const abortController = new AbortController();
       abortController.abort();
 
-      const updates = await collectUpdates(
-        streamTurnContent(
-          server,
-          SESSION_ID,
-          new PeerThreadFoldState(),
-          { userMessage: 'hello' },
-          abortController.signal,
+      await expect(
+        collectUpdates(
+          streamTurnContent(
+            server,
+            SESSION_ID,
+            new PeerThreadFoldState(),
+            { userMessage: 'hello' },
+            abortController.signal,
+          ),
         ),
-      );
+      ).rejects.toMatchObject({ name: 'AbortError' });
 
       expect(cancelSession).not.toHaveBeenCalled();
       expect(createTurn).not.toHaveBeenCalled();
-      expect(updates).toEqual([]);
     });
 
     it('does not cancel the backend run when the stream is aborted mid-flight', async () => {
@@ -196,25 +216,30 @@ describe('streamTurn', () => {
           content: 'partial',
         });
         abortController.abort();
+        throw createAbortError();
       });
       const cancelSession = vi.fn().mockResolvedValue(undefined);
       const server = mockServer({ createTurn, cancelSession });
 
-      await collectUpdates(
-        streamTurnContent(
-          server,
-          SESSION_ID,
-          new PeerThreadFoldState(),
-          { userMessage: 'hello' },
-          abortController.signal,
+      await expect(
+        collectUpdates(
+          streamTurnContent(
+            server,
+            SESSION_ID,
+            new PeerThreadFoldState(),
+            { userMessage: 'hello' },
+            abortController.signal,
+          ),
         ),
-      );
+      ).rejects.toMatchObject({ name: 'AbortError' });
 
       expect(cancelSession).not.toHaveBeenCalled();
     });
 
     it('forwards headers to createTurn', async () => {
-      const createTurn = vi.fn(async function* () {});
+      const createTurn = vi.fn(async function* () {
+        yield streamData(1, turnDoneEvent());
+      });
       const server = mockServer({
         createTurn,
         cancelSession: vi.fn().mockResolvedValue(undefined),
@@ -340,6 +365,7 @@ describe('streamTurn', () => {
           threadId: ROOT_THREAD_ID,
           content: 'resumed',
         });
+        yield streamData(3, turnDoneEvent());
       });
       const server = mockServer({
         subscribeToTurn,
@@ -355,7 +381,7 @@ describe('streamTurn', () => {
         afterSequenceNumber: 1,
         abortSignal: expect.any(AbortSignal),
       });
-      expect(updates).toEqual([{ content: [{ type: 'text', text: 'resumed' }] }]);
+      expect(updates).toEqual([{ content: [{ type: 'text', text: 'resumed' }], sequenceNumber: 2 }]);
     });
 
     it('yields nothing when the server omits subscribeToTurn', async () => {
@@ -370,20 +396,21 @@ describe('streamTurn', () => {
       expect(cancelSession).not.toHaveBeenCalled();
     });
 
-    it('returns early when aborted before streaming starts', async () => {
+    it('throws when aborted before streaming starts', async () => {
       const subscribeToTurn = vi.fn(async function* () {});
       const cancelSession = vi.fn().mockResolvedValue(undefined);
       const server = mockServer({ subscribeToTurn, cancelSession });
       const abortController = new AbortController();
       abortController.abort();
 
-      const updates = await collectUpdates(
-        resumeTurnStream(server, SESSION_ID, 'turn-1', new PeerThreadFoldState(), abortController.signal),
-      );
+      await expect(
+        collectUpdates(
+          resumeTurnStream(server, SESSION_ID, 'turn-1', new PeerThreadFoldState(), abortController.signal),
+        ),
+      ).rejects.toMatchObject({ name: 'AbortError' });
 
       expect(cancelSession).not.toHaveBeenCalled();
       expect(subscribeToTurn).not.toHaveBeenCalled();
-      expect(updates).toEqual([]);
     });
   });
 });
