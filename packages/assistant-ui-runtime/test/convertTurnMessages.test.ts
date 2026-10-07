@@ -52,16 +52,6 @@ function modelMessage(event: Omit<ModelMessageEvent, 'type' | 'createdAt'>): Mod
   return { type: 'model.message', createdAt, ...event };
 }
 
-function turnDone(event: Partial<Omit<TurnDoneEvent, 'type'>> = {}): TurnDoneEvent {
-  return {
-    type: 'turn.done',
-    id: 'turn-done',
-    createdAt,
-    state: { status: 'done', requiredActions: [], completedAt: createdAt },
-    ...event,
-  };
-}
-
 function approvalRequired(event: Omit<ToolApprovalRequiredEvent, 'type' | 'createdAt'>): ToolApprovalRequiredEvent {
   return { type: 'tool.approval_required', createdAt, ...event };
 }
