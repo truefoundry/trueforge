@@ -1,7 +1,11 @@
 // @vitest-environment jsdom
-import { act, render, screen, waitFor } from '@testing-library/react';
+import { act, fireEvent, render, screen, waitFor, within } from '@testing-library/react';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
+import { AnalyticsProvider } from '@/analytics/AnalyticsProvider.js';
+import { AnalyticsEvents } from '@/analytics/events.js';
+import type { TrackAnalytics } from '@/analytics/types.js';
+import { EnvironmentsButton } from '@/atoms/EnvironmentsButton.js';
 import { EnvironmentsPage, PENDING_ENVIRONMENTS_POLL_INTERVAL_MS } from '@/atoms/environments/EnvironmentsPage.js';
 import { ToasterProvider } from '@/containers/ToasterContainer.js';
 import { ServerProvider } from '@/server/ServerContext.js';
@@ -41,19 +45,13 @@ const originalClose = Object.getOwnPropertyDescriptor(HTMLDialogElement.prototyp
 
 beforeEach(() => {
   window.history.replaceState(null, '', '/environments');
-  Object.defineProperty(HTMLDialogElement.prototype, 'showModal', {
-    configurable: true,
-    value: function showModal(this: HTMLDialogElement) {
-      this.open = true;
-    },
-  });
-  Object.defineProperty(HTMLDialogElement.prototype, 'close', {
-    configurable: true,
-    value: function close(this: HTMLDialogElement) {
-      this.open = false;
-      this.dispatchEvent(new Event('close'));
-    },
-  });
+  HTMLDialogElement.prototype.showModal = function showModal() {
+    this.open = true;
+  };
+  HTMLDialogElement.prototype.close = function close() {
+    this.open = false;
+    this.dispatchEvent(new Event('close'));
+  };
 });
 
 afterEach(() => {
@@ -73,9 +71,11 @@ afterEach(() => {
 function renderPage({
   environments = sampleEnvironments,
   environmentOverrides = {},
+  track,
 }: {
   environments?: SandboxEnvironment[];
   environmentOverrides?: Partial<SandboxEnvironmentServer>;
+  track?: TrackAnalytics;
 } = {}) {
   const environmentServer = createMockSandboxEnvironmentServer({
     listEnvironments: vi.fn(async () => ({ data: environments })),
@@ -86,15 +86,16 @@ function renderPage({
     sandboxEnvironments: environmentServer,
   });
 
-  return render(
+  const tree = (
     <ServerProvider server={server}>
       <ShellModeProvider agentConfig={{ mode: 'AgentLibraryWithComposer' }}>
         <ToasterProvider>
           <EnvironmentsPage />
         </ToasterProvider>
       </ShellModeProvider>
-    </ServerProvider>,
+    </ServerProvider>
   );
+  return render(track != null ? <AnalyticsProvider track={track}>{tree}</AnalyticsProvider> : tree);
 }
 
 describe('EnvironmentsPage', () => {
@@ -208,5 +209,56 @@ describe('EnvironmentsPage', () => {
       expect(screen.getByText('python-data')).toBeInTheDocument();
     });
     expect(listSandboxProviders).not.toHaveBeenCalled();
+  });
+
+  it('tracks environment deleted after confirm', async () => {
+    const deleteEnvironment = vi.fn(async () => {});
+    const track = vi.fn();
+    renderPage({ environmentOverrides: { deleteEnvironment }, track });
+    await waitFor(() => {
+      expect(screen.getByText('python-data')).toBeInTheDocument();
+    });
+
+    fireEvent.click(screen.getByRole('button', { name: 'Delete python-data' }));
+    const dialog = screen.getByRole('dialog');
+    Object.defineProperty(dialog, 'close', {
+      configurable: true,
+      value() {
+        (this as HTMLDialogElement).open = false;
+        this.dispatchEvent(new Event('close'));
+      },
+    });
+    fireEvent.click(within(dialog).getByRole('button', { name: 'Delete' }));
+
+    await waitFor(() => expect(deleteEnvironment).toHaveBeenCalledWith({ name: 'python-data' }));
+    expect(track).toHaveBeenCalledWith(AnalyticsEvents.Environment.DELETED, {
+      environment_name: 'python-data',
+      environment_id: 'e1',
+    });
+  });
+});
+
+describe('EnvironmentsButton', () => {
+  it('tracks page opened when opening environments', () => {
+    const track = vi.fn();
+    const server = createMockAgentUIServer({
+      catalog: createMockCatalog(),
+      sandboxEnvironments: createMockSandboxEnvironmentServer(),
+    });
+
+    render(
+      <AnalyticsProvider track={track}>
+        <ServerProvider server={server}>
+          <ShellModeProvider agentConfig={{ mode: 'AgentLibraryWithComposer' }}>
+            <EnvironmentsButton />
+          </ShellModeProvider>
+        </ServerProvider>
+      </AnalyticsProvider>,
+    );
+
+    fireEvent.click(screen.getByRole('button', { name: 'Environments' }));
+    expect(track).toHaveBeenCalledWith(AnalyticsEvents.Environment.PAGE_OPENED, undefined);
+    fireEvent.click(screen.getByRole('button', { name: 'Environments' }));
+    expect(track).toHaveBeenCalledTimes(1);
   });
 });

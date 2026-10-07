@@ -1,6 +1,8 @@
 'use client';
 
 import { Suspense, useCallback, useEffect, useState } from 'react';
+import { useTrackAnalytics } from '../../analytics/AnalyticsProvider.js';
+import { AnalyticsEvents } from '../../analytics/events.js';
 import { useSessionShareSearch } from '../../hooks/useSessionShareSearch.js';
 import {
   useOptionalAgentMetricsServer,
@@ -25,6 +27,7 @@ export function AgentDetailsPage({ agentId }: AgentDetailsPageProps) {
   const shell = useShellMode();
   const isMobile = useIsMobile();
   const share = useSessionShareSearch();
+  const track = useTrackAnalytics();
   const { updateShareSearch } = share;
   const requestedTab = libraryAgentTabFromSearch(share, agentId);
   const showMetrics = isMetricsChromeEnabled({ metrics: metricsServer });
@@ -58,6 +61,12 @@ export function AgentDetailsPage({ agentId }: AgentDetailsPageProps) {
     });
     shell.closeLibraryAgent();
   }, [shell, updateShareSearch]);
+
+  useEffect(() => {
+    track(AnalyticsEvents.AgentDetails.OPENED, { agent_id: agentId });
+    // Track only on mount (agentId-keyed remount boundary handles agent switches).
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   useEffect(() => {
     const onKeyDown = (event: KeyboardEvent) => {
@@ -169,15 +178,16 @@ export function AgentDetailsPage({ agentId }: AgentDetailsPageProps) {
               <AgentMetricsTimeRangeFilter timeRange={metricsTimeRange} onTimeRangeChange={setMetricsTimeRange} />
             ) : null
           }
-          onTabChange={tab =>
+          onTabChange={tab => {
+            track(AnalyticsEvents.AgentDetails.TAB_CHANGED, { agent_id: agentId, tab });
             updateShareSearch({
               agentId,
               tab,
               view: null,
               timeRange: null,
               ...(tab === 'sessions' ? {} : { sessionId: null }),
-            })
-          }
+            });
+          }}
         />
       ) : null}
       {/* Tabs own their scrolling so long instructions / code samples stay inside their card. */}
