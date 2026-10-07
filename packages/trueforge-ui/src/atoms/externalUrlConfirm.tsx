@@ -39,14 +39,16 @@ function useExternalUrlConfirm(): ExternalUrlConfirmContextValue {
 }
 
 /**
- * True for javascript: hrefs (and unparseable ones). Those skip the external-link
- * confirm path, so we block the click instead of letting the browser run the script.
+ * True for javascript:/data:/vbscript: hrefs (and unparseable ones). Those skip the
+ * external-link confirm path, so we block activation instead of letting the browser run them.
  */
-function isJavascriptUrl(url: string): boolean {
+function isDangerousNavigationUrl(url: string): boolean {
   try {
-    return (
-      new URL(url, typeof window !== 'undefined' ? window.location.href : 'http://localhost').protocol === 'javascript:'
-    );
+    const protocol = new URL(
+      url,
+      typeof window !== 'undefined' ? window.location.href : 'http://localhost',
+    ).protocol;
+    return protocol === 'javascript:' || protocol === 'data:' || protocol === 'vbscript:';
   } catch {
     return true;
   }
@@ -177,10 +179,15 @@ export function MarkdownExternalLink({
   ...props
 }: ComponentPropsWithoutRef<'a'> & { node?: unknown }) {
   const { requestLinkConfirm } = useExternalUrlConfirm();
+  const dangerous = href != null && href !== '' && isDangerousNavigationUrl(href);
+  const external = href != null && href !== '' && !dangerous && isExternalHttpUrl(href);
+  // External destinations never stay in href — middle-click / context-menu bypass onClick.
+  // Activation always goes through guardNavigation (trusted hosts skip the dialog there).
+  const anchorHref = dangerous ? undefined : external ? '#' : href;
 
-  const onClick = (event: MouseEvent<HTMLAnchorElement>) => {
+  const guardNavigation = (event: MouseEvent<HTMLAnchorElement>) => {
     if (href == null || href === '') return;
-    if (isJavascriptUrl(href)) {
+    if (isDangerousNavigationUrl(href)) {
       event.preventDefault();
       return;
     }
@@ -196,7 +203,14 @@ export function MarkdownExternalLink({
   };
 
   return (
-    <a {...props} href={href} target="_blank" rel="noopener noreferrer" onClick={onClick}>
+    <a
+      {...props}
+      href={anchorHref}
+      target={external || dangerous ? '_blank' : props.target}
+      rel="noopener noreferrer"
+      onClick={guardNavigation}
+      onAuxClick={guardNavigation}
+    >
       {children}
     </a>
   );

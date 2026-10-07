@@ -19,17 +19,27 @@ describe('getHostname', () => {
     expect(getHostname('http://evil.test/?q=1')).toBe('evil.test');
   });
 
-  it('returns null for non-http(s) and invalid URLs', () => {
+  it('resolves protocol-relative URLs against the page', () => {
+    expect(getHostname('//CDN.Example.com/a.png')).toBe('cdn.example.com');
+  });
+
+  it('returns null for non-http(s) schemes', () => {
     expect(getHostname('javascript:alert(1)')).toBeNull();
     expect(getHostname('data:image/png;base64,abc')).toBeNull();
-    expect(getHostname('/relative/path')).toBeNull();
-    expect(getHostname('not a url')).toBeNull();
+  });
+
+  it('returns the page host for same-document relative paths', () => {
+    expect(getHostname('/relative/path')).toBe(window.location.hostname.toLowerCase());
   });
 });
 
 describe('isExternalHttpUrl', () => {
   it('is true for absolute http(s) on another host', () => {
     expect(isExternalHttpUrl('https://example.com/x')).toBe(true);
+  });
+
+  it('is true for protocol-relative URLs on another host', () => {
+    expect(isExternalHttpUrl('//attacker.example/track')).toBe(true);
   });
 
   it('is false for same-origin, relative, data, and blob URLs', () => {

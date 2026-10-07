@@ -43,20 +43,27 @@ function writeStore(store: StoredExternalUrlTrust): void {
   }
 }
 
-/** Hostname for absolute http(s) URLs; null when the URL is not a parseable http(s) absolute URL. */
-export function getHostname(url: string): string | null {
+function resolveUrl(url: string): URL | null {
   try {
-    const parsed = new URL(url);
-    if (parsed.protocol !== 'http:' && parsed.protocol !== 'https:') return null;
-    return parsed.hostname.toLowerCase();
+    // Base required so protocol-relative (`//host/path`) and relative URLs parse.
+    const base = typeof window !== 'undefined' ? window.location.href : 'http://localhost';
+    return new URL(url, base);
   } catch {
     return null;
   }
 }
 
+/** Hostname for http(s) URLs resolved against the page; null for non-http(s) or unparseable. */
+export function getHostname(url: string): string | null {
+  const parsed = resolveUrl(url);
+  if (parsed == null) return null;
+  if (parsed.protocol !== 'http:' && parsed.protocol !== 'https:') return null;
+  return parsed.hostname.toLowerCase();
+}
+
 /**
- * True when `url` is absolute http(s) and its host differs from the page host.
- * Relative, same-origin, data:, and blob: URLs return false (no third-party request).
+ * True when `url` resolves to http(s) on a host that differs from the page host.
+ * Same-origin, data:, blob:, and other non-http(s) schemes return false.
  */
 export function isExternalHttpUrl(url: string): boolean {
   const host = getHostname(url);
@@ -83,7 +90,8 @@ export function trustHost({ kind, host }: { kind: ExternalUrlTrustKind; host: st
 
 /** Open http(s) URLs in a new tab; no-op for non-http(s) schemes (e.g. javascript:). */
 export function openExternalHttpUrl(url: string): void {
-  const host = getHostname(url);
-  if (host == null) return;
-  window.open(url, '_blank', 'noopener,noreferrer');
+  const parsed = resolveUrl(url);
+  if (parsed == null) return;
+  if (parsed.protocol !== 'http:' && parsed.protocol !== 'https:') return;
+  window.open(parsed.href, '_blank', 'noopener,noreferrer');
 }

@@ -3,6 +3,7 @@ import { fireEvent, render, screen, waitFor, within } from '@testing-library/rea
 import { useEffect } from 'react';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
+import { ExternalUrlConfirmProvider, MarkdownExternalLink } from '@/atoms/externalUrlConfirm.js';
 import { EXTERNAL_URL_TRUST_STORAGE_KEY } from '@/atoms/externalUrlTrust.js';
 import { LARGE_STREAMING_FENCE_CHARS, Markdown, getActiveStreamingFenceCode } from '@/atoms/Markdown.js';
 import type { SyntaxHighlighterProps } from '@/atoms/SyntaxHighlighter.js';
@@ -68,7 +69,8 @@ describe('Markdown', () => {
     const openSpy = vi.spyOn(window, 'open').mockReturnValue(null);
     render(<Markdown content="See [docs](https://example.com/docs) for details." />);
     const link = screen.getByRole('link', { name: 'docs' });
-    expect(link).toHaveAttribute('href', 'https://example.com/docs');
+    // Unapproved external destinations stay off href so middle-click / context-menu cannot bypass.
+    expect(link).toHaveAttribute('href', '#');
     expect(link).toHaveAttribute('target', '_blank');
     expect(link).toHaveAttribute('rel', 'noopener noreferrer');
     expect(link).not.toHaveAttribute('node');
@@ -87,6 +89,46 @@ describe('Markdown', () => {
     expect(openSpy).toHaveBeenCalledWith('https://example.com/docs', '_blank', 'noopener,noreferrer');
   });
 
+  it('confirms protocol-relative external links and blocks middle-click bypass', () => {
+    const openSpy = vi.spyOn(window, 'open').mockReturnValue(null);
+    render(<Markdown content="See [cdn](//cdn.example.com/a) for details." />);
+    const link = screen.getByRole('link', { name: 'cdn' });
+    expect(link).toHaveAttribute('href', '#');
+
+    fireEvent(
+      link,
+      new MouseEvent('auxclick', { bubbles: true, cancelable: true, button: 1 }),
+    );
+    expect(openSpy).not.toHaveBeenCalled();
+    expect(screen.getByRole('dialog', { name: 'Open external link' })).toBeInTheDocument();
+    expect(screen.getByTestId('aui-external-url-confirm-url')).toHaveTextContent('//cdn.example.com/a');
+
+    fireEvent.click(screen.getByRole('button', { name: 'Open link' }));
+    const expected = new URL('//cdn.example.com/a', window.location.href).href;
+    expect(openSpy).toHaveBeenCalledWith(expected, '_blank', 'noopener,noreferrer');
+  });
+
+  it('blocks javascript, data, and vbscript href activation', () => {
+    const openSpy = vi.spyOn(window, 'open').mockReturnValue(null);
+    render(
+      <ExternalUrlConfirmProvider>
+        <MarkdownExternalLink href="javascript:alert(1)">js</MarkdownExternalLink>
+        <MarkdownExternalLink href="data:text/html,hi">data</MarkdownExternalLink>
+        <MarkdownExternalLink href="vbscript:msgbox(1)">vb</MarkdownExternalLink>
+      </ExternalUrlConfirmProvider>,
+    );
+
+    for (const name of ['js', 'data', 'vb'] as const) {
+      const el = screen.getByText(name);
+      expect(el).not.toHaveAttribute('href');
+      fireEvent.click(el);
+      fireEvent(el, new MouseEvent('auxclick', { bubbles: true, cancelable: true, button: 1 }));
+    }
+
+    expect(screen.queryByRole('dialog', { name: 'Open external link' })).not.toBeInTheDocument();
+    expect(openSpy).not.toHaveBeenCalled();
+  });
+
   it('skips the link dialog after trusting a host', () => {
     const openSpy = vi.spyOn(window, 'open').mockReturnValue(null);
     render(<Markdown content="See [docs](https://example.com/docs) for details." />);
@@ -96,6 +138,7 @@ describe('Markdown', () => {
     fireEvent.click(screen.getByRole('checkbox'));
     fireEvent.click(screen.getByRole('button', { name: 'Open link' }));
     expect(openSpy).toHaveBeenCalledTimes(1);
+    expect(link).toHaveAttribute('href', '#');
 
     fireEvent.click(link);
     expect(screen.queryByRole('dialog', { name: 'Open external link' })).not.toBeInTheDocument();
@@ -123,6 +166,12 @@ describe('Markdown', () => {
 
     expect(screen.queryByTestId('aui-external-image-placeholder')).not.toBeInTheDocument();
     expect(document.querySelector('img[src="https://cdn.example.com/a.png"]')).toBeTruthy();
+  });
+
+  it('blocks protocol-relative external images until confirmed', () => {
+    render(<Markdown content={'![chart](//cdn.example.com/a.png)'} />);
+    expect(screen.getByTestId('aui-external-image-placeholder')).toBeInTheDocument();
+    expect(document.querySelector('img[src="//cdn.example.com/a.png"]')).toBeNull();
   });
 
   it('auto-loads external images for a trusted host', () => {
