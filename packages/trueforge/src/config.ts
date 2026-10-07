@@ -861,7 +861,7 @@ export interface SharedServerConfiguration {
   MODEL_HTTP_CONNECT_TIMEOUT_MS: number;
   /**
    * undici headersTimeout for model-provider outbound fetch.
-   * Env: `MODEL_HTTP_HEADERS_TIMEOUT_MS`. Default 5000.
+   * Env: `MODEL_HTTP_HEADERS_TIMEOUT_MS`. Default 60000.
    */
   MODEL_HTTP_HEADERS_TIMEOUT_MS: number;
   /**
@@ -1229,7 +1229,7 @@ const shared: SharedServerConfiguration = {
   MODEL_HTTP_HEADERS_TIMEOUT_MS: parsePositiveInt({
     envKey: 'MODEL_HTTP_HEADERS_TIMEOUT_MS',
     raw: getEnv('MODEL_HTTP_HEADERS_TIMEOUT_MS'),
-    defaultValue: 5_000,
+    defaultValue: 60_000,
   }),
   MODEL_HTTP_BODY_TIMEOUT_MS: parsePositiveInt({
     envKey: 'MODEL_HTTP_BODY_TIMEOUT_MS',
