@@ -19,7 +19,32 @@ function activeTurnKey(sessionId: string, turnId: string): string {
 
 export class ActiveTurnRegistry {
   private readonly runs = new Map<string, ActiveTurnRun>();
+  /** Tail of each turn's lock queue; never rejects, so waiters only observe release order. */
+  private readonly lockTails = new Map<string, Promise<void>>();
   private alreadyShutDownAbortReason: CancellationReason | undefined;
+
+  /**
+   * Runs `fn` while holding the per-turn lock, after every earlier holder of
+   * the same turn has released it. Different turns never wait on each other.
+   * Callers MUST re-read registry state inside `fn` instead of trusting a
+   * lookup made before acquiring the lock.
+   */
+  async withTurnLock<T>(input: { sessionId: string; turnId: string }, fn: () => Promise<T>): Promise<T> {
+    const key = activeTurnKey(input.sessionId, input.turnId);
+    const previous = this.lockTails.get(key) ?? Promise.resolve();
+    const { promise: released, resolve: release } = Promise.withResolvers<undefined>();
+    const tail = previous.then(() => released);
+    this.lockTails.set(key, tail);
+    try {
+      await previous;
+      return await fn();
+    } finally {
+      release(undefined);
+      if (this.lockTails.get(key) === tail) {
+        this.lockTails.delete(key);
+      }
+    }
+  }
 
   /**
    * Registers the run immediately, then returns a generator that forwards
