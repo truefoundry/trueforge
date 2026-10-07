@@ -19,7 +19,7 @@ export function runtimeConfigSummary(
   { webSearchAvailable = false }: { webSearchAvailable?: boolean } = {},
 ): RuntimeConfigSummaryEntry[] {
   return [
-    { label: 'iteration limit', value: String(config?.iterationLimit ?? 512) },
+    { label: 'iteration limit', value: String(config?.iterationLimit ?? 256) },
     { label: 'sandbox', value: enabledLabel(config?.sandbox?.enabled, false) },
     { label: 'compaction', value: enabledLabel(config?.contextManagement?.compaction?.enabled, true) },
     {
