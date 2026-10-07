@@ -547,6 +547,37 @@ describe('sessions HTTP agent binding', () => {
     expect(send).toHaveBeenCalledWith(body.data);
   });
 
+  it('POST /sessions/{id}/turns/{turn_id}/events looks up the turn handle only after taking the turn lock', async () => {
+    const created = await app.request('/', jsonInit('POST', { agent: { spec: inlineSpec } }));
+    expect(created.status).toBe(201);
+    const { data: session } = (await created.json()) as { data: { id: string } };
+    await sessionStore.createTurn(makeCreateTurnInput({ sessionId: session.id, turnId: 'tip-1' }));
+
+    const registry = sessionDeps.activeTurns;
+    const gate = Promise.withResolvers<undefined>();
+    const holder = registry.withTurnLock({ sessionId: session.id, turnId: 'tip-1' }, () => gate.promise);
+
+    const lockRequested = Promise.withResolvers<undefined>();
+    const withTurnLock = registry.withTurnLock.bind(registry);
+    jest.spyOn(registry, 'withTurnLock').mockImplementation((input, fn) => {
+      lockRequested.resolve(undefined);
+      return withTurnLock(input, fn);
+    });
+    const getTurnHandle = jest.spyOn(registry, 'getTurnHandle').mockReturnValue(undefined);
+
+    const res = app.request(
+      `/${session.id}/turns/tip-1/events`,
+      jsonInit('POST', { events: [{ type: 'user.mcp_auth_continue' }] }),
+    );
+    await lockRequested.promise;
+    expect(getTurnHandle).not.toHaveBeenCalled();
+
+    gate.resolve(undefined);
+    await holder;
+    expect((await res).status).toBe(409);
+    expect(getTurnHandle).toHaveBeenCalledTimes(1);
+  });
+
   it('rejects PATCH agent on a named session', async () => {
     const agent = await agentStore.createAgent({
       tenant_id: 'default',

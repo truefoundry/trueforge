@@ -196,4 +196,61 @@ describe('ActiveTurnRegistry', () => {
       void value;
     }
   });
+
+  describe('withTurnLock', () => {
+    const lockKey = { sessionId: 's1', turnId: 't1' };
+
+    function flushAsync(): Promise<void> {
+      return new Promise(resolve => setImmediate(resolve));
+    }
+
+    it('runs callers on the same turn one at a time, in arrival order', async () => {
+      const registry = new ActiveTurnRegistry();
+      const order: string[] = [];
+      const gate = Promise.withResolvers<undefined>();
+
+      const first = registry.withTurnLock(lockKey, async () => {
+        order.push('first:start');
+        await gate.promise;
+        order.push('first:end');
+      });
+      const second = registry.withTurnLock(lockKey, () => {
+        order.push('second');
+        return Promise.resolve();
+      });
+      const third = registry.withTurnLock(lockKey, () => {
+        order.push('third');
+        return Promise.resolve();
+      });
+
+      await flushAsync();
+      expect(order).toEqual(['first:start']);
+
+      gate.resolve(undefined);
+      await Promise.all([first, second, third]);
+      expect(order).toEqual(['first:start', 'first:end', 'second', 'third']);
+    });
+
+    it('does not make different turns wait on each other', async () => {
+      const registry = new ActiveTurnRegistry();
+      const gate = Promise.withResolvers<undefined>();
+      const holder = registry.withTurnLock(lockKey, () => gate.promise);
+
+      await expect(
+        registry.withTurnLock({ sessionId: 's1', turnId: 't2' }, () => Promise.resolve('other turn')),
+      ).resolves.toBe('other turn');
+
+      gate.resolve(undefined);
+      await holder;
+    });
+
+    it('releases the lock to the next waiter when the holder throws', async () => {
+      const registry = new ActiveTurnRegistry();
+      const failing = registry.withTurnLock(lockKey, () => Promise.reject(new Error('holder boom')));
+      const next = registry.withTurnLock(lockKey, () => Promise.resolve('next'));
+
+      await expect(failing).rejects.toThrow('holder boom');
+      await expect(next).resolves.toBe('next');
+    });
+  });
 });
