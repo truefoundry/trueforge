@@ -95,9 +95,7 @@ describe('AgentRuntimeConfigFields', () => {
     renderRuntimeFields();
 
     expect(screen.getByText('Environment')).toBeInTheDocument();
-    expect(
-      screen.getByText('Image, resources, network and secrets the sandbox starts with. Stored by name.'),
-    ).toBeInTheDocument();
+    expect(screen.getByText('Saved sandbox setup this agent uses when it runs.')).toBeInTheDocument();
 
     const manageBtn = screen.getByRole('button', { name: /Manage Environments/ });
     expect(manageBtn).toBeInTheDocument();
