@@ -150,9 +150,63 @@ function applyTerminalState(messages: ThreadMessageLike[], turn: SessionTurnView
   return messages.map((message, index) => (index === assistantIndex ? terminal : message));
 }
 
+/** Retrieves MCP servers requiring OAuth in this turn from done actions or turn events. */
+function findTurnMcpServers(turn: SessionTurnView) {
+  const actions = turn.done?.state.status === 'done' ? turn.done.state.requiredActions : undefined;
+  if (Array.isArray(actions)) {
+    for (const action of actions) {
+      if (action.type === 'mcp.auth_required' && isMcpServerAuthInfoList(action.mcpServers)) {
+        return action.mcpServers;
+      }
+    }
+  }
+  for (const event of turn.events) {
+    if (event.type === 'mcp.auth_required' && isMcpServerAuthInfoList(event.mcpServers)) {
+      return event.mcpServers;
+    }
+  }
+  return undefined;
+}
+
+/**
+ * Re-attaches MCP auth metadata to the assistant message in session replay.
+ * History projection drops pendingMcpAuth when synthetic continuation user messages
+ * follow; restoring it here ensures ReadOnlyAssistantMessageBubble renders the auth widget.
+ */
+function applyMcpAuthState(messages: ThreadMessageLike[], turn: SessionTurnView): ThreadMessageLike[] {
+  const mcpServers = findTurnMcpServers(turn);
+  if (mcpServers == null || mcpServers.length === 0) return messages;
+
+  const assistantIndex = messages.findIndex(message => message.role === 'assistant');
+  const assistant = assistantIndex < 0 ? undefined : messages[assistantIndex];
+  const createdAt = new Date(turn.done?.createdAt ?? turn.created.createdAt);
+  const updatedAssistant: ThreadMessageLike = {
+    ...(assistant ?? {
+      id: `${turn.turnId}-assistant`,
+      role: 'assistant',
+      content: [],
+      createdAt,
+    }),
+    ...(turn.done?.state.status === 'done' ? { status: { type: 'complete', reason: 'stop' } } : {}),
+    metadata: {
+      ...assistant?.metadata,
+      custom: {
+        ...assistant?.metadata?.custom,
+        turnId: turn.turnId,
+        pendingMcpAuth: true,
+        mcpServers,
+      },
+    },
+  };
+
+  if (assistantIndex < 0) return [...messages, updatedAssistant];
+  return messages.map((message, index) => (index === assistantIndex ? updatedAssistant : message));
+}
+
 function messagesForTurn(messages: ThreadMessageLike[], turn: SessionTurnView): ThreadMessageLike[] {
   const matched = messages.filter(message => turnIdFromMessage(message) === turn.turnId);
-  return applyTerminalState(matched, turn);
+  const withMcpAuth = applyMcpAuthState(matched, turn);
+  return applyTerminalState(withMcpAuth, turn);
 }
 
 export type AgentSessionTimelineContainerProps = {
