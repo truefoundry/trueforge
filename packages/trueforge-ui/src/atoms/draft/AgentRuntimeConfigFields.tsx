@@ -232,7 +232,7 @@ export function AgentRuntimeConfigFields({
             min={1}
             max={1024}
             disabled={disabled}
-            value={value.iterationLimit ?? 100}
+            value={value.iterationLimit ?? 512}
             className={auiInputClass('h-8 w-24 shrink-0 disabled:opacity-60')}
             onChange={event => {
               const iterationLimit = parseIterationLimit(event.target.value);
@@ -358,7 +358,7 @@ export function AgentRuntimeConfigFields({
           min={1}
           max={1024}
           disabled={disabled}
-          value={value.iterationLimit ?? 100}
+          value={value.iterationLimit ?? 512}
           className={auiInputClass('h-8 disabled:opacity-60')}
           onChange={event => {
             const iterationLimit = parseIterationLimit(event.target.value);

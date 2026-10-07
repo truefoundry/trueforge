@@ -3772,7 +3772,7 @@
           "generative_ui": {
             "enabled": true
           },
-          "iteration_limit": 100,
+          "iteration_limit": 512,
           "sandbox": {
             "enabled": false,
             "file_downloads": true
@@ -3795,8 +3795,8 @@
             "$ref": "#/components/schemas/GenerativeUIConfig"
           },
           "iteration_limit": {
-            "default": 100,
-            "description": "Max agent-loop iterations per turn (1–1024). Default: 100.",
+            "default": 512,
+            "description": "Max agent-loop iterations per turn (1–1024). Default: 512.",
             "exclusiveMinimum": 0,
             "maximum": 1024,
             "type": "integer"
