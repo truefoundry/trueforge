@@ -68,7 +68,8 @@ describe('TrueFoundrySandboxEnvironmentStore', () => {
         subject_type: 'user',
         subject_display_name: 'User',
       },
-      buildVersion: () => ({
+      synced_secrets: [],
+      buildVersion: async () => ({
         version: 1,
         manifest: {
           name: 'pyjokes-env',
@@ -79,7 +80,6 @@ describe('TrueFoundrySandboxEnvironmentStore', () => {
         status: 'pending',
         status_reason: null,
         external_ref: 'ref-1',
-        internal_metadata: { secrets: [] },
         created_by_subject: {
           subject_id: SUBJECT_ID,
           subject_type: 'user',

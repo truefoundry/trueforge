@@ -202,7 +202,7 @@ export async function resolveSandboxEnvironment({
   sandboxEnvironmentStore: ISandboxEnvironmentStore;
   optional?: boolean;
 }): Promise<DaytonaSandboxEnvironment | undefined> {
-  const loaded = await sandboxEnvironmentStore.getEnvironment({
+  const loaded = await sandboxEnvironmentStore.getActiveEnvironment({
     tenant_id,
     name,
   });
@@ -222,9 +222,11 @@ export async function resolveSandboxEnvironment({
           : `Sandbox environment "${name}" is not ready (status: ${loaded.version.status}) — retry shortly`,
     });
   }
+
   return toSandboxEnvironment({
     external_ref: loaded.version.external_ref,
     manifest: loaded.version.manifest,
+    ...(loaded.mounted_secrets ? { mounted_secrets: loaded.mounted_secrets } : {}),
   });
 }
 

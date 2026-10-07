@@ -5,9 +5,10 @@ name: Publish Helm chart
 # calls this workflow with (branch, chart_version, app_version, image_tag).
 # branch is the release-vX.Y.Z branch release.yml is running on.
 #
-# chart_version is the parent chart version, verbatim. Nothing in this repo
-# computes it: one field, one owner. appVersion follows the npm package and
-# image.tag follows the image release.yml built.
+# chart_version is published verbatim. Nothing in this repo computes it: one
+# field, one owner, and the caller decides the number - it need not match the
+# parent chart's own version. appVersion follows the npm package and image.tag
+# follows the image release.yml built.
 #
 # Order matters. Metadata commit and tag come before `helm push`, so a failed
 # push leaves a recoverable branch state rather than an orphan chart in OCI.
@@ -239,31 +240,30 @@ jobs:
           # content: the version has to move instead.
           #
           #   charts/trueforge@<V>  this chart's own record. ANNOTATED, because
-          #                         helm-charts' resolve_ref_sha already does the
-          #                         /git/tags/{sha} dereference hop for it.
+          #                         its only consumer dereferences tag objects
+          #                         (/git/tags/{sha}) when resolving a ref.
           #   v<V>                  the release-line marker every other
-          #                         sibling repo publishes. Under verbatim
-          #                         versioning <V> is the parent chart
-          #                         version, so release-app's hotfixBranchPlan
-          #                         (git/matching-refs/tags/v<major>.<minor>.)
-          #                         and helm-charts' compute_release both resolve
-          #                         this repo with no TrueForge-specific code.
+          #                         sibling repo publishes. It is what lets the
+          #                         callers resolve this repo's release line
+          #                         generically - by listing
+          #                         git/matching-refs/tags/v<major>.<minor>. -
+          #                         with no code specific to this repo. Publish
+          #                         it on every release or the line develops
+          #                         holes and a later hotfix resolves the wrong
+          #                         commit.
           #                         LIGHTWEIGHT on purpose: release-app's
-          #                         getRefSha returns object.sha with NO
-          #                         annotated-tag dereference and hands it
-          #                         straight to createBranchFromSha, so an
-          #                         annotated v-tag would hand create-ref a
-          #                         tag-object sha. helm-charts creates every
-          #                         service v-tag the same way (publish_releases
-          #                         POSTs git/refs with a commit sha). Do not
-          #                         add -a here.
+          #                         consumers resolve it with no annotated-tag
+          #                         dereference hop and hand the sha straight to
+          #                         create-ref, which rejects a tag-object sha.
+          #                         Sibling repos' v-tags are created the same
+          #                         way. Do not add -a here.
           #
           # This repo still carries dead v0.1.x tags from an abandoned scheme
           # (highest final v0.1.9, 2026-08-09; plus a stray v0.1.10-rc.1 from
           # 2026-08-13). They cannot collide: consumers query
-          # git/matching-refs/tags/v<major>.<minor>. and the umbrella is on 0.17x
-          # and up. Never dispatch a chart_version on the 0.1 line - it would
-          # revive that line underneath a live consumer.
+          # git/matching-refs/tags/v<major>.<minor>. and live release lines are
+          # on 0.17x and up. Never dispatch a chart_version on the 0.1 line - it
+          # would revive that line underneath a live consumer.
           push_tag() {
             local name=$1 kind=$2 head existing
             head=$(git rev-parse HEAD)

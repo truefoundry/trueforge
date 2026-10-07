@@ -49,7 +49,9 @@ import {
   Menu,
   MessageSquareText,
   Minimize2,
+  Monitor,
   Moon,
+  PanelLeft,
   PanelLeftClose,
   PanelLeftOpen,
   Paperclip,
@@ -167,6 +169,7 @@ const defaults: Record<string, IconEntry> = {
   copy: Copy,
   'dollar-sign': DollarSign,
   bars: Menu,
+  'panel-left': PanelLeft,
   'panel-left-close': PanelLeftClose,
   'panel-left-open': PanelLeftOpen,
   plus: Plus,
@@ -215,6 +218,7 @@ const defaults: Record<string, IconEntry> = {
   'external-link': ExternalLink,
   'square-arrow-out-up-right': SquareArrowOutUpRight,
   github: Github,
+  monitor: Monitor,
 };
 
 for (const [name, icon] of Object.entries(defaults)) {

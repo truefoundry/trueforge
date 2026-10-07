@@ -1,15 +1,18 @@
 import { OpenAPIHono, type RouteHandler } from '@hono/zod-openapi';
 import type { Context } from 'hono';
 import type { ResolveRequestContext } from '../auth/identity';
+import type { IAgentStore } from '../db/agentStore';
 import { SkillNameConflictError, type ISkillStore, type SkillRecord } from '../db/skillStore';
 import type { WithTransaction } from '../db/transaction';
 import {
   createSkillRoute,
+  deleteSkillRoute,
   listAvailableSkillsRoute,
   listConfiguredSkillsRoute,
   listSkillVersionsRoute,
   putSkillRoute,
 } from '../routes/skillRoutes';
+import { findCatalogUsageConflict } from '../runtime/catalogUsage';
 import type { AvailableSkill, ConfiguredSkill, CreateSkillRequest, UpdateSkillRequest } from '../schemas/skill';
 import { parseTrueFoundryRegistrySkill } from '../schemas/skill';
 
@@ -19,6 +22,10 @@ export interface SkillsRouterDeps<TTransaction> {
   resolveSkillStore: ResolveSkillStore<TTransaction>;
   withTransaction: WithTransaction<TTransaction>;
   resolveRequestContext: ResolveRequestContext;
+}
+
+export interface SettingsSkillsRouterDeps<TTransaction> extends SkillsRouterDeps<TTransaction> {
+  resolveAgentStore: (c: Context) => IAgentStore<TTransaction>;
 }
 
 function toConfiguredSkill(record: SkillRecord): ConfiguredSkill {
@@ -46,7 +53,7 @@ function toAvailableSkill(record: SkillRecord): AvailableSkill {
 }
 
 /** Admin/settings skills CRUD (mounted at /api/v1/settings/skills). */
-export function createSkillsRouter<TTransaction>(deps: SkillsRouterDeps<TTransaction>) {
+export function createSkillsRouter<TTransaction>(deps: SettingsSkillsRouterDeps<TTransaction>) {
   const listConfiguredHandler: RouteHandler<typeof listConfiguredSkillsRoute> = async c => {
     const requestContext = deps.resolveRequestContext(c);
     const records = await deps.resolveSkillStore(c).listSkills({
@@ -87,10 +94,41 @@ export function createSkillsRouter<TTransaction>(deps: SkillsRouterDeps<TTransac
     return c.json({ data: toConfiguredSkill(record) }, 200);
   };
 
+  const deleteHandler: RouteHandler<typeof deleteSkillRoute> = async c => {
+    const { name } = c.req.valid('param');
+    const requestContext = deps.resolveRequestContext(c);
+    const outcome = await deps.withTransaction(async transaction => {
+      const conflict = await findCatalogUsageConflict(
+        {
+          agentStore: deps.resolveAgentStore(c),
+          tenant_id: requestContext.tenant_id,
+          entity: 'skill',
+          names: [name],
+        },
+        transaction,
+      );
+      if (conflict !== undefined) {
+        return { deleted: false, conflict };
+      }
+      const deleted = await deps
+        .resolveSkillStore(c)
+        .deleteSkill({ tenant_id: requestContext.tenant_id, name }, transaction);
+      return { deleted, conflict: undefined };
+    });
+    if (outcome.conflict !== undefined) {
+      return c.json({ error: { message: outcome.conflict } }, 409);
+    }
+    if (!outcome.deleted) {
+      return c.json({ error: { message: `Skill not found: ${name}` } }, 404);
+    }
+    return c.json({}, 200);
+  };
+
   const router = new OpenAPIHono();
   router.openapi(listConfiguredSkillsRoute, listConfiguredHandler);
   router.openapi(createSkillRoute, createHandler);
   router.openapi(putSkillRoute, putHandler);
+  router.openapi(deleteSkillRoute, deleteHandler);
   return router;
 }
 

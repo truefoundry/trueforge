@@ -12,12 +12,12 @@ const SANDBOX_ENV_BUILD_LOOP_NAME = 'sandbox-env-build';
 
 export async function dispatchSandboxEnvBuilds({ logger }: { logger: Logger }): Promise<void> {
   const pending = await internalTrueForgeClient.listPendingSandboxEnvironmentVersions();
-  logger.info('Sandbox environment build tick', { pending_count: pending.length });
+  logger.debug('Sandbox environment build tick', { pending_count: pending.length });
   for (const environmentVersionId of pending) {
-    logger.info('Progressing sandbox environment version', { environment_version_id: environmentVersionId });
+    logger.debug('Progressing sandbox environment version', { environment_version_id: environmentVersionId });
     try {
       await internalTrueForgeClient.progressSandboxEnvironmentVersion(environmentVersionId);
-      logger.info('Sandbox environment version progress completed', {
+      logger.debug('Sandbox environment version progress completed', {
         environment_version_id: environmentVersionId,
       });
     } catch (error) {

@@ -699,6 +699,13 @@ describe('ShellModeProvider', () => {
     expect(result.current.agentsListEpoch).toBe(1);
   });
 
+  it('invalidateEnvironmentsList bumps environmentsListEpoch', () => {
+    const { result } = renderHook(() => useShellMode(), { wrapper: wrap() });
+    expect(result.current.environmentsListEpoch).toBe(0);
+    act(() => result.current.invalidateEnvironmentsList());
+    expect(result.current.environmentsListEpoch).toBe(1);
+  });
+
   it('bindMutableAgent attaches identity without remounting', () => {
     const { result } = renderHook(() => useShellMode(), {
       wrapper: wrap({ mode: 'AgentLibraryWithComposer' }),

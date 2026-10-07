@@ -6,8 +6,19 @@ import { DraftCatalogProvider } from '@/atoms/draft/DraftCatalogProvider.js';
 import { DraftCompositeSelector } from '@/atoms/draft/DraftCompositeSelector.js';
 import { CompactLayoutProvider } from '@/atoms/lib/CompactLayoutContext.js';
 import { ServerProvider } from '@/server/ServerContext.js';
-import type { AgentSkill, AgentSpec, CatalogServer, SandboxCatalogServer, SkillCatalogServer } from '@/server/types.js';
-import { createMockAgentUIServer, createMockCatalog } from '../../server/mockServer.js';
+import type {
+  AgentSkill,
+  AgentSpec,
+  CatalogServer,
+  SandboxCatalogServer,
+  SandboxEnvironmentServer,
+  SkillCatalogServer,
+} from '@/server/types.js';
+import {
+  createMockAgentUIServer,
+  createMockCatalog,
+  createMockSandboxEnvironmentServer,
+} from '../../server/mockServer.js';
 
 let agentSpec: AgentSpec;
 const updateAgentSpec = vi.fn();
@@ -32,13 +43,15 @@ const sandboxCatalog: SandboxCatalogServer = {
 
 const settingsCatalog = createMockCatalog({ skillCatalog, sandboxCatalog });
 
+const setEnvironmentsOpen = vi.fn();
+
 vi.mock('@truefoundry/trueforge-assistant-ui-runtime', () => ({
   useTrueForgeAgentSpec: () => ({ agentSpec }),
   useTrueForgeUpdateAgentSpec: () => updateAgentSpec,
 }));
 
 vi.mock('@/server/ShellModeContext.js', () => ({
-  useOptionalShellMode: () => ({ setSettingsOpen }),
+  useOptionalShellMode: () => ({ setSettingsOpen, setEnvironmentsOpen }),
 }));
 
 beforeAll(() => {
@@ -58,6 +71,7 @@ function renderSelector({
   getMcp,
   catalog = settingsCatalog,
   compact = false,
+  environmentServer,
 }: {
   onAttach?: () => void;
   getCapabilities?: () => Promise<{
@@ -71,9 +85,11 @@ function renderSelector({
   getMcp?: () => Promise<{ id: string; name: string; authenticated: boolean }[]>;
   catalog?: CatalogServer | null;
   compact?: boolean;
+  environmentServer?: SandboxEnvironmentServer;
 } = {}) {
   const server = createMockAgentUIServer({
     ...(catalog === null ? {} : { catalog }),
+    ...(environmentServer ? { sandboxEnvironments: environmentServer } : {}),
     getCapabilities:
       getCapabilities ??
       (async () => ({
@@ -111,6 +127,7 @@ describe('DraftCompositeSelector', () => {
     };
     updateAgentSpec.mockReset();
     setSettingsOpen.mockReset();
+    setEnvironmentsOpen.mockReset();
   });
 
   afterEach(() => {
@@ -126,6 +143,7 @@ describe('DraftCompositeSelector', () => {
     expect(screen.getByRole('dialog', { name: 'Add to composer' })).toBeInTheDocument();
     expect(screen.getByRole('button', { name: /Connectors/ })).toBeInTheDocument();
     expect(screen.getByRole('button', { name: /Skills/ })).toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: /Environment/ })).not.toBeInTheDocument();
     expect(screen.queryByRole('button', { name: /Capabilities/ })).not.toBeInTheDocument();
 
     agentSpec = { ...agentSpec, model: { name: '  ' } };
@@ -361,5 +379,95 @@ describe('DraftCompositeSelector', () => {
 
     expect(await screen.findByText('No skills')).toBeInTheDocument();
     expect(screen.queryByRole('button', { name: /Please configure a Sandbox/ })).not.toBeInTheDocument();
+  });
+
+  it('renders environment tab with default and ready environments only, excluding pending/failed and status badges', async () => {
+    const environmentServer = createMockSandboxEnvironmentServer({
+      listEnvironments: async () => ({
+        data: [
+          {
+            id: 'env-default',
+            name: 'default',
+            description: 'Default environment',
+            status: 'ready',
+            statusReason: null,
+            manifest: { name: 'default', description: 'Default environment' },
+            createdBySubject: { subjectId: 'u1', subjectType: 'user', subjectDisplayName: 'user-1' },
+            createdAt: '2026-09-01T10:00:00Z',
+            updatedAt: '2026-09-01T10:00:00Z',
+          },
+          {
+            id: 'env-1',
+            name: 'python-dev',
+            description: 'Python 3.11 environment with poetry',
+            status: 'ready',
+            statusReason: null,
+            manifest: { name: 'python-dev', description: 'Python 3.11 environment with poetry' },
+            createdBySubject: { subjectId: 'u1', subjectType: 'user', subjectDisplayName: 'user-1' },
+            createdAt: '2026-09-01T10:00:00Z',
+            updatedAt: '2026-09-01T10:00:00Z',
+          },
+          {
+            id: 'env-2',
+            name: 'building-env',
+            description: '',
+            status: 'pending',
+            statusReason: null,
+            manifest: { name: 'building-env' },
+            createdBySubject: { subjectId: 'u1', subjectType: 'user', subjectDisplayName: 'user-1' },
+            createdAt: '2026-09-01T10:00:00Z',
+            updatedAt: '2026-09-01T10:00:00Z',
+          },
+          {
+            id: 'env-3',
+            name: 'broken-env',
+            description: '',
+            status: 'failed',
+            statusReason: 'Build failed',
+            manifest: { name: 'broken-env' },
+            createdBySubject: { subjectId: 'u1', subjectType: 'user', subjectDisplayName: 'user-1' },
+            createdAt: '2026-09-01T10:00:00Z',
+            updatedAt: '2026-09-01T10:00:00Z',
+          },
+        ],
+      }),
+    });
+
+    renderSelector({ environmentServer });
+    fireEvent.click(screen.getByRole('button', { name: 'Tools (2)' }));
+    fireEvent.click(screen.getByRole('button', { name: /Environment/ }));
+
+    expect(await screen.findByText('default')).toBeInTheDocument();
+    expect(screen.getByText('Default environment')).toBeInTheDocument();
+    expect(await screen.findByText('python-dev')).toBeInTheDocument();
+    expect(screen.getByText('Python 3.11 environment with poetry')).toBeInTheDocument();
+
+    // pending and failed environments must NOT be displayed
+    expect(screen.queryByText('building-env')).not.toBeInTheDocument();
+    expect(screen.queryByText('broken-env')).not.toBeInTheDocument();
+
+    // No "Ready" status badge should be rendered
+    expect(screen.queryByText('Ready')).not.toBeInTheDocument();
+
+    // Select custom environment
+    fireEvent.click(screen.getByText('python-dev'));
+    expect(updateAgentSpec).toHaveBeenCalledWith({
+      config: expect.objectContaining({
+        sandbox: expect.objectContaining({
+          enabled: true,
+          environment_name: 'python-dev',
+        }),
+      }),
+    });
+
+    // Select default environment clears environment_name
+    fireEvent.click(screen.getByText('default'));
+    expect(updateAgentSpec).toHaveBeenCalledWith({
+      config: expect.objectContaining({
+        sandbox: expect.objectContaining({
+          environment_name: undefined,
+        }),
+      }),
+    });
   });
 });

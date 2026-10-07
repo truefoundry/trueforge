@@ -1,3 +1,4 @@
+import { clearEnvironmentShareSearch } from '../utils/environmentShareUrl.js';
 import { clearLibraryShareSearch } from '../utils/libraryShareUrl.js';
 import {
   clearScheduleShareSearch,
@@ -17,6 +18,7 @@ const DEFAULTS = {
   library: '/library',
   libraryAgent: '/library/:agentId',
   schedules: '/schedules',
+  environments: '/environments',
   buildAgent: '/build-agent',
   agent: '/agents/:agentName',
   session: '/sessions/:sessionId',
@@ -45,6 +47,7 @@ export function resolveRoutesConfig(routes?: RoutesConfig): ResolvedRoutes {
     library: resolveOptional(paths?.library, DEFAULTS.library),
     libraryAgent: resolveOptional(paths?.libraryAgent, DEFAULTS.libraryAgent),
     schedules: resolveOptional(paths?.schedules, DEFAULTS.schedules),
+    environments: resolveOptional(paths?.environments, DEFAULTS.environments),
     buildAgent: resolveOptional(paths?.buildAgent, DEFAULTS.buildAgent),
     agent: resolveOptional(paths?.agent, DEFAULTS.agent),
     session: resolveOptional(paths?.session, DEFAULTS.session),
@@ -80,6 +83,8 @@ export function buildPath(place: RoutePlace, routes: ResolvedRoutes): string | n
       return routes.libraryAgent == null ? null : fillTemplate(routes.libraryAgent, place.agentId);
     case 'schedules':
       return routes.schedules;
+    case 'environments':
+      return routes.environments;
     case 'buildAgent':
       return routes.buildAgent;
     case 'agent':
@@ -157,6 +162,7 @@ export function sanitizeSearchForPlace(place: RoutePlace, search: string): strin
   if (place.type === 'sessionsBrowser') {
     writeSessionShareSearch(params, { tab: null });
     clearScheduleShareSearch(params);
+    clearEnvironmentShareSearch(params);
     clearLibraryShareSearch(params);
   } else if (place.type === 'library') {
     writeSessionShareSearch(params, {
@@ -167,6 +173,7 @@ export function sanitizeSearchForPlace(place: RoutePlace, search: string): strin
       timeRange: null,
     });
     clearScheduleShareSearch(params);
+    clearEnvironmentShareSearch(params);
     // Keep `agent_name` — owned by the library place.
   } else if (place.type === 'libraryAgent') {
     const share = readSessionShareSearch(search);
@@ -177,6 +184,7 @@ export function sanitizeSearchForPlace(place: RoutePlace, search: string): strin
       ...(share.sessionId != null && share.agentId !== place.agentId ? { sessionId: null, agentId: null } : {}),
     });
     clearScheduleShareSearch(params);
+    clearEnvironmentShareSearch(params);
     clearLibraryShareSearch(params);
     if (share.tab === 'schedules') {
       writeScheduleShareSearch(params, {
@@ -193,8 +201,20 @@ export function sanitizeSearchForPlace(place: RoutePlace, search: string): strin
       view: null,
       timeRange: null,
     });
+    clearEnvironmentShareSearch(params);
     clearLibraryShareSearch(params);
     // Keep `agent` / `status` / `q` — owned by the schedules place.
+  } else if (place.type === 'environments') {
+    writeSessionShareSearch(params, {
+      sessionId: null,
+      agentId: null,
+      tab: null,
+      view: null,
+      timeRange: null,
+    });
+    clearScheduleShareSearch(params);
+    clearLibraryShareSearch(params);
+    // Keep `envQ` / `envIsNew` — owned by the environments place.
   } else {
     writeSessionShareSearch(params, {
       sessionId: null,
@@ -204,6 +224,7 @@ export function sanitizeSearchForPlace(place: RoutePlace, search: string): strin
       timeRange: null,
     });
     clearScheduleShareSearch(params);
+    clearEnvironmentShareSearch(params);
     clearLibraryShareSearch(params);
   }
   const next = params.toString();
@@ -259,6 +280,9 @@ export function matchPath(pathname: string, routes: ResolvedRoutes): RoutePlace 
   }
   if (routes.schedules != null && normalized === routes.schedules) {
     return { type: 'schedules' };
+  }
+  if (routes.environments != null && normalized === routes.environments) {
+    return { type: 'environments' };
   }
   if (routes.buildAgent != null && normalized === routes.buildAgent) {
     return { type: 'buildAgent' };

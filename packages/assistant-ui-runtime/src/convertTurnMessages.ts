@@ -48,6 +48,7 @@ import {
   applyApprovalDecisionsToContent,
   collectApprovalDecisionsFromTurnInput,
   collectSubsequentApprovalDecisions,
+  hasPendingToolApproval,
   messageHasPendingApprovals,
   TOOL_APPROVAL_THREAD_ID_CUSTOM_KEY,
   toolApprovalMessageCustom,
@@ -58,6 +59,7 @@ import {
   applyUserToolResponsesToFold,
   collectSubsequentToolResponses,
   collectToolResponsesFromTurnInput,
+  hasPendingToolResponse,
   messageHasPendingResponses,
   TOOL_RESPONSE_THREAD_ID_CUSTOM_KEY,
   toolResponseMessageCustom,
@@ -467,13 +469,14 @@ function attachRunningTurn(snapshot: SessionSnapshot, runningTurn: Turn | undefi
     return snapshot;
   }
   const pendingUserText = extractTurnUserText(runningTurn.input);
-  // Tip is not in `turns` yet. A new user tip must baseline every prior root
-  // model.message (same as live send) — otherwise computeGroupRootBaseline
-  // treats the last completed user turn as the active group and that turn's
-  // content leaks into resume after refresh.
+  // Tip is not in `turns`. Baseline committed groups only — fold already
+  // includes the open tip's messages, which must stay in live resume.
+  //2 scenario for Page Refresh:
+  //    1. only baseline the committed groups(there is only user msg no assistant msg)
+  //    2. the open tip's messages must stay in live resume (there is some assistant msg response in the fold)
   const groupRootBaseline =
     pendingUserText !== undefined
-      ? [...(snapshot.fold.threads.get(ROOT_THREAD_ID)?.modelMessageIds ?? [])]
+      ? snapshot.turns.flatMap(turn => turn.rootModelMessageIds ?? [])
       : computeGroupRootBaseline(snapshot.turns);
   return replaceSessionSnapshot(snapshot, {
     runningTurn,
@@ -1055,6 +1058,95 @@ function applyRequiredActionsOverlayToMessages(
   });
 }
 
+type ThreadAssistantMessagePart = Extract<ThreadMessage, { role: 'assistant' }>['content'][number];
+type AssistantToolCallPart = Extract<ThreadAssistantMessagePart, { type: 'tool-call' }>;
+
+function stripInteractivePendingFromContent(
+  content: readonly ThreadAssistantMessagePart[],
+): ThreadAssistantMessagePart[] {
+  return content.map(part => {
+    if (part.type !== 'tool-call') {
+      return part;
+    }
+
+    let next: AssistantToolCallPart = part;
+    if (hasPendingToolResponse(part)) {
+      const { interrupt, ...rest } = part;
+      void interrupt;
+      next = rest;
+    }
+    const approval = next.approval;
+    if (approval != null && hasPendingToolApproval(approval)) {
+      next = {
+        ...next,
+        approval: {
+          ...approval,
+          approved: false,
+          reason: 'Superseded by a later message',
+        },
+      };
+    }
+    if (next.messages != null) {
+      const nested = next.messages.map(message => {
+        if (message.role !== 'assistant' || message.status.type !== 'requires-action') {
+          return message;
+        }
+        return stripInteractivePendingFromAssistant(message);
+      });
+      next = { ...next, messages: nested };
+    }
+    return next;
+  });
+}
+
+function stripInteractivePendingFromAssistant(
+  message: Extract<ThreadMessage, { role: 'assistant' }>,
+): Extract<ThreadMessage, { role: 'assistant' }> {
+  const content = stripInteractivePendingFromContent(message.content);
+  const custom = Object.fromEntries(
+    Object.entries(message.metadata.custom).filter(
+      ([key]) =>
+        key !== 'pendingMcpAuth' &&
+        key !== 'mcpServers' &&
+        key !== TOOL_APPROVAL_THREAD_ID_CUSTOM_KEY &&
+        key !== TOOL_RESPONSE_THREAD_ID_CUSTOM_KEY,
+    ),
+  );
+  return {
+    ...message,
+    content,
+    status: { type: 'incomplete', reason: 'cancelled' },
+    metadata: {
+      ...message.metadata,
+      custom,
+    },
+  };
+}
+
+/** Clear interactive pause chrome on assistants that a later user message abandoned. */
+function abandonSupersededPausedMessages(messages: readonly ThreadMessage[]): ThreadMessage[] {
+  let lastUserIndex = -1;
+  for (let i = messages.length - 1; i >= 0; i--) {
+    if (messages[i]?.role === 'user') {
+      lastUserIndex = i;
+      break;
+    }
+  }
+  if (lastUserIndex < 0) {
+    return [...messages];
+  }
+
+  return messages.map((message, index) => {
+    if (index >= lastUserIndex) {
+      return message;
+    }
+    if (message.role !== 'assistant' || message.status.type !== 'requires-action') {
+      return message;
+    }
+    return stripInteractivePendingFromAssistant(message);
+  });
+}
+
 function projectHistoryTurns(snapshot: SessionSnapshot, options?: ProjectSessionMessagesOptions): ThreadMessage[] {
   const messages: ThreadMessage[] = [];
   let lastAssistantIndex: number | undefined;
@@ -1213,7 +1305,7 @@ export function projectSessionMessages(
     }
   }
 
-  return applyRequiredActionsOverlayToMessages(messages, snapshot.requiredActions);
+  return abandonSupersededPausedMessages(applyRequiredActionsOverlayToMessages(messages, snapshot.requiredActions));
 }
 
 const DEFAULT_LIST_EVENTS_CONCURRENCY = 5;
@@ -1536,23 +1628,43 @@ function buildMcpAuthUpdate(
   };
 }
 
+/** Terminal `turn.done` with `status: error`. Not a transport drop — do not subscribe-retry. */
+export class TurnFailedError extends Error {
+  constructor(message: string) {
+    super(message);
+    this.name = 'TurnFailedError';
+  }
+}
+
+/** SSE body ended without `turn.done` or a pause — subscribe-retry. */
+export class TurnStreamDisconnectedError extends Error {
+  constructor(message = 'Turn stream closed before turn.done') {
+    super(message);
+    this.name = 'TurnStreamDisconnectedError';
+  }
+}
+
 export async function* streamTurnEvents(
   stream: AsyncIterable<TurnStreamData>,
   foldState: PeerThreadFoldState,
   groupRootBaseline?: readonly string[],
   onTurnIdAvailable?: (turnId: string) => void,
+  onSequenceNumber?: (sequenceNumber: number) => void,
 ): AsyncGenerator<TurnStreamUpdate> {
   let pendingMcpAuth: McpAuthRequiredEvent | undefined;
   let sandboxId: string | undefined;
   let sandboxIdYielded = false;
+  let lastSequenceNumber: number | undefined;
+  let sawTurnDone = false;
 
-  const withSandbox = (update: TurnStreamUpdate): TurnStreamUpdate => {
+  const withCursor = (update: TurnStreamUpdate): TurnStreamUpdate => {
+    const withSeq = lastSequenceNumber == null ? update : { ...update, sequenceNumber: lastSequenceNumber };
     if (sandboxId == null) {
-      return update;
+      return withSeq;
     }
     return {
-      ...update,
-      metadata: { ...update.metadata, custom: { ...update.metadata?.custom, sandboxId } },
+      ...withSeq,
+      metadata: { ...withSeq.metadata, custom: { ...withSeq.metadata?.custom, sandboxId } },
     };
   };
 
@@ -1566,6 +1678,8 @@ export async function* streamTurnEvents(
   };
 
   for await (const data of stream) {
+    lastSequenceNumber = data.sequenceNumber;
+    onSequenceNumber?.(data.sequenceNumber);
     const event = data.event;
 
     if (event.type === 'turn.created') {
@@ -1585,7 +1699,7 @@ export async function* streamTurnEvents(
 
     if (event.type === 'turn.done') {
       if (event.state.status === 'error') {
-        throw new Error(event.state.message);
+        throw new TurnFailedError(event.state.message);
       }
       // The turn is logically complete once `turn.done` is observed. The
       // resumed-turn transport (`subscribeToTurn`) is a reconnectable live
@@ -1593,6 +1707,7 @@ export async function* streamTurnEvents(
       // event, so we must stop consuming explicitly rather than waiting
       // for the underlying stream to end — otherwise `isRunning` never
       // clears and the composer's cancel/spinner button gets stuck.
+      sawTurnDone = true;
       break;
     }
 
@@ -1605,12 +1720,12 @@ export async function* streamTurnEvents(
       if (sandboxId != null) {
         sandboxIdYielded = true;
       }
-      yield withSandbox({ content });
+      yield withCursor({ content });
     }
   }
 
   if (pendingMcpAuth != null) {
-    yield withSandbox(buildMcpAuthUpdate(pendingMcpAuth, foldState, groupRootBaseline));
+    yield withCursor(buildMcpAuthUpdate(pendingMcpAuth, foldState, groupRootBaseline));
     return;
   }
 
@@ -1634,7 +1749,7 @@ export async function* streamTurnEvents(
       groupRootBaseline != null
         ? rootModelMessageIdsSinceBaseline(foldState, groupRootBaseline)
         : (foldState.threads.get(ROOT_THREAD_ID)?.modelMessageIds ?? []);
-    yield withSandbox({
+    yield withCursor({
       content: buildRootAssistantContentForIds(foldState, ids),
       status: approvalThreadId != null ? toolApprovalStatus() : toolResponseStatus(),
       metadata: { custom },
@@ -1647,7 +1762,11 @@ export async function* streamTurnEvents(
       groupRootBaseline != null
         ? rootModelMessageIdsSinceBaseline(foldState, groupRootBaseline)
         : (foldState.threads.get(ROOT_THREAD_ID)?.modelMessageIds ?? []);
-    yield withSandbox({ content: buildRootAssistantContentForIds(foldState, ids) });
+    yield withCursor({ content: buildRootAssistantContentForIds(foldState, ids) });
+  }
+
+  if (!sawTurnDone) {
+    throw new TurnStreamDisconnectedError();
   }
 }
 

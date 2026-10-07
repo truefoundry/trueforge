@@ -18,7 +18,16 @@ import type { CodeModeTransport } from '../codeMode/CodeModeTransport';
 import { CodeModeNatsTransport } from '../codeMode/nats/CodeModeNatsTransport';
 import { DEFAULT_PREVIEW_URL_EXPIRY_SECONDS, DEFAULT_SANDBOX_NATS_WS_PORT } from '../constants';
 import { DAYTONA_SNAPSHOT_NOT_STARTED_REASON, type DaytonaSandboxEnvironment } from './DaytonaSandboxEnvironment';
-import type { ExecResult, SandboxBuild, SandboxExecParams, SandboxFileInfo, SandboxProvider } from './Provider';
+import type {
+  ExecResult,
+  SandboxBuild,
+  SandboxCreateSecretParams,
+  SandboxDeleteSecretParams,
+  SandboxExecParams,
+  SandboxFileInfo,
+  SandboxProvider,
+  SandboxUpdateSecretParams,
+} from './Provider';
 
 const SANDBOX_NOT_FOUND_STATUS = 404;
 const SANDBOX_STATE_STARTED = 'started';
@@ -121,13 +130,39 @@ export class DaytonaSandboxProvider implements SandboxProvider<DaytonaSandboxEnv
     envVars?: Record<string, string>;
     networkBlockAll?: boolean;
     domainAllowList?: string;
+    secrets?: Record<string, string>;
   } {
     const networking = environment.networking;
     return {
       ...(environment.environment_variables ? { envVars: environment.environment_variables } : {}),
       ...(networking?.network_block_all ? { networkBlockAll: networking.network_block_all } : {}),
       ...(networking?.domain_allow_list ? { domainAllowList: networking.domain_allow_list } : {}),
+      ...(environment.mounted_secrets ? { secrets: environment.mounted_secrets } : {}),
     };
+  }
+
+  /** Create a Daytona secret (value write-only). */
+  async createSecret(params: SandboxCreateSecretParams): Promise<{ id: string; name: string }> {
+    const secret = await this.daytona.secret.create({
+      name: params.name,
+      value: params.value,
+      description: params.description,
+      hosts: params.hosts,
+    });
+    return { id: secret.id, name: secret.name };
+  }
+
+  /** Update a Daytona secret (hosts and optional value). */
+  async updateSecret(params: SandboxUpdateSecretParams): Promise<void> {
+    await this.daytona.secret.update(params.secretId, {
+      hosts: params.hosts,
+      ...(params.value ? { value: params.value } : {}),
+    });
+  }
+
+  /** Delete a Daytona secret by id. */
+  async deleteSecret(params: SandboxDeleteSecretParams): Promise<void> {
+    await this.daytona.secret.delete(params.secretId);
   }
 
   private toBuild({

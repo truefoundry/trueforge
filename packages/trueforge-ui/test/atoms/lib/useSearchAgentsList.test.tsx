@@ -218,4 +218,17 @@ describe('useSearchAgentsList', () => {
     expect(result.current.canNext).toBe(false);
     expect(result.current.canPrev).toBe(false);
   });
+
+  it('maps browser network noise to a friendly error', async () => {
+    const searchAgents = vi.fn(async () => {
+      throw new TypeError('Failed to fetch');
+    });
+    const server = createMockAgentUIServer({ searchAgents });
+    const { result } = renderHook(() => useSearchAgentsList({ enabled: true, query: '', mode: 'paged', limit: 10 }), {
+      wrapper: wrapperFor(server),
+    });
+
+    await waitFor(() => expect(result.current.error).toBe('Check your connection and try again.'));
+    expect(result.current.agents).toEqual([]);
+  });
 });
