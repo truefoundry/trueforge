@@ -8,6 +8,7 @@ import type { SandboxToolCallCardProps } from '@/atoms/SandboxToolCallCard.js';
 import type { SubAgentCardProps } from '@/atoms/SubAgentCard.js';
 import type { ToolCallCardProps } from '@/atoms/ToolCallCard.js';
 import { AssistantMessageContainer } from '@/containers/AssistantMessageContainer.js';
+import { SessionReplayContext } from '@/containers/sessionReplayContext.js';
 import { SlotsProvider, type SlotOverrides } from '@/theme/SlotsProvider.js';
 import { RuntimeHarness } from './RuntimeHarness.js';
 
@@ -187,6 +188,100 @@ describe('ToolCallContainer', () => {
             isCustom: true,
           },
         ],
+        readOnly: true,
+      }),
+    );
+  });
+
+  it('hides pending ask_user in live chat so the composer owns the prompt', () => {
+    const AskUserPrompt = createAskUserPromptProbe();
+
+    renderToolCallMessage(
+      [
+        {
+          type: 'tool-call',
+          toolCallId: 'question-pending',
+          toolName: 'ask_user_question',
+          args: {},
+          argsText: JSON.stringify({
+            question: 'Which environment?',
+            options: ['staging', 'production'],
+          }),
+          interrupt: { type: 'human', payload: {} },
+        },
+      ],
+      { AskUserPrompt },
+    );
+
+    expect(AskUserPrompt).not.toHaveBeenCalled();
+  });
+
+  it('hides streaming ask_user in live chat before interrupt is set', () => {
+    const AskUserPrompt = createAskUserPromptProbe();
+
+    renderToolCallMessage(
+      [
+        {
+          type: 'tool-call',
+          toolCallId: 'question-streaming',
+          toolName: 'ask_user_question',
+          args: {},
+          argsText: JSON.stringify({
+            question: 'Which environment?',
+            options: ['staging', 'production'],
+          }),
+        },
+      ],
+      { AskUserPrompt },
+    );
+
+    expect(AskUserPrompt).not.toHaveBeenCalled();
+  });
+
+  it('renders pending ask_user as read-only Unanswered in session replay', () => {
+    const AskUserPrompt = createAskUserPromptProbe();
+    const message: ThreadMessageLike = {
+      role: 'assistant',
+      content: [
+        {
+          type: 'tool-call',
+          toolCallId: 'question-pending',
+          toolName: 'ask_user_question',
+          args: {},
+          argsText: JSON.stringify({
+            question: 'Which environment?',
+            options: ['staging', 'production'],
+          }),
+          interrupt: { type: 'human', payload: {} },
+        },
+      ],
+    };
+
+    render(
+      <SlotsProvider overrides={{ AskUserPrompt }}>
+        <SessionReplayContext.Provider value={true}>
+          <RuntimeHarness messages={[message]}>
+            <ThreadPrimitive.Messages>{() => <AssistantMessageContainer />}</ThreadPrimitive.Messages>
+          </RuntimeHarness>
+        </SessionReplayContext.Provider>
+      </SlotsProvider>,
+    );
+
+    expect(AskUserPrompt.mock.calls[0]?.[0]).toEqual(
+      expect.objectContaining({
+        questions: [
+          {
+            id: 'question-pending',
+            question: 'Which environment?',
+            options: ['staging', 'production'],
+          },
+        ],
+        currentQuestion: {
+          id: 'question-pending',
+          question: 'Which environment?',
+          options: ['staging', 'production'],
+        },
+        currentAnswer: { radioValue: '', custom: '' },
         readOnly: true,
       }),
     );

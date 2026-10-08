@@ -111,6 +111,7 @@ export function getTurnInputSummary(turn: SessionTurnView): string {
     return 'Tool approval';
   }
   if (item.type === 'user.tool_response') return extractText(item.content) || 'Tool response';
+  if (item.type === 'user.mcp_auth_continue') return 'MCP authorization completed';
   return extractText(item.content) || 'User message';
 }
 
