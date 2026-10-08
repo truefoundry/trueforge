@@ -137,3 +137,106 @@ describe('DaytonaSandboxProvider exec', () => {
     );
   });
 });
+
+describe('DaytonaSandboxProvider inactive snapshot create', () => {
+  const UNAVAILABLE_MESSAGE =
+    'The sandbox is temporarily unavailable and is being restored. Please try again in a few minutes.';
+
+  type SnapshotStub = Awaited<ReturnType<Daytona['snapshot']['get']>>;
+
+  function snapshotStub(input: { name: string; state: string }): SnapshotStub {
+    return { id: 'snap-1', name: input.name, state: input.state } as SnapshotStub;
+  }
+
+  function makeCreateProvider(): {
+    provider: DaytonaSandboxProvider;
+    client: Daytona;
+    onCriticalAlert: jest.Mock;
+  } {
+    const client = new Daytona({ apiKey: 'dtn-test', useDeprecatedPolling: true });
+    const onCriticalAlert = jest.fn();
+    const provider = new DaytonaSandboxProvider({
+      client,
+      apiKey: 'dtn-test',
+      apiUrl: API_URL,
+      tenantName: 'test-tenant',
+      timeoutMs: 1000,
+      autoStopIntervalInMinutes: 5,
+      autoArchiveIntervalInMinutes: 60,
+      autoDeleteIntervalInMinutes: 7200,
+      fileMaxBytesForDownload: 1024,
+      logger: makeSilentLogger(),
+      onCriticalAlert,
+    });
+    return { provider, client, onCriticalAlert };
+  }
+
+  function environmentWithSnapshotRef(snapshot_ref: string) {
+    return createDaytonaSandboxEnvironment({
+      snapshot_ref,
+      image_uri: 'registry.example.com/sandbox:029ea5ff',
+      resources: { cpu: 1, memory: 1, disk: 3 },
+    });
+  }
+
+  it('activates an inactive snapshot before create, then fails with a clear message', async () => {
+    const { provider, client, onCriticalAlert } = makeCreateProvider();
+    const environment = environmentWithSnapshotRef('inactive-before-create');
+    const inactive = snapshotStub({ name: environment.snapshot_ref, state: 'inactive' });
+    jest.spyOn(client.snapshot, 'get').mockResolvedValue(inactive);
+    const activate = jest.spyOn(client.snapshot, 'activate').mockResolvedValue(inactive);
+    const create = jest.spyOn(client, 'create');
+
+    await expect(provider.createSandbox(environment)).rejects.toThrow(UNAVAILABLE_MESSAGE);
+
+    expect(activate).toHaveBeenCalledWith(inactive);
+    expect(create).not.toHaveBeenCalled();
+    expect(onCriticalAlert).toHaveBeenCalledTimes(1);
+  });
+
+  it('does not alert on create permission errors', async () => {
+    const { provider, client, onCriticalAlert } = makeCreateProvider();
+    const environment = environmentWithSnapshotRef('create-forbidden');
+    jest
+      .spyOn(client.snapshot, 'get')
+      .mockResolvedValue(snapshotStub({ name: environment.snapshot_ref, state: 'active' }));
+    const activate = jest.spyOn(client.snapshot, 'activate');
+    jest.spyOn(client, 'create').mockRejectedValue(new DaytonaError('Access denied', FORBIDDEN_STATUS));
+
+    await expect(provider.createSandbox(environment)).rejects.toMatchObject({
+      message: 'Access denied',
+      statusCode: FORBIDDEN_STATUS,
+    });
+
+    expect(activate).not.toHaveBeenCalled();
+    expect(onCriticalAlert).not.toHaveBeenCalled();
+  });
+
+  it('alerts P1 on non-authz create failures when the snapshot is not inactive', async () => {
+    const { provider, client, onCriticalAlert } = makeCreateProvider();
+    const environment = environmentWithSnapshotRef('create-failed-other');
+    jest
+      .spyOn(client.snapshot, 'get')
+      .mockResolvedValue(snapshotStub({ name: environment.snapshot_ref, state: 'active' }));
+    const createError = new DaytonaError('quota exceeded', 429);
+    jest.spyOn(client, 'create').mockRejectedValue(createError);
+
+    await expect(provider.createSandbox(environment)).rejects.toBe(createError);
+    expect(onCriticalAlert).toHaveBeenCalledWith(createError);
+  });
+
+  it('alerts and rethrows when activate itself fails', async () => {
+    const { provider, client, onCriticalAlert } = makeCreateProvider();
+    const environment = environmentWithSnapshotRef('inactive-activate-failed');
+    const inactive = snapshotStub({ name: environment.snapshot_ref, state: 'inactive' });
+    jest.spyOn(client.snapshot, 'get').mockResolvedValue(inactive);
+    const activateError = new DaytonaError('activate failed', 500);
+    jest.spyOn(client.snapshot, 'activate').mockRejectedValue(activateError);
+    const create = jest.spyOn(client, 'create');
+
+    await expect(provider.createSandbox(environment)).rejects.toBe(activateError);
+
+    expect(create).not.toHaveBeenCalled();
+    expect(onCriticalAlert).toHaveBeenCalledWith(activateError);
+  });
+});
