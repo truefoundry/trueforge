@@ -24,6 +24,7 @@ import type {
   PatchMCPServersInput,
   PatchSandboxInfoInput,
   PatchThreadCapabilityStateInput,
+  PatchThreadsMCPAuthInput,
   RemoveThreadsInput,
   TurnRecordWithoutSnapshot,
   UpdateSessionInput,
@@ -43,6 +44,7 @@ import {
   listTurnEvents as listTurnEventsQuery,
 } from './queries/events';
 import { insertTurnInboundEvents as insertTurnInboundEventsQuery } from './queries/inboundEvents';
+import { patchThreadsMCPAuth as patchThreadsMCPAuthQuery } from './queries/mcpAuth';
 import {
   createSession as createSessionQuery,
   deleteSession as deleteSessionQuery,
@@ -231,6 +233,10 @@ export class SqliteSessionStore implements ISessionStore<SessionCustom, TurnCust
 
   patchThreadCapabilityState(input: PatchThreadCapabilityStateInput): Promise<void> {
     return patchThreadCapabilityStateQuery(this.db, input);
+  }
+
+  patchThreadsMCPAuth(input: PatchThreadsMCPAuthInput): Promise<void> {
+    return patchThreadsMCPAuthQuery(this.db, input);
   }
 
   listTurnEvents(input: ListTurnEventsInput): Promise<{ data: PersistedTurnEvent[]; pagination: TokenPagination }> {

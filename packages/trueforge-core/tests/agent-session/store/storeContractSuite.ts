@@ -16,7 +16,7 @@ import {
   TurnNotFoundError,
   TurnNotRunningError,
 } from '../../../src/agent-session/store/SessionStoreErrors';
-import { newEventId } from '../../../src/core/events/schema';
+import { newEventId, type MCPAuthRequiredEvent } from '../../../src/core/events/schema';
 import { getEmptyUsage } from '../../../src/core/llm/LLMTypes';
 import type { ContextMessage } from '../../../src/core/runtime/AgentThread.types';
 import { getEmptyCurrentContextUsage } from '../../../src/core/runtime/contextUsage';
@@ -124,6 +124,7 @@ export function runStoreContractSuite(createStore: () => ISessionStore) {
               parent: { thread_id: MAIN_THREAD_ID, tool_call_id: 'tc1' },
               agent_info: { type: 'dynamic', name: 'child', input: 'task' },
               completion: null,
+              pending_mcp_auth: false,
               capability_state: null,
             },
           ],
@@ -163,6 +164,18 @@ export function runStoreContractSuite(createStore: () => ISessionStore) {
           thread_id: MAIN_THREAD_ID,
           key: 'tfy.plan',
           state: { step: 1 },
+        }),
+      () =>
+        store.patchThreadsMCPAuth({
+          ...keys,
+          thread_ids: [MAIN_THREAD_ID],
+          pending_mcp_auth: true,
+        }),
+      () =>
+        store.patchThreadsMCPAuth({
+          ...keys,
+          thread_ids: [MAIN_THREAD_ID],
+          pending_mcp_auth: false,
         }),
     ];
   }
@@ -2042,6 +2055,7 @@ export function runStoreContractSuite(createStore: () => ISessionStore) {
                 parent: { thread_id: MAIN_THREAD_ID, tool_call_id: 'tc1' },
                 agent_info: { type: 'dynamic', name: 'child', input: 'do work' },
                 completion: null,
+                pending_mcp_auth: false,
                 capability_state: null,
               },
             ],
@@ -2182,6 +2196,7 @@ export function runStoreContractSuite(createStore: () => ISessionStore) {
                 parent: { thread_id: MAIN_THREAD_ID, tool_call_id: 'tc1' },
                 agent_info: { type: 'dynamic', name: 'child', input: 'do work' },
                 completion: null,
+                pending_mcp_auth: false,
                 capability_state: null,
               },
             ],
@@ -2741,6 +2756,79 @@ export function runStoreContractSuite(createStore: () => ISessionStore) {
       expect(data.map(e => e.id)).toEqual([created.id, model.id]);
     });
 
+    it('patches MCP auth wait state independently from event persistence', async () => {
+      const store = createStore();
+      await seedSession(store);
+      await store.createTurn(makeCreateTurnInput({ sessionId, turnId: 'turn-1' }));
+
+      const required: MCPAuthRequiredEvent = {
+        type: EventType.MCP_AUTH_REQUIRED,
+        id: newEventId(),
+        created_at: new Date().toISOString(),
+        thread_id: null,
+        mcp_servers: [{ id: 'svc', name: 'svc', auth_url: 'https://auth.example' }],
+      };
+      await store.patchThreadsMCPAuth({
+        session_id: sessionId,
+        turn_id: 'turn-1',
+        thread_ids: [MAIN_THREAD_ID],
+        pending_mcp_auth: true,
+      });
+      await store.appendToEvents({ session_id: sessionId, turn_id: 'turn-1', events: [required] });
+      let turn = mustGet(await store.getTurn({ session_id: sessionId, turn_id: 'turn-1' }));
+      expect(turn.snapshot.threads[MAIN_THREAD_ID]?.pending_mcp_auth).toBe(true);
+
+      const continued = {
+        type: EventType.USER_MCP_AUTH_CONTINUE,
+        id: newEventId(),
+        created_at: new Date().toISOString(),
+      } as const;
+      await store.patchThreadsMCPAuth({
+        session_id: sessionId,
+        turn_id: 'turn-1',
+        thread_ids: [MAIN_THREAD_ID],
+        pending_mcp_auth: false,
+      });
+      await store.appendToEvents({ session_id: sessionId, turn_id: 'turn-1', events: [continued] });
+      turn = mustGet(await store.getTurn({ session_id: sessionId, turn_id: 'turn-1' }));
+      expect(turn.snapshot.threads[MAIN_THREAD_ID]?.pending_mcp_auth).toBe(false);
+
+      const events = await store.listTurnEvents({
+        session_id: sessionId,
+        turn_id: 'turn-1',
+        limit: 10,
+        page_token: undefined,
+        order: 'asc',
+      });
+      expect(events.data.map(event => event.id)).toEqual([required.id, continued.id]);
+    });
+
+    it('rejects an MCP auth patch when the target thread does not exist', async () => {
+      const store = createStore();
+      await seedSession(store);
+      await store.createTurn(makeCreateTurnInput({ sessionId, turnId: 'turn-1' }));
+
+      await expect(
+        store.patchThreadsMCPAuth({
+          session_id: sessionId,
+          turn_id: 'turn-1',
+          thread_ids: ['missing-thread'],
+          pending_mcp_auth: true,
+        }),
+      ).rejects.toBeInstanceOf(SessionStoreInvariantError);
+
+      const turn = mustGet(await store.getTurn({ session_id: sessionId, turn_id: 'turn-1' }));
+      expect(turn.snapshot.threads[MAIN_THREAD_ID]?.pending_mcp_auth).toBe(false);
+      const events = await store.listTurnEvents({
+        session_id: sessionId,
+        turn_id: 'turn-1',
+        limit: 10,
+        page_token: undefined,
+        order: 'asc',
+      });
+      expect(events.data).toEqual([]);
+    });
+
     it('turn_inbound_events: insert, duplicate id, terminal tip rejects', async () => {
       const store = createStore();
       await seedSession(store);
@@ -2956,6 +3044,7 @@ export function runStoreContractSuite(createStore: () => ISessionStore) {
             parent: { thread_id: MAIN_THREAD_ID, tool_call_id: 'tc1' },
             agent_info: { type: 'dynamic', name: 'child', input: 'do work' },
             completion: null,
+            pending_mcp_auth: false,
             capability_state: null,
           },
         ],

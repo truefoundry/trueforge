@@ -472,6 +472,7 @@ export type ToolApprovalPolicy = z.infer<typeof ToolApprovalPolicySchema>;
 export type UserToolApprovalEvent = z.infer<typeof UserToolApprovalEventSchema>;
 export type UserToolResponseEvent = z.infer<typeof UserToolResponseEventSchema>;
 export type UserToolApprovalPolicyEvent = z.infer<typeof UserToolApprovalPolicyEventSchema>;
+export type UserMCPAuthContinueEvent = z.infer<typeof UserMCPAuthContinueEventSchema>;
 export type TurnUserToolEvent = UserToolApprovalEvent | UserToolResponseEvent | UserToolApprovalPolicyEvent;
 export type TurnUserEventMessage = z.infer<typeof TurnUserEventMessageSchema>;
 export type TurnUserEvent = z.infer<typeof TurnUserEventSchema>;

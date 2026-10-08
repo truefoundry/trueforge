@@ -1,8 +1,6 @@
 /**
- * End-to-end full-approval resume at the agent-session level: SessionHandle.createTurn → stream()
- * pauses on an approval-gated tool call, TurnHandle.send(approval) wakes the live orchestrator, and
- * the SAME stream continues to a terminal done. Exercises the TurnHandle.send → orchestrator resume
- * seam the POST /events handler drives in production.
+ * End-to-end same-turn resume tests at the agent-session level. Exercises the
+ * TurnHandle.send → orchestrator resume seam the POST /events handler drives in production.
  */
 import { MAIN_THREAD_ID } from '../../src/agent-session/models/TurnRecord';
 import { EventType } from '../../src/agent-session/schemas/events';
@@ -11,7 +9,7 @@ import { Sessions } from '../../src/agent-session/Sessions';
 import { InMemorySessionStore } from '../../src/agent-session/store/InMemorySessionStore';
 import type { AgentCapability } from '../../src/core/capabilities/AgentCapability';
 import { newEventId } from '../../src/core/events/schema';
-import type { IToolSet, ToolSource } from '../../src/core/mcp/IMCPServer';
+import type { IToolSet, ListToolsResponse, ToolSource } from '../../src/core/mcp/IMCPServer';
 import { toolResultResponse } from '../../src/core/mcp/IMCPServer';
 import { ToolSet } from '../../src/core/mcp/ToolSet';
 import { withTimeout } from '../../src/core/util/promiseUtils';
@@ -68,6 +66,88 @@ function makeApprovalGatedCapability(): { capability: AgentCapability; callTool:
     approvalPolicies: undefined,
   });
   return { capability: { systemToolSets: [toolSet] }, callTool };
+}
+
+function makeAuthCapability() {
+  let authorized = false;
+  const listTools = jest.fn((): Promise<ListToolsResponse> => {
+    if (!authorized) {
+      return Promise.resolve({
+        authRequired: {
+          servers: [{ id: 'oauth-server', name: 'oauth-server', auth_url: 'https://auth.example' }],
+        },
+      });
+    }
+    return Promise.resolve({ result: { tools: [] }, wasInitialized: undefined });
+  });
+  const toolSet: IToolSet = {
+    id: 'oauth-server',
+    name: 'oauth-server',
+    preload: true,
+    hasPreloadedTools: true,
+    listTools,
+    callTool: jest.fn(),
+    toolCallInfo: jest.fn(),
+    setApprovalPolicy: jest.fn(),
+    getApprovalPolicies: jest.fn(() => ({})),
+    hasApplicableApprovalPolicy: jest.fn(() => false),
+  };
+  return {
+    capability: { systemToolSets: [toolSet] } satisfies AgentCapability,
+    authorize: () => {
+      authorized = true;
+    },
+    listTools,
+  };
+}
+
+function makeToolExecutionAuthCapability() {
+  const listTools = jest.fn(() =>
+    Promise.resolve({
+      result: {
+        tools: [
+          {
+            name: WRITE_NOTE_TOOL_NAME,
+            description: 'Write a note',
+            inputSchema: { type: 'object', properties: { text: { type: 'string' } } },
+            preload: true,
+          },
+        ],
+      },
+      wasInitialized: undefined,
+    } satisfies ListToolsResponse),
+  );
+  const callTool = jest.fn(() =>
+    Promise.resolve({
+      authRequired: {
+        servers: [{ id: 'oauth-server', name: 'oauth-server', auth_url: 'https://auth.example' }],
+      },
+    }),
+  );
+  const toolSet = new ToolSet({
+    source: {
+      name: 'oauth-server',
+      id: 'oauth-server',
+      listTools,
+      callTool,
+      toolCallInfo: () =>
+        Promise.resolve({
+          type: 'mcp',
+          mcp_server_id: 'oauth-server',
+          mcp_server_name: 'oauth-server',
+          original_tool_name: WRITE_NOTE_TOOL_NAME,
+        }),
+    },
+    selectors: {
+      enableTools: ['@all'],
+      disableTools: [],
+      preloadTools: [],
+      requireApprovalForTools: [],
+    },
+    preload: true,
+    approvalPolicies: undefined,
+  });
+  return { capability: { systemToolSets: [toolSet] } satisfies AgentCapability, listTools, callTool };
 }
 
 describe('TurnHandle.send() full-approval resume (agent-session e2e)', () => {
@@ -206,5 +286,215 @@ describe('TurnHandle.send() full-approval resume (agent-session e2e)', () => {
       status: 'cancelled',
       reason: CancellationReason.ClientCancelled,
     });
+  });
+});
+
+describe('TurnHandle.send() MCP-auth continuation', () => {
+  it('persists the wait, resumes the same turn, and retries preloaded-tool initialization', async () => {
+    const store = new InMemorySessionStore();
+    const sessions = new Sessions({ sessionStore: store });
+    const session = await sessions.create({
+      tenant_id: 'tenant-1',
+      session_id: 's1',
+      created_by_subject: { subject_id: 'user-1', subject_type: 'user', subject_display_name: 'user-1' },
+      agent: { type: 'inline', spec: makeAgentSpec() },
+      external_id: null,
+    });
+    const { capability, authorize, listTools } = makeAuthCapability();
+    const turn = await session.createTurn({
+      turn_id: mintTestTurnId(),
+      active_executor_id: TEST_ACTIVE_EXECUTOR_ID,
+      input: [{ type: EventType.USER_MESSAGE, content: 'hello' }],
+      previous_turn_id: 'none',
+      signal: new AbortController().signal,
+      resolver: makeTestResolver({
+        extraCapabilities: [capability],
+        llmCreate: jest.fn(() => textReplyStream('authorized')),
+      }),
+    });
+
+    const eventTypes: string[] = [];
+    const iterator = turn.stream();
+    let sentContinue = false;
+    const next = () =>
+      withTimeout(iterator.next(), 1_000, `next after ${eventTypes.join(',')}; sentContinue=${String(sentContinue)}`);
+    let step = await next();
+    while (!step.done) {
+      eventTypes.push(step.value.type);
+      if (step.value.type === EventType.MCP_AUTH_REQUIRED) {
+        const stored = await store.getTurn({ session_id: 's1', turn_id: turn.id });
+        expect(stored?.snapshot.threads[MAIN_THREAD_ID]?.pending_mcp_auth).toBe(true);
+      }
+      if (!sentContinue && step.value.type === EventType.TURN_UPDATE && step.value.state.status === 'paused') {
+        authorize();
+        const sends = await Promise.allSettled([
+          turn.send([
+            {
+              type: EventType.USER_MCP_AUTH_CONTINUE,
+              id: newEventId(),
+              created_at: new Date().toISOString(),
+            },
+          ]),
+          turn.send([
+            {
+              type: EventType.USER_MCP_AUTH_CONTINUE,
+              id: newEventId(),
+              created_at: new Date().toISOString(),
+            },
+          ]),
+        ]);
+        expect(sends.every(result => result.status === 'fulfilled')).toBe(true);
+        sentContinue = true;
+      }
+      if (step.value.type === EventType.USER_MCP_AUTH_CONTINUE) {
+        const stored = await store.getTurn({ session_id: 's1', turn_id: turn.id });
+        expect(stored?.snapshot.threads[MAIN_THREAD_ID]?.pending_mcp_auth).toBe(false);
+      }
+      step = await next();
+    }
+
+    expect(sentContinue).toBe(true);
+    expect(listTools).toHaveBeenCalledTimes(2);
+    expect(eventTypes).toContain(EventType.MCP_AUTH_REQUIRED);
+    expect(eventTypes.filter(type => type === EventType.USER_MCP_AUTH_CONTINUE)).toHaveLength(2);
+    expect(eventTypes[eventTypes.length - 1]).toBe(EventType.TURN_DONE);
+    expect(turn.state.status).toBe('done');
+  });
+
+  it('re-emits auth-required and pauses again when initialization remains unauthorized', async () => {
+    const store = new InMemorySessionStore();
+    const sessions = new Sessions({ sessionStore: store });
+    const session = await sessions.create({
+      tenant_id: 'tenant-1',
+      session_id: 's1',
+      created_by_subject: { subject_id: 'user-1', subject_type: 'user', subject_display_name: 'user-1' },
+      agent: { type: 'inline', spec: makeAgentSpec() },
+      external_id: null,
+    });
+    const { capability, authorize, listTools } = makeAuthCapability();
+    const turn = await session.createTurn({
+      turn_id: mintTestTurnId(),
+      active_executor_id: TEST_ACTIVE_EXECUTOR_ID,
+      input: [{ type: EventType.USER_MESSAGE, content: 'hello' }],
+      previous_turn_id: 'none',
+      signal: new AbortController().signal,
+      resolver: makeTestResolver({
+        extraCapabilities: [capability],
+        llmCreate: jest.fn(() => textReplyStream('authorized')),
+      }),
+    });
+
+    const eventTypes: string[] = [];
+    let pauseCount = 0;
+    const iterator = turn.stream();
+    let step = await withTimeout(iterator.next(), 1_000, 'initial auth event');
+    while (!step.done) {
+      eventTypes.push(step.value.type);
+      if (step.value.type === EventType.TURN_UPDATE && step.value.state.status === 'paused') {
+        pauseCount++;
+        if (pauseCount === 2) {
+          authorize();
+        }
+        await turn.send([
+          {
+            type: EventType.USER_MCP_AUTH_CONTINUE,
+            id: newEventId(),
+            created_at: new Date().toISOString(),
+          },
+        ]);
+      }
+      step = await withTimeout(iterator.next(), 1_000, `auth retry after pause ${String(pauseCount)}`);
+    }
+
+    expect(pauseCount).toBe(2);
+    expect(eventTypes.filter(type => type === EventType.MCP_AUTH_REQUIRED)).toHaveLength(2);
+    expect(eventTypes.filter(type => type === EventType.USER_MCP_AUTH_CONTINUE)).toHaveLength(2);
+    expect(listTools).toHaveBeenCalledTimes(3);
+    expect(turn.state.status).toBe('done');
+  });
+
+  it('continues after tool-execution auth without reinitializing tools', async () => {
+    const store = new InMemorySessionStore();
+    const sessions = new Sessions({ sessionStore: store });
+    const session = await sessions.create({
+      tenant_id: 'tenant-1',
+      session_id: 's1',
+      created_by_subject: { subject_id: 'user-1', subject_type: 'user', subject_display_name: 'user-1' },
+      agent: { type: 'inline', spec: makeAgentSpec() },
+      external_id: null,
+    });
+    const { capability, listTools, callTool } = makeToolExecutionAuthCapability();
+    const llmCreate = jest
+      .fn()
+      .mockImplementationOnce(() => writeNoteToolCallStream())
+      .mockImplementation(() => textReplyStream('continued after auth'));
+    const turn = await session.createTurn({
+      turn_id: mintTestTurnId(),
+      active_executor_id: TEST_ACTIVE_EXECUTOR_ID,
+      input: [{ type: EventType.USER_MESSAGE, content: 'hello' }],
+      previous_turn_id: 'none',
+      signal: new AbortController().signal,
+      resolver: makeTestResolver({ extraCapabilities: [capability], llmCreate }),
+    });
+
+    const eventTypes: string[] = [];
+    let sentContinue = false;
+    let listToolsCallsAtPause = 0;
+    const iterator = turn.stream();
+    let step = await withTimeout(iterator.next(), 1_000, 'initial tool execution');
+    while (!step.done) {
+      eventTypes.push(step.value.type);
+      if (!sentContinue && step.value.type === EventType.TURN_UPDATE && step.value.state.status === 'paused') {
+        listToolsCallsAtPause = listTools.mock.calls.length;
+        await turn.send([
+          {
+            type: EventType.USER_MCP_AUTH_CONTINUE,
+            id: newEventId(),
+            created_at: new Date().toISOString(),
+          },
+        ]);
+        sentContinue = true;
+      }
+      step = await withTimeout(iterator.next(), 1_000, 'tool-execution auth continuation');
+    }
+
+    expect(sentContinue).toBe(true);
+    expect(eventTypes.filter(type => type === EventType.MCP_AUTH_REQUIRED)).toHaveLength(1);
+    expect(eventTypes.filter(type => type === EventType.USER_MCP_AUTH_CONTINUE)).toHaveLength(1);
+    expect(listToolsCallsAtPause).toBeGreaterThan(0);
+    expect(listTools).toHaveBeenCalledTimes(listToolsCallsAtPause);
+    expect(callTool).toHaveBeenCalledTimes(1);
+    expect(llmCreate).toHaveBeenCalledTimes(2);
+    expect(turn.state.status).toBe('done');
+  });
+
+  it('queues continue without inspecting thread blocking state', async () => {
+    const store = new InMemorySessionStore();
+    const sessions = new Sessions({ sessionStore: store });
+    const session = await sessions.create({
+      tenant_id: 'tenant-1',
+      session_id: 's1',
+      created_by_subject: { subject_id: 'user-1', subject_type: 'user', subject_display_name: 'user-1' },
+      agent: { type: 'inline', spec: makeAgentSpec() },
+      external_id: null,
+    });
+    const turn = await session.createTurn({
+      turn_id: mintTestTurnId(),
+      active_executor_id: TEST_ACTIVE_EXECUTOR_ID,
+      input: [{ type: EventType.USER_MESSAGE, content: 'hello' }],
+      previous_turn_id: 'none',
+      signal: new AbortController().signal,
+      resolver: makeTestResolver(),
+    });
+
+    await expect(
+      turn.send([
+        {
+          type: EventType.USER_MCP_AUTH_CONTINUE,
+          id: newEventId(),
+          created_at: new Date().toISOString(),
+        },
+      ]),
+    ).resolves.toBeUndefined();
   });
 });

@@ -31,6 +31,7 @@ import type {
   PatchMCPServersInput,
   PatchSandboxInfoInput,
   PatchThreadCapabilityStateInput,
+  PatchThreadsMCPAuthInput,
   RemoveThreadsInput,
   TurnRecordWithoutSnapshot,
   UpdateSessionInput,
@@ -55,6 +56,7 @@ import {
   listTurnEvents as listTurnEventsQuery,
 } from './queries/events';
 import { insertTurnInboundEvents as insertTurnInboundEventsQuery } from './queries/inboundEvents';
+import { patchThreadsMCPAuth as patchThreadsMCPAuthQuery } from './queries/mcpAuth';
 import {
   createSession as createSessionQuery,
   deleteSession as deleteSessionQuery,
@@ -258,6 +260,10 @@ export class PostgresSessionStore implements ISessionStore<SessionCustom, TurnCu
     return patchThreadCapabilityStateQuery(this.db, input);
   }
 
+  patchThreadsMCPAuth(input: PatchThreadsMCPAuthInput): Promise<void> {
+    return patchThreadsMCPAuthQuery(this.db, input);
+  }
+
   listTurnEvents(input: ListTurnEventsInput): Promise<{ data: PersistedTurnEvent[]; pagination: TokenPagination }> {
     return listTurnEventsQuery(this.db, input);
   }
@@ -422,6 +428,7 @@ export class PostgresSessionStore implements ISessionStore<SessionCustom, TurnCu
               checkpoint: jsonUnknown<TurnThreadCheckpoint>({
                 parent: thread.parent,
                 completion: thread.completion,
+                pending_mcp_auth: thread['pending_mcp_auth'] === true,
               }),
               agent_info: thread.agent_info !== null ? jsonUnknown<AgentInfo>(thread.agent_info) : null,
               current_context_usage: jsonUnknown<CurrentContextUsage>(thread.current_context_usage),

@@ -271,6 +271,7 @@ export function makeRunningTurnRecord(input: {
           parent: null,
           agent_info: null,
           completion: null,
+          pending_mcp_auth: false,
           capability_state: null,
         },
       },

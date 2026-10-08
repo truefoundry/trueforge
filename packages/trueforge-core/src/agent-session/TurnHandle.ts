@@ -94,11 +94,8 @@ function toMCPAuthRequiredEvent(event: InternalMCPAuthRequiredEvent): MCPAuthReq
     type: HarnessEventType.MCP_AUTH_REQUIRED,
     id: event.id,
     created_at: event.created_at,
-    thread_id: event.thread_id,
-    mcp_servers: event.mcp_servers.map(({ thread_ids, ...server }) => {
-      void thread_ids;
-      return server;
-    }),
+    thread_id: null, // We are not sending thread on the wire event.
+    mcp_servers: event.mcp_servers,
   };
 }
 
@@ -546,6 +543,20 @@ export class TurnHandle<TTurnCustom extends object = Record<string, never>> {
         return;
       }
 
+      case InternalEventType.MCP_AUTH_CONTINUE: {
+        await this.store.patchThreadsMCPAuth({
+          ...scope,
+          thread_ids: event.thread_ids,
+          pending_mcp_auth: false,
+        });
+        await this.store.appendToEvents({
+          ...scope,
+          events: [event.event],
+        });
+        yield event.event;
+        return;
+      }
+
       case InternalEventType.USER_EVENTS_COMMIT: {
         // These run sequentially today; once a DB store lands they collapse into one transaction
         for (const append of event.context_appends) {
@@ -605,6 +616,7 @@ export class TurnHandle<TTurnCustom extends object = Record<string, never>> {
               context: [],
               current_context_usage: getEmptyCurrentContextUsage(),
               completion: null,
+              pending_mcp_auth: false,
               capability_state: null,
             },
           ],
@@ -619,6 +631,11 @@ export class TurnHandle<TTurnCustom extends object = Record<string, never>> {
 
       case InternalEventType.MCP_AUTH_REQUIRED: {
         const authEvent = toMCPAuthRequiredEvent(event);
+        await this.store.patchThreadsMCPAuth({
+          ...scope,
+          thread_ids: [event.thread_id],
+          pending_mcp_auth: true,
+        });
         await this.store.appendToEvents({
           ...scope,
           events: [authEvent],

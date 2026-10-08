@@ -100,7 +100,7 @@ export type TurnRecordWithoutSnapshot<TTurnCustom extends object = Record<string
 /** Thread registration; mutable per-turn data arrives through dedicated createTurn fields. */
 export type NewThreadInit = Omit<
   AgentThreadSnapshot,
-  'context' | 'current_context_usage' | 'completion' | 'capability_state'
+  'context' | 'current_context_usage' | 'completion' | 'pending_mcp_auth' | 'capability_state'
 >;
 
 /** Full post-send capability map for one thread. */
@@ -238,6 +238,13 @@ export interface PatchThreadCapabilityStateInput {
   thread_id: string;
   key: string;
   state: JsonValue;
+}
+
+export interface PatchThreadsMCPAuthInput {
+  session_id: string;
+  turn_id: string;
+  thread_ids: string[];
+  pending_mcp_auth: boolean;
 }
 
 export interface ListTurnEventsInput {
@@ -416,6 +423,9 @@ export interface ISessionStore<
 
   /** Generic capability KV — store has zero Plan/feature knowledge. */
   patchThreadCapabilityState(input: PatchThreadCapabilityStateInput): Promise<void>;
+
+  /** Patches the MCP-auth wait state of the supplied threads. */
+  patchThreadsMCPAuth(input: PatchThreadsMCPAuthInput): Promise<void>;
 
   /** Paginated read ordered lexically by monotonic `event.id` (asc default). */
   listTurnEvents(input: ListTurnEventsInput): Promise<{

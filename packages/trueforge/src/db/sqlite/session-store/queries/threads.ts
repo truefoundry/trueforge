@@ -60,6 +60,7 @@ export async function addThreads(db: Kysely<Database>, input: AddThreadsInput): 
       const threadCheckpoint: TurnThreadCheckpoint = {
         parent: thread.parent ?? null,
         completion: thread.completion ?? null,
+        pending_mcp_auth: thread.pending_mcp_auth,
       };
       turnThreadPlans.push({
         thread_id: thread.thread_id,
