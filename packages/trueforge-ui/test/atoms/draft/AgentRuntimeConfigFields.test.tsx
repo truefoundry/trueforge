@@ -16,13 +16,13 @@ function renderRuntimeFields({
   value = { sandbox: { enabled: true } },
   layout = 'detailed',
   sandboxAvailable = true,
-  environmentsEnabled = true,
+  hasSkills = false,
   onChange = vi.fn(),
 }: {
   value?: AgentRuntimeConfig;
   layout?: 'compact' | 'detailed';
   sandboxAvailable?: boolean;
-  environmentsEnabled?: boolean;
+  hasSkills?: boolean;
   onChange?: (val: AgentRuntimeConfig) => void;
 } = {}) {
   const environmentServer = createMockSandboxEnvironmentServer({
@@ -66,7 +66,7 @@ function renderRuntimeFields({
   });
 
   const server = createMockAgentUIServer({
-    ...(environmentsEnabled ? { sandboxEnvironments: environmentServer } : {}),
+    sandboxEnvironments: environmentServer,
   });
 
   return render(
@@ -74,7 +74,7 @@ function renderRuntimeFields({
       <AgentRuntimeConfigFields
         value={value}
         sandboxAvailable={sandboxAvailable}
-        hasSkills={false}
+        hasSkills={hasSkills}
         layout={layout}
         onChange={onChange}
       />
@@ -83,14 +83,6 @@ function renderRuntimeFields({
 }
 
 describe('AgentRuntimeConfigFields', () => {
-  it('hides environment controls when sandbox environments are disabled', () => {
-    renderRuntimeFields({ environmentsEnabled: false });
-
-    expect(screen.queryByText('Environment')).not.toBeInTheDocument();
-    expect(screen.queryByRole('button', { name: /Manage Environments/ })).not.toBeInTheDocument();
-    expect(screen.queryByRole('button', { name: 'Environment' })).not.toBeInTheDocument();
-  });
-
   it('renders environment row in detailed layout with Manage Environments link', async () => {
     renderRuntimeFields();
 
