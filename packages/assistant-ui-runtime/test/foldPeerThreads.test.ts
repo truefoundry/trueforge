@@ -14,7 +14,10 @@ import {
 const createdAt = new Date().toISOString();
 
 function modelMessage(event: Omit<ModelMessageEvent, 'type' | 'createdAt'>): ModelMessageEvent {
-  return { type: 'model.message', createdAt, ...event };
+  // Completed LLM calls set finish_reason; default so sequential messages concatenate
+  // unless a test opts into unfinished (retry) with finishReason: null.
+  const { finishReason = 'stop', ...rest } = event;
+  return { type: 'model.message', createdAt, ...rest, finishReason };
 }
 
 function threadCreated(event: Omit<ThreadCreatedEvent, 'type' | 'createdAt'>): ThreadCreatedEvent {
@@ -421,5 +424,126 @@ describe('foldPeerThreads', () => {
     expect(toolCall.approval?.approved).toBe(false);
     expect(toolCall.isError).toBe(true);
     expect(toolCall.result).toEqual({ error: 'not allowed' });
+  });
+
+  it('replaces an unfinished model.message when a new event id arrives (retry)', () => {
+    const state = new PeerThreadFoldState();
+
+    ingestStreamEvent(
+      state,
+      modelMessage({
+        id: 'm1',
+        threadId: ROOT_THREAD_ID,
+        content: 'partial',
+        finishReason: null,
+      }),
+    );
+    ingestStreamEvent(state, {
+      type: 'model.message.delta',
+      id: 'm1',
+      threadId: ROOT_THREAD_ID,
+      content: ' tokens',
+      createdAt,
+    });
+    expect(buildRootAssistantContent(state)).toEqual([{ type: 'text', text: 'partial tokens' }]);
+
+    ingestStreamEvent(
+      state,
+      modelMessage({
+        id: 'm2',
+        threadId: ROOT_THREAD_ID,
+        content: 'retried',
+        finishReason: null,
+      }),
+    );
+    ingestStreamEvent(state, {
+      type: 'model.message.delta',
+      id: 'm2',
+      threadId: ROOT_THREAD_ID,
+      content: ' answer',
+      createdAt,
+    });
+
+    const bucket = state.threads.get(ROOT_THREAD_ID)!;
+    expect(bucket.modelMessageIds).toEqual(['m2']);
+    expect(bucket.events.has('m1')).toBe(false);
+    expect(buildRootAssistantContent(state)).toEqual([{ type: 'text', text: 'retried answer' }]);
+  });
+
+  it('keeps a finished model.message when a later one arrives', () => {
+    const state = new PeerThreadFoldState();
+
+    ingestTurnEvent(
+      state,
+      modelMessage({
+        id: 'm1',
+        threadId: ROOT_THREAD_ID,
+        content: 'first',
+        finishReason: 'tool_calls',
+      }),
+    );
+    ingestTurnEvent(
+      state,
+      modelMessage({
+        id: 'm2',
+        threadId: ROOT_THREAD_ID,
+        content: 'second',
+      }),
+    );
+
+    expect(state.threads.get(ROOT_THREAD_ID)?.modelMessageIds).toEqual(['m1', 'm2']);
+    expect(buildRootAssistantContent(state)).toEqual([
+      { type: 'text', text: 'first' },
+      { type: 'text', text: 'second' },
+    ]);
+  });
+
+  it('same-id model.message redelivery replaces storage without duplicating ids', () => {
+    const state = new PeerThreadFoldState();
+
+    ingestTurnEvent(
+      state,
+      modelMessage({
+        id: 'm1',
+        threadId: ROOT_THREAD_ID,
+        content: 'old',
+      }),
+    );
+    ingestTurnEvent(
+      state,
+      modelMessage({
+        id: 'm1',
+        threadId: ROOT_THREAD_ID,
+        content: 'new',
+      }),
+    );
+
+    expect(state.threads.get(ROOT_THREAD_ID)?.modelMessageIds).toEqual(['m1']);
+    expect(buildRootAssistantContent(state)).toEqual([{ type: 'text', text: 'new' }]);
+  });
+
+  it('history replay of unfinished then retry matches live replace', () => {
+    const state = new PeerThreadFoldState();
+
+    ingestTurnEvent(
+      state,
+      modelMessage({
+        id: 'm1',
+        threadId: ROOT_THREAD_ID,
+        content: 'stale partial',
+        finishReason: null,
+      }),
+    );
+    ingestTurnEvent(
+      state,
+      modelMessage({
+        id: 'm2',
+        threadId: ROOT_THREAD_ID,
+        content: 'fresh',
+      }),
+    );
+
+    expect(state.threads.get(ROOT_THREAD_ID)?.modelMessageIds).toEqual(['m2']);
+    expect(buildRootAssistantContent(state)).toEqual([{ type: 'text', text: 'fresh' }]);
   });
 });
