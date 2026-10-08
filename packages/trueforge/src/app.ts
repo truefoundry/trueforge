@@ -2,6 +2,7 @@
 import { swaggerUI } from '@hono/swagger-ui';
 import { OpenAPIHono, z } from '@hono/zod-openapi';
 import type { ISessionStore, Sessions, TurnStreamingEvent } from '@truefoundry/trueforge-core/agent-session';
+import { extractErrorLogFields } from '@truefoundry/trueforge-core/core';
 import type { RedisClient, RequestReplyRouter } from '@truefoundry/trueforge-core/request-reply';
 import type { Context, ErrorHandler, MiddlewareHandler } from 'hono';
 import { bodyLimit } from 'hono/body-limit';
@@ -51,7 +52,6 @@ import type { ISessionMetricsStore } from './db/sessionMetricsStore';
 import type { ISkillStore } from './db/skillStore';
 import type { WithTransaction } from './db/transaction';
 import type { IWebSearchProviderStore } from './db/webSearchProviderStore';
-import { logRequestError } from './http/requestErrorLog';
 import { createClientCertificateMiddleware } from './http/tls';
 import type { IOAuthTokenStore } from './mcp/auth/types';
 import { PACKAGE_VERSION } from './packageVersion';
@@ -104,27 +104,43 @@ export function createRequestBodyLimitMiddleware(maxSize: number): MiddlewareHan
   });
 }
 
+/** Expected rejections whose stack says nothing a reader needs; kept out of warn-level logs. */
+const QUIET_CLIENT_ERROR_STATUSES = new Set([401, 403, 404]);
+
 export function createAppErrorHandler(params: { logger: Logger }): ErrorHandler {
   return (error, c) => {
+    // One line with the traceback, so a failed request can be traced to the throw site.
+    const logError = (status: number, message: string): void => {
+      const fields = {
+        method: c.req.method,
+        path: c.req.path,
+        status,
+        ...extractErrorLogFields(error),
+      };
+      if (status >= 500) {
+        params.logger.error(message, fields);
+        return;
+      }
+      if (QUIET_CLIENT_ERROR_STATUSES.has(status)) {
+        params.logger.debug(message, fields);
+        return;
+      }
+      params.logger.warn(message, fields);
+    };
+
     if (error instanceof z.ZodError) {
-      logRequestError({ logger: params.logger, c, status: 400, error, message: 'Client API error' });
+      logError(400, 'Client API error');
       return zodErrorResponse(c, error);
     }
     if (error instanceof InvalidCronError) {
-      logRequestError({ logger: params.logger, c, status: 400, error, message: 'Client API error' });
+      logError(400, 'Client API error');
       return c.json({ error: { message: error.message } }, 400);
     }
     if (error instanceof HTTPException) {
-      logRequestError({
-        logger: params.logger,
-        c,
-        status: error.status,
-        error,
-        message: error.status >= 500 ? 'Server API error' : 'Client API error',
-      });
+      logError(error.status, error.status >= 500 ? 'Server API error' : 'Client API error');
       return c.json({ error: { message: error.message } }, error.status);
     }
-    logRequestError({ logger: params.logger, c, status: 500, error, message: 'Unhandled error' });
+    logError(500, 'Unhandled error');
     return c.json({ error: { message: 'Internal server error' } }, 500);
   };
 }

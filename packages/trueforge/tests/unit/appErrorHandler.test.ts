@@ -13,7 +13,17 @@ function appThrowing(logger: winston.Logger, thrown: unknown): OpenAPIHono {
   return app;
 }
 
-const CLIENT_ERROR_CASES: { status: 400 | 422 | 424 }[] = [{ status: 400 }, { status: 422 }, { status: 424 }];
+const CLIENT_ERROR_CASES: { status: 400 | 409 | 422 | 424 | 429 }[] = [
+  { status: 400 },
+  { status: 409 },
+  { status: 422 },
+  { status: 424 },
+  { status: 429 },
+];
+
+const QUIET_CLIENT_ERROR_CASES: { status: 401 | 403 | 404 }[] = [{ status: 401 }, { status: 403 }, { status: 404 }];
+
+const SERVER_ERROR_CASES: { status: 500 | 502 | 503 }[] = [{ status: 500 }, { status: 502 }, { status: 503 }];
 
 describe('createAppErrorHandler', () => {
   it('logs the stack for an unhandled error and returns a generic 500', async () => {
@@ -34,18 +44,20 @@ describe('createAppErrorHandler', () => {
     });
   });
 
-  it('logs the stack and status for a server HTTP exception', async () => {
+  it.each(SERVER_ERROR_CASES)('logs the stack and status for a $status server HTTP exception', async ({ status }) => {
     const logger = winston.createLogger({ silent: true });
+    const warnLog = jest.spyOn(logger, 'warn');
     const errorLog = jest.spyOn(logger, 'error');
-    const thrown = new HTTPException(503, { message: 'Service unavailable' });
+    const thrown = new HTTPException(status, { message: 'Service unavailable' });
 
     const response = await appThrowing(logger, thrown).request('/test');
 
-    expect(response.status).toBe(503);
+    expect(response.status).toBe(status);
+    expect(warnLog).not.toHaveBeenCalled();
     expect(errorLog).toHaveBeenCalledWith('Server API error', {
       method: 'GET',
       path: '/test',
-      status: 503,
+      status,
       error: thrown.message,
       stack: thrown.stack,
     });
@@ -70,22 +82,22 @@ describe('createAppErrorHandler', () => {
     });
   });
 
-  it('keeps routine auth and not-found rejections at debug', async () => {
+  it.each(QUIET_CLIENT_ERROR_CASES)('keeps a $status rejection at debug', async ({ status }) => {
     const logger = winston.createLogger({ silent: true });
     const warnLog = jest.spyOn(logger, 'warn');
     const errorLog = jest.spyOn(logger, 'error');
     const debugLog = jest.spyOn(logger, 'debug');
-    const thrown = new HTTPException(404, { message: 'Not found' });
+    const thrown = new HTTPException(status, { message: 'Not found' });
 
     const response = await appThrowing(logger, thrown).request('/test');
 
-    expect(response.status).toBe(404);
+    expect(response.status).toBe(status);
     expect(errorLog).not.toHaveBeenCalled();
     expect(warnLog).not.toHaveBeenCalled();
     expect(debugLog).toHaveBeenCalledWith('Client API error', {
       method: 'GET',
       path: '/test',
-      status: 404,
+      status,
       error: thrown.message,
       stack: thrown.stack,
     });
