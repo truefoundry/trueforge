@@ -90,6 +90,23 @@ A new or edited environment shows **Building** while TrueForge bakes its snapsho
 
 Custom environments are owned by the user who created them. You cannot delete an environment while a saved agent still references it.
 
+## Network policy
+
+A sandbox runs code the agent writes, so you may want to limit what it can reach on the network. By default egress is **unrestricted**. Each environment has two controls under **Networking** to tighten that:
+
+- **Domain allow list**: a comma-separated list of hosts the sandbox may reach, for example `api.github.com,api.openai.com`. Requests to any host not on the list are blocked. Use this to scope the sandbox to the services a task actually needs.
+- **Block all network**: no outbound access at all. The domain allow list and [secrets](#secrets) are ignored while this is on. Use it for environments that only run local code and file operations.
+
+| Networking | Outbound access |
+| --- | --- |
+| Neither set | **Unrestricted** (the default, shown as `Unrestricted` on the environment) |
+| Domain allow list | Only the listed hosts are reachable; everything else is blocked |
+| Block all network | No outbound access; the allow list and secrets are ignored |
+
+[Secrets](#secrets) are **network-scoped**: each one names the hosts its value may be sent to, so a credential is only forwarded to destinations you approve, even if the sandbox could otherwise reach them. Because of this, secrets cannot be added while **Block all network** is on.
+
+Networking changes take effect when a sandbox is **created**, so an existing session keeps its current policy until its sandbox is replaced. See [How changes reach a running session](#how-changes-reach-a-running-session).
+
 ## Secrets
 
 Secrets hold credentials the **sandbox** needs for its own outbound calls, such as an API token or git credentials. They are not model or MCP credentials, which stay in the harness (see [Credential safety](#credential-safety)).
@@ -112,7 +129,7 @@ An environment's settings are read when a sandbox is **created**, so changing th
 | **Add** a secret (new env name) | Not injected, because secrets are mounted only when the sandbox is created | Gets the new secret |
 | **Remove** a secret | Injection **stops immediately** | Never receives it |
 | **Environment variables**, **domain allow list**, or **block all network** | Unchanged until the sandbox is replaced | Uses the saved environment |
-| **Build script** or **CPU / memory / disk** | Keeps the current snapshot until the sandbox is replaced | Waits until the environment is **Ready**, then uses the new snapshot |
+| **Build script** or **CPU / memory / disk** | Keeps running on the existing build until the sandbox is replaced | Waits until the environment is **Ready**, then uses the new build |
 
 <Warning>
   Rotating or removing a secret is live for **every running sandbox** that already mounts it, including other chats on the same environment. Adding a secret does not reach those sandboxes, so start a new session if the agent needs the new variable.
@@ -132,6 +149,10 @@ In the agent builder, both controls live in **Runtime Config** under **Sandbox**
 ```json
 "config": { "sandbox": { "enabled": true, "environment_name": "data-tools" } }
 ```
+
+<Frame caption="The agent's Environment selector in Runtime Config, with a Manage Environments link.">
+  ![The Runtime Config drawer with the Sandbox section expanded, showing an Environment dropdown set to default, a Manage Environments link, and a File downloads toggle](/images/sandbox-environment-select.png)
+</Frame>
 
 ## Lifecycle
 
