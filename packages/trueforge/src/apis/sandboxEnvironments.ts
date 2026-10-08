@@ -120,13 +120,13 @@ export function createSandboxEnvironmentsRouter<TTransaction>(
   const putHandler: RouteHandler<typeof putSandboxEnvironmentRoute> = async c => {
     const body = c.req.valid('json');
     const requestContext = resolveRequestContext(c);
+    const { manifest } = body;
     const provider = await resolveSandboxProviderRecord(deps.resolveSandboxProviderStore(c), requestContext.tenant_id);
     if (provider === undefined) {
       return c.json({ error: { message: 'No sandbox provider configured' } }, 422);
     }
 
     const created_by_subject = createdBySubjectFromRequestContext(requestContext);
-    const { manifest } = body;
 
     try {
       const existing = await store.getEnvironment({
