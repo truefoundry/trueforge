@@ -123,7 +123,7 @@ export const putSandboxEnvironmentRoute = createRoute({
     },
     422: {
       content: { 'application/json': { schema: RequestErrorResponseSchema } },
-      description: 'Sandbox provider is missing or its credentials are invalid.',
+      description: 'Sandbox provider is missing, credentials are invalid, or rejected the secret.',
     },
     502: {
       content: { 'application/json': { schema: RequestErrorResponseSchema } },
@@ -162,7 +162,7 @@ export const deleteSandboxEnvironmentRoute = createRoute({
     },
     422: {
       content: { 'application/json': { schema: RequestErrorResponseSchema } },
-      description: 'Sandbox provider is missing or its credentials are invalid.',
+      description: 'Sandbox provider is missing, credentials are invalid, or rejected secret deletion.',
     },
     502: {
       content: { 'application/json': { schema: RequestErrorResponseSchema } },
