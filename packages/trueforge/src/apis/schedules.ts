@@ -8,6 +8,7 @@ import {
   type TurnStreamingEvent,
 } from '@truefoundry/trueforge-core/agent-session';
 import type { Context } from 'hono';
+import { HTTPException } from 'hono/http-exception';
 import type { Logger } from 'winston';
 import type { Authorizer } from '../auth/authorizer';
 import {
@@ -41,7 +42,6 @@ import {
 import type { ISkillStore } from '../db/skillStore';
 import type { WithTransaction } from '../db/transaction';
 import type { IWebSearchProviderStore } from '../db/webSearchProviderStore';
-import { logRequestError } from '../http/requestErrorLog';
 import {
   createScheduleRoute,
   createScheduleRunRoute,
@@ -250,8 +250,7 @@ export function createSchedulesRouter<TTransaction>(deps: SchedulesRouterDeps<TT
       return c.json({ data: data.map(toWireSchedule), pagination }, 200);
     } catch (error) {
       if (error instanceof InvalidPageTokenError) {
-        logRequestError({ logger: deps.logger, c, status: 400, error, message: 'Client API error' });
-        return c.json({ error: { message: error.message } }, 400);
+        throw new HTTPException(400, { message: error.message, cause: error });
       }
       throw error;
     }
@@ -289,8 +288,7 @@ export function createSchedulesRouter<TTransaction>(deps: SchedulesRouterDeps<TT
       return c.json({ data: data.map(toWireScheduleRun), pagination }, 200);
     } catch (error) {
       if (error instanceof InvalidPageTokenError) {
-        logRequestError({ logger: deps.logger, c, status: 400, error, message: 'Client API error' });
-        return c.json({ error: { message: error.message } }, 400);
+        throw new HTTPException(400, { message: error.message, cause: error });
       }
       throw error;
     }
@@ -363,8 +361,7 @@ export function createSchedulesRouter<TTransaction>(deps: SchedulesRouterDeps<TT
       }
       const turnError = getTurnExecutionError(error);
       if (turnError) {
-        logRequestError({ logger: deps.logger, c, status: turnError.status, error, message: 'Client API error' });
-        return c.json({ error: { message: turnError.message } }, turnError.status);
+        throw new HTTPException(turnError.status, { message: turnError.message, cause: error });
       }
       throw error;
     }

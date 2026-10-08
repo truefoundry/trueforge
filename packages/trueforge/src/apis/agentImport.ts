@@ -4,10 +4,8 @@
 import { OpenAPIHono, type RouteHandler } from '@hono/zod-openapi';
 import type { ISessionStore } from '@truefoundry/trueforge-core/agent-session';
 import { HTTPException } from 'hono/http-exception';
-import type { Logger } from 'winston';
 import { AgentExternalIdConflictError, AgentNameConflictError, type IAgentStore } from '../db/agentStore';
 import { PostgresSessionStore, SessionImportValidationError } from '../db/postgres/session-store/PostgresSessionStore';
-import { logRequestError } from '../http/requestErrorLog';
 import { getImportSessionsCheckpointRoute, importAgentsRoute, importSessionRoute } from '../routes/agentImportRoutes';
 import type { ImportAgentItemResult } from '../schemas/agentImport';
 import {
@@ -19,7 +17,6 @@ export interface AgentImportRouterDeps {
   sessionStore: ISessionStore;
   /** TrueFoundryAgentStore (or DB store) with SF client assume-user headers when needed. */
   resolveImportAgentStore: (serviceFoundryServerHeaders: Record<string, string>) => IAgentStore;
-  logger: Logger;
 }
 
 function errorDetail(error: unknown): string {
@@ -91,8 +88,7 @@ export function createAgentImportRouter(deps: AgentImportRouterDeps) {
       return c.json({ data: result }, 201);
     } catch (error) {
       if (error instanceof SessionImportValidationError) {
-        logRequestError({ logger: deps.logger, c, status: 400, error, message: 'Client API error' });
-        return c.json({ error: { message: error.message } }, 400);
+        throw new HTTPException(400, { message: error.message, cause: error });
       }
       throw new HTTPException(500, { message: errorDetail(error), cause: error });
     }

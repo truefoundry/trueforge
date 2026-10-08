@@ -4,7 +4,7 @@
 import { OpenAPIHono, type RouteHandler } from '@hono/zod-openapi';
 import { InvalidPageTokenError, type AgentSpec } from '@truefoundry/trueforge-core/agent-session';
 import type { Context } from 'hono';
-import type { Logger } from 'winston';
+import { HTTPException } from 'hono/http-exception';
 import type { Authorizer } from '../auth/authorizer';
 import { createdBySubjectFromRequestContext, type ResolveRequestContext } from '../auth/identity';
 import configuration from '../config';
@@ -21,7 +21,6 @@ import type { ISandboxProviderStore } from '../db/sandboxProviderStore';
 import type { ISkillStore } from '../db/skillStore';
 import type { WithTransaction } from '../db/transaction';
 import type { IWebSearchProviderStore } from '../db/webSearchProviderStore';
-import { logRequestError } from '../http/requestErrorLog';
 import {
   createAgentRoute,
   deleteAgentRoute,
@@ -47,7 +46,6 @@ export interface AgentsRouterDeps<TTransaction> {
   withTransaction: WithTransaction<TTransaction>;
   resolveRequestContext: ResolveRequestContext;
   authorizer: Authorizer;
-  logger: Logger;
 }
 
 /** Wire view: identity columns plus nested manifest. */
@@ -113,8 +111,7 @@ export function createAgentsRouter<TTransaction>(deps: AgentsRouterDeps<TTransac
       return c.json({ data: data.map(toWireAgent), pagination }, 200);
     } catch (error) {
       if (error instanceof InvalidPageTokenError) {
-        logRequestError({ logger: deps.logger, c, status: 400, error, message: 'Client API error' });
-        return c.json({ error: { message: error.message } }, 400);
+        throw new HTTPException(400, { message: error.message, cause: error });
       }
       throw error;
     }

@@ -15,7 +15,8 @@ describe('logRequestError', () => {
   it('carries the request, the status and the error chain with its stack', async () => {
     const logger = winston.createLogger({ silent: true });
     const warnLog = jest.spyOn(logger, 'warn');
-    const error = new Error('provider not configured', { cause: new Error('no integrations on token') });
+    const cause = new Error('no integrations on token');
+    const error = new Error('provider not configured', { cause });
 
     await logFrom({ logger, status: 422, error });
 
@@ -25,6 +26,7 @@ describe('logRequestError', () => {
       status: 422,
       error: 'provider not configured: no integrations on token',
       stack: error.stack,
+      cause_stack: cause.stack,
     });
   });
 

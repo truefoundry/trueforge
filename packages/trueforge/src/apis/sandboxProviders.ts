@@ -1,11 +1,11 @@
 import { OpenAPIHono, type RouteHandler } from '@hono/zod-openapi';
 import type { Context } from 'hono';
+import { HTTPException } from 'hono/http-exception';
 import type { Logger } from 'winston';
 import { createdBySubjectFromRequestContext, type ResolveRequestContext } from '../auth/identity';
 import type { ISandboxEnvironmentStore } from '../db/sandboxEnvironmentStore';
 import type { ISandboxProviderStore, SandboxProviderRecord } from '../db/sandboxProviderStore';
 import type { WithTransaction } from '../db/transaction';
-import { logRequestError } from '../http/requestErrorLog';
 import { getSandboxProviderRoute, putSandboxProviderRoute } from '../routes/sandboxProviderRoutes';
 import { ensureDefaultSandboxEnvironment } from '../sandbox/ensureDefaultSandboxEnvironment';
 import { isDaytonaAuthError, isDaytonaPermissionError, validateSandboxProviderAccess } from '../sandbox/providerUtils';
@@ -113,24 +113,20 @@ export function createSandboxProvidersRouter<TTransaction>(deps: SandboxProvider
       );
     } catch (error) {
       if (error instanceof MissingStoredSecretError) {
-        logRequestError({ logger: deps.logger, c, status: 400, error, message: 'Client API error' });
-        return c.json({ error: { message: 'API key is required' } }, 400);
+        throw new HTTPException(400, { message: 'API key is required', cause: error });
       }
       if (isDaytonaAuthError(error)) {
-        logRequestError({ logger: deps.logger, c, status: 422, error, message: 'Client API error' });
-        return c.json({ error: { message: 'Sandbox provider rejected the API key — check the credentials' } }, 422);
+        throw new HTTPException(422, {
+          message: 'Sandbox provider rejected the API key — check the credentials',
+          cause: error,
+        });
       }
       if (isDaytonaPermissionError(error)) {
-        logRequestError({ logger: deps.logger, c, status: 422, error, message: 'Client API error' });
-        return c.json(
-          {
-            error: {
-              message:
-                'Sandbox provider denied access: the API key is missing required permissions. Grant write:sandboxes, write:snapshots, and delete:snapshots on the key, then try again.',
-            },
-          },
-          422,
-        );
+        throw new HTTPException(422, {
+          message:
+            'Sandbox provider denied access: the API key is missing required permissions. Grant write:sandboxes, write:snapshots, and delete:snapshots on the key, then try again.',
+          cause: error,
+        });
       }
       throw error;
     }

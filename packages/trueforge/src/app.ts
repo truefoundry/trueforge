@@ -59,7 +59,7 @@ import { OPENAPI_DOCUMENT_TAGS } from './routes/openapiTags';
 import type { ActiveTurnRegistry } from './runtime/activeTurns';
 import type { EventSubscriptionRegistry } from './runtime/event-subscription';
 import { InvalidCronError } from './schemas/schedule';
-import { createZodValidationHook, zodErrorResponse } from './zodErrorResponse';
+import { zodErrorResponse, zodValidationHook } from './zodErrorResponse';
 
 const BEARER_AUTH_SCHEME = 'BearerAuth';
 
@@ -239,7 +239,7 @@ export interface ServerDeps<TTransaction> {
 }
 
 export function createServerApp<TTransaction>(deps: ServerDeps<TTransaction>) {
-  const app = new OpenAPIHono({ defaultHook: createZodValidationHook(deps.logger) });
+  const app = new OpenAPIHono({ defaultHook: zodValidationHook });
   const authMiddleware = createAuthMiddleware(deps.authenticator);
   const adminAuthMiddleware = createAdminAuthMiddleware(deps.authenticator);
   const scheduleExecutionAuthMiddleware = createApiKeyAuthMiddleware(configuration.TRUEFORGE_API_KEY);
@@ -363,7 +363,6 @@ export function createServerApp<TTransaction>(deps: ServerDeps<TTransaction>) {
         withTransaction: deps.withTransaction,
         resolveRequestContext,
         authorizer: deps.authorizer,
-        logger: deps.logger,
       }),
       authMiddleware,
     ),
@@ -434,7 +433,6 @@ export function createServerApp<TTransaction>(deps: ServerDeps<TTransaction>) {
       createAgentImportRouter({
         sessionStore: deps.sessionStore,
         resolveImportAgentStore: deps.resolveImportAgentStore,
-        logger: deps.logger,
       }),
       truefoundryAdminMiddleware,
     ),

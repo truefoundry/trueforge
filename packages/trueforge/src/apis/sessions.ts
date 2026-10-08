@@ -19,6 +19,7 @@ import {
   type RequestReplyRouter,
 } from '@truefoundry/trueforge-core/request-reply';
 import type { Context } from 'hono';
+import { HTTPException } from 'hono/http-exception';
 import type { Logger } from 'winston';
 import { z } from 'zod';
 import type { Authorizer } from '../auth/authorizer';
@@ -30,7 +31,6 @@ import type { IModelProviderStore } from '../db/modelProviderStore';
 import type { ISandboxEnvironmentStore } from '../db/sandboxEnvironmentStore';
 import type { ISandboxProviderStore } from '../db/sandboxProviderStore';
 import type { IWebSearchProviderStore } from '../db/webSearchProviderStore';
-import { logRequestError } from '../http/requestErrorLog';
 import {
   cancelSessionRoute,
   createSessionRoute,
@@ -484,8 +484,7 @@ export function createSessionsRouter(deps: SessionsRouterDeps) {
         return c.json({ error: { message: `Session not found: ${sessionId}` } }, 404);
       }
       if (error instanceof SessionStoreInvariantError) {
-        logRequestError({ logger: deps.logger, c, status: 422, error, message: 'Client API error' });
-        return c.json({ error: { message: error.message } }, 422);
+        throw new HTTPException(422, { message: error.message, cause: error });
       }
       throw error;
     }
@@ -529,8 +528,7 @@ export function createSessionsRouter(deps: SessionsRouterDeps) {
       return c.json({ data: data.map(toWireSession), pagination }, 200);
     } catch (error) {
       if (error instanceof SessionStoreConflictError) {
-        logRequestError({ logger: deps.logger, c, status: 400, error, message: 'Client API error' });
-        return c.json({ error: { message: error.message } }, 400);
+        throw new HTTPException(400, { message: error.message, cause: error });
       }
       throw error;
     }
@@ -594,8 +592,7 @@ export function createSessionsRouter(deps: SessionsRouterDeps) {
       return c.json({ data, pagination }, 200);
     } catch (error) {
       if (error instanceof SessionStoreConflictError) {
-        logRequestError({ logger: deps.logger, c, status: 400, error, message: 'Client API error' });
-        return c.json({ error: { message: error.message } }, 400);
+        throw new HTTPException(400, { message: error.message, cause: error });
       }
       if (error instanceof SessionStoreNotFoundError) {
         return c.json({ error: { message: error.message } }, 404);

@@ -1,4 +1,3 @@
-import { createLogger } from 'winston';
 import { createWebSearchProvidersRouter } from '../../../src/apis/webSearchProviders';
 import { STANDALONE_REQUEST_CONTEXT } from '../../../src/auth/identity';
 import { migrateSqliteToLatest } from '../../../src/db/migrateSqlite';
@@ -21,7 +20,6 @@ async function createRouter() {
   const router = createWebSearchProvidersRouter({
     resolveWebSearchProviderStore: () => store,
     resolveRequestContext: () => STANDALONE_REQUEST_CONTEXT,
-    logger: createLogger({ silent: true }),
   });
   return { router, store };
 }

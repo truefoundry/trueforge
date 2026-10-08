@@ -1,7 +1,8 @@
-import { OpenAPIHono, z } from '@hono/zod-openapi';
+import { OpenAPIHono, createRoute, z } from '@hono/zod-openapi';
 import { HTTPException } from 'hono/http-exception';
 import winston from 'winston';
 import { createAppErrorHandler } from '../../src/app';
+import { zodValidationHook } from '../../src/zodErrorResponse';
 
 function appThrowing(logger: winston.Logger, thrown: unknown): OpenAPIHono {
   const app = new OpenAPIHono();
@@ -105,6 +106,54 @@ describe('createAppErrorHandler', () => {
     expect(warnLog).toHaveBeenCalledWith(
       'Client API error',
       expect.objectContaining({ method: 'GET', path: '/test', status: 400 }),
+    );
+  });
+
+  it('keeps the origin stack when a route rethrows with a cause', async () => {
+    const logger = winston.createLogger({ silent: true });
+    const warnLog = jest.spyOn(logger, 'warn');
+    const origin = new Error('Invalid page token: garbage');
+    const thrown = new HTTPException(400, { message: origin.message, cause: origin });
+
+    const response = await appThrowing(logger, thrown).request('/test');
+
+    expect(response.status).toBe(400);
+    expect(warnLog).toHaveBeenCalledWith('Client API error', {
+      method: 'GET',
+      path: '/test',
+      status: 400,
+      error: origin.message,
+      stack: thrown.stack,
+      cause_stack: origin.stack,
+    });
+  });
+
+  it('logs and answers request-validation failures thrown by the validation hook', async () => {
+    const logger = winston.createLogger({ silent: true });
+    const warnLog = jest.spyOn(logger, 'warn');
+    const route = createRoute({
+      method: 'post',
+      path: '/echo',
+      request: { body: { content: { 'application/json': { schema: z.object({ name: z.string() }) } } } },
+      responses: { 200: { description: 'ok' } },
+    });
+    const app = new OpenAPIHono({ defaultHook: zodValidationHook });
+    app.onError(createAppErrorHandler({ logger }));
+    app.openapi(route, c => c.json({ name: c.req.valid('json').name }, 200));
+
+    const response = await app.request('/echo', {
+      method: 'POST',
+      headers: { 'content-type': 'application/json' },
+      body: JSON.stringify({ name: 1 }),
+    });
+
+    expect(response.status).toBe(400);
+    expect(await response.json()).toEqual({
+      error: { message: expect.stringContaining('expected string') },
+    });
+    expect(warnLog).toHaveBeenCalledWith(
+      'Client API error',
+      expect.objectContaining({ method: 'POST', path: '/echo', status: 400 }),
     );
   });
 });

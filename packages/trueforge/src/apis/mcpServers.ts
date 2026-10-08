@@ -20,7 +20,6 @@ import {
   type McpServerRecord,
 } from '../db/mcpServerStore';
 import type { WithTransaction } from '../db/transaction';
-import { logRequestError } from '../http/requestErrorLog';
 import { createMcpOAuthClient } from '../mcp/auth/mcpDcr';
 import { mcpOAuthCallbackUrl } from '../mcp/auth/mcpOAuthHelpers';
 import type { IOAuthTokenStore, OAuthClientRecord } from '../mcp/auth/types';
@@ -209,8 +208,7 @@ export function createSettingsMcpServersRouter<TTransaction>(deps: SettingsMcpSe
       await assertSafeOutboundUrl(incomingManifest.url);
     } catch (error) {
       const message = error instanceof Error ? error.message : 'Outbound URL blocked';
-      logRequestError({ logger: deps.logger, c, status: 400, error, message: 'Client API error' });
-      return c.json({ error: { message } }, 400);
+      throw new HTTPException(400, { message: message, cause: error });
     }
 
     // DCR finishes before the txn (remote I/O stays out of withTransaction on create).
@@ -241,8 +239,7 @@ export function createSettingsMcpServersRouter<TTransaction>(deps: SettingsMcpSe
       });
     } catch (error) {
       if (error instanceof MissingStoredSecretError) {
-        logRequestError({ logger: deps.logger, c, status: 400, error, message: 'Client API error' });
-        return c.json({ error: { message: 'Header secret is required' } }, 400);
+        throw new HTTPException(400, { message: 'Header secret is required', cause: error });
       }
       throw error;
     }
@@ -291,8 +288,7 @@ export function createSettingsMcpServersRouter<TTransaction>(deps: SettingsMcpSe
       await assertSafeOutboundUrl(incomingManifest.url);
     } catch (error) {
       const message = error instanceof Error ? error.message : 'Outbound URL blocked';
-      logRequestError({ logger: deps.logger, c, status: 400, error, message: 'Client API error' });
-      return c.json({ error: { message } }, 400);
+      throw new HTTPException(400, { message: message, cause: error });
     }
 
     try {
@@ -362,8 +358,7 @@ export function createSettingsMcpServersRouter<TTransaction>(deps: SettingsMcpSe
       );
     } catch (error) {
       if (error instanceof MissingStoredSecretError) {
-        logRequestError({ logger: deps.logger, c, status: 400, error, message: 'Client API error' });
-        return c.json({ error: { message: 'Header secret is required' } }, 400);
+        throw new HTTPException(400, { message: 'Header secret is required', cause: error });
       }
       if (error instanceof McpConnectionError) {
         deps.logger.error(
