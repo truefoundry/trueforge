@@ -1,7 +1,7 @@
 /**
  * Sandbox environments API (mounted at /api/v1/sandbox-environments).
  * Snapshot builds are not started here — versions land in `pending` for a future controller.
- * Networking secrets sync to Daytona on PUT (plaintext is never persisted).
+ * Networking secrets sync to Daytona on create/update (plaintext is never persisted).
  */
 import { DaytonaError } from '@daytona/sdk';
 import { OpenAPIHono, type RouteHandler } from '@hono/zod-openapi';
@@ -13,11 +13,13 @@ import type { IAgentStore } from '../db/agentStore';
 import {
   SandboxEnvironmentNameConflictError,
   SandboxEnvironmentVersionConflictError,
+  type ExistingSandboxEnvironmentVersion,
   type ISandboxEnvironmentStore,
   type SandboxEnvironmentWithVersion,
 } from '../db/sandboxEnvironmentStore';
 import type { ISandboxProviderStore, SandboxProviderRecord } from '../db/sandboxProviderStore';
 import {
+  createSandboxEnvironmentRoute,
   deleteSandboxEnvironmentRoute,
   getSandboxEnvironmentRoute,
   listSandboxEnvironmentsRoute,
@@ -30,7 +32,12 @@ import {
   SandboxEnvironmentSecretSyncError,
   syncSandboxEnvironmentSecrets,
 } from '../sandbox/syncSandboxEnvironmentSecrets';
-import { DEFAULT_SANDBOX_ENVIRONMENT_NAME, type SandboxEnvironment } from '../schemas/sandboxEnvironment';
+import {
+  DEFAULT_SANDBOX_ENVIRONMENT_NAME,
+  type CreateSandboxEnvironmentRequest,
+  type SandboxEnvironment,
+  type UpdateSandboxEnvironmentRequest,
+} from '../schemas/sandboxEnvironment';
 import { MissingStoredSecretError } from '../utils/secretRedaction';
 
 export interface SandboxEnvironmentsRouterDeps<TTransaction> {
@@ -122,19 +129,44 @@ export function createSandboxEnvironmentsRouter<TTransaction>(
     return c.json({ data: toSandboxEnvironment(loaded) }, 200);
   };
 
-  // Create-or-update keyed by manifest.name.
-  const putHandler: RouteHandler<typeof putSandboxEnvironmentRoute> = async c => {
-    const body = c.req.valid('json');
+  type WriteSandboxEnvironmentOutcome =
+    | { kind: 'saved'; environment: SandboxEnvironment }
+    | { kind: 'error'; status: 400 | 409 | 422 | 502; message: string };
+
+  async function writeSandboxEnvironment({
+    c,
+    body,
+    mode,
+  }: {
+    c: Context;
+    body: CreateSandboxEnvironmentRequest | UpdateSandboxEnvironmentRequest;
+    mode: 'create' | 'upsert';
+  }): Promise<WriteSandboxEnvironmentOutcome> {
     const requestContext = resolveRequestContext(c);
     const { manifest } = body;
     const provider = await resolveSandboxProviderRecord(deps.resolveSandboxProviderStore(c), requestContext.tenant_id);
     if (provider === undefined) {
-      return c.json({ error: { message: 'No sandbox provider configured' } }, 422);
+      return { kind: 'error', status: 422, message: 'No sandbox provider configured' };
     }
 
     const created_by_subject = createdBySubjectFromRequestContext(requestContext);
 
     try {
+      // Tenant-wide name check before secret sync so create cannot mutate another env's secrets.
+      if (mode === 'create') {
+        const taken = await store.getEnvironment({
+          tenant_id: requestContext.tenant_id,
+          name: manifest.name,
+        });
+        if (taken) {
+          return {
+            kind: 'error',
+            status: 409,
+            message: `Sandbox environment with name ${manifest.name} already exists`,
+          };
+        }
+      }
+
       const existing = await store.getEnvironment({
         tenant_id: requestContext.tenant_id,
         name: manifest.name,
@@ -155,13 +187,17 @@ export function createSandboxEnvironmentsRouter<TTransaction>(
         description: `Secret value of environment ${manifest.name}`,
       });
 
-      const result = await store.upsertEnvironment({
+      const writeInput = {
         tenant_id: requestContext.tenant_id,
         name: manifest.name,
         description: manifest.description ?? '',
         created_by_subject,
         synced_secrets,
-        buildVersion: ({ existing_version, existing_manifest, existing_external_ref }) =>
+        buildVersion: ({
+          existing_version,
+          existing_manifest,
+          existing_external_ref,
+        }: ExistingSandboxEnvironmentVersion) =>
           Promise.resolve({
             ...buildNextVersion({
               ...(existing_version !== undefined ? { existing_version } : {}),
@@ -172,25 +208,44 @@ export function createSandboxEnvironmentsRouter<TTransaction>(
             }),
             created_by_subject,
           }),
-      });
+      };
+      const result =
+        mode === 'create' ? await store.createEnvironment(writeInput) : await store.upsertEnvironment(writeInput);
 
-      return c.json({ data: toSandboxEnvironment(result) }, 200);
+      return { kind: 'saved', environment: toSandboxEnvironment(result) };
     } catch (error) {
       if (error instanceof SandboxEnvironmentNameConflictError) {
-        return c.json({ error: { message: error.message } }, 409);
+        return { kind: 'error', status: 409, message: error.message };
       }
       if (error instanceof SandboxEnvironmentVersionConflictError) {
-        return c.json({ error: { message: 'Sandbox environment was updated concurrently; retry' } }, 409);
+        return { kind: 'error', status: 409, message: 'Sandbox environment was updated concurrently; retry' };
       }
       if (error instanceof MissingStoredSecretError) {
-        return c.json({ error: { message: 'Secret value is required' } }, 400);
+        return { kind: 'error', status: 400, message: 'Secret value is required' };
       }
       const secretError = sandboxEnvironmentSecretHttpError(error);
       if (secretError !== undefined) {
-        return c.json({ error: { message: secretError.message } }, secretError.status);
+        return { kind: 'error', status: secretError.status, message: secretError.message };
       }
       throw error;
     }
+  }
+
+  const createHandler: RouteHandler<typeof createSandboxEnvironmentRoute> = async c => {
+    const outcome = await writeSandboxEnvironment({ c, body: c.req.valid('json'), mode: 'create' });
+    if (outcome.kind === 'error') {
+      return c.json({ error: { message: outcome.message } }, outcome.status);
+    }
+    return c.json({ data: outcome.environment }, 201);
+  };
+
+  // Create-or-update keyed by manifest.name.
+  const putHandler: RouteHandler<typeof putSandboxEnvironmentRoute> = async c => {
+    const outcome = await writeSandboxEnvironment({ c, body: c.req.valid('json'), mode: 'upsert' });
+    if (outcome.kind === 'error') {
+      return c.json({ error: { message: outcome.message } }, outcome.status);
+    }
+    return c.json({ data: outcome.environment }, 200);
   };
 
   const deleteHandler: RouteHandler<typeof deleteSandboxEnvironmentRoute> = async c => {
@@ -251,6 +306,7 @@ export function createSandboxEnvironmentsRouter<TTransaction>(
   const router = new OpenAPIHono();
   router.openapi(listSandboxEnvironmentsRoute, listHandler);
   router.openapi(getSandboxEnvironmentRoute, getHandler);
+  router.openapi(createSandboxEnvironmentRoute, createHandler);
   router.openapi(putSandboxEnvironmentRoute, putHandler);
   router.openapi(deleteSandboxEnvironmentRoute, deleteHandler);
   return router;

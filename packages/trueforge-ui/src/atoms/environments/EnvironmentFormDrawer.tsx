@@ -57,7 +57,11 @@ export function EnvironmentFormDrawer({ open, onOpenChange, mode, environment, o
 
     setSaving(true);
     try {
-      const saved = await environmentServer.createOrUpdateEnvironment({ manifest: formValuesToManifest(form) });
+      const manifest = formValuesToManifest(form);
+      const saved =
+        mode === 'create'
+          ? await environmentServer.createEnvironment({ manifest })
+          : await environmentServer.createOrUpdateEnvironment({ manifest });
       track(mode === 'create' ? AnalyticsEvents.Environment.CREATED : AnalyticsEvents.Environment.EDITED, {
         environment_name: saved.name,
         environment_id: saved.id,
