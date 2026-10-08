@@ -26,6 +26,7 @@ import { gatewayMetadataHeadersForTurn } from './gatewayMetadata';
 import {
   filterEnvModels,
   mapEnabledModels,
+  resolveCustomEndpointCall,
   resolveDefaultGatewayUrl,
   type TrueFoundryEnabledModel,
 } from './mapEnabledModels';
@@ -178,10 +179,25 @@ function toManifest(input: {
     type: 'truefoundry',
     base_url: input.gatewayUrl,
     auth: { api_key: input.accessToken },
-    models: input.models.map(model => ({
-      name: model.modelName,
-      model_id: `${model.accountName}/${model.modelName}`,
-      properties: model.properties,
-    })),
+    models: input.models.map(model => {
+      const modelFqn = `${model.accountName}/${model.modelName}`;
+      const call =
+        model.endpointKind === 'custom-endpoint'
+          ? resolveCustomEndpointCall({
+              gatewayUrl: input.gatewayUrl,
+              accountName: model.accountName,
+              endpointName: model.modelName,
+              upstreamBaseUrl: model.upstreamBaseUrl,
+              modelFqn,
+            })
+          : undefined;
+      return {
+        name: model.modelName,
+        model_id: modelFqn,
+        properties: model.properties,
+        ...(call?.kind === 'chat' ? { base_url: call.baseUrl, chat_completions_path: call.chatCompletionsPath } : {}),
+        ...(call?.kind === 'unsupported' ? { invocation_error: call.message } : {}),
+      };
+    }),
   };
 }

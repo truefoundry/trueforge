@@ -9,7 +9,10 @@ import {
   buildLanguageModel,
   buildStreamTextArgs,
   convertTools,
+  isTrueFoundryProxyRoot,
+  resolveChatCompletionsPath,
   resolveMaxOutputTokens,
+  rewriteCompatibleChatUrl,
 } from '../../../src/core/llm/VercelAILLM';
 
 function makeConfig(
@@ -74,6 +77,63 @@ describe('buildLanguageModel', () => {
     );
     if (typeof model !== 'object' || model === null) throw new Error('Expected model to be an object');
     expect(Reflect.get(model, 'modelId')).toBe('claude-sonnet-5');
+  });
+});
+
+describe('custom endpoint chat path', () => {
+  it('treats a bare proxy-api root as the full endpoint', () => {
+    const baseUrl = 'https://gateway.truefoundry.ai/proxy-api/jev/custom-endpoint';
+    expect(isTrueFoundryProxyRoot(baseUrl)).toBe(true);
+    expect(resolveChatCompletionsPath({ baseUrl, chatCompletionsPath: undefined })).toBe('');
+    expect(
+      rewriteCompatibleChatUrl({
+        url: `${baseUrl}/chat/completions`,
+        chatCompletionsPath: '',
+      }),
+    ).toBe(baseUrl);
+  });
+
+  it('keeps /chat/completions when the caller asks for it', () => {
+    const baseUrl = 'https://gateway.truefoundry.ai/proxy-api/acme/llama';
+    expect(resolveChatCompletionsPath({ baseUrl, chatCompletionsPath: '/chat/completions' })).toBe('/chat/completions');
+    expect(
+      rewriteCompatibleChatUrl({
+        url: `${baseUrl}/chat/completions?api-version=1`,
+        chatCompletionsPath: '/chat/completions',
+      }),
+    ).toBe(`${baseUrl}/chat/completions?api-version=1`);
+  });
+
+  it('does not treat the unified gateway base as a proxy root', () => {
+    expect(isTrueFoundryProxyRoot('https://gateway.truefoundry.ai')).toBe(false);
+    expect(
+      resolveChatCompletionsPath({ baseUrl: 'https://gateway.truefoundry.ai', chatCompletionsPath: undefined }),
+    ).toBe('/chat/completions');
+  });
+
+  it('refuses to call Jev through the custom-endpoint proxy', () => {
+    expect(() =>
+      buildLanguageModel(
+        makeConfig({
+          provider: 'truefoundry',
+          baseUrl: 'https://gateway.truefoundry.ai/proxy-api/jev/custom-endpoint',
+          model: { id: 'jev/custom-endpoint', name: 'custom-endpoint' },
+        }),
+      ),
+    ).toThrow('POST /v1/systemone');
+  });
+
+  it('still builds a chat model on a jev account when the chat path is explicit', () => {
+    const model: unknown = buildLanguageModel(
+      makeConfig({
+        provider: 'truefoundry',
+        baseUrl: 'https://gateway.truefoundry.ai/proxy-api/jev/llama',
+        chatCompletionsPath: '/chat/completions',
+        model: { id: 'jev/llama', name: 'llama' },
+      }),
+    );
+    if (typeof model !== 'object' || model === null) throw new Error('Expected model to be an object');
+    expect(Reflect.get(model, 'modelId')).toBe('jev/llama');
   });
 });
 
