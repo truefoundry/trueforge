@@ -149,11 +149,14 @@ describe('AgentConfigPanel', () => {
     );
 
     const summaryButton = screen.getByRole('button', { name: 'Edit model settings' });
+    // Real clicks fire mousedown then click; DropdownMenu dismisses on document mousedown.
+    fireEvent.mouseDown(summaryButton);
     fireEvent.click(summaryButton);
     expect(screen.getByRole('menu')).toBeInTheDocument();
     expect(screen.getByRole('heading', { name: 'Parameters' })).toBeInTheDocument();
     expect(onOpenEditor).not.toHaveBeenCalledWith('model-settings');
 
+    fireEvent.mouseDown(summaryButton);
     fireEvent.click(summaryButton);
     expect(screen.queryByRole('menu')).not.toBeInTheDocument();
   });

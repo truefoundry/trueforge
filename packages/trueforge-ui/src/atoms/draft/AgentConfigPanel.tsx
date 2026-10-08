@@ -420,6 +420,8 @@ export function AgentConfigPanel({
             type="button"
             disabled={disabled}
             aria-label="Edit model settings"
+            // DropdownMenu dismisses on document mousedown; stop it so click can toggle closed without reopen.
+            onMouseDown={event => event.stopPropagation()}
             onClick={() => setModelSettingsMenuOpen(open => !open)}
             className="mt-2 flex w-full cursor-pointer flex-col text-left disabled:cursor-not-allowed disabled:opacity-50"
           >
