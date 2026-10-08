@@ -31,6 +31,7 @@ export async function addThreads(db: Kysely<Database>, input: AddThreadsInput): 
     await assertTurnRunning(trx, {
       session_id: input.session_id,
       turn_id: input.turn_id,
+      active_executor_id: input.active_executor_id,
     });
 
     const now = nowIso();
@@ -180,6 +181,7 @@ export async function removeThreads(db: Kysely<Database>, input: RemoveThreadsIn
     await assertTurnRunning(trx, {
       session_id: input.session_id,
       turn_id: input.turn_id,
+      active_executor_id: input.active_executor_id,
     });
 
     await trx
@@ -328,6 +330,7 @@ export async function appendToThreadContext(db: Kysely<Database>, input: AppendT
     keys: {
       session_id: input.session_id,
       turn_id: input.turn_id,
+      active_executor_id: input.active_executor_id,
     },
     thread_id: input.thread_id,
     context: input.context,
@@ -347,6 +350,7 @@ export async function overwriteThreadContext(db: Kysely<Database>, input: Overwr
     keys: {
       session_id: input.session_id,
       turn_id: input.turn_id,
+      active_executor_id: input.active_executor_id,
     },
     thread_id: input.event.thread_id,
     context: input.event.context,
@@ -370,6 +374,7 @@ export async function patchMCPServers(db: Kysely<Database>, input: PatchMCPServe
   const keys: TurnKeys = {
     session_id: input.session_id,
     turn_id: input.turn_id,
+    active_executor_id: input.active_executor_id,
   };
 
   // jsonb_patch is RFC 7396 (deep); rebuild via json_each so each id's value is replaced.
@@ -400,6 +405,7 @@ export async function patchMCPServers(db: Kysely<Database>, input: PatchMCPServe
     })
     .where('session_id', '=', keys.session_id)
     .where('turn_id', '=', keys.turn_id)
+    .where('active_executor_id', '=', keys.active_executor_id)
     .where(sql<boolean>`state->>'status' IN ('running', 'paused')`)
     .executeTakeFirst();
 
@@ -415,6 +421,7 @@ export async function patchSandboxInfo(db: Kysely<Database>, input: PatchSandbox
   const keys: TurnKeys = {
     session_id: input.session_id,
     turn_id: input.turn_id,
+    active_executor_id: input.active_executor_id,
   };
 
   const result = await db
@@ -425,6 +432,7 @@ export async function patchSandboxInfo(db: Kysely<Database>, input: PatchSandbox
     })
     .where('session_id', '=', keys.session_id)
     .where('turn_id', '=', keys.turn_id)
+    .where('active_executor_id', '=', keys.active_executor_id)
     .where(sql<boolean>`state->>'status' = 'running'`)
     .executeTakeFirst();
 

@@ -100,6 +100,19 @@ export class PreviousTurnRunningError extends SessionStoreConflictError {
   }
 }
 
+/** Progress write lost the `active_executor_id` compare-and-set. The local machine must stop. */
+export class TurnOwnershipLostError extends SessionStoreConflictError {
+  readonly turn_id: string;
+  readonly active_executor_id: string;
+
+  constructor(input: { turn_id: string; active_executor_id: string }) {
+    super(`Turn ${input.turn_id} is no longer owned by executor ${input.active_executor_id}`);
+    this.name = 'TurnOwnershipLostError';
+    this.turn_id = input.turn_id;
+    this.active_executor_id = input.active_executor_id;
+  }
+}
+
 export class TurnNotRunningError extends SessionStoreConflictError {
   readonly turn_id: string;
   readonly state: TerminalTurnState;
