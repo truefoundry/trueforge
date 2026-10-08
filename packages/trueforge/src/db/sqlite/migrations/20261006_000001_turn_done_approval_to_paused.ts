@@ -163,5 +163,5 @@ export async function up<DB>(db: Kysely<DB>): Promise<void> {
 }
 
 export function down(): Promise<void> {
-  return Promise.resolve();
+  return Promise.reject(new Error('turn done-to-paused data migration is irreversible'));
 }

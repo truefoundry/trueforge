@@ -146,4 +146,5 @@ export async function up(db: Kysely<unknown>): Promise<void> {
 
 export async function down(db: Kysely<unknown>): Promise<void> {
   await sql`SET LOCAL lock_timeout = '5s'`.execute(db);
+  throw new Error('turn done-to-paused data migration is irreversible');
 }
