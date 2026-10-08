@@ -10,6 +10,7 @@ import {
 import type { Logger } from 'winston';
 import configuration from '../config';
 import type { SandboxProviderRecord } from '../db/sandboxProviderStore';
+import { SANDBOX_PROVIDER_API_KEY_REJECTED } from '../http/clientErrorMessages';
 import type { StoredSandboxEnvironmentManifest } from '../schemas/sandboxEnvironment';
 import {
   toDaytonaSandboxProviderInput,
@@ -35,7 +36,7 @@ export function isDaytonaNotFoundError(error: unknown): boolean {
 
 export function getDaytonaAuthorizationErrorMessage(error: unknown): string | undefined {
   if (isDaytonaAuthError(error)) {
-    return 'Sandbox provider rejected the API key — check the credentials';
+    return SANDBOX_PROVIDER_API_KEY_REJECTED;
   }
   if (isDaytonaPermissionError(error)) {
     return 'Sandbox provider denied access: the API key is missing required permissions';

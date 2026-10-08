@@ -6,7 +6,11 @@ import { createdBySubjectFromRequestContext, type ResolveRequestContext } from '
 import type { ISandboxEnvironmentStore } from '../db/sandboxEnvironmentStore';
 import type { ISandboxProviderStore, SandboxProviderRecord } from '../db/sandboxProviderStore';
 import type { WithTransaction } from '../db/transaction';
-import { API_KEY_REQUIRED } from '../http/clientErrorMessages';
+import {
+  API_KEY_REQUIRED,
+  SANDBOX_PROVIDER_API_KEY_MISSING_PERMISSIONS,
+  SANDBOX_PROVIDER_API_KEY_REJECTED,
+} from '../http/clientErrorMessages';
 import { getSandboxProviderRoute, putSandboxProviderRoute } from '../routes/sandboxProviderRoutes';
 import { ensureDefaultSandboxEnvironment } from '../sandbox/ensureDefaultSandboxEnvironment';
 import { isDaytonaAuthError, isDaytonaPermissionError, validateSandboxProviderAccess } from '../sandbox/providerUtils';
@@ -118,14 +122,13 @@ export function createSandboxProvidersRouter<TTransaction>(deps: SandboxProvider
       }
       if (isDaytonaAuthError(error)) {
         throw new HTTPException(422, {
-          message: 'Sandbox provider rejected the API key — check the credentials',
+          message: SANDBOX_PROVIDER_API_KEY_REJECTED,
           cause: error,
         });
       }
       if (isDaytonaPermissionError(error)) {
         throw new HTTPException(422, {
-          message:
-            'Sandbox provider denied access: the API key is missing required permissions. Grant write:sandboxes, write:snapshots, and delete:snapshots on the key, then try again.',
+          message: SANDBOX_PROVIDER_API_KEY_MISSING_PERMISSIONS,
           cause: error,
         });
       }
