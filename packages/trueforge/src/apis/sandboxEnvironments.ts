@@ -3,6 +3,7 @@
  * Snapshot builds are not started here — versions land in `pending` for a future controller.
  * Networking secrets sync to Daytona on PUT (plaintext is never persisted).
  */
+import { DaytonaError } from '@daytona/sdk';
 import { OpenAPIHono, type RouteHandler } from '@hono/zod-openapi';
 import { InvalidPageTokenError } from '@truefoundry/trueforge-core/agent-session';
 import type { Context } from 'hono';
@@ -71,9 +72,14 @@ function sandboxEnvironmentSecretHttpError(error: unknown): { status: 422 | 502;
     return undefined;
   }
   const authorizationMessage = getDaytonaAuthorizationErrorMessage(error.cause);
-  return authorizationMessage === undefined
-    ? { status: 502, message: error.message }
-    : { status: 422, message: authorizationMessage };
+  if (authorizationMessage !== undefined) {
+    return { status: 422, message: authorizationMessage };
+  }
+  const statusCode = error.cause instanceof DaytonaError ? error.cause.statusCode : undefined;
+  if (statusCode !== undefined && statusCode >= 400 && statusCode < 500) {
+    return { status: 422, message: error.message };
+  }
+  return { status: 502, message: error.message };
 }
 
 /** CRUD for sandbox environments. */
