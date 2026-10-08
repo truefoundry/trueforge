@@ -165,7 +165,7 @@ export class SandboxEnvironmentNameConflictError extends Error {
   readonly environment_name: string;
 
   constructor({ tenant_id, name }: { tenant_id: string; name: string }, options?: ErrorOptions) {
-    super(`Sandbox environment name already exists: ${name}`, options);
+    super(`Sandbox environment with name ${name} already exists`, options);
     this.name = 'SandboxEnvironmentNameConflictError';
     this.tenant_id = tenant_id;
     this.environment_name = name;

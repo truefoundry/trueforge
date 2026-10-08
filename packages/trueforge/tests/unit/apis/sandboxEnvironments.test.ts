@@ -204,7 +204,7 @@ describe('sandbox environments API → build controller path', () => {
     });
     expect(clash.status).toBe(409);
     expect(await clash.json()).toEqual({
-      error: { message: 'Sandbox environment name already exists: create-only-env' },
+      error: { message: 'Sandbox environment with name create-only-env already exists' },
     });
 
     const getRes = await publicRouter.request('/create-only-env');
