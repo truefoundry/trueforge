@@ -13,6 +13,7 @@ import type {
   AddThreadsInput,
   AppendToEventsInput,
   AppendToThreadContextInput,
+  ClaimTurnExecutorInput,
   CreateSessionInput,
   CreateTurnInput,
   DeleteSessionInput,
@@ -76,6 +77,7 @@ import {
 } from './queries/threads';
 import type { NewThreadRegistration } from './queries/turns';
 import {
+  claimTurnExecutor as claimTurnExecutorQuery,
   createTurn as createTurnQuery,
   freezeAndGetTurn as freezeAndGetTurnQuery,
   getTurn as getTurnQuery,
@@ -191,6 +193,10 @@ export class PostgresSessionStore implements ISessionStore<SessionCustom, TurnCu
 
   freezeAndGetTurn(input: FreezeAndGetTurnInput): Promise<TurnRecord<TurnCustom>> {
     return freezeAndGetTurnQuery(this.db, input);
+  }
+
+  claimTurnExecutor(input: ClaimTurnExecutorInput): Promise<boolean> {
+    return claimTurnExecutorQuery(this.db, input);
   }
 
   getTurn(input: GetTurnInput): Promise<TurnRecord<TurnCustom> | undefined> {
