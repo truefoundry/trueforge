@@ -129,6 +129,10 @@ export function createSandboxEnvironmentsRouter<TTransaction>(
     return c.json({ data: toSandboxEnvironment(loaded) }, 200);
   };
 
+  type WriteSandboxEnvironmentOutcome =
+    | { kind: 'saved'; environment: SandboxEnvironment }
+    | { kind: 'error'; status: 400 | 409 | 422 | 502; message: string };
+
   async function writeSandboxEnvironment({
     c,
     body,
@@ -137,12 +141,12 @@ export function createSandboxEnvironmentsRouter<TTransaction>(
     c: Context;
     body: CreateSandboxEnvironmentRequest | UpdateSandboxEnvironmentRequest;
     create: boolean;
-  }): Promise<Response> {
+  }): Promise<WriteSandboxEnvironmentOutcome> {
     const requestContext = resolveRequestContext(c);
     const { manifest } = body;
     const provider = await resolveSandboxProviderRecord(deps.resolveSandboxProviderStore(c), requestContext.tenant_id);
     if (provider === undefined) {
-      return c.json({ error: { message: 'No sandbox provider configured' } }, 422);
+      return { kind: 'error', status: 422, message: 'No sandbox provider configured' };
     }
 
     const created_by_subject = createdBySubjectFromRequestContext(requestContext);
@@ -155,7 +159,11 @@ export function createSandboxEnvironmentsRouter<TTransaction>(
           name: manifest.name,
         });
         if (taken) {
-          return c.json({ error: { message: `Sandbox environment name already exists: ${manifest.name}` } }, 409);
+          return {
+            kind: 'error',
+            status: 409,
+            message: `Sandbox environment name already exists: ${manifest.name}`,
+          };
         }
       }
 
@@ -203,32 +211,40 @@ export function createSandboxEnvironmentsRouter<TTransaction>(
       };
       const result = create ? await store.createEnvironment(writeInput) : await store.upsertEnvironment(writeInput);
 
-      return c.json({ data: toSandboxEnvironment(result) }, create ? 201 : 200);
+      return { kind: 'saved', environment: toSandboxEnvironment(result) };
     } catch (error) {
       if (error instanceof SandboxEnvironmentNameConflictError) {
-        return c.json({ error: { message: error.message } }, 409);
+        return { kind: 'error', status: 409, message: error.message };
       }
       if (error instanceof SandboxEnvironmentVersionConflictError) {
-        return c.json({ error: { message: 'Sandbox environment was updated concurrently; retry' } }, 409);
+        return { kind: 'error', status: 409, message: 'Sandbox environment was updated concurrently; retry' };
       }
       if (error instanceof MissingStoredSecretError) {
-        return c.json({ error: { message: 'Secret value is required' } }, 400);
+        return { kind: 'error', status: 400, message: 'Secret value is required' };
       }
       const secretError = sandboxEnvironmentSecretHttpError(error);
       if (secretError !== undefined) {
-        return c.json({ error: { message: secretError.message } }, secretError.status);
+        return { kind: 'error', status: secretError.status, message: secretError.message };
       }
       throw error;
     }
   }
 
   const createHandler: RouteHandler<typeof createSandboxEnvironmentRoute> = async c => {
-    return writeSandboxEnvironment({ c, body: c.req.valid('json'), create: true });
+    const outcome = await writeSandboxEnvironment({ c, body: c.req.valid('json'), create: true });
+    if (outcome.kind === 'error') {
+      return c.json({ error: { message: outcome.message } }, outcome.status);
+    }
+    return c.json({ data: outcome.environment }, 201);
   };
 
   // Create-or-update keyed by manifest.name.
   const putHandler: RouteHandler<typeof putSandboxEnvironmentRoute> = async c => {
-    return writeSandboxEnvironment({ c, body: c.req.valid('json'), create: false });
+    const outcome = await writeSandboxEnvironment({ c, body: c.req.valid('json'), create: false });
+    if (outcome.kind === 'error') {
+      return c.json({ error: { message: outcome.message } }, outcome.status);
+    }
+    return c.json({ data: outcome.environment }, 200);
   };
 
   const deleteHandler: RouteHandler<typeof deleteSandboxEnvironmentRoute> = async c => {

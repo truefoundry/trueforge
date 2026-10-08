@@ -161,7 +161,7 @@ describe('EnvironmentFormDrawer', () => {
     });
     renderDrawer({
       environmentOverrides: {
-        createOrUpdateEnvironment: vi.fn(async () => {
+        createEnvironment: vi.fn(async () => {
           throw httpError;
         }),
       },
