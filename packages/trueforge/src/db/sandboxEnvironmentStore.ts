@@ -112,12 +112,12 @@ export interface GetSandboxEnvironmentVersionInput {
 /**
  * Result of `buildVersion` during upsert — {@link NextSandboxEnvironmentVersion} plus subject.
  */
-export type UpsertSandboxEnvironmentVersion = NextSandboxEnvironmentVersion & {
-  created_by_subject: CreatedBySubject;
-};
+/** `undefined` keeps the current tip. */
+export type UpsertSandboxEnvironmentVersion =
+  undefined | (NextSandboxEnvironmentVersion & { created_by_subject: CreatedBySubject });
 
 /** Complete version row fields after the store resolves secret-row references. */
-export type UpsertSandboxEnvironmentVersionWrite = UpsertSandboxEnvironmentVersion & {
+export type UpsertSandboxEnvironmentVersionWrite = Exclude<UpsertSandboxEnvironmentVersion, undefined> & {
   internal_metadata: SandboxEnvironmentVersionInternalMetadata;
 };
 
@@ -127,6 +127,7 @@ export interface ExistingSandboxEnvironmentVersion {
   existing_version?: number;
   existing_manifest?: StoredSandboxEnvironmentManifest;
   existing_external_ref?: string;
+  existing_status?: SandboxEnvironmentVersionStatus;
 }
 
 export interface UpsertSandboxEnvironmentInput {
@@ -136,7 +137,7 @@ export interface UpsertSandboxEnvironmentInput {
   created_by_subject: CreatedBySubject;
   /** Complete provider refs from a successful secret sync before upsert. */
   synced_secrets: SyncedSandboxEnvironmentSecret[];
-  /** Called after parent lock/create; store upserts secrets from the returned manifest. */
+  /** Called after the parent row is locked. `undefined` keeps the tip; otherwise inserts that version. */
   buildVersion: (input: ExistingSandboxEnvironmentVersion) => Promise<UpsertSandboxEnvironmentVersion>;
 }
 
@@ -204,9 +205,9 @@ export interface ISandboxEnvironmentStore<TTransaction = never> {
   ): Promise<SandboxEnvironmentWithVersion | undefined>;
   /**
    * Create or replace by `(tenant_id, name)` — parent + version row.
-   * Updates insert a new version; parent `active_version` advances only when status is
-   * `ready` (otherwise use markVersionReady). Uses `transaction` when passed; otherwise
-   * opens its own.
+   * Updates insert a new version unless `buildVersion` returns `undefined`.
+   * Parent `active_version` advances only when status is `ready` (otherwise use markVersionReady).
+   * Uses `transaction` when passed; otherwise opens its own.
    */
   upsertEnvironment(
     input: UpsertSandboxEnvironmentInput,

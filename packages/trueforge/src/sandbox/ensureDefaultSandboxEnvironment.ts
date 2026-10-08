@@ -43,17 +43,18 @@ export async function ensureDefaultSandboxEnvironment<TTransaction>({
       description: '',
       created_by_subject,
       synced_secrets: [],
-      buildVersion: ({ existing_version, existing_manifest, existing_external_ref }) =>
-        Promise.resolve({
-          ...buildNextVersion({
-            ...(existing_version !== undefined ? { existing_version } : {}),
-            ...(existing_manifest ? { previous_manifest: existing_manifest } : {}),
-            ...(existing_external_ref ? { previous_external_ref: existing_external_ref } : {}),
-            manifest: defaultSandboxEnvironmentStoredManifest(provider_type),
-            provider_type,
-          }),
-          created_by_subject,
-        }),
+      buildVersion: ({ existing_version, existing_manifest, existing_external_ref, existing_status }) => {
+        const next = buildNextVersion({
+          ...(existing_version !== undefined ? { existing_version } : {}),
+          ...(existing_status !== undefined ? { existing_status } : {}),
+          ...(existing_manifest ? { previous_manifest: existing_manifest } : {}),
+          ...(existing_external_ref ? { previous_external_ref: existing_external_ref } : {}),
+          ...(resetPending ? { force_new_version: true } : {}),
+          manifest: defaultSandboxEnvironmentStoredManifest(provider_type),
+          provider_type,
+        });
+        return Promise.resolve(next === undefined ? undefined : { ...next, created_by_subject });
+      },
     },
     transaction,
   );

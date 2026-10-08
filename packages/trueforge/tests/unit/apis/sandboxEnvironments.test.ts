@@ -153,6 +153,37 @@ describe('sandbox environments API → build controller path', () => {
     expect(active?.version.manifest.image?.build_script).toBe('pip install pyjokes');
   });
 
+  it('keeps the current version when a later PUT does not change the manifest', async () => {
+    const { publicRouter, sandboxEnvironmentStore } = await setup();
+    const body = JSON.stringify({
+      manifest: {
+        name: 'pyjokes-env',
+        description: 'has pyjokes',
+        image: { type: 'build', build_script: 'pip install pyjokes' },
+      },
+    });
+    const put = () =>
+      publicRouter.request('/', { method: 'PUT', headers: { 'content-type': 'application/json' }, body });
+    expect((await put()).status).toBe(200);
+    const created = await sandboxEnvironmentStore.getEnvironment({
+      tenant_id: STANDALONE_REQUEST_CONTEXT.tenant_id,
+      name: 'pyjokes-env',
+      created_by_subject_id: STANDALONE_REQUEST_CONTEXT.subject.id,
+    });
+
+    const again = await put();
+    expect(again.status).toBe(200);
+    const bodyAgain = (await again.json()) as { data: { description: string } };
+    expect(bodyAgain.data.description).toBe('has pyjokes');
+    const latest = await sandboxEnvironmentStore.getEnvironment({
+      tenant_id: STANDALONE_REQUEST_CONTEXT.tenant_id,
+      name: 'pyjokes-env',
+      created_by_subject_id: STANDALONE_REQUEST_CONTEXT.subject.id,
+    });
+    expect(latest?.version.id).toBe(created?.version.id);
+    expect(latest?.version.version).toBe(1);
+  });
+
   it('rejects creating the reserved default name', async () => {
     const { publicRouter } = await setup();
     const putRes = await publicRouter.request('/', {

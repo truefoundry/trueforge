@@ -41,9 +41,10 @@ export interface SandboxEnvironmentsRouterDeps<TTransaction> {
 }
 
 function toSandboxEnvironment({ environment, version }: SandboxEnvironmentWithVersion): SandboxEnvironment {
-  const { type, sandbox_provider, ...manifest } = version.manifest;
+  const { type, sandbox_provider, description: manifestDescription, ...manifest } = version.manifest;
   void type;
   void sandbox_provider;
+  void manifestDescription;
   return {
     id: environment.id,
     name: environment.name,
@@ -51,7 +52,9 @@ function toSandboxEnvironment({ environment, version }: SandboxEnvironmentWithVe
     lifecycle_stage: environment.lifecycle_stage,
     status: version.status,
     status_reason: version.status_reason,
-    manifest: redactManifestSecrets(manifest),
+    manifest: redactManifestSecrets(
+      environment.description === '' ? manifest : { ...manifest, description: environment.description },
+    ),
     created_by_subject: environment.created_by_subject,
     created_at: environment.created_at,
     updated_at: environment.updated_at,
@@ -155,17 +158,17 @@ export function createSandboxEnvironmentsRouter<TTransaction>(
         description: manifest.description ?? '',
         created_by_subject,
         synced_secrets,
-        buildVersion: ({ existing_version, existing_manifest, existing_external_ref }) =>
-          Promise.resolve({
-            ...buildNextVersion({
-              ...(existing_version !== undefined ? { existing_version } : {}),
-              ...(existing_manifest ? { previous_manifest: existing_manifest } : {}),
-              ...(existing_external_ref ? { previous_external_ref: existing_external_ref } : {}),
-              manifest,
-              provider_type: provider.manifest.type,
-            }),
-            created_by_subject,
-          }),
+        buildVersion: ({ existing_version, existing_manifest, existing_external_ref, existing_status }) => {
+          const next = buildNextVersion({
+            ...(existing_version !== undefined ? { existing_version } : {}),
+            ...(existing_status !== undefined ? { existing_status } : {}),
+            ...(existing_manifest ? { previous_manifest: existing_manifest } : {}),
+            ...(existing_external_ref ? { previous_external_ref: existing_external_ref } : {}),
+            manifest,
+            provider_type: provider.manifest.type,
+          });
+          return Promise.resolve(next === undefined ? undefined : { ...next, created_by_subject });
+        },
       });
 
       return c.json({ data: toSandboxEnvironment(result) }, 200);

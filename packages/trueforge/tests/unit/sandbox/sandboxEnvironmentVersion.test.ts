@@ -23,10 +23,10 @@ describe('buildNextVersion', () => {
       provider_type: 'daytona',
     });
 
-    expect(next.external_ref).not.toBe('trueforge-old');
-    expect(next.version).toBe(2);
-    expect(next.status).toBe('pending');
-    expect(next.manifest.resources).toEqual({ cpu: 2, memory: 4, disk: 8 });
+    expect(next?.external_ref).not.toBe('trueforge-old');
+    expect(next?.version).toBe(2);
+    expect(next?.status).toBe('pending');
+    expect(next?.manifest.resources).toEqual({ cpu: 2, memory: 4, disk: 8 });
   });
 
   it('reuses previous_external_ref when only networking changes', () => {
@@ -42,7 +42,7 @@ describe('buildNextVersion', () => {
       provider_type: 'daytona',
     });
 
-    expect(next.external_ref).toBe('trueforge-old');
+    expect(next?.external_ref).toBe('trueforge-old');
   });
 
   it('allocates a new external_ref when build_script changes', () => {
@@ -62,7 +62,58 @@ describe('buildNextVersion', () => {
       provider_type: 'daytona',
     });
 
-    expect(next.external_ref).not.toBe('trueforge-old');
+    expect(next?.external_ref).not.toBe('trueforge-old');
+  });
+
+  it('returns undefined when the resolved manifest is unchanged, including description', () => {
+    const unchanged = buildNextVersion({
+      existing_version: 2,
+      existing_status: 'ready',
+      previous_manifest: previous,
+      previous_external_ref: 'trueforge-old',
+      manifest: { name: 'default', resources: previous.resources },
+      provider_type: 'daytona',
+    });
+    const descriptionOnly = buildNextVersion({
+      existing_version: 2,
+      existing_status: 'pending',
+      previous_manifest: { ...previous, description: 'old' },
+      previous_external_ref: 'trueforge-old',
+      manifest: { name: 'default', description: 'new', resources: previous.resources },
+      provider_type: 'daytona',
+    });
+
+    expect(unchanged).toBeUndefined();
+    expect(descriptionOnly).toBeUndefined();
+  });
+
+  it('starts a new pending snapshot when the tip failed with the same manifest', () => {
+    const next = buildNextVersion({
+      existing_version: 2,
+      existing_status: 'failed',
+      previous_manifest: previous,
+      previous_external_ref: 'trueforge-old',
+      manifest: { name: 'default', resources: previous.resources },
+      provider_type: 'daytona',
+    });
+
+    expect(next?.version).toBe(3);
+    expect(next?.external_ref).not.toBe('trueforge-old');
+  });
+
+  it('still creates a version of the same manifest when forced', () => {
+    const next = buildNextVersion({
+      existing_version: 2,
+      existing_status: 'ready',
+      force_new_version: true,
+      previous_manifest: previous,
+      previous_external_ref: 'trueforge-old',
+      manifest: { name: 'default', resources: previous.resources },
+      provider_type: 'daytona',
+    });
+
+    expect(next?.version).toBe(3);
+    expect(next?.external_ref).toBe('trueforge-old');
   });
 });
 

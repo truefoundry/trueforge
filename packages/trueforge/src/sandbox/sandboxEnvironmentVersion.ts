@@ -121,36 +121,58 @@ export function newExternalRef(): string {
   return `trueforge-${randomUUID()}`;
 }
 
-/** Next version row fields (no insert). */
+function withoutDescription(
+  manifest: StoredSandboxEnvironmentManifest,
+): Omit<StoredSandboxEnvironmentManifest, 'description'> {
+  const { description, ...rest } = manifest;
+  void description;
+  return rest;
+}
+
+/** Next version row, or `undefined` when the resolved manifest matches the tip (description ignored). */
 export function buildNextVersion({
   existing_version,
+  existing_status,
   previous_manifest,
   previous_external_ref,
   manifest,
   provider_type,
+  force_new_version,
 }: {
   existing_version?: number;
+  existing_status?: SandboxEnvironmentVersionStatus;
   previous_manifest?: StoredSandboxEnvironmentManifest;
   previous_external_ref?: string;
   manifest: SandboxEnvironmentManifest;
   provider_type: SandboxEnvironmentProviderType;
-}): NextSandboxEnvironmentVersion {
-  const diff = diffManifest({ previous: previous_manifest, next: manifest });
-  // Daytona bakes cpu/memory/disk into the snapshot; resource or build changes need a new ref.
-  // Env vars / networking apply at create time and can reuse previous_external_ref.
-  const needs_snapshot = !previous_external_ref || diff.build_changed || diff.resources_changed;
-
+  /** API-key rotation still appends a pending version of the same manifest. */
+  force_new_version?: boolean;
+}): NextSandboxEnvironmentVersion | undefined {
   const resolved = resolveManifestSecrets({
     manifest,
     ...(previous_manifest ? { previous: previous_manifest } : {}),
   });
+  const stored = toStoredManifest({ manifest: resolved, provider_type });
+  const unchanged =
+    previous_manifest !== undefined &&
+    isDeepStrictEqual(withoutDescription(previous_manifest), withoutDescription(stored));
+  if (unchanged && existing_status !== 'failed' && force_new_version !== true) {
+    return undefined;
+  }
 
-  // Always `pending` until a future controller activates (or fails) the version.
+  const diff = diffManifest({ previous: previous_manifest, next: resolved });
+  // Daytona bakes cpu/memory/disk into the snapshot; resource or build changes need a new ref.
+  // Env vars / networking apply at create time and can reuse previous_external_ref.
+  // A failed snapshot must not be reused or the retry is marked failed immediately.
+  const needs_snapshot =
+    !previous_external_ref || diff.build_changed || diff.resources_changed || existing_status === 'failed';
+  const external_ref = needs_snapshot || previous_external_ref === undefined ? newExternalRef() : previous_external_ref;
+
   return {
     version: (existing_version ?? 0) + 1,
-    manifest: toStoredManifest({ manifest: resolved, provider_type }),
+    manifest: stored,
     status: 'pending',
     status_reason: null,
-    external_ref: needs_snapshot ? newExternalRef() : previous_external_ref,
+    external_ref,
   };
 }

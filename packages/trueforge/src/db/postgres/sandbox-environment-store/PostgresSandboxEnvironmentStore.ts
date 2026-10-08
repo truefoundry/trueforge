@@ -357,6 +357,9 @@ export class PostgresSandboxEnvironmentStore implements ISandboxEnvironmentStore
           environment_id,
           db,
         });
+        if (versionWrite === undefined) {
+          throw new Error('Sandbox environment version cannot be kept before the environment exists');
+        }
         const version = await this.#insertVersionRow(db, environment_id, versionWrite);
         return {
           environment: toEnvironmentRecord({
@@ -389,13 +392,18 @@ export class PostgresSandboxEnvironmentStore implements ISandboxEnvironmentStore
       existing_version: previousVersion.version,
       existing_manifest: parseStoredSandboxEnvironmentManifest(previousVersion.manifest),
       existing_external_ref: previousVersion.external_ref,
+      existing_status: previousVersion.status,
     });
-
-    const version = await this.#insertVersionRow(db, environmentRow.id, versionWrite);
+    const version =
+      versionWrite === undefined
+        ? toVersionRecord(previousVersion)
+        : await this.#insertVersionRow(db, environmentRow.id, versionWrite);
     const updated = await db
       .updateTable('sandbox_environment')
       .set({
-        ...(versionWrite.status === 'ready' ? { active_version: versionWrite.version } : {}),
+        ...(versionWrite !== undefined && versionWrite.status === 'ready'
+          ? { active_version: versionWrite.version }
+          : {}),
         description: input.description,
         updated_at: now(),
       })
@@ -406,7 +414,7 @@ export class PostgresSandboxEnvironmentStore implements ISandboxEnvironmentStore
       .executeTakeFirst();
     if (!updated) {
       throw new SandboxEnvironmentVersionConflictError(
-        { environment_id: environmentRow.id, version: versionWrite.version },
+        { environment_id: environmentRow.id, version: version.version },
         { cause: new Error('Sandbox environment disappeared during upsert') },
       );
     }
@@ -551,6 +559,7 @@ export class PostgresSandboxEnvironmentStore implements ISandboxEnvironmentStore
     existing_version,
     existing_manifest,
     existing_external_ref,
+    existing_status,
   }: {
     input: UpsertSandboxEnvironmentInput;
     environment_id: string;
@@ -558,13 +567,18 @@ export class PostgresSandboxEnvironmentStore implements ISandboxEnvironmentStore
     existing_version?: number;
     existing_manifest?: ReturnType<typeof parseStoredSandboxEnvironmentManifest>;
     existing_external_ref?: string;
-  }): Promise<UpsertSandboxEnvironmentVersionWrite> {
+    existing_status?: SandboxEnvironmentVersionRecord['status'];
+  }): Promise<UpsertSandboxEnvironmentVersionWrite | undefined> {
     const built = await input.buildVersion({
       environment_id,
       ...(existing_version ? { existing_version } : {}),
       ...(existing_manifest ? { existing_manifest } : {}),
       ...(existing_external_ref ? { existing_external_ref } : {}),
+      ...(existing_status ? { existing_status } : {}),
     });
+    if (built === undefined) {
+      return undefined;
+    }
     const secretDescription = `Secret value of environment ${built.manifest.name}`;
     const existingSecretByName = new Map(
       (await this.listSecretsByEnvironment({ environment_id }, db)).map(row => [row.secret_name, row]),
