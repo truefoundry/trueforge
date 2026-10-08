@@ -1,5 +1,21 @@
 # @truefoundry/trueforge
 
+## 0.178.0-rc.1
+
+### Patch Changes
+
+- 5300f50: Add a frontend feature flag for sandbox-environment management.
+- 8b6c4bf: Raise the default model HTTP body timeout to 60s and shorten the default MCP request timeout to 2 minutes.
+- b6a7781: Raise the default model HTTP headers timeout to 60 seconds so slow first-token responses are not dropped.
+- 8d39138: Add a host-pluggable analytics contract (`analytics.track` / `AnalyticsProvider`) with a shared event catalog and first-wave click instrumentation. Hosts own the vendor sink; the SDK never ships PostHog.
+- d6b1389: Time out a hung create-turn SSE write so turn drain and subscribe dual-writes keep running.
+- Updated dependencies [8c24138]
+- Updated dependencies [8b6c4bf]
+- Updated dependencies [8c24138]
+- Updated dependencies [b6a7781]
+  - @truefoundry/trueforge-sdk@0.178.0-rc.1
+  - @truefoundry/trueforge-core@0.178.0-rc.1
+
 ## 0.177.0
 
 ### Patch Changes
