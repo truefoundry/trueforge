@@ -1,5 +1,6 @@
 ---
 '@truefoundry/trueforge': patch
+'@truefoundry/trueforge-ui': patch
 ---
 
-Enable sandbox-environment management in the frontend by default and remove the Vite feature flag.
+Remove the sandbox-environments frontend feature flag and always enable environments UI.
