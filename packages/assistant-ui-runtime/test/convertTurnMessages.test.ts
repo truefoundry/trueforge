@@ -55,7 +55,10 @@ const SESSION_ID = 'session-1';
 type TurnFixture = Turn & { events: TurnEvent[] };
 
 function modelMessage(event: Omit<ModelMessageEvent, 'type' | 'createdAt'>): ModelMessageEvent {
-  return { type: 'model.message', createdAt, ...event };
+  // Completed LLM calls set finish_reason; default so sequential messages concatenate
+  // unless a test opts into unfinished (retry) with finishReason: null.
+  const { finishReason = 'stop', ...rest } = event;
+  return { type: 'model.message', createdAt, ...rest, finishReason };
 }
 
 function approvalRequired(event: Omit<ToolApprovalRequiredEvent, 'type' | 'createdAt'>): ToolApprovalRequiredEvent {
@@ -733,6 +736,7 @@ describe('convertTurnMessages', () => {
             id: 'm1',
             threadId: ROOT_THREAD_ID,
             content: 'first chunk',
+            finishReason: 'tool_calls',
           }),
         ],
       });
@@ -747,6 +751,7 @@ describe('convertTurnMessages', () => {
             id: 'm2',
             threadId: ROOT_THREAD_ID,
             content: ' after approval',
+            finishReason: 'stop',
           }),
         ],
       });
@@ -778,6 +783,7 @@ describe('convertTurnMessages', () => {
             id: 'm1',
             threadId: ROOT_THREAD_ID,
             content: 'Which format?',
+            finishReason: 'tool_calls',
           }),
         ],
       });
@@ -797,6 +803,7 @@ describe('convertTurnMessages', () => {
             id: 'm2',
             threadId: ROOT_THREAD_ID,
             content: 'Done',
+            finishReason: 'stop',
           }),
         ],
       });
@@ -845,6 +852,7 @@ describe('convertTurnMessages', () => {
             id: 'm1',
             threadId: ROOT_THREAD_ID,
             content: 'Need auth',
+            finishReason: 'tool_calls',
           }),
           {
             type: 'mcp.auth_required',
@@ -863,6 +871,7 @@ describe('convertTurnMessages', () => {
             id: 'm2',
             threadId: ROOT_THREAD_ID,
             content: 'Authorized',
+            finishReason: 'stop',
           }),
         ],
       });
@@ -1525,16 +1534,19 @@ describe('convertTurnMessages', () => {
               id: 'm1',
               threadId: ROOT_THREAD_ID,
               content: 'first',
+              finishReason: 'tool_calls',
             }),
             modelMessage({
               id: 'm2',
               threadId: ROOT_THREAD_ID,
               content: 'second',
+              finishReason: 'tool_calls',
             }),
             modelMessage({
               id: 'm3',
               threadId: ROOT_THREAD_ID,
               content: 'third',
+              finishReason: 'stop',
             }),
             turnDone(),
           ]),
@@ -1553,6 +1565,48 @@ describe('convertTurnMessages', () => {
         { type: 'text', text: 'second' },
         { type: 'text', text: 'third' },
       ]);
+    });
+
+    it('replaces unfinished model.message content when a retry id arrives mid-stream', async () => {
+      const foldState = new PeerThreadFoldState();
+      const updates = await collectStream(
+        streamTurnEvents(
+          streamFrom([
+            modelMessage({
+              id: 'm1',
+              threadId: ROOT_THREAD_ID,
+              content: 'stale',
+              finishReason: null,
+            }),
+            {
+              type: 'model.message.delta',
+              id: 'm1',
+              threadId: ROOT_THREAD_ID,
+              content: ' partial',
+              createdAt,
+            },
+            modelMessage({
+              id: 'm2',
+              threadId: ROOT_THREAD_ID,
+              content: 'fresh',
+              finishReason: null,
+            }),
+            {
+              type: 'model.message.delta',
+              id: 'm2',
+              threadId: ROOT_THREAD_ID,
+              content: ' answer',
+              createdAt,
+              finishReason: 'stop',
+            },
+            turnDone(),
+          ]),
+          foldState,
+        ),
+      );
+
+      expect(updates.at(-1)?.content).toEqual([{ type: 'text', text: 'fresh answer' }]);
+      expect(foldState.threads.get(ROOT_THREAD_ID)?.modelMessageIds).toEqual(['m2']);
     });
 
     it('scopes streamed content to ids after the group baseline', async () => {
@@ -1719,12 +1773,14 @@ describe('convertTurnMessages', () => {
               id: 'm1',
               threadId: ROOT_THREAD_ID,
               content: 'before sandbox',
+              finishReason: 'tool_calls',
             }),
             sandboxCreated({ id: 'sandbox-evt', sandboxId: 'sbx-123' }),
             modelMessage({
               id: 'm2',
               threadId: ROOT_THREAD_ID,
               content: 'after sandbox',
+              finishReason: 'stop',
             }),
             turnDone(),
           ]),
@@ -2775,6 +2831,7 @@ describe('buildSnapshotFromSessionEvents', () => {
           id: 'm2',
           threadId: ROOT_THREAD_ID,
           content: 'Running 10 random sandbox commands at once:',
+          finishReason: 'tool_calls',
         }),
       },
     ];
@@ -2792,6 +2849,7 @@ describe('buildSnapshotFromSessionEvents', () => {
             id: 'm3',
             threadId: ROOT_THREAD_ID,
             content: 'I ran 10 sandbox commands',
+            finishReason: 'stop',
           }),
           turnDone(),
         ]),

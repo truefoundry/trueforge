@@ -120,6 +120,20 @@ function isTurnScopedEvent(
   return message.type === 'turn.created' || message.type === 'turn.done';
 }
 
+/** Drop the last model.message when a new id arrives and the previous call never finished (BE retry). */
+function supersedeUnfinishedLastModelMessage(bucket: ThreadBucket): void {
+  const lastId = bucket.modelMessageIds[bucket.modelMessageIds.length - 1];
+  if (lastId == null) {
+    return;
+  }
+  const lastEvent = bucket.events.get(lastId);
+  if (lastEvent?.type !== 'model.message' || lastEvent.finishReason) {
+    return;
+  }
+  bucket.modelMessageIds.pop();
+  bucket.events.delete(lastId);
+}
+
 function ingestEventIntoBucket(bucket: ThreadBucket, message: TurnStreamingEvent): void {
   if (isTurnScopedEvent(message)) {
     return;
@@ -137,6 +151,7 @@ function ingestEventIntoBucket(bucket: ThreadBucket, message: TurnStreamingEvent
 
   if (message.type === 'model.message') {
     if (!bucket.modelMessageIds.includes(message.id)) {
+      supersedeUnfinishedLastModelMessage(bucket);
       bucket.modelMessageIds.push(message.id);
     }
     return;
