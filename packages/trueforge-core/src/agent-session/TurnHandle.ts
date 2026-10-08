@@ -94,11 +94,8 @@ function toMCPAuthRequiredEvent(event: InternalMCPAuthRequiredEvent): MCPAuthReq
     type: HarnessEventType.MCP_AUTH_REQUIRED,
     id: event.id,
     created_at: event.created_at,
-    thread_id: event.thread_id,
-    mcp_servers: event.mcp_servers.map(({ thread_ids, ...server }) => {
-      void thread_ids;
-      return server;
-    }),
+    thread_id: null, // We are not sending thread on the wire event.
+    mcp_servers: event.mcp_servers,
   };
 }
 
@@ -173,7 +170,6 @@ export class TurnHandle<TTurnCustom extends object = Record<string, never>> {
   private readonly resolver: ITurnResourceResolver<TTurnCustom> | undefined;
   private readonly signal: AbortSignal | undefined;
   private streamStarted = false;
-  private sendTail: Promise<void> = Promise.resolve();
 
   constructor(options: {
     store: ISessionStore<object, TTurnCustom>;
@@ -248,22 +244,12 @@ export class TurnHandle<TTurnCustom extends object = Record<string, never>> {
   }
 
   async send(events: TurnUserEvent[]): Promise<void> {
-    let release!: () => void;
-    const previous = this.sendTail;
-    this.sendTail = new Promise<void>(resolve => {
-      release = resolve;
-    });
-    await previous;
-    try {
-      const orchestrator = this.requireLiveOrchestrator('send');
-      for await (const batch of orchestrator.send(events)) {
-        // TODO: persist `batch` here before resuming the generator to enqueue.
-        void batch;
-      }
-      orchestrator.wake();
-    } finally {
-      release();
+    const orchestrator = this.requireLiveOrchestrator('send');
+    for await (const batch of orchestrator.send(events)) {
+      // TODO: persist `batch` here before resuming the generator to enqueue.
+      void batch;
     }
+    orchestrator.wake();
   }
 
   private requireLiveOrchestrator(method: string): AgentThreadOrchestrator {
@@ -645,17 +631,9 @@ export class TurnHandle<TTurnCustom extends object = Record<string, never>> {
 
       case InternalEventType.MCP_AUTH_REQUIRED: {
         const authEvent = toMCPAuthRequiredEvent(event);
-        const threadIds = new Set(event.mcp_servers.flatMap(server => server.thread_ids));
-        if (threadIds.size !== 1) {
-          throw new Error('unreachable: an MCP auth-required event must belong to exactly one thread');
-        }
-        const threadId = [...threadIds][0];
-        if (!threadId) {
-          throw new Error('unreachable: MCP auth-required event is missing its thread');
-        }
         await this.store.patchThreadsMCPAuth({
           ...scope,
-          thread_ids: [threadId],
+          thread_ids: [event.thread_id],
           pending_mcp_auth: true,
         });
         await this.store.appendToEvents({

@@ -20,7 +20,7 @@ async function assertThreadsExist(
   const found = new Set(rows.map(row => row.thread_id));
   const missing = threadIds.filter(threadId => !found.has(threadId));
   if (missing.length > 0) {
-    throw new SessionStoreInvariantError(`Thread not found: ${missing.join(', ')}`);
+    throw new SessionStoreInvariantError(`Thread(s) not found: ${missing.join(', ')}`);
   }
 }
 

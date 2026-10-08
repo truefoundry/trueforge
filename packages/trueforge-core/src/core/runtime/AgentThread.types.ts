@@ -71,13 +71,10 @@ export const InternalPassthroughEventSchema: z.ZodType<InternalPassthroughEvent>
   event: z.custom<RegisteredPassthroughEvent>(),
 });
 
-export type InternalMCPServerAuthInfo = MCPServerAuthInfo & {
-  thread_ids: string[];
-};
-
-export type InternalMCPAuthRequiredEvent = BaseMCPAuthRequiredEvent & {
+export type InternalMCPAuthRequiredEvent = Omit<BaseMCPAuthRequiredEvent, 'thread_id'> & {
   type: typeof InternalEventType.MCP_AUTH_REQUIRED;
-  mcp_servers: InternalMCPServerAuthInfo[];
+  thread_id: string;
+  mcp_servers: MCPServerAuthInfo[];
 };
 
 export interface InternalMCPAuthContinueEvent {

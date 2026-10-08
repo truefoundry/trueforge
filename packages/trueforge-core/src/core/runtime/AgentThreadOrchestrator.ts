@@ -412,12 +412,17 @@ export class AgentThreadOrchestrator {
     for (const event of events) {
       switch (event.type) {
         case EventType.USER_MCP_AUTH_CONTINUE:
+        case EventType.USER_TOOL_APPROVAL_POLICY:
           break;
         case EventType.USER_TOOL_APPROVAL:
         case EventType.USER_TOOL_RESPONSE:
           // UserToolApproval | UserToolResponse.
           decisions.push(event);
           break;
+        default: {
+          const _exhaustive: never = event;
+          throw new Error(`Unsupported turn user event: ${JSON.stringify(_exhaustive)}`);
+        }
       }
     }
 

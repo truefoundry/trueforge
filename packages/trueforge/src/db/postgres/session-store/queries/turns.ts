@@ -606,23 +606,25 @@ export async function createTurn(db: Kysely<Database>, input: CreateTurnInput): 
       // step5: child turn_thread rows — carried = parent || new ids; new = fresh row.
       const turnThreadRows: TurnThreadInsertRow[] = [];
 
-      for (const parent of prevThreadRows) {
-        const newIds = newIdsByThread.get(parent.thread_id) ?? [];
-        const usage = appendUsageByThread.get(parent.thread_id) ?? parent.current_context_usage;
-        const completion = appendCompletionByThread.get(parent.thread_id);
+      for (const pt of prevThreadRows) {
+        const newIds = newIdsByThread.get(pt.thread_id) ?? [];
+        const usage = appendUsageByThread.get(pt.thread_id) ?? pt.current_context_usage;
+        const completion = appendCompletionByThread.get(pt.thread_id);
         const checkpoint: TurnThreadCheckpoint = {
-          ...parent.checkpoint,
+          ...pt.checkpoint,
           ...(completion !== undefined ? { completion } : {}),
+          // Do not carry an MCP-auth pause into a new successor turn. Start it unblocked so
+          // initialization can emit a new mcp.auth_required event if auth is still missing.
           pending_mcp_auth: false,
         };
         turnThreadRows.push({
           session_id: input.session_id,
           turn_id: input.turn.turn_id,
-          thread_id: parent.thread_id,
+          thread_id: pt.thread_id,
           checkpoint,
-          agent_info: parent.agent_info !== null ? json(parent.agent_info) : null,
+          agent_info: pt.agent_info !== null ? json(pt.agent_info) : null,
           current_context_usage: usage,
-          context_ids: parent.context_ids.concat(newIds),
+          context_ids: pt.context_ids.concat(newIds),
           updated_at: now,
         });
       }

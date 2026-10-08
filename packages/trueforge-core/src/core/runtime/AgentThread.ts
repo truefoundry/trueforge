@@ -213,10 +213,8 @@ function buildMCPAuthRequiredEvent(
     type: InternalEventType.MCP_AUTH_REQUIRED,
     id: newEventId(),
     created_at: new Date().toISOString(),
-    mcp_servers: authRequirementInfo.flatMap(or => or.servers.map(s => ({ ...s, thread_ids: [threadId] }))),
-    // threadId identifies which thread triggered auth for each server so AgentThreadOrchestrator can merge
-    // auth events across parallel sub-agents by server.
-    thread_id: null,
+    mcp_servers: authRequirementInfo.flatMap(or => or.servers),
+    thread_id: threadId,
   };
 }
 
@@ -1373,8 +1371,8 @@ export class AgentThread {
     });
 
     if (authRequirementInfo.length > 0) {
-      this.pendingMCPAuth = true;
       yield buildMCPAuthRequiredEvent(authRequirementInfo, this.threadId);
+      this.pendingMCPAuth = true;
       return 'exit';
     }
 
@@ -1448,8 +1446,8 @@ export class AgentThread {
     const signal = options?.signal;
 
     this.throwIfContextBusy();
-    if (this.pendingMCPAuth) {
-      return;
+    if (!this.isRunnable()) {
+      throw new Error(`thread ${this.threadId} is not runnable`);
     }
     this.contextBusy = true;
     this.currentState = null;
@@ -1468,8 +1466,8 @@ export class AgentThread {
       }
 
       if (authRequirementInfo.length > 0) {
-        this.pendingMCPAuth = true;
         yield buildMCPAuthRequiredEvent(authRequirementInfo, this.threadId);
+        this.pendingMCPAuth = true;
         return;
       }
 
