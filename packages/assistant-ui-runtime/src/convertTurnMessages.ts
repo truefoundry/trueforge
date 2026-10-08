@@ -30,6 +30,7 @@ import {
 } from './foldPeerThreads.js';
 import { drainListPages } from './listPages.js';
 import { buildMcpAuthTextParts, mcpAuthAssistantStatus, mcpAuthMessageCustom } from './mcpAuth.js';
+import { CANCELLATION_REASON_CUSTOM_KEY } from './messageCustomMetadata.js';
 import type { AssistantContentPart } from './modelMessageContent.js';
 import { extractImageUrlFromUserContentItem, imageUrlToAttachment } from './modelMessageImageContent.js';
 import {
@@ -67,6 +68,8 @@ import {
 } from './toolResponse.js';
 import { appendMcpAuthToTurnContent, appendToolApprovalToTurnContent } from './turnEventHelpers.js';
 import type { TurnStreamUpdate } from './turnStreamUpdate.js';
+
+export { CANCELLATION_REASON_CUSTOM_KEY } from './messageCustomMetadata.js';
 
 /**
  * Turn / event → assistant-ui normalization
@@ -725,50 +728,21 @@ function assistantStatusFromTurnState(state: Turn['state']): MessageStatus {
  * Example: turn.done { status: "cancelled", reason: "abandoned" } with no model
  * text. Without special handling the chat would show only the user bubble.
  *
- * 1. Live SSE — streamTurnEvents yields a final update with text
- *    "Cancelled: abandoned" and metadata.cancellationReason = "abandoned".
+ * 1. Live SSE — streamTurnEvents yields status cancelled +
+ *    metadata.cancellationReason = "abandoned" (no synthetic text part).
  * 2. Commit — commitActiveStream reads that key, stores TurnStateCancelled on
  *    the turn record (not a fake "done"), then clears activeStream.
- * 3. History / reload — projectHistoryTurns sees state.cancelled, appends the
- *    same "Cancelled: …" text, and always emits an assistant row even when the
- *    fold has no model.message parts.
+ * 3. History / reload — projectHistoryTurns sees state.cancelled, puts the wire
+ *    reason on metadata.custom, and always emits an assistant row even when the
+ *    fold has no model.message parts. trueforge-ui renders the orange banner.
  *
  * assistant-ui MessageStatus only knows reason: "cancelled" (no wire reason),
- * so the human-readable reason lives in message content.
+ * so the human-readable reason lives on metadata.custom.cancellationReason.
  */
-export const CANCELLATION_REASON_CUSTOM_KEY = 'cancellationReason';
-
-function cancelledReasonLabel(reason: string): string {
-  return `Cancelled: ${reason}`;
-}
-
-/** Append "Cancelled: {reason}" once; skip if that exact text part is already present. */
-function appendCancelledReasonToContent(
-  content: readonly AssistantContentPart[],
-  reason: string,
-): AssistantContentPart[] {
-  const label = cancelledReasonLabel(reason);
-  if (content.some(part => part.type === 'text' && part.text === label)) {
-    return [...content];
-  }
-  return [...content, { type: 'text', text: label }];
-}
-
-/** Fold content plus cancel label when the turn ended cancelled; otherwise unchanged. */
-function applyTerminalTurnContent(
-  content: readonly AssistantContentPart[],
-  state: Turn['state'],
-): AssistantContentPart[] {
-  if (state.status === 'cancelled') {
-    return appendCancelledReasonToContent(content, state.reason);
-  }
-  return content.length === 0 ? [] : [...content];
-}
 
 /**
  * Normal turns only get an assistant bubble when the model produced content.
- * Cancelled/error turns still need a bubble so the user sees why the turn ended
- * (Cancelled: abandoned, or the error banner).
+ * Cancelled/error turns still need a bubble so the banner/error chrome can show.
  */
 function shouldEmitTerminalAssistant(state: Turn['state'], content: readonly AssistantContentPart[]): boolean {
   return content.length > 0 || state.status === 'cancelled' || state.status === 'error';
@@ -1253,11 +1227,10 @@ function projectHistoryTurns(snapshot: SessionSnapshot, options?: ProjectSession
       ...baseCustom,
       turnId: record.id,
       ...(sandboxId != null ? { sandboxId } : {}),
+      ...(record.state.status === 'cancelled' ? { [CANCELLATION_REASON_CUSTOM_KEY]: record.state.reason } : {}),
     };
     const assistantCreatedAt = record.state.status === 'running' ? record.createdAt : record.state.completedAt;
     const replaceAssistantCreatedAt = record.state.status !== 'running';
-    // Inject Cancelled: {reason} before deciding whether to emit an assistant row.
-    content = applyTerminalTurnContent(content, record.state);
 
     if (record.userText !== undefined) {
       messages.push(buildUserMessageFromTurnInput(record.id, record.input, record.createdAt, options));
@@ -1759,18 +1732,15 @@ export async function* streamTurnEvents(
       if (event.state.status === 'error') {
         throw new TurnFailedError(event.state.message);
       }
-      // Live cancel: show "Cancelled: abandoned" immediately and stash the wire
-      // reason so commitActiveStream can persist TurnStateCancelled (not "done").
-      // Return here — do not fall through to sandbox/MCP/approval post-loop yields,
-      // which would replace this update and commit the turn as done.
+      // Live cancel: stash wire reason for commit + UI banner. Return so
+      // sandbox/MCP/approval post-loop yields cannot overwrite this update.
       if (event.state.status === 'cancelled') {
         const ids =
           groupRootBaseline != null
             ? rootModelMessageIdsSinceBaseline(foldState, groupRootBaseline)
             : (foldState.threads.get(ROOT_THREAD_ID)?.modelMessageIds ?? []);
-        const foldContent = buildRootAssistantContentForIds(foldState, ids);
         yield withCursor({
-          content: appendCancelledReasonToContent(foldContent, event.state.reason),
+          content: buildRootAssistantContentForIds(foldState, ids),
           status: { type: 'incomplete', reason: 'cancelled' },
           metadata: { custom: { [CANCELLATION_REASON_CUSTOM_KEY]: event.state.reason } },
         });

@@ -619,7 +619,7 @@ describe('convertTurnMessages', () => {
       expect(result.runningTurn).toBeUndefined();
     });
 
-    it('emits Cancelled: reason for an empty cancelled turn', async () => {
+    it('emits an assistant row with cancellationReason for an empty cancelled turn', async () => {
       const result = await convertTurnsToThreadMessages(
         mockServerWithTurns([
           mockTurn({
@@ -637,12 +637,13 @@ describe('convertTurnMessages', () => {
       expect(result.messages[1]).toMatchObject({
         id: 'turn-abandoned-assistant',
         role: 'assistant',
-        content: [{ type: 'text', text: 'Cancelled: abandoned' }],
+        content: [],
         status: { type: 'incomplete', reason: 'cancelled' },
+        metadata: { custom: { cancellationReason: 'abandoned', turnId: 'turn-abandoned' } },
       });
     });
 
-    it('appends Cancelled: reason once onto existing assistant text', async () => {
+    it('keeps model text and stamps cancellationReason on cancelled turns', async () => {
       const result = await convertTurnsToThreadMessages(
         mockServerWithTurns([
           mockTurn({
@@ -664,11 +665,9 @@ describe('convertTurnMessages', () => {
 
       expect(result.messages[1]).toMatchObject({
         role: 'assistant',
-        content: [
-          { type: 'text', text: 'partial reply' },
-          { type: 'text', text: 'Cancelled: client-cancelled' },
-        ],
+        content: [{ type: 'text', text: 'partial reply' }],
         status: { type: 'incomplete', reason: 'cancelled' },
+        metadata: { custom: { cancellationReason: 'client-cancelled', turnId: 'turn-cancel' } },
       });
     });
 
@@ -1574,7 +1573,7 @@ describe('convertTurnMessages', () => {
 
       expect(updates).toEqual([
         {
-          content: [{ type: 'text', text: 'Cancelled: abandoned' }],
+          content: [],
           status: { type: 'incomplete', reason: 'cancelled' },
           metadata: { custom: { cancellationReason: 'abandoned' } },
           sequenceNumber: 1,
@@ -1601,7 +1600,7 @@ describe('convertTurnMessages', () => {
 
       expect(updates).toHaveLength(1);
       expect(updates[0]).toMatchObject({
-        content: [{ type: 'text', text: 'Cancelled: abandoned' }],
+        content: [],
         status: { type: 'incomplete', reason: 'cancelled' },
         metadata: { custom: { cancellationReason: 'abandoned' } },
       });

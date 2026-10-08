@@ -3,4 +3,4 @@
 '@truefoundry/trueforge-ui': patch
 ---
 
-Show cancelled turn reasons (e.g. Cancelled: abandoned) in chat by projecting them from turn state in the runtime, including live turn.done commits, instead of only in session detail.
+Show cancelled turn reasons in chat and session detail via an orange cancelled banner, projecting the wire reason on message metadata from turn.done (including live commits).

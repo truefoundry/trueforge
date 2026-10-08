@@ -108,6 +108,8 @@ export { Markdown, preloadMarkdownOpenUI } from './atoms/Markdown.js';
 export type { MarkdownProps } from './atoms/Markdown.js';
 export { MessageActionBar } from './atoms/MessageActionBar.js';
 export type { MessageActionBarProps } from './atoms/MessageActionBar.js';
+export { MessageCancelledBanner } from './atoms/MessageCancelledBanner.js';
+export type { MessageCancelledBannerProps } from './atoms/MessageCancelledBanner.js';
 export { MessageErrorBanner } from './atoms/MessageErrorBanner.js';
 export type { MessageErrorBannerProps } from './atoms/MessageErrorBanner.js';
 export { MessageIndicator } from './atoms/MessageIndicator.js';
