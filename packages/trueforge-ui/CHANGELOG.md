@@ -1,5 +1,15 @@
 # Changelog
 
+## 0.178.0-rc.3
+
+### Patch Changes
+
+- f55571c: Toast API errors when creating or updating a sandbox environment so failures are visible outside the drawer form.
+- 9bb142d: Reject duplicate sandbox environment names on create (POST) instead of overwriting via upsert.
+- Updated dependencies [9bb142d]
+  - @truefoundry/trueforge-assistant-ui-runtime@0.178.0-rc.2
+  - @truefoundry/trueforge-sdk@0.178.0-rc.2
+
 ## 0.178.0-rc.2
 
 ### Patch Changes

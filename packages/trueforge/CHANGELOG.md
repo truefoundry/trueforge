@@ -1,5 +1,14 @@
 # @truefoundry/trueforge
 
+## 0.178.0-rc.3
+
+### Patch Changes
+
+- 93824b0: Map Daytona sandbox-environment secret sync HTTP 4xx failures to 422 instead of 502.
+- 9bb142d: Reject duplicate sandbox environment names on create (POST) instead of overwriting via upsert.
+- Updated dependencies [9bb142d]
+  - @truefoundry/trueforge-sdk@0.178.0-rc.2
+
 ## 0.178.0-rc.2
 
 ### Patch Changes

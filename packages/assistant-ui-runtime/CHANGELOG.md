@@ -1,5 +1,11 @@
 # @truefoundry/trueforge-assistant-ui-runtime
 
+## 0.178.0-rc.2
+
+### Patch Changes
+
+- 9bb142d: Reject duplicate sandbox environment names on create (POST) instead of overwriting via upsert.
+
 ## 0.178.0-rc.1
 
 ### Patch Changes
