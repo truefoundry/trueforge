@@ -1142,9 +1142,7 @@ function projectActiveStreamUpdate(snapshot: SessionSnapshot): TurnStreamUpdate 
   const content = foldContent.length > 0 ? foldContent : activeStream.update.content;
 
   const turnRecord = snapshot.turns.find(turn => turn.id === activeStream.turnId);
-  const pendingMcpAuth = liveAffirmsMcpAuth
-    ? (turnRecord?.pendingMcpAuth ?? snapshot.pendingMcpAuth)
-    : undefined;
+  const pendingMcpAuth = liveAffirmsMcpAuth ? (turnRecord?.pendingMcpAuth ?? snapshot.pendingMcpAuth) : undefined;
   const turnLike =
     turnRecord != null
       ? { state: turnRecord.state, pendingMcpAuth }
