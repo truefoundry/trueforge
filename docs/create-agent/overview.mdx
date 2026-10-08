@@ -389,7 +389,7 @@ Runtime behavior. Every field has a default, so `config` can be omitted entirely
 | `ask_user_questions` | `{ "enabled": true }`  | UI + API | The [`ask_user_question`](#ask-clarifying-questions) tool.                                                                                |
 | `dynamic_sub_agents` | `{ "enabled": true }`  | UI + API | [Subagents](/key-features/subagents).                                                                                              |
 | `context_management` | all enabled            | API      | [Compaction](/key-features/overview#context-compaction) and [large tool response offloading](/key-features/large-tool-responses). |
-| `iteration_limit`    | `100`                  | API      | Max agent-loop iterations per turn (1–1024). A safety stop for runaway loops.                                                      |
+| `iteration_limit`    | `512`                  | API      | Max agent-loop iterations per turn (1–1024). A safety stop for runaway loops.                                                      |
 
 #### `config.sandbox`
 

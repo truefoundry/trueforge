@@ -35,8 +35,12 @@ const SANDBOX_STATE_STARTED = 'started';
 const SNAPSHOT_CONFLICT_STATUS = 409;
 
 const BUILD_STATE_ACTIVE = 'active';
+const BUILD_STATE_INACTIVE = 'inactive';
 const BUILD_STATE_ERROR = 'error';
 const BUILD_STATE_BUILD_FAILED = 'build_failed';
+
+const SNAPSHOT_INACTIVE_USER_MESSAGE =
+  'The sandbox is temporarily unavailable and is being restored. Please try again in a few minutes.';
 
 /** Same default the Daytona SDK applies when `DaytonaConfig.apiUrl` is omitted. */
 const DEFAULT_DAYTONA_API_URL = 'https://app.daytona.io/api';
@@ -77,6 +81,8 @@ export interface DaytonaSandboxProviderOptions {
   /** Defaults to 1 hour (same as the gateway's max agent execution time). */
   previewUrlExpirySeconds?: number;
   logger: Logger;
+  /** Host alert hook (e.g. Sentry P1). */
+  onCriticalAlert?: (error: Error) => void;
 }
 
 export class DaytonaSandboxProvider implements SandboxProvider<DaytonaSandboxEnvironment> {
@@ -93,6 +99,7 @@ export class DaytonaSandboxProvider implements SandboxProvider<DaytonaSandboxEnv
   private readonly apiKey: string;
   private readonly apiUrl: string;
   private readonly logger: Logger;
+  private readonly onCriticalAlert: ((error: Error) => void) | undefined;
   private readonly daytona: Daytona;
   private static readonly cachedSandboxes = new Map<string, { sandbox: Sandbox; defaultTimeoutMs: number }>();
   // De-dupes concurrent recovery attempts on the same sandbox to a single refreshData+start round-trip.
@@ -110,6 +117,7 @@ export class DaytonaSandboxProvider implements SandboxProvider<DaytonaSandboxEnv
     this.fileMaxBytesForDownload = options.fileMaxBytesForDownload;
     this.natsBridgePort = options.natsBridgePort ?? DEFAULT_SANDBOX_NATS_WS_PORT;
     this.previewUrlExpirySeconds = options.previewUrlExpirySeconds ?? DEFAULT_PREVIEW_URL_EXPIRY_SECONDS;
+    this.onCriticalAlert = options.onCriticalAlert;
     this.logger = options.logger.child({ module: 'DaytonaProvider' });
   }
 
@@ -322,6 +330,36 @@ export class DaytonaSandboxProvider implements SandboxProvider<DaytonaSandboxEnv
     });
   }
 
+  /** Activate an inactive tip, then throw so create is not attempted. Other states no-op. */
+  private async rejectIfSnapshotInactive(snapshotRef: string): Promise<void> {
+    const snapshot = await this.getSnapshot(snapshotRef);
+    if (snapshot?.state !== BUILD_STATE_INACTIVE) {
+      return;
+    }
+    await this.daytona.snapshot.activate(snapshot);
+    throw new Error(SNAPSHOT_INACTIVE_USER_MESSAGE);
+  }
+
+  /** Fresh create: reject an inactive tip before calling Daytona create. */
+  private async createFreshSandbox(environment?: DaytonaSandboxEnvironment): Promise<Sandbox> {
+    const env = this.requireEnvironment(environment);
+    try {
+      await this.rejectIfSnapshotInactive(env.snapshot_ref);
+      return await this.daytona.create(this.buildCreateParams(env));
+    } catch (error) {
+      if (error instanceof DaytonaError && (error.statusCode === 401 || error.statusCode === 403)) {
+        throw error;
+      }
+      const alertError = error instanceof Error ? error : new Error('Daytona sandbox create failed', { cause: error });
+      this.logger.error('Daytona sandbox create failed', {
+        snapshot_ref: env.snapshot_ref,
+        ...extractErrorLogFields(alertError),
+      });
+      this.onCriticalAlert?.(alertError);
+      throw error;
+    }
+  }
+
   private async getOrCreateSandbox(
     sandboxId?: string,
     environment?: DaytonaSandboxEnvironment,
@@ -336,7 +374,7 @@ export class DaytonaSandboxProvider implements SandboxProvider<DaytonaSandboxEnv
 
     const sandbox = sandboxId
       ? await this.restoreExistingSandbox(sandboxId)
-      : await this.daytona.create(this.buildCreateParams(environment));
+      : await this.createFreshSandbox(environment);
 
     const entry = { sandbox, defaultTimeoutMs: this.timeoutMs };
     DaytonaSandboxProvider.cachedSandboxes.set(sandbox.name, entry);
