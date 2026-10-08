@@ -481,7 +481,7 @@ export class AgentThread {
   private contextBusy = false;
   private currentState: AgentThreadState | null = null;
   private preComputedCompletion?: SubAgentCompletion | undefined;
-  private pendingMCPAuth: boolean;
+  private pendingMCPAuth = false;
   /** Mirrored capability KV — source for toSnapshot().capability_state. */
   private capabilityState: CapabilityState = {};
   private readonly capabilityStateKeys: ReadonlySet<string>;
@@ -497,7 +497,6 @@ export class AgentThread {
     this.currentContextUsage = input.currentContextUsage ?? getEmptyCurrentContextUsage();
     this.agentInfo = input.agentInfo;
     this.preComputedCompletion = input.preComputedCompletion;
-    this.pendingMCPAuth = input.pendingMCPAuth;
     this.sandbox = input.sandbox;
 
     const capabilities = input.capabilities ?? [];

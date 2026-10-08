@@ -130,7 +130,6 @@ describe('orchestration: dynamic sub-agent', () => {
       },
       threadId: ROOT_ID,
       title: 'orchestration-with-tools',
-      pendingMCPAuth: false,
       // Undefined
       parent: undefined,
       agentInfo: undefined,
@@ -172,7 +171,6 @@ describe('orchestration: dynamic sub-agent', () => {
         definition: agentDefinition,
         threadId,
         title: request.name,
-        pendingMCPAuth: false,
         parent,
         agentInfo: request,
         context: undefined,

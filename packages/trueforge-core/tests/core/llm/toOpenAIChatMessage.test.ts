@@ -167,7 +167,6 @@ describe('AgentThread LLM request mapping (end-to-end)', () => {
     const thread = new AgentThread({
       threadId: 'main',
       title: 'Main',
-      pendingMCPAuth: false,
       tracing: NOOP_AGENT_TRACING,
       logger: makeSilentLogger(),
       definition: {

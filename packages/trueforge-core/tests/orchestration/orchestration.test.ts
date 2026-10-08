@@ -53,7 +53,6 @@ describe('orchestration: mocked LLM and no tools', () => {
       },
       threadId: THREAD_ID,
       title: 'orchestration',
-      pendingMCPAuth: false,
       parent: undefined,
       agentInfo: undefined,
       context: undefined,

@@ -289,7 +289,6 @@ describe('capability_state (tfy.plan fixture)', () => {
       },
       threadId: MAIN_THREAD_ID,
       title: 'main',
-      pendingMCPAuth: false,
       capabilities: [badCapability],
       tracing: NOOP_AGENT_TRACING,
       logger: makeSilentLogger(),

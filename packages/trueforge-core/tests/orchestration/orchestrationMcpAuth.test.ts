@@ -1,4 +1,5 @@
 import { EventType, newEventId } from '../../src/core/events/schema';
+import type { IToolSet } from '../../src/core/mcp/IMCPServer';
 import { AgentThread } from '../../src/core/runtime/AgentThread';
 import { InternalEventType, type AgentThreadConstructorInput } from '../../src/core/runtime/AgentThread.types';
 import { AgentThreadOrchestrator } from '../../src/core/runtime/AgentThreadOrchestrator';
@@ -8,6 +9,25 @@ import { makeSilentLogger } from '../core/harnessMocks';
 import { textReplyStream } from './helpers/helpers';
 
 function makeAuthBlockedThread(threadId: string): AgentThread {
+  const authToolSet: IToolSet = {
+    id: `oauth-${threadId}`,
+    name: `oauth-${threadId}`,
+    preload: true,
+    hasPreloadedTools: true,
+    listTools: jest
+      .fn()
+      .mockResolvedValueOnce({
+        authRequired: {
+          servers: [{ id: `oauth-${threadId}`, name: `oauth-${threadId}`, auth_url: 'https://auth.example' }],
+        },
+      })
+      .mockResolvedValue({ result: { tools: [] }, wasInitialized: undefined }),
+    callTool: jest.fn(),
+    toolCallInfo: jest.fn(),
+    setApprovalPolicy: jest.fn(),
+    getApprovalPolicies: jest.fn(() => ({})),
+    hasApplicableApprovalPolicy: jest.fn(() => false),
+  };
   const input: AgentThreadConstructorInput = {
     definition: {
       modelClient: {
@@ -23,14 +43,13 @@ function makeAuthBlockedThread(threadId: string): AgentThread {
     },
     threadId,
     title: threadId,
-    pendingMCPAuth: true,
     parent: undefined,
     agentInfo: undefined,
     context: undefined,
     currentContextUsage: undefined,
     preComputedCompletion: undefined,
     sandbox: undefined,
-    capabilities: undefined,
+    capabilities: [{ systemToolSets: [authToolSet] }],
     capabilityState: undefined,
     tracing: NOOP_AGENT_TRACING,
     logger: makeSilentLogger(),
@@ -53,11 +72,17 @@ describe('orchestration: MCP auth continuation', () => {
     });
     const iterator = orchestrator.execute({ signal: new AbortController().signal });
 
-    const paused = await withTimeout(iterator.next(), 1_000, 'initial MCP-auth pause');
-    expect(paused).toMatchObject({
-      done: false,
-      value: { type: InternalEventType.TURN_STATE, transition: { status: 'paused' } },
-    });
+    const initialEvents = [];
+    let paused = await withTimeout(iterator.next(), 1_000, 'initial MCP-auth event');
+    while (
+      !paused.done &&
+      !(paused.value.type === InternalEventType.TURN_STATE && paused.value.transition.status === 'paused')
+    ) {
+      initialEvents.push(paused.value);
+      paused = await withTimeout(iterator.next(), 1_000, 'initial MCP-auth pause');
+    }
+    expect(initialEvents.filter(event => event.type === InternalEventType.MCP_AUTH_REQUIRED)).toHaveLength(2);
+    expect(paused.done).toBe(false);
 
     const waiting = iterator.next();
     const submitted = [

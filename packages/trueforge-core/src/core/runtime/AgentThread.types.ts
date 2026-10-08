@@ -213,7 +213,6 @@ export interface AgentThreadConstructorInput {
   context?: ContextMessage[] | undefined;
   currentContextUsage?: CurrentContextUsage | undefined;
   preComputedCompletion?: SubAgentCompletion | undefined;
-  pendingMCPAuth: boolean;
   sandbox?: HarnessSandbox | undefined;
   capabilities?: readonly AgentCapability[] | undefined;
   /**
