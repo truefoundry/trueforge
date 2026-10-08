@@ -100,3 +100,7 @@ mcp_servers:
     description: Query product analytics, run SQL, and manage feature flags.
     auth:
       type: dcr
+  - type: remote
+    name: you
+    url: https://api.you.com/mcp?profile=free
+    description: Search the web, fetch page content, and run multi-step research using You.com. Keyless free profile; pass a You.com API key at https://api.you.com/mcp for full-rate access.
