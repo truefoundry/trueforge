@@ -1,8 +1,6 @@
 export interface ErrorLogFields {
   error: string;
   stack?: string | undefined;
-  /** Origin stack when the error was re-thrown through a wrapper that set `cause`. */
-  cause_stack?: string | undefined;
 }
 
 function formatObjectErrorForLog(error: object): string {
@@ -72,8 +70,8 @@ export function describeUnknownError(error: unknown): string {
 }
 
 /**
- * Deepest `cause` that carries its own stack. A wrapper rethrown at a route boundary
- * captures the boundary, not the throw site; this keeps the origin frames.
+ * Deepest `cause` that carries its own stack. A wrapper rethrown at a boundary
+ * captures that boundary, so the logged stack is the origin frames.
  */
 function deepestCauseStack(error: unknown): string | undefined {
   const seen = new Set<unknown>([error]);
@@ -96,11 +94,10 @@ function deepestCauseStack(error: unknown): string | undefined {
 export function extractErrorLogFields(error: unknown): ErrorLogFields {
   if (error instanceof Error) {
     const chain = describeErrorChain(error, new Set());
-    const causeStack = deepestCauseStack(error);
+    const originStack = deepestCauseStack(error);
     return {
       error: chain.length > 0 ? chain : formatObjectErrorForLog(error),
-      stack: error.stack,
-      ...(causeStack === undefined ? {} : { cause_stack: causeStack }),
+      stack: originStack ?? error.stack,
     };
   }
   if (typeof error !== 'object' || error === null) {

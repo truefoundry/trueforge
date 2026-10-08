@@ -2,4 +2,4 @@
 '@truefoundry/trueforge-core': patch
 ---
 
-`extractErrorLogFields` now reports `cause_stack`, the stack of the deepest `cause` that carries one. An error rethrown at a boundary captures that boundary rather than the throw site, so the origin frames were lost from logs; they are kept alongside the outer stack.
+`extractErrorLogFields` logs the deepest `cause` stack as `stack` when a rethrown error carries one. A wrapper captures the boundary rather than the throw site, so the printed traceback starts at the origin.

@@ -135,8 +135,7 @@ describe('createAppErrorHandler', () => {
       path: '/test',
       status: 400,
       error: origin.message,
-      stack: thrown.stack,
-      cause_stack: origin.stack,
+      stack: origin.stack,
     });
   });
 

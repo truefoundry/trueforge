@@ -7,31 +7,28 @@ describe('extractErrorLogFields', () => {
     expect(extractErrorLogFields(error)).toEqual({ error: 'boom', stack: error.stack });
   });
 
-  it('keeps the origin stack when the error was rethrown with a cause', () => {
+  it('logs the origin stack when the error was rethrown with a cause', () => {
     const origin = new Error('ECONNREFUSED');
     const wrapper = new Error('fetch failed', { cause: origin });
 
     expect(extractErrorLogFields(wrapper)).toEqual({
       error: 'fetch failed: ECONNREFUSED',
-      stack: wrapper.stack,
-      cause_stack: origin.stack,
+      stack: origin.stack,
     });
   });
 
-  it('reports the deepest cause that carries a stack', () => {
+  it('uses the deepest cause stack', () => {
     const root = new Error('root');
     const middle = new Error('middle', { cause: root });
     const outer = new Error('outer', { cause: middle });
 
-    expect(extractErrorLogFields(outer).cause_stack).toBe(root.stack);
+    expect(extractErrorLogFields(outer).stack).toBe(root.stack);
   });
 
-  it('omits cause_stack when there is no cause', () => {
-    expect(extractErrorLogFields(new Error('boom'))).not.toHaveProperty('cause_stack');
-  });
+  it('keeps the outer stack when the cause is not an error', () => {
+    const error = new Error('boom', { cause: 'a string' });
 
-  it('omits cause_stack when the cause is not an error', () => {
-    expect(extractErrorLogFields(new Error('boom', { cause: 'a string' }))).not.toHaveProperty('cause_stack');
+    expect(extractErrorLogFields(error)).toEqual({ error: 'boom: a string', stack: error.stack });
   });
 
   it('survives a cause cycle', () => {
