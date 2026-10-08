@@ -23,14 +23,14 @@
     "test": "cross-env NODE_OPTIONS=--conditions=trueforge-dev tsx --test \"tests/**/*.test.ts\""
   },
   "dependencies": {
-    "@assistant-ui/core": "0.2.22",
-    "@assistant-ui/react": "0.14.27",
-    "@assistant-ui/store": "0.2.21",
+    "@assistant-ui/core": "0.3.22",
+    "@assistant-ui/react": "0.15.23",
+    "@assistant-ui/store": "0.3.16",
     "@truefoundry/trueforge-assistant-ui-runtime": "workspace:*",
     "@truefoundry/trueforge-sdk": "workspace:*",
     "@truefoundry/trueforge-ui": "workspace:*",
     "monaco-editor": "^0.57.0",
-    "posthog-js": "^1.434.17",
+    "posthog-js": "^1.436.1",
     "react": "^19.2.4",
     "react-dom": "^19.2.4",
     "react-router-dom": "^7.18.2",
