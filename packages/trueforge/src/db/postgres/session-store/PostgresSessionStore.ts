@@ -1,8 +1,8 @@
 import {
   AgentSpecSchema,
   type AgentSpec,
+  type LegacyTurnInputItem,
   type SessionMetadata,
-  type TurnInputItem,
   type TurnState,
 } from '@truefoundry/trueforge-core/agent-session';
 import type { SessionRecord } from '@truefoundry/trueforge-core/agent-session/models/SessionRecord';
@@ -388,7 +388,7 @@ export class PostgresSessionStore implements ISessionStore<SessionCustom, TurnCu
             previous_turn_id: turn.previous_turn_id,
             ancestor_ids: turn.ancestor_ids,
             active_executor_id: activeExecutorId,
-            input: jsonUnknown<TurnInputItem[]>(turn.input),
+            input: jsonUnknown<LegacyTurnInputItem[]>(turn.input),
             state: jsonUnknown<TurnState>(turn.state),
             checkpoint: jsonUnknown<TurnCheckpoint>(turn.checkpoint ?? { mcp_servers: null, sandbox_info: null }),
             custom: turn.custom !== null ? json(turn.custom) : null,

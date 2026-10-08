@@ -8,7 +8,6 @@ import type {
   AgentParent,
   ApprovalDecisionMessage,
   BaseMCPAuthRequiredEvent,
-  InputUserMessage,
   MCPInitializeEvent,
   MCPServerAuthInfo,
   MCPServerInitInfo,
@@ -23,6 +22,7 @@ import type {
   ToolResponseRequiredEvent,
   TurnUserEvent,
   UserMCPAuthContinueEvent,
+  UserMessage,
   UserToolApprovalEvent,
   UserToolResponseEvent,
 } from '../events/schema';
@@ -139,16 +139,15 @@ export interface UserEventsCommitEvent {
 }
 
 /**
- * Single runtime send item (no internal LLM tool messages). Decisions are in event form — their ids
- * are seeded at the send boundary (HTTP handler / createTurn `toSendBatch`) and reused downstream.
+ * Single runtime send item (no internal LLM tool messages).
  */
-export type AgentSendInput = UserToolApprovalEvent | UserToolResponseEvent | InputUserMessage;
+export type AgentSendInput = UserToolApprovalEvent | UserToolResponseEvent | UserMessage;
 
 /**
  * Homogeneous send batch: all user messages, or all approval/tool-response events (id-seeded).
  * Mixed batches are rejected at the HTTP/orchestrator boundary.
  */
-export type AgentThreadSendBatch = InputUserMessage[] | (UserToolApprovalEvent | UserToolResponseEvent)[];
+export type AgentThreadSendBatch = UserMessage[] | (UserToolApprovalEvent | UserToolResponseEvent)[];
 
 export type AgentThreadEvent =
   | ModelMessageEvent

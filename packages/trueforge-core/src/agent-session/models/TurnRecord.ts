@@ -1,7 +1,7 @@
 import type { MCPServerInitInfo } from '../../core/events/schema';
 import type { AgentThreadSnapshot } from '../../core/runtime/AgentThread.types';
 import type { SandboxInfo } from '../../core/sandbox/Sandbox';
-import type { TurnInputItem, TurnState } from '../schemas/turn';
+import type { LegacyTurnInputItem, TurnState } from '../schemas/turn';
 
 /** Root thread id for every session. */
 export const MAIN_THREAD_ID = 'main';
@@ -30,7 +30,7 @@ export interface TurnRecord<TCustom extends object = Record<string, never>> {
   previous_turn_id: string | null;
   active_executor_id: string;
   state: TurnState;
-  input: TurnInputItem[];
+  input: LegacyTurnInputItem[];
   snapshot: TurnSnapshot;
   /** Instant the turn was created (store domain). Wire/API serialize as ISO-8601. */
   created_at: Date;

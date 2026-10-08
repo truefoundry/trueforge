@@ -33,9 +33,9 @@ import {
 import type { TokenPagination } from './schemas/pagination';
 import {
   CancellationReason,
+  type LegacyTurnInputItem,
   type NonTerminalTurnState,
   type TerminalTurnState,
-  type TurnInputItem,
   type TurnMetrics,
   type TurnState,
 } from './schemas/turn';
@@ -223,7 +223,7 @@ export class TurnHandle<TTurnCustom extends object = Record<string, never>> {
     return this.turn.previous_turn_id;
   }
 
-  get input(): TurnInputItem[] {
+  get input(): LegacyTurnInputItem[] {
     return this.turn.input;
   }
 

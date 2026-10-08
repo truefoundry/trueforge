@@ -4,7 +4,7 @@ import {
   isEmptyMessageContent,
   processAgentUserInput,
   type FileContentPart,
-  type InputUserMessage,
+  type UserMessage,
 } from '../../../src/core/runtime/UserInputMessage';
 import '../harnessMocks';
 import { makeStubPublicSandbox } from '../harnessMocks';
@@ -23,7 +23,7 @@ describe('UserInputMessage validation', () => {
   });
 
   it('rejects file uploads when sandbox is unavailable', async () => {
-    const msg: InputUserMessage = {
+    const msg: UserMessage = {
       type: EventType.USER_MESSAGE,
       content: [
         {
@@ -41,7 +41,7 @@ describe('UserInputMessage validation', () => {
   });
 
   it('rejects empty file names', async () => {
-    const msg: InputUserMessage = {
+    const msg: UserMessage = {
       type: EventType.USER_MESSAGE,
       content: [
         {
@@ -59,7 +59,7 @@ describe('UserInputMessage validation', () => {
   });
 
   it('rejects path traversal in file names', async () => {
-    const msg: InputUserMessage = {
+    const msg: UserMessage = {
       type: EventType.USER_MESSAGE,
       content: [
         {
@@ -77,7 +77,7 @@ describe('UserInputMessage validation', () => {
   });
 
   it('rejects malformed file data URIs', async () => {
-    const msg: InputUserMessage = {
+    const msg: UserMessage = {
       type: EventType.USER_MESSAGE,
       content: [
         {

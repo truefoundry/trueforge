@@ -213,7 +213,7 @@ export const UserContentPartSchema = z
   .openapi('UserMessageContentItem');
 export type UserContentPart = z.infer<typeof UserContentPartSchema>;
 
-export const InputUserMessageSchema = z
+export const UserMessageSchema = z
   .object({
     type: z.literal(EventType.USER_MESSAGE).describe('User message input item.'),
     content: z
@@ -221,7 +221,7 @@ export const InputUserMessageSchema = z
       .describe('Plain string or structured text/file content parts.'),
   })
   .openapi('UserMessage');
-export type InputUserMessage = z.infer<typeof InputUserMessageSchema>;
+export type UserMessage = z.infer<typeof UserMessageSchema>;
 
 // persisted to redis - thread_id is stripped
 export const ApprovalDecisionMessageSchema = UserToolApprovalMessageSchema.omit({

@@ -46,7 +46,6 @@ if typing.TYPE_CHECKING:
     from .chat_completion_message_tool_call_function import ChatCompletionMessageToolCallFunction
     from .compaction_config import CompactionConfig
     from .components_schemas_tool_approval_policy_allow_session import ComponentsSchemasToolApprovalPolicyAllowSession
-    from .components_schemas_user_message import ComponentsSchemasUserMessage
     from .configured_mcp_server import ConfiguredMcpServer
     from .configured_model import ConfiguredModel
     from .configured_model_provider import ConfiguredModelProvider
@@ -101,6 +100,7 @@ if typing.TYPE_CHECKING:
     from .initial_user_message import InitialUserMessage
     from .input_tokens_compaction_trigger import InputTokensCompactionTrigger
     from .large_tool_response_config import LargeToolResponseConfig
+    from .legacy_turn_input_item import LegacyTurnInputItem
     from .list_agents_response import ListAgentsResponse
     from .list_available_mcp_servers_response import ListAvailableMcpServersResponse
     from .list_available_models_response import ListAvailableModelsResponse
@@ -315,7 +315,6 @@ _dynamic_imports: typing.Dict[str, str] = {
     "ChatCompletionMessageToolCallFunction": ".chat_completion_message_tool_call_function",
     "CompactionConfig": ".compaction_config",
     "ComponentsSchemasToolApprovalPolicyAllowSession": ".components_schemas_tool_approval_policy_allow_session",
-    "ComponentsSchemasUserMessage": ".components_schemas_user_message",
     "ConfiguredMcpServer": ".configured_mcp_server",
     "ConfiguredModel": ".configured_model",
     "ConfiguredModelProvider": ".configured_model_provider",
@@ -370,6 +369,7 @@ _dynamic_imports: typing.Dict[str, str] = {
     "InitialUserMessage": ".initial_user_message",
     "InputTokensCompactionTrigger": ".input_tokens_compaction_trigger",
     "LargeToolResponseConfig": ".large_tool_response_config",
+    "LegacyTurnInputItem": ".legacy_turn_input_item",
     "ListAgentsResponse": ".list_agents_response",
     "ListAvailableMcpServersResponse": ".list_available_mcp_servers_response",
     "ListAvailableModelsResponse": ".list_available_models_response",
@@ -608,7 +608,6 @@ __all__ = [
     "ChatCompletionMessageToolCallFunction",
     "CompactionConfig",
     "ComponentsSchemasToolApprovalPolicyAllowSession",
-    "ComponentsSchemasUserMessage",
     "ConfiguredMcpServer",
     "ConfiguredModel",
     "ConfiguredModelProvider",
@@ -663,6 +662,7 @@ __all__ = [
     "InitialUserMessage",
     "InputTokensCompactionTrigger",
     "LargeToolResponseConfig",
+    "LegacyTurnInputItem",
     "ListAgentsResponse",
     "ListAvailableMcpServersResponse",
     "ListAvailableModelsResponse",

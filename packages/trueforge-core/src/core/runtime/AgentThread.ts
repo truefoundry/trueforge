@@ -88,10 +88,10 @@ import {
   INTERNAL_SYSTEM_PROMPT,
   isApprovalDecisionEvent,
   isClientSideToolResponseEvent,
-  isInputUserMessage,
   isLLMContextMessage,
   isLLMToolMessage,
   isMCPAuthContinueEvent,
+  isUserMessage,
   makeUnknownToolInfo,
   scanApprovalDecisions,
   toEnrichedToolCall,
@@ -100,7 +100,7 @@ import {
 import { DeferredTool } from './DeferredTool';
 import { createEmptyAgentThreadMetrics, updateMetricsFromUsage, type AgentThreadMetrics } from './metrics';
 import { getClosableOpenToolCallIds, OpenToolCallCloser } from './OpenToolCallCloser';
-import { isEmptyMessageContent, processAgentUserInput, type InputUserMessage } from './UserInputMessage';
+import { isEmptyMessageContent, processAgentUserInput, type UserMessage } from './UserInputMessage';
 
 const DEFAULT_ITERATION_LIMIT = 25;
 
@@ -274,7 +274,7 @@ function buildModelMessageEvent({
 }
 
 function validateUserMessage(
-  message: { content: InputUserMessage['content'] },
+  message: { content: UserMessage['content'] },
   blockingOpenToolCallIds: Set<string>,
   index: number,
 ): void {
@@ -563,7 +563,7 @@ export class AgentThread {
     }
   }
 
-  async *sendUserMessages(messages: InputUserMessage[]): AsyncGenerator<AgentThreadAppendContext, void, unknown> {
+  async *sendUserMessages(messages: UserMessage[]): AsyncGenerator<AgentThreadAppendContext, void, unknown> {
     if (messages.length === 0) {
       return;
     }
@@ -862,7 +862,7 @@ export class AgentThread {
       if (isApprovalDecisionEvent(m)) {
         validateApprovalMessage(m, pendingApprovalIds, i);
         pendingApprovalIds.delete(m.tool_call_id);
-      } else if (isInputUserMessage(m)) {
+      } else if (isUserMessage(m)) {
         validateUserMessage(m, blockingOpenToolCallIds, i);
       } else if (isClientSideToolResponseEvent(m) || isLLMToolMessage(m)) {
         validateToolMessage(m, openToolCallIds, i);

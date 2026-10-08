@@ -7,8 +7,8 @@ export interface Turn {
     createdAt: string;
     /** Unique turn id. */
     id: string;
-    /** Input items supplied when the turn was created. */
-    input?: TrueForge.ComponentsSchemasUserMessage[];
+    /** Inputs stored when the turn was created, including legacy continuation inputs. */
+    input?: TrueForge.LegacyTurnInputItem[];
     /** Prior turn this turn chains from; null for a root turn. */
     previousTurnId: string | null;
     /** Session that owns this turn. */

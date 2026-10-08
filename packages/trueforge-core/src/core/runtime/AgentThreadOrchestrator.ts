@@ -3,7 +3,6 @@ import { AgentHarnessError, InvalidAgentSendInputError } from '../errors';
 import {
   EventType,
   newEventId,
-  type InputUserMessage,
   type MCPServerInitInfo,
   type ModelMessageEvent,
   type ToolApprovalPolicy,
@@ -11,6 +10,7 @@ import {
   type ToolResponseEvent,
   type TurnUserEvent,
   type UserMCPAuthContinueEvent,
+  type UserMessage,
   type UserToolApprovalEvent,
   type UserToolApprovalPolicyEvent,
   type UserToolResponseEvent,
@@ -373,10 +373,10 @@ export class AgentThreadOrchestrator {
     return validationErrors;
   }
 
-  public send(input: InputUserMessage[]): AsyncGenerator<AgentThreadAppendContext, void, unknown>;
+  public send(input: UserMessage[]): AsyncGenerator<AgentThreadAppendContext, void, unknown>;
   public send(input: TurnUserEvent[]): AsyncGenerator<TurnUserEvent[], void, unknown>;
   public async *send(
-    input: InputUserMessage[] | TurnUserEvent[],
+    input: UserMessage[] | TurnUserEvent[],
   ): AsyncGenerator<AgentThreadAppendContext | TurnUserEvent[], void, unknown> {
     if (input.length === 0) {
       return;

@@ -8,11 +8,11 @@
 import type {
   AgentSpec,
   CreatedBySubject,
+  LegacyTurnInputItem,
   PersistedTurnEvent,
   SessionMetadata,
   SessionMetrics,
   SessionSource,
-  TurnInputItem,
   TurnState,
   TurnUserEventMessage,
 } from '@truefoundry/trueforge-core/agent-session';
@@ -107,7 +107,7 @@ export interface TurnTable {
   ancestor_ids: JsonbColumn<string[]>;
   /** Replica currently owning the in-memory ActiveTurn. */
   active_executor_id: string;
-  input: JsonbColumn<TurnInputItem[]>;
+  input: JsonbColumn<LegacyTurnInputItem[]>;
   state: JsonbColumn<TurnState>;
   checkpoint: JsonbColumn<TurnCheckpoint>;
   custom: JsonbColumn<Record<string, unknown>> | null;

@@ -1,6 +1,11 @@
-/** Turn product schemas: turn state, input items, and create-turn request. */
 import { z } from '@hono/zod-openapi';
-import { ActionRequiredEventSchema, InputUserMessageSchema, ModelMessageEventSchema } from '../../core/events/schema';
+import {
+  ActionRequiredEventSchema,
+  ModelMessageEventSchema,
+  UserMessageSchema,
+  UserToolApprovalMessageSchema,
+  UserToolResponseMessageSchema,
+} from '../../core/events/schema';
 
 export enum CancellationReason {
   // AbortController.abort() reason for the max-execution timer.
@@ -117,14 +122,24 @@ export const TurnStateSchema = z
   ])
   .openapi('TurnState');
 
-export const TurnInputItemSchema = z.discriminatedUnion('type', [InputUserMessageSchema]).openapi('TurnInputItem');
+/**
+ * Historical turn rows may contain approval decisions and client-side tool responses
+ * because those inputs created continuation turns before the turn-events endpoint existed.
+ * New turns accept only UserMessageSchema through CreateTurnRequestSchema.
+ */
+export const LegacyTurnInputItemSchema = z
+  .discriminatedUnion('type', [UserMessageSchema, UserToolApprovalMessageSchema, UserToolResponseMessageSchema])
+  .openapi('LegacyTurnInputItem');
 
 export const TurnSchema = z
   .object({
     id: z.string().describe('Unique turn id.'),
     session_id: z.string().describe('Session that owns this turn.'),
     previous_turn_id: z.string().nullable().describe('Prior turn this turn chains from; null for a root turn.'),
-    input: z.array(TurnInputItemSchema).optional().describe('Input items supplied when the turn was created.'),
+    input: z
+      .array(LegacyTurnInputItemSchema)
+      .optional()
+      .describe('Inputs stored when the turn was created, including legacy continuation inputs.'),
     state: TurnStateSchema,
     created_at: z.string().describe('ISO 8601 creation timestamp.'),
   })
@@ -136,12 +151,7 @@ export const TurnSchema = z
  */
 export const CreateTurnRequestSchema = z
   .object({
-    input: z
-      .array(TurnInputItemSchema)
-      .optional()
-      .describe(
-        'Turn input items: user messages only. Approval decisions and client-side tool responses are sent to a running turn via the turn events endpoint, not at turn creation.',
-      ),
+    input: z.array(UserMessageSchema).optional().describe('User messages supplied when the turn is created.'),
     previous_turn_id: z
       .union([z.literal('auto'), z.literal('none'), z.string().min(1)])
       .optional()
@@ -157,7 +167,7 @@ export const CreateTurnRequestSchema = z
   .openapi('CreateTurnRequest');
 
 export type Turn = z.infer<typeof TurnSchema>;
-export type TurnInputItem = z.infer<typeof TurnInputItemSchema>;
+export type LegacyTurnInputItem = z.infer<typeof LegacyTurnInputItemSchema>;
 export type TurnState = z.infer<typeof TurnStateSchema>;
 export type NonTerminalTurnState = Extract<TurnState, { status: 'running' | 'paused' }>;
 export type TerminalTurnState = Exclude<TurnState, NonTerminalTurnState>;
