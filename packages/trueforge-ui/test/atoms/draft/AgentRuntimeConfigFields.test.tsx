@@ -16,12 +16,14 @@ function renderRuntimeFields({
   value = { sandbox: { enabled: true } },
   layout = 'detailed',
   sandboxAvailable = true,
+  hasSkills = false,
   environmentsEnabled = true,
   onChange = vi.fn(),
 }: {
   value?: AgentRuntimeConfig;
   layout?: 'compact' | 'detailed';
   sandboxAvailable?: boolean;
+  hasSkills?: boolean;
   environmentsEnabled?: boolean;
   onChange?: (val: AgentRuntimeConfig) => void;
 } = {}) {
@@ -74,7 +76,7 @@ function renderRuntimeFields({
       <AgentRuntimeConfigFields
         value={value}
         sandboxAvailable={sandboxAvailable}
-        hasSkills={false}
+        hasSkills={hasSkills}
         layout={layout}
         onChange={onChange}
       />
@@ -108,6 +110,21 @@ describe('AgentRuntimeConfigFields', () => {
 
     expect(screen.getByText('Environment')).toBeInTheDocument();
     expect(screen.queryByRole('button', { name: /Manage Environments/ })).not.toBeInTheDocument();
+  });
+
+  it('shows skills lock tooltip only when hovering the sandbox switch', () => {
+    renderRuntimeFields({ hasSkills: true });
+
+    const sandboxSwitch = screen.getByRole('switch', { name: 'Sandbox' });
+    expect(sandboxSwitch).toBeDisabled();
+
+    fireEvent.mouseEnter(screen.getByText('Sandbox'));
+    expect(document.querySelector('[role="tooltip"]')).toBeNull();
+
+    fireEvent.mouseEnter(sandboxSwitch.parentElement!);
+    const tooltip = document.querySelector('[role="tooltip"]');
+    expect(tooltip).not.toBeNull();
+    expect(tooltip).toHaveTextContent('Always on while skills are attached — remove them to turn it off');
   });
 
   it('populates environment dropdown with default and ready environments only', async () => {

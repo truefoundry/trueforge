@@ -175,13 +175,25 @@ export function AgentRuntimeConfigFields({
     field: RuntimeSwitchField;
     className?: string;
     wrapperClassName?: string;
-  }) => (
-    <Tooltip
-      key={field.label}
-      content={field.disabledTooltip ?? ''}
-      triggerClassName={cn('flex w-full min-w-0', wrapperClassName)}
-    >
-      <div className={cn('flex w-full', className ?? 'items-center justify-between gap-3 py-1.5')}>
+  }) => {
+    const control = (
+      <Switch
+        checked={field.checked}
+        disabled={disabled || field.disabled}
+        onCheckedChange={enabled => onChange(field.update(enabled))}
+        aria-label={field.label}
+      />
+    );
+
+    return (
+      <div
+        key={field.label}
+        className={cn(
+          'flex w-full min-w-0',
+          wrapperClassName,
+          className ?? 'items-center justify-between gap-3 py-1.5',
+        )}
+      >
         <span className="min-w-0">
           <span className={cn('text-text-primary', layout === 'detailed' ? 'block text-sm font-medium' : 'text-xs')}>
             {field.label}
@@ -190,15 +202,16 @@ export function AgentRuntimeConfigFields({
             <span className="text-text-secondary mt-0.5 block text-xs leading-snug">{field.description}</span>
           ) : null}
         </span>
-        <Switch
-          checked={field.checked}
-          disabled={disabled || field.disabled}
-          onCheckedChange={enabled => onChange(field.update(enabled))}
-          aria-label={field.label}
-        />
+        {field.disabledTooltip ? (
+          <Tooltip content={field.disabledTooltip}>
+            <span className="inline-flex">{control}</span>
+          </Tooltip>
+        ) : (
+          control
+        )}
       </div>
-    </Tooltip>
-  );
+    );
+  };
 
   if (layout === 'detailed') {
     const rowClassName = 'items-center justify-between gap-4';
