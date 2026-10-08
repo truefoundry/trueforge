@@ -1121,13 +1121,17 @@ function projectActiveStreamUpdate(snapshot: SessionSnapshot): TurnStreamUpdate 
     throw new Error('projectActiveStreamUpdate requires an active stream');
   }
 
-  // MCP auth is not stored in the fold. After pause we rebuild from fold +
-  // snapshot.pendingMcpAuth; if only the live update has the auth chrome, keep
-  // that update instead of wiping Connect/Continue.
-  // Do not short-circuit on staged approval overlays — rebuild so sibling
-  // pending approvals remain visible after a partial allow.
+  // MCP auth lives on the stream update / snapshot, not in the fold.
+  // If the live update still shows Connect/Continue but the snapshot lost
+  // that state, keep the live update so the prompt does not disappear.
+  // Always rebuild for tool-approval pauses so other pending approvals stay
+  // visible after the user allows one of them.
+  // Once the live update has moved past MCP auth (e.g. tool approval), do not
+  // reuse an old pendingMcpAuth from the snapshot — that would show the auth
+  // prompt again on top of the new pause.
   const liveCustom = activeStream.update.metadata?.custom;
-  if (liveCustom?.[MESSAGE_CUSTOM_KEY.PENDING_MCP_AUTH] === true && snapshot.pendingMcpAuth == null) {
+  const liveAffirmsMcpAuth = liveCustom?.[MESSAGE_CUSTOM_KEY.PENDING_MCP_AUTH] === true;
+  if (liveAffirmsMcpAuth && snapshot.pendingMcpAuth == null) {
     return activeStream.update;
   }
 
@@ -1138,7 +1142,7 @@ function projectActiveStreamUpdate(snapshot: SessionSnapshot): TurnStreamUpdate 
   const content = foldContent.length > 0 ? foldContent : activeStream.update.content;
 
   const turnRecord = snapshot.turns.find(turn => turn.id === activeStream.turnId);
-  const pendingMcpAuth = turnRecord?.pendingMcpAuth ?? snapshot.pendingMcpAuth;
+  const pendingMcpAuth = liveAffirmsMcpAuth ? (turnRecord?.pendingMcpAuth ?? snapshot.pendingMcpAuth) : undefined;
   const turnLike =
     turnRecord != null
       ? { state: turnRecord.state, pendingMcpAuth }
