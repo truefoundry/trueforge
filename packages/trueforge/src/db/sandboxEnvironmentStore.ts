@@ -129,16 +129,19 @@ export interface ExistingSandboxEnvironmentVersion {
   existing_external_ref?: string;
 }
 
-export interface UpsertSandboxEnvironmentInput {
+export interface CreateSandboxEnvironmentInput {
   tenant_id: string;
   name: ResourceName;
   description: string;
   created_by_subject: CreatedBySubject;
-  /** Complete provider refs from a successful secret sync before upsert. */
+  /** Complete provider refs from a successful secret sync before write. */
   synced_secrets: SyncedSandboxEnvironmentSecret[];
   /** Called after parent lock/create; store upserts secrets from the returned manifest. */
   buildVersion: (input: ExistingSandboxEnvironmentVersion) => Promise<UpsertSandboxEnvironmentVersion>;
 }
+
+/** Same fields as create — create-or-replace by `(tenant_id, name)`. */
+export type UpsertSandboxEnvironmentInput = CreateSandboxEnvironmentInput;
 
 export interface MarkSandboxEnvironmentVersionReadyInput {
   environment_version_id: string;
@@ -208,7 +211,7 @@ export interface ISandboxEnvironmentStore<TTransaction = never> {
    * uses the name. Uses `transaction` when passed; otherwise opens its own.
    */
   createEnvironment(
-    input: UpsertSandboxEnvironmentInput,
+    input: CreateSandboxEnvironmentInput,
     transaction?: TTransaction,
   ): Promise<SandboxEnvironmentWithVersion>;
   /**

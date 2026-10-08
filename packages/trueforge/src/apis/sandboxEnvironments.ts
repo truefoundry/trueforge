@@ -136,11 +136,11 @@ export function createSandboxEnvironmentsRouter<TTransaction>(
   async function writeSandboxEnvironment({
     c,
     body,
-    create,
+    mode,
   }: {
     c: Context;
     body: CreateSandboxEnvironmentRequest | UpdateSandboxEnvironmentRequest;
-    create: boolean;
+    mode: 'create' | 'upsert';
   }): Promise<WriteSandboxEnvironmentOutcome> {
     const requestContext = resolveRequestContext(c);
     const { manifest } = body;
@@ -153,7 +153,7 @@ export function createSandboxEnvironmentsRouter<TTransaction>(
 
     try {
       // Tenant-wide name check before secret sync so create cannot mutate another env's secrets.
-      if (create) {
+      if (mode === 'create') {
         const taken = await store.getEnvironment({
           tenant_id: requestContext.tenant_id,
           name: manifest.name,
@@ -209,7 +209,8 @@ export function createSandboxEnvironmentsRouter<TTransaction>(
             created_by_subject,
           }),
       };
-      const result = create ? await store.createEnvironment(writeInput) : await store.upsertEnvironment(writeInput);
+      const result =
+        mode === 'create' ? await store.createEnvironment(writeInput) : await store.upsertEnvironment(writeInput);
 
       return { kind: 'saved', environment: toSandboxEnvironment(result) };
     } catch (error) {
@@ -231,7 +232,7 @@ export function createSandboxEnvironmentsRouter<TTransaction>(
   }
 
   const createHandler: RouteHandler<typeof createSandboxEnvironmentRoute> = async c => {
-    const outcome = await writeSandboxEnvironment({ c, body: c.req.valid('json'), create: true });
+    const outcome = await writeSandboxEnvironment({ c, body: c.req.valid('json'), mode: 'create' });
     if (outcome.kind === 'error') {
       return c.json({ error: { message: outcome.message } }, outcome.status);
     }
@@ -240,7 +241,7 @@ export function createSandboxEnvironmentsRouter<TTransaction>(
 
   // Create-or-update keyed by manifest.name.
   const putHandler: RouteHandler<typeof putSandboxEnvironmentRoute> = async c => {
-    const outcome = await writeSandboxEnvironment({ c, body: c.req.valid('json'), create: false });
+    const outcome = await writeSandboxEnvironment({ c, body: c.req.valid('json'), mode: 'upsert' });
     if (outcome.kind === 'error') {
       return c.json({ error: { message: outcome.message } }, outcome.status);
     }

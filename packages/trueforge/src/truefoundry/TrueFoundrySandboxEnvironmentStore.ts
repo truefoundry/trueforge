@@ -10,6 +10,7 @@ import { encodeOffsetPageToken } from '@truefoundry/trueforge-core/agent-session
 import { createLogger } from 'winston';
 import {
   SandboxEnvironmentNameConflictError,
+  type CreateSandboxEnvironmentInput,
   type DeleteSandboxEnvironmentInput,
   type GetSandboxEnvironmentInput,
   type GetSandboxEnvironmentVersionInput,
@@ -124,7 +125,7 @@ export class TrueFoundrySandboxEnvironmentStore<
   }
 
   createEnvironment(
-    input: UpsertSandboxEnvironmentInput,
+    input: CreateSandboxEnvironmentInput,
     transaction?: TTransaction,
   ): Promise<SandboxEnvironmentWithVersion> {
     if (!this.#envSupported) {
