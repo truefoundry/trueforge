@@ -34,6 +34,11 @@ function toUiTerminalTurnState(state: TrueForgeApi.TurnDoneEventState): Exclude<
       return {
         status: 'error',
         message: state.message,
+        // Optional on the wire: a server that could not classify the failure sends message only.
+        ...(state.code == null ? {} : { code: state.code }),
+        ...(state.source == null ? {} : { source: state.source }),
+        ...(state.retryable == null ? {} : { retryable: state.retryable }),
+        ...(state.detail == null ? {} : { detail: state.detail }),
         completedAt: state.completedAt,
         ...(state.metrics == null ? {} : { metrics: toUiTurnDoneMetrics(state.metrics) }),
       };

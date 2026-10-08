@@ -3,11 +3,19 @@
 import type * as TrueForge from "../index.js";
 
 export interface TurnStateError {
+    /** Machine-readable error code for this failure. */
+    code?: TrueForge.TurnStateErrorCode;
     /** ISO 8601 time when the error state was recorded. */
     completedAt: string;
+    /** Raw technical text behind the message, for debugging. */
+    detail?: string;
     /** Human-readable error message. */
     message: string;
     /** Optional billable aggregate for work done before the error. */
     metrics?: TrueForge.TurnStateErrorMetrics;
+    /** Whether retrying the same request may succeed. */
+    retryable?: boolean;
+    /** Which subsystem the failure came from. */
+    source?: TrueForge.TurnStateErrorSource;
     status: "error";
 }

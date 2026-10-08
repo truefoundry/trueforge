@@ -15,6 +15,8 @@ import type { AgentThreadOrchestrator } from '../core/runtime/AgentThreadOrchest
 import { getEmptyCurrentContextUsage } from '../core/runtime/contextUsage';
 import { isInternalThreadDoneCancelled } from '../core/runtime/contextUtils';
 import type { AgentThreadMetrics } from '../core/runtime/metrics';
+import { classifyError } from '../core/util/classifyError';
+import type { ErrorClassification } from '../core/util/errorTaxonomy';
 import type { ITurnResourceResolver } from './ITurnResourceResolver';
 import type { TurnRecord } from './models/TurnRecord';
 import { EventType, type PersistedTurnEvent, type TurnCreatedEvent, type TurnDoneEvent } from './schemas/events';
@@ -43,6 +45,23 @@ function cancellationReasonFromAbortReason(abortReason: unknown): CancellationRe
     return CancellationReason.Abandoned;
   }
   return CancellationReason.ClientCancelled;
+}
+
+/** Flattens a classification onto the error turn state so the UI gets code, retryability and raw detail. */
+function errorStateFields(classification: ErrorClassification): {
+  message: string;
+  code: ErrorClassification['code'];
+  source: ErrorClassification['source'];
+  retryable: boolean;
+  detail: string;
+} {
+  return {
+    message: classification.title,
+    code: classification.code,
+    source: classification.source,
+    retryable: classification.retryable,
+    detail: classification.detail,
+  };
 }
 
 function toThreadDoneEvent(event: InternalThreadDoneEvent): ThreadDoneEvent {
@@ -300,14 +319,14 @@ export class TurnHandle<TTurnCustom extends object = Record<string, never>> {
       } else if (caughtError) {
         terminalState = {
           status: 'error',
-          message: caughtError.message,
+          ...errorStateFields(classifyError({ error: caughtError, source: 'internal' })),
           completed_at: createdAtIso,
           metrics,
         };
       } else if (executeResult?.root_agent_error) {
         terminalState = {
           status: 'error',
-          message: executeResult.root_agent_error.error,
+          ...errorStateFields(executeResult.root_agent_error.classification),
           completed_at: createdAtIso,
           metrics,
         };

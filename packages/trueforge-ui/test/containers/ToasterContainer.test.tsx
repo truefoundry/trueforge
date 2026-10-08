@@ -117,6 +117,26 @@ describe('ToasterProvider', () => {
     expect(screen.getByText('Name taken')).toBeInTheDocument();
   });
 
+  it('promotes a classified server message to the toast title', async () => {
+    const httpError = Object.assign(new Error('Status code: 500'), {
+      statusCode: 500,
+      body: { error: { message: 'TrueFoundry did not respond in time.', code: 'control_plane_timeout' } },
+    });
+
+    render(
+      <SlotsProvider>
+        <ToasterProvider>
+          <Trigger errors={[httpError]} />
+        </ToasterProvider>
+      </SlotsProvider>,
+    );
+
+    fireEvent.click(screen.getByRole('button', { name: 'boom' }));
+
+    expect(await screen.findByText('TrueFoundry did not respond in time.')).toBeInTheDocument();
+    expect(screen.queryByText('Request failed (500)')).not.toBeInTheDocument();
+  });
+
   it('keeps only the five most recent errors visible', async () => {
     const errors = Array.from({ length: 6 }, (_, index) => new Error(`error-${index + 1}`));
 

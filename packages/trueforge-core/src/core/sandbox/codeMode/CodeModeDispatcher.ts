@@ -7,6 +7,7 @@ import {
   isCallToolResponseResult,
   type IToolSet,
 } from '../../mcp/IMCPServer';
+import { classificationLogFields, classifyError } from '../../util/classifyError';
 import { extractErrorLogFields } from '../../util/errorLogFields';
 import type { CodeModeErrorSource, CodeModeReply, CodeModeRequest } from './types';
 
@@ -86,8 +87,13 @@ export class CodeModeDispatcher {
       return { ok: true, result };
     } catch (e) {
       const source = classifyErrorSource(e);
+      // Dispatch errors are authored for the caller (unknown server, OAuth, sub-agent misuse),
+      // so the message is kept as-is; classification only enriches the log.
       const errorMessage = e instanceof Error ? e.message : 'Unknown Code Mode dispatch error';
-      this.logger.error(`Code Mode dispatch failed (source=${source})`, extractErrorLogFields(e));
+      this.logger.error(`Code Mode dispatch failed (source=${source})`, {
+        ...extractErrorLogFields(e),
+        ...classificationLogFields(classifyError({ error: e, source: 'mcp' })),
+      });
       return { ok: false, error: errorMessage, source };
     }
   }

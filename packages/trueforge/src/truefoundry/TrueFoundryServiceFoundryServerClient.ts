@@ -1,4 +1,9 @@
-import { extractErrorLogFields } from '@truefoundry/trueforge-core/core';
+import {
+  classificationLogFields,
+  ClassifiedHarnessError,
+  classifyError,
+  extractErrorLogFields,
+} from '@truefoundry/trueforge-core/core';
 import { HTTPException } from 'hono/http-exception';
 import { LRUCache } from 'lru-cache';
 import { fetch as undiciFetch, type Dispatcher } from 'undici';
@@ -8,7 +13,7 @@ import { z } from 'zod';
 import type { McpAuthStatus } from '../schemas/mcpServer';
 import { createInternalTlsDispatcher, normalizeInternalTlsUrl, type InternalTlsOptions } from './internalTls';
 import { mapResolvedAgentSkillVersions, type ResolvedAgentSkillVersion } from './mapSfyAgentSkills';
-import { parseSfyMcpAuthStatus, parseSfyMcpAuthorizeResult, type SfyMcpAuthSource } from './mapSfyMcpServers';
+import { parseSfyMcpAuthorizeResult, parseSfyMcpAuthStatus, type SfyMcpAuthSource } from './mapSfyMcpServers';
 
 /** How long a tenant control-plane URL stays cached between SFY lookups. */
 const TENANT_CONTROL_PLANE_URL_TTL_MS = 5 * 60 * 1000;
@@ -709,12 +714,12 @@ export class TrueFoundryServiceFoundryServerClient {
         durationMs: Date.now() - startedAt,
         timedOut,
         ...extractErrorLogFields(error),
+        ...classificationLogFields(classifyError({ error, source: 'control_plane' })),
       });
+      const classification = classifyError({ error, source: 'control_plane' });
       throw new HTTPException(500, {
-        message: timedOut
-          ? `TrueFoundry ServiceFoundry server request timed out after ${String(timeoutMs / 1000)}s`
-          : 'TrueFoundry ServiceFoundry server request failed',
-        cause: error,
+        message: classification.title,
+        cause: new ClassifiedHarnessError(classification, { cause: error }),
       });
     }
     this.#logger.debug('TrueFoundry ServiceFoundry server request completed', {

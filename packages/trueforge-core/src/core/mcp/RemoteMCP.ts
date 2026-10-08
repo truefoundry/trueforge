@@ -5,6 +5,7 @@ import type { MCPServerInitInfo } from '../events/schema';
 import type { InternalToolCallInfo } from '../llm/LLMTypes';
 import type { AgentTracing } from '../tracing/AgentTracing';
 import { NOOP_AGENT_TRACING } from '../tracing/NoopAgentTracing';
+import { classificationLogFields, classifyError } from '../util/classifyError';
 import { extractErrorLogFields } from '../util/errorLogFields';
 import {
   type AgentToolSchema,
@@ -310,9 +311,11 @@ export class RemoteMCP implements ToolSource {
                 }
               },
               onError: error => {
-                const fields = extractErrorLogFields(error);
+                const classification = classifyError({ error, source: 'mcp' });
                 const msg = `Error on remote MCP transport ${this.name}`;
-                if (fields.error.includes('Body Timeout')) {
+                const fields = { ...extractErrorLogFields(error), ...classificationLogFields(classification) };
+                // Reconnects and dropped streams are expected churn; only unrecoverable faults page anyone.
+                if (classification.retryable) {
                   this.logger.warn(msg, fields);
                 } else {
                   this.logger.error(msg, fields);

@@ -63,6 +63,8 @@ export { getTrueForgeExtras, trueForgeExtras, tryGetTrueForgeExtras } from './tr
 export type { TrueForgeDraftRuntimeExtras, TrueForgeRuntimeExtras } from './trueforgeExtras.js';
 export { createTrueForgeOwnedSessionsThreadListAdapter } from './trueforgeOwnedSessionsThreadListAdapter.js';
 export { createTrueForgeThreadListAdapter } from './trueforgeThreadListAdapter.js';
+export { readTurnErrorDetail, toTurnErrorDetail } from './turnErrorDetail.js';
+export type { TurnErrorDetail } from './turnErrorDetail.js';
 export type {
   DraftAgentConfig,
   NamedAgentConfig,

@@ -2,7 +2,7 @@
 
 import { useActionBarCopy, useMessageError, useThreadIsRunning, type PartState } from '@assistant-ui/core/react';
 import { MessagePrimitive, useAuiState, type EnrichedPartState, type GroupByContext } from '@assistant-ui/react';
-import { useTrueForgeResumeUnavailable } from '@truefoundry/trueforge-assistant-ui-runtime';
+import { readTurnErrorDetail, useTrueForgeResumeUnavailable } from '@truefoundry/trueforge-assistant-ui-runtime';
 
 import { useTrackAnalytics } from '../analytics/AnalyticsProvider.js';
 import { AnalyticsEvents } from '../analytics/events.js';
@@ -42,7 +42,7 @@ export function AssistantMessageContainer() {
   const MessageIndicator = useSlot('MessageIndicator');
   const isThreadRunning = useThreadIsRunning();
   const resumeUnavailable = useTrueForgeResumeUnavailable();
-  const error = useMessageError();
+  const error = readTurnErrorDetail(useMessageError());
   const createdAt = useAuiState(s => s.message.createdAt);
   const sessionId = useAuiState(s => s.threadListItem.remoteId);
   const isMessageRunning = useAuiState(s => s.message.status?.type === 'running');
@@ -83,7 +83,11 @@ export function AssistantMessageContainer() {
   return (
     <MessagePrimitive.Root data-role="assistant">
       <AssistantMessageBubble
-        error={error !== undefined ? <MessageErrorBanner message={String(error)} /> : undefined}
+        error={
+          error === undefined ? undefined : (
+            <MessageErrorBanner message={error.message} detail={error.detail} code={error.code} />
+          )
+        }
         actionBar={
           !isThreadRunning ? <MessageActionBar isCopied={isCopied} onCopy={onCopy} createdAt={createdAt} /> : undefined
         }

@@ -34,6 +34,8 @@ import type {
   ChatCompletionTool,
 } from 'openai/resources/chat';
 import type { Logger } from 'winston';
+import { ClassifiedHarnessError } from '../errors';
+import { classificationLogFields, classifyError } from '../util/classifyError';
 import { describeUnknownError, extractErrorLogFields } from '../util/errorLogFields';
 import { modelSsrfFetch } from '../util/outboundFetch';
 import type { ILLM, LLMCreateParams, LLMCreateParamsStreaming } from './ILLM';
@@ -1004,11 +1006,18 @@ export function describeStreamError(raw: unknown): string {
   return describeUnknownError(raw);
 }
 
+/**
+ * Classifies at the provider boundary, where we still know the failure came from a model call.
+ * The original value stays on `cause` so logs keep the full chain.
+ */
 export function toStreamError(raw: unknown): Error {
-  if (raw instanceof Error) {
+  // Aborts are matched by name upstream, so cancellation must keep the original instance.
+  if (raw instanceof ClassifiedHarnessError || (raw instanceof Error && raw.name === 'AbortError')) {
     return raw;
   }
-  return new Error(describeStreamError(raw), { cause: raw });
+  // `describeStreamError` keeps the provider status that `APICallError` carries separately.
+  const classification = { ...classifyError({ error: raw, source: 'model' }), detail: describeStreamError(raw) };
+  return new ClassifiedHarnessError(classification, { cause: raw });
 }
 
 export function mapFinishReason(reason: FinishReason): RawAssistantMessageWithUsage['finish_reason'] {
@@ -1480,7 +1489,10 @@ export class VercelAILLM implements ILLM {
       if (this.signal?.aborted) {
         this.logger.debug('LLM stream aborted', extractErrorLogFields(error));
       } else {
-        this.logger.error('Error reading LLM stream', extractErrorLogFields(error));
+        this.logger.error('Error reading LLM stream', {
+          ...extractErrorLogFields(error),
+          ...classificationLogFields(classifyError({ error, source: 'model' })),
+        });
       }
       throw toStreamError(error);
     }
