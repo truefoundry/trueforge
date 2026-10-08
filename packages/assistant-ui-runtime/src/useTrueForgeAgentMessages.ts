@@ -523,19 +523,20 @@ export function useTrueForgeAgentMessages({
                 ? { ...prev.runningTurn, state: turnState }
                 : prev.runningTurn;
             const custom = update.metadata?.custom;
-            let pendingMcpAuth: McpAuthRequiredEvent | undefined = prev.pendingMcpAuth;
             const mcpServers = custom?.[MESSAGE_CUSTOM_KEY.MCP_SERVERS];
-            if (turnState?.status === TURN_STATUS.RUNNING) {
-              pendingMcpAuth = undefined;
-            } else if (custom?.[MESSAGE_CUSTOM_KEY.PENDING_MCP_AUTH] === true && isMcpServerAuthInfoList(mcpServers)) {
-              pendingMcpAuth = {
-                type: EVENT_TYPE.MCP_AUTH_REQUIRED,
-                id: 'live-mcp-auth',
-                createdAt: new Date().toISOString(),
-                threadId: null,
-                mcpServers,
-              };
-            }
+            // Keep pending MCP auth only when this update still asks for it.
+            // After the user continues, later content/approval updates must clear
+            // it so the Connect/Continue prompt does not stick around.
+            const pendingMcpAuth: McpAuthRequiredEvent | undefined =
+              custom?.[MESSAGE_CUSTOM_KEY.PENDING_MCP_AUTH] === true && isMcpServerAuthInfoList(mcpServers)
+                ? {
+                    type: EVENT_TYPE.MCP_AUTH_REQUIRED,
+                    id: 'live-mcp-auth',
+                    createdAt: new Date().toISOString(),
+                    threadId: null,
+                    mcpServers,
+                  }
+                : undefined;
             const updateSequenceNumber =
               update.sequenceNumber ??
               (prev.activeStream?.turnId === turnIdRef.current ? prev.activeStream.lastSequenceNumber : undefined);

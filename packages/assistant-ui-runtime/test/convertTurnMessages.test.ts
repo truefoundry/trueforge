@@ -2149,6 +2149,97 @@ describe('convertTurnMessages', () => {
       expect(derivePendingMcpAuth(messages)).toEqual({ mcpServers });
     });
 
+    it('drops MCP auth chrome when the live update moved on to tool approval', async () => {
+      const mcpServers = [
+        {
+          id: 'linear',
+          name: 'linear',
+          authUrl: 'https://example.com/auth',
+        },
+      ];
+      const foldState = new PeerThreadFoldState();
+      ingestTurnEvent(
+        foldState,
+        modelMessage({
+          id: 'm1',
+          threadId: ROOT_THREAD_ID,
+          content: 'calling linear',
+          toolCalls: [
+            {
+              id: 'approval-1',
+              type: 'function',
+              function: { name: 'save_comment', arguments: '{"body":"test"}' },
+              toolInfo: {
+                type: 'mcp',
+                name: 'save_comment',
+                serverId: 'linear',
+                serverName: 'linear',
+              },
+            },
+          ],
+        }),
+      );
+      ingestTurnEvent(
+        foldState,
+        approvalRequired({
+          id: 'approval-event',
+          threadId: ROOT_THREAD_ID,
+          toolCalls: [{ id: 'approval-1', sourceEventId: 'm1' }],
+        }),
+      );
+
+      // Stale snapshot auth after user.mcp_auth_continue (no affirming live yield).
+      const messages = projectSessionMessages(
+        replaceSessionSnapshot(
+          {
+            ...createEmptySessionSnapshot(),
+            fold: foldState,
+          },
+          {
+            pendingMcpAuth: {
+              type: 'mcp.auth_required',
+              id: 'mcp-auth-1',
+              createdAt,
+              threadId: null,
+              mcpServers,
+            },
+            pendingUser: {
+              turnId,
+              content: 'use linear',
+              createdAt: new Date(createdAt),
+            },
+            runningTurn: {
+              id: turnId,
+              sessionId: SESSION_ID,
+              createdAt,
+              state: {
+                status: 'paused',
+                actionRequiredOnEvents: [{ id: 'approval-event' }],
+              },
+            },
+            activeStream: {
+              turnId,
+              update: {
+                content: buildRootAssistantContent(foldState),
+                status: { type: 'requires-action', reason: 'tool-calls' },
+                metadata: { custom: { toolApprovalThreadId: ROOT_THREAD_ID } },
+                turnState: {
+                  status: 'paused',
+                  actionRequiredOnEvents: [{ id: 'approval-event' }],
+                },
+              },
+              segmentStatus: 'paused',
+            },
+          },
+        ),
+      );
+
+      expect(derivePendingMcpAuth(messages)).toBeNull();
+      expect(collectPendingApprovals(messages)).toHaveLength(1);
+      const assistant = messages.at(-1);
+      expect(assistant?.metadata.custom['pendingMcpAuth']).toBeUndefined();
+    });
+
     it('preserves requires-action when a paused segment has approval status', async () => {
       const foldState = new PeerThreadFoldState();
       const updates = await collectStream(
