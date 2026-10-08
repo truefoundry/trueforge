@@ -315,7 +315,7 @@ export function AgentSessions({
     resumeHref != null ? { resumeHref, resumeLabel } : shell != null ? { onResume: handleResume, resumeLabel } : {};
 
   const detailPanel = (
-    <section className="flex h-full min-w-0 flex-col bg-primary-bg">
+    <section className="isolate flex h-full min-w-0 flex-col bg-primary-bg">
       {selectedSessionId == null ? (
         <div className="flex flex-1 items-center justify-center px-6 text-sm text-text-secondary">
           Select a session to view details
@@ -329,6 +329,7 @@ export function AgentSessions({
           <AgentSessionDetailHeader
             title={selectedTitle}
             sessionId={selectedSessionId}
+            metadata={detailSession?.metadata ?? selectedEntry?.metadata}
             onClose={clearSelectedSession}
             canResume={canResume}
             canShare={canResume}
@@ -441,7 +442,7 @@ export function AgentSessions({
       <Separator
         id="agent-sessions-resizer"
         aria-label="Resize session list"
-        className="group/resizer relative z-10 w-0 cursor-col-resize focus-visible:outline-none"
+        className="group/resizer relative z-30 w-0 cursor-col-resize focus-visible:outline-none"
       >
         <div aria-hidden className="absolute inset-y-0 -left-1.25 w-2.75" />
         <div aria-hidden className="absolute inset-y-0 left-0 w-px bg-border transition-colors" />

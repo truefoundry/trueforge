@@ -1,5 +1,104 @@
 # Changelog
 
+## 0.177.0
+
+### Patch Changes
+
+- 3f55e56: Count all event turn.created rows (including MCP-auth resume turns) for the agent session detail strip Turns, Tokens, and Tool calls; keep transcript sections on renderable turns only. Stop overriding strip turn count from getSession metrics. Count pending human-wait tool calls (tool.response_required, e.g. ask-user) in strip Tool calls so they match Agent steps. Strip Tool calls counts only the main agent thread (sub-agent tool calls stay on the Sub-agents tile). Timeline/transcript turn bands fold non-renderable resume turns into the prior user turn (no phantom T2 / user markers). Compress idle between event-turns before folding display bands; aggregate cost/context/tooltip metrics per display band so MCP-auth resumes do not duplicate T1 chart keys or undercount tokens.
+- d4bf49c: Polish MCP auth and Ask User pause chrome: lettered A/B/C options with Continue, outlined Connect, and screenshot-matching stack above the composer.
+- 5b7abb6: Bump `monaco-editor` to `^0.57.0` to address known vulnerabilities, and point the frontend Monaco worker plugin at the 0.56+ export paths so production builds resolve workers correctly.
+- 29e7aab: Add `DELETE` for settings catalog entries (model providers, MCP servers, skills), rejected with 409 naming the agents that still reference the entry; a model-provider update that drops a model in use is rejected the same way. Deleting an MCP server also clears its stored OAuth grants. Settings now confirms removals (including connectors) and keeps a refused removal's reason in the dialog; removing a provider's last model removes the provider. The connector list offers Connect on added-but-unauthenticated OAuth servers.
+- 5b7abb6: Preview sandbox files the assistant generates in the chat, in a side panel, and full page, instead of requiring a download to see them.
+- d4bf49c: Keep the composer interactive during running and paused turns: Cancel only when empty, Send supersedes the prior client stream without cancelSession (preserving superseded in-flight turns in the transcript), and stacked pause chrome is abandoned after a later user message. Hosts that override ComposerSendButton and still branch only on isRunning should update to use hasContent.
+- 01b27f0: Show cost-per-turn breakdown rows in the session metrics strip tooltip, and make tooltips interactive by default so rich popups stay open while hovering their content. Keep the timeline chart tooltip non-interactive so cursor-anchored hover is not stolen from the canvas.
+- 5b7abb6: Avoid redundant list-permissions API calls by sharing tenant permission state through CanCreateAgentProvider.
+- 029b6a9: Stop gating the Environments page on `listSandboxProviders` so create/update works when the sandbox provider is supplied externally or that catalog API returns 403.
+- 2b76ce3: Add Environments page for sandbox environment CRUD (`/environments`), with UI Form and YAML editors, sidebar Envs nav, and a SandboxEnvironmentServer port.
+- 968b883: Add a frontend feature flag for sandbox-environment management.
+- 7cc39c2: Support deep-linking the agents library with `?agent_name=` to seed and sync the search box.
+- 7555c40: Make the sidebar layout mobile-friendly with a Claude-style nav drawer, show a desktop-only notice for Build Agent, Sessions, Schedules, and Environments on small screens, keep user message actions visible on touch (hover-only from `md` up), and show the Agents listing as cards on small screens.
+- b9429a0: Preserve token and cost metrics on failed and cancelled turns in the UI adapter and types so turn headers and session totals include billable usage from non-done terminal turns.
+- 2b76ce3: Refresh agent environment pickers after Manage Environments create/activate/delete so the ready list does not stay stale while the draft UI stays mounted.
+- 5b7abb6: Use session detail API metrics for the agent session strip Turns/Duration/Cost instead of list-row hints or turn-by-turn aggregation. Include optional totalCostInUsd on TurnDoneMetrics so turn.done cost matches the wire contract.
+- 5b7abb6: Add a reload button before the agent filter on the Sessions page to fetch latest data without requiring a browser refresh.
+- 2b76ce3: Update SandboxEnvironmentStatus from 'active' to 'ready' to align with backend environment version readiness, remove static default environment injection from draft selectors, fix sandbox provider readiness check latching false on EnvironmentsPage, and drain all sandbox environment pages with limit up to 1000 in agent draft pickers.
+- Updated dependencies [5b7abb6]
+- Updated dependencies [d4bf49c]
+- Updated dependencies [d4bf49c]
+- Updated dependencies [2b76ce3]
+- Updated dependencies [5b7abb6]
+- Updated dependencies [b9429a0]
+- Updated dependencies [5b7abb6]
+- Updated dependencies [fc99f4e]
+- Updated dependencies [6813758]
+- Updated dependencies [5b7abb6]
+- Updated dependencies [5b7abb6]
+- Updated dependencies [8057109]
+- Updated dependencies [2b76ce3]
+  - @truefoundry/trueforge-sdk@0.177.0
+  - @truefoundry/trueforge-assistant-ui-runtime@0.177.0
+
+## 0.177.0-rc.5
+
+### Patch Changes
+
+- Updated dependencies [8057109]
+  - @truefoundry/trueforge-assistant-ui-runtime@0.177.0-rc.4
+
+## 0.177.0-rc.4
+
+### Patch Changes
+
+- Updated dependencies [fc99f4e]
+  - @truefoundry/trueforge-assistant-ui-runtime@0.177.0-rc.3
+
+## 0.177.0-rc.3
+
+### Patch Changes
+
+- b9429a0: Preserve token and cost metrics on failed and cancelled turns in the UI adapter and types so turn headers and session totals include billable usage from non-done terminal turns.
+- Updated dependencies [b9429a0]
+  - @truefoundry/trueforge-assistant-ui-runtime@0.177.0-rc.2
+
+## 0.177.0-rc.2
+
+### Patch Changes
+
+- 968b883: Add a frontend feature flag for sandbox-environment management.
+
+## 0.177.0-rc.1
+
+### Patch Changes
+
+- 3f55e56: Count all event turn.created rows (including MCP-auth resume turns) for the agent session detail strip Turns, Tokens, and Tool calls; keep transcript sections on renderable turns only. Stop overriding strip turn count from getSession metrics. Count pending human-wait tool calls (tool.response_required, e.g. ask-user) in strip Tool calls so they match Agent steps. Strip Tool calls counts only the main agent thread (sub-agent tool calls stay on the Sub-agents tile). Timeline/transcript turn bands fold non-renderable resume turns into the prior user turn (no phantom T2 / user markers). Compress idle between event-turns before folding display bands; aggregate cost/context/tooltip metrics per display band so MCP-auth resumes do not duplicate T1 chart keys or undercount tokens.
+- d4bf49c: Polish MCP auth and Ask User pause chrome: lettered A/B/C options with Continue, outlined Connect, and screenshot-matching stack above the composer.
+- 5b7abb6: Bump `monaco-editor` to `^0.57.0` to address known vulnerabilities, and point the frontend Monaco worker plugin at the 0.56+ export paths so production builds resolve workers correctly.
+- 29e7aab: Add `DELETE` for settings catalog entries (model providers, MCP servers, skills), rejected with 409 naming the agents that still reference the entry; a model-provider update that drops a model in use is rejected the same way. Deleting an MCP server also clears its stored OAuth grants. Settings now confirms removals (including connectors) and keeps a refused removal's reason in the dialog; removing a provider's last model removes the provider. The connector list offers Connect on added-but-unauthenticated OAuth servers.
+- 5b7abb6: Preview sandbox files the assistant generates in the chat, in a side panel, and full page, instead of requiring a download to see them.
+- d4bf49c: Keep the composer interactive during running and paused turns: Cancel only when empty, Send supersedes the prior client stream without cancelSession (preserving superseded in-flight turns in the transcript), and stacked pause chrome is abandoned after a later user message. Hosts that override ComposerSendButton and still branch only on isRunning should update to use hasContent.
+- 01b27f0: Show cost-per-turn breakdown rows in the session metrics strip tooltip, and make tooltips interactive by default so rich popups stay open while hovering their content. Keep the timeline chart tooltip non-interactive so cursor-anchored hover is not stolen from the canvas.
+- 5b7abb6: Avoid redundant list-permissions API calls by sharing tenant permission state through CanCreateAgentProvider.
+- 029b6a9: Stop gating the Environments page on `listSandboxProviders` so create/update works when the sandbox provider is supplied externally or that catalog API returns 403.
+- 2b76ce3: Add Environments page for sandbox environment CRUD (`/environments`), with UI Form and YAML editors, sidebar Envs nav, and a SandboxEnvironmentServer port.
+- 7cc39c2: Support deep-linking the agents library with `?agent_name=` to seed and sync the search box.
+- 7555c40: Make the sidebar layout mobile-friendly with a Claude-style nav drawer, show a desktop-only notice for Build Agent, Sessions, Schedules, and Environments on small screens, keep user message actions visible on touch (hover-only from `md` up), and show the Agents listing as cards on small screens.
+- 2b76ce3: Refresh agent environment pickers after Manage Environments create/activate/delete so the ready list does not stay stale while the draft UI stays mounted.
+- 5b7abb6: Use session detail API metrics for the agent session strip Turns/Duration/Cost instead of list-row hints or turn-by-turn aggregation. Include optional totalCostInUsd on TurnDoneMetrics so turn.done cost matches the wire contract.
+- 5b7abb6: Add a reload button before the agent filter on the Sessions page to fetch latest data without requiring a browser refresh.
+- 2b76ce3: Update SandboxEnvironmentStatus from 'active' to 'ready' to align with backend environment version readiness, remove static default environment injection from draft selectors, fix sandbox provider readiness check latching false on EnvironmentsPage, and drain all sandbox environment pages with limit up to 1000 in agent draft pickers.
+- Updated dependencies [5b7abb6]
+- Updated dependencies [d4bf49c]
+- Updated dependencies [d4bf49c]
+- Updated dependencies [2b76ce3]
+- Updated dependencies [5b7abb6]
+- Updated dependencies [5b7abb6]
+- Updated dependencies [6813758]
+- Updated dependencies [5b7abb6]
+- Updated dependencies [5b7abb6]
+- Updated dependencies [2b76ce3]
+  - @truefoundry/trueforge-sdk@0.177.0-rc.1
+  - @truefoundry/trueforge-assistant-ui-runtime@0.177.0-rc.1
+
 ## 0.4.0
 
 ### Minor Changes

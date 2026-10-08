@@ -3772,7 +3772,7 @@
           "generative_ui": {
             "enabled": true
           },
-          "iteration_limit": 100,
+          "iteration_limit": 512,
           "sandbox": {
             "enabled": false,
             "file_downloads": true
@@ -3795,8 +3795,8 @@
             "$ref": "#/components/schemas/GenerativeUIConfig"
           },
           "iteration_limit": {
-            "default": 100,
-            "description": "Max agent-loop iterations per turn (1–1024). Default: 100.",
+            "default": 512,
+            "description": "Max agent-loop iterations per turn (1–1024). Default: 512.",
             "exclusiveMinimum": 0,
             "maximum": 1024,
             "type": "integer"
@@ -3985,6 +3985,8 @@
           },
           "environment_variables": {
             "additionalProperties": {
+              "maxLength": 4096,
+              "minLength": 1,
               "type": "string"
             },
             "type": "object"
@@ -4017,6 +4019,8 @@
           },
           "environment_variables": {
             "additionalProperties": {
+              "maxLength": 4096,
+              "minLength": 1,
               "type": "string"
             },
             "type": "object"
@@ -4044,6 +4048,7 @@
         "properties": {
           "domain_allow_list": {
             "description": "Comma-separated allowed domains.",
+            "maxLength": 1024,
             "minLength": 1,
             "type": "string"
           },
@@ -4056,6 +4061,7 @@
             "items": {
               "$ref": "#/components/schemas/SandboxEnvironmentSecret"
             },
+            "maxItems": 1024,
             "type": "array"
           }
         },
@@ -4095,7 +4101,9 @@
         "properties": {
           "env": {
             "description": "Environment variable name injected into the sandbox.",
+            "maxLength": 4096,
             "minLength": 1,
+            "pattern": "^[A-Za-z_][A-Za-z0-9_]*$",
             "type": "string"
           },
           "hosts": {
@@ -8529,7 +8537,7 @@
                 }
               }
             },
-            "description": "Invalid request body, or missing secret value."
+            "description": "Invalid request body, resource allocation, or missing secret value."
           },
           "401": {
             "content": {
