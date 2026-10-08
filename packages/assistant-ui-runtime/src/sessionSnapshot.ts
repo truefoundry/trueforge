@@ -69,7 +69,7 @@ export interface ActiveStreamState {
   update: TurnStreamUpdate;
   /**
    * Transport state, not turn state. A paused or disconnected segment can end
-   * while `activeTurn` remains non-terminal and subscribable.
+   * while `runningTurn` remains non-terminal and subscribable.
    */
   segmentStatus: StreamSegmentStatus;
   lastSequenceNumber?: number | undefined;
@@ -92,7 +92,7 @@ export interface SessionSnapshot {
   groupRootBaseline?: readonly string[] | undefined;
   requiredActions: RequiredActionsOverlay;
   /** Current non-terminal turn; its state may be running or paused. */
-  activeTurn?: Turn | undefined;
+  runningTurn?: Turn | undefined;
   unstable_resume?: boolean | undefined;
   /**
    * Chronological `listEvents` items loaded so far (for prepend-on-scroll rebuild).

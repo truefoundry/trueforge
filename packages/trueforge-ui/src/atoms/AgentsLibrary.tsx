@@ -2,6 +2,9 @@
 
 import { useCallback, useEffect, useRef, useState, type ReactNode } from 'react';
 
+import { useTrackAnalytics } from '../analytics/AnalyticsProvider.js';
+import { AnalyticsEvents } from '../analytics/events.js';
+
 import { useResourcePermissions } from '../hooks/useResourcePermissions.js';
 import { useSessionShareSearch } from '../hooks/useSessionShareSearch.js';
 import { Icon } from '../icons/Icon.js';
@@ -521,6 +524,7 @@ export function AgentsLibrary({ onSelectAgent, headerStart }: AgentsLibraryProps
   const sessionsServer = useOptionalAgentSessionsServer();
   const scheduleServer = useOptionalScheduleServer();
   const SlottedAgentLibraryRow = useSlot('AgentLibraryRow');
+  const track = useTrackAnalytics();
   const [query, setQuery] = useState(() => readLibraryShareSearch(window.location.search).agentName ?? '');
   const [scheduleByAgent, setScheduleByAgent] = useState<Map<string, AgentScheduleSummary> | null>(null);
   const skipNextLibraryShareSyncRef = useRef(false);
@@ -554,9 +558,10 @@ export function AgentsLibrary({ onSelectAgent, headerStart }: AgentsLibraryProps
   }, [open, query]);
 
   const closeLibrary = useCallback(() => {
+    track(AnalyticsEvents.Library.CLOSED);
     shell.setLibraryOpen(false);
     setQuery('');
-  }, [shell]);
+  }, [shell, track]);
 
   useEffect(() => {
     if (!open) return;
@@ -608,6 +613,7 @@ export function AgentsLibrary({ onSelectAgent, headerStart }: AgentsLibraryProps
   }, [agents, open, scheduleServer, agentsListEpoch]);
 
   const openSchedulesForAgent = ({ agentId, isNew }: { agentId: string; isNew?: boolean }) => {
+    track(AnalyticsEvents.Library.AGENT_SCHEDULES_OPENED, { agent_id: agentId });
     replaceScheduleShareSearch({
       agent: null,
       status: null,
@@ -625,7 +631,7 @@ export function AgentsLibrary({ onSelectAgent, headerStart }: AgentsLibraryProps
   };
 
   const handleTry = (agent: AgentLibraryEntry) => {
-    closeLibrary();
+    track(AnalyticsEvents.Library.AGENT_TRIED, { agent_id: libraryAgentId(agent), agent_name: agent.name });
     onSelectAgent?.(agent.name);
     shell.selectLibraryAgent({
       isMutable: false,
@@ -635,7 +641,7 @@ export function AgentsLibrary({ onSelectAgent, headerStart }: AgentsLibraryProps
   };
 
   const handleEdit = (agent: AgentLibraryEntry, agentSpec: AgentSpec) => {
-    closeLibrary();
+    track(AnalyticsEvents.Library.AGENT_EDITED, { agent_id: libraryAgentId(agent), agent_name: agent.name });
     onSelectAgent?.(agent.name);
     shell.selectLibraryAgent({
       isMutable: true,
@@ -680,6 +686,10 @@ export function AgentsLibrary({ onSelectAgent, headerStart }: AgentsLibraryProps
         {...(canOpenAgentDetails && agentId != null
           ? {
               onOpen: () => {
+                track(AnalyticsEvents.Library.AGENT_DETAILS_OPENED, {
+                  agent_id: agentId,
+                  agent_name: agent.name,
+                });
                 updateShareSearch({
                   agentId,
                   tab: 'overview',

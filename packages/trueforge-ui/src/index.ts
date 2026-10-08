@@ -145,6 +145,8 @@ export type { UserMessageEditProps } from './atoms/UserMessageEdit.js';
 export { WelcomeScreen } from './atoms/WelcomeScreen.js';
 export type { WelcomeScreenProps } from './atoms/WelcomeScreen.js';
 
+export { AnalyticsEvents, AnalyticsProvider, useTrackAnalytics, withSessionProps } from './analytics/index.js';
+export type { AnalyticsConfig, AnalyticsEventProps, TrackAnalytics } from './analytics/index.js';
 export { AgentStepsCard } from './atoms/adapters/AgentStepsCardAdapter.js';
 export type { AgentStepsCardProps } from './atoms/adapters/AgentStepsCardAdapter.js';
 export type {

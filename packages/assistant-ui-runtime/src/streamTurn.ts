@@ -30,6 +30,7 @@ export async function* streamTurnContent(
    * optimistic ID with the real turn ID.
    */
   onTurnIdAvailable?: (turnId: string) => void,
+  onSequenceNumber?: (sequenceNumber: number) => void,
 ): AsyncGenerator<TurnStreamUpdate> {
   // Aborting only detaches this client from the run; the turn keeps running on
   // the backend so switching sessions (or remounting) can reattach via
@@ -55,9 +56,7 @@ export async function* streamTurnContent(
   });
 
   try {
-    for await (const update of streamTurnEvents(stream, foldState, groupRootBaseline, notifyTurnId)) {
-      yield update;
-    }
+    yield* streamTurnEvents(stream, foldState, groupRootBaseline, notifyTurnId, onSequenceNumber);
   } catch (error) {
     if (error instanceof Error && error.name === 'AbortError') {
       return;
@@ -74,6 +73,7 @@ export async function* resumeTurnStream(
   abortSignal: AbortSignal,
   afterSequenceNumber?: number,
   groupRootBaseline?: readonly string[],
+  onSequenceNumber?: (sequenceNumber: number) => void,
 ): AsyncGenerator<TurnStreamUpdate> {
   if (abortSignal.aborted) {
     return;
@@ -89,6 +89,8 @@ export async function* resumeTurnStream(
       }),
       foldState,
       groupRootBaseline,
+      undefined,
+      onSequenceNumber,
     );
   } catch (error) {
     if (error instanceof Error && error.name === 'AbortError') {

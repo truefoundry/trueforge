@@ -484,15 +484,15 @@ function ingestSessionEventsIntoSnapshot(
   }
 }
 
-function attachActiveTurn(
+function attachRunningTurn(
   snapshot: SessionSnapshot,
-  activeTurn: Turn | undefined,
+  runningTurn: Turn | undefined,
   sandboxId?: string,
 ): SessionSnapshot {
-  if (activeTurn == null) {
+  if (runningTurn == null) {
     return snapshot;
   }
-  const pendingUserText = extractTurnUserText(activeTurn.input);
+  const pendingUserText = extractTurnUserText(runningTurn.input);
   // Tip is not in `turns` yet. Baseline every completed turn's root
   // model.message (same as live send) so computeGroupRootBaseline cannot
   // treat the last completed user turn as the active group. Do NOT use the
@@ -505,23 +505,23 @@ function attachActiveTurn(
   const activeUpdate = buildTurnUpdateFromFold(
     snapshot.fold,
     {
-      state: activeTurn.state,
+      state: runningTurn.state,
       pendingMcpAuth: snapshot.pendingMcpAuth,
     },
     rootModelMessageIds,
   );
-  const shouldProjectActiveStream = activeTurn.state.status === TURN_STATUS.PAUSED || activeUpdate.content.length > 0;
+  const shouldProjectActiveStream = runningTurn.state.status === TURN_STATUS.PAUSED || activeUpdate.content.length > 0;
   return replaceSessionSnapshot(snapshot, {
-    activeTurn,
+    runningTurn,
     unstable_resume: true,
     groupRootBaseline,
     ...(shouldProjectActiveStream
       ? {
           activeStream: {
-            turnId: activeTurn.id,
+            turnId: runningTurn.id,
             update: {
               ...activeUpdate,
-              turnState: activeTurn.state,
+              turnState: runningTurn.state,
               ...(sandboxId != null
                 ? {
                     metadata: {
@@ -535,7 +535,7 @@ function attachActiveTurn(
                 : {}),
             },
             segmentStatus:
-              activeTurn.state.status === TURN_STATUS.PAUSED
+              runningTurn.state.status === TURN_STATUS.PAUSED
                 ? STREAM_SEGMENT_STATUS.PAUSED
                 : STREAM_SEGMENT_STATUS.DISCONNECTED,
           },
@@ -544,9 +544,9 @@ function attachActiveTurn(
     ...(pendingUserText !== undefined
       ? {
           pendingUser: {
-            turnId: activeTurn.id,
-            content: extractTurnUserMessageContent(activeTurn.input),
-            createdAt: new Date(activeTurn.createdAt),
+            turnId: runningTurn.id,
+            content: extractTurnUserMessageContent(runningTurn.input),
+            createdAt: new Date(runningTurn.createdAt),
           },
         }
       : {}),
@@ -600,7 +600,7 @@ function turnFromCreatedEvent(options: {
 
 interface SessionTip {
   /** Non-terminal turn to subscribe to; absent once the tip has finished. */
-  activeTurn?: Turn;
+  runningTurn?: Turn;
   sandboxId?: string;
   /**
    * Tip input that event ingestion could not apply, because it only folds a
@@ -636,7 +636,7 @@ async function resolveSessionTip(options: {
         });
         if (turn.state.status === TURN_STATUS.RUNNING || turn.state.status === TURN_STATUS.PAUSED) {
           return {
-            activeTurn:
+            runningTurn:
               open.update?.state.status === TURN_STATUS.PAUSED && turn.state.status === TURN_STATUS.RUNNING
                 ? turnFromCreatedEvent({
                     sessionId,
@@ -657,7 +657,7 @@ async function resolveSessionTip(options: {
       }
     }
     return {
-      activeTurn: turnFromCreatedEvent({
+      runningTurn: turnFromCreatedEvent({
         sessionId,
         turnId: open.turnId,
         event: open.event,
@@ -673,7 +673,7 @@ async function resolveSessionTip(options: {
   const turnsPage = await server.listTurns({ sessionId, limit: 1 });
   const tip = turnsPage.data[0];
   return tip?.state.status === TURN_STATUS.RUNNING || tip?.state.status === TURN_STATUS.PAUSED
-    ? { activeTurn: tip, continuationInput: tip.input ?? [] }
+    ? { runningTurn: tip, continuationInput: tip.input ?? [] }
     : { continuationInput: [] };
 }
 
@@ -717,7 +717,7 @@ export async function buildSnapshotFromSessionEvents(
   // input. Apply it here so answered approvals / ask-user prompts are not
   // restored as pending after a refresh.
   applyUserToolResponsesToFold(withHistory.fold, tip.continuationInput);
-  return attachActiveTurn(withHistory, tip.activeTurn, tip.sandboxId);
+  return attachRunningTurn(withHistory, tip.runningTurn, tip.sandboxId);
 }
 
 /**
@@ -786,7 +786,7 @@ export async function prependOlderSessionHistory(
 export interface ConvertTurnsResult {
   messages: ThreadMessage[];
   foldState: PeerThreadFoldState;
-  activeTurn?: Turn;
+  runningTurn?: Turn;
   unstable_resume?: boolean;
 }
 
@@ -1142,10 +1142,10 @@ function projectActiveStreamUpdate(snapshot: SessionSnapshot): TurnStreamUpdate 
   const turnLike =
     turnRecord != null
       ? { state: turnRecord.state, pendingMcpAuth }
-      : snapshot.activeTurn == null
+      : snapshot.runningTurn == null
         ? undefined
         : {
-            state: snapshot.activeTurn.state,
+            state: snapshot.runningTurn.state,
             pendingMcpAuth,
           };
 
@@ -1421,7 +1421,7 @@ export function projectSessionMessages(
     const { turnId, update, segmentStatus } = snapshot.activeStream;
     // Content-only subscribe yields after a partial approval look "open" but the
     // tip is still paused — rebuild so remaining approvals keep requires-action.
-    const tipStillPaused = snapshot.activeTurn?.state.status === TURN_STATUS.PAUSED;
+    const tipStillPaused = snapshot.runningTurn?.state.status === TURN_STATUS.PAUSED;
     const resolvedUpdate =
       segmentStatus === STREAM_SEGMENT_STATUS.OPEN && !tipStillPaused ? update : projectActiveStreamUpdate(snapshot);
     const last = messages.at(-1);
@@ -1442,7 +1442,7 @@ function ingestTurnsIntoSnapshot(
   turns: Turn[],
   eventArrays: PersistedTurnEvent[][],
 ): Turn | undefined {
-  let activeTurn: Turn | undefined;
+  let runningTurn: Turn | undefined;
   // Session-scoped: sandbox.created fires when a sandbox is (re)created and the
   // sandbox is reused by later turns, so carry the latest one forward.
   let sessionSandboxId: string | undefined;
@@ -1488,12 +1488,12 @@ function ingestTurnsIntoSnapshot(
     snapshot.pendingMcpAuth = pendingMcpAuth;
 
     if (turn.state.status === TURN_STATUS.RUNNING || turn.state.status === TURN_STATUS.PAUSED) {
-      activeTurn = turn;
+      runningTurn = turn;
       break;
     }
   }
 
-  return activeTurn;
+  return runningTurn;
 }
 
 export async function buildSnapshotFromSession(
@@ -1505,11 +1505,11 @@ export async function buildSnapshotFromSession(
   // excludes the running turn — hydrate that turn via listTurnEvents so
   // convertTurnsToThreadMessages still surfaces in-flight content.
   const snapshot = await buildSnapshotFromSessionEvents(server, sessionId);
-  if (snapshot.activeTurn == null) {
+  if (snapshot.runningTurn == null) {
     return snapshot;
   }
 
-  const turn = snapshot.activeTurn;
+  const turn = snapshot.runningTurn;
   const eventArrays = await fetchAllTurnEventsWithConcurrency(server, sessionId, [turn], concurrency);
   ingestTurnsIntoSnapshot(snapshot, [turn], eventArrays);
 
@@ -1518,7 +1518,7 @@ export async function buildSnapshotFromSession(
   const snapshotWithoutPendingUser = { ...snapshot };
   delete snapshotWithoutPendingUser.pendingUser;
   return replaceSessionSnapshot(snapshotWithoutPendingUser, {
-    activeTurn: turn,
+    runningTurn: turn,
     unstable_resume: true,
     groupRootBaseline: computeGroupRootBaseline(snapshot.turns),
   });
@@ -1582,9 +1582,9 @@ export async function convertTurnsToThreadMessages(
   return {
     messages,
     foldState: snapshot.fold,
-    ...(snapshot.activeTurn != null
+    ...(snapshot.runningTurn != null
       ? {
-          activeTurn: snapshot.activeTurn,
+          runningTurn: snapshot.runningTurn,
           unstable_resume: true,
         }
       : {}),
@@ -1764,11 +1764,20 @@ function buildMcpAuthUpdate(
   };
 }
 
+/** SSE body ended without `turn.done` or a pause — subscribe-retry. */
+export class TurnStreamDisconnectedError extends Error {
+  constructor(message = 'Turn stream closed before turn.done') {
+    super(message);
+    this.name = 'TurnStreamDisconnectedError';
+  }
+}
+
 export async function* streamTurnEvents(
   stream: AsyncIterable<TurnStreamData>,
   foldState: PeerThreadFoldState,
   groupRootBaseline?: readonly string[],
   onTurnIdAvailable?: (turnId: string) => void,
+  onSequenceNumber?: (sequenceNumber: number) => void,
 ): AsyncGenerator<TurnStreamUpdate> {
   let pendingMcpAuth: McpAuthRequiredEvent | undefined;
   let sandboxId: string | undefined;
@@ -1842,6 +1851,7 @@ export async function* streamTurnEvents(
 
   for await (const data of stream) {
     lastSequenceNumber = data.sequenceNumber;
+    onSequenceNumber?.(data.sequenceNumber);
     const event = data.event;
 
     if (event.type === EVENT_TYPE.TURN_CREATED) {
@@ -1894,6 +1904,8 @@ export async function* streamTurnEvents(
     if (event.type === EVENT_TYPE.TURN_DONE) {
       // turn.done is the only successful terminal boundary. Do not wait for
       // the transport body to close because resumable subscriptions may linger.
+      // Yield error/complete state (HITL) rather than throwing — reconnect must
+      // not subscribe-retry a terminal turn; callers read `turnState` / status.
       yield withSandbox({
         content: yieldContent() ?? [],
         status: assistantStatusFromTurnState(event.state),
@@ -1937,7 +1949,12 @@ export async function* streamTurnEvents(
         ? rootModelMessageIdsSinceBaseline(foldState, groupRootBaseline)
         : (foldState.threads.get(ROOT_THREAD_ID)?.modelMessageIds ?? []);
     yield withSandbox({ content: buildRootAssistantContentForIds(foldState, ids) });
+    return;
   }
+
+  // Reached only when the SSE ended without turn.done / pause / sandbox-only
+  // terminal paths above — treat as a transport drop for subscribe-retry.
+  throw new TurnStreamDisconnectedError();
 }
 
 export function turnStreamUpdateToAssistantMessage(

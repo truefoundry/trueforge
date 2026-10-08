@@ -12,6 +12,7 @@ import { buildRootAssistantContent, ingestTurnEvent, PeerThreadFoldState } from 
 import { loadSessionSnapshot } from '../src/loadSessionSnapshot.js';
 import { MESSAGE_CUSTOM_KEY } from '../src/messageCustomMetadata.js';
 import { createEmptySessionSnapshot, replaceSessionSnapshot, type SessionSnapshot } from '../src/sessionSnapshot.js';
+import { delayReconnect } from '../src/streamReconnect.js';
 import { resumeTurnStream, streamTurnContent } from '../src/streamTurn.js';
 import { messageHasPendingApprovals } from '../src/toolApproval.js';
 import { messageHasPendingResponses, toolResponseMessageCustom, toolResponseStatus } from '../src/toolResponse.js';
@@ -25,6 +26,20 @@ vi.mock('../src/streamTurn.js', () => ({
   streamTurnContent: vi.fn(),
   resumeTurnStream: vi.fn(),
 }));
+
+vi.mock('../src/streamReconnect.js', async importOriginal => {
+  const actual = await importOriginal<typeof import('../src/streamReconnect.js')>();
+  return {
+    ...actual,
+    delayReconnect: vi.fn(async (signal: AbortSignal) => {
+      if (signal.aborted) {
+        const error = new Error('Aborted');
+        error.name = 'AbortError';
+        throw error;
+      }
+    }),
+  };
+});
 
 vi.mock('../src/convertTurnMessages.js', async importOriginal => {
   const actual = await importOriginal<typeof import('../src/convertTurnMessages.js')>();
@@ -316,6 +331,13 @@ async function* singleUpdateStream() {
 describe('useTrueForgeAgentMessages', () => {
   beforeEach(() => {
     vi.clearAllMocks();
+    vi.mocked(delayReconnect).mockImplementation(async (signal: AbortSignal) => {
+      if (signal.aborted) {
+        const error = new Error('Aborted');
+        error.name = 'AbortError';
+        throw error;
+      }
+    });
     vi.mocked(mockServer.cancelSession).mockResolvedValue(undefined);
     vi.mocked(mockServer.sendTurnEvents).mockImplementation(async ({ events }) =>
       events.map(event => ({
@@ -473,6 +495,7 @@ describe('useTrueForgeAgentMessages', () => {
       expect.any(AbortSignal),
       expect.any(Array),
       expect.any(Function),
+      expect.any(Function),
     );
 
     await act(async () => {
@@ -487,6 +510,7 @@ describe('useTrueForgeAgentMessages', () => {
       { userMessage: 'second' },
       expect.any(AbortSignal),
       expect.any(Array),
+      expect.any(Function),
       expect.any(Function),
     );
   });
@@ -531,7 +555,7 @@ describe('useTrueForgeAgentMessages', () => {
             input: [{ type: 'user.message', content: 'continue' }],
           },
         ],
-        activeTurn: runningTurn,
+        runningTurn: runningTurn,
         groupRootBaseline: [],
         unstable_resume: true,
       }),
@@ -570,7 +594,7 @@ describe('useTrueForgeAgentMessages', () => {
     } satisfies Turn;
     vi.mocked(loadSessionSnapshot).mockResolvedValue(
       replaceSessionSnapshot(createEmptySessionSnapshot(), {
-        activeTurn: runningTurn,
+        runningTurn: runningTurn,
         unstable_resume: true,
         pendingUser: {
           turnId: runningTurn.id,
@@ -1600,6 +1624,7 @@ describe('useTrueForgeAgentMessages', () => {
       expect.any(AbortSignal),
       7,
       undefined,
+      expect.any(Function),
     );
   });
 
@@ -1648,6 +1673,7 @@ describe('useTrueForgeAgentMessages', () => {
       expect.any(AbortSignal),
       4,
       expect.any(Array),
+      expect.any(Function),
     );
   });
 
@@ -1745,7 +1771,7 @@ describe('useTrueForgeAgentMessages', () => {
 
   it('subscribes before cancelling a paused turn and applies the terminal event', async () => {
     const pausedSnapshot = snapshotWithAssistantMessage(assistantMessageWithPendingApproval(), {
-      activeTurn: {
+      runningTurn: {
         id: 'turn-1',
         sessionId: 'session-1',
         input: [{ type: 'user.message', content: 'run it' }],
@@ -1868,7 +1894,7 @@ describe('useTrueForgeAgentMessages', () => {
   it('keeps paused state when the backend rejects cancellation', async () => {
     vi.mocked(loadSessionSnapshot).mockResolvedValue(
       snapshotWithAssistantMessage(assistantMessageWithPendingApproval(), {
-        activeTurn: {
+        runningTurn: {
           id: 'turn-1',
           sessionId: 'session-1',
           input: [{ type: 'user.message', content: 'run it' }],
@@ -2022,7 +2048,7 @@ describe('useTrueForgeAgentMessages', () => {
       vi.mocked(streamTurnContent).mockImplementation(
         async function* (_server, _sessionId, _fold, _options, _signal, _baseline, onTurnIdAvailable) {
           onTurnIdAvailable?.('gateway-turn-123');
-          yield { content: [{ type: 'text' as const, text: 'partial' }] };
+          yield { content: [{ type: 'text' as const, text: 'partial' }], sequenceNumber: 4 };
           throw new Error('Mid-stream error');
         },
       );
@@ -2038,12 +2064,10 @@ describe('useTrueForgeAgentMessages', () => {
       await waitFor(() => expect(result.current.isLoading).toBe(false));
 
       await act(async () => {
-        await expect(
-          result.current.sendTurn({
-            userMessage: 'test message',
-            onPreTurnFailure,
-          }),
-        ).rejects.toThrow('Mid-stream error');
+        await result.current.sendTurn({
+          userMessage: 'test message',
+          onPreTurnFailure,
+        });
       });
 
       const userMessages = result.current.messages.filter(m => m.role === 'user');
@@ -2053,7 +2077,18 @@ describe('useTrueForgeAgentMessages', () => {
         text: 'test message',
       });
       expect(onPreTurnFailure).not.toHaveBeenCalled();
-      expect(onError).toHaveBeenCalledWith(expect.any(Error));
+      // Reconnect via subscribe recovers; create-stream error is not surfaced.
+      expect(onError).not.toHaveBeenCalled();
+      expect(resumeTurnStream).toHaveBeenCalledWith(
+        mockServer,
+        'session-1',
+        'gateway-turn-123',
+        expect.anything(),
+        expect.any(AbortSignal),
+        4,
+        expect.anything(),
+        expect.any(Function),
+      );
     });
   });
 

@@ -11,9 +11,9 @@ import {
   TurnResourceResolver,
   type SessionHandle,
   type TurnHandle,
-  type TurnInputItem,
   type TurnRecordWithoutSnapshot,
   type TurnUserEvent,
+  type UserMessage,
 } from '@truefoundry/trueforge-core/agent-session';
 import type { IWebSearchProvider } from '@truefoundry/trueforge-core/core';
 import {
@@ -23,10 +23,12 @@ import {
   isFileContentPart,
   McpConnectionError,
   newEventId,
+  PromiseTimeoutError,
   rawSandboxId,
   redisKey,
   SandboxError,
   VercelAILLM,
+  withTimeout,
 } from '@truefoundry/trueforge-core/core';
 import type { Context } from 'hono';
 import { HTTPException } from 'hono/http-exception';
@@ -148,7 +150,7 @@ export type BeginTurnExecutionDeps = Pick<
 
 interface BeginTurnExecutionParams {
   session: SessionHandle;
-  input: TurnInputItem[] | undefined;
+  input: UserMessage[] | undefined;
   previous_turn_id: string | undefined;
   userRef: string;
   /** Raw inbound request headers. Absent for a schedule run. */
@@ -295,9 +297,9 @@ function createTurnResolver(deps: {
 /**
  * Derives a session title from the first user message of the first turn. Returns the
  * trimmed text (capped at {@link MAX_SESSION_TITLE_LENGTH}) or `undefined` when no usable
- * text is present (e.g. file-only or tool-approval input).
+ * text is present (for example, a file-only message).
  */
-export function deriveSessionTitle(input: TurnInputItem[] | undefined): string | undefined {
+export function deriveSessionTitle(input: UserMessage[] | undefined): string | undefined {
   const firstUserMessage = input?.[0];
   if (!firstUserMessage) {
     return undefined;
@@ -819,26 +821,40 @@ export function createTurnsRouter(deps: TurnsRouterDeps) {
         return c.json({ data: toWireTurn(turn.record) }, 200);
       }
 
-      // Stream: same engine; HTTP handler owns writing each event to SSE.
+      // Stream: same engine; a hung SSE write is timed out so drain/dual-write continue.
       const { drainInput } = await beginTurnExecution(turnParams);
       let shouldWriteToSSEStream = true;
       return streamSSE(c, async stream => {
         stream.onAbort(() => {
           shouldWriteToSSEStream = false;
+          deps.logger.info('Create-turn SSE client disconnected, continuing drain without writing', {
+            sessionId,
+            turnId: drainInput.turnId,
+          });
         });
         await drainTurnEvents({
           ...drainInput,
           onEvent: async (event, sequenceNumber) => {
             if (!stream.closed && !stream.aborted && shouldWriteToSSEStream) {
               try {
-                await stream.writeSSE(turnEventSsePayload(event, sequenceNumber));
+                await withTimeout(
+                  stream.writeSSE(turnEventSsePayload(event, sequenceNumber)),
+                  configuration.TURN_SSE_STREAM_WRITE_TIMEOUT_MS,
+                );
               } catch (error) {
-                deps.logger.error('SSE stream write error', extractErrorLogFields(error));
+                if (error instanceof PromiseTimeoutError) {
+                  deps.logger.error('SSE stream write timed out', extractErrorLogFields(error));
+                } else {
+                  deps.logger.error('SSE stream write error', extractErrorLogFields(error));
+                }
                 shouldWriteToSSEStream = false;
               }
             }
           },
         });
+        if (!shouldWriteToSSEStream && !stream.closed) {
+          stream.abort();
+        }
         await stream.close();
       });
     } catch (error) {

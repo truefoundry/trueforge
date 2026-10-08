@@ -601,7 +601,7 @@ describe('convertTurnMessages', () => {
         content: [{ type: 'text', text: 'assistant reply' }],
         status: { type: 'complete', reason: 'stop' },
       });
-      expect(result.activeTurn).toBeUndefined();
+      expect(result.runningTurn).toBeUndefined();
     });
 
     it('carries sandboxId from a historical sandbox.created event onto the assistant message', async () => {
@@ -696,7 +696,7 @@ describe('convertTurnMessages', () => {
       });
     });
 
-    it('returns activeTurn and unstable_resume for an in-flight turn', async () => {
+    it('returns runningTurn and unstable_resume for an in-flight turn', async () => {
       const runningTurn = mockTurn({
         id: 'turn-running',
         createdAt,
@@ -704,7 +704,7 @@ describe('convertTurnMessages', () => {
       });
       const result = await convertTurnsToThreadMessages(mockServerWithTurns([runningTurn]), SESSION_ID);
 
-      expect(result.activeTurn).toBe(runningTurn);
+      expect(result.runningTurn).toBe(runningTurn);
       expect(result.unstable_resume).toBe(true);
       expect(result.messages.at(-1)?.role).toBe('assistant');
     });
@@ -1456,12 +1456,63 @@ describe('convertTurnMessages', () => {
               threadId: ROOT_THREAD_ID,
               content: 'streaming',
             }),
+            {
+              type: 'turn.done',
+              id: 'done-auto',
+              createdAt,
+              state: { status: 'done', completedAt: createdAt },
+            },
           ]),
           foldState,
         ),
       );
 
-      expect(updates).toEqual([{ content: [{ type: 'text', text: 'streaming' }], sequenceNumber: 1 }]);
+      expect(updates[0]).toEqual({ content: [{ type: 'text', text: 'streaming' }], sequenceNumber: 1 });
+      expect(updates.at(-1)).toMatchObject({ turnState: { status: 'done' } });
+    });
+
+    it('reports every stream sequence including events that do not yield UI', async () => {
+      const foldState = new PeerThreadFoldState();
+      const sequences: number[] = [];
+      const onSequenceNumber = vi.fn((sequenceNumber: number) => {
+        sequences.push(sequenceNumber);
+      });
+      const gatewayTurnId = 'turn-gw';
+
+      await collectStream(
+        streamTurnEvents(
+          streamFrom([
+            {
+              type: 'turn.created',
+              createdAt,
+              id: 'created-1',
+              turnId: gatewayTurnId,
+              input: [{ type: 'user.message', content: 'hello' }],
+            },
+            modelMessage({
+              id: 'm1',
+              threadId: ROOT_THREAD_ID,
+              content: 'hi',
+            }),
+            {
+              type: 'turn.done',
+              id: 'turn-done',
+              createdAt,
+              state: {
+                status: 'done',
+                completedAt: createdAt,
+              },
+            },
+          ]),
+          foldState,
+          undefined,
+          undefined,
+          onSequenceNumber,
+        ),
+      );
+
+      expect(sequences).toEqual([1, 2, 3]);
+      expect(onSequenceNumber).toHaveBeenCalledTimes(3);
     });
 
     it('yields folded content after each ingested stream event', async () => {
@@ -1484,12 +1535,18 @@ describe('convertTurnMessages', () => {
               threadId: ROOT_THREAD_ID,
               content: 'third',
             }),
+            {
+              type: 'turn.done',
+              id: 'done-auto',
+              createdAt,
+              state: { status: 'done', completedAt: createdAt },
+            },
           ]),
           foldState,
         ),
       );
 
-      expect(updates).toHaveLength(3);
+      expect(updates.length).toBeGreaterThanOrEqual(3);
       expect(updates[0]?.content).toEqual([{ type: 'text', text: 'first' }]);
       expect(updates[1]?.content).toEqual([
         { type: 'text', text: 'first' },
@@ -1523,13 +1580,20 @@ describe('convertTurnMessages', () => {
               threadId: ROOT_THREAD_ID,
               content: 'new turn only',
             }),
+            {
+              type: 'turn.done',
+              id: 'done-auto',
+              createdAt,
+              state: { status: 'done', completedAt: createdAt },
+            },
           ]),
           foldState,
           ['prior'],
         ),
       );
 
-      expect(updates).toEqual([{ content: [{ type: 'text', text: 'new turn only' }], sequenceNumber: 1 }]);
+      expect(updates[0]).toEqual({ content: [{ type: 'text', text: 'new turn only' }], sequenceNumber: 1 });
+      expect(updates.at(-1)).toMatchObject({ turnState: { status: 'done' } });
     });
 
     it('projects terminal turn errors', async () => {
@@ -1879,14 +1943,20 @@ describe('convertTurnMessages', () => {
               threadId: ROOT_THREAD_ID,
               content: 'after sandbox',
             }),
+            {
+              type: 'turn.done',
+              id: 'done-auto',
+              createdAt,
+              state: { status: 'done', completedAt: createdAt },
+            },
           ]),
           foldState,
         ),
       );
 
-      expect(updates).toHaveLength(2);
       expect(updates[0]?.metadata?.custom?.['sandboxId']).toBeUndefined();
       expect(updates[1]?.metadata?.custom?.['sandboxId']).toBe('sbx-123');
+      expect(updates.at(-1)).toMatchObject({ turnState: { status: 'done' } });
     });
 
     it('yields a trailing update carrying sandboxId when sandbox.created is the last event', async () => {
@@ -1900,6 +1970,12 @@ describe('convertTurnMessages', () => {
               content: 'some content',
             }),
             sandboxCreated({ id: 'sandbox-evt', sandboxId: 'sbx-123' }),
+            {
+              type: 'turn.done',
+              id: 'done-auto',
+              createdAt,
+              state: { status: 'done', completedAt: createdAt },
+            },
           ]),
           foldState,
         ),
@@ -2035,7 +2111,7 @@ describe('convertTurnMessages', () => {
             content: 'use linear',
             createdAt: new Date(createdAt),
           },
-          activeTurn: {
+          runningTurn: {
             id: turnId,
             sessionId: SESSION_ID,
             createdAt,
@@ -2800,7 +2876,7 @@ describe('buildSnapshotFromSessionEvents', () => {
       completedAt: turnCompletedAt,
     });
     expect(snapshot.turns[0]?.rootModelMessageIds).toEqual(['m1']);
-    expect(snapshot.activeTurn).toBeUndefined();
+    expect(snapshot.runningTurn).toBeUndefined();
 
     const messages = projectSessionMessages(snapshot);
     expect(messages).toHaveLength(2);
@@ -2850,7 +2926,7 @@ describe('buildSnapshotFromSessionEvents', () => {
 
     expect(snapshot.turns).toHaveLength(1);
     expect(snapshot.turns[0]?.id).toBe('t1');
-    expect(snapshot.activeTurn).toBe(runningTurn);
+    expect(snapshot.runningTurn).toBe(runningTurn);
     expect(snapshot.unstable_resume).toBe(true);
     expect(snapshot.groupRootBaseline).toEqual(['m1']);
     expect(snapshot.pendingUser).toMatchObject({
@@ -2922,7 +2998,7 @@ describe('buildSnapshotFromSessionEvents', () => {
     const snapshot = await buildSnapshotFromSessionEvents(mockServerWithEvents([pausedTurn], items), SESSION_ID);
 
     expect(snapshot.turns).toHaveLength(0);
-    expect(snapshot.activeTurn).toEqual(pausedTurn);
+    expect(snapshot.runningTurn).toEqual(pausedTurn);
     expect(snapshot.pendingUser).toMatchObject({ turnId: pausedTurn.id, content: 'run it' });
     expect(snapshot.unstable_resume).toBe(true);
     // Tip model ids are already in the fold — baseline must stay empty so
@@ -3349,7 +3425,7 @@ describe('buildSnapshotFromSessionEvents', () => {
 
     const snapshot = await buildSnapshotFromSessionEvents(server, SESSION_ID);
     expect(listTurns).toHaveBeenCalledWith({ sessionId: SESSION_ID, limit: 1 });
-    expect(snapshot.activeTurn?.id).toBe('t-running');
+    expect(snapshot.runningTurn?.id).toBe('t-running');
     expect(snapshot.pendingUser?.content).toBe('now');
   });
 
@@ -3487,7 +3563,7 @@ describe('buildSnapshotFromSessionEvents', () => {
       turnId: 't-running',
     });
     expect(listTurns).not.toHaveBeenCalled();
-    expect(snapshot.activeTurn?.id).toBe('t-running');
+    expect(snapshot.runningTurn?.id).toBe('t-running');
     expect(snapshot.unstable_resume).toBe(true);
 
     const messages = projectSessionMessages(snapshot);
@@ -3617,7 +3693,7 @@ describe('buildSnapshotFromSessionEvents', () => {
 
     const snapshot = await buildSnapshotFromSessionEvents(server, SESSION_ID);
 
-    expect(snapshot.activeTurn).toBeUndefined();
+    expect(snapshot.runningTurn).toBeUndefined();
     expect(snapshot.unstable_resume).toBeFalsy();
 
     const messages = projectSessionMessages(snapshot);

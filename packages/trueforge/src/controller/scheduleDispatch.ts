@@ -1,4 +1,4 @@
-import type { SessionHandle, Sessions, TurnInputItem } from '@truefoundry/trueforge-core/agent-session';
+import type { SessionHandle, Sessions, UserMessage } from '@truefoundry/trueforge-core/agent-session';
 import type { Logger } from 'winston';
 import type { AgentRecord, IAgentStore } from '../db/agentStore';
 import {
@@ -80,7 +80,7 @@ export class ScheduleNotFoundError extends Error {
  */
 export interface PreparedScheduleTurn {
   session: SessionHandle;
-  input: TurnInputItem[];
+  input: UserMessage[];
   previous_turn_id: string;
   userRef: string;
   agent: AgentRecord;

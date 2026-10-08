@@ -30,7 +30,6 @@ from ..errors.precondition_failed_error import PreconditionFailedError
 from ..errors.unauthorized_error import UnauthorizedError
 from ..errors.unprocessable_entity_error import UnprocessableEntityError
 from ..types.cancel_session_response import CancelSessionResponse
-from ..types.components_schemas_user_message import ComponentsSchemasUserMessage
 from ..types.create_session_agent import CreateSessionAgent
 from ..types.create_turn_event_response import CreateTurnEventResponse
 from ..types.get_session_response import GetSessionResponse
@@ -52,6 +51,7 @@ from ..types.session_source_type import SessionSourceType
 from ..types.turn import Turn
 from ..types.turn_streaming_event import TurnStreamingEvent
 from ..types.turn_user_event_message import TurnUserEventMessage
+from ..types.user_message import UserMessage
 from pydantic import ValidationError
 
 # this is used as the default value for optional parameters
@@ -800,7 +800,7 @@ class RawSessionsClient:
         self,
         *,
         session_id: str,
-        input: typing.Optional[typing.Sequence[ComponentsSchemasUserMessage]] = OMIT,
+        input: typing.Optional[typing.Sequence[UserMessage]] = OMIT,
         previous_turn_id: typing.Optional[PreviousTurnIdInput] = OMIT,
         request_options: typing.Optional[RequestOptions] = None,
     ) -> typing.Iterator[HttpResponse[Stream[TurnStreamingEvent]]]:
@@ -816,8 +816,8 @@ class RawSessionsClient:
         session_id : str
             Session identifier.
 
-        input : typing.Optional[typing.Sequence[ComponentsSchemasUserMessage]]
-            Turn input items: user messages only. Approval decisions and client-side tool responses are sent to a running turn via the turn events endpoint, not at turn creation.
+        input : typing.Optional[typing.Sequence[UserMessage]]
+            User messages supplied when the turn is created.
 
         previous_turn_id : typing.Optional[PreviousTurnIdInput]
 
@@ -834,7 +834,7 @@ class RawSessionsClient:
             method="POST",
             json={
                 "input": convert_and_respect_annotation_metadata(
-                    object_=input, annotation=typing.Sequence[ComponentsSchemasUserMessage], direction="write"
+                    object_=input, annotation=typing.Sequence[UserMessage], direction="write"
                 ),
                 "previous_turn_id": convert_and_respect_annotation_metadata(
                     object_=previous_turn_id, annotation=PreviousTurnIdInput, direction="write"
@@ -983,7 +983,7 @@ class RawSessionsClient:
         self,
         *,
         session_id: str,
-        input: typing.Optional[typing.Sequence[ComponentsSchemasUserMessage]] = OMIT,
+        input: typing.Optional[typing.Sequence[UserMessage]] = OMIT,
         previous_turn_id: typing.Optional[PreviousTurnIdInput] = OMIT,
         request_options: typing.Optional[RequestOptions] = None,
     ) -> HttpResponse[GetTurnResponse]:
@@ -999,8 +999,8 @@ class RawSessionsClient:
         session_id : str
             Session identifier.
 
-        input : typing.Optional[typing.Sequence[ComponentsSchemasUserMessage]]
-            Turn input items: user messages only. Approval decisions and client-side tool responses are sent to a running turn via the turn events endpoint, not at turn creation.
+        input : typing.Optional[typing.Sequence[UserMessage]]
+            User messages supplied when the turn is created.
 
         previous_turn_id : typing.Optional[PreviousTurnIdInput]
 
@@ -1017,7 +1017,7 @@ class RawSessionsClient:
             method="POST",
             json={
                 "input": convert_and_respect_annotation_metadata(
-                    object_=input, annotation=typing.Sequence[ComponentsSchemasUserMessage], direction="write"
+                    object_=input, annotation=typing.Sequence[UserMessage], direction="write"
                 ),
                 "previous_turn_id": convert_and_respect_annotation_metadata(
                     object_=previous_turn_id, annotation=PreviousTurnIdInput, direction="write"
@@ -2443,7 +2443,7 @@ class AsyncRawSessionsClient:
         self,
         *,
         session_id: str,
-        input: typing.Optional[typing.Sequence[ComponentsSchemasUserMessage]] = OMIT,
+        input: typing.Optional[typing.Sequence[UserMessage]] = OMIT,
         previous_turn_id: typing.Optional[PreviousTurnIdInput] = OMIT,
         request_options: typing.Optional[RequestOptions] = None,
     ) -> typing.AsyncIterator[AsyncHttpResponse[AsyncStream[TurnStreamingEvent]]]:
@@ -2459,8 +2459,8 @@ class AsyncRawSessionsClient:
         session_id : str
             Session identifier.
 
-        input : typing.Optional[typing.Sequence[ComponentsSchemasUserMessage]]
-            Turn input items: user messages only. Approval decisions and client-side tool responses are sent to a running turn via the turn events endpoint, not at turn creation.
+        input : typing.Optional[typing.Sequence[UserMessage]]
+            User messages supplied when the turn is created.
 
         previous_turn_id : typing.Optional[PreviousTurnIdInput]
 
@@ -2477,7 +2477,7 @@ class AsyncRawSessionsClient:
             method="POST",
             json={
                 "input": convert_and_respect_annotation_metadata(
-                    object_=input, annotation=typing.Sequence[ComponentsSchemasUserMessage], direction="write"
+                    object_=input, annotation=typing.Sequence[UserMessage], direction="write"
                 ),
                 "previous_turn_id": convert_and_respect_annotation_metadata(
                     object_=previous_turn_id, annotation=PreviousTurnIdInput, direction="write"
@@ -2626,7 +2626,7 @@ class AsyncRawSessionsClient:
         self,
         *,
         session_id: str,
-        input: typing.Optional[typing.Sequence[ComponentsSchemasUserMessage]] = OMIT,
+        input: typing.Optional[typing.Sequence[UserMessage]] = OMIT,
         previous_turn_id: typing.Optional[PreviousTurnIdInput] = OMIT,
         request_options: typing.Optional[RequestOptions] = None,
     ) -> AsyncHttpResponse[GetTurnResponse]:
@@ -2642,8 +2642,8 @@ class AsyncRawSessionsClient:
         session_id : str
             Session identifier.
 
-        input : typing.Optional[typing.Sequence[ComponentsSchemasUserMessage]]
-            Turn input items: user messages only. Approval decisions and client-side tool responses are sent to a running turn via the turn events endpoint, not at turn creation.
+        input : typing.Optional[typing.Sequence[UserMessage]]
+            User messages supplied when the turn is created.
 
         previous_turn_id : typing.Optional[PreviousTurnIdInput]
 
@@ -2660,7 +2660,7 @@ class AsyncRawSessionsClient:
             method="POST",
             json={
                 "input": convert_and_respect_annotation_metadata(
-                    object_=input, annotation=typing.Sequence[ComponentsSchemasUserMessage], direction="write"
+                    object_=input, annotation=typing.Sequence[UserMessage], direction="write"
                 ),
                 "previous_turn_id": convert_and_respect_annotation_metadata(
                     object_=previous_turn_id, annotation=PreviousTurnIdInput, direction="write"
