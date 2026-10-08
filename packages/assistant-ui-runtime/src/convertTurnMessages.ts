@@ -770,10 +770,7 @@ function applyTerminalTurnContent(
  * Cancelled/error turns still need a bubble so the user sees why the turn ended
  * (Cancelled: abandoned, or the error banner).
  */
-function shouldEmitTerminalAssistant(
-  state: Turn['state'],
-  content: readonly AssistantContentPart[],
-): boolean {
+function shouldEmitTerminalAssistant(state: Turn['state'], content: readonly AssistantContentPart[]): boolean {
   return content.length > 0 || state.status === 'cancelled' || state.status === 'error';
 }
 
@@ -1764,6 +1761,8 @@ export async function* streamTurnEvents(
       }
       // Live cancel: show "Cancelled: abandoned" immediately and stash the wire
       // reason so commitActiveStream can persist TurnStateCancelled (not "done").
+      // Return here — do not fall through to sandbox/MCP/approval post-loop yields,
+      // which would replace this update and commit the turn as done.
       if (event.state.status === 'cancelled') {
         const ids =
           groupRootBaseline != null
@@ -1775,6 +1774,7 @@ export async function* streamTurnEvents(
           status: { type: 'incomplete', reason: 'cancelled' },
           metadata: { custom: { [CANCELLATION_REASON_CUSTOM_KEY]: event.state.reason } },
         });
+        return;
       }
       // The turn is logically complete once `turn.done` is observed. The
       // resumed-turn transport (`subscribeToTurn`) is a reconnectable live

@@ -1582,6 +1582,31 @@ describe('convertTurnMessages', () => {
       ]);
     });
 
+    it('does not let a post-loop sandbox flush overwrite a cancelled turn.done', async () => {
+      const foldState = new PeerThreadFoldState();
+      const updates = await collectStream(
+        streamTurnEvents(
+          streamFrom([
+            sandboxCreated({ id: 'sbx-evt', sandboxId: 'sbx-1' }),
+            {
+              type: 'turn.done',
+              id: 'turn-done-cancel',
+              createdAt,
+              state: { status: 'cancelled', reason: 'abandoned', completedAt: createdAt },
+            },
+          ]),
+          foldState,
+        ),
+      );
+
+      expect(updates).toHaveLength(1);
+      expect(updates[0]).toMatchObject({
+        content: [{ type: 'text', text: 'Cancelled: abandoned' }],
+        status: { type: 'incomplete', reason: 'cancelled' },
+        metadata: { custom: { cancellationReason: 'abandoned' } },
+      });
+    });
+
     it('reports every stream sequence including events that do not yield UI', async () => {
       const foldState = new PeerThreadFoldState();
       const sequences: number[] = [];

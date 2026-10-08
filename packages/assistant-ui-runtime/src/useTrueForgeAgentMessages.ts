@@ -105,7 +105,13 @@ function buildCompletedTurnState(
   };
 }
 
-function buildCancelledTurnState(completedAt: string, reason = 'Superseded by a later message'): TurnStateCancelled {
+function buildCancelledTurnState({
+  completedAt,
+  reason = 'Superseded by a later message',
+}: {
+  completedAt: string;
+  reason?: string;
+}): TurnStateCancelled {
   return {
     status: 'cancelled',
     reason,
@@ -124,14 +130,11 @@ function committedStateFromActiveStream(
 ): TurnStateDone | TurnStateCancelled {
   const cancelReason = update.metadata?.custom?.[CANCELLATION_REASON_CUSTOM_KEY];
   const status = update.status;
-  if (
-    (status?.type === 'incomplete' && status.reason === 'cancelled') ||
-    typeof cancelReason === 'string'
-  ) {
-    return buildCancelledTurnState(
+  if ((status?.type === 'incomplete' && status.reason === 'cancelled') || typeof cancelReason === 'string') {
+    return buildCancelledTurnState({
       completedAt,
-      typeof cancelReason === 'string' ? cancelReason : 'client-cancelled',
-    );
+      reason: typeof cancelReason === 'string' ? cancelReason : 'client-cancelled',
+    });
   }
   return buildCompletedTurnState(completedAt, requiredActionsFromActiveUpdate(update));
 }
@@ -195,7 +198,7 @@ function abandonInFlightClientTurn(snapshot: SessionSnapshot): SessionSnapshot {
   }
 
   const completedAt = new Date().toISOString();
-  const cancelledState = buildCancelledTurnState(completedAt);
+  const cancelledState = buildCancelledTurnState({ completedAt });
 
   if (active != null && active.streamComplete !== true) {
     const activeSandboxIdValue = active.update.metadata?.custom?.['sandboxId'];
