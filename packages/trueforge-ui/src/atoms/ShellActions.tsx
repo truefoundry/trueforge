@@ -1,5 +1,7 @@
 'use client';
 
+import { useTrackAnalytics } from '../analytics/AnalyticsProvider.js';
+import { AnalyticsEvents } from '../analytics/events.js';
 import { Icon } from '../icons/Icon.js';
 import { useOptionalCatalogServer, useServerCapabilities } from '../server/ServerContext.js';
 import { useOptionalShellMode } from '../server/ShellModeContext.js';
@@ -20,6 +22,7 @@ export function ShellActions({
   onAction?: () => void;
 }) {
   const shell = useOptionalShellMode();
+  const track = useTrackAnalytics();
   const catalog = useOptionalCatalogServer();
   const capabilities = useServerCapabilities();
   const { mode, setTheme } = useTheme();
@@ -89,6 +92,7 @@ export function ShellActions({
             ),
           })}
           onClick={() => {
+            if (!shell.settingsOpen) track(AnalyticsEvents.Settings.OPENED);
             shell.setSettingsOpen(true);
             onAction?.();
           }}

@@ -3,6 +3,9 @@
 import { useCallback, useEffect, useMemo, useRef, useState, type ComponentType } from 'react';
 import { Group, Panel, Separator } from 'react-resizable-panels';
 
+import { useTrackAnalytics } from '../../analytics/AnalyticsProvider.js';
+import { AnalyticsEvents } from '../../analytics/events.js';
+import { withSessionProps } from '../../analytics/sessionProps.js';
 import { useToasterOptional } from '../../containers/ToasterContainer.js';
 import { useResourcePermissions } from '../../hooks/useResourcePermissions.js';
 import { useSessionShareSearch } from '../../hooks/useSessionShareSearch.js';
@@ -57,6 +60,7 @@ export function AgentSessions({
   const sessionsServer = useAgentSessionsServer();
   const chatServer = useServer();
   const toaster = useToasterOptional();
+  const track = useTrackAnalytics();
   const shell = useOptionalShellMode();
   const routes = useOptionalResolvedRoutes();
   const { sessionId: querySessionId, updateShareSearch } = useSessionShareSearch();
@@ -261,6 +265,10 @@ export function AgentSessions({
     setPendingDelete(null);
     try {
       await chatServer.deleteSession({ sessionId: entry.id });
+      track(
+        AnalyticsEvents.Session.DELETED,
+        withSessionProps(undefined, { sessionId: entry.id, agentName: entry.agentName }),
+      );
       setEntries(current => current.filter(item => item.id !== entry.id));
       if (selectedSessionId === entry.id) {
         updateShareSearch({ sessionId: null });
@@ -307,7 +315,7 @@ export function AgentSessions({
     resumeHref != null ? { resumeHref, resumeLabel } : shell != null ? { onResume: handleResume, resumeLabel } : {};
 
   const detailPanel = (
-    <section className="flex h-full min-w-0 flex-col bg-primary-bg">
+    <section className="isolate flex h-full min-w-0 flex-col bg-primary-bg">
       {selectedSessionId == null ? (
         <div className="flex flex-1 items-center justify-center px-6 text-sm text-text-secondary">
           Select a session to view details
@@ -321,6 +329,7 @@ export function AgentSessions({
           <AgentSessionDetailHeader
             title={selectedTitle}
             sessionId={selectedSessionId}
+            metadata={detailSession?.metadata ?? selectedEntry?.metadata}
             onClose={clearSelectedSession}
             canResume={canResume}
             canShare={canResume}
@@ -433,7 +442,7 @@ export function AgentSessions({
       <Separator
         id="agent-sessions-resizer"
         aria-label="Resize session list"
-        className="group/resizer relative z-10 w-0 cursor-col-resize focus-visible:outline-none"
+        className="group/resizer relative z-30 w-0 cursor-col-resize focus-visible:outline-none"
       >
         <div aria-hidden className="absolute inset-y-0 -left-1.25 w-2.75" />
         <div aria-hidden className="absolute inset-y-0 left-0 w-px bg-border transition-colors" />

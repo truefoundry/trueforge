@@ -3,6 +3,8 @@ import type { AppendMessage } from '@assistant-ui/react';
 import { fireEvent, render, screen, waitFor } from '@testing-library/react';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
+import { AnalyticsProvider } from '@/analytics/AnalyticsProvider.js';
+import { AnalyticsEvents } from '@/analytics/events.js';
 import { canSubmitComposer, ComposerContainer } from '@/containers/ComposerContainer.js';
 import { ComposerBusyProvider } from '@/hooks/useComposerBusyState.js';
 import {
@@ -186,6 +188,62 @@ describe('ComposerContainer', () => {
     fireEvent.keyDown(input, { key: 'Enter' });
     await waitFor(() => expect(input.value).toBe(''));
     expect(onNew).toHaveBeenCalledTimes(1);
+  });
+
+  it('tracks message_sent when the host supplies analytics.track', async () => {
+    const track = vi.fn();
+    const onNew = vi.fn(async () => {});
+    render(
+      <AnalyticsProvider track={track}>
+        <ShellModeProvider agentConfig={{ mode: 'SingleAgent', name: 'support' }}>
+          <RuntimeHarness messages={[]} onNew={onNew}>
+            <ComposerBusyProvider>
+              <ComposerContainer />
+            </ComposerBusyProvider>
+          </RuntimeHarness>
+        </ShellModeProvider>
+      </AnalyticsProvider>,
+    );
+    const input = screen.getByRole<HTMLTextAreaElement>('textbox', { name: 'Message input' });
+
+    fireEvent.change(input, { target: { value: 'hi' } });
+    fireEvent.keyDown(input, { key: 'Enter' });
+    await waitFor(() => expect(onNew).toHaveBeenCalledTimes(1));
+    expect(track).toHaveBeenCalledWith(
+      AnalyticsEvents.Message.SENT,
+      expect.objectContaining({ has_text: true, agent_name: 'support' }),
+    );
+  });
+
+  it('tracks attachment_picked on dropzone drop', () => {
+    const track = vi.fn();
+    render(
+      <AnalyticsProvider track={track}>
+        <ShellModeProvider agentConfig={{ mode: 'SingleAgent', name: 'support' }}>
+          <RuntimeHarness messages={[]}>
+            <ComposerBusyProvider>
+              <ComposerContainer />
+            </ComposerBusyProvider>
+          </RuntimeHarness>
+        </ShellModeProvider>
+      </AnalyticsProvider>,
+    );
+    const dropzone = document.querySelector('[data-slot="aui_composer-attachment-dropzone"]');
+    expect(dropzone).not.toBeNull();
+    if (dropzone === null) {
+      throw new Error('Expected attachment dropzone');
+    }
+
+    fireEvent.drop(dropzone, {
+      dataTransfer: {
+        files: [new File(['hello'], 'note.txt', { type: 'text/plain' })],
+      },
+    });
+
+    expect(track).toHaveBeenCalledWith(
+      AnalyticsEvents.Attachment.PICKED,
+      expect.objectContaining({ file_count: 1, agent_name: 'support' }),
+    );
   });
 
   it('preserves consumer section overrides in draft mode', () => {

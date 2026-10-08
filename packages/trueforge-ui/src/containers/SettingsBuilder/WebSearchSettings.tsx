@@ -2,6 +2,8 @@
 
 import { useCallback, useEffect, useMemo, useState } from 'react';
 
+import { useTrackAnalytics } from '@/analytics/AnalyticsProvider.js';
+import { AnalyticsEvents } from '@/analytics/events.js';
 import { Button } from '../../atoms/primitives/Button.js';
 import { Icon } from '../../icons/Icon.js';
 import { useCatalogServer } from '../../server/ServerContext.js';
@@ -13,6 +15,7 @@ import ConfigureWebSearchForm, { type WebSearchConfigDraft } from './ConfigureWe
 const WebSearchSettings = () => {
   const { webSearchCatalog } = useCatalogServer();
   const toaster = useToasterOptional();
+  const track = useTrackAnalytics();
 
   const [providers, setProviders] = useState<WebSearchProviderBase[]>([]);
   const [catalog, setCatalog] = useState<WebSearchProviderCatalogEntry[]>([]);
@@ -89,6 +92,7 @@ const WebSearchSettings = () => {
     setCreateEntry(null);
     setTimeout(() => {
       toaster?.showSuccess({ title: `${createEntry.name} configured` });
+      track(AnalyticsEvents.Settings.WEB_SEARCH_PROVIDER_SAVED, { provider_name: createEntry.name, mode: 'create' });
     }, 0);
   };
 
@@ -104,6 +108,7 @@ const WebSearchSettings = () => {
     setUpdateProvider(null);
     setTimeout(() => {
       toaster?.showSuccess({ title: `${updateProvider.name} updated` });
+      track(AnalyticsEvents.Settings.WEB_SEARCH_PROVIDER_SAVED, { provider_name: updateProvider.name, mode: 'update' });
     }, 0);
   };
 
