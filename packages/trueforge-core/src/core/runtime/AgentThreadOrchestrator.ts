@@ -466,10 +466,10 @@ export class AgentThreadOrchestrator {
 
     switch (chunk.type) {
       case EventType.MCP_INITIALIZE:
+        yield chunk;
         for (const server of chunk.mcp_servers) {
           this.mcpServerInitInfoById.set(server.id, server);
         }
-        yield chunk;
         return;
       case EventType.TOOL_APPROVAL_REQUIRED:
       case EventType.TOOL_RESPONSE_REQUIRED:

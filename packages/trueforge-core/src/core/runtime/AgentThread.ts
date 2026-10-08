@@ -571,11 +571,12 @@ export class AgentThread {
     yield* this.executeContextProcessors('preSend');
 
     const contextMessages: LLMUserMessage[] = [];
+    const sandboxCreatedEvents: SandboxCreatedEvent[] = [];
     for (const message of messages) {
       const result = await processAgentUserInput(message, this.sandbox);
       contextMessages.push(result.message);
       if (result.sandboxCreated) {
-        this.pendingSandboxCreatedEvents.push(buildSandboxCreatedEvent(result.sandboxCreated));
+        sandboxCreatedEvents.push(buildSandboxCreatedEvent(result.sandboxCreated));
       }
     }
 
@@ -585,6 +586,7 @@ export class AgentThread {
       currentContextUsage: undefined,
       usage: undefined,
     });
+    this.pendingSandboxCreatedEvents.push(...sandboxCreatedEvents);
   }
 
   *send(
@@ -711,15 +713,13 @@ export class AgentThread {
       ...(completion && { completion }),
     };
 
-    // Update metrics before yield so we still count it if the stream stops here.
-    if (usage) {
-      updateMetricsFromUsage(this.metrics, usage);
-    }
-
     yield event;
 
     this.context = this.context.concat(context);
     this.currentContextUsage = newCurrentContextUsage;
+    if (usage) {
+      updateMetricsFromUsage(this.metrics, usage);
+    }
   }
 
   *overwriteContext(input: {
@@ -742,13 +742,13 @@ export class AgentThread {
       current_context_usage: currentContextUsage,
       ...(input.usage !== undefined ? { usage: input.usage } : {}),
     };
-    if (input.usage) {
-      updateMetricsFromUsage(this.metrics, input.usage);
-    }
 
     yield event;
     this.context = context;
     this.currentContextUsage = currentContextUsage;
+    if (input.usage) {
+      updateMetricsFromUsage(this.metrics, input.usage);
+    }
     this.metrics.total_summarizations++;
   }
 
@@ -1307,8 +1307,6 @@ export class AgentThread {
     if (approvalRequiredToolCalls.length > 0) {
       throw new Error('Unreachable');
     }
-    this.metrics.total_tool_calls += toolCallResults.length;
-    this.metrics.total_sub_agents += createThreadEvents.length;
 
     if (initializationInfo.length > 0) {
       yield buildMCPInitializeEvent(initializationInfo, this.threadId);
@@ -1368,6 +1366,7 @@ export class AgentThread {
       currentContextUsage: undefined,
       usage: undefined,
     });
+    this.metrics.total_tool_calls += toolCallResults.length;
 
     if (authRequirementInfo.length > 0) {
       yield buildMCPAuthRequiredEvent(authRequirementInfo, this.threadId);
@@ -1381,6 +1380,7 @@ export class AgentThread {
     for (const event of createThreadEvents) {
       yield event;
     }
+    this.metrics.total_sub_agents += createThreadEvents.length;
     if (createThreadEvents.length > 0) {
       return 'exit';
     }
@@ -1503,9 +1503,9 @@ export class AgentThread {
               );
               return;
             }
-            this.metrics.iterations++;
 
             const llmResult = yield* this.stepLLMCall(tools, toolMapping, signal);
+            this.metrics.iterations++;
             outcome = llmResult.outcome;
             currentModelMessageEventId = llmResult.modelMessageEventId;
             break;
