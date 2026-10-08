@@ -267,7 +267,12 @@ export interface UserToolResponseEvent {
   content: string;
 }
 
-export type TurnInputItem = UserMessage | UserToolApprovalEvent | UserToolResponseEvent;
+/** Client resume after mcp.auth_required (OAuth completed). */
+export interface UserMcpAuthContinueEvent {
+  type: 'user.mcp_auth_continue';
+}
+
+export type TurnInputItem = UserMessage | UserToolApprovalEvent | UserToolResponseEvent | UserMcpAuthContinueEvent;
 
 export interface TurnStateRunning {
   status: 'running';
