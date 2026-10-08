@@ -77,7 +77,7 @@ export function isUserMessage(msg: AgentThreadRuntimeSendInput): msg is UserMess
   return 'type' in msg && msg.type === EventType.USER_MESSAGE;
 }
 
-export function isInputUserMessageBatch(input: InputUserMessage[] | TurnUserEvent[]): input is InputUserMessage[] {
+export function isUserMessageBatch(input: UserMessage[] | TurnUserEvent[]): input is UserMessage[] {
   return input.every(event => event.type === EventType.USER_MESSAGE);
 }
 

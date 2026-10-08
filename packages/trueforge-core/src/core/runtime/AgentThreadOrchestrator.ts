@@ -32,9 +32,9 @@ import {
 import {
   assistantMessageContentToStringForSubAgent,
   getThreadId,
-  isInputUserMessageBatch,
   isInternalThreadDoneCancelled,
   isInternalThreadDoneError,
+  isUserMessageBatch,
 } from './contextUtils';
 import type { CreateDynamicSubAgentThread } from './CreateDynamicSubAgentThread';
 import { addAgentThreadMetrics, createEmptyAgentThreadMetrics, type AgentThreadMetrics } from './metrics';
@@ -382,7 +382,7 @@ export class AgentThreadOrchestrator {
       return;
     }
 
-    if (isInputUserMessageBatch(input)) {
+    if (isUserMessageBatch(input)) {
       // A new turn may be created while the previous turn is running or paused:
       // cancel live children, close their open parent calls, then append the new
       // user input to the main thread immediately.
