@@ -72,7 +72,7 @@ function renderDrawer({
   onSaved?: () => void;
   track?: TrackAnalytics;
 } = {}) {
-  const createOrUpdateEnvironment = vi.fn(async ({ manifest }) => ({
+  const savedEnvironment = async ({ manifest }: { manifest: SandboxEnvironment['manifest'] }) => ({
     id: 'e1',
     name: manifest.name,
     description: manifest.description ?? '',
@@ -86,8 +86,11 @@ function renderDrawer({
     },
     createdAt: '2024-01-01T00:00:00.000Z',
     updatedAt: '2024-01-01T00:00:00.000Z',
-  }));
+  });
+  const createEnvironment = vi.fn(savedEnvironment);
+  const createOrUpdateEnvironment = vi.fn(savedEnvironment);
   const environmentServer = createMockSandboxEnvironmentServer({
+    createEnvironment,
     createOrUpdateEnvironment,
     ...environmentOverrides,
   });
@@ -109,21 +112,22 @@ function renderDrawer({
   );
   render(track != null ? <AnalyticsProvider track={track}>{tree}</AnalyticsProvider> : tree);
 
-  return { createOrUpdateEnvironment, onOpenChange, onSaved, track };
+  return { createEnvironment, createOrUpdateEnvironment, onOpenChange, onSaved, track };
 }
 
 describe('EnvironmentFormDrawer', () => {
   it('saves UI form values', async () => {
     const track = vi.fn();
-    const { createOrUpdateEnvironment, onSaved } = renderDrawer({ track });
+    const { createEnvironment, createOrUpdateEnvironment, onSaved } = renderDrawer({ track });
     expect(screen.queryByRole('button', { name: 'YAML' })).not.toBeInTheDocument();
     const nameInput = screen.getByPlaceholderText('my-environment');
     fireEvent.change(nameInput, { target: { value: 'node-web' } });
     fireEvent.click(screen.getByRole('button', { name: 'Create' }));
     await waitFor(() => {
-      expect(createOrUpdateEnvironment).toHaveBeenCalled();
+      expect(createEnvironment).toHaveBeenCalled();
     });
-    expect(createOrUpdateEnvironment.mock.calls[0]?.[0]?.manifest.name).toBe('node-web');
+    expect(createEnvironment.mock.calls[0]?.[0]?.manifest.name).toBe('node-web');
+    expect(createOrUpdateEnvironment).not.toHaveBeenCalled();
     expect(onSaved).toHaveBeenCalled();
     expect(track).toHaveBeenCalledWith(AnalyticsEvents.Environment.CREATED, {
       environment_name: 'node-web',
@@ -132,7 +136,10 @@ describe('EnvironmentFormDrawer', () => {
   });
 
   it('saves UI form values in edit without a YAML switch', async () => {
-    const { createOrUpdateEnvironment, onSaved } = renderDrawer({ mode: 'edit', environment: editEnvironment });
+    const { createEnvironment, createOrUpdateEnvironment, onSaved } = renderDrawer({
+      mode: 'edit',
+      environment: editEnvironment,
+    });
     expect(screen.queryByRole('button', { name: 'YAML' })).not.toBeInTheDocument();
     fireEvent.change(screen.getByPlaceholderText('write description ...'), {
       target: { value: 'updated description' },
@@ -142,6 +149,7 @@ describe('EnvironmentFormDrawer', () => {
       expect(createOrUpdateEnvironment).toHaveBeenCalled();
     });
     expect(createOrUpdateEnvironment.mock.calls[0]?.[0]?.manifest.description).toBe('updated description');
+    expect(createEnvironment).not.toHaveBeenCalled();
     expect(onSaved).toHaveBeenCalled();
   });
 
@@ -153,7 +161,7 @@ describe('EnvironmentFormDrawer', () => {
     });
     renderDrawer({
       environmentOverrides: {
-        createOrUpdateEnvironment: vi.fn(async () => {
+        createEnvironment: vi.fn(async () => {
           throw httpError;
         }),
       },
