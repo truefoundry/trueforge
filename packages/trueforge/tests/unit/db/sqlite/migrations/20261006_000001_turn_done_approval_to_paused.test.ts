@@ -9,6 +9,18 @@ const approvalRequired = {
   thread_id: 'main',
   tool_call_id: 'call-1',
 };
+const responseRequired = {
+  type: 'tool.response_required',
+  id: 'response-1',
+  thread_id: 'main',
+  tool_call_id: 'call-2',
+};
+const mcpAuthRequired = {
+  type: 'mcp.auth_required',
+  id: 'auth-1',
+  thread_id: null,
+  mcp_servers: [],
+};
 
 function doneState(requiredActions: object[] = [], cost?: number) {
   return {
@@ -36,8 +48,8 @@ function turnDoneEvent(id: string, state: object) {
   };
 }
 
-describe('SQLite done approval turn migration', () => {
-  it('pauses every approval-required leaf across branched sessions and leaves other states unchanged', async () => {
+describe('SQLite done action-required turn migration', () => {
+  it('pauses every action-required leaf across branched sessions and leaves other states unchanged', async () => {
     const db = createSqliteDb(':memory:');
     try {
       await sql`
@@ -69,16 +81,18 @@ describe('SQLite done approval turn migration', () => {
 
       const done = doneState();
       const doneWithApproval = doneState([approvalRequired], 1.25);
+      const doneWithResponse = doneState([responseRequired], 0.75);
+      const doneWithMcpAuth = doneState([mcpAuthRequired], 1.5);
       await sql`
         INSERT INTO session (session_id, metrics)
         VALUES
           (
             'session-1',
-            jsonb('{"total_duration_ms":30000,"total_turns":3,"total_cost_in_usd":1.25}')
+            jsonb('{"total_duration_ms":30000,"total_turns":3,"total_cost_in_usd":2}')
           ),
           (
             'session-2',
-            jsonb('{"total_duration_ms":10000,"total_turns":1,"total_cost_in_usd":1.25}')
+            jsonb('{"total_duration_ms":10000,"total_turns":1,"total_cost_in_usd":1.5}')
           ),
           ('session-3', jsonb('{"total_duration_ms":10000,"total_turns":1}'))
       `.execute(db);
@@ -105,7 +119,7 @@ describe('SQLite done approval turn migration', () => {
             'session-1',
             'turn-1-child-2',
             'turn-1',
-            jsonb(${JSON.stringify(done)}),
+            jsonb(${JSON.stringify(doneWithResponse)}),
             '2026-10-06T00:00:00.000Z',
             'before'
           ),
@@ -113,7 +127,7 @@ describe('SQLite done approval turn migration', () => {
             'session-2',
             'turn-3',
             NULL,
-            jsonb(${JSON.stringify(doneWithApproval)}),
+            jsonb(${JSON.stringify(doneWithMcpAuth)}),
             '2026-10-06T00:00:00.000Z',
             'before'
           ),
@@ -140,13 +154,13 @@ describe('SQLite done approval turn migration', () => {
             'session-1',
             'turn-1-child-2',
             'event-3',
-            jsonb(${JSON.stringify(turnDoneEvent('event-3', done))})
+            jsonb(${JSON.stringify(turnDoneEvent('event-3', doneWithResponse))})
           ),
           (
             'session-2',
             'turn-3',
             'event-4',
-            jsonb(${JSON.stringify(turnDoneEvent('event-4', doneWithApproval))})
+            jsonb(${JSON.stringify(turnDoneEvent('event-4', doneWithMcpAuth))})
           ),
           ('session-3', 'turn-4', 'event-5', jsonb(${JSON.stringify(turnDoneEvent('event-5', errorState))}))
       `.execute(db);
@@ -160,7 +174,7 @@ describe('SQLite done approval turn migration', () => {
       expect(Object.fromEntries(turns.rows.map(turn => [`${turn.session_id}/${turn.turn_id}`, turn.state]))).toEqual({
         'session-1/turn-1': done,
         'session-1/turn-1-child-1': { status: 'paused' },
-        'session-1/turn-1-child-2': done,
+        'session-1/turn-1-child-2': { status: 'paused' },
         'session-2/turn-3': { status: 'paused' },
         'session-3/turn-4': errorState,
       });
@@ -170,7 +184,7 @@ describe('SQLite done approval turn migration', () => {
         FROM session
       `.execute(db);
       expect(Object.fromEntries(sessions.rows.map(session => [session.session_id, session.metrics]))).toEqual({
-        'session-1': { total_duration_ms: 20_000, total_turns: 3, total_cost_in_usd: 0 },
+        'session-1': { total_duration_ms: 10_000, total_turns: 3, total_cost_in_usd: 0 },
         'session-2': { total_duration_ms: 0, total_turns: 1, total_cost_in_usd: 0 },
         'session-3': { total_duration_ms: 10_000, total_turns: 1 },
       });
@@ -186,9 +200,13 @@ describe('SQLite done approval turn migration', () => {
           type: 'turn.update',
           state: { status: 'paused' },
         },
-        'session-1/turn-1-child-2': turnDoneEvent('event-3', done),
+        'session-1/turn-1-child-2': {
+          ...turnDoneEvent('event-3', doneWithResponse),
+          type: 'turn.update',
+          state: { status: 'paused' },
+        },
         'session-2/turn-3': {
-          ...turnDoneEvent('event-4', doneWithApproval),
+          ...turnDoneEvent('event-4', doneWithMcpAuth),
           type: 'turn.update',
           state: { status: 'paused' },
         },

@@ -2,7 +2,7 @@ import { sql, type Kysely } from 'kysely';
 
 /**
  * Mirrors the PostgreSQL migration that converts resumable topology leaves
- * from the legacy done-with-approval state to paused.
+ * from the legacy done-with-action-required state to paused.
  *
  * This data migration is intentionally irreversible: the legacy terminal
  * state fields are not part of a paused state and cannot be reconstructed.
@@ -22,11 +22,6 @@ export async function up<DB>(db: Kysely<DB>): Promise<void> {
         AND json_extract(event, '$.state.status') = 'done'
         AND EXISTS (
           SELECT 1
-          FROM json_each(event, '$.state.required_actions') AS action
-          WHERE json_extract(action.value, '$.type') = 'tool.approval_required'
-        )
-        AND EXISTS (
-          SELECT 1
           FROM turn
           WHERE turn.session_id = session_event.session_id
             AND turn.turn_id = session_event.turn_id
@@ -40,13 +35,19 @@ export async function up<DB>(db: Kysely<DB>): Promise<void> {
             AND EXISTS (
               SELECT 1
               FROM json_each(turn.state, '$.required_actions') AS action
-              WHERE json_extract(action.value, '$.type') = 'tool.approval_required'
+              WHERE json_extract(action.value, '$.type') IN (
+                'tool.approval_required',
+                'tool.response_required',
+                'mcp.auth_required'
+              )
             )
         )
     `.execute(trx);
 
     // Terminal writes already folded these turns into their session totals.
     // Reverse that duration and cost now so a later terminal write folds them once.
+    // This is best effort for old sessions: metrics introduced after some turns
+    // had already completed, so those session aggregates may already be incomplete.
     await sql`
       UPDATE session
       SET metrics = (
@@ -103,7 +104,11 @@ export async function up<DB>(db: Kysely<DB>): Promise<void> {
             AND EXISTS (
               SELECT 1
               FROM json_each(turn.state, '$.required_actions') AS action
-              WHERE json_extract(action.value, '$.type') = 'tool.approval_required'
+              WHERE json_extract(action.value, '$.type') IN (
+                'tool.approval_required',
+                'tool.response_required',
+                'mcp.auth_required'
+              )
             )
         ) AS migrated
       )
@@ -121,7 +126,11 @@ export async function up<DB>(db: Kysely<DB>): Promise<void> {
           AND EXISTS (
             SELECT 1
             FROM json_each(turn.state, '$.required_actions') AS action
-            WHERE json_extract(action.value, '$.type') = 'tool.approval_required'
+            WHERE json_extract(action.value, '$.type') IN (
+              'tool.approval_required',
+              'tool.response_required',
+              'mcp.auth_required'
+            )
           )
       )
     `.execute(trx);
@@ -137,7 +146,11 @@ export async function up<DB>(db: Kysely<DB>): Promise<void> {
         AND EXISTS (
           SELECT 1
           FROM json_each(state, '$.required_actions') AS action
-          WHERE json_extract(action.value, '$.type') = 'tool.approval_required'
+          WHERE json_extract(action.value, '$.type') IN (
+            'tool.approval_required',
+            'tool.response_required',
+            'mcp.auth_required'
+          )
         )
         AND NOT EXISTS (
           SELECT 1

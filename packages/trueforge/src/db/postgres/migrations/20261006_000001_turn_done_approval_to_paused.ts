@@ -1,7 +1,7 @@
 import { sql, type Kysely } from 'kysely';
 
 /**
- * Approval-required turns used to finish as `done`. Only topology leaves can
+ * Action-required turns used to finish as `done`. Only topology leaves can
  * still be resumed, so convert those turn rows and their terminal lifecycle
  * events to the current paused representation. A session may have multiple
  * leaves after branching; `session.last_turn_id` identifies only one of them.
@@ -36,18 +36,19 @@ export async function up(db: Kysely<unknown>): Promise<void> {
       )
       AND EXISTS (
         SELECT 1
-        FROM jsonb_array_elements(event_row.event->'state'->'required_actions') AS action
-        WHERE action->>'type' = 'tool.approval_required'
-      )
-      AND EXISTS (
-        SELECT 1
         FROM jsonb_array_elements(turn.state->'required_actions') AS action
-        WHERE action->>'type' = 'tool.approval_required'
+        WHERE action->>'type' IN (
+          'tool.approval_required',
+          'tool.response_required',
+          'mcp.auth_required'
+        )
       )
   `.execute(db);
 
   // Terminal writes already folded these turns into their session totals.
   // Reverse that duration and cost now so a later terminal write folds them once.
+  // This is best effort for old sessions: metrics introduced after some turns
+  // had already completed, so those session aggregates may already be incomplete.
   await sql`
     WITH migrated_turn_metrics AS (
       SELECT
@@ -72,7 +73,11 @@ export async function up(db: Kysely<unknown>): Promise<void> {
         AND EXISTS (
           SELECT 1
           FROM jsonb_array_elements(turn.state->'required_actions') AS action
-          WHERE action->>'type' = 'tool.approval_required'
+          WHERE action->>'type' IN (
+            'tool.approval_required',
+            'tool.response_required',
+            'mcp.auth_required'
+          )
         )
       GROUP BY turn.session_id
     ),
@@ -130,7 +135,11 @@ export async function up(db: Kysely<unknown>): Promise<void> {
       AND EXISTS (
         SELECT 1
         FROM jsonb_array_elements(turn.state->'required_actions') AS action
-        WHERE action->>'type' = 'tool.approval_required'
+        WHERE action->>'type' IN (
+          'tool.approval_required',
+          'tool.response_required',
+          'mcp.auth_required'
+        )
       )
   `.execute(db);
 }
