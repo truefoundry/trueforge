@@ -144,4 +144,25 @@ describe('EnvironmentFormDrawer', () => {
     expect(createOrUpdateEnvironment.mock.calls[0]?.[0]?.manifest.description).toBe('updated description');
     expect(onSaved).toHaveBeenCalled();
   });
+
+  it('toasts API errors when create fails', async () => {
+    vi.spyOn(console, 'error').mockImplementation(() => {});
+    const httpError = Object.assign(new Error('Status code: 409'), {
+      statusCode: 409,
+      body: { error: { message: 'Environment name already exists' } },
+    });
+    renderDrawer({
+      environmentOverrides: {
+        createOrUpdateEnvironment: vi.fn(async () => {
+          throw httpError;
+        }),
+      },
+    });
+
+    fireEvent.change(screen.getByPlaceholderText('my-environment'), { target: { value: 'dup-env' } });
+    fireEvent.click(screen.getByRole('button', { name: 'Create' }));
+
+    expect(await screen.findByText('Request failed (409)')).toBeInTheDocument();
+    expect(screen.getAllByText('Environment name already exists').length).toBeGreaterThanOrEqual(1);
+  });
 });
