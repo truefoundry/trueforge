@@ -15,6 +15,9 @@ import {
 } from './AgentSessionMetricCharts.js';
 import type { AgentSessionMetricsStripProps } from './types.js';
 
+const SESSION_LINEAGE_TURNS_TOOLTIP =
+  'Some turns in this session were edited or retried. Showing only the latest lineage of the session';
+
 function SessionMetricTile({
   id,
   label,
@@ -23,7 +26,7 @@ function SessionMetricTile({
 }: {
   id: string;
   label: string;
-  value: string | number;
+  value: ReactNode;
   tooltip?: ReactNode;
 }) {
   const content = (
@@ -46,6 +49,58 @@ function SessionMetricTile({
   );
 }
 
+function SessionTurnsMetricTile({
+  lineageTurns,
+  sessionTotalTurns,
+}: {
+  lineageTurns: number;
+  sessionTotalTurns?: number;
+}) {
+  const showLineageSplit = sessionTotalTurns != null && sessionTotalTurns > lineageTurns;
+  const label = lineageTurns > 1 || (sessionTotalTurns != null && sessionTotalTurns > 1) ? 'Turns' : 'Turn';
+
+  const value = showLineageSplit ? (
+    <span className="inline-flex h-4 items-center gap-2">
+      <span className="leading-none">
+        <span className="text-primary-button-bg">{lineageTurns} </span>
+        <span className="text-text-primary">/ {sessionTotalTurns}</span>
+      </span>
+      <Icon
+        name="circle-exclamation"
+        size={16}
+        className="size-4 shrink-0 text-warning-bg"
+        data-testid="icon-circle-exclamation"
+      />
+    </span>
+  ) : (
+    lineageTurns
+  );
+
+  const tile = (
+    <div
+      className="h-full w-full border-b border-r border-border bg-primary-bg px-3 py-2"
+      data-slot="session-metric-turns"
+    >
+      <div className="mb-0.5 flex items-center gap-1 text-[0.625rem] font-medium uppercase tracking-wider text-text-secondary">
+        {label}
+      </div>
+      <div className="flex items-center pt-1 text-base font-medium leading-none text-text-primary">{value}</div>
+    </div>
+  );
+
+  if (!showLineageSplit) return tile;
+  return (
+    <LightTooltip
+      title={SESSION_LINEAGE_TURNS_TOOLTIP}
+      side="bottom"
+      triggerClassName="block w-full"
+      className="max-w-56 whitespace-normal"
+    >
+      {tile}
+    </LightTooltip>
+  );
+}
+
 export function AgentSessionMetricsStrip({ metrics }: AgentSessionMetricsStripProps) {
   return (
     <div className="@container overflow-hidden border-b border-border" data-slot="agent-session-metrics-strip">
@@ -55,7 +110,7 @@ export function AgentSessionMetricsStrip({ metrics }: AgentSessionMetricsStripPr
           metrics.totalCostUsd == null ? '@min-[48rem]:grid-cols-7' : '@min-[48rem]:grid-cols-8',
         )}
       >
-        <SessionMetricTile id="turns" label={metrics.totalTurns > 1 ? 'Turns' : 'Turn'} value={metrics.totalTurns} />
+        <SessionTurnsMetricTile lineageTurns={metrics.totalTurns} sessionTotalTurns={metrics.sessionTotalTurns} />
         <SessionMetricTile
           id="wall-time"
           label="Duration"

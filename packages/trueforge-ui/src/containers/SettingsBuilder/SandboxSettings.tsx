@@ -2,6 +2,8 @@
 
 import { useCallback, useEffect, useMemo, useState } from 'react';
 
+import { useTrackAnalytics } from '@/analytics/AnalyticsProvider.js';
+import { AnalyticsEvents } from '@/analytics/events.js';
 import { Button } from '../../atoms/primitives/Button.js';
 import { Icon } from '../../icons/Icon.js';
 import {
@@ -30,6 +32,7 @@ const configFrom = ({
 const SandboxSettings = () => {
   const { sandboxCatalog } = useCatalogServer();
   const toaster = useToasterOptional();
+  const track = useTrackAnalytics();
 
   const [providers, setProviders] = useState<SandboxProviderBase[]>([]);
   const [catalog, setCatalog] = useState<SandboxProviderCatalogEntry[]>([]);
@@ -115,6 +118,7 @@ const SandboxSettings = () => {
     setCreateEntry(null);
     setTimeout(() => {
       toaster?.showSuccess({ title: `${createEntry.name} configured` });
+      track(AnalyticsEvents.Settings.SANDBOX_PROVIDER_SAVED, { provider_name: createEntry.name, mode: 'create' });
     }, 0);
   };
 
@@ -131,6 +135,7 @@ const SandboxSettings = () => {
     setUpdateProvider(null);
     setTimeout(() => {
       toaster?.showSuccess({ title: `${updateProvider.name} updated` });
+      track(AnalyticsEvents.Settings.SANDBOX_PROVIDER_SAVED, { provider_name: updateProvider.name, mode: 'update' });
     }, 0);
   };
 
@@ -146,6 +151,7 @@ const SandboxSettings = () => {
     setRemoveError(null);
     void runMutation(async () => {
       await deleteSandboxProvider({ id: provider.id });
+      track(AnalyticsEvents.Settings.SANDBOX_PROVIDER_DELETED, { provider_name: provider.name });
       setPendingRemoval(null);
     }, setRemoveError).catch(() => {});
   };

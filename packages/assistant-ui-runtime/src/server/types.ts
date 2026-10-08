@@ -187,6 +187,8 @@ export interface Session<TSpec extends AgentSpec = AgentSpec> {
   metrics?: SessionListMetrics;
   createdAt: string;
   updatedAt: string;
+  /** Arbitrary caller key-value metadata strings. */
+  metadata?: Record<string, string>;
 }
 
 export interface CreateSessionRequest<TSpec extends AgentSpec = AgentSpec> {
@@ -265,7 +267,12 @@ export interface UserToolResponseEvent {
   content: string;
 }
 
-export type TurnInputItem = UserMessage | UserToolApprovalEvent | UserToolResponseEvent;
+/** Client resume after mcp.auth_required (OAuth completed). */
+export interface UserMcpAuthContinueEvent {
+  type: 'user.mcp_auth_continue';
+}
+
+export type TurnInputItem = UserMessage | UserToolApprovalEvent | UserToolResponseEvent | UserMcpAuthContinueEvent;
 
 export interface TurnStateRunning {
   status: 'running';
@@ -934,6 +941,8 @@ export interface SessionListEntry<TSpec extends AgentSpec = AgentSpec> {
   agentName?: string | null;
   /** Present when bound to a mutable / draft agent spec. */
   agentSpec?: TSpec;
+  /** Arbitrary caller key-value metadata strings. */
+  metadata?: Record<string, string>;
 }
 
 /** Params for `AgentSessionsServer.listSessionEvents` (session event timeline). */

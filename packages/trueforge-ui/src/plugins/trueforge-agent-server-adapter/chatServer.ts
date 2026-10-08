@@ -101,6 +101,7 @@ function toUiSession(session: TrueForgeApi.Session): HarnessUiSession {
     // unlabelled; `isMutable` alone keeps them out of the composer.
     ...(session.agent.type === 'reference' && session.agent.name !== null ? { agentName: session.agent.name } : {}),
     ...(session.agent.type === 'inline' ? { agentSpec: toUiAgentSpec(session.agent.spec) } : {}),
+    ...(session.metadata != null && Object.keys(session.metadata).length > 0 ? { metadata: session.metadata } : {}),
   };
 }
 
@@ -170,9 +171,17 @@ function toHarnessContent(content: UserMessageContent): TrueForgeApi.UserMessage
 }
 
 function toHarnessInput(input: TurnInputItem[]): TrueForgeApi.TurnInputItem[] {
-  return input.map(item =>
-    item.type === 'user.message' ? { ...item, content: toHarnessContent(item.content) } : item,
-  );
+  const out: TrueForgeApi.TurnInputItem[] = [];
+  for (const item of input) {
+    // SDK TurnInputItem omits continue; OAuth resume is posted as a create-event.
+    if (item.type === 'user.mcp_auth_continue') continue;
+    if (item.type === 'user.message') {
+      out.push({ ...item, content: toHarnessContent(item.content) });
+      continue;
+    }
+    out.push(item);
+  }
+  return out;
 }
 
 export function createHarnessChatServer(

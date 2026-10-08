@@ -80,9 +80,9 @@ Each option below is part of the agent definition. The **Set in** line on each s
   <Accordion title="Sandbox" icon="box">
     An isolated environment for running code, files, and shell commands, separate from the server. It's **off by default** and provisioned only when the agent needs it. Required for [skills](/skills) and [Code Mode](/key-features/code-mode).
 
-    Optional extras: allow clients to **download files** the agent produces, and pick a [sandbox environment](/sandbox#environments). Unset uses the tenant **default**.
+    Optional extra: allow clients to **download files** the agent produces.
 
-    **Set in:** UI (on/off + file downloads + environment) · API (same)
+    **Set in:** UI (on/off + file downloads) · API (same)
   </Accordion>
 
   <Accordion title="Generative UI" icon="chart-column">
@@ -166,7 +166,7 @@ Open **Build Agent** from the sidebar. The **Agent Config** panel on the left is
   <img src="/images/save-agent.png" alt="The Save agent dialog with an agent name and a description field" />
 </Frame>
 
-Available in the UI today: **model**, **instructions**, **MCP servers** (attach, tool selection, tool approval, preload), **skills**, **sandbox** (on/off, file downloads, and environment), **iteration limit**, **context compaction**, and the **Dynamic sub-agents**, **Generative UI**, and **Ask user questions** toggles.
+Available in the UI today: **model**, **instructions**, **MCP servers** (attach, tool selection, tool approval, preload), **skills**, **sandbox** (on/off and file downloads), **iteration limit**, **context compaction**, and the **Dynamic sub-agents**, **Generative UI**, and **Ask user questions** toggles.
 
 <Note>
   A few options are still API only: model parameters (temperature, top_p, and so on), response format, and seed messages. See [Create an agent via the API](#create-an-agent-via-the-api).
@@ -389,15 +389,14 @@ Runtime behavior. Every field has a default, so `config` can be omitted entirely
 | `ask_user_questions` | `{ "enabled": true }`  | UI + API | The [`ask_user_question`](#ask-clarifying-questions) tool.                                                                                |
 | `dynamic_sub_agents` | `{ "enabled": true }`  | UI + API | [Subagents](/key-features/subagents).                                                                                              |
 | `context_management` | all enabled            | API      | [Compaction](/key-features/overview#context-compaction) and [large tool response offloading](/key-features/large-tool-responses). |
-| `iteration_limit`    | `100`                  | API      | Max agent-loop iterations per turn (1–1024). A safety stop for runaway loops.                                                      |
+| `iteration_limit`    | `512`                  | API      | Max agent-loop iterations per turn (1–1024). A safety stop for runaway loops.                                                      |
 
 #### `config.sandbox`
 
 | Field                        | Default | Set via  | Description                                                                                                                                                                                             |
 | ---------------------------- | ------- | -------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | `enabled`                    | `false` | UI + API | Give the agent a sandbox. Required for skills and Code Mode.                                                                                                                                            |
-| `file_downloads`             | `true`  | UI + API | Allow clients to download files the agent produces in the sandbox.                                                                                                                                     |
-| `environment_name`           | unset (`default`) | UI + API | [Sandbox environment](/sandbox#environments) to clone. Must exist when set.                                                                                                                             |
+| `file_downloads`             | `true`  | API      | Allow clients to download files the agent produces in the sandbox.                                                                                                                                     |
 
 #### `config.context_management`
 

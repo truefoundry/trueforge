@@ -2,6 +2,8 @@
 
 import { useCallback, useEffect, useMemo, useState, type ReactNode } from 'react';
 
+import { useTrackAnalytics } from '@/analytics/AnalyticsProvider.js';
+import { AnalyticsEvents } from '@/analytics/events.js';
 import { Button } from '@/atoms/primitives/Button.js';
 import SearchInput from '@/atoms/primitives/SearchInput.js';
 import { Icon } from '@/icons/Icon.js';
@@ -24,6 +26,7 @@ function isManagedSkillError(error: unknown): boolean {
 const SkillSettings = () => {
   const { skillCatalog } = useCatalogServer();
   const toaster = useToasterOptional();
+  const track = useTrackAnalytics();
 
   const [query, setQuery] = useState('');
   const [skills, setSkills] = useState<SkillBase[]>([]);
@@ -99,6 +102,7 @@ const SkillSettings = () => {
         path: entry.path,
         ref: entry.ref,
       });
+      track(AnalyticsEvents.Settings.SKILL_IMPORTED, { skill_name: entry.name });
     }).catch(() => {});
   };
 
@@ -114,6 +118,7 @@ const SkillSettings = () => {
     setRemoveError(null);
     void runMutation(async () => {
       await deleteSkill({ id: skill.id });
+      track(AnalyticsEvents.Settings.SKILL_DELETED, { skill_name: skill.name });
       setPendingRemoval(null);
     }, setRemoveError).catch(() => {});
   };
@@ -125,6 +130,7 @@ const SkillSettings = () => {
     }, setFormError);
     setTimeout(() => {
       toaster?.showSuccess({ title: `${draft.name} imported` });
+      track(AnalyticsEvents.Settings.SKILL_IMPORTED, { skill_name: draft.name });
     }, 0);
   };
 

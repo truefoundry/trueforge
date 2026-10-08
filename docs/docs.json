@@ -6,8 +6,7 @@
     { "source": "/create-agent/tool-approval", "destination": "/create-agent/overview#tool-approval" },
     { "source": "/create-agent/ask-user-questions", "destination": "/create-agent/overview#ask-clarifying-questions" },
     { "source": "/create-agent/generative-ui", "destination": "/create-agent/overview#generative-ui" },
-    { "source": "/create-agent/agent-spec", "destination": "/create-agent/overview#create-an-agent-via-the-api" },
-    { "source": "/sandbox-environments", "destination": "/sandbox#environments" }
+    { "source": "/create-agent/agent-spec", "destination": "/create-agent/overview#create-an-agent-via-the-api" }
   ],
   "name": "TrueForge",
   "logo": {
