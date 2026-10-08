@@ -133,6 +133,34 @@ describe('AgentConfigPanel', () => {
     expect(onOpenEditor).toHaveBeenCalledWith('instructions');
   });
 
+  it('toggles model settings dropdown when clicking the model params summary', () => {
+    const onOpenEditor = vi.fn();
+    render(
+      <SlotsProvider>
+        <AgentConfigPanel
+          spec={spec}
+          model={model}
+          {...catalogProps}
+          skillsAvailable
+          instructions={spec.instructions ?? ''}
+          onOpenEditor={onOpenEditor}
+        />
+      </SlotsProvider>,
+    );
+
+    const summaryButton = screen.getByRole('button', { name: 'Edit model settings' });
+    // Real clicks fire mousedown then click; DropdownMenu dismisses on document mousedown.
+    fireEvent.mouseDown(summaryButton);
+    fireEvent.click(summaryButton);
+    expect(screen.getByRole('menu')).toBeInTheDocument();
+    expect(screen.getByRole('heading', { name: 'Parameters' })).toBeInTheDocument();
+    expect(onOpenEditor).not.toHaveBeenCalledWith('model-settings');
+
+    fireEvent.mouseDown(summaryButton);
+    fireEvent.click(summaryButton);
+    expect(screen.queryByRole('menu')).not.toBeInTheDocument();
+  });
+
   it('opens the model catalog as a dropdown and selects a model', () => {
     const onChange = vi.fn();
     const onOpenEditor = vi.fn();
