@@ -101,6 +101,7 @@ function toUiSession(session: TrueForgeApi.Session): HarnessUiSession {
     // unlabelled; `isMutable` alone keeps them out of the composer.
     ...(session.agent.type === 'reference' && session.agent.name !== null ? { agentName: session.agent.name } : {}),
     ...(session.agent.type === 'inline' ? { agentSpec: toUiAgentSpec(session.agent.spec) } : {}),
+    ...(session.metadata != null && Object.keys(session.metadata).length > 0 ? { metadata: session.metadata } : {}),
   };
 }
 

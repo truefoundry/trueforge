@@ -17,7 +17,6 @@ import { useReadySandboxEnvironments } from '../environments/useReadySandboxEnvi
 import { auiButtonClass } from '../lib/buttonClasses.js';
 import { cn } from '../lib/cn.js';
 import { useCompactLayout } from '../lib/CompactLayoutContext.js';
-import { formatRelativeTime } from '../lib/dateFormat.js';
 import { auiInputClass } from '../lib/inputClasses.js';
 import { useIsMobile } from '../lib/useIsMobile.js';
 import { BottomSheet } from '../primitives/BottomSheet.js';
@@ -526,7 +525,7 @@ export function DraftCompositeSelector({ disabled, isRunning, onAttach }: DraftC
   const filteredEnvironments = useMemo(() => {
     const all = readyEnvironments.map(e => ({
       name: e.name,
-      description: e.manifest.description || `Created ${formatRelativeTime(e.createdAt)}`,
+      description: e.manifest.description,
     }));
     const needle = query.trim().toLowerCase();
     if (!needle) return all;

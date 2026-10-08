@@ -131,17 +131,17 @@ describe('EnvironmentFormDrawer', () => {
     });
   });
 
-  it('confirms when switching modes while dirty in edit', async () => {
-    renderDrawer({ mode: 'edit', environment: editEnvironment });
+  it('saves UI form values in edit without a YAML switch', async () => {
+    const { createOrUpdateEnvironment, onSaved } = renderDrawer({ mode: 'edit', environment: editEnvironment });
+    expect(screen.queryByRole('button', { name: 'YAML' })).not.toBeInTheDocument();
     fireEvent.change(screen.getByPlaceholderText('write description ...'), {
-      target: { value: 'dirty description' },
+      target: { value: 'updated description' },
     });
-    fireEvent.click(screen.getByRole('button', { name: 'YAML' }));
-    expect(await screen.findByRole('button', { name: 'Yes' })).toBeInTheDocument();
-    fireEvent.click(screen.getByRole('button', { name: 'Yes' }));
+    fireEvent.click(screen.getByRole('button', { name: 'Save' }));
     await waitFor(() => {
-      expect(screen.queryByPlaceholderText('write description ...')).not.toBeInTheDocument();
+      expect(createOrUpdateEnvironment).toHaveBeenCalled();
     });
-    expect(screen.queryByRole('button', { name: 'Yes' })).not.toBeInTheDocument();
+    expect(createOrUpdateEnvironment.mock.calls[0]?.[0]?.manifest.description).toBe('updated description');
+    expect(onSaved).toHaveBeenCalled();
   });
 });
