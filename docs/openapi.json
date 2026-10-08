@@ -1047,6 +1047,18 @@
         ],
         "type": "object"
       },
+      "CreateSandboxEnvironmentRequest": {
+        "additionalProperties": false,
+        "properties": {
+          "manifest": {
+            "$ref": "#/components/schemas/SandboxEnvironmentManifestRequest"
+          }
+        },
+        "required": [
+          "manifest"
+        ],
+        "type": "object"
+      },
       "CreateScheduleRequest": {
         "additionalProperties": false,
         "properties": {
@@ -8505,6 +8517,89 @@
           "sandboxEnvironments"
         ],
         "x-fern-sdk-method-name": "list"
+      },
+      "post": {
+        "description": "Creates by `manifest.name`. Fails if the name is already taken. Requires a configured sandbox provider.",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CreateSandboxEnvironmentRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "201": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/GetSandboxEnvironmentResponse"
+                }
+              }
+            },
+            "description": "The created sandbox environment."
+          },
+          "400": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/RequestErrorResponse"
+                }
+              }
+            },
+            "description": "Invalid request body, resource allocation, or missing secret value."
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/RequestErrorResponse"
+                }
+              }
+            },
+            "description": "Unauthenticated."
+          },
+          "409": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/RequestErrorResponse"
+                }
+              }
+            },
+            "description": "A sandbox environment with this name already exists."
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/RequestErrorResponse"
+                }
+              }
+            },
+            "description": "Sandbox provider is missing, credentials are invalid, or rejected the secret."
+          },
+          "502": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/RequestErrorResponse"
+                }
+              }
+            },
+            "description": "Sandbox provider secret synchronization failed."
+          }
+        },
+        "summary": "Create a sandbox environment",
+        "tags": [
+          "Sandboxes"
+        ],
+        "x-fern-sdk-group-name": [
+          "sandboxEnvironments"
+        ],
+        "x-fern-sdk-method-name": "create"
       },
       "put": {
         "description": "Create or replace by `manifest.name`. Requires a configured sandbox provider.",

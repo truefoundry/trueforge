@@ -203,6 +203,15 @@ export interface ISandboxEnvironmentStore<TTransaction = never> {
     transaction?: TTransaction,
   ): Promise<SandboxEnvironmentWithVersion | undefined>;
   /**
+   * Create by `(tenant_id, name)` — parent + version row.
+   * Throws {@link SandboxEnvironmentNameConflictError} if an active environment already
+   * uses the name. Uses `transaction` when passed; otherwise opens its own.
+   */
+  createEnvironment(
+    input: UpsertSandboxEnvironmentInput,
+    transaction?: TTransaction,
+  ): Promise<SandboxEnvironmentWithVersion>;
+  /**
    * Create or replace by `(tenant_id, name)` — parent + version row.
    * Updates insert a new version; parent `active_version` advances only when status is
    * `ready` (otherwise use markVersionReady). Uses `transaction` when passed; otherwise

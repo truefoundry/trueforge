@@ -303,19 +303,30 @@ export class PostgresSandboxEnvironmentStore implements ISandboxEnvironmentStore
     };
   }
 
+  async createEnvironment(
+    input: UpsertSandboxEnvironmentInput,
+    transaction?: Transaction<Database>,
+  ): Promise<SandboxEnvironmentWithVersion> {
+    if (transaction) {
+      return this.#upsertEnvironment(input, transaction, { create: true });
+    }
+    return this.#db.transaction().execute(db => this.#upsertEnvironment(input, db, { create: true }));
+  }
+
   async upsertEnvironment(
     input: UpsertSandboxEnvironmentInput,
     transaction?: Transaction<Database>,
   ): Promise<SandboxEnvironmentWithVersion> {
     if (transaction) {
-      return this.#upsertEnvironment(input, transaction);
+      return this.#upsertEnvironment(input, transaction, { create: false });
     }
-    return this.#db.transaction().execute(db => this.#upsertEnvironment(input, db));
+    return this.#db.transaction().execute(db => this.#upsertEnvironment(input, db, { create: false }));
   }
 
   async #upsertEnvironment(
     input: UpsertSandboxEnvironmentInput,
     db: Transaction<Database>,
+    { create }: { create: boolean },
   ): Promise<SandboxEnvironmentWithVersion> {
     const isDefault = input.name === DEFAULT_SANDBOX_ENVIRONMENT_NAME;
     let environmentQuery = db
@@ -332,6 +343,10 @@ export class PostgresSandboxEnvironmentStore implements ISandboxEnvironmentStore
       );
     }
     const environmentRow = await environmentQuery.forUpdate().executeTakeFirst();
+
+    if (environmentRow && create) {
+      throw new SandboxEnvironmentNameConflictError({ tenant_id: input.tenant_id, name: input.name });
+    }
 
     if (!environmentRow) {
       const environment_id = newId();

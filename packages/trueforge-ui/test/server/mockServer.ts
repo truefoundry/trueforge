@@ -64,6 +64,7 @@ export function createMockSandboxEnvironmentServer(
   return {
     listEnvironments: async () => ({ data: [] }),
     getEnvironment: unavailable,
+    createEnvironment: unavailable,
     createOrUpdateEnvironment: unavailable,
     deleteEnvironment: unavailable,
     ...overrides,

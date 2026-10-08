@@ -1118,6 +1118,8 @@ export type ListSandboxEnvironmentsParams = Pick<PageParams, 'limit' | 'pageToke
 export interface SandboxEnvironmentServer<TEnvironment extends SandboxEnvironment = SandboxEnvironment> {
   listEnvironments(req?: ListSandboxEnvironmentsParams): Promise<ListResult<TEnvironment>>;
   getEnvironment(req: { name: string }): Promise<TEnvironment>;
+  /** Create only — fails if `manifest.name` is already taken. */
+  createEnvironment(req: { manifest: SandboxEnvironmentManifest }): Promise<TEnvironment>;
   createOrUpdateEnvironment(req: { manifest: SandboxEnvironmentManifest }): Promise<TEnvironment>;
   deleteEnvironment(req: { name: string }): Promise<void>;
 }
