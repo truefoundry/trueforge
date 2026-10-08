@@ -6,6 +6,7 @@ import { createdBySubjectFromRequestContext, type ResolveRequestContext } from '
 import type { ISandboxEnvironmentStore } from '../db/sandboxEnvironmentStore';
 import type { ISandboxProviderStore, SandboxProviderRecord } from '../db/sandboxProviderStore';
 import type { WithTransaction } from '../db/transaction';
+import { API_KEY_REQUIRED } from '../http/clientErrorMessages';
 import { getSandboxProviderRoute, putSandboxProviderRoute } from '../routes/sandboxProviderRoutes';
 import { ensureDefaultSandboxEnvironment } from '../sandbox/ensureDefaultSandboxEnvironment';
 import { isDaytonaAuthError, isDaytonaPermissionError, validateSandboxProviderAccess } from '../sandbox/providerUtils';
@@ -113,7 +114,7 @@ export function createSandboxProvidersRouter<TTransaction>(deps: SandboxProvider
       );
     } catch (error) {
       if (error instanceof MissingStoredSecretError) {
-        throw new HTTPException(400, { message: 'API key is required', cause: error });
+        throw new HTTPException(400, { message: API_KEY_REQUIRED, cause: error });
       }
       if (isDaytonaAuthError(error)) {
         throw new HTTPException(422, {
