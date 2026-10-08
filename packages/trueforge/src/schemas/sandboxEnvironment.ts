@@ -7,11 +7,16 @@
  */
 import { z } from '@hono/zod-openapi';
 import { CreatedBySubjectSchema, TokenPaginationSchema } from '@truefoundry/trueforge-core/agent-session';
+import configuration from '../config';
 import { NameSchema } from './common';
 
+/** Same max as NameSchema (shared resource name). */
+export const SANDBOX_ENVIRONMENT_NAME_MAX_LENGTH = 64;
 export const SANDBOX_ENVIRONMENT_DESCRIPTION_MAX_LENGTH = 1024;
-export const SANDBOX_ENVIRONMENT_VARIABLE_NAME_MAX_LENGTH = 128;
+export const SANDBOX_ENVIRONMENT_VARIABLE_NAME_MAX_LENGTH = 4096;
 export const SANDBOX_ENVIRONMENT_VARIABLE_VALUE_MAX_LENGTH = 4096;
+export const SANDBOX_ENVIRONMENT_DOMAIN_ALLOW_LIST_MAX_LENGTH = 1024;
+export const SANDBOX_ENVIRONMENT_SECRETS_MAX_LENGTH = 1024;
 
 /** Reserved system environment name (tenant default; not creatable via public CRUD). */
 export const DEFAULT_SANDBOX_ENVIRONMENT_NAME = 'default';
@@ -61,13 +66,15 @@ export const SandboxEnvironmentResourcesSchema = z
   .strict()
   .openapi('SandboxEnvironmentResources');
 
+// Env/secret names: letter or `_` first, then letters/digits/`_` only.
+// Rejects leading digits, hyphens, dots, spaces, and other punctuation.
 const SandboxEnvironmentVariableNameSchema = z
   .string()
   .min(1)
   .max(SANDBOX_ENVIRONMENT_VARIABLE_NAME_MAX_LENGTH)
   .regex(/^[A-Za-z_][A-Za-z0-9_]*$/, 'must be a valid environment variable name');
 
-const SandboxEnvironmentVariableValueSchema = z.string().max(SANDBOX_ENVIRONMENT_VARIABLE_VALUE_MAX_LENGTH);
+const SandboxEnvironmentVariableValueSchema = z.string().min(1).max(SANDBOX_ENVIRONMENT_VARIABLE_VALUE_MAX_LENGTH);
 
 export const SandboxEnvironmentSecretSchema = z
   .object({
@@ -84,8 +91,17 @@ export const SandboxEnvironmentNetworkingSchema = z
       .boolean()
       .optional()
       .describe('Block all outbound network access. When true, domain_allow_list and secrets are not used.'),
-    domain_allow_list: z.string().min(1).optional().describe('Comma-separated allowed domains.'),
-    secrets: z.array(SandboxEnvironmentSecretSchema).optional().describe('Network-scoped secrets.'),
+    domain_allow_list: z
+      .string()
+      .min(1)
+      .max(SANDBOX_ENVIRONMENT_DOMAIN_ALLOW_LIST_MAX_LENGTH)
+      .optional()
+      .describe('Comma-separated allowed domains.'),
+    secrets: z
+      .array(SandboxEnvironmentSecretSchema)
+      .max(SANDBOX_ENVIRONMENT_SECRETS_MAX_LENGTH)
+      .optional()
+      .describe('Network-scoped secrets.'),
   })
   .strict()
   .superRefine((value, ctx) => {
@@ -172,6 +188,20 @@ export const UpdateSandboxEnvironmentRequestSchema = z
     manifest: SandboxEnvironmentManifestRequestSchema,
   })
   .strict()
+  .superRefine((body, ctx) => {
+    const { cpu, memory, disk } = body.manifest.resources;
+    if (
+      cpu > configuration.SANDBOX_ENVIRONMENT_CPU_MAX ||
+      memory > configuration.SANDBOX_ENVIRONMENT_MEMORY_GIB_MAX ||
+      disk > configuration.SANDBOX_ENVIRONMENT_DISK_GIB_MAX
+    ) {
+      ctx.addIssue({
+        code: 'custom',
+        path: ['manifest', 'resources'],
+        message: 'Sandbox environment resources exceed configured limits',
+      });
+    }
+  })
   .openapi('UpdateSandboxEnvironmentRequest');
 
 const IsoTimestamp = z.iso.datetime().openapi({ type: 'string', format: 'date-time' });

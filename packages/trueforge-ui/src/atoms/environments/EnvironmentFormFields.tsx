@@ -20,10 +20,6 @@ export type EnvironmentFormValues = {
   environmentVariables: Array<{ key: string; value: string }>;
 };
 
-export const SANDBOX_ENVIRONMENT_VARIABLE_NAME_MAX_LENGTH = 128;
-export const SANDBOX_ENVIRONMENT_VARIABLE_VALUE_MAX_LENGTH = 4096;
-const ENVIRONMENT_VARIABLE_NAME_PATTERN = /^[A-Za-z_][A-Za-z0-9_]*$/;
-
 export function manifestToFormValues(manifest: SandboxEnvironmentManifest): EnvironmentFormValues {
   return {
     name: manifest.name,
@@ -91,29 +87,9 @@ export function validateEnvironmentForm(values: EnvironmentFormValues): string |
   if (!Number.isFinite(cpu) || cpu <= 0) return 'CPU must be a positive number';
   if (!Number.isFinite(memory) || memory <= 0) return 'Memory must be a positive number';
   if (!Number.isFinite(disk) || disk <= 0) return 'Disk must be a positive number';
-  for (const variable of values.environmentVariables) {
-    const variableName = variable.key.trim();
-    if (variableName.length === 0) continue;
-    if (
-      variableName.length > SANDBOX_ENVIRONMENT_VARIABLE_NAME_MAX_LENGTH ||
-      !ENVIRONMENT_VARIABLE_NAME_PATTERN.test(variableName)
-    ) {
-      return 'Environment variable name is invalid or exceeds 128 characters';
-    }
-    if (variable.value.length > SANDBOX_ENVIRONMENT_VARIABLE_VALUE_MAX_LENGTH) {
-      return 'Environment variable value must not exceed 4096 characters';
-    }
-  }
   if (!values.networkBlockAll) {
     for (const secret of values.secrets) {
-      const secretName = secret.env.trim();
-      if (secretName.length === 0) continue;
-      if (
-        secretName.length > SANDBOX_ENVIRONMENT_VARIABLE_NAME_MAX_LENGTH ||
-        !ENVIRONMENT_VARIABLE_NAME_PATTERN.test(secretName)
-      ) {
-        return 'Secret name is invalid or exceeds 128 characters';
-      }
+      if (secret.env.trim().length === 0) continue;
       if (secret.value.trim().length === 0) return 'Secret value is required';
     }
   }
@@ -235,7 +211,6 @@ export function EnvironmentFormFields({
               <input
                 className={fieldClassName}
                 value={row.key}
-                maxLength={SANDBOX_ENVIRONMENT_VARIABLE_NAME_MAX_LENGTH}
                 placeholder="KEY"
                 onChange={event => {
                   const environmentVariables = values.environmentVariables.map((item, i) =>
@@ -247,7 +222,6 @@ export function EnvironmentFormFields({
               <input
                 className={fieldClassName}
                 value={row.value}
-                maxLength={SANDBOX_ENVIRONMENT_VARIABLE_VALUE_MAX_LENGTH}
                 placeholder="value"
                 onChange={event => {
                   const environmentVariables = values.environmentVariables.map((item, i) =>
@@ -331,7 +305,6 @@ export function EnvironmentFormFields({
                   <input
                     className={fieldClassName}
                     value={secret.env}
-                    maxLength={SANDBOX_ENVIRONMENT_VARIABLE_NAME_MAX_LENGTH}
                     placeholder="ENV_NAME"
                     onChange={event => {
                       const secrets = values.secrets.map((row, i) =>
