@@ -1,5 +1,12 @@
 # @truefoundry/trueforge
 
+## 0.178.0-rc.2
+
+### Patch Changes
+
+- 8578796: Remove the sandbox-environments frontend feature flag and always enable environments UI.
+- 8578796: Add configurable sandbox resource caps and limit environment variable and secret names in the UI.
+
 ## 0.178.0-rc.1
 
 ### Patch Changes
