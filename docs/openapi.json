@@ -3985,6 +3985,8 @@
           },
           "environment_variables": {
             "additionalProperties": {
+              "maxLength": 4096,
+              "minLength": 1,
               "type": "string"
             },
             "type": "object"
@@ -4017,6 +4019,8 @@
           },
           "environment_variables": {
             "additionalProperties": {
+              "maxLength": 4096,
+              "minLength": 1,
               "type": "string"
             },
             "type": "object"
@@ -4044,6 +4048,7 @@
         "properties": {
           "domain_allow_list": {
             "description": "Comma-separated allowed domains.",
+            "maxLength": 1024,
             "minLength": 1,
             "type": "string"
           },
@@ -4056,6 +4061,7 @@
             "items": {
               "$ref": "#/components/schemas/SandboxEnvironmentSecret"
             },
+            "maxItems": 1024,
             "type": "array"
           }
         },
@@ -4095,7 +4101,9 @@
         "properties": {
           "env": {
             "description": "Environment variable name injected into the sandbox.",
+            "maxLength": 4096,
             "minLength": 1,
+            "pattern": "^[A-Za-z_][A-Za-z0-9_]*$",
             "type": "string"
           },
           "hosts": {
@@ -8529,7 +8537,7 @@
                 }
               }
             },
-            "description": "Invalid request body, or missing secret value."
+            "description": "Invalid request body, resource allocation, or missing secret value."
           },
           "401": {
             "content": {

@@ -111,7 +111,7 @@ export const putSandboxEnvironmentRoute = createRoute({
     },
     400: {
       content: { 'application/json': { schema: RequestErrorResponseSchema } },
-      description: 'Invalid request body, or missing secret value.',
+      description: 'Invalid request body, resource allocation, or missing secret value.',
     },
     401: {
       content: { 'application/json': { schema: RequestErrorResponseSchema } },
