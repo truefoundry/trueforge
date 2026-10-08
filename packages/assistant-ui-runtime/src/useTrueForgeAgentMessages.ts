@@ -16,6 +16,7 @@ import { ROOT_THREAD_ID } from './constants.js';
 import {
   buildEditedUserMessageContent,
   buildSnapshotThroughTurn,
+  CANCELLATION_REASON_CUSTOM_KEY,
   computeGroupRootBaseline,
   extractTurnUserMessageContent,
   prependOlderSessionHistory,
@@ -104,12 +105,35 @@ function buildCompletedTurnState(
   };
 }
 
-function buildCancelledTurnState(completedAt: string): TurnStateCancelled {
+function buildCancelledTurnState(completedAt: string, reason = 'Superseded by a later message'): TurnStateCancelled {
   return {
     status: 'cancelled',
-    reason: 'Superseded by a later message',
+    reason,
     completedAt,
   };
+}
+
+/**
+ * Map the last stream update onto the turn record's terminal state.
+ * Prefer the wire cancellationReason from streamTurnEvents (e.g. "abandoned");
+ * otherwise treat a clean stream end as done.
+ */
+function committedStateFromActiveStream(
+  update: TurnStreamUpdate,
+  completedAt: string,
+): TurnStateDone | TurnStateCancelled {
+  const cancelReason = update.metadata?.custom?.[CANCELLATION_REASON_CUSTOM_KEY];
+  const status = update.status;
+  if (
+    (status?.type === 'incomplete' && status.reason === 'cancelled') ||
+    typeof cancelReason === 'string'
+  ) {
+    return buildCancelledTurnState(
+      completedAt,
+      typeof cancelReason === 'string' ? cancelReason : 'client-cancelled',
+    );
+  }
+  return buildCompletedTurnState(completedAt, requiredActionsFromActiveUpdate(update));
 }
 
 /**
@@ -333,12 +357,13 @@ function commitActiveStream(snapshot: SessionSnapshot, continuationInputs?: Requ
   const activeSandboxIdValue = active.update.metadata?.custom?.['sandboxId'];
   const activeSandboxId = typeof activeSandboxIdValue === 'string' ? activeSandboxIdValue : undefined;
 
-  const completedState = buildCompletedTurnState(
-    new Date().toISOString(),
-    requiredActionsFromActiveUpdate(active.update),
-  );
+  const completedState = committedStateFromActiveStream(active.update, new Date().toISOString());
   const baseline = snapshot.groupRootBaseline ?? computeGroupRootBaseline(snapshot.turns);
   const rootModelMessageIds = rootModelMessageIdsSinceBaseline(snapshot.fold, baseline);
+  // After cancel, drop activeStream so projectHistoryTurns rebuilds from turn.state
+  // (and re-adds "Cancelled: …"). Custom adapters with empty folds still keep the
+  // completed stream projection until the next turn.
+  const clearActiveStream = rootModelMessageIds.length > 0 || completedState.status === 'cancelled';
 
   const lastTurn = snapshot.turns.at(-1);
   if (lastTurn?.id === active.turnId) {
@@ -357,7 +382,7 @@ function commitActiveStream(snapshot: SessionSnapshot, continuationInputs?: Requ
       pendingUser: undefined,
       // Custom stream adapters may yield projected content without fold events.
       // Keep that completed projection until the next stream replaces it.
-      ...(rootModelMessageIds.length > 0 ? { activeStream: undefined } : {}),
+      ...(clearActiveStream ? { activeStream: undefined } : {}),
     });
   }
 
@@ -377,7 +402,7 @@ function commitActiveStream(snapshot: SessionSnapshot, continuationInputs?: Requ
   return replaceSessionSnapshot(snapshot, {
     turns: [...snapshot.turns, record],
     pendingUser: undefined,
-    ...(rootModelMessageIds.length > 0 ? { activeStream: undefined } : {}),
+    ...(clearActiveStream ? { activeStream: undefined } : {}),
   });
 }
 

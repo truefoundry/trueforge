@@ -719,6 +719,64 @@ function assistantStatusFromTurnState(state: Turn['state']): MessageStatus {
   }
 }
 
+/**
+ * Cancelled-turn UI flow (chat + session detail share this projection):
+ *
+ * Example: turn.done { status: "cancelled", reason: "abandoned" } with no model
+ * text. Without special handling the chat would show only the user bubble.
+ *
+ * 1. Live SSE — streamTurnEvents yields a final update with text
+ *    "Cancelled: abandoned" and metadata.cancellationReason = "abandoned".
+ * 2. Commit — commitActiveStream reads that key, stores TurnStateCancelled on
+ *    the turn record (not a fake "done"), then clears activeStream.
+ * 3. History / reload — projectHistoryTurns sees state.cancelled, appends the
+ *    same "Cancelled: …" text, and always emits an assistant row even when the
+ *    fold has no model.message parts.
+ *
+ * assistant-ui MessageStatus only knows reason: "cancelled" (no wire reason),
+ * so the human-readable reason lives in message content.
+ */
+export const CANCELLATION_REASON_CUSTOM_KEY = 'cancellationReason';
+
+function cancelledReasonLabel(reason: string): string {
+  return `Cancelled: ${reason}`;
+}
+
+/** Append "Cancelled: {reason}" once; skip if that exact text part is already present. */
+function appendCancelledReasonToContent(
+  content: readonly AssistantContentPart[],
+  reason: string,
+): AssistantContentPart[] {
+  const label = cancelledReasonLabel(reason);
+  if (content.some(part => part.type === 'text' && part.text === label)) {
+    return [...content];
+  }
+  return [...content, { type: 'text', text: label }];
+}
+
+/** Fold content plus cancel label when the turn ended cancelled; otherwise unchanged. */
+function applyTerminalTurnContent(
+  content: readonly AssistantContentPart[],
+  state: Turn['state'],
+): AssistantContentPart[] {
+  if (state.status === 'cancelled') {
+    return appendCancelledReasonToContent(content, state.reason);
+  }
+  return content.length === 0 ? [] : [...content];
+}
+
+/**
+ * Normal turns only get an assistant bubble when the model produced content.
+ * Cancelled/error turns still need a bubble so the user sees why the turn ended
+ * (Cancelled: abandoned, or the error banner).
+ */
+function shouldEmitTerminalAssistant(
+  state: Turn['state'],
+  content: readonly AssistantContentPart[],
+): boolean {
+  return content.length > 0 || state.status === 'cancelled' || state.status === 'error';
+}
+
 function resolveCreatedAt(
   messageId: string,
   fallback: Date,
@@ -1201,6 +1259,8 @@ function projectHistoryTurns(snapshot: SessionSnapshot, options?: ProjectSession
     };
     const assistantCreatedAt = record.state.status === 'running' ? record.createdAt : record.state.completedAt;
     const replaceAssistantCreatedAt = record.state.status !== 'running';
+    // Inject Cancelled: {reason} before deciding whether to emit an assistant row.
+    content = applyTerminalTurnContent(content, record.state);
 
     if (record.userText !== undefined) {
       messages.push(buildUserMessageFromTurnInput(record.id, record.input, record.createdAt, options));
@@ -1222,7 +1282,8 @@ function projectHistoryTurns(snapshot: SessionSnapshot, options?: ProjectSession
         break;
       }
 
-      if (content.length > 0) {
+      // Includes empty cancelled/error turns so the terminal state is visible.
+      if (shouldEmitTerminalAssistant(record.state, content)) {
         messages.push(
           buildAssistantMessage(
             record.id,
@@ -1236,7 +1297,7 @@ function projectHistoryTurns(snapshot: SessionSnapshot, options?: ProjectSession
         );
         lastAssistantIndex = messages.length - 1;
       }
-    } else if (content.length > 0 && lastAssistantIndex != null) {
+    } else if (shouldEmitTerminalAssistant(record.state, content) && lastAssistantIndex != null) {
       if (record.state.status === 'running') {
         break;
       }
@@ -1700,6 +1761,20 @@ export async function* streamTurnEvents(
     if (event.type === 'turn.done') {
       if (event.state.status === 'error') {
         throw new TurnFailedError(event.state.message);
+      }
+      // Live cancel: show "Cancelled: abandoned" immediately and stash the wire
+      // reason so commitActiveStream can persist TurnStateCancelled (not "done").
+      if (event.state.status === 'cancelled') {
+        const ids =
+          groupRootBaseline != null
+            ? rootModelMessageIdsSinceBaseline(foldState, groupRootBaseline)
+            : (foldState.threads.get(ROOT_THREAD_ID)?.modelMessageIds ?? []);
+        const foldContent = buildRootAssistantContentForIds(foldState, ids);
+        yield withCursor({
+          content: appendCancelledReasonToContent(foldContent, event.state.reason),
+          status: { type: 'incomplete', reason: 'cancelled' },
+          metadata: { custom: { [CANCELLATION_REASON_CUSTOM_KEY]: event.state.reason } },
+        });
       }
       // The turn is logically complete once `turn.done` is observed. The
       // resumed-turn transport (`subscribeToTurn`) is a reconnectable live

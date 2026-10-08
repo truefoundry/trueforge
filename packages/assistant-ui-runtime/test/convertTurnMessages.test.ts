@@ -619,6 +619,82 @@ describe('convertTurnMessages', () => {
       expect(result.runningTurn).toBeUndefined();
     });
 
+    it('emits Cancelled: reason for an empty cancelled turn', async () => {
+      const result = await convertTurnsToThreadMessages(
+        mockServerWithTurns([
+          mockTurn({
+            id: 'turn-abandoned',
+            createdAt,
+            input: [{ type: 'user.message', content: 'give me a pdf' }],
+            state: { status: 'cancelled', reason: 'abandoned', completedAt: createdAt },
+            events: [],
+          }),
+        ]),
+        SESSION_ID,
+      );
+
+      expect(result.messages).toHaveLength(2);
+      expect(result.messages[1]).toMatchObject({
+        id: 'turn-abandoned-assistant',
+        role: 'assistant',
+        content: [{ type: 'text', text: 'Cancelled: abandoned' }],
+        status: { type: 'incomplete', reason: 'cancelled' },
+      });
+    });
+
+    it('appends Cancelled: reason once onto existing assistant text', async () => {
+      const result = await convertTurnsToThreadMessages(
+        mockServerWithTurns([
+          mockTurn({
+            id: 'turn-cancel',
+            createdAt,
+            input: [{ type: 'user.message', content: 'hello' }],
+            state: { status: 'cancelled', reason: 'client-cancelled', completedAt: createdAt },
+            events: [
+              modelMessage({
+                id: 'm1',
+                threadId: ROOT_THREAD_ID,
+                content: 'partial reply',
+              }),
+            ],
+          }),
+        ]),
+        SESSION_ID,
+      );
+
+      expect(result.messages[1]).toMatchObject({
+        role: 'assistant',
+        content: [
+          { type: 'text', text: 'partial reply' },
+          { type: 'text', text: 'Cancelled: client-cancelled' },
+        ],
+        status: { type: 'incomplete', reason: 'cancelled' },
+      });
+    });
+
+    it('emits an assistant row for an empty error turn', async () => {
+      const result = await convertTurnsToThreadMessages(
+        mockServerWithTurns([
+          mockTurn({
+            id: 'turn-error',
+            createdAt,
+            input: [{ type: 'user.message', content: 'hello' }],
+            state: { status: 'error', message: 'model failed', completedAt: createdAt },
+            events: [],
+          }),
+        ]),
+        SESSION_ID,
+      );
+
+      expect(result.messages).toHaveLength(2);
+      expect(result.messages[1]).toMatchObject({
+        id: 'turn-error-assistant',
+        role: 'assistant',
+        content: [],
+        status: { type: 'incomplete', reason: 'error', error: 'model failed' },
+      });
+    });
+
     it('carries sandboxId from a historical sandbox.created event onto the assistant message', async () => {
       const result = await convertTurnsToThreadMessages(
         mockServerWithTurns([
@@ -1478,6 +1554,32 @@ describe('convertTurnMessages', () => {
       );
 
       expect(updates).toEqual([{ content: [{ type: 'text', text: 'streaming' }], sequenceNumber: 1 }]);
+    });
+
+    it('yields Cancelled: reason and cancellationReason on cancelled turn.done', async () => {
+      const foldState = new PeerThreadFoldState();
+      const updates = await collectStream(
+        streamTurnEvents(
+          streamFrom([
+            {
+              type: 'turn.done',
+              id: 'turn-done-cancel',
+              createdAt,
+              state: { status: 'cancelled', reason: 'abandoned', completedAt: createdAt },
+            },
+          ]),
+          foldState,
+        ),
+      );
+
+      expect(updates).toEqual([
+        {
+          content: [{ type: 'text', text: 'Cancelled: abandoned' }],
+          status: { type: 'incomplete', reason: 'cancelled' },
+          metadata: { custom: { cancellationReason: 'abandoned' } },
+          sequenceNumber: 1,
+        },
+      ]);
     });
 
     it('reports every stream sequence including events that do not yield UI', async () => {
