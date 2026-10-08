@@ -162,7 +162,7 @@ export function createSandboxEnvironmentsRouter<TTransaction>(
           return {
             kind: 'error',
             status: 409,
-            message: `Sandbox environment name already exists: ${manifest.name}`,
+            message: `Sandbox environment with name ${manifest.name} already exists`,
           };
         }
       }
