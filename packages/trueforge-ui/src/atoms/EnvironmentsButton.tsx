@@ -28,8 +28,8 @@ export function EnvironmentsButton({ className, compact = false }: EnvironmentsB
     <div className={cn('relative min-w-0', compact ? 'flex justify-center' : 'w-full', className)}>
       <button
         type="button"
-        aria-label={compact ? 'Envs' : undefined}
-        title={compact ? 'Envs' : undefined}
+        aria-label={compact ? 'Environments' : undefined}
+        title={compact ? 'Environments' : undefined}
         aria-current={open ? 'page' : undefined}
         className={auiButtonClass({
           variant: 'ghost',
@@ -48,7 +48,7 @@ export function EnvironmentsButton({ className, compact = false }: EnvironmentsB
       >
         <Icon name="monitor" size={compact ? 14 : undefined} />
         {compact ? (
-          <span className="text-center">Envs</span>
+          <span className="text-center">Environments</span>
         ) : (
           <>
             <span className="truncate">Environments</span>

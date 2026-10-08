@@ -27,7 +27,7 @@ export const sidebarButtonRadiusClassName = 'rounded-[0.75rem]';
 /** Compact sidebar rail control: 66×54px → 4.125rem × 3.375rem. */
 export const sidebarRailButtonClassName = cn(
   sidebarButtonRadiusClassName,
-  'h-[3.375rem] w-[4rem] shrink-0 flex-col gap-1 whitespace-normal px-0.5 text-[0.625rem] font-normal leading-tight !justify-center shadow-none hover:bg-secondary-button-hover hover:text-ghost-button-text [&_svg]:size-3.5',
+  'h-[3.375rem] w-[4.125rem] shrink-0 flex-col gap-1 whitespace-normal px-0.5 text-[0.625rem] font-normal leading-tight !justify-center shadow-none hover:bg-secondary-button-hover hover:text-ghost-button-text [&_svg]:size-3.5',
 );
 
 /** Shared Button / native `<button>` className helper (SDK utilities are layered). */
