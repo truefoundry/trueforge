@@ -6,6 +6,7 @@
 import { OpenAPIHono, type RouteHandler } from '@hono/zod-openapi';
 import { InvalidPageTokenError } from '@truefoundry/trueforge-core/agent-session';
 import type { Context } from 'hono';
+import { HTTPException } from 'hono/http-exception';
 import type { Logger } from 'winston';
 import { createdBySubjectFromRequestContext, type ResolveRequestContext } from '../auth/identity';
 import type { IAgentStore } from '../db/agentStore';
@@ -95,7 +96,7 @@ export function createSandboxEnvironmentsRouter<TTransaction>(
       return c.json({ data: listed.data.map(toSandboxEnvironment), pagination: listed.pagination }, 200);
     } catch (error) {
       if (error instanceof InvalidPageTokenError) {
-        return c.json({ error: { message: error.message } }, 400);
+        throw new HTTPException(400, { message: error.message, cause: error });
       }
       throw error;
     }
@@ -177,11 +178,11 @@ export function createSandboxEnvironmentsRouter<TTransaction>(
         return c.json({ error: { message: 'Sandbox environment was updated concurrently; retry' } }, 409);
       }
       if (error instanceof MissingStoredSecretError) {
-        return c.json({ error: { message: 'Secret value is required' } }, 400);
+        throw new HTTPException(400, { message: 'Secret value is required', cause: error });
       }
       const secretError = sandboxEnvironmentSecretHttpError(error);
       if (secretError !== undefined) {
-        return c.json({ error: { message: secretError.message } }, secretError.status);
+        throw new HTTPException(secretError.status, { message: secretError.message, cause: error });
       }
       throw error;
     }
@@ -236,7 +237,7 @@ export function createSandboxEnvironmentsRouter<TTransaction>(
     } catch (error) {
       const secretError = sandboxEnvironmentSecretHttpError(error);
       if (secretError !== undefined) {
-        return c.json({ error: { message: secretError.message } }, secretError.status);
+        throw new HTTPException(secretError.status, { message: secretError.message, cause: error });
       }
       throw error;
     }

@@ -10,6 +10,7 @@ import { SqliteSandboxProviderStore } from '../../../src/db/sqlite/sandbox-provi
 import { resolveSandboxEnvironment } from '../../../src/runtime/sessionResources';
 import * as providerUtils from '../../../src/sandbox/providerUtils';
 import { SECRET_REDACTION } from '../../../src/utils/secretRedaction';
+import { mountWithErrorHandler } from '../mountWithErrorHandler';
 
 jest.mock('../../../src/sandbox/providerUtils', () => {
   const actual = jest.requireActual<typeof import('../../../src/sandbox/providerUtils')>(
@@ -43,13 +44,15 @@ describe('sandbox environment secrets', () => {
       tenant_id: STANDALONE_REQUEST_CONTEXT.tenant_id,
       manifest: daytonaManifest,
     });
-    const publicRouter = createSandboxEnvironmentsRouter({
-      sandboxEnvironmentStore,
-      resolveAgentStore: () => ({ listAgentNamesUsingSandboxEnvironment: jest.fn().mockResolvedValue([]) }) as never,
-      resolveSandboxProviderStore: () => sandboxProviderStore,
-      resolveRequestContext: () => STANDALONE_REQUEST_CONTEXT,
-      logger,
-    });
+    const publicRouter = mountWithErrorHandler(
+      createSandboxEnvironmentsRouter({
+        sandboxEnvironmentStore,
+        resolveAgentStore: () => ({ listAgentNamesUsingSandboxEnvironment: jest.fn().mockResolvedValue([]) }) as never,
+        resolveSandboxProviderStore: () => sandboxProviderStore,
+        resolveRequestContext: () => STANDALONE_REQUEST_CONTEXT,
+        logger,
+      }),
+    );
     const buildRouter = createSandboxEnvironmentBuildRouter({
       sandboxEnvironmentStore,
       sandboxProviderStore,

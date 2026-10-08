@@ -6,6 +6,7 @@ import type { ISessionStore } from '@truefoundry/trueforge-core/agent-session';
 import { HTTPException } from 'hono/http-exception';
 import { AgentExternalIdConflictError, AgentNameConflictError, type IAgentStore } from '../db/agentStore';
 import { PostgresSessionStore, SessionImportValidationError } from '../db/postgres/session-store/PostgresSessionStore';
+import { SESSION_IMPORT_REQUIRES_POSTGRES } from '../http/clientErrorMessages';
 import { getImportSessionsCheckpointRoute, importAgentsRoute, importSessionRoute } from '../routes/agentImportRoutes';
 import type { ImportAgentItemResult } from '../schemas/agentImport';
 import {
@@ -76,7 +77,7 @@ export function createAgentImportRouter(deps: AgentImportRouterDeps) {
   const importSessionHandler: RouteHandler<typeof importSessionRoute> = async c => {
     if (!(deps.sessionStore instanceof PostgresSessionStore)) {
       throw new HTTPException(500, {
-        message: 'Session import requires Postgres (STANDALONE=false)',
+        message: SESSION_IMPORT_REQUIRES_POSTGRES,
       });
     }
     const body = c.req.valid('json');
@@ -88,7 +89,7 @@ export function createAgentImportRouter(deps: AgentImportRouterDeps) {
       return c.json({ data: result }, 201);
     } catch (error) {
       if (error instanceof SessionImportValidationError) {
-        return c.json({ error: { message: error.message } }, 400);
+        throw new HTTPException(400, { message: error.message, cause: error });
       }
       throw new HTTPException(500, { message: errorDetail(error), cause: error });
     }
@@ -97,7 +98,7 @@ export function createAgentImportRouter(deps: AgentImportRouterDeps) {
   const checkpointHandler: RouteHandler<typeof getImportSessionsCheckpointRoute> = async c => {
     if (!(deps.sessionStore instanceof PostgresSessionStore)) {
       throw new HTTPException(500, {
-        message: 'Session import requires Postgres (STANDALONE=false)',
+        message: SESSION_IMPORT_REQUIRES_POSTGRES,
       });
     }
     const { tenant_id } = c.req.valid('query');

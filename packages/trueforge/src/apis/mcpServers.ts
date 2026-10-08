@@ -20,6 +20,7 @@ import {
   type McpServerRecord,
 } from '../db/mcpServerStore';
 import type { WithTransaction } from '../db/transaction';
+import { HEADER_SECRET_REQUIRED, OUTBOUND_URL_BLOCKED } from '../http/clientErrorMessages';
 import { createMcpOAuthClient } from '../mcp/auth/mcpDcr';
 import { mcpOAuthCallbackUrl } from '../mcp/auth/mcpOAuthHelpers';
 import type { IOAuthTokenStore, OAuthClientRecord } from '../mcp/auth/types';
@@ -207,8 +208,8 @@ export function createSettingsMcpServersRouter<TTransaction>(deps: SettingsMcpSe
     try {
       await assertSafeOutboundUrl(incomingManifest.url);
     } catch (error) {
-      const message = error instanceof Error ? error.message : 'Outbound URL blocked';
-      return c.json({ error: { message } }, 400);
+      const message = error instanceof Error ? error.message : OUTBOUND_URL_BLOCKED;
+      throw new HTTPException(400, { message: message, cause: error });
     }
 
     // DCR finishes before the txn (remote I/O stays out of withTransaction on create).
@@ -239,7 +240,7 @@ export function createSettingsMcpServersRouter<TTransaction>(deps: SettingsMcpSe
       });
     } catch (error) {
       if (error instanceof MissingStoredSecretError) {
-        return c.json({ error: { message: 'Header secret is required' } }, 400);
+        throw new HTTPException(400, { message: HEADER_SECRET_REQUIRED, cause: error });
       }
       throw error;
     }
@@ -287,8 +288,8 @@ export function createSettingsMcpServersRouter<TTransaction>(deps: SettingsMcpSe
     try {
       await assertSafeOutboundUrl(incomingManifest.url);
     } catch (error) {
-      const message = error instanceof Error ? error.message : 'Outbound URL blocked';
-      return c.json({ error: { message } }, 400);
+      const message = error instanceof Error ? error.message : OUTBOUND_URL_BLOCKED;
+      throw new HTTPException(400, { message: message, cause: error });
     }
 
     try {
@@ -358,7 +359,7 @@ export function createSettingsMcpServersRouter<TTransaction>(deps: SettingsMcpSe
       );
     } catch (error) {
       if (error instanceof MissingStoredSecretError) {
-        return c.json({ error: { message: 'Header secret is required' } }, 400);
+        throw new HTTPException(400, { message: HEADER_SECRET_REQUIRED, cause: error });
       }
       if (error instanceof McpConnectionError) {
         deps.logger.error(

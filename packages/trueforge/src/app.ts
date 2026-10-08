@@ -104,24 +104,43 @@ export function createRequestBodyLimitMiddleware(maxSize: number): MiddlewareHan
   });
 }
 
+/** Expected rejections whose stack says nothing a reader needs; kept out of warn-level logs. */
+const QUIET_CLIENT_ERROR_STATUSES = new Set([401, 403, 404]);
+
 export function createAppErrorHandler(params: { logger: Logger }): ErrorHandler {
   return (error, c) => {
+    // One line with the traceback, so a failed request can be traced to the throw site.
+    const logError = (status: number, message: string): void => {
+      const fields = {
+        method: c.req.method,
+        path: c.req.path,
+        status,
+        ...extractErrorLogFields(error),
+      };
+      if (status >= 500) {
+        params.logger.error(message, fields);
+        return;
+      }
+      if (QUIET_CLIENT_ERROR_STATUSES.has(status)) {
+        params.logger.debug(message, fields);
+        return;
+      }
+      params.logger.warn(message, fields);
+    };
+
     if (error instanceof z.ZodError) {
+      logError(400, 'Client API error');
       return zodErrorResponse(c, error);
     }
     if (error instanceof InvalidCronError) {
+      logError(400, 'Client API error');
       return c.json({ error: { message: error.message } }, 400);
     }
     if (error instanceof HTTPException) {
-      if (error.status >= 500) {
-        params.logger.error('Server API error', {
-          status: error.status,
-          ...extractErrorLogFields(error),
-        });
-      }
+      logError(error.status, error.status >= 500 ? 'Server API error' : 'Client API error');
       return c.json({ error: { message: error.message } }, error.status);
     }
-    params.logger.error('Unhandled error', extractErrorLogFields(error));
+    logError(500, 'Unhandled error');
     return c.json({ error: { message: 'Internal server error' } }, 500);
   };
 }
