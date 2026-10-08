@@ -55,7 +55,6 @@ const authAwareFetch = createAuthAwareFetch();
 // UI + API share the public prefix from `window.__TRUEFORGE_BASE_PATH__`.
 const bootClient = createTrueForgeClient({ baseUrl: API_BASE_URL, fetch: authAwareFetch });
 const routerBasename = uiRouterBasename();
-const sandboxEnvironmentsEnabled = import.meta.env.VITE_SANDBOX_ENVIRONMENTS_ENABLED === 'true';
 
 /** Host brand: primary CTA fill is a gradient (see `index.css`); keep solid token for accents. */
 const appTheme: ThemeConfig = {
@@ -234,7 +233,6 @@ export function App() {
           type: 'trueforge',
           baseUrl: API_BASE_URL,
           fetch: authAwareFetch,
-          sandboxEnvironments: sandboxEnvironmentsEnabled,
         }}
         layout="sidebar"
         withRouter
