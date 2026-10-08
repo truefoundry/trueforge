@@ -69,6 +69,7 @@ export function EnvironmentFormDrawer({ open, onOpenChange, mode, environment, o
       onOpenChange(false);
     } catch (caught) {
       setError(getErrorMessage(caught, 'Failed to save environment'));
+      toaster?.showError(caught);
     } finally {
       setSaving(false);
     }
