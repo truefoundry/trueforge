@@ -20,10 +20,10 @@ import type {
   ToolApprovalRequiredEvent,
   ToolResponseEvent,
   ToolResponseRequiredEvent,
-  TurnUserEvent,
   UserMCPAuthContinueEvent,
   UserMessage,
   UserToolApprovalEvent,
+  UserToolApprovalPolicyEvent,
   UserToolResponseEvent,
 } from '../events/schema';
 import type { InternalEnrichedAssistantMessage, LLMToolMessage, LLMUserMessage } from '../llm/LLMTypes';
@@ -39,12 +39,11 @@ export const InternalEventType = {
   AGENT_CREATE_SUBAGENT: 'internal.agent.create_subagent',
   AGENT_CONTEXT_APPEND: 'internal.agent.context.append',
   AGENT_DONE: 'internal.agent.done',
-  // Atomic commit of one applied batch of user events.
-  USER_EVENTS_COMMIT: 'internal.user_events.commit',
   // TODO(agent): revisit broader internal.* naming scheme for harness-only event types.
   PASSTHROUGH: 'agent.passthrough',
   MCP_AUTH_REQUIRED: 'internal.mcp.auth_required',
   MCP_AUTH_CONTINUE: 'internal.mcp.auth_continue',
+  APPROVAL_POLICY_APPLY: 'internal.approval_policy.apply',
   CAPABILITY_STATE: 'internal.capability.state',
   // Turn lifecycle transition (paused ↔ running).
   TURN_STATE: 'internal.turn.state',
@@ -83,6 +82,14 @@ export interface InternalMCPAuthContinueEvent {
   thread_ids: string[];
 }
 
+export interface InternalApprovalPolicyApplyEvent {
+  type: typeof InternalEventType.APPROVAL_POLICY_APPLY;
+  event: UserToolApprovalPolicyEvent;
+  /** Nested context mutations — not yielded AGENT_CONTEXT_APPEND events. */
+  context_appends: ThreadContextAppend[];
+  mcp_servers_patches: MCPServerInitInfo[];
+}
+
 export type SubAgentCompletion =
   | { type: 'done'; output: ModelMessageEvent; send_to_parent: LLMToolMessage }
   | { type: 'error'; output: ModelMessageEvent; error_message: string; send_to_parent: LLMToolMessage }
@@ -115,6 +122,13 @@ export type LLMContextMessage = LLMUserMessage | InternalEnrichedAssistantMessag
 
 export type ContextMessage = LLMContextMessage | ApprovalDecisionMessage;
 
+/** Shared fields for appending messages onto a thread's context. */
+export interface ThreadContextAppend {
+  thread_id: string;
+  context: ContextMessage[];
+  current_context_usage?: CurrentContextUsage | undefined;
+}
+
 export interface AgentThreadCreateSubAgent {
   type: typeof InternalEventType.AGENT_CREATE_SUBAGENT;
   thread_id: string;
@@ -122,20 +136,11 @@ export interface AgentThreadCreateSubAgent {
   agent_info: AgentInfo;
 }
 
-export interface AgentThreadAppendContext {
+export interface AgentThreadAppendContext extends ThreadContextAppend {
   type: typeof InternalEventType.AGENT_CONTEXT_APPEND;
-  thread_id: string;
-  context: ContextMessage[];
-  output: AgentOutputEvent[];
-  current_context_usage?: CurrentContextUsage | undefined;
+  /** Agent outputs and user approval/response processed during this append. */
+  output: Array<AgentOutputEvent | UserToolApprovalEvent | UserToolResponseEvent>;
   completion?: SubAgentCompletion | undefined;
-}
-
-export interface UserEventsCommitEvent {
-  type: typeof InternalEventType.USER_EVENTS_COMMIT;
-  context_appends: AgentThreadAppendContext[];
-  mcp_servers_patches: MCPServerInitInfo[];
-  applied_user_events: TurnUserEvent[];
 }
 
 /**
@@ -164,10 +169,10 @@ export type AgentThreadEvent =
   | SandboxCreatedEvent
   | ToolApprovalRequiredEvent
   | ToolResponseRequiredEvent
-  | UserEventsCommitEvent
+  | InternalApprovalPolicyApplyEvent
   | InternalPassthroughEvent;
 
-export type ApplyUserEventsOutput = AgentThreadAppendContext | UserEventsCommitEvent;
+export type ApplyUserEventsOutput = AgentThreadAppendContext;
 
 /** A turn-level non-terminal transition emitted by the executor loop when it parks/resumes. */
 export interface InternalTurnStateEvent {

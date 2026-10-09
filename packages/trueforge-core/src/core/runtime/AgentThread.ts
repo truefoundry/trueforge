@@ -17,9 +17,7 @@ import {
   EventType,
   newEventId,
   type AgentInfo,
-  type AgentOutputEvent,
   type AgentParent,
-  type ApprovalDecisionMessage,
   type MCPInitializeEvent,
   type MCPServerInitInfo,
   type ModelMessageDeltaEvent,
@@ -27,6 +25,7 @@ import {
   type ModelMessageUsage,
   type SandboxCreatedEvent,
   type ThreadOverwriteContextEvent,
+  type ToolApprovalPolicy,
   type ToolApprovalRequiredEvent,
   type ToolResponseEvent,
   type ToolResponseRequiredEvent,
@@ -54,6 +53,7 @@ import { estimateTokensForString } from '../llm/usage';
 import { convertMCPServersToTools, type ConvertToolsResult, type MappedMCPTool } from '../mcp/convertMCPServers';
 import { executeToolCalls } from '../mcp/executeToolCalls';
 import type { IToolSet, MCPAuthRequired } from '../mcp/IMCPServer';
+import { ToolSet } from '../mcp/ToolSet';
 import type { HarnessSandbox, SandboxInfo } from '../sandbox/Sandbox';
 import type { AgentTracing } from '../tracing/AgentTracing';
 import { describeUnknownError, extractErrorLogFields } from '../util/errorLogFields';
@@ -74,7 +74,7 @@ import {
   type InternalMCPAuthRequiredEvent,
   type InternalThreadDoneEvent,
   type SubAgentCompletion,
-  type UserEventsCommitEvent,
+  type ThreadContextAppend,
 } from './AgentThread.types';
 import {
   currentContextUsageFromCompletion,
@@ -580,12 +580,10 @@ export class AgentThread {
       }
     }
 
-    yield* this.appendToContext({
-      context: contextMessages,
-      output: [],
-      currentContextUsage: undefined,
-      usage: undefined,
-    });
+    const append = this.toThreadContextAppend(contextMessages);
+    if (append) {
+      yield* this.appendToContext(append, []);
+    }
     this.pendingSandboxCreatedEvents.push(...sandboxCreatedEvents);
   }
 
@@ -615,70 +613,64 @@ export class AgentThread {
       }
     }
 
-    if (approvals.length > 0 || clientSideToolResponses.length > 0) {
-      const approvalContext: ApprovalDecisionMessage[] = approvals.map(a => ({
-        type: EventType.USER_TOOL_APPROVAL,
-        tool_call_id: a.tool_call_id,
-        approval: a.approval,
-      }));
-      const toolResponseContext: LLMToolMessage[] = clientSideToolResponses.map(m => ({
-        role: 'tool',
-        tool_call_id: m.tool_call_id,
-        content: m.content,
-      }));
-
-      const commit: UserEventsCommitEvent = {
-        type: InternalEventType.USER_EVENTS_COMMIT,
-        context_appends: [],
-        mcp_servers_patches: [],
-        applied_user_events: [],
-      };
-
-      commit.context_appends.push(
-        ...this.appendToContext({
-          context: [...approvalContext, ...toolResponseContext],
-          output: [],
-          currentContextUsage: undefined,
-          usage: undefined,
-        }),
+    if (clientSideToolResponses.length > 0) {
+      const append = this.toThreadContextAppend(
+        clientSideToolResponses.map(m => ({
+          role: 'tool' as const,
+          tool_call_id: m.tool_call_id,
+          content: m.content,
+        })),
       );
-      // One output event per accepted input (durable + SSE). Ids were seeded at the send boundary,
-      // so the echo reuses that id — the consumption handle matches what the send response returned.
-      commit.applied_user_events.push(...approvals, ...clientSideToolResponses);
-      yield commit;
+      if (append) {
+        yield* this.appendToContext(append, clientSideToolResponses);
+      }
     }
+
     if (toolMessages.length > 0) {
-      yield* this.appendToContext({
-        context: toolMessages,
-        output: [],
-        currentContextUsage: undefined,
-        usage: undefined,
-      });
+      const append = this.toThreadContextAppend(toolMessages);
+      if (append) {
+        yield* this.appendToContext(append, []);
+      }
+    }
+
+    if (approvals.length > 0) {
+      const append = this.toThreadContextAppend(
+        approvals.map(a => ({
+          type: EventType.USER_TOOL_APPROVAL,
+          tool_call_id: a.tool_call_id,
+          approval: a.approval,
+        })),
+      );
+      if (append) {
+        yield* this.appendToContext(append, approvals);
+      }
     }
   }
 
-  *resolveApprovalsCoveredByPolicy(): Generator<AgentThreadAppendContext, void, unknown> {
-    const approvals: ApprovalDecisionMessage[] = getPendingApprovalToolCalls(this.context)
-      .filter(toolCall =>
-        this.getUserToolSets().some(
-          toolSet =>
-            toolSet.name === toolCall.tool_info.mcp_server_name &&
-            toolSet.hasApplicableApprovalPolicy(toolCall.tool_info.original_tool_name),
-        ),
-      )
-      .map(toolCall => ({
-        type: EventType.USER_TOOL_APPROVAL,
-        tool_call_id: toolCall.id,
-        approval: { status: 'allow' },
-      }));
+  /** Pending calls applicable under staged policies → same decision append as send(). */
+  toPolicyDecisionAppend(
+    stagedPoliciesByServer: ReadonlyMap<string, Record<string, ToolApprovalPolicy>>,
+  ): ThreadContextAppend | undefined {
+    return this.toThreadContextAppend(
+      getPendingApprovalToolCalls(this.context)
+        .filter(toolCall => {
+          const policy = stagedPoliciesByServer.get(toolCall.tool_info.mcp_server_name)?.[
+            toolCall.tool_info.original_tool_name
+          ];
+          return policy !== undefined && ToolSet.isPolicyApplicable(policy);
+        })
+        .map(toolCall => ({
+          type: EventType.USER_TOOL_APPROVAL,
+          tool_call_id: toolCall.id,
+          approval: { status: 'allow' as const },
+        })),
+    );
+  }
 
-    if (approvals.length > 0) {
-      yield* this.appendToContext({
-        context: approvals,
-        output: [],
-        currentContextUsage: undefined,
-        usage: undefined,
-      });
+  applyContextAppend(append: Pick<ThreadContextAppend, 'context' | 'current_context_usage'>): void {
+    this.context = this.context.concat(append.context);
+    if (append.current_context_usage !== undefined) {
+      this.currentContextUsage = append.current_context_usage;
     }
   }
 
@@ -691,34 +683,41 @@ export class AgentThread {
     return next;
   }
 
-  private *appendToContext(opts: {
-    context: ContextMessage[];
-    output: AgentOutputEvent[];
-    currentContextUsage: CurrentContextUsage | undefined;
-    usage: CompletionUsage | undefined;
-    completion?: SubAgentCompletion | undefined;
-  }): Generator<AgentThreadAppendContext, void, unknown> {
-    const { context, output, currentContextUsage, usage, completion } = opts;
-
-    const newCurrentContextUsage =
-      currentContextUsage ??
-      mergeCurrentContextUsage(this.currentContextUsage, estimateTokensForContextMessages(context));
-
-    const event: AgentThreadAppendContext = {
-      type: InternalEventType.AGENT_CONTEXT_APPEND,
+  private toThreadContextAppend(context: ContextMessage[]): ThreadContextAppend | undefined {
+    if (context.length === 0) {
+      return undefined;
+    }
+    return {
       thread_id: this.threadId,
       context,
-      output,
-      current_context_usage: newCurrentContextUsage,
-      ...(completion && { completion }),
+      current_context_usage: mergeCurrentContextUsage(
+        this.currentContextUsage,
+        estimateTokensForContextMessages(context),
+      ),
     };
+  }
 
+  private *appendToContext(
+    append: ThreadContextAppend,
+    output: AgentThreadAppendContext['output'],
+    extras?: {
+      currentContextUsage?: CurrentContextUsage | undefined;
+      usage?: CompletionUsage | undefined;
+      completion?: SubAgentCompletion | undefined;
+    },
+  ): Generator<AgentThreadAppendContext, void, unknown> {
+    const event: AgentThreadAppendContext = {
+      type: InternalEventType.AGENT_CONTEXT_APPEND,
+      thread_id: append.thread_id,
+      context: append.context,
+      output,
+      current_context_usage: extras?.currentContextUsage ?? append.current_context_usage,
+      ...(extras?.completion && { completion: extras.completion }),
+    };
     yield event;
-
-    this.context = this.context.concat(context);
-    this.currentContextUsage = newCurrentContextUsage;
-    if (usage) {
-      updateMetricsFromUsage(this.metrics, usage);
+    this.applyContextAppend(event);
+    if (extras?.usage) {
+      updateMetricsFromUsage(this.metrics, extras.usage);
     }
   }
 
@@ -817,12 +816,10 @@ export class AgentThread {
     if (closed.length === 0) {
       return;
     }
-    yield* this.appendToContext({
-      context: closed,
-      output: [],
-      currentContextUsage: undefined,
-      usage: undefined,
-    });
+    const append = this.toThreadContextAppend(closed);
+    if (append) {
+      yield* this.appendToContext(append, []);
+    }
   }
 
   hasOpenToolCallId(toolCallId: string): boolean {
@@ -1045,14 +1042,15 @@ export class AgentThread {
     for (const processor of processors) {
       for await (const response of processor(execution)) {
         switch (response.type) {
-          case InternalEventType.AGENT_CONTEXT_APPEND:
-            yield* this.appendToContext({
-              context: response.context,
-              output: response.output,
-              currentContextUsage: response.current_context_usage ?? this.currentContextUsage,
-              usage: undefined,
-            });
+          case InternalEventType.AGENT_CONTEXT_APPEND: {
+            const append = this.toThreadContextAppend(response.context);
+            if (append) {
+              yield* this.appendToContext(append, response.output, {
+                currentContextUsage: response.current_context_usage ?? this.currentContextUsage,
+              });
+            }
             break;
+          }
           case EventType.AGENT_CONTEXT_OVERWRITE:
             yield* this.overwriteContext(response);
             break;
@@ -1231,13 +1229,14 @@ export class AgentThread {
       }
     }
 
-    yield* this.appendToContext({
-      context: [contextAssistantMessage],
-      output: [agentAssistantMessage],
-      currentContextUsage: currentContextUsageFromCompletion(result.value.usage),
-      usage: result.value.usage,
-      completion,
-    });
+    const append = this.toThreadContextAppend([contextAssistantMessage]);
+    if (append) {
+      yield* this.appendToContext(append, [agentAssistantMessage], {
+        currentContextUsage: currentContextUsageFromCompletion(result.value.usage),
+        usage: result.value.usage,
+        completion,
+      });
+    }
 
     if (finishReason === 'length') {
       const errorContent = completion?.type === 'error' ? completion.error_message : 'max_tokens breached';
@@ -1356,12 +1355,10 @@ export class AgentThread {
       yield msg;
     }
     // tool.response is persisted by the session/response layer when yielded; only mutate context here.
-    yield* this.appendToContext({
-      context: toolCallResults.map(t => t.message),
-      output: [],
-      currentContextUsage: undefined,
-      usage: undefined,
-    });
+    const append = this.toThreadContextAppend(toolCallResults.map(t => t.message));
+    if (append) {
+      yield* this.appendToContext(append, []);
+    }
     this.metrics.total_tool_calls += toolCallResults.length;
 
     if (authRequirementInfo.length > 0) {

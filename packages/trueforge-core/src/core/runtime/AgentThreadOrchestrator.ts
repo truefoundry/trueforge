@@ -16,6 +16,7 @@ import {
   type UserToolResponseEvent,
 } from '../events/schema';
 import type { LLMToolMessage } from '../llm/LLMTypes';
+import type { IToolSet } from '../mcp/IMCPServer';
 import type { AgentExecutionTrace, AgentTracing } from '../tracing/AgentTracing';
 import { onSignalAbort } from '../util/abort';
 import { mergeAsyncGenerators, signalable, type Signalable } from '../util/promiseUtils';
@@ -27,7 +28,8 @@ import {
   type AgentThreadExecutionEvent,
   type AgentThreadExecutionResult,
   type ApplyUserEventsOutput,
-  type UserEventsCommitEvent,
+  type InternalApprovalPolicyApplyEvent,
+  type ThreadContextAppend,
 } from './AgentThread.types';
 import {
   assistantMessageContentToStringForSubAgent,
@@ -233,13 +235,13 @@ export class AgentThreadOrchestrator {
     return [...this.agentThreads.values()].filter(thread => thread.parent !== undefined);
   }
 
-  private *applyToThread(
+  private *sendToThread(
     threadId: string,
     messages: (UserToolApprovalEvent | UserToolResponseEvent | UserMCPAuthContinueEvent | LLMToolMessage)[],
   ): Generator<ApplyUserEventsOutput, void, unknown> {
     const thread = this.agentThreads.get(threadId);
     if (!thread) {
-      throw new Error(`AgentThreadOrchestrator.applyToThread: unknown threadId ${threadId}`);
+      throw new Error(`AgentThreadOrchestrator.sendToThread: unknown threadId ${threadId}`);
     }
     yield* thread.send(messages);
   }
@@ -267,65 +269,74 @@ export class AgentThreadOrchestrator {
   // already-pending approvals the policy now covers. The orchestrator owns all policy semantics; the
   // thread only exposes its tool sets + context primitives. Last write wins for a given (server, tool).
   //
-  // Gathers everything into a single UserEventsCommitEvent (the orchestrator is the sole emitter for a
-  // policy, so the echo + patch fire exactly once even though application fans across threads):
-  //  - per-thread context appends recording approvals covered by the policy;
-  //  - MCP server patches with the merged full records for the affected servers (so the sticky policy
-  //    survives into future turns);
-  //  - one UserToolApprovalPolicyEvent echo per originating input event, each carrying the id stamped
-  //    at send so a consumer can mark that inbound event consumed.
+  // One APPROVAL_POLICY_APPLY per inbound policy event (orchestrator is the sole emitter):
+  //  - per-thread context appends for approvals the policy covers;
+  //  - MCP server patches with merged sticky policies;
+  //  - the policy event echo (id stamped at send for mark-consumed).
   private *applyApprovalPolicies(
-    policyEvents: UserToolApprovalPolicyEvent[],
-  ): Generator<UserEventsCommitEvent, void, unknown> {
-    // Flatten to items only for applying/patching; the event boundaries drive the output events.
-    const policies = policyEvents.flatMap(event => event.policies);
+    policyEvent: UserToolApprovalPolicyEvent,
+  ): Generator<InternalApprovalPolicyApplyEvent, void, unknown> {
+    const policies = policyEvent.policies;
     const affected = new Set(policies.map(p => p.server_name));
-    // Full policy map per server, taken from the tool set as it is updated.
-    const approvalPoliciesByServer = new Map<string, Record<string, ToolApprovalPolicy>>();
-    const commit: UserEventsCommitEvent = {
-      type: InternalEventType.USER_EVENTS_COMMIT,
-      context_appends: [],
-      mcp_servers_patches: [],
-      applied_user_events: [],
-    };
 
-    // Apply policies to tool sets.
+    const policyWrites: { toolSet: IToolSet; name: string; policy: ToolApprovalPolicy }[] = [];
+    const stagedPoliciesByServer = new Map<string, Record<string, ToolApprovalPolicy>>();
+    const context_appends: ThreadContextAppend[] = [];
+
     for (const thread of this.agentThreads.values()) {
       let appliedAny = false;
       for (const policy of policies) {
         for (const toolSet of thread.getUserToolSets()) {
-          if (toolSet.name === policy.server_name) {
-            toolSet.setApprovalPolicy(policy.name, policy.policy);
-            approvalPoliciesByServer.set(toolSet.name, toolSet.getApprovalPolicies());
-            appliedAny = true;
+          if (toolSet.name !== policy.server_name) {
+            continue;
           }
+          policyWrites.push({ toolSet, name: policy.name, policy: policy.policy });
+          const next = {
+            ...(stagedPoliciesByServer.get(toolSet.name) ?? toolSet.getApprovalPolicies()),
+            [policy.name]: policy.policy,
+          };
+          stagedPoliciesByServer.set(toolSet.name, next);
+          appliedAny = true;
         }
       }
       if (!appliedAny) {
         continue;
       }
 
-      // Resolve any already-pending approvals the new policies cover.
-      for (const event of thread.resolveApprovalsCoveredByPolicy()) {
-        commit.context_appends.push(event);
+      const append = thread.toPolicyDecisionAppend(stagedPoliciesByServer);
+      if (append) {
+        context_appends.push(append);
       }
     }
 
-    // Prepare MCP patch records.
+    const mcp_servers_patches: MCPServerInitInfo[] = [];
     for (const record of this.mcpServerInitInfoById.values()) {
       if (!affected.has(record.name)) {
         continue;
       }
-      commit.mcp_servers_patches.push({
+      mcp_servers_patches.push({
         ...record,
-        approval_policies: approvalPoliciesByServer.get(record.name) ?? record.approval_policies,
+        approval_policies: stagedPoliciesByServer.get(record.name) ?? record.approval_policies,
       });
     }
-    // One output event per originating input event.
-    for (const event of policyEvents) {
-      commit.applied_user_events.push(event);
+
+    yield {
+      type: InternalEventType.APPROVAL_POLICY_APPLY,
+      event: policyEvent,
+      context_appends,
+      mcp_servers_patches,
+    };
+
+    for (const write of policyWrites) {
+      write.toolSet.setApprovalPolicy(write.name, write.policy);
     }
-    yield commit;
+    for (const append of context_appends) {
+      const thread = this.agentThreads.get(append.thread_id);
+      if (!thread) {
+        throw new Error(`AgentThreadOrchestrator.applyApprovalPolicies: unknown threadId ${append.thread_id}`);
+      }
+      thread.applyContextAppend(append);
+    }
   }
 
   // Validate decisions against both committed context and decisions already accepted into the
@@ -492,7 +503,7 @@ export class AgentThreadOrchestrator {
               content: '',
             };
             yield parentToolResponse;
-            yield* this.applyToThread(chunk.parent.thread_id, [chunk.send_to_parent]);
+            yield* this.sendToThread(chunk.parent.thread_id, [chunk.send_to_parent]);
           }
           yield chunk;
           // Move metrics to the finished bucket and drop the live entry with no `yield` between,
@@ -582,11 +593,11 @@ export class AgentThreadOrchestrator {
         for (const event of this.pendingTurnEvents.splice(0)) {
           switch (event.type) {
             case EventType.USER_TOOL_APPROVAL_POLICY:
-              yield* this.applyApprovalPolicies([event]);
+              yield* this.applyApprovalPolicies(event);
               break;
             case EventType.USER_TOOL_APPROVAL:
             case EventType.USER_TOOL_RESPONSE:
-              yield* this.applyToThread(event.thread_id, [event]);
+              yield* this.sendToThread(event.thread_id, [event]);
               break;
             case EventType.USER_MCP_AUTH_CONTINUE: {
               // Persist once, then apply only to auth-waiting threads (yield-before-apply).
@@ -597,7 +608,7 @@ export class AgentThreadOrchestrator {
                 thread_ids: waitingThreads.map(thread => thread.threadId),
               };
               for (const thread of waitingThreads) {
-                yield* this.applyToThread(thread.threadId, [event]);
+                yield* this.sendToThread(thread.threadId, [event]);
               }
               break;
             }

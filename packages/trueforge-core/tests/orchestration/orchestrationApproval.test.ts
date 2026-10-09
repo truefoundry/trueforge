@@ -125,24 +125,18 @@ describe('orchestration: pause then resume on tool approval', () => {
     const ROOT_FINAL = 'note saved';
 
     const EXPECTED_TURN_2_EVENTS = [
-      // The resumed execute() drains the queued approval decision into one commit: the context
-      // append and the streamed echo land together.
+      // Queued approval: context decision + echo on AGENT_CONTEXT_APPEND.output.
       {
-        type: InternalEventType.USER_EVENTS_COMMIT,
-        context_appends: [
+        type: InternalEventType.AGENT_CONTEXT_APPEND,
+        thread_id: ROOT_ID,
+        context: [
           {
-            type: InternalEventType.AGENT_CONTEXT_APPEND,
-            thread_id: ROOT_ID,
-            context: [
-              {
-                type: EventType.USER_TOOL_APPROVAL,
-                tool_call_id: WRITE_NOTE_CALL_ID,
-                approval: { status: 'allow' },
-              },
-            ],
+            type: EventType.USER_TOOL_APPROVAL,
+            tool_call_id: WRITE_NOTE_CALL_ID,
+            approval: { status: 'allow' },
           },
         ],
-        applied_user_events: [
+        output: [
           {
             type: EventType.USER_TOOL_APPROVAL,
             thread_id: ROOT_ID,
@@ -241,24 +235,18 @@ describe('orchestration: pause then resume on tool approval', () => {
     const ROOT_FINAL = 'ok, I will not write the note';
 
     const EXPECTED_TURN_2_EVENTS = [
-      // The resumed execute() drains the queued deny decision into one commit: the context append
-      // and the streamed echo land together.
+      // Queued deny: context decision + echo on AGENT_CONTEXT_APPEND.output.
       {
-        type: InternalEventType.USER_EVENTS_COMMIT,
-        context_appends: [
+        type: InternalEventType.AGENT_CONTEXT_APPEND,
+        thread_id: ROOT_ID,
+        context: [
           {
-            type: InternalEventType.AGENT_CONTEXT_APPEND,
-            thread_id: ROOT_ID,
-            context: [
-              {
-                type: EventType.USER_TOOL_APPROVAL,
-                tool_call_id: WRITE_NOTE_CALL_ID,
-                approval: { status: 'deny', reason: DENY_REASON },
-              },
-            ],
+            type: EventType.USER_TOOL_APPROVAL,
+            tool_call_id: WRITE_NOTE_CALL_ID,
+            approval: { status: 'deny', reason: DENY_REASON },
           },
         ],
-        applied_user_events: [
+        output: [
           {
             type: EventType.USER_TOOL_APPROVAL,
             thread_id: ROOT_ID,
@@ -358,13 +346,15 @@ describe('orchestration: a policy that lands mid-pause resolves an existing pend
   const ROOT_FINAL = 'note saved';
 
   const EXPECTED_POLICY_RESUME_EVENTS = [
-    // One commit: the policy-covered decision append + the single policy echo. (mcp_servers_patches is empty
-    // here — this harness's source never emits MCP_INITIALIZE, so there is no captured server record.)
+    // Policy apply: auto-allow context append + policy echo. (mcp_servers_patches empty — no MCP_INITIALIZE.)
     {
-      type: InternalEventType.USER_EVENTS_COMMIT,
+      type: InternalEventType.APPROVAL_POLICY_APPLY,
+      event: {
+        type: EventType.USER_TOOL_APPROVAL_POLICY,
+        policies: [{ server_name: POLICY_SERVER_NAME, name: WRITE_NOTE_TOOL_NAME, policy: { type: 'allow_session' } }],
+      },
       context_appends: [
         {
-          type: InternalEventType.AGENT_CONTEXT_APPEND,
           thread_id: ROOT_ID,
           context: [
             {
@@ -372,14 +362,6 @@ describe('orchestration: a policy that lands mid-pause resolves an existing pend
               tool_call_id: WRITE_NOTE_CALL_ID,
               approval: { status: 'allow' },
             },
-          ],
-        },
-      ],
-      applied_user_events: [
-        {
-          type: EventType.USER_TOOL_APPROVAL_POLICY,
-          policies: [
-            { server_name: POLICY_SERVER_NAME, name: WRITE_NOTE_TOOL_NAME, policy: { type: 'allow_session' } },
           ],
         },
       ],
@@ -432,10 +414,9 @@ describe('orchestration: a policy that lands mid-pause resolves an existing pend
       throw new Error('expected turn to finish after the policy landed');
     }
     expect(resumed.events).toMatchObject(EXPECTED_POLICY_RESUME_EVENTS);
-    // Policy resolution is represented only by a synthesized context decision, not a public event.
     expect(resumed.events[0]).toMatchObject({
-      type: InternalEventType.USER_EVENTS_COMMIT,
-      applied_user_events: [{ type: EventType.USER_TOOL_APPROVAL_POLICY }],
+      type: InternalEventType.APPROVAL_POLICY_APPLY,
+      event: { type: EventType.USER_TOOL_APPROVAL_POLICY },
     });
     // The policy was applied by execute()'s drain, not by send().
     expect(toolSet.getApprovalPolicies()).toEqual({ [WRITE_NOTE_TOOL_NAME]: { type: 'allow_session' } });
@@ -477,9 +458,18 @@ describe('orchestration: a policy that lands mid-pause resolves an existing pend
     if (resumed.kind !== 'done') {
       throw new Error('expected turn to finish after the decision and policy landed');
     }
-    const appliedTypes = resumed.events
-      .filter(event => event.type === InternalEventType.USER_EVENTS_COMMIT)
-      .flatMap(event => event.applied_user_events.map(applied => applied.type));
+    const appliedTypes: string[] = [];
+    for (const event of resumed.events) {
+      if (event.type === InternalEventType.AGENT_CONTEXT_APPEND) {
+        for (const out of event.output) {
+          if (out.type === EventType.USER_TOOL_APPROVAL || out.type === EventType.USER_TOOL_RESPONSE) {
+            appliedTypes.push(out.type);
+          }
+        }
+      } else if (event.type === InternalEventType.APPROVAL_POLICY_APPLY) {
+        appliedTypes.push(EventType.USER_TOOL_APPROVAL_POLICY);
+      }
+    }
     expect(appliedTypes).toEqual([EventType.USER_TOOL_APPROVAL, EventType.USER_TOOL_APPROVAL_POLICY]);
     expect(callTool).not.toHaveBeenCalled();
   });
@@ -520,19 +510,18 @@ describe('orchestration: a policy that lands mid-pause resolves an existing pend
     expect(commit).toMatchObject({
       done: false,
       value: {
-        type: InternalEventType.USER_EVENTS_COMMIT,
-        applied_user_events: [
-          {
-            type: EventType.USER_TOOL_APPROVAL_POLICY,
-            policies: [
-              {
-                server_name: POLICY_SERVER_NAME,
-                name: WRITE_NOTE_TOOL_NAME,
-                policy: { type: 'allow_session', expire_at: '2000-01-01T00:00:00.000Z' },
-              },
-            ],
-          },
-        ],
+        type: InternalEventType.APPROVAL_POLICY_APPLY,
+        event: {
+          type: EventType.USER_TOOL_APPROVAL_POLICY,
+          policies: [
+            {
+              server_name: POLICY_SERVER_NAME,
+              name: WRITE_NOTE_TOOL_NAME,
+              policy: { type: 'allow_session', expire_at: '2000-01-01T00:00:00.000Z' },
+            },
+          ],
+        },
+        context_appends: [],
       },
     });
     expect(callTool).not.toHaveBeenCalled();
