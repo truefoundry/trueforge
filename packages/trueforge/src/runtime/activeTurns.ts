@@ -5,6 +5,7 @@
  * `track()` owns registration and cleanup around the stream lifecycle.
  */
 import { CancellationReason, type TurnHandle } from '@truefoundry/trueforge-core/agent-session';
+import { Mutex } from 'async-mutex';
 
 interface ActiveTurnRun {
   turn: TurnHandle;
@@ -19,8 +20,8 @@ function activeTurnKey(sessionId: string, turnId: string): string {
 
 export class ActiveTurnRegistry {
   private readonly runs = new Map<string, ActiveTurnRun>();
-  /** Tail of each turn's lock queue; never rejects, so waiters only observe release order. */
-  private readonly lockTails = new Map<string, Promise<void>>();
+  /** Per-turn mutex. Dropped once unlocked, which means no waiter is still queued. */
+  private readonly turnLocks = new Map<string, Mutex>();
   private alreadyShutDownAbortReason: CancellationReason | undefined;
 
   /**
@@ -31,17 +32,16 @@ export class ActiveTurnRegistry {
    */
   async withTurnLock<T>(input: { sessionId: string; turnId: string }, fn: () => Promise<T>): Promise<T> {
     const key = activeTurnKey(input.sessionId, input.turnId);
-    const previous = this.lockTails.get(key) ?? Promise.resolve();
-    const { promise: released, resolve: release } = Promise.withResolvers<undefined>();
-    const tail = previous.then(() => released);
-    this.lockTails.set(key, tail);
+    const existing = this.turnLocks.get(key);
+    const mutex = existing ?? new Mutex();
+    if (!existing) {
+      this.turnLocks.set(key, mutex);
+    }
     try {
-      await previous;
-      return await fn();
+      return await mutex.runExclusive(fn);
     } finally {
-      release(undefined);
-      if (this.lockTails.get(key) === tail) {
-        this.lockTails.delete(key);
+      if (!mutex.isLocked()) {
+        this.turnLocks.delete(key);
       }
     }
   }
