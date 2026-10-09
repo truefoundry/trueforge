@@ -841,6 +841,10 @@ export class AgentThread {
     );
   }
 
+  isPendingMCPAuth(): boolean {
+    return this.pendingMCPAuth;
+  }
+
   validateSendInput(messages: AgentThreadRuntimeSendBatch): void {
     if (messages.length === 0) {
       return;
@@ -1079,19 +1083,11 @@ export class AgentThread {
     }
   }
 
-  private async init(): Promise<{
-    initializationInfo: MCPServerInitInfo[];
-    authRequirementInfo: MCPAuthRequired[];
-  }> {
-    if (this.convertedTools) {
-      return { initializationInfo: [], authRequirementInfo: [] };
-    }
-    return this.initTools();
-  }
-
   private async initTools(): Promise<{
     initializationInfo: MCPServerInitInfo[];
     authRequirementInfo: MCPAuthRequired[];
+    convertedTools: ConvertToolsResult;
+    tfyManagedServerNames: Set<string>;
   }> {
     const tfyManagedServers: IToolSet[] = [...this.systemToolSets];
     if (this.sandbox) {
@@ -1106,12 +1102,12 @@ export class AgentThread {
       tfyManagedServers,
       userServers,
     });
-    if (authRequirementInfo.length === 0) {
-      // Only set convertedTools if there are no MCP auth requirements.
-      this.convertedTools = convertedTools;
-    }
-    this.tfyManagedServerNames = new Set(tfyManagedServers.map(s => s.name));
-    return { initializationInfo, authRequirementInfo };
+    return {
+      initializationInfo,
+      authRequirementInfo,
+      convertedTools,
+      tfyManagedServerNames: new Set(tfyManagedServers.map(s => s.name)),
+    };
   }
 
   private getConvertedTools(): ConvertToolsResult {
@@ -1458,16 +1454,21 @@ export class AgentThread {
         return;
       }
 
-      const { initializationInfo, authRequirementInfo } = await this.tracing.withInitSpan(() => this.init());
+      if (!this.convertedTools) {
+        const { initializationInfo, authRequirementInfo, convertedTools, tfyManagedServerNames } =
+          await this.tracing.withInitSpan(() => this.initTools());
 
-      if (initializationInfo.length > 0) {
-        yield buildMCPInitializeEvent(initializationInfo, this.threadId);
-      }
+        if (initializationInfo.length > 0) {
+          yield buildMCPInitializeEvent(initializationInfo, this.threadId);
+        }
 
-      if (authRequirementInfo.length > 0) {
-        yield buildMCPAuthRequiredEvent(authRequirementInfo, this.threadId);
-        this.pendingMCPAuth = true;
-        return;
+        if (authRequirementInfo.length > 0) {
+          yield buildMCPAuthRequiredEvent(authRequirementInfo, this.threadId);
+          this.pendingMCPAuth = true;
+          return;
+        }
+        this.convertedTools = convertedTools;
+        this.tfyManagedServerNames = tfyManagedServerNames;
       }
 
       const { tools, toolMapping } = this.getConvertedTools();

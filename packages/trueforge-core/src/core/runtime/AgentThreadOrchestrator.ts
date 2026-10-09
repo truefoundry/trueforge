@@ -590,16 +590,15 @@ export class AgentThreadOrchestrator {
               yield* this.applyToThread(event.thread_id, [event]);
               break;
             case EventType.USER_MCP_AUTH_CONTINUE: {
-              // MCP auth continue is applied to all threads, but
-              // event is only yielded once.
+              // Persist once, then apply only to auth-waiting threads (yield-before-apply).
+              const waitingThreads = [...this.agentThreads.values()].filter(thread => thread.isPendingMCPAuth());
               yield {
                 type: InternalEventType.MCP_AUTH_CONTINUE,
                 event,
-                thread_ids: [...this.agentThreads.keys()],
+                thread_ids: waitingThreads.map(thread => thread.threadId),
               };
-
-              for (const threadId of this.agentThreads.keys()) {
-                yield* this.applyToThread(threadId, [event]);
+              for (const thread of waitingThreads) {
+                yield* this.applyToThread(thread.threadId, [event]);
               }
               break;
             }
