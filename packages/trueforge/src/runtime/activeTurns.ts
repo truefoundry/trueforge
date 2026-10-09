@@ -5,6 +5,7 @@
  * `track()` owns registration and cleanup around the stream lifecycle.
  */
 import { CancellationReason, type TurnHandle } from '@truefoundry/trueforge-core/agent-session';
+import { Mutex } from 'async-mutex';
 
 interface ActiveTurnRun {
   turn: TurnHandle;
@@ -19,7 +20,31 @@ function activeTurnKey(sessionId: string, turnId: string): string {
 
 export class ActiveTurnRegistry {
   private readonly runs = new Map<string, ActiveTurnRun>();
+  /** Per-turn mutex. Dropped once unlocked, which means no waiter is still queued. */
+  private readonly turnLocks = new Map<string, Mutex>();
   private alreadyShutDownAbortReason: CancellationReason | undefined;
+
+  /**
+   * Runs `fn` while holding the per-turn lock, after every earlier holder of
+   * the same turn has released it. Different turns never wait on each other.
+   * Callers MUST re-read registry state inside `fn` instead of trusting a
+   * lookup made before acquiring the lock.
+   */
+  async withTurnLock<T>(input: { sessionId: string; turnId: string }, fn: () => Promise<T>): Promise<T> {
+    const key = activeTurnKey(input.sessionId, input.turnId);
+    const existing = this.turnLocks.get(key);
+    const mutex = existing ?? new Mutex();
+    if (!existing) {
+      this.turnLocks.set(key, mutex);
+    }
+    try {
+      return await mutex.runExclusive(fn);
+    } finally {
+      if (!mutex.isLocked()) {
+        this.turnLocks.delete(key);
+      }
+    }
+  }
 
   /**
    * Registers the run immediately, then returns a generator that forwards

@@ -973,29 +973,31 @@ export function createTurnsRouter(deps: TurnsRouterDeps) {
       return c.json({ error: { message: `Turn not found: ${turnId}` } }, 404);
     }
 
-    const turnHandle = deps.activeTurns.getTurnHandle({ sessionId, turnId });
-    if (!turnHandle) {
-      return c.json({ error: { message: `Turn is not running on this server: ${turnId}` } }, 409);
-    }
-
-    const createdAt = new Date().toISOString();
-    const events: TurnUserEvent[] = body.events.map(payload => ({
-      ...payload,
-      id: newEventId(),
-      created_at: createdAt,
-    }));
-
-    try {
-      await turnHandle.send(events);
-    } catch (error) {
-      if (error instanceof AgentHarnessError && error.code === 'invalid_send_input') {
-        return c.json({ error: { message: error.message } }, 400);
+    return deps.activeTurns.withTurnLock({ sessionId, turnId }, async () => {
+      const turnHandle = deps.activeTurns.getTurnHandle({ sessionId, turnId });
+      if (!turnHandle) {
+        return c.json({ error: { message: `Turn is not running on this server: ${turnId}` } }, 409);
       }
-      throw error;
-    }
 
-    // TODO: durably persist inbound events.
-    return c.json({ data: events }, 201);
+      const createdAt = new Date().toISOString();
+      const events: TurnUserEvent[] = body.events.map(payload => ({
+        ...payload,
+        id: newEventId(),
+        created_at: createdAt,
+      }));
+
+      try {
+        await turnHandle.send(events);
+      } catch (error) {
+        if (error instanceof AgentHarnessError && error.code === 'invalid_send_input') {
+          return c.json({ error: { message: error.message } }, 400);
+        }
+        throw error;
+      }
+
+      // TODO: durably persist inbound events.
+      return c.json({ data: events }, 201);
+    });
   };
 
   const router = new OpenAPIHono();
