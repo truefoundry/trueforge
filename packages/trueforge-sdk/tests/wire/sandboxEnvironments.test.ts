@@ -116,6 +116,198 @@ describe("SandboxEnvironmentsClient", () => {
         }).rejects.toThrow(TrueForgeTypes.UnauthorizedError);
     });
 
+    test("create (1)", async () => {
+        const server = mockServerPool.createServer();
+        const client = new TrueForge({ maxRetries: 0, token: "test", baseUrl: server.baseUrl });
+        const rawRequestBody = { manifest: { name: "name" } };
+        const rawResponseBody = {
+            data: {
+                created_at: "2024-01-15T09:30:00Z",
+                created_by_subject: {
+                    subject_display_name: "subject_display_name",
+                    subject_id: "subject_id",
+                    subject_type: "subject_type",
+                },
+                description: "description",
+                id: "id",
+                lifecycle_stage: "active",
+                manifest: {
+                    description: "description",
+                    environment_variables: { key: "value" },
+                    image: { build_script: "set -ex\npip install httpx\n", type: "build" },
+                    name: "name",
+                },
+                name: "name",
+                status: "pending",
+                status_reason: "status_reason",
+                updated_at: "2024-01-15T09:30:00Z",
+            },
+        };
+
+        server
+            .mockEndpoint()
+            .post("/api/v1/sandbox-environments")
+            .jsonBody(rawRequestBody)
+            .respondWith()
+            .statusCode(200)
+            .jsonBody(rawResponseBody)
+            .build();
+
+        const response = await client.sandboxEnvironments.create({
+            manifest: {
+                name: "name",
+            },
+        });
+        expect(response).toEqual({
+            data: {
+                createdAt: new Date("2024-01-15T09:30:00.000Z"),
+                createdBySubject: {
+                    subjectDisplayName: "subject_display_name",
+                    subjectId: "subject_id",
+                    subjectType: "subject_type",
+                },
+                description: "description",
+                id: "id",
+                lifecycleStage: "active",
+                manifest: {
+                    description: "description",
+                    environmentVariables: {
+                        key: "value",
+                    },
+                    image: {
+                        buildScript: "set -ex\npip install httpx\n",
+                        type: "build",
+                    },
+                    name: "name",
+                },
+                name: "name",
+                status: "pending",
+                statusReason: "status_reason",
+                updatedAt: new Date("2024-01-15T09:30:00.000Z"),
+            },
+        });
+    });
+
+    test("create (2)", async () => {
+        const server = mockServerPool.createServer();
+        const client = new TrueForge({ maxRetries: 0, token: "test", baseUrl: server.baseUrl });
+        const rawRequestBody = { manifest: { name: "xy" } };
+        const rawResponseBody = { error: { message: "message" } };
+
+        server
+            .mockEndpoint()
+            .post("/api/v1/sandbox-environments")
+            .jsonBody(rawRequestBody)
+            .respondWith()
+            .statusCode(400)
+            .jsonBody(rawResponseBody)
+            .build();
+
+        await expect(async () => {
+            return await client.sandboxEnvironments.create({
+                manifest: {
+                    name: "xy",
+                },
+            });
+        }).rejects.toThrow(TrueForgeTypes.BadRequestError);
+    });
+
+    test("create (3)", async () => {
+        const server = mockServerPool.createServer();
+        const client = new TrueForge({ maxRetries: 0, token: "test", baseUrl: server.baseUrl });
+        const rawRequestBody = { manifest: { name: "xy" } };
+        const rawResponseBody = { error: { message: "message" } };
+
+        server
+            .mockEndpoint()
+            .post("/api/v1/sandbox-environments")
+            .jsonBody(rawRequestBody)
+            .respondWith()
+            .statusCode(401)
+            .jsonBody(rawResponseBody)
+            .build();
+
+        await expect(async () => {
+            return await client.sandboxEnvironments.create({
+                manifest: {
+                    name: "xy",
+                },
+            });
+        }).rejects.toThrow(TrueForgeTypes.UnauthorizedError);
+    });
+
+    test("create (4)", async () => {
+        const server = mockServerPool.createServer();
+        const client = new TrueForge({ maxRetries: 0, token: "test", baseUrl: server.baseUrl });
+        const rawRequestBody = { manifest: { name: "xy" } };
+        const rawResponseBody = { error: { message: "message" } };
+
+        server
+            .mockEndpoint()
+            .post("/api/v1/sandbox-environments")
+            .jsonBody(rawRequestBody)
+            .respondWith()
+            .statusCode(409)
+            .jsonBody(rawResponseBody)
+            .build();
+
+        await expect(async () => {
+            return await client.sandboxEnvironments.create({
+                manifest: {
+                    name: "xy",
+                },
+            });
+        }).rejects.toThrow(TrueForgeTypes.ConflictError);
+    });
+
+    test("create (5)", async () => {
+        const server = mockServerPool.createServer();
+        const client = new TrueForge({ maxRetries: 0, token: "test", baseUrl: server.baseUrl });
+        const rawRequestBody = { manifest: { name: "xy" } };
+        const rawResponseBody = { error: { message: "message" } };
+
+        server
+            .mockEndpoint()
+            .post("/api/v1/sandbox-environments")
+            .jsonBody(rawRequestBody)
+            .respondWith()
+            .statusCode(422)
+            .jsonBody(rawResponseBody)
+            .build();
+
+        await expect(async () => {
+            return await client.sandboxEnvironments.create({
+                manifest: {
+                    name: "xy",
+                },
+            });
+        }).rejects.toThrow(TrueForgeTypes.UnprocessableEntityError);
+    });
+
+    test("create (6)", async () => {
+        const server = mockServerPool.createServer();
+        const client = new TrueForge({ maxRetries: 0, token: "test", baseUrl: server.baseUrl });
+        const rawRequestBody = { manifest: { name: "xy" } };
+        const rawResponseBody = { error: { message: "message" } };
+
+        server
+            .mockEndpoint()
+            .post("/api/v1/sandbox-environments")
+            .jsonBody(rawRequestBody)
+            .respondWith()
+            .statusCode(502)
+            .jsonBody(rawResponseBody)
+            .build();
+
+        await expect(async () => {
+            return await client.sandboxEnvironments.create({
+                manifest: {
+                    name: "xy",
+                },
+            });
+        }).rejects.toThrow(TrueForgeTypes.BadGatewayError);
+    });
+
     test("create_or_update (1)", async () => {
         const server = mockServerPool.createServer();
         const client = new TrueForge({ maxRetries: 0, token: "test", baseUrl: server.baseUrl });
