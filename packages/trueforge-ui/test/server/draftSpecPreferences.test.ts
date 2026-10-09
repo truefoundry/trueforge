@@ -191,25 +191,18 @@ describe('withCapabilitiesWebSearch', () => {
     });
   });
 
-  it('forces true for New Chat when the capability is on', () => {
-    expect(
-      withCapabilitiesWebSearch({
-        spec: { model: { name: 'model' }, config: { webSearch: { enabled: false } } },
-        webSearchEnabled: true,
-        kind: 'chat',
-      }),
-    ).toEqual({
-      model: { name: 'model' },
-      config: { webSearch: { enabled: true } },
-    });
+  it('preserves an explicit chat toggle when the capability is on', () => {
+    const spec = { model: { name: 'model' }, config: { webSearch: { enabled: false } } };
+
+    expect(withCapabilitiesWebSearch({ spec, webSearchEnabled: true, kind: 'chat' })).toBe(spec);
   });
 
-  it('fills true for New Agent when the field is absent', () => {
+  it('fills true when the field is absent and the capability is on', () => {
     expect(
       withCapabilitiesWebSearch({
         spec: { model: { name: 'model' } },
         webSearchEnabled: true,
-        kind: 'agent',
+        kind: 'chat',
       }),
     ).toEqual({
       model: { name: 'model' },

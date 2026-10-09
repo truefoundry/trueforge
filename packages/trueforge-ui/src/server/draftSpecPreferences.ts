@@ -98,16 +98,15 @@ export function withCapabilitiesSandbox(spec: AgentSpec, sandboxEnabled: boolean
 /**
  * Align `config.webSearch` with host capability.
  * - unavailable → force false
- * - chat + available → force true
- * - agent + available → fill true only when the key is absent (preserve explicit values)
+ * - available → fill true only when the key is absent (preserve explicit user toggles)
  */
 export function withCapabilitiesWebSearch({
   spec,
   webSearchEnabled,
-  kind = 'agent',
 }: {
   spec: AgentSpec;
   webSearchEnabled: boolean | null | undefined;
+  /** Kept for call-site compatibility; chat and agent share the same fill/preserve rules. */
   kind?: DraftPreferenceKind;
 }): AgentSpec {
   if (webSearchEnabled == null) return spec;
@@ -123,18 +122,7 @@ export function withCapabilitiesWebSearch({
     };
   }
 
-  if (kind === 'chat') {
-    if (readWebSearchEnabled(spec) === true) return spec;
-    return {
-      ...spec,
-      config: {
-        ...spec.config,
-        webSearch: { ...spec.config?.webSearch, enabled: true },
-      },
-    };
-  }
-
-  // Agent: only default true when the field is missing from the spec.
+  // Only default true when the field is missing — chat and agent both keep user toggles.
   if (spec.config?.webSearch !== undefined) return spec;
   return {
     ...spec,

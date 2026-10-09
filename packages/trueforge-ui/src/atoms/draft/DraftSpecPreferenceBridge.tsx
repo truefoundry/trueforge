@@ -144,10 +144,6 @@ export function DraftSpecPreferenceBridge() {
   const isMutableDraft = mode.status === 'active' && mode.isMutable && pendingSessionId == null;
   const isPlainDraft = isMutableDraft && mode.agentId == null;
   const preferenceKind = mode.status === 'active' && mode.isMutable && mode.isCreateAgent ? 'agent' : 'chat';
-  // New Chat forces on; New Agent + edit existing only fill when absent.
-  const webSearchKind: DraftPreferenceKind =
-    mode.status === 'active' && mode.isMutable && (mode.isCreateAgent || mode.agentId != null) ? 'agent' : 'chat';
-
   useEffect(() => {
     if (isPlainDraft) ensureLoaded();
   }, [ensureLoaded, isPlainDraft]);
@@ -169,12 +165,13 @@ export function DraftSpecPreferenceBridge() {
 
   useEffect(() => {
     // Apply to New Chat / New Agent / edit-existing mutable drafts.
+    // Available → default on when absent; unavailable → force off. Explicit toggles are preserved.
     if (!isMutableDraft || agentSpec == null || updateAgentSpec == null) return;
-    const update = reconcileDraftWebSearch({ agentSpec, webSearchEnabled, kind: webSearchKind });
+    const update = reconcileDraftWebSearch({ agentSpec, webSearchEnabled, kind: preferenceKind });
     if (Object.keys(update).length > 0) {
       updateAgentSpec(update);
     }
-  }, [agentSpec, isMutableDraft, webSearchEnabled, webSearchKind, updateAgentSpec]);
+  }, [agentSpec, isMutableDraft, preferenceKind, webSearchEnabled, updateAgentSpec]);
 
   useEffect(() => {
     if (!isPlainDraft || agentSpec == null || updateAgentSpec == null || !loaded || error != null) return;
