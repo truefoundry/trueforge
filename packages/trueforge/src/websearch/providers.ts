@@ -1,4 +1,8 @@
-import { ParallelWebSearchProvider, type IWebSearchProvider } from '@truefoundry/trueforge-core/core';
+import {
+  ExaWebSearchProvider,
+  ParallelWebSearchProvider,
+  type IWebSearchProvider,
+} from '@truefoundry/trueforge-core/core';
 import type { IWebSearchProviderStore } from '../db/webSearchProviderStore';
 
 export async function hasConfiguredWebSearchProvider({
@@ -24,5 +28,10 @@ export async function resolveWebSearchProvider({
     return undefined;
   }
   const { manifest } = record;
-  return new ParallelWebSearchProvider({ apiKey: manifest.auth.api_key, mode: 'turbo' });
+  switch (manifest.type) {
+    case 'parallel':
+      return new ParallelWebSearchProvider({ apiKey: manifest.auth.api_key, mode: 'turbo' });
+    case 'exa':
+      return new ExaWebSearchProvider({ apiKey: manifest.auth.api_key });
+  }
 }
