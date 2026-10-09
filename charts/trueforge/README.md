@@ -98,10 +98,11 @@ A literal string still works for throwaway clusters (`apiKey: "…"`), but prefe
 ## Extra environment
 
 `env` is a map of variable name to value, applied to both the server and the
-controller. Values are scalars or `valueFrom` references. A key that matches
-something the chart already sets **replaces** it rather than adding a second
-entry, so it doubles as the override for computed values like `POSTGRES_HOST`
-or `PUBLIC_BASE_URL`.
+controller. Values are scalars, `valueFrom` references, or `${k8s-secret/...}`
+reference strings. A key that matches something the chart already sets
+**replaces** it rather than adding a second entry, so it doubles as the override
+for computed values like `POSTGRES_HOST` or `PUBLIC_BASE_URL`. Setting a key to
+`null` drops the override and hands the variable back to the chart.
 
 This is the extension point for running against a hosting platform. The chart
 does not model any particular platform; those settings live in the caller's
@@ -116,6 +117,24 @@ env:
     valueFrom:
       secretKeyRef: { name: platform-creds, key: api-key }
 ```
+
+A parent chart that wants its own users to be able to redirect a key at a
+different Secret must declare the default as a scalar, because Helm refuses to
+replace a map with a scalar. Write such defaults as `${k8s-secret/...}` strings
+instead of `valueFrom` maps:
+
+```yaml
+env:
+  # Resolves against envSecretName.
+  REDIS_PASSWORD: "${k8s-secret/REDIS_PASSWORD}"
+  # Names its own Secret; a user can override the line wholesale.
+  REDIS_SENTINEL_PASSWORD: "${k8s-secret/redis-passwords/application_password}"
+envSecretName: trueforge-creds
+```
+
+Both forms render a `secretKeyRef` with `optional: true`, so a missing key
+leaves the variable unset rather than blocking the pod. The same strings are
+accepted by every field listed under [Using Secrets](#using-secrets).
 
 When the platform also needs files (an outbound mTLS client certificate, say),
 mount them with `extraVolumes` / `extraVolumeMounts`, which apply to both
@@ -313,9 +332,11 @@ OUTBOUND_URL_BLOCKED_HOSTS=["evil.example.com"]
 
 Prefer Kubernetes Secrets over literals in values files for production. This
 chart does **not** create Secrets for chart-owned fields — supply
-`valueFrom.secretKeyRef` (or create Secrets yourself and point at them).
+`valueFrom.secretKeyRef` or a `${k8s-secret/<secret>/<key>}` string (or create
+Secrets yourself and point at them). The short `${k8s-secret/<key>}` form
+resolves against `envSecretName`.
 
-Fields that accept string | `valueFrom.secretKeyRef`:
+Fields that accept string | `valueFrom.secretKeyRef` | `${k8s-secret/...}`:
 `externalPostgres.host`, `externalPostgres.port`, `externalPostgres.database`,
 `externalPostgres.user`, `externalPostgres.password`, `externalRedis.url` / `host` / `auth`,
 `externalRedis.tls` (`caCert`, `cert`, `key`, `keyPassphrase`, `serverName`),

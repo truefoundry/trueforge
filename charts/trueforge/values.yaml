@@ -144,12 +144,22 @@ controller:
 # Controller → server API key (TRUEFORGE_API_KEY). Dev default is a known
 # placeholder — strongly recommended to create a Secret and set:
 #   apiKey: { valueFrom: { secretKeyRef: { name: trueforge-api-key, key: TRUEFORGE_API_KEY } } }
+#   apiKey: "${k8s-secret/trueforge-api-key/TRUEFORGE_API_KEY}"
 # The chart never creates that Secret. A plain string also works for local trials.
 apiKey: "placeholder-value-please-generate-your-own"
-# Extra env for BOTH server and controller: name -> scalar or { valueFrom: ... }.
+# Extra env for BOTH server and controller: name -> scalar, { valueFrom: ... },
+# or a "${k8s-secret/<secret>/<key>}" reference string.
 # A key that matches a chart-computed variable (POSTGRES_HOST, PUBLIC_BASE_URL,
-# ...) replaces it in place. This is the extension point for a parent chart.
+# ...) replaces it in place; a null value drops the override and hands the key
+# back to the chart. This is the extension point for a parent chart, which can
+# only override a key it declares as a scalar - Helm refuses to replace a map
+# with a scalar, so a default written as { valueFrom: ... } is final.
 env: {}
+# Secret the short "${k8s-secret/<key>}" form resolves against. The long
+# "${k8s-secret/<secret>/<key>}" form names its own Secret and ignores this.
+# Referenced keys are looked up with optional: true, so a missing key leaves
+# the variable unset rather than blocking the pod.
+envSecretName: ""
 # Application feature config (maps to env vars in packages/trueforge/src/config.ts).
 # clientSecret (and other secret-like fields) accept a string or
 # { valueFrom: { secretKeyRef: ... } }.
@@ -281,14 +291,16 @@ externalRedis:
   ## Requires `enabled: true`, then exactly one transport: url, host, or sentinel.
   enabled: false
   ## Full connection URL, e.g. redis://:password@redis-master.databases.svc:6379.
-  ## string or valueFrom. Mutually exclusive with host and sentinel.
+  ## string, valueFrom, or "${k8s-secret/<secret>/<key>}".
+  ## Mutually exclusive with host and sentinel.
   url: ""
   ## Standalone Redis host. Mutually exclusive with url and sentinel.
   host: ""
   port: 6379
   db: 0
   auth:
-    ## string or valueFrom (host/sentinel modes; put credentials in url when using url)
+    ## string, valueFrom, or "${k8s-secret/<secret>/<key>}" (host/sentinel modes;
+    ## put credentials in url when using url)
     username: ""
     password: ""
   tls:
@@ -308,7 +320,7 @@ externalRedis:
     nodes: []
     masterName: ""
     auth:
-      ## string or valueFrom
+      ## string, valueFrom, or "${k8s-secret/<secret>/<key>}"
       username: ""
       password: ""
 # --- Bundled dev sandbox server (tfy-sandbox-server subchart) -------------------
