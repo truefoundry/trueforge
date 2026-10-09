@@ -17,8 +17,7 @@ export type SandboxArtifactDownloadProps = {
 export type SandboxArtifact = ChatFileDownloadFile;
 
 const PREFIX = 'sandbox_artifacts';
-/** tfy / agent format: `[name](path)` */
-const PAIR_RE = /\[([^\]]*)\]\(([^)]*)\)/g;
+const ESCAPABLE_DELIMITERS = new Set(['[', ']', '(', ')', '\\']);
 
 /**
  * Parses a `sandbox_artifacts` fence body into `{ name, path }` entries.
@@ -30,13 +29,65 @@ export function parseSandboxArtifacts(raw: string): SandboxArtifact[] {
   const body = trimmed.startsWith(PREFIX) ? trimmed.slice(PREFIX.length).trimStart() : trimmed;
 
   const fromLinks: SandboxArtifact[] = [];
-  PAIR_RE.lastIndex = 0;
-  let match: RegExpExecArray | null = PAIR_RE.exec(body);
-  while (match !== null) {
-    const name = match[1]?.trim() ?? '';
-    const path = match[2]?.trim() ?? '';
-    if (name && path) fromLinks.push({ name, path });
-    match = PAIR_RE.exec(body);
+  for (let start = 0; start < body.length; start++) {
+    if (body[start] === '\\' && ESCAPABLE_DELIMITERS.has(body[start + 1] ?? '')) {
+      start++;
+      continue;
+    }
+    if (body[start] !== '[') continue;
+
+    let cursor = start + 1;
+    let name = '';
+    let closedLabel = false;
+    while (cursor < body.length) {
+      const char = body[cursor];
+      if (char === '\n' || char === '\r') break;
+      const escaped = body[cursor + 1] ?? '';
+      if (char === '\\' && ESCAPABLE_DELIMITERS.has(escaped)) {
+        name += escaped;
+        cursor += 2;
+        continue;
+      }
+      if (char === ']') {
+        closedLabel = true;
+        cursor++;
+        break;
+      }
+      name += char;
+      cursor++;
+    }
+    if (!closedLabel || body[cursor] !== '(') continue;
+
+    cursor++;
+    let path = '';
+    let depth = 0;
+    let closedPath = false;
+    while (cursor < body.length) {
+      const char = body[cursor];
+      if (char === '\n' || char === '\r') break;
+      const escaped = body[cursor + 1] ?? '';
+      if (char === '\\' && ESCAPABLE_DELIMITERS.has(escaped)) {
+        path += escaped;
+        cursor += 2;
+        continue;
+      }
+      if (char === '(') {
+        depth++;
+      } else if (char === ')') {
+        if (depth === 0) {
+          closedPath = true;
+          cursor++;
+          break;
+        }
+        depth--;
+      }
+      path += char;
+      cursor++;
+    }
+    if (!closedPath) continue;
+
+    if (name.trim() && path.trim()) fromLinks.push({ name: name.trim(), path: path.trim() });
+    start = cursor - 1;
   }
   if (fromLinks.length > 0) return fromLinks;
 
