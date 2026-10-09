@@ -654,9 +654,13 @@ export class AgentThread {
     return this.toThreadContextAppend(
       getPendingApprovalToolCalls(this.context)
         .filter(toolCall => {
-          const policy = stagedPoliciesByServer.get(toolCall.tool_info.mcp_server_name)?.[
-            toolCall.tool_info.original_tool_name
-          ];
+          const policies = stagedPoliciesByServer.get(toolCall.tool_info.mcp_server_name);
+          const toolName = toolCall.tool_info.original_tool_name;
+          // Own-property only — Record bracket access inherits Object.prototype (e.g. `constructor`).
+          if (policies === undefined || !Object.hasOwn(policies, toolName)) {
+            return false;
+          }
+          const policy = policies[toolName];
           return policy !== undefined && ToolSet.isPolicyApplicable(policy);
         })
         .map(toolCall => ({
