@@ -81,8 +81,8 @@ export interface DaytonaSandboxProviderOptions {
   /** Defaults to 1 hour (same as the gateway's max agent execution time). */
   previewUrlExpirySeconds?: number;
   logger: Logger;
-  /** Host alert hook (e.g. Sentry P1). */
-  onCriticalAlert?: (error: Error) => void;
+  /** Host hook for create failures; the host decides what to alert on. */
+  onError?: (error: Error) => void;
 }
 
 export class DaytonaSandboxProvider implements SandboxProvider<DaytonaSandboxEnvironment> {
@@ -99,7 +99,7 @@ export class DaytonaSandboxProvider implements SandboxProvider<DaytonaSandboxEnv
   private readonly apiKey: string;
   private readonly apiUrl: string;
   private readonly logger: Logger;
-  private readonly onCriticalAlert: ((error: Error) => void) | undefined;
+  private readonly onError: ((error: Error) => void) | undefined;
   private readonly daytona: Daytona;
   private static readonly cachedSandboxes = new Map<string, { sandbox: Sandbox; defaultTimeoutMs: number }>();
   // De-dupes concurrent recovery attempts on the same sandbox to a single refreshData+start round-trip.
@@ -117,7 +117,7 @@ export class DaytonaSandboxProvider implements SandboxProvider<DaytonaSandboxEnv
     this.fileMaxBytesForDownload = options.fileMaxBytesForDownload;
     this.natsBridgePort = options.natsBridgePort ?? DEFAULT_SANDBOX_NATS_WS_PORT;
     this.previewUrlExpirySeconds = options.previewUrlExpirySeconds ?? DEFAULT_PREVIEW_URL_EXPIRY_SECONDS;
-    this.onCriticalAlert = options.onCriticalAlert;
+    this.onError = options.onError;
     this.logger = options.logger.child({ module: 'DaytonaProvider' });
   }
 
@@ -340,22 +340,19 @@ export class DaytonaSandboxProvider implements SandboxProvider<DaytonaSandboxEnv
     throw new Error(SNAPSHOT_INACTIVE_USER_MESSAGE);
   }
 
-  /** Fresh create: reject an inactive tip before calling Daytona create. */
-  private async createFreshSandbox(environment?: DaytonaSandboxEnvironment): Promise<Sandbox> {
+  /** New create: reject an inactive tip before calling Daytona create. */
+  private async createNewSandbox(environment?: DaytonaSandboxEnvironment): Promise<Sandbox> {
     const env = this.requireEnvironment(environment);
     try {
       await this.rejectIfSnapshotInactive(env.snapshot_ref);
       return await this.daytona.create(this.buildCreateParams(env));
     } catch (error) {
-      if (error instanceof DaytonaError && (error.statusCode === 401 || error.statusCode === 403)) {
-        throw error;
-      }
-      const alertError = error instanceof Error ? error : new Error('Daytona sandbox create failed', { cause: error });
+      const createError = error instanceof Error ? error : new Error('Daytona sandbox create failed', { cause: error });
       this.logger.error('Daytona sandbox create failed', {
         snapshot_ref: env.snapshot_ref,
-        ...extractErrorLogFields(alertError),
+        ...extractErrorLogFields(createError),
       });
-      this.onCriticalAlert?.(alertError);
+      this.onError?.(createError);
       throw error;
     }
   }
@@ -372,9 +369,7 @@ export class DaytonaSandboxProvider implements SandboxProvider<DaytonaSandboxEnv
       }
     }
 
-    const sandbox = sandboxId
-      ? await this.restoreExistingSandbox(sandboxId)
-      : await this.createFreshSandbox(environment);
+    const sandbox = sandboxId ? await this.restoreExistingSandbox(sandboxId) : await this.createNewSandbox(environment);
 
     const entry = { sandbox, defaultTimeoutMs: this.timeoutMs };
     DaytonaSandboxProvider.cachedSandboxes.set(sandbox.name, entry);

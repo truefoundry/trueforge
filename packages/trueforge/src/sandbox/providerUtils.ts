@@ -104,7 +104,10 @@ export function toDaytonaSandboxProvider({
     tenantName: tenant_id,
     fileMaxBytesForDownload: configuration.SANDBOX_FILE_MAX_BYTES_FOR_DOWNLOAD,
     logger,
-    onCriticalAlert: error => {
+    onError: error => {
+      if (isDaytonaAuthError(error) || isDaytonaPermissionError(error)) {
+        return;
+      }
       captureCriticalException(error, {
         tags: { module: 'DaytonaProvider', operation: 'sandboxCreate', priority: 'P1' },
       });
