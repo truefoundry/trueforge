@@ -534,6 +534,12 @@ export { AgentRuntimeEditorContent } from './atoms/draft/AgentRuntimeEditorConte
 export type { AgentRuntimeEditorContentProps } from './atoms/draft/AgentRuntimeEditorContent.js';
 export { AgentSkillsEditorContent } from './atoms/draft/AgentSkillsEditorContent.js';
 export type { AgentSkillsEditorContentProps } from './atoms/draft/AgentSkillsEditorContent.js';
+export {
+  AgentSkillsHeaderActionSlot,
+  DEFAULT_PLATFORM_SKILLS_URL,
+  DEFAULT_SETTINGS_SKILLS_URL,
+} from './atoms/draft/AgentSkillsHeaderActionSlot.js';
+export type { AgentSkillsHeaderActionSlotProps } from './atoms/draft/AgentSkillsHeaderActionSlot.js';
 export { DraftAgentConfigTrigger } from './atoms/draft/DraftAgentConfigTrigger.js';
 export type { DraftAgentConfigTriggerProps } from './atoms/draft/DraftAgentConfigTrigger.js';
 export { DraftCapabilitiesPanel } from './atoms/draft/DraftCapabilitiesPanel.js';

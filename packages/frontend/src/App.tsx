@@ -24,6 +24,7 @@ import { GetStartedScreen } from './GetStartedScreen';
 import { LogoutButton } from './LogoutButton';
 import { NewAgentWelcomeScreen } from './NewAgentWelcomeScreen';
 import { API_BASE_URL, uiRouterBasename } from './publicPath';
+import { RegisterSkillsLink } from './RegisterSkillsLink';
 
 const POSTHOG_API_KEY = import.meta.env.VITE_POSTHOG_API_KEY;
 const POSTHOG_HOST = import.meta.env.VITE_POSTHOG_HOST ?? 'https://us.i.posthog.com';
@@ -179,7 +180,11 @@ export function App() {
   }, [session]);
 
   const overrides: SlotOverrides = useMemo(
-    () => ({ ShellActionsActionSlot: LogoutButton, WelcomeScreen: NewAgentWelcomeScreen }),
+    () => ({
+      ShellActionsActionSlot: LogoutButton,
+      WelcomeScreen: NewAgentWelcomeScreen,
+      AgentSkillsHeaderActionSlot: RegisterSkillsLink,
+    }),
     [],
   );
 

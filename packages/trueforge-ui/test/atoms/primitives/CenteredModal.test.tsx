@@ -149,6 +149,23 @@ describe('CenteredModal', () => {
     expect(screen.getByText('Modal content')).toBeInTheDocument();
   });
 
+  it('renders titleAccessory immediately after the title', () => {
+    render(
+      <CenteredModal
+        open
+        onOpenChange={() => undefined}
+        title="Skills"
+        titleAccessory={<a href="/skills">Register Skills</a>}
+      >
+        Body
+      </CenteredModal>,
+    );
+
+    const title = screen.getByRole('heading', { name: 'Skills' });
+    const accessory = screen.getByRole('link', { name: 'Register Skills' });
+    expect(title.nextElementSibling).toBe(accessory);
+  });
+
   it('uses the title as the label and omits description wiring when absent', () => {
     render(
       <CenteredModal open onOpenChange={() => undefined} title="Untitled description">
