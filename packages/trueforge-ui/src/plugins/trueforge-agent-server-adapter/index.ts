@@ -84,15 +84,13 @@ export type CreateTrueForgeAgentUIServerOptions = CreateTrueForgeClientOptions &
   catalog?: CatalogServer;
   /** Optional host-provided resource permissions port. */
   permissions?: PermissionsServer;
-  /** Enable sandbox-environment routes and UI. Defaults to true for compatibility. */
-  sandboxEnvironments?: boolean;
 };
 
 /**
  * Compose chat + builder + agent sessions + default settings catalogs into an `AgentUIServer`.
  */
 export function createTrueForgeAgentUIServer(options: CreateTrueForgeAgentUIServerOptions = {}) {
-  const { catalog: catalogOverride, permissions, sandboxEnvironments = true, ...clientOptions } = options;
+  const { catalog: catalogOverride, permissions, ...clientOptions } = options;
   const client = createTrueForgeClient(clientOptions);
   const catalog =
     catalogOverride ??
@@ -111,7 +109,7 @@ export function createTrueForgeAgentUIServer(options: CreateTrueForgeAgentUIServ
     sessions: createHarnessAgentSessionsServer({ ...clientOptions, client }),
     metrics: createHarnessAgentMetricsServer({ ...clientOptions, client }),
     schedules: createScheduleServer({ client }),
-    ...(sandboxEnvironments ? { sandboxEnvironments: createSandboxEnvironmentServer({ client }) } : {}),
+    sandboxEnvironments: createSandboxEnvironmentServer({ client }),
     permissions: permissions ?? createHarnessPermissionsServer({ client }),
     getMe: async () => {
       const { data } = await client.auth.me();

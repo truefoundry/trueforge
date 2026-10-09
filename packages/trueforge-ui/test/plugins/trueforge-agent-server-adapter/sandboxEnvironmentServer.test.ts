@@ -3,9 +3,29 @@ import { describe, expect, it, vi } from 'vitest';
 import { createSandboxEnvironmentServer } from '@/plugins/trueforge-agent-server-adapter/sandboxEnvironments/sandboxEnvironmentServer.js';
 import type { TrueForge } from '@truefoundry/trueforge-sdk';
 
+const savedEnvResponse = {
+  data: {
+    id: 'e2',
+    name: 'node-web',
+    description: '',
+    lifecycleStage: 'active' as const,
+    status: 'pending' as const,
+    statusReason: null,
+    createdAt: new Date('2024-01-01T00:00:00.000Z'),
+    updatedAt: new Date('2024-01-01T00:00:00.000Z'),
+    createdBySubject: {
+      subjectId: 'user-1',
+      subjectType: 'user' as const,
+      subjectDisplayName: 'alice@example.com',
+    },
+    manifest: { name: 'node-web', resources: { cpu: 1, memory: 1, disk: 3 } },
+  },
+};
+
 function mockClient(
   overrides: {
     list?: ReturnType<typeof vi.fn>;
+    create?: ReturnType<typeof vi.fn>;
     createOrUpdate?: ReturnType<typeof vi.fn>;
     delete?: ReturnType<typeof vi.fn>;
   } = {},
@@ -45,26 +65,8 @@ function mockClient(
     sandboxEnvironments: {
       list,
       get: vi.fn(),
-      createOrUpdate:
-        overrides.createOrUpdate ??
-        vi.fn(async () => ({
-          data: {
-            id: 'e2',
-            name: 'node-web',
-            description: '',
-            lifecycleStage: 'active' as const,
-            status: 'pending' as const,
-            statusReason: null,
-            createdAt: new Date('2024-01-01T00:00:00.000Z'),
-            updatedAt: new Date('2024-01-01T00:00:00.000Z'),
-            createdBySubject: {
-              subjectId: 'user-1',
-              subjectType: 'user',
-              subjectDisplayName: 'alice@example.com',
-            },
-            manifest: { name: 'node-web', resources: { cpu: 1, memory: 1, disk: 3 } },
-          },
-        })),
+      create: overrides.create ?? vi.fn(async () => savedEnvResponse),
+      createOrUpdate: overrides.createOrUpdate ?? vi.fn(async () => savedEnvResponse),
       delete: overrides.delete ?? vi.fn(async () => ({})),
     },
   } as unknown as TrueForge;
@@ -85,28 +87,19 @@ describe('createSandboxEnvironmentServer', () => {
     expect(client.sandboxEnvironments.list).toHaveBeenCalledWith({ limit: 1000 });
   });
 
-  it('createOrUpdate and delete call SDK methods', async () => {
-    const createOrUpdate = vi.fn(async () => ({
-      data: {
-        id: 'e2',
-        name: 'node-web',
-        description: '',
-        lifecycleStage: 'active' as const,
-        status: 'pending' as const,
-        statusReason: null,
-        createdAt: new Date('2024-01-01T00:00:00.000Z'),
-        updatedAt: new Date('2024-01-01T00:00:00.000Z'),
-        createdBySubject: {
-          subjectId: 'user-1',
-          subjectType: 'user',
-          subjectDisplayName: 'alice@example.com',
-        },
-        manifest: { name: 'node-web' },
-      },
-    }));
+  it('create, createOrUpdate, and delete call SDK methods', async () => {
+    const create = vi.fn(async () => savedEnvResponse);
+    const createOrUpdate = vi.fn(async () => savedEnvResponse);
     const del = vi.fn(async () => ({}));
-    const client = mockClient({ createOrUpdate, delete: del });
+    const client = mockClient({ create, createOrUpdate, delete: del });
     const server = createSandboxEnvironmentServer({ client });
+    const created = await server.createEnvironment({
+      manifest: { name: 'node-web', resources: { cpu: 1, memory: 1, disk: 3 } },
+    });
+    expect(created.name).toBe('node-web');
+    expect(create).toHaveBeenCalledWith({
+      manifest: { name: 'node-web', resources: { cpu: 1, memory: 1, disk: 3 } },
+    });
     const saved = await server.createOrUpdateEnvironment({
       manifest: { name: 'node-web', resources: { cpu: 1, memory: 1, disk: 3 } },
     });

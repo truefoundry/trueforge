@@ -5,11 +5,7 @@ import { useCallback, useEffect, useId, useMemo, useRef, useState, type ReactNod
 
 import { useMCPAuth } from '../../hooks/useMcpAuth.js';
 import { Icon } from '../../icons/Icon.js';
-import {
-  useOptionalCatalogServer,
-  useOptionalSandboxEnvironmentServer,
-  useServerCapabilities,
-} from '../../server/ServerContext.js';
+import { useOptionalCatalogServer, useServerCapabilities } from '../../server/ServerContext.js';
 import { useOptionalShellMode, type SettingsSection } from '../../server/ShellModeContext.js';
 import type { AgentSkill, ConnectorState } from '../../server/types.js';
 import { useSlot } from '../../theme/SlotsProvider.js';
@@ -17,7 +13,6 @@ import { useReadySandboxEnvironments } from '../environments/useReadySandboxEnvi
 import { auiButtonClass } from '../lib/buttonClasses.js';
 import { cn } from '../lib/cn.js';
 import { useCompactLayout } from '../lib/CompactLayoutContext.js';
-import { formatRelativeTime } from '../lib/dateFormat.js';
 import { auiInputClass } from '../lib/inputClasses.js';
 import { useIsMobile } from '../lib/useIsMobile.js';
 import { BottomSheet } from '../primitives/BottomSheet.js';
@@ -492,8 +487,6 @@ export function DraftCompositeSelector({ disabled, isRunning, onAttach }: DraftC
     loading: environmentsLoading,
     refetch: refetchEnvironments,
   } = useReadySandboxEnvironments();
-  const environmentServer = useOptionalSandboxEnvironmentServer();
-  const tabs = environmentServer == null ? TABS.filter(item => item.id !== 'environments') : TABS;
 
   const openPicker = (nextTab?: AttachTab) => {
     if (nextTab != null) {
@@ -526,7 +519,7 @@ export function DraftCompositeSelector({ disabled, isRunning, onAttach }: DraftC
   const filteredEnvironments = useMemo(() => {
     const all = readyEnvironments.map(e => ({
       name: e.name,
-      description: e.manifest.description || `Created ${formatRelativeTime(e.createdAt)}`,
+      description: e.manifest.description,
     }));
     const needle = query.trim().toLowerCase();
     if (!needle) return all;
@@ -552,7 +545,7 @@ export function DraftCompositeSelector({ disabled, isRunning, onAttach }: DraftC
   const content = (
     <>
       <div className="flex shrink-0 border-b border-border">
-        {tabs.map(t => {
+        {TABS.map(t => {
           const count = t.id === 'connectors' ? selectedMcp.length : t.id === 'skills' ? selectedSkills.length : null;
           const active = tab === t.id;
           return (
@@ -684,7 +677,7 @@ export function DraftCompositeSelector({ disabled, isRunning, onAttach }: DraftC
                 />
               ) : null}
             </>
-          ) : environmentServer != null ? (
+          ) : (
             <>
               {filteredEnvironments.map(env => {
                 const isSelected = currentEnvName === env.name;
@@ -716,7 +709,7 @@ export function DraftCompositeSelector({ disabled, isRunning, onAttach }: DraftC
                 />
               ) : null}
             </>
-          ) : null}
+          )}
         </div>
       </>
     </>

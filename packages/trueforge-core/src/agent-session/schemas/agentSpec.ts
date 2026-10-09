@@ -15,7 +15,7 @@ import {
   TOOLS_SELECTOR_TAGS,
 } from '../../core/mcp/toolSelectors';
 
-export const DEFAULT_AGENT_CONFIG_ITERATION_LIMIT = 100;
+export const DEFAULT_AGENT_CONFIG_ITERATION_LIMIT = 512;
 
 // --- Model ---
 

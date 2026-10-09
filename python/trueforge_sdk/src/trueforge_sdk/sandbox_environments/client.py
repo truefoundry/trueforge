@@ -74,6 +74,41 @@ class SandboxEnvironmentsClient:
         """
         return self._raw_client.list(limit=limit, page_token=page_token, request_options=request_options)
 
+    def create(
+        self, *, manifest: SandboxEnvironmentManifestRequest, request_options: typing.Optional[RequestOptions] = None
+    ) -> GetSandboxEnvironmentResponse:
+        """
+        Creates by `manifest.name`. Fails if the name is already taken. Requires a configured sandbox provider.
+
+        Parameters
+        ----------
+        manifest : SandboxEnvironmentManifestRequest
+
+        request_options : typing.Optional[RequestOptions]
+            Request-specific configuration.
+
+        Returns
+        -------
+        GetSandboxEnvironmentResponse
+            The created sandbox environment.
+
+        Examples
+        --------
+        from trueforge_sdk import SandboxEnvironmentManifestRequest, TrueForge
+
+        client = TrueForge(
+            token="YOUR_TOKEN",
+            base_url="https://yourhost.com/path/to/api",
+        )
+        client.sandbox_environments.create(
+            manifest=SandboxEnvironmentManifestRequest(
+                name="name",
+            ),
+        )
+        """
+        _response = self._raw_client.create(manifest=manifest, request_options=request_options)
+        return _response.data
+
     def create_or_update(
         self, *, manifest: SandboxEnvironmentManifestRequest, request_options: typing.Optional[RequestOptions] = None
     ) -> GetSandboxEnvironmentResponse:
@@ -244,6 +279,49 @@ class AsyncSandboxEnvironmentsClient:
         asyncio.run(main())
         """
         return await self._raw_client.list(limit=limit, page_token=page_token, request_options=request_options)
+
+    async def create(
+        self, *, manifest: SandboxEnvironmentManifestRequest, request_options: typing.Optional[RequestOptions] = None
+    ) -> GetSandboxEnvironmentResponse:
+        """
+        Creates by `manifest.name`. Fails if the name is already taken. Requires a configured sandbox provider.
+
+        Parameters
+        ----------
+        manifest : SandboxEnvironmentManifestRequest
+
+        request_options : typing.Optional[RequestOptions]
+            Request-specific configuration.
+
+        Returns
+        -------
+        GetSandboxEnvironmentResponse
+            The created sandbox environment.
+
+        Examples
+        --------
+        import asyncio
+
+        from trueforge_sdk import AsyncTrueForge, SandboxEnvironmentManifestRequest
+
+        client = AsyncTrueForge(
+            token="YOUR_TOKEN",
+            base_url="https://yourhost.com/path/to/api",
+        )
+
+
+        async def main() -> None:
+            await client.sandbox_environments.create(
+                manifest=SandboxEnvironmentManifestRequest(
+                    name="name",
+                ),
+            )
+
+
+        asyncio.run(main())
+        """
+        _response = await self._raw_client.create(manifest=manifest, request_options=request_options)
+        return _response.data
 
     async def create_or_update(
         self, *, manifest: SandboxEnvironmentManifestRequest, request_options: typing.Optional[RequestOptions] = None

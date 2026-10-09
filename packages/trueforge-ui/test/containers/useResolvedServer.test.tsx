@@ -17,20 +17,19 @@ const defaultHarnessPermissions: PermissionsServer = {
   })),
 };
 
-const mockCreateTrueForgeAgentUIServer = vi.fn(
-  (options?: { permissions?: PermissionsServer; sandboxEnvironments?: boolean }) =>
-    Promise.resolve(
-      createMockAgentUIServer({
-        getCapabilities: async () => ({
-          data: {
-            sandbox: { enabled: true },
-            skill: { enabled: true },
-            settings: { enabled: true },
-          },
-        }),
-        permissions: options?.permissions ?? defaultHarnessPermissions,
+const mockCreateTrueForgeAgentUIServer = vi.fn((options?: { permissions?: PermissionsServer }) =>
+  Promise.resolve(
+    createMockAgentUIServer({
+      getCapabilities: async () => ({
+        data: {
+          sandbox: { enabled: true },
+          skill: { enabled: true },
+          settings: { enabled: true },
+        },
       }),
-    ),
+      permissions: options?.permissions ?? defaultHarnessPermissions,
+    }),
+  ),
 );
 
 vi.mock('@/plugins/trueforge-agent-server-adapter/index.js', () => ({
@@ -91,25 +90,6 @@ describe('useResolvedServer', () => {
       permissions,
     });
     expect(result.current.server?.permissions).toBe(permissions);
-  });
-
-  it('passes the sandbox environments feature flag to the trueforge server', async () => {
-    mockCreateTrueForgeAgentUIServer.mockClear();
-    const { result } = renderHook(() =>
-      useResolvedServer({
-        type: 'trueforge',
-        token: 'tok',
-        sandboxEnvironments: false,
-      }),
-    );
-
-    await waitFor(() => {
-      expect(result.current.status).toBe('ready');
-    });
-    expect(mockCreateTrueForgeAgentUIServer).toHaveBeenCalledWith({
-      token: 'tok',
-      sandboxEnvironments: false,
-    });
   });
 
   it('attaches an optional catalog onto the trueforge server when factory returns one', async () => {

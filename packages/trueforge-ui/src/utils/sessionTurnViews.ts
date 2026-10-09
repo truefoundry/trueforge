@@ -4,13 +4,15 @@ type TurnCreatedEvent = Extract<SessionEventItem['event'], { type: 'turn.created
 type TurnDoneEvent = Extract<SessionEventItem['event'], { type: 'turn.done' }>;
 type TurnEvent = Exclude<SessionEventItem['event'], TurnCreatedEvent | TurnDoneEvent>;
 
+const MCP_AUTH_CONTINUE_INPUT = { type: 'user.mcp_auth_continue' } as const;
+
 export type SessionTurnView = {
   turnId: string;
   /** Chronological index among every event turn (1..N). Unique; used for gap compression. */
   eventTurnNumber: number;
-  /** Display band among renderable turns (1..R); MCP-auth resumes inherit the prior band. */
+  /** Display band among renderable turns (1..R). */
   turnNumber: number;
-  /** True when the turn has user.message / tool_approval / tool_response input. */
+  /** True when the turn has user/continuation input worth its own transcript section. */
   renderable: boolean;
   showHeader: boolean;
   created: TurnCreatedEvent;
@@ -30,7 +32,12 @@ type TurnGroup = {
   events: TurnEvent[];
 };
 
-const RENDERABLE_INPUT_TYPES = new Set(['user.message', 'user.tool_approval', 'user.tool_response']);
+const RENDERABLE_INPUT_TYPES = new Set([
+  'user.message',
+  'user.tool_approval',
+  'user.tool_response',
+  'user.mcp_auth_continue',
+]);
 
 function timestampMs(createdAt: string): number {
   const value = Date.parse(createdAt);
@@ -45,6 +52,20 @@ function isRenderableTurn(created: TurnCreatedEvent): boolean {
     const type = Reflect.get(item, 'type');
     return typeof type === 'string' && RENDERABLE_INPUT_TYPES.has(type);
   });
+}
+
+function turnEndedWithMcpAuth(done: TurnDoneEvent | undefined): boolean {
+  if (done == null || done.state.status !== 'done') return false;
+  const actions = done.state.requiredActions;
+  if (!Array.isArray(actions)) return false;
+  return actions.some(action => action.type === 'mcp.auth_required');
+}
+
+/** Production MCP resumes often omit input; normalize so summary/projection helpers work. */
+function withMcpAuthContinueInput(created: TurnCreatedEvent): TurnCreatedEvent {
+  const input = created.input ?? [];
+  if (input.some(item => item.type === 'user.mcp_auth_continue')) return created;
+  return { ...created, input: [...input, MCP_AUTH_CONTINUE_INPUT] };
 }
 
 function readMetricNumber(metrics: object, camel: string, snake: string): number | undefined {
@@ -118,8 +139,8 @@ export function buildSessionTurnViews(itemsAsc: SessionEventItem[]): SessionTurn
     groupsByTurnId.set(turnId, group);
   }
 
-  // Include every turn.created (metrics need resume turns). Number timeline/transcript
-  // bands by renderable turns only so MCP-auth resumes fold into the prior user turn.
+  // Include every turn.created (metrics need all turns). Empty-input MCP-auth
+  // resumes become their own transcript band via synthesized continue input.
   const groups = Array.from(groupsByTurnId.entries())
     .flatMap(([turnId, group]) => (group.created === undefined ? [] : [{ turnId, created: group.created, group }]))
     .sort((left, right) => timestampMs(left.created.createdAt) - timestampMs(right.created.createdAt));
@@ -127,7 +148,10 @@ export function buildSessionTurnViews(itemsAsc: SessionEventItem[]): SessionTurn
   let renderableTurnNumber = 0;
   return groups.map(({ turnId, created, group }, index) => {
     const done = group.done;
-    const renderable = isRenderableTurn(created);
+    const previousDone = index > 0 ? groups[index - 1]?.group.done : undefined;
+    const isMcpAuthResume = !isRenderableTurn(created) && turnEndedWithMcpAuth(previousDone);
+    const viewCreated = isMcpAuthResume ? withMcpAuthContinueInput(created) : created;
+    const renderable = isRenderableTurn(viewCreated);
     if (renderable) renderableTurnNumber += 1;
     group.events.sort((left, right) => timestampMs(left.createdAt) - timestampMs(right.createdAt));
 
@@ -137,7 +161,7 @@ export function buildSessionTurnViews(itemsAsc: SessionEventItem[]): SessionTurn
       turnNumber: Math.max(1, renderableTurnNumber),
       renderable,
       showHeader: renderable,
-      created,
+      created: viewCreated,
       ...(done === undefined
         ? {}
         : {

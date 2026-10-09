@@ -39,6 +39,7 @@ export {
   useTrueForgeTurnId,
   useTrueForgeUpdateAgentSpec,
 } from './hooks.js';
+export { isMcpServerAuthInfoList } from './messageCustomMetadata.js';
 export type {
   McpAuthMessageCustomMetadata,
   SandboxMessageCustomMetadata,

@@ -737,6 +737,12 @@ export interface SharedServerConfiguration {
    * Env: `SANDBOX_FILE_MAX_BYTES_FOR_DOWNLOAD`. Default 20 MB (same as gateway).
    */
   SANDBOX_FILE_MAX_BYTES_FOR_DOWNLOAD: number;
+  /** Max CPU cores for a sandbox environment. Env: `SANDBOX_ENVIRONMENT_CPU_MAX`. Default 32. */
+  SANDBOX_ENVIRONMENT_CPU_MAX: number;
+  /** Max memory GiB for a sandbox environment. Env: `SANDBOX_ENVIRONMENT_MEMORY_GIB_MAX`. Default 64. */
+  SANDBOX_ENVIRONMENT_MEMORY_GIB_MAX: number;
+  /** Max disk GiB for a sandbox environment. Env: `SANDBOX_ENVIRONMENT_DISK_GIB_MAX`. Default 256. */
+  SANDBOX_ENVIRONMENT_DISK_GIB_MAX: number;
   /**
    * Max bytes for an HTTP request body. Env: `MAX_REQUEST_BODY_BYTES`. Default 30 MB.
    */
@@ -861,12 +867,12 @@ export interface SharedServerConfiguration {
   MODEL_HTTP_CONNECT_TIMEOUT_MS: number;
   /**
    * undici headersTimeout for model-provider outbound fetch.
-   * Env: `MODEL_HTTP_HEADERS_TIMEOUT_MS`. Default 60000.
+   * Env: `MODEL_HTTP_HEADERS_TIMEOUT_MS`. Default 2 minutes.
    */
   MODEL_HTTP_HEADERS_TIMEOUT_MS: number;
   /**
    * undici bodyTimeout for model-provider outbound fetch (idle between body chunks).
-   * Env: `MODEL_HTTP_BODY_TIMEOUT_MS`. Default 60000.
+   * Env: `MODEL_HTTP_BODY_TIMEOUT_MS`. Default 2 minutes.
    */
   MODEL_HTTP_BODY_TIMEOUT_MS: number;
   /**
@@ -1125,6 +1131,21 @@ const shared: SharedServerConfiguration = {
     raw: getEnv('SANDBOX_FILE_MAX_BYTES_FOR_DOWNLOAD'),
     defaultValue: 20_971_520,
   }),
+  SANDBOX_ENVIRONMENT_CPU_MAX: parsePositiveInt({
+    envKey: 'SANDBOX_ENVIRONMENT_CPU_MAX',
+    raw: getEnv('SANDBOX_ENVIRONMENT_CPU_MAX'),
+    defaultValue: 32,
+  }),
+  SANDBOX_ENVIRONMENT_MEMORY_GIB_MAX: parsePositiveInt({
+    envKey: 'SANDBOX_ENVIRONMENT_MEMORY_GIB_MAX',
+    raw: getEnv('SANDBOX_ENVIRONMENT_MEMORY_GIB_MAX'),
+    defaultValue: 64,
+  }),
+  SANDBOX_ENVIRONMENT_DISK_GIB_MAX: parsePositiveInt({
+    envKey: 'SANDBOX_ENVIRONMENT_DISK_GIB_MAX',
+    raw: getEnv('SANDBOX_ENVIRONMENT_DISK_GIB_MAX'),
+    defaultValue: 256,
+  }),
   MAX_REQUEST_BODY_BYTES: parsePositiveInt({
     envKey: 'MAX_REQUEST_BODY_BYTES',
     raw: getEnv('MAX_REQUEST_BODY_BYTES'),
@@ -1229,12 +1250,12 @@ const shared: SharedServerConfiguration = {
   MODEL_HTTP_HEADERS_TIMEOUT_MS: parsePositiveInt({
     envKey: 'MODEL_HTTP_HEADERS_TIMEOUT_MS',
     raw: getEnv('MODEL_HTTP_HEADERS_TIMEOUT_MS'),
-    defaultValue: 60_000,
+    defaultValue: 2 * 60 * 1000,
   }),
   MODEL_HTTP_BODY_TIMEOUT_MS: parsePositiveInt({
     envKey: 'MODEL_HTTP_BODY_TIMEOUT_MS',
     raw: getEnv('MODEL_HTTP_BODY_TIMEOUT_MS'),
-    defaultValue: 60_000,
+    defaultValue: 2 * 60 * 1000,
   }),
   MODEL_HTTP_MAX_RETRIES: parseNonNegativeInt({
     envKey: 'MODEL_HTTP_MAX_RETRIES',

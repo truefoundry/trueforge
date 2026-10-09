@@ -1047,6 +1047,18 @@
         ],
         "type": "object"
       },
+      "CreateSandboxEnvironmentRequest": {
+        "additionalProperties": false,
+        "properties": {
+          "manifest": {
+            "$ref": "#/components/schemas/SandboxEnvironmentManifestRequest"
+          }
+        },
+        "required": [
+          "manifest"
+        ],
+        "type": "object"
+      },
       "CreateScheduleRequest": {
         "additionalProperties": false,
         "properties": {
@@ -3772,7 +3784,7 @@
           "generative_ui": {
             "enabled": true
           },
-          "iteration_limit": 100,
+          "iteration_limit": 512,
           "sandbox": {
             "enabled": false,
             "file_downloads": true
@@ -3795,8 +3807,8 @@
             "$ref": "#/components/schemas/GenerativeUIConfig"
           },
           "iteration_limit": {
-            "default": 100,
-            "description": "Max agent-loop iterations per turn (1–1024). Default: 100.",
+            "default": 512,
+            "description": "Max agent-loop iterations per turn (1–1024). Default: 512.",
             "exclusiveMinimum": 0,
             "maximum": 1024,
             "type": "integer"
@@ -3985,6 +3997,8 @@
           },
           "environment_variables": {
             "additionalProperties": {
+              "maxLength": 4096,
+              "minLength": 1,
               "type": "string"
             },
             "type": "object"
@@ -4017,6 +4031,8 @@
           },
           "environment_variables": {
             "additionalProperties": {
+              "maxLength": 4096,
+              "minLength": 1,
               "type": "string"
             },
             "type": "object"
@@ -4044,6 +4060,7 @@
         "properties": {
           "domain_allow_list": {
             "description": "Comma-separated allowed domains.",
+            "maxLength": 1024,
             "minLength": 1,
             "type": "string"
           },
@@ -4056,6 +4073,7 @@
             "items": {
               "$ref": "#/components/schemas/SandboxEnvironmentSecret"
             },
+            "maxItems": 1024,
             "type": "array"
           }
         },
@@ -4095,7 +4113,9 @@
         "properties": {
           "env": {
             "description": "Environment variable name injected into the sandbox.",
+            "maxLength": 4096,
             "minLength": 1,
+            "pattern": "^[A-Za-z_][A-Za-z0-9_]*$",
             "type": "string"
           },
           "hosts": {
@@ -8498,6 +8518,89 @@
         ],
         "x-fern-sdk-method-name": "list"
       },
+      "post": {
+        "description": "Creates by `manifest.name`. Fails if the name is already taken. Requires a configured sandbox provider.",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CreateSandboxEnvironmentRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "201": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/GetSandboxEnvironmentResponse"
+                }
+              }
+            },
+            "description": "The created sandbox environment."
+          },
+          "400": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/RequestErrorResponse"
+                }
+              }
+            },
+            "description": "Invalid request body, resource allocation, or missing secret value."
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/RequestErrorResponse"
+                }
+              }
+            },
+            "description": "Unauthenticated."
+          },
+          "409": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/RequestErrorResponse"
+                }
+              }
+            },
+            "description": "A sandbox environment with this name already exists."
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/RequestErrorResponse"
+                }
+              }
+            },
+            "description": "Sandbox provider is missing, credentials are invalid, or rejected the secret."
+          },
+          "502": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/RequestErrorResponse"
+                }
+              }
+            },
+            "description": "Sandbox provider secret synchronization failed."
+          }
+        },
+        "summary": "Create a sandbox environment",
+        "tags": [
+          "Sandboxes"
+        ],
+        "x-fern-sdk-group-name": [
+          "sandboxEnvironments"
+        ],
+        "x-fern-sdk-method-name": "create"
+      },
       "put": {
         "description": "Create or replace by `manifest.name`. Requires a configured sandbox provider.",
         "requestBody": {
@@ -8529,7 +8632,7 @@
                 }
               }
             },
-            "description": "Invalid request body, or missing secret value."
+            "description": "Invalid request body, resource allocation, or missing secret value."
           },
           "401": {
             "content": {
@@ -8559,7 +8662,7 @@
                 }
               }
             },
-            "description": "Sandbox provider is missing or its credentials are invalid."
+            "description": "Sandbox provider is missing, credentials are invalid, or rejected the secret."
           },
           "502": {
             "content": {
@@ -8652,7 +8755,7 @@
                 }
               }
             },
-            "description": "Sandbox provider is missing or its credentials are invalid."
+            "description": "Sandbox provider is missing, credentials are invalid, or rejected secret deletion."
           },
           "502": {
             "content": {
