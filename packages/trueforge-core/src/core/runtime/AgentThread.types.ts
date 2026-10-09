@@ -122,7 +122,6 @@ export type LLMContextMessage = LLMUserMessage | InternalEnrichedAssistantMessag
 
 export type ContextMessage = LLMContextMessage | ApprovalDecisionMessage;
 
-/** Shared fields for appending messages onto a thread's context. */
 export interface ThreadContextAppend {
   thread_id: string;
   context: ContextMessage[];
