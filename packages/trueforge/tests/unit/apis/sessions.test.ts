@@ -148,6 +148,87 @@ describe('cancelSessionTurn', () => {
     });
   });
 
+  it('aborts a paused turn parked in this process, then drops it from the registry', async () => {
+    const activeTurns = new ActiveTurnRegistry();
+    const turnId = 'turn-local-paused';
+    const abortController = new AbortController();
+    const parked = Promise.withResolvers<undefined>();
+    const tracked = activeTurns.track({
+      turn: { session_id: SESSION_ID, id: turnId } as TurnHandle,
+      abortController,
+      stream: (async function* () {
+        yield 'paused';
+        parked.resolve(undefined);
+        await new Promise<void>(resolve => {
+          abortController.signal.addEventListener('abort', () => resolve(), { once: true });
+          if (abortController.signal.aborted) {
+            resolve();
+          }
+        });
+      })(),
+    });
+    const drain = (async () => {
+      for await (const value of tracked) {
+        void value;
+      }
+    })();
+    const session = sessionHandle();
+
+    await parked.promise;
+    await cancelSessionTurn(
+      cancelDeps({ activeTurns, turn: turnRecord({ turnId, state: { status: 'paused' } }), session }),
+      { turnId },
+    );
+
+    expect(abortController.signal.aborted).toBe(true);
+    expect(abortController.signal.reason).toBe(CancellationReason.ClientCancelled);
+    expect(session.freezeTurn).not.toHaveBeenCalled();
+    await drain;
+    expect(
+      activeTurns.cancelIfRunning({
+        sessionId: SESSION_ID,
+        turnId,
+        abortReason: CancellationReason.ClientCancelled,
+      }),
+    ).toBe(false);
+  });
+
+  it('freezes a paused turn this executor owns when the run is gone', async () => {
+    const activeTurns = new ActiveTurnRegistry();
+    const turnId = 'turn-paused-gone';
+    const session = sessionHandle();
+
+    await cancelSessionTurn(
+      cancelDeps({ activeTurns, turn: turnRecord({ turnId, state: { status: 'paused' } }), session }),
+      { turnId },
+    );
+
+    expect(session.freezeTurn).toHaveBeenCalledWith({
+      turn_id: turnId,
+      reason: CancellationReason.ClientCancelled,
+    });
+  });
+
+  it('asks the owning peer to cancel a paused turn and does not freeze when the peer aborts', async () => {
+    const activeTurns = new ActiveTurnRegistry();
+    const turnId = 'turn-paused-remote';
+    const session = sessionHandle();
+    redisRequestMock.mockResolvedValue({ status: 200, body: {} });
+
+    await cancelSessionTurn(
+      cancelDeps({
+        activeTurns,
+        turn: turnRecord({ turnId, state: { status: 'paused' }, activeExecutorId: REMOTE_EXECUTOR }),
+        session,
+        redis: REDIS,
+      }),
+      { turnId },
+    );
+
+    expect(redisRequestMock).toHaveBeenCalledWith(expect.objectContaining({ executorId: REMOTE_EXECUTOR }));
+    expect(session.freezeTurn).not.toHaveBeenCalled();
+  });
+
   it('freezes when the run is not in this process and there is no Redis client', async () => {
     const activeTurns = new ActiveTurnRegistry();
     const turnId = 'turn-remote-no-redis';
@@ -232,7 +313,7 @@ describe('cancelSessionTurn', () => {
     ).resolves.toBeUndefined();
     expect(session.freezeTurn).toHaveBeenCalled();
     expect(logger.warn).toHaveBeenCalledWith(
-      'Failed to reach owning executor over Redis; freezing the running turn',
+      'Failed to reach owning executor over Redis; freezing the turn',
       expect.objectContaining({ sessionId: SESSION_ID, turnId, owner: REMOTE_EXECUTOR }),
     );
   });
@@ -258,7 +339,7 @@ describe('cancelSessionTurn', () => {
     ).resolves.toBeUndefined();
     expect(session.freezeTurn).toHaveBeenCalled();
     expect(logger.warn).toHaveBeenCalledWith(
-      'Timed out waiting for owning executor to cancel; freezing the running turn',
+      'Timed out waiting for owning executor to cancel; freezing the turn',
       expect.objectContaining({ sessionId: SESSION_ID, turnId, owner: REMOTE_EXECUTOR }),
     );
   });
@@ -284,7 +365,7 @@ describe('cancelSessionTurn', () => {
     ).resolves.toBeUndefined();
     expect(session.freezeTurn).toHaveBeenCalled();
     expect(logger.warn).toHaveBeenCalledWith(
-      'Failed to reach owning executor over Redis; freezing the running turn',
+      'Failed to reach owning executor over Redis; freezing the turn',
       expect.objectContaining({
         sessionId: SESSION_ID,
         turnId,
