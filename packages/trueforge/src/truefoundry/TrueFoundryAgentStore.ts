@@ -153,14 +153,12 @@ export class TrueFoundryAgentStore implements IAgentStore<Transaction<Database>>
 
     let externalId: string | undefined;
     try {
-      const trueFoundryManagedAgentId = input.custom?.['trueFoundryManagedAgentId'] as string | undefined;
       ({ externalId } = await this.#client.putRemoteAgent({
         accessToken: await this.#resolveAccessToken(),
         ...toPutRemoteAgentPayload({
           name: input.name,
           description: input.description,
           manifest: input.manifest,
-          ...(trueFoundryManagedAgentId ? { trueFoundryManagedAgentId } : {}),
         }),
       }));
       const updated = await this.#inner.updateAgent(
