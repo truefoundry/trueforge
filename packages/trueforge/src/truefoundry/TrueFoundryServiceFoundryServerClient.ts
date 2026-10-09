@@ -127,15 +127,6 @@ export interface DeleteRemoteAgentInput {
   externalId: string;
 }
 
-/** SF admin assume-user: `serviceaccount/{tenant}/truefoundry/tfy-system`. */
-export const TFY_ASSUME_USER_HEADER = 'x-tfy-assume-user';
-const TFY_SYSTEM_ASSUME_SUBJECT = 'truefoundry';
-const TFY_SYSTEM_CONTROLLER = 'tfy-system';
-
-export function tenantSystemAssumeUserHeader(tenantName: string): string {
-  return `serviceaccount/${tenantName}/${TFY_SYSTEM_ASSUME_SUBJECT}/${TFY_SYSTEM_CONTROLLER}`;
-}
-
 async function readServiceFoundryErrorMessage(
   response: Awaited<ReturnType<typeof undiciFetch>>,
 ): Promise<string | undefined> {
@@ -160,7 +151,6 @@ export class TrueFoundryServiceFoundryServerClient {
   readonly #httpTimeoutMs: number;
   readonly #httpAgentTimeoutMs: number;
   readonly #apiKey: string;
-  readonly #headers: Record<string, string>;
   readonly #controlPlaneUrlByTenant = new LRUCache<string, string>({
     max: TENANT_CONTROL_PLANE_URL_CACHE_MAX,
     ttl: TENANT_CONTROL_PLANE_URL_TTL_MS,
@@ -174,8 +164,6 @@ export class TrueFoundryServiceFoundryServerClient {
     httpAgentTimeoutMs: number;
     /** Service API key for vend-token and other privileged SFY calls. */
     apiKey: string;
-    /** Extra headers on every request (e.g. `x-tfy-assume-user` for import). */
-    headers?: Record<string, string>;
   }) {
     const tls = input.tls;
     this.#baseUrl = normalizeInternalTlsUrl({ url: input.serviceFoundryServerUrl, enabled: tls.enabled }).replace(
@@ -187,7 +175,6 @@ export class TrueFoundryServiceFoundryServerClient {
     this.#httpTimeoutMs = input.httpTimeoutMs;
     this.#httpAgentTimeoutMs = input.httpAgentTimeoutMs;
     this.#apiKey = input.apiKey;
-    this.#headers = input.headers ?? {};
   }
 
   /** Service API key (`TRUEFOUNDRY_API_KEY`); callers pass it explicitly when needed. */
@@ -685,7 +672,6 @@ export class TrueFoundryServiceFoundryServerClient {
     const headers: Record<string, string> = {
       accept: 'application/json',
       authorization: `Bearer ${input.accessToken}`,
-      ...this.#headers,
     };
     let body: string | undefined;
     if (input.body !== undefined) {
