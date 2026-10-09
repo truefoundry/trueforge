@@ -62,6 +62,7 @@ export async function insertTurnInboundEvents(
   const keys: TurnKeys = {
     session_id: input.session_id,
     turn_id: input.turn_id,
+    active_executor_id: input.active_executor_id,
   };
 
   try {

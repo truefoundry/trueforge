@@ -135,6 +135,13 @@ export interface CreateTurnInput<TTurnCustom extends object = Record<string, nev
   update_session_title_if_not_exist: string | null;
 }
 
+export interface ClaimTurnExecutorInput {
+  session_id: string;
+  turn_id: string;
+  expected_executor_id: string;
+  new_executor_id: string;
+}
+
 export interface FreezeAndGetTurnInput {
   session_id: string;
   turn_id: string;
@@ -155,36 +162,33 @@ export interface ListTurnsInput {
   page_token: string | undefined;
 }
 
-interface TurnStateUpdateKeys {
+interface TurnProgressKeys {
   session_id: string;
   turn_id: string;
+  /** Must still own the turn. A mismatch throws TurnOwnershipLostError. */
+  active_executor_id: string;
 }
 
-export interface UpdateTurnTerminalStateInput extends TurnStateUpdateKeys {
+export interface UpdateTurnTerminalStateInput extends TurnProgressKeys {
   state: TerminalTurnState;
   /** Caller-built turn.done; written atomically with the state flip. */
   turn_done_event: PersistedTurnEvent;
 }
 
-export interface UpdateTurnNonTerminalStateInput extends TurnStateUpdateKeys {
+export interface UpdateTurnNonTerminalStateInput extends TurnProgressKeys {
   state: NonTerminalTurnState;
   /** Caller-built turn.update; written atomically with the non-terminal state transition. */
   turn_update_event: TurnUpdateEvent;
 }
 
-export interface AppendToEventsInput {
-  session_id: string;
-  turn_id: string;
+export interface AppendToEventsInput extends TurnProgressKeys {
   events: PersistedTurnEvent[];
 }
 
-export interface InsertTurnInboundEventsInput {
-  session_id: string;
-  /** Tip that receives this batch. One send = one tip; stamp every row with this id. */
-  turn_id: string;
+export interface InsertTurnInboundEventsInput extends TurnProgressKeys {
   /**
    * Caller mints `event_id` (monotonic ULID) — same contract as session_event.
-   * Empty array is a no-op.
+   * Empty array is a no-op. Every row is stamped with this input's `turn_id`.
    */
   events: {
     event_id: string;
@@ -193,48 +197,34 @@ export interface InsertTurnInboundEventsInput {
   }[];
 }
 
-export interface AddThreadsInput {
-  session_id: string;
-  turn_id: string;
+export interface AddThreadsInput extends TurnProgressKeys {
   threads: AgentThreadSnapshot[];
 }
 
-export interface RemoveThreadsInput {
-  session_id: string;
-  turn_id: string;
+export interface RemoveThreadsInput extends TurnProgressKeys {
   thread_ids: string[];
 }
 
-export interface AppendToThreadContextInput {
-  session_id: string;
-  turn_id: string;
+export interface AppendToThreadContextInput extends TurnProgressKeys {
   thread_id: string;
   context: ContextMessage[];
   current_context_usage: CurrentContextUsage | null;
   completion: SubAgentCompletion | null;
 }
 
-export interface OverwriteThreadContextInput {
-  session_id: string;
-  turn_id: string;
+export interface OverwriteThreadContextInput extends TurnProgressKeys {
   event: ThreadOverwriteContextEvent;
 }
 
-export interface PatchMCPServersInput {
-  session_id: string;
-  turn_id: string;
+export interface PatchMCPServersInput extends TurnProgressKeys {
   mcp_servers: MCPServerInitInfo[];
 }
 
-export interface PatchSandboxInfoInput {
-  session_id: string;
-  turn_id: string;
+export interface PatchSandboxInfoInput extends TurnProgressKeys {
   sandbox_info: SandboxInfo;
 }
 
-export interface PatchThreadCapabilityStateInput {
-  session_id: string;
-  turn_id: string;
+export interface PatchThreadCapabilityStateInput extends TurnProgressKeys {
   thread_id: string;
   key: string;
   state: JsonValue;
@@ -365,6 +355,13 @@ export interface ISessionStore<
    */
   freezeAndGetTurn(input: FreezeAndGetTurnInput): Promise<TurnRecord<TTurnCustom>>;
 
+  /**
+   * Claims a paused turn when `expected_executor_id` still owns it.
+   * One conditional update. Returns whether this caller won.
+   * A running, terminal, missing, or differently owned turn is a loss.
+   */
+  claimTurnExecutor(input: ClaimTurnExecutorInput): Promise<boolean>;
+
   /** Returns the turn record, or undefined if not found in this session. */
   getTurn(input: GetTurnInput): Promise<TurnRecord<TTurnCustom> | undefined>;
 
@@ -391,12 +388,12 @@ export interface ISessionStore<
    * `created_at`; `id` is a monotonic ULID and is the primary within-turn sort
    * key. `created_at` records event creation time but is not the order key.
    */
-  /** Appends events while the turn is `running` or `paused`; terminal turns are immutable. */
+  /** Appends events while the caller owns a `running` or `paused` turn; terminal turns are immutable. */
   appendToEvents(input: AppendToEventsInput): Promise<void>;
 
   /**
-   * Durable inbound send-event inbox for a tip. Tip must be non-terminal
-   * (`running` or `paused`) — terminal tip →
+   * Durable inbound send-event inbox for a tip the caller still owns. Tip must be
+   * non-terminal (`running` or `paused`) — terminal tip →
    * {@link TurnNotRunningError}. Missing session → {@link SessionNotFoundError};
    * unknown turn → {@link TurnNotFoundError}. Duplicate `event_id` on that tip →
    * {@link TurnEventAlreadyExistsError}.

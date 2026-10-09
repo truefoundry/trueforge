@@ -40,7 +40,7 @@ import {
   type TurnState,
 } from './schemas/turn';
 import type { ISessionStore } from './store/ISessionStore';
-import { TurnNotRunningError } from './store/SessionStoreErrors';
+import { TurnNotRunningError, TurnOwnershipLostError } from './store/SessionStoreErrors';
 
 /** Streaming yield union — deltas pass through; never persisted. No sequence_number. */
 export type TurnStreamingEvent = PersistedTurnEvent | ModelMessageDeltaEvent;
@@ -170,6 +170,7 @@ export class TurnHandle<TTurnCustom extends object = Record<string, never>> {
   private readonly resolver: ITurnResourceResolver<TTurnCustom> | undefined;
   private readonly signal: AbortSignal | undefined;
   private streamStarted = false;
+  private streamAbort: AbortController | undefined;
 
   constructor(options: {
     store: ISessionStore<object, TTurnCustom>;
@@ -293,6 +294,7 @@ export class TurnHandle<TTurnCustom extends object = Record<string, never>> {
       throw new Error('TurnHandle.stream() is single-use and was already called');
     }
     this.streamStarted = true;
+    this.streamAbort = abortController;
 
     const orchestrator = this.orchestrator;
     const resolver = this.resolver;
@@ -312,33 +314,51 @@ export class TurnHandle<TTurnCustom extends object = Record<string, never>> {
   ): AsyncGenerator<TurnStreamingEvent> {
     let caughtError: Error | undefined;
     let executeResult: AgentThreadExecutionResult | undefined;
+    let ownershipLost: TurnOwnershipLostError | undefined;
     try {
       yield await this.persistTurnCreated();
       executeResult = yield* this.executeAndPersist(orchestrator, signal);
     } catch (error) {
       caughtError = error instanceof Error ? error : new Error(String(error));
+      if (caughtError instanceof TurnOwnershipLostError) {
+        ownershipLost = caughtError;
+        this.abortIfOwnershipLost(caughtError);
+      }
     } finally {
-      let turnDone: TurnDoneEvent;
-      try {
-        turnDone =
-          this.eventFromStoreConflict(caughtError, orchestrator) ??
-          (await this.persistTurnTerminal({
-            signal,
-            caughtError,
-            executeResult,
-            orchestrator,
-          }));
-      } catch (error) {
-        const storeDone = this.eventFromStoreConflict(error, orchestrator);
-        if (!storeDone) {
-          await this.closeResolver(resolver);
-          // eslint-disable-next-line no-unsafe-finally -- terminal-state write failed; reject the stream
-          throw error;
+      // Terminal write stays in finally so a consumer break still closes the turn.
+      let turnDone: TurnDoneEvent | undefined;
+      if (!ownershipLost) {
+        try {
+          turnDone =
+            this.eventFromStoreConflict(caughtError, orchestrator) ??
+            (await this.persistTurnTerminal({
+              signal,
+              caughtError,
+              executeResult,
+              orchestrator,
+            }));
+        } catch (error) {
+          if (error instanceof TurnOwnershipLostError) {
+            ownershipLost = error;
+            this.abortIfOwnershipLost(error);
+          } else {
+            const storeDone = this.eventFromStoreConflict(error, orchestrator);
+            if (!storeDone) {
+              await this.closeResolver(resolver);
+              // eslint-disable-next-line no-unsafe-finally -- terminal-state write failed; reject the stream
+              throw error;
+            }
+            turnDone = storeDone;
+          }
         }
-        turnDone = storeDone;
       }
       await this.closeResolver(resolver);
-      yield turnDone;
+      if (turnDone) {
+        yield turnDone;
+      }
+    }
+    if (ownershipLost) {
+      throw ownershipLost;
     }
   }
 
@@ -354,8 +374,7 @@ export class TurnHandle<TTurnCustom extends object = Record<string, never>> {
       thread_id: null,
     };
     await this.store.appendToEvents({
-      session_id: this.turn.session_id,
-      turn_id: this.turn.turn_id,
+      ...this.turnWriteKeys(),
       events: [turnCreated],
     });
     return turnCreated;
@@ -381,6 +400,9 @@ export class TurnHandle<TTurnCustom extends object = Record<string, never>> {
         iterResult = await generator.next();
       }
       return iterResult.value;
+    } catch (error) {
+      this.abortIfOwnershipLost(error);
+      throw error;
     } finally {
       await generator.return(EMPTY_EXECUTION_RESULT);
     }
@@ -404,8 +426,7 @@ export class TurnHandle<TTurnCustom extends object = Record<string, never>> {
     });
     const turnDone = turnDoneEvent(terminalState, createdAtIso);
     await this.store.updateTurnTerminalState({
-      session_id: this.turn.session_id,
-      turn_id: this.turn.turn_id,
+      ...this.turnWriteKeys(),
       state: terminalState,
       turn_done_event: turnDone,
     });
@@ -429,6 +450,25 @@ export class TurnHandle<TTurnCustom extends object = Record<string, never>> {
     };
     this.turn = { ...this.turn, state, updated_at: updatedAt };
     return turnDoneEvent(state, updatedAt.toISOString());
+  }
+
+  private turnWriteKeys(): { session_id: string; turn_id: string; active_executor_id: string } {
+    return {
+      session_id: this.turn.session_id,
+      turn_id: this.turn.turn_id,
+      active_executor_id: this.turn.active_executor_id,
+    };
+  }
+
+  /** Stop in-flight work on this replica. The turn row stays with its new owner. */
+  private abortIfOwnershipLost(error: unknown): void {
+    if (!(error instanceof TurnOwnershipLostError)) {
+      return;
+    }
+    const controller = this.streamAbort;
+    if (controller && !controller.signal.aborted) {
+      controller.abort(error);
+    }
   }
 
   private async closeResolver(resolver: ITurnResourceResolver<TTurnCustom>): Promise<void> {
@@ -468,8 +508,7 @@ export class TurnHandle<TTurnCustom extends object = Record<string, never>> {
       thread_id: null,
     };
     await this.store.updateTurnNonTerminalState({
-      session_id: this.turn.session_id,
-      turn_id: this.turn.turn_id,
+      ...this.turnWriteKeys(),
       state,
       turn_update_event: turnUpdate,
     });
@@ -480,10 +519,7 @@ export class TurnHandle<TTurnCustom extends object = Record<string, never>> {
   private async *persistExecutionEvent(
     event: Exclude<AgentThreadExecutionEvent, InternalTurnStateEvent>,
   ): AsyncGenerator<TurnStreamingEvent, void, unknown> {
-    const scope = {
-      session_id: this.turn.session_id,
-      turn_id: this.turn.turn_id,
-    };
+    const scope = this.turnWriteKeys();
 
     switch (event.type) {
       case HarnessEventType.MODEL_MESSAGE:
