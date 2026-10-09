@@ -58,4 +58,6 @@ export async function up<TDatabase>(db: Kysely<TDatabase>): Promise<void> {
 }
 
 /** Data backfill — not reversed. */
-export async function down<TDatabase>(_db: Kysely<TDatabase>): Promise<void> {}
+export async function down(db: Kysely<unknown>): Promise<void> {
+  void db;
+}
