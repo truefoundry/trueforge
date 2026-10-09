@@ -3173,6 +3173,9 @@
             "description": "Unique identifier for the event (monotonic ULID).",
             "type": "string"
           },
+          "model": {
+            "$ref": "#/components/schemas/Model"
+          },
           "name": {
             "description": "Optional participant name.",
             "type": "string"
@@ -3212,7 +3215,8 @@
           "type",
           "id",
           "thread_id",
-          "created_at"
+          "created_at",
+          "model"
         ],
         "type": "object"
       },
