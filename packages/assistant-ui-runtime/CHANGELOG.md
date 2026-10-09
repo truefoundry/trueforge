@@ -1,5 +1,30 @@
 # @truefoundry/trueforge-assistant-ui-runtime
 
+## 0.178.0
+
+### Patch Changes
+
+- e452b06: Preserve token and cost metrics on failed and cancelled turns in the UI adapter and types so turn headers and session totals include billable usage from non-done terminal turns.
+- 68ea7ae: On refresh mid-turn, keep already-ingested running-tip model messages in live resume instead of hiding them behind the group baseline.
+- 9bb142d: Reject duplicate sandbox environment names on create (POST) instead of overwriting via upsert.
+- 6d91541: Display session metadata at the top of the session detail header
+- d01ddc0: Reattach a live turn via subscribe after create/subscribe SSE drops, using the last ingested sequence number so the composer stays running instead of toasting a network error.
+
+## 0.178.0-rc.2
+
+### Patch Changes
+
+- 9bb142d: Reject duplicate sandbox environment names on create (POST) instead of overwriting via upsert.
+
+## 0.178.0-rc.1
+
+### Patch Changes
+
+- e452b06: Preserve token and cost metrics on failed and cancelled turns in the UI adapter and types so turn headers and session totals include billable usage from non-done terminal turns.
+- 68ea7ae: On refresh mid-turn, keep already-ingested running-tip model messages in live resume instead of hiding them behind the group baseline.
+- 6d91541: Display session metadata at the top of the session detail header
+- d01ddc0: Reattach a live turn via subscribe after create/subscribe SSE drops, using the last ingested sequence number so the composer stays running instead of toasting a network error.
+
 ## 0.177.0
 
 ### Patch Changes
