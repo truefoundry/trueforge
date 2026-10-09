@@ -1,5 +1,13 @@
 # @truefoundry/trueforge
 
+## 0.178.0-rc.4
+
+### Patch Changes
+
+- 06884d0: Raise the default model HTTP headers and body timeouts to 2 minutes so slow first-token and idle stream responses are not dropped.
+- Updated dependencies [06884d0]
+  - @truefoundry/trueforge-core@0.178.0-rc.2
+
 ## 0.178.0-rc.3
 
 ### Patch Changes
