@@ -9,7 +9,7 @@ import { ResponseFormatSchema, toOpenAIResponseFormat } from '../../../src/core/
 import { toOpenAIChatMessage } from '../../../src/core/llm/toOpenAIChatMessage';
 import { AgentThread } from '../../../src/core/runtime/AgentThread';
 import { NOOP_AGENT_TRACING } from '../../../src/core/tracing/NoopAgentTracing';
-import { makeSilentLogger } from '../harnessMocks';
+import { makeSilentLogger, TEST_MODEL_NAME } from '../harnessMocks';
 
 const toolInfo = {
   type: 'mcp' as const,
@@ -171,6 +171,7 @@ describe('AgentThread LLM request mapping (end-to-end)', () => {
       logger: makeSilentLogger(),
       definition: {
         modelClient,
+        modelName: TEST_MODEL_NAME,
         instruction: 'test',
         toolSets: [],
         responseFormat: ResponseFormatSchema.parse({

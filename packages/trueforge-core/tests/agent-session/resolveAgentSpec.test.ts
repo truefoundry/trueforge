@@ -85,6 +85,7 @@ describe('TurnResourceResolver.resolveAgentDefinition', () => {
     });
 
     expect(definition.modelParams?.['max_tokens']).toBe(expected);
+    expect(definition.modelName).toBe('provider/model');
     expect(definition.modelProperties?.contextLength).toBe(128_000);
   });
 });

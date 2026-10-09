@@ -6,7 +6,7 @@ import type { AgentThreadConstructorInput, ContextMessage } from '../../src/core
 import { InternalEventType } from '../../src/core/runtime/AgentThread.types';
 import { AgentThreadOrchestrator } from '../../src/core/runtime/AgentThreadOrchestrator';
 import { NOOP_AGENT_TRACING } from '../../src/core/tracing/NoopAgentTracing';
-import { makeSilentLogger } from '../core/harnessMocks';
+import { makeSilentLogger, TEST_MODEL, TEST_MODEL_NAME } from '../core/harnessMocks';
 import { llmCreateInputs, runExecute, textReplyStream } from './helpers/helpers';
 
 const MAIN_ID = 'main';
@@ -64,6 +64,8 @@ function baseThreadInput(
         create: jest.fn().mockImplementation(() => textReplyStream(ROOT_REPLY)),
         createNonStream: jest.fn().mockImplementation(() => textReplyStream(ROOT_REPLY)),
       },
+      modelName: TEST_MODEL_NAME,
+
       instruction: INSTRUCTION,
       messages: undefined,
       modelParams: undefined,
@@ -110,6 +112,7 @@ describe('orchestration: user-message reset', () => {
             }),
             createNonStream: jest.fn(),
           },
+          modelName: TEST_MODEL_NAME,
           instruction: undefined,
           messages: undefined,
           modelParams: undefined,
@@ -198,6 +201,7 @@ describe('orchestration: user-message reset', () => {
             thread_id: CHILD_ID,
             content: FINISHED_CHILD_ANSWER,
             finish_reason: 'stop',
+            model: TEST_MODEL,
           },
           send_to_parent: {
             role: 'tool',

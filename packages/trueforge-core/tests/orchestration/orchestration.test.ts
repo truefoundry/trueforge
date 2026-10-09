@@ -4,7 +4,7 @@ import { AgentThread } from '../../src/core/runtime/AgentThread';
 import { InternalEventType } from '../../src/core/runtime/AgentThread.types';
 import { AgentThreadOrchestrator } from '../../src/core/runtime/AgentThreadOrchestrator';
 import { NOOP_AGENT_TRACING } from '../../src/core/tracing/NoopAgentTracing';
-import { makeSilentLogger } from '../core/harnessMocks';
+import { makeSilentLogger, TEST_MODEL_NAME } from '../core/harnessMocks';
 import { llmCreateInputs, runTurn, textReplyStream } from './helpers/helpers';
 
 const THREAD_ID = 'main';
@@ -45,6 +45,8 @@ describe('orchestration: mocked LLM and no tools', () => {
           create: jest.fn().mockImplementation(() => textReplyStream(REPLY)),
           createNonStream: jest.fn().mockImplementation(() => textReplyStream(REPLY)),
         },
+        modelName: TEST_MODEL_NAME,
+
         instruction: INSTRUCTION,
         messages: undefined,
         modelParams: undefined,

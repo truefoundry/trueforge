@@ -9,7 +9,7 @@ import {
   type AgentThreadOrchestratorInput,
 } from '../../src/core/runtime/AgentThreadOrchestrator';
 import { NOOP_AGENT_TRACING } from '../../src/core/tracing/NoopAgentTracing';
-import { makeSilentLogger } from '../core/harnessMocks';
+import { makeSilentLogger, TEST_MODEL_NAME } from '../core/harnessMocks';
 import { createSubAgentStream, llmCreateInputs, runTurn, textReplyStream } from './helpers/helpers';
 
 const ROOT_ID = 'thread_root';
@@ -121,6 +121,8 @@ describe('orchestration: dynamic sub-agent', () => {
             .mockImplementation(() => textReplyStream(ROOT_FINAL)),
           createNonStream: jest.fn(),
         },
+        modelName: TEST_MODEL_NAME,
+
         instruction: INSTRUCTION,
         // Undefined
         messages: undefined,
@@ -161,6 +163,8 @@ describe('orchestration: dynamic sub-agent', () => {
 
       const agentDefinition: AgentDefinition = {
         modelClient: childLLM,
+        modelName: TEST_MODEL_NAME,
+
         instruction: undefined,
         messages: [{ role: 'user', content: request.input }],
         modelParams: parentDefinition.modelParams,

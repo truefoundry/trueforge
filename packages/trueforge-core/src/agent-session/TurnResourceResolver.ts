@@ -216,6 +216,7 @@ export class TurnResourceResolver<
     return {
       definition: {
         modelClient: resolvedModel.modelClient,
+        modelName,
         modelProperties: resolvedModel.modelProperties,
         // Sub-agents receive the delegated task as a user message; their system
         // prompt is SUB_AGENT_IDENTITY (added by AgentThread), not user instructions.
