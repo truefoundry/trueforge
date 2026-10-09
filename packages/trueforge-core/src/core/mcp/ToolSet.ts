@@ -98,7 +98,11 @@ export class ToolSet implements IToolSet {
     };
   }
 
-  async callTool(params: CallToolRequest['params'], decision?: ApprovalDecision): Promise<CallToolResponse> {
+  async callTool(
+    params: CallToolRequest['params'],
+    decision?: ApprovalDecision,
+    signal?: AbortSignal,
+  ): Promise<CallToolResponse> {
     // Prime the source and surface auth-required before the annotation-based allow/approval checks
     // (which would otherwise see missing annotations and wrongly 403).
     const listed = await this.source.listTools();
@@ -122,7 +126,7 @@ export class ToolSet implements IToolSet {
       });
     }
 
-    const response = await this.source.callTool(params, decision);
+    const response = await this.source.callTool(params, decision, signal);
     // The priming listTools() may have captured the first-connect init; carry it forward since the
     // subsequent callTool sees an already-open connection and reports none.
     if (listed.wasInitialized && isCallToolResponseResult(response) && !response.wasInitialized) {

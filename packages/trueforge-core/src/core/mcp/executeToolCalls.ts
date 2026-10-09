@@ -42,11 +42,13 @@ export async function executeToolCalls({
   toolMapping,
   threadId,
   approvalDecisions,
+  signal,
 }: {
   assistantMessage: InternalEnrichedAssistantMessage;
   toolMapping: Map<string, MappedMCPTool>;
   threadId: string;
   approvalDecisions: Map<string, ApprovalDecision>;
+  signal?: AbortSignal | undefined;
 }): Promise<ExecuteToolCallsResult> {
   const toolMessages: ToolCallResult[] = [];
   const initializationInfo: MCPServerInitInfo[] = [];
@@ -90,6 +92,7 @@ export async function executeToolCalls({
           arguments: args,
         },
         approvalDecisions.get(toolCall.id),
+        signal,
       );
       return { toolCall, toolInfo, response, failure: false, completedAt: new Date().toISOString() };
     } catch (error) {

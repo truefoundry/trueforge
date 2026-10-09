@@ -233,7 +233,7 @@ export class Sandbox<TEnvironment = undefined> extends LocalToolMCP {
       name: SANDBOX_EXEC_TOOL_NAME,
       description: SANDBOX_EXEC_DESCRIPTION,
       schema: sandboxExecSchema,
-      handler: input => this.handleExec(input),
+      handler: (input, _approvalDecision, signal) => this.handleExec(input, signal),
     }),
   ];
 
@@ -517,29 +517,29 @@ export class Sandbox<TEnvironment = undefined> extends LocalToolMCP {
    * Create or reattach, then init. A missing same-type sandbox throws
    * `SandboxNotAvailableError` from the provider; reattach then recreates.
    */
-  private async ensureReadySandbox(): Promise<{
+  private async ensureReadySandbox(signal?: AbortSignal): Promise<{
     sandboxInfo: SandboxInfo;
     sandboxCreated: SandboxInfo | undefined;
   }> {
     const first = await this.ensureSandboxCreated();
     try {
-      await this.ensureSandboxInitialized();
+      await this.ensureSandboxInitialized(signal);
       return first;
     } catch (error) {
       if (!(error instanceof SandboxNotAvailableError) || first.sandboxCreated !== undefined) {
         throw error;
       }
       const recreated = await this.recreateAfterUnavailable();
-      await this.ensureSandboxInitialized();
+      await this.ensureSandboxInitialized(signal);
       return recreated;
     }
   }
 
-  private async handleExec(input: SandboxExecInput): Promise<CallToolResponse> {
+  private async handleExec(input: SandboxExecInput, signal?: AbortSignal): Promise<CallToolResponse> {
     let sandboxInfo: SandboxInfo;
     let sandboxCreated: SandboxInfo | undefined;
     try {
-      ({ sandboxInfo, sandboxCreated } = await this.ensureReadySandbox());
+      ({ sandboxInfo, sandboxCreated } = await this.ensureReadySandbox(signal));
     } catch (e) {
       this.logger.error('Sandbox initialization failed', extractErrorLogFields(e));
       const message = e instanceof Error ? e.message : 'Sandbox initialization failed';
@@ -574,6 +574,7 @@ export class Sandbox<TEnvironment = undefined> extends LocalToolMCP {
         command: input.command,
         cwd: input.cwd,
         env,
+        ...(signal !== undefined ? { signal } : {}),
       });
 
       return {
@@ -590,7 +591,7 @@ export class Sandbox<TEnvironment = undefined> extends LocalToolMCP {
         throw error;
       }
       const recreated = await this.recreateAfterUnavailable();
-      await this.ensureSandboxInitialized();
+      await this.ensureSandboxInitialized(signal);
       const recreatedRawId = this.providerSandboxId(recreated.sandboxInfo.sandbox_id);
       const retryCodeModeEnv = await this.ensureCodeModeStarted(recreatedRawId);
       const retryEnv = {
@@ -609,6 +610,7 @@ export class Sandbox<TEnvironment = undefined> extends LocalToolMCP {
         command: input.command,
         cwd: input.cwd,
         env: retryEnv,
+        ...(signal !== undefined ? { signal } : {}),
       });
       return {
         result: {
@@ -683,25 +685,26 @@ export class Sandbox<TEnvironment = undefined> extends LocalToolMCP {
    * Upload the MCP client Python script to the sandbox on the first tool call.
    * The sandbox filesystem is persistent within a session, so this only needs to run once.
    */
-  private async ensureSandboxInitialized(): Promise<void> {
-    this.sandboxInitPromise ??= this.initSandboxEnvironment().catch((e: unknown) => {
+  private async ensureSandboxInitialized(signal?: AbortSignal): Promise<void> {
+    this.sandboxInitPromise ??= this.initSandboxEnvironment(signal).catch((e: unknown) => {
       this.sandboxInitPromise = undefined;
       throw e;
     });
     await this.sandboxInitPromise;
   }
 
-  private async writeGitCredentials(): Promise<void> {
+  private async writeGitCredentials(signal?: AbortSignal): Promise<void> {
     const sandboxId = this.providerSandboxId(this.requiredSandboxInfo.sandbox_id);
     const credentialsPath = this.provider.getGitCredentialsPath(sandboxId);
     const result = await this.provider.exec({
       sandboxId,
       command: buildSyncGitCredentialsCommand(this.resolvedGitCredentialsContent, credentialsPath),
+      ...(signal !== undefined ? { signal } : {}),
     });
     ensureExecSuccess(result);
   }
 
-  private async initSandboxEnvironment(): Promise<void> {
+  private async initSandboxEnvironment(signal?: AbortSignal): Promise<void> {
     const sandboxId = this.providerSandboxId(this.requiredSandboxInfo.sandbox_id);
     const fileUploadsDir = this.provider.getFileUploadsDir(sandboxId);
     const skillsDir = this.provider.getSkillsDir(sandboxId);
@@ -721,7 +724,13 @@ export class Sandbox<TEnvironment = undefined> extends LocalToolMCP {
         dirs.push(shellEscape(binDir));
       }
     }
-    ensureExecSuccess(await this.provider.exec({ sandboxId, command: `mkdir -p ${dirs.join(' ')}` }));
+    ensureExecSuccess(
+      await this.provider.exec({
+        sandboxId,
+        command: `mkdir -p ${dirs.join(' ')}`,
+        ...(signal !== undefined ? { signal } : {}),
+      }),
+    );
 
     const initSteps: string[] = [];
     if (install !== undefined) {
@@ -765,6 +774,7 @@ export class Sandbox<TEnvironment = undefined> extends LocalToolMCP {
           command: initSteps.join(' && '),
           env: skillInit?.env,
           timeoutSeconds: skillInit?.timeoutSeconds,
+          ...(signal !== undefined ? { signal } : {}),
         }),
       );
     }
@@ -775,7 +785,7 @@ export class Sandbox<TEnvironment = undefined> extends LocalToolMCP {
         : `Sandbox initialized: MCP client at ${install.remotePath}; skills dir ${skillsDir}`,
     );
 
-    await this.writeGitCredentials();
+    await this.writeGitCredentials(signal);
   }
 
   /**
