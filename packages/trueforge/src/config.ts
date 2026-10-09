@@ -1001,15 +1001,6 @@ export type DistributedServerConfiguration = SharedServerConfiguration & {
    * caller's token. Unset = local Postgres stores. Mutually exclusive with OIDC.
    * Env: `TRUEFOUNDRY_SERVICEFOUNDRY_SERVER_URL`.
    */
-  /**
-   * When set, automatically move public TrueForge tables into `POSTGRES_SCHEMA` on first bootstrap.
-   * Env: `AUTOMATICALLY_MOVE_TRUEFORGE_TABLES_FROM_PUBLIC_TO_TRUEFORGE_SCHEMA`. Default true.
-   */
-  AUTOMATICALLY_MOVE_TRUEFORGE_TABLES_FROM_PUBLIC_TO_TRUEFORGE_SCHEMA: boolean;
-  /**
-   * The URL of the TrueFoundry ServiceFoundry server.
-   * Env: `TRUEFOUNDRY_SERVICEFOUNDRY_SERVER_URL`.
-   */
   TRUEFOUNDRY_SERVICEFOUNDRY_SERVER_URL: string | undefined;
   /**
    * Required when `TRUEFOUNDRY_SERVICEFOUNDRY_SERVER_URL` is set. Env: `TRUEFOUNDRY_API_KEY`.
@@ -1353,11 +1344,6 @@ const configuration: ServerConfiguration = standalone
       REDIS_TLS_KEY: getEnv('REDIS_TLS_KEY'),
       REDIS_TLS_KEY_PASSPHRASE: getEnv('REDIS_TLS_KEY_PASSPHRASE'),
       OIDC: resolveOIDCConfig(),
-      AUTOMATICALLY_MOVE_TRUEFORGE_TABLES_FROM_PUBLIC_TO_TRUEFORGE_SCHEMA: parseBoolean({
-        envKey: 'AUTOMATICALLY_MOVE_TRUEFORGE_TABLES_FROM_PUBLIC_TO_TRUEFORGE_SCHEMA',
-        raw: getEnv('AUTOMATICALLY_MOVE_TRUEFORGE_TABLES_FROM_PUBLIC_TO_TRUEFORGE_SCHEMA'),
-        defaultValue: true,
-      }),
       TRUEFOUNDRY_SERVICEFOUNDRY_SERVER_URL: getEnv('TRUEFOUNDRY_SERVICEFOUNDRY_SERVER_URL', { required: false }),
       TRUEFOUNDRY_API_KEY: getEnv('TRUEFOUNDRY_API_KEY', { required: false }),
       TRUEFOUNDRY_SERVICEFOUNDRY_HTTP_TIMEOUT_MS: parsePositiveInt({
