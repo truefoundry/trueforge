@@ -23,6 +23,7 @@ import {
 let agentSpec: AgentSpec;
 const updateAgentSpec = vi.fn();
 const setSettingsOpen = vi.fn();
+const rememberDraftSpec = vi.fn();
 
 async function unavailable(): Promise<never> {
   throw new Error('Unexpected settings catalog call');
@@ -51,7 +52,7 @@ vi.mock('@truefoundry/trueforge-assistant-ui-runtime', () => ({
 }));
 
 vi.mock('@/server/ShellModeContext.js', () => ({
-  useOptionalShellMode: () => ({ setSettingsOpen, setEnvironmentsOpen }),
+  useOptionalShellMode: () => ({ setSettingsOpen, setEnvironmentsOpen, rememberDraftSpec }),
 }));
 
 beforeAll(() => {
@@ -129,6 +130,7 @@ describe('DraftCompositeSelector', () => {
     updateAgentSpec.mockReset();
     setSettingsOpen.mockReset();
     setEnvironmentsOpen.mockReset();
+    rememberDraftSpec.mockReset();
   });
 
   afterEach(() => {
@@ -498,6 +500,13 @@ describe('DraftCompositeSelector', () => {
     expect(updateAgentSpec).toHaveBeenCalledWith({
       config: { webSearch: { enabled: false } },
     });
+    expect(rememberDraftSpec).toHaveBeenCalledWith(
+      {
+        ...agentSpec,
+        config: { webSearch: { enabled: false } },
+      },
+      'chat',
+    );
   });
 
   it('keeps Web search disabled with a tooltip when the capability is off', async () => {

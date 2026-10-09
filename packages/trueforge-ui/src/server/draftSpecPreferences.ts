@@ -46,27 +46,6 @@ function storageKeyForKind(kind: DraftPreferenceKind): string {
   return kind === 'chat' ? CHAT_DRAFT_SPEC_PREFERENCES_STORAGE_KEY : AGENT_DRAFT_SPEC_PREFERENCES_STORAGE_KEY;
 }
 
-/** New Chat: model (+ reasoning params), skills, and MCP only — no runtime config. */
-export function selectChatDraftSpecPreferences(spec: AgentSpec): AgentSpec {
-  return {
-    model: spec.model,
-    ...(spec.skills !== undefined ? { skills: spec.skills } : {}),
-    ...(spec.mcpServers !== undefined ? { mcpServers: spec.mcpServers } : {}),
-  };
-}
-
-/** New Agent: full composer seed including runtime config (sandbox, ask-user, …). */
-export function selectAgentDraftSpecPreferences(spec: AgentSpec): AgentSpec {
-  return {
-    ...selectChatDraftSpecPreferences(spec),
-    ...(spec.config !== undefined ? { config: spec.config } : {}),
-  };
-}
-
-export function selectDraftSpecPreferences(spec: AgentSpec, kind: DraftPreferenceKind): AgentSpec {
-  return kind === 'chat' ? selectChatDraftSpecPreferences(spec) : selectAgentDraftSpecPreferences(spec);
-}
-
 function readSandboxEnabled(spec: AgentSpec): boolean | undefined {
   if (spec.config === undefined) return undefined;
   // `sandbox` is persisted on draft config but is not part of AgentRuntimeConfig.
@@ -80,6 +59,32 @@ function readWebSearchEnabled(spec: AgentSpec): boolean | undefined {
   if (spec.config?.webSearch === undefined) return undefined;
   const enabled = spec.config.webSearch.enabled;
   return typeof enabled === 'boolean' ? enabled : undefined;
+}
+
+/**
+ * New Chat: model (+ reasoning params), skills, MCP, and the web-search toggle.
+ * Other runtime config (sandbox, ask-user, …) is not persisted for chat.
+ */
+export function selectChatDraftSpecPreferences(spec: AgentSpec): AgentSpec {
+  const webSearchEnabled = readWebSearchEnabled(spec);
+  return {
+    model: spec.model,
+    ...(spec.skills !== undefined ? { skills: spec.skills } : {}),
+    ...(spec.mcpServers !== undefined ? { mcpServers: spec.mcpServers } : {}),
+    ...(webSearchEnabled !== undefined ? { config: { webSearch: { enabled: webSearchEnabled } } } : {}),
+  };
+}
+
+/** New Agent: full composer seed including runtime config (sandbox, ask-user, …). */
+export function selectAgentDraftSpecPreferences(spec: AgentSpec): AgentSpec {
+  return {
+    ...selectChatDraftSpecPreferences(spec),
+    ...(spec.config !== undefined ? { config: spec.config } : {}),
+  };
+}
+
+export function selectDraftSpecPreferences(spec: AgentSpec, kind: DraftPreferenceKind): AgentSpec {
+  return kind === 'chat' ? selectChatDraftSpecPreferences(spec) : selectAgentDraftSpecPreferences(spec);
 }
 
 /** Disable sandbox when unavailable; availability must not override the user's runtime choice. */

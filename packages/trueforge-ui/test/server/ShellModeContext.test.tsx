@@ -399,6 +399,50 @@ describe('ShellModeProvider', () => {
     expect(result.current.runtimeKey).not.toBe(keyBefore);
   });
 
+  it('clearChat and openDraft keep a disabled chat web-search preference', () => {
+    const { result } = renderHook(() => useShellMode(), {
+      wrapper: wrap({
+        mode: 'AgentComposer',
+        defaultAgentSpec: {
+          model: { name: 'openai-main/gpt-4.1' },
+          config: { webSearch: { enabled: true } },
+        },
+      }),
+    });
+
+    act(() =>
+      result.current.rememberDraftSpec(
+        {
+          model: { name: 'openai-main/gpt-4.1' },
+          config: { webSearch: { enabled: false } },
+        },
+        'chat',
+      ),
+    );
+
+    act(() => result.current.clearChat());
+    expect(result.current.mode).toMatchObject({
+      status: 'active',
+      isMutable: true,
+      isCreateAgent: false,
+      agentSpec: { config: { webSearch: { enabled: false } } },
+    });
+
+    act(() =>
+      result.current.rememberDraftSpec(
+        {
+          model: { name: 'openai-main/gpt-4.1' },
+          config: { webSearch: { enabled: false } },
+        },
+        'chat',
+      ),
+    );
+    act(() => result.current.openDraft());
+    expect(result.current.mode).toMatchObject({
+      agentSpec: { config: { webSearch: { enabled: false } } },
+    });
+  });
+
   it('clearChat is a no-op while idle', () => {
     const { result } = renderHook(() => useShellMode(), {
       wrapper: wrap({ mode: 'AgentLibrary' }),

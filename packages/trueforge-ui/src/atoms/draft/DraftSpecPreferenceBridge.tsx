@@ -131,7 +131,8 @@ export function reconcileDraftWebSearch({
 /**
  * Mirrors plain-draft composer choices into the shell seed and removes catalog
  * entries that disappeared since those choices were stored.
- * New Chat and New Agent keep separate seeds; chat never persists runtime config.
+ * New Chat and New Agent keep separate seeds; chat persists web-search only
+ * among runtime config fields.
  */
 export function DraftSpecPreferenceBridge() {
   const { mode, pendingSessionId, rememberDraftSpec } = useShellMode();

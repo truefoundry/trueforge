@@ -475,13 +475,18 @@ export function DraftCompositeSelector({ disabled, isRunning, onAttach }: DraftC
   };
 
   const toggleWebSearch = () => {
-    if (!webSearchCapabilityEnabled) return;
-    updateAgentSpec?.({
+    if (!webSearchCapabilityEnabled || agentSpec == null) return;
+    const nextEnabled = !webSearchEnabled;
+    const nextSpec = {
+      ...agentSpec,
       config: {
-        ...agentSpec?.config,
-        webSearch: { enabled: !webSearchEnabled },
+        ...agentSpec.config,
+        webSearch: { enabled: nextEnabled },
       },
-    });
+    };
+    updateAgentSpec?.({ config: nextSpec.config });
+    // Flush seed immediately — New Chat can run before the preference bridge effect.
+    shell?.rememberDraftSpec(nextSpec, 'chat');
   };
 
   const showWebSearchBuiltin = useMemo(() => {
@@ -660,7 +665,7 @@ export function DraftCompositeSelector({ disabled, isRunning, onAttach }: DraftC
                     fallbackIcon="searchGlobe"
                     checked={webSearchEnabled}
                     disabled={!webSearchCapabilityEnabled}
-                    disabledReason={webSearchCapabilityEnabled ? undefined : NO_WEB_SEARCH_PROVIDER_HINT}
+                    disabledReason={NO_WEB_SEARCH_PROVIDER_HINT}
                     onToggle={toggleWebSearch}
                   />
                 </>

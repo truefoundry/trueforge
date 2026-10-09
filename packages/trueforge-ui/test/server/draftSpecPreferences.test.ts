@@ -14,20 +14,30 @@ import {
 } from '@/server/draftSpecPreferences.js';
 
 describe('selectDraftSpecPreferences', () => {
-  it('keeps only model, skills, and MCP for chat', () => {
+  it('keeps model, skills, MCP, and web-search for chat — not other runtime config', () => {
     expect(
       selectChatDraftSpecPreferences({
         model: { name: 'm', params: { reasoningEffort: 'high' } },
         skills: [{ name: 's' }],
         mcpServers: [{ name: 'c' }],
-        config: { sandbox: { enabled: true } },
+        config: { sandbox: { enabled: true }, webSearch: { enabled: false } },
         instructions: 'nope',
       }),
     ).toEqual({
       model: { name: 'm', params: { reasoningEffort: 'high' } },
       skills: [{ name: 's' }],
       mcpServers: [{ name: 'c' }],
+      config: { webSearch: { enabled: false } },
     });
+  });
+
+  it('omits chat config when web search was never set', () => {
+    expect(
+      selectChatDraftSpecPreferences({
+        model: { name: 'm' },
+        config: { sandbox: { enabled: true } },
+      }),
+    ).toEqual({ model: { name: 'm' } });
   });
 
   it('keeps runtime config for agent', () => {
@@ -65,6 +75,18 @@ describe('draft preference storage', () => {
     expect(readDraftSpecPreferences('agent')).toEqual({
       model: { name: 'agent/model' },
       config: { sandbox: { enabled: true } },
+    });
+  });
+
+  it('persists the chat web-search toggle across read/write', () => {
+    writeDraftSpecPreferences('chat', {
+      model: { name: 'chat/model' },
+      config: { sandbox: { enabled: true }, webSearch: { enabled: false } },
+    });
+
+    expect(readDraftSpecPreferences('chat')).toEqual({
+      model: { name: 'chat/model' },
+      config: { webSearch: { enabled: false } },
     });
   });
 

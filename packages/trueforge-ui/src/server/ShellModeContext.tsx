@@ -572,7 +572,11 @@ export function ShellModeProvider({
     if (!isComposerEnabled) return;
     refreshCapabilities?.();
     setHistoryAgentFilter(null);
-    selectLibraryAgent({ isMutable: true, isCreateAgent: false, agentSpec: chatSeedRef.current });
+    // Prefer storage so a just-toggled web-search preference is not lost if the
+    // in-memory seed has not been rewritten yet this tick.
+    const seed = readDraftSpecPreferences('chat') ?? chatSeedRef.current;
+    chatSeedRef.current = seed;
+    selectLibraryAgent({ isMutable: true, isCreateAgent: false, agentSpec: seed });
   }, [isComposerEnabled, refreshCapabilities, selectLibraryAgent]);
 
   const isActiveAgentBuilder =
@@ -611,14 +615,11 @@ export function ShellModeProvider({
     (agentSpec: AgentSpec, kind: DraftPreferenceKind = 'chat') => {
       const selected = selectDraftSpecPreferences(agentSpec, kind);
       const withSandbox = kind === 'agent' ? withCapabilitiesSandbox(selected, sandboxEnabled) : selected;
-      const preferences =
-        kind === 'agent'
-          ? withCapabilitiesWebSearch({
-              spec: withSandbox,
-              webSearchEnabled,
-              kind: 'agent',
-            })
-          : withSandbox;
+      const preferences = withCapabilitiesWebSearch({
+        spec: withSandbox,
+        webSearchEnabled,
+        kind,
+      });
       if (kind === 'chat') {
         chatSeedRef.current = preferences;
       } else {
@@ -700,15 +701,24 @@ export function ShellModeProvider({
     if (effectiveMode.status === 'idle') return;
     setPendingSessionId(undefined);
     if (effectiveMode.isMutable) {
-      // Preserve Edit / builder vs chat intent; blank drafts fall back to host seed.
+      // Preserve Edit / builder vs chat intent. New Chat must use the latest
+      // chat seed (storage), not the stale mode.agentSpec from draft open —
+      // toggles like web search update the seed without rewriting mode.agentSpec.
       const kind: DraftPreferenceKind = effectiveMode.isCreateAgent ? 'agent' : 'chat';
+      const agentSpec =
+        kind === 'chat'
+          ? (readDraftSpecPreferences('chat') ?? chatSeedRef.current)
+          : (effectiveMode.agentSpec ?? agentSeedRef.current);
+      if (kind === 'chat') {
+        chatSeedRef.current = agentSpec;
+      }
       setMode({
         status: 'active',
         isMutable: true,
         isCreateAgent: effectiveMode.isCreateAgent,
         agentId: effectiveMode.agentId,
         agentName: effectiveMode.agentName,
-        agentSpec: effectiveMode.agentSpec ?? (kind === 'agent' ? agentSeedRef.current : chatSeedRef.current),
+        agentSpec,
         locked: false,
       });
       setAgentConfigOpenState(effectiveMode.isCreateAgent);
