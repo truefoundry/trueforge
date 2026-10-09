@@ -4,7 +4,7 @@ import path from 'node:path';
 import type { Kysely } from 'kysely';
 import { FileMigrationProvider, Migrator } from 'kysely/migration';
 import { importAbsoluteModule } from '../util/crossPlatform';
-import { ensureTrueforgeSchema, getTrueForgePostgresSchema } from './postgres/schema';
+import { getTrueForgePostgresSchema } from './postgres/schema';
 import type { Database } from './postgres/types';
 
 function createMigrator(db: Kysely<Database>): Migrator {
@@ -21,7 +21,6 @@ function createMigrator(db: Kysely<Database>): Migrator {
 }
 
 async function runMigrations(input: { db: Kysely<Database>; targetMigrationName: string | undefined }): Promise<void> {
-  await ensureTrueforgeSchema(input.db);
   const migrator = createMigrator(input.db);
 
   const { error, results } =
