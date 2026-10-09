@@ -29,7 +29,7 @@ export class ToolSet implements IToolSet {
   private readonly toolSelectorPolicy: ToolSelectorPolicy;
   private readonly approvalPolicies = new Map<string, ToolApprovalPolicy>();
 
-  private static isPolicyApplicable(policy: ToolApprovalPolicy, asOf: Date): boolean {
+  static isPolicyApplicable(policy: ToolApprovalPolicy, asOf: Date = new Date()): boolean {
     return policy.expire_at === undefined || new Date(policy.expire_at).getTime() > asOf.getTime();
   }
 

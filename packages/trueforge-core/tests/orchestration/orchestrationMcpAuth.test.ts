@@ -103,9 +103,9 @@ describe('orchestration: MCP auth continuation', () => {
 
     expect(emitted).toHaveLength(submitted.length);
     expect(emitted.map(event => event.event.id)).toEqual(submitted.map(event => event.id));
-    for (const event of emitted) {
-      expect(event.thread_ids).toEqual(['first', 'second']);
-    }
+    // First continue clears every auth-waiting thread; the second finds none left.
+    expect(emitted[0]?.thread_ids).toEqual(['first', 'second']);
+    expect(emitted[1]?.thread_ids).toEqual([]);
     expect(first.toSnapshot().pending_mcp_auth).toBe(false);
     expect(second.toSnapshot().pending_mcp_auth).toBe(false);
     expect(step).toMatchObject({

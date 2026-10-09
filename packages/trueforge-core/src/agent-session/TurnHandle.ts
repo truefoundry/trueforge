@@ -540,6 +540,12 @@ export class TurnHandle<TTurnCustom extends object = Record<string, never>> {
             events: event.output,
           });
         }
+        // User-input echoes stream here; agent outputs (e.g. model.message) were already streamed.
+        for (const out of event.output) {
+          if (out.type === HarnessEventType.USER_TOOL_APPROVAL || out.type === HarnessEventType.USER_TOOL_RESPONSE) {
+            yield out;
+          }
+        }
         return;
       }
 
@@ -557,28 +563,26 @@ export class TurnHandle<TTurnCustom extends object = Record<string, never>> {
         return;
       }
 
-      case InternalEventType.USER_EVENTS_COMMIT: {
-        // These run sequentially today; once a DB store lands they collapse into one transaction
+      case InternalEventType.APPROVAL_POLICY_APPLY: {
+        // Sequential today; once a DB store lands these collapse into one transaction.
         for (const append of event.context_appends) {
           await this.store.appendToThreadContext({
             ...scope,
             thread_id: append.thread_id,
             context: append.context,
             current_context_usage: append.current_context_usage ?? null,
-            completion: append.completion ?? null,
+            completion: null,
           });
-          if (append.output.length > 0) {
-            await this.store.appendToEvents({ ...scope, events: append.output });
-          }
         }
         if (event.mcp_servers_patches.length > 0) {
           await this.store.patchMCPServers({ ...scope, mcp_servers: event.mcp_servers_patches });
         }
-        if (event.applied_user_events.length > 0) {
-          await this.store.appendToEvents({ ...scope, events: event.applied_user_events });
-        }
-        // TODO(durable-inbox): mark event.applied_user_events consumed.
-        yield* event.applied_user_events;
+        await this.store.appendToEvents({
+          ...scope,
+          events: [event.event],
+        });
+        // TODO(durable-inbox): mark event.event consumed.
+        yield event.event;
         return;
       }
 
