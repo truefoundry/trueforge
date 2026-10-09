@@ -1,5 +1,9 @@
 # Changelog
 
+## Unreleased
+
+- Preserve complete sandbox artifact download paths containing balanced parentheses or escaped delimiters.
+
 ## 0.177.0
 
 ### Patch Changes
