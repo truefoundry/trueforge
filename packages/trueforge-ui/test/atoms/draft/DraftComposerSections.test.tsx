@@ -88,7 +88,7 @@ describe('draft composer sections', () => {
   it('composes model and reasoning selectors in the right section', async () => {
     render(<DraftSections />);
 
-    expect(await screen.findByTitle('Select model')).toHaveTextContent('gpt-4.1');
+    expect(await screen.findByRole('button', { name: 'Select model' })).toHaveTextContent('gpt-4.1');
     expect(await screen.findByTitle('Select reasoning effort')).toHaveTextContent('high');
     // Without shell builder mode, left chrome is Tools — not Agent config.
     expect(screen.queryByRole('button', { name: 'Agent config' })).not.toBeInTheDocument();
@@ -104,7 +104,7 @@ describe('draft composer sections', () => {
     );
 
     expect(await screen.findByTitle('Select reasoning effort')).toHaveTextContent('high');
-    expect(screen.queryByTitle('Select model')).not.toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: 'Select model' })).not.toBeInTheDocument();
   });
 
   it('shows the Agent config trigger only in compact builder layouts', () => {
@@ -147,12 +147,12 @@ describe('draft composer sections', () => {
     const { rerender } = render(<DraftSections disabled />);
 
     expect(screen.getByRole('button', { name: 'Tools (3)' })).toBeDisabled();
-    expect(await screen.findByTitle('Select model')).toBeDisabled();
+    expect(await screen.findByRole('button', { name: 'Select model' })).toBeDisabled();
     expect(await screen.findByTitle('Select reasoning effort')).toBeDisabled();
 
     rerender(<DraftSections isRunning />);
     expect(screen.getByRole('button', { name: 'Tools (3)' })).toBeDisabled();
-    expect(await screen.findByTitle('Select model')).toBeDisabled();
+    expect(await screen.findByRole('button', { name: 'Select model' })).toBeDisabled();
     expect(await screen.findByTitle('Select reasoning effort')).toBeDisabled();
   });
 });

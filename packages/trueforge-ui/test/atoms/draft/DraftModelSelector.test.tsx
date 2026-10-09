@@ -69,10 +69,33 @@ describe('DraftModelSelector', () => {
     updateAgentSpec.mockReset();
   });
 
+  it('shows the full model name in a tooltip on hover', async () => {
+    const longName = 'global.anthropic.claude-sonnet-4-20250514';
+    agentSpec = { model: { name: longName } };
+    renderSelector(
+      {},
+      {
+        getModels: async () => [
+          {
+            id: 'claude-sonnet-4',
+            name: longName,
+            provider: { name: 'Anthropic' },
+            properties: {},
+          },
+        ],
+      },
+    );
+
+    const trigger = await screen.findByRole('button', { name: 'Select model' });
+    await waitFor(() => expect(trigger).toHaveTextContent(longName));
+    fireEvent.mouseEnter(trigger);
+    expect(screen.getByRole('tooltip')).toHaveTextContent(longName);
+  });
+
   it('filters models and updates the agent spec when a model is selected', async () => {
     renderSelector();
 
-    const trigger = await screen.findByTitle('Select model');
+    const trigger = await screen.findByRole('button', { name: 'Select model' });
     await waitFor(() => expect(trigger).toHaveTextContent('gpt-4.1'));
     expect(trigger.querySelector('img')?.getAttribute('src')).toBe('https://assets.example/openai.svg');
     fireEvent.click(trigger);
@@ -122,7 +145,7 @@ describe('DraftModelSelector', () => {
     };
     renderSelector();
 
-    const trigger = await screen.findByTitle('Select model');
+    const trigger = await screen.findByRole('button', { name: 'Select model' });
     await waitFor(() => expect(trigger).toHaveTextContent('claude-3.7-sonnet'));
     fireEvent.click(trigger);
     fireEvent.click(screen.getByRole('option', { name: /gpt-4.1/i }));
@@ -139,7 +162,7 @@ describe('DraftModelSelector', () => {
     agentSpec = undefined;
     renderSelector();
 
-    await waitFor(() => expect(screen.getByTitle('Select model')).toHaveTextContent('gpt-4.1'));
+    await waitFor(() => expect(screen.getByRole('button', { name: 'Select model' })).toHaveTextContent('gpt-4.1'));
     await waitFor(() => {
       expect(updateAgentSpec).toHaveBeenCalledWith({
         model: { name: 'openai/gpt-4.1' },
@@ -161,17 +184,17 @@ describe('DraftModelSelector', () => {
   it('does not rewrite agentSpec when the selected model is already in the catalog', async () => {
     renderSelector();
 
-    await waitFor(() => expect(screen.getByTitle('Select model')).toHaveTextContent('gpt-4.1'));
+    await waitFor(() => expect(screen.getByRole('button', { name: 'Select model' })).toHaveTextContent('gpt-4.1'));
     expect(updateAgentSpec).not.toHaveBeenCalled();
   });
 
   it('disables selection while disabled or running', () => {
     const { rerender } = render(<DraftModelSelector disabled />);
 
-    expect(screen.getByTitle('Select model')).toBeDisabled();
+    expect(screen.getByRole('button', { name: 'Select model' })).toBeDisabled();
 
     rerender(<DraftModelSelector isRunning />);
-    expect(screen.getByTitle('Select model')).toBeDisabled();
+    expect(screen.getByRole('button', { name: 'Select model' })).toBeDisabled();
   });
 
   it('shows a settings CTA when the host has a catalog and no models', async () => {
@@ -183,7 +206,7 @@ describe('DraftModelSelector', () => {
       },
     );
 
-    fireEvent.click(await screen.findByTitle('Select model'));
+    fireEvent.click(await screen.findByRole('button', { name: 'Select model' }));
     const cta = await screen.findByRole('button', { name: /Please configure Models in the settings/i });
     expect(cta.querySelector('.underline')).toHaveTextContent('settings');
 
@@ -195,7 +218,7 @@ describe('DraftModelSelector', () => {
   it('shows No models when the catalog is not configured', async () => {
     renderSelector({}, { getModels: async () => [] });
 
-    fireEvent.click(await screen.findByTitle('Select model'));
+    fireEvent.click(await screen.findByRole('button', { name: 'Select model' }));
     await waitFor(() => expect(screen.getByText('No models')).toBeInTheDocument());
     expect(screen.queryByRole('button', { name: /Please configure Models/i })).not.toBeInTheDocument();
   });
