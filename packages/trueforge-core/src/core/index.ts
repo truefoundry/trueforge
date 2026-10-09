@@ -4,6 +4,8 @@
  */
 
 // Runtime
+export { ModelParamsSchema, ModelSchema } from './llm/model';
+export type { Model } from './llm/model';
 export type { AgentDefinition, ModelParams } from './runtime/AgentDefinition';
 export { AgentThread } from './runtime/AgentThread';
 export type {

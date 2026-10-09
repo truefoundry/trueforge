@@ -5,7 +5,7 @@ import { AgentThread } from '../../../src/core/runtime/AgentThread';
 import { makeUnknownToolInfo, toToolCallInfo } from '../../../src/core/runtime/contextUtils';
 import { NOOP_AGENT_TRACING } from '../../../src/core/tracing/NoopAgentTracing';
 import '../harnessMocks';
-import { makeSilentLogger } from '../harnessMocks';
+import { makeSilentLogger, TEST_MODEL_NAME } from '../harnessMocks';
 
 const silentLogger = makeSilentLogger();
 const warn = jest.spyOn(silentLogger, 'warn');
@@ -95,6 +95,7 @@ describe('AgentThread unknown tool logging', () => {
       logger: silentLogger,
       definition: {
         modelClient,
+        modelName: TEST_MODEL_NAME,
         instruction: 'test',
         toolSets: [],
       },

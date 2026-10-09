@@ -1,12 +1,17 @@
 import type { Logger } from 'winston';
 import winston from 'winston';
 import type { ILLM } from '../../src/core/llm/ILLM';
+import type { Model } from '../../src/core/llm/model';
 import type { AgentToolSchema, IToolSet, ListToolsResponse } from '../../src/core/mcp/IMCPServer';
 import type { SandboxProvider } from '../../src/core/sandbox/provider/Provider';
 import { Sandbox } from '../../src/core/sandbox/Sandbox';
 import { NOOP_AGENT_TRACING } from '../../src/core/tracing/NoopAgentTracing';
 
 export const OBJECT_INPUT_SCHEMA = { type: 'object' as const, properties: {} };
+
+export const TEST_MODEL_NAME = 'test/test-model';
+
+export const TEST_MODEL: Model = { name: TEST_MODEL_NAME };
 
 /** Minimal typed ILLM stub — both methods required by the interface. */
 export function makeMockILLM(overrides: Partial<ILLM> = {}): ILLM {

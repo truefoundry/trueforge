@@ -5,7 +5,7 @@ import { AgentThread } from '../../../src/core/runtime/AgentThread';
 import { InternalEventType, type AgentThreadAppendContext } from '../../../src/core/runtime/AgentThread.types';
 import { NOOP_AGENT_TRACING } from '../../../src/core/tracing/NoopAgentTracing';
 import '../harnessMocks';
-import { makeSilentLogger } from '../harnessMocks';
+import { makeSilentLogger, TEST_MODEL_NAME } from '../harnessMocks';
 
 const silentLogger = makeSilentLogger();
 
@@ -70,6 +70,7 @@ describe('AgentThread model.message reasoning_content', () => {
       logger: silentLogger,
       definition: {
         modelClient,
+        modelName: TEST_MODEL_NAME,
         instruction: 'test',
         toolSets: [],
       },
