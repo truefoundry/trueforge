@@ -68,6 +68,7 @@ import { FilePreviewPanel } from '../atoms/FilePreviewPanel.js';
 import { HistoryLoader } from '../atoms/HistoryLoader.js';
 import { Markdown } from '../atoms/Markdown.js';
 import { MessageActionBar } from '../atoms/MessageActionBar.js';
+import { MessageCancelledBanner } from '../atoms/MessageCancelledBanner.js';
 import { MessageErrorBanner } from '../atoms/MessageErrorBanner.js';
 import { MessageIndicator } from '../atoms/MessageIndicator.js';
 import { MessageTimestamp } from '../atoms/MessageTimestamp.js';
@@ -189,6 +190,7 @@ export const defaultSlots = {
   UserMessageEdit,
   UserMessageActionBar,
   MessageActionBar,
+  MessageCancelledBanner,
   MessageErrorBanner,
   MessageIndicator,
   MessageTimestamp,
