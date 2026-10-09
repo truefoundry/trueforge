@@ -1,5 +1,5 @@
 // @vitest-environment jsdom
-import { act, fireEvent, render, screen } from '@testing-library/react';
+import { act, fireEvent, render, screen, waitFor } from '@testing-library/react';
 import { afterEach, beforeAll, beforeEach, describe, expect, it, vi } from 'vitest';
 
 import { DraftCatalogProvider } from '@/atoms/draft/DraftCatalogProvider.js';
@@ -23,6 +23,7 @@ import {
 let agentSpec: AgentSpec;
 const updateAgentSpec = vi.fn();
 const setSettingsOpen = vi.fn();
+const rememberDraftSpec = vi.fn();
 
 async function unavailable(): Promise<never> {
   throw new Error('Unexpected settings catalog call');
@@ -51,7 +52,7 @@ vi.mock('@truefoundry/trueforge-assistant-ui-runtime', () => ({
 }));
 
 vi.mock('@/server/ShellModeContext.js', () => ({
-  useOptionalShellMode: () => ({ setSettingsOpen, setEnvironmentsOpen }),
+  useOptionalShellMode: () => ({ setSettingsOpen, setEnvironmentsOpen, rememberDraftSpec }),
 }));
 
 beforeAll(() => {
@@ -79,6 +80,7 @@ function renderSelector({
       sandbox: { enabled: boolean };
       skill: { enabled: boolean; reason?: string };
       settings?: { enabled: boolean };
+      webSearch?: { enabled: boolean };
     };
   }>;
   getSkills?: () => Promise<AgentSkill[]>;
@@ -128,6 +130,7 @@ describe('DraftCompositeSelector', () => {
     updateAgentSpec.mockReset();
     setSettingsOpen.mockReset();
     setEnvironmentsOpen.mockReset();
+    rememberDraftSpec.mockReset();
   });
 
   afterEach(() => {
@@ -468,5 +471,81 @@ describe('DraftCompositeSelector', () => {
         }),
       }),
     });
+  });
+
+  it('shows Web search under Built-in and toggles draft config when available', async () => {
+    agentSpec = {
+      ...agentSpec,
+      config: { webSearch: { enabled: true } },
+    };
+    renderSelector({
+      getCapabilities: async () => ({
+        data: {
+          sandbox: { enabled: true },
+          skill: { enabled: true },
+          webSearch: { enabled: true },
+        },
+      }),
+    });
+
+    fireEvent.click(screen.getByRole('button', { name: 'Tools (3)' }));
+    expect(screen.getByText('Built-in')).toBeInTheDocument();
+    await waitFor(() => {
+      const row = screen.getByRole('menuitemcheckbox', { name: /Web search/ });
+      expect(row).toBeEnabled();
+      expect(row).toHaveAttribute('aria-checked', 'true');
+    });
+
+    fireEvent.click(screen.getByRole('menuitemcheckbox', { name: /Web search/ }));
+    expect(updateAgentSpec).toHaveBeenCalledWith({
+      config: { webSearch: { enabled: false } },
+    });
+    expect(rememberDraftSpec).toHaveBeenCalledWith(
+      {
+        ...agentSpec,
+        config: { webSearch: { enabled: false } },
+      },
+      'chat',
+    );
+  });
+
+  it('keeps Web search disabled with a tooltip when the capability is off', async () => {
+    agentSpec = {
+      ...agentSpec,
+      config: { webSearch: { enabled: false } },
+    };
+    renderSelector({
+      getCapabilities: async () => ({
+        data: {
+          sandbox: { enabled: true },
+          skill: { enabled: true },
+          webSearch: { enabled: false },
+        },
+      }),
+    });
+
+    fireEvent.click(screen.getByRole('button', { name: 'Tools (2)' }));
+    await waitFor(() => {
+      const row = screen.getByRole('menuitemcheckbox', { name: /Web search/ });
+      expect(row).toHaveAttribute('aria-disabled', 'true');
+      expect(row).toHaveAttribute('aria-checked', 'false');
+    });
+
+    const checkbox = screen.getByRole('checkbox', { name: /Select Web search/ });
+    expect(checkbox).toBeDisabled();
+    fireEvent.mouseEnter(checkbox.parentElement!);
+    expect(await screen.findByRole('tooltip')).toHaveTextContent('Web search is not configured');
+
+    fireEvent.mouseLeave(checkbox.parentElement!);
+    await act(async () => {
+      await vi.advanceTimersByTimeAsync(150);
+    });
+    expect(screen.queryByRole('tooltip')).not.toBeInTheDocument();
+
+    fireEvent.mouseEnter(screen.getByRole('menuitemcheckbox', { name: /Web search/ }));
+    expect(screen.queryByRole('tooltip')).not.toBeInTheDocument();
+
+    fireEvent.click(checkbox);
+    expect(updateAgentSpec).not.toHaveBeenCalled();
   });
 });

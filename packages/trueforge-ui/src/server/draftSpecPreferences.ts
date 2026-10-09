@@ -46,27 +46,6 @@ function storageKeyForKind(kind: DraftPreferenceKind): string {
   return kind === 'chat' ? CHAT_DRAFT_SPEC_PREFERENCES_STORAGE_KEY : AGENT_DRAFT_SPEC_PREFERENCES_STORAGE_KEY;
 }
 
-/** New Chat: model (+ reasoning params), skills, and MCP only — no runtime config. */
-export function selectChatDraftSpecPreferences(spec: AgentSpec): AgentSpec {
-  return {
-    model: spec.model,
-    ...(spec.skills !== undefined ? { skills: spec.skills } : {}),
-    ...(spec.mcpServers !== undefined ? { mcpServers: spec.mcpServers } : {}),
-  };
-}
-
-/** New Agent: full composer seed including runtime config (sandbox, ask-user, …). */
-export function selectAgentDraftSpecPreferences(spec: AgentSpec): AgentSpec {
-  return {
-    ...selectChatDraftSpecPreferences(spec),
-    ...(spec.config !== undefined ? { config: spec.config } : {}),
-  };
-}
-
-export function selectDraftSpecPreferences(spec: AgentSpec, kind: DraftPreferenceKind): AgentSpec {
-  return kind === 'chat' ? selectChatDraftSpecPreferences(spec) : selectAgentDraftSpecPreferences(spec);
-}
-
 function readSandboxEnabled(spec: AgentSpec): boolean | undefined {
   if (spec.config === undefined) return undefined;
   // `sandbox` is persisted on draft config but is not part of AgentRuntimeConfig.
@@ -80,6 +59,32 @@ function readWebSearchEnabled(spec: AgentSpec): boolean | undefined {
   if (spec.config?.webSearch === undefined) return undefined;
   const enabled = spec.config.webSearch.enabled;
   return typeof enabled === 'boolean' ? enabled : undefined;
+}
+
+/**
+ * New Chat: model (+ reasoning params), skills, MCP, and the web-search toggle.
+ * Other runtime config (sandbox, ask-user, …) is not persisted for chat.
+ */
+export function selectChatDraftSpecPreferences(spec: AgentSpec): AgentSpec {
+  const webSearchEnabled = readWebSearchEnabled(spec);
+  return {
+    model: spec.model,
+    ...(spec.skills !== undefined ? { skills: spec.skills } : {}),
+    ...(spec.mcpServers !== undefined ? { mcpServers: spec.mcpServers } : {}),
+    ...(webSearchEnabled !== undefined ? { config: { webSearch: { enabled: webSearchEnabled } } } : {}),
+  };
+}
+
+/** New Agent: full composer seed including runtime config (sandbox, ask-user, …). */
+export function selectAgentDraftSpecPreferences(spec: AgentSpec): AgentSpec {
+  return {
+    ...selectChatDraftSpecPreferences(spec),
+    ...(spec.config !== undefined ? { config: spec.config } : {}),
+  };
+}
+
+export function selectDraftSpecPreferences(spec: AgentSpec, kind: DraftPreferenceKind): AgentSpec {
+  return kind === 'chat' ? selectChatDraftSpecPreferences(spec) : selectAgentDraftSpecPreferences(spec);
 }
 
 /** Disable sandbox when unavailable; availability must not override the user's runtime choice. */
@@ -98,16 +103,15 @@ export function withCapabilitiesSandbox(spec: AgentSpec, sandboxEnabled: boolean
 /**
  * Align `config.webSearch` with host capability.
  * - unavailable → force false
- * - chat + available → force true
- * - agent + available → fill true only when the key is absent (preserve explicit values)
+ * - available → fill true only when the key is absent (preserve explicit user toggles)
  */
 export function withCapabilitiesWebSearch({
   spec,
   webSearchEnabled,
-  kind = 'agent',
 }: {
   spec: AgentSpec;
   webSearchEnabled: boolean | null | undefined;
+  /** Kept for call-site compatibility; chat and agent share the same fill/preserve rules. */
   kind?: DraftPreferenceKind;
 }): AgentSpec {
   if (webSearchEnabled == null) return spec;
@@ -123,18 +127,7 @@ export function withCapabilitiesWebSearch({
     };
   }
 
-  if (kind === 'chat') {
-    if (readWebSearchEnabled(spec) === true) return spec;
-    return {
-      ...spec,
-      config: {
-        ...spec.config,
-        webSearch: { ...spec.config?.webSearch, enabled: true },
-      },
-    };
-  }
-
-  // Agent: only default true when the field is missing from the spec.
+  // Only default true when the field is missing — chat and agent both keep user toggles.
   if (spec.config?.webSearch !== undefined) return spec;
   return {
     ...spec,
