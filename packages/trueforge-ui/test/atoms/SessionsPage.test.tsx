@@ -229,6 +229,27 @@ describe('SessionsPage', () => {
     expect(getSession).toHaveBeenCalledWith({ sessionId: 'sess-1' });
   });
 
+  it('renders session metadata tags in detail header when session has metadata', async () => {
+    window.history.replaceState(null, '', '/?view=sessions&sessionId=sess-1');
+    const getSession = vi.fn(async (): Promise<Session> => ({
+      id: 'sess-1',
+      title: 'Session with metadata',
+      isMutable: false,
+      createdAt: namedRow.createdAt,
+      updatedAt: namedRow.updatedAt,
+      metadata: { env: 'production', cluster: 'us-west-2' },
+    }));
+    renderPage({
+      listSessions: vi.fn(async () => ({ data: [] })),
+      getSession,
+    });
+
+    expect(await screen.findByText('env')).toBeInTheDocument();
+    expect(screen.getByText('production')).toBeInTheDocument();
+    expect(screen.getByText('cluster')).toBeInTheDocument();
+    expect(screen.getByText('us-west-2')).toBeInTheDocument();
+  });
+
   it('toasts and keeps the inline failure when a non-share detail load is forbidden', async () => {
     window.history.replaceState(null, '', '/?view=sessions&sessionId=sess-1');
     const forbidden = Object.assign(new Error('Only the session creator can access this session'), {

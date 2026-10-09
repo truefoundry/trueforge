@@ -181,4 +181,18 @@ export function runMcpServerStoreContractSuite(getStore: () => IMcpServerStore):
     const store = getStore();
     expect(await store.getClient({ id: 'missing-id' })).toBeUndefined();
   });
+
+  it('deleteServer removes only the tenant row and reports whether one matched', async () => {
+    const store = getStore();
+    await store.upsertServer({ tenant_id: TENANT, name: 'linear', manifest: manifest() });
+    await store.upsertServer({ tenant_id: 'other-tenant', name: 'linear', manifest: manifest() });
+
+    await expect(store.deleteServer({ tenant_id: TENANT, name: 'linear' })).resolves.toBe(true);
+    await expect(store.listServers({ tenant_id: TENANT, names: undefined })).resolves.toEqual([]);
+    expect(
+      (await store.listServers({ tenant_id: 'other-tenant', names: undefined })).map(server => server.name),
+    ).toEqual(['linear']);
+
+    await expect(store.deleteServer({ tenant_id: TENANT, name: 'linear' })).resolves.toBe(false);
+  });
 }

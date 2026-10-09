@@ -1047,6 +1047,18 @@
         ],
         "type": "object"
       },
+      "CreateSandboxEnvironmentRequest": {
+        "additionalProperties": false,
+        "properties": {
+          "manifest": {
+            "$ref": "#/components/schemas/SandboxEnvironmentManifestRequest"
+          }
+        },
+        "required": [
+          "manifest"
+        ],
+        "type": "object"
+      },
       "CreateScheduleRequest": {
         "additionalProperties": false,
         "properties": {
@@ -1292,11 +1304,23 @@
         "properties": {},
         "type": "object"
       },
+      "DeleteMCPServerResponse": {
+        "properties": {},
+        "type": "object"
+      },
+      "DeleteModelProviderResponse": {
+        "properties": {},
+        "type": "object"
+      },
       "DeleteSandboxEnvironmentResponse": {
         "properties": {},
         "type": "object"
       },
       "DeleteScheduleResponse": {
+        "properties": {},
+        "type": "object"
+      },
+      "DeleteSkillResponse": {
         "properties": {},
         "type": "object"
       },
@@ -3760,7 +3784,7 @@
           "generative_ui": {
             "enabled": true
           },
-          "iteration_limit": 100,
+          "iteration_limit": 512,
           "sandbox": {
             "enabled": false,
             "file_downloads": true
@@ -3783,8 +3807,8 @@
             "$ref": "#/components/schemas/GenerativeUIConfig"
           },
           "iteration_limit": {
-            "default": 100,
-            "description": "Max agent-loop iterations per turn (1–1024). Default: 100.",
+            "default": 512,
+            "description": "Max agent-loop iterations per turn (1–1024). Default: 512.",
             "exclusiveMinimum": 0,
             "maximum": 1024,
             "type": "integer"
@@ -3973,6 +3997,8 @@
           },
           "environment_variables": {
             "additionalProperties": {
+              "maxLength": 4096,
+              "minLength": 1,
               "type": "string"
             },
             "type": "object"
@@ -4005,6 +4031,8 @@
           },
           "environment_variables": {
             "additionalProperties": {
+              "maxLength": 4096,
+              "minLength": 1,
               "type": "string"
             },
             "type": "object"
@@ -4032,6 +4060,7 @@
         "properties": {
           "domain_allow_list": {
             "description": "Comma-separated allowed domains.",
+            "maxLength": 1024,
             "minLength": 1,
             "type": "string"
           },
@@ -4044,6 +4073,7 @@
             "items": {
               "$ref": "#/components/schemas/SandboxEnvironmentSecret"
             },
+            "maxItems": 1024,
             "type": "array"
           }
         },
@@ -4083,7 +4113,9 @@
         "properties": {
           "env": {
             "description": "Environment variable name injected into the sandbox.",
+            "maxLength": 4096,
             "minLength": 1,
+            "pattern": "^[A-Za-z_][A-Za-z0-9_]*$",
             "type": "string"
           },
           "hosts": {
@@ -8486,6 +8518,89 @@
         ],
         "x-fern-sdk-method-name": "list"
       },
+      "post": {
+        "description": "Creates by `manifest.name`. Fails if the name is already taken. Requires a configured sandbox provider.",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CreateSandboxEnvironmentRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "201": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/GetSandboxEnvironmentResponse"
+                }
+              }
+            },
+            "description": "The created sandbox environment."
+          },
+          "400": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/RequestErrorResponse"
+                }
+              }
+            },
+            "description": "Invalid request body, resource allocation, or missing secret value."
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/RequestErrorResponse"
+                }
+              }
+            },
+            "description": "Unauthenticated."
+          },
+          "409": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/RequestErrorResponse"
+                }
+              }
+            },
+            "description": "A sandbox environment with this name already exists."
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/RequestErrorResponse"
+                }
+              }
+            },
+            "description": "Sandbox provider is missing, credentials are invalid, or rejected the secret."
+          },
+          "502": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/RequestErrorResponse"
+                }
+              }
+            },
+            "description": "Sandbox provider secret synchronization failed."
+          }
+        },
+        "summary": "Create a sandbox environment",
+        "tags": [
+          "Sandboxes"
+        ],
+        "x-fern-sdk-group-name": [
+          "sandboxEnvironments"
+        ],
+        "x-fern-sdk-method-name": "create"
+      },
       "put": {
         "description": "Create or replace by `manifest.name`. Requires a configured sandbox provider.",
         "requestBody": {
@@ -8517,7 +8632,7 @@
                 }
               }
             },
-            "description": "Invalid request body, or missing secret value."
+            "description": "Invalid request body, resource allocation, or missing secret value."
           },
           "401": {
             "content": {
@@ -8547,7 +8662,17 @@
                 }
               }
             },
-            "description": "No sandbox provider configured."
+            "description": "Sandbox provider is missing, credentials are invalid, or rejected the secret."
+          },
+          "502": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/RequestErrorResponse"
+                }
+              }
+            },
+            "description": "Sandbox provider secret synchronization failed."
           }
         },
         "summary": "Create or update a sandbox environment",
@@ -8621,6 +8746,26 @@
               }
             },
             "description": "Environment is referenced by one or more agents."
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/RequestErrorResponse"
+                }
+              }
+            },
+            "description": "Sandbox provider is missing, credentials are invalid, or rejected secret deletion."
+          },
+          "502": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/RequestErrorResponse"
+                }
+              }
+            },
+            "description": "Sandbox provider secret deletion failed."
           }
         },
         "summary": "Delete a sandbox environment",
@@ -10761,6 +10906,73 @@
       }
     },
     "/api/v1/settings/mcp-servers/{name}": {
+      "delete": {
+        "description": "Deletes an MCP server by `name`, along with every stored OAuth token for it. Rejected while any agent still lists the server.",
+        "parameters": [
+          {
+            "description": "MCP server name.",
+            "in": "path",
+            "name": "name",
+            "required": true,
+            "schema": {
+              "description": "MCP server name.",
+              "minLength": 1,
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/DeleteMCPServerResponse"
+                }
+              }
+            },
+            "description": "MCP server deleted."
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/RequestErrorResponse"
+                }
+              }
+            },
+            "description": "MCP server not found."
+          },
+          "409": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/RequestErrorResponse"
+                }
+              }
+            },
+            "description": "One or more agents still use this MCP server."
+          },
+          "424": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/RequestErrorResponse"
+                }
+              }
+            },
+            "description": "Unsupported operation because the MCP servers are managed by external system"
+          }
+        },
+        "summary": "Delete an MCP server",
+        "tags": [
+          "MCP Servers"
+        ],
+        "x-fern-sdk-group-name": [
+          "settings",
+          "mcpServers"
+        ],
+        "x-fern-sdk-method-name": "delete"
+      },
       "get": {
         "description": "A single MCP server by name, with nested live auth_status (settings / admin projection). Header auth values are redacted.",
         "parameters": [
@@ -10951,6 +11163,16 @@
             },
             "description": "Invalid request body, or redacted API key with no stored secret to keep."
           },
+          "409": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/RequestErrorResponse"
+                }
+              }
+            },
+            "description": "The update drops a model that one or more agents still use."
+          },
           "424": {
             "content": {
               "application/json": {
@@ -10971,6 +11193,75 @@
           "modelProviders"
         ],
         "x-fern-sdk-method-name": "create_or_update"
+      }
+    },
+    "/api/v1/settings/model-providers/{name}": {
+      "delete": {
+        "description": "Deletes a provider and every model it declares. Rejected while any agent still uses one of them.",
+        "parameters": [
+          {
+            "description": "Model provider name.",
+            "in": "path",
+            "name": "name",
+            "required": true,
+            "schema": {
+              "description": "Model provider name.",
+              "minLength": 1,
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/DeleteModelProviderResponse"
+                }
+              }
+            },
+            "description": "Model provider deleted."
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/RequestErrorResponse"
+                }
+              }
+            },
+            "description": "Model provider not found."
+          },
+          "409": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/RequestErrorResponse"
+                }
+              }
+            },
+            "description": "One or more agents still use a model from this provider."
+          },
+          "424": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/RequestErrorResponse"
+                }
+              }
+            },
+            "description": "Unsupported operation because the model providers are managed by external system"
+          }
+        },
+        "summary": "Delete a model provider",
+        "tags": [
+          "Models"
+        ],
+        "x-fern-sdk-group-name": [
+          "settings",
+          "modelProviders"
+        ],
+        "x-fern-sdk-method-name": "delete"
       }
     },
     "/api/v1/settings/sandbox-providers": {
@@ -11225,6 +11516,75 @@
           "skills"
         ],
         "x-fern-sdk-method-name": "create_or_update"
+      }
+    },
+    "/api/v1/settings/skills/{name}": {
+      "delete": {
+        "description": "Deletes a skill by `name`. Rejected while any agent still lists the skill.",
+        "parameters": [
+          {
+            "description": "Skill name.",
+            "in": "path",
+            "name": "name",
+            "required": true,
+            "schema": {
+              "description": "Skill name.",
+              "minLength": 1,
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/DeleteSkillResponse"
+                }
+              }
+            },
+            "description": "Skill deleted."
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/RequestErrorResponse"
+                }
+              }
+            },
+            "description": "Skill not found."
+          },
+          "409": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/RequestErrorResponse"
+                }
+              }
+            },
+            "description": "One or more agents still use this skill."
+          },
+          "424": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/RequestErrorResponse"
+                }
+              }
+            },
+            "description": "Unsupported because skills are managed by an external system."
+          }
+        },
+        "summary": "Delete a skill",
+        "tags": [
+          "Skills"
+        ],
+        "x-fern-sdk-group-name": [
+          "settings",
+          "skills"
+        ],
+        "x-fern-sdk-method-name": "delete"
       }
     },
     "/api/v1/settings/web-search-providers": {

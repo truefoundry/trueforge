@@ -1,5 +1,6 @@
 import type {
   CreateModelProviderInput,
+  DeleteModelProviderInput,
   GetModelProviderForUpdateInput,
   GetModelProviderInput,
   IModelProviderStore,
@@ -53,6 +54,10 @@ export class InlineModelProviderStore<TTransaction = never> implements IModelPro
 
   upsertProvider(input: UpsertModelProviderInput, transaction?: TTransaction): Promise<ModelProviderRecord> {
     return this.#inner.upsertProvider(input, transaction);
+  }
+
+  deleteProvider(input: DeleteModelProviderInput, transaction?: TTransaction): Promise<boolean> {
+    return this.#inner.deleteProvider(input, transaction);
   }
 
   listModels(input: ListModelProvidersInput, transaction?: TTransaction): Promise<AvailableModel[]> {

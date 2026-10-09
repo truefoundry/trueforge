@@ -35,6 +35,8 @@ const expectedRuntimeExports: Array<keyof typeof sdk> = [
   'AgentStepsContainer',
   'AgentsLibrary',
   'AgentsLibraryButton',
+  'AnalyticsEvents',
+  'AnalyticsProvider',
   'ApprovalNavBanner',
   'ApprovalNavContainer',
   'AskUserContainer',
@@ -47,6 +49,7 @@ const expectedRuntimeExports: Array<keyof typeof sdk> = [
   'Avatar',
   'AvatarFallback',
   'AvatarImage',
+  'Badge',
   'BottomSheet',
   'BrandLogo',
   'Button',
@@ -76,6 +79,8 @@ const expectedRuntimeExports: Array<keyof typeof sdk> = [
   'DraftComposerRightSection',
   'DraftCompositeSelector',
   'DraftModelSelector',
+  'EnvironmentsButton',
+  'EnvironmentsPage',
   'ToasterProvider',
   'HistoryLoader',
   'HistoryLoaderContainer',
@@ -201,6 +206,7 @@ const expectedRuntimeExports: Array<keyof typeof sdk> = [
   'useDraftCatalog',
   'useToaster',
   'useToasterOptional',
+  'useTrackAnalytics',
   'useMCPAuth',
   'useOptionalAgentMetricsServer',
   'useOptionalAgentSessionsServer',
@@ -232,6 +238,7 @@ const expectedRuntimeExports: Array<keyof typeof sdk> = [
   'useTrueForgeToolResponses',
   'useTrueForgeTurnId',
   'useTrueForgeUpdateAgentSpec',
+  'withSessionProps',
 ];
 
 describe('public runtime exports', () => {

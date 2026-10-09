@@ -122,6 +122,17 @@ describe('SchedulesPage', () => {
     expect(searchAgents).not.toHaveBeenCalled();
   });
 
+  it('shows a friendly load error instead of raw fetch failures', async () => {
+    renderPage(sampleSchedules, {}, async () => {
+      throw new TypeError('Failed to fetch');
+    });
+
+    expect(await screen.findByRole('heading', { name: "Couldn't load schedules" })).toBeInTheDocument();
+    expect(screen.getByText('Check your connection and try again.')).toBeInTheDocument();
+    expect(screen.queryByText('Failed to fetch')).not.toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: 'Retry' })).not.toBeInTheDocument();
+  });
+
   it('disables schedule mutations without MANAGE or DELETE', async () => {
     const { scheduleServer } = renderPage(sampleSchedules, {}, undefined, undefined, {
       agentId: 'demo-agent',

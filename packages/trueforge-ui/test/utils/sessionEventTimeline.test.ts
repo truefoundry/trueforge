@@ -928,6 +928,7 @@ describe('buildSessionMetrics', () => {
     assert.equal(resumeModel?.startMs, 1_500);
     const metrics = buildSessionMetrics({ turns, segments });
     assert.equal(metrics.totalTurns, 2);
+    assert.equal(metrics.sessionTotalTurns, undefined);
     assert.equal(metrics.toolCalls, 3);
     assert.equal(metrics.totalTokens, 1000);
     assert.deepEqual(
@@ -935,5 +936,20 @@ describe('buildSessionMetrics', () => {
       ['T1'],
     );
     assert.ok(Math.abs((metrics.costPerTurn[0]?.value ?? 0) - 0.1) < 1e-9);
+
+    const withSessionTotal = buildSessionMetrics({
+      turns,
+      segments,
+      sessionMetrics: { totalTurns: 4, totalDurationMs: 6_000 },
+    });
+    assert.equal(withSessionTotal.totalTurns, 2);
+    assert.equal(withSessionTotal.sessionTotalTurns, 4);
+
+    const matchedSessionTotal = buildSessionMetrics({
+      turns,
+      segments,
+      sessionMetrics: { totalTurns: 2, totalDurationMs: 6_000 },
+    });
+    assert.equal(matchedSessionTotal.sessionTotalTurns, undefined);
   });
 });

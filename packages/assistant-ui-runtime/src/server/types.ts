@@ -187,6 +187,8 @@ export interface Session<TSpec extends AgentSpec = AgentSpec> {
   metrics?: SessionListMetrics;
   createdAt: string;
   updatedAt: string;
+  /** Arbitrary caller key-value metadata strings. */
+  metadata?: Record<string, string>;
 }
 
 export interface CreateSessionRequest<TSpec extends AgentSpec = AgentSpec> {
@@ -265,7 +267,12 @@ export interface UserToolResponseEvent {
   content: string;
 }
 
-export type TurnInputItem = UserMessage | UserToolApprovalEvent | UserToolResponseEvent;
+/** Client resume after mcp.auth_required (OAuth completed). */
+export interface UserMcpAuthContinueEvent {
+  type: 'user.mcp_auth_continue';
+}
+
+export type TurnInputItem = UserMessage | UserToolApprovalEvent | UserToolResponseEvent | UserMcpAuthContinueEvent;
 
 export interface TurnStateRunning {
   status: 'running';
@@ -299,12 +306,16 @@ export interface TurnStateCancelled {
   status: 'cancelled';
   reason: string;
   completedAt: string;
+  /** Present when the host reports per-turn token totals before cancel. */
+  metrics?: TurnDoneMetrics;
 }
 
 export interface TurnStateError {
   status: 'error';
   message: string;
   completedAt: string;
+  /** Present when the host reports per-turn token totals before error. */
+  metrics?: TurnDoneMetrics;
 }
 
 export type TurnState = TurnStateRunning | TurnStateDone | TurnStateCancelled | TurnStateError;
@@ -930,6 +941,8 @@ export interface SessionListEntry<TSpec extends AgentSpec = AgentSpec> {
   agentName?: string | null;
   /** Present when bound to a mutable / draft agent spec. */
   agentSpec?: TSpec;
+  /** Arbitrary caller key-value metadata strings. */
+  metadata?: Record<string, string>;
 }
 
 /** Params for `AgentSessionsServer.listSessionEvents` (session event timeline). */
@@ -1051,6 +1064,67 @@ export interface ScheduleServer<
 }
 
 // ---------------------------------------------------------------------------
+// Sandbox environments — optional Environments page CRUD
+// ---------------------------------------------------------------------------
+
+export type SandboxEnvironmentStatus = 'pending' | 'ready' | 'failed';
+
+export interface SandboxEnvironmentResources {
+  cpu: number;
+  memory: number;
+  disk: number;
+}
+
+export interface SandboxEnvironmentSecret {
+  env: string;
+  value: string;
+  hosts: string[];
+}
+
+export interface SandboxEnvironmentNetworking {
+  networkBlockAll?: boolean;
+  domainAllowList?: string;
+  secrets?: SandboxEnvironmentSecret[];
+}
+
+export interface SandboxEnvironmentImage {
+  type: 'build';
+  buildScript?: string;
+}
+
+export interface SandboxEnvironmentManifest {
+  name: string;
+  description?: string;
+  image?: SandboxEnvironmentImage;
+  resources?: SandboxEnvironmentResources;
+  environmentVariables?: Record<string, string>;
+  networking?: SandboxEnvironmentNetworking;
+}
+
+export interface SandboxEnvironment {
+  id: string;
+  name: string;
+  description: string;
+  status: SandboxEnvironmentStatus;
+  statusReason: string | null;
+  manifest: SandboxEnvironmentManifest;
+  createdBySubject: CreatedBySubject;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export type ListSandboxEnvironmentsParams = Pick<PageParams, 'limit' | 'pageToken'>;
+
+export interface SandboxEnvironmentServer<TEnvironment extends SandboxEnvironment = SandboxEnvironment> {
+  listEnvironments(req?: ListSandboxEnvironmentsParams): Promise<ListResult<TEnvironment>>;
+  getEnvironment(req: { name: string }): Promise<TEnvironment>;
+  /** Create only — fails if `manifest.name` is already taken. */
+  createEnvironment(req: { manifest: SandboxEnvironmentManifest }): Promise<TEnvironment>;
+  createOrUpdateEnvironment(req: { manifest: SandboxEnvironmentManifest }): Promise<TEnvironment>;
+  deleteEnvironment(req: { name: string }): Promise<void>;
+}
+
+// ---------------------------------------------------------------------------
 // Permissions — optional resource mutation grants
 // ---------------------------------------------------------------------------
 
@@ -1159,6 +1233,9 @@ export interface AgentMetricsServer<
  * `useScheduleServer()` / list and manage schedules; if omitted, that surface
  * stays hidden.
  *
+ * `sandboxEnvironments` is optional — if the host passes it, Environments UI
+ * can call `useSandboxEnvironmentServer()`; if omitted, that surface stays hidden.
+ *
  * `metrics` is optional — if the host passes it, agent-detail UI can render
  * aggregate meter cards and time-series charts.
  *
@@ -1170,6 +1247,7 @@ export type AgentUIServerPort<
   TCatalog extends CatalogServer = CatalogServer,
   TSessions extends AgentSessionsServer = AgentSessionsServer,
   TSchedules extends ScheduleServer = ScheduleServer,
+  TSandboxEnvironments extends SandboxEnvironmentServer = SandboxEnvironmentServer,
   TMetrics extends AgentMetricsServer = AgentMetricsServer,
   TPermissions extends PermissionsServer = PermissionsServer,
 > = TChat &
@@ -1177,6 +1255,7 @@ export type AgentUIServerPort<
     catalog?: TCatalog;
     sessions?: TSessions;
     schedules?: TSchedules;
+    sandboxEnvironments?: TSandboxEnvironments;
     metrics?: TMetrics;
     permissions?: TPermissions;
     /** Authenticated caller identity. Used for tenant-scoped share copy. */
