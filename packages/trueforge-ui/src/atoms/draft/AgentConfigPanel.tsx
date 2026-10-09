@@ -416,18 +416,28 @@ export function AgentConfigPanel({
               <AgentModelSettingsContent spec={spec} model={model} onChange={next => onChange?.(next)} />
             </ResponsiveDropdownMenu>
           </div>
-          <dl className="text-text-secondary mt-2 flex min-w-0 flex-wrap gap-x-3 gap-y-1 text-xs">
-            {modelParams.length ? (
-              modelParams.map(entry => (
-                <div key={entry.label} className="flex gap-1">
-                  <dt>{entry.label}:</dt>
-                  <dd className="text-text-primary font-medium">{entry.value}</dd>
-                </div>
-              ))
-            ) : (
-              <div>model settings: defaults</div>
-            )}
-          </dl>
+          <button
+            type="button"
+            disabled={disabled}
+            aria-label="Edit model settings"
+            // DropdownMenu dismisses on document mousedown; stop it so click can toggle closed without reopen.
+            onMouseDown={event => event.stopPropagation()}
+            onClick={() => setModelSettingsMenuOpen(open => !open)}
+            className="mt-2 flex w-full cursor-pointer flex-col text-left disabled:cursor-not-allowed disabled:opacity-50"
+          >
+            <dl className="text-text-secondary flex min-w-0 flex-wrap gap-x-3 gap-y-1 text-xs">
+              {modelParams.length ? (
+                modelParams.map(entry => (
+                  <div key={entry.label} className="flex gap-1">
+                    <dt>{entry.label}:</dt>
+                    <dd className="text-text-primary font-medium">{entry.value}</dd>
+                  </div>
+                ))
+              ) : (
+                <div>model settings: defaults</div>
+              )}
+            </dl>
+          </button>
         </Section>
 
         <Section title="Instructions" description="Define the agent's role, goals, and behavior.">
