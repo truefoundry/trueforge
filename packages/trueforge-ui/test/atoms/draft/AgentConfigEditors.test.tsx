@@ -4,7 +4,7 @@ import { useState } from 'react';
 import { beforeAll, describe, expect, it, vi } from 'vitest';
 
 import { AgentConfigEditors } from '@/atoms/draft/AgentConfigEditors.js';
-import { AgentModelSettingsContent, PARAM_INPUT_DEBOUNCE_MS } from '@/atoms/draft/AgentModelSettingsContent.js';
+import { AgentModelSettingsContent } from '@/atoms/draft/AgentModelSettingsContent.js';
 import { withInitialUserMessages } from '@/atoms/draft/agentConfigMessages.js';
 import { ServerProvider } from '@/server/ServerContext.js';
 import type { AgentSkill, AgentSpec, ConnectorState } from '@/server/types.js';
@@ -298,13 +298,8 @@ describe('AgentConfigEditors', () => {
     fireEvent.click(screen.getByRole('button', { name: 'JSON' }));
     const editor = screen.getByRole('textbox', { name: 'JSON parameters editor' });
     expect(editor.closest('.aui-code-editor')).toHaveClass('h-80');
-    vi.useFakeTimers();
     fireEvent.change(editor, {
       target: { value: '{"maxTokens":2048,"vendor_option":{"mode":"fast"}}' },
-    });
-    expect(onChange).not.toHaveBeenCalled();
-    act(() => {
-      vi.advanceTimersByTime(PARAM_INPUT_DEBOUNCE_MS);
     });
 
     expect(onChange).toHaveBeenLastCalledWith({
@@ -317,12 +312,8 @@ describe('AgentConfigEditors', () => {
 
     onChange.mockClear();
     fireEvent.change(editor, { target: { value: '{"maxTokens":' } });
-    act(() => {
-      vi.advanceTimersByTime(PARAM_INPUT_DEBOUNCE_MS);
-    });
     expect(screen.getByText('Invalid JSON.')).toBeInTheDocument();
     expect(onChange).not.toHaveBeenCalled();
-    vi.useRealTimers();
   });
 
   it('adds typed custom parameters without replacing dedicated controls', () => {
@@ -357,7 +348,6 @@ describe('AgentConfigEditors', () => {
       </SlotsProvider>,
     );
 
-    vi.useFakeTimers();
     fireEvent.click(screen.getByRole('button', { name: 'Turn Custom Parameters on' }));
     fireEvent.change(screen.getByRole('textbox', { name: 'Custom parameter name' }), {
       target: { value: 'vendor_option' },
@@ -370,15 +360,8 @@ describe('AgentConfigEditors', () => {
     expect(screen.getByRole('menuitem', { name: 'JSON' })).toBeInTheDocument();
 
     fireEvent.click(screen.getByRole('menuitem', { name: 'Number' }));
-    const valueInput = screen.getByRole('spinbutton', { name: 'Value for vendor_option' });
-    fireEvent.change(valueInput, { target: { value: '42' } });
-    expect(onChange).not.toHaveBeenCalledWith(
-      expect.objectContaining({
-        model: expect.objectContaining({ params: expectedParams }),
-      }),
-    );
-    act(() => {
-      vi.advanceTimersByTime(PARAM_INPUT_DEBOUNCE_MS);
+    fireEvent.change(screen.getByRole('spinbutton', { name: 'Value for vendor_option' }), {
+      target: { value: '42' },
     });
 
     expect(onChange).toHaveBeenLastCalledWith({
@@ -395,35 +378,6 @@ describe('AgentConfigEditors', () => {
       'h-32',
     );
     expect(screen.getByRole('button', { name: 'Add parameter' })).toBeInTheDocument();
-    vi.useRealTimers();
-  });
-
-  it('collapses custom parameter keystrokes into one update', () => {
-    vi.useFakeTimers();
-    const onChange = vi.fn();
-    render(
-      <SlotsProvider>
-        <AgentModelSettingsContent
-          spec={{ model: { name: 'openai/gpt', params: { vendor_option: 'a' } } }}
-          onChange={onChange}
-        />
-      </SlotsProvider>,
-    );
-
-    const valueInput = screen.getByRole('textbox', { name: 'Value for vendor_option' });
-    fireEvent.change(valueInput, { target: { value: 'm' } });
-    fireEvent.change(valueInput, { target: { value: 'mediu' } });
-    fireEvent.change(valueInput, { target: { value: 'medium' } });
-    expect(onChange).not.toHaveBeenCalled();
-    act(() => {
-      vi.advanceTimersByTime(PARAM_INPUT_DEBOUNCE_MS);
-    });
-
-    expect(onChange).toHaveBeenCalledTimes(1);
-    expect(onChange).toHaveBeenLastCalledWith({
-      model: { name: 'openai/gpt', params: { vendor_option: 'medium' } },
-    });
-    vi.useRealTimers();
   });
 
   it('preserves prototype-named custom parameters as own properties', () => {
@@ -436,18 +390,13 @@ describe('AgentConfigEditors', () => {
     );
 
     expect(screen.getByRole('textbox', { name: 'Custom parameter name' })).toHaveValue('__proto__');
-    const valueInput = screen.getByRole('textbox', { name: 'Value for __proto__' });
-    vi.useFakeTimers();
-    fireEvent.change(valueInput, { target: { value: 'updated' } });
-    expect(onChange).not.toHaveBeenCalled();
-    act(() => {
-      vi.advanceTimersByTime(PARAM_INPUT_DEBOUNCE_MS);
+    fireEvent.change(screen.getByRole('textbox', { name: 'Value for __proto__' }), {
+      target: { value: 'updated' },
     });
 
     const changedParams = onChange.mock.lastCall?.[0].model.params;
     expect(Object.hasOwn(changedParams ?? {}, '__proto__')).toBe(true);
     expect(changedParams?.['__proto__']).toBe('updated');
-    vi.useRealTimers();
   });
 
   it('opens runtime configuration in a right-side drawer', () => {

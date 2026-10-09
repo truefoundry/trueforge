@@ -18,7 +18,7 @@ vi.mock('@truefoundry/trueforge-assistant-ui-runtime', () => ({
     agentSpec: { model: { name: 'openai/gpt-4.1' } },
     draftSessionId: 'draft-1',
   }),
-  useTrueForgeFlushAgentSpec: () => flushAgentSpec,
+  useTrueForgeFlushAgentSpec: () => () => flushAgentSpec(),
   useTrueForgeUpdateAgentSpec: () => updateAgentSpec,
   useTrueForgeAdoptAgentSpec: () => vi.fn(),
 }));
@@ -104,6 +104,7 @@ describe('AgentConfigDrawerContainer', () => {
   });
 
   it('opens Runtime Config in a second right-side drawer', async () => {
+    flushAgentSpec.mockClear();
     render(
       <SlotsProvider>
         <ServerProvider server={createMockAgentUIServer()}>
@@ -128,6 +129,7 @@ describe('AgentConfigDrawerContainer', () => {
       config: { generativeUi: { enabled: false } },
       instructions: undefined,
     });
+    expect(flushAgentSpec).not.toHaveBeenCalled();
   });
 
   it('commits drawer instructions and messages in one spec update', () => {

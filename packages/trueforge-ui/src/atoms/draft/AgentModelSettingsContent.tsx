@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useRef, useState, type ReactNode } from 'react';
+import { useRef, useState, type ReactNode } from 'react';
 
 import type { AgentSpec, ModelParams, ModelSelection } from '../../server/types.js';
 import { useSlot } from '../../theme/SlotsProvider.js';
@@ -20,7 +20,6 @@ enum ParamsView {
 }
 
 const CONTROLLED_PARAM_KEYS = new Set(['maxTokens', 'reasoningEffort']);
-export const PARAM_INPUT_DEBOUNCE_MS = 600;
 
 function finiteNumber(raw: string): number | null {
   if (raw.trim() === '') return null;
@@ -63,47 +62,19 @@ export function AgentModelSettingsContent({ spec, model, onChange }: AgentModelS
   const [customEnabled, setCustomEnabled] = useState(() => Object.keys(customParamsFrom(params)).length > 0);
 
   const savedCustomParams = useRef<Record<string, unknown> | null>(null);
-  const applyTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
-  const specRef = useRef(spec);
-  specRef.current = spec;
-  const replaceParams = (next: ModelParams) => {
-    const current = specRef.current;
-    onChange({ ...current, model: { ...current.model, params: next } });
-  };
-
-  const clearParamApply = () => {
-    if (applyTimerRef.current == null) return;
-    clearTimeout(applyTimerRef.current);
-    applyTimerRef.current = null;
-  };
-
-  const scheduleParamApply = (apply: () => void) => {
-    clearParamApply();
-    applyTimerRef.current = setTimeout(() => {
-      applyTimerRef.current = null;
-      apply();
-    }, PARAM_INPUT_DEBOUNCE_MS);
-  };
-
-  useEffect(() => clearParamApply, []);
+  const replaceParams = (next: ModelParams) => onChange({ ...spec, model: { ...spec.model, params: next } });
   const setParam = <Key extends keyof ModelParams>(key: Key, value: ModelParams[Key]) =>
     replaceParams({ ...params, [key]: value });
   const removeParam = (key: keyof ModelParams) => replaceParams({ ...params, [key]: undefined });
 
-  const applyCustomParams = (custom: Record<string, unknown>) => {
-    const current = specRef.current.model.params ?? {};
-    const clearedCustom = Object.fromEntries(Object.keys(customParamsFrom(current)).map(key => [key, undefined]));
-    replaceParams({ ...current, ...clearedCustom, ...custom });
-  };
-
   const replaceCustomParams = (custom: Record<string, unknown>) => {
-    scheduleParamApply(() => applyCustomParams(custom));
+    const clearedCustom = Object.fromEntries(Object.keys(customParamsFrom(params)).map(key => [key, undefined]));
+    replaceParams({ ...params, ...clearedCustom, ...custom });
   };
 
   const replaceAllParams = (next: ModelParams) => {
-    const current = specRef.current.model.params ?? {};
     const cleared = Object.fromEntries(
-      Object.keys(current)
+      Object.keys(params)
         .filter(key => !Object.hasOwn(next, key))
         .map(key => [key, undefined]),
     );
@@ -122,31 +93,26 @@ export function AgentModelSettingsContent({ spec, model, onChange }: AgentModelS
     try {
       const parsed: unknown = JSON.parse(value);
       if (!isModelParams(parsed)) {
-        clearParamApply();
         setJsonError('Parameters must be a JSON object with valid model parameter values.');
         return;
       }
       setJsonError(null);
-      scheduleParamApply(() => {
-        setCustomEnabled(Object.keys(customParamsFrom(parsed)).length > 0);
-        replaceAllParams(parsed);
-      });
+      setCustomEnabled(Object.keys(customParamsFrom(parsed)).length > 0);
+      replaceAllParams(parsed);
     } catch {
-      clearParamApply();
       setJsonError('Invalid JSON.');
     }
   };
 
   const toggleCustomParams = () => {
-    clearParamApply();
     const nextEnabled = !customEnabled;
     setCustomEnabled(nextEnabled);
     if (nextEnabled) {
-      applyCustomParams(savedCustomParams.current ?? {});
+      replaceCustomParams(savedCustomParams.current ?? {});
       return;
     }
     savedCustomParams.current = customParamsFrom(params);
-    applyCustomParams({});
+    replaceCustomParams({});
   };
 
   const maxOutputTokens = model?.properties.maxOutputTokens;

@@ -2,4 +2,4 @@
 '@truefoundry/trueforge-ui': patch
 ---
 
-Debounce custom and JSON model parameter edits so typing does not sync on every keystroke.
+Keep draft spec sync on its existing debounce by flushing the agent config drawer only when it unmounts.
