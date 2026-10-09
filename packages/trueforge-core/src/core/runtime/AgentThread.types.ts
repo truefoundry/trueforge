@@ -138,7 +138,7 @@ export interface AgentThreadCreateSubAgent {
 export interface AgentThreadAppendContext extends ThreadContextAppend {
   type: typeof InternalEventType.AGENT_CONTEXT_APPEND;
   /** Agent outputs and user approval/response processed during this append. */
-  output: Array<AgentOutputEvent | UserToolApprovalEvent | UserToolResponseEvent>;
+  output: (AgentOutputEvent | UserToolApprovalEvent | UserToolResponseEvent)[];
   completion?: SubAgentCompletion | undefined;
 }
 

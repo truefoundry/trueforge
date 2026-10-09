@@ -1237,6 +1237,7 @@ export class AgentThread {
         completion,
       });
     }
+    this.metrics.iterations++;
 
     if (finishReason === 'length') {
       const errorContent = completion?.type === 'error' ? completion.error_message : 'max_tokens breached';
@@ -1503,7 +1504,6 @@ export class AgentThread {
             }
 
             const llmResult = yield* this.stepLLMCall(tools, toolMapping, signal);
-            this.metrics.iterations++;
             outcome = llmResult.outcome;
             currentModelMessageEventId = llmResult.modelMessageEventId;
             break;
