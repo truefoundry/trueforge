@@ -362,10 +362,18 @@ function commitActiveStream(snapshot: SessionSnapshot, continuationInputs?: Requ
 
   const completedState = committedStateFromActiveStream(active.update, new Date().toISOString());
   const baseline = snapshot.groupRootBaseline ?? computeGroupRootBaseline(snapshot.turns);
-  const rootModelMessageIds = rootModelMessageIdsSinceBaseline(snapshot.fold, baseline);
-  // After cancel, drop activeStream so projectHistoryTurns rebuilds from turn.state
-  // (and re-adds "Cancelled: …"). Custom adapters with empty folds still keep the
-  // completed stream projection until the next turn.
+  let rootModelMessageIds = rootModelMessageIdsSinceBaseline(snapshot.fold, baseline);
+  // Cancelled commits clear activeStream so history rebuilds from turn.state (banner).
+  // Custom adapters may have only update.content — materialize into the fold first
+  // so clearing activeStream does not drop streamed parts.
+  if (completedState.status === 'cancelled' && rootModelMessageIds.length === 0) {
+    rootModelMessageIds = materializeAbandonedStreamRootIds({
+      fold: snapshot.fold,
+      turnId: active.turnId,
+      content: active.update.content,
+      existingRootIds: rootModelMessageIds,
+    });
+  }
   const clearActiveStream = rootModelMessageIds.length > 0 || completedState.status === 'cancelled';
 
   const lastTurn = snapshot.turns.at(-1);
@@ -383,8 +391,8 @@ function commitActiveStream(snapshot: SessionSnapshot, continuationInputs?: Requ
           : turn,
       ),
       pendingUser: undefined,
-      // Custom stream adapters may yield projected content without fold events.
-      // Keep that completed projection until the next stream replaces it.
+      // Non-cancel completes with an empty fold keep activeStream so custom adapters
+      // that only yielded update.content stay visible until the next stream.
       ...(clearActiveStream ? { activeStream: undefined } : {}),
     });
   }

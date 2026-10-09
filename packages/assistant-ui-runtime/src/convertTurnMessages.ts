@@ -1266,6 +1266,10 @@ function projectHistoryTurns(snapshot: SessionSnapshot, options?: ProjectSession
           ),
         );
         lastAssistantIndex = messages.length - 1;
+      } else {
+        // New user group with no assistant of its own — do not let a later empty
+        // cancelled/error continuation fold into a prior group's assistant.
+        lastAssistantIndex = undefined;
       }
     } else if (shouldEmitTerminalAssistant(record.state, content) && lastAssistantIndex != null) {
       if (record.state.status === 'running') {
