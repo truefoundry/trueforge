@@ -1,12 +1,13 @@
 /**
  * Durable turn handle. {@link TurnHandle.stream} is execute-once (persist-before-yield).
  */
-import { AgentHarnessError } from '../core/errors';
+import { AgentHarnessError, InvalidAgentSendInputError } from '../core/errors';
 import type {
   MCPAuthRequiredEvent,
   ModelMessageDeltaEvent,
   ThreadDoneEvent,
   TurnUserEvent,
+  TurnUserEventMessage,
 } from '../core/events/schema';
 import { EventType as HarnessEventType, newEventId } from '../core/events/schema';
 import {
@@ -39,7 +40,7 @@ import {
   type TurnMetrics,
   type TurnState,
 } from './schemas/turn';
-import type { ISessionStore } from './store/ISessionStore';
+import type { ISessionStore, TurnInboundEventRecord } from './store/ISessionStore';
 import { TurnNotRunningError, TurnOwnershipLostError } from './store/SessionStoreErrors';
 
 /** Streaming yield union — deltas pass through; never persisted. No sequence_number. */
@@ -111,6 +112,25 @@ function turnMetricsFromAgentThreadMetrics(metrics: AgentThreadMetrics): TurnMet
   };
 }
 
+function inboundRowToTurnUserEvent(row: TurnInboundEventRecord): TurnUserEvent {
+  const stamped = { id: row.event_id, created_at: row.created_at.toISOString() };
+  return stampTurnUserEvent(row.payload, stamped);
+}
+
+function stampTurnUserEvent(payload: TurnUserEventMessage, stamped: { id: string; created_at: string }): TurnUserEvent {
+  switch (payload.type) {
+    case HarnessEventType.USER_TOOL_APPROVAL:
+    case HarnessEventType.USER_TOOL_RESPONSE:
+    case HarnessEventType.USER_TOOL_APPROVAL_POLICY:
+    case HarnessEventType.USER_MCP_AUTH_CONTINUE:
+      return { ...payload, ...stamped };
+    default: {
+      const unsupported: never = payload;
+      throw new Error(`Unsupported inbound event: ${JSON.stringify(unsupported)}`);
+    }
+  }
+}
+
 /** Result used to close out the executor generator on any early exit (abort / abandon / throw). */
 const EMPTY_EXECUTION_RESULT: AgentThreadExecutionResult = {
   status: 'done',
@@ -171,6 +191,8 @@ export class TurnHandle<TTurnCustom extends object = Record<string, never>> {
   private readonly signal: AbortSignal | undefined;
   private streamStarted = false;
   private streamAbort: AbortController | undefined;
+  /** Resume skips turn.created and replays the unconsumed inbox before execute. */
+  private readonly resume: boolean;
 
   constructor(options: {
     store: ISessionStore<object, TTurnCustom>;
@@ -178,12 +200,14 @@ export class TurnHandle<TTurnCustom extends object = Record<string, never>> {
     orchestrator?: AgentThreadOrchestrator | undefined;
     resolver?: ITurnResourceResolver<TTurnCustom> | undefined;
     signal?: AbortSignal | undefined;
+    resume?: boolean | undefined;
   }) {
     this.store = options.store;
     this.turn = options.turn;
     this.orchestrator = options.orchestrator;
     this.resolver = options.resolver;
     this.signal = options.signal;
+    this.resume = options.resume ?? false;
   }
 
   /** Store-only handle (e.g. from {@link SessionHandle.getTurn}) — stream() is not available. */
@@ -255,7 +279,9 @@ export class TurnHandle<TTurnCustom extends object = Record<string, never>> {
 
   private requireLiveOrchestrator(method: string): AgentThreadOrchestrator {
     if (!this.orchestrator) {
-      throw new Error(`TurnHandle.${method}() is only available on a live turn from SessionHandle.createTurn()`);
+      throw new Error(
+        `TurnHandle.${method}() is only available on a live turn from SessionHandle.createTurn() or SessionHandle.rebuildTurn()`,
+      );
     }
     return this.orchestrator;
   }
@@ -300,7 +326,9 @@ export class TurnHandle<TTurnCustom extends object = Record<string, never>> {
     const resolver = this.resolver;
     const signal = this.signal;
     if (!orchestrator || !resolver || !signal) {
-      throw new Error('TurnHandle.stream() is only available on turns returned from SessionHandle.createTurn()');
+      throw new Error(
+        'TurnHandle.stream() is only available on turns returned from SessionHandle.createTurn() or SessionHandle.rebuildTurn()',
+      );
     }
 
     const executionSignal = AbortSignal.any([signal, abortController.signal]);
@@ -316,7 +344,11 @@ export class TurnHandle<TTurnCustom extends object = Record<string, never>> {
     let executeResult: AgentThreadExecutionResult | undefined;
     let ownershipLost: TurnOwnershipLostError | undefined;
     try {
-      yield await this.persistTurnCreated();
+      if (this.resume) {
+        await this.replayUnconsumedInbound(orchestrator);
+      } else {
+        yield await this.persistTurnCreated();
+      }
       executeResult = yield* this.executeAndPersist(orchestrator, signal);
     } catch (error) {
       caughtError = error instanceof Error ? error : new Error(String(error));
@@ -359,6 +391,23 @@ export class TurnHandle<TTurnCustom extends object = Record<string, never>> {
     }
     if (ownershipLost) {
       throw ownershipLost;
+    }
+  }
+
+  /** Queue inbox rows the rebuilt threads have not already applied, then let execute consume them. */
+  private async replayUnconsumedInbound(orchestrator: AgentThreadOrchestrator): Promise<void> {
+    const rows = await this.store.listUnconsumedTurnInboundEvents(this.turnWriteKeys());
+    for (const row of rows) {
+      try {
+        for await (const batch of orchestrator.send([inboundRowToTurnUserEvent(row)])) {
+          void batch;
+        }
+      } catch (error) {
+        if (error instanceof InvalidAgentSendInputError) {
+          continue;
+        }
+        throw error;
+      }
     }
   }
 

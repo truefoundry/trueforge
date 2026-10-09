@@ -197,6 +197,15 @@ export interface InsertTurnInboundEventsInput extends TurnProgressKeys {
   }[];
 }
 
+export type ListUnconsumedTurnInboundEventsInput = TurnProgressKeys;
+
+/** One unconsumed inbox row, oldest first when listed. */
+export interface TurnInboundEventRecord {
+  event_id: string;
+  payload: TurnUserEventMessage;
+  created_at: Date;
+}
+
 export interface AddThreadsInput extends TurnProgressKeys {
   threads: AgentThreadSnapshot[];
 }
@@ -399,6 +408,13 @@ export interface ISessionStore<
    * {@link TurnEventAlreadyExistsError}.
    */
   insertTurnInboundEvents(input: InsertTurnInboundEventsInput): Promise<void>;
+
+  /**
+   * Unconsumed inbox rows for a tip the caller still owns, oldest `created_at`
+   * first. Same ownership and non-terminal rules as insertTurnInboundEvents.
+   * Does not mark rows consumed.
+   */
+  listUnconsumedTurnInboundEvents(input: ListUnconsumedTurnInboundEventsInput): Promise<TurnInboundEventRecord[]>;
 
   /** Adds thread snapshots to the turn (sub-agent spawns). */
   addThreads(input: AddThreadsInput): Promise<void>;

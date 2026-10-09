@@ -28,12 +28,14 @@ import type {
   ListSessionsInput,
   ListTurnEventsInput,
   ListTurnsInput,
+  ListUnconsumedTurnInboundEventsInput,
   OverwriteThreadContextInput,
   PatchMCPServersInput,
   PatchSandboxInfoInput,
   PatchThreadCapabilityStateInput,
   PatchThreadsMCPAuthInput,
   RemoveThreadsInput,
+  TurnInboundEventRecord,
   TurnRecordWithoutSnapshot,
   UpdateSessionInput,
   UpdateTurnNonTerminalStateInput,
@@ -56,7 +58,10 @@ import {
   listSessionEvents as listSessionEventsQuery,
   listTurnEvents as listTurnEventsQuery,
 } from './queries/events';
-import { insertTurnInboundEvents as insertTurnInboundEventsQuery } from './queries/inboundEvents';
+import {
+  insertTurnInboundEvents as insertTurnInboundEventsQuery,
+  listUnconsumedTurnInboundEvents as listUnconsumedTurnInboundEventsQuery,
+} from './queries/inboundEvents';
 import { patchThreadsMCPAuth as patchThreadsMCPAuthQuery } from './queries/mcpAuth';
 import {
   createSession as createSessionQuery,
@@ -236,6 +241,10 @@ export class PostgresSessionStore implements ISessionStore<SessionCustom, TurnCu
 
   insertTurnInboundEvents(input: InsertTurnInboundEventsInput): Promise<void> {
     return insertTurnInboundEventsQuery(this.db, input);
+  }
+
+  listUnconsumedTurnInboundEvents(input: ListUnconsumedTurnInboundEventsInput): Promise<TurnInboundEventRecord[]> {
+    return listUnconsumedTurnInboundEventsQuery(this.db, input);
   }
 
   addThreads(input: AddThreadsInput): Promise<void> {

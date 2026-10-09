@@ -2874,7 +2874,12 @@ export function runStoreContractSuite(createStore: () => ISessionStore) {
         thread_ids: [MAIN_THREAD_ID],
         pending_mcp_auth: true,
       });
-      await store.appendToEvents({ session_id: sessionId, turn_id: 'turn-1', events: [required] });
+      await store.appendToEvents({
+        active_executor_id: TEST_ACTIVE_EXECUTOR_ID,
+        session_id: sessionId,
+        turn_id: 'turn-1',
+        events: [required],
+      });
       let turn = mustGet(await store.getTurn({ session_id: sessionId, turn_id: 'turn-1' }));
       expect(turn.snapshot.threads[MAIN_THREAD_ID]?.pending_mcp_auth).toBe(true);
 
@@ -2889,7 +2894,12 @@ export function runStoreContractSuite(createStore: () => ISessionStore) {
         thread_ids: [MAIN_THREAD_ID],
         pending_mcp_auth: false,
       });
-      await store.appendToEvents({ session_id: sessionId, turn_id: 'turn-1', events: [continued] });
+      await store.appendToEvents({
+        active_executor_id: TEST_ACTIVE_EXECUTOR_ID,
+        session_id: sessionId,
+        turn_id: 'turn-1',
+        events: [continued],
+      });
       turn = mustGet(await store.getTurn({ session_id: sessionId, turn_id: 'turn-1' }));
       expect(turn.snapshot.threads[MAIN_THREAD_ID]?.pending_mcp_auth).toBe(false);
 
@@ -3050,6 +3060,66 @@ export function runStoreContractSuite(createStore: () => ISessionStore) {
               created_at: new Date().toISOString(),
             },
           ],
+        }),
+      ).rejects.toBeInstanceOf(TurnNotRunningError);
+    });
+
+    it('listUnconsumedTurnInboundEvents returns unconsumed rows oldest first and fences the owner', async () => {
+      const store = createStore();
+      await seedSession(store);
+      await store.createTurn(makeCreateTurnInput({ sessionId, turnId: 'turn-1' }));
+
+      const earlier = {
+        event_id: 'evt-a',
+        payload: {
+          type: 'user.tool_approval' as const,
+          thread_id: 'main',
+          tool_call_id: 'tc-1',
+          approval: { status: 'allow' as const },
+        },
+        created_at: '2020-01-01T00:00:00.000Z',
+      };
+      const later = {
+        event_id: 'evt-b',
+        payload: {
+          type: 'user.tool_approval' as const,
+          thread_id: 'main',
+          tool_call_id: 'tc-2',
+          approval: { status: 'deny' as const, reason: 'nope' },
+        },
+        created_at: '2020-01-02T00:00:00.000Z',
+      };
+      await store.insertTurnInboundEvents({
+        active_executor_id: TEST_ACTIVE_EXECUTOR_ID,
+        session_id: sessionId,
+        turn_id: 'turn-1',
+        events: [later, earlier],
+      });
+
+      const listed = await store.listUnconsumedTurnInboundEvents({
+        active_executor_id: TEST_ACTIVE_EXECUTOR_ID,
+        session_id: sessionId,
+        turn_id: 'turn-1',
+      });
+      expect(listed.map(row => row.event_id)).toEqual(['evt-a', 'evt-b']);
+      expect(listed[0]?.payload).toEqual(earlier.payload);
+      expect(listed[0]?.created_at).toEqual(new Date(earlier.created_at));
+      expect(listed[1]?.created_at).toEqual(new Date(later.created_at));
+
+      await expect(
+        store.listUnconsumedTurnInboundEvents({
+          active_executor_id: 'other-executor',
+          session_id: sessionId,
+          turn_id: 'turn-1',
+        }),
+      ).rejects.toBeInstanceOf(TurnOwnershipLostError);
+
+      await finishTurn(store, 'turn-1');
+      await expect(
+        store.listUnconsumedTurnInboundEvents({
+          active_executor_id: TEST_ACTIVE_EXECUTOR_ID,
+          session_id: sessionId,
+          turn_id: 'turn-1',
         }),
       ).rejects.toBeInstanceOf(TurnNotRunningError);
     });

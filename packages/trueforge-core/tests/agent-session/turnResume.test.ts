@@ -7,6 +7,8 @@ import { EventType } from '../../src/agent-session/schemas/events';
 import { CancellationReason } from '../../src/agent-session/schemas/turn';
 import { Sessions } from '../../src/agent-session/Sessions';
 import { InMemorySessionStore } from '../../src/agent-session/store/InMemorySessionStore';
+import { TurnNotFoundError, TurnOwnershipLostError } from '../../src/agent-session/store/SessionStoreErrors';
+import type { TurnHandle } from '../../src/agent-session/TurnHandle';
 import type { AgentCapability } from '../../src/core/capabilities/AgentCapability';
 import { newEventId } from '../../src/core/events/schema';
 import type { IToolSet, ListToolsResponse, ToolSource } from '../../src/core/mcp/IMCPServer';
@@ -496,5 +498,213 @@ describe('TurnHandle.send() MCP-auth continuation', () => {
         },
       ]),
     ).resolves.toBeUndefined();
+  });
+});
+
+describe('SessionHandle.rebuildTurn', () => {
+  const ROOT_FINAL = 'note saved';
+
+  async function createSession() {
+    const store = new InMemorySessionStore();
+    const sessions = new Sessions({ sessionStore: store });
+    const session = await sessions.create({
+      tenant_id: 'tenant-1',
+      session_id: 's1',
+      created_by_subject: { subject_id: 'user-1', subject_type: 'user', subject_display_name: 'user-1' },
+      agent: { type: 'inline', spec: makeAgentSpec() },
+      external_id: null,
+    });
+    return { store, session };
+  }
+
+  async function parkAtApproval(turn: TurnHandle): Promise<AsyncGenerator<unknown>> {
+    const iterator = turn.stream();
+    let step = await withTimeout(iterator.next(), 1_000, 'next until paused');
+    while (!step.done) {
+      const event = step.value as { type: string; state?: { status: string } };
+      if (event.type === EventType.TURN_UPDATE && event.state?.status === 'paused') {
+        return iterator;
+      }
+      step = await withTimeout(iterator.next(), 1_000, 'next until paused');
+    }
+    throw new Error('stream ended before pause');
+  }
+
+  function approvalEvent(eventId: string) {
+    return {
+      event_id: eventId,
+      payload: {
+        type: EventType.USER_TOOL_APPROVAL,
+        thread_id: MAIN_THREAD_ID,
+        tool_call_id: WRITE_NOTE_CALL_ID,
+        approval: { status: 'allow' as const },
+      },
+      created_at: new Date().toISOString(),
+    };
+  }
+
+  it('replays an unconsumed approval without emitting another turn.created', async () => {
+    const { store, session } = await createSession();
+    const live = makeApprovalGatedCapability();
+    const turn = await session.createTurn({
+      turn_id: mintTestTurnId(),
+      active_executor_id: TEST_ACTIVE_EXECUTOR_ID,
+      input: [{ type: EventType.USER_MESSAGE, content: 'hello' }],
+      previous_turn_id: 'none',
+      signal: new AbortController().signal,
+      resolver: makeTestResolver({
+        extraCapabilities: [live.capability],
+        llmCreate: jest.fn().mockImplementation(() => writeNoteToolCallStream()),
+      }),
+    });
+    const parked = await parkAtApproval(turn);
+    expect(live.callTool).not.toHaveBeenCalled();
+
+    const eventId = newEventId();
+    await store.insertTurnInboundEvents({
+      session_id: 's1',
+      turn_id: turn.id,
+      active_executor_id: TEST_ACTIVE_EXECUTOR_ID,
+      events: [approvalEvent(eventId)],
+    });
+
+    const rebuiltCapability = makeApprovalGatedCapability();
+    const rebuilt = await session.rebuildTurn({
+      turn_id: turn.id,
+      active_executor_id: TEST_ACTIVE_EXECUTOR_ID,
+      signal: new AbortController().signal,
+      resolver: makeTestResolver({
+        extraCapabilities: [rebuiltCapability.capability],
+        llmCreate: jest.fn().mockImplementation(() => textReplyStream(ROOT_FINAL)),
+      }),
+    });
+
+    const types: string[] = [];
+    for await (const event of rebuilt.stream()) {
+      types.push(event.type);
+    }
+
+    expect(types).not.toContain(EventType.TURN_CREATED);
+    expect(types[types.length - 1]).toBe(EventType.TURN_DONE);
+    expect(rebuiltCapability.callTool).toHaveBeenCalledTimes(1);
+    expect(live.callTool).not.toHaveBeenCalled();
+    const storedEvents = await store.listTurnEvents({
+      session_id: 's1',
+      turn_id: turn.id,
+      limit: 50,
+      page_token: undefined,
+      order: 'asc',
+    });
+    expect(storedEvents.data.filter(event => event.type === EventType.TURN_CREATED)).toHaveLength(1);
+
+    await withTimeout(parked.return(undefined), 1_000, 'release parked stream');
+  });
+
+  it('skips an approval that is already applied in the snapshot', async () => {
+    const { store, session } = await createSession();
+    const live = makeApprovalGatedCapability();
+    const turn = await session.createTurn({
+      turn_id: mintTestTurnId(),
+      active_executor_id: TEST_ACTIVE_EXECUTOR_ID,
+      input: [{ type: EventType.USER_MESSAGE, content: 'hello' }],
+      previous_turn_id: 'none',
+      signal: new AbortController().signal,
+      resolver: makeTestResolver({
+        extraCapabilities: [live.capability],
+        llmCreate: jest.fn().mockImplementation(() => writeNoteToolCallStream()),
+      }),
+    });
+    const parked = await parkAtApproval(turn);
+
+    const stored = await store.getTurn({ session_id: 's1', turn_id: turn.id });
+    const thread = stored?.snapshot.threads[MAIN_THREAD_ID];
+    if (!thread) {
+      throw new Error('missing main thread');
+    }
+    await store.appendToThreadContext({
+      session_id: 's1',
+      turn_id: turn.id,
+      active_executor_id: TEST_ACTIVE_EXECUTOR_ID,
+      thread_id: MAIN_THREAD_ID,
+      context: [
+        {
+          type: EventType.USER_TOOL_APPROVAL,
+          tool_call_id: WRITE_NOTE_CALL_ID,
+          approval: { status: 'allow' },
+        },
+        {
+          role: 'tool',
+          tool_call_id: WRITE_NOTE_CALL_ID,
+          content: WRITE_NOTE_RESULT,
+        },
+      ],
+      current_context_usage: thread.current_context_usage,
+      completion: null,
+    });
+    await store.insertTurnInboundEvents({
+      session_id: 's1',
+      turn_id: turn.id,
+      active_executor_id: TEST_ACTIVE_EXECUTOR_ID,
+      events: [approvalEvent(newEventId())],
+    });
+
+    const rebuiltCapability = makeApprovalGatedCapability();
+    const rebuilt = await session.rebuildTurn({
+      turn_id: turn.id,
+      active_executor_id: TEST_ACTIVE_EXECUTOR_ID,
+      signal: new AbortController().signal,
+      resolver: makeTestResolver({
+        extraCapabilities: [rebuiltCapability.capability],
+        llmCreate: jest.fn().mockImplementation(() => textReplyStream(ROOT_FINAL)),
+      }),
+    });
+    const types: string[] = [];
+    for await (const event of rebuilt.stream()) {
+      types.push(event.type);
+    }
+
+    expect(types).not.toContain(EventType.TURN_CREATED);
+    expect(rebuiltCapability.callTool).not.toHaveBeenCalled();
+    expect(live.callTool).not.toHaveBeenCalled();
+    await withTimeout(parked.return(undefined), 1_000, 'release parked stream');
+  });
+
+  it('rejects a missing turn, a running turn, and a stale executor', async () => {
+    const { session } = await createSession();
+    const turn = await session.createTurn({
+      turn_id: mintTestTurnId(),
+      active_executor_id: TEST_ACTIVE_EXECUTOR_ID,
+      input: [{ type: EventType.USER_MESSAGE, content: 'hello' }],
+      previous_turn_id: 'none',
+      signal: new AbortController().signal,
+      resolver: makeTestResolver(),
+    });
+
+    await expect(
+      session.rebuildTurn({
+        turn_id: 'missing-turn',
+        active_executor_id: TEST_ACTIVE_EXECUTOR_ID,
+        signal: new AbortController().signal,
+        resolver: makeTestResolver(),
+      }),
+    ).rejects.toBeInstanceOf(TurnNotFoundError);
+
+    await expect(
+      session.rebuildTurn({
+        turn_id: turn.id,
+        active_executor_id: TEST_ACTIVE_EXECUTOR_ID,
+        signal: new AbortController().signal,
+        resolver: makeTestResolver(),
+      }),
+    ).rejects.toThrow(`Turn ${turn.id} must be paused to rebuild`);
+
+    await expect(
+      session.rebuildTurn({
+        turn_id: turn.id,
+        active_executor_id: 'other-executor',
+        signal: new AbortController().signal,
+        resolver: makeTestResolver(),
+      }),
+    ).rejects.toBeInstanceOf(TurnOwnershipLostError);
   });
 });

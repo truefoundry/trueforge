@@ -1,4 +1,8 @@
-import type { InsertTurnInboundEventsInput } from '@truefoundry/trueforge-core/agent-session/store/ISessionStore';
+import type {
+  InsertTurnInboundEventsInput,
+  ListUnconsumedTurnInboundEventsInput,
+  TurnInboundEventRecord,
+} from '@truefoundry/trueforge-core/agent-session/store/ISessionStore';
 import {
   SessionNotFoundError,
   TurnEventAlreadyExistsError,
@@ -97,4 +101,32 @@ export async function insertTurnInboundEvents(
     }
     throw error;
   }
+}
+
+export async function listUnconsumedTurnInboundEvents(
+  db: Kysely<Database>,
+  input: ListUnconsumedTurnInboundEventsInput,
+): Promise<TurnInboundEventRecord[]> {
+  const keys: TurnKeys = {
+    session_id: input.session_id,
+    turn_id: input.turn_id,
+    active_executor_id: input.active_executor_id,
+  };
+  return db.transaction().execute(async trx => {
+    await assertTurnNonTerminal(trx, keys);
+    const rows = await trx
+      .selectFrom('turn_inbound_events')
+      .select(['event_id', 'payload', 'created_at'])
+      .where('session_id', '=', input.session_id)
+      .where('turn_id', '=', input.turn_id)
+      .where('consumed', '=', 0)
+      .orderBy('created_at', 'asc')
+      .orderBy('event_id', 'asc')
+      .execute();
+    return rows.map(row => ({
+      event_id: row.event_id,
+      payload: row.payload,
+      created_at: new Date(row.created_at),
+    }));
+  });
 }

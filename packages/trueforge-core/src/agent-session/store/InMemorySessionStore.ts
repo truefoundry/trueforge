@@ -26,6 +26,7 @@ import type {
   ListSessionsInput,
   ListTurnEventsInput,
   ListTurnsInput,
+  ListUnconsumedTurnInboundEventsInput,
   NewThreadInit,
   OverwriteThreadContextInput,
   PatchMCPServersInput,
@@ -34,6 +35,7 @@ import type {
   PatchThreadsMCPAuthInput,
   RemoveThreadsInput,
   TurnContextAppend,
+  TurnInboundEventRecord,
   TurnRecordWithoutSnapshot,
   UpdateSessionInput,
   UpdateTurnNonTerminalStateInput,
@@ -547,7 +549,10 @@ export class InMemorySessionStore<
   }
 
   async patchThreadsMCPAuth(input: PatchThreadsMCPAuthInput): Promise<void> {
-    const turn = this.requireNonTerminalTurn(input.session_id, input.turn_id);
+    const turn = this.requireTurn(input.session_id, input.turn_id);
+    if (turn.state.status !== 'running' && turn.state.status !== 'paused') {
+      throw new TurnNotRunningError(input.turn_id, turn.state);
+    }
     const threads = input.thread_ids.map(threadId => {
       const thread = turn.snapshot.threads[threadId];
       if (!thread) {
@@ -593,6 +598,25 @@ export class InMemorySessionStore<
         consumed: false,
       });
     }
+  }
+
+  async listUnconsumedTurnInboundEvents(
+    input: ListUnconsumedTurnInboundEventsInput,
+  ): Promise<TurnInboundEventRecord[]> {
+    this.requireSession(input.session_id);
+    this.requireNonTerminalTurn(input);
+    const list = this.inboundEvents.get(turnKey(input)) ?? [];
+    return list
+      .filter(row => !row.consumed)
+      .map(row => ({
+        event_id: row.event_id,
+        payload: deepCopy(row.payload),
+        created_at: new Date(row.created_at),
+      }))
+      .sort(
+        (left, right) =>
+          left.created_at.getTime() - right.created_at.getTime() || left.event_id.localeCompare(right.event_id),
+      );
   }
 
   /** Cost from turn metrics when present; duration is completed_at − created_at, floored at 0. */

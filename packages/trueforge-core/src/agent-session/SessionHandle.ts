@@ -20,6 +20,7 @@ import type { TokenPagination } from './schemas/pagination';
 import type { SessionAgent } from './schemas/session';
 import { CancellationReason } from './schemas/turn';
 import type { ISessionStore, NewThreadInit, TurnContextAppend, TurnRecordWithoutSnapshot } from './store/ISessionStore';
+import { TurnNotFoundError, TurnNotRunningError, TurnOwnershipLostError } from './store/SessionStoreErrors';
 import { TurnHandle } from './TurnHandle';
 
 /** How many recent ancestors SessionHandle persists on each turn. Store-local. */
@@ -310,6 +311,107 @@ export class SessionHandle<
     } catch (error) {
       await input.resolver.close().catch((closeError: unknown) => {
         input.resolver.logger.warn('TurnResourceResolver.close() failed after createTurn() error', {
+          err: closeError,
+        });
+      });
+      throw error;
+    }
+  }
+
+  /**
+   * Rebuild a paused turn from its own snapshot and return a handle whose stream
+   * resumes execution. Does not create a turn, freeze a predecessor, or re-send
+   * the original input. The caller must already own `active_executor_id`.
+   */
+  async rebuildTurn(input: {
+    turn_id: string;
+    active_executor_id: string;
+    signal: AbortSignal;
+    resolver: ITurnResourceResolver<TTurnCustom>;
+  }): Promise<TurnHandle<TTurnCustom>> {
+    try {
+      const turn = await this.store.getTurn({
+        session_id: this.session.session_id,
+        turn_id: input.turn_id,
+      });
+      if (!turn) {
+        throw new TurnNotFoundError(input.turn_id);
+      }
+      if (turn.active_executor_id !== input.active_executor_id) {
+        throw new TurnOwnershipLostError({
+          turn_id: input.turn_id,
+          active_executor_id: input.active_executor_id,
+        });
+      }
+      if (turn.state.status === 'running') {
+        throw new Error(`Turn ${input.turn_id} must be paused to rebuild`);
+      }
+      if (turn.state.status !== 'paused') {
+        throw new TurnNotRunningError(input.turn_id, turn.state);
+      }
+
+      const tracing = input.resolver.createTracing();
+      const agent = this.session.agent;
+      const spec = agent.type === 'inline' ? agent.spec : await input.resolver.resolveAgentSpec({ agent_id: agent.id });
+      const sandbox = await input.resolver.resolveSandbox({
+        spec,
+        existing: turn.snapshot.sandbox_info ?? undefined,
+        previousTurn: turn,
+        signal: input.signal,
+        tracing,
+      });
+
+      const definitionsByThreadId = await this.resolveAgentDefinitions({
+        previous: turn,
+        resolver: input.resolver,
+        spec,
+        tracing,
+        signal: input.signal,
+      });
+
+      const mainDefinition = definitionsByThreadId.get(MAIN_THREAD_ID);
+      if (!mainDefinition) {
+        throw new Error('Unreachable: missing resolved agent definition for main thread');
+      }
+      if (sandbox) {
+        sandbox.configureCodeMode(mainDefinition.definition.toolSets ?? []);
+      }
+
+      const agentThreads = this.buildThreads({
+        previous: turn,
+        resolver: input.resolver,
+        spec,
+        sandbox,
+        tracing,
+        definitionsByThreadId,
+      });
+
+      const createDynamicSubAgentThread = this.makeCreateDynamicSubAgentThread({
+        resolver: input.resolver,
+        previous: turn,
+        spec,
+        sandbox,
+        tracing,
+      });
+
+      const orchestrator = new AgentThreadOrchestrator({
+        agentThreads,
+        createDynamicSubAgentThread,
+        tracing,
+        logger: input.resolver.logger,
+      });
+
+      return new TurnHandle({
+        store: this.store,
+        turn,
+        orchestrator,
+        resolver: input.resolver,
+        signal: input.signal,
+        resume: true,
+      });
+    } catch (error) {
+      await input.resolver.close().catch((closeError: unknown) => {
+        input.resolver.logger.warn('TurnResourceResolver.close() failed after rebuildTurn() error', {
           err: closeError,
         });
       });

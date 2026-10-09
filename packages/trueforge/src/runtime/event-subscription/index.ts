@@ -19,6 +19,12 @@ export interface EventSubscriptionPollOptions {
  * Per-stream state (e.g. the sequence counter) lives on the instance and is freed with it.
  */
 export interface EventSubscription<T extends object> {
+  /**
+   * Seeds the producer sequence from the last stored entry and refreshes the stream TTL.
+   * A missing stream stays at 1. Call this on a new producer before put.
+   */
+  resumeProducer(options?: EventSubscriptionPutOptions): Promise<void>;
+
   /** Appends an event, assigns its sequence number, and returns that number. */
   put(event: T, options?: EventSubscriptionPutOptions): Promise<number>;
 

@@ -124,4 +124,20 @@ export function runEventSubscriptionContractSuite(createRegistry: () => EventSub
       { ...makeEvent(2), sequence_number: 3 },
     ]);
   });
+
+  it('resumeProducer continues the sequence from the last stored entry', async () => {
+    const registry = createRegistry();
+    const streamId = nextStreamId();
+    const first = registry.get(streamId);
+    await first.put(makeEvent(0), { streamTTLSeconds: STREAM_TTL_SECONDS });
+    await first.put(makeEvent(1), { streamTTLSeconds: STREAM_TTL_SECONDS });
+
+    const resumed = registry.get(streamId);
+    await resumed.resumeProducer({ streamTTLSeconds: STREAM_TTL_SECONDS });
+    const sequenceNumber = await resumed.put(makeEvent(2), { streamTTLSeconds: STREAM_TTL_SECONDS });
+    expect(sequenceNumber).toBe(3);
+
+    const received = await collect(registry, streamId, 1, 2);
+    expect(received).toEqual([{ ...makeEvent(2), sequence_number: 3 }]);
+  });
 }
