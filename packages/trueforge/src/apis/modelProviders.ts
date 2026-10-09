@@ -10,7 +10,6 @@ import {
   type ModelProviderRecord,
 } from '../db/modelProviderStore';
 import type { WithTransaction } from '../db/transaction';
-import { API_KEY_REQUIRED, OUTBOUND_URL_BLOCKED } from '../http/clientErrorMessages';
 import {
   createModelProviderRoute,
   deleteModelProviderRoute,
@@ -105,7 +104,7 @@ export function createModelProvidersRouter<TTransaction>(deps: ModelProvidersRou
     try {
       await assertSafeOutboundUrl(provider.base_url);
     } catch (error) {
-      const message = error instanceof Error ? error.message : OUTBOUND_URL_BLOCKED;
+      const message = error instanceof Error ? error.message : 'Outbound URL blocked';
       throw new HTTPException(400, { message: message, cause: error });
     }
     try {
@@ -119,7 +118,7 @@ export function createModelProvidersRouter<TTransaction>(deps: ModelProvidersRou
       return c.json({ data: toWireProvider(record) }, 201);
     } catch (error) {
       if (error instanceof MissingStoredSecretError) {
-        throw new HTTPException(400, { message: API_KEY_REQUIRED, cause: error });
+        throw new HTTPException(400, { message: 'API key is required', cause: error });
       }
       if (error instanceof ModelProviderNameConflictError) {
         return c.json({ error: { message: error.message } }, 409);
@@ -137,7 +136,7 @@ export function createModelProvidersRouter<TTransaction>(deps: ModelProvidersRou
     try {
       await assertSafeOutboundUrl(provider.base_url);
     } catch (error) {
-      const message = error instanceof Error ? error.message : OUTBOUND_URL_BLOCKED;
+      const message = error instanceof Error ? error.message : 'Outbound URL blocked';
       throw new HTTPException(400, { message: message, cause: error });
     }
     try {
@@ -174,7 +173,7 @@ export function createModelProvidersRouter<TTransaction>(deps: ModelProvidersRou
       return c.json({ data: toWireProvider(outcome.record) }, 200);
     } catch (error) {
       if (error instanceof MissingStoredSecretError) {
-        throw new HTTPException(400, { message: API_KEY_REQUIRED, cause: error });
+        throw new HTTPException(400, { message: 'API key is required', cause: error });
       }
       throw error;
     }

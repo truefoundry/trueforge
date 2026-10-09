@@ -20,7 +20,6 @@ import {
   type McpServerRecord,
 } from '../db/mcpServerStore';
 import type { WithTransaction } from '../db/transaction';
-import { HEADER_SECRET_REQUIRED, OUTBOUND_URL_BLOCKED } from '../http/clientErrorMessages';
 import { createMcpOAuthClient } from '../mcp/auth/mcpDcr';
 import { mcpOAuthCallbackUrl } from '../mcp/auth/mcpOAuthHelpers';
 import type { IOAuthTokenStore, OAuthClientRecord } from '../mcp/auth/types';
@@ -208,7 +207,7 @@ export function createSettingsMcpServersRouter<TTransaction>(deps: SettingsMcpSe
     try {
       await assertSafeOutboundUrl(incomingManifest.url);
     } catch (error) {
-      const message = error instanceof Error ? error.message : OUTBOUND_URL_BLOCKED;
+      const message = error instanceof Error ? error.message : 'Outbound URL blocked';
       throw new HTTPException(400, { message: message, cause: error });
     }
 
@@ -240,7 +239,7 @@ export function createSettingsMcpServersRouter<TTransaction>(deps: SettingsMcpSe
       });
     } catch (error) {
       if (error instanceof MissingStoredSecretError) {
-        throw new HTTPException(400, { message: HEADER_SECRET_REQUIRED, cause: error });
+        throw new HTTPException(400, { message: 'Header secret is required', cause: error });
       }
       throw error;
     }
@@ -288,7 +287,7 @@ export function createSettingsMcpServersRouter<TTransaction>(deps: SettingsMcpSe
     try {
       await assertSafeOutboundUrl(incomingManifest.url);
     } catch (error) {
-      const message = error instanceof Error ? error.message : OUTBOUND_URL_BLOCKED;
+      const message = error instanceof Error ? error.message : 'Outbound URL blocked';
       throw new HTTPException(400, { message: message, cause: error });
     }
 
@@ -359,7 +358,7 @@ export function createSettingsMcpServersRouter<TTransaction>(deps: SettingsMcpSe
       );
     } catch (error) {
       if (error instanceof MissingStoredSecretError) {
-        throw new HTTPException(400, { message: HEADER_SECRET_REQUIRED, cause: error });
+        throw new HTTPException(400, { message: 'Header secret is required', cause: error });
       }
       if (error instanceof McpConnectionError) {
         deps.logger.error(

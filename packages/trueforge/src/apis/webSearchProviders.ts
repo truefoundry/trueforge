@@ -3,7 +3,6 @@ import type { Context } from 'hono';
 import { HTTPException } from 'hono/http-exception';
 import type { ResolveRequestContext } from '../auth/identity';
 import type { IWebSearchProviderStore, WebSearchProviderRecord } from '../db/webSearchProviderStore';
-import { API_KEY_REQUIRED } from '../http/clientErrorMessages';
 import { getWebSearchProviderRoute, putWebSearchProviderRoute } from '../routes/webSearchProviderRoutes';
 import {
   webSearchProviderName,
@@ -75,7 +74,7 @@ export function createWebSearchProvidersRouter(deps: WebSearchProvidersRouterDep
       return c.json({ data: toWireProvider(record) }, 200);
     } catch (error) {
       if (error instanceof MissingStoredSecretError) {
-        throw new HTTPException(400, { message: API_KEY_REQUIRED, cause: error });
+        throw new HTTPException(400, { message: 'API key is required', cause: error });
       }
       throw error;
     }
