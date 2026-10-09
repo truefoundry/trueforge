@@ -51,6 +51,7 @@ import type { ISkillStore } from './db/skillStore';
 import type { WithTransaction } from './db/transaction';
 import type { IWebSearchProviderStore } from './db/webSearchProviderStore';
 import { createClientCertificateMiddleware } from './http/tls';
+import { REQUEST_ID_HEADER, resolveRequestId, runWithLogContext } from './logging/logContext';
 import type { IOAuthTokenStore } from './mcp/auth/types';
 import { PACKAGE_VERSION } from './packageVersion';
 import { OPENAPI_DOCUMENT_TAGS } from './routes/openapiTags';
@@ -73,6 +74,15 @@ function withAdminAuth(router: OpenAPIHono, middleware: MiddlewareHandler): Open
   shell.use('*', middleware);
   shell.route('/', router);
   return shell;
+}
+
+/** One id per request, echoed on the response, so every log line from the request can be grouped. */
+export function createRequestLogContextMiddleware(): MiddlewareHandler {
+  return async (c, next) => {
+    const request_id = resolveRequestId(c.req.header(REQUEST_ID_HEADER));
+    c.header(REQUEST_ID_HEADER, request_id);
+    await runWithLogContext({ request_id }, () => next());
+  };
 }
 
 /** One line per request: method, path, status, duration. Skips `/healthz` and `/assets/`. */
@@ -252,6 +262,7 @@ export function createServerApp<TTransaction>(deps: ServerDeps<TTransaction>) {
     turnSkillsResolverStore: deps.turnSkillsResolverStore,
   };
 
+  app.use('*', createRequestLogContextMiddleware());
   if (configuration.ACCESS_LOGS) {
     app.use('*', createAccessLogMiddleware(deps.logger));
   }

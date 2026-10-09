@@ -45,7 +45,6 @@ import {
   type RawAssistantMessageWithUsage,
   type ThinkingBlock,
 } from './LLMTypes';
-
 // ---------------------------------------------------------------------------
 // Public config
 // ---------------------------------------------------------------------------
@@ -1004,11 +1003,19 @@ export function describeStreamError(raw: unknown): string {
   return describeUnknownError(raw);
 }
 
-export function toStreamError(raw: unknown): Error {
-  if (raw instanceof Error) {
+function isAbortError(error: unknown): error is Error {
+  return error instanceof Error && error.name === 'AbortError';
+}
+
+/**
+ * Names the model call that failed (`provider.name/model.name`) and keeps the provider or
+ * transport reason. Abort stays unchanged. Wrap exactly once, at the call site.
+ */
+export function toStreamError(raw: unknown, modelLabel: string): Error {
+  if (isAbortError(raw)) {
     return raw;
   }
-  return new Error(describeStreamError(raw), { cause: raw });
+  return new Error(`Model request failed: ${modelLabel}: ${describeStreamError(raw)}`, { cause: raw });
 }
 
 export function mapFinishReason(reason: FinishReason): RawAssistantMessageWithUsage['finish_reason'] {
@@ -1306,7 +1313,7 @@ export async function* mapStreamToChunks({
       case 'error': {
         const raw = part.error;
         const message = describeStreamError(raw);
-        // Preserve the original stream error as cause; toast/turn use .message only.
+        // Preserve the original stream error as cause; create() names the model call around it.
         const cause = raw instanceof Error ? raw : new Error(message);
         throw new Error(message, { cause });
       }
@@ -1432,6 +1439,8 @@ export class VercelAILLM implements ILLM {
       abortSignal: this.signal,
     });
 
+    const modelLabel = `${provider.name}/${model.name}`;
+
     let streamResult;
     try {
       streamResult = streamText({
@@ -1441,10 +1450,9 @@ export class VercelAILLM implements ILLM {
     } catch (error) {
       if (this.signal?.aborted) {
         this.logger.debug('LLM call aborted', extractErrorLogFields(error));
-      } else {
-        this.logger.error('Error creating streaming chat completion', extractErrorLogFields(error));
       }
-      throw toStreamError(error);
+      // Not logged here: the caller that turns this into a turn failure logs it once.
+      throw toStreamError(error, modelLabel);
     }
 
     // Detached: warnings resolve at stream start, and a pending or rejected promise must never
@@ -1479,10 +1487,8 @@ export class VercelAILLM implements ILLM {
     } catch (error) {
       if (this.signal?.aborted) {
         this.logger.debug('LLM stream aborted', extractErrorLogFields(error));
-      } else {
-        this.logger.error('Error reading LLM stream', extractErrorLogFields(error));
       }
-      throw toStreamError(error);
+      throw toStreamError(error, modelLabel);
     }
   }
 

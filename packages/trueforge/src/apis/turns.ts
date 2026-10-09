@@ -45,6 +45,7 @@ import type { ISandboxProviderStore } from '../db/sandboxProviderStore';
 import type { ISkillStore } from '../db/skillStore';
 import type { TurnMetadata } from '../db/turnMetadata';
 import type { IWebSearchProviderStore } from '../db/webSearchProviderStore';
+import { bindLogContext } from '../logging/logContext';
 import {
   createAndExecuteTurnRoute,
   createTurnEventRoute,
@@ -415,6 +416,7 @@ export async function beginTurnExecution(
   assertGatewayMetadataRequestHeaders(requestHeaders);
   const sessionId = session.session_id;
   const turnId = newId();
+  bindLogContext({ turn_id: turnId });
   const sessionAgent = session.record.agent;
 
   const abortController = new AbortController();
