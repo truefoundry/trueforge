@@ -83,6 +83,7 @@ import {
   assistantMessageContentToStringForSubAgent,
   estimateTokensForContextMessages,
   INTERNAL_SYSTEM_PROMPT,
+  internalSystemMessage,
   isApprovalDecisionMessage,
   isClientSideToolResponseMessage,
   isInputUserMessage,
@@ -1173,11 +1174,21 @@ export class AgentThread {
     });
 
     let completion: SubAgentCompletion | undefined;
+    const reasoningTokens = result.value.usage.reasoning_tokens;
+    const outputTokens = result.value.usage.output_tokens;
+    const isReasoningDominated =
+      reasoningTokens !== undefined &&
+      reasoningTokens > 0 &&
+      (outputTokens === 0 || reasoningTokens >= outputTokens / 2);
+    const baseLengthErrorMessage = isReasoningDominated
+      ? 'max_tokens breached: output budget was exhausted by reasoning tokens. Consider increasing model.params.max_tokens or adjusting reasoning_effort.'
+      : 'max_tokens breached';
+
     if (this.parent) {
       if (finishReason === 'length') {
         const errorMessage = assistantMessageContentToStringForSubAgent(
           assistantMessage.content,
-          'max_tokens breached',
+          baseLengthErrorMessage,
         );
         completion = {
           type: 'error',
@@ -1204,7 +1215,7 @@ export class AgentThread {
     });
 
     if (finishReason === 'length') {
-      const errorContent = completion?.type === 'error' ? completion.error_message : 'max_tokens breached';
+      const errorContent = completion?.type === 'error' ? completion.error_message : baseLengthErrorMessage;
       yield this.generateErrorEvent(errorContent, agentAssistantMessage);
       return { outcome: 'exit', modelMessageEventId };
     }
@@ -1459,6 +1470,20 @@ export class AgentThread {
             // Cancel only before network/side-effecting steps (LLM call, tool execution), never before 'user-input-required', so the required event is always emitted once the assistant message is committed.
             if (signal?.aborted) {
               return;
+            }
+            const remaining = iterationLimit - this.metrics.iterations;
+            const reserve = Math.min(3, iterationLimit - 1);
+            if (reserve >= 1 && remaining === reserve) {
+              yield* this.appendToContext({
+                context: [
+                  internalSystemMessage(
+                    `You have ${String(remaining)} LLM calls remaining in this turn. Please finish your work, write any pending files/outputs now, and summarize what is incomplete.`,
+                  ),
+                ],
+                output: [],
+                currentContextUsage: undefined,
+                usage: undefined,
+              });
             }
             if (this.metrics.iterations >= iterationLimit) {
               yield this.generateErrorEvent(
