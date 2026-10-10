@@ -1,3 +1,4 @@
+import type { AgentCapability } from '../../src/core/capabilities/AgentCapability';
 import { EventType } from '../../src/core/events/schema';
 import type { ILLM } from '../../src/core/llm/ILLM';
 import type {
@@ -9,6 +10,7 @@ import { getEmptyUsage } from '../../src/core/llm/LLMTypes';
 import type { IToolSet } from '../../src/core/mcp/IMCPServer';
 import { toolResultResponse } from '../../src/core/mcp/IMCPServer';
 import { AgentThread } from '../../src/core/runtime/AgentThread';
+import type { ContextMessage } from '../../src/core/runtime/AgentThread.types';
 import { AgentThreadOrchestrator } from '../../src/core/runtime/AgentThreadOrchestrator';
 import { NOOP_AGENT_TRACING } from '../../src/core/tracing/NoopAgentTracing';
 import { makeSilentLogger, OBJECT_INPUT_SCHEMA } from '../core/harnessMocks';
@@ -126,37 +128,57 @@ function hasMessagesArray(value: unknown): value is { messages: { role: string; 
   return isJsonObject(value) && Array.isArray(value['messages']);
 }
 
+function createTestSetup(options?: {
+  iterationLimit?: number | undefined;
+  toolSets?: IToolSet[] | undefined;
+  capabilities?: AgentCapability[] | undefined;
+  context?: ContextMessage[] | undefined;
+  instruction?: string | undefined;
+  mockLLM?: ILLM | undefined;
+}) {
+  const toolSet = options?.toolSets ?? [makeMockToolSet('mock_server', TOOL_NAME)];
+  const llm: ILLM = options?.mockLLM ?? {
+    create: jest.fn(),
+    createNonStream: jest.fn(),
+  };
+
+  const thread = new AgentThread({
+    definition: {
+      modelClient: llm,
+      instruction: options?.instruction ?? INSTRUCTION,
+      ...(options?.iterationLimit !== undefined ? { iterationLimit: options.iterationLimit } : {}),
+      ...(toolSet ? { toolSets: toolSet } : {}),
+    },
+    threadId: THREAD_ID,
+    title: 'iteration-limit-test',
+    ...(options?.context ? { context: options.context } : {}),
+    ...(options?.capabilities ? { capabilities: options.capabilities } : {}),
+    tracing: NOOP_AGENT_TRACING,
+    logger: makeSilentLogger(),
+  });
+
+  const orchestrator = new AgentThreadOrchestrator({
+    agentThreads: new Map([[thread.threadId, thread]]),
+    createDynamicSubAgentThread: () => Promise.reject(new Error('unexpected sub-agent')),
+    tracing: NOOP_AGENT_TRACING,
+    logger: makeSilentLogger(),
+  });
+
+  return { thread, orchestrator, mockLLM: llm };
+}
+
 describe('orchestration: iteration limit and length error handling', () => {
-  it('appends exactly one wrap-up internal message when iteration limit is 5 before the last reserve calls', async () => {
+  it('ephemerally includes wrap-up internal message on exactly the last 3 requests when iteration limit is 5', async () => {
     let callCounter = 0;
-    const toolSet = makeMockToolSet('mock_server', TOOL_NAME);
     const mockLLM: ILLM = {
       create: jest.fn().mockImplementation(() => {
         callCounter++;
-        return mockToolCallStream(TOOL_NAME, `call-${callCounter}`);
+        return mockToolCallStream(TOOL_NAME, `call-${String(callCounter)}`);
       }),
       createNonStream: jest.fn(),
     };
 
-    const thread = new AgentThread({
-      definition: {
-        modelClient: mockLLM,
-        instruction: INSTRUCTION,
-        iterationLimit: 5,
-        toolSets: [toolSet],
-      },
-      threadId: THREAD_ID,
-      title: 'iteration-limit-test',
-      tracing: NOOP_AGENT_TRACING,
-      logger: makeSilentLogger(),
-    });
-
-    const orchestrator = new AgentThreadOrchestrator({
-      agentThreads: new Map([[thread.threadId, thread]]),
-      createDynamicSubAgentThread: () => Promise.reject(new Error('unexpected sub-agent')),
-      tracing: NOOP_AGENT_TRACING,
-      logger: makeSilentLogger(),
-    });
+    const { thread, orchestrator } = createTestSetup({ iterationLimit: 5, mockLLM });
 
     const { result } = await runTurn({
       orchestrator,
@@ -168,56 +190,181 @@ describe('orchestration: iteration limit and length error handling', () => {
     const inputs = llmCreateInputs(mockLLM).filter(hasMessagesArray);
     expect(inputs).toHaveLength(5);
 
-    // Call 0 (iteration 0): no nudge
+    // Call 1 (index 0): no nudge
     expect(
       inputs[0]?.messages.some(m => typeof m.content === 'string' && m.content.includes('LLM calls remaining')),
     ).toBe(false);
 
-    // Call 1 (iteration 1): no nudge
+    // Call 2 (index 1): no nudge
     expect(
       inputs[1]?.messages.some(m => typeof m.content === 'string' && m.content.includes('LLM calls remaining')),
     ).toBe(false);
 
-    // Call 2 (iteration 2, remaining = 3 = reserve): wrap-up nudge fires!
+    // Call 3 (index 2, 3 calls remaining including this one): wrap-up nudge present
     expect(
-      inputs[2]?.messages.some(m => typeof m.content === 'string' && m.content.includes('3 LLM calls remaining')),
+      inputs[2]?.messages.some(
+        m =>
+          typeof m.content === 'string' && m.content.includes('3 LLM calls remaining in this turn, including this one'),
+      ),
     ).toBe(true);
 
-    // Calls 3 & 4: nudge remains in context
+    // Call 4 (index 3, 2 calls remaining including this one): wrap-up nudge present
     expect(
-      inputs[3]?.messages.some(m => typeof m.content === 'string' && m.content.includes('3 LLM calls remaining')),
+      inputs[3]?.messages.some(
+        m =>
+          typeof m.content === 'string' && m.content.includes('2 LLM calls remaining in this turn, including this one'),
+      ),
     ).toBe(true);
+
+    // Call 5 (index 4, 1 call remaining including this one): wrap-up nudge present
     expect(
-      inputs[4]?.messages.some(m => typeof m.content === 'string' && m.content.includes('3 LLM calls remaining')),
+      inputs[4]?.messages.some(
+        m =>
+          typeof m.content === 'string' && m.content.includes('1 LLM calls remaining in this turn, including this one'),
+      ),
+    ).toBe(true);
+
+    // Verify warning is NOT in thread.toSnapshot().context
+    const snapshotContext = thread.toSnapshot().context;
+    const hasNudgeInSnapshot = snapshotContext.some(
+      m => 'content' in m && typeof m.content === 'string' && m.content.includes('LLM calls remaining'),
+    );
+    expect(hasNudgeInSnapshot).toBe(false);
+  });
+
+  it('does not leak wrap-up message to snapshot context or follow-up turns until reserve', async () => {
+    let callCounter = 0;
+    const mockLLM: ILLM = {
+      create: jest.fn().mockImplementation(() => {
+        callCounter++;
+        if (callCounter <= 4) {
+          return mockToolCallStream(TOOL_NAME, `call-${String(callCounter)}`);
+        }
+        return textReplyStream('turn 1 done');
+      }),
+      createNonStream: jest.fn(),
+    };
+
+    const { thread: thread1, orchestrator: orchestrator1 } = createTestSetup({ iterationLimit: 5, mockLLM });
+
+    await runTurn({
+      orchestrator: orchestrator1,
+      sendBatch: [{ type: EventType.USER_MESSAGE, content: 'turn 1' }],
+    });
+
+    const snapshotContext = thread1.toSnapshot().context;
+    const hasNudgeInSnapshot = snapshotContext.some(
+      m => 'content' in m && typeof m.content === 'string' && m.content.includes('LLM calls remaining'),
+    );
+    expect(hasNudgeInSnapshot).toBe(false);
+
+    let turn2CallCounter = 0;
+    const mockLLM2: ILLM = {
+      create: jest.fn().mockImplementation(() => {
+        turn2CallCounter++;
+        return mockToolCallStream(TOOL_NAME, `turn2-call-${String(turn2CallCounter)}`);
+      }),
+      createNonStream: jest.fn(),
+    };
+
+    const { orchestrator: orchestrator2 } = createTestSetup({
+      iterationLimit: 5,
+      context: snapshotContext,
+      mockLLM: mockLLM2,
+    });
+
+    await runTurn({
+      orchestrator: orchestrator2,
+      sendBatch: [{ type: EventType.USER_MESSAGE, content: 'turn 2' }],
+    });
+
+    const inputs2 = llmCreateInputs(mockLLM2).filter(hasMessagesArray);
+    expect(inputs2).toHaveLength(5);
+
+    // Turn 2 calls 1 & 2: NO warning
+    expect(
+      inputs2[0]?.messages.some(m => typeof m.content === 'string' && m.content.includes('LLM calls remaining')),
+    ).toBe(false);
+    expect(
+      inputs2[1]?.messages.some(m => typeof m.content === 'string' && m.content.includes('LLM calls remaining')),
+    ).toBe(false);
+
+    // Turn 2 call 3: HAS warning with count 3
+    expect(
+      inputs2[2]?.messages.some(
+        m =>
+          typeof m.content === 'string' && m.content.includes('3 LLM calls remaining in this turn, including this one'),
+      ),
+    ).toBe(true);
+  });
+
+  it('retains wrap-up warning in request body when ContextCompaction overwrites context on reserve call', async () => {
+    let callCounter = 0;
+    const mockLLM: ILLM = {
+      create: jest.fn().mockImplementation(() => {
+        callCounter++;
+        return mockToolCallStream(TOOL_NAME, `call-${String(callCounter)}`);
+      }),
+      createNonStream: jest.fn(),
+    };
+
+    const mockCompactionProcessor = {
+      processPreLLM: jest.fn().mockImplementation(async function* () {
+        // preLLM for call 3 runs when callCounter is 2 (from previous 2 completed calls)
+        if (callCounter === 2) {
+          yield {
+            type: EventType.AGENT_CONTEXT_OVERWRITE,
+            id: 'compaction-event',
+            created_at: new Date().toISOString(),
+            reason: 'compaction',
+            context: [{ role: 'assistant', content: 'compacted context summary' }],
+            current_context_usage: { prompt_tokens: 10, completion_tokens: 0 },
+            usage: getEmptyUsage(),
+          };
+        }
+      }),
+    };
+
+    const compactionCapability: AgentCapability = {
+      preLLMProcessors: [mockCompactionProcessor],
+    };
+
+    const { orchestrator } = createTestSetup({
+      iterationLimit: 5,
+      mockLLM,
+      capabilities: [compactionCapability],
+    });
+
+    await runTurn({
+      orchestrator,
+      sendBatch: [{ type: EventType.USER_MESSAGE, content: 'hello' }],
+    });
+
+    const inputs = llmCreateInputs(mockLLM).filter(hasMessagesArray);
+    expect(inputs).toHaveLength(5);
+
+    // Call 3 (index 2): ContextCompaction ran in preLLM and overwrote context with 'compacted context summary'
+    const call3Messages = inputs[2]?.messages ?? [];
+    expect(
+      call3Messages.some(m => typeof m.content === 'string' && m.content.includes('compacted context summary')),
+    ).toBe(true);
+
+    // AND the wrap-up warning is STILL present in call 3 request messages
+    expect(
+      call3Messages.some(
+        m =>
+          typeof m.content === 'string' && m.content.includes('3 LLM calls remaining in this turn, including this one'),
+      ),
     ).toBe(true);
   });
 
   it('skips wrap-up message when iterationLimit is 1', async () => {
-    const toolSet = makeMockToolSet('mock_server', TOOL_NAME);
     const mockLLM: ILLM = {
       create: jest.fn().mockImplementation(() => mockToolCallStream(TOOL_NAME, 'call-1')),
       createNonStream: jest.fn(),
     };
 
-    const thread = new AgentThread({
-      definition: {
-        modelClient: mockLLM,
-        instruction: INSTRUCTION,
-        iterationLimit: 1,
-        toolSets: [toolSet],
-      },
-      threadId: THREAD_ID,
-      title: 'iteration-limit-1-test',
-      tracing: NOOP_AGENT_TRACING,
-      logger: makeSilentLogger(),
-    });
-
-    const orchestrator = new AgentThreadOrchestrator({
-      agentThreads: new Map([[thread.threadId, thread]]),
-      createDynamicSubAgentThread: () => Promise.reject(new Error('unexpected sub-agent')),
-      tracing: NOOP_AGENT_TRACING,
-      logger: makeSilentLogger(),
-    });
+    const { orchestrator } = createTestSetup({ iterationLimit: 1, mockLLM });
 
     const { result } = await runTurn({
       orchestrator,
@@ -239,24 +386,7 @@ describe('orchestration: iteration limit and length error handling', () => {
       createNonStream: jest.fn(),
     };
 
-    const thread = new AgentThread({
-      definition: {
-        modelClient: mockLLM,
-        instruction: INSTRUCTION,
-        iterationLimit: 5,
-      },
-      threadId: THREAD_ID,
-      title: 'early-finish-test',
-      tracing: NOOP_AGENT_TRACING,
-      logger: makeSilentLogger(),
-    });
-
-    const orchestrator = new AgentThreadOrchestrator({
-      agentThreads: new Map([[thread.threadId, thread]]),
-      createDynamicSubAgentThread: () => Promise.reject(new Error('unexpected sub-agent')),
-      tracing: NOOP_AGENT_TRACING,
-      logger: makeSilentLogger(),
-    });
+    const { orchestrator } = createTestSetup({ iterationLimit: 5, mockLLM });
 
     const { result } = await runTurn({
       orchestrator,
@@ -284,23 +414,7 @@ describe('orchestration: iteration limit and length error handling', () => {
       createNonStream: jest.fn(),
     };
 
-    const thread = new AgentThread({
-      definition: {
-        modelClient: mockLLM,
-        instruction: INSTRUCTION,
-      },
-      threadId: THREAD_ID,
-      title: 'reasoning-length-test',
-      tracing: NOOP_AGENT_TRACING,
-      logger: makeSilentLogger(),
-    });
-
-    const orchestrator = new AgentThreadOrchestrator({
-      agentThreads: new Map([[thread.threadId, thread]]),
-      createDynamicSubAgentThread: () => Promise.reject(new Error('unexpected sub-agent')),
-      tracing: NOOP_AGENT_TRACING,
-      logger: makeSilentLogger(),
-    });
+    const { orchestrator } = createTestSetup({ mockLLM });
 
     const { result } = await runTurn({
       orchestrator,
@@ -323,23 +437,7 @@ describe('orchestration: iteration limit and length error handling', () => {
       createNonStream: jest.fn(),
     };
 
-    const thread = new AgentThread({
-      definition: {
-        modelClient: mockLLM,
-        instruction: INSTRUCTION,
-      },
-      threadId: THREAD_ID,
-      title: 'no-reasoning-length-test',
-      tracing: NOOP_AGENT_TRACING,
-      logger: makeSilentLogger(),
-    });
-
-    const orchestrator = new AgentThreadOrchestrator({
-      agentThreads: new Map([[thread.threadId, thread]]),
-      createDynamicSubAgentThread: () => Promise.reject(new Error('unexpected sub-agent')),
-      tracing: NOOP_AGENT_TRACING,
-      logger: makeSilentLogger(),
-    });
+    const { orchestrator } = createTestSetup({ mockLLM });
 
     const { result } = await runTurn({
       orchestrator,
@@ -347,101 +445,5 @@ describe('orchestration: iteration limit and length error handling', () => {
     });
 
     expect(result.root_agent_error?.error).toBe('max_tokens breached');
-  });
-
-  it('resets iteration count per turn when fresh AgentThread is built from previous snapshot context', async () => {
-    let callCounter = 0;
-    const toolSet = makeMockToolSet('mock_server', TOOL_NAME);
-    const mockLLM: ILLM = {
-      create: jest.fn().mockImplementation(() => {
-        callCounter++;
-        // Turn 1 calls 1 & 2: return tool call
-        if (callCounter <= 2) {
-          return mockToolCallStream(TOOL_NAME, `call-${callCounter}`);
-        }
-        // Turn 1 call 3: finish turn 1
-        if (callCounter === 3) {
-          return textReplyStream('turn 1 done');
-        }
-        // Turn 2 calls 4 & 5: return tool call
-        if (callCounter <= 5) {
-          return mockToolCallStream(TOOL_NAME, `call-${callCounter}`);
-        }
-        // Turn 2 call 6: finish turn 2
-        return textReplyStream('turn 2 done');
-      }),
-      createNonStream: jest.fn(),
-    };
-
-    const thread1 = new AgentThread({
-      definition: {
-        modelClient: mockLLM,
-        instruction: INSTRUCTION,
-        iterationLimit: 5,
-        toolSets: [toolSet],
-      },
-      threadId: THREAD_ID,
-      title: 'multi-turn-test',
-      tracing: NOOP_AGENT_TRACING,
-      logger: makeSilentLogger(),
-    });
-
-    const orchestrator1 = new AgentThreadOrchestrator({
-      agentThreads: new Map([[thread1.threadId, thread1]]),
-      createDynamicSubAgentThread: () => Promise.reject(new Error('unexpected sub-agent')),
-      tracing: NOOP_AGENT_TRACING,
-      logger: makeSilentLogger(),
-    });
-
-    // Turn 1
-    await runTurn({
-      orchestrator: orchestrator1,
-      sendBatch: [{ type: EventType.USER_MESSAGE, content: 'turn 1' }],
-    });
-
-    // Turn 2: built from previous turn snapshot (mirroring SessionHandle.buildThread)
-    const thread2 = new AgentThread({
-      definition: {
-        modelClient: mockLLM,
-        instruction: INSTRUCTION,
-        iterationLimit: 5,
-        toolSets: [toolSet],
-      },
-      threadId: THREAD_ID,
-      title: 'multi-turn-test',
-      context: thread1.toSnapshot().context,
-      tracing: NOOP_AGENT_TRACING,
-      logger: makeSilentLogger(),
-    });
-
-    const orchestrator2 = new AgentThreadOrchestrator({
-      agentThreads: new Map([[thread2.threadId, thread2]]),
-      createDynamicSubAgentThread: () => Promise.reject(new Error('unexpected sub-agent')),
-      tracing: NOOP_AGENT_TRACING,
-      logger: makeSilentLogger(),
-    });
-
-    await runTurn({
-      orchestrator: orchestrator2,
-      sendBatch: [{ type: EventType.USER_MESSAGE, content: 'turn 2' }],
-    });
-
-    const inputs = llmCreateInputs(mockLLM).filter(hasMessagesArray);
-    const countNudges = (msgList: { content?: unknown }[]) =>
-      msgList.filter(m => typeof m.content === 'string' && m.content.includes('LLM calls remaining')).length;
-
-    // Turn 1 calls 0 & 1: 0 nudge messages in context
-    expect(countNudges(inputs[0]?.messages ?? [])).toBe(0);
-    expect(countNudges(inputs[1]?.messages ?? [])).toBe(0);
-
-    // Turn 1 call 2 (index 2): 1st wrap-up nudge added to context
-    expect(countNudges(inputs[2]?.messages ?? [])).toBe(1);
-
-    // Turn 2 call 0 & 1 (index 3 & 4): turn 2 starts (fresh instance starts at iterations = 0), carries 1st nudge from history
-    expect(countNudges(inputs[3]?.messages ?? [])).toBe(1);
-    expect(countNudges(inputs[4]?.messages ?? [])).toBe(1);
-
-    // Turn 2 call 2 (index 5): 2nd wrap-up nudge added on turn 2 reserve step!
-    expect(countNudges(inputs[5]?.messages ?? [])).toBe(2);
   });
 });

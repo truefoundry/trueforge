@@ -883,6 +883,19 @@ export class AgentThread {
 
     messages.push(...contextMessages);
 
+    const iterationLimit = this.definition.iterationLimit ?? DEFAULT_ITERATION_LIMIT;
+    const reserve = Math.min(3, iterationLimit - 1);
+    const remainingIncludingCurrent = iterationLimit - this.metrics.iterations + 1;
+    if (reserve >= 1 && remainingIncludingCurrent >= 1 && remainingIncludingCurrent <= reserve) {
+      messages.push(
+        toOpenAIChatMessage(
+          internalSystemMessage(
+            `${String(remainingIncludingCurrent)} LLM calls remaining in this turn, including this one. Finish your work, write any pending files/outputs now, and summarize what is incomplete.`,
+          ),
+        ),
+      );
+    }
+
     for (const processor of this.preEphemeralLLMContextProcessors) {
       messages = processor.processPreLLMEphemeral(messages) ?? messages;
     }
@@ -1471,20 +1484,7 @@ export class AgentThread {
             if (signal?.aborted) {
               return;
             }
-            const remaining = iterationLimit - this.metrics.iterations;
-            const reserve = Math.min(3, iterationLimit - 1);
-            if (reserve >= 1 && remaining === reserve) {
-              yield* this.appendToContext({
-                context: [
-                  internalSystemMessage(
-                    `You have ${String(remaining)} LLM calls remaining in this turn. Please finish your work, write any pending files/outputs now, and summarize what is incomplete.`,
-                  ),
-                ],
-                output: [],
-                currentContextUsage: undefined,
-                usage: undefined,
-              });
-            }
+
             if (this.metrics.iterations >= iterationLimit) {
               yield this.generateErrorEvent(
                 `You have reached iteration limit of ${String(iterationLimit)}, please request again`,
