@@ -6,6 +6,7 @@ import type { HistoryAgentIntent } from '../utils/historyAgentSearch.js';
 import { replaceSessionShareSearch } from '../utils/sessionShareUrl.js';
 import {
   readDraftSpecPreferences,
+  recoverWebSearchAfterCapabilityAvailable,
   selectDraftSpecPreferences,
   withCapabilitiesSandbox,
   withCapabilitiesWebSearch,
@@ -612,8 +613,15 @@ export function ShellModeProvider({
 
   const sandboxEnabled = capabilities?.sandbox.enabled;
   const webSearchEnabled = capabilities?.webSearch?.enabled;
+  // Child effects (DraftSpecPreferenceBridge) run before this updates — so remember still
+  // sees the prior capability when Settings refresh flips web-search on.
+  const prevWebSearchEnabledRef = useRef(webSearchEnabled);
+  useEffect(() => {
+    prevWebSearchEnabledRef.current = webSearchEnabled;
+  }, [webSearchEnabled]);
   const rememberDraftSpec = useCallback(
     (agentSpec: AgentSpec, kind: DraftPreferenceKind = 'chat') => {
+      const previousWebSearchEnabled = prevWebSearchEnabledRef.current;
       const selected = selectDraftSpecPreferences(agentSpec, kind);
       const withSandbox = kind === 'agent' ? withCapabilitiesSandbox(selected, sandboxEnabled) : selected;
       const aligned = withCapabilitiesWebSearch({
@@ -622,7 +630,13 @@ export function ShellModeProvider({
         kind,
       });
       // Capability-forced off is a live constraint only — never a remembered toggle.
-      const preferences = webSearchEnabled === false ? withoutWebSearchPreference(aligned) : aligned;
+      const stripped = webSearchEnabled === false ? withoutWebSearchPreference(aligned) : aligned;
+      const preferences = recoverWebSearchAfterCapabilityAvailable({
+        spec: stripped,
+        previousWebSearchEnabled,
+        webSearchEnabled,
+        kind,
+      });
       if (kind === 'chat') {
         chatSeedRef.current = preferences;
       } else {
@@ -632,7 +646,13 @@ export function ShellModeProvider({
           webSearchEnabled,
           kind: 'agent',
         });
-        agentSeedRef.current = webSearchEnabled === false ? withoutWebSearchPreference(agentAligned) : agentAligned;
+        const agentStripped = webSearchEnabled === false ? withoutWebSearchPreference(agentAligned) : agentAligned;
+        agentSeedRef.current = recoverWebSearchAfterCapabilityAvailable({
+          spec: agentStripped,
+          previousWebSearchEnabled,
+          webSearchEnabled,
+          kind: 'agent',
+        });
       }
       writeDraftSpecPreferences(kind, preferences);
     },

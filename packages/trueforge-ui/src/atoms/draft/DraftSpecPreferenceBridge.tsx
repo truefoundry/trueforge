@@ -1,10 +1,11 @@
 'use client';
 
 import { useTrueForgeAgentSpec, useTrueForgeUpdateAgentSpec } from '@truefoundry/trueforge-assistant-ui-runtime';
-import { useEffect } from 'react';
+import { useEffect, useRef } from 'react';
 
 import {
   type DraftPreferenceKind,
+  recoverWebSearchAfterCapabilityAvailable,
   withCapabilitiesSandbox,
   withCapabilitiesWebSearch,
 } from '../../server/draftSpecPreferences.js';
@@ -118,13 +119,21 @@ export function reconcileDraftSandbox({
 export function reconcileDraftWebSearch({
   agentSpec,
   webSearchEnabled,
+  previousWebSearchEnabled,
   kind = 'agent',
 }: {
   agentSpec: AgentSpec;
   webSearchEnabled: boolean | null | undefined;
+  previousWebSearchEnabled?: boolean | null | undefined;
   kind?: DraftPreferenceKind;
 }): Partial<AgentSpec> {
-  const nextSpec = withCapabilitiesWebSearch({ spec: agentSpec, webSearchEnabled, kind });
+  const recovered = recoverWebSearchAfterCapabilityAvailable({
+    spec: agentSpec,
+    previousWebSearchEnabled,
+    webSearchEnabled,
+    kind,
+  });
+  const nextSpec = withCapabilitiesWebSearch({ spec: recovered, webSearchEnabled, kind });
   return nextSpec === agentSpec ? {} : { config: nextSpec.config };
 }
 
@@ -141,6 +150,7 @@ export function DraftSpecPreferenceBridge() {
   const capabilities = useServerCapabilities();
   const sandboxEnabled = capabilities?.sandbox.enabled;
   const webSearchEnabled = capabilities?.webSearch?.enabled;
+  const prevWebSearchEnabledRef = useRef(webSearchEnabled);
   const { models, skills, connectors, loaded, error, ensureLoaded } = useDraftCatalog();
   const isMutableDraft = mode.status === 'active' && mode.isMutable && pendingSessionId == null;
   const isPlainDraft = isMutableDraft && mode.agentId == null;
@@ -167,8 +177,16 @@ export function DraftSpecPreferenceBridge() {
   useEffect(() => {
     // Apply to New Chat / New Agent / edit-existing mutable drafts.
     // Available → default on when absent; unavailable → force off. Explicit toggles are preserved.
+    // On unavailable → available, clear leftover forced-off before default-fill.
     if (!isMutableDraft || agentSpec == null || updateAgentSpec == null) return;
-    const update = reconcileDraftWebSearch({ agentSpec, webSearchEnabled, kind: preferenceKind });
+    const previousWebSearchEnabled = prevWebSearchEnabledRef.current;
+    prevWebSearchEnabledRef.current = webSearchEnabled;
+    const update = reconcileDraftWebSearch({
+      agentSpec,
+      webSearchEnabled,
+      previousWebSearchEnabled,
+      kind: preferenceKind,
+    });
     if (Object.keys(update).length > 0) {
       updateAgentSpec(update);
     }

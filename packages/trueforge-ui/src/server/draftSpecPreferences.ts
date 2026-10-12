@@ -149,6 +149,31 @@ export function withoutWebSearchPreference(spec: AgentSpec): AgentSpec {
   return { ...spec, config: restConfig };
 }
 
+/**
+ * When web-search flips unavailable → available, a live `enabled: false` is leftover from
+ * the force-off — not a user toggle (those are only persisted while capability stays on).
+ * Clear it and default-fill on so the forced value cannot stick across Settings refresh.
+ */
+export function recoverWebSearchAfterCapabilityAvailable({
+  spec,
+  previousWebSearchEnabled,
+  webSearchEnabled,
+  kind,
+}: {
+  spec: AgentSpec;
+  previousWebSearchEnabled: boolean | null | undefined;
+  webSearchEnabled: boolean | null | undefined;
+  kind?: DraftPreferenceKind;
+}): AgentSpec {
+  if (previousWebSearchEnabled !== false || webSearchEnabled !== true) return spec;
+  if (readWebSearchEnabled(spec) !== false) return spec;
+  return withCapabilitiesWebSearch({
+    spec: withoutWebSearchPreference(spec),
+    webSearchEnabled: true,
+    kind,
+  });
+}
+
 function readStoredSpec(key: string): AgentSpec | null {
   if (typeof window === 'undefined') return null;
   try {
