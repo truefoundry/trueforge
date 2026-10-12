@@ -300,9 +300,9 @@ export class AgentThreadOrchestrator {
 
       const append = thread.toPolicyDecisionAppend(
         policiesByServer,
-        // Grant time, not drain time: a short-lived policy that expires
-        // while queued must still clear any matching pending approvals.
-        new Date(event.created_at),
+        // Consume time: do not clear pending approvals with a policy that has
+        // already expired while queued.
+        new Date(),
       );
       if (append) {
         context_appends.push(append);
