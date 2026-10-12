@@ -9,7 +9,6 @@ import { bodyLimit } from 'hono/body-limit';
 import { HTTPException } from 'hono/http-exception';
 import type { Configuration } from 'openid-client';
 import type { Logger } from 'winston';
-import { createAgentImportRouter } from './apis/agentImport';
 import { createAgentsRouter } from './apis/agents';
 import { createAuthRouter } from './apis/auth';
 import { createCapabilitiesRouter } from './apis/capabilities';
@@ -33,7 +32,6 @@ import {
   createAdminAuthMiddleware,
   createApiKeyAuthMiddleware,
   createAuthMiddleware,
-  truefoundryAdminMiddleware,
   tryAuthenticate,
 } from './auth/middleware';
 import type { McpCatalog } from './catalog/McpCatalog';
@@ -192,8 +190,6 @@ export interface ServerDeps<TTransaction> {
   resolveMcpServerStore: (c?: Context, runAsAgent?: AgentRecord) => IMcpServerWithAuthStore<TTransaction>;
   /** Per-request store: DB singleton, or a token-bound TrueFoundry decorator in TrueFoundry mode. */
   resolveAgentStore: (c: Context) => IAgentStore<TTransaction>;
-  /** Import agents: store with SF client constructor assume-user headers (DB store when TrueFoundry mode is off). */
-  resolveImportAgentStore: (serviceFoundryServerHeaders: Record<string, string>) => IAgentStore<TTransaction>;
   /**
    * Per-request store: DB singleton, or the env-backed shared store in TrueFoundry mode
    * (`TRUEFOUNDRY_SANDBOX_*` + static SETTINGS JSON).
@@ -422,16 +418,6 @@ export function createServerApp<TTransaction>(deps: ServerDeps<TTransaction>) {
         resolveRequestContext,
       }),
       adminAuthMiddleware,
-    ),
-  );
-  app.route(
-    '/api/internal/import',
-    withAuth(
-      createAgentImportRouter({
-        sessionStore: deps.sessionStore,
-        resolveImportAgentStore: deps.resolveImportAgentStore,
-      }),
-      truefoundryAdminMiddleware,
     ),
   );
   app.route(

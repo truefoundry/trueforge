@@ -108,8 +108,7 @@ export function AgentModelSettingsContent({ spec, model, onChange }: AgentModelS
     const nextEnabled = !customEnabled;
     setCustomEnabled(nextEnabled);
     if (nextEnabled) {
-      const restored = savedCustomParams.current ?? {};
-      replaceCustomParams(restored);
+      replaceCustomParams(savedCustomParams.current ?? {});
       return;
     }
     savedCustomParams.current = customParamsFrom(params);

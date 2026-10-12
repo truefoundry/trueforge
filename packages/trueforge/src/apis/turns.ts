@@ -294,6 +294,27 @@ function createTurnResolver(deps: {
   });
 }
 
+/** Grapheme segmentation for title truncation (locale-independent per UAX #29). */
+const titleSegmenter = new Intl.Segmenter(undefined, { granularity: 'grapheme' });
+
+/**
+ * Caps a title at {@link MAX_SESSION_TITLE_LENGTH} UTF-16 units without splitting a
+ * grapheme cluster: clusters that would cross the cap (emoji with skin tones or
+ * ZWJ sequences, which read as one unit but span several) are dropped whole.
+ */
+function truncateSessionTitle(title: string): string {
+  let truncated = '';
+  let length = 0;
+  for (const { segment } of titleSegmenter.segment(title)) {
+    if (length + segment.length > MAX_SESSION_TITLE_LENGTH) {
+      break;
+    }
+    truncated += segment;
+    length += segment.length;
+  }
+  return truncated;
+}
+
 /**
  * Derives a session title from the first user message of the first turn. Returns the
  * trimmed text (capped at {@link MAX_SESSION_TITLE_LENGTH}) or `undefined` when no usable
@@ -317,7 +338,13 @@ export function deriveSessionTitle(input: TurnInputItem[] | undefined): string |
   if (!trimmed) {
     return undefined;
   }
-  return trimmed.slice(0, MAX_SESSION_TITLE_LENGTH);
+  const title = truncateSessionTitle(trimmed);
+  // A single cluster longer than the cap truncates to nothing; treat it as no usable title
+  // so the store keeps the title unset instead of persisting a blank first-write-wins value.
+  if (!title) {
+    return undefined;
+  }
+  return title;
 }
 
 /**
