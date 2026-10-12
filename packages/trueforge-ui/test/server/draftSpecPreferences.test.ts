@@ -10,6 +10,7 @@ import {
   selectChatDraftSpecPreferences,
   withCapabilitiesSandbox,
   withCapabilitiesWebSearch,
+  withoutWebSearchPreference,
   writeDraftSpecPreferences,
 } from '@/server/draftSpecPreferences.js';
 
@@ -243,5 +244,33 @@ describe('withCapabilitiesWebSearch', () => {
 
     expect(withCapabilitiesWebSearch({ spec, webSearchEnabled: undefined, kind: 'chat' })).toBe(spec);
     expect(withCapabilitiesWebSearch({ spec, webSearchEnabled: null, kind: 'agent' })).toBe(spec);
+  });
+});
+
+describe('withoutWebSearchPreference', () => {
+  it('removes webSearch and drops empty config', () => {
+    expect(
+      withoutWebSearchPreference({
+        model: { name: 'model' },
+        config: { webSearch: { enabled: false } },
+      }),
+    ).toEqual({ model: { name: 'model' } });
+  });
+
+  it('keeps other config fields', () => {
+    expect(
+      withoutWebSearchPreference({
+        model: { name: 'model' },
+        config: { sandbox: { enabled: true }, webSearch: { enabled: false } },
+      }),
+    ).toEqual({
+      model: { name: 'model' },
+      config: { sandbox: { enabled: true } },
+    });
+  });
+
+  it('returns the same spec when webSearch is already absent', () => {
+    const spec = { model: { name: 'model' } };
+    expect(withoutWebSearchPreference(spec)).toBe(spec);
   });
 });

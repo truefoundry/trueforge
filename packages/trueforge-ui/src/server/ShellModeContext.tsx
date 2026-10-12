@@ -9,6 +9,7 @@ import {
   selectDraftSpecPreferences,
   withCapabilitiesSandbox,
   withCapabilitiesWebSearch,
+  withoutWebSearchPreference,
   writeDraftSpecPreferences,
   type DraftPreferenceKind,
 } from './draftSpecPreferences.js';
@@ -615,20 +616,23 @@ export function ShellModeProvider({
     (agentSpec: AgentSpec, kind: DraftPreferenceKind = 'chat') => {
       const selected = selectDraftSpecPreferences(agentSpec, kind);
       const withSandbox = kind === 'agent' ? withCapabilitiesSandbox(selected, sandboxEnabled) : selected;
-      const preferences = withCapabilitiesWebSearch({
+      const aligned = withCapabilitiesWebSearch({
         spec: withSandbox,
         webSearchEnabled,
         kind,
       });
+      // Capability-forced off is a live constraint only — never a remembered toggle.
+      const preferences = webSearchEnabled === false ? withoutWebSearchPreference(aligned) : aligned;
       if (kind === 'chat') {
         chatSeedRef.current = preferences;
       } else {
         // Keep the active builder intact in memory; storage remains limited to reusable preferences.
-        agentSeedRef.current = withCapabilitiesWebSearch({
+        const agentAligned = withCapabilitiesWebSearch({
           spec: withCapabilitiesSandbox(agentSpec, sandboxEnabled),
           webSearchEnabled,
           kind: 'agent',
         });
+        agentSeedRef.current = webSearchEnabled === false ? withoutWebSearchPreference(agentAligned) : agentAligned;
       }
       writeDraftSpecPreferences(kind, preferences);
     },

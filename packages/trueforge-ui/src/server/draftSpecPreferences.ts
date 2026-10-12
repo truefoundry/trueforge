@@ -102,7 +102,7 @@ export function withCapabilitiesSandbox(spec: AgentSpec, sandboxEnabled: boolean
 
 /**
  * Align `config.webSearch` with host capability.
- * - unavailable → force false
+ * - unavailable → force false on the live draft (do not persist — see `withoutWebSearchPreference`)
  * - available → fill true only when the key is absent (preserve explicit user toggles)
  */
 export function withCapabilitiesWebSearch({
@@ -136,6 +136,17 @@ export function withCapabilitiesWebSearch({
       webSearch: { enabled: true },
     },
   };
+}
+
+/** Drop webSearch so a capability-forced off is not stored as a user preference. */
+export function withoutWebSearchPreference(spec: AgentSpec): AgentSpec {
+  if (spec.config?.webSearch === undefined) return spec;
+  const { webSearch: _ignored, ...restConfig } = spec.config;
+  if (Object.keys(restConfig).length === 0) {
+    const { config: _config, ...rest } = spec;
+    return rest;
+  }
+  return { ...spec, config: restConfig };
 }
 
 function readStoredSpec(key: string): AgentSpec | null {
