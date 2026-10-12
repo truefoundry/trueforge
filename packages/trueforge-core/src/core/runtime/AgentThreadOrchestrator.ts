@@ -16,7 +16,6 @@ import {
   type UserToolResponseEvent,
 } from '../events/schema';
 import type { LLMToolMessage } from '../llm/LLMTypes';
-import type { IToolSet } from '../mcp/IMCPServer';
 import type { AgentExecutionTrace, AgentTracing } from '../tracing/AgentTracing';
 import { onSignalAbort } from '../util/abort';
 import { mergeAsyncGenerators, signalable, type Signalable } from '../util/promiseUtils';
@@ -265,37 +264,33 @@ export class AgentThreadOrchestrator {
     return errors;
   }
 
-  // Record each (already-validated) policy on its matching user tool sets, then resolve any
-  // already-pending approvals the policy now covers. The orchestrator owns all policy semantics; the
-  // thread only exposes its tool sets + context primitives. Last write wins for a given (server, tool).
+  // Record each policy on its matching user tool sets, then resolve any
+  // already-pending approvals the policy now covers.
+  // Last write wins for a given (server, tool).
   //
-  // One APPROVAL_POLICY_APPLY per inbound policy event (orchestrator is the sole emitter):
+  // Emits one APPROVAL_POLICY_APPLY per policy event that includes:
   //  - per-thread context appends for approvals the policy covers;
-  //  - MCP server patches with merged sticky policies;
-  //  - the policy event echo (id stamped at send for mark-consumed).
+  //  - MCP server patches with merged approval policies;
+  //  - the policy event itself.
   private *applyApprovalPolicies(
-    policyEvent: UserToolApprovalPolicyEvent,
+    event: UserToolApprovalPolicyEvent,
   ): Generator<InternalApprovalPolicyApplyEvent, void, unknown> {
-    const policies = policyEvent.policies;
-    const affected = new Set(policies.map(p => p.server_name));
-
-    const policyWrites: { toolSet: IToolSet; name: string; policy: ToolApprovalPolicy }[] = [];
-    const stagedPoliciesByServer = new Map<string, Record<string, ToolApprovalPolicy>>();
+    const policies = event.policies;
+    const affectedMcpServers = new Set(policies.map(p => p.server_name));
+    const policiesByServer = new Map<string, Record<string, ToolApprovalPolicy>>();
     const context_appends: ThreadContextAppend[] = [];
 
     for (const thread of this.agentThreads.values()) {
       let appliedAny = false;
+
       for (const policy of policies) {
         for (const toolSet of thread.getUserToolSets()) {
           if (toolSet.name !== policy.server_name) {
             continue;
           }
-          policyWrites.push({ toolSet, name: policy.name, policy: policy.policy });
-          const next = {
-            ...(stagedPoliciesByServer.get(toolSet.name) ?? toolSet.getApprovalPolicies()),
-            [policy.name]: policy.policy,
-          };
-          stagedPoliciesByServer.set(toolSet.name, next);
+          const existing = policiesByServer.get(toolSet.name) ?? {};
+          existing[policy.name] = policy.policy;
+          policiesByServer.set(toolSet.name, existing);
           appliedAny = true;
         }
       }
@@ -303,7 +298,12 @@ export class AgentThreadOrchestrator {
         continue;
       }
 
-      const append = thread.toPolicyDecisionAppend(stagedPoliciesByServer);
+      const append = thread.toPolicyDecisionAppend(
+        policiesByServer,
+        // Grant time, not drain time: a short-lived policy that expires
+        // while queued must still clear any matching pending approvals.
+        new Date(event.created_at),
+      );
       if (append) {
         context_appends.push(append);
       }
@@ -311,31 +311,44 @@ export class AgentThreadOrchestrator {
 
     const mcp_servers_patches: MCPServerInitInfo[] = [];
     for (const record of this.mcpServerInitInfoById.values()) {
-      if (!affected.has(record.name)) {
+      if (!affectedMcpServers.has(record.name)) {
         continue;
       }
-      mcp_servers_patches.push({
-        ...record,
-        approval_policies: stagedPoliciesByServer.get(record.name) ?? record.approval_policies,
-      });
+      const inbound = policiesByServer.get(record.name);
+      const approval_policies =
+        inbound === undefined ? record.approval_policies : { ...(record.approval_policies ?? {}), ...inbound };
+      mcp_servers_patches.push({ ...record, approval_policies });
     }
 
     yield {
       type: InternalEventType.APPROVAL_POLICY_APPLY,
-      event: policyEvent,
+      event,
       context_appends,
       mcp_servers_patches,
     };
 
-    for (const write of policyWrites) {
-      write.toolSet.setApprovalPolicy(write.name, write.policy);
+    // Apply the policies to the thread tool sets.
+    for (const thread of this.agentThreads.values()) {
+      for (const policy of policies) {
+        for (const toolSet of thread.getUserToolSets()) {
+          if (toolSet.name !== policy.server_name) {
+            continue;
+          }
+          toolSet.setApprovalPolicy(policy.name, policy.policy);
+        }
+      }
     }
+    // Apply the context appends to the threads.
     for (const append of context_appends) {
       const thread = this.agentThreads.get(append.thread_id);
       if (!thread) {
         throw new Error(`AgentThreadOrchestrator.applyApprovalPolicies: unknown threadId ${append.thread_id}`);
       }
       thread.applyContextAppend(append);
+    }
+    // Apply the MCP server patches to the MCP server init info.
+    for (const server of mcp_servers_patches) {
+      this.mcpServerInitInfoById.set(server.id, server);
     }
   }
 
@@ -521,6 +534,13 @@ export class AgentThreadOrchestrator {
           thread_id: chunk.thread_id,
         };
         const subAgentThreadId = getThreadId();
+        const subAgentThread = await this.createDynamicSubAgentThread({
+          parentDefinition: currentThread.definition,
+          request: chunk.agent_info,
+          threadId: subAgentThreadId,
+          parent,
+          signal,
+        });
         yield {
           type: EventType.THREAD_CREATED,
           id: newEventId(),
@@ -535,13 +555,6 @@ export class AgentThreadOrchestrator {
           title: chunk.agent_info.name,
           thread_id: subAgentThreadId,
         };
-        const subAgentThread = await this.createDynamicSubAgentThread({
-          parentDefinition: currentThread.definition,
-          request: chunk.agent_info,
-          threadId: subAgentThreadId,
-          parent,
-          signal,
-        });
         this.agentThreads.set(subAgentThreadId, subAgentThread);
         return;
       }

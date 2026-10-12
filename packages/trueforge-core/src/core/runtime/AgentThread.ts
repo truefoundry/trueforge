@@ -583,7 +583,7 @@ export class AgentThread {
 
     const append = this.toThreadContextAppend(contextMessages);
     if (append) {
-      yield* this.appendToContext(append, []);
+      yield* this.appendToContext({ ...append, output: [], applied_user_events: [] });
     }
     this.pendingSandboxCreatedEvents.push(...sandboxCreatedEvents);
   }
@@ -623,14 +623,18 @@ export class AgentThread {
         })),
       );
       if (append) {
-        yield* this.appendToContext(append, [], { applied_user_events: clientSideToolResponses });
+        yield* this.appendToContext({
+          ...append,
+          output: [],
+          applied_user_events: clientSideToolResponses,
+        });
       }
     }
 
     if (toolMessages.length > 0) {
       const append = this.toThreadContextAppend(toolMessages);
       if (append) {
-        yield* this.appendToContext(append, []);
+        yield* this.appendToContext({ ...append, output: [], applied_user_events: [] });
       }
     }
 
@@ -643,26 +647,33 @@ export class AgentThread {
         })),
       );
       if (append) {
-        yield* this.appendToContext(append, [], { applied_user_events: approvals });
+        yield* this.appendToContext({
+          ...append,
+          output: [],
+          applied_user_events: approvals,
+        });
       }
     }
   }
 
-  /** Pending calls applicable under staged policies → same decision append as send(). */
+  /**
+   * Resolve any still-pending approvals covered by policies.
+   */
   toPolicyDecisionAppend(
-    stagedPoliciesByServer: ReadonlyMap<string, Record<string, ToolApprovalPolicy>>,
+    policiesByServer: ReadonlyMap<string, Record<string, ToolApprovalPolicy>>,
+    asOf: Date,
   ): ThreadContextAppend | undefined {
     return this.toThreadContextAppend(
       getPendingApprovalToolCalls(this.context)
         .filter(toolCall => {
-          const policies = stagedPoliciesByServer.get(toolCall.tool_info.mcp_server_name);
+          const policies = policiesByServer.get(toolCall.tool_info.mcp_server_name);
           const toolName = toolCall.tool_info.original_tool_name;
           // Own-property only — Record bracket access inherits Object.prototype (e.g. `constructor`).
           if (policies === undefined || !Object.hasOwn(policies, toolName)) {
             return false;
           }
           const policy = policies[toolName];
-          return policy !== undefined && ToolSet.isPolicyApplicable(policy);
+          return policy !== undefined && ToolSet.isPolicyApplicable(policy, asOf);
         })
         .map(toolCall => ({
           type: EventType.USER_TOOL_APPROVAL,
@@ -702,29 +713,28 @@ export class AgentThread {
     };
   }
 
-  private *appendToContext(
-    append: ThreadContextAppend,
-    output: AgentOutputEvent[],
-    extras?: {
-      applied_user_events?: (UserToolApprovalEvent | UserToolResponseEvent)[];
-      currentContextUsage?: CurrentContextUsage | undefined;
-      usage?: CompletionUsage | undefined;
-      completion?: SubAgentCompletion | undefined;
-    },
-  ): Generator<AgentThreadAppendContext, void, unknown> {
+  private *appendToContext(input: {
+    thread_id: string;
+    context: ContextMessage[];
+    current_context_usage: CurrentContextUsage | null;
+    output: AgentOutputEvent[];
+    applied_user_events: (UserToolApprovalEvent | UserToolResponseEvent)[];
+    usage?: CompletionUsage | undefined;
+    completion?: SubAgentCompletion | undefined;
+  }): Generator<AgentThreadAppendContext, void, unknown> {
     const event: AgentThreadAppendContext = {
       type: InternalEventType.AGENT_CONTEXT_APPEND,
-      thread_id: append.thread_id,
-      context: append.context,
-      output,
-      applied_user_events: extras?.applied_user_events ?? [],
-      current_context_usage: extras?.currentContextUsage ?? append.current_context_usage,
-      ...(extras?.completion && { completion: extras.completion }),
+      thread_id: input.thread_id,
+      context: input.context,
+      output: input.output,
+      applied_user_events: input.applied_user_events,
+      current_context_usage: input.current_context_usage,
+      ...(input.completion && { completion: input.completion }),
     };
     yield event;
     this.applyContextAppend(event);
-    if (extras?.usage) {
-      updateMetricsFromUsage(this.metrics, extras.usage);
+    if (input.usage) {
+      updateMetricsFromUsage(this.metrics, input.usage);
     }
   }
 
@@ -827,7 +837,7 @@ export class AgentThread {
     }
     const append = this.toThreadContextAppend(closed);
     if (append) {
-      yield* this.appendToContext(append, []);
+      yield* this.appendToContext({ ...append, output: [], applied_user_events: [] });
     }
   }
 
@@ -1054,10 +1064,12 @@ export class AgentThread {
           case InternalEventType.AGENT_CONTEXT_APPEND: {
             const append = this.toThreadContextAppend(response.context);
             if (append) {
-              yield* this.appendToContext(append, response.output, {
+              yield* this.appendToContext({
+                ...append,
+                output: response.output,
                 applied_user_events: response.applied_user_events,
                 ...(response.current_context_usage !== null
-                  ? { currentContextUsage: response.current_context_usage }
+                  ? { current_context_usage: response.current_context_usage }
                   : {}),
               });
             }
@@ -1243,8 +1255,11 @@ export class AgentThread {
 
     const append = this.toThreadContextAppend([contextAssistantMessage]);
     if (append) {
-      yield* this.appendToContext(append, [agentAssistantMessage], {
-        currentContextUsage: currentContextUsageFromCompletion(result.value.usage),
+      yield* this.appendToContext({
+        ...append,
+        output: [agentAssistantMessage],
+        applied_user_events: [],
+        current_context_usage: currentContextUsageFromCompletion(result.value.usage),
         usage: result.value.usage,
         completion,
       });
@@ -1370,7 +1385,7 @@ export class AgentThread {
     // tool.response is persisted by the session/response layer when yielded; only mutate context here.
     const append = this.toThreadContextAppend(toolCallResults.map(t => t.message));
     if (append) {
-      yield* this.appendToContext(append, []);
+      yield* this.appendToContext({ ...append, output: [], applied_user_events: [] });
     }
     this.metrics.total_tool_calls += toolCallResults.length;
 
@@ -1477,6 +1492,8 @@ export class AgentThread {
           this.pendingMCPAuth = true;
           return;
         }
+        // After MCP_INITIALIZE yield, and only if auth did not block:
+        // This is so that we re-run initTools after mcp auth continue.
         this.convertedTools = convertedTools;
         this.tfyManagedServerNames = tfyManagedServerNames;
       }
