@@ -121,7 +121,7 @@ describe('createAppErrorHandler', () => {
     );
   });
 
-  it('keeps the origin stack when a route rethrows with a cause', async () => {
+  it('chains the route stack and the origin stack when a route rethrows with a cause', async () => {
     const logger = winston.createLogger({ silent: true });
     const warnLog = jest.spyOn(logger, 'warn');
     const origin = new Error('Invalid page token: garbage');
@@ -135,7 +135,7 @@ describe('createAppErrorHandler', () => {
       path: '/test',
       status: 400,
       error: origin.message,
-      stack: origin.stack,
+      stack: `${thrown.stack ?? ''}\nCaused by: ${origin.stack ?? ''}`,
     });
   });
 

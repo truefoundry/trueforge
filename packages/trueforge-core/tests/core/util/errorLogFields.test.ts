@@ -7,22 +7,31 @@ describe('extractErrorLogFields', () => {
     expect(extractErrorLogFields(error)).toEqual({ error: 'boom', stack: error.stack });
   });
 
-  it('logs the origin stack when the error was rethrown with a cause', () => {
+  it('chains the wrapper stack and each cause stack', () => {
     const origin = new Error('ECONNREFUSED');
     const wrapper = new Error('fetch failed', { cause: origin });
 
     expect(extractErrorLogFields(wrapper)).toEqual({
       error: 'fetch failed: ECONNREFUSED',
-      stack: origin.stack,
+      stack: `${wrapper.stack ?? ''}\nCaused by: ${origin.stack ?? ''}`,
     });
   });
 
-  it('uses the deepest cause stack', () => {
+  it('chains every cause stack from the outside in', () => {
     const root = new Error('root');
     const middle = new Error('middle', { cause: root });
     const outer = new Error('outer', { cause: middle });
 
-    expect(extractErrorLogFields(outer).stack).toBe(root.stack);
+    expect(extractErrorLogFields(outer).stack).toBe(
+      `${outer.stack ?? ''}\nCaused by: ${middle.stack ?? ''}\nCaused by: ${root.stack ?? ''}`,
+    );
+  });
+
+  it('keeps a cause stack that sits behind a non-error object', () => {
+    const origin = new Error('ECONNREFUSED');
+    const wrapper = new Error('fetch failed', { cause: { cause: origin } });
+
+    expect(extractErrorLogFields(wrapper).stack).toBe(`${wrapper.stack ?? ''}\nCaused by: ${origin.stack ?? ''}`);
   });
 
   it('keeps the outer stack when the cause is not an error', () => {

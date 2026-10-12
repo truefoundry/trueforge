@@ -70,34 +70,32 @@ export function describeUnknownError(error: unknown): string {
 }
 
 /**
- * Deepest `cause` that carries its own stack. A wrapper rethrown at a boundary
- * captures that boundary, so the logged stack is the origin frames.
+ * `error.stack` stops at the wrapper. Each `cause` stack is the throw beneath it,
+ * so the log keeps the whole chain.
  */
-function deepestCauseStack(error: unknown): string | undefined {
-  const seen = new Set<unknown>([error]);
-  let found: string | undefined;
+function stackWithCauses(error: Error): string | undefined {
+  const stacks: string[] = [];
+  const seen = new Set<unknown>();
   let current: unknown = error;
-  while (typeof current === 'object' && current !== null && 'cause' in current) {
-    const cause: unknown = Reflect.get(current, 'cause');
-    if (cause === undefined || cause === null || seen.has(cause)) {
+  while (typeof current === 'object' && current !== null && !seen.has(current)) {
+    seen.add(current);
+    if (current instanceof Error && current.stack !== undefined) {
+      stacks.push(current.stack);
+    }
+    if (!('cause' in current)) {
       break;
     }
-    seen.add(cause);
-    if (cause instanceof Error && cause.stack !== undefined) {
-      found = cause.stack;
-    }
-    current = cause;
+    current = Reflect.get(current, 'cause');
   }
-  return found;
+  return stacks.length > 0 ? stacks.join('\nCaused by: ') : undefined;
 }
 
 export function extractErrorLogFields(error: unknown): ErrorLogFields {
   if (error instanceof Error) {
     const chain = describeErrorChain(error, new Set());
-    const originStack = deepestCauseStack(error);
     return {
       error: chain.length > 0 ? chain : formatObjectErrorForLog(error),
-      stack: originStack ?? error.stack,
+      stack: stackWithCauses(error),
     };
   }
   if (typeof error !== 'object' || error === null) {
