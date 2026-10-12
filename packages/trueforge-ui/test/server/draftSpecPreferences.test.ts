@@ -9,6 +9,7 @@ import {
   recoverWebSearchAfterCapabilityAvailable,
   selectAgentDraftSpecPreferences,
   selectChatDraftSpecPreferences,
+  webSearchPreferenceToStore,
   withCapabilitiesSandbox,
   withCapabilitiesWebSearch,
   withoutWebSearchPreference,
@@ -313,5 +314,74 @@ describe('recoverWebSearchAfterCapabilityAvailable', () => {
         kind: 'chat',
       }),
     ).toBe(spec);
+  });
+
+  it('keeps an explicit off when capability becomes available', () => {
+    const spec = { model: { name: 'model' }, config: { webSearch: { enabled: false } } };
+    expect(
+      recoverWebSearchAfterCapabilityAvailable({
+        spec,
+        previousWebSearchEnabled: false,
+        webSearchEnabled: true,
+        explicitOff: true,
+        kind: 'chat',
+      }),
+    ).toBe(spec);
+  });
+});
+
+describe('webSearchPreferenceToStore', () => {
+  beforeEach(() => {
+    window.localStorage.removeItem(CHAT_DRAFT_SPEC_PREFERENCES_STORAGE_KEY);
+  });
+
+  it('omits a forced off when nothing was chosen', () => {
+    expect(
+      webSearchPreferenceToStore({
+        spec: { model: { name: 'model' }, config: { webSearch: { enabled: false } } },
+        webSearchEnabled: false,
+        previousWebSearchEnabled: true,
+        kind: 'chat',
+      }),
+    ).toEqual({ model: { name: 'model' } });
+  });
+
+  it('keeps a stored off while search is unavailable and after it returns', () => {
+    writeDraftSpecPreferences('chat', {
+      model: { name: 'model' },
+      config: { webSearch: { enabled: false } },
+    });
+    const forcedOff = { model: { name: 'model' }, config: { webSearch: { enabled: false } } };
+
+    expect(
+      webSearchPreferenceToStore({
+        spec: forcedOff,
+        webSearchEnabled: false,
+        previousWebSearchEnabled: true,
+        kind: 'chat',
+      }),
+    ).toEqual(forcedOff);
+    expect(
+      webSearchPreferenceToStore({
+        spec: forcedOff,
+        webSearchEnabled: true,
+        previousWebSearchEnabled: false,
+        kind: 'chat',
+      }),
+    ).toEqual(forcedOff);
+  });
+
+  it('default-fills on after an outage when no choice was stored', () => {
+    expect(
+      webSearchPreferenceToStore({
+        spec: { model: { name: 'model' }, config: { webSearch: { enabled: false } } },
+        webSearchEnabled: true,
+        previousWebSearchEnabled: false,
+        kind: 'chat',
+      }),
+    ).toEqual({
+      model: { name: 'model' },
+      config: { webSearch: { enabled: true } },
+    });
   });
 });

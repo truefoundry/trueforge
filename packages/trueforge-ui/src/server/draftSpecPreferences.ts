@@ -150,26 +150,74 @@ export function withoutWebSearchPreference(spec: AgentSpec): AgentSpec {
 }
 
 /**
- * When web-search flips unavailable → available, a live `enabled: false` is leftover from
- * the force-off — not a user toggle (those are only persisted while capability stays on).
- * Clear it and default-fill on so the forced value cannot stick across Settings refresh.
+ * When web-search flips unavailable → available, a live `enabled: false` may be leftover
+ * force-off. Default-fill on only when that false is not an explicit user/saved choice.
  */
 export function recoverWebSearchAfterCapabilityAvailable({
   spec,
   previousWebSearchEnabled,
   webSearchEnabled,
+  explicitOff = false,
   kind,
 }: {
   spec: AgentSpec;
   previousWebSearchEnabled: boolean | null | undefined;
   webSearchEnabled: boolean | null | undefined;
+  /** Saved or previously persisted off — not a capability-forced value. */
+  explicitOff?: boolean;
   kind?: DraftPreferenceKind;
 }): AgentSpec {
+  if (explicitOff) return spec;
   if (previousWebSearchEnabled !== false || webSearchEnabled !== true) return spec;
   if (readWebSearchEnabled(spec) !== false) return spec;
   return withCapabilitiesWebSearch({
     spec: withoutWebSearchPreference(spec),
     webSearchEnabled: true,
+    kind,
+  });
+}
+
+function withWebSearchEnabled(spec: AgentSpec, enabled: boolean): AgentSpec {
+  if (readWebSearchEnabled(spec) === enabled) return spec;
+  return {
+    ...spec,
+    config: {
+      ...spec.config,
+      webSearch: { ...spec.config?.webSearch, enabled },
+    },
+  };
+}
+
+export function persistedWebSearchEnabled(kind: DraftPreferenceKind): boolean | undefined {
+  const stored = readDraftSpecPreferences(kind);
+  return stored == null ? undefined : readWebSearchEnabled(stored);
+}
+
+/**
+ * Remember a user web-search choice. Capability-forced off is omitted unless a choice
+ * was already stored, and that stored off is not rewritten to on when search returns.
+ */
+export function webSearchPreferenceToStore({
+  spec,
+  webSearchEnabled,
+  previousWebSearchEnabled,
+  kind,
+}: {
+  spec: AgentSpec;
+  webSearchEnabled: boolean | null | undefined;
+  previousWebSearchEnabled: boolean | null | undefined;
+  kind: DraftPreferenceKind;
+}): AgentSpec {
+  const persistedEnabled = persistedWebSearchEnabled(kind);
+  if (webSearchEnabled === false) {
+    const stripped = withoutWebSearchPreference(spec);
+    return persistedEnabled === undefined ? stripped : withWebSearchEnabled(stripped, persistedEnabled);
+  }
+  return recoverWebSearchAfterCapabilityAvailable({
+    spec,
+    previousWebSearchEnabled,
+    webSearchEnabled,
+    explicitOff: persistedEnabled === false,
     kind,
   });
 }

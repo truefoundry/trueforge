@@ -6,11 +6,10 @@ import type { HistoryAgentIntent } from '../utils/historyAgentSearch.js';
 import { replaceSessionShareSearch } from '../utils/sessionShareUrl.js';
 import {
   readDraftSpecPreferences,
-  recoverWebSearchAfterCapabilityAvailable,
   selectDraftSpecPreferences,
+  webSearchPreferenceToStore,
   withCapabilitiesSandbox,
   withCapabilitiesWebSearch,
-  withoutWebSearchPreference,
   writeDraftSpecPreferences,
   type DraftPreferenceKind,
 } from './draftSpecPreferences.js';
@@ -629,12 +628,10 @@ export function ShellModeProvider({
         webSearchEnabled,
         kind,
       });
-      // Capability-forced off is a live constraint only — never a remembered toggle.
-      const stripped = webSearchEnabled === false ? withoutWebSearchPreference(aligned) : aligned;
-      const preferences = recoverWebSearchAfterCapabilityAvailable({
-        spec: stripped,
-        previousWebSearchEnabled,
+      const preferences = webSearchPreferenceToStore({
+        spec: aligned,
         webSearchEnabled,
+        previousWebSearchEnabled,
         kind,
       });
       if (kind === 'chat') {
@@ -646,11 +643,10 @@ export function ShellModeProvider({
           webSearchEnabled,
           kind: 'agent',
         });
-        const agentStripped = webSearchEnabled === false ? withoutWebSearchPreference(agentAligned) : agentAligned;
-        agentSeedRef.current = recoverWebSearchAfterCapabilityAvailable({
-          spec: agentStripped,
-          previousWebSearchEnabled,
+        agentSeedRef.current = webSearchPreferenceToStore({
+          spec: agentAligned,
           webSearchEnabled,
+          previousWebSearchEnabled,
           kind: 'agent',
         });
       }

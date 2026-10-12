@@ -5,6 +5,7 @@ import { useEffect, useRef } from 'react';
 
 import {
   type DraftPreferenceKind,
+  persistedWebSearchEnabled,
   recoverWebSearchAfterCapabilityAvailable,
   withCapabilitiesSandbox,
   withCapabilitiesWebSearch,
@@ -120,17 +121,20 @@ export function reconcileDraftWebSearch({
   agentSpec,
   webSearchEnabled,
   previousWebSearchEnabled,
+  explicitOff = false,
   kind = 'agent',
 }: {
   agentSpec: AgentSpec;
   webSearchEnabled: boolean | null | undefined;
   previousWebSearchEnabled?: boolean | null | undefined;
+  explicitOff?: boolean;
   kind?: DraftPreferenceKind;
 }): Partial<AgentSpec> {
   const recovered = recoverWebSearchAfterCapabilityAvailable({
     spec: agentSpec,
     previousWebSearchEnabled,
     webSearchEnabled,
+    explicitOff,
     kind,
   });
   const nextSpec = withCapabilitiesWebSearch({ spec: recovered, webSearchEnabled, kind });
@@ -177,20 +181,21 @@ export function DraftSpecPreferenceBridge() {
   useEffect(() => {
     // Apply to New Chat / New Agent / edit-existing mutable drafts.
     // Available → default on when absent; unavailable → force off. Explicit toggles are preserved.
-    // On unavailable → available, clear leftover forced-off before default-fill.
-    if (!isMutableDraft || agentSpec == null || updateAgentSpec == null) return;
+    // Force-off recovery is only for plain drafts, and only when no choice was stored.
     const previousWebSearchEnabled = prevWebSearchEnabledRef.current;
     prevWebSearchEnabledRef.current = webSearchEnabled;
+    if (!isMutableDraft || agentSpec == null || updateAgentSpec == null) return;
     const update = reconcileDraftWebSearch({
       agentSpec,
       webSearchEnabled,
-      previousWebSearchEnabled,
+      previousWebSearchEnabled: isPlainDraft ? previousWebSearchEnabled : undefined,
+      explicitOff: isPlainDraft && persistedWebSearchEnabled(preferenceKind) === false,
       kind: preferenceKind,
     });
     if (Object.keys(update).length > 0) {
       updateAgentSpec(update);
     }
-  }, [agentSpec, isMutableDraft, preferenceKind, webSearchEnabled, updateAgentSpec]);
+  }, [agentSpec, isMutableDraft, isPlainDraft, preferenceKind, webSearchEnabled, updateAgentSpec]);
 
   useEffect(() => {
     if (!isPlainDraft || agentSpec == null || updateAgentSpec == null || !loaded || error != null) return;
