@@ -324,7 +324,8 @@ export type TurnInboundEventItem =
   | UserMcpAuthContinueInputEvent;
 
 /** Includes legacy continuation inputs so previously persisted turns remain readable. */
-export type TurnInputItem = UserMessage | UserToolApprovalInputEvent | UserToolResponseInputEvent;
+export type TurnInputItem =
+  UserMessage | UserToolApprovalInputEvent | UserToolResponseInputEvent | UserMcpAuthContinueInputEvent;
 
 export interface TurnStateRunning {
   status: typeof TURN_STATUS.RUNNING;
