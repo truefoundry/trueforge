@@ -115,7 +115,7 @@ function withRedactedApiKey<T extends { auth: { api_key: string } }>(provider: T
 }
 
 async function createRouters(): Promise<{
-  settingsRouter: ReturnType<typeof mountWithErrorHandler>;
+  settingsRouter: ReturnType<typeof createSettingsRouter>;
   catalogRouter: ReturnType<typeof createCatalogRouter>;
   modelsRouter: ReturnType<typeof createModelsRouter>;
   modelProviderStore: IModelProviderStore;
@@ -165,7 +165,7 @@ async function createRouters(): Promise<{
 }
 
 describe('settings model-providers and models routers', () => {
-  let settingsRouter: ReturnType<typeof mountWithErrorHandler>;
+  let settingsRouter: ReturnType<typeof createSettingsRouter>;
   let catalogRouter: ReturnType<typeof createCatalogRouter>;
   let modelsRouter: ReturnType<typeof createModelsRouter>;
 
