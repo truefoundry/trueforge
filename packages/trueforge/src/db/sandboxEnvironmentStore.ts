@@ -129,16 +129,19 @@ export interface ExistingSandboxEnvironmentVersion {
   existing_external_ref?: string;
 }
 
-export interface UpsertSandboxEnvironmentInput {
+export interface CreateSandboxEnvironmentInput {
   tenant_id: string;
   name: ResourceName;
   description: string;
   created_by_subject: CreatedBySubject;
-  /** Complete provider refs from a successful secret sync before upsert. */
+  /** Complete provider refs from a successful secret sync before write. */
   synced_secrets: SyncedSandboxEnvironmentSecret[];
   /** Called after parent lock/create; store upserts secrets from the returned manifest. */
   buildVersion: (input: ExistingSandboxEnvironmentVersion) => Promise<UpsertSandboxEnvironmentVersion>;
 }
+
+/** Same fields as create — create-or-replace by `(tenant_id, name)`. */
+export type UpsertSandboxEnvironmentInput = CreateSandboxEnvironmentInput;
 
 export interface MarkSandboxEnvironmentVersionReadyInput {
   environment_version_id: string;
@@ -162,7 +165,7 @@ export class SandboxEnvironmentNameConflictError extends Error {
   readonly environment_name: string;
 
   constructor({ tenant_id, name }: { tenant_id: string; name: string }, options?: ErrorOptions) {
-    super(`Sandbox environment name already exists: ${name}`, options);
+    super(`Sandbox environment with name ${name} already exists`, options);
     this.name = 'SandboxEnvironmentNameConflictError';
     this.tenant_id = tenant_id;
     this.environment_name = name;
@@ -202,6 +205,15 @@ export interface ISandboxEnvironmentStore<TTransaction = never> {
     input: GetSandboxEnvironmentInput,
     transaction?: TTransaction,
   ): Promise<SandboxEnvironmentWithVersion | undefined>;
+  /**
+   * Create by `(tenant_id, name)` — parent + version row.
+   * Throws {@link SandboxEnvironmentNameConflictError} if an active environment already
+   * uses the name. Uses `transaction` when passed; otherwise opens its own.
+   */
+  createEnvironment(
+    input: CreateSandboxEnvironmentInput,
+    transaction?: TTransaction,
+  ): Promise<SandboxEnvironmentWithVersion>;
   /**
    * Create or replace by `(tenant_id, name)` — parent + version row.
    * Updates insert a new version; parent `active_version` advances only when status is

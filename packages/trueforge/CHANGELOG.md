@@ -1,5 +1,68 @@
 # @truefoundry/trueforge
 
+## 0.178.0
+
+### Patch Changes
+
+- 93824b0: Map Daytona sandbox-environment secret sync HTTP 4xx failures to 422 instead of 502.
+- 8578796: Remove the sandbox-environments frontend feature flag and always enable environments UI.
+- 5300f50: Add a frontend feature flag for sandbox-environment management.
+- 8b6c4bf: Raise the default model HTTP body timeout to 60s and shorten the default MCP request timeout to 2 minutes.
+- b6a7781: Raise the default model HTTP headers timeout to 60 seconds so slow first-token responses are not dropped.
+- 06884d0: Raise the default model HTTP headers and body timeouts to 2 minutes so slow first-token and idle stream responses are not dropped.
+- 9bb142d: Reject duplicate sandbox environment names on create (POST) instead of overwriting via upsert.
+- 8578796: Add configurable sandbox resource caps and limit environment variable and secret names in the UI.
+- 8d39138: Add a host-pluggable analytics contract (`analytics.track` / `AnalyticsProvider`) with a shared event catalog and first-wave click instrumentation. Hosts own the vendor sink; the SDK never ships PostHog.
+- d6b1389: Time out a hung create-turn SSE write so turn drain and subscribe dual-writes keep running.
+- Updated dependencies [8c24138]
+- Updated dependencies [8b6c4bf]
+- Updated dependencies [8c24138]
+- Updated dependencies [b6a7781]
+- Updated dependencies [06884d0]
+- Updated dependencies [9bb142d]
+  - @truefoundry/trueforge-sdk@0.178.0
+  - @truefoundry/trueforge-core@0.178.0
+
+## 0.178.0-rc.4
+
+### Patch Changes
+
+- 06884d0: Raise the default model HTTP headers and body timeouts to 2 minutes so slow first-token and idle stream responses are not dropped.
+- Updated dependencies [06884d0]
+  - @truefoundry/trueforge-core@0.178.0-rc.2
+
+## 0.178.0-rc.3
+
+### Patch Changes
+
+- 93824b0: Map Daytona sandbox-environment secret sync HTTP 4xx failures to 422 instead of 502.
+- 9bb142d: Reject duplicate sandbox environment names on create (POST) instead of overwriting via upsert.
+- Updated dependencies [9bb142d]
+  - @truefoundry/trueforge-sdk@0.178.0-rc.2
+
+## 0.178.0-rc.2
+
+### Patch Changes
+
+- 8578796: Remove the sandbox-environments frontend feature flag and always enable environments UI.
+- 8578796: Add configurable sandbox resource caps and limit environment variable and secret names in the UI.
+
+## 0.178.0-rc.1
+
+### Patch Changes
+
+- 5300f50: Add a frontend feature flag for sandbox-environment management.
+- 8b6c4bf: Raise the default model HTTP body timeout to 60s and shorten the default MCP request timeout to 2 minutes.
+- b6a7781: Raise the default model HTTP headers timeout to 60 seconds so slow first-token responses are not dropped.
+- 8d39138: Add a host-pluggable analytics contract (`analytics.track` / `AnalyticsProvider`) with a shared event catalog and first-wave click instrumentation. Hosts own the vendor sink; the SDK never ships PostHog.
+- d6b1389: Time out a hung create-turn SSE write so turn drain and subscribe dual-writes keep running.
+- Updated dependencies [8c24138]
+- Updated dependencies [8b6c4bf]
+- Updated dependencies [8c24138]
+- Updated dependencies [b6a7781]
+  - @truefoundry/trueforge-sdk@0.178.0-rc.1
+  - @truefoundry/trueforge-core@0.178.0-rc.1
+
 ## 0.177.0
 
 ### Patch Changes

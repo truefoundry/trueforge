@@ -25,13 +25,13 @@ jobs:
     steps:
       - uses: actions/checkout@v7
 
-      - uses: docker/setup-buildx-action@v3
+      - uses: docker/setup-buildx-action@v4
 
       # Pull-only credential for the devtest account that helm-charts mirrors
       # the hardened bases into. Scanning the public-base image would report a
       # different CVE set than the image TrueFoundry SaaS actually runs.
       - name: Configure AWS credentials for private ECR
-        uses: aws-actions/configure-aws-credentials@v4
+        uses: aws-actions/configure-aws-credentials@v6
         with:
           role-to-assume: ${{ secrets.AWS_DEVTEST_ECR_IAM_ROLE_ARN }}
           aws-region: us-east-1
@@ -42,7 +42,7 @@ jobs:
           registries: '526077812922'
 
       - name: Build hardened image
-        uses: docker/build-push-action@v6
+        uses: docker/build-push-action@v7
         with:
           load: true
           file: Dockerfile
@@ -56,7 +56,7 @@ jobs:
 
       - name: Scan image
         id: scan
-        uses: anchore/scan-action@v6
+        uses: anchore/scan-action@v7
         with:
           image: trueforge:grype-report
           fail-build: false

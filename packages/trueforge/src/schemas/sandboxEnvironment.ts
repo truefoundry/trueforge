@@ -182,26 +182,40 @@ export const SandboxEnvironmentVersionInternalMetadataSchema = z
   })
   .strict();
 
-/** PUT create-or-update body (single write API). */
+function refineSandboxEnvironmentResources(
+  body: { manifest: { resources: { cpu: number; memory: number; disk: number } } },
+  ctx: z.RefinementCtx,
+): void {
+  const { cpu, memory, disk } = body.manifest.resources;
+  if (
+    cpu > configuration.SANDBOX_ENVIRONMENT_CPU_MAX ||
+    memory > configuration.SANDBOX_ENVIRONMENT_MEMORY_GIB_MAX ||
+    disk > configuration.SANDBOX_ENVIRONMENT_DISK_GIB_MAX
+  ) {
+    ctx.addIssue({
+      code: 'custom',
+      path: ['manifest', 'resources'],
+      message: 'Sandbox environment resources exceed configured limits',
+    });
+  }
+}
+
+/** POST create body. */
+export const CreateSandboxEnvironmentRequestSchema = z
+  .object({
+    manifest: SandboxEnvironmentManifestRequestSchema,
+  })
+  .strict()
+  .superRefine(refineSandboxEnvironmentResources)
+  .openapi('CreateSandboxEnvironmentRequest');
+
+/** PUT create-or-update body. */
 export const UpdateSandboxEnvironmentRequestSchema = z
   .object({
     manifest: SandboxEnvironmentManifestRequestSchema,
   })
   .strict()
-  .superRefine((body, ctx) => {
-    const { cpu, memory, disk } = body.manifest.resources;
-    if (
-      cpu > configuration.SANDBOX_ENVIRONMENT_CPU_MAX ||
-      memory > configuration.SANDBOX_ENVIRONMENT_MEMORY_GIB_MAX ||
-      disk > configuration.SANDBOX_ENVIRONMENT_DISK_GIB_MAX
-    ) {
-      ctx.addIssue({
-        code: 'custom',
-        path: ['manifest', 'resources'],
-        message: 'Sandbox environment resources exceed configured limits',
-      });
-    }
-  })
+  .superRefine(refineSandboxEnvironmentResources)
   .openapi('UpdateSandboxEnvironmentRequest');
 
 const IsoTimestamp = z.iso.datetime().openapi({ type: 'string', format: 'date-time' });
@@ -241,5 +255,6 @@ export type SandboxEnvironmentSecret = z.infer<typeof SandboxEnvironmentSecretSc
 export type SandboxEnvironmentManifest = z.infer<typeof SandboxEnvironmentManifestSchema>;
 export type StoredSandboxEnvironmentManifest = z.infer<typeof StoredSandboxEnvironmentManifestSchema>;
 export type SandboxEnvironmentVersionInternalMetadata = z.infer<typeof SandboxEnvironmentVersionInternalMetadataSchema>;
+export type CreateSandboxEnvironmentRequest = z.infer<typeof CreateSandboxEnvironmentRequestSchema>;
 export type UpdateSandboxEnvironmentRequest = z.infer<typeof UpdateSandboxEnvironmentRequestSchema>;
 export type SandboxEnvironment = z.infer<typeof SandboxEnvironmentSchema>;

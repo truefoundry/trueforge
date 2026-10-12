@@ -165,6 +165,57 @@ describe('sandbox environments API → build controller path', () => {
     expect(putRes.status).toBe(400);
   });
 
+  it('POST creates an environment and returns 409 on name clash', async () => {
+    const { publicRouter } = await setup();
+    jest.mocked(providerUtils.toDaytonaSandboxProvider).mockReturnValue({
+      createSecret: jest.fn(),
+      updateSecret: jest.fn(),
+      deleteSecret: jest.fn(),
+      getBuildStatus: jest.fn(),
+      build: jest.fn(),
+    } as never);
+
+    const createBody = {
+      manifest: {
+        name: 'create-only-env',
+        description: 'first',
+        image: { type: 'build', build_script: 'pip install httpx' },
+      },
+    };
+    const created = await publicRouter.request('/', {
+      method: 'POST',
+      headers: { 'content-type': 'application/json' },
+      body: JSON.stringify(createBody),
+    });
+    expect(created.status).toBe(201);
+    const createdBody = (await created.json()) as { data: { name: string; description: string } };
+    expect(createdBody.data).toMatchObject({ name: 'create-only-env', description: 'first' });
+
+    const clash = await publicRouter.request('/', {
+      method: 'POST',
+      headers: { 'content-type': 'application/json' },
+      body: JSON.stringify({
+        manifest: {
+          name: 'create-only-env',
+          description: 'overwrite attempt',
+          image: { type: 'build', build_script: 'pip install requests' },
+        },
+      }),
+    });
+    expect(clash.status).toBe(409);
+    expect(await clash.json()).toEqual({
+      error: { message: 'Sandbox environment with name create-only-env already exists' },
+    });
+
+    const getRes = await publicRouter.request('/create-only-env');
+    expect(getRes.status).toBe(200);
+    const getBody = (await getRes.json()) as {
+      data: { description: string; manifest: { image?: { build_script?: string } } };
+    };
+    expect(getBody.data.description).toBe('first');
+    expect(getBody.data.manifest.image?.build_script).toBe('pip install httpx');
+  });
+
   it('lists environments for the caller without error when none exist yet', async () => {
     const { publicRouter } = await setup();
     const listRes = await publicRouter.request('/');
