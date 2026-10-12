@@ -168,8 +168,6 @@ interface ServerPersistence<TTransaction> {
   /** Per-request store: DB git skills, or TrueFoundry registry catalog in TrueFoundry mode. */
   resolveSkillStore: (rc: RequestContext) => ISkillStore<TTransaction>;
   resolveAgentStore: (rc: RequestContext) => IAgentStore<TTransaction>;
-  /** Import agents: SF assume-user headers on the client; DB store when TrueFoundry mode is off. */
-  resolveImportAgentStore: (serviceFoundryServerHeaders: Record<string, string>) => IAgentStore<TTransaction>;
   /** extra pre-resolved stores for scheduled runs */
   agentStore: IAgentStore<TTransaction>;
   sandboxEnvironmentStore: ISandboxEnvironmentStore<TTransaction>;
@@ -184,10 +182,7 @@ interface ServerPersistence<TTransaction> {
 }
 
 /** Shared ServiceFoundry HTTP client when TrueFoundry mode is on; otherwise undefined. */
-function createServiceFoundryServerClient(
-  logger: Logger,
-  headers?: Record<string, string>,
-): TrueFoundryServiceFoundryServerClient | undefined {
+function createServiceFoundryServerClient(logger: Logger): TrueFoundryServiceFoundryServerClient | undefined {
   if (!isTrueFoundryModeEnabled(configuration)) {
     return undefined;
   }
@@ -204,7 +199,6 @@ function createServiceFoundryServerClient(
     httpAgentTimeoutMs: configuration.TRUEFOUNDRY_SERVICEFOUNDRY_HTTP_AGENT_TIMEOUT_MS,
     tls: { enabled: configuration.TRUEFOUNDRY_MTLS_ENABLED, dir: configuration.TRUEFOUNDRY_MTLS_CERTS_DIR },
     apiKey,
-    ...(headers !== undefined ? { headers } : {}),
   });
 }
 
@@ -415,7 +409,6 @@ async function createStandalonePersistence(options: {
     resolveWebSearchProviderStore: () => webSearchProviderStore,
     resolveSkillStore: () => skillStore,
     resolveAgentStore: () => agentStore,
-    resolveImportAgentStore: () => agentStore,
     agentStore,
     sandboxEnvironmentStore,
     sandboxProviderStore,
@@ -533,25 +526,6 @@ async function createDistributedPersistence(options: {
     db,
     client: serviceFoundryClient,
   });
-  const resolveImportAgentStore = (
-    serviceFoundryServerHeaders: Record<string, string>,
-  ): IAgentStore<Transaction<PostgresDatabase>> => {
-    const client = createServiceFoundryServerClient(logger, serviceFoundryServerHeaders);
-    if (client === undefined) {
-      return agentStore;
-    }
-    return new TrueFoundryAgentStore({
-      inner: agentStore,
-      client,
-      context: {
-        tenant_id: 'system',
-        subject: { id: 'tfy-system', type: 'serviceaccount', display_name: 'tfy-system' },
-        roles: [],
-        user_credential: client.apiKey,
-      },
-      db,
-    });
-  };
   const resolveSandboxProviderStore = buildResolveSandboxProviderStore({
     persistenceStore: sandboxProviderStore,
   });
@@ -575,7 +549,6 @@ async function createDistributedPersistence(options: {
     resolveWebSearchProviderStore,
     resolveSkillStore,
     resolveAgentStore,
-    resolveImportAgentStore,
     agentStore,
     sandboxEnvironmentStore,
     sandboxProviderStore: resolveSandboxProviderStore(STANDALONE_REQUEST_CONTEXT),
@@ -609,7 +582,6 @@ async function createServerRuntime<TTransaction>(persistence: ServerPersistence<
     tokenStore,
     scheduleStore,
     mcpOAuthStore,
-    resolveImportAgentStore,
     agentStore,
     sandboxEnvironmentStore,
     turnSkillsResolverStore,
@@ -716,7 +688,6 @@ async function createServerRuntime<TTransaction>(persistence: ServerPersistence<
     resolveModelProviderStore,
     resolveMcpServerStore,
     resolveAgentStore,
-    resolveImportAgentStore,
     resolveSandboxProviderStore,
     resolveWebSearchProviderStore,
     resolveSkillStore,

@@ -109,47 +109,6 @@ function buildProjectionEvents(items: SessionEventItem[], turns: SessionTurnView
   });
 }
 
-function appendTerminalText(content: ThreadMessageLike['content'], text: string): ThreadMessageLike['content'] {
-  const terminalPart: { type: 'text'; text: string } = { type: 'text', text };
-  return typeof content === 'string' ? [{ type: 'text', text: content }, terminalPart] : [...content, terminalPart];
-}
-
-function applyTerminalState(messages: ThreadMessageLike[], turn: SessionTurnView): ThreadMessageLike[] {
-  const state = turn.done?.state;
-  if (state?.status !== 'error' && state?.status !== 'cancelled') return messages;
-
-  // failures need an assistant row so the terminal state is visible.
-  const assistantIndex = messages.findIndex(message => message.role === 'assistant');
-  const assistant = assistantIndex < 0 ? undefined : messages[assistantIndex];
-  const createdAt = new Date(state.completedAt ?? turn.done?.createdAt ?? turn.created.createdAt);
-  const terminal: ThreadMessageLike =
-    state.status === 'error'
-      ? {
-          ...(assistant ?? {
-            id: `${turn.turnId}-assistant`,
-            role: 'assistant',
-            content: [],
-            createdAt,
-            metadata: { custom: { turnId: turn.turnId } },
-          }),
-          status: { type: 'incomplete', reason: 'error', error: state.message },
-        }
-      : {
-          ...(assistant ?? {
-            id: `${turn.turnId}-assistant`,
-            role: 'assistant',
-            content: [],
-            createdAt,
-            metadata: { custom: { turnId: turn.turnId } },
-          }),
-          content: appendTerminalText(assistant?.content ?? [], `Cancelled: ${state.reason}`),
-          status: { type: 'incomplete', reason: 'cancelled' },
-        };
-
-  if (assistantIndex < 0) return [...messages, terminal];
-  return messages.map((message, index) => (index === assistantIndex ? terminal : message));
-}
-
 /** Retrieves MCP servers requiring OAuth in this turn from done actions or turn events. */
 function findTurnMcpServers(turn: SessionTurnView) {
   const actions = turn.done?.state.status === 'done' ? turn.done.state.requiredActions : undefined;
@@ -205,8 +164,7 @@ function applyMcpAuthState(messages: ThreadMessageLike[], turn: SessionTurnView)
 
 function messagesForTurn(messages: ThreadMessageLike[], turn: SessionTurnView): ThreadMessageLike[] {
   const matched = messages.filter(message => turnIdFromMessage(message) === turn.turnId);
-  const withMcpAuth = applyMcpAuthState(matched, turn);
-  return applyTerminalState(withMcpAuth, turn);
+  return applyMcpAuthState(matched, turn);
 }
 
 export type AgentSessionTimelineContainerProps = {

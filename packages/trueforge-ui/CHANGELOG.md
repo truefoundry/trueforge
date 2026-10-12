@@ -1,5 +1,75 @@
 # Changelog
 
+## 0.178.0
+
+### Patch Changes
+
+- 8578796: Remove the sandbox-environments frontend feature flag and always enable environments UI.
+- 53de2fb: Encode sandbox artifact paths when building file-download links, so names containing spaces, `#`, `?`, `&`, `%` or non-ASCII characters resolve to the intended file instead of a truncated or misparsed URL.
+- f55571c: Toast API errors when creating or updating a sandbox environment so failures are visible outside the drawer form.
+- ef9b204: Polish Environments UI: hyphen for default Updated, Building status label, form-only create drawer, secrets docs link and allowed-hosts copy, hide Manage Environments when sandbox is off.
+- 5300f50: Add a frontend feature flag for sandbox-environment management.
+- 8c24138: Raise the default agent `config.iteration_limit` from 100 to 512.
+- e452b06: Preserve token and cost metrics on failed and cancelled turns in the UI adapter and types so turn headers and session totals include billable usage from non-done terminal turns.
+- d40c380: Remove YAML create/edit from the environment form drawer so environments are configured only through the UI form.
+- 9bb142d: Reject duplicate sandbox environment names on create (POST) instead of overwriting via upsert.
+- a82cd2b: Clarify the agent runtime Environment field description.
+- 8578796: Add configurable sandbox resource caps and limit environment variable and secret names in the UI.
+- 8578796: Point the Environments secrets "Learn more" link at the Sandbox docs section on how environment changes reach a running session.
+- c2ccca5: Show clearer empty-state errors when schedules, agents, or environments fail to load, and map browser network noise to the fallback in getErrorMessage.
+- 6d91541: Display session metadata at the top of the session detail header
+- 8d39138: Add a host-pluggable analytics contract (`analytics.track` / `AnalyticsProvider`) with a shared event catalog and first-wave click instrumentation. Hosts own the vendor sink; the SDK never ships PostHog.
+- fa99771: Show file-type icons, filenames, and sizes for composer and sent message attachments.
+- Updated dependencies [8c24138]
+- Updated dependencies [e452b06]
+- Updated dependencies [68ea7ae]
+- Updated dependencies [9bb142d]
+- Updated dependencies [6d91541]
+- Updated dependencies [d01ddc0]
+  - @truefoundry/trueforge-sdk@0.178.0
+  - @truefoundry/trueforge-assistant-ui-runtime@0.178.0
+
+## 0.178.0-rc.3
+
+### Patch Changes
+
+- f55571c: Toast API errors when creating or updating a sandbox environment so failures are visible outside the drawer form.
+- 9bb142d: Reject duplicate sandbox environment names on create (POST) instead of overwriting via upsert.
+- Updated dependencies [9bb142d]
+  - @truefoundry/trueforge-assistant-ui-runtime@0.178.0-rc.2
+  - @truefoundry/trueforge-sdk@0.178.0-rc.2
+
+## 0.178.0-rc.2
+
+### Patch Changes
+
+- 8578796: Remove the sandbox-environments frontend feature flag and always enable environments UI.
+- 8578796: Add configurable sandbox resource caps and limit environment variable and secret names in the UI.
+- 8578796: Point the Environments secrets "Learn more" link at the Sandbox docs section on how environment changes reach a running session.
+
+## 0.178.0-rc.1
+
+### Patch Changes
+
+- 53de2fb: Encode sandbox artifact paths when building file-download links, so names containing spaces, `#`, `?`, `&`, `%` or non-ASCII characters resolve to the intended file instead of a truncated or misparsed URL.
+- ef9b204: Polish Environments UI: hyphen for default Updated, Building status label, form-only create drawer, secrets docs link and allowed-hosts copy, hide Manage Environments when sandbox is off.
+- 5300f50: Add a frontend feature flag for sandbox-environment management.
+- 8c24138: Raise the default agent `config.iteration_limit` from 100 to 512.
+- e452b06: Preserve token and cost metrics on failed and cancelled turns in the UI adapter and types so turn headers and session totals include billable usage from non-done terminal turns.
+- d40c380: Remove YAML create/edit from the environment form drawer so environments are configured only through the UI form.
+- a82cd2b: Clarify the agent runtime Environment field description.
+- c2ccca5: Show clearer empty-state errors when schedules, agents, or environments fail to load, and map browser network noise to the fallback in getErrorMessage.
+- 6d91541: Display session metadata at the top of the session detail header
+- 8d39138: Add a host-pluggable analytics contract (`analytics.track` / `AnalyticsProvider`) with a shared event catalog and first-wave click instrumentation. Hosts own the vendor sink; the SDK never ships PostHog.
+- fa99771: Show file-type icons, filenames, and sizes for composer and sent message attachments.
+- Updated dependencies [8c24138]
+- Updated dependencies [e452b06]
+- Updated dependencies [68ea7ae]
+- Updated dependencies [6d91541]
+- Updated dependencies [d01ddc0]
+  - @truefoundry/trueforge-sdk@0.178.0-rc.1
+  - @truefoundry/trueforge-assistant-ui-runtime@0.178.0-rc.1
+
 ## 0.177.0
 
 ### Patch Changes
