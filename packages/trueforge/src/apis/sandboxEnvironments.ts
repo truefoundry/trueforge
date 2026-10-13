@@ -127,58 +127,25 @@ export function createSandboxEnvironmentsRouter<TTransaction>(
     return c.json({ data: toSandboxEnvironment(loaded) }, 200);
   };
 
-  type SavedSandboxEnvironmentOutcome = { kind: 'saved'; environment: SandboxEnvironment };
-  type SandboxEnvironmentWriteError<TStatus extends 404 | 409 | 422> = {
-    kind: 'error';
-    status: TStatus;
-    message: string;
-  };
+  type WriteSandboxEnvironmentOutcome =
+    { kind: 'saved'; environment: SandboxEnvironment } | { kind: 'error'; status: 409 | 422; message: string };
 
-  function writeSandboxEnvironment(input: {
-    c: Context;
-    body: CreateSandboxEnvironmentRequest;
-    mode: 'create';
-  }): Promise<SavedSandboxEnvironmentOutcome | SandboxEnvironmentWriteError<409 | 422>>;
-  function writeSandboxEnvironment(input: {
-    c: Context;
-    body: UpdateSandboxEnvironmentRequest;
-    mode: 'upsert';
-  }): Promise<SavedSandboxEnvironmentOutcome | SandboxEnvironmentWriteError<404 | 409 | 422>>;
   async function writeSandboxEnvironment({
     c,
     body,
     mode,
+    existing,
   }: {
     c: Context;
     body: CreateSandboxEnvironmentRequest | UpdateSandboxEnvironmentRequest;
     mode: 'create' | 'upsert';
-  }): Promise<SavedSandboxEnvironmentOutcome | SandboxEnvironmentWriteError<404 | 409 | 422>> {
+    existing: SandboxEnvironmentWithVersion | undefined;
+  }): Promise<WriteSandboxEnvironmentOutcome> {
     const requestContext = resolveRequestContext(c);
     const { manifest } = body;
     const created_by_subject = createdBySubjectFromRequestContext(requestContext);
 
     try {
-      const existing = await store.getEnvironment({
-        tenant_id: requestContext.tenant_id,
-        name: manifest.name,
-      });
-      if (existing) {
-        if (mode === 'create') {
-          return {
-            kind: 'error',
-            status: 409,
-            message: `Sandbox environment with name ${manifest.name} already exists`,
-          };
-        }
-        if (existing.environment.created_by_subject.subject_id !== requestContext.subject.id) {
-          return {
-            kind: 'error',
-            status: 404,
-            message: `Sandbox environment not found: ${manifest.name}`,
-          };
-        }
-      }
-
       const provider = await resolveSandboxProviderRecord(
         deps.resolveSandboxProviderStore(c),
         requestContext.tenant_id,
@@ -246,7 +213,13 @@ export function createSandboxEnvironmentsRouter<TTransaction>(
   }
 
   const createHandler: RouteHandler<typeof createSandboxEnvironmentRoute> = async c => {
-    const outcome = await writeSandboxEnvironment({ c, body: c.req.valid('json'), mode: 'create' });
+    const body = c.req.valid('json');
+    const { tenant_id } = resolveRequestContext(c);
+    const existing = await store.getEnvironment({ tenant_id, name: body.manifest.name });
+    if (existing) {
+      return c.json({ error: { message: `Sandbox environment with name ${body.manifest.name} already exists` } }, 409);
+    }
+    const outcome = await writeSandboxEnvironment({ c, body, mode: 'create', existing });
     if (outcome.kind === 'error') {
       return c.json({ error: { message: outcome.message } }, outcome.status);
     }
@@ -255,7 +228,13 @@ export function createSandboxEnvironmentsRouter<TTransaction>(
 
   // Create-or-update keyed by manifest.name.
   const putHandler: RouteHandler<typeof putSandboxEnvironmentRoute> = async c => {
-    const outcome = await writeSandboxEnvironment({ c, body: c.req.valid('json'), mode: 'upsert' });
+    const body = c.req.valid('json');
+    const { tenant_id, subject } = resolveRequestContext(c);
+    const existing = await store.getEnvironment({ tenant_id, name: body.manifest.name });
+    if (existing && existing.environment.created_by_subject.subject_id !== subject.id) {
+      return c.json({ error: { message: `Sandbox environment not found: ${body.manifest.name}` } }, 404);
+    }
+    const outcome = await writeSandboxEnvironment({ c, body, mode: 'upsert', existing });
     if (outcome.kind === 'error') {
       return c.json({ error: { message: outcome.message } }, outcome.status);
     }
