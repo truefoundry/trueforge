@@ -82,4 +82,13 @@ describe('mountFrontend', () => {
     // Navigations are the only thing the shell answers.
     expect((await app.request('/sessions/abc123', { method: 'POST', headers: HTML_ACCEPT })).status).toBe(404);
   });
+
+  it('does not serve the app shell for /metrics', async () => {
+    const app = appWithFrontend(buildDir());
+
+    const response = await app.request('/metrics', { headers: HTML_ACCEPT });
+
+    expect(response.status).toBe(404);
+    expect(await response.text()).not.toContain('id="root"');
+  });
 });

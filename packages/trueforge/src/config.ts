@@ -678,6 +678,8 @@ export interface SharedServerConfiguration {
   LOG_LEVEL: string;
   /** Log one line per HTTP request (except `/healthz` and `/assets/`). Env: `ACCESS_LOGS`. Default true. */
   ACCESS_LOGS: boolean;
+  /** Prometheus request metrics at `GET /metrics`. Env: `METRICS_ENABLED`. Default true. */
+  METRICS_ENABLED: boolean;
   /** Node environment. Env: `NODE_ENV`. */
   NODE_ENV: string | undefined;
   /** HTTP port the server listens on. Env: `PORT`. */
@@ -1099,6 +1101,7 @@ const host = getEnv('HOST', { defaultValue: DEFAULT_HOST }) ?? DEFAULT_HOST;
 const shared: SharedServerConfiguration = {
   LOG_LEVEL: getEnv('LOG_LEVEL', { defaultValue: 'info' }) ?? 'info',
   ACCESS_LOGS: parseBoolean({ envKey: 'ACCESS_LOGS', raw: getEnv('ACCESS_LOGS'), defaultValue: true }),
+  METRICS_ENABLED: parseBoolean({ envKey: 'METRICS_ENABLED', raw: getEnv('METRICS_ENABLED'), defaultValue: true }),
   NODE_ENV: getEnv('NODE_ENV'),
   PORT: port,
   HOST: host,

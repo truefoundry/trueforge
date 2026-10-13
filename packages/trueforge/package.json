@@ -66,6 +66,7 @@
     "@hono/swagger-ui": "^0.6.1",
     "@hono/zod-openapi": "^1.6.3",
     "@modelcontextprotocol/sdk": "^1.31.0",
+    "@prometheus-io/client": "^0.16.1",
     "@sentry/node": "^10.75.3",
     "@truefoundry/trueforge-core": "workspace:*",
     "@truefoundry/trueforge-sdk": "workspace:*",

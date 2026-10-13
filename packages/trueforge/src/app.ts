@@ -50,6 +50,7 @@ import type { ISessionMetricsStore } from './db/sessionMetricsStore';
 import type { ISkillStore } from './db/skillStore';
 import type { WithTransaction } from './db/transaction';
 import type { IWebSearchProviderStore } from './db/webSearchProviderStore';
+import { createHttpMetrics } from './http/prometheus';
 import { createClientCertificateMiddleware } from './http/tls';
 import type { IOAuthTokenStore } from './mcp/auth/types';
 import { PACKAGE_VERSION } from './packageVersion';
@@ -271,6 +272,10 @@ export function createServerApp<TTransaction>(deps: ServerDeps<TTransaction>) {
     turnSkillsResolverStore: deps.turnSkillsResolverStore,
   };
 
+  const httpMetrics = configuration.METRICS_ENABLED ? createHttpMetrics() : undefined;
+  if (httpMetrics !== undefined) {
+    app.use('*', httpMetrics.middleware);
+  }
   if (configuration.ACCESS_LOGS) {
     app.use('*', createAccessLogMiddleware(deps.logger));
   }
@@ -280,6 +285,9 @@ export function createServerApp<TTransaction>(deps: ServerDeps<TTransaction>) {
   app.use('*', createRequestBodyLimitMiddleware(configuration.MAX_REQUEST_BODY_BYTES));
 
   app.get('/healthz', c => c.json({ status: 'ok', version: PACKAGE_VERSION }));
+  if (httpMetrics !== undefined) {
+    app.get('/metrics', httpMetrics.handler);
+  }
 
   app.route(
     '/api/v1/auth',

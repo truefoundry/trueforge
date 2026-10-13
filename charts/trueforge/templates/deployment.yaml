@@ -26,7 +26,7 @@ spec:
         {{- with (include "trueforge.podLabels" .) }}
         {{- . | nindent 8 }}
         {{- end }}
-      {{- with (include "trueforge.podAnnotations" .) }}
+      {{- with (include "trueforge.server.podAnnotations" .) }}
       annotations:
         {{- . | nindent 8 }}
       {{- end }}

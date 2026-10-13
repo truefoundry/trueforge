@@ -60,6 +60,9 @@ serviceAccount:
   name: ""
 # Mount the ServiceAccount token into the server and controller pods.
 automountServiceAccountToken: false
+# Server pods merge Prometheus scrape annotations under these and global.podAnnotations.
+# prometheus.io/port is the server container port. Set prometheus.io/scrape to "false"
+# to turn discovery off. The controller pod does not get the scrape annotations.
 podAnnotations: {}
 podLabels: {}
 # Labels / annotations on every rendered object (merged over global.labels /
