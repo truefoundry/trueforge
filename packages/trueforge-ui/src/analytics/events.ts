@@ -73,4 +73,7 @@ export const AnalyticsEvents = {
     EDITED: 'trueforge.environment.edited',
     DELETED: 'trueforge.environment.deleted',
   },
+  Sdk: {
+    HTTP_TIMEOUT: 'trueforge.sdk.http_timeout',
+  },
 } as const;
