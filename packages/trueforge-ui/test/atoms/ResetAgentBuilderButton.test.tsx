@@ -1,6 +1,7 @@
 // @vitest-environment jsdom
 import { fireEvent, render, screen } from '@testing-library/react';
-import { describe, expect, it, type ReactNode } from 'vitest';
+import type { ReactNode } from 'react';
+import { describe, expect, it } from 'vitest';
 
 import { ResetAgentBuilderButton } from '@/atoms/ResetAgentBuilderButton.js';
 import { ShellModeProvider, useShellMode } from '@/server/ShellModeContext.js';

@@ -49,7 +49,6 @@ describe('selectDraftSpecPreferences', () => {
       freshAgentBuilderSeed({
         model: { name: 'm', params: { reasoningEffort: 'low' } },
         instructions: 'drop me',
-        messages: [{ type: 'user.message', content: 'hi' }],
         mcpServers: [{ name: 'exa' }],
         skills: [{ name: 'research' }],
         config: { sandbox: { enabled: true }, webSearch: { enabled: true } },
