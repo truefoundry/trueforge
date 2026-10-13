@@ -30,8 +30,14 @@ export type {
   ThemePreset,
 } from './theme/types.js';
 
+export { EnvironmentsPage } from './atoms/environments/EnvironmentsPage.js';
+export type { EnvironmentsPageProps } from './atoms/environments/EnvironmentsPage.js';
+export { EnvironmentsButton } from './atoms/EnvironmentsButton.js';
+export type { EnvironmentsButtonProps } from './atoms/EnvironmentsButton.js';
 export { PermissionGuard } from './atoms/PermissionGuard.js';
 export type { PermissionGuardProps } from './atoms/PermissionGuard.js';
+export { Badge } from './atoms/primitives/Badge.js';
+export type { BadgeProps, BadgeShape, BadgeSize, BadgeVariant } from './atoms/primitives/Badge.js';
 export { BottomSheet } from './atoms/primitives/BottomSheet.js';
 export type { BottomSheetProps } from './atoms/primitives/BottomSheet.js';
 export { Button } from './atoms/primitives/Button.js';
@@ -94,12 +100,16 @@ export { ChatFileDownload } from './atoms/ChatFileDownload.js';
 export type { ChatFileDownloadFile, ChatFileDownloadProps } from './atoms/ChatFileDownload.js';
 export { CodeEditor } from './atoms/CodeEditor.js';
 export type { CodeEditorProps } from './atoms/CodeEditor.js';
+export { FilePreviewPanel } from './atoms/FilePreviewPanel.js';
+export type { FilePreviewPanelProps, FilePreviewView } from './atoms/FilePreviewPanel.js';
 export { HistoryLoader } from './atoms/HistoryLoader.js';
 export type { HistoryLoaderProps } from './atoms/HistoryLoader.js';
 export { Markdown, preloadMarkdownOpenUI } from './atoms/Markdown.js';
 export type { MarkdownProps } from './atoms/Markdown.js';
 export { MessageActionBar } from './atoms/MessageActionBar.js';
 export type { MessageActionBarProps } from './atoms/MessageActionBar.js';
+export { MessageCancelledBanner } from './atoms/MessageCancelledBanner.js';
+export type { MessageCancelledBannerProps } from './atoms/MessageCancelledBanner.js';
 export { MessageErrorBanner } from './atoms/MessageErrorBanner.js';
 export type { MessageErrorBannerProps } from './atoms/MessageErrorBanner.js';
 export { MessageIndicator } from './atoms/MessageIndicator.js';
@@ -137,6 +147,8 @@ export type { UserMessageEditProps } from './atoms/UserMessageEdit.js';
 export { WelcomeScreen } from './atoms/WelcomeScreen.js';
 export type { WelcomeScreenProps } from './atoms/WelcomeScreen.js';
 
+export { AnalyticsEvents, AnalyticsProvider, useTrackAnalytics, withSessionProps } from './analytics/index.js';
+export type { AnalyticsConfig, AnalyticsEventProps, TrackAnalytics } from './analytics/index.js';
 export { AgentStepsCard } from './atoms/adapters/AgentStepsCardAdapter.js';
 export type { AgentStepsCardProps } from './atoms/adapters/AgentStepsCardAdapter.js';
 export type {
@@ -242,7 +254,7 @@ export { UserEditComposerContainer } from './containers/UserEditComposerContaine
 export { UserMessageContainer } from './containers/UserMessageContainer.js';
 export { useApprovalNav } from './hooks/useApprovalNav.js';
 export type { ApprovalNavState } from './hooks/useApprovalNav.js';
-export { useCanCreateAgent } from './hooks/useCanCreateAgent.js';
+export { CanCreateAgentProvider, useCanCreateAgent } from './hooks/useCanCreateAgent.js';
 export type { UseCanCreateAgentResult } from './hooks/useCanCreateAgent.js';
 export { ComposerBusyProvider, useComposerBusyState } from './hooks/useComposerBusyState.js';
 export type { ComposerBusyState } from './hooks/useComposerBusyState.js';
@@ -407,8 +419,6 @@ export type {
   SandboxCatalogServer,
   SandboxProviderBase,
   SandboxProviderCatalogEntry,
-  SandboxProviderListEntry,
-  SandboxSnapshotSyncStatus,
   SaveAgentRequest,
   SaveAgentResult,
   SearchAgentsParams,

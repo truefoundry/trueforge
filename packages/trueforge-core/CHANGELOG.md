@@ -1,5 +1,84 @@
 # @truefoundry/trueforge-core
 
+## 0.178.0
+
+### Patch Changes
+
+- 8b6c4bf: Raise the default model HTTP body timeout to 60s and shorten the default MCP request timeout to 2 minutes.
+- 8c24138: Raise the default agent `config.iteration_limit` from 100 to 512.
+- b6a7781: Raise the default model HTTP headers timeout to 60 seconds so slow first-token responses are not dropped.
+- 06884d0: Raise the default model HTTP headers and body timeouts to 2 minutes so slow first-token and idle stream responses are not dropped.
+
+## 0.178.0-rc.2
+
+### Patch Changes
+
+- 06884d0: Raise the default model HTTP headers and body timeouts to 2 minutes so slow first-token and idle stream responses are not dropped.
+
+## 0.178.0-rc.1
+
+### Patch Changes
+
+- 8b6c4bf: Raise the default model HTTP body timeout to 60s and shorten the default MCP request timeout to 2 minutes.
+- 8c24138: Raise the default agent `config.iteration_limit` from 100 to 512.
+- b6a7781: Raise the default model HTTP headers timeout to 60 seconds so slow first-token responses are not dropped.
+
+## 0.177.0
+
+### Patch Changes
+
+- 5b7abb6: Default sandbox environment on provider configure (with provider status-column drop), capabilities/resolve via default env status, and a controller loop that builds the latest pending environment version per env. Core: generic SandboxProvider/Sandbox, HarnessSandbox, and Daytona build/getBuildStatus on the provider.
+- 5b7abb6: Bump dependencies to address known vulnerabilities (Dependabot), including `undici`, AI SDK providers, `zod`, and related transitive fixes.
+- 5b7abb6: Reset in-flight sub-agents and open tool calls when a turn starts with a user message, without emitting public thread.done for cancelled children.
+- b9429a0: Raise the default model HTTP body timeout to 60s and shorten the default MCP request timeout to 2 minutes.
+- fc99f4e: Raise the default model HTTP headers timeout to 60 seconds so slow first-token responses are not dropped.
+- 4fde7e9: Split outbound HTTP into an agnostic SSRF `createOutboundFetch` plus separate generic/model/MCP Agents (`OUTBOUND_HTTP_*`, `MODEL_HTTP_*`, `MCP_HTTP_*`) with configurable connect/headers/body timeouts and retries.
+- 5b7abb6: Add sandbox-environment CRUD (tables, PUT upsert, subject ownership, soft-delete). Versions land as `pending` for a future controller. AgentSpec `config.sandbox.environment_name` names a caller-owned env; name `default` is reserved; delete returns 409 while agents reference it. Turn create clones the env snapshot (when built) and applies resources, env vars, and networking.
+- fde4d4a: Sync sandbox-environment networking secrets to Daytona org secrets on PUT (plaintext is never stored), keep Daytona refs in `sandbox_environment_secret`, and mount those secret names at sandbox create time.
+- 5b7abb6: Treat `paused` as a live turn. `updateTurnNonTerminalState` switches `running` and `paused` and appends `turn.update` without session metrics. Terminal writes and `freezeAndGetTurn` accept a paused tip. `createTurn` rejects a paused predecessor until it is frozen. `updateTurnState` is now `updateTurnTerminalState`.
+
+## 0.177.0-rc.3
+
+### Patch Changes
+
+- fc99f4e: Raise the default model HTTP headers timeout to 60 seconds so slow first-token responses are not dropped.
+
+## 0.177.0-rc.2
+
+### Patch Changes
+
+- b9429a0: Raise the default model HTTP body timeout to 60s and shorten the default MCP request timeout to 2 minutes.
+
+## 0.177.0-rc.1
+
+### Patch Changes
+
+- 5b7abb6: Default sandbox environment on provider configure (with provider status-column drop), capabilities/resolve via default env status, and a controller loop that builds the latest pending environment version per env. Core: generic SandboxProvider/Sandbox, HarnessSandbox, and Daytona build/getBuildStatus on the provider.
+- 5b7abb6: Bump dependencies to address known vulnerabilities (Dependabot), including `undici`, AI SDK providers, `zod`, and related transitive fixes.
+- 5b7abb6: Reset in-flight sub-agents and open tool calls when a turn starts with a user message, without emitting public thread.done for cancelled children.
+- 4fde7e9: Split outbound HTTP into an agnostic SSRF `createOutboundFetch` plus separate generic/model/MCP Agents (`OUTBOUND_HTTP_*`, `MODEL_HTTP_*`, `MCP_HTTP_*`) with configurable connect/headers/body timeouts and retries.
+- 5b7abb6: Add sandbox-environment CRUD (tables, PUT upsert, subject ownership, soft-delete). Versions land as `pending` for a future controller. AgentSpec `config.sandbox.environment_name` names a caller-owned env; name `default` is reserved; delete returns 409 while agents reference it. Turn create clones the env snapshot (when built) and applies resources, env vars, and networking.
+- fde4d4a: Sync sandbox-environment networking secrets to Daytona org secrets on PUT (plaintext is never stored), keep Daytona refs in `sandbox_environment_secret`, and mount those secret names at sandbox create time.
+- 5b7abb6: Treat `paused` as a live turn. `updateTurnNonTerminalState` switches `running` and `paused` and appends `turn.update` without session metrics. Terminal writes and `freezeAndGetTurn` accept a paused tip. `createTurn` rejects a paused predecessor until it is frozen. `updateTurnState` is now `updateTurnTerminalState`.
+
+## 0.3.0
+
+### Minor Changes
+
+- 829ac6e: Add OSS web-search provider settings and catalog (Parallel): singleton settings/catalog APIs, optional API key, and UI adapter without mode config so built-in web search works outside TrueFoundry mode.
+- cf55de9: Add Redis Sentinel + TLS with exclusive transport fail-fast (`REDIS_CONNECTION` DU). Redis is optional at config load for controller/migrate; server still requires it at connect. Sentinel shared-client errors no longer stop the peering heartbeat.
+
+### Patch Changes
+
+- 33cbe52: Default MCP tool approval to `@write` and `@destructive` again. Unlabeled tools still run without a pause unless named or covered by `@all`.
+- 4726a31: Let a session owner mark a session shared so any subject in the tenant can read it by id, including turns and events (not subscribe or sandbox downloads).
+- 0c82412: Add `POST /sessions/{session_id}/turns/{turn_id}/events` for tip HITL / policy events.
+- 5adde28: Add `turn_inbound_events` store API for durable tip HITL send-event inbox (insert / list unconsumed / mark consumed), with Postgres and SQLite migrations.
+- bbc4f7d: Add `user.mcp_auth_continue` (`{ "type": "user.mcp_auth_continue" }`) on POST `/events`, session events, and the SSE stream. Add paused to turn state.
+- b342a21: Add `user.tool_approval_policy` send-event schema (`allow_session`, optional ISO `expire_at`). Send-only like `user.tool_approval` / `user.tool_response` — not on the durable stream.
+- 5b209be: Persist exact streamed reasoning_content on model.message session events (omit from thread context).
+- 1b1050a: [truefoundry] Surface nested `Error.cause` and the sandbox URL when TFY sandbox fetch calls fail, so undici "fetch failed" errors include ECONNREFUSED (and similar) instead of an opaque message. Log when a TFY sandbox file upload starts and finishes.
+
 ## 0.3.0-rc.0
 
 ### Minor Changes

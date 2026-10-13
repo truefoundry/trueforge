@@ -17,6 +17,7 @@ export type SideDrawerProps = {
   title: string;
   description?: string;
   headerIcon?: ReactNode;
+  headerActions?: ReactNode;
   children: ReactNode;
   footer?: ReactNode;
   /** Desktop side; ignored when compact / below `md` (falls back to bottom sheet). */
@@ -44,6 +45,7 @@ export function SideDrawer({
   title,
   description,
   headerIcon,
+  headerActions,
   children,
   footer,
   anchor = 'right',
@@ -118,6 +120,7 @@ export function SideDrawer({
             </p>
           ) : null}
         </div>
+        {headerActions}
         <button
           type="button"
           aria-label="Close"

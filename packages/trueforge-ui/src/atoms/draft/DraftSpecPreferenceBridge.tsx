@@ -1,10 +1,12 @@
 'use client';
 
 import { useTrueForgeAgentSpec, useTrueForgeUpdateAgentSpec } from '@truefoundry/trueforge-assistant-ui-runtime';
-import { useEffect } from 'react';
+import { useEffect, useRef } from 'react';
 
 import {
   type DraftPreferenceKind,
+  persistedWebSearchEnabled,
+  recoverWebSearchAfterCapabilityAvailable,
   withCapabilitiesSandbox,
   withCapabilitiesWebSearch,
 } from '../../server/draftSpecPreferences.js';
@@ -118,20 +120,32 @@ export function reconcileDraftSandbox({
 export function reconcileDraftWebSearch({
   agentSpec,
   webSearchEnabled,
+  previousWebSearchEnabled,
+  explicitOff = false,
   kind = 'agent',
 }: {
   agentSpec: AgentSpec;
   webSearchEnabled: boolean | null | undefined;
+  previousWebSearchEnabled?: boolean | null | undefined;
+  explicitOff?: boolean;
   kind?: DraftPreferenceKind;
 }): Partial<AgentSpec> {
-  const nextSpec = withCapabilitiesWebSearch({ spec: agentSpec, webSearchEnabled, kind });
+  const recovered = recoverWebSearchAfterCapabilityAvailable({
+    spec: agentSpec,
+    previousWebSearchEnabled,
+    webSearchEnabled,
+    explicitOff,
+    kind,
+  });
+  const nextSpec = withCapabilitiesWebSearch({ spec: recovered, webSearchEnabled, kind });
   return nextSpec === agentSpec ? {} : { config: nextSpec.config };
 }
 
 /**
  * Mirrors plain-draft composer choices into the shell seed and removes catalog
  * entries that disappeared since those choices were stored.
- * New Chat and New Agent keep separate seeds; chat never persists runtime config.
+ * New Chat and New Agent keep separate seeds; chat persists web-search only
+ * among runtime config fields.
  */
 export function DraftSpecPreferenceBridge() {
   const { mode, pendingSessionId, rememberDraftSpec } = useShellMode();
@@ -140,14 +154,11 @@ export function DraftSpecPreferenceBridge() {
   const capabilities = useServerCapabilities();
   const sandboxEnabled = capabilities?.sandbox.enabled;
   const webSearchEnabled = capabilities?.webSearch?.enabled;
+  const prevWebSearchEnabledRef = useRef(webSearchEnabled);
   const { models, skills, connectors, loaded, error, ensureLoaded } = useDraftCatalog();
   const isMutableDraft = mode.status === 'active' && mode.isMutable && pendingSessionId == null;
   const isPlainDraft = isMutableDraft && mode.agentId == null;
   const preferenceKind = mode.status === 'active' && mode.isMutable && mode.isCreateAgent ? 'agent' : 'chat';
-  // New Chat forces on; New Agent + edit existing only fill when absent.
-  const webSearchKind: DraftPreferenceKind =
-    mode.status === 'active' && mode.isMutable && (mode.isCreateAgent || mode.agentId != null) ? 'agent' : 'chat';
-
   useEffect(() => {
     if (isPlainDraft) ensureLoaded();
   }, [ensureLoaded, isPlainDraft]);
@@ -169,12 +180,22 @@ export function DraftSpecPreferenceBridge() {
 
   useEffect(() => {
     // Apply to New Chat / New Agent / edit-existing mutable drafts.
+    // Available → default on when absent; unavailable → force off. Explicit toggles are preserved.
+    // Force-off recovery is only for plain drafts, and only when no choice was stored.
+    const previousWebSearchEnabled = prevWebSearchEnabledRef.current;
+    prevWebSearchEnabledRef.current = webSearchEnabled;
     if (!isMutableDraft || agentSpec == null || updateAgentSpec == null) return;
-    const update = reconcileDraftWebSearch({ agentSpec, webSearchEnabled, kind: webSearchKind });
+    const update = reconcileDraftWebSearch({
+      agentSpec,
+      webSearchEnabled,
+      previousWebSearchEnabled: isPlainDraft ? previousWebSearchEnabled : undefined,
+      explicitOff: isPlainDraft && persistedWebSearchEnabled(preferenceKind) === false,
+      kind: preferenceKind,
+    });
     if (Object.keys(update).length > 0) {
       updateAgentSpec(update);
     }
-  }, [agentSpec, isMutableDraft, webSearchEnabled, webSearchKind, updateAgentSpec]);
+  }, [agentSpec, isMutableDraft, isPlainDraft, preferenceKind, webSearchEnabled, updateAgentSpec]);
 
   useEffect(() => {
     if (!isPlainDraft || agentSpec == null || updateAgentSpec == null || !loaded || error != null) return;

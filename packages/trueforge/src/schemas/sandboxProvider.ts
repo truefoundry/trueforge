@@ -94,12 +94,10 @@ export const SandboxStatusSchema = z
   })
   .strict();
 
-/** Settings wire item: nested Daytona manifest plus build status (no build_metadata). */
+/** Settings wire item: nested Daytona manifest (build readiness lives on the default sandbox environment). */
 export const ConfiguredSandboxProviderSchema = z
   .object({
     manifest: SandboxProviderManifestSchema,
-    status: SandboxBuildStatusSchema,
-    status_reason: z.string().nullable().describe('Human-readable detail for the current status; null when ready.'),
   })
   .strict()
   .openapi('ConfiguredSandboxProvider');

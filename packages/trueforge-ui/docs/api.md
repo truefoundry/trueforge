@@ -65,6 +65,8 @@ Custom servers remain permissive unless they provide the optional port.
 | `Thread`                                                      | Full thread + composer          |
 | `ThreadContainer`, `ComposerContainer`, `ThreadListContainer` | Building blocks                 |
 | `ToasterProvider`, `useToaster`, `useToasterOptional`         | Success and error toasts        |
+| `AnalyticsProvider`, `useTrackAnalytics`                      | Host product-analytics sink     |
+| `AnalyticsEvents`, `AnalyticsConfig`, `TrackAnalytics`        | Event catalog + types           |
 | Other `*Container` exports                                    | Advanced message / tool wiring  |
 
 ## Slots / theme

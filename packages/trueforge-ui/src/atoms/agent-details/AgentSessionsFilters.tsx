@@ -27,6 +27,8 @@ export type AgentSessionsFiltersProps = {
   onTimeRangeChange: (range: SessionTimeRange) => void;
   showAgentFilter?: boolean;
   showCustomTimeRange?: boolean;
+  onReload?: () => void;
+  isReloading?: boolean;
 };
 
 export function AgentSessionsFilters({
@@ -36,6 +38,8 @@ export function AgentSessionsFilters({
   onTimeRangeChange,
   showAgentFilter = true,
   showCustomTimeRange = true,
+  onReload,
+  isReloading = false,
 }: AgentSessionsFiltersProps) {
   const server = useOptionalServer();
   const [agentLabelById, setAgentLabelById] = useState<Record<string, string>>({});
@@ -107,6 +111,18 @@ export function AgentSessionsFilters({
 
   return (
     <div className="flex min-w-0 items-center gap-2">
+      {onReload != null ? (
+        <Button.Secondary
+          type="button"
+          size="icon"
+          aria-label="Reload sessions"
+          title="Reload sessions"
+          disabled={isReloading}
+          onClick={onReload}
+        >
+          <Icon name="refresh-cw" className={cn('size-3.5', isReloading && 'animate-spin')} />
+        </Button.Secondary>
+      ) : null}
       {showAgentFilter ? (
         <AgentSearchPicker
           aria-label="Filter sessions by agent"

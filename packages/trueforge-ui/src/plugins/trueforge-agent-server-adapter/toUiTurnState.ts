@@ -2,7 +2,7 @@ import type { TrueForgeApi } from '@truefoundry/trueforge-sdk';
 import type { SessionEventItem, TurnDoneMetrics, TurnState, TurnStreamingEvent } from '../../server/types.js';
 
 /** SDK token fields are optional; the UI contract requires numbers. Keep cost for session tiles. */
-export function toUiTurnDoneMetrics(metrics: TrueForgeApi.TurnMetrics): TurnDoneMetrics & { totalCostInUsd?: number } {
+export function toUiTurnDoneMetrics(metrics: TrueForgeApi.TurnMetrics): TurnDoneMetrics {
   return {
     totalInputTokens: metrics.totalInputTokens ?? 0,
     totalOutputTokens: metrics.totalOutputTokens ?? 0,
@@ -24,9 +24,19 @@ export function toUiTurnState(state: TrueForgeApi.TurnState | TrueForgeApi.TurnD
 function toUiTerminalTurnState(state: TrueForgeApi.TurnDoneEventState): Exclude<TurnState, { status: 'running' }> {
   switch (state.status) {
     case 'cancelled':
-      return { status: 'cancelled', reason: state.reason, completedAt: state.completedAt };
+      return {
+        status: 'cancelled',
+        reason: state.reason,
+        completedAt: state.completedAt,
+        ...(state.metrics == null ? {} : { metrics: toUiTurnDoneMetrics(state.metrics) }),
+      };
     case 'error':
-      return { status: 'error', message: state.message, completedAt: state.completedAt };
+      return {
+        status: 'error',
+        message: state.message,
+        completedAt: state.completedAt,
+        ...(state.metrics == null ? {} : { metrics: toUiTurnDoneMetrics(state.metrics) }),
+      };
     case 'done':
       return {
         status: 'done',

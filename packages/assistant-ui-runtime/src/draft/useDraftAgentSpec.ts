@@ -105,7 +105,12 @@ export function useDraftAgentSpec({
         }
         loadedDraftIdRef.current = draftSessionId;
 
-        if (localDirtyRef.current) {
+        if (loaded == null) {
+          // A session without an agentSpec (e.g. named or immutable session) cannot accept
+          // agent spec updates. Clear any unsaved draft edits so we never attempt to sync
+          // draft changes against a named session.
+          localDirtyRef.current = false;
+        } else if (localDirtyRef.current) {
           scheduleSpecSyncRef.current(draftSessionId, agentSpecRef.current);
           localDirtyRef.current = false;
           setSpecError(null);
@@ -113,7 +118,9 @@ export function useDraftAgentSpec({
           return;
         }
 
-        setAgentSpec(loaded);
+        // If session has no custom draft spec (e.g. non-draft or immutable session),
+        // keep the default draft spec rather than failing.
+        setAgentSpec(loaded ?? defaultAgentSpec);
         setSpecError(null);
         setIsSpecLoading(false);
       } catch (error) {

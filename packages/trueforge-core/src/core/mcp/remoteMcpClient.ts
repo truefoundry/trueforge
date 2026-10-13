@@ -7,8 +7,8 @@ import type { FetchLike } from '@modelcontextprotocol/sdk/shared/transport.js';
 import type { CallToolRequest, CallToolResult } from '@modelcontextprotocol/sdk/types.js';
 import { context, propagation } from '@opentelemetry/api';
 import { McpConnectionError } from '../errors';
+import { mcpSsrfFetch } from '../util/outboundFetch';
 import { withTimeout } from '../util/promiseUtils';
-import { mcpSsrfFetch } from '../util/ssrfGuard';
 import type { ToolSchema } from './IMCPServer';
 
 /** Networking for remote (url-based) MCP servers, kept separate so it can be mocked in tests. */

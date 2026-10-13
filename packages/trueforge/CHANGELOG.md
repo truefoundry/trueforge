@@ -1,5 +1,187 @@
 # @truefoundry/trueforge
 
+## 0.178.0
+
+### Patch Changes
+
+- 93824b0: Map Daytona sandbox-environment secret sync HTTP 4xx failures to 422 instead of 502.
+- 8578796: Remove the sandbox-environments frontend feature flag and always enable environments UI.
+- 5300f50: Add a frontend feature flag for sandbox-environment management.
+- 8b6c4bf: Raise the default model HTTP body timeout to 60s and shorten the default MCP request timeout to 2 minutes.
+- b6a7781: Raise the default model HTTP headers timeout to 60 seconds so slow first-token responses are not dropped.
+- 06884d0: Raise the default model HTTP headers and body timeouts to 2 minutes so slow first-token and idle stream responses are not dropped.
+- 9bb142d: Reject duplicate sandbox environment names on create (POST) instead of overwriting via upsert.
+- 8578796: Add configurable sandbox resource caps and limit environment variable and secret names in the UI.
+- 8d39138: Add a host-pluggable analytics contract (`analytics.track` / `AnalyticsProvider`) with a shared event catalog and first-wave click instrumentation. Hosts own the vendor sink; the SDK never ships PostHog.
+- d6b1389: Time out a hung create-turn SSE write so turn drain and subscribe dual-writes keep running.
+- Updated dependencies [8c24138]
+- Updated dependencies [8b6c4bf]
+- Updated dependencies [8c24138]
+- Updated dependencies [b6a7781]
+- Updated dependencies [06884d0]
+- Updated dependencies [9bb142d]
+  - @truefoundry/trueforge-sdk@0.178.0
+  - @truefoundry/trueforge-core@0.178.0
+
+## 0.178.0-rc.4
+
+### Patch Changes
+
+- 06884d0: Raise the default model HTTP headers and body timeouts to 2 minutes so slow first-token and idle stream responses are not dropped.
+- Updated dependencies [06884d0]
+  - @truefoundry/trueforge-core@0.178.0-rc.2
+
+## 0.178.0-rc.3
+
+### Patch Changes
+
+- 93824b0: Map Daytona sandbox-environment secret sync HTTP 4xx failures to 422 instead of 502.
+- 9bb142d: Reject duplicate sandbox environment names on create (POST) instead of overwriting via upsert.
+- Updated dependencies [9bb142d]
+  - @truefoundry/trueforge-sdk@0.178.0-rc.2
+
+## 0.178.0-rc.2
+
+### Patch Changes
+
+- 8578796: Remove the sandbox-environments frontend feature flag and always enable environments UI.
+- 8578796: Add configurable sandbox resource caps and limit environment variable and secret names in the UI.
+
+## 0.178.0-rc.1
+
+### Patch Changes
+
+- 5300f50: Add a frontend feature flag for sandbox-environment management.
+- 8b6c4bf: Raise the default model HTTP body timeout to 60s and shorten the default MCP request timeout to 2 minutes.
+- b6a7781: Raise the default model HTTP headers timeout to 60 seconds so slow first-token responses are not dropped.
+- 8d39138: Add a host-pluggable analytics contract (`analytics.track` / `AnalyticsProvider`) with a shared event catalog and first-wave click instrumentation. Hosts own the vendor sink; the SDK never ships PostHog.
+- d6b1389: Time out a hung create-turn SSE write so turn drain and subscribe dual-writes keep running.
+- Updated dependencies [8c24138]
+- Updated dependencies [8b6c4bf]
+- Updated dependencies [8c24138]
+- Updated dependencies [b6a7781]
+  - @truefoundry/trueforge-sdk@0.178.0-rc.1
+  - @truefoundry/trueforge-core@0.178.0-rc.1
+
+## 0.177.0
+
+### Patch Changes
+
+- 5b7abb6: Bump `monaco-editor` to `^0.57.0` to address known vulnerabilities, and point the frontend Monaco worker plugin at the 0.56+ export paths so production builds resolve workers correctly.
+- 29e7aab: Add `DELETE` for settings catalog entries (model providers, MCP servers, skills), rejected with 409 naming the agents that still reference the entry; a model-provider update that drops a model in use is rejected the same way. Deleting an MCP server also clears its stored OAuth grants. Settings now confirms removals (including connectors) and keeps a refused removal's reason in the dialog; removing a provider's last model removes the provider. The connector list offers Connect on added-but-unauthenticated OAuth servers.
+- 5b7abb6: Default sandbox environment on provider configure (with provider status-column drop), capabilities/resolve via default env status, and a controller loop that builds the latest pending environment version per env. Core: generic SandboxProvider/Sandbox, HarnessSandbox, and Daytona build/getBuildStatus on the provider.
+- 5b7abb6: Bump dependencies to address known vulnerabilities (Dependabot), including `undici`, AI SDK providers, `zod`, and related transitive fixes.
+- 5b7abb6: Stop `pnpm fetch` from leaving a full `node_modules/.pnpm` in the image store stage so the production install no longer copies build tooling (esbuild, TypeScript, etc.) into the runtime image.
+- 968b883: Add a frontend feature flag for sandbox-environment management.
+- 5b7abb6: Reset in-flight sub-agents and open tool calls when a turn starts with a user message, without emitting public thread.done for cancelled children.
+- b9429a0: Raise the default model HTTP body timeout to 60s and shorten the default MCP request timeout to 2 minutes.
+- fc99f4e: Raise the default model HTTP headers timeout to 60 seconds so slow first-token responses are not dropped.
+- 4fde7e9: Split outbound HTTP into an agnostic SSRF `createOutboundFetch` plus separate generic/model/MCP Agents (`OUTBOUND_HTTP_*`, `MODEL_HTTP_*`, `MCP_HTTP_*`) with configurable connect/headers/body timeouts and retries.
+- 5b7abb6: Add sandbox-environment CRUD (tables, PUT upsert, subject ownership, soft-delete). Versions land as `pending` for a future controller. AgentSpec `config.sandbox.environment_name` names a caller-owned env; name `default` is reserved; delete returns 409 while agents reference it. Turn create clones the env snapshot (when built) and applies resources, env vars, and networking.
+- fde4d4a: Sync sandbox-environment networking secrets to Daytona org secrets on PUT (plaintext is never stored), keep Daytona refs in `sandbox_environment_secret`, and mount those secret names at sandbox create time.
+- 5b7abb6: Treat `paused` as a live turn. `updateTurnNonTerminalState` switches `running` and `paused` and appends `turn.update` without session metrics. Terminal writes and `freezeAndGetTurn` accept a paused tip. `createTurn` rejects a paused predecessor until it is frozen. `updateTurnState` is now `updateTurnTerminalState`.
+- b9429a0: Time out a hung create-turn SSE write so turn drain and subscribe dual-writes keep running.
+- Updated dependencies [5b7abb6]
+- Updated dependencies [5b7abb6]
+- Updated dependencies [5b7abb6]
+- Updated dependencies [5b7abb6]
+- Updated dependencies [b9429a0]
+- Updated dependencies [fc99f4e]
+- Updated dependencies [4fde7e9]
+- Updated dependencies [5b7abb6]
+- Updated dependencies [fde4d4a]
+- Updated dependencies [5b7abb6]
+  - @truefoundry/trueforge-sdk@0.177.0
+  - @truefoundry/trueforge-core@0.177.0
+
+## 0.177.0-rc.4
+
+### Patch Changes
+
+- fc99f4e: Raise the default model HTTP headers timeout to 60 seconds so slow first-token responses are not dropped.
+- Updated dependencies [fc99f4e]
+  - @truefoundry/trueforge-core@0.177.0-rc.3
+
+## 0.177.0-rc.3
+
+### Patch Changes
+
+- b9429a0: Raise the default model HTTP body timeout to 60s and shorten the default MCP request timeout to 2 minutes.
+- b9429a0: Time out a hung create-turn SSE write so turn drain and subscribe dual-writes keep running.
+- Updated dependencies [b9429a0]
+  - @truefoundry/trueforge-core@0.177.0-rc.2
+
+## 0.177.0-rc.2
+
+### Patch Changes
+
+- 968b883: Add a frontend feature flag for sandbox-environment management.
+
+## 0.177.0-rc.1
+
+### Patch Changes
+
+- 5b7abb6: Bump `monaco-editor` to `^0.57.0` to address known vulnerabilities, and point the frontend Monaco worker plugin at the 0.56+ export paths so production builds resolve workers correctly.
+- 29e7aab: Add `DELETE` for settings catalog entries (model providers, MCP servers, skills), rejected with 409 naming the agents that still reference the entry; a model-provider update that drops a model in use is rejected the same way. Deleting an MCP server also clears its stored OAuth grants. Settings now confirms removals (including connectors) and keeps a refused removal's reason in the dialog; removing a provider's last model removes the provider. The connector list offers Connect on added-but-unauthenticated OAuth servers.
+- 5b7abb6: Default sandbox environment on provider configure (with provider status-column drop), capabilities/resolve via default env status, and a controller loop that builds the latest pending environment version per env. Core: generic SandboxProvider/Sandbox, HarnessSandbox, and Daytona build/getBuildStatus on the provider.
+- 5b7abb6: Bump dependencies to address known vulnerabilities (Dependabot), including `undici`, AI SDK providers, `zod`, and related transitive fixes.
+- 5b7abb6: Stop `pnpm fetch` from leaving a full `node_modules/.pnpm` in the image store stage so the production install no longer copies build tooling (esbuild, TypeScript, etc.) into the runtime image.
+- 5b7abb6: Reset in-flight sub-agents and open tool calls when a turn starts with a user message, without emitting public thread.done for cancelled children.
+- 4fde7e9: Split outbound HTTP into an agnostic SSRF `createOutboundFetch` plus separate generic/model/MCP Agents (`OUTBOUND_HTTP_*`, `MODEL_HTTP_*`, `MCP_HTTP_*`) with configurable connect/headers/body timeouts and retries.
+- 5b7abb6: Add sandbox-environment CRUD (tables, PUT upsert, subject ownership, soft-delete). Versions land as `pending` for a future controller. AgentSpec `config.sandbox.environment_name` names a caller-owned env; name `default` is reserved; delete returns 409 while agents reference it. Turn create clones the env snapshot (when built) and applies resources, env vars, and networking.
+- fde4d4a: Sync sandbox-environment networking secrets to Daytona org secrets on PUT (plaintext is never stored), keep Daytona refs in `sandbox_environment_secret`, and mount those secret names at sandbox create time.
+- 5b7abb6: Treat `paused` as a live turn. `updateTurnNonTerminalState` switches `running` and `paused` and appends `turn.update` without session metrics. Terminal writes and `freezeAndGetTurn` accept a paused tip. `createTurn` rejects a paused predecessor until it is frozen. `updateTurnState` is now `updateTurnTerminalState`.
+- Updated dependencies [5b7abb6]
+- Updated dependencies [5b7abb6]
+- Updated dependencies [5b7abb6]
+- Updated dependencies [5b7abb6]
+- Updated dependencies [4fde7e9]
+- Updated dependencies [5b7abb6]
+- Updated dependencies [fde4d4a]
+- Updated dependencies [5b7abb6]
+  - @truefoundry/trueforge-sdk@0.177.0-rc.1
+  - @truefoundry/trueforge-core@0.177.0-rc.1
+
+## 0.3.0
+
+### Minor Changes
+
+- 829ac6e: Add OSS web-search provider settings and catalog (Parallel): singleton settings/catalog APIs, optional API key, and UI adapter without mode config so built-in web search works outside TrueFoundry mode.
+- cf55de9: Add Redis Sentinel + TLS with exclusive transport fail-fast (`REDIS_CONNECTION` DU). Redis is optional at config load for controller/migrate; server still requires it at connect. Sentinel shared-client errors no longer stop the peering heartbeat.
+
+### Patch Changes
+
+- 33cbe52: Default MCP tool approval to `@write` and `@destructive` again. Unlabeled tools still run without a pause unless named or covered by `@all`.
+- a638cfc: Stop reflecting the raw token-exchange error into the OIDC failure redirect. The message carried upstream endpoint and issuer detail into the browser's address bar; failures now use the same generic `login_failed` reason as the other callback paths, with full detail kept in the server log.
+- b440969: Accept `x-tfg-models` in TrueFoundry mode alongside `x-tfg-mcp` and `x-tfg-skills`: model providers a request defines by name, each an OpenAI-compatible endpoint with its own `base_url`, optional `auth.api_key`, and `models`. A spec's `provider/model` resolves against them for validation and turn execution, taking precedence over the tenant registry for that request only; unfiltered provider and model lists still show only configured resources.
+- 8dd9bea: Bind MCP OAuth callbacks to the TrueForge session in the browser. Completing consent now requires an authenticated session whose subject matches the pending authorization's user, so a forwarded authorize URL cannot attach another user's grant to the initiator's account.
+- 46c8280: Add newer model presets to the shipped model catalog for the providers it already lists.
+- c023517: Add sandbox_environment / sandbox_environment_version tables and dummy CRUD APIs at `/api/v1/sandbox-environments`.
+- 4726a31: Let a session owner mark a session shared so any subject in the tenant can read it by id, including turns and events (not subscribe or sandbox downloads).
+- f98e575: Add Sentry for critical-flow error reporting (TrueFoundry auth-server or SENTRY_DSN init) with configurable additional tags.
+- 0c82412: Add `POST /sessions/{session_id}/turns/{turn_id}/events` for tip HITL / policy events.
+- 5adde28: Add `turn_inbound_events` store API for durable tip HITL send-event inbox (insert / list unconsumed / mark consumed), with Postgres and SQLite migrations.
+- bbc4f7d: Add `user.mcp_auth_continue` (`{ "type": "user.mcp_auth_continue" }`) on POST `/events`, session events, and the SSE stream. Add paused to turn state.
+- b342a21: Add `user.tool_approval_policy` send-event schema (`allow_session`, optional ISO `expire_at`). Send-only like `user.tool_approval` / `user.tool_response` — not on the durable stream.
+- a855122: Rename the published runtime package to `@truefoundry/trueforge-assistant-ui-runtime`, move it into the TrueForge workspace, rename its public runtime APIs to TrueForge, and remove the legacy TrueFoundry server adapter and server configuration.
+- e8c500b: Rename server mTLS env vars from `TRUEFORGE_MTLS_ENABLED` / `TRUEFORGE_MTLS_CERTS_DIR` to `MTLS_ENABLED` / `MTLS_CERTS_DIR`. Independent of ServiceFoundry `TRUEFOUNDRY_MTLS_*`.
+- Updated dependencies [829ac6e]
+- Updated dependencies [829ac6e]
+- Updated dependencies [829ac6e]
+- Updated dependencies [33cbe52]
+- Updated dependencies [4726a31]
+- Updated dependencies [0c82412]
+- Updated dependencies [5adde28]
+- Updated dependencies [bbc4f7d]
+- Updated dependencies [b342a21]
+- Updated dependencies [829ac6e]
+- Updated dependencies [5b209be]
+- Updated dependencies [829ac6e]
+- Updated dependencies [cf55de9]
+- Updated dependencies [1b1050a]
+  - @truefoundry/trueforge-sdk@0.2.1
+  - @truefoundry/trueforge-core@0.3.0
+
 ## 0.3.0-rc.0
 
 ### Minor Changes

@@ -12,6 +12,7 @@ import {
   createMockAgentSessionsServer,
   createMockAgentUIServer,
   createMockCatalog,
+  createMockSandboxEnvironmentServer,
   createMockScheduleServer,
 } from '../server/mockServer.js';
 
@@ -47,6 +48,7 @@ function SettingsCatalogProvider({
   includeCatalog = true,
   includeSessions = true,
   includeSchedules = false,
+  includeEnvironments = false,
   getSession,
 }: {
   children: ReactNode;
@@ -55,6 +57,7 @@ function SettingsCatalogProvider({
   includeCatalog?: boolean;
   includeSessions?: boolean;
   includeSchedules?: boolean;
+  includeEnvironments?: boolean;
   getSession?: (req: { sessionId: string }) => Promise<{
     id: string;
     title: string;
@@ -68,6 +71,7 @@ function SettingsCatalogProvider({
     ...(includeCatalog ? { catalog: createMockCatalog() } : {}),
     ...(includeSessions ? { sessions: createMockAgentSessionsServer() } : {}),
     ...(includeSchedules ? { schedules: createMockScheduleServer() } : {}),
+    ...(includeEnvironments ? { sandboxEnvironments: createMockSandboxEnvironmentServer() } : {}),
     getCapabilities: async () => {
       if (capabilitiesFail) throw new Error('Unavailable');
       return {
@@ -102,6 +106,7 @@ function Harness({
   includeCatalog = true,
   includeSessions = true,
   includeSchedules = false,
+  includeEnvironments = false,
   getSession,
   onError,
 }: {
@@ -113,6 +118,7 @@ function Harness({
   includeCatalog?: boolean;
   includeSessions?: boolean;
   includeSchedules?: boolean;
+  includeEnvironments?: boolean;
   getSession?: (req: { sessionId: string }) => Promise<{
     id: string;
     title: string;
@@ -132,6 +138,7 @@ function Harness({
       includeCatalog={includeCatalog}
       includeSessions={includeSessions}
       includeSchedules={includeSchedules}
+      includeEnvironments={includeEnvironments}
       getSession={getSession}
     >
       <ShellModeProvider agentConfig={agentConfig} initialSettingsOpen={initialSettingsOpen}>
@@ -157,6 +164,7 @@ function renderSync(opts: {
   includeCatalog?: boolean;
   includeSessions?: boolean;
   includeSchedules?: boolean;
+  includeEnvironments?: boolean;
   getSession?: (req: { sessionId: string }) => Promise<{
     id: string;
     title: string;
@@ -178,6 +186,7 @@ function renderSync(opts: {
         includeCatalog={opts.includeCatalog}
         includeSessions={opts.includeSessions}
         includeSchedules={opts.includeSchedules}
+        includeEnvironments={opts.includeEnvironments}
         getSession={opts.getSession}
         onError={opts.onError}
       />
@@ -542,6 +551,32 @@ describe('ShellRouteSync', () => {
     act(() => shell.setSchedulesOpen(true));
     expect(shell.schedulesOpen).toBe(true);
     expect(pathname).toBe('/schedules');
+  });
+
+  it('unregisters /environments when sandboxEnvironments port is missing', async () => {
+    renderSync({
+      initialEntries: ['/environments'],
+      agentConfig: { mode: 'AgentLibraryWithComposer' },
+      includeEnvironments: false,
+    });
+    await waitFor(() => {
+      expect(shell.environmentsOpen).toBe(false);
+      expect(pathname).toBe('/');
+    });
+    act(() => shell.setEnvironmentsOpen(true));
+    expect(shell.environmentsOpen).toBe(false);
+    expect(pathname).toBe('/');
+  });
+
+  it('mirrors environments open through history when sandboxEnvironments port is present', () => {
+    renderSync({
+      initialEntries: ['/'],
+      agentConfig: { mode: 'AgentLibraryWithComposer' },
+      includeEnvironments: true,
+    });
+    act(() => shell.setEnvironmentsOpen(true));
+    expect(shell.environmentsOpen).toBe(true);
+    expect(pathname).toBe('/environments');
   });
 
   it('returns to the chat place when a /library deep link is closed', () => {

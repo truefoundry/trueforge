@@ -46,6 +46,8 @@ export interface ActiveStreamState {
   update: TurnStreamUpdate;
   isContinuation: boolean;
   streamComplete?: boolean | undefined;
+  /** Exclusive subscribe cursor; events after this sequence are replayed on reconnect. */
+  lastSequenceNumber?: number | undefined;
 }
 
 export interface PendingUserMessage {

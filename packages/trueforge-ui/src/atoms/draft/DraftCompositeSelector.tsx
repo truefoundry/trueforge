@@ -9,6 +9,7 @@ import { useOptionalCatalogServer, useServerCapabilities } from '../../server/Se
 import { useOptionalShellMode, type SettingsSection } from '../../server/ShellModeContext.js';
 import type { AgentSkill, ConnectorState } from '../../server/types.js';
 import { useSlot } from '../../theme/SlotsProvider.js';
+import { useReadySandboxEnvironments } from '../environments/useReadySandboxEnvironments.js';
 import { auiButtonClass } from '../lib/buttonClasses.js';
 import { cn } from '../lib/cn.js';
 import { useCompactLayout } from '../lib/CompactLayoutContext.js';
@@ -50,11 +51,12 @@ export function draftMountsFromSpec(value: unknown): DraftMount[] {
   }
   return mounts;
 }
-type AttachTab = 'connectors' | 'skills';
+type AttachTab = 'connectors' | 'skills' | 'environments';
 
 const TABS: { id: AttachTab; label: string; icon: string }[] = [
   { id: 'connectors', label: 'Connectors', icon: 'plug' },
   { id: 'skills', label: 'Skills', icon: 'lightbulb' },
+  { id: 'environments', label: 'Environment', icon: 'monitor' },
 ];
 
 const SPEC_FLUSH_MS = 300;
@@ -67,6 +69,8 @@ export function CatalogRow({
   fallbackIcon,
   checked,
   disabled = false,
+  disabledReason,
+  selectionControl = 'checkbox',
   onToggle,
   onActivate,
   action,
@@ -79,6 +83,9 @@ export function CatalogRow({
   fallbackIcon?: string;
   checked: boolean;
   disabled?: boolean;
+  /** Shown on hover when `disabled` — e.g. host capability unavailable. */
+  disabledReason?: string;
+  selectionControl?: 'checkbox' | 'radio';
   onToggle: () => void;
   onActivate?: () => void;
   action?: ReactNode;
@@ -107,42 +114,82 @@ export function CatalogRow({
     </>
   );
 
-  if (action || onActivate) {
+  const control =
+    selectionControl === 'radio' ? (
+      <span
+        className={cn(
+          'flex size-4 shrink-0 items-center justify-center rounded-full border transition-colors',
+          checked ? 'border-primary-button-bg bg-primary-button-bg' : 'border-text-secondary/60 bg-input-box-bg',
+        )}
+        aria-hidden
+      >
+        {checked ? <span className="size-1.5 rounded-full bg-primary-button-text" /> : null}
+      </span>
+    ) : (
+      <Checkbox checked={checked} />
+    );
+
+  const role = selectionControl === 'radio' ? 'menuitemradio' : 'menuitemcheckbox';
+  const controlButton = (
+    <button
+      type="button"
+      role={selectionControl === 'radio' ? 'radio' : 'checkbox'}
+      aria-checked={checked}
+      aria-label={`${checked ? 'Deselect' : 'Select'} ${title}`}
+      disabled={disabled}
+      className="shrink-0 disabled:cursor-not-allowed disabled:opacity-50"
+      onClick={event => {
+        event.stopPropagation();
+        if (disabled) return;
+        onToggle();
+      }}
+    >
+      {control}
+    </button>
+  );
+  // Tooltip only on the control — row hover must not surface the disabled reason.
+  const selectionControlNode =
+    disabled && disabledReason ? (
+      <Tooltip content={disabledReason} className="max-w-xs text-left">
+        <span className="inline-flex shrink-0">{controlButton}</span>
+      </Tooltip>
+    ) : (
+      controlButton
+    );
+
+  if (action || onActivate || disabled) {
     return (
       <div
-        role="menuitemcheckbox"
+        role={role}
         aria-checked={checked}
-        tabIndex={0}
-        className="hover:bg-ghost-button-hover flex w-full cursor-pointer items-center gap-2 rounded-md px-2 py-2 text-left"
-        onClick={onActivate ?? onToggle}
+        aria-disabled={disabled || undefined}
+        tabIndex={disabled ? -1 : 0}
+        className={cn(
+          'hover:bg-ghost-button-hover flex w-full cursor-pointer items-center gap-2 rounded-md px-2 py-2 text-left',
+          disabled && 'cursor-default opacity-50 hover:bg-transparent',
+        )}
+        onClick={() => {
+          if (disabled) return;
+          (onActivate ?? onToggle)();
+        }}
         onKeyDown={event => {
           if (event.key !== 'Enter' && event.key !== ' ') return;
           event.preventDefault();
+          if (disabled) return;
           (onActivate ?? onToggle)();
         }}
       >
         {content}
-        <span
-          className="shrink-0"
-          onClick={event => event.stopPropagation()}
-          onKeyDown={event => event.stopPropagation()}
-        >
-          {action}
-        </span>
-        <button
-          type="button"
-          role="checkbox"
-          aria-checked={checked}
-          aria-label={`${checked ? 'Deselect' : 'Select'} ${title}`}
-          disabled={disabled}
-          className="shrink-0 disabled:cursor-not-allowed disabled:opacity-50"
-          onClick={event => {
-            event.stopPropagation();
-            onToggle();
-          }}
-        >
-          <Checkbox checked={checked} />
-        </button>
+        {action ? (
+          <span
+            className="shrink-0"
+            onClick={event => event.stopPropagation()}
+            onKeyDown={event => event.stopPropagation()}
+          >
+            {action}
+          </span>
+        ) : null}
+        {selectionControlNode}
       </div>
     );
   }
@@ -150,14 +197,13 @@ export function CatalogRow({
   return (
     <button
       type="button"
-      role="menuitemcheckbox"
+      role={role}
       aria-checked={checked}
-      disabled={disabled}
-      className="hover:bg-ghost-button-hover flex w-full cursor-pointer items-center gap-2 rounded-md px-2 py-2 text-left disabled:cursor-not-allowed disabled:opacity-50 disabled:hover:bg-transparent"
+      className="hover:bg-ghost-button-hover flex w-full cursor-pointer items-center gap-2 rounded-md px-2 py-2 text-left"
       onClick={onToggle}
     >
       {content}
-      {disabled ? <Icon name="lock" className="text-text-secondary size-3" /> : <Checkbox checked={checked} />}
+      {control}
     </button>
   );
 }
@@ -234,10 +280,14 @@ export type DraftCompositeSelectorProps = {
   onAttach?: () => void;
 };
 
-function SectionHeading({ label, count }: { label: string; count: number }) {
+const NO_WEB_SEARCH_PROVIDER_HINT = 'Web search is not configured';
+const WEB_SEARCH_BUILTIN_TITLE = 'Web search';
+const WEB_SEARCH_BUILTIN_DESCRIPTION = 'Search the web for up-to-date answers';
+
+function SectionHeading({ label, count }: { label: string; count?: number }) {
   return (
     <div className="text-text-secondary px-3 pt-2 pb-1 text-[0.6875rem] font-medium tracking-wide uppercase">
-      {label} ({count})
+      {count == null ? label : `${label} (${count})`}
     </div>
   );
 }
@@ -272,6 +322,8 @@ export function DraftCompositeSelector({ disabled, isRunning, onAttach }: DraftC
   const compactLayout = useCompactLayout();
   const skillsDisabled = capabilities?.skill.enabled !== true;
   const skillsDisabledReason = capabilities?.skill.reason;
+  const webSearchCapabilityEnabled = capabilities?.webSearch?.enabled === true;
+  const webSearchEnabled = agentSpec?.config?.webSearch?.enabled ?? webSearchCapabilityEnabled;
   const needsSandbox = capabilities?.sandbox.enabled === false;
   const settingsEnabled = capabilities?.settings?.enabled !== false;
   const canConfigureConnectors = settingsEnabled && settingsCatalog?.connectorCatalog != null;
@@ -285,7 +337,7 @@ export function DraftCompositeSelector({ disabled, isRunning, onAttach }: DraftC
   const selectedSkills = open ? localSkills : specSkills;
   const selectedMcpIds = useMemo(() => new Set(selectedMcp.map(m => m.id)), [selectedMcp]);
   const hasValidModel = Boolean(agentSpec?.model?.name.trim());
-  const toolsCount = selectedMcp.length + selectedSkills.length;
+  const toolsCount = selectedMcp.length + selectedSkills.length + (webSearchEnabled ? 1 : 0);
   const toolsTooltip = useMemo(() => {
     const formatNames = (items: Array<{ name: string }>) => {
       const names = items.map(item => item.name);
@@ -293,6 +345,9 @@ export function DraftCompositeSelector({ disabled, isRunning, onAttach }: DraftC
       return `${names.slice(0, 4).join(', ')} +${names.length - 4}`;
     };
     const lines: string[] = [];
+    if (webSearchEnabled) {
+      lines.push(`Built-in: ${WEB_SEARCH_BUILTIN_TITLE}`);
+    }
     if (selectedMcp.length > 0) {
       lines.push(`Connectors: ${formatNames(selectedMcp)}`);
     }
@@ -300,7 +355,7 @@ export function DraftCompositeSelector({ disabled, isRunning, onAttach }: DraftC
       lines.push(`Skills: ${formatNames(selectedSkills)}`);
     }
     return lines.length > 0 ? lines.join('\n') : 'No connectors or skills selected';
-  }, [selectedMcp, selectedSkills]);
+  }, [selectedMcp, selectedSkills, webSearchEnabled]);
 
   const clearFlushTimer = useCallback(() => {
     if (flushTimerRef.current != null) {
@@ -419,6 +474,30 @@ export function DraftCompositeSelector({ disabled, isRunning, onAttach }: DraftC
     scheduleFlush();
   };
 
+  const toggleWebSearch = () => {
+    if (!webSearchCapabilityEnabled || agentSpec == null) return;
+    const nextEnabled = !webSearchEnabled;
+    const nextSpec = {
+      ...agentSpec,
+      config: {
+        ...agentSpec.config,
+        webSearch: { enabled: nextEnabled },
+      },
+    };
+    updateAgentSpec?.({ config: nextSpec.config });
+    // Flush seed immediately — New Chat can run before the preference bridge effect.
+    shell?.rememberDraftSpec(nextSpec, 'chat');
+  };
+
+  const showWebSearchBuiltin = useMemo(() => {
+    const needle = query.trim().toLowerCase();
+    if (!needle) return true;
+    return (
+      WEB_SEARCH_BUILTIN_TITLE.toLowerCase().includes(needle) ||
+      WEB_SEARCH_BUILTIN_DESCRIPTION.toLowerCase().includes(needle)
+    );
+  }, [query]);
+
   const toggleSkill = (skill: AgentSkill) => {
     const family = skillFamilyId(skill.id);
     const adding = !localSkillsRef.current.some(item => skillFamilyId(item.id) === family);
@@ -461,12 +540,22 @@ export function DraftCompositeSelector({ disabled, isRunning, onAttach }: DraftC
     );
   };
 
+  const {
+    environments: readyEnvironments,
+    loading: environmentsLoading,
+    refetch: refetchEnvironments,
+  } = useReadySandboxEnvironments();
+
   const openPicker = (nextTab?: AttachTab) => {
     if (nextTab != null) {
       setTab(nextTab);
       setQuery('');
     }
-    if (open) return;
+    const showEnvironments = nextTab === 'environments' || (nextTab == null && tab === 'environments');
+    if (open) {
+      if (showEnvironments) void refetchEnvironments();
+      return;
+    }
     setLocalMcp(specMcp);
     setLocalSkills(specSkills);
     dirtyRef.current = false;
@@ -474,12 +563,41 @@ export function DraftCompositeSelector({ disabled, isRunning, onAttach }: DraftC
     setPinnedMcpIds(new Set(specMcp.map(m => m.id)));
     setPinnedSkillIds(new Set(specSkills.map(skill => skillFamilyId(skill.id))));
     setOpen(true);
+    if (showEnvironments) void refetchEnvironments();
   };
 
   const openSettings = (section: SettingsSection) => {
     setOpenAndFlush(false);
     setQuery('');
     shell?.setSettingsOpen(true, section);
+  };
+
+  const currentEnvName = agentSpec?.config?.sandbox?.environment_name?.trim() || 'default';
+
+  const filteredEnvironments = useMemo(() => {
+    const all = readyEnvironments.map(e => ({
+      name: e.name,
+      description: e.manifest.description,
+    }));
+    const needle = query.trim().toLowerCase();
+    if (!needle) return all;
+    return all.filter(
+      item => item.name.toLowerCase().includes(needle) || (item.description?.toLowerCase().includes(needle) ?? false),
+    );
+  }, [readyEnvironments, query]);
+
+  const selectEnvironment = (envName: string) => {
+    const isDefault = envName === 'default';
+    updateAgentSpec?.({
+      config: {
+        ...agentSpec?.config,
+        sandbox: {
+          ...agentSpec?.config?.sandbox,
+          enabled: isDefault ? agentSpec?.config?.sandbox?.enabled : true,
+          environment_name: isDefault ? undefined : envName,
+        },
+      },
+    });
   };
 
   const content = (
@@ -499,6 +617,9 @@ export function DraftCompositeSelector({ disabled, isRunning, onAttach }: DraftC
               onClick={() => {
                 setTab(t.id);
                 setQuery('');
+                if (t.id === 'environments') {
+                  void refetchEnvironments();
+                }
               }}
             >
               <Icon name={t.icon} className="size-3.5" />
@@ -515,7 +636,13 @@ export function DraftCompositeSelector({ disabled, isRunning, onAttach }: DraftC
         <SearchField
           value={query}
           onChange={setQuery}
-          placeholder={tab === 'connectors' ? 'Search connectors...' : 'Search skills...'}
+          placeholder={
+            tab === 'connectors'
+              ? 'Search connectors...'
+              : tab === 'skills'
+                ? 'Search skills...'
+                : 'Search environment...'
+          }
         />
         {tab === 'skills' && skillsDisabled && skillsDisabledReason ? (
           <div
@@ -529,6 +656,20 @@ export function DraftCompositeSelector({ disabled, isRunning, onAttach }: DraftC
         <div className="min-h-0 flex-1 overflow-y-auto px-1 pb-2">
           {tab === 'connectors' ? (
             <>
+              {showWebSearchBuiltin ? (
+                <>
+                  <SectionHeading label="Built-in" />
+                  <CatalogRow
+                    title={WEB_SEARCH_BUILTIN_TITLE}
+                    description={WEB_SEARCH_BUILTIN_DESCRIPTION}
+                    fallbackIcon="searchGlobe"
+                    checked={webSearchEnabled}
+                    disabled={!webSearchCapabilityEnabled}
+                    disabledReason={NO_WEB_SEARCH_PROVIDER_HINT}
+                    onToggle={toggleWebSearch}
+                  />
+                </>
+              ) : null}
               {pinnedSelectedConnectors.length > 0 ? (
                 <>
                   <SectionHeading label="Selected" count={pinnedSelectedConnectors.length} />
@@ -569,7 +710,7 @@ export function DraftCompositeSelector({ disabled, isRunning, onAttach }: DraftC
                   ))}
                 </>
               ) : null}
-              {filteredConnectors.length === 0 && connectors.length > 0 ? (
+              {filteredConnectors.length === 0 && connectors.length > 0 && !showWebSearchBuiltin ? (
                 <DraftCatalogEmptyState loading={loading} emptyLabel="No connectors" settingsTarget="Connectors" />
               ) : null}
               {connectors.length === 0 ? (
@@ -581,7 +722,7 @@ export function DraftCompositeSelector({ disabled, isRunning, onAttach }: DraftC
                 />
               ) : null}
             </>
-          ) : (
+          ) : tab === 'skills' ? (
             <>
               {pinnedSelectedSkills.length > 0 ? (
                 <>
@@ -603,6 +744,38 @@ export function DraftCompositeSelector({ disabled, isRunning, onAttach }: DraftC
                   onOpenSettings={
                     skills.length === 0 && shell && (needsSandbox ? canConfigureSandbox : canConfigureSkills)
                       ? () => openSettings(needsSandbox ? 'sandbox' : 'skills')
+                      : undefined
+                  }
+                />
+              ) : null}
+            </>
+          ) : (
+            <>
+              {filteredEnvironments.map(env => {
+                const isSelected = currentEnvName === env.name;
+                return (
+                  <CatalogRow
+                    key={env.name}
+                    title={env.name}
+                    description={env.description}
+                    fallbackIcon="monitor"
+                    selectionControl="radio"
+                    checked={isSelected}
+                    onToggle={() => selectEnvironment(env.name)}
+                  />
+                );
+              })}
+              {filteredEnvironments.length === 0 ? (
+                <DraftCatalogEmptyState
+                  loading={environmentsLoading}
+                  emptyLabel="No environments"
+                  settingsTarget="Environments"
+                  onOpenSettings={
+                    shell
+                      ? () => {
+                          setOpenAndFlush(false);
+                          shell.setEnvironmentsOpen(true);
+                        }
                       : undefined
                   }
                 />

@@ -192,7 +192,7 @@ export function useSearchAgentsList({
         setNextPageToken(undefined);
         setPreviousPageToken(undefined);
         setHasMore(false);
-        setError(getErrorMessage(err, 'Failed to load agents.'));
+        setError(getErrorMessage(err, 'Check your connection and try again.'));
       })
       .finally(() => {
         if (gen === genRef.current) setLoading(false);

@@ -25,6 +25,10 @@ export type AgentSessionsProps = {
   onCloseDetail?: () => void;
   /** Restores the rolling recent-session window from a URL-loaded session. */
   onLoadRecentSessions?: () => void;
+  /** Bump to force a reload of the sessions list and active detail. */
+  refreshKey?: number;
+  /** Called when the loading state changes (list or detail). */
+  onLoadingChange?: (loading: boolean) => void;
 };
 
 export type AgentSessionListRowProps = {
@@ -51,6 +55,8 @@ export type AgentSessionDetailHeaderProps = {
   title: string;
   sessionId: string;
   onClose: () => void;
+  /** Session metadata key-value pairs. */
+  metadata?: Record<string, string>;
   /**
    * When set with `resumeLabel`, shows Resume Chat / Resume Agent building as a
    * new-tab link (session deep link). Preferred over `onResume` when both are set.

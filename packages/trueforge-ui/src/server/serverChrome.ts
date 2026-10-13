@@ -1,5 +1,11 @@
 import type { ResolvedRoutes } from '../routing/types.js';
-import type { AgentMetricsServer, AgentSessionsServer, CatalogServer, ScheduleServer } from './types.js';
+import type {
+  AgentMetricsServer,
+  AgentSessionsServer,
+  CatalogServer,
+  SandboxEnvironmentServer,
+  ScheduleServer,
+} from './types.js';
 
 /**
  * Whether Settings chrome is available: sidebar button and `/settings` route.
@@ -25,6 +31,15 @@ export function isSchedulesChromeEnabled({ schedules }: { schedules: ScheduleSer
   return schedules != null;
 }
 
+/** Environments page (sandbox environments CRUD). */
+export function isEnvironmentsChromeEnabled({
+  sandboxEnvironments,
+}: {
+  sandboxEnvironments: SandboxEnvironmentServer | null | undefined;
+}): boolean {
+  return sandboxEnvironments != null;
+}
+
 /** Agent-details Metrics tab (no top-level path). */
 export function isMetricsChromeEnabled({ metrics }: { metrics: AgentMetricsServer | null | undefined }): boolean {
   return metrics != null;
@@ -40,12 +55,14 @@ export function toEffectiveRoutes({
   capabilities,
   sessions,
   schedules,
+  sandboxEnvironments,
 }: {
   routes: ResolvedRoutes;
   catalog: CatalogServer | null | undefined;
   capabilities: { settings?: { enabled?: boolean } } | null | undefined;
   sessions: AgentSessionsServer | null | undefined;
   schedules: ScheduleServer | null | undefined;
+  sandboxEnvironments: SandboxEnvironmentServer | null | undefined;
 }): ResolvedRoutes {
   const sessionsEnabled = isSessionsChromeEnabled({ sessions });
   return {
@@ -55,5 +72,6 @@ export function toEffectiveRoutes({
     sharedSession: sessionsEnabled ? routes.sharedSession : null,
     libraryAgent: sessionsEnabled ? routes.libraryAgent : null,
     schedules: isSchedulesChromeEnabled({ schedules }) ? routes.schedules : null,
+    environments: isEnvironmentsChromeEnabled({ sandboxEnvironments }) ? routes.environments : null,
   };
 }

@@ -39,6 +39,7 @@ export {
   useTrueForgeTurnId,
   useTrueForgeUpdateAgentSpec,
 } from './hooks.js';
+export { CANCELLATION_REASON_CUSTOM_KEY, isMcpServerAuthInfoList } from './messageCustomMetadata.js';
 export type {
   McpAuthMessageCustomMetadata,
   SandboxMessageCustomMetadata,
@@ -49,7 +50,7 @@ export type {
 } from './messageCustomMetadata.js';
 export {
   collectRequiredActionInputs,
-  findPausedAssistantMessage,
+  findCurrentPausedAssistantMessage,
   messageHasPendingRequiredActions,
 } from './requiredActionInputs.js';
 export { getSession } from './sessions.js';
@@ -171,8 +172,6 @@ export type {
   SandboxCreatedEvent,
   SandboxProviderBase,
   SandboxProviderCatalogEntry,
-  SandboxProviderListEntry,
-  SandboxSnapshotSyncStatus,
   SaveAgentRequest,
   SaveAgentResult,
   Schedule,

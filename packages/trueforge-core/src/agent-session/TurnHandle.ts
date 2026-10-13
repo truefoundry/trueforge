@@ -13,6 +13,7 @@ import {
 } from '../core/runtime/AgentThread.types';
 import type { AgentThreadOrchestrator } from '../core/runtime/AgentThreadOrchestrator';
 import { getEmptyCurrentContextUsage } from '../core/runtime/contextUsage';
+import { isInternalThreadDoneCancelled } from '../core/runtime/contextUtils';
 import type { AgentThreadMetrics } from '../core/runtime/metrics';
 import type { ITurnResourceResolver } from './ITurnResourceResolver';
 import type { TurnRecord } from './models/TurnRecord';
@@ -45,6 +46,10 @@ function cancellationReasonFromAbortReason(abortReason: unknown): CancellationRe
 }
 
 function toThreadDoneEvent(event: InternalThreadDoneEvent): ThreadDoneEvent {
+  if (isInternalThreadDoneCancelled(event)) {
+    // Public thread.done is done|error only. Cancelled children are dropped, not shown.
+    throw new Error('unreachable: cancelled AGENT_DONE cannot be converted to thread.done');
+  }
   const state =
     event.status === 'error'
       ? { status: 'error' as const, error: event.error, ...(event.output && { output: event.output }) }
@@ -335,7 +340,7 @@ export class TurnHandle<TTurnCustom extends object = Record<string, never>> {
 
       if (!frozenByStore) {
         try {
-          await this.store.updateTurnState({
+          await this.store.updateTurnTerminalState({
             session_id: this.turn.session_id,
             turn_id: this.turn.turn_id,
             state: terminalState,
@@ -463,14 +468,20 @@ export class TurnHandle<TTurnCustom extends object = Record<string, never>> {
       }
 
       case InternalEventType.AGENT_DONE: {
+        if (event.parent) {
+          await this.store.removeThreads({
+            ...scope,
+            thread_ids: [event.thread_id],
+          });
+        }
+        if (isInternalThreadDoneCancelled(event)) {
+          // Do not send thread.done to the user for a cancelled child.
+          return null;
+        }
         if (!event.parent) {
           return null;
         }
         const threadDone = toThreadDoneEvent(event);
-        await this.store.removeThreads({
-          ...scope,
-          thread_ids: [event.thread_id],
-        });
         await this.store.appendToEvents({
           ...scope,
           events: [threadDone],
@@ -517,6 +528,7 @@ export class TurnHandle<TTurnCustom extends object = Record<string, never>> {
             name: initInfo.name,
             session_id: initInfo.session_id,
             transport_type: initInfo.transport_type,
+            approval_policies: initInfo.approval_policies,
           })),
         });
         await this.store.appendToEvents({

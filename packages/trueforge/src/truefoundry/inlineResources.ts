@@ -1,6 +1,6 @@
 /**
- * MCP servers and skills supplied per request instead of configured in the tenant's registry,
- * each keyed by name.
+ * MCP servers, skills, and model providers supplied per request instead of configured in the
+ * tenant's registry, each keyed by name.
  *
  * A caller that owns its own agent definition brings resources the tenant never registered and
  * should not see in its settings or its gateway metrics. Sending them per request keeps them out
@@ -9,14 +9,18 @@
  */
 import { HTTPException } from 'hono/http-exception';
 import { McpServerManifestSchema, type McpServerManifest } from '../schemas/mcpServer';
+import { ModelProviderManifestSchema, type ModelProviderManifest } from '../schemas/modelProvider';
 import { SkillManifestSchema, type SkillManifest } from '../schemas/skill';
 
 export const X_TFG_MCP = 'x-tfg-mcp';
 export const X_TFG_SKILLS = 'x-tfg-skills';
+export const X_TFG_MODELS = 'x-tfg-models';
 
 /** Manifests by name. `type` and `name` are implied by the header and the key, so callers omit them. */
 export type InlineMcpServers = Readonly<Record<string, McpServerManifest>>;
 export type InlineSkills = Readonly<Record<string, SkillManifest>>;
+/** Keyed by provider name: a spec addresses a model as `provider/model`, so the provider is the unit. */
+export type InlineModelProviders = Readonly<Record<string, ModelProviderManifest>>;
 
 export function parseInlineMcpServers(raw: string): InlineMcpServers {
   return parseByName({
@@ -44,6 +48,23 @@ export function parseInlineSkills(raw: string): InlineSkills {
       return parsed.success
         ? { ok: true, manifest: parsed.data }
         : { ok: false, reason: 'is not a valid skill definition' };
+    },
+  });
+}
+
+/**
+ * `custom` is the only provider type that carries its own name and endpoint, and it speaks the
+ * OpenAI-compatible API every gateway exposes, so it is the one an inline definition maps onto.
+ */
+export function parseInlineModelProviders(raw: string): InlineModelProviders {
+  return parseByName({
+    raw,
+    header: X_TFG_MODELS,
+    parseEntry: (name, definition) => {
+      const parsed = ModelProviderManifestSchema.safeParse({ ...definition, type: 'custom', name });
+      return parsed.success
+        ? { ok: true, manifest: parsed.data }
+        : { ok: false, reason: 'is not a valid model provider definition' };
     },
   });
 }

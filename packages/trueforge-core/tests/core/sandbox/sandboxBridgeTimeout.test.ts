@@ -16,11 +16,14 @@ function makeSandbox(options: {
 } {
   const execCalls: SandboxExecParams[] = [];
   const transport = options.transport;
+  const unsupportedOrgSecret = () => Promise.reject(new Error('test provider does not support org secrets'));
   const provider: SandboxProvider = {
     type: 'test',
-    buildImage: () => Promise.resolve({ status: 'ready', reason: null, metadata: null }),
-    getImageBuildStatus: () => Promise.resolve({ status: 'ready', reason: null, metadata: null }),
+    envSupported: false,
     createSandbox: () => Promise.resolve({ sandboxId: 'test-tenant.sandbox-1' }),
+    createSecret: unsupportedOrgSecret,
+    updateSecret: unsupportedOrgSecret,
+    deleteSecret: unsupportedOrgSecret,
     exec: (params): Promise<ExecResult> => {
       execCalls.push(params);
       return Promise.resolve({ success: true, response: { exitCode: 0, result: '' } });

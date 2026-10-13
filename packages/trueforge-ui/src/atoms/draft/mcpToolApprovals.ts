@@ -1,5 +1,4 @@
 import type { McpToolSelection } from '../../server/types.js';
-import { mcpToolSectionId } from './mcpToolSections.js';
 import {
   TOOL_TAG_ALL,
   TOOL_TAG_DESTRUCTIVE,
@@ -9,16 +8,16 @@ import {
 } from './mcpToolSelectors.js';
 
 /** Harness default applied when a mount omits `requireApprovalForTools`. */
-export const DEFAULT_APPROVAL_SELECTORS: readonly string[] = [TOOL_TAG_DESTRUCTIVE];
+export const DEFAULT_APPROVAL_SELECTORS: readonly string[] = [TOOL_TAG_WRITE, TOOL_TAG_DESTRUCTIVE];
 
-/** Approval on by default only for destructive tools; Other/read-only stay off until toggled. */
+/** Approval on by default for tools that match the harness default selectors. */
 export function defaultApprovalRequiredForTool(tool: McpToolSelection): boolean {
-  return mcpToolSectionId(tool) === 'destructive';
+  return toolMatchesSelectors({ tool, selectors: DEFAULT_APPROVAL_SELECTORS });
 }
 
 /**
- * Apply section defaults for tools that were just enabled: destructive → gated, everything else →
- * auto-run. Rebuilds selectors from the full server tool list so class tags stay coherent.
+ * Apply harness defaults for tools that were just enabled: write/destructive → gated, read-only /
+ * unlabeled → auto-run. Rebuilds selectors from the full server tool list so class tags stay coherent.
  */
 export function approvalSelectorsAfterEnabling({
   tools,
@@ -38,8 +37,8 @@ export function approvalSelectorsAfterEnabling({
     else approved.delete(name);
   }
   const next = approvalSelectorsFor({ tools, approved });
-  // No destructive tools on this server → keep the omitted harness default instead of writing `[]`,
-  // so later-added destructive tools still pick up `@destructive`.
+  // No write/destructive tools on this server → keep the omitted harness default instead of writing
+  // `[]`, so later-added write/destructive tools still pick up the class tags.
   if (next.length === 0 && !tools.some(tool => defaultApprovalRequiredForTool(tool))) {
     return [...DEFAULT_APPROVAL_SELECTORS];
   }

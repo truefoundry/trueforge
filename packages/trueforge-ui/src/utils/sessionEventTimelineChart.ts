@@ -88,21 +88,35 @@ export function getTimelineRange({ startMs, endMs }: TimelineGap): [number, numb
   return [startMs, endMs];
 }
 
-/** Collapse point events at an identical chart timestamp into one marker and tooltip. */
-export function groupCoincidentTimelineMarkers(segments: SessionEventTimelineSegment[]): TimelineMarkerGroup[] {
-  const groupsByTimestamp = new Map<number, SessionEventTimelineSegment[]>();
-  for (const segment of segments) {
-    if (!segment.isMarker) continue;
-    const group = groupsByTimestamp.get(segment.startMs);
-    if (group) group.push(segment);
-    else groupsByTimestamp.set(segment.startMs, [segment]);
+/** Collapse point events that share (or nearly share) a chart timestamp into one marker and tooltip. */
+export function groupCoincidentTimelineMarkers(
+  segments: SessionEventTimelineSegment[],
+  { toleranceMs = 0 }: { toleranceMs?: number } = {},
+): TimelineMarkerGroup[] {
+  const markers = segments
+    .flatMap((segment, index) => (segment.isMarker ? [{ segment, index }] : []))
+    .sort((left, right) => left.segment.startMs - right.segment.startMs || left.index - right.index)
+    .map(({ segment }) => segment);
+
+  const groups: TimelineMarkerGroup[] = [];
+  for (const segment of markers) {
+    const current = groups.at(-1);
+    if (current != null && segment.startMs - current.startMs <= toleranceMs) {
+      current.segments.push(segment);
+      continue;
+    }
+    groups.push({
+      id: segment.id,
+      startMs: segment.startMs,
+      endMs: segment.startMs,
+      segments: [segment],
+    });
   }
-  return Array.from(groupsByTimestamp, ([startMs, group]) => ({
-    id: `marker-group-${group.map(segment => segment.id).join('-')}`,
-    startMs,
-    endMs: startMs,
-    segments: group,
-  })).sort((left, right) => left.startMs - right.startMs);
+
+  return groups.map(group => ({
+    ...group,
+    id: `marker-group-${group.segments.map(segment => segment.id).join('-')}`,
+  }));
 }
 
 function timelineAxisUnit(totalMs: number): { divisorMs: number; suffix: string } {

@@ -66,6 +66,19 @@ function createApp(authenticator: Authenticator) {
 }
 
 describe('createAuthMiddleware / createAdminAuthMiddleware', () => {
+  it('propagates non-401 authenticate failures instead of turning them into 401', async () => {
+    const authenticator: Authenticator = {
+      authenticate: async () => {
+        throw new HTTPException(500, { message: 'TrueFoundry ServiceFoundry session request failed' });
+      },
+    };
+    const res = await createApp(authenticator).request('/api/v1/models');
+    expect(res.status).toBe(500);
+    expect(await res.json()).toEqual({
+      error: { message: 'TrueFoundry ServiceFoundry session request failed' },
+    });
+  });
+
   it('allows settings for standalone authenticator (always admin)', async () => {
     const res = await createApp(new StandaloneAuthenticator()).request('/api/v1/settings');
     expect(res.status).toBe(200);

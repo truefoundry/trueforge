@@ -1,9 +1,6 @@
 import type { ILLM } from '../../../src/core/llm/ILLM';
 import type { ExtendedChatCompletionChunk, RawAssistantMessageWithUsage } from '../../../src/core/llm/LLMTypes';
 import { getEmptyUsage } from '../../../src/core/llm/LLMTypes';
-import type { IToolSet, ToolSource } from '../../../src/core/mcp/IMCPServer';
-import { toolResultResponse } from '../../../src/core/mcp/IMCPServer';
-import { ToolSet } from '../../../src/core/mcp/ToolSet';
 import type {
   AgentThreadExecutionEvent,
   AgentThreadExecutionResult,
@@ -133,57 +130,21 @@ export async function* writeNoteToolCallStream() {
   };
 }
 
-function makeWriteNoteSource(callTool: ToolSource['callTool']): ToolSource {
-  return {
-    name: 'notes',
-    id: 'notes',
-    listTools: () =>
-      Promise.resolve({
-        result: {
-          tools: [
-            {
-              name: WRITE_NOTE_TOOL_NAME,
-              description: 'Write a note',
-              inputSchema: {
-                type: 'object',
-                properties: { text: { type: 'string' } },
-              },
-              preload: true,
-            },
-          ],
-        },
-        wasInitialized: undefined,
-      }),
-    callTool,
-    toolCallInfo: () =>
-      Promise.resolve({
-        type: 'mcp',
-        mcp_server_id: 'notes',
-        mcp_server_name: 'notes',
-        original_tool_name: WRITE_NOTE_TOOL_NAME,
-      }),
-  };
-}
-
-/** Approval-gated write_note tool set; `callTool` spy proves allow runs the source and deny does not. */
-export function makeApprovalGatedWriteNoteToolSet(): {
-  toolSet: IToolSet;
-  callTool: jest.Mock;
-} {
-  const callTool = jest.fn(() => Promise.resolve(toolResultResponse({ text: WRITE_NOTE_RESULT })));
-  return {
-    toolSet: new ToolSet({
-      source: makeWriteNoteSource(callTool),
-      selectors: {
-        enableTools: ['@all'],
-        disableTools: [],
-        preloadTools: [],
-        requireApprovalForTools: [WRITE_NOTE_TOOL_NAME],
-      },
-      preload: true,
-    }),
-    callTool,
-  };
+/** Consume execute(); return raw events and the generator result. */
+export async function runExecute(input: {
+  orchestrator: AgentThreadOrchestrator;
+  signal?: AbortSignal | undefined;
+}): Promise<{ events: AgentThreadExecutionEvent[]; result: AgentThreadExecutionResult }> {
+  const events: AgentThreadExecutionEvent[] = [];
+  const iterator = input.orchestrator.execute({
+    signal: input.signal ?? new AbortController().signal,
+  });
+  let step = await iterator.next();
+  while (!step.done) {
+    events.push(step.value);
+    step = await iterator.next();
+  }
+  return { events, result: step.value };
 }
 
 /** Consume send() then execute(); return raw events and the generator result. */
@@ -195,16 +156,7 @@ export async function runTurn(input: {
   for await (const _event of input.orchestrator.send(input.sendBatch)) {
     void _event;
   }
-  const events: AgentThreadExecutionEvent[] = [];
-  const iterator = input.orchestrator.execute({
-    signal: input.signal ?? new AbortController().signal,
-  });
-  let step = await iterator.next();
-  while (!step.done) {
-    events.push(step.value);
-    step = await iterator.next();
-  }
-  return { events, result: step.value };
+  return runExecute({ orchestrator: input.orchestrator, signal: input.signal });
 }
 
 export function llmCreateInputs(llm: ILLM): unknown[] {

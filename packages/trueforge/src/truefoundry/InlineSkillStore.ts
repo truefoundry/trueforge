@@ -4,6 +4,7 @@ import { resolveGitTurnSkills, validateGitAgentSkills } from '../db/gitSkillMoun
 import type {
   AgentSkillsInput,
   CreateSkillInput,
+  DeleteSkillInput,
   ISkillStore,
   ListSkillsInput,
   SkillRecord,
@@ -52,6 +53,10 @@ export class InlineSkillStore<TTransaction = never> implements ISkillStore<TTran
 
   upsertSkill(input: UpsertSkillInput, transaction?: TTransaction): Promise<SkillRecord> {
     return this.#inner.upsertSkill(input, transaction);
+  }
+
+  deleteSkill(input: DeleteSkillInput, transaction?: TTransaction): Promise<boolean> {
+    return this.#inner.deleteSkill(input, transaction);
   }
 
   listSkillVersions(input: { name: string }): Promise<SkillVersion[]> {

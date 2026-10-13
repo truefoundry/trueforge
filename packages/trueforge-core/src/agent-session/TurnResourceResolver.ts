@@ -1,12 +1,13 @@
 import type { Logger } from 'winston';
 import type { ILLM } from '../core/llm/ILLM';
+import type { ModelParams } from '../core/llm/model';
 import type { ToolSource } from '../core/mcp/IMCPServer';
 import { RemoteMCP, type RemoteMcpHeaders } from '../core/mcp/RemoteMCP';
 import type { ToolSelectorConfig } from '../core/mcp/ToolSelectorPolicy';
 import { ToolSet } from '../core/mcp/ToolSet';
-import type { AgentDefinition, ModelParams } from '../core/runtime/AgentDefinition';
+import type { AgentDefinition } from '../core/runtime/AgentDefinition';
 import type { AgentInfo } from '../core/runtime/AgentThread.types';
-import type { Sandbox, SandboxInfo } from '../core/sandbox/Sandbox';
+import type { HarnessSandbox, SandboxInfo } from '../core/sandbox/Sandbox';
 import type { AgentTracing } from '../core/tracing/AgentTracing';
 import { NOOP_AGENT_TRACING } from '../core/tracing/NoopAgentTracing';
 import type { IWebSearchProvider } from '../core/web-search/WebSearchProvider';
@@ -25,7 +26,7 @@ export type TurnSandboxFactory = (input: {
   existingSandboxId?: string | undefined;
   signal: AbortSignal;
   tracing: AgentTracing;
-}) => Promise<Sandbox>;
+}) => Promise<HarnessSandbox>;
 
 function specWantsSandbox(spec: AgentSpec): boolean {
   return spec.config.sandbox.enabled;
@@ -61,7 +62,7 @@ export class TurnResourceResolver<
 > implements ITurnResourceResolver<TTurnCustom> {
   readonly #sources = new Map<string, Promise<ToolSource>>();
   readonly #models = new Map<string, Promise<ResolvedModel>>();
-  #sandbox?: Sandbox | undefined;
+  #sandbox?: HarnessSandbox | undefined;
 
   constructor(
     protected readonly deps: {
@@ -128,7 +129,7 @@ export class TurnResourceResolver<
     previousTurn?: TurnRecord<TTurnCustom> | undefined;
     signal: AbortSignal;
     tracing: AgentTracing;
-  }): Promise<Sandbox | undefined> {
+  }): Promise<HarnessSandbox | undefined> {
     if (!this.deps.sandboxProvider || !specWantsSandbox(input.spec)) {
       return undefined;
     }
@@ -205,6 +206,7 @@ export class TurnResourceResolver<
           source,
           selectors: toSelectors(entry),
           preload: entry.preload,
+          approvalPolicies: previousTurn?.snapshot.mcp_servers?.[entry.name]?.approval_policies,
         });
       }),
     );
@@ -215,6 +217,7 @@ export class TurnResourceResolver<
     return {
       definition: {
         modelClient: resolvedModel.modelClient,
+        modelName,
         modelProperties: resolvedModel.modelProperties,
         // Sub-agents receive the delegated task as a user message; their system
         // prompt is SUB_AGENT_IDENTITY (added by AgentThread), not user instructions.

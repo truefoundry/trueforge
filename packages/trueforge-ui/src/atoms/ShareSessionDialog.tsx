@@ -2,6 +2,8 @@
 
 import type { ReactNode } from 'react';
 
+import { useTrackAnalytics } from '../analytics/AnalyticsProvider.js';
+import { AnalyticsEvents } from '../analytics/events.js';
 import { useShareSessionDialog, type SessionSharePermission } from '../hooks/useShareSessionDialog.js';
 import { Icon } from '../icons/Icon.js';
 import { auiInputClass } from './lib/inputClasses.js';
@@ -100,6 +102,7 @@ function AccessSelector({
 export function ShareSessionDialog({ sessionId, trigger }: ShareSessionDialogProps) {
   const { permission, canManage, loading, shareUrl, copied, tenantId, load, changePermission, copySharedSessionLink } =
     useShareSessionDialog(sessionId);
+  const track = useTrackAnalytics();
 
   return (
     <DropdownMenu
@@ -107,7 +110,10 @@ export function ShareSessionDialog({ sessionId, trigger }: ShareSessionDialogPro
       align="end"
       closeOnClick={false}
       onOpenChange={open => {
-        if (open) void load();
+        if (open) {
+          track(AnalyticsEvents.Session.SHARE_OPENED, { session_id: sessionId });
+          load();
+        }
       }}
       className="w-120 gap-5 rounded-[0.75rem] p-6 shadow-xs"
     >
@@ -139,7 +145,13 @@ export function ShareSessionDialog({ sessionId, trigger }: ShareSessionDialogPro
           type="button"
           size="large"
           className="h-8 shrink-0 rounded px-2.5 text-xs"
-          onClick={() => void copySharedSessionLink()}
+          onClick={() => {
+            track(AnalyticsEvents.Session.SHARE_LINK_COPIED, {
+              session_id: sessionId,
+              permission,
+            });
+            copySharedSessionLink();
+          }}
         >
           <Icon name={copied ? 'check' : 'copy'} size="0.875rem" />
           {copied ? 'Copied' : 'Copy'}

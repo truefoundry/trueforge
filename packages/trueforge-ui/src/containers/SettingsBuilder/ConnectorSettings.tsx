@@ -2,12 +2,15 @@
 
 import { useCallback, useEffect, useMemo, useState, type FormEvent } from 'react';
 
+import { useTrackAnalytics } from '@/analytics/AnalyticsProvider.js';
+import { AnalyticsEvents } from '@/analytics/events.js';
 import { cn } from '@/atoms/lib/cn.js';
 import { auiInputClass } from '@/atoms/lib/inputClasses.js';
 import { Button } from '@/atoms/primitives/Button.js';
 import { CatalogLogo } from '@/atoms/primitives/CatalogLogo.js';
 import { CenteredModal } from '@/atoms/primitives/CenteredModal.js';
 import SearchInput from '@/atoms/primitives/SearchInput.js';
+import { useMCPAuth } from '@/hooks/useMcpAuth.js';
 import { Icon } from '@/icons/Icon.js';
 import { useCatalogServer } from '@/server/ServerContext.js';
 import type { ConnectorAuth, ConnectorBase, ConnectorCatalogEntry } from '@/server/types.js';
@@ -15,6 +18,7 @@ import { getErrorMessage } from '@/utils/getErrorMessage.js';
 import { useToasterOptional } from '../ToasterContainer.js';
 import AddMcpServerForm, { type AddMcpServerDraft } from './AddMcpServerForm.js';
 import { AUTH_TYPE_LABELS } from './authTypeLabels.js';
+import ConfirmDeleteDialog from './ConfirmDeleteDialog.js';
 import ConnectorDetails from './ConnectorDetails.js';
 
 type ConnectorListItem =
@@ -28,6 +32,8 @@ type ConnectorsState = {
 const ConnectorSettings = () => {
   const { connectorCatalog } = useCatalogServer();
   const toaster = useToasterOptional();
+  const track = useTrackAnalytics();
+  const { handleAuthorize, isOAuthLoading } = useMCPAuth();
 
   const [query, setQuery] = useState('');
   const [connectors, setConnectors] = useState<ConnectorsState>({
@@ -44,6 +50,9 @@ const ConnectorSettings = () => {
   const [editingConnector, setEditingConnector] = useState<ConnectorBase | null>(null);
   const [connectorAwaitingKey, setConnectorAwaitingKey] = useState<ConnectorCatalogEntry | null>(null);
   const [selectedConnector, setSelectedConnector] = useState<ConnectorBase | null>(null);
+  const [authorizingId, setAuthorizingId] = useState<string | null>(null);
+  const [pendingRemoval, setPendingRemoval] = useState<ConnectorBase | null>(null);
+  const [removeError, setRemoveError] = useState<string | null>(null);
   const [apiKey, setApiKey] = useState('');
 
   const connectorIconMap = useMemo(() => {
@@ -174,6 +183,7 @@ const ConnectorSettings = () => {
 
     void runMutation(async () => {
       await createFromCatalog(entry);
+      track(AnalyticsEvents.Settings.CONNECTOR_SAVED, { connector_name: entry.name, mode: 'create' });
     }).catch(() => {});
   };
 
@@ -195,6 +205,7 @@ const ConnectorSettings = () => {
         toaster?.showSuccess({
           title: `${entry.name} connected`,
         });
+        track(AnalyticsEvents.Settings.CONNECTOR_SAVED, { connector_name: entry.name, mode: 'create' });
       }, 100);
     }, setFormError).catch(() => {});
   };
@@ -210,14 +221,37 @@ const ConnectorSettings = () => {
     }, setFormError);
     setTimeout(() => {
       toaster?.showSuccess({ title: `${draft.name} ${editingConnector ? 'updated' : 'added'}` });
+      track(AnalyticsEvents.Settings.CONNECTOR_SAVED, {
+        connector_name: draft.name,
+        mode: editingConnector ? 'update' : 'create',
+      });
     }, 0);
   };
 
   const handleDisconnect = (connector: ConnectorBase) => {
     void runMutation(async () => {
       await connectorCatalog.disconnectConnector({ id: connector.id });
+      track(AnalyticsEvents.Settings.CONNECTOR_DISCONNECTED, { connector_name: connector.name });
       setSelectedConnector(null);
     }).catch(() => {});
+  };
+
+  const closeRemoveDialog = () => {
+    if (busy) return;
+    setPendingRemoval(null);
+    setRemoveError(null);
+  };
+
+  const handleRemove = (connector: ConnectorBase) => {
+    const deleteConnector = connectorCatalog.deleteConnector;
+    if (!deleteConnector) return;
+    setRemoveError(null);
+    void runMutation(async () => {
+      await deleteConnector({ id: connector.id });
+      track(AnalyticsEvents.Settings.CONNECTOR_DELETED, { connector_name: connector.name });
+      setPendingRemoval(null);
+      setSelectedConnector(null);
+    }, setRemoveError).catch(() => {});
   };
 
   const handleConnectorRefreshed = (refreshedConnector: ConnectorBase) => {
@@ -278,6 +312,9 @@ const ConnectorSettings = () => {
     );
 
     const rowClassName = 'flex min-h-16 w-full items-center gap-3 border-b border-border p-3 text-left last:border-b-0';
+    // OAuth servers land here unauthenticated, so the list offers the same Connect as the detail view.
+    const needsAuthorization = connector.auth.type === 'dcr' && !connector.authenticated;
+    const connecting = isOAuthLoading && authorizingId === connector.id;
 
     if (isConnected) {
       return (
@@ -291,6 +328,23 @@ const ConnectorSettings = () => {
           <div className="flex min-w-0 flex-1 items-center gap-3">{content}</div>
 
           <div className="flex items-center gap-2">
+            {needsAuthorization ? (
+              <Button.Secondary
+                size="small"
+                type="button"
+                disabled={busy || connecting}
+                onClick={event => {
+                  event.stopPropagation();
+                  setAuthorizingId(connector.id);
+                  void handleAuthorize(connector.id, isSuccess => {
+                    setAuthorizingId(null);
+                    if (isSuccess) void refresh();
+                  });
+                }}
+              >
+                {connecting ? 'Connecting…' : 'Connect'}
+              </Button.Secondary>
+            ) : null}
             <Button.Secondary
               size="small"
               type="button"
@@ -305,6 +359,22 @@ const ConnectorSettings = () => {
               <Icon name="pencil" className="size-3" />
               Edit
             </Button.Secondary>
+            {connectorCatalog.deleteConnector ? (
+              <Button.Secondary
+                size="small"
+                className="transition-colors hover:bg-failure-bg/10 hover:text-failure-bg"
+                type="button"
+                disabled={busy}
+                aria-label={`Remove ${connector.name}`}
+                onClick={event => {
+                  event.stopPropagation();
+                  setRemoveError(null);
+                  setPendingRemoval(connector);
+                }}
+              >
+                Remove
+              </Button.Secondary>
+            ) : null}
             <Icon name="chevron-right" className="size-4" />
           </div>
         </article>
@@ -362,6 +432,19 @@ const ConnectorSettings = () => {
     );
   };
 
+  const confirmDeleteDialog = pendingRemoval ? (
+    <ConfirmDeleteDialog
+      title="Remove connector?"
+      description={`“${pendingRemoval.name}” will no longer be available to your agents.`}
+      busy={busy}
+      error={removeError}
+      onCancel={closeRemoveDialog}
+      onConfirm={() => {
+        handleRemove(pendingRemoval);
+      }}
+    />
+  ) : null;
+
   if (selectedConnector) {
     return (
       <>
@@ -380,6 +463,14 @@ const ConnectorSettings = () => {
           onDisconnect={() => {
             handleDisconnect(selectedConnector);
           }}
+          onRemove={
+            connectorCatalog.deleteConnector
+              ? () => {
+                  setRemoveError(null);
+                  setPendingRemoval(selectedConnector);
+                }
+              : undefined
+          }
         />
         <AddMcpServerForm
           open={addMcpServerFormOpen}
@@ -395,6 +486,7 @@ const ConnectorSettings = () => {
           busy={busy}
           error={formError}
         />
+        {confirmDeleteDialog}
       </>
     );
   }
@@ -412,14 +504,15 @@ const ConnectorSettings = () => {
         </p>
       ) : null}
 
-      <div className="mt-4 flex-1 overflow-y-hidden">
-        <div className="flex h-full flex-col gap-3">
-          <div className="flex gap-2">
-            <div className="flex-1">
+      <div className="mt-4 min-h-0 min-w-0 flex-1 overflow-y-hidden">
+        <div className="flex h-full min-w-0 flex-col gap-3">
+          <div className="flex min-w-0 flex-col gap-2 sm:flex-row">
+            <div className="min-w-0 flex-1">
               <SearchInput query={query} setQuery={setQuery} placeholder="Search connectors" />
             </div>
             <Button.Secondary
               type="button"
+              className="shrink-0"
               onClick={() => {
                 setFormError(null);
                 setEditingConnector(null);
@@ -542,6 +635,7 @@ const ConnectorSettings = () => {
             busy={busy}
             error={formError}
           />
+          {confirmDeleteDialog}
         </div>
       </div>
     </>

@@ -5,11 +5,11 @@ import typing
 import pydantic
 from ..core.pydantic_utilities import IS_PYDANTIC_V2
 from ..core.unchecked_base_model import UncheckedBaseModel
-from .tool_approval_policy_allow_session import ToolApprovalPolicyAllowSession
+from .components_schemas_tool_approval_policy_allow_session import ComponentsSchemasToolApprovalPolicyAllowSession
 
 
 class ToolApprovalPolicyItem(UncheckedBaseModel):
-    action: ToolApprovalPolicyAllowSession
+    action: ComponentsSchemasToolApprovalPolicyAllowSession
     name: str = pydantic.Field()
     """
     Tool name on that server.

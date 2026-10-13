@@ -13,6 +13,11 @@ class SandboxConfig(UncheckedBaseModel):
     Give the agent a sandbox. Required for skills and Code Mode.
     """
 
+    environment_name: typing.Optional[str] = pydantic.Field(default=None)
+    """
+    Name of a configured sandbox environment to use. Must exist when set.
+    """
+
     file_downloads: typing.Optional[bool] = pydantic.Field(default=True)
     """
     Allow downloading agent-produced files via the turn download endpoint. Default: true.

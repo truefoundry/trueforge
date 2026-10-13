@@ -54,14 +54,19 @@ export async function convertMCPServersToTools(params: {
       authRequirementInfo.push(listResponse.authRequired);
       continue;
     }
-    const { result: mcpTools, wasInitialized } = listResponse;
-    if (wasInitialized) {
-      initializationInfo.push(wasInitialized);
-    }
-
     const toolSet = allServers[i];
     if (toolSet === undefined) {
       throw new Error(`Unreachable: missing tool set at index ${String(i)}`);
+    }
+
+    const { result: mcpTools, wasInitialized } = listResponse;
+    if (wasInitialized) {
+      const approvalPolicies = toolSet.getApprovalPolicies();
+      initializationInfo.push(
+        Object.keys(approvalPolicies).length > 0
+          ? { ...wasInitialized, approval_policies: approvalPolicies }
+          : wasInitialized,
+      );
     }
     const sortedTools = [...mcpTools.tools].sort((a, b) => (a.name > b.name ? 1 : -1));
     for (const mcpTool of sortedTools) {

@@ -7,6 +7,8 @@ import type {
 import { lazy, Suspense, useCallback, useEffect, useMemo, useState, type ReactNode } from 'react';
 import { ThinkingOrb } from 'thinking-orbs';
 
+import { AnalyticsProvider } from '../analytics/AnalyticsProvider.js';
+import type { AnalyticsConfig } from '../analytics/types.js';
 import { AgentConfigInstructionsProvider } from '../atoms/draft/AgentConfigInstructionsContext.js';
 import { DraftCatalogProvider } from '../atoms/draft/DraftCatalogProvider.js';
 import { DraftSpecPreferenceBridge } from '../atoms/draft/DraftSpecPreferenceBridge.js';
@@ -53,6 +55,8 @@ export type TrueForgeUIProps = {
   initialSessionId?: string;
   adapters?: RuntimeAdapters;
   onError?: (error: unknown) => void;
+  /** Host product-analytics sink; SDK never ships a vendor. */
+  analytics?: AnalyticsConfig;
   /**
    * Agent / library / composer shell mode.
    * Defaults to `{ mode: "AgentLibraryWithComposer" }`.
@@ -62,7 +66,7 @@ export type TrueForgeUIProps = {
   initialSettingsOpen?: boolean;
   /**
    * Host UI for pending client-side tools, keyed by tool name.
-   * When a pending tool matches, the composer mounts that component instead of Ask User.
+   * When a pending tool matches, that component is shown above the composer instead of Ask User.
    */
   customActionRenderers?: CustomActionRenderers;
   /**
@@ -284,6 +288,7 @@ export function TrueForgeUIShell(props: TrueForgeUIShellProps) {
     initialSettingsOpen = false,
     server: serverConfig,
     onError,
+    analytics,
     customActionRenderers,
     currentUser,
     resolvedRoutes,
@@ -321,31 +326,33 @@ export function TrueForgeUIShell(props: TrueForgeUIShellProps) {
 
   // Outer toaster so ShellRouteSync (sibling of chat provider) can toast access-denied
   // deep links; nested ToasterProvider inside TrueForgeChatProvider stays for hosts
-  // that mount chat alone.
+  // that mount chat alone. Analytics wraps the same tree so chrome + chat share one sink.
   const shellTree = (
-    <ToasterProvider>
-      <ShellModeProvider agentConfig={agentConfig} initialSettingsOpen={initialSettingsOpen}>
-        <LibrarySessionShareBoot />
-        {resolvedRoutes != null ? (
-          <Suspense fallback={null}>
-            <ShellRouteSync
-              routes={resolvedRoutes}
-              activeRemoteId={activeRemoteId}
-              initialSettingsOpen={initialSettingsOpen}
-              onError={onError}
-            />
-          </Suspense>
-        ) : null}
-        <ChatProviderFromShell
-          server={server}
-          onError={onError}
-          onRemoteIdChange={resolvedRoutes != null ? handleRemoteIdChange : undefined}
-          {...providerRest}
-        >
-          {layoutTree}
-        </ChatProviderFromShell>
-      </ShellModeProvider>
-    </ToasterProvider>
+    <AnalyticsProvider track={analytics?.track}>
+      <ToasterProvider>
+        <ShellModeProvider agentConfig={agentConfig} initialSettingsOpen={initialSettingsOpen}>
+          <LibrarySessionShareBoot />
+          {resolvedRoutes != null ? (
+            <Suspense fallback={null}>
+              <ShellRouteSync
+                routes={resolvedRoutes}
+                activeRemoteId={activeRemoteId}
+                initialSettingsOpen={initialSettingsOpen}
+                onError={onError}
+              />
+            </Suspense>
+          ) : null}
+          <ChatProviderFromShell
+            server={server}
+            onError={onError}
+            onRemoteIdChange={resolvedRoutes != null ? handleRemoteIdChange : undefined}
+            {...providerRest}
+          >
+            {layoutTree}
+          </ChatProviderFromShell>
+        </ShellModeProvider>
+      </ToasterProvider>
+    </AnalyticsProvider>
   );
   // Widget visibility provider is used to control the visibility of the widget with isolated state
   const visibilityTree =

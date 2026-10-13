@@ -1,6 +1,6 @@
 import configuration, { STANDALONE_TRUEFORGE_API_KEY } from '../../../src/config';
+import { internalTrueForgeClient } from '../../../src/controller/internalTrueForgeClient';
 import {
-  createHttpScheduleRunExecutor,
   loadScheduleDispatchItem,
   ScheduleAgentNotFoundError,
   scheduleDispatchLoop,
@@ -92,9 +92,8 @@ describe('schedule execution HTTP transport', () => {
 
   it('sends one API-key authenticated request with the run id', async () => {
     const request = jest.spyOn(globalThis, 'fetch').mockResolvedValue(new Response(null, { status: 204 }));
-    const executeRun = createHttpScheduleRunExecutor();
 
-    await executeRun('run-1');
+    await internalTrueForgeClient.executeScheduleRun('run-1');
 
     expect(request).toHaveBeenCalledTimes(1);
     const [url, init] = request.mock.calls[0] ?? [];

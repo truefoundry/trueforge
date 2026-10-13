@@ -2,8 +2,15 @@
 
 import { useActionBarCopy, useMessageError, useThreadIsRunning, type PartState } from '@assistant-ui/core/react';
 import { MessagePrimitive, useAuiState, type EnrichedPartState, type GroupByContext } from '@assistant-ui/react';
-import { useTrueForgeResumeUnavailable } from '@truefoundry/trueforge-assistant-ui-runtime';
+import {
+  CANCELLATION_REASON_CUSTOM_KEY,
+  useTrueForgeResumeUnavailable,
+} from '@truefoundry/trueforge-assistant-ui-runtime';
 
+import { useTrackAnalytics } from '../analytics/AnalyticsProvider.js';
+import { AnalyticsEvents } from '../analytics/events.js';
+import { withSessionProps } from '../analytics/sessionProps.js';
+import { useOptionalShellMode } from '../server/ShellModeContext.js';
 import { useSlot } from '../theme/SlotsProvider.js';
 import { computeAgentStepsSplit } from '../utils/computeAgentStepsSplit.js';
 import { AgentStepsContainer } from './AgentStepsContainer.js';
@@ -35,17 +42,36 @@ export function AssistantMessageContainer() {
   const AssistantMessageBubble = useSlot('AssistantMessageBubble');
   const MessageActionBar = useSlot('MessageActionBar');
   const MessageErrorBanner = useSlot('MessageErrorBanner');
+  const MessageCancelledBanner = useSlot('MessageCancelledBanner');
   const MessageIndicator = useSlot('MessageIndicator');
   const isThreadRunning = useThreadIsRunning();
   const resumeUnavailable = useTrueForgeResumeUnavailable();
   const error = useMessageError();
   const createdAt = useAuiState(s => s.message.createdAt);
+  const sessionId = useAuiState(s => s.threadListItem.remoteId);
   const isMessageRunning = useAuiState(s => s.message.status?.type === 'running');
+  const messageStatus = useAuiState(s => s.message.status);
+  const cancellationReason = useAuiState(s => {
+    const value = s.message.metadata?.custom?.[CANCELLATION_REASON_CUSTOM_KEY];
+    return typeof value === 'string' ? value : undefined;
+  });
+  const track = useTrackAnalytics();
+  const shell = useOptionalShellMode();
+  const shellAgent =
+    shell?.mode.status === 'active' ? { agentId: shell.mode.agentId, agentName: shell.mode.agentName } : {};
   const { copy, isCopied } = useActionBarCopy({
     copyToClipboard: text => navigator.clipboard.writeText(text),
   });
+  const onCopy = () => {
+    track(AnalyticsEvents.Message.COPIED, withSessionProps({ role: 'assistant' }, { sessionId, ...shellAgent }));
+    copy();
+  };
 
   const parts = useAuiState(s => s.message.parts);
+  const cancelledBanner =
+    messageStatus?.type === 'incomplete' && messageStatus.reason === 'cancelled'
+      ? (cancellationReason ?? 'cancelled')
+      : undefined;
 
   const { cutIndex, hasFinal, toolCount, thinkingCount } = computeAgentStepsSplit(parts, isMessageRunning);
 
@@ -71,8 +97,9 @@ export function AssistantMessageContainer() {
     <MessagePrimitive.Root data-role="assistant">
       <AssistantMessageBubble
         error={error !== undefined ? <MessageErrorBanner message={String(error)} /> : undefined}
+        statusBanner={cancelledBanner !== undefined ? <MessageCancelledBanner message={cancelledBanner} /> : undefined}
         actionBar={
-          !isThreadRunning ? <MessageActionBar isCopied={isCopied} onCopy={copy} createdAt={createdAt} /> : undefined
+          !isThreadRunning ? <MessageActionBar isCopied={isCopied} onCopy={onCopy} createdAt={createdAt} /> : undefined
         }
       >
         <MessagePrimitive.GroupedParts groupBy={groupBy}>

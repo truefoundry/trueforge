@@ -17,6 +17,7 @@ type ConnectorDetailsProps = {
   onConnectorRefreshed: (connector: ConnectorBase) => void;
   onEdit: () => void;
   onDisconnect: () => void;
+  onRemove?: () => void;
   busy?: boolean;
 };
 
@@ -101,6 +102,7 @@ const ConnectorDetails = ({
   onConnectorRefreshed,
   onEdit,
   onDisconnect,
+  onRemove,
   busy = false,
 }: ConnectorDetailsProps) => {
   const { connectorCatalog } = useCatalogServer();
@@ -218,6 +220,18 @@ const ConnectorDetails = ({
             ) : connector.auth.type === 'dcr' && !connector.requiresAuth ? (
               <Button.Secondary size="small" type="button" disabled={busy} onClick={onDisconnect}>
                 Disconnect
+              </Button.Secondary>
+            ) : null}
+            {onRemove ? (
+              <Button.Secondary
+                size="small"
+                className="transition-colors hover:bg-failure-bg/10 hover:text-failure-bg"
+                type="button"
+                disabled={busy}
+                aria-label={`Remove ${connector.name}`}
+                onClick={onRemove}
+              >
+                Remove
               </Button.Secondary>
             ) : null}
           </div>

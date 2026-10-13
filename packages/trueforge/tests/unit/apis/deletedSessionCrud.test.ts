@@ -13,6 +13,7 @@ import { SqliteAgentStore } from '../../../src/db/sqlite/agent-store/SqliteAgent
 import { createSqliteDb } from '../../../src/db/sqlite/client';
 import { SqliteMcpServerStore } from '../../../src/db/sqlite/mcp-server-store/SqliteMcpServerStore';
 import { SqliteModelProviderStore } from '../../../src/db/sqlite/model-provider-store/SqliteModelProviderStore';
+import { SqliteSandboxEnvironmentStore } from '../../../src/db/sqlite/sandbox-environment-store/SqliteSandboxEnvironmentStore';
 import { SqliteSandboxProviderStore } from '../../../src/db/sqlite/sandbox-provider-store/SqliteSandboxProviderStore';
 import { SqliteSessionStore } from '../../../src/db/sqlite/session-store/SqliteSessionStore';
 import { SqliteSkillStore } from '../../../src/db/sqlite/skill-store/SqliteSkillStore';
@@ -39,6 +40,7 @@ describe('public CRUD after session deletion', () => {
     const skillStore = new SqliteSkillStore(db);
     const agentStore = new SqliteAgentStore(db);
     const sandboxProviderStore = new SqliteSandboxProviderStore(db);
+    const sandboxEnvironmentStore = new SqliteSandboxEnvironmentStore(db);
     const webSearchProviderStore = new SqliteWebSearchProviderStore(db);
     const app = new OpenAPIHono();
 
@@ -53,6 +55,7 @@ describe('public CRUD after session deletion', () => {
         resolveSkillStore: () => skillStore,
         resolveAgentStore: () => agentStore,
         resolveSandboxProviderStore: () => sandboxProviderStore,
+        sandboxEnvironmentStore,
         resolveWebSearchProviderStore: () => webSearchProviderStore,
         redis: createClient(),
         requestReplyRouter: new RequestReplyRouter(),
@@ -73,6 +76,7 @@ describe('public CRUD after session deletion', () => {
         resolveAgentStore: () => agentStore,
         eventSubscriptions: new EventSubscriptionRegistry(undefined),
         resolveSandboxProviderStore: () => sandboxProviderStore,
+        sandboxEnvironmentStore,
         resolveWebSearchProviderStore: () => webSearchProviderStore,
         logger: createLogger({ silent: true }),
         resolveRequestContext: () => STANDALONE_REQUEST_CONTEXT,

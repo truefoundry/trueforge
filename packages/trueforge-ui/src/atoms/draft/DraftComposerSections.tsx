@@ -1,5 +1,8 @@
 'use client';
 
+import { useTrackAnalytics } from '../../analytics/AnalyticsProvider.js';
+import { AnalyticsEvents } from '../../analytics/events.js';
+import { withSessionProps } from '../../analytics/sessionProps.js';
 import { Icon } from '../../icons/Icon.js';
 import { shellIsCreateAgent, useOptionalShellMode } from '../../server/ShellModeContext.js';
 import { useSlot } from '../../theme/SlotsProvider.js';
@@ -12,6 +15,7 @@ import { DraftReasoningEffortSelector } from './DraftReasoningEffortSelector.js'
 
 export function DraftComposerLeftSection({ disabled, isRunning, onAttach }: ComposerLeftSectionProps) {
   const shell = useOptionalShellMode();
+  const track = useTrackAnalytics();
   const DraftCompositeSelector = useSlot('DraftCompositeSelector');
   const DraftAgentConfigTrigger = useSlot('DraftAgentConfigTrigger');
   const DraftComposerActionsMenu = useSlot('DraftComposerActionsMenu');
@@ -23,7 +27,17 @@ export function DraftComposerLeftSection({ disabled, isRunning, onAttach }: Comp
       id: 'agent-config',
       label: 'Agent config',
       icon: 'sliders',
-      onSelect: () => shell?.setAgentConfigOpen(true),
+      onSelect: () => {
+        track(
+          AnalyticsEvents.Config.OPENED,
+          withSessionProps(undefined, {
+            ...(shell?.mode.status === 'active'
+              ? { agentId: shell.mode.agentId, agentName: shell.mode.agentName }
+              : {}),
+          }),
+        );
+        shell?.setAgentConfigOpen(true);
+      },
     },
     ...(onAttach === undefined
       ? []

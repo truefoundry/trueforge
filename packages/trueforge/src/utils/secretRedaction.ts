@@ -1,3 +1,5 @@
+import { createHash } from 'node:crypto';
+
 /**
  * Redact secret strings for settings API responses and detect/merge
  * redacted writebacks so clients can keep stored secrets without resending them.
@@ -8,6 +10,9 @@ const MIN_LENGTH_FOR_PREFIX_SUFFIX = 10;
 
 /** Response mask: prefix/suffix for longer secrets; full mask when too short to hide. */
 export function toRedactedSecretValue(secret: string): string {
+  if (isRedactedSecretValue(secret)) {
+    return secret;
+  }
   if (secret.length < MIN_LENGTH_FOR_PREFIX_SUFFIX) {
     return SECRET_REDACTION;
   }
@@ -19,6 +24,11 @@ export function toRedactedSecretValue(secret: string): string {
  */
 export function isRedactedSecretValue(value: string): boolean {
   return value.includes(SECRET_REDACTION);
+}
+
+/** sha256(tenant_id + "\\0" + value); reserved for later compare. */
+export function hashSandboxEnvironmentSecret({ tenant_id, value }: { tenant_id: string; value: string }): string {
+  return createHash('sha256').update(`${tenant_id}\0${value}`, 'utf8').digest('hex');
 }
 
 /**

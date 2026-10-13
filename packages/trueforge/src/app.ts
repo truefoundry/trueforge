@@ -9,7 +9,6 @@ import { bodyLimit } from 'hono/body-limit';
 import { HTTPException } from 'hono/http-exception';
 import type { Configuration } from 'openid-client';
 import type { Logger } from 'winston';
-import { createAgentImportRouter } from './apis/agentImport';
 import { createAgentsRouter } from './apis/agents';
 import { createAuthRouter } from './apis/auth';
 import { createCapabilitiesRouter } from './apis/capabilities';
@@ -18,6 +17,8 @@ import { createMcpOAuthRouter } from './apis/mcpOAuth';
 import { createMcpServersRouter } from './apis/mcpServers';
 import { createModelsRouter } from './apis/models';
 import { createPermissionsRouter } from './apis/permissions';
+import { createSandboxEnvironmentBuildRouter } from './apis/sandboxEnvironmentBuild';
+import { createSandboxEnvironmentsRouter } from './apis/sandboxEnvironments';
 import { createScheduleExecutionRouter, createSchedulesRouter } from './apis/schedules';
 import { createInternalMetricsRouter } from './apis/sessionMetrics';
 import { createInternalSessionsRouter, createSessionsRouter } from './apis/sessions';
@@ -31,7 +32,7 @@ import {
   createAdminAuthMiddleware,
   createApiKeyAuthMiddleware,
   createAuthMiddleware,
-  truefoundryAdminMiddleware,
+  tryAuthenticate,
 } from './auth/middleware';
 import type { McpCatalog } from './catalog/McpCatalog';
 import type { ModelCatalog } from './catalog/ModelCatalog';
@@ -42,6 +43,7 @@ import configuration, { getPublicUiBasePath, getTrueForgeAuthMode, TrueForgeAuth
 import type { AgentRecord, IAgentStore } from './db/agentStore';
 import type { IMcpServerWithAuthStore } from './db/mcpServerStore';
 import type { IModelProviderStore } from './db/modelProviderStore';
+import type { ISandboxEnvironmentStore } from './db/sandboxEnvironmentStore';
 import type { ISandboxProviderStore } from './db/sandboxProviderStore';
 import type { IScheduleStore } from './db/scheduleStore';
 import type { ISessionMetricsStore } from './db/sessionMetricsStore';
@@ -100,24 +102,43 @@ export function createRequestBodyLimitMiddleware(maxSize: number): MiddlewareHan
   });
 }
 
+/** Expected rejections whose stack says nothing a reader needs; kept out of warn-level logs. */
+const QUIET_CLIENT_ERROR_STATUSES = new Set([401, 403, 404]);
+
 export function createAppErrorHandler(params: { logger: Logger }): ErrorHandler {
   return (error, c) => {
+    // One line with the traceback, so a failed request can be traced to the throw site.
+    const logError = (status: number, message: string): void => {
+      const fields = {
+        method: c.req.method,
+        path: c.req.path,
+        status,
+        ...extractErrorLogFields(error),
+      };
+      if (status >= 500) {
+        params.logger.error(message, fields);
+        return;
+      }
+      if (QUIET_CLIENT_ERROR_STATUSES.has(status)) {
+        params.logger.debug(message, fields);
+        return;
+      }
+      params.logger.warn(message, fields);
+    };
+
     if (error instanceof z.ZodError) {
+      logError(400, 'Client API error');
       return zodErrorResponse(c, error);
     }
     if (error instanceof InvalidCronError) {
+      logError(400, 'Client API error');
       return c.json({ error: { message: error.message } }, 400);
     }
     if (error instanceof HTTPException) {
-      if (error.status >= 500) {
-        params.logger.error('Server API error', {
-          status: error.status,
-          ...extractErrorLogFields(error),
-        });
-      }
+      logError(error.status, error.status >= 500 ? 'Server API error' : 'Client API error');
       return c.json({ error: { message: error.message } }, error.status);
     }
-    params.logger.error('Unhandled error', extractErrorLogFields(error));
+    logError(500, 'Unhandled error');
     return c.json({ error: { message: 'Internal server error' } }, 500);
   };
 }
@@ -188,8 +209,6 @@ export interface ServerDeps<TTransaction> {
   resolveMcpServerStore: (c?: Context, runAsAgent?: AgentRecord) => IMcpServerWithAuthStore<TTransaction>;
   /** Per-request store: DB singleton, or a token-bound TrueFoundry decorator in TrueFoundry mode. */
   resolveAgentStore: (c: Context) => IAgentStore<TTransaction>;
-  /** Import agents: store with SF client constructor assume-user headers (DB store when TrueFoundry mode is off). */
-  resolveImportAgentStore: (serviceFoundryServerHeaders: Record<string, string>) => IAgentStore<TTransaction>;
   /**
    * Per-request store: DB singleton, or the env-backed shared store in TrueFoundry mode
    * (`TRUEFOUNDRY_SANDBOX_*` + static SETTINGS JSON).
@@ -205,6 +224,13 @@ export interface ServerDeps<TTransaction> {
   sessionMetricsStore: ISessionMetricsStore;
   /** Persistence agent store (schedule runs resolve the bound agent without an HTTP caller). */
   agentStore: IAgentStore<TTransaction>;
+  /** Sandbox environment parent + version persistence (no TrueFoundry dual-write). */
+  sandboxEnvironmentStore: ISandboxEnvironmentStore<TTransaction>;
+  /**
+   * Context-free sandbox provider store for internal build progress (persistence or TFY).
+   * Same backing store as resolveSandboxProviderStore, without request context.
+   */
+  sandboxProviderStore: ISandboxProviderStore<TTransaction>;
   /** Resolve turn skills - persistence store or TrueFoundry resolve with Service API key (schedule runs do have any caller token). */
   turnSkillsResolverStore: Pick<ISkillStore<TTransaction>, 'resolveTurnSkills'>;
   sessions: Sessions;
@@ -239,6 +265,7 @@ export function createServerApp<TTransaction>(deps: ServerDeps<TTransaction>) {
     resolveModelProviderStore: deps.resolveModelProviderStore,
     resolveMcpServerStore: deps.resolveMcpServerStore,
     resolveSandboxProviderStore: deps.resolveSandboxProviderStore,
+    sandboxEnvironmentStore: deps.sandboxEnvironmentStore,
     resolveWebSearchProviderStore: deps.resolveWebSearchProviderStore,
     activeTurns: deps.activeTurns,
     turnSkillsResolverStore: deps.turnSkillsResolverStore,
@@ -266,7 +293,7 @@ export function createServerApp<TTransaction>(deps: ServerDeps<TTransaction>) {
     '/api/v1/capabilities',
     withAuth(
       createCapabilitiesRouter({
-        resolveSandboxProviderStore: deps.resolveSandboxProviderStore,
+        sandboxEnvironmentStore: deps.sandboxEnvironmentStore,
         resolveWebSearchProviderStore: deps.resolveWebSearchProviderStore,
         withTransaction: deps.withTransaction,
         logger: deps.logger,
@@ -307,6 +334,7 @@ export function createServerApp<TTransaction>(deps: ServerDeps<TTransaction>) {
       tokenStore: deps.tokenStore,
       mcpServerStore: deps.resolveMcpServerStore(),
       logger: deps.logger,
+      resolveSession: c => tryAuthenticate({ authenticator: deps.authenticator, context: c }),
     }),
   );
   app.route(
@@ -342,6 +370,7 @@ export function createServerApp<TTransaction>(deps: ServerDeps<TTransaction>) {
         resolveMcpServerStore: deps.resolveMcpServerStore,
         resolveSkillStore: deps.resolveSkillStore,
         resolveSandboxProviderStore: deps.resolveSandboxProviderStore,
+        sandboxEnvironmentStore: deps.sandboxEnvironmentStore,
         resolveWebSearchProviderStore: deps.resolveWebSearchProviderStore,
         withTransaction: deps.withTransaction,
         resolveRequestContext,
@@ -351,8 +380,32 @@ export function createServerApp<TTransaction>(deps: ServerDeps<TTransaction>) {
     ),
   );
   app.route(
+    '/api/v1/sandbox-environments',
+    withAuth(
+      createSandboxEnvironmentsRouter({
+        sandboxEnvironmentStore: deps.sandboxEnvironmentStore,
+        resolveAgentStore: deps.resolveAgentStore,
+        resolveSandboxProviderStore: deps.resolveSandboxProviderStore,
+        resolveRequestContext,
+        logger: deps.logger,
+      }),
+      authMiddleware,
+    ),
+  );
+  app.route(
     '/api/internal/schedules',
     withAuth(createScheduleExecutionRouter(scheduleTurnDeps), scheduleExecutionAuthMiddleware),
+  );
+  app.route(
+    '/api/internal/sandbox-environments',
+    withAuth(
+      createSandboxEnvironmentBuildRouter({
+        sandboxEnvironmentStore: deps.sandboxEnvironmentStore,
+        sandboxProviderStore: deps.sandboxProviderStore,
+        logger: deps.logger,
+      }),
+      scheduleExecutionAuthMiddleware,
+    ),
   );
   app.route(
     '/api/v1/schedules',
@@ -376,22 +429,14 @@ export function createServerApp<TTransaction>(deps: ServerDeps<TTransaction>) {
         tokenStore: deps.tokenStore,
         resolveSkillStore: deps.resolveSkillStore,
         resolveSandboxProviderStore: deps.resolveSandboxProviderStore,
+        sandboxEnvironmentStore: deps.sandboxEnvironmentStore,
         resolveWebSearchProviderStore: deps.resolveWebSearchProviderStore,
+        resolveAgentStore: deps.resolveAgentStore,
         withTransaction: deps.withTransaction,
         logger: deps.logger,
         resolveRequestContext,
       }),
       adminAuthMiddleware,
-    ),
-  );
-  app.route(
-    '/api/internal/import',
-    withAuth(
-      createAgentImportRouter({
-        sessionStore: deps.sessionStore,
-        resolveImportAgentStore: deps.resolveImportAgentStore,
-      }),
-      truefoundryAdminMiddleware,
     ),
   );
   app.route(
@@ -404,6 +449,7 @@ export function createServerApp<TTransaction>(deps: ServerDeps<TTransaction>) {
         resolveSkillStore: deps.resolveSkillStore,
         resolveAgentStore: deps.resolveAgentStore,
         resolveSandboxProviderStore: deps.resolveSandboxProviderStore,
+        sandboxEnvironmentStore: deps.sandboxEnvironmentStore,
         resolveWebSearchProviderStore: deps.resolveWebSearchProviderStore,
         resolveRequestContext,
         authorizer: deps.authorizer,
@@ -448,6 +494,7 @@ export function createServerApp<TTransaction>(deps: ServerDeps<TTransaction>) {
         resolveSkillStore: deps.resolveSkillStore,
         resolveAgentStore: deps.resolveAgentStore,
         resolveSandboxProviderStore: deps.resolveSandboxProviderStore,
+        sandboxEnvironmentStore: deps.sandboxEnvironmentStore,
         resolveWebSearchProviderStore: deps.resolveWebSearchProviderStore,
         redis: deps.redis,
         requestReplyRouter: deps.requestReplyRouter,
@@ -471,6 +518,7 @@ export function createServerApp<TTransaction>(deps: ServerDeps<TTransaction>) {
         resolveAgentStore: deps.resolveAgentStore,
         eventSubscriptions: deps.eventSubscriptions,
         resolveSandboxProviderStore: deps.resolveSandboxProviderStore,
+        sandboxEnvironmentStore: deps.sandboxEnvironmentStore,
         resolveWebSearchProviderStore: deps.resolveWebSearchProviderStore,
         logger: deps.logger,
         resolveRequestContext,

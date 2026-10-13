@@ -10,6 +10,7 @@ import {
   LLMToolMessageSchema,
   LLMUserMessageSchema,
 } from '../llm/LLMTypes';
+import { ModelSchema } from '../llm/model';
 import { CurrentContextUsageSchema } from '../runtime/contextUsage';
 
 /**
@@ -108,11 +109,15 @@ export const ToolApprovalPolicyAllowSessionSchema = z
   })
   .openapi('ToolApprovalPolicyAllowSession');
 
+export const ToolApprovalPolicySchema = z
+  .discriminatedUnion('type', [ToolApprovalPolicyAllowSessionSchema])
+  .openapi('ToolApprovalPolicyAction');
+
 export const ToolApprovalPolicyItemSchema = z
   .object({
     server_name: z.string().min(1, 'server_name is required').describe('MCP server name.'),
     name: z.string().min(1, 'name is required').describe('Tool name on that server.'),
-    action: z.discriminatedUnion('type', [ToolApprovalPolicyAllowSessionSchema]),
+    action: ToolApprovalPolicySchema,
   })
   .openapi('ToolApprovalPolicyItem');
 
@@ -235,6 +240,8 @@ export const ModelMessageEventSchema = EnrichedAssistantMessageSchema.omit({ rol
       .describe('Model finish reason; null when the provider omitted it.'),
     created_at: z.string().describe('ISO 8601 event timestamp.'),
     usage: ModelMessageUsageSchema.optional(),
+    // Optional: legacy rows may lack model when the session agent FQN cannot be backfilled.
+    model: ModelSchema.optional(),
   })
   .openapi('ModelMessageEvent');
 
@@ -296,20 +303,17 @@ export const ThreadStateSchema = z
   .discriminatedUnion('status', [ThreadStateDoneSchema, ThreadStateErrorSchema])
   .openapi('ThreadState');
 
-export const BaseThreadDoneEventSchema = z
+export const ThreadDoneEventSchema = z
   .object({
+    type: z.literal(EventType.THREAD_DONE).describe('A thread reached a terminal state.'),
+    id: EventIdSchema,
+    created_at: z.string().describe('ISO 8601 event timestamp.'),
     parent: AgentParentSchema.optional(),
     thread_id: z.string().describe('Thread that finished.'),
     title: z.string().describe('Human-readable thread title.'),
+    state: ThreadStateSchema,
   })
-  .openapi('BaseThreadDoneEvent');
-
-export const ThreadDoneEventSchema = BaseThreadDoneEventSchema.extend({
-  type: z.literal(EventType.THREAD_DONE).describe('A thread reached a terminal state.'),
-  id: EventIdSchema,
-  created_at: z.string().describe('ISO 8601 event timestamp.'),
-  state: ThreadStateSchema,
-}).openapi('ThreadDoneEvent');
+  .openapi('ThreadDoneEvent');
 
 const ContextMessageSchema = z.union([
   LLMUserMessageSchema,
@@ -366,6 +370,10 @@ export const MCPServerInitInfoSchema = z
       .enum(['streamable-http', 'sse'])
       .optional()
       .describe('Transport used to connect to the MCP server.'),
+    approval_policies: z
+      .record(z.string(), ToolApprovalPolicySchema)
+      .optional()
+      .describe('Sticky per-tool approval policies (keyed by tool name) that auto-allow future calls.'),
   })
   .openapi('MCPServerInitInfo');
 
@@ -447,6 +455,7 @@ export type ApprovalDecision = z.infer<typeof ApprovalDecisionSchema>;
 export type UserToolApprovalMessage = z.infer<typeof UserToolApprovalMessageSchema>;
 export type UserToolResponseMessage = z.infer<typeof UserToolResponseMessageSchema>;
 export type ToolApprovalPolicyItem = z.infer<typeof ToolApprovalPolicyItemSchema>;
+export type ToolApprovalPolicyAction = z.infer<typeof ToolApprovalPolicySchema>;
 export type UserToolApprovalPolicyMessage = z.infer<typeof UserToolApprovalPolicyMessageSchema>;
 export type UserToolApprovalEvent = z.infer<typeof UserToolApprovalEventSchema>;
 export type UserToolResponseEvent = z.infer<typeof UserToolResponseEventSchema>;
@@ -462,7 +471,6 @@ export type ToolResponseEvent = z.infer<typeof ToolResponseEventSchema>;
 export type ThreadCreatedEvent = z.infer<typeof ThreadCreatedEventSchema>;
 export type ThreadStateError = z.infer<typeof ThreadStateErrorSchema>;
 export type ThreadState = z.infer<typeof ThreadStateSchema>;
-export type BaseThreadDoneEvent = z.infer<typeof BaseThreadDoneEventSchema>;
 export type ThreadDoneEvent = z.infer<typeof ThreadDoneEventSchema>;
 export type ThreadOverwriteContextEvent = z.infer<typeof ThreadOverwriteContextEventSchema>;
 export type BaseMCPAuthRequiredEvent = z.infer<typeof BaseMCPAuthRequiredEventSchema>;

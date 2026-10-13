@@ -33,14 +33,15 @@ type SubAgentToolCallRequest = {
  *
  * The conversion runs in two passes because several bars need a later event
  * to determine their end:
- * - tool calls span from the model event that requested them to `tool.response`;
+ * - tool calls span from the model event that requested them to `tool.response`,
+ *   or to `tool.response_required` / turn end when still waiting on a human;
  * - sub-agent tracks span from `thread.created` to `thread.done`;
  * - approval-gated and sub-agent parent calls are excluded from ordinary tool
  *   bars because they have dedicated visual representations.
  *
- * The second pass emits one user marker per turn, then chronological event
- * segments for each thread. Finally, real idle gaps between turns are removed
- * so old sessions remain readable without changing durations inside a turn.
+ * The second pass emits one user marker per renderable turn, then chronological
+ * event segments for each thread. Finally, real idle gaps between turns are
+ * removed so old sessions remain readable without changing durations inside a turn.
  */
 export function buildSessionTimelineSegments(turns: SessionTurnView[]): SessionEventTimelineSegment[] {
   const originMs = parseTimestamp(turns[0]?.created.createdAt);
@@ -49,6 +50,7 @@ export function buildSessionTimelineSegments(turns: SessionTurnView[]): SessionE
   // Correlation indexes built up front let the emission pass calculate complete
   // intervals without depending on the source event order.
   const toolResponsesByTurnId = new Map<string, Map<string, TimelineEvent>>();
+  const toolResponseRequiredByTurnId = new Map<string, Map<string, TimelineEvent>>();
   const approvalRequiredIdsByTurnId = new Map<string, Set<string>>();
   const threadDoneEvents = new Map<string, TimelineEvent>();
   const subAgentToolCallIds = new Set<string>();
@@ -68,6 +70,12 @@ export function buildSessionTimelineSegments(turns: SessionTurnView[]): SessionE
         const responses = toolResponsesByTurnId.get(turn.turnId) ?? new Map();
         responses.set(toolCallId, event);
         toolResponsesByTurnId.set(turn.turnId, responses);
+      } else if (event.type === 'tool.response_required') {
+        const pending = toolResponseRequiredByTurnId.get(turn.turnId) ?? new Map();
+        for (const toolCall of toolCallsOf(event)) {
+          if (typeof toolCall.id === 'string') pending.set(toolCall.id, event);
+        }
+        toolResponseRequiredByTurnId.set(turn.turnId, pending);
       } else if (event.type === 'tool.approval_required') {
         const ids = approvalRequiredIdsByTurnId.get(turn.turnId) ?? new Set<string>();
         for (const toolCall of toolCallsOf(event)) {
@@ -99,23 +107,36 @@ export function buildSessionTimelineSegments(turns: SessionTurnView[]): SessionE
 
   const segments: SessionEventTimelineSegment[] = [];
   const emittedWaitingRequestIds = new Set<string>();
+  // Only the last event-turn in a display band gets a "Turn completed" marker so
+  // MCP-auth resumes don't plant a mid-band diamond on top of the next model bar.
+  const lastTurnIdByNumber = new Map<number, string>();
+  const displayTurnIndexByEventIndex = new Map<number, number>();
+  for (const turn of turns) {
+    lastTurnIdByNumber.set(turn.turnNumber, turn.turnId);
+    displayTurnIndexByEventIndex.set(turn.eventTurnNumber - 1, turn.turnNumber - 1);
+  }
 
   for (const turn of turns) {
     const createdMs = parseTimestamp(turn.created.createdAt);
     if (createdMs == null) continue;
-    const turnIndex = turn.turnNumber - 1;
+    // Compress with unique event-turn indexes so MCP-auth idle between auth and
+    // resume is removed; remap to the display band afterward.
+    const turnIndex = turn.eventTurnNumber - 1;
 
-    segments.push({
-      id: `${turn.turnId}-user`,
-      type: 'user',
-      title: getTurnInputType(turn),
-      description: getTurnInputSummary(turn),
-      startMs: createdMs - originMs,
-      endMs: createdMs - originMs,
-      turnIndex,
-      threadId: MAIN_THREAD_ID,
-      isMarker: true,
-    });
+    // Resume/MCP-auth turns have no user input; don't invent a user.message marker.
+    if (turn.renderable) {
+      segments.push({
+        id: `${turn.turnId}-user`,
+        type: 'user',
+        title: getTurnInputType(turn),
+        description: getTurnInputSummary(turn),
+        startMs: createdMs - originMs,
+        endMs: createdMs - originMs,
+        turnIndex,
+        threadId: MAIN_THREAD_ID,
+        isMarker: true,
+      });
+    }
 
     // Model intervals are independent per thread. Using one global previous
     // timestamp would make concurrent sub-agent bars consume each other's time.
@@ -141,6 +162,7 @@ export function buildSessionTimelineSegments(turns: SessionTurnView[]): SessionE
         threadId,
         lastTimestampByThreadId,
         toolResponsesByTurnId,
+        toolResponseRequiredByTurnId,
         approvalRequiredIdsByTurnId,
         subAgentToolCallIds,
         toolCallRequestsByTurnId,
@@ -151,7 +173,14 @@ export function buildSessionTimelineSegments(turns: SessionTurnView[]): SessionE
       lastTimestampByThreadId.set(threadId, eventMs);
     }
 
-    appendTerminalSegment({ turn, turnIndex, originMs, latestMs, segments });
+    appendTerminalSegment({
+      turn,
+      turnIndex,
+      originMs,
+      latestMs,
+      segments,
+      emitDoneMarker: lastTurnIdByNumber.get(turn.turnNumber) === turn.turnId,
+    });
   }
 
   return compressInterTurnGaps(
@@ -160,7 +189,12 @@ export function buildSessionTimelineSegments(turns: SessionTurnView[]): SessionE
       startMs: Math.max(0, segment.startMs),
       endMs: Math.max(0, segment.endMs),
     })),
-  ).sort((left, right) => left.startMs - right.startMs || left.endMs - right.endMs);
+  )
+    .map(segment => ({
+      ...segment,
+      turnIndex: displayTurnIndexByEventIndex.get(segment.turnIndex) ?? segment.turnIndex,
+    }))
+    .sort((left, right) => left.startMs - right.startMs || left.endMs - right.endMs);
 }
 
 /**
@@ -179,6 +213,7 @@ function appendEventSegments({
   threadId,
   lastTimestampByThreadId,
   toolResponsesByTurnId,
+  toolResponseRequiredByTurnId,
   approvalRequiredIdsByTurnId,
   subAgentToolCallIds,
   toolCallRequestsByTurnId,
@@ -195,6 +230,7 @@ function appendEventSegments({
   threadId: string;
   lastTimestampByThreadId: Map<string, number>;
   toolResponsesByTurnId: Map<string, Map<string, TimelineEvent>>;
+  toolResponseRequiredByTurnId: Map<string, Map<string, TimelineEvent>>;
   approvalRequiredIdsByTurnId: Map<string, Set<string>>;
   subAgentToolCallIds: Set<string>;
   toolCallRequestsByTurnId: Map<string, Map<string, SubAgentToolCallRequest>>;
@@ -207,27 +243,35 @@ function appendEventSegments({
       const previousMs = lastTimestampByThreadId.get(threadId) ?? createdMs;
       const modelContent = extractText(event.content);
       const responses = toolResponsesByTurnId.get(turn.turnId);
+      const pendingRequired = toolResponseRequiredByTurnId.get(turn.turnId);
       const approvalIds = approvalRequiredIdsByTurnId.get(turn.turnId);
+      const turnDoneMs = parseTimestamp(terminalCompletedAt(turn.done?.state));
 
       // A model event can request several tools at once. Each tool gets its own
       // response-bounded interval; overlapping intervals are grouped later by
       // the chart-layout utility into one parallel-tool-call bar.
+      // Pending human-wait tools (ask-user) still emit a bar so strip Tool calls
+      // matches Agent steps even before tool.response arrives.
       for (const toolCall of toolCallsOf(event)) {
         const toolCallId = typeof toolCall.id === 'string' ? toolCall.id : undefined;
         // Skip parent create_sub_agent calls and approval-gated calls; they have their own segments.
         if (toolCallId == null || subAgentToolCallIds.has(toolCallId) || approvalIds?.has(toolCallId)) continue;
         const response = responses?.get(toolCallId);
         const responseMs = response == null ? null : parseTimestamp(eventCreatedAt(response));
-        if (responseMs == null || responseMs < eventMs) continue;
+        const required = pendingRequired?.get(toolCallId);
+        const requiredMs = required == null ? null : parseTimestamp(eventCreatedAt(required));
+        const endMs = responseMs ?? requiredMs ?? turnDoneMs ?? eventMs;
+        if (endMs < eventMs) continue;
         segments.push({
           id: `${eventId(event)}-${toolCallId}`,
           type: 'tool_call',
           title: 'tool.call',
           description: toolCallDescription(toolCall),
           startMs: eventMs - originMs,
-          endMs: responseMs - originMs,
+          endMs: endMs - originMs,
           turnIndex,
           threadId,
+          ...(responseMs == null && endMs <= eventMs ? { isMarker: true } : {}),
         });
       }
 
@@ -331,6 +375,9 @@ function appendEventSegments({
  * Errors use the latest observed timestamp when the backend omitted
  * `completed_at`, ensuring failures remain visible instead of being dropped.
  * Running/paused turns have no terminal marker because they have not ended.
+ * Intermediate `turn.done` markers are skipped when a later event-turn shares
+ * the same display band (MCP-auth resume), so the diamond does not cover the
+ * next model/tool bars.
  */
 function appendTerminalSegment({
   turn,
@@ -338,12 +385,14 @@ function appendTerminalSegment({
   originMs,
   latestMs,
   segments,
+  emitDoneMarker,
 }: {
   turn: SessionTurnView;
   turnIndex: number;
   originMs: number;
   latestMs: number;
   segments: SessionEventTimelineSegment[];
+  emitDoneMarker: boolean;
 }): void {
   const status = terminalStatus(turn.done?.state);
   if (status === 'error') {
@@ -361,7 +410,7 @@ function appendTerminalSegment({
     });
     return;
   }
-  if (status !== 'done') return;
+  if (status !== 'done' || !emitDoneMarker) return;
   const doneMs = parseTimestamp(terminalCompletedAt(turn.done?.state));
   if (doneMs == null) return;
   segments.push({

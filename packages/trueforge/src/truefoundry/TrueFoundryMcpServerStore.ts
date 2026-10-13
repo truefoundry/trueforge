@@ -10,6 +10,7 @@ import {
   type AuthorizeMcpServerInput,
   type CreateMcpServerInput,
   type DeleteMcpAuthorizationInput,
+  type DeleteMcpServerInput,
   type GetMcpServerInput,
   type IMcpServerWithAuthStore,
   type ListMcpServersInput,
@@ -188,6 +189,12 @@ export class TrueFoundryMcpServerStore<TTransaction = never> implements IMcpServ
   }
 
   upsertServer(input: UpsertMcpServerInput, transaction?: TTransaction): Promise<McpServerRecord> {
+    void input;
+    void transaction;
+    return trueFoundryManaged();
+  }
+
+  deleteServer(input: DeleteMcpServerInput, transaction?: TTransaction): Promise<boolean> {
     void input;
     void transaction;
     return trueFoundryManaged();

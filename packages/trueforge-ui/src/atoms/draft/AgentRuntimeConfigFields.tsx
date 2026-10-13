@@ -1,6 +1,11 @@
 'use client';
 
+import { useMemo } from 'react';
+
+import { Icon } from '../../icons/Icon.js';
+import { useOptionalShellMode } from '../../server/ShellModeContext.js';
 import type { AgentCompactionConfig, AgentRuntimeConfig } from '../../server/types.js';
+import { useReadySandboxEnvironments } from '../environments/useReadySandboxEnvironments.js';
 import { cn } from '../lib/cn.js';
 import { auiInputClass } from '../lib/inputClasses.js';
 import { PopoverSelect } from '../primitives/PopoverSelect.js';
@@ -59,6 +64,18 @@ export function AgentRuntimeConfigFields({
   layout = 'compact',
   onChange,
 }: AgentRuntimeConfigFieldsProps) {
+  const shell = useOptionalShellMode();
+  const { environments: readyEnvironments, refetch: refetchEnvironments } = useReadySandboxEnvironments();
+
+  const environmentOptions = useMemo(
+    () =>
+      readyEnvironments.map(env => ({
+        value: env.name,
+        label: env.name,
+      })),
+    [readyEnvironments],
+  );
+
   const withCompaction = (compaction: AgentCompactionConfig): AgentRuntimeConfig => ({
     ...value,
     contextManagement: {
@@ -156,13 +173,25 @@ export function AgentRuntimeConfigFields({
     field: RuntimeSwitchField;
     className?: string;
     wrapperClassName?: string;
-  }) => (
-    <Tooltip
-      key={field.label}
-      content={field.disabledTooltip ?? ''}
-      triggerClassName={cn('flex w-full min-w-0', wrapperClassName)}
-    >
-      <div className={cn('flex w-full', className ?? 'items-center justify-between gap-3 py-1.5')}>
+  }) => {
+    const control = (
+      <Switch
+        checked={field.checked}
+        disabled={disabled || field.disabled}
+        onCheckedChange={enabled => onChange(field.update(enabled))}
+        aria-label={field.label}
+      />
+    );
+
+    return (
+      <div
+        key={field.label}
+        className={cn(
+          'flex w-full min-w-0',
+          wrapperClassName,
+          className ?? 'items-center justify-between gap-3 py-1.5',
+        )}
+      >
         <span className="min-w-0">
           <span className={cn('text-text-primary', layout === 'detailed' ? 'block text-sm font-medium' : 'text-xs')}>
             {field.label}
@@ -171,15 +200,16 @@ export function AgentRuntimeConfigFields({
             <span className="text-text-secondary mt-0.5 block text-xs leading-snug">{field.description}</span>
           ) : null}
         </span>
-        <Switch
-          checked={field.checked}
-          disabled={disabled || field.disabled}
-          onCheckedChange={enabled => onChange(field.update(enabled))}
-          aria-label={field.label}
-        />
+        {field.disabledTooltip ? (
+          <Tooltip content={field.disabledTooltip}>
+            <span className="inline-flex">{control}</span>
+          </Tooltip>
+        ) : (
+          control
+        )}
       </div>
-    </Tooltip>
-  );
+    );
+  };
 
   if (layout === 'detailed') {
     const rowClassName = 'items-center justify-between gap-4';
@@ -213,7 +243,7 @@ export function AgentRuntimeConfigFields({
             min={1}
             max={1024}
             disabled={disabled}
-            value={value.iterationLimit ?? 100}
+            value={value.iterationLimit ?? 512}
             className={auiInputClass('h-8 w-24 shrink-0 disabled:opacity-60')}
             onChange={event => {
               const iterationLimit = parseIterationLimit(event.target.value);
@@ -225,6 +255,45 @@ export function AgentRuntimeConfigFields({
         <section className="py-4">
           {switchField({ field: sandboxField, className: rowClassName })}
           <div className={`mt-3 border-l-2 border-primary-button-bg/50 pl-3 ${sandboxEnabled ? '' : 'opacity-50'}`}>
+            <div className={cn('flex py-4', rowClassName)}>
+              <span className="min-w-0 flex-1">
+                <span className="text-text-primary block text-sm font-medium">Environment</span>
+                <p className="text-text-secondary mt-0.5 text-xs leading-snug">
+                  Saved sandbox setup this agent uses when it runs.
+                </p>
+                {shell && sandboxEnabled ? (
+                  <button
+                    type="button"
+                    onClick={() => shell.setEnvironmentsOpen(true)}
+                    className="text-primary-button-bg mt-1.5 inline-flex items-center gap-1 text-xs hover:underline"
+                  >
+                    <span>Manage Environments</span>
+                    <Icon name="external-link" className="size-3" />
+                  </button>
+                ) : null}
+              </span>
+              <div className="flex shrink-0 items-center">
+                <PopoverSelect
+                  aria-label="Environment"
+                  value={value.sandbox?.environment_name?.trim() || 'default'}
+                  options={environmentOptions}
+                  disabled={disabled || !sandboxAvailable || !sandboxEnabled}
+                  className="w-48"
+                  onOpenChange={nextOpen => {
+                    if (nextOpen) void refetchEnvironments();
+                  }}
+                  onValueChange={selected =>
+                    onChange({
+                      ...value,
+                      sandbox: {
+                        ...value.sandbox,
+                        environment_name: selected === 'default' ? undefined : selected,
+                      },
+                    })
+                  }
+                />
+              </div>
+            </div>
             {switchField({ field: fileDownloadsField, className: rowClassName })}
           </div>
         </section>
@@ -298,7 +367,7 @@ export function AgentRuntimeConfigFields({
           min={1}
           max={1024}
           disabled={disabled}
-          value={value.iterationLimit ?? 100}
+          value={value.iterationLimit ?? 512}
           className={auiInputClass('h-8 disabled:opacity-60')}
           onChange={event => {
             const iterationLimit = parseIterationLimit(event.target.value);

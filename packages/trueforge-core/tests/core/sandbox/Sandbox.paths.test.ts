@@ -11,11 +11,14 @@ function readyExec(): Promise<ExecResult> {
 }
 
 function makeProvider(overrides: Partial<SandboxProvider> = {}): SandboxProvider {
+  const unsupportedOrgSecret = () => Promise.reject(new Error('test provider does not support org secrets'));
   return {
     type: 'test',
-    buildImage: () => Promise.resolve({ status: 'ready', reason: null, metadata: null }),
-    getImageBuildStatus: () => Promise.resolve({ status: 'ready', reason: null, metadata: null }),
+    envSupported: false,
     createSandbox: () => Promise.resolve({ sandboxId: 'raw-1' }),
+    createSecret: unsupportedOrgSecret,
+    updateSecret: unsupportedOrgSecret,
+    deleteSecret: unsupportedOrgSecret,
     exec: () => readyExec(),
     getAdditionalInstructions: () => undefined,
     getToolResultDumpDir: () => '/prov/tool-results',

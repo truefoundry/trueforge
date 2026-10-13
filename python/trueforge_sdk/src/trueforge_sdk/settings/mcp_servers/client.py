@@ -4,6 +4,7 @@ import typing
 
 from ...core.client_wrapper import AsyncClientWrapper, SyncClientWrapper
 from ...core.request_options import RequestOptions
+from ...types.delete_mcp_server_response import DeleteMcpServerResponse
 from ...types.get_mcp_server_response import GetMcpServerResponse
 from ...types.list_mcp_servers_response import ListMcpServersResponse
 from ...types.mcp_server_manifest import McpServerManifest
@@ -159,6 +160,38 @@ class McpServersClient:
         )
         """
         _response = self._raw_client.get(name=name, request_options=request_options)
+        return _response.data
+
+    def delete(self, *, name: str, request_options: typing.Optional[RequestOptions] = None) -> DeleteMcpServerResponse:
+        """
+        Deletes an MCP server by `name`, along with every stored OAuth token for it. Rejected while any agent still lists the server.
+
+        Parameters
+        ----------
+        name : str
+            MCP server name.
+
+        request_options : typing.Optional[RequestOptions]
+            Request-specific configuration.
+
+        Returns
+        -------
+        DeleteMcpServerResponse
+            MCP server deleted.
+
+        Examples
+        --------
+        from trueforge_sdk import TrueForge
+
+        client = TrueForge(
+            token="YOUR_TOKEN",
+            base_url="https://yourhost.com/path/to/api",
+        )
+        client.settings.mcp_servers.delete(
+            name="name",
+        )
+        """
+        _response = self._raw_client.delete(name=name, request_options=request_options)
         return _response.data
 
 
@@ -340,4 +373,46 @@ class AsyncMcpServersClient:
         asyncio.run(main())
         """
         _response = await self._raw_client.get(name=name, request_options=request_options)
+        return _response.data
+
+    async def delete(
+        self, *, name: str, request_options: typing.Optional[RequestOptions] = None
+    ) -> DeleteMcpServerResponse:
+        """
+        Deletes an MCP server by `name`, along with every stored OAuth token for it. Rejected while any agent still lists the server.
+
+        Parameters
+        ----------
+        name : str
+            MCP server name.
+
+        request_options : typing.Optional[RequestOptions]
+            Request-specific configuration.
+
+        Returns
+        -------
+        DeleteMcpServerResponse
+            MCP server deleted.
+
+        Examples
+        --------
+        import asyncio
+
+        from trueforge_sdk import AsyncTrueForge
+
+        client = AsyncTrueForge(
+            token="YOUR_TOKEN",
+            base_url="https://yourhost.com/path/to/api",
+        )
+
+
+        async def main() -> None:
+            await client.settings.mcp_servers.delete(
+                name="name",
+            )
+
+
+        asyncio.run(main())
+        """
+        _response = await self._raw_client.delete(name=name, request_options=request_options)
         return _response.data

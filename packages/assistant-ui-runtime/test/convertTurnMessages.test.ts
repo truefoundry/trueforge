@@ -28,12 +28,19 @@ import {
   projectSessionMessages,
   repositoryItemsFromMessages,
   resolveGatewayBranchPreviousTurnIdForTurn,
+  rootModelMessageIdsSinceBaseline,
   streamTurnEvents,
+  TurnStreamDisconnectedError,
   turnStreamUpdateToAssistantMessage,
 } from '../src/convertTurnMessages.js';
 import { buildRootAssistantContent, ingestTurnEvent, PeerThreadFoldState } from '../src/foldPeerThreads.js';
-import { findPausedAssistantMessage } from '../src/requiredActionInputs.js';
-import { createEmptySessionSnapshot, replaceSessionSnapshot, turnToSessionRecord } from '../src/sessionSnapshot.js';
+import { findCurrentPausedAssistantMessage } from '../src/requiredActionInputs.js';
+import {
+  createEmptySessionSnapshot,
+  replaceSessionSnapshot,
+  type SessionSnapshot,
+  turnToSessionRecord,
+} from '../src/sessionSnapshot.js';
 import { TOOL_APPROVAL_THREAD_ID_CUSTOM_KEY } from '../src/toolApproval.js';
 import {
   applyUserToolResponsesToFold,
@@ -71,6 +78,15 @@ function sandboxCreated(event: { id: string; sandboxId: string; threadId?: strin
 
 function responseRequired(event: Omit<ToolResponseRequiredEvent, 'type' | 'createdAt'>): ToolResponseRequiredEvent {
   return { type: 'tool.response_required', createdAt, ...event };
+}
+
+function turnDone(id = 'turn-done'): TurnDoneEvent {
+  return {
+    type: 'turn.done',
+    id,
+    createdAt,
+    state: { status: 'done', requiredActions: [], completedAt: createdAt },
+  };
 }
 
 async function* streamFrom(events: TurnStreamData['event'][]): AsyncGenerator<TurnStreamData> {
@@ -603,6 +619,81 @@ describe('convertTurnMessages', () => {
       expect(result.runningTurn).toBeUndefined();
     });
 
+    it('emits an assistant row with cancellationReason for an empty cancelled turn', async () => {
+      const result = await convertTurnsToThreadMessages(
+        mockServerWithTurns([
+          mockTurn({
+            id: 'turn-abandoned',
+            createdAt,
+            input: [{ type: 'user.message', content: 'give me a pdf' }],
+            state: { status: 'cancelled', reason: 'abandoned', completedAt: createdAt },
+            events: [],
+          }),
+        ]),
+        SESSION_ID,
+      );
+
+      expect(result.messages).toHaveLength(2);
+      expect(result.messages[1]).toMatchObject({
+        id: 'turn-abandoned-assistant',
+        role: 'assistant',
+        content: [],
+        status: { type: 'incomplete', reason: 'cancelled' },
+        metadata: { custom: { cancellationReason: 'abandoned', turnId: 'turn-abandoned' } },
+      });
+    });
+
+    it('keeps model text and stamps cancellationReason on cancelled turns', async () => {
+      const result = await convertTurnsToThreadMessages(
+        mockServerWithTurns([
+          mockTurn({
+            id: 'turn-cancel',
+            createdAt,
+            input: [{ type: 'user.message', content: 'hello' }],
+            state: { status: 'cancelled', reason: 'client-cancelled', completedAt: createdAt },
+            events: [
+              modelMessage({
+                id: 'm1',
+                threadId: ROOT_THREAD_ID,
+                content: 'partial reply',
+              }),
+            ],
+          }),
+        ]),
+        SESSION_ID,
+      );
+
+      expect(result.messages[1]).toMatchObject({
+        role: 'assistant',
+        content: [{ type: 'text', text: 'partial reply' }],
+        status: { type: 'incomplete', reason: 'cancelled' },
+        metadata: { custom: { cancellationReason: 'client-cancelled', turnId: 'turn-cancel' } },
+      });
+    });
+
+    it('emits an assistant row for an empty error turn', async () => {
+      const result = await convertTurnsToThreadMessages(
+        mockServerWithTurns([
+          mockTurn({
+            id: 'turn-error',
+            createdAt,
+            input: [{ type: 'user.message', content: 'hello' }],
+            state: { status: 'error', message: 'model failed', completedAt: createdAt },
+            events: [],
+          }),
+        ]),
+        SESSION_ID,
+      );
+
+      expect(result.messages).toHaveLength(2);
+      expect(result.messages[1]).toMatchObject({
+        id: 'turn-error-assistant',
+        role: 'assistant',
+        content: [],
+        status: { type: 'incomplete', reason: 'error', error: 'model failed' },
+      });
+    });
+
     it('carries sandboxId from a historical sandbox.created event onto the assistant message', async () => {
       const result = await convertTurnsToThreadMessages(
         mockServerWithTurns([
@@ -931,7 +1022,7 @@ describe('convertTurnMessages', () => {
         toolCallId: 'approval-1',
         approval: { id: 'approval-1' },
       });
-      expect(findPausedAssistantMessage(result.messages)).toBe(assistant);
+      expect(findCurrentPausedAssistantMessage(result.messages)).toBe(assistant);
     });
 
     it('downgrades to complete after a later turn submits user.tool_approval', async () => {
@@ -1084,7 +1175,7 @@ describe('convertTurnMessages', () => {
           payload: { question: 'Pick one', options: ['A', 'B'] },
         },
       });
-      expect(findPausedAssistantMessage(result.messages)).toBe(assistant);
+      expect(findCurrentPausedAssistantMessage(result.messages)).toBe(assistant);
     });
 
     it('downgrades to complete after a later turn submits user.tool_response', async () => {
@@ -1455,12 +1546,100 @@ describe('convertTurnMessages', () => {
               threadId: ROOT_THREAD_ID,
               content: 'streaming',
             }),
+            turnDone(),
           ]),
           foldState,
         ),
       );
 
-      expect(updates).toEqual([{ content: [{ type: 'text', text: 'streaming' }] }]);
+      expect(updates).toEqual([{ content: [{ type: 'text', text: 'streaming' }], sequenceNumber: 1 }]);
+    });
+
+    it('yields Cancelled: reason and cancellationReason on cancelled turn.done', async () => {
+      const foldState = new PeerThreadFoldState();
+      const updates = await collectStream(
+        streamTurnEvents(
+          streamFrom([
+            {
+              type: 'turn.done',
+              id: 'turn-done-cancel',
+              createdAt,
+              state: { status: 'cancelled', reason: 'abandoned', completedAt: createdAt },
+            },
+          ]),
+          foldState,
+        ),
+      );
+
+      expect(updates).toEqual([
+        {
+          content: [],
+          status: { type: 'incomplete', reason: 'cancelled' },
+          metadata: { custom: { cancellationReason: 'abandoned' } },
+          sequenceNumber: 1,
+        },
+      ]);
+    });
+
+    it('does not let a post-loop sandbox flush overwrite a cancelled turn.done', async () => {
+      const foldState = new PeerThreadFoldState();
+      const updates = await collectStream(
+        streamTurnEvents(
+          streamFrom([
+            sandboxCreated({ id: 'sbx-evt', sandboxId: 'sbx-1' }),
+            {
+              type: 'turn.done',
+              id: 'turn-done-cancel',
+              createdAt,
+              state: { status: 'cancelled', reason: 'abandoned', completedAt: createdAt },
+            },
+          ]),
+          foldState,
+        ),
+      );
+
+      expect(updates).toHaveLength(1);
+      expect(updates[0]).toMatchObject({
+        content: [],
+        status: { type: 'incomplete', reason: 'cancelled' },
+        metadata: { custom: { cancellationReason: 'abandoned' } },
+      });
+    });
+
+    it('reports every stream sequence including events that do not yield UI', async () => {
+      const foldState = new PeerThreadFoldState();
+      const sequences: number[] = [];
+      const onSequenceNumber = vi.fn((sequenceNumber: number) => {
+        sequences.push(sequenceNumber);
+      });
+      const gatewayTurnId = 'turn-gw';
+
+      await collectStream(
+        streamTurnEvents(
+          streamFrom([
+            {
+              type: 'turn.created',
+              createdAt,
+              id: 'created-1',
+              turnId: gatewayTurnId,
+              input: [{ type: 'user.message', content: 'hello' }],
+            },
+            modelMessage({
+              id: 'm1',
+              threadId: ROOT_THREAD_ID,
+              content: 'hi',
+            }),
+            turnDone(),
+          ]),
+          foldState,
+          undefined,
+          undefined,
+          onSequenceNumber,
+        ),
+      );
+
+      expect(sequences).toEqual([1, 2, 3]);
+      expect(onSequenceNumber).toHaveBeenCalledTimes(3);
     });
 
     it('yields folded content after each ingested stream event', async () => {
@@ -1483,6 +1662,7 @@ describe('convertTurnMessages', () => {
               threadId: ROOT_THREAD_ID,
               content: 'third',
             }),
+            turnDone(),
           ]),
           foldState,
         ),
@@ -1522,13 +1702,14 @@ describe('convertTurnMessages', () => {
               threadId: ROOT_THREAD_ID,
               content: 'new turn only',
             }),
+            turnDone(),
           ]),
           foldState,
           ['prior'],
         ),
       );
 
-      expect(updates).toEqual([{ content: [{ type: 'text', text: 'new turn only' }] }]);
+      expect(updates).toEqual([{ content: [{ type: 'text', text: 'new turn only' }], sequenceNumber: 1 }]);
     });
 
     it('throws when the turn ends in error', async () => {
@@ -1625,6 +1806,7 @@ describe('convertTurnMessages', () => {
       expect(updates).toHaveLength(2);
       expect(updates[0]).toEqual({
         content: [{ type: 'text', text: 'before auth' }],
+        sequenceNumber: 1,
       });
       expect(updates[1]?.status).toEqual({
         type: 'requires-action',
@@ -1634,6 +1816,24 @@ describe('convertTurnMessages', () => {
         type: 'text',
         text: expect.stringContaining('Connect'),
       });
+    });
+
+    it('throws when the SSE body ends without turn.done or a pause', async () => {
+      const foldState = new PeerThreadFoldState();
+      await expect(
+        collectStream(
+          streamTurnEvents(
+            streamFrom([
+              modelMessage({
+                id: 'm1',
+                threadId: ROOT_THREAD_ID,
+                content: 'partial',
+              }),
+            ]),
+            foldState,
+          ),
+        ),
+      ).rejects.toThrow(TurnStreamDisconnectedError);
     });
 
     it('stamps sandboxId onto every content yield after sandbox.created is seen', async () => {
@@ -1652,6 +1852,7 @@ describe('convertTurnMessages', () => {
               threadId: ROOT_THREAD_ID,
               content: 'after sandbox',
             }),
+            turnDone(),
           ]),
           foldState,
         ),
@@ -1673,6 +1874,7 @@ describe('convertTurnMessages', () => {
               content: 'some content',
             }),
             sandboxCreated({ id: 'sandbox-evt', sandboxId: 'sbx-123' }),
+            turnDone(),
           ]),
           foldState,
         ),
@@ -1835,7 +2037,7 @@ describe('convertTurnMessages', () => {
         toolCallId: 'approval-1',
         approval: { id: 'approval-1' },
       });
-      expect(findPausedAssistantMessage(messages)).toBe(assistant);
+      expect(findCurrentPausedAssistantMessage(messages)).toBe(assistant);
     });
 
     it('preserves requires-action when streamComplete and update has ask-user status', async () => {
@@ -1894,7 +2096,7 @@ describe('convertTurnMessages', () => {
           payload: { question: 'Pick one', options: ['A', 'B'] },
         },
       });
-      expect(findPausedAssistantMessage(messages)).toBe(assistant);
+      expect(findCurrentPausedAssistantMessage(messages)).toBe(assistant);
     });
 
     it('forces complete when streamComplete and update has no explicit status', () => {
@@ -1912,6 +2114,60 @@ describe('convertTurnMessages', () => {
         type: 'complete',
         reason: 'stop',
       });
+    });
+
+    it('prevents duplicate assistant message IDs if an activeStream matches an already projected turn', () => {
+      const foldState = new PeerThreadFoldState();
+      const mcpServers = [
+        {
+          id: 'test-mcp',
+          name: 'test-mcp',
+          authUrl: 'https://test/auth',
+        },
+      ];
+      const snapshot: SessionSnapshot = {
+        ...createEmptySessionSnapshot(),
+        fold: foldState,
+        turns: [
+          {
+            id: turnId,
+            userText: 'hello',
+            createdAt,
+            input: [{ type: 'user.message', content: 'hello' }],
+            rootModelMessageIds: [],
+            state: {
+              status: 'done',
+              completedAt: createdAt,
+              requiredActions: [
+                {
+                  type: 'mcp.auth_required',
+                  id: 'mcp-auth-1',
+                  createdAt,
+                  mcpServers,
+                },
+              ],
+            },
+          },
+        ],
+        activeStream: {
+          turnId,
+          update: {
+            content: [{ type: 'text', text: 'This agent needs access to external services before it can continue.' }],
+            status: { type: 'requires-action', reason: 'interrupt' },
+            metadata: { custom: { pendingMcpAuth: true, mcpServers } },
+          },
+          isContinuation: false,
+          streamComplete: true,
+        },
+      };
+
+      const messages = projectSessionMessages(snapshot);
+      const assistantMessages = messages.filter(m => m.role === 'assistant');
+      expect(assistantMessages).toHaveLength(1);
+      expect(assistantMessages[0]?.id).toBe(`${turnId}-assistant`);
+
+      const messageIds = messages.map(m => m.id);
+      expect(new Set(messageIds).size).toBe(messageIds.length);
     });
   });
 
@@ -2033,7 +2289,7 @@ describe('convertTurnMessages', () => {
       // fabricated `TurnStateDone`. The pause must survive as a
       // `tool.response_required` required action, otherwise the projected
       // assistant message is not `requires-action` and
-      // `findPausedAssistantMessage` (the gate that fires the resume turn)
+      // `findCurrentPausedAssistantMessage` (the gate that fires the resume turn)
       // never sees it.
       const fold = new PeerThreadFoldState();
       const turnId = 'turn-ask';
@@ -2096,7 +2352,7 @@ describe('convertTurnMessages', () => {
       });
 
       const messages = projectSessionMessages(snapshot);
-      const paused = findPausedAssistantMessage(messages);
+      const paused = findCurrentPausedAssistantMessage(messages);
       expect(paused).toBeDefined();
       expect(paused?.status).toMatchObject({ type: 'requires-action' });
     });
@@ -2494,11 +2750,184 @@ describe('buildSnapshotFromSessionEvents', () => {
     expect(snapshot.turns[0]?.id).toBe('t1');
     expect(snapshot.runningTurn).toBe(runningTurn);
     expect(snapshot.unstable_resume).toBe(true);
-    expect(snapshot.groupRootBaseline).toBeDefined();
+    expect(snapshot.groupRootBaseline).toEqual(['m1']);
     expect(snapshot.pendingUser).toMatchObject({
       turnId: 't2',
       content: 'in progress',
     });
+  });
+
+  it('baselines all prior root model messages when resuming a new user tip', async () => {
+    const runningTurn = {
+      id: 't3',
+      state: { status: 'running' },
+      input: [{ type: 'user.message', content: 'search random opic' }],
+      createdAt,
+    } as unknown as Turn;
+
+    const items: SessionEventItem[] = [
+      {
+        turnId: 't1',
+        event: {
+          type: 'turn.created',
+          id: 'evt-c1',
+          turnId: 't1',
+          input: [{ type: 'user.message', content: 'test' }],
+          state: { status: 'running' },
+          createdAt,
+        },
+      },
+      {
+        turnId: 't1',
+        event: modelMessage({ id: 'm1', threadId: ROOT_THREAD_ID, content: 'Hello! How can I assist you today?' }),
+      },
+      {
+        turnId: 't1',
+        event: {
+          type: 'turn.done',
+          id: 'evt-d1',
+          state: { status: 'done', requiredActions: [], completedAt: createdAt },
+          createdAt,
+        } as TurnDoneEvent,
+      },
+      {
+        turnId: 't2',
+        event: {
+          type: 'turn.created',
+          id: 'evt-c2',
+          turnId: 't2',
+          input: [{ type: 'user.message', content: 'hello' }],
+          state: { status: 'running' },
+          createdAt,
+        },
+      },
+      {
+        turnId: 't2',
+        event: modelMessage({
+          id: 'm2',
+          threadId: ROOT_THREAD_ID,
+          content: 'Hello! How can I help you today?',
+          reasoningContent: 'The user says "test" then "hello".',
+        }),
+      },
+      {
+        turnId: 't2',
+        event: {
+          type: 'turn.done',
+          id: 'evt-d2',
+          state: { status: 'done', requiredActions: [], completedAt: createdAt },
+          createdAt,
+        } as TurnDoneEvent,
+      },
+      {
+        turnId: 't3',
+        event: {
+          type: 'turn.created',
+          id: 'evt-c3',
+          turnId: 't3',
+          input: [{ type: 'user.message', content: 'search random opic' }],
+          state: { status: 'running' },
+          createdAt,
+        },
+      },
+    ];
+
+    const snapshot = await buildSnapshotFromSessionEvents(mockServerWithEvents([runningTurn], items), SESSION_ID);
+
+    expect(snapshot.turns).toHaveLength(2);
+    // Must include m2 — computeGroupRootBaseline(completedTurns) would omit it and
+    // leak turn 2 content onto the resumed tip.
+    expect(snapshot.groupRootBaseline).toEqual(['m1', 'm2']);
+    expect(snapshot.pendingUser).toMatchObject({
+      turnId: 't3',
+      content: 'search random opic',
+    });
+
+    const messages = projectSessionMessages(snapshot);
+    expect(messages.map(message => message.role)).toEqual(['user', 'assistant', 'user', 'assistant', 'user']);
+    expect(messages.at(-1)).toMatchObject({
+      id: 't3-user',
+      role: 'user',
+    });
+  });
+
+  it("keeps the running tip's already-ingested model messages in live resume scope", async () => {
+    const runningTurn = {
+      id: 't2',
+      state: { status: 'running' },
+      input: [{ type: 'user.message', content: 'can 10 random sandbox tool calll' }],
+      createdAt,
+    } as unknown as Turn;
+
+    const items: SessionEventItem[] = [
+      {
+        turnId: 't1',
+        event: {
+          type: 'turn.created',
+          id: 'evt-c1',
+          turnId: 't1',
+          input: [{ type: 'user.message', content: 'first' }],
+          state: { status: 'running' },
+          createdAt,
+        },
+      },
+      {
+        turnId: 't1',
+        event: modelMessage({ id: 'm1', threadId: ROOT_THREAD_ID, content: 'reply 1' }),
+      },
+      {
+        turnId: 't1',
+        event: {
+          type: 'turn.done',
+          id: 'evt-d1',
+          state: { status: 'done', requiredActions: [], completedAt: createdAt },
+          createdAt,
+        } as TurnDoneEvent,
+      },
+      {
+        turnId: 't2',
+        event: {
+          type: 'turn.created',
+          id: 'evt-c2',
+          turnId: 't2',
+          input: [{ type: 'user.message', content: 'can 10 random sandbox tool calll' }],
+          state: { status: 'running' },
+          createdAt,
+        },
+      },
+      {
+        turnId: 't2',
+        event: modelMessage({
+          id: 'm2',
+          threadId: ROOT_THREAD_ID,
+          content: 'Running 10 random sandbox commands at once:',
+        }),
+      },
+    ];
+
+    const snapshot = await buildSnapshotFromSessionEvents(mockServerWithEvents([runningTurn], items), SESSION_ID);
+
+    expect(snapshot.turns).toHaveLength(1);
+    expect(snapshot.groupRootBaseline).toEqual(['m1']);
+    expect(rootModelMessageIdsSinceBaseline(snapshot.fold, snapshot.groupRootBaseline ?? [])).toEqual(['m2']);
+
+    const updates = await collectStream(
+      streamTurnEvents(
+        streamFrom([
+          modelMessage({
+            id: 'm3',
+            threadId: ROOT_THREAD_ID,
+            content: 'I ran 10 sandbox commands',
+          }),
+          turnDone(),
+        ]),
+        snapshot.fold,
+        snapshot.groupRootBaseline,
+      ),
+    );
+
+    const texts = (updates.at(-1)?.content ?? []).filter(part => part.type === 'text').map(part => part.text);
+    expect(texts).toEqual(['Running 10 random sandbox commands at once:', 'I ran 10 sandbox commands']);
   });
 
   it('calls onProgress after each completed turn', async () => {

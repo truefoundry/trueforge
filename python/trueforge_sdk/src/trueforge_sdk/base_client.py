@@ -15,6 +15,7 @@ if typing.TYPE_CHECKING:
     from .internal.client import AsyncInternalClient, InternalClient
     from .mcp_servers.client import AsyncMcpServersClient, McpServersClient
     from .models.client import AsyncModelsClient, ModelsClient
+    from .sandbox_environments.client import AsyncSandboxEnvironmentsClient, SandboxEnvironmentsClient
     from .schedules.client import AsyncSchedulesClient, SchedulesClient
     from .server.client import AsyncServerClient, ServerClient
     from .sessions.client import AsyncSessionsClient, SessionsClient
@@ -103,6 +104,7 @@ class BaseTrueForge:
         self._server: typing.Optional[ServerClient] = None
         self._mcp_servers: typing.Optional[McpServersClient] = None
         self._models: typing.Optional[ModelsClient] = None
+        self._sandbox_environments: typing.Optional[SandboxEnvironmentsClient] = None
         self._schedules: typing.Optional[SchedulesClient] = None
         self._sessions: typing.Optional[SessionsClient] = None
         self._skills: typing.Optional[SkillsClient] = None
@@ -156,6 +158,14 @@ class BaseTrueForge:
 
             self._models = ModelsClient(client_wrapper=self._client_wrapper)
         return self._models
+
+    @property
+    def sandbox_environments(self):
+        if self._sandbox_environments is None:
+            from .sandbox_environments.client import SandboxEnvironmentsClient  # noqa: E402
+
+            self._sandbox_environments = SandboxEnvironmentsClient(client_wrapper=self._client_wrapper)
+        return self._sandbox_environments
 
     @property
     def schedules(self):
@@ -300,6 +310,7 @@ class AsyncBaseTrueForge:
         self._server: typing.Optional[AsyncServerClient] = None
         self._mcp_servers: typing.Optional[AsyncMcpServersClient] = None
         self._models: typing.Optional[AsyncModelsClient] = None
+        self._sandbox_environments: typing.Optional[AsyncSandboxEnvironmentsClient] = None
         self._schedules: typing.Optional[AsyncSchedulesClient] = None
         self._sessions: typing.Optional[AsyncSessionsClient] = None
         self._skills: typing.Optional[AsyncSkillsClient] = None
@@ -353,6 +364,14 @@ class AsyncBaseTrueForge:
 
             self._models = AsyncModelsClient(client_wrapper=self._client_wrapper)
         return self._models
+
+    @property
+    def sandbox_environments(self):
+        if self._sandbox_environments is None:
+            from .sandbox_environments.client import AsyncSandboxEnvironmentsClient  # noqa: E402
+
+            self._sandbox_environments = AsyncSandboxEnvironmentsClient(client_wrapper=self._client_wrapper)
+        return self._sandbox_environments
 
     @property
     def schedules(self):

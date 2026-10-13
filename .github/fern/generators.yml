@@ -4,8 +4,8 @@
 readme:
   apiName: TrueForge
   introduction: >
-    API client for the TrueForge Agent Harness Server: a self-hosted
-    runtime that executes agent turns and streams them over Server-Sent Events.
+    API client for the TrueForge Agent Harness Server: a self-hosted runtime
+    that executes agent turns and streams them over Server-Sent Events.
 
 
     When auth is enabled on the server, pass an ID token via the optional
@@ -37,7 +37,7 @@ groups:
   ts-sdk:
     generators:
       - name: fernapi/fern-typescript-node-sdk
-        version: 3.91.0
+        version: 3.98.3
         output:
           location: local-file-system
           path: ../../packages/trueforge-sdk
@@ -104,7 +104,7 @@ groups:
   python-sdk:
     generators:
       - name: fernapi/fern-python-sdk
-        version: 5.29.0
+        version: 5.34.2
         output:
           location: local-file-system
           path: ../../python/trueforge_sdk

@@ -145,6 +145,7 @@ function makeServer(params: {
     source: remote,
     selectors: params.selectors ?? DEFAULT_SELECTORS,
     preload: params.preload ?? false,
+    approvalPolicies: undefined,
   });
 }
 

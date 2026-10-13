@@ -16,7 +16,6 @@ import type {
   SandboxCatalogServer,
   SandboxProviderBase,
   SandboxProviderCatalogEntry,
-  SandboxProviderListEntry,
   UpdateSandboxProviderRequest,
 } from '../../../server/types.js';
 
@@ -30,7 +29,6 @@ export interface DaytonaSandboxConfig {
 
 export type UiSandboxProvider = SandboxProviderBase & DaytonaSandboxConfig;
 export type UiSandboxProviderCatalogEntry = SandboxProviderCatalogEntry & DaytonaSandboxConfig;
-export type UiSandboxProviderListEntry = SandboxProviderListEntry<UiSandboxProvider>;
 export type UiCreateSandboxProviderRequest = CreateSandboxProviderRequest & DaytonaSandboxConfig;
 export type UiUpdateSandboxProviderRequest = UpdateSandboxProviderRequest & DaytonaSandboxConfig;
 
@@ -38,8 +36,7 @@ export type DaytonaSandboxCatalogServer = SandboxCatalogServer<
   UiSandboxProvider,
   UiSandboxProviderCatalogEntry,
   UiCreateSandboxProviderRequest,
-  UiUpdateSandboxProviderRequest,
-  UiSandboxProviderListEntry
+  UiUpdateSandboxProviderRequest
 >;
 
 const DAYTONA_TYPE = 'daytona';
@@ -95,33 +92,20 @@ export function toUiSandboxProvider(provider: TrueForgeApi.SandboxProviderManife
   };
 }
 
-export function toUiSandboxProviderListEntry(
-  response: TrueForgeApi.GetSandboxProviderResponse['data'],
-): UiSandboxProviderListEntry {
-  return {
-    data: toUiSandboxProvider(response.manifest),
-    snapshotSyncStatus: {
-      status: response.status,
-      ...(response.statusReason ? { statusReason: response.statusReason } : {}),
-    },
-  };
-}
-
 export function filterUiSandboxProviders({
   providers,
   query,
 }: {
-  providers: UiSandboxProviderListEntry[];
+  providers: UiSandboxProvider[];
   query?: string;
-}): UiSandboxProviderListEntry[] {
+}): UiSandboxProvider[] {
   const normalizedQuery = query?.trim().toLowerCase();
   if (normalizedQuery === undefined || normalizedQuery === '') {
     return providers;
   }
   return providers.filter(
     provider =>
-      provider.data.name.toLowerCase().includes(normalizedQuery) ||
-      provider.data.id.toLowerCase().includes(normalizedQuery),
+      provider.name.toLowerCase().includes(normalizedQuery) || provider.id.toLowerCase().includes(normalizedQuery),
   );
 }
 
@@ -161,10 +145,10 @@ export function createSandboxProviderCatalog(client: TrueForge): DaytonaSandboxC
       return body.data.map(toUiCatalogEntry);
     },
     listSandboxProviders: async req => {
-      let providers: UiSandboxProviderListEntry[];
+      let providers: UiSandboxProvider[];
       try {
         const body = await client.settings.sandboxProviders.get();
-        providers = [toUiSandboxProviderListEntry(body.data)];
+        providers = [toUiSandboxProvider(body.data.manifest)];
       } catch (err) {
         if (err instanceof TrueForgeApi.NotFoundError) {
           providers = [];

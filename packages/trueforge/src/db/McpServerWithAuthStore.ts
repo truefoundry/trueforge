@@ -7,6 +7,7 @@ import {
   type AuthorizeMcpServerInput,
   type CreateMcpServerInput,
   type DeleteMcpAuthorizationInput,
+  type DeleteMcpServerInput,
   type GetMcpServerInput,
   type IMcpServerStore,
   type IMcpServerWithAuthStore,
@@ -50,6 +51,10 @@ export class McpServerWithAuthStore<TTransaction = never> implements IMcpServerW
 
   upsertServer(input: UpsertMcpServerInput, transaction?: TTransaction): Promise<McpServerRecord> {
     return this.#store.upsertServer(input, transaction);
+  }
+
+  deleteServer(input: DeleteMcpServerInput, transaction?: TTransaction): Promise<boolean> {
+    return this.#store.deleteServer(input, transaction);
   }
 
   resolveInvokeHeaders(input: {

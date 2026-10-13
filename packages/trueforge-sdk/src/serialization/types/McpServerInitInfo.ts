@@ -3,12 +3,19 @@
 import type * as TrueForge from "../../api/index.js";
 import * as core from "../../core/index.js";
 import type * as serializers from "../index.js";
+import { ComponentsSchemasToolApprovalPolicyAllowSession } from "./ComponentsSchemasToolApprovalPolicyAllowSession.js";
 import { McpServerInitInfoTransportType } from "./McpServerInitInfoTransportType.js";
 
 export const McpServerInitInfo: core.serialization.ObjectSchema<
     serializers.McpServerInitInfo.Raw,
     TrueForge.McpServerInitInfo
 > = core.serialization.object({
+    approvalPolicies: core.serialization.property(
+        "approval_policies",
+        core.serialization
+            .record(core.serialization.string(), ComponentsSchemasToolApprovalPolicyAllowSession)
+            .optional(),
+    ),
     id: core.serialization.string(),
     name: core.serialization.string(),
     sessionId: core.serialization.property("session_id", core.serialization.string().optional()),
@@ -17,6 +24,7 @@ export const McpServerInitInfo: core.serialization.ObjectSchema<
 
 export declare namespace McpServerInitInfo {
     export interface Raw {
+        approval_policies?: Record<string, ComponentsSchemasToolApprovalPolicyAllowSession.Raw> | null;
         id: string;
         name: string;
         session_id?: string | null;

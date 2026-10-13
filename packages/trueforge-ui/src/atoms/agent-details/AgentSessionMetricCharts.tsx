@@ -3,9 +3,27 @@
 import type { ReactNode } from 'react';
 
 import type { SessionMetricBarDatum } from '../../utils/buildSessionMetrics.js';
-import { LightTooltip } from '../primitives/Tooltip.js';
+import { formatCostUsd } from '../../utils/sessionDisplayFormat.js';
 
-const MIN_VERTICAL_BAR_HEIGHT_PERCENT = 6;
+export function CostBreakdownRows({ data }: { data: SessionMetricBarDatum[] }) {
+  const maxValue = Math.max(0, ...data.map(item => item.value)) || 1;
+  return (
+    <div className="grid grid-cols-[max-content_minmax(0,1fr)_max-content] items-center gap-x-2 gap-y-2">
+      {data.map(item => (
+        <div key={item.label} className="contents">
+          <span className="max-w-28 truncate text-text-secondary">{item.label}</span>
+          <div className="h-1.5 min-w-0 overflow-hidden rounded-full bg-secondary-bg">
+            <div
+              className="h-full rounded-full"
+              style={{ width: `${(item.value / maxValue) * 100}%`, backgroundColor: item.color }}
+            />
+          </div>
+          <span className="text-right font-semibold text-text-primary">{formatCostUsd(item.value)}</span>
+        </div>
+      ))}
+    </div>
+  );
+}
 
 export function SessionMetricTooltipContent({
   title,
@@ -85,38 +103,6 @@ export function HorizontalBarRows({
           <span className="text-right font-semibold text-text-primary">{formatValue(item.value)}</span>
         </div>
       ))}
-    </div>
-  );
-}
-
-export function VerticalBarColumns({
-  data,
-  formatValue,
-}: {
-  data: SessionMetricBarDatum[];
-  formatValue: (value: number) => string;
-}) {
-  const maxValue = Math.max(0, ...data.map(item => item.value)) || 1;
-  return (
-    <div className="h-24 overflow-x-auto">
-      <div className="mx-auto flex h-full w-fit items-end">
-        {data.map(item => (
-          <LightTooltip key={item.label} title={formatValue(item.value)} side="top">
-            <div className="flex h-full w-10 shrink-0 flex-col items-center justify-end gap-1">
-              <div className="flex h-[4.5rem] items-end">
-                <div
-                  className="w-6 rounded-t-sm"
-                  style={{
-                    height: `${Math.max(MIN_VERTICAL_BAR_HEIGHT_PERCENT, (item.value / maxValue) * 100)}%`,
-                    backgroundColor: item.color,
-                  }}
-                />
-              </div>
-              <span className="text-[0.625rem] leading-4 text-text-secondary">{item.label}</span>
-            </div>
-          </LightTooltip>
-        ))}
-      </div>
     </div>
   );
 }

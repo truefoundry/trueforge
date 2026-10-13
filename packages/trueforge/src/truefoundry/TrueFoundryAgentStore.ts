@@ -2,6 +2,7 @@ import type { AgentSpec, TokenPagination } from '@truefoundry/trueforge-core/age
 import { sql, type Kysely, type Transaction } from 'kysely';
 import type { RequestContext } from '../auth/identity';
 import {
+  type AgentCatalogUsageRow,
   type AgentExternalIdRow,
   type AgentRecord,
   type CreateAgentInput,
@@ -10,6 +11,8 @@ import {
   type GetExternalIdsByIdsInput,
   type GetOwnedIdsInput,
   type IAgentStore,
+  type ListAgentCatalogUsageInput,
+  type ListAgentNamesUsingSandboxEnvironmentInput,
   type ListAgentsInput,
   type UpdateAgentInput,
 } from '../db/agentStore';
@@ -31,19 +34,16 @@ function toPutRemoteAgentPayload({
   name,
   description,
   manifest,
-  trueFoundryManagedAgentId,
 }: {
   name: string;
   description: string;
   manifest: AgentSpec;
-  trueFoundryManagedAgentId?: string;
 }): Omit<PutRemoteAgentInput, 'accessToken'> {
   return {
     name,
     description: (description || name).slice(0, AGENT_DESCRIPTION_MAX_LENGTH),
     model: manifest.model.name,
     mcp_servers: (manifest.mcp_servers ?? []).map(server => server.name),
-    ...(trueFoundryManagedAgentId ? { trueFoundryManagedAgentId } : {}),
   };
 }
 
@@ -115,6 +115,20 @@ export class TrueFoundryAgentStore implements IAgentStore<Transaction<Database>>
     return this.#inner.getAgent(input, transaction);
   }
 
+  listAgentCatalogUsage(
+    input: ListAgentCatalogUsageInput,
+    transaction?: Transaction<Database>,
+  ): Promise<readonly AgentCatalogUsageRow[]> {
+    return this.#inner.listAgentCatalogUsage(input, transaction);
+  }
+
+  listAgentNamesUsingSandboxEnvironment(
+    input: ListAgentNamesUsingSandboxEnvironmentInput,
+    transaction?: Transaction<Database>,
+  ): Promise<readonly string[]> {
+    return this.#inner.listAgentNamesUsingSandboxEnvironment(input, transaction);
+  }
+
   // Takes a Postgres transaction advisory lock for this tenant + agent id so concurrent
   // update/delete cannot desync ServiceFoundry MCP grants. The lock only lasts for the
   // lifetime of a DB transaction: if the caller passed one, use it; otherwise open a
@@ -139,14 +153,12 @@ export class TrueFoundryAgentStore implements IAgentStore<Transaction<Database>>
 
     let externalId: string | undefined;
     try {
-      const trueFoundryManagedAgentId = input.custom?.['trueFoundryManagedAgentId'] as string | undefined;
       ({ externalId } = await this.#client.putRemoteAgent({
         accessToken: await this.#resolveAccessToken(),
         ...toPutRemoteAgentPayload({
           name: input.name,
           description: input.description,
           manifest: input.manifest,
-          ...(trueFoundryManagedAgentId ? { trueFoundryManagedAgentId } : {}),
         }),
       }));
       const updated = await this.#inner.updateAgent(

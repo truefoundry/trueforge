@@ -12,6 +12,7 @@ import type {
   ListResult,
   ModelSelection,
   PermissionsServer,
+  SandboxEnvironmentServer,
   SaveAgentRequest,
   SaveAgentResult,
   ScheduleServer,
@@ -30,6 +31,7 @@ export type CreateTrueForgeServerOptions<
   TSessions extends AgentSessionsServer<TSpec> = AgentSessionsServer<TSpec>,
   TMetrics extends AgentMetricsServer = AgentMetricsServer,
   TSchedules extends ScheduleServer = ScheduleServer,
+  TSandboxEnvironments extends SandboxEnvironmentServer = SandboxEnvironmentServer,
   TPermissions extends PermissionsServer = PermissionsServer,
 > = {
   /** Chat port — e.g. from `@truefoundry/agent-server-adapter`. */
@@ -51,6 +53,8 @@ export type CreateTrueForgeServerOptions<
   metrics?: TMetrics;
   /** Schedules listing + CRUD. Optional. */
   schedules?: TSchedules;
+  /** Sandbox environments listing + CRUD. Optional. */
+  sandboxEnvironments?: TSandboxEnvironments;
   /** Per-resource grants. Omit to leave actions enabled. */
   permissions?: TPermissions;
   /** Authenticated caller identity. Used for tenant-scoped share copy. */
@@ -69,6 +73,7 @@ export type TrueForgeServer<
   TSessions extends AgentSessionsServer<TSpec> = AgentSessionsServer<TSpec>,
   TMetrics extends AgentMetricsServer = AgentMetricsServer,
   TSchedules extends ScheduleServer = ScheduleServer,
+  TSandboxEnvironments extends SandboxEnvironmentServer = SandboxEnvironmentServer,
   TPermissions extends PermissionsServer = PermissionsServer,
 > = AgentChatServer<TSpec> &
   AgentBuilderServer<TSpec, TModel, TSkill, TMcp, TAgent, TSave, TCapabilities> & {
@@ -76,6 +81,7 @@ export type TrueForgeServer<
     sessions?: TSessions;
     metrics?: TMetrics;
     schedules?: TSchedules;
+    sandboxEnvironments?: TSandboxEnvironments;
     permissions?: TPermissions;
     getMe?: () => Promise<{ tenantId: string }>;
   };
@@ -97,6 +103,7 @@ export function createTrueForgeServer<
   TSessions extends AgentSessionsServer<TSpec> = AgentSessionsServer<TSpec>,
   TMetrics extends AgentMetricsServer = AgentMetricsServer,
   TSchedules extends ScheduleServer = ScheduleServer,
+  TSandboxEnvironments extends SandboxEnvironmentServer = SandboxEnvironmentServer,
   TPermissions extends PermissionsServer = PermissionsServer,
 >(
   opts: CreateTrueForgeServerOptions<
@@ -111,6 +118,7 @@ export function createTrueForgeServer<
     TSessions,
     TMetrics,
     TSchedules,
+    TSandboxEnvironments,
     TPermissions
   >,
 ): TrueForgeServer<
@@ -125,6 +133,7 @@ export function createTrueForgeServer<
   TSessions,
   TMetrics,
   TSchedules,
+  TSandboxEnvironments,
   TPermissions
 > {
   const builder: AgentBuilderServer<TSpec, TModel, TSkill, TMcp, TAgent, TSave, TCapabilities> = {
@@ -157,6 +166,7 @@ export function createTrueForgeServer<
     TSessions,
     TMetrics,
     TSchedules,
+    TSandboxEnvironments,
     TPermissions
   > = {
     ...opts.chatServer,
@@ -165,6 +175,7 @@ export function createTrueForgeServer<
     ...(opts.sessions != null ? { sessions: opts.sessions } : {}),
     ...(opts.metrics != null ? { metrics: opts.metrics } : {}),
     ...(opts.schedules != null ? { schedules: opts.schedules } : {}),
+    ...(opts.sandboxEnvironments != null ? { sandboxEnvironments: opts.sandboxEnvironments } : {}),
     ...(opts.permissions != null ? { permissions: opts.permissions } : {}),
     ...(opts.getMe != null ? { getMe: opts.getMe } : {}),
   };

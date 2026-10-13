@@ -1,9 +1,10 @@
 'use client';
 
-import { ThreadPrimitive, type ThreadMessageLike } from '@assistant-ui/react';
-import { convertTurnsToThreadMessages } from '@truefoundry/trueforge-assistant-ui-runtime';
+import { ThreadPrimitive, useAuiState, type ThreadMessageLike } from '@assistant-ui/react';
+import { convertTurnsToThreadMessages, isMcpServerAuthInfoList } from '@truefoundry/trueforge-assistant-ui-runtime';
 import { Suspense, useCallback, useEffect, useMemo, useRef, useState, type ComponentType } from 'react';
 
+import { AssistantMessageBubble, type AssistantMessageBubbleProps } from '../atoms/AssistantMessageBubble.js';
 import { Markdown, type MarkdownProps } from '../atoms/Markdown.js';
 import { MessageActionBar } from '../atoms/MessageActionBar.js';
 import { ToolApprovalBar, type ToolApprovalBarProps } from '../atoms/ToolApprovalBar.js';
@@ -17,7 +18,7 @@ import { buildSessionMetrics } from '../utils/buildSessionMetrics.js';
 import { buildSessionTimelineSegments } from '../utils/buildSessionTimelineSegments.js';
 import { createCachedListEventsBridge } from '../utils/cachedListEventsBridge.js';
 import { getTurnInputSummary } from '../utils/sessionTimelineEvents.js';
-import { buildSessionTurnViews, type SessionTurnView } from '../utils/sessionTurnViews.js';
+import { aggregateSessionTurnBand, buildSessionTurnViews, type SessionTurnView } from '../utils/sessionTurnViews.js';
 import { AssistantMessageContainer } from './AssistantMessageContainer.js';
 import { ReadOnlySessionTurnRuntime } from './ReadOnlySessionTurnRuntime.js';
 import { UserMessageContainer } from './UserMessageContainer.js';
@@ -48,7 +49,25 @@ function ReadOnlyToolCallCard(props: ToolCallCardProps) {
   return <ToolCallCard {...props} awaiting={props.approvalSlot ? false : props.awaiting} />;
 }
 
+/** In session detail replay, render any pending MCP authorization prompt in readOnly mode. */
+function ReadOnlyAssistantMessageBubble(props: AssistantMessageBubbleProps) {
+  const McpAuthPrompt = useSlot('McpAuthPrompt');
+  const custom = useAuiState(s => s.message.metadata.custom);
+  const rawServers = custom?.pendingMcpAuth === true ? custom?.mcpServers : undefined;
+  const mcpServers = isMcpServerAuthInfoList(rawServers) ? rawServers : undefined;
+
+  return (
+    <AssistantMessageBubble {...props}>
+      {props.children}
+      {mcpServers != null && mcpServers.length > 0 ? (
+        <McpAuthPrompt servers={mcpServers} readOnly={true} onConnect={() => {}} />
+      ) : null}
+    </AssistantMessageBubble>
+  );
+}
+
 const READ_ONLY_SLOT_OVERRIDES: SlotOverrides = {
+  AssistantMessageBubble: ReadOnlyAssistantMessageBubble,
   UserMessageActionBar: ReadOnlyUserMessageActionBar,
   Markdown: ReadOnlyMarkdown,
   ToolApprovalBar: ReadOnlyToolApprovalBar,
@@ -90,58 +109,70 @@ function buildProjectionEvents(items: SessionEventItem[], turns: SessionTurnView
   });
 }
 
-function appendTerminalText(content: ThreadMessageLike['content'], text: string): ThreadMessageLike['content'] {
-  const terminalPart: { type: 'text'; text: string } = { type: 'text', text };
-  return typeof content === 'string' ? [{ type: 'text', text: content }, terminalPart] : [...content, terminalPart];
+/** Retrieves MCP servers requiring OAuth in this turn from done actions or turn events. */
+function findTurnMcpServers(turn: SessionTurnView) {
+  const actions = turn.done?.state.status === 'done' ? turn.done.state.requiredActions : undefined;
+  if (Array.isArray(actions)) {
+    for (const action of actions) {
+      if (action.type === 'mcp.auth_required' && isMcpServerAuthInfoList(action.mcpServers)) {
+        return action.mcpServers;
+      }
+    }
+  }
+  for (const event of turn.events) {
+    if (event.type === 'mcp.auth_required' && isMcpServerAuthInfoList(event.mcpServers)) {
+      return event.mcpServers;
+    }
+  }
+  return undefined;
 }
 
-function applyTerminalState(messages: ThreadMessageLike[], turn: SessionTurnView): ThreadMessageLike[] {
-  const state = turn.done?.state;
-  if (state?.status !== 'error' && state?.status !== 'cancelled') return messages;
+/**
+ * Re-attaches MCP auth metadata to the assistant message in session replay.
+ * History projection drops pendingMcpAuth when synthetic continuation user messages
+ * follow; restoring it here ensures ReadOnlyAssistantMessageBubble renders the auth widget.
+ */
+function applyMcpAuthState(messages: ThreadMessageLike[], turn: SessionTurnView): ThreadMessageLike[] {
+  const mcpServers = findTurnMcpServers(turn);
+  if (mcpServers == null || mcpServers.length === 0) return messages;
 
-  // failures need an assistant row so the terminal state is visible.
   const assistantIndex = messages.findIndex(message => message.role === 'assistant');
   const assistant = assistantIndex < 0 ? undefined : messages[assistantIndex];
-  const createdAt = new Date(state.completedAt ?? turn.done?.createdAt ?? turn.created.createdAt);
-  const terminal: ThreadMessageLike =
-    state.status === 'error'
-      ? {
-          ...(assistant ?? {
-            id: `${turn.turnId}-assistant`,
-            role: 'assistant',
-            content: [],
-            createdAt,
-            metadata: { custom: { turnId: turn.turnId } },
-          }),
-          status: { type: 'incomplete', reason: 'error', error: state.message },
-        }
-      : {
-          ...(assistant ?? {
-            id: `${turn.turnId}-assistant`,
-            role: 'assistant',
-            content: [],
-            createdAt,
-            metadata: { custom: { turnId: turn.turnId } },
-          }),
-          content: appendTerminalText(assistant?.content ?? [], `Cancelled: ${state.reason}`),
-          status: { type: 'incomplete', reason: 'cancelled' },
-        };
+  const createdAt = new Date(turn.done?.createdAt ?? turn.created.createdAt);
+  const updatedAssistant: ThreadMessageLike = {
+    ...(assistant ?? {
+      id: `${turn.turnId}-assistant`,
+      role: 'assistant',
+      content: [],
+      createdAt,
+    }),
+    ...(turn.done?.state.status === 'done' ? { status: { type: 'complete', reason: 'stop' } } : {}),
+    metadata: {
+      ...assistant?.metadata,
+      custom: {
+        ...assistant?.metadata?.custom,
+        turnId: turn.turnId,
+        pendingMcpAuth: true,
+        mcpServers,
+      },
+    },
+  };
 
-  if (assistantIndex < 0) return [...messages, terminal];
-  return messages.map((message, index) => (index === assistantIndex ? terminal : message));
+  if (assistantIndex < 0) return [...messages, updatedAssistant];
+  return messages.map((message, index) => (index === assistantIndex ? updatedAssistant : message));
 }
 
 function messagesForTurn(messages: ThreadMessageLike[], turn: SessionTurnView): ThreadMessageLike[] {
   const matched = messages.filter(message => turnIdFromMessage(message) === turn.turnId);
-  return applyTerminalState(matched, turn);
+  return applyMcpAuthState(matched, turn);
 }
 
 export type AgentSessionTimelineContainerProps = {
   sessionId: string;
   events: SessionEventItem[];
   contentMaxWidth?: string;
-  listMetrics?: {
-    totalTurns: number;
+  sessionMetrics?: {
+    totalTurns?: number;
     totalCostInUsd?: number;
     totalDurationMs: number;
   };
@@ -151,7 +182,7 @@ export function AgentSessionTimelineContainer({
   sessionId,
   events,
   contentMaxWidth,
-  listMetrics,
+  sessionMetrics: sessionMetricsHint,
 }: AgentSessionTimelineContainerProps) {
   const server = useServer();
   const AgentSessionTurnHeader = useSlot('AgentSessionTurnHeader');
@@ -164,12 +195,16 @@ export function AgentSessionTimelineContainer({
   const [loadFailed, setLoadFailed] = useState(false);
   const sectionRefs = useRef(new Map<number, HTMLElement>());
 
-  const turnViews = useMemo(() => buildSessionTurnViews(events), [events]);
-  const projectionEvents = useMemo(() => buildProjectionEvents(events, turnViews), [events, turnViews]);
-  const timelineSegments = useMemo(() => buildSessionTimelineSegments(turnViews), [turnViews]);
+  const allTurnViews = useMemo(() => buildSessionTurnViews(events), [events]);
+  const renderableTurnViews = useMemo(() => allTurnViews.filter(turn => turn.renderable), [allTurnViews]);
+  const projectionEvents = useMemo(
+    () => buildProjectionEvents(events, renderableTurnViews),
+    [events, renderableTurnViews],
+  );
+  const timelineSegments = useMemo(() => buildSessionTimelineSegments(allTurnViews), [allTurnViews]);
   const sessionMetrics = useMemo(
-    () => buildSessionMetrics({ turns: turnViews, segments: timelineSegments, listMetrics }),
-    [listMetrics, timelineSegments, turnViews],
+    () => buildSessionMetrics({ turns: allTurnViews, segments: timelineSegments, sessionMetrics: sessionMetricsHint }),
+    [sessionMetricsHint, timelineSegments, allTurnViews],
   );
 
   const handleSelectTurn = useCallback((index: number) => {
@@ -218,7 +253,7 @@ export function AgentSessionTimelineContainer({
     );
   }
 
-  if (messages.length === 0 && turnViews.length === 0) {
+  if (messages.length === 0 && renderableTurnViews.length === 0) {
     return (
       <div className="flex flex-1 items-center justify-center px-6 text-sm text-text-secondary">
         This session has no messages yet.
@@ -236,7 +271,7 @@ export function AgentSessionTimelineContainer({
       </div>
       <div className="border-b border-border">
         <Suspense fallback={null}>
-          <AgentSessionEventTimeline turns={turnViews} segments={timelineSegments} onSelectTurn={handleSelectTurn} />
+          <AgentSessionEventTimeline turns={allTurnViews} segments={timelineSegments} onSelectTurn={handleSelectTurn} />
         </Suspense>
       </div>
       <ThreadViewportShell
@@ -245,10 +280,10 @@ export function AgentSessionTimelineContainer({
         {...(contentMaxWidth == null ? {} : { contentMaxWidth })}
       >
         <div className="flex flex-col gap-4">
-          {turnViews.map(turn => (
+          {renderableTurnViews.map(turn => (
             <SessionTurnSection
               key={turn.turnId}
-              turn={turn}
+              turn={aggregateSessionTurnBand(allTurnViews, turn.turnNumber) ?? turn}
               messages={messagesForTurn(messages, turn)}
               AgentSessionTurnHeader={AgentSessionTurnHeader}
               onMount={node => {

@@ -8,6 +8,7 @@ import {
   type TurnStreamingEvent,
 } from '@truefoundry/trueforge-core/agent-session';
 import type { Context } from 'hono';
+import { HTTPException } from 'hono/http-exception';
 import type { Logger } from 'winston';
 import type { Authorizer } from '../auth/authorizer';
 import {
@@ -27,6 +28,7 @@ import {
 import type { AgentRecord, IAgentStore } from '../db/agentStore';
 import type { IMcpServerWithAuthStore } from '../db/mcpServerStore';
 import type { IModelProviderStore } from '../db/modelProviderStore';
+import type { ISandboxEnvironmentStore } from '../db/sandboxEnvironmentStore';
 import type { ISandboxProviderStore } from '../db/sandboxProviderStore';
 import {
   manualRunName,
@@ -73,6 +75,7 @@ export interface ScheduleTurnExecutionDeps<TTransaction> {
   resolveModelProviderStore: (c: Context, runAsAgent?: AgentRecord) => IModelProviderStore<TTransaction>;
   resolveMcpServerStore: (c: Context, runAsAgent?: AgentRecord) => IMcpServerWithAuthStore<TTransaction>;
   resolveSandboxProviderStore: (c: Context) => ISandboxProviderStore<TTransaction>;
+  sandboxEnvironmentStore: ISandboxEnvironmentStore<TTransaction>;
   resolveWebSearchProviderStore: (c: Context) => IWebSearchProviderStore<TTransaction>;
   /** Persistence agent store (schedule agent binding is not caller-scoped). */
   agentStore: IAgentStore<TTransaction>;
@@ -116,6 +119,7 @@ export async function startScheduleRunOnRequest<TTransaction>(params: {
       modelProviderStore: deps.resolveModelProviderStore(c, prepared.agent),
       mcpServerStore: deps.resolveMcpServerStore(c, prepared.agent),
       sandboxProviderStore: deps.resolveSandboxProviderStore(c),
+      sandboxEnvironmentStore: deps.sandboxEnvironmentStore,
       webSearchProviderStore: deps.resolveWebSearchProviderStore(c),
       skillStore: deps.turnSkillsResolverStore,
       logger: deps.logger,
@@ -246,7 +250,7 @@ export function createSchedulesRouter<TTransaction>(deps: SchedulesRouterDeps<TT
       return c.json({ data: data.map(toWireSchedule), pagination }, 200);
     } catch (error) {
       if (error instanceof InvalidPageTokenError) {
-        return c.json({ error: { message: error.message } }, 400);
+        throw new HTTPException(400, { message: error.message, cause: error });
       }
       throw error;
     }
@@ -284,7 +288,7 @@ export function createSchedulesRouter<TTransaction>(deps: SchedulesRouterDeps<TT
       return c.json({ data: data.map(toWireScheduleRun), pagination }, 200);
     } catch (error) {
       if (error instanceof InvalidPageTokenError) {
-        return c.json({ error: { message: error.message } }, 400);
+        throw new HTTPException(400, { message: error.message, cause: error });
       }
       throw error;
     }
@@ -357,7 +361,7 @@ export function createSchedulesRouter<TTransaction>(deps: SchedulesRouterDeps<TT
       }
       const turnError = getTurnExecutionError(error);
       if (turnError) {
-        return c.json({ error: { message: turnError.message } }, turnError.status);
+        throw new HTTPException(turnError.status, { message: turnError.message, cause: error });
       }
       throw error;
     }

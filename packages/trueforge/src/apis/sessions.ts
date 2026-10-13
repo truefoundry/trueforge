@@ -19,6 +19,7 @@ import {
   type RequestReplyRouter,
 } from '@truefoundry/trueforge-core/request-reply';
 import type { Context } from 'hono';
+import { HTTPException } from 'hono/http-exception';
 import type { Logger } from 'winston';
 import { z } from 'zod';
 import type { Authorizer } from '../auth/authorizer';
@@ -27,6 +28,7 @@ import configuration from '../config';
 import type { IAgentStore } from '../db/agentStore';
 import type { IMcpServerStore } from '../db/mcpServerStore';
 import type { IModelProviderStore } from '../db/modelProviderStore';
+import type { ISandboxEnvironmentStore } from '../db/sandboxEnvironmentStore';
 import type { ISandboxProviderStore } from '../db/sandboxProviderStore';
 import type { IWebSearchProviderStore } from '../db/webSearchProviderStore';
 import {
@@ -82,6 +84,7 @@ export interface SessionsRouterDeps {
   resolveSkillStore: ResolveSkillStore;
   resolveAgentStore: (c: Context) => IAgentStore;
   resolveSandboxProviderStore: (c: Context) => ISandboxProviderStore;
+  sandboxEnvironmentStore: ISandboxEnvironmentStore;
   redis?: RedisClient | undefined;
   resolveWebSearchProviderStore: (c: Context) => IWebSearchProviderStore;
   requestReplyRouter: RequestReplyRouter;
@@ -239,6 +242,7 @@ type InternalSessionsRouterDeps = Pick<
   | 'resolveSkillStore'
   | 'resolveAgentStore'
   | 'resolveSandboxProviderStore'
+  | 'sandboxEnvironmentStore'
   | 'resolveWebSearchProviderStore'
   | 'resolveRequestContext'
   | 'authorizer'
@@ -288,10 +292,12 @@ function createGetOrCreateSessionByExternalIdHandler(
       await validateAgentSpec({
         spec: body.agent.spec,
         tenant_id: requestContext.tenant_id,
+        created_by_subject_id: requestContext.subject.id,
         modelProviderStore: deps.resolveModelProviderStore(c),
         mcpServerStore: deps.resolveMcpServerStore(c),
         skillStore: deps.resolveSkillStore(c),
         sandboxProviderStore: deps.resolveSandboxProviderStore(c),
+        sandboxEnvironmentStore: deps.sandboxEnvironmentStore,
         webSearchProviderStore: deps.resolveWebSearchProviderStore(c),
       });
       agent = { type: 'inline', spec: body.agent.spec };
@@ -361,10 +367,12 @@ export function createSessionsRouter(deps: SessionsRouterDeps) {
     await validateAgentSpec({
       spec: body.agent.spec,
       tenant_id: requestContext.tenant_id,
+      created_by_subject_id: requestContext.subject.id,
       modelProviderStore: deps.resolveModelProviderStore(c),
       mcpServerStore: deps.resolveMcpServerStore(c),
       skillStore: deps.resolveSkillStore(c),
       sandboxProviderStore: deps.resolveSandboxProviderStore(c),
+      sandboxEnvironmentStore: deps.sandboxEnvironmentStore,
       webSearchProviderStore: deps.resolveWebSearchProviderStore(c),
     });
     const session = await deps.sessions.create({
@@ -453,10 +461,12 @@ export function createSessionsRouter(deps: SessionsRouterDeps) {
       await validateAgentSpec({
         spec: body.agent.spec,
         tenant_id: requestContext.tenant_id,
+        created_by_subject_id: requestContext.subject.id,
         modelProviderStore: deps.resolveModelProviderStore(c),
         mcpServerStore: deps.resolveMcpServerStore(c),
         skillStore: deps.resolveSkillStore(c),
         sandboxProviderStore: deps.resolveSandboxProviderStore(c),
+        sandboxEnvironmentStore: deps.sandboxEnvironmentStore,
         webSearchProviderStore: deps.resolveWebSearchProviderStore(c),
       });
     }
@@ -474,7 +484,7 @@ export function createSessionsRouter(deps: SessionsRouterDeps) {
         return c.json({ error: { message: `Session not found: ${sessionId}` } }, 404);
       }
       if (error instanceof SessionStoreInvariantError) {
-        return c.json({ error: { message: error.message } }, 422);
+        throw new HTTPException(422, { message: error.message, cause: error });
       }
       throw error;
     }
@@ -518,7 +528,7 @@ export function createSessionsRouter(deps: SessionsRouterDeps) {
       return c.json({ data: data.map(toWireSession), pagination }, 200);
     } catch (error) {
       if (error instanceof SessionStoreConflictError) {
-        return c.json({ error: { message: error.message } }, 400);
+        throw new HTTPException(400, { message: error.message, cause: error });
       }
       throw error;
     }
@@ -582,7 +592,7 @@ export function createSessionsRouter(deps: SessionsRouterDeps) {
       return c.json({ data, pagination }, 200);
     } catch (error) {
       if (error instanceof SessionStoreConflictError) {
-        return c.json({ error: { message: error.message } }, 400);
+        throw new HTTPException(400, { message: error.message, cause: error });
       }
       if (error instanceof SessionStoreNotFoundError) {
         return c.json({ error: { message: error.message } }, 404);

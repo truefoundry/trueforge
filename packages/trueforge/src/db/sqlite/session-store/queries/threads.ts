@@ -6,10 +6,7 @@ import type {
   PatchSandboxInfoInput,
   RemoveThreadsInput,
 } from '@truefoundry/trueforge-core/agent-session/store/ISessionStore';
-import type {
-  ContextMessage,
-  SubAgentCompletionMarker,
-} from '@truefoundry/trueforge-core/core/runtime/AgentThread.types';
+import type { ContextMessage, SubAgentCompletion } from '@truefoundry/trueforge-core/core/runtime/AgentThread.types';
 import type { CurrentContextUsage } from '@truefoundry/trueforge-core/core/runtime/contextUsage';
 import { sql, type Kysely, type RawBuilder, type Transaction } from 'kysely';
 import { jsonbBind, jsonbSet, nowIso } from '../../sqlExpressions';
@@ -217,7 +214,7 @@ async function getNextPos(db: DbOrTrx, keys: TurnKeys, thread_id: string): Promi
   return (maxRow?.max_pos ?? 0) + 1;
 }
 
-function completionPatchExpr(completion: SubAgentCompletionMarker | null): RawBuilder<string> {
+function completionPatchExpr(completion: SubAgentCompletion | null): RawBuilder<string> {
   if (completion === null) {
     return sql`checkpoint`;
   }
@@ -239,7 +236,7 @@ async function fencedTurnThreadContextUpdate(
     context: ContextMessage[];
     replace_array: boolean;
     current_context_usage: CurrentContextUsage | null;
-    completion: SubAgentCompletionMarker | null;
+    completion: SubAgentCompletion | null;
     /** When replace_array, usage is set unconditionally (overwrite contract). */
     usage_unconditional: CurrentContextUsage | null;
   },

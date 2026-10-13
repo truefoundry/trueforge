@@ -6,6 +6,7 @@ import {
   McpServerNameConflictError,
   toStoredOAuthClientRecord,
   type CreateMcpServerInput,
+  type DeleteMcpServerInput,
   type GetMcpServerInput,
   type IMcpServerStore,
   type ListMcpServersInput,
@@ -121,6 +122,16 @@ export class PostgresMcpServerStore implements IMcpServerStore<Transaction<Datab
       .returningAll()
       .executeTakeFirstOrThrow();
     return toRecord(row);
+  }
+
+  async deleteServer(input: DeleteMcpServerInput, transaction?: Transaction<Database>): Promise<boolean> {
+    const db = transaction ?? this.#db;
+    const result = await db
+      .deleteFrom('mcp_server')
+      .where('tenant_id', '=', input.tenant_id)
+      .where('name', '=', input.name)
+      .executeTakeFirst();
+    return result.numDeletedRows > 0n;
   }
 
   async getClient(params: { id: string }, transaction?: Transaction<Database>): Promise<OAuthClientRecord | undefined> {

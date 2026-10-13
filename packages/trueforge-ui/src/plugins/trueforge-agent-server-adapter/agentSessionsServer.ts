@@ -39,6 +39,7 @@ function toSessionListEntry(session: TrueForgeApi.Session): HarnessSessionListEn
     ...(session.agent.type === 'inline' ? { agentSpec: toUiAgentSpec(session.agent.spec) } : {}),
     ...(session.source?.type === 'schedule' ? { sourceType: session.source.type } : {}),
     ...(session.createdBySubject == null ? {} : { createdBySubject: session.createdBySubject }),
+    ...(session.metadata != null && Object.keys(session.metadata).length > 0 ? { metadata: session.metadata } : {}),
   };
 }
 

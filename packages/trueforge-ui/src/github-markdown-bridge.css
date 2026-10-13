@@ -10,7 +10,8 @@
 .aui-theme-root[data-theme='dark'] .markdown-body {
   /*dark */
   color-scheme: dark;
-  --fgColor-accent: #4493f8;
+  /* Match SDK accent (indigo) instead of GitHub link blue. */
+  --fgColor-accent: var(--color-indigo-500);
   --bgColor-attention-muted: #bb800926;
   --bgColor-default: #0d1117;
   --bgColor-muted: #151b23;
@@ -102,7 +103,8 @@
   --color-prettylights-syntax-string-regexp: #116329;
   --color-prettylights-syntax-sublimelinter-gutter-mark: #818b98;
   --color-prettylights-syntax-variable: #953800;
-  --fgColor-accent: #0969da;
+  /* Match SDK accent (indigo) instead of GitHub link blue. */
+  --fgColor-accent: var(--color-indigo-500);
   --fgColor-attention: #9a6700;
   --fgColor-done: #8250df;
   --fgColor-muted: #59636e;

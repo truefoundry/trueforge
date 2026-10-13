@@ -4,6 +4,7 @@
 import { OpenAPIHono, type RouteHandler } from '@hono/zod-openapi';
 import { InvalidPageTokenError, type AgentSpec } from '@truefoundry/trueforge-core/agent-session';
 import type { Context } from 'hono';
+import { HTTPException } from 'hono/http-exception';
 import type { Authorizer } from '../auth/authorizer';
 import { createdBySubjectFromRequestContext, type ResolveRequestContext } from '../auth/identity';
 import configuration from '../config';
@@ -15,6 +16,7 @@ import {
 } from '../db/agentStore';
 import type { IMcpServerStore } from '../db/mcpServerStore';
 import type { IModelProviderStore } from '../db/modelProviderStore';
+import type { ISandboxEnvironmentStore } from '../db/sandboxEnvironmentStore';
 import type { ISandboxProviderStore } from '../db/sandboxProviderStore';
 import type { ISkillStore } from '../db/skillStore';
 import type { WithTransaction } from '../db/transaction';
@@ -39,6 +41,7 @@ export interface AgentsRouterDeps<TTransaction> {
   resolveMcpServerStore: (c: Context) => IMcpServerStore<TTransaction>;
   resolveSkillStore: ResolveSkillStore<TTransaction>;
   resolveSandboxProviderStore: (c: Context) => ISandboxProviderStore<TTransaction>;
+  sandboxEnvironmentStore: ISandboxEnvironmentStore<TTransaction>;
   resolveWebSearchProviderStore: (c: Context) => IWebSearchProviderStore<TTransaction>;
   withTransaction: WithTransaction<TTransaction>;
   resolveRequestContext: ResolveRequestContext;
@@ -62,24 +65,30 @@ async function validateManifest<TTransaction>({
   mcpServerStore,
   skillStore,
   sandboxProviderStore,
+  sandboxEnvironmentStore,
   webSearchProviderStore,
   tenant_id,
+  created_by_subject_id,
 }: {
   spec: AgentSpec;
   modelProviderStore: IModelProviderStore<TTransaction>;
   mcpServerStore: IMcpServerStore<TTransaction>;
   skillStore: ISkillStore<TTransaction>;
   sandboxProviderStore: ISandboxProviderStore<TTransaction>;
+  sandboxEnvironmentStore: ISandboxEnvironmentStore<TTransaction>;
   webSearchProviderStore: IWebSearchProviderStore<TTransaction>;
   tenant_id: string;
+  created_by_subject_id: string;
 }): Promise<AgentSpec> {
   await validateAgentSpec({
     spec,
     tenant_id,
+    created_by_subject_id,
     modelProviderStore,
     mcpServerStore,
     skillStore,
     sandboxProviderStore,
+    sandboxEnvironmentStore,
     webSearchProviderStore,
   });
   return spec;
@@ -102,7 +111,7 @@ export function createAgentsRouter<TTransaction>(deps: AgentsRouterDeps<TTransac
       return c.json({ data: data.map(toWireAgent), pagination }, 200);
     } catch (error) {
       if (error instanceof InvalidPageTokenError) {
-        return c.json({ error: { message: error.message } }, 400);
+        throw new HTTPException(400, { message: error.message, cause: error });
       }
       throw error;
     }
@@ -117,8 +126,10 @@ export function createAgentsRouter<TTransaction>(deps: AgentsRouterDeps<TTransac
       mcpServerStore: deps.resolveMcpServerStore(c),
       skillStore: deps.resolveSkillStore(c),
       sandboxProviderStore: deps.resolveSandboxProviderStore(c),
+      sandboxEnvironmentStore: deps.sandboxEnvironmentStore,
       webSearchProviderStore: deps.resolveWebSearchProviderStore(c),
       tenant_id: requestContext.tenant_id,
+      created_by_subject_id: requestContext.subject.id,
     });
     try {
       const record = await deps.resolveAgentStore(c).createAgent({
@@ -222,8 +233,10 @@ export function createAgentsRouter<TTransaction>(deps: AgentsRouterDeps<TTransac
       mcpServerStore: deps.resolveMcpServerStore(c),
       skillStore: deps.resolveSkillStore(c),
       sandboxProviderStore: deps.resolveSandboxProviderStore(c),
+      sandboxEnvironmentStore: deps.sandboxEnvironmentStore,
       webSearchProviderStore: deps.resolveWebSearchProviderStore(c),
       tenant_id: requestContext.tenant_id,
+      created_by_subject_id: requestContext.subject.id,
     });
     const record = await deps.resolveAgentStore(c).updateAgent({
       tenant_id: requestContext.tenant_id,

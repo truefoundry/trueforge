@@ -11,6 +11,8 @@ import {
 import { useTrueForgeRespondToToolApproval } from '@truefoundry/trueforge-assistant-ui-runtime';
 import { useCallback, useState } from 'react';
 
+import { useTrackAnalytics } from '../analytics/AnalyticsProvider.js';
+import { AnalyticsEvents } from '../analytics/events.js';
 import { useSlot } from '../theme/SlotsProvider.js';
 import {
   ASK_USER_TOOL_NAME,
@@ -22,7 +24,6 @@ import {
   getAskUserAnswerResult,
   getJsonDisplayValue,
   getToolResultContent,
-  hasPendingAskUserResponse,
   hasPendingToolApproval,
   mcpDisplayName,
   parseAskUserQuestionArgs,
@@ -36,6 +37,7 @@ import { useRegisterApprovalExpand } from './approvalFocus.js';
 import { AssistantTextContainer } from './AssistantTextContainer.js';
 import { NestedApprovalBridgeContext, useNestedApprovalBridge } from './nestedApprovalBridge.js';
 import { SandboxToolCallContainer } from './SandboxToolCallContainer.js';
+import { useSessionReplay } from './sessionReplayContext.js';
 import { ToolApprovalContainer } from './ToolApprovalContainer.js';
 import { ToolCallContentBlockContainer } from './ToolCallContentBlockContainer.js';
 
@@ -62,6 +64,8 @@ function NestedSubAgentAssistantMessage() {
 function ToolApprovalSlot({ part }: { part: ToolCallMessagePartProps }) {
   const isNestedReadonly = useNestedApprovalBridge();
   const respondToNestedApproval = useTrueForgeRespondToToolApproval();
+  // Fire here (not the bar atom) so nested + optionId/approved mapping stay correct.
+  const track = useTrackAnalytics();
 
   const respond = (response: ToolApprovalResponse) => {
     if (!isNestedReadonly) {
@@ -93,6 +97,16 @@ function ToolApprovalSlot({ part }: { part: ToolCallMessagePartProps }) {
   };
 
   const onSelectOption = (optionId: string, reason?: string) => {
+    const options = buildApprovalOptions(part.approval?.options);
+    const option = options.find(o => o.id === optionId);
+    const approved = optionId === '__allow' ? true : optionId === '__deny' ? false : option?.isAllow;
+    track(AnalyticsEvents.Tool.APPROVAL_RESOLVED, {
+      tool_name: part.toolName,
+      option_id: optionId,
+      approved,
+      has_reason: reason != null && reason.trim().length > 0,
+      nested: isNestedReadonly,
+    });
     if (optionId === '__allow') return respond({ approved: true });
     if (optionId === '__deny') return respond({ approved: false, reason });
     return respond({ optionId, reason });
@@ -138,6 +152,7 @@ export const ToolCallContainer: ToolCallMessagePartComponent = part => {
   const ToolCallCard = useSlot('ToolCallCard');
   const SubAgentCard = useSlot('SubAgentCard');
   const AskUserPrompt = useSlot('AskUserPrompt');
+  const isSessionReplay = useSessionReplay();
   const elapsedMs = useToolCallElapsed();
   const isRequiresAction = part.status?.type === 'requires-action';
   const isSubAgent = part.toolName === SUB_AGENT_TOOL_NAME;
@@ -158,27 +173,45 @@ export const ToolCallContainer: ToolCallMessagePartComponent = part => {
   useRegisterApprovalExpand(isSubAgent ? part.toolCallId : '', expandSubAgent);
 
   if (part.toolName === ASK_USER_TOOL_NAME) {
-    if (hasPendingAskUserResponse(part)) {
-      return null;
-    }
-    const answer = getAskUserAnswerResult(part.result);
-    if (answer == null) {
-      return null;
-    }
     const { question, options = [] } = parseAskUserQuestionArgs(part.argsText);
-    const isCustom = options.length > 0 && !options.includes(answer);
+    const answer = getAskUserAnswerResult(part.result);
+
+    if (answer != null) {
+      const isCustom = options.length > 0 && !options.includes(answer);
+      return (
+        <AskUserPrompt
+          questions={[]}
+          answeredQuestions={[
+            {
+              id: part.toolCallId,
+              question: question ?? 'Question',
+              options,
+              answer,
+              isCustom,
+            },
+          ]}
+          onSubmit={() => {}}
+          readOnly
+        />
+      );
+    }
+
+    // Live chat: hide until answered. Streaming parts have no interrupt yet;
+    // paused ones are owned by AskUserContainer in the composer.
+    if (!isSessionReplay) {
+      return null;
+    }
+
+    const unhandledQuestion = {
+      id: part.toolCallId,
+      question: question ?? 'Question',
+      options,
+    };
     return (
       <AskUserPrompt
-        questions={[]}
-        answeredQuestions={[
-          {
-            id: part.toolCallId,
-            question: question ?? 'Question',
-            options,
-            answer,
-            isCustom,
-          },
-        ]}
+        questions={[unhandledQuestion]}
+        currentQuestion={unhandledQuestion}
+        currentAnswer={{ radioValue: '', custom: '' }}
         onSubmit={() => {}}
         readOnly
       />

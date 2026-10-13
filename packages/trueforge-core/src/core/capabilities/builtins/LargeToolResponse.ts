@@ -2,7 +2,7 @@ import dedent from 'dedent';
 import type { Logger } from 'winston';
 import { estimateTokensForString } from '../../llm/usage';
 import type { ToolCallResult } from '../../mcp/executeToolCalls';
-import type { Sandbox, SandboxInfo } from '../../sandbox/Sandbox';
+import type { HarnessSandbox, SandboxInfo } from '../../sandbox/Sandbox';
 import { createSandboxLargeToolResponseGuidance, SANDBOX_SCHEMA_INFER_TAG } from '../../sandbox/Sandbox';
 import { extractErrorLogFields } from '../../util/errorLogFields';
 import type { AgentCapability } from '../AgentCapability';
@@ -24,7 +24,7 @@ interface ToolResultWithInfo {
   category: ResultCategory;
 }
 
-function categorize(result: ToolCallResult, sandbox: Sandbox | undefined): ResultCategory {
+function categorize(result: ToolCallResult, sandbox: HarnessSandbox | undefined): ResultCategory {
   if (result.failure) {
     return 'failure';
   }
@@ -70,7 +70,7 @@ export class LargeToolResponseProcessor implements ToolResponseProcessor {
     this.logger = param.logger.child({ module: 'LargeToolResponse' });
   }
 
-  private createLargeToolResponseGuidance(sandbox: Sandbox | undefined): string {
+  private createLargeToolResponseGuidance(sandbox: HarnessSandbox | undefined): string {
     const steps = ['Check if some parameter can be passed in order to reduce the output size.'];
 
     if (sandbox) {
@@ -106,7 +106,7 @@ export class LargeToolResponseProcessor implements ToolResponseProcessor {
     return `Content too large. Result saved to: ${filePath}.\n\n${guidance}\n\nPreview (first and last ${String(this.previewNumberOfCharacters)} chars):\n${preview}`;
   }
 
-  private buildResultsWithInfo(results: ToolCallResult[], sandbox: Sandbox | undefined): ToolResultWithInfo[] {
+  private buildResultsWithInfo(results: ToolCallResult[], sandbox: HarnessSandbox | undefined): ToolResultWithInfo[] {
     return results.map(toolCallResult => ({
       toolCallResult,
       originalContent: toolCallResult.message.content,
@@ -118,7 +118,7 @@ export class LargeToolResponseProcessor implements ToolResponseProcessor {
   private blockResult(
     entry: ToolResultWithInfo,
     pendingSandboxDumps: ToolResultWithInfo[],
-    sandbox: Sandbox | undefined,
+    sandbox: HarnessSandbox | undefined,
   ): number {
     const preview = createContentPreview(entry.originalContent, this.previewNumberOfCharacters);
 
@@ -146,7 +146,7 @@ export class LargeToolResponseProcessor implements ToolResponseProcessor {
   private async uploadToSandboxAndPrependFilePath(
     entry: ToolResultWithInfo,
     index: number,
-    sandbox: Sandbox,
+    sandbox: HarnessSandbox,
   ): Promise<SandboxInfo | undefined> {
     if (!entry.toolCallResult.info) {
       throw new Error(`Unreachable`);
@@ -170,7 +170,10 @@ export class LargeToolResponseProcessor implements ToolResponseProcessor {
     }
   }
 
-  private async executeSandboxDumps(entries: ToolResultWithInfo[], sandbox: Sandbox): Promise<SandboxInfo | undefined> {
+  private async executeSandboxDumps(
+    entries: ToolResultWithInfo[],
+    sandbox: HarnessSandbox,
+  ): Promise<SandboxInfo | undefined> {
     const results = await Promise.all(
       entries.map((entry, index) => this.uploadToSandboxAndPrependFilePath(entry, index, sandbox)),
     );

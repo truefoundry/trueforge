@@ -13,6 +13,7 @@ from .raw_client import AsyncRawInternalClient, RawInternalClient
 if typing.TYPE_CHECKING:
     from .agents.client import AgentsClient, AsyncAgentsClient
     from .metrics.client import AsyncMetricsClient, MetricsClient
+    from .sandbox_environments.client import AsyncSandboxEnvironmentsClient, SandboxEnvironmentsClient
     from .schedules.client import AsyncSchedulesClient, SchedulesClient
     from .sessions.client import AsyncSessionsClient, SessionsClient
 # this is used as the default value for optional parameters
@@ -24,6 +25,7 @@ class InternalClient:
         self._raw_client = RawInternalClient(client_wrapper=client_wrapper)
         self._client_wrapper = client_wrapper
         self._metrics: typing.Optional[MetricsClient] = None
+        self._sandbox_environments: typing.Optional[SandboxEnvironmentsClient] = None
         self._schedules: typing.Optional[SchedulesClient] = None
         self._sessions: typing.Optional[SessionsClient] = None
         self._agents: typing.Optional[AgentsClient] = None
@@ -91,6 +93,14 @@ class InternalClient:
         return self._metrics
 
     @property
+    def sandbox_environments(self):
+        if self._sandbox_environments is None:
+            from .sandbox_environments.client import SandboxEnvironmentsClient  # noqa: E402
+
+            self._sandbox_environments = SandboxEnvironmentsClient(client_wrapper=self._client_wrapper)
+        return self._sandbox_environments
+
+    @property
     def schedules(self):
         if self._schedules is None:
             from .schedules.client import SchedulesClient  # noqa: E402
@@ -120,6 +130,7 @@ class AsyncInternalClient:
         self._raw_client = AsyncRawInternalClient(client_wrapper=client_wrapper)
         self._client_wrapper = client_wrapper
         self._metrics: typing.Optional[AsyncMetricsClient] = None
+        self._sandbox_environments: typing.Optional[AsyncSandboxEnvironmentsClient] = None
         self._schedules: typing.Optional[AsyncSchedulesClient] = None
         self._sessions: typing.Optional[AsyncSessionsClient] = None
         self._agents: typing.Optional[AsyncAgentsClient] = None
@@ -193,6 +204,14 @@ class AsyncInternalClient:
 
             self._metrics = AsyncMetricsClient(client_wrapper=self._client_wrapper)
         return self._metrics
+
+    @property
+    def sandbox_environments(self):
+        if self._sandbox_environments is None:
+            from .sandbox_environments.client import AsyncSandboxEnvironmentsClient  # noqa: E402
+
+            self._sandbox_environments = AsyncSandboxEnvironmentsClient(client_wrapper=self._client_wrapper)
+        return self._sandbox_environments
 
     @property
     def schedules(self):

@@ -4,7 +4,6 @@
 import type {
   CodeModeTransport,
   ExecResult,
-  SandboxBuild,
   SandboxExecParams,
   SandboxProvider,
 } from '@truefoundry/trueforge-core/core';
@@ -223,6 +222,7 @@ export function localSandboxUploadCommand(remotePath: string): string {
 
 export class LocalSandboxProvider implements SandboxProvider {
   readonly type = 'local';
+  readonly envSupported = false;
   private readonly sandboxRootPathParent: string;
   private readonly codeModeSocketParentPath: string;
   private readonly support: LocalSandboxSupported;
@@ -231,12 +231,21 @@ export class LocalSandboxProvider implements SandboxProvider {
   private srtInitialized = false;
   private readonly logger: Logger;
 
-  /** Local SRT has no image build step — always ready. */
-  private static readonly readyBuild: SandboxBuild = {
-    status: 'ready',
-    reason: null,
-    metadata: null,
-  };
+  validateAccess(): Promise<void> {
+    return Promise.resolve();
+  }
+
+  createSecret(): Promise<{ id: string; name: string }> {
+    return Promise.reject(new Error('Local sandbox provider does not support org secrets'));
+  }
+
+  updateSecret(): Promise<void> {
+    return Promise.reject(new Error('Local sandbox provider does not support org secrets'));
+  }
+
+  deleteSecret(): Promise<void> {
+    return Promise.reject(new Error('Local sandbox provider does not support org secrets'));
+  }
 
   /**
    * Probe whether this host can run LocalSandboxProvider
@@ -459,14 +468,6 @@ export class LocalSandboxProvider implements SandboxProvider {
       'sys.stdout.write(base64.b64encode(open(p, "rb").read()).decode("ascii"))',
     ].join('\n');
     return this.pythonC(code, relPath);
-  }
-
-  buildImage(): Promise<SandboxBuild> {
-    return Promise.resolve(LocalSandboxProvider.readyBuild);
-  }
-
-  getImageBuildStatus(): Promise<SandboxBuild> {
-    return Promise.resolve(LocalSandboxProvider.readyBuild);
   }
 
   private async ensureSrt(): Promise<void> {

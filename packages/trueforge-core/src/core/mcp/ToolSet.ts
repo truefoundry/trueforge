@@ -1,6 +1,6 @@
 import type { CallToolRequest, ToolAnnotations } from '@modelcontextprotocol/sdk/types.js';
 import { McpConnectionError } from '../errors';
-import type { ApprovalDecision } from '../events/schema';
+import type { ApprovalDecision, ToolApprovalPolicyAction } from '../events/schema';
 import type { InternalToolCallInfo } from '../llm/LLMTypes';
 import {
   isAuthRequired,
@@ -26,23 +26,55 @@ export class ToolSet implements IToolSet {
   readonly hasPreloadedTools: boolean;
 
   private readonly source: ToolSource;
-  private readonly policy: ToolSelectorPolicy;
+  private readonly toolSelectorPolicy: ToolSelectorPolicy;
+  private readonly approvalPolicies = new Map<string, ToolApprovalPolicyAction>();
 
-  constructor(params: { source: ToolSource; selectors: ToolSelectorConfig; preload: boolean }) {
+  private static isPolicyApplicable(policy: ToolApprovalPolicyAction, asOf: Date): boolean {
+    return policy.expire_at === undefined || new Date(policy.expire_at).getTime() > asOf.getTime();
+  }
+
+  constructor(params: {
+    source: ToolSource;
+    selectors: ToolSelectorConfig;
+    preload: boolean;
+    approvalPolicies: Record<string, ToolApprovalPolicyAction> | undefined;
+  }) {
     this.source = params.source;
     this.name = params.source.name;
     this.id = params.source.id;
     this.description = params.source.description;
-    this.policy = new ToolSelectorPolicy({
+    this.toolSelectorPolicy = new ToolSelectorPolicy({
       selectors: params.selectors,
       preload: params.preload,
     });
-    this.preload = this.policy.preload;
-    this.hasPreloadedTools = this.policy.hasPreloadedTools;
+    this.preload = this.toolSelectorPolicy.preload;
+    this.hasPreloadedTools = this.toolSelectorPolicy.hasPreloadedTools;
+    // Drop already-expired policies carried forward from the previous snapshot so
+    // dead policies don't accumulate and get re-persisted turn after turn.
+    const asOf = new Date();
+    for (const [toolName, action] of Object.entries(params.approvalPolicies ?? {})) {
+      if (ToolSet.isPolicyApplicable(action, asOf)) {
+        this.approvalPolicies.set(toolName, action);
+      }
+    }
   }
 
   getAllowedToolNamesForSandbox(): string[] | undefined {
-    return this.policy.allowedNamesForSandbox();
+    return this.toolSelectorPolicy.allowedNamesForSandbox();
+  }
+
+  // Last write wins for a given tool.
+  setApprovalPolicy(toolName: string, action: ToolApprovalPolicyAction): void {
+    this.approvalPolicies.set(toolName, action);
+  }
+
+  getApprovalPolicies(): Record<string, ToolApprovalPolicyAction> {
+    return Object.fromEntries(this.approvalPolicies);
+  }
+
+  private hasApplicableApprovalPolicy(toolName: string): boolean {
+    const policy = this.approvalPolicies.get(toolName);
+    return policy !== undefined && ToolSet.isPolicyApplicable(policy, new Date());
   }
 
   async listTools(): Promise<ListToolsResponse> {
@@ -52,7 +84,7 @@ export class ToolSet implements IToolSet {
     }
 
     const tools = response.result.tools;
-    const missingTools = this.policy.missingEnableLiterals(tools);
+    const missingTools = this.toolSelectorPolicy.missingEnableLiterals(tools);
     if (missingTools.length > 0) {
       throw new McpConnectionError(
         `Requested tools not found in MCP server ${this.name}: ${missingTools.join(', ')}`,
@@ -61,7 +93,7 @@ export class ToolSet implements IToolSet {
     }
 
     return {
-      result: { tools: this.policy.filterAndAnnotate(tools) },
+      result: { tools: this.toolSelectorPolicy.filterAndAnnotate(tools) },
       wasInitialized: response.wasInitialized,
     };
   }
@@ -108,7 +140,7 @@ export class ToolSet implements IToolSet {
   }
 
   private async assertToolAllowed(toolName: string, annotations: ToolAnnotations | undefined): Promise<void> {
-    const allowed = await this.policy.isAllowed(toolName, () => Promise.resolve(annotations));
+    const allowed = await this.toolSelectorPolicy.isAllowed(toolName, () => Promise.resolve(annotations));
     if (!allowed) {
       throw new McpConnectionError(`Tool '${toolName}' is not allowed on MCP server ${this.name}`, 403);
     }
@@ -121,7 +153,9 @@ export class ToolSet implements IToolSet {
   ): Promise<InternalToolCallInfo> {
     return {
       ...(await this.source.toolCallInfo(params, resolveUnderlyingTool)),
-      is_approval_required: this.policy.requiresApproval(params.name, annotations),
+      is_approval_required:
+        this.toolSelectorPolicy.requiresApproval(params.name, annotations) &&
+        !this.hasApplicableApprovalPolicy(params.name),
     };
   }
 

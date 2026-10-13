@@ -1,9 +1,55 @@
 import { describe, expect, it } from 'vitest';
 
 import { ROOT_THREAD_ID } from '../src/constants.js';
-import { collectRequiredActionInputs, messageHasPendingRequiredActions } from '../src/requiredActionInputs.js';
+import {
+  collectRequiredActionInputs,
+  findCurrentPausedAssistantMessage,
+  messageHasPendingRequiredActions,
+} from '../src/requiredActionInputs.js';
 import { applyApprovalDecisionsToMessage, collectApprovalInputs } from '../src/toolApproval.js';
 import { applyToolResponseToMessage } from '../src/toolResponse.js';
+
+describe('findCurrentPausedAssistantMessage', () => {
+  const paused = {
+    id: 'paused',
+    role: 'assistant' as const,
+    content: [],
+    status: { type: 'requires-action' as const, reason: 'tool-calls' as const },
+    createdAt: new Date(),
+    metadata: {
+      unstable_state: null,
+      unstable_annotations: [],
+      unstable_data: [],
+      steps: [],
+      custom: {},
+    },
+  };
+
+  it('returns the current requires-action assistant', () => {
+    expect(findCurrentPausedAssistantMessage([paused])).toBe(paused);
+  });
+
+  it('skips a trailing non-paused assistant', () => {
+    const running = {
+      ...paused,
+      id: 'running',
+      status: { type: 'running' as const },
+    };
+    expect(findCurrentPausedAssistantMessage([paused, running])).toBe(paused);
+  });
+
+  it('returns undefined when a later user message abandoned the pause', () => {
+    const user = {
+      id: 'u1',
+      role: 'user' as const,
+      content: [{ type: 'text' as const, text: 'next' }],
+      attachments: [],
+      createdAt: new Date(),
+      metadata: { custom: {} },
+    };
+    expect(findCurrentPausedAssistantMessage([paused, user])).toBeUndefined();
+  });
+});
 
 describe('requiredActionInputs', () => {
   describe('batched resume invariant', () => {

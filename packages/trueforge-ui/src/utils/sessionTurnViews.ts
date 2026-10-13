@@ -4,9 +4,16 @@ type TurnCreatedEvent = Extract<SessionEventItem['event'], { type: 'turn.created
 type TurnDoneEvent = Extract<SessionEventItem['event'], { type: 'turn.done' }>;
 type TurnEvent = Exclude<SessionEventItem['event'], TurnCreatedEvent | TurnDoneEvent>;
 
+const MCP_AUTH_CONTINUE_INPUT = { type: 'user.mcp_auth_continue' } as const;
+
 export type SessionTurnView = {
   turnId: string;
+  /** Chronological index among every event turn (1..N). Unique; used for gap compression. */
+  eventTurnNumber: number;
+  /** Display band among renderable turns (1..R). */
   turnNumber: number;
+  /** True when the turn has user/continuation input worth its own transcript section. */
+  renderable: boolean;
   showHeader: boolean;
   created: TurnCreatedEvent;
   done?: TurnDoneEvent;
@@ -25,7 +32,12 @@ type TurnGroup = {
   events: TurnEvent[];
 };
 
-const RENDERABLE_INPUT_TYPES = new Set(['user.message', 'user.tool_approval', 'user.tool_response']);
+const RENDERABLE_INPUT_TYPES = new Set([
+  'user.message',
+  'user.tool_approval',
+  'user.tool_response',
+  'user.mcp_auth_continue',
+]);
 
 function timestampMs(createdAt: string): number {
   const value = Date.parse(createdAt);
@@ -40,6 +52,20 @@ function isRenderableTurn(created: TurnCreatedEvent): boolean {
     const type = Reflect.get(item, 'type');
     return typeof type === 'string' && RENDERABLE_INPUT_TYPES.has(type);
   });
+}
+
+function turnEndedWithMcpAuth(done: TurnDoneEvent | undefined): boolean {
+  if (done == null || done.state.status !== 'done') return false;
+  const actions = done.state.requiredActions;
+  if (!Array.isArray(actions)) return false;
+  return actions.some(action => action.type === 'mcp.auth_required');
+}
+
+/** Production MCP resumes often omit input; normalize so summary/projection helpers work. */
+function withMcpAuthContinueInput(created: TurnCreatedEvent): TurnCreatedEvent {
+  const input = created.input ?? [];
+  if (input.some(item => item.type === 'user.mcp_auth_continue')) return created;
+  return { ...created, input: [...input, MCP_AUTH_CONTINUE_INPUT] };
 }
 
 function readMetricNumber(metrics: object, camel: string, snake: string): number | undefined {
@@ -113,24 +139,29 @@ export function buildSessionTurnViews(itemsAsc: SessionEventItem[]): SessionTurn
     groupsByTurnId.set(turnId, group);
   }
 
-  // Number only renderable turns so cards and the timeline share one index.
+  // Include every turn.created (metrics need all turns). Empty-input MCP-auth
+  // resumes become their own transcript band via synthesized continue input.
   const groups = Array.from(groupsByTurnId.entries())
-    .flatMap(([turnId, group]) =>
-      group.created === undefined || !isRenderableTurn(group.created)
-        ? []
-        : [{ turnId, created: group.created, group }],
-    )
+    .flatMap(([turnId, group]) => (group.created === undefined ? [] : [{ turnId, created: group.created, group }]))
     .sort((left, right) => timestampMs(left.created.createdAt) - timestampMs(right.created.createdAt));
 
+  let renderableTurnNumber = 0;
   return groups.map(({ turnId, created, group }, index) => {
     const done = group.done;
+    const previousDone = index > 0 ? groups[index - 1]?.group.done : undefined;
+    const isMcpAuthResume = !isRenderableTurn(created) && turnEndedWithMcpAuth(previousDone);
+    const viewCreated = isMcpAuthResume ? withMcpAuthContinueInput(created) : created;
+    const renderable = isRenderableTurn(viewCreated);
+    if (renderable) renderableTurnNumber += 1;
     group.events.sort((left, right) => timestampMs(left.createdAt) - timestampMs(right.createdAt));
 
     return {
       turnId,
-      turnNumber: index + 1,
-      showHeader: true,
-      created,
+      eventTurnNumber: index + 1,
+      turnNumber: Math.max(1, renderableTurnNumber),
+      renderable,
+      showHeader: renderable,
+      created: viewCreated,
       ...(done === undefined
         ? {}
         : {
@@ -141,4 +172,64 @@ export function buildSessionTurnViews(itemsAsc: SessionEventItem[]): SessionTurn
       events: group.events,
     };
   });
+}
+
+/** Sum tokens/cost/duration for every event-turn that shares a display band. */
+export function aggregateSessionTurnBand(
+  turns: readonly SessionTurnView[],
+  turnNumber: number,
+): SessionTurnView | undefined {
+  const band = turns.filter(turn => turn.turnNumber === turnNumber);
+  const primary = band.find(turn => turn.renderable) ?? band[0];
+  if (primary == null) return undefined;
+
+  let totalTokens = 0;
+  let inputTokens = 0;
+  let outputTokens = 0;
+  let cachedTokens = 0;
+  let totalCostInUsd = 0;
+  let durationMs = 0;
+  let hasTokens = false;
+  let hasInput = false;
+  let hasOutput = false;
+  let hasCached = false;
+  let hasCost = false;
+  let hasDuration = false;
+
+  for (const turn of band) {
+    if (turn.totalTokens != null) {
+      totalTokens += turn.totalTokens;
+      hasTokens = true;
+    }
+    if (turn.inputTokens != null) {
+      inputTokens += turn.inputTokens;
+      hasInput = true;
+    }
+    if (turn.outputTokens != null) {
+      outputTokens += turn.outputTokens;
+      hasOutput = true;
+    }
+    if (turn.cachedTokens != null) {
+      cachedTokens += turn.cachedTokens;
+      hasCached = true;
+    }
+    if (turn.totalCostInUsd != null) {
+      totalCostInUsd += turn.totalCostInUsd;
+      hasCost = true;
+    }
+    if (turn.durationMs != null) {
+      durationMs += turn.durationMs;
+      hasDuration = true;
+    }
+  }
+
+  return {
+    ...primary,
+    ...(hasTokens ? { totalTokens } : {}),
+    ...(hasInput ? { inputTokens } : {}),
+    ...(hasOutput ? { outputTokens } : {}),
+    ...(hasCached ? { cachedTokens } : {}),
+    ...(hasCost ? { totalCostInUsd } : {}),
+    ...(hasDuration ? { durationMs } : {}),
+  };
 }

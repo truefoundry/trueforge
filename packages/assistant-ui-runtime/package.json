@@ -1,6 +1,6 @@
 {
   "name": "@truefoundry/trueforge-assistant-ui-runtime",
-  "version": "0.2.0-rc.0",
+  "version": "0.0.0",
   "description": "TrueForge agent runtime adapter for assistant-ui",
   "author": "TrueFoundry",
   "license": "Apache-2.0",
@@ -54,6 +54,7 @@
   "sideEffects": false,
   "scripts": {
     "build": "tsup",
+    "format": "prettier --write \"src/**/*.{ts,tsx}\" \"test/**/*.{ts,tsx}\" \"*.md\" --config ../../.prettierrc",
     "lint": "eslint src --fix --cache --cache-location ../../.eslintcache --cache-strategy content",
     "lint:ci": "eslint src --cache --cache-location ../../.eslintcache",
     "pack:dry": "pnpm build && pnpm pack --dry-run",

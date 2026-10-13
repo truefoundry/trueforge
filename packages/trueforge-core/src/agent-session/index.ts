@@ -21,8 +21,10 @@ export {
   TurnStatePausedSchema,
   TurnStateRunningSchema,
   TurnStateSchema,
+  isNonTerminalTurnState,
 } from './schemas/turn';
 export type {
+  NonTerminalTurnState,
   TerminalTurnState,
   Turn,
   TurnInboundEventItem,
@@ -104,7 +106,8 @@ export type {
   TurnContextAppend,
   TurnRecordWithoutSnapshot,
   UpdateSessionInput,
-  UpdateTurnStateInput,
+  UpdateTurnNonTerminalStateInput,
+  UpdateTurnTerminalStateInput,
 } from './store/ISessionStore';
 export {
   InvalidPageTokenError,

@@ -14,6 +14,7 @@ export type RoutePlace =
   | { type: 'libraryAgent'; agentId: string }
   | { type: 'sessionsBrowser' }
   | { type: 'schedules' }
+  | { type: 'environments' }
   | { type: 'buildAgent' };
 
 /**
@@ -35,6 +36,8 @@ export type RoutesConfig = {
     libraryAgent?: string | false;
     /** Schedules page. `false` keeps schedules overlay-only (no URL). Default `'/schedules'`. */
     schedules?: string | false;
+    /** Environments page. `false` keeps environments overlay-only (no URL). Default `'/environments'`. */
+    environments?: string | false;
     /** Agent builder. `false` disables its dedicated URL. Default `'/build-agent'`. */
     buildAgent?: string | false;
     /** Immutable "Try" agent. `false` disables. Default `'/agents/:agentName'`. */
@@ -56,6 +59,7 @@ export type ResolvedRoutes = {
   library: string | null;
   libraryAgent: string | null;
   schedules: string | null;
+  environments: string | null;
   buildAgent: string | null;
   agent: string | null;
   session: string | null;
@@ -71,6 +75,7 @@ export type ShellSnapshot = {
   sharedSessionId: string | null;
   libraryAgentId: string | null;
   schedulesOpen: boolean;
+  environmentsOpen: boolean;
   pendingSessionId?: string;
   /** Remote id of the active thread once a fresh chat is persisted. */
   activeRemoteId?: string;

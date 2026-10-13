@@ -125,28 +125,47 @@ function stringifyError(error: unknown): string {
   return String(error);
 }
 
+/** Browser fetch failures that are useless as UI copy when a fallback exists. */
+const BROWSER_NETWORK_NOISE = new Set([
+  'failed to fetch',
+  'load failed',
+  'networkerror when attempting to fetch resource.',
+]);
+
+function isBrowserNetworkNoise(message: string): boolean {
+  return BROWSER_NETWORK_NOISE.has(message.trim().toLowerCase());
+}
+
+function preferFallbackForNetworkNoise(message: string, fallback: string | undefined): string {
+  if (fallback != null && isBrowserNetworkNoise(message)) {
+    return decodeErrorMessageEscapes(fallback);
+  }
+  return decodeErrorMessageEscapes(message);
+}
+
 /**
  * User-facing error text. Prefers HTTP body `{ error: { message } }` when
  * present (e.g. TrueForgeError), then `error.message` / `error.error.message`,
  * then `fallback`, then a string form of the value.
  *
- * Escape sequences (`\n`, `\t`, `\r`, `\uXXXX`, …) are decoded for display when
- * still present as literal text.
+ * Browser network noise (`Failed to fetch`, etc.) yields `fallback` when one
+ * is provided. Escape sequences (`\n`, `\t`, `\r`, `\uXXXX`, …) are decoded for
+ * display when still present as literal text.
  */
 export function getErrorMessage(error: unknown, fallback?: string): string {
   if (typeof error === 'string') {
     const trimmed = error.trim();
-    if (trimmed !== '') return decodeErrorMessageEscapes(error);
+    if (trimmed !== '') return preferFallbackForNetworkNoise(error, fallback);
     return fallback != null ? decodeErrorMessageEscapes(fallback) : decodeErrorMessageEscapes(error);
   }
 
   if (isRecord(error) && 'body' in error) {
     const fromBody = messageFromErrorShaped(error.body);
-    if (fromBody != null) return decodeErrorMessageEscapes(fromBody);
+    if (fromBody != null) return preferFallbackForNetworkNoise(fromBody, fallback);
     if (error.body != null) {
       if (typeof error.body === 'string') {
         const trimmed = error.body.trim();
-        if (trimmed !== '') return decodeErrorMessageEscapes(error.body);
+        if (trimmed !== '') return preferFallbackForNetworkNoise(error.body, fallback);
       } else {
         return stringifyError(error.body);
       }
@@ -154,7 +173,7 @@ export function getErrorMessage(error: unknown, fallback?: string): string {
   }
 
   const fromShape = messageFromErrorShaped(error);
-  if (fromShape != null) return decodeErrorMessageEscapes(fromShape);
+  if (fromShape != null) return preferFallbackForNetworkNoise(fromShape, fallback);
 
   if (fallback != null) return decodeErrorMessageEscapes(fallback);
   return stringifyError(error);

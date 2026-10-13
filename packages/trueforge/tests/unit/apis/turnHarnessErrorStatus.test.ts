@@ -3,6 +3,7 @@ import type { Sessions } from '@truefoundry/trueforge-core/agent-session';
 import { AgentHarnessError } from '@truefoundry/trueforge-core/core';
 import { createLogger } from 'winston';
 import { createTurnsRouter } from '../../../src/apis/turns';
+import { createAppErrorHandler } from '../../../src/app';
 import { TrueForgeAuthorizer } from '../../../src/auth/authorizer';
 import { STANDALONE_REQUEST_CONTEXT } from '../../../src/auth/identity';
 import { McpServerWithAuthStore } from '../../../src/db/McpServerWithAuthStore';
@@ -11,6 +12,7 @@ import { SqliteAgentStore } from '../../../src/db/sqlite/agent-store/SqliteAgent
 import { createSqliteDb } from '../../../src/db/sqlite/client';
 import { SqliteMcpServerStore } from '../../../src/db/sqlite/mcp-server-store/SqliteMcpServerStore';
 import { SqliteModelProviderStore } from '../../../src/db/sqlite/model-provider-store/SqliteModelProviderStore';
+import { SqliteSandboxEnvironmentStore } from '../../../src/db/sqlite/sandbox-environment-store/SqliteSandboxEnvironmentStore';
 import { SqliteSandboxProviderStore } from '../../../src/db/sqlite/sandbox-provider-store/SqliteSandboxProviderStore';
 import { SqliteSessionStore } from '../../../src/db/sqlite/session-store/SqliteSessionStore';
 import { SqliteSkillStore } from '../../../src/db/sqlite/skill-store/SqliteSkillStore';
@@ -62,7 +64,7 @@ async function postTurnRejectingWith(error: AgentHarnessError): Promise<Response
   } as unknown as Sessions;
 
   const app = new OpenAPIHono();
-  app.onError((_error, c) => c.json({ error: { message: 'Internal server error' } }, 500));
+  app.onError(createAppErrorHandler({ logger: createLogger({ silent: true }) }));
   app.route(
     '/',
     createTurnsRouter({
@@ -80,6 +82,7 @@ async function postTurnRejectingWith(error: AgentHarnessError): Promise<Response
       resolveAgentStore: () => new SqliteAgentStore(db),
       eventSubscriptions: new EventSubscriptionRegistry(undefined),
       resolveSandboxProviderStore: () => new SqliteSandboxProviderStore(db),
+      sandboxEnvironmentStore: new SqliteSandboxEnvironmentStore(db),
       resolveWebSearchProviderStore: () => new SqliteWebSearchProviderStore(db),
       logger: createLogger({ silent: true }),
       resolveRequestContext: () => STANDALONE_REQUEST_CONTEXT,

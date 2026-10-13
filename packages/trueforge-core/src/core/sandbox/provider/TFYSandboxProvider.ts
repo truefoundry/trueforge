@@ -18,7 +18,6 @@ import { absolutizeRelativeExecEnv } from './execEnv';
 import {
   shellEscape,
   type ExecResult,
-  type SandboxBuild,
   type SandboxExecParams,
   type SandboxFileInfo,
   type SandboxProvider,
@@ -64,6 +63,7 @@ interface StatResult {
 
 export class TFYSandboxProvider implements SandboxProvider {
   readonly type = 'truefoundry';
+  readonly envSupported = false;
   private readonly serverUrl: string;
   private readonly natsBridgeUrl: string;
   private readonly tenantName: string;
@@ -82,25 +82,26 @@ export class TFYSandboxProvider implements SandboxProvider {
     this.logger = options.logger.child({ module: 'TFYSandboxProvider' });
   }
 
-  // TFY sandboxes run a prebuilt server image with no per-image build step, so the image is always ready.
-  private static readonly readyBuild: SandboxBuild = {
-    status: 'ready',
-    reason: null,
-    metadata: null,
-  };
-
-  buildImage(): Promise<SandboxBuild> {
-    return Promise.resolve(TFYSandboxProvider.readyBuild);
-  }
-
-  getImageBuildStatus(): Promise<SandboxBuild> {
-    return Promise.resolve(TFYSandboxProvider.readyBuild);
+  validateAccess(): Promise<void> {
+    return Promise.resolve();
   }
 
   createSandbox(): Promise<{ sandboxId: string }> {
     const sandboxId = `${this.tenantName}.${randomUUID()}`;
     this.logger.debug(`Sandbox created: id=${sandboxId}`);
     return Promise.resolve({ sandboxId });
+  }
+
+  createSecret(): Promise<{ id: string; name: string }> {
+    return Promise.reject(new Error('TrueFoundry sandbox provider does not support org secrets'));
+  }
+
+  updateSecret(): Promise<void> {
+    return Promise.reject(new Error('TrueFoundry sandbox provider does not support org secrets'));
+  }
+
+  deleteSecret(): Promise<void> {
+    return Promise.reject(new Error('TrueFoundry sandbox provider does not support org secrets'));
   }
 
   /**

@@ -23,10 +23,12 @@ import {
   isFileContentPart,
   McpConnectionError,
   newEventId,
+  PromiseTimeoutError,
   rawSandboxId,
   redisKey,
   SandboxError,
   VercelAILLM,
+  withTimeout,
 } from '@truefoundry/trueforge-core/core';
 import type { Context } from 'hono';
 import { HTTPException } from 'hono/http-exception';
@@ -38,6 +40,7 @@ import configuration from '../config';
 import type { AgentRecord, IAgentStore } from '../db/agentStore';
 import type { IMcpServerWithAuthStore } from '../db/mcpServerStore';
 import type { IModelProviderStore } from '../db/modelProviderStore';
+import type { ISandboxEnvironmentStore } from '../db/sandboxEnvironmentStore';
 import type { ISandboxProviderStore } from '../db/sandboxProviderStore';
 import type { ISkillStore } from '../db/skillStore';
 import type { TurnMetadata } from '../db/turnMetadata';
@@ -58,9 +61,10 @@ import {
   buildTurnSandbox,
   getMcpConnection,
   getModelDetails,
+  resolveSandboxEnvironment,
   resolveSandboxProvider,
 } from '../runtime/sessionResources';
-import { checkSnapshotStatus } from '../sandbox/providerUtils';
+import { DEFAULT_SANDBOX_ENVIRONMENT_NAME } from '../schemas/sandboxEnvironment';
 import { MAX_SESSION_TITLE_LENGTH } from '../schemas/session';
 import { assertGatewayMetadataRequestHeaders } from '../truefoundry/gatewayMetadata';
 import { newId } from '../utils/id';
@@ -120,6 +124,7 @@ export interface TurnsRouterDeps {
   /** Resumable live turn-event transport: create-turn writes, subscribe polls. */
   eventSubscriptions: EventSubscriptionRegistry<TurnStreamingEvent>;
   resolveSandboxProviderStore: (c: Context) => ISandboxProviderStore;
+  sandboxEnvironmentStore: ISandboxEnvironmentStore;
   resolveWebSearchProviderStore: (c: Context) => IWebSearchProviderStore;
   logger: Logger;
   resolveRequestContext: ResolveRequestContext;
@@ -131,7 +136,10 @@ export interface TurnsRouterDeps {
  * stores; callers must resolve them from the request context (e.g. schedule `resolveTurnDeps(c, agent)`)
  * so TrueFoundry mode stays token-bound for models, MCP, and skills.
  */
-export type BeginTurnExecutionDeps = Pick<TurnsRouterDeps, 'activeTurns' | 'eventSubscriptions' | 'logger'> & {
+export type BeginTurnExecutionDeps = Pick<
+  TurnsRouterDeps,
+  'activeTurns' | 'eventSubscriptions' | 'logger' | 'sandboxEnvironmentStore'
+> & {
   agentStore: IAgentStore;
   modelProviderStore: IModelProviderStore;
   mcpServerStore: IMcpServerWithAuthStore;
@@ -158,6 +166,7 @@ function createTurnResolver(deps: {
   mcpServerStore: IMcpServerWithAuthStore;
   skillStore: Pick<ISkillStore, 'resolveTurnSkills'>;
   sandboxProviderStore: ISandboxProviderStore;
+  sandboxEnvironmentStore: ISandboxEnvironmentStore;
   agentStore: IAgentStore;
   modelProviderStore: IModelProviderStore;
   webSearchProvider: IWebSearchProvider | undefined;
@@ -171,6 +180,7 @@ function createTurnResolver(deps: {
     mcpServerStore,
     skillStore,
     sandboxProviderStore,
+    sandboxEnvironmentStore,
     agentStore,
     modelProviderStore,
     webSearchProvider,
@@ -234,24 +244,6 @@ function createTurnResolver(deps: {
           message: 'no sandbox provider configured — PUT /settings/sandbox-providers',
         });
       }
-      const carriedSandboxId = existingSandboxIdForProvider({
-        existingSandboxId,
-        currentProviderType: provider.type,
-      });
-      // A fresh Daytona sandbox is cloned from the release snapshot, so the build must be ready first.
-      // Restoring an existing sandbox goes through daytona.get and never touches the snapshot.
-      // Local fallback has no image build.
-      if (carriedSandboxId === undefined && provider.type !== 'local') {
-        const status = await checkSnapshotStatus({ store: sandboxProviderStore, tenant_id, logger });
-        if (status?.status !== 'ready') {
-          throw new HTTPException(422, {
-            message:
-              status?.status === 'failed'
-                ? `sandbox image build failed (${status.status_reason ?? 'unknown error'})`
-                : 'sandbox image is activating — retry shortly',
-          });
-        }
-      }
       const skills = spec.skills ?? [];
       const mountSkills =
         skills.length === 0
@@ -260,13 +252,34 @@ function createTurnResolver(deps: {
               tenant_id,
               skills,
             });
-      return buildTurnSandbox({
-        provider,
+      const carriedSandboxId = existingSandboxIdForProvider({
+        existingSandboxId,
+        currentProviderType: provider.type,
+      });
+      const turnSandboxBase = {
         logger,
         skills: mountSkills,
         fileDownloadEnabled: spec.config.sandbox.file_downloads,
         existingSandboxId: carriedSandboxId,
         tracing,
+      };
+      // Env-capable providers (Daytona): resolve env. Others skip (no snapshot concept).
+      if (provider.envSupported) {
+        const environment = await resolveSandboxEnvironment({
+          tenant_id,
+          name: spec.config.sandbox.environment_name ?? DEFAULT_SANDBOX_ENVIRONMENT_NAME,
+          sandboxEnvironmentStore,
+          optional: spec.config.sandbox.environment_name === undefined,
+        });
+        return buildTurnSandbox({
+          provider,
+          ...(environment !== undefined ? { environment } : {}),
+          ...turnSandboxBase,
+        });
+      }
+      return buildTurnSandbox({
+        provider,
+        ...turnSandboxBase,
       });
     },
     agent: async agentId => {
@@ -279,6 +292,27 @@ function createTurnResolver(deps: {
     webSearchProvider,
     logger,
   });
+}
+
+/** Grapheme segmentation for title truncation (locale-independent per UAX #29). */
+const titleSegmenter = new Intl.Segmenter(undefined, { granularity: 'grapheme' });
+
+/**
+ * Caps a title at {@link MAX_SESSION_TITLE_LENGTH} UTF-16 units without splitting a
+ * grapheme cluster: clusters that would cross the cap (emoji with skin tones or
+ * ZWJ sequences, which read as one unit but span several) are dropped whole.
+ */
+function truncateSessionTitle(title: string): string {
+  let truncated = '';
+  let length = 0;
+  for (const { segment } of titleSegmenter.segment(title)) {
+    if (length + segment.length > MAX_SESSION_TITLE_LENGTH) {
+      break;
+    }
+    truncated += segment;
+    length += segment.length;
+  }
+  return truncated;
 }
 
 /**
@@ -304,7 +338,13 @@ export function deriveSessionTitle(input: TurnInputItem[] | undefined): string |
   if (!trimmed) {
     return undefined;
   }
-  return trimmed.slice(0, MAX_SESSION_TITLE_LENGTH);
+  const title = truncateSessionTitle(trimmed);
+  // A single cluster longer than the cap truncates to nothing; treat it as no usable title
+  // so the store keeps the title unset instead of persisting a blank first-write-wins value.
+  if (!title) {
+    return undefined;
+  }
+  return title;
 }
 
 /**
@@ -414,6 +454,7 @@ export async function beginTurnExecution(
     mcpServerStore: deps.mcpServerStore,
     skillStore: deps.skillStore,
     sandboxProviderStore: deps.sandboxProviderStore,
+    sandboxEnvironmentStore: deps.sandboxEnvironmentStore,
     agentStore: deps.agentStore,
     modelProviderStore: deps.modelProviderStore,
     webSearchProvider,
@@ -595,7 +636,7 @@ export function createTurnsRouter(deps: TurnsRouterDeps) {
       return c.json({ data: data.map(toWireTurn), pagination }, 200);
     } catch (error) {
       if (error instanceof SessionStoreConflictError) {
-        return c.json({ error: { message: error.message } }, 400);
+        throw new HTTPException(400, { message: error.message, cause: error });
       }
       throw error;
     }
@@ -687,7 +728,7 @@ export function createTurnsRouter(deps: TurnsRouterDeps) {
     } catch (error) {
       // Every guard and the provider itself raise SandboxError, whose statusCode is the contract.
       if (error instanceof SandboxError) {
-        return c.json({ error: { message: error.message } }, error.statusCode);
+        throw new HTTPException(error.statusCode, { message: error.message, cause: error });
       }
       deps.logger.error('Sandbox file download failed', {
         ...extractErrorLogFields(error),
@@ -735,7 +776,7 @@ export function createTurnsRouter(deps: TurnsRouterDeps) {
       return c.json({ data, pagination }, 200);
     } catch (error) {
       if (error instanceof SessionStoreConflictError) {
-        return c.json({ error: { message: error.message } }, 400);
+        throw new HTTPException(400, { message: error.message, cause: error });
       }
       throw error;
     }
@@ -796,6 +837,7 @@ export function createTurnsRouter(deps: TurnsRouterDeps) {
         skillStore: deps.resolveSkillStore(c),
         agentStore: deps.resolveAgentStore(c),
         sandboxProviderStore: deps.resolveSandboxProviderStore(c),
+        sandboxEnvironmentStore: deps.sandboxEnvironmentStore,
         webSearchProviderStore: deps.resolveWebSearchProviderStore(c),
       },
     };
@@ -807,32 +849,46 @@ export function createTurnsRouter(deps: TurnsRouterDeps) {
         return c.json({ data: toWireTurn(turn.record) }, 200);
       }
 
-      // Stream: same engine; HTTP handler owns writing each event to SSE.
+      // Stream: same engine; a hung SSE write is timed out so drain/dual-write continue.
       const { drainInput } = await beginTurnExecution(turnParams);
       let shouldWriteToSSEStream = true;
       return streamSSE(c, async stream => {
         stream.onAbort(() => {
           shouldWriteToSSEStream = false;
+          deps.logger.info('Create-turn SSE client disconnected, continuing drain without writing', {
+            sessionId,
+            turnId: drainInput.turnId,
+          });
         });
         await drainTurnEvents({
           ...drainInput,
           onEvent: async (event, sequenceNumber) => {
             if (!stream.closed && !stream.aborted && shouldWriteToSSEStream) {
               try {
-                await stream.writeSSE(turnEventSsePayload(event, sequenceNumber));
+                await withTimeout(
+                  stream.writeSSE(turnEventSsePayload(event, sequenceNumber)),
+                  configuration.TURN_SSE_STREAM_WRITE_TIMEOUT_MS,
+                );
               } catch (error) {
-                deps.logger.error('SSE stream write error', extractErrorLogFields(error));
+                if (error instanceof PromiseTimeoutError) {
+                  deps.logger.error('SSE stream write timed out', extractErrorLogFields(error));
+                } else {
+                  deps.logger.error('SSE stream write error', extractErrorLogFields(error));
+                }
                 shouldWriteToSSEStream = false;
               }
             }
           },
         });
+        if (!shouldWriteToSSEStream && !stream.closed) {
+          stream.abort();
+        }
         await stream.close();
       });
     } catch (error) {
       const turnError = getTurnExecutionError(error);
       if (turnError) {
-        return c.json({ error: { message: turnError.message } }, turnError.status);
+        throw new HTTPException(turnError.status, { message: turnError.message, cause: error });
       }
       throw error;
     }

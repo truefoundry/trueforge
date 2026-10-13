@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useRef, useState } from 'react';
+import { useState } from 'react';
 
 import { useMCPAuth } from '../../hooks/useMcpAuth.js';
 import { Icon } from '../../icons/Icon.js';
@@ -29,19 +29,16 @@ import {
   approvedToolNames,
   DEFAULT_APPROVAL_SELECTORS,
   namedToolRequiresApproval,
-  sameSelectors,
 } from './mcpToolApprovals.js';
 import {
+  MCP_TOOL_SECTION_APPROVAL_ALL_LABELS,
   MCP_TOOL_SECTION_ENABLE_ALL_LABELS,
   MCP_TOOL_SECTION_LABELS,
   MCP_TOOL_SECTION_ORDER,
   partitionMcpToolsBySection,
   type McpToolSectionId,
 } from './mcpToolSections.js';
-import { TOOL_TAG_DESTRUCTIVE, TOOL_TAG_WRITE, toolMatchesSelectors } from './mcpToolSelectors.js';
-
-/** Pre-change harness default; still present on mounts materialized before approval became destructive-only. */
-const LEGACY_APPROVAL_SELECTORS = [TOOL_TAG_WRITE, TOOL_TAG_DESTRUCTIVE] as const;
+import { toolMatchesSelectors } from './mcpToolSelectors.js';
 
 export type AgentMcpEditorContentProps = {
   spec: AgentSpec;
@@ -239,33 +236,6 @@ export function AgentMcpEditorContent({
       mcpServers: mcpMounts.map(item => (item.id === mountId ? value : item.value)),
     });
   };
-
-  // Specs saved under the old default still carry `@write`+`@destructive`. Rewrite once tools are
-  // known so Other tools show (and run) without approval unless the user opts in.
-  const migratedLegacyApprovalRef = useRef(new Set<string>());
-  useEffect(() => {
-    if (!activeMount || tools.length === 0) return;
-    if (migratedLegacyApprovalRef.current.has(activeMount.id)) return;
-    const selectors = approvalSelectorsFromMount(activeMount.value);
-    if (!sameSelectors(selectors, LEGACY_APPROVAL_SELECTORS)) {
-      migratedLegacyApprovalRef.current.add(activeMount.id);
-      return;
-    }
-    migratedLegacyApprovalRef.current.add(activeMount.id);
-    const enabled = enabledToolsFromMount(activeMount.value);
-    const names = enabled === 'all' ? tools.map(tool => tool.name) : enabled;
-    onChange({
-      ...spec,
-      mcpServers: mcpMounts.map(item =>
-        item.id === activeMount.id
-          ? withApprovalSelectors(
-              activeMount.value,
-              approvalSelectorsAfterEnabling({ tools, selectors, newlyEnabledNames: names }),
-            )
-          : item.value,
-      ),
-    });
-  }, [activeMount, tools, mcpMounts, onChange, spec]);
 
   const removeMount = (mountId: string) => {
     onChange({
@@ -541,6 +511,10 @@ export function AgentMcpEditorContent({
                           : sectionNames.filter(name => enabledTools.includes(name));
                       const sectionApproved =
                         sectionEnabledNames.length > 0 && sectionEnabledNames.every(name => approvedNames.has(name));
+                      const approvalAllLabel =
+                        sectionId === 'others' || sectionId === 'destructive'
+                          ? MCP_TOOL_SECTION_APPROVAL_ALL_LABELS[sectionId]
+                          : undefined;
                       return (
                         <div key={sectionId} className="mb-3">
                           {showSectionHeader ? (
@@ -554,7 +528,7 @@ export function AgentMcpEditorContent({
                                 {MCP_TOOL_SECTION_LABELS[sectionId]}
                               </p>
                               <div className="flex shrink-0 items-center gap-3">
-                                {sectionId !== 'destructive' || sectionEnabledNames.length === 0 ? null : (
+                                {approvalAllLabel === undefined || sectionEnabledNames.length === 0 ? null : (
                                   <label className="text-text-secondary flex shrink-0 cursor-pointer items-center gap-2 text-xs">
                                     Approval required
                                     <Switch
@@ -562,7 +536,7 @@ export function AgentMcpEditorContent({
                                       onCheckedChange={required =>
                                         setToolsApproval({ toolNames: sectionEnabledNames, required })
                                       }
-                                      aria-label="Require approval for all destructive tools"
+                                      aria-label={approvalAllLabel}
                                     />
                                   </label>
                                 )}

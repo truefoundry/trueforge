@@ -1,7 +1,5 @@
 import type { SessionHandle, Sessions, TurnInputItem } from '@truefoundry/trueforge-core/agent-session';
-import { TrueForge } from '@truefoundry/trueforge-sdk';
 import type { Logger } from 'winston';
-import configuration from '../config';
 import type { AgentRecord, IAgentStore } from '../db/agentStore';
 import {
   cronRunName,
@@ -10,11 +8,11 @@ import {
   type ScheduleRunRecord,
 } from '../db/scheduleStore';
 import type { WithTransaction } from '../db/transaction';
-import { createTlsFetch, normalizeTlsUrl } from '../http/tls';
 import { nextTriggerAfter } from '../runtime/cron';
 import { InvalidCronError, type ScheduleRunStatus } from '../schemas/schedule';
 import { captureCriticalException } from '../sentry';
 import type { ControlLoop } from './Controller';
+import { internalTrueForgeClient } from './internalTrueForgeClient';
 
 /**
  * Rows examined per pass.
@@ -43,22 +41,6 @@ const SCHEDULE_DISPATCH_INTERVAL_MS = 60_000;
 const SCHEDULE_DISPATCH_LOOP_NAME = 'schedule-dispatch';
 
 export type ScheduleRunExecutor = (scheduleRunId: string) => Promise<void>;
-
-/** HTTP handoff to `POST /api/internal/schedules/runs/execute` (dedicated controller or standalone loopback). */
-export function createHttpScheduleRunExecutor(): ScheduleRunExecutor {
-  const tls = {
-    enabled: configuration.MTLS_ENABLED,
-    dir: configuration.MTLS_CERTS_DIR,
-  };
-  const tlsFetch = createTlsFetch(tls);
-  const client = new TrueForge({
-    baseUrl: normalizeTlsUrl({ url: configuration.SERVER_URL, enabled: tls.enabled }),
-    token: configuration.TRUEFORGE_API_KEY,
-    timeoutInSeconds: 60,
-    ...(tlsFetch === undefined ? {} : { fetch: tlsFetch }),
-  });
-  return scheduleRunId => client.internal.schedules.executeRun({ scheduleRunId });
-}
 
 /** Schedule's bound agent name is missing from the agent store. */
 export class ScheduleAgentNotFoundError extends Error {
@@ -358,14 +340,13 @@ export function scheduleDispatchLoop<TTransaction>(params: {
   withTransaction: WithTransaction<TTransaction>;
 }): ControlLoop {
   const { scheduleStore, withTransaction, logger } = params;
-  const executeRun = createHttpScheduleRunExecutor();
   return {
     name: SCHEDULE_DISPATCH_LOOP_NAME,
     intervalMs: SCHEDULE_DISPATCH_INTERVAL_MS,
     async tick(signal: AbortSignal): Promise<void> {
       const result = await dispatchScheduledRuns({
         store: scheduleStore,
-        onTriggered: item => executeRun(item.run.id),
+        onTriggered: item => internalTrueForgeClient.executeScheduleRun(item.run.id),
         logger,
         withTransaction,
         signal,

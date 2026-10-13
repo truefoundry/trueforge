@@ -4,6 +4,7 @@ import { AssistantRuntimeProvider, useExternalStoreRuntime, type ThreadMessageLi
 import type { ReactNode } from 'react';
 
 import { SlotsProvider, type SlotOverrides } from '../theme/SlotsProvider.js';
+import { SessionReplayContext } from './sessionReplayContext.js';
 
 /** Read-only assistant-ui runtime for one turn's projected messages. */
 export function ReadOnlySessionTurnRuntime({
@@ -22,7 +23,11 @@ export function ReadOnlySessionTurnRuntime({
     onNew: async () => {},
   });
 
-  const tree = <AssistantRuntimeProvider runtime={runtime}>{children}</AssistantRuntimeProvider>;
+  const tree = (
+    <SessionReplayContext.Provider value={true}>
+      <AssistantRuntimeProvider runtime={runtime}>{children}</AssistantRuntimeProvider>
+    </SessionReplayContext.Provider>
+  );
   if (slotOverrides == null) {
     return tree;
   }

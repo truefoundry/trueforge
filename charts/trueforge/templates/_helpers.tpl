@@ -143,7 +143,10 @@ Service account name.
 Container image reference; tag falls back to the chart appVersion.
 */}}
 {{- define "trueforge.image" -}}
-{{- printf "%s:%s" .Values.image.repository (.Values.image.tag | default .Chart.AppVersion) }}
+{{- $globalImage := .Values.global.image | default dict -}}
+{{- $registry := .Values.image.registry | default ($globalImage.registry | default "tfy.jfrog.io") -}}
+{{- $tag := .Values.image.tag | default .Chart.AppVersion -}}
+{{- printf "%s/%s:%s" $registry .Values.image.repository $tag -}}
 {{- end }}
 
 {{/*
@@ -251,14 +254,16 @@ chart's global.resourceTier.
 {{- end }}
 
 {{/*
-Server replica count. An explicit server.replicaCount wins; otherwise the
-resource tier decides (small=1, medium=2, large=3), falling back to 1 when no
-tier is set.
+Server replica count. An explicit server.replicaCount wins (including 0 to
+scale down); otherwise the resource tier decides (small=1, medium=2, large=3),
+falling back to 1 when no tier is set. Use kindIs so integer 0 is not treated
+as unset (if/with treat 0 as falsy).
 */}}
 {{- define "trueforge.replicas" -}}
 {{- $tier := include "trueforge.resourceTier" . | trim -}}
-{{- if .Values.server.replicaCount -}}
-{{- .Values.server.replicaCount -}}
+{{- $count := .Values.server.replicaCount -}}
+{{- if or (kindIs "int" $count) (kindIs "int64" $count) (kindIs "float64" $count) -}}
+{{- $count | int -}}
 {{- else if eq $tier "small" -}}
 1
 {{- else if eq $tier "medium" -}}
@@ -665,10 +670,13 @@ Scheduling and pull secrets. A parent chart's global.* is the base; the chart's
 own value wins. Tolerations append rather than replace.
 */}}
 {{- define "trueforge.imagePullSecrets" -}}
-{{- $secrets := .Values.imagePullSecrets | default (.Values.global.imagePullSecrets | default list) -}}
-{{- with $secrets }}
-{{- toYaml . }}
-{{- end }}
+{{- if .Values.imagePullSecrets -}}
+{{- toYaml .Values.imagePullSecrets -}}
+{{- else if .Values.global.imagePullSecrets -}}
+{{- toYaml .Values.global.imagePullSecrets -}}
+{{- else if .Values.global.truefoundryImagePullConfigJSON -}}
+- name: truefoundry-image-pull-secret
+{{- end -}}
 {{- end }}
 
 {{- define "trueforge.nodeSelector" -}}
