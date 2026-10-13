@@ -21,10 +21,10 @@ function Trigger({ errors }: { errors: unknown[] }) {
   );
 }
 
-function renderToaster(ui: ReactNode, track?: ReturnType<typeof vi.fn>) {
+function renderToaster(ui: ReactNode) {
   return render(
     <SlotsProvider>
-      <AnalyticsProvider track={track}>
+      <AnalyticsProvider>
         <ToasterProvider>{ui}</ToasterProvider>
       </AnalyticsProvider>
     </SlotsProvider>,
