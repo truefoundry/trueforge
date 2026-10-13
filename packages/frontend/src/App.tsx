@@ -42,14 +42,6 @@ function initAnalytics(): void {
 
 initAnalytics();
 
-const hostAnalytics: AnalyticsConfig | undefined = POSTHOG_API_KEY
-  ? {
-      track: (eventName, data) => {
-        posthog.capture(eventName, data);
-      },
-    }
-  : undefined;
-
 /** Shared cookie/OIDC fetch for boot helpers and `<TrueForgeUI server />`. */
 const authAwareFetch = createAuthAwareFetch();
 // UI + API share the public prefix from `window.__TRUEFORGE_BASE_PATH__`.
@@ -182,6 +174,21 @@ export function App() {
     () => ({ ShellActionsActionSlot: LogoutButton, WelcomeScreen: NewAgentWelcomeScreen }),
     [],
   );
+
+  const hostAnalytics = useMemo((): AnalyticsConfig | undefined => {
+    if (!POSTHOG_API_KEY || session.status !== 'authenticated') {
+      return undefined;
+    }
+    const { tenantId } = session;
+    return {
+      track: (eventName, data) => {
+        posthog.capture(eventName, {
+          tenant: tenantId,
+          ...data,
+        });
+      },
+    };
+  }, [session]);
 
   const authErrorReason = shouldShowAuthErrorScreen({ authError, session });
   if (authErrorReason != null) {
