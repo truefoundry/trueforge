@@ -18,29 +18,37 @@ export async function up<TDatabase>(db: Kysely<TDatabase>): Promise<void> {
       jsonb_build_object('name', resolved.model_name),
       true
     )
-    FROM session s
-    LEFT JOIN agent a
-      ON a.tenant_id = s.tenant_id
-     AND a.id = s.agent_id
-    CROSS JOIN LATERAL (
-      SELECT COALESCE(
-        (
-          SELECT tc.event #>> '{agent_info,model}'
-          FROM session_event tc
-          WHERE tc.session_id = e.session_id
-            AND tc.event->>'type' = 'thread.created'
-            AND tc.event->>'thread_id' = e.event->>'thread_id'
-          LIMIT 1
-        ),
-        s.agent_spec #>> '{model,name}',
-        a.manifest #>> '{model,name}'
-      ) AS model_name
+    FROM (
+      SELECT
+        se.session_id,
+        se.turn_id,
+        se.event_id,
+        COALESCE(
+          (
+            SELECT tc.event #>> '{agent_info,model}'
+            FROM session_event tc
+            WHERE tc.session_id = se.session_id
+              AND tc.event->>'type' = 'thread.created'
+              AND tc.event->>'thread_id' = se.event->>'thread_id'
+            LIMIT 1
+          ),
+          s.agent_spec #>> '{model,name}',
+          a.manifest #>> '{model,name}'
+        ) AS model_name
+      FROM session_event se
+      JOIN session s
+        ON s.session_id = se.session_id
+      LEFT JOIN agent a
+        ON a.tenant_id = s.tenant_id
+       AND a.id = s.agent_id
+      WHERE s.last_turn_id IS NOT NULL
+        AND se.turn_id = s.last_turn_id
+        AND se.event->>'type' = 'model.message'
+        AND se.event->'model' IS NULL
     ) resolved
-    WHERE e.session_id = s.session_id
-      AND s.last_turn_id IS NOT NULL
-      AND e.turn_id = s.last_turn_id
-      AND e.event->>'type' = 'model.message'
-      AND e.event->'model' IS NULL
+    WHERE e.session_id = resolved.session_id
+      AND e.turn_id = resolved.turn_id
+      AND e.event_id = resolved.event_id
       AND resolved.model_name IS NOT NULL
   `.execute(db);
 
@@ -52,29 +60,35 @@ export async function up<TDatabase>(db: Kysely<TDatabase>): Promise<void> {
       jsonb_build_object('name', resolved.model_name),
       true
     )
-    FROM session s
-    LEFT JOIN agent a
-      ON a.tenant_id = s.tenant_id
-     AND a.id = s.agent_id
-    CROSS JOIN LATERAL (
-      SELECT COALESCE(
-        (
-          SELECT tc.event #>> '{agent_info,model}'
-          FROM session_event tc
-          WHERE tc.session_id = t.session_id
-            AND tc.event->>'type' = 'thread.created'
-            AND tc.event->>'thread_id' = t.state->'output'->>'thread_id'
-          LIMIT 1
-        ),
-        s.agent_spec #>> '{model,name}',
-        a.manifest #>> '{model,name}'
-      ) AS model_name
+    FROM (
+      SELECT
+        tu.session_id,
+        tu.turn_id,
+        COALESCE(
+          (
+            SELECT tc.event #>> '{agent_info,model}'
+            FROM session_event tc
+            WHERE tc.session_id = tu.session_id
+              AND tc.event->>'type' = 'thread.created'
+              AND tc.event->>'thread_id' = tu.state->'output'->>'thread_id'
+            LIMIT 1
+          ),
+          s.agent_spec #>> '{model,name}',
+          a.manifest #>> '{model,name}'
+        ) AS model_name
+      FROM turn tu
+      JOIN session s
+        ON s.session_id = tu.session_id
+      LEFT JOIN agent a
+        ON a.tenant_id = s.tenant_id
+       AND a.id = s.agent_id
+      WHERE s.last_turn_id IS NOT NULL
+        AND tu.turn_id = s.last_turn_id
+        AND tu.state->'output'->>'type' = 'model.message'
+        AND tu.state->'output'->'model' IS NULL
     ) resolved
-    WHERE t.session_id = s.session_id
-      AND s.last_turn_id IS NOT NULL
-      AND t.turn_id = s.last_turn_id
-      AND t.state->'output'->>'type' = 'model.message'
-      AND t.state->'output'->'model' IS NULL
+    WHERE t.session_id = resolved.session_id
+      AND t.turn_id = resolved.turn_id
       AND resolved.model_name IS NOT NULL
   `.execute(db);
 }
