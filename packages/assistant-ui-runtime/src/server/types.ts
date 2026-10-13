@@ -267,7 +267,12 @@ export interface UserToolResponseEvent {
   content: string;
 }
 
-export type TurnInputItem = UserMessage | UserToolApprovalEvent | UserToolResponseEvent;
+/** Client resume after mcp.auth_required (OAuth completed). */
+export interface UserMcpAuthContinueEvent {
+  type: 'user.mcp_auth_continue';
+}
+
+export type TurnInputItem = UserMessage | UserToolApprovalEvent | UserToolResponseEvent | UserMcpAuthContinueEvent;
 
 export interface TurnStateRunning {
   status: 'running';
@@ -936,6 +941,8 @@ export interface SessionListEntry<TSpec extends AgentSpec = AgentSpec> {
   agentName?: string | null;
   /** Present when bound to a mutable / draft agent spec. */
   agentSpec?: TSpec;
+  /** Session creator; omitted when the host does not track creators. */
+  createdBySubject?: CreatedBySubject;
   /** Arbitrary caller key-value metadata strings. */
   metadata?: Record<string, string>;
 }
@@ -1113,6 +1120,8 @@ export type ListSandboxEnvironmentsParams = Pick<PageParams, 'limit' | 'pageToke
 export interface SandboxEnvironmentServer<TEnvironment extends SandboxEnvironment = SandboxEnvironment> {
   listEnvironments(req?: ListSandboxEnvironmentsParams): Promise<ListResult<TEnvironment>>;
   getEnvironment(req: { name: string }): Promise<TEnvironment>;
+  /** Create only — fails if `manifest.name` is already taken. */
+  createEnvironment(req: { manifest: SandboxEnvironmentManifest }): Promise<TEnvironment>;
   createOrUpdateEnvironment(req: { manifest: SandboxEnvironmentManifest }): Promise<TEnvironment>;
   deleteEnvironment(req: { name: string }): Promise<void>;
 }

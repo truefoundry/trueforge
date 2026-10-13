@@ -8,19 +8,21 @@
 import type { TokenPagination } from '@truefoundry/trueforge-core/agent-session';
 import { encodeOffsetPageToken } from '@truefoundry/trueforge-core/agent-session/store/OffsetPageToken';
 import { createLogger } from 'winston';
-import type {
-  DeleteSandboxEnvironmentInput,
-  GetSandboxEnvironmentInput,
-  GetSandboxEnvironmentVersionInput,
-  ISandboxEnvironmentStore,
-  ListSandboxEnvironmentsInput,
-  MarkSandboxEnvironmentVersionFailedInput,
-  MarkSandboxEnvironmentVersionReadyInput,
-  SandboxEnvironmentSecretRecord,
-  SandboxEnvironmentVersionForProgress,
-  SandboxEnvironmentVersionRecord,
-  SandboxEnvironmentWithVersion,
-  UpsertSandboxEnvironmentInput,
+import {
+  SandboxEnvironmentNameConflictError,
+  type CreateSandboxEnvironmentInput,
+  type DeleteSandboxEnvironmentInput,
+  type GetSandboxEnvironmentInput,
+  type GetSandboxEnvironmentVersionInput,
+  type ISandboxEnvironmentStore,
+  type ListSandboxEnvironmentsInput,
+  type MarkSandboxEnvironmentVersionFailedInput,
+  type MarkSandboxEnvironmentVersionReadyInput,
+  type SandboxEnvironmentSecretRecord,
+  type SandboxEnvironmentVersionForProgress,
+  type SandboxEnvironmentVersionRecord,
+  type SandboxEnvironmentWithVersion,
+  type UpsertSandboxEnvironmentInput,
 } from '../db/sandboxEnvironmentStore';
 import { DEFAULT_SANDBOX_ENVIRONMENT_NAME } from '../schemas/sandboxEnvironment';
 import { trueFoundryManaged } from './errors';
@@ -120,6 +122,23 @@ export class TrueFoundrySandboxEnvironmentStore<
       return Promise.resolve(synthesizeTrueFoundryDefaultSandboxEnvironment(input.tenant_id));
     }
     return this.#persistence.getActiveEnvironment(input, transaction);
+  }
+
+  createEnvironment(
+    input: CreateSandboxEnvironmentInput,
+    transaction?: TTransaction,
+  ): Promise<SandboxEnvironmentWithVersion> {
+    if (!this.#envSupported) {
+      logger.info('Skipping sandbox environment create (provider does not support environments)', {
+        name: input.name,
+        tenant_id: input.tenant_id,
+      });
+      return trueFoundryManaged();
+    }
+    if (input.name === DEFAULT_SANDBOX_ENVIRONMENT_NAME) {
+      return Promise.reject(new SandboxEnvironmentNameConflictError({ tenant_id: input.tenant_id, name: input.name }));
+    }
+    return this.#persistence.createEnvironment(input, transaction);
   }
 
   upsertEnvironment(

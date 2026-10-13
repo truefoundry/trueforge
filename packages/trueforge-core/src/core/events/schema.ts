@@ -10,6 +10,7 @@ import {
   LLMToolMessageSchema,
   LLMUserMessageSchema,
 } from '../llm/LLMTypes';
+import { ModelSchema } from '../llm/model';
 import { CurrentContextUsageSchema } from '../runtime/contextUsage';
 
 /**
@@ -239,6 +240,8 @@ export const ModelMessageEventSchema = EnrichedAssistantMessageSchema.omit({ rol
       .describe('Model finish reason; null when the provider omitted it.'),
     created_at: z.string().describe('ISO 8601 event timestamp.'),
     usage: ModelMessageUsageSchema.optional(),
+    // Optional: legacy rows may lack model when the session agent FQN cannot be backfilled.
+    model: ModelSchema.optional(),
   })
   .openapi('ModelMessageEvent');
 

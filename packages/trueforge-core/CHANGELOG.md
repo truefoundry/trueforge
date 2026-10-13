@@ -1,5 +1,28 @@
 # @truefoundry/trueforge-core
 
+## 0.178.0
+
+### Patch Changes
+
+- 8b6c4bf: Raise the default model HTTP body timeout to 60s and shorten the default MCP request timeout to 2 minutes.
+- 8c24138: Raise the default agent `config.iteration_limit` from 100 to 512.
+- b6a7781: Raise the default model HTTP headers timeout to 60 seconds so slow first-token responses are not dropped.
+- 06884d0: Raise the default model HTTP headers and body timeouts to 2 minutes so slow first-token and idle stream responses are not dropped.
+
+## 0.178.0-rc.2
+
+### Patch Changes
+
+- 06884d0: Raise the default model HTTP headers and body timeouts to 2 minutes so slow first-token and idle stream responses are not dropped.
+
+## 0.178.0-rc.1
+
+### Patch Changes
+
+- 8b6c4bf: Raise the default model HTTP body timeout to 60s and shorten the default MCP request timeout to 2 minutes.
+- 8c24138: Raise the default agent `config.iteration_limit` from 100 to 512.
+- b6a7781: Raise the default model HTTP headers timeout to 60 seconds so slow first-token responses are not dropped.
+
 ## 0.177.0
 
 ### Patch Changes

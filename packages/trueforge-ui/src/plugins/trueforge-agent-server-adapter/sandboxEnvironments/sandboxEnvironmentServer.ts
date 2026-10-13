@@ -145,6 +145,13 @@ export function createSandboxEnvironmentServer(options: { client: TrueForge }): 
       return toUiEnvironment(data);
     },
 
+    async createEnvironment({ manifest }): Promise<SandboxEnvironment> {
+      const { data } = await client.sandboxEnvironments.create({
+        manifest: toWireManifest(manifest),
+      });
+      return toUiEnvironment(data);
+    },
+
     async createOrUpdateEnvironment({ manifest }): Promise<SandboxEnvironment> {
       const { data } = await client.sandboxEnvironments.createOrUpdate({
         manifest: toWireManifest(manifest),

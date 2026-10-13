@@ -22,6 +22,7 @@ import {
   parseStoredSandboxEnvironmentManifest,
   SandboxEnvironmentNameConflictError,
   SandboxEnvironmentVersionConflictError,
+  type CreateSandboxEnvironmentInput,
   type DeleteSandboxEnvironmentInput,
   type GetSandboxEnvironmentInput,
   type GetSandboxEnvironmentVersionInput,
@@ -374,20 +375,33 @@ export class SqliteSandboxEnvironmentStore implements ISandboxEnvironmentStore<T
     };
   }
 
+  async createEnvironment(
+    input: CreateSandboxEnvironmentInput,
+    transaction?: Transaction<Database>,
+  ): Promise<SandboxEnvironmentWithVersion> {
+    if (transaction) {
+      return this.#writeEnvironment(input, transaction, { mode: 'create' });
+    }
+    return this.#db.transaction().execute(db => this.#writeEnvironment(input, db, { mode: 'create' }));
+  }
+
   async upsertEnvironment(
     input: UpsertSandboxEnvironmentInput,
     transaction?: Transaction<Database>,
   ): Promise<SandboxEnvironmentWithVersion> {
     if (transaction) {
-      return this.#upsertEnvironment(input, transaction);
+      return this.#writeEnvironment(input, transaction, { mode: 'upsert' });
     }
-    return this.#db.transaction().execute(db => this.#upsertEnvironment(input, db));
+    return this.#db.transaction().execute(db => this.#writeEnvironment(input, db, { mode: 'upsert' }));
   }
 
-  async #upsertEnvironment(
+  async #writeEnvironment(
     input: UpsertSandboxEnvironmentInput,
     db: Transaction<Database>,
+    options: { mode: 'create' | 'upsert' },
   ): Promise<SandboxEnvironmentWithVersion> {
+    // `"default"` is tenant-wide (no owner filter); public CRUD rejects that name in the request schema.
+    // Store still allows it so ensureDefaultSandboxEnvironment can upsert the system tip.
     const isDefault = input.name === DEFAULT_SANDBOX_ENVIRONMENT_NAME;
     let environmentQuery = db
       .selectFrom('sandbox_environment')
@@ -413,6 +427,10 @@ export class SqliteSandboxEnvironmentStore implements ISandboxEnvironmentStore<T
       );
     }
     const environmentRow = await environmentQuery.executeTakeFirst();
+
+    if (environmentRow && options.mode === 'create') {
+      throw new SandboxEnvironmentNameConflictError({ tenant_id: input.tenant_id, name: input.name });
+    }
 
     if (!environmentRow) {
       const environment_id = newId();

@@ -280,7 +280,7 @@ export function EnvironmentFormFields({
               <span className="text-xs text-text-secondary">
                 Synced immediately with existing sandboxes.{' '}
                 <a
-                  href="https://trueforge.dev/introduction"
+                  href="https://trueforge.dev/sandbox#how-changes-reach-a-running-session"
                   target="_blank"
                   rel="noreferrer"
                   className="text-primary-button-bg inline-flex items-center gap-1 hover:underline"

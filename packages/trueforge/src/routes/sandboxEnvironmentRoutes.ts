@@ -6,6 +6,7 @@ import { createRoute, z } from '@hono/zod-openapi';
 import { NameSchema, PAGE_LIMIT } from '../schemas/common';
 import { RequestErrorResponseSchema } from '../schemas/errors';
 import {
+  CreateSandboxEnvironmentRequestSchema,
   DeleteSandboxEnvironmentResponseSchema,
   GetSandboxEnvironmentResponseSchema,
   ListSandboxEnvironmentsResponseSchema,
@@ -90,6 +91,49 @@ export const getSandboxEnvironmentRoute = createRoute({
   },
 });
 
+export const createSandboxEnvironmentRoute = createRoute({
+  method: 'post',
+  path: '/',
+  tags: [OpenApiTag.SANDBOXES],
+  summary: 'Create a sandbox environment',
+  description:
+    'Creates by `manifest.name`. Fails if the name is already taken. Requires a configured sandbox provider.',
+  'x-fern-sdk-group-name': ['sandboxEnvironments'],
+  'x-fern-sdk-method-name': 'create',
+  request: {
+    body: {
+      content: { 'application/json': { schema: CreateSandboxEnvironmentRequestSchema } },
+      required: true,
+    },
+  },
+  responses: {
+    201: {
+      content: { 'application/json': { schema: GetSandboxEnvironmentResponseSchema } },
+      description: 'The created sandbox environment.',
+    },
+    400: {
+      content: { 'application/json': { schema: RequestErrorResponseSchema } },
+      description: 'Invalid request body, resource allocation, or missing secret value.',
+    },
+    401: {
+      content: { 'application/json': { schema: RequestErrorResponseSchema } },
+      description: 'Unauthenticated.',
+    },
+    409: {
+      content: { 'application/json': { schema: RequestErrorResponseSchema } },
+      description: 'A sandbox environment with this name already exists.',
+    },
+    422: {
+      content: { 'application/json': { schema: RequestErrorResponseSchema } },
+      description: 'Sandbox provider is missing, credentials are invalid, or rejected the secret.',
+    },
+    502: {
+      content: { 'application/json': { schema: RequestErrorResponseSchema } },
+      description: 'Sandbox provider secret synchronization failed.',
+    },
+  },
+});
+
 export const putSandboxEnvironmentRoute = createRoute({
   method: 'put',
   path: '/',
@@ -111,7 +155,7 @@ export const putSandboxEnvironmentRoute = createRoute({
     },
     400: {
       content: { 'application/json': { schema: RequestErrorResponseSchema } },
-      description: 'Invalid request body, or missing secret value.',
+      description: 'Invalid request body, resource allocation, or missing secret value.',
     },
     401: {
       content: { 'application/json': { schema: RequestErrorResponseSchema } },
@@ -123,7 +167,7 @@ export const putSandboxEnvironmentRoute = createRoute({
     },
     422: {
       content: { 'application/json': { schema: RequestErrorResponseSchema } },
-      description: 'Sandbox provider is missing or its credentials are invalid.',
+      description: 'Sandbox provider is missing, credentials are invalid, or rejected the secret.',
     },
     502: {
       content: { 'application/json': { schema: RequestErrorResponseSchema } },
@@ -162,7 +206,7 @@ export const deleteSandboxEnvironmentRoute = createRoute({
     },
     422: {
       content: { 'application/json': { schema: RequestErrorResponseSchema } },
-      description: 'Sandbox provider is missing or its credentials are invalid.',
+      description: 'Sandbox provider is missing, credentials are invalid, or rejected secret deletion.',
     },
     502: {
       content: { 'application/json': { schema: RequestErrorResponseSchema } },

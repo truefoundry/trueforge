@@ -8,7 +8,13 @@ export type SessionMetricBarDatum = {
 };
 
 export type SessionMetrics = {
+  /** Tip-lineage turn count from loaded events. */
   totalTurns: number;
+  /**
+   * Session-level turn total from getSession when it exceeds the tip lineage
+   * (edit/retry abandoned branches). Omitted when equal or unavailable.
+   */
+  sessionTotalTurns?: number;
   wallTimeMs: number;
   totalCostUsd?: number;
   totalTokens: number;
@@ -23,8 +29,9 @@ export type SessionMetrics = {
   toolCallFrequency: SessionMetricBarDatum[];
 };
 
-/** Optional getSession overrides for wall time and cost only — turn count always comes from events. */
+/** Optional getSession overrides — lineage turn count always comes from events. */
 export type SessionMetricsHint = {
+  totalTurns?: number;
   totalCostInUsd?: number;
   totalDurationMs: number;
 };
@@ -113,7 +120,7 @@ export function buildSessionMetrics({
   const waitingTimeMs = segments
     .filter(segment => segment.type === 'waiting_on_human' || segment.type === 'approval')
     .reduce((sum, segment) => sum + segmentDurationMs(segment), 0);
-  // Detail session metrics may override wall time and cost; turn count is always from events.
+  // Detail session metrics may override wall time and cost; lineage turn count is always from events.
   const wallTimeMs = sessionMetrics != null ? sessionMetrics.totalDurationMs : derivedWallTimeMs;
   const overheadTimeMs = Math.max(0, wallTimeMs - modelTimeMs - toolTimeMs - waitingTimeMs);
 
@@ -131,8 +138,16 @@ export function buildSessionMetrics({
   const totalCostUsd =
     sessionMetrics != null ? sessionMetrics.totalCostInUsd : hasDerivedCost ? derivedCostUsd : undefined;
 
+  const lineageTurns = turns.length;
+  const hintTotalTurns = sessionMetrics?.totalTurns;
+  const sessionTotalTurns =
+    hintTotalTurns != null && Number.isFinite(hintTotalTurns) && hintTotalTurns > lineageTurns
+      ? hintTotalTurns
+      : undefined;
+
   return {
-    totalTurns: turns.length,
+    totalTurns: lineageTurns,
+    ...(sessionTotalTurns == null ? {} : { sessionTotalTurns }),
     wallTimeMs,
     ...(totalCostUsd == null ? {} : { totalCostUsd }),
     totalTokens,

@@ -83,6 +83,30 @@ describe('AgentSessionMetricsStrip', () => {
       expect(tooltip!.className).toMatch(/pointer-events-auto/);
     },
   );
+
+  it('shows lineage / session total with explanation when session total exceeds lineage', () => {
+    render(<AgentSessionMetricsStrip metrics={{ ...metrics, totalTurns: 2, sessionTotalTurns: 4 }} />);
+    const turnsTile = document.querySelector('[data-slot="session-metric-turns"]');
+    expect(turnsTile).not.toBeNull();
+    expect(turnsTile).toHaveTextContent('2');
+    expect(turnsTile).toHaveTextContent('/ 4');
+    expect(screen.getByTestId('icon-circle-exclamation')).toBeInTheDocument();
+    expect(screen.queryByText('7')).not.toBeInTheDocument();
+
+    fireEvent.mouseEnter(turnsTile!);
+    const tooltip = document.querySelector('[role="tooltip"]');
+    expect(tooltip).not.toBeNull();
+    expect(tooltip).toHaveTextContent(
+      'Some turns in this session were edited or retried. Showing only the latest lineage of the session',
+    );
+  });
+
+  it('omits lineage split and warning when session total matches lineage', () => {
+    render(<AgentSessionMetricsStrip metrics={{ ...metrics, totalTurns: 2, sessionTotalTurns: undefined }} />);
+    expect(screen.getByText('2')).toBeInTheDocument();
+    expect(screen.queryByText('/ 2')).not.toBeInTheDocument();
+    expect(screen.queryByTestId('icon-circle-exclamation')).not.toBeInTheDocument();
+  });
 });
 
 describe('CostBreakdownRows', () => {

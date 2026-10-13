@@ -149,6 +149,7 @@ if typing.TYPE_CHECKING:
     from .model_message_event import ModelMessageEvent
     from .model_message_event_content import ModelMessageEventContent
     from .model_message_event_content_one_item import ModelMessageEventContentOneItem
+    from .model_message_event_model import ModelMessageEventModel
     from .model_message_usage import ModelMessageUsage
     from .model_message_usage_input_tokens_breakdown import ModelMessageUsageInputTokensBreakdown
     from .model_params import ModelParams
@@ -419,6 +420,7 @@ _dynamic_imports: typing.Dict[str, str] = {
     "ModelMessageEvent": ".model_message_event",
     "ModelMessageEventContent": ".model_message_event_content",
     "ModelMessageEventContentOneItem": ".model_message_event_content_one_item",
+    "ModelMessageEventModel": ".model_message_event_model",
     "ModelMessageUsage": ".model_message_usage",
     "ModelMessageUsageInputTokensBreakdown": ".model_message_usage_input_tokens_breakdown",
     "ModelParams": ".model_params",
@@ -713,6 +715,7 @@ __all__ = [
     "ModelMessageEvent",
     "ModelMessageEventContent",
     "ModelMessageEventContentOneItem",
+    "ModelMessageEventModel",
     "ModelMessageUsage",
     "ModelMessageUsageInputTokensBreakdown",
     "ModelParams",
