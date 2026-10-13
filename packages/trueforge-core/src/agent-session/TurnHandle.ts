@@ -93,8 +93,8 @@ function toThreadDoneEvent(event: InternalThreadDoneEvent): ThreadDoneEvent {
 function toMCPAuthRequiredEvent(event: InternalMCPAuthRequiredEvent): MCPAuthRequiredEvent {
   return {
     type: HarnessEventType.MCP_AUTH_REQUIRED,
-    id: event['id'],
-    created_at: event['created_at'],
+    id: event.id,
+    created_at: event.created_at,
     thread_id: null, // We are not sending thread on the wire event.
     mcp_servers: event.mcp_servers,
   };
@@ -246,9 +246,7 @@ export class TurnHandle<TTurnCustom extends object = Record<string, never>> {
 
   async *send(events: TurnUserEvent[]): AsyncGenerator<TurnUserEvent[], void> {
     const orchestrator = this.requireLiveOrchestrator('send');
-    // `send` is overloaded (UserMessage[] vs TurnUserEvent[]). Assert the user-event arm so
-    // callers always see yielded batches — not AgentThreadAppendContext from the other overload.
-    const accepted = orchestrator.send(events) as AsyncGenerator<TurnUserEvent[], void, unknown>;
+    const accepted = orchestrator.send(events);
     yield* accepted;
     orchestrator.wake();
   }

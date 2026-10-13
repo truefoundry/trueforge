@@ -1,4 +1,4 @@
-import type { TurnUserEvent } from '@truefoundry/trueforge-core/agent-session';
+import type { TurnUserEvent, TurnUserEventMessage } from '@truefoundry/trueforge-core/agent-session';
 import type {
   InsertTurnInboundEventsInput,
   ListUnconsumedTurnInboundEventsInput,
@@ -10,7 +10,12 @@ import {
   TurnEventAlreadyExistsError,
 } from '@truefoundry/trueforge-core/agent-session/store/SessionStoreErrors';
 import { sql, type Kysely } from 'kysely';
-import { firstCollidingEventId, firstDuplicateEventIdInBatch } from '../../../turnInboundEvents';
+import {
+  firstCollidingEventId,
+  firstDuplicateEventIdInBatch,
+  toTurnUserEvent,
+  toTurnUserEventMessage,
+} from '../../../turnInboundEvents';
 import { isUniqueViolation } from '../../client';
 import { jsonbBind, jsonText } from '../../sqlExpressions';
 import type { Database } from '../../types';
@@ -81,7 +86,7 @@ export async function insertTurnInboundEvents(
             session_id: input.session_id,
             turn_id: input.turn_id,
             event_id: event.id,
-            payload: jsonbBind(event),
+            payload: jsonbBind(toTurnUserEventMessage(event)),
             consumed: 0,
             created_at: event.created_at,
           })),
@@ -116,14 +121,14 @@ export async function listUnconsumedTurnInboundEvents(
 
   const rows = await db
     .selectFrom('turn_inbound_events')
-    .select(jsonText<TurnUserEvent>(sql.ref('payload')).as('payload'))
+    .select(['event_id', jsonText<TurnUserEventMessage>(sql.ref('payload')).as('payload'), 'created_at'])
     .where('session_id', '=', input.session_id)
     .where('turn_id', '=', input.turn_id)
     .where('consumed', '=', 0)
     .orderBy('event_id', 'asc')
     .execute();
 
-  return rows.map(row => row.payload);
+  return rows.map(row => toTurnUserEvent(row));
 }
 
 export async function markTurnInboundEventsConsumed(
