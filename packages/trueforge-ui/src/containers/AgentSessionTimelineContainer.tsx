@@ -150,16 +150,25 @@ function applyTerminalState(messages: ThreadMessageLike[], turn: SessionTurnView
   return messages.map((message, index) => (index === assistantIndex ? terminal : message));
 }
 
-/** Retrieves MCP servers requiring OAuth in this turn from done actions or turn events. */
-function findTurnMcpServers(turn: SessionTurnView) {
-  const actions = turn.done?.state.status === 'done' ? turn.done.state.requiredActions : undefined;
-  if (Array.isArray(actions)) {
+/**
+ * Returns MCP servers that still need login for this turn.
+ * If the turn finished, only show Connect when required_actions(now connected) still asks for auth.
+ * Do not show Connect just because an older mcp.auth_required event is in history.
+ */
+function findUnresolvedTurnMcpServers(turn: SessionTurnView) {
+  const done = turn.done;
+  if (done?.state.status === 'done') {
+    const actions = done.state.requiredActions;
+    if (!Array.isArray(actions)) return undefined;
     for (const action of actions) {
       if (action.type === 'mcp.auth_required' && isMcpServerAuthInfoList(action.mcpServers)) {
         return action.mcpServers;
       }
     }
+    return undefined;
   }
+  if (done != null) return undefined;
+
   for (const event of turn.events) {
     if (event.type === 'mcp.auth_required' && isMcpServerAuthInfoList(event.mcpServers)) {
       return event.mcpServers;
@@ -168,13 +177,9 @@ function findTurnMcpServers(turn: SessionTurnView) {
   return undefined;
 }
 
-/**
- * Re-attaches MCP auth metadata to the assistant message in session replay.
- * History projection drops pendingMcpAuth when synthetic continuation user messages
- * follow; restoring it here ensures ReadOnlyAssistantMessageBubble renders the auth widget.
- */
+/** Adds the Connect card in session detail only when auth is still open. */
 function applyMcpAuthState(messages: ThreadMessageLike[], turn: SessionTurnView): ThreadMessageLike[] {
-  const mcpServers = findTurnMcpServers(turn);
+  const mcpServers = findUnresolvedTurnMcpServers(turn);
   if (mcpServers == null || mcpServers.length === 0) return messages;
 
   const assistantIndex = messages.findIndex(message => message.role === 'assistant');

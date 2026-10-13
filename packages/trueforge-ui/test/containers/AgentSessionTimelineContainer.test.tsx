@@ -515,6 +515,105 @@ describe('AgentSessionTimelineContainer', () => {
     expect(connectButton).toBeDisabled();
   });
 
+  it('does not render MCP Auth Connect after same-turn continue and completed turn', async () => {
+    const sameTurnResolvedEvents: SessionEventItem[] = [
+      {
+        turnId: 'turn-1',
+        event: {
+          type: 'turn.created',
+          id: 'c1',
+          turnId: 'turn-1',
+          previousTurnId: null,
+          input: [{ type: 'user.message', content: 'get all my todo tickets' }],
+          state: { status: 'running' },
+          createdAt: '2026-01-01T00:00:00.000Z',
+          threadId: null,
+        },
+      },
+      {
+        turnId: 'turn-1',
+        event: {
+          type: 'mcp.auth_required',
+          id: 'mcp-req-1',
+          threadId: null,
+          createdAt: '2026-01-01T00:00:01.000Z',
+          mcpServers: [
+            {
+              id: 'linear',
+              name: 'linear',
+              authUrl: 'https://mcp.linear.app/authorize',
+            },
+          ],
+        },
+      },
+      {
+        turnId: 'turn-1',
+        event: {
+          type: 'turn.update',
+          id: 'u1',
+          state: { status: 'paused', actionRequiredOnEvents: [{ id: 'mcp-req-1' }] },
+          createdAt: '2026-01-01T00:00:01.100Z',
+          threadId: null,
+        },
+      },
+      {
+        turnId: 'turn-1',
+        event: {
+          type: 'user.mcp_auth_continue',
+          id: 'cont-1',
+          createdAt: '2026-01-01T00:00:02.000Z',
+        },
+      },
+      {
+        turnId: 'turn-1',
+        event: {
+          type: 'turn.update',
+          id: 'u2',
+          state: { status: 'running' },
+          createdAt: '2026-01-01T00:00:02.100Z',
+          threadId: null,
+        },
+      },
+      {
+        turnId: 'turn-1',
+        event: {
+          type: 'model.message',
+          id: 'm1',
+          threadId: 'main',
+          content: 'Here are your tickets',
+          createdAt: '2026-01-01T00:00:03.000Z',
+        },
+      },
+      {
+        turnId: 'turn-1',
+        event: {
+          type: 'turn.done',
+          id: 'd1',
+          state: {
+            status: 'done',
+            completedAt: '2026-01-01T00:00:04.000Z',
+            output: null,
+            requiredActions: [],
+          },
+          createdAt: '2026-01-01T00:00:04.000Z',
+          threadId: null,
+        },
+      },
+    ];
+
+    render(
+      <SlotsProvider overrides={{ AgentSessionEventTimeline: () => null }}>
+        <ServerProvider server={createMockAgentUIServer()}>
+          <AgentSessionTimelineContainer sessionId="sess-1" events={sameTurnResolvedEvents} />
+        </ServerProvider>
+      </SlotsProvider>,
+    );
+
+    expect(await screen.findByText('Here are your tickets')).toBeInTheDocument();
+    expect(screen.queryByText('MCP Authentication Required')).not.toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: /Connect/ })).not.toBeInTheDocument();
+  });
+
   it('renders continuation turn header and input summary for user.mcp_auth_continue', async () => {
     const continueEvents: SessionEventItem[] = [
       {
