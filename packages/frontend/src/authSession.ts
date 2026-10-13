@@ -23,8 +23,7 @@ const probeClient = new TrueForgeClient({
 
 /** Result of the pre-boot session probe. */
 export type SessionState =
-  | { status: 'authenticated'; displayName: string; tenantId: string }
-  | { status: 'unauthenticated' };
+  { status: 'authenticated'; displayName: string; tenantId: string } | { status: 'unauthenticated' };
 
 /** Last successful me() OIDC check — survives remounts of host chrome. */
 let cachedIsOidcConnected: boolean | undefined;
