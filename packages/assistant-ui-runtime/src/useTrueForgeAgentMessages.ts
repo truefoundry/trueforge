@@ -16,6 +16,7 @@ import { ROOT_THREAD_ID } from './constants.js';
 import {
   buildEditedUserMessageContent,
   buildSnapshotThroughTurn,
+  CANCELLATION_REASON_CUSTOM_KEY,
   computeGroupRootBaseline,
   extractTurnUserMessageContent,
   prependOlderSessionHistory,
@@ -104,12 +105,38 @@ function buildCompletedTurnState(
   };
 }
 
-function buildCancelledTurnState(completedAt: string): TurnStateCancelled {
+function buildCancelledTurnState({
+  completedAt,
+  reason = 'Superseded by a later message',
+}: {
+  completedAt: string;
+  reason?: string;
+}): TurnStateCancelled {
   return {
     status: 'cancelled',
-    reason: 'Superseded by a later message',
+    reason,
     completedAt,
   };
+}
+
+/**
+ * Map the last stream update onto the turn record's terminal state.
+ * Prefer the wire cancellationReason from streamTurnEvents (e.g. "abandoned");
+ * otherwise treat a clean stream end as done.
+ */
+function committedStateFromActiveStream(
+  update: TurnStreamUpdate,
+  completedAt: string,
+): TurnStateDone | TurnStateCancelled {
+  const cancelReason = update.metadata?.custom?.[CANCELLATION_REASON_CUSTOM_KEY];
+  const status = update.status;
+  if ((status?.type === 'incomplete' && status.reason === 'cancelled') || typeof cancelReason === 'string') {
+    return buildCancelledTurnState({
+      completedAt,
+      reason: typeof cancelReason === 'string' ? cancelReason : 'client-cancelled',
+    });
+  }
+  return buildCompletedTurnState(completedAt, requiredActionsFromActiveUpdate(update));
 }
 
 /**
@@ -171,7 +198,7 @@ function abandonInFlightClientTurn(snapshot: SessionSnapshot): SessionSnapshot {
   }
 
   const completedAt = new Date().toISOString();
-  const cancelledState = buildCancelledTurnState(completedAt);
+  const cancelledState = buildCancelledTurnState({ completedAt });
 
   if (active != null && active.streamComplete !== true) {
     const activeSandboxIdValue = active.update.metadata?.custom?.['sandboxId'];
@@ -333,12 +360,21 @@ function commitActiveStream(snapshot: SessionSnapshot, continuationInputs?: Requ
   const activeSandboxIdValue = active.update.metadata?.custom?.['sandboxId'];
   const activeSandboxId = typeof activeSandboxIdValue === 'string' ? activeSandboxIdValue : undefined;
 
-  const completedState = buildCompletedTurnState(
-    new Date().toISOString(),
-    requiredActionsFromActiveUpdate(active.update),
-  );
+  const completedState = committedStateFromActiveStream(active.update, new Date().toISOString());
   const baseline = snapshot.groupRootBaseline ?? computeGroupRootBaseline(snapshot.turns);
-  const rootModelMessageIds = rootModelMessageIdsSinceBaseline(snapshot.fold, baseline);
+  let rootModelMessageIds = rootModelMessageIdsSinceBaseline(snapshot.fold, baseline);
+  // Cancelled commits clear activeStream so history rebuilds from turn.state (banner).
+  // Custom adapters may have only update.content — materialize into the fold first
+  // so clearing activeStream does not drop streamed parts.
+  if (completedState.status === 'cancelled' && rootModelMessageIds.length === 0) {
+    rootModelMessageIds = materializeAbandonedStreamRootIds({
+      fold: snapshot.fold,
+      turnId: active.turnId,
+      content: active.update.content,
+      existingRootIds: rootModelMessageIds,
+    });
+  }
+  const clearActiveStream = rootModelMessageIds.length > 0 || completedState.status === 'cancelled';
 
   const lastTurn = snapshot.turns.at(-1);
   if (lastTurn?.id === active.turnId) {
@@ -355,9 +391,9 @@ function commitActiveStream(snapshot: SessionSnapshot, continuationInputs?: Requ
           : turn,
       ),
       pendingUser: undefined,
-      // Custom stream adapters may yield projected content without fold events.
-      // Keep that completed projection until the next stream replaces it.
-      ...(rootModelMessageIds.length > 0 ? { activeStream: undefined } : {}),
+      // Non-cancel completes with an empty fold keep activeStream so custom adapters
+      // that only yielded update.content stay visible until the next stream.
+      ...(clearActiveStream ? { activeStream: undefined } : {}),
     });
   }
 
@@ -377,7 +413,7 @@ function commitActiveStream(snapshot: SessionSnapshot, continuationInputs?: Requ
   return replaceSessionSnapshot(snapshot, {
     turns: [...snapshot.turns, record],
     pendingUser: undefined,
-    ...(rootModelMessageIds.length > 0 ? { activeStream: undefined } : {}),
+    ...(clearActiveStream ? { activeStream: undefined } : {}),
   });
 }
 

@@ -46,27 +46,6 @@ function storageKeyForKind(kind: DraftPreferenceKind): string {
   return kind === 'chat' ? CHAT_DRAFT_SPEC_PREFERENCES_STORAGE_KEY : AGENT_DRAFT_SPEC_PREFERENCES_STORAGE_KEY;
 }
 
-/** New Chat: model (+ reasoning params), skills, and MCP only — no runtime config. */
-export function selectChatDraftSpecPreferences(spec: AgentSpec): AgentSpec {
-  return {
-    model: spec.model,
-    ...(spec.skills !== undefined ? { skills: spec.skills } : {}),
-    ...(spec.mcpServers !== undefined ? { mcpServers: spec.mcpServers } : {}),
-  };
-}
-
-/** New Agent: full composer seed including runtime config (sandbox, ask-user, …). */
-export function selectAgentDraftSpecPreferences(spec: AgentSpec): AgentSpec {
-  return {
-    ...selectChatDraftSpecPreferences(spec),
-    ...(spec.config !== undefined ? { config: spec.config } : {}),
-  };
-}
-
-export function selectDraftSpecPreferences(spec: AgentSpec, kind: DraftPreferenceKind): AgentSpec {
-  return kind === 'chat' ? selectChatDraftSpecPreferences(spec) : selectAgentDraftSpecPreferences(spec);
-}
-
 function readSandboxEnabled(spec: AgentSpec): boolean | undefined {
   if (spec.config === undefined) return undefined;
   // `sandbox` is persisted on draft config but is not part of AgentRuntimeConfig.
@@ -80,6 +59,32 @@ function readWebSearchEnabled(spec: AgentSpec): boolean | undefined {
   if (spec.config?.webSearch === undefined) return undefined;
   const enabled = spec.config.webSearch.enabled;
   return typeof enabled === 'boolean' ? enabled : undefined;
+}
+
+/**
+ * New Chat: model (+ reasoning params), skills, MCP, and the web-search toggle.
+ * Other runtime config (sandbox, ask-user, …) is not persisted for chat.
+ */
+export function selectChatDraftSpecPreferences(spec: AgentSpec): AgentSpec {
+  const webSearchEnabled = readWebSearchEnabled(spec);
+  return {
+    model: spec.model,
+    ...(spec.skills !== undefined ? { skills: spec.skills } : {}),
+    ...(spec.mcpServers !== undefined ? { mcpServers: spec.mcpServers } : {}),
+    ...(webSearchEnabled !== undefined ? { config: { webSearch: { enabled: webSearchEnabled } } } : {}),
+  };
+}
+
+/** New Agent: full composer seed including runtime config (sandbox, ask-user, …). */
+export function selectAgentDraftSpecPreferences(spec: AgentSpec): AgentSpec {
+  return {
+    ...selectChatDraftSpecPreferences(spec),
+    ...(spec.config !== undefined ? { config: spec.config } : {}),
+  };
+}
+
+export function selectDraftSpecPreferences(spec: AgentSpec, kind: DraftPreferenceKind): AgentSpec {
+  return kind === 'chat' ? selectChatDraftSpecPreferences(spec) : selectAgentDraftSpecPreferences(spec);
 }
 
 /** Disable sandbox when unavailable; availability must not override the user's runtime choice. */
@@ -97,17 +102,16 @@ export function withCapabilitiesSandbox(spec: AgentSpec, sandboxEnabled: boolean
 
 /**
  * Align `config.webSearch` with host capability.
- * - unavailable → force false
- * - chat + available → force true
- * - agent + available → fill true only when the key is absent (preserve explicit values)
+ * - unavailable → force false on the live draft (do not persist — see `withoutWebSearchPreference`)
+ * - available → fill true only when the key is absent (preserve explicit user toggles)
  */
 export function withCapabilitiesWebSearch({
   spec,
   webSearchEnabled,
-  kind = 'agent',
 }: {
   spec: AgentSpec;
   webSearchEnabled: boolean | null | undefined;
+  /** Kept for call-site compatibility; chat and agent share the same fill/preserve rules. */
   kind?: DraftPreferenceKind;
 }): AgentSpec {
   if (webSearchEnabled == null) return spec;
@@ -123,18 +127,7 @@ export function withCapabilitiesWebSearch({
     };
   }
 
-  if (kind === 'chat') {
-    if (readWebSearchEnabled(spec) === true) return spec;
-    return {
-      ...spec,
-      config: {
-        ...spec.config,
-        webSearch: { ...spec.config?.webSearch, enabled: true },
-      },
-    };
-  }
-
-  // Agent: only default true when the field is missing from the spec.
+  // Only default true when the field is missing — chat and agent both keep user toggles.
   if (spec.config?.webSearch !== undefined) return spec;
   return {
     ...spec,
@@ -143,6 +136,90 @@ export function withCapabilitiesWebSearch({
       webSearch: { enabled: true },
     },
   };
+}
+
+/** Drop webSearch so a capability-forced off is not stored as a user preference. */
+export function withoutWebSearchPreference(spec: AgentSpec): AgentSpec {
+  if (spec.config?.webSearch === undefined) return spec;
+  const { webSearch: _ignored, ...restConfig } = spec.config;
+  if (Object.keys(restConfig).length === 0) {
+    const { config: _config, ...rest } = spec;
+    return rest;
+  }
+  return { ...spec, config: restConfig };
+}
+
+/**
+ * When web-search flips unavailable → available, a live `enabled: false` may be leftover
+ * force-off. Default-fill on only when that false is not an explicit user/saved choice.
+ */
+export function recoverWebSearchAfterCapabilityAvailable({
+  spec,
+  previousWebSearchEnabled,
+  webSearchEnabled,
+  explicitOff = false,
+  kind,
+}: {
+  spec: AgentSpec;
+  previousWebSearchEnabled: boolean | null | undefined;
+  webSearchEnabled: boolean | null | undefined;
+  /** Saved or previously persisted off — not a capability-forced value. */
+  explicitOff?: boolean;
+  kind?: DraftPreferenceKind;
+}): AgentSpec {
+  if (explicitOff) return spec;
+  if (previousWebSearchEnabled !== false || webSearchEnabled !== true) return spec;
+  if (readWebSearchEnabled(spec) !== false) return spec;
+  return withCapabilitiesWebSearch({
+    spec: withoutWebSearchPreference(spec),
+    webSearchEnabled: true,
+    kind,
+  });
+}
+
+function withWebSearchEnabled(spec: AgentSpec, enabled: boolean): AgentSpec {
+  if (readWebSearchEnabled(spec) === enabled) return spec;
+  return {
+    ...spec,
+    config: {
+      ...spec.config,
+      webSearch: { ...spec.config?.webSearch, enabled },
+    },
+  };
+}
+
+export function persistedWebSearchEnabled(kind: DraftPreferenceKind): boolean | undefined {
+  const stored = readDraftSpecPreferences(kind);
+  return stored == null ? undefined : readWebSearchEnabled(stored);
+}
+
+/**
+ * Remember a user web-search choice. Capability-forced off is omitted unless a choice
+ * was already stored, and that stored off is not rewritten to on when search returns.
+ */
+export function webSearchPreferenceToStore({
+  spec,
+  webSearchEnabled,
+  previousWebSearchEnabled,
+  kind,
+}: {
+  spec: AgentSpec;
+  webSearchEnabled: boolean | null | undefined;
+  previousWebSearchEnabled: boolean | null | undefined;
+  kind: DraftPreferenceKind;
+}): AgentSpec {
+  const persistedEnabled = persistedWebSearchEnabled(kind);
+  if (webSearchEnabled === false) {
+    const stripped = withoutWebSearchPreference(spec);
+    return persistedEnabled === undefined ? stripped : withWebSearchEnabled(stripped, persistedEnabled);
+  }
+  return recoverWebSearchAfterCapabilityAvailable({
+    spec,
+    previousWebSearchEnabled,
+    webSearchEnabled,
+    explicitOff: persistedEnabled === false,
+    kind,
+  });
 }
 
 function readStoredSpec(key: string): AgentSpec | null {

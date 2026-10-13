@@ -636,7 +636,7 @@ export function createTurnsRouter(deps: TurnsRouterDeps) {
       return c.json({ data: data.map(toWireTurn), pagination }, 200);
     } catch (error) {
       if (error instanceof SessionStoreConflictError) {
-        return c.json({ error: { message: error.message } }, 400);
+        throw new HTTPException(400, { message: error.message, cause: error });
       }
       throw error;
     }
@@ -728,7 +728,7 @@ export function createTurnsRouter(deps: TurnsRouterDeps) {
     } catch (error) {
       // Every guard and the provider itself raise SandboxError, whose statusCode is the contract.
       if (error instanceof SandboxError) {
-        return c.json({ error: { message: error.message } }, error.statusCode);
+        throw new HTTPException(error.statusCode, { message: error.message, cause: error });
       }
       deps.logger.error('Sandbox file download failed', {
         ...extractErrorLogFields(error),
@@ -776,7 +776,7 @@ export function createTurnsRouter(deps: TurnsRouterDeps) {
       return c.json({ data, pagination }, 200);
     } catch (error) {
       if (error instanceof SessionStoreConflictError) {
-        return c.json({ error: { message: error.message } }, 400);
+        throw new HTTPException(400, { message: error.message, cause: error });
       }
       throw error;
     }
@@ -888,7 +888,7 @@ export function createTurnsRouter(deps: TurnsRouterDeps) {
     } catch (error) {
       const turnError = getTurnExecutionError(error);
       if (turnError) {
-        return c.json({ error: { message: turnError.message } }, turnError.status);
+        throw new HTTPException(turnError.status, { message: turnError.message, cause: error });
       }
       throw error;
     }

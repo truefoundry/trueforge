@@ -7,9 +7,10 @@ export function zodErrorResponse(c: Context, error: z.ZodError) {
   return c.json({ error: { message: z.prettifyError(error) } }, 400);
 }
 
-export const zodValidationHook: Hook<unknown, object, string, Response | undefined> = (result, c) => {
+/** Throws so the app error handler owns both the response and its log line. */
+export const zodValidationHook: Hook<unknown, object, string, Response | undefined> = result => {
   if (!result.success) {
-    return zodErrorResponse(c, result.error);
+    throw result.error;
   }
   return undefined;
 };
