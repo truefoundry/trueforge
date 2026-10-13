@@ -351,7 +351,7 @@ describe('modelSsrfFetch', () => {
 });
 
 describe('mcpSsrfFetch', () => {
-  it('retries statuses where the request was not processed but not 409/520/524', async () => {
+  it('retries statuses where the request was not processed but not 409/502/520/524', async () => {
     configureOutboundUrlGuard({ allowedHosts: ['127.0.0.1'], blockedHosts: [] });
     configureOutboundFetches({
       outbound: defaultOutboundFetchOptions(),
@@ -367,14 +367,14 @@ describe('mcpSsrfFetch', () => {
       res.end(String(status));
     });
     try {
-      for (const status of [408, 429, 502, 503, 522]) {
+      for (const status of [408, 429, 503, 522]) {
         firstStatus = status;
         hits = 0;
         const retried = await mcpSsrfFetch(`${origin}/`);
         expect(retried.status).toBe(200);
         expect(hits).toBe(2);
       }
-      for (const status of [409, 520, 524]) {
+      for (const status of [409, 502, 520, 524]) {
         firstStatus = status;
         hits = 0;
         const response = await mcpSsrfFetch(`${origin}/`);
