@@ -1,10 +1,8 @@
 import type { ILLM } from '../llm/ILLM';
 import type { LLMUserMessage } from '../llm/LLMTypes';
+import type { ModelParams } from '../llm/model';
 import type { ResponseFormat } from '../llm/responseFormat';
 import type { IToolSet } from '../mcp/IMCPServer';
-
-/** Call params merged onto the LLM request body (AgentSpec.model.params + defaults). */
-export type ModelParams = Record<string, unknown>;
 
 /**
  * Static definition of an agent. Represents the authored configuration,

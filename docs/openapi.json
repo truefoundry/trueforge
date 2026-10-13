@@ -2789,14 +2789,7 @@
             "type": "string"
           },
           "model": {
-            "allOf": [
-              {
-                "$ref": "#/components/schemas/Model"
-              },
-              {
-                "description": "Catalog model FQN (`provider/model`) that produced this message."
-              }
-            ]
+            "$ref": "#/components/schemas/Model"
           },
           "name": {
             "description": "Optional participant name.",

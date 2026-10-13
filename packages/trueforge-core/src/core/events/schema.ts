@@ -241,7 +241,7 @@ export const ModelMessageEventSchema = EnrichedAssistantMessageSchema.omit({ rol
     created_at: z.string().describe('ISO 8601 event timestamp.'),
     usage: ModelMessageUsageSchema.optional(),
     // Optional: legacy rows may lack model when the session agent FQN cannot be backfilled.
-    model: ModelSchema.optional().describe('Catalog model FQN (`provider/model`) that produced this message.'),
+    model: ModelSchema.optional(),
   })
   .openapi('ModelMessageEvent');
 
