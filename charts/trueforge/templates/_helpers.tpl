@@ -483,15 +483,6 @@ fields, wires bundled Postgres/Redis, optional OIDC, then server.extraEnv.
 {{- if .Values.redis.enabled -}}
 {{- $env = append $env (dict "name" "REDIS_URL" "value" (include "trueforge.redis.bundledUrl" .)) -}}
 {{- else if $externalRedis.enabled -}}
-{{- $credentialsSecret := $externalRedis.credentialsSecret | default "" -}}
-{{- if $credentialsSecret -}}
-{{- if or $sentinelEnabled $externalRedis.url $externalRedis.host -}}
-{{- fail "externalRedis.credentialsSecret cannot be combined with externalRedis.url, externalRedis.host, or externalRedis.sentinel" -}}
-{{- end -}}
-{{- range $key := (list "REDIS_HOST" "REDIS_PORT" "REDIS_DB" "REDIS_USERNAME" "REDIS_PASSWORD" "REDIS_TLS_ENABLED" "REDIS_TLS_CA_CERT" "REDIS_TLS_REJECT_UNAUTHORIZED" "REDIS_TLS_SERVERNAME" "REDIS_TLS_CERT" "REDIS_TLS_KEY" "REDIS_TLS_KEY_PASSPHRASE" "REDIS_SENTINEL_ENABLED" "REDIS_SENTINEL_NODES" "REDIS_SENTINEL_MASTER_NAME" "REDIS_SENTINEL_USERNAME" "REDIS_SENTINEL_PASSWORD") -}}
-{{- $env = append $env (include "trueforge.env.fromStringOrValueFrom" (dict "root" $ "name" $key "field" (printf "externalRedis.credentialsSecret/%s" $key) "value" (printf "${k8s-secret/%s/%s}" $credentialsSecret $key)) | fromJson) -}}
-{{- end -}}
-{{- else -}}
 {{- $envMap := .Values.env | default dict -}}
 {{- $envHost := index $envMap "REDIS_HOST" | default "" -}}
 {{- $envSentinelNodes := index $envMap "REDIS_SENTINEL_NODES" | default "" -}}
@@ -503,7 +494,7 @@ fields, wires bundled Postgres/Redis, optional OIDC, then server.extraEnv.
 {{- fail "externalRedis.url and externalRedis.host are mutually exclusive" -}}
 {{- end -}}
 {{- if and (not $sentinelEnabled) (not $externalRedis.url) (not $externalRedis.host) (not $envTransport) -}}
-{{- fail "externalRedis.url, externalRedis.host, or externalRedis.sentinel is required when externalRedis.credentialsSecret is empty and env does not set REDIS_HOST or REDIS_SENTINEL_NODES" -}}
+{{- fail "externalRedis.url, externalRedis.host, or externalRedis.sentinel is required when env does not set REDIS_HOST or REDIS_SENTINEL_NODES" -}}
 {{- end -}}
 {{- if and (not $sentinelEnabled) $externalRedis.url (or $auth.username $auth.password (ne (($externalRedis.db | default 0) | toString) "0")) -}}
 {{- fail "externalRedis.auth and a non-zero externalRedis.db are ignored when externalRedis.url is set; encode them in the url or use host mode" -}}
@@ -565,7 +556,6 @@ fields, wires bundled Postgres/Redis, optional OIDC, then server.extraEnv.
 {{- end -}}
 {{- if $tls.keyPassphrase -}}
 {{- $env = append $env (include "trueforge.env.fromStringOrValueFrom" (dict "root" $ "name" "REDIS_TLS_KEY_PASSPHRASE" "field" "externalRedis.tls.keyPassphrase" "value" $tls.keyPassphrase) | fromJson) -}}
-{{- end -}}
 {{- end -}}
 {{- end -}}
 {{- end -}}

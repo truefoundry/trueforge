@@ -231,11 +231,9 @@ The server always runs peered (`STANDALONE=false`), so Redis is always required.
 Bundled by default (`redis.enabled=true`, **auth disabled** — fine only when
 Redis stays unreachable outside the cluster trust boundary). To use an
 **external** Redis, set `redis.enabled=false`, `externalRedis.enabled=true`, and exactly one
-of `externalRedis.url`, `externalRedis.host`, Sentinel, or `externalRedis.credentialsSecret`.
-`credentialsSecret` is a Secret name. The chart then reads every `REDIS_*` key except
-`REDIS_URL` from that Secret and does not use url, host, or Sentinel. Fields other than
-`credentialsSecret` accept a string or `valueFrom.secretKeyRef`. url, host, sentinel,
-and `credentialsSecret` are mutually exclusive:
+of `externalRedis.url`, `externalRedis.host`, or Sentinel. `env.REDIS_HOST` or
+`env.REDIS_SENTINEL_NODES` can supply the transport when those are empty. Fields accept a string or
+`valueFrom.secretKeyRef`. url, host, and sentinel are mutually exclusive:
 
 ```yaml
 redis:

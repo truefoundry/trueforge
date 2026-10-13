@@ -283,12 +283,9 @@ externalPostgres:
   sslCaPath: ""
 externalRedis:
   ## Use an external Redis instead of the bundled Redis (`redis.enabled` must be false).
-  ## Requires `enabled: true`, then exactly one transport: url, host, sentinel, or credentialsSecret.
+  ## Requires `enabled: true`, then exactly one transport: url, host, or sentinel.
+  ## env.REDIS_HOST or env.REDIS_SENTINEL_NODES can supply the transport instead.
   enabled: false
-  ## When set, read every REDIS_* key except REDIS_URL from this Secret
-  ## (`${k8s-secret/<credentialsSecret>/<KEY>}`). Mutually exclusive with url, host, and sentinel.
-  ## A parent chart sets this to a Secret it renders. The key must not contain "/".
-  credentialsSecret: ""
   ## Full connection URL, e.g. redis://:password@redis-master.databases.svc:6379.
   ## string, valueFrom, or "${k8s-secret/<secret>/<key>}".
   ## Mutually exclusive with host and sentinel.
