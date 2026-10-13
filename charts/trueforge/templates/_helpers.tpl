@@ -411,15 +411,23 @@ Expects: field (values path for errors), value.
 {{- define "trueforge.env.k8sSecretRef" -}}
 {{- $field := index . "field" -}}
 {{- $value := index . "value" -}}
-{{- $parts := regexSplit "/" (trimSuffix "}" $value) -1 -}}
-{{- $ok := false -}}
-{{- if eq (len $parts) 3 -}}
-{{- if and (index $parts 1) (index $parts 2) -}}
-{{- $ok = true -}}
+{{- $prefix := "${k8s-secret/" -}}
+{{- $secret := "" -}}
+{{- $key := "" -}}
+{{- if and (kindIs "string" $value) (hasPrefix $prefix $value) (hasSuffix "}" $value) -}}
+{{- $body := trimSuffix "}" (trimPrefix $prefix $value) -}}
+{{- if and $body (not (contains "}" $body)) (eq (printf "%s%s}" $prefix $body) $value) -}}
+{{- $parts := regexSplit "/" $body -1 -}}
+{{- if eq (len $parts) 2 -}}
+{{- if and (index $parts 0) (index $parts 1) -}}
+{{- $secret = index $parts 0 -}}
+{{- $key = index $parts 1 -}}
 {{- end -}}
 {{- end -}}
-{{- if $ok -}}
-{{- dict "secretKeyRef" (dict "name" (index $parts 1) "key" (index $parts 2) "optional" true) | toJson -}}
+{{- end -}}
+{{- end -}}
+{{- if and $secret $key -}}
+{{- dict "secretKeyRef" (dict "name" $secret "key" $key "optional" true) | toJson -}}
 {{- else -}}
 {{- fail (printf "%s has an invalid secret reference %q; use ${k8s-secret/<secret>/<key>}. The key must not contain /" $field $value) -}}
 {{- end -}}
