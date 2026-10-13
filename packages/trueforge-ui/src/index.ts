@@ -297,13 +297,13 @@ export type {
 
 // Server port types + factory
 export { ClearChatButton } from './atoms/ClearChatButton.js';
-export { ResetAgentBuilderButton } from './atoms/ResetAgentBuilderButton.js';
 export {
   IS_CREATE_AGENT_METADATA_KEY,
   isCreateAgentMetadataValue,
   readSessionIsCreateAgent,
   sessionIsCreateAgent,
 } from './atoms/lib/sessionCreateAgent.js';
+export { ResetAgentBuilderButton } from './atoms/ResetAgentBuilderButton.js';
 export { SelectAgentEmptyState } from './atoms/SelectAgentEmptyState.js';
 export { ShareChatButton } from './atoms/ShareChatButton.js';
 export { ShareSessionDialog } from './atoms/ShareSessionDialog.js';

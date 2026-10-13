@@ -612,8 +612,7 @@ export function ShellModeProvider({
       return;
     }
     // After save, drop previous instructions / MCP / skills from the left panel seed.
-    const boundSpec =
-      isBoundAgentBuilder && effectiveMode.status === 'active' ? effectiveMode.agentSpec : undefined;
+    const boundSpec = isBoundAgentBuilder && effectiveMode.status === 'active' ? effectiveMode.agentSpec : undefined;
     const agentSpec = isBoundAgentBuilder
       ? applyFreshAgentBuilderSeed(boundSpec ?? agentSeedRef.current)
       : agentSeedRef.current;
@@ -644,13 +643,7 @@ export function ShellModeProvider({
       isCreateAgent: true,
       agentSpec: applyFreshAgentBuilderSeed(source),
     });
-  }, [
-    applyFreshAgentBuilderSeed,
-    effectiveMode,
-    isComposerEnabled,
-    refreshCapabilities,
-    selectLibraryAgent,
-  ]);
+  }, [applyFreshAgentBuilderSeed, effectiveMode, isComposerEnabled, refreshCapabilities, selectLibraryAgent]);
 
   const sandboxEnabled = capabilities?.sandbox.enabled;
   const webSearchEnabled = capabilities?.webSearch?.enabled;
