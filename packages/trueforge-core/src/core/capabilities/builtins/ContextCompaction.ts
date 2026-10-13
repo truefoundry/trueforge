@@ -23,7 +23,7 @@ export function resolveCompactionThresholdTokens(input: {
   }
   if (input.modelContextLength !== undefined) {
     const ratioThreshold = Math.floor(input.modelContextLength * DEFAULT_CONTEXT_COMPACTION_RATIO);
-    const configuredMaxOutputTokens = input.modelParams?.['max_completion_tokens'] ?? input.modelParams?.['max_tokens'];
+    const configuredMaxOutputTokens = input.modelParams?.['max_completion_tokens'] ?? input.modelParams?.max_tokens;
     if (
       typeof configuredMaxOutputTokens === 'number' &&
       Number.isFinite(configuredMaxOutputTokens) &&

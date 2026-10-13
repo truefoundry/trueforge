@@ -46,6 +46,7 @@ import {
   type LLMUserMessage,
   type RawAssistantMessage,
 } from '../llm/LLMTypes';
+import { ModelSchema, type Model } from '../llm/model';
 import { toOpenAIResponseFormat } from '../llm/responseFormat';
 import { toOpenAIChatMessage } from '../llm/toOpenAIChatMessage';
 import { estimateTokensForString } from '../llm/usage';
@@ -235,18 +236,28 @@ function toContextAssistantMessage(
   return forContext;
 }
 
+function modelFromDefinition(definition: AgentDefinition): Model {
+  const params = definition.modelParams;
+  return ModelSchema.parse({
+    name: definition.modelName,
+    ...(params && Object.keys(params).length > 0 ? { params } : {}),
+  });
+}
+
 function buildModelMessageEvent({
   assistantMessage,
   threadId,
   finishReason,
   usage,
   id,
+  model,
 }: {
   assistantMessage: InternalEnrichedAssistantMessage;
   threadId: string;
   finishReason: FinishReason | null;
   usage: ModelMessageUsage | undefined;
   id: string;
+  model: Model;
 }): ModelMessageEvent {
   // `thinking_blocks` / `source` stay on the context message for replay; strip them from the client event.
   // `reasoning_content` stays on the event for UI replay (exact streamed concat).
@@ -267,6 +278,7 @@ function buildModelMessageEvent({
     thread_id: threadId,
     finish_reason: finishReason,
     ...(usage && { usage }),
+    model,
   };
   return event;
 }
@@ -1099,11 +1111,13 @@ export class AgentThread {
     const llmStream = this.definition.modelClient.create(requestBody);
 
     // We start the delta stream with a model message event.
+    // `model` FQN is known from the bound client before any chunk arrives.
     yield {
       type: EventType.MODEL_MESSAGE,
       thread_id: this.threadId,
       created_at: new Date().toISOString(),
       id: modelMessageEventId,
+      model: modelFromDefinition(this.definition),
     } satisfies ModelMessageEvent;
 
     let firstDeltaTimestamped = false;
@@ -1170,6 +1184,7 @@ export class AgentThread {
       finishReason,
       usage: modelMessageUsage,
       id: modelMessageEventId,
+      model: modelFromDefinition(this.definition),
     });
 
     let completion: SubAgentCompletion | undefined;
