@@ -5,6 +5,7 @@ import { createContext, useCallback, useContext, useEffect, useMemo, useRef, use
 import type { HistoryAgentIntent } from '../utils/historyAgentSearch.js';
 import { replaceSessionShareSearch } from '../utils/sessionShareUrl.js';
 import {
+  freshAgentBuilderSeed,
   readDraftSpecPreferences,
   selectDraftSpecPreferences,
   webSearchPreferenceToStore,
@@ -135,6 +136,11 @@ type ShellModeContextValue = {
   openDraft: () => void;
   /** Open New Agent builder (mutable + Agent Config drawer). */
   openAgentBuilder: () => void;
+  /**
+   * Remount New Agent with a clean config panel (model + runtime toggles only).
+   * Clears instructions, MCP servers, skills, and saved-agent identity.
+   */
+  resetAgentBuilder: () => void;
   /** Remember plain-draft composer choices as the seed for future New Chat / New Agent. */
   rememberDraftSpec: (agentSpec: AgentSpec, kind?: DraftPreferenceKind) => void;
   /**
@@ -583,6 +589,14 @@ export function ShellModeProvider({
   const isActiveAgentBuilder =
     effectiveMode.status === 'active' && effectiveMode.isMutable && effectiveMode.isCreateAgent;
   const isBoundAgentBuilder = isActiveAgentBuilder && effectiveMode.agentId != null;
+
+  const applyFreshAgentBuilderSeed = useCallback((source: AgentSpec) => {
+    const seed = freshAgentBuilderSeed(source);
+    agentSeedRef.current = seed;
+    writeDraftSpecPreferences('agent', seed);
+    return seed;
+  }, []);
+
   const openAgentBuilder = useCallback(() => {
     if (!isComposerEnabled) return;
     refreshCapabilities?.();
@@ -597,8 +611,16 @@ export function ShellModeProvider({
       setAgentConfigOpenState(true);
       return;
     }
-    selectLibraryAgent({ isMutable: true, isCreateAgent: true, agentSpec: agentSeedRef.current });
+    // After save, drop previous instructions / MCP / skills from the left panel seed.
+    const boundSpec =
+      isBoundAgentBuilder && effectiveMode.status === 'active' ? effectiveMode.agentSpec : undefined;
+    const agentSpec = isBoundAgentBuilder
+      ? applyFreshAgentBuilderSeed(boundSpec ?? agentSeedRef.current)
+      : agentSeedRef.current;
+    selectLibraryAgent({ isMutable: true, isCreateAgent: true, agentSpec });
   }, [
+    applyFreshAgentBuilderSeed,
+    effectiveMode,
     isActiveAgentBuilder,
     isBoundAgentBuilder,
     isComposerEnabled,
@@ -608,6 +630,26 @@ export function ShellModeProvider({
     setSchedulesOpen,
     setSessionsOpen,
     setSettingsOpen,
+  ]);
+
+  const resetAgentBuilder = useCallback(() => {
+    if (!isComposerEnabled) return;
+    refreshCapabilities?.();
+    const source =
+      effectiveMode.status === 'active' && effectiveMode.isMutable && effectiveMode.agentSpec != null
+        ? effectiveMode.agentSpec
+        : agentSeedRef.current;
+    selectLibraryAgent({
+      isMutable: true,
+      isCreateAgent: true,
+      agentSpec: applyFreshAgentBuilderSeed(source),
+    });
+  }, [
+    applyFreshAgentBuilderSeed,
+    effectiveMode,
+    isComposerEnabled,
+    refreshCapabilities,
+    selectLibraryAgent,
   ]);
 
   const sandboxEnabled = capabilities?.sandbox.enabled;
@@ -799,6 +841,7 @@ export function ShellModeProvider({
       selectAgent,
       openDraft,
       openAgentBuilder,
+      resetAgentBuilder,
       rememberDraftSpec,
       openHistorySession,
       clearChat,
@@ -844,6 +887,7 @@ export function ShellModeProvider({
       selectAgent,
       openDraft,
       openAgentBuilder,
+      resetAgentBuilder,
       rememberDraftSpec,
       openHistorySession,
       clearChat,

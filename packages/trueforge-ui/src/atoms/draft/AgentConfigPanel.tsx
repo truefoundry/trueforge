@@ -38,6 +38,7 @@ export type AgentConfigPanelProps = {
   instructions: string;
   onOpenEditor: (editor: AgentConfigEditor) => void;
   onChange?: (spec: AgentSpec) => void;
+  onReset?: () => void;
   onClose?: () => void;
   disabled?: boolean;
 };
@@ -288,6 +289,7 @@ export function AgentConfigPanel({
   instructions,
   onOpenEditor,
   onChange,
+  onReset,
   onClose,
   disabled = false,
 }: AgentConfigPanelProps) {
@@ -323,6 +325,17 @@ export function AgentConfigPanel({
         <Icon name="sliders" className="size-4" />
         <h2 className="text-sm font-semibold">Agent Config</h2>
         <span className="min-w-0 flex-1" />
+        {onReset && !disabled ? (
+          <button
+            type="button"
+            aria-label="Reset playground"
+            title="Reset playground"
+            className={auiButtonClass({ variant: 'ghost', size: 'icon', className: 'size-8' })}
+            onClick={onReset}
+          >
+            <Icon name="rotate-right" />
+          </button>
+        ) : null}
         {onClose ? (
           <button
             type="button"

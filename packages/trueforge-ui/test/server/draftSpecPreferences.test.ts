@@ -5,6 +5,7 @@ import {
   AGENT_DRAFT_SPEC_PREFERENCES_STORAGE_KEY,
   CHAT_DRAFT_SPEC_PREFERENCES_STORAGE_KEY,
   DRAFT_SPEC_PREFERENCES_STORAGE_KEY,
+  freshAgentBuilderSeed,
   readDraftSpecPreferences,
   recoverWebSearchAfterCapabilityAvailable,
   selectAgentDraftSpecPreferences,
@@ -41,6 +42,22 @@ describe('selectDraftSpecPreferences', () => {
         config: { sandbox: { enabled: true } },
       }),
     ).toEqual({ model: { name: 'm' } });
+  });
+
+  it('freshAgentBuilderSeed keeps model and runtime config only', () => {
+    expect(
+      freshAgentBuilderSeed({
+        model: { name: 'm', params: { reasoningEffort: 'low' } },
+        instructions: 'drop me',
+        messages: [{ type: 'user.message', content: 'hi' }],
+        mcpServers: [{ name: 'exa' }],
+        skills: [{ name: 'research' }],
+        config: { sandbox: { enabled: true }, webSearch: { enabled: true } },
+      }),
+    ).toEqual({
+      model: { name: 'm', params: { reasoningEffort: 'low' } },
+      config: { sandbox: { enabled: true }, webSearch: { enabled: true } },
+    });
   });
 
   it('keeps runtime config for agent', () => {
