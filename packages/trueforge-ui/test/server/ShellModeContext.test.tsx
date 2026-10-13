@@ -280,6 +280,89 @@ describe('ShellModeProvider', () => {
     expect(result.current.mode.agentSpec).not.toHaveProperty('mcpServers');
   });
 
+  it('keeps left panel clean after save → New Chat → Build Agent', () => {
+    const { result } = renderHook(() => useShellMode(), { wrapper: wrap() });
+
+    act(() => result.current.openAgentBuilder());
+    act(() =>
+      result.current.rememberDraftSpec(
+        {
+          model: { name: 'saved/model' },
+          instructions: 'Keep building trips.',
+          mcpServers: [{ name: 'exa' }],
+          skills: [{ name: 'research' }],
+          config: { sandbox: { enabled: true } },
+        },
+        'agent',
+      ),
+    );
+    act(() =>
+      result.current.bindMutableAgent({
+        agentId: 'saved',
+        agentName: 'saved',
+        agentSpec: {
+          model: { name: 'saved/model' },
+          instructions: 'Keep building trips.',
+          mcpServers: [{ name: 'exa' }],
+          skills: [{ name: 'research' }],
+          config: { sandbox: { enabled: true } },
+        },
+      }),
+    );
+
+    act(() => result.current.openDraft());
+    act(() => result.current.openAgentBuilder());
+
+    expect(result.current.mode).toMatchObject({
+      status: 'active',
+      isMutable: true,
+      isCreateAgent: true,
+      agentSpec: {
+        model: { name: 'saved/model' },
+        config: { sandbox: { enabled: true } },
+      },
+    });
+    if (result.current.mode.status !== 'active') throw new Error('expected active mode');
+    expect(result.current.mode.agentSpec).not.toHaveProperty('mcpServers');
+    expect(result.current.mode.agentSpec).not.toHaveProperty('skills');
+    expect(result.current.mode.agentSpec).not.toHaveProperty('instructions');
+  });
+
+  it('resetAgentBuilder prefers the live draft over the open/save snapshot', () => {
+    const { result } = renderHook(() => useShellMode(), { wrapper: wrap() });
+
+    act(() => result.current.openAgentBuilder());
+    act(() =>
+      result.current.rememberDraftSpec(
+        {
+          model: { name: 'opened/model' },
+          config: { sandbox: { enabled: false } },
+        },
+        'agent',
+      ),
+    );
+
+    act(() =>
+      result.current.resetAgentBuilder({
+        model: { name: 'live/model' },
+        mcpServers: [{ name: 'exa' }],
+        config: { sandbox: { enabled: true }, webSearch: { enabled: true } },
+      }),
+    );
+
+    expect(result.current.mode).toMatchObject({
+      status: 'active',
+      isMutable: true,
+      isCreateAgent: true,
+      agentSpec: {
+        model: { name: 'live/model' },
+        config: { sandbox: { enabled: true }, webSearch: { enabled: true } },
+      },
+    });
+    if (result.current.mode.status !== 'active') throw new Error('expected active mode');
+    expect(result.current.mode.agentSpec).not.toHaveProperty('mcpServers');
+  });
+
   it('restores the active agent draft after visiting New Chat', () => {
     const { result } = renderHook(() => useShellMode(), { wrapper: wrap() });
     const agentDraft = {

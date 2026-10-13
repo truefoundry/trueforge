@@ -1,11 +1,21 @@
 // @vitest-environment jsdom
 import { fireEvent, render, screen } from '@testing-library/react';
 import type { ReactNode } from 'react';
-import { describe, expect, it } from 'vitest';
+import { describe, expect, it, vi } from 'vitest';
 
 import { ResetAgentBuilderButton } from '@/atoms/ResetAgentBuilderButton.js';
 import { ShellModeProvider, useShellMode } from '@/server/ShellModeContext.js';
 import { SlotsProvider } from '@/theme/SlotsProvider.js';
+
+vi.mock('@truefoundry/trueforge-assistant-ui-runtime', () => ({
+  useTrueForgeAgentSpec: () => ({
+    agentSpec: {
+      model: { name: 'live/model' },
+      mcpServers: [{ name: 'exa' }],
+      config: { sandbox: { enabled: true } },
+    },
+  }),
+}));
 
 function wrap(ui: ReactNode) {
   return (
@@ -56,7 +66,7 @@ describe('ResetAgentBuilderButton', () => {
     expect(screen.queryByRole('button', { name: 'Reset' })).not.toBeInTheDocument();
   });
 
-  it('resets the builder from the chat header control', () => {
+  it('resets the builder from the chat header control using the live draft', () => {
     render(wrap(<Harness />));
 
     fireEvent.click(screen.getByRole('button', { name: 'Prep saved builder' }));
@@ -73,7 +83,7 @@ describe('ResetAgentBuilderButton', () => {
       isCreateAgent: true,
       agentId: null,
       agentSpec: {
-        model: { name: 'saved/model' },
+        model: { name: 'live/model' },
         config: { sandbox: { enabled: true } },
       },
     });
