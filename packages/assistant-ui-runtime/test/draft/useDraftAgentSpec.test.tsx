@@ -349,7 +349,7 @@ describe('useDraftAgentSpec', () => {
     const draftBridge: DraftSessionBridge = {
       getDraftAgentSpec: vi.fn(
         () =>
-          new Promise(resolve => {
+          new Promise<typeof resumedSpec>(resolve => {
             resolveLoad = resolve;
           }),
       ),
