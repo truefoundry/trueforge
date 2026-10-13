@@ -412,7 +412,13 @@ Expects: field (values path for errors), value, root (chart context).
 {{- $field := index . "field" -}}
 {{- $value := index . "value" -}}
 {{- $parts := regexSplit "/" (trimSuffix "}" $value) -1 -}}
-{{- if and (eq (len $parts) 3) (index $parts 1) (index $parts 2) -}}
+{{- $ok := false -}}
+{{- if eq (len $parts) 3 -}}
+{{- if and (index $parts 1) (index $parts 2) -}}
+{{- $ok = true -}}
+{{- end -}}
+{{- end -}}
+{{- if $ok -}}
 {{- dict "secretKeyRef" (dict "name" (index $parts 1) "key" (index $parts 2) "optional" true) | toJson -}}
 {{- else -}}
 {{- fail (printf "%s has an invalid secret reference %q; use ${k8s-secret/<secret>/<key>}. The key must not contain /" $field $value) -}}
