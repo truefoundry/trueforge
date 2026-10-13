@@ -21,9 +21,9 @@ import type {
 import { getEmptyUsage } from '../../src/core/llm/LLMTypes';
 import { getEmptyCurrentContextUsage } from '../../src/core/runtime/contextUsage';
 import type { Sandbox } from '../../src/core/sandbox/Sandbox';
-import { makeMockILLM, makeSilentLogger } from '../core/harnessMocks';
+import { makeMockILLM, makeSilentLogger, TEST_MODEL, TEST_MODEL_NAME } from '../core/harnessMocks';
 
-export { makeMockILLM, makeSilentLogger };
+export { makeMockILLM, makeSilentLogger, TEST_MODEL, TEST_MODEL_NAME };
 
 /** Turn ids are opaque, caller-minted strings; tests only need uniqueness. */
 export function mintTestTurnId(): string {
@@ -294,5 +294,6 @@ export function makeModelMessageEvent() {
     created_at: new Date().toISOString(),
     thread_id: MAIN_THREAD_ID,
     content: 'hi',
+    model: TEST_MODEL,
   };
 }

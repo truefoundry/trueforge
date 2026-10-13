@@ -141,6 +141,7 @@ export * from "./ModelMessageDeltaEvent.js";
 export * from "./ModelMessageEvent.js";
 export * from "./ModelMessageEventContent.js";
 export * from "./ModelMessageEventContentOneItem.js";
+export * from "./ModelMessageEventModel.js";
 export * from "./ModelMessageUsage.js";
 export * from "./ModelMessageUsageInputTokensBreakdown.js";
 export * from "./ModelParams.js";

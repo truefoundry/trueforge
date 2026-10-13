@@ -61,10 +61,12 @@ describe('authSession', () => {
     assert.deepEqual(await probeSession(createClient({ type: 'default' })), {
       status: 'authenticated',
       displayName: 'user-1',
+      tenantId: 'default',
     });
     assert.deepEqual(await probeSession(createClient({ type: 'oidc-connected' })), {
       status: 'authenticated',
       displayName: 'user-1',
+      tenantId: 'default',
     });
   });
 
