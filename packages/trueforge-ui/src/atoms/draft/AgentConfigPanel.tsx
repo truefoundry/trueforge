@@ -7,6 +7,7 @@ import type { AgentSkill, AgentSpec, ModelSelection } from '../../server/types.j
 import { useSlot } from '../../theme/SlotsProvider.js';
 import { auiButtonClass } from '../lib/buttonClasses.js';
 import { cn } from '../lib/cn.js';
+import { Button } from '../primitives/Button.js';
 import { ResponsiveDropdownMenu } from '../primitives/ResponsiveDropdownMenu.js';
 import { Tooltip } from '../primitives/Tooltip.js';
 import type { AgentConfigEditor } from './AgentConfigEditors.js';
@@ -326,15 +327,10 @@ export function AgentConfigPanel({
         <h2 className="text-sm font-semibold">Agent Config</h2>
         <span className="min-w-0 flex-1" />
         {onReset && !disabled ? (
-          <button
-            type="button"
-            aria-label="Reset playground"
-            title="Reset playground"
-            className={auiButtonClass({ variant: 'ghost', size: 'icon', className: 'size-8' })}
-            onClick={onReset}
-          >
+          <Button.Ghost type="button" title="Reset playground" onClick={onReset}>
             <Icon name="rotate-right" />
-          </button>
+            Reset
+          </Button.Ghost>
         ) : null}
         {onClose ? (
           <button

@@ -97,7 +97,7 @@ describe('AgentConfigPanel', () => {
     expect(screen.queryByText('Variables')).not.toBeInTheDocument();
     expect(screen.queryByText('Initial messages')).not.toBeInTheDocument();
     expect(screen.queryByRole('button', { name: 'Close agent config' })).not.toBeInTheDocument();
-    expect(screen.queryByRole('button', { name: 'Reset playground' })).not.toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: 'Reset' })).not.toBeInTheDocument();
     expect(screen.getByRole('heading', { name: 'Agent Config' }).parentElement).toHaveClass(
       'min-h-14',
       'border-b',
@@ -123,7 +123,7 @@ describe('AgentConfigPanel', () => {
       </SlotsProvider>,
     );
 
-    fireEvent.click(screen.getByRole('button', { name: 'Reset playground' }));
+    fireEvent.click(screen.getByRole('button', { name: 'Reset' }));
     expect(onReset).toHaveBeenCalledTimes(1);
   });
 
