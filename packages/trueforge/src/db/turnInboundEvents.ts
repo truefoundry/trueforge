@@ -1,7 +1,4 @@
 import type { TurnUserEvent, TurnUserEventMessage } from '@truefoundry/trueforge-core/agent-session';
-import type { InsertTurnInboundEventsInput } from '@truefoundry/trueforge-core/agent-session/store/ISessionStore';
-
-type InboundInsertEvent = InsertTurnInboundEventsInput['events'][number];
 
 export function toTurnUserEventMessage(event: TurnUserEvent): TurnUserEventMessage {
   switch (event.type) {
@@ -43,27 +40,4 @@ export function toTurnUserEvent(row: {
     id: row.event_id,
     created_at: row.created_at,
   };
-}
-
-/** First repeated event id in the batch (input order), if any. */
-export function firstDuplicateEventIdInBatch(events: readonly Pick<InboundInsertEvent, 'id'>[]): string | undefined {
-  const seen = new Set<string>();
-  for (const event of events) {
-    if (seen.has(event.id)) {
-      return event.id;
-    }
-    seen.add(event.id);
-  }
-  return undefined;
-}
-
-/**
- * After a unique/PK violation, pick the colliding id: first input event id
- * that already exists.
- */
-export function firstCollidingEventId(
-  events: readonly Pick<InboundInsertEvent, 'id'>[],
-  existingEventIds: ReadonlySet<string>,
-): string {
-  return events.find(e => existingEventIds.has(e.id))?.id ?? events[0]?.id ?? '';
 }

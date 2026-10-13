@@ -11,12 +11,8 @@ import {
 } from '@truefoundry/trueforge-core/agent-session/store/SessionStoreErrors';
 import type { Kysely } from 'kysely';
 import { sql } from 'kysely';
-import {
-  firstCollidingEventId,
-  firstDuplicateEventIdInBatch,
-  toTurnUserEvent,
-  toTurnUserEventMessage,
-} from '../../../turnInboundEvents';
+import { firstDuplicate, firstValueInSet } from '../../../../utils/collections';
+import { toTurnUserEvent, toTurnUserEventMessage } from '../../../turnInboundEvents';
 import { isUniqueViolation } from '../../client';
 import { json } from '../../sqlExpressions';
 import type { Database } from '../../types';
@@ -50,7 +46,7 @@ async function resolveCollidingEventId(
     .where('turn_id', '=', turnId)
     .where('event_id', 'in', ids)
     .execute();
-  return firstCollidingEventId(events, new Set(rows.map(r => r.event_id)));
+  return firstValueInSet(ids, new Set(rows.map(r => r.event_id))) ?? ids[0] ?? '';
 }
 
 export async function insertTurnInboundEvents(
@@ -62,7 +58,7 @@ export async function insertTurnInboundEvents(
   }
   await requireSession(db, input.session_id);
 
-  const duplicateInBatch = firstDuplicateEventIdInBatch(input.events);
+  const duplicateInBatch = firstDuplicate(input.events.map(event => event.id));
   if (duplicateInBatch !== undefined) {
     throw new TurnEventAlreadyExistsError({
       session_id: input.session_id,
