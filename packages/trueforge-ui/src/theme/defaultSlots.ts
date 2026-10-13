@@ -39,6 +39,7 @@ import { AttachmentPickerButton } from '../atoms/AttachmentPickerButton.js';
 import { AttachmentPreviewDialog } from '../atoms/AttachmentPreviewDialog.js';
 import { ChatFileDownload } from '../atoms/ChatFileDownload.js';
 import { ClearChatButton } from '../atoms/ClearChatButton.js';
+import { ResetAgentBuilderButton } from '../atoms/ResetAgentBuilderButton.js';
 import { CodeEditor } from '../atoms/CodeEditor.js';
 import { ComposerLeftSection, ComposerRightSection, ComposerSendButton } from '../atoms/ComposerSections.js';
 import { ComposerShell } from '../atoms/ComposerShell.js';
@@ -257,6 +258,7 @@ export const defaultSlots = {
   SaveAgentForm,
   SelectAgentEmptyState,
   ClearChatButton,
+  ResetAgentBuilderButton,
   ShareChatButton,
   ShareSessionDialog,
   ThreadListRowSkeleton,

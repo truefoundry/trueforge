@@ -157,9 +157,6 @@ export function AgentConfigDrawerContainer({ showClose = false }: { showClose?: 
           if (canManageAgent) setEditor(nextEditor);
         }}
         onChange={updateSpec}
-        onReset={() => {
-          if (canManageAgent) shell.resetAgentBuilder();
-        }}
         disabled={!canManageAgent}
         onClose={showClose ? closeDrawer : undefined}
       />

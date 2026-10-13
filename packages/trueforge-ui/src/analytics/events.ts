@@ -28,6 +28,7 @@ export const AnalyticsEvents = {
   },
   Config: {
     OPENED: 'agent.config_opened',
+    RESET: 'agent.config_reset',
   },
   Settings: {
     OPENED: 'agent.settings_opened',

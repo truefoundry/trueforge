@@ -7,7 +7,6 @@ import type { AgentSkill, AgentSpec, ModelSelection } from '../../server/types.j
 import { useSlot } from '../../theme/SlotsProvider.js';
 import { auiButtonClass } from '../lib/buttonClasses.js';
 import { cn } from '../lib/cn.js';
-import { Button } from '../primitives/Button.js';
 import { ResponsiveDropdownMenu } from '../primitives/ResponsiveDropdownMenu.js';
 import { Tooltip } from '../primitives/Tooltip.js';
 import type { AgentConfigEditor } from './AgentConfigEditors.js';
@@ -39,7 +38,6 @@ export type AgentConfigPanelProps = {
   instructions: string;
   onOpenEditor: (editor: AgentConfigEditor) => void;
   onChange?: (spec: AgentSpec) => void;
-  onReset?: () => void;
   onClose?: () => void;
   disabled?: boolean;
 };
@@ -290,7 +288,6 @@ export function AgentConfigPanel({
   instructions,
   onOpenEditor,
   onChange,
-  onReset,
   onClose,
   disabled = false,
 }: AgentConfigPanelProps) {
@@ -326,12 +323,6 @@ export function AgentConfigPanel({
         <Icon name="sliders" className="size-4" />
         <h2 className="text-sm font-semibold">Agent Config</h2>
         <span className="min-w-0 flex-1" />
-        {onReset && !disabled ? (
-          <Button.Ghost type="button" title="Reset playground" onClick={onReset}>
-            <Icon name="rotate-right" />
-            Reset
-          </Button.Ghost>
-        ) : null}
         {onClose ? (
           <button
             type="button"

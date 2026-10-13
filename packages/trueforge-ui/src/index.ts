@@ -297,6 +297,7 @@ export type {
 
 // Server port types + factory
 export { ClearChatButton } from './atoms/ClearChatButton.js';
+export { ResetAgentBuilderButton } from './atoms/ResetAgentBuilderButton.js';
 export {
   IS_CREATE_AGENT_METADATA_KEY,
   isCreateAgentMetadataValue,

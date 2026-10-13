@@ -97,7 +97,6 @@ describe('AgentConfigPanel', () => {
     expect(screen.queryByText('Variables')).not.toBeInTheDocument();
     expect(screen.queryByText('Initial messages')).not.toBeInTheDocument();
     expect(screen.queryByRole('button', { name: 'Close agent config' })).not.toBeInTheDocument();
-    expect(screen.queryByRole('button', { name: 'Reset' })).not.toBeInTheDocument();
     expect(screen.getByRole('heading', { name: 'Agent Config' }).parentElement).toHaveClass(
       'min-h-14',
       'border-b',
@@ -105,26 +104,6 @@ describe('AgentConfigPanel', () => {
       'px-3',
       'py-1.5',
     );
-  });
-
-  it('exposes reset playground when onReset is provided', () => {
-    const onReset = vi.fn();
-    render(
-      <SlotsProvider>
-        <AgentConfigPanel
-          spec={spec}
-          model={model}
-          {...catalogProps}
-          skillsAvailable
-          instructions={spec.instructions ?? ''}
-          onOpenEditor={vi.fn()}
-          onReset={onReset}
-        />
-      </SlotsProvider>,
-    );
-
-    fireEvent.click(screen.getByRole('button', { name: 'Reset' }));
-    expect(onReset).toHaveBeenCalledTimes(1);
   });
 
   it('routes editor actions from the configuration summary', () => {
