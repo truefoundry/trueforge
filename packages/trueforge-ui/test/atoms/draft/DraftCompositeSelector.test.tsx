@@ -21,6 +21,7 @@ import {
 } from '../../server/mockServer.js';
 
 let agentSpec: AgentSpec;
+let draftSessionId: string | undefined;
 const updateAgentSpec = vi.fn();
 const setSettingsOpen = vi.fn();
 const rememberDraftSpec = vi.fn();
@@ -47,7 +48,7 @@ const settingsCatalog = createMockCatalog({ skillCatalog, sandboxCatalog });
 const setEnvironmentsOpen = vi.fn();
 
 vi.mock('@truefoundry/trueforge-assistant-ui-runtime', () => ({
-  useTrueForgeAgentSpec: () => ({ agentSpec }),
+  useTrueForgeAgentSpec: () => ({ agentSpec, draftSessionId }),
   useTrueForgeUpdateAgentSpec: () => updateAgentSpec,
 }));
 
@@ -122,6 +123,7 @@ function renderSelector({
 describe('DraftCompositeSelector', () => {
   beforeEach(() => {
     vi.useFakeTimers({ shouldAdvanceTime: true });
+    draftSessionId = undefined;
     agentSpec = {
       model: { name: 'openai/gpt-4.1' },
       mcpServers: [{ id: 'slack', name: 'Slack' }],
@@ -457,20 +459,101 @@ describe('DraftCompositeSelector', () => {
       config: expect.objectContaining({
         sandbox: expect.objectContaining({
           enabled: true,
-          environment_name: 'python-dev',
+          environmentName: 'python-dev',
         }),
       }),
     });
 
-    // Select default environment clears environment_name
+    // Select default environment clears environmentName
     fireEvent.click(screen.getByText('default'));
     expect(updateAgentSpec).toHaveBeenCalledWith({
       config: expect.objectContaining({
         sandbox: expect.objectContaining({
-          environment_name: undefined,
+          environmentName: undefined,
         }),
       }),
     });
+  });
+
+  it('locks environment selection once a chat session exists', async () => {
+    draftSessionId = 'session-1';
+    agentSpec = {
+      ...agentSpec,
+      config: { sandbox: { enabled: true, environmentName: 'python-dev' } },
+    };
+    const environmentServer = createMockSandboxEnvironmentServer({
+      listEnvironments: async () => ({
+        data: [
+          {
+            id: 'env-default',
+            name: 'default',
+            description: 'Default environment',
+            status: 'ready',
+            statusReason: null,
+            manifest: { name: 'default', description: 'Default environment' },
+            createdBySubject: { subjectId: 'u1', subjectType: 'user', subjectDisplayName: 'user-1' },
+            createdAt: '2026-09-01T10:00:00Z',
+            updatedAt: '2026-09-01T10:00:00Z',
+          },
+          {
+            id: 'env-1',
+            name: 'python-dev',
+            description: 'Python 3.11 environment',
+            status: 'ready',
+            statusReason: null,
+            manifest: { name: 'python-dev', description: 'Python 3.11 environment' },
+            createdBySubject: { subjectId: 'u1', subjectType: 'user', subjectDisplayName: 'user-1' },
+            createdAt: '2026-09-01T10:00:00Z',
+            updatedAt: '2026-09-01T10:00:00Z',
+          },
+        ],
+      }),
+    });
+
+    renderSelector({ environmentServer });
+    fireEvent.click(screen.getByRole('button', { name: 'Tools (2)' }));
+    fireEvent.click(screen.getByRole('button', { name: /Environment/ }));
+
+    expect(await screen.findByText("Can't change the environment after a chat has started")).toBeInTheDocument();
+    fireEvent.click(screen.getByText('default'));
+    expect(updateAgentSpec).not.toHaveBeenCalled();
+  });
+
+  it('shows a deleted environment from the agent spec and does not change it', async () => {
+    agentSpec = {
+      ...agentSpec,
+      config: { sandbox: { enabled: true, environmentName: 'gone-env' } },
+    };
+    const environmentServer = createMockSandboxEnvironmentServer({
+      listEnvironments: async () => ({
+        data: [
+          {
+            id: 'env-default',
+            name: 'default',
+            description: 'Default environment',
+            status: 'ready',
+            statusReason: null,
+            manifest: { name: 'default', description: 'Default environment' },
+            createdBySubject: { subjectId: 'u1', subjectType: 'user', subjectDisplayName: 'user-1' },
+            createdAt: '2026-09-01T10:00:00Z',
+            updatedAt: '2026-09-01T10:00:00Z',
+          },
+        ],
+      }),
+    });
+
+    renderSelector({ environmentServer });
+    fireEvent.click(screen.getByRole('button', { name: 'Tools (2)' }));
+    fireEvent.click(screen.getByRole('button', { name: /Environment/ }));
+
+    expect(await screen.findByText('gone-env')).toBeInTheDocument();
+    expect(screen.queryByText('This environment is no longer available')).not.toBeInTheDocument();
+    const goneRow = screen.getByRole('menuitemradio', { name: /gone-env/ });
+    expect(goneRow).toHaveAttribute('aria-checked', 'true');
+    expect(goneRow).toHaveAttribute('aria-disabled', 'true');
+
+    fireEvent.click(screen.getByText('gone-env'));
+    expect(updateAgentSpec).not.toHaveBeenCalled();
   });
 
   it('shows Web search under Built-in and toggles draft config when available', async () => {

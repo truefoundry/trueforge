@@ -66,15 +66,23 @@ export function AgentRuntimeConfigFields({
 }: AgentRuntimeConfigFieldsProps) {
   const shell = useOptionalShellMode();
   const { environments: readyEnvironments, refetch: refetchEnvironments } = useReadySandboxEnvironments();
+  const selectedEnvironmentName = value.sandbox?.environmentName?.trim() || 'default';
 
-  const environmentOptions = useMemo(
-    () =>
-      readyEnvironments.map(env => ({
-        value: env.name,
-        label: env.name,
-      })),
-    [readyEnvironments],
-  );
+  const environmentOptions = useMemo(() => {
+    const options: Array<{ value: string; label: string; disabled?: boolean }> = readyEnvironments.map(env => ({
+      value: env.name,
+      label: env.name,
+    }));
+    // Keep a deleted session/agent environment visible so the control does not fall back to Select.
+    if (selectedEnvironmentName !== 'default' && !options.some(option => option.value === selectedEnvironmentName)) {
+      options.unshift({
+        value: selectedEnvironmentName,
+        label: selectedEnvironmentName,
+        disabled: true,
+      });
+    }
+    return options;
+  }, [readyEnvironments, selectedEnvironmentName]);
 
   const withCompaction = (compaction: AgentCompactionConfig): AgentRuntimeConfig => ({
     ...value,
@@ -275,7 +283,7 @@ export function AgentRuntimeConfigFields({
               <div className="flex shrink-0 items-center">
                 <PopoverSelect
                   aria-label="Environment"
-                  value={value.sandbox?.environment_name?.trim() || 'default'}
+                  value={value.sandbox?.environmentName?.trim() || 'default'}
                   options={environmentOptions}
                   disabled={disabled || !sandboxAvailable || !sandboxEnabled}
                   className="w-48"
@@ -287,7 +295,7 @@ export function AgentRuntimeConfigFields({
                       ...value,
                       sandbox: {
                         ...value.sandbox,
-                        environment_name: selected === 'default' ? undefined : selected,
+                        environmentName: selected === 'default' ? undefined : selected,
                       },
                     })
                   }

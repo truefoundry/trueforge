@@ -105,18 +105,16 @@ export function useDraftAgentSpec({
         }
         loadedDraftIdRef.current = draftSessionId;
 
-        if (loaded == null) {
-          // A session without an agentSpec (e.g. named or immutable session) cannot accept
-          // agent spec updates. Clear any unsaved draft edits so we never attempt to sync
-          // draft changes against a named session.
-          localDirtyRef.current = false;
-        } else if (localDirtyRef.current) {
-          scheduleSpecSyncRef.current(draftSessionId, agentSpecRef.current);
-          localDirtyRef.current = false;
-          setSpecError(null);
-          setIsSpecLoading(false);
-          return;
+        // Adopt the stored session spec; drop any New Chat seed that raced in during load.
+        if (syncTimeoutRef.current != null) {
+          clearTimeout(syncTimeoutRef.current);
+          syncTimeoutRef.current = undefined;
         }
+        syncGenerationRef.current++;
+        pendingFlushRef.current = undefined;
+        inFlightFlushRef.current = undefined;
+        localDirtyRef.current = false;
+        setIsSpecSyncing(false);
 
         // If session has no custom draft spec (e.g. non-draft or immutable session),
         // keep the default draft spec rather than failing.
@@ -195,9 +193,6 @@ export function useDraftAgentSpec({
     [flushSpecSync],
   );
 
-  const scheduleSpecSyncRef = useRef(scheduleSpecSync);
-  scheduleSpecSyncRef.current = scheduleSpecSync;
-
   const flushPendingSpecSyncNow = useCallback(async () => {
     if (syncTimeoutRef.current != null) {
       clearTimeout(syncTimeoutRef.current);
@@ -261,7 +256,9 @@ export function useDraftAgentSpec({
       const next = mergeAgentSpec(agentSpecRef.current, update);
       setAgentSpec(next);
       localDirtyRef.current = true;
-      if (draftSessionId != null) {
+      // Wait until the session's stored spec is loaded. Syncing earlier overwrites
+      // a resumed session with the in-memory New Chat seed.
+      if (draftSessionId != null && loadedDraftIdRef.current === draftSessionId) {
         scheduleSpecSync(draftSessionId, next);
       }
     },
