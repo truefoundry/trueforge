@@ -2788,6 +2788,9 @@
             "description": "Unique identifier for the event (monotonic ULID).",
             "type": "string"
           },
+          "model": {
+            "$ref": "#/components/schemas/Model"
+          },
           "name": {
             "description": "Optional participant name.",
             "type": "string"
