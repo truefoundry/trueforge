@@ -97,12 +97,11 @@ export function createSandboxEnvironmentsRouter<TTransaction>(
   const { sandboxEnvironmentStore: store, resolveAgentStore, resolveRequestContext, logger } = deps;
 
   const listHandler: RouteHandler<typeof listSandboxEnvironmentsRoute> = async c => {
-    const { tenant_id, subject } = resolveRequestContext(c);
+    const { tenant_id } = resolveRequestContext(c);
     const { limit, page_token: pageToken } = c.req.valid('query');
     try {
       const listed = await store.listEnvironments({
         tenant_id,
-        created_by_subject_id: subject.id,
         limit,
         page_token: pageToken,
       });
@@ -116,13 +115,11 @@ export function createSandboxEnvironmentsRouter<TTransaction>(
   };
 
   const getHandler: RouteHandler<typeof getSandboxEnvironmentRoute> = async c => {
-    const { tenant_id, subject } = resolveRequestContext(c);
+    const { tenant_id } = resolveRequestContext(c);
     const { name } = c.req.valid('param');
-    // System default is tenant-wide; custom envs stay owner-scoped.
     const loaded = await store.getEnvironment({
       tenant_id,
       name,
-      ...(name === DEFAULT_SANDBOX_ENVIRONMENT_NAME ? {} : { created_by_subject_id: subject.id }),
     });
     if (!loaded) {
       return c.json({ error: { message: `Sandbox environment not found: ${name}` } }, 404);
@@ -130,9 +127,23 @@ export function createSandboxEnvironmentsRouter<TTransaction>(
     return c.json({ data: toSandboxEnvironment(loaded) }, 200);
   };
 
-  type WriteSandboxEnvironmentOutcome =
-    { kind: 'saved'; environment: SandboxEnvironment } | { kind: 'error'; status: 409 | 422; message: string };
+  type SavedSandboxEnvironmentOutcome = { kind: 'saved'; environment: SandboxEnvironment };
+  type SandboxEnvironmentWriteError<TStatus extends 404 | 409 | 422> = {
+    kind: 'error';
+    status: TStatus;
+    message: string;
+  };
 
+  function writeSandboxEnvironment(input: {
+    c: Context;
+    body: CreateSandboxEnvironmentRequest;
+    mode: 'create';
+  }): Promise<SavedSandboxEnvironmentOutcome | SandboxEnvironmentWriteError<409 | 422>>;
+  function writeSandboxEnvironment(input: {
+    c: Context;
+    body: UpdateSandboxEnvironmentRequest;
+    mode: 'upsert';
+  }): Promise<SavedSandboxEnvironmentOutcome | SandboxEnvironmentWriteError<404 | 409 | 422>>;
   async function writeSandboxEnvironment({
     c,
     body,
@@ -141,37 +152,40 @@ export function createSandboxEnvironmentsRouter<TTransaction>(
     c: Context;
     body: CreateSandboxEnvironmentRequest | UpdateSandboxEnvironmentRequest;
     mode: 'create' | 'upsert';
-  }): Promise<WriteSandboxEnvironmentOutcome> {
+  }): Promise<SavedSandboxEnvironmentOutcome | SandboxEnvironmentWriteError<404 | 409 | 422>> {
     const requestContext = resolveRequestContext(c);
     const { manifest } = body;
-    const provider = await resolveSandboxProviderRecord(deps.resolveSandboxProviderStore(c), requestContext.tenant_id);
-    if (provider === undefined) {
-      return { kind: 'error', status: 422, message: 'No sandbox provider configured' };
-    }
-
     const created_by_subject = createdBySubjectFromRequestContext(requestContext);
 
     try {
-      // Tenant-wide name check before secret sync so create cannot mutate another env's secrets.
-      if (mode === 'create') {
-        const taken = await store.getEnvironment({
-          tenant_id: requestContext.tenant_id,
-          name: manifest.name,
-        });
-        if (taken) {
+      const existing = await store.getEnvironment({
+        tenant_id: requestContext.tenant_id,
+        name: manifest.name,
+      });
+      if (existing) {
+        if (mode === 'create') {
           return {
             kind: 'error',
             status: 409,
             message: `Sandbox environment with name ${manifest.name} already exists`,
           };
         }
+        if (existing.environment.created_by_subject.subject_id !== requestContext.subject.id) {
+          return {
+            kind: 'error',
+            status: 404,
+            message: `Sandbox environment not found: ${manifest.name}`,
+          };
+        }
       }
 
-      const existing = await store.getEnvironment({
-        tenant_id: requestContext.tenant_id,
-        name: manifest.name,
-        created_by_subject_id: requestContext.subject.id,
-      });
+      const provider = await resolveSandboxProviderRecord(
+        deps.resolveSandboxProviderStore(c),
+        requestContext.tenant_id,
+      );
+      if (provider === undefined) {
+        return { kind: 'error', status: 422, message: 'No sandbox provider configured' };
+      }
       const existingSecrets = existing
         ? await store.listSecretsByEnvironment({ environment_id: existing.environment.id })
         : [];
@@ -257,9 +271,11 @@ export function createSandboxEnvironmentsRouter<TTransaction>(
     const existing = await store.getEnvironment({
       tenant_id,
       name,
-      created_by_subject_id: subject.id,
     });
     if (!existing) {
+      return c.json({ error: { message: `Sandbox environment not found: ${name}` } }, 404);
+    }
+    if (existing.environment.created_by_subject.subject_id !== subject.id) {
       return c.json({ error: { message: `Sandbox environment not found: ${name}` } }, 404);
     }
     const agentNames = await resolveAgentStore(c).listAgentNamesUsingSandboxEnvironment({

@@ -8,6 +8,7 @@ import type { TrackAnalytics } from '@/analytics/types.js';
 import { EnvironmentsButton } from '@/atoms/EnvironmentsButton.js';
 import { EnvironmentsPage, PENDING_ENVIRONMENTS_POLL_INTERVAL_MS } from '@/atoms/environments/EnvironmentsPage.js';
 import { ToasterProvider } from '@/containers/ToasterContainer.js';
+import { CurrentUserProvider } from '@/contexts/CurrentUserContext.js';
 import { ServerProvider } from '@/server/ServerContext.js';
 import { ShellModeProvider } from '@/server/ShellModeContext.js';
 import type { SandboxEnvironment, SandboxEnvironmentServer } from '@/server/types.js';
@@ -88,11 +89,13 @@ function renderPage({
 
   const tree = (
     <ServerProvider server={server}>
-      <ShellModeProvider agentConfig={{ mode: 'AgentLibraryWithComposer' }}>
-        <ToasterProvider>
-          <EnvironmentsPage />
-        </ToasterProvider>
-      </ShellModeProvider>
+      <CurrentUserProvider currentUser={{ subjectId: 'user-1', displayName: 'alice' }}>
+        <ShellModeProvider agentConfig={{ mode: 'AgentLibraryWithComposer' }}>
+          <ToasterProvider>
+            <EnvironmentsPage />
+          </ToasterProvider>
+        </ShellModeProvider>
+      </CurrentUserProvider>
     </ServerProvider>
   );
   return render(track != null ? <AnalyticsProvider track={track}>{tree}</AnalyticsProvider> : tree);
@@ -134,6 +137,26 @@ describe('EnvironmentsPage', () => {
     await waitFor(() => {
       expect(screen.getByText('New environment')).toBeInTheDocument();
     });
+  });
+
+  it('does not offer edit or delete actions for another subject’s environment', async () => {
+    renderPage({
+      environments: [
+        {
+          ...sampleEnvironments[0]!,
+          createdBySubject: {
+            subjectId: 'user-2',
+            subjectType: 'user',
+            subjectDisplayName: 'bob',
+          },
+        },
+      ],
+    });
+
+    const name = await screen.findByText('python-data');
+    expect(screen.queryByRole('button', { name: 'Delete python-data' })).not.toBeInTheDocument();
+    fireEvent.click(name);
+    expect(screen.queryByText('Save')).not.toBeInTheDocument();
   });
 
   it('polls pending environments using getEnvironment in the background', async () => {
