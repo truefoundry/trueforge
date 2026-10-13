@@ -69,12 +69,33 @@ export function describeUnknownError(error: unknown): string {
   return String(error);
 }
 
+/**
+ * `error.stack` stops at the wrapper. Each `cause` stack is the throw beneath it,
+ * so the log keeps the whole chain.
+ */
+function stackWithCauses(error: Error): string | undefined {
+  const stacks: string[] = [];
+  const seen = new Set<unknown>();
+  let current: unknown = error;
+  while (typeof current === 'object' && current !== null && !seen.has(current)) {
+    seen.add(current);
+    if (current instanceof Error && current.stack !== undefined) {
+      stacks.push(current.stack);
+    }
+    if (!('cause' in current)) {
+      break;
+    }
+    current = Reflect.get(current, 'cause');
+  }
+  return stacks.length > 0 ? stacks.join('\nCaused by: ') : undefined;
+}
+
 export function extractErrorLogFields(error: unknown): ErrorLogFields {
   if (error instanceof Error) {
     const chain = describeErrorChain(error, new Set());
     return {
       error: chain.length > 0 ? chain : formatObjectErrorForLog(error),
-      stack: error.stack,
+      stack: stackWithCauses(error),
     };
   }
   if (typeof error !== 'object' || error === null) {

@@ -4,6 +4,9 @@ import type { SubAgentCustomMetadata } from './foldPeerThreads.js';
 import { TOOL_APPROVAL_THREAD_ID_CUSTOM_KEY } from './toolApproval.js';
 import { TOOL_RESPONSE_THREAD_ID_CUSTOM_KEY } from './toolResponse.js';
 
+/** Wire cancel reason from `turn.done` — UI reads this for the cancelled banner. */
+export const CANCELLATION_REASON_CUSTOM_KEY = 'cancellationReason';
+
 /** Keys written to `ThreadMessage.metadata.custom` by this runtime adapter. */
 export interface TrueForgeMessageCustomMetadata {
   subAgent?: SubAgentCustomMetadata;
@@ -12,6 +15,7 @@ export interface TrueForgeMessageCustomMetadata {
   sandboxId?: string;
   /** Turn that produced this message. Scopes artifact downloads to their own turn. */
   turnId?: string;
+  [CANCELLATION_REASON_CUSTOM_KEY]?: string;
   [TOOL_APPROVAL_THREAD_ID_CUSTOM_KEY]?: string;
   [TOOL_RESPONSE_THREAD_ID_CUSTOM_KEY]?: string;
 }

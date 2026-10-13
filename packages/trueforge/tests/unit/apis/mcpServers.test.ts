@@ -18,6 +18,7 @@ import { createSqliteDb } from '../../../src/db/sqlite/client';
 import { SqliteMcpServerStore } from '../../../src/db/sqlite/mcp-server-store/SqliteMcpServerStore';
 import { SqliteOAuthTokenStore } from '../../../src/db/sqlite/token-store/SqliteOAuthTokenStore';
 import { mcpOAuthCallbackUrl } from '../../../src/mcp/auth/mcpOAuthHelpers';
+import { mountWithErrorHandler } from '../mountWithErrorHandler';
 
 jest.mock('undici', () => {
   const actual = jest.requireActual<typeof import('undici')>('undici');
@@ -136,14 +137,16 @@ describe('mcp-servers routers', () => {
     withTransaction = callback => db.transaction().execute(callback);
     logger = winston.createLogger({ silent: true });
     agentStore = new SqliteAgentStore(db);
-    settingsRouter = createSettingsMcpServersRouter({
-      resolveMcpServerStore: () => mcpServerStore,
-      resolveAgentStore: () => agentStore,
-      tokenStore,
-      withTransaction,
-      logger,
-      resolveRequestContext: () => STANDALONE_REQUEST_CONTEXT,
-    });
+    settingsRouter = mountWithErrorHandler(
+      createSettingsMcpServersRouter({
+        resolveMcpServerStore: () => mcpServerStore,
+        resolveAgentStore: () => agentStore,
+        tokenStore,
+        withTransaction,
+        logger,
+        resolveRequestContext: () => STANDALONE_REQUEST_CONTEXT,
+      }),
+    );
     catalogRouter = createCatalogRouter({
       modelCatalog: ModelCatalog.load(),
       mcpCatalog: McpCatalog.load(),
