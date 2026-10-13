@@ -156,6 +156,62 @@ describe('ssrfFetch', () => {
     }
   });
 
+  it('retries 502 Bad Gateway then returns success', async () => {
+    configureOutboundUrlGuard({ allowedHosts: ['127.0.0.1'], blockedHosts: [] });
+    configureOutboundFetches({
+      outbound: { ...defaultOutboundFetchOptions(), maxRetries: 2 },
+      model: defaultModelOutboundFetchOptions(),
+      mcp: defaultMcpOutboundFetchOptions(),
+    });
+    let hits = 0;
+    const { server, origin } = await listen((_req, res) => {
+      hits += 1;
+      if (hits === 1) {
+        res.writeHead(502, { 'content-type': 'text/plain' });
+        res.end('bad gateway');
+        return;
+      }
+      res.writeHead(200, { 'content-type': 'text/plain' });
+      res.end('ok');
+    });
+    try {
+      const response = await ssrfFetch(`${origin}/`);
+      expect(response.status).toBe(200);
+      await expect(response.text()).resolves.toBe('ok');
+      expect(hits).toBe(2);
+    } finally {
+      await closeServer(server);
+    }
+  });
+
+  it('retries 503 Service Unavailable then returns success', async () => {
+    configureOutboundUrlGuard({ allowedHosts: ['127.0.0.1'], blockedHosts: [] });
+    configureOutboundFetches({
+      outbound: { ...defaultOutboundFetchOptions(), maxRetries: 2 },
+      model: defaultModelOutboundFetchOptions(),
+      mcp: defaultMcpOutboundFetchOptions(),
+    });
+    let hits = 0;
+    const { server, origin } = await listen((_req, res) => {
+      hits += 1;
+      if (hits === 1) {
+        res.writeHead(503, { 'content-type': 'text/plain' });
+        res.end('service unavailable');
+        return;
+      }
+      res.writeHead(200, { 'content-type': 'text/plain' });
+      res.end('ok');
+    });
+    try {
+      const response = await ssrfFetch(`${origin}/`);
+      expect(response.status).toBe(200);
+      await expect(response.text()).resolves.toBe('ok');
+      expect(hits).toBe(2);
+    } finally {
+      await closeServer(server);
+    }
+  });
+
   it('retries Request POST body after gateway 520 (body is not left consumed)', async () => {
     configureOutboundUrlGuard({ allowedHosts: ['127.0.0.1'], blockedHosts: [] });
     configureOutboundFetches({
@@ -365,7 +421,7 @@ describe('mcpSsrfFetch', () => {
       res.end(String(status));
     });
     try {
-      for (const status of [408, 429, 522]) {
+      for (const status of [408, 429, 502, 503, 522]) {
         firstStatus = status;
         hits = 0;
         const retried = await mcpSsrfFetch(`${origin}/`);
