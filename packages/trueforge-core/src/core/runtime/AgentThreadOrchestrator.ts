@@ -534,6 +534,13 @@ export class AgentThreadOrchestrator {
           thread_id: chunk.thread_id,
         };
         const subAgentThreadId = getThreadId();
+        const subAgentThread = await this.createDynamicSubAgentThread({
+          parentDefinition: currentThread.definition,
+          request: chunk.agent_info,
+          threadId: subAgentThreadId,
+          parent,
+          signal,
+        });
         yield {
           type: EventType.THREAD_CREATED,
           id: newEventId(),
@@ -548,13 +555,6 @@ export class AgentThreadOrchestrator {
           title: chunk.agent_info.name,
           thread_id: subAgentThreadId,
         };
-        const subAgentThread = await this.createDynamicSubAgentThread({
-          parentDefinition: currentThread.definition,
-          request: chunk.agent_info,
-          threadId: subAgentThreadId,
-          parent,
-          signal,
-        });
         this.agentThreads.set(subAgentThreadId, subAgentThread);
         return;
       }
