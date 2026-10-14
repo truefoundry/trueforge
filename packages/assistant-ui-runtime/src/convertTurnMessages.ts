@@ -586,12 +586,7 @@ function turnFromCreatedEvent(options: {
     id: turnId,
     sessionId,
     state:
-      update?.state.status === TURN_STATUS.PAUSED
-        ? {
-            status: TURN_STATUS.PAUSED,
-            actionRequiredOnEvents: update.state.actionRequiredOnEvents,
-          }
-        : { status: TURN_STATUS.RUNNING },
+      update?.state.status === TURN_STATUS.PAUSED ? { status: TURN_STATUS.PAUSED } : { status: TURN_STATUS.RUNNING },
     createdAt: event.createdAt,
     ...(event.input != null ? { input: event.input } : {}),
     ...(event.previousTurnId === undefined ? {} : { previousTurnId: event.previousTurnId }),
@@ -1841,10 +1836,7 @@ export async function* streamTurnEvents(
       return {
         ...buildRequiredActionUpdate(),
         sequenceNumber,
-        turnState: {
-          status: TURN_STATUS.PAUSED,
-          actionRequiredOnEvents: [],
-        },
+        turnState: { status: TURN_STATUS.PAUSED },
       };
     }
     return { content: yieldContent() ?? [], sequenceNumber };
@@ -1896,10 +1888,7 @@ export async function* streamTurnEvents(
       yield withSandbox({
         ...buildRequiredActionUpdate(),
         sequenceNumber: data.sequenceNumber,
-        turnState: {
-          status: TURN_STATUS.PAUSED,
-          actionRequiredOnEvents: event.state.actionRequiredOnEvents,
-        },
+        turnState: { status: TURN_STATUS.PAUSED },
       });
       yieldedPaused = true;
       continue;
@@ -1938,10 +1927,7 @@ export async function* streamTurnEvents(
       yield withSandbox({
         ...buildRequiredActionUpdate(),
         ...(lastSequenceNumber != null ? { sequenceNumber: lastSequenceNumber } : {}),
-        turnState: {
-          status: TURN_STATUS.PAUSED,
-          actionRequiredOnEvents: [],
-        },
+        turnState: { status: TURN_STATUS.PAUSED },
       });
     }
     return;

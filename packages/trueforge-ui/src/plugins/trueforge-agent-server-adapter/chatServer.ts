@@ -21,6 +21,7 @@ import type {
   Turn,
   TurnInboundEventItem,
   TurnInputItem,
+  UserMessage,
   UserMessageContent,
 } from '../../server/types.js';
 import { createTrueForgeClient, type CreateTrueForgeClientOptions } from './client.js';
@@ -33,7 +34,7 @@ export type CreateHarnessChatServerOptions = CreateTrueForgeClientOptions & {
   client?: TrueForge;
 };
 
-/** UI session with create-agent intent for resume chrome. */
+/** UI session with create-agent intent for New Agent builder chrome. */
 export type HarnessUiSession = Session<HarnessAgentSpec> & { isCreateAgent: boolean };
 
 export type HarnessCreateSessionRequest = CreateSessionRequest<HarnessAgentSpec> & {
@@ -174,13 +175,8 @@ function toHarnessContent(content: UserMessageContent): TrueForgeApi.UserMessage
   });
 }
 
-function toHarnessInput(input: TurnInputItem[]): HarnessCreateTurnInput {
-  return input.map(item => {
-    if (item.type !== 'user.message') {
-      throw new Error(`Turn creation does not accept ${item.type}; send it to the live turn events endpoint`);
-    }
-    return { ...item, content: toHarnessContent(item.content) };
-  });
+function toHarnessInput(input: UserMessage[]): HarnessCreateTurnInput {
+  return input.map(item => ({ ...item, content: toHarnessContent(item.content) }));
 }
 
 function toHarnessInboundEvents(events: TurnInboundEventItem[]): TrueForgeApi.TurnUserEventMessage[] {
@@ -253,15 +249,7 @@ export function createHarnessChatServer(
       return toUiSession(response.data);
     },
 
-    async *createTurn({
-      sessionId,
-      input,
-      previousTurnId,
-    }: {
-      sessionId: string;
-      input?: TurnInputItem[];
-      previousTurnId?: string;
-    }) {
+    async *createTurn({ sessionId, input, previousTurnId }) {
       const stream = await client.sessions.createTurnStream(sessionId, {
         ...(input === undefined ? {} : { input: toHarnessInput(input) }),
         ...(previousTurnId === undefined ? {} : { previousTurnId }),

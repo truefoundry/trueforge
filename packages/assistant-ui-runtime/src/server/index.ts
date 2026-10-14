@@ -1,5 +1,4 @@
 export type {
-  ActionRequired,
   AgentBuilderCapabilitiesResponse,
   AgentBuilderServer,
   AgentCapabilityConfig,

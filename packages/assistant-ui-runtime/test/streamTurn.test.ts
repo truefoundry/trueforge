@@ -364,7 +364,6 @@ describe('streamTurn', () => {
           threadId: null,
           state: {
             status: 'paused',
-            actionRequiredOnEvents: [{ id: 'approval-required-1' }],
           },
         });
         yield streamData(5, {
@@ -396,7 +395,6 @@ describe('streamTurn', () => {
           status: { type: 'requires-action', reason: 'tool-calls' },
           turnState: {
             status: 'paused',
-            actionRequiredOnEvents: [{ id: 'approval-required-1' }],
           },
         },
         {

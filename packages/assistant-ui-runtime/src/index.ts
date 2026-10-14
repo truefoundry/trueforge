@@ -76,7 +76,6 @@ export {
   mergeEventDelta,
 } from './server/index.js';
 export type {
-  ActionRequired,
   AgentBuilderCapabilitiesResponse,
   AgentBuilderServer,
   AgentCapabilityConfig,

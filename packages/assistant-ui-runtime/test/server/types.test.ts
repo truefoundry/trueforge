@@ -85,7 +85,6 @@ describe('AgentChatServer turn events', () => {
   it('shares the canonical paused state across turn and update contracts', () => {
     const paused: TurnUpdateStatePaused = {
       status: TURN_STATUS.PAUSED,
-      actionRequiredOnEvents: [{ id: 'approval-required-1' }],
     };
 
     expect(paused.status).toBe(TURN_STATUS.PAUSED);

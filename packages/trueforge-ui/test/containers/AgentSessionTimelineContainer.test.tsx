@@ -551,7 +551,7 @@ describe('AgentSessionTimelineContainer', () => {
         event: {
           type: 'turn.update',
           id: 'u1',
-          state: { status: 'paused', actionRequiredOnEvents: [{ id: 'mcp-req-1' }] },
+          state: { status: 'paused' },
           createdAt: '2026-01-01T00:00:01.100Z',
           threadId: null,
         },

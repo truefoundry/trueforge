@@ -331,14 +331,8 @@ export interface TurnStateRunning {
   status: typeof TURN_STATUS.RUNNING;
 }
 
-export interface ActionRequired {
-  /** Required-action event id, not a tool-call id. */
-  id: string;
-}
-
 export interface TurnStatePaused {
   status: typeof TURN_STATUS.PAUSED;
-  actionRequiredOnEvents: ActionRequired[];
 }
 
 /**

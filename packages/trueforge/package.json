@@ -69,6 +69,7 @@
     "@sentry/node": "^10.75.3",
     "@truefoundry/trueforge-core": "workspace:*",
     "@truefoundry/trueforge-sdk": "workspace:*",
+    "async-mutex": "^0.5.0",
     "better-sqlite3": "^13.0.3",
     "cron-parser": "^5.10.1",
     "env-paths": "^4.0.0",
