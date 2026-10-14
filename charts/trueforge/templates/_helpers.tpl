@@ -101,6 +101,25 @@ listen for scrapes and keeps trueforge.podAnnotations.
 {{- end }}
 
 {{/*
+ServiceMonitor labels. Chart labels first, then serviceMonitor.labels, so a
+parent can add the label its Prometheus selects on.
+*/}}
+{{- define "trueforge.serviceMonitor.labels" -}}
+{{- $merged := mergeOverwrite (include "trueforge.labels" . | fromYaml) (deepCopy (.Values.serviceMonitor.labels | default dict)) -}}
+{{- toYaml $merged -}}
+{{- end }}
+
+{{/*
+ServiceMonitor annotations. Common annotations first, then serviceMonitor.annotations.
+*/}}
+{{- define "trueforge.serviceMonitor.annotations" -}}
+{{- $merged := mergeOverwrite (include "trueforge.annotations" . | fromYaml) (deepCopy (.Values.serviceMonitor.annotations | default dict)) -}}
+{{- with $merged }}
+{{- toYaml . }}
+{{- end }}
+{{- end }}
+
+{{/*
 Selector labels.
 */}}
 {{- define "trueforge.selectorLabels" -}}

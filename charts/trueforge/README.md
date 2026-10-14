@@ -394,6 +394,7 @@ extraObjects:
 | `redis.nameOverride`  | `trueforge-redis`                   | Bitnami name prefix for bundled Redis objects. |
 | `service.type`        | `ClusterIP`                         | Service type.                         |
 | `service.port`        | `8790`                              | Service port.                         |
+| `serviceMonitor.enabled` | `false`                          | Prometheus Operator ServiceMonitor for `GET /metrics`. Server pods already carry `prometheus.io/*` annotations. Set `labels` so the operator's Prometheus selects the monitor. `mtls.enabled` scrapes `https` and skips certificate verification. |
 | `server.port`         | `8790`                              | Container port (`PORT`).              |
 | `autoscaling.enabled` | `false`                             | Enable a HorizontalPodAutoscaler.     |
 | `podDisruptionBudget.enabled` | `true`                        | Server PodDisruptionBudget (`minAvailable` defaults to `1`); rendered only when the server runs more than one replica. |
