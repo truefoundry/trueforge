@@ -119,7 +119,7 @@ export function buildSessionMetrics({
     .reduce((sum, segment) => sum + segmentDurationMs(segment), 0);
   const waitingTimeMs = segments
     .filter(segment => segment.type === 'waiting_on_human' || segment.type === 'approval')
-    .reduce((sum, segment) => sum + segmentDurationMs(segment), 0);
+    .reduce((sum, segment) => sum + (segment.wallDurationMs ?? segmentDurationMs(segment)), 0);
   // Detail session metrics may override wall time and cost; lineage turn count is always from events.
   const wallTimeMs = sessionMetrics != null ? sessionMetrics.totalDurationMs : derivedWallTimeMs;
   const overheadTimeMs = Math.max(0, wallTimeMs - modelTimeMs - toolTimeMs - waitingTimeMs);

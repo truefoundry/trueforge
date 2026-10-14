@@ -4,17 +4,26 @@ import { describe, it } from 'vitest';
 import type { SessionEventItem } from '@/server/types.js';
 import { buildSessionMetrics } from '@/utils/buildSessionMetrics.js';
 import { buildSessionTimelineSegments } from '@/utils/buildSessionTimelineSegments.js';
-import { getSessionEventColor, type SessionEventTimelineSegment } from '@/utils/sessionEventTimeline.js';
 import {
+  formatTimelineDuration,
+  getSessionEventColor,
+  type SessionEventTimelineSegment,
+} from '@/utils/sessionEventTimeline.js';
+import {
+  applyPauseChipLayout,
   buildTimelineAxisTicks,
+  buildTimelineGaps,
   compressInterTurnGaps,
+  compressIntraTurnPauses,
   formatTimelineAxisDuration,
   getActiveTimelineMs,
   getSubAgentHoverGroups,
   getSubAgentLanes,
+  getWallTimelineMs,
   groupCoincidentTimelineMarkers,
   groupOverlappingToolCalls,
   mergeOverlappingSubAgentSegments,
+  packTimelineMarkers,
 } from '@/utils/sessionEventTimelineChart.js';
 import { buildSessionTurnViews } from '@/utils/sessionTurnViews.js';
 
@@ -662,6 +671,475 @@ describe('sessionEventTimelineChart helpers', () => {
       },
     ]);
     assert.equal(compressed.find(segment => segment.id === 'u2')?.startMs, 50);
+  });
+
+  it('collapses pause wall time and preserves wallDurationMs', () => {
+    const compressed = compressIntraTurnPauses([
+      {
+        id: 'pause',
+        type: 'waiting_on_human',
+        title: 'turn.paused',
+        description: 'Paused',
+        startMs: 10_000,
+        endMs: 10_000 + 2 * 86_400_000,
+        turnIndex: 0,
+        threadId: 'main',
+        isPauseChip: true,
+        wallDurationMs: 2 * 86_400_000,
+      },
+      {
+        id: 'approval',
+        type: 'approval',
+        title: 'tool.approval_required',
+        description: 'Approval required',
+        startMs: 10_000,
+        endMs: 10_000,
+        turnIndex: 0,
+        threadId: 'main',
+        isMarker: true,
+      },
+      {
+        id: 'later',
+        type: 'model',
+        title: 'model.message',
+        description: 'done',
+        startMs: 10_000 + 2 * 86_400_000 + 5_000,
+        endMs: 10_000 + 2 * 86_400_000 + 8_000,
+        turnIndex: 0,
+        threadId: 'main',
+      },
+    ]);
+    const pause = compressed.find(segment => segment.id === 'pause');
+    assert.equal(pause?.startMs, 10_000);
+    assert.equal(pause?.endMs, 10_000);
+    assert.equal(pause?.wallDurationMs, 2 * 86_400_000);
+    assert.equal(compressed.find(segment => segment.id === 'approval')?.startMs, 10_000);
+    assert.equal(compressed.find(segment => segment.id === 'later')?.startMs, 15_000);
+    assert.equal(compressed.find(segment => segment.id === 'later')?.endMs, 18_000);
+  });
+
+  it('maps active-time ticks around pause chips and labels them with wall time', () => {
+    const visualGaps = [
+      { atActiveMs: 30_000, gapMs: 2_000, containsAnchor: true as const, wallDurationMs: 120_000 },
+      { atActiveMs: 42_000, gapMs: 1_000 },
+    ];
+    const gaps = buildTimelineGaps(visualGaps);
+    const ticks = buildTimelineAxisTicks({ activeTotalMs: 50_000, visualGaps });
+    assert.deepEqual(
+      ticks.map(tick => getActiveTimelineMs(tick.value, gaps)),
+      [0, 10_000, 20_000, 30_000, 40_000, 50_000],
+    );
+    assert.deepEqual(
+      ticks.map(tick => getWallTimelineMs({ valueMs: tick.value, visualGaps })),
+      [0, 10_000, 20_000, 30_000, 160_000, 170_000],
+    );
+    const tickAtPause = ticks.find(tick => getActiveTimelineMs(tick.value, gaps) === 30_000);
+    assert.equal(tickAtPause?.value, 30_000);
+    const tickAfterPause = ticks.find(tick => getActiveTimelineMs(tick.value, gaps) === 40_000);
+    assert.equal(tickAfterPause?.value, 42_000);
+    assert.equal(getWallTimelineMs({ valueMs: 31_000, visualGaps }), 30_000 + 60_000);
+  });
+
+  it('packs pause-chip markers by wall offset without +N overflow', () => {
+    const wallDurationMs = 1_000;
+    const segments = Array.from({ length: 6 }, (_, index) => ({
+      ...marker(`m${index}`, index % 2 === 0 ? 'approval' : 'user', 100),
+      pauseOffsetMs: index * 100,
+    }));
+    const groups = groupCoincidentTimelineMarkers(segments);
+    const packed = packTimelineMarkers({
+      groups,
+      pauseChips: [{ startMs: 100, endMs: 100 + 1_000, wallDurationMs }],
+    });
+    assert.equal(packed.length, 6);
+    assert.equal(packed[0]?.x, 100);
+    assert.ok((packed[1]?.x ?? 0) > (packed[0]?.x ?? 0));
+    assert.ok((packed.at(-1)?.x ?? 0) <= 1_100);
+  });
+
+  it('places a single pause marker at its occurrence ratio on the chip', () => {
+    const segment = { ...marker('mid', 'approval', 50), pauseOffsetMs: 500 };
+    const packed = packTimelineMarkers({
+      groups: groupCoincidentTimelineMarkers([segment]),
+      pauseChips: [{ startMs: 50, endMs: 150, wallDurationMs: 1_000 }],
+    });
+    assert.equal(packed.length, 1);
+    assert.equal(packed[0]?.x, 100);
+  });
+
+  it('packs markers onto a chip when the group starts slightly before the chip', () => {
+    const early = { ...marker('early', 'approval', 48), pauseOffsetMs: 0 };
+    const late = { ...marker('late', 'approval', 48), pauseOffsetMs: 900 };
+    const packed = packTimelineMarkers({
+      groups: groupCoincidentTimelineMarkers([early, late], { toleranceMs: 5 }),
+      pauseChips: [{ startMs: 50, endMs: 150, wallDurationMs: 1_000 }],
+    });
+    assert.equal(packed.length, 2);
+    assert.equal(packed[0]?.x, 50);
+    assert.equal(packed[1]?.x, 140);
+  });
+
+  it('expands pause chips in chart space and shifts later bars', () => {
+    const laidOut = applyPauseChipLayout({
+      pauseChipMs: 1_000,
+      segments: [
+        {
+          id: 'pause',
+          type: 'waiting_on_human',
+          title: 'turn.paused',
+          description: '',
+          startMs: 50,
+          endMs: 50,
+          turnIndex: 0,
+          threadId: 'main',
+          isPauseChip: true,
+          wallDurationMs: 86_400_000,
+        },
+        {
+          id: 'mark',
+          type: 'user',
+          title: 'user.tool_approval',
+          description: 'Approved',
+          startMs: 50,
+          endMs: 50,
+          turnIndex: 0,
+          threadId: 'main',
+          isMarker: true,
+        },
+        {
+          id: 'model',
+          type: 'model',
+          title: 'model.message',
+          description: '',
+          startMs: 50,
+          endMs: 80,
+          turnIndex: 0,
+          threadId: 'main',
+        },
+      ],
+    });
+    assert.deepEqual(
+      laidOut.map(segment => ({ id: segment.id, startMs: segment.startMs, endMs: segment.endMs })),
+      [
+        { id: 'pause', startMs: 50, endMs: 1_050 },
+        { id: 'mark', startMs: 50, endMs: 50 },
+        { id: 'model', startMs: 1_050, endMs: 1_080 },
+      ],
+    );
+  });
+});
+
+describe('pause chips in buildSessionTimelineSegments', () => {
+  it('emits a collapsed pause chip with approval and policy markers', () => {
+    const turns = buildSessionTurnViews([
+      created({ turnId: 't1', createdAt: '2026-01-01T00:00:00.000Z' }),
+      {
+        turnId: 't1',
+        event: {
+          type: 'model.message',
+          id: 'm1',
+          content: 'calling',
+          toolCalls: [
+            {
+              id: 'call-1',
+              type: 'function',
+              function: {
+                name: 'call_tool',
+                arguments: JSON.stringify({ mcp_server: 'linear', tool_name: 'save_comment', input: {} }),
+              },
+            },
+          ],
+          createdAt: '2026-01-01T00:00:05.000Z',
+          threadId: 'main',
+          finishReason: 'tool_calls',
+        },
+      },
+      {
+        turnId: 't1',
+        event: {
+          type: 'tool.approval_required',
+          id: 'ar1',
+          createdAt: '2026-01-01T00:00:06.000Z',
+          threadId: 'main',
+          toolCalls: [{ id: 'call-1', sourceEventId: 'm1' }],
+        },
+      },
+      {
+        turnId: 't1',
+        event: {
+          type: 'turn.update',
+          id: 'tu-paused',
+          state: { status: 'paused' },
+          createdAt: '2026-01-01T00:00:06.000Z',
+          threadId: null,
+        },
+      },
+      {
+        turnId: 't1',
+        event: {
+          type: 'user.tool_approval',
+          id: 'ua1',
+          threadId: 'main',
+          toolCallId: 'call-1',
+          approval: { status: 'allow' },
+          createdAt: '2026-01-01T00:02:06.000Z',
+        },
+      },
+      {
+        turnId: 't1',
+        event: {
+          type: 'user.tool_approval_policy',
+          id: 'up1',
+          policies: [
+            {
+              serverName: 'linear',
+              name: 'save_comment',
+              policy: { type: 'allow_session', expireAt: '2026-01-01T00:12:06.000Z' },
+            },
+          ],
+          createdAt: '2026-01-01T00:02:06.000Z',
+        },
+      },
+      {
+        turnId: 't1',
+        event: {
+          type: 'turn.update',
+          id: 'tu-running',
+          state: { status: 'running' },
+          createdAt: '2026-01-01T00:02:06.100Z',
+          threadId: null,
+        },
+      },
+      {
+        turnId: 't1',
+        event: {
+          type: 'tool.response',
+          id: 'tr1',
+          toolCallId: 'call-1',
+          content: '{"ok":true}',
+          createdAt: '2026-01-01T00:02:07.000Z',
+          threadId: 'main',
+        },
+      },
+      {
+        turnId: 't1',
+        event: {
+          type: 'model.message',
+          id: 'm2',
+          content: 'Added comment',
+          createdAt: '2026-01-01T00:02:08.000Z',
+          threadId: 'main',
+          finishReason: 'stop',
+        },
+      },
+      done({ turnId: 't1', createdAt: '2026-01-01T00:02:09.000Z' }),
+    ]);
+
+    const segments = buildSessionTimelineSegments(turns);
+    const pause = segments.find(segment => segment.isPauseChip);
+    assert.ok(pause);
+    assert.equal(pause?.startMs, pause?.endMs);
+    assert.equal(pause?.wallDurationMs, 120_100);
+    assert.equal(formatTimelineDuration(pause?.wallDurationMs ?? 0), '2m');
+
+    const approval = segments.find(segment => segment.title === 'tool.approval_required');
+    const userApproval = segments.find(segment => segment.title === 'user.tool_approval');
+    const policy = segments.find(segment => segment.title === 'user.tool_approval_policy');
+    assert.equal(approval?.type, 'approval');
+    assert.equal(userApproval?.type, 'approval');
+    assert.equal(approval?.startMs, pause?.startMs);
+    assert.equal(userApproval?.startMs, pause?.startMs);
+    assert.equal(approval?.pauseOffsetMs, 0);
+    assert.equal(userApproval?.pauseOffsetMs, 120_000);
+    assert.equal(policy?.pauseOffsetMs, 120_000);
+    assert.equal(userApproval?.description, 'linear/save_comment · approved');
+    assert.equal(policy?.startMs, pause?.startMs);
+    assert.equal(policy?.description, 'linear/save_comment · allow_session · 10m');
+    assert.equal(approval?.description, 'linear/save_comment');
+
+    const postApprovalTool = segments.find(
+      segment => segment.type === 'tool_call' && segment.id.includes('call-1'),
+    );
+    assert.ok(postApprovalTool);
+    assert.equal(postApprovalTool?.startMs, pause?.startMs);
+    assert.ok((postApprovalTool?.endMs ?? 0) > (postApprovalTool?.startMs ?? 0));
+
+    const laterModel = segments.find(segment => segment.id === 'm2');
+    assert.ok((laterModel?.startMs ?? 0) < 10_000);
+
+    const metrics = buildSessionMetrics({ turns, segments });
+    const waiting = metrics.timeBreakdown.find(entry => entry.label === 'waiting on human');
+    assert.equal(waiting?.value, 120_100);
+  });
+
+  it('skips a sub-second pause chip when there is no human action', () => {
+    const turns = buildSessionTurnViews([
+      created({ turnId: 't1', createdAt: '2026-01-01T00:00:00.000Z' }),
+      {
+        turnId: 't1',
+        event: {
+          type: 'turn.update',
+          id: 'tu-paused',
+          state: { status: 'paused' },
+          createdAt: '2026-01-01T00:00:01.000Z',
+          threadId: null,
+        },
+      },
+      {
+        turnId: 't1',
+        event: {
+          type: 'turn.update',
+          id: 'tu-running',
+          state: { status: 'running' },
+          createdAt: '2026-01-01T00:00:01.400Z',
+          threadId: null,
+        },
+      },
+      done({ turnId: 't1', createdAt: '2026-01-01T00:00:02.000Z' }),
+    ]);
+    const segments = buildSessionTimelineSegments(turns);
+    assert.equal(segments.filter(segment => segment.isPauseChip).length, 0);
+  });
+
+  it('closes an open pause with injected nowMs', () => {
+    const turns = buildSessionTurnViews([
+      created({ turnId: 't1', createdAt: '2026-01-01T00:00:00.000Z' }),
+      {
+        turnId: 't1',
+        event: {
+          type: 'tool.approval_required',
+          id: 'ar1',
+          createdAt: '2026-01-01T00:00:01.000Z',
+          threadId: 'main',
+          toolCalls: [{ id: 'call-1', sourceEventId: 'm1' }],
+        },
+      },
+      {
+        turnId: 't1',
+        event: {
+          type: 'turn.update',
+          id: 'tu-paused',
+          state: { status: 'paused' },
+          createdAt: '2026-01-01T00:00:01.000Z',
+          threadId: null,
+        },
+      },
+    ]);
+    const nowMs = Date.parse('2026-01-03T00:00:01.000Z');
+    const segments = buildSessionTimelineSegments(turns, { nowMs });
+    const pause = segments.find(segment => segment.isPauseChip);
+    assert.equal(pause?.description, 'Paused');
+    assert.equal(pause?.wallDurationMs, 2 * 86_400_000);
+    assert.equal(formatTimelineDuration(pause?.wallDurationMs ?? 0), '2d');
+  });
+
+  it('anchors approval_required 1ms before paused and emits a post-pause tool bar without user.tool_approval', () => {
+    const turns = buildSessionTurnViews([
+      created({ turnId: 't1', createdAt: '2026-01-01T00:00:00.000Z' }),
+      {
+        turnId: 't1',
+        event: {
+          type: 'model.message',
+          id: 'm1',
+          content: '',
+          toolCalls: [
+            {
+              id: 'call-1',
+              type: 'function',
+              function: {
+                name: 'call_tool',
+                arguments: JSON.stringify({ mcp_server: 'linear', tool_name: 'save_comment', input: {} }),
+              },
+            },
+          ],
+          createdAt: '2026-01-01T00:00:03.000Z',
+          threadId: 'main',
+          finishReason: 'tool_calls',
+        },
+      },
+      {
+        turnId: 't1',
+        event: {
+          type: 'tool.approval_required',
+          id: 'ar1',
+          createdAt: '2026-01-01T00:00:03.001Z',
+          threadId: 'main',
+          toolCalls: [{ id: 'call-1', sourceEventId: 'm1' }],
+        },
+      },
+      {
+        turnId: 't1',
+        event: {
+          type: 'turn.update',
+          id: 'tu-paused',
+          state: { status: 'paused' },
+          createdAt: '2026-01-01T00:00:03.002Z',
+          threadId: null,
+        },
+      },
+      {
+        turnId: 't1',
+        event: {
+          type: 'user.tool_approval_policy',
+          id: 'up1',
+          policies: [{ serverName: 'linear', name: 'save_comment', policy: { type: 'allow_session' } }],
+          createdAt: '2026-01-01T00:00:06.000Z',
+        },
+      },
+      {
+        turnId: 't1',
+        event: {
+          type: 'turn.update',
+          id: 'tu-running',
+          state: { status: 'running' },
+          createdAt: '2026-01-01T00:00:06.010Z',
+          threadId: null,
+        },
+      },
+      {
+        turnId: 't1',
+        event: {
+          type: 'tool.response',
+          id: 'tr1',
+          toolCallId: 'call-1',
+          content: '{"ok":true}',
+          createdAt: '2026-01-01T00:00:07.500Z',
+          threadId: 'main',
+        },
+      },
+      {
+        turnId: 't1',
+        event: {
+          type: 'model.message',
+          id: 'm2',
+          content: 'Added comment',
+          createdAt: '2026-01-01T00:00:08.000Z',
+          threadId: 'main',
+          finishReason: 'stop',
+        },
+      },
+      done({ turnId: 't1', createdAt: '2026-01-01T00:00:08.100Z' }),
+    ]);
+
+    const segments = buildSessionTimelineSegments(turns);
+    const pause = segments.find(segment => segment.isPauseChip);
+    assert.ok(pause);
+    assert.equal(pause?.description, 'Paused');
+
+    const approvalRequired = segments.find(segment => segment.title === 'tool.approval_required');
+    assert.equal(approvalRequired?.startMs, pause?.startMs);
+    assert.equal(approvalRequired?.pauseOffsetMs, 0);
+
+    const policy = segments.find(segment => segment.title === 'user.tool_approval_policy');
+    assert.ok((policy?.pauseOffsetMs ?? 0) > 0);
+    assert.equal(policy?.startMs, pause?.startMs);
+
+    const postApprovalTool = segments.find(
+      segment => segment.type === 'tool_call' && segment.id.includes('call-1'),
+    );
+    assert.ok(postApprovalTool);
+    assert.equal(postApprovalTool?.startMs, pause?.startMs);
+    assert.ok((postApprovalTool?.endMs ?? 0) > (postApprovalTool?.startMs ?? 0));
   });
 });
 

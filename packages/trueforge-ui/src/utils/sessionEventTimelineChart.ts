@@ -1,12 +1,5 @@
 import type { SessionEventTimelineSegment } from './sessionEventTimeline.js';
 
-/**
- * Pure layout helpers for the Sessions timeline.
- *
- * Segment construction owns event meaning; this module owns visual grouping,
- * lane allocation, and the compressed time axis. Keeping these calculations
- * outside React/Chart.js makes the rendering rules deterministic and testable.
- */
 
 /** Minimal interval shared by bars, compressed gaps, and grouped tool calls. */
 export type TimelineGap = {
@@ -88,7 +81,10 @@ export function getTimelineRange({ startMs, endMs }: TimelineGap): [number, numb
   return [startMs, endMs];
 }
 
-/** Collapse point events that share (or nearly share) a chart timestamp into one marker and tooltip. */
+/**
+ * Merge diamonds that land on the same (or nearly same) x into one hover target.
+ * Example: approval_required + policy at the same ms → one diamond, shared tooltip.
+ */
 export function groupCoincidentTimelineMarkers(
   segments: SessionEventTimelineSegment[],
   { toleranceMs = 0 }: { toleranceMs?: number } = {},
@@ -143,16 +139,197 @@ function getCleanAxisStepMs(totalMs: number): number {
   return multiplier * magnitude * divisorMs;
 }
 
-/** Generate clean active-time ticks, translated around fixed visual turn separators. */
+/**
+ * Extra empty space inserted on the chart axis (not real work time).
+ * Turn separators: small gap between turns. Pause chips: fixed-width hatched bar.
+ */
+export type TimelineVisualGap = {
+  /** Where on the compressed “active work” axis this gap starts. */
+  atActiveMs: number;
+  gapMs: number;
+  /**
+   * Pause chips: the diamond at `atActiveMs` sits *inside* the gap.
+   * Turn separators: that point sits *after* the gap.
+   */
+  containsAnchor?: boolean;
+  /** Real paused wait (for wall-time axis labels); turn separators omit this. */
+  wallDurationMs?: number;
+};
+
+/** How far to shift an active-time point after earlier visual gaps. */
+export function visualGapShiftMs(activeMs: number, gaps: readonly TimelineVisualGap[]): number {
+  return gaps.reduce((shift, gap) => {
+    const applies = gap.containsAnchor ? activeMs > gap.atActiveMs : activeMs >= gap.atActiveMs;
+    return applies ? shift + gap.gapMs : shift;
+  }, 0);
+}
+
+/** Convert active-time visual gaps into [start,end] ranges in chart coordinates. */
+export function buildTimelineGaps(gaps: readonly TimelineVisualGap[]): TimelineGap[] {
+  const ordered = [...gaps].sort((left, right) => left.atActiveMs - right.atActiveMs);
+  return ordered.map(gap => {
+    const priorShift = ordered
+      .filter(candidate => candidate.atActiveMs < gap.atActiveMs)
+      .reduce((sum, candidate) => sum + candidate.gapMs, 0);
+    const startMs = gap.atActiveMs + priorShift;
+    return { startMs, endMs: startMs + gap.gapMs };
+  });
+}
+
+export type PackedTimelineMarker = {
+  id: string;
+  x: number;
+  segments: SessionEventTimelineSegment[];
+};
+
+/** Expanded pause chip on the chart + how long the real wait was. */
+export type TimelinePauseChipRange = TimelineGap & {
+  wallDurationMs: number;
+};
+
+/** Map wall offset into the chip: offset=0 → left edge, offset=wall → right edge. */
+function pauseMarkerX({
+  chip,
+  offsetMs,
+}: {
+  chip: TimelinePauseChipRange;
+  offsetMs: number;
+}): number {
+  const span = Math.max(0, chip.endMs - chip.startMs);
+  const wall = Math.max(0, chip.wallDurationMs);
+  if (span <= 0 || wall <= 0) return chip.startMs;
+  const ratio = Math.min(1, Math.max(0, offsetMs / wall));
+  return chip.startMs + ratio * span;
+}
+
+/**
+ * Find which pause chip owns a marker group.
+ * Needed because approval events can land a few ms before `turn.update` paused,
+ * or share a chip via pauseOffsetMs after compression.
+ */
+function pauseChipForMarkerGroup({
+  group,
+  pauseChips,
+}: {
+  group: TimelineMarkerGroup;
+  pauseChips: readonly TimelinePauseChipRange[];
+}): TimelinePauseChipRange | undefined {
+  const onChip = pauseChips.find(
+    candidate => group.startMs >= candidate.startMs && group.startMs <= candidate.endMs,
+  );
+  if (onChip != null) return onChip;
+  // Slightly before chip start (gateway lead-in / grouping tolerance).
+  let best: TimelinePauseChipRange | undefined;
+  let bestDelta = Number.POSITIVE_INFINITY;
+  for (const candidate of pauseChips) {
+    if (group.startMs > candidate.startMs) continue;
+    const delta = candidate.startMs - group.startMs;
+    if (delta <= candidate.endMs - candidate.startMs && delta < bestDelta) {
+      best = candidate;
+      bestDelta = delta;
+    }
+  }
+  if (best != null) return best;
+  // After compression many pause markers share the chip start; use pauseOffsetMs.
+  if (group.segments.some(segment => segment.pauseOffsetMs != null)) {
+    return pauseChips.find(candidate => Math.abs(group.startMs - candidate.startMs) <= candidate.endMs - candidate.startMs);
+  }
+  return undefined;
+}
+
+/**
+ * Spread pause-related diamonds across the hatched chip by when they happened.
+ *
+ * Example: pause lasts 120s; approval at +0s and user approve at +120s →
+ * two diamonds (left and right of the chip). Same offset → one diamond.
+ * Markers not on a pause chip stay as a single point.
+ */
+export function packTimelineMarkers({
+  groups,
+  pauseChips,
+}: {
+  groups: TimelineMarkerGroup[];
+  pauseChips: readonly TimelinePauseChipRange[];
+}): PackedTimelineMarker[] {
+  const packed: PackedTimelineMarker[] = [];
+  for (const group of groups) {
+    const chip = pauseChipForMarkerGroup({ group, pauseChips });
+    if (chip == null) {
+      packed.push({ id: group.id, x: group.startMs, segments: group.segments });
+      continue;
+    }
+
+    const ordered = [...group.segments].sort(
+      (left, right) => (left.pauseOffsetMs ?? 0) - (right.pauseOffsetMs ?? 0) || left.id.localeCompare(right.id),
+    );
+    const byOffset = new Map<number, SessionEventTimelineSegment[]>();
+    for (const segment of ordered) {
+      const offset = segment.pauseOffsetMs ?? 0;
+      const bucket = byOffset.get(offset) ?? [];
+      bucket.push(segment);
+      byOffset.set(offset, bucket);
+    }
+    for (const [offset, segments] of byOffset) {
+      packed.push({
+        id: `${group.id}-${segments.map(segment => segment.id).join('-')}`,
+        x: pauseMarkerX({ chip, offsetMs: offset }),
+        segments,
+      });
+    }
+  }
+  return packed;
+}
+
+/**
+ * After compression, pause chips are 0-width. Give each a fixed chart width
+ * (pauseChipMs ≈ 32px in time units) and push later bars to the right.
+ * Markers tied to the chip start stay put so packing can place them on the bar.
+ */
+export function applyPauseChipLayout({
+  segments,
+  pauseChipMs,
+}: {
+  segments: SessionEventTimelineSegment[];
+  pauseChipMs: number;
+}): SessionEventTimelineSegment[] {
+  const chips = segments
+    .filter(segment => segment.isPauseChip)
+    .map(segment => segment.startMs)
+    .sort((left, right) => left - right);
+  if (chips.length === 0 || pauseChipMs <= 0) return segments;
+
+  return segments.map(segment => {
+    let shift = 0;
+    for (const chipStartMs of chips) {
+      if (segment.isPauseChip && segment.startMs === chipStartMs) continue;
+      if (segment.isMarker && segment.startMs === chipStartMs) continue;
+      if (segment.startMs > chipStartMs || (!segment.isMarker && segment.startMs >= chipStartMs)) {
+        shift += pauseChipMs;
+      }
+    }
+    const startMs = segment.startMs + shift;
+    if (segment.isPauseChip) {
+      return { ...segment, startMs, endMs: startMs + pauseChipMs };
+    }
+    return { ...segment, startMs, endMs: segment.endMs + shift };
+  });
+}
+
+/** Generate clean active-time ticks, translated around fixed visual separators. */
 export function buildTimelineAxisTicks({
   activeTotalMs,
   turnStartsMs,
   turnGapMs,
+  visualGaps,
 }: {
   activeTotalMs: number;
-  turnStartsMs: number[];
-  turnGapMs: number;
+  turnStartsMs?: number[];
+  turnGapMs?: number;
+  visualGaps?: readonly TimelineVisualGap[];
 }): Array<{ value: number }> {
+  const gaps =
+    visualGaps ??
+    (turnStartsMs ?? []).slice(1).map(atActiveMs => ({ atActiveMs, gapMs: turnGapMs ?? 0 }));
   const stepMs = getCleanAxisStepMs(activeTotalMs);
   const activeTicks: number[] = [];
   for (let activeMs = 0; activeMs < activeTotalMs; activeMs += stepMs) activeTicks.push(activeMs);
@@ -162,7 +339,7 @@ export function buildTimelineAxisTicks({
   }
   if (activeTicks.at(-1) !== activeTotalMs) activeTicks.push(activeTotalMs);
   return activeTicks.map(activeMs => ({
-    value: activeMs + turnStartsMs.slice(1).filter(turnStartMs => turnStartMs <= activeMs).length * turnGapMs,
+    value: activeMs + visualGapShiftMs(activeMs, gaps),
   }));
 }
 
@@ -315,6 +492,63 @@ export function getSubAgentLanes({
 }
 
 /**
+ * Shrink long human pauses inside a turn so active work stays readable.
+ *
+ * Without this, a 10-minute wait would squash a 2-second model bar to a sliver.
+ * We collapse each pause to a point (keep wallDurationMs), pull later same-turn
+ * work left, then the chart re-expands the chip to ~32px.
+ *
+ * Example: [model 0–2s][pause 2–182s][tool 182–185s]
+ *       → [model 0–2s][pause@2s][tool 2–5s]
+ */
+export function compressIntraTurnPauses(segments: SessionEventTimelineSegment[]): SessionEventTimelineSegment[] {
+  const pauses = segments
+    .filter(segment => segment.isPauseChip)
+    .map(segment => ({
+      turnIndex: segment.turnIndex,
+      startMs: segment.startMs,
+      endMs: Math.max(segment.endMs, segment.startMs),
+      wallDurationMs: segment.wallDurationMs ?? Math.max(0, segment.endMs - segment.startMs),
+    }))
+    .filter(pause => pause.wallDurationMs > 0)
+    .sort(
+      (left, right) =>
+        left.turnIndex - right.turnIndex || left.startMs - right.startMs || left.endMs - right.endMs,
+    );
+
+  if (pauses.length === 0) return segments;
+
+  return segments.map(segment => {
+    const relevant = pauses.filter(pause => pause.turnIndex === segment.turnIndex);
+    if (relevant.length === 0) return segment;
+
+    let startShift = 0;
+    let endShift = 0;
+    for (const pause of relevant) {
+      if (segment.startMs >= pause.endMs) startShift += pause.wallDurationMs;
+      else if (segment.startMs > pause.startMs) startShift += segment.startMs - pause.startMs;
+      if (segment.endMs >= pause.endMs) endShift += pause.wallDurationMs;
+      else if (segment.endMs > pause.startMs) endShift += segment.endMs - pause.startMs;
+    }
+
+    const startMs = Math.max(0, segment.startMs - startShift);
+    if (segment.isPauseChip) {
+      return {
+        ...segment,
+        startMs,
+        endMs: startMs,
+        wallDurationMs: segment.wallDurationMs ?? Math.max(0, segment.endMs - segment.startMs),
+      };
+    }
+    return {
+      ...segment,
+      startMs,
+      endMs: Math.max(startMs, segment.endMs - endShift),
+    };
+  });
+}
+
+/**
  * Collapse real idle time between turns while preserving all within-turn
  * offsets and durations.
  *
@@ -363,4 +597,41 @@ export function getActiveTimelineMs(valueMs: number, gaps: TimelineGap[]): numbe
     activeMs -= Math.max(0, Math.min(valueMs, gap.endMs) - gap.startMs);
   }
   return Math.max(0, activeMs);
+}
+
+/**
+ * Chart x → real elapsed wall time (for axis labels like “3m 40s”).
+ *
+ * Active work maps 1:1. Hovering mid-chip interpolates that pause’s wall wait
+ * (left edge = start of pause, right edge = full wait). Turn gaps add 0 wall time.
+ *
+ * Example: 2s work + 32px chip for a 3m pause + 1s work → right edge of chip ≈ 3m 2s.
+ */
+export function getWallTimelineMs({
+  valueMs,
+  visualGaps,
+}: {
+  valueMs: number;
+  visualGaps: readonly TimelineVisualGap[];
+}): number {
+  const ordered = [...visualGaps].sort((left, right) => left.atActiveMs - right.atActiveMs);
+  const chartGaps = buildTimelineGaps(ordered);
+  const activeMs = getActiveTimelineMs(valueMs, chartGaps);
+  let wallMs = activeMs;
+  for (let index = 0; index < ordered.length; index += 1) {
+    const gap = ordered[index];
+    const chart = chartGaps[index];
+    const wallDurationMs = gap?.wallDurationMs ?? 0;
+    if (gap == null || chart == null || wallDurationMs <= 0) continue;
+    if (valueMs >= chart.endMs) {
+      wallMs += wallDurationMs;
+      continue;
+    }
+    if (valueMs > chart.startMs) {
+      const span = chart.endMs - chart.startMs;
+      const ratio = span > 0 ? (valueMs - chart.startMs) / span : 0;
+      wallMs += ratio * wallDurationMs;
+    }
+  }
+  return Math.max(0, wallMs);
 }

@@ -1,6 +1,24 @@
 import { describe, expect, it } from 'vitest';
 
-import { toolCallDescription } from '@/utils/sessionTimelineEvents.js';
+import { summarizeApprovalRequiredTools, toolCallDescription } from '@/utils/sessionTimelineEvents.js';
+
+describe('summarizeApprovalRequiredTools', () => {
+  it('groups duplicate MCP tools with counts', () => {
+    expect(
+      summarizeApprovalRequiredTools([
+        'linear/save_comment',
+        'linear/save_comment',
+        'linear/save_comment',
+        'linear/get_issue',
+      ]),
+    ).toBe('linear/save_comment (3)\nlinear/get_issue');
+  });
+
+  it('falls back when no tool labels are present', () => {
+    expect(summarizeApprovalRequiredTools([])).toBe('Approval required');
+  });
+});
+
 
 describe('toolCallDescription', () => {
   it('shows the sandbox tool name and intent', () => {

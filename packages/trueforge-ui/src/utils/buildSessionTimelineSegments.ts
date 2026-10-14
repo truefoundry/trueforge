@@ -1,5 +1,5 @@
 import { MAIN_THREAD_ID, type SessionEventTimelineSegment } from './sessionEventTimeline.js';
-import { compressInterTurnGaps } from './sessionEventTimelineChart.js';
+import { compressInterTurnGaps, compressIntraTurnPauses } from './sessionEventTimelineChart.js';
 import {
   asTimelineEvent,
   eventCreatedAt,
@@ -9,9 +9,14 @@ import {
   getSubAgentDescription,
   getTurnInputSummary,
   getTurnInputType,
+  isRecord,
   parentToolCallId,
   parseTimestamp,
   readString,
+  mcpToolSlashLabel,
+  summarizeApprovalRequiredTools,
+  summarizeToolApproval,
+  summarizeToolApprovalPolicy,
   terminalCompletedAt,
   terminalMessage,
   terminalStatus,
@@ -25,25 +30,190 @@ type SubAgentToolCallRequest = {
   startedAtMs: number;
   threadId: string;
   modelEventId: string;
+  toolCall: Record<string, unknown>;
 };
 
+/** Wall-clock range while the turn was paused waiting on a human. */
+type PauseWindow = {
+  startMs: number;
+  endMs: number;
+  eventId: string;
+};
+
+/** Events that mean “a person had to act” — used to decide if a pause gets a chip. */
+const PAUSE_CHIP_HUMAN_EVENT_TYPES = new Set([
+  'tool.approval_required',
+  'tool.response_required',
+  'mcp.auth_required',
+  'user.tool_approval',
+  'user.tool_approval_policy',
+  'user.tool_response',
+  'user.mcp_auth_continue',
+]);
+
+/** Ignore tiny pauses (noise); only show chips for waits ≥ 1s. */
+const MIN_PAUSE_CHIP_WALL_MS = 1_000;
 /**
- * Convert server turns and events into the transport-independent intervals
- * consumed by the Sessions timeline.
- *
- * The conversion runs in two passes because several bars need a later event
- * to determine their end:
- * - tool calls span from the model event that requested them to `tool.response`,
- *   or to `tool.response_required` / turn end when still waiting on a human;
- * - sub-agent tracks span from `thread.created` to `thread.done`;
- * - approval-gated and sub-agent parent calls are excluded from ordinary tool
- *   bars because they have dedicated visual representations.
- *
- * The second pass emits one user marker per renderable turn, then chronological
- * event segments for each thread. Finally, real idle gaps between turns are
- * removed so old sessions remain readable without changing durations inside a turn.
+ * Gateway often emits approval_required a few ms *before* turn.update paused.
+ * Treat those as inside the pause so they don’t leave a gap before the chip.
  */
-export function buildSessionTimelineSegments(turns: SessionTurnView[]): SessionEventTimelineSegment[] {
+const PAUSE_EVENT_LEAD_MS = 50;
+
+function turnUpdateStatus(event: TimelineEvent): string | undefined {
+  const state = isRecord(event.state) ? event.state : undefined;
+  return typeof state?.status === 'string' ? state.status : undefined;
+}
+
+/**
+ * Walk turn.update events and build paused→running windows.
+ * Still-open pauses end at turn done (or “now” while the turn is waiting).
+ */
+function collectPauseWindows({
+  events,
+  turnDoneMs,
+  nowMs,
+}: {
+  events: TimelineEvent[];
+  turnDoneMs: number | null;
+  nowMs: number;
+}): PauseWindow[] {
+  const windows: PauseWindow[] = [];
+  let open: { startMs: number; eventId: string } | undefined;
+
+  for (const event of events) {
+    if (event.type !== 'turn.update') continue;
+    const eventMs = parseTimestamp(eventCreatedAt(event));
+    if (eventMs == null) continue;
+    const status = turnUpdateStatus(event);
+    if (status === 'paused') {
+      if (open == null) open = { startMs: eventMs, eventId: eventId(event) };
+      continue;
+    }
+    if (status === 'running' && open != null) {
+      windows.push({
+        startMs: open.startMs,
+        endMs: Math.max(open.startMs, eventMs),
+        eventId: open.eventId,
+      });
+      open = undefined;
+    }
+  }
+
+  if (open != null) {
+    const endMs = turnDoneMs ?? nowMs;
+    windows.push({
+      startMs: open.startMs,
+      endMs: Math.max(open.startMs, endMs),
+      eventId: open.eventId,
+    });
+  }
+
+  return windows;
+}
+
+/** True if something in this pause window needed a human (approval, ask-user, MCP auth). */
+function pauseHasHumanAction({
+  events,
+  window,
+}: {
+  events: TimelineEvent[];
+  window: PauseWindow;
+}): boolean {
+  return events.some(event => {
+    if (!PAUSE_CHIP_HUMAN_EVENT_TYPES.has(event.type)) return false;
+    const eventMs = parseTimestamp(eventCreatedAt(event));
+    return eventMs != null && pauseWindowForMs([window], eventMs) != null;
+  });
+}
+
+/** Which pause (if any) contains this timestamp, allowing a small lead before paused. */
+function pauseWindowForMs(windows: PauseWindow[], eventMs: number): PauseWindow | undefined {
+  return windows.find(
+    window => eventMs >= window.startMs - PAUSE_EVENT_LEAD_MS && eventMs <= window.endMs,
+  );
+}
+
+/**
+ * Place a marker on its pause chip and remember how far into the wait it was.
+ *
+ * Example: pause 10:00–10:02; user approves at 10:01:30 →
+ * diamond anchors to chip start, pauseOffsetMs = 90s (drawn mid-chip later).
+ */
+function pauseAnchorFields({
+  windows,
+  eventMs,
+  originMs,
+}: {
+  windows: PauseWindow[];
+  eventMs: number;
+  originMs: number;
+}): { startMs: number; endMs: number; pauseOffsetMs?: number } {
+  const window = pauseWindowForMs(windows, eventMs);
+  if (window == null) {
+    return { startMs: eventMs - originMs, endMs: eventMs - originMs };
+  }
+  const anchoredMs = Math.max(eventMs, window.startMs);
+  return {
+    startMs: anchoredMs - originMs,
+    endMs: anchoredMs - originMs,
+    pauseOffsetMs: Math.max(0, eventMs - window.startMs),
+  };
+}
+
+/**
+ * When an approval-gated tool may resume after the pause.
+ * The tool_call bar starts here (not at the original model request) so the
+ * hatched pause chip owns the wait and the bar shows real tool execution.
+ */
+function collectApprovalToolResumeMs({
+  events,
+  pauseWindows,
+}: {
+  events: TimelineEvent[];
+  pauseWindows: PauseWindow[];
+}): Map<string, number> {
+  const resumeByToolCallId = new Map<string, number>();
+  for (const event of events) {
+    if (event.type !== 'tool.approval_required') continue;
+    const eventMs = parseTimestamp(eventCreatedAt(event));
+    if (eventMs == null) continue;
+    const window = pauseWindowForMs(pauseWindows, eventMs);
+    if (window == null) continue;
+    for (const toolCall of toolCallsOf(event)) {
+      if (typeof toolCall.id === 'string') resumeByToolCallId.set(toolCall.id, window.endMs);
+    }
+  }
+  for (const event of events) {
+    if (event.type !== 'user.tool_approval') continue;
+    const toolCallId = readString(event, 'toolCallId', 'tool_call_id');
+    const eventMs = parseTimestamp(eventCreatedAt(event));
+    if (toolCallId == null || eventMs == null) continue;
+    const window = pauseWindowForMs(pauseWindows, eventMs);
+    // Prefer pause end so the post-approval tool bar starts immediately after the chip.
+    const resumeMs = window != null ? Math.max(window.endMs, eventMs) : eventMs;
+    const existing = resumeByToolCallId.get(toolCallId);
+    resumeByToolCallId.set(toolCallId, existing != null ? Math.max(existing, resumeMs) : resumeMs);
+  }
+  return resumeByToolCallId;
+}
+
+/**
+ * Convert server turns/events into timeline segments for the chart.
+ *
+ * Pass 1 — index later-needed ends (tool.response, thread.done, approvals).
+ * Pass 2 — emit bars/markers in time order, then pause chips.
+ * Finally — compress pauses + idle between turns so the chart stays readable.
+ *
+ * Rough mapping:
+ * - model.message → model bar (+ tool_call bars per tool)
+ * - thread.created → sub_agent track until thread.done
+ * - turn.update paused (with human action) → hatched pause chip
+ * - approval / ask-user / auth → diamonds, often on that chip
+ */
+export function buildSessionTimelineSegments(
+  turns: SessionTurnView[],
+  { nowMs = Date.now() }: { nowMs?: number } = {},
+): SessionEventTimelineSegment[] {
   const originMs = parseTimestamp(turns[0]?.created.createdAt);
   if (originMs == null) return [];
 
@@ -77,7 +247,7 @@ export function buildSessionTimelineSegments(turns: SessionTurnView[]): SessionE
         }
         toolResponseRequiredByTurnId.set(turn.turnId, pending);
       } else if (event.type === 'tool.approval_required') {
-        const ids = approvalRequiredIdsByTurnId.get(turn.turnId) ?? new Set<string>();
+        const ids = approvalRequiredIdsByTurnId.get(turn.turnId) ?? new Set();
         for (const toolCall of toolCallsOf(event)) {
           if (typeof toolCall.id === 'string') ids.add(toolCall.id);
         }
@@ -97,6 +267,7 @@ export function buildSessionTimelineSegments(turns: SessionTurnView[]): SessionE
               startedAtMs,
               threadId: eventThreadId(event),
               modelEventId: eventId(event),
+              toolCall,
             });
           }
         }
@@ -148,6 +319,30 @@ export function buildSessionTimelineSegments(turns: SessionTurnView[]): SessionE
         (left, right) => (parseTimestamp(eventCreatedAt(left)) ?? 0) - (parseTimestamp(eventCreatedAt(right)) ?? 0),
       );
 
+    const turnDoneMs = parseTimestamp(terminalCompletedAt(turn.done?.state));
+    // Build pause chips first so later markers can attach via pauseAnchorFields.
+    const pauseWindows = collectPauseWindows({ events, turnDoneMs, nowMs });
+    for (const window of pauseWindows) {
+      const wallDurationMs = Math.max(0, window.endMs - window.startMs);
+      // Skip tiny auto-pauses unless a human-action event sat inside the window.
+      const emitChip =
+        wallDurationMs >= MIN_PAUSE_CHIP_WALL_MS || pauseHasHumanAction({ events, window });
+      if (!emitChip) continue;
+      segments.push({
+        id: `${window.eventId}-pause`,
+        type: 'waiting_on_human',
+        title: 'turn.paused',
+        description: 'Paused',
+        startMs: window.startMs - originMs,
+        endMs: window.endMs - originMs,
+        turnIndex,
+        threadId: MAIN_THREAD_ID,
+        isPauseChip: true,
+        wallDurationMs,
+      });
+    }
+    const approvalToolResumeMs = collectApprovalToolResumeMs({ events, pauseWindows });
+
     for (const event of events) {
       const eventMs = parseTimestamp(eventCreatedAt(event));
       if (eventMs == null) continue;
@@ -164,6 +359,8 @@ export function buildSessionTimelineSegments(turns: SessionTurnView[]): SessionE
         toolResponsesByTurnId,
         toolResponseRequiredByTurnId,
         approvalRequiredIdsByTurnId,
+        approvalToolResumeMs,
+        pauseWindows,
         subAgentToolCallIds,
         toolCallRequestsByTurnId,
         threadDoneEvents,
@@ -183,12 +380,15 @@ export function buildSessionTimelineSegments(turns: SessionTurnView[]): SessionE
     });
   }
 
+  // Collapse long waits so active bars stay wide; chart re-expands pause chips.
   return compressInterTurnGaps(
-    segments.map(segment => ({
-      ...segment,
-      startMs: Math.max(0, segment.startMs),
-      endMs: Math.max(0, segment.endMs),
-    })),
+    compressIntraTurnPauses(
+      segments.map(segment => ({
+        ...segment,
+        startMs: Math.max(0, segment.startMs),
+        endMs: Math.max(0, segment.endMs),
+      })),
+    ),
   )
     .map(segment => ({
       ...segment,
@@ -215,6 +415,8 @@ function appendEventSegments({
   toolResponsesByTurnId,
   toolResponseRequiredByTurnId,
   approvalRequiredIdsByTurnId,
+  approvalToolResumeMs,
+  pauseWindows,
   subAgentToolCallIds,
   toolCallRequestsByTurnId,
   threadDoneEvents,
@@ -232,6 +434,8 @@ function appendEventSegments({
   toolResponsesByTurnId: Map<string, Map<string, TimelineEvent>>;
   toolResponseRequiredByTurnId: Map<string, Map<string, TimelineEvent>>;
   approvalRequiredIdsByTurnId: Map<string, Set<string>>;
+  approvalToolResumeMs: Map<string, number>;
+  pauseWindows: PauseWindow[];
   subAgentToolCallIds: Set<string>;
   toolCallRequestsByTurnId: Map<string, Map<string, SubAgentToolCallRequest>>;
   threadDoneEvents: Map<string, TimelineEvent>;
@@ -252,14 +456,33 @@ function appendEventSegments({
       // the chart-layout utility into one parallel-tool-call bar.
       // Pending human-wait tools (ask-user) still emit a bar so strip Tool calls
       // matches Agent steps even before tool.response arrives.
+      // Approval-gated tools emit only the post-resume → response interval so the
+      // pause chip owns the wait and tool execution still fills active time.
       for (const toolCall of toolCallsOf(event)) {
         const toolCallId = typeof toolCall.id === 'string' ? toolCall.id : undefined;
-        // Skip parent create_sub_agent calls and approval-gated calls; they have their own segments.
-        if (toolCallId == null || subAgentToolCallIds.has(toolCallId) || approvalIds?.has(toolCallId)) continue;
+        if (toolCallId == null || subAgentToolCallIds.has(toolCallId)) continue;
         const response = responses?.get(toolCallId);
         const responseMs = response == null ? null : parseTimestamp(eventCreatedAt(response));
         const required = pendingRequired?.get(toolCallId);
         const requiredMs = required == null ? null : parseTimestamp(eventCreatedAt(required));
+        if (approvalIds?.has(toolCallId)) {
+          const resumeMs = approvalToolResumeMs.get(toolCallId);
+          if (resumeMs == null) continue;
+          const endMs = responseMs ?? requiredMs ?? turnDoneMs;
+          if (endMs == null || endMs < resumeMs) continue;
+          segments.push({
+            id: `${eventId(event)}-${toolCallId}`,
+            type: 'tool_call',
+            title: 'tool.call',
+            description: toolCallDescription(toolCall),
+            startMs: resumeMs - originMs,
+            endMs: endMs - originMs,
+            turnIndex,
+            threadId,
+            ...(responseMs == null && endMs <= resumeMs ? { isMarker: true } : {}),
+          });
+          continue;
+        }
         const endMs = responseMs ?? requiredMs ?? turnDoneMs ?? eventMs;
         if (endMs < eventMs) continue;
         segments.push({
@@ -331,13 +554,76 @@ function appendEventSegments({
       });
       return;
     }
+    case 'user.tool_approval': {
+      const toolCallId = readString(event, 'toolCallId', 'tool_call_id');
+      const request = toolCallId == null ? undefined : toolCallRequestsByTurnId.get(turn.turnId)?.get(toolCallId);
+      const toolLabel =
+        mcpToolSlashLabel(request?.toolCall) ||
+        (toolCallId != null && toolCallId.length > 0 ? toolCallId.slice(0, 12) : undefined);
+      segments.push({
+        id: eventId(event),
+        type: 'approval',
+        title: event.type,
+        description: summarizeToolApproval(event.approval, { toolLabel }),
+        turnIndex,
+        threadId,
+        isMarker: true,
+        ...pauseAnchorFields({ windows: pauseWindows, eventMs, originMs }),
+      });
+      return;
+    }
+    case 'user.tool_approval_policy':
+      segments.push({
+        id: eventId(event),
+        type: 'approval',
+        title: event.type,
+        description: summarizeToolApprovalPolicy(event),
+        turnIndex,
+        threadId: MAIN_THREAD_ID,
+        isMarker: true,
+        ...pauseAnchorFields({ windows: pauseWindows, eventMs, originMs }),
+      });
+      return;
+    case 'user.tool_response':
+      segments.push({
+        id: eventId(event),
+        type: 'user',
+        title: event.type,
+        description: extractText(event.content) || 'Tool response',
+        turnIndex,
+        threadId,
+        isMarker: true,
+        ...pauseAnchorFields({ windows: pauseWindows, eventMs, originMs }),
+      });
+      return;
+    case 'user.mcp_auth_continue':
+      segments.push({
+        id: eventId(event),
+        type: 'user',
+        title: event.type,
+        description: 'MCP authorization completed',
+        turnIndex,
+        threadId,
+        isMarker: true,
+        ...pauseAnchorFields({ windows: pauseWindows, eventMs, originMs }),
+      });
+      return;
     case 'tool.approval_required':
     case 'tool.response_required':
     case 'mcp.auth_required':
     case 'mcp.initialize':
-    case 'sandbox.created':
+    case 'sandbox.created': {
       // These are point-in-time state transitions, so start and end are equal
       // and Chart.js renders them with the configured minimum marker width.
+      const approvalToolLabels =
+        event.type === 'tool.approval_required'
+          ? toolCallsOf(event).flatMap(toolCall => {
+              const id = typeof toolCall.id === 'string' ? toolCall.id : undefined;
+              const request = id == null ? undefined : toolCallRequestsByTurnId.get(turn.turnId)?.get(id);
+              const label = mcpToolSlashLabel(request?.toolCall);
+              return label.length > 0 ? [label] : [];
+            })
+          : [];
       segments.push({
         id: eventId(event),
         type:
@@ -349,7 +635,7 @@ function appendEventSegments({
         title: event.type,
         description:
           event.type === 'tool.approval_required'
-            ? 'Approval required'
+            ? summarizeApprovalRequiredTools(approvalToolLabels)
             : event.type === 'tool.response_required'
               ? 'Waiting for user response'
               : event.type === 'mcp.auth_required'
@@ -357,13 +643,13 @@ function appendEventSegments({
                 : event.type === 'mcp.initialize'
                   ? 'MCP initialized'
                   : 'Sandbox created',
-        startMs: eventMs - originMs,
-        endMs: eventMs - originMs,
         turnIndex,
         threadId,
         isMarker: true,
+        ...pauseAnchorFields({ windows: pauseWindows, eventMs, originMs }),
       });
       return;
+    }
     default:
       return;
   }

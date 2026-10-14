@@ -20,12 +20,14 @@ export type SessionEventTypeDefinition = {
 };
 
 /**
- * One drawable interval on the timeline.
+ * One drawable piece on the timeline (bar or diamond).
  *
- * Times are milliseconds relative to the session origin, not wall-clock
- * timestamps. Equal start/end times are rendered as markers; intervals become
- * horizontal bars. `turnIndex` groups intervals into turn backgrounds and
- * `threadId` assigns sub-agent work to its lane.
+ * Times are ms from session start (not absolute clock times).
+ * - Same start/end → diamond marker (e.g. approval at t=8s).
+ * - Different start/end → horizontal bar (e.g. model work 2s→5s).
+ *
+ * Pause chips are special: after compression they collapse to a point, but
+ * `wallDurationMs` still remembers the real wait (e.g. 3m 40s) for labels.
  */
 export type SessionEventTimelineSegment = {
   id: string;
@@ -37,6 +39,16 @@ export type SessionEventTimelineSegment = {
   turnIndex: number;
   threadId: string;
   isMarker?: boolean;
+  /** Real paused wait in ms (kept even after the chip is compressed to a point). */
+  wallDurationMs?: number;
+  /** Hatched “Paused” chip; chart expands it to a fixed pixel width. */
+  isPauseChip?: boolean;
+  /**
+   * How far into the pause this marker happened (wall ms from pause start).
+   * Example: approve at end of a 120s pause → pauseOffsetMs=120000 → diamond
+   * is drawn at the right edge of the chip.
+   */
+  pauseOffsetMs?: number;
 };
 
 /** Canonical legend order, labels, and base colours for timeline event types. */
@@ -52,7 +64,12 @@ export const SESSION_EVENT_TYPES: SessionEventTypeDefinition[] = [
 ];
 
 /** Marker-like events have no meaningful elapsed duration in their tooltip. */
-export const SESSION_EVENT_TOOLTIP_HIDE_DURATION = new Set<SessionEventType>(['system', 'user', 'error']);
+export const SESSION_EVENT_TOOLTIP_HIDE_DURATION = new Set<SessionEventType>([
+  'system',
+  'user',
+  'approval',
+  'error',
+]);
 
 const TOOLTIP_HEADINGS: Partial<Record<SessionEventType, string>> = {
   user: 'User Message',
@@ -65,7 +82,8 @@ export function formatTimelineDuration(durationMs: number): string {
   if (durationMs < 1_000) return `${Math.round(durationMs)}ms`;
   if (durationMs < 60_000) return `${Number((durationMs / 1_000).toPrecision(3))}s`;
   if (durationMs < 3_600_000) return `${Number((durationMs / 60_000).toPrecision(3))}m`;
-  return `${Number((durationMs / 3_600_000).toPrecision(3))}h`;
+  if (durationMs < 86_400_000) return `${Number((durationMs / 3_600_000).toPrecision(3))}h`;
+  return `${Number((durationMs / 86_400_000).toPrecision(3))}d`;
 }
 
 /** Resolve a segment's color from the same registry used to build the legend. */

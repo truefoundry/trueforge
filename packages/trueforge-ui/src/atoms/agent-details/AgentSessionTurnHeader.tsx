@@ -1,7 +1,7 @@
 'use client';
 
 import { Icon } from '../../icons/Icon.js';
-import { formatCostUsd, formatDurationMs, formatTokenCount } from '../../utils/sessionDisplayFormat.js';
+import { formatCostUsd, formatReadableDurationMs, formatTokenCount } from '../../utils/sessionDisplayFormat.js';
 import { LightTooltip } from '../primitives/Tooltip.js';
 import type { AgentSessionTurnHeaderProps } from './types.js';
 
@@ -91,7 +91,7 @@ export function AgentSessionTurnHeader({
           {durationMs != null ? (
             <span className="inline-flex items-center gap-1">
               <Icon name="clock" className="size-3.5 shrink-0" />
-              {`Duration ${formatDurationMs(durationMs)}`}
+              {`Duration ${formatReadableDurationMs(durationMs)}`}
             </span>
           ) : null}
           {totalCostInUsd != null ? <span>{`Cost ${formatCostUsd(totalCostInUsd)}`}</span> : null}

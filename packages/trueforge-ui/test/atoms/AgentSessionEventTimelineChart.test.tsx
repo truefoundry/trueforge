@@ -344,3 +344,74 @@ describe('AgentSessionEventTimelineChart', () => {
     expect(screen.getByText('MCP initialized')).toBeInTheDocument();
   });
 });
+
+describe('AgentSessionEventTimelineChart pause chips', () => {
+  beforeEach(() => {
+    capturedData = undefined;
+    capturedOptions = undefined;
+  });
+
+  it('draws a pause-chip bar and keeps axis ticks on active time', () => {
+    const pauseSegments: SessionEventTimelineSegment[] = [
+      ...segments,
+      {
+        id: 'pause-1',
+        type: 'waiting_on_human',
+        title: 'turn.paused',
+        description: 'Paused',
+        startMs: 500,
+        endMs: 500,
+        turnIndex: 0,
+        threadId: 'main',
+        isPauseChip: true,
+        wallDurationMs: 172_800_000,
+      },
+      {
+        id: 'approval-1',
+        type: 'approval',
+        title: 'tool.approval_required',
+        description: 'Approval required',
+        startMs: 500,
+        endMs: 500,
+        turnIndex: 0,
+        threadId: 'main',
+        isMarker: true,
+      },
+      {
+        id: 'after-pause',
+        type: 'model',
+        title: 'model.message',
+        description: 'resumed',
+        startMs: 500,
+        endMs: 800,
+        turnIndex: 0,
+        threadId: 'main',
+      },
+    ];
+
+    render(<AgentSessionEventTimelineChart turns={turns} segments={pauseSegments} hiddenTypes={new Set()} />);
+
+    const datasets = Reflect.get(capturedData ?? {}, 'datasets');
+    expect(Array.isArray(datasets)).toBe(true);
+    if (!Array.isArray(datasets)) throw new Error('Expected chart datasets');
+    const pauseDataset = datasets.find(dataset => {
+      if (typeof dataset !== 'object' || dataset == null) return false;
+      return Reflect.get(dataset, 'label') === 'Paused';
+    });
+    expect(pauseDataset).toBeTruthy();
+    expect(Reflect.get(pauseDataset ?? {}, 'minBarLength')).toBe(0);
+
+    const scales = Reflect.get(capturedOptions ?? {}, 'scales');
+    const xScale = typeof scales === 'object' && scales != null ? Reflect.get(scales, 'x') : undefined;
+    const afterBuildTicks =
+      typeof xScale === 'object' && xScale != null ? Reflect.get(xScale, 'afterBuildTicks') : undefined;
+    expect(typeof afterBuildTicks).toBe('function');
+    if (typeof afterBuildTicks !== 'function') throw new Error('Expected afterBuildTicks');
+    const scale = { ticks: [] as Array<{ value: number }> };
+    afterBuildTicks(scale);
+    expect(scale.ticks.length).toBeGreaterThan(0);
+    // Active-time ticks after the pause anchor are shifted by the chip width.
+    const lastTick = scale.ticks.at(-1);
+    expect(lastTick?.value).toBeGreaterThan(1_000);
+  });
+});
