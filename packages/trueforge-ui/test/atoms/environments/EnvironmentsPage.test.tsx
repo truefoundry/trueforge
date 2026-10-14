@@ -8,7 +8,7 @@ import type { TrackAnalytics } from '@/analytics/types.js';
 import { EnvironmentsButton } from '@/atoms/EnvironmentsButton.js';
 import { EnvironmentsPage, PENDING_ENVIRONMENTS_POLL_INTERVAL_MS } from '@/atoms/environments/EnvironmentsPage.js';
 import { ToasterProvider } from '@/containers/ToasterContainer.js';
-import { CurrentUserProvider } from '@/contexts/CurrentUserContext.js';
+import { CurrentUserProvider, type CurrentUser } from '@/contexts/CurrentUserContext.js';
 import { ServerProvider } from '@/server/ServerContext.js';
 import { ShellModeProvider } from '@/server/ShellModeContext.js';
 import type { SandboxEnvironment, SandboxEnvironmentServer } from '@/server/types.js';
@@ -72,10 +72,12 @@ afterEach(() => {
 function renderPage({
   environments = sampleEnvironments,
   environmentOverrides = {},
+  currentUser = { subjectId: 'user-1', displayName: 'alice' },
   track,
 }: {
   environments?: SandboxEnvironment[];
   environmentOverrides?: Partial<SandboxEnvironmentServer>;
+  currentUser?: CurrentUser;
   track?: TrackAnalytics;
 } = {}) {
   const environmentServer = createMockSandboxEnvironmentServer({
@@ -89,7 +91,7 @@ function renderPage({
 
   const tree = (
     <ServerProvider server={server}>
-      <CurrentUserProvider currentUser={{ subjectId: 'user-1', displayName: 'alice' }}>
+      <CurrentUserProvider currentUser={currentUser}>
         <ShellModeProvider agentConfig={{ mode: 'AgentLibraryWithComposer' }}>
           <ToasterProvider>
             <EnvironmentsPage />
@@ -152,6 +154,15 @@ describe('EnvironmentsPage', () => {
         },
       ],
     });
+
+    const name = await screen.findByText('python-data');
+    expect(screen.queryByRole('button', { name: 'Delete python-data' })).not.toBeInTheDocument();
+    fireEvent.click(name);
+    expect(screen.queryByText('Save')).not.toBeInTheDocument();
+  });
+
+  it('does not offer owner actions when the current subject id is unavailable', async () => {
+    renderPage({ currentUser: { displayName: 'alice' } });
 
     const name = await screen.findByText('python-data');
     expect(screen.queryByRole('button', { name: 'Delete python-data' })).not.toBeInTheDocument();

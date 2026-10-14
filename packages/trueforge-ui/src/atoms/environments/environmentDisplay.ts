@@ -16,7 +16,8 @@ export function isEnvironmentReadOnly(
 ): boolean {
   return (
     isReservedEnvironmentName(env.name) ||
-    (currentSubjectId !== undefined && env.createdBySubject.subjectId !== currentSubjectId)
+    currentSubjectId === undefined ||
+    env.createdBySubject.subjectId !== currentSubjectId
   );
 }
 
