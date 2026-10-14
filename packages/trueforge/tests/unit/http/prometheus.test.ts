@@ -56,18 +56,29 @@ describe('createHttpMetrics', () => {
     expect(body).not.toContain('sess_456');
   });
 
-  it('skips health, metrics, and asset requests', async () => {
-    const app = instrumentedApp();
+  it('records /api routes and leaves health, scrape, and asset requests out', async () => {
+    const metrics = createHttpMetrics();
+    const app = new OpenAPIHono();
+    app.use('/api/*', metrics.middleware);
+    app.get('/metrics', metrics.handler);
     app.get('/healthz', c => c.json({ ok: true }));
     app.get('/assets/app.js', c => c.text('js'));
+    mountSessionRoute(app);
 
     await app.request('/healthz');
     await app.request('/metrics');
     await app.request('/assets/app.js');
+    expect((await app.request('/api/v1/sessions/sess_123')).status).toBe(200);
+    expect((await app.request('/api/v1/missing')).status).toBe(404);
     const body = await scrape(app);
 
-    expect(body).not.toMatch(/^http_requests_total\{/m);
-    expect(body).not.toMatch(/^http_request_duration_seconds_count\{/m);
+    expect(body).toContain(`http_requests_total{${SESSION_SERIES}} 1`);
+    expect(body).toContain('http_requests_total{method="GET",route="unmatched",status_code="404"} 1');
+    expect(body).not.toContain('route="/api/*"');
+    expect(body).not.toContain('route="/healthz"');
+    expect(body).not.toContain('route="/metrics"');
+    expect(body).not.toContain('route="/assets/app.js"');
+    expect(body).not.toContain('sess_123');
   });
 
   it('counts a thrown handler as 500 after the app error handler', async () => {

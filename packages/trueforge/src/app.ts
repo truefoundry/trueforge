@@ -272,10 +272,9 @@ export function createServerApp<TTransaction>(deps: ServerDeps<TTransaction>) {
     turnSkillsResolverStore: deps.turnSkillsResolverStore,
   };
 
-  const httpMetrics = configuration.METRICS_ENABLED ? createHttpMetrics() : undefined;
-  if (httpMetrics !== undefined) {
-    app.use('*', httpMetrics.middleware);
-  }
+  const httpMetrics = createHttpMetrics();
+  // Health, the scrape endpoint, and static files sit outside /api, so they never enter this middleware.
+  app.use('/api/*', httpMetrics.middleware);
   if (configuration.ACCESS_LOGS) {
     app.use('*', createAccessLogMiddleware(deps.logger));
   }
@@ -285,9 +284,7 @@ export function createServerApp<TTransaction>(deps: ServerDeps<TTransaction>) {
   app.use('*', createRequestBodyLimitMiddleware(configuration.MAX_REQUEST_BODY_BYTES));
 
   app.get('/healthz', c => c.json({ status: 'ok', version: PACKAGE_VERSION }));
-  if (httpMetrics !== undefined) {
-    app.get('/metrics', httpMetrics.handler);
-  }
+  app.get('/metrics', httpMetrics.handler);
 
   app.route(
     '/api/v1/auth',
