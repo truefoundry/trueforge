@@ -12,9 +12,9 @@ const MAX_REDIRECTS = 20;
 const REDIRECT_STATUSES = new Set([301, 302, 303, 307, 308]);
 const CROSS_ORIGIN_STRIPPED_HEADERS = ['authorization', 'proxy-authorization', 'cookie', 'host'];
 // Rejected before processing (timeout, rate limit, gateway never reached the origin).
-const UNPROCESSED_RETRY_STATUSES = new Set([408, 429, 521, 522, 523, 530]);
-// Upstream may have processed the request (409 conflict, 520 bad origin response, 524 origin timeout).
-const MAYBE_PROCESSED_RETRY_STATUSES = new Set([409, 520, 524]);
+const UNPROCESSED_RETRY_STATUSES = new Set([408, 429, 503, 521, 522, 523, 530]);
+// Upstream may have processed the request (502 invalid origin response, 409 conflict, 520 bad origin response, 524 origin timeout).
+const MAYBE_PROCESSED_RETRY_STATUSES = new Set([409, 502, 520, 524]);
 const RETRY_INITIAL_DELAY_MS = 1_000;
 const RETRY_BACKOFF_FACTOR = 2;
 const RETRY_JITTER_FACTOR = 0.2;
