@@ -1178,7 +1178,7 @@ export function useTrueForgeAgentMessages({
       }
       // allow session and for allow 1o min need to send policy only
       // For allow once need to send approval
-// For deny need to send approval and reason
+      // For deny need to send approval and reason
       const events: TurnInboundEventItem[] = [];
       const approvals = new Map(previous.requiredActions.approvals);
       if (response.policy != null) {
