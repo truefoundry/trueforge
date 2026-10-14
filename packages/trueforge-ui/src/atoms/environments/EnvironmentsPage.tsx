@@ -5,6 +5,7 @@ import { useCallback, useEffect, useMemo, useRef, useState, type ComponentType }
 import { useTrackAnalytics } from '../../analytics/AnalyticsProvider.js';
 import { AnalyticsEvents } from '../../analytics/events.js';
 import { useToasterOptional } from '../../containers/ToasterContainer.js';
+import { useOptionalCurrentUser } from '../../contexts/CurrentUserContext.js';
 import { Icon } from '../../icons/Icon.js';
 import { useSandboxEnvironmentServer } from '../../server/ServerContext.js';
 import { useOptionalShellMode } from '../../server/ShellModeContext.js';
@@ -57,6 +58,7 @@ export type EnvironmentsPageProps = Record<string, never>;
 export function EnvironmentsPage(_props: EnvironmentsPageProps) {
   const environmentServer = useSandboxEnvironmentServer();
   const shell = useOptionalShellMode();
+  const currentUser = useOptionalCurrentUser();
   const toaster = useToasterOptional();
   const track = useTrackAnalytics();
 
@@ -269,7 +271,7 @@ export function EnvironmentsPage(_props: EnvironmentsPageProps) {
               </TableHeader>
               <TableBody>
                 {filtered.map(env => {
-                  const readOnly = isEnvironmentReadOnly(env);
+                  const readOnly = isEnvironmentReadOnly(env, currentUser?.subjectId);
                   return (
                     <TableRow
                       key={env.id}

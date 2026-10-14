@@ -10,8 +10,15 @@ export function isReservedEnvironmentName(name: string): boolean {
   return name.trim() === RESERVED_ENVIRONMENT_NAME;
 }
 
-export function isEnvironmentReadOnly(env: Pick<SandboxEnvironment, 'name'>): boolean {
-  return isReservedEnvironmentName(env.name);
+export function isEnvironmentReadOnly(
+  env: Pick<SandboxEnvironment, 'name' | 'createdBySubject'>,
+  currentSubjectId?: string,
+): boolean {
+  return (
+    isReservedEnvironmentName(env.name) ||
+    currentSubjectId === undefined ||
+    env.createdBySubject.subjectId !== currentSubjectId
+  );
 }
 
 export function formatResourcesSummary(resources: SandboxEnvironmentManifest['resources']): string {

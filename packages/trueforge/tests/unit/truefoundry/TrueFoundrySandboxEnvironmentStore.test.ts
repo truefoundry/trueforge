@@ -90,7 +90,6 @@ describe('TrueFoundrySandboxEnvironmentStore', () => {
 
     const listed = await store.listEnvironments({
       tenant_id: TENANT,
-      created_by_subject_id: SUBJECT_ID,
       limit: 25,
       page_token: undefined,
     });
@@ -108,7 +107,6 @@ describe('TrueFoundrySandboxEnvironmentStore', () => {
 
     const listed = await store.listEnvironments({
       tenant_id: TENANT,
-      created_by_subject_id: SUBJECT_ID,
       limit: 25,
       page_token: undefined,
     });

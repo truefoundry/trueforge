@@ -7899,7 +7899,7 @@
     },
     "/api/v1/sandbox-environments": {
       "get": {
-        "description": "List the tenant default environment plus sandbox environments created by the authenticated subject.",
+        "description": "List available sandbox environments",
         "parameters": [
           {
             "description": "Page size. Defaults to 25, max 1000.",
@@ -8055,7 +8055,7 @@
         "x-fern-sdk-method-name": "create"
       },
       "put": {
-        "description": "Create or replace by `manifest.name`. Requires a configured sandbox provider.",
+        "description": "Create a new sandbox environment or update an existing one.",
         "requestBody": {
           "content": {
             "application/json": {
@@ -8096,6 +8096,16 @@
               }
             },
             "description": "Unauthenticated."
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/RequestErrorResponse"
+                }
+              }
+            },
+            "description": "Sandbox environment not found."
           },
           "409": {
             "content": {
@@ -8140,7 +8150,7 @@
     },
     "/api/v1/sandbox-environments/{name}": {
       "delete": {
-        "description": "Delete by name. Fails if any agent still references the environment.",
+        "description": "Delete a sandbox environment, fails if any agent still references it.",
         "parameters": [
           {
             "description": "Sandbox environment name.",
@@ -8188,7 +8198,7 @@
                 }
               }
             },
-            "description": "Sandbox environment not found."
+            "description": "Sandbox environment not found or not owned by the caller."
           },
           "409": {
             "content": {
@@ -8231,7 +8241,6 @@
         "x-fern-sdk-method-name": "delete"
       },
       "get": {
-        "description": "Get a sandbox environment by name. The tenant default is readable by any tenant member; custom environments are owner-scoped.",
         "parameters": [
           {
             "description": "Sandbox environment name.",
