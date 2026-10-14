@@ -957,9 +957,7 @@ describe('pause chips in buildSessionTimelineSegments', () => {
     assert.equal(policy?.description, 'linear/save_comment · allow_session · 10m');
     assert.equal(approval?.description, 'linear/save_comment');
 
-    const postApprovalTool = segments.find(
-      segment => segment.type === 'tool_call' && segment.id.includes('call-1'),
-    );
+    const postApprovalTool = segments.find(segment => segment.type === 'tool_call' && segment.id.includes('call-1'));
     assert.ok(postApprovalTool);
     assert.equal(postApprovalTool?.startMs, pause?.startMs);
     assert.ok((postApprovalTool?.endMs ?? 0) > (postApprovalTool?.startMs ?? 0));
@@ -1134,9 +1132,7 @@ describe('pause chips in buildSessionTimelineSegments', () => {
     assert.ok((policy?.pauseOffsetMs ?? 0) > 0);
     assert.equal(policy?.startMs, pause?.startMs);
 
-    const postApprovalTool = segments.find(
-      segment => segment.type === 'tool_call' && segment.id.includes('call-1'),
-    );
+    const postApprovalTool = segments.find(segment => segment.type === 'tool_call' && segment.id.includes('call-1'));
     assert.ok(postApprovalTool);
     assert.equal(postApprovalTool?.startMs, pause?.startMs);
     assert.ok((postApprovalTool?.endMs ?? 0) > (postApprovalTool?.startMs ?? 0));

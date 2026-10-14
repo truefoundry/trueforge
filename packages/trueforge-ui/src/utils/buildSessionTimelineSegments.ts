@@ -10,10 +10,10 @@ import {
   getTurnInputSummary,
   getTurnInputType,
   isRecord,
+  mcpToolSlashLabel,
   parentToolCallId,
   parseTimestamp,
   readString,
-  mcpToolSlashLabel,
   summarizeApprovalRequiredTools,
   summarizeToolApproval,
   summarizeToolApprovalPolicy,
@@ -112,13 +112,7 @@ function collectPauseWindows({
 }
 
 /** True if something in this pause window needed a human (approval, ask-user, MCP auth). */
-function pauseHasHumanAction({
-  events,
-  window,
-}: {
-  events: TimelineEvent[];
-  window: PauseWindow;
-}): boolean {
+function pauseHasHumanAction({ events, window }: { events: TimelineEvent[]; window: PauseWindow }): boolean {
   return events.some(event => {
     if (!PAUSE_CHIP_HUMAN_EVENT_TYPES.has(event.type)) return false;
     const eventMs = parseTimestamp(eventCreatedAt(event));
@@ -128,9 +122,7 @@ function pauseHasHumanAction({
 
 /** Which pause (if any) contains this timestamp, allowing a small lead before paused. */
 function pauseWindowForMs(windows: PauseWindow[], eventMs: number): PauseWindow | undefined {
-  return windows.find(
-    window => eventMs >= window.startMs - PAUSE_EVENT_LEAD_MS && eventMs <= window.endMs,
-  );
+  return windows.find(window => eventMs >= window.startMs - PAUSE_EVENT_LEAD_MS && eventMs <= window.endMs);
 }
 
 /**
@@ -325,8 +317,7 @@ export function buildSessionTimelineSegments(
     for (const window of pauseWindows) {
       const wallDurationMs = Math.max(0, window.endMs - window.startMs);
       // Skip tiny auto-pauses unless a human-action event sat inside the window.
-      const emitChip =
-        wallDurationMs >= MIN_PAUSE_CHIP_WALL_MS || pauseHasHumanAction({ events, window });
+      const emitChip = wallDurationMs >= MIN_PAUSE_CHIP_WALL_MS || pauseHasHumanAction({ events, window });
       if (!emitChip) continue;
       segments.push({
         id: `${window.eventId}-pause`,

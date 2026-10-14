@@ -137,16 +137,11 @@ export function summarizeApprovalRequiredTools(toolLabels: readonly string[]): s
     counts.set(trimmed, (counts.get(trimmed) ?? 0) + 1);
   }
   if (counts.size === 0) return 'Approval required';
-  return [...counts.entries()]
-    .map(([name, count]) => (count > 1 ? `${name} (${count})` : name))
-    .join('\n');
+  return [...counts.entries()].map(([name, count]) => (count > 1 ? `${name} (${count})` : name)).join('\n');
 }
 
 /** User allow/deny copy, optionally with the tool name: `linear/save_comment · approved`. */
-export function summarizeToolApproval(
-  approval: unknown,
-  { toolLabel }: { toolLabel?: string } = {},
-): string {
+export function summarizeToolApproval(approval: unknown, { toolLabel }: { toolLabel?: string } = {}): string {
   const record = isRecord(approval) ? approval : undefined;
   const reason = typeof record?.reason === 'string' ? record.reason.trim() : '';
   const statusPart =
@@ -180,9 +175,7 @@ export function summarizeToolApprovalPolicy(event: TimelineEvent): string {
     const expireAt = policyBody == null ? undefined : readString(policyBody, 'expireAt', 'expire_at');
     const expireMs = parseTimestamp(expireAt);
     const duration =
-      expireMs != null && eventMs != null && expireMs > eventMs
-        ? formatTimelineDuration(expireMs - eventMs)
-        : '';
+      expireMs != null && eventMs != null && expireMs > eventMs ? formatTimelineDuration(expireMs - eventMs) : '';
     const base = policyType.length > 0 ? `${tool || 'tool'} · ${policyType}` : tool;
     return [duration.length > 0 ? `${base} · ${duration}` : base];
   });

@@ -49,9 +49,7 @@ export function SessionEventTooltip({
   // Pause chips show real wall wait, not the compressed/expanded chart width.
   const pauseWallMs = segment.isPauseChip ? (segment.wallDurationMs ?? 0) : undefined;
   const showDuration =
-    pauseWallMs != null
-      ? pauseWallMs > 0
-      : !segment.isMarker && !SESSION_EVENT_TOOLTIP_HIDE_DURATION.has(segment.type);
+    pauseWallMs != null ? pauseWallMs > 0 : !segment.isMarker && !SESSION_EVENT_TOOLTIP_HIDE_DURATION.has(segment.type);
   const durationMs = pauseWallMs ?? segment.endMs - segment.startMs;
   const content = segment.description.trim();
   if (segment.type === 'system') {

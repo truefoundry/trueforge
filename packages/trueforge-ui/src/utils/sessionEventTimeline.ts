@@ -64,12 +64,7 @@ export const SESSION_EVENT_TYPES: SessionEventTypeDefinition[] = [
 ];
 
 /** Marker-like events have no meaningful elapsed duration in their tooltip. */
-export const SESSION_EVENT_TOOLTIP_HIDE_DURATION = new Set<SessionEventType>([
-  'system',
-  'user',
-  'approval',
-  'error',
-]);
+export const SESSION_EVENT_TOOLTIP_HIDE_DURATION = new Set<SessionEventType>(['system', 'user', 'approval', 'error']);
 
 const TOOLTIP_HEADINGS: Partial<Record<SessionEventType, string>> = {
   user: 'User Message',

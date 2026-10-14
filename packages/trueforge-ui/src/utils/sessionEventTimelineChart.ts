@@ -1,6 +1,5 @@
 import type { SessionEventTimelineSegment } from './sessionEventTimeline.js';
 
-
 /** Minimal interval shared by bars, compressed gaps, and grouped tool calls. */
 export type TimelineGap = {
   startMs: number;
@@ -188,13 +187,7 @@ export type TimelinePauseChipRange = TimelineGap & {
 };
 
 /** Map wall offset into the chip: offset=0 → left edge, offset=wall → right edge. */
-function pauseMarkerX({
-  chip,
-  offsetMs,
-}: {
-  chip: TimelinePauseChipRange;
-  offsetMs: number;
-}): number {
+function pauseMarkerX({ chip, offsetMs }: { chip: TimelinePauseChipRange; offsetMs: number }): number {
   const span = Math.max(0, chip.endMs - chip.startMs);
   const wall = Math.max(0, chip.wallDurationMs);
   if (span <= 0 || wall <= 0) return chip.startMs;
@@ -214,9 +207,7 @@ function pauseChipForMarkerGroup({
   group: TimelineMarkerGroup;
   pauseChips: readonly TimelinePauseChipRange[];
 }): TimelinePauseChipRange | undefined {
-  const onChip = pauseChips.find(
-    candidate => group.startMs >= candidate.startMs && group.startMs <= candidate.endMs,
-  );
+  const onChip = pauseChips.find(candidate => group.startMs >= candidate.startMs && group.startMs <= candidate.endMs);
   if (onChip != null) return onChip;
   // Slightly before chip start (gateway lead-in / grouping tolerance).
   let best: TimelinePauseChipRange | undefined;
@@ -232,7 +223,9 @@ function pauseChipForMarkerGroup({
   if (best != null) return best;
   // After compression many pause markers share the chip start; use pauseOffsetMs.
   if (group.segments.some(segment => segment.pauseOffsetMs != null)) {
-    return pauseChips.find(candidate => Math.abs(group.startMs - candidate.startMs) <= candidate.endMs - candidate.startMs);
+    return pauseChips.find(
+      candidate => Math.abs(group.startMs - candidate.startMs) <= candidate.endMs - candidate.startMs,
+    );
   }
   return undefined;
 }
@@ -327,9 +320,7 @@ export function buildTimelineAxisTicks({
   turnGapMs?: number;
   visualGaps?: readonly TimelineVisualGap[];
 }): Array<{ value: number }> {
-  const gaps =
-    visualGaps ??
-    (turnStartsMs ?? []).slice(1).map(atActiveMs => ({ atActiveMs, gapMs: turnGapMs ?? 0 }));
+  const gaps = visualGaps ?? (turnStartsMs ?? []).slice(1).map(atActiveMs => ({ atActiveMs, gapMs: turnGapMs ?? 0 }));
   const stepMs = getCleanAxisStepMs(activeTotalMs);
   const activeTicks: number[] = [];
   for (let activeMs = 0; activeMs < activeTotalMs; activeMs += stepMs) activeTicks.push(activeMs);
@@ -512,8 +503,7 @@ export function compressIntraTurnPauses(segments: SessionEventTimelineSegment[])
     }))
     .filter(pause => pause.wallDurationMs > 0)
     .sort(
-      (left, right) =>
-        left.turnIndex - right.turnIndex || left.startMs - right.startMs || left.endMs - right.endMs,
+      (left, right) => left.turnIndex - right.turnIndex || left.startMs - right.startMs || left.endMs - right.endMs,
     );
 
   if (pauses.length === 0) return segments;

@@ -82,8 +82,7 @@ function pauseHatchFill(color: string, isDark: boolean): CanvasPattern | string 
   if (typeof document === 'undefined') return color;
   try {
     const themeRoot = document.querySelector('.aui-theme-root') ?? document.documentElement;
-    const stroke =
-      getComputedStyle(themeRoot).getPropertyValue(strokeVar).trim() || color;
+    const stroke = getComputedStyle(themeRoot).getPropertyValue(strokeVar).trim() || color;
     const canvas = document.createElement('canvas');
     canvas.width = 8;
     canvas.height = 8;
@@ -235,10 +234,7 @@ export function AgentSessionEventTimelineChart({
     });
     return applyPauseChipLayout({ segments: turnShifted, pauseChipMs });
   }, [hiddenTypes, pauseChipMs, segments, turnGapMs, turnOrdinals]);
-  const pauseChipSegments = useMemo(
-    () => visibleSegments.filter(segment => segment.isPauseChip),
-    [visibleSegments],
-  );
+  const pauseChipSegments = useMemo(() => visibleSegments.filter(segment => segment.isPauseChip), [visibleSegments]);
   const pauseChipRanges = useMemo<TimelinePauseChipRange[]>(
     () =>
       pauseChipSegments.map(segment => ({
@@ -271,8 +267,7 @@ export function AgentSessionEventTimelineChart({
       const inTurn = visibleSegments.filter(segment => segment.turnIndex === range.turnIndex);
       const fallbackStart = range.startMs + range.ordinal * turnGapMs;
       const startMs = inTurn.reduce((min, segment) => Math.min(min, segment.startMs), fallbackStart);
-      const endMs =
-        inTurn.reduce((max, segment) => Math.max(max, segment.endMs), startMs) + MARKER_PX * msPerPx;
+      const endMs = inTurn.reduce((max, segment) => Math.max(max, segment.endMs), startMs) + MARKER_PX * msPerPx;
       return {
         ...range,
         id: `turn-${range.turnIndex}`,
@@ -353,17 +348,15 @@ export function AgentSessionEventTimelineChart({
   const chartTargets = useMemo<Array<TimelineHoverTarget | null>>(
     () => [
       ...turnBars.map((bar): TimelineHoverTarget => ({ type: TIMELINE_TYPE.turn, bar })),
-      ...packedMarkers.map(
-        (marker): TimelineHoverTarget => ({
-          type: TIMELINE_TYPE.markerGroup,
-          group: {
-            id: marker.id,
-            startMs: marker.x,
-            endMs: marker.x,
-            segments: marker.segments,
-          },
-        }),
-      ),
+      ...packedMarkers.map((marker): TimelineHoverTarget => ({
+        type: TIMELINE_TYPE.markerGroup,
+        group: {
+          id: marker.id,
+          startMs: marker.x,
+          endMs: marker.x,
+          segments: marker.segments,
+        },
+      })),
       ...pauseChipSegments.map((segment): TimelineHoverTarget => ({ type: TIMELINE_TYPE.event, segment })),
       ...subAgentEventSegments.map(({ segment }): TimelineHoverTarget => ({ type: TIMELINE_TYPE.event, segment })),
       ...subAgentToolCallGroups.map(({ group, subAgentLabel }): TimelineHoverTarget => ({

@@ -19,7 +19,6 @@ describe('summarizeApprovalRequiredTools', () => {
   });
 });
 
-
 describe('toolCallDescription', () => {
   it('shows the sandbox tool name and intent', () => {
     expect(
