@@ -93,6 +93,9 @@ listen for scrapes and keeps trueforge.podAnnotations.
 */}}
 {{- define "trueforge.server.podAnnotations" -}}
 {{- $defaults := dict "prometheus.io/scrape" "true" "prometheus.io/path" "/metrics" "prometheus.io/port" (toString .Values.server.port) -}}
+{{- if .Values.mtls.enabled -}}
+{{- $_ := set $defaults "prometheus.io/scheme" "https" -}}
+{{- end -}}
 {{- $merged := mergeOverwrite $defaults (deepCopy (.Values.global.podAnnotations | default dict)) (deepCopy (.Values.podAnnotations | default dict)) -}}
 {{- toYaml $merged }}
 {{- end }}
