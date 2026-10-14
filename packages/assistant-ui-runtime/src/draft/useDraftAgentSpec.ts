@@ -47,7 +47,6 @@ export function useDraftAgentSpec({
   const syncTimeoutRef = useRef<ReturnType<typeof setTimeout> | undefined>(undefined);
   const syncGenerationRef = useRef(0);
   const loadedDraftIdRef = useRef<string | undefined>(undefined);
-  const localDirtyRef = useRef(false);
   const lastUpdatedAtRef = useRef<string | undefined>(undefined);
   const pendingFlushRef = useRef<(() => Promise<void>) | undefined>(undefined);
   const inFlightFlushRef = useRef<Promise<void> | undefined>(undefined);
@@ -71,11 +70,6 @@ export function useDraftAgentSpec({
     inFlightFlushRef.current = undefined;
     lastUpdatedAtRef.current = undefined;
     setIsSpecSyncing(false);
-    // Dirty edits made against a previous draft must not be replayed onto
-    // the new one. Keep them only for lazy creation (undefined -> id).
-    if (previousDraftId != null) {
-      localDirtyRef.current = false;
-    }
   }, [draftSessionId]);
 
   useEffect(() => {
@@ -85,7 +79,6 @@ export function useDraftAgentSpec({
     if (draftSessionId == null) {
       loadedDraftIdRef.current = undefined;
       setAgentSpec(defaultAgentSpec);
-      localDirtyRef.current = false;
       setSpecError(null);
       setIsSpecLoading(false);
       return;
@@ -105,18 +98,15 @@ export function useDraftAgentSpec({
         }
         loadedDraftIdRef.current = draftSessionId;
 
-        if (loaded == null) {
-          // A session without an agentSpec (e.g. named or immutable session) cannot accept
-          // agent spec updates. Clear any unsaved draft edits so we never attempt to sync
-          // draft changes against a named session.
-          localDirtyRef.current = false;
-        } else if (localDirtyRef.current) {
-          scheduleSpecSyncRef.current(draftSessionId, agentSpecRef.current);
-          localDirtyRef.current = false;
-          setSpecError(null);
-          setIsSpecLoading(false);
-          return;
+        // Adopt the stored session spec; drop any New Chat seed that raced in during load.
+        if (syncTimeoutRef.current != null) {
+          clearTimeout(syncTimeoutRef.current);
+          syncTimeoutRef.current = undefined;
         }
+        syncGenerationRef.current++;
+        pendingFlushRef.current = undefined;
+        inFlightFlushRef.current = undefined;
+        setIsSpecSyncing(false);
 
         // If session has no custom draft spec (e.g. non-draft or immutable session),
         // keep the default draft spec rather than failing.
@@ -195,9 +185,6 @@ export function useDraftAgentSpec({
     [flushSpecSync],
   );
 
-  const scheduleSpecSyncRef = useRef(scheduleSpecSync);
-  scheduleSpecSyncRef.current = scheduleSpecSync;
-
   const flushPendingSpecSyncNow = useCallback(async () => {
     if (syncTimeoutRef.current != null) {
       clearTimeout(syncTimeoutRef.current);
@@ -223,7 +210,6 @@ export function useDraftAgentSpec({
       syncGenerationRef.current++;
       pendingFlushRef.current = undefined;
       inFlightFlushRef.current = undefined;
-      localDirtyRef.current = false;
       // Keep the last successful sync timestamp when the caller omits
       // updatedAt (e.g. a save that did not return sessionUpdatedAt).
       if (updatedAt !== undefined) {
@@ -260,8 +246,9 @@ export function useDraftAgentSpec({
       }
       const next = mergeAgentSpec(agentSpecRef.current, update);
       setAgentSpec(next);
-      localDirtyRef.current = true;
-      if (draftSessionId != null) {
+      // Wait until the session's stored spec is loaded. Syncing earlier overwrites
+      // a resumed session with the in-memory New Chat seed.
+      if (draftSessionId != null && loadedDraftIdRef.current === draftSessionId) {
         scheduleSpecSync(draftSessionId, next);
       }
     },
