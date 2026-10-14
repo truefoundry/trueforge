@@ -123,8 +123,8 @@ export interface AgentCapabilityConfig {
 
 export interface AgentSandboxConfig extends AgentCapabilityConfig {
   fileDownloads?: boolean;
-  /** Name of a configured sandbox environment. */
-  environment_name?: string;
+  /** Name of a configured sandbox environment. Wire JSON is `environment_name`. */
+  environmentName?: string;
 }
 
 export interface AgentInputTokensCompactionTrigger {
