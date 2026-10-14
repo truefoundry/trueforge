@@ -1342,7 +1342,7 @@ describe('useTrueForgeAgentMessages', () => {
     expect(resumeTurnStream).toHaveBeenCalled();
   });
 
-  it('batches an approval with its MCP session policy', async () => {
+  it('sends only MCP session policy when a policy target resolves', async () => {
     vi.mocked(loadSessionSnapshot).mockResolvedValue(snapshotWithMcpApproval());
     const { result } = renderHook(() => useTrueForgeAgentMessages({ server: mockServer, sessionId: 'session-1' }));
     await waitFor(() => expect(result.current.messages).toHaveLength(1));
@@ -1362,12 +1362,6 @@ describe('useTrueForgeAgentMessages', () => {
       sessionId: 'session-1',
       turnId: 'turn-1',
       events: [
-        {
-          type: 'user.tool_approval',
-          threadId: ROOT_THREAD_ID,
-          toolCallId: 'approval-1',
-          approval: { status: 'allow' },
-        },
         {
           type: 'user.tool_approval_policy',
           policies: [
