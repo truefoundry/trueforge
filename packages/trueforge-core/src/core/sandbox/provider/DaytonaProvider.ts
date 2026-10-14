@@ -45,13 +45,6 @@ const SNAPSHOT_INACTIVE_USER_MESSAGE =
 /** Same default the Daytona SDK applies when `DaytonaConfig.apiUrl` is omitted. */
 const DEFAULT_DAYTONA_API_URL = 'https://app.daytona.io/api';
 
-/**
- * Must match `scripts/sandbox/sandbox.Dockerfile` ENTRYPOINT. Daytona buildInfo snapshots
- * parse ENTRYPOINT from dockerfile text only (no base-image inheritance) and otherwise
- * default to `sleep infinity`, which never starts the pod-local NATS broker.
- */
-const SANDBOX_IMAGE_ENTRYPOINT_DOCKERFILE_LINE = 'ENTRYPOINT ["/usr/bin/supervisord", "-n"]';
-
 function isRecord(value: unknown): value is Record<string, unknown> {
   return typeof value === 'object' && value !== null;
 }
@@ -216,13 +209,14 @@ export class DaytonaSandboxProvider implements SandboxProvider<DaytonaSandboxEnv
   /**
    * Dockerfile that layers `build_script` onto the release base image.
    * JSON-array RUN keeps the script bytes intact (newlines, quotes) without shell-escaping hell.
-   * Explicit ENTRYPOINT is required: Daytona does not inherit it from FROM for buildInfo snapshots.
+   * Explicit ENTRYPOINT (same as sandbox.Dockerfile) is required: Daytona does not inherit it from
+   * FROM for buildInfo snapshots and otherwise defaults to `sleep infinity`.
    */
   private dockerfileFromBuildScript({ imageUri, buildScript }: { imageUri: string; buildScript: string }): string {
     return [
       `FROM ${imageUri}`,
       `RUN ["bash", "-lc", ${JSON.stringify(buildScript)}]`,
-      SANDBOX_IMAGE_ENTRYPOINT_DOCKERFILE_LINE,
+      'ENTRYPOINT ["/usr/bin/supervisord", "-n"]',
     ].join('\n');
   }
 
