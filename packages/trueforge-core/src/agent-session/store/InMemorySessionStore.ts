@@ -1,4 +1,4 @@
-import type { TurnUserEventMessage } from '../../core/events/schema';
+import type { TurnUserEvent } from '../../core/events/schema';
 import type { AgentThreadSnapshot } from '../../core/runtime/AgentThread.types';
 import { getEmptyCurrentContextUsage } from '../../core/runtime/contextUsage';
 import type { SessionRecord } from '../models/SessionRecord';
@@ -25,6 +25,8 @@ import type {
   ListSessionsInput,
   ListTurnEventsInput,
   ListTurnsInput,
+  ListUnconsumedTurnInboundEventsInput,
+  MarkTurnInboundEventsConsumedInput,
   NewThreadInit,
   OverwriteThreadContextInput,
   PatchMCPServersInput,
@@ -62,10 +64,8 @@ import {
 type StoredEvent = PersistedTurnEvent;
 
 interface StoredInboundEvent {
-  event_id: string;
+  event: TurnUserEvent;
   turn_id: string;
-  payload: TurnUserEventMessage;
-  created_at: string;
   consumed: boolean;
 }
 
@@ -561,25 +561,53 @@ export class InMemorySessionStore<
       list = [];
       this.inboundEvents.set(tKey, list);
     }
-    const existing = new Set(list.map(row => row.event_id));
+    const existing = new Set(list.map(row => row.event.id));
     for (const event of input.events) {
-      if (existing.has(event.event_id)) {
+      if (existing.has(event.id)) {
         throw new TurnEventAlreadyExistsError({
           session_id: input.session_id,
           turn_id: input.turn_id,
-          event_id: event.event_id,
+          event_id: event.id,
         });
       }
-      existing.add(event.event_id);
+      existing.add(event.id);
     }
     for (const event of input.events) {
       list.push({
-        event_id: event.event_id,
+        event: deepCopy(event),
         turn_id: input.turn_id,
-        payload: deepCopy(event.payload),
-        created_at: event.created_at,
         consumed: false,
       });
+    }
+  }
+
+  async listUnconsumedTurnInboundEvents(input: ListUnconsumedTurnInboundEventsInput): Promise<TurnUserEvent[]> {
+    this.requireSession(input.session_id);
+    this.requireNonTerminalTurn(input.session_id, input.turn_id);
+    const list = this.inboundEvents.get(turnKey(input)) ?? [];
+    return list
+      .filter(row => !row.consumed)
+      .slice()
+      .sort((a, b) => (a.event.id < b.event.id ? -1 : a.event.id > b.event.id ? 1 : 0))
+      .map(row => deepCopy(row.event));
+  }
+
+  async markTurnInboundEventsConsumed(input: MarkTurnInboundEventsConsumedInput): Promise<void> {
+    if (input.event_ids.length === 0) {
+      return;
+    }
+    this.requireSession(input.session_id);
+    this.requireNonTerminalTurn(input.session_id, input.turn_id);
+    const list = this.inboundEvents.get(turnKey(input)) ?? [];
+    const byId = new Map(list.map(row => [row.event.id, row]));
+    for (const eventId of input.event_ids) {
+      const row = byId.get(eventId);
+      if (!row) {
+        throw new SessionStoreInvariantError(
+          `Inbound event not found for mark-consumed: ${input.session_id}/${input.turn_id}/${eventId}`,
+        );
+      }
+      row.consumed = true;
     }
   }
 

@@ -758,13 +758,11 @@ export function runStoreContractSuite(createStore: () => ISessionStore) {
           turn_id: 'turn-1',
           events: [
             {
-              event_id: newEventId(),
-              payload: {
-                type: 'user.tool_approval',
-                thread_id: 'main',
-                tool_call_id: 'tc-1',
-                approval: { status: 'allow' },
-              },
+              id: newEventId(),
+              type: 'user.tool_approval',
+              thread_id: 'main',
+              tool_call_id: 'tc-1',
+              approval: { status: 'allow' },
               created_at: new Date().toISOString(),
             },
           ],
@@ -2835,23 +2833,19 @@ export function runStoreContractSuite(createStore: () => ISessionStore) {
       await store.createTurn(makeCreateTurnInput({ sessionId, turnId: 'turn-1' }));
 
       const earlier = {
-        event_id: 'evt-a',
-        payload: {
-          type: 'user.tool_approval' as const,
-          thread_id: 'main',
-          tool_call_id: 'tc-1',
-          approval: { status: 'allow' as const },
-        },
+        id: 'evt-a',
+        type: 'user.tool_approval' as const,
+        thread_id: 'main',
+        tool_call_id: 'tc-1',
+        approval: { status: 'allow' as const },
         created_at: new Date().toISOString(),
       };
       const later = {
-        event_id: 'evt-b',
-        payload: {
-          type: 'user.tool_approval' as const,
-          thread_id: 'main',
-          tool_call_id: 'tc-2',
-          approval: { status: 'deny' as const, reason: 'nope' },
-        },
+        id: 'evt-b',
+        type: 'user.tool_approval' as const,
+        thread_id: 'main',
+        tool_call_id: 'tc-2',
+        approval: { status: 'deny' as const, reason: 'nope' },
         created_at: new Date().toISOString(),
       };
 
@@ -2869,18 +2863,16 @@ export function runStoreContractSuite(createStore: () => ISessionStore) {
         }),
       ).rejects.toMatchObject({
         name: 'TurnEventAlreadyExistsError',
-        event_id: later.event_id,
+        event_id: later.id,
       });
 
       // Later id in the batch collides — error must name that id.
       const fresh = {
-        event_id: 'evt-fresh',
-        payload: {
-          type: 'user.tool_approval' as const,
-          thread_id: 'main',
-          tool_call_id: 'tc-fresh',
-          approval: { status: 'allow' as const },
-        },
+        id: 'evt-fresh',
+        type: 'user.tool_approval' as const,
+        thread_id: 'main',
+        tool_call_id: 'tc-fresh',
+        approval: { status: 'allow' as const },
         created_at: new Date().toISOString(),
       };
       await expect(
@@ -2891,7 +2883,7 @@ export function runStoreContractSuite(createStore: () => ISessionStore) {
         }),
       ).rejects.toMatchObject({
         name: 'TurnEventAlreadyExistsError',
-        event_id: later.event_id,
+        event_id: later.id,
       });
 
       const dupId = 'evt-dup';
@@ -2901,23 +2893,19 @@ export function runStoreContractSuite(createStore: () => ISessionStore) {
           turn_id: 'turn-1',
           events: [
             {
-              event_id: dupId,
-              payload: {
-                type: 'user.tool_approval' as const,
-                thread_id: 'main',
-                tool_call_id: 'tc-dup',
-                approval: { status: 'allow' as const },
-              },
+              id: dupId,
+              type: 'user.tool_approval' as const,
+              thread_id: 'main',
+              tool_call_id: 'tc-dup',
+              approval: { status: 'allow' as const },
               created_at: new Date().toISOString(),
             },
             {
-              event_id: dupId,
-              payload: {
-                type: 'user.tool_approval' as const,
-                thread_id: 'main',
-                tool_call_id: 'tc-dup-2',
-                approval: { status: 'deny' as const, reason: 'dup' },
-              },
+              id: dupId,
+              type: 'user.tool_approval' as const,
+              thread_id: 'main',
+              tool_call_id: 'tc-dup-2',
+              approval: { status: 'deny' as const, reason: 'dup' },
               created_at: new Date().toISOString(),
             },
           ],
@@ -2935,16 +2923,127 @@ export function runStoreContractSuite(createStore: () => ISessionStore) {
           turn_id: 'turn-1',
           events: [
             {
-              event_id: 'evt-after-done',
-              payload: {
-                type: 'user.tool_response' as const,
-                thread_id: 'main',
-                tool_call_id: 'tc-3',
-                content: 'client result',
-              },
+              id: 'evt-after-done',
+              type: 'user.tool_response' as const,
+              thread_id: 'main',
+              tool_call_id: 'tc-3',
+              content: 'client result',
               created_at: new Date().toISOString(),
             },
           ],
+        }),
+      ).rejects.toBeInstanceOf(TurnNotRunningError);
+    });
+
+    it('turn_inbound_events: list unconsumed and mark consumed', async () => {
+      const store = createStore();
+      await seedSession(store);
+      await store.createTurn(makeCreateTurnInput({ sessionId, turnId: 'turn-1' }));
+
+      const evtA = {
+        id: 'evt-list-a',
+        type: 'user.tool_approval' as const,
+        thread_id: 'main',
+        tool_call_id: 'tc-a',
+        approval: { status: 'allow' as const },
+        created_at: new Date().toISOString(),
+      };
+      const evtB = {
+        id: 'evt-list-b',
+        type: 'user.tool_response' as const,
+        thread_id: 'main',
+        tool_call_id: 'tc-b',
+        content: 'client result',
+        created_at: new Date().toISOString(),
+      };
+      // Insert out of id order — list must return id asc.
+      await store.insertTurnInboundEvents({
+        session_id: sessionId,
+        turn_id: 'turn-1',
+        events: [evtB, evtA],
+      });
+
+      const listed = await store.listUnconsumedTurnInboundEvents({
+        session_id: sessionId,
+        turn_id: 'turn-1',
+      });
+      expect(listed).toEqual([evtA, evtB]);
+
+      await store.markTurnInboundEventsConsumed({
+        session_id: sessionId,
+        turn_id: 'turn-1',
+        event_ids: [],
+      });
+      expect(
+        (
+          await store.listUnconsumedTurnInboundEvents({
+            session_id: sessionId,
+            turn_id: 'turn-1',
+          })
+        ).map(event => event.id),
+      ).toEqual([evtA.id, evtB.id]);
+
+      await store.markTurnInboundEventsConsumed({
+        session_id: sessionId,
+        turn_id: 'turn-1',
+        event_ids: [evtA.id],
+      });
+      expect(
+        (
+          await store.listUnconsumedTurnInboundEvents({
+            session_id: sessionId,
+            turn_id: 'turn-1',
+          })
+        ).map(event => event.id),
+      ).toEqual([evtB.id]);
+
+      // Idempotent re-mark of already-consumed id.
+      await store.markTurnInboundEventsConsumed({
+        session_id: sessionId,
+        turn_id: 'turn-1',
+        event_ids: [evtA.id],
+      });
+      expect(
+        (
+          await store.listUnconsumedTurnInboundEvents({
+            session_id: sessionId,
+            turn_id: 'turn-1',
+          })
+        ).map(event => event.id),
+      ).toEqual([evtB.id]);
+
+      await expect(
+        store.markTurnInboundEventsConsumed({
+          session_id: sessionId,
+          turn_id: 'turn-1',
+          event_ids: ['evt-missing'],
+        }),
+      ).rejects.toBeInstanceOf(SessionStoreInvariantError);
+
+      await store.markTurnInboundEventsConsumed({
+        session_id: sessionId,
+        turn_id: 'turn-1',
+        event_ids: [evtB.id],
+      });
+      expect(
+        await store.listUnconsumedTurnInboundEvents({
+          session_id: sessionId,
+          turn_id: 'turn-1',
+        }),
+      ).toEqual([]);
+
+      await finishTurn(store, 'turn-1');
+      await expect(
+        store.listUnconsumedTurnInboundEvents({
+          session_id: sessionId,
+          turn_id: 'turn-1',
+        }),
+      ).rejects.toBeInstanceOf(TurnNotRunningError);
+      await expect(
+        store.markTurnInboundEventsConsumed({
+          session_id: sessionId,
+          turn_id: 'turn-1',
+          event_ids: [evtA.id],
         }),
       ).rejects.toBeInstanceOf(TurnNotRunningError);
     });
@@ -2955,13 +3054,11 @@ export function runStoreContractSuite(createStore: () => ISessionStore) {
       await store.createTurn(makeCreateTurnInput({ sessionId, turnId: 'turn-1' }));
       const cancelledState = makeCancelledTurnState(CancellationReason.CancelledForNextTurn);
       const inbound = {
-        event_id: 'evt-race',
-        payload: {
-          type: 'user.tool_approval' as const,
-          thread_id: 'main',
-          tool_call_id: 'tc-race',
-          approval: { status: 'allow' as const },
-        },
+        id: 'evt-race',
+        type: 'user.tool_approval' as const,
+        thread_id: 'main',
+        tool_call_id: 'tc-race',
+        approval: { status: 'allow' as const },
         created_at: new Date().toISOString(),
       };
 
@@ -2997,13 +3094,11 @@ export function runStoreContractSuite(createStore: () => ISessionStore) {
         turn_id: 'turn-1',
         events: [
           {
-            event_id: newEventId(),
-            payload: {
-              type: 'user.tool_approval',
-              thread_id: 'main',
-              tool_call_id: 'tc-x',
-              approval: { status: 'allow' },
-            },
+            id: newEventId(),
+            type: 'user.tool_approval',
+            thread_id: 'main',
+            tool_call_id: 'tc-x',
+            approval: { status: 'allow' },
             created_at: new Date().toISOString(),
           },
         ],
@@ -3015,13 +3110,11 @@ export function runStoreContractSuite(createStore: () => ISessionStore) {
           turn_id: 'turn-1',
           events: [
             {
-              event_id: newEventId(),
-              payload: {
-                type: 'user.tool_approval',
-                thread_id: 'main',
-                tool_call_id: 'tc-after-delete',
-                approval: { status: 'allow' },
-              },
+              id: newEventId(),
+              type: 'user.tool_approval',
+              thread_id: 'main',
+              tool_call_id: 'tc-after-delete',
+              approval: { status: 'allow' },
               created_at: new Date().toISOString(),
             },
           ],

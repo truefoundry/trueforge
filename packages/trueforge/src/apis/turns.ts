@@ -987,7 +987,14 @@ export function createTurnsRouter(deps: TurnsRouterDeps) {
       }));
 
       try {
-        await turnHandle.send(events);
+        // Insert each accepted batch before resuming send(), which enqueues it and wakes execution.
+        for await (const batch of turnHandle.send(events)) {
+          await deps.sessionStore.insertTurnInboundEvents({
+            session_id: sessionId,
+            turn_id: turnId,
+            events: batch,
+          });
+        }
       } catch (error) {
         if (error instanceof AgentHarnessError && error.code === 'invalid_send_input') {
           return c.json({ error: { message: error.message } }, 400);
@@ -995,7 +1002,6 @@ export function createTurnsRouter(deps: TurnsRouterDeps) {
         throw error;
       }
 
-      // TODO: durably persist inbound events.
       return c.json({ data: events }, 201);
     });
   };
