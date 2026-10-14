@@ -60,11 +60,15 @@ describe('authSession', () => {
   it('probeSession reports authenticated when me() resolves', async () => {
     assert.deepEqual(await probeSession(createClient({ type: 'default' })), {
       status: 'authenticated',
+      subjectId: 'user-1',
       displayName: 'user-1',
+      tenantId: 'default',
     });
     assert.deepEqual(await probeSession(createClient({ type: 'oidc-connected' })), {
       status: 'authenticated',
+      subjectId: 'user-1',
       displayName: 'user-1',
+      tenantId: 'default',
     });
   });
 

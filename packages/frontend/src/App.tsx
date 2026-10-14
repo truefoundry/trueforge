@@ -242,7 +242,7 @@ export function App() {
           defaultAgentSpec: boot.defaultAgentSpec,
         }}
         initialSettingsOpen={boot.openSettings}
-        currentUser={{ displayName: session.displayName }}
+        currentUser={{ subjectId: session.subjectId, displayName: session.displayName }}
         overrides={overrides}
         theme={appTheme}
         className="app-assistant"

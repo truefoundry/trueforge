@@ -40,7 +40,7 @@ export const listSandboxEnvironmentsRoute = createRoute({
   path: '/',
   tags: [OpenApiTag.SANDBOXES],
   summary: 'List sandbox environments',
-  description: 'List the tenant default environment plus sandbox environments created by the authenticated subject.',
+  description: 'List available sandbox environments',
   'x-fern-sdk-group-name': ['sandboxEnvironments'],
   'x-fern-sdk-method-name': 'list',
   'x-fern-pagination': TOKEN_PAGINATION,
@@ -68,8 +68,6 @@ export const getSandboxEnvironmentRoute = createRoute({
   path: '/{name}',
   tags: [OpenApiTag.SANDBOXES],
   summary: 'Get a sandbox environment',
-  description:
-    'Get a sandbox environment by name. The tenant default is readable by any tenant member; custom environments are owner-scoped.',
   'x-fern-sdk-group-name': ['sandboxEnvironments'],
   'x-fern-sdk-method-name': 'get',
   request: {
@@ -139,7 +137,7 @@ export const putSandboxEnvironmentRoute = createRoute({
   path: '/',
   tags: [OpenApiTag.SANDBOXES],
   summary: 'Create or update a sandbox environment',
-  description: 'Create or replace by `manifest.name`. Requires a configured sandbox provider.',
+  description: 'Create a new sandbox environment or update an existing one.',
   'x-fern-sdk-group-name': ['sandboxEnvironments'],
   'x-fern-sdk-method-name': 'create_or_update',
   request: {
@@ -161,6 +159,10 @@ export const putSandboxEnvironmentRoute = createRoute({
       content: { 'application/json': { schema: RequestErrorResponseSchema } },
       description: 'Unauthenticated.',
     },
+    404: {
+      content: { 'application/json': { schema: RequestErrorResponseSchema } },
+      description: 'Sandbox environment not found.',
+    },
     409: {
       content: { 'application/json': { schema: RequestErrorResponseSchema } },
       description: 'Name conflict or concurrent update.',
@@ -181,7 +183,7 @@ export const deleteSandboxEnvironmentRoute = createRoute({
   path: '/{name}',
   tags: [OpenApiTag.SANDBOXES],
   summary: 'Delete a sandbox environment',
-  description: 'Delete by name. Fails if any agent still references the environment.',
+  description: 'Delete a sandbox environment, fails if any agent still references it.',
   'x-fern-sdk-group-name': ['sandboxEnvironments'],
   'x-fern-sdk-method-name': 'delete',
   request: {
@@ -198,7 +200,7 @@ export const deleteSandboxEnvironmentRoute = createRoute({
     },
     404: {
       content: { 'application/json': { schema: RequestErrorResponseSchema } },
-      description: 'Sandbox environment not found.',
+      description: 'Sandbox environment not found or not owned by the caller.',
     },
     409: {
       content: { 'application/json': { schema: RequestErrorResponseSchema } },
