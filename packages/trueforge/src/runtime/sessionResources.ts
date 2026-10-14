@@ -290,11 +290,11 @@ export async function validateAgentSpec({
   const reasoningEffort = spec.model.params?.reasoning_effort;
   if (reasoningEffort !== undefined) {
     const efforts = resolved.reasoningEfforts;
-    if (!efforts?.some(effort => effort === reasoningEffort)) {
+    // Empty/missing catalog efforts: allow through (gateway/provider may still strip).
+    // When the model advertises a set, the value must be one of them.
+    if (efforts !== undefined && efforts.length > 0 && !efforts.some(effort => effort === reasoningEffort)) {
       throw new HTTPException(422, {
-        message: efforts
-          ? `Reasoning effort "${reasoningEffort}" is not supported by model "${spec.model.name}"`
-          : `Model "${spec.model.name}" does not support configurable reasoning effort`,
+        message: `Reasoning effort "${reasoningEffort}" is not supported by model "${spec.model.name}"`,
       });
     }
   }
