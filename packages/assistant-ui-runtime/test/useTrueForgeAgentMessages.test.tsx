@@ -1691,6 +1691,29 @@ describe('useTrueForgeAgentMessages', () => {
     expect(onError).toHaveBeenCalledWith(expect.any(Error));
   });
 
+  it('restores pending approvals when a policy-only submission fails', async () => {
+    vi.mocked(loadSessionSnapshot).mockResolvedValue(snapshotWithMcpApproval());
+    vi.mocked(mockServer.sendTurnEvents).mockRejectedValueOnce(new Error('policy rejected'));
+    const onError = vi.fn();
+    const { result } = renderHook(() =>
+      useTrueForgeAgentMessages({ server: mockServer, sessionId: 'session-1', onError }),
+    );
+    await waitFor(() => expect(result.current.messages).toHaveLength(1));
+
+    await act(async () => {
+      await expect(
+        result.current.respondToToolApproval({
+          approvalId: 'approval-1',
+          approved: true,
+          policy: { type: TOOL_APPROVAL_POLICY_ACTION_TYPE.ALLOW_SESSION },
+        }),
+      ).rejects.toThrow('policy rejected');
+    });
+
+    expect(messageHasPendingApprovals(result.current.messages[0])).toBe(true);
+    expect(onError).toHaveBeenCalledWith(expect.any(Error));
+  });
+
   it('reports a terminal turn error once while preserving its message projection', async () => {
     const onError = vi.fn();
     vi.mocked(streamTurnContent).mockImplementation(

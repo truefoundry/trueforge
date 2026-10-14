@@ -1152,6 +1152,16 @@ export function useTrueForgeAgentMessages({
               approvals.delete(event.toolCallId);
             } else if (event.type === EVENT_TYPE.USER_TOOL_RESPONSE) {
               toolResponses.delete(event.toolCallId);
+            } else if (event.type === EVENT_TYPE.USER_TOOL_APPROVAL_POLICY) {
+              // Undo optimistic allows for this policy when the send fails.
+              for (const item of event.policies) {
+                for (const toolCallId of collectPendingApprovalIdsMatchingPolicy(previous.fold, {
+                  serverName: item.serverName,
+                  name: item.name,
+                })) {
+                  approvals.delete(toolCallId);
+                }
+              }
             }
           }
           return replaceSessionSnapshot(previous, {
