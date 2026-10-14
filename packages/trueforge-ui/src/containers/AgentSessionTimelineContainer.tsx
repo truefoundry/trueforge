@@ -162,8 +162,16 @@ function applyMcpAuthState(messages: ThreadMessageLike[], turn: SessionTurnView)
   return messages.map((message, index) => (index === assistantIndex ? updatedAssistant : message));
 }
 
+function messageBelongsToTurn(message: ThreadMessageLike, turnId: string): boolean {
+  if (turnIdFromMessage(message) === turnId) return true;
+  // Folded continuations keep `${openingTurnId}-assistant` but stamp the cancelling
+  // turn id on metadata.custom.turnId so the banner lands on the right section.
+  const customTurnId = message.metadata?.custom?.['turnId'];
+  return typeof customTurnId === 'string' && customTurnId === turnId;
+}
+
 function messagesForTurn(messages: ThreadMessageLike[], turn: SessionTurnView): ThreadMessageLike[] {
-  const matched = messages.filter(message => turnIdFromMessage(message) === turn.turnId);
+  const matched = messages.filter(message => messageBelongsToTurn(message, turn.turnId));
   return applyMcpAuthState(matched, turn);
 }
 
