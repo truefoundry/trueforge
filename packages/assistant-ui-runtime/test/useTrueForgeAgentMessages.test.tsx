@@ -1342,7 +1342,7 @@ describe('useTrueForgeAgentMessages', () => {
     expect(resumeTurnStream).toHaveBeenCalled();
   });
 
-  it('batches an approval with its MCP session policy', async () => {
+  it('sends only MCP session policy when a policy target resolves', async () => {
     vi.mocked(loadSessionSnapshot).mockResolvedValue(snapshotWithMcpApproval());
     const { result } = renderHook(() => useTrueForgeAgentMessages({ server: mockServer, sessionId: 'session-1' }));
     await waitFor(() => expect(result.current.messages).toHaveLength(1));
@@ -1362,12 +1362,6 @@ describe('useTrueForgeAgentMessages', () => {
       sessionId: 'session-1',
       turnId: 'turn-1',
       events: [
-        {
-          type: 'user.tool_approval',
-          threadId: ROOT_THREAD_ID,
-          toolCallId: 'approval-1',
-          approval: { status: 'allow' },
-        },
         {
           type: 'user.tool_approval_policy',
           policies: [
@@ -1691,6 +1685,29 @@ describe('useTrueForgeAgentMessages', () => {
       await expect(result.current.respondToToolApproval({ approvalId: 'approval-1', approved: true })).rejects.toThrow(
         'event rejected',
       );
+    });
+
+    expect(messageHasPendingApprovals(result.current.messages[0])).toBe(true);
+    expect(onError).toHaveBeenCalledWith(expect.any(Error));
+  });
+
+  it('restores pending approvals when a policy-only submission fails', async () => {
+    vi.mocked(loadSessionSnapshot).mockResolvedValue(snapshotWithMcpApproval());
+    vi.mocked(mockServer.sendTurnEvents).mockRejectedValueOnce(new Error('policy rejected'));
+    const onError = vi.fn();
+    const { result } = renderHook(() =>
+      useTrueForgeAgentMessages({ server: mockServer, sessionId: 'session-1', onError }),
+    );
+    await waitFor(() => expect(result.current.messages).toHaveLength(1));
+
+    await act(async () => {
+      await expect(
+        result.current.respondToToolApproval({
+          approvalId: 'approval-1',
+          approved: true,
+          policy: { type: TOOL_APPROVAL_POLICY_ACTION_TYPE.ALLOW_SESSION },
+        }),
+      ).rejects.toThrow('policy rejected');
     });
 
     expect(messageHasPendingApprovals(result.current.messages[0])).toBe(true);

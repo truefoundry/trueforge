@@ -481,7 +481,9 @@ describe('sessions HTTP agent binding', () => {
     expect(created.status).toBe(201);
     const { data: session } = (await created.json()) as { data: { id: string } };
     await sessionStore.createTurn(makeCreateTurnInput({ sessionId: session.id, turnId: 'tip-1' }));
-    const send = jest.fn().mockResolvedValue(undefined);
+    const send = jest.fn().mockImplementation(async function* (events: Parameters<TurnHandle['send']>[0]) {
+      yield events;
+    });
     jest.spyOn(sessionDeps.activeTurns, 'getTurnHandle').mockReturnValue({ send } as unknown as TurnHandle);
 
     const res = await app.request(

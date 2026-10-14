@@ -1,3 +1,4 @@
+import type { TurnUserEvent } from '@truefoundry/trueforge-core/agent-session';
 import type { SessionRecord } from '@truefoundry/trueforge-core/agent-session/models/SessionRecord';
 import type { TurnRecord } from '@truefoundry/trueforge-core/agent-session/models/TurnRecord';
 import type { PersistedTurnEvent, SessionEventItem } from '@truefoundry/trueforge-core/agent-session/schemas/events';
@@ -20,6 +21,8 @@ import type {
   ListSessionsInput,
   ListTurnEventsInput,
   ListTurnsInput,
+  ListUnconsumedTurnInboundEventsInput,
+  MarkTurnInboundEventsConsumedInput,
   OverwriteThreadContextInput,
   PatchMCPServersInput,
   PatchSandboxInfoInput,
@@ -43,7 +46,11 @@ import {
   listSessionEvents as listSessionEventsQuery,
   listTurnEvents as listTurnEventsQuery,
 } from './queries/events';
-import { insertTurnInboundEvents as insertTurnInboundEventsQuery } from './queries/inboundEvents';
+import {
+  insertTurnInboundEvents as insertTurnInboundEventsQuery,
+  listUnconsumedTurnInboundEvents as listUnconsumedTurnInboundEventsQuery,
+  markTurnInboundEventsConsumed as markTurnInboundEventsConsumedQuery,
+} from './queries/inboundEvents';
 import { patchThreadsMCPAuth as patchThreadsMCPAuthQuery } from './queries/mcpAuth';
 import {
   createSession as createSessionQuery,
@@ -205,6 +212,14 @@ export class SqliteSessionStore implements ISessionStore<SessionCustom, TurnCust
 
   insertTurnInboundEvents(input: InsertTurnInboundEventsInput): Promise<void> {
     return insertTurnInboundEventsQuery(this.db, input);
+  }
+
+  listUnconsumedTurnInboundEvents(input: ListUnconsumedTurnInboundEventsInput): Promise<TurnUserEvent[]> {
+    return listUnconsumedTurnInboundEventsQuery(this.db, input);
+  }
+
+  markTurnInboundEventsConsumed(input: MarkTurnInboundEventsConsumedInput): Promise<void> {
+    return markTurnInboundEventsConsumedQuery(this.db, input);
   }
 
   addThreads(input: AddThreadsInput): Promise<void> {

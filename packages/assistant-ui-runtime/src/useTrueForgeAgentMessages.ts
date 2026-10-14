@@ -1152,6 +1152,16 @@ export function useTrueForgeAgentMessages({
               approvals.delete(event.toolCallId);
             } else if (event.type === EVENT_TYPE.USER_TOOL_RESPONSE) {
               toolResponses.delete(event.toolCallId);
+            } else if (event.type === EVENT_TYPE.USER_TOOL_APPROVAL_POLICY) {
+              // Undo optimistic allows for this policy when the send fails.
+              for (const item of event.policies) {
+                for (const toolCallId of collectPendingApprovalIdsMatchingPolicy(previous.fold, {
+                  serverName: item.serverName,
+                  name: item.name,
+                })) {
+                  approvals.delete(toolCallId);
+                }
+              }
             }
           }
           return replaceSessionSnapshot(previous, {
@@ -1176,13 +1186,10 @@ export function useTrueForgeAgentMessages({
       if (pending == null) {
         throw new Error(`Pending approval not found: ${response.approvalId}`);
       }
-      const event: UserToolApprovalInputEvent = {
-        type: EVENT_TYPE.USER_TOOL_APPROVAL,
-        threadId: pending.threadId,
-        toolCallId: response.approvalId,
-        approval: mapApprovalDecision(response.approved, response.reason),
-      };
-      const events: TurnInboundEventItem[] = [event];
+      // allow session and for allow 1o min need to send policy only
+      // For allow once need to send approval
+      // For deny need to send approval and reason
+      const events: TurnInboundEventItem[] = [];
       const approvals = new Map(previous.requiredActions.approvals);
       if (response.policy != null) {
         const target = resolveToolApprovalPolicyTarget({
@@ -1200,6 +1207,15 @@ export function useTrueForgeAgentMessages({
             approvals.set(toolCallId, { approved: true });
           }
         }
+      }
+      if (events.length === 0) {
+        const event: UserToolApprovalInputEvent = {
+          type: EVENT_TYPE.USER_TOOL_APPROVAL,
+          threadId: pending.threadId,
+          toolCallId: response.approvalId,
+          approval: mapApprovalDecision(response.approved, response.reason),
+        };
+        events.push(event);
       }
       approvals.set(response.approvalId, {
         approved: response.approved,

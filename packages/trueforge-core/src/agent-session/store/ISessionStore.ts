@@ -1,5 +1,5 @@
 import type { JsonValue } from '../../core/capabilities/AgentCapability';
-import type { MCPServerInitInfo, ThreadOverwriteContextEvent, TurnUserEventMessage } from '../../core/events/schema';
+import type { MCPServerInitInfo, ThreadOverwriteContextEvent, TurnUserEvent } from '../../core/events/schema';
 import type { AgentThreadSnapshot, ContextMessage, SubAgentCompletion } from '../../core/runtime/AgentThread.types';
 import type { CurrentContextUsage } from '../../core/runtime/contextUsage';
 import type { SandboxInfo } from '../../core/sandbox/Sandbox';
@@ -182,15 +182,19 @@ export interface InsertTurnInboundEventsInput {
   session_id: string;
   /** Tip that receives this batch. One send = one tip; stamp every row with this id. */
   turn_id: string;
-  /**
-   * Caller mints `event_id` (monotonic ULID) — same contract as session_event.
-   * Empty array is a no-op.
-   */
-  events: {
-    event_id: string;
-    payload: TurnUserEventMessage;
-    created_at: string;
-  }[];
+  /** Empty array is a no-op. */
+  events: TurnUserEvent[];
+}
+
+export interface ListUnconsumedTurnInboundEventsInput {
+  session_id: string;
+  turn_id: string;
+}
+
+export interface MarkTurnInboundEventsConsumedInput {
+  session_id: string;
+  turn_id: string;
+  event_ids: string[];
 }
 
 export interface AddThreadsInput {
@@ -402,6 +406,22 @@ export interface ISessionStore<
    * {@link TurnEventAlreadyExistsError}.
    */
   insertTurnInboundEvents(input: InsertTurnInboundEventsInput): Promise<void>;
+
+  /**
+   * Unconsumed inbox rows for a tip, ordered by `event_id` asc (accept order).
+   * Tip must be non-terminal (`running` or `paused`) — terminal tip →
+   * {@link TurnNotRunningError}. Missing session → {@link SessionNotFoundError};
+   * unknown turn → {@link TurnNotFoundError}.
+   */
+  listUnconsumedTurnInboundEvents(input: ListUnconsumedTurnInboundEventsInput): Promise<TurnUserEvent[]>;
+
+  /**
+   * Marks inbox rows consumed. Tip must be non-terminal — terminal tip →
+   * {@link TurnNotRunningError}. Empty `event_ids` is a no-op. Already-consumed
+   * ids are idempotent. Unknown `event_id` on that tip →
+   * {@link SessionStoreInvariantError}.
+   */
+  markTurnInboundEventsConsumed(input: MarkTurnInboundEventsConsumedInput): Promise<void>;
 
   /** Adds thread snapshots to the turn (sub-agent spawns). */
   addThreads(input: AddThreadsInput): Promise<void>;

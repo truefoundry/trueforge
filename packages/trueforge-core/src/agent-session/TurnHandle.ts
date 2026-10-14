@@ -4,6 +4,7 @@
 import { AgentHarnessError } from '../core/errors';
 import type {
   MCPAuthRequiredEvent,
+  MCPServerInitInfo,
   ModelMessageDeltaEvent,
   ThreadDoneEvent,
   TurnUserEvent,
@@ -243,12 +244,10 @@ export class TurnHandle<TTurnCustom extends object = Record<string, never>> {
     return this.turn;
   }
 
-  async send(events: TurnUserEvent[]): Promise<void> {
+  async *send(events: TurnUserEvent[]): AsyncGenerator<TurnUserEvent[], void> {
     const orchestrator = this.requireLiveOrchestrator('send');
-    for await (const batch of orchestrator.send(events)) {
-      // TODO: persist `batch` here before resuming the generator to enqueue.
-      void batch;
-    }
+    const accepted = orchestrator.send(events);
+    yield* accepted;
     orchestrator.wake();
   }
 
@@ -541,6 +540,12 @@ export class TurnHandle<TTurnCustom extends object = Record<string, never>> {
             events: userEvents,
           });
         }
+        if (event.applied_user_events.length > 0) {
+          await this.store.markTurnInboundEventsConsumed({
+            ...scope,
+            event_ids: event.applied_user_events.map(out => out.id),
+          });
+        }
         yield* event.applied_user_events;
         return;
       }
@@ -554,6 +559,10 @@ export class TurnHandle<TTurnCustom extends object = Record<string, never>> {
         await this.store.appendToEvents({
           ...scope,
           events: [event.event],
+        });
+        await this.store.markTurnInboundEventsConsumed({
+          ...scope,
+          event_ids: [event.event.id],
         });
         yield event.event;
         return;
@@ -577,7 +586,10 @@ export class TurnHandle<TTurnCustom extends object = Record<string, never>> {
           ...scope,
           events: [event.event],
         });
-        // TODO(durable-inbox): mark event.event consumed.
+        await this.store.markTurnInboundEventsConsumed({
+          ...scope,
+          event_ids: [event.event.id],
+        });
         yield event.event;
         return;
       }
@@ -647,7 +659,7 @@ export class TurnHandle<TTurnCustom extends object = Record<string, never>> {
       case HarnessEventType.MCP_INITIALIZE: {
         await this.store.patchMCPServers({
           ...scope,
-          mcp_servers: event.mcp_servers.map(initInfo => ({
+          mcp_servers: event.mcp_servers.map((initInfo: MCPServerInitInfo) => ({
             id: initInfo.id,
             name: initInfo.name,
             session_id: initInfo.session_id,
