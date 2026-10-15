@@ -45,6 +45,8 @@ export type TimelineSubAgentGroup = TimelineGap & {
   id: string;
   barId: string;
   segments: SessionEventTimelineSegment[];
+  /** Active track span plus pause wall waits (compressed chart span omits pauses). */
+  durationMs?: number;
 };
 
 export type TimelineMarkerGroup = TimelineGap & {
@@ -82,7 +84,9 @@ export function getTimelineRange({ startMs, endMs }: TimelineGap): [number, numb
 
 /**
  * Merge diamonds that land on the same (or nearly same) x into one hover target.
- * Example: approval_required + policy at the same ms → one diamond, shared tooltip.
+ * Same thread only — concurrent sub-agent approvals share a compressed x but must
+ * stay on their own lanes (not one stack of N diamonds on the first track).
+ * Example: approval_required + policy at the same ms on main → one diamond.
  */
 export function groupCoincidentTimelineMarkers(
   segments: SessionEventTimelineSegment[],
@@ -90,13 +94,19 @@ export function groupCoincidentTimelineMarkers(
 ): TimelineMarkerGroup[] {
   const markers = segments
     .flatMap((segment, index) => (segment.isMarker ? [{ segment, index }] : []))
-    .sort((left, right) => left.segment.startMs - right.segment.startMs || left.index - right.index)
+    .sort(
+      (left, right) =>
+        left.segment.threadId.localeCompare(right.segment.threadId) ||
+        left.segment.startMs - right.segment.startMs ||
+        left.index - right.index,
+    )
     .map(({ segment }) => segment);
 
   const groups: TimelineMarkerGroup[] = [];
   for (const segment of markers) {
     const current = groups.at(-1);
-    if (current != null && segment.startMs - current.startMs <= toleranceMs) {
+    const sameThread = current != null && current.segments[0]?.threadId === segment.threadId;
+    if (sameThread && segment.startMs - current.startMs <= toleranceMs) {
       current.segments.push(segment);
       continue;
     }
@@ -184,7 +194,17 @@ export type PackedTimelineMarker = {
 /** Expanded pause chip on the chart + how long the real wait was. */
 export type TimelinePauseChipRange = TimelineGap & {
   wallDurationMs: number;
+  /** When set, only markers on this thread pack onto the chip. */
+  threadId?: string;
+  /** Segment id, so approval markers can pin to a specific wait span. */
+  id?: string;
 };
+
+/**
+ * How far before a chip start a marker may still belong to that pause.
+ * Matches gateway lead-in (approval a few ms before turn.update paused) — not full chip width.
+ */
+export const PAUSE_MARKER_LEAD_MS = 50;
 
 /** Map wall offset into the chip: offset=0 → left edge, offset=wall → right edge. */
 function pauseMarkerX({ chip, offsetMs }: { chip: TimelinePauseChipRange; offsetMs: number }): number {
@@ -197,9 +217,23 @@ function pauseMarkerX({ chip, offsetMs }: { chip: TimelinePauseChipRange; offset
 
 /**
  * Find which pause chip owns a marker group.
- * Needed because approval events can land a few ms before `turn.update` paused,
- * or share a chip via pauseOffsetMs after compression.
+ * On-chip, or within PAUSE_MARKER_LEAD_MS before the chip (gateway lead-in /
+ * pauseOffsetMs anchors) — never the full expanded chip width.
  */
+function markerGroupThreadId(group: TimelineMarkerGroup): string | undefined {
+  const threadIds = new Set(group.segments.map(segment => segment.threadId));
+  if (threadIds.size !== 1) return undefined;
+  return [...threadIds][0];
+}
+
+function pauseChipMatchesThread(chip: TimelinePauseChipRange, threadId: string | undefined): boolean {
+  // Unscoped chips (tests / legacy) accept any marker.
+  if (chip.threadId == null) return true;
+  // Scoped chips only accept that thread — never a mixed/unknown group.
+  if (threadId == null) return false;
+  return chip.threadId === threadId;
+}
+
 function pauseChipForMarkerGroup({
   group,
   pauseChips,
@@ -207,27 +241,27 @@ function pauseChipForMarkerGroup({
   group: TimelineMarkerGroup;
   pauseChips: readonly TimelinePauseChipRange[];
 }): TimelinePauseChipRange | undefined {
-  const onChip = pauseChips.find(candidate => group.startMs >= candidate.startMs && group.startMs <= candidate.endMs);
+  const threadId = markerGroupThreadId(group);
+  const onChip = pauseChips.find(
+    candidate =>
+      pauseChipMatchesThread(candidate, threadId) &&
+      group.startMs >= candidate.startMs &&
+      group.startMs <= candidate.endMs,
+  );
   if (onChip != null) return onChip;
-  // Slightly before chip start (gateway lead-in / grouping tolerance).
+
+  // Gateway lead-in / compressed anchors sit a few ms before the chip — not a full chip width away.
   let best: TimelinePauseChipRange | undefined;
   let bestDelta = Number.POSITIVE_INFINITY;
   for (const candidate of pauseChips) {
+    if (!pauseChipMatchesThread(candidate, threadId)) continue;
     if (group.startMs > candidate.startMs) continue;
     const delta = candidate.startMs - group.startMs;
-    if (delta <= candidate.endMs - candidate.startMs && delta < bestDelta) {
-      best = candidate;
-      bestDelta = delta;
-    }
+    if (delta > PAUSE_MARKER_LEAD_MS || delta >= bestDelta) continue;
+    best = candidate;
+    bestDelta = delta;
   }
-  if (best != null) return best;
-  // After compression many pause markers share the chip start; use pauseOffsetMs.
-  if (group.segments.some(segment => segment.pauseOffsetMs != null)) {
-    return pauseChips.find(
-      candidate => Math.abs(group.startMs - candidate.startMs) <= candidate.endMs - candidate.startMs,
-    );
-  }
-  return undefined;
+  return best;
 }
 
 /**
@@ -246,13 +280,29 @@ export function packTimelineMarkers({
 }): PackedTimelineMarker[] {
   const packed: PackedTimelineMarker[] = [];
   for (const group of groups) {
-    const chip = pauseChipForMarkerGroup({ group, pauseChips });
+    // Approval diamonds pinned to a wait span use that span's edges, not the
+    // turn-pause offset (which lands mid-hatch on a long span).
+    const pinned = group.segments.filter(segment => segment.pauseSpanId != null);
+    const floating = group.segments.filter(segment => segment.pauseSpanId == null);
+    for (const segment of pinned) {
+      const span = pauseChips.find(candidate => candidate.id === segment.pauseSpanId);
+      const x = span == null ? group.startMs : segment.pauseSpanEdge === 'end' ? span.endMs : span.startMs;
+      packed.push({
+        id: `${group.id}-${segment.id}`,
+        x,
+        segments: [segment],
+      });
+    }
+    if (floating.length === 0) continue;
+
+    const floatingGroup = { ...group, segments: floating };
+    const chip = pauseChipForMarkerGroup({ group: floatingGroup, pauseChips });
     if (chip == null) {
-      packed.push({ id: group.id, x: group.startMs, segments: group.segments });
+      packed.push({ id: group.id, x: group.startMs, segments: floating });
       continue;
     }
 
-    const ordered = [...group.segments].sort(
+    const ordered = [...floating].sort(
       (left, right) => (left.pauseOffsetMs ?? 0) - (right.pauseOffsetMs ?? 0) || left.id.localeCompare(right.id),
     );
     const byOffset = new Map<number, SessionEventTimelineSegment[]>();
@@ -274,9 +324,37 @@ export function packTimelineMarkers({
 }
 
 /**
+ * Split activity that crosses a chip point so the hatch owns that x-range alone.
+ * Pre stays before the chip; post starts at the chip point (shifted past by layout).
+ */
+function splitActivityAtChipStarts(
+  segment: SessionEventTimelineSegment,
+  chipStartsMs: readonly number[],
+): SessionEventTimelineSegment[] {
+  // Lifetime / pause geometry stays whole — only model/tool bars are exclusive of hatch.
+  if (segment.isPauseChip || segment.isPauseSpan || segment.isMarker || segment.type === 'sub_agent') {
+    return [segment];
+  }
+  let parts = [segment];
+  for (const chipStartMs of chipStartsMs) {
+    parts = parts.flatMap(part => {
+      if (!(part.startMs < chipStartMs && part.endMs > chipStartMs)) return [part];
+      return [
+        { ...part, endMs: chipStartMs, id: `${part.id}@pre:${chipStartMs}` },
+        { ...part, startMs: chipStartMs, id: `${part.id}@post:${chipStartMs}` },
+      ];
+    });
+  }
+  return parts;
+}
+
+/**
  * After compression, pause chips are 0-width. Give each a fixed chart width
- * (pauseChipMs ≈ 32px in time units) and push later bars to the right.
- * Markers tied to the chip start stay put so packing can place them on the bar.
+ * (pauseChipMs ≈ 32px in time units) and push later work past them.
+ *
+ * Activity that would span a chip is split first so the hatch slot stays exclusive
+ * (no model/tool bar drawn through the paused region).
+ * Markers on the chip anchor stay put for packing.
  */
 export function applyPauseChipLayout({
   segments,
@@ -285,26 +363,56 @@ export function applyPauseChipLayout({
   segments: SessionEventTimelineSegment[];
   pauseChipMs: number;
 }): SessionEventTimelineSegment[] {
-  const chips = segments
-    .filter(segment => segment.isPauseChip)
-    .map(segment => segment.startMs)
-    .sort((left, right) => left - right);
+  // Unique starts — concurrent sub-agent pauses share one chart gap, not N× width.
+  const chips = [...new Set(segments.filter(segment => segment.isPauseChip).map(segment => segment.startMs))].sort(
+    (left, right) => left - right,
+  );
   if (chips.length === 0 || pauseChipMs <= 0) return segments;
 
-  return segments.map(segment => {
-    let shift = 0;
+  const pauseTurnByStartMs = new Map(
+    segments.filter(segment => segment.isPauseChip).map(segment => [segment.startMs, segment.turnIndex] as const),
+  );
+
+  const splitSegments = segments.flatMap(segment => splitActivityAtChipStarts(segment, chips));
+
+  return splitSegments.map(segment => {
+    let startShift = 0;
+    let endShift = 0;
     for (const chipStartMs of chips) {
       if (segment.isPauseChip && segment.startMs === chipStartMs) continue;
-      if (segment.isMarker && segment.startMs === chipStartMs) continue;
-      if (segment.startMs > chipStartMs || (!segment.isMarker && segment.startMs >= chipStartMs)) {
-        shift += pauseChipMs;
+      // Keep pause-anchored diamonds on the chip; next-turn markers that share the
+      // compressed timestamp (cancelled-for-next-turn) must move past the hatch.
+      if (segment.isMarker && segment.startMs === chipStartMs) {
+        const pauseTurnIndex = pauseTurnByStartMs.get(chipStartMs);
+        const staysOnChip =
+          segment.pauseOffsetMs != null || (pauseTurnIndex != null && segment.turnIndex === pauseTurnIndex);
+        if (staysOnChip) continue;
+        startShift += pauseChipMs;
+        endShift += pauseChipMs;
+        continue;
+      }
+
+      // Wait span that touches this chip paints across the slot. A hidden
+      // compression chip must not leave a blank the span then starts after.
+      if (segment.isPauseSpan && segment.startMs <= chipStartMs && segment.endMs >= chipStartMs) {
+        endShift += pauseChipMs;
+        continue;
+      }
+
+      const startsAtOrAfterChip = segment.isMarker ? segment.startMs > chipStartMs : segment.startMs >= chipStartMs;
+      if (startsAtOrAfterChip) {
+        startShift += pauseChipMs;
+        endShift += pauseChipMs;
+      } else if (segment.endMs > chipStartMs) {
+        // Anything still overlapping — only the tail moves past.
+        endShift += pauseChipMs;
       }
     }
-    const startMs = segment.startMs + shift;
+    const startMs = segment.startMs + startShift;
     if (segment.isPauseChip) {
       return { ...segment, startMs, endMs: startMs + pauseChipMs };
     }
-    return { ...segment, startMs, endMs: segment.endMs + shift };
+    return { ...segment, startMs, endMs: segment.endMs + endShift };
   });
 }
 
@@ -332,6 +440,54 @@ export function buildTimelineAxisTicks({
   return activeTicks.map(activeMs => ({
     value: activeMs + visualGapShiftMs(activeMs, gaps),
   }));
+}
+
+/**
+ * Cumulative turn-separator shift per turnIndex.
+ * Skips a separator when a pause chip already sits on that boundary — common when
+ * a turn stays paused for days then is cancelled-for-next-turn (pause end ≡ next start).
+ */
+export function getTurnGapShiftsMs({
+  turnRanges,
+  pauseChipStartsMs,
+  turnGapMs,
+}: {
+  turnRanges: readonly TimelineTurnRange[];
+  pauseChipStartsMs: readonly number[];
+  turnGapMs: number;
+}): Map<number, number> {
+  const ordered = [...turnRanges].sort((left, right) => left.ordinal - right.ordinal);
+  const shifts = new Map<number, number>();
+  let cumulative = 0;
+  for (let index = 0; index < ordered.length; index += 1) {
+    const range = ordered[index];
+    if (range == null) continue;
+    shifts.set(range.turnIndex, cumulative);
+    const next = ordered[index + 1];
+    if (next == null || turnGapMs <= 0) continue;
+    const pauseSeparates = pauseChipStartsMs.some(startMs => Math.abs(startMs - next.startMs) <= 1);
+    if (!pauseSeparates) cumulative += turnGapMs;
+  }
+  return shifts;
+}
+
+/** Active-time anchors where a turn separator should be drawn (excludes pause-chip boundaries). */
+export function getTurnGapAnchorMs({
+  turnRanges,
+  pauseChipStartsMs,
+}: {
+  turnRanges: readonly TimelineTurnRange[];
+  pauseChipStartsMs: readonly number[];
+}): number[] {
+  const ordered = [...turnRanges].sort((left, right) => left.ordinal - right.ordinal);
+  const anchors: number[] = [];
+  for (let index = 1; index < ordered.length; index += 1) {
+    const startMs = ordered[index]?.startMs;
+    if (startMs == null) continue;
+    if (pauseChipStartsMs.some(pauseStartMs => Math.abs(pauseStartMs - startMs) <= 1)) continue;
+    anchors.push(startMs);
+  }
+  return anchors;
 }
 
 /**
@@ -366,27 +522,33 @@ export function getTimelineLayout(segments: SessionEventTimelineSegment[]): Time
   };
 }
 
-/** Touching endpoints do not overlap, allowing adjacent bars to share a row. */
-function segmentsOverlap(left: SessionEventTimelineSegment, right: SessionEventTimelineSegment): boolean {
-  return left.startMs < right.endMs && right.startMs < left.endMs;
-}
-
-/** Merge transitively overlapping sub-agent runs into summary bars for the main event row. */
+/**
+ * One main-row summary bar per turn: earliest sub start → latest sub end.
+ * Gaps from pause chips / staggered finishes stay filled so the track reads continuous.
+ */
 export function mergeOverlappingSubAgentSegments(
   segments: SessionEventTimelineSegment[],
 ): SessionEventTimelineSegment[] {
-  const merged: SessionEventTimelineSegment[] = [];
-  for (const segment of [...segments].sort(
-    (left, right) => left.turnIndex - right.turnIndex || left.startMs - right.startMs || left.endMs - right.endMs,
-  )) {
-    const current = merged.at(-1);
-    if (current == null || current.turnIndex !== segment.turnIndex || !segmentsOverlap(current, segment)) {
-      merged.push({ ...segment });
-      continue;
-    }
-    current.endMs = Math.max(current.endMs, segment.endMs);
+  const byTurn = new Map<number, SessionEventTimelineSegment[]>();
+  for (const segment of segments) {
+    const list = byTurn.get(segment.turnIndex) ?? [];
+    list.push(segment);
+    byTurn.set(segment.turnIndex, list);
   }
-  return merged;
+
+  return [...byTurn.entries()]
+    .sort((left, right) => left[0] - right[0])
+    .flatMap(([turnIndex, list]) => {
+      const first = list[0];
+      if (first == null) return [];
+      let startMs = first.startMs;
+      let endMs = first.endMs;
+      for (const segment of list) {
+        startMs = Math.min(startMs, segment.startMs);
+        endMs = Math.max(endMs, segment.endMs);
+      }
+      return [{ ...first, turnIndex, startMs, endMs }];
+    });
 }
 
 /**
@@ -433,9 +595,8 @@ export function getSubAgentHoverGroups({
     barId: bar.id,
     startMs: bar.startMs,
     endMs: bar.endMs,
-    segments: subAgentSegments.filter(
-      segment => segment.turnIndex === bar.turnIndex && (segment.id === bar.id || segmentsOverlap(bar, segment)),
-    ),
+    // Union bar covers the whole turn wave — list every sub in that turn.
+    segments: subAgentSegments.filter(segment => segment.turnIndex === bar.turnIndex),
   }));
 }
 
@@ -493,7 +654,9 @@ export function getSubAgentLanes({
  *       → [model 0–2s][pause@2s][tool 2–5s]
  */
 export function compressIntraTurnPauses(segments: SessionEventTimelineSegment[]): SessionEventTimelineSegment[] {
-  const pauses = segments
+  // Per-sub-agent chips share one wall wait — merge overlapping intervals so we
+  // don’t subtract the same pause N times.
+  const rawPauses = segments
     .filter(segment => segment.isPauseChip)
     .map(segment => ({
       turnIndex: segment.turnIndex,
@@ -505,6 +668,16 @@ export function compressIntraTurnPauses(segments: SessionEventTimelineSegment[])
     .sort(
       (left, right) => left.turnIndex - right.turnIndex || left.startMs - right.startMs || left.endMs - right.endMs,
     );
+  const pauses: typeof rawPauses = [];
+  for (const pause of rawPauses) {
+    const previous = pauses.at(-1);
+    if (previous != null && previous.turnIndex === pause.turnIndex && pause.startMs <= previous.endMs) {
+      previous.endMs = Math.max(previous.endMs, pause.endMs);
+      previous.wallDurationMs = previous.endMs - previous.startMs;
+      continue;
+    }
+    pauses.push({ ...pause });
+  }
 
   if (pauses.length === 0) return segments;
 

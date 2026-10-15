@@ -50,6 +50,8 @@ const PAUSE_CHIP_HUMAN_EVENT_TYPES = new Set([
   'user.tool_response',
   'user.mcp_auth_continue',
 ]);
+/** Events that open a human wait — may arrive seconds before turn.update paused. */
+const PAUSE_CAUSE_EVENT_TYPES = new Set(['tool.approval_required', 'tool.response_required', 'mcp.auth_required']);
 
 /** Ignore tiny pauses (noise); only show chips for waits ≥ 1s. */
 const MIN_PAUSE_CHIP_WALL_MS = 1_000;
@@ -62,6 +64,26 @@ const PAUSE_EVENT_LEAD_MS = 50;
 function turnUpdateStatus(event: TimelineEvent): string | undefined {
   const state = isRecord(event.state) ? event.state : undefined;
   return typeof state?.status === 'string' ? state.status : undefined;
+}
+
+/**
+ * True when a turn is still paused (open wait) so the UI can refresh `nowMs`.
+ * Completed turns are never “open” even if their last update was paused.
+ */
+export function sessionHasOpenPause(turns: readonly SessionTurnView[]): boolean {
+  for (const turn of turns) {
+    if (turn.done != null) continue;
+    let open = false;
+    for (const raw of turn.events) {
+      const event = asTimelineEvent(raw);
+      if (event == null || event.type !== 'turn.update') continue;
+      const status = turnUpdateStatus(event);
+      if (status === 'paused') open = true;
+      else if (status === 'running') open = false;
+    }
+    if (open) return true;
+  }
+  return false;
 }
 
 /**
@@ -111,6 +133,52 @@ function collectPauseWindows({
   return windows;
 }
 
+/** Tool-call ids the user already answered before `beforeMs`. */
+function resolvedToolCallIdsBefore({ events, beforeMs }: { events: TimelineEvent[]; beforeMs: number }): Set<string> {
+  const ids = new Set<string>();
+  for (const event of events) {
+    if (
+      event.type !== 'user.tool_approval' &&
+      event.type !== 'user.tool_response' &&
+      event.type !== 'user.mcp_auth_continue'
+    ) {
+      continue;
+    }
+    const eventMs = parseTimestamp(eventCreatedAt(event));
+    if (eventMs == null || eventMs >= beforeMs) continue;
+    const toolCallId = readString(event, 'toolCallId', 'tool_call_id');
+    if (toolCallId != null) ids.add(toolCallId);
+  }
+  return ids;
+}
+
+/**
+ * Pull pause start left to the earliest still-pending *main-thread* human cause
+ * (ask-user / MCP auth / root approval). Sub-agent `approval_required` stays
+ * out of the shared window so later agents keep their model time and per-lane
+ * wait spans can start at each thread's own approval.
+ */
+function expandPauseWindows({ events, windows }: { events: TimelineEvent[]; windows: PauseWindow[] }): PauseWindow[] {
+  return windows.map((window, index) => {
+    const previousEndMs =
+      index > 0 ? (windows[index - 1]?.endMs ?? Number.NEGATIVE_INFINITY) : Number.NEGATIVE_INFINITY;
+    const resolvedBeforePause = resolvedToolCallIdsBefore({ events, beforeMs: window.startMs });
+    let earliestMs = window.startMs;
+    for (const event of events) {
+      if (!PAUSE_CAUSE_EVENT_TYPES.has(event.type)) continue;
+      if (eventThreadId(event) !== MAIN_THREAD_ID) continue;
+      const eventMs = parseTimestamp(eventCreatedAt(event));
+      if (eventMs == null || eventMs <= previousEndMs || eventMs > window.endMs) continue;
+      const callIds = toolCallsOf(event)
+        .map(toolCall => (typeof toolCall.id === 'string' ? toolCall.id : undefined))
+        .filter((id): id is string => id != null);
+      if (callIds.length > 0 && callIds.every(id => resolvedBeforePause.has(id))) continue;
+      earliestMs = Math.min(earliestMs, eventMs);
+    }
+    return earliestMs < window.startMs ? { ...window, startMs: earliestMs } : window;
+  });
+}
+
 /** True if something in this pause window needed a human (approval, ask-user, MCP auth). */
 function pauseHasHumanAction({ events, window }: { events: TimelineEvent[]; window: PauseWindow }): boolean {
   return events.some(event => {
@@ -120,9 +188,340 @@ function pauseHasHumanAction({ events, window }: { events: TimelineEvent[]; wind
   });
 }
 
+/**
+ * Threads that should get a pause chip for this window.
+ * `turn.update` is always on the root turn (null thread), so we look at human-action
+ * events inside the window. Prefer sub-agent threads when present (one chip per lane);
+ * otherwise main (ask-user / root approval / auth).
+ * Skip sub-agents that already finished before this pause — completed lanes stay done, not paused.
+ */
+function pauseChipThreadIds({
+  events,
+  window,
+  threadDoneMsById,
+}: {
+  events: TimelineEvent[];
+  window: PauseWindow;
+  threadDoneMsById: Map<string, number>;
+}): string[] {
+  const threadIds = new Set<string>();
+  for (const event of events) {
+    if (!PAUSE_CHIP_HUMAN_EVENT_TYPES.has(event.type)) continue;
+    const eventMs = parseTimestamp(eventCreatedAt(event));
+    if (eventMs == null || pauseWindowForMs([window], eventMs) == null) continue;
+    threadIds.add(eventThreadId(event));
+  }
+  const subAgentThreadIds = [...threadIds].filter(threadId => {
+    if (threadId === MAIN_THREAD_ID) return false;
+    const doneMs = threadDoneMsById.get(threadId);
+    return doneMs == null || doneMs > window.startMs;
+  });
+  if (subAgentThreadIds.length > 0) return subAgentThreadIds;
+  return [MAIN_THREAD_ID];
+}
+
 /** Which pause (if any) contains this timestamp, allowing a small lead before paused. */
 function pauseWindowForMs(windows: PauseWindow[], eventMs: number): PauseWindow | undefined {
   return windows.find(window => eventMs >= window.startMs - PAUSE_EVENT_LEAD_MS && eventMs <= window.endMs);
+}
+
+type SubAgentApprovalWait = {
+  threadId: string;
+  startMs: number;
+  endMs: number;
+  eventId: string;
+};
+
+/** True when some of the wait sits outside turn-pause windows (survives compression as bar width). */
+function waitHasVisibleCompressedDuration({
+  wait,
+  pauseWindows,
+}: {
+  wait: SubAgentApprovalWait;
+  pauseWindows: PauseWindow[];
+}): boolean {
+  if (wait.endMs - wait.startMs < MIN_PAUSE_CHIP_WALL_MS) return false;
+  if (pauseWindows.length === 0) return true;
+  return pauseWindows.some(window => wait.startMs < window.startMs || wait.endMs > window.endMs);
+}
+
+/**
+ * Pending tool-call ids that a `user.tool_approval_policy` (allow_session /
+ * allow for N min) covers. Matches on the `server/tool` label, so one policy
+ * resolves every sibling waiting on that same tool.
+ */
+function policyCoveredToolCallIds({
+  event,
+  candidates,
+  toolCallRequests,
+}: {
+  event: TimelineEvent;
+  candidates: Iterable<string>;
+  toolCallRequests: Map<string, SubAgentToolCallRequest> | undefined;
+}): string[] {
+  const policies = Array.isArray(event.policies) ? event.policies.filter(isRecord) : [];
+  const labels = new Set(
+    policies
+      .map(policy => {
+        const server = readString(policy, 'serverName', 'server_name') ?? '';
+        const name = typeof policy.name === 'string' ? policy.name : '';
+        return [server, name].filter(part => part.length > 0).join('/');
+      })
+      .filter(label => label.length > 0),
+  );
+  if (labels.size === 0) return [];
+  const covered: string[] = [];
+  for (const toolCallId of candidates) {
+    const label = mcpToolSlashLabel(toolCallRequests?.get(toolCallId)?.toolCall);
+    if (label.length > 0 && labels.has(label)) covered.push(toolCallId);
+  }
+  return covered;
+}
+
+/**
+ * Per-sub-agent approval waits (approval_required → user.tool_approval, or a
+ * matching user.tool_approval_policy). Independent of turn.update: approving
+ * one sibling resumes the turn but other sub-agents stay waiting — those waits
+ * must still render as paused.
+ */
+function collectSubAgentApprovalWaits({
+  events,
+  turnDoneMs,
+  nowMs,
+  threadDoneMsById,
+  toolCallRequests,
+}: {
+  events: TimelineEvent[];
+  turnDoneMs: number | null;
+  nowMs: number;
+  threadDoneMsById: Map<string, number>;
+  toolCallRequests: Map<string, SubAgentToolCallRequest> | undefined;
+}): SubAgentApprovalWait[] {
+  const openByToolCallId = new Map<string, { threadId: string; startMs: number; eventId: string }>();
+  const waits: SubAgentApprovalWait[] = [];
+  const ordered = [...events].sort(
+    (left, right) => (parseTimestamp(eventCreatedAt(left)) ?? 0) - (parseTimestamp(eventCreatedAt(right)) ?? 0),
+  );
+
+  const clipWait = (wait: SubAgentApprovalWait): SubAgentApprovalWait | undefined => {
+    const doneMs = threadDoneMsById.get(wait.threadId);
+    if (doneMs != null && doneMs <= wait.startMs) return undefined;
+    const endMs = doneMs != null ? Math.min(wait.endMs, doneMs) : wait.endMs;
+    if (endMs <= wait.startMs) return undefined;
+    return { ...wait, endMs };
+  };
+  const closeWait = (toolCallId: string, atMs: number): void => {
+    const open = openByToolCallId.get(toolCallId);
+    if (open == null) return;
+    openByToolCallId.delete(toolCallId);
+    const clipped = clipWait({
+      threadId: open.threadId,
+      startMs: open.startMs,
+      endMs: Math.max(open.startMs, atMs),
+      eventId: open.eventId,
+    });
+    if (clipped != null) waits.push(clipped);
+  };
+
+  for (const event of ordered) {
+    const eventMs = parseTimestamp(eventCreatedAt(event));
+    if (eventMs == null) continue;
+    if (event.type === 'tool.approval_required') {
+      const threadId = eventThreadId(event);
+      if (threadId === MAIN_THREAD_ID) continue;
+      for (const toolCall of toolCallsOf(event)) {
+        if (typeof toolCall.id !== 'string') continue;
+        if (openByToolCallId.has(toolCall.id)) continue;
+        openByToolCallId.set(toolCall.id, { threadId, startMs: eventMs, eventId: eventId(event) });
+      }
+      continue;
+    }
+    if (event.type === 'user.tool_approval_policy') {
+      for (const toolCallId of policyCoveredToolCallIds({
+        event,
+        candidates: [...openByToolCallId.keys()],
+        toolCallRequests,
+      })) {
+        closeWait(toolCallId, eventMs);
+      }
+      continue;
+    }
+    if (event.type !== 'user.tool_approval') continue;
+    const toolCallId = readString(event, 'toolCallId', 'tool_call_id');
+    if (toolCallId != null) closeWait(toolCallId, eventMs);
+  }
+
+  const openEndMs = turnDoneMs ?? nowMs;
+  for (const open of openByToolCallId.values()) {
+    const threadDoneMs = threadDoneMsById.get(open.threadId);
+    const clipped = clipWait({
+      threadId: open.threadId,
+      startMs: open.startMs,
+      endMs: Math.max(open.startMs, threadDoneMs ?? openEndMs),
+      eventId: open.eventId,
+    });
+    if (clipped != null) waits.push(clipped);
+  }
+  return waits;
+}
+
+/**
+ * Pin approval diamonds to the wait span they open or close.
+ * Packing then draws approval_required on the left edge and user.tool_approval
+ * on the right edge — not mid-span via the turn-pause offset clock.
+ * Must run before compression (span end still equals the approval timestamp).
+ */
+function bindApprovalMarkersToWaitSpans(segments: SessionEventTimelineSegment[]): void {
+  const spans = segments.filter(segment => segment.isPauseSpan);
+  for (const marker of segments) {
+    if (!marker.isMarker || marker.threadId === MAIN_THREAD_ID) continue;
+    if (marker.title === 'tool.approval_required') {
+      const span = spans.find(candidate => candidate.id === `${marker.id}-wait-span-${marker.threadId}`);
+      if (span == null) continue;
+      marker.pauseSpanId = span.id;
+      marker.pauseSpanEdge = 'start';
+      continue;
+    }
+    if (marker.title !== 'user.tool_approval') continue;
+    const span = spans.find(
+      candidate =>
+        candidate.threadId === marker.threadId &&
+        candidate.turnIndex === marker.turnIndex &&
+        Math.abs(candidate.endMs - marker.startMs) <= 1,
+    );
+    if (span == null) continue;
+    marker.pauseSpanId = span.id;
+    marker.pauseSpanEdge = 'end';
+  }
+}
+
+/**
+ * Split/clip activity so it never occupies a pause interval on the same thread.
+ * Pre ends at pause.start; post (if any) starts at pause.end — hatch owns the middle.
+ * Compression-only chips are layout anchors only — do not clip lane activity to them.
+ */
+function splitActivityAroundPauseIntervals(segments: SessionEventTimelineSegment[]): void {
+  const pauses = segments.filter(segment => {
+    if (segment.isCompressionOnly) return false;
+    if (segment.isPauseChip) return true;
+    return segment.isPauseSpan === true;
+  });
+  if (pauses.length === 0) return;
+
+  for (let index = segments.length - 1; index >= 0; index -= 1) {
+    const segment = segments[index];
+    if (segment == null) continue;
+    if (segment.isPauseChip || segment.isPauseSpan || segment.isMarker) continue;
+    if (segment.type === 'sub_agent') continue;
+
+    let parts: SessionEventTimelineSegment[] = [segment];
+    for (const pause of pauses) {
+      if (pause.threadId !== segment.threadId || pause.turnIndex !== segment.turnIndex) continue;
+      const pauseEndMs = Math.max(pause.endMs, pause.startMs);
+      parts = parts.flatMap(part => {
+        if (part.endMs <= pause.startMs || part.startMs >= pauseEndMs) return [part];
+        const next: SessionEventTimelineSegment[] = [];
+        if (part.startMs < pause.startMs) {
+          next.push({ ...part, endMs: pause.startMs, id: `${part.id}@pre:${pause.startMs}` });
+        }
+        if (part.endMs > pauseEndMs) {
+          next.push({
+            ...part,
+            startMs: pauseEndMs,
+            id: `${part.id}@post:${pauseEndMs}`,
+          });
+        }
+        return next;
+      });
+    }
+    const kept = parts.filter(part => part.endMs > part.startMs);
+    if (kept.length === 1 && kept[0]?.id === segment.id && kept[0]?.endMs === segment.endMs) continue;
+    segments.splice(index, 1, ...kept);
+  }
+}
+
+/**
+ * Close empty gaps between a thread's last activity bar and its pause hatch.
+ * Only abut to painted hatch (skip compression-only chips — those can start at
+ * the shared earliest approval while this lane's wait span starts later).
+ *
+ * Do not stretch across an earlier hatch to reach a later one — that recreates
+ * model/tool bars through the pause (sibling wait spans after a shared chip).
+ */
+function abutThreadActivityToPauses(segments: SessionEventTimelineSegment[]): void {
+  // Earliest hatch first so a long bar meets the first pause, then later ones.
+  const pauses = segments
+    .filter(segment => !segment.isCompressionOnly && (segment.isPauseChip || segment.isPauseSpan))
+    .sort((left, right) => left.startMs - right.startMs || left.endMs - right.endMs);
+
+  for (const pause of pauses) {
+    let latest: SessionEventTimelineSegment | undefined;
+    for (const segment of segments) {
+      if (segment.threadId !== pause.threadId || segment.turnIndex !== pause.turnIndex) continue;
+      if (segment.isPauseChip || segment.isPauseSpan || segment.isMarker) continue;
+      if (segment.type === 'sub_agent') continue;
+      if (segment.startMs >= pause.startMs) continue;
+      if (latest == null || segment.endMs > latest.endMs) latest = segment;
+    }
+    if (latest == null || latest.endMs === pause.startMs) continue;
+    const activityEndMs = latest.endMs;
+    // Another hatch already sits between this bar and the target — leave the gap.
+    const blocked = pauses.some(
+      other =>
+        other !== pause &&
+        other.threadId === pause.threadId &&
+        other.turnIndex === pause.turnIndex &&
+        other.startMs >= activityEndMs &&
+        other.startMs < pause.startMs,
+    );
+    if (blocked) continue;
+    latest.endMs = pause.startMs;
+  }
+}
+
+function threadHasPostPauseActivity({
+  segments,
+  threadId,
+  turnIndex,
+  afterMs,
+}: {
+  segments: SessionEventTimelineSegment[];
+  threadId: string;
+  turnIndex: number;
+  afterMs: number;
+}): boolean {
+  return segments.some(segment => {
+    if (segment.threadId !== threadId || segment.turnIndex !== turnIndex) return false;
+    if (segment.isPauseChip || segment.isPauseSpan || segment.isMarker) return false;
+    if (segment.type === 'sub_agent') return false;
+    return segment.startMs >= afterMs;
+  });
+}
+
+/**
+ * Hide pause hatch on *completed* sub-agent lanes that would end on “Paused”
+ * (done, not still waiting). Still-waiting lanes keep hatch. Chips stay as
+ * compression-only so shared active-time layout is unchanged.
+ */
+function hideTerminalPauseChipsOnCompletedSubAgents(segments: SessionEventTimelineSegment[]): void {
+  // thread.created→done emits a non-marker sub_agent bar; open threads are markers.
+  const completedThreadIds = new Set(
+    segments.filter(segment => segment.type === 'sub_agent' && !segment.isMarker).map(segment => segment.threadId),
+  );
+  for (const pause of segments) {
+    if ((!pause.isPauseChip && !pause.isPauseSpan) || pause.threadId === MAIN_THREAD_ID) continue;
+    if (!completedThreadIds.has(pause.threadId)) continue;
+    if (
+      !threadHasPostPauseActivity({
+        segments,
+        threadId: pause.threadId,
+        turnIndex: pause.turnIndex,
+        afterMs: pause.endMs,
+      })
+    ) {
+      pause.isCompressionOnly = true;
+    }
+  }
 }
 
 /**
@@ -160,31 +559,50 @@ function pauseAnchorFields({
 function collectApprovalToolResumeMs({
   events,
   pauseWindows,
+  toolCallRequests,
 }: {
   events: TimelineEvent[];
   pauseWindows: PauseWindow[];
+  toolCallRequests: Map<string, SubAgentToolCallRequest> | undefined;
 }): Map<string, number> {
   const resumeByToolCallId = new Map<string, number>();
+  const pendingToolCallIds = new Set<string>();
   for (const event of events) {
     if (event.type !== 'tool.approval_required') continue;
     const eventMs = parseTimestamp(eventCreatedAt(event));
     if (eventMs == null) continue;
+    for (const toolCall of toolCallsOf(event)) {
+      if (typeof toolCall.id === 'string') pendingToolCallIds.add(toolCall.id);
+    }
     const window = pauseWindowForMs(pauseWindows, eventMs);
     if (window == null) continue;
     for (const toolCall of toolCallsOf(event)) {
       if (typeof toolCall.id === 'string') resumeByToolCallId.set(toolCall.id, window.endMs);
     }
   }
-  for (const event of events) {
-    if (event.type !== 'user.tool_approval') continue;
-    const toolCallId = readString(event, 'toolCallId', 'tool_call_id');
-    const eventMs = parseTimestamp(eventCreatedAt(event));
-    if (toolCallId == null || eventMs == null) continue;
+  const markResume = (toolCallId: string, eventMs: number): void => {
     const window = pauseWindowForMs(pauseWindows, eventMs);
     // Prefer pause end so the post-approval tool bar starts immediately after the chip.
     const resumeMs = window != null ? Math.max(window.endMs, eventMs) : eventMs;
     const existing = resumeByToolCallId.get(toolCallId);
     resumeByToolCallId.set(toolCallId, existing != null ? Math.max(existing, resumeMs) : resumeMs);
+  };
+  for (const event of events) {
+    const eventMs = parseTimestamp(eventCreatedAt(event));
+    if (eventMs == null) continue;
+    if (event.type === 'user.tool_approval_policy') {
+      for (const toolCallId of policyCoveredToolCallIds({
+        event,
+        candidates: pendingToolCallIds,
+        toolCallRequests,
+      })) {
+        markResume(toolCallId, eventMs);
+      }
+      continue;
+    }
+    if (event.type !== 'user.tool_approval') continue;
+    const toolCallId = readString(event, 'toolCallId', 'tool_call_id');
+    if (toolCallId != null) markResume(toolCallId, eventMs);
   }
   return resumeByToolCallId;
 }
@@ -312,27 +730,86 @@ export function buildSessionTimelineSegments(
       );
 
     const turnDoneMs = parseTimestamp(terminalCompletedAt(turn.done?.state));
+    const threadDoneMsById = new Map<string, number>();
+    for (const [threadId, doneEvent] of threadDoneEvents) {
+      const doneMs = parseTimestamp(eventCreatedAt(doneEvent));
+      if (doneMs != null) threadDoneMsById.set(threadId, doneMs);
+    }
+
     // Build pause chips first so later markers can attach via pauseAnchorFields.
-    const pauseWindows = collectPauseWindows({ events, turnDoneMs, nowMs });
+    // Expand start to pending approval_required/etc. that arrived before turn.update paused.
+    const pauseWindows = expandPauseWindows({
+      events,
+      windows: collectPauseWindows({ events, turnDoneMs, nowMs }),
+    });
+    // Per-thread approval waits drive visible hatch (start = that thread's
+    // approval_required). Collect before chips so overlapping sub-agent chips
+    // can stay compression-only and avoid chip→gap→span holes.
+    const subAgentWaits = collectSubAgentApprovalWaits({
+      events,
+      turnDoneMs,
+      nowMs,
+      threadDoneMsById,
+      toolCallRequests: toolCallRequestsByTurnId.get(turn.turnId),
+    });
+    // Chip stays compression-only only when the wait span keeps visible width after
+    // pause compression (pre-pause and/or post-resume). Pure in-pause waits keep a painted chip.
+    const hatchViaWaitSpanThreadIds = new Set(
+      subAgentWaits.filter(wait => waitHasVisibleCompressedDuration({ wait, pauseWindows })).map(wait => wait.threadId),
+    );
+
     for (const window of pauseWindows) {
       const wallDurationMs = Math.max(0, window.endMs - window.startMs);
       // Skip tiny auto-pauses unless a human-action event sat inside the window.
       const emitChip = wallDurationMs >= MIN_PAUSE_CHIP_WALL_MS || pauseHasHumanAction({ events, window });
       if (!emitChip) continue;
+      for (const threadId of pauseChipThreadIds({ events, window, threadDoneMsById })) {
+        // Finished during this pause → keep chip for compression, never paint hatch.
+        const doneMs = threadDoneMsById.get(threadId);
+        const completedDuringPause = threadId !== MAIN_THREAD_ID && doneMs != null && doneMs <= window.endMs;
+        // Wait span paints continuous hatch from this thread's approval_required;
+        // chip only reserves the shared compressed gap.
+        const hatchViaWaitSpan = threadId !== MAIN_THREAD_ID && hatchViaWaitSpanThreadIds.has(threadId);
+        segments.push({
+          id: `${window.eventId}-pause-${threadId}`,
+          type: 'waiting_on_human',
+          title: 'turn.paused',
+          description: 'Paused',
+          startMs: window.startMs - originMs,
+          endMs: window.endMs - originMs,
+          turnIndex,
+          threadId,
+          isPauseChip: true,
+          wallDurationMs,
+          ...(completedDuringPause || hatchViaWaitSpan ? { isCompressionOnly: true } : {}),
+        });
+      }
+    }
+
+    // One continuous hatch per sub-agent: approval_required → approve (or done).
+    // Covers turn-paused and turn-running time so sibling lanes don’t get gaps.
+    for (const wait of subAgentWaits) {
+      const waitWallMs = Math.max(0, wait.endMs - wait.startMs);
+      if (waitWallMs < MIN_PAUSE_CHIP_WALL_MS) continue;
       segments.push({
-        id: `${window.eventId}-pause`,
+        id: `${wait.eventId}-wait-span-${wait.threadId}`,
         type: 'waiting_on_human',
-        title: 'turn.paused',
+        title: 'thread.paused',
         description: 'Paused',
-        startMs: window.startMs - originMs,
-        endMs: window.endMs - originMs,
+        startMs: wait.startMs - originMs,
+        endMs: wait.endMs - originMs,
         turnIndex,
-        threadId: MAIN_THREAD_ID,
-        isPauseChip: true,
-        wallDurationMs,
+        threadId: wait.threadId,
+        isPauseSpan: true,
+        wallDurationMs: waitWallMs,
       });
     }
-    const approvalToolResumeMs = collectApprovalToolResumeMs({ events, pauseWindows });
+
+    const approvalToolResumeMs = collectApprovalToolResumeMs({
+      events,
+      pauseWindows,
+      toolCallRequests: toolCallRequestsByTurnId.get(turn.turnId),
+    });
 
     for (const event of events) {
       const eventMs = parseTimestamp(eventCreatedAt(event));
@@ -361,6 +838,11 @@ export function buildSessionTimelineSegments(
       lastTimestampByThreadId.set(threadId, eventMs);
     }
 
+    // Hide terminal hatch on completed lanes first so split/abut see final flags.
+    hideTerminalPauseChipsOnCompletedSubAgents(segments);
+    splitActivityAroundPauseIntervals(segments);
+    abutThreadActivityToPauses(segments);
+
     appendTerminalSegment({
       turn,
       turnIndex,
@@ -370,6 +852,9 @@ export function buildSessionTimelineSegments(
       emitDoneMarker: lastTurnIdByNumber.get(turn.turnNumber) === turn.turnId,
     });
   }
+
+  // Pin diamonds while span end still equals the approval timestamp.
+  bindApprovalMarkersToWaitSpans(segments);
 
   // Collapse long waits so active bars stay wide; chart re-expands pause chips.
   return compressInterTurnGaps(
@@ -449,7 +934,8 @@ function appendEventSegments({
       // matches Agent steps even before tool.response arrives.
       // Approval-gated tools emit only the post-resume → response interval so the
       // pause chip owns the wait and tool execution still fills active time.
-      for (const toolCall of toolCallsOf(event)) {
+      const toolCalls = toolCallsOf(event);
+      for (const toolCall of toolCalls) {
         const toolCallId = typeof toolCall.id === 'string' ? toolCall.id : undefined;
         if (toolCallId == null || subAgentToolCallIds.has(toolCallId)) continue;
         const response = responses?.get(toolCallId);
@@ -489,10 +975,10 @@ function appendEventSegments({
         });
       }
 
-      // The model bar covers processing since the previous event on this thread.
-      // Keep an empty root model segment because it may still contain tool calls
-      // and therefore represents real model time.
-      if (modelContent.length > 0 || threadId === MAIN_THREAD_ID) {
+      // Model bar = processing since the previous event on this thread.
+      // Sub-agents often emit tool-only messages (no text); still draw that bar so
+      // the lane meets the pause chip instead of leaving a gap after the last tool.
+      if (modelContent.length > 0 || threadId === MAIN_THREAD_ID || toolCalls.length > 0) {
         segments.push({
           id: eventId(event),
           type: 'model',

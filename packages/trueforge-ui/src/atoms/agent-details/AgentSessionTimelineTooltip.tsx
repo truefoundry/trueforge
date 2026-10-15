@@ -46,8 +46,9 @@ export function SessionEventTooltip({
   segment: SessionEventTimelineSegment;
   subAgentLabel?: string;
 }) {
-  // Pause chips show real wall wait, not the compressed/expanded chart width.
-  const pauseWallMs = segment.isPauseChip ? (segment.wallDurationMs ?? 0) : undefined;
+  // Pause chips/spans show real wall wait, not the compressed/expanded chart width.
+  const isPausedSegment = segment.isPauseChip === true || segment.isPauseSpan === true;
+  const pauseWallMs = isPausedSegment ? (segment.wallDurationMs ?? 0) : undefined;
   const showDuration =
     pauseWallMs != null ? pauseWallMs > 0 : !segment.isMarker && !SESSION_EVENT_TOOLTIP_HIDE_DURATION.has(segment.type);
   const durationMs = pauseWallMs ?? segment.endMs - segment.startMs;
@@ -59,10 +60,10 @@ export function SessionEventTooltip({
     );
   }
 
-  const heading = segment.isPauseChip ? 'Paused' : getSessionEventTooltipHeading(segment.type);
+  const heading = isPausedSegment ? 'Paused' : getSessionEventTooltipHeading(segment.type);
 
   // Wider list layout (like tool-call groups) when many MCP tools need approval.
-  if (segment.type === 'approval' && !segment.isPauseChip) {
+  if (segment.type === 'approval' && !isPausedSegment) {
     const rows = approvalTooltipRows(content);
     return (
       <div className="max-h-72 w-80 max-w-full overflow-auto text-xs">
@@ -101,7 +102,7 @@ export function SessionEventTooltip({
           <span className="tabular-nums text-text-secondary">{formatTimelineDuration(durationMs)}</span>
         ) : null}
       </div>
-      {content.length > 0 && !segment.isPauseChip ? (
+      {content.length > 0 && !isPausedSegment ? (
         <p className="mt-1.5 line-clamp-6 whitespace-pre-line font-medium text-text-primary">{content}</p>
       ) : null}
     </div>
@@ -142,7 +143,7 @@ export function SessionTurnTooltip({
                 style={{ backgroundColor: getSessionEventColor(segment.type, isDark) }}
               />
               <span className="min-w-0 flex-1 truncate">{label}</span>
-              {segment.isMarker && !segment.isPauseChip ? null : (
+              {segment.isMarker && !segment.isPauseChip && !segment.isPauseSpan ? null : (
                 <span className="ml-auto shrink-0 tabular-nums text-text-secondary">
                   {formatTimelineDuration(segment.wallDurationMs ?? segment.endMs - segment.startMs)}
                 </span>
@@ -219,11 +220,12 @@ export function SessionMarkerGroupTooltip({ group }: { group: TimelineMarkerGrou
 
 /** Merged overlapping sub-agent tracks on the main row. */
 export function SessionSubAgentGroupTooltip({ group }: { group: TimelineSubAgentGroup }) {
+  const durationMs = group.durationMs ?? group.endMs - group.startMs;
   return (
     <div className="max-h-72 w-80 max-w-full overflow-auto text-xs">
       <div className="flex items-center justify-between gap-3">
         <span className="font-medium text-text-secondary">Sub-agents</span>
-        <span className="tabular-nums text-text-secondary">{formatTimelineDuration(group.endMs - group.startMs)}</span>
+        <span className="tabular-nums text-text-secondary">{formatTimelineDuration(durationMs)}</span>
       </div>
       <div className="mt-1.5 border-t border-border pt-1.5">
         {group.segments.map((segment, index) => (

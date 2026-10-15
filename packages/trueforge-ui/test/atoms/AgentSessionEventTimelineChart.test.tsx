@@ -140,7 +140,12 @@ describe('AgentSessionEventTimelineChart', () => {
 
     const native = new MouseEvent('mousemove', { clientX: 320 });
     Object.defineProperty(native, 'target', { value: canvas });
-    act(() => onHover({ native }, [{ datasetIndex: 0 }]));
+    const chartStub = {
+      canvas,
+      getDatasetMeta: () => ({ data: [{ y: 10 }] }),
+      data: { datasets: [{ order: 1 }] },
+    };
+    act(() => onHover({ native }, [{ datasetIndex: 0 }], chartStub));
 
     expect(await screen.findByRole('tooltip')).toHaveStyle({ left: '320px', top: '126px' });
 
@@ -199,12 +204,107 @@ describe('AgentSessionEventTimelineChart', () => {
 
     const onHover = Reflect.get(capturedOptions ?? {}, 'onHover');
     if (typeof onHover !== 'function') throw new Error('Expected Chart.js onHover callback');
-    act(() => onHover({ native: null }, [{ datasetIndex: groupedDatasetIndex }]));
+    const chartStub = {
+      canvas: document.createElement('canvas'),
+      getDatasetMeta: () => ({ data: [{ y: 40 }] }),
+      data: { datasets: Array.from({ length: groupedDatasetIndex + 1 }, () => ({ order: 1 })) },
+    };
+    act(() => onHover({ native: null }, [{ datasetIndex: groupedDatasetIndex }], chartStub));
 
     expect(await screen.findByText('Sub-Agent: Researcher')).toBeInTheDocument();
     expect(await screen.findByText('Tool calls')).toBeInTheDocument();
     expect(screen.getByText('search').parentElement?.parentElement).not.toHaveClass('border-t');
     expect(screen.getByText('fetch')).toBeInTheDocument();
+  });
+
+  it('picks the hovered lane by y when several bars share the same x', async () => {
+    const multiLaneSegments: SessionEventTimelineSegment[] = [
+      ...segments,
+      {
+        id: 'sub-a',
+        type: 'sub_agent',
+        title: 'thread.created',
+        description: 'Agent A',
+        startMs: 100,
+        endMs: 900,
+        turnIndex: 0,
+        threadId: 'thread-a',
+      },
+      {
+        id: 'sub-b',
+        type: 'sub_agent',
+        title: 'thread.created',
+        description: 'Agent B',
+        startMs: 100,
+        endMs: 900,
+        turnIndex: 0,
+        threadId: 'thread-b',
+      },
+      {
+        id: 'model-a',
+        type: 'model',
+        title: 'model.message',
+        description: 'response from A',
+        startMs: 200,
+        endMs: 600,
+        turnIndex: 0,
+        threadId: 'thread-a',
+      },
+      {
+        id: 'model-b',
+        type: 'model',
+        title: 'model.message',
+        description: 'response from B',
+        startMs: 200,
+        endMs: 600,
+        turnIndex: 0,
+        threadId: 'thread-b',
+      },
+    ];
+    render(<AgentSessionEventTimelineChart turns={turns} segments={multiLaneSegments} hiddenTypes={new Set()} />);
+
+    const datasets = Reflect.get(capturedData ?? {}, 'datasets');
+    if (!Array.isArray(datasets)) throw new Error('Expected chart datasets');
+    const yOf = (dataset: unknown) => {
+      const data = Reflect.get(dataset as object, 'data');
+      const point = Array.isArray(data) ? data[0] : undefined;
+      return typeof point === 'object' && point != null ? Number(Reflect.get(point, 'y')) : Number.NaN;
+    };
+    // Datasets: turn → sub-agent events (A then B by lane) → … → main events.
+    const subModels = datasets
+      .map((dataset, index) => ({ index, y: yOf(dataset), label: Reflect.get(dataset, 'label') }))
+      .filter(item => item.label === 'Model: model.message' && Number.isFinite(item.y))
+      .slice(0, 2);
+    expect(subModels).toHaveLength(2);
+    const [laneA, laneB] = subModels;
+    if (laneA == null || laneB == null) throw new Error('Expected two sub-agent model datasets');
+    expect(laneA.y).not.toBe(laneB.y);
+
+    const onHover = Reflect.get(capturedOptions ?? {}, 'onHover');
+    if (typeof onHover !== 'function') throw new Error('Expected Chart.js onHover callback');
+
+    const canvas = screen.getByRole('img', { name: 'Timeline chart' });
+    vi.spyOn(canvas, 'getBoundingClientRect').mockReturnValue(new DOMRect(0, 0, 600, 200));
+    const yByIndex = new Map(subModels.map(item => [item.index, item.y]));
+    const chartStub = {
+      canvas,
+      getDatasetMeta: (datasetIndex: number) => ({
+        data: [{ y: yByIndex.get(datasetIndex) ?? 0 }],
+      }),
+      data: {
+        datasets: datasets.map(dataset => ({
+          order: Reflect.get(dataset as object, 'order') ?? 1,
+        })),
+      },
+    };
+
+    // Pointer near lane B — even when Chart.js lists lane A first.
+    const native = new MouseEvent('mousemove', { clientX: 100, clientY: laneB.y });
+    Object.defineProperty(native, 'target', { value: canvas });
+    act(() => onHover({ native }, [{ datasetIndex: laneA.index }, { datasetIndex: laneB.index }], chartStub));
+
+    expect(await screen.findByText('response from B')).toBeInTheDocument();
+    expect(screen.queryByText('response from A')).not.toBeInTheDocument();
   });
 
   it('summarizes every sub-agent represented by a shared bar', () => {
@@ -349,6 +449,63 @@ describe('AgentSessionEventTimelineChart pause chips', () => {
   beforeEach(() => {
     capturedData = undefined;
     capturedOptions = undefined;
+  });
+
+  it('hides sub-agent markers and pause chips when Sub-agent is toggled off', () => {
+    const subThread = 'sub-agent-thread';
+    const withSub: SessionEventTimelineSegment[] = [
+      ...segments,
+      {
+        id: 'sub-agent',
+        type: 'sub_agent',
+        title: 'thread.created',
+        description: 'Worker',
+        startMs: 100,
+        endMs: 900,
+        turnIndex: 0,
+        threadId: subThread,
+      },
+      {
+        id: 'sub-approval',
+        type: 'approval',
+        title: 'tool.approval_required',
+        description: 'Approval required',
+        startMs: 400,
+        endMs: 400,
+        turnIndex: 0,
+        threadId: subThread,
+        isMarker: true,
+      },
+      {
+        id: 'sub-pause',
+        type: 'waiting_on_human',
+        title: 'turn.paused',
+        description: 'Paused',
+        startMs: 400,
+        endMs: 400,
+        turnIndex: 0,
+        threadId: subThread,
+        isPauseChip: true,
+        wallDurationMs: 5_000,
+      },
+    ];
+
+    const { rerender } = render(
+      <AgentSessionEventTimelineChart turns={turns} segments={withSub} hiddenTypes={new Set()} />,
+    );
+    let datasets = Reflect.get(capturedData ?? {}, 'datasets');
+    if (!Array.isArray(datasets)) throw new Error('Expected chart datasets');
+    const labelsOn = datasets.map(dataset => Reflect.get(dataset, 'label'));
+    expect(labelsOn).toContain('Paused');
+    expect(labelsOn).toContain('Sub-agent: thread.created');
+    expect(labelsOn.some(label => typeof label === 'string' && label.includes('Approval'))).toBe(true);
+
+    rerender(<AgentSessionEventTimelineChart turns={turns} segments={withSub} hiddenTypes={new Set(['sub_agent'])} />);
+    datasets = Reflect.get(capturedData ?? {}, 'datasets');
+    if (!Array.isArray(datasets)) throw new Error('Expected chart datasets');
+    expect(datasets.some(dataset => Reflect.get(dataset, 'label') === 'Paused')).toBe(false);
+    expect(datasets.some(dataset => Reflect.get(dataset, 'label') === 'Sub-agent: thread.created')).toBe(false);
+    expect(datasets.some(dataset => Reflect.get(dataset, 'label') === 'Approval / HITL')).toBe(false);
   });
 
   it('draws a pause-chip bar and keeps axis ticks on active time', () => {

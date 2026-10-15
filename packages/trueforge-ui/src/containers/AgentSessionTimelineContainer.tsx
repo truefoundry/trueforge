@@ -15,7 +15,7 @@ import type { AgentChatServer, SessionEventItem } from '../server/types.js';
 import type { SlotOverrides } from '../theme/SlotsProvider.js';
 import { useSlot } from '../theme/SlotsProvider.js';
 import { buildSessionMetrics } from '../utils/buildSessionMetrics.js';
-import { buildSessionTimelineSegments } from '../utils/buildSessionTimelineSegments.js';
+import { buildSessionTimelineSegments, sessionHasOpenPause } from '../utils/buildSessionTimelineSegments.js';
 import { createCachedListEventsBridge } from '../utils/cachedListEventsBridge.js';
 import { getTurnInputSummary } from '../utils/sessionTimelineEvents.js';
 import { aggregateSessionTurnBand, buildSessionTurnViews, type SessionTurnView } from '../utils/sessionTurnViews.js';
@@ -248,7 +248,16 @@ export function AgentSessionTimelineContainer({
     () => buildProjectionEvents(events, renderableTurnViews),
     [events, renderableTurnViews],
   );
-  const timelineSegments = useMemo(() => buildSessionTimelineSegments(allTurnViews), [allTurnViews]);
+  // While a turn stays paused with no new events, refresh nowMs so pause wall time grows.
+  const hasOpenPause = useMemo(() => sessionHasOpenPause(allTurnViews), [allTurnViews]);
+  const [nowMs, setNowMs] = useState(() => Date.now());
+  useEffect(() => {
+    if (!hasOpenPause) return undefined;
+    setNowMs(Date.now());
+    const timer = window.setInterval(() => setNowMs(Date.now()), 1_000);
+    return () => window.clearInterval(timer);
+  }, [hasOpenPause, allTurnViews]);
+  const timelineSegments = useMemo(() => buildSessionTimelineSegments(allTurnViews, { nowMs }), [allTurnViews, nowMs]);
   const sessionMetrics = useMemo(
     () => buildSessionMetrics({ turns: allTurnViews, segments: timelineSegments, sessionMetrics: sessionMetricsHint }),
     [sessionMetricsHint, timelineSegments, allTurnViews],

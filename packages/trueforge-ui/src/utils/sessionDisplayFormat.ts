@@ -29,13 +29,15 @@ export function roundDurationMsToSecond(durationMs: number): number {
   return Math.max(0, Math.round(durationMs / 1_000) * 1_000);
 }
 
-/** Whole-unit duration for prominent summary UI (e.g. 3m 8s). */
+/** Whole-unit duration for prominent summary UI (e.g. 3m 8s, 2d 19h 28m). */
 export function formatReadableDurationMs(durationMs: number): string {
   const totalSeconds = roundDurationMsToSecond(durationMs) / 1_000;
-  const hours = Math.floor(totalSeconds / 3_600);
+  const days = Math.floor(totalSeconds / 86_400);
+  const hours = Math.floor((totalSeconds % 86_400) / 3_600);
   const minutes = Math.floor((totalSeconds % 3_600) / 60);
   const seconds = totalSeconds % 60;
   return [
+    ...(days > 0 ? [`${days}d`] : []),
     ...(hours > 0 ? [`${hours}h`] : []),
     ...(minutes > 0 ? [`${minutes}m`] : []),
     ...(seconds > 0 || totalSeconds === 0 ? [`${seconds}s`] : []),

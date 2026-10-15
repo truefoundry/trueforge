@@ -3,7 +3,7 @@ import { describe, it } from 'vitest';
 
 import type { SessionEventItem } from '@/server/types.js';
 import { buildSessionMetrics } from '@/utils/buildSessionMetrics.js';
-import { buildSessionTimelineSegments } from '@/utils/buildSessionTimelineSegments.js';
+import { buildSessionTimelineSegments, sessionHasOpenPause } from '@/utils/buildSessionTimelineSegments.js';
 import {
   formatTimelineDuration,
   getSessionEventColor,
@@ -494,6 +494,28 @@ describe('sessionEventTimelineChart helpers', () => {
     );
   });
 
+  it('fills gaps between same-turn sub-agent bars into one continuous track', () => {
+    const selected = mergeOverlappingSubAgentSegments(
+      bars([
+        [0, 10, 0],
+        [40, 50, 0],
+        [100, 120, 1],
+      ]),
+    );
+    assert.deepEqual(
+      selected.map(segment => ({
+        id: segment.id,
+        startMs: segment.startMs,
+        endMs: segment.endMs,
+        turnIndex: segment.turnIndex,
+      })),
+      [
+        { id: 's0', startMs: 0, endMs: 50, turnIndex: 0 },
+        { id: 's2', startMs: 100, endMs: 120, turnIndex: 1 },
+      ],
+    );
+  });
+
   it('scopes each sub-agent tooltip to its merged visible bar', () => {
     const subAgents = bars([
       [0, 10, 0],
@@ -599,6 +621,44 @@ describe('sessionEventTimelineChart helpers', () => {
         { startMs: 40, ids: ['later'] },
       ],
     );
+  });
+
+  it('does not merge coincident markers across different threads', () => {
+    const a = { ...marker('ar-a', 'approval', 100), threadId: 'sub-a' };
+    const b = { ...marker('ar-b', 'approval', 100), threadId: 'sub-b' };
+    const c = { ...marker('ar-c', 'approval', 102), threadId: 'sub-c' };
+    const groups = groupCoincidentTimelineMarkers([a, b, c], { toleranceMs: 5 });
+    assert.deepEqual(
+      groups.map(group => ({
+        threadId: group.segments[0]?.threadId,
+        ids: group.segments.map(segment => segment.id),
+      })),
+      [
+        { threadId: 'sub-a', ids: ['ar-a'] },
+        { threadId: 'sub-b', ids: ['ar-b'] },
+        { threadId: 'sub-c', ids: ['ar-c'] },
+      ],
+    );
+  });
+
+  it('packs each thread’s pause markers onto that thread’s chip only', () => {
+    const aReq = { ...marker('ar-a', 'approval', 100), threadId: 'sub-a', pauseOffsetMs: 0 };
+    const bReq = { ...marker('ar-b', 'approval', 100), threadId: 'sub-b', pauseOffsetMs: 0 };
+    const aOk = { ...marker('ua-a', 'approval', 100), threadId: 'sub-a', pauseOffsetMs: 900 };
+    const packed = packTimelineMarkers({
+      groups: groupCoincidentTimelineMarkers([aReq, bReq, aOk], { toleranceMs: 5 }),
+      pauseChips: [
+        { startMs: 100, endMs: 200, wallDurationMs: 1_000, threadId: 'sub-a' },
+        { startMs: 100, endMs: 200, wallDurationMs: 1_000, threadId: 'sub-b' },
+      ],
+    });
+    const onA = packed.filter(item => item.segments.every(segment => segment.threadId === 'sub-a'));
+    const onB = packed.filter(item => item.segments.every(segment => segment.threadId === 'sub-b'));
+    assert.equal(onA.length, 2);
+    assert.equal(onB.length, 1);
+    assert.equal(onA[0]?.x, 100);
+    assert.equal(onA[1]?.x, 190);
+    assert.equal(onB[0]?.x, 100);
   });
 
   it('maps clean active-time ticks around fixed turn separators', () => {
@@ -777,6 +837,138 @@ describe('sessionEventTimelineChart helpers', () => {
     assert.equal(packed.length, 2);
     assert.equal(packed[0]?.x, 50);
     assert.equal(packed[1]?.x, 140);
+  });
+
+  it('pins approval diamonds to the wait span edges', () => {
+    const required = {
+      ...marker('ar-b', 'approval', 40),
+      title: 'tool.approval_required',
+      threadId: 'sub-b',
+      pauseSpanId: 'ar-b-wait-span-sub-b',
+      pauseSpanEdge: 'start' as const,
+      pauseOffsetMs: 0,
+    };
+    const approved = {
+      ...marker('ua-b', 'approval', 40),
+      title: 'user.tool_approval',
+      threadId: 'sub-b',
+      pauseSpanId: 'ar-b-wait-span-sub-b',
+      pauseSpanEdge: 'end' as const,
+      pauseOffsetMs: 6_000,
+    };
+    const packed = packTimelineMarkers({
+      groups: groupCoincidentTimelineMarkers([required, approved], { toleranceMs: 5 }),
+      pauseChips: [
+        {
+          id: 'ar-b-wait-span-sub-b',
+          startMs: 10,
+          endMs: 400,
+          wallDurationMs: 17_000,
+          threadId: 'sub-b',
+        },
+      ],
+    });
+    const byId = new Map(packed.map(item => [item.segments[0]?.id, item.x]));
+    assert.equal(byId.get('ar-b'), 10);
+    assert.equal(byId.get('ua-b'), 400);
+  });
+
+  it('does not pull distant pre-chip markers onto the hatch', () => {
+    const distant = marker('distant', 'system', 0);
+    const packed = packTimelineMarkers({
+      groups: groupCoincidentTimelineMarkers([distant]),
+      pauseChips: [{ startMs: 200, endMs: 1_200, wallDurationMs: 60_000 }],
+    });
+    assert.equal(packed.length, 1);
+    assert.equal(packed[0]?.x, 0);
+  });
+
+  it('splits spanning bars so the pause hatch slot stays exclusive', () => {
+    const laidOut = applyPauseChipLayout({
+      pauseChipMs: 1_000,
+      segments: [
+        {
+          id: 'pause',
+          type: 'waiting_on_human',
+          title: 'turn.paused',
+          description: '',
+          startMs: 50,
+          endMs: 50,
+          turnIndex: 0,
+          threadId: 'main',
+          isPauseChip: true,
+          wallDurationMs: 120_000,
+        },
+        {
+          id: 'span',
+          type: 'tool_call',
+          title: 'tool.call',
+          description: 'long tool',
+          startMs: 0,
+          endMs: 100,
+          turnIndex: 0,
+          threadId: 'main',
+        },
+        {
+          id: 'after',
+          type: 'model',
+          title: 'model.message',
+          description: '',
+          startMs: 50,
+          endMs: 80,
+          turnIndex: 0,
+          threadId: 'main',
+        },
+      ],
+    });
+    assert.deepEqual(
+      laidOut.map(segment => ({ id: segment.id, startMs: segment.startMs, endMs: segment.endMs })),
+      [
+        { id: 'pause', startMs: 50, endMs: 1_050 },
+        // Pre ends at chip start; post starts after hatch — no draw-through.
+        { id: 'span@pre:50', startMs: 0, endMs: 50 },
+        { id: 'span@post:50', startMs: 1_050, endMs: 1_100 },
+        { id: 'after', startMs: 1_050, endMs: 1_080 },
+      ],
+    );
+  });
+
+  it('lets a wait span cover a compression chip instead of starting after a gap', () => {
+    const laidOut = applyPauseChipLayout({
+      pauseChipMs: 1_000,
+      segments: [
+        {
+          id: 'chip',
+          type: 'waiting_on_human',
+          title: 'turn.paused',
+          description: '',
+          startMs: 50,
+          endMs: 50,
+          turnIndex: 0,
+          threadId: 'sub-b',
+          isPauseChip: true,
+          isCompressionOnly: true,
+          wallDurationMs: 7_000,
+        },
+        {
+          id: 'wait',
+          type: 'waiting_on_human',
+          title: 'thread.paused',
+          description: '',
+          startMs: 50,
+          endMs: 200,
+          turnIndex: 0,
+          threadId: 'sub-b',
+          isPauseSpan: true,
+          wallDurationMs: 12_000,
+        },
+      ],
+    });
+    const span = laidOut.find(segment => segment.id === 'wait');
+    assert.ok(span != null);
+    // Starts on the chip, ends past it — the 32px slot is hatch, not a hole.
+    assert.equal(span.startMs, 50);
+    assert.equal(span.endMs, 1_200);
   });
 
   it('expands pause chips in chart space and shifts later bars', () => {
@@ -999,6 +1191,2011 @@ describe('pause chips in buildSessionTimelineSegments', () => {
     assert.equal(segments.filter(segment => segment.isPauseChip).length, 0);
   });
 
+  it('attributes a pause chip to the sub-agent thread that required approval', () => {
+    const subThread = 'sub-thread-1';
+    const turns = buildSessionTurnViews([
+      created({ turnId: 't1', createdAt: '2026-01-01T00:00:00.000Z' }),
+      {
+        turnId: 't1',
+        event: {
+          type: 'model.message',
+          id: 'm-main',
+          content: '',
+          toolCalls: [
+            {
+              id: 'call-sub',
+              type: 'function',
+              function: { name: 'create_sub_agent', arguments: '{"name":"worker"}' },
+            },
+          ],
+          createdAt: '2026-01-01T00:00:01.000Z',
+          threadId: 'main',
+          finishReason: 'tool_calls',
+        },
+      },
+      {
+        turnId: 't1',
+        event: {
+          type: 'thread.created',
+          id: 'tc1',
+          title: 'worker',
+          createdAt: '2026-01-01T00:00:02.000Z',
+          threadId: subThread,
+          parent: { threadId: 'main', toolCallId: 'call-sub' },
+        },
+      },
+      {
+        turnId: 't1',
+        event: {
+          type: 'model.message',
+          id: 'm-sub',
+          content: '',
+          toolCalls: [
+            {
+              id: 'call-1',
+              type: 'function',
+              function: {
+                name: 'call_tool',
+                arguments: JSON.stringify({ mcp_server: 'linear', tool_name: 'delete_comment', input: {} }),
+              },
+            },
+          ],
+          createdAt: '2026-01-01T00:00:03.000Z',
+          threadId: subThread,
+          finishReason: 'tool_calls',
+        },
+      },
+      {
+        turnId: 't1',
+        event: {
+          type: 'tool.approval_required',
+          id: 'ar1',
+          createdAt: '2026-01-01T00:00:03.001Z',
+          threadId: subThread,
+          toolCalls: [{ id: 'call-1', sourceEventId: 'm-sub' }],
+        },
+      },
+      {
+        turnId: 't1',
+        event: {
+          type: 'turn.update',
+          id: 'tu-paused',
+          state: { status: 'paused' },
+          createdAt: '2026-01-01T00:00:03.002Z',
+          threadId: null,
+        },
+      },
+      {
+        turnId: 't1',
+        event: {
+          type: 'user.tool_approval',
+          id: 'ua1',
+          toolCallId: 'call-1',
+          approval: { status: 'allow' },
+          createdAt: '2026-01-01T00:00:10.000Z',
+          threadId: subThread,
+        },
+      },
+      {
+        turnId: 't1',
+        event: {
+          type: 'turn.update',
+          id: 'tu-running',
+          state: { status: 'running' },
+          createdAt: '2026-01-01T00:00:10.100Z',
+          threadId: null,
+        },
+      },
+    ]);
+    const segments = buildSessionTimelineSegments(turns);
+    const pause = segments.find(segment => segment.isPauseChip);
+    assert.equal(pause?.threadId, subThread);
+    const approval = segments.find(segment => segment.id === 'ar1');
+    assert.equal(approval?.threadId, subThread);
+  });
+
+  it('emits one pause chip per sub-agent thread in a shared pause window', () => {
+    const subA = 'sub-a';
+    const subB = 'sub-b';
+    const turns = buildSessionTurnViews([
+      created({ turnId: 't1', createdAt: '2026-01-01T00:00:00.000Z' }),
+      {
+        turnId: 't1',
+        event: {
+          type: 'model.message',
+          id: 'm-main',
+          content: '',
+          toolCalls: [
+            {
+              id: 'call-a',
+              type: 'function',
+              function: { name: 'create_sub_agent', arguments: '{"name":"a"}' },
+            },
+            {
+              id: 'call-b',
+              type: 'function',
+              function: { name: 'create_sub_agent', arguments: '{"name":"b"}' },
+            },
+          ],
+          createdAt: '2026-01-01T00:00:01.000Z',
+          threadId: 'main',
+          finishReason: 'tool_calls',
+        },
+      },
+      {
+        turnId: 't1',
+        event: {
+          type: 'thread.created',
+          id: 'tc-a',
+          title: 'a',
+          createdAt: '2026-01-01T00:00:02.000Z',
+          threadId: subA,
+          parent: { threadId: 'main', toolCallId: 'call-a' },
+        },
+      },
+      {
+        turnId: 't1',
+        event: {
+          type: 'thread.created',
+          id: 'tc-b',
+          title: 'b',
+          createdAt: '2026-01-01T00:00:02.000Z',
+          threadId: subB,
+          parent: { threadId: 'main', toolCallId: 'call-b' },
+        },
+      },
+      {
+        turnId: 't1',
+        event: {
+          type: 'tool.approval_required',
+          id: 'ar-a',
+          createdAt: '2026-01-01T00:00:03.000Z',
+          threadId: subA,
+          toolCalls: [{ id: 'call-tool-a', sourceEventId: 'm-a' }],
+        },
+      },
+      {
+        turnId: 't1',
+        event: {
+          type: 'tool.approval_required',
+          id: 'ar-b',
+          createdAt: '2026-01-01T00:00:03.001Z',
+          threadId: subB,
+          toolCalls: [{ id: 'call-tool-b', sourceEventId: 'm-b' }],
+        },
+      },
+      {
+        turnId: 't1',
+        event: {
+          type: 'turn.update',
+          id: 'tu-paused',
+          state: { status: 'paused' },
+          createdAt: '2026-01-01T00:00:03.002Z',
+          threadId: null,
+        },
+      },
+      {
+        turnId: 't1',
+        event: {
+          type: 'user.tool_approval',
+          id: 'ua-a',
+          toolCallId: 'call-tool-a',
+          approval: { status: 'allow' },
+          createdAt: '2026-01-01T00:00:10.000Z',
+          threadId: subA,
+        },
+      },
+      {
+        turnId: 't1',
+        event: {
+          type: 'turn.update',
+          id: 'tu-running',
+          state: { status: 'running' },
+          createdAt: '2026-01-01T00:00:10.100Z',
+          threadId: null,
+        },
+      },
+    ]);
+    const pauses = buildSessionTimelineSegments(turns).filter(segment => segment.isPauseChip);
+    assert.deepEqual(pauses.map(segment => segment.threadId).sort(), [subA, subB].sort());
+  });
+
+  it('keeps pause hatch when sub-agent resumes and works after the pause', () => {
+    const subA = 'sub-post-pause-work';
+    const turns = buildSessionTurnViews([
+      created({ turnId: 't1', createdAt: '2026-01-01T00:00:00.000Z' }),
+      {
+        turnId: 't1',
+        event: {
+          type: 'model.message',
+          id: 'm-main',
+          content: '',
+          toolCalls: [
+            {
+              id: 'call-a',
+              type: 'function',
+              function: { name: 'create_sub_agent', arguments: '{"name":"a"}' },
+            },
+          ],
+          createdAt: '2026-01-01T00:00:01.000Z',
+          threadId: 'main',
+          finishReason: 'tool_calls',
+        },
+      },
+      {
+        turnId: 't1',
+        event: {
+          type: 'thread.created',
+          id: 'tc-a',
+          title: 'a',
+          createdAt: '2026-01-01T00:00:02.000Z',
+          threadId: subA,
+          parent: { threadId: 'main', toolCallId: 'call-a' },
+        },
+      },
+      {
+        turnId: 't1',
+        event: {
+          type: 'model.message',
+          id: 'm-sub',
+          content: '',
+          toolCalls: [
+            {
+              id: 'call-tool-a',
+              type: 'function',
+              function: {
+                name: 'call_tool',
+                arguments: JSON.stringify({ mcp_server: 'linear', tool_name: 'save_comment', input: {} }),
+              },
+            },
+          ],
+          createdAt: '2026-01-01T00:00:03.000Z',
+          threadId: subA,
+          finishReason: 'tool_calls',
+        },
+      },
+      {
+        turnId: 't1',
+        event: {
+          type: 'tool.approval_required',
+          id: 'ar-a',
+          createdAt: '2026-01-01T00:00:03.001Z',
+          threadId: subA,
+          toolCalls: [{ id: 'call-tool-a', sourceEventId: 'm-sub' }],
+        },
+      },
+      {
+        turnId: 't1',
+        event: {
+          type: 'turn.update',
+          id: 'tu-paused',
+          state: { status: 'paused' },
+          createdAt: '2026-01-01T00:00:03.002Z',
+          threadId: null,
+        },
+      },
+      {
+        turnId: 't1',
+        event: {
+          type: 'user.tool_approval',
+          id: 'ua-a',
+          toolCallId: 'call-tool-a',
+          approval: { status: 'allow' },
+          createdAt: '2026-01-01T00:00:10.000Z',
+          threadId: subA,
+        },
+      },
+      {
+        turnId: 't1',
+        event: {
+          type: 'turn.update',
+          id: 'tu-running',
+          state: { status: 'running' },
+          createdAt: '2026-01-01T00:00:10.100Z',
+          threadId: null,
+        },
+      },
+      {
+        turnId: 't1',
+        event: {
+          type: 'tool.response',
+          id: 'tr-a',
+          toolCallId: 'call-tool-a',
+          content: '{"ok":true}',
+          createdAt: '2026-01-01T00:00:10.200Z',
+          threadId: subA,
+        },
+      },
+      {
+        turnId: 't1',
+        event: {
+          type: 'thread.done',
+          id: 'td-a',
+          title: 'a',
+          createdAt: '2026-01-01T00:00:10.300Z',
+          threadId: subA,
+          state: { status: 'completed' },
+        },
+      },
+    ]);
+    const segments = buildSessionTimelineSegments(turns);
+    // Chip is compression-only; painted hatch is the per-thread wait span.
+    const chip = segments.find(segment => segment.isPauseChip && segment.threadId === subA);
+    assert.ok(chip != null);
+    assert.equal(chip.isCompressionOnly, true);
+    const span = segments.find(segment => segment.isPauseSpan && segment.threadId === subA);
+    assert.ok(span != null);
+    // Completed after resume — hatch stays (they were paused, then worked).
+    assert.equal(span.isCompressionOnly, undefined);
+  });
+
+  it('hides pause hatch when sub-agent completes during the pause (no resume work)', () => {
+    const subA = 'sub-done-during-pause';
+    const turns = buildSessionTurnViews([
+      created({ turnId: 't1', createdAt: '2026-01-01T00:00:00.000Z' }),
+      {
+        turnId: 't1',
+        event: {
+          type: 'model.message',
+          id: 'm-main',
+          content: '',
+          toolCalls: [
+            {
+              id: 'call-a',
+              type: 'function',
+              function: { name: 'create_sub_agent', arguments: '{"name":"a"}' },
+            },
+          ],
+          createdAt: '2026-01-01T00:00:01.000Z',
+          threadId: 'main',
+          finishReason: 'tool_calls',
+        },
+      },
+      {
+        turnId: 't1',
+        event: {
+          type: 'thread.created',
+          id: 'tc-a',
+          title: 'a',
+          createdAt: '2026-01-01T00:00:02.000Z',
+          threadId: subA,
+          parent: { threadId: 'main', toolCallId: 'call-a' },
+        },
+      },
+      {
+        turnId: 't1',
+        event: {
+          type: 'tool.approval_required',
+          id: 'ar-a',
+          createdAt: '2026-01-01T00:00:03.000Z',
+          threadId: subA,
+          toolCalls: [{ id: 'call-tool-a', sourceEventId: 'm-a' }],
+        },
+      },
+      {
+        turnId: 't1',
+        event: {
+          type: 'turn.update',
+          id: 'tu-paused',
+          state: { status: 'paused' },
+          createdAt: '2026-01-01T00:00:03.002Z',
+          threadId: null,
+        },
+      },
+      // Completes while turn is still paused (cancelled / abandoned wait).
+      {
+        turnId: 't1',
+        event: {
+          type: 'thread.done',
+          id: 'td-a',
+          title: 'a',
+          createdAt: '2026-01-01T00:00:05.000Z',
+          threadId: subA,
+          state: { status: 'completed' },
+        },
+      },
+      {
+        turnId: 't1',
+        event: {
+          type: 'turn.done',
+          id: 'td-turn',
+          state: {
+            status: 'cancelled',
+            reason: 'cancelled-for-next-turn',
+            completedAt: '2026-01-01T00:00:20.000Z',
+          },
+          createdAt: '2026-01-01T00:00:20.000Z',
+          threadId: null,
+        },
+      },
+    ]);
+    const pause = buildSessionTimelineSegments(turns).find(segment => segment.isPauseChip && segment.threadId === subA);
+    assert.ok(pause != null);
+    assert.equal(pause.isCompressionOnly, true);
+  });
+
+  it('hides terminal pause span when sub-agent completes with no later work', () => {
+    const subA = 'sub-span-terminal';
+    const subB = 'sub-span-sibling';
+    const turns = buildSessionTurnViews([
+      created({ turnId: 't1', createdAt: '2026-01-01T00:00:00.000Z' }),
+      {
+        turnId: 't1',
+        event: {
+          type: 'model.message',
+          id: 'm-main',
+          content: '',
+          toolCalls: [
+            {
+              id: 'call-a',
+              type: 'function',
+              function: { name: 'create_sub_agent', arguments: '{"name":"a"}' },
+            },
+            {
+              id: 'call-b',
+              type: 'function',
+              function: { name: 'create_sub_agent', arguments: '{"name":"b"}' },
+            },
+          ],
+          createdAt: '2026-01-01T00:00:01.000Z',
+          threadId: 'main',
+          finishReason: 'tool_calls',
+        },
+      },
+      {
+        turnId: 't1',
+        event: {
+          type: 'thread.created',
+          id: 'tc-a',
+          title: 'a',
+          createdAt: '2026-01-01T00:00:02.000Z',
+          threadId: subA,
+          parent: { threadId: 'main', toolCallId: 'call-a' },
+        },
+      },
+      {
+        turnId: 't1',
+        event: {
+          type: 'thread.created',
+          id: 'tc-b',
+          title: 'b',
+          createdAt: '2026-01-01T00:00:02.100Z',
+          threadId: subB,
+          parent: { threadId: 'main', toolCallId: 'call-b' },
+        },
+      },
+      {
+        turnId: 't1',
+        event: {
+          type: 'tool.approval_required',
+          id: 'ar-a',
+          createdAt: '2026-01-01T00:00:03.000Z',
+          threadId: subA,
+          toolCalls: [{ id: 'call-tool-a', sourceEventId: 'm-a' }],
+        },
+      },
+      {
+        turnId: 't1',
+        event: {
+          type: 'tool.approval_required',
+          id: 'ar-b',
+          createdAt: '2026-01-01T00:00:03.100Z',
+          threadId: subB,
+          toolCalls: [{ id: 'call-tool-b', sourceEventId: 'm-b' }],
+        },
+      },
+      {
+        turnId: 't1',
+        event: {
+          type: 'turn.update',
+          id: 'tu-paused',
+          state: { status: 'paused' },
+          createdAt: '2026-01-01T00:00:03.200Z',
+          threadId: null,
+        },
+      },
+      {
+        turnId: 't1',
+        event: {
+          type: 'user.tool_approval',
+          id: 'ua-b',
+          toolCallId: 'call-tool-b',
+          approval: { status: 'allow' },
+          createdAt: '2026-01-01T00:00:10.000Z',
+          threadId: subB,
+        },
+      },
+      {
+        turnId: 't1',
+        event: {
+          type: 'turn.update',
+          id: 'tu-running',
+          state: { status: 'running' },
+          createdAt: '2026-01-01T00:00:10.100Z',
+          threadId: null,
+        },
+      },
+      // subA never approved — completes while sibling runs (stranded wait → span).
+      {
+        turnId: 't1',
+        event: {
+          type: 'thread.done',
+          id: 'td-a',
+          title: 'a',
+          createdAt: '2026-01-01T00:00:15.000Z',
+          threadId: subA,
+          state: { status: 'completed' },
+        },
+      },
+    ]);
+    const span = buildSessionTimelineSegments(turns).find(segment => segment.isPauseSpan && segment.threadId === subA);
+    assert.ok(span != null);
+    assert.equal(span.isCompressionOnly, true);
+  });
+
+  it('splits model activity around a pause so bars do not occupy the hatch interval', () => {
+    const subThread = 'sub-split-pause';
+    const turns = buildSessionTurnViews([
+      created({ turnId: 't1', createdAt: '2026-01-01T00:00:00.000Z' }),
+      {
+        turnId: 't1',
+        event: {
+          type: 'model.message',
+          id: 'm-main',
+          content: '',
+          toolCalls: [
+            {
+              id: 'call-sub',
+              type: 'function',
+              function: { name: 'create_sub_agent', arguments: '{"name":"worker"}' },
+            },
+          ],
+          createdAt: '2026-01-01T00:00:01.000Z',
+          threadId: 'main',
+          finishReason: 'tool_calls',
+        },
+      },
+      {
+        turnId: 't1',
+        event: {
+          type: 'thread.created',
+          id: 'tc-1',
+          title: 'worker',
+          createdAt: '2026-01-01T00:00:02.000Z',
+          threadId: subThread,
+          parent: { threadId: 'main', toolCallId: 'call-sub' },
+        },
+      },
+      {
+        turnId: 't1',
+        event: {
+          type: 'model.message',
+          id: 'm-before',
+          content: 'thinking',
+          toolCalls: [],
+          createdAt: '2026-01-01T00:00:03.000Z',
+          threadId: subThread,
+          finishReason: 'stop',
+        },
+      },
+      {
+        turnId: 't1',
+        event: {
+          type: 'tool.approval_required',
+          id: 'ar-1',
+          createdAt: '2026-01-01T00:00:03.500Z',
+          threadId: subThread,
+          toolCalls: [{ id: 'call-x', sourceEventId: 'm-before' }],
+        },
+      },
+      {
+        turnId: 't1',
+        event: {
+          type: 'turn.update',
+          id: 'tu-paused',
+          state: { status: 'paused' },
+          createdAt: '2026-01-01T00:00:03.502Z',
+          threadId: null,
+        },
+      },
+      {
+        turnId: 't1',
+        event: {
+          type: 'user.tool_approval',
+          id: 'ua-1',
+          toolCallId: 'call-x',
+          approval: { status: 'allow' },
+          createdAt: '2026-01-01T00:00:10.000Z',
+          threadId: subThread,
+        },
+      },
+      {
+        turnId: 't1',
+        event: {
+          type: 'turn.update',
+          id: 'tu-running',
+          state: { status: 'running' },
+          createdAt: '2026-01-01T00:00:10.100Z',
+          threadId: null,
+        },
+      },
+      {
+        turnId: 't1',
+        event: {
+          type: 'model.message',
+          id: 'm-after',
+          content: 'done',
+          toolCalls: [],
+          createdAt: '2026-01-01T00:00:11.000Z',
+          threadId: subThread,
+          finishReason: 'stop',
+        },
+      },
+    ]);
+    const segments = buildSessionTimelineSegments(turns);
+    const pause = segments.find(segment => segment.isPauseChip && segment.threadId === subThread);
+    assert.ok(pause != null);
+    const activity = segments.filter(
+      segment =>
+        segment.threadId === subThread &&
+        !segment.isPauseChip &&
+        !segment.isPauseSpan &&
+        !segment.isMarker &&
+        segment.type !== 'sub_agent',
+    );
+    for (const bar of activity) {
+      const overlapsPause = bar.startMs < pause.endMs && bar.endMs > pause.startMs;
+      assert.equal(overlapsPause, false, `${bar.id} overlaps pause`);
+    }
+    const laidOut = applyPauseChipLayout({ segments, pauseChipMs: 5_000 });
+    const pauseLaid = laidOut.find(segment => segment.isPauseChip && segment.threadId === subThread);
+    assert.ok(pauseLaid != null);
+    const activityLaid = laidOut.filter(
+      segment =>
+        segment.threadId === subThread &&
+        !segment.isPauseChip &&
+        !segment.isPauseSpan &&
+        !segment.isMarker &&
+        segment.type !== 'sub_agent',
+    );
+    for (const bar of activityLaid) {
+      const overlapsHatch = bar.startMs < pauseLaid.endMs && bar.endMs > pauseLaid.startMs;
+      assert.equal(overlapsHatch, false, `${bar.id} overlaps hatch after layout`);
+    }
+  });
+
+  it('abuts sub-agent activity to the pause chip (no gap before hatch)', () => {
+    const subThread = 'sub-abut';
+    const turns = buildSessionTurnViews([
+      created({ turnId: 't1', createdAt: '2026-01-01T00:00:00.000Z' }),
+      {
+        turnId: 't1',
+        event: {
+          type: 'model.message',
+          id: 'm-main',
+          content: '',
+          toolCalls: [
+            {
+              id: 'call-sub',
+              type: 'function',
+              function: { name: 'create_sub_agent', arguments: '{"name":"worker"}' },
+            },
+          ],
+          createdAt: '2026-01-01T00:00:01.000Z',
+          threadId: 'main',
+          finishReason: 'tool_calls',
+        },
+      },
+      {
+        turnId: 't1',
+        event: {
+          type: 'thread.created',
+          id: 'tc-1',
+          title: 'worker',
+          createdAt: '2026-01-01T00:00:02.000Z',
+          threadId: subThread,
+          parent: { threadId: 'main', toolCallId: 'call-sub' },
+        },
+      },
+      {
+        turnId: 't1',
+        event: {
+          type: 'model.message',
+          id: 'm-sub-prev',
+          content: '',
+          toolCalls: [
+            {
+              id: 'call-list',
+              type: 'function',
+              function: { name: 'list_tools', arguments: '{}' },
+            },
+          ],
+          createdAt: '2026-01-01T00:00:03.000Z',
+          threadId: subThread,
+          finishReason: 'tool_calls',
+        },
+      },
+      {
+        turnId: 't1',
+        event: {
+          type: 'tool.response',
+          id: 'tr-list',
+          toolCallId: 'call-list',
+          content: 'ok',
+          createdAt: '2026-01-01T00:00:04.000Z',
+          threadId: subThread,
+        },
+      },
+      {
+        turnId: 't1',
+        event: {
+          type: 'model.message',
+          id: 'm-sub-approve',
+          content: '',
+          toolCalls: [
+            {
+              id: 'call-delete',
+              type: 'function',
+              function: {
+                name: 'call_tool',
+                arguments: JSON.stringify({ mcp_server: 'linear', tool_name: 'delete_comment', input: {} }),
+              },
+            },
+          ],
+          createdAt: '2026-01-01T00:00:05.000Z',
+          threadId: subThread,
+          finishReason: 'tool_calls',
+        },
+      },
+      {
+        turnId: 't1',
+        event: {
+          type: 'tool.approval_required',
+          id: 'ar-1',
+          createdAt: '2026-01-01T00:00:05.500Z',
+          threadId: subThread,
+          toolCalls: [{ id: 'call-delete', sourceEventId: 'm-sub-approve' }],
+        },
+      },
+      {
+        turnId: 't1',
+        event: {
+          type: 'turn.update',
+          id: 'tu-paused',
+          state: { status: 'paused' },
+          createdAt: '2026-01-01T00:00:05.502Z',
+          threadId: null,
+        },
+      },
+      {
+        turnId: 't1',
+        event: {
+          type: 'user.tool_approval',
+          id: 'ua-1',
+          toolCallId: 'call-delete',
+          approval: { status: 'allow' },
+          createdAt: '2026-01-01T00:00:12.000Z',
+          threadId: subThread,
+        },
+      },
+      {
+        turnId: 't1',
+        event: {
+          type: 'turn.update',
+          id: 'tu-running',
+          state: { status: 'running' },
+          createdAt: '2026-01-01T00:00:12.100Z',
+          threadId: null,
+        },
+      },
+    ]);
+    const segments = buildSessionTimelineSegments(turns);
+    // Painted hatch is the wait span (starts at approval_required); chip is layout-only.
+    const span = segments.find(segment => segment.isPauseSpan && segment.threadId === subThread);
+    const modelBar = segments.find(segment => segment.id === 'm-sub-approve');
+    assert.ok(span != null);
+    assert.ok(modelBar != null);
+    assert.equal(modelBar.endMs, span.startMs);
+    // After chip expansion the bar must still meet the hatch (no pixel gap).
+    const laidOut = applyPauseChipLayout({ segments, pauseChipMs: 5_000 });
+    const spanLaid = laidOut.find(segment => segment.isPauseSpan && segment.threadId === subThread);
+    const modelLaid = laidOut.find(segment => segment.id === 'm-sub-approve');
+    assert.ok(spanLaid != null);
+    assert.ok(modelLaid != null);
+    assert.equal(modelLaid.endMs, spanLaid.startMs);
+  });
+
+  it('fills hatch on a still-waiting sub-agent while the turn runs after a sibling approve', () => {
+    const subA = 'sub-first';
+    const subB = 'sub-stranded';
+    const turns = buildSessionTurnViews([
+      created({ turnId: 't1', createdAt: '2026-01-01T00:00:00.000Z' }),
+      {
+        turnId: 't1',
+        event: {
+          type: 'model.message',
+          id: 'm-main',
+          content: '',
+          toolCalls: [
+            {
+              id: 'call-a',
+              type: 'function',
+              function: { name: 'create_sub_agent', arguments: '{"name":"a"}' },
+            },
+            {
+              id: 'call-b',
+              type: 'function',
+              function: { name: 'create_sub_agent', arguments: '{"name":"b"}' },
+            },
+          ],
+          createdAt: '2026-01-01T00:00:01.000Z',
+          threadId: 'main',
+          finishReason: 'tool_calls',
+        },
+      },
+      {
+        turnId: 't1',
+        event: {
+          type: 'thread.created',
+          id: 'tc-a',
+          title: 'a',
+          createdAt: '2026-01-01T00:00:02.000Z',
+          threadId: subA,
+          parent: { threadId: 'main', toolCallId: 'call-a' },
+        },
+      },
+      {
+        turnId: 't1',
+        event: {
+          type: 'thread.created',
+          id: 'tc-b',
+          title: 'b',
+          createdAt: '2026-01-01T00:00:02.000Z',
+          threadId: subB,
+          parent: { threadId: 'main', toolCallId: 'call-b' },
+        },
+      },
+      {
+        turnId: 't1',
+        event: {
+          type: 'tool.approval_required',
+          id: 'ar-a',
+          createdAt: '2026-01-01T00:00:03.000Z',
+          threadId: subA,
+          toolCalls: [{ id: 'call-tool-a', sourceEventId: 'm-a' }],
+        },
+      },
+      {
+        turnId: 't1',
+        event: {
+          type: 'tool.approval_required',
+          id: 'ar-b',
+          createdAt: '2026-01-01T00:00:03.100Z',
+          threadId: subB,
+          toolCalls: [{ id: 'call-tool-b', sourceEventId: 'm-b' }],
+        },
+      },
+      {
+        turnId: 't1',
+        event: {
+          type: 'turn.update',
+          id: 'tu-paused-1',
+          state: { status: 'paused' },
+          createdAt: '2026-01-01T00:00:03.200Z',
+          threadId: null,
+        },
+      },
+      // Approve only subA — turn runs; subB still waiting.
+      {
+        turnId: 't1',
+        event: {
+          type: 'user.tool_approval',
+          id: 'ua-a',
+          toolCallId: 'call-tool-a',
+          approval: { status: 'allow' },
+          createdAt: '2026-01-01T00:00:10.000Z',
+          threadId: subA,
+        },
+      },
+      {
+        turnId: 't1',
+        event: {
+          type: 'turn.update',
+          id: 'tu-running-1',
+          state: { status: 'running' },
+          createdAt: '2026-01-01T00:00:10.100Z',
+          threadId: null,
+        },
+      },
+      {
+        turnId: 't1',
+        event: {
+          type: 'tool.response',
+          id: 'tr-a',
+          toolCallId: 'call-tool-a',
+          content: '{"ok":true}',
+          createdAt: '2026-01-01T00:00:15.000Z',
+          threadId: subA,
+        },
+      },
+      {
+        turnId: 't1',
+        event: {
+          type: 'thread.done',
+          id: 'td-a',
+          title: 'a',
+          createdAt: '2026-01-01T00:00:16.000Z',
+          threadId: subA,
+          state: { status: 'completed' },
+        },
+      },
+      // Later pause for subB only.
+      {
+        turnId: 't1',
+        event: {
+          type: 'turn.update',
+          id: 'tu-paused-2',
+          state: { status: 'paused' },
+          createdAt: '2026-01-01T00:00:20.000Z',
+          threadId: null,
+        },
+      },
+      {
+        turnId: 't1',
+        event: {
+          type: 'user.tool_approval',
+          id: 'ua-b',
+          toolCallId: 'call-tool-b',
+          approval: { status: 'allow' },
+          createdAt: '2026-01-01T00:00:25.000Z',
+          threadId: subB,
+        },
+      },
+      {
+        turnId: 't1',
+        event: {
+          type: 'turn.update',
+          id: 'tu-running-2',
+          state: { status: 'running' },
+          createdAt: '2026-01-01T00:00:25.100Z',
+          threadId: null,
+        },
+      },
+    ]);
+    const segments = buildSessionTimelineSegments(turns);
+    const spanB = segments.find(segment => segment.isPauseSpan && segment.threadId === subB);
+    assert.ok(spanB != null);
+    // Full approval wait (paused + running), not only turn-running slices.
+    assert.ok(spanB.endMs > spanB.startMs);
+    assert.ok((spanB.wallDurationMs ?? 0) >= 20_000);
+    // Chip on B is layout-only; span paints the hatch.
+    const chipB = segments.find(segment => segment.isPauseChip && segment.threadId === subB);
+    assert.ok(chipB != null);
+    assert.equal(chipB.isCompressionOnly, true);
+    // A also gets a wait span for its own approval→approve window.
+    assert.equal(segments.filter(segment => segment.isPauseSpan && segment.threadId === subA).length, 1);
+  });
+
+  it('starts each sub-agent pause hatch at that thread approval_required', () => {
+    const subEarly = 'sub-early-approval';
+    const subLate = 'sub-late-approval';
+    const turns = buildSessionTurnViews([
+      created({ turnId: 't1', createdAt: '2026-01-01T00:00:00.000Z' }),
+      {
+        turnId: 't1',
+        event: {
+          type: 'model.message',
+          id: 'm-main',
+          content: '',
+          toolCalls: [
+            {
+              id: 'call-early',
+              type: 'function',
+              function: { name: 'create_sub_agent', arguments: '{"name":"early"}' },
+            },
+            {
+              id: 'call-late',
+              type: 'function',
+              function: { name: 'create_sub_agent', arguments: '{"name":"late"}' },
+            },
+          ],
+          createdAt: '2026-01-01T00:00:01.000Z',
+          threadId: 'main',
+          finishReason: 'tool_calls',
+        },
+      },
+      {
+        turnId: 't1',
+        event: {
+          type: 'thread.created',
+          id: 'tc-early',
+          title: 'early',
+          createdAt: '2026-01-01T00:00:02.000Z',
+          threadId: subEarly,
+          parent: { threadId: 'main', toolCallId: 'call-early' },
+        },
+      },
+      {
+        turnId: 't1',
+        event: {
+          type: 'thread.created',
+          id: 'tc-late',
+          title: 'late',
+          createdAt: '2026-01-01T00:00:02.000Z',
+          threadId: subLate,
+          parent: { threadId: 'main', toolCallId: 'call-late' },
+        },
+      },
+      {
+        turnId: 't1',
+        event: {
+          type: 'model.message',
+          id: 'm-early',
+          content: 'early plan',
+          toolCalls: [{ id: 'tool-early', type: 'function', function: { name: 'x', arguments: '{}' } }],
+          createdAt: '2026-01-01T00:00:03.000Z',
+          threadId: subEarly,
+          finishReason: 'tool_calls',
+        },
+      },
+      {
+        turnId: 't1',
+        event: {
+          type: 'tool.approval_required',
+          id: 'ar-early',
+          createdAt: '2026-01-01T00:00:03.100Z',
+          threadId: subEarly,
+          toolCalls: [{ id: 'tool-early', sourceEventId: 'm-early' }],
+        },
+      },
+      {
+        turnId: 't1',
+        event: {
+          type: 'model.message',
+          id: 'm-late',
+          content: 'late plan',
+          toolCalls: [{ id: 'tool-late', type: 'function', function: { name: 'x', arguments: '{}' } }],
+          createdAt: '2026-01-01T00:00:05.000Z',
+          threadId: subLate,
+          finishReason: 'tool_calls',
+        },
+      },
+      {
+        turnId: 't1',
+        event: {
+          type: 'tool.approval_required',
+          id: 'ar-late',
+          createdAt: '2026-01-01T00:00:05.100Z',
+          threadId: subLate,
+          toolCalls: [{ id: 'tool-late', sourceEventId: 'm-late' }],
+        },
+      },
+      {
+        turnId: 't1',
+        event: {
+          type: 'turn.update',
+          id: 'tu-paused',
+          state: { status: 'paused' },
+          createdAt: '2026-01-01T00:00:05.200Z',
+          threadId: null,
+        },
+      },
+      {
+        turnId: 't1',
+        event: {
+          type: 'user.tool_approval',
+          id: 'ua-early',
+          toolCallId: 'tool-early',
+          approval: { status: 'allow' },
+          createdAt: '2026-01-01T00:00:20.000Z',
+          threadId: subEarly,
+        },
+      },
+      {
+        turnId: 't1',
+        event: {
+          type: 'user.tool_approval',
+          id: 'ua-late',
+          toolCallId: 'tool-late',
+          approval: { status: 'allow' },
+          createdAt: '2026-01-01T00:00:20.000Z',
+          threadId: subLate,
+        },
+      },
+      {
+        turnId: 't1',
+        event: {
+          type: 'turn.update',
+          id: 'tu-running',
+          state: { status: 'running' },
+          createdAt: '2026-01-01T00:00:20.100Z',
+          threadId: null,
+        },
+      },
+    ]);
+
+    const segments = buildSessionTimelineSegments(turns);
+    const spanEarly = segments.find(segment => segment.isPauseSpan && segment.threadId === subEarly);
+    const spanLate = segments.find(segment => segment.isPauseSpan && segment.threadId === subLate);
+    assert.ok(spanEarly != null);
+    assert.ok(spanLate != null);
+    // Late approval_required → hatch starts later; shorter wall wait.
+    assert.ok(spanLate.startMs > spanEarly.startMs);
+    assert.ok((spanLate.wallDurationMs ?? 0) < (spanEarly.wallDurationMs ?? 0));
+    // Late agent keeps model time until its own approval (not clipped to the early one).
+    const lateModel = segments.find(
+      segment => segment.threadId === subLate && segment.type === 'model' && segment.description === 'late plan',
+    );
+    assert.ok(lateModel != null);
+    assert.ok(lateModel.endMs >= spanLate.startMs - 1);
+  });
+
+  it('keeps one continuous wait span (no chip→gap→span hole) while a sibling runs', () => {
+    const subA = 'sub-cont-a';
+    const subB = 'sub-cont-b';
+    const turns = buildSessionTurnViews([
+      created({ turnId: 't1', createdAt: '2026-01-01T00:00:00.000Z' }),
+      {
+        turnId: 't1',
+        event: {
+          type: 'model.message',
+          id: 'm-main',
+          content: '',
+          toolCalls: [
+            {
+              id: 'call-a',
+              type: 'function',
+              function: { name: 'create_sub_agent', arguments: '{"name":"a"}' },
+            },
+            {
+              id: 'call-b',
+              type: 'function',
+              function: { name: 'create_sub_agent', arguments: '{"name":"b"}' },
+            },
+          ],
+          createdAt: '2026-01-01T00:00:01.000Z',
+          threadId: 'main',
+          finishReason: 'tool_calls',
+        },
+      },
+      {
+        turnId: 't1',
+        event: {
+          type: 'thread.created',
+          id: 'tc-a',
+          title: 'a',
+          createdAt: '2026-01-01T00:00:02.000Z',
+          threadId: subA,
+          parent: { threadId: 'main', toolCallId: 'call-a' },
+        },
+      },
+      {
+        turnId: 't1',
+        event: {
+          type: 'thread.created',
+          id: 'tc-b',
+          title: 'b',
+          createdAt: '2026-01-01T00:00:02.000Z',
+          threadId: subB,
+          parent: { threadId: 'main', toolCallId: 'call-b' },
+        },
+      },
+      {
+        turnId: 't1',
+        event: {
+          type: 'tool.approval_required',
+          id: 'ar-a',
+          createdAt: '2026-01-01T00:00:03.000Z',
+          threadId: subA,
+          toolCalls: [{ id: 'call-tool-a', sourceEventId: 'm-a' }],
+        },
+      },
+      {
+        turnId: 't1',
+        event: {
+          type: 'tool.approval_required',
+          id: 'ar-b',
+          createdAt: '2026-01-01T00:00:03.100Z',
+          threadId: subB,
+          toolCalls: [{ id: 'call-tool-b', sourceEventId: 'm-b' }],
+        },
+      },
+      {
+        turnId: 't1',
+        event: {
+          type: 'turn.update',
+          id: 'tu-paused-1',
+          state: { status: 'paused' },
+          createdAt: '2026-01-01T00:00:03.200Z',
+          threadId: null,
+        },
+      },
+      {
+        turnId: 't1',
+        event: {
+          type: 'user.tool_approval',
+          id: 'ua-a',
+          toolCallId: 'call-tool-a',
+          approval: { status: 'allow' },
+          createdAt: '2026-01-01T00:00:10.000Z',
+          threadId: subA,
+        },
+      },
+      {
+        turnId: 't1',
+        event: {
+          type: 'turn.update',
+          id: 'tu-running-1',
+          state: { status: 'running' },
+          createdAt: '2026-01-01T00:00:10.100Z',
+          threadId: null,
+        },
+      },
+      {
+        turnId: 't1',
+        event: {
+          type: 'tool.response',
+          id: 'tr-a',
+          toolCallId: 'call-tool-a',
+          content: '{"ok":true}',
+          createdAt: '2026-01-01T00:00:15.000Z',
+          threadId: subA,
+        },
+      },
+      {
+        turnId: 't1',
+        event: {
+          type: 'thread.done',
+          id: 'td-a',
+          title: 'a',
+          createdAt: '2026-01-01T00:00:16.000Z',
+          threadId: subA,
+          state: { status: 'completed' },
+        },
+      },
+      {
+        turnId: 't1',
+        event: {
+          type: 'turn.update',
+          id: 'tu-paused-2',
+          state: { status: 'paused' },
+          createdAt: '2026-01-01T00:00:20.000Z',
+          threadId: null,
+        },
+      },
+      {
+        turnId: 't1',
+        event: {
+          type: 'user.tool_approval',
+          id: 'ua-b',
+          toolCallId: 'call-tool-b',
+          approval: { status: 'allow' },
+          createdAt: '2026-01-01T00:00:25.000Z',
+          threadId: subB,
+        },
+      },
+      {
+        turnId: 't1',
+        event: {
+          type: 'turn.update',
+          id: 'tu-running-2',
+          state: { status: 'running' },
+          createdAt: '2026-01-01T00:00:25.100Z',
+          threadId: null,
+        },
+      },
+    ]);
+
+    const segments = buildSessionTimelineSegments(turns);
+    const spansB = segments.filter(segment => segment.isPauseSpan && segment.threadId === subB);
+    // One continuous span for the whole wait — not separate paused/running pieces.
+    assert.equal(spansB.length, 1);
+    assert.equal(spansB[0]?.isCompressionOnly, undefined);
+    assert.ok((spansB[0]?.wallDurationMs ?? 0) >= 20_000);
+    const required = segments.find(segment => segment.id === 'ar-b');
+    const approved = segments.find(segment => segment.id === 'ua-b');
+    assert.equal(required?.pauseSpanEdge, 'start');
+    assert.equal(approved?.pauseSpanEdge, 'end');
+    assert.equal(required?.pauseSpanId, spansB[0]?.id);
+    assert.equal(approved?.pauseSpanId, spansB[0]?.id);
+  });
+
+  it('closes sibling waits on a matching user.tool_approval_policy (allow_session)', () => {
+    const subA = 'sub-policy-a';
+    const subB = 'sub-policy-b';
+    const saveComment = (id: string) => ({
+      id,
+      type: 'function',
+      function: {
+        name: 'call_tool',
+        arguments: JSON.stringify({ mcp_server: 'linear', tool_name: 'save_comment', input: {} }),
+      },
+    });
+    const turns = buildSessionTurnViews([
+      created({ turnId: 't1', createdAt: '2026-01-01T00:00:00.000Z' }),
+      {
+        turnId: 't1',
+        event: {
+          type: 'model.message',
+          id: 'm-main',
+          content: '',
+          toolCalls: [
+            {
+              id: 'call-a',
+              type: 'function',
+              function: { name: 'create_sub_agent', arguments: '{"name":"a"}' },
+            },
+            {
+              id: 'call-b',
+              type: 'function',
+              function: { name: 'create_sub_agent', arguments: '{"name":"b"}' },
+            },
+          ],
+          createdAt: '2026-01-01T00:00:01.000Z',
+          threadId: 'main',
+          finishReason: 'tool_calls',
+        },
+      },
+      {
+        turnId: 't1',
+        event: {
+          type: 'thread.created',
+          id: 'tc-a',
+          title: 'a',
+          createdAt: '2026-01-01T00:00:02.000Z',
+          threadId: subA,
+          parent: { threadId: 'main', toolCallId: 'call-a' },
+        },
+      },
+      {
+        turnId: 't1',
+        event: {
+          type: 'thread.created',
+          id: 'tc-b',
+          title: 'b',
+          createdAt: '2026-01-01T00:00:02.000Z',
+          threadId: subB,
+          parent: { threadId: 'main', toolCallId: 'call-b' },
+        },
+      },
+      {
+        turnId: 't1',
+        event: {
+          type: 'model.message',
+          id: 'm-a',
+          content: '',
+          toolCalls: [saveComment('tool-a')],
+          createdAt: '2026-01-01T00:00:03.000Z',
+          threadId: subA,
+          finishReason: 'tool_calls',
+        },
+      },
+      {
+        turnId: 't1',
+        event: {
+          type: 'model.message',
+          id: 'm-b',
+          content: '',
+          toolCalls: [saveComment('tool-b')],
+          createdAt: '2026-01-01T00:00:03.050Z',
+          threadId: subB,
+          finishReason: 'tool_calls',
+        },
+      },
+      {
+        turnId: 't1',
+        event: {
+          type: 'tool.approval_required',
+          id: 'ar-a',
+          createdAt: '2026-01-01T00:00:03.100Z',
+          threadId: subA,
+          toolCalls: [{ id: 'tool-a', sourceEventId: 'm-a' }],
+        },
+      },
+      {
+        turnId: 't1',
+        event: {
+          type: 'tool.approval_required',
+          id: 'ar-b',
+          createdAt: '2026-01-01T00:00:03.150Z',
+          threadId: subB,
+          toolCalls: [{ id: 'tool-b', sourceEventId: 'm-b' }],
+        },
+      },
+      {
+        turnId: 't1',
+        event: {
+          type: 'turn.update',
+          id: 'tu-paused',
+          state: { status: 'paused' },
+          createdAt: '2026-01-01T00:00:03.200Z',
+          threadId: null,
+        },
+      },
+      // A approved once; B is covered by the allow_session policy — no per-call approval for B.
+      {
+        turnId: 't1',
+        event: {
+          type: 'user.tool_approval',
+          id: 'ua-a',
+          toolCallId: 'tool-a',
+          approval: { status: 'allow' },
+          createdAt: '2026-01-01T00:00:10.000Z',
+          threadId: subA,
+        },
+      },
+      {
+        turnId: 't1',
+        event: {
+          type: 'user.tool_approval_policy',
+          id: 'policy',
+          policies: [
+            {
+              serverName: 'linear',
+              name: 'save_comment',
+              policy: { type: 'allow_session', expireAt: '2026-01-01T00:10:10.000Z' },
+            },
+          ],
+          createdAt: '2026-01-01T00:00:10.000Z',
+          threadId: null,
+        },
+      },
+      {
+        turnId: 't1',
+        event: {
+          type: 'turn.update',
+          id: 'tu-running',
+          state: { status: 'running' },
+          createdAt: '2026-01-01T00:00:10.100Z',
+          threadId: null,
+        },
+      },
+      {
+        turnId: 't1',
+        event: {
+          type: 'tool.response',
+          id: 'tr-b',
+          toolCallId: 'tool-b',
+          content: '{"ok":true}',
+          createdAt: '2026-01-01T00:00:12.000Z',
+          threadId: subB,
+        },
+      },
+      {
+        turnId: 't1',
+        event: {
+          type: 'model.message',
+          id: 'm-b2',
+          content: 'resumed b',
+          toolCalls: [],
+          createdAt: '2026-01-01T00:00:13.000Z',
+          threadId: subB,
+          finishReason: 'stop',
+        },
+      },
+      {
+        turnId: 't1',
+        event: {
+          type: 'thread.done',
+          id: 'td-b',
+          title: 'b',
+          createdAt: '2026-01-01T00:00:14.000Z',
+          threadId: subB,
+          state: { status: 'completed' },
+        },
+      },
+    ]);
+
+    const segments = buildSessionTimelineSegments(turns);
+    const spanB = segments.find(segment => segment.isPauseSpan && segment.threadId === subB);
+    assert.ok(spanB != null);
+    // Wait ends at the policy (≈6.85s), not at thread.done — and is painted.
+    assert.equal(spanB.isCompressionOnly, undefined);
+    assert.ok((spanB.wallDurationMs ?? 0) >= 6_000 && (spanB.wallDurationMs ?? 0) < 8_000);
+    // B's approval-gated tool bar still starts at the resume, not at the original request.
+    const toolB = segments.find(segment => segment.type === 'tool_call' && segment.threadId === subB);
+    assert.ok(toolB != null);
+    assert.ok(toolB.startMs >= spanB.endMs - 1);
+  });
+
+  it('does not stretch a waiting sibling model through later wait spans after a shared pause', () => {
+    const subA = 'sub-no-stretch-a';
+    const subB = 'sub-no-stretch-b';
+    const turns = buildSessionTurnViews([
+      created({ turnId: 't1', createdAt: '2026-01-01T00:00:00.000Z' }),
+      {
+        turnId: 't1',
+        event: {
+          type: 'model.message',
+          id: 'm-main',
+          content: '',
+          toolCalls: [
+            {
+              id: 'call-a',
+              type: 'function',
+              function: { name: 'create_sub_agent', arguments: '{"name":"a"}' },
+            },
+            {
+              id: 'call-b',
+              type: 'function',
+              function: { name: 'create_sub_agent', arguments: '{"name":"b"}' },
+            },
+          ],
+          createdAt: '2026-01-01T00:00:01.000Z',
+          threadId: 'main',
+          finishReason: 'tool_calls',
+        },
+      },
+      {
+        turnId: 't1',
+        event: {
+          type: 'thread.created',
+          id: 'tc-a',
+          title: 'a',
+          createdAt: '2026-01-01T00:00:02.000Z',
+          threadId: subA,
+          parent: { threadId: 'main', toolCallId: 'call-a' },
+        },
+      },
+      {
+        turnId: 't1',
+        event: {
+          type: 'thread.created',
+          id: 'tc-b',
+          title: 'b',
+          createdAt: '2026-01-01T00:00:02.000Z',
+          threadId: subB,
+          parent: { threadId: 'main', toolCallId: 'call-b' },
+        },
+      },
+      {
+        turnId: 't1',
+        event: {
+          type: 'model.message',
+          id: 'm-a1',
+          content: 'planning a',
+          toolCalls: [{ id: 'tool-a', type: 'function', function: { name: 'x', arguments: '{}' } }],
+          createdAt: '2026-01-01T00:00:03.000Z',
+          threadId: subA,
+          finishReason: 'tool_calls',
+        },
+      },
+      {
+        turnId: 't1',
+        event: {
+          type: 'model.message',
+          id: 'm-b1',
+          content: 'planning b',
+          toolCalls: [{ id: 'tool-b', type: 'function', function: { name: 'x', arguments: '{}' } }],
+          createdAt: '2026-01-01T00:00:03.050Z',
+          threadId: subB,
+          finishReason: 'tool_calls',
+        },
+      },
+      {
+        turnId: 't1',
+        event: {
+          type: 'tool.approval_required',
+          id: 'ar-a',
+          createdAt: '2026-01-01T00:00:03.100Z',
+          threadId: subA,
+          toolCalls: [{ id: 'tool-a', sourceEventId: 'm-a1' }],
+        },
+      },
+      {
+        turnId: 't1',
+        event: {
+          type: 'tool.approval_required',
+          id: 'ar-b',
+          createdAt: '2026-01-01T00:00:03.150Z',
+          threadId: subB,
+          toolCalls: [{ id: 'tool-b', sourceEventId: 'm-b1' }],
+        },
+      },
+      {
+        turnId: 't1',
+        event: {
+          type: 'turn.update',
+          id: 'tu-paused-1',
+          state: { status: 'paused' },
+          createdAt: '2026-01-01T00:00:03.200Z',
+          threadId: null,
+        },
+      },
+      {
+        turnId: 't1',
+        event: {
+          type: 'user.tool_approval',
+          id: 'ua-a',
+          toolCallId: 'tool-a',
+          approval: { status: 'allow' },
+          createdAt: '2026-01-01T00:00:10.000Z',
+          threadId: subA,
+        },
+      },
+      {
+        turnId: 't1',
+        event: {
+          type: 'turn.update',
+          id: 'tu-running-1',
+          state: { status: 'running' },
+          createdAt: '2026-01-01T00:00:10.100Z',
+          threadId: null,
+        },
+      },
+      {
+        turnId: 't1',
+        event: {
+          type: 'tool.response',
+          id: 'tr-a',
+          toolCallId: 'tool-a',
+          content: '{"ok":true}',
+          createdAt: '2026-01-01T00:00:12.000Z',
+          threadId: subA,
+        },
+      },
+      {
+        turnId: 't1',
+        event: {
+          type: 'model.message',
+          id: 'm-a2',
+          content: 'resumed a',
+          toolCalls: [],
+          createdAt: '2026-01-01T00:00:13.000Z',
+          threadId: subA,
+          finishReason: 'stop',
+        },
+      },
+      {
+        turnId: 't1',
+        event: {
+          type: 'thread.done',
+          id: 'td-a',
+          title: 'a',
+          createdAt: '2026-01-01T00:00:14.000Z',
+          threadId: subA,
+          state: { status: 'completed' },
+        },
+      },
+      {
+        turnId: 't1',
+        event: {
+          type: 'turn.update',
+          id: 'tu-paused-2',
+          state: { status: 'paused' },
+          createdAt: '2026-01-01T00:00:14.100Z',
+          threadId: null,
+        },
+      },
+      {
+        turnId: 't1',
+        event: {
+          type: 'user.tool_approval',
+          id: 'ua-b',
+          toolCallId: 'tool-b',
+          approval: { status: 'allow' },
+          createdAt: '2026-01-01T00:00:20.000Z',
+          threadId: subB,
+        },
+      },
+      {
+        turnId: 't1',
+        event: {
+          type: 'turn.update',
+          id: 'tu-running-2',
+          state: { status: 'running' },
+          createdAt: '2026-01-01T00:00:20.100Z',
+          threadId: null,
+        },
+      },
+      {
+        turnId: 't1',
+        event: {
+          type: 'tool.response',
+          id: 'tr-b',
+          toolCallId: 'tool-b',
+          content: '{"ok":true}',
+          createdAt: '2026-01-01T00:00:22.000Z',
+          threadId: subB,
+        },
+      },
+      {
+        turnId: 't1',
+        event: {
+          type: 'model.message',
+          id: 'm-b2',
+          content: 'resumed b',
+          toolCalls: [],
+          createdAt: '2026-01-01T00:00:23.000Z',
+          threadId: subB,
+          finishReason: 'stop',
+        },
+      },
+      {
+        turnId: 't1',
+        event: {
+          type: 'thread.done',
+          id: 'td-b',
+          title: 'b',
+          createdAt: '2026-01-01T00:00:24.000Z',
+          threadId: subB,
+          state: { status: 'completed' },
+        },
+      },
+    ]);
+
+    const segments = buildSessionTimelineSegments(turns);
+    const bModels = segments.filter(segment => segment.threadId === subB && segment.type === 'model');
+    assert.equal(bModels.length, 2);
+    const prePause = bModels.find(segment => segment.description === 'planning b');
+    const postResume = bModels.find(segment => segment.description === 'resumed b');
+    assert.ok(prePause != null);
+    assert.ok(postResume != null);
+    const waitSpan = segments.find(segment => segment.isPauseSpan && segment.threadId === subB);
+    assert.ok(waitSpan != null);
+    // Pre-pause model must end at/before the shared chip — not through the wait span.
+    assert.ok(prePause.endMs <= waitSpan.startMs + 1);
+    assert.ok(prePause.endMs < postResume.startMs);
+    // While A runs, B shows hatch (not a copy of A's model window).
+    assert.equal(waitSpan.isCompressionOnly, undefined);
+  });
+
+  it('emits a sub-agent model bar for tool-only messages so the lane meets the pause chip', () => {
+    const subThread = 'sub-tool-only';
+    const turns = buildSessionTurnViews([
+      created({ turnId: 't1', createdAt: '2026-01-01T00:00:00.000Z' }),
+      {
+        turnId: 't1',
+        event: {
+          type: 'model.message',
+          id: 'm-main',
+          content: '',
+          toolCalls: [
+            {
+              id: 'call-sub',
+              type: 'function',
+              function: { name: 'create_sub_agent', arguments: '{"name":"worker"}' },
+            },
+          ],
+          createdAt: '2026-01-01T00:00:01.000Z',
+          threadId: 'main',
+          finishReason: 'tool_calls',
+        },
+      },
+      {
+        turnId: 't1',
+        event: {
+          type: 'thread.created',
+          id: 'tc-1',
+          title: 'worker',
+          createdAt: '2026-01-01T00:00:02.000Z',
+          threadId: subThread,
+          parent: { threadId: 'main', toolCallId: 'call-sub' },
+        },
+      },
+      {
+        turnId: 't1',
+        event: {
+          type: 'model.message',
+          id: 'm-sub-prev',
+          content: '',
+          toolCalls: [
+            {
+              id: 'call-list',
+              type: 'function',
+              function: { name: 'list_tools', arguments: '{}' },
+            },
+          ],
+          createdAt: '2026-01-01T00:00:03.000Z',
+          threadId: subThread,
+          finishReason: 'tool_calls',
+        },
+      },
+      {
+        turnId: 't1',
+        event: {
+          type: 'tool.response',
+          id: 'tr-list',
+          toolCallId: 'call-list',
+          content: 'ok',
+          createdAt: '2026-01-01T00:00:04.000Z',
+          threadId: subThread,
+        },
+      },
+      // Tool-only model message that triggers approval — previously skipped on sub-agents.
+      {
+        turnId: 't1',
+        event: {
+          type: 'model.message',
+          id: 'm-sub-approve',
+          content: '',
+          toolCalls: [
+            {
+              id: 'call-delete',
+              type: 'function',
+              function: {
+                name: 'call_tool',
+                arguments: JSON.stringify({ mcp_server: 'linear', tool_name: 'delete_comment', input: {} }),
+              },
+            },
+          ],
+          createdAt: '2026-01-01T00:00:05.000Z',
+          threadId: subThread,
+          finishReason: 'tool_calls',
+        },
+      },
+      {
+        turnId: 't1',
+        event: {
+          type: 'tool.approval_required',
+          id: 'ar-1',
+          createdAt: '2026-01-01T00:00:05.001Z',
+          threadId: subThread,
+          toolCalls: [{ id: 'call-delete', sourceEventId: 'm-sub-approve' }],
+        },
+      },
+      {
+        turnId: 't1',
+        event: {
+          type: 'turn.update',
+          id: 'tu-paused',
+          state: { status: 'paused' },
+          createdAt: '2026-01-01T00:00:05.002Z',
+          threadId: null,
+        },
+      },
+      {
+        turnId: 't1',
+        event: {
+          type: 'user.tool_approval',
+          id: 'ua-1',
+          toolCallId: 'call-delete',
+          approval: { status: 'allow' },
+          createdAt: '2026-01-01T00:00:12.000Z',
+          threadId: subThread,
+        },
+      },
+      {
+        turnId: 't1',
+        event: {
+          type: 'turn.update',
+          id: 'tu-running',
+          state: { status: 'running' },
+          createdAt: '2026-01-01T00:00:12.100Z',
+          threadId: null,
+        },
+      },
+    ]);
+    const segments = buildSessionTimelineSegments(turns);
+    const pause = segments.find(segment => segment.isPauseChip && segment.threadId === subThread);
+    const modelBar = segments.find(segment => segment.id === 'm-sub-approve');
+    const prevTool = segments.find(segment => segment.id === 'm-sub-prev-call-list');
+    assert.ok(pause != null);
+    assert.ok(modelBar != null);
+    assert.ok(prevTool != null);
+    assert.equal(modelBar.type, 'model');
+    assert.equal(modelBar.threadId, subThread);
+    // Model covers previous tool → approval request (closes the old empty gap before hatch).
+    assert.equal(modelBar.startMs, prevTool.endMs);
+    assert.ok(pause.startMs - modelBar.endMs <= 50);
+  });
+
+  it('starts the pause chip at early approval_required before turn.update paused', () => {
+    const subA = 'sub-early';
+    const subB = 'sub-late';
+    const turns = buildSessionTurnViews([
+      created({ turnId: 't1', createdAt: '2026-01-01T00:00:00.000Z' }),
+      {
+        turnId: 't1',
+        event: {
+          type: 'model.message',
+          id: 'm-main',
+          content: '',
+          toolCalls: [
+            {
+              id: 'call-a',
+              type: 'function',
+              function: { name: 'create_sub_agent', arguments: '{"name":"a"}' },
+            },
+            {
+              id: 'call-b',
+              type: 'function',
+              function: { name: 'create_sub_agent', arguments: '{"name":"b"}' },
+            },
+          ],
+          createdAt: '2026-01-01T00:00:01.000Z',
+          threadId: 'main',
+          finishReason: 'tool_calls',
+        },
+      },
+      {
+        turnId: 't1',
+        event: {
+          type: 'thread.created',
+          id: 'tc-a',
+          title: 'a',
+          createdAt: '2026-01-01T00:00:02.000Z',
+          threadId: subA,
+          parent: { threadId: 'main', toolCallId: 'call-a' },
+        },
+      },
+      {
+        turnId: 't1',
+        event: {
+          type: 'thread.created',
+          id: 'tc-b',
+          title: 'b',
+          createdAt: '2026-01-01T00:00:02.000Z',
+          threadId: subB,
+          parent: { threadId: 'main', toolCallId: 'call-b' },
+        },
+      },
+      {
+        turnId: 't1',
+        event: {
+          type: 'tool.approval_required',
+          id: 'ar-a',
+          createdAt: '2026-01-01T00:00:05.000Z',
+          threadId: subA,
+          toolCalls: [{ id: 'call-tool-a', sourceEventId: 'm-a' }],
+        },
+      },
+      {
+        turnId: 't1',
+        event: {
+          type: 'tool.approval_required',
+          id: 'ar-b',
+          createdAt: '2026-01-01T00:00:12.000Z',
+          threadId: subB,
+          toolCalls: [{ id: 'call-tool-b', sourceEventId: 'm-b' }],
+        },
+      },
+      {
+        turnId: 't1',
+        event: {
+          type: 'turn.update',
+          id: 'tu-paused',
+          state: { status: 'paused' },
+          createdAt: '2026-01-01T00:00:12.050Z',
+          threadId: null,
+        },
+      },
+      {
+        turnId: 't1',
+        event: {
+          type: 'user.tool_approval',
+          id: 'ua-a',
+          toolCallId: 'call-tool-a',
+          approval: { status: 'allow' },
+          createdAt: '2026-01-01T00:00:20.000Z',
+          threadId: subA,
+        },
+      },
+      {
+        turnId: 't1',
+        event: {
+          type: 'turn.update',
+          id: 'tu-running',
+          state: { status: 'running' },
+          createdAt: '2026-01-01T00:00:20.100Z',
+          threadId: null,
+        },
+      },
+    ]);
+    const segments = buildSessionTimelineSegments(turns);
+    const pauses = segments.filter(segment => segment.isPauseChip);
+    assert.deepEqual(pauses.map(segment => segment.threadId).sort(), [subA, subB].sort());
+    // Shared chip starts at turn.update paused; per-lane wait spans cover earlier approvals.
+    const spanA = segments.find(segment => segment.isPauseSpan && segment.threadId === subA);
+    const spanB = segments.find(segment => segment.isPauseSpan && segment.threadId === subB);
+    assert.ok(spanA != null);
+    assert.ok(spanB != null);
+    // Early approval_required → hatch starts earlier than the later sibling.
+    assert.ok(spanA.startMs < spanB.startMs);
+    // Chip wall is the turn.pause window only (not pulled back to the earliest sub approval).
+    assert.ok(pauses.every(pause => pause.wallDurationMs != null && pause.wallDurationMs < 10_000));
+  });
+
   it('closes an open pause with injected nowMs', () => {
     const turns = buildSessionTurnViews([
       created({ turnId: 't1', createdAt: '2026-01-01T00:00:00.000Z' }),
@@ -1023,12 +3220,56 @@ describe('pause chips in buildSessionTimelineSegments', () => {
         },
       },
     ]);
+    assert.equal(sessionHasOpenPause(turns), true);
     const nowMs = Date.parse('2026-01-03T00:00:01.000Z');
     const segments = buildSessionTimelineSegments(turns, { nowMs });
     const pause = segments.find(segment => segment.isPauseChip);
     assert.equal(pause?.description, 'Paused');
     assert.equal(pause?.wallDurationMs, 2 * 86_400_000);
     assert.equal(formatTimelineDuration(pause?.wallDurationMs ?? 0), '2d');
+    const later = buildSessionTimelineSegments(turns, { nowMs: nowMs + 60_000 });
+    assert.equal(later.find(segment => segment.isPauseChip)?.wallDurationMs, 2 * 86_400_000 + 60_000);
+  });
+
+  it('sessionHasOpenPause is false after resume or turn.done', () => {
+    const paused = buildSessionTurnViews([
+      created({ turnId: 't1', createdAt: '2026-01-01T00:00:00.000Z' }),
+      {
+        turnId: 't1',
+        event: {
+          type: 'turn.update',
+          id: 'tu-paused',
+          state: { status: 'paused' },
+          createdAt: '2026-01-01T00:00:01.000Z',
+          threadId: null,
+        },
+      },
+    ]);
+    assert.equal(sessionHasOpenPause(paused), true);
+    const resumed = buildSessionTurnViews([
+      created({ turnId: 't1', createdAt: '2026-01-01T00:00:00.000Z' }),
+      {
+        turnId: 't1',
+        event: {
+          type: 'turn.update',
+          id: 'tu-paused',
+          state: { status: 'paused' },
+          createdAt: '2026-01-01T00:00:01.000Z',
+          threadId: null,
+        },
+      },
+      {
+        turnId: 't1',
+        event: {
+          type: 'turn.update',
+          id: 'tu-running',
+          state: { status: 'running' },
+          createdAt: '2026-01-01T00:00:02.000Z',
+          threadId: null,
+        },
+      },
+    ]);
+    assert.equal(sessionHasOpenPause(resumed), false);
   });
 
   it('anchors approval_required 1ms before paused and emits a post-pause tool bar without user.tool_approval', () => {

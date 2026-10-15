@@ -44,11 +44,28 @@ export type SessionEventTimelineSegment = {
   /** Hatched “Paused” chip; chart expands it to a fixed pixel width. */
   isPauseChip?: boolean;
   /**
+   * Pause chip kept only so intra-turn compression still subtracts the wait.
+   * Not drawn on any lane (e.g. sub-agent finished with no post-pause work).
+   */
+  isCompressionOnly?: boolean;
+  /**
+   * Hatched wait on a sub-agent lane while the turn is running (another thread
+   * was resumed) but this thread is still pending approval. Keeps timeline width
+   * (not collapsed to a 32px chip) so the lane stays paused until *this* agent resumes.
+   */
+  isPauseSpan?: boolean;
+  /**
    * How far into the pause this marker happened (wall ms from pause start).
    * Example: approve at end of a 120s pause → pauseOffsetMs=120000 → diamond
    * is drawn at the right edge of the chip.
    */
   pauseOffsetMs?: number;
+  /**
+   * Sub-agent approval marker pinned to a wait span.
+   * `start` = approval_required (left edge), `end` = user.tool_approval (right edge).
+   */
+  pauseSpanId?: string;
+  pauseSpanEdge?: 'start' | 'end';
 };
 
 /** Canonical legend order, labels, and base colours for timeline event types. */
