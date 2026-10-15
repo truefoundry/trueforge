@@ -351,6 +351,8 @@ function cloneThreadBucket(bucket: ThreadBucket): ThreadBucket {
     approvalDecisions: new Map(bucket.approvalDecisions),
     pendingResponses: new Map(bucket.pendingResponses),
     done: bucket.done,
+    // Keep sub-agent failure text so a cloned bucket still shows as failed.
+    ...(bucket.error != null ? { error: bucket.error } : {}),
     ...(bucket.title != null ? { title: bucket.title } : {}),
     ...(bucket.agentInfo != null ? { agentInfo: bucket.agentInfo } : {}),
   };
@@ -382,6 +384,10 @@ export function prependFoldState(older: PeerThreadFoldState, newer: PeerThreadFo
       approvalDecisions: new Map([...olderBucket.approvalDecisions, ...newerBucket.approvalDecisions]),
       pendingResponses: new Map([...olderBucket.pendingResponses, ...newerBucket.pendingResponses]),
       done: newerBucket.done || olderBucket.done,
+      // Prefer the newer failure text; if only the older turn failed, keep that.
+      ...(newerBucket.error != null || olderBucket.error != null
+        ? { error: newerBucket.error ?? olderBucket.error }
+        : {}),
       ...(newerBucket.title != null || olderBucket.title != null
         ? { title: newerBucket.title ?? olderBucket.title }
         : {}),
@@ -972,11 +978,26 @@ function buildTurnUpdateFromFold(
   turn: Pick<Turn, 'state'>,
   rootModelMessageIds: readonly string[],
 ): TurnStreamUpdate {
-  const content = buildRootAssistantContentForIds(foldState, rootModelMessageIds);
-  let update: TurnStreamUpdate = { content };
-  update = appendMcpAuthToTurnContent(update.content, turn);
-  update = appendToolApprovalToTurnContent(update, turn);
-  return update;
+  // While we build this turn's messages, tell nested sub-agents that the parent
+  // already ended (cancelled/error) so they do not stay stuck as "running".
+  // Restore afterward so the flag does not leak into the next turn.
+  const previousParentTerminal = foldState.parentTerminalStatus;
+  if (turn.state.status === 'cancelled') {
+    foldState.parentTerminalStatus = 'cancelled';
+  } else if (turn.state.status === 'error') {
+    foldState.parentTerminalStatus = 'error';
+  } else {
+    foldState.parentTerminalStatus = undefined;
+  }
+  try {
+    const content = buildRootAssistantContentForIds(foldState, rootModelMessageIds);
+    let update: TurnStreamUpdate = { content };
+    update = appendMcpAuthToTurnContent(update.content, turn);
+    update = appendToolApprovalToTurnContent(update, turn);
+    return update;
+  } finally {
+    foldState.parentTerminalStatus = previousParentTerminal;
+  }
 }
 
 function contentHasPendingRequiredActions(content: readonly AssistantContentPart[]): boolean {
@@ -1743,11 +1764,18 @@ export async function* streamTurnEvents(
           groupRootBaseline != null
             ? rootModelMessageIdsSinceBaseline(foldState, groupRootBaseline)
             : (foldState.threads.get(ROOT_THREAD_ID)?.modelMessageIds ?? []);
-        yield withCursor({
-          content: buildRootAssistantContentForIds(foldState, ids),
-          status: { type: 'incomplete', reason: 'cancelled' },
-          metadata: { custom: { [CANCELLATION_REASON_CUSTOM_KEY]: event.state.reason } },
-        });
+        // Same as history: mark parent cancelled so open sub-agents render cancelled too.
+        const previousParentTerminal = foldState.parentTerminalStatus;
+        foldState.parentTerminalStatus = 'cancelled';
+        try {
+          yield withCursor({
+            content: buildRootAssistantContentForIds(foldState, ids),
+            status: { type: 'incomplete', reason: 'cancelled' },
+            metadata: { custom: { [CANCELLATION_REASON_CUSTOM_KEY]: event.state.reason } },
+          });
+        } finally {
+          foldState.parentTerminalStatus = previousParentTerminal;
+        }
         return;
       }
       // The turn is logically complete once `turn.done` is observed. The

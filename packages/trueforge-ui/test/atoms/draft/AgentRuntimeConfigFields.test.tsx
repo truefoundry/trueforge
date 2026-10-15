@@ -136,9 +136,26 @@ describe('AgentRuntimeConfigFields', () => {
     expect(onChange).toHaveBeenCalledWith(
       expect.objectContaining({
         sandbox: expect.objectContaining({
-          environment_name: 'python-dev',
+          environmentName: 'python-dev',
         }),
       }),
     );
+  });
+
+  it('shows a missing agent-spec environment as the selected option', async () => {
+    renderRuntimeFields({
+      value: { sandbox: { enabled: true, environmentName: 'gone-env' } },
+    });
+
+    const trigger = screen.getByRole('button', { name: 'Environment' });
+    await waitFor(() => {
+      expect(trigger).toHaveTextContent('gone-env');
+    });
+    expect(trigger).not.toHaveTextContent('unavailable');
+
+    fireEvent.click(trigger);
+    const missing = await screen.findByRole('option', { name: 'gone-env' });
+    expect(missing).toBeDisabled();
+    expect(missing).toHaveAttribute('aria-selected', 'true');
   });
 });
