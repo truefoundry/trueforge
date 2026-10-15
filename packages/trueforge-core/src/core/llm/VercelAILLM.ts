@@ -423,6 +423,9 @@ function openaiProviderOptions({
  *
  * Prompt caching defaults on: Anthropic bills a write once, then cheaper reads on stable prefixes
  * (system / tools / early messages). Callers can override via `cache_control` in the request body.
+ *
+ * `toolStreaming` is pinned on so every function tool gets `eager_input_streaming` on the Anthropic
+ * wire (call-level default; per-tool `providerOptions` from convertTools reinforce the same).
  */
 function anthropicProviderOptions(rawBody: unknown): JSONObject | undefined {
   const cacheControl = readBodyField({ rawBody, key: 'cache_control' }) ?? { type: 'ephemeral' };
@@ -431,6 +434,7 @@ function anthropicProviderOptions(rawBody: unknown): JSONObject | undefined {
   const effort = readBodyField({ rawBody, key: 'effort' });
   const opts: JSONObject = {
     cacheControl,
+    toolStreaming: true,
     ...(disableParallelToolUse !== undefined ? { disableParallelToolUse } : {}),
     ...(thinking !== undefined ? { thinking } : {}),
     ...(effort !== undefined ? { effort } : {}),
