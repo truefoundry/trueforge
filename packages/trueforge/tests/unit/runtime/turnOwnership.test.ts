@@ -48,11 +48,6 @@ const ROWS: Row[] = [
     expected: TurnOwnershipAction.Forward,
   },
   {
-    name: 'peer 200 means the owner handled it',
-    input: { status: 'paused', ownedByThisExecutor: false, hasLocalActiveTurn: false, peerOutcome: PeerOutcome.Ok },
-    expected: TurnOwnershipAction.Forwarded,
-  },
-  {
     name: 'paused + no responder steals',
     input: {
       status: 'paused',
@@ -73,32 +68,12 @@ const ROWS: Row[] = [
     expected: TurnOwnershipAction.Retry,
   },
   {
-    name: 'paused + peer timeout does not steal (owner may still be applying)',
+    name: 'paused + forward that does not show a missing heartbeat does not steal',
     input: {
       status: 'paused',
       ownedByThisExecutor: false,
       hasLocalActiveTurn: false,
-      peerOutcome: PeerOutcome.Timeout,
-    },
-    expected: TurnOwnershipAction.Retry,
-  },
-  {
-    name: 'paused + peer 412 does not steal (empty registry is not a dead executor)',
-    input: {
-      status: 'paused',
-      ownedByThisExecutor: false,
-      hasLocalActiveTurn: false,
-      peerOutcome: PeerOutcome.NotRunningOnPeer,
-    },
-    expected: TurnOwnershipAction.Retry,
-  },
-  {
-    name: 'paused + local transport error does not steal (cannot see heartbeats)',
-    input: {
-      status: 'paused',
-      ownedByThisExecutor: false,
-      hasLocalActiveTurn: false,
-      peerOutcome: PeerOutcome.TransportError,
+      peerOutcome: PeerOutcome.OwnerNotGone,
     },
     expected: TurnOwnershipAction.Retry,
   },

@@ -1,6 +1,6 @@
 import { randomUUID } from 'node:crypto';
 import { performance } from 'node:perf_hooks';
-import { NoResponderError, RequestTimeoutError } from './errors';
+import { NO_RESPONDER_PUBLISH_DETAIL, NoResponderError, RequestTimeoutError } from './errors';
 import type { RedisClient } from './redisClient';
 import type { JSONReply, JSONValue, PublishedRequest, RequestEnvelope } from './types';
 import { jsonReplySchema } from './types';
@@ -71,7 +71,7 @@ export async function redisRequest<T extends JSONValue>({
   const serializedPayload = JSON.stringify(payload);
   const subscriberCount = await redisClient.publish(requestChannel(executorId), serializedPayload);
   if (subscriberCount === 0) {
-    throw new NoResponderError(executorId, 'No executor received the published request');
+    throw new NoResponderError(executorId, NO_RESPONDER_PUBLISH_DETAIL);
   }
 
   const replyDeadline = performance.now() + replyTimeoutMs;

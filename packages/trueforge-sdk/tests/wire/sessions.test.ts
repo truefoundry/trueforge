@@ -1555,6 +1555,35 @@ describe("SessionsClient", () => {
         }).rejects.toThrow(TrueForgeTypes.ConflictError);
     });
 
+    test("create_turn_events (6)", async () => {
+        const server = mockServerPool.createServer();
+        const client = new TrueForge({ maxRetries: 0, token: "test", baseUrl: server.baseUrl });
+        const rawRequestBody = { events: [{ type: "user.mcp_auth_continue" }, { type: "user.mcp_auth_continue" }] };
+        const rawResponseBody = { error: { message: "message" } };
+
+        server
+            .mockEndpoint()
+            .post("/api/v1/sessions/session_id/turns/turn_id/events")
+            .jsonBody(rawRequestBody)
+            .respondWith()
+            .statusCode(503)
+            .jsonBody(rawResponseBody)
+            .build();
+
+        await expect(async () => {
+            return await client.sessions.createTurnEvents("session_id", "turn_id", {
+                events: [
+                    {
+                        type: "user.mcp_auth_continue",
+                    },
+                    {
+                        type: "user.mcp_auth_continue",
+                    },
+                ],
+            });
+        }).rejects.toThrow(TrueForgeTypes.ServiceUnavailableError);
+    });
+
     test("subscribe_to_turn (1)", async () => {
         const server = mockServerPool.createServer();
         const client = new TrueForge({ maxRetries: 0, token: "test", baseUrl: server.baseUrl });

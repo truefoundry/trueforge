@@ -13,6 +13,7 @@ import {
 import { createTurnsRouter } from '../../../src/apis/turns';
 import { TrueForgeAuthorizer, type Authorizer } from '../../../src/auth/authorizer';
 import { STANDALONE_REQUEST_CONTEXT } from '../../../src/auth/identity';
+import configuration from '../../../src/config';
 import { McpServerWithAuthStore } from '../../../src/db/McpServerWithAuthStore';
 import { migrateSqliteToLatest } from '../../../src/db/migrateSqlite';
 import { SqliteAgentStore } from '../../../src/db/sqlite/agent-store/SqliteAgentStore';
@@ -480,7 +481,9 @@ describe('sessions HTTP agent binding', () => {
     const created = await app.request('/', jsonInit('POST', { agent: { spec: inlineSpec } }));
     expect(created.status).toBe(201);
     const { data: session } = (await created.json()) as { data: { id: string } };
-    await sessionStore.createTurn(makeCreateTurnInput({ sessionId: session.id, turnId: 'tip-1' }));
+    await sessionStore.createTurn(
+      makeCreateTurnInput({ sessionId: session.id, turnId: 'tip-1', activeExecutorId: configuration.EXECUTOR_ID }),
+    );
     const send = jest.fn().mockImplementation(async function* (events: Parameters<TurnHandle['send']>[0]) {
       yield events;
     });
@@ -553,7 +556,9 @@ describe('sessions HTTP agent binding', () => {
     const created = await app.request('/', jsonInit('POST', { agent: { spec: inlineSpec } }));
     expect(created.status).toBe(201);
     const { data: session } = (await created.json()) as { data: { id: string } };
-    await sessionStore.createTurn(makeCreateTurnInput({ sessionId: session.id, turnId: 'tip-1' }));
+    await sessionStore.createTurn(
+      makeCreateTurnInput({ sessionId: session.id, turnId: 'tip-1', activeExecutorId: configuration.EXECUTOR_ID }),
+    );
 
     const registry = sessionDeps.activeTurns;
     const gate = Promise.withResolvers<undefined>();

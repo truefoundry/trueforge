@@ -1,9 +1,14 @@
+/** Heartbeat key was absent. */
+export const NO_RESPONDER_HEARTBEAT_DETAIL = 'heartbeat not present';
+/** PUBLISH returned 0 while the heartbeat key still existed. */
+export const NO_RESPONDER_PUBLISH_DETAIL = 'No executor received the published request';
+
 /** The target executor's heartbeat is missing or nobody is subscribed (map to HTTP 412). */
 export class NoResponderError extends Error {
   readonly code = 'NO_RESPONDER' as const;
   constructor(
     readonly executorId: string,
-    readonly detail = 'heartbeat not present',
+    readonly detail = NO_RESPONDER_HEARTBEAT_DETAIL,
   ) {
     super(`No responder for executor: ${executorId} (${detail}).`);
     this.name = 'NoResponderError';

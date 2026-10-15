@@ -98,6 +98,7 @@ const app = createServerApp({
   sessions: new Sessions({ sessionStore }),
   activeTurns: new ActiveTurnRegistry(),
   requestReplyRouter: new RequestReplyRouter(),
+  createPeerTurnExecutionDeps: () => Promise.reject(new Error('peer rebuild is not used while writing OpenAPI')),
   eventSubscriptions: new EventSubscriptionRegistry<TurnStreamingEvent>(undefined),
   logger: winston.createLogger({ silent: true }),
   oidcClient: undefined,

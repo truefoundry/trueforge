@@ -1,7 +1,12 @@
 /** The API: resource routers, the OpenAPI document and Swagger UI, all under /api/v1. */
 import { swaggerUI } from '@hono/swagger-ui';
 import { OpenAPIHono, z } from '@hono/zod-openapi';
-import type { ISessionStore, Sessions, TurnStreamingEvent } from '@truefoundry/trueforge-core/agent-session';
+import type {
+  ISessionStore,
+  SessionHandle,
+  Sessions,
+  TurnStreamingEvent,
+} from '@truefoundry/trueforge-core/agent-session';
 import { extractErrorLogFields } from '@truefoundry/trueforge-core/core';
 import type { RedisClient, RequestReplyRouter } from '@truefoundry/trueforge-core/request-reply';
 import type { Context, ErrorHandler, MiddlewareHandler } from 'hono';
@@ -24,7 +29,7 @@ import { createInternalMetricsRouter } from './apis/sessionMetrics';
 import { createInternalSessionsRouter, createSessionsRouter } from './apis/sessions';
 import { createSettingsRouter } from './apis/settings';
 import { createAvailableSkillsRouter, type ResolveSkillStore } from './apis/skills';
-import { createTurnsRouter } from './apis/turns';
+import { createTurnsRouter, type BeginTurnExecutionDeps } from './apis/turns';
 import type { Authenticator } from './auth/authenticator';
 import type { Authorizer } from './auth/authorizer';
 import { resolveRequestContext } from './auth/identity';
@@ -220,6 +225,12 @@ export interface ServerDeps<TTransaction> {
   redis?: RedisClient | undefined;
   /** Request-reply dispatch table served by this replica's executor. */
   requestReplyRouter: RequestReplyRouter;
+  /** Store bundle for rebuilding a paused turn on a peer request, which has no HTTP context. */
+  createPeerTurnExecutionDeps: (input: {
+    session: SessionHandle;
+    userRef: string;
+    requestHeaders?: Record<string, string> | undefined;
+  }) => Promise<BeginTurnExecutionDeps>;
   /** Hands out each turn's resumable event stream to the create and subscribe handlers. */
   eventSubscriptions: EventSubscriptionRegistry<TurnStreamingEvent>;
   logger: Logger;
@@ -504,6 +515,9 @@ export function createServerApp<TTransaction>(deps: ServerDeps<TTransaction>) {
         logger: deps.logger,
         resolveRequestContext,
         authorizer: deps.authorizer,
+        redis: deps.redis,
+        requestReplyRouter: deps.requestReplyRouter,
+        createPeerTurnExecutionDeps: deps.createPeerTurnExecutionDeps,
       }),
       authMiddleware,
     ),

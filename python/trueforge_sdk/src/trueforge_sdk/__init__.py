@@ -287,6 +287,7 @@ if typing.TYPE_CHECKING:
         InternalServerError,
         NotFoundError,
         PreconditionFailedError,
+        ServiceUnavailableError,
         UnauthorizedError,
         UnprocessableEntityError,
     )
@@ -506,6 +507,7 @@ _dynamic_imports: typing.Dict[str, str] = {
     "ScheduleRun": ".types",
     "ScheduleRunStatus": ".types",
     "ScheduleStatus": ".types",
+    "ServiceUnavailableError": ".errors",
     "Session": ".types",
     "SessionAgent": ".types",
     "SessionAgentInline": ".types",
@@ -828,6 +830,7 @@ __all__ = [
     "ScheduleRun",
     "ScheduleRunStatus",
     "ScheduleStatus",
+    "ServiceUnavailableError",
     "Session",
     "SessionAgent",
     "SessionAgentInline",

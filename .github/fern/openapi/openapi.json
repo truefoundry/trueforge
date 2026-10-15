@@ -10037,6 +10037,16 @@
               }
             },
             "description": "Turn is terminal, or an event id already exists."
+          },
+          "503": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/RequestErrorResponse"
+                }
+              }
+            },
+            "description": "Turn owner is unavailable. Retry."
           }
         },
         "summary": "Create turn events",

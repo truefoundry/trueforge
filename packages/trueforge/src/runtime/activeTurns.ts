@@ -4,8 +4,10 @@
  * TurnHandle.stream() writes the terminal state when the signal fires.
  * `track()` owns registration and cleanup around the stream lifecycle.
  */
-import { CancellationReason, type TurnHandle } from '@truefoundry/trueforge-core/agent-session';
+import { CancellationReason, TurnOffloadReason, type TurnHandle } from '@truefoundry/trueforge-core/agent-session';
 import { Mutex } from 'async-mutex';
+
+const DEFAULT_PAUSED_KEEPALIVE_MS = 30_000;
 
 interface ActiveTurnRun {
   turn: TurnHandle;
@@ -18,11 +20,25 @@ function activeTurnKey(sessionId: string, turnId: string): string {
   return `${sessionId}:${turnId}`;
 }
 
+/** A test double may omit `state`. A real handle always has it. */
+function isPausedRun(run: ActiveTurnRun | undefined): run is ActiveTurnRun {
+  if (!run || !Object.hasOwn(run.turn, 'state')) {
+    return false;
+  }
+  return run.turn.state.status === 'paused';
+}
+
 export class ActiveTurnRegistry {
   private readonly runs = new Map<string, ActiveTurnRun>();
   /** Per-turn mutex. Dropped once unlocked, which means no waiter is still queued. */
   private readonly turnLocks = new Map<string, Mutex>();
+  private readonly keepaliveTimers = new Map<string, NodeJS.Timeout>();
+  private readonly pausedKeepaliveMs: number;
   private alreadyShutDownAbortReason: CancellationReason | undefined;
+
+  constructor(options?: { pausedKeepaliveMs?: number }) {
+    this.pausedKeepaliveMs = options?.pausedKeepaliveMs ?? DEFAULT_PAUSED_KEEPALIVE_MS;
+  }
 
   /**
    * Runs `fn` while holding the per-turn lock, after every earlier holder of
@@ -76,6 +92,7 @@ export class ActiveTurnRegistry {
     }
 
     const complete = () => {
+      this.clearPausedKeepalive({ sessionId: input.turn.session_id, turnId: input.turn.id });
       run.markCompleted();
       if (this.runs.get(key) === run) {
         this.runs.delete(key);
@@ -109,6 +126,23 @@ export class ActiveTurnRegistry {
   }
 
   /**
+   * Abort a local run and wait until its drain has finished.
+   * A paused generator is parked on the abort latch, so this unparks it and lets
+   * the drain emit `turn.done`. Returns false when this process has no run.
+   */
+  async abortAndWait(input: { sessionId: string; turnId: string; abortReason: CancellationReason }): Promise<boolean> {
+    const run = this.runs.get(activeTurnKey(input.sessionId, input.turnId));
+    if (!run) {
+      return false;
+    }
+    if (!run.abortController.signal.aborted) {
+      run.abortController.abort(input.abortReason);
+    }
+    await run.waitUntilCompleted;
+    return true;
+  }
+
+  /**
    * The live turn handle for a turn executing in this process, or undefined when it is not
    * resumable here — never started, already terminal (the stream removed its run), aborting, or
    * registered without a handle.
@@ -125,21 +159,80 @@ export class ActiveTurnRegistry {
   }
 
   /**
-   * Enter shutdown mode, abort every run with `abortReason`, and wait until the
-   * registry is empty. Late `track()` calls (in-flight HTTP that registered after
-   * the first snapshot) are aborted immediately as `abortReason` and included in
-   * subsequent wait iterations.
+   * After a turn pauses, keep the run for `pausedKeepaliveMs`. On expiry, offload
+   * under the turn lock: the generator stops without a terminal write.
+   * A later send on this owner rebuilds. `0` disables the timer.
+   */
+  armPausedKeepalive(input: { sessionId: string; turnId: string }): void {
+    this.clearPausedKeepalive(input);
+    if (this.pausedKeepaliveMs <= 0 || this.alreadyShutDownAbortReason !== undefined) {
+      return;
+    }
+    const key = activeTurnKey(input.sessionId, input.turnId);
+    const timer = setTimeout(() => {
+      this.keepaliveTimers.delete(key);
+      void this.withTurnLock(input, async () => {
+        const run = this.runs.get(key);
+        if (!isPausedRun(run)) {
+          return;
+        }
+        await this.finishRun(run, TurnOffloadReason);
+      });
+    }, this.pausedKeepaliveMs);
+    timer.unref();
+    this.keepaliveTimers.set(key, timer);
+  }
+
+  clearPausedKeepalive(input: { sessionId: string; turnId: string }): void {
+    const key = activeTurnKey(input.sessionId, input.turnId);
+    const timer = this.keepaliveTimers.get(key);
+    if (!timer) {
+      return;
+    }
+    clearTimeout(timer);
+    this.keepaliveTimers.delete(key);
+  }
+
+  /**
+   * Abort the local run and wait until it leaves the registry.
+   * Caller must already hold the per-turn lock. Offload does not write a terminal state.
+   */
+  async dropLocalTurn(input: { sessionId: string; turnId: string }): Promise<void> {
+    const run = this.runs.get(activeTurnKey(input.sessionId, input.turnId));
+    if (!run) {
+      return;
+    }
+    await this.finishRun(run, TurnOffloadReason);
+  }
+
+  /**
+   * Enter shutdown mode and wait until the registry is empty.
+   * Paused runs are offloaded so their approval state survives. Running runs abort as `abortReason`.
+   * Late `track()` calls abort immediately as `abortReason`.
    */
   async shutdownAndWait(abortReason: CancellationReason): Promise<void> {
     this.alreadyShutDownAbortReason = abortReason;
+    for (const timer of this.keepaliveTimers.values()) {
+      clearTimeout(timer);
+    }
+    this.keepaliveTimers.clear();
     while (this.runs.size > 0) {
       const pending = Array.from(this.runs.values());
       for (const run of pending) {
-        if (!run.abortController.signal.aborted) {
-          run.abortController.abort(abortReason);
+        if (run.abortController.signal.aborted) {
+          continue;
         }
+        const reason = isPausedRun(run) ? TurnOffloadReason : abortReason;
+        run.abortController.abort(reason);
       }
       await Promise.allSettled(pending.map(run => run.waitUntilCompleted));
     }
+  }
+
+  private async finishRun(run: ActiveTurnRun, reason: CancellationReason | typeof TurnOffloadReason): Promise<void> {
+    if (!run.abortController.signal.aborted) {
+      run.abortController.abort(reason);
+    }
+    await run.waitUntilCompleted;
   }
 }

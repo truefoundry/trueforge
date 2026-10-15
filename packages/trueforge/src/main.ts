@@ -81,6 +81,7 @@ import {
   CancellationReason,
   Sessions,
   type ISessionStore,
+  type SessionHandle,
   type TurnStreamingEvent,
 } from '@truefoundry/trueforge-core/agent-session';
 import { RequestReplyExecutor, RequestReplyRouter, type RedisClient } from '@truefoundry/trueforge-core/request-reply';
@@ -90,7 +91,12 @@ import type { Logger } from 'winston';
 import { createServerApp } from './app';
 import { TrueForgeAuthorizer, type Authorizer } from './auth/authorizer';
 import { createAuthenticator } from './auth/createAuthenticator';
-import { resolveRequestContext, STANDALONE_REQUEST_CONTEXT, type RequestContext } from './auth/identity';
+import {
+  requestContextFromCreatedBySubject,
+  resolveRequestContext,
+  STANDALONE_REQUEST_CONTEXT,
+  type RequestContext,
+} from './auth/identity';
 import { initOidc } from './auth/oidc';
 import { McpCatalog } from './catalog/McpCatalog';
 import { ModelCatalog } from './catalog/ModelCatalog';
@@ -123,6 +129,7 @@ import { EventSubscriptionRegistry } from './runtime/event-subscription';
 import type { ConnectedRedis } from './runtime/redis';
 import { initSentry } from './sentry';
 import { printStandaloneStartupBanner } from './startupBanner';
+import { headerValue } from './truefoundry/gatewayMetadata';
 import { InlineMcpServerStore } from './truefoundry/InlineMcpServerStore';
 import { InlineModelProviderStore } from './truefoundry/InlineModelProviderStore';
 import {
@@ -133,7 +140,7 @@ import {
   X_TFG_MODELS,
   X_TFG_SKILLS,
 } from './truefoundry/inlineResources';
-import { InlineSkillStore } from './truefoundry/InlineSkillStore';
+import { InlineSkillStore, overlayInlineTurnSkills } from './truefoundry/InlineSkillStore';
 import {
   parsePerServerMcpHeaders,
   X_TFG_MCP_HEADERS,
@@ -590,7 +597,9 @@ async function createServerRuntime<TTransaction>(persistence: ServerPersistence<
     serviceFoundryClient,
   } = persistence;
 
-  const activeTurns = new ActiveTurnRegistry();
+  const activeTurns = new ActiveTurnRegistry({
+    pausedKeepaliveMs: configuration.TURN_PAUSED_KEEPALIVE_SECONDS * 1000,
+  });
   const requestReplyRouter = new RequestReplyRouter();
   const eventSubscriptions = new EventSubscriptionRegistry<TurnStreamingEvent>(redis?.client);
   const sessions = new Sessions({ sessionStore });
@@ -679,6 +688,43 @@ async function createServerRuntime<TTransaction>(persistence: ServerPersistence<
     }
     return new InlineSkillStore({ inner: store, inline: parseInlineSkills(rawInline) });
   };
+  const createPeerTurnExecutionDeps = async (input: {
+    session: SessionHandle;
+    userRef: string;
+    requestHeaders?: Record<string, string> | undefined;
+  }) => {
+    const requestContext = requestContextFromCreatedBySubject({
+      tenant_id: input.session.tenant_id,
+      created_by_subject: input.session.record.created_by_subject,
+    });
+    let referencedAgent: AgentRecord | undefined;
+    if (input.session.record.agent.type === 'reference') {
+      referencedAgent = await agentStore.getAgent({
+        tenant_id: input.session.tenant_id,
+        id: input.session.record.agent.id,
+      });
+    }
+    const rawInlineSkills = headerValue(input.requestHeaders, X_TFG_SKILLS);
+    const skillStore =
+      isTrueFoundryModeEnabled(configuration) && rawInlineSkills !== undefined
+        ? overlayInlineTurnSkills({
+            resolver: turnSkillsResolverStore,
+            inline: parseInlineSkills(rawInlineSkills),
+          })
+        : turnSkillsResolverStore;
+    return {
+      activeTurns,
+      eventSubscriptions,
+      logger,
+      sandboxEnvironmentStore,
+      agentStore,
+      modelProviderStore: persistence.resolveModelProviderStore(requestContext, referencedAgent),
+      mcpServerStore: persistence.resolveMcpServerStore(requestContext, referencedAgent),
+      skillStore,
+      sandboxProviderStore: persistence.resolveSandboxProviderStore(requestContext),
+      webSearchProviderStore: persistence.resolveWebSearchProviderStore(requestContext),
+    };
+  };
   const app = createServerApp({
     modelCatalog: ModelCatalog.load(),
     mcpCatalog: McpCatalog.load(),
@@ -704,6 +750,7 @@ async function createServerRuntime<TTransaction>(persistence: ServerPersistence<
     activeTurns,
     redis: redis?.client,
     requestReplyRouter,
+    createPeerTurnExecutionDeps,
     eventSubscriptions,
     logger,
     oidcClient,

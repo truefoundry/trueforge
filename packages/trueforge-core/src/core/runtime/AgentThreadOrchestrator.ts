@@ -566,8 +566,14 @@ export class AgentThreadOrchestrator {
 
   public async *execute({
     signal,
+    resume = false,
   }: {
     signal: AbortSignal;
+    /**
+     * The stored turn is already paused. Start there so the first runnable batch
+     * persists `running`; a fresh execute would skip that transition.
+     */
+    resume?: boolean;
   }): AsyncGenerator<AgentThreadExecutionEvent, AgentThreadExecutionResult, unknown> {
     const { agentThreads } = this;
 
@@ -575,7 +581,7 @@ export class AgentThreadOrchestrator {
     let output: ModelMessageEvent | null = null;
     let rootAgentError: AgentThreadExecutionResult['root_agent_error'];
     let rootFinished = false;
-    let turnPaused = false;
+    let turnPaused = resume;
 
     const mainThread = this.getMainThread();
     const rootSpan = createRootAgentSpan(mainThread, this.tracing);
@@ -602,8 +608,10 @@ export class AgentThreadOrchestrator {
           return done();
         }
 
-        // Apply accepted user events in the same order they entered the turn-level queue.
-        for (const event of this.pendingTurnEvents.splice(0)) {
+        // Take the queue, then empty it, so a send during this pass waits for the next loop.
+        const queued = this.pendingTurnEvents.slice();
+        this.pendingTurnEvents.length = 0;
+        for (const event of queued) {
           switch (event.type) {
             case EventType.USER_TOOL_APPROVAL_POLICY:
               yield* this.applyApprovalPolicies(event);

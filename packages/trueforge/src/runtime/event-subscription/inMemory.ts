@@ -51,6 +51,16 @@ export class InMemoryEventStreamStore<T extends object> {
     return sequenceNumber;
   }
 
+  /** Refreshes TTL on a live stream. Sequence numbers already follow the log length. */
+  rearm(streamId: string, streamTTLSeconds?: number): void {
+    const stream = this.getLiveStream(streamId);
+    if (!stream || !streamTTLSeconds || streamTTLSeconds <= 0) {
+      return;
+    }
+    stream.expiresAtMs = Date.now() + streamTTLSeconds * 1_000;
+    this.scheduleExpiry(streamId, stream);
+  }
+
   /** Returns the stream if it exists and has not passed its TTL; drops it lazily otherwise. */
   getLiveStream(streamId: string): InMemoryStream<T> | undefined {
     const stream = this.streams.get(streamId);
@@ -112,6 +122,11 @@ export class InMemoryEventSubscription<T extends object> implements EventSubscri
     private readonly store: InMemoryEventStreamStore<T>,
     private readonly streamId: string,
   ) {}
+
+  resumeProducer(options?: EventSubscriptionPutOptions): Promise<void> {
+    this.store.rearm(this.streamId, options?.streamTTLSeconds);
+    return Promise.resolve();
+  }
 
   put(event: T, options?: EventSubscriptionPutOptions): Promise<number> {
     return Promise.resolve(this.store.append(this.streamId, event, options?.streamTTLSeconds));

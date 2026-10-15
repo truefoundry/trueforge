@@ -773,6 +773,12 @@ export interface SharedServerConfiguration {
    */
   TURN_SUBSCRIBE_TIMEOUT_MS: number;
   /**
+   * How long a paused turn stays in memory before it is offloaded.
+   * The row stays paused. The next send on the owner rebuilds it.
+   * Env: `TURN_PAUSED_KEEPALIVE_SECONDS`. Default 30.
+   */
+  TURN_PAUSED_KEEPALIVE_SECONDS: number;
+  /**
    * Max ms to wait for one create-turn SSE write before dropping that client
    * and keeping the turn drain running. Env: `TURN_SSE_STREAM_WRITE_TIMEOUT_MS`. Default 60000.
    */
@@ -1162,6 +1168,11 @@ const shared: SharedServerConfiguration = {
     envKey: 'TURN_SUBSCRIBE_TIMEOUT_MS',
     raw: getEnv('TURN_SUBSCRIBE_TIMEOUT_MS'),
     defaultValue: 600_000,
+  }),
+  TURN_PAUSED_KEEPALIVE_SECONDS: parsePositiveInt({
+    envKey: 'TURN_PAUSED_KEEPALIVE_SECONDS',
+    raw: getEnv('TURN_PAUSED_KEEPALIVE_SECONDS'),
+    defaultValue: 30,
   }),
   TURN_SSE_STREAM_WRITE_TIMEOUT_MS: parsePositiveInt({
     envKey: 'TURN_SSE_STREAM_WRITE_TIMEOUT_MS',

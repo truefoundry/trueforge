@@ -35,6 +35,18 @@ export class RedisEventSubscription<T extends object> implements EventSubscripti
     private readonly streamId: string,
   ) {}
 
+  async resumeProducer(options?: EventSubscriptionPutOptions): Promise<void> {
+    const entries = await this.redis.xRevRange(this.streamId, '+', '-', { COUNT: 1 });
+    const latest = entries[0];
+    if (latest) {
+      this.nextSequenceNumber = sequenceNumberFromEntryId(this.streamId, latest.id) + 1;
+    }
+    const streamTTLSeconds = options?.streamTTLSeconds;
+    if (streamTTLSeconds && streamTTLSeconds > 0) {
+      await this.redis.expire(this.streamId, streamTTLSeconds);
+    }
+  }
+
   async put(event: T, options?: EventSubscriptionPutOptions): Promise<number> {
     const sequenceNumber = this.nextSequenceNumber;
     this.nextSequenceNumber += 1;

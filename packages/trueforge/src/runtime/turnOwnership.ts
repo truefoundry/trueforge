@@ -1,17 +1,14 @@
 import type { TurnState } from '@truefoundry/trueforge-core/agent-session';
 
-/** Result of asking the owning replica to handle a turn request. */
+/**
+ * Result of a forward that did not itself finish the request.
+ * A peer 200, 400, or 409 is returned directly and never becomes an outcome.
+ */
 export enum PeerOutcome {
-  /** Peer replied 200 and handled the request. */
-  Ok = 'ok',
-  /** Heartbeat missing or nobody subscribed: the owner is gone. */
+  /** Heartbeat missing: the owner is gone. */
   NoResponder = 'no_responder',
-  /** Heartbeat present but no reply in budget: the owner may still be applying. */
-  Timeout = 'timeout',
-  /** Peer is alive but has no ActiveTurn (412); it should rebuild, not us. */
-  NotRunningOnPeer = 'not_running_on_peer',
-  /** Redis/transport failed on this replica, so peer liveness is unknown. */
-  TransportError = 'transport_error',
+  /** Publish-zero, timeout, 412, or transport failure. The owner is not known to be gone. */
+  OwnerNotGone = 'owner_not_gone',
 }
 
 export enum TurnOwnershipAction {
@@ -21,8 +18,6 @@ export enum TurnOwnershipAction {
   Rebuild = 'rebuild',
   /** Ask the owning replica to handle it. */
   Forward = 'forward',
-  /** The owning replica handled it; nothing left to do here. */
-  Forwarded = 'forwarded',
   /** Claim the paused turn from a dead owner; only the CAS winner rebuilds. */
   Steal = 'steal',
   /** The turn cannot accept this request (terminal, or running with its executor gone). */
@@ -62,13 +57,9 @@ export function resolveOwnershipAction(input: TurnOwnershipInput): TurnOwnership
   switch (peerOutcome) {
     case null:
       return TurnOwnershipAction.Forward;
-    case PeerOutcome.Ok:
-      return TurnOwnershipAction.Forwarded;
     case PeerOutcome.NoResponder:
       return status === 'paused' ? TurnOwnershipAction.Steal : TurnOwnershipAction.Retry;
-    case PeerOutcome.Timeout:
-    case PeerOutcome.NotRunningOnPeer:
-    case PeerOutcome.TransportError:
+    case PeerOutcome.OwnerNotGone:
       return TurnOwnershipAction.Retry;
   }
 }

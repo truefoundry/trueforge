@@ -14,11 +14,61 @@ import type { SkillVersion } from '../schemas/skill';
 import type { InlineSkills } from './inlineResources';
 
 /**
+ * Overlay request-scoped skills on a resolver that only implements `resolveTurnSkills`.
+ * Registry skills still go to that resolver. The other skill APIs are unused on this path.
+ */
+export function overlayInlineTurnSkills<TTransaction = never>(input: {
+  resolver: Pick<ISkillStore<TTransaction>, 'resolveTurnSkills'>;
+  inline: InlineSkills;
+}): Pick<ISkillStore<TTransaction>, 'resolveTurnSkills'> {
+  return new InlineSkillStore({
+    inner: new ResolveOnlySkillStore(input.resolver),
+    inline: input.inline,
+  });
+}
+
+class ResolveOnlySkillStore<TTransaction> implements ISkillStore<TTransaction> {
+  constructor(private readonly resolver: Pick<ISkillStore<TTransaction>, 'resolveTurnSkills'>) {}
+
+  resolveTurnSkills(input: AgentSkillsInput): Promise<SkillMount[]> {
+    return this.resolver.resolveTurnSkills(input);
+  }
+
+  listSkills(): Promise<SkillRecord[]> {
+    return Promise.resolve([]);
+  }
+
+  createSkill(): Promise<SkillRecord> {
+    return unsupportedSkillWrite();
+  }
+
+  upsertSkill(): Promise<SkillRecord> {
+    return unsupportedSkillWrite();
+  }
+
+  deleteSkill(): Promise<boolean> {
+    return unsupportedSkillWrite();
+  }
+
+  listSkillVersions(): Promise<SkillVersion[]> {
+    return Promise.resolve([]);
+  }
+
+  validateAgentSkills(): Promise<void> {
+    return unsupportedSkillWrite();
+  }
+}
+
+function unsupportedSkillWrite(): Promise<never> {
+  return Promise.reject(new Error('Peer skill resolution only resolves turn skills'));
+}
+
+/**
  * Serves the skills a request brought with it, and delegates everything else.
  *
- * Mirrors {@link InlineMcpServerStore}: name-filtered list and validate/resolve are overlaid, an
- * unfiltered list passes through so request-scoped skills stay out of the tenant's settings, and
- * writes delegate because there is no row to write.
+ * Name-filtered list and validate/resolve are overlaid, an unfiltered list passes through so
+ * request-scoped skills stay out of the tenant's settings, and writes delegate because there is
+ * no row to write.
  */
 export class InlineSkillStore<TTransaction = never> implements ISkillStore<TTransaction> {
   readonly #inner: ISkillStore<TTransaction>;

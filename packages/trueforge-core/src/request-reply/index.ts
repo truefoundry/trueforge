@@ -7,7 +7,13 @@
 
 export { redisRequest } from './client';
 export type { SendRequestOptions } from './client';
-export { NoResponderError, ReplyError, RequestTimeoutError } from './errors';
+export {
+  NO_RESPONDER_HEARTBEAT_DETAIL,
+  NO_RESPONDER_PUBLISH_DETAIL,
+  NoResponderError,
+  ReplyError,
+  RequestTimeoutError,
+} from './errors';
 export { RequestReplyExecutor } from './executor';
 export type { RequestReplyErrorHandler, RunExecutorOptions } from './executor';
 export type { RedisClient } from './redisClient';
