@@ -87,20 +87,6 @@ Pod labels / annotations, global merged under the chart's own.
 {{- end }}
 
 {{/*
-Server pod annotations. Scrape defaults first, then the same pod annotations as
-trueforge.podAnnotations, so an explicit value wins. The controller does not
-listen for scrapes and keeps trueforge.podAnnotations.
-*/}}
-{{- define "trueforge.server.podAnnotations" -}}
-{{- $defaults := dict "prometheus.io/scrape" "true" "prometheus.io/path" "/metrics" "prometheus.io/port" (toString .Values.server.port) -}}
-{{- if .Values.mtls.enabled -}}
-{{- $_ := set $defaults "prometheus.io/scheme" "https" -}}
-{{- end -}}
-{{- $merged := mergeOverwrite $defaults (deepCopy (.Values.global.podAnnotations | default dict)) (deepCopy (.Values.podAnnotations | default dict)) -}}
-{{- toYaml $merged }}
-{{- end }}
-
-{{/*
 ServiceMonitor labels. Chart labels first, then serviceMonitor.labels, so a
 parent can add the label its Prometheus selects on.
 */}}

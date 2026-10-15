@@ -60,10 +60,6 @@ serviceAccount:
   name: ""
 # Mount the ServiceAccount token into the server and controller pods.
 automountServiceAccountToken: false
-# Server pods merge Prometheus scrape annotations under these and global.podAnnotations.
-# prometheus.io/port is the server container port. prometheus.io/scheme is https when
-# mtls.enabled, otherwise unset. Set prometheus.io/scrape to "false" to turn discovery
-# off. The controller pod does not get the scrape annotations.
 podAnnotations: {}
 podLabels: {}
 # Labels / annotations on every rendered object (merged over global.labels /
@@ -91,10 +87,9 @@ service:
   annotations: {}
   labels: {}
 # Prometheus Operator ServiceMonitor for the server Service (GET /metrics).
-# Off by default. Server pods still carry prometheus.io/* annotations for
-# annotation-based discovery. A parent chart sets labels so its Prometheus
-# selects this monitor. When mtls.enabled, the endpoint is https and skips
-# certificate verification; /metrics does not require a client certificate.
+# Off by default. A parent chart sets labels so its Prometheus selects this
+# monitor. When mtls.enabled, the endpoint is https and skips certificate
+# verification; /metrics does not require a client certificate.
 serviceMonitor:
   enabled: false
   interval: 30s
