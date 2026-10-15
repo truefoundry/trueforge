@@ -1221,6 +1221,7 @@ describe('pause chips in buildSessionTimelineSegments', () => {
           title: 'worker',
           createdAt: '2026-01-01T00:00:02.000Z',
           threadId: subThread,
+          agentInfo: { type: 'dynamic', name: 'worker', input: 'worker' },
           parent: { threadId: 'main', toolCallId: 'call-sub' },
         },
       },
@@ -1330,6 +1331,7 @@ describe('pause chips in buildSessionTimelineSegments', () => {
           title: 'a',
           createdAt: '2026-01-01T00:00:02.000Z',
           threadId: subA,
+          agentInfo: { type: 'dynamic', name: 'a', input: 'a' },
           parent: { threadId: 'main', toolCallId: 'call-a' },
         },
       },
@@ -1341,6 +1343,7 @@ describe('pause chips in buildSessionTimelineSegments', () => {
           title: 'b',
           createdAt: '2026-01-01T00:00:02.000Z',
           threadId: subB,
+          agentInfo: { type: 'dynamic', name: 'b', input: 'b' },
           parent: { threadId: 'main', toolCallId: 'call-b' },
         },
       },
@@ -1430,6 +1433,7 @@ describe('pause chips in buildSessionTimelineSegments', () => {
           title: 'a',
           createdAt: '2026-01-01T00:00:02.000Z',
           threadId: subA,
+          agentInfo: { type: 'dynamic', name: 'a', input: 'a' },
           parent: { threadId: 'main', toolCallId: 'call-a' },
         },
       },
@@ -1559,6 +1563,7 @@ describe('pause chips in buildSessionTimelineSegments', () => {
           title: 'a',
           createdAt: '2026-01-01T00:00:02.000Z',
           threadId: subA,
+          agentInfo: { type: 'dynamic', name: 'a', input: 'a' },
           parent: { threadId: 'main', toolCallId: 'call-a' },
         },
       },
@@ -1650,6 +1655,7 @@ describe('pause chips in buildSessionTimelineSegments', () => {
           title: 'a',
           createdAt: '2026-01-01T00:00:02.000Z',
           threadId: subA,
+          agentInfo: { type: 'dynamic', name: 'a', input: 'a' },
           parent: { threadId: 'main', toolCallId: 'call-a' },
         },
       },
@@ -1661,6 +1667,7 @@ describe('pause chips in buildSessionTimelineSegments', () => {
           title: 'b',
           createdAt: '2026-01-01T00:00:02.100Z',
           threadId: subB,
+          agentInfo: { type: 'dynamic', name: 'b', input: 'b' },
           parent: { threadId: 'main', toolCallId: 'call-b' },
         },
       },
@@ -1763,6 +1770,7 @@ describe('pause chips in buildSessionTimelineSegments', () => {
           title: 'worker',
           createdAt: '2026-01-01T00:00:02.000Z',
           threadId: subThread,
+          agentInfo: { type: 'dynamic', name: 'worker', input: 'worker' },
           parent: { threadId: 'main', toolCallId: 'call-sub' },
         },
       },
@@ -1844,7 +1852,7 @@ describe('pause chips in buildSessionTimelineSegments', () => {
         segment.type !== 'sub_agent',
     );
     for (const bar of activity) {
-      const overlapsPause = bar.startMs < pause.endMs && bar.endMs > pause.startMs;
+      const overlapsPause: boolean = bar.startMs < pause.endMs && bar.endMs > pause.startMs;
       assert.equal(overlapsPause, false, `${bar.id} overlaps pause`);
     }
     const laidOut = applyPauseChipLayout({ segments, pauseChipMs: 5_000 });
@@ -1859,7 +1867,7 @@ describe('pause chips in buildSessionTimelineSegments', () => {
         segment.type !== 'sub_agent',
     );
     for (const bar of activityLaid) {
-      const overlapsHatch = bar.startMs < pauseLaid.endMs && bar.endMs > pauseLaid.startMs;
+      const overlapsHatch: boolean = bar.startMs < pauseLaid.endMs && bar.endMs > pauseLaid.startMs;
       assert.equal(overlapsHatch, false, `${bar.id} overlaps hatch after layout`);
     }
   });
@@ -1894,6 +1902,7 @@ describe('pause chips in buildSessionTimelineSegments', () => {
           title: 'worker',
           createdAt: '2026-01-01T00:00:02.000Z',
           threadId: subThread,
+          agentInfo: { type: 'dynamic', name: 'worker', input: 'worker' },
           parent: { threadId: 'main', toolCallId: 'call-sub' },
         },
       },
@@ -2041,6 +2050,7 @@ describe('pause chips in buildSessionTimelineSegments', () => {
           title: 'a',
           createdAt: '2026-01-01T00:00:02.000Z',
           threadId: subA,
+          agentInfo: { type: 'dynamic', name: 'a', input: 'a' },
           parent: { threadId: 'main', toolCallId: 'call-a' },
         },
       },
@@ -2052,6 +2062,7 @@ describe('pause chips in buildSessionTimelineSegments', () => {
           title: 'b',
           createdAt: '2026-01-01T00:00:02.000Z',
           threadId: subB,
+          agentInfo: { type: 'dynamic', name: 'b', input: 'b' },
           parent: { threadId: 'main', toolCallId: 'call-b' },
         },
       },
@@ -2212,6 +2223,7 @@ describe('pause chips in buildSessionTimelineSegments', () => {
           title: 'early',
           createdAt: '2026-01-01T00:00:02.000Z',
           threadId: subEarly,
+          agentInfo: { type: 'dynamic', name: 'early', input: 'early' },
           parent: { threadId: 'main', toolCallId: 'call-early' },
         },
       },
@@ -2223,6 +2235,7 @@ describe('pause chips in buildSessionTimelineSegments', () => {
           title: 'late',
           createdAt: '2026-01-01T00:00:02.000Z',
           threadId: subLate,
+          agentInfo: { type: 'dynamic', name: 'late', input: 'late' },
           parent: { threadId: 'main', toolCallId: 'call-late' },
         },
       },
@@ -2366,6 +2379,7 @@ describe('pause chips in buildSessionTimelineSegments', () => {
           title: 'a',
           createdAt: '2026-01-01T00:00:02.000Z',
           threadId: subA,
+          agentInfo: { type: 'dynamic', name: 'a', input: 'a' },
           parent: { threadId: 'main', toolCallId: 'call-a' },
         },
       },
@@ -2377,6 +2391,7 @@ describe('pause chips in buildSessionTimelineSegments', () => {
           title: 'b',
           createdAt: '2026-01-01T00:00:02.000Z',
           threadId: subB,
+          agentInfo: { type: 'dynamic', name: 'b', input: 'b' },
           parent: { threadId: 'main', toolCallId: 'call-b' },
         },
       },
@@ -2503,14 +2518,15 @@ describe('pause chips in buildSessionTimelineSegments', () => {
   it('closes sibling waits on a matching user.tool_approval_policy (allow_session)', () => {
     const subA = 'sub-policy-a';
     const subB = 'sub-policy-b';
-    const saveComment = (id: string) => ({
-      id,
-      type: 'function',
-      function: {
-        name: 'call_tool',
-        arguments: JSON.stringify({ mcp_server: 'linear', tool_name: 'save_comment', input: {} }),
-      },
-    });
+    const saveComment = (id: string) =>
+      ({
+        id,
+        type: 'function' as const,
+        function: {
+          name: 'call_tool',
+          arguments: JSON.stringify({ mcp_server: 'linear', tool_name: 'save_comment', input: {} }),
+        },
+      });
     const turns = buildSessionTurnViews([
       created({ turnId: 't1', createdAt: '2026-01-01T00:00:00.000Z' }),
       {
@@ -2544,6 +2560,7 @@ describe('pause chips in buildSessionTimelineSegments', () => {
           title: 'a',
           createdAt: '2026-01-01T00:00:02.000Z',
           threadId: subA,
+          agentInfo: { type: 'dynamic', name: 'a', input: 'a' },
           parent: { threadId: 'main', toolCallId: 'call-a' },
         },
       },
@@ -2555,6 +2572,7 @@ describe('pause chips in buildSessionTimelineSegments', () => {
           title: 'b',
           createdAt: '2026-01-01T00:00:02.000Z',
           threadId: subB,
+          agentInfo: { type: 'dynamic', name: 'b', input: 'b' },
           parent: { threadId: 'main', toolCallId: 'call-b' },
         },
       },
@@ -2637,7 +2655,6 @@ describe('pause chips in buildSessionTimelineSegments', () => {
             },
           ],
           createdAt: '2026-01-01T00:00:10.000Z',
-          threadId: null,
         },
       },
       {
@@ -2734,6 +2751,7 @@ describe('pause chips in buildSessionTimelineSegments', () => {
           title: 'a',
           createdAt: '2026-01-01T00:00:02.000Z',
           threadId: subA,
+          agentInfo: { type: 'dynamic', name: 'a', input: 'a' },
           parent: { threadId: 'main', toolCallId: 'call-a' },
         },
       },
@@ -2745,6 +2763,7 @@ describe('pause chips in buildSessionTimelineSegments', () => {
           title: 'b',
           createdAt: '2026-01-01T00:00:02.000Z',
           threadId: subB,
+          agentInfo: { type: 'dynamic', name: 'b', input: 'b' },
           parent: { threadId: 'main', toolCallId: 'call-b' },
         },
       },
@@ -2970,6 +2989,7 @@ describe('pause chips in buildSessionTimelineSegments', () => {
           title: 'worker',
           createdAt: '2026-01-01T00:00:02.000Z',
           threadId: subThread,
+          agentInfo: { type: 'dynamic', name: 'worker', input: 'worker' },
           parent: { threadId: 'main', toolCallId: 'call-sub' },
         },
       },
@@ -3116,6 +3136,7 @@ describe('pause chips in buildSessionTimelineSegments', () => {
           title: 'a',
           createdAt: '2026-01-01T00:00:02.000Z',
           threadId: subA,
+          agentInfo: { type: 'dynamic', name: 'a', input: 'a' },
           parent: { threadId: 'main', toolCallId: 'call-a' },
         },
       },
@@ -3127,6 +3148,7 @@ describe('pause chips in buildSessionTimelineSegments', () => {
           title: 'b',
           createdAt: '2026-01-01T00:00:02.000Z',
           threadId: subB,
+          agentInfo: { type: 'dynamic', name: 'b', input: 'b' },
           parent: { threadId: 'main', toolCallId: 'call-b' },
         },
       },
