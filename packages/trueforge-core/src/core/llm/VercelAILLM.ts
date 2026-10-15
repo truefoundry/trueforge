@@ -127,6 +127,36 @@ function isFunctionToolCall<T extends { type: string }>(toolCall: T): toolCall i
  * own packages: those drop `json_schema`, and Fireworks also clamps efforts its models do accept.
  * TODO: move Z AI to @ai-sdk/zai once https://github.com/vercel/ai/pull/17340 ships.
  */
+/**
+ * `@ai-sdk/openai-compatible` rebuilds tools as name/description/parameters(/strict) only.
+ * Re-attach `eager_input_streaming` so the TrueFoundry gateway sees it on the chat-completions wire.
+ */
+export function attachEagerInputStreamingToChatTools(args: Record<string, unknown>): Record<string, unknown> {
+  const tools = args['tools'];
+  if (!Array.isArray(tools)) {
+    return args;
+  }
+  return {
+    ...args,
+    tools: tools.map(tool => {
+      if (!isPlainObject(tool) || tool['type'] !== 'function') {
+        return tool;
+      }
+      const fn = tool['function'];
+      if (!isPlainObject(fn)) {
+        return tool;
+      }
+      return {
+        ...tool,
+        function: {
+          ...fn,
+          eager_input_streaming: true,
+        },
+      };
+    }),
+  };
+}
+
 function compatibleModel(config: VercelAIProviderConfig): LanguageModel {
   const { provider, model, apiKey, headers, baseUrl } = config;
   if (baseUrl === undefined) {
@@ -142,6 +172,8 @@ function compatibleModel(config: VercelAIProviderConfig): LanguageModel {
     // These endpoints omit token counts from streamed responses unless asked.
     includeUsage: true,
     ...(Object.keys(headers).length > 0 ? { headers } : {}),
+    // openai-compatible prepareTools drops unknown function fields; TFY gateway needs this one.
+    ...(provider.type === 'truefoundry' ? { transformRequestBody: attachEagerInputStreamingToChatTools } : {}),
   });
   return client(model.id);
 }
@@ -859,6 +891,15 @@ export function convertMessages({
   return { instructions: systemParts.length > 0 ? systemParts.join('\n\n') : undefined, messages: result };
 }
 
+/** Reads optional `eager_input_streaming` from a harness/OpenAI function tool object. */
+function readEagerInputStreaming(fn: object): boolean | undefined {
+  if (!('eager_input_streaming' in fn)) {
+    return undefined;
+  }
+  const value: unknown = Reflect.get(fn, 'eager_input_streaming');
+  return typeof value === 'boolean' ? value : undefined;
+}
+
 /** Converts OpenAI tool definitions to the Vercel AI SDK ToolSet. */
 export function convertTools(tools: ChatCompletionTool[] | undefined): ToolSet | undefined {
   if (!tools?.length) {
@@ -869,9 +910,14 @@ export function convertTools(tools: ChatCompletionTool[] | undefined): ToolSet |
     if (!isFunctionTool(t)) {
       continue;
     }
+    const eagerInputStreaming = readEagerInputStreaming(t.function);
     toolSet[t.function.name] = {
       inputSchema: jsonSchema(t.function.parameters ?? { type: 'object', properties: {} }),
       ...(t.function.description !== undefined ? { description: t.function.description } : {}),
+      // Anthropic honors this; openai-compatible strips it (TFY uses transformRequestBody instead).
+      ...(eagerInputStreaming === true
+        ? { providerOptions: { anthropic: { eagerInputStreaming: true } } satisfies ProviderOptions }
+        : {}),
     };
   }
   return Object.keys(toolSet).length > 0 ? toolSet : undefined;

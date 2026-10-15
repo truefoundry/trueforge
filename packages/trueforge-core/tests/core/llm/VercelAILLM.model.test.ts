@@ -6,6 +6,7 @@
  */
 import type { VercelAIProviderConfig, VercelAIProviderName } from '../../../src/core/llm/VercelAILLM';
 import {
+  attachEagerInputStreamingToChatTools,
   buildLanguageModel,
   buildStreamTextArgs,
   convertTools,
@@ -49,6 +50,26 @@ describe('buildLanguageModel', () => {
     }
   });
 
+  it('wires transformRequestBody only for truefoundry compatible models', () => {
+    const tfy: unknown = buildLanguageModel(
+      makeConfig({ provider: 'truefoundry', baseUrl: 'http://localhost:11434/v1' }),
+    );
+    const fireworks: unknown = buildLanguageModel(
+      makeConfig({ provider: 'fireworks', baseUrl: 'http://localhost:11434/v1' }),
+    );
+    if (typeof tfy !== 'object' || tfy === null) throw new Error('Expected truefoundry model object');
+    if (typeof fireworks !== 'object' || fireworks === null) throw new Error('Expected fireworks model object');
+    // ChatLanguageModel keeps config on a private field; probe via transform that only TFY sets.
+    const tfyConfig = Reflect.get(tfy, 'config');
+    const fireworksConfig = Reflect.get(fireworks, 'config');
+    if (typeof tfyConfig !== 'object' || tfyConfig === null) throw new Error('Expected tfy config');
+    if (typeof fireworksConfig !== 'object' || fireworksConfig === null) {
+      throw new Error('Expected fireworks config');
+    }
+    expect(Reflect.get(tfyConfig, 'transformRequestBody')).toBe(attachEagerInputStreamingToChatTools);
+    expect(Reflect.get(fireworksConfig, 'transformRequestBody')).toBeUndefined();
+  });
+
   // Alibaba endpoints are per-workspace, so falling back to the package default would quietly
   // address someone else's tenant.
   it('demands a baseUrl from alibaba even though its adapter ships a default', () => {
@@ -74,6 +95,57 @@ describe('buildLanguageModel', () => {
     );
     if (typeof model !== 'object' || model === null) throw new Error('Expected model to be an object');
     expect(Reflect.get(model, 'modelId')).toBe('claude-sonnet-5');
+  });
+});
+
+// ─────────── attachEagerInputStreamingToChatTools ───────────
+
+describe('attachEagerInputStreamingToChatTools', () => {
+  it('sets eager_input_streaming on every function tool', () => {
+    const result = attachEagerInputStreamingToChatTools({
+      model: 'claude',
+      tools: [
+        {
+          type: 'function',
+          function: { name: 'search', description: 'Search', parameters: { type: 'object' } },
+        },
+        {
+          type: 'function',
+          function: { name: 'write', parameters: { type: 'object' }, strict: true },
+        },
+      ],
+    });
+    expect(result['tools']).toEqual([
+      {
+        type: 'function',
+        function: {
+          name: 'search',
+          description: 'Search',
+          parameters: { type: 'object' },
+          eager_input_streaming: true,
+        },
+      },
+      {
+        type: 'function',
+        function: {
+          name: 'write',
+          parameters: { type: 'object' },
+          strict: true,
+          eager_input_streaming: true,
+        },
+      },
+    ]);
+  });
+
+  it('leaves bodies without tools unchanged', () => {
+    const body = { model: 'claude', messages: [] };
+    expect(attachEagerInputStreamingToChatTools(body)).toBe(body);
+  });
+
+  it('leaves non-function tools unchanged', () => {
+    const custom = { type: 'custom', custom: { name: 'x' } };
+    const result = attachEagerInputStreamingToChatTools({ tools: [custom] });
+    expect(result['tools']).toEqual([custom]);
   });
 });
 

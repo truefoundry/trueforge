@@ -4,13 +4,26 @@ import type { MCPAuthRequired } from '../mcp/IMCPServer';
 import { type IToolSet, isAuthRequired } from './IMCPServer';
 import { getUniqueSanitizedToolName } from './toolNames';
 
+type OpenAIFunctionTool = Extract<ChatCompletionTool, { type: 'function' }>;
+
+/**
+ * OpenAI function tool plus optional chat-completions gateway fields.
+ * TrueFoundry's gateway reads `eager_input_streaming` on `tools[].function` when translating to vendors.
+ */
+export type HarnessChatCompletionTool = {
+  type: 'function';
+  function: OpenAIFunctionTool['function'] & {
+    eager_input_streaming: boolean | undefined;
+  };
+};
+
 export interface MappedMCPTool {
   toolSet: IToolSet;
   originalToolName: string;
 }
 
 export interface ConvertToolsResult {
-  tools: ChatCompletionTool[];
+  tools: HarnessChatCompletionTool[];
   toolMapping: Map<string, MappedMCPTool>;
 }
 
@@ -25,7 +38,7 @@ export async function convertMCPServersToTools(params: {
   userServers: IToolSet[];
 }): Promise<ConvertMCPServersToToolsResult> {
   const { tfyManagedServers, userServers } = params;
-  const tools: ChatCompletionTool[] = [];
+  const tools: HarnessChatCompletionTool[] = [];
   const toolMapping = new Map<string, MappedMCPTool>();
   const initializationInfo: MCPServerInitInfo[] = [];
   const authRequirementInfo: MCPAuthRequired[] = [];
@@ -86,6 +99,8 @@ export async function convertMCPServersToTools(params: {
             properties: mcpTool.inputSchema.properties ?? {},
             required: mcpTool.inputSchema.required ?? [],
           },
+          // Gateway vendors (Anthropic via TFY) need this on the OpenAI tool shape.
+          eager_input_streaming: true,
         },
       });
 

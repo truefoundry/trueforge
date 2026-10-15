@@ -491,4 +491,28 @@ describe('convertTools', () => {
     const toolSet = convertTools(tools);
     expect(toolSet?.['silent']).not.toHaveProperty('description');
   });
+
+  it('forwards eager_input_streaming as anthropic providerOptions', () => {
+    const tools = [
+      {
+        type: 'function' as const,
+        function: {
+          name: 'search',
+          description: 'Search',
+          parameters: { type: 'object', properties: {} },
+          eager_input_streaming: true,
+        },
+      },
+    ];
+    const toolSet = convertTools(tools);
+    expect(toolSet?.['search']?.providerOptions).toEqual({
+      anthropic: { eagerInputStreaming: true },
+    });
+  });
+
+  it('omits providerOptions when eager_input_streaming is absent', () => {
+    const tools: ChatCompletionTool[] = [{ type: 'function', function: { name: 'search' } }];
+    const toolSet = convertTools(tools);
+    expect(toolSet?.['search']).not.toHaveProperty('providerOptions');
+  });
 });
