@@ -33,7 +33,7 @@ describe('createHttpMetrics', () => {
   it('records the route template and leaves the raw id out of the scrape', async () => {
     const app = instrumentedApp();
     mountSessionRoute(app);
-    app.use('/*', async (c, next) => next());
+    app.use('/*', async (_c, next) => next());
 
     expect((await app.request('/api/v1/sessions/sess_123')).status).toBe(200);
     const body = await scrape(app);
