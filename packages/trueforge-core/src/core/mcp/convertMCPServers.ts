@@ -10,12 +10,12 @@ type OpenAIFunctionTool = Extract<ChatCompletionTool, { type: 'function' }>;
  * OpenAI function tool plus optional chat-completions gateway fields.
  * TrueFoundry's gateway reads `eager_input_streaming` on `tools[].function` when translating to vendors.
  */
-export type HarnessChatCompletionTool = {
+export interface HarnessChatCompletionTool {
   type: 'function';
   function: OpenAIFunctionTool['function'] & {
     eager_input_streaming: boolean | undefined;
   };
-};
+}
 
 export interface MappedMCPTool {
   toolSet: IToolSet;

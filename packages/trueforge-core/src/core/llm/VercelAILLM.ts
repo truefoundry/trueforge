@@ -136,24 +136,25 @@ export function attachEagerInputStreamingToChatTools(args: Record<string, unknow
   if (!Array.isArray(tools)) {
     return args;
   }
+  const mappedTools: unknown[] = tools.map((tool: unknown): unknown => {
+    if (!isPlainObject(tool) || tool['type'] !== 'function') {
+      return tool;
+    }
+    const fn = tool['function'];
+    if (!isPlainObject(fn)) {
+      return tool;
+    }
+    return {
+      ...tool,
+      function: {
+        ...fn,
+        eager_input_streaming: true,
+      },
+    };
+  });
   return {
     ...args,
-    tools: tools.map(tool => {
-      if (!isPlainObject(tool) || tool['type'] !== 'function') {
-        return tool;
-      }
-      const fn = tool['function'];
-      if (!isPlainObject(fn)) {
-        return tool;
-      }
-      return {
-        ...tool,
-        function: {
-          ...fn,
-          eager_input_streaming: true,
-        },
-      };
-    }),
+    tools: mappedTools,
   };
 }
 
