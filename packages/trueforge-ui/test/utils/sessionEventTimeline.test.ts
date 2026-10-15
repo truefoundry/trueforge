@@ -3294,6 +3294,60 @@ describe('pause chips in buildSessionTimelineSegments', () => {
     assert.equal(sessionHasOpenPause(resumed), false);
   });
 
+  it('sessionHasOpenPause stays true while a sibling sub-agent is still waiting', () => {
+    const turns = buildSessionTurnViews([
+      created({ turnId: 't1', createdAt: '2026-01-01T00:00:00.000Z' }),
+      {
+        turnId: 't1',
+        event: {
+          type: 'tool.approval_required',
+          id: 'ar-b',
+          createdAt: '2026-01-01T00:00:03.000Z',
+          threadId: 'sub-b',
+          toolCalls: [{ id: 'tool-b', sourceEventId: 'm-b' }],
+        },
+      },
+      {
+        turnId: 't1',
+        event: {
+          type: 'turn.update',
+          id: 'tu-paused',
+          state: { status: 'paused' },
+          createdAt: '2026-01-01T00:00:03.100Z',
+          threadId: null,
+        },
+      },
+      {
+        turnId: 't1',
+        event: {
+          type: 'user.tool_approval',
+          id: 'ua-a',
+          toolCallId: 'tool-a',
+          approval: { status: 'allow' },
+          createdAt: '2026-01-01T00:00:10.000Z',
+          threadId: 'sub-a',
+        },
+      },
+      {
+        turnId: 't1',
+        event: {
+          type: 'turn.update',
+          id: 'tu-running',
+          state: { status: 'running' },
+          createdAt: '2026-01-01T00:00:10.100Z',
+          threadId: null,
+        },
+      },
+    ]);
+    assert.equal(sessionHasOpenPause(turns), true);
+    const early = buildSessionTimelineSegments(turns, { nowMs: Date.parse('2026-01-01T00:01:00.000Z') });
+    const later = buildSessionTimelineSegments(turns, { nowMs: Date.parse('2026-01-01T00:02:00.000Z') });
+    const earlySpan = early.find(segment => segment.isPauseSpan && segment.threadId === 'sub-b');
+    const laterSpan = later.find(segment => segment.isPauseSpan && segment.threadId === 'sub-b');
+    assert.ok(earlySpan != null && laterSpan != null);
+    assert.ok((laterSpan.wallDurationMs ?? 0) > (earlySpan.wallDurationMs ?? 0));
+  });
+
   it('anchors approval_required 1ms before paused and emits a post-pause tool bar without user.tool_approval', () => {
     const turns = buildSessionTurnViews([
       created({ turnId: 't1', createdAt: '2026-01-01T00:00:00.000Z' }),
@@ -3403,6 +3457,45 @@ describe('pause chips in buildSessionTimelineSegments', () => {
 });
 
 describe('buildSessionMetrics', () => {
+  it('counts a shared sub-agent pause once', () => {
+    const turns = buildSessionTurnViews([created({ turnId: 't1', createdAt: '2026-01-01T00:00:00.000Z' })]);
+    const chip = {
+      id: 'pause',
+      type: 'waiting_on_human' as const,
+      title: 'turn.paused',
+      description: 'Paused',
+      startMs: 1_000,
+      endMs: 1_000,
+      turnIndex: 0,
+      threadId: 'sub-a',
+      isPauseChip: true,
+      wallDurationMs: 10_000,
+    };
+    const segments = [
+      chip,
+      { ...chip, id: 'pause-b', threadId: 'sub-b' },
+      {
+        ...chip,
+        id: 'span-a',
+        threadId: 'sub-a',
+        isPauseChip: undefined,
+        isPauseSpan: true,
+        wallDurationMs: 10_000,
+      },
+      {
+        ...chip,
+        id: 'span-b',
+        threadId: 'sub-b',
+        isPauseChip: undefined,
+        isPauseSpan: true,
+        wallDurationMs: 10_000,
+      },
+    ];
+    const metrics = buildSessionMetrics({ turns, segments });
+    const waiting = metrics.timeBreakdown.find(item => item.label === 'waiting on human');
+    assert.equal(waiting?.value, 10_000);
+  });
+
   it('derives tiles from terminal turn metrics and timeline segments', () => {
     const turns = buildSessionTurnViews([
       created({ turnId: 't1', createdAt: '2026-01-01T00:00:00.000Z' }),

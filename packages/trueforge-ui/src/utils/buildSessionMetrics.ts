@@ -117,9 +117,20 @@ export function buildSessionMetrics({
   const toolTimeMs = segments
     .filter(segment => segment.type === 'tool_call')
     .reduce((sum, segment) => sum + segmentDurationMs(segment), 0);
-  const waitingTimeMs = segments
-    .filter(segment => segment.type === 'waiting_on_human' || segment.type === 'approval')
-    .reduce((sum, segment) => sum + (segment.wallDurationMs ?? segmentDurationMs(segment)), 0);
+  // One wall wait per pause window. Per-thread chips share a start, and wait spans
+  // repeat that same window, so summing every segment multiplies the pause.
+  const waitingTimeMs = (() => {
+    const seenStarts = new Set<string>();
+    let sum = 0;
+    for (const segment of segments) {
+      if (!segment.isPauseChip) continue;
+      const key = `${segment.turnIndex}:${segment.startMs}`;
+      if (seenStarts.has(key)) continue;
+      seenStarts.add(key);
+      sum += segment.wallDurationMs ?? 0;
+    }
+    return sum;
+  })();
   // Detail session metrics may override wall time and cost; lineage turn count is always from events.
   const wallTimeMs = sessionMetrics != null ? sessionMetrics.totalDurationMs : derivedWallTimeMs;
   const overheadTimeMs = Math.max(0, wallTimeMs - modelTimeMs - toolTimeMs - waitingTimeMs);

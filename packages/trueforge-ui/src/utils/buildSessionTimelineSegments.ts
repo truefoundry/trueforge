@@ -67,8 +67,53 @@ function turnUpdateStatus(event: TimelineEvent): string | undefined {
 }
 
 /**
- * True when a turn is still paused (open wait) so the UI can refresh `nowMs`.
- * Completed turns are never “open” even if their last update was paused.
+ * A sub-agent approval_required with no later per-call approval or matching
+ * allow-session policy. The turn can already be `running` (a sibling resumed)
+ * while this lane is still waiting, so the live clock must keep ticking.
+ */
+function turnHasOpenSubAgentApprovalWait(turn: SessionTurnView): boolean {
+  const toolCallRequests = new Map<string, SubAgentToolCallRequest>();
+  const open = new Set<string>();
+  for (const raw of turn.events) {
+    const event = asTimelineEvent(raw);
+    if (event == null) continue;
+    if (event.type === 'model.message') {
+      const startedAtMs = parseTimestamp(eventCreatedAt(event)) ?? 0;
+      for (const toolCall of toolCallsOf(event)) {
+        if (typeof toolCall.id !== 'string') continue;
+        toolCallRequests.set(toolCall.id, {
+          startedAtMs,
+          threadId: eventThreadId(event),
+          modelEventId: eventId(event),
+          toolCall,
+        });
+      }
+      continue;
+    }
+    if (event.type === 'tool.approval_required') {
+      if (eventThreadId(event) === MAIN_THREAD_ID) continue;
+      for (const toolCall of toolCallsOf(event)) {
+        if (typeof toolCall.id === 'string') open.add(toolCall.id);
+      }
+      continue;
+    }
+    if (event.type === 'user.tool_approval') {
+      const toolCallId = readString(event, 'toolCallId', 'tool_call_id');
+      if (toolCallId != null) open.delete(toolCallId);
+      continue;
+    }
+    if (event.type === 'user.tool_approval_policy') {
+      for (const toolCallId of policyCoveredToolCallIds({ event, candidates: open, toolCallRequests })) {
+        open.delete(toolCallId);
+      }
+    }
+  }
+  return open.size > 0;
+}
+
+/**
+ * True when a turn is still paused, or a sub-agent approval is still open,
+ * so the UI can refresh `nowMs`. Completed turns are never open.
  */
 export function sessionHasOpenPause(turns: readonly SessionTurnView[]): boolean {
   for (const turn of turns) {
@@ -81,7 +126,7 @@ export function sessionHasOpenPause(turns: readonly SessionTurnView[]): boolean 
       if (status === 'paused') open = true;
       else if (status === 'running') open = false;
     }
-    if (open) return true;
+    if (open || turnHasOpenSubAgentApprovalWait(turn)) return true;
   }
   return false;
 }

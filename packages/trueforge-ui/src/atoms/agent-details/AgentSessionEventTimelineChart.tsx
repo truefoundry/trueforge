@@ -139,6 +139,22 @@ function rowCenters({ heights, gaps }: { heights: number[]; gaps: number[] }): {
   return { centers, band: offset };
 }
 
+/**
+ * One tooltip row per pause window. Per-lane chips share a start, and wait spans
+ * repeat that window, so both would list the same wait once per sub-agent.
+ */
+function segmentsForTurnTooltip(segments: SessionEventTimelineSegment[]): SessionEventTimelineSegment[] {
+  const seenChipStarts = new Set<string>();
+  return segments.filter(segment => {
+    if (segment.isPauseSpan) return false;
+    if (!segment.isPauseChip) return true;
+    const key = `${segment.turnIndex}:${segment.startMs}`;
+    if (seenChipStarts.has(key)) return false;
+    seenChipStarts.add(key);
+    return true;
+  });
+}
+
 function eventOrder(type: SessionEventTimelineSegment['type']): number {
   if (type === 'sub_agent') return 0;
   if (type === 'model') return 2;
@@ -264,9 +280,9 @@ export function AgentSessionEventTimelineChart({
       .filter(segment => {
         if (!segment.isPauseChip) return false;
         if (hiddenTypes.has(segment.type)) return false;
-        if (!segment.isCompressionOnly && hideSubAgentThreads && segment.threadId !== MAIN_THREAD_ID) {
-          return false;
-        }
+        // Hidden sub-agent lanes are dropped from layout, so their chips must not
+        // reserve an axis slot the remaining bars never shift through.
+        if (hideSubAgentThreads && segment.threadId !== MAIN_THREAD_ID) return false;
         return true;
       })
       .map(segment => segment.startMs);
@@ -299,9 +315,7 @@ export function AgentSessionEventTimelineChart({
     const pauseGapsByStart = new Map<number, TimelineVisualGap>();
     for (const segment of segments) {
       if (!segment.isPauseChip || hiddenTypes.has(segment.type)) continue;
-      if (!segment.isCompressionOnly && hideSubAgentThreads && segment.threadId !== MAIN_THREAD_ID) {
-        continue;
-      }
+      if (hideSubAgentThreads && segment.threadId !== MAIN_THREAD_ID) continue;
       if (pauseGapsByStart.has(segment.startMs)) continue;
       pauseGapsByStart.set(segment.startMs, {
         atActiveMs: segment.startMs,
@@ -415,9 +429,17 @@ export function AgentSessionEventTimelineChart({
         Number.isFinite(activeStartMs) && activeEndMs >= activeStartMs
           ? activeEndMs - activeStartMs
           : group.endMs - group.startMs;
-      const pauseWallMs = segments
-        .filter(segment => segment.isPauseChip && threadIds.has(segment.threadId))
-        .reduce((sum, segment) => sum + (segment.wallDurationMs ?? 0), 0);
+      const pauseWallMs = (() => {
+        const seenStarts = new Set<number>();
+        let sum = 0;
+        for (const segment of segments) {
+          if (!segment.isPauseChip || !threadIds.has(segment.threadId)) continue;
+          if (seenStarts.has(segment.startMs)) continue;
+          seenStarts.add(segment.startMs);
+          sum += segment.wallDurationMs ?? 0;
+        }
+        return sum;
+      })();
       return { ...group, durationMs: activeMs + pauseWallMs };
     });
   }, [mainSubAgents, segments, subAgentSegments]);
@@ -886,7 +908,9 @@ export function AgentSessionEventTimelineChart({
         turn={tooltipTurn}
         turnNumber={tooltipTarget.bar.ordinal + 1}
         durationMs={tooltipTarget.bar.durationMs}
-        segments={segments.filter(segment => segment.turnIndex === tooltipTarget.bar.turnIndex)}
+        segments={segmentsForTurnTooltip(
+          segments.filter(segment => segment.turnIndex === tooltipTarget.bar.turnIndex),
+        )}
       />
     ) : tooltipTarget?.type === TIMELINE_TYPE.event && hasSessionEventTooltip(tooltipTarget.segment) ? (
       <SessionEventTooltip
