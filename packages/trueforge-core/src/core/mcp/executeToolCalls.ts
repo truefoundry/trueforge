@@ -46,7 +46,7 @@ function isJsonObject(value: unknown): value is Record<string, unknown> {
  * failures are reported as tool errors so the model can retry rather than treating them as
  * generic execution failures.
  */
-export function parseToolCallArguments(
+function parseToolCallArguments(
   rawArguments: string,
 ): { ok: true; args: Record<string, unknown> } | { ok: false; parseError: string; rawArguments: string } {
   let parsed: unknown;

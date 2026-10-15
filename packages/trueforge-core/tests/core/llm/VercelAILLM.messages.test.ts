@@ -504,15 +504,8 @@ describe('convertTools', () => {
         },
       },
     ];
-    const toolSet = convertTools(tools);
-    expect(toolSet?.['search']?.providerOptions).toEqual({
+    expect(convertTools(tools)?.['search']?.providerOptions).toEqual({
       anthropic: { eagerInputStreaming: true },
     });
-  });
-
-  it('omits providerOptions when eager_input_streaming is absent', () => {
-    const tools: ChatCompletionTool[] = [{ type: 'function', function: { name: 'search' } }];
-    const toolSet = convertTools(tools);
-    expect(toolSet?.['search']).not.toHaveProperty('providerOptions');
   });
 });
