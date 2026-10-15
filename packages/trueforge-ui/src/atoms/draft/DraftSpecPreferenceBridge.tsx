@@ -149,7 +149,7 @@ export function reconcileDraftWebSearch({
  */
 export function DraftSpecPreferenceBridge() {
   const { mode, pendingSessionId, rememberDraftSpec } = useShellMode();
-  const { agentSpec } = useTrueForgeAgentSpec();
+  const { agentSpec, isSpecLoading } = useTrueForgeAgentSpec();
   const updateAgentSpec = useTrueForgeUpdateAgentSpec();
   const capabilities = useServerCapabilities();
   const sandboxEnabled = capabilities?.sandbox.enabled;
@@ -158,25 +158,28 @@ export function DraftSpecPreferenceBridge() {
   const { models, skills, connectors, loaded, error, ensureLoaded } = useDraftCatalog();
   const isMutableDraft = mode.status === 'active' && mode.isMutable && pendingSessionId == null;
   const isPlainDraft = isMutableDraft && mode.agentId == null;
+  // While a history session's stored spec is loading, agentSpec is still the New Chat
+  // seed — do not reconcile/PATCH that seed onto the resumed session.
+  const canReconcileLiveSpec = !isSpecLoading;
   const preferenceKind = mode.status === 'active' && mode.isMutable && mode.isCreateAgent ? 'agent' : 'chat';
   useEffect(() => {
     if (isPlainDraft) ensureLoaded();
   }, [ensureLoaded, isPlainDraft]);
 
   useEffect(() => {
-    if (isPlainDraft && agentSpec != null) {
+    if (isPlainDraft && canReconcileLiveSpec && agentSpec != null) {
       rememberDraftSpec(agentSpec, preferenceKind);
     }
-  }, [agentSpec, isPlainDraft, preferenceKind, rememberDraftSpec]);
+  }, [agentSpec, canReconcileLiveSpec, isPlainDraft, preferenceKind, rememberDraftSpec]);
 
   useEffect(() => {
     // New Chat mirrors capabilities onto the live draft; New Agent only disables when unavailable.
-    if (!isPlainDraft || agentSpec == null || updateAgentSpec == null) return;
+    if (!isPlainDraft || !canReconcileLiveSpec || agentSpec == null || updateAgentSpec == null) return;
     const update = reconcileDraftSandbox({ agentSpec, sandboxEnabled, kind: preferenceKind });
     if (Object.keys(update).length > 0) {
       updateAgentSpec(update);
     }
-  }, [agentSpec, isPlainDraft, preferenceKind, sandboxEnabled, updateAgentSpec]);
+  }, [agentSpec, canReconcileLiveSpec, isPlainDraft, preferenceKind, sandboxEnabled, updateAgentSpec]);
 
   useEffect(() => {
     // Apply to New Chat / New Agent / edit-existing mutable drafts.
@@ -184,7 +187,7 @@ export function DraftSpecPreferenceBridge() {
     // Force-off recovery is only for plain drafts, and only when no choice was stored.
     const previousWebSearchEnabled = prevWebSearchEnabledRef.current;
     prevWebSearchEnabledRef.current = webSearchEnabled;
-    if (!isMutableDraft || agentSpec == null || updateAgentSpec == null) return;
+    if (!isMutableDraft || !canReconcileLiveSpec || agentSpec == null || updateAgentSpec == null) return;
     const update = reconcileDraftWebSearch({
       agentSpec,
       webSearchEnabled,
@@ -195,10 +198,27 @@ export function DraftSpecPreferenceBridge() {
     if (Object.keys(update).length > 0) {
       updateAgentSpec(update);
     }
-  }, [agentSpec, isMutableDraft, isPlainDraft, preferenceKind, webSearchEnabled, updateAgentSpec]);
+  }, [
+    agentSpec,
+    canReconcileLiveSpec,
+    isMutableDraft,
+    isPlainDraft,
+    preferenceKind,
+    webSearchEnabled,
+    updateAgentSpec,
+  ]);
 
   useEffect(() => {
-    if (!isPlainDraft || agentSpec == null || updateAgentSpec == null || !loaded || error != null) return;
+    if (
+      !isPlainDraft ||
+      !canReconcileLiveSpec ||
+      agentSpec == null ||
+      updateAgentSpec == null ||
+      !loaded ||
+      error != null
+    ) {
+      return;
+    }
 
     const update = reconcileDraftSpecPreferences({
       agentSpec,
@@ -212,6 +232,7 @@ export function DraftSpecPreferenceBridge() {
     }
   }, [
     agentSpec,
+    canReconcileLiveSpec,
     capabilities?.skill.enabled,
     connectors,
     error,

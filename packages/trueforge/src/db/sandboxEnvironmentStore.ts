@@ -77,8 +77,6 @@ export function parseStoredSandboxEnvironmentManifest(manifest: unknown): Stored
 
 export interface ListSandboxEnvironmentsInput {
   tenant_id: string;
-  /** Only environments created by this subject (tenant `"default"` is always included). */
-  created_by_subject_id: string;
   limit: number | undefined;
   page_token: string | undefined;
 }
@@ -87,7 +85,7 @@ export interface GetSandboxEnvironmentInput {
   tenant_id: string;
   name: string;
   /**
-   * When set (CRUD / agent attach), only return if this subject created the environment.
+   * When set, only return if this subject created the environment.
    * Ignored for the tenant `"default"`. Omit when resolving an env during agent execution.
    */
   created_by_subject_id?: string;
@@ -193,8 +191,6 @@ export interface ISandboxEnvironmentStore<TTransaction = never> {
   ): Promise<{ data: SandboxEnvironmentWithVersion[]; pagination: TokenPagination }>;
   /**
    * Active environment by name, joined to its latest version for management APIs.
-   * Pass `created_by_subject_id` for owner-scoped CRUD/attach on custom envs; the tenant
-   * `"default"` ignores ownership.
    */
   getEnvironment(
     input: GetSandboxEnvironmentInput,

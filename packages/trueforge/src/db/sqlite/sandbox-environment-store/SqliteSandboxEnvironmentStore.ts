@@ -256,15 +256,6 @@ export class SqliteSandboxEnvironmentStore implements ISandboxEnvironmentStore<T
     const query = latestVersionJoin(db)
       .where('env.tenant_id', '=', input.tenant_id)
       .where('env.lifecycle_stage', '=', 'active')
-      .where(eb =>
-        eb.or([
-          eb('env.name', '=', DEFAULT_SANDBOX_ENVIRONMENT_NAME),
-          eb.and([
-            eb('env.name', '!=', DEFAULT_SANDBOX_ENVIRONMENT_NAME),
-            eb(sql`json_extract(env.created_by_subject, '$.subject_id')`, '=', input.created_by_subject_id),
-          ]),
-        ]),
-      )
       .orderBy('env.name');
     if (!input.limit) {
       const rows = await query.execute();

@@ -6,8 +6,8 @@ import pydantic
 from ..core.pydantic_utilities import IS_PYDANTIC_V2
 from ..core.unchecked_base_model import UncheckedBaseModel
 from .finish_reason import FinishReason
+from .model import Model
 from .model_message_event_content import ModelMessageEventContent
-from .model_message_event_model import ModelMessageEventModel
 from .model_message_usage import ModelMessageUsage
 from .tool_call import ToolCall
 
@@ -33,11 +33,7 @@ class ModelMessageEvent(UncheckedBaseModel):
     Unique identifier for the event (monotonic ULID).
     """
 
-    model: typing.Optional[ModelMessageEventModel] = pydantic.Field(default=None)
-    """
-    Catalog model FQN (`provider/model`) that produced this message.
-    """
-
+    model: typing.Optional[Model] = None
     name: typing.Optional[str] = pydantic.Field(default=None)
     """
     Optional participant name.
