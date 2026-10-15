@@ -60,6 +60,7 @@ const TABS: { id: AttachTab; label: string; icon: string }[] = [
 ];
 
 const SPEC_FLUSH_MS = 300;
+const ENVIRONMENT_LOCKED_HINT = "Can't change the environment after a chat has started";
 
 export function CatalogRow({
   title,
@@ -69,6 +70,7 @@ export function CatalogRow({
   fallbackIcon,
   checked,
   disabled = false,
+  disabledReason,
   selectionControl = 'checkbox',
   onToggle,
   onActivate,
@@ -82,6 +84,8 @@ export function CatalogRow({
   fallbackIcon?: string;
   checked: boolean;
   disabled?: boolean;
+  /** Shown on hover when `disabled` — e.g. host capability unavailable. */
+  disabledReason?: string;
   selectionControl?: 'checkbox' | 'radio';
   onToggle: () => void;
   onActivate?: () => void;
@@ -106,7 +110,17 @@ export function CatalogRow({
           <span className="text-text-primary truncate text-sm font-medium">{title}</span>
           {badge}
         </span>
-        {description ? <span className="text-text-secondary line-clamp-1 text-xs">{description}</span> : null}
+        {description ? (
+          <Tooltip
+            content={description}
+            side="bottom"
+            className="max-w-sm whitespace-normal text-left"
+            triggerClassName="block min-w-0 w-full"
+            interactive={false}
+          >
+            <span className="text-text-secondary block truncate text-xs">{description}</span>
+          </Tooltip>
+        ) : null}
       </span>
     </>
   );
@@ -127,43 +141,66 @@ export function CatalogRow({
     );
 
   const role = selectionControl === 'radio' ? 'menuitemradio' : 'menuitemcheckbox';
+  const controlButton = (
+    <button
+      type="button"
+      role={selectionControl === 'radio' ? 'radio' : 'checkbox'}
+      aria-checked={checked}
+      aria-label={`${checked ? 'Deselect' : 'Select'} ${title}`}
+      disabled={disabled}
+      className="shrink-0 disabled:cursor-not-allowed disabled:opacity-50"
+      onClick={event => {
+        event.stopPropagation();
+        if (disabled) return;
+        onToggle();
+      }}
+    >
+      {control}
+    </button>
+  );
+  // Tooltip only on the control — row hover must not surface the disabled reason.
+  const selectionControlNode =
+    disabled && disabledReason ? (
+      <Tooltip content={disabledReason} className="max-w-xs text-left">
+        <span className="inline-flex shrink-0">{controlButton}</span>
+      </Tooltip>
+    ) : (
+      controlButton
+    );
 
-  if (action || onActivate) {
+  if (action || onActivate || disabled) {
     return (
       <div
         role={role}
         aria-checked={checked}
-        tabIndex={0}
-        className="hover:bg-ghost-button-hover flex w-full cursor-pointer items-center gap-2 rounded-md px-2 py-2 text-left"
-        onClick={onActivate ?? onToggle}
+        aria-disabled={disabled || undefined}
+        tabIndex={disabled ? -1 : 0}
+        className={cn(
+          'hover:bg-ghost-button-hover flex w-full cursor-pointer items-center gap-2 rounded-md px-2 py-2 text-left',
+          disabled && 'cursor-default opacity-50 hover:bg-transparent',
+        )}
+        onClick={() => {
+          if (disabled) return;
+          (onActivate ?? onToggle)();
+        }}
         onKeyDown={event => {
           if (event.key !== 'Enter' && event.key !== ' ') return;
           event.preventDefault();
+          if (disabled) return;
           (onActivate ?? onToggle)();
         }}
       >
         {content}
-        <span
-          className="shrink-0"
-          onClick={event => event.stopPropagation()}
-          onKeyDown={event => event.stopPropagation()}
-        >
-          {action}
-        </span>
-        <button
-          type="button"
-          role={selectionControl === 'radio' ? 'radio' : 'checkbox'}
-          aria-checked={checked}
-          aria-label={`${checked ? 'Deselect' : 'Select'} ${title}`}
-          disabled={disabled}
-          className="shrink-0 disabled:cursor-not-allowed disabled:opacity-50"
-          onClick={event => {
-            event.stopPropagation();
-            onToggle();
-          }}
-        >
-          {control}
-        </button>
+        {action ? (
+          <span
+            className="shrink-0"
+            onClick={event => event.stopPropagation()}
+            onKeyDown={event => event.stopPropagation()}
+          >
+            {action}
+          </span>
+        ) : null}
+        {selectionControlNode}
       </div>
     );
   }
@@ -173,12 +210,11 @@ export function CatalogRow({
       type="button"
       role={role}
       aria-checked={checked}
-      disabled={disabled}
-      className="hover:bg-ghost-button-hover flex w-full cursor-pointer items-center gap-2 rounded-md px-2 py-2 text-left disabled:cursor-not-allowed disabled:opacity-50 disabled:hover:bg-transparent"
+      className="hover:bg-ghost-button-hover flex w-full cursor-pointer items-center gap-2 rounded-md px-2 py-2 text-left"
       onClick={onToggle}
     >
       {content}
-      {disabled ? <Icon name="lock" className="text-text-secondary size-3" /> : control}
+      {control}
     </button>
   );
 }
@@ -255,10 +291,14 @@ export type DraftCompositeSelectorProps = {
   onAttach?: () => void;
 };
 
-function SectionHeading({ label, count }: { label: string; count: number }) {
+const NO_WEB_SEARCH_PROVIDER_HINT = 'Web search is not configured';
+const WEB_SEARCH_BUILTIN_TITLE = 'Web search';
+const WEB_SEARCH_BUILTIN_DESCRIPTION = 'Search the web for up-to-date answers';
+
+function SectionHeading({ label, count }: { label: string; count?: number }) {
   return (
     <div className="text-text-secondary px-3 pt-2 pb-1 text-[0.6875rem] font-medium tracking-wide uppercase">
-      {label} ({count})
+      {count == null ? label : `${label} (${count})`}
     </div>
   );
 }
@@ -269,8 +309,10 @@ export function DraftCompositeSelector({ disabled, isRunning, onAttach }: DraftC
   const capabilities = useServerCapabilities();
   const settingsCatalog = useOptionalCatalogServer();
   const shell = useOptionalShellMode();
-  const { agentSpec } = useTrueForgeAgentSpec();
+  const { agentSpec, draftSessionId } = useTrueForgeAgentSpec();
   const updateAgentSpec = useTrueForgeUpdateAgentSpec();
+  // Turns reuse the session sandbox; changing environment after create would only update the spec.
+  const environmentLocked = draftSessionId != null;
   const [open, setOpen] = useState(false);
   const [tab, setTab] = useState<AttachTab>('connectors');
   const [query, setQuery] = useState('');
@@ -293,6 +335,8 @@ export function DraftCompositeSelector({ disabled, isRunning, onAttach }: DraftC
   const compactLayout = useCompactLayout();
   const skillsDisabled = capabilities?.skill.enabled !== true;
   const skillsDisabledReason = capabilities?.skill.reason;
+  const webSearchCapabilityEnabled = capabilities?.webSearch?.enabled === true;
+  const webSearchEnabled = agentSpec?.config?.webSearch?.enabled ?? webSearchCapabilityEnabled;
   const needsSandbox = capabilities?.sandbox.enabled === false;
   const settingsEnabled = capabilities?.settings?.enabled !== false;
   const canConfigureConnectors = settingsEnabled && settingsCatalog?.connectorCatalog != null;
@@ -306,7 +350,7 @@ export function DraftCompositeSelector({ disabled, isRunning, onAttach }: DraftC
   const selectedSkills = open ? localSkills : specSkills;
   const selectedMcpIds = useMemo(() => new Set(selectedMcp.map(m => m.id)), [selectedMcp]);
   const hasValidModel = Boolean(agentSpec?.model?.name.trim());
-  const toolsCount = selectedMcp.length + selectedSkills.length;
+  const toolsCount = selectedMcp.length + selectedSkills.length + (webSearchEnabled ? 1 : 0);
   const toolsTooltip = useMemo(() => {
     const formatNames = (items: Array<{ name: string }>) => {
       const names = items.map(item => item.name);
@@ -314,6 +358,9 @@ export function DraftCompositeSelector({ disabled, isRunning, onAttach }: DraftC
       return `${names.slice(0, 4).join(', ')} +${names.length - 4}`;
     };
     const lines: string[] = [];
+    if (webSearchEnabled) {
+      lines.push(`Built-in: ${WEB_SEARCH_BUILTIN_TITLE}`);
+    }
     if (selectedMcp.length > 0) {
       lines.push(`Connectors: ${formatNames(selectedMcp)}`);
     }
@@ -321,7 +368,7 @@ export function DraftCompositeSelector({ disabled, isRunning, onAttach }: DraftC
       lines.push(`Skills: ${formatNames(selectedSkills)}`);
     }
     return lines.length > 0 ? lines.join('\n') : 'No connectors or skills selected';
-  }, [selectedMcp, selectedSkills]);
+  }, [selectedMcp, selectedSkills, webSearchEnabled]);
 
   const clearFlushTimer = useCallback(() => {
     if (flushTimerRef.current != null) {
@@ -440,6 +487,30 @@ export function DraftCompositeSelector({ disabled, isRunning, onAttach }: DraftC
     scheduleFlush();
   };
 
+  const toggleWebSearch = () => {
+    if (!webSearchCapabilityEnabled || agentSpec == null) return;
+    const nextEnabled = !webSearchEnabled;
+    const nextSpec = {
+      ...agentSpec,
+      config: {
+        ...agentSpec.config,
+        webSearch: { enabled: nextEnabled },
+      },
+    };
+    updateAgentSpec?.({ config: nextSpec.config });
+    // Flush seed immediately — New Chat can run before the preference bridge effect.
+    shell?.rememberDraftSpec(nextSpec, 'chat');
+  };
+
+  const showWebSearchBuiltin = useMemo(() => {
+    const needle = query.trim().toLowerCase();
+    if (!needle) return true;
+    return (
+      WEB_SEARCH_BUILTIN_TITLE.toLowerCase().includes(needle) ||
+      WEB_SEARCH_BUILTIN_DESCRIPTION.toLowerCase().includes(needle)
+    );
+  }, [query]);
+
   const toggleSkill = (skill: AgentSkill) => {
     const family = skillFamilyId(skill.id);
     const adding = !localSkillsRef.current.some(item => skillFamilyId(item.id) === family);
@@ -514,21 +585,32 @@ export function DraftCompositeSelector({ disabled, isRunning, onAttach }: DraftC
     shell?.setSettingsOpen(true, section);
   };
 
-  const currentEnvName = agentSpec?.config?.sandbox?.environment_name?.trim() || 'default';
+  const currentEnvName = agentSpec?.config?.sandbox?.environmentName?.trim() || 'default';
 
   const filteredEnvironments = useMemo(() => {
+    const readyNames = new Set(readyEnvironments.map(e => e.name));
     const all = readyEnvironments.map(e => ({
       name: e.name,
       description: e.manifest.description,
+      unavailable: false,
     }));
+    // Keep the session's recorded environment visible (and selected) if it left the catalog.
+    if (currentEnvName !== 'default' && !readyNames.has(currentEnvName)) {
+      all.unshift({
+        name: currentEnvName,
+        description: undefined,
+        unavailable: true,
+      });
+    }
     const needle = query.trim().toLowerCase();
     if (!needle) return all;
     return all.filter(
       item => item.name.toLowerCase().includes(needle) || (item.description?.toLowerCase().includes(needle) ?? false),
     );
-  }, [readyEnvironments, query]);
+  }, [readyEnvironments, query, currentEnvName]);
 
   const selectEnvironment = (envName: string) => {
+    if (environmentLocked) return;
     const isDefault = envName === 'default';
     updateAgentSpec?.({
       config: {
@@ -536,7 +618,7 @@ export function DraftCompositeSelector({ disabled, isRunning, onAttach }: DraftC
         sandbox: {
           ...agentSpec?.config?.sandbox,
           enabled: isDefault ? agentSpec?.config?.sandbox?.enabled : true,
-          environment_name: isDefault ? undefined : envName,
+          environmentName: isDefault ? undefined : envName,
         },
       },
     });
@@ -598,6 +680,20 @@ export function DraftCompositeSelector({ disabled, isRunning, onAttach }: DraftC
         <div className="min-h-0 flex-1 overflow-y-auto px-1 pb-2">
           {tab === 'connectors' ? (
             <>
+              {showWebSearchBuiltin ? (
+                <>
+                  <SectionHeading label="Built-in" />
+                  <CatalogRow
+                    title={WEB_SEARCH_BUILTIN_TITLE}
+                    description={WEB_SEARCH_BUILTIN_DESCRIPTION}
+                    fallbackIcon="searchGlobe"
+                    checked={webSearchEnabled}
+                    disabled={!webSearchCapabilityEnabled}
+                    disabledReason={NO_WEB_SEARCH_PROVIDER_HINT}
+                    onToggle={toggleWebSearch}
+                  />
+                </>
+              ) : null}
               {pinnedSelectedConnectors.length > 0 ? (
                 <>
                   <SectionHeading label="Selected" count={pinnedSelectedConnectors.length} />
@@ -638,7 +734,7 @@ export function DraftCompositeSelector({ disabled, isRunning, onAttach }: DraftC
                   ))}
                 </>
               ) : null}
-              {filteredConnectors.length === 0 && connectors.length > 0 ? (
+              {filteredConnectors.length === 0 && connectors.length > 0 && !showWebSearchBuiltin ? (
                 <DraftCatalogEmptyState loading={loading} emptyLabel="No connectors" settingsTarget="Connectors" />
               ) : null}
               {connectors.length === 0 ? (
@@ -679,8 +775,18 @@ export function DraftCompositeSelector({ disabled, isRunning, onAttach }: DraftC
             </>
           ) : (
             <>
+              {environmentLocked ? (
+                <div
+                  role="status"
+                  className="border-primary-button-bg/30 bg-primary-button-bg/5 text-text-primary mx-3 mb-2 flex items-center gap-2 rounded-lg border p-3"
+                >
+                  <Icon name="lock" className="text-primary-button-bg size-3 shrink-0" />
+                  <span className="text-xs leading-none">{ENVIRONMENT_LOCKED_HINT}</span>
+                </div>
+              ) : null}
               {filteredEnvironments.map(env => {
                 const isSelected = currentEnvName === env.name;
+                const rowDisabled = environmentLocked || env.unavailable;
                 return (
                   <CatalogRow
                     key={env.name}
@@ -689,6 +795,8 @@ export function DraftCompositeSelector({ disabled, isRunning, onAttach }: DraftC
                     fallbackIcon="monitor"
                     selectionControl="radio"
                     checked={isSelected}
+                    disabled={rowDisabled}
+                    disabledReason={environmentLocked ? ENVIRONMENT_LOCKED_HINT : undefined}
                     onToggle={() => selectEnvironment(env.name)}
                   />
                 );

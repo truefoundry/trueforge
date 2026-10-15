@@ -193,10 +193,14 @@ describe('AgentSessionTimelineContainer', () => {
   });
 
   it('keeps responses in their backend turns and renders terminal failures', async () => {
+    let timelineTitles: string[] = [];
     render(
       <SlotsProvider
         overrides={{
-          AgentSessionEventTimeline: () => null,
+          AgentSessionEventTimeline: ({ segments }) => {
+            timelineTitles = segments.map(segment => segment.title);
+            return null;
+          },
         }}
       >
         <ServerProvider server={createMockAgentUIServer()}>
@@ -221,8 +225,12 @@ describe('AgentSessionTimelineContainer', () => {
     expect(within(turn1).queryByText('turn two response')).not.toBeInTheDocument();
     expect(within(turn2).getByText('continue')).toBeInTheDocument();
     expect(within(turn2).getByText('turn two response')).toBeInTheDocument();
-    expect(within(turn3).getByText('Cancelled: client-cancelled')).toBeInTheDocument();
+    expect(within(turn3).getByText('client-cancelled')).toBeInTheDocument();
     expect(within(turn4).getByText('model failed')).toBeInTheDocument();
+    await waitFor(() => {
+      expect(timelineTitles).toContain('turn.cancelled');
+      expect(timelineTitles).toContain('turn.error');
+    });
   });
 
   it('disables sandbox artifact downloads in session turns', async () => {

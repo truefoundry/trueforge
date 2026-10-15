@@ -6,28 +6,41 @@ import {
   CHAT_DRAFT_SPEC_PREFERENCES_STORAGE_KEY,
   DRAFT_SPEC_PREFERENCES_STORAGE_KEY,
   readDraftSpecPreferences,
+  recoverWebSearchAfterCapabilityAvailable,
   selectAgentDraftSpecPreferences,
   selectChatDraftSpecPreferences,
+  webSearchPreferenceToStore,
   withCapabilitiesSandbox,
   withCapabilitiesWebSearch,
+  withoutWebSearchPreference,
   writeDraftSpecPreferences,
 } from '@/server/draftSpecPreferences.js';
 
 describe('selectDraftSpecPreferences', () => {
-  it('keeps only model, skills, and MCP for chat', () => {
+  it('keeps model, skills, MCP, and web-search for chat — not other runtime config', () => {
     expect(
       selectChatDraftSpecPreferences({
         model: { name: 'm', params: { reasoningEffort: 'high' } },
         skills: [{ name: 's' }],
         mcpServers: [{ name: 'c' }],
-        config: { sandbox: { enabled: true } },
+        config: { sandbox: { enabled: true }, webSearch: { enabled: false } },
         instructions: 'nope',
       }),
     ).toEqual({
       model: { name: 'm', params: { reasoningEffort: 'high' } },
       skills: [{ name: 's' }],
       mcpServers: [{ name: 'c' }],
+      config: { webSearch: { enabled: false } },
     });
+  });
+
+  it('omits chat config when web search was never set', () => {
+    expect(
+      selectChatDraftSpecPreferences({
+        model: { name: 'm' },
+        config: { sandbox: { enabled: true } },
+      }),
+    ).toEqual({ model: { name: 'm' } });
   });
 
   it('keeps runtime config for agent', () => {
@@ -65,6 +78,18 @@ describe('draft preference storage', () => {
     expect(readDraftSpecPreferences('agent')).toEqual({
       model: { name: 'agent/model' },
       config: { sandbox: { enabled: true } },
+    });
+  });
+
+  it('persists the chat web-search toggle across read/write', () => {
+    writeDraftSpecPreferences('chat', {
+      model: { name: 'chat/model' },
+      config: { sandbox: { enabled: true }, webSearch: { enabled: false } },
+    });
+
+    expect(readDraftSpecPreferences('chat')).toEqual({
+      model: { name: 'chat/model' },
+      config: { webSearch: { enabled: false } },
     });
   });
 
@@ -191,25 +216,18 @@ describe('withCapabilitiesWebSearch', () => {
     });
   });
 
-  it('forces true for New Chat when the capability is on', () => {
-    expect(
-      withCapabilitiesWebSearch({
-        spec: { model: { name: 'model' }, config: { webSearch: { enabled: false } } },
-        webSearchEnabled: true,
-        kind: 'chat',
-      }),
-    ).toEqual({
-      model: { name: 'model' },
-      config: { webSearch: { enabled: true } },
-    });
+  it('preserves an explicit chat toggle when the capability is on', () => {
+    const spec = { model: { name: 'model' }, config: { webSearch: { enabled: false } } };
+
+    expect(withCapabilitiesWebSearch({ spec, webSearchEnabled: true, kind: 'chat' })).toBe(spec);
   });
 
-  it('fills true for New Agent when the field is absent', () => {
+  it('fills true when the field is absent and the capability is on', () => {
     expect(
       withCapabilitiesWebSearch({
         spec: { model: { name: 'model' } },
         webSearchEnabled: true,
-        kind: 'agent',
+        kind: 'chat',
       }),
     ).toEqual({
       model: { name: 'model' },
@@ -228,5 +246,142 @@ describe('withCapabilitiesWebSearch', () => {
 
     expect(withCapabilitiesWebSearch({ spec, webSearchEnabled: undefined, kind: 'chat' })).toBe(spec);
     expect(withCapabilitiesWebSearch({ spec, webSearchEnabled: null, kind: 'agent' })).toBe(spec);
+  });
+});
+
+describe('withoutWebSearchPreference', () => {
+  it('removes webSearch and drops empty config', () => {
+    expect(
+      withoutWebSearchPreference({
+        model: { name: 'model' },
+        config: { webSearch: { enabled: false } },
+      }),
+    ).toEqual({ model: { name: 'model' } });
+  });
+
+  it('keeps other config fields', () => {
+    expect(
+      withoutWebSearchPreference({
+        model: { name: 'model' },
+        config: { sandbox: { enabled: true }, webSearch: { enabled: false } },
+      }),
+    ).toEqual({
+      model: { name: 'model' },
+      config: { sandbox: { enabled: true } },
+    });
+  });
+
+  it('returns the same spec when webSearch is already absent', () => {
+    const spec = { model: { name: 'model' } };
+    expect(withoutWebSearchPreference(spec)).toBe(spec);
+  });
+});
+
+describe('recoverWebSearchAfterCapabilityAvailable', () => {
+  it('default-fills on when capability flips unavailable → available with forced-off live', () => {
+    expect(
+      recoverWebSearchAfterCapabilityAvailable({
+        spec: { model: { name: 'model' }, config: { webSearch: { enabled: false } } },
+        previousWebSearchEnabled: false,
+        webSearchEnabled: true,
+        kind: 'chat',
+      }),
+    ).toEqual({
+      model: { name: 'model' },
+      config: { webSearch: { enabled: true } },
+    });
+  });
+
+  it('is a no-op when capability did not just become available', () => {
+    const spec = { model: { name: 'model' }, config: { webSearch: { enabled: false } } };
+    expect(
+      recoverWebSearchAfterCapabilityAvailable({
+        spec,
+        previousWebSearchEnabled: true,
+        webSearchEnabled: true,
+        kind: 'chat',
+      }),
+    ).toBe(spec);
+  });
+
+  it('is a no-op when live webSearch is not forced off', () => {
+    const spec = { model: { name: 'model' }, config: { webSearch: { enabled: true } } };
+    expect(
+      recoverWebSearchAfterCapabilityAvailable({
+        spec,
+        previousWebSearchEnabled: false,
+        webSearchEnabled: true,
+        kind: 'chat',
+      }),
+    ).toBe(spec);
+  });
+
+  it('keeps an explicit off when capability becomes available', () => {
+    const spec = { model: { name: 'model' }, config: { webSearch: { enabled: false } } };
+    expect(
+      recoverWebSearchAfterCapabilityAvailable({
+        spec,
+        previousWebSearchEnabled: false,
+        webSearchEnabled: true,
+        explicitOff: true,
+        kind: 'chat',
+      }),
+    ).toBe(spec);
+  });
+});
+
+describe('webSearchPreferenceToStore', () => {
+  beforeEach(() => {
+    window.localStorage.removeItem(CHAT_DRAFT_SPEC_PREFERENCES_STORAGE_KEY);
+  });
+
+  it('omits a forced off when nothing was chosen', () => {
+    expect(
+      webSearchPreferenceToStore({
+        spec: { model: { name: 'model' }, config: { webSearch: { enabled: false } } },
+        webSearchEnabled: false,
+        previousWebSearchEnabled: true,
+        kind: 'chat',
+      }),
+    ).toEqual({ model: { name: 'model' } });
+  });
+
+  it('keeps a stored off while search is unavailable and after it returns', () => {
+    writeDraftSpecPreferences('chat', {
+      model: { name: 'model' },
+      config: { webSearch: { enabled: false } },
+    });
+    const forcedOff = { model: { name: 'model' }, config: { webSearch: { enabled: false } } };
+
+    expect(
+      webSearchPreferenceToStore({
+        spec: forcedOff,
+        webSearchEnabled: false,
+        previousWebSearchEnabled: true,
+        kind: 'chat',
+      }),
+    ).toEqual(forcedOff);
+    expect(
+      webSearchPreferenceToStore({
+        spec: forcedOff,
+        webSearchEnabled: true,
+        previousWebSearchEnabled: false,
+        kind: 'chat',
+      }),
+    ).toEqual(forcedOff);
+  });
+
+  it('default-fills on after an outage when no choice was stored', () => {
+    expect(
+      webSearchPreferenceToStore({
+        spec: { model: { name: 'model' }, config: { webSearch: { enabled: false } } },
+        webSearchEnabled: true,
+        previousWebSearchEnabled: false,
+        kind: 'chat',
+      }),
+    ).toEqual({
+      model: { name: 'model' },
+      config: { webSearch: { enabled: true } },
+    });
   });
 });

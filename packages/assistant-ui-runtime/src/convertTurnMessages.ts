@@ -30,6 +30,7 @@ import {
 } from './foldPeerThreads.js';
 import { drainListPages } from './listPages.js';
 import { buildMcpAuthTextParts, mcpAuthAssistantStatus, mcpAuthMessageCustom } from './mcpAuth.js';
+import { CANCELLATION_REASON_CUSTOM_KEY } from './messageCustomMetadata.js';
 import type { AssistantContentPart } from './modelMessageContent.js';
 import { extractImageUrlFromUserContentItem, imageUrlToAttachment } from './modelMessageImageContent.js';
 import {
@@ -67,6 +68,8 @@ import {
 } from './toolResponse.js';
 import { appendMcpAuthToTurnContent, appendToolApprovalToTurnContent } from './turnEventHelpers.js';
 import type { TurnStreamUpdate } from './turnStreamUpdate.js';
+
+export { CANCELLATION_REASON_CUSTOM_KEY } from './messageCustomMetadata.js';
 
 /**
  * Turn / event → assistant-ui normalization
@@ -348,6 +351,8 @@ function cloneThreadBucket(bucket: ThreadBucket): ThreadBucket {
     approvalDecisions: new Map(bucket.approvalDecisions),
     pendingResponses: new Map(bucket.pendingResponses),
     done: bucket.done,
+    // Keep sub-agent failure text so a cloned bucket still shows as failed.
+    ...(bucket.error != null ? { error: bucket.error } : {}),
     ...(bucket.title != null ? { title: bucket.title } : {}),
     ...(bucket.agentInfo != null ? { agentInfo: bucket.agentInfo } : {}),
   };
@@ -379,6 +384,10 @@ export function prependFoldState(older: PeerThreadFoldState, newer: PeerThreadFo
       approvalDecisions: new Map([...olderBucket.approvalDecisions, ...newerBucket.approvalDecisions]),
       pendingResponses: new Map([...olderBucket.pendingResponses, ...newerBucket.pendingResponses]),
       done: newerBucket.done || olderBucket.done,
+      // Prefer the newer failure text; if only the older turn failed, keep that.
+      ...(newerBucket.error != null || olderBucket.error != null
+        ? { error: newerBucket.error ?? olderBucket.error }
+        : {}),
       ...(newerBucket.title != null || olderBucket.title != null
         ? { title: newerBucket.title ?? olderBucket.title }
         : {}),
@@ -719,6 +728,32 @@ function assistantStatusFromTurnState(state: Turn['state']): MessageStatus {
   }
 }
 
+/**
+ * Cancelled-turn UI flow (chat + session detail share this projection):
+ *
+ * Example: turn.done { status: "cancelled", reason: "abandoned" } with no model
+ * text. Without special handling the chat would show only the user bubble.
+ *
+ * 1. Live SSE — streamTurnEvents yields status cancelled +
+ *    metadata.cancellationReason = "abandoned" (no synthetic text part).
+ * 2. Commit — commitActiveStream reads that key, stores TurnStateCancelled on
+ *    the turn record (not a fake "done"), then clears activeStream.
+ * 3. History / reload — projectHistoryTurns sees state.cancelled, puts the wire
+ *    reason on metadata.custom, and always emits an assistant row even when the
+ *    fold has no model.message parts. trueforge-ui renders the orange banner.
+ *
+ * assistant-ui MessageStatus only knows reason: "cancelled" (no wire reason),
+ * so the human-readable reason lives on metadata.custom.cancellationReason.
+ */
+
+/**
+ * Normal turns only get an assistant bubble when the model produced content.
+ * Cancelled/error turns still need a bubble so the banner/error chrome can show.
+ */
+function shouldEmitTerminalAssistant(state: Turn['state'], content: readonly AssistantContentPart[]): boolean {
+  return content.length > 0 || state.status === 'cancelled' || state.status === 'error';
+}
+
 function resolveCreatedAt(
   messageId: string,
   fallback: Date,
@@ -943,11 +978,26 @@ function buildTurnUpdateFromFold(
   turn: Pick<Turn, 'state'>,
   rootModelMessageIds: readonly string[],
 ): TurnStreamUpdate {
-  const content = buildRootAssistantContentForIds(foldState, rootModelMessageIds);
-  let update: TurnStreamUpdate = { content };
-  update = appendMcpAuthToTurnContent(update.content, turn);
-  update = appendToolApprovalToTurnContent(update, turn);
-  return update;
+  // While we build this turn's messages, tell nested sub-agents that the parent
+  // already ended (cancelled/error) so they do not stay stuck as "running".
+  // Restore afterward so the flag does not leak into the next turn.
+  const previousParentTerminal = foldState.parentTerminalStatus;
+  if (turn.state.status === 'cancelled') {
+    foldState.parentTerminalStatus = 'cancelled';
+  } else if (turn.state.status === 'error') {
+    foldState.parentTerminalStatus = 'error';
+  } else {
+    foldState.parentTerminalStatus = undefined;
+  }
+  try {
+    const content = buildRootAssistantContentForIds(foldState, rootModelMessageIds);
+    let update: TurnStreamUpdate = { content };
+    update = appendMcpAuthToTurnContent(update.content, turn);
+    update = appendToolApprovalToTurnContent(update, turn);
+    return update;
+  } finally {
+    foldState.parentTerminalStatus = previousParentTerminal;
+  }
 }
 
 function contentHasPendingRequiredActions(content: readonly AssistantContentPart[]): boolean {
@@ -1198,6 +1248,7 @@ function projectHistoryTurns(snapshot: SessionSnapshot, options?: ProjectSession
       ...baseCustom,
       turnId: record.id,
       ...(sandboxId != null ? { sandboxId } : {}),
+      ...(record.state.status === 'cancelled' ? { [CANCELLATION_REASON_CUSTOM_KEY]: record.state.reason } : {}),
     };
     const assistantCreatedAt = record.state.status === 'running' ? record.createdAt : record.state.completedAt;
     const replaceAssistantCreatedAt = record.state.status !== 'running';
@@ -1222,7 +1273,8 @@ function projectHistoryTurns(snapshot: SessionSnapshot, options?: ProjectSession
         break;
       }
 
-      if (content.length > 0) {
+      // Includes empty cancelled/error turns so the terminal state is visible.
+      if (shouldEmitTerminalAssistant(record.state, content)) {
         messages.push(
           buildAssistantMessage(
             record.id,
@@ -1235,8 +1287,12 @@ function projectHistoryTurns(snapshot: SessionSnapshot, options?: ProjectSession
           ),
         );
         lastAssistantIndex = messages.length - 1;
+      } else {
+        // New user group with no assistant of its own — do not let a later empty
+        // cancelled/error continuation fold into a prior group's assistant.
+        lastAssistantIndex = undefined;
       }
-    } else if (content.length > 0 && lastAssistantIndex != null) {
+    } else if (shouldEmitTerminalAssistant(record.state, content) && lastAssistantIndex != null) {
       if (record.state.status === 'running') {
         break;
       }
@@ -1700,6 +1756,27 @@ export async function* streamTurnEvents(
     if (event.type === 'turn.done') {
       if (event.state.status === 'error') {
         throw new TurnFailedError(event.state.message);
+      }
+      // Live cancel: stash wire reason for commit + UI banner. Return so
+      // sandbox/MCP/approval post-loop yields cannot overwrite this update.
+      if (event.state.status === 'cancelled') {
+        const ids =
+          groupRootBaseline != null
+            ? rootModelMessageIdsSinceBaseline(foldState, groupRootBaseline)
+            : (foldState.threads.get(ROOT_THREAD_ID)?.modelMessageIds ?? []);
+        // Same as history: mark parent cancelled so open sub-agents render cancelled too.
+        const previousParentTerminal = foldState.parentTerminalStatus;
+        foldState.parentTerminalStatus = 'cancelled';
+        try {
+          yield withCursor({
+            content: buildRootAssistantContentForIds(foldState, ids),
+            status: { type: 'incomplete', reason: 'cancelled' },
+            metadata: { custom: { [CANCELLATION_REASON_CUSTOM_KEY]: event.state.reason } },
+          });
+        } finally {
+          foldState.parentTerminalStatus = previousParentTerminal;
+        }
+        return;
       }
       // The turn is logically complete once `turn.done` is observed. The
       // resumed-turn transport (`subscribeToTurn`) is a reconnectable live

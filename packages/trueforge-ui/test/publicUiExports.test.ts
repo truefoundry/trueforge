@@ -102,6 +102,7 @@ const expectedRuntimeExports: Array<keyof typeof sdk> = [
   'McpAuthContainer',
   'MessageActionBar',
   'MessageAttachmentsContainer',
+  'MessageCancelledBanner',
   'MessageErrorBanner',
   'MessageGroup',
   'MessageIndicator',

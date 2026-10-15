@@ -11,6 +11,7 @@ import { cn } from '../lib/cn.js';
 import { useCompactLayout } from '../lib/CompactLayoutContext.js';
 import { useIsMobile } from '../lib/useIsMobile.js';
 import { BottomSheet } from '../primitives/BottomSheet.js';
+import { Tooltip } from '../primitives/Tooltip.js';
 import { useDraftCatalog } from './DraftCatalogProvider.js';
 import { displayModelLabel, DraftModelCatalogPanel, ProviderMark } from './DraftModelCatalogPanel.js';
 import { modelPatchWithReasoningEffort } from './reasoningEffort.js';
@@ -113,24 +114,26 @@ export function DraftModelSelector({ disabled, isRunning }: DraftModelSelectorPr
 
   return (
     <div ref={containerRef} className="relative">
-      <button
-        type="button"
-        disabled={disabled || isRunning}
-        aria-haspopup="listbox"
-        aria-expanded={open}
-        aria-controls={open ? menuId : undefined}
-        title="Select model"
-        className={auiButtonClass({
-          variant: 'ghost',
-          size: 'small',
-          className: cn('h-8 max-w-48 gap-1.5 rounded-full px-2 text-xs font-medium', 'hover:bg-ghost-button-hover'),
-        })}
-        onClick={() => setOpen(v => !v)}
-      >
-        <ProviderMark logo={selected?.provider.logo} label={account} className="size-4 text-xs" />
-        <span className="truncate">{label}</span>
-        <Icon name="chevron-down" className="size-3.5 shrink-0 opacity-60" />
-      </button>
+      <Tooltip content={selectedName || 'Select model'} className="max-w-xs whitespace-normal break-all">
+        <button
+          type="button"
+          disabled={disabled || isRunning}
+          aria-haspopup="listbox"
+          aria-expanded={open}
+          aria-controls={open ? menuId : undefined}
+          aria-label="Select model"
+          className={auiButtonClass({
+            variant: 'ghost',
+            size: 'small',
+            className: cn('h-8 max-w-48 gap-1.5 rounded-full px-2 text-xs font-medium', 'hover:bg-ghost-button-hover'),
+          })}
+          onClick={() => setOpen(v => !v)}
+        >
+          <ProviderMark logo={selected?.provider.logo} label={account} className="size-4 text-xs" />
+          <span className="truncate">{label}</span>
+          <Icon name="chevron-down" className="size-3.5 shrink-0 opacity-60" />
+        </button>
+      </Tooltip>
 
       {open ? (
         isMobile || compactLayout ? (

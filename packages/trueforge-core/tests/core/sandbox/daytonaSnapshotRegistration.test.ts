@@ -92,7 +92,11 @@ describe('DaytonaSandboxProvider register-only snapshot create', () => {
       memory: 4,
       disk: 10,
       buildInfo: {
-        dockerfileContent: `FROM registry.example.com/sandbox:029ea5ff\nRUN ["bash", "-lc", ${JSON.stringify(buildScript)}]`,
+        dockerfileContent: [
+          'FROM registry.example.com/sandbox:029ea5ff',
+          `RUN ["bash", "-lc", ${JSON.stringify(buildScript)}]`,
+          'ENTRYPOINT ["/usr/bin/supervisord", "-n"]',
+        ].join('\n'),
       },
     });
   });

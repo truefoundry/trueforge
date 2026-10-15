@@ -123,8 +123,8 @@ export interface AgentCapabilityConfig {
 
 export interface AgentSandboxConfig extends AgentCapabilityConfig {
   fileDownloads?: boolean;
-  /** Name of a configured sandbox environment. */
-  environment_name?: string;
+  /** Name of a configured sandbox environment. Wire JSON is `environment_name`. */
+  environmentName?: string;
 }
 
 export interface AgentInputTokensCompactionTrigger {
@@ -941,6 +941,8 @@ export interface SessionListEntry<TSpec extends AgentSpec = AgentSpec> {
   agentName?: string | null;
   /** Present when bound to a mutable / draft agent spec. */
   agentSpec?: TSpec;
+  /** Session creator; omitted when the host does not track creators. */
+  createdBySubject?: CreatedBySubject;
   /** Arbitrary caller key-value metadata strings. */
   metadata?: Record<string, string>;
 }

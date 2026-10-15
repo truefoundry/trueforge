@@ -209,9 +209,15 @@ export class DaytonaSandboxProvider implements SandboxProvider<DaytonaSandboxEnv
   /**
    * Dockerfile that layers `build_script` onto the release base image.
    * JSON-array RUN keeps the script bytes intact (newlines, quotes) without shell-escaping hell.
+   * Explicit ENTRYPOINT (same as sandbox.Dockerfile) is required: Daytona does not inherit it from
+   * FROM for buildInfo snapshots and otherwise defaults to `sleep infinity`.
    */
   private dockerfileFromBuildScript({ imageUri, buildScript }: { imageUri: string; buildScript: string }): string {
-    return `FROM ${imageUri}\nRUN ["bash", "-lc", ${JSON.stringify(buildScript)}]`;
+    return [
+      `FROM ${imageUri}`,
+      `RUN ["bash", "-lc", ${JSON.stringify(buildScript)}]`,
+      'ENTRYPOINT ["/usr/bin/supervisord", "-n"]',
+    ].join('\n');
   }
 
   /** Body for POST /snapshots — imageName XOR buildInfo (Daytona mutual exclusion). */

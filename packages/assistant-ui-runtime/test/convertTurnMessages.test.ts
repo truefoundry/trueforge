@@ -619,6 +619,196 @@ describe('convertTurnMessages', () => {
       expect(result.runningTurn).toBeUndefined();
     });
 
+    it('emits an assistant row with cancellationReason for an empty cancelled turn', async () => {
+      const result = await convertTurnsToThreadMessages(
+        mockServerWithTurns([
+          mockTurn({
+            id: 'turn-abandoned',
+            createdAt,
+            input: [{ type: 'user.message', content: 'give me a pdf' }],
+            state: { status: 'cancelled', reason: 'abandoned', completedAt: createdAt },
+            events: [],
+          }),
+        ]),
+        SESSION_ID,
+      );
+
+      expect(result.messages).toHaveLength(2);
+      expect(result.messages[1]).toMatchObject({
+        id: 'turn-abandoned-assistant',
+        role: 'assistant',
+        content: [],
+        status: { type: 'incomplete', reason: 'cancelled' },
+        metadata: { custom: { cancellationReason: 'abandoned', turnId: 'turn-abandoned' } },
+      });
+    });
+
+    it('keeps model text and stamps cancellationReason on cancelled turns', async () => {
+      const result = await convertTurnsToThreadMessages(
+        mockServerWithTurns([
+          mockTurn({
+            id: 'turn-cancel',
+            createdAt,
+            input: [{ type: 'user.message', content: 'hello' }],
+            state: { status: 'cancelled', reason: 'client-cancelled', completedAt: createdAt },
+            events: [
+              modelMessage({
+                id: 'm1',
+                threadId: ROOT_THREAD_ID,
+                content: 'partial reply',
+              }),
+            ],
+          }),
+        ]),
+        SESSION_ID,
+      );
+
+      expect(result.messages[1]).toMatchObject({
+        role: 'assistant',
+        content: [{ type: 'text', text: 'partial reply' }],
+        status: { type: 'incomplete', reason: 'cancelled' },
+        metadata: { custom: { cancellationReason: 'client-cancelled', turnId: 'turn-cancel' } },
+      });
+    });
+
+    it('emits an assistant row for an empty error turn', async () => {
+      const result = await convertTurnsToThreadMessages(
+        mockServerWithTurns([
+          mockTurn({
+            id: 'turn-error',
+            createdAt,
+            input: [{ type: 'user.message', content: 'hello' }],
+            state: { status: 'error', message: 'model failed', completedAt: createdAt },
+            events: [],
+          }),
+        ]),
+        SESSION_ID,
+      );
+
+      expect(result.messages).toHaveLength(2);
+      expect(result.messages[1]).toMatchObject({
+        id: 'turn-error-assistant',
+        role: 'assistant',
+        content: [],
+        status: { type: 'incomplete', reason: 'error', error: 'model failed' },
+      });
+    });
+
+    it('marks unfinished nested sub-agent cancelled when parent turn.done is cancelled', async () => {
+      const result = await convertTurnsToThreadMessages(
+        mockServerWithTurns([
+          mockTurn({
+            id: 'turn-cancel-sub',
+            createdAt,
+            input: [{ type: 'user.message', content: 'hunt' }],
+            state: { status: 'cancelled', reason: 'client-cancelled', completedAt: createdAt },
+            events: [
+              modelMessage({
+                id: 'root-msg',
+                threadId: ROOT_THREAD_ID,
+                toolCalls: [
+                  {
+                    id: 'spawn-1',
+                    type: 'function',
+                    function: { name: 'create_sub_agent', arguments: '{}' },
+                    toolInfo: { type: 'trueforge-system', name: 'create_sub_agent' },
+                  },
+                ],
+              }),
+              {
+                type: 'thread.created',
+                id: 't-created',
+                threadId: 'child-1',
+                title: 'finder',
+                createdAt,
+                agentInfo: { type: 'dynamic', name: 'finder', input: 'find' },
+                parent: { threadId: ROOT_THREAD_ID, toolCallId: 'spawn-1' },
+              },
+              modelMessage({
+                id: 'child-msg',
+                threadId: 'child-1',
+                content: 'still working',
+              }),
+            ],
+          }),
+        ]),
+        SESSION_ID,
+      );
+
+      const assistant = result.messages[1];
+      expect(assistant).toMatchObject({
+        role: 'assistant',
+        status: { type: 'incomplete', reason: 'cancelled' },
+        metadata: { custom: { cancellationReason: 'client-cancelled' } },
+      });
+      const spawn =
+        assistant?.role === 'assistant' ? assistant.content.find(part => part.type === 'tool-call') : undefined;
+      expect(spawn?.type).toBe('tool-call');
+      if (spawn?.type !== 'tool-call') return;
+      expect(spawn.messages?.[0]?.status).toEqual({ type: 'incomplete', reason: 'cancelled' });
+    });
+
+    it('marks abort-shaped nested thread.done error as cancelled when parent turn is cancelled', async () => {
+      const result = await convertTurnsToThreadMessages(
+        mockServerWithTurns([
+          mockTurn({
+            id: 'turn-cancel-abort',
+            createdAt,
+            input: [{ type: 'user.message', content: 'hunt' }],
+            state: { status: 'cancelled', reason: 'client-cancelled', completedAt: createdAt },
+            events: [
+              modelMessage({
+                id: 'root-msg',
+                threadId: ROOT_THREAD_ID,
+                toolCalls: [
+                  {
+                    id: 'spawn-1',
+                    type: 'function',
+                    function: { name: 'create_sub_agent', arguments: '{}' },
+                    toolInfo: { type: 'trueforge-system', name: 'create_sub_agent' },
+                  },
+                ],
+              }),
+              {
+                type: 'thread.created',
+                id: 't-created',
+                threadId: 'child-1',
+                title: 'finder',
+                createdAt,
+                agentInfo: { type: 'dynamic', name: 'finder', input: 'find' },
+                parent: { threadId: ROOT_THREAD_ID, toolCallId: 'spawn-1' },
+              },
+              modelMessage({
+                id: 'child-msg',
+                threadId: 'child-1',
+                content: 'still working',
+              }),
+              {
+                type: 'thread.done',
+                id: 't-done',
+                threadId: 'child-1',
+                title: 'finder',
+                createdAt,
+                state: { status: 'error', error: 'LLM stream aborted' },
+              },
+            ],
+          }),
+        ]),
+        SESSION_ID,
+      );
+
+      const assistant = result.messages[1];
+      expect(assistant).toMatchObject({
+        role: 'assistant',
+        status: { type: 'incomplete', reason: 'cancelled' },
+      });
+      const spawn =
+        assistant?.role === 'assistant' ? assistant.content.find(part => part.type === 'tool-call') : undefined;
+      expect(spawn?.type).toBe('tool-call');
+      if (spawn?.type !== 'tool-call') return;
+      expect(spawn.messages?.[0]?.status).toEqual({ type: 'incomplete', reason: 'cancelled' });
+    });
+
     it('carries sandboxId from a historical sandbox.created event onto the assistant message', async () => {
       const result = await convertTurnsToThreadMessages(
         mockServerWithTurns([
@@ -1478,6 +1668,118 @@ describe('convertTurnMessages', () => {
       );
 
       expect(updates).toEqual([{ content: [{ type: 'text', text: 'streaming' }], sequenceNumber: 1 }]);
+    });
+
+    it('yields Cancelled: reason and cancellationReason on cancelled turn.done', async () => {
+      const foldState = new PeerThreadFoldState();
+      const updates = await collectStream(
+        streamTurnEvents(
+          streamFrom([
+            {
+              type: 'turn.done',
+              id: 'turn-done-cancel',
+              createdAt,
+              state: { status: 'cancelled', reason: 'abandoned', completedAt: createdAt },
+            },
+          ]),
+          foldState,
+        ),
+      );
+
+      expect(updates).toEqual([
+        {
+          content: [],
+          status: { type: 'incomplete', reason: 'cancelled' },
+          metadata: { custom: { cancellationReason: 'abandoned' } },
+          sequenceNumber: 1,
+        },
+      ]);
+    });
+
+    it('projects abort-shaped nested thread.done as cancelled on live turn.done cancel', async () => {
+      const foldState = new PeerThreadFoldState();
+      const updates = await collectStream(
+        streamTurnEvents(
+          streamFrom([
+            modelMessage({
+              id: 'root-msg',
+              threadId: ROOT_THREAD_ID,
+              toolCalls: [
+                {
+                  id: 'spawn-1',
+                  type: 'function',
+                  function: { name: 'create_sub_agent', arguments: '{}' },
+                  toolInfo: { type: 'trueforge-system', name: 'create_sub_agent' },
+                },
+              ],
+            }),
+            {
+              type: 'thread.created',
+              id: 't-created',
+              threadId: 'child-1',
+              title: 'finder',
+              createdAt,
+              agentInfo: { type: 'dynamic', name: 'finder', input: 'find' },
+              parent: { threadId: ROOT_THREAD_ID, toolCallId: 'spawn-1' },
+            },
+            modelMessage({
+              id: 'child-msg',
+              threadId: 'child-1',
+              content: 'working',
+            }),
+            {
+              type: 'thread.done',
+              id: 't-done',
+              threadId: 'child-1',
+              title: 'finder',
+              createdAt,
+              state: { status: 'error', error: 'LLM stream aborted' },
+            },
+            {
+              type: 'turn.done',
+              id: 'turn-done-cancel',
+              createdAt,
+              state: { status: 'cancelled', reason: 'client-cancelled', completedAt: createdAt },
+            },
+          ]),
+          foldState,
+        ),
+      );
+
+      const last = updates[updates.length - 1];
+      expect(last).toMatchObject({
+        status: { type: 'incomplete', reason: 'cancelled' },
+        metadata: { custom: { cancellationReason: 'client-cancelled' } },
+      });
+      const spawn = last?.content.find(part => part.type === 'tool-call');
+      expect(spawn?.type).toBe('tool-call');
+      if (spawn?.type !== 'tool-call') return;
+      expect(spawn.messages?.[0]?.status).toEqual({ type: 'incomplete', reason: 'cancelled' });
+    });
+
+    it('does not let a post-loop sandbox flush overwrite a cancelled turn.done', async () => {
+      const foldState = new PeerThreadFoldState();
+      const updates = await collectStream(
+        streamTurnEvents(
+          streamFrom([
+            sandboxCreated({ id: 'sbx-evt', sandboxId: 'sbx-1' }),
+            {
+              type: 'turn.done',
+              id: 'turn-done-cancel',
+              createdAt,
+              state: { status: 'cancelled', reason: 'abandoned', completedAt: createdAt },
+            },
+          ]),
+          foldState,
+        ),
+      );
+
+      expect(updates).toHaveLength(1);
+      expect(updates[0]).toMatchObject({
+        content: [],
+        status: { type: 'incomplete', reason: 'cancelled' },
+        metadata: { custom: { cancellationReason: 'abandoned' } },
+      });
     });
 
     it('reports every stream sequence including events that do not yield UI', async () => {

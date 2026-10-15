@@ -98,6 +98,17 @@ providers:
             - high
             - xhigh
             - max
+      - model_id: gpt-6.1-sol
+        name: gpt-6-1-sol
+        properties:
+          context_length: 1050000
+          max_output_tokens: 128000
+          reasoning_efforts:
+            - low
+            - medium
+            - high
+            - xhigh
+            - max
   - type: anthropic
     logo: https://assets.production.truefoundry.com/anthropic.svg
     models:
@@ -128,6 +139,17 @@ providers:
         properties:
           context_length: 200000
           max_output_tokens: 64000
+      - model_id: claude-haiku-5-5
+        name: claude-haiku-5-5
+        properties:
+          context_length: 1000000
+          max_output_tokens: 128000
+          reasoning_efforts:
+            - low
+            - medium
+            - high
+            - xhigh
+            - max
       - model_id: claude-opus-4-8
         name: claude-opus-4-8
         properties:
@@ -182,9 +204,30 @@ providers:
             - high
             - xhigh
             - max
+      - model_id: claude-sonnet-5-5
+        name: claude-sonnet-5-5
+        properties:
+          context_length: 1000000
+          max_output_tokens: 128000
+          reasoning_efforts:
+            - low
+            - medium
+            - high
+            - xhigh
+            - max
   - type: google-gemini
     logo: https://assets.production.truefoundry.com/google-gemini.svg
     models:
+      - model_id: gemini-3.1-flash-lite
+        name: gemini-3-1-flash-lite
+        properties:
+          context_length: 1048576
+          max_output_tokens: 65536
+          reasoning_efforts:
+            - minimal
+            - low
+            - medium
+            - high
       - model_id: gemini-3.1-pro-preview
         name: gemini-3-1-pro-preview
         properties:
@@ -240,6 +283,11 @@ providers:
         name: deepseek-v4p1-flash
         properties:
           context_length: 1000000
+      - model_id: accounts/fireworks/models/ember-1
+        name: ember-1
+        properties:
+          context_length: 1048576
+          max_output_tokens: 943718
       - model_id: accounts/fireworks/models/glm-5p2
         name: glm-5p2
         properties:
@@ -346,6 +394,15 @@ providers:
             - low
             - high
             - max
+      - model_id: glm-5.3-flashx
+        name: glm-5-3-flashx
+        properties:
+          context_length: 1048576
+          max_output_tokens: 131072
+          reasoning_efforts:
+            - low
+            - high
+            - max
       - model_id: glm-5.3-prime
         name: glm-5-3-prime
         properties:
@@ -355,6 +412,11 @@ providers:
             - low
             - high
             - max
+      - model_id: glm-5v-turbo
+        name: glm-5v-turbo
+        properties:
+          context_length: 202752
+          max_output_tokens: 131072
   - type: moonshot
     logo: https://assets.production.truefoundry.com/moonshot.png
     models:
@@ -370,6 +432,10 @@ providers:
             - low
             - high
             - max
+      - model_id: kimi-k3-fast
+        name: kimi-k3-fast
+        properties:
+          context_length: 1048576
   - type: alibaba
     logo: https://assets.production.truefoundry.com/alibaba.png
     models:
@@ -431,9 +497,22 @@ providers:
             - high
             - xhigh
             - max
+      - model_id: qwen3.8-omni-flash
+        name: qwen3-8-omni-flash
+        properties:
+          context_length: 1000000
+          max_output_tokens: 131072
   - type: together
     logo: https://assets.production.truefoundry.com/togetherai.svg
     models:
+      - model_id: deepseek-ai/DeepSeek-V4-Flash-0731
+        name: deepseek-v4-flash-0731
+        properties:
+          context_length: 1000000
+          reasoning_efforts:
+            - low
+            - high
+            - max
       - model_id: deepseek-ai/DeepSeek-V4-Pro
         name: deepseek-v4-pro
         properties:

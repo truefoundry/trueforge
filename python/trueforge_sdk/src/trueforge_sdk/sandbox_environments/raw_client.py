@@ -42,7 +42,7 @@ class RawSandboxEnvironmentsClient:
         request_options: typing.Optional[RequestOptions] = None,
     ) -> SyncPager[SandboxEnvironment, ListSandboxEnvironmentsResponse]:
         """
-        List the tenant default environment plus sandbox environments created by the authenticated subject.
+        List available sandbox environments
 
         Parameters
         ----------
@@ -231,7 +231,7 @@ class RawSandboxEnvironmentsClient:
         self, *, manifest: SandboxEnvironmentManifestRequest, request_options: typing.Optional[RequestOptions] = None
     ) -> HttpResponse[GetSandboxEnvironmentResponse]:
         """
-        Create or replace by `manifest.name`. Requires a configured sandbox provider.
+        Create a new sandbox environment or update an existing one.
 
         Parameters
         ----------
@@ -291,6 +291,17 @@ class RawSandboxEnvironmentsClient:
                         ),
                     ),
                 )
+            if _response.status_code == 404:
+                raise NotFoundError(
+                    headers=dict(_response.headers),
+                    body=typing.cast(
+                        RequestErrorResponse,
+                        construct_type(
+                            type_=RequestErrorResponse,  # type: ignore
+                            object_=_response.json(),
+                        ),
+                    ),
+                )
             if _response.status_code == 409:
                 raise ConflictError(
                     headers=dict(_response.headers),
@@ -337,8 +348,6 @@ class RawSandboxEnvironmentsClient:
         self, *, name: str, request_options: typing.Optional[RequestOptions] = None
     ) -> HttpResponse[GetSandboxEnvironmentResponse]:
         """
-        Get a sandbox environment by name. The tenant default is readable by any tenant member; custom environments are owner-scoped.
-
         Parameters
         ----------
         name : str
@@ -402,7 +411,7 @@ class RawSandboxEnvironmentsClient:
         self, *, name: str, request_options: typing.Optional[RequestOptions] = None
     ) -> HttpResponse[DeleteSandboxEnvironmentResponse]:
         """
-        Delete by name. Fails if any agent still references the environment.
+        Delete a sandbox environment, fails if any agent still references it.
 
         Parameters
         ----------
@@ -509,7 +518,7 @@ class AsyncRawSandboxEnvironmentsClient:
         request_options: typing.Optional[RequestOptions] = None,
     ) -> AsyncPager[SandboxEnvironment, ListSandboxEnvironmentsResponse]:
         """
-        List the tenant default environment plus sandbox environments created by the authenticated subject.
+        List available sandbox environments
 
         Parameters
         ----------
@@ -701,7 +710,7 @@ class AsyncRawSandboxEnvironmentsClient:
         self, *, manifest: SandboxEnvironmentManifestRequest, request_options: typing.Optional[RequestOptions] = None
     ) -> AsyncHttpResponse[GetSandboxEnvironmentResponse]:
         """
-        Create or replace by `manifest.name`. Requires a configured sandbox provider.
+        Create a new sandbox environment or update an existing one.
 
         Parameters
         ----------
@@ -761,6 +770,17 @@ class AsyncRawSandboxEnvironmentsClient:
                         ),
                     ),
                 )
+            if _response.status_code == 404:
+                raise NotFoundError(
+                    headers=dict(_response.headers),
+                    body=typing.cast(
+                        RequestErrorResponse,
+                        construct_type(
+                            type_=RequestErrorResponse,  # type: ignore
+                            object_=_response.json(),
+                        ),
+                    ),
+                )
             if _response.status_code == 409:
                 raise ConflictError(
                     headers=dict(_response.headers),
@@ -807,8 +827,6 @@ class AsyncRawSandboxEnvironmentsClient:
         self, *, name: str, request_options: typing.Optional[RequestOptions] = None
     ) -> AsyncHttpResponse[GetSandboxEnvironmentResponse]:
         """
-        Get a sandbox environment by name. The tenant default is readable by any tenant member; custom environments are owner-scoped.
-
         Parameters
         ----------
         name : str
@@ -872,7 +890,7 @@ class AsyncRawSandboxEnvironmentsClient:
         self, *, name: str, request_options: typing.Optional[RequestOptions] = None
     ) -> AsyncHttpResponse[DeleteSandboxEnvironmentResponse]:
         """
-        Delete by name. Fails if any agent still references the environment.
+        Delete a sandbox environment, fails if any agent still references it.
 
         Parameters
         ----------

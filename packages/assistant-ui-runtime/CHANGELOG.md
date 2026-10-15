@@ -1,5 +1,55 @@
 # @truefoundry/trueforge-assistant-ui-runtime
 
+## 0.179.0
+
+### Patch Changes
+
+- 1513e91: Show cancelled turn reasons in chat and session detail via an orange cancelled banner, projecting the wire reason on message metadata from turn.done (including live commits).
+- f5672f1: Show MCP auth resume turn boundaries and unanswered ask_user prompts in Sessions view.
+- f0aa52d: Adopt the loaded session agent spec when resuming chat history so New Chat draft edits no longer PATCH over the saved sandbox environment; lock composer environment selection after a session exists; read/write sandbox `environmentName` so resumed chats show the correct environment; and keep showing a deleted environment from the agent spec.
+- 694a572: Reject duplicate sandbox environment names on create (POST) instead of overwriting via upsert.
+- bbe23c8: Surface cancelled turn reasons and failed sub-agents on the Agent Sessions timeline and metrics; project unfinished nested sub-agents as cancelled when the parent turn is already terminal, remap abort-shaped child thread.done errors (e.g. LLM stream aborted) to cancelled on cancelled turns, and close unfinished sub-agent chart bars at turn.done when thread.done is missing.
+
+## 0.179.0-rc.2
+
+### Patch Changes
+
+- f0aa52d: Adopt the loaded session agent spec when resuming chat history so New Chat draft edits no longer PATCH over the saved sandbox environment; lock composer environment selection after a session exists; read/write sandbox `environmentName` so resumed chats show the correct environment; and keep showing a deleted environment from the agent spec.
+- bbe23c8: Surface cancelled turn reasons and failed sub-agents on the Agent Sessions timeline and metrics; project unfinished nested sub-agents as cancelled when the parent turn is already terminal, remap abort-shaped child thread.done errors (e.g. LLM stream aborted) to cancelled on cancelled turns, and close unfinished sub-agent chart bars at turn.done when thread.done is missing.
+
+## 0.179.0-rc.1
+
+### Patch Changes
+
+- 1513e91: Show cancelled turn reasons in chat and session detail via an orange cancelled banner, projecting the wire reason on message metadata from turn.done (including live commits).
+- f5672f1: Show MCP auth resume turn boundaries and unanswered ask_user prompts in Sessions view.
+- 694a572: Reject duplicate sandbox environment names on create (POST) instead of overwriting via upsert.
+
+## 0.178.0
+
+### Patch Changes
+
+- e452b06: Preserve token and cost metrics on failed and cancelled turns in the UI adapter and types so turn headers and session totals include billable usage from non-done terminal turns.
+- 68ea7ae: On refresh mid-turn, keep already-ingested running-tip model messages in live resume instead of hiding them behind the group baseline.
+- 9bb142d: Reject duplicate sandbox environment names on create (POST) instead of overwriting via upsert.
+- 6d91541: Display session metadata at the top of the session detail header
+- d01ddc0: Reattach a live turn via subscribe after create/subscribe SSE drops, using the last ingested sequence number so the composer stays running instead of toasting a network error.
+
+## 0.178.0-rc.2
+
+### Patch Changes
+
+- 9bb142d: Reject duplicate sandbox environment names on create (POST) instead of overwriting via upsert.
+
+## 0.178.0-rc.1
+
+### Patch Changes
+
+- e452b06: Preserve token and cost metrics on failed and cancelled turns in the UI adapter and types so turn headers and session totals include billable usage from non-done terminal turns.
+- 68ea7ae: On refresh mid-turn, keep already-ingested running-tip model messages in live resume instead of hiding them behind the group baseline.
+- 6d91541: Display session metadata at the top of the session detail header
+- d01ddc0: Reattach a live turn via subscribe after create/subscribe SSE drops, using the last ingested sequence number so the composer stays running instead of toasting a network error.
+
 ## 0.177.0
 
 ### Patch Changes

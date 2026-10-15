@@ -410,10 +410,12 @@ export function buildRedisStandaloneUrl(parts: {
   database: number;
   username: string | undefined;
   password: string | undefined;
+  tls: boolean;
 }): string {
   const bareHost = parts.host.startsWith('[') && parts.host.endsWith(']') ? parts.host.slice(1, -1) : parts.host;
   const host = isIPv6(bareHost) ? `[${bareHost}]` : bareHost;
-  const url = new URL(`redis://${host}:${String(parts.port)}/${String(parts.database)}`);
+  const protocol = parts.tls ? 'rediss' : 'redis';
+  const url = new URL(`${protocol}://${host}:${String(parts.port)}/${String(parts.database)}`);
   if (parts.username !== undefined) {
     url.username = parts.username;
   }
@@ -445,6 +447,11 @@ function resolveRedisConnection(): RedisConnection | undefined {
   const username = optionalNonEmptyEnv('REDIS_USERNAME');
   const password = getEnv('REDIS_PASSWORD');
   const passwordOrUndefined = password === undefined || password === '' ? undefined : password;
+  const tls = parseBoolean({
+    envKey: 'REDIS_TLS_ENABLED',
+    raw: getEnv('REDIS_TLS_ENABLED'),
+    defaultValue: false,
+  });
 
   if (sentinelEnabled) {
     const nodes = optionalNonEmptyEnv('REDIS_SENTINEL_NODES');
@@ -497,6 +504,7 @@ function resolveRedisConnection(): RedisConnection | undefined {
         database,
         username,
         password: passwordOrUndefined,
+        tls,
       }),
     };
   }
@@ -1001,15 +1009,6 @@ export type DistributedServerConfiguration = SharedServerConfiguration & {
    * caller's token. Unset = local Postgres stores. Mutually exclusive with OIDC.
    * Env: `TRUEFOUNDRY_SERVICEFOUNDRY_SERVER_URL`.
    */
-  /**
-   * When set, automatically move public TrueForge tables into `POSTGRES_SCHEMA` on first bootstrap.
-   * Env: `AUTOMATICALLY_MOVE_TRUEFORGE_TABLES_FROM_PUBLIC_TO_TRUEFORGE_SCHEMA`. Default true.
-   */
-  AUTOMATICALLY_MOVE_TRUEFORGE_TABLES_FROM_PUBLIC_TO_TRUEFORGE_SCHEMA: boolean;
-  /**
-   * The URL of the TrueFoundry ServiceFoundry server.
-   * Env: `TRUEFOUNDRY_SERVICEFOUNDRY_SERVER_URL`.
-   */
   TRUEFOUNDRY_SERVICEFOUNDRY_SERVER_URL: string | undefined;
   /**
    * Required when `TRUEFOUNDRY_SERVICEFOUNDRY_SERVER_URL` is set. Env: `TRUEFOUNDRY_API_KEY`.
@@ -1353,11 +1352,6 @@ const configuration: ServerConfiguration = standalone
       REDIS_TLS_KEY: getEnv('REDIS_TLS_KEY'),
       REDIS_TLS_KEY_PASSPHRASE: getEnv('REDIS_TLS_KEY_PASSPHRASE'),
       OIDC: resolveOIDCConfig(),
-      AUTOMATICALLY_MOVE_TRUEFORGE_TABLES_FROM_PUBLIC_TO_TRUEFORGE_SCHEMA: parseBoolean({
-        envKey: 'AUTOMATICALLY_MOVE_TRUEFORGE_TABLES_FROM_PUBLIC_TO_TRUEFORGE_SCHEMA',
-        raw: getEnv('AUTOMATICALLY_MOVE_TRUEFORGE_TABLES_FROM_PUBLIC_TO_TRUEFORGE_SCHEMA'),
-        defaultValue: true,
-      }),
       TRUEFOUNDRY_SERVICEFOUNDRY_SERVER_URL: getEnv('TRUEFOUNDRY_SERVICEFOUNDRY_SERVER_URL', { required: false }),
       TRUEFOUNDRY_API_KEY: getEnv('TRUEFOUNDRY_API_KEY', { required: false }),
       TRUEFOUNDRY_SERVICEFOUNDRY_HTTP_TIMEOUT_MS: parsePositiveInt({

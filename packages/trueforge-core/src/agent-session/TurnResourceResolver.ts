@@ -1,10 +1,11 @@
 import type { Logger } from 'winston';
 import type { ILLM } from '../core/llm/ILLM';
+import type { ModelParams } from '../core/llm/model';
 import type { ToolSource } from '../core/mcp/IMCPServer';
 import { RemoteMCP, type RemoteMcpHeaders } from '../core/mcp/RemoteMCP';
 import type { ToolSelectorConfig } from '../core/mcp/ToolSelectorPolicy';
 import { ToolSet } from '../core/mcp/ToolSet';
-import type { AgentDefinition, ModelParams } from '../core/runtime/AgentDefinition';
+import type { AgentDefinition } from '../core/runtime/AgentDefinition';
 import type { AgentInfo } from '../core/runtime/AgentThread.types';
 import type { HarnessSandbox, SandboxInfo } from '../core/sandbox/Sandbox';
 import type { AgentTracing } from '../core/tracing/AgentTracing';
@@ -216,6 +217,7 @@ export class TurnResourceResolver<
     return {
       definition: {
         modelClient: resolvedModel.modelClient,
+        modelName,
         modelProperties: resolvedModel.modelProperties,
         // Sub-agents receive the delegated task as a user message; their system
         // prompt is SUB_AGENT_IDENTITY (added by AgentThread), not user instructions.

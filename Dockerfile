@@ -78,6 +78,10 @@ RUN pnpm --filter @truefoundry/trueforge-core build && pnpm --filter @truefoundr
 # tsc needs, so this stage never compiles SDK JavaScript.
 # ---------------------------------------------------------------------------
 FROM workspace AS frontend-builder
+ARG VITE_POSTHOG_HOST=https://us.i.posthog.com
+ARG VITE_POSTHOG_API_KEY=
+ENV VITE_POSTHOG_HOST=$VITE_POSTHOG_HOST \
+    VITE_POSTHOG_API_KEY=$VITE_POSTHOG_API_KEY
 RUN pnpm install --frozen-lockfile --offline --filter frontend...
 COPY packages/trueforge-sdk packages/trueforge-sdk
 COPY packages/assistant-ui-runtime packages/assistant-ui-runtime
