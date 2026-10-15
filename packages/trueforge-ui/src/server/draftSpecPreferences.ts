@@ -83,6 +83,17 @@ export function selectAgentDraftSpecPreferences(spec: AgentSpec): AgentSpec {
   };
 }
 
+/**
+ * Fresh New Agent seed after save/reset: keep model + runtime toggles, drop
+ * instructions / initial messages / MCP / skills from the previous build.
+ */
+export function freshAgentBuilderSeed(spec: AgentSpec): AgentSpec {
+  return {
+    model: spec.model,
+    ...(spec.config !== undefined ? { config: spec.config } : {}),
+  };
+}
+
 export function selectDraftSpecPreferences(spec: AgentSpec, kind: DraftPreferenceKind): AgentSpec {
   return kind === 'chat' ? selectChatDraftSpecPreferences(spec) : selectAgentDraftSpecPreferences(spec);
 }

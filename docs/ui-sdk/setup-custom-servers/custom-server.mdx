@@ -77,7 +77,7 @@ export const server: AgentUIServer = {
     return [];
   },
   async searchAgents() {
-    return [{ agentId: "support-agent", name: "Support agent" }];
+    return { data: [{ agentId: "support-agent", name: "Support agent" }] };
   },
   async saveAgent() {
     return {};

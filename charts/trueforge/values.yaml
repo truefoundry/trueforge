@@ -86,6 +86,16 @@ service:
   port: 8790
   annotations: {}
   labels: {}
+# Prometheus Operator ServiceMonitor for the server Service (GET /metrics).
+# Off by default. A parent chart sets labels so its Prometheus selects this
+# monitor. When mtls.enabled, the endpoint is https and skips certificate
+# verification; /metrics does not require a client certificate.
+serviceMonitor:
+  enabled: false
+  interval: 30s
+  path: /metrics
+  labels: {}
+  annotations: {}
 # Server runtime configuration. Keys map to environment variables read in
 # packages/trueforge/src/config.ts.
 server:
