@@ -24,6 +24,11 @@ export interface SessionHistoryPagination {
   /** Token for the next older page; omit when exhausted. */
   olderPageToken?: string | undefined;
   hasOlder: boolean;
+  /**
+   * Events newer than `olderPageToken` whose `turn.created` is still on an
+   * older page. Stitched onto that page so a split turn is not dropped.
+   */
+  leadingIncomplete?: readonly GatewaySessionEventItem[] | undefined;
 }
 
 /** Turn metadata retained for cross-turn projection and subsequent required-action replay. */

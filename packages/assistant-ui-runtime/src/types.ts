@@ -8,6 +8,7 @@ import type {
 } from '@assistant-ui/core';
 
 import type { AgentChatServer, AgentSpec } from './server/types.js';
+import type { SessionEventsCache } from './sessionEventsCache.js';
 
 export interface NamedAgentConfig {
   mode: 'named';
@@ -35,6 +36,8 @@ type TrueForgeAgentRuntimeBaseOptions = ExternalStoreSharedOptions & {
   listSessionsAgentId?: string | undefined;
   /** Restrict thread history to sessions created by the authenticated subject. */
   listSessionsCreatedByMe?: boolean | undefined;
+  /** Optional per-shell cache shared with the history timeline view. */
+  sessionEventsCache?: SessionEventsCache;
   adapters?:
     | {
         attachments?: AttachmentAdapter | undefined;

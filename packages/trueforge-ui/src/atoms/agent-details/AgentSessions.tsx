@@ -8,15 +8,15 @@ import { AnalyticsEvents } from '../../analytics/events.js';
 import { withSessionProps } from '../../analytics/sessionProps.js';
 import { useToasterOptional } from '../../containers/ToasterContainer.js';
 import { useResourcePermissions } from '../../hooks/useResourcePermissions.js';
+import { useSessionEvents } from '../../hooks/useSessionEvents.js';
 import { useSessionShareSearch } from '../../hooks/useSessionShareSearch.js';
 import { Icon } from '../../icons/Icon.js';
 import { buildSessionResumeHref } from '../../routing/paths.js';
 import { useOptionalResolvedRoutes } from '../../routing/ResolvedRoutesContext.js';
 import { useAgentSessionsServer, useServer } from '../../server/ServerContext.js';
 import { useOptionalShellMode } from '../../server/ShellModeContext.js';
-import type { Session, SessionEventItem, SessionListEntry } from '../../server/types.js';
+import type { SessionListEntry } from '../../server/types.js';
 import { useSlot } from '../../theme/SlotsProvider.js';
-import { drainListPages } from '../../utils/drainListPages.js';
 import { reportSessionAccessError } from '../../utils/sessionAccessError.js';
 import { sessionTimeRangeFromCreatedAt } from '../../utils/sessionShareUrl.js';
 import { EmptyScreen } from '../EmptyScreen.js';
@@ -80,10 +80,6 @@ export function AgentSessions({
   const loadMoreInflightRef = useRef(false);
   const [listEl, setListEl] = useState<HTMLDivElement | null>(null);
   const [sentinelEl, setSentinelEl] = useState<HTMLDivElement | null>(null);
-  const [detailEvents, setDetailEvents] = useState<SessionEventItem[]>();
-  const [detailSession, setDetailSession] = useState<Session>();
-  const [detailLoading, setDetailLoading] = useState(false);
-  const [detailFailed, setDetailFailed] = useState(false);
   const [pendingDelete, setPendingDelete] = useState<SessionListEntry | null>(null);
 
   const canDeleteSession = typeof chatServer.deleteSession === 'function';
@@ -186,57 +182,36 @@ export function AgentSessions({
     return () => observer.disconnect();
   }, [entries.length, listEl, listLoading, loadMore, nextPageToken, sentinelEl]);
 
-  useEffect(() => {
-    if (selectedSessionId == null || selectedSessionId.length === 0) {
-      setDetailEvents(undefined);
-      setDetailSession(undefined);
-      setDetailFailed(false);
-      setDetailLoading(false);
-      return;
-    }
-
-    let cancelled = false;
-    setDetailLoading(true);
-    setDetailFailed(false);
-    setDetailEvents(undefined);
-    setDetailSession(undefined);
-
-    void Promise.all([
-      drainListPages({
-        fetchPage: pageToken =>
-          sessionsServer.listSessionEvents({
-            sessionId: selectedSessionId,
-            limit: 100,
-            ...(pageToken == null ? {} : { pageToken }),
-          }),
-      }),
-      chatServer.getSession({ sessionId: selectedSessionId }),
-    ])
-      .then(([itemsNewestFirst, session]) => {
-        if (cancelled) return;
-        setDetailEvents([...itemsNewestFirst].reverse());
-        setDetailSession(session);
-      })
-      .catch((error: unknown) => {
-        if (cancelled) return;
-        reportSessionAccessError({
-          error,
-          ...(toaster != null ? { showError: toaster.showError } : {}),
-        });
-        if (detailOnly) {
-          onCloseDetail?.();
-          return;
-        }
-        setDetailFailed(true);
-      })
-      .finally(() => {
-        if (!cancelled) setDetailLoading(false);
+  const handleSessionEventsError = useCallback(
+    (error: unknown) => {
+      reportSessionAccessError({
+        error,
+        ...(toaster != null ? { showError: toaster.showError } : {}),
       });
+    },
+    [toaster],
+  );
 
-    return () => {
-      cancelled = true;
-    };
-  }, [chatServer, detailOnly, onCloseDetail, refreshKey, selectedSessionId, sessionsServer, toaster]);
+  const {
+    events: detailEvents,
+    session: detailSession,
+    loading: detailLoading,
+    failed: detailFailed,
+  } = useSessionEvents({
+    sessionId: selectedSessionId,
+    sessionsServer,
+    chatServer,
+    refreshKey,
+    onError: handleSessionEventsError,
+  });
+
+  // Close detail-only views only when the first load fails with no cached data.
+  useEffect(() => {
+    if (detailOnly && detailFailed) {
+      onCloseDetail?.();
+    }
+  }, [detailFailed, detailOnly, onCloseDetail]);
+
   useEffect(() => {
     onLoadingChange?.(listLoading || detailLoading);
   }, [detailLoading, listLoading, onLoadingChange]);

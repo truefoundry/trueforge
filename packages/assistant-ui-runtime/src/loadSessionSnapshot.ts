@@ -1,6 +1,7 @@
 import type { AgentChatServer } from './server/types.js';
 
 import { buildSnapshotFromSessionEvents } from './convertTurnMessages.js';
+import type { SessionEventsCache } from './sessionEventsCache.js';
 import { getSession } from './sessions.js';
 import type { SessionSnapshot } from './sessionSnapshot.js';
 
@@ -17,12 +18,38 @@ const inflightBySessionId = new Map<string, Promise<SessionSnapshot>>();
 export function loadSessionSnapshot(
   server: AgentChatServer,
   sessionId: string,
-  onProgress?: (snap: SessionSnapshot) => void,
+  options?: {
+    onProgress?: (snap: SessionSnapshot) => void;
+    sessionEventsCache?: SessionEventsCache;
+  },
 ): Promise<SessionSnapshot> {
+  const onProgress = options?.onProgress;
+  const sessionEventsCache = options?.sessionEventsCache;
   let inflight = inflightBySessionId.get(sessionId);
   if (inflight == null) {
-    inflight = getSession(server, sessionId)
-      .then(() => buildSnapshotFromSessionEvents(server, sessionId, onProgress))
+    inflight = Promise.all([
+      getSession(server, sessionId),
+      buildSnapshotFromSessionEvents(server, sessionId, onProgress),
+    ])
+      .then(([session, snapshot]) => {
+        if (sessionEventsCache != null) {
+          const existing = sessionEventsCache.get(sessionId);
+          if (existing?.complete === true) {
+            // Keep the drained history events; only refresh session + chat snapshot.
+            sessionEventsCache.updateMetadata(sessionId, session);
+            sessionEventsCache.updateSnapshot(sessionId, snapshot);
+          } else {
+            sessionEventsCache.set(sessionId, {
+              session,
+              events: snapshot.historyEvents != null ? [...snapshot.historyEvents] : [],
+              snapshot,
+              complete: false,
+              fetchedAt: Date.now(),
+            });
+          }
+        }
+        return snapshot;
+      })
       .finally(() => {
         if (inflightBySessionId.get(sessionId) === inflight) {
           inflightBySessionId.delete(sessionId);

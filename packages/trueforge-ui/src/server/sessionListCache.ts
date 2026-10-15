@@ -1,3 +1,4 @@
+import type { SessionEventsCache } from '@truefoundry/trueforge-assistant-ui-runtime';
 import type { AgentUIServer, ListSessionsParams } from './types.js';
 
 /** Cached pages go stale after this window so external session changes surface. */
@@ -25,9 +26,11 @@ function cacheKey(request: ListSessionsParams | undefined): string {
 export function withSessionListCache({
   server,
   cache,
+  sessionEventsCache,
 }: {
   server: AgentUIServer;
   cache: SessionListCache;
+  sessionEventsCache?: SessionEventsCache;
 }): AgentUIServer {
   const { deleteSession, renameSession } = server;
   return {
@@ -59,6 +62,7 @@ export function withSessionListCache({
       ? {
           deleteSession: async (request: { sessionId: string }) => {
             await deleteSession.call(server, request);
+            sessionEventsCache?.invalidate(request.sessionId);
             cache.clear();
           },
         }
@@ -67,6 +71,7 @@ export function withSessionListCache({
       ? {
           renameSession: async (request: { sessionId: string; title: string }) => {
             await renameSession.call(server, request);
+            sessionEventsCache?.updateMetadata(request.sessionId, { title: request.title });
             cache.clear();
           },
         }

@@ -56,7 +56,7 @@ describe('loadSessionSnapshot', () => {
     vi.mocked(buildSnapshotFromSessionEvents).mockResolvedValue(createEmptySessionSnapshot());
 
     const onProgress = vi.fn();
-    await loadSessionSnapshot(mockServer, 'session-1', onProgress);
+    await loadSessionSnapshot(mockServer, 'session-1', { onProgress });
 
     expect(buildSnapshotFromSessionEvents).toHaveBeenCalledWith(mockServer, 'session-1', onProgress);
   });

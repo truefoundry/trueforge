@@ -53,6 +53,8 @@ export {
   findCurrentPausedAssistantMessage,
   messageHasPendingRequiredActions,
 } from './requiredActionInputs.js';
+export { createSessionEventsCache } from './sessionEventsCache.js';
+export type { CachedSessionEntry, SessionEventsCache } from './sessionEventsCache.js';
 export { getSession } from './sessions.js';
 export { collectApprovalInputs, messageHasPendingApprovals, toTrueForgeApprovalInputs } from './toolApproval.js';
 export {

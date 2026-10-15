@@ -3534,6 +3534,64 @@ describe('buildSnapshotFromSessionEvents', () => {
     expect(withAll.historyPagination?.hasOlder).toBe(false);
   });
 
+  it('stitches a turn split across the page boundary when older history loads', async () => {
+    const makeTurnItems = (id: string, text: string, modelCount: number): SessionEventItem[] => [
+      {
+        turnId: id,
+        event: {
+          type: 'turn.created',
+          id: `evt-c-${id}`,
+          turnId: id,
+          input: [{ type: 'user.message', content: text }],
+          state: { status: 'running' },
+          createdAt,
+        },
+      },
+      ...Array.from({ length: modelCount }, (_, index) => ({
+        turnId: id,
+        event: modelMessage({
+          id: `m-${id}-${index}`,
+          threadId: ROOT_THREAD_ID,
+          content: `reply ${text} ${index}`,
+        }),
+      })),
+      {
+        turnId: id,
+        event: {
+          type: 'turn.done',
+          id: `evt-d-${id}`,
+          state: { status: 'done', requiredActions: [], completedAt: createdAt },
+          createdAt,
+        } as TurnDoneEvent,
+      },
+    ];
+
+    // Page size 5 splits t2: the newest page holds t2's tail (no turn.created)
+    // plus all of t3. t2's turn.created arrives only on the older page.
+    const items = [
+      ...makeTurnItems('t1', 'first', 1),
+      ...makeTurnItems('t2', 'again', 2),
+      ...makeTurnItems('t3', 'last', 1),
+    ];
+    const listEvents = sessionEventsPage(items, { pageSize: 5 });
+    const server = {
+      listTurns: async () => ({ data: [] }),
+      listEvents,
+      listTurnEvents: async () => ({ data: [] }),
+    } as unknown as AgentChatServer;
+
+    const snapshot = await buildSnapshotFromSessionEvents(server, SESSION_ID);
+    expect(snapshot.turns.map(turn => turn.id)).toEqual(['t3']);
+    expect(snapshot.historyPagination?.hasOlder).toBe(true);
+    expect(snapshot.historyPagination?.olderPageToken).toBe('1');
+    expect(snapshot.historyPagination?.leadingIncomplete?.map(item => item.turnId)).toEqual(['t2', 't2']);
+    expect(snapshot.historyPagination?.leadingIncomplete?.some(item => item.event.type === 'turn.done')).toBe(true);
+
+    const withOlder = await prependOlderSessionHistory(server, SESSION_ID, snapshot);
+    expect(withOlder.turns.map(turn => turn.userText)).toEqual(['first', 'again', 'last']);
+    expect(withOlder.historyPagination).toEqual({ hasOlder: false });
+  });
+
   it('backfills sandboxId onto tip turns after older history reveals sandbox.created', async () => {
     const makeTurnItems = (id: string, text: string, options?: { sandboxId?: string }): SessionEventItem[] => [
       {
