@@ -5,6 +5,7 @@ import { createContext, useCallback, useContext, useEffect, useMemo, useRef, use
 import type { HistoryAgentIntent } from '../utils/historyAgentSearch.js';
 import { replaceSessionShareSearch } from '../utils/sessionShareUrl.js';
 import {
+  freshAgentBuilderSeed,
   readDraftSpecPreferences,
   selectDraftSpecPreferences,
   webSearchPreferenceToStore,
@@ -135,6 +136,12 @@ type ShellModeContextValue = {
   openDraft: () => void;
   /** Open New Agent builder (mutable + Agent Config drawer). */
   openAgentBuilder: () => void;
+  /**
+   * Remount New Agent with a clean config panel (model + runtime toggles only).
+   * Clears instructions, MCP servers, skills, and saved-agent identity.
+   * Pass the live draft when available so model/runtime edits are not discarded.
+   */
+  resetAgentBuilder: (liveSpec?: AgentSpec) => void;
   /** Remember plain-draft composer choices as the seed for future New Chat / New Agent. */
   rememberDraftSpec: (agentSpec: AgentSpec, kind?: DraftPreferenceKind) => void;
   /**
@@ -542,6 +549,13 @@ export function ShellModeProvider({
     ],
   );
 
+  const applyFreshAgentBuilderSeed = useCallback((source: AgentSpec) => {
+    const seed = freshAgentBuilderSeed(source);
+    agentSeedRef.current = seed;
+    writeDraftSpecPreferences('agent', seed);
+    return seed;
+  }, []);
+
   const bindMutableAgent = useCallback(
     (req: { agentId: string; agentName: string; description?: string; agentSpec: AgentSpec }) => {
       if (!isComposerEnabled) return;
@@ -558,8 +572,11 @@ export function ShellModeProvider({
           locked: false,
         };
       });
+      // Drop mounts from the next New Agent seed so leaving via New Chat / Try / history
+      // does not bring the just-saved agent's instructions / MCP / skills back.
+      applyFreshAgentBuilderSeed(req.agentSpec);
     },
-    [isComposerEnabled],
+    [applyFreshAgentBuilderSeed, isComposerEnabled],
   );
 
   const selectAgent = useCallback(
@@ -583,6 +600,7 @@ export function ShellModeProvider({
   const isActiveAgentBuilder =
     effectiveMode.status === 'active' && effectiveMode.isMutable && effectiveMode.isCreateAgent;
   const isBoundAgentBuilder = isActiveAgentBuilder && effectiveMode.agentId != null;
+
   const openAgentBuilder = useCallback(() => {
     if (!isComposerEnabled) return;
     refreshCapabilities?.();
@@ -597,8 +615,15 @@ export function ShellModeProvider({
       setAgentConfigOpenState(true);
       return;
     }
-    selectLibraryAgent({ isMutable: true, isCreateAgent: true, agentSpec: agentSeedRef.current });
+    // After save, drop previous instructions / MCP / skills from the left panel seed.
+    const boundSpec = isBoundAgentBuilder && effectiveMode.status === 'active' ? effectiveMode.agentSpec : undefined;
+    const agentSpec = isBoundAgentBuilder
+      ? applyFreshAgentBuilderSeed(boundSpec ?? agentSeedRef.current)
+      : agentSeedRef.current;
+    selectLibraryAgent({ isMutable: true, isCreateAgent: true, agentSpec });
   }, [
+    applyFreshAgentBuilderSeed,
+    effectiveMode,
     isActiveAgentBuilder,
     isBoundAgentBuilder,
     isComposerEnabled,
@@ -609,6 +634,21 @@ export function ShellModeProvider({
     setSessionsOpen,
     setSettingsOpen,
   ]);
+
+  const resetAgentBuilder = useCallback(
+    (liveSpec?: AgentSpec) => {
+      if (!isComposerEnabled) return;
+      refreshCapabilities?.();
+      // Prefer the live draft (button) or remembered seed — mode.agentSpec is only open/save snapshot.
+      const source = liveSpec ?? agentSeedRef.current;
+      selectLibraryAgent({
+        isMutable: true,
+        isCreateAgent: true,
+        agentSpec: applyFreshAgentBuilderSeed(source),
+      });
+    },
+    [applyFreshAgentBuilderSeed, isComposerEnabled, refreshCapabilities, selectLibraryAgent],
+  );
 
   const sandboxEnabled = capabilities?.sandbox.enabled;
   const webSearchEnabled = capabilities?.webSearch?.enabled;
@@ -799,6 +839,7 @@ export function ShellModeProvider({
       selectAgent,
       openDraft,
       openAgentBuilder,
+      resetAgentBuilder,
       rememberDraftSpec,
       openHistorySession,
       clearChat,
@@ -844,6 +885,7 @@ export function ShellModeProvider({
       selectAgent,
       openDraft,
       openAgentBuilder,
+      resetAgentBuilder,
       rememberDraftSpec,
       openHistorySession,
       clearChat,
