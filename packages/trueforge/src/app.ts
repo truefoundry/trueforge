@@ -202,12 +202,20 @@ export interface ServerDeps<TTransaction> {
   sandboxCatalog: SandboxCatalog;
   webSearchCatalog: WebSearchCatalog;
   /** Per-request store: DB singleton, or a token-bound TrueFoundry store in TrueFoundry mode. */
-  resolveModelProviderStore: (c: Context, runAsAgent?: AgentRecord) => IModelProviderStore<TTransaction>;
+  resolveModelProviderStore: (
+    c: Context,
+    runAsAgent?: AgentRecord,
+    options?: { allowInlineResources?: boolean },
+  ) => IModelProviderStore<TTransaction>;
   /**
    * Per-request store: DB singleton, or a token-bound TrueFoundry store in TrueFoundry mode.
    * The unauthenticated OAuth callback has no context and gets the DB persistence store.
    */
-  resolveMcpServerStore: (c?: Context, runAsAgent?: AgentRecord) => IMcpServerWithAuthStore<TTransaction>;
+  resolveMcpServerStore: (
+    c?: Context,
+    runAsAgent?: AgentRecord,
+    options?: { allowInlineResources?: boolean },
+  ) => IMcpServerWithAuthStore<TTransaction>;
   /** Per-request store: DB singleton, or a token-bound TrueFoundry decorator in TrueFoundry mode. */
   resolveAgentStore: (c: Context) => IAgentStore<TTransaction>;
   /**

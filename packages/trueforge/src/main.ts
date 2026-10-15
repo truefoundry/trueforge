@@ -126,12 +126,14 @@ import { printStandaloneStartupBanner } from './startupBanner';
 import { InlineMcpServerStore } from './truefoundry/InlineMcpServerStore';
 import { InlineModelProviderStore } from './truefoundry/InlineModelProviderStore';
 import {
+  assertInlineResourceOverlayAllowed,
   parseInlineMcpServers,
   parseInlineModelProviders,
   parseInlineSkills,
   X_TFG_MCP,
   X_TFG_MODELS,
   X_TFG_SKILLS,
+  type AllowInlineResourcesOptions,
 } from './truefoundry/inlineResources';
 import { InlineSkillStore } from './truefoundry/InlineSkillStore';
 import {
@@ -634,31 +636,39 @@ async function createServerRuntime<TTransaction>(persistence: ServerPersistence<
     : undefined;
 
   // Hono handlers get Context; persistence resolvers take RequestContext.
-  const resolveModelProviderStore = (c: Context, runAsAgent?: AgentRecord) => {
+  // x-tfg-* overlays are fail-closed unless allowInlineResources (inline-session turns only).
+  const tfMode = isTrueFoundryModeEnabled(configuration);
+  const resolveModelProviderStore = (c: Context, runAsAgent?: AgentRecord, options?: AllowInlineResourcesOptions) => {
     const store = persistence.resolveModelProviderStore(resolveRequestContext(c), runAsAgent);
-    if (!isTrueFoundryModeEnabled(configuration)) {
-      return store;
-    }
     const rawInline = c.req.header(X_TFG_MODELS);
     if (rawInline === undefined) {
       return store;
     }
+    assertInlineResourceOverlayAllowed({
+      headerNames: [X_TFG_MODELS],
+      isTrueFoundryMode: tfMode,
+      allowInlineResources: options?.allowInlineResources,
+    });
     return new InlineModelProviderStore({ inner: store, inline: parseInlineModelProviders(rawInline) });
   };
-  const resolveMcpServerStore = (c?: Context, runAsAgent?: AgentRecord) => {
+  const resolveMcpServerStore = (c?: Context, runAsAgent?: AgentRecord, options?: AllowInlineResourcesOptions) => {
     if (c === undefined) {
       return mcpOAuthStore;
     }
     const rawPerServerHeaders = c.req.header(X_TFG_MCP_HEADERS);
+    const rawInline = c.req.header(X_TFG_MCP);
+    if (rawPerServerHeaders !== undefined || rawInline !== undefined) {
+      assertInlineResourceOverlayAllowed({
+        headerNames: [X_TFG_MCP, X_TFG_MCP_HEADERS],
+        isTrueFoundryMode: tfMode,
+        allowInlineResources: options?.allowInlineResources,
+      });
+    }
     const store = persistence.resolveMcpServerStore(
       resolveRequestContext(c),
       runAsAgent,
       rawPerServerHeaders === undefined ? undefined : parsePerServerMcpHeaders(rawPerServerHeaders),
     );
-    if (!isTrueFoundryModeEnabled(configuration)) {
-      return store;
-    }
-    const rawInline = c.req.header(X_TFG_MCP);
     if (rawInline === undefined) {
       return store;
     }
@@ -668,16 +678,20 @@ async function createServerRuntime<TTransaction>(persistence: ServerPersistence<
   const resolveSandboxProviderStore = (c: Context) => persistence.resolveSandboxProviderStore(resolveRequestContext(c));
   const resolveWebSearchProviderStore = (c: Context) =>
     persistence.resolveWebSearchProviderStore(resolveRequestContext(c));
-  const resolveSkillStore = (c: Context) => {
+  const resolveSkillStore = (c: Context, options?: AllowInlineResourcesOptions) => {
+    // Session/agent save validate uses this without allowInlineResources → caller JWT registry.
     const store = persistence.resolveSkillStore(resolveRequestContext(c));
-    if (!isTrueFoundryModeEnabled(configuration)) {
-      return store;
-    }
     const rawInline = c.req.header(X_TFG_SKILLS);
     if (rawInline === undefined) {
       return store;
     }
-    return new InlineSkillStore({ inner: store, inline: parseInlineSkills(rawInline) });
+    assertInlineResourceOverlayAllowed({
+      headerNames: [X_TFG_SKILLS],
+      isTrueFoundryMode: tfMode,
+      allowInlineResources: options?.allowInlineResources,
+    });
+    // Closed-world overlay: no registry/#inner fallthrough.
+    return new InlineSkillStore({ inline: parseInlineSkills(rawInline) });
   };
   const app = createServerApp({
     modelCatalog: ModelCatalog.load(),

@@ -12,109 +12,86 @@ import type {
 } from '../db/skillStore';
 import type { SkillVersion } from '../schemas/skill';
 import type { InlineSkills } from './inlineResources';
+import { X_TFG_SKILLS } from './inlineResources';
 
 /**
- * Serves the skills a request brought with it, and delegates everything else.
- *
- * Mirrors {@link InlineMcpServerStore}: name-filtered list and validate/resolve are overlaid, an
- * unfiltered list passes through so request-scoped skills stay out of the tenant's settings, and
- * writes delegate because there is no row to write.
+ * Closed set of skills from `x-tfg-skills`. Every requested name must be in the header map;
+ * there is no registry fallthrough. Unfiltered lists stay empty so request-scoped skills never
+ * appear in tenant settings. Writes are unsupported.
  */
 export class InlineSkillStore<TTransaction = never> implements ISkillStore<TTransaction> {
-  readonly #inner: ISkillStore<TTransaction>;
   readonly #inline: InlineSkills;
 
-  constructor(input: { inner: ISkillStore<TTransaction>; inline: InlineSkills }) {
-    this.#inner = input.inner;
+  constructor(input: { inline: InlineSkills }) {
     this.#inline = input.inline;
   }
 
-  async listSkills(input: ListSkillsInput, transaction?: TTransaction): Promise<SkillRecord[]> {
+  async listSkills(input: ListSkillsInput, _transaction?: TTransaction): Promise<SkillRecord[]> {
+    void _transaction;
     if (input.names === undefined) {
-      return this.#inner.listSkills(input, transaction);
+      return [];
     }
     if (input.names.length === 0) {
       return [];
     }
-
-    const inlineRecords = input.names
-      .map(name => this.#toRecord({ tenant_id: input.tenant_id, name }))
-      .filter((record): record is SkillRecord => record !== undefined);
-    const registryNames = input.names.filter(name => this.#inline[name] === undefined);
-    const registryRecords =
-      registryNames.length > 0 ? await this.#inner.listSkills({ ...input, names: registryNames }, transaction) : [];
-
-    return [...inlineRecords, ...registryRecords];
+    this.#assertNamesInInline(input.names);
+    return input.names.map(name => this.#toRecord({ tenant_id: input.tenant_id, name }));
   }
 
-  createSkill(input: CreateSkillInput, transaction?: TTransaction): Promise<SkillRecord> {
-    return this.#inner.createSkill(input, transaction);
+  createSkill(_input: CreateSkillInput, _transaction?: TTransaction): Promise<SkillRecord> {
+    void _input;
+    void _transaction;
+    return unsupportedInlineSkillWrite();
   }
 
-  upsertSkill(input: UpsertSkillInput, transaction?: TTransaction): Promise<SkillRecord> {
-    return this.#inner.upsertSkill(input, transaction);
+  upsertSkill(_input: UpsertSkillInput, _transaction?: TTransaction): Promise<SkillRecord> {
+    void _input;
+    void _transaction;
+    return unsupportedInlineSkillWrite();
   }
 
-  deleteSkill(input: DeleteSkillInput, transaction?: TTransaction): Promise<boolean> {
-    return this.#inner.deleteSkill(input, transaction);
+  deleteSkill(_input: DeleteSkillInput, _transaction?: TTransaction): Promise<boolean> {
+    void _input;
+    void _transaction;
+    return unsupportedInlineSkillWrite();
   }
 
   listSkillVersions(input: { name: string }): Promise<SkillVersion[]> {
-    if (this.#inline[input.name] !== undefined) {
-      return Promise.resolve([]);
+    if (this.#inline[input.name] === undefined) {
+      throw new HTTPException(422, {
+        message: `Unknown skill "${input.name}" — not present in ${X_TFG_SKILLS}`,
+      });
     }
-    return this.#inner.listSkillVersions(input);
+    return Promise.resolve([]);
   }
 
-  async validateAgentSkills(input: AgentSkillsInput, transaction?: TTransaction): Promise<void> {
-    const { inlineSkills, registrySkills } = this.#partition(input.skills);
-    if (inlineSkills.length > 0) {
-      await validateGitAgentSkills(this, { tenant_id: input.tenant_id, skills: inlineSkills });
-    }
-    // Cross-source uniqueness needs registry short names from resolveTurnSkills; keep that out of
-    // validate so mixed specs are not failed for API-key / presigned-URL requirements.
-    if (registrySkills.length > 0) {
-      await this.#inner.validateAgentSkills({ tenant_id: input.tenant_id, skills: registrySkills }, transaction);
-    }
+  async validateAgentSkills(input: AgentSkillsInput, _transaction?: TTransaction): Promise<void> {
+    void _transaction;
+    this.#assertNamesInInline(input.skills.map(skill => skill.name));
+    await validateGitAgentSkills(this, { tenant_id: input.tenant_id, skills: input.skills });
   }
 
   async resolveTurnSkills(input: AgentSkillsInput): Promise<SkillMount[]> {
-    const { inlineSkills, registrySkills } = this.#partition(input.skills);
-    const inlineMounts =
-      inlineSkills.length > 0
-        ? await resolveGitTurnSkills(this, { tenant_id: input.tenant_id, skills: inlineSkills })
-        : [];
-    const registryMounts =
-      registrySkills.length > 0
-        ? await this.#inner.resolveTurnSkills({ tenant_id: input.tenant_id, skills: registrySkills })
-        : [];
-    const mounts = [...inlineMounts, ...registryMounts];
-    // Inline key and registry short name share the sandbox dir — reject collisions here.
-    const seen = new Set<string>();
-    for (const mount of mounts) {
-      if (seen.has(mount.name)) {
+    this.#assertNamesInInline(input.skills.map(skill => skill.name));
+    return resolveGitTurnSkills(this, { tenant_id: input.tenant_id, skills: input.skills });
+  }
+
+  #assertNamesInInline(names: readonly string[]): void {
+    for (const name of names) {
+      if (this.#inline[name] === undefined) {
         throw new HTTPException(422, {
-          message: `Agent skills must have unique names; duplicate skill name(s): ${mount.name}`,
+          message: `Unknown skill "${name}" — not present in ${X_TFG_SKILLS}`,
         });
       }
-      seen.add(mount.name);
     }
-    return mounts;
   }
 
-  #partition(skills: AgentSkillsInput['skills']): {
-    inlineSkills: AgentSkillsInput['skills'];
-    registrySkills: AgentSkillsInput['skills'];
-  } {
-    const inlineSkills = skills.filter(skill => this.#inline[skill.name] !== undefined);
-    const registrySkills = skills.filter(skill => this.#inline[skill.name] === undefined);
-    return { inlineSkills, registrySkills };
-  }
-
-  #toRecord(input: { tenant_id: string; name: string }): SkillRecord | undefined {
+  #toRecord(input: { tenant_id: string; name: string }): SkillRecord {
     const manifest = this.#inline[input.name];
     if (manifest === undefined) {
-      return undefined;
+      throw new HTTPException(422, {
+        message: `Unknown skill "${input.name}" — not present in ${X_TFG_SKILLS}`,
+      });
     }
     const now = new Date().toISOString();
     return {
@@ -125,4 +102,10 @@ export class InlineSkillStore<TTransaction = never> implements ISkillStore<TTran
       updated_at: now,
     };
   }
+}
+
+function unsupportedInlineSkillWrite(): Promise<never> {
+  return Promise.reject(
+    new HTTPException(400, { message: `Request-scoped skills from ${X_TFG_SKILLS} do not support writes` }),
+  );
 }

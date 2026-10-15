@@ -117,9 +117,17 @@ export interface TurnsRouterDeps {
   sessions: Sessions;
   sessionStore: ISessionStore;
   activeTurns: ActiveTurnRegistry;
-  resolveModelProviderStore: (c: Context, runAsAgent?: AgentRecord) => IModelProviderStore;
-  resolveMcpServerStore: (c: Context, runAsAgent?: AgentRecord) => IMcpServerWithAuthStore;
-  resolveSkillStore: (c: Context) => ISkillStore;
+  resolveModelProviderStore: (
+    c: Context,
+    runAsAgent?: AgentRecord,
+    options?: { allowInlineResources?: boolean },
+  ) => IModelProviderStore;
+  resolveMcpServerStore: (
+    c: Context,
+    runAsAgent?: AgentRecord,
+    options?: { allowInlineResources?: boolean },
+  ) => IMcpServerWithAuthStore;
+  resolveSkillStore: (c: Context, options?: { allowInlineResources?: boolean }) => ISkillStore;
   resolveAgentStore: (c: Context) => IAgentStore;
   /** Resumable live turn-event transport: create-turn writes, subscribe polls. */
   eventSubscriptions: EventSubscriptionRegistry<TurnStreamingEvent>;
@@ -824,6 +832,8 @@ export function createTurnsRouter(deps: TurnsRouterDeps) {
       referencedAgent = agent;
     }
 
+    // x-tfg-* overlays are fail-closed except on turns for inline sessions.
+    const allowInlineResources = session.record.agent.type === 'inline';
     const turnParams: BeginTurnExecutionParams = {
       session,
       input: body.input,
@@ -832,9 +842,9 @@ export function createTurnsRouter(deps: TurnsRouterDeps) {
       requestHeaders: c.req.header(),
       deps: {
         ...deps,
-        modelProviderStore: deps.resolveModelProviderStore(c, referencedAgent),
-        mcpServerStore: deps.resolveMcpServerStore(c, referencedAgent),
-        skillStore: deps.resolveSkillStore(c),
+        modelProviderStore: deps.resolveModelProviderStore(c, referencedAgent, { allowInlineResources }),
+        mcpServerStore: deps.resolveMcpServerStore(c, referencedAgent, { allowInlineResources }),
+        skillStore: deps.resolveSkillStore(c, { allowInlineResources }),
         agentStore: deps.resolveAgentStore(c),
         sandboxProviderStore: deps.resolveSandboxProviderStore(c),
         sandboxEnvironmentStore: deps.sandboxEnvironmentStore,
