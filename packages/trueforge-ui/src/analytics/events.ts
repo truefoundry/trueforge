@@ -28,6 +28,7 @@ export const AnalyticsEvents = {
   },
   Config: {
     OPENED: 'trueforge.agent.config_opened',
+    RESET: 'trueforge.agent.config_reset',
   },
   Settings: {
     OPENED: 'trueforge.agent.settings_opened',

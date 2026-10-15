@@ -78,8 +78,9 @@ to reference:
     `SearchAgentsParams`.
   </Accordion>
   <Accordion title="Pagination">
-    `PageResult`, `PageParams`, `TokenPagination`, `ListSessionsParams`, `ListSessionsOrder`,
-    `ListSessionsResponse`, `ListTurnsResponse`, `ListSessionEventsResponse`.
+    `ListResult`, `PageParams`, `ListSessionsParams`, `ListSessionsOrder`,
+    `ListSessionEventsParams`, `SearchAgentsParams`. List methods return `ListResult<T>`,
+    a plain object with `data` and optional `nextPageToken` / `previousPageToken`.
   </Accordion>
   <Accordion title="Catalog">
     `ModelCatalogServer`, `ConnectorCatalogServer`, `SkillCatalogServer`,
