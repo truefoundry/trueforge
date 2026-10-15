@@ -37,6 +37,38 @@ export interface ExecuteToolCallsResult {
   events: RegisteredPassthroughEvent[];
 }
 
+function isJsonObject(value: unknown): value is Record<string, unknown> {
+  return typeof value === 'object' && value !== null && !Array.isArray(value);
+}
+
+/**
+ * Parse tool-call `function.arguments`. Fine-grained streaming can leave incomplete JSON;
+ * failures are reported as tool errors so the model can retry rather than treating them as
+ * generic execution failures.
+ */
+export function parseToolCallArguments(
+  rawArguments: string,
+): { ok: true; args: Record<string, unknown> } | { ok: false; parseError: string; rawArguments: string } {
+  let parsed: unknown;
+  try {
+    parsed = JSON.parse(rawArguments || '{}');
+  } catch (error) {
+    return {
+      ok: false,
+      parseError: error instanceof Error ? error.message : 'JSON parse failed',
+      rawArguments,
+    };
+  }
+  if (!isJsonObject(parsed)) {
+    return {
+      ok: false,
+      parseError: 'Tool call arguments must be a JSON object',
+      rawArguments,
+    };
+  }
+  return { ok: true, args: parsed };
+}
+
 export async function executeToolCalls({
   assistantMessage,
   toolMapping,
@@ -82,12 +114,29 @@ export async function executeToolCalls({
       };
     }
 
+    const parsedArgs = parseToolCallArguments(toolCall.function.arguments);
+    if (!parsedArgs.ok) {
+      return {
+        toolCall,
+        toolInfo,
+        response: toolResultResponse({
+          text: JSON.stringify({
+            error: 'Failed to parse tool call arguments as JSON',
+            parse_error: parsedArgs.parseError,
+            raw_arguments: parsedArgs.rawArguments,
+          }),
+          isError: true,
+        }),
+        failure: true,
+        completedAt: new Date().toISOString(),
+      };
+    }
+
     try {
-      const args: Record<string, unknown> = JSON.parse(toolCall.function.arguments || '{}') as Record<string, unknown>;
       const response = await toolInfo.toolSet.callTool(
         {
           name: toolInfo.originalToolName,
-          arguments: args,
+          arguments: parsedArgs.args,
         },
         approvalDecisions.get(toolCall.id),
       );
