@@ -29,10 +29,21 @@ asynchronously, so the SDK renders a loading indicator (`role="status"`) for a m
 ## The composed contract
 
 ```ts
-type AgentUIServer = AgentChatServer & AgentBuilderServer & { catalog?: CatalogServer };
+type AgentUIServer = AgentChatServer & AgentBuilderServer & {
+  catalog?: CatalogServer;
+  sessions?: AgentSessionsServer;
+  schedules?: ScheduleServer;
+  sandboxEnvironments?: SandboxEnvironmentServer;
+  metrics?: AgentMetricsServer;
+  permissions?: PermissionsServer;
+  getMe?: () => Promise<{ tenantId: string }>;
+};
 ```
 
-Chat and session operations, agent-builder operations, and an optional settings catalog. Only the first two are required.
+Chat and agent-builder operations are required. The optional ports add settings catalogs,
+agent detail/session views, schedules, sandbox environments, aggregate metrics, and resource
+permissions. `getMe` supplies the caller's tenant identity for sharing. A custom server can
+attach these ports directly, or pass them to `createTrueForgeServer`.
 
 Every interface is generic. The SDK's types constrain only the fields the UI itself reads, so when your backend returns richer objects you widen the type parameters rather than casting or stripping fields. See [widening](#widening-the-types) below.
 
