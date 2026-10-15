@@ -1,18 +1,15 @@
-import type { ChatCompletionTool } from 'openai/resources/chat';
+import type { ChatCompletionFunctionTool } from 'openai/resources/chat';
 import type { MCPServerInitInfo } from '../events/schema';
 import type { MCPAuthRequired } from '../mcp/IMCPServer';
 import { type IToolSet, isAuthRequired } from './IMCPServer';
 import { getUniqueSanitizedToolName } from './toolNames';
 
-type OpenAIFunctionTool = Extract<ChatCompletionTool, { type: 'function' }>;
-
 /**
  * OpenAI function tool plus optional chat-completions gateway fields.
  * TrueFoundry's gateway reads `eager_input_streaming` on `tools[].function` when translating to vendors.
  */
-export interface HarnessChatCompletionTool {
-  type: 'function';
-  function: OpenAIFunctionTool['function'] & {
+export interface HarnessChatCompletionTool extends Omit<ChatCompletionFunctionTool, 'function'> {
+  function: ChatCompletionFunctionTool['function'] & {
     eager_input_streaming: boolean | undefined;
   };
 }
