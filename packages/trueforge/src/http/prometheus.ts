@@ -4,6 +4,13 @@ import { matchedRoutes } from 'hono/route';
 
 const HTTP_METRIC_LABELS = ['method', 'route', 'status_code'] as const;
 
+/** Methods this API serves. Any other verb shares one series so clients cannot grow the registry. */
+const RECORDED_METHODS = new Set(['DELETE', 'GET', 'HEAD', 'OPTIONS', 'PATCH', 'POST', 'PUT']);
+
+function methodLabel(method: string): string {
+  return RECORDED_METHODS.has(method) ? method : 'other';
+}
+
 /** Buckets cover multi-minute turn handlers. Longer requests land in +Inf. */
 const DURATION_BUCKETS_SECONDS = [0.005, 0.01, 0.025, 0.05, 0.1, 0.25, 0.5, 1, 2.5, 5, 10, 30, 60, 120, 300];
 
@@ -60,7 +67,7 @@ export function createHttpMetrics(): {
       await next();
     } finally {
       const labels = {
-        method: c.req.method,
+        method: methodLabel(c.req.method),
         // We need matchedRoutes to get the route template, and not the actual route path.
         // For example, for path template "/api/v1/sessions/:ID", the actual route path is "/api/v1/sessions/123",
         // And 123 can be any string.

@@ -93,6 +93,18 @@ describe('createHttpMetrics', () => {
     expect(body).toContain('http_requests_total{method="GET",route="/boom",status_code="500"} 1');
   });
 
+  it('folds unknown methods into one series', async () => {
+    const app = instrumentedApp();
+
+    expect((await app.request('/no/such/route', { method: 'PURGE' })).status).toBe(404);
+    expect((await app.request('/no/such/route', { method: 'LOCK' })).status).toBe(404);
+    const body = await scrape(app);
+
+    expect(body).toContain('http_requests_total{method="other",route="unmatched",status_code="404"} 2');
+    expect(body).not.toContain('PURGE');
+    expect(body).not.toContain('LOCK');
+  });
+
   it('labels a path with no route as unmatched', async () => {
     const app = instrumentedApp();
 
