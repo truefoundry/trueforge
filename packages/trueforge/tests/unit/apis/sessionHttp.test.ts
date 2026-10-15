@@ -210,7 +210,7 @@ describe('sessions HTTP agent binding', () => {
     const listed = await app.request(`/?agent_id=${encodeURIComponent(agent.id)}`);
     expect(listed.status).toBe(200);
     const listJson = (await listed.json()) as {
-      data: Array<{ id: string; agent: { type: 'reference'; id: string; name: string | null } }>;
+      data: { id: string; agent: { type: 'reference'; id: string; name: string | null } }[];
     };
     expect(listJson.data.every(row => row.agent.id === agent.id)).toBe(true);
     expect(listJson.data.some(row => row.id === json.data.id)).toBe(true);
@@ -424,10 +424,10 @@ describe('sessions HTTP agent binding', () => {
     const listed = await app.request('/');
     expect(listed.status).toBe(200);
     const listedJson = (await listed.json()) as {
-      data: Array<{
+      data: {
         id: string;
         created_by_subject: { subject_id: string };
-      }>;
+      }[];
     };
     expect(listedJson.data.map(row => row.id)).toEqual([json.data.id]);
     expect(
@@ -514,7 +514,7 @@ describe('sessions HTTP agent binding', () => {
     );
     expect(res.status).toBe(201);
     const body = (await res.json()) as {
-      data: Array<{
+      data: {
         id: string;
         created_at: string;
         type: string;
@@ -522,7 +522,7 @@ describe('sessions HTTP agent binding', () => {
         tool_call_id?: string;
         approval?: { status: string };
         policies?: unknown[];
-      }>;
+      }[];
     };
     expect(body.data).toHaveLength(3);
     expect(body.data[0]).toMatchObject({

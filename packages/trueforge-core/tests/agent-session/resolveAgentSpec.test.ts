@@ -108,7 +108,7 @@ describe('SessionHandle.createTurn named resolve', () => {
       active_executor_id: TEST_ACTIVE_EXECUTOR_ID,
       input: [{ type: EventType.USER_MESSAGE, content: 'hi' }],
       previous_turn_id: 'none',
-      signal: new AbortController().signal,
+      abortController: new AbortController(),
       resolver: makeTestResolver({ agent }),
     });
 

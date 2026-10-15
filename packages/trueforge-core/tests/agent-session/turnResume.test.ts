@@ -7,6 +7,7 @@ import { EventType } from '../../src/agent-session/schemas/events';
 import { CancellationReason } from '../../src/agent-session/schemas/turn';
 import { Sessions } from '../../src/agent-session/Sessions';
 import { InMemorySessionStore } from '../../src/agent-session/store/InMemorySessionStore';
+import { TurnOwnershipLostError } from '../../src/agent-session/store/SessionStoreErrors';
 import type { TurnHandle } from '../../src/agent-session/TurnHandle';
 import type { AgentCapability } from '../../src/core/capabilities/AgentCapability';
 import { newEventId, type TurnUserEvent } from '../../src/core/events/schema';
@@ -194,7 +195,7 @@ describe('TurnHandle.send() full-approval resume (agent-session e2e)', () => {
       active_executor_id: TEST_ACTIVE_EXECUTOR_ID,
       input: [{ type: EventType.USER_MESSAGE, content: 'hello' }],
       previous_turn_id: 'none',
-      signal: controller.signal,
+      abortController: controller,
       resolver: makeTestResolver({ extraCapabilities: [capability], llmCreate }),
     });
     expect(turn.state.status).toBe('running');
@@ -203,10 +204,10 @@ describe('TurnHandle.send() full-approval resume (agent-session e2e)', () => {
     // (turn.update paused), inject the approval decision via TurnHandle.send(), which wakes the
     // SAME execution, then keep draining to terminal done.
     const types: string[] = [];
-    const events: Array<{ type: string; [k: string]: unknown }> = [];
+    const events: { type: string; [k: string]: unknown }[] = [];
     let paused = false;
     let sent = false;
-    const iterator = turn.stream(controller);
+    const iterator = turn.stream();
     let step = await iterator.next();
     while (!step.done) {
       const event = step.value as { type: string; state?: { status: string }; [k: string]: unknown };
@@ -254,6 +255,76 @@ describe('TurnHandle.send() full-approval resume (agent-session e2e)', () => {
     expect(stored?.state.status).toBe('done');
   });
 
+  it('keeps the stream parked after ownership is lost until abort', async () => {
+    const { store, session } = await createSession();
+    const { capability, callTool } = makeApprovalGatedCapability();
+    const controller = new AbortController();
+    const turn = await session.createTurn({
+      turn_id: mintTestTurnId(),
+      active_executor_id: TEST_ACTIVE_EXECUTOR_ID,
+      input: [{ type: EventType.USER_MESSAGE, content: 'hello' }],
+      previous_turn_id: 'none',
+      abortController: controller,
+      resolver: makeTestResolver({
+        extraCapabilities: [capability],
+        llmCreate: jest.fn().mockImplementation(() => writeNoteToolCallStream()),
+      }),
+    });
+
+    const iterator = turn.stream();
+    let step = await iterator.next();
+    while (!step.done && !(step.value.type === EventType.TURN_UPDATE && step.value.state.status === 'paused')) {
+      step = await iterator.next();
+    }
+    expect(step.done).toBe(false);
+
+    const won = await store.claimTurnExecutor({
+      session_id: 's1',
+      turn_id: turn.id,
+      expected_executor_id: TEST_ACTIVE_EXECUTOR_ID,
+      new_executor_id: 'executor-b',
+    });
+    expect(won).toBe(true);
+
+    const pending = iterator.next();
+    pending.catch(() => undefined);
+    await sendWithInbox(turn, store, [
+      {
+        type: EventType.USER_TOOL_APPROVAL,
+        id: newEventId(),
+        created_at: new Date().toISOString(),
+        thread_id: MAIN_THREAD_ID,
+        tool_call_id: WRITE_NOTE_CALL_ID,
+        approval: { status: 'allow' },
+      },
+    ]);
+
+    try {
+      const parked = await Promise.race([
+        pending.then(
+          () => false,
+          () => false,
+        ),
+        new Promise<boolean>(resolve => {
+          setTimeout(() => resolve(true), 50);
+        }),
+      ]);
+      expect(parked).toBe(true);
+      expect(callTool).not.toHaveBeenCalled();
+
+      controller.abort(CancellationReason.Abandoned);
+      await expect(withTimeout(pending, 1_000, 'ownership-loss abort')).rejects.toBeInstanceOf(TurnOwnershipLostError);
+    } finally {
+      if (!controller.signal.aborted) {
+        controller.abort(CancellationReason.Abandoned);
+      }
+    }
+
+    const stored = await store.getTurn({ session_id: 's1', turn_id: turn.id });
+    expect(stored?.active_executor_id).toBe('executor-b');
+    expect(stored?.state.status).toBe('paused');
+  });
+
   it('abandon while parked at approval wakes execution and persists client cancellation', async () => {
     const { store, session } = await createSession();
     const { capability } = makeApprovalGatedCapability();
@@ -263,14 +334,14 @@ describe('TurnHandle.send() full-approval resume (agent-session e2e)', () => {
       active_executor_id: TEST_ACTIVE_EXECUTOR_ID,
       input: [{ type: EventType.USER_MESSAGE, content: 'hello' }],
       previous_turn_id: 'none',
-      signal: controller.signal,
+      abortController: controller,
       resolver: makeTestResolver({
         extraCapabilities: [capability],
         llmCreate: jest.fn().mockImplementation(() => writeNoteToolCallStream()),
       }),
     });
 
-    const iterator = turn.stream(controller);
+    const iterator = turn.stream();
     let step = await iterator.next();
     while (!step.done && !(step.value.type === EventType.TURN_UPDATE && step.value.state.status === 'paused')) {
       step = await iterator.next();
@@ -318,7 +389,7 @@ describe('TurnHandle.send() MCP-auth continuation', () => {
       active_executor_id: TEST_ACTIVE_EXECUTOR_ID,
       input: [{ type: EventType.USER_MESSAGE, content: 'hello' }],
       previous_turn_id: 'none',
-      signal: new AbortController().signal,
+      abortController: new AbortController(),
       resolver: makeTestResolver({
         extraCapabilities: [capability],
         llmCreate: jest.fn(() => textReplyStream('authorized')),
@@ -389,7 +460,7 @@ describe('TurnHandle.send() MCP-auth continuation', () => {
       active_executor_id: TEST_ACTIVE_EXECUTOR_ID,
       input: [{ type: EventType.USER_MESSAGE, content: 'hello' }],
       previous_turn_id: 'none',
-      signal: new AbortController().signal,
+      abortController: new AbortController(),
       resolver: makeTestResolver({
         extraCapabilities: [capability],
         llmCreate: jest.fn(() => textReplyStream('authorized')),
@@ -445,7 +516,7 @@ describe('TurnHandle.send() MCP-auth continuation', () => {
       active_executor_id: TEST_ACTIVE_EXECUTOR_ID,
       input: [{ type: EventType.USER_MESSAGE, content: 'hello' }],
       previous_turn_id: 'none',
-      signal: new AbortController().signal,
+      abortController: new AbortController(),
       resolver: makeTestResolver({ extraCapabilities: [capability], llmCreate }),
     });
 
@@ -495,7 +566,7 @@ describe('TurnHandle.send() MCP-auth continuation', () => {
       active_executor_id: TEST_ACTIVE_EXECUTOR_ID,
       input: [{ type: EventType.USER_MESSAGE, content: 'hello' }],
       previous_turn_id: 'none',
-      signal: new AbortController().signal,
+      abortController: new AbortController(),
       resolver: makeTestResolver(),
     });
 

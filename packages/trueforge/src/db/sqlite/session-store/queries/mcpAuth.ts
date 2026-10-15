@@ -3,11 +3,11 @@ import { SessionStoreInvariantError } from '@truefoundry/trueforge-core/agent-se
 import { sql, type Kysely, type Transaction } from 'kysely';
 import { jsonbSet, nowIso } from '../../sqlExpressions';
 import type { Database } from '../../types';
-import { assertTurnNonTerminal, type TurnKeys } from './turns';
+import { assertOwnedNonTerminalTurn } from './turns';
 
 async function assertThreadsExist(
   trx: Transaction<Database>,
-  keys: TurnKeys,
+  keys: { session_id: string; turn_id: string },
   threadIds: readonly string[],
 ): Promise<void> {
   const rows = await trx
@@ -26,9 +26,13 @@ async function assertThreadsExist(
 
 export async function patchThreadsMCPAuth(db: Kysely<Database>, input: PatchThreadsMCPAuthInput): Promise<void> {
   const threadIds = [...new Set(input.thread_ids)];
-  const keys: TurnKeys = { session_id: input.session_id, turn_id: input.turn_id };
+  const keys = {
+    session_id: input.session_id,
+    turn_id: input.turn_id,
+    active_executor_id: input.active_executor_id,
+  };
   await db.transaction().execute(async trx => {
-    await assertTurnNonTerminal(trx, keys);
+    await assertOwnedNonTerminalTurn(trx, keys);
     if (threadIds.length === 0) {
       return;
     }

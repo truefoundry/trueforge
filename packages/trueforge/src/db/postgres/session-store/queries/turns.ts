@@ -7,6 +7,7 @@ import {
 } from '@truefoundry/trueforge-core/agent-session/schemas/turn';
 import { assertCreateTurnThreadDelta } from '@truefoundry/trueforge-core/agent-session/store/assertCreateTurnThreadDelta';
 import type {
+  ClaimTurnExecutorInput,
   FreezeAndGetTurnInput,
   TurnRecordWithoutSnapshot,
   UpdateTurnNonTerminalStateInput,
@@ -21,6 +22,7 @@ import {
   TurnAlreadyExistsError,
   TurnNotFoundError,
   TurnNotRunningError,
+  TurnOwnershipLostError,
 } from '@truefoundry/trueforge-core/agent-session/store/SessionStoreErrors';
 import type { CapabilityState, JsonValue } from '@truefoundry/trueforge-core/core/capabilities/AgentCapability';
 import type { AgentInfo, AgentParent, MCPServerInitInfo } from '@truefoundry/trueforge-core/core/events/schema';
@@ -64,6 +66,16 @@ export interface NewThreadRegistration {
 export interface TurnKeys {
   session_id: string;
   turn_id: string;
+  active_executor_id: string;
+}
+
+function throwIfExecutorMismatch(keys: TurnKeys, activeExecutorId: string): void {
+  if (activeExecutorId !== keys.active_executor_id) {
+    throw new TurnOwnershipLostError({
+      turn_id: keys.turn_id,
+      active_executor_id: keys.active_executor_id,
+    });
+  }
 }
 
 export interface NewContextAppend {
@@ -173,7 +185,7 @@ function terminalTurnState(state: TurnState, turn_id: string): TerminalTurnState
  * network call. Under READ COMMITTED, FOR SHARE re-checks the predicate after a
  * lock wait, so a committed freeze empties the fence and the write inserts 0 rows;
  * error classification happens on that rare 0-row path.
- * Multi-statement turn-scoped writes use {@link assertTurnRunning} instead.
+ * Multi-statement writes call assertOwnedRunningTurn or assertOwnedNonTerminalTurn.
  */
 export function turnRunningFence(db: TurnFenceDb, keys: TurnKeys) {
   return db
@@ -181,6 +193,7 @@ export function turnRunningFence(db: TurnFenceDb, keys: TurnKeys) {
     .select(sql`1`.as('one'))
     .where('session_id', '=', keys.session_id)
     .where('turn_id', '=', keys.turn_id)
+    .where('active_executor_id', '=', keys.active_executor_id)
     .where(sql`state->>'status'`, '=', 'running')
     .forShare();
 }
@@ -191,22 +204,32 @@ export function turnNonTerminalFence(db: TurnFenceDb, keys: TurnKeys) {
     .select(sql`1`.as('one'))
     .where('session_id', '=', keys.session_id)
     .where('turn_id', '=', keys.turn_id)
+    .where('active_executor_id', '=', keys.active_executor_id)
     .where(sql<boolean>`state->>'status' IN ('running', 'paused')`)
     .forShare();
 }
 
-/** Classify a 0-row fenced write: missing turn vs frozen/non-running turn. */
-export async function classifyTurnFenceWriteFailure(db: Kysely<Database>, keys: TurnKeys): Promise<never> {
-  const row = await db
+/** Read owner and status. Missing turn returns undefined. No row lock. */
+async function loadTurnStateAndExecutor(
+  db: DbOrTrx,
+  keys: { session_id: string; turn_id: string },
+): Promise<{ state: TurnState; active_executor_id: string } | undefined> {
+  return db
     .selectFrom('turn')
-    .select('state')
+    .select(['state', 'active_executor_id'])
     .where('session_id', '=', keys.session_id)
     .where('turn_id', '=', keys.turn_id)
     .executeTakeFirst();
+}
+
+/** Classify a 0-row fenced write: missing turn vs frozen/non-running turn. */
+export async function classifyTurnFenceWriteFailure(db: Kysely<Database>, keys: TurnKeys): Promise<never> {
+  const row = await loadTurnStateAndExecutor(db, keys);
 
   if (!row) {
     throw new TurnNotFoundError(keys.turn_id);
   }
+  throwIfExecutorMismatch(keys, row.active_executor_id);
   throw new TurnNotRunningError(keys.turn_id, terminalTurnState(row.state, keys.turn_id));
 }
 
@@ -215,55 +238,63 @@ export async function classifyNonTerminalTurnThreadWriteFailure(
   keys: TurnKeys,
   thread_id: string,
 ): Promise<never> {
-  const row = await db
-    .selectFrom('turn')
-    .select('state')
-    .where('session_id', '=', keys.session_id)
-    .where('turn_id', '=', keys.turn_id)
-    .executeTakeFirst();
+  const row = await loadTurnStateAndExecutor(db, keys);
 
   if (!row) {
     throw new TurnNotFoundError(keys.turn_id);
   }
+  throwIfExecutorMismatch(keys, row.active_executor_id);
   if (row.state.status !== 'running' && row.state.status !== 'paused') {
     throw new TurnNotRunningError(keys.turn_id, terminalTurnState(row.state, keys.turn_id));
   }
   throw new SessionStoreInvariantError(`thread ${thread_id} not found in turn ${keys.turn_id}`);
 }
 
-export async function assertTurnRunning(db: DbOrTrx, keys: TurnKeys): Promise<void> {
-  // SELECT ... FOR SHARE serializes against freezeAndGetTurn's state UPDATE.
+/** One FOR SHARE read of owner and status. Held until the write transaction commits. */
+async function loadSharedTurn(
+  db: DbOrTrx,
+  keys: { session_id: string; turn_id: string },
+): Promise<{ state: TurnState; active_executor_id: string }> {
   const row = await db
     .selectFrom('turn')
-    .select('state')
+    .select(['state', 'active_executor_id'])
     .where('session_id', '=', keys.session_id)
     .where('turn_id', '=', keys.turn_id)
     .forShare()
     .executeTakeFirst();
-
   if (!row) {
     throw new TurnNotFoundError(keys.turn_id);
   }
-  if (row.state.status !== 'running') {
-    throw new TurnNotRunningError(keys.turn_id, terminalTurnState(row.state, keys.turn_id));
+  return row;
+}
+
+function throwUnlessRunning(turnId: string, state: TurnState): void {
+  if (state.status !== 'running') {
+    throw new TurnNotRunningError(turnId, terminalTurnState(state, turnId));
   }
 }
 
-export async function assertTurnNonTerminal(db: DbOrTrx, keys: TurnKeys): Promise<void> {
-  const row = await db
-    .selectFrom('turn')
-    .select('state')
-    .where('session_id', '=', keys.session_id)
-    .where('turn_id', '=', keys.turn_id)
-    .forShare()
-    .executeTakeFirst();
+function throwUnlessNonTerminal(turnId: string, state: TurnState): void {
+  if (state.status !== 'running' && state.status !== 'paused') {
+    throw new TurnNotRunningError(turnId, terminalTurnState(state, turnId));
+  }
+}
 
-  if (!row) {
-    throw new TurnNotFoundError(keys.turn_id);
-  }
-  if (row.state.status !== 'running' && row.state.status !== 'paused') {
-    throw new TurnNotRunningError(keys.turn_id, terminalTurnState(row.state, keys.turn_id));
-  }
+export async function assertOwnedRunningTurn(db: DbOrTrx, keys: TurnKeys): Promise<void> {
+  const row = await loadSharedTurn(db, keys);
+  throwIfExecutorMismatch(keys, row.active_executor_id);
+  throwUnlessRunning(keys.turn_id, row.state);
+}
+
+export async function assertOwnedNonTerminalTurn(db: DbOrTrx, keys: TurnKeys): Promise<void> {
+  const row = await loadSharedTurn(db, keys);
+  throwIfExecutorMismatch(keys, row.active_executor_id);
+  throwUnlessNonTerminal(keys.turn_id, row.state);
+}
+
+export async function assertTurnNonTerminal(db: DbOrTrx, keys: { session_id: string; turn_id: string }): Promise<void> {
+  const row = await loadSharedTurn(db, keys);
+  throwUnlessNonTerminal(keys.turn_id, row.state);
 }
 
 interface CapabilityAggRow {
@@ -804,6 +835,7 @@ export async function updateTurnNonTerminalState(
       })
       .where('session_id', '=', input.session_id)
       .where('turn_id', '=', input.turn_id)
+      .where('active_executor_id', '=', input.active_executor_id)
       .where(sql<boolean>`state->>'status' = ${expectedSourceStatus}`)
       .returning('turn_id')
       .executeTakeFirst();
@@ -811,7 +843,7 @@ export async function updateTurnNonTerminalState(
     if (result === undefined) {
       const existing = await trx
         .selectFrom('turn')
-        .select('state')
+        .select(['state', 'active_executor_id'])
         .where('session_id', '=', input.session_id)
         .where('turn_id', '=', input.turn_id)
         .executeTakeFirst();
@@ -819,6 +851,7 @@ export async function updateTurnNonTerminalState(
       if (!existing) {
         throw new TurnNotFoundError(input.turn_id);
       }
+      throwIfExecutorMismatch(input, existing.active_executor_id);
       if (isNonTerminalTurnState(existing.state)) {
         throw new SessionStoreInvariantError(
           `expected ${expectedSourceStatus} state for turn ${input.turn_id}, got ${existing.state.status}`,
@@ -854,6 +887,7 @@ export async function updateTurnTerminalState(
       })
       .where('session_id', '=', input.session_id)
       .where('turn_id', '=', input.turn_id)
+      .where('active_executor_id', '=', input.active_executor_id)
       .where(sql<boolean>`state->>'status' IN ('running', 'paused')`)
       .returning(['created_at'])
       .executeTakeFirst();
@@ -861,7 +895,7 @@ export async function updateTurnTerminalState(
     if (result === undefined) {
       const existing = await trx
         .selectFrom('turn')
-        .select('state')
+        .select(['state', 'active_executor_id'])
         .where('session_id', '=', input.session_id)
         .where('turn_id', '=', input.turn_id)
         .executeTakeFirst();
@@ -869,6 +903,7 @@ export async function updateTurnTerminalState(
       if (!existing) {
         throw new TurnNotFoundError(input.turn_id);
       }
+      throwIfExecutorMismatch(input, existing.active_executor_id);
       throw new TurnNotRunningError(input.turn_id, terminalTurnState(existing.state, input.turn_id));
     }
 
@@ -889,4 +924,20 @@ export async function updateTurnTerminalState(
       })
       .execute();
   });
+}
+
+/** One conditional update: paused and still owned by `expected_executor_id`. */
+export async function claimTurnExecutor(db: Kysely<Database>, input: ClaimTurnExecutorInput): Promise<boolean> {
+  const result = await db
+    .updateTable('turn')
+    .set({
+      active_executor_id: input.new_executor_id,
+      updated_at: sql`now()`,
+    })
+    .where('session_id', '=', input.session_id)
+    .where('turn_id', '=', input.turn_id)
+    .where('active_executor_id', '=', input.expected_executor_id)
+    .where(sql`state->>'status'`, '=', 'paused')
+    .executeTakeFirst();
+  return Number(result.numUpdatedRows) > 0;
 }

@@ -45,7 +45,7 @@ describe('TurnHandle.stream()', () => {
       active_executor_id: TEST_ACTIVE_EXECUTOR_ID,
       input: [{ type: EventType.USER_MESSAGE, content: 'hello' }],
       previous_turn_id: 'none',
-      signal: new AbortController().signal,
+      abortController: new AbortController(),
       resolver: makeTestResolver(),
     });
     expect(turn.state.status).toBe('running');
@@ -88,7 +88,7 @@ describe('TurnHandle.stream()', () => {
       active_executor_id: TEST_ACTIVE_EXECUTOR_ID,
       input: [{ type: EventType.USER_MESSAGE, content: 'hello' }],
       previous_turn_id: 'none',
-      signal: new AbortController().signal,
+      abortController: new AbortController(),
       resolver: makeTestResolver({
         usage: {
           input_tokens: 12,
@@ -124,7 +124,7 @@ describe('TurnHandle.stream()', () => {
       active_executor_id: TEST_ACTIVE_EXECUTOR_ID,
       input: [{ type: EventType.USER_MESSAGE, content: 'turn one' }],
       previous_turn_id: 'none',
-      signal: new AbortController().signal,
+      abortController: new AbortController(),
       resolver: makeTestResolver({
         usage: {
           input_tokens: 100,
@@ -152,7 +152,7 @@ describe('TurnHandle.stream()', () => {
       active_executor_id: TEST_ACTIVE_EXECUTOR_ID,
       input: [{ type: EventType.USER_MESSAGE, content: 'turn two' }],
       previous_turn_id: 'auto',
-      signal: new AbortController().signal,
+      abortController: new AbortController(),
       resolver: makeTestResolver({
         usage: {
           input_tokens: 7,
@@ -191,7 +191,7 @@ describe('TurnHandle.stream()', () => {
       active_executor_id: TEST_ACTIVE_EXECUTOR_ID,
       input: [{ type: EventType.USER_MESSAGE, content: 'hello' }],
       previous_turn_id: 'none',
-      signal: new AbortController().signal,
+      abortController: new AbortController(),
       resolver: makeTestResolver({
         usage: {
           input_tokens: 12,
@@ -218,7 +218,7 @@ describe('TurnHandle.stream()', () => {
       active_executor_id: TEST_ACTIVE_EXECUTOR_ID,
       input: [{ type: EventType.USER_MESSAGE, content: 'hello' }],
       previous_turn_id: 'none',
-      signal: new AbortController().signal,
+      abortController: new AbortController(),
       resolver: makeTestResolver(),
     });
     await (async () => {
@@ -237,7 +237,7 @@ describe('TurnHandle.stream()', () => {
       active_executor_id: TEST_ACTIVE_EXECUTOR_ID,
       input: [{ type: EventType.USER_MESSAGE, content: 'hello' }],
       previous_turn_id: 'none',
-      signal: new AbortController().signal,
+      abortController: new AbortController(),
       resolver: makeTestResolver(),
     });
     for await (const event of turn.stream()) {
@@ -262,7 +262,7 @@ describe('TurnHandle.stream()', () => {
       active_executor_id: TEST_ACTIVE_EXECUTOR_ID,
       input: [{ type: EventType.USER_MESSAGE, content: 'hello' }],
       previous_turn_id: 'none',
-      signal: new AbortController().signal,
+      abortController: new AbortController(),
       resolver: makeTestResolver({
         close: () => {
           closeCalls += 1;
@@ -294,7 +294,7 @@ describe('TurnHandle.stream()', () => {
       active_executor_id: TEST_ACTIVE_EXECUTOR_ID,
       input: [{ type: EventType.USER_MESSAGE, content: 'hello' }],
       previous_turn_id: 'none',
-      signal: controller.signal,
+      abortController: controller,
       resolver: makeTestResolver(),
     });
     controller.abort(CancellationReason.ClientCancelled);
@@ -321,7 +321,7 @@ describe('TurnHandle.stream()', () => {
       active_executor_id: TEST_ACTIVE_EXECUTOR_ID,
       input: [{ type: EventType.USER_MESSAGE, content: 'hello' }],
       previous_turn_id: 'none',
-      signal: controller.signal,
+      abortController: controller,
       resolver: makeTestResolver(),
     });
     controller.abort(CancellationReason.Abandoned);
@@ -350,7 +350,7 @@ describe('TurnHandle.stream()', () => {
       active_executor_id: TEST_ACTIVE_EXECUTOR_ID,
       input: [{ type: EventType.USER_MESSAGE, content: 'hello' }],
       previous_turn_id: 'none',
-      signal: controller.signal,
+      abortController: controller,
       resolver: makeTestResolver(),
     });
     controller.abort(CancellationReason.ServerExecutionTimeout);
@@ -379,7 +379,7 @@ describe('TurnHandle.stream()', () => {
       active_executor_id: TEST_ACTIVE_EXECUTOR_ID,
       input: [{ type: EventType.USER_MESSAGE, content: 'hello' }],
       previous_turn_id: 'none',
-      signal: new AbortController().signal,
+      abortController: new AbortController(),
       resolver: makeTestResolver({
         close: () => {
           closeCalls += 1;
@@ -423,7 +423,7 @@ describe('TurnHandle.stream()', () => {
       active_executor_id: TEST_ACTIVE_EXECUTOR_ID,
       input: [{ type: EventType.USER_MESSAGE, content: 'hello' }],
       previous_turn_id: 'none',
-      signal: new AbortController().signal,
+      abortController: new AbortController(),
       resolver,
     });
     for await (const event of turn.stream()) {
@@ -539,7 +539,7 @@ describe('TurnResourceResolver caches', () => {
       active_executor_id: TEST_ACTIVE_EXECUTOR_ID,
       input: [{ type: EventType.USER_MESSAGE, content: 'hi' }],
       previous_turn_id: 'none',
-      signal: new AbortController().signal,
+      abortController: new AbortController(),
       resolver,
     });
     for await (const event of turn.stream()) {

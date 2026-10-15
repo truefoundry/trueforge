@@ -79,7 +79,7 @@ describe('capability_state (tfy.plan fixture)', () => {
       active_executor_id: TEST_ACTIVE_EXECUTOR_ID,
       input: [{ type: EventType.USER_MESSAGE, content: 'start' }],
       previous_turn_id: 'none',
-      signal: turn1Controller.signal,
+      abortController: turn1Controller,
       resolver: makeTestResolver({
         extraCapabilities: [
           makePlanShapedCapability({
@@ -90,7 +90,7 @@ describe('capability_state (tfy.plan fixture)', () => {
         ],
       }),
     });
-    for await (const event of turn1.stream(turn1Controller)) {
+    for await (const event of turn1.stream()) {
       void event;
       // drain
     }
@@ -109,7 +109,7 @@ describe('capability_state (tfy.plan fixture)', () => {
       active_executor_id: TEST_ACTIVE_EXECUTOR_ID,
       input: [{ type: EventType.USER_MESSAGE, content: 'continue' }],
       previous_turn_id: 'auto',
-      signal: turn2Controller.signal,
+      abortController: turn2Controller,
       resolver: makeTestResolver({
         extraCapabilities: [
           makePlanShapedCapability({
@@ -122,7 +122,7 @@ describe('capability_state (tfy.plan fixture)', () => {
     });
     // Hydration happens in run() when threads are built (before stream).
     expect(loads).toEqual([planV1]);
-    for await (const event of turn2.stream(turn2Controller)) {
+    for await (const event of turn2.stream()) {
       void event;
       // drain
     }
@@ -154,12 +154,12 @@ describe('capability_state (tfy.plan fixture)', () => {
       active_executor_id: TEST_ACTIVE_EXECUTOR_ID,
       input: [{ type: EventType.USER_MESSAGE, content: 'start' }],
       previous_turn_id: 'none',
-      signal: turn1Controller.signal,
+      abortController: turn1Controller,
       resolver: makeTestResolver({
         extraCapabilities: [makePlanShapedCapability({ enabled: true, emitState: planV1 })],
       }),
     });
-    for await (const event of turn1.stream(turn1Controller)) {
+    for await (const event of turn1.stream()) {
       void event;
       // drain
     }
@@ -189,12 +189,12 @@ describe('capability_state (tfy.plan fixture)', () => {
       active_executor_id: TEST_ACTIVE_EXECUTOR_ID,
       input: [{ type: EventType.USER_MESSAGE, content: 'no plan' }],
       previous_turn_id: 'auto',
-      signal: turn3Controller.signal,
+      abortController: turn3Controller,
       resolver: wrapped,
     });
     expect(warnSpy).toHaveBeenCalledWith(expect.stringContaining("Dropping unclaimed capability_state key 'tfy.plan'"));
 
-    for await (const event of turn3.stream(turn3Controller)) {
+    for await (const event of turn3.stream()) {
       void event;
       // drain
     }
@@ -248,11 +248,11 @@ describe('capability_state (tfy.plan fixture)', () => {
       active_executor_id: TEST_ACTIVE_EXECUTOR_ID,
       input: [{ type: EventType.USER_MESSAGE, content: 'x' }],
       previous_turn_id: 'none',
-      signal: controller.signal,
+      abortController: controller,
       resolver: makeTestResolver({ extraCapabilities: [undefinedStateCapability] }),
     });
     let errorMessage: string | undefined;
-    for await (const event of turn.stream(controller)) {
+    for await (const event of turn.stream()) {
       if (event.type === EventType.TURN_DONE && event.state.status === 'error') {
         errorMessage = event.state.message;
       }

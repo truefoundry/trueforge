@@ -450,10 +450,10 @@ export async function beginTurnExecution(
   const turn = await session.createTurn({
     turn_id: turnId,
     active_executor_id: configuration.EXECUTOR_ID,
-    input,
-    previous_turn_id: previousTurnId,
-    signal: abortController.signal,
     resolver,
+    abortController: abortController,
+    previous_turn_id: previousTurnId,
+    input,
     update_session_title_if_not_exist: title,
   });
 
@@ -466,7 +466,7 @@ export async function beginTurnExecution(
 
   const trackedStream = deps.activeTurns.track({
     abortController,
-    stream: turn.stream(abortController),
+    stream: turn.stream(),
     turn,
   });
 

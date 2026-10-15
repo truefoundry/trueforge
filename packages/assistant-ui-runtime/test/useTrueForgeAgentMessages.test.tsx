@@ -151,33 +151,31 @@ function snapshotWithAskUserPendingInFold(): SessionSnapshot {
   });
 }
 
-function snapshotWithMcpApproval(): SessionSnapshot {
+function snapshotWithMcpApprovals(toolCallIds: readonly string[]): SessionSnapshot {
   const fold = new PeerThreadFoldState();
   ingestTurnEvent(fold, {
     type: 'model.message',
     id: 'model-approval',
     createdAt: new Date().toISOString(),
     threadId: ROOT_THREAD_ID,
-    toolCalls: [
-      {
-        id: 'approval-1',
-        type: 'function',
-        function: { name: 'create_issue', arguments: '{}' },
-        toolInfo: {
-          type: 'mcp',
-          name: 'create_issue',
-          serverId: 'github-id',
-          serverName: 'github',
-        },
+    toolCalls: toolCallIds.map(id => ({
+      id,
+      type: 'function' as const,
+      function: { name: 'create_issue', arguments: '{}' },
+      toolInfo: {
+        type: 'mcp' as const,
+        name: 'create_issue',
+        serverId: 'github-id',
+        serverName: 'github',
       },
-    ],
+    })),
   });
   ingestTurnEvent(fold, {
     type: 'tool.approval_required',
     id: 'approval-required-1',
     createdAt: new Date().toISOString(),
     threadId: ROOT_THREAD_ID,
-    toolCalls: [{ id: 'approval-1', sourceEventId: 'model-approval' }],
+    toolCalls: toolCallIds.map(id => ({ id, sourceEventId: 'model-approval' })),
   });
   const content = buildRootAssistantContent(fold);
   return replaceSessionSnapshot(createEmptySessionSnapshot(), {
@@ -192,6 +190,10 @@ function snapshotWithMcpApproval(): SessionSnapshot {
       },
     },
   });
+}
+
+function snapshotWithMcpApproval(): SessionSnapshot {
+  return snapshotWithMcpApprovals(['approval-1']);
 }
 
 function assistantMessageWithPendingApproval() {
@@ -1711,6 +1713,59 @@ describe('useTrueForgeAgentMessages', () => {
     });
 
     expect(messageHasPendingApprovals(result.current.messages[0])).toBe(true);
+    expect(onError).toHaveBeenCalledWith(expect.any(Error));
+  });
+
+  it('keeps a prior sibling overlay when a matching policy-only submission fails', async () => {
+    // approval-1 already has a deny overlay while still pending in the fold
+    // (server has not yet dropped it). A failed policy send for approval-2
+    // overwrites matching siblings to `{ approved: true }` and must restore
+    // the prior deny+reason — not leave the optimistic allow.
+    const seeded = replaceSessionSnapshot(snapshotWithMcpApprovals(['approval-1', 'approval-2']), {
+      requiredActions: {
+        approvals: new Map([['approval-1', { approved: false, reason: 'blocked by user' }]]),
+        toolResponses: new Map(),
+      },
+    });
+    vi.mocked(loadSessionSnapshot).mockResolvedValue(seeded);
+    vi.mocked(mockServer.sendTurnEvents).mockRejectedValueOnce(new Error('policy rejected'));
+    const onError = vi.fn();
+    const { result } = renderHook(() =>
+      useTrueForgeAgentMessages({ server: mockServer, sessionId: 'session-1', onError }),
+    );
+    await waitFor(() => expect(result.current.messages).toHaveLength(1));
+
+    await act(async () => {
+      await expect(
+        result.current.respondToToolApproval({
+          approvalId: 'approval-2',
+          approved: true,
+          policy: { type: TOOL_APPROVAL_POLICY_ACTION_TYPE.ALLOW_SESSION },
+        }),
+      ).rejects.toThrow('policy rejected');
+    });
+
+    const assistant = result.current.messages[0];
+    expect(assistant?.role).toBe('assistant');
+    if (assistant?.role !== 'assistant') {
+      return;
+    }
+    const approval1 = assistant.content.find(part => part.type === 'tool-call' && part.toolCallId === 'approval-1');
+    const approval2 = assistant.content.find(part => part.type === 'tool-call' && part.toolCallId === 'approval-2');
+    expect(approval1).toMatchObject({
+      type: 'tool-call',
+      approval: { id: 'approval-1', approved: false, reason: 'blocked by user' },
+    });
+    expect(approval2).toMatchObject({
+      type: 'tool-call',
+      approval: { id: 'approval-2' },
+    });
+    expect(
+      approval2 != null &&
+        approval2.type === 'tool-call' &&
+        approval2.approval != null &&
+        !('approved' in approval2.approval),
+    ).toBe(true);
     expect(onError).toHaveBeenCalledWith(expect.any(Error));
   });
 

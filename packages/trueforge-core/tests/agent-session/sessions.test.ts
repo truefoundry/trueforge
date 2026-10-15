@@ -142,7 +142,7 @@ describe('Sessions / SessionHandle / TurnHandle (storage + createTurn)', () => {
       active_executor_id: TEST_ACTIVE_EXECUTOR_ID,
       input: [{ type: EventType.USER_MESSAGE, content: 'hello' }],
       previous_turn_id: 'none',
-      signal: new AbortController().signal,
+      abortController: new AbortController(),
       resolver: makeTestResolver(),
       update_session_title_if_not_exist: 'From first message',
     });
@@ -173,7 +173,7 @@ describe('Sessions / SessionHandle / TurnHandle (storage + createTurn)', () => {
       turn_id: mintTestTurnId(),
       active_executor_id: TEST_ACTIVE_EXECUTOR_ID,
       previous_turn_id: 'none',
-      signal: new AbortController().signal,
+      abortController: new AbortController(),
       resolver: makeTestResolver(),
     });
     const getSession = jest.spyOn(store, 'getSession');
@@ -212,7 +212,7 @@ describe('Sessions / SessionHandle / TurnHandle (storage + createTurn)', () => {
       turn_id: mintTestTurnId(),
       active_executor_id: TEST_ACTIVE_EXECUTOR_ID,
       previous_turn_id: 'none',
-      signal: new AbortController().signal,
+      abortController: new AbortController(),
       resolver: makeTestResolver(),
     });
     const frozen = await session.freezeTurn({
@@ -243,7 +243,7 @@ describe('Sessions / SessionHandle / TurnHandle (storage + createTurn)', () => {
       active_executor_id: TEST_ACTIVE_EXECUTOR_ID,
       input: [{ type: EventType.USER_MESSAGE, content: 'one' }],
       previous_turn_id: 'none',
-      signal: new AbortController().signal,
+      abortController: new AbortController(),
       resolver: makeTestResolver<{ n: number }>(),
       custom: { n: 1 },
     });
@@ -254,7 +254,7 @@ describe('Sessions / SessionHandle / TurnHandle (storage + createTurn)', () => {
       active_executor_id: TEST_ACTIVE_EXECUTOR_ID,
       input: [{ type: EventType.USER_MESSAGE, content: 'two' }],
       previous_turn_id: 'auto',
-      signal: new AbortController().signal,
+      abortController: new AbortController(),
       resolver: makeTestResolver<{ n: number }>(),
       custom: prev => ({ n: (prev?.n ?? 0) + 10 }),
     });
@@ -277,10 +277,10 @@ describe('Sessions / SessionHandle / TurnHandle (storage + createTurn)', () => {
       active_executor_id: TEST_ACTIVE_EXECUTOR_ID,
       input: [{ type: EventType.USER_MESSAGE, content: 'one' }],
       previous_turn_id: 'none',
-      signal: firstController.signal,
+      abortController: firstController,
       resolver: makeTestResolver(),
     });
-    for await (const event of first.stream(firstController)) {
+    for await (const event of first.stream()) {
       void event;
       // drain
     }
@@ -289,7 +289,7 @@ describe('Sessions / SessionHandle / TurnHandle (storage + createTurn)', () => {
       active_executor_id: TEST_ACTIVE_EXECUTOR_ID,
       input: [{ type: EventType.USER_MESSAGE, content: 'fresh root' }],
       previous_turn_id: 'none',
-      signal: new AbortController().signal,
+      abortController: new AbortController(),
       resolver: makeTestResolver(),
     });
     expect(root2.previous_turn_id).toBeNull();
@@ -313,7 +313,7 @@ describe('Sessions / SessionHandle / TurnHandle (storage + createTurn)', () => {
         active_executor_id: TEST_ACTIVE_EXECUTOR_ID,
         input: [{ type: EventType.USER_MESSAGE, content: 'hi' }],
         previous_turn_id: 'none',
-        signal: new AbortController().signal,
+        abortController: new AbortController(),
         // Fails during resource resolution — the acquisition phase must persist no turn.
         resolver: makeTestResolver({ failResolveWith: new Error('simulated resolution failure') }),
       }),
@@ -347,7 +347,7 @@ describe('Sessions / SessionHandle / TurnHandle (storage + createTurn)', () => {
         active_executor_id: TEST_ACTIVE_EXECUTOR_ID,
         input: [{ type: EventType.USER_MESSAGE, content: 'hi' }],
         previous_turn_id: 'none',
-        signal: new AbortController().signal,
+        abortController: new AbortController(),
         // Fails during resource resolution, after the resolver is acquired.
         resolver: makeTestResolver({
           close: closeOnFailure,
@@ -365,11 +365,11 @@ describe('Sessions / SessionHandle / TurnHandle (storage + createTurn)', () => {
       active_executor_id: TEST_ACTIVE_EXECUTOR_ID,
       input: [{ type: EventType.USER_MESSAGE, content: 'hello' }],
       previous_turn_id: 'none',
-      signal: controller.signal,
+      abortController: controller,
       resolver: makeTestResolver({ close: closeOnSuccess }),
     });
     expect(closeOnSuccess).not.toHaveBeenCalled();
-    for await (const event of turn.stream(controller)) {
+    for await (const event of turn.stream()) {
       void event;
       // drain
     }

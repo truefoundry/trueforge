@@ -156,19 +156,19 @@ export class SessionHandle<
   async createTurn(input: {
     turn_id: string;
     active_executor_id: string;
-    input?: UserMessage[] | undefined;
+    resolver: ITurnResourceResolver<TTurnCustom>;
+    abortController: AbortController;
     /** 'auto'/omitted → session.last_turn_id; 'none' → new root; id → fork from that turn. */
     previous_turn_id?: string | undefined;
-    signal: AbortSignal;
-    resolver: ITurnResourceResolver<TTurnCustom>;
-    /** Value = stored as-is. Fn = merge over previous turn's custom. Omitted = undefined. */
-    custom?: TTurnCustom | ((previous?: TTurnCustom) => TTurnCustom) | undefined;
+    input?: UserMessage[] | undefined;
     /**
      * Forwarded to store.createTurn: sets session.title in the same atomic
      * unit IF the session has none; never overwrites. The caller derives the
      * value (e.g. from the first user message) — the library does not.
      */
     update_session_title_if_not_exist?: string | undefined;
+    /** Value = stored as-is. Fn = merge over previous turn's custom. Omitted = undefined. */
+    custom?: TTurnCustom | ((previous?: TTurnCustom) => TTurnCustom) | undefined;
   }): Promise<TurnHandle<TTurnCustom>> {
     const previousTurnId = resolvePreviousTurnId(input.previous_turn_id, this.session.last_turn_id);
     const previous = previousTurnId
@@ -194,7 +194,7 @@ export class SessionHandle<
         spec,
         existing: previous?.snapshot.sandbox_info ?? undefined,
         previousTurn: previous,
-        signal: input.signal,
+        signal: input.abortController.signal,
         tracing,
       });
 
@@ -203,7 +203,7 @@ export class SessionHandle<
         resolver: input.resolver,
         spec,
         tracing,
-        signal: input.signal,
+        signal: input.abortController.signal,
       });
 
       // Wire Code Mode once from main toolSets before threads share the sandbox.
@@ -305,7 +305,7 @@ export class SessionHandle<
         turn: turnRecord,
         orchestrator,
         resolver: input.resolver,
-        signal: input.signal,
+        abortController: input.abortController,
       });
     } catch (error) {
       await input.resolver.close().catch((closeError: unknown) => {

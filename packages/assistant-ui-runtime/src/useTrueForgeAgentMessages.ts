@@ -1119,6 +1119,10 @@ export function useTrueForgeAgentMessages({
         throw new Error('Cannot send a required-action event without an active turn.');
       }
 
+      // Capture pre-submit overlay values so a failed policy send restores
+      // siblings that already had a decision (e.g. deny + reason) instead of
+      // leaving the optimistic `{ approved: true }` write from this submit.
+      const priorApprovals = new Map(snapshotRef.current.requiredActions.approvals);
       actionSubmissionsRef.current.add(submissionId);
       snapshotRef.current = optimisticSnapshot;
       setSnapshot(optimisticSnapshot);
@@ -1153,12 +1157,11 @@ export function useTrueForgeAgentMessages({
             } else if (event.type === EVENT_TYPE.USER_TOOL_RESPONSE) {
               toolResponses.delete(event.toolCallId);
             } else if (event.type === EVENT_TYPE.USER_TOOL_APPROVAL_POLICY) {
-              // Undo optimistic allows for this policy when the send fails.
-              for (const item of event.policies) {
-                for (const toolCallId of collectPendingApprovalIdsMatchingPolicy(previous.fold, {
-                  serverName: item.serverName,
-                  name: item.name,
-                })) {
+              for (const toolCallId of optimisticSnapshot.requiredActions.approvals.keys()) {
+                const prior = priorApprovals.get(toolCallId);
+                if (prior !== undefined) {
+                  approvals.set(toolCallId, prior);
+                } else {
                   approvals.delete(toolCallId);
                 }
               }
