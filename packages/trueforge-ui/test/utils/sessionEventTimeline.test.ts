@@ -7,6 +7,7 @@ import { buildSessionTimelineSegments, sessionHasOpenPause } from '@/utils/build
 import {
   formatTimelineDuration,
   getSessionEventColor,
+  segmentsForTurnTooltip,
   type SessionEventTimelineSegment,
 } from '@/utils/sessionEventTimeline.js';
 import {
@@ -2518,15 +2519,14 @@ describe('pause chips in buildSessionTimelineSegments', () => {
   it('closes sibling waits on a matching user.tool_approval_policy (allow_session)', () => {
     const subA = 'sub-policy-a';
     const subB = 'sub-policy-b';
-    const saveComment = (id: string) =>
-      ({
-        id,
-        type: 'function' as const,
-        function: {
-          name: 'call_tool',
-          arguments: JSON.stringify({ mcp_server: 'linear', tool_name: 'save_comment', input: {} }),
-        },
-      });
+    const saveComment = (id: string) => ({
+      id,
+      type: 'function' as const,
+      function: {
+        name: 'call_tool',
+        arguments: JSON.stringify({ mcp_server: 'linear', tool_name: 'save_comment', input: {} }),
+      },
+    });
     const turns = buildSessionTurnViews([
       created({ turnId: 't1', createdAt: '2026-01-01T00:00:00.000Z' }),
       {
@@ -3346,6 +3346,18 @@ describe('pause chips in buildSessionTimelineSegments', () => {
     const laterSpan = later.find(segment => segment.isPauseSpan && segment.threadId === 'sub-b');
     assert.ok(earlySpan != null && laterSpan != null);
     assert.ok((laterSpan.wallDurationMs ?? 0) > (earlySpan.wallDurationMs ?? 0));
+
+    const waitingOf = (timeline: ReturnType<typeof buildSessionTimelineSegments>) =>
+      buildSessionMetrics({ turns, segments: timeline }).timeBreakdown.find(item => item.label === 'waiting on human')
+        ?.value;
+    const earlyChip = early.find(segment => segment.isPauseChip);
+    assert.ok((waitingOf(early) ?? 0) > (earlyChip?.wallDurationMs ?? 0));
+    assert.equal(waitingOf(early), earlySpan.wallDurationMs);
+    assert.ok((waitingOf(later) ?? 0) > (waitingOf(early) ?? 0));
+
+    const pauseRows = segmentsForTurnTooltip(early).filter(segment => segment.isPauseChip || segment.isPauseSpan);
+    assert.equal(pauseRows.length, 1);
+    assert.equal(pauseRows[0]?.wallDurationMs, earlySpan.wallDurationMs);
   });
 
   it('anchors approval_required 1ms before paused and emits a post-pause tool bar without user.tool_approval', () => {

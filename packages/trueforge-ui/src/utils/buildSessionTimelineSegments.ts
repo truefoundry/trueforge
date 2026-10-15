@@ -826,6 +826,8 @@ export function buildSessionTimelineSegments(
           threadId,
           isPauseChip: true,
           wallDurationMs,
+          pauseWallStartMs: window.startMs - originMs,
+          pauseWallEndMs: window.endMs - originMs,
           ...(completedDuringPause || hatchViaWaitSpan ? { isCompressionOnly: true } : {}),
         });
       }
@@ -847,6 +849,8 @@ export function buildSessionTimelineSegments(
         threadId: wait.threadId,
         isPauseSpan: true,
         wallDurationMs: waitWallMs,
+        pauseWallStartMs: wait.startMs - originMs,
+        pauseWallEndMs: wait.endMs - originMs,
       });
     }
 

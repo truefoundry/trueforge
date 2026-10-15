@@ -1,4 +1,9 @@
-import { MAIN_THREAD_ID, getSessionEventColor, type SessionEventTimelineSegment } from './sessionEventTimeline.js';
+import {
+  MAIN_THREAD_ID,
+  getSessionEventColor,
+  mergedPauseWallMs,
+  type SessionEventTimelineSegment,
+} from './sessionEventTimeline.js';
 import type { SessionTurnView } from './sessionTurnViews.js';
 
 export type SessionMetricBarDatum = {
@@ -117,20 +122,9 @@ export function buildSessionMetrics({
   const toolTimeMs = segments
     .filter(segment => segment.type === 'tool_call')
     .reduce((sum, segment) => sum + segmentDurationMs(segment), 0);
-  // One wall wait per pause window. Per-thread chips share a start, and wait spans
-  // repeat that same window, so summing every segment multiplies the pause.
-  const waitingTimeMs = (() => {
-    const seenStarts = new Set<string>();
-    let sum = 0;
-    for (const segment of segments) {
-      if (!segment.isPauseChip) continue;
-      const key = `${segment.turnIndex}:${segment.startMs}`;
-      if (seenStarts.has(key)) continue;
-      seenStarts.add(key);
-      sum += segment.wallDurationMs ?? 0;
-    }
-    return sum;
-  })();
+  // Merge chip and span intervals. A sibling span can keep growing after the
+  // turn is running, and that tail is waiting time, not overhead.
+  const waitingTimeMs = mergedPauseWallMs(segments);
   // Detail session metrics may override wall time and cost; lineage turn count is always from events.
   const wallTimeMs = sessionMetrics != null ? sessionMetrics.totalDurationMs : derivedWallTimeMs;
   const overheadTimeMs = Math.max(0, wallTimeMs - modelTimeMs - toolTimeMs - waitingTimeMs);

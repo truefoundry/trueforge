@@ -26,6 +26,8 @@ import {
   getSessionEventHoverColor,
   getSessionEventLabel,
   MAIN_THREAD_ID,
+  mergedPauseWallMs,
+  segmentsForTurnTooltip,
   type SessionEventTimelineSegment,
 } from '../../utils/sessionEventTimeline.js';
 import {
@@ -137,22 +139,6 @@ function rowCenters({ heights, gaps }: { heights: number[]; gaps: number[] }): {
     offset += height + (gaps[index] ?? 0);
   });
   return { centers, band: offset };
-}
-
-/**
- * One tooltip row per pause window. Per-lane chips share a start, and wait spans
- * repeat that window, so both would list the same wait once per sub-agent.
- */
-function segmentsForTurnTooltip(segments: SessionEventTimelineSegment[]): SessionEventTimelineSegment[] {
-  const seenChipStarts = new Set<string>();
-  return segments.filter(segment => {
-    if (segment.isPauseSpan) return false;
-    if (!segment.isPauseChip) return true;
-    const key = `${segment.turnIndex}:${segment.startMs}`;
-    if (seenChipStarts.has(key)) return false;
-    seenChipStarts.add(key);
-    return true;
-  });
 }
 
 function eventOrder(type: SessionEventTimelineSegment['type']): number {
@@ -387,19 +373,9 @@ export function AgentSessionEventTimelineChart({
       const fallbackStart = range.startMs + (turnGapShiftsMs.get(range.turnIndex) ?? 0);
       const startMs = inTurn.reduce((min, segment) => Math.min(min, segment.startMs), fallbackStart);
       const endMs = inTurn.reduce((max, segment) => Math.max(max, segment.endMs), startMs) + MARKER_PX * msPerPx;
-      // Compressed range omits pause waits; add wallDurationMs so the tooltip matches listed chips.
-      // Unique starts — one wall wait per pause window even with per-sub-agent chips.
-      const pauseWallMs = (() => {
-        const seenStarts = new Set<number>();
-        let sum = 0;
-        for (const segment of segments) {
-          if (segment.turnIndex !== range.turnIndex || !segment.isPauseChip) continue;
-          if (seenStarts.has(segment.startMs)) continue;
-          seenStarts.add(segment.startMs);
-          sum += segment.wallDurationMs ?? 0;
-        }
-        return sum;
-      })();
+      // Compressed range omits pause waits. Merge chips with spans so a sibling
+      // that is still waiting after resume is included once.
+      const pauseWallMs = mergedPauseWallMs(segments.filter(segment => segment.turnIndex === range.turnIndex));
       return {
         ...range,
         id: `turn-${range.turnIndex}`,
@@ -429,17 +405,10 @@ export function AgentSessionEventTimelineChart({
         Number.isFinite(activeStartMs) && activeEndMs >= activeStartMs
           ? activeEndMs - activeStartMs
           : group.endMs - group.startMs;
-      const pauseWallMs = (() => {
-        const seenStarts = new Set<number>();
-        let sum = 0;
-        for (const segment of segments) {
-          if (!segment.isPauseChip || !threadIds.has(segment.threadId)) continue;
-          if (seenStarts.has(segment.startMs)) continue;
-          seenStarts.add(segment.startMs);
-          sum += segment.wallDurationMs ?? 0;
-        }
-        return sum;
-      })();
+      const turnIndex = group.segments[0]?.turnIndex;
+      const pauseWallMs = mergedPauseWallMs(
+        segments.filter(segment => segment.turnIndex === turnIndex && threadIds.has(segment.threadId)),
+      );
       return { ...group, durationMs: activeMs + pauseWallMs };
     });
   }, [mainSubAgents, segments, subAgentSegments]);
@@ -908,9 +877,7 @@ export function AgentSessionEventTimelineChart({
         turn={tooltipTurn}
         turnNumber={tooltipTarget.bar.ordinal + 1}
         durationMs={tooltipTarget.bar.durationMs}
-        segments={segmentsForTurnTooltip(
-          segments.filter(segment => segment.turnIndex === tooltipTarget.bar.turnIndex),
-        )}
+        segments={segmentsForTurnTooltip(segments.filter(segment => segment.turnIndex === tooltipTarget.bar.turnIndex))}
       />
     ) : tooltipTarget?.type === TIMELINE_TYPE.event && hasSessionEventTooltip(tooltipTarget.segment) ? (
       <SessionEventTooltip

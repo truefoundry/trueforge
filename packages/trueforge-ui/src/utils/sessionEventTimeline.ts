@@ -9,6 +9,72 @@
 /** Events without a thread id belong to the root agent conversation. */
 export const MAIN_THREAD_ID = 'main';
 
+/** One wall-clock pause, after overlapping chips and spans are merged. */
+type MergedPauseWindow = {
+  startMs: number;
+  endMs: number;
+  segment: SessionEventTimelineSegment;
+};
+
+function pauseWallInterval(segment: SessionEventTimelineSegment): { startMs: number; endMs: number } | undefined {
+  const startMs = segment.pauseWallStartMs;
+  const endMs = segment.pauseWallEndMs;
+  if (startMs != null && endMs != null && endMs > startMs) return { startMs, endMs };
+  // Hand-built fixtures predate wall anchors. Chips that share a compressed start are one window.
+  if (!segment.isPauseChip) return undefined;
+  const wallMs = segment.wallDurationMs ?? 0;
+  if (wallMs <= 0) return undefined;
+  const anchor = segment.turnIndex * 1_000_000_000_000 + segment.startMs;
+  return { startMs: anchor, endMs: anchor + wallMs };
+}
+
+function mergedPauseWindows(segments: readonly SessionEventTimelineSegment[]): MergedPauseWindow[] {
+  const intervals: MergedPauseWindow[] = [];
+  for (const segment of segments) {
+    if (segment.isPauseChip !== true && segment.isPauseSpan !== true) continue;
+    const interval = pauseWallInterval(segment);
+    if (interval == null) continue;
+    intervals.push({ ...interval, segment });
+  }
+  intervals.sort((left, right) => left.startMs - right.startMs || left.endMs - right.endMs);
+  const merged: MergedPauseWindow[] = [];
+  for (const interval of intervals) {
+    const previous = merged.at(-1);
+    if (previous != null && interval.startMs <= previous.endMs) {
+      previous.endMs = Math.max(previous.endMs, interval.endMs);
+      if (interval.segment.isPauseChip === true && previous.segment.isPauseChip !== true) {
+        previous.segment = interval.segment;
+      }
+      continue;
+    }
+    merged.push({ ...interval });
+  }
+  return merged;
+}
+
+/** Wall-clock human wait. Overlapping chips and spans count once, including a span that outlasts its chip. */
+export function mergedPauseWallMs(segments: readonly SessionEventTimelineSegment[]): number {
+  return mergedPauseWindows(segments).reduce((sum, interval) => sum + (interval.endMs - interval.startMs), 0);
+}
+
+/**
+ * One tooltip row per merged pause. A span that continues after the turn is
+ * running extends that row instead of being dropped or added again.
+ */
+export function segmentsForTurnTooltip(
+  segments: readonly SessionEventTimelineSegment[],
+): SessionEventTimelineSegment[] {
+  const rest = segments.filter(segment => segment.isPauseChip !== true && segment.isPauseSpan !== true);
+  const pauses = mergedPauseWindows(segments).map((interval, index) => ({
+    ...interval.segment,
+    id: `${interval.segment.id}:merged:${index}`,
+    isPauseChip: true,
+    isPauseSpan: false,
+    wallDurationMs: interval.endMs - interval.startMs,
+  }));
+  return [...rest, ...pauses];
+}
+
 export type SessionEventType =
   'system' | 'user' | 'model' | 'tool_call' | 'approval' | 'sub_agent' | 'waiting_on_human' | 'error';
 
@@ -41,6 +107,12 @@ export type SessionEventTimelineSegment = {
   isMarker?: boolean;
   /** Real paused wait in ms (kept even after the chip is compressed to a point). */
   wallDurationMs?: number;
+  /**
+   * Wall-clock pause interval from session start, before compression.
+   * Chips and spans overlap; metrics and tooltips merge these instead of summing.
+   */
+  pauseWallStartMs?: number;
+  pauseWallEndMs?: number;
   /** Hatched “Paused” chip; chart expands it to a fixed pixel width. */
   isPauseChip?: boolean;
   /**
