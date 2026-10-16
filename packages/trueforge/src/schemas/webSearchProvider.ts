@@ -21,8 +21,28 @@ export const ParallelWebSearchProviderSchema = z
   })
   .strict();
 
+const ExaWebSearchProviderAuthSchema = z
+  .object({
+    api_key: z
+      .string()
+      .min(1)
+      .describe(
+        'Exa API key. Responses are redacted; on PUT, a real value sets/rotates and a redacted value keeps the stored key.',
+      ),
+  })
+  .strict()
+  .describe('Exa authentication credentials.')
+  .openapi('ExaWebSearchProviderAuth');
+
+export const ExaWebSearchProviderSchema = z
+  .object({
+    type: z.literal('exa').describe('Exa web-search provider.'),
+    auth: ExaWebSearchProviderAuthSchema,
+  })
+  .strict();
+
 export const WebSearchProviderManifestSchema = z
-  .discriminatedUnion('type', [ParallelWebSearchProviderSchema])
+  .discriminatedUnion('type', [ParallelWebSearchProviderSchema, ExaWebSearchProviderSchema])
   .openapi('WebSearchProviderManifest');
 
 export function webSearchProviderName(provider: WebSearchProviderManifest): ResourceName {

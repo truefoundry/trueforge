@@ -82,4 +82,46 @@ describe('settings web-search-providers router', () => {
     expect(keep.status).toBe(200);
     expect((await store.getProvider('default'))?.manifest.auth.api_key).toBe(apiKey);
   });
+
+  it('PUT exa with api_key upserts, redacts on response, and rotates', async () => {
+    const { router, store } = await createRouter();
+    const apiKey = 'exa-secret-key-123';
+    const created = await router.request('/', putInit({ type: 'exa', auth: { api_key: apiKey } }));
+    expect(created.status).toBe(200);
+    expect(await created.json()).toEqual({
+      data: { name: 'exa', manifest: { type: 'exa', auth: { api_key: toRedactedSecretValue(apiKey) } } },
+    });
+
+    const kept = await router.request('/', putInit({ type: 'exa', auth: { api_key: toRedactedSecretValue(apiKey) } }));
+    expect(kept.status).toBe(200);
+    expect((await store.getProvider('default'))?.manifest.auth.api_key).toBe(apiKey);
+
+    const rotated = await router.request('/', putInit({ type: 'exa', auth: { api_key: 'exa-rotated-key-456' } }));
+    expect(rotated.status).toBe(200);
+    expect((await store.getProvider('default'))?.manifest.auth.api_key).toBe('exa-rotated-key-456');
+  });
+
+  it('PUT exa without auth is rejected', async () => {
+    const { router } = await createRouter();
+    const put = await router.request('/', putInit({ type: 'exa' }));
+    expect(put.status).toBe(400);
+  });
+
+  it('switching provider type replaces the manifest and never reuses the previous type key', async () => {
+    const { router, store } = await createRouter();
+    const parallelKey = 'parallel-secret-key';
+    await router.request('/', putInit({ type: 'parallel', auth: { api_key: parallelKey } }));
+
+    const switchedWithRedacted = await router.request(
+      '/',
+      putInit({ type: 'exa', auth: { api_key: toRedactedSecretValue(parallelKey) } }),
+    );
+    expect(switchedWithRedacted.status).toBe(400);
+    expect((await store.getProvider('default'))?.manifest.type).toBe('parallel');
+
+    const switched = await router.request('/', putInit({ type: 'exa', auth: { api_key: 'exa-fresh-key-789' } }));
+    expect(switched.status).toBe(200);
+    const record = await store.getProvider('default');
+    expect(record?.manifest).toEqual({ type: 'exa', auth: { api_key: 'exa-fresh-key-789' } });
+  });
 });

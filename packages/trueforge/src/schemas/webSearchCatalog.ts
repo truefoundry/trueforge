@@ -1,8 +1,11 @@
 import { z } from '@hono/zod-openapi';
-import { ParallelWebSearchProviderSchema } from './webSearchProvider';
+import { ExaWebSearchProviderSchema, ParallelWebSearchProviderSchema } from './webSearchProvider';
 
-export const CatalogWebSearchProviderSchema = ParallelWebSearchProviderSchema.omit({ auth: true })
-  .strict()
+export const CatalogWebSearchProviderSchema = z
+  .discriminatedUnion('type', [
+    ParallelWebSearchProviderSchema.omit({ auth: true }).strict(),
+    ExaWebSearchProviderSchema.omit({ auth: true }).strict(),
+  ])
   .openapi('CatalogWebSearchProvider');
 
 export const WebSearchCatalogFileSchema = z
