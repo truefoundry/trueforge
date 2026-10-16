@@ -45,6 +45,7 @@ import type { ISandboxProviderStore } from '../db/sandboxProviderStore';
 import type { ISkillStore } from '../db/skillStore';
 import type { TurnMetadata } from '../db/turnMetadata';
 import type { IWebSearchProviderStore } from '../db/webSearchProviderStore';
+import { updateLogContext } from '../logger';
 import {
   createAndExecuteTurnRoute,
   createTurnEventRoute,
@@ -386,13 +387,11 @@ export function turnStreamId(tenantId: string, sessionId: string, turnId: string
 export async function drainTurnEvents(input: {
   trackedStream: AsyncIterable<TurnStreamingEvent>;
   turnEventStream: EventSubscription<TurnStreamingEvent>;
-  sessionId: string;
-  turnId: string;
   maxExecutionTimer: NodeJS.Timeout;
   logger: Logger;
   onEvent?: (event: TurnStreamingEvent, sequenceNumber: number) => Promise<void>;
 }): Promise<void> {
-  const { trackedStream, turnEventStream, sessionId, turnId, maxExecutionTimer, logger, onEvent } = input;
+  const { trackedStream, turnEventStream, maxExecutionTimer, logger, onEvent } = input;
   try {
     for await (const event of trackedStream) {
       // Dual-write before any client sink so subscribers can resume after disconnect.
@@ -403,17 +402,9 @@ export async function drainTurnEvents(input: {
     }
   } catch (error) {
     if (error instanceof SessionStoreNotFoundError) {
-      logger.warn('Turn stream ended after session/turn was removed', {
-        sessionId,
-        turnId,
-        ...extractErrorLogFields(error),
-      });
+      logger.warn('Turn stream ended after session/turn was removed', extractErrorLogFields(error));
     } else {
-      logger.error('Unexpected error in turn event drain', {
-        sessionId,
-        turnId,
-        ...extractErrorLogFields(error),
-      });
+      logger.error('Unexpected error in turn event drain', extractErrorLogFields(error));
     }
   } finally {
     clearTimeout(maxExecutionTimer);
@@ -424,8 +415,6 @@ export async function drainTurnEvents(input: {
 export interface TurnEventDrainInput {
   trackedStream: AsyncIterable<TurnStreamingEvent>;
   turnEventStream: EventSubscription<TurnStreamingEvent>;
-  sessionId: string;
-  turnId: string;
   maxExecutionTimer: NodeJS.Timeout;
   logger: Logger;
 }
@@ -442,10 +431,16 @@ export async function beginTurnExecution(
   assertGatewayMetadataRequestHeaders(requestHeaders);
   const sessionId = session.session_id;
   const turnId = newId();
+  const tenant_id = session.tenant_id;
+  // Before the resolver, so model, MCP, and sandbox lines on this chain carry the ids.
+  updateLogContext({
+    tenant_id,
+    session_id: sessionId,
+    turn_id: turnId,
+  });
   const sessionAgent = session.record.agent;
 
   const abortController = new AbortController();
-  const tenant_id = session.tenant_id;
   const webSearchProvider = await resolveWebSearchProvider({
     tenant_id,
     store: deps.webSearchProviderStore,
@@ -506,8 +501,6 @@ export async function beginTurnExecution(
     drainInput: {
       trackedStream,
       turnEventStream,
-      sessionId,
-      turnId: turn.id,
       maxExecutionTimer,
       logger: deps.logger,
     },
@@ -732,8 +725,6 @@ export function createTurnsRouter(deps: TurnsRouterDeps) {
       }
       deps.logger.error('Sandbox file download failed', {
         ...extractErrorLogFields(error),
-        sessionId,
-        turnId,
         sandboxId,
         path,
       });
@@ -855,10 +846,7 @@ export function createTurnsRouter(deps: TurnsRouterDeps) {
       return streamSSE(c, async stream => {
         stream.onAbort(() => {
           shouldWriteToSSEStream = false;
-          deps.logger.info('Create-turn SSE client disconnected, continuing drain without writing', {
-            sessionId,
-            turnId: drainInput.turnId,
-          });
+          deps.logger.info('Create-turn SSE client disconnected, continuing drain without writing');
         });
         await drainTurnEvents({
           ...drainInput,
@@ -941,8 +929,6 @@ export function createTurnsRouter(deps: TurnsRouterDeps) {
     const timeoutMs = configuration.TURN_SUBSCRIBE_TIMEOUT_MS;
     const timeoutHandler = setTimeout(() => {
       deps.logger.info('Subscribe turn stream server-side timeout reached, closing stream', {
-        sessionId,
-        turnId,
         afterSequenceNumber,
         timeoutMs,
       });
