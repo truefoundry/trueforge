@@ -42,6 +42,18 @@ Together they make it easy to pinpoint where a run failed, whether a turn was ca
 
 Each session carries a copyable **session ID**, and the detail header has a button to **resume** it, which reopens the conversation so you can continue it.
 
+## Sharing a session
+
+Sessions are private by default. The creator changes that from the share control in the session header, which opens a **Change permissions** dialog. Switching the access from **Only you** to the tenant option shares the session, and the dialog's **Share URL** opens it for any signed-in member of the tenant.
+
+Sharing allows reads: the session, its turns, and its events. Everything that mutates or streams the session stays creator-only, including cancelling turns, downloading sandbox files, and changing the sharing back to **Only you**.
+
+Through the API, the creator sends `shared` with `sessions.update` (`PATCH /api/v1/sessions/{session_id}`):
+
+```json
+{ "shared": true }
+```
+
 <Note>
-  In hosted mode with [login](/authentication/overview) enabled, session history is owner-scoped: each user sees only their own sessions. In local mode there is a single shared identity, so all sessions belong to that one user.
+  In hosted mode with [login](/authentication/overview) enabled, session history is owner-scoped: each user sees only their own sessions in the list, and a session stays private until its creator [shares it](#sharing-a-session). In local mode there is a single shared identity, so all sessions belong to that one user.
 </Note>
