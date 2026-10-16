@@ -133,7 +133,7 @@ Each option below is part of the agent definition. The **Set in** line on each s
   </Accordion>
 
   <Accordion title="Iteration limit" icon="rotate">
-    A safety stop for how many agent-loop steps a single turn can take (1–1024, default 100). It halts runaway loops; it isn't a normal quality lever. Set it in **Runtime Config**.
+    A safety stop for how many agent-loop steps a single turn can take (1–1024, default 512). When a turn approaches its limit, the harness injects a wrap-up warning to give the model one chance to write pending files/artifacts and summarize before halting. Set it in **Runtime Config**.
 
     **Set in:** UI + API
   </Accordion>
@@ -343,7 +343,7 @@ The only required field.
 | `name`   | string | Yes      | UI + API | Model FQN: `provider/model`, e.g. `openai/gpt-5.2`. See [Models](/models). |
 | `params` | object | No       | API      | Model call parameters, passed through to the provider.                     |
 
-`model.params` recognizes `max_tokens`, `temperature`, `top_p`, `top_k`, `parallel_tool_calls` (boolean), and `reasoning_effort` (string). Extra keys are allowed and forwarded to the provider as-is.
+`model.params` recognizes `max_tokens`, `temperature`, `top_p`, `top_k`, `parallel_tool_calls` (boolean), and `reasoning_effort` (string). `max_tokens` sets the per-call output cap, and `reasoning_effort` configures reasoning depth. When reasoning tokens exhaust the output budget, increase `max_tokens` or adjust `reasoning_effort`. Extra keys are allowed and forwarded to the provider as-is.
 
 ### `instructions`
 
@@ -401,13 +401,13 @@ Runtime behavior. Every field has a default, so `config` can be omitted entirely
 #### `config.context_management`
 
 Compaction is enabled by default. When its `trigger` is omitted, it runs at 80% of the configured model's context
-length, or at 50,000 input tokens when that context length is unavailable.
+length, or at 50,000 input tokens when that context length is unavailable. For short sessions, set an explicit threshold such as `{ "type": "input_tokens", "value": 40000 }`.
 
 | Field                               | Default                     | Set via | Description                                         |
 | ----------------------------------- | --------------------------- | ------- | --------------------------------------------------- |
 | `compaction.enabled`                | `true`                      | API     | Summarize older history as context grows.           |
 | `compaction.trigger.type`           | `input_tokens`              | API     | Trigger using the estimated request input size.     |
-| `compaction.trigger.value`          | 80% of model context length | API     | Explicit input-token threshold when configured.     |
+| `compaction.trigger.value`          | 80% of model context length | API     | Explicit input-token threshold when configured (e.g. 40000 for short sessions). |
 | `large_tool_response.enabled`       | `true`                      | API     | Offload oversized tool responses to a sandbox file. |
 
 ### `response_format`

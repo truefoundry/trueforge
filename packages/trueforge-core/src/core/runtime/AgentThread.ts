@@ -84,6 +84,7 @@ import {
   assistantMessageContentToStringForSubAgent,
   estimateTokensForContextMessages,
   INTERNAL_SYSTEM_PROMPT,
+  internalSystemMessage,
   isApprovalDecisionMessage,
   isClientSideToolResponseMessage,
   isInputUserMessage,
@@ -894,6 +895,19 @@ export class AgentThread {
 
     messages.push(...contextMessages);
 
+    const iterationLimit = this.definition.iterationLimit ?? DEFAULT_ITERATION_LIMIT;
+    const reserve = Math.min(3, iterationLimit - 1);
+    const remainingIncludingCurrent = iterationLimit - this.metrics.iterations + 1;
+    if (reserve >= 1 && remainingIncludingCurrent >= 1 && remainingIncludingCurrent <= reserve) {
+      messages.push(
+        toOpenAIChatMessage(
+          internalSystemMessage(
+            `${String(remainingIncludingCurrent)} LLM calls remaining in this turn, including this one. Finish your work, write any pending files/outputs now, and summarize what is incomplete.`,
+          ),
+        ),
+      );
+    }
+
     for (const processor of this.preEphemeralLLMContextProcessors) {
       messages = processor.processPreLLMEphemeral(messages) ?? messages;
     }
@@ -1188,11 +1202,21 @@ export class AgentThread {
     });
 
     let completion: SubAgentCompletion | undefined;
+    const reasoningTokens = result.value.usage.reasoning_tokens;
+    const outputTokens = result.value.usage.output_tokens;
+    const isReasoningDominated =
+      reasoningTokens !== undefined &&
+      reasoningTokens > 0 &&
+      (outputTokens === 0 || reasoningTokens >= outputTokens / 2);
+    const baseLengthErrorMessage = isReasoningDominated
+      ? 'max_tokens breached: output budget was exhausted by reasoning tokens. Consider increasing model.params.max_tokens or adjusting reasoning_effort.'
+      : 'max_tokens breached';
+
     if (this.parent) {
       if (finishReason === 'length') {
         const errorMessage = assistantMessageContentToStringForSubAgent(
           assistantMessage.content,
-          'max_tokens breached',
+          baseLengthErrorMessage,
         );
         completion = {
           type: 'error',
@@ -1219,7 +1243,7 @@ export class AgentThread {
     });
 
     if (finishReason === 'length') {
-      const errorContent = completion?.type === 'error' ? completion.error_message : 'max_tokens breached';
+      const errorContent = completion?.type === 'error' ? completion.error_message : baseLengthErrorMessage;
       yield this.generateErrorEvent(errorContent, agentAssistantMessage);
       return { outcome: 'exit', modelMessageEventId };
     }
@@ -1475,6 +1499,7 @@ export class AgentThread {
             if (signal?.aborted) {
               return;
             }
+
             if (this.metrics.iterations >= iterationLimit) {
               yield this.generateErrorEvent(
                 `You have reached iteration limit of ${String(iterationLimit)}, please request again`,
