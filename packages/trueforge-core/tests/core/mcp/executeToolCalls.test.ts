@@ -35,6 +35,6 @@ describe('executeToolCalls', () => {
     expect(toolCallResults).toHaveLength(1);
     expect(toolCallResults[0]?.failure).toBe(true);
     expect(toolCallResults[0]?.message.content).toContain('Failed to parse tool call arguments as JSON');
-    expect(toolCallResults[0]?.message.content).toContain('raw_arguments');
+    expect(toolCallResults[0]?.message.content).not.toContain('raw_arguments');
   });
 });

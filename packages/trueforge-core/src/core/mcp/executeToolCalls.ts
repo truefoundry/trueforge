@@ -48,7 +48,7 @@ function isJsonObject(value: unknown): value is Record<string, unknown> {
  */
 function parseToolCallArguments(
   rawArguments: string,
-): { ok: true; args: Record<string, unknown> } | { ok: false; parseError: string; rawArguments: string } {
+): { ok: true; args: Record<string, unknown> } | { ok: false; parseError: string } {
   let parsed: unknown;
   try {
     parsed = JSON.parse(rawArguments || '{}');
@@ -56,14 +56,12 @@ function parseToolCallArguments(
     return {
       ok: false,
       parseError: error instanceof Error ? error.message : 'JSON parse failed',
-      rawArguments,
     };
   }
   if (!isJsonObject(parsed)) {
     return {
       ok: false,
       parseError: 'Tool call arguments must be a JSON object',
-      rawArguments,
     };
   }
   return { ok: true, args: parsed };
@@ -123,7 +121,6 @@ export async function executeToolCalls({
           text: JSON.stringify({
             error: 'Failed to parse tool call arguments as JSON',
             parse_error: parsedArgs.parseError,
-            raw_arguments: parsedArgs.rawArguments,
           }),
           isError: true,
         }),
