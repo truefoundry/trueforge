@@ -496,11 +496,11 @@ describe('convertTools', () => {
     const tools = [
       {
         type: 'function' as const,
+        eager_input_streaming: true,
         function: {
           name: 'search',
           description: 'Search',
           parameters: { type: 'object', properties: {} },
-          eager_input_streaming: true,
         },
       },
     ];

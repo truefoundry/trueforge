@@ -6,12 +6,11 @@ import { getUniqueSanitizedToolName } from './toolNames';
 
 /**
  * OpenAI function tool plus optional chat-completions gateway fields.
- * TrueFoundry's gateway reads `eager_input_streaming` on `tools[].function` when translating to vendors.
+ * TrueFoundry's gateway maps `tools[].eager_input_streaming` onto the Anthropic tool root
+ * (sibling of `name` / `input_schema`), not nested under `function`.
  */
-export interface HarnessChatCompletionTool extends Omit<ChatCompletionFunctionTool, 'function'> {
-  function: ChatCompletionFunctionTool['function'] & {
-    eager_input_streaming: boolean | undefined;
-  };
+export interface HarnessChatCompletionTool extends ChatCompletionFunctionTool {
+  eager_input_streaming: boolean | undefined;
 }
 
 export interface MappedMCPTool {
@@ -88,6 +87,8 @@ export async function convertMCPServersToTools(params: {
       const description = `mcp server: ${serverName}\n${mcpTool.description ?? ''}`;
       tools.push({
         type: 'function',
+        // Tool-root field: gateway → Anthropic `eager_input_streaming` on the vendor tool object.
+        eager_input_streaming: true,
         function: {
           name: toolName,
           description: description,
@@ -96,8 +97,6 @@ export async function convertMCPServersToTools(params: {
             properties: mcpTool.inputSchema.properties ?? {},
             required: mcpTool.inputSchema.required ?? [],
           },
-          // Gateway vendors (Anthropic via TFY) need this on the OpenAI tool shape.
-          eager_input_streaming: true,
         },
       });
 

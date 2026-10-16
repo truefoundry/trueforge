@@ -129,7 +129,8 @@ function isFunctionToolCall<T extends { type: string }>(toolCall: T): toolCall i
  */
 /**
  * `@ai-sdk/openai-compatible` rebuilds tools as name/description/parameters(/strict) only.
- * Re-attach `eager_input_streaming` so the TrueFoundry gateway sees it on the chat-completions wire.
+ * Re-attach `eager_input_streaming` on the tool root so the TrueFoundry gateway can map it to
+ * Anthropic's per-tool field (not under `function`).
  */
 export function attachEagerInputStreamingToChatTools(args: Record<string, unknown>): Record<string, unknown> {
   const tools = args['tools'];
@@ -140,16 +141,9 @@ export function attachEagerInputStreamingToChatTools(args: Record<string, unknow
     if (!isPlainObject(tool) || tool['type'] !== 'function') {
       return tool;
     }
-    const fn = tool['function'];
-    if (!isPlainObject(fn)) {
-      return tool;
-    }
     return {
       ...tool,
-      function: {
-        ...fn,
-        eager_input_streaming: true,
-      },
+      eager_input_streaming: true,
     };
   });
   return {
@@ -896,12 +890,12 @@ export function convertMessages({
   return { instructions: systemParts.length > 0 ? systemParts.join('\n\n') : undefined, messages: result };
 }
 
-/** Reads optional `eager_input_streaming` from a harness/OpenAI function tool object. */
-function readEagerInputStreaming(fn: object): boolean | undefined {
-  if (!('eager_input_streaming' in fn)) {
+/** Reads optional tool-root `eager_input_streaming` from a harness/OpenAI tool object. */
+function readEagerInputStreaming(tool: object): boolean | undefined {
+  if (!('eager_input_streaming' in tool)) {
     return undefined;
   }
-  const value: unknown = Reflect.get(fn, 'eager_input_streaming');
+  const value: unknown = Reflect.get(tool, 'eager_input_streaming');
   return typeof value === 'boolean' ? value : undefined;
 }
 
@@ -915,7 +909,7 @@ export function convertTools(tools: ChatCompletionTool[] | undefined): ToolSet |
     if (!isFunctionTool(t)) {
       continue;
     }
-    const eagerInputStreaming = readEagerInputStreaming(t.function);
+    const eagerInputStreaming = readEagerInputStreaming(t);
     toolSet[t.function.name] = {
       inputSchema: jsonSchema(t.function.parameters ?? { type: 'object', properties: {} }),
       ...(t.function.description !== undefined ? { description: t.function.description } : {}),

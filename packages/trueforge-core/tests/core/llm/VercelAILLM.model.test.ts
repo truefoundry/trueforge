@@ -81,14 +81,15 @@ describe('buildLanguageModel', () => {
 // ─────────── attachEagerInputStreamingToChatTools ───────────
 
 describe('attachEagerInputStreamingToChatTools', () => {
-  it('sets eager_input_streaming on function tools', () => {
+  it('sets eager_input_streaming on the tool root', () => {
     const result = attachEagerInputStreamingToChatTools({
       tools: [{ type: 'function', function: { name: 'search', parameters: { type: 'object' } } }],
     });
     expect(result['tools']).toEqual([
       {
         type: 'function',
-        function: { name: 'search', parameters: { type: 'object' }, eager_input_streaming: true },
+        eager_input_streaming: true,
+        function: { name: 'search', parameters: { type: 'object' } },
       },
     ]);
   });
@@ -164,10 +165,8 @@ describe('truefoundry chat wire tools', () => {
       tools: [
         {
           type: 'function',
-          function: {
-            name: 'search',
-            eager_input_streaming: true,
-          },
+          eager_input_streaming: true,
+          function: { name: 'search' },
         },
       ],
     });
@@ -180,9 +179,8 @@ describe('truefoundry chat wire tools', () => {
     }
     const tools = Reflect.get(body, 'tools');
     const first = Array.isArray(tools) ? tools[0] : undefined;
-    const fn = typeof first === 'object' && first !== null ? Reflect.get(first, 'function') : undefined;
-    expect(fn).toMatchObject({ name: 'search' });
-    expect(fn).not.toHaveProperty('eager_input_streaming');
+    expect(first).toMatchObject({ type: 'function', function: { name: 'search' } });
+    expect(first).not.toHaveProperty('eager_input_streaming');
   });
 });
 
