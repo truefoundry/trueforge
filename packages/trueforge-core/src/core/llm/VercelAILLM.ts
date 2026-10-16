@@ -152,23 +152,55 @@ export function attachEagerInputStreamingToChatTools(args: Record<string, unknow
   };
 }
 
+/**
+ * Last-mile guarantee: openai-compatible prepareTools strips unknown tool fields, and some
+ * callers hit the TFY gateway as `custom` (inline x-tfg-models) without the transform hook.
+ * Re-apply on the JSON body immediately before fetch.
+ */
+export function wrapFetchAttachEagerInputStreaming(
+  baseFetch: (input: string | URL | Request, init?: RequestInit) => Promise<Response>,
+): (input: string | URL | Request, init?: RequestInit) => Promise<Response> {
+  return async (input, init) => {
+    if (init === undefined || typeof init.body !== 'string') {
+      return baseFetch(input, init);
+    }
+    let parsed: unknown;
+    try {
+      parsed = JSON.parse(init.body);
+    } catch {
+      return baseFetch(input, init);
+    }
+    if (!isPlainObject(parsed)) {
+      return baseFetch(input, init);
+    }
+    const nextBody = attachEagerInputStreamingToChatTools(parsed);
+    return baseFetch(input, { ...init, body: JSON.stringify(nextBody) });
+  };
+}
+
+function shouldAttachEagerInputStreaming(providerType: VercelAIProviderName): boolean {
+  // Managed TFY gateway + inline/custom OpenAI-compatible endpoints that speak the same wire.
+  return providerType === 'truefoundry' || providerType === 'custom';
+}
+
 function compatibleModel(config: VercelAIProviderConfig): LanguageModel {
   const { provider, model, apiKey, headers, baseUrl } = config;
   if (baseUrl === undefined) {
     throw new Error(`Provider "${provider.type}" requires a baseUrl`);
   }
+  const attachEager = shouldAttachEagerInputStreaming(provider.type);
   const client = createOpenAICompatible({
     name: provider.type,
     baseURL: baseUrl,
     apiKey,
-    fetch: modelSsrfFetch,
+    fetch: attachEager ? wrapFetchAttachEagerInputStreaming(modelSsrfFetch) : modelSsrfFetch,
     // Without this the adapter silently downgrades json_schema to a schema-less json_object.
     supportsStructuredOutputs: true,
     // These endpoints omit token counts from streamed responses unless asked.
     includeUsage: true,
     ...(Object.keys(headers).length > 0 ? { headers } : {}),
-    // openai-compatible prepareTools drops unknown function fields; TFY gateway needs this one.
-    ...(provider.type === 'truefoundry' ? { transformRequestBody: attachEagerInputStreamingToChatTools } : {}),
+    // Belt-and-suspenders with the fetch wrap: prepareTools drops unknown tool fields.
+    ...(attachEager ? { transformRequestBody: attachEagerInputStreamingToChatTools } : {}),
   });
   return client(model.id);
 }
