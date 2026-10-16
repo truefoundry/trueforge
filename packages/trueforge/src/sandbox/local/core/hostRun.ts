@@ -490,6 +490,8 @@ export async function runSupervisorSession(params: {
   onChildSpawn?: (pid: number) => void;
   /** Hard wall-clock limit for the sandboxed command; caller must choose deliberately. */
   timeoutMs: number;
+  /** Kills the sandboxed process when the turn is cancelled. */
+  signal?: AbortSignal | undefined;
 }): Promise<SessionResult> {
   const {
     sandboxRootPath,
@@ -501,7 +503,19 @@ export async function runSupervisorSession(params: {
     stdin,
     onChildSpawn,
     timeoutMs,
+    signal,
   } = params;
+  if (signal?.aborted) {
+    return {
+      stdoutText: '',
+      stderrText: '',
+      exitCode: 1,
+      protocolError: 'Cancelled',
+      timedOut: false,
+      childPid: undefined,
+    };
+  }
+
   const command = wrapSandboxCommand({ platform, command: rawCommand });
 
   const wrap = await SandboxManager.wrapWithSandboxArgv(
@@ -565,6 +579,7 @@ export async function runSupervisorSession(params: {
   let bufferedOutput = 0;
   let protocolError: string | undefined;
   let timedOut = false;
+  let cancelled = false;
   let closed = false;
 
   const ignoreStreamError = (
@@ -607,6 +622,11 @@ export async function runSupervisorSession(params: {
       timedOut = true;
       killExecTree(child);
     }, timeoutMs);
+    const onAbort = (): void => {
+      cancelled = true;
+      killExecTree(child);
+    };
+    signal?.addEventListener('abort', onAbort, { once: true });
 
     child.on('error', error => {
       if (closed) {
@@ -614,6 +634,7 @@ export async function runSupervisorSession(params: {
       }
       closed = true;
       clearTimeout(timer);
+      signal?.removeEventListener('abort', onAbort);
       SandboxManager.cleanupAfterCommand();
       reject(error);
     });
@@ -624,12 +645,13 @@ export async function runSupervisorSession(params: {
       }
       closed = true;
       clearTimeout(timer);
+      signal?.removeEventListener('abort', onAbort);
       SandboxManager.cleanupAfterCommand();
       resolve({
         stdoutText,
         stderrText,
-        exitCode: typeof code === 'number' ? code : timedOut ? 1 : 0,
-        protocolError,
+        exitCode: typeof code === 'number' ? code : timedOut || cancelled ? 1 : 0,
+        protocolError: cancelled ? 'Cancelled' : protocolError,
         timedOut,
         childPid: child.pid,
       });

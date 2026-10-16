@@ -1249,6 +1249,7 @@ export class AgentThread {
 
   private async *stepToolResponse(
     toolMapping: Map<string, MappedMCPTool>,
+    signal?: AbortSignal | undefined,
   ): AsyncGenerator<AgentThreadEvent, StepOutcome, unknown> {
     const assistantMessage = lastAssistantInContext(this.context);
     if (!assistantMessage) {
@@ -1277,6 +1278,7 @@ export class AgentThread {
       toolMapping,
       threadId: this.threadId,
       approvalDecisions: decisions,
+      signal,
     });
     void clientSideToolCalls;
     if (approvalRequiredToolCalls.length > 0) {
@@ -1304,13 +1306,15 @@ export class AgentThread {
       currentContextUsage: this.currentContextUsage,
       context: this.context,
     };
-    for (const processor of this.toolResponseProcessors) {
-      const processorResult = await processor.process(toolCallResults, toolResponseExecution);
-      if (processorResult.sandboxCreated) {
-        yield buildSandboxCreatedEvent(processorResult.sandboxCreated);
-      }
-      for (const event of processorResult.events ?? []) {
-        yield { type: InternalEventType.PASSTHROUGH, event };
+    if (!signal?.aborted) {
+      for (const processor of this.toolResponseProcessors) {
+        const processorResult = await processor.process(toolCallResults, toolResponseExecution);
+        if (processorResult.sandboxCreated) {
+          yield buildSandboxCreatedEvent(processorResult.sandboxCreated);
+        }
+        for (const event of processorResult.events ?? []) {
+          yield { type: InternalEventType.PASSTHROUGH, event };
+        }
       }
     }
     if (toolIdsBeforeProcessing.length !== toolCallResults.length) {
@@ -1343,6 +1347,10 @@ export class AgentThread {
       currentContextUsage: undefined,
       usage: undefined,
     });
+
+    if (signal?.aborted) {
+      return 'exit';
+    }
 
     if (authRequirementInfo.length > 0) {
       yield buildMCPAuthRequiredEvent(authRequirementInfo, this.threadId);
@@ -1492,7 +1500,7 @@ export class AgentThread {
             if (signal?.aborted) {
               return;
             }
-            outcome = yield* this.stepToolResponse(toolMapping);
+            outcome = yield* this.stepToolResponse(toolMapping, signal);
             break;
           }
           case 'user-input-required': {
