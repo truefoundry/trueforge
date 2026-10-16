@@ -94,6 +94,98 @@ describe('attachEagerInputStreamingToChatTools', () => {
   });
 });
 
+/**
+ * Prove the TrueFoundry openai-compatible adapter runs transformRequestBody before POST,
+ * so `eager_input_streaming` survives prepareTools stripping and lands on the chat wire.
+ */
+describe('truefoundry chat wire tools', () => {
+  function sseStopResponse(): Response {
+    const payload = [
+      'data: {"id":"c","object":"chat.completion.chunk","created":0,"model":"m","choices":[{"index":0,"delta":{"role":"assistant","content":"ok"},"finish_reason":null}]}',
+      '',
+      'data: {"id":"c","object":"chat.completion.chunk","created":0,"model":"m","choices":[{"index":0,"delta":{},"finish_reason":"stop"}],"usage":{"prompt_tokens":1,"completion_tokens":1,"total_tokens":2}}',
+      '',
+      'data: [DONE]',
+      '',
+      '',
+    ].join('\n');
+    return new Response(payload, { status: 200, headers: { 'Content-Type': 'text/event-stream' } });
+  }
+
+  async function captureChatBody(provider: 'truefoundry' | 'fireworks'): Promise<unknown> {
+    const model: unknown = buildLanguageModel(makeConfig({ provider, baseUrl: 'http://127.0.0.1:9/v1' }));
+    if (typeof model !== 'object' || model === null) {
+      throw new Error('expected language model object');
+    }
+    const config = Reflect.get(model, 'config');
+    if (typeof config !== 'object' || config === null) {
+      throw new Error('expected model config');
+    }
+
+    let postedBody: unknown;
+    Reflect.set(config, 'fetch', async (_url: unknown, init?: { body?: BodyInit | null }) => {
+      const raw = init?.body;
+      if (typeof raw !== 'string') {
+        throw new Error('expected JSON request body string');
+      }
+      postedBody = JSON.parse(raw);
+      return sseStopResponse();
+    });
+
+    const doStream = Reflect.get(model, 'doStream');
+    if (typeof doStream !== 'function') {
+      throw new Error('expected doStream');
+    }
+    const streamResult: unknown = await doStream.call(model, {
+      prompt: [{ role: 'user', content: [{ type: 'text', text: 'hi' }] }],
+      tools: [
+        {
+          type: 'function',
+          name: 'search',
+          description: 'Search',
+          inputSchema: { type: 'object', properties: {} },
+        },
+      ],
+    });
+    if (typeof streamResult !== 'object' || streamResult === null) {
+      throw new Error('expected stream result');
+    }
+    const stream = Reflect.get(streamResult, 'stream');
+    if (!(stream instanceof ReadableStream)) {
+      throw new Error('expected ReadableStream');
+    }
+    await stream.pipeTo(new WritableStream({ write() {} }));
+    return postedBody;
+  }
+
+  it('includes eager_input_streaming on tools for truefoundry', async () => {
+    const body = await captureChatBody('truefoundry');
+    expect(body).toMatchObject({
+      tools: [
+        {
+          type: 'function',
+          function: {
+            name: 'search',
+            eager_input_streaming: true,
+          },
+        },
+      ],
+    });
+  });
+
+  it('does not include eager_input_streaming for other compatible providers', async () => {
+    const body = await captureChatBody('fireworks');
+    if (typeof body !== 'object' || body === null) {
+      throw new Error('expected request body object');
+    }
+    const tools = Reflect.get(body, 'tools');
+    const first = Array.isArray(tools) ? tools[0] : undefined;
+    const fn = typeof first === 'object' && first !== null ? Reflect.get(first, 'function') : undefined;
+    expect(fn).toMatchObject({ name: 'search' });
+    expect(fn).not.toHaveProperty('eager_input_streaming');
+  });
+});
+
 // ─────────── resolveMaxOutputTokens ───────────
 
 describe('resolveMaxOutputTokens', () => {
