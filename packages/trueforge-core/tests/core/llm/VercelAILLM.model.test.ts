@@ -11,7 +11,6 @@ import {
   buildStreamTextArgs,
   convertTools,
   resolveMaxOutputTokens,
-  wrapFetchAttachEagerInputStreaming,
 } from '../../../src/core/llm/VercelAILLM';
 
 function makeConfig(
@@ -96,25 +95,6 @@ describe('attachEagerInputStreamingToChatTools', () => {
   });
 });
 
-describe('wrapFetchAttachEagerInputStreaming', () => {
-  it('rewrites the JSON body tools before calling fetch', async () => {
-    let posted: unknown;
-    const wrapped = wrapFetchAttachEagerInputStreaming(async (_url, init) => {
-      posted = JSON.parse(String(init?.body));
-      return new Response('{}');
-    });
-    await wrapped('http://example.test', {
-      method: 'POST',
-      body: JSON.stringify({
-        tools: [{ type: 'function', function: { name: 'search', parameters: { type: 'object' } } }],
-      }),
-    });
-    expect(posted).toMatchObject({
-      tools: [{ type: 'function', eager_input_streaming: true, function: { name: 'search' } }],
-    });
-  });
-});
-
 /**
  * Prove the TrueFoundry openai-compatible adapter runs transformRequestBody before POST,
  * so `eager_input_streaming` survives prepareTools stripping and lands on the chat wire.
@@ -133,7 +113,7 @@ describe('truefoundry chat wire tools', () => {
     return new Response(payload, { status: 200, headers: { 'Content-Type': 'text/event-stream' } });
   }
 
-  async function captureChatBody(provider: 'truefoundry' | 'custom' | 'fireworks'): Promise<unknown> {
+  async function captureChatBody(provider: 'truefoundry' | 'fireworks'): Promise<unknown> {
     const model: unknown = buildLanguageModel(makeConfig({ provider, baseUrl: 'http://127.0.0.1:9/v1' }));
     if (typeof model !== 'object' || model === null) {
       throw new Error('expected language model object');
@@ -179,8 +159,8 @@ describe('truefoundry chat wire tools', () => {
     return postedBody;
   }
 
-  it.each(['truefoundry', 'custom'] as const)('includes eager_input_streaming on tools for %s', async provider => {
-    const body = await captureChatBody(provider);
+  it('includes eager_input_streaming on tools for truefoundry', async () => {
+    const body = await captureChatBody('truefoundry');
     expect(body).toMatchObject({
       tools: [
         {

@@ -100,7 +100,6 @@ export {
   VERCEL_AI_PROVIDER_NAMES,
   VercelAILLM,
   attachEagerInputStreamingToChatTools,
-  wrapFetchAttachEagerInputStreaming,
 } from './llm/VercelAILLM';
 export type { VercelAILLMConfig, VercelAIProviderConfig, VercelAIProviderName } from './llm/VercelAILLM';
 
