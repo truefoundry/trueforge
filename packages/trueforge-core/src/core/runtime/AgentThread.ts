@@ -1,4 +1,4 @@
-import type { ChatCompletionMessageParam, ChatCompletionTool } from 'openai/resources/chat';
+import type { ChatCompletionMessageParam } from 'openai/resources/chat';
 import type { Logger } from 'winston';
 import type { AgentCapability, CapabilityState } from '../capabilities/AgentCapability';
 import type {
@@ -50,7 +50,12 @@ import { ModelSchema, type Model } from '../llm/model';
 import { toOpenAIResponseFormat } from '../llm/responseFormat';
 import { toOpenAIChatMessage } from '../llm/toOpenAIChatMessage';
 import { estimateTokensForString } from '../llm/usage';
-import { convertMCPServersToTools, type ConvertToolsResult, type MappedMCPTool } from '../mcp/convertMCPServers';
+import {
+  convertMCPServersToTools,
+  type ConvertToolsResult,
+  type HarnessChatCompletionTool,
+  type MappedMCPTool,
+} from '../mcp/convertMCPServers';
 import { executeToolCalls } from '../mcp/executeToolCalls';
 import type { IToolSet, MCPAuthRequired } from '../mcp/IMCPServer';
 import type { HarnessSandbox, SandboxInfo } from '../sandbox/Sandbox';
@@ -870,7 +875,7 @@ export class AgentThread {
     return { ...this.metrics };
   }
 
-  private transformToLLMRequest(tools: ChatCompletionTool[]): LLMCreateParamsStreaming {
+  private transformToLLMRequest(tools: HarnessChatCompletionTool[]): LLMCreateParamsStreaming {
     let messages: ChatCompletionMessageParam[] = [];
 
     if (this.instruction) {
@@ -1094,7 +1099,7 @@ export class AgentThread {
   }
 
   private async *stepLLMCall(
-    tools: ChatCompletionTool[],
+    tools: HarnessChatCompletionTool[],
     toolMapping: Map<string, MappedMCPTool>,
     signal?: AbortSignal,
   ): AsyncGenerator<AgentThreadEvent, { outcome: StepOutcome; modelMessageEventId: string }, unknown> {

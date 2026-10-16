@@ -491,4 +491,21 @@ describe('convertTools', () => {
     const toolSet = convertTools(tools);
     expect(toolSet?.['silent']).not.toHaveProperty('description');
   });
+
+  it('forwards eager_input_streaming as anthropic providerOptions', () => {
+    const tools = [
+      {
+        type: 'function' as const,
+        eager_input_streaming: true,
+        function: {
+          name: 'search',
+          description: 'Search',
+          parameters: { type: 'object', properties: {} },
+        },
+      },
+    ];
+    expect(convertTools(tools)?.['search']?.providerOptions).toEqual({
+      anthropic: { eagerInputStreaming: true },
+    });
+  });
 });

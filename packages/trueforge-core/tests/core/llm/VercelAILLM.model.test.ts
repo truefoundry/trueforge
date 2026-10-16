@@ -6,6 +6,7 @@
  */
 import type { VercelAIProviderConfig, VercelAIProviderName } from '../../../src/core/llm/VercelAILLM';
 import {
+  attachEagerInputStreamingToChatTools,
   buildLanguageModel,
   buildStreamTextArgs,
   convertTools,
@@ -74,6 +75,21 @@ describe('buildLanguageModel', () => {
     );
     if (typeof model !== 'object' || model === null) throw new Error('Expected model to be an object');
     expect(Reflect.get(model, 'modelId')).toBe('claude-sonnet-5');
+  });
+});
+
+describe('attachEagerInputStreamingToChatTools', () => {
+  it('sets eager_input_streaming on the tool root', () => {
+    const result = attachEagerInputStreamingToChatTools({
+      tools: [{ type: 'function', function: { name: 'search', parameters: { type: 'object' } } }],
+    });
+    expect(result['tools']).toEqual([
+      {
+        type: 'function',
+        eager_input_streaming: true,
+        function: { name: 'search', parameters: { type: 'object' } },
+      },
+    ]);
   });
 });
 

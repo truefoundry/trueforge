@@ -127,6 +127,31 @@ function isFunctionToolCall<T extends { type: string }>(toolCall: T): toolCall i
  * own packages: those drop `json_schema`, and Fireworks also clamps efforts its models do accept.
  * TODO: move Z AI to @ai-sdk/zai once https://github.com/vercel/ai/pull/17340 ships.
  */
+/**
+ * `@ai-sdk/openai-compatible` rebuilds tools as name/description/parameters(/strict) only.
+ * Re-attach `eager_input_streaming` on the tool root so the TrueFoundry gateway can map it to
+ * Anthropic's per-tool field (not under `function`).
+ */
+export function attachEagerInputStreamingToChatTools(args: Record<string, unknown>): Record<string, unknown> {
+  const tools = args['tools'];
+  if (!Array.isArray(tools)) {
+    return args;
+  }
+  const mappedTools: unknown[] = tools.map((tool: unknown): unknown => {
+    if (!isPlainObject(tool) || tool['type'] !== 'function') {
+      return tool;
+    }
+    return {
+      ...tool,
+      eager_input_streaming: true,
+    };
+  });
+  return {
+    ...args,
+    tools: mappedTools,
+  };
+}
+
 function compatibleModel(config: VercelAIProviderConfig): LanguageModel {
   const { provider, model, apiKey, headers, baseUrl } = config;
   if (baseUrl === undefined) {
@@ -142,6 +167,8 @@ function compatibleModel(config: VercelAIProviderConfig): LanguageModel {
     // These endpoints omit token counts from streamed responses unless asked.
     includeUsage: true,
     ...(Object.keys(headers).length > 0 ? { headers } : {}),
+    // openai-compatible prepareTools drops unknown tool fields; TFY gateway needs this one.
+    ...(provider.type === 'truefoundry' ? { transformRequestBody: attachEagerInputStreamingToChatTools } : {}),
   });
   return client(model.id);
 }
@@ -390,6 +417,9 @@ function openaiProviderOptions({
  *
  * Prompt caching defaults on: Anthropic bills a write once, then cheaper reads on stable prefixes
  * (system / tools / early messages). Callers can override via `cache_control` in the request body.
+ *
+ * `toolStreaming` is pinned on so every function tool gets `eager_input_streaming` on the Anthropic
+ * wire (call-level default; per-tool `providerOptions` from convertTools reinforce the same).
  */
 function anthropicProviderOptions(rawBody: unknown): JSONObject | undefined {
   const cacheControl = readBodyField({ rawBody, key: 'cache_control' }) ?? { type: 'ephemeral' };
@@ -398,6 +428,7 @@ function anthropicProviderOptions(rawBody: unknown): JSONObject | undefined {
   const effort = readBodyField({ rawBody, key: 'effort' });
   const opts: JSONObject = {
     cacheControl,
+    toolStreaming: true,
     ...(disableParallelToolUse !== undefined ? { disableParallelToolUse } : {}),
     ...(thinking !== undefined ? { thinking } : {}),
     ...(effort !== undefined ? { effort } : {}),
@@ -859,6 +890,15 @@ export function convertMessages({
   return { instructions: systemParts.length > 0 ? systemParts.join('\n\n') : undefined, messages: result };
 }
 
+/** Reads optional tool-root `eager_input_streaming` from a harness/OpenAI tool object. */
+function readEagerInputStreaming(tool: object): boolean | undefined {
+  if (!('eager_input_streaming' in tool)) {
+    return undefined;
+  }
+  const value: unknown = Reflect.get(tool, 'eager_input_streaming');
+  return typeof value === 'boolean' ? value : undefined;
+}
+
 /** Converts OpenAI tool definitions to the Vercel AI SDK ToolSet. */
 export function convertTools(tools: ChatCompletionTool[] | undefined): ToolSet | undefined {
   if (!tools?.length) {
@@ -869,9 +909,14 @@ export function convertTools(tools: ChatCompletionTool[] | undefined): ToolSet |
     if (!isFunctionTool(t)) {
       continue;
     }
+    const eagerInputStreaming = readEagerInputStreaming(t);
     toolSet[t.function.name] = {
       inputSchema: jsonSchema(t.function.parameters ?? { type: 'object', properties: {} }),
       ...(t.function.description !== undefined ? { description: t.function.description } : {}),
+      // Anthropic honors this; openai-compatible strips it (TFY uses transformRequestBody instead).
+      ...(eagerInputStreaming === true
+        ? { providerOptions: { anthropic: { eagerInputStreaming: true } } satisfies ProviderOptions }
+        : {}),
     };
   }
   return Object.keys(toolSet).length > 0 ? toolSet : undefined;
