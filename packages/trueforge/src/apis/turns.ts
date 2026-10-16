@@ -832,7 +832,7 @@ export function createTurnsRouter(deps: TurnsRouterDeps) {
       referencedAgent = agent;
     }
 
-    // x-tfg-* overlays are fail-closed except on turns for inline sessions.
+    // x-tfg-skills / x-tfg-mcp / x-tfg-models only on turns for inline sessions.
     const allowInlineResources = session.record.agent.type === 'inline';
     const turnParams: BeginTurnExecutionParams = {
       session,

@@ -16,16 +16,18 @@ export const X_TFG_MCP = 'x-tfg-mcp';
 export const X_TFG_SKILLS = 'x-tfg-skills';
 export const X_TFG_MODELS = 'x-tfg-models';
 
-/** Opt-in for request-scoped `x-tfg-*` overlays; only inline-session turns pass true. */
+/** Opt-in for request-scoped `x-tfg-skills` / `x-tfg-mcp` / `x-tfg-models`; only inline-session turns pass true. */
 export type AllowInlineResourcesOptions = {
   allowInlineResources?: boolean;
 };
 
 /**
- * Fail closed: overlay headers are rejected unless TrueFoundry mode is on and the caller
- * explicitly opted in (`allowInlineResources: true` on an inline-session turn).
+ * Fail closed: those headers are rejected unless TrueFoundry mode is on and the caller
+ * opted in (`allowInlineResources: true` on an inline-session turn).
+ * Does not cover `x-tfg-mcp-headers` — that only adds per-server invoke headers, it does not
+ * define MCP servers.
  */
-export function assertInlineResourceOverlayAllowed(input: {
+export function assertInlineResourceHeadersAllowed(input: {
   headerNames: string[];
   isTrueFoundryMode: boolean;
   allowInlineResources: boolean | undefined;

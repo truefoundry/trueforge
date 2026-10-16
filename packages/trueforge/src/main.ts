@@ -126,7 +126,7 @@ import { printStandaloneStartupBanner } from './startupBanner';
 import { InlineMcpServerStore } from './truefoundry/InlineMcpServerStore';
 import { InlineModelProviderStore } from './truefoundry/InlineModelProviderStore';
 import {
-  assertInlineResourceOverlayAllowed,
+  assertInlineResourceHeadersAllowed,
   parseInlineMcpServers,
   parseInlineModelProviders,
   parseInlineSkills,
@@ -636,7 +636,8 @@ async function createServerRuntime<TTransaction>(persistence: ServerPersistence<
     : undefined;
 
   // Hono handlers get Context; persistence resolvers take RequestContext.
-  // x-tfg-* overlays are fail-closed unless allowInlineResources (inline-session turns only).
+  // x-tfg-skills / x-tfg-mcp / x-tfg-models are rejected unless allowInlineResources
+  // (inline-session turns only). x-tfg-mcp-headers is separate (per-server invoke headers).
   const tfMode = isTrueFoundryModeEnabled(configuration);
   const resolveModelProviderStore = (c: Context, runAsAgent?: AgentRecord, options?: AllowInlineResourcesOptions) => {
     const store = persistence.resolveModelProviderStore(resolveRequestContext(c), runAsAgent);
@@ -644,7 +645,7 @@ async function createServerRuntime<TTransaction>(persistence: ServerPersistence<
     if (rawInline === undefined) {
       return store;
     }
-    assertInlineResourceOverlayAllowed({
+    assertInlineResourceHeadersAllowed({
       headerNames: [X_TFG_MODELS],
       isTrueFoundryMode: tfMode,
       allowInlineResources: options?.allowInlineResources,
@@ -657,13 +658,6 @@ async function createServerRuntime<TTransaction>(persistence: ServerPersistence<
     }
     const rawPerServerHeaders = c.req.header(X_TFG_MCP_HEADERS);
     const rawInline = c.req.header(X_TFG_MCP);
-    if (rawPerServerHeaders !== undefined || rawInline !== undefined) {
-      assertInlineResourceOverlayAllowed({
-        headerNames: [X_TFG_MCP, X_TFG_MCP_HEADERS],
-        isTrueFoundryMode: tfMode,
-        allowInlineResources: options?.allowInlineResources,
-      });
-    }
     const store = persistence.resolveMcpServerStore(
       resolveRequestContext(c),
       runAsAgent,
@@ -672,6 +666,11 @@ async function createServerRuntime<TTransaction>(persistence: ServerPersistence<
     if (rawInline === undefined) {
       return store;
     }
+    assertInlineResourceHeadersAllowed({
+      headerNames: [X_TFG_MCP],
+      isTrueFoundryMode: tfMode,
+      allowInlineResources: options?.allowInlineResources,
+    });
     return new InlineMcpServerStore({ inner: store, inline: parseInlineMcpServers(rawInline) });
   };
   const resolveAgentStore = (c: Context) => persistence.resolveAgentStore(resolveRequestContext(c));
@@ -685,12 +684,12 @@ async function createServerRuntime<TTransaction>(persistence: ServerPersistence<
     if (rawInline === undefined) {
       return store;
     }
-    assertInlineResourceOverlayAllowed({
+    assertInlineResourceHeadersAllowed({
       headerNames: [X_TFG_SKILLS],
       isTrueFoundryMode: tfMode,
       allowInlineResources: options?.allowInlineResources,
     });
-    // Closed-world overlay: no registry/#inner fallthrough.
+    // Closed set: every requested skill name must be in the header (no registry lookup).
     return new InlineSkillStore({ inline: parseInlineSkills(rawInline) });
   };
   const app = createServerApp({
