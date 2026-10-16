@@ -126,6 +126,7 @@ function jsonFormat(): winston.Logform.Format {
   return winston.format.combine(
     winston.format.timestamp(),
     winston.format.errors({ stack: true }),
+    logContextFormat(),
     winston.format.json(),
   );
 }
