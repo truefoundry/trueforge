@@ -155,6 +155,14 @@ export type {
   AgentTracing,
 } from './tracing/AgentTracing';
 
+export { NOOP_OPERATION_METRICS, elapsedSeconds } from './observability/operationMetrics';
+export type {
+  OperationMetrics,
+  OutboundHttpOutcome,
+  OutboundHttpPool,
+  OutboundHttpStatusCode,
+} from './observability/operationMetrics';
+
 // Errors / utils
 export { AgentHarnessError, McpConnectionError, McpDcrConfigurationError } from './errors';
 export { REDIS_KEY_NAMESPACE, redisKey } from './redisKeys';
@@ -182,6 +190,7 @@ export {
 } from './util/outboundFetch';
 export { PromiseTimeoutError, withTimeout } from './util/promiseUtils';
 export {
+  OUTBOUND_URL_BLOCKED,
   assertSafeOutboundUrl,
   configureOutboundUrlGuard,
   createOutboundFetch,

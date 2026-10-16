@@ -30,6 +30,7 @@ let isTrueFoundryModeEnabled: typeof import('./config').isTrueFoundryModeEnabled
 let getTrueForgeAuthMode: typeof import('./config').getTrueForgeAuthMode;
 let getPublicUiBasePath: typeof import('./config').getPublicUiBasePath;
 let TrueForgeAuthMode: typeof import('./config').TrueForgeAuthMode;
+let serverHttpMetrics: HttpMetrics;
 
 try {
   ({
@@ -45,6 +46,8 @@ try {
     allowedHosts: configuration.OUTBOUND_URL_ALLOWED_HOSTS,
     blockedHosts: configuration.OUTBOUND_URL_BLOCKED_HOSTS,
   });
+  serverHttpMetrics = createHttpMetrics();
+  const operationMetrics = createOperationMetrics(serverHttpMetrics.registry);
   configureOutboundFetches({
     outbound: {
       connectTimeoutMs: configuration.OUTBOUND_HTTP_CONNECT_TIMEOUT_MS,
@@ -52,6 +55,7 @@ try {
       bodyTimeoutMs: configuration.OUTBOUND_HTTP_BODY_TIMEOUT_MS,
       maxRetries: configuration.OUTBOUND_HTTP_MAX_RETRIES,
       idempotent: true,
+      metrics: { pool: 'generic', operations: operationMetrics },
     },
     model: {
       connectTimeoutMs: configuration.MODEL_HTTP_CONNECT_TIMEOUT_MS,
@@ -114,9 +118,12 @@ import type { Database as SqliteDatabase } from './db/sqlite/types';
 import type { WithTransaction } from './db/transaction';
 import type { IWebSearchProviderStore } from './db/webSearchProviderStore';
 import { mountFrontend } from './frontend';
+import type { HttpMetrics } from './http/prometheus';
+import { createHttpMetrics } from './http/prometheus';
 import { serverTlsServeOptions } from './http/tls';
 import { createServerLogger, shouldColorize } from './logger';
 import type { IOAuthTokenStore } from './mcp/auth/types';
+import { createOperationMetrics } from './observability/agentMetrics';
 import { PACKAGE_VERSION } from './packageVersion';
 import { ActiveTurnRegistry } from './runtime/activeTurns';
 import { EventSubscriptionRegistry } from './runtime/event-subscription';
@@ -709,6 +716,7 @@ async function createServerRuntime<TTransaction>(persistence: ServerPersistence<
     oidcClient,
     authenticator,
     authorizer,
+    httpMetrics: serverHttpMetrics,
   });
 
   return { activeTurns, app, controller, destroyDb, redis, requestReplyRouter };

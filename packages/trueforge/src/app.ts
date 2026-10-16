@@ -50,6 +50,7 @@ import type { ISessionMetricsStore } from './db/sessionMetricsStore';
 import type { ISkillStore } from './db/skillStore';
 import type { WithTransaction } from './db/transaction';
 import type { IWebSearchProviderStore } from './db/webSearchProviderStore';
+import type { HttpMetrics } from './http/prometheus';
 import { createHttpMetrics } from './http/prometheus';
 import { createClientCertificateMiddleware } from './http/tls';
 import type { IOAuthTokenStore } from './mcp/auth/types';
@@ -249,6 +250,8 @@ export interface ServerDeps<TTransaction> {
   authenticator: Authenticator;
   /** Startup-selected agent authorization policy. */
   authorizer: Authorizer;
+  /** Shared scrape target. Omitted builds a private registry for in-process OpenAPI generation. */
+  httpMetrics?: HttpMetrics;
 }
 
 export function createServerApp<TTransaction>(deps: ServerDeps<TTransaction>) {
@@ -272,7 +275,7 @@ export function createServerApp<TTransaction>(deps: ServerDeps<TTransaction>) {
     turnSkillsResolverStore: deps.turnSkillsResolverStore,
   };
 
-  const httpMetrics = createHttpMetrics();
+  const httpMetrics = deps.httpMetrics ?? createHttpMetrics();
   // Health, the scrape endpoint, and static files sit outside /api, so they never enter this middleware.
   app.use('/api/*', httpMetrics.middleware);
   if (configuration.ACCESS_LOGS) {

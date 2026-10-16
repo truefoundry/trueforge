@@ -3,10 +3,20 @@ import { lookup as dnsLookup } from 'node:dns';
 import { lookup as dnsLookupAsync } from 'node:dns/promises';
 import { BlockList, isIP, type LookupFunction } from 'node:net';
 import { Agent, fetch as undiciFetch } from 'undici';
+import type { OperationMetrics, OutboundHttpOutcome, OutboundHttpPool } from '../observability/operationMetrics';
+import { elapsedSeconds } from '../observability/operationMetrics';
 
 let allowedHosts: string[] = [];
 let blockedHosts: string[] = [];
 let guardEnabled = true;
+
+/** Prefix of every SSRF rejection, including the host, protocol, and redirect messages. */
+export const OUTBOUND_URL_BLOCKED = 'Outbound URL blocked';
+
+const UND_ERR_CONNECT_TIMEOUT = 'UND_ERR_CONNECT_TIMEOUT';
+const UND_ERR_HEADERS_TIMEOUT = 'UND_ERR_HEADERS_TIMEOUT';
+const UND_ERR_BODY_TIMEOUT = 'UND_ERR_BODY_TIMEOUT';
+const OUTBOUND_TIMEOUT_CODES = new Set([UND_ERR_CONNECT_TIMEOUT, UND_ERR_HEADERS_TIMEOUT, UND_ERR_BODY_TIMEOUT]);
 
 const MAX_REDIRECTS = 20;
 const REDIRECT_STATUSES = new Set([301, 302, 303, 307, 308]);
@@ -31,6 +41,11 @@ export interface OutboundFetchOptions {
    * timeouts and 409/520/524 are not retried.
    */
   idempotent: boolean;
+  /** When set, each fetch records one observation. Absent skips metrics. */
+  metrics?: {
+    pool: OutboundHttpPool;
+    operations: OperationMetrics;
+  };
 }
 
 export interface OutboundFetch {
@@ -116,7 +131,7 @@ function isPrivateIp(address: string): boolean {
 }
 
 function blockedError(host: string, cause?: unknown): Error {
-  return new Error(`Outbound URL blocked for host "${host}"`, { cause });
+  return new Error(`${OUTBOUND_URL_BLOCKED} for host "${host}"`, { cause });
 }
 
 function deny(host: string, cause?: unknown): never {
@@ -146,10 +161,10 @@ function parseOutboundUrl(input: string | URL | Request): URL {
   try {
     url = new URL(input instanceof Request ? input.url : input);
   } catch (error) {
-    throw new Error('Outbound URL blocked', { cause: error });
+    throw new Error(OUTBOUND_URL_BLOCKED, { cause: error });
   }
   if (!URL_VERIFY.allowedProtocols.includes(url.protocol)) {
-    throw new Error('Outbound URL blocked: only http and https are allowed');
+    throw new Error(`${OUTBOUND_URL_BLOCKED}: only http and https are allowed`);
   }
   return url;
 }
@@ -232,10 +247,10 @@ function nextHop(
   try {
     nextUrl = new URL(location, current);
   } catch (error) {
-    throw new Error('Outbound URL blocked', { cause: error });
+    throw new Error(OUTBOUND_URL_BLOCKED, { cause: error });
   }
   if (!URL_VERIFY.allowedProtocols.includes(nextUrl.protocol)) {
-    throw new Error('Outbound URL blocked: only http and https are allowed');
+    throw new Error(`${OUTBOUND_URL_BLOCKED}: only http and https are allowed`);
   }
 
   const headers = new Headers(init.headers);
@@ -328,10 +343,10 @@ function getErrorCode(error: unknown): string | undefined {
 /** Connect / headers-read timeouts from undici (including nested under TypeError: fetch failed). */
 export function isRetryableOutboundTransportError(error: unknown, options: { idempotent: boolean }): boolean {
   const code = getErrorCode(error);
-  if (code === 'UND_ERR_CONNECT_TIMEOUT') {
+  if (code === UND_ERR_CONNECT_TIMEOUT) {
     return true;
   }
-  return options.idempotent && code === 'UND_ERR_HEADERS_TIMEOUT';
+  return options.idempotent && code === UND_ERR_HEADERS_TIMEOUT;
 }
 
 function isRetryableOutboundStatus(status: number, options: { idempotent: boolean }): boolean {
@@ -436,7 +451,7 @@ async function guardedFetch(
   }
   void response.body?.cancel().catch(() => undefined);
   if (hopsLeft === 0) {
-    throw new Error('Outbound URL blocked: too many redirects');
+    throw new Error(`${OUTBOUND_URL_BLOCKED}: too many redirects`);
   }
   const hop = nextHop(response, location, url, merged);
   return guardedFetch(hop.url, hop.init, hopsLeft - 1, agent);
@@ -474,6 +489,33 @@ async function withOutboundHttpRetries(
   }
 }
 
+function isBlockedOutboundError(error: unknown): boolean {
+  let current: unknown = error;
+  for (let depth = 0; depth < 5 && current != null; depth += 1) {
+    if (current instanceof Error && current.message.startsWith(OUTBOUND_URL_BLOCKED)) {
+      return true;
+    }
+    current = current instanceof Error ? current.cause : undefined;
+  }
+  return false;
+}
+
+function failedOutboundHttpOutcome(error: unknown): Exclude<OutboundHttpOutcome, 'success'> {
+  if (isBlockedOutboundError(error)) {
+    return 'blocked';
+  }
+  const code = getErrorCode(error);
+  if (code !== undefined && OUTBOUND_TIMEOUT_CODES.has(code)) {
+    return 'timeout';
+  }
+  return 'error';
+}
+
+/** 2xx and 3xx completed the transport. 4xx and 5xx are errors; `statusCode` is the exact status. */
+function responseOutboundHttpOutcome(status: number): OutboundHttpOutcome {
+  return status >= 200 && status < 400 ? 'success' : 'error';
+}
+
 /** Builds a pooled undici Agent + SSRF-guarded fetch with the given timeouts/retries. */
 export function createOutboundFetch(options: OutboundFetchOptions): OutboundFetch {
   const agent = new Agent({
@@ -484,8 +526,33 @@ export function createOutboundFetch(options: OutboundFetchOptions): OutboundFetc
   });
   const maxRetries = options.maxRetries;
   const idempotent = options.idempotent;
+  const metrics = options.metrics;
   return {
-    fetch: (input, init) => withOutboundHttpRetries(input, init ?? {}, agent, { maxRetries, idempotent }),
+    fetch: async (input, init) => {
+      const startedMs = performance.now();
+      try {
+        const response = await withOutboundHttpRetries(input, init ?? {}, agent, { maxRetries, idempotent });
+        if (metrics !== undefined) {
+          metrics.operations.recordOutboundHttpRequest({
+            pool: metrics.pool,
+            outcome: responseOutboundHttpOutcome(response.status),
+            statusCode: response.status,
+            durationSeconds: elapsedSeconds(startedMs),
+          });
+        }
+        return response;
+      } catch (error) {
+        if (metrics !== undefined) {
+          metrics.operations.recordOutboundHttpRequest({
+            pool: metrics.pool,
+            outcome: failedOutboundHttpOutcome(error),
+            statusCode: 'none',
+            durationSeconds: elapsedSeconds(startedMs),
+          });
+        }
+        throw error;
+      }
+    },
     close: async () => {
       await agent.close().catch(() => undefined);
     },

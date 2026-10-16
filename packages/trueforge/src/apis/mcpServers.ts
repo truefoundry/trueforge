@@ -4,6 +4,7 @@ import {
   extractErrorLogFields,
   isAuthRequired,
   McpConnectionError,
+  OUTBOUND_URL_BLOCKED,
   RemoteMCP,
 } from '@truefoundry/trueforge-core/core';
 import type { Context } from 'hono';
@@ -207,7 +208,7 @@ export function createSettingsMcpServersRouter<TTransaction>(deps: SettingsMcpSe
     try {
       await assertSafeOutboundUrl(incomingManifest.url);
     } catch (error) {
-      const message = error instanceof Error ? error.message : 'Outbound URL blocked';
+      const message = error instanceof Error ? error.message : OUTBOUND_URL_BLOCKED;
       throw new HTTPException(400, { message: message, cause: error });
     }
 
@@ -287,7 +288,7 @@ export function createSettingsMcpServersRouter<TTransaction>(deps: SettingsMcpSe
     try {
       await assertSafeOutboundUrl(incomingManifest.url);
     } catch (error) {
-      const message = error instanceof Error ? error.message : 'Outbound URL blocked';
+      const message = error instanceof Error ? error.message : OUTBOUND_URL_BLOCKED;
       throw new HTTPException(400, { message: message, cause: error });
     }
 
