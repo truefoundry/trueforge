@@ -7,6 +7,7 @@ import type { RedisClient, RequestReplyRouter } from '@truefoundry/trueforge-cor
 import type { Context, ErrorHandler, MiddlewareHandler } from 'hono';
 import { bodyLimit } from 'hono/body-limit';
 import { HTTPException } from 'hono/http-exception';
+import { randomUUID } from 'node:crypto';
 import type { Configuration } from 'openid-client';
 import type { Logger } from 'winston';
 import { createAgentsRouter } from './apis/agents';
@@ -52,6 +53,7 @@ import type { WithTransaction } from './db/transaction';
 import type { IWebSearchProviderStore } from './db/webSearchProviderStore';
 import { createHttpMetrics } from './http/prometheus';
 import { createClientCertificateMiddleware } from './http/tls';
+import { runWithLogContext, updateLogContext, type LogContext } from './logger';
 import type { IOAuthTokenStore } from './mcp/auth/types';
 import { PACKAGE_VERSION } from './packageVersion';
 import { OPENAPI_DOCUMENT_TAGS } from './routes/openapiTags';
@@ -61,6 +63,52 @@ import { InvalidCronError } from './schemas/schedule';
 import { zodErrorResponse, zodValidationHook } from './zodErrorResponse';
 
 const BEARER_AUTH_SCHEME = 'BearerAuth';
+
+const REQUEST_ID_HEADER = 'x-request-id';
+
+/** Single token. Rejects spaces, quotes, and newlines so a caller cannot break a JSON log line. */
+const SAFE_REQUEST_ID = /^[A-Za-z0-9._:-]{1,200}$/;
+
+const SESSION_LOG_PATH = /^\/api\/v1\/sessions\/([^/]+)(?:\/|$)/;
+const TURN_LOG_PATH = /^\/api\/v1\/sessions\/[^/]+\/turns\/([^/]+)(?:\/|$)/;
+
+function requestIdFromHeader(raw: string | undefined): string {
+  if (raw !== undefined && SAFE_REQUEST_ID.test(raw)) {
+    return raw;
+  }
+  return randomUUID();
+}
+
+/**
+ * Opens a log context for the request and echoes `x-request-id`.
+ * Registered first so the access log and error handler run inside it.
+ */
+export function createRequestLogContextMiddleware(): MiddlewareHandler {
+  return async (c, next) => {
+    const request_id = requestIdFromHeader(c.req.header(REQUEST_ID_HEADER));
+    c.header(REQUEST_ID_HEADER, request_id);
+    await runWithLogContext({ request_id }, async () => {
+      await next();
+    });
+  };
+}
+
+/** Stamp session and turn ids from public session URLs. Skips `/api/internal/sessions/...`. */
+export function createSessionPathLogContextMiddleware(): MiddlewareHandler {
+  return async (c, next) => {
+    const path = c.req.path;
+    const session_id = SESSION_LOG_PATH.exec(path)?.[1];
+    const turn_id = TURN_LOG_PATH.exec(path)?.[1];
+    const fields: LogContext = {
+      ...(session_id === undefined ? {} : { session_id }),
+      ...(turn_id === undefined ? {} : { turn_id }),
+    };
+    if (session_id !== undefined || turn_id !== undefined) {
+      updateLogContext(fields);
+    }
+    await next();
+  };
+}
 
 function withAuth(router: OpenAPIHono, middleware: MiddlewareHandler): OpenAPIHono {
   const shell = new OpenAPIHono();
@@ -273,6 +321,8 @@ export function createServerApp<TTransaction>(deps: ServerDeps<TTransaction>) {
   };
 
   const httpMetrics = createHttpMetrics();
+  app.use('*', createRequestLogContextMiddleware());
+  app.use('*', createSessionPathLogContextMiddleware());
   // Health, the scrape endpoint, and static files sit outside /api, so they never enter this middleware.
   app.use('/api/*', httpMetrics.middleware);
   if (configuration.ACCESS_LOGS) {

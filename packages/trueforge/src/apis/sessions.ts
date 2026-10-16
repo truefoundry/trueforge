@@ -31,6 +31,7 @@ import type { IModelProviderStore } from '../db/modelProviderStore';
 import type { ISandboxEnvironmentStore } from '../db/sandboxEnvironmentStore';
 import type { ISandboxProviderStore } from '../db/sandboxProviderStore';
 import type { IWebSearchProviderStore } from '../db/webSearchProviderStore';
+import { updateLogContext } from '../logger';
 import {
   cancelSessionRoute,
   createSessionRoute,
@@ -186,8 +187,6 @@ export async function cancelSessionTurn(
       }
     } catch (error) {
       const fields = {
-        sessionId,
-        turnId,
         owner,
         ...extractErrorLogFields(error),
       };
@@ -338,6 +337,7 @@ export function createSessionsRouter(deps: SessionsRouterDeps) {
   const createSessionHandler: RouteHandler<typeof createSessionRoute> = async c => {
     const body = c.req.valid('json');
     const sessionId = newId();
+    updateLogContext({ session_id: sessionId });
     const requestContext = deps.resolveRequestContext(c);
 
     if (isSessionAgentNameRef(body.agent)) {

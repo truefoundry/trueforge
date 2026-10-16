@@ -1,4 +1,5 @@
 import type { SessionHandle, Sessions, TurnInputItem } from '@truefoundry/trueforge-core/agent-session';
+import { randomUUID } from 'node:crypto';
 import type { Logger } from 'winston';
 import type { AgentRecord, IAgentStore } from '../db/agentStore';
 import {
@@ -8,6 +9,7 @@ import {
   type ScheduleRunRecord,
 } from '../db/scheduleStore';
 import type { WithTransaction } from '../db/transaction';
+import { runWithLogContext } from '../logger';
 import { nextTriggerAfter } from '../runtime/cron';
 import { InvalidCronError, type ScheduleRunStatus } from '../schemas/schedule';
 import { captureCriticalException } from '../sentry';
@@ -265,70 +267,73 @@ export async function dispatchScheduledRuns<TTransaction>(params: {
     if (signal?.aborted) {
       break;
     }
-    try {
-      const schedule = await store.getSchedule({
-        tenant_id: run.tenant_id,
-        id: run.schedule_id,
-      });
-      // Only a deleted schedule stops a row here. `paused` deliberately does NOT:
-      // status decides whether the schedule gains a NEW row, never whether an
-      // existing one runs. A row that exists was added while the schedule was
-      // active, so it is honoured.
-      if (schedule === undefined) {
-        continue;
-      }
-
+    // Same request id as the server that receives the run, including the handoff error line.
+    await runWithLogContext({ request_id: randomUUID(), tenant_id: run.tenant_id }, async () => {
       try {
-        await onTriggered({ run, schedule });
-      } catch (error) {
-        logger.error('Failed to hand off triggered run', {
-          schedule_id: schedule.id,
-          run_id: run.id,
-          error,
+        const schedule = await store.getSchedule({
+          tenant_id: run.tenant_id,
+          id: run.schedule_id,
         });
-        captureCriticalException(error, {
-          tags: { module: 'scheduleDispatch', operation: 'handoff' },
-          extra: {
-            tenant_id: run.tenant_id,
+        // Only a deleted schedule stops a row here. `paused` deliberately does NOT:
+        // status decides whether the schedule gains a NEW row, never whether an
+        // existing one runs. A row that exists was added while the schedule was
+        // active, so it is honoured.
+        if (schedule === undefined) {
+          return;
+        }
+
+        try {
+          await onTriggered({ run, schedule });
+        } catch (error) {
+          logger.error('Failed to hand off triggered run', {
             schedule_id: schedule.id,
             run_id: run.id,
-          },
-        });
+            error,
+          });
+          captureCriticalException(error, {
+            tags: { module: 'scheduleDispatch', operation: 'handoff' },
+            extra: {
+              tenant_id: run.tenant_id,
+              schedule_id: schedule.id,
+              run_id: run.id,
+            },
+          });
+          await finishScheduledRun({
+            store,
+            run,
+            now,
+            status: 'failed',
+            reason: scheduleRunFailureReason(error),
+            withTransaction,
+          });
+          failed += 1;
+          return;
+        }
+
         await finishScheduledRun({
           store,
           run,
           now,
-          status: 'failed',
-          reason: scheduleRunFailureReason(error),
+          status: 'triggered',
           withTransaction,
         });
-        failed += 1;
-        continue;
-      }
-
-      await finishScheduledRun({
-        store,
-        run,
-        now,
-        status: 'triggered',
-        withTransaction,
-      });
-      dispatched += 1;
-    } catch (error) {
-      logger.error('Failed to process scheduled run', {
-        schedule_id: run.schedule_id,
-        run_id: run.id,
-        error,
-      });
-      captureCriticalException(error, {
-        tags: { module: 'scheduleDispatch', operation: 'processRun' },
-        extra: {
-          tenant_id: run.tenant_id,
+        dispatched += 1;
+      } catch (error) {
+        logger.error('Failed to process scheduled run', {
           schedule_id: run.schedule_id,
           run_id: run.id,
-        },
-      });
-    }
+          error,
+        });
+        captureCriticalException(error, {
+          tags: { module: 'scheduleDispatch', operation: 'processRun' },
+          extra: {
+            tenant_id: run.tenant_id,
+            schedule_id: run.schedule_id,
+            run_id: run.id,
+          },
+        });
+      }
+    });
   }
 
   return { dispatched, failed };
