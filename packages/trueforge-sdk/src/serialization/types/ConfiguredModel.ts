@@ -10,6 +10,9 @@ export const ConfiguredModel: core.serialization.ObjectSchema<
     serializers.ConfiguredModel.Raw,
     TrueForge.ConfiguredModel
 > = core.serialization.object({
+    baseUrl: core.serialization.property("base_url", core.serialization.string().optional()),
+    chatCompletionsPath: core.serialization.property("chat_completions_path", core.serialization.string().optional()),
+    invocationError: core.serialization.property("invocation_error", core.serialization.string().optional()),
     modelId: core.serialization.property("model_id", core.serialization.string()),
     name: ResourceName,
     properties: ModelProperties,
@@ -17,6 +20,9 @@ export const ConfiguredModel: core.serialization.ObjectSchema<
 
 export declare namespace ConfiguredModel {
     export interface Raw {
+        base_url?: string | null;
+        chat_completions_path?: string | null;
+        invocation_error?: string | null;
         model_id: string;
         name: ResourceName.Raw;
         properties: ModelProperties.Raw;

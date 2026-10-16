@@ -177,6 +177,19 @@ describe('describeStreamError', () => {
       ).toBe(expected);
     });
 
+    it('explains a 404 from a TrueFoundry custom-endpoint proxy of Jev', () => {
+      expect(
+        describeStreamError(
+          new APICallError({
+            message: 'Not Found',
+            url: 'https://gateway.truefoundry.ai/proxy-api/jev/custom-endpoint/chat/completions',
+            requestBodyValues: { model: 'jev/custom-endpoint' },
+            statusCode: 404,
+          }),
+        ),
+      ).toContain('POST /v1/systemone');
+    });
+
     it('omits status prefix when statusCode is absent', () => {
       expect(
         describeStreamError(
