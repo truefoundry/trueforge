@@ -78,19 +78,19 @@ export class ScheduleNotFoundError extends Error {
  *
  * Callers start the turn (e.g. via `startTurnInProcess`) with request-scoped stores.
  */
-export interface PreparedScheduleTurn {
-  session: SessionHandle;
+export interface PreparedScheduleTurn<TTransaction> {
+  session: SessionHandle<Record<string, never>, Record<string, never>, TTransaction>;
   input: UserMessage[];
   previous_turn_id: string;
   userRef: string;
   agent: AgentRecord;
 }
 
-export async function startScheduleRun(params: {
+export async function startScheduleRun<TTransaction>(params: {
   item: ScheduleDispatchItem;
-  sessions: Sessions;
+  sessions: Sessions<Record<string, never>, Record<string, never>, TTransaction>;
   agentStore: IAgentStore;
-}): Promise<PreparedScheduleTurn | undefined> {
+}): Promise<PreparedScheduleTurn<TTransaction> | undefined> {
   const {
     item: { run, schedule },
     sessions,

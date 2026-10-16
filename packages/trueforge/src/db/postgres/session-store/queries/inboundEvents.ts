@@ -9,7 +9,7 @@ import {
   SessionStoreInvariantError,
   TurnEventAlreadyExistsError,
 } from '@truefoundry/trueforge-core/agent-session/store/SessionStoreErrors';
-import type { Kysely } from 'kysely';
+import type { Kysely, Transaction } from 'kysely';
 import { sql } from 'kysely';
 import { firstDuplicate, firstValueInSet } from '../../../../utils/collections';
 import { toTurnUserEvent, toTurnUserEventMessage } from '../../../turnInboundEvents';
@@ -18,7 +18,9 @@ import { json } from '../../sqlExpressions';
 import type { Database } from '../../types';
 import { assertTurnNonTerminal } from './turns';
 
-async function requireSession(db: Kysely<Database>, sessionId: string): Promise<void> {
+type DbOrTrx = Kysely<Database> | Transaction<Database>;
+
+async function requireSession(db: DbOrTrx, sessionId: string): Promise<void> {
   const row = await db
     .selectFrom('session')
     .select('session_id')
@@ -135,37 +137,42 @@ export async function markTurnInboundEventsConsumed(
   db: Kysely<Database>,
   input: MarkTurnInboundEventsConsumedInput,
 ): Promise<void> {
+  await db.transaction().execute(trx => markTurnInboundEventsConsumedInTransaction(trx, input));
+}
+
+export async function markTurnInboundEventsConsumedInTransaction(
+  trx: Transaction<Database>,
+  input: MarkTurnInboundEventsConsumedInput,
+): Promise<void> {
   if (input.event_ids.length === 0) {
     return;
   }
-  await requireSession(db, input.session_id);
+  await requireSession(trx, input.session_id);
 
   const uniqueIds = [...new Set(input.event_ids)];
   const keys = { session_id: input.session_id, turn_id: input.turn_id };
 
-  await db.transaction().execute(async trx => {
-    await assertTurnNonTerminal(trx, keys);
-    const existing = await trx
-      .selectFrom('turn_inbound_events')
-      .select('event_id')
-      .where('session_id', '=', input.session_id)
-      .where('turn_id', '=', input.turn_id)
-      .where('event_id', 'in', uniqueIds)
-      .execute();
-    const found = new Set(existing.map(row => row.event_id));
-    for (const eventId of uniqueIds) {
-      if (!found.has(eventId)) {
-        throw new SessionStoreInvariantError(
-          `Inbound event not found for mark-consumed: ${input.session_id}/${input.turn_id}/${eventId}`,
-        );
-      }
+  await assertTurnNonTerminal(trx, keys);
+  const existing = await trx
+    .selectFrom('turn_inbound_events')
+    .select('event_id')
+    .where('session_id', '=', input.session_id)
+    .where('turn_id', '=', input.turn_id)
+    .where('event_id', 'in', uniqueIds)
+    .execute();
+  const found = new Set(existing.map(row => row.event_id));
+  for (const eventId of uniqueIds) {
+    if (!found.has(eventId)) {
+      throw new SessionStoreInvariantError(
+        `Inbound event not found for mark-consumed: ${input.session_id}/${input.turn_id}/${eventId}`,
+      );
     }
-    await trx
-      .updateTable('turn_inbound_events')
-      .set({ consumed: true })
-      .where('session_id', '=', input.session_id)
-      .where('turn_id', '=', input.turn_id)
-      .where('event_id', 'in', uniqueIds)
-      .execute();
-  });
+  }
+  await trx
+    .updateTable('turn_inbound_events')
+    .set({ consumed: true })
+    .where('session_id', '=', input.session_id)
+    .where('turn_id', '=', input.turn_id)
+    .where('event_id', 'in', uniqueIds)
+    .execute();
 }

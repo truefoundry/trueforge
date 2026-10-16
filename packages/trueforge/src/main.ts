@@ -152,7 +152,7 @@ import { TrueFoundryWebSearchProviderStore } from './truefoundry/TrueFoundryWebS
 /** Persistence + optional Redis wired for the selected topology. */
 interface ServerPersistence<TTransaction> {
   withTransaction: WithTransaction<TTransaction>;
-  sessionStore: ISessionStore;
+  sessionStore: ISessionStore<Record<string, never>, Record<string, never>, TTransaction>;
   sessionMetricsStore: ISessionMetricsStore;
   tokenStore: IOAuthTokenStore<TTransaction>;
   scheduleStore: IScheduleStore<TTransaction>;

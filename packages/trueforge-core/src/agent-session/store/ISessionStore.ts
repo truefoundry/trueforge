@@ -267,6 +267,7 @@ export interface ListSessionEventsInput {
 export interface ISessionStore<
   TSessionCustom extends object = Record<string, never>,
   TTurnCustom extends object = Record<string, never>,
+  TTransaction = never,
 > {
   /**
    * Persists a discriminated `agent` (ref | value). SQL backends may flatten to columns.
@@ -383,6 +384,9 @@ export interface ISessionStore<
    */
   updateTurnTerminalState(input: UpdateTurnTerminalStateInput): Promise<void>;
 
+  /** Runs related writes atomically and supplies the backend transaction handle. */
+  withTransaction<T>(callback: (transaction: TTransaction) => Promise<T>): Promise<T>;
+
   /**
    * Durable event log for the turn. MUST include lifecycle rows: a
    * `TurnCreatedEvent` at the start of the stream and a terminal `TurnDoneEvent`
@@ -393,7 +397,7 @@ export interface ISessionStore<
    * key. `created_at` records event creation time but is not the order key.
    */
   /** Appends events while the caller owns a `running` or `paused` turn; terminal turns are immutable. */
-  appendToEvents(input: AppendToEventsInput): Promise<void>;
+  appendToEvents(input: AppendToEventsInput, transaction?: TTransaction): Promise<void>;
 
   /**
    * Durable inbound send-event inbox for a tip the caller still owns. Tip must be
@@ -418,31 +422,31 @@ export interface ISessionStore<
    * ids are idempotent. Unknown `event_id` on that tip →
    * {@link SessionStoreInvariantError} with no rows left consumed from the batch.
    */
-  markTurnInboundEventsConsumed(input: MarkTurnInboundEventsConsumedInput): Promise<void>;
+  markTurnInboundEventsConsumed(input: MarkTurnInboundEventsConsumedInput, transaction?: TTransaction): Promise<void>;
 
   /** Adds thread snapshots to the turn (sub-agent spawns). */
-  addThreads(input: AddThreadsInput): Promise<void>;
+  addThreads(input: AddThreadsInput, transaction?: TTransaction): Promise<void>;
 
   /** Removes threads from the turn by id. */
-  removeThreads(input: RemoveThreadsInput): Promise<void>;
+  removeThreads(input: RemoveThreadsInput, transaction?: TTransaction): Promise<void>;
 
   /** Appends messages while the turn is non-terminal; optionally updates usage / completion marker. */
-  appendToThreadContext(input: AppendToThreadContextInput): Promise<void>;
+  appendToThreadContext(input: AppendToThreadContextInput, transaction?: TTransaction): Promise<void>;
 
   /** Replaces a thread's context wholesale while the turn is non-terminal. */
   overwriteThreadContext(input: OverwriteThreadContextInput): Promise<void>;
 
   /** Patches a non-terminal turn's MCP server init info (by source id). */
-  patchMCPServers(input: PatchMCPServersInput): Promise<void>;
+  patchMCPServers(input: PatchMCPServersInput, transaction?: TTransaction): Promise<void>;
 
   /** Patches the turn snapshot's sandbox info (id for cross-turn reattach). */
-  patchSandboxInfo(input: PatchSandboxInfoInput): Promise<void>;
+  patchSandboxInfo(input: PatchSandboxInfoInput, transaction?: TTransaction): Promise<void>;
 
   /** Generic capability KV — store has zero Plan/feature knowledge. */
   patchThreadCapabilityState(input: PatchThreadCapabilityStateInput): Promise<void>;
 
   /** Patches the MCP-auth wait state of the supplied threads. Must still own the turn. */
-  patchThreadsMCPAuth(input: PatchThreadsMCPAuthInput): Promise<void>;
+  patchThreadsMCPAuth(input: PatchThreadsMCPAuthInput, transaction?: TTransaction): Promise<void>;
 
   /** Paginated read ordered lexically by monotonic `event.id` (asc default). */
   listTurnEvents(input: ListTurnEventsInput): Promise<{

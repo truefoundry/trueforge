@@ -7,8 +7,10 @@
 import { CancellationReason, type TurnHandle } from '@truefoundry/trueforge-core/agent-session';
 import { Mutex } from 'async-mutex';
 
+type ActiveTurnHandle = Pick<TurnHandle, 'id' | 'session_id' | 'send'>;
+
 interface ActiveTurnRun {
-  turn: TurnHandle;
+  turn: ActiveTurnHandle;
   abortController: AbortController;
   waitUntilCompleted: Promise<void>;
   markCompleted: () => void;
@@ -53,7 +55,11 @@ export class ActiveTurnRegistry {
    * exits early). If shutdown has already begun, aborts the controller with
    * the shutdown reason so the turn ends as abandoned.
    */
-  track<T>(input: { abortController: AbortController; stream: AsyncIterable<T>; turn: TurnHandle }): AsyncGenerator<T> {
+  track<T>(input: {
+    abortController: AbortController;
+    stream: AsyncIterable<T>;
+    turn: ActiveTurnHandle;
+  }): AsyncGenerator<T> {
     const key = activeTurnKey(input.turn.session_id, input.turn.id);
     const { promise: waitUntilCompleted, resolve } = Promise.withResolvers<undefined>();
     const markCompleted = (): void => {
@@ -113,7 +119,7 @@ export class ActiveTurnRegistry {
    * resumable here — never started, already terminal (the stream removed its run), aborting, or
    * registered without a handle.
    */
-  getTurnHandle(input: { sessionId: string; turnId: string }): TurnHandle | undefined {
+  getTurnHandle(input: { sessionId: string; turnId: string }): ActiveTurnHandle | undefined {
     const run = this.runs.get(activeTurnKey(input.sessionId, input.turnId));
     if (!run) {
       return undefined;

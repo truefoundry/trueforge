@@ -48,7 +48,7 @@ describe('Sessions / SessionHandle / TurnHandle (storage + createTurn)', () => {
 
   it('create/get persists an inline value-agent session', async () => {
     const store = new InMemorySessionStore<{ tag: string }>();
-    const sessions = new Sessions<{ tag: string }>({ sessionStore: store });
+    const sessions = new Sessions({ sessionStore: store });
     const created = await sessions.create({
       tenant_id: tenant,
       session_id: 's1',

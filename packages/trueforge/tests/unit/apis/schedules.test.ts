@@ -1,10 +1,5 @@
 import { OpenAPIHono } from '@hono/zod-openapi';
-import {
-  AgentSpecSchema,
-  InMemorySessionStore,
-  Sessions,
-  type TurnStreamingEvent,
-} from '@truefoundry/trueforge-core/agent-session';
+import { AgentSpecSchema, Sessions, type TurnStreamingEvent } from '@truefoundry/trueforge-core/agent-session';
 import winston from 'winston';
 import { createScheduleExecutionRouter, createSchedulesRouter } from '../../../src/apis/schedules';
 import { TrueForgeAuthorizer, type Authorizer } from '../../../src/auth/authorizer';
@@ -14,6 +9,7 @@ import { migrateSqliteToLatest } from '../../../src/db/migrateSqlite';
 import { SqliteAgentStore } from '../../../src/db/sqlite/agent-store/SqliteAgentStore';
 import { createSqliteDb } from '../../../src/db/sqlite/client';
 import { SqliteScheduleStore } from '../../../src/db/sqlite/schedule-store/SqliteScheduleStore';
+import { SqliteSessionStore } from '../../../src/db/sqlite/session-store/SqliteSessionStore';
 import { ActiveTurnRegistry } from '../../../src/runtime/activeTurns';
 import { EventSubscriptionRegistry } from '../../../src/runtime/event-subscription';
 import {
@@ -59,8 +55,11 @@ const scheduleBody = {
   manifest: { task: 'Say hi', cron: '0 13 * * *', timezone: 'UTC' },
 };
 
-function stubTurnExecutionDeps(agentStore: SqliteAgentStore, scheduleStore: SqliteScheduleStore) {
-  const sessionStore = new InMemorySessionStore();
+function stubTurnExecutionDeps(
+  agentStore: SqliteAgentStore,
+  scheduleStore: SqliteScheduleStore,
+  sessionStore: SqliteSessionStore,
+) {
   return {
     scheduleStore,
     sessions: new Sessions({ sessionStore }),
@@ -103,7 +102,7 @@ async function setup(authorizer: Authorizer = new TrueForgeAuthorizer()) {
   app.route(
     '/',
     createSchedulesRouter({
-      ...stubTurnExecutionDeps(agentStore, scheduleStore),
+      ...stubTurnExecutionDeps(agentStore, scheduleStore, new SqliteSessionStore(db)),
       resolveAgentStore: () => agentStore,
       withTransaction: callback => db.transaction().execute(callback),
       resolveRequestContext: () => current,
@@ -479,7 +478,9 @@ describe('internal schedule execution', () => {
       },
       triggered_at: new Date(),
     });
-    const app = createScheduleExecutionRouter(stubTurnExecutionDeps(agentStore, scheduleStore));
+    const app = createScheduleExecutionRouter(
+      stubTurnExecutionDeps(agentStore, scheduleStore, new SqliteSessionStore(db)),
+    );
 
     const response = await app.request('/runs/execute', {
       method: 'POST',
@@ -500,7 +501,9 @@ describe('internal schedule execution', () => {
     await migrateSqliteToLatest(db);
     const agentStore = new SqliteAgentStore(db);
     const scheduleStore = new SqliteScheduleStore(db);
-    const app = createScheduleExecutionRouter(stubTurnExecutionDeps(agentStore, scheduleStore));
+    const app = createScheduleExecutionRouter(
+      stubTurnExecutionDeps(agentStore, scheduleStore, new SqliteSessionStore(db)),
+    );
 
     const response = await app.request('/runs/execute', {
       method: 'POST',

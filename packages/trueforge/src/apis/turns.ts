@@ -113,9 +113,9 @@ export function toContentDisposition(path: string): string {
   return `attachment; filename*=UTF-8''${encoded}`;
 }
 
-export interface TurnsRouterDeps {
-  sessions: Sessions;
-  sessionStore: ISessionStore;
+export interface TurnsRouterDeps<TTransaction = never> {
+  sessions: Sessions<Record<string, never>, Record<string, never>, TTransaction>;
+  sessionStore: ISessionStore<Record<string, never>, Record<string, never>, TTransaction>;
   activeTurns: ActiveTurnRegistry;
   resolveModelProviderStore: (c: Context, runAsAgent?: AgentRecord) => IModelProviderStore;
   resolveMcpServerStore: (c: Context, runAsAgent?: AgentRecord) => IMcpServerWithAuthStore;
@@ -148,8 +148,8 @@ export type BeginTurnExecutionDeps = Pick<
   skillStore: Pick<ISkillStore, 'resolveTurnSkills'>;
 };
 
-interface BeginTurnExecutionParams {
-  session: SessionHandle;
+interface BeginTurnExecutionParams<TTransaction> {
+  session: SessionHandle<Record<string, never>, Record<string, never>, TTransaction>;
   input: UserMessage[] | undefined;
   previous_turn_id: string | undefined;
   userRef: string;
@@ -173,7 +173,7 @@ function createTurnResolver(deps: {
   logger: Logger;
   signal: AbortSignal;
   userRef: string;
-  session: SessionHandle;
+  session: Pick<SessionHandle, 'tenant_id' | 'session_id'>;
   turnMetadata: TurnMetadata;
 }): TurnResourceResolver {
   const {
@@ -407,9 +407,9 @@ export interface TurnEventDrainInput {
  * Shared create-turn engine: persist the turn, start execution, and return the
  * drain inputs. Does not wait for events and does not write HTTP/SSE.
  */
-export async function beginTurnExecution(
-  params: BeginTurnExecutionParams,
-): Promise<{ turn: TurnHandle; drainInput: TurnEventDrainInput }> {
+export async function beginTurnExecution<TTransaction>(
+  params: BeginTurnExecutionParams<TTransaction>,
+): Promise<{ turn: TurnHandle<Record<string, never>, TTransaction>; drainInput: TurnEventDrainInput }> {
   const { session, input, previous_turn_id: previousTurnId, userRef, requestHeaders, deps } = params;
   // Fail closed on a bad inbound header before minting a turn id / starting execution.
   assertGatewayMetadataRequestHeaders(requestHeaders);
@@ -490,7 +490,9 @@ export async function beginTurnExecution(
  * Non-stream create-turn: begin execution and resolve once the first event is
  * dual-written so immediate subscribe cannot 412. Same as `stream: false`.
  */
-export async function startTurnInProcess(params: BeginTurnExecutionParams): Promise<TurnHandle> {
+export async function startTurnInProcess<TTransaction>(
+  params: BeginTurnExecutionParams<TTransaction>,
+): Promise<TurnHandle<Record<string, never>, TTransaction>> {
   const { turn, drainInput } = await beginTurnExecution(params);
 
   // Same unawaited drain scheduling as Hono streamSSE's run(cb).
@@ -577,7 +579,7 @@ const FORBIDDEN_SESSION_ACCESS = 'Only the session creator can access this sessi
 const FORBIDDEN_CREATE_TURN = 'Only the session creator can create turns';
 
 /** DB-backed turns (mounted at /api/v1/sessions). */
-export function createTurnsRouter(deps: TurnsRouterDeps) {
+export function createTurnsRouter<TTransaction>(deps: TurnsRouterDeps<TTransaction>) {
   const listTurnsHandler: RouteHandler<typeof listTurnsRoute> = async c => {
     const { session_id: sessionId } = c.req.valid('param');
     const query = c.req.valid('query');
@@ -796,7 +798,7 @@ export function createTurnsRouter(deps: TurnsRouterDeps) {
       referencedAgent = agent;
     }
 
-    const turnParams: BeginTurnExecutionParams = {
+    const turnParams: BeginTurnExecutionParams<TTransaction> = {
       session,
       input: body.input,
       previous_turn_id: body.previous_turn_id,

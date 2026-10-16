@@ -1,4 +1,3 @@
-import type { ISessionStore } from '@truefoundry/trueforge-core/agent-session/store/ISessionStore';
 import { sql } from 'kysely';
 
 import { runStoreContractSuite } from '../../../../../trueforge-core/tests/agent-session/store/storeContractSuite';
@@ -37,7 +36,7 @@ describePg('PostgresSessionStore (ISessionStore contract)', () => {
     }
   });
 
-  runStoreContractSuite((): ISessionStore => {
+  runStoreContractSuite(() => {
     if (env === undefined) {
       throw new Error('Postgres test environment not initialized');
     }

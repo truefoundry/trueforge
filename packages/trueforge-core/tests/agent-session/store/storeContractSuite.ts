@@ -67,13 +67,16 @@ function contextContents(messages: ContextMessage[] | undefined): string[] {
 }
 
 /** Store contract suite — factory-injected so other backends can reuse it. */
-export function runStoreContractSuite(createStore: () => ISessionStore) {
+export function runStoreContractSuite<TTransaction>(
+  createStore: () => ISessionStore<Record<string, never>, Record<string, never>, TTransaction>,
+) {
+  type Store = ISessionStore<Record<string, never>, Record<string, never>, TTransaction>;
   const tenant = 't1';
   const sessionId = 's1';
   const missingSessionId = 'missing-session';
   const missingTurnId = 'missing-turn';
 
-  async function finishTurn(store: ISessionStore, turnId: string) {
+  async function finishTurn(store: Store, turnId: string) {
     const state = makeDoneTurnState();
     await store.updateTurnTerminalState({
       active_executor_id: TEST_ACTIVE_EXECUTOR_ID,
@@ -84,7 +87,7 @@ export function runStoreContractSuite(createStore: () => ISessionStore) {
     });
   }
 
-  async function seedSession(store: ISessionStore, agentSpec = makeAgentSpec()) {
+  async function seedSession(store: Store, agentSpec = makeAgentSpec()) {
     await store.createSession({
       tenant_id: tenant,
       session_id: sessionId,
@@ -97,10 +100,7 @@ export function runStoreContractSuite(createStore: () => ISessionStore) {
     });
   }
 
-  function turnScopedWrites(
-    store: ISessionStore,
-    keys: { session_id: string; turn_id: string },
-  ): (() => Promise<unknown>)[] {
+  function turnScopedWrites(store: Store, keys: { session_id: string; turn_id: string }): (() => Promise<unknown>)[] {
     const doneState = makeDoneTurnState();
     return [
       () =>
@@ -945,7 +945,7 @@ export function runStoreContractSuite(createStore: () => ISessionStore) {
   });
 
   describe('listSessions', () => {
-    async function seedThreeSessions(store: ISessionStore) {
+    async function seedThreeSessions(store: Store) {
       for (const id of ['sa', 'sb', 'sc']) {
         await store.createSession({
           tenant_id: tenant,
@@ -3179,6 +3179,74 @@ export function runStoreContractSuite(createStore: () => ISessionStore) {
       ).rejects.toBeInstanceOf(TurnNotRunningError);
     });
 
+    it('withTransaction atomically persists context, events, and inbound consumption', async () => {
+      const store = createStore();
+      await seedSession(store);
+      await store.createTurn(makeCreateTurnInput({ sessionId, turnId: 'turn-1' }));
+
+      const inbound = {
+        id: newEventId(),
+        type: 'user.tool_response' as const,
+        thread_id: MAIN_THREAD_ID,
+        tool_call_id: 'tc-transaction',
+        content: 'client result',
+        created_at: new Date().toISOString(),
+      };
+      const scope = {
+        session_id: sessionId,
+        turn_id: 'turn-1',
+        active_executor_id: TEST_ACTIVE_EXECUTOR_ID,
+      };
+      await store.insertTurnInboundEvents({ ...scope, events: [inbound] });
+
+      await expect(
+        store.withTransaction(async transaction => {
+          await store.appendToThreadContext(
+            {
+              ...scope,
+              thread_id: MAIN_THREAD_ID,
+              context: [userMessage('transactional context')],
+              current_context_usage: null,
+              completion: null,
+            },
+            transaction,
+          );
+          await store.appendToEvents({ ...scope, events: [inbound] }, transaction);
+          await store.markTurnInboundEventsConsumed({ ...scope, event_ids: [inbound.id] }, transaction);
+          throw new Error('rollback');
+        }),
+      ).rejects.toThrow('rollback');
+
+      let turn = mustGet(await store.getTurn(scope));
+      expect(contextContents(turn.snapshot.threads[MAIN_THREAD_ID]?.context)).not.toContain('transactional context');
+      expect((await store.listTurnEvents({ ...scope, limit: 10, page_token: undefined, order: 'asc' })).data).toEqual(
+        [],
+      );
+      expect(await store.listUnconsumedTurnInboundEvents(scope)).toEqual([inbound]);
+
+      await store.withTransaction(async transaction => {
+        await store.appendToThreadContext(
+          {
+            ...scope,
+            thread_id: MAIN_THREAD_ID,
+            context: [userMessage('transactional context')],
+            current_context_usage: null,
+            completion: null,
+          },
+          transaction,
+        );
+        await store.appendToEvents({ ...scope, events: [inbound] }, transaction);
+        await store.markTurnInboundEventsConsumed({ ...scope, event_ids: [inbound.id] }, transaction);
+      });
+
+      turn = mustGet(await store.getTurn(scope));
+      expect(contextContents(turn.snapshot.threads[MAIN_THREAD_ID]?.context)).toContain('transactional context');
+      expect((await store.listTurnEvents({ ...scope, limit: 10, page_token: undefined, order: 'asc' })).data).toEqual([
+        inbound,
+      ]);
+      expect(await store.listUnconsumedTurnInboundEvents(scope)).toEqual([]);
+    });
+
     it('concurrent freeze x insertTurnInboundEvents: terminal tip rejects or insert wins cleanly', async () => {
       const store = createStore();
       await seedSession(store);
@@ -3935,7 +4003,7 @@ export function runStoreContractSuite(createStore: () => ISessionStore) {
   });
 
   describe('claimTurnExecutor', () => {
-    async function pauseTurn(store: ISessionStore, turnId: string) {
+    async function pauseTurn(store: Store, turnId: string) {
       const pausedState = makePausedTurnState();
       await store.updateTurnNonTerminalState({
         session_id: sessionId,
@@ -3990,7 +4058,7 @@ export function runStoreContractSuite(createStore: () => ISessionStore) {
       expect(turn.active_executor_id).toBe(TEST_ACTIVE_EXECUTOR_ID);
     });
 
-    async function stealPausedTurn(store: ISessionStore) {
+    async function stealPausedTurn(store: Store) {
       await seedSession(store);
       await store.createTurn(makeCreateTurnInput({ sessionId, turnId: 'turn-1' }));
       await pauseTurn(store, 'turn-1');
@@ -4003,7 +4071,7 @@ export function runStoreContractSuite(createStore: () => ISessionStore) {
       expect(won).toBe(true);
     }
 
-    const staleExecutorWrites: [string, (store: ISessionStore) => Promise<unknown>][] = [
+    const staleExecutorWrites: [string, (store: Store) => Promise<unknown>][] = [
       [
         'updateTurnNonTerminalState',
         store => {

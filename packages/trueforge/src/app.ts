@@ -201,7 +201,7 @@ export interface ServerDeps<TTransaction> {
   withTransaction: WithTransaction<TTransaction>;
   tokenStore: IOAuthTokenStore<TTransaction>;
   scheduleStore: IScheduleStore<TTransaction>;
-  sessionStore: ISessionStore;
+  sessionStore: ISessionStore<Record<string, never>, Record<string, never>, TTransaction>;
   sessionMetricsStore: ISessionMetricsStore;
   /** Persistence agent store (schedule runs resolve the bound agent without an HTTP caller). */
   agentStore: IAgentStore<TTransaction>;
@@ -214,7 +214,7 @@ export interface ServerDeps<TTransaction> {
   sandboxProviderStore: ISandboxProviderStore<TTransaction>;
   /** Resolve turn skills - persistence store or TrueFoundry resolve with Service API key (schedule runs do have any caller token). */
   turnSkillsResolverStore: Pick<ISkillStore<TTransaction>, 'resolveTurnSkills'>;
-  sessions: Sessions;
+  sessions: Sessions<Record<string, never>, Record<string, never>, TTransaction>;
   activeTurns: ActiveTurnRegistry;
   /** Primary Redis client (server-owned); undefined in standalone mode. */
   redis?: RedisClient | undefined;

@@ -80,6 +80,22 @@ function deepCopy<T>(value: T): T {
   return structuredClone(value);
 }
 
+function commitChangedEntries<K, V>(target: Map<K, V>, before: Map<K, V>, after: Map<K, V>): void {
+  const keys = new Set([...before.keys(), ...after.keys()]);
+  for (const key of keys) {
+    const existedBefore = before.has(key);
+    const existsAfter = after.has(key);
+    if (existedBefore === existsAfter && JSON.stringify(before.get(key)) === JSON.stringify(after.get(key))) {
+      continue;
+    }
+    if (existsAfter) {
+      target.set(key, deepCopy(after.get(key) as V));
+    } else {
+      target.delete(key);
+    }
+  }
+}
+
 function sessionKey(sessionId: string): string {
   return sessionId;
 }
@@ -188,12 +204,53 @@ function paginate<T>(items: T[], limit: number, pageToken?: string): { data: T[]
 export class InMemorySessionStore<
   TSessionCustom extends object = Record<string, never>,
   TTurnCustom extends object = Record<string, never>,
-> implements ISessionStore<TSessionCustom, TTurnCustom> {
+> implements ISessionStore<TSessionCustom, TTurnCustom, InMemorySessionStore<TSessionCustom, TTurnCustom>> {
   private readonly sessions = new Map<string, StoredSession<TSessionCustom>>();
   private readonly turns = new Map<string, TurnRecord<TTurnCustom>>();
   private readonly events = new Map<string, StoredEvent[]>();
-  /** session_id → inbound send-event inbox */
+  /** session_id:turn_id → inbound send-event inbox */
   private readonly inboundEvents = new Map<string, StoredInboundEvent[]>();
+  private transactionTail: Promise<void> = Promise.resolve();
+
+  async withTransaction<T>(
+    callback: (transaction: InMemorySessionStore<TSessionCustom, TTurnCustom>) => Promise<T>,
+  ): Promise<T> {
+    let release: () => void = () => undefined;
+    const previous = this.transactionTail;
+    this.transactionTail = new Promise<void>(resolve => {
+      release = resolve;
+    });
+    await previous;
+
+    const sessions = deepCopy(this.sessions);
+    const turns = deepCopy(this.turns);
+    const events = deepCopy(this.events);
+    const inboundEvents = deepCopy(this.inboundEvents);
+    const transactionStore = new InMemorySessionStore<TSessionCustom, TTurnCustom>();
+    for (const [key, value] of sessions) {
+      transactionStore.sessions.set(key, deepCopy(value));
+    }
+    for (const [key, value] of turns) {
+      transactionStore.turns.set(key, deepCopy(value));
+    }
+    for (const [key, value] of events) {
+      transactionStore.events.set(key, deepCopy(value));
+    }
+    for (const [key, value] of inboundEvents) {
+      transactionStore.inboundEvents.set(key, deepCopy(value));
+    }
+
+    try {
+      const result = await callback(transactionStore);
+      commitChangedEntries(this.sessions, sessions, transactionStore.sessions);
+      commitChangedEntries(this.turns, turns, transactionStore.turns);
+      commitChangedEntries(this.events, events, transactionStore.events);
+      commitChangedEntries(this.inboundEvents, inboundEvents, transactionStore.inboundEvents);
+      return result;
+    } finally {
+      release();
+    }
+  }
 
   async createSession(input: CreateSessionInput<TSessionCustom>): Promise<void> {
     const key = sessionKey(input.session_id);
@@ -535,7 +592,13 @@ export class InMemorySessionStore<
     this.addTerminalSessionMetrics(input.session_id, turn.created_at, input.state);
   }
 
-  async appendToEvents(input: AppendToEventsInput): Promise<void> {
+  async appendToEvents(
+    input: AppendToEventsInput,
+    transaction?: InMemorySessionStore<TSessionCustom, TTurnCustom>,
+  ): Promise<void> {
+    if (transaction !== undefined) {
+      return transaction.appendToEvents(input);
+    }
     this.requireOwnedTurn(input);
     this.requireNonTerminalTurn(input);
     const tKey = turnKey(input);
@@ -547,7 +610,13 @@ export class InMemorySessionStore<
     return;
   }
 
-  async patchThreadsMCPAuth(input: PatchThreadsMCPAuthInput): Promise<void> {
+  async patchThreadsMCPAuth(
+    input: PatchThreadsMCPAuthInput,
+    transaction?: InMemorySessionStore<TSessionCustom, TTurnCustom>,
+  ): Promise<void> {
+    if (transaction !== undefined) {
+      return transaction.patchThreadsMCPAuth(input);
+    }
     this.requireOwnedTurn(input);
     const turn = this.requireNonTerminalTurn(input);
     const threads = input.thread_ids.map(threadId => {
@@ -606,7 +675,13 @@ export class InMemorySessionStore<
       .map(row => deepCopy(row.event));
   }
 
-  async markTurnInboundEventsConsumed(input: MarkTurnInboundEventsConsumedInput): Promise<void> {
+  async markTurnInboundEventsConsumed(
+    input: MarkTurnInboundEventsConsumedInput,
+    transaction?: InMemorySessionStore<TSessionCustom, TTurnCustom>,
+  ): Promise<void> {
+    if (transaction !== undefined) {
+      return transaction.markTurnInboundEventsConsumed(input);
+    }
     if (input.event_ids.length === 0) {
       return;
     }
@@ -695,7 +770,13 @@ export class InMemorySessionStore<
     return turn;
   }
 
-  async addThreads(input: AddThreadsInput): Promise<void> {
+  async addThreads(
+    input: AddThreadsInput,
+    transaction?: InMemorySessionStore<TSessionCustom, TTurnCustom>,
+  ): Promise<void> {
+    if (transaction !== undefined) {
+      return transaction.addThreads(input);
+    }
     this.requireOwnedTurn(input);
     const turn = this.requireRunningTurn(input);
     for (const thread of input.threads) {
@@ -705,7 +786,13 @@ export class InMemorySessionStore<
     return;
   }
 
-  async removeThreads(input: RemoveThreadsInput): Promise<void> {
+  async removeThreads(
+    input: RemoveThreadsInput,
+    transaction?: InMemorySessionStore<TSessionCustom, TTurnCustom>,
+  ): Promise<void> {
+    if (transaction !== undefined) {
+      return transaction.removeThreads(input);
+    }
     if (input.thread_ids.length === 0) {
       return;
     }
@@ -718,7 +805,13 @@ export class InMemorySessionStore<
     return;
   }
 
-  async appendToThreadContext(input: AppendToThreadContextInput): Promise<void> {
+  async appendToThreadContext(
+    input: AppendToThreadContextInput,
+    transaction?: InMemorySessionStore<TSessionCustom, TTurnCustom>,
+  ): Promise<void> {
+    if (transaction !== undefined) {
+      return transaction.appendToThreadContext(input);
+    }
     this.requireOwnedTurn(input);
     const turn = this.requireNonTerminalTurn(input);
     const thread = turn.snapshot.threads[input.thread_id];
@@ -750,7 +843,13 @@ export class InMemorySessionStore<
     return;
   }
 
-  async patchMCPServers(input: PatchMCPServersInput): Promise<void> {
+  async patchMCPServers(
+    input: PatchMCPServersInput,
+    transaction?: InMemorySessionStore<TSessionCustom, TTurnCustom>,
+  ): Promise<void> {
+    if (transaction !== undefined) {
+      return transaction.patchMCPServers(input);
+    }
     this.requireOwnedTurn(input);
     const turn = this.requireNonTerminalTurn(input);
     turn.snapshot.mcp_servers ??= {};
@@ -761,7 +860,13 @@ export class InMemorySessionStore<
     return;
   }
 
-  async patchSandboxInfo(input: PatchSandboxInfoInput): Promise<void> {
+  async patchSandboxInfo(
+    input: PatchSandboxInfoInput,
+    transaction?: InMemorySessionStore<TSessionCustom, TTurnCustom>,
+  ): Promise<void> {
+    if (transaction !== undefined) {
+      return transaction.patchSandboxInfo(input);
+    }
     this.requireOwnedTurn(input);
     const turn = this.requireRunningTurn(input);
     turn.snapshot.sandbox_info = deepCopy(input.sandbox_info);

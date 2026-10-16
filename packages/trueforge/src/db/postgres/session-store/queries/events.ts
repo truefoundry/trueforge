@@ -18,14 +18,17 @@ import {
   SessionNotFoundError,
   TurnNotFoundError,
 } from '@truefoundry/trueforge-core/agent-session/store/SessionStoreErrors';
-import type { Kysely } from 'kysely';
+import type { Kysely, Transaction } from 'kysely';
 import { sql } from 'kysely';
 import { json } from '../../sqlExpressions';
 import type { Database } from '../../types';
 import { unnestWithOrdinality, values } from '../sqlExpressions';
 import { classifyTurnFenceWriteFailure, turnNonTerminalFence } from './turns';
 
-export async function appendToEvents(db: Kysely<Database>, input: AppendToEventsInput): Promise<void> {
+export async function appendToEvents(
+  db: Kysely<Database> | Transaction<Database>,
+  input: AppendToEventsInput,
+): Promise<void> {
   if (input.events.length === 0) {
     return;
   }

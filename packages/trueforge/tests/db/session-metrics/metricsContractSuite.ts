@@ -17,7 +17,7 @@ function mustGet<T>(value: T | undefined | null, label = 'value'): T {
 /** Shared meters/charts contract for Postgres / SQLite metrics stores. */
 export function runSessionMetricsStoreContractSuite(
   createStores: () => {
-    sessionStore: ISessionStore;
+    sessionStore: Pick<ISessionStore, 'createSession' | 'createTurn' | 'getTurn' | 'updateTurnTerminalState'>;
     metricsStore: ISessionMetricsStore;
   },
 ) {

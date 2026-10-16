@@ -25,7 +25,11 @@ import {
 import { makeAgentSpec, makeTestResolver, mintTestTurnId, TEST_ACTIVE_EXECUTOR_ID } from './testHelpers';
 
 /** Drives the same accept → persist → enqueue seam as POST /events. */
-async function sendWithInbox(turn: TurnHandle, store: InMemorySessionStore, events: TurnUserEvent[]): Promise<void> {
+async function sendWithInbox(
+  turn: TurnHandle<Record<string, never>, InMemorySessionStore>,
+  store: InMemorySessionStore,
+  events: TurnUserEvent[],
+): Promise<void> {
   for await (const batch of turn.send(events)) {
     await store.insertTurnInboundEvents({
       session_id: turn.session_id,

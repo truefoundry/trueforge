@@ -67,7 +67,7 @@ import { getTurnExecutionError, startTurnInProcess } from './turns';
 /** Runtime + Context store resolvers needed to start a schedule turn. */
 export interface ScheduleTurnExecutionDeps<TTransaction> {
   scheduleStore: IScheduleStore<TTransaction>;
-  sessions: Sessions;
+  sessions: Sessions<Record<string, never>, Record<string, never>, TTransaction>;
   activeTurns: ActiveTurnRegistry;
   eventSubscriptions: EventSubscriptionRegistry<TurnStreamingEvent>;
   logger: Logger;

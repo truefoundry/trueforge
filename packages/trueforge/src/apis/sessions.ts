@@ -75,9 +75,9 @@ export function toWireSession(record: SessionRecord): Session {
   };
 }
 
-export interface SessionsRouterDeps {
-  sessions: Sessions;
-  sessionStore: ISessionStore;
+export interface SessionsRouterDeps<TTransaction = never> {
+  sessions: Sessions<Record<string, never>, Record<string, never>, TTransaction>;
+  sessionStore: ISessionStore<Record<string, never>, Record<string, never>, TTransaction>;
   activeTurns: ActiveTurnRegistry;
   resolveModelProviderStore: (c: Context) => IModelProviderStore;
   resolveMcpServerStore: (c: Context) => IMcpServerStore;
@@ -235,8 +235,8 @@ function isSessionOwner({
   return subject_id === created_by_subject.subject_id;
 }
 
-type InternalSessionsRouterDeps = Pick<
-  SessionsRouterDeps,
+type InternalSessionsRouterDeps<TTransaction> = Pick<
+  SessionsRouterDeps<TTransaction>,
   | 'sessions'
   | 'resolveModelProviderStore'
   | 'resolveMcpServerStore'
@@ -249,8 +249,8 @@ type InternalSessionsRouterDeps = Pick<
   | 'authorizer'
 >;
 
-function createGetOrCreateSessionByExternalIdHandler(
-  deps: InternalSessionsRouterDeps,
+function createGetOrCreateSessionByExternalIdHandler<TTransaction>(
+  deps: InternalSessionsRouterDeps<TTransaction>,
 ): RouteHandler<typeof getOrCreateSessionByExternalIdRoute> {
   return async c => {
     const body = c.req.valid('json');
@@ -328,14 +328,14 @@ function createGetOrCreateSessionByExternalIdHandler(
 }
 
 /** Internal session operations (mounted at /api/internal/sessions). */
-export function createInternalSessionsRouter(deps: InternalSessionsRouterDeps) {
+export function createInternalSessionsRouter<TTransaction>(deps: InternalSessionsRouterDeps<TTransaction>) {
   const router = new OpenAPIHono();
   router.openapi(getOrCreateSessionByExternalIdRoute, createGetOrCreateSessionByExternalIdHandler(deps));
   return router;
 }
 
 /** DB-backed sessions (mounted at /api/v1/sessions). */
-export function createSessionsRouter(deps: SessionsRouterDeps) {
+export function createSessionsRouter<TTransaction>(deps: SessionsRouterDeps<TTransaction>) {
   const createSessionHandler: RouteHandler<typeof createSessionRoute> = async c => {
     const body = c.req.valid('json');
     const sessionId = newId();

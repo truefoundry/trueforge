@@ -103,11 +103,15 @@ function threadIdsForCurrentTurn(snapshot: TurnSnapshot | undefined): string[] {
 export class SessionHandle<
   TSessionCustom extends object = Record<string, never>,
   TTurnCustom extends object = Record<string, never>,
+  TTransaction = never,
 > {
-  private readonly store: ISessionStore<TSessionCustom, TTurnCustom>;
+  private readonly store: ISessionStore<TSessionCustom, TTurnCustom, TTransaction>;
   private session: SessionRecord<TSessionCustom>;
 
-  constructor(options: { store: ISessionStore<TSessionCustom, TTurnCustom>; session: SessionRecord<TSessionCustom> }) {
+  constructor(options: {
+    store: ISessionStore<TSessionCustom, TTurnCustom, TTransaction>;
+    session: SessionRecord<TSessionCustom>;
+  }) {
     this.store = options.store;
     this.session = options.session;
   }
@@ -169,7 +173,7 @@ export class SessionHandle<
     update_session_title_if_not_exist?: string | undefined;
     /** Value = stored as-is. Fn = merge over previous turn's custom. Omitted = undefined. */
     custom?: TTurnCustom | ((previous?: TTurnCustom) => TTurnCustom) | undefined;
-  }): Promise<TurnHandle<TTurnCustom>> {
+  }): Promise<TurnHandle<TTurnCustom, TTransaction>> {
     const previousTurnId = resolvePreviousTurnId(input.previous_turn_id, this.session.last_turn_id);
     const previous = previousTurnId
       ? await this.freezeTurn({
@@ -332,7 +336,7 @@ export class SessionHandle<
   }
 
   /** Returns the turn handle (store-backed; not executable), or undefined if not found. */
-  async getTurn(turn_id: string): Promise<TurnHandle<TTurnCustom> | undefined> {
+  async getTurn(turn_id: string): Promise<TurnHandle<TTurnCustom, TTransaction> | undefined> {
     return TurnHandle.get({
       store: this.store,
       session_id: this.session.session_id,

@@ -39,10 +39,11 @@ import {
   decodeOffsetPageToken,
   encodeOffsetPageToken,
 } from '@truefoundry/trueforge-core/agent-session/store/OffsetPageToken';
-import type { Kysely } from 'kysely';
+import type { Kysely, Transaction } from 'kysely';
 import type { Database } from '../types';
 import { patchThreadCapabilityState as patchThreadCapabilityStateQuery } from './queries/capabilities';
 import {
+  appendToEventsInTransaction,
   appendToEvents as appendToEventsQuery,
   listSessionEvents as listSessionEventsQuery,
   listTurnEvents as listTurnEventsQuery,
@@ -50,9 +51,10 @@ import {
 import {
   insertTurnInboundEvents as insertTurnInboundEventsQuery,
   listUnconsumedTurnInboundEvents as listUnconsumedTurnInboundEventsQuery,
+  markTurnInboundEventsConsumedInTransaction,
   markTurnInboundEventsConsumed as markTurnInboundEventsConsumedQuery,
 } from './queries/inboundEvents';
-import { patchThreadsMCPAuth as patchThreadsMCPAuthQuery } from './queries/mcpAuth';
+import { patchThreadsMCPAuthInTransaction, patchThreadsMCPAuth as patchThreadsMCPAuthQuery } from './queries/mcpAuth';
 import {
   createSession as createSessionQuery,
   deleteSession as deleteSessionQuery,
@@ -63,11 +65,14 @@ import {
   updateSession as updateSessionQuery,
 } from './queries/sessions';
 import {
+  addThreadsInTransaction,
   addThreads as addThreadsQuery,
+  appendToThreadContextInTransaction,
   appendToThreadContext as appendToThreadContextQuery,
   overwriteThreadContext as overwriteThreadContextQuery,
   patchMCPServers as patchMCPServersQuery,
   patchSandboxInfo as patchSandboxInfoQuery,
+  removeThreadsInTransaction,
   removeThreads as removeThreadsQuery,
 } from './queries/threads';
 import type { NewThreadRegistration } from './queries/turns';
@@ -106,7 +111,7 @@ type TurnCustom = Record<string, never>;
  * 3. Terminal turns are IMMUTABLE — a terminal read is a final read.
  * 4. BEGIN IMMEDIATE provides write locking (no FOR SHARE / FOR UPDATE).
  */
-export class SqliteSessionStore implements ISessionStore<SessionCustom, TurnCustom> {
+export class SqliteSessionStore implements ISessionStore<SessionCustom, TurnCustom, Transaction<Database>> {
   constructor(private readonly db: Kysely<Database>) {}
 
   createSession(input: CreateSessionInput<SessionCustom>): Promise<void> {
@@ -212,8 +217,12 @@ export class SqliteSessionStore implements ISessionStore<SessionCustom, TurnCust
     return updateTurnTerminalStateQuery(this.db, input);
   }
 
-  appendToEvents(input: AppendToEventsInput): Promise<void> {
-    return appendToEventsQuery(this.db, input);
+  withTransaction<T>(callback: (transaction: Transaction<Database>) => Promise<T>): Promise<T> {
+    return this.db.transaction().execute(callback);
+  }
+
+  appendToEvents(input: AppendToEventsInput, transaction?: Transaction<Database>): Promise<void> {
+    return transaction ? appendToEventsInTransaction(transaction, input) : appendToEventsQuery(this.db, input);
   }
 
   insertTurnInboundEvents(input: InsertTurnInboundEventsInput): Promise<void> {
@@ -224,40 +233,49 @@ export class SqliteSessionStore implements ISessionStore<SessionCustom, TurnCust
     return listUnconsumedTurnInboundEventsQuery(this.db, input);
   }
 
-  markTurnInboundEventsConsumed(input: MarkTurnInboundEventsConsumedInput): Promise<void> {
-    return markTurnInboundEventsConsumedQuery(this.db, input);
+  markTurnInboundEventsConsumed(
+    input: MarkTurnInboundEventsConsumedInput,
+    transaction?: Transaction<Database>,
+  ): Promise<void> {
+    return transaction
+      ? markTurnInboundEventsConsumedInTransaction(transaction, input)
+      : markTurnInboundEventsConsumedQuery(this.db, input);
   }
 
-  addThreads(input: AddThreadsInput): Promise<void> {
-    return addThreadsQuery(this.db, input);
+  addThreads(input: AddThreadsInput, transaction?: Transaction<Database>): Promise<void> {
+    return transaction ? addThreadsInTransaction(transaction, input) : addThreadsQuery(this.db, input);
   }
 
-  removeThreads(input: RemoveThreadsInput): Promise<void> {
-    return removeThreadsQuery(this.db, input);
+  removeThreads(input: RemoveThreadsInput, transaction?: Transaction<Database>): Promise<void> {
+    return transaction ? removeThreadsInTransaction(transaction, input) : removeThreadsQuery(this.db, input);
   }
 
-  appendToThreadContext(input: AppendToThreadContextInput): Promise<void> {
-    return appendToThreadContextQuery(this.db, input);
+  appendToThreadContext(input: AppendToThreadContextInput, transaction?: Transaction<Database>): Promise<void> {
+    return transaction
+      ? appendToThreadContextInTransaction(transaction, input)
+      : appendToThreadContextQuery(this.db, input);
   }
 
   overwriteThreadContext(input: OverwriteThreadContextInput): Promise<void> {
     return overwriteThreadContextQuery(this.db, input);
   }
 
-  patchMCPServers(input: PatchMCPServersInput): Promise<void> {
-    return patchMCPServersQuery(this.db, input);
+  patchMCPServers(input: PatchMCPServersInput, transaction?: Transaction<Database>): Promise<void> {
+    return patchMCPServersQuery(transaction ?? this.db, input);
   }
 
-  patchSandboxInfo(input: PatchSandboxInfoInput): Promise<void> {
-    return patchSandboxInfoQuery(this.db, input);
+  patchSandboxInfo(input: PatchSandboxInfoInput, transaction?: Transaction<Database>): Promise<void> {
+    return patchSandboxInfoQuery(transaction ?? this.db, input);
   }
 
   patchThreadCapabilityState(input: PatchThreadCapabilityStateInput): Promise<void> {
     return patchThreadCapabilityStateQuery(this.db, input);
   }
 
-  patchThreadsMCPAuth(input: PatchThreadsMCPAuthInput): Promise<void> {
-    return patchThreadsMCPAuthQuery(this.db, input);
+  patchThreadsMCPAuth(input: PatchThreadsMCPAuthInput, transaction?: Transaction<Database>): Promise<void> {
+    return transaction
+      ? patchThreadsMCPAuthInTransaction(transaction, input)
+      : patchThreadsMCPAuthQuery(this.db, input);
   }
 
   listTurnEvents(input: ListTurnEventsInput): Promise<{ data: PersistedTurnEvent[]; pagination: TokenPagination }> {
