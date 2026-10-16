@@ -130,7 +130,7 @@ describe('sessions HTTP agent binding', () => {
             tokenStore,
             clientName: 'test-client',
           }),
-        resolveSkillStore: () => skillStore,
+        resolveTurnSkillsStore: () => skillStore,
         resolveAgentStore: () => agentStore,
         eventSubscriptions: new EventSubscriptionRegistry(undefined),
         resolveSandboxProviderStore: () => sandboxProviderStore,

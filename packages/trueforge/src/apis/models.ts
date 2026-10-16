@@ -7,13 +7,13 @@ import { listAvailableModelsRoute } from '../routes/modelRoutes';
 
 /** Chat slim list (mounted at /api/v1/models) — mirrors GET /api/v1/skills. */
 export function createModelsRouter<TTransaction>(deps: {
-  resolveModelProviderStore: (c: Context) => IModelProviderStore<TTransaction>;
+  resolveModelProviderStore: (input: { c: Context }) => IModelProviderStore<TTransaction>;
   withTransaction: WithTransaction<TTransaction>;
   resolveRequestContext: ResolveRequestContext;
 }) {
   const router = new OpenAPIHono();
   router.openapi(listAvailableModelsRoute, async c => {
-    const store = deps.resolveModelProviderStore(c);
+    const store = deps.resolveModelProviderStore({ c });
     const requestContext = deps.resolveRequestContext(c);
     return c.json({ data: await store.listModels({ tenant_id: requestContext.tenant_id }) }, 200);
   });

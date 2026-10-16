@@ -34,6 +34,7 @@ import type { Context } from 'hono';
 import { HTTPException } from 'hono/http-exception';
 import { streamSSE } from 'hono/streaming';
 import type { Logger } from 'winston';
+import type { ResolveMcpServerStoreInput, ResolveModelProviderStoreInput, ResolveTurnSkillsStoreInput } from '../app';
 import type { Authorizer } from '../auth/authorizer';
 import type { ResolveRequestContext } from '../auth/identity';
 import configuration from '../config';
@@ -117,17 +118,9 @@ export interface TurnsRouterDeps {
   sessions: Sessions;
   sessionStore: ISessionStore;
   activeTurns: ActiveTurnRegistry;
-  resolveModelProviderStore: (
-    c: Context,
-    runAsAgent?: AgentRecord,
-    options?: { allowInlineResources?: boolean },
-  ) => IModelProviderStore;
-  resolveMcpServerStore: (
-    c: Context,
-    runAsAgent?: AgentRecord,
-    options?: { allowInlineResources?: boolean },
-  ) => IMcpServerWithAuthStore;
-  resolveSkillStore: (c: Context, options?: { allowInlineResources?: boolean }) => ISkillStore;
+  resolveModelProviderStore: (input: ResolveModelProviderStoreInput) => IModelProviderStore;
+  resolveMcpServerStore: (input?: ResolveMcpServerStoreInput) => IMcpServerWithAuthStore;
+  resolveTurnSkillsStore: (input: ResolveTurnSkillsStoreInput) => Pick<ISkillStore, 'resolveTurnSkills'>;
   resolveAgentStore: (c: Context) => IAgentStore;
   /** Resumable live turn-event transport: create-turn writes, subscribe polls. */
   eventSubscriptions: EventSubscriptionRegistry<TurnStreamingEvent>;
@@ -842,9 +835,17 @@ export function createTurnsRouter(deps: TurnsRouterDeps) {
       requestHeaders: c.req.header(),
       deps: {
         ...deps,
-        modelProviderStore: deps.resolveModelProviderStore(c, referencedAgent, { allowInlineResources }),
-        mcpServerStore: deps.resolveMcpServerStore(c, referencedAgent, { allowInlineResources }),
-        skillStore: deps.resolveSkillStore(c, { allowInlineResources }),
+        modelProviderStore: deps.resolveModelProviderStore({
+          c,
+          allowInlineResources,
+          ...(referencedAgent !== undefined ? { runAsAgent: referencedAgent } : {}),
+        }),
+        mcpServerStore: deps.resolveMcpServerStore({
+          c,
+          allowInlineResources,
+          ...(referencedAgent !== undefined ? { runAsAgent: referencedAgent } : {}),
+        }),
+        skillStore: deps.resolveTurnSkillsStore({ c, allowInlineResources }),
         agentStore: deps.resolveAgentStore(c),
         sandboxProviderStore: deps.resolveSandboxProviderStore(c),
         sandboxEnvironmentStore: deps.sandboxEnvironmentStore,

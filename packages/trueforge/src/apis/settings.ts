@@ -22,8 +22,8 @@ import { createSkillsRouter, type ResolveSkillStore } from './skills';
 import { createWebSearchProvidersRouter } from './webSearchProviders';
 
 export interface SettingsRouterDeps<TTransaction> {
-  resolveModelProviderStore: (c: Context) => IModelProviderStore<TTransaction>;
-  resolveMcpServerStore: (c: Context) => IMcpServerWithAuthStore<TTransaction>;
+  resolveModelProviderStore: (input: { c: Context }) => IModelProviderStore<TTransaction>;
+  resolveMcpServerStore: (input: { c: Context }) => IMcpServerWithAuthStore<TTransaction>;
   tokenStore: IOAuthTokenStore<TTransaction>;
   resolveSkillStore: ResolveSkillStore<TTransaction>;
   resolveSandboxProviderStore: (c: Context) => ISandboxProviderStore<TTransaction>;

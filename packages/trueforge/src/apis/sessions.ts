@@ -79,8 +79,8 @@ export interface SessionsRouterDeps {
   sessions: Sessions;
   sessionStore: ISessionStore;
   activeTurns: ActiveTurnRegistry;
-  resolveModelProviderStore: (c: Context) => IModelProviderStore;
-  resolveMcpServerStore: (c: Context) => IMcpServerStore;
+  resolveModelProviderStore: (input: { c: Context }) => IModelProviderStore;
+  resolveMcpServerStore: (input: { c: Context }) => IMcpServerStore;
   resolveSkillStore: ResolveSkillStore;
   resolveAgentStore: (c: Context) => IAgentStore;
   resolveSandboxProviderStore: (c: Context) => ISandboxProviderStore;
@@ -293,8 +293,8 @@ function createGetOrCreateSessionByExternalIdHandler(
         spec: body.agent.spec,
         tenant_id: requestContext.tenant_id,
         created_by_subject_id: requestContext.subject.id,
-        modelProviderStore: deps.resolveModelProviderStore(c),
-        mcpServerStore: deps.resolveMcpServerStore(c),
+        modelProviderStore: deps.resolveModelProviderStore({ c }),
+        mcpServerStore: deps.resolveMcpServerStore({ c }),
         skillStore: deps.resolveSkillStore(c),
         sandboxProviderStore: deps.resolveSandboxProviderStore(c),
         sandboxEnvironmentStore: deps.sandboxEnvironmentStore,
@@ -368,8 +368,8 @@ export function createSessionsRouter(deps: SessionsRouterDeps) {
       spec: body.agent.spec,
       tenant_id: requestContext.tenant_id,
       created_by_subject_id: requestContext.subject.id,
-      modelProviderStore: deps.resolveModelProviderStore(c),
-      mcpServerStore: deps.resolveMcpServerStore(c),
+      modelProviderStore: deps.resolveModelProviderStore({ c }),
+      mcpServerStore: deps.resolveMcpServerStore({ c }),
       skillStore: deps.resolveSkillStore(c),
       sandboxProviderStore: deps.resolveSandboxProviderStore(c),
       sandboxEnvironmentStore: deps.sandboxEnvironmentStore,
@@ -462,8 +462,8 @@ export function createSessionsRouter(deps: SessionsRouterDeps) {
         spec: body.agent.spec,
         tenant_id: requestContext.tenant_id,
         created_by_subject_id: requestContext.subject.id,
-        modelProviderStore: deps.resolveModelProviderStore(c),
-        mcpServerStore: deps.resolveMcpServerStore(c),
+        modelProviderStore: deps.resolveModelProviderStore({ c }),
+        mcpServerStore: deps.resolveMcpServerStore({ c }),
         skillStore: deps.resolveSkillStore(c),
         sandboxProviderStore: deps.resolveSandboxProviderStore(c),
         sandboxEnvironmentStore: deps.sandboxEnvironmentStore,

@@ -27,7 +27,7 @@ import {
 import { MissingStoredSecretError, resolveStoredSecretValue, toRedactedSecretValue } from '../utils/secretRedaction';
 
 export interface ModelProvidersRouterDeps<TTransaction> {
-  resolveModelProviderStore: (c: Context) => IModelProviderStore<TTransaction>;
+  resolveModelProviderStore: (input: { c: Context }) => IModelProviderStore<TTransaction>;
   resolveAgentStore: (c: Context) => IAgentStore<TTransaction>;
   withTransaction: WithTransaction<TTransaction>;
   resolveRequestContext: ResolveRequestContext;
@@ -92,7 +92,7 @@ function toWireProvider(record: ModelProviderRecord): ConfiguredModelProvider {
 export function createModelProvidersRouter<TTransaction>(deps: ModelProvidersRouterDeps<TTransaction>) {
   const listHandler: RouteHandler<typeof listModelProvidersRoute> = async c => {
     const requestContext = deps.resolveRequestContext(c);
-    const records = await deps.resolveModelProviderStore(c).listProviders({ tenant_id: requestContext.tenant_id });
+    const records = await deps.resolveModelProviderStore({ c }).listProviders({ tenant_id: requestContext.tenant_id });
     return c.json({ data: records.map(toWireProvider) }, 200);
   };
 
@@ -110,7 +110,7 @@ export function createModelProvidersRouter<TTransaction>(deps: ModelProvidersRou
     try {
       // Create has no prior row; redacted keep resolves to MissingStoredSecretError → 400.
       const manifest = resolveModelProviderManifestForWrite({ incoming: provider, existing: undefined });
-      const record = await deps.resolveModelProviderStore(c).createProvider({
+      const record = await deps.resolveModelProviderStore({ c }).createProvider({
         tenant_id: requestContext.tenant_id,
         name,
         manifest,
@@ -128,7 +128,7 @@ export function createModelProvidersRouter<TTransaction>(deps: ModelProvidersRou
   };
 
   const putHandler: RouteHandler<typeof putModelProviderRoute> = async c => {
-    const store = deps.resolveModelProviderStore(c);
+    const store = deps.resolveModelProviderStore({ c });
     const body: UpdateModelProviderRequest = c.req.valid('json');
     const requestContext = deps.resolveRequestContext(c);
     const provider = body.manifest;
@@ -180,7 +180,7 @@ export function createModelProvidersRouter<TTransaction>(deps: ModelProvidersRou
   };
 
   const deleteHandler: RouteHandler<typeof deleteModelProviderRoute> = async c => {
-    const store = deps.resolveModelProviderStore(c);
+    const store = deps.resolveModelProviderStore({ c });
     const { name } = c.req.valid('param');
     const requestContext = deps.resolveRequestContext(c);
     const outcome = await deps.withTransaction(async transaction => {

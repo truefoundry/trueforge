@@ -16,11 +16,6 @@ export const X_TFG_MCP = 'x-tfg-mcp';
 export const X_TFG_SKILLS = 'x-tfg-skills';
 export const X_TFG_MODELS = 'x-tfg-models';
 
-/** Opt-in for request-scoped `x-tfg-skills` / `x-tfg-mcp` / `x-tfg-models`; only inline-session turns pass true. */
-export type AllowInlineResourcesOptions = {
-  allowInlineResources?: boolean;
-};
-
 /**
  * Fail closed: those headers are rejected unless TrueFoundry mode is on and the caller
  * opted in (`allowInlineResources: true` on an inline-session turn).
@@ -30,13 +25,13 @@ export type AllowInlineResourcesOptions = {
 export function assertInlineResourceHeadersAllowed(input: {
   headerNames: string[];
   isTrueFoundryMode: boolean;
-  allowInlineResources: boolean | undefined;
+  allowInlineResources: boolean;
 }): void {
   const labeled = input.headerNames.join('/');
   if (!input.isTrueFoundryMode) {
     throw new HTTPException(400, { message: `${labeled} requires TrueFoundry mode` });
   }
-  if (input.allowInlineResources !== true) {
+  if (!input.allowInlineResources) {
     throw new HTTPException(400, {
       message: `${labeled} is only allowed on turns for inline sessions`,
     });

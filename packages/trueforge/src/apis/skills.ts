@@ -16,10 +16,7 @@ import { findCatalogUsageConflict } from '../runtime/catalogUsage';
 import type { AvailableSkill, ConfiguredSkill, CreateSkillRequest, UpdateSkillRequest } from '../schemas/skill';
 import { parseTrueFoundryRegistrySkill } from '../schemas/skill';
 
-export type ResolveSkillStore<TTransaction = never> = (
-  c: Context,
-  options?: { allowInlineResources?: boolean },
-) => ISkillStore<TTransaction>;
+export type ResolveSkillStore<TTransaction = never> = (c: Context) => ISkillStore<TTransaction>;
 
 export interface SkillsRouterDeps<TTransaction> {
   resolveSkillStore: ResolveSkillStore<TTransaction>;

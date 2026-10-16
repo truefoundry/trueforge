@@ -195,6 +195,26 @@ function routeNotFound(c: Context) {
   return c.json({ error: { message: `Route not found: ${c.req.method} ${c.req.path}` } }, 404);
 }
 
+/** HTTP model-provider store resolve. `allowInlineResources` only for inline-session turns. */
+export type ResolveModelProviderStoreInput = {
+  c: Context;
+  runAsAgent?: AgentRecord;
+  allowInlineResources?: boolean;
+};
+
+/** HTTP MCP store resolve. Omit `c` for the unauthenticated OAuth callback. */
+export type ResolveMcpServerStoreInput = {
+  c?: Context;
+  runAsAgent?: AgentRecord;
+  allowInlineResources?: boolean;
+};
+
+/** HTTP turn skill-mount resolve. `allowInlineResources` only for inline-session turns. */
+export type ResolveTurnSkillsStoreInput = {
+  c: Context;
+  allowInlineResources?: boolean;
+};
+
 export interface ServerDeps<TTransaction> {
   modelCatalog: ModelCatalog;
   mcpCatalog: McpCatalog;
@@ -202,20 +222,12 @@ export interface ServerDeps<TTransaction> {
   sandboxCatalog: SandboxCatalog;
   webSearchCatalog: WebSearchCatalog;
   /** Per-request store: DB singleton, or a token-bound TrueFoundry store in TrueFoundry mode. */
-  resolveModelProviderStore: (
-    c: Context,
-    runAsAgent?: AgentRecord,
-    options?: { allowInlineResources?: boolean },
-  ) => IModelProviderStore<TTransaction>;
+  resolveModelProviderStore: (input: ResolveModelProviderStoreInput) => IModelProviderStore<TTransaction>;
   /**
    * Per-request store: DB singleton, or a token-bound TrueFoundry store in TrueFoundry mode.
-   * The unauthenticated OAuth callback has no context and gets the DB persistence store.
+   * The unauthenticated OAuth callback omits `c` and gets the DB persistence store.
    */
-  resolveMcpServerStore: (
-    c?: Context,
-    runAsAgent?: AgentRecord,
-    options?: { allowInlineResources?: boolean },
-  ) => IMcpServerWithAuthStore<TTransaction>;
+  resolveMcpServerStore: (input?: ResolveMcpServerStoreInput) => IMcpServerWithAuthStore<TTransaction>;
   /** Per-request store: DB singleton, or a token-bound TrueFoundry decorator in TrueFoundry mode. */
   resolveAgentStore: (c: Context) => IAgentStore<TTransaction>;
   /**
@@ -226,6 +238,11 @@ export interface ServerDeps<TTransaction> {
   resolveWebSearchProviderStore: (c: Context) => IWebSearchProviderStore<TTransaction>;
   /** Per-request store: DB git skills, or TrueFoundry registry catalog in TrueFoundry mode. */
   resolveSkillStore: ResolveSkillStore<TTransaction>;
+  /**
+   * Turn skill mounts for HTTP turns. May apply `x-tfg-skills` when allowInlineResources is set.
+   * Schedules use {@link turnSkillsResolverStore} (no request headers).
+   */
+  resolveTurnSkillsStore: (input: ResolveTurnSkillsStoreInput) => Pick<ISkillStore<TTransaction>, 'resolveTurnSkills'>;
   withTransaction: WithTransaction<TTransaction>;
   tokenStore: IOAuthTokenStore<TTransaction>;
   scheduleStore: IScheduleStore<TTransaction>;
@@ -240,7 +257,7 @@ export interface ServerDeps<TTransaction> {
    * Same backing store as resolveSandboxProviderStore, without request context.
    */
   sandboxProviderStore: ISandboxProviderStore<TTransaction>;
-  /** Resolve turn skills - persistence store or TrueFoundry resolve with Service API key (schedule runs do have any caller token). */
+  /** Turn skill mounts with service API key (schedules have no caller token / x-tfg-skills). */
   turnSkillsResolverStore: Pick<ISkillStore<TTransaction>, 'resolveTurnSkills'>;
   sessions: Sessions;
   activeTurns: ActiveTurnRegistry;
@@ -527,7 +544,7 @@ export function createServerApp<TTransaction>(deps: ServerDeps<TTransaction>) {
         activeTurns: deps.activeTurns,
         resolveModelProviderStore: deps.resolveModelProviderStore,
         resolveMcpServerStore: deps.resolveMcpServerStore,
-        resolveSkillStore: deps.resolveSkillStore,
+        resolveTurnSkillsStore: deps.resolveTurnSkillsStore,
         resolveAgentStore: deps.resolveAgentStore,
         eventSubscriptions: deps.eventSubscriptions,
         resolveSandboxProviderStore: deps.resolveSandboxProviderStore,
