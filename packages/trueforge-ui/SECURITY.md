@@ -6,7 +6,7 @@ Security fixes are applied to the latest published `0.x` release on npm.
 
 ## Reporting a vulnerability
 
-Please report security issues privately to **security@truefoundry.com** (or your TrueFoundry security contact).
+Please report security issues privately through our Vulnerability Disclosure Program at **[vdp.truefoundry.com](https://vdp.truefoundry.com)**, or by email to **[security@truefoundry.com](mailto:security@truefoundry.com)**.
 
 Include:
 
