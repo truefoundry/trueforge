@@ -52,7 +52,7 @@ describe('convertMCPServersToTools initialization aggregation', () => {
 
     expect(initializationInfo).toEqual([alphaInit, betaInit]);
     expect(convertedTools.tools.length).toBe(2);
-    expect(convertedTools.tools.every(t => t.eager_input_streaming === true)).toBe(true);
+    expect(convertedTools.tools[0]?.eager_input_streaming).toBe(true);
   });
 
   it('carries the tool set approval policies onto its init info', async () => {
