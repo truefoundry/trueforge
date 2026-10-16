@@ -123,7 +123,7 @@ describe('truefoundry chat wire tools', () => {
     }
 
     let postedBody: unknown;
-    Reflect.set(config, 'fetch', async (_url: unknown, init?: { body?: BodyInit | null }) => {
+    Reflect.set(config, 'fetch', async (_url: unknown, init?: { body?: unknown }) => {
       const raw = init?.body;
       if (typeof raw !== 'string') {
         throw new Error('expected JSON request body string');
