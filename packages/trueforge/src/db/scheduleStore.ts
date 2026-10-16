@@ -64,6 +64,7 @@ export interface ScheduleRunRecord {
   created_by_subject: CreatedBySubject;
   triggered_at: string | null;
   reason: string | null;
+  session_id: string | null;
   created_at: string;
   updated_at: string;
 }
@@ -190,6 +191,12 @@ export interface UpdateScheduleRunStatusInput {
   reason?: string | null;
 }
 
+export interface SetRunSessionIdInput {
+  tenant_id: string;
+  id: string;
+  session_id: string;
+}
+
 export class ScheduleRunConflictError extends Error {
   constructor(message: string, options?: ErrorOptions) {
     super(message, options);
@@ -281,6 +288,8 @@ export interface IScheduleStore<TTransaction = never> {
     input: UpdateScheduleRunStatusInput,
     transaction?: TTransaction,
   ): Promise<ScheduleRunRecord | undefined>;
+  /** Records the session a run created. Returns undefined when the row is gone. */
+  setRunSessionId(input: SetRunSessionIdInput, transaction?: TTransaction): Promise<ScheduleRunRecord | undefined>;
   /**
    * `scheduled` runs with `scheduled_for <= now`, oldest first.
    * Triggered / terminal rows are never returned.

@@ -86,15 +86,17 @@ export interface PreparedScheduleTurn {
   agent: AgentRecord;
 }
 
-export async function startScheduleRun(params: {
+export async function startScheduleRun<TTransaction>(params: {
   item: ScheduleDispatchItem;
   sessions: Sessions;
   agentStore: IAgentStore;
+  scheduleStore: Pick<IScheduleStore<TTransaction>, 'setRunSessionId'>;
 }): Promise<PreparedScheduleTurn | undefined> {
   const {
     item: { run, schedule },
     sessions,
     agentStore,
+    scheduleStore,
   } = params;
 
   const named = await agentStore.getAgent({ tenant_id: schedule.tenant_id, name: schedule.agent_name });
@@ -108,6 +110,13 @@ export async function startScheduleRun(params: {
     created_by_subject: schedule.created_by_subject,
     agent: { type: 'reference', id: named.id, name: named.name },
     source: { type: 'schedule', id: schedule.id, run_id: run.id },
+  });
+
+  // Before the idempotency check so a retried run whose turn already exists still gets linked.
+  await scheduleStore.setRunSessionId({
+    tenant_id: schedule.tenant_id,
+    id: run.id,
+    session_id: session.session_id,
   });
 
   // idempotency check

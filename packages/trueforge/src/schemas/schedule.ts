@@ -147,6 +147,7 @@ export const ScheduleRunSchema = z
     created_by_subject: CreatedBySubjectSchema,
     triggered_at: NullableIsoTimestamp,
     reason: z.string().nullable(),
+    session_id: z.string().nullable().describe('Session this run created. Null until a session exists.'),
     created_at: IsoTimestamp,
     updated_at: IsoTimestamp,
   })

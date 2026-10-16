@@ -3901,6 +3901,13 @@
             "format": "date-time",
             "type": "string"
           },
+          "session_id": {
+            "description": "Session this run created. Null until a session exists.",
+            "type": [
+              "string",
+              "null"
+            ]
+          },
           "status": {
             "$ref": "#/components/schemas/ScheduleRunStatus"
           },
@@ -3925,6 +3932,7 @@
           "created_by_subject",
           "triggered_at",
           "reason",
+          "session_id",
           "created_at",
           "updated_at"
         ],

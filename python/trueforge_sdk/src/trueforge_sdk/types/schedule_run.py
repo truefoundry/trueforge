@@ -18,6 +18,11 @@ class ScheduleRun(UncheckedBaseModel):
     reason: typing.Optional[str] = None
     schedule_id: str
     scheduled_for: dt.datetime
+    session_id: typing.Optional[str] = pydantic.Field(default=None)
+    """
+    Session this run created. Null until a session exists.
+    """
+
     status: ScheduleRunStatus
     triggered_at: typing.Optional[dt.datetime] = None
     updated_at: dt.datetime

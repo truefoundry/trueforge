@@ -318,6 +318,7 @@ describe('create schedule run', () => {
         schedule_id: scheduleId,
         status: 'triggered',
         reason: null,
+        session_id: null,
         created_by_subject: {
           subject_id: 'alice',
           subject_type: 'user',
@@ -345,6 +346,29 @@ describe('create schedule run', () => {
       page_token: undefined,
     });
     expect(runs.data.map(r => r.status).sort()).toEqual(['scheduled', 'triggered']);
+  });
+
+  it('returns the linked session_id from run-now and the runs list', async () => {
+    const { app, asUser, postJson } = await setup();
+    mockedStartScheduleRun.mockImplementation(async ({ item, scheduleStore }) => {
+      await scheduleStore.setRunSessionId({ tenant_id: item.run.tenant_id, id: item.run.id, session_id: 'session-1' });
+      return undefined;
+    });
+
+    asUser(ALICE);
+    const created = await postJson('/', 'POST', scheduleBody);
+    const { id: scheduleId } = ((await created.json()) as { data: { id: string } }).data;
+
+    const res = await postJson('/runs', 'POST', { schedule_id: scheduleId });
+    expect(res.status).toBe(201);
+    const runNow = CreateScheduleRunResponseSchema.parse(await res.json()).data;
+    expect(runNow.session_id).toBe('session-1');
+
+    const list = ListScheduleRunsResponseSchema.parse(await (await app.request(`/${scheduleId}/runs`)).json());
+    expect(list.data.map(run => [run.status, run.session_id]).sort()).toEqual([
+      ['scheduled', null],
+      ['triggered', 'session-1'],
+    ]);
   });
 
   it('does not let an OIDC settings admin trigger another creator schedule', async () => {

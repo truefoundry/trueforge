@@ -900,4 +900,44 @@ export function runScheduleStoreContractSuite(deps: {
       }),
     ).toBeUndefined();
   });
+
+  it('setRunSessionId links a run to its session; status changes keep the link', async () => {
+    const store = deps.getScheduleStore();
+    const agent = await seedAgent();
+    const { schedule } = await store.createScheduleAndRun({
+      tenant_id: TENANT,
+      agent_id: agent.id,
+      agent_name: agent.name,
+      name: 'run-session',
+      manifest: manifest({ status: 'paused' }),
+      created_by_subject: USER_SUBJECT,
+      runFrom: new Date(),
+    });
+    const triggeredAt = new Date('2026-08-27T10:00:00.000Z');
+    const run = await store.createRun({
+      tenant_id: TENANT,
+      schedule_id: schedule.id,
+      name: cronRunName(triggeredAt),
+      scheduled_for: triggeredAt,
+      status: 'triggered',
+      created_by_subject: USER_SUBJECT,
+      triggered_at: triggeredAt,
+    });
+    expect(run.session_id).toBeNull();
+
+    const linked = await store.setRunSessionId({ tenant_id: TENANT, id: run.id, session_id: 'session-1' });
+    expect(linked).toEqual(expect.objectContaining({ id: run.id, session_id: 'session-1' }));
+    expect(await store.getRun({ tenant_id: TENANT, id: run.id })).toEqual(linked);
+
+    const failed = await store.updateRunStatus({
+      tenant_id: TENANT,
+      id: run.id,
+      status: 'failed',
+      reason: 'turn failed',
+    });
+    expect(failed?.session_id).toBe('session-1');
+
+    await store.deleteSchedule({ tenant_id: TENANT, id: schedule.id });
+    expect(await store.setRunSessionId({ tenant_id: TENANT, id: run.id, session_id: 'session-2' })).toBeUndefined();
+  });
 }

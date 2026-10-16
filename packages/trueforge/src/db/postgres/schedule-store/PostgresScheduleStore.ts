@@ -27,6 +27,7 @@ import {
   type ScheduleRecord,
   type ScheduleRunRecord,
   type ScheduleWriteResult,
+  type SetRunSessionIdInput,
   type UpdateScheduleInput,
   type UpdateScheduleRunStatusInput,
 } from '../../scheduleStore';
@@ -60,6 +61,7 @@ function toRunRecord(row: Selectable<ScheduleRunTable>): ScheduleRunRecord {
     created_by_subject: CreatedBySubjectSchema.parse(row.created_by_subject),
     triggered_at: row.triggered_at === null ? null : row.triggered_at.toISOString(),
     reason: row.reason,
+    session_id: row.session_id,
     created_at: row.created_at.toISOString(),
     updated_at: row.updated_at.toISOString(),
   };
@@ -328,6 +330,7 @@ export class PostgresScheduleStore implements IScheduleStore<Transaction<Databas
           created_by_subject: json(input.created_by_subject),
           triggered_at: input.triggered_at ?? null,
           reason: input.reason ?? null,
+          session_id: null,
           created_at: now(),
           updated_at: now(),
         })
@@ -356,6 +359,21 @@ export class PostgresScheduleStore implements IScheduleStore<Transaction<Databas
     const row = await db
       .updateTable('schedule_run')
       .set(patch)
+      .where('tenant_id', '=', input.tenant_id)
+      .where('id', '=', input.id)
+      .returningAll()
+      .executeTakeFirst();
+    return row === undefined ? undefined : toRunRecord(row);
+  }
+
+  async setRunSessionId(
+    input: SetRunSessionIdInput,
+    transaction?: Transaction<Database>,
+  ): Promise<ScheduleRunRecord | undefined> {
+    const db = transaction ?? this.#db;
+    const row = await db
+      .updateTable('schedule_run')
+      .set({ session_id: input.session_id, updated_at: now() })
       .where('tenant_id', '=', input.tenant_id)
       .where('id', '=', input.id)
       .returningAll()
