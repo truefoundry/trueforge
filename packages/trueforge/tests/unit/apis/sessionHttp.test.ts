@@ -64,6 +64,9 @@ describe('sessions HTTP agent binding', () => {
   let sessionStore: SqliteSessionStore;
   let sessionMetricsStore: SqliteSessionMetricsStore;
   let sessionDeps: SessionsRouterDeps;
+  let resolveModelProviderStore: jest.Mock;
+  let resolveMcpServerStore: jest.Mock;
+  let resolveSkillStore: jest.Mock;
 
   beforeEach(async () => {
     const db = createSqliteDb(':memory:');
@@ -96,13 +99,16 @@ describe('sessions HTTP agent binding', () => {
       },
     });
 
+    resolveModelProviderStore = jest.fn(() => modelProviderStore);
+    resolveMcpServerStore = jest.fn(() => mcpServerStore);
+    resolveSkillStore = jest.fn(() => skillStore);
     const deps: SessionsRouterDeps = {
       sessions,
       sessionStore,
       activeTurns: new ActiveTurnRegistry(),
-      resolveModelProviderStore: () => modelProviderStore,
-      resolveMcpServerStore: () => mcpServerStore,
-      resolveSkillStore: () => skillStore,
+      resolveModelProviderStore,
+      resolveMcpServerStore,
+      resolveSkillStore,
       resolveAgentStore: () => agentStore,
       resolveSandboxProviderStore: () => sandboxProviderStore,
       sandboxEnvironmentStore,
@@ -130,7 +136,7 @@ describe('sessions HTTP agent binding', () => {
             tokenStore,
             clientName: 'test-client',
           }),
-        resolveSkillStore: () => skillStore,
+        resolveTurnSkillsStore: () => skillStore,
         resolveAgentStore: () => agentStore,
         eventSubscriptions: new EventSubscriptionRegistry(undefined),
         resolveSandboxProviderStore: () => sandboxProviderStore,
@@ -570,6 +576,52 @@ describe('sessions HTTP agent binding', () => {
       jsonInit('PATCH', { agent: { spec: { ...inlineSpec, instructions: 'nope' } } }),
     );
     expect(patchNamed.status).toBe(422);
+  });
+
+  it('validates inline session create and spec replace against request resources', async () => {
+    resolveModelProviderStore.mockClear();
+    resolveMcpServerStore.mockClear();
+    resolveSkillStore.mockClear();
+
+    const created = await app.request('/', jsonInit('POST', { agent: { spec: inlineSpec } }));
+    expect(created.status).toBe(201);
+    expect(resolveModelProviderStore).toHaveBeenCalledWith({
+      c: expect.anything(),
+      allowInlineResources: true,
+    });
+    expect(resolveMcpServerStore).toHaveBeenCalledWith({
+      c: expect.anything(),
+      allowInlineResources: true,
+    });
+    expect(resolveSkillStore).toHaveBeenCalledWith(expect.anything(), { allowInlineResources: true });
+
+    const { data } = (await created.json()) as { data: { id: string } };
+    resolveModelProviderStore.mockClear();
+    resolveMcpServerStore.mockClear();
+    resolveSkillStore.mockClear();
+
+    const patched = await app.request(
+      `/${data.id}`,
+      jsonInit('PATCH', { agent: { spec: { ...inlineSpec, instructions: 'replaced' } } }),
+    );
+    expect(patched.status).toBe(200);
+    expect(resolveModelProviderStore).toHaveBeenCalledWith({
+      c: expect.anything(),
+      allowInlineResources: true,
+    });
+    expect(resolveMcpServerStore).toHaveBeenCalledWith({
+      c: expect.anything(),
+      allowInlineResources: true,
+    });
+    expect(resolveSkillStore).toHaveBeenCalledWith(expect.anything(), { allowInlineResources: true });
+
+    resolveSkillStore.mockClear();
+    const external = await app.request(
+      '/api/internal/sessions/get-or-create-by-external-id',
+      jsonInit('POST', { external_id: 'inline-create', agent: { spec: inlineSpec } }),
+    );
+    expect(external.status).toBe(201);
+    expect(resolveSkillStore).toHaveBeenCalledWith(expect.anything(), { allowInlineResources: true });
   });
 
   it('allows PATCH agent.spec on inline sessions', async () => {

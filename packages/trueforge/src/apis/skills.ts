@@ -16,7 +16,14 @@ import { findCatalogUsageConflict } from '../runtime/catalogUsage';
 import type { AvailableSkill, ConfiguredSkill, CreateSkillRequest, UpdateSkillRequest } from '../schemas/skill';
 import { parseTrueFoundryRegistrySkill } from '../schemas/skill';
 
-export type ResolveSkillStore<TTransaction = never> = (c: Context) => ISkillStore<TTransaction>;
+/**
+ * Catalog and agent saves call this with `c` only, which rejects `x-tfg-skills`.
+ * Inline session create and spec replace pass `allowInlineResources` so the header can validate the spec.
+ */
+export type ResolveSkillStore<TTransaction = never> = (
+  c: Context,
+  options?: { allowInlineResources?: boolean },
+) => ISkillStore<TTransaction>;
 
 export interface SkillsRouterDeps<TTransaction> {
   resolveSkillStore: ResolveSkillStore<TTransaction>;

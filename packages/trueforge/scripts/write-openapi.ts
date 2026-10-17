@@ -83,6 +83,7 @@ const app = createServerApp({
       clientName: configuration.MCP_DCR_OAUTH_CLIENT_NAME,
     }),
   resolveSkillStore: () => skillStore,
+  resolveTurnSkillsStore: () => skillStore,
   resolveSandboxProviderStore: () => sandboxProviderStore,
   resolveWebSearchProviderStore: () => webSearchProviderStore,
   resolveAgentStore: () => agentStore,
