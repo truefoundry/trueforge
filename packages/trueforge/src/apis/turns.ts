@@ -825,7 +825,7 @@ export function createTurnsRouter(deps: TurnsRouterDeps) {
       referencedAgent = agent;
     }
 
-    // x-tfg-skills / x-tfg-mcp / x-tfg-models only on turns for inline sessions.
+    // x-tfg-skills / x-tfg-mcp / x-tfg-models on turns only when the session agent is inline.
     const allowInlineResources = session.record.agent.type === 'inline';
     const turnParams: BeginTurnExecutionParams = {
       session,

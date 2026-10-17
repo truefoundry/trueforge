@@ -677,7 +677,8 @@ async function createServerRuntime<TTransaction>(persistence: ServerPersistence<
 
   // Hono handlers get Context; persistence resolvers take RequestContext.
   // x-tfg-skills / x-tfg-mcp / x-tfg-models are rejected unless allowInlineResources
-  // (inline-session turns only). x-tfg-mcp-headers is separate (per-server invoke headers).
+  // (inline session create or spec replace, or a turn for an inline session).
+  // x-tfg-mcp-headers is separate (per-server invoke headers).
   const isTrueFoundryMode = isTrueFoundryModeEnabled(configuration);
   const resolveModelProviderStore = (input: ResolveModelProviderStoreInput) => {
     const { c, runAsAgent, allowInlineResources = false } = input;
@@ -724,14 +725,17 @@ async function createServerRuntime<TTransaction>(persistence: ServerPersistence<
   const resolveSandboxProviderStore = (c: Context) => persistence.resolveSandboxProviderStore(resolveRequestContext(c));
   const resolveWebSearchProviderStore = (c: Context) =>
     persistence.resolveWebSearchProviderStore(resolveRequestContext(c));
-  // Catalog / validate: caller JWT registry only. Reject x-tfg-skills on these paths.
-  const resolveSkillStore = (c: Context) => {
-    if (c.req.header(X_TFG_SKILLS) !== undefined) {
+  // Catalog and agent saves reject x-tfg-skills. Inline session create and spec replace opt in and get a
+  // closed-set store for validation only; the header is not persisted.
+  const resolveSkillStore = (c: Context, options?: { allowInlineResources?: boolean }) => {
+    const rawInlineSkillsHeader = c.req.header(X_TFG_SKILLS);
+    if (rawInlineSkillsHeader !== undefined) {
       assertInlineResourceHeadersAllowed({
         headerNames: [X_TFG_SKILLS],
         isTrueFoundryMode,
-        allowInlineResources: false,
+        allowInlineResources: options?.allowInlineResources ?? false,
       });
+      return new InlineSkillStore({ inline: parseInlineSkills(rawInlineSkillsHeader) });
     }
     return persistence.resolveSkillStore(resolveRequestContext(c));
   };

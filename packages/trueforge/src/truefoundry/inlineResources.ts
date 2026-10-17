@@ -18,7 +18,9 @@ export const X_TFG_MODELS = 'x-tfg-models';
 
 /**
  * Fail closed: those headers are rejected unless TrueFoundry mode is on and the caller
- * opted in (`allowInlineResources: true` on an inline-session turn).
+ * opted in (`allowInlineResources: true` on inline session create or spec replace, or on a
+ * turn for an inline session). Create and replace use them only to validate the spec; they
+ * are not stored.
  * Does not cover `x-tfg-mcp-headers` — that only adds per-server invoke headers, it does not
  * define MCP servers.
  */
@@ -33,7 +35,7 @@ export function assertInlineResourceHeadersAllowed(input: {
   }
   if (!input.allowInlineResources) {
     throw new HTTPException(400, {
-      message: `${labeled} is only allowed on turns for inline sessions`,
+      message: `${labeled} is only allowed when creating or updating an inline session, or on a turn for one`,
     });
   }
 }

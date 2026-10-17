@@ -195,7 +195,7 @@ function routeNotFound(c: Context) {
   return c.json({ error: { message: `Route not found: ${c.req.method} ${c.req.path}` } }, 404);
 }
 
-/** HTTP model-provider store resolve. `allowInlineResources` only for inline-session turns. */
+/** HTTP model-provider store resolve. `allowInlineResources` for inline session create, spec replace, and inline-session turns. */
 export interface ResolveModelProviderStoreInput {
   c: Context;
   runAsAgent?: AgentRecord;
@@ -209,7 +209,7 @@ export interface ResolveMcpServerStoreInput {
   allowInlineResources?: boolean;
 }
 
-/** HTTP turn skill-mount resolve. `allowInlineResources` only for inline-session turns. */
+/** HTTP turn skill-mount resolve. `allowInlineResources` only for turns on inline sessions. */
 export interface ResolveTurnSkillsStoreInput {
   c: Context;
   allowInlineResources?: boolean;

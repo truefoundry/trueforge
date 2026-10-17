@@ -2,7 +2,13 @@
  * DB-backed sessions APIs (mounted at /api/v1/sessions and /api/internal/sessions).
  */
 import { OpenAPIHono, type RouteHandler } from '@hono/zod-openapi';
-import type { ISessionStore, SessionHandle, SessionRecord, Sessions } from '@truefoundry/trueforge-core/agent-session';
+import type {
+  AgentSpec,
+  ISessionStore,
+  SessionHandle,
+  SessionRecord,
+  Sessions,
+} from '@truefoundry/trueforge-core/agent-session';
 import {
   CancellationReason,
   SessionStoreConflictError,
@@ -23,7 +29,7 @@ import { HTTPException } from 'hono/http-exception';
 import type { Logger } from 'winston';
 import { z } from 'zod';
 import type { Authorizer } from '../auth/authorizer';
-import { createdBySubjectFromRequestContext, type ResolveRequestContext } from '../auth/identity';
+import { createdBySubjectFromRequestContext, type RequestContext, type ResolveRequestContext } from '../auth/identity';
 import configuration from '../config';
 import type { IAgentStore } from '../db/agentStore';
 import type { IMcpServerStore } from '../db/mcpServerStore';
@@ -79,8 +85,8 @@ export interface SessionsRouterDeps {
   sessions: Sessions;
   sessionStore: ISessionStore;
   activeTurns: ActiveTurnRegistry;
-  resolveModelProviderStore: (input: { c: Context }) => IModelProviderStore;
-  resolveMcpServerStore: (input: { c: Context }) => IMcpServerStore;
+  resolveModelProviderStore: (input: { c: Context; allowInlineResources?: boolean }) => IModelProviderStore;
+  resolveMcpServerStore: (input: { c: Context; allowInlineResources?: boolean }) => IMcpServerStore;
   resolveSkillStore: ResolveSkillStore;
   resolveAgentStore: (c: Context) => IAgentStore;
   resolveSandboxProviderStore: (c: Context) => ISandboxProviderStore;
@@ -234,6 +240,36 @@ function isSessionOwner({
   return subject_id === created_by_subject.subject_id;
 }
 
+/**
+ * Inline create and spec replace check model, MCP, and skill names against `x-tfg-*` when those
+ * headers are present. The headers are not written onto the session.
+ */
+function validateInlineSessionSpec(
+  deps: Pick<
+    SessionsRouterDeps,
+    | 'resolveModelProviderStore'
+    | 'resolveMcpServerStore'
+    | 'resolveSkillStore'
+    | 'resolveSandboxProviderStore'
+    | 'sandboxEnvironmentStore'
+    | 'resolveWebSearchProviderStore'
+  >,
+  input: { c: Context; spec: AgentSpec; requestContext: RequestContext },
+): Promise<void> {
+  const { c, spec, requestContext } = input;
+  return validateAgentSpec({
+    spec,
+    tenant_id: requestContext.tenant_id,
+    created_by_subject_id: requestContext.subject.id,
+    modelProviderStore: deps.resolveModelProviderStore({ c, allowInlineResources: true }),
+    mcpServerStore: deps.resolveMcpServerStore({ c, allowInlineResources: true }),
+    skillStore: deps.resolveSkillStore(c, { allowInlineResources: true }),
+    sandboxProviderStore: deps.resolveSandboxProviderStore(c),
+    sandboxEnvironmentStore: deps.sandboxEnvironmentStore,
+    webSearchProviderStore: deps.resolveWebSearchProviderStore(c),
+  });
+}
+
 type InternalSessionsRouterDeps = Pick<
   SessionsRouterDeps,
   | 'sessions'
@@ -289,16 +325,10 @@ function createGetOrCreateSessionByExternalIdHandler(
       }
       agent = { type: 'reference', id: named.id, name: named.name };
     } else {
-      await validateAgentSpec({
+      await validateInlineSessionSpec(deps, {
+        c,
         spec: body.agent.spec,
-        tenant_id: requestContext.tenant_id,
-        created_by_subject_id: requestContext.subject.id,
-        modelProviderStore: deps.resolveModelProviderStore({ c }),
-        mcpServerStore: deps.resolveMcpServerStore({ c }),
-        skillStore: deps.resolveSkillStore(c),
-        sandboxProviderStore: deps.resolveSandboxProviderStore(c),
-        sandboxEnvironmentStore: deps.sandboxEnvironmentStore,
-        webSearchProviderStore: deps.resolveWebSearchProviderStore(c),
+        requestContext,
       });
       agent = { type: 'inline', spec: body.agent.spec };
     }
@@ -364,16 +394,10 @@ export function createSessionsRouter(deps: SessionsRouterDeps) {
       return c.json({ data: toWireSession(session.record) }, 201);
     }
 
-    await validateAgentSpec({
+    await validateInlineSessionSpec(deps, {
+      c,
       spec: body.agent.spec,
-      tenant_id: requestContext.tenant_id,
-      created_by_subject_id: requestContext.subject.id,
-      modelProviderStore: deps.resolveModelProviderStore({ c }),
-      mcpServerStore: deps.resolveMcpServerStore({ c }),
-      skillStore: deps.resolveSkillStore(c),
-      sandboxProviderStore: deps.resolveSandboxProviderStore(c),
-      sandboxEnvironmentStore: deps.sandboxEnvironmentStore,
-      webSearchProviderStore: deps.resolveWebSearchProviderStore(c),
+      requestContext,
     });
     const session = await deps.sessions.create({
       tenant_id: requestContext.tenant_id,
@@ -458,17 +482,25 @@ export function createSessionsRouter(deps: SessionsRouterDeps) {
     // Inline sessions may replace their agent; named (reference) sessions
     // cannot — the store rejects that with SessionStoreInvariantError → 422 below.
     if (body.agent !== undefined) {
-      await validateAgentSpec({
-        spec: body.agent.spec,
-        tenant_id: requestContext.tenant_id,
-        created_by_subject_id: requestContext.subject.id,
-        modelProviderStore: deps.resolveModelProviderStore({ c }),
-        mcpServerStore: deps.resolveMcpServerStore({ c }),
-        skillStore: deps.resolveSkillStore(c),
-        sandboxProviderStore: deps.resolveSandboxProviderStore(c),
-        sandboxEnvironmentStore: deps.sandboxEnvironmentStore,
-        webSearchProviderStore: deps.resolveWebSearchProviderStore(c),
-      });
+      if (existing.agent.type === 'inline') {
+        await validateInlineSessionSpec(deps, {
+          c,
+          spec: body.agent.spec,
+          requestContext,
+        });
+      } else {
+        await validateAgentSpec({
+          spec: body.agent.spec,
+          tenant_id: requestContext.tenant_id,
+          created_by_subject_id: requestContext.subject.id,
+          modelProviderStore: deps.resolveModelProviderStore({ c }),
+          mcpServerStore: deps.resolveMcpServerStore({ c }),
+          skillStore: deps.resolveSkillStore(c),
+          sandboxProviderStore: deps.resolveSandboxProviderStore(c),
+          sandboxEnvironmentStore: deps.sandboxEnvironmentStore,
+          webSearchProviderStore: deps.resolveWebSearchProviderStore(c),
+        });
+      }
     }
     try {
       await deps.sessionStore.updateSession({
