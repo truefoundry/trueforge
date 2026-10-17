@@ -227,7 +227,7 @@ export interface ServerDeps<TTransaction> {
    * Per-request store: DB singleton, or a token-bound TrueFoundry store in TrueFoundry mode.
    * The unauthenticated OAuth callback omits `c` and gets the DB persistence store.
    */
-  resolveMcpServerStore: (input?: ResolveMcpServerStoreInput) => IMcpServerWithAuthStore<TTransaction>;
+  resolveMcpServerStore: (input: ResolveMcpServerStoreInput) => IMcpServerWithAuthStore<TTransaction>;
   /** Per-request store: DB singleton, or a token-bound TrueFoundry decorator in TrueFoundry mode. */
   resolveAgentStore: (c: Context) => IAgentStore<TTransaction>;
   /**
@@ -362,7 +362,7 @@ export function createServerApp<TTransaction>(deps: ServerDeps<TTransaction>) {
     '/api/v1/mcp-servers/oauth',
     createMcpOAuthRouter({
       tokenStore: deps.tokenStore,
-      mcpServerStore: deps.resolveMcpServerStore(),
+      mcpServerStore: deps.resolveMcpServerStore({}),
       logger: deps.logger,
       resolveSession: c => tryAuthenticate({ authenticator: deps.authenticator, context: c }),
     }),

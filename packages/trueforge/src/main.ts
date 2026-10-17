@@ -697,7 +697,7 @@ async function createServerRuntime<TTransaction>(persistence: ServerPersistence<
         : {}),
     });
   };
-  const resolveMcpServerStore = (input: ResolveMcpServerStoreInput = {}) => {
+  const resolveMcpServerStore = (input: ResolveMcpServerStoreInput) => {
     const { c, runAsAgent, allowInlineResources = false } = input;
     if (c === undefined) {
       return mcpOAuthStore;
