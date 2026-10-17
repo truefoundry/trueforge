@@ -158,6 +158,26 @@ import { TrueFoundryServiceFoundryServerClient } from './truefoundry/TrueFoundry
 import { TrueFoundryAdminSkillStore, TrueFoundrySkillStore } from './truefoundry/TrueFoundrySkillStore';
 import { TrueFoundryWebSearchProviderStore } from './truefoundry/TrueFoundryWebSearchProviderStore';
 
+/** Persistence-layer model store resolve (RequestContext, not Hono Context). */
+type ResolveModelProviderStore<TTransaction> = (input: {
+  rc: RequestContext;
+  runAsAgent?: AgentRecord;
+  inlineModelProviders?: InlineModelProviders;
+}) => IModelProviderStore<TTransaction>;
+
+/** Persistence-layer MCP store resolve (RequestContext, not Hono Context). */
+type ResolveMcpServerStore<TTransaction> = (input: {
+  rc: RequestContext;
+  runAsAgent?: AgentRecord;
+  perServerHeaders?: PerServerMcpHeaders;
+  inlineMcpServers?: InlineMcpServers;
+}) => IMcpServerWithAuthStore<TTransaction>;
+
+/** Turn skill mounts: closed-set `x-tfg-skills`, else the registry/DB store. */
+type ResolveTurnSkillsStore<TTransaction> = (input: {
+  inlineSkills?: InlineSkills;
+}) => Pick<ISkillStore<TTransaction>, 'resolveTurnSkills'>;
+
 /** Persistence + optional Redis wired for the selected topology. */
 interface ServerPersistence<TTransaction> {
   withTransaction: WithTransaction<TTransaction>;
@@ -166,17 +186,8 @@ interface ServerPersistence<TTransaction> {
   tokenStore: IOAuthTokenStore<TTransaction>;
   scheduleStore: IScheduleStore<TTransaction>;
   mcpOAuthStore: IMcpServerWithAuthStore<TTransaction>;
-  resolveModelProviderStore: (input: {
-    rc: RequestContext;
-    runAsAgent?: AgentRecord;
-    inlineModelProviders?: InlineModelProviders;
-  }) => IModelProviderStore<TTransaction>;
-  resolveMcpServerStore: (input: {
-    rc: RequestContext;
-    runAsAgent?: AgentRecord;
-    perServerHeaders?: PerServerMcpHeaders;
-    inlineMcpServers?: InlineMcpServers;
-  }) => IMcpServerWithAuthStore<TTransaction>;
+  resolveModelProviderStore: ResolveModelProviderStore<TTransaction>;
+  resolveMcpServerStore: ResolveMcpServerStore<TTransaction>;
   resolveSandboxProviderStore: (rc: RequestContext) => ISandboxProviderStore<TTransaction>;
   resolveWebSearchProviderStore: (rc: RequestContext) => IWebSearchProviderStore<TTransaction>;
   /** Per-request store: DB git skills, or TrueFoundry registry catalog (caller JWT). */
@@ -188,9 +199,7 @@ interface ServerPersistence<TTransaction> {
   /** Context-free provider store for internal sandbox-env build progress. */
   sandboxProviderStore: ISandboxProviderStore<TTransaction>;
   /** Turn skill mounts: registry (API key) or closed-set `x-tfg-skills`. */
-  resolveTurnSkillsStore: (input: {
-    inlineSkills?: InlineSkills;
-  }) => Pick<ISkillStore<TTransaction>, 'resolveTurnSkills'>;
+  resolveTurnSkillsStore: ResolveTurnSkillsStore<TTransaction>;
   destroyDb: () => Promise<void>;
   /** Connected Redis (client + mode) for distributed peering; undefined in standalone. */
   redis: ConnectedRedis | undefined;
@@ -242,7 +251,7 @@ function buildResolveSkillStore<TTransaction>(options: {
 function buildResolveTurnSkillsStore<TTransaction>(options: {
   persistenceStore: ISkillStore<TTransaction>;
   client: TrueFoundryServiceFoundryServerClient | undefined;
-}): (input: { inlineSkills?: InlineSkills }) => Pick<ISkillStore<TTransaction>, 'resolveTurnSkills'> {
+}): ResolveTurnSkillsStore<TTransaction> {
   const { persistenceStore, client } = options;
   const registry: Pick<ISkillStore<TTransaction>, 'resolveTurnSkills'> = client
     ? new TrueFoundryAdminSkillStore({ client })
@@ -263,11 +272,7 @@ function buildResolveModelProviderStore<TTransaction>(options: {
   persistenceStore: IModelProviderStore<TTransaction>;
   client: TrueFoundryServiceFoundryServerClient | undefined;
   logger: Logger;
-}): (input: {
-  rc: RequestContext;
-  runAsAgent?: AgentRecord;
-  inlineModelProviders?: InlineModelProviders;
-}) => IModelProviderStore<TTransaction> {
+}): ResolveModelProviderStore<TTransaction> {
   return input => {
     const { persistenceStore, client } = options;
     if (client) {
@@ -294,12 +299,7 @@ function buildResolveMcpServerStore<TTransaction>(options: {
   tokenStore: IOAuthTokenStore<TTransaction>;
   client: TrueFoundryServiceFoundryServerClient | undefined;
   logger: Logger;
-}): (input: {
-  rc: RequestContext;
-  runAsAgent?: AgentRecord;
-  perServerHeaders?: PerServerMcpHeaders;
-  inlineMcpServers?: InlineMcpServers;
-}) => IMcpServerWithAuthStore<TTransaction> {
+}): ResolveMcpServerStore<TTransaction> {
   const withAuthMcpPersistenceStore = new McpServerWithAuthStore<TTransaction>({
     store: options.persistenceStore,
     tokenStore: options.tokenStore,
