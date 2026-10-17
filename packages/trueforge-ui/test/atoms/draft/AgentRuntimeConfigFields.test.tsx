@@ -1,4 +1,4 @@
-import { fireEvent, render, screen, waitFor } from '@testing-library/react';
+import { fireEvent, render, screen, waitFor, within } from '@testing-library/react';
 import { describe, expect, it, vi } from 'vitest';
 
 import { AgentRuntimeConfigFields } from '@/atoms/draft/AgentRuntimeConfigFields.js';
@@ -83,6 +83,28 @@ function renderRuntimeFields({
 }
 
 describe('AgentRuntimeConfigFields', () => {
+  it('links capability and runtime fields to docs in detailed layout', () => {
+    renderRuntimeFields();
+
+    const expected = [
+      ['Dynamic sub-agents', 'https://trueforge.dev/key-features/subagents'],
+      ['Generative UI', 'https://trueforge.dev/create-agent/overview#generative-ui'],
+      ['Ask user questions', 'https://trueforge.dev/create-agent/overview#ask-clarifying-questions'],
+      ['Iteration limit', 'https://trueforge.dev/create-agent/overview#iteration-limit'],
+      ['Sandbox', 'https://trueforge.dev/sandbox'],
+      ['Context compaction', 'https://trueforge.dev/key-features/overview#context-compaction'],
+      ['Large tool response offloading', 'https://trueforge.dev/key-features/large-tool-responses'],
+    ] as const;
+
+    for (const [label, href] of expected) {
+      const fieldRow = screen.getByText(label).closest('.flex');
+      expect(fieldRow).not.toBeNull();
+      const learnMore = within(fieldRow as HTMLElement).getByRole('link', { name: /Learn more/ });
+      expect(learnMore).toHaveAttribute('href', href);
+      expect(learnMore).toHaveAttribute('target', '_blank');
+    }
+  });
+
   it('renders environment row in detailed layout with Manage Environments link', async () => {
     renderRuntimeFields();
 

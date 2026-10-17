@@ -38,6 +38,16 @@ function parsePositiveInteger(raw: string): number | null {
 const NO_SANDBOX_PROVIDER_HINT = 'No sandbox provider yet, add one in Settings → Sandbox';
 const DEFAULT_COMPACTION_THRESHOLD_TOKENS = 50_000;
 
+const RUNTIME_CONFIG_DOCS = {
+  dynamicSubAgents: 'https://trueforge.dev/key-features/subagents',
+  generativeUi: 'https://trueforge.dev/create-agent/overview#generative-ui',
+  askUserQuestions: 'https://trueforge.dev/create-agent/overview#ask-clarifying-questions',
+  sandbox: 'https://trueforge.dev/sandbox',
+  compaction: 'https://trueforge.dev/key-features/overview#context-compaction',
+  largeToolResponse: 'https://trueforge.dev/key-features/large-tool-responses',
+  iterationLimit: 'https://trueforge.dev/create-agent/overview#iteration-limit',
+} as const;
+
 const COMPACTION_THRESHOLD_MODE_OPTIONS = [
   { value: 'auto', label: 'Auto' },
   { value: 'custom', label: 'Custom' },
@@ -48,11 +58,26 @@ type CompactionThresholdMode = (typeof COMPACTION_THRESHOLD_MODE_OPTIONS)[number
 type RuntimeSwitchField = {
   label: string;
   description: string;
+  docsUrl?: string;
   checked: boolean;
   disabled?: boolean;
   disabledTooltip?: string;
   update: (enabled: boolean) => AgentRuntimeConfig;
 };
+
+function DocsLearnMore({ href }: { href: string }) {
+  return (
+    <a
+      href={href}
+      target="_blank"
+      rel="noreferrer"
+      className="text-primary-button-bg mt-1 inline-flex items-center gap-1 text-xs hover:underline"
+    >
+      Learn more
+      <Icon name="external-link" className="size-3" />
+    </a>
+  );
+}
 
 export function AgentRuntimeConfigFields({
   value,
@@ -98,18 +123,21 @@ export function AgentRuntimeConfigFields({
     {
       label: 'Dynamic sub-agents',
       description: 'Allow the agent to delegate complex work to focused sub-agents.',
+      docsUrl: RUNTIME_CONFIG_DOCS.dynamicSubAgents,
       checked: value.dynamicSubAgents?.enabled ?? true,
       update: enabled => ({ ...value, dynamicSubAgents: { enabled } }),
     },
     {
       label: 'Generative UI',
       description: 'Allow rich interactive UI blocks in agent responses.',
+      docsUrl: RUNTIME_CONFIG_DOCS.generativeUi,
       checked: value.generativeUi?.enabled ?? true,
       update: enabled => ({ ...value, generativeUi: { enabled } }),
     },
     {
       label: 'Ask user questions',
       description: 'Allow the agent to pause and ask for clarification.',
+      docsUrl: RUNTIME_CONFIG_DOCS.askUserQuestions,
       checked: value.askUserQuestions?.enabled ?? true,
       update: enabled => ({ ...value, askUserQuestions: { enabled } }),
     },
@@ -129,6 +157,7 @@ export function AgentRuntimeConfigFields({
   const sandboxField: RuntimeSwitchField = {
     label: 'Sandbox',
     description: 'Provide an isolated environment for code, files, and skills.',
+    docsUrl: RUNTIME_CONFIG_DOCS.sandbox,
     checked: sandboxEnabled,
     disabled: !sandboxAvailable || hasSkills,
     disabledTooltip: !sandboxAvailable
@@ -151,12 +180,14 @@ export function AgentRuntimeConfigFields({
   const compactionField: RuntimeSwitchField = {
     label: 'Context compaction',
     description: 'Summarize older turns as context fills.',
+    docsUrl: RUNTIME_CONFIG_DOCS.compaction,
     checked: compactionEnabled,
     update: enabled => withCompaction({ ...value.contextManagement?.compaction, enabled }),
   };
   const largeToolResponseField: RuntimeSwitchField = {
     label: 'Large tool response offloading',
     description: 'Move large tool output to the sandbox and retain a preview.',
+    docsUrl: RUNTIME_CONFIG_DOCS.largeToolResponse,
     checked: value.contextManagement?.largeToolResponse?.enabled ?? true,
     disabled: !sandboxAvailable,
     disabledTooltip: !sandboxAvailable ? `Offloading needs a sandbox. ${NO_SANDBOX_PROVIDER_HINT}` : undefined,
@@ -205,7 +236,10 @@ export function AgentRuntimeConfigFields({
             {field.label}
           </span>
           {layout === 'detailed' ? (
-            <span className="text-text-secondary mt-0.5 block text-xs leading-snug">{field.description}</span>
+            <>
+              <span className="text-text-secondary mt-0.5 block text-xs leading-snug">{field.description}</span>
+              {field.docsUrl ? <DocsLearnMore href={field.docsUrl} /> : null}
+            </>
           ) : null}
         </span>
         {field.disabledTooltip ? (
@@ -239,18 +273,20 @@ export function AgentRuntimeConfigFields({
             )}
           </div>
         ) : null}
-        <label className={cn('flex py-4', rowClassName)}>
+        <div className={cn('flex py-4', rowClassName)}>
           <span className="min-w-0">
             <span className="text-text-primary block text-sm font-medium">Iteration limit</span>
             <span className="text-text-secondary mt-0.5 block text-xs leading-snug">
               Maximum agent-loop iterations for one turn.
             </span>
+            <DocsLearnMore href={RUNTIME_CONFIG_DOCS.iterationLimit} />
           </span>
           <input
             type="number"
             min={1}
             max={1024}
             disabled={disabled}
+            aria-label="Iteration limit"
             value={value.iterationLimit ?? 512}
             className={auiInputClass('h-8 w-24 shrink-0 disabled:opacity-60')}
             onChange={event => {
@@ -258,7 +294,7 @@ export function AgentRuntimeConfigFields({
               if (iterationLimit !== null) onChange({ ...value, iterationLimit });
             }}
           />
-        </label>
+        </div>
         {webSearchField != null ? switchField({ field: webSearchField, className: cn('py-4', rowClassName) }) : null}
         <section className="py-4">
           {switchField({ field: sandboxField, className: rowClassName })}
