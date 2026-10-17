@@ -26,16 +26,16 @@ export class InlineSkillStore<TTransaction = never> implements ISkillStore<TTran
     this.#inline = input.inline;
   }
 
-  async listSkills(input: ListSkillsInput, _transaction?: TTransaction): Promise<SkillRecord[]> {
+  listSkills(input: ListSkillsInput, _transaction?: TTransaction): Promise<SkillRecord[]> {
     void _transaction;
     if (input.names === undefined) {
-      return [];
+      return Promise.resolve([]);
     }
     if (input.names.length === 0) {
-      return [];
+      return Promise.resolve([]);
     }
     this.#assertNamesInInline(input.names);
-    return input.names.map(name => this.#toRecord({ tenant_id: input.tenant_id, name }));
+    return Promise.resolve(input.names.map(name => this.#toRecord({ tenant_id: input.tenant_id, name })));
   }
 
   createSkill(_input: CreateSkillInput, _transaction?: TTransaction): Promise<SkillRecord> {
