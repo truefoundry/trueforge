@@ -371,7 +371,7 @@ export function createServerApp<TTransaction>(deps: ServerDeps<TTransaction>) {
     '/api/v1/mcp-servers',
     withAuth(
       createMcpServersRouter({
-        resolveMcpServerStore: deps.resolveMcpServerStore,
+        resolveMcpServerStore: c => deps.resolveMcpServerStore({ c }),
         tokenStore: deps.tokenStore,
         withTransaction: deps.withTransaction,
         logger: deps.logger,
