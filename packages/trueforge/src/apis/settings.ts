@@ -41,7 +41,7 @@ export function createSettingsRouter<TTransaction>(deps: SettingsRouterDeps<TTra
   router.route(
     '/model-providers',
     createModelProvidersRouter({
-      resolveModelProviderStore: deps.resolveModelProviderStore,
+      resolveModelProviderStore: c => deps.resolveModelProviderStore({ c }),
       resolveAgentStore: deps.resolveAgentStore,
       withTransaction: deps.withTransaction,
       resolveRequestContext: deps.resolveRequestContext,
