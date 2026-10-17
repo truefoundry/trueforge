@@ -34,8 +34,12 @@ export class InlineSkillStore<TTransaction = never> implements ISkillStore<TTran
     if (input.names.length === 0) {
       return Promise.resolve([]);
     }
-    this.#assertNamesInInline(input.names);
-    return Promise.resolve(input.names.map(name => this.#toRecord({ tenant_id: input.tenant_id, name })));
+    const names = input.names;
+    // Reject via the Promise without `async` (require-await).
+    return Promise.resolve().then(() => {
+      this.#assertNamesInInline(names);
+      return names.map(name => this.#toRecord({ tenant_id: input.tenant_id, name }));
+    });
   }
 
   createSkill(_input: CreateSkillInput, _transaction?: TTransaction): Promise<SkillRecord> {
@@ -57,12 +61,14 @@ export class InlineSkillStore<TTransaction = never> implements ISkillStore<TTran
   }
 
   listSkillVersions(input: { name: string }): Promise<SkillVersion[]> {
-    if (this.#inline[input.name] === undefined) {
-      throw new HTTPException(422, {
-        message: `Unknown skill "${input.name}" — not present in ${X_TFG_SKILLS}`,
-      });
-    }
-    return Promise.resolve([]);
+    return Promise.resolve().then(() => {
+      if (this.#inline[input.name] === undefined) {
+        throw new HTTPException(422, {
+          message: `Unknown skill "${input.name}" — not present in ${X_TFG_SKILLS}`,
+        });
+      }
+      return [];
+    });
   }
 
   async validateAgentSkills(input: AgentSkillsInput, _transaction?: TTransaction): Promise<void> {
