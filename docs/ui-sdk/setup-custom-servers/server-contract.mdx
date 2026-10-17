@@ -103,7 +103,7 @@ interface AgentChatServer {
   downloadSandboxFile?(req: {
     sessionId: string;
     turnId: string;
-    sandboxId: string;
+    sandboxId?: string;
     path: string;
   }): Promise<Blob>;
 }
@@ -112,7 +112,7 @@ interface AgentChatServer {
 `deleteSession` and `renameSession` are optional. Presence gates Delete and Rename in the session list; `renameSession` persists `{ sessionId, title }`. TrueForge implements both. TrueFoundry Gateway does not persist titles and should omit `renameSession`. `listTurnEvents` hydrates the events of a single in-flight turn when your backend can serve them per turn. `subscribeToTurn` lets a reconnecting client resume a stream from `afterSequenceNumber` rather than replaying it — pass the same `abortSignal` you use on `createTurn` to tear it down. `downloadSandboxFile` enables artifact downloads.
 
 <Note>
-  `downloadSandboxFile` receives both `turnId` and `sandboxId` because backends address sandboxes differently. If your download route is scoped to a turn, resolve the sandbox from `turnId` and ignore `sandboxId`; if you address sandboxes directly, use `sandboxId`.
+  `downloadSandboxFile` always receives `turnId`, but `sandboxId` is optional: a resumed session may not have loaded the earlier `sandbox.created` event. If your download route is scoped to a turn, resolve the sandbox from `turnId`; if you address sandboxes directly, use `sandboxId` when present and resolve the missing identifier from the turn when possible.
 </Note>
 
 `createTurn` and `subscribeToTurn` yield `TurnStreamData`, an envelope of `{ sequenceNumber, event }`. The event protocol is documented in [Streaming events](/ui-sdk/reference/events).
