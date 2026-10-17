@@ -188,7 +188,7 @@ interface ServerPersistence<TTransaction> {
   /** Context-free provider store for internal sandbox-env build progress. */
   sandboxProviderStore: ISandboxProviderStore<TTransaction>;
   /** Turn skill mounts: registry (API key) or closed-set `x-tfg-skills`. */
-  resolveTurnSkillsStore: (input?: {
+  resolveTurnSkillsStore: (input: {
     inlineSkills?: InlineSkills;
   }) => Pick<ISkillStore<TTransaction>, 'resolveTurnSkills'>;
   destroyDb: () => Promise<void>;
@@ -242,13 +242,13 @@ function buildResolveSkillStore<TTransaction>(options: {
 function buildResolveTurnSkillsStore<TTransaction>(options: {
   persistenceStore: ISkillStore<TTransaction>;
   client: TrueFoundryServiceFoundryServerClient | undefined;
-}): (input?: { inlineSkills?: InlineSkills }) => Pick<ISkillStore<TTransaction>, 'resolveTurnSkills'> {
+}): (input: { inlineSkills?: InlineSkills }) => Pick<ISkillStore<TTransaction>, 'resolveTurnSkills'> {
   const { persistenceStore, client } = options;
   const registry: Pick<ISkillStore<TTransaction>, 'resolveTurnSkills'> = client
     ? new TrueFoundryAdminSkillStore({ client })
     : persistenceStore;
   return input => {
-    if (input?.inlineSkills !== undefined) {
+    if (input.inlineSkills !== undefined) {
       return new InlineSkillStore({ inline: input.inlineSkills });
     }
     return registry;
@@ -747,7 +747,7 @@ async function createServerRuntime<TTransaction>(persistence: ServerPersistence<
       });
     }
     return resolveTurnSkillsStore(
-      rawInlineSkillsHeader === undefined ? undefined : { inlineSkills: parseInlineSkills(rawInlineSkillsHeader) },
+      rawInlineSkillsHeader === undefined ? {} : { inlineSkills: parseInlineSkills(rawInlineSkillsHeader) },
     );
   };
   const app = createServerApp({
@@ -769,7 +769,7 @@ async function createServerRuntime<TTransaction>(persistence: ServerPersistence<
     agentStore,
     sandboxEnvironmentStore,
     sandboxProviderStore: persistence.sandboxProviderStore,
-    turnSkillsResolverStore: resolveTurnSkillsStore(),
+    turnSkillsResolverStore: resolveTurnSkillsStore({}),
     sessionStore,
     sessionMetricsStore,
     sessions,
