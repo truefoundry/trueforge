@@ -41,7 +41,7 @@ export function createSettingsRouter<TTransaction>(deps: SettingsRouterDeps<TTra
   router.route(
     '/model-providers',
     createModelProvidersRouter({
-      resolveModelProviderStore: deps.resolveModelProviderStore,
+      resolveModelProviderStore: c => deps.resolveModelProviderStore({ c }),
       resolveAgentStore: deps.resolveAgentStore,
       withTransaction: deps.withTransaction,
       resolveRequestContext: deps.resolveRequestContext,
@@ -50,7 +50,7 @@ export function createSettingsRouter<TTransaction>(deps: SettingsRouterDeps<TTra
   router.route(
     '/mcp-servers',
     createSettingsMcpServersRouter({
-      resolveMcpServerStore: deps.resolveMcpServerStore,
+      resolveMcpServerStore: c => deps.resolveMcpServerStore({ c }),
       resolveAgentStore: deps.resolveAgentStore,
       tokenStore: deps.tokenStore,
       withTransaction: deps.withTransaction,

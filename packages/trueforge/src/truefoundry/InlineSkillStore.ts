@@ -10,12 +10,12 @@ import type {
   SkillRecord,
   UpsertSkillInput,
 } from '../db/skillStore';
-import type { SkillVersion } from '../schemas/skill';
+import type { GitSkill, SkillVersion } from '../schemas/skill';
 import type { InlineSkills } from './inlineResources';
 import { X_TFG_SKILLS } from './inlineResources';
 
 /**
- * Closed set of skills from `x-tfg-skills`. Every requested name must be in the header map;
+ * Closed set of git skills from `x-tfg-skills`. Every requested name must be in the header map;
  * there is no registry fallthrough. Unfiltered lists stay empty so request-scoped skills never
  * appear in tenant settings. Writes are unsupported.
  */
@@ -26,16 +26,17 @@ export class InlineSkillStore<TTransaction = never> implements ISkillStore<TTran
     this.#inline = input.inline;
   }
 
-  async listSkills(input: ListSkillsInput, _transaction?: TTransaction): Promise<SkillRecord[]> {
+  listSkills(input: ListSkillsInput, _transaction?: TTransaction): Promise<SkillRecord[]> {
     void _transaction;
     if (input.names === undefined) {
-      return [];
+      return Promise.resolve([]);
     }
     if (input.names.length === 0) {
-      return [];
+      return Promise.resolve([]);
     }
-    this.#assertNamesInInline(input.names);
-    return input.names.map(name => this.#toRecord({ tenant_id: input.tenant_id, name }));
+    const names = input.names;
+    // Reject via the Promise without `async` (require-await).
+    return Promise.resolve().then(() => names.map(name => this.#toRecord({ tenant_id: input.tenant_id, name })));
   }
 
   createSkill(_input: CreateSkillInput, _transaction?: TTransaction): Promise<SkillRecord> {
@@ -57,12 +58,10 @@ export class InlineSkillStore<TTransaction = never> implements ISkillStore<TTran
   }
 
   listSkillVersions(input: { name: string }): Promise<SkillVersion[]> {
-    if (this.#inline[input.name] === undefined) {
-      throw new HTTPException(422, {
-        message: `Unknown skill "${input.name}" — not present in ${X_TFG_SKILLS}`,
-      });
-    }
-    return Promise.resolve([]);
+    return Promise.resolve().then(() => {
+      this.#require(input.name);
+      return [];
+    });
   }
 
   async validateAgentSkills(input: AgentSkillsInput, _transaction?: TTransaction): Promise<void> {
@@ -78,21 +77,22 @@ export class InlineSkillStore<TTransaction = never> implements ISkillStore<TTran
 
   #assertNamesInInline(names: readonly string[]): void {
     for (const name of names) {
-      if (this.#inline[name] === undefined) {
-        throw new HTTPException(422, {
-          message: `Unknown skill "${name}" — not present in ${X_TFG_SKILLS}`,
-        });
-      }
+      this.#require(name);
     }
   }
 
-  #toRecord(input: { tenant_id: string; name: string }): SkillRecord {
-    const manifest = this.#inline[input.name];
+  #require(name: string): GitSkill {
+    const manifest = this.#inline[name];
     if (manifest === undefined) {
       throw new HTTPException(422, {
-        message: `Unknown skill "${input.name}" — not present in ${X_TFG_SKILLS}`,
+        message: `Unknown skill "${name}" — not present in ${X_TFG_SKILLS}`,
       });
     }
+    return manifest;
+  }
+
+  #toRecord(input: { tenant_id: string; name: string }): SkillRecord {
+    const manifest = this.#require(input.name);
     const now = new Date().toISOString();
     return {
       tenant_id: input.tenant_id,

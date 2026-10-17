@@ -91,6 +91,7 @@ import {
   createServerApp,
   type ResolveMcpServerStoreInput,
   type ResolveModelProviderStoreInput,
+  type ResolveSkillStoreInput,
   type ResolveTurnSkillsStoreInput,
 } from './app';
 import { TrueForgeAuthorizer, type Authorizer } from './auth/authorizer';
@@ -158,6 +159,26 @@ import { TrueFoundryServiceFoundryServerClient } from './truefoundry/TrueFoundry
 import { TrueFoundryAdminSkillStore, TrueFoundrySkillStore } from './truefoundry/TrueFoundrySkillStore';
 import { TrueFoundryWebSearchProviderStore } from './truefoundry/TrueFoundryWebSearchProviderStore';
 
+/** Persistence-layer model store resolve (RequestContext, not Hono Context). */
+type ResolveModelProviderStore<TTransaction> = (input: {
+  rc: RequestContext;
+  runAsAgent?: AgentRecord;
+  inlineModelProviders?: InlineModelProviders;
+}) => IModelProviderStore<TTransaction>;
+
+/** Persistence-layer MCP store resolve (RequestContext, not Hono Context). */
+type ResolveMcpServerStore<TTransaction> = (input: {
+  rc: RequestContext;
+  runAsAgent?: AgentRecord;
+  perServerHeaders?: PerServerMcpHeaders;
+  inlineMcpServers?: InlineMcpServers;
+}) => IMcpServerWithAuthStore<TTransaction>;
+
+/** Turn skill mounts: closed-set `x-tfg-skills`, else the registry/DB store. */
+type ResolveTurnSkillsStore<TTransaction> = (input: {
+  inlineSkills?: InlineSkills;
+}) => Pick<ISkillStore<TTransaction>, 'resolveTurnSkills'>;
+
 /** Persistence + optional Redis wired for the selected topology. */
 interface ServerPersistence<TTransaction> {
   withTransaction: WithTransaction<TTransaction>;
@@ -166,17 +187,8 @@ interface ServerPersistence<TTransaction> {
   tokenStore: IOAuthTokenStore<TTransaction>;
   scheduleStore: IScheduleStore<TTransaction>;
   mcpOAuthStore: IMcpServerWithAuthStore<TTransaction>;
-  resolveModelProviderStore: (input: {
-    rc: RequestContext;
-    runAsAgent?: AgentRecord;
-    inlineModelProviders?: InlineModelProviders;
-  }) => IModelProviderStore<TTransaction>;
-  resolveMcpServerStore: (input: {
-    rc: RequestContext;
-    runAsAgent?: AgentRecord;
-    perServerHeaders?: PerServerMcpHeaders;
-    inlineMcpServers?: InlineMcpServers;
-  }) => IMcpServerWithAuthStore<TTransaction>;
+  resolveModelProviderStore: ResolveModelProviderStore<TTransaction>;
+  resolveMcpServerStore: ResolveMcpServerStore<TTransaction>;
   resolveSandboxProviderStore: (rc: RequestContext) => ISandboxProviderStore<TTransaction>;
   resolveWebSearchProviderStore: (rc: RequestContext) => IWebSearchProviderStore<TTransaction>;
   /** Per-request store: DB git skills, or TrueFoundry registry catalog (caller JWT). */
@@ -188,9 +200,7 @@ interface ServerPersistence<TTransaction> {
   /** Context-free provider store for internal sandbox-env build progress. */
   sandboxProviderStore: ISandboxProviderStore<TTransaction>;
   /** Turn skill mounts: registry (API key) or closed-set `x-tfg-skills`. */
-  resolveTurnSkillsStore: (input?: {
-    inlineSkills?: InlineSkills;
-  }) => Pick<ISkillStore<TTransaction>, 'resolveTurnSkills'>;
+  resolveTurnSkillsStore: ResolveTurnSkillsStore<TTransaction>;
   destroyDb: () => Promise<void>;
   /** Connected Redis (client + mode) for distributed peering; undefined in standalone. */
   redis: ConnectedRedis | undefined;
@@ -242,13 +252,13 @@ function buildResolveSkillStore<TTransaction>(options: {
 function buildResolveTurnSkillsStore<TTransaction>(options: {
   persistenceStore: ISkillStore<TTransaction>;
   client: TrueFoundryServiceFoundryServerClient | undefined;
-}): (input?: { inlineSkills?: InlineSkills }) => Pick<ISkillStore<TTransaction>, 'resolveTurnSkills'> {
+}): ResolveTurnSkillsStore<TTransaction> {
   const { persistenceStore, client } = options;
   const registry: Pick<ISkillStore<TTransaction>, 'resolveTurnSkills'> = client
     ? new TrueFoundryAdminSkillStore({ client })
     : persistenceStore;
   return input => {
-    if (input?.inlineSkills !== undefined) {
+    if (input.inlineSkills !== undefined) {
       return new InlineSkillStore({ inline: input.inlineSkills });
     }
     return registry;
@@ -263,11 +273,7 @@ function buildResolveModelProviderStore<TTransaction>(options: {
   persistenceStore: IModelProviderStore<TTransaction>;
   client: TrueFoundryServiceFoundryServerClient | undefined;
   logger: Logger;
-}): (input: {
-  rc: RequestContext;
-  runAsAgent?: AgentRecord;
-  inlineModelProviders?: InlineModelProviders;
-}) => IModelProviderStore<TTransaction> {
+}): ResolveModelProviderStore<TTransaction> {
   return input => {
     const { persistenceStore, client } = options;
     if (client) {
@@ -294,12 +300,7 @@ function buildResolveMcpServerStore<TTransaction>(options: {
   tokenStore: IOAuthTokenStore<TTransaction>;
   client: TrueFoundryServiceFoundryServerClient | undefined;
   logger: Logger;
-}): (input: {
-  rc: RequestContext;
-  runAsAgent?: AgentRecord;
-  perServerHeaders?: PerServerMcpHeaders;
-  inlineMcpServers?: InlineMcpServers;
-}) => IMcpServerWithAuthStore<TTransaction> {
+}): ResolveMcpServerStore<TTransaction> {
   const withAuthMcpPersistenceStore = new McpServerWithAuthStore<TTransaction>({
     store: options.persistenceStore,
     tokenStore: options.tokenStore,
@@ -677,7 +678,8 @@ async function createServerRuntime<TTransaction>(persistence: ServerPersistence<
 
   // Hono handlers get Context; persistence resolvers take RequestContext.
   // x-tfg-skills / x-tfg-mcp / x-tfg-models are rejected unless allowInlineResources
-  // (inline-session turns only). x-tfg-mcp-headers is separate (per-server invoke headers).
+  // (inline session create or spec replace, or a turn for an inline session).
+  // x-tfg-mcp-headers is separate (per-server invoke headers).
   const isTrueFoundryMode = isTrueFoundryModeEnabled(configuration);
   const resolveModelProviderStore = (input: ResolveModelProviderStoreInput) => {
     const { c, runAsAgent, allowInlineResources = false } = input;
@@ -697,7 +699,7 @@ async function createServerRuntime<TTransaction>(persistence: ServerPersistence<
         : {}),
     });
   };
-  const resolveMcpServerStore = (input: ResolveMcpServerStoreInput = {}) => {
+  const resolveMcpServerStore = (input: ResolveMcpServerStoreInput) => {
     const { c, runAsAgent, allowInlineResources = false } = input;
     if (c === undefined) {
       return mcpOAuthStore;
@@ -724,14 +726,18 @@ async function createServerRuntime<TTransaction>(persistence: ServerPersistence<
   const resolveSandboxProviderStore = (c: Context) => persistence.resolveSandboxProviderStore(resolveRequestContext(c));
   const resolveWebSearchProviderStore = (c: Context) =>
     persistence.resolveWebSearchProviderStore(resolveRequestContext(c));
-  // Catalog / validate: caller JWT registry only. Reject x-tfg-skills on these paths.
-  const resolveSkillStore = (c: Context) => {
-    if (c.req.header(X_TFG_SKILLS) !== undefined) {
+  // Catalog and agent saves reject x-tfg-skills. Inline session create and spec replace opt in and get a
+  // closed-set store for validation only; the header is not persisted.
+  const resolveSkillStore = (input: ResolveSkillStoreInput) => {
+    const { c, allowInlineResources = false } = input;
+    const rawInlineSkillsHeader = c.req.header(X_TFG_SKILLS);
+    if (rawInlineSkillsHeader !== undefined) {
       assertInlineResourceHeadersAllowed({
         headerNames: [X_TFG_SKILLS],
         isTrueFoundryMode,
-        allowInlineResources: false,
+        allowInlineResources,
       });
+      return new InlineSkillStore({ inline: parseInlineSkills(rawInlineSkillsHeader) });
     }
     return persistence.resolveSkillStore(resolveRequestContext(c));
   };
@@ -747,7 +753,7 @@ async function createServerRuntime<TTransaction>(persistence: ServerPersistence<
       });
     }
     return resolveTurnSkillsStore(
-      rawInlineSkillsHeader === undefined ? undefined : { inlineSkills: parseInlineSkills(rawInlineSkillsHeader) },
+      rawInlineSkillsHeader === undefined ? {} : { inlineSkills: parseInlineSkills(rawInlineSkillsHeader) },
     );
   };
   const app = createServerApp({
@@ -769,7 +775,7 @@ async function createServerRuntime<TTransaction>(persistence: ServerPersistence<
     agentStore,
     sandboxEnvironmentStore,
     sandboxProviderStore: persistence.sandboxProviderStore,
-    turnSkillsResolverStore: resolveTurnSkillsStore(),
+    turnSkillsResolverStore: resolveTurnSkillsStore({}),
     sessionStore,
     sessionMetricsStore,
     sessions,

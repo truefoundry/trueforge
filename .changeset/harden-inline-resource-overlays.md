@@ -2,4 +2,4 @@
 '@truefoundry/trueforge': patch
 ---
 
-Only TrueFoundry-mode turns on inline sessions may send `x-tfg-*` skill/MCP/model headers. Session and agent saves reject those headers and validate skills with the caller JWT against the registry. `x-tfg-skills` does not accept skills from the TrueFoundry Skills Registry.
+In TrueFoundry mode, `x-tfg-skills`, `x-tfg-mcp`, and `x-tfg-models` are allowed when creating an inline session, replacing its spec, or running a turn on it. Create and replace only use the headers to check the spec and do not save them. `x-tfg-skills` must list every skill as a git skill; registry skill ids are not accepted. MCP servers and models fall back to the registry when a name is missing. Other routes reject these headers.

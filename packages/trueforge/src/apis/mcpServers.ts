@@ -48,7 +48,7 @@ import type {
 import { MissingStoredSecretError, resolveStoredSecretValue, toRedactedSecretValue } from '../utils/secretRedaction';
 
 export interface McpServersRouterDeps<TTransaction> {
-  resolveMcpServerStore: (input: { c: Context }) => IMcpServerWithAuthStore<TTransaction>;
+  resolveMcpServerStore: (c: Context) => IMcpServerWithAuthStore<TTransaction>;
   tokenStore: IOAuthTokenStore<TTransaction>;
   withTransaction: WithTransaction<TTransaction>;
   logger: Logger;
@@ -160,11 +160,11 @@ export function createSettingsMcpServersRouter<TTransaction>(deps: SettingsMcpSe
   const listHandler: RouteHandler<typeof listMcpServersRoute> = async c => {
     const requestContext = deps.resolveRequestContext(c);
     const userRef = requestContext.subject.id;
-    const records = await deps.resolveMcpServerStore({ c }).listServers({
+    const records = await deps.resolveMcpServerStore(c).listServers({
       tenant_id: requestContext.tenant_id,
       names: undefined,
     });
-    const statuses = await deps.resolveMcpServerStore({ c }).resolveAuthStatuses({
+    const statuses = await deps.resolveMcpServerStore(c).resolveAuthStatuses({
       records,
       userRef,
     });
@@ -180,7 +180,7 @@ export function createSettingsMcpServersRouter<TTransaction>(deps: SettingsMcpSe
     const { name } = c.req.valid('param');
     const requestContext = deps.resolveRequestContext(c);
     const userRef = requestContext.subject.id;
-    const record = await deps.resolveMcpServerStore({ c }).getServer({
+    const record = await deps.resolveMcpServerStore(c).getServer({
       tenant_id: requestContext.tenant_id,
       name,
     });
@@ -190,7 +190,7 @@ export function createSettingsMcpServersRouter<TTransaction>(deps: SettingsMcpSe
     return c.json(
       {
         data: await toConfiguredMcpServer({
-          store: deps.resolveMcpServerStore({ c }),
+          store: deps.resolveMcpServerStore(c),
           record,
           userRef,
         }),
@@ -246,7 +246,7 @@ export function createSettingsMcpServersRouter<TTransaction>(deps: SettingsMcpSe
 
     try {
       const record = await deps.withTransaction(async transaction => {
-        const saved = await deps.resolveMcpServerStore({ c }).createServer(
+        const saved = await deps.resolveMcpServerStore(c).createServer(
           {
             tenant_id: requestContext.tenant_id,
             name: manifest.name,
@@ -255,7 +255,7 @@ export function createSettingsMcpServersRouter<TTransaction>(deps: SettingsMcpSe
           transaction,
         );
         if (dcrClientToSave !== undefined) {
-          await deps.resolveMcpServerStore({ c }).saveClient({ id: saved.id, record: dcrClientToSave }, transaction);
+          await deps.resolveMcpServerStore(c).saveClient({ id: saved.id, record: dcrClientToSave }, transaction);
         }
         return saved;
       });
@@ -263,7 +263,7 @@ export function createSettingsMcpServersRouter<TTransaction>(deps: SettingsMcpSe
       return c.json(
         {
           data: await toConfiguredMcpServer({
-            store: deps.resolveMcpServerStore({ c }),
+            store: deps.resolveMcpServerStore(c),
             record,
             userRef: requestContext.subject.id,
           }),
@@ -299,7 +299,7 @@ export function createSettingsMcpServersRouter<TTransaction>(deps: SettingsMcpSe
       // must stay under `POSTGRES_IDLE_IN_TRANSACTION_SESSION_TIMEOUT_MS` (30s).
       const record = await deps.withTransaction(async transaction => {
         const existing = await deps
-          .resolveMcpServerStore({ c })
+          .resolveMcpServerStore(c)
           .getServerForUpdate({ tenant_id: requestContext.tenant_id, name: incomingManifest.name }, transaction);
         const manifest = resolveMcpServerManifestForWrite({
           incoming: incomingManifest,
@@ -311,7 +311,7 @@ export function createSettingsMcpServersRouter<TTransaction>(deps: SettingsMcpSe
           existing !== undefined && existing.manifest.url !== manifest.url && manifest.auth?.type === 'dcr';
         if (manifest.auth?.type === 'dcr') {
           const existingClient = existing
-            ? await deps.resolveMcpServerStore({ c }).getClient({ id: existing.id }, transaction)
+            ? await deps.resolveMcpServerStore(c).getClient({ id: existing.id }, transaction)
             : undefined;
           // Register when: brand-new server, client was cleared (e.g. invalid_client), or MCP URL changed
           // (resource/AS may differ; reuse would keep stale oauth_server/client for the old AS).
@@ -326,7 +326,7 @@ export function createSettingsMcpServersRouter<TTransaction>(deps: SettingsMcpSe
           }
         }
 
-        const saved = await deps.resolveMcpServerStore({ c }).upsertServer(
+        const saved = await deps.resolveMcpServerStore(c).upsertServer(
           {
             tenant_id: requestContext.tenant_id,
             name: manifest.name,
@@ -336,7 +336,7 @@ export function createSettingsMcpServersRouter<TTransaction>(deps: SettingsMcpSe
         );
         if (dcrClientToSave !== undefined) {
           // New DCR registration (create, missing client, or URL change): replace the shared client.
-          await deps.resolveMcpServerStore({ c }).saveClient({ id: saved.id, record: dcrClientToSave }, transaction);
+          await deps.resolveMcpServerStore(c).saveClient({ id: saved.id, record: dcrClientToSave }, transaction);
         }
         if (urlChanged) {
           // URL is the OAuth resource/audience — drop every user's tokens and in-flight authorizes.
@@ -349,7 +349,7 @@ export function createSettingsMcpServersRouter<TTransaction>(deps: SettingsMcpSe
       return c.json(
         {
           data: await toConfiguredMcpServer({
-            store: deps.resolveMcpServerStore({ c }),
+            store: deps.resolveMcpServerStore(c),
             record,
             userRef,
           }),
@@ -374,7 +374,7 @@ export function createSettingsMcpServersRouter<TTransaction>(deps: SettingsMcpSe
   const deleteHandler: RouteHandler<typeof deleteMcpServerRoute> = async c => {
     const { name } = c.req.valid('param');
     const requestContext = deps.resolveRequestContext(c);
-    const store = deps.resolveMcpServerStore({ c });
+    const store = deps.resolveMcpServerStore(c);
     const outcome = await deps.withTransaction(async transaction => {
       const existing = await store.getServerForUpdate({ tenant_id: requestContext.tenant_id, name }, transaction);
       if (existing === undefined) {
@@ -430,7 +430,7 @@ export function createMcpServersRouter<TTransaction>(deps: McpServersRouterDeps<
     }
 
     try {
-      const authStatus: McpAuthStatus = await deps.resolveMcpServerStore({ c }).authorize({
+      const authStatus: McpAuthStatus = await deps.resolveMcpServerStore(c).authorize({
         tenant_id: requestContext.tenant_id,
         name,
         userRef,
@@ -470,7 +470,7 @@ export function createMcpServersRouter<TTransaction>(deps: McpServersRouterDeps<
     const connection = await getMcpConnection({
       tenant_id: requestContext.tenant_id,
       name,
-      store: deps.resolveMcpServerStore({ c }),
+      store: deps.resolveMcpServerStore(c),
       userRef,
     });
     if (connection === undefined) {
@@ -511,14 +511,14 @@ export function createMcpServersRouter<TTransaction>(deps: McpServersRouterDeps<
     const requestContext = deps.resolveRequestContext(c);
     const userRef = requestContext.subject.id;
     try {
-      const record = await deps.resolveMcpServerStore({ c }).getServer({
+      const record = await deps.resolveMcpServerStore(c).getServer({
         tenant_id: requestContext.tenant_id,
         name,
       });
       if (!record) {
         return c.json({ error: { message: `MCP server not found: ${name}` } }, 404);
       }
-      await deps.resolveMcpServerStore({ c }).deleteAuthorization({
+      await deps.resolveMcpServerStore(c).deleteAuthorization({
         tenant_id: requestContext.tenant_id,
         name,
         userRef,
@@ -526,7 +526,7 @@ export function createMcpServersRouter<TTransaction>(deps: McpServersRouterDeps<
       return c.json(
         {
           data: await toConfiguredMcpServer({
-            store: deps.resolveMcpServerStore({ c }),
+            store: deps.resolveMcpServerStore(c),
             record,
             userRef,
           }),
@@ -544,7 +544,7 @@ export function createMcpServersRouter<TTransaction>(deps: McpServersRouterDeps<
   const getAvailableHandler: RouteHandler<typeof getAvailableMcpServerRoute> = async c => {
     const { name } = c.req.valid('param');
     const requestContext = deps.resolveRequestContext(c);
-    const record = await deps.resolveMcpServerStore({ c }).getServer({
+    const record = await deps.resolveMcpServerStore(c).getServer({
       tenant_id: requestContext.tenant_id,
       name,
     });
@@ -554,7 +554,7 @@ export function createMcpServersRouter<TTransaction>(deps: McpServersRouterDeps<
     return c.json(
       {
         data: await resolveAvailableMcpServer({
-          store: deps.resolveMcpServerStore({ c }),
+          store: deps.resolveMcpServerStore(c),
           record,
           userRef: requestContext.subject.id,
         }),
@@ -567,11 +567,11 @@ export function createMcpServersRouter<TTransaction>(deps: McpServersRouterDeps<
   router.openapi(listAvailableMcpServersRoute, async c => {
     const requestContext = deps.resolveRequestContext(c);
     const userRef = requestContext.subject.id;
-    const records = await deps.resolveMcpServerStore({ c }).listServers({
+    const records = await deps.resolveMcpServerStore(c).listServers({
       tenant_id: requestContext.tenant_id,
       names: undefined,
     });
-    const statuses = await deps.resolveMcpServerStore({ c }).resolveAuthStatuses({
+    const statuses = await deps.resolveMcpServerStore(c).resolveAuthStatuses({
       records,
       userRef,
     });

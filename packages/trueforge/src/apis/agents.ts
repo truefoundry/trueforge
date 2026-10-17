@@ -37,8 +37,8 @@ import type { ResolveSkillStore } from './skills';
 
 export interface AgentsRouterDeps<TTransaction> {
   resolveAgentStore: (c: Context) => IAgentStore<TTransaction>;
-  resolveModelProviderStore: (input: { c: Context }) => IModelProviderStore<TTransaction>;
-  resolveMcpServerStore: (input: { c: Context }) => IMcpServerStore<TTransaction>;
+  resolveModelProviderStore: (c: Context) => IModelProviderStore<TTransaction>;
+  resolveMcpServerStore: (c: Context) => IMcpServerStore<TTransaction>;
   resolveSkillStore: ResolveSkillStore<TTransaction>;
   resolveSandboxProviderStore: (c: Context) => ISandboxProviderStore<TTransaction>;
   sandboxEnvironmentStore: ISandboxEnvironmentStore<TTransaction>;
@@ -122,8 +122,8 @@ export function createAgentsRouter<TTransaction>(deps: AgentsRouterDeps<TTransac
     const requestContext = deps.resolveRequestContext(c);
     const manifest = await validateManifest({
       spec: body.manifest,
-      modelProviderStore: deps.resolveModelProviderStore({ c }),
-      mcpServerStore: deps.resolveMcpServerStore({ c }),
+      modelProviderStore: deps.resolveModelProviderStore(c),
+      mcpServerStore: deps.resolveMcpServerStore(c),
       skillStore: deps.resolveSkillStore(c),
       sandboxProviderStore: deps.resolveSandboxProviderStore(c),
       sandboxEnvironmentStore: deps.sandboxEnvironmentStore,
@@ -229,8 +229,8 @@ export function createAgentsRouter<TTransaction>(deps: AgentsRouterDeps<TTransac
     }
     const manifest = await validateManifest({
       spec: body.manifest,
-      modelProviderStore: deps.resolveModelProviderStore({ c }),
-      mcpServerStore: deps.resolveMcpServerStore({ c }),
+      modelProviderStore: deps.resolveModelProviderStore(c),
+      mcpServerStore: deps.resolveMcpServerStore(c),
       skillStore: deps.resolveSkillStore(c),
       sandboxProviderStore: deps.resolveSandboxProviderStore(c),
       sandboxEnvironmentStore: deps.sandboxEnvironmentStore,
