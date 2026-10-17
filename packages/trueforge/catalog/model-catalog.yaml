@@ -277,6 +277,11 @@ providers:
             - low
             - medium
             - high
+      - model_id: gemini-3.5-flash
+        name: gemini-3-5-flash
+        properties:
+          context_length: 1048576
+          max_output_tokens: 65536
       - model_id: gemini-3.5-flash-lite
         name: gemini-3-5-flash-lite
         properties:
