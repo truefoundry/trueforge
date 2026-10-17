@@ -196,24 +196,24 @@ function routeNotFound(c: Context) {
 }
 
 /** HTTP model-provider store resolve. `allowInlineResources` only for inline-session turns. */
-export type ResolveModelProviderStoreInput = {
+export interface ResolveModelProviderStoreInput {
   c: Context;
   runAsAgent?: AgentRecord;
   allowInlineResources?: boolean;
-};
+}
 
 /** HTTP MCP store resolve. Omit `c` for the unauthenticated OAuth callback. */
-export type ResolveMcpServerStoreInput = {
+export interface ResolveMcpServerStoreInput {
   c?: Context;
   runAsAgent?: AgentRecord;
   allowInlineResources?: boolean;
-};
+}
 
 /** HTTP turn skill-mount resolve. `allowInlineResources` only for inline-session turns. */
-export type ResolveTurnSkillsStoreInput = {
+export interface ResolveTurnSkillsStoreInput {
   c: Context;
   allowInlineResources?: boolean;
-};
+}
 
 export interface ServerDeps<TTransaction> {
   modelCatalog: ModelCatalog;
