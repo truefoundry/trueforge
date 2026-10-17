@@ -396,8 +396,8 @@ export function createServerApp<TTransaction>(deps: ServerDeps<TTransaction>) {
     withAuth(
       createAgentsRouter({
         resolveAgentStore: deps.resolveAgentStore,
-        resolveModelProviderStore: deps.resolveModelProviderStore,
-        resolveMcpServerStore: deps.resolveMcpServerStore,
+        resolveModelProviderStore: c => deps.resolveModelProviderStore({ c }),
+        resolveMcpServerStore: c => deps.resolveMcpServerStore({ c }),
         resolveSkillStore: deps.resolveSkillStore,
         resolveSandboxProviderStore: deps.resolveSandboxProviderStore,
         sandboxEnvironmentStore: deps.sandboxEnvironmentStore,
