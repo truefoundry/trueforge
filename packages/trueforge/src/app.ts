@@ -209,9 +209,12 @@ export interface ResolveMcpServerStoreInput {
   allowInlineResources?: boolean;
 }
 
-/** HTTP turn skill-mount resolve. `allowInlineResources` only for turns on inline sessions. */
+/**
+ * Turn skill-mount resolve. Omit `c` for schedules (registry/DB only).
+ * `allowInlineResources` only for turns on inline sessions.
+ */
 export interface ResolveTurnSkillsStoreInput {
-  c: Context;
+  c?: Context;
   allowInlineResources?: boolean;
 }
 
@@ -245,8 +248,8 @@ export interface ServerDeps<TTransaction> {
   /** Per-request store: DB git skills, or TrueFoundry registry catalog in TrueFoundry mode. */
   resolveSkillStore: (input: ResolveSkillStoreInput) => ISkillStore<TTransaction>;
   /**
-   * Turn skill mounts for HTTP turns. May apply `x-tfg-skills` when allowInlineResources is set.
-   * Schedules use {@link turnSkillsResolverStore} (no request headers).
+   * Turn skill mounts. HTTP turns may apply `x-tfg-skills` when allowInlineResources is set;
+   * schedules call with `{}` (registry/DB only).
    */
   resolveTurnSkillsStore: (input: ResolveTurnSkillsStoreInput) => Pick<ISkillStore<TTransaction>, 'resolveTurnSkills'>;
   withTransaction: WithTransaction<TTransaction>;
@@ -263,8 +266,6 @@ export interface ServerDeps<TTransaction> {
    * Same backing store as resolveSandboxProviderStore, without request context.
    */
   sandboxProviderStore: ISandboxProviderStore<TTransaction>;
-  /** Turn skill mounts with service API key (schedules have no caller token / x-tfg-skills). */
-  turnSkillsResolverStore: Pick<ISkillStore<TTransaction>, 'resolveTurnSkills'>;
   sessions: Sessions;
   activeTurns: ActiveTurnRegistry;
   /** Primary Redis client (server-owned); undefined in standalone mode. */
@@ -300,7 +301,7 @@ export function createServerApp<TTransaction>(deps: ServerDeps<TTransaction>) {
     sandboxEnvironmentStore: deps.sandboxEnvironmentStore,
     resolveWebSearchProviderStore: deps.resolveWebSearchProviderStore,
     activeTurns: deps.activeTurns,
-    turnSkillsResolverStore: deps.turnSkillsResolverStore,
+    resolveTurnSkillsStore: deps.resolveTurnSkillsStore,
   };
 
   const httpMetrics = createHttpMetrics();

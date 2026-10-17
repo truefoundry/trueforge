@@ -90,7 +90,6 @@ const app = createServerApp({
   agentStore,
   sandboxEnvironmentStore,
   sandboxProviderStore,
-  turnSkillsResolverStore: skillStore,
   withTransaction: callback => db.transaction().execute(callback),
   scheduleStore: new SqliteScheduleStore(db),
   tokenStore,

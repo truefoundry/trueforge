@@ -741,9 +741,13 @@ async function createServerRuntime<TTransaction>(persistence: ServerPersistence<
     }
     return persistence.resolveSkillStore(resolveRequestContext(c));
   };
-  // Turn mounts: registry (API key) or closed-set header skills when allowed.
+  // Turn mounts: registry (API key), or closed-set header skills when `c` + allowInlineResources.
+  // Schedules omit `c` and always get the registry/DB store.
   const resolveTurnSkillsStoreForRequest = (input: ResolveTurnSkillsStoreInput) => {
     const { c, allowInlineResources = false } = input;
+    if (c === undefined) {
+      return resolveTurnSkillsStore({});
+    }
     const rawInlineSkillsHeader = c.req.header(X_TFG_SKILLS);
     if (rawInlineSkillsHeader !== undefined) {
       assertInlineResourceHeadersAllowed({
@@ -775,7 +779,6 @@ async function createServerRuntime<TTransaction>(persistence: ServerPersistence<
     agentStore,
     sandboxEnvironmentStore,
     sandboxProviderStore: persistence.sandboxProviderStore,
-    turnSkillsResolverStore: resolveTurnSkillsStore({}),
     sessionStore,
     sessionMetricsStore,
     sessions,

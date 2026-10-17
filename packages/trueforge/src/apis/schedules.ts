@@ -10,6 +10,7 @@ import {
 import type { Context } from 'hono';
 import { HTTPException } from 'hono/http-exception';
 import type { Logger } from 'winston';
+import type { ResolveTurnSkillsStoreInput } from '../app';
 import type { Authorizer } from '../auth/authorizer';
 import {
   createdBySubjectFromRequestContext,
@@ -79,7 +80,8 @@ export interface ScheduleTurnExecutionDeps<TTransaction> {
   resolveWebSearchProviderStore: (c: Context) => IWebSearchProviderStore<TTransaction>;
   /** Persistence agent store (schedule agent binding is not caller-scoped). */
   agentStore: IAgentStore<TTransaction>;
-  turnSkillsResolverStore: Pick<ISkillStore, 'resolveTurnSkills'>;
+  /** Call with `{}` — schedules have no caller `x-tfg-skills`. */
+  resolveTurnSkillsStore: (input: ResolveTurnSkillsStoreInput) => Pick<ISkillStore, 'resolveTurnSkills'>;
 }
 
 export interface SchedulesRouterDeps<TTransaction> extends ScheduleTurnExecutionDeps<TTransaction> {
@@ -121,7 +123,7 @@ export async function startScheduleRunOnRequest<TTransaction>(params: {
       sandboxProviderStore: deps.resolveSandboxProviderStore(c),
       sandboxEnvironmentStore: deps.sandboxEnvironmentStore,
       webSearchProviderStore: deps.resolveWebSearchProviderStore(c),
-      skillStore: deps.turnSkillsResolverStore,
+      skillStore: deps.resolveTurnSkillsStore({}),
       logger: deps.logger,
     },
   });
