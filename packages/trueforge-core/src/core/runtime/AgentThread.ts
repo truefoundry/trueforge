@@ -49,7 +49,7 @@ import {
 import { ModelSchema, type Model } from '../llm/model';
 import { toOpenAIResponseFormat } from '../llm/responseFormat';
 import { toOpenAIChatMessage } from '../llm/toOpenAIChatMessage';
-import { estimateTokensForString, formatOutputTruncatedMessage, resolveMaxOutputTokens } from '../llm/usage';
+import { estimateTokensForString, resolveMaxOutputTokens } from '../llm/usage';
 import { convertMCPServersToTools, type ConvertToolsResult, type MappedMCPTool } from '../mcp/convertMCPServers';
 import { executeToolCalls } from '../mcp/executeToolCalls';
 import type { IToolSet, MCPAuthRequired } from '../mcp/IMCPServer';
@@ -95,6 +95,7 @@ import {
   toToolCallInfo,
 } from './contextUtils';
 import { DeferredTool } from './DeferredTool';
+import { finishReasonErrorMessage } from './finishReasonError';
 import { createEmptyAgentThreadMetrics, updateMetricsFromUsage, type AgentThreadMetrics } from './metrics';
 import { getClosableOpenToolCallIds, OpenToolCallCloser } from './OpenToolCallCloser';
 import { isEmptyMessageContent, processAgentUserInput, type AgentInputUserMessage } from './UserInputMessage';
@@ -1187,21 +1188,16 @@ export class AgentThread {
       model: modelFromDefinition(this.definition),
     });
 
-    const outputTruncatedMessage =
-      finishReason === 'length'
-        ? formatOutputTruncatedMessage({
-            outputTokens: result.value.usage.output_tokens,
-            maxOutputTokens: resolveMaxOutputTokens(requestBody),
-          })
-        : undefined;
+    const finishError = finishReasonErrorMessage({
+      finishReason,
+      outputTokens: result.value.usage.output_tokens,
+      maxOutputTokens: resolveMaxOutputTokens(requestBody),
+    });
 
     let completion: SubAgentCompletion | undefined;
     if (this.parent) {
-      if (outputTruncatedMessage !== undefined) {
-        const errorMessage = assistantMessageContentToStringForSubAgent(
-          assistantMessage.content,
-          outputTruncatedMessage,
-        );
+      if (finishError !== undefined) {
+        const errorMessage = assistantMessageContentToStringForSubAgent(assistantMessage.content, finishError);
         completion = {
           type: 'error',
           output: agentAssistantMessage,
@@ -1226,8 +1222,8 @@ export class AgentThread {
       completion,
     });
 
-    if (outputTruncatedMessage !== undefined) {
-      const errorContent = completion?.type === 'error' ? completion.error_message : outputTruncatedMessage;
+    if (finishError !== undefined) {
+      const errorContent = completion?.type === 'error' ? completion.error_message : finishError;
       yield this.generateErrorEvent(errorContent, agentAssistantMessage);
       return { outcome: 'exit', modelMessageEventId };
     }

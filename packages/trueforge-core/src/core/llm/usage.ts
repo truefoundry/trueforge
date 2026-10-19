@@ -31,18 +31,3 @@ export function resolveMaxOutputTokens(
   const limit: unknown = body.max_completion_tokens ?? Reflect.get(body, 'max_tokens');
   return typeof limit === 'number' ? limit : undefined;
 }
-
-/** Error text for a `length` finish; names the limit and usage so callers know what to raise. */
-export function formatOutputTruncatedMessage({
-  outputTokens,
-  maxOutputTokens,
-}: {
-  outputTokens: number;
-  maxOutputTokens: number | undefined;
-}): string {
-  const limit = maxOutputTokens !== undefined ? `the ${String(maxOutputTokens)} token limit` : 'the token limit';
-  // Adapters report 0 when the provider omitted usage; a `length` finish always produced output.
-  // A count equal to the limit adds nothing; a different one means something downstream changed the cap.
-  const used = outputTokens > 0 && outputTokens !== maxOutputTokens ? ` after ${String(outputTokens)} tokens` : '';
-  return `Output truncated: hit ${limit}${used}. Raise max_tokens and retry.`;
-}
