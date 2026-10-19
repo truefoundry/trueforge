@@ -31,6 +31,7 @@ import type { IModelProviderStore } from '../db/modelProviderStore';
 import type { ISandboxEnvironmentStore } from '../db/sandboxEnvironmentStore';
 import type { ISandboxProviderStore } from '../db/sandboxProviderStore';
 import type { IWebSearchProviderStore } from '../db/webSearchProviderStore';
+import { updateLogContext } from '../logger';
 import {
   cancelSessionRoute,
   createSessionRoute,
@@ -154,6 +155,8 @@ export async function cancelSessionTurn(
 ): Promise<void> {
   const { turnId, reason = CancellationReason.ClientCancelled } = input;
   const sessionId = deps.session.session_id;
+  // Cancel is POST /sessions/{session_id}/cancel — path middleware has session_id only.
+  updateLogContext({ turn_id: turnId });
 
   const turn = await deps.sessionStore.getTurn({
     session_id: sessionId,
@@ -186,8 +189,7 @@ export async function cancelSessionTurn(
       }
     } catch (error) {
       const fields = {
-        sessionId,
-        turnId,
+        turn_id: turnId,
         owner,
         ...extractErrorLogFields(error),
       };
@@ -338,6 +340,7 @@ export function createSessionsRouter(deps: SessionsRouterDeps) {
   const createSessionHandler: RouteHandler<typeof createSessionRoute> = async c => {
     const body = c.req.valid('json');
     const sessionId = newId();
+    updateLogContext({ session_id: sessionId });
     const requestContext = deps.resolveRequestContext(c);
 
     if (isSessionAgentNameRef(body.agent)) {
