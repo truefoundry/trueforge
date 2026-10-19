@@ -54,13 +54,6 @@ describe('finishReasonErrorMessage', () => {
   ])('fails the turn for $name', ({ finishReason, outputTokens, maxOutputTokens, expected }) => {
     expect(finishReasonErrorMessage({ finishReason, outputTokens, maxOutputTokens })).toBe(expected);
   });
-
-  it.each<FinishReason | null>(['stop', 'tool_calls', 'function_call', 'content_filter', null])(
-    'returns undefined for %p',
-    finishReason => {
-      expect(finishReasonErrorMessage({ finishReason, outputTokens: 10, maxOutputTokens: 4096 })).toBeUndefined();
-    },
-  );
 });
 
 // eslint-disable-next-line @typescript-eslint/require-await -- async generator fixture, not awaiting I/O

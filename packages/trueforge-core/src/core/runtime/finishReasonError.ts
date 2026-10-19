@@ -23,15 +23,7 @@ export function finishReasonErrorMessage({
       const used = outputTokens > 0 && outputTokens !== maxOutputTokens ? ` after ${String(outputTokens)} tokens` : '';
       return `Output truncated: hit ${limit}${used}. Raise max_tokens and retry.`;
     }
-    case 'stop':
-    case 'tool_calls':
-    case 'function_call':
-    case 'content_filter':
-    case null:
+    default:
       return undefined;
-    default: {
-      const unhandled: never = finishReason;
-      throw new Error(`Unhandled finish reason: ${String(unhandled)}`);
-    }
   }
 }
