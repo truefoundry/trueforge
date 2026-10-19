@@ -97,8 +97,9 @@ export function toDaytonaSandboxProvider({
     throw new Error('Daytona sandbox provider required');
   }
   const { apiKey, ...settings } = toDaytonaSandboxProviderInput(manifest);
+  // Positive requestTimeoutMs enables the SDK's per-exec HTTP deadline (exec timeout + 5s).
   return new DaytonaSandboxProvider({
-    client: new Daytona({ apiKey }),
+    client: new Daytona({ apiKey, requestTimeoutMs: settings.timeoutMs }),
     apiKey,
     ...settings,
     tenantName: tenant_id,

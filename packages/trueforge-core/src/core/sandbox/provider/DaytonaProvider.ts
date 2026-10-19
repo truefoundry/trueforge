@@ -493,11 +493,12 @@ export class DaytonaSandboxProvider implements SandboxProvider<DaytonaSandboxEnv
       try {
         return await this.executeWithSandboxRecovery(params.sandboxId, async () => {
           const { sandbox, defaultTimeoutMs } = await this.getOrCreateSandbox(params.sandboxId);
-          const response = await sandbox.process.executeCommand(
-            params.command,
-            params.cwd,
-            params.env ?? {},
-            params.timeoutSeconds ?? defaultTimeoutMs / 1000,
+          const timeoutSeconds = params.timeoutSeconds ?? defaultTimeoutMs / 1000;
+          // Cap the await even if the Daytona HTTP client hangs after the server-side exec timeout (+5s matches SDK buffer).
+          const response = await withTimeout(
+            sandbox.process.executeCommand(params.command, params.cwd, params.env ?? {}, timeoutSeconds),
+            (timeoutSeconds + 10) * 1000,
+            'sandbox exec',
           );
           return {
             success: true,
