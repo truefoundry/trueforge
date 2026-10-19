@@ -354,7 +354,7 @@ export function createServerApp<TTransaction>(deps: ServerDeps<TTransaction>) {
 
   const httpMetrics = createHttpMetrics();
   app.use('*', createRequestLogContextMiddleware());
-  app.use('*', createSessionPathLogContextMiddleware());
+  app.use('/api/v1/sessions/*', createSessionPathLogContextMiddleware());
   // Health, the scrape endpoint, and static files sit outside /api, so they never enter this middleware.
   app.use('/api/*', httpMetrics.middleware);
   if (configuration.ACCESS_LOGS) {
