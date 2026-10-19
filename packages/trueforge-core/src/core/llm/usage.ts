@@ -32,21 +32,16 @@ export function resolveMaxOutputTokens(
   return typeof limit === 'number' ? limit : undefined;
 }
 
-/** Error text for a `length` finish; names the limit so callers can see which cap was hit. */
-export function formatMaxTokensBreachedMessage({
+/** Error text for a `length` finish; names the limit and usage so callers know what to raise. */
+export function formatOutputTruncatedMessage({
   outputTokens,
   maxOutputTokens,
 }: {
   outputTokens: number;
   maxOutputTokens: number | undefined;
 }): string {
-  const limit =
-    maxOutputTokens !== undefined
-      ? `max_tokens=${String(maxOutputTokens)}`
-      : 'max_tokens not set, provider default applied';
+  const limit = maxOutputTokens !== undefined ? `the ${String(maxOutputTokens)} token limit` : 'the token limit';
   // Adapters report 0 when the provider omitted usage; a `length` finish always produced output.
-  if (outputTokens === 0) {
-    return `max_tokens breached (${limit})`;
-  }
-  return `max_tokens breached: model stopped after ${String(outputTokens)} output tokens (${limit})`;
+  const used = outputTokens > 0 ? ` after ${String(outputTokens)} tokens` : '';
+  return `Output truncated: hit ${limit}${used}. Raise max_tokens and retry.`;
 }

@@ -49,7 +49,7 @@ import {
 import { ModelSchema, type Model } from '../llm/model';
 import { toOpenAIResponseFormat } from '../llm/responseFormat';
 import { toOpenAIChatMessage } from '../llm/toOpenAIChatMessage';
-import { estimateTokensForString, formatMaxTokensBreachedMessage, resolveMaxOutputTokens } from '../llm/usage';
+import { estimateTokensForString, formatOutputTruncatedMessage, resolveMaxOutputTokens } from '../llm/usage';
 import { convertMCPServersToTools, type ConvertToolsResult, type MappedMCPTool } from '../mcp/convertMCPServers';
 import { executeToolCalls } from '../mcp/executeToolCalls';
 import type { IToolSet, MCPAuthRequired } from '../mcp/IMCPServer';
@@ -1187,9 +1187,9 @@ export class AgentThread {
       model: modelFromDefinition(this.definition),
     });
 
-    const maxTokensBreachedMessage =
+    const outputTruncatedMessage =
       finishReason === 'length'
-        ? formatMaxTokensBreachedMessage({
+        ? formatOutputTruncatedMessage({
             outputTokens: result.value.usage.output_tokens,
             maxOutputTokens: resolveMaxOutputTokens(requestBody),
           })
@@ -1197,10 +1197,10 @@ export class AgentThread {
 
     let completion: SubAgentCompletion | undefined;
     if (this.parent) {
-      if (maxTokensBreachedMessage !== undefined) {
+      if (outputTruncatedMessage !== undefined) {
         const errorMessage = assistantMessageContentToStringForSubAgent(
           assistantMessage.content,
-          maxTokensBreachedMessage,
+          outputTruncatedMessage,
         );
         completion = {
           type: 'error',
@@ -1226,8 +1226,8 @@ export class AgentThread {
       completion,
     });
 
-    if (maxTokensBreachedMessage !== undefined) {
-      const errorContent = completion?.type === 'error' ? completion.error_message : maxTokensBreachedMessage;
+    if (outputTruncatedMessage !== undefined) {
+      const errorContent = completion?.type === 'error' ? completion.error_message : outputTruncatedMessage;
       yield this.generateErrorEvent(errorContent, agentAssistantMessage);
       return { outcome: 'exit', modelMessageEventId };
     }

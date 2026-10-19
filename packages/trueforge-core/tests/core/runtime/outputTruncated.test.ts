@@ -51,21 +51,20 @@ async function runUntilDone(modelParams: Record<string, unknown> | undefined): P
   throw new Error('thread finished without a done event');
 }
 
-describe('AgentThread max_tokens breach', () => {
+describe('AgentThread output truncation', () => {
   it('reports the configured limit and output tokens used', async () => {
     const done = await runUntilDone({ max_tokens: 4096 });
     expect(done).toMatchObject({
       status: 'error',
-      error: 'max_tokens breached: model stopped after 4096 output tokens (max_tokens=4096)',
+      error: 'Output truncated: hit the 4096 token limit after 4096 tokens. Raise max_tokens and retry.',
     });
   });
 
-  it('reports that the provider default applied when no limit is configured', async () => {
+  it('omits the limit when none is configured', async () => {
     const done = await runUntilDone(undefined);
     expect(done).toMatchObject({
       status: 'error',
-      error:
-        'max_tokens breached: model stopped after 4096 output tokens (max_tokens not set, provider default applied)',
+      error: 'Output truncated: hit the token limit after 4096 tokens. Raise max_tokens and retry.',
     });
   });
 });
