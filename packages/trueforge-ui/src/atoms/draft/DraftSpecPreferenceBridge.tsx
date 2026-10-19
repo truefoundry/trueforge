@@ -16,6 +16,7 @@ import type { AgentSkill, AgentSpec, ConnectorState, ModelSelection } from '../.
 import { mountName } from '../lib/mountName.js';
 import { useDraftCatalog } from './DraftCatalogProvider.js';
 import { modelPatchWithReasoningEffort } from './reasoningEffort.js';
+import { skillFamilyId } from './SkillVersionSelector.js';
 
 function readDraftSandboxEnabled(spec: AgentSpec): boolean | undefined {
   if (spec.config === undefined) return undefined;
@@ -26,13 +27,29 @@ function readDraftSandboxEnabled(spec: AgentSpec): boolean | undefined {
   return typeof enabled === 'boolean' ? enabled : undefined;
 }
 
-function filterMounts<T extends object>(mounts: T[] | undefined, availableNames: Set<string>): T[] | undefined {
+function filterMounts<T extends object>(
+  mounts: T[] | undefined,
+  availableNames: Set<string>,
+  { matchFamily = false }: { matchFamily?: boolean } = {},
+): T[] | undefined {
   if (mounts === undefined) return undefined;
   const filtered = mounts.filter(mount => {
     const name = mountName(mount);
-    return name !== null && availableNames.has(name);
+    if (name === null) return false;
+    if (availableNames.has(name)) return true;
+    return matchFamily && availableNames.has(skillFamilyId(name));
   });
   return filtered.length === mounts.length ? mounts : filtered;
+}
+
+function skillAvailableKeys(skills: AgentSkill[]): Set<string> {
+  const keys = new Set<string>();
+  for (const skill of skills) {
+    keys.add(skill.name);
+    keys.add(skill.id);
+    keys.add(skillFamilyId(skill.id));
+  }
+  return keys;
 }
 
 export function reconcileDraftSpecPreferences({
@@ -73,7 +90,8 @@ export function reconcileDraftSpecPreferences({
       update.skills = [];
     }
   } else {
-    const nextSkills = filterMounts(agentSpec.skills, new Set(skills.map(skill => skill.name)));
+    // Catalog `name` is display; wire/session mounts use FQN on `name` (and optional `id`).
+    const nextSkills = filterMounts(agentSpec.skills, skillAvailableKeys(skills), { matchFamily: true });
     if (nextSkills !== agentSpec.skills) {
       update.skills = nextSkills;
     }

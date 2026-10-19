@@ -174,6 +174,53 @@ describe('DraftCatalogProvider', () => {
     expect(update.skills).toEqual([]);
   });
 
+  it('keeps post-turn FQN skill mounts that match catalog attach keys', () => {
+    const skills = [{ name: 'agent-skill:acme/team/echo:3' }];
+    const update = reconcileDraftSpecPreferences({
+      agentSpec: {
+        model: { name: 'live/model' },
+        skills,
+      },
+      models: [{ id: 'live/model', name: 'live/model', provider: { name: 'Live' }, properties: {} }],
+      skills: [{ id: 'agent-skill:acme/team/echo:3', name: 'echo' }],
+      connectors: [],
+      skillsEnabled: true,
+    });
+
+    expect(update).toEqual({});
+  });
+
+  it('keeps skill mounts when only the version suffix differs from the catalog', () => {
+    const skills = [{ name: 'agent-skill:acme/team/echo:2' }];
+    const update = reconcileDraftSpecPreferences({
+      agentSpec: {
+        model: { name: 'live/model' },
+        skills,
+      },
+      models: [{ id: 'live/model', name: 'live/model', provider: { name: 'Live' }, properties: {} }],
+      skills: [{ id: 'agent-skill:acme/team/echo:3', name: 'echo' }],
+      connectors: [],
+      skillsEnabled: true,
+    });
+
+    expect(update).toEqual({});
+  });
+
+  it('still prunes skill mounts missing from the catalog', () => {
+    const update = reconcileDraftSpecPreferences({
+      agentSpec: {
+        model: { name: 'live/model' },
+        skills: [{ name: 'agent-skill:acme/team/echo:3' }, { name: 'agent-skill:acme/team/gone:1' }],
+      },
+      models: [{ id: 'live/model', name: 'live/model', provider: { name: 'Live' }, properties: {} }],
+      skills: [{ id: 'agent-skill:acme/team/echo:3', name: 'echo' }],
+      connectors: [],
+      skillsEnabled: true,
+    });
+
+    expect(update).toEqual({ skills: [{ name: 'agent-skill:acme/team/echo:3' }] });
+  });
+
   it('does not re-clear an already empty skills list when skills are unavailable', () => {
     const emptySkills: object[] = [];
     const update = reconcileDraftSpecPreferences({
