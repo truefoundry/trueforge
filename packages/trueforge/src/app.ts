@@ -24,7 +24,7 @@ import { createScheduleExecutionRouter, createSchedulesRouter } from './apis/sch
 import { createInternalMetricsRouter } from './apis/sessionMetrics';
 import { createInternalSessionsRouter, createSessionsRouter } from './apis/sessions';
 import { createSettingsRouter } from './apis/settings';
-import { createAvailableSkillsRouter, type ResolveSkillStore } from './apis/skills';
+import { createAvailableSkillsRouter } from './apis/skills';
 import { createTurnsRouter } from './apis/turns';
 import type { Authenticator } from './auth/authenticator';
 import type { Authorizer } from './auth/authorizer';
@@ -243,6 +243,35 @@ function routeNotFound(c: Context) {
   return c.json({ error: { message: `Route not found: ${c.req.method} ${c.req.path}` } }, 404);
 }
 
+/** HTTP model-provider store resolve. `allowInlineResources` for inline session create, spec replace, and inline-session turns. */
+export interface ResolveModelProviderStoreInput {
+  c: Context;
+  runAsAgent?: AgentRecord;
+  allowInlineResources?: boolean;
+}
+
+/** HTTP MCP store resolve. Omit `c` for the unauthenticated OAuth callback. */
+export interface ResolveMcpServerStoreInput {
+  c?: Context;
+  runAsAgent?: AgentRecord;
+  allowInlineResources?: boolean;
+}
+
+/**
+ * Turn skill-mount resolve. Omit `c` for schedules (registry/DB only).
+ * `allowInlineResources` only for turns on inline sessions.
+ */
+export interface ResolveTurnSkillsStoreInput {
+  c?: Context;
+  allowInlineResources?: boolean;
+}
+
+/** HTTP skill-store resolve. `allowInlineResources` for inline session create and spec replace. */
+export interface ResolveSkillStoreInput {
+  c: Context;
+  allowInlineResources?: boolean;
+}
+
 export interface ServerDeps<TTransaction> {
   modelCatalog: ModelCatalog;
   mcpCatalog: McpCatalog;
@@ -250,12 +279,12 @@ export interface ServerDeps<TTransaction> {
   sandboxCatalog: SandboxCatalog;
   webSearchCatalog: WebSearchCatalog;
   /** Per-request store: DB singleton, or a token-bound TrueFoundry store in TrueFoundry mode. */
-  resolveModelProviderStore: (c: Context, runAsAgent?: AgentRecord) => IModelProviderStore<TTransaction>;
+  resolveModelProviderStore: (input: ResolveModelProviderStoreInput) => IModelProviderStore<TTransaction>;
   /**
    * Per-request store: DB singleton, or a token-bound TrueFoundry store in TrueFoundry mode.
-   * The unauthenticated OAuth callback has no context and gets the DB persistence store.
+   * The unauthenticated OAuth callback omits `c` and gets the DB persistence store.
    */
-  resolveMcpServerStore: (c?: Context, runAsAgent?: AgentRecord) => IMcpServerWithAuthStore<TTransaction>;
+  resolveMcpServerStore: (input: ResolveMcpServerStoreInput) => IMcpServerWithAuthStore<TTransaction>;
   /** Per-request store: DB singleton, or a token-bound TrueFoundry decorator in TrueFoundry mode. */
   resolveAgentStore: (c: Context) => IAgentStore<TTransaction>;
   /**
@@ -265,7 +294,12 @@ export interface ServerDeps<TTransaction> {
   resolveSandboxProviderStore: (c: Context) => ISandboxProviderStore<TTransaction>;
   resolveWebSearchProviderStore: (c: Context) => IWebSearchProviderStore<TTransaction>;
   /** Per-request store: DB git skills, or TrueFoundry registry catalog in TrueFoundry mode. */
-  resolveSkillStore: ResolveSkillStore<TTransaction>;
+  resolveSkillStore: (input: ResolveSkillStoreInput) => ISkillStore<TTransaction>;
+  /**
+   * Turn skill mounts. HTTP turns may apply `x-tfg-skills` when allowInlineResources is set;
+   * schedules call with `{}` (registry/DB only).
+   */
+  resolveTurnSkillsStore: (input: ResolveTurnSkillsStoreInput) => Pick<ISkillStore<TTransaction>, 'resolveTurnSkills'>;
   withTransaction: WithTransaction<TTransaction>;
   tokenStore: IOAuthTokenStore<TTransaction>;
   scheduleStore: IScheduleStore<TTransaction>;
@@ -280,8 +314,6 @@ export interface ServerDeps<TTransaction> {
    * Same backing store as resolveSandboxProviderStore, without request context.
    */
   sandboxProviderStore: ISandboxProviderStore<TTransaction>;
-  /** Resolve turn skills - persistence store or TrueFoundry resolve with Service API key (schedule runs do have any caller token). */
-  turnSkillsResolverStore: Pick<ISkillStore<TTransaction>, 'resolveTurnSkills'>;
   sessions: Sessions;
   activeTurns: ActiveTurnRegistry;
   /** Primary Redis client (server-owned); undefined in standalone mode. */
@@ -317,7 +349,7 @@ export function createServerApp<TTransaction>(deps: ServerDeps<TTransaction>) {
     sandboxEnvironmentStore: deps.sandboxEnvironmentStore,
     resolveWebSearchProviderStore: deps.resolveWebSearchProviderStore,
     activeTurns: deps.activeTurns,
-    turnSkillsResolverStore: deps.turnSkillsResolverStore,
+    resolveTurnSkillsStore: deps.resolveTurnSkillsStore,
   };
 
   const httpMetrics = createHttpMetrics();
@@ -361,7 +393,7 @@ export function createServerApp<TTransaction>(deps: ServerDeps<TTransaction>) {
     '/api/v1/models',
     withAuth(
       createModelsRouter({
-        resolveModelProviderStore: deps.resolveModelProviderStore,
+        resolveModelProviderStore: c => deps.resolveModelProviderStore({ c }),
         withTransaction: deps.withTransaction,
         resolveRequestContext,
       }),
@@ -387,7 +419,7 @@ export function createServerApp<TTransaction>(deps: ServerDeps<TTransaction>) {
     '/api/v1/mcp-servers/oauth',
     createMcpOAuthRouter({
       tokenStore: deps.tokenStore,
-      mcpServerStore: deps.resolveMcpServerStore(),
+      mcpServerStore: deps.resolveMcpServerStore({}),
       logger: deps.logger,
       resolveSession: c => tryAuthenticate({ authenticator: deps.authenticator, context: c }),
     }),
@@ -396,7 +428,7 @@ export function createServerApp<TTransaction>(deps: ServerDeps<TTransaction>) {
     '/api/v1/mcp-servers',
     withAuth(
       createMcpServersRouter({
-        resolveMcpServerStore: deps.resolveMcpServerStore,
+        resolveMcpServerStore: c => deps.resolveMcpServerStore({ c }),
         tokenStore: deps.tokenStore,
         withTransaction: deps.withTransaction,
         logger: deps.logger,
@@ -409,7 +441,7 @@ export function createServerApp<TTransaction>(deps: ServerDeps<TTransaction>) {
     '/api/v1/skills',
     withAuth(
       createAvailableSkillsRouter({
-        resolveSkillStore: deps.resolveSkillStore,
+        resolveSkillStore: c => deps.resolveSkillStore({ c }),
         withTransaction: deps.withTransaction,
         resolveRequestContext,
       }),
@@ -421,9 +453,9 @@ export function createServerApp<TTransaction>(deps: ServerDeps<TTransaction>) {
     withAuth(
       createAgentsRouter({
         resolveAgentStore: deps.resolveAgentStore,
-        resolveModelProviderStore: deps.resolveModelProviderStore,
-        resolveMcpServerStore: deps.resolveMcpServerStore,
-        resolveSkillStore: deps.resolveSkillStore,
+        resolveModelProviderStore: c => deps.resolveModelProviderStore({ c }),
+        resolveMcpServerStore: c => deps.resolveMcpServerStore({ c }),
+        resolveSkillStore: c => deps.resolveSkillStore({ c }),
         resolveSandboxProviderStore: deps.resolveSandboxProviderStore,
         sandboxEnvironmentStore: deps.sandboxEnvironmentStore,
         resolveWebSearchProviderStore: deps.resolveWebSearchProviderStore,
@@ -482,7 +514,7 @@ export function createServerApp<TTransaction>(deps: ServerDeps<TTransaction>) {
         resolveModelProviderStore: deps.resolveModelProviderStore,
         resolveMcpServerStore: deps.resolveMcpServerStore,
         tokenStore: deps.tokenStore,
-        resolveSkillStore: deps.resolveSkillStore,
+        resolveSkillStore: c => deps.resolveSkillStore({ c }),
         resolveSandboxProviderStore: deps.resolveSandboxProviderStore,
         sandboxEnvironmentStore: deps.sandboxEnvironmentStore,
         resolveWebSearchProviderStore: deps.resolveWebSearchProviderStore,
@@ -569,7 +601,7 @@ export function createServerApp<TTransaction>(deps: ServerDeps<TTransaction>) {
         activeTurns: deps.activeTurns,
         resolveModelProviderStore: deps.resolveModelProviderStore,
         resolveMcpServerStore: deps.resolveMcpServerStore,
-        resolveSkillStore: deps.resolveSkillStore,
+        resolveTurnSkillsStore: deps.resolveTurnSkillsStore,
         resolveAgentStore: deps.resolveAgentStore,
         eventSubscriptions: deps.eventSubscriptions,
         resolveSandboxProviderStore: deps.resolveSandboxProviderStore,
