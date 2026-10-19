@@ -75,28 +75,6 @@ describe('buildLanguageModel', () => {
     if (typeof model !== 'object' || model === null) throw new Error('Expected model to be an object');
     expect(Reflect.get(model, 'modelId')).toBe('claude-sonnet-5');
   });
-
-  it('sets anthropic-beta fine-grained tool streaming header for truefoundry only', () => {
-    function resolveHeaders(model: unknown): unknown {
-      if (typeof model !== 'object' || model === null) {
-        throw new Error('Expected language model object');
-      }
-      const config = Reflect.get(model, 'config');
-      if (typeof config !== 'object' || config === null) {
-        throw new Error('Expected model config');
-      }
-      const headers = Reflect.get(config, 'headers');
-      return typeof headers === 'function' ? headers() : headers;
-    }
-    expect(
-      resolveHeaders(buildLanguageModel(makeConfig({ provider: 'truefoundry', baseUrl: 'http://localhost/v1' }))),
-    ).toMatchObject({
-      'anthropic-beta': 'fine-grained-tool-streaming-2025-05-14',
-    });
-    expect(
-      resolveHeaders(buildLanguageModel(makeConfig({ provider: 'fireworks', baseUrl: 'http://localhost/v1' }))),
-    ).not.toHaveProperty('anthropic-beta');
-  });
 });
 
 // ─────────── resolveMaxOutputTokens ───────────

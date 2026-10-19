@@ -132,7 +132,8 @@ function compatibleModel(config: VercelAIProviderConfig): LanguageModel {
   if (baseUrl === undefined) {
     throw new Error(`Provider "${provider.type}" requires a baseUrl`);
   }
-  // TFY gateway → Anthropic: prefer the beta header over mutating tool defs (safer rollout).
+  // More straightforward than mutating tool definitions for fine-grained tool streaming.
+  // TODO: fine-grained-tool-streaming-2025-05-14 is considered deprecated.
   const outboundHeaders =
     provider.type === 'truefoundry'
       ? { ...headers, 'anthropic-beta': 'fine-grained-tool-streaming-2025-05-14' }
