@@ -1,14 +1,14 @@
 /**
  * Process logger: human-readable lines in standalone mode, JSON otherwise.
- * JSON output carries `version` and `component` ('server' | 'controller') in defaultMeta
- * so hosted aggregators can tell the two processes apart; both are omitted from the
+ * JSON output carries `component` ('server' | 'controller') in defaultMeta
+ * so hosted aggregators can tell the two processes apart; it is omitted from the
  * human-readable standalone format to keep local logs terse.
  * In-flight work stamps `tenant_id`, `request_id`, `session_id`, and `turn_id` when known.
  */
 import { AsyncLocalStorage } from 'node:async_hooks';
 import winston, { type Logger } from 'winston';
 
-const STANDALONE_META_SKIP = new Set(['level', 'message', 'timestamp', 'version', 'component', 'stack', 'splat']);
+const STANDALONE_META_SKIP = new Set(['level', 'message', 'timestamp', 'component', 'stack', 'splat']);
 
 /** Ids copied onto each Winston line while the matching work is in progress. Absent keys are omitted. */
 export interface LogContext {
@@ -138,24 +138,19 @@ function serverLogFormat(options: { standalone: boolean }): winston.Logform.Form
   return jsonFormat();
 }
 
-function createLogger(options: {
-  level: string;
-  standalone: boolean;
-  version: string;
-  component: 'server' | 'controller';
-}): Logger {
+function createLogger(options: { level: string; standalone: boolean; component: 'server' | 'controller' }): Logger {
   return winston.createLogger({
     level: options.level,
-    defaultMeta: { version: options.version, component: options.component },
+    defaultMeta: { component: options.component },
     format: serverLogFormat({ standalone: options.standalone }),
     transports: [new winston.transports.Console()],
   });
 }
 
-export function createServerLogger(options: { level: string; standalone: boolean; version: string }): Logger {
+export function createServerLogger(options: { level: string; standalone: boolean }): Logger {
   return createLogger({ ...options, component: 'server' });
 }
 
-export function createControllerLogger(options: { level: string; standalone: boolean; version: string }): Logger {
+export function createControllerLogger(options: { level: string; standalone: boolean }): Logger {
   return createLogger({ ...options, component: 'controller' });
 }
