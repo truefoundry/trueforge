@@ -132,6 +132,12 @@ function compatibleModel(config: VercelAIProviderConfig): LanguageModel {
   if (baseUrl === undefined) {
     throw new Error(`Provider "${provider.type}" requires a baseUrl`);
   }
+  // More straightforward than mutating tool definitions for fine-grained tool streaming.
+  // TODO: fine-grained-tool-streaming-2025-05-14 is considered deprecated.
+  const outboundHeaders =
+    provider.type === 'truefoundry'
+      ? { ...headers, 'anthropic-beta': 'fine-grained-tool-streaming-2025-05-14' }
+      : headers;
   const client = createOpenAICompatible({
     name: provider.type,
     baseURL: baseUrl,
@@ -141,7 +147,7 @@ function compatibleModel(config: VercelAIProviderConfig): LanguageModel {
     supportsStructuredOutputs: true,
     // These endpoints omit token counts from streamed responses unless asked.
     includeUsage: true,
-    ...(Object.keys(headers).length > 0 ? { headers } : {}),
+    ...(Object.keys(outboundHeaders).length > 0 ? { headers: outboundHeaders } : {}),
   });
   return client(model.id);
 }
@@ -390,6 +396,9 @@ function openaiProviderOptions({
  *
  * Prompt caching defaults on: Anthropic bills a write once, then cheaper reads on stable prefixes
  * (system / tools / early messages). Callers can override via `cache_control` in the request body.
+ *
+ * `toolStreaming` is pinned on so every function tool gets `eager_input_streaming` on the Anthropic
+ * wire (call-level default).
  */
 function anthropicProviderOptions(rawBody: unknown): JSONObject | undefined {
   const cacheControl = readBodyField({ rawBody, key: 'cache_control' }) ?? { type: 'ephemeral' };
@@ -398,6 +407,7 @@ function anthropicProviderOptions(rawBody: unknown): JSONObject | undefined {
   const effort = readBodyField({ rawBody, key: 'effort' });
   const opts: JSONObject = {
     cacheControl,
+    toolStreaming: true,
     ...(disableParallelToolUse !== undefined ? { disableParallelToolUse } : {}),
     ...(thinking !== undefined ? { thinking } : {}),
     ...(effort !== undefined ? { effort } : {}),
