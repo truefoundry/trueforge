@@ -127,11 +127,19 @@ function isFunctionToolCall<T extends { type: string }>(toolCall: T): toolCall i
  * own packages: those drop `json_schema`, and Fireworks also clamps efforts its models do accept.
  * TODO: move Z AI to @ai-sdk/zai once https://github.com/vercel/ai/pull/17340 ships.
  */
+/** Legacy Anthropic beta that enables fine-grained tool input streaming when tool defs omit the field. */
+const TRUEFOUNDRY_FINE_GRAINED_TOOL_STREAMING_BETA = 'fine-grained-tool-streaming-2025-05-14';
+
 function compatibleModel(config: VercelAIProviderConfig): LanguageModel {
   const { provider, model, apiKey, headers, baseUrl } = config;
   if (baseUrl === undefined) {
     throw new Error(`Provider "${provider.type}" requires a baseUrl`);
   }
+  // TFY gateway → Anthropic: prefer the beta header over mutating tool defs (safer rollout).
+  const outboundHeaders =
+    provider.type === 'truefoundry'
+      ? { ...headers, anthropic_beta: TRUEFOUNDRY_FINE_GRAINED_TOOL_STREAMING_BETA }
+      : headers;
   const client = createOpenAICompatible({
     name: provider.type,
     baseURL: baseUrl,
@@ -141,7 +149,7 @@ function compatibleModel(config: VercelAIProviderConfig): LanguageModel {
     supportsStructuredOutputs: true,
     // These endpoints omit token counts from streamed responses unless asked.
     includeUsage: true,
-    ...(Object.keys(headers).length > 0 ? { headers } : {}),
+    ...(Object.keys(outboundHeaders).length > 0 ? { headers: outboundHeaders } : {}),
   });
   return client(model.id);
 }
@@ -390,6 +398,9 @@ function openaiProviderOptions({
  *
  * Prompt caching defaults on: Anthropic bills a write once, then cheaper reads on stable prefixes
  * (system / tools / early messages). Callers can override via `cache_control` in the request body.
+ *
+ * `toolStreaming` is pinned on so every function tool gets `eager_input_streaming` on the Anthropic
+ * wire (call-level default).
  */
 function anthropicProviderOptions(rawBody: unknown): JSONObject | undefined {
   const cacheControl = readBodyField({ rawBody, key: 'cache_control' }) ?? { type: 'ephemeral' };
@@ -398,6 +409,7 @@ function anthropicProviderOptions(rawBody: unknown): JSONObject | undefined {
   const effort = readBodyField({ rawBody, key: 'effort' });
   const opts: JSONObject = {
     cacheControl,
+    toolStreaming: true,
     ...(disableParallelToolUse !== undefined ? { disableParallelToolUse } : {}),
     ...(thinking !== undefined ? { thinking } : {}),
     ...(effort !== undefined ? { effort } : {}),
