@@ -21,6 +21,12 @@ import { captureCriticalException } from '../sentry';
 /** Bound Daytona RPCs so API requests and controller ticks cannot hang indefinitely. */
 export const DAYTONA_RPC_TIMEOUT_MS = 5_000;
 
+/**
+ * Client-wide Daytona HTTP deadline. Unlocking this (any positive value) makes the SDK
+ * extend only `executeCommand` / `codeRun` waits to command-timeout + 5s; other calls stay at 60s.
+ */
+export const DAYTONA_REQUEST_TIMEOUT_MS = 60_000;
+
 /** Provider rejected the credentials (401 unauthorized); retrying the same key cannot succeed. */
 export function isDaytonaAuthError(error: unknown): boolean {
   return error instanceof DaytonaError && error.statusCode === 401;
@@ -97,9 +103,8 @@ export function toDaytonaSandboxProvider({
     throw new Error('Daytona sandbox provider required');
   }
   const { apiKey, ...settings } = toDaytonaSandboxProviderInput(manifest);
-  // Positive requestTimeoutMs enables the SDK's per-exec HTTP deadline (exec timeout + 5s).
   return new DaytonaSandboxProvider({
-    client: new Daytona({ apiKey, requestTimeoutMs: settings.timeoutMs }),
+    client: new Daytona({ apiKey, requestTimeoutMs: DAYTONA_REQUEST_TIMEOUT_MS }),
     apiKey,
     ...settings,
     tenantName: tenant_id,
