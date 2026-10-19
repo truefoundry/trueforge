@@ -135,7 +135,7 @@ function compatibleModel(config: VercelAIProviderConfig): LanguageModel {
   // TFY gateway → Anthropic: prefer the beta header over mutating tool defs (safer rollout).
   const outboundHeaders =
     provider.type === 'truefoundry'
-      ? { ...headers, anthropic_beta: 'fine-grained-tool-streaming-2025-05-14' }
+      ? { ...headers, 'anthropic-beta': 'fine-grained-tool-streaming-2025-05-14' }
       : headers;
   const client = createOpenAICompatible({
     name: provider.type,

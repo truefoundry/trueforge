@@ -76,7 +76,7 @@ describe('buildLanguageModel', () => {
     expect(Reflect.get(model, 'modelId')).toBe('claude-sonnet-5');
   });
 
-  it('sets anthropic_beta fine-grained tool streaming header for truefoundry only', () => {
+  it('sets anthropic-beta fine-grained tool streaming header for truefoundry only', () => {
     function resolveHeaders(model: unknown): unknown {
       if (typeof model !== 'object' || model === null) {
         throw new Error('Expected language model object');
@@ -91,11 +91,11 @@ describe('buildLanguageModel', () => {
     expect(
       resolveHeaders(buildLanguageModel(makeConfig({ provider: 'truefoundry', baseUrl: 'http://localhost/v1' }))),
     ).toMatchObject({
-      anthropic_beta: 'fine-grained-tool-streaming-2025-05-14',
+      'anthropic-beta': 'fine-grained-tool-streaming-2025-05-14',
     });
     expect(
       resolveHeaders(buildLanguageModel(makeConfig({ provider: 'fireworks', baseUrl: 'http://localhost/v1' }))),
-    ).not.toHaveProperty('anthropic_beta');
+    ).not.toHaveProperty('anthropic-beta');
   });
 });
 
