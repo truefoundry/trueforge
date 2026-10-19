@@ -155,6 +155,8 @@ export async function cancelSessionTurn(
 ): Promise<void> {
   const { turnId, reason = CancellationReason.ClientCancelled } = input;
   const sessionId = deps.session.session_id;
+  // Cancel is POST /sessions/{session_id}/cancel — path middleware has session_id only.
+  updateLogContext({ turn_id: turnId });
 
   const turn = await deps.sessionStore.getTurn({
     session_id: sessionId,
@@ -187,6 +189,7 @@ export async function cancelSessionTurn(
       }
     } catch (error) {
       const fields = {
+        turn_id: turnId,
         owner,
         ...extractErrorLogFields(error),
       };
