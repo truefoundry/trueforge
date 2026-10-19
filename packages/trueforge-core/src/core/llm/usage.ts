@@ -42,6 +42,7 @@ export function formatOutputTruncatedMessage({
 }): string {
   const limit = maxOutputTokens !== undefined ? `the ${String(maxOutputTokens)} token limit` : 'the token limit';
   // Adapters report 0 when the provider omitted usage; a `length` finish always produced output.
-  const used = outputTokens > 0 ? ` after ${String(outputTokens)} tokens` : '';
+  // A count equal to the limit adds nothing; a different one means something downstream changed the cap.
+  const used = outputTokens > 0 && outputTokens !== maxOutputTokens ? ` after ${String(outputTokens)} tokens` : '';
   return `Output truncated: hit ${limit}${used}. Raise max_tokens and retry.`;
 }

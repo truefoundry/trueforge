@@ -52,11 +52,19 @@ async function runUntilDone(modelParams: Record<string, unknown> | undefined): P
 }
 
 describe('AgentThread output truncation', () => {
-  it('reports the configured limit and output tokens used', async () => {
+  it('reports only the limit when output used all of it', async () => {
     const done = await runUntilDone({ max_tokens: 4096 });
     expect(done).toMatchObject({
       status: 'error',
-      error: 'Output truncated: hit the 4096 token limit after 4096 tokens. Raise max_tokens and retry.',
+      error: 'Output truncated: hit the 4096 token limit. Raise max_tokens and retry.',
+    });
+  });
+
+  it('reports output tokens used when they differ from the configured limit', async () => {
+    const done = await runUntilDone({ max_tokens: 16000 });
+    expect(done).toMatchObject({
+      status: 'error',
+      error: 'Output truncated: hit the 16000 token limit after 4096 tokens. Raise max_tokens and retry.',
     });
   });
 
