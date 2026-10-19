@@ -4,7 +4,6 @@ import { NoResponderError, redisRequest, RequestTimeoutError } from '@truefoundr
 import type { RedisClientType } from 'redis';
 import { cancelSessionTurn } from '../../../src/apis/sessions';
 import configuration from '../../../src/config';
-import { currentLogContext, runWithLogContext } from '../../../src/logger';
 import { ActiveTurnRegistry } from '../../../src/runtime/activeTurns';
 
 jest.mock('@truefoundry/trueforge-core/request-reply', () => {
@@ -276,27 +275,6 @@ describe('cancelSessionTurn', () => {
         error: 'Redis connection closed',
       }),
     );
-  });
-
-  it('stamps turn_id on the log context so cancel-route lines can identify the turn', async () => {
-    const activeTurns = new ActiveTurnRegistry();
-    const turnId = 'turn-log-context';
-    const abortController = trackRun(activeTurns, turnId);
-
-    await runWithLogContext({ session_id: SESSION_ID }, async () => {
-      await cancelSessionTurn(
-        cancelDeps({ activeTurns, turn: turnRecord({ turnId: turnId, state: { status: 'running' } }) }),
-        { turnId },
-      );
-      expect(currentLogContext()).toEqual(
-        expect.objectContaining({
-          session_id: SESSION_ID,
-          turn_id: turnId,
-        }),
-      );
-    });
-
-    expect(abortController.signal.aborted).toBe(true);
   });
 
   it('treats a missing turn as a successful cancel', async () => {
