@@ -46,7 +46,7 @@ import type { ISandboxProviderStore } from '../db/sandboxProviderStore';
 import type { ISkillStore } from '../db/skillStore';
 import type { TurnMetadata } from '../db/turnMetadata';
 import type { IWebSearchProviderStore } from '../db/webSearchProviderStore';
-import { updateLogContext } from '../logger';
+import { currentLogContext, updateLogContext } from '../logger';
 import {
   createAndExecuteTurnRoute,
   createTurnEventRoute,
@@ -435,7 +435,7 @@ export async function beginTurnExecution(
   const tenant_id = session.tenant_id;
   // Before the resolver, so model, MCP, and sandbox lines on this chain carry the ids.
   updateLogContext({
-    tenant_id,
+    tenant_id: tenantId,
     session_id: sessionId,
     turn_id: turnId,
   });
@@ -443,7 +443,7 @@ export async function beginTurnExecution(
 
   const abortController = new AbortController();
   const webSearchProvider = await resolveWebSearchProvider({
-    tenant_id,
+    tenant_id: tenantId,
     store: deps.webSearchProviderStore,
   });
   const resolver = createTurnResolver({
@@ -495,7 +495,7 @@ export async function beginTurnExecution(
   });
 
   // Held for the whole turn; the stream's sequence counter dies with it.
-  const turnEventStream = deps.eventSubscriptions.get(turnStreamId(tenant_id, sessionId, turn.id));
+  const turnEventStream = deps.eventSubscriptions.get(turnStreamId(tenantId, sessionId, turn.id));
 
   return {
     turn,
@@ -852,12 +852,22 @@ export function createTurnsRouter(deps: TurnsRouterDeps) {
       }
 
       // Stream: same engine; a hung SSE write is timed out so drain/dual-write continue.
-      const { drainInput } = await beginTurnExecution(turnParams);
+      const { drainInput, turn } = await beginTurnExecution(turnParams);
+      // Hono maps client disconnect to stream.abort() (body cancel / AbortSignal)
+      // outside request ALS, so capture ids here and pass them on the disconnect line.
+      const disconnectLogContext = {
+        ...currentLogContext(),
+        session_id: sessionId,
+        turn_id: turn.id,
+      };
       let shouldWriteToSSEStream = true;
       return streamSSE(c, async stream => {
         stream.onAbort(() => {
           shouldWriteToSSEStream = false;
-          deps.logger.info('Create-turn SSE client disconnected, continuing drain without writing');
+          deps.logger.info(
+            'Create-turn SSE client disconnected, continuing drain without writing',
+            disconnectLogContext,
+          );
         });
         await drainTurnEvents({
           ...drainInput,
