@@ -69,9 +69,6 @@ const REQUEST_ID_HEADER = 'x-request-id';
 /** Single token. Rejects spaces, quotes, and newlines so a caller cannot break a JSON log line. */
 const SAFE_REQUEST_ID = /^[A-Za-z0-9._:-]{1,200}$/;
 
-const SESSION_LOG_PATH = /^\/api\/v1\/sessions\/([^/]+)(?:\/|$)/;
-const TURN_LOG_PATH = /^\/api\/v1\/sessions\/[^/]+\/turns\/([^/]+)(?:\/|$)/;
-
 function requestIdFromHeader(raw: string | undefined): string {
   if (raw !== undefined && SAFE_REQUEST_ID.test(raw)) {
     return raw;
@@ -93,12 +90,11 @@ export function createRequestLogContextMiddleware(): MiddlewareHandler {
   };
 }
 
-/** Stamp session and turn ids from public session URLs. Skips `/api/internal/sessions/...`. */
+/** Stamp session and turn ids from the matched route params. Skips `/api/internal/sessions/...`. */
 export function createSessionPathLogContextMiddleware(): MiddlewareHandler {
   return async (c, next) => {
-    const path = c.req.path;
-    const session_id = SESSION_LOG_PATH.exec(path)?.[1];
-    const turn_id = TURN_LOG_PATH.exec(path)?.[1];
+    const session_id = c.req.param('session_id');
+    const turn_id = c.req.param('turn_id');
     const fields: LogContext = {
       ...(session_id === undefined ? {} : { session_id }),
       ...(turn_id === undefined ? {} : { turn_id }),
@@ -354,7 +350,8 @@ export function createServerApp<TTransaction>(deps: ServerDeps<TTransaction>) {
 
   const httpMetrics = createHttpMetrics();
   app.use('*', createRequestLogContextMiddleware());
-  app.use('/api/v1/sessions/*', createSessionPathLogContextMiddleware());
+  app.use('/api/v1/sessions/:session_id/*', createSessionPathLogContextMiddleware());
+  app.use('/api/v1/sessions/:session_id/turns/:turn_id/*', createSessionPathLogContextMiddleware());
   // Health, the scrape endpoint, and static files sit outside /api, so they never enter this middleware.
   app.use('/api/*', httpMetrics.middleware);
   if (configuration.ACCESS_LOGS) {
