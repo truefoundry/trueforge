@@ -127,9 +127,6 @@ function isFunctionToolCall<T extends { type: string }>(toolCall: T): toolCall i
  * own packages: those drop `json_schema`, and Fireworks also clamps efforts its models do accept.
  * TODO: move Z AI to @ai-sdk/zai once https://github.com/vercel/ai/pull/17340 ships.
  */
-/** Legacy Anthropic beta that enables fine-grained tool input streaming when tool defs omit the field. */
-const TRUEFOUNDRY_FINE_GRAINED_TOOL_STREAMING_BETA = 'fine-grained-tool-streaming-2025-05-14';
-
 function compatibleModel(config: VercelAIProviderConfig): LanguageModel {
   const { provider, model, apiKey, headers, baseUrl } = config;
   if (baseUrl === undefined) {
@@ -138,7 +135,7 @@ function compatibleModel(config: VercelAIProviderConfig): LanguageModel {
   // TFY gateway → Anthropic: prefer the beta header over mutating tool defs (safer rollout).
   const outboundHeaders =
     provider.type === 'truefoundry'
-      ? { ...headers, anthropic_beta: TRUEFOUNDRY_FINE_GRAINED_TOOL_STREAMING_BETA }
+      ? { ...headers, anthropic_beta: 'fine-grained-tool-streaming-2025-05-14' }
       : headers;
   const client = createOpenAICompatible({
     name: provider.type,
