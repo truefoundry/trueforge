@@ -432,7 +432,7 @@ export async function beginTurnExecution(
   assertGatewayMetadataRequestHeaders(requestHeaders);
   const sessionId = session.session_id;
   const turnId = newId();
-  const tenantId = session.tenant_id;
+  const tenant_id = session.tenant_id;
   // Before the resolver, so model, MCP, and sandbox lines on this chain carry the ids.
   updateLogContext({
     tenant_id,
