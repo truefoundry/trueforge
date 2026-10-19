@@ -1,3 +1,4 @@
+import type { LLMCreateParamsStreaming } from './ILLM';
 import type { CompletionUsage } from './LLMTypes';
 
 export function estimateTokensForString(s: string): number {
@@ -21,4 +22,31 @@ export function mergeUsage(a: CompletionUsage, b: CompletionUsage): CompletionUs
     reasoning_tokens: sumOptional(a.reasoning_tokens, b.reasoning_tokens),
     cost_in_usd: sumOptional(a.cost_in_usd, b.cost_in_usd),
   };
+}
+
+/** Prefers `max_completion_tokens`, falling back to the deprecated `max_tokens`. */
+export function resolveMaxOutputTokens(
+  body: Pick<LLMCreateParamsStreaming, 'max_completion_tokens'>,
+): number | undefined {
+  const limit: unknown = body.max_completion_tokens ?? Reflect.get(body, 'max_tokens');
+  return typeof limit === 'number' ? limit : undefined;
+}
+
+/** Error text for a `length` finish; names the limit so callers can see which cap was hit. */
+export function formatMaxTokensBreachedMessage({
+  outputTokens,
+  maxOutputTokens,
+}: {
+  outputTokens: number;
+  maxOutputTokens: number | undefined;
+}): string {
+  const limit =
+    maxOutputTokens !== undefined
+      ? `max_tokens=${String(maxOutputTokens)}`
+      : 'max_tokens not set, provider default applied';
+  // Adapters report 0 when the provider omitted usage; a `length` finish always produced output.
+  if (outputTokens === 0) {
+    return `max_tokens breached (${limit})`;
+  }
+  return `max_tokens breached: model stopped after ${String(outputTokens)} output tokens (${limit})`;
 }

@@ -49,7 +49,7 @@ import {
 import { ModelSchema, type Model } from '../llm/model';
 import { toOpenAIResponseFormat } from '../llm/responseFormat';
 import { toOpenAIChatMessage } from '../llm/toOpenAIChatMessage';
-import { estimateTokensForString } from '../llm/usage';
+import { estimateTokensForString, formatMaxTokensBreachedMessage, resolveMaxOutputTokens } from '../llm/usage';
 import { convertMCPServersToTools, type ConvertToolsResult, type MappedMCPTool } from '../mcp/convertMCPServers';
 import { executeToolCalls } from '../mcp/executeToolCalls';
 import type { IToolSet, MCPAuthRequired } from '../mcp/IMCPServer';
@@ -1187,12 +1187,20 @@ export class AgentThread {
       model: modelFromDefinition(this.definition),
     });
 
+    const maxTokensBreachedMessage =
+      finishReason === 'length'
+        ? formatMaxTokensBreachedMessage({
+            outputTokens: result.value.usage.output_tokens,
+            maxOutputTokens: resolveMaxOutputTokens(requestBody),
+          })
+        : undefined;
+
     let completion: SubAgentCompletion | undefined;
     if (this.parent) {
-      if (finishReason === 'length') {
+      if (maxTokensBreachedMessage !== undefined) {
         const errorMessage = assistantMessageContentToStringForSubAgent(
           assistantMessage.content,
-          'max_tokens breached',
+          maxTokensBreachedMessage,
         );
         completion = {
           type: 'error',
@@ -1218,8 +1226,8 @@ export class AgentThread {
       completion,
     });
 
-    if (finishReason === 'length') {
-      const errorContent = completion?.type === 'error' ? completion.error_message : 'max_tokens breached';
+    if (maxTokensBreachedMessage !== undefined) {
+      const errorContent = completion?.type === 'error' ? completion.error_message : maxTokensBreachedMessage;
       yield this.generateErrorEvent(errorContent, agentAssistantMessage);
       return { outcome: 'exit', modelMessageEventId };
     }

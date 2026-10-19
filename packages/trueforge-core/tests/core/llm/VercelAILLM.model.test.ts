@@ -1,16 +1,10 @@
 /**
  * LanguageModel construction and streamText call-args assembly:
- * buildLanguageModel (per-provider construction + capability flags),
- * resolveMaxOutputTokens, and buildStreamTextArgs (key presence under
- * exactOptionalPropertyTypes).
+ * buildLanguageModel (per-provider construction + capability flags)
+ * and buildStreamTextArgs (key presence under exactOptionalPropertyTypes).
  */
 import type { VercelAIProviderConfig, VercelAIProviderName } from '../../../src/core/llm/VercelAILLM';
-import {
-  buildLanguageModel,
-  buildStreamTextArgs,
-  convertTools,
-  resolveMaxOutputTokens,
-} from '../../../src/core/llm/VercelAILLM';
+import { buildLanguageModel, buildStreamTextArgs, convertTools } from '../../../src/core/llm/VercelAILLM';
 
 function makeConfig(
   overrides: Omit<Partial<VercelAIProviderConfig>, 'provider' | 'model'> & {
@@ -74,33 +68,6 @@ describe('buildLanguageModel', () => {
     );
     if (typeof model !== 'object' || model === null) throw new Error('Expected model to be an object');
     expect(Reflect.get(model, 'modelId')).toBe('claude-sonnet-5');
-  });
-});
-
-// ─────────── resolveMaxOutputTokens ───────────
-
-describe('resolveMaxOutputTokens', () => {
-  it('returns max_completion_tokens when set', () => {
-    expect(resolveMaxOutputTokens({ max_completion_tokens: 512 })).toBe(512);
-  });
-
-  it('falls back to max_tokens when max_completion_tokens is absent', () => {
-    const body = JSON.parse('{"max_tokens":256}');
-    expect(resolveMaxOutputTokens(body)).toBe(256);
-  });
-
-  it('prefers max_completion_tokens over max_tokens', () => {
-    const body = JSON.parse('{"max_completion_tokens":512,"max_tokens":256}');
-    expect(resolveMaxOutputTokens(body)).toBe(512);
-  });
-
-  it('returns undefined when neither is set', () => {
-    expect(resolveMaxOutputTokens({})).toBeUndefined();
-  });
-
-  it('returns undefined for non-numeric values', () => {
-    const body = JSON.parse('{"max_completion_tokens":"not-a-number"}');
-    expect(resolveMaxOutputTokens(body)).toBeUndefined();
   });
 });
 
