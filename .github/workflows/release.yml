@@ -418,6 +418,7 @@ jobs:
       id-token: write
       contents: read
     with:
+      artifactory_oidc_provider_name: github-jfrog-trueforge
       # The shared build.yml inherits THIS run's github.sha, which is the
       # pre-version dispatch commit. version-release has already pushed the
       # bumped tree, so name it explicitly or the image ships the old
@@ -449,6 +450,7 @@ jobs:
       id-token: write
       contents: read
     with:
+      artifactory_oidc_provider_name: github-jfrog-trueforge-private
       # Same reason as the public image: build the version commit, not the
       # dispatch commit.
       checkout_ref: ${{ needs.version-release.outputs.sha }}
