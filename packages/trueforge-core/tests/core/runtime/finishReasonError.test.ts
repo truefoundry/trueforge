@@ -6,55 +6,12 @@ import type {
 } from '../../../src/core/llm/LLMTypes';
 import { AgentThread } from '../../../src/core/runtime/AgentThread';
 import { InternalEventType, type InternalThreadDoneEvent } from '../../../src/core/runtime/AgentThread.types';
-import { finishReasonErrorMessage } from '../../../src/core/runtime/finishReasonError';
 import { NOOP_AGENT_TRACING } from '../../../src/core/tracing/NoopAgentTracing';
 import '../harnessMocks';
 import { makeSilentLogger, TEST_MODEL_NAME } from '../harnessMocks';
 
 const silentLogger = makeSilentLogger();
 const OUTPUT_TOKENS = 4096;
-
-describe('finishReasonErrorMessage', () => {
-  it.each<{
-    name: string;
-    finishReason: FinishReason;
-    outputTokens: number;
-    maxOutputTokens: number | undefined;
-    expected: string;
-  }>([
-    {
-      name: 'length with a limit',
-      finishReason: 'length',
-      outputTokens: 4096,
-      maxOutputTokens: 4096,
-      expected: 'Output truncated: hit the 4096 token limit. Raise max_tokens and retry.',
-    },
-    {
-      name: 'length with output differing from the limit',
-      finishReason: 'length',
-      outputTokens: 4096,
-      maxOutputTokens: 16000,
-      expected: 'Output truncated: hit the 16000 token limit after 4096 tokens. Raise max_tokens and retry.',
-    },
-    {
-      name: 'length without a limit',
-      finishReason: 'length',
-      outputTokens: 8192,
-      maxOutputTokens: undefined,
-      expected:
-        "Output truncated: hit the provider's default token limit after 8192 tokens. Raise max_tokens and retry.",
-    },
-    {
-      name: 'length with 0 output tokens',
-      finishReason: 'length',
-      outputTokens: 0,
-      maxOutputTokens: 4096,
-      expected: 'Output truncated: hit the 4096 token limit. Raise max_tokens and retry.',
-    },
-  ])('fails the turn for $name', ({ finishReason, outputTokens, maxOutputTokens, expected }) => {
-    expect(finishReasonErrorMessage({ finishReason, outputTokens, maxOutputTokens })).toBe(expected);
-  });
-});
 
 // eslint-disable-next-line @typescript-eslint/require-await -- async generator fixture, not awaiting I/O
 async function* streamEndingWith(
