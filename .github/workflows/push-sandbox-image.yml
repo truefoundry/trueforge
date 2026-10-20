@@ -34,9 +34,6 @@ jobs:
       platforms: linux/amd64
       enable_jfrog: true
       enable_public_ecr: false
-    secrets:
-      artifactory_username: ${{ secrets.TRUEFORGE_ARTIFACTORY_USERNAME }}
-      artifactory_password: ${{ secrets.TRUEFORGE_ARTIFACTORY_PASSWORD }}
 
   print-uri:
     name: Print pushed image URI
