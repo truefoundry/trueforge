@@ -34,6 +34,7 @@ import type { Context } from 'hono';
 import { HTTPException } from 'hono/http-exception';
 import { streamSSE } from 'hono/streaming';
 import type { Logger } from 'winston';
+import type { ResolveMcpServerStoreInput, ResolveModelProviderStoreInput, ResolveTurnSkillsStoreInput } from '../app';
 import type { Authorizer } from '../auth/authorizer';
 import type { ResolveRequestContext } from '../auth/identity';
 import configuration from '../config';
@@ -45,6 +46,7 @@ import type { ISandboxProviderStore } from '../db/sandboxProviderStore';
 import type { ISkillStore } from '../db/skillStore';
 import type { TurnMetadata } from '../db/turnMetadata';
 import type { IWebSearchProviderStore } from '../db/webSearchProviderStore';
+import { currentLogContext, updateLogContext } from '../logger';
 import {
   createAndExecuteTurnRoute,
   createTurnEventRoute,
@@ -117,9 +119,9 @@ export interface TurnsRouterDeps {
   sessions: Sessions;
   sessionStore: ISessionStore;
   activeTurns: ActiveTurnRegistry;
-  resolveModelProviderStore: (c: Context, runAsAgent?: AgentRecord) => IModelProviderStore;
-  resolveMcpServerStore: (c: Context, runAsAgent?: AgentRecord) => IMcpServerWithAuthStore;
-  resolveSkillStore: (c: Context) => ISkillStore;
+  resolveModelProviderStore: (input: ResolveModelProviderStoreInput) => IModelProviderStore;
+  resolveMcpServerStore: (input: ResolveMcpServerStoreInput) => IMcpServerWithAuthStore;
+  resolveTurnSkillsStore: (input: ResolveTurnSkillsStoreInput) => Pick<ISkillStore, 'resolveTurnSkills'>;
   resolveAgentStore: (c: Context) => IAgentStore;
   /** Resumable live turn-event transport: create-turn writes, subscribe polls. */
   eventSubscriptions: EventSubscriptionRegistry<TurnStreamingEvent>;
@@ -386,13 +388,11 @@ export function turnStreamId(tenantId: string, sessionId: string, turnId: string
 export async function drainTurnEvents(input: {
   trackedStream: AsyncIterable<TurnStreamingEvent>;
   turnEventStream: EventSubscription<TurnStreamingEvent>;
-  sessionId: string;
-  turnId: string;
   maxExecutionTimer: NodeJS.Timeout;
   logger: Logger;
   onEvent?: (event: TurnStreamingEvent, sequenceNumber: number) => Promise<void>;
 }): Promise<void> {
-  const { trackedStream, turnEventStream, sessionId, turnId, maxExecutionTimer, logger, onEvent } = input;
+  const { trackedStream, turnEventStream, maxExecutionTimer, logger, onEvent } = input;
   try {
     for await (const event of trackedStream) {
       // Dual-write before any client sink so subscribers can resume after disconnect.
@@ -403,17 +403,9 @@ export async function drainTurnEvents(input: {
     }
   } catch (error) {
     if (error instanceof SessionStoreNotFoundError) {
-      logger.warn('Turn stream ended after session/turn was removed', {
-        sessionId,
-        turnId,
-        ...extractErrorLogFields(error),
-      });
+      logger.warn('Turn stream ended after session/turn was removed', extractErrorLogFields(error));
     } else {
-      logger.error('Unexpected error in turn event drain', {
-        sessionId,
-        turnId,
-        ...extractErrorLogFields(error),
-      });
+      logger.error('Unexpected error in turn event drain', extractErrorLogFields(error));
     }
   } finally {
     clearTimeout(maxExecutionTimer);
@@ -424,8 +416,6 @@ export async function drainTurnEvents(input: {
 export interface TurnEventDrainInput {
   trackedStream: AsyncIterable<TurnStreamingEvent>;
   turnEventStream: EventSubscription<TurnStreamingEvent>;
-  sessionId: string;
-  turnId: string;
   maxExecutionTimer: NodeJS.Timeout;
   logger: Logger;
 }
@@ -442,12 +432,18 @@ export async function beginTurnExecution(
   assertGatewayMetadataRequestHeaders(requestHeaders);
   const sessionId = session.session_id;
   const turnId = newId();
+  const tenantId = session.tenant_id;
+  // Before the resolver, so model, MCP, and sandbox lines on this chain carry the ids.
+  updateLogContext({
+    tenant_id: tenantId,
+    session_id: sessionId,
+    turn_id: turnId,
+  });
   const sessionAgent = session.record.agent;
 
   const abortController = new AbortController();
-  const tenant_id = session.tenant_id;
   const webSearchProvider = await resolveWebSearchProvider({
-    tenant_id,
+    tenant_id: tenantId,
     store: deps.webSearchProviderStore,
   });
   const resolver = createTurnResolver({
@@ -499,15 +495,13 @@ export async function beginTurnExecution(
   });
 
   // Held for the whole turn; the stream's sequence counter dies with it.
-  const turnEventStream = deps.eventSubscriptions.get(turnStreamId(tenant_id, sessionId, turn.id));
+  const turnEventStream = deps.eventSubscriptions.get(turnStreamId(tenantId, sessionId, turn.id));
 
   return {
     turn,
     drainInput: {
       trackedStream,
       turnEventStream,
-      sessionId,
-      turnId: turn.id,
       maxExecutionTimer,
       logger: deps.logger,
     },
@@ -732,8 +726,6 @@ export function createTurnsRouter(deps: TurnsRouterDeps) {
       }
       deps.logger.error('Sandbox file download failed', {
         ...extractErrorLogFields(error),
-        sessionId,
-        turnId,
         sandboxId,
         path,
       });
@@ -824,6 +816,8 @@ export function createTurnsRouter(deps: TurnsRouterDeps) {
       referencedAgent = agent;
     }
 
+    // x-tfg-skills / x-tfg-mcp / x-tfg-models on turns only when the session agent is inline.
+    const allowInlineResources = session.record.agent.type === 'inline';
     const turnParams: BeginTurnExecutionParams = {
       session,
       input: body.input,
@@ -832,9 +826,17 @@ export function createTurnsRouter(deps: TurnsRouterDeps) {
       requestHeaders: c.req.header(),
       deps: {
         ...deps,
-        modelProviderStore: deps.resolveModelProviderStore(c, referencedAgent),
-        mcpServerStore: deps.resolveMcpServerStore(c, referencedAgent),
-        skillStore: deps.resolveSkillStore(c),
+        modelProviderStore: deps.resolveModelProviderStore({
+          c,
+          allowInlineResources,
+          ...(referencedAgent !== undefined ? { runAsAgent: referencedAgent } : {}),
+        }),
+        mcpServerStore: deps.resolveMcpServerStore({
+          c,
+          allowInlineResources,
+          ...(referencedAgent !== undefined ? { runAsAgent: referencedAgent } : {}),
+        }),
+        skillStore: deps.resolveTurnSkillsStore({ c, allowInlineResources }),
         agentStore: deps.resolveAgentStore(c),
         sandboxProviderStore: deps.resolveSandboxProviderStore(c),
         sandboxEnvironmentStore: deps.sandboxEnvironmentStore,
@@ -850,15 +852,22 @@ export function createTurnsRouter(deps: TurnsRouterDeps) {
       }
 
       // Stream: same engine; a hung SSE write is timed out so drain/dual-write continue.
-      const { drainInput } = await beginTurnExecution(turnParams);
+      const { drainInput, turn } = await beginTurnExecution(turnParams);
+      // Hono maps client disconnect to stream.abort() (body cancel / AbortSignal)
+      // outside request ALS, so capture ids here and pass them on the disconnect line.
+      const disconnectLogContext = {
+        ...currentLogContext(),
+        session_id: sessionId,
+        turn_id: turn.id,
+      };
       let shouldWriteToSSEStream = true;
       return streamSSE(c, async stream => {
         stream.onAbort(() => {
           shouldWriteToSSEStream = false;
-          deps.logger.info('Create-turn SSE client disconnected, continuing drain without writing', {
-            sessionId,
-            turnId: drainInput.turnId,
-          });
+          deps.logger.info(
+            'Create-turn SSE client disconnected, continuing drain without writing',
+            disconnectLogContext,
+          );
         });
         await drainTurnEvents({
           ...drainInput,
@@ -941,8 +950,6 @@ export function createTurnsRouter(deps: TurnsRouterDeps) {
     const timeoutMs = configuration.TURN_SUBSCRIBE_TIMEOUT_MS;
     const timeoutHandler = setTimeout(() => {
       deps.logger.info('Subscribe turn stream server-side timeout reached, closing stream', {
-        sessionId,
-        turnId,
         afterSequenceNumber,
         timeoutMs,
       });

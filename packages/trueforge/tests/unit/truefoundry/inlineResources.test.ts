@@ -1,7 +1,6 @@
 import { HTTPException } from 'hono/http-exception';
 import type { IMcpServerWithAuthStore, McpServerRecord } from '../../../src/db/mcpServerStore';
 import type { IModelProviderStore, ModelProviderRecord } from '../../../src/db/modelProviderStore';
-import type { ISkillStore, SkillRecord } from '../../../src/db/skillStore';
 import { TFG_METADATA_PREFIX, X_TFY_METADATA } from '../../../src/truefoundry/gatewayMetadata';
 import { InlineMcpServerStore } from '../../../src/truefoundry/InlineMcpServerStore';
 import { InlineModelProviderStore } from '../../../src/truefoundry/InlineModelProviderStore';
@@ -36,20 +35,6 @@ const registryServer: McpServerRecord = {
   tenant_id: 'default',
   name: 'team-mcp',
   manifest: { type: 'remote', name: 'team-mcp', url: 'https://team.example/mcp', description: 'Team server.' },
-  created_at: '2026-01-15T12:00:00.000Z',
-  updated_at: '2026-01-15T12:00:00.000Z',
-};
-
-const registrySkill: SkillRecord = {
-  tenant_id: 'default',
-  name: 'team-skill',
-  manifest: {
-    type: 'git',
-    name: 'team-skill',
-    url: 'https://github.com/acme/skills',
-    ref: 'main',
-    description: 'A skill the tenant configured.',
-  },
   created_at: '2026-01-15T12:00:00.000Z',
   updated_at: '2026-01-15T12:00:00.000Z',
 };
@@ -95,16 +80,8 @@ function mcpStoreWith(inlineRaw: object) {
   return { store, inner };
 }
 
-function skillStoreWith(inlineRaw: object, innerOverrides?: Partial<ISkillStore>) {
-  const inner = {
-    listSkills: jest.fn().mockResolvedValue([registrySkill]),
-    validateAgentSkills: jest.fn().mockResolvedValue(undefined),
-    resolveTurnSkills: jest.fn().mockResolvedValue([]),
-    listSkillVersions: jest.fn().mockResolvedValue([]),
-    ...innerOverrides,
-  } as unknown as ISkillStore;
-  const store = new InlineSkillStore({ inner, inline: parseInlineSkills(JSON.stringify(inlineRaw)) });
-  return { store, inner };
+function skillStoreWith(inlineRaw: object) {
+  return new InlineSkillStore({ inline: parseInlineSkills(JSON.stringify(inlineRaw)) });
 }
 
 describe('parseInlineMcpServers', () => {
@@ -361,16 +338,25 @@ describe('InlineMcpServerStore', () => {
 });
 
 describe('InlineSkillStore', () => {
-  it('answers a name-filtered list from both sources', async () => {
-    const { store } = skillStoreWith({ 'ask-ai': ASK_AI_SKILL });
+  it('answers a name-filtered list only from the header map', async () => {
+    const store = skillStoreWith({ 'ask-ai': ASK_AI_SKILL });
 
-    const records = await store.listSkills({ tenant_id: 'default', names: ['ask-ai', 'team-skill'] });
+    const records = await store.listSkills({ tenant_id: 'default', names: ['ask-ai'] });
 
-    expect(records.map(record => record.name)).toEqual(['ask-ai', 'team-skill']);
+    expect(records.map(record => record.name)).toEqual(['ask-ai']);
+  });
+
+  it('rejects a name that is not in the header map', async () => {
+    const store = skillStoreWith({ 'ask-ai': ASK_AI_SKILL });
+
+    await expect(store.listSkills({ tenant_id: 'default', names: ['ask-ai', 'team-skill'] })).rejects.toMatchObject({
+      status: 422,
+      message: 'Unknown skill "team-skill" — not present in x-tfg-skills',
+    });
   });
 
   it('exposes the git mount fields that turn execution expands', async () => {
-    const { store } = skillStoreWith({ 'ask-ai': ASK_AI_SKILL });
+    const store = skillStoreWith({ 'ask-ai': ASK_AI_SKILL });
 
     const [record] = await store.listSkills({ tenant_id: 'default', names: ['ask-ai'] });
 
@@ -378,46 +364,27 @@ describe('InlineSkillStore', () => {
   });
 
   it('keeps request-scoped skills out of an unfiltered list, so they never reach tenant settings', async () => {
-    const { store } = skillStoreWith({ 'ask-ai': ASK_AI_SKILL });
+    const store = skillStoreWith({ 'ask-ai': ASK_AI_SKILL });
 
     const records = await store.listSkills({ tenant_id: 'default', names: undefined });
 
-    expect(records.map(record => record.name)).toEqual(['team-skill']);
+    expect(records).toEqual([]);
   });
 
-  it('validate allows mixed inline and registry skills; resolve rejects sandbox-name collisions', async () => {
-    const registryFqn = 'agent-skill:acme/team-a/echo:3';
-    const { store, inner } = skillStoreWith(
-      { echo: { ...ASK_AI_SKILL, path: 'echo' } },
-      {
-        resolveTurnSkills: jest.fn().mockResolvedValue([
-          {
-            type: 'registry',
-            name: 'echo',
-            description: 'Registry echo',
-            fqn: registryFqn,
-            preload: false,
-            skillMdContent: null,
-            presignedUrl: 'https://example.com/echo.tgz',
-          },
-        ]),
-      },
-    );
+  it('validate and resolve reject names that are not in the header map', async () => {
+    const store = skillStoreWith({ echo: { ...ASK_AI_SKILL, path: 'echo' } });
     const skills = [
       { name: 'echo', preload: false },
-      { name: registryFqn, preload: false },
+      { name: 'agent-skill:acme/team-a/echo:3', preload: false },
     ];
 
-    await expect(store.validateAgentSkills({ tenant_id: 'default', skills })).resolves.toBeUndefined();
-    expect(inner.validateAgentSkills).toHaveBeenCalledWith(
-      { tenant_id: 'default', skills: [{ name: registryFqn, preload: false }] },
-      undefined,
-    );
-    expect(inner.resolveTurnSkills).not.toHaveBeenCalled();
-
+    await expect(store.validateAgentSkills({ tenant_id: 'default', skills })).rejects.toMatchObject({
+      status: 422,
+      message: 'Unknown skill "agent-skill:acme/team-a/echo:3" — not present in x-tfg-skills',
+    });
     await expect(store.resolveTurnSkills({ tenant_id: 'default', skills })).rejects.toMatchObject({
       status: 422,
-      message: 'Agent skills must have unique names; duplicate skill name(s): echo',
+      message: 'Unknown skill "agent-skill:acme/team-a/echo:3" — not present in x-tfg-skills',
     });
   });
 });

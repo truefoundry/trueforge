@@ -5,6 +5,17 @@ providers:
   - type: openai
     logo: https://assets.production.truefoundry.com/openai.svg
     models:
+      - model_id: gpt-5.4
+        name: gpt-5-4
+        properties:
+          context_length: 1050000
+          max_output_tokens: 128000
+          reasoning_efforts:
+            - none
+            - low
+            - medium
+            - high
+            - xhigh
       - model_id: gpt-5.4-mini
         name: gpt-5-4-mini
         properties:
@@ -16,6 +27,26 @@ providers:
             - medium
             - high
             - xhigh
+      - model_id: gpt-5.4-nano
+        name: gpt-5-4-nano
+        properties:
+          context_length: 400000
+          max_output_tokens: 128000
+          reasoning_efforts:
+            - none
+            - low
+            - medium
+            - high
+            - xhigh
+      - model_id: gpt-5.4-pro
+        name: gpt-5-4-pro
+        properties:
+          context_length: 1050000
+          max_output_tokens: 128000
+          reasoning_efforts:
+            - medium
+            - high
+            - xhigh
       - model_id: gpt-5.5
         name: gpt-5-5
         properties:
@@ -24,6 +55,15 @@ providers:
           reasoning_efforts:
             - none
             - low
+            - medium
+            - high
+            - xhigh
+      - model_id: gpt-5.5-pro
+        name: gpt-5-5-pro
+        properties:
+          context_length: 1050000
+          max_output_tokens: 128000
+          reasoning_efforts:
             - medium
             - high
             - xhigh
@@ -234,6 +274,21 @@ providers:
           context_length: 1048576
           max_output_tokens: 65536
           reasoning_efforts:
+            - low
+            - medium
+            - high
+      - model_id: gemini-3.5-flash
+        name: gemini-3-5-flash
+        properties:
+          context_length: 1048576
+          max_output_tokens: 65536
+      - model_id: gemini-3.5-flash-lite
+        name: gemini-3-5-flash-lite
+        properties:
+          context_length: 1048576
+          max_output_tokens: 65536
+          reasoning_efforts:
+            - minimal
             - low
             - medium
             - high
@@ -520,6 +575,14 @@ providers:
           reasoning_efforts:
             - high
             - max
+      - model_id: deepseek-ai/DeepSeek-V4-Pro-0813
+        name: deepseek-v4-pro-0813
+        properties:
+          context_length: 1048576
+          reasoning_efforts:
+            - low
+            - high
+            - max
       - model_id: deepseek-ai/DeepSeek-V4.1-Flash
         name: deepseek-v4-1-flash
         properties:
@@ -558,7 +621,7 @@ providers:
         name: qwen3-7-plus
         properties:
           context_length: 1000000
-          max_output_tokens: 131072
+          max_output_tokens: 65536
           reasoning_efforts:
             - none
             - minimal
@@ -587,14 +650,15 @@ providers:
       - model_id: zai-org/GLM-5.2
         name: glm-5-2
         properties:
-          context_length: 512000
+          context_length: 1048576
+          max_output_tokens: 131072
           reasoning_efforts:
             - high
             - max
       - model_id: zai-org/GLM-5.3
         name: glm-5-3
         properties:
-          context_length: 1048576
+          context_length: 1048575
           max_output_tokens: 128000
           reasoning_efforts:
             - low
