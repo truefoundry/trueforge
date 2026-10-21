@@ -58,6 +58,21 @@ export interface CancelTurnDeps {
   logger: Pick<Logger, 'warn'>;
 }
 
+/** Freeze a non-terminal turn; missing turns are a no-op (already gone). */
+async function freezeTurnIgnoringMissing(
+  session: Pick<SessionHandle, 'freezeTurn'>,
+  input: { turnId: string; reason: CancellationReason },
+): Promise<void> {
+  try {
+    await session.freezeTurn({ turn_id: input.turnId, reason: input.reason });
+  } catch (error) {
+    if (error instanceof TurnNotFoundError) {
+      return;
+    }
+    throw error;
+  }
+}
+
 /**
  * Cancels a `running` or `paused` turn wherever it lives: locally or on the
  * owning peer over Redis request-reply. Callers state the motive; default is a
@@ -130,20 +145,5 @@ export async function cancelSessionTurn(
   });
   if (!aborted) {
     await freezeTurnIgnoringMissing(deps.session, { turnId, reason });
-  }
-}
-
-/** Freeze a non-terminal turn; missing turns are a no-op (already gone). */
-async function freezeTurnIgnoringMissing(
-  session: Pick<SessionHandle, 'freezeTurn'>,
-  input: { turnId: string; reason: CancellationReason },
-): Promise<void> {
-  try {
-    await session.freezeTurn({ turn_id: input.turnId, reason: input.reason });
-  } catch (error) {
-    if (error instanceof TurnNotFoundError) {
-      return;
-    }
-    throw error;
   }
 }

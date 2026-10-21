@@ -180,10 +180,9 @@ export class ActiveTurnRegistry {
         }
         this.keepaliveTimers.delete(key);
         const run = this.runs.get(key);
-        if (!isPausedRun(run)) {
-          return;
+        if (isPausedRun(run)) {
+          await this.finishRun(run, TurnOffloadReason);
         }
-        await this.finishRun(run, TurnOffloadReason);
       });
     }, this.pausedKeepaliveMs);
     timer.unref();

@@ -191,56 +191,10 @@ export class SessionHandle<
     // and rethrow — same pattern as the gateway's sessionTurnHandler, which
     // wraps getAgent/handler.init and calls gatewayStore.dispose() on failure.
     try {
-      const tracing = input.resolver.createTracing();
-      const agent = this.session.agent;
-      const spec = agent.type === 'inline' ? agent.spec : await input.resolver.resolveAgentSpec({ agent_id: agent.id });
-      const sandbox = await input.resolver.resolveSandbox({
-        spec,
-        existing: previous?.snapshot.sandbox_info ?? undefined,
-        previousTurn: previous,
-        signal: input.abortController.signal,
-        tracing,
-      });
-
-      const definitionsByThreadId = await this.resolveAgentDefinitions({
+      const { orchestrator, agentThreads } = await this.assembleTurn({
         previous,
         resolver: input.resolver,
-        spec,
-        tracing,
-        signal: input.abortController.signal,
-      });
-
-      // Wire Code Mode once from main toolSets before threads share the sandbox.
-      const mainDefinition = definitionsByThreadId.get(MAIN_THREAD_ID);
-      if (!mainDefinition) {
-        throw new Error('Unreachable: missing resolved agent definition for main thread');
-      }
-      if (sandbox) {
-        sandbox.configureCodeMode(mainDefinition.definition.toolSets ?? []);
-      }
-
-      const agentThreads = this.buildThreads({
-        previous,
-        resolver: input.resolver,
-        spec,
-        sandbox,
-        tracing,
-        definitionsByThreadId,
-      });
-
-      const createDynamicSubAgentThread = this.makeCreateDynamicSubAgentThread({
-        resolver: input.resolver,
-        previous,
-        spec,
-        sandbox,
-        tracing,
-      });
-
-      const orchestrator = new AgentThreadOrchestrator({
-        agentThreads,
-        createDynamicSubAgentThread,
-        tracing,
-        logger: input.resolver.logger,
+        abortController: input.abortController,
       });
 
       const new_context_appends = await collectContextAppends(orchestrator.send(input.input ?? []));
@@ -354,55 +308,10 @@ export class SessionHandle<
         throw new TurnNotRunningError(input.turn_id, turn.state);
       }
 
-      const tracing = input.resolver.createTracing();
-      const agent = this.session.agent;
-      const spec = agent.type === 'inline' ? agent.spec : await input.resolver.resolveAgentSpec({ agent_id: agent.id });
-      const sandbox = await input.resolver.resolveSandbox({
-        spec,
-        existing: turn.snapshot.sandbox_info ?? undefined,
-        previousTurn: turn,
-        signal: input.abortController.signal,
-        tracing,
-      });
-
-      const definitionsByThreadId = await this.resolveAgentDefinitions({
+      const { orchestrator } = await this.assembleTurn({
         previous: turn,
         resolver: input.resolver,
-        spec,
-        tracing,
-        signal: input.abortController.signal,
-      });
-
-      const mainDefinition = definitionsByThreadId.get(MAIN_THREAD_ID);
-      if (!mainDefinition) {
-        throw new Error('Unreachable: missing resolved agent definition for main thread');
-      }
-      if (sandbox) {
-        sandbox.configureCodeMode(mainDefinition.definition.toolSets ?? []);
-      }
-
-      const agentThreads = this.buildThreads({
-        previous: turn,
-        resolver: input.resolver,
-        spec,
-        sandbox,
-        tracing,
-        definitionsByThreadId,
-      });
-
-      const createDynamicSubAgentThread = this.makeCreateDynamicSubAgentThread({
-        resolver: input.resolver,
-        previous: turn,
-        spec,
-        sandbox,
-        tracing,
-      });
-
-      const orchestrator = new AgentThreadOrchestrator({
-        agentThreads,
-        createDynamicSubAgentThread,
-        tracing,
-        logger: input.resolver.logger,
+        abortController: input.abortController,
       });
 
       const handle = new TurnHandle({
@@ -496,6 +405,70 @@ export class SessionHandle<
       page_token: input.page_token,
       last_turn_id: input.last_turn_id,
     });
+  }
+
+  /**
+   * Threads and orchestrator for one turn. `previous` is the frozen predecessor,
+   * absent for a new root, or the paused turn itself when rebuilding.
+   */
+  private async assembleTurn(input: {
+    previous: TurnRecord<TTurnCustom> | undefined;
+    resolver: ITurnResourceResolver<TTurnCustom>;
+    abortController: AbortController;
+  }): Promise<{ orchestrator: AgentThreadOrchestrator; agentThreads: Map<string, AgentThread> }> {
+    const tracing = input.resolver.createTracing();
+    const agent = this.session.agent;
+    const spec = agent.type === 'inline' ? agent.spec : await input.resolver.resolveAgentSpec({ agent_id: agent.id });
+    const sandbox = await input.resolver.resolveSandbox({
+      spec,
+      existing: input.previous?.snapshot.sandbox_info ?? undefined,
+      previousTurn: input.previous,
+      signal: input.abortController.signal,
+      tracing,
+    });
+
+    const definitionsByThreadId = await this.resolveAgentDefinitions({
+      previous: input.previous,
+      resolver: input.resolver,
+      spec,
+      tracing,
+      signal: input.abortController.signal,
+    });
+
+    // Wire Code Mode once from main toolSets before threads share the sandbox.
+    const mainDefinition = definitionsByThreadId.get(MAIN_THREAD_ID);
+    if (!mainDefinition) {
+      throw new Error('Unreachable: missing resolved agent definition for main thread');
+    }
+    if (sandbox) {
+      sandbox.configureCodeMode(mainDefinition.definition.toolSets ?? []);
+    }
+
+    const agentThreads = this.buildThreads({
+      previous: input.previous,
+      resolver: input.resolver,
+      spec,
+      sandbox,
+      tracing,
+      definitionsByThreadId,
+    });
+
+    const createDynamicSubAgentThread = this.makeCreateDynamicSubAgentThread({
+      resolver: input.resolver,
+      previous: input.previous,
+      spec,
+      sandbox,
+      tracing,
+    });
+
+    const orchestrator = new AgentThreadOrchestrator({
+      agentThreads,
+      createDynamicSubAgentThread,
+      tracing,
+      logger: input.resolver.logger,
+    });
+
+    return { orchestrator, agentThreads };
   }
 
   private async resolveAgentDefinitions(input: {
