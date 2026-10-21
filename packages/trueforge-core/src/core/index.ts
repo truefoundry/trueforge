@@ -165,6 +165,7 @@ export type {
   OutboundHttpModule,
   OutboundHttpOutcome,
   OutboundHttpRetryReason,
+  OutboundHttpRetryStatus,
   OutboundHttpStatusClass,
 } from './observability/operationMetrics';
 

@@ -8,6 +8,7 @@ import type {
   OutboundHttpModule,
   OutboundHttpOutcome,
   OutboundHttpRetryReason,
+  OutboundHttpRetryStatus,
   OutboundHttpStatusClass,
 } from '../observability/operationMetrics';
 import { elapsedSeconds } from '../observability/operationMetrics';
@@ -363,37 +364,11 @@ function transportRetryReason(error: unknown, idempotent: boolean): 'connect_tim
   return undefined;
 }
 
-function isRetryableOutboundStatus(status: number, options: { idempotent: boolean }): boolean {
+function isRetryableOutboundStatus(
+  status: number,
+  options: { idempotent: boolean },
+): status is OutboundHttpRetryStatus {
   return UNPROCESSED_RETRY_STATUSES.has(status) || (options.idempotent && MAYBE_PROCESSED_RETRY_STATUSES.has(status));
-}
-
-function statusRetryReason(status: number): OutboundHttpRetryReason | undefined {
-  switch (status) {
-    case 408:
-      return '408';
-    case 409:
-      return '409';
-    case 429:
-      return '429';
-    case 502:
-      return '502';
-    case 503:
-      return '503';
-    case 520:
-      return '520';
-    case 521:
-      return '521';
-    case 522:
-      return '522';
-    case 523:
-      return '523';
-    case 524:
-      return '524';
-    case 530:
-      return '530';
-    default:
-      return undefined;
-  }
 }
 
 /** Server-requested delay from `retry-after-ms` or `retry-after` (seconds or HTTP date), if usable. */
@@ -525,7 +500,7 @@ async function withOutboundHttpRetries(
       if (!isRetryableOutboundStatus(response.status, options) || attempt >= options.maxRetries) {
         return response;
       }
-      retryReason = statusRetryReason(response.status);
+      retryReason = response.status;
       delayMs = retryAfterMs(response.headers) ?? delayMs;
       void response.body?.cancel().catch(() => undefined);
     } catch (error) {
@@ -537,22 +512,19 @@ async function withOutboundHttpRetries(
     }
     await sleep(delayMs, signal);
     const metrics = options.metrics;
-    if (metrics !== undefined && retryReason !== undefined) {
+    if (metrics !== undefined) {
       metrics.operations.recordOutboundHttpRetry({ module: metrics.module, reason: retryReason });
     }
     attempt += 1;
   }
 }
 
+/** Guard throws directly. undici wraps a blocked lookup once, under `TypeError: fetch failed`. */
 function isBlockedOutboundError(error: unknown): boolean {
-  let current: unknown = error;
-  for (let depth = 0; depth < 5 && current != null; depth += 1) {
-    if (current instanceof Error && current.message.startsWith(OUTBOUND_URL_BLOCKED)) {
-      return true;
-    }
-    current = current instanceof Error ? current.cause : undefined;
+  if (error instanceof Error && error.message.startsWith(OUTBOUND_URL_BLOCKED)) {
+    return true;
   }
-  return false;
+  return error instanceof Error && error.cause instanceof Error && error.cause.message.startsWith(OUTBOUND_URL_BLOCKED);
 }
 
 function failedOutboundHttpOutcome(error: unknown): Exclude<OutboundHttpOutcome, 'success'> {

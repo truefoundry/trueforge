@@ -1040,17 +1040,13 @@ function statusClassFromCode(statusCode: number | undefined): OutboundHttpStatus
   return 'none';
 }
 
-/** HTTP class from an AI SDK call error, including one wrapped as `cause`. */
+/** HTTP class from an AI SDK call error. Stream parts wrap that error once as `cause`. */
 function llmStatusClass(error: unknown): OutboundHttpStatusClass {
-  let current: unknown = error;
-  for (let depth = 0; depth < 8; depth += 1) {
-    if (APICallError.isInstance(current)) {
-      return statusClassFromCode(current.statusCode);
-    }
-    if (!(current instanceof Error)) {
-      return 'none';
-    }
-    current = current.cause;
+  if (APICallError.isInstance(error)) {
+    return statusClassFromCode(error.statusCode);
+  }
+  if (error instanceof Error && APICallError.isInstance(error.cause)) {
+    return statusClassFromCode(error.cause.statusCode);
   }
   return 'none';
 }

@@ -14,20 +14,10 @@ export type OutboundHttpStatusClass = '2xx' | '3xx' | '4xx' | '5xx' | 'none';
  * Why a retry was taken. Transport timeouts use names. HTTP retries use the status that was replayed.
  * Body timeouts are not retried.
  */
-export type OutboundHttpRetryReason =
-  | 'connect_timeout'
-  | 'headers_timeout'
-  | '408'
-  | '409'
-  | '429'
-  | '502'
-  | '503'
-  | '520'
-  | '521'
-  | '522'
-  | '523'
-  | '524'
-  | '530';
+/** HTTP statuses that the retry policy may replay. */
+export type OutboundHttpRetryStatus = 408 | 409 | 429 | 502 | 503 | 520 | 521 | 522 | 523 | 524 | 530;
+
+export type OutboundHttpRetryReason = 'connect_timeout' | 'headers_timeout' | OutboundHttpRetryStatus;
 
 /** Configured model provider. The model name stays off the label. */
 export type LlmProviderType = VercelAIProviderName;
