@@ -883,11 +883,11 @@ const PeerMessageSchema = z.object({
 });
 
 type SendEventsResult =
-  | { type: 'applied'; events: TurnUserEvent[] }
-  | { type: 'invalid'; message: string }
-  | { type: 'conflict'; message: string }
-  | { type: 'unavailable'; message: string }
-  | { type: 'not_owner' };
+  | { type: 'applied'; events: TurnUserEvent[] } // the events were applied successfully
+  | { type: 'invalid'; message: string } // the events were invalid
+  | { type: 'conflict'; message: string } // the turn is not accepting events
+  | { type: 'unavailable'; message: string } // the turn owner is unavailable
+  | { type: 'not_owner' }; // the turn is not owned by this executor
 
 type ForwardedSendResult = SendEventsResult | { type: 'peer'; peerOutcome: PeerOutcome };
 
@@ -962,10 +962,14 @@ async function forwardTurnEvents(input: {
     if (reply.status === 200) {
       const parsed = PeerEventsReplySchema.safeParse(reply.body);
       if (!parsed.success) {
+        // ideally we should never get here because peer should send a valid response
+        // this can cause a bad state for e.g. if peer accepted the batch, applied approvals, but then sent an invalid response
+        // We will send back 503, client will retry but will get back 400 because we already applied the approvals
         return { type: 'unavailable', message: `Turn owner is unavailable: ${input.turnId}` };
       }
       return { type: 'applied', events: parsed.data.events };
     }
+    // owner is not gone, but it said it does not have the turn
     if (reply.status === 412) {
       return { type: 'peer', peerOutcome: PeerOutcome.OwnerNotGone };
     }
@@ -979,12 +983,17 @@ async function forwardTurnEvents(input: {
     return { type: 'unavailable', message: `Turn owner is unavailable: ${input.turnId}` };
   } catch (error) {
     if (error instanceof NoResponderError) {
+      // peer is not gone, but network partition happened, publish was not received
       if (error.detail === NO_RESPONDER_PUBLISH_DETAIL) {
         return { type: 'peer', peerOutcome: PeerOutcome.OwnerNotGone };
       }
+      // heartbeat is gone, consider peer dead
       return { type: 'peer', peerOutcome: PeerOutcome.NoResponder };
     }
     if (error instanceof RequestTimeoutError) {
+      // peer is not gone, but request timed out
+      // this can also cause a bad state for e.g. if peer accepted the batch, applied approvals, but we did not hear back in time
+      // We will try to peer again but will get back 400 because we already applied the approvals
       return { type: 'peer', peerOutcome: PeerOutcome.OwnerNotGone };
     }
     input.logger.warn('Failed to reach owning executor for turn events', {
@@ -1067,8 +1076,10 @@ async function rebuildOptionallyAndRun(input: {
         deps: input.deps,
       });
       try {
-        // Cancel aborted the rebuilding run and will not freeze. The drain writes
-        // the terminal state. Skip the inbox insert so this send is not a second writer.
+        // reservePausedTurn registered this controller before rebuildTurn returned.
+        // cancelIfRunning aborts that run and does not freeze. Freeze runs only when
+        // no run is registered. startDrain still consumes the stream, so skip the
+        // inbox insert and leave that drain as the only writer.
         if (resumed.signal.aborted) {
           return { type: 'conflict', message: `Turn is not accepting events: ${turnId}` };
         }
@@ -1100,7 +1111,7 @@ async function rebuildOptionallyAndRun(input: {
 
 /**
  * One ownership pass of a user send. `'retry'` means the row moved and the caller should load it again.
- * A failed peer returns unavailable and does not steal.
+ * `OwnerNotGone` returns unavailable and does not steal. `NoResponder` may steal a paused turn.
  */
 async function attemptSendTurnEvents(input: {
   session: SessionHandle;
@@ -1116,7 +1127,7 @@ async function attemptSendTurnEvents(input: {
   if (!turn) {
     return { type: 'conflict', message: `Turn not found: ${input.turnId}` };
   }
-  // done, cancelled, and error cannot accept a send. Retrying them becomes a 503.
+  // done, cancelled, and error cannot accept a send.
   if (!isNonTerminalTurnState(turn.state)) {
     return { type: 'conflict', message: `Turn is not accepting events: ${turn.turn_id}` };
   }
@@ -1139,7 +1150,10 @@ async function attemptSendTurnEvents(input: {
     }
   }
 
+  // If the turn got paused and parked and then stolen, we need to drop the local turn
   await input.deps.activeTurns.dropLocalTurn({ sessionId, turnId: input.turnId });
+
+  // Try to forward the events to the owner
   const forwarded = await forwardTurnEvents({
     redis: input.deps.redis,
     owner: turn.active_executor_id,
@@ -1150,63 +1164,44 @@ async function attemptSendTurnEvents(input: {
     requestHeaders: input.requestHeaders,
     logger: input.deps.logger,
   });
+
+  // If the reply anything other than peering call status, return the result
+  // that means owner either accepted the events or rejected them
   if (forwarded.type !== 'peer') {
     return forwarded;
   }
+
   const refetchedTurn = await input.session.getTurn(input.turnId);
   if (refetchedTurn === undefined) {
+    // Unreachable. Turns are not deleted, and the load above found this row.
     return { type: 'conflict', message: `Turn not found: ${input.turnId}` };
   }
+
   // Timeout, 412, publish-to-zero, and transport errors do not prove the owner
-  // is gone. Fail here. Another pass could steal.
-  if (forwarded.peerOutcome !== PeerOutcome.NoResponder) {
-    if (refetchedTurn.active_executor_id === configuration.EXECUTOR_ID) {
-      try {
-        return await rebuildOptionallyAndRun({
-          session: input.session,
-          turn: refetchedTurn,
-          events: input.events,
-          sessionStore: input.sessionStore,
-          requestContext: input.requestContext,
-          requestHeaders: input.requestHeaders,
-          deps: input.deps,
-        });
-      } catch (error) {
-        if (error instanceof TurnOwnershipLostError) {
-          return { type: 'unavailable', message: `Turn owner is unavailable: ${input.turnId}` };
-        }
-        throw error;
-      }
-    }
-    const failedPeer = resolveOwnershipAction({
-      status: refetchedTurn.state.status,
-      ownedByThisExecutor: false,
-      hasLocalActiveTurn: false,
-      peerOutcome: forwarded.peerOutcome,
-    });
-    if (failedPeer === TurnOwnershipAction.Reject) {
+  // is gone. Returning unavailable stops this request. A later request can steal.
+  if (forwarded.peerOutcome === PeerOutcome.OwnerNotGone) {
+    if (refetchedTurn.state.status !== 'running' && refetchedTurn.state.status !== 'paused') {
       return {
         type: 'conflict',
-        message:
-          refetchedTurn.state.status === 'running'
-            ? `Turn is running but its executor is gone: ${refetchedTurn.turn_id}`
-            : `Turn is not accepting events: ${refetchedTurn.turn_id}`,
+        message: `Turn is not accepting events: ${refetchedTurn.turn_id}`,
       };
     }
     return { type: 'unavailable', message: `Turn owner is unavailable: ${input.turnId}` };
   }
+
   // The owner was gone. A row that finished during the peer call is a conflict.
   // A running row, or a paused row whose owner changed, is loaded again.
   if (!isNonTerminalTurnState(refetchedTurn.state)) {
     return { type: 'conflict', message: `Turn is not accepting events: ${refetchedTurn.turn_id}` };
   }
-  if (refetchedTurn.state.status !== 'paused' || refetchedTurn.active_executor_id !== turn.active_executor_id) {
+  if (refetchedTurn.state.status === 'running' || refetchedTurn.active_executor_id !== turn.active_executor_id) {
     return 'retry';
   }
+
   // NoResponder covers a missing key before PUBLISH and a key that expires during the
-  // reply wait. The owner can refresh it before this claim. Steal only while it is still
-  // missing. A Redis error on this check is not proof the owner is gone.
+  // reply wait. Make sure the heartbeat really is gone before we steal the turn
   if (input.deps.redis === undefined) {
+    // unreachable, we know redis is set since we were able to call forwardTurnEvents and get a peer outcome
     return { type: 'unavailable', message: `Turn owner is unavailable: ${input.turnId}` };
   }
   let heartbeatMissing: boolean;
@@ -1225,52 +1220,43 @@ async function attemptSendTurnEvents(input: {
     });
     return 'retry';
   }
-  const action = resolveOwnershipAction({
-    status: refetchedTurn.state.status,
-    ownedByThisExecutor: refetchedTurn.active_executor_id === configuration.EXECUTOR_ID,
-    hasLocalActiveTurn: false,
-    peerOutcome: forwarded.peerOutcome,
+
+  // Paused, still owned by the same executor for which heartbeat is confirmed missing.
+  // We can Steal.
+  input.deps.logger.info('Stealing paused turn', {
+    fromExecutor: refetchedTurn.active_executor_id,
   });
-  if (action === TurnOwnershipAction.Steal) {
-    input.deps.logger.info('Stealing paused turn', {
+  const won = await input.sessionStore.claimTurnExecutor({
+    session_id: sessionId,
+    turn_id: input.turnId,
+    expected_executor_id: refetchedTurn.active_executor_id,
+    new_executor_id: configuration.EXECUTOR_ID,
+  });
+  if (!won) {
+    input.deps.logger.info('Paused turn steal lost the claim', {
       fromExecutor: refetchedTurn.active_executor_id,
     });
-    const won = await input.sessionStore.claimTurnExecutor({
-      session_id: sessionId,
-      turn_id: input.turnId,
-      expected_executor_id: refetchedTurn.active_executor_id,
-      new_executor_id: configuration.EXECUTOR_ID,
+    return 'retry';
+  }
+  input.deps.logger.info('Paused turn steal claimed the row', {
+    executorId: configuration.EXECUTOR_ID,
+  });
+  try {
+    return await rebuildOptionallyAndRun({
+      session: input.session,
+      turn: refetchedTurn,
+      events: input.events,
+      sessionStore: input.sessionStore,
+      requestContext: input.requestContext,
+      requestHeaders: input.requestHeaders,
+      deps: input.deps,
     });
-    if (!won) {
-      input.deps.logger.info('Paused turn steal lost the claim', {
-        fromExecutor: refetchedTurn.active_executor_id,
-      });
+  } catch (error) {
+    if (error instanceof TurnOwnershipLostError) {
       return 'retry';
     }
-    input.deps.logger.info('Paused turn steal claimed the row', {
-      executorId: configuration.EXECUTOR_ID,
-    });
-    try {
-      return await rebuildOptionallyAndRun({
-        session: input.session,
-        turn: refetchedTurn,
-        events: input.events,
-        sessionStore: input.sessionStore,
-        requestContext: input.requestContext,
-        requestHeaders: input.requestHeaders,
-        deps: input.deps,
-      });
-    } catch (error) {
-      if (error instanceof TurnOwnershipLostError) {
-        return 'retry';
-      }
-      throw error;
-    }
+    throw error;
   }
-  if (action === TurnOwnershipAction.Reject) {
-    return { type: 'conflict', message: `Turn is not accepting events: ${refetchedTurn.turn_id}` };
-  }
-  return { type: 'unavailable', message: `Turn owner is unavailable: ${input.turnId}` };
 }
 
 /** User send. Forwards to the owner and may steal a paused turn whose heartbeat is gone. */
@@ -1327,24 +1313,6 @@ async function acceptOwnedTurnEvents(input: {
   }
 }
 
-function handlePeerTurnEvents(deps: TurnsRouterDeps): RequestReplyRouteHandler {
-  return async request => {
-    const parsed = SendEventsPeerBodySchema.safeParse(request.body);
-    if (!parsed.success) {
-      return { status: 400, body: { message: 'Invalid turns/send-events payload' } };
-    }
-    // No HTTP request context on this path. Resume and its drain inherit these ids.
-    return runWithLogContext(
-      {
-        tenant_id: parsed.data.tenant_id,
-        session_id: parsed.data.session_id,
-        turn_id: parsed.data.turn_id,
-      },
-      () => handleParsedPeerTurnEvents(deps, parsed.data),
-    );
-  };
-}
-
 async function handleParsedPeerTurnEvents(deps: TurnsRouterDeps, body: z.infer<typeof SendEventsPeerBodySchema>) {
   const session = await deps.sessions.get({
     tenant_id: body.tenant_id,
@@ -1389,6 +1357,24 @@ async function handleParsedPeerTurnEvents(deps: TurnsRouterDeps, body: z.infer<t
     return { status: 409, body: { message: result.message } };
   }
   return { status: 503, body: { message: result.message } };
+}
+
+function handlePeerTurnEvents(deps: TurnsRouterDeps): RequestReplyRouteHandler {
+  return async request => {
+    const parsed = SendEventsPeerBodySchema.safeParse(request.body);
+    if (!parsed.success) {
+      return { status: 400, body: { message: 'Invalid turns/send-events payload' } };
+    }
+    // No HTTP request context on this path. Resume and its drain inherit these ids.
+    return runWithLogContext(
+      {
+        tenant_id: parsed.data.tenant_id,
+        session_id: parsed.data.session_id,
+        turn_id: parsed.data.turn_id,
+      },
+      () => handleParsedPeerTurnEvents(deps, parsed.data),
+    );
+  };
 }
 
 /** Mapped client error from turn execution; undefined means rethrow. */
