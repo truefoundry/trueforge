@@ -70,6 +70,7 @@ import type { ISandboxProviderStore } from '../db/sandboxProviderStore';
 import type { ISkillStore } from '../db/skillStore';
 import type { TurnMetadata } from '../db/turnMetadata';
 import type { IWebSearchProviderStore } from '../db/webSearchProviderStore';
+import { currentLogContext, updateLogContext } from '../logger';
 import {
   createAndExecuteTurnRoute,
   downloadSandboxFileRoute,
@@ -504,15 +505,12 @@ interface TurnExecutionTimeout {
 export async function drainTurnEvents(input: {
   trackedStream: AsyncIterable<TurnStreamingEvent>;
   turnEventStream: EventSubscription<TurnStreamingEvent>;
-  sessionId: string;
-  turnId: string;
   executionTimeout: TurnExecutionTimeout;
   logger: Logger;
   pausedKeepalive: TurnPausedKeepalive;
   onEvent?: (event: TurnStreamingEvent, sequenceNumber: number) => Promise<void>;
 }): Promise<void> {
-  const { trackedStream, turnEventStream, sessionId, turnId, executionTimeout, logger, pausedKeepalive, onEvent } =
-    input;
+  const { trackedStream, turnEventStream, executionTimeout, logger, pausedKeepalive, onEvent } = input;
   try {
     for await (const event of trackedStream) {
       // Dual-write before any client sink so subscribers can resume after disconnect.
@@ -532,17 +530,9 @@ export async function drainTurnEvents(input: {
     }
   } catch (error) {
     if (error instanceof SessionStoreNotFoundError) {
-      logger.warn('Turn stream ended after session/turn was removed', {
-        sessionId,
-        turnId,
-        ...extractErrorLogFields(error),
-      });
+      logger.warn('Turn stream ended after session/turn was removed', extractErrorLogFields(error));
     } else {
-      logger.error('Unexpected error in turn event drain', {
-        sessionId,
-        turnId,
-        ...extractErrorLogFields(error),
-      });
+      logger.error('Unexpected error in turn event drain', extractErrorLogFields(error));
     }
   } finally {
     executionTimeout.clear();
@@ -553,8 +543,6 @@ export async function drainTurnEvents(input: {
 export interface TurnEventDrainInput {
   trackedStream: AsyncIterable<TurnStreamingEvent>;
   turnEventStream: EventSubscription<TurnStreamingEvent>;
-  sessionId: string;
-  turnId: string;
   executionTimeout: TurnExecutionTimeout;
   logger: Logger;
   pausedKeepalive: TurnPausedKeepalive;
@@ -640,7 +628,13 @@ export async function beginTurnExecution(
   const { session, input, previous_turn_id: previousTurnId, userRef, requestHeaders, deps } = params;
   const sessionId = session.session_id;
   const turnId = newId();
-  const tenant_id = session.tenant_id;
+  const tenantId = session.tenant_id;
+  // Before the resolver, so model, MCP, and sandbox lines on this chain carry the ids.
+  updateLogContext({
+    tenant_id: tenantId,
+    session_id: sessionId,
+    turn_id: turnId,
+  });
   const { abortController, resolver, executionTimeout } = await prepareTurnExecution({
     session,
     turnId,
@@ -675,15 +669,13 @@ export async function beginTurnExecution(
   });
 
   // Held for the whole turn; the stream's sequence counter dies with it.
-  const turnEventStream = deps.eventSubscriptions.get(turnStreamId(tenant_id, sessionId, turn.id));
+  const turnEventStream = deps.eventSubscriptions.get(turnStreamId(tenantId, sessionId, turn.id));
 
   return {
     turn,
     drainInput: {
       trackedStream,
       turnEventStream,
-      sessionId,
-      turnId: turn.id,
       executionTimeout,
       logger: deps.logger,
       pausedKeepalive: {
@@ -832,8 +824,6 @@ async function resumePausedTurn(input: {
       void drainTurnEvents({
         trackedStream,
         turnEventStream,
-        sessionId: input.session.session_id,
-        turnId: turn.id,
         executionTimeout,
         logger: input.deps.logger,
         pausedKeepalive: {
@@ -1569,8 +1559,6 @@ export function createTurnsRouter(deps: TurnsRouterDeps) {
       }
       deps.logger.error('Sandbox file download failed', {
         ...extractErrorLogFields(error),
-        sessionId,
-        turnId,
         sandboxId,
         path,
       });
@@ -1686,15 +1674,22 @@ export function createTurnsRouter(deps: TurnsRouterDeps) {
       }
 
       // Stream: same engine; a hung SSE write is timed out so drain/dual-write continue.
-      const { drainInput } = await beginTurnExecution(turnParams);
+      const { drainInput, turn } = await beginTurnExecution(turnParams);
+      // Hono maps client disconnect to stream.abort() (body cancel / AbortSignal)
+      // outside request ALS, so capture ids here and pass them on the disconnect line.
+      const disconnectLogContext = {
+        ...currentLogContext(),
+        session_id: sessionId,
+        turn_id: turn.id,
+      };
       let shouldWriteToSSEStream = true;
       return streamSSE(c, async stream => {
         stream.onAbort(() => {
           shouldWriteToSSEStream = false;
-          deps.logger.info('Create-turn SSE client disconnected, continuing drain without writing', {
-            sessionId,
-            turnId: drainInput.turnId,
-          });
+          deps.logger.info(
+            'Create-turn SSE client disconnected, continuing drain without writing',
+            disconnectLogContext,
+          );
         });
         await drainTurnEvents({
           ...drainInput,
@@ -1777,8 +1772,6 @@ export function createTurnsRouter(deps: TurnsRouterDeps) {
     const timeoutMs = configuration.TURN_SUBSCRIBE_TIMEOUT_MS;
     const timeoutHandler = setTimeout(() => {
       deps.logger.info('Subscribe turn stream server-side timeout reached, closing stream', {
-        sessionId,
-        turnId,
         afterSequenceNumber,
         timeoutMs,
       });

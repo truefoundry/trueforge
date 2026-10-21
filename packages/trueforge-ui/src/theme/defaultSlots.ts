@@ -29,6 +29,7 @@ import type {
   AgentSessionEventTimelineProps,
   AgentSessionsProps,
 } from '../atoms/agent-details/types.js';
+import { AgentLibraryUsageCells } from '../atoms/AgentLibraryUsage.js';
 import { AgentLibraryRow, AgentsLibrary } from '../atoms/AgentsLibrary.js';
 import { AgentsLibraryButton } from '../atoms/AgentsLibraryButton.js';
 import { ApprovalNavBanner } from '../atoms/ApprovalNavBanner.js';
@@ -223,6 +224,7 @@ export const defaultSlots = {
   ThreadListNewButton,
   AgentsLibrary,
   AgentLibraryRow,
+  AgentLibraryUsageCells,
   AgentsLibraryButton,
   ApprovalNavBanner,
   SessionsBrowserButton,

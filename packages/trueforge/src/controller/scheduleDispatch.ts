@@ -86,15 +86,17 @@ export interface PreparedScheduleTurn {
   agent: AgentRecord;
 }
 
-export async function startScheduleRun(params: {
+export async function startScheduleRun<TTransaction>(params: {
   item: ScheduleDispatchItem;
   sessions: Sessions;
   agentStore: IAgentStore;
+  scheduleStore: Pick<IScheduleStore<TTransaction>, 'updateRun'>;
 }): Promise<PreparedScheduleTurn | undefined> {
   const {
     item: { run, schedule },
     sessions,
     agentStore,
+    scheduleStore,
   } = params;
 
   const named = await agentStore.getAgent({ tenant_id: schedule.tenant_id, name: schedule.agent_name });
@@ -108,6 +110,14 @@ export async function startScheduleRun(params: {
     created_by_subject: schedule.created_by_subject,
     agent: { type: 'reference', id: named.id, name: named.name },
     source: { type: 'schedule', id: schedule.id, run_id: run.id },
+  });
+
+  // This is not atomic with session creation so a failure here leaves the run unlinked.
+  // Runs before the idempotency check so retries relink it, at the cost of redundant writes on re-delivery.
+  await scheduleStore.updateRun({
+    tenant_id: schedule.tenant_id,
+    id: run.id,
+    session_id: session.session_id,
   });
 
   // idempotency check
@@ -164,7 +174,7 @@ async function finishScheduledRun<TTransaction>(params: {
   await withTransaction(async txn => {
     const latest = await store.getScheduleForUpdate({ tenant_id: run.tenant_id, id: run.schedule_id }, txn);
 
-    const updated = await store.updateRunStatus(
+    const updated = await store.updateRun(
       { tenant_id: run.tenant_id, id: run.id, status, reason: reason ?? null },
       txn,
     );

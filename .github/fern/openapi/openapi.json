@@ -3888,6 +3888,12 @@
             "format": "date-time",
             "type": "string"
           },
+          "session_id": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
           "status": {
             "$ref": "#/components/schemas/ScheduleRunStatus"
           },
@@ -3912,6 +3918,7 @@
           "created_by_subject",
           "triggered_at",
           "reason",
+          "session_id",
           "created_at",
           "updated_at"
         ],

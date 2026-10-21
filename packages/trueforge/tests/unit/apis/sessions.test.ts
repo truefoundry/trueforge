@@ -303,7 +303,7 @@ describe('cancelSessionTurn', () => {
     expect(session.freezeTurn).toHaveBeenCalled();
     expect(logger.warn).toHaveBeenCalledWith(
       'Failed to reach owning executor over Redis; freezing the turn',
-      expect.objectContaining({ sessionId: SESSION_ID, turnId, owner: REMOTE_EXECUTOR }),
+      expect.objectContaining({ turn_id: turnId, owner: REMOTE_EXECUTOR }),
     );
   });
 
@@ -329,7 +329,7 @@ describe('cancelSessionTurn', () => {
     expect(session.freezeTurn).toHaveBeenCalled();
     expect(logger.warn).toHaveBeenCalledWith(
       'Timed out waiting for owning executor to cancel; freezing the turn',
-      expect.objectContaining({ sessionId: SESSION_ID, turnId, owner: REMOTE_EXECUTOR }),
+      expect.objectContaining({ turn_id: turnId, owner: REMOTE_EXECUTOR }),
     );
   });
 
@@ -356,8 +356,7 @@ describe('cancelSessionTurn', () => {
     expect(logger.warn).toHaveBeenCalledWith(
       'Failed to reach owning executor over Redis; freezing the turn',
       expect.objectContaining({
-        sessionId: SESSION_ID,
-        turnId,
+        turn_id: turnId,
         owner: REMOTE_EXECUTOR,
         error: 'Redis connection closed',
       }),
