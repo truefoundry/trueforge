@@ -183,6 +183,34 @@ describe('agents router', () => {
     expect(put.status).toBe(400);
   });
 
+  it('POST and PUT reject the built-in trueforge MCP in saved agent manifests', async () => {
+    const manifestWithTrueForge = {
+      ...manifest,
+      mcp_servers: [{ name: 'trueforge' }],
+    };
+    const create = await router.request(
+      '/',
+      jsonInit('POST', { ...writeBody, name: 'built-in-mcp-create', manifest: manifestWithTrueForge }),
+    );
+    expect(create.status).toBe(422);
+    await expect(create.text()).resolves.toBe(
+      'Built-in MCP server "trueforge" cannot be persisted in an agent manifest',
+    );
+
+    const created = await router.request('/', jsonInit('POST', { ...writeBody, name: 'built-in-mcp-update' }));
+    expect(created.status).toBe(201);
+    const createdJson = (await created.json()) as { data: WireAgent };
+
+    const update = await router.request(
+      `/${createdJson.data.id}`,
+      jsonInit('PUT', { ...updateBody, manifest: manifestWithTrueForge }),
+    );
+    expect(update.status).toBe(422);
+    await expect(update.text()).resolves.toBe(
+      'Built-in MCP server "trueforge" cannot be persisted in an agent manifest',
+    );
+  });
+
   it('GET and PUT return 404 for unknown ids', async () => {
     const get = await router.request('/missing-agent-id');
     expect(get.status).toBe(404);

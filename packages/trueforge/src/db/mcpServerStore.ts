@@ -1,13 +1,10 @@
-import type { RemoteMcpHeaders } from '@truefoundry/trueforge-core/core';
 import type {
   OAuthClientRecord as ContractOAuthClientRecord,
   OAuthPendingAuthorization as ContractOAuthPendingAuthorization,
   OAuthToken as ContractOAuthToken,
-  IOAuthClientStore,
 } from '../mcp/auth/types';
 import type { ResourceName } from '../schemas/common';
-import type { McpAuthStatus, McpServerManifest } from '../schemas/mcpServer';
-import type { TurnMetadata } from './turnMetadata';
+import type { McpServerManifest } from '../schemas/mcpServer';
 
 export interface McpServerRecord {
   id: string;
@@ -69,27 +66,8 @@ export class McpServerNotFoundError extends Error {
   }
 }
 
-export interface ResolveMcpAuthStatusesInput {
-  records: readonly McpServerRecord[];
-  userRef: string;
-}
-
-export interface AuthorizeMcpServerInput {
-  tenant_id: string;
-  name: string;
-  userRef: string;
-  /** Same-origin relative path to land after consent. */
-  returnTo?: string;
-}
-
-export interface DeleteMcpAuthorizationInput {
-  tenant_id: string;
-  name: string;
-  userRef: string;
-}
-
-/** Row persistence + DCR client columns — no authorize/status/revoke. */
-export interface IMcpServerStore<TTransaction = never> extends IOAuthClientStore<TTransaction> {
+/** MCP definition persistence only. OAuth client persistence is a separate capability. */
+export interface IMcpServerStore<TTransaction = never> {
   listServers(input: ListMcpServersInput, transaction?: TTransaction): Promise<McpServerRecord[]>;
   getServer(input: GetMcpServerInput, transaction?: TTransaction): Promise<McpServerRecord | undefined>;
   /**
@@ -110,25 +88,6 @@ export interface IMcpServerStore<TTransaction = never> extends IOAuthClientStore
    * Stored OAuth tokens and pending authorizations are the caller's to clear first.
    */
   deleteServer(input: DeleteMcpServerInput, transaction?: TTransaction): Promise<boolean>;
-}
-
-/** Persistence plus authorize / status / revoke and invoke headers. */
-export interface IMcpServerWithAuthStore<TTransaction = never> extends IMcpServerStore<TTransaction> {
-  /** Wire `auth_status` for Connect UX, keyed by server name. */
-  resolveAuthStatuses(input: ResolveMcpAuthStatusesInput): Promise<ReadonlyMap<string, McpAuthStatus>>;
-
-  /** Start or resume authorization; returns `auth_required` + URL or `authenticated`. */
-  authorize(input: AuthorizeMcpServerInput): Promise<McpAuthStatus>;
-
-  /** Revoke this subject's authorization for the named server. */
-  deleteAuthorization(input: DeleteMcpAuthorizationInput): Promise<void>;
-
-  /** Headers for MCP invoke; may be static or an async resolver that can return `authRequired`. */
-  resolveInvokeHeaders(input: {
-    record: McpServerRecord;
-    userRef: string;
-    turnMetadata?: TurnMetadata;
-  }): RemoteMcpHeaders;
 }
 
 /**

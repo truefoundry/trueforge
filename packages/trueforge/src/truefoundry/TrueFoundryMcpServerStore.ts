@@ -7,19 +7,22 @@ import { getPublicUiBasePath } from '../config';
 import type { AgentRecord } from '../db/agentStore';
 import {
   McpServerNotFoundError,
-  type AuthorizeMcpServerInput,
   type CreateMcpServerInput,
-  type DeleteMcpAuthorizationInput,
   type DeleteMcpServerInput,
   type GetMcpServerInput,
-  type IMcpServerWithAuthStore,
+  type IMcpServerStore,
   type ListMcpServersInput,
   type McpServerRecord,
-  type ResolveMcpAuthStatusesInput,
   type UpsertMcpServerInput,
 } from '../db/mcpServerStore';
 import type { TurnMetadata } from '../db/turnMetadata';
-import type { OAuthClientRecord } from '../mcp/auth/types';
+import type { IOAuthClientStore, OAuthClientRecord } from '../mcp/auth/types';
+import type {
+  AuthorizeMcpServerInput,
+  DeleteMcpAuthorizationInput,
+  IMcpServerResolver,
+  ResolveMcpAuthStatusesInput,
+} from '../runtime/McpServerResolver';
 import { resolveMcpAuthStatus, type McpAuthStatus } from '../schemas/mcpServer';
 import {
   accessTokenForRequest,
@@ -80,7 +83,9 @@ export function resolveAuthorizeRedirectURL(input: { returnTo?: string; publicBa
 }
 
 /** Read-only MCP registry for TrueFoundry mode (writes managed elsewhere). */
-export class TrueFoundryMcpServerStore<TTransaction = never> implements IMcpServerWithAuthStore<TTransaction> {
+export class TrueFoundryMcpServerStore<TTransaction = never>
+  implements IMcpServerStore<TTransaction>, IOAuthClientStore<TTransaction>, IMcpServerResolver
+{
   readonly #client: TrueFoundryMcpApiClient;
   readonly #resolveServiceFoundryAuthorization: ResolveServiceFoundryAuthorization;
   readonly #resolveGatewayAuthorization: ResolveGatewayAuthorization;

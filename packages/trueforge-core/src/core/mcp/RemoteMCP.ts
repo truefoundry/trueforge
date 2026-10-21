@@ -20,6 +20,7 @@ import {
   DEFAULT_MAX_MCP_RESPONSE_BYTES,
   isSessionExpiredError,
   type RemoteMcpConnection,
+  type RemoteMcpNetworkPolicy,
   type RemoteMcpTransportType,
 } from './remoteMcpClient';
 
@@ -39,20 +40,31 @@ export type ResolveHeadersResult = { headers: Record<string, string> } | { authR
 /** Static headers, or a resolver (invoked at connect) returning headers or signalling auth-required. */
 export type RemoteMcpHeaders = Record<string, string> | (() => Promise<ResolveHeadersResult>);
 
+/** Immutable endpoint and network behavior needed to establish an MCP connection. */
+export interface RemoteMcpEndpoint {
+  url: string;
+  headers?: RemoteMcpHeaders;
+  networkPolicy?: RemoteMcpNetworkPolicy;
+}
+
+/** A configured MCP server resolved for a turn, including the description deferred tools show. */
+export interface ResolvedMcpServer extends RemoteMcpEndpoint {
+  description: string;
+}
+
 type ExecuteResult<T> = { result: T; wasInitialized: MCPServerInitInfo | undefined } | AuthRequiredResponse;
 
 /**
- * Connection/session half of a remote MCP server: owns the transport (connects itself from `url` +
- * `headers`), session id, raw tool cache, connect single-flight and session-expiry retry. Policy-free
- * — a per-agent {@link ToolSet} layers policy.
+ * Connection/session half of a remote MCP server: owns the transport endpoint, session id, raw tool
+ * cache, connect single-flight and session-expiry retry. Tool-policy-free — a per-agent
+ * {@link ToolSet} layers tool selection and approval policy.
  */
 export class RemoteMCP implements ToolSource {
   readonly name: string;
   readonly id: string;
   readonly description?: string | undefined;
 
-  private readonly url: string;
-  private readonly headers: RemoteMcpHeaders;
+  private readonly endpoint: RemoteMcpEndpoint;
   private readonly signal: AbortSignal;
   private readonly logger: Logger;
   private readonly tracing: AgentTracing;
@@ -75,9 +87,8 @@ export class RemoteMCP implements ToolSource {
   constructor(params: {
     name: string;
     id: string;
-    description?: string | undefined;
-    url: string;
-    headers: RemoteMcpHeaders;
+    description: string | undefined;
+    endpoint: RemoteMcpEndpoint;
     logger: Logger;
     tracing?: AgentTracing | undefined;
     sessionId?: string | undefined;
@@ -90,8 +101,7 @@ export class RemoteMCP implements ToolSource {
     this.name = params.name;
     this.id = params.id;
     this.description = params.description;
-    this.url = params.url;
-    this.headers = params.headers;
+    this.endpoint = params.endpoint;
     this.signal = params.signal;
     this.sessionId = params.sessionId;
     this.resolvedTransportType = params.transportType;
@@ -100,7 +110,7 @@ export class RemoteMCP implements ToolSource {
     this.maxResponseBytes = params.maxResponseBytes ?? DEFAULT_MAX_MCP_RESPONSE_BYTES;
     this.logger = params.logger;
     this.tracing = params.tracing ?? NOOP_AGENT_TRACING;
-    this.traceUrl = redactUrlForTrace(params.url);
+    this.traceUrl = redactUrlForTrace(params.endpoint.url);
   }
 
   getSessionId(): string | undefined {
@@ -154,10 +164,11 @@ export class RemoteMCP implements ToolSource {
   }
 
   private async resolveHeaders(): Promise<ResolveHeadersResult> {
-    if (typeof this.headers !== 'function') {
-      return { headers: this.headers };
+    const headers = this.endpoint.headers;
+    if (typeof headers !== 'function') {
+      return { headers: headers ?? {} };
     }
-    return await this.headers();
+    return await headers();
   }
 
   private async executeWithSessionRetry<T>(
@@ -295,8 +306,9 @@ export class RemoteMCP implements ToolSource {
           { method: 'initialize', serverName: this.name, serverId: this.id, serverUrl: this.traceUrl, enabled: true },
           async span => {
             const conn = await connectRemoteMcp({
-              url: this.url,
+              url: this.endpoint.url,
               headers,
+              ...(this.endpoint.networkPolicy === undefined ? {} : { networkPolicy: this.endpoint.networkPolicy }),
               sessionId: this.sessionId ?? undefined,
               // Hint from a prior connect
               knownTransportType: this.resolvedTransportType,

@@ -21,6 +21,7 @@ import type { ISandboxProviderStore } from '../db/sandboxProviderStore';
 import type { ISkillStore } from '../db/skillStore';
 import type { WithTransaction } from '../db/transaction';
 import type { IWebSearchProviderStore } from '../db/webSearchProviderStore';
+import { TRUEFORGE_CONNECTOR_NAME } from '../mcp/server/trueforge/server';
 import {
   createAgentRoute,
   deleteAgentRoute,
@@ -80,6 +81,11 @@ async function validateManifest<TTransaction>({
   tenant_id: string;
   created_by_subject_id: string;
 }): Promise<AgentSpec> {
+  if (spec.mcp_servers?.some(server => server.name === TRUEFORGE_CONNECTOR_NAME)) {
+    throw new HTTPException(422, {
+      message: `Built-in MCP server "${TRUEFORGE_CONNECTOR_NAME}" cannot be persisted in an agent manifest`,
+    });
+  }
   await validateAgentSpec({
     spec,
     tenant_id,

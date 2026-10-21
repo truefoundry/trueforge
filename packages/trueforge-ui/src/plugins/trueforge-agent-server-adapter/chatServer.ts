@@ -75,6 +75,21 @@ export function toHarnessAgentSpec(spec: HarnessAgentSpec): TrueForgeApi.AgentSp
   };
 }
 
+function toHarnessDraftAgentSpec(spec: HarnessAgentSpec): TrueForgeApi.AgentSpec {
+  const converted = toHarnessAgentSpec(spec);
+  const mcpServers = converted.mcpServers ?? [];
+  if (mcpServers.some(server => server.name === 'trueforge')) {
+    return converted;
+  }
+  return { ...converted, mcpServers: [...mcpServers, { name: 'trueforge' }] };
+}
+
+export function toHarnessSavedAgentSpec(spec: HarnessAgentSpec): TrueForgeApi.AgentSpec {
+  const { mcpServers, ...rest } = toHarnessAgentSpec(spec);
+  const savedMcpServers = mcpServers?.filter(server => server.name !== 'trueforge') ?? [];
+  return savedMcpServers.length === 0 ? rest : { ...rest, mcpServers: savedMcpServers };
+}
+
 export function toUiAgentSpec(spec: TrueForgeApi.AgentSpec): HarnessAgentSpec {
   const { mcpServers, skills, ...rest } = spec;
   return {
@@ -208,7 +223,7 @@ export function createHarnessChatServer(
       }
       if (request.agentSpec !== undefined) {
         const created = await client.sessions.create({
-          agent: { spec: toHarnessAgentSpec(request.agentSpec) },
+          agent: { spec: toHarnessDraftAgentSpec(request.agentSpec) },
           ...(metadata === undefined ? {} : { metadata }),
         });
         return toUiSession(created.data);
@@ -243,7 +258,7 @@ export function createHarnessChatServer(
     async updateSession({ sessionId, agentSpec, title, shared }) {
       // Named (reference) sessions reject agent updates server-side.
       const body: TrueForgeApi.UpdateSessionRequest = {
-        ...(agentSpec === undefined ? {} : { agent: { spec: toHarnessAgentSpec(agentSpec) } }),
+        ...(agentSpec === undefined ? {} : { agent: { spec: toHarnessDraftAgentSpec(agentSpec) } }),
         ...(title === undefined ? {} : { title }),
         ...(shared === undefined ? {} : { shared }),
       };

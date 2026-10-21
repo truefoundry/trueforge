@@ -10,14 +10,13 @@ import { SandboxCatalog } from '../../../src/catalog/SandboxCatalog';
 import { SkillCatalog } from '../../../src/catalog/SkillCatalog';
 import { WebSearchCatalog } from '../../../src/catalog/WebSearchCatalog';
 import configuration from '../../../src/config';
-import { McpServerWithAuthStore } from '../../../src/db/McpServerWithAuthStore';
-import type { IMcpServerWithAuthStore } from '../../../src/db/mcpServerStore';
 import { migrateSqliteToLatest } from '../../../src/db/migrateSqlite';
 import { SqliteAgentStore } from '../../../src/db/sqlite/agent-store/SqliteAgentStore';
 import { createSqliteDb } from '../../../src/db/sqlite/client';
 import { SqliteMcpServerStore } from '../../../src/db/sqlite/mcp-server-store/SqliteMcpServerStore';
 import { SqliteOAuthTokenStore } from '../../../src/db/sqlite/token-store/SqliteOAuthTokenStore';
 import { mcpOAuthCallbackUrl } from '../../../src/mcp/auth/mcpOAuthHelpers';
+import { McpServerResolver, type IMcpServerResolver } from '../../../src/runtime/McpServerResolver';
 import { mountWithErrorHandler } from '../mountWithErrorHandler';
 
 jest.mock('undici', () => {
@@ -101,7 +100,8 @@ describe('mcp-servers routers', () => {
   let settingsRouter: ReturnType<typeof createSettingsMcpServersRouter>;
   let catalogRouter: ReturnType<typeof createCatalogRouter>;
   let mcpServersRouter: ReturnType<typeof createMcpServersRouter>;
-  let mcpServerStore: IMcpServerWithAuthStore;
+  let mcpServerStore: SqliteMcpServerStore;
+  let mcpServerResolver: IMcpServerResolver;
   let agentStore: SqliteAgentStore;
   let tokenStore: SqliteOAuthTokenStore;
   let withTransaction: <T>(callback: (transaction: unknown) => Promise<T>) => Promise<T>;
@@ -129,8 +129,9 @@ describe('mcp-servers routers', () => {
     const db = createSqliteDb(':memory:');
     await migrateSqliteToLatest(db);
     tokenStore = new SqliteOAuthTokenStore(db);
-    mcpServerStore = new McpServerWithAuthStore({
-      store: new SqliteMcpServerStore(db),
+    mcpServerStore = new SqliteMcpServerStore(db);
+    mcpServerResolver = new McpServerResolver({
+      store: mcpServerStore,
       tokenStore,
       clientName: configuration.MCP_DCR_OAUTH_CLIENT_NAME,
     });
@@ -140,6 +141,8 @@ describe('mcp-servers routers', () => {
     settingsRouter = mountWithErrorHandler(
       createSettingsMcpServersRouter({
         resolveMcpServerStore: () => mcpServerStore,
+        resolveMcpOAuthClientStore: () => mcpServerStore,
+        resolveMcpServerResolver: () => mcpServerResolver,
         resolveAgentStore: () => agentStore,
         tokenStore,
         withTransaction,
@@ -156,6 +159,8 @@ describe('mcp-servers routers', () => {
     });
     mcpServersRouter = createMcpServersRouter({
       resolveMcpServerStore: () => mcpServerStore,
+      resolveMcpOAuthClientStore: () => mcpServerStore,
+      resolveMcpServerResolver: () => mcpServerResolver,
       tokenStore,
       withTransaction,
       logger,
@@ -235,6 +240,14 @@ describe('mcp-servers routers', () => {
     expect(await clash.json()).toEqual({
       error: { message: 'MCP server name already exists: create-only-mcp' },
     });
+  });
+
+  it('PUT and POST reject reserved first-party names', async () => {
+    for (const name of ['trueforge', 'truefoundry']) {
+      const reserved = { type: 'remote' as const, name, url: 'https://mcp.example.com/x', description: 'x.' };
+      expect((await settingsRouter.request('/', putInit(wrapManifest(reserved)))).status).toBe(400);
+      expect((await settingsRouter.request('/', postInit(wrapManifest(reserved)))).status).toBe(400);
+    }
   });
 
   it('PUT and POST reject private outbound URLs', async () => {
@@ -711,6 +724,8 @@ describe('mcp-servers routers', () => {
 
     const otherRouter = createMcpServersRouter({
       resolveMcpServerStore: () => mcpServerStore,
+      resolveMcpOAuthClientStore: () => mcpServerStore,
+      resolveMcpServerResolver: () => mcpServerResolver,
       tokenStore,
       withTransaction,
       logger,

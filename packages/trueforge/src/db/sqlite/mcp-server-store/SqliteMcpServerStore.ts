@@ -1,5 +1,5 @@
 import type { ExpressionBuilder, Kysely, Transaction } from 'kysely';
-import type { OAuthClientRecord } from '../../../mcp/auth/types';
+import type { IOAuthClientStore, OAuthClientRecord } from '../../../mcp/auth/types';
 import type { McpServerManifest } from '../../../schemas/mcpServer';
 import { newId } from '../../../utils/id';
 import {
@@ -32,7 +32,9 @@ function recordColumns(eb: ExpressionBuilder<Database, 'mcp_server'>) {
   ];
 }
 
-export class SqliteMcpServerStore implements IMcpServerStore<Transaction<Database>> {
+export class SqliteMcpServerStore
+  implements IMcpServerStore<Transaction<Database>>, IOAuthClientStore<Transaction<Database>>
+{
   readonly #db: Kysely<Database>;
 
   constructor(db: Kysely<Database>) {

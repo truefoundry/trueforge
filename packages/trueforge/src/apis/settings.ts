@@ -8,13 +8,14 @@ import type { Context } from 'hono';
 import type { Logger } from 'winston';
 import type { ResolveRequestContext } from '../auth/identity';
 import type { IAgentStore } from '../db/agentStore';
-import type { IMcpServerWithAuthStore } from '../db/mcpServerStore';
+import type { IMcpServerStore } from '../db/mcpServerStore';
 import type { IModelProviderStore } from '../db/modelProviderStore';
 import type { ISandboxEnvironmentStore } from '../db/sandboxEnvironmentStore';
 import type { ISandboxProviderStore } from '../db/sandboxProviderStore';
 import type { WithTransaction } from '../db/transaction';
 import type { IWebSearchProviderStore } from '../db/webSearchProviderStore';
-import type { IOAuthTokenStore } from '../mcp/auth/types';
+import type { IOAuthClientStore, IOAuthTokenStore } from '../mcp/auth/types';
+import type { IMcpServerResolver } from '../runtime/McpServerResolver';
 import { createSettingsMcpServersRouter } from './mcpServers';
 import { createModelProvidersRouter } from './modelProviders';
 import { createSandboxProvidersRouter } from './sandboxProviders';
@@ -23,7 +24,9 @@ import { createWebSearchProvidersRouter } from './webSearchProviders';
 
 export interface SettingsRouterDeps<TTransaction> {
   resolveModelProviderStore: (input: { c: Context }) => IModelProviderStore<TTransaction>;
-  resolveMcpServerStore: (input: { c: Context }) => IMcpServerWithAuthStore<TTransaction>;
+  resolveMcpServerStore: (input: { c: Context }) => IMcpServerStore<TTransaction>;
+  resolveMcpOAuthClientStore: (input: { c: Context }) => IOAuthClientStore<TTransaction>;
+  resolveMcpServerResolver: (input: { c: Context }) => IMcpServerResolver;
   tokenStore: IOAuthTokenStore<TTransaction>;
   resolveSkillStore: ResolveSkillStore<TTransaction>;
   resolveSandboxProviderStore: (c: Context) => ISandboxProviderStore<TTransaction>;
@@ -51,6 +54,8 @@ export function createSettingsRouter<TTransaction>(deps: SettingsRouterDeps<TTra
     '/mcp-servers',
     createSettingsMcpServersRouter({
       resolveMcpServerStore: c => deps.resolveMcpServerStore({ c }),
+      resolveMcpOAuthClientStore: c => deps.resolveMcpOAuthClientStore({ c }),
+      resolveMcpServerResolver: c => deps.resolveMcpServerResolver({ c }),
       resolveAgentStore: deps.resolveAgentStore,
       tokenStore: deps.tokenStore,
       withTransaction: deps.withTransaction,

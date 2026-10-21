@@ -1,10 +1,11 @@
 import { McpConnectionError } from '../../../src/core/errors';
-import { connectRemoteMcp } from '../../../src/core/mcp/remoteMcpClient';
+import { connectRemoteMcp, type RemoteMcpFetch } from '../../../src/core/mcp/remoteMcpClient';
 
 // Records every transport type client.connect() was attempted with, in order.
 const mockConnectAttempts: string[] = [];
 const mockConnectSignals: Array<AbortSignal | undefined> = [];
 const mockRequestTimeouts: number[] = [];
+const mockTransportFetches: RemoteMcpFetch[] = [];
 let mockCloseCalls = 0;
 // When set, connect hangs until the AbortSignal passed to it is aborted.
 let hangUntilAbort = false;
@@ -62,8 +63,11 @@ jest.mock('@modelcontextprotocol/sdk/client/index.js', () => ({
 jest.mock('@modelcontextprotocol/sdk/client/streamableHttp.js', () => ({
   StreamableHTTPClientTransport: function StreamableHTTPClientTransport(
     _url: URL,
-    opts?: { sessionId?: string },
+    opts?: { sessionId?: string; fetch?: RemoteMcpFetch },
   ): MockTransport {
+    if (opts?.fetch !== undefined) {
+      mockTransportFetches.push(opts.fetch);
+    }
     return {
       __type: 'streamable-http',
       ...(opts?.sessionId !== undefined ? { sessionId: opts.sessionId } : {}),
@@ -85,11 +89,55 @@ const baseParams = () => ({
   signal: new AbortController().signal,
 });
 
+describe('connectRemoteMcp network policy', () => {
+  const endpoint = 'https://trueforge.internal/mcp';
+
+  beforeEach(() => {
+    mockConnectAttempts.length = 0;
+    mockConnectSignals.length = 0;
+    mockTransportFetches.length = 0;
+  });
+
+  it('allows only the exact trusted endpoint and disables redirects', async () => {
+    const fetch = jest.fn(async () => new Response(null, { status: 200 })) as unknown as RemoteMcpFetch;
+    await connectRemoteMcp({
+      ...baseParams(),
+      url: endpoint,
+      knownTransportType: 'streamable-http',
+      networkPolicy: { type: 'trusted-internal', endpoint, fetch },
+    });
+    const trustedFetch = mockTransportFetches[0];
+    if (trustedFetch === undefined) {
+      throw new Error('expected transport fetch');
+    }
+
+    await trustedFetch(endpoint, { redirect: 'follow' });
+
+    expect(fetch).toHaveBeenCalledWith(endpoint, expect.objectContaining({ redirect: 'manual' }));
+    await expect(trustedFetch('https://trueforge.internal/other')).rejects.toThrow(
+      'Trusted MCP fetch attempted an unexpected URL',
+    );
+  });
+
+  it('rejects a trusted policy whose endpoint differs from the connection URL', async () => {
+    const fetch = jest.fn() as unknown as RemoteMcpFetch;
+
+    await expect(
+      connectRemoteMcp({
+        ...baseParams(),
+        url: endpoint,
+        networkPolicy: { type: 'trusted-internal', endpoint: 'https://other.internal/mcp', fetch },
+      }),
+    ).rejects.toThrow('Trusted MCP policy endpoint does not match connection URL');
+  });
+});
+
 describe('connectRemoteMcp transport selection', () => {
   beforeEach(() => {
     mockConnectAttempts.length = 0;
     mockConnectSignals.length = 0;
     mockRequestTimeouts.length = 0;
+    mockTransportFetches.length = 0;
     mockCloseCalls = 0;
     hangUntilAbort = false;
     mockConnectImpl = () => {

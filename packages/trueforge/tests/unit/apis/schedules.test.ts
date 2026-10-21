@@ -69,7 +69,7 @@ function stubTurnExecutionDeps(agentStore: SqliteAgentStore, scheduleStore: Sqli
     eventSubscriptions: new EventSubscriptionRegistry<TurnStreamingEvent>(undefined),
     logger: winston.createLogger({ silent: true }),
     resolveModelProviderStore: () => ({}) as never,
-    resolveMcpServerStore: () => ({}) as never,
+    resolveMcpServerResolver: () => ({}) as never,
     resolveTurnSkillsStore: () => ({ resolveTurnSkills: async () => [] }),
     resolveSandboxProviderStore: () => ({}) as never,
     sandboxEnvironmentStore: {} as never,

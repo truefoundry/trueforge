@@ -22,7 +22,6 @@ import { SandboxCatalog } from '../src/catalog/SandboxCatalog';
 import { SkillCatalog } from '../src/catalog/SkillCatalog';
 import { WebSearchCatalog } from '../src/catalog/WebSearchCatalog';
 import configuration from '../src/config';
-import { McpServerWithAuthStore } from '../src/db/McpServerWithAuthStore';
 import { SqliteAgentStore } from '../src/db/sqlite/agent-store/SqliteAgentStore';
 import { createSqliteDb } from '../src/db/sqlite/client';
 import { SqliteMcpServerStore } from '../src/db/sqlite/mcp-server-store/SqliteMcpServerStore';
@@ -36,6 +35,7 @@ import { SqliteOAuthTokenStore } from '../src/db/sqlite/token-store/SqliteOAuthT
 import { SqliteWebSearchProviderStore } from '../src/db/sqlite/web-search-provider-store/SqliteWebSearchProviderStore';
 import { ActiveTurnRegistry } from '../src/runtime/activeTurns';
 import { EventSubscriptionRegistry } from '../src/runtime/event-subscription';
+import { McpServerResolver } from '../src/runtime/McpServerResolver';
 
 function isRecord(value: unknown): value is Record<string, unknown> {
   return typeof value === 'object' && value !== null;
@@ -64,6 +64,12 @@ function canonicalise(value: unknown): unknown {
 const sessionStore = new InMemorySessionStore();
 const db = createSqliteDb(':memory:');
 const tokenStore = new SqliteOAuthTokenStore(db);
+const mcpServerStore = new SqliteMcpServerStore(db);
+const mcpServerResolver = new McpServerResolver({
+  store: mcpServerStore,
+  tokenStore,
+  clientName: configuration.MCP_DCR_OAUTH_CLIENT_NAME,
+});
 const agentStore = new SqliteAgentStore(db);
 const sandboxEnvironmentStore = new SqliteSandboxEnvironmentStore(db);
 const skillStore = new SqliteSkillStore(db);
@@ -76,12 +82,10 @@ const app = createServerApp({
   sandboxCatalog: SandboxCatalog.load(),
   webSearchCatalog: WebSearchCatalog.load(),
   resolveModelProviderStore: () => new SqliteModelProviderStore(db),
-  resolveMcpServerStore: () =>
-    new McpServerWithAuthStore({
-      store: new SqliteMcpServerStore(db),
-      tokenStore,
-      clientName: configuration.MCP_DCR_OAUTH_CLIENT_NAME,
-    }),
+  mcpOAuthClientStore: mcpServerStore,
+  resolveMcpServerStore: () => mcpServerStore,
+  resolveMcpOAuthClientStore: () => mcpServerStore,
+  resolveMcpServerResolver: () => mcpServerResolver,
   resolveSkillStore: () => skillStore,
   resolveTurnSkillsStore: () => skillStore,
   resolveSandboxProviderStore: () => sandboxProviderStore,

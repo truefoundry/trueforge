@@ -1,18 +1,21 @@
 import type { RemoteMcpHeaders } from '@truefoundry/trueforge-core/core';
 import type {
-  AuthorizeMcpServerInput,
   CreateMcpServerInput,
-  DeleteMcpAuthorizationInput,
   DeleteMcpServerInput,
   GetMcpServerInput,
-  IMcpServerWithAuthStore,
+  IMcpServerStore,
   ListMcpServersInput,
   McpServerRecord,
-  ResolveMcpAuthStatusesInput,
   UpsertMcpServerInput,
 } from '../db/mcpServerStore';
 import type { TurnMetadata } from '../db/turnMetadata';
-import type { OAuthClientRecord } from '../mcp/auth/types';
+import type { IOAuthClientStore, OAuthClientRecord } from '../mcp/auth/types';
+import type {
+  AuthorizeMcpServerInput,
+  DeleteMcpAuthorizationInput,
+  IMcpServerResolver,
+  ResolveMcpAuthStatusesInput,
+} from '../runtime/McpServerResolver';
 import { resolveConfiguredMcpRequestHeaders, resolveMcpAuthStatus, type McpAuthStatus } from '../schemas/mcpServer';
 import { gatewayMetadataHeadersForTurn } from './gatewayMetadata';
 import type { InlineMcpServers } from './inlineResources';
@@ -25,12 +28,23 @@ import type { InlineMcpServers } from './inlineResources';
  * up in the tenant's settings. Writes and OAuth delegate too: there is no row to write or
  * authorize against.
  */
-export class InlineMcpServerStore<TTransaction = never> implements IMcpServerWithAuthStore<TTransaction> {
-  readonly #inner: IMcpServerWithAuthStore<TTransaction>;
+export class InlineMcpServerStore<TTransaction = never>
+  implements IMcpServerStore<TTransaction>, IOAuthClientStore<TTransaction>, IMcpServerResolver
+{
+  readonly #store: IMcpServerStore<TTransaction>;
+  readonly #oauthClientStore: IOAuthClientStore<TTransaction>;
+  readonly #resolver: IMcpServerResolver;
   readonly #inline: InlineMcpServers;
 
-  constructor(input: { inner: IMcpServerWithAuthStore<TTransaction>; inline: InlineMcpServers }) {
-    this.#inner = input.inner;
+  constructor(input: {
+    store: IMcpServerStore<TTransaction>;
+    oauthClientStore: IOAuthClientStore<TTransaction>;
+    resolver: IMcpServerResolver;
+    inline: InlineMcpServers;
+  }) {
+    this.#store = input.store;
+    this.#oauthClientStore = input.oauthClientStore;
+    this.#resolver = input.resolver;
     this.#inline = input.inline;
   }
 
@@ -46,7 +60,7 @@ export class InlineMcpServerStore<TTransaction = never> implements IMcpServerWit
   }): RemoteMcpHeaders {
     const manifest = this.#inline[input.record.name];
     if (manifest === undefined) {
-      return this.#inner.resolveInvokeHeaders(input);
+      return this.#resolver.resolveInvokeHeaders(input);
     }
     const configured = resolveConfiguredMcpRequestHeaders(manifest);
     if (input.turnMetadata === undefined) {
@@ -57,12 +71,12 @@ export class InlineMcpServerStore<TTransaction = never> implements IMcpServerWit
 
   async getServer(input: GetMcpServerInput, transaction?: TTransaction): Promise<McpServerRecord | undefined> {
     const record = this.#toRecord({ tenant_id: input.tenant_id, name: input.name });
-    return record ?? (await this.#inner.getServer(input, transaction));
+    return record ?? (await this.#store.getServer(input, transaction));
   }
 
   async listServers(input: ListMcpServersInput, transaction?: TTransaction): Promise<McpServerRecord[]> {
     if (input.names === undefined) {
-      return this.#inner.listServers(input, transaction);
+      return this.#store.listServers(input, transaction);
     }
     if (input.names.length === 0) {
       return [];
@@ -73,7 +87,7 @@ export class InlineMcpServerStore<TTransaction = never> implements IMcpServerWit
       .filter((record): record is McpServerRecord => record !== undefined);
     const registryNames = input.names.filter(name => this.#inline[name] === undefined);
     const registryRecords =
-      registryNames.length > 0 ? await this.#inner.listServers({ ...input, names: registryNames }, transaction) : [];
+      registryNames.length > 0 ? await this.#store.listServers({ ...input, names: registryNames }, transaction) : [];
 
     return [...inlineRecords, ...registryRecords];
   }
@@ -83,7 +97,9 @@ export class InlineMcpServerStore<TTransaction = never> implements IMcpServerWit
     const registryRecords = input.records.filter(record => this.#inline[record.name] === undefined);
 
     const statuses = new Map<string, McpAuthStatus>(
-      registryRecords.length > 0 ? await this.#inner.resolveAuthStatuses({ ...input, records: registryRecords }) : [],
+      registryRecords.length > 0
+        ? await this.#resolver.resolveAuthStatuses({ ...input, records: registryRecords })
+        : [],
     );
     for (const record of inlineRecords) {
       statuses.set(record.name, resolveMcpAuthStatus({ manifest: record.manifest }));
@@ -92,39 +108,39 @@ export class InlineMcpServerStore<TTransaction = never> implements IMcpServerWit
   }
 
   getServerForUpdate(input: GetMcpServerInput, transaction: TTransaction): Promise<McpServerRecord | undefined> {
-    return this.#inner.getServerForUpdate(input, transaction);
+    return this.#store.getServerForUpdate(input, transaction);
   }
 
   createServer(input: CreateMcpServerInput, transaction?: TTransaction): Promise<McpServerRecord> {
-    return this.#inner.createServer(input, transaction);
+    return this.#store.createServer(input, transaction);
   }
 
   upsertServer(input: UpsertMcpServerInput, transaction?: TTransaction): Promise<McpServerRecord> {
-    return this.#inner.upsertServer(input, transaction);
+    return this.#store.upsertServer(input, transaction);
   }
 
   deleteServer(input: DeleteMcpServerInput, transaction?: TTransaction): Promise<boolean> {
-    return this.#inner.deleteServer(input, transaction);
+    return this.#store.deleteServer(input, transaction);
   }
 
   authorize(input: AuthorizeMcpServerInput): Promise<McpAuthStatus> {
-    return this.#inner.authorize(input);
+    return this.#resolver.authorize(input);
   }
 
   deleteAuthorization(input: DeleteMcpAuthorizationInput): Promise<void> {
-    return this.#inner.deleteAuthorization(input);
+    return this.#resolver.deleteAuthorization(input);
   }
 
   saveClient(params: { id: string; record: OAuthClientRecord }, transaction?: TTransaction): Promise<void> {
-    return this.#inner.saveClient(params, transaction);
+    return this.#oauthClientStore.saveClient(params, transaction);
   }
 
   getClient(params: { id: string }, transaction?: TTransaction): Promise<OAuthClientRecord | undefined> {
-    return this.#inner.getClient(params, transaction);
+    return this.#oauthClientStore.getClient(params, transaction);
   }
 
   deleteClient(params: { id: string }, transaction?: TTransaction): Promise<void> {
-    return this.#inner.deleteClient(params, transaction);
+    return this.#oauthClientStore.deleteClient(params, transaction);
   }
 
   /** `id` is the name: nothing is persisted, and the name is what identifies these downstream. */

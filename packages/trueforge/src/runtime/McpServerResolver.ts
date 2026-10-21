@@ -1,30 +1,55 @@
 import type { RemoteMcpHeaders } from '@truefoundry/trueforge-core/core';
-import { isMcpAuthRequired, resolveMcpAuth } from '../mcp/auth/mcpDcr';
-import type { IOAuthTokenStore, OAuthClientRecord } from '../mcp/auth/types';
-import { resolveConfiguredMcpRequestHeaders, resolveMcpAuthStatus, type McpAuthStatus } from '../schemas/mcpServer';
 import {
   McpServerNotFoundError,
-  type AuthorizeMcpServerInput,
-  type CreateMcpServerInput,
-  type DeleteMcpAuthorizationInput,
-  type DeleteMcpServerInput,
   type GetMcpServerInput,
   type IMcpServerStore,
-  type IMcpServerWithAuthStore,
-  type ListMcpServersInput,
   type McpServerRecord,
-  type ResolveMcpAuthStatusesInput,
-  type UpsertMcpServerInput,
-} from './mcpServerStore';
-import type { TurnMetadata } from './turnMetadata';
+} from '../db/mcpServerStore';
+import type { TurnMetadata } from '../db/turnMetadata';
+import { isMcpAuthRequired, resolveMcpAuth } from '../mcp/auth/mcpDcr';
+import type { IOAuthClientStore, IOAuthTokenStore } from '../mcp/auth/types';
+import { resolveConfiguredMcpRequestHeaders, resolveMcpAuthStatus, type McpAuthStatus } from '../schemas/mcpServer';
 
-export class McpServerWithAuthStore<TTransaction = never> implements IMcpServerWithAuthStore<TTransaction> {
-  readonly #store: IMcpServerStore<TTransaction>;
+export interface ResolveMcpAuthStatusesInput {
+  records: readonly McpServerRecord[];
+  userRef: string;
+}
+
+export interface AuthorizeMcpServerInput {
+  tenant_id: string;
+  name: string;
+  userRef: string;
+  /** Same-origin relative path to land after consent. */
+  returnTo?: string;
+}
+
+export interface DeleteMcpAuthorizationInput {
+  tenant_id: string;
+  name: string;
+  userRef: string;
+}
+
+export interface ResolveMcpInvokeHeadersInput {
+  record: McpServerRecord;
+  userRef: string;
+  turnMetadata?: TurnMetadata;
+}
+
+export interface IMcpServerResolver {
+  getServer(input: GetMcpServerInput): Promise<McpServerRecord | undefined>;
+  resolveAuthStatuses(input: ResolveMcpAuthStatusesInput): Promise<ReadonlyMap<string, McpAuthStatus>>;
+  authorize(input: AuthorizeMcpServerInput): Promise<McpAuthStatus>;
+  deleteAuthorization(input: DeleteMcpAuthorizationInput): Promise<void>;
+  resolveInvokeHeaders(input: ResolveMcpInvokeHeadersInput): RemoteMcpHeaders;
+}
+
+export class McpServerResolver<TTransaction = never> implements IMcpServerResolver {
+  readonly #store: IMcpServerStore<TTransaction> & IOAuthClientStore<TTransaction>;
   readonly #tokenStore: IOAuthTokenStore<TTransaction>;
   readonly #clientName: string;
 
   constructor(input: {
-    store: IMcpServerStore<TTransaction>;
+    store: IMcpServerStore<TTransaction> & IOAuthClientStore<TTransaction>;
     tokenStore: IOAuthTokenStore<TTransaction>;
     clientName: string;
   }) {
@@ -33,35 +58,11 @@ export class McpServerWithAuthStore<TTransaction = never> implements IMcpServerW
     this.#clientName = input.clientName;
   }
 
-  listServers(input: ListMcpServersInput, transaction?: TTransaction): Promise<McpServerRecord[]> {
-    return this.#store.listServers(input, transaction);
+  getServer(input: GetMcpServerInput): Promise<McpServerRecord | undefined> {
+    return this.#store.getServer(input);
   }
 
-  getServer(input: GetMcpServerInput, transaction?: TTransaction): Promise<McpServerRecord | undefined> {
-    return this.#store.getServer(input, transaction);
-  }
-
-  getServerForUpdate(input: GetMcpServerInput, transaction: TTransaction): Promise<McpServerRecord | undefined> {
-    return this.#store.getServerForUpdate(input, transaction);
-  }
-
-  createServer(input: CreateMcpServerInput, transaction?: TTransaction): Promise<McpServerRecord> {
-    return this.#store.createServer(input, transaction);
-  }
-
-  upsertServer(input: UpsertMcpServerInput, transaction?: TTransaction): Promise<McpServerRecord> {
-    return this.#store.upsertServer(input, transaction);
-  }
-
-  deleteServer(input: DeleteMcpServerInput, transaction?: TTransaction): Promise<boolean> {
-    return this.#store.deleteServer(input, transaction);
-  }
-
-  resolveInvokeHeaders(input: {
-    record: McpServerRecord;
-    userRef: string;
-    turnMetadata?: TurnMetadata;
-  }): RemoteMcpHeaders {
+  resolveInvokeHeaders(input: ResolveMcpInvokeHeadersInput): RemoteMcpHeaders {
     const { record, userRef } = input;
     if (record.manifest.auth?.type === 'dcr') {
       return async () => {
@@ -86,18 +87,6 @@ export class McpServerWithAuthStore<TTransaction = never> implements IMcpServerW
       };
     }
     return resolveConfiguredMcpRequestHeaders(record.manifest);
-  }
-
-  saveClient(params: { id: string; record: OAuthClientRecord }, transaction?: TTransaction): Promise<void> {
-    return this.#store.saveClient(params, transaction);
-  }
-
-  getClient(params: { id: string }, transaction?: TTransaction): Promise<OAuthClientRecord | undefined> {
-    return this.#store.getClient(params, transaction);
-  }
-
-  deleteClient(params: { id: string }, transaction?: TTransaction): Promise<void> {
-    return this.#store.deleteClient(params, transaction);
   }
 
   async resolveAuthStatuses(input: ResolveMcpAuthStatusesInput): Promise<ReadonlyMap<string, McpAuthStatus>> {

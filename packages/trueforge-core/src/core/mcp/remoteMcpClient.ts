@@ -14,6 +14,14 @@ import type { ToolSchema } from './IMCPServer';
 /** Networking for remote (url-based) MCP servers, kept separate so it can be mocked in tests. */
 
 export type RemoteMcpTransportType = 'streamable-http' | 'sse';
+export type RemoteMcpFetch = FetchLike;
+export type RemoteMcpNetworkPolicy =
+  | { type: 'external' }
+  | {
+      type: 'trusted-internal';
+      endpoint: string;
+      fetch: RemoteMcpFetch;
+    };
 
 export interface RemoteMcpConnection {
   readonly transportType: RemoteMcpTransportType;
@@ -177,6 +185,7 @@ function buildConnection(
 export async function connectRemoteMcp(params: {
   url: string;
   headers: Record<string, string>;
+  networkPolicy?: RemoteMcpNetworkPolicy;
   sessionId?: string | undefined;
   knownTransportType?: RemoteMcpTransportType | undefined;
   requestTimeoutMs: number;
@@ -188,7 +197,22 @@ export async function connectRemoteMcp(params: {
 }): Promise<RemoteMcpConnection> {
   const url = new URL(params.url);
   const requestOptions = { signal: params.signal };
-  const fetchFn = withMaxResponseBytes(mcpSsrfFetch, params.maxResponseBytes ?? DEFAULT_MAX_MCP_RESPONSE_BYTES);
+  let transportFetch: RemoteMcpFetch = mcpSsrfFetch;
+  if (params.networkPolicy?.type === 'trusted-internal') {
+    const policy = params.networkPolicy;
+    const trustedEndpoint = new URL(policy.endpoint);
+    if (url.href !== trustedEndpoint.href) {
+      throw new Error(`Trusted MCP policy endpoint does not match connection URL: ${url.href}`);
+    }
+    transportFetch = (input, init) => {
+      const requestUrl = new URL(input);
+      if (requestUrl.href !== trustedEndpoint.href) {
+        throw new Error(`Trusted MCP fetch attempted an unexpected URL: ${requestUrl.href}`);
+      }
+      return policy.fetch(input, { ...init, redirect: 'manual' });
+    };
+  }
+  const fetchFn = withMaxResponseBytes(transportFetch, params.maxResponseBytes ?? DEFAULT_MAX_MCP_RESPONSE_BYTES);
   const candidates = params.knownTransportType
     ? [params.knownTransportType, ...TRANSPORT_PROBE_ORDER.filter(t => t !== params.knownTransportType)]
     : TRANSPORT_PROBE_ORDER;

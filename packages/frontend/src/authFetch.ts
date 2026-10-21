@@ -8,6 +8,9 @@
  */
 import { apiPath, UI_BASE_PATH } from './publicPath';
 
+const TRUEFORGE_CLIENT_HEADER = 'x-trueforge-client';
+const TRUEFORGE_BROWSER_CLIENT = 'browser';
+
 /** Browser entry for login (not available as an SDK method). */
 export const AUTH_LOGIN_HREF = apiPath('/api/v1/auth/login');
 
@@ -24,7 +27,12 @@ export function createAuthAwareFetch(baseFetch: typeof fetch = globalThis.fetch.
   let redirecting = false;
 
   return async (input, init) => {
-    const response = await baseFetch(input, init);
+    const headers = new Headers(input instanceof Request ? input.headers : undefined);
+    new Headers(init?.headers).forEach((value, name) => {
+      headers.set(name, value);
+    });
+    headers.set(TRUEFORGE_CLIENT_HEADER, TRUEFORGE_BROWSER_CLIENT);
+    const response = await baseFetch(input, { ...init, headers });
 
     if (response.status !== 401 || typeof window === 'undefined') {
       return response;

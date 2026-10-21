@@ -11,7 +11,6 @@ import { createLogger } from 'winston';
 import { createTurnsRouter, deriveSessionTitle, turnStreamId } from '../../../src/apis/turns';
 import { TrueForgeAuthorizer, type Authorizer } from '../../../src/auth/authorizer';
 import { STANDALONE_REQUEST_CONTEXT } from '../../../src/auth/identity';
-import { McpServerWithAuthStore } from '../../../src/db/McpServerWithAuthStore';
 import { migrateSqliteToLatest } from '../../../src/db/migrateSqlite';
 import { SqliteAgentStore } from '../../../src/db/sqlite/agent-store/SqliteAgentStore';
 import { createSqliteDb } from '../../../src/db/sqlite/client';
@@ -27,9 +26,10 @@ import { SqliteWebSearchProviderStore } from '../../../src/db/sqlite/web-search-
 import { runWithLogContext } from '../../../src/logger';
 import { ActiveTurnRegistry } from '../../../src/runtime/activeTurns';
 import { EventSubscriptionRegistry } from '../../../src/runtime/event-subscription/index.js';
+import { McpServerResolver } from '../../../src/runtime/McpServerResolver';
 
-function mcpServerStoreWithAuth(db: Kysely<Database>, tokenStore: SqliteOAuthTokenStore) {
-  return new McpServerWithAuthStore({
+function createMcpServerResolver(db: Kysely<Database>, tokenStore: SqliteOAuthTokenStore) {
+  return new McpServerResolver({
     store: new SqliteMcpServerStore(db),
     tokenStore,
     clientName: 'test-client',
@@ -123,7 +123,7 @@ describe('turns', () => {
           sessionStore,
           activeTurns: new ActiveTurnRegistry(),
           resolveModelProviderStore: () => new SqliteModelProviderStore(db),
-          resolveMcpServerStore: () => mcpServerStoreWithAuth(db, tokenStore),
+          resolveMcpServerResolver: () => createMcpServerResolver(db, tokenStore),
           resolveTurnSkillsStore: () => new SqliteSkillStore(db),
           resolveAgentStore: () => new SqliteAgentStore(db),
           eventSubscriptions: new EventSubscriptionRegistry(undefined),
@@ -219,7 +219,7 @@ describe('turns', () => {
           sessionStore,
           activeTurns: new ActiveTurnRegistry(),
           resolveModelProviderStore: () => new SqliteModelProviderStore(db),
-          resolveMcpServerStore: () => mcpServerStoreWithAuth(db, new SqliteOAuthTokenStore(db)),
+          resolveMcpServerResolver: () => createMcpServerResolver(db, new SqliteOAuthTokenStore(db)),
           resolveTurnSkillsStore: () => new SqliteSkillStore(db),
           resolveAgentStore: () => agentStore,
           eventSubscriptions: new EventSubscriptionRegistry(undefined),
@@ -321,7 +321,7 @@ describe('turns', () => {
           sessionStore,
           activeTurns: new ActiveTurnRegistry(),
           resolveModelProviderStore: () => new SqliteModelProviderStore(db),
-          resolveMcpServerStore: () => mcpServerStoreWithAuth(db, new SqliteOAuthTokenStore(db)),
+          resolveMcpServerResolver: () => createMcpServerResolver(db, new SqliteOAuthTokenStore(db)),
           resolveTurnSkillsStore: () => new SqliteSkillStore(db),
           resolveAgentStore: () => new SqliteAgentStore(db),
           eventSubscriptions: new EventSubscriptionRegistry(undefined),
@@ -392,7 +392,7 @@ describe('turns', () => {
           sessionStore,
           activeTurns: new ActiveTurnRegistry(),
           resolveModelProviderStore: () => new SqliteModelProviderStore(db),
-          resolveMcpServerStore: () => mcpServerStoreWithAuth(db, new SqliteOAuthTokenStore(db)),
+          resolveMcpServerResolver: () => createMcpServerResolver(db, new SqliteOAuthTokenStore(db)),
           resolveTurnSkillsStore: () => new SqliteSkillStore(db),
           resolveAgentStore: () => new SqliteAgentStore(db),
           eventSubscriptions: new EventSubscriptionRegistry(undefined),
@@ -500,7 +500,7 @@ describe('turns', () => {
           sessionStore: new SqliteSessionStore(db),
           activeTurns: new ActiveTurnRegistry(),
           resolveModelProviderStore: () => modelProviderStore,
-          resolveMcpServerStore: () => mcpServerStoreWithAuth(db, tokenStore),
+          resolveMcpServerResolver: () => createMcpServerResolver(db, tokenStore),
           resolveAgentStore: () => new SqliteAgentStore(db),
           resolveTurnSkillsStore: () => new SqliteSkillStore(db),
           eventSubscriptions,
@@ -631,7 +631,7 @@ describe('turns', () => {
           sessionStore: new SqliteSessionStore(db),
           activeTurns: new ActiveTurnRegistry(),
           resolveModelProviderStore: () => modelProviderStore,
-          resolveMcpServerStore: () => mcpServerStoreWithAuth(db, tokenStore),
+          resolveMcpServerResolver: () => createMcpServerResolver(db, tokenStore),
           resolveAgentStore: () => new SqliteAgentStore(db),
           resolveTurnSkillsStore: () => new SqliteSkillStore(db),
           eventSubscriptions: new EventSubscriptionRegistry<TurnStreamingEvent>(undefined),
@@ -750,7 +750,7 @@ describe('turns', () => {
           sessionStore: new SqliteSessionStore(db),
           activeTurns: new ActiveTurnRegistry(),
           resolveModelProviderStore: () => modelProviderStore,
-          resolveMcpServerStore: () => mcpServerStoreWithAuth(db, tokenStore),
+          resolveMcpServerResolver: () => createMcpServerResolver(db, tokenStore),
           resolveTurnSkillsStore: () => new SqliteSkillStore(db),
           resolveAgentStore: () => new SqliteAgentStore(db),
           eventSubscriptions: new EventSubscriptionRegistry(undefined),
@@ -837,7 +837,7 @@ describe('turns', () => {
           sessionStore,
           activeTurns: new ActiveTurnRegistry(),
           resolveModelProviderStore: () => new SqliteModelProviderStore(db),
-          resolveMcpServerStore: () => mcpServerStoreWithAuth(db, tokenStore),
+          resolveMcpServerResolver: () => createMcpServerResolver(db, tokenStore),
           resolveTurnSkillsStore: () => new SqliteSkillStore(db),
           resolveAgentStore: () => agentStore,
           eventSubscriptions: new EventSubscriptionRegistry(undefined),

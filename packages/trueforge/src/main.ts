@@ -106,8 +106,7 @@ import { WebSearchCatalog } from './catalog/WebSearchCatalog';
 import { type DistributedServerConfiguration } from './config';
 import { createController } from './controller';
 import type { AgentRecord, IAgentStore } from './db/agentStore';
-import type { IMcpServerStore, IMcpServerWithAuthStore } from './db/mcpServerStore';
-import { McpServerWithAuthStore } from './db/McpServerWithAuthStore';
+import type { IMcpServerStore } from './db/mcpServerStore';
 import type { IModelProviderStore } from './db/modelProviderStore';
 import type { PostgresAgentStore } from './db/postgres/agent-store/PostgresAgentStore';
 import type { Database as PostgresDatabase } from './db/postgres/types';
@@ -122,10 +121,11 @@ import type { IWebSearchProviderStore } from './db/webSearchProviderStore';
 import { mountFrontend } from './frontend';
 import { serverTlsServeOptions } from './http/tls';
 import { createServerLogger, shouldColorize } from './logger';
-import type { IOAuthTokenStore } from './mcp/auth/types';
+import type { IOAuthClientStore, IOAuthTokenStore } from './mcp/auth/types';
 import { PACKAGE_VERSION } from './packageVersion';
 import { ActiveTurnRegistry } from './runtime/activeTurns';
 import { EventSubscriptionRegistry } from './runtime/event-subscription';
+import { McpServerResolver, type IMcpServerResolver } from './runtime/McpServerResolver';
 import type { ConnectedRedis } from './runtime/redis';
 import { initSentry } from './sentry';
 import { printStandaloneStartupBanner } from './startupBanner';
@@ -159,6 +159,12 @@ import { TrueFoundryServiceFoundryServerClient } from './truefoundry/TrueFoundry
 import { TrueFoundryAdminSkillStore, TrueFoundrySkillStore } from './truefoundry/TrueFoundrySkillStore';
 import { TrueFoundryWebSearchProviderStore } from './truefoundry/TrueFoundryWebSearchProviderStore';
 
+interface McpServerCapabilities<TTransaction> {
+  store: IMcpServerStore<TTransaction>;
+  oauthClientStore: IOAuthClientStore<TTransaction>;
+  resolver: IMcpServerResolver;
+}
+
 /** Persistence-layer model store resolve (RequestContext, not Hono Context). */
 type ResolveModelProviderStore<TTransaction> = (input: {
   rc: RequestContext;
@@ -166,13 +172,13 @@ type ResolveModelProviderStore<TTransaction> = (input: {
   inlineModelProviders?: InlineModelProviders;
 }) => IModelProviderStore<TTransaction>;
 
-/** Persistence-layer MCP store resolve (RequestContext, not Hono Context). */
-type ResolveMcpServerStore<TTransaction> = (input: {
+/** Persistence-layer MCP capability resolve (RequestContext, not Hono Context). */
+type ResolveMcpServerCapabilities<TTransaction> = (input: {
   rc: RequestContext;
   runAsAgent?: AgentRecord;
   perServerHeaders?: PerServerMcpHeaders;
   inlineMcpServers?: InlineMcpServers;
-}) => IMcpServerWithAuthStore<TTransaction>;
+}) => McpServerCapabilities<TTransaction>;
 
 /** Turn skill mounts: closed-set `x-tfg-skills`, else the registry/DB store. */
 type ResolveTurnSkillsStore<TTransaction> = (input: {
@@ -186,9 +192,9 @@ interface ServerPersistence<TTransaction> {
   sessionMetricsStore: ISessionMetricsStore;
   tokenStore: IOAuthTokenStore<TTransaction>;
   scheduleStore: IScheduleStore<TTransaction>;
-  mcpOAuthStore: IMcpServerWithAuthStore<TTransaction>;
+  mcpOAuthClientStore: IOAuthClientStore<TTransaction>;
   resolveModelProviderStore: ResolveModelProviderStore<TTransaction>;
-  resolveMcpServerStore: ResolveMcpServerStore<TTransaction>;
+  resolveMcpServerCapabilities: ResolveMcpServerCapabilities<TTransaction>;
   resolveSandboxProviderStore: (rc: RequestContext) => ISandboxProviderStore<TTransaction>;
   resolveWebSearchProviderStore: (rc: RequestContext) => IWebSearchProviderStore<TTransaction>;
   /** Per-request store: DB git skills, or TrueFoundry registry catalog (caller JWT). */
@@ -295,19 +301,20 @@ function buildResolveModelProviderStore<TTransaction>(options: {
 /**
  * Per-request MCP store over ServiceFoundry. `runAsAgent` selects a saved agent's token for turns.
  */
-function buildResolveMcpServerStore<TTransaction>(options: {
-  persistenceStore: IMcpServerStore<TTransaction>;
+function buildResolveMcpServerCapabilities<TTransaction>(options: {
+  persistenceStore: IMcpServerStore<TTransaction> & IOAuthClientStore<TTransaction>;
   tokenStore: IOAuthTokenStore<TTransaction>;
   client: TrueFoundryServiceFoundryServerClient | undefined;
   logger: Logger;
-}): ResolveMcpServerStore<TTransaction> {
-  const withAuthMcpPersistenceStore = new McpServerWithAuthStore<TTransaction>({
+}): ResolveMcpServerCapabilities<TTransaction> {
+  const resolver = new McpServerResolver({
     store: options.persistenceStore,
     tokenStore: options.tokenStore,
     clientName: configuration.MCP_DCR_OAUTH_CLIENT_NAME,
   });
   return input => {
     const { client } = options;
+    let capabilities: McpServerCapabilities<TTransaction>;
     if (client) {
       const store = new TrueFoundryMcpServerStore<TTransaction>({
         client,
@@ -316,12 +323,24 @@ function buildResolveMcpServerStore<TTransaction>(options: {
         logger: options.logger,
         ...(input.perServerHeaders === undefined ? {} : { perServerHeaders: input.perServerHeaders }),
       });
-      if (input.inlineMcpServers !== undefined) {
-        return new InlineMcpServerStore({ inner: store, inline: input.inlineMcpServers });
-      }
-      return store;
+      capabilities = { store, oauthClientStore: store, resolver: store };
+    } else {
+      capabilities = {
+        store: options.persistenceStore,
+        oauthClientStore: options.persistenceStore,
+        resolver,
+      };
     }
-    return withAuthMcpPersistenceStore;
+    if (input.inlineMcpServers === undefined) {
+      return capabilities;
+    }
+    const inline = new InlineMcpServerStore({
+      store: capabilities.store,
+      oauthClientStore: capabilities.oauthClientStore,
+      resolver: capabilities.resolver,
+      inline: input.inlineMcpServers,
+    });
+    return { store: inline, oauthClientStore: inline, resolver: inline };
   };
 }
 
@@ -428,8 +447,9 @@ async function createStandalonePersistence(options: {
   const agentStore = new SqliteAgentStore(db);
   const sandboxEnvironmentStore = wrapSandboxEnvironmentStore(new SqliteSandboxEnvironmentStore(db));
   const modelProviderStore = new SqliteModelProviderStore(db);
-  const mcpServerStore = new McpServerWithAuthStore({
-    store: new SqliteMcpServerStore(db),
+  const mcpServerPersistenceStore = new SqliteMcpServerStore(db);
+  const mcpServerResolver = new McpServerResolver({
+    store: mcpServerPersistenceStore,
     tokenStore,
     clientName: configuration.MCP_DCR_OAUTH_CLIENT_NAME,
   });
@@ -440,11 +460,15 @@ async function createStandalonePersistence(options: {
     withTransaction: callback => db.transaction().execute(callback),
     sessionStore: new SqliteSessionStore(db),
     sessionMetricsStore: new SqliteSessionMetricsStore(db),
-    mcpOAuthStore: mcpServerStore,
+    mcpOAuthClientStore: mcpServerPersistenceStore,
     tokenStore,
     scheduleStore: new SqliteScheduleStore(db),
     resolveModelProviderStore: () => modelProviderStore,
-    resolveMcpServerStore: () => mcpServerStore,
+    resolveMcpServerCapabilities: () => ({
+      store: mcpServerPersistenceStore,
+      oauthClientStore: mcpServerPersistenceStore,
+      resolver: mcpServerResolver,
+    }),
     resolveSandboxProviderStore: () => sandboxProviderStore,
     resolveWebSearchProviderStore: () => webSearchProviderStore,
     resolveSkillStore: () => skillStore,
@@ -539,11 +563,6 @@ async function createDistributedPersistence(options: {
   const tokenStore = new PostgresOAuthTokenStore(db);
   const modelProviderStore = new PostgresModelProviderStore(db);
   const mcpServerStore = new PostgresMcpServerStore(db);
-  const mcpServerWithAuthStore = new McpServerWithAuthStore({
-    store: mcpServerStore,
-    tokenStore,
-    clientName: configuration.MCP_DCR_OAUTH_CLIENT_NAME,
-  });
   const sandboxProviderStore = new PostgresSandboxProviderStore(db);
   const webSearchProviderStore = new PostgresWebSearchProviderStore(db);
   const skillStore = new PostgresSkillStore(db);
@@ -558,7 +577,7 @@ async function createDistributedPersistence(options: {
     client: serviceFoundryClient,
     logger,
   });
-  const resolveMcpServerStore = buildResolveMcpServerStore({
+  const resolveMcpServerCapabilities = buildResolveMcpServerCapabilities({
     persistenceStore: mcpServerStore,
     tokenStore,
     client: serviceFoundryClient,
@@ -583,11 +602,11 @@ async function createDistributedPersistence(options: {
     withTransaction: callback => db.transaction().execute(callback),
     sessionStore: new PostgresSessionStore(db),
     sessionMetricsStore: new PostgresSessionMetricsStore(db),
-    mcpOAuthStore: mcpServerWithAuthStore,
+    mcpOAuthClientStore: mcpServerStore,
     tokenStore,
     scheduleStore: new PostgresScheduleStore(db),
     resolveModelProviderStore,
-    resolveMcpServerStore,
+    resolveMcpServerCapabilities,
     resolveSandboxProviderStore,
     resolveWebSearchProviderStore,
     resolveSkillStore,
@@ -624,7 +643,7 @@ async function createServerRuntime<TTransaction>(persistence: ServerPersistence<
     sessionMetricsStore,
     tokenStore,
     scheduleStore,
-    mcpOAuthStore,
+    mcpOAuthClientStore,
     agentStore,
     sandboxEnvironmentStore,
     resolveTurnSkillsStore,
@@ -699,11 +718,8 @@ async function createServerRuntime<TTransaction>(persistence: ServerPersistence<
         : {}),
     });
   };
-  const resolveMcpServerStore = (input: ResolveMcpServerStoreInput) => {
+  const resolveMcpServerCapabilities = (input: ResolveMcpServerStoreInput): McpServerCapabilities<TTransaction> => {
     const { c, runAsAgent, allowInlineResources = false } = input;
-    if (c === undefined) {
-      return mcpOAuthStore;
-    }
     const rawPerServerHeaders = c.req.header(X_TFG_MCP_HEADERS);
     const rawInlineMcpServersHeader = c.req.header(X_TFG_MCP);
     if (rawInlineMcpServersHeader !== undefined) {
@@ -713,7 +729,7 @@ async function createServerRuntime<TTransaction>(persistence: ServerPersistence<
         allowInlineResources,
       });
     }
-    return persistence.resolveMcpServerStore({
+    return persistence.resolveMcpServerCapabilities({
       rc: resolveRequestContext(c),
       ...(runAsAgent !== undefined ? { runAsAgent } : {}),
       ...(rawPerServerHeaders !== undefined ? { perServerHeaders: parsePerServerMcpHeaders(rawPerServerHeaders) } : {}),
@@ -722,6 +738,10 @@ async function createServerRuntime<TTransaction>(persistence: ServerPersistence<
         : {}),
     });
   };
+  const resolveMcpServerStore = (input: ResolveMcpServerStoreInput) => resolveMcpServerCapabilities(input).store;
+  const resolveMcpOAuthClientStore = (input: ResolveMcpServerStoreInput) =>
+    resolveMcpServerCapabilities(input).oauthClientStore;
+  const resolveMcpServerResolver = (input: ResolveMcpServerStoreInput) => resolveMcpServerCapabilities(input).resolver;
   const resolveAgentStore = (c: Context) => persistence.resolveAgentStore(resolveRequestContext(c));
   const resolveSandboxProviderStore = (c: Context) => persistence.resolveSandboxProviderStore(resolveRequestContext(c));
   const resolveWebSearchProviderStore = (c: Context) =>
@@ -767,7 +787,10 @@ async function createServerRuntime<TTransaction>(persistence: ServerPersistence<
     sandboxCatalog: SandboxCatalog.load(),
     webSearchCatalog: WebSearchCatalog.load(),
     resolveModelProviderStore,
+    mcpOAuthClientStore,
     resolveMcpServerStore,
+    resolveMcpOAuthClientStore,
+    resolveMcpServerResolver,
     resolveAgentStore,
     resolveSandboxProviderStore,
     resolveWebSearchProviderStore,

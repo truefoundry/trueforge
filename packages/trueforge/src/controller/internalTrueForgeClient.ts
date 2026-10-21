@@ -3,19 +3,14 @@
  */
 import { TrueForge } from '@truefoundry/trueforge-sdk';
 import configuration from '../config';
-import { createTlsFetch, normalizeTlsUrl } from '../http/tls';
+import { internalTlsFetch, normalizeTlsUrl } from '../http/tls';
 
 function createClient(): TrueForge {
-  const tls = {
-    enabled: configuration.MTLS_ENABLED,
-    dir: configuration.MTLS_CERTS_DIR,
-  };
-  const tlsFetch = createTlsFetch(tls);
   return new TrueForge({
-    baseUrl: normalizeTlsUrl({ url: configuration.SERVER_URL, enabled: tls.enabled }),
+    baseUrl: normalizeTlsUrl({ url: configuration.SERVER_URL, enabled: configuration.MTLS_ENABLED }),
     token: configuration.TRUEFORGE_API_KEY,
     timeoutInSeconds: 60,
-    ...(tlsFetch === undefined ? {} : { fetch: tlsFetch }),
+    fetch: internalTlsFetch(configuration),
   });
 }
 

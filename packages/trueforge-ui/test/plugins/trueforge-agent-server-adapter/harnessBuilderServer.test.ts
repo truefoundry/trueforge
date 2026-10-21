@@ -449,6 +449,7 @@ describe('harnessBuilderServer', () => {
       agentSpec: {
         model: { name: 'test/model' },
         skills: [{ name: 'review' }],
+        mcpServers: [{ name: 'trueforge' }],
       },
       intent: 'create',
     });

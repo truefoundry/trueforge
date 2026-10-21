@@ -4,6 +4,17 @@
 import { z } from '@hono/zod-openapi';
 
 /**
+ * First-party brand namespaces reserved across all user-named resources (agents, MCP servers,
+ * sandbox environments); a user-supplied name may not claim them.
+ */
+export const RESERVED_RESOURCE_NAMES = new Set(['tfg', 'trueforge', 'truefoundry']);
+
+/** True when `name` collides with a reserved first-party brand namespace. */
+export function isReservedResourceName(name: string): boolean {
+  return RESERVED_RESOURCE_NAMES.has(name);
+}
+
+/**
  * Shared local resource name (agents, skills, MCP, models, schedules).
  * 2–64 lowercase chars, letter start, letter/digit end, hyphens only (matches SVC).
  *
@@ -21,6 +32,7 @@ export const NameSchema = z
     /^[a-z][a-z0-9-]{0,62}[a-z0-9]$/,
     'must be 2–64 lowercase chars: start with a letter, end with alphanumeric, hyphens only in between',
   )
+  .refine(name => !isReservedResourceName(name), { message: 'name is reserved' })
   .openapi('ResourceName');
 
 export type ResourceName = z.infer<typeof NameSchema>;

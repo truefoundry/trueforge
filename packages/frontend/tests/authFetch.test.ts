@@ -17,6 +17,19 @@ describe('buildLoginHref', () => {
 });
 
 describe('createAuthAwareFetch', () => {
+  it('marks requests as coming from the browser client', async () => {
+    let receivedHeaders: Headers | undefined;
+    const wrapped = createAuthAwareFetch(async (_input, init) => {
+      receivedHeaders = new Headers(init?.headers);
+      return new Response('ok', { status: 200 });
+    });
+
+    await wrapped('/api/v1/models', { headers: { 'x-existing': 'preserved' } });
+
+    assert.equal(receivedHeaders?.get('x-trueforge-client'), 'browser');
+    assert.equal(receivedHeaders?.get('x-existing'), 'preserved');
+  });
+
   it('passes through non-401 responses', async () => {
     const wrapped = createAuthAwareFetch(async () => new Response('ok', { status: 200 }));
     const response = await wrapped('/api/v1/models');

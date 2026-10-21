@@ -1,9 +1,9 @@
 /**
- * Backend-agnostic behavioural contract for IMcpServerStore.
+ * Backend-agnostic behavioural contract for MCP definition and OAuth client persistence.
  * Runs under jest against a fresh store per test (see backend test files).
  */
 import { McpServerNameConflictError, type IMcpServerStore } from '../../src/db/mcpServerStore';
-import type { OAuthClientRecord } from '../../src/mcp/auth/types';
+import type { IOAuthClientStore, OAuthClientRecord } from '../../src/mcp/auth/types';
 import type { RemoteMcpServerManifest } from '../../src/schemas/mcpServer';
 
 const TENANT = 'default';
@@ -33,7 +33,7 @@ const sampleOAuthClient: OAuthClientRecord = {
 
 const ISO_UTC = /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}\.\d{3}Z$/;
 
-export function runMcpServerStoreContractSuite(getStore: () => IMcpServerStore): void {
+export function runMcpServerStoreContractSuite(getStore: () => IMcpServerStore & IOAuthClientStore): void {
   it('upsert creates a server and round-trips the manifest', async () => {
     const store = getStore();
     const created = await store.upsertServer({

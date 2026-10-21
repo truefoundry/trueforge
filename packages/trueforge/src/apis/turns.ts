@@ -36,10 +36,9 @@ import { streamSSE } from 'hono/streaming';
 import type { Logger } from 'winston';
 import type { ResolveMcpServerStoreInput, ResolveModelProviderStoreInput, ResolveTurnSkillsStoreInput } from '../app';
 import type { Authorizer } from '../auth/authorizer';
-import type { ResolveRequestContext } from '../auth/identity';
+import type { RequestContext, ResolveRequestContext } from '../auth/identity';
 import configuration from '../config';
 import type { AgentRecord, IAgentStore } from '../db/agentStore';
-import type { IMcpServerWithAuthStore } from '../db/mcpServerStore';
 import type { IModelProviderStore } from '../db/modelProviderStore';
 import type { ISandboxEnvironmentStore } from '../db/sandboxEnvironmentStore';
 import type { ISandboxProviderStore } from '../db/sandboxProviderStore';
@@ -47,6 +46,7 @@ import type { ISkillStore } from '../db/skillStore';
 import type { TurnMetadata } from '../db/turnMetadata';
 import type { IWebSearchProviderStore } from '../db/webSearchProviderStore';
 import { currentLogContext, updateLogContext } from '../logger';
+import { TrueForgeMcpServerResolver } from '../mcp/server/trueforge/route';
 import {
   createAndExecuteTurnRoute,
   createTurnEventRoute,
@@ -58,6 +58,7 @@ import {
 } from '../routes/turnRoutes';
 import type { ActiveTurnRegistry } from '../runtime/activeTurns';
 import { StreamGoneError, type EventSubscription, type EventSubscriptionRegistry } from '../runtime/event-subscription';
+import type { IMcpServerResolver } from '../runtime/McpServerResolver';
 import { validateSandboxFilePath } from '../runtime/sandboxFilePath';
 import {
   buildTurnSandbox,
@@ -120,7 +121,7 @@ export interface TurnsRouterDeps {
   sessionStore: ISessionStore;
   activeTurns: ActiveTurnRegistry;
   resolveModelProviderStore: (input: ResolveModelProviderStoreInput) => IModelProviderStore;
-  resolveMcpServerStore: (input: ResolveMcpServerStoreInput) => IMcpServerWithAuthStore;
+  resolveMcpServerResolver: (input: ResolveMcpServerStoreInput) => IMcpServerResolver;
   resolveTurnSkillsStore: (input: ResolveTurnSkillsStoreInput) => Pick<ISkillStore, 'resolveTurnSkills'>;
   resolveAgentStore: (c: Context) => IAgentStore;
   /** Resumable live turn-event transport: create-turn writes, subscribe polls. */
@@ -144,7 +145,8 @@ export type BeginTurnExecutionDeps = Pick<
 > & {
   agentStore: IAgentStore;
   modelProviderStore: IModelProviderStore;
-  mcpServerStore: IMcpServerWithAuthStore;
+  mcpServerStore: IMcpServerResolver;
+  requestContext: RequestContext | undefined;
   sandboxProviderStore: ISandboxProviderStore;
   webSearchProviderStore: IWebSearchProviderStore;
   skillStore: Pick<ISkillStore, 'resolveTurnSkills'>;
@@ -165,7 +167,8 @@ interface BeginTurnExecutionParams {
  * the same way: async factories over the corresponding stores.
  */
 function createTurnResolver(deps: {
-  mcpServerStore: IMcpServerWithAuthStore;
+  mcpServerStore: IMcpServerResolver;
+  requestContext: RequestContext | undefined;
   skillStore: Pick<ISkillStore, 'resolveTurnSkills'>;
   sandboxProviderStore: ISandboxProviderStore;
   sandboxEnvironmentStore: ISandboxEnvironmentStore;
@@ -180,6 +183,7 @@ function createTurnResolver(deps: {
 }): TurnResourceResolver {
   const {
     mcpServerStore,
+    requestContext,
     skillStore,
     sandboxProviderStore,
     sandboxEnvironmentStore,
@@ -194,6 +198,10 @@ function createTurnResolver(deps: {
   } = deps;
   const tenant_id = session.tenant_id;
   const sessionId = session.session_id;
+  const mcpServerResolver =
+    requestContext === undefined
+      ? mcpServerStore
+      : new TrueForgeMcpServerResolver({ inner: mcpServerStore, requestContext });
 
   return new TurnResourceResolver({
     llm: async name => {
@@ -217,7 +225,7 @@ function createTurnResolver(deps: {
       const connection = await getMcpConnection({
         tenant_id,
         name,
-        store: mcpServerStore,
+        resolver: mcpServerResolver,
         userRef,
         turnMetadata,
       });
@@ -226,10 +234,7 @@ function createTurnResolver(deps: {
           message: `Unknown MCP server "${name}" — not configured`,
         });
       }
-      return {
-        url: connection.url,
-        headers: connection.headers,
-      };
+      return connection;
     },
     mcpRequestTimeoutMs: configuration.MCP_REQUEST_TIMEOUT_MS,
     mcpConnectTimeoutMs: configuration.MCP_CONNECT_TIMEOUT_MS,
@@ -448,6 +453,7 @@ export async function beginTurnExecution(
   });
   const resolver = createTurnResolver({
     mcpServerStore: deps.mcpServerStore,
+    requestContext: deps.requestContext,
     skillStore: deps.skillStore,
     sandboxProviderStore: deps.sandboxProviderStore,
     sandboxEnvironmentStore: deps.sandboxEnvironmentStore,
@@ -831,12 +837,13 @@ export function createTurnsRouter(deps: TurnsRouterDeps) {
           allowInlineResources,
           ...(referencedAgent !== undefined ? { runAsAgent: referencedAgent } : {}),
         }),
-        mcpServerStore: deps.resolveMcpServerStore({
+        mcpServerStore: deps.resolveMcpServerResolver({
           c,
           allowInlineResources,
           ...(referencedAgent !== undefined ? { runAsAgent: referencedAgent } : {}),
         }),
         skillStore: deps.resolveTurnSkillsStore({ c, allowInlineResources }),
+        requestContext,
         agentStore: deps.resolveAgentStore(c),
         sandboxProviderStore: deps.resolveSandboxProviderStore(c),
         sandboxEnvironmentStore: deps.sandboxEnvironmentStore,

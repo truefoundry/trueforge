@@ -6,7 +6,6 @@ import { createTurnsRouter } from '../../../src/apis/turns';
 import { createAppErrorHandler } from '../../../src/app';
 import { TrueForgeAuthorizer } from '../../../src/auth/authorizer';
 import { STANDALONE_REQUEST_CONTEXT } from '../../../src/auth/identity';
-import { McpServerWithAuthStore } from '../../../src/db/McpServerWithAuthStore';
 import { migrateSqliteToLatest } from '../../../src/db/migrateSqlite';
 import { SqliteAgentStore } from '../../../src/db/sqlite/agent-store/SqliteAgentStore';
 import { createSqliteDb } from '../../../src/db/sqlite/client';
@@ -20,6 +19,7 @@ import { SqliteOAuthTokenStore } from '../../../src/db/sqlite/token-store/Sqlite
 import { SqliteWebSearchProviderStore } from '../../../src/db/sqlite/web-search-provider-store/SqliteWebSearchProviderStore';
 import { ActiveTurnRegistry } from '../../../src/runtime/activeTurns';
 import { EventSubscriptionRegistry } from '../../../src/runtime/event-subscription/index.js';
+import { McpServerResolver } from '../../../src/runtime/McpServerResolver';
 
 async function postTurnRejectingWith(error: AgentHarnessError): Promise<Response> {
   const db = createSqliteDb(':memory:');
@@ -72,8 +72,8 @@ async function postTurnRejectingWith(error: AgentHarnessError): Promise<Response
       sessionStore: new SqliteSessionStore(db),
       activeTurns: new ActiveTurnRegistry(),
       resolveModelProviderStore: () => modelProviderStore,
-      resolveMcpServerStore: () =>
-        new McpServerWithAuthStore({
+      resolveMcpServerResolver: () =>
+        new McpServerResolver({
           store: new SqliteMcpServerStore(db),
           tokenStore,
           clientName: 'test-client',

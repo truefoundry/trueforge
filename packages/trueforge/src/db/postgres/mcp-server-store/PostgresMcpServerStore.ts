@@ -1,5 +1,5 @@
 import type { Kysely, Selectable, Transaction } from 'kysely';
-import type { OAuthClientRecord } from '../../../mcp/auth/types';
+import type { IOAuthClientStore, OAuthClientRecord } from '../../../mcp/auth/types';
 import { newId } from '../../../utils/id';
 import {
   fromStoredOAuthClientRecord,
@@ -28,7 +28,9 @@ function toRecord(row: Selectable<McpServerTable>): McpServerRecord {
   };
 }
 
-export class PostgresMcpServerStore implements IMcpServerStore<Transaction<Database>> {
+export class PostgresMcpServerStore
+  implements IMcpServerStore<Transaction<Database>>, IOAuthClientStore<Transaction<Database>>
+{
   readonly #db: Kysely<Database>;
 
   constructor(db: Kysely<Database>) {

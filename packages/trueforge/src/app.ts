@@ -42,7 +42,7 @@ import type { SkillCatalog } from './catalog/SkillCatalog';
 import type { WebSearchCatalog } from './catalog/WebSearchCatalog';
 import configuration, { getPublicUiBasePath, getTrueForgeAuthMode, TrueForgeAuthMode } from './config';
 import type { AgentRecord, IAgentStore } from './db/agentStore';
-import type { IMcpServerWithAuthStore } from './db/mcpServerStore';
+import type { IMcpServerStore } from './db/mcpServerStore';
 import type { IModelProviderStore } from './db/modelProviderStore';
 import type { ISandboxEnvironmentStore } from './db/sandboxEnvironmentStore';
 import type { ISandboxProviderStore } from './db/sandboxProviderStore';
@@ -54,11 +54,13 @@ import type { IWebSearchProviderStore } from './db/webSearchProviderStore';
 import { createHttpMetrics } from './http/prometheus';
 import { createClientCertificateMiddleware } from './http/tls';
 import { runWithLogContext, updateLogContext, type LogContext } from './logger';
-import type { IOAuthTokenStore } from './mcp/auth/types';
+import type { IOAuthClientStore, IOAuthTokenStore } from './mcp/auth/types';
+import { createTrueForgeMcpRouter } from './mcp/server/trueforge/route';
 import { PACKAGE_VERSION } from './packageVersion';
 import { OPENAPI_DOCUMENT_TAGS } from './routes/openapiTags';
 import type { ActiveTurnRegistry } from './runtime/activeTurns';
 import type { EventSubscriptionRegistry } from './runtime/event-subscription';
+import type { IMcpServerResolver } from './runtime/McpServerResolver';
 import { InvalidCronError } from './schemas/schedule';
 import { zodErrorResponse, zodValidationHook } from './zodErrorResponse';
 
@@ -246,9 +248,9 @@ export interface ResolveModelProviderStoreInput {
   allowInlineResources?: boolean;
 }
 
-/** HTTP MCP store resolve. Omit `c` for the unauthenticated OAuth callback. */
+/** HTTP MCP capability resolve. */
 export interface ResolveMcpServerStoreInput {
-  c?: Context;
+  c: Context;
   runAsAgent?: AgentRecord;
   allowInlineResources?: boolean;
 }
@@ -276,11 +278,11 @@ export interface ServerDeps<TTransaction> {
   webSearchCatalog: WebSearchCatalog;
   /** Per-request store: DB singleton, or a token-bound TrueFoundry store in TrueFoundry mode. */
   resolveModelProviderStore: (input: ResolveModelProviderStoreInput) => IModelProviderStore<TTransaction>;
-  /**
-   * Per-request store: DB singleton, or a token-bound TrueFoundry store in TrueFoundry mode.
-   * The unauthenticated OAuth callback omits `c` and gets the DB persistence store.
-   */
-  resolveMcpServerStore: (input: ResolveMcpServerStoreInput) => IMcpServerWithAuthStore<TTransaction>;
+  /** OAuth client persistence for the public callback, which has no authenticated request context. */
+  mcpOAuthClientStore: IOAuthClientStore<TTransaction>;
+  resolveMcpServerStore: (input: ResolveMcpServerStoreInput) => IMcpServerStore<TTransaction>;
+  resolveMcpOAuthClientStore: (input: ResolveMcpServerStoreInput) => IOAuthClientStore<TTransaction>;
+  resolveMcpServerResolver: (input: ResolveMcpServerStoreInput) => IMcpServerResolver;
   /** Per-request store: DB singleton, or a token-bound TrueFoundry decorator in TrueFoundry mode. */
   resolveAgentStore: (c: Context) => IAgentStore<TTransaction>;
   /**
@@ -340,7 +342,7 @@ export function createServerApp<TTransaction>(deps: ServerDeps<TTransaction>) {
     eventSubscriptions: deps.eventSubscriptions,
     logger: deps.logger,
     resolveModelProviderStore: deps.resolveModelProviderStore,
-    resolveMcpServerStore: deps.resolveMcpServerStore,
+    resolveMcpServerResolver: deps.resolveMcpServerResolver,
     resolveSandboxProviderStore: deps.resolveSandboxProviderStore,
     sandboxEnvironmentStore: deps.sandboxEnvironmentStore,
     resolveWebSearchProviderStore: deps.resolveWebSearchProviderStore,
@@ -416,7 +418,7 @@ export function createServerApp<TTransaction>(deps: ServerDeps<TTransaction>) {
     '/api/v1/mcp-servers/oauth',
     createMcpOAuthRouter({
       tokenStore: deps.tokenStore,
-      mcpServerStore: deps.resolveMcpServerStore({}),
+      mcpServerStore: deps.mcpOAuthClientStore,
       logger: deps.logger,
       resolveSession: c => tryAuthenticate({ authenticator: deps.authenticator, context: c }),
     }),
@@ -426,6 +428,8 @@ export function createServerApp<TTransaction>(deps: ServerDeps<TTransaction>) {
     withAuth(
       createMcpServersRouter({
         resolveMcpServerStore: c => deps.resolveMcpServerStore({ c }),
+        resolveMcpOAuthClientStore: c => deps.resolveMcpOAuthClientStore({ c }),
+        resolveMcpServerResolver: c => deps.resolveMcpServerResolver({ c }),
         tokenStore: deps.tokenStore,
         withTransaction: deps.withTransaction,
         logger: deps.logger,
@@ -510,6 +514,8 @@ export function createServerApp<TTransaction>(deps: ServerDeps<TTransaction>) {
       createSettingsRouter({
         resolveModelProviderStore: deps.resolveModelProviderStore,
         resolveMcpServerStore: deps.resolveMcpServerStore,
+        resolveMcpOAuthClientStore: deps.resolveMcpOAuthClientStore,
+        resolveMcpServerResolver: deps.resolveMcpServerResolver,
         tokenStore: deps.tokenStore,
         resolveSkillStore: c => deps.resolveSkillStore({ c }),
         resolveSandboxProviderStore: deps.resolveSandboxProviderStore,
@@ -597,7 +603,7 @@ export function createServerApp<TTransaction>(deps: ServerDeps<TTransaction>) {
         sessionStore: deps.sessionStore,
         activeTurns: deps.activeTurns,
         resolveModelProviderStore: deps.resolveModelProviderStore,
-        resolveMcpServerStore: deps.resolveMcpServerStore,
+        resolveMcpServerResolver: deps.resolveMcpServerResolver,
         resolveTurnSkillsStore: deps.resolveTurnSkillsStore,
         resolveAgentStore: deps.resolveAgentStore,
         eventSubscriptions: deps.eventSubscriptions,
@@ -610,6 +616,16 @@ export function createServerApp<TTransaction>(deps: ServerDeps<TTransaction>) {
       }),
       authMiddleware,
     ),
+  );
+
+  // First-party TrueForge MCP (Streamable HTTP). Protocol endpoint.
+  app.use('/mcp', authMiddleware);
+  app.route(
+    '/mcp',
+    createTrueForgeMcpRouter({
+      resolveRequestContext,
+      version: PACKAGE_VERSION,
+    }),
   );
 
   const uiBasePath = getPublicUiBasePath();

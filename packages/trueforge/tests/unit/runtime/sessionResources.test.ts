@@ -184,6 +184,21 @@ describe('validateAgentSpec', () => {
     } satisfies Partial<HTTPException>);
   });
 
+  it('allows the built-in trueforge MCP without a configured server', async () => {
+    const stores = await setup();
+    await expect(
+      validateAgentSpec({
+        spec: AgentSpecSchema.parse({
+          model: { name: 'test-provider/test-model' },
+          mcp_servers: [{ name: 'trueforge' }],
+        }),
+        tenant_id: 'default',
+        created_by_subject_id: 'test-subject',
+        ...stores,
+      }),
+    ).resolves.toBeUndefined();
+  });
+
   it('rejects unknown skill with 422', async () => {
     const stores = await setup();
     await expect(

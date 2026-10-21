@@ -114,7 +114,7 @@ describe('createHarnessChatServer', () => {
     assert.deepEqual(sent.agent, {
       spec: {
         model: { name: 'test/model' },
-        mcp_servers: [{ name: 'github', enable_tools: ['@all'] }],
+        mcp_servers: [{ name: 'github', enable_tools: ['@all'] }, { name: 'trueforge' }],
         skills: [{ name: skillName, preload: true }],
       },
     });

@@ -7,7 +7,6 @@ import { createSessionsRouter } from '../../../src/apis/sessions';
 import { createTurnsRouter } from '../../../src/apis/turns';
 import { TrueForgeAuthorizer } from '../../../src/auth/authorizer';
 import { STANDALONE_REQUEST_CONTEXT } from '../../../src/auth/identity';
-import { McpServerWithAuthStore } from '../../../src/db/McpServerWithAuthStore';
 import { migrateSqliteToLatest } from '../../../src/db/migrateSqlite';
 import { SqliteAgentStore } from '../../../src/db/sqlite/agent-store/SqliteAgentStore';
 import { createSqliteDb } from '../../../src/db/sqlite/client';
@@ -21,6 +20,7 @@ import { SqliteOAuthTokenStore } from '../../../src/db/sqlite/token-store/Sqlite
 import { SqliteWebSearchProviderStore } from '../../../src/db/sqlite/web-search-provider-store/SqliteWebSearchProviderStore';
 import { ActiveTurnRegistry } from '../../../src/runtime/activeTurns';
 import { EventSubscriptionRegistry } from '../../../src/runtime/event-subscription/index.js';
+import { McpServerResolver } from '../../../src/runtime/McpServerResolver';
 import { ListSessionsResponseSchema } from '../../../src/schemas/session';
 
 describe('public CRUD after session deletion', () => {
@@ -32,8 +32,9 @@ describe('public CRUD after session deletion', () => {
     const activeTurns = new ActiveTurnRegistry();
     const modelProviderStore = new SqliteModelProviderStore(db);
     const tokenStore = new SqliteOAuthTokenStore(db);
-    const mcpServerStore = new McpServerWithAuthStore({
-      store: new SqliteMcpServerStore(db),
+    const mcpServerStore = new SqliteMcpServerStore(db);
+    const mcpServerResolver = new McpServerResolver({
+      store: mcpServerStore,
       tokenStore,
       clientName: 'test-client',
     });
@@ -71,7 +72,7 @@ describe('public CRUD after session deletion', () => {
         sessionStore,
         activeTurns,
         resolveModelProviderStore: () => modelProviderStore,
-        resolveMcpServerStore: () => mcpServerStore,
+        resolveMcpServerResolver: () => mcpServerResolver,
         resolveTurnSkillsStore: () => skillStore,
         resolveAgentStore: () => agentStore,
         eventSubscriptions: new EventSubscriptionRegistry(undefined),

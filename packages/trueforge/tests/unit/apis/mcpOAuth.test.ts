@@ -9,14 +9,13 @@ import { createMcpServersRouter, createSettingsMcpServersRouter } from '../../..
 import type { RequestContext } from '../../../src/auth/identity';
 import { STANDALONE_REQUEST_CONTEXT } from '../../../src/auth/identity';
 import configuration from '../../../src/config';
-import { McpServerWithAuthStore } from '../../../src/db/McpServerWithAuthStore';
-import type { IMcpServerWithAuthStore } from '../../../src/db/mcpServerStore';
 import { migrateSqliteToLatest } from '../../../src/db/migrateSqlite';
 import { SqliteAgentStore } from '../../../src/db/sqlite/agent-store/SqliteAgentStore';
 import { createSqliteDb } from '../../../src/db/sqlite/client';
 import { SqliteMcpServerStore } from '../../../src/db/sqlite/mcp-server-store/SqliteMcpServerStore';
 import { SqliteOAuthTokenStore } from '../../../src/db/sqlite/token-store/SqliteOAuthTokenStore';
 import { mcpOAuthCallbackUrl } from '../../../src/mcp/auth/mcpOAuthHelpers';
+import { McpServerResolver, type IMcpServerResolver } from '../../../src/runtime/McpServerResolver';
 
 jest.mock('undici', () => {
   const actual = jest.requireActual<typeof import('undici')>('undici');
@@ -92,7 +91,8 @@ describe('MCP OAuth authorize + callback', () => {
   let settingsRouter: ReturnType<typeof createSettingsMcpServersRouter>;
   let mcpServersRouter: ReturnType<typeof createMcpServersRouter>;
   let oauthRouter: ReturnType<typeof createMcpOAuthRouter>;
-  let mcpServerStore: IMcpServerWithAuthStore;
+  let mcpServerStore: SqliteMcpServerStore;
+  let mcpServerResolver: IMcpServerResolver;
   let tokenStore: SqliteOAuthTokenStore;
   let withTransaction: <T>(callback: (transaction: unknown) => Promise<T>) => Promise<T>;
   let logger: ReturnType<typeof winston.createLogger>;
@@ -106,8 +106,9 @@ describe('MCP OAuth authorize + callback', () => {
     const db = createSqliteDb(':memory:');
     await migrateSqliteToLatest(db);
     tokenStore = new SqliteOAuthTokenStore(db);
-    mcpServerStore = new McpServerWithAuthStore({
-      store: new SqliteMcpServerStore(db),
+    mcpServerStore = new SqliteMcpServerStore(db);
+    mcpServerResolver = new McpServerResolver({
+      store: mcpServerStore,
       tokenStore,
       clientName: configuration.MCP_DCR_OAUTH_CLIENT_NAME,
     });
@@ -115,6 +116,8 @@ describe('MCP OAuth authorize + callback', () => {
     logger = winston.createLogger({ silent: true });
     settingsRouter = createSettingsMcpServersRouter({
       resolveMcpServerStore: () => mcpServerStore,
+      resolveMcpOAuthClientStore: () => mcpServerStore,
+      resolveMcpServerResolver: () => mcpServerResolver,
       resolveAgentStore: () => new SqliteAgentStore(db),
       tokenStore,
       withTransaction,
@@ -123,6 +126,8 @@ describe('MCP OAuth authorize + callback', () => {
     });
     mcpServersRouter = createMcpServersRouter({
       resolveMcpServerStore: () => mcpServerStore,
+      resolveMcpOAuthClientStore: () => mcpServerStore,
+      resolveMcpServerResolver: () => mcpServerResolver,
       tokenStore,
       withTransaction,
       logger,
@@ -280,6 +285,8 @@ describe('MCP OAuth authorize + callback', () => {
   it('authorize for one user does not authenticate another user on the same server', async () => {
     const otherRouter = createMcpServersRouter({
       resolveMcpServerStore: () => mcpServerStore,
+      resolveMcpOAuthClientStore: () => mcpServerStore,
+      resolveMcpServerResolver: () => mcpServerResolver,
       tokenStore,
       withTransaction,
       logger,

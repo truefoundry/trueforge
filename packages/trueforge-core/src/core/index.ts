@@ -73,13 +73,23 @@ export type {
 export { LocalToolMCP, defineTool } from './mcp/LocalToolMCP';
 export type { ToolDefinition } from './mcp/LocalToolMCP';
 
-// Remote MCP server, split into a shared, policy-free connection (`RemoteMCP`) and a per-agent policy
-// wrapper (`ToolSet`). `RemoteMCP` connects itself from a `url` + `headers`; the networking helpers
+// Remote MCP server, split into a shared, tool-policy-free connection (`RemoteMCP`) and a per-agent
+// policy wrapper (`ToolSet`). `RemoteMCP` connects itself from a `RemoteMcpEndpoint`; networking helpers
 // live in the harness-internal `remoteMcpClient` module.
 export { RemoteMCP } from './mcp/RemoteMCP';
-export type { RemoteMcpHeaders, ResolveHeadersResult } from './mcp/RemoteMCP';
+export type {
+  RemoteMcpEndpoint,
+  RemoteMcpHeaders,
+  ResolveHeadersResult,
+  ResolvedMcpServer,
+} from './mcp/RemoteMCP';
 export { DEFAULT_MAX_MCP_RESPONSE_BYTES } from './mcp/remoteMcpClient';
-export type { RemoteMcpConnection, RemoteMcpTransportType } from './mcp/remoteMcpClient';
+export type {
+  RemoteMcpConnection,
+  RemoteMcpFetch,
+  RemoteMcpNetworkPolicy,
+  RemoteMcpTransportType,
+} from './mcp/remoteMcpClient';
 export type { ToolSelectorConfig } from './mcp/ToolSelectorPolicy';
 export {
   DEFAULT_DISABLE_TOOLS,

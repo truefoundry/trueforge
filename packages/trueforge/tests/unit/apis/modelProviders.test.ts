@@ -11,7 +11,6 @@ import { SandboxCatalog } from '../../../src/catalog/SandboxCatalog';
 import { SkillCatalog } from '../../../src/catalog/SkillCatalog';
 import { WebSearchCatalog } from '../../../src/catalog/WebSearchCatalog';
 import configuration from '../../../src/config';
-import { McpServerWithAuthStore } from '../../../src/db/McpServerWithAuthStore';
 import { migrateSqliteToLatest } from '../../../src/db/migrateSqlite';
 import type { IModelProviderStore } from '../../../src/db/modelProviderStore';
 import { SqliteAgentStore } from '../../../src/db/sqlite/agent-store/SqliteAgentStore';
@@ -23,6 +22,7 @@ import { SqliteSandboxProviderStore } from '../../../src/db/sqlite/sandbox-provi
 import { SqliteSkillStore } from '../../../src/db/sqlite/skill-store/SqliteSkillStore';
 import { SqliteOAuthTokenStore } from '../../../src/db/sqlite/token-store/SqliteOAuthTokenStore';
 import { SqliteWebSearchProviderStore } from '../../../src/db/sqlite/web-search-provider-store/SqliteWebSearchProviderStore';
+import { McpServerResolver } from '../../../src/runtime/McpServerResolver';
 import { toRedactedSecretValue } from '../../../src/utils/secretRedaction';
 import { mountWithErrorHandler } from '../mountWithErrorHandler';
 
@@ -126,16 +126,19 @@ async function createRouters(): Promise<{
   const modelProviderStore = new SqliteModelProviderStore(db);
   const tokenStore = new SqliteOAuthTokenStore(db);
   const agentStore = new SqliteAgentStore(db);
+  const mcpServerStore = new SqliteMcpServerStore(db);
+  const mcpServerResolver = new McpServerResolver({
+    store: mcpServerStore,
+    tokenStore,
+    clientName: configuration.MCP_DCR_OAUTH_CLIENT_NAME,
+  });
   return {
     settingsRouter: mountWithErrorHandler(
       createSettingsRouter({
         resolveModelProviderStore: () => modelProviderStore,
-        resolveMcpServerStore: () =>
-          new McpServerWithAuthStore({
-            store: new SqliteMcpServerStore(db),
-            tokenStore,
-            clientName: configuration.MCP_DCR_OAUTH_CLIENT_NAME,
-          }),
+        resolveMcpServerStore: () => mcpServerStore,
+        resolveMcpOAuthClientStore: () => mcpServerStore,
+        resolveMcpServerResolver: () => mcpServerResolver,
         tokenStore,
         resolveSkillStore: () => new SqliteSkillStore(db),
         resolveSandboxProviderStore: () => new SqliteSandboxProviderStore(db),

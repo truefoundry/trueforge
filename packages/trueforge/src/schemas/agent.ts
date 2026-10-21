@@ -8,9 +8,7 @@ import {
   CreatedBySubjectSchema,
   TokenPaginationSchema,
 } from '@truefoundry/trueforge-core/agent-session';
-import { NameSchema } from './common';
-
-const RESERVED_AGENT_NAMES = new Set(['tfg', 'trueforge']);
+import { isReservedResourceName, NameSchema } from './common';
 
 export const AGENT_DESCRIPTION_MAX_LENGTH = 1024;
 
@@ -19,7 +17,7 @@ export const AgentDescriptionSchema = z.string().trim().min(1).max(AGENT_DESCRIP
 /** Create body: unique immutable `name` plus manifest. `id` is never client-supplied. */
 export const CreateAgentRequestSchema = z
   .object({
-    name: NameSchema.refine(name => !RESERVED_AGENT_NAMES.has(name), {
+    name: NameSchema.refine(name => !isReservedResourceName(name), {
       message: 'Agent name is reserved, cannot be used',
     }),
     description: AgentDescriptionSchema,

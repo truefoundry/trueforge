@@ -6,7 +6,7 @@ import type { TrueForge, TrueForgeApi } from '@truefoundry/trueforge-sdk';
 import type { AgentBuilderServer, AgentLibraryEntry, ModelSelection, SearchAgentsParams } from '../../server/types.js';
 import { AGENTS_PAGE_DEFAULT, clampAgentsPageSize, drainAgentsList, listAgentsPage } from './agentsList.js';
 import { toUiConnectorFromReadEntry, toUiTool } from './catalogs/connectorCatalog.js';
-import { toHarnessAgentSpec, toUiAgentSpec } from './chatServer.js';
+import { toHarnessSavedAgentSpec, toUiAgentSpec } from './chatServer.js';
 import { createTrueForgeClient, type CreateTrueForgeClientOptions } from './client.js';
 import { listConfiguredMcpServers, listSkills } from './lists.js';
 import type { HarnessAgentSpec } from './types.js';
@@ -138,7 +138,7 @@ export function createHarnessBuilderServer(
     },
 
     async saveAgent({ agentName, description: descriptionRaw, agentSpec, intent }) {
-      const manifest = toHarnessAgentSpec(agentSpec);
+      const manifest = toHarnessSavedAgentSpec(agentSpec);
       const description = descriptionRaw?.trim();
       if (intent === 'update') {
         const agents = await drainAgentsList(client);

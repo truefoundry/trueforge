@@ -1,6 +1,8 @@
 import { HTTPException } from 'hono/http-exception';
-import type { IMcpServerWithAuthStore, McpServerRecord } from '../../../src/db/mcpServerStore';
+import type { IMcpServerStore, McpServerRecord } from '../../../src/db/mcpServerStore';
 import type { IModelProviderStore, ModelProviderRecord } from '../../../src/db/modelProviderStore';
+import type { IOAuthClientStore } from '../../../src/mcp/auth/types';
+import type { IMcpServerResolver } from '../../../src/runtime/McpServerResolver';
 import { TFG_METADATA_PREFIX, X_TFY_METADATA } from '../../../src/truefoundry/gatewayMetadata';
 import { InlineMcpServerStore } from '../../../src/truefoundry/InlineMcpServerStore';
 import { InlineModelProviderStore } from '../../../src/truefoundry/InlineModelProviderStore';
@@ -72,9 +74,11 @@ function mcpStoreWith(inlineRaw: object) {
     listServers: jest.fn().mockResolvedValue([registryServer]),
     resolveInvokeHeaders: jest.fn().mockReturnValue({ Authorization: 'Bearer caller-token' }),
     resolveAuthStatuses: jest.fn().mockResolvedValue(new Map([['team-mcp', { status: 'not_required' }]])),
-  } as unknown as IMcpServerWithAuthStore;
+  } as unknown as IMcpServerStore & IOAuthClientStore & IMcpServerResolver;
   const store = new InlineMcpServerStore({
-    inner,
+    store: inner,
+    oauthClientStore: inner,
+    resolver: inner,
     inline: parseInlineMcpServers(JSON.stringify(inlineRaw)),
   });
   return { store, inner };

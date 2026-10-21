@@ -6,7 +6,7 @@ import {
   type AgentTracing,
   type DaytonaSandboxEnvironment,
   type ModelParams,
-  type RemoteMcpHeaders,
+  type ResolvedMcpServer,
   type SandboxProvider,
   type Skill,
   type VercelAIProviderConfig,
@@ -15,13 +15,15 @@ import { HTTPException } from 'hono/http-exception';
 import { join } from 'node:path';
 import type { Logger } from 'winston';
 import configuration from '../config';
-import type { IMcpServerStore, IMcpServerWithAuthStore } from '../db/mcpServerStore';
+import type { IMcpServerStore } from '../db/mcpServerStore';
 import type { IModelProviderStore } from '../db/modelProviderStore';
 import type { ISandboxEnvironmentStore } from '../db/sandboxEnvironmentStore';
 import type { ISandboxProviderStore } from '../db/sandboxProviderStore';
 import type { ISkillStore } from '../db/skillStore';
 import type { TurnMetadata } from '../db/turnMetadata';
 import type { IWebSearchProviderStore } from '../db/webSearchProviderStore';
+import { trueForgeMcpEndpoint } from '../mcp/server/trueforge/route';
+import { TRUEFORGE_CONNECTOR_NAME } from '../mcp/server/trueforge/server';
 import { LocalSandboxProvider } from '../sandbox/local/provider/LocalSandboxProvider';
 import { getCachedLocalSandboxSupport, isLocalSandboxFallbackEnabled } from '../sandbox/localRuntime';
 import {
@@ -32,10 +34,14 @@ import {
 import type { ReasoningEffort } from '../schemas/modelProvider';
 import { DEFAULT_SANDBOX_ENVIRONMENT_NAME } from '../schemas/sandboxEnvironment';
 import { hasConfiguredWebSearchProvider } from '../websearch/providers';
+import type { IMcpServerResolver } from './McpServerResolver';
 
-export interface McpConnection {
-  url: string;
-  headers: RemoteMcpHeaders;
+export interface GetMcpConnectionInput {
+  tenant_id: string;
+  name: string;
+  resolver: IMcpServerResolver;
+  userRef: string;
+  turnMetadata?: TurnMetadata;
 }
 
 /** Split `provider/model` FQN. Returns undefined when the shape is not exactly one slash. */
@@ -112,34 +118,34 @@ export async function getModelDetails({
 }
 
 /**
- * Load MCP url + headers for a configured server. Returns undefined when unregistered.
+ * Load a configured MCP server for a turn, including the description deferred tools show.
+ * Returns undefined when unregistered.
  *
  * TODO: OAuth header resolvers re-run on every RemoteMCP listTools/callTool; cache or gate later.
  */
 export async function getMcpConnection({
   tenant_id,
   name,
-  store,
+  resolver,
   userRef,
   turnMetadata,
-}: {
-  tenant_id: string;
-  name: string;
-  store: IMcpServerWithAuthStore;
-  userRef: string;
-  turnMetadata?: TurnMetadata;
-}): Promise<McpConnection | undefined> {
-  const record = await store.getServer({ tenant_id, name });
+}: GetMcpConnectionInput): Promise<ResolvedMcpServer | undefined> {
+  const record = await resolver.getServer({ tenant_id, name });
   if (record === undefined) {
     return undefined;
   }
+  const headers = resolver.resolveInvokeHeaders({
+    record,
+    userRef,
+    ...(turnMetadata === undefined ? {} : { turnMetadata }),
+  });
+  if (record.name === TRUEFORGE_CONNECTOR_NAME) {
+    return { ...trueForgeMcpEndpoint, headers, description: record.manifest.description };
+  }
   return {
     url: record.manifest.url,
-    headers: store.resolveInvokeHeaders({
-      record,
-      userRef,
-      ...(turnMetadata === undefined ? {} : { turnMetadata }),
-    }),
+    description: record.manifest.description,
+    headers,
   };
 }
 
@@ -299,16 +305,11 @@ export async function validateAgentSpec({
 
   const requestedMcpServers = spec.mcp_servers ?? [];
   if (requestedMcpServers.length > 0) {
-    const names = requestedMcpServers.map(server => server.name);
-    const configuredNames = new Set(
-      (
-        await mcpServerStore.listServers({
-          tenant_id,
-          names,
-        })
-      ).map(record => record.name),
-    );
-    const unknown = requestedMcpServers.find(server => !configuredNames.has(server.name));
+    const configuredRequests = requestedMcpServers.filter(server => server.name !== TRUEFORGE_CONNECTOR_NAME);
+    const names = configuredRequests.map(server => server.name);
+    const records = names.length === 0 ? [] : await mcpServerStore.listServers({ tenant_id, names });
+    const configuredNames = new Set(records.map(record => record.name));
+    const unknown = configuredRequests.find(server => !configuredNames.has(server.name));
     if (unknown !== undefined) {
       throw new HTTPException(422, {
         message: `Unknown MCP server "${unknown.name}" — not configured`,
