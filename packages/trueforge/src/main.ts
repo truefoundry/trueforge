@@ -31,6 +31,7 @@ let getTrueForgeAuthMode: typeof import('./config').getTrueForgeAuthMode;
 let getPublicUiBasePath: typeof import('./config').getPublicUiBasePath;
 let TrueForgeAuthMode: typeof import('./config').TrueForgeAuthMode;
 let serverHttpMetrics: HttpMetrics;
+let operationMetrics: OperationMetrics;
 
 try {
   ({
@@ -47,7 +48,7 @@ try {
     blockedHosts: configuration.OUTBOUND_URL_BLOCKED_HOSTS,
   });
   serverHttpMetrics = createHttpMetrics();
-  const operationMetrics = createOperationMetrics(serverHttpMetrics.registry);
+  operationMetrics = createOperationMetrics(serverHttpMetrics.registry);
   configureOutboundFetches({
     outbound: {
       connectTimeoutMs: configuration.OUTBOUND_HTTP_CONNECT_TIMEOUT_MS,
@@ -89,6 +90,7 @@ import {
   type ISessionStore,
   type TurnStreamingEvent,
 } from '@truefoundry/trueforge-core/agent-session';
+import type { OperationMetrics } from '@truefoundry/trueforge-core/core';
 import { RequestReplyExecutor, RequestReplyRouter, type RedisClient } from '@truefoundry/trueforge-core/request-reply';
 import type { Kysely, Transaction } from 'kysely';
 import type { Logger } from 'winston';
@@ -800,6 +802,7 @@ async function createServerRuntime<TTransaction>(persistence: ServerPersistence<
     authenticator,
     authorizer,
     httpMetrics: serverHttpMetrics,
+    operationMetrics,
   });
 
   return { activeTurns, app, controller, destroyDb, redis, requestReplyRouter };

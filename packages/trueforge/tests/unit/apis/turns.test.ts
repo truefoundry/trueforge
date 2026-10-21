@@ -27,6 +27,7 @@ import { SqliteWebSearchProviderStore } from '../../../src/db/sqlite/web-search-
 import { runWithLogContext } from '../../../src/logger';
 import { ActiveTurnRegistry } from '../../../src/runtime/activeTurns';
 import { EventSubscriptionRegistry } from '../../../src/runtime/event-subscription/index.js';
+import { createTestOperationMetrics } from '../testOperationMetrics';
 
 function mcpServerStoreWithAuth(db: Kysely<Database>, tokenStore: SqliteOAuthTokenStore) {
   return new McpServerWithAuthStore({
@@ -133,6 +134,7 @@ describe('turns', () => {
           logger: createLogger({ silent: true }),
           resolveRequestContext: () => STANDALONE_REQUEST_CONTEXT,
           authorizer: new TrueForgeAuthorizer(),
+          operationMetrics: createTestOperationMetrics(),
         }),
       );
 
@@ -241,6 +243,7 @@ describe('turns', () => {
               permissions: Object.fromEntries(resourceIds.map(id => [id, []])),
             }),
           },
+          operationMetrics: createTestOperationMetrics(),
         }),
       );
 
@@ -331,6 +334,7 @@ describe('turns', () => {
           logger: createLogger({ silent: true }),
           resolveRequestContext: () => STANDALONE_REQUEST_CONTEXT,
           authorizer: new TrueForgeAuthorizer(),
+          operationMetrics: createTestOperationMetrics(),
         }),
       );
 
@@ -402,6 +406,7 @@ describe('turns', () => {
           logger: createLogger({ silent: true }),
           resolveRequestContext: () => STANDALONE_REQUEST_CONTEXT,
           authorizer: new TrueForgeAuthorizer(),
+          operationMetrics: createTestOperationMetrics(),
         }),
       );
 
@@ -510,6 +515,7 @@ describe('turns', () => {
           logger,
           resolveRequestContext: () => STANDALONE_REQUEST_CONTEXT,
           authorizer: new TrueForgeAuthorizer(),
+          operationMetrics: createTestOperationMetrics(),
         }),
       );
 
@@ -641,6 +647,7 @@ describe('turns', () => {
           logger,
           resolveRequestContext: () => STANDALONE_REQUEST_CONTEXT,
           authorizer: new TrueForgeAuthorizer(),
+          operationMetrics: createTestOperationMetrics(),
         }),
       );
 
@@ -760,6 +767,7 @@ describe('turns', () => {
           logger,
           resolveRequestContext: () => STANDALONE_REQUEST_CONTEXT,
           authorizer: new TrueForgeAuthorizer(),
+          operationMetrics: createTestOperationMetrics(),
         }),
       );
 
@@ -847,6 +855,7 @@ describe('turns', () => {
           logger: createLogger({ silent: true }),
           resolveRequestContext: () => STANDALONE_REQUEST_CONTEXT,
           authorizer,
+          operationMetrics: createTestOperationMetrics(),
         }),
       );
       return { app, agent, agentStore };

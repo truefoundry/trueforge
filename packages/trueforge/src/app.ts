@@ -2,7 +2,7 @@
 import { swaggerUI } from '@hono/swagger-ui';
 import { OpenAPIHono, z } from '@hono/zod-openapi';
 import type { ISessionStore, Sessions, TurnStreamingEvent } from '@truefoundry/trueforge-core/agent-session';
-import { extractErrorLogFields } from '@truefoundry/trueforge-core/core';
+import { extractErrorLogFields, type OperationMetrics } from '@truefoundry/trueforge-core/core';
 import type { RedisClient, RequestReplyRouter } from '@truefoundry/trueforge-core/request-reply';
 import type { Context, ErrorHandler, MiddlewareHandler } from 'hono';
 import { bodyLimit } from 'hono/body-limit';
@@ -52,7 +52,6 @@ import type { ISkillStore } from './db/skillStore';
 import type { WithTransaction } from './db/transaction';
 import type { IWebSearchProviderStore } from './db/webSearchProviderStore';
 import type { HttpMetrics } from './http/prometheus';
-import { createHttpMetrics } from './http/prometheus';
 import { createClientCertificateMiddleware } from './http/tls';
 import { runWithLogContext, updateLogContext, type LogContext } from './logger';
 import type { IOAuthTokenStore } from './mcp/auth/types';
@@ -326,8 +325,10 @@ export interface ServerDeps<TTransaction> {
   authenticator: Authenticator;
   /** Startup-selected agent authorization policy. */
   authorizer: Authorizer;
-  /** Shared scrape target. Omitted builds a private registry for in-process OpenAPI generation. */
-  httpMetrics?: HttpMetrics;
+  /** Shared scrape target. HTTP middleware and `GET /metrics` use this registry. */
+  httpMetrics: HttpMetrics;
+  /** Operation series registered on `httpMetrics.registry`. */
+  operationMetrics: OperationMetrics;
 }
 
 export function createServerApp<TTransaction>(deps: ServerDeps<TTransaction>) {
@@ -349,9 +350,10 @@ export function createServerApp<TTransaction>(deps: ServerDeps<TTransaction>) {
     resolveWebSearchProviderStore: deps.resolveWebSearchProviderStore,
     activeTurns: deps.activeTurns,
     resolveTurnSkillsStore: deps.resolveTurnSkillsStore,
+    operationMetrics: deps.operationMetrics,
   };
 
-  const httpMetrics = deps.httpMetrics ?? createHttpMetrics();
+  const httpMetrics = deps.httpMetrics;
   app.use('*', createRequestLogContextMiddleware());
   app.use('/api/v1/sessions/:session_id/*', createSessionPathLogContextMiddleware());
   app.use('/api/v1/sessions/:session_id/turns/:turn_id/*', createSessionPathLogContextMiddleware());
@@ -610,6 +612,7 @@ export function createServerApp<TTransaction>(deps: ServerDeps<TTransaction>) {
         logger: deps.logger,
         resolveRequestContext,
         authorizer: deps.authorizer,
+        operationMetrics: deps.operationMetrics,
       }),
       authMiddleware,
     ),

@@ -1,10 +1,12 @@
 import type { Logger } from 'winston';
 import type { ILLM } from '../core/llm/ILLM';
 import type { ModelParams } from '../core/llm/model';
+import type { VercelAIProviderName } from '../core/llm/VercelAILLM';
 import type { ToolSource } from '../core/mcp/IMCPServer';
 import { RemoteMCP, type RemoteMcpHeaders } from '../core/mcp/RemoteMCP';
 import type { ToolSelectorConfig } from '../core/mcp/ToolSelectorPolicy';
 import { ToolSet } from '../core/mcp/ToolSet';
+import type { OperationMetrics } from '../core/observability/operationMetrics';
 import type { AgentDefinition } from '../core/runtime/AgentDefinition';
 import type { AgentInfo } from '../core/runtime/AgentThread.types';
 import type { HarnessSandbox, SandboxInfo } from '../core/sandbox/Sandbox';
@@ -55,6 +57,7 @@ interface ResolvedModel {
   modelClient: ILLM;
   defaultModelParams: ModelParams;
   modelProperties?: AgentDefinition['modelProperties'];
+  providerType?: VercelAIProviderName | undefined;
 }
 
 export class TurnResourceResolver<
@@ -89,11 +92,17 @@ export class TurnResourceResolver<
       webSearchProvider?: IWebSearchProvider | undefined;
       /** Forwarded to RemoteMCP / AgentThread (required by their constructors). */
       logger: Logger;
+      /** Omitted when the host is not recording. */
+      operationMetrics?: OperationMetrics | undefined;
     },
   ) {}
 
   get webSearchProvider(): IWebSearchProvider | undefined {
     return this.deps.webSearchProvider;
+  }
+
+  get operationMetrics(): OperationMetrics | undefined {
+    return this.deps.operationMetrics;
   }
 
   get logger(): Logger {
@@ -218,6 +227,7 @@ export class TurnResourceResolver<
       definition: {
         modelClient: resolvedModel.modelClient,
         modelName,
+        ...(resolvedModel.providerType !== undefined ? { providerType: resolvedModel.providerType } : {}),
         modelProperties: resolvedModel.modelProperties,
         // Sub-agents receive the delegated task as a user message; their system
         // prompt is SUB_AGENT_IDENTITY (added by AgentThread), not user instructions.

@@ -34,6 +34,7 @@ import type {
   ChatCompletionTool,
 } from 'openai/resources/chat';
 import type { Logger } from 'winston';
+import type { OperationMetrics, OutboundHttpStatusClass } from '../observability/operationMetrics';
 import { describeUnknownError, extractErrorLogFields } from '../util/errorLogFields';
 import { modelSsrfFetch } from '../util/outboundFetch';
 import type { ILLM, LLMCreateParams, LLMCreateParamsStreaming } from './ILLM';
@@ -97,6 +98,8 @@ export interface VercelAILLMConfig {
   providerConfig: VercelAIProviderConfig;
   logger: Logger;
   signal?: AbortSignal;
+  /** Omitted when the host is not recording. Stream create and read failures increment from here. */
+  metrics?: OperationMetrics | undefined;
 }
 
 // ---------------------------------------------------------------------------
@@ -1014,6 +1017,67 @@ export function toStreamError(raw: unknown): Error {
   return new Error(describeStreamError(raw), { cause: raw });
 }
 
+function isAbortError(error: unknown): boolean {
+  return error instanceof Error && error.name === 'AbortError';
+}
+
+function statusClassFromCode(statusCode: number | undefined): OutboundHttpStatusClass {
+  if (statusCode === undefined) {
+    return 'none';
+  }
+  if (statusCode >= 200 && statusCode < 300) {
+    return '2xx';
+  }
+  if (statusCode >= 300 && statusCode < 400) {
+    return '3xx';
+  }
+  if (statusCode >= 400 && statusCode < 500) {
+    return '4xx';
+  }
+  if (statusCode >= 500 && statusCode < 600) {
+    return '5xx';
+  }
+  return 'none';
+}
+
+/** HTTP class from an AI SDK call error, including one wrapped as `cause`. */
+function llmStatusClass(error: unknown): OutboundHttpStatusClass {
+  let current: unknown = error;
+  for (let depth = 0; depth < 8; depth += 1) {
+    if (APICallError.isInstance(current)) {
+      return statusClassFromCode(current.statusCode);
+    }
+    if (!(current instanceof Error)) {
+      return 'none';
+    }
+    current = current.cause;
+  }
+  return 'none';
+}
+
+/**
+ * Labels for a stream create or read failure. Abort wins over the phase.
+ * An unrecognized stream part is `unknown`; every other read failure is `stream_part`.
+ */
+export function llmStreamErrorObservation({
+  error,
+  phase,
+  aborted,
+}: {
+  error: unknown;
+  phase: 'api_call' | 'stream_part';
+  aborted: boolean;
+}): { errorKind: 'api_call' | 'stream_part' | 'abort' | 'unknown'; statusClass: OutboundHttpStatusClass } {
+  const statusClass = llmStatusClass(error);
+  if (aborted || isAbortError(error)) {
+    return { errorKind: 'abort', statusClass };
+  }
+  if (error instanceof Error && error.message.startsWith('Unknown stream part type')) {
+    return { errorKind: 'unknown', statusClass };
+  }
+  return { errorKind: phase, statusClass };
+}
+
 export function mapFinishReason(reason: FinishReason): RawAssistantMessageWithUsage['finish_reason'] {
   switch (reason) {
     case 'stop':
@@ -1442,6 +1506,7 @@ export class VercelAILLM implements ILLM {
         ...(output !== undefined ? { output } : {}),
       });
     } catch (error) {
+      this.recordStreamError({ error, phase: 'api_call' });
       if (this.signal?.aborted) {
         this.logger.debug('LLM call aborted', extractErrorLogFields(error));
       } else {
@@ -1480,6 +1545,7 @@ export class VercelAILLM implements ILLM {
       result.output.source = `${provider.type}/${provider.name}/${model.name}`;
       return result;
     } catch (error) {
+      this.recordStreamError({ error, phase: 'stream_part' });
       if (this.signal?.aborted) {
         this.logger.debug('LLM stream aborted', extractErrorLogFields(error));
       } else {
@@ -1487,6 +1553,23 @@ export class VercelAILLM implements ILLM {
       }
       throw toStreamError(error);
     }
+  }
+
+  private recordStreamError({ error, phase }: { error: unknown; phase: 'api_call' | 'stream_part' }): void {
+    const metrics = this.config.metrics;
+    if (metrics === undefined) {
+      return;
+    }
+    const observation = llmStreamErrorObservation({
+      error,
+      phase,
+      aborted: this.signal?.aborted === true,
+    });
+    metrics.recordLlmStreamError({
+      providerType: this.config.providerConfig.provider.type,
+      errorKind: observation.errorKind,
+      statusClass: observation.statusClass,
+    });
   }
 
   async createNonStream(body: LLMCreateParams): Promise<RawAssistantMessageWithUsage> {

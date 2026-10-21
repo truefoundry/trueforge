@@ -22,6 +22,7 @@ import { SqliteWebSearchProviderStore } from '../../../src/db/sqlite/web-search-
 import { ActiveTurnRegistry } from '../../../src/runtime/activeTurns';
 import { EventSubscriptionRegistry } from '../../../src/runtime/event-subscription/index.js';
 import { ListSessionsResponseSchema } from '../../../src/schemas/session';
+import { createTestOperationMetrics } from '../testOperationMetrics';
 
 describe('public CRUD after session deletion', () => {
   it('returns not found for session and turn operations', async () => {
@@ -81,6 +82,7 @@ describe('public CRUD after session deletion', () => {
         logger: createLogger({ silent: true }),
         resolveRequestContext: () => STANDALONE_REQUEST_CONTEXT,
         authorizer: new TrueForgeAuthorizer(),
+        operationMetrics: createTestOperationMetrics(),
       }),
     );
 

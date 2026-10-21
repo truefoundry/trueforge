@@ -157,6 +157,10 @@ export type {
 
 export { elapsedSeconds } from './observability/operationMetrics';
 export type {
+  LlmFinishReason,
+  LlmProviderType,
+  LlmRequestOutcome,
+  LlmStreamErrorKind,
   OperationMetrics,
   OutboundHttpModule,
   OutboundHttpOutcome,

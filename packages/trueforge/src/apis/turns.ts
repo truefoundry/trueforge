@@ -14,7 +14,7 @@ import {
   type TurnInputItem,
   type TurnRecordWithoutSnapshot,
 } from '@truefoundry/trueforge-core/agent-session';
-import type { IWebSearchProvider } from '@truefoundry/trueforge-core/core';
+import type { IWebSearchProvider, OperationMetrics } from '@truefoundry/trueforge-core/core';
 import {
   AgentHarnessError,
   existingSandboxIdForProvider,
@@ -131,6 +131,8 @@ export interface TurnsRouterDeps {
   logger: Logger;
   resolveRequestContext: ResolveRequestContext;
   authorizer: Authorizer;
+  /** Operation series registered on the process scrape registry. */
+  operationMetrics: OperationMetrics;
 }
 
 /**
@@ -140,7 +142,7 @@ export interface TurnsRouterDeps {
  */
 export type BeginTurnExecutionDeps = Pick<
   TurnsRouterDeps,
-  'activeTurns' | 'eventSubscriptions' | 'logger' | 'sandboxEnvironmentStore'
+  'activeTurns' | 'eventSubscriptions' | 'logger' | 'sandboxEnvironmentStore' | 'operationMetrics'
 > & {
   agentStore: IAgentStore;
   modelProviderStore: IModelProviderStore;
@@ -177,6 +179,7 @@ function createTurnResolver(deps: {
   userRef: string;
   session: SessionHandle;
   turnMetadata: TurnMetadata;
+  operationMetrics: OperationMetrics;
 }): TurnResourceResolver {
   const {
     mcpServerStore,
@@ -208,9 +211,11 @@ function createTurnResolver(deps: {
           providerConfig: resolved.providerConfig,
           logger,
           signal,
+          metrics: deps.operationMetrics,
         }),
         defaultModelParams: resolved.defaultModelParams,
         modelProperties: resolved.modelProperties,
+        providerType: resolved.providerConfig.provider.type,
       };
     },
     mcp: async name => {
@@ -293,6 +298,7 @@ function createTurnResolver(deps: {
     },
     webSearchProvider,
     logger,
+    operationMetrics: deps.operationMetrics,
   });
 }
 
@@ -464,6 +470,7 @@ export async function beginTurnExecution(
       ...(sessionAgent.type === 'reference' ? { agent: { id: sessionAgent.id, name: sessionAgent.name } } : {}),
       ...(requestHeaders === undefined ? {} : { requestHeaders }),
     },
+    operationMetrics: deps.operationMetrics,
   });
 
   // First turn only: derive the title from the first user message. The store
