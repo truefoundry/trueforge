@@ -4,6 +4,7 @@ import type { SessionRecord } from '../models/SessionRecord';
 import type { TurnRecord, TurnSnapshot } from '../models/TurnRecord';
 import type { PersistedTurnEvent, SessionEventItem } from '../schemas/events';
 import type { TokenPagination } from '../schemas/pagination';
+import { SessionLastTurnDetailsSchema } from '../schemas/session';
 import {
   isNonTerminalTurnState,
   type TerminalTurnState,
@@ -431,7 +432,10 @@ export class InMemorySessionStore<
     this.events.set(tKey, []);
     stored.turnIds.push(input.turn.turn_id);
     stored.record.last_turn_id = input.turn.turn_id;
-    stored.record.last_turn_details = { id: input.turn.turn_id, status: input.turn.state.status };
+    stored.record.last_turn_details = SessionLastTurnDetailsSchema.parse({
+      ...input.turn.state,
+      id: input.turn.turn_id,
+    });
     stored.record.metrics.total_turns += 1;
     stored.record.last_activity_timestamp_ms = Date.now();
     stored.record.updated_at = new Date();
@@ -605,7 +609,7 @@ export class InMemorySessionStore<
       stored.record.metrics.total_duration_ms += elapsed_ms > 0 ? Math.trunc(elapsed_ms) : 0;
     }
     if (stored.record.last_turn_details?.id === input.turn_id) {
-      stored.record.last_turn_details = { id: input.turn_id, status: input.state.status };
+      stored.record.last_turn_details = SessionLastTurnDetailsSchema.parse({ ...input.state, id: input.turn_id });
     }
   }
 

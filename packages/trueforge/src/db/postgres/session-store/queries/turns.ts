@@ -1,4 +1,8 @@
-import type { SessionLastTurnDetails, SessionMetrics } from '@truefoundry/trueforge-core/agent-session';
+import {
+  SessionLastTurnDetailsSchema,
+  type SessionLastTurnDetails,
+  type SessionMetrics,
+} from '@truefoundry/trueforge-core/agent-session';
 import type { TurnRecord, TurnSnapshot } from '@truefoundry/trueforge-core/agent-session/models/TurnRecord';
 import {
   isNonTerminalTurnState,
@@ -128,7 +132,7 @@ function incrementSessionTotalTurns(): RawBuilder<SessionMetrics> {
 }
 
 function lastTurnDetails(input: { turn_id: string; state: TurnState }): RawBuilder<SessionLastTurnDetails> {
-  return json<SessionLastTurnDetails>({ id: input.turn_id, status: input.state.status });
+  return json(SessionLastTurnDetailsSchema.parse({ ...input.state, id: input.turn_id }));
 }
 
 function metricsWithTerminalTurn(input: {

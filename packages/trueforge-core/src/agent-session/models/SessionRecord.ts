@@ -42,10 +42,6 @@ export interface SessionRecord<TCustom extends object = Record<string, never>> {
    * listing anchors. Advanced only by `createTurn` (atomic link).
    */
   last_turn_id: string | null;
-  /**
-   * Id and status of the last turn; null until the first turn. Replaced whole on
-   * createTurn and on that turn's status changes, never patched per key.
-   */
   last_turn_details: SessionLastTurnDetails | null;
   /** Instant the session was created (store domain). Wire/API serialize as ISO-8601. */
   created_at: Date;

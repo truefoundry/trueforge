@@ -1,4 +1,4 @@
-import type { SessionLastTurnDetails, SessionMetrics } from '@truefoundry/trueforge-core/agent-session';
+import { SessionLastTurnDetailsSchema, type SessionMetrics } from '@truefoundry/trueforge-core/agent-session';
 import type { TurnRecord, TurnSnapshot } from '@truefoundry/trueforge-core/agent-session/models/TurnRecord';
 import {
   isNonTerminalTurnState,
@@ -119,8 +119,7 @@ export interface ListTurnsResult {
 type DbOrTrx = Kysely<Database> | Transaction<Database>;
 
 function lastTurnDetails(input: { turn_id: string; state: TurnState }): RawBuilder<string> {
-  const details: SessionLastTurnDetails = { id: input.turn_id, status: input.state.status };
-  return jsonbBind(details);
+  return jsonbBind(SessionLastTurnDetailsSchema.parse({ ...input.state, id: input.turn_id }));
 }
 
 function metricsWithTerminalTurn(input: {
