@@ -8,7 +8,6 @@ import {
   type McpConnection,
   type ModelParams,
   type OperationMetrics,
-  type RemoteMcpHeaders,
   type SandboxProvider,
   type Skill,
   type VercelAIProviderConfig,
