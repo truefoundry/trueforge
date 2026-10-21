@@ -568,6 +568,7 @@ export class InMemorySessionStore<
       return;
     }
     this.requireSession(input.session_id);
+    this.requireOwnedTurn(input);
     this.requireNonTerminalTurn(input);
     const tKey = turnKey(input);
     let list = this.inboundEvents.get(tKey);

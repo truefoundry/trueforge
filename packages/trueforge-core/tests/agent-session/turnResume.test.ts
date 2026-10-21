@@ -30,6 +30,7 @@ async function sendWithInbox(turn: TurnHandle, store: InMemorySessionStore, even
     await store.insertTurnInboundEvents({
       session_id: turn.session_id,
       turn_id: turn.id,
+      active_executor_id: turn.record.active_executor_id,
       events: batch,
     });
   }

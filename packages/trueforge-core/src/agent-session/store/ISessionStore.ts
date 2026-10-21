@@ -185,9 +185,7 @@ export interface AppendToEventsInput extends TurnProgressKeys {
   events: PersistedTurnEvent[];
 }
 
-export interface InsertTurnInboundEventsInput {
-  session_id: string;
-  turn_id: string;
+export interface InsertTurnInboundEventsInput extends TurnProgressKeys {
   /** Empty array is a no-op. */
   events: TurnUserEvent[];
 }
@@ -398,7 +396,8 @@ export interface ISessionStore<
   /**
    * Durable inbound send-event inbox for a tip the caller still owns. Tip must be
    * non-terminal (`running` or `paused`) — terminal tip →
-   * {@link TurnNotRunningError}. Missing session → {@link SessionNotFoundError};
+   * {@link TurnNotRunningError}. A different `active_executor_id` →
+   * {@link TurnOwnershipLostError}. Missing session → {@link SessionNotFoundError};
    * unknown turn → {@link TurnNotFoundError}. Duplicate `event_id` on that tip →
    * {@link TurnEventAlreadyExistsError}.
    */

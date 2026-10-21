@@ -781,6 +781,7 @@ export function runStoreContractSuite(createStore: () => ISessionStore) {
         store.insertTurnInboundEvents({
           session_id: sessionId,
           turn_id: 'turn-1',
+          active_executor_id: TEST_ACTIVE_EXECUTOR_ID,
           events: [
             {
               id: newEventId(),
@@ -2966,6 +2967,7 @@ export function runStoreContractSuite(createStore: () => ISessionStore) {
       await store.insertTurnInboundEvents({
         session_id: sessionId,
         turn_id: 'turn-1',
+        active_executor_id: TEST_ACTIVE_EXECUTOR_ID,
         events: [later, earlier],
       });
 
@@ -2973,6 +2975,7 @@ export function runStoreContractSuite(createStore: () => ISessionStore) {
         store.insertTurnInboundEvents({
           session_id: sessionId,
           turn_id: 'turn-1',
+          active_executor_id: TEST_ACTIVE_EXECUTOR_ID,
           events: [later],
         }),
       ).rejects.toMatchObject({
@@ -2993,6 +2996,7 @@ export function runStoreContractSuite(createStore: () => ISessionStore) {
         store.insertTurnInboundEvents({
           session_id: sessionId,
           turn_id: 'turn-1',
+          active_executor_id: TEST_ACTIVE_EXECUTOR_ID,
           events: [fresh, later],
         }),
       ).rejects.toMatchObject({
@@ -3005,6 +3009,7 @@ export function runStoreContractSuite(createStore: () => ISessionStore) {
         store.insertTurnInboundEvents({
           session_id: sessionId,
           turn_id: 'turn-1',
+          active_executor_id: TEST_ACTIVE_EXECUTOR_ID,
           events: [
             {
               id: dupId,
@@ -3035,6 +3040,7 @@ export function runStoreContractSuite(createStore: () => ISessionStore) {
         store.insertTurnInboundEvents({
           session_id: sessionId,
           turn_id: 'turn-1',
+          active_executor_id: TEST_ACTIVE_EXECUTOR_ID,
           events: [
             {
               id: 'evt-after-done',
@@ -3047,6 +3053,29 @@ export function runStoreContractSuite(createStore: () => ISessionStore) {
           ],
         }),
       ).rejects.toBeInstanceOf(TurnNotRunningError);
+    });
+
+    it('turn_inbound_events: a stale executor cannot insert', async () => {
+      const store = createStore();
+      await seedSession(store);
+      await store.createTurn(makeCreateTurnInput({ sessionId, turnId: 'turn-1' }));
+      await expect(
+        store.insertTurnInboundEvents({
+          session_id: sessionId,
+          turn_id: 'turn-1',
+          active_executor_id: 'someone-else',
+          events: [
+            {
+              id: 'evt-stale',
+              type: 'user.tool_approval' as const,
+              thread_id: 'main',
+              tool_call_id: 'tc-stale',
+              approval: { status: 'allow' as const },
+              created_at: new Date().toISOString(),
+            },
+          ],
+        }),
+      ).rejects.toBeInstanceOf(TurnOwnershipLostError);
     });
 
     it('turn_inbound_events: list unconsumed and mark consumed', async () => {
@@ -3074,6 +3103,7 @@ export function runStoreContractSuite(createStore: () => ISessionStore) {
       await store.insertTurnInboundEvents({
         session_id: sessionId,
         turn_id: 'turn-1',
+        active_executor_id: TEST_ACTIVE_EXECUTOR_ID,
         events: [evtB, evtA],
       });
 
@@ -3203,6 +3233,7 @@ export function runStoreContractSuite(createStore: () => ISessionStore) {
         store.insertTurnInboundEvents({
           session_id: sessionId,
           turn_id: 'turn-1',
+          active_executor_id: TEST_ACTIVE_EXECUTOR_ID,
           events: [inbound],
         }),
       ]);
@@ -3223,6 +3254,7 @@ export function runStoreContractSuite(createStore: () => ISessionStore) {
       await store.insertTurnInboundEvents({
         session_id: sessionId,
         turn_id: 'turn-1',
+        active_executor_id: TEST_ACTIVE_EXECUTOR_ID,
         events: [
           {
             id: newEventId(),
@@ -3239,6 +3271,7 @@ export function runStoreContractSuite(createStore: () => ISessionStore) {
         store.insertTurnInboundEvents({
           session_id: sessionId,
           turn_id: 'turn-1',
+          active_executor_id: TEST_ACTIVE_EXECUTOR_ID,
           events: [
             {
               id: newEventId(),

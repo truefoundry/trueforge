@@ -3,8 +3,8 @@ import {
   AgentSpecSchema,
   Sessions,
   TurnNotFoundError,
-  type TurnInputItem,
   type TurnStreamingEvent,
+  type UserMessage,
 } from '@truefoundry/trueforge-core/agent-session';
 import { RequestReplyRouter } from '@truefoundry/trueforge-core/request-reply';
 import type { Kysely } from 'kysely';
@@ -53,7 +53,7 @@ describe('turns', () => {
   });
 
   describe('deriveSessionTitle', () => {
-    function userMessage(content: string): TurnInputItem[] {
+    function userMessage(content: string): UserMessage[] {
       return [{ type: 'user.message', content }];
     }
 

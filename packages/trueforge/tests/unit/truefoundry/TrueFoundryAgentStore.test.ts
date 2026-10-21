@@ -99,7 +99,7 @@ function tfStore(input: {
   return new TrueFoundryAgentStore({
     inner: input.inner,
     client: input.client,
-    context: {
+    requestContext: {
       tenant_id: TENANT,
       subject: { id: 'user-1', type: 'user', display_name: 'user-1' },
       roles: [],

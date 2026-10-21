@@ -834,6 +834,7 @@ async function applyTurnEvents(input: {
       await input.sessionStore.insertTurnInboundEvents({
         session_id: input.sessionId,
         turn_id: input.turnId,
+        active_executor_id: input.handle.record.active_executor_id,
         events: batch,
       });
     }
@@ -1057,18 +1058,18 @@ async function attemptSendTurnEvents(input: {
   if (forwarded.type !== 'peer') {
     return forwarded;
   }
-  const fresh = await input.session.getTurn(input.turnId);
-  if (fresh === undefined) {
+  const refetchedTurn = await input.session.getTurn(input.turnId);
+  if (refetchedTurn === undefined) {
     return { type: 'conflict', message: `Turn not found: ${input.turnId}` };
   }
   // Timeout, 412, publish-to-zero, and transport errors do not prove the owner
   // is gone. Fail here. Another pass could steal.
   if (forwarded.peerOutcome !== PeerOutcome.NoResponder) {
-    if (fresh.active_executor_id === configuration.EXECUTOR_ID) {
+    if (refetchedTurn.active_executor_id === configuration.EXECUTOR_ID) {
       try {
         return await rebuildOptionallyAndRun({
           session: input.session,
-          turn: fresh,
+          turn: refetchedTurn,
           events: input.events,
           sessionStore: input.sessionStore,
           requestContext: input.requestContext,
@@ -1083,7 +1084,7 @@ async function attemptSendTurnEvents(input: {
       }
     }
     const failedPeer = resolveOwnershipAction({
-      status: fresh.state.status,
+      status: refetchedTurn.state.status,
       ownedByThisExecutor: false,
       hasLocalActiveTurn: false,
       peerOutcome: forwarded.peerOutcome,
@@ -1092,19 +1093,19 @@ async function attemptSendTurnEvents(input: {
       return {
         type: 'conflict',
         message:
-          fresh.state.status === 'running'
-            ? `Turn is running but its executor is gone: ${fresh.turn_id}`
-            : `Turn is not accepting events: ${fresh.turn_id}`,
+          refetchedTurn.state.status === 'running'
+            ? `Turn is running but its executor is gone: ${refetchedTurn.turn_id}`
+            : `Turn is not accepting events: ${refetchedTurn.turn_id}`,
       };
     }
     return { type: 'unavailable', message: `Turn owner is unavailable: ${input.turnId}` };
   }
-  if (fresh.state.status !== 'paused' || fresh.active_executor_id !== turn.active_executor_id) {
+  if (refetchedTurn.state.status !== 'paused' || refetchedTurn.active_executor_id !== turn.active_executor_id) {
     return 'retry';
   }
   const action = resolveOwnershipAction({
-    status: fresh.state.status,
-    ownedByThisExecutor: fresh.active_executor_id === configuration.EXECUTOR_ID,
+    status: refetchedTurn.state.status,
+    ownedByThisExecutor: refetchedTurn.active_executor_id === configuration.EXECUTOR_ID,
     hasLocalActiveTurn: false,
     peerOutcome: forwarded.peerOutcome,
   });
@@ -1112,7 +1113,7 @@ async function attemptSendTurnEvents(input: {
     const won = await input.sessionStore.claimTurnExecutor({
       session_id: sessionId,
       turn_id: input.turnId,
-      expected_executor_id: fresh.active_executor_id,
+      expected_executor_id: refetchedTurn.active_executor_id,
       new_executor_id: configuration.EXECUTOR_ID,
     });
     if (!won) {
@@ -1121,7 +1122,7 @@ async function attemptSendTurnEvents(input: {
     try {
       return await rebuildOptionallyAndRun({
         session: input.session,
-        turn: fresh,
+        turn: refetchedTurn,
         events: input.events,
         sessionStore: input.sessionStore,
         requestContext: input.requestContext,
@@ -1136,7 +1137,7 @@ async function attemptSendTurnEvents(input: {
     }
   }
   if (action === TurnOwnershipAction.Reject) {
-    return { type: 'conflict', message: `Turn is not accepting events: ${fresh.turn_id}` };
+    return { type: 'conflict', message: `Turn is not accepting events: ${refetchedTurn.turn_id}` };
   }
   return { type: 'unavailable', message: `Turn owner is unavailable: ${input.turnId}` };
 }

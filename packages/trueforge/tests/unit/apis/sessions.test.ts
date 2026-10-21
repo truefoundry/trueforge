@@ -86,7 +86,7 @@ function cancelDeps(input: {
 function trackRun(registry: ActiveTurnRegistry, turnId: string): AbortController {
   const abortController = new AbortController();
   registry.track({
-    turn: { session_id: SESSION_ID, id: turnId } as TurnHandle,
+    turn: { session_id: SESSION_ID, id: turnId, state: { status: 'running' } } as TurnHandle,
     abortController,
     stream: (async function* () {
       await new Promise(() => undefined);
@@ -143,7 +143,7 @@ describe('cancelSessionTurn', () => {
     const abortController = new AbortController();
     const parked = Promise.withResolvers<undefined>();
     const tracked = activeTurns.track({
-      turn: { session_id: SESSION_ID, id: turnId } as TurnHandle,
+      turn: { session_id: SESSION_ID, id: turnId, state: { status: 'paused' } } as TurnHandle,
       abortController,
       stream: (async function* () {
         yield 'paused';

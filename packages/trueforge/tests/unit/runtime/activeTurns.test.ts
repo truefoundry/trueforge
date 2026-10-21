@@ -1,8 +1,8 @@
-import { CancellationReason, type TurnHandle } from '@truefoundry/trueforge-core/agent-session';
+import { CancellationReason, TurnOffloadReason, type TurnHandle } from '@truefoundry/trueforge-core/agent-session';
 import { ActiveTurnRegistry } from '../../../src/runtime/activeTurns';
 
-function turn(sessionId: string, turnId: string): TurnHandle {
-  return { session_id: sessionId, id: turnId } as TurnHandle;
+function turn(sessionId: string, turnId: string, status: 'running' | 'paused' = 'running'): TurnHandle {
+  return { session_id: sessionId, id: turnId, state: { status } } as TurnHandle;
 }
 
 async function* values<T>(items: T[]): AsyncGenerator<T> {
@@ -191,6 +191,25 @@ describe('ActiveTurnRegistry', () => {
 
     expect(abortController.signal.aborted).toBe(true);
     expect(abortController.signal.reason).toBe(CancellationReason.Abandoned);
+
+    for await (const value of tracked) {
+      void value;
+    }
+  });
+
+  it('late track after shutdownAndWait offloads a paused turn', async () => {
+    const registry = new ActiveTurnRegistry();
+    await registry.shutdownAndWait(CancellationReason.Abandoned);
+
+    const abortController = new AbortController();
+    const tracked = registry.track({
+      turn: turn('s1', 'late-paused', 'paused'),
+      abortController,
+      stream: values(['x']),
+    });
+
+    expect(abortController.signal.aborted).toBe(true);
+    expect(abortController.signal.reason).toBe(TurnOffloadReason);
 
     for await (const value of tracked) {
       void value;

@@ -20,15 +20,8 @@ function activeTurnKey(sessionId: string, turnId: string): string {
   return `${sessionId}:${turnId}`;
 }
 
-/**
- * `state` is a getter on TurnHandle's prototype, so it is not an own property.
- * A test double may omit it; that run is not treated as paused.
- */
 function isPausedRun(run: ActiveTurnRun | undefined): run is ActiveTurnRun {
-  if (!run || !('state' in run.turn)) {
-    return false;
-  }
-  return run.turn.state.status === 'paused';
+  return run?.turn.state.status === 'paused';
 }
 
 export class ActiveTurnRegistry {
@@ -69,8 +62,8 @@ export class ActiveTurnRegistry {
   /**
    * Registers the run immediately, then returns a generator that forwards
    * `stream` and removes the run when the stream completes (or the consumer
-   * exits early). If shutdown has already begun, aborts the controller with
-   * the shutdown reason so the turn ends as abandoned.
+   * exits early). If shutdown has already begun, a paused turn is offloaded and
+   * any other turn is aborted with the shutdown reason.
    */
   track<T>(input: { abortController: AbortController; stream: AsyncIterable<T>; turn: TurnHandle }): AsyncGenerator<T> {
     const key = activeTurnKey(input.turn.session_id, input.turn.id);
@@ -86,12 +79,11 @@ export class ActiveTurnRegistry {
     };
     this.runs.set(key, run);
 
-    // Accepted HTTP may still call track() after shutdownAndWait snapshotted;
-    // abort immediately so the turn ends as abandoned instead of running past exit.
-    if (this.alreadyShutDownAbortReason !== undefined) {
-      if (!input.abortController.signal.aborted) {
-        input.abortController.abort(this.alreadyShutDownAbortReason);
-      }
+    // Accepted HTTP may still call track() after shutdownAndWait snapshotted.
+    // Offload a paused turn so its row survives. Abort any other turn with the shutdown reason.
+    if (this.alreadyShutDownAbortReason !== undefined && !input.abortController.signal.aborted) {
+      const reason = isPausedRun(run) ? TurnOffloadReason : this.alreadyShutDownAbortReason;
+      input.abortController.abort(reason);
     }
 
     const complete = () => {
@@ -125,23 +117,6 @@ export class ActiveTurnRegistry {
     if (!run.abortController.signal.aborted) {
       run.abortController.abort(input.abortReason);
     }
-    return true;
-  }
-
-  /**
-   * Abort a local run and wait until its drain has finished.
-   * A paused generator is parked on the abort latch, so this unparks it and lets
-   * the drain emit `turn.done`. Returns false when this process has no run.
-   */
-  async abortAndWait(input: { sessionId: string; turnId: string; abortReason: CancellationReason }): Promise<boolean> {
-    const run = this.runs.get(activeTurnKey(input.sessionId, input.turnId));
-    if (!run) {
-      return false;
-    }
-    if (!run.abortController.signal.aborted) {
-      run.abortController.abort(input.abortReason);
-    }
-    await run.waitUntilCompleted;
     return true;
   }
 
@@ -214,7 +189,7 @@ export class ActiveTurnRegistry {
   /**
    * Enter shutdown mode and wait until the registry is empty.
    * Paused runs are offloaded so their approval state survives. Running runs abort as `abortReason`.
-   * Late `track()` calls abort immediately as `abortReason`.
+   * A later `track()` offloads a paused turn and aborts any other turn as `abortReason`.
    */
   async shutdownAndWait(abortReason: CancellationReason): Promise<void> {
     this.alreadyShutDownAbortReason = abortReason;

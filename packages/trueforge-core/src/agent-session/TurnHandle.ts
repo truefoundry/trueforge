@@ -293,10 +293,9 @@ export class TurnHandle<TTurnCustom extends object = Record<string, never>> {
     resolver: ITurnResourceResolver<TTurnCustom>,
     signal: AbortSignal,
   ): AsyncGenerator<TurnStreamingEvent> {
+    const turnStatus = executableTurnStatus(this.turn.state);
     let caughtError: Error | undefined;
     let executeResult: AgentThreadExecutionResult | undefined;
-    let ownershipLost: TurnOwnershipLostError | undefined;
-    const turnStatus = executableTurnStatus(this.turn.state);
     try {
       if (turnStatus === 'running') {
         yield await this.persistTurnCreated();
@@ -304,47 +303,70 @@ export class TurnHandle<TTurnCustom extends object = Record<string, never>> {
       executeResult = yield* this.executeAndPersist(orchestrator, signal, turnStatus);
     } catch (error) {
       caughtError = error instanceof Error ? error : new Error(String(error));
-      if (caughtError instanceof TurnOwnershipLostError) {
-        // executeAndPersist already waited for abort. Skip the terminal write.
-        // The row belongs to the other replica.
-        ownershipLost = caughtError;
+    } finally {
+      // A consumer break still enters finally, so the turn closes on that path too.
+      yield* this.closeTurn({ signal, caughtError, executeResult, orchestrator, resolver });
+    }
+  }
+
+  /**
+   * Stop the in-memory run. Offload and a lost owner skip the terminal write.
+   * Every other exit writes `turn.done`, or emits the state another writer already stored.
+   */
+  private async *closeTurn(input: {
+    signal: AbortSignal;
+    caughtError: Error | undefined;
+    executeResult: AgentThreadExecutionResult | undefined;
+    orchestrator: AgentThreadOrchestrator;
+    resolver: ITurnResourceResolver<TTurnCustom>;
+  }): AsyncGenerator<TurnStreamingEvent> {
+    let ownershipLost = input.caughtError instanceof TurnOwnershipLostError ? input.caughtError : undefined;
+    let turnDone: TurnDoneEvent | undefined;
+    let closeError: Error | undefined;
+    try {
+      // Offload leaves the row paused. A lost owner must not write the other replica's row.
+      if (ownershipLost === undefined && !isTurnOffloadReason(input.signal.reason)) {
+        turnDone = await this.turnDoneForClose(input);
+      }
+    } catch (error) {
+      // updateTurnTerminalState lost active_executor_id. Another replica claimed this
+      // paused turn after the last event write, so this run must not emit turn.done.
+      if (error instanceof TurnOwnershipLostError) {
+        ownershipLost = error;
+      } else {
+        closeError = error instanceof Error ? error : new Error(String(error), { cause: error });
       }
     } finally {
-      // Terminal write stays in finally so a consumer break still closes the turn.
-      let turnDone: TurnDoneEvent | undefined;
-      // Offload ends the in-memory run only. A terminal write would cancel a turn that is still paused.
-      if (!ownershipLost && !isTurnOffloadReason(signal.reason)) {
-        try {
-          // TurnNotRunningError: another writer already terminated the turn — defer to its state.
-          if (caughtError instanceof TurnNotRunningError) {
-            turnDone = this.turnDoneFromStoreConflict(caughtError, orchestrator);
-          } else {
-            turnDone = await this.persistTurnTerminal({
-              signal,
-              caughtError,
-              executeResult,
-              orchestrator,
-            });
-          }
-        } catch (error) {
-          if (error instanceof TurnOwnershipLostError) {
-            ownershipLost = error;
-          } else if (error instanceof TurnNotRunningError) {
-            turnDone = this.turnDoneFromStoreConflict(error, orchestrator);
-          } else {
-            await this.closeResolver(resolver);
-            // eslint-disable-next-line no-unsafe-finally -- terminal-state write failed; reject the stream
-            throw error;
-          }
-        }
-      }
-      await this.closeResolver(resolver);
-      if (turnDone) {
-        yield turnDone;
-      }
+      await this.closeResolver(input.resolver);
     }
-    if (ownershipLost) {
+    if (closeError !== undefined) {
+      throw closeError;
+    }
+    if (turnDone !== undefined) {
+      yield turnDone;
+    }
+    if (ownershipLost !== undefined) {
       throw ownershipLost;
+    }
+  }
+
+  /** Write this run's terminal state. If the row is already terminal, emit the stored state. */
+  private async turnDoneForClose(input: {
+    signal: AbortSignal;
+    caughtError: Error | undefined;
+    executeResult: AgentThreadExecutionResult | undefined;
+    orchestrator: AgentThreadOrchestrator;
+  }): Promise<TurnDoneEvent> {
+    if (input.caughtError instanceof TurnNotRunningError) {
+      return this.turnDoneFromStoredState(input.caughtError, input.orchestrator);
+    }
+    try {
+      return await this.persistTurnTerminal(input);
+    } catch (error) {
+      if (error instanceof TurnNotRunningError) {
+        return this.turnDoneFromStoredState(error, input.orchestrator);
+      }
+      throw error;
     }
   }
 
@@ -430,11 +452,12 @@ export class TurnHandle<TTurnCustom extends object = Record<string, never>> {
     return turnDone;
   }
 
-  private turnDoneFromStoreConflict(
-    error: TurnNotRunningError,
-    orchestrator: AgentThreadOrchestrator,
-    updatedAt: Date = new Date(),
-  ): TurnDoneEvent {
+  /**
+   * Another writer already stored the terminal row. Emit that state with this run's metrics.
+   * There is no second write.
+   */
+  private turnDoneFromStoredState(error: TurnNotRunningError, orchestrator: AgentThreadOrchestrator): TurnDoneEvent {
+    const updatedAt = new Date();
     const state: TerminalTurnState = {
       ...error.state,
       metrics: turnMetricsFromAgentThreadMetrics(orchestrator.getMetrics()),

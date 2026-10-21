@@ -411,26 +411,24 @@ export function createServerApp<TTransaction>(deps: ServerDeps<TTransaction>) {
       authMiddleware,
     ),
   );
+  const scheduleTurnExecutionRouterDeps = {
+    activeTurns: deps.activeTurns,
+    agentStore: deps.agentStore,
+    eventSubscriptions: deps.eventSubscriptions,
+    logger: deps.logger,
+    resolveMcpServerStore: deps.resolveMcpServerStore,
+    resolveModelProviderStore: deps.resolveModelProviderStore,
+    resolveTurnSkillsStore: deps.resolveTurnSkillsStore,
+    sandboxEnvironmentStore: deps.sandboxEnvironmentStore,
+    sandboxProviderStore: deps.sandboxProviderStore,
+    scheduleStore: deps.scheduleStore,
+    sessions: deps.sessions,
+    sessionStore: deps.sessionStore,
+    webSearchProviderStore: deps.webSearchProviderStore,
+  };
   app.route(
     '/api/internal/schedules',
-    withAuth(
-      createScheduleExecutionRouter({
-        activeTurns: deps.activeTurns,
-        agentStore: deps.agentStore,
-        eventSubscriptions: deps.eventSubscriptions,
-        logger: deps.logger,
-        resolveMcpServerStore: deps.resolveMcpServerStore,
-        resolveModelProviderStore: deps.resolveModelProviderStore,
-        resolveTurnSkillsStore: deps.resolveTurnSkillsStore,
-        sandboxEnvironmentStore: deps.sandboxEnvironmentStore,
-        sandboxProviderStore: deps.sandboxProviderStore,
-        scheduleStore: deps.scheduleStore,
-        sessions: deps.sessions,
-        sessionStore: deps.sessionStore,
-        webSearchProviderStore: deps.webSearchProviderStore,
-      }),
-      scheduleExecutionAuthMiddleware,
-    ),
+    withAuth(createScheduleExecutionRouter(scheduleTurnExecutionRouterDeps), scheduleExecutionAuthMiddleware),
   );
   app.route(
     '/api/internal/sandbox-environments',
@@ -447,7 +445,7 @@ export function createServerApp<TTransaction>(deps: ServerDeps<TTransaction>) {
     '/api/v1/schedules',
     withAuth(
       createSchedulesRouter({
-        ...scheduleTurnDeps,
+        ...scheduleTurnExecutionRouterDeps,
         authorizer: deps.authorizer,
         resolveAgentStore: resolveHttpAgentStore,
         resolveRequestContext,

@@ -611,10 +611,9 @@ export class AgentThreadOrchestrator {
           return done();
         }
 
-        // Take the queue, then empty it, so a send during this pass waits for the next loop.
-        const queued = this.pendingTurnEvents.slice();
-        this.pendingTurnEvents.length = 0;
-        for (const event of queued) {
+        // splice returns the current items and leaves the queue empty before the body runs.
+        // A send during a yield pushes onto that empty queue and waits for the next loop.
+        for (const event of this.pendingTurnEvents.splice(0)) {
           switch (event.type) {
             case EventType.USER_TOOL_APPROVAL_POLICY:
               yield* this.applyApprovalPolicies(event);
