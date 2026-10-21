@@ -21,11 +21,11 @@ export interface HttpMetrics {
 }
 
 /** Inbound HTTP series plus the registry later operation metrics share. */
-export function createHttpMetrics(options?: { collectDefaultMetrics?: boolean }): HttpMetrics {
+export function createHttpMetrics(): HttpMetrics {
   const registry = new Registry();
   const { printMetrics, registerMetrics } = prometheus({
     registry,
-    collectDefaultMetrics: options?.collectDefaultMetrics ?? true,
+    collectDefaultMetrics: true,
     metricOptions: {
       requestDuration,
     },
