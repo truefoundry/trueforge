@@ -131,44 +131,47 @@ function lastTurnDetails(input: { turn_id: string; state: TurnState }): RawBuild
   return json<SessionLastTurnDetails>({ id: input.turn_id, status: input.state.status });
 }
 
-/** Same tx as the turn flip; a turn superseded by a newer last turn matches no row. */
-async function updateLastTurnDetails(
-  trx: Transaction<Database>,
-  input: { session_id: string; turn_id: string; state: TurnState },
-): Promise<void> {
-  await trx
-    .updateTable('session')
-    .set({ last_turn_details: lastTurnDetails(input) })
-    .where('session_id', '=', input.session_id)
-    .where(sql<boolean>`last_turn_details->>'id' = ${input.turn_id}`)
-    .execute();
-}
-
-/** Same tx as the turn flip; the session row lock serializes concurrent terminal folds. */
-async function addSessionCostAndDuration(
-  trx: Transaction<Database>,
-  input: { session_id: string; turn_created_at: Date; turn_state: TerminalTurnState },
-): Promise<void> {
-  const elapsed_ms = Date.parse(input.turn_state.completed_at) - input.turn_created_at.getTime();
+function metricsWithTerminalTurn(input: {
+  turn_created_at: Date;
+  state: TerminalTurnState;
+}): RawBuilder<SessionMetrics> {
+  const elapsed_ms = Date.parse(input.state.completed_at) - input.turn_created_at.getTime();
   const total_duration_ms = elapsed_ms > 0 ? Math.trunc(elapsed_ms) : 0;
-  const turnCost = input.turn_state.metrics?.total_cost_in_usd;
+  const turnCost = input.state.metrics?.total_cost_in_usd;
   // bigint: ::int overflows at ~24.8 days of summed ms and would roll back the terminal tx.
   const withDuration = jsonbSet<SessionMetrics>(
     sql`metrics`,
     sql`'{total_duration_ms}'`,
     sql`to_jsonb((metrics->>'total_duration_ms')::bigint + ${total_duration_ms}::bigint)`,
   );
+  return turnCost === undefined
+    ? withDuration
+    : jsonbSet<SessionMetrics>(
+        withDuration,
+        sql`'{total_cost_in_usd}'`,
+        sql`to_jsonb(COALESCE((metrics->>'total_cost_in_usd')::double precision, 0) + ${turnCost}::double precision)`,
+      );
+}
+
+/**
+ * One session UPDATE per turn state change, in the turn flip's tx (the session row lock
+ * serializes concurrent folds). Terminal states always fold cost and duration;
+ * last_turn_details moves only while this turn is still the session's last turn.
+ */
+async function applyTurnStateToSession(
+  trx: Transaction<Database>,
+  input: { session_id: string; turn_id: string; turn_created_at: Date; state: TurnState },
+): Promise<void> {
   await trx
     .updateTable('session')
     .set({
-      metrics:
-        turnCost === undefined
-          ? withDuration
-          : jsonbSet<SessionMetrics>(
-              withDuration,
-              sql`'{total_cost_in_usd}'`,
-              sql`to_jsonb(COALESCE((metrics->>'total_cost_in_usd')::double precision, 0) + ${turnCost}::double precision)`,
-            ),
+      last_turn_details: sql<SessionLastTurnDetails>`CASE
+        WHEN last_turn_details->>'id' = ${input.turn_id} THEN ${lastTurnDetails(input)}
+        ELSE last_turn_details
+      END`,
+      ...(isNonTerminalTurnState(input.state)
+        ? {}
+        : { metrics: metricsWithTerminalTurn({ turn_created_at: input.turn_created_at, state: input.state }) }),
     })
     .where('session_id', '=', input.session_id)
     .execute();
@@ -710,14 +713,10 @@ export async function freezeAndGetTurn(db: Kysely<Database>, input: FreezeAndGet
         })
         .execute();
       // Only the winning cancel folds; a freeze of an already-terminal turn is a read.
-      await addSessionCostAndDuration(trx, {
-        session_id: input.session_id,
-        turn_created_at: updateResult.created_at,
-        turn_state: cancelledState,
-      });
-      await updateLastTurnDetails(trx, {
+      await applyTurnStateToSession(trx, {
         session_id: input.session_id,
         turn_id: input.turn_id,
+        turn_created_at: updateResult.created_at,
         state: cancelledState,
       });
     }
@@ -797,7 +796,7 @@ export async function updateTurnNonTerminalState(
       .where('session_id', '=', input.session_id)
       .where('turn_id', '=', input.turn_id)
       .where(sql<boolean>`state->>'status' = ${expectedSourceStatus}`)
-      .returning('turn_id')
+      .returning(['created_at'])
       .executeTakeFirst();
 
     if (result === undefined) {
@@ -830,7 +829,12 @@ export async function updateTurnNonTerminalState(
       })
       .execute();
 
-    await updateLastTurnDetails(trx, input);
+    await applyTurnStateToSession(trx, {
+      session_id: input.session_id,
+      turn_id: input.turn_id,
+      turn_created_at: result.created_at,
+      state: input.state,
+    });
   });
 }
 
@@ -866,12 +870,12 @@ export async function updateTurnTerminalState(
       throw new TurnNotRunningError(input.turn_id, terminalTurnState(existing.state, input.turn_id));
     }
 
-    await addSessionCostAndDuration(trx, {
+    await applyTurnStateToSession(trx, {
       session_id: input.session_id,
+      turn_id: input.turn_id,
       turn_created_at: result.created_at,
-      turn_state: input.state,
+      state: input.state,
     });
-    await updateLastTurnDetails(trx, input);
 
     await trx
       .insertInto('session_event')

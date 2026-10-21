@@ -1456,6 +1456,29 @@ export function runStoreContractSuite(createStore: () => ISessionStore) {
       await freezeTurn(store, 'turn-2');
       expect(await lastTurnDetails(store)).toEqual({ id: 'turn-3', status: 'running' });
     });
+
+    it('a superseded turn finishing still adds its cost and duration to session metrics', async () => {
+      const store = createStore();
+      await seedSession(store);
+      await store.createTurn(makeCreateTurnInput({ sessionId, turnId: 'turn-1' }));
+      await store.createTurn(makeCreateTurnInput({ sessionId, turnId: 'turn-2' }));
+      const turn1 = mustGet(await store.getTurn({ session_id: sessionId, turn_id: 'turn-1' }));
+      const doneState = {
+        ...makeDoneTurnState(),
+        completed_at: new Date(turn1.created_at.getTime() + 1500).toISOString(),
+        metrics: { total_cost_in_usd: 1.25 },
+      };
+      await store.updateTurnTerminalState({
+        session_id: sessionId,
+        turn_id: 'turn-1',
+        state: doneState,
+        turn_done_event: makeTurnDoneEvent(doneState),
+      });
+
+      const session = mustGet(await store.getSession({ tenant_id: tenant, session_id: sessionId }));
+      expect(session.last_turn_details).toEqual({ id: 'turn-2', status: 'running' });
+      expect(session.metrics).toEqual({ total_cost_in_usd: 1.25, total_duration_ms: 1500, total_turns: 2 });
+    });
   });
 
   describe('createTurn', () => {

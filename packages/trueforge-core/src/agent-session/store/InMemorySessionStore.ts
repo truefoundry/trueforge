@@ -456,8 +456,12 @@ export class InMemorySessionStore<
       if (list) {
         list.push(deepCopy(input.turn_done_event));
       }
-      this.addTerminalSessionMetrics(input.session_id, turn.created_at, cancelledState);
-      this.updateLastTurnDetails({ session_id: input.session_id, turn_id: input.turn_id, state: cancelledState });
+      this.applyTurnStateToSession({
+        session_id: input.session_id,
+        turn_id: input.turn_id,
+        turn_created_at: turn.created_at,
+        state: cancelledState,
+      });
     }
 
     return deepCopy(turn);
@@ -507,7 +511,12 @@ export class InMemorySessionStore<
     turn.state = deepCopy(input.state);
     turn.updated_at = new Date();
     list.push(deepCopy(input.turn_update_event));
-    this.updateLastTurnDetails(input);
+    this.applyTurnStateToSession({
+      session_id: input.session_id,
+      turn_id: input.turn_id,
+      turn_created_at: turn.created_at,
+      state: input.state,
+    });
   }
 
   async updateTurnTerminalState(input: UpdateTurnTerminalStateInput): Promise<void> {
@@ -523,8 +532,12 @@ export class InMemorySessionStore<
     turn.state = deepCopy(input.state);
     turn.updated_at = new Date();
     list.push(deepCopy(input.turn_done_event));
-    this.addTerminalSessionMetrics(input.session_id, turn.created_at, input.state);
-    this.updateLastTurnDetails(input);
+    this.applyTurnStateToSession({
+      session_id: input.session_id,
+      turn_id: input.turn_id,
+      turn_created_at: turn.created_at,
+      state: input.state,
+    });
   }
 
   async appendToEvents(input: AppendToEventsInput): Promise<void> {
@@ -572,27 +585,28 @@ export class InMemorySessionStore<
     }
   }
 
-  /** A turn superseded by a newer last turn leaves that turn's document alone. */
-  private updateLastTurnDetails(input: { session_id: string; turn_id: string; state: TurnState }): void {
-    const stored = this.sessions.get(sessionKey(input.session_id));
-    if (stored?.record.last_turn_details?.id !== input.turn_id) {
-      return;
+  /**
+   * Terminal states fold cost (when present) and duration (completed_at − created_at, floored
+   * at 0); last_turn_details moves only while this turn is still the session's last turn.
+   */
+  private applyTurnStateToSession(input: {
+    session_id: string;
+    turn_id: string;
+    turn_created_at: Date;
+    state: TurnState;
+  }): void {
+    const stored = this.requireSession(input.session_id);
+    if (!isNonTerminalTurnState(input.state)) {
+      const elapsed_ms = Date.parse(input.state.completed_at) - input.turn_created_at.getTime();
+      const turnCost = input.state.metrics?.total_cost_in_usd;
+      if (turnCost !== undefined) {
+        stored.record.metrics.total_cost_in_usd = (stored.record.metrics.total_cost_in_usd ?? 0) + turnCost;
+      }
+      stored.record.metrics.total_duration_ms += elapsed_ms > 0 ? Math.trunc(elapsed_ms) : 0;
     }
-    stored.record.last_turn_details = { id: input.turn_id, status: input.state.status };
-  }
-
-  /** Cost from turn metrics when present; duration is completed_at − created_at, floored at 0. */
-  private addTerminalSessionMetrics(sessionId: string, created_at: Date, state: TerminalTurnState): void {
-    const stored = this.sessions.get(sessionKey(sessionId));
-    if (!stored) {
-      throw new SessionNotFoundError(sessionId);
+    if (stored.record.last_turn_details?.id === input.turn_id) {
+      stored.record.last_turn_details = { id: input.turn_id, status: input.state.status };
     }
-    const elapsed_ms = Date.parse(state.completed_at) - created_at.getTime();
-    const turnCost = state.metrics?.total_cost_in_usd;
-    if (turnCost !== undefined) {
-      stored.record.metrics.total_cost_in_usd = (stored.record.metrics.total_cost_in_usd ?? 0) + turnCost;
-    }
-    stored.record.metrics.total_duration_ms += elapsed_ms > 0 ? Math.trunc(elapsed_ms) : 0;
   }
 
   private requireSession(sessionId: string): StoredSession<TSessionCustom> {
