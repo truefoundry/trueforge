@@ -1,14 +1,18 @@
 import { OpenAPIHono } from '@hono/zod-openapi';
 import { AgentSpecSchema, Sessions } from '@truefoundry/trueforge-core/agent-session';
 import { RequestReplyRouter } from '@truefoundry/trueforge-core/request-reply';
+import type { Context } from 'hono';
 import type { Kysely } from 'kysely';
 import { createClient } from 'redis';
 import { createLogger } from 'winston';
+import { makeCreateTurnInput } from '../../../../trueforge-core/tests/agent-session/testHelpers';
 import { createSessionsRouter } from '../../../src/apis/sessions';
+import { createTurnsRouter } from '../../../src/apis/turns';
 import { createAppErrorHandler } from '../../../src/app';
 import { TrueForgeAuthorizer } from '../../../src/auth/authorizer';
 import type { RequestContext } from '../../../src/auth/identity';
 import { EmptyUserDirectory, type UserDirectory } from '../../../src/auth/userDirectory';
+import { McpServerWithAuthStore } from '../../../src/db/McpServerWithAuthStore';
 import { migrateSqliteToLatest } from '../../../src/db/migrateSqlite';
 import { SqliteAccessControlEntryStore } from '../../../src/db/sqlite/access-control-entry-store/SqliteAccessControlEntryStore';
 import { SqliteAgentStore } from '../../../src/db/sqlite/agent-store/SqliteAgentStore';
@@ -19,14 +23,18 @@ import { SqliteSandboxEnvironmentStore } from '../../../src/db/sqlite/sandbox-en
 import { SqliteSandboxProviderStore } from '../../../src/db/sqlite/sandbox-provider-store/SqliteSandboxProviderStore';
 import { SqliteSessionStore } from '../../../src/db/sqlite/session-store/SqliteSessionStore';
 import { SqliteSkillStore } from '../../../src/db/sqlite/skill-store/SqliteSkillStore';
+import { SqliteOAuthTokenStore } from '../../../src/db/sqlite/token-store/SqliteOAuthTokenStore';
 import type { Database } from '../../../src/db/sqlite/types';
 import { SqliteWebSearchProviderStore } from '../../../src/db/sqlite/web-search-provider-store/SqliteWebSearchProviderStore';
 import { ActiveTurnRegistry } from '../../../src/runtime/activeTurns';
+import { EventSubscriptionRegistry } from '../../../src/runtime/event-subscription/index.js';
+import { GetSessionResponseSchema, ListSessionsResponseSchema } from '../../../src/schemas/session';
 import { ListSessionAccessResponseSchema } from '../../../src/schemas/sessionAccess';
 import type { DirectoryUser } from '../../../src/schemas/user';
 
 const TENANT = 'default';
 const SESSION_ID = 'shared-session';
+const TURN_ID = 'turn-1';
 const CALLER_HEADER = 'x-test-caller';
 
 const USERS: DirectoryUser[] = [
@@ -76,29 +84,64 @@ function asCaller(caller: string, method = 'GET'): RequestInit {
 
 function buildApp(input: { db: Kysely<Database>; sessionStore: SqliteSessionStore; userDirectory: UserDirectory }) {
   const { db, sessionStore, userDirectory } = input;
+  const sessions = new Sessions({ sessionStore });
+  const accessControlEntryStore = new SqliteAccessControlEntryStore(db);
+  const activeTurns = new ActiveTurnRegistry();
   const agentStore = new SqliteAgentStore(db);
+  const modelProviderStore = new SqliteModelProviderStore(db);
+  const mcpServerStore = new McpServerWithAuthStore({
+    store: new SqliteMcpServerStore(db),
+    tokenStore: new SqliteOAuthTokenStore(db),
+    clientName: 'test-client',
+  });
+  const skillStore = new SqliteSkillStore(db);
+  const sandboxProviderStore = new SqliteSandboxProviderStore(db);
+  const sandboxEnvironmentStore = new SqliteSandboxEnvironmentStore(db);
+  const webSearchProviderStore = new SqliteWebSearchProviderStore(db);
+  const resolveRequestContext = (c: Context) => contextFor(c.req.header(CALLER_HEADER) ?? 'owner');
+  const authorizer = new TrueForgeAuthorizer();
   const logger = createLogger({ silent: true });
   const app = new OpenAPIHono();
   app.route(
     '/',
     createSessionsRouter({
-      sessions: new Sessions({ sessionStore }),
+      sessions,
       sessionStore,
-      accessControlEntryStore: new SqliteAccessControlEntryStore(db),
+      accessControlEntryStore,
       userDirectory,
-      activeTurns: new ActiveTurnRegistry(),
-      resolveModelProviderStore: () => new SqliteModelProviderStore(db),
-      resolveMcpServerStore: () => new SqliteMcpServerStore(db),
-      resolveSkillStore: () => new SqliteSkillStore(db),
+      activeTurns,
+      resolveModelProviderStore: () => modelProviderStore,
+      resolveMcpServerStore: () => mcpServerStore,
+      resolveSkillStore: () => skillStore,
       resolveAgentStore: () => agentStore,
-      resolveSandboxProviderStore: () => new SqliteSandboxProviderStore(db),
-      sandboxEnvironmentStore: new SqliteSandboxEnvironmentStore(db),
-      resolveWebSearchProviderStore: () => new SqliteWebSearchProviderStore(db),
+      resolveSandboxProviderStore: () => sandboxProviderStore,
+      sandboxEnvironmentStore,
+      resolveWebSearchProviderStore: () => webSearchProviderStore,
       redis: createClient(),
       requestReplyRouter: new RequestReplyRouter(),
-      resolveRequestContext: c => contextFor(c.req.header(CALLER_HEADER) ?? 'owner'),
+      resolveRequestContext,
       logger,
-      authorizer: new TrueForgeAuthorizer(),
+      authorizer,
+    }),
+  );
+  app.route(
+    '/',
+    createTurnsRouter({
+      sessions,
+      sessionStore,
+      accessControlEntryStore,
+      activeTurns,
+      resolveModelProviderStore: () => modelProviderStore,
+      resolveMcpServerStore: () => mcpServerStore,
+      resolveTurnSkillsStore: () => skillStore,
+      resolveAgentStore: () => agentStore,
+      eventSubscriptions: new EventSubscriptionRegistry(undefined),
+      resolveSandboxProviderStore: () => sandboxProviderStore,
+      sandboxEnvironmentStore,
+      resolveWebSearchProviderStore: () => webSearchProviderStore,
+      logger,
+      resolveRequestContext,
+      authorizer,
     }),
   );
   app.onError(createAppErrorHandler({ logger }));
@@ -240,7 +283,7 @@ describe('session access API', () => {
           subjects: Array.from({ length: 101 }, (_, i) => ({ subject_type: 'user', subject_id: `u${String(i)}` })),
         },
       ],
-      ['an unsupported subject type', { subjects: [{ subject_type: 'tenant', subject_id: 'default' }] }],
+      ['an unsupported subject type', { subjects: [{ subject_type: 'team', subject_id: 'platform' }] }],
     ])('rejects %s', async (_label, body) => {
       const response = await app.request(`/${SESSION_ID}/access`, jsonInit('POST', body));
       expect(response.status).toBe(400);
@@ -280,14 +323,148 @@ describe('session access API', () => {
     });
 
     it('rejects an unsupported subject type', async () => {
-      expect((await app.request(`/${SESSION_ID}/access/tenant/default`, asCaller('owner', 'DELETE'))).status).toBe(400);
+      expect((await app.request(`/${SESSION_ID}/access/team/platform`, asCaller('owner', 'DELETE'))).status).toBe(400);
     });
   });
 
-  it('does not yet give granted users read access', async () => {
-    expect((await grant(['alice'])).status).toBe(201);
+  describe('tenant subject', () => {
+    async function shareWithTenant(subjectId = TENANT): Promise<Response> {
+      return app.request(
+        `/${SESSION_ID}/access`,
+        jsonInit('POST', { subjects: [{ subject_type: 'tenant', subject_id: subjectId }] }),
+      );
+    }
 
-    expect((await app.request(`/${SESSION_ID}`, asCaller('alice'))).status).toBe(403);
-    expect((await app.request(`/${SESSION_ID}/events`, asCaller('alice'))).status).toBe(403);
+    async function sessionShared(): Promise<boolean> {
+      const response = await app.request(`/${SESSION_ID}`, asCaller('owner'));
+      return GetSessionResponseSchema.parse(await response.json()).data.shared;
+    }
+
+    it('shares with everyone, works without a user directory, and lists with null details', async () => {
+      app = buildApp({ db, sessionStore, userDirectory: new EmptyUserDirectory() });
+
+      const response = await shareWithTenant();
+
+      expect(response.status).toBe(201);
+      expect(ListSessionAccessResponseSchema.parse(await response.json()).data).toEqual([
+        expect.objectContaining({
+          subject_type: 'tenant',
+          subject_id: TENANT,
+          subject_display_name: null,
+          subject_email: null,
+        }),
+      ]);
+      expect(await sessionShared()).toBe(true);
+      expect((await app.request(`/${SESSION_ID}`, asCaller('anyone'))).status).toBe(200);
+    });
+
+    it('rejects a tenant subject for another tenant', async () => {
+      const response = await shareWithTenant('other-tenant');
+
+      expect(response.status).toBe(422);
+      expect(await response.json()).toEqual({
+        error: { message: 'A tenant subject must use the tenant id of the caller.' },
+      });
+      expect(await listGrants()).toEqual([]);
+    });
+
+    it('stops sharing with everyone once the tenant grant is revoked', async () => {
+      expect((await shareWithTenant()).status).toBe(201);
+
+      const response = await app.request(`/${SESSION_ID}/access/tenant/${TENANT}`, asCaller('owner', 'DELETE'));
+
+      expect(response.status).toBe(200);
+      expect(await sessionShared()).toBe(false);
+      expect((await app.request(`/${SESSION_ID}`, asCaller('anyone'))).status).toBe(403);
+    });
+
+    it('treats PATCH { shared } as an alias for the tenant grant', async () => {
+      const shared = await app.request(`/${SESSION_ID}`, jsonInit('PATCH', { shared: true }));
+      expect(shared.status).toBe(200);
+      expect(GetSessionResponseSchema.parse(await shared.json()).data.shared).toBe(true);
+      expect(await listGrants()).toEqual([TENANT]);
+      expect((await app.request(`/${SESSION_ID}`, asCaller('anyone'))).status).toBe(200);
+
+      const unshared = await app.request(`/${SESSION_ID}`, jsonInit('PATCH', { shared: false }));
+      expect(unshared.status).toBe(200);
+      expect(GetSessionResponseSchema.parse(await unshared.json()).data.shared).toBe(false);
+      expect(await listGrants()).toEqual([]);
+      expect((await app.request(`/${SESSION_ID}`, asCaller('anyone'))).status).toBe(403);
+    });
+
+    it('ignores the legacy session.shared column', async () => {
+      await sessionStore.updateSession({
+        tenant_id: TENANT,
+        session_id: SESSION_ID,
+        agent: undefined,
+        title: undefined,
+        metadata: undefined,
+        shared: true,
+      });
+
+      expect(await sessionShared()).toBe(false);
+      expect((await app.request(`/${SESSION_ID}`, asCaller('anyone'))).status).toBe(403);
+    });
+
+    it('reports shared on listed sessions', async () => {
+      expect((await shareWithTenant()).status).toBe(201);
+
+      const response = await app.request('/', asCaller('owner'));
+
+      expect(ListSessionsResponseSchema.parse(await response.json()).data).toEqual([
+        expect.objectContaining({ id: SESSION_ID, shared: true }),
+      ]);
+    });
+  });
+
+  describe('read access from a grant', () => {
+    const READS = [
+      `/${SESSION_ID}`,
+      `/${SESSION_ID}/events`,
+      `/${SESSION_ID}/turns`,
+      `/${SESSION_ID}/turns/${TURN_ID}`,
+      `/${SESSION_ID}/turns/${TURN_ID}/events`,
+    ];
+
+    async function readStatuses(caller: string): Promise<number[]> {
+      return Promise.all(READS.map(async path => (await app.request(path, asCaller(caller))).status));
+    }
+
+    beforeEach(async () => {
+      await sessionStore.createTurn(makeCreateTurnInput({ sessionId: SESSION_ID, turnId: TURN_ID }));
+    });
+
+    it('lets a granted user read the session, its events, and its turns', async () => {
+      expect((await grant(['alice'])).status).toBe(201);
+
+      expect(await readStatuses('alice')).toEqual(READS.map(() => 200));
+    });
+
+    it('keeps mutations, subscribe, and downloads creator-only', async () => {
+      expect((await grant(['alice'])).status).toBe(201);
+
+      const responses = await Promise.all([
+        app.request(`/${SESSION_ID}`, jsonInit('PATCH', { title: 'renamed' }, 'alice')),
+        app.request(`/${SESSION_ID}`, asCaller('alice', 'DELETE')),
+        app.request(`/${SESSION_ID}/cancel`, asCaller('alice', 'POST')),
+        app.request(`/${SESSION_ID}/turns/${TURN_ID}/subscribe`, asCaller('alice')),
+        app.request(`/${SESSION_ID}/turns/${TURN_ID}/download-sandbox-file?path=report.pdf`, asCaller('alice')),
+      ]);
+
+      expect(responses.map(response => response.status)).toEqual([403, 403, 403, 403, 403]);
+    });
+
+    it('stops read access once the grant is revoked', async () => {
+      expect((await grant(['alice'])).status).toBe(201);
+      expect((await app.request(`/${SESSION_ID}/access/user/alice`, asCaller('owner', 'DELETE'))).status).toBe(200);
+
+      expect(await readStatuses('alice')).toEqual(READS.map(() => 403));
+    });
+
+    it('does not extend to users without a grant', async () => {
+      expect((await grant(['alice'])).status).toBe(201);
+
+      expect(await readStatuses('bob')).toEqual(READS.map(() => 403));
+    });
   });
 });

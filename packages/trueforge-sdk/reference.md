@@ -1874,7 +1874,7 @@ await client.sessions.create({
 <dl>
 <dd>
 
-Fetch a session by ID. Allowed for the creator, a manager of the bound named agent, or any tenant member when the session is shared.
+Fetch a session by ID. Allowed for the creator, a manager of the bound named agent, a user the session is shared with, or any tenant member when the session is shared.
 </dd>
 </dl>
 </dd>
@@ -2000,7 +2000,7 @@ await client.sessions.delete("session_id");
 <dl>
 <dd>
 
-Update a session: optional `title`, `metadata`, `shared`, and (inline sessions only) `agent` as `{ spec: AgentSpec }`. Named sessions reject agent updates. An empty body is a valid no-op that refreshes `updated_at`. Only the session creator may update it.
+Update a session: optional `title`, `metadata`, `shared` (deprecated; use the access endpoints), and (inline sessions only) `agent` as `{ spec: AgentSpec }`. Named sessions reject agent updates. An empty body is a valid no-op that refreshes `updated_at`. Only the session creator may update it.
 </dd>
 </dl>
 </dd>
@@ -2071,7 +2071,7 @@ await client.sessions.update("session_id");
 <dl>
 <dd>
 
-List the users this session is shared with. Only the session creator may call this.
+List who this session is shared with: individual users, plus the tenant when it is shared with everyone. Only the session creator may call this.
 </dd>
 </dl>
 </dd>
@@ -2134,7 +2134,7 @@ await client.sessions.listAccess("session_id");
 <dl>
 <dd>
 
-Share this session with users. Existing grants are left unchanged. Only the session creator may call this.
+Share this session with users, or with everyone in the tenant through a `tenant` subject. Existing grants are left unchanged. Only the session creator may call this.
 </dd>
 </dl>
 </dd>
@@ -2210,7 +2210,7 @@ await client.sessions.createAccess("session_id", {
 <dl>
 <dd>
 
-Revoke one user's access to this session. Only the session creator may call this.
+Revoke one grant on this session. Only the session creator may call this.
 </dd>
 </dl>
 </dd>
@@ -2249,7 +2249,7 @@ await client.sessions.deleteAccess("session_id", "user", "subject_id");
 <dl>
 <dd>
 
-**subject_type:** `TrueForge.SessionAccessSubjectType` — Kind of subject the session is shared with.
+**subject_type:** `TrueForge.SessionAccessSubjectType` — Kind of subject the session is shared with. `tenant` shares it with everyone in the tenant.
     
 </dd>
 </dl>
@@ -2257,7 +2257,7 @@ await client.sessions.deleteAccess("session_id", "user", "subject_id");
 <dl>
 <dd>
 
-**subject_id:** `string` — Subject identifier, as returned by `GET /api/v1/users`.
+**subject_id:** `string` — A user id from `GET /api/v1/users`, or the tenant id of the caller for a `tenant` subject.
     
 </dd>
 </dl>
@@ -2360,7 +2360,7 @@ await client.sessions.cancel("session_id");
 <dl>
 <dd>
 
-List session events as `{ turn_id, event }` across the active turn branch (newest first), including persisted events from a running tip. Each turn contributes turn.created, content events (model.message, tool.call, …), and turn.done when terminal; streaming deltas are not included. Use `page_token` to paginate backward toward older events while retaining the original branch anchor. Allowed for the creator, a manager of the bound named agent, or any tenant member when the session is shared.
+List session events as `{ turn_id, event }` across the active turn branch (newest first), including persisted events from a running tip. Each turn contributes turn.created, content events (model.message, tool.call, …), and turn.done when terminal; streaming deltas are not included. Use `page_token` to paginate backward toward older events while retaining the original branch anchor. Allowed for the creator, a manager of the bound named agent, a user the session is shared with, or any tenant member when the session is shared.
 </dd>
 </dl>
 </dd>
@@ -2443,7 +2443,7 @@ const response = page.response;
 <dl>
 <dd>
 
-List turns for a session (newest first by default), token-paginated. Allowed for the creator, a manager of the bound named agent, or any tenant member when the session is shared.
+List turns for a session (newest first by default), token-paginated. Allowed for the creator, a manager of the bound named agent, a user the session is shared with, or any tenant member when the session is shared.
 </dd>
 </dl>
 </dd>
@@ -2679,7 +2679,7 @@ await client.sessions.createTurn("session_id", {});
 <dl>
 <dd>
 
-Fetch a single turn by ID. Allowed for the creator, a manager of the bound named agent, or any tenant member when the session is shared.
+Fetch a single turn by ID. Allowed for the creator, a manager of the bound named agent, a user the session is shared with, or any tenant member when the session is shared.
 </dd>
 </dl>
 </dd>
@@ -2831,7 +2831,7 @@ await client.sessions.downloadSandboxFile("session_id", "turn_id", {
 <dl>
 <dd>
 
-Paginated persisted events for a turn (insertion order by default). Allowed for the creator, a manager of the bound named agent, or any tenant member when the session is shared.
+Paginated persisted events for a turn (insertion order by default). Allowed for the creator, a manager of the bound named agent, a user the session is shared with, or any tenant member when the session is shared.
 </dd>
 </dl>
 </dd>

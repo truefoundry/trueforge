@@ -7,8 +7,8 @@ import type * as serializers from "../index.js";
 export const SessionAccessSubjectType: core.serialization.Schema<
     serializers.SessionAccessSubjectType.Raw,
     TrueForge.SessionAccessSubjectType
-> = core.serialization.stringLiteral("user");
+> = core.serialization.enum_(["user", "tenant"]);
 
 export declare namespace SessionAccessSubjectType {
-    export type Raw = "user";
+    export type Raw = "user" | "tenant";
 }

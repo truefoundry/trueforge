@@ -18,12 +18,12 @@ class SessionAccessGrant(UncheckedBaseModel):
     granted_by_subject: CreatedBySubject
     subject_display_name: typing.Optional[str] = pydantic.Field(default=None)
     """
-    Display name of the subject; null when the subject can no longer be resolved.
+    Display name of a user subject; null for `tenant` subjects and users that can no longer be resolved.
     """
 
     subject_email: typing.Optional[str] = pydantic.Field(default=None)
     """
-    Email of the subject; null when unknown or the subject can no longer be resolved.
+    Email of a user subject; null for `tenant` subjects, unknown emails, and unresolvable users.
     """
 
     subject_id: str = pydantic.Field()
@@ -31,7 +31,7 @@ class SessionAccessGrant(UncheckedBaseModel):
     Subject identifier.
     """
 
-    subject_type: SessionAccessSubjectType = "user"
+    subject_type: SessionAccessSubjectType
 
     if IS_PYDANTIC_V2:
         model_config: typing.ClassVar[pydantic.ConfigDict] = pydantic.ConfigDict(extra="allow")  # type: ignore # Pydantic v2

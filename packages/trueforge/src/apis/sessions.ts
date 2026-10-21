@@ -74,12 +74,13 @@ const CancelPeerBodySchema = z.object({
 });
 type CancelPeerBody = z.infer<typeof CancelPeerBodySchema>;
 
-export function toWireSession(record: SessionRecord): Session {
+/** `shared` is whether the session holds a `tenant` grant; the legacy `session.shared` column is not read. */
+export function toWireSession(record: SessionRecord, shared: boolean): Session {
   return {
     id: record.session_id,
     agent: record.agent,
     title: record.title,
-    shared: record.shared,
+    shared,
     created_by_subject: record.created_by_subject,
     created_at: record.created_at.toISOString(),
     updated_at: record.updated_at.toISOString(),
@@ -87,6 +88,31 @@ export function toWireSession(record: SessionRecord): Session {
     metadata: record.metadata,
     source: record.source,
   };
+}
+
+/** One batched lookup for the `shared` flag of every record. */
+async function toWireSessions(
+  accessControlEntryStore: IAccessControlEntryStore,
+  input: { tenant_id: string; records: readonly SessionRecord[] },
+): Promise<Session[]> {
+  const sharedIds = new Set(
+    await accessControlEntryStore.listTenantSharedSessionIds({
+      tenant_id: input.tenant_id,
+      session_ids: input.records.map(record => record.session_id),
+    }),
+  );
+  return input.records.map(record => toWireSession(record, sharedIds.has(record.session_id)));
+}
+
+async function toWireSessionWithSharing(
+  accessControlEntryStore: IAccessControlEntryStore,
+  input: { tenant_id: string; record: SessionRecord },
+): Promise<Session> {
+  const sharedIds = await accessControlEntryStore.listTenantSharedSessionIds({
+    tenant_id: input.tenant_id,
+    session_ids: [input.record.session_id],
+  });
+  return toWireSession(input.record, sharedIds.length > 0);
 }
 
 export interface SessionsRouterDeps {
@@ -280,18 +306,18 @@ function uniqueSubjects(subjects: readonly SessionAccessSubject[]): SessionAcces
   return [...byKey.values()];
 }
 
-/** One directory lookup for all grantees; unresolvable users keep their grant with null details. */
+/** One directory lookup for all user grantees; unresolvable users keep their grant with null details. */
 async function toWireGrants(
   userDirectory: UserDirectory,
   input: { records: readonly SessionAccessRecord[]; context: RequestContext },
 ): Promise<SessionAccessGrant[]> {
   const users = await userDirectory.getUsersByIds({
     context: input.context,
-    ids: input.records.map(record => record.subject_id),
+    ids: input.records.filter(record => record.subject_type === 'user').map(record => record.subject_id),
   });
   const userById = new Map(users.map(user => [user.id, user]));
   return input.records.map(record => {
-    const user = userById.get(record.subject_id);
+    const user = record.subject_type === 'user' ? userById.get(record.subject_id) : undefined;
     return {
       subject_type: record.subject_type,
       subject_id: record.subject_id,
@@ -301,6 +327,25 @@ async function toWireGrants(
       created_at: record.created_at,
     };
   });
+}
+
+/** `PATCH { shared }` alias: sharing with everyone is the `tenant` grant. */
+async function setSharedWithTenant(
+  accessControlEntryStore: IAccessControlEntryStore,
+  input: { requestContext: RequestContext; session_id: string; shared: boolean },
+): Promise<void> {
+  const { requestContext, session_id } = input;
+  const subject: SessionAccessSubject = { subject_type: 'tenant', subject_id: requestContext.tenant_id };
+  if (input.shared) {
+    await accessControlEntryStore.grantSessionAccess({
+      tenant_id: requestContext.tenant_id,
+      session_id,
+      subjects: [subject],
+      granted_by_subject: createdBySubjectFromRequestContext(requestContext),
+    });
+    return;
+  }
+  await accessControlEntryStore.revokeSessionAccess({ tenant_id: requestContext.tenant_id, session_id, subject });
 }
 
 /**
@@ -345,6 +390,7 @@ type InternalSessionsRouterDeps = Pick<
   | 'resolveWebSearchProviderStore'
   | 'resolveRequestContext'
   | 'authorizer'
+  | 'accessControlEntryStore'
 >;
 
 function createGetOrCreateSessionByExternalIdHandler(
@@ -369,7 +415,15 @@ function createGetOrCreateSessionByExternalIdHandler(
       if (!allowed) {
         return c.json({ error: { message: FORBIDDEN_SESSION_ACCESS } }, 403);
       }
-      return c.json({ data: toWireSession(existing.record) }, 200);
+      return c.json(
+        {
+          data: await toWireSessionWithSharing(deps.accessControlEntryStore, {
+            tenant_id: requestContext.tenant_id,
+            record: existing.record,
+          }),
+        },
+        200,
+      );
     }
 
     let agent: SessionRecord['agent'];
@@ -415,7 +469,13 @@ function createGetOrCreateSessionByExternalIdHandler(
         return c.json({ error: { message: FORBIDDEN_SESSION_ACCESS } }, 403);
       }
     }
-    return c.json({ data: toWireSession(session.record) }, created ? 201 : 200);
+    const data = created
+      ? toWireSession(session.record, false)
+      : await toWireSessionWithSharing(deps.accessControlEntryStore, {
+          tenant_id: requestContext.tenant_id,
+          record: session.record,
+        });
+    return c.json({ data }, created ? 201 : 200);
   };
 }
 
@@ -455,7 +515,7 @@ export function createSessionsRouter(deps: SessionsRouterDeps) {
         metadata: body.metadata,
         external_id: null,
       });
-      return c.json({ data: toWireSession(session.record) }, 201);
+      return c.json({ data: toWireSession(session.record, false) }, 201);
     }
 
     await validateInlineSessionSpec(deps, {
@@ -471,7 +531,7 @@ export function createSessionsRouter(deps: SessionsRouterDeps) {
       metadata: body.metadata,
       external_id: null,
     });
-    return c.json({ data: toWireSession(session.record) }, 201);
+    return c.json({ data: toWireSession(session.record, false) }, 201);
   };
 
   const getSessionHandler: RouteHandler<typeof getSessionRoute> = async c => {
@@ -485,7 +545,8 @@ export function createSessionsRouter(deps: SessionsRouterDeps) {
       return c.json({ error: { message: `Session not found: ${sessionId}` } }, 404);
     }
     const allowed = await canReadSession({
-      shared: record.shared,
+      session_id: sessionId,
+      accessStore: deps.accessControlEntryStore,
       store: deps.resolveAgentStore(c),
       context: requestContext,
       authorizer: deps.authorizer,
@@ -495,7 +556,15 @@ export function createSessionsRouter(deps: SessionsRouterDeps) {
     if (!allowed) {
       return c.json({ error: { message: FORBIDDEN_SESSION_ACCESS } }, 403);
     }
-    return c.json({ data: toWireSession(record) }, 200);
+    return c.json(
+      {
+        data: await toWireSessionWithSharing(deps.accessControlEntryStore, {
+          tenant_id: requestContext.tenant_id,
+          record,
+        }),
+      },
+      200,
+    );
   };
 
   const deleteSessionHandler: RouteHandler<typeof deleteSessionRoute> = async c => {
@@ -573,7 +642,7 @@ export function createSessionsRouter(deps: SessionsRouterDeps) {
         agent: body.agent === undefined ? undefined : { type: 'inline', spec: body.agent.spec },
         title: body.title,
         metadata: body.metadata,
-        shared: body.shared,
+        shared: undefined,
       });
     } catch (error) {
       if (error instanceof SessionStoreNotFoundError) {
@@ -584,6 +653,13 @@ export function createSessionsRouter(deps: SessionsRouterDeps) {
       }
       throw error;
     }
+    if (body.shared !== undefined) {
+      await setSharedWithTenant(deps.accessControlEntryStore, {
+        requestContext,
+        session_id: sessionId,
+        shared: body.shared,
+      });
+    }
     const record = await deps.sessionStore.getSession({
       tenant_id: requestContext.tenant_id,
       session_id: sessionId,
@@ -591,7 +667,15 @@ export function createSessionsRouter(deps: SessionsRouterDeps) {
     if (!record) {
       return c.json({ error: { message: `Session not found: ${sessionId}` } }, 404);
     }
-    return c.json({ data: toWireSession(record) }, 200);
+    return c.json(
+      {
+        data: await toWireSessionWithSharing(deps.accessControlEntryStore, {
+          tenant_id: requestContext.tenant_id,
+          record,
+        }),
+      },
+      200,
+    );
   };
 
   const listSessionsHandler: RouteHandler<typeof listSessionsRoute> = async c => {
@@ -621,7 +705,16 @@ export function createSessionsRouter(deps: SessionsRouterDeps) {
         source_type: query.source_type,
         source_id: query.source_id,
       });
-      return c.json({ data: data.map(toWireSession), pagination }, 200);
+      return c.json(
+        {
+          data: await toWireSessions(deps.accessControlEntryStore, {
+            tenant_id: requestContext.tenant_id,
+            records: data,
+          }),
+          pagination,
+        },
+        200,
+      );
     } catch (error) {
       if (error instanceof SessionStoreConflictError) {
         throw new HTTPException(400, { message: error.message, cause: error });
@@ -669,7 +762,8 @@ export function createSessionsRouter(deps: SessionsRouterDeps) {
       return c.json({ error: { message: `Session not found: ${sessionId}` } }, 404);
     }
     const allowed = await canReadSession({
-      shared: session.record.shared,
+      session_id: sessionId,
+      accessStore: deps.accessControlEntryStore,
       store: deps.resolveAgentStore(c),
       context: requestContext,
       authorizer: deps.authorizer,
@@ -712,15 +806,18 @@ export function createSessionsRouter(deps: SessionsRouterDeps) {
     const body = c.req.valid('json');
     const { requestContext } = await requireOwnedSession(deps, { c, session_id: sessionId });
     const subjects = uniqueSubjects(body.subjects);
-    if (subjects.some(subject => subject.subject_id === requestContext.subject.id)) {
+    if (
+      subjects.some(subject => subject.subject_type === 'tenant' && subject.subject_id !== requestContext.tenant_id)
+    ) {
+      throw new HTTPException(422, { message: 'A tenant subject must use the tenant id of the caller.' });
+    }
+    const userIds = subjects.filter(subject => subject.subject_type === 'user').map(subject => subject.subject_id);
+    if (userIds.includes(requestContext.subject.id)) {
       throw new HTTPException(422, { message: 'The session creator already has access.' });
     }
-    const knownUsers = await deps.userDirectory.getUsersByIds({
-      context: requestContext,
-      ids: subjects.map(subject => subject.subject_id),
-    });
+    const knownUsers = await deps.userDirectory.getUsersByIds({ context: requestContext, ids: userIds });
     const knownIds = new Set(knownUsers.map(user => user.id));
-    const unknownIds = subjects.filter(subject => !knownIds.has(subject.subject_id)).map(subject => subject.subject_id);
+    const unknownIds = userIds.filter(id => !knownIds.has(id));
     if (unknownIds.length > 0) {
       throw new HTTPException(422, { message: `Unknown users: ${unknownIds.join(', ')}` });
     }

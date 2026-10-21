@@ -4074,14 +4074,14 @@
             "$ref": "#/components/schemas/CreatedBySubject"
           },
           "subject_display_name": {
-            "description": "Display name of the subject; null when the subject can no longer be resolved.",
+            "description": "Display name of a user subject; null for `tenant` subjects and users that can no longer be resolved.",
             "type": [
               "string",
               "null"
             ]
           },
           "subject_email": {
-            "description": "Email of the subject; null when unknown or the subject can no longer be resolved.",
+            "description": "Email of a user subject; null for `tenant` subjects, unknown emails, and unresolvable users.",
             "type": [
               "string",
               "null"
@@ -4109,7 +4109,7 @@
         "additionalProperties": false,
         "properties": {
           "subject_id": {
-            "description": "Subject identifier, as returned by `GET /api/v1/users`.",
+            "description": "A user id from `GET /api/v1/users`, or the tenant id of the caller for a `tenant` subject.",
             "maxLength": 255,
             "minLength": 1,
             "type": "string"
@@ -4125,9 +4125,10 @@
         "type": "object"
       },
       "SessionAccessSubjectType": {
-        "description": "Kind of subject the session is shared with.",
+        "description": "Kind of subject the session is shared with. `tenant` shares it with everyone in the tenant.",
         "enum": [
-          "user"
+          "user",
+          "tenant"
         ],
         "type": "string"
       },
@@ -5929,7 +5930,8 @@
             "$ref": "#/components/schemas/SessionMetadata"
           },
           "shared": {
-            "description": "When true, any subject in the tenant may read this session and its turns/events by id.",
+            "deprecated": true,
+            "description": "Deprecated: share through `POST /sessions/{session_id}/access` with a `tenant` subject. When true, anyone in the tenant may read this session by id.",
             "type": "boolean"
           },
           "title": {
@@ -9286,7 +9288,7 @@
         "x-fern-sdk-method-name": "delete"
       },
       "get": {
-        "description": "Fetch a session by ID. Allowed for the creator, a manager of the bound named agent, or any tenant member when the session is shared.",
+        "description": "Fetch a session by ID. Allowed for the creator, a manager of the bound named agent, a user the session is shared with, or any tenant member when the session is shared.",
         "parameters": [
           {
             "description": "Session identifier.",
@@ -9343,7 +9345,7 @@
         "x-fern-sdk-method-name": "get"
       },
       "patch": {
-        "description": "Update a session: optional `title`, `metadata`, `shared`, and (inline sessions only) `agent` as `{ spec: AgentSpec }`. Named sessions reject agent updates. An empty body is a valid no-op that refreshes `updated_at`. Only the session creator may update it.",
+        "description": "Update a session: optional `title`, `metadata`, `shared` (deprecated; use the access endpoints), and (inline sessions only) `agent` as `{ spec: AgentSpec }`. Named sessions reject agent updates. An empty body is a valid no-op that refreshes `updated_at`. Only the session creator may update it.",
         "parameters": [
           {
             "description": "Session identifier.",
@@ -9432,7 +9434,7 @@
     },
     "/api/v1/sessions/{session_id}/access": {
       "get": {
-        "description": "List the users this session is shared with. Only the session creator may call this.",
+        "description": "List who this session is shared with: individual users, plus the tenant when it is shared with everyone. Only the session creator may call this.",
         "parameters": [
           {
             "description": "Session identifier.",
@@ -9456,7 +9458,7 @@
                 }
               }
             },
-            "description": "Users the session is shared with."
+            "description": "Grants on the session."
           },
           "403": {
             "content": {
@@ -9489,7 +9491,7 @@
         "x-fern-sdk-method-name": "list_access"
       },
       "post": {
-        "description": "Share this session with users. Existing grants are left unchanged. Only the session creator may call this.",
+        "description": "Share this session with users, or with everyone in the tenant through a `tenant` subject. Existing grants are left unchanged. Only the session creator may call this.",
         "parameters": [
           {
             "description": "Session identifier.",
@@ -9563,7 +9565,7 @@
                 }
               }
             },
-            "description": "A subject is unknown or is the session creator."
+            "description": "A user is unknown or is the session creator, or a tenant subject names another tenant."
           }
         },
         "summary": "Share a session",
@@ -9578,7 +9580,7 @@
     },
     "/api/v1/sessions/{session_id}/access/{subject_type}/{subject_id}": {
       "delete": {
-        "description": "Revoke one user's access to this session. Only the session creator may call this.",
+        "description": "Revoke one grant on this session. Only the session creator may call this.",
         "parameters": [
           {
             "description": "Session identifier.",
@@ -9593,7 +9595,7 @@
             }
           },
           {
-            "description": "Kind of subject the session is shared with.",
+            "description": "Kind of subject the session is shared with. `tenant` shares it with everyone in the tenant.",
             "in": "path",
             "name": "subject_type",
             "required": true,
@@ -9602,12 +9604,12 @@
             }
           },
           {
-            "description": "Subject identifier, as returned by `GET /api/v1/users`.",
+            "description": "A user id from `GET /api/v1/users`, or the tenant id of the caller for a `tenant` subject.",
             "in": "path",
             "name": "subject_id",
             "required": true,
             "schema": {
-              "description": "Subject identifier, as returned by `GET /api/v1/users`.",
+              "description": "A user id from `GET /api/v1/users`, or the tenant id of the caller for a `tenant` subject.",
               "maxLength": 255,
               "minLength": 1,
               "type": "string"
@@ -9737,7 +9739,7 @@
     },
     "/api/v1/sessions/{session_id}/events": {
       "get": {
-        "description": "List session events as `{ turn_id, event }` across the active turn branch (newest first), including persisted events from a running tip. Each turn contributes turn.created, content events (model.message, tool.call, …), and turn.done when terminal; streaming deltas are not included. Use `page_token` to paginate backward toward older events while retaining the original branch anchor. Allowed for the creator, a manager of the bound named agent, or any tenant member when the session is shared.",
+        "description": "List session events as `{ turn_id, event }` across the active turn branch (newest first), including persisted events from a running tip. Each turn contributes turn.created, content events (model.message, tool.call, …), and turn.done when terminal; streaming deltas are not included. Use `page_token` to paginate backward toward older events while retaining the original branch anchor. Allowed for the creator, a manager of the bound named agent, a user the session is shared with, or any tenant member when the session is shared.",
         "parameters": [
           {
             "description": "Session identifier.",
@@ -9844,7 +9846,7 @@
     },
     "/api/v1/sessions/{session_id}/turns": {
       "get": {
-        "description": "List turns for a session (newest first by default), token-paginated. Allowed for the creator, a manager of the bound named agent, or any tenant member when the session is shared.",
+        "description": "List turns for a session (newest first by default), token-paginated. Allowed for the creator, a manager of the bound named agent, a user the session is shared with, or any tenant member when the session is shared.",
         "parameters": [
           {
             "description": "Session identifier.",
@@ -10074,7 +10076,7 @@
     },
     "/api/v1/sessions/{session_id}/turns/{turn_id}": {
       "get": {
-        "description": "Fetch a single turn by ID. Allowed for the creator, a manager of the bound named agent, or any tenant member when the session is shared.",
+        "description": "Fetch a single turn by ID. Allowed for the creator, a manager of the bound named agent, a user the session is shared with, or any tenant member when the session is shared.",
         "parameters": [
           {
             "description": "Session identifier.",
@@ -10276,7 +10278,7 @@
     },
     "/api/v1/sessions/{session_id}/turns/{turn_id}/events": {
       "get": {
-        "description": "Paginated persisted events for a turn (insertion order by default). Allowed for the creator, a manager of the bound named agent, or any tenant member when the session is shared.",
+        "description": "Paginated persisted events for a turn (insertion order by default). Allowed for the creator, a manager of the bound named agent, a user the session is shared with, or any tenant member when the session is shared.",
         "parameters": [
           {
             "description": "Session identifier.",

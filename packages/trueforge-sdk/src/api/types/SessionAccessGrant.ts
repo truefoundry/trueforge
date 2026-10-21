@@ -6,9 +6,9 @@ export interface SessionAccessGrant {
     /** When access was granted (ISO-8601 UTC). */
     createdAt: string;
     grantedBySubject: TrueForge.CreatedBySubject;
-    /** Display name of the subject; null when the subject can no longer be resolved. */
+    /** Display name of a user subject; null for `tenant` subjects and users that can no longer be resolved. */
     subjectDisplayName: string | null;
-    /** Email of the subject; null when unknown or the subject can no longer be resolved. */
+    /** Email of a user subject; null for `tenant` subjects, unknown emails, and unresolvable users. */
     subjectEmail: string | null;
     /** Subject identifier. */
     subjectId: string;

@@ -6,6 +6,7 @@
 import type { TokenPagination } from '@truefoundry/trueforge-core/agent-session';
 import type { AgentAction, Authorizer } from '../auth/authorizer';
 import type { RequestContext } from '../auth/identity';
+import type { IAccessControlEntryStore } from '../db/accessControlEntryStore';
 import type { AgentRecord, IAgentStore } from '../db/agentStore';
 
 /** The agent only when the caller may act on it, so callers answer 404 for missing and forbidden alike. */
@@ -98,19 +99,30 @@ export async function canReadAgentBoundResource<TTransaction>(input: {
 }
 
 /**
- * Session conversation reads (get session, list events/turns). Shared sessions
- * are readable by any tenant member; otherwise same as {@link canReadAgentBoundResource}.
- * Mutating ops, subscribe, and sandbox downloads stay creator-only on purpose.
+ * Session conversation reads (get session, list events/turns): readable by the creator,
+ * managers of the bound named agent, and anyone holding a grant (their own `user` grant, or
+ * a `tenant` grant when shared with everyone); mutations, subscribe, and sandbox downloads
+ * stay creator-only. Checks run cheapest first so the remote agent-permission lookup is last.
  */
 export async function canReadSession<TTransaction>(input: {
-  shared: boolean;
+  session_id: string;
+  created_by_subject_id: string;
+  agent_id: string | undefined;
+  accessStore: IAccessControlEntryStore<TTransaction>;
   store: IAgentStore<TTransaction>;
   context: RequestContext;
   authorizer: Authorizer;
-  created_by_subject_id: string;
-  agent_id: string | undefined;
 }): Promise<boolean> {
-  if (input.shared) {
+  const { context } = input;
+  if (input.created_by_subject_id === context.subject.id) {
+    return true;
+  }
+  const granted = await input.accessStore.hasAccess({
+    tenant_id: context.tenant_id,
+    session_id: input.session_id,
+    subject_id: context.subject.id,
+  });
+  if (granted) {
     return true;
   }
   return canReadAgentBoundResource(input);

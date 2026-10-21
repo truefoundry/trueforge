@@ -282,7 +282,7 @@ export class SessionsClient {
     }
 
     /**
-     * Fetch a session by ID. Allowed for the creator, a manager of the bound named agent, or any tenant member when the session is shared.
+     * Fetch a session by ID. Allowed for the creator, a manager of the bound named agent, a user the session is shared with, or any tenant member when the session is shared.
      *
      * @param {string} session_id - Session identifier.
      * @param {SessionsClient.RequestOptions} requestOptions - Request-specific configuration.
@@ -453,7 +453,7 @@ export class SessionsClient {
     }
 
     /**
-     * Update a session: optional `title`, `metadata`, `shared`, and (inline sessions only) `agent` as `{ spec: AgentSpec }`. Named sessions reject agent updates. An empty body is a valid no-op that refreshes `updated_at`. Only the session creator may update it.
+     * Update a session: optional `title`, `metadata`, `shared` (deprecated; use the access endpoints), and (inline sessions only) `agent` as `{ spec: AgentSpec }`. Named sessions reject agent updates. An empty body is a valid no-op that refreshes `updated_at`. Only the session creator may update it.
      *
      * @param {string} session_id - Session identifier.
      * @param {TrueForge.UpdateSessionRequest} request
@@ -591,7 +591,7 @@ export class SessionsClient {
     }
 
     /**
-     * List the users this session is shared with. Only the session creator may call this.
+     * List who this session is shared with: individual users, plus the tenant when it is shared with everyone. Only the session creator may call this.
      *
      * @param {string} session_id - Session identifier.
      * @param {SessionsClient.RequestOptions} requestOptions - Request-specific configuration.
@@ -691,7 +691,7 @@ export class SessionsClient {
     }
 
     /**
-     * Share this session with users. Existing grants are left unchanged. Only the session creator may call this.
+     * Share this session with users, or with everyone in the tenant through a `tenant` subject. Existing grants are left unchanged. Only the session creator may call this.
      *
      * @param {string} session_id - Session identifier.
      * @param {TrueForge.CreateSessionAccessRequest} request
@@ -834,11 +834,11 @@ export class SessionsClient {
     }
 
     /**
-     * Revoke one user's access to this session. Only the session creator may call this.
+     * Revoke one grant on this session. Only the session creator may call this.
      *
      * @param {string} session_id - Session identifier.
-     * @param {TrueForge.SessionAccessSubjectType} subject_type - Kind of subject the session is shared with.
-     * @param {string} subject_id - Subject identifier, as returned by `GET /api/v1/users`.
+     * @param {TrueForge.SessionAccessSubjectType} subject_type - Kind of subject the session is shared with. `tenant` shares it with everyone in the tenant.
+     * @param {string} subject_id - A user id from `GET /api/v1/users`, or the tenant id of the caller for a `tenant` subject.
      * @param {SessionsClient.RequestOptions} requestOptions - Request-specific configuration.
      *
      * @throws {@link TrueForge.ForbiddenError}
@@ -1068,7 +1068,7 @@ export class SessionsClient {
     }
 
     /**
-     * List session events as `{ turn_id, event }` across the active turn branch (newest first), including persisted events from a running tip. Each turn contributes turn.created, content events (model.message, tool.call, …), and turn.done when terminal; streaming deltas are not included. Use `page_token` to paginate backward toward older events while retaining the original branch anchor. Allowed for the creator, a manager of the bound named agent, or any tenant member when the session is shared.
+     * List session events as `{ turn_id, event }` across the active turn branch (newest first), including persisted events from a running tip. Each turn contributes turn.created, content events (model.message, tool.call, …), and turn.done when terminal; streaming deltas are not included. Use `page_token` to paginate backward toward older events while retaining the original branch anchor. Allowed for the creator, a manager of the bound named agent, a user the session is shared with, or any tenant member when the session is shared.
      *
      * @param {string} session_id - Session identifier.
      * @param {TrueForge.ListEventsSessionsRequest} request
@@ -1201,7 +1201,7 @@ export class SessionsClient {
     }
 
     /**
-     * List turns for a session (newest first by default), token-paginated. Allowed for the creator, a manager of the bound named agent, or any tenant member when the session is shared.
+     * List turns for a session (newest first by default), token-paginated. Allowed for the creator, a manager of the bound named agent, a user the session is shared with, or any tenant member when the session is shared.
      *
      * @param {string} session_id - Session identifier.
      * @param {TrueForge.ListTurnsSessionsRequest} request
@@ -1688,7 +1688,7 @@ export class SessionsClient {
     }
 
     /**
-     * Fetch a single turn by ID. Allowed for the creator, a manager of the bound named agent, or any tenant member when the session is shared.
+     * Fetch a single turn by ID. Allowed for the creator, a manager of the bound named agent, a user the session is shared with, or any tenant member when the session is shared.
      *
      * @param {string} session_id - Session identifier.
      * @param {string} turn_id - Turn identifier.
@@ -1951,7 +1951,7 @@ export class SessionsClient {
     }
 
     /**
-     * Paginated persisted events for a turn (insertion order by default). Allowed for the creator, a manager of the bound named agent, or any tenant member when the session is shared.
+     * Paginated persisted events for a turn (insertion order by default). Allowed for the creator, a manager of the bound named agent, a user the session is shared with, or any tenant member when the session is shared.
      *
      * @param {string} session_id - Session identifier.
      * @param {string} turn_id - Turn identifier.

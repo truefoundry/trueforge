@@ -71,7 +71,10 @@ export const UpdateSessionRequestSchema = z
     shared: z
       .boolean()
       .optional()
-      .describe('When true, any subject in the tenant may read this session and its turns/events by id.'),
+      .describe(
+        'Deprecated: share through `POST /sessions/{session_id}/access` with a `tenant` subject. When true, anyone in the tenant may read this session by id.',
+      )
+      .openapi({ deprecated: true }),
   })
   .strict()
   .openapi('UpdateSessionRequest');

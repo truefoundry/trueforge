@@ -46,6 +46,10 @@ function user(subject_id: string) {
   return { subject_type: 'user' as const, subject_id };
 }
 
+function tenant(subject_id: string) {
+  return { subject_type: 'tenant' as const, subject_id };
+}
+
 export function runAccessControlEntryStoreContractSuite(getEnv: () => AccessControlEntryStoreContractEnv): void {
   it('grants users and lists them with the granter and an ISO-UTC timestamp', async () => {
     const { store, seedSession } = getEnv();
@@ -136,6 +140,74 @@ export function runAccessControlEntryStoreContractSuite(getEnv: () => AccessCont
     expect(await store.revokeSessionAccess({ tenant_id: OTHER_TENANT, session_id: 's1', subject: user('alice') })).toBe(
       false,
     );
+  });
+
+  it('hasAccess is true only for a live user grant on that session and tenant', async () => {
+    const { store, seedSession } = getEnv();
+    await seedSession({ tenant_id: TENANT, session_id: 's1' });
+    await seedSession({ tenant_id: TENANT, session_id: 's2' });
+    await store.grantSessionAccess({
+      tenant_id: TENANT,
+      session_id: 's1',
+      subjects: [user('alice'), user('bob')],
+      granted_by_subject: OWNER,
+    });
+    await store.revokeSessionAccess({ tenant_id: TENANT, session_id: 's1', subject: user('bob') });
+
+    expect(await store.hasAccess({ tenant_id: TENANT, session_id: 's1', subject_id: 'alice' })).toBe(true);
+    expect(await store.hasAccess({ tenant_id: TENANT, session_id: 's2', subject_id: 'alice' })).toBe(false);
+    expect(await store.hasAccess({ tenant_id: OTHER_TENANT, session_id: 's1', subject_id: 'alice' })).toBe(false);
+    expect(await store.hasAccess({ tenant_id: TENANT, session_id: 's1', subject_id: 'bob' })).toBe(false);
+  });
+
+  it('hasAccess lets anyone in the tenant in when the session has a tenant grant for that tenant', async () => {
+    const { store, seedSession } = getEnv();
+    await seedSession({ tenant_id: TENANT, session_id: 's1' });
+    await seedSession({ tenant_id: TENANT, session_id: 's2' });
+    await store.grantSessionAccess({
+      tenant_id: TENANT,
+      session_id: 's1',
+      subjects: [tenant(TENANT)],
+      granted_by_subject: OWNER,
+    });
+    await store.grantSessionAccess({
+      tenant_id: TENANT,
+      session_id: 's2',
+      subjects: [tenant(OTHER_TENANT)],
+      granted_by_subject: OWNER,
+    });
+
+    expect(await store.hasAccess({ tenant_id: TENANT, session_id: 's1', subject_id: 'anyone' })).toBe(true);
+    expect(await store.hasAccess({ tenant_id: OTHER_TENANT, session_id: 's1', subject_id: 'anyone' })).toBe(false);
+    expect(await store.hasAccess({ tenant_id: TENANT, session_id: 's2', subject_id: 'anyone' })).toBe(false);
+
+    await store.revokeSessionAccess({ tenant_id: TENANT, session_id: 's1', subject: tenant(TENANT) });
+    expect(await store.hasAccess({ tenant_id: TENANT, session_id: 's1', subject_id: 'anyone' })).toBe(false);
+  });
+
+  it('listTenantSharedSessionIds returns only sessions shared with that tenant', async () => {
+    const { store, seedSession } = getEnv();
+    for (const session_id of ['s1', 's2', 's3']) {
+      await seedSession({ tenant_id: TENANT, session_id });
+    }
+    await store.grantSessionAccess({
+      tenant_id: TENANT,
+      session_id: 's1',
+      subjects: [tenant(TENANT)],
+      granted_by_subject: OWNER,
+    });
+    await store.grantSessionAccess({
+      tenant_id: TENANT,
+      session_id: 's2',
+      subjects: [user('alice')],
+      granted_by_subject: OWNER,
+    });
+
+    expect(
+      await store.listTenantSharedSessionIds({ tenant_id: TENANT, session_ids: ['s1', 's2', 's3', 'missing'] }),
+    ).toEqual(['s1']);
+    expect(await store.listTenantSharedSessionIds({ tenant_id: OTHER_TENANT, session_ids: ['s1'] })).toEqual([]);
+    expect(await store.listTenantSharedSessionIds({ tenant_id: TENANT, session_ids: [] })).toEqual([]);
   });
 
   it('rejects grants on a session that does not exist', async () => {

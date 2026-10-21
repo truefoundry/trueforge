@@ -3,7 +3,7 @@
 import type * as TrueForge from "../index.js";
 
 export interface SessionAccessSubject {
-    /** Subject identifier, as returned by `GET /api/v1/users`. */
+    /** A user id from `GET /api/v1/users`, or the tenant id of the caller for a `tenant` subject. */
     subjectId: string;
     subjectType: TrueForge.SessionAccessSubjectType;
 }

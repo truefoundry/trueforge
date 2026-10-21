@@ -38,6 +38,7 @@ import type { ResolveMcpServerStoreInput, ResolveModelProviderStoreInput, Resolv
 import type { Authorizer } from '../auth/authorizer';
 import type { ResolveRequestContext } from '../auth/identity';
 import configuration from '../config';
+import type { IAccessControlEntryStore } from '../db/accessControlEntryStore';
 import type { AgentRecord, IAgentStore } from '../db/agentStore';
 import type { IMcpServerWithAuthStore } from '../db/mcpServerStore';
 import type { IModelProviderStore } from '../db/modelProviderStore';
@@ -118,6 +119,7 @@ export function toContentDisposition(path: string): string {
 export interface TurnsRouterDeps {
   sessions: Sessions;
   sessionStore: ISessionStore;
+  accessControlEntryStore: IAccessControlEntryStore;
   activeTurns: ActiveTurnRegistry;
   resolveModelProviderStore: (input: ResolveModelProviderStoreInput) => IModelProviderStore;
   resolveMcpServerStore: (input: ResolveMcpServerStoreInput) => IMcpServerWithAuthStore;
@@ -612,7 +614,8 @@ export function createTurnsRouter(deps: TurnsRouterDeps) {
       return c.json({ error: { message: `Session not found: ${sessionId}` } }, 404);
     }
     const allowed = await canReadSession({
-      shared: session.record.shared,
+      session_id: sessionId,
+      accessStore: deps.accessControlEntryStore,
       store: deps.resolveAgentStore(c),
       context: requestContext,
       authorizer: deps.authorizer,
@@ -647,7 +650,8 @@ export function createTurnsRouter(deps: TurnsRouterDeps) {
       return c.json({ error: { message: `Session not found: ${sessionId}` } }, 404);
     }
     const allowed = await canReadSession({
-      shared: session.record.shared,
+      session_id: sessionId,
+      accessStore: deps.accessControlEntryStore,
       store: deps.resolveAgentStore(c),
       context: requestContext,
       authorizer: deps.authorizer,
@@ -745,7 +749,8 @@ export function createTurnsRouter(deps: TurnsRouterDeps) {
       return c.json({ error: { message: `Session not found: ${sessionId}` } }, 404);
     }
     const allowed = await canReadSession({
-      shared: session.record.shared,
+      session_id: sessionId,
+      accessStore: deps.accessControlEntryStore,
       store: deps.resolveAgentStore(c),
       context: requestContext,
       authorizer: deps.authorizer,

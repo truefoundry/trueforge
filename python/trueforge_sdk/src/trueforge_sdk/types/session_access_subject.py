@@ -11,10 +11,10 @@ from .session_access_subject_type import SessionAccessSubjectType
 class SessionAccessSubject(UncheckedBaseModel):
     subject_id: str = pydantic.Field()
     """
-    Subject identifier, as returned by `GET /api/v1/users`.
+    A user id from `GET /api/v1/users`, or the tenant id of the caller for a `tenant` subject.
     """
 
-    subject_type: SessionAccessSubjectType = "user"
+    subject_type: SessionAccessSubjectType
 
     if IS_PYDANTIC_V2:
         model_config: typing.ClassVar[pydantic.ConfigDict] = pydantic.ConfigDict(extra="allow")  # type: ignore # Pydantic v2
