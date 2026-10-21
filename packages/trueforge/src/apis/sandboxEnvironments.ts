@@ -9,11 +9,7 @@ import { InvalidPageTokenError } from '@truefoundry/trueforge-core/agent-session
 import type { Context } from 'hono';
 import { HTTPException } from 'hono/http-exception';
 import type { Logger } from 'winston';
-import {
-  canWriteSandboxEnvironment,
-  createdBySubjectFromRequestContext,
-  type ResolveRequestContext,
-} from '../auth/identity';
+import { canEditEnvironment, createdBySubjectFromRequestContext, type ResolveRequestContext } from '../auth/identity';
 import type { IAgentStore } from '../db/agentStore';
 import {
   SandboxEnvironmentNameConflictError,
@@ -223,7 +219,7 @@ export function createSandboxEnvironmentsRouter<TTransaction>(
 
   const createHandler: RouteHandler<typeof createSandboxEnvironmentRoute> = async c => {
     const requestContext = resolveRequestContext(c);
-    if (!canWriteSandboxEnvironment({ requestContext })) {
+    if (!canEditEnvironment(requestContext)) {
       return c.json({ error: { message: FORBIDDEN_SANDBOX_ENVIRONMENT_WRITE } }, 403);
     }
     const body = c.req.valid('json');
@@ -246,13 +242,7 @@ export function createSandboxEnvironmentsRouter<TTransaction>(
       tenant_id: requestContext.tenant_id,
       name: body.manifest.name,
     });
-    const existingCreatorSubjectId = existing?.environment.created_by_subject.subject_id;
-    if (
-      !canWriteSandboxEnvironment({
-        requestContext,
-        ...(existingCreatorSubjectId !== undefined ? { existingCreatorSubjectId } : {}),
-      })
-    ) {
+    if (!canEditEnvironment(requestContext, existing?.environment.created_by_subject.subject_id)) {
       return c.json({ error: { message: FORBIDDEN_SANDBOX_ENVIRONMENT_WRITE } }, 403);
     }
     const outcome = await writeSandboxEnvironment({ c, body, mode: 'upsert', existing });
@@ -276,8 +266,7 @@ export function createSandboxEnvironmentsRouter<TTransaction>(
     if (!existing) {
       return c.json({ error: { message: `Sandbox environment not found: ${name}` } }, 404);
     }
-    const existingCreatorSubjectId = existing.environment.created_by_subject.subject_id;
-    if (!canWriteSandboxEnvironment({ requestContext, existingCreatorSubjectId })) {
+    if (!canEditEnvironment(requestContext, existing.environment.created_by_subject.subject_id)) {
       return c.json({ error: { message: FORBIDDEN_SANDBOX_ENVIRONMENT_WRITE } }, 403);
     }
     const agentNames = await resolveAgentStore(c).listAgentNamesUsingSandboxEnvironment({
@@ -309,7 +298,6 @@ export function createSandboxEnvironmentsRouter<TTransaction>(
       await store.deleteEnvironment({
         tenant_id,
         name,
-        created_by_subject_id: existingCreatorSubjectId,
       });
       return c.json({}, 200);
     } catch (error) {

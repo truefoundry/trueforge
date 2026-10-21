@@ -153,8 +153,6 @@ export interface MarkSandboxEnvironmentVersionFailedInput {
 export interface DeleteSandboxEnvironmentInput {
   tenant_id: string;
   name: string;
-  /** Soft-delete only if created by this subject. */
-  created_by_subject_id: string;
 }
 
 /** Partial unique `(tenant_id, name) WHERE lifecycle_stage = 'active'` violation. */

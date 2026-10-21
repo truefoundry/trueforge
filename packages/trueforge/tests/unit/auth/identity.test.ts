@@ -1,6 +1,8 @@
 import { Hono } from 'hono';
 import {
-  canWriteSandboxEnvironment,
+  canAccessSettings,
+  canEditEnvironment,
+  canEditSchedule,
   hasAdminRole,
   requestContextFromCreatedBySubject,
   resolveRequestContext,
@@ -50,38 +52,60 @@ describe('requestContextFromCreatedBySubject', () => {
 });
 
 describe('hasAdminRole', () => {
+  afterEach(() => {
+    jest.mocked(getTrueForgeAuthMode).mockReturnValue(TrueForgeAuthMode.Standalone);
+  });
+
   // Unit tests run under STANDALONE=true (.env.test) → mode Standalone.
   it('treats admin as admin and other roles as non-admin in standalone', () => {
     expect(hasAdminRole({ roles: ['admin'] })).toBe(true);
     expect(hasAdminRole({ roles: ['everyone'] })).toBe(false);
     expect(hasAdminRole(STANDALONE_REQUEST_CONTEXT)).toBe(true);
   });
+
+  it('treats tenant-admin as admin in TrueFoundry mode', () => {
+    jest.mocked(getTrueForgeAuthMode).mockReturnValue(TrueForgeAuthMode.TrueFoundry);
+    expect(hasAdminRole({ roles: [TRUEFOUNDRY_TENANT_ADMIN_ROLE] })).toBe(true);
+    expect(hasAdminRole({ roles: ['everyone'] })).toBe(false);
+  });
 });
 
-describe('canWriteSandboxEnvironment', () => {
+describe('canAccessSettings', () => {
   afterEach(() => {
     jest.mocked(getTrueForgeAuthMode).mockReturnValue(TrueForgeAuthMode.Standalone);
   });
 
-  it('allows create for any subject and update/delete only for the creator in standalone', () => {
-    const alice = { roles: ['admin'], subject: { id: 'alice', type: 'user', display_name: 'alice' } };
-    const bob = { roles: ['admin'], subject: { id: 'bob', type: 'user', display_name: 'bob' } };
-    expect(canWriteSandboxEnvironment({ requestContext: alice })).toBe(true);
-    expect(canWriteSandboxEnvironment({ requestContext: alice, existingCreatorSubjectId: 'alice' })).toBe(true);
-    expect(canWriteSandboxEnvironment({ requestContext: bob, existingCreatorSubjectId: 'alice' })).toBe(false);
-  });
+  it('follows hasAdminRole outside TrueFoundry and stays false in TrueFoundry', () => {
+    expect(canAccessSettings({ roles: ['admin'] })).toBe(true);
+    expect(canAccessSettings({ roles: ['everyone'] })).toBe(false);
 
-  it('allows only tenant-admin writes in TrueFoundry mode', () => {
     jest.mocked(getTrueForgeAuthMode).mockReturnValue(TrueForgeAuthMode.TrueFoundry);
-    const admin = {
-      roles: [TRUEFOUNDRY_TENANT_ADMIN_ROLE],
-      subject: { id: 'admin', type: 'user', display_name: 'admin' },
-    };
+    expect(canAccessSettings({ roles: [TRUEFOUNDRY_TENANT_ADMIN_ROLE] })).toBe(false);
+    expect(hasAdminRole({ roles: [TRUEFOUNDRY_TENANT_ADMIN_ROLE] })).toBe(true);
+  });
+});
+
+describe('canEditEnvironment', () => {
+  it('allows create for admins only, and update/delete for admin or creator', () => {
     const alice = { roles: ['everyone'], subject: { id: 'alice', type: 'user', display_name: 'alice' } };
-    expect(canWriteSandboxEnvironment({ requestContext: alice })).toBe(false);
-    expect(canWriteSandboxEnvironment({ requestContext: alice, existingCreatorSubjectId: 'alice' })).toBe(false);
-    expect(canWriteSandboxEnvironment({ requestContext: admin })).toBe(true);
-    expect(canWriteSandboxEnvironment({ requestContext: admin, existingCreatorSubjectId: 'alice' })).toBe(true);
+    const bob = { roles: ['everyone'], subject: { id: 'bob', type: 'user', display_name: 'bob' } };
+    const admin = { roles: ['admin'], subject: { id: 'root', type: 'user', display_name: 'root' } };
+    expect(canEditEnvironment(admin)).toBe(true);
+    expect(canEditEnvironment(alice)).toBe(false);
+    expect(canEditEnvironment(alice, 'alice')).toBe(true);
+    expect(canEditEnvironment(bob, 'alice')).toBe(false);
+    expect(canEditEnvironment(admin, 'alice')).toBe(true);
+  });
+});
+
+describe('canEditSchedule', () => {
+  it('allows the creator or an admin', () => {
+    const alice = { roles: ['everyone'], subject: { id: 'alice', type: 'user', display_name: 'alice' } };
+    const bob = { roles: ['everyone'], subject: { id: 'bob', type: 'user', display_name: 'bob' } };
+    const admin = { roles: ['admin'], subject: { id: 'root', type: 'user', display_name: 'root' } };
+    expect(canEditSchedule(alice, 'alice')).toBe(true);
+    expect(canEditSchedule(bob, 'alice')).toBe(false);
+    expect(canEditSchedule(admin, 'alice')).toBe(true);
   });
 });
 

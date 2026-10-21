@@ -185,7 +185,7 @@ describe('schedule RBAC', () => {
     expect((await postJson('/runs', 'POST', { schedule_id: '01jqzz000000000000000nope' })).status).toBe(404);
   });
 
-  it("does not let an OIDC settings admin access another user's schedule", async () => {
+  it('lets an admin read and mutate another user schedule; created_by_me still scopes list', async () => {
     const { app, asUser, postJson } = await setup();
 
     asUser(ALICE);
@@ -193,15 +193,18 @@ describe('schedule RBAC', () => {
     const { id } = ((await created.json()) as { data: { id: string } }).data;
 
     asUser(ADMIN);
-    expect((await app.request(`/${id}`)).status).toBe(403);
+    expect((await app.request(`/${id}`)).status).toBe(200);
     const adminList = await app.request('/');
-    expect(ListSchedulesResponseSchema.parse(await adminList.json()).data).toEqual([]);
-    expect((await app.request(`/${id}/runs`)).status).toBe(403);
+    expect(ListSchedulesResponseSchema.parse(await adminList.json()).data.map(row => row.id)).toEqual([id]);
+    expect(
+      ListSchedulesResponseSchema.parse(await (await app.request('/?created_by_me=true')).json()).data,
+    ).toHaveLength(0);
+    expect((await app.request(`/${id}/runs`)).status).toBe(200);
     expect((await postJson(`/${id}`, 'PUT', { name: 'admin-renamed', manifest: scheduleBody.manifest })).status).toBe(
-      403,
+      200,
     );
-    expect((await app.request(`/${id}`, { method: 'DELETE' })).status).toBe(403);
-    expect((await postJson('/runs', 'POST', { schedule_id: id })).status).toBe(403);
+    expect((await postJson('/runs', 'POST', { schedule_id: id })).status).toBe(201);
+    expect((await app.request(`/${id}`, { method: 'DELETE' })).status).toBe(200);
   });
 
   it('lets an agent manager read schedules and runs but keeps mutations creator-only', async () => {
@@ -347,7 +350,7 @@ describe('create schedule run', () => {
     expect(runs.data.map(r => r.status).sort()).toEqual(['scheduled', 'triggered']);
   });
 
-  it('does not let an OIDC settings admin trigger another creator schedule', async () => {
+  it('lets an admin trigger another creator schedule', async () => {
     const { asUser, postJson } = await setup();
 
     asUser(ALICE);
@@ -356,8 +359,8 @@ describe('create schedule run', () => {
 
     asUser(ADMIN);
     const res = await postJson('/runs', 'POST', { schedule_id: scheduleId });
-    expect(res.status).toBe(403);
-    expect(mockedStartScheduleRun).not.toHaveBeenCalled();
+    expect(res.status).toBe(201);
+    expect(mockedStartScheduleRun).toHaveBeenCalled();
   });
 
   it('marks the run failed and returns 404 when startScheduleRun reports a missing agent', async () => {
