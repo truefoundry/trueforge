@@ -3,7 +3,7 @@ import {
   decodeOffsetPageToken,
   paginateOffsetRows,
 } from '@truefoundry/trueforge-core/agent-session/store/OffsetPageToken';
-import { sql, type Kysely, type Selectable, type Transaction } from 'kysely';
+import { sql, type Kysely, type Selectable, type Transaction, type UpdateObject } from 'kysely';
 import { nextTriggerAfter } from '../../../runtime/cron';
 import { newId } from '../../../utils/id';
 import {
@@ -28,7 +28,7 @@ import {
   type ScheduleRunRecord,
   type ScheduleWriteResult,
   type UpdateScheduleInput,
-  type UpdateScheduleRunStatusInput,
+  type UpdateScheduleRunInput,
 } from '../../scheduleStore';
 import { isUniqueViolation } from '../client';
 import { json, now, whereCreatedByOrAgentIds } from '../sqlExpressions';
@@ -60,6 +60,7 @@ function toRunRecord(row: Selectable<ScheduleRunTable>): ScheduleRunRecord {
     created_by_subject: CreatedBySubjectSchema.parse(row.created_by_subject),
     triggered_at: row.triggered_at === null ? null : row.triggered_at.toISOString(),
     reason: row.reason,
+    session_id: row.session_id,
     created_at: row.created_at.toISOString(),
     updated_at: row.updated_at.toISOString(),
   };
@@ -328,6 +329,7 @@ export class PostgresScheduleStore implements IScheduleStore<Transaction<Databas
           created_by_subject: json(input.created_by_subject),
           triggered_at: input.triggered_at ?? null,
           reason: input.reason ?? null,
+          session_id: null,
           created_at: now(),
           updated_at: now(),
         })
@@ -342,17 +344,23 @@ export class PostgresScheduleStore implements IScheduleStore<Transaction<Databas
     }
   }
 
-  async updateRunStatus(
-    input: UpdateScheduleRunStatusInput,
+  async updateRun(
+    input: UpdateScheduleRunInput,
     transaction?: Transaction<Database>,
   ): Promise<ScheduleRunRecord | undefined> {
     const db = transaction ?? this.#db;
     const timestamp = now();
-    const reason = input.status === 'failed' ? (input.reason ?? null) : null;
-    const patch =
-      input.status === 'triggered'
-        ? { status: input.status, triggered_at: timestamp, reason, updated_at: timestamp }
-        : { status: input.status, reason, updated_at: timestamp };
+    const patch: UpdateObject<Database, 'schedule_run'> = { updated_at: timestamp };
+    if (input.status !== undefined) {
+      patch.status = input.status;
+      patch.reason = input.status === 'failed' ? (input.reason ?? null) : null;
+      if (input.status === 'triggered') {
+        patch.triggered_at = timestamp;
+      }
+    }
+    if (input.session_id !== undefined) {
+      patch.session_id = input.session_id;
+    }
     const row = await db
       .updateTable('schedule_run')
       .set(patch)

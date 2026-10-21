@@ -107,6 +107,7 @@ export async function startScheduleRunOnRequest<TTransaction>(params: {
     item,
     sessions: deps.sessions,
     agentStore: deps.agentStore,
+    scheduleStore: deps.scheduleStore,
   });
   if (prepared === undefined) {
     return;
@@ -153,6 +154,7 @@ function toWireScheduleRun(record: ScheduleRunRecord): ScheduleRun {
     created_by_subject: record.created_by_subject,
     triggered_at: record.triggered_at,
     reason: record.reason,
+    session_id: record.session_id,
     created_at: record.created_at,
     updated_at: record.updated_at,
   };
@@ -350,7 +352,7 @@ export function createSchedulesRouter<TTransaction>(deps: SchedulesRouterDeps<TT
     try {
       await startScheduleRunOnRequest({ c, item: { run, schedule }, deps });
     } catch (error) {
-      await deps.scheduleStore.updateRunStatus({
+      await deps.scheduleStore.updateRun({
         tenant_id: requestContext.tenant_id,
         id: run.id,
         status: 'failed',

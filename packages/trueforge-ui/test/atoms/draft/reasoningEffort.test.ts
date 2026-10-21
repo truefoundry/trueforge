@@ -32,7 +32,12 @@ describe('resolveReasoningEffort', () => {
     expect(resolveReasoningEffort(['low', 'high'], 'medium')).toBe('low');
   });
 
-  it('defaults to the lowest non-"none" effort, skipping "none"', () => {
+  it('defaults to "medium" when the model offers it', () => {
+    expect(resolveReasoningEffort(['none', 'low', 'medium', 'high'], undefined)).toBe('medium');
+    expect(resolveReasoningEffort(['low', 'medium', 'high'], 'bogus')).toBe('medium');
+  });
+
+  it('defaults to the lowest non-"none" effort when "medium" is not offered, skipping "none"', () => {
     expect(resolveReasoningEffort(['none', 'low', 'high'], undefined)).toBe('low');
     expect(resolveReasoningEffort(['none', 'minimal', 'low'], 'bogus')).toBe('minimal');
   });

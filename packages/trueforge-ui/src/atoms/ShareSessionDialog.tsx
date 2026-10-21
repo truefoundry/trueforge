@@ -129,34 +129,38 @@ export function ShareSessionDialog({ sessionId, trigger }: ShareSessionDialogPro
           void changePermission(next);
         }}
       />
-      <div role="separator" className="bg-border h-px w-full" />
-      <div className="flex w-full items-center gap-2">
-        <Icon name="link" size="1rem" className="text-text-primary shrink-0" />
-        <p className="text-text-primary min-w-0 flex-1 text-sm font-semibold">Share URL</p>
-      </div>
-      <div className="flex h-8 w-full items-center gap-2">
-        <input
-          readOnly
-          value={shareUrl}
-          aria-label="Share URL"
-          className={auiInputClass('h-8 min-w-0 flex-1 px-3.5 text-[0.8125rem]')}
-        />
-        <Button.Primary
-          type="button"
-          size="large"
-          className="h-8 shrink-0 rounded px-2.5 text-xs"
-          onClick={() => {
-            track(AnalyticsEvents.Session.SHARE_LINK_COPIED, {
-              session_id: sessionId,
-              permission,
-            });
-            copySharedSessionLink();
-          }}
-        >
-          <Icon name={copied ? 'check' : 'copy'} size="0.875rem" />
-          {copied ? 'Copied' : 'Copy'}
-        </Button.Primary>
-      </div>
+      {permission === 'tenant' ? (
+        <>
+          <div role="separator" className="bg-border h-px w-full" />
+          <div className="flex w-full items-center gap-2">
+            <Icon name="link" size="1rem" className="text-text-primary shrink-0" />
+            <p className="text-text-primary min-w-0 flex-1 text-sm font-semibold">Share URL</p>
+          </div>
+          <div className="flex h-8 w-full items-center gap-2">
+            <input
+              readOnly
+              value={shareUrl}
+              aria-label="Share URL"
+              className={auiInputClass('h-8 min-w-0 flex-1 px-3.5 text-[0.8125rem]')}
+            />
+            <Button.Primary
+              type="button"
+              size="large"
+              className="h-8 shrink-0 rounded px-2.5 text-xs"
+              onClick={() => {
+                track(AnalyticsEvents.Session.SHARE_LINK_COPIED, {
+                  session_id: sessionId,
+                  permission,
+                });
+                copySharedSessionLink();
+              }}
+            >
+              <Icon name={copied ? 'check' : 'copy'} size="0.875rem" />
+              {copied ? 'Copied' : 'Copy'}
+            </Button.Primary>
+          </div>
+        </>
+      ) : null}
     </DropdownMenu>
   );
 }

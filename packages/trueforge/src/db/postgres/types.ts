@@ -521,6 +521,7 @@ export interface ScheduleRunTable {
   created_by_subject: JSONColumnType<CreatedBySubject, CreatedBySubject, CreatedBySubject>;
   triggered_at: Date | null;
   reason: string | null;
+  session_id: string | null;
   created_at: Date;
   updated_at: Date;
 }
