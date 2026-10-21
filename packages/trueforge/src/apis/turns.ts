@@ -12,6 +12,7 @@ import type {
 import {
   CancellationReason,
   EventType,
+  isNonTerminalTurnState,
   SessionStoreConflictError,
   SessionStoreNotFoundError,
   TurnEventAlreadyExistsError,
@@ -1025,6 +1026,10 @@ async function attemptSendTurnEvents(input: {
   if (!turn) {
     return { type: 'conflict', message: `Turn not found: ${input.turnId}` };
   }
+  // done, cancelled, and error cannot accept a send. Retrying them becomes a 503.
+  if (!isNonTerminalTurnState(turn.state)) {
+    return { type: 'conflict', message: `Turn is not accepting events: ${turn.turn_id}` };
+  }
   if (turn.active_executor_id === configuration.EXECUTOR_ID) {
     try {
       return await rebuildOptionallyAndRun({
@@ -1099,6 +1104,11 @@ async function attemptSendTurnEvents(input: {
       };
     }
     return { type: 'unavailable', message: `Turn owner is unavailable: ${input.turnId}` };
+  }
+  // The owner was gone. A row that finished during the peer call is a conflict.
+  // A running row, or a paused row whose owner changed, is loaded again.
+  if (!isNonTerminalTurnState(refetchedTurn.state)) {
+    return { type: 'conflict', message: `Turn is not accepting events: ${refetchedTurn.turn_id}` };
   }
   if (refetchedTurn.state.status !== 'paused' || refetchedTurn.active_executor_id !== turn.active_executor_id) {
     return 'retry';
