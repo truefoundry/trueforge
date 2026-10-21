@@ -23,7 +23,10 @@ export enum CancellationReason {
 }
 
 /** Every `TurnState` arm takes its `status` literal from here. */
-export const TurnStatusSchema = z.enum(['running', 'paused', 'done', 'cancelled', 'error']);
+export const TurnStatusSchema = z
+  .enum(['running', 'paused', 'done', 'cancelled', 'error'])
+  .describe('Lifecycle status of a turn.')
+  .openapi('TurnStatus');
 
 export const TurnStateRunningSchema = z
   .object({
