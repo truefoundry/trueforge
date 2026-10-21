@@ -726,6 +726,42 @@ describe('ShellModeProvider', () => {
     expect(result.current.runtimeKey).not.toBe(keyBefore);
   });
 
+  it('clearChat on a builder keeps the live draft instead of the open snapshot', () => {
+    const { result } = renderHook(() => useShellMode(), {
+      wrapper: wrap({ mode: 'AgentLibraryWithComposer' }),
+    });
+    const opened = {
+      model: { name: 'opened/model' },
+      instructions: 'Opened instructions.',
+    };
+    const live = {
+      model: { name: 'live/model' },
+      instructions: 'Keep these instructions.',
+      mcpServers: [{ name: 'exa' }],
+      skills: [{ name: 'research' }],
+      config: { sandbox: { enabled: true } },
+    };
+
+    act(() =>
+      result.current.selectLibraryAgent({
+        isMutable: true,
+        isCreateAgent: true,
+        agentSpec: opened,
+      }),
+    );
+    const keyBefore = result.current.runtimeKey;
+
+    act(() => result.current.clearChat(live));
+
+    expect(result.current.runtimeKey).not.toBe(keyBefore);
+    expect(result.current.mode).toMatchObject({
+      status: 'active',
+      isMutable: true,
+      isCreateAgent: true,
+      agentSpec: live,
+    });
+  });
+
   it('listSessionsAgentId follows history filter when library is enabled', () => {
     const { result } = renderHook(() => useShellMode(), {
       wrapper: wrap({ mode: 'AgentLibraryWithComposer' }),
