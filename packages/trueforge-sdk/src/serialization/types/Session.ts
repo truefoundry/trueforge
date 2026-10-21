@@ -5,6 +5,7 @@ import * as core from "../../core/index.js";
 import type * as serializers from "../index.js";
 import { CreatedBySubject } from "./CreatedBySubject.js";
 import { SessionAgent } from "./SessionAgent.js";
+import { SessionLastTurnDetails } from "./SessionLastTurnDetails.js";
 import { SessionMetadata } from "./SessionMetadata.js";
 import { SessionMetrics } from "./SessionMetrics.js";
 import { SessionSource } from "./SessionSource.js";
@@ -15,6 +16,7 @@ export const Session: core.serialization.ObjectSchema<serializers.Session.Raw, T
         createdAt: core.serialization.property("created_at", core.serialization.string()),
         createdBySubject: core.serialization.property("created_by_subject", CreatedBySubject),
         id: core.serialization.string(),
+        lastTurnDetails: core.serialization.property("last_turn_details", SessionLastTurnDetails.nullable()),
         metadata: SessionMetadata,
         metrics: SessionMetrics,
         shared: core.serialization.boolean(),
@@ -29,6 +31,7 @@ export declare namespace Session {
         created_at: string;
         created_by_subject: CreatedBySubject.Raw;
         id: string;
+        last_turn_details?: SessionLastTurnDetails.Raw | null;
         metadata: SessionMetadata.Raw;
         metrics: SessionMetrics.Raw;
         shared: boolean;
