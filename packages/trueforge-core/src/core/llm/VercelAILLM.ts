@@ -34,7 +34,11 @@ import type {
   ChatCompletionTool,
 } from 'openai/resources/chat';
 import type { Logger } from 'winston';
-import type { OperationMetrics, OutboundHttpStatusClass } from '../observability/operationMetrics';
+import {
+  httpStatusClass,
+  type OperationMetrics,
+  type OutboundHttpStatusClass,
+} from '../observability/operationMetrics';
 import { describeUnknownError, extractErrorLogFields } from '../util/errorLogFields';
 import { modelSsrfFetch } from '../util/outboundFetch';
 import type { ILLM, LLMCreateParams, LLMCreateParamsStreaming } from './ILLM';
@@ -1021,32 +1025,13 @@ function isAbortError(error: unknown): boolean {
   return error instanceof Error && error.name === 'AbortError';
 }
 
-function statusClassFromCode(statusCode: number | undefined): OutboundHttpStatusClass {
-  if (statusCode === undefined) {
-    return 'none';
-  }
-  if (statusCode >= 200 && statusCode < 300) {
-    return '2xx';
-  }
-  if (statusCode >= 300 && statusCode < 400) {
-    return '3xx';
-  }
-  if (statusCode >= 400 && statusCode < 500) {
-    return '4xx';
-  }
-  if (statusCode >= 500 && statusCode < 600) {
-    return '5xx';
-  }
-  return 'none';
-}
-
 /** HTTP class from an AI SDK call error. Stream parts wrap that error once as `cause`. */
 function llmStatusClass(error: unknown): OutboundHttpStatusClass {
   if (APICallError.isInstance(error)) {
-    return statusClassFromCode(error.statusCode);
+    return httpStatusClass(error.statusCode);
   }
   if (error instanceof Error && APICallError.isInstance(error.cause)) {
-    return statusClassFromCode(error.cause.statusCode);
+    return httpStatusClass(error.cause.statusCode);
   }
   return 'none';
 }

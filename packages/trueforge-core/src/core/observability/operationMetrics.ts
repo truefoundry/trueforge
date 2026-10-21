@@ -61,3 +61,23 @@ export interface OperationMetrics {
 export function elapsedSeconds(startedMs: number): number {
   return (performance.now() - startedMs) / 1000;
 }
+
+/** `none` covers a missing code and any status outside 200-599. */
+export function httpStatusClass(status: number | undefined): OutboundHttpStatusClass {
+  if (status === undefined) {
+    return 'none';
+  }
+  if (status >= 200 && status < 300) {
+    return '2xx';
+  }
+  if (status >= 300 && status < 400) {
+    return '3xx';
+  }
+  if (status >= 400 && status < 500) {
+    return '4xx';
+  }
+  if (status >= 500 && status < 600) {
+    return '5xx';
+  }
+  return 'none';
+}

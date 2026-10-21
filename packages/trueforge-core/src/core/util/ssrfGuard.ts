@@ -3,15 +3,15 @@ import { lookup as dnsLookup } from 'node:dns';
 import { lookup as dnsLookupAsync } from 'node:dns/promises';
 import { BlockList, isIP, type LookupFunction } from 'node:net';
 import { Agent, fetch as undiciFetch } from 'undici';
-import type {
-  OperationMetrics,
-  OutboundHttpModule,
-  OutboundHttpOutcome,
-  OutboundHttpRetryReason,
-  OutboundHttpRetryStatus,
-  OutboundHttpStatusClass,
+import {
+  elapsedSeconds,
+  httpStatusClass,
+  type OperationMetrics,
+  type OutboundHttpModule,
+  type OutboundHttpOutcome,
+  type OutboundHttpRetryReason,
+  type OutboundHttpRetryStatus,
 } from '../observability/operationMetrics';
-import { elapsedSeconds } from '../observability/operationMetrics';
 
 let allowedHosts: string[] = [];
 let blockedHosts: string[] = [];
@@ -543,22 +543,6 @@ function responseOutboundHttpOutcome(status: number): OutboundHttpOutcome {
   return status >= 200 && status < 400 ? 'success' : 'error';
 }
 
-function outboundHttpStatusClass(status: number): OutboundHttpStatusClass {
-  if (status >= 200 && status < 300) {
-    return '2xx';
-  }
-  if (status >= 300 && status < 400) {
-    return '3xx';
-  }
-  if (status >= 400 && status < 500) {
-    return '4xx';
-  }
-  if (status >= 500 && status < 600) {
-    return '5xx';
-  }
-  return 'none';
-}
-
 /** Builds a pooled undici Agent + SSRF-guarded fetch with the given timeouts/retries. */
 export function createOutboundFetch(options: OutboundFetchOptions): OutboundFetch {
   const agent = new Agent({
@@ -579,7 +563,7 @@ export function createOutboundFetch(options: OutboundFetchOptions): OutboundFetc
           metrics.operations.recordOutboundHttpRequest({
             module: metrics.module,
             outcome: responseOutboundHttpOutcome(response.status),
-            statusClass: outboundHttpStatusClass(response.status),
+            statusClass: httpStatusClass(response.status),
             durationSeconds: elapsedSeconds(startedMs),
           });
         }

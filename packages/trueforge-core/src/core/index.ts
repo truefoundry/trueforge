@@ -155,7 +155,7 @@ export type {
   AgentTracing,
 } from './tracing/AgentTracing';
 
-export { elapsedSeconds } from './observability/operationMetrics';
+export { elapsedSeconds, httpStatusClass } from './observability/operationMetrics';
 export type {
   LlmFinishReason,
   LlmProviderType,
