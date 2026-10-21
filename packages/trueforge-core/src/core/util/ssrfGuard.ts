@@ -27,6 +27,10 @@ const OUTBOUND_TIMEOUT_CODES = new Set([UND_ERR_CONNECT_TIMEOUT, UND_ERR_HEADERS
 const MAX_REDIRECTS = 20;
 const REDIRECT_STATUSES = new Set([301, 302, 303, 307, 308]);
 const CROSS_ORIGIN_STRIPPED_HEADERS = ['authorization', 'proxy-authorization', 'cookie', 'host'];
+// Rejected before processing (timeout, rate limit, gateway never reached the origin).
+const UNPROCESSED_RETRY_STATUSES = new Set([408, 429, 503, 521, 522, 523, 530]);
+// Upstream may have processed the request (502 invalid origin response, 409 conflict, 520 bad origin response, 524 origin timeout).
+const MAYBE_PROCESSED_RETRY_STATUSES = new Set([409, 502, 520, 524]);
 const RETRY_INITIAL_DELAY_MS = 1_000;
 const RETRY_BACKOFF_FACTOR = 2;
 const RETRY_JITTER_FACTOR = 0.2;
@@ -359,34 +363,34 @@ function transportRetryReason(error: unknown, idempotent: boolean): 'connect_tim
   return undefined;
 }
 
-/**
- * Statuses rejected before the origin ran the request always retry.
- * 409, 502, 520, and 524 may already have been processed, so only idempotent calls retry them.
- */
-function statusRetryReason(status: number, idempotent: boolean): OutboundHttpRetryReason | undefined {
+function isRetryableOutboundStatus(status: number, options: { idempotent: boolean }): boolean {
+  return UNPROCESSED_RETRY_STATUSES.has(status) || (options.idempotent && MAYBE_PROCESSED_RETRY_STATUSES.has(status));
+}
+
+function statusRetryReason(status: number): OutboundHttpRetryReason | undefined {
   switch (status) {
     case 408:
       return '408';
+    case 409:
+      return '409';
     case 429:
       return '429';
+    case 502:
+      return '502';
     case 503:
       return '503';
+    case 520:
+      return '520';
     case 521:
       return '521';
     case 522:
       return '522';
     case 523:
       return '523';
+    case 524:
+      return '524';
     case 530:
       return '530';
-    case 409:
-      return idempotent ? '409' : undefined;
-    case 502:
-      return idempotent ? '502' : undefined;
-    case 520:
-      return idempotent ? '520' : undefined;
-    case 524:
-      return idempotent ? '524' : undefined;
     default:
       return undefined;
   }
@@ -518,11 +522,10 @@ async function withOutboundHttpRetries(
     let retryReason: OutboundHttpRetryReason | undefined;
     try {
       const response = await guardedFetch(replayable.input, replayable.init, MAX_REDIRECTS, agent);
-      const reason = statusRetryReason(response.status, options.idempotent);
-      if (reason === undefined || attempt >= options.maxRetries) {
+      if (!isRetryableOutboundStatus(response.status, options) || attempt >= options.maxRetries) {
         return response;
       }
-      retryReason = reason;
+      retryReason = statusRetryReason(response.status);
       delayMs = retryAfterMs(response.headers) ?? delayMs;
       void response.body?.cancel().catch(() => undefined);
     } catch (error) {

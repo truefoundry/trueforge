@@ -1,4 +1,11 @@
 import http from 'node:http';
+import type {
+  OperationMetrics,
+  OutboundHttpModule,
+  OutboundHttpOutcome,
+  OutboundHttpRetryReason,
+  OutboundHttpStatusClass,
+} from '../../../src/core/observability/operationMetrics';
 import {
   configureOutboundFetches,
   defaultMcpOutboundFetchOptions,
@@ -9,6 +16,34 @@ import {
   ssrfFetch,
 } from '../../../src/core/util/outboundFetch';
 import { assertSafeOutboundUrl, configureOutboundUrlGuard } from '../../../src/core/util/ssrfGuard';
+
+interface RecordedOutboundRequest {
+  module: OutboundHttpModule;
+  outcome: OutboundHttpOutcome;
+  statusClass: OutboundHttpStatusClass;
+  durationSeconds: number;
+}
+
+function recordingOperations(): {
+  operations: OperationMetrics;
+  requests: RecordedOutboundRequest[];
+  retries: { module: OutboundHttpModule; reason: OutboundHttpRetryReason }[];
+} {
+  const requests: RecordedOutboundRequest[] = [];
+  const retries: { module: OutboundHttpModule; reason: OutboundHttpRetryReason }[] = [];
+  return {
+    requests,
+    retries,
+    operations: {
+      recordOutboundHttpRequest(options): void {
+        requests.push(options);
+      },
+      recordOutboundHttpRetry(options): void {
+        retries.push(options);
+      },
+    },
+  };
+}
 
 function resetOutbound(): void {
   configureOutboundUrlGuard({ allowedHosts: [], blockedHosts: [] });
@@ -408,4 +443,130 @@ describe('mcpSsrfFetch', () => {
       await closeServer(server);
     }
   }, 15_000);
+});
+
+describe('outbound HTTP metrics', () => {
+  it('records one successful generic request and no retry', async () => {
+    configureOutboundUrlGuard({ allowedHosts: ['127.0.0.1'], blockedHosts: [] });
+    const recorded = recordingOperations();
+    configureOutboundFetches({
+      outbound: { ...defaultOutboundFetchOptions(), metrics: { module: 'generic', operations: recorded.operations } },
+      model: defaultModelOutboundFetchOptions(),
+      mcp: defaultMcpOutboundFetchOptions(),
+    });
+    const { server, origin } = await listen((_req, res) => {
+      res.writeHead(200, { 'content-type': 'text/plain' });
+      res.end('ok');
+    });
+    try {
+      const response = await ssrfFetch(`${origin}/`);
+      expect(response.status).toBe(200);
+      expect(recorded.retries).toEqual([]);
+      expect(recorded.requests).toEqual([
+        expect.objectContaining({ module: 'generic', outcome: 'success', statusClass: '2xx' }),
+      ]);
+      expect(recorded.requests[0]?.durationSeconds).toBeGreaterThanOrEqual(0);
+    } finally {
+      await closeServer(server);
+    }
+  });
+
+  it('counts a retried status once, then records the successful request', async () => {
+    configureOutboundUrlGuard({ allowedHosts: ['127.0.0.1'], blockedHosts: [] });
+    const recorded = recordingOperations();
+    configureOutboundFetches({
+      outbound: {
+        ...defaultOutboundFetchOptions(),
+        maxRetries: 2,
+        metrics: { module: 'generic', operations: recorded.operations },
+      },
+      model: defaultModelOutboundFetchOptions(),
+      mcp: defaultMcpOutboundFetchOptions(),
+    });
+    let hits = 0;
+    const { server, origin } = await listen((_req, res) => {
+      hits += 1;
+      if (hits === 1) {
+        res.writeHead(503, { 'content-type': 'text/plain', 'retry-after-ms': '0' });
+        res.end('unavailable');
+        return;
+      }
+      res.writeHead(200, { 'content-type': 'text/plain' });
+      res.end('ok');
+    });
+    try {
+      const response = await ssrfFetch(`${origin}/`);
+      expect(response.status).toBe(200);
+      expect(recorded.retries).toEqual([{ module: 'generic', reason: '503' }]);
+      expect(recorded.requests).toEqual([
+        expect.objectContaining({ module: 'generic', outcome: 'success', statusClass: '2xx' }),
+      ]);
+    } finally {
+      await closeServer(server);
+    }
+  });
+
+  it('records a blocked call as blocked with no status class and no retry', async () => {
+    const recorded = recordingOperations();
+    configureOutboundFetches({
+      outbound: { ...defaultOutboundFetchOptions(), metrics: { module: 'generic', operations: recorded.operations } },
+      model: defaultModelOutboundFetchOptions(),
+      mcp: defaultMcpOutboundFetchOptions(),
+    });
+    await expect(ssrfFetch('http://169.254.169.254/')).rejects.toThrow(/blocked/);
+    expect(recorded.retries).toEqual([]);
+    expect(recorded.requests).toEqual([
+      expect.objectContaining({ module: 'generic', outcome: 'blocked', statusClass: 'none' }),
+    ]);
+  });
+
+  it('does not count a status the MCP pool refuses to replay', async () => {
+    configureOutboundUrlGuard({ allowedHosts: ['127.0.0.1'], blockedHosts: [] });
+    const recorded = recordingOperations();
+    configureOutboundFetches({
+      outbound: defaultOutboundFetchOptions(),
+      model: defaultModelOutboundFetchOptions(),
+      mcp: {
+        ...defaultMcpOutboundFetchOptions(),
+        maxRetries: 2,
+        metrics: { module: 'mcp', operations: recorded.operations },
+      },
+    });
+    const { server, origin } = await listen((_req, res) => {
+      res.writeHead(409, { 'content-type': 'text/plain' });
+      res.end('conflict');
+    });
+    try {
+      const response = await mcpSsrfFetch(`${origin}/`);
+      expect(response.status).toBe(409);
+      expect(recorded.retries).toEqual([]);
+      expect(recorded.requests).toEqual([
+        expect.objectContaining({ module: 'mcp', outcome: 'error', statusClass: '4xx' }),
+      ]);
+    } finally {
+      await closeServer(server);
+    }
+  });
+
+  it('stamps the model module on the model pool', async () => {
+    configureOutboundUrlGuard({ allowedHosts: ['127.0.0.1'], blockedHosts: [] });
+    const recorded = recordingOperations();
+    configureOutboundFetches({
+      outbound: defaultOutboundFetchOptions(),
+      model: { ...defaultModelOutboundFetchOptions(), metrics: { module: 'model', operations: recorded.operations } },
+      mcp: defaultMcpOutboundFetchOptions(),
+    });
+    const { server, origin } = await listen((_req, res) => {
+      res.writeHead(200, { 'content-type': 'text/plain' });
+      res.end('ok');
+    });
+    try {
+      await modelSsrfFetch(`${origin}/`);
+      expect(recorded.requests).toEqual([
+        expect.objectContaining({ module: 'model', outcome: 'success', statusClass: '2xx' }),
+      ]);
+    } finally {
+      await closeServer(server);
+    }
+  });
 });
