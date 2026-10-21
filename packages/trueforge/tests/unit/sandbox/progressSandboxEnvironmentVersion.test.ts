@@ -1,3 +1,4 @@
+import { DaytonaError } from '@daytona/sdk';
 import { DAYTONA_SNAPSHOT_NOT_STARTED_REASON } from '@truefoundry/trueforge-core/core';
 import { HTTPException } from 'hono/http-exception';
 import { createLogger } from 'winston';
@@ -89,10 +90,13 @@ describe('progressSandboxEnvironmentVersion', () => {
         logger,
       }),
     ).rejects.toMatchObject({ status: 404 } satisfies Partial<HTTPException>);
-    expect(sentry.captureCriticalException).not.toHaveBeenCalled();
+    expect(sentry.captureCriticalException).toHaveBeenCalledWith(expect.objectContaining({ status: 404 }), {
+      tags: { module: 'progressSandboxEnvironmentVersion', operation: 'notFound' },
+      extra: { environment_version_id: 'missing' },
+    });
   });
 
-  it('does not report a build failure from this layer', async () => {
+  it('reports a build failure from this layer', async () => {
     const { sandboxEnvironmentStore, sandboxProviderStore } = makeStores();
     mockProvider({
       getBuildStatus: jest.fn().mockRejectedValue(new Error('network down')),
@@ -107,7 +111,39 @@ describe('progressSandboxEnvironmentVersion', () => {
         logger,
       }),
     ).rejects.toThrow('network down');
-    expect(sentry.captureCriticalException).not.toHaveBeenCalled();
+    expect(sentry.captureCriticalException).toHaveBeenCalledWith(expect.any(Error), {
+      tags: { module: 'progressSandboxEnvironmentVersion', operation: 'build' },
+      extra: { environment_version_id: 'ver-1', tenant_id: 'tenant-1' },
+    });
+  });
+
+  it('reports an authz failure and marks the version failed', async () => {
+    const { sandboxEnvironmentStore, sandboxProviderStore, envStore } = makeStores();
+    const authError = new DaytonaError('Unauthorized', 401);
+    mockProvider({
+      getBuildStatus: jest.fn().mockRejectedValue(authError),
+      build: jest.fn(),
+    });
+
+    await progressSandboxEnvironmentVersion({
+      sandboxEnvironmentStore,
+      sandboxProviderStore,
+      environment_version_id: 'ver-1',
+      logger,
+    });
+
+    expect(envStore.markVersionFailed).toHaveBeenCalledWith({
+      environment_version_id: 'ver-1',
+      status_reason: 'Sandbox provider rejected the API key — check the credentials',
+    });
+    expect(sentry.captureCriticalException).toHaveBeenCalledWith(authError, {
+      tags: { module: 'progressSandboxEnvironmentVersion', operation: 'authz' },
+      extra: {
+        environment_version_id: 'ver-1',
+        tenant_id: 'tenant-1',
+        status_reason: 'Sandbox provider rejected the API key — check the credentials',
+      },
+    });
   });
 
   it('marks ready when getBuildStatus reports ready', async () => {

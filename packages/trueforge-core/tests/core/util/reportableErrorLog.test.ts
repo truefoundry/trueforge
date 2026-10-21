@@ -1,4 +1,8 @@
-import { hasMarkedReportableError, reportableErrorFields } from '../../../src/core/util/reportableErrorLog';
+import {
+  hasMarkedReportableError,
+  rememberReportedError,
+  reportableErrorFields,
+} from '../../../src/core/util/reportableErrorLog';
 
 describe('hasMarkedReportableError', () => {
   it('is false until the error is marked, including through cause', () => {
@@ -11,6 +15,14 @@ describe('hasMarkedReportableError', () => {
 
     expect(hasMarkedReportableError(cause)).toBe(true);
     expect(hasMarkedReportableError(wrapped)).toBe(true);
+  });
+
+  it('treats an error remembered from a direct capture as already marked', () => {
+    const error = new Error('already sent');
+    rememberReportedError(error);
+
+    expect(hasMarkedReportableError(error)).toBe(true);
+    expect(hasMarkedReportableError(new Error('wrapper', { cause: error }))).toBe(true);
   });
 
   it('does not treat a different error as marked', () => {

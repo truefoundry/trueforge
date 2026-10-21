@@ -51,7 +51,10 @@ describe('sandboxEnvBuildLoop', () => {
 
     expect(progress).toHaveBeenCalledTimes(2);
     expect(logger.warn).toHaveBeenCalled();
-    expect(sentry.captureCriticalException).not.toHaveBeenCalled();
+    expect(sentry.captureCriticalException).toHaveBeenCalledWith(expect.any(TrueForgeApi.NotFoundError), {
+      tags: { module: 'sandboxEnvBuild', operation: 'progressNotFound' },
+      extra: { environment_version_id: 'gone' },
+    });
   });
 
   it('reports a progress failure once', async () => {

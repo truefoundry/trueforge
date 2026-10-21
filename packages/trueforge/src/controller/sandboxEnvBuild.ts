@@ -25,6 +25,10 @@ export async function dispatchSandboxEnvBuilds({ logger }: { logger: Logger }): 
         logger.warn('Sandbox environment version not found; skipping', {
           environment_version_id: environmentVersionId,
         });
+        captureCriticalException(error, {
+          tags: { module: 'sandboxEnvBuild', operation: 'progressNotFound' },
+          extra: { environment_version_id: environmentVersionId },
+        });
         continue;
       }
       logger.error('Sandbox environment version progress failed', {

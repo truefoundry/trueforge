@@ -12,6 +12,11 @@ function rememberMarkedError(error: unknown): void {
   }
 }
 
+/** Remember an error already sent to Sentry, so a later log of the same object is not sent again. */
+export function rememberReportedError(error: unknown): void {
+  rememberMarkedError(error);
+}
+
 /** True when this value, or a `cause` beneath it, was already marked for Sentry. */
 export function hasMarkedReportableError(error: unknown): boolean {
   const seen = new Set<object>();
