@@ -468,12 +468,16 @@ export class SessionHandle<
       tracing,
     });
 
+    const previousMcpServers = input.previous?.snapshot.mcp_servers;
     const orchestrator = new AgentThreadOrchestrator({
       agentThreads,
       createDynamicSubAgentThread,
       tracing,
       logger: input.resolver.logger,
       ...(input.pendingTurnEvents !== undefined ? { pendingTurnEvents: input.pendingTurnEvents } : {}),
+      ...(previousMcpServers !== null && previousMcpServers !== undefined
+        ? { mcpServers: Object.values(previousMcpServers) }
+        : {}),
     });
 
     return { orchestrator, agentThreads };
