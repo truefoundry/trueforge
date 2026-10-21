@@ -250,7 +250,7 @@ describe('SessionsPage', () => {
     expect(screen.getByText('us-west-2')).toBeInTheDocument();
   });
 
-  it('toasts and keeps the inline failure when a non-share detail load is forbidden', async () => {
+  it('shows a full-pane Unable to load session when a non-share detail load is forbidden', async () => {
     window.history.replaceState(null, '', '/?view=sessions&sessionId=sess-1');
     const forbidden = Object.assign(new Error('Only the session creator can access this session'), {
       statusCode: 403,
@@ -266,8 +266,8 @@ describe('SessionsPage', () => {
       }),
     });
 
-    expect(await screen.findByText('Session details could not be loaded.')).toBeInTheDocument();
-    expect(await screen.findByText('Only the session creator can access this session')).toBeInTheDocument();
+    expect(await screen.findByRole('heading', { name: 'Unable to load session' })).toBeInTheDocument();
+    expect(screen.getByText('Only the session creator can access this session')).toBeInTheDocument();
     expect(window.location.search).toContain('sessionId=sess-1');
   });
 

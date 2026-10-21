@@ -44,6 +44,7 @@ function toUiMcpServer(server: TrueForgeApi.McpServer): HarnessMcpServerMount {
 }
 
 function toUiSkill(skill: TrueForgeApi.Skill): HarnessSkillMount {
+  // Wire Skill is name-only. Catalog reconcile restores picker id + display name.
   return { name: skill.name, preload: skill.preload === true };
 }
 

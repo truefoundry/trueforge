@@ -1,8 +1,8 @@
 // @vitest-environment jsdom
 import { act, render, waitFor } from '@testing-library/react';
 import { StrictMode, useEffect, useState, type ReactNode } from 'react';
-import { MemoryRouter, useLocation } from 'react-router-dom';
-import { describe, expect, it, vi } from 'vitest';
+import { MemoryRouter, useLocation, useNavigate, type NavigateFunction } from 'react-router-dom';
+import { describe, expect, it } from 'vitest';
 
 import { resolveRoutesConfig } from '@/routing/paths.js';
 import { ShellRouteSync } from '@/routing/ShellRouteSync.js';
@@ -24,6 +24,7 @@ let shell: Shell;
 let pathname = '';
 let search = '';
 let setRemoteId: (id: string | undefined) => void = () => undefined;
+let navigateApp: NavigateFunction = () => undefined;
 
 function CaptureShell() {
   shell = useShellMode();
@@ -32,8 +33,10 @@ function CaptureShell() {
 
 function CaptureLocation() {
   const location = useLocation();
+  const navigate = useNavigate();
   pathname = location.pathname;
   search = location.search;
+  navigateApp = navigate;
   useEffect(() => {
     pathname = location.pathname;
     search = location.search;
@@ -108,7 +111,6 @@ function Harness({
   includeSchedules = false,
   includeEnvironments = false,
   getSession,
-  onError,
 }: {
   agentConfig?: AgentConfig;
   initialRemoteId?: string;
@@ -127,7 +129,6 @@ function Harness({
     updatedAt: string;
     agentName?: string;
   }>;
-  onError?: (error: unknown) => void;
 }) {
   const [remoteId, setId] = useState<string | undefined>(initialRemoteId);
   setRemoteId = setId;
@@ -144,12 +145,7 @@ function Harness({
       <ShellModeProvider agentConfig={agentConfig} initialSettingsOpen={initialSettingsOpen}>
         <CaptureShell />
         <CaptureLocation />
-        <ShellRouteSync
-          routes={routes}
-          activeRemoteId={remoteId}
-          initialSettingsOpen={initialSettingsOpen}
-          onError={onError}
-        />
+        <ShellRouteSync routes={routes} activeRemoteId={remoteId} initialSettingsOpen={initialSettingsOpen} />
       </ShellModeProvider>
     </SettingsCatalogProvider>
   );
@@ -158,6 +154,7 @@ function Harness({
 function renderSync(opts: {
   initialEntries?: string[];
   agentConfig?: AgentConfig;
+  initialRemoteId?: string;
   initialSettingsOpen?: boolean;
   settingsEnabled?: boolean;
   capabilitiesFail?: boolean;
@@ -173,13 +170,13 @@ function renderSync(opts: {
     updatedAt: string;
     agentName?: string;
   }>;
-  onError?: (error: unknown) => void;
   strict?: boolean;
 }) {
   const tree = (
     <MemoryRouter initialEntries={opts.initialEntries ?? ['/']}>
       <Harness
         agentConfig={opts.agentConfig}
+        initialRemoteId={opts.initialRemoteId}
         initialSettingsOpen={opts.initialSettingsOpen}
         settingsEnabled={opts.settingsEnabled}
         capabilitiesFail={opts.capabilitiesFail}
@@ -188,7 +185,6 @@ function renderSync(opts: {
         includeSchedules={opts.includeSchedules}
         includeEnvironments={opts.includeEnvironments}
         getSession={opts.getSession}
-        onError={opts.onError}
       />
     </MemoryRouter>
   );
@@ -202,8 +198,7 @@ describe('ShellRouteSync', () => {
     expect(pathname).toBe('/sessions/abc');
   });
 
-  it('toasts and redirects to New Chat when a session deep link is forbidden', async () => {
-    const onError = vi.fn();
+  it('keeps the session URL and surfaces a pane error when a deep link is forbidden', async () => {
     const forbidden = Object.assign(new Error('Only the session creator can access this session'), {
       statusCode: 403,
     });
@@ -212,38 +207,153 @@ describe('ShellRouteSync', () => {
       getSession: async () => {
         throw forbidden;
       },
-      onError,
     });
 
     await waitFor(() => {
-      expect(onError).toHaveBeenCalledOnce();
+      expect(shell.sessionAccessError).toBe('Only the session creator can access this session');
     });
-    expect(onError).toHaveBeenCalledWith(forbidden);
-    await waitFor(() => {
-      expect(pathname).toBe('/');
-    });
-    expect(shell.pendingSessionId).toBeUndefined();
+    expect(shell.pendingSessionId).toBe('forbidden');
+    expect(pathname).toBe('/sessions/forbidden');
   });
 
-  it('toasts and redirects to New Chat when a session deep link is not found', async () => {
-    const onError = vi.fn();
+  it('keeps the inaccessible deep-link URL even when a prior thread remote id is still live', async () => {
+    renderSync({
+      initialEntries: ['/sessions/prior'],
+      initialRemoteId: 'prior',
+      getSession: async ({ sessionId }) => {
+        if (sessionId === 'forbidden') {
+          throw Object.assign(new Error('Only the session creator can access this session'), { statusCode: 403 });
+        }
+        return {
+          id: sessionId,
+          title: 'Session',
+          isMutable: true,
+          createdAt: '2026-01-01T00:00:00Z',
+          updatedAt: '2026-01-01T00:00:00Z',
+        };
+      },
+    });
+    // Prior thread is already live via activeRemoteId, so boot skips openSession.
+    await waitFor(() => expect(pathname).toBe('/sessions/prior'));
+
+    act(() => {
+      navigateApp('/sessions/forbidden');
+    });
+
+    await waitFor(() => {
+      expect(shell.sessionAccessError).toBe('Only the session creator can access this session');
+    });
+    expect(shell.pendingSessionId).toBe('forbidden');
+    // Must not snap back to the prior live thread while the error pane is showing.
+    await waitFor(() => expect(pathname).toBe('/sessions/forbidden'));
+    await act(async () => {
+      await Promise.resolve();
+    });
+    expect(pathname).toBe('/sessions/forbidden');
+  });
+
+  it('releases the boot URL wait when a superseded session load fails', async () => {
+    const resolvers = new Map<
+      string,
+      {
+        resolve: (value: {
+          id: string;
+          title: string;
+          isMutable: boolean;
+          createdAt: string;
+          updatedAt: string;
+        }) => void;
+        reject: (error: unknown) => void;
+      }
+    >();
+    renderSync({
+      initialEntries: ['/sessions/boot'],
+      getSession: ({ sessionId }) =>
+        new Promise((resolve, reject) => {
+          resolvers.set(sessionId, { resolve, reject });
+        }),
+    });
+    await waitFor(() => expect(resolvers.has('boot')).toBe(true));
+
+    // URL→shell opens another session while boot is still in flight (requestedSessionRef moves).
+    act(() => {
+      navigateApp('/sessions/other');
+    });
+    await waitFor(() => expect(resolvers.has('other')).toBe(true));
+
+    await act(async () => {
+      resolvers
+        .get('boot')
+        ?.reject(Object.assign(new Error('Only the session creator can access this session'), { statusCode: 403 }));
+      await Promise.resolve();
+    });
+    expect(shell.sessionAccessError).toBeNull();
+
+    await act(async () => {
+      resolvers.get('other')?.resolve({
+        id: 'other',
+        title: 'Other',
+        isMutable: true,
+        createdAt: '2026-01-01T00:00:00Z',
+        updatedAt: '2026-01-01T00:00:00Z',
+      });
+      await Promise.resolve();
+    });
+    await waitFor(() => expect(shell.pendingSessionId).toBe('other'));
+
+    // Without releasing the abandoned boot wait, New Chat could not update the URL.
+    act(() => {
+      shell.openDraft();
+    });
+    await waitFor(() => expect(pathname).toBe('/'));
+  });
+
+  it('keeps the session URL and surfaces a pane error when a deep link is not found', async () => {
     const notFound = Object.assign(new Error('Session not found: missing'), { statusCode: 404 });
     renderSync({
       initialEntries: ['/sessions/missing'],
       getSession: async () => {
         throw notFound;
       },
-      onError,
     });
 
     await waitFor(() => {
-      expect(onError).toHaveBeenCalledOnce();
+      expect(shell.sessionAccessError).toBe('Session not found: missing');
     });
-    expect(onError).toHaveBeenCalledWith(notFound);
-    await waitFor(() => {
-      expect(pathname).toBe('/');
+    expect(shell.pendingSessionId).toBe('missing');
+    expect(pathname).toBe('/sessions/missing');
+  });
+
+  it('ignores a late access failure after the user starts a New Chat', async () => {
+    let rejectLoad: ((error: unknown) => void) | undefined;
+    renderSync({
+      initialEntries: ['/sessions/slow'],
+      getSession: () =>
+        new Promise((_, reject) => {
+          rejectLoad = reject;
+        }),
     });
+    await waitFor(() => expect(rejectLoad).toBeDefined());
+    const loadingRuntimeKey = shell.runtimeKey;
+
+    act(() => {
+      shell.openDraft();
+    });
+    expect(shell.runtimeKey).not.toBe(loadingRuntimeKey);
+
+    await act(async () => {
+      rejectLoad?.(Object.assign(new Error('Only the session creator can access this session'), { statusCode: 403 }));
+      await Promise.resolve();
+    });
+
+    expect(shell.sessionAccessError).toBeNull();
     expect(shell.pendingSessionId).toBeUndefined();
+    await waitFor(() => expect(pathname).toBe('/'));
+
+    act(() => {
+      shell.openHistorySession({ sessionId: 'later', isMutable: true });
+    });
+    await waitFor(() => expect(pathname).toBe('/sessions/later'));
   });
 
   it('applies an agent deep link on boot and resolves its history filter id', async () => {
