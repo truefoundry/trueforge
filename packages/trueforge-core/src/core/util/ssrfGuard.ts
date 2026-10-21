@@ -3,7 +3,13 @@ import { lookup as dnsLookup } from 'node:dns';
 import { lookup as dnsLookupAsync } from 'node:dns/promises';
 import { BlockList, isIP, type LookupFunction } from 'node:net';
 import { Agent, fetch as undiciFetch } from 'undici';
-import type { OperationMetrics, OutboundHttpOutcome, OutboundHttpPool } from '../observability/operationMetrics';
+import type {
+  OperationMetrics,
+  OutboundHttpModule,
+  OutboundHttpOutcome,
+  OutboundHttpRetryReason,
+  OutboundHttpStatusClass,
+} from '../observability/operationMetrics';
 import { elapsedSeconds } from '../observability/operationMetrics';
 
 let allowedHosts: string[] = [];
@@ -21,10 +27,6 @@ const OUTBOUND_TIMEOUT_CODES = new Set([UND_ERR_CONNECT_TIMEOUT, UND_ERR_HEADERS
 const MAX_REDIRECTS = 20;
 const REDIRECT_STATUSES = new Set([301, 302, 303, 307, 308]);
 const CROSS_ORIGIN_STRIPPED_HEADERS = ['authorization', 'proxy-authorization', 'cookie', 'host'];
-// Rejected before processing (timeout, rate limit, gateway never reached the origin).
-const UNPROCESSED_RETRY_STATUSES = new Set([408, 429, 503, 521, 522, 523, 530]);
-// Upstream may have processed the request (502 invalid origin response, 409 conflict, 520 bad origin response, 524 origin timeout).
-const MAYBE_PROCESSED_RETRY_STATUSES = new Set([409, 502, 520, 524]);
 const RETRY_INITIAL_DELAY_MS = 1_000;
 const RETRY_BACKOFF_FACTOR = 2;
 const RETRY_JITTER_FACTOR = 0.2;
@@ -43,7 +45,7 @@ export interface OutboundFetchOptions {
   idempotent: boolean;
   /** When set, each fetch records one observation. Absent skips metrics. */
   metrics?: {
-    pool: OutboundHttpPool;
+    module: OutboundHttpModule;
     operations: OperationMetrics;
   };
 }
@@ -342,15 +344,52 @@ function getErrorCode(error: unknown): string | undefined {
 
 /** Connect / headers-read timeouts from undici (including nested under TypeError: fetch failed). */
 export function isRetryableOutboundTransportError(error: unknown, options: { idempotent: boolean }): boolean {
-  const code = getErrorCode(error);
-  if (code === UND_ERR_CONNECT_TIMEOUT) {
-    return true;
-  }
-  return options.idempotent && code === UND_ERR_HEADERS_TIMEOUT;
+  return transportRetryReason(error, options.idempotent) !== undefined;
 }
 
-function isRetryableOutboundStatus(status: number, options: { idempotent: boolean }): boolean {
-  return UNPROCESSED_RETRY_STATUSES.has(status) || (options.idempotent && MAYBE_PROCESSED_RETRY_STATUSES.has(status));
+/** Connect timeouts always retry. Headers timeouts retry only when the call is safe to replay. */
+function transportRetryReason(error: unknown, idempotent: boolean): 'connect_timeout' | 'headers_timeout' | undefined {
+  const code = getErrorCode(error);
+  if (code === UND_ERR_CONNECT_TIMEOUT) {
+    return 'connect_timeout';
+  }
+  if (idempotent && code === UND_ERR_HEADERS_TIMEOUT) {
+    return 'headers_timeout';
+  }
+  return undefined;
+}
+
+/**
+ * Statuses rejected before the origin ran the request always retry.
+ * 409, 502, 520, and 524 may already have been processed, so only idempotent calls retry them.
+ */
+function statusRetryReason(status: number, idempotent: boolean): OutboundHttpRetryReason | undefined {
+  switch (status) {
+    case 408:
+      return '408';
+    case 429:
+      return '429';
+    case 503:
+      return '503';
+    case 521:
+      return '521';
+    case 522:
+      return '522';
+    case 523:
+      return '523';
+    case 530:
+      return '530';
+    case 409:
+      return idempotent ? '409' : undefined;
+    case 502:
+      return idempotent ? '502' : undefined;
+    case 520:
+      return idempotent ? '520' : undefined;
+    case 524:
+      return idempotent ? '524' : undefined;
+    default:
+      return undefined;
+  }
 }
 
 /** Server-requested delay from `retry-after-ms` or `retry-after` (seconds or HTTP date), if usable. */
@@ -461,7 +500,11 @@ async function withOutboundHttpRetries(
   input: string | URL | Request,
   init: RequestInit,
   agent: Agent,
-  options: { maxRetries: number; idempotent: boolean },
+  options: {
+    maxRetries: number;
+    idempotent: boolean;
+    metrics?: OutboundFetchOptions['metrics'];
+  },
 ): Promise<Response> {
   const signal = init.signal ?? (input instanceof Request ? input.signal : undefined);
   // Buffer stream / Request bodies once so a retry does not hit a consumed-body error.
@@ -472,19 +515,28 @@ async function withOutboundHttpRetries(
       throw abortError(signal);
     }
     let delayMs = retryDelayMs(attempt);
+    let retryReason: OutboundHttpRetryReason | undefined;
     try {
       const response = await guardedFetch(replayable.input, replayable.init, MAX_REDIRECTS, agent);
-      if (!isRetryableOutboundStatus(response.status, options) || attempt >= options.maxRetries) {
+      const reason = statusRetryReason(response.status, options.idempotent);
+      if (reason === undefined || attempt >= options.maxRetries) {
         return response;
       }
+      retryReason = reason;
       delayMs = retryAfterMs(response.headers) ?? delayMs;
       void response.body?.cancel().catch(() => undefined);
     } catch (error) {
-      if (!isRetryableOutboundTransportError(error, options) || attempt >= options.maxRetries || signal?.aborted) {
+      const reason = transportRetryReason(error, options.idempotent);
+      if (reason === undefined || attempt >= options.maxRetries || signal?.aborted) {
         throw error;
       }
+      retryReason = reason;
     }
     await sleep(delayMs, signal);
+    const metrics = options.metrics;
+    if (metrics !== undefined && retryReason !== undefined) {
+      metrics.operations.recordOutboundHttpRetry({ module: metrics.module, reason: retryReason });
+    }
     attempt += 1;
   }
 }
@@ -511,9 +563,25 @@ function failedOutboundHttpOutcome(error: unknown): Exclude<OutboundHttpOutcome,
   return 'error';
 }
 
-/** 2xx and 3xx completed the transport. 4xx and 5xx are errors; `statusCode` is the exact status. */
+/** 2xx and 3xx completed the transport. 4xx and 5xx are errors. */
 function responseOutboundHttpOutcome(status: number): OutboundHttpOutcome {
   return status >= 200 && status < 400 ? 'success' : 'error';
+}
+
+function outboundHttpStatusClass(status: number): OutboundHttpStatusClass {
+  if (status >= 200 && status < 300) {
+    return '2xx';
+  }
+  if (status >= 300 && status < 400) {
+    return '3xx';
+  }
+  if (status >= 400 && status < 500) {
+    return '4xx';
+  }
+  if (status >= 500 && status < 600) {
+    return '5xx';
+  }
+  return 'none';
 }
 
 /** Builds a pooled undici Agent + SSRF-guarded fetch with the given timeouts/retries. */
@@ -531,12 +599,12 @@ export function createOutboundFetch(options: OutboundFetchOptions): OutboundFetc
     fetch: async (input, init) => {
       const startedMs = performance.now();
       try {
-        const response = await withOutboundHttpRetries(input, init ?? {}, agent, { maxRetries, idempotent });
+        const response = await withOutboundHttpRetries(input, init ?? {}, agent, { maxRetries, idempotent, metrics });
         if (metrics !== undefined) {
           metrics.operations.recordOutboundHttpRequest({
-            pool: metrics.pool,
+            module: metrics.module,
             outcome: responseOutboundHttpOutcome(response.status),
-            statusCode: response.status,
+            statusClass: outboundHttpStatusClass(response.status),
             durationSeconds: elapsedSeconds(startedMs),
           });
         }
@@ -544,9 +612,9 @@ export function createOutboundFetch(options: OutboundFetchOptions): OutboundFetc
       } catch (error) {
         if (metrics !== undefined) {
           metrics.operations.recordOutboundHttpRequest({
-            pool: metrics.pool,
+            module: metrics.module,
             outcome: failedOutboundHttpOutcome(error),
-            statusCode: 'none',
+            statusClass: 'none',
             durationSeconds: elapsedSeconds(startedMs),
           });
         }

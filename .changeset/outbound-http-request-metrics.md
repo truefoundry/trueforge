@@ -3,4 +3,4 @@
 '@truefoundry/trueforge-core': patch
 ---
 
-Record latency and outcome for generic outbound HTTP on the existing Prometheus scrape.
+Record outbound HTTP requests, duration, and retries for the generic, model, and MCP pools on the existing Prometheus scrape.

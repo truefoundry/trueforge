@@ -55,7 +55,7 @@ try {
       bodyTimeoutMs: configuration.OUTBOUND_HTTP_BODY_TIMEOUT_MS,
       maxRetries: configuration.OUTBOUND_HTTP_MAX_RETRIES,
       idempotent: true,
-      metrics: { pool: 'generic', operations: operationMetrics },
+      metrics: { module: 'generic', operations: operationMetrics },
     },
     model: {
       connectTimeoutMs: configuration.MODEL_HTTP_CONNECT_TIMEOUT_MS,
@@ -63,6 +63,7 @@ try {
       bodyTimeoutMs: configuration.MODEL_HTTP_BODY_TIMEOUT_MS,
       maxRetries: configuration.MODEL_HTTP_MAX_RETRIES,
       idempotent: true,
+      metrics: { module: 'model', operations: operationMetrics },
     },
     mcp: {
       connectTimeoutMs: configuration.MCP_HTTP_CONNECT_TIMEOUT_MS,
@@ -70,6 +71,7 @@ try {
       bodyTimeoutMs: configuration.MCP_HTTP_BODY_TIMEOUT_MS,
       maxRetries: configuration.MCP_HTTP_MAX_RETRIES,
       idempotent: false,
+      metrics: { module: 'mcp', operations: operationMetrics },
     },
   });
 } catch (error) {

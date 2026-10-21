@@ -155,12 +155,13 @@ export type {
   AgentTracing,
 } from './tracing/AgentTracing';
 
-export { NOOP_OPERATION_METRICS, elapsedSeconds } from './observability/operationMetrics';
+export { elapsedSeconds } from './observability/operationMetrics';
 export type {
   OperationMetrics,
+  OutboundHttpModule,
   OutboundHttpOutcome,
-  OutboundHttpPool,
-  OutboundHttpStatusCode,
+  OutboundHttpRetryReason,
+  OutboundHttpStatusClass,
 } from './observability/operationMetrics';
 
 // Errors / utils

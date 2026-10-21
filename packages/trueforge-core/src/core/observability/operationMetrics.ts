@@ -1,30 +1,44 @@
-/** Bounded label for which outbound undici pool served the call. */
-export type OutboundHttpPool = 'generic' | 'model' | 'mcp';
+/** Which outbound undici pool served the call. The Prometheus label is `module`. */
+export type OutboundHttpModule = 'generic' | 'model' | 'mcp';
 
-/** Transport result. The exact HTTP status is a separate label. */
+/** Transport result. Status class is a separate label. */
 export type OutboundHttpOutcome = 'success' | 'error' | 'timeout' | 'blocked';
 
-/** Exact response status. `none` means the call failed before a response. */
-export type OutboundHttpStatusCode = number | 'none';
+/** Response class. `none` means the call failed before a response. */
+export type OutboundHttpStatusClass = '2xx' | '3xx' | '4xx' | '5xx' | 'none';
+
+/**
+ * Why a retry was taken. Transport timeouts use names. HTTP retries use the status that was replayed.
+ * Body timeouts are not retried.
+ */
+export type OutboundHttpRetryReason =
+  | 'connect_timeout'
+  | 'headers_timeout'
+  | '408'
+  | '409'
+  | '429'
+  | '502'
+  | '503'
+  | '520'
+  | '521'
+  | '522'
+  | '523'
+  | '524'
+  | '530';
 
 /**
  * Server-owned operation metrics. Core times work and reports outcomes; it does not
- * import a metrics client. Callers that are not recording use the noop.
+ * import a metrics client. Callers that are not recording omit the recorder.
  */
 export interface OperationMetrics {
   recordOutboundHttpRequest(options: {
-    pool: OutboundHttpPool;
+    module: OutboundHttpModule;
     outcome: OutboundHttpOutcome;
-    statusCode: OutboundHttpStatusCode;
+    statusClass: OutboundHttpStatusClass;
     durationSeconds: number;
   }): void;
+  recordOutboundHttpRetry(options: { module: OutboundHttpModule; reason: OutboundHttpRetryReason }): void;
 }
-
-export const NOOP_OPERATION_METRICS: OperationMetrics = {
-  recordOutboundHttpRequest(): void {
-    /* no-op */
-  },
-};
 
 /** Seconds since a `performance.now()` reading. */
 export function elapsedSeconds(startedMs: number): number {
