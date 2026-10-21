@@ -1,6 +1,6 @@
 import type { CallToolRequest } from '@modelcontextprotocol/sdk/types.js';
 import type { Logger } from 'winston';
-import { McpConnectionError } from '../errors';
+import { applyErrorPrefix, MCP_ERROR_PREFIX, McpConnectionError, stripErrorPrefix } from '../errors';
 import type { MCPServerInitInfo } from '../events/schema';
 import type { InternalToolCallInfo } from '../llm/LLMTypes';
 import type { AgentTracing } from '../tracing/AgentTracing';
@@ -311,11 +311,15 @@ export class RemoteMCP implements ToolSource {
               },
               onError: error => {
                 const fields = extractErrorLogFields(error);
+                const logFields = {
+                  ...fields,
+                  error: applyErrorPrefix({ prefix: MCP_ERROR_PREFIX, message: fields.error }),
+                };
                 const msg = `Error on remote MCP transport ${this.name}`;
                 if (fields.error.includes('Body Timeout')) {
-                  this.logger.warn(msg, fields);
+                  this.logger.warn(msg, logFields);
                 } else {
-                  this.logger.error(msg, fields);
+                  this.logger.error(msg, logFields);
                 }
               },
             });
@@ -348,7 +352,8 @@ export class RemoteMCP implements ToolSource {
 
   private toConnectError(error: unknown): McpConnectionError {
     const statusCode = error instanceof McpConnectionError ? error.statusCode : 502;
-    const message = error instanceof Error ? error.message : String(error);
+    const rawMessage = error instanceof Error ? error.message : String(error);
+    const message = stripErrorPrefix({ prefix: MCP_ERROR_PREFIX, message: rawMessage });
     return new McpConnectionError(`Failed to connect to remote MCP server '${this.name}': ${message}`, statusCode, {
       cause: error,
     });

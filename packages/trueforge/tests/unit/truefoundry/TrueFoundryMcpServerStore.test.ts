@@ -178,7 +178,7 @@ describe('TrueFoundryMcpServerStore', () => {
     it('throws when tenant control-plane URL is invalid', async () => {
       const { store } = createStore({ controlPlaneUrl: '' });
       await expect(store.authorize({ tenant_id: TENANT, name: 'github', userRef: 'user-1' })).rejects.toMatchObject({
-        message: 'Tenant control-plane URL is required for TrueFoundry MCP OAuth',
+        message: '[MCP Error] Tenant control-plane URL is required for TrueFoundry MCP OAuth',
         statusCode: 500,
       });
     });
