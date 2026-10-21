@@ -141,7 +141,7 @@ describe('TrueForgeAuthorizer.getPermissions', () => {
     expect(scheduleStore.getSchedule).not.toHaveBeenCalled();
   });
 
-  it('always grants tenant agent CREATE in standalone mode; sandbox env CREATE follows canEditEnvironment', async () => {
+  it('always grants tenant agent CREATE in standalone mode; sandbox env CREATE follows canCreateOrEdit', async () => {
     expect(
       await authorizer.getPermissions({
         resourceType: 'tenant',
@@ -166,7 +166,7 @@ describe('TrueForgeAuthorizer.getPermissions', () => {
     });
   });
 
-  it('grants MANAGE/DELETE via canEditEnvironment (owner or admin)', async () => {
+  it('grants MANAGE/DELETE via canCreateOrEdit (owner or admin)', async () => {
     const sandboxEnvironmentStore = {
       getEnvironmentsByIds: jest.fn(async () => [
         { id: 'env-1', created_by_subject: { subject_id: 'alice' } },

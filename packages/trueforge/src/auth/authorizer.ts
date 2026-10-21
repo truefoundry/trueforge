@@ -14,7 +14,7 @@ import {
   TENANT_CREATE_SANDBOX_ENVIRONMENT_PERMISSIONS,
   type ListPermissionsData,
 } from '../schemas/permissions';
-import { canEditEnvironment, canEditSchedule, type RequestContext } from './identity';
+import { canCreateOrEdit, canEditSchedule, type RequestContext } from './identity';
 
 export type AgentAction = 'read' | 'use' | 'manage' | 'delete';
 
@@ -58,7 +58,7 @@ export async function resolveSchedulePermissions(input: {
   return listPermissionsData('schedule', data);
 }
 
-/** Sandbox environment MANAGE/DELETE via {@link canEditEnvironment} (admin or creator). */
+/** Sandbox environment MANAGE/DELETE via {@link canCreateOrEdit} (admin or creator). */
 export async function resolveSandboxEnvironmentPermissions(input: {
   requestContext: RequestContext;
   resourceIds: readonly string[];
@@ -70,7 +70,7 @@ export async function resolveSandboxEnvironmentPermissions(input: {
     ids: [...new Set(input.resourceIds)],
   });
   for (const environment of environments) {
-    if (canEditEnvironment(input.requestContext, environment.created_by_subject.subject_id)) {
+    if (canCreateOrEdit(input.requestContext, environment.created_by_subject.subject_id)) {
       data[environment.id] = [...SANDBOX_ENVIRONMENT_OWNER_PERMISSIONS];
     }
   }
@@ -80,7 +80,7 @@ export async function resolveSandboxEnvironmentPermissions(input: {
 function tenantCreatePermissions(requestContext: RequestContext): ListPermissionsData {
   return listPermissionsData('tenant', {
     agent: [...TENANT_CREATE_AGENT_PERMISSIONS],
-    sandbox_environment: canEditEnvironment(requestContext) ? [...TENANT_CREATE_SANDBOX_ENVIRONMENT_PERMISSIONS] : [],
+    sandbox_environment: canCreateOrEdit(requestContext) ? [...TENANT_CREATE_SANDBOX_ENVIRONMENT_PERMISSIONS] : [],
   });
 }
 
