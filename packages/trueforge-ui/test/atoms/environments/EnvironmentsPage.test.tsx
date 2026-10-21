@@ -11,7 +11,12 @@ import { ToasterProvider } from '@/containers/ToasterContainer.js';
 import { CurrentUserProvider, type CurrentUser } from '@/contexts/CurrentUserContext.js';
 import { ServerProvider } from '@/server/ServerContext.js';
 import { ShellModeProvider } from '@/server/ShellModeContext.js';
-import type { SandboxEnvironment, SandboxEnvironmentServer } from '@/server/types.js';
+import type {
+  ListPermissionsResponse,
+  PermissionsServer,
+  SandboxEnvironment,
+  SandboxEnvironmentServer,
+} from '@/server/types.js';
 import {
   createMockAgentUIServer,
   createMockCatalog,
@@ -69,15 +74,46 @@ afterEach(() => {
   }
 });
 
+function defaultPermissions(environments: SandboxEnvironment[]): PermissionsServer {
+  const ownerGrants = Object.fromEntries(
+    environments
+      .filter(environment => environment.createdBySubject.subjectId === 'user-1')
+      .map(environment => [environment.id, ['MANAGE', 'DELETE'] as const]),
+  );
+  return {
+    listPermissions: vi.fn(async ({ resourceType, resourceIds }): Promise<ListPermissionsResponse> => {
+      if (resourceType === 'tenant') {
+        return {
+          data: {
+            type: 'tenant',
+            permissions: { agent: ['CREATE'], sandbox_environment: ['CREATE'] },
+          },
+        };
+      }
+      if (resourceType === 'sandbox_environment') {
+        return {
+          data: {
+            type: 'sandbox_environment',
+            permissions: Object.fromEntries(resourceIds.map(id => [id, [...(ownerGrants[id] ?? [])]])),
+          },
+        };
+      }
+      return { data: { type: resourceType, permissions: {} } };
+    }),
+  };
+}
+
 function renderPage({
   environments = sampleEnvironments,
   environmentOverrides = {},
   currentUser = { subjectId: 'user-1', displayName: 'alice' },
+  permissions,
   track,
 }: {
   environments?: SandboxEnvironment[];
   environmentOverrides?: Partial<SandboxEnvironmentServer>;
   currentUser?: CurrentUser;
+  permissions?: PermissionsServer;
   track?: TrackAnalytics;
 } = {}) {
   const environmentServer = createMockSandboxEnvironmentServer({
@@ -87,6 +123,7 @@ function renderPage({
   const server = createMockAgentUIServer({
     catalog: createMockCatalog(),
     sandboxEnvironments: environmentServer,
+    permissions: permissions ?? defaultPermissions(environments),
   });
 
   const tree = (
@@ -141,7 +178,7 @@ describe('EnvironmentsPage', () => {
     });
   });
 
-  it('does not offer edit or delete actions for another subject’s environment', async () => {
+  it('does not offer edit or delete actions without MANAGE/DELETE', async () => {
     renderPage({
       environments: [
         {
@@ -153,6 +190,18 @@ describe('EnvironmentsPage', () => {
           },
         },
       ],
+      permissions: {
+        listPermissions: vi.fn(async ({ resourceType }): Promise<ListPermissionsResponse> =>
+          resourceType === 'tenant'
+            ? {
+                data: {
+                  type: 'tenant',
+                  permissions: { agent: ['CREATE'], sandbox_environment: ['CREATE'] },
+                },
+              }
+            : { data: { type: 'sandbox_environment', permissions: { e1: [] } } },
+        ),
+      },
     });
 
     const name = await screen.findByText('python-data');
@@ -161,13 +210,18 @@ describe('EnvironmentsPage', () => {
     expect(screen.queryByText('Save')).not.toBeInTheDocument();
   });
 
-  it('does not offer owner actions when the current subject id is unavailable', async () => {
-    renderPage({ currentUser: { displayName: 'alice' } });
+  it('disables New Environment without tenant sandbox_environment CREATE', async () => {
+    renderPage({
+      permissions: {
+        listPermissions: vi.fn(async ({ resourceType }): Promise<ListPermissionsResponse> =>
+          resourceType === 'tenant'
+            ? { data: { type: 'tenant', permissions: { agent: ['CREATE'], sandbox_environment: [] } } }
+            : { data: { type: 'sandbox_environment', permissions: { e1: ['MANAGE', 'DELETE'] } } },
+        ),
+      },
+    });
 
-    const name = await screen.findByText('python-data');
-    expect(screen.queryByRole('button', { name: 'Delete python-data' })).not.toBeInTheDocument();
-    fireEvent.click(name);
-    expect(screen.queryByText('Save')).not.toBeInTheDocument();
+    expect(await screen.findByRole('button', { name: /New Environment/i })).toBeDisabled();
   });
 
   it('polls pending environments using getEnvironment in the background', async () => {

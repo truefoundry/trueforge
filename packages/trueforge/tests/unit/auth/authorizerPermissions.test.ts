@@ -56,11 +56,17 @@ describe('TrueForgeAuthorizer.getPermissions', () => {
     });
   });
 
-  it('grants MANAGE/DELETE only to schedule owners', async () => {
+  it('grants MANAGE/DELETE via canEditSchedule (owner or admin)', async () => {
     const scheduleStore = {
-      getOwnedIds: jest.fn(async ({ subject_id }: { subject_id: string }) =>
-        subject_id === 'alice' ? ['sched-1'] : [],
-      ),
+      getSchedule: jest.fn(async ({ id }: { id: string }) => {
+        if (id === 'sched-1') {
+          return { id: 'sched-1', created_by_subject: { subject_id: 'alice' } };
+        }
+        if (id === 'sched-2') {
+          return { id: 'sched-2', created_by_subject: { subject_id: 'carol' } };
+        }
+        return undefined;
+      }),
     } as unknown as IScheduleStore;
 
     expect(
@@ -91,9 +97,25 @@ describe('TrueForgeAuthorizer.getPermissions', () => {
         'sched-1': [],
       },
     });
+
+    const admin: RequestContext = { ...BOB, roles: ['admin'] };
+    expect(
+      await authorizer.getPermissions({
+        resourceType: 'schedule',
+        requestContext: admin,
+        resourceIds: ['sched-1', 'sched-2'],
+        store: scheduleStore,
+      }),
+    ).toEqual({
+      type: 'schedule',
+      permissions: {
+        'sched-1': ['MANAGE', 'DELETE'],
+        'sched-2': ['MANAGE', 'DELETE'],
+      },
+    });
   });
 
-  it('always grants tenant agent CREATE in standalone mode', async () => {
+  it('always grants tenant agent CREATE in standalone mode; sandbox env CREATE follows canEditEnvironment', async () => {
     expect(
       await authorizer.getPermissions({
         resourceType: 'tenant',
@@ -102,7 +124,59 @@ describe('TrueForgeAuthorizer.getPermissions', () => {
       }),
     ).toEqual({
       type: 'tenant',
-      permissions: { agent: ['CREATE'] },
+      permissions: { agent: ['CREATE'], sandbox_environment: [] },
+    });
+
+    const admin: RequestContext = { ...ALICE, roles: ['admin'] };
+    expect(
+      await authorizer.getPermissions({
+        resourceType: 'tenant',
+        requestContext: admin,
+        resourceIds: [],
+      }),
+    ).toEqual({
+      type: 'tenant',
+      permissions: { agent: ['CREATE'], sandbox_environment: ['CREATE'] },
+    });
+  });
+
+  it('grants MANAGE/DELETE via canEditEnvironment (owner or admin)', async () => {
+    const sandboxEnvironmentStore = {
+      getEnvironmentsByIds: jest.fn(async () => [
+        { id: 'env-1', created_by_subject: { subject_id: 'alice' } },
+        { id: 'env-2', created_by_subject: { subject_id: 'carol' } },
+      ]),
+    };
+
+    expect(
+      await authorizer.getPermissions({
+        resourceType: 'sandbox_environment',
+        requestContext: ALICE,
+        resourceIds: ['env-1', 'env-2'],
+        store: sandboxEnvironmentStore as never,
+      }),
+    ).toEqual({
+      type: 'sandbox_environment',
+      permissions: {
+        'env-1': ['MANAGE', 'DELETE'],
+        'env-2': [],
+      },
+    });
+
+    const admin: RequestContext = { ...BOB, roles: ['admin'] };
+    expect(
+      await authorizer.getPermissions({
+        resourceType: 'sandbox_environment',
+        requestContext: admin,
+        resourceIds: ['env-1', 'env-2'],
+        store: sandboxEnvironmentStore as never,
+      }),
+    ).toEqual({
+      type: 'sandbox_environment',
+      permissions: {
+        'env-1': ['MANAGE', 'DELETE'],
+        'env-2': ['MANAGE', 'DELETE'],
+      },
     });
   });
 });

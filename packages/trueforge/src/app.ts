@@ -560,6 +560,7 @@ export function createServerApp<TTransaction>(deps: ServerDeps<TTransaction>) {
         authorizer: deps.authorizer,
         resolveAgentStore: deps.resolveAgentStore,
         scheduleStore: deps.scheduleStore,
+        sandboxEnvironmentStore: deps.sandboxEnvironmentStore,
         sessionStore: deps.sessionStore,
         resolveRequestContext,
       }),
