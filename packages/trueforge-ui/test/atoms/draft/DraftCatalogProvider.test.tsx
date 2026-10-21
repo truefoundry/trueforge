@@ -174,12 +174,11 @@ describe('DraftCatalogProvider', () => {
     expect(update.skills).toEqual([]);
   });
 
-  it('keeps post-turn FQN skill mounts that match catalog attach keys', () => {
-    const skills = [{ name: 'agent-skill:acme/team/echo:3' }];
+  it('restores the catalog display name for post-turn FQN skill mounts', () => {
     const update = reconcileDraftSpecPreferences({
       agentSpec: {
         model: { name: 'live/model' },
-        skills,
+        skills: [{ name: 'agent-skill:acme/team/echo:3', preload: false }],
       },
       models: [{ id: 'live/model', name: 'live/model', provider: { name: 'Live' }, properties: {} }],
       skills: [{ id: 'agent-skill:acme/team/echo:3', name: 'echo' }],
@@ -187,7 +186,9 @@ describe('DraftCatalogProvider', () => {
       skillsEnabled: true,
     });
 
-    expect(update).toEqual({});
+    expect(update).toEqual({
+      skills: [{ id: 'agent-skill:acme/team/echo:3', name: 'echo', preload: false }],
+    });
   });
 
   it('keeps skill mounts when only the version suffix differs from the catalog', () => {
@@ -218,7 +219,9 @@ describe('DraftCatalogProvider', () => {
       skillsEnabled: true,
     });
 
-    expect(update).toEqual({ skills: [{ name: 'agent-skill:acme/team/echo:3' }] });
+    expect(update).toEqual({
+      skills: [{ id: 'agent-skill:acme/team/echo:3', name: 'echo' }],
+    });
   });
 
   it('does not re-clear an already empty skills list when skills are unavailable', () => {

@@ -52,6 +52,20 @@ function skillAvailableKeys(skills: AgentSkill[]): Set<string> {
   return keys;
 }
 
+/** Chips render `name`. A post-turn mount stores the FQN there; swap in the catalog label. */
+function labelSkillMounts(mounts: object[] | undefined, skills: readonly AgentSkill[]): object[] | undefined {
+  if (mounts === undefined) return undefined;
+  let changed = false;
+  const next = mounts.map(mount => {
+    const name = mountName(mount);
+    const catalog = skills.find(skill => skill.id === name);
+    if (catalog === undefined || name === catalog.name) return mount;
+    changed = true;
+    return { ...mount, id: catalog.id, name: catalog.name };
+  });
+  return changed ? next : mounts;
+}
+
 export function reconcileDraftSpecPreferences({
   agentSpec,
   models,
@@ -90,8 +104,10 @@ export function reconcileDraftSpecPreferences({
       update.skills = [];
     }
   } else {
-    // Catalog `name` is display; wire/session mounts use FQN on `name` (and optional `id`).
-    const nextSkills = filterMounts(agentSpec.skills, skillAvailableKeys(skills), { matchFamily: true });
+    const nextSkills = labelSkillMounts(
+      filterMounts(agentSpec.skills, skillAvailableKeys(skills), { matchFamily: true }),
+      skills,
+    );
     if (nextSkills !== agentSpec.skills) {
       update.skills = nextSkills;
     }
