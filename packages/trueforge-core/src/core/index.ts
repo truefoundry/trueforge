@@ -214,6 +214,7 @@ export {
 export { PromiseTimeoutError, withTimeout } from './util/promiseUtils';
 export {
   OUTBOUND_URL_BLOCKED,
+  OutboundUrlBlockedError,
   assertSafeOutboundUrl,
   configureOutboundUrlGuard,
   createOutboundFetch,

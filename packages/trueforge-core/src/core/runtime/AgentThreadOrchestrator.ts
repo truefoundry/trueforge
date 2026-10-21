@@ -91,6 +91,19 @@ function getActiveAgentThreads(agentThreads: Map<string, AgentThread>): AgentThr
   });
 }
 
+/** Each thread counts once, the first time it is a leaf. Later loop steps run the same threads again. */
+function countNewlyActiveThreads(threads: readonly AgentThread[], countedThreadIds: Set<string>): number {
+  let started = 0;
+  for (const thread of threads) {
+    if (countedThreadIds.has(thread.threadId)) {
+      continue;
+    }
+    countedThreadIds.add(thread.threadId);
+    started += 1;
+  }
+  return started;
+}
+
 function mergeAuthEvents(events: InternalMCPAuthRequiredEvent[]): InternalMCPAuthRequiredEvent {
   const serverMap = new Map<string, InternalMCPServerAuthInfo>();
   for (const event of events) {
@@ -511,6 +524,7 @@ export class AgentThreadOrchestrator {
       shouldStopExecution = true;
     });
 
+    const countedThreadIds = new Set<string>();
     try {
       while (agentThreads.size > 0) {
         if (shouldStopExecution) {
@@ -518,10 +532,13 @@ export class AgentThreadOrchestrator {
         }
 
         const activeThreads = getActiveAgentThreads(agentThreads);
+        const startedCount = countNewlyActiveThreads(activeThreads, countedThreadIds);
+        if (startedCount > 0) {
+          this.metrics?.recordActiveThreads({ count: startedCount });
+        }
 
         for (let i = 0; i < activeThreads.length && !shouldStopExecution; i += MAX_PARALLEL_SUB_AGENTS) {
           const batch = activeThreads.slice(i, i + MAX_PARALLEL_SUB_AGENTS);
-          this.metrics?.recordActiveThreads({ count: batch.length });
           const generators = batch.map(thread => {
             if (!thread.parent) {
               return rootSpan.wrapThreadWithContext(thread, signal);

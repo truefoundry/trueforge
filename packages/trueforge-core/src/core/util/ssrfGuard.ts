@@ -20,6 +20,14 @@ let guardEnabled = true;
 /** Prefix of every SSRF rejection, including the host, protocol, and redirect messages. */
 export const OUTBOUND_URL_BLOCKED = 'Outbound URL blocked';
 
+/** Thrown when the guard rejects a URL. undici may wrap one lookup failure as `cause`. */
+export class OutboundUrlBlockedError extends Error {
+  constructor(message: string, options?: { cause: unknown }) {
+    super(message, options);
+    this.name = 'OutboundUrlBlockedError';
+  }
+}
+
 const UND_ERR_CONNECT_TIMEOUT = 'UND_ERR_CONNECT_TIMEOUT';
 const UND_ERR_HEADERS_TIMEOUT = 'UND_ERR_HEADERS_TIMEOUT';
 const UND_ERR_BODY_TIMEOUT = 'UND_ERR_BODY_TIMEOUT';
@@ -137,8 +145,9 @@ function isPrivateIp(address: string): boolean {
   return true;
 }
 
-function blockedError(host: string, cause?: unknown): Error {
-  return new Error(`${OUTBOUND_URL_BLOCKED} for host "${host}"`, { cause });
+function blockedError(host: string, cause?: unknown): OutboundUrlBlockedError {
+  const message = `${OUTBOUND_URL_BLOCKED} for host "${host}"`;
+  return cause === undefined ? new OutboundUrlBlockedError(message) : new OutboundUrlBlockedError(message, { cause });
 }
 
 function deny(host: string, cause?: unknown): never {
@@ -168,10 +177,10 @@ function parseOutboundUrl(input: string | URL | Request): URL {
   try {
     url = new URL(input instanceof Request ? input.url : input);
   } catch (error) {
-    throw new Error(OUTBOUND_URL_BLOCKED, { cause: error });
+    throw new OutboundUrlBlockedError(OUTBOUND_URL_BLOCKED, { cause: error });
   }
   if (!URL_VERIFY.allowedProtocols.includes(url.protocol)) {
-    throw new Error(`${OUTBOUND_URL_BLOCKED}: only http and https are allowed`);
+    throw new OutboundUrlBlockedError(`${OUTBOUND_URL_BLOCKED}: only http and https are allowed`);
   }
   return url;
 }
@@ -254,10 +263,10 @@ function nextHop(
   try {
     nextUrl = new URL(location, current);
   } catch (error) {
-    throw new Error(OUTBOUND_URL_BLOCKED, { cause: error });
+    throw new OutboundUrlBlockedError(OUTBOUND_URL_BLOCKED, { cause: error });
   }
   if (!URL_VERIFY.allowedProtocols.includes(nextUrl.protocol)) {
-    throw new Error(`${OUTBOUND_URL_BLOCKED}: only http and https are allowed`);
+    throw new OutboundUrlBlockedError(`${OUTBOUND_URL_BLOCKED}: only http and https are allowed`);
   }
 
   const headers = new Headers(init.headers);
@@ -469,7 +478,7 @@ async function guardedFetch(
   }
   void response.body?.cancel().catch(() => undefined);
   if (hopsLeft === 0) {
-    throw new Error(`${OUTBOUND_URL_BLOCKED}: too many redirects`);
+    throw new OutboundUrlBlockedError(`${OUTBOUND_URL_BLOCKED}: too many redirects`);
   }
   const hop = nextHop(response, location, url, merged);
   return guardedFetch(hop.url, hop.init, hopsLeft - 1, agent);
@@ -521,10 +530,10 @@ async function withOutboundHttpRetries(
 
 /** Guard throws directly. undici wraps a blocked lookup once, under `TypeError: fetch failed`. */
 function isBlockedOutboundError(error: unknown): boolean {
-  if (error instanceof Error && error.message.startsWith(OUTBOUND_URL_BLOCKED)) {
-    return true;
-  }
-  return error instanceof Error && error.cause instanceof Error && error.cause.message.startsWith(OUTBOUND_URL_BLOCKED);
+  return (
+    error instanceof OutboundUrlBlockedError ||
+    (error instanceof Error && error.cause instanceof OutboundUrlBlockedError)
+  );
 }
 
 function failedOutboundHttpOutcome(error: unknown): Exclude<OutboundHttpOutcome, 'success'> {
