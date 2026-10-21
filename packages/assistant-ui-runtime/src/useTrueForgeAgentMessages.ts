@@ -522,8 +522,8 @@ export function useTrueForgeAgentMessages({
   const runningTurnRef = useRef<Turn | undefined>(undefined);
   const loadGenerationRef = useRef(0);
   const streamGenerationRef = useRef(0);
-  // Bumped at the start of every sendTurn. An in-flight load must not apply
-  // its snapshot once this moves: the send owns the thread.
+  // Bumped once a send has applied its message. An earlier failure must not
+  // discard the in-flight load or cancel the painted tip.
   const sendEpochRef = useRef(0);
   const streamReconnectPendingRef = useRef(false);
   const cancelRequestedRef = useRef(false);
@@ -783,7 +783,7 @@ export function useTrueForgeAgentMessages({
     }
 
     const generation = ++loadGenerationRef.current;
-    const streamGeneration = ++streamGenerationRef.current;
+    ++streamGenerationRef.current;
     const sendEpoch = sendEpochRef.current;
     setIsRunning(false);
     markResumeUnavailable(false);
@@ -804,13 +804,9 @@ export function useTrueForgeAgentMessages({
         setSnapshot(snap);
         setIsLoading(false);
       });
-      if (
-        generation !== loadGenerationRef.current ||
-        streamGeneration !== streamGenerationRef.current ||
-        sendEpoch !== sendEpochRef.current
-      ) {
-        // A send started while getTurn was in flight. Applying this snapshot
-        // would drop that message and resume the old tip.
+      if (generation !== loadGenerationRef.current || sendEpoch !== sendEpochRef.current) {
+        // A send applied its message while getTurn was in flight. Applying this
+        // snapshot would drop that message and resume the old tip.
         return;
       }
 
@@ -887,8 +883,6 @@ export function useTrueForgeAgentMessages({
       let pendingUserWasSet = false;
       let runStreamStarted = false;
       let pendingUserTurnId: string | undefined;
-      // Before any await, so a load waiting on getTurn cannot apply afterwards.
-      ++sendEpochRef.current;
 
       // Invalidate the prior client stream before any await so a buffered RAF
       // cannot restore stale activeStream after the optimistic user message.
@@ -1035,6 +1029,9 @@ export function useTrueForgeAgentMessages({
             snapshotRef.current.groupRootBaseline ?? computeGroupRootBaseline(snapshotRef.current.turns);
         }
 
+        // The message is on the snapshot. A load still awaiting getTurn must
+        // leave this send in place. Failures before this point do not count.
+        ++sendEpochRef.current;
         runStreamStarted = true;
         await runStream(
           (signal, track) => {
@@ -1113,7 +1110,11 @@ export function useTrueForgeAgentMessages({
           options.onPreTurnFailure?.();
         }
         if (!runStreamStarted) {
-          if ('userMessage' in options) {
+          // A supersede already aborted the live stream. A send that fails
+          // before it installs a message must not cancel the painted open tip.
+          const hasIncompleteStream =
+            snapshotRef.current.activeStream != null && snapshotRef.current.activeStream.streamComplete !== true;
+          if ('userMessage' in options && (pendingUserWasSet || hasIncompleteStream)) {
             const abandoned = abandonInFlightClientTurn(commitActiveStream(snapshotRef.current));
             snapshotRef.current = abandoned;
             setSnapshot(abandoned);
