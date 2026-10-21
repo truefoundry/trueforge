@@ -766,7 +766,7 @@ async function resumePausedTurn(input: {
     });
   } catch (error) {
     executionTimeout.clear();
-    // Cancel found this reservation and did not freeze. If the stream never starts,
+    // Cancel aborted this rebuilding run and did not freeze. If the stream never starts,
     // freeze here so the row still becomes terminal. Offload leaves the row paused.
     if (
       abortController.signal.aborted &&
@@ -1067,7 +1067,7 @@ async function rebuildOptionallyAndRun(input: {
         deps: input.deps,
       });
       try {
-        // Cancel aborted the reserved controller and will not freeze. The drain writes
+        // Cancel aborted the rebuilding run and will not freeze. The drain writes
         // the terminal state. Skip the inbox insert so this send is not a second writer.
         if (resumed.signal.aborted) {
           return { type: 'conflict', message: `Turn is not accepting events: ${turnId}` };

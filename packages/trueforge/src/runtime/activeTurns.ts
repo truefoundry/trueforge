@@ -10,14 +10,30 @@ import type { Logger } from 'winston';
 
 const DEFAULT_PAUSED_KEEPALIVE_MS = 300_000;
 
-interface ActiveTurnRun {
-  /** Absent until `track()` attaches the stream. A reserved rebuild has no handle yet. */
-  turn: TurnHandle | undefined;
-  /** A rebuild reserved before `track()`. The row is paused, so shutdown offloads it. */
-  reservedPaused: boolean;
+interface TurnRunCompletion {
   abortController: AbortController;
   waitUntilCompleted: Promise<void>;
   markCompleted: () => void;
+}
+
+/** Paused rebuild before `rebuildTurn` returns a handle. Shutdown offloads this phase. */
+interface RebuildingTurnRun extends TurnRunCompletion {
+  phase: 'rebuilding';
+}
+
+interface LiveTurnRun extends TurnRunCompletion {
+  phase: 'live';
+  turn: TurnHandle;
+}
+
+type ActiveTurnRun = RebuildingTurnRun | LiveTurnRun;
+
+function setupTurnRun(abortController: AbortController): TurnRunCompletion {
+  const { promise: waitUntilCompleted, resolve } = Promise.withResolvers<undefined>();
+  const markCompleted = (): void => {
+    resolve(undefined);
+  };
+  return { abortController, waitUntilCompleted, markCompleted };
 }
 
 function activeTurnKey(sessionId: string, turnId: string): string {
@@ -28,10 +44,10 @@ function isPausedRun(run: ActiveTurnRun | undefined): run is ActiveTurnRun {
   if (!run) {
     return false;
   }
-  if (run.turn) {
-    return run.turn.state.status === 'paused';
+  if (run.phase === 'rebuilding') {
+    return true;
   }
-  return run.reservedPaused;
+  return run.turn.state.status === 'paused';
 }
 
 export class ActiveTurnRegistry {
@@ -83,27 +99,26 @@ export class ActiveTurnRegistry {
   track<T>(input: { abortController: AbortController; stream: AsyncIterable<T>; turn: TurnHandle }): AsyncGenerator<T> {
     const key = activeTurnKey(input.turn.session_id, input.turn.id);
     const existing = this.runs.get(key);
-    let run: ActiveTurnRun;
+    let run: LiveTurnRun;
     if (existing) {
-      // A reserved rebuild adopts this stream. Replacing the run would leave shutdown
-      // waiting on a promise nothing resolves.
-      if (existing.turn !== undefined || existing.abortController !== input.abortController) {
+      // Keep the rebuilding run's completion promise. Shutdown may already be waiting on it
+      // and does not re-read this map entry.
+      if (existing.phase !== 'rebuilding' || existing.abortController !== input.abortController) {
         throw new Error(`Turn ${input.turn.id} is already registered in this process`);
       }
-      existing.turn = input.turn;
-      existing.reservedPaused = false;
-      run = existing;
-    } else {
-      const { promise: waitUntilCompleted, resolve } = Promise.withResolvers<undefined>();
-      const markCompleted = (): void => {
-        resolve(undefined);
-      };
       run = {
-        abortController: input.abortController,
-        waitUntilCompleted,
-        markCompleted,
+        phase: 'live',
         turn: input.turn,
-        reservedPaused: false,
+        abortController: existing.abortController,
+        waitUntilCompleted: existing.waitUntilCompleted,
+        markCompleted: existing.markCompleted,
+      };
+      this.runs.set(key, run);
+    } else {
+      run = {
+        phase: 'live',
+        turn: input.turn,
+        ...setupTurnRun(input.abortController),
       };
       this.runs.set(key, run);
     }
@@ -155,13 +170,13 @@ export class ActiveTurnRegistry {
   /**
    * The live turn handle for a turn executing in this process, or undefined when it is not
    * resumable here — never started, already terminal (the stream removed its run), aborting,
-   * or still only reserved for a rebuild.
+   * or still in the rebuilding phase.
    * An aborted run stays registered until its drain finishes. Call `waitForDrainingRun` before
    * rebuilding so a second generator does not write with the same executor id.
    */
   getTurnHandle(input: { sessionId: string; turnId: string }): TurnHandle | undefined {
     const run = this.runs.get(activeTurnKey(input.sessionId, input.turnId));
-    if (!run?.turn) {
+    if (run?.phase !== 'live') {
       return undefined;
     }
     if (run.abortController.signal.aborted) {
@@ -184,8 +199,9 @@ export class ActiveTurnRegistry {
   }
 
   /**
-   * Register a paused rebuild before its stream exists.
-   * Cancel and shutdown can see the controller. `track()` attaches the stream to this same run.
+   * Insert a rebuilding run before its stream exists.
+   * Cancel and shutdown can see the controller. `track()` replaces it with a live run
+   * that keeps this completion promise.
    * Call `releaseReservedTurn` when the stream will never start.
    */
   reservePausedTurn(input: { sessionId: string; turnId: string; abortController: AbortController }): void {
@@ -193,29 +209,24 @@ export class ActiveTurnRegistry {
     if (this.runs.has(key)) {
       throw new Error(`Turn ${input.turnId} is already registered in this process`);
     }
-    const { promise: waitUntilCompleted, resolve } = Promise.withResolvers<undefined>();
-    const markCompleted = (): void => {
-      resolve(undefined);
-    };
-    const run: ActiveTurnRun = {
-      turn: undefined,
-      reservedPaused: true,
-      abortController: input.abortController,
-      waitUntilCompleted,
-      markCompleted,
+    const run: RebuildingTurnRun = {
+      phase: 'rebuilding',
+      ...setupTurnRun(input.abortController),
     };
     this.runs.set(key, run);
+    // Resume can insert this run after shutdownAndWait snapshotted `runs` or already returned.
+    // Abort now so rebuilding does not start a stream that loop will never run.
     if (this.alreadyShutDownAbortReason !== undefined && !input.abortController.signal.aborted) {
       this.logger.info('Offloading paused turn', { cause: 'shutdown' });
       input.abortController.abort(TurnOffloadReason);
     }
   }
 
-  /** Drop a reserved rebuild whose stream never started, and unblock shutdown waiting on it. */
+  /** Drop a rebuilding run whose stream never started, and unblock shutdown waiting on it. */
   releaseReservedTurn(input: { sessionId: string; turnId: string }): void {
     const key = activeTurnKey(input.sessionId, input.turnId);
     const run = this.runs.get(key);
-    if (!run || run.turn !== undefined) {
+    if (run?.phase !== 'rebuilding') {
       return;
     }
     this.runs.delete(key);
@@ -294,9 +305,12 @@ export class ActiveTurnRegistry {
 
   /**
    * Enter shutdown mode and wait until the registry is empty.
-   * Does not take the per-turn lock. Paused runs, including a reserved rebuild, are offloaded
-   * directly so their approval state survives. Running runs abort as `abortReason`.
-   * A later `track()` offloads a paused turn and aborts any other turn as `abortReason`.
+   * Does not take the per-turn lock.
+   * A send holds it across rebuild, `waitForDrainingRun`, and `dropLocalTurn`;
+   * Keepalive holds it across `finishRun`.
+   * Waiting for the lock would defer the abort until those calls returned,
+   * so it could not interrupt them.
+   * Paused live runs and rebuilding runs are offloaded so their approval state survives.
    */
   async shutdownAndWait(abortReason: CancellationReason): Promise<void> {
     this.alreadyShutDownAbortReason = abortReason;
