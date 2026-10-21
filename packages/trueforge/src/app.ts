@@ -2,7 +2,11 @@
 import { swaggerUI } from '@hono/swagger-ui';
 import { OpenAPIHono, z } from '@hono/zod-openapi';
 import type { ISessionStore, Sessions, TurnStreamingEvent } from '@truefoundry/trueforge-core/agent-session';
-import { extractErrorLogFields, reportableErrorFields } from '@truefoundry/trueforge-core/core';
+import {
+  extractErrorLogFields,
+  hasMarkedReportableError,
+  reportableErrorFields,
+} from '@truefoundry/trueforge-core/core';
 import type { RedisClient, RequestReplyRouter } from '@truefoundry/trueforge-core/request-reply';
 import type { Context, ErrorHandler, MiddlewareHandler } from 'hono';
 import { bodyLimit } from 'hono/body-limit';
@@ -159,7 +163,7 @@ export function createAppErrorHandler(params: { logger: Logger }): ErrorHandler 
         path: c.req.path,
         status,
         ...extractErrorLogFields(error),
-        ...(status >= 500
+        ...(status >= 500 && !hasMarkedReportableError(error)
           ? reportableErrorFields({
               error,
               operation: message === 'Unhandled error' ? 'unhandled' : 'serverApiError',

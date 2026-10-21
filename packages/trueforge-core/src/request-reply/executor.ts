@@ -116,14 +116,18 @@ export class RequestReplyExecutor {
       this.onError?.(err, { executorId: this.executorId, channel: this.channel });
       // error is often transient; the client can reconnect and fire ready again. Do not stop the heartbeat.
     });
+    // Shutdown drains the executor, then closes the client. That close emits `end`.
+    // Only an end while the executor is still open is an unexpected drop.
     this.subscriberClient.on('end', () => {
       this.logger.warn('[RequestReplyExecutor] Subscriber connection ended', {
         executorId: this.executorId,
-        ...reportableErrorFields({
-          error: new Error('Subscriber connection ended'),
-          operation: 'requestReplySubscriberEnded',
-          extra: { executorId: this.executorId },
-        }),
+        ...(this.closed
+          ? {}
+          : reportableErrorFields({
+              error: new Error('Subscriber connection ended'),
+              operation: 'requestReplySubscriberEnded',
+              extra: { executorId: this.executorId },
+            })),
       });
       this.stopHeartbeat();
     });

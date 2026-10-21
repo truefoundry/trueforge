@@ -1,4 +1,5 @@
 import { OpenAPIHono, createRoute, z } from '@hono/zod-openapi';
+import { reportableErrorFields } from '@truefoundry/trueforge-core/core';
 import { HTTPException } from 'hono/http-exception';
 import winston from 'winston';
 import { createAppErrorHandler } from '../../src/app';
@@ -41,6 +42,7 @@ describe('createAppErrorHandler', () => {
       status: 500,
       error: thrown.message,
       stack: thrown.stack,
+      ...reportableErrorFields({ error: thrown, operation: 'unhandled' }),
     });
   });
 
@@ -60,6 +62,26 @@ describe('createAppErrorHandler', () => {
       status,
       error: thrown.message,
       stack: thrown.stack,
+      ...reportableErrorFields({ error: thrown, operation: 'serverApiError' }),
+    });
+  });
+
+  it('does not mark a 500 whose cause was already marked', async () => {
+    const logger = winston.createLogger({ silent: true });
+    const errorLog = jest.spyOn(logger, 'error');
+    const cause = new Error('socket hang up');
+    reportableErrorFields({ error: cause, operation: 'serviceFoundryRequest' });
+    const thrown = new HTTPException(500, { message: 'Service unavailable', cause });
+
+    const response = await appThrowing(logger, thrown).request('/test');
+
+    expect(response.status).toBe(500);
+    expect(errorLog).toHaveBeenCalledWith('Server API error', {
+      method: 'GET',
+      path: '/test',
+      status: 500,
+      error: `${thrown.message}: ${cause.message}`,
+      stack: `${thrown.stack ?? ''}\nCaused by: ${cause.stack ?? ''}`,
     });
   });
 
