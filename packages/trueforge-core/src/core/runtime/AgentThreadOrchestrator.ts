@@ -182,6 +182,8 @@ export interface AgentThreadOrchestratorInput {
   createDynamicSubAgentThread: CreateDynamicSubAgentThread;
   tracing: AgentTracing;
   logger: Logger;
+  /** Inbox rows not yet in the snapshot. `execute` applies them. A rebuild passes these. */
+  pendingTurnEvents?: TurnUserEvent[] | undefined;
 }
 
 export class AgentThreadOrchestrator {
@@ -192,7 +194,7 @@ export class AgentThreadOrchestrator {
   // Finished sub-agents removed from `agentThreads`; kept so totals still include them.
   private finishedSubAgentMetrics: AgentThreadMetrics = createEmptyAgentThreadMetrics();
   private readonly wakeSignal: Signalable = signalable();
-  private readonly pendingTurnEvents: TurnUserEvent[] = [];
+  private readonly pendingTurnEvents: TurnUserEvent[];
   // Last-seen MCP server init records (by id)/
   private readonly mcpServerInitInfoById = new Map<string, MCPServerInitInfo>();
 
@@ -201,6 +203,7 @@ export class AgentThreadOrchestrator {
     this.createDynamicSubAgentThread = params.createDynamicSubAgentThread;
     this.tracing = params.tracing;
     this.logger = params.logger.child({ module: 'AgentThreadOrchestrator' });
+    this.pendingTurnEvents = params.pendingTurnEvents !== undefined ? [...params.pendingTurnEvents] : [];
   }
 
   public wake(): void {

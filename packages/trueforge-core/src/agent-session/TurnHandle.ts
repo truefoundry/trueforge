@@ -1,7 +1,7 @@
 /**
  * Durable turn handle. {@link TurnHandle.stream} is execute-once (persist-before-yield).
  */
-import { AgentHarnessError, InvalidAgentSendInputError } from '../core/errors';
+import { AgentHarnessError } from '../core/errors';
 import type {
   MCPAuthRequiredEvent,
   MCPServerInitInfo,
@@ -345,30 +345,6 @@ export class TurnHandle<TTurnCustom extends object = Record<string, never>> {
     }
     if (ownershipLost) {
       throw ownershipLost;
-    }
-  }
-
-  /**
-   * Queue inbox rows onto the orchestrator before execute starts.
-   * A row the paused snapshot already applied fails validation; skip it so a
-   * crash between persist and consume does not apply the same decision twice.
-   */
-  async replayUnconsumedInbox(): Promise<void> {
-    const rows = await this.store.listUnconsumedTurnInboundEvents({
-      session_id: this.turn.session_id,
-      turn_id: this.turn.turn_id,
-    });
-    for (const event of rows) {
-      try {
-        for await (const batch of this.orchestrator.send([event])) {
-          void batch;
-        }
-      } catch (error) {
-        if (error instanceof InvalidAgentSendInputError) {
-          continue;
-        }
-        throw error;
-      }
     }
   }
 

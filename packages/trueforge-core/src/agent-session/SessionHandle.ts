@@ -1,7 +1,7 @@
 /**
  * Bound session handle: starts turns via {@link SessionHandle.createTurn}.
  */
-import { newEventId, type UserMessage } from '../core/events/schema';
+import { newEventId, type TurnUserEvent, type UserMessage } from '../core/events/schema';
 import type { AgentDefinition } from '../core/runtime/AgentDefinition';
 import { AgentThread } from '../core/runtime/AgentThread';
 import type { AgentThreadAppendContext, AgentThreadSnapshot } from '../core/runtime/AgentThread.types';
@@ -278,8 +278,8 @@ export class SessionHandle<
   /**
    * Rebuild a paused turn from its own snapshot. Does not create a row, freeze a
    * predecessor, or re-send the original input. The caller must already own
-   * `active_executor_id`. Unconsumed inbox rows are queued before the handle
-   * is returned, so a later send() lands after them and stream() only executes.
+   * `active_executor_id`. Unconsumed inbox rows are placed on the orchestrator
+   * before the handle is returned, so a later send() lands after them.
    */
   async rebuildTurn(input: {
     turn_id: string;
@@ -308,21 +308,24 @@ export class SessionHandle<
         throw new TurnNotRunningError(input.turn_id, turn.state);
       }
 
+      const pendingTurnEvents = await this.store.listUnconsumedTurnInboundEvents({
+        session_id: this.session.session_id,
+        turn_id: input.turn_id,
+      });
       const { orchestrator } = await this.assembleTurn({
         previous: turn,
         resolver: input.resolver,
         abortController: input.abortController,
+        pendingTurnEvents,
       });
 
-      const handle = new TurnHandle({
+      return new TurnHandle({
         store: this.store,
         turn,
         orchestrator,
         resolver: input.resolver,
         abortController: input.abortController,
       });
-      await handle.replayUnconsumedInbox();
-      return handle;
     } catch (error) {
       await input.resolver.close().catch((closeError: unknown) => {
         input.resolver.logger.warn('TurnResourceResolver.close() failed after rebuildTurn() error', {
@@ -415,6 +418,7 @@ export class SessionHandle<
     previous: TurnRecord<TTurnCustom> | undefined;
     resolver: ITurnResourceResolver<TTurnCustom>;
     abortController: AbortController;
+    pendingTurnEvents?: TurnUserEvent[] | undefined;
   }): Promise<{ orchestrator: AgentThreadOrchestrator; agentThreads: Map<string, AgentThread> }> {
     const tracing = input.resolver.createTracing();
     const agent = this.session.agent;
@@ -466,6 +470,7 @@ export class SessionHandle<
       createDynamicSubAgentThread,
       tracing,
       logger: input.resolver.logger,
+      ...(input.pendingTurnEvents !== undefined ? { pendingTurnEvents: input.pendingTurnEvents } : {}),
     });
 
     return { orchestrator, agentThreads };
