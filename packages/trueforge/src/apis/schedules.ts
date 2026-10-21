@@ -10,6 +10,7 @@ import {
 import type { Context } from 'hono';
 import { HTTPException } from 'hono/http-exception';
 import type { Logger } from 'winston';
+import type { ResolveTurnSkillsStoreInput } from '../app';
 import type { Authorizer } from '../auth/authorizer';
 import {
   createdBySubjectFromRequestContext,
@@ -42,6 +43,7 @@ import {
 import type { ISkillStore } from '../db/skillStore';
 import type { WithTransaction } from '../db/transaction';
 import type { IWebSearchProviderStore } from '../db/webSearchProviderStore';
+import { updateLogContext } from '../logger';
 import {
   createScheduleRoute,
   createScheduleRunRoute,
@@ -72,14 +74,15 @@ export interface ScheduleTurnExecutionDeps<TTransaction> {
   activeTurns: ActiveTurnRegistry;
   eventSubscriptions: EventSubscriptionRegistry<TurnStreamingEvent>;
   logger: Logger;
-  resolveModelProviderStore: (c: Context, runAsAgent?: AgentRecord) => IModelProviderStore<TTransaction>;
-  resolveMcpServerStore: (c: Context, runAsAgent?: AgentRecord) => IMcpServerWithAuthStore<TTransaction>;
+  resolveModelProviderStore: (input: { c: Context; runAsAgent?: AgentRecord }) => IModelProviderStore<TTransaction>;
+  resolveMcpServerStore: (input: { c: Context; runAsAgent?: AgentRecord }) => IMcpServerWithAuthStore<TTransaction>;
   resolveSandboxProviderStore: (c: Context) => ISandboxProviderStore<TTransaction>;
   sandboxEnvironmentStore: ISandboxEnvironmentStore<TTransaction>;
   resolveWebSearchProviderStore: (c: Context) => IWebSearchProviderStore<TTransaction>;
   /** Persistence agent store (schedule agent binding is not caller-scoped). */
   agentStore: IAgentStore<TTransaction>;
-  turnSkillsResolverStore: Pick<ISkillStore, 'resolveTurnSkills'>;
+  /** Call with `{}` — schedules have no caller `x-tfg-skills`. */
+  resolveTurnSkillsStore: (input: ResolveTurnSkillsStoreInput) => Pick<ISkillStore, 'resolveTurnSkills'>;
 }
 
 export interface SchedulesRouterDeps<TTransaction> extends ScheduleTurnExecutionDeps<TTransaction> {
@@ -116,12 +119,12 @@ export async function startScheduleRunOnRequest<TTransaction>(params: {
       activeTurns: deps.activeTurns,
       eventSubscriptions: deps.eventSubscriptions,
       agentStore: deps.agentStore,
-      modelProviderStore: deps.resolveModelProviderStore(c, prepared.agent),
-      mcpServerStore: deps.resolveMcpServerStore(c, prepared.agent),
+      modelProviderStore: deps.resolveModelProviderStore({ c, runAsAgent: prepared.agent }),
+      mcpServerStore: deps.resolveMcpServerStore({ c, runAsAgent: prepared.agent }),
       sandboxProviderStore: deps.resolveSandboxProviderStore(c),
       sandboxEnvironmentStore: deps.sandboxEnvironmentStore,
       webSearchProviderStore: deps.resolveWebSearchProviderStore(c),
-      skillStore: deps.turnSkillsResolverStore,
+      skillStore: deps.resolveTurnSkillsStore({}),
       logger: deps.logger,
     },
   });
@@ -206,6 +209,7 @@ export function createScheduleExecutionRouter<TTransaction>(deps: ScheduleTurnEx
           created_by_subject: item.schedule.created_by_subject,
         }),
       );
+      updateLogContext({ tenant_id: item.schedule.tenant_id });
       await startScheduleRunOnRequest({ c, item, deps });
     } catch (error) {
       if (

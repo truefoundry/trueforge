@@ -1,12 +1,77 @@
 /**
  * Process logger: human-readable lines in standalone mode, JSON otherwise.
- * JSON output carries `version` and `component` ('server' | 'controller') in defaultMeta
- * so hosted aggregators can tell the two processes apart; both are omitted from the
+ * JSON output carries `component` ('server' | 'controller') in defaultMeta
+ * so hosted aggregators can tell the two processes apart; it is omitted from the
  * human-readable standalone format to keep local logs terse.
+ * In-flight work stamps `tenant_id`, `request_id`, `session_id`, and `turn_id` when known.
  */
+import { AsyncLocalStorage } from 'node:async_hooks';
 import winston, { type Logger } from 'winston';
 
-const STANDALONE_META_SKIP = new Set(['level', 'message', 'timestamp', 'version', 'component', 'stack', 'splat']);
+const STANDALONE_META_SKIP = new Set(['level', 'message', 'timestamp', 'component', 'stack', 'splat']);
+
+/** Ids copied onto each Winston line while the matching work is in progress. Absent keys are omitted. */
+export interface LogContext {
+  tenant_id?: string;
+  request_id?: string;
+  session_id?: string;
+  turn_id?: string;
+}
+
+const LOG_CONTEXT_KEYS: (keyof LogContext)[] = ['tenant_id', 'request_id', 'session_id', 'turn_id'];
+
+const logContextStorage = new AsyncLocalStorage<LogContext>();
+
+function assignDefined(target: LogContext, fields: LogContext): void {
+  for (const key of LOG_CONTEXT_KEYS) {
+    const value = fields[key];
+    if (value !== undefined) {
+      target[key] = value;
+    }
+  }
+}
+
+/** Run `fn` with `fields` overlaid on the current ids. Nested calls keep parent ids they do not replace. */
+export function runWithLogContext<T>(fields: LogContext, fn: () => T): T {
+  const parent = logContextStorage.getStore();
+  const next: LogContext = parent === undefined ? {} : { ...parent };
+  assignDefined(next, fields);
+  return logContextStorage.run(next, fn);
+}
+
+/** Merge `fields` into the current context. No-op outside {@link runWithLogContext}. */
+export function updateLogContext(fields: LogContext): void {
+  const store = logContextStorage.getStore();
+  if (store === undefined) {
+    return;
+  }
+  assignDefined(store, fields);
+}
+
+/** Current ids, or `undefined` when no request or turn context is active. */
+export function currentLogContext(): LogContext | undefined {
+  return logContextStorage.getStore();
+}
+
+/** Fill missing id keys from the active context. A field passed on the log call wins. */
+function logContextFormat(): winston.Logform.Format {
+  return winston.format(info => {
+    const store = logContextStorage.getStore();
+    if (store === undefined) {
+      return info;
+    }
+    for (const key of LOG_CONTEXT_KEYS) {
+      if (info[key] !== undefined) {
+        continue;
+      }
+      const value = store[key];
+      if (value !== undefined) {
+        info[key] = value;
+      }
+    }
+    return info;
+  })();
+}
 
 export function shouldColorize(): boolean {
   const noColor = process.env['NO_COLOR'];
@@ -42,6 +107,7 @@ function standaloneFormat(color: boolean): winston.Logform.Format {
   const parts: winston.Logform.Format[] = [
     winston.format.timestamp({ format: 'HH:mm:ss' }),
     winston.format.errors({ stack: true }),
+    logContextFormat(),
   ];
   if (color) {
     parts.push(winston.format.colorize({ level: true }));
@@ -60,6 +126,7 @@ function jsonFormat(): winston.Logform.Format {
   return winston.format.combine(
     winston.format.timestamp(),
     winston.format.errors({ stack: true }),
+    logContextFormat(),
     winston.format.json(),
   );
 }
@@ -71,24 +138,19 @@ function serverLogFormat(options: { standalone: boolean }): winston.Logform.Form
   return jsonFormat();
 }
 
-function createLogger(options: {
-  level: string;
-  standalone: boolean;
-  version: string;
-  component: 'server' | 'controller';
-}): Logger {
+function createLogger(options: { level: string; standalone: boolean; component: 'server' | 'controller' }): Logger {
   return winston.createLogger({
     level: options.level,
-    defaultMeta: { version: options.version, component: options.component },
+    defaultMeta: { component: options.component },
     format: serverLogFormat({ standalone: options.standalone }),
     transports: [new winston.transports.Console()],
   });
 }
 
-export function createServerLogger(options: { level: string; standalone: boolean; version: string }): Logger {
+export function createServerLogger(options: { level: string; standalone: boolean }): Logger {
   return createLogger({ ...options, component: 'server' });
 }
 
-export function createControllerLogger(options: { level: string; standalone: boolean; version: string }): Logger {
+export function createControllerLogger(options: { level: string; standalone: boolean }): Logger {
   return createLogger({ ...options, component: 'controller' });
 }

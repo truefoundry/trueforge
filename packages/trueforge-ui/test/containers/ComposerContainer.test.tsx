@@ -237,6 +237,10 @@ describe('ComposerContainer', () => {
     fireEvent.drop(dropzone, {
       dataTransfer: {
         files: [new File(['hello'], 'note.txt', { type: 'text/plain' })],
+        items: {
+          length: 0,
+          [Symbol.iterator]: function* () {},
+        },
       },
     });
 
@@ -244,6 +248,46 @@ describe('ComposerContainer', () => {
       AnalyticsEvents.Attachment.PICKED,
       expect.objectContaining({ file_count: 1, agent_name: 'support' }),
     );
+  });
+
+  it('does not track attachment_picked when only a folder is dropped', () => {
+    const track = vi.fn();
+    render(
+      <AnalyticsProvider track={track}>
+        <ShellModeProvider agentConfig={{ mode: 'SingleAgent', name: 'support' }}>
+          <RuntimeHarness messages={[]}>
+            <ComposerBusyProvider>
+              <ComposerContainer />
+            </ComposerBusyProvider>
+          </RuntimeHarness>
+        </ShellModeProvider>
+      </AnalyticsProvider>,
+    );
+    const dropzone = document.querySelector('[data-slot="aui_composer-attachment-dropzone"]');
+    expect(dropzone).not.toBeNull();
+    if (dropzone === null) {
+      throw new Error('Expected attachment dropzone');
+    }
+
+    const folderItem = {
+      kind: 'file',
+      getAsFile: () => new File([], 'docs'),
+      webkitGetAsEntry: () => ({ isDirectory: true, isFile: false, name: 'docs' }),
+    };
+    fireEvent.drop(dropzone, {
+      dataTransfer: {
+        files: [new File([], 'docs')],
+        items: {
+          length: 1,
+          0: folderItem,
+          [Symbol.iterator]: function* () {
+            yield folderItem;
+          },
+        },
+      },
+    });
+
+    expect(track).not.toHaveBeenCalledWith(AnalyticsEvents.Attachment.PICKED, expect.anything());
   });
 
   it('preserves consumer section overrides in draft mode', () => {
