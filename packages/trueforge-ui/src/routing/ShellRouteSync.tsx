@@ -8,6 +8,7 @@ import { findAgentByName } from '../atoms/lib/useSearchAgentsList.js';
 import {
   useOptionalAgentSessionsServer,
   useOptionalCatalogServer,
+  useOptionalPermissionsServer,
   useOptionalSandboxEnvironmentServer,
   useOptionalScheduleServer,
   useOptionalServer,
@@ -52,6 +53,7 @@ export function ShellRouteSync({
   const server = useOptionalServer();
   const catalog = useOptionalCatalogServer();
   const sessions = useOptionalAgentSessionsServer();
+  const permissions = useOptionalPermissionsServer();
   const schedules = useOptionalScheduleServer();
   const sandboxEnvironments = useOptionalSandboxEnvironmentServer();
   const capabilities = useServerCapabilities();
@@ -158,11 +160,26 @@ export function ShellRouteSync({
         return;
       }
       const requestedChatIdentity = chatIdentityRef.current;
-      void server
-        .getSession({ sessionId })
-        .then(session => {
+      // Shared viewers can read a session but cannot subscribe/send. Prefer the
+      // read-only share surface when MANAGE is missing and that route exists.
+      const canManagePromise =
+        permissions == null || sessions == null
+          ? Promise.resolve(true)
+          : permissions
+              .listPermissions({ resourceType: 'session', resourceIds: [sessionId] })
+              .then(response => (response.data.permissions[sessionId] ?? []).includes('MANAGE'))
+              .catch(() => true);
+
+      void Promise.all([server.getSession({ sessionId }), canManagePromise])
+        .then(([session, canManage]) => {
           if (requestedSessionRef.current !== sessionId) {
             releaseAbandonedBootSession(sessionId);
+            return;
+          }
+          if (!canManage) {
+            // Leave the /sessions/:id boot wait so shell→URL can rewrite to share.
+            releaseAbandonedBootSession(sessionId);
+            shell.openSharedSession(sessionId);
             return;
           }
           shell.openHistorySession({
@@ -188,7 +205,7 @@ export function ShellRouteSync({
           });
         });
     },
-    [releaseAbandonedBootSession, server, shell],
+    [permissions, releaseAbandonedBootSession, server, sessions, shell],
   );
 
   const applyHistoryAgentSearch = useCallback(
