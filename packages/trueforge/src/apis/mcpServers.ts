@@ -479,7 +479,6 @@ export function createMcpServersRouter<TTransaction>(deps: McpServersRouterDeps<
     const remote = new RemoteMCP({
       id: name,
       name,
-      description: connection.description,
       url: connection.url,
       headers: connection.headers ?? {},
       requestTimeoutMs: configuration.MCP_REQUEST_TIMEOUT_MS,

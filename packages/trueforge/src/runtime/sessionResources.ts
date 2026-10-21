@@ -5,8 +5,8 @@ import {
   type AgentDefinition,
   type AgentTracing,
   type DaytonaSandboxEnvironment,
+  type McpConnection,
   type ModelParams,
-  type ResolvedMcpServer,
   type SandboxProvider,
   type Skill,
   type VercelAIProviderConfig,
@@ -123,14 +123,14 @@ export async function resolveMcpServer({
   store: IMcpServerWithAuthStore;
   userRef: string;
   turnMetadata?: TurnMetadata;
-}): Promise<ResolvedMcpServer | undefined> {
+}): Promise<McpConnection | undefined> {
   const record = await store.getServer({ tenant_id, name });
   if (record === undefined) {
     return undefined;
   }
   return {
     url: record.manifest.url,
-    description: record.manifest.description,
+    server: { name: record.name, description: record.manifest.description },
     headers: store.resolveInvokeHeaders({
       record,
       userRef,

@@ -39,11 +39,14 @@ export type ResolveHeadersResult = { headers: Record<string, string> } | { authR
 /** Static headers, or a resolver (invoked at connect) returning headers or signalling auth-required. */
 export type RemoteMcpHeaders = Record<string, string> | (() => Promise<ResolveHeadersResult>);
 
-/** A configured MCP server resolved for a turn */
-export interface ResolvedMcpServer {
+/** A configured MCP server resolved for a turn: where to connect, plus the server identity deferred tools show. */
+export interface McpConnection {
   url: string;
-  description: string;
   headers?: RemoteMcpHeaders;
+  server: {
+    name: string;
+    description: string;
+  };
 }
 
 type ExecuteResult<T> = { result: T; wasInitialized: MCPServerInitInfo | undefined } | AuthRequiredResponse;
@@ -82,7 +85,7 @@ export class RemoteMCP implements ToolSource {
   constructor(params: {
     name: string;
     id: string;
-    description: string | undefined;
+    description?: string | undefined;
     url: string;
     headers: RemoteMcpHeaders;
     logger: Logger;
