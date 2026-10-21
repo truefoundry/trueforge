@@ -175,57 +175,34 @@ function resolveTerminalState(input: {
   };
 }
 
+/** A live turn is running or paused. Terminal rows are not executed. */
+function executableTurnStatus(state: TurnState): NonTerminalTurnState['status'] {
+  if (state.status === 'running' || state.status === 'paused') {
+    return state.status;
+  }
+  throw new Error(`Cannot execute a ${state.status} turn`);
+}
+
 export class TurnHandle<TTurnCustom extends object = Record<string, never>> {
   private readonly store: ISessionStore<object, TTurnCustom>;
   private turn: TurnRecord<TTurnCustom>;
-  private readonly orchestrator: AgentThreadOrchestrator | undefined;
-  private readonly resolver: ITurnResourceResolver<TTurnCustom> | undefined;
+  private readonly orchestrator: AgentThreadOrchestrator;
+  private readonly resolver: ITurnResourceResolver<TTurnCustom>;
   private readonly abortController: AbortController;
   private streamStarted = false;
-  /** Resume skips turn.created. Inbox replay happens before stream() is pulled. */
-  private readonly resume: boolean;
 
   constructor(options: {
     store: ISessionStore<object, TTurnCustom>;
     turn: TurnRecord<TTurnCustom>;
-    // orchestrator and resolver are optional for store-only handles (e.g. from SessionHandle.getTurn)
-    orchestrator?: AgentThreadOrchestrator | undefined;
-    resolver?: ITurnResourceResolver<TTurnCustom> | undefined;
-    abortController?: AbortController | undefined;
-    resume?: boolean | undefined;
+    orchestrator: AgentThreadOrchestrator;
+    resolver: ITurnResourceResolver<TTurnCustom>;
+    abortController: AbortController;
   }) {
     this.store = options.store;
     this.turn = options.turn;
     this.orchestrator = options.orchestrator;
     this.resolver = options.resolver;
-    this.abortController = options.abortController ?? new AbortController();
-    this.resume = options.resume ?? false;
-  }
-
-  /** Store-only handle (e.g. from {@link SessionHandle.getTurn}) — stream() is not available. */
-  static fromRecord<TCustom extends object = Record<string, never>>(options: {
-    store: ISessionStore<object, TCustom>;
-    turn: TurnRecord<TCustom>;
-  }): TurnHandle<TCustom> {
-    return new TurnHandle(options);
-  }
-
-  static async get<TCustom extends object = Record<string, never>>(options: {
-    store: ISessionStore<object, TCustom>;
-    session_id: string;
-    turn_id: string;
-  }): Promise<TurnHandle<TCustom> | undefined> {
-    const turn = await options.store.getTurn({
-      session_id: options.session_id,
-      turn_id: options.turn_id,
-    });
-    if (!turn) {
-      return undefined;
-    }
-    return TurnHandle.fromRecord({
-      store: options.store,
-      turn,
-    });
+    this.abortController = options.abortController;
   }
 
   get id(): string {
@@ -261,11 +238,6 @@ export class TurnHandle<TTurnCustom extends object = Record<string, never>> {
   }
 
   async *send(events: TurnUserEvent[]): AsyncGenerator<TurnUserEvent[], void> {
-    if (!this.orchestrator) {
-      throw new Error(
-        `TurnHandle.send() is only available on a live turn. Perhaps this turn handle was created for read only actions?`,
-      );
-    }
     yield* this.orchestrator.send(events);
     this.orchestrator.wake();
   }
@@ -304,14 +276,7 @@ export class TurnHandle<TTurnCustom extends object = Record<string, never>> {
       throw new Error('TurnHandle.stream() is single-use and was already called');
     }
     this.streamStarted = true;
-    const orchestrator = this.orchestrator;
-    const resolver = this.resolver;
     const signal = this.abortController.signal;
-    if (!orchestrator || !resolver) {
-      throw new Error(
-        'TurnHandle.stream() is only available on turns returned from SessionHandle.createTurn() or SessionHandle.rebuildTurn()',
-      );
-    }
 
     // A consumer can leave early (break, or iterator.return()) while execute is parked
     // on wakeSignal.wait() at a pause. return() does not cancel that await, so the
@@ -320,7 +285,7 @@ export class TurnHandle<TTurnCustom extends object = Record<string, never>> {
     // the latch. The loop then sees the signal and returns. A turn that finishes on
     // its own does not call return(), so it is not aborted. An abort that already
     // happened (shutdown, timeout, barge-in) keeps its reason.
-    return abortOnReturn(this.streamExecution(orchestrator, resolver, signal), this.abortController);
+    return abortOnReturn(this.streamExecution(this.orchestrator, this.resolver, signal), this.abortController);
   }
 
   private async *streamExecution(
@@ -331,11 +296,12 @@ export class TurnHandle<TTurnCustom extends object = Record<string, never>> {
     let caughtError: Error | undefined;
     let executeResult: AgentThreadExecutionResult | undefined;
     let ownershipLost: TurnOwnershipLostError | undefined;
+    const turnStatus = executableTurnStatus(this.turn.state);
     try {
-      if (!this.resume) {
+      if (turnStatus === 'running') {
         yield await this.persistTurnCreated();
       }
-      executeResult = yield* this.executeAndPersist(orchestrator, signal);
+      executeResult = yield* this.executeAndPersist(orchestrator, signal, turnStatus);
     } catch (error) {
       caughtError = error instanceof Error ? error : new Error(String(error));
       if (caughtError instanceof TurnOwnershipLostError) {
@@ -388,11 +354,6 @@ export class TurnHandle<TTurnCustom extends object = Record<string, never>> {
    * crash between persist and consume does not apply the same decision twice.
    */
   async replayUnconsumedInbox(): Promise<void> {
-    if (!this.orchestrator) {
-      throw new Error(
-        `TurnHandle.replayUnconsumedInbox() is only available on a live turn. Perhaps this turn handle was created for read only actions?`,
-      );
-    }
     const rows = await this.store.listUnconsumedTurnInboundEvents({
       session_id: this.turn.session_id,
       turn_id: this.turn.turn_id,
@@ -434,8 +395,9 @@ export class TurnHandle<TTurnCustom extends object = Record<string, never>> {
   private async *executeAndPersist(
     orchestrator: AgentThreadOrchestrator,
     signal: AbortSignal,
+    turnStatus: NonTerminalTurnState['status'],
   ): AsyncGenerator<TurnStreamingEvent, AgentThreadExecutionResult> {
-    const generator = orchestrator.execute({ signal, resume: this.resume });
+    const generator = orchestrator.execute({ signal, turnStatus });
     try {
       let iterResult = await generator.next();
       while (!iterResult.done) {

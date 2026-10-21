@@ -16,11 +16,11 @@ import {
 } from '@truefoundry/trueforge-core/agent-session';
 import { AgentHarnessError } from '@truefoundry/trueforge-core/core';
 import {
+  jsonValueFrom,
   NO_RESPONDER_PUBLISH_DETAIL,
   NoResponderError,
   redisRequest,
   RequestTimeoutError,
-  type JSONValue,
   type RedisClient,
 } from '@truefoundry/trueforge-core/request-reply';
 import type { Logger } from 'winston';
@@ -63,31 +63,6 @@ const PeerMessageSchema = z.object({
   message: z.string(),
 });
 
-function isJsonValue(value: unknown): value is JSONValue {
-  if (value === null || typeof value === 'string' || typeof value === 'boolean') {
-    return true;
-  }
-  if (typeof value === 'number') {
-    return Number.isFinite(value);
-  }
-  if (Array.isArray(value)) {
-    return value.every(isJsonValue);
-  }
-  if (typeof value === 'object') {
-    return Object.values(value).every(isJsonValue);
-  }
-  return false;
-}
-
-/** JSON.stringify drops `undefined`, which the Redis envelope cannot carry. */
-export function jsonValueFrom(value: unknown): JSONValue {
-  const parsed: unknown = JSON.parse(JSON.stringify(value));
-  if (!isJsonValue(parsed)) {
-    throw new Error('Turn event payload is not JSON');
-  }
-  return parsed;
-}
-
 export type TurnDeliveryResult =
   | { type: 'applied'; events: TurnUserEvent[] }
   | { type: 'invalid'; message: string }
@@ -121,7 +96,7 @@ export async function deliverTurnEvents(input: {
       return { type: 'conflict', message: `Turn not found: ${input.turnId}` };
     }
     const status = loaded.state.status;
-    const owner = loaded.record.active_executor_id;
+    const owner = loaded.active_executor_id;
     const ownedByThisExecutor = owner === configuration.EXECUTOR_ID;
 
     if (!ownedByThisExecutor) {
@@ -156,7 +131,7 @@ export async function deliverTurnEvents(input: {
       }
       const fresh = await input.session.getTurn(input.turnId);
       const freshStatus = fresh?.state.status ?? status;
-      const freshOwner = fresh?.record.active_executor_id ?? owner;
+      const freshOwner = fresh?.active_executor_id ?? owner;
       if (forwarded.peerOutcome === PeerOutcome.NoResponder && (freshStatus !== 'paused' || freshOwner !== owner)) {
         continue;
       }
@@ -194,7 +169,7 @@ export async function deliverTurnEvents(input: {
         });
       } finally {
         if (handle.state.status === 'paused') {
-          input.activeTurns.armPausedKeepalive({ sessionId, turnId: input.turnId });
+          input.activeTurns.startPausedKeepalive({ sessionId, turnId: input.turnId });
         }
       }
     }

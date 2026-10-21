@@ -15,6 +15,16 @@ const jsonSchema: z.ZodType<JSONValue> = z.lazy(() => {
   ]);
 });
 
+/** JSON.stringify drops `undefined`, which JSONValue cannot carry. */
+export function jsonValueFrom(value: unknown): JSONValue {
+  const serialized = JSON.stringify(value);
+  if (typeof serialized !== 'string') {
+    throw new Error('Value is not JSON');
+  }
+  const parsed: unknown = JSON.parse(serialized);
+  return jsonSchema.parse(parsed);
+}
+
 /** Request payload as seen by the caller of redisRequest and by route handlers. */
 export interface RequestEnvelope<T extends JSONValue = JSONValue> {
   body: T;

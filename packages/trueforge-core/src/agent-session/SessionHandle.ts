@@ -14,7 +14,7 @@ import type { ITurnResourceResolver, ResolvedAgentDefinition } from './ITurnReso
 import type { SessionRecord } from './models/SessionRecord';
 import { MAIN_THREAD_ID, type TurnRecord, type TurnSnapshot } from './models/TurnRecord';
 import type { AgentSpec } from './schemas/agentSpec';
-import type { SessionEventItem } from './schemas/events';
+import type { PersistedTurnEvent, SessionEventItem } from './schemas/events';
 import { EventType, type TurnDoneEvent } from './schemas/events';
 import type { TokenPagination } from './schemas/pagination';
 import type { SessionAgent } from './schemas/session';
@@ -411,7 +411,6 @@ export class SessionHandle<
         orchestrator,
         resolver: input.resolver,
         abortController: input.abortController,
-        resume: true,
       });
       await handle.replayUnconsumedInbox();
       return handle;
@@ -439,12 +438,30 @@ export class SessionHandle<
     });
   }
 
-  /** Returns the turn handle (store-backed; not executable), or undefined if not found. */
-  async getTurn(turn_id: string): Promise<TurnHandle<TTurnCustom> | undefined> {
-    return TurnHandle.get({
-      store: this.store,
+  /** The stored turn, including its snapshot. Undefined when this session has no such turn. */
+  async getTurn(turn_id: string): Promise<TurnRecord<TTurnCustom> | undefined> {
+    return this.store.getTurn({
       session_id: this.session.session_id,
       turn_id,
+    });
+  }
+
+  /** Paginated events for one turn in this session. */
+  async listTurnEvents(input: {
+    turn_id: string;
+    limit: number;
+    page_token?: string | undefined;
+    order?: 'asc' | 'desc' | undefined;
+  }): Promise<{
+    data: PersistedTurnEvent[];
+    pagination: TokenPagination;
+  }> {
+    return this.store.listTurnEvents({
+      session_id: this.session.session_id,
+      turn_id: input.turn_id,
+      limit: input.limit,
+      page_token: input.page_token,
+      order: input.order,
     });
   }
 

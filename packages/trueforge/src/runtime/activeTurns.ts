@@ -166,7 +166,7 @@ export class ActiveTurnRegistry {
    * under the turn lock: the generator stops without a terminal write.
    * A later send on this owner rebuilds. `0` disables the timer.
    */
-  armPausedKeepalive(input: { sessionId: string; turnId: string }): void {
+  startPausedKeepalive(input: { sessionId: string; turnId: string }): void {
     this.clearPausedKeepalive(input);
     if (this.pausedKeepaliveMs <= 0 || this.alreadyShutDownAbortReason !== undefined) {
       return;

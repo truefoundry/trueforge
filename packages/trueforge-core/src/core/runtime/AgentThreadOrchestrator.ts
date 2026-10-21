@@ -566,14 +566,14 @@ export class AgentThreadOrchestrator {
 
   public async *execute({
     signal,
-    resume = false,
+    turnStatus = 'running',
   }: {
     signal: AbortSignal;
     /**
-     * The stored turn is already paused. Start there so the first runnable batch
-     * persists `running`; a fresh execute would skip that transition.
+     * Status of the turn being executed. A rebuild passes `paused` so the first
+     * runnable batch persists `running`. A fresh execute starts `running`.
      */
-    resume?: boolean;
+    turnStatus?: 'running' | 'paused' | undefined;
   }): AsyncGenerator<AgentThreadExecutionEvent, AgentThreadExecutionResult, unknown> {
     const { agentThreads } = this;
 
@@ -581,7 +581,7 @@ export class AgentThreadOrchestrator {
     let output: ModelMessageEvent | null = null;
     let rootAgentError: AgentThreadExecutionResult['root_agent_error'];
     let rootFinished = false;
-    let turnPaused = resume;
+    let turnPaused = turnStatus === 'paused';
 
     const mainThread = this.getMainThread();
     const rootSpan = createRootAgentSpan(mainThread, this.tracing);

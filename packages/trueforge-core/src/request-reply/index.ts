@@ -19,5 +19,5 @@ export type { RequestReplyErrorHandler, RunExecutorOptions } from './executor';
 export type { RedisClient } from './redisClient';
 export { RequestReplyRouter } from './router';
 export type { RouteHandler } from './router';
-export { jsonReplySchema } from './types';
+export { jsonReplySchema, jsonValueFrom } from './types';
 export type { JSONReply, JSONValue, RequestEnvelope, RequestHandler } from './types';

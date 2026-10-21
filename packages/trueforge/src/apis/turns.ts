@@ -32,10 +32,11 @@ import {
   VercelAILLM,
   withTimeout,
 } from '@truefoundry/trueforge-core/core';
-import type {
-  RedisClient,
-  RouteHandler as RequestReplyRouteHandler,
-  RequestReplyRouter,
+import {
+  jsonValueFrom,
+  type RedisClient,
+  type RouteHandler as RequestReplyRouteHandler,
+  type RequestReplyRouter,
 } from '@truefoundry/trueforge-core/request-reply';
 import type { Context } from 'hono';
 import { HTTPException } from 'hono/http-exception';
@@ -72,12 +73,7 @@ import {
   resolveSandboxEnvironment,
   resolveSandboxProvider,
 } from '../runtime/sessionResources';
-import {
-  deliverTurnEvents,
-  jsonValueFrom,
-  SendEventsPeerBodySchema,
-  TURNS_SEND_EVENTS_PATH,
-} from '../runtime/turnDelivery';
+import { deliverTurnEvents, SendEventsPeerBodySchema, TURNS_SEND_EVENTS_PATH } from '../runtime/turnDelivery';
 import { DEFAULT_SANDBOX_ENVIRONMENT_NAME } from '../schemas/sandboxEnvironment';
 import { MAX_SESSION_TITLE_LENGTH } from '../schemas/session';
 import { assertGatewayMetadataRequestHeaders } from '../truefoundry/gatewayMetadata';
@@ -490,7 +486,7 @@ export async function drainTurnEvents(input: {
       });
       if (activeTurns && event.type === EventType.TURN_UPDATE) {
         if (event.state.status === 'paused') {
-          activeTurns.armPausedKeepalive({ sessionId, turnId });
+          activeTurns.startPausedKeepalive({ sessionId, turnId });
         } else {
           activeTurns.clearPausedKeepalive({ sessionId, turnId });
         }
@@ -741,7 +737,7 @@ async function resumePausedTurn(input: {
       });
       // Resume starts execute already paused, so no new paused `turn.update` is yielded
       // unless the turn runs and pauses again. Arm here or this run never offloads.
-      input.deps.activeTurns.armPausedKeepalive({
+      input.deps.activeTurns.startPausedKeepalive({
         sessionId: input.session.session_id,
         turnId: turn.id,
       });
@@ -889,7 +885,7 @@ export function createTurnsRouter(deps: TurnsRouterDeps) {
     if (!turn) {
       return c.json({ error: { message: `Turn not found: ${turnId}` } }, 404);
     }
-    return c.json({ data: toWireTurn(turn.record) }, 200);
+    return c.json({ data: toWireTurn(turn) }, 200);
   };
 
   const downloadSandboxFileHandler: RouteHandler<typeof downloadSandboxFileRoute> = async c => {
@@ -924,7 +920,7 @@ export function createTurnsRouter(deps: TurnsRouterDeps) {
       if (!turn) {
         return c.json({ error: { message: `Turn not found: ${turnId}` } }, 404);
       }
-      sandboxId = turn.record.snapshot.sandbox_info?.sandbox_id;
+      sandboxId = turn.snapshot.sandbox_info?.sandbox_id;
       if (sandboxId === undefined) {
         return c.json({ error: { message: `Turn has no sandbox: ${turnId}` } }, 412);
       }
@@ -990,7 +986,8 @@ export function createTurnsRouter(deps: TurnsRouterDeps) {
       return c.json({ error: { message: `Turn not found: ${turnId}` } }, 404);
     }
     try {
-      const { data, pagination } = await turn.listEvents({
+      const { data, pagination } = await session.listTurnEvents({
+        turn_id: turnId,
         limit: query.limit,
         page_token: query.page_token,
         order: query.order,
@@ -1291,14 +1288,14 @@ function handlePeerTurnEvents(deps: TurnsRouterDeps): RequestReplyRouteHandler {
   return async request => {
     const parsed = SendEventsPeerBodySchema.safeParse(request.body);
     if (!parsed.success) {
-      return { status: 400, body: jsonValueFrom({ message: 'Invalid turns/send-events payload' }) };
+      return { status: 400, body: { message: 'Invalid turns/send-events payload' } };
     }
     const session = await deps.sessions.get({
       tenant_id: parsed.data.tenant_id,
       session_id: parsed.data.session_id,
     });
     if (!session) {
-      return { status: 404, body: jsonValueFrom({ message: `Session not found: ${parsed.data.session_id}` }) };
+      return { status: 404, body: { message: `Session not found: ${parsed.data.session_id}` } };
     }
     const result = await deps.activeTurns.withTurnLock(
       { sessionId: parsed.data.session_id, turnId: parsed.data.turn_id },
@@ -1341,14 +1338,14 @@ function handlePeerTurnEvents(deps: TurnsRouterDeps): RequestReplyRouteHandler {
       return { status: 200, body: jsonValueFrom({ events: result.events }) };
     }
     if (result.type === 'invalid') {
-      return { status: 400, body: jsonValueFrom({ message: result.message }) };
+      return { status: 400, body: { message: result.message } };
     }
     if (result.type === 'not_owner') {
-      return { status: 412, body: jsonValueFrom({ message: 'Turn is not running on this executor' }) };
+      return { status: 412, body: { message: 'Turn is not running on this executor' } };
     }
     if (result.type === 'conflict') {
-      return { status: 409, body: jsonValueFrom({ message: result.message }) };
+      return { status: 409, body: { message: result.message } };
     }
-    return { status: 503, body: jsonValueFrom({ message: result.message }) };
+    return { status: 503, body: { message: result.message } };
   };
 }
