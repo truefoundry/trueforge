@@ -55,10 +55,6 @@ function clampPageSize(size: number): number {
   return Math.min(Math.max(size, 1), 25);
 }
 
-function initialDrawerState(): DrawerState {
-  return readEnvironmentShareSearch(window.location.search).isNew ? { kind: 'create' } : { kind: 'closed' };
-}
-
 export type EnvironmentsPageProps = Record<string, never>;
 
 export function EnvironmentsPage(_props: EnvironmentsPageProps) {
@@ -66,7 +62,7 @@ export function EnvironmentsPage(_props: EnvironmentsPageProps) {
   const shell = useOptionalShellMode();
   const toaster = useToasterOptional();
   const track = useTrackAnalytics();
-  const { canCreateSandboxEnvironment } = useCanCreateAgent();
+  const { canCreateSandboxEnvironment, loading: createPermissionLoading } = useCanCreateAgent();
 
   const [environments, setEnvironments] = useState<SandboxEnvironment[]>([]);
   const { allows } = useResourcePermissions({
@@ -76,7 +72,8 @@ export function EnvironmentsPage(_props: EnvironmentsPageProps) {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [nameQuery, setNameQuery] = useState(() => readEnvironmentShareSearch(window.location.search).q ?? '');
-  const [drawer, setDrawer] = useState<DrawerState>(() => initialDrawerState());
+  // Stay closed until tenant CREATE is known — do not open from envIsNew on first paint.
+  const [drawer, setDrawer] = useState<DrawerState>({ kind: 'closed' });
   const [pendingDelete, setPendingDelete] = useState<SandboxEnvironment | null>(null);
   const [deleting, setDeleting] = useState(false);
   const [pageSize, setPageSize] = useState(() => clampPageSize(DEFAULT_TABLE_PAGE_SIZE));
@@ -167,23 +164,42 @@ export function EnvironmentsPage(_props: EnvironmentsPageProps) {
     return () => window.clearInterval(intervalId);
   }, [environments, environmentServer, shell]);
 
+  // Wait for tenant CREATE before honoring envIsNew; close create if CREATE is denied.
   useEffect(() => {
-    if (didConsumeIsNewRef.current) return;
-    if (!readEnvironmentShareSearch(window.location.search).isNew) return;
-    didConsumeIsNewRef.current = true;
-    if (canCreateSandboxEnvironment) setDrawer({ kind: 'create' });
-    replaceEnvironmentShareSearch({ isNew: null });
-  }, [canCreateSandboxEnvironment]);
+    if (createPermissionLoading) return;
+
+    const share = readEnvironmentShareSearch(window.location.search);
+    if (!didConsumeIsNewRef.current && share.isNew) {
+      didConsumeIsNewRef.current = true;
+      replaceEnvironmentShareSearch({ isNew: null });
+      if (canCreateSandboxEnvironment) {
+        setDrawer({ kind: 'create' });
+      } else {
+        setDrawer(current => (current.kind === 'create' ? { kind: 'closed' } : current));
+      }
+      return;
+    }
+
+    if (!canCreateSandboxEnvironment) {
+      setDrawer(current => (current.kind === 'create' ? { kind: 'closed' } : current));
+    }
+  }, [canCreateSandboxEnvironment, createPermissionLoading]);
 
   useEffect(() => {
     const onShareChange = () => {
       const share = readEnvironmentShareSearch(window.location.search);
       setNameQuery(share.q ?? '');
-      if (share.isNew && canCreateSandboxEnvironment) setDrawer({ kind: 'create' });
+      if (!share.isNew) return;
+      // Leave envIsNew in the URL until CREATE finishes loading so the resolve effect can honor it.
+      if (createPermissionLoading) return;
+      replaceEnvironmentShareSearch({ isNew: null });
+      if (canCreateSandboxEnvironment) {
+        setDrawer({ kind: 'create' });
+      }
     };
     window.addEventListener(ENVIRONMENT_SHARE_CHANGE_EVENT, onShareChange);
     return () => window.removeEventListener(ENVIRONMENT_SHARE_CHANGE_EVENT, onShareChange);
-  }, [canCreateSandboxEnvironment]);
+  }, [canCreateSandboxEnvironment, createPermissionLoading]);
 
   const filtered = useMemo(() => {
     const q = nameQuery.trim().toLowerCase();

@@ -45,11 +45,13 @@ export async function resolveSchedulePermissions(input: {
   store: IScheduleStore;
 }): Promise<ListPermissionsData> {
   const data = emptyPermissionsByResourceId(input.resourceIds);
-  const schedules = await Promise.all(
-    input.resourceIds.map(id => input.store.getSchedule({ tenant_id: input.requestContext.tenant_id, id })),
-  );
+  // Batch ownership columns only (never full manifest/task) and dedupe ids for the IN list.
+  const schedules = await input.store.getSchedulesByIds({
+    tenant_id: input.requestContext.tenant_id,
+    ids: [...new Set(input.resourceIds)],
+  });
   for (const schedule of schedules) {
-    if (schedule !== undefined && canEditSchedule(input.requestContext, schedule.created_by_subject.subject_id)) {
+    if (canEditSchedule(input.requestContext, schedule.created_by_subject.subject_id)) {
       data[schedule.id] = [...SCHEDULE_OWNER_PERMISSIONS];
     }
   }
@@ -65,7 +67,7 @@ export async function resolveSandboxEnvironmentPermissions(input: {
   const data = emptyPermissionsByResourceId(input.resourceIds);
   const environments = await input.store.getEnvironmentsByIds({
     tenant_id: input.requestContext.tenant_id,
-    ids: input.resourceIds,
+    ids: [...new Set(input.resourceIds)],
   });
   for (const environment of environments) {
     if (canEditEnvironment(input.requestContext, environment.created_by_subject.subject_id)) {

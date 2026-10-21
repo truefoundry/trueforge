@@ -84,10 +84,9 @@ describe('TrueFoundryAuthorizer.getPermissions schedule', () => {
 
   it('grants MANAGE/DELETE via canEditSchedule for tenant-admin', async () => {
     const scheduleStore = {
-      getSchedule: jest.fn(async ({ id }: { id: string }) => ({
-        id,
-        created_by_subject: { subject_id: 'other' },
-      })),
+      getSchedulesByIds: jest.fn(async ({ ids }: { ids: readonly string[] }) =>
+        ids.map(id => ({ id, created_by_subject: { subject_id: 'other' } })),
+      ),
     } as unknown as IScheduleStore;
     const authorizer = new TrueFoundryAuthorizer({} as TrueFoundryServiceFoundryServerClient);
     const admin: RequestContext = { ...ALICE, roles: [TRUEFOUNDRY_TENANT_ADMIN_ROLE] };
@@ -106,5 +105,6 @@ describe('TrueFoundryAuthorizer.getPermissions schedule', () => {
         'sched-2': ['MANAGE', 'DELETE'],
       },
     });
+    expect(scheduleStore.getSchedulesByIds).toHaveBeenCalledTimes(1);
   });
 });
