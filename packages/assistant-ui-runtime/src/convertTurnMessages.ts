@@ -473,6 +473,28 @@ function ingestSessionEventsIntoSnapshot(
   }
 }
 
+function rootModelMessageIdsForOpenTip(snapshot: SessionSnapshot): readonly string[] {
+  const committed = new Set(snapshot.turns.flatMap(turn => turn.rootModelMessageIds ?? []));
+  const rootIds = snapshot.fold.threads.get(ROOT_THREAD_ID)?.modelMessageIds ?? [];
+  return rootIds.filter(id => !committed.has(id));
+}
+
+/** Commits an open tip that finished before `turn.done` was in the events page. */
+function commitFinishedOpenTip(snapshot: SessionSnapshot, turn: Turn): SessionSnapshot {
+  if (snapshot.turns.some(existing => existing.id === turn.id)) {
+    return snapshot;
+  }
+  return replaceSessionSnapshot(snapshot, {
+    turns: [
+      ...snapshot.turns,
+      {
+        ...turnToSessionRecord(turn),
+        rootModelMessageIds: rootModelMessageIdsForOpenTip(snapshot),
+      },
+    ],
+  });
+}
+
 function attachRunningTurn(snapshot: SessionSnapshot, runningTurn: Turn | undefined): SessionSnapshot {
   if (runningTurn == null) {
     return snapshot;
@@ -537,6 +559,12 @@ interface SessionTip {
   /** Turn to resume and subscribe to; absent once the tip has finished. */
   runningTurn?: Turn;
   /**
+   * Open tip that finished between `listEvents` and `getTurn`. It was not in
+   * the events page as `turn.done`, so the caller must commit it or the user
+   * message painted from the progress snapshot disappears.
+   */
+  finishedTurn?: Turn;
+  /**
    * Tip input that event ingestion could not apply, because it only folds a
    * turn's input once that turn's `turn.done` arrives. Answered ask-user
    * prompts and approvals live here, so this must be folded even when the tip
@@ -550,7 +578,6 @@ interface SessionTip {
  *
  * An open `turn.created` with no later `turn.done` is the tip. `listEvents`
  * includes that turn, so a finished window needs no extra turns fetch.
- * `listTurns` is oldest-first, and its first row is not the tip.
  */
 async function resolveSessionTip(options: {
   server: AgentChatServer;
@@ -577,8 +604,9 @@ async function resolveSessionTip(options: {
         };
       }
       // Tip finished between listEvents and getTurn: nothing to
-      // resume, but its answers still belong in the fold.
-      return { continuationInput: turn.input ?? continuationInput };
+      // resume, but its answers still belong in the fold, and the turn
+      // itself must be committed so the painted user message stays.
+      return { finishedTurn: turn, continuationInput: turn.input ?? continuationInput };
     } catch {
       // getTurn failed; synthesize from the open turn.created below.
     }
@@ -651,6 +679,9 @@ export async function buildSnapshotFromSessionEvents(
   // restored as pending after a refresh. `getTurn` may carry answers that
   // were not on `turn.created`; the write is keyed by tool call id.
   applyUserToolResponsesToFold(withHistory.fold, tip.continuationInput);
+  if (tip.finishedTurn != null) {
+    return commitFinishedOpenTip(withHistory, tip.finishedTurn);
+  }
   return attachRunningTurn(withHistory, tip.runningTurn);
 }
 

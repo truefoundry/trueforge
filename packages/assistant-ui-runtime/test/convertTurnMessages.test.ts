@@ -3542,6 +3542,81 @@ describe('buildSnapshotFromSessionEvents', () => {
     }
   });
 
+  it('keeps the painted user message when the open tip finished before getTurn', async () => {
+    const finishedTip = {
+      id: 't2',
+      sessionId: SESSION_ID,
+      state: { status: 'done', requiredActions: [], completedAt: createdAt },
+      input: [{ type: 'user.message', content: 'what is 2+2' }],
+      createdAt,
+    } as unknown as Turn;
+
+    const items: SessionEventItem[] = [
+      {
+        turnId: 't1',
+        event: {
+          type: 'turn.created',
+          id: 'evt-c1',
+          turnId: 't1',
+          input: [{ type: 'user.message', content: 'hello' }],
+          state: { status: 'running' },
+          createdAt,
+        },
+      },
+      {
+        turnId: 't1',
+        event: modelMessage({ id: 'm1', threadId: ROOT_THREAD_ID, content: 'hi' }),
+      },
+      {
+        turnId: 't1',
+        event: {
+          type: 'turn.done',
+          id: 'evt-d1',
+          state: { status: 'done', requiredActions: [], completedAt: createdAt },
+          createdAt,
+        } as TurnDoneEvent,
+      },
+      {
+        turnId: 't2',
+        event: {
+          type: 'turn.created',
+          id: 'evt-c2',
+          turnId: 't2',
+          previousTurnId: 't1',
+          input: [{ type: 'user.message', content: 'what is 2+2' }],
+          state: { status: 'running' },
+          createdAt,
+        },
+      },
+      {
+        turnId: 't2',
+        event: modelMessage({ id: 'm2', threadId: ROOT_THREAD_ID, content: '4' }),
+      },
+    ];
+
+    const progress: SessionSnapshot[] = [];
+    const server = {
+      listTurns: vi.fn(async () => ({ data: [] })),
+      getTurn: vi.fn(async () => finishedTip),
+      listEvents: sessionEventsPage(items),
+      listTurnEvents: async () => ({ data: [] }),
+    } as unknown as AgentChatServer;
+
+    const snapshot = await buildSnapshotFromSessionEvents(server, SESSION_ID, snap => {
+      progress.push(snap);
+    });
+
+    expect(progress.some(snap => snap.pendingUser?.content === 'what is 2+2')).toBe(true);
+    expect(snapshot.runningTurn).toBeUndefined();
+    expect(snapshot.pendingUser).toBeUndefined();
+    expect(snapshot.turns.map(turn => turn.id)).toEqual(['t1', 't2']);
+
+    const texts = projectSessionMessages(snapshot).flatMap(message =>
+      message.content.flatMap(part => (part.type === 'text' ? [part.text] : [])),
+    );
+    expect(texts).toEqual(['hello', 'hi', 'what is 2+2', '4']);
+  });
+
   it('loads only the newest event page and exposes an older-history cursor', async () => {
     const makeTurnItems = (id: string, text: string): SessionEventItem[] => [
       {

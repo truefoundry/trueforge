@@ -522,6 +522,9 @@ export function useTrueForgeAgentMessages({
   const runningTurnRef = useRef<Turn | undefined>(undefined);
   const loadGenerationRef = useRef(0);
   const streamGenerationRef = useRef(0);
+  // Bumped at the start of every sendTurn. An in-flight load must not apply
+  // its snapshot once this moves: the send owns the thread.
+  const sendEpochRef = useRef(0);
   const streamReconnectPendingRef = useRef(false);
   const cancelRequestedRef = useRef(false);
   const lazilyCreatedSessionIdRef = useRef<string | undefined>(undefined);
@@ -780,7 +783,8 @@ export function useTrueForgeAgentMessages({
     }
 
     const generation = ++loadGenerationRef.current;
-    ++streamGenerationRef.current;
+    const streamGeneration = ++streamGenerationRef.current;
+    const sendEpoch = sendEpochRef.current;
     setIsRunning(false);
     markResumeUnavailable(false);
     abortControllerRef.current?.abort();
@@ -800,7 +804,13 @@ export function useTrueForgeAgentMessages({
         setSnapshot(snap);
         setIsLoading(false);
       });
-      if (generation !== loadGenerationRef.current) {
+      if (
+        generation !== loadGenerationRef.current ||
+        streamGeneration !== streamGenerationRef.current ||
+        sendEpoch !== sendEpochRef.current
+      ) {
+        // A send started while getTurn was in flight. Applying this snapshot
+        // would drop that message and resume the old tip.
         return;
       }
 
@@ -877,6 +887,8 @@ export function useTrueForgeAgentMessages({
       let pendingUserWasSet = false;
       let runStreamStarted = false;
       let pendingUserTurnId: string | undefined;
+      // Before any await, so a load waiting on getTurn cannot apply afterwards.
+      ++sendEpochRef.current;
 
       // Invalidate the prior client stream before any await so a buffered RAF
       // cannot restore stale activeStream after the optimistic user message.
