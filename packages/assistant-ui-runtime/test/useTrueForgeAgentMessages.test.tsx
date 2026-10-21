@@ -472,6 +472,45 @@ describe('useTrueForgeAgentMessages', () => {
     );
   });
 
+  it('clears isLoading from the progress snapshot before load resolves', async () => {
+    const progress = snapshotWithUserTurn('painted early');
+    let resolveLoad: (snapshot: SessionSnapshot) => void = () => undefined;
+    vi.mocked(loadSessionSnapshot).mockImplementation((_server, _sessionId, onProgress) => {
+      onProgress?.(progress);
+      return new Promise(resolve => {
+        resolveLoad = resolve;
+      });
+    });
+
+    const { result } = renderHook(() => useTrueForgeAgentMessages({ server: mockServer, sessionId: 'session-1' }));
+
+    await waitFor(() => expect(result.current.isLoading).toBe(false));
+    expect(result.current.messages).toHaveLength(1);
+    expect(result.current.messages[0]).toMatchObject({
+      role: 'user',
+      content: [{ type: 'text', text: 'painted early' }],
+    });
+    expect(resumeTurnStream).not.toHaveBeenCalled();
+
+    const runningTurn: Turn = {
+      id: 'turn-1',
+      sessionId: 'session-1',
+      input: [{ type: 'user.message', content: 'painted early' }],
+      state: { status: 'running' },
+      createdAt: new Date().toISOString(),
+    };
+    await act(async () => {
+      resolveLoad(
+        replaceSessionSnapshot(progress, {
+          runningTurn,
+          unstable_resume: true,
+        }),
+      );
+    });
+
+    await waitFor(() => expect(resumeTurnStream).toHaveBeenCalled());
+  });
+
   it('loads converted session history on mount', async () => {
     vi.mocked(loadSessionSnapshot).mockResolvedValue(snapshotWithUserTurn('hello'));
 

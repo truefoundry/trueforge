@@ -548,56 +548,49 @@ interface SessionTip {
 /**
  * Resolves the tip turn of the active branch for resume/subscribe.
  *
- * Prefer an open tip from the events window (works when listTurns is
- * oldest-first and when listEvents includes the running turn). Fall back to
- * `listTurns({ limit: 1 })` for hosts that omit the running turn from
- * listEvents and put the tip first.
+ * An open `turn.created` with no later `turn.done` is the tip. `listEvents`
+ * includes that turn, so a finished window needs no extra turns fetch.
+ * `listTurns` is oldest-first, and its first row is not the tip.
  */
 async function resolveSessionTip(options: {
   server: AgentChatServer;
   sessionId: string;
   itemsAsc: readonly GatewaySessionEventItem[];
 }): Promise<SessionTip> {
-  const { server, sessionId, itemsAsc } = options;
-  const open = findOpenTurnCreated(itemsAsc);
-  if (open != null) {
-    const continuationInput = open.event.input ?? [];
-    if (typeof server.getTurn === 'function') {
-      try {
-        const turn = await server.getTurn({
-          sessionId,
-          turnId: open.turnId,
-        });
-        if (turn.state.status === 'running') {
-          return {
-            runningTurn: turn,
-            continuationInput: turn.input ?? continuationInput,
-          };
-        }
-        // Tip finished between listEvents and getTurn: nothing to
-        // resume, but its answers still belong in the fold.
-        return { continuationInput: turn.input ?? continuationInput };
-      } catch {
-        // getTurn failed; synthesize from the open turn.created below.
-      }
-    }
-    return {
-      runningTurn: turnFromCreatedEvent({
-        sessionId,
-        turnId: open.turnId,
-        event: open.event,
-      }),
-      continuationInput,
-    };
+  const open = findOpenTurnCreated(options.itemsAsc);
+  if (open == null) {
+    return { continuationInput: [] };
   }
 
-  // Hosts that exclude the running turn from listEvents still surface it as
-  // the first row of listTurns when that API is tip-first.
-  const turnsPage = await server.listTurns({ sessionId, limit: 1 });
-  const tip = turnsPage.data[0];
-  return tip?.state.status === 'running'
-    ? { runningTurn: tip, continuationInput: tip.input ?? [] }
-    : { continuationInput: [] };
+  const { server, sessionId } = options;
+  const continuationInput = open.event.input ?? [];
+  if (typeof server.getTurn === 'function') {
+    try {
+      const turn = await server.getTurn({
+        sessionId,
+        turnId: open.turnId,
+      });
+      if (turn.state.status === 'running') {
+        return {
+          runningTurn: turn,
+          continuationInput: turn.input ?? continuationInput,
+        };
+      }
+      // Tip finished between listEvents and getTurn: nothing to
+      // resume, but its answers still belong in the fold.
+      return { continuationInput: turn.input ?? continuationInput };
+    } catch {
+      // getTurn failed; synthesize from the open turn.created below.
+    }
+  }
+  return {
+    runningTurn: turnFromCreatedEvent({
+      sessionId,
+      turnId: open.turnId,
+      event: open.event,
+    }),
+    continuationInput,
+  };
 }
 
 /**
@@ -605,12 +598,10 @@ async function resolveSessionTip(options: {
  *
  * Loads the newest event page (extending only when a page boundary splits a
  * turn group), then leaves older pages for `prependOlderSessionHistory`.
- * Detects a currently-running tip from an open `turn.created` in that window
- * when present; otherwise falls back to `listTurns({ limit: 1 })` for hosts
- * that omit the running turn from listEvents.
+ * A currently-running tip is an open `turn.created` in that window.
  *
- * `onProgress` is called after each complete turn is ingested so callers can
- * update the UI progressively while the processing loop runs.
+ * `onProgress` fires after each complete turn, then once with the paintable
+ * window before `getTurn`, so callers can clear loading before the tip is confirmed.
  */
 export async function buildSnapshotFromSessionEvents(
   server: AgentChatServer,
@@ -631,6 +622,25 @@ export async function buildSnapshotFromSessionEvents(
     historyPagination,
   });
 
+  const open = findOpenTurnCreated(window.itemsAsc);
+  // The open tip is not in `turns` until `turn.done`. Attach it from the
+  // event so the first paint includes its user message.
+  const paintable =
+    open == null
+      ? withHistory
+      : attachRunningTurn(
+          withHistory,
+          turnFromCreatedEvent({
+            sessionId,
+            turnId: open.turnId,
+            event: open.event,
+          }),
+        );
+  if (open != null) {
+    applyUserToolResponsesToFold(paintable.fold, open.event.input ?? []);
+  }
+  onProgress?.(paintable);
+
   const tip = await resolveSessionTip({
     server,
     sessionId,
@@ -638,7 +648,8 @@ export async function buildSnapshotFromSessionEvents(
   });
   // The tip has no turn.done in this window, so ingestion never folded its
   // input. Apply it here so answered approvals / ask-user prompts are not
-  // restored as pending after a refresh.
+  // restored as pending after a refresh. `getTurn` may carry answers that
+  // were not on `turn.created`; the write is keyed by tool call id.
   applyUserToolResponsesToFold(withHistory.fold, tip.continuationInput);
   return attachRunningTurn(withHistory, tip.runningTurn);
 }

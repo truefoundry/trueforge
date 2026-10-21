@@ -793,9 +793,12 @@ export function useTrueForgeAgentMessages({
     try {
       const conversationSessionId = await resolveActiveSessionId(sessionId, resolveConversationSessionIdRef.current);
       const loadedSnapshot = await loadSessionSnapshot(server, conversationSessionId, snap => {
-        if (generation === loadGenerationRef.current) {
-          setSnapshot(snap);
+        if (generation !== loadGenerationRef.current) {
+          return;
         }
+        // The events window is paintable before getTurn confirms the tip.
+        setSnapshot(snap);
+        setIsLoading(false);
       });
       if (generation !== loadGenerationRef.current) {
         return;
