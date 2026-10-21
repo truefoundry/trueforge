@@ -85,11 +85,28 @@ async function openSharePopover() {
 }
 
 describe('ShareSessionDialog', () => {
-  it('loads current sharing and copies the share URL', async () => {
+  it('hides the share URL while access is Only you', async () => {
     renderDialog();
     await openSharePopover();
 
     expect(await screen.findByRole('button', { name: 'Session sharing' })).toHaveTextContent('Only you');
+    expect(screen.queryByLabelText('Share URL')).not.toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: 'Copy' })).not.toBeInTheDocument();
+  });
+
+  it('loads tenant sharing and copies the share URL', async () => {
+    renderDialog({
+      getSession: vi.fn(async () => ({
+        id: 'session-1',
+        isMutable: true,
+        shared: true,
+        createdAt: '2026-01-01T00:00:00Z',
+        updatedAt: '2026-01-01T00:00:00Z',
+      })),
+    });
+    await openSharePopover();
+
+    expect(await screen.findByRole('button', { name: 'Session sharing' })).toHaveTextContent('Everyone within acme');
     expect((screen.getByLabelText('Share URL') as HTMLInputElement).value).toContain('/sessions/share/session-1');
 
     fireEvent.click(screen.getByRole('button', { name: 'Copy' }));
@@ -98,6 +115,29 @@ describe('ShareSessionDialog', () => {
     });
     expect(new URL(String(writeText.mock.calls[0]?.[0])).pathname).toBe('/sessions/share/session-1');
     expect(screen.getByRole('button', { name: 'Copied' })).toBeInTheDocument();
+  });
+
+  it('shows the share URL after switching to tenant access and hides it again for Only you', async () => {
+    const { updateSession } = renderDialog();
+    await openSharePopover();
+
+    expect(screen.queryByLabelText('Share URL')).not.toBeInTheDocument();
+
+    fireEvent.click(await screen.findByRole('button', { name: 'Session sharing' }));
+    fireEvent.click(await screen.findByRole('option', { name: 'Everyone within acme' }));
+
+    await waitFor(() => {
+      expect(updateSession).toHaveBeenCalledWith({ sessionId: 'session-1', shared: true });
+    });
+    expect(screen.getByLabelText('Share URL')).toBeInTheDocument();
+
+    fireEvent.click(screen.getByRole('button', { name: 'Session sharing' }));
+    fireEvent.click(await screen.findByRole('option', { name: 'Only you' }));
+
+    await waitFor(() => {
+      expect(updateSession).toHaveBeenCalledWith({ sessionId: 'session-1', shared: false });
+    });
+    expect(screen.queryByLabelText('Share URL')).not.toBeInTheDocument();
   });
 
   it('closes permission options on outside click without PATCHing', async () => {

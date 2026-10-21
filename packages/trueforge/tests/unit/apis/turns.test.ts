@@ -24,6 +24,7 @@ import { SqliteSkillStore } from '../../../src/db/sqlite/skill-store/SqliteSkill
 import { SqliteOAuthTokenStore } from '../../../src/db/sqlite/token-store/SqliteOAuthTokenStore';
 import type { Database } from '../../../src/db/sqlite/types';
 import { SqliteWebSearchProviderStore } from '../../../src/db/sqlite/web-search-provider-store/SqliteWebSearchProviderStore';
+import { runWithLogContext } from '../../../src/logger';
 import { ActiveTurnRegistry } from '../../../src/runtime/activeTurns';
 import { EventSubscriptionRegistry } from '../../../src/runtime/event-subscription/index.js';
 
@@ -536,6 +537,147 @@ describe('turns', () => {
       await expect(
         eventSubscriptions.get(turnStreamId('default', 's1', 'turn-non-stream')).assertSubscribable(),
       ).resolves.toBeUndefined();
+
+      releaseRest?.();
+    });
+  });
+
+  describe('create turn streaming disconnect', () => {
+    it('logs session_id and turn_id on SSE abort even without async log context', async () => {
+      const infoCalls: Array<{ message: unknown; meta: unknown }> = [];
+      const logger = createLogger({ silent: true });
+      logger.info = ((message: unknown, meta?: unknown) => {
+        infoCalls.push({ message, meta });
+        return logger;
+      }) as typeof logger.info;
+
+      const db = createSqliteDb(':memory:');
+      await migrateSqliteToLatest(db);
+      const modelProviderStore = new SqliteModelProviderStore(db);
+      await modelProviderStore.upsertProvider({
+        tenant_id: 'default',
+        name: 'test-provider',
+        manifest: {
+          type: 'custom',
+          name: 'test-provider',
+          base_url: 'https://llm.test.example.com/v1',
+          auth: { api_key: 'sk-test' },
+          models: [
+            {
+              model_id: 'test-model',
+              name: 'test-model',
+              properties: { context_length: 128000, max_output_tokens: 4096 },
+            },
+          ],
+        },
+      });
+
+      let releaseRest: (() => void) | undefined;
+      const restParked = new Promise<void>(resolve => {
+        releaseRest = resolve;
+      });
+
+      const sessions = {
+        get: () =>
+          Promise.resolve({
+            session_id: 's1',
+            tenant_id: STANDALONE_REQUEST_CONTEXT.tenant_id,
+            spec: AgentSpecSchema.parse({ model: { name: 'test-provider/test-model' } }),
+            record: {
+              last_turn_id: null,
+              created_by_subject: {
+                subject_id: STANDALONE_REQUEST_CONTEXT.subject.id,
+                subject_type: STANDALONE_REQUEST_CONTEXT.subject.type,
+                subject_display_name: STANDALONE_REQUEST_CONTEXT.subject.display_name,
+              },
+              agent: {
+                type: 'inline',
+                spec: AgentSpecSchema.parse({ model: { name: 'test-provider/test-model' } }),
+              },
+            },
+            createTurn: () =>
+              Promise.resolve({
+                id: 'turn-sse-disconnect',
+                record: {
+                  turn_id: 'turn-sse-disconnect',
+                  session_id: 's1',
+                  previous_turn_id: null,
+                  input: [],
+                  state: { status: 'running' },
+                  created_at: new Date('2026-01-01T00:00:00.000Z'),
+                },
+                stream: async function* stream() {
+                  yield {
+                    type: 'turn.created',
+                    id: 'evt_created',
+                    turn_id: 'turn-sse-disconnect',
+                    previous_turn_id: null,
+                    state: { status: 'running' },
+                    created_at: '2026-01-01T00:00:00.000Z',
+                    thread_id: null,
+                  };
+                  await restParked;
+                },
+              }),
+          }),
+      } as unknown as Sessions;
+
+      const tokenStore = new SqliteOAuthTokenStore(db);
+      const app = new OpenAPIHono();
+      app.route(
+        '/',
+        createTurnsRouter({
+          sessions,
+          sessionStore: new SqliteSessionStore(db),
+          activeTurns: new ActiveTurnRegistry(),
+          resolveModelProviderStore: () => modelProviderStore,
+          resolveMcpServerStore: () => mcpServerStoreWithAuth(db, tokenStore),
+          resolveAgentStore: () => new SqliteAgentStore(db),
+          resolveTurnSkillsStore: () => new SqliteSkillStore(db),
+          eventSubscriptions: new EventSubscriptionRegistry<TurnStreamingEvent>(undefined),
+          resolveSandboxProviderStore: () => new SqliteSandboxProviderStore(db),
+          sandboxEnvironmentStore: new SqliteSandboxEnvironmentStore(db),
+          resolveWebSearchProviderStore: () => new SqliteWebSearchProviderStore(db),
+          logger,
+          resolveRequestContext: () => STANDALONE_REQUEST_CONTEXT,
+          authorizer: new TrueForgeAuthorizer(),
+        }),
+      );
+
+      const response = await runWithLogContext({ request_id: 'req-sse-disconnect' }, () =>
+        app.request('/s1/turns', {
+          method: 'POST',
+          headers: { 'content-type': 'application/json' },
+          body: JSON.stringify({ stream: true }),
+        }),
+      );
+      expect(response.status).toBe(200);
+
+      // Client disconnect cancels the response body; Hono maps that to stream.abort().
+      // Cancel outside ALS so the log cannot rely on ambient context.
+      await response.body?.cancel();
+
+      const disconnectDeadline = Date.now() + 2000;
+      let disconnect: (typeof infoCalls)[number] | undefined;
+      while (Date.now() < disconnectDeadline) {
+        disconnect = infoCalls.find(
+          call =>
+            typeof call.message === 'string' &&
+            call.message.includes('Create-turn SSE client disconnected, continuing drain without writing'),
+        );
+        if (disconnect !== undefined) {
+          break;
+        }
+        await new Promise<void>(resolve => setImmediate(resolve));
+      }
+
+      expect(disconnect?.meta).toEqual(
+        expect.objectContaining({
+          request_id: 'req-sse-disconnect',
+          session_id: 's1',
+          turn_id: 'turn-sse-disconnect',
+        }),
+      );
 
       releaseRest?.();
     });
