@@ -461,10 +461,10 @@ export class InMemorySessionStore<
         list.push(deepCopy(input.turn_done_event));
       }
       this.applyTurnStateToSession({
-        session_id: input.session_id,
+        id: input.session_id,
         turn_id: input.turn_id,
         turn_created_at: turn.created_at,
-        state: cancelledState,
+        turn_state: cancelledState,
       });
     }
 
@@ -516,10 +516,10 @@ export class InMemorySessionStore<
     turn.updated_at = new Date();
     list.push(deepCopy(input.turn_update_event));
     this.applyTurnStateToSession({
-      session_id: input.session_id,
+      id: input.session_id,
       turn_id: input.turn_id,
       turn_created_at: turn.created_at,
-      state: input.state,
+      turn_state: input.state,
     });
   }
 
@@ -537,10 +537,10 @@ export class InMemorySessionStore<
     turn.updated_at = new Date();
     list.push(deepCopy(input.turn_done_event));
     this.applyTurnStateToSession({
-      session_id: input.session_id,
+      id: input.session_id,
       turn_id: input.turn_id,
       turn_created_at: turn.created_at,
-      state: input.state,
+      turn_state: input.state,
     });
   }
 
@@ -589,27 +589,27 @@ export class InMemorySessionStore<
     }
   }
 
-  /**
-   * Terminal states fold cost (when present) and duration (completed_at − created_at, floored
-   * at 0); last_turn_details moves only while this turn is still the session's last turn.
-   */
+  /** Terminal states fold cost and duration; last_turn_details moves only for the session's last turn. */
   private applyTurnStateToSession(input: {
-    session_id: string;
+    id: string;
     turn_id: string;
     turn_created_at: Date;
-    state: TurnState;
+    turn_state: TurnState;
   }): void {
-    const stored = this.requireSession(input.session_id);
-    if (!isNonTerminalTurnState(input.state)) {
-      const elapsed_ms = Date.parse(input.state.completed_at) - input.turn_created_at.getTime();
-      const turnCost = input.state.metrics?.total_cost_in_usd;
+    const stored = this.requireSession(input.id);
+    if (!isNonTerminalTurnState(input.turn_state)) {
+      const elapsed_ms = Date.parse(input.turn_state.completed_at) - input.turn_created_at.getTime();
+      const turnCost = input.turn_state.metrics?.total_cost_in_usd;
       if (turnCost !== undefined) {
         stored.record.metrics.total_cost_in_usd = (stored.record.metrics.total_cost_in_usd ?? 0) + turnCost;
       }
       stored.record.metrics.total_duration_ms += elapsed_ms > 0 ? Math.trunc(elapsed_ms) : 0;
     }
     if (stored.record.last_turn_details?.id === input.turn_id) {
-      stored.record.last_turn_details = SessionLastTurnDetailsSchema.parse({ id: input.turn_id, state: input.state });
+      stored.record.last_turn_details = SessionLastTurnDetailsSchema.parse({
+        id: input.turn_id,
+        state: input.turn_state,
+      });
     }
   }
 

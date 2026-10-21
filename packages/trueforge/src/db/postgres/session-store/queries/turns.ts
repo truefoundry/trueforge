@@ -131,41 +131,34 @@ function incrementSessionTotalTurns(): RawBuilder<SessionMetrics> {
   );
 }
 
-function lastTurnDetails(input: { turn_id: string; state: TurnState }): RawBuilder<SessionLastTurnDetails> {
-  return json(SessionLastTurnDetailsSchema.parse({ id: input.turn_id, state: input.state }));
+function lastTurnDetails(input: { turn_id: string; turn_state: TurnState }): RawBuilder<SessionLastTurnDetails> {
+  return json(SessionLastTurnDetailsSchema.parse({ id: input.turn_id, state: input.turn_state }));
 }
 
-function metricsWithTerminalTurn(input: {
-  turn_created_at: Date;
-  state: TerminalTurnState;
-}): RawBuilder<SessionMetrics> {
-  const elapsed_ms = Date.parse(input.state.completed_at) - input.turn_created_at.getTime();
-  const total_duration_ms = elapsed_ms > 0 ? Math.trunc(elapsed_ms) : 0;
-  const turnCost = input.state.metrics?.total_cost_in_usd;
-  // bigint: ::int overflows at ~24.8 days of summed ms and would roll back the terminal tx.
-  const withDuration = jsonbSet<SessionMetrics>(
-    sql`metrics`,
-    sql`'{total_duration_ms}'`,
-    sql`to_jsonb((metrics->>'total_duration_ms')::bigint + ${total_duration_ms}::bigint)`,
-  );
-  return turnCost === undefined
-    ? withDuration
-    : jsonbSet<SessionMetrics>(
-        withDuration,
+/** Terminal states fold cost and duration; last_turn_details moves only for the session's last turn. */
+async function applyTurnStateToSession(
+  trx: Transaction<Database>,
+  input: { id: string; turn_id: string; turn_created_at: Date; turn_state: TurnState },
+): Promise<void> {
+  let metrics: RawBuilder<SessionMetrics> | undefined;
+  if (!isNonTerminalTurnState(input.turn_state)) {
+    const elapsed_ms = Date.parse(input.turn_state.completed_at) - input.turn_created_at.getTime();
+    const total_duration_ms = elapsed_ms > 0 ? Math.trunc(elapsed_ms) : 0;
+    const turnCost = input.turn_state.metrics?.total_cost_in_usd;
+    // bigint: ::int overflows at ~24.8 days of summed ms and would roll back the terminal tx.
+    metrics = jsonbSet<SessionMetrics>(
+      sql`metrics`,
+      sql`'{total_duration_ms}'`,
+      sql`to_jsonb((metrics->>'total_duration_ms')::bigint + ${total_duration_ms}::bigint)`,
+    );
+    if (turnCost !== undefined) {
+      metrics = jsonbSet<SessionMetrics>(
+        metrics,
         sql`'{total_cost_in_usd}'`,
         sql`to_jsonb(COALESCE((metrics->>'total_cost_in_usd')::double precision, 0) + ${turnCost}::double precision)`,
       );
-}
-
-/**
- * One session UPDATE per turn state change, in the turn flip's tx (the session row lock
- * serializes concurrent folds). Terminal states always fold cost and duration;
- * last_turn_details moves only while this turn is still the session's last turn.
- */
-async function applyTurnStateToSession(
-  trx: Transaction<Database>,
-  input: { session_id: string; turn_id: string; turn_created_at: Date; state: TurnState },
-): Promise<void> {
+    }
+  }
   await trx
     .updateTable('session')
     .set({
@@ -173,11 +166,9 @@ async function applyTurnStateToSession(
         WHEN last_turn_details->>'id' = ${input.turn_id} THEN ${lastTurnDetails(input)}
         ELSE last_turn_details
       END`,
-      ...(isNonTerminalTurnState(input.state)
-        ? {}
-        : { metrics: metricsWithTerminalTurn({ turn_created_at: input.turn_created_at, state: input.state }) }),
+      ...(metrics === undefined ? {} : { metrics }),
     })
-    .where('session_id', '=', input.session_id)
+    .where('session_id', '=', input.id)
     .execute();
 }
 
@@ -456,7 +447,7 @@ export async function createTurn(db: Kysely<Database>, input: CreateTurnInput): 
         .updateTable('session')
         .set({
           last_turn_id: input.turn.turn_id,
-          last_turn_details: lastTurnDetails({ turn_id: input.turn.turn_id, state: input.turn.state }),
+          last_turn_details: lastTurnDetails({ turn_id: input.turn.turn_id, turn_state: input.turn.state }),
           updated_at: sql`now()`,
           last_activity_timestamp_ms: input.last_activity_timestamp_ms,
           // total_turns rides the same tip UPDATE so a later failure in this tx rolls it back.
@@ -718,10 +709,10 @@ export async function freezeAndGetTurn(db: Kysely<Database>, input: FreezeAndGet
         .execute();
       // Only the winning cancel folds; a freeze of an already-terminal turn is a read.
       await applyTurnStateToSession(trx, {
-        session_id: input.session_id,
+        id: input.session_id,
         turn_id: input.turn_id,
         turn_created_at: updateResult.created_at,
-        state: cancelledState,
+        turn_state: cancelledState,
       });
     }
 
@@ -834,10 +825,10 @@ export async function updateTurnNonTerminalState(
       .execute();
 
     await applyTurnStateToSession(trx, {
-      session_id: input.session_id,
+      id: input.session_id,
       turn_id: input.turn_id,
       turn_created_at: result.created_at,
-      state: input.state,
+      turn_state: input.state,
     });
   });
 }
@@ -875,10 +866,10 @@ export async function updateTurnTerminalState(
     }
 
     await applyTurnStateToSession(trx, {
-      session_id: input.session_id,
+      id: input.session_id,
       turn_id: input.turn_id,
       turn_created_at: result.created_at,
-      state: input.state,
+      turn_state: input.state,
     });
 
     await trx
