@@ -589,6 +589,7 @@ export class AgentThread {
       this.deferredTool = new DeferredTool(this.definition.toolSets, {
         tracing: this.tracing,
         logger: input.logger,
+        ...(this.operationMetrics !== undefined ? { metrics: this.operationMetrics } : {}),
       });
     }
 
@@ -1342,6 +1343,7 @@ export class AgentThread {
       toolMapping,
       threadId: this.threadId,
       approvalDecisions: decisions,
+      metrics: this.operationMetrics,
     });
     void clientSideToolCalls;
     if (approvalRequiredToolCalls.length > 0) {

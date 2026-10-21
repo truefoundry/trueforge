@@ -34,7 +34,7 @@ import {
   GetSessionMetricsChartResponseSchema,
   GetSessionMetricsMeterResponseSchema,
 } from '../../../src/schemas/sessionMetrics';
-import { createTestOperationMetrics } from '../testOperationMetrics';
+import { metrics } from '../testOperationMetrics';
 
 const inlineSpec = AgentSpecSchema.parse({
   model: { name: 'anthropic/claude-sonnet-4-6' },
@@ -158,7 +158,7 @@ describe('sessions HTTP agent binding', () => {
         logger: deps.logger,
         resolveRequestContext: deps.resolveRequestContext,
         authorizer: deps.authorizer,
-        operationMetrics: createTestOperationMetrics(),
+        operationMetrics: metrics,
       }),
     );
     app.route('/api/internal/sessions', createInternalSessionsRouter(deps));

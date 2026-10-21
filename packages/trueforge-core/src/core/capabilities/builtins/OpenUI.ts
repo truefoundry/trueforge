@@ -3,6 +3,7 @@ import { z } from 'zod';
 import { InstructionBuilder } from '../../InstructionBuilder';
 import { toolResultResponse } from '../../mcp/IMCPServer';
 import { defineTool, LocalToolMCP, type ToolDefinition } from '../../mcp/LocalToolMCP';
+import type { OperationMetrics } from '../../observability/operationMetrics';
 import type { AgentTracing } from '../../tracing/AgentTracing';
 import { NOOP_AGENT_TRACING } from '../../tracing/NoopAgentTracing';
 import type { AgentCapability } from '../AgentCapability';
@@ -296,8 +297,8 @@ export class OpenUIInstructions extends LocalToolMCP {
   readonly name = OPENUI_SERVER_ID;
   readonly displayName = 'OpenUI';
 
-  constructor(tracing: AgentTracing) {
-    super({ tracing });
+  constructor(tracing: AgentTracing, metrics?: OperationMetrics) {
+    super({ tracing, ...(metrics !== undefined ? { metrics } : {}) });
   }
 
   private tools: ToolDefinition[] = [
@@ -317,7 +318,11 @@ export class OpenUIInstructions extends LocalToolMCP {
   }
 }
 
-export function openUI(options?: { preload?: boolean; tracing?: AgentTracing }): AgentCapability {
+export function openUI(options?: {
+  preload?: boolean;
+  tracing?: AgentTracing;
+  metrics?: OperationMetrics | undefined;
+}): AgentCapability {
   const preload = options?.preload ?? true;
   if (preload) {
     return {
@@ -325,7 +330,7 @@ export function openUI(options?: { preload?: boolean; tracing?: AgentTracing }):
     };
   }
   return {
-    systemToolSets: [new OpenUIInstructions(options?.tracing ?? NOOP_AGENT_TRACING)],
+    systemToolSets: [new OpenUIInstructions(options?.tracing ?? NOOP_AGENT_TRACING, options?.metrics)],
     instructionBuilders: [buildOpenUIDeferredInstruction],
   };
 }

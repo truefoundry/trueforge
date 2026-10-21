@@ -3,6 +3,12 @@ import type { Logger } from 'winston';
 import { McpConnectionError } from '../errors';
 import type { MCPServerInitInfo } from '../events/schema';
 import type { InternalToolCallInfo } from '../llm/LLMTypes';
+import {
+  observeMcpOperation,
+  type McpMethod,
+  type McpServerClass,
+  type OperationMetrics,
+} from '../observability/operationMetrics';
 import type { AgentTracing } from '../tracing/AgentTracing';
 import { NOOP_AGENT_TRACING } from '../tracing/NoopAgentTracing';
 import { extractErrorLogFields } from '../util/errorLogFields';
@@ -49,6 +55,7 @@ type ExecuteResult<T> = { result: T; wasInitialized: MCPServerInitInfo | undefin
 export class RemoteMCP implements ToolSource {
   readonly name: string;
   readonly id: string;
+  readonly serverClass: McpServerClass = 'remote';
   readonly description?: string | undefined;
 
   private readonly url: string;
@@ -59,6 +66,7 @@ export class RemoteMCP implements ToolSource {
   private readonly requestTimeoutMs: number;
   private readonly connectTimeoutMs: number;
   private readonly maxResponseBytes: number;
+  private readonly metrics: OperationMetrics | undefined;
   // Redacted display url for trace spans (derived from url; unused when tracing is a no-op).
   private readonly traceUrl: string;
 
@@ -86,6 +94,7 @@ export class RemoteMCP implements ToolSource {
     connectTimeoutMs: number;
     maxResponseBytes?: number | undefined;
     signal: AbortSignal;
+    metrics?: OperationMetrics | undefined;
   }) {
     this.name = params.name;
     this.id = params.id;
@@ -98,6 +107,7 @@ export class RemoteMCP implements ToolSource {
     this.requestTimeoutMs = params.requestTimeoutMs;
     this.connectTimeoutMs = params.connectTimeoutMs;
     this.maxResponseBytes = params.maxResponseBytes ?? DEFAULT_MAX_MCP_RESPONSE_BYTES;
+    this.metrics = params.metrics;
     this.logger = params.logger;
     this.tracing = params.tracing ?? NOOP_AGENT_TRACING;
     this.traceUrl = redactUrlForTrace(params.url);
@@ -193,6 +203,7 @@ export class RemoteMCP implements ToolSource {
         throw error;
       }
       this.logger.info(`Session expired for remote MCP ${this.name}, reinitializing...`);
+      this.metrics?.recordMcpSessionRetry({ reason: 'session_expired' });
       await this.resetConnection(used);
     } finally {
       if (used) {
@@ -233,7 +244,9 @@ export class RemoteMCP implements ToolSource {
     if (this.cachedTools) {
       return { result: { tools: this.cachedTools }, wasInitialized: undefined };
     }
-    const response = await this.executeWithSessionRetry(connection => this.loadTools(connection));
+    const response = await this.observe('tools/list', () =>
+      this.executeWithSessionRetry(connection => this.loadTools(connection)),
+    );
     if ('authRequired' in response) {
       return response;
     }
@@ -241,22 +254,24 @@ export class RemoteMCP implements ToolSource {
   }
 
   async callTool(params: CallToolRequest['params']): Promise<CallToolResolvedResponse | AuthRequiredResponse> {
-    const response = await this.executeWithSessionRetry(connection =>
-      this.tracing.withRemoteMcpToolSpan(
-        {
-          method: 'tools/call',
-          serverName: this.name,
-          serverId: this.id,
-          serverUrl: this.traceUrl,
-          toolName: params.name,
-          input: JSON.stringify(params.arguments),
-          enabled: true,
-        },
-        async span => {
-          const result = await connection.callTool(params);
-          span.setOutput(JSON.stringify(result));
-          return result;
-        },
+    const response = await this.observe('tools/call', () =>
+      this.executeWithSessionRetry(connection =>
+        this.tracing.withRemoteMcpToolSpan(
+          {
+            method: 'tools/call',
+            serverName: this.name,
+            serverId: this.id,
+            serverUrl: this.traceUrl,
+            toolName: params.name,
+            input: JSON.stringify(params.arguments),
+            enabled: true,
+          },
+          async span => {
+            const result = await connection.callTool(params);
+            span.setOutput(JSON.stringify(result));
+            return result;
+          },
+        ),
       ),
     );
     if ('authRequired' in response) {
@@ -294,31 +309,36 @@ export class RemoteMCP implements ToolSource {
         connection = await this.tracing.withRemoteMcpToolSpan(
           { method: 'initialize', serverName: this.name, serverId: this.id, serverUrl: this.traceUrl, enabled: true },
           async span => {
-            const conn = await connectRemoteMcp({
-              url: this.url,
-              headers,
-              sessionId: this.sessionId ?? undefined,
-              // Hint from a prior connect
-              knownTransportType: this.resolvedTransportType,
-              requestTimeoutMs: this.requestTimeoutMs,
-              connectTimeoutMs: this.connectTimeoutMs,
-              maxResponseBytes: this.maxResponseBytes,
-              signal: this.signal,
-              onClose: () => {
-                if (connection !== undefined && this._connection === connection) {
-                  this.isConnected = false;
-                }
-              },
-              onError: error => {
-                const fields = extractErrorLogFields(error);
-                const msg = `Error on remote MCP transport ${this.name}`;
-                if (fields.error.includes('Body Timeout')) {
-                  this.logger.warn(msg, fields);
-                } else {
-                  this.logger.error(msg, fields);
-                }
-              },
-            });
+            const conn = await this.observe('initialize', () =>
+              connectRemoteMcp({
+                url: this.url,
+                headers,
+                sessionId: this.sessionId ?? undefined,
+                // Hint from a prior connect
+                knownTransportType: this.resolvedTransportType,
+                requestTimeoutMs: this.requestTimeoutMs,
+                connectTimeoutMs: this.connectTimeoutMs,
+                maxResponseBytes: this.maxResponseBytes,
+                signal: this.signal,
+                ...(this.metrics !== undefined ? { metrics: this.metrics } : {}),
+                onClose: () => {
+                  this.metrics?.recordMcpDisconnect({ via: 'onclose' });
+                  if (connection !== undefined && this._connection === connection) {
+                    this.isConnected = false;
+                  }
+                },
+                onError: error => {
+                  this.metrics?.recordMcpDisconnect({ via: 'onerror' });
+                  const fields = extractErrorLogFields(error);
+                  const msg = `Error on remote MCP transport ${this.name}`;
+                  if (fields.error.includes('Body Timeout')) {
+                    this.logger.warn(msg, fields);
+                  } else {
+                    this.logger.error(msg, fields);
+                  }
+                },
+              }),
+            );
             span.setOutput(JSON.stringify({ transport: conn.transportType, stateful: conn.sessionId !== null }));
             return conn;
           },
@@ -344,6 +364,19 @@ export class RemoteMCP implements ToolSource {
       this.connectPromise = undefined;
     });
     return this.connectPromise;
+  }
+
+  private observe<T>(method: McpMethod, run: () => Promise<T>): Promise<T> {
+    return observeMcpOperation({
+      metrics: this.metrics,
+      method,
+      serverClass: 'remote',
+      run,
+      outcomeOf: result =>
+        typeof result === 'object' && result !== null && 'authRequired' in result ? 'auth_required' : 'success',
+      outcomeOfError: error =>
+        error instanceof McpConnectionError && error.statusCode === 401 ? 'auth_required' : 'error',
+    });
   }
 
   private toConnectError(error: unknown): McpConnectionError {

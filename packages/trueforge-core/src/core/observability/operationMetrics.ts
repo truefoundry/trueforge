@@ -31,6 +31,67 @@ export type LlmFinishReason = FinishReason | 'none';
 /** Where a model stream failed. `abort` covers a cancelled call before a finish reason. */
 export type LlmStreamErrorKind = 'api_call' | 'stream_part' | 'abort' | 'unknown';
 
+/** Remote MCP transport probe. */
+export type McpTransport = 'streamable-http' | 'sse';
+
+/** Result of one transport probe. `success` is the probe that was kept. */
+export type McpConnectOutcome = 'success' | 'auth' | 'session_expired' | 'timeout' | 'other';
+
+/** MCP method. Server URL, server id, and tool name stay off the label. */
+export type McpMethod = 'initialize' | 'tools/list' | 'tools/call';
+
+export type McpServerClass = 'remote' | 'local' | 'sandbox';
+
+export type McpOperationOutcome = 'success' | 'auth_required' | 'error';
+
+export type McpDisconnectVia = 'onclose' | 'onerror';
+
+/** A configured cap the harness applied. */
+export type HarnessLimit =
+  | 'mcp_response_bytes'
+  | 'iteration_limit'
+  | 'large_tool_response_individual'
+  | 'large_tool_response_total'
+  | 'context_compaction'
+  | 'context_compaction_error';
+
+/** Tool-call result. `paused` is approval or a client-side tool, not a failure. */
+export type ToolCallOutcome = 'success' | 'tool_error' | 'thrown' | 'auth_required' | 'unknown_tool' | 'paused';
+
+/** MCP server class, plus `unknown` when the model names a tool that is not registered. */
+export type ToolCallServerClass = McpServerClass | 'unknown';
+
+/** Terminal turn status. `paused` is not terminal. */
+export type TurnTerminalStatus = 'done' | 'error' | 'cancelled';
+
+/** Where a turn timer fired. */
+export type TurnTimeoutPhase = 'execution' | 'sse_write' | 'subscribe';
+
+/** Which SSE handler lost the client. */
+export type TurnSsePath = 'create' | 'subscribe';
+
+/** Which turn store write failed. */
+export type TurnPersistPhase = 'append' | 'terminal';
+
+/** Parallel Search or Extract. Query text and URLs stay off the label. */
+export type ParallelWebOperation = 'search' | 'extract';
+
+export type ParallelWebOutcome = 'success' | 'error';
+
+/** Fixed ServiceFoundry caller. The request URL is not a label. */
+export type ServiceFoundryOperation =
+  | 'get_session'
+  | 'vend_token'
+  | 'model_providers'
+  | 'gateway_installations'
+  | 'mcp_servers'
+  | 'agents'
+  | 'skills'
+  | 'agent_permissions'
+  | 'tenant_permissions';
+
+export type ServiceFoundryOutcome = 'success' | 'error' | 'timeout';
+
 /**
  * Server-owned operation metrics. Core times work and reports outcomes; it does not
  * import a metrics client. Callers that are not recording omit the recorder.
@@ -55,6 +116,81 @@ export interface OperationMetrics {
     errorKind: LlmStreamErrorKind;
     statusClass: OutboundHttpStatusClass;
   }): void;
+  recordMcpConnect(options: { transport: McpTransport; outcome: McpConnectOutcome; durationSeconds: number }): void;
+  recordMcpOperation(options: {
+    method: McpMethod;
+    serverClass: McpServerClass;
+    outcome: McpOperationOutcome;
+    durationSeconds: number;
+  }): void;
+  recordMcpSessionRetry(options: { reason: 'session_expired' }): void;
+  recordMcpDisconnect(options: { via: McpDisconnectVia }): void;
+  recordHarnessLimit(options: { limit: HarnessLimit }): void;
+  recordToolCall(options: {
+    serverClass: ToolCallServerClass;
+    outcome: ToolCallOutcome;
+    durationSeconds: number;
+  }): void;
+  /** Threads started in one parallel batch. The root counts when it is the leaf. */
+  recordActiveThreads(options: { count: number }): void;
+  recordTurnDuration(options: { terminalStatus: TurnTerminalStatus; durationSeconds: number }): void;
+  /** `1` when a turn starts in this process, `-1` when that run leaves the registry. */
+  recordActiveTurns(options: { delta: 1 | -1 }): void;
+  recordTurnTimeout(options: { phase: TurnTimeoutPhase }): void;
+  recordTurnSseDisconnect(options: { path: TurnSsePath }): void;
+  recordTurnPersistError(options: { phase: TurnPersistPhase }): void;
+  recordParallelWebRequest(options: {
+    operation: ParallelWebOperation;
+    outcome: ParallelWebOutcome;
+    durationSeconds: number;
+  }): void;
+  recordParallelWebPartialErrors(options: { count: number }): void;
+  recordServiceFoundryRequest(options: {
+    operation: ServiceFoundryOperation;
+    outcome: ServiceFoundryOutcome;
+    statusClass: OutboundHttpStatusClass;
+    durationSeconds: number;
+  }): void;
+}
+
+/** Time `run` and record one MCP operation. Callers that are not recording skip the timer. */
+export async function observeMcpOperation<T>({
+  metrics,
+  method,
+  serverClass,
+  run,
+  outcomeOf,
+  outcomeOfError,
+}: {
+  metrics: OperationMetrics | undefined;
+  method: McpMethod;
+  serverClass: McpServerClass;
+  run: () => Promise<T>;
+  outcomeOf: (result: T) => McpOperationOutcome;
+  outcomeOfError?: (error: unknown) => McpOperationOutcome;
+}): Promise<T> {
+  if (metrics === undefined) {
+    return run();
+  }
+  const startedMs = performance.now();
+  try {
+    const result = await run();
+    metrics.recordMcpOperation({
+      method,
+      serverClass,
+      outcome: outcomeOf(result),
+      durationSeconds: elapsedSeconds(startedMs),
+    });
+    return result;
+  } catch (error) {
+    metrics.recordMcpOperation({
+      method,
+      serverClass,
+      outcome: outcomeOfError === undefined ? 'error' : outcomeOfError(error),
+      durationSeconds: elapsedSeconds(startedMs),
+    });
+    throw error;
+  }
 }
 
 /** Seconds since a `performance.now()` reading. */

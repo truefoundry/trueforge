@@ -155,18 +155,35 @@ export type {
   AgentTracing,
 } from './tracing/AgentTracing';
 
-export { elapsedSeconds, httpStatusClass } from './observability/operationMetrics';
+export { elapsedSeconds, httpStatusClass, observeMcpOperation } from './observability/operationMetrics';
 export type {
+  HarnessLimit,
   LlmFinishReason,
   LlmProviderType,
   LlmRequestOutcome,
   LlmStreamErrorKind,
+  McpConnectOutcome,
+  McpDisconnectVia,
+  McpMethod,
+  McpOperationOutcome,
+  McpServerClass,
+  McpTransport,
   OperationMetrics,
   OutboundHttpModule,
   OutboundHttpOutcome,
   OutboundHttpRetryReason,
   OutboundHttpRetryStatus,
   OutboundHttpStatusClass,
+  ParallelWebOperation,
+  ParallelWebOutcome,
+  ServiceFoundryOperation,
+  ServiceFoundryOutcome,
+  ToolCallOutcome,
+  ToolCallServerClass,
+  TurnPersistPhase,
+  TurnSsePath,
+  TurnTerminalStatus,
+  TurnTimeoutPhase,
 } from './observability/operationMetrics';
 
 // Errors / utils

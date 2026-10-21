@@ -237,6 +237,7 @@ function createServiceFoundryServerClient(logger: Logger): TrueFoundryServiceFou
     httpAgentTimeoutMs: configuration.TRUEFOUNDRY_SERVICEFOUNDRY_HTTP_AGENT_TIMEOUT_MS,
     tls: { enabled: configuration.TRUEFOUNDRY_MTLS_ENABLED, dir: configuration.TRUEFOUNDRY_MTLS_CERTS_DIR },
     apiKey,
+    metrics: operationMetrics,
   });
 }
 
@@ -644,7 +645,7 @@ async function createServerRuntime<TTransaction>(persistence: ServerPersistence<
     serviceFoundryClient,
   } = persistence;
 
-  const activeTurns = new ActiveTurnRegistry();
+  const activeTurns = new ActiveTurnRegistry({ metrics: operationMetrics });
   const requestReplyRouter = new RequestReplyRouter();
   const eventSubscriptions = new EventSubscriptionRegistry<TurnStreamingEvent>(redis?.client);
   const sessions = new Sessions({ sessionStore });

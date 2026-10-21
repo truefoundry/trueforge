@@ -1,5 +1,6 @@
 import type { CallToolRequest } from '@modelcontextprotocol/sdk/types.js';
 import type { InternalToolCallInfo } from '../llm/LLMTypes';
+import type { OperationMetrics } from '../observability/operationMetrics';
 import { NOOP_AGENT_TRACING } from '../tracing/NoopAgentTracing';
 import type { CallToolResponse } from './IMCPServer';
 import { LocalToolMCP } from './LocalToolMCP';
@@ -11,8 +12,8 @@ import { LocalToolMCP } from './LocalToolMCP';
 export abstract class ClientSideTool extends LocalToolMCP {
   // Public so concrete subclasses (AskUserQuestion, …) remain constructable from
   // factories; abstract class still cannot be instantiated directly.
-  constructor() {
-    super({ tracing: NOOP_AGENT_TRACING });
+  constructor(metrics?: OperationMetrics) {
+    super({ tracing: NOOP_AGENT_TRACING, ...(metrics !== undefined ? { metrics } : {}) });
   }
 
   override async callTool(params: CallToolRequest['params']): Promise<CallToolResponse> {

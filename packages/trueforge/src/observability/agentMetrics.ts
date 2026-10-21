@@ -1,6 +1,9 @@
 import type { OperationMetrics } from '@truefoundry/trueforge-core/core';
-import { Counter, Histogram, type Registry } from 'prom-client';
+import { Counter, Gauge, Histogram, type Registry } from 'prom-client';
 import { HTTP_REQUEST_DURATION_BUCKETS_SECONDS } from '../http/prometheus';
+
+/** Turn handlers can run until the 600s subscribe timeout. Other series keep the shared buckets. */
+const TURN_DURATION_BUCKETS_SECONDS = [...HTTP_REQUEST_DURATION_BUCKETS_SECONDS, 600];
 
 /** Registers operation series on the registry `GET /metrics` already serves. */
 export function createOperationMetrics(registry: Registry): OperationMetrics {
@@ -49,6 +52,123 @@ export function createOperationMetrics(registry: Registry): OperationMetrics {
     labelNames: ['provider_type', 'error_kind', 'status_class'],
     registers: [registry],
   });
+  const mcpConnects = new Counter({
+    name: 'tfg_agent_mcp_connect_attempts_total',
+    help: 'MCP transport connect attempts',
+    labelNames: ['transport', 'outcome'],
+    registers: [registry],
+  });
+  const mcpConnectDuration = new Histogram({
+    name: 'tfg_agent_mcp_connect_duration_seconds',
+    help: 'MCP transport connect duration in seconds',
+    labelNames: ['transport', 'outcome'],
+    buckets: HTTP_REQUEST_DURATION_BUCKETS_SECONDS,
+    registers: [registry],
+  });
+  const mcpOperations = new Counter({
+    name: 'tfg_agent_mcp_operations_total',
+    help: 'MCP initialize, list, and call operations',
+    labelNames: ['method', 'server_class', 'outcome'],
+    registers: [registry],
+  });
+  const mcpOperationDuration = new Histogram({
+    name: 'tfg_agent_mcp_operation_duration_seconds',
+    help: 'MCP operation duration in seconds',
+    labelNames: ['method', 'server_class', 'outcome'],
+    buckets: HTTP_REQUEST_DURATION_BUCKETS_SECONDS,
+    registers: [registry],
+  });
+  const mcpSessionRetries = new Counter({
+    name: 'tfg_agent_mcp_session_retries_total',
+    help: 'MCP session reconnects after expiry',
+    labelNames: ['reason'],
+    registers: [registry],
+  });
+  const mcpDisconnects = new Counter({
+    name: 'tfg_agent_mcp_disconnects_total',
+    help: 'MCP transport disconnect signals',
+    labelNames: ['via'],
+    registers: [registry],
+  });
+  const harnessLimits = new Counter({
+    name: 'tfg_agent_harness_limits_total',
+    help: 'Times a configured harness cap fired',
+    labelNames: ['limit'],
+    registers: [registry],
+  });
+  const toolCallDuration = new Histogram({
+    name: 'tfg_agent_tool_call_duration_seconds',
+    help: 'Tool call duration in seconds',
+    labelNames: ['server_class', 'outcome'],
+    buckets: HTTP_REQUEST_DURATION_BUCKETS_SECONDS,
+    registers: [registry],
+  });
+  const activeThreads = new Counter({
+    name: 'tfg_agent_active_threads_total',
+    help: 'Agent threads started in this process',
+    registers: [registry],
+  });
+  const turnDuration = new Histogram({
+    name: 'tfg_agent_turn_duration_seconds',
+    help: 'Turn duration in seconds',
+    labelNames: ['terminal_status'],
+    buckets: TURN_DURATION_BUCKETS_SECONDS,
+    registers: [registry],
+  });
+  const activeTurns = new Gauge({
+    name: 'tfg_agent_active_turns',
+    help: 'Turns running in this process',
+    registers: [registry],
+  });
+  const turnTimeouts = new Counter({
+    name: 'tfg_agent_turn_timeouts_total',
+    help: 'Turn execution, subscribe, and SSE write timeouts',
+    labelNames: ['phase'],
+    registers: [registry],
+  });
+  const turnSseDisconnects = new Counter({
+    name: 'tfg_agent_turn_sse_disconnects_total',
+    help: 'SSE client disconnects during a turn',
+    labelNames: ['path'],
+    registers: [registry],
+  });
+  const turnPersistErrors = new Counter({
+    name: 'tfg_agent_turn_persist_errors_total',
+    help: 'Turn store write failures',
+    labelNames: ['phase'],
+    registers: [registry],
+  });
+  const parallelRequests = new Counter({
+    name: 'tfg_parallel_web_requests_total',
+    help: 'Parallel search and extract requests',
+    labelNames: ['operation', 'outcome'],
+    registers: [registry],
+  });
+  const parallelDuration = new Histogram({
+    name: 'tfg_parallel_web_request_duration_seconds',
+    help: 'Parallel search and extract duration in seconds',
+    labelNames: ['operation', 'outcome'],
+    buckets: HTTP_REQUEST_DURATION_BUCKETS_SECONDS,
+    registers: [registry],
+  });
+  const parallelPartialErrors = new Counter({
+    name: 'tfg_parallel_web_partial_errors_total',
+    help: 'Page errors returned by a successful Parallel extract',
+    registers: [registry],
+  });
+  const serviceFoundryRequests = new Counter({
+    name: 'tfg_servicefoundry_requests_total',
+    help: 'ServiceFoundry control-plane requests',
+    labelNames: ['operation', 'outcome', 'status_class'],
+    registers: [registry],
+  });
+  const serviceFoundryDuration = new Histogram({
+    name: 'tfg_servicefoundry_request_duration_seconds',
+    help: 'ServiceFoundry request duration in seconds',
+    labelNames: ['operation', 'outcome'],
+    buckets: HTTP_REQUEST_DURATION_BUCKETS_SECONDS,
+    registers: [registry],
+  });
 
   return {
     recordOutboundHttpRequest({ module, outcome, statusClass, durationSeconds }): void {
@@ -67,6 +187,59 @@ export function createOperationMetrics(registry: Registry): OperationMetrics {
     },
     recordLlmStreamError({ providerType, errorKind, statusClass }): void {
       llmStreamErrors.inc({ provider_type: providerType, error_kind: errorKind, status_class: statusClass });
+    },
+    recordMcpConnect({ transport, outcome, durationSeconds }): void {
+      mcpConnects.inc({ transport, outcome });
+      mcpConnectDuration.observe({ transport, outcome }, durationSeconds);
+    },
+    recordMcpOperation({ method, serverClass, outcome, durationSeconds }): void {
+      mcpOperations.inc({ method, server_class: serverClass, outcome });
+      mcpOperationDuration.observe({ method, server_class: serverClass, outcome }, durationSeconds);
+    },
+    recordMcpSessionRetry({ reason }): void {
+      mcpSessionRetries.inc({ reason });
+    },
+    recordMcpDisconnect({ via }): void {
+      mcpDisconnects.inc({ via });
+    },
+    recordHarnessLimit({ limit }): void {
+      harnessLimits.inc({ limit });
+    },
+    recordToolCall({ serverClass, outcome, durationSeconds }): void {
+      toolCallDuration.observe({ server_class: serverClass, outcome }, durationSeconds);
+    },
+    recordActiveThreads({ count }): void {
+      activeThreads.inc(count);
+    },
+    recordTurnDuration({ terminalStatus, durationSeconds }): void {
+      turnDuration.observe({ terminal_status: terminalStatus }, durationSeconds);
+    },
+    recordActiveTurns({ delta }): void {
+      if (delta === 1) {
+        activeTurns.inc();
+        return;
+      }
+      activeTurns.dec();
+    },
+    recordTurnTimeout({ phase }): void {
+      turnTimeouts.inc({ phase });
+    },
+    recordTurnSseDisconnect({ path }): void {
+      turnSseDisconnects.inc({ path });
+    },
+    recordTurnPersistError({ phase }): void {
+      turnPersistErrors.inc({ phase });
+    },
+    recordParallelWebRequest({ operation, outcome, durationSeconds }): void {
+      parallelRequests.inc({ operation, outcome });
+      parallelDuration.observe({ operation, outcome }, durationSeconds);
+    },
+    recordParallelWebPartialErrors({ count }): void {
+      parallelPartialErrors.inc(count);
+    },
+    recordServiceFoundryRequest({ operation, outcome, statusClass, durationSeconds }): void {
+      serviceFoundryRequests.inc({ operation, outcome, status_class: statusClass });
+      serviceFoundryDuration.observe({ operation, outcome }, durationSeconds);
     },
   };
 }

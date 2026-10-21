@@ -20,7 +20,7 @@ import { SqliteOAuthTokenStore } from '../../../src/db/sqlite/token-store/Sqlite
 import { SqliteWebSearchProviderStore } from '../../../src/db/sqlite/web-search-provider-store/SqliteWebSearchProviderStore';
 import { ActiveTurnRegistry } from '../../../src/runtime/activeTurns';
 import { EventSubscriptionRegistry } from '../../../src/runtime/event-subscription/index.js';
-import { createTestOperationMetrics } from '../testOperationMetrics';
+import { metrics } from '../testOperationMetrics';
 
 async function postTurnRejectingWith(error: AgentHarnessError): Promise<Response> {
   const db = createSqliteDb(':memory:');
@@ -88,7 +88,7 @@ async function postTurnRejectingWith(error: AgentHarnessError): Promise<Response
       logger: createLogger({ silent: true }),
       resolveRequestContext: () => STANDALONE_REQUEST_CONTEXT,
       authorizer: new TrueForgeAuthorizer(),
-      operationMetrics: createTestOperationMetrics(),
+      operationMetrics: metrics,
     }),
   );
 

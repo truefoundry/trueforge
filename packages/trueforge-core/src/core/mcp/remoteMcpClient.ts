@@ -7,8 +7,9 @@ import type { FetchLike } from '@modelcontextprotocol/sdk/shared/transport.js';
 import type { CallToolRequest, CallToolResult } from '@modelcontextprotocol/sdk/types.js';
 import { context, propagation } from '@opentelemetry/api';
 import { McpConnectionError } from '../errors';
+import { elapsedSeconds, type McpConnectOutcome, type OperationMetrics } from '../observability/operationMetrics';
 import { mcpSsrfFetch } from '../util/outboundFetch';
-import { withTimeout } from '../util/promiseUtils';
+import { PromiseTimeoutError, withTimeout } from '../util/promiseUtils';
 import type { ToolSchema } from './IMCPServer';
 
 /** Networking for remote (url-based) MCP servers, kept separate so it can be mocked in tests. */
@@ -34,7 +35,7 @@ const TRANSPORT_PROBE_ORDER: RemoteMcpTransportType[] = ['streamable-http', 'sse
 export const DEFAULT_MAX_MCP_RESPONSE_BYTES = 50 * 1024 * 1024;
 
 /** GET SSE is long-lived and uncapped; every other body aborts at `maxBytes`. */
-export function withMaxResponseBytes(fetchFn: FetchLike, maxBytes: number): FetchLike {
+export function withMaxResponseBytes(fetchFn: FetchLike, maxBytes: number, metrics?: OperationMetrics): FetchLike {
   return async (url, init) => {
     const response = await fetchFn(url, init);
     const isGetSse =
@@ -44,12 +45,17 @@ export function withMaxResponseBytes(fetchFn: FetchLike, maxBytes: number): Fetc
       return response;
     }
     let seen = 0;
+    let limitRecorded = false;
     return new Response(
       response.body.pipeThrough(
         new TransformStream<Uint8Array, Uint8Array>({
           transform(chunk, controller) {
             seen += chunk.byteLength;
             if (seen > maxBytes) {
+              if (!limitRecorded) {
+                limitRecorded = true;
+                metrics?.recordHarnessLimit({ limit: 'mcp_response_bytes' });
+              }
               controller.error(new Error(`MCP response exceeded max ${String(maxBytes)} bytes`));
               return;
             }
@@ -102,6 +108,19 @@ export function isSessionExpiredError(error: unknown): boolean {
     return true;
   }
   return error.message.includes('HTTP 404') || error.message.toLowerCase().includes('session');
+}
+
+function mcpConnectOutcome(error: unknown): McpConnectOutcome {
+  if (isAuthError(error)) {
+    return 'auth';
+  }
+  if (error instanceof PromiseTimeoutError) {
+    return 'timeout';
+  }
+  if (isSessionExpiredError(error)) {
+    return 'session_expired';
+  }
+  return 'other';
 }
 
 function isAuthError(error: unknown): boolean {
@@ -185,10 +204,15 @@ export async function connectRemoteMcp(params: {
   signal: AbortSignal;
   onClose?: (() => void) | undefined;
   onError?: ((error: Error) => void) | undefined;
+  metrics?: OperationMetrics | undefined;
 }): Promise<RemoteMcpConnection> {
   const url = new URL(params.url);
   const requestOptions = { signal: params.signal };
-  const fetchFn = withMaxResponseBytes(mcpSsrfFetch, params.maxResponseBytes ?? DEFAULT_MAX_MCP_RESPONSE_BYTES);
+  const fetchFn = withMaxResponseBytes(
+    mcpSsrfFetch,
+    params.maxResponseBytes ?? DEFAULT_MAX_MCP_RESPONSE_BYTES,
+    params.metrics,
+  );
   const candidates = params.knownTransportType
     ? [params.knownTransportType, ...TRANSPORT_PROBE_ORDER.filter(t => t !== params.knownTransportType)]
     : TRANSPORT_PROBE_ORDER;
@@ -203,6 +227,7 @@ export async function connectRemoteMcp(params: {
     // would still fire connectTimeoutMs later and cancel the live client.
     const timeout = new AbortController();
     const connectOptions = { signal: AbortSignal.any([params.signal, timeout.signal]) };
+    const startedMs = performance.now();
     try {
       stampTraceHeaders(params.headers);
       await withTimeout(
@@ -213,6 +238,11 @@ export async function connectRemoteMcp(params: {
         transportType,
       );
     } catch (error) {
+      params.metrics?.recordMcpConnect({
+        transport: transportType,
+        outcome: mcpConnectOutcome(error),
+        durationSeconds: elapsedSeconds(startedMs),
+      });
       timeout.abort();
       await client.close().catch(() => {
         /* no-op */
@@ -228,6 +258,12 @@ export async function connectRemoteMcp(params: {
       failures.push({ transport: transportType, error: error instanceof Error ? error.message.trim() : String(error) });
       continue;
     }
+
+    params.metrics?.recordMcpConnect({
+      transport: transportType,
+      outcome: 'success',
+      durationSeconds: elapsedSeconds(startedMs),
+    });
 
     // Set on the client (not the transport) so the SDK's own onclose/onerror cleanup still runs; the
     // SDK invokes these from inside it. Only wired on the kept connection, so failed attempts stay quiet.

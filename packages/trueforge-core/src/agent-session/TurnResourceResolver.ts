@@ -208,6 +208,7 @@ export class TurnResourceResolver<
               logger: this.deps.logger,
               tracing,
               signal,
+              ...(this.deps.operationMetrics !== undefined ? { metrics: this.deps.operationMetrics } : {}),
             });
           },
         });

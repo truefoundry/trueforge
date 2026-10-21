@@ -21,7 +21,7 @@ import {
   ListScheduleRunsResponseSchema,
   ListSchedulesResponseSchema,
 } from '../../../src/schemas/schedule';
-import { createTestOperationMetrics } from '../testOperationMetrics';
+import { metrics } from '../testOperationMetrics';
 
 jest.mock('../../../src/controller/scheduleDispatch', () => {
   const actual = jest.requireActual<typeof import('../../../src/controller/scheduleDispatch')>(
@@ -75,7 +75,7 @@ function stubTurnExecutionDeps(agentStore: SqliteAgentStore, scheduleStore: Sqli
     resolveSandboxProviderStore: () => ({}) as never,
     sandboxEnvironmentStore: {} as never,
     resolveWebSearchProviderStore: () => ({}) as never,
-    operationMetrics: createTestOperationMetrics(),
+    operationMetrics: metrics,
   };
 }
 

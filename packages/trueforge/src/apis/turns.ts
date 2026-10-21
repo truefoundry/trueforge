@@ -269,6 +269,7 @@ function createTurnResolver(deps: {
         fileDownloadEnabled: spec.config.sandbox.file_downloads,
         existingSandboxId: carriedSandboxId,
         tracing,
+        metrics: deps.operationMetrics,
       };
       // Env-capable providers (Daytona): resolve env. Others skip (no snapshot concept).
       if (provider.envSupported) {
@@ -451,6 +452,7 @@ export async function beginTurnExecution(
   const webSearchProvider = await resolveWebSearchProvider({
     tenant_id: tenantId,
     store: deps.webSearchProviderStore,
+    metrics: deps.operationMetrics,
   });
   const resolver = createTurnResolver({
     mcpServerStore: deps.mcpServerStore,
@@ -489,6 +491,7 @@ export async function beginTurnExecution(
 
   const maxExecutionTimer = setTimeout(() => {
     if (!abortController.signal.aborted) {
+      deps.operationMetrics.recordTurnTimeout({ phase: 'execution' });
       abortController.abort(CancellationReason.ServerExecutionTimeout);
     }
   }, configuration.SERVER_EXECUTION_TIMEOUT_SECONDS * 1000);
@@ -868,8 +871,13 @@ export function createTurnsRouter(deps: TurnsRouterDeps) {
         turn_id: turn.id,
       };
       let shouldWriteToSSEStream = true;
+      let closedByServer = false;
       return streamSSE(c, async stream => {
         stream.onAbort(() => {
+          if (closedByServer) {
+            return;
+          }
+          deps.operationMetrics.recordTurnSseDisconnect({ path: 'create' });
           shouldWriteToSSEStream = false;
           deps.logger.info(
             'Create-turn SSE client disconnected, continuing drain without writing',
@@ -887,6 +895,7 @@ export function createTurnsRouter(deps: TurnsRouterDeps) {
                 );
               } catch (error) {
                 if (error instanceof PromiseTimeoutError) {
+                  deps.operationMetrics.recordTurnTimeout({ phase: 'sse_write' });
                   deps.logger.error('SSE stream write timed out', extractErrorLogFields(error));
                 } else {
                   deps.logger.error('SSE stream write error', extractErrorLogFields(error));
@@ -897,6 +906,7 @@ export function createTurnsRouter(deps: TurnsRouterDeps) {
           },
         });
         if (!shouldWriteToSSEStream && !stream.closed) {
+          closedByServer = true;
           stream.abort();
         }
         await stream.close();
@@ -956,6 +966,7 @@ export function createTurnsRouter(deps: TurnsRouterDeps) {
     const subscribeAbort = new AbortController();
     const timeoutMs = configuration.TURN_SUBSCRIBE_TIMEOUT_MS;
     const timeoutHandler = setTimeout(() => {
+      deps.operationMetrics.recordTurnTimeout({ phase: 'subscribe' });
       deps.logger.info('Subscribe turn stream server-side timeout reached, closing stream', {
         afterSequenceNumber,
         timeoutMs,
@@ -965,6 +976,7 @@ export function createTurnsRouter(deps: TurnsRouterDeps) {
 
     return streamSSE(c, async stream => {
       stream.onAbort(() => {
+        deps.operationMetrics.recordTurnSseDisconnect({ path: 'subscribe' });
         subscribeAbort.abort(new Error('client-disconnected'));
       });
 

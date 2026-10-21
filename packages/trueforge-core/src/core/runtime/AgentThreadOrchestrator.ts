@@ -11,6 +11,7 @@ import {
   type UserToolResponseMessage,
 } from '../events/schema';
 import type { LLMToolMessage } from '../llm/LLMTypes';
+import type { OperationMetrics } from '../observability/operationMetrics';
 import type { AgentExecutionTrace, AgentTracing } from '../tracing/AgentTracing';
 import { onSignalAbort } from '../util/abort';
 import { mergeAsyncGenerators } from '../util/promiseUtils';
@@ -232,6 +233,7 @@ export interface AgentThreadOrchestratorInput {
   createDynamicSubAgentThread: CreateDynamicSubAgentThread;
   tracing: AgentTracing;
   logger: Logger;
+  metrics?: OperationMetrics | undefined;
 }
 
 export class AgentThreadOrchestrator {
@@ -239,6 +241,7 @@ export class AgentThreadOrchestrator {
   private readonly createDynamicSubAgentThread: CreateDynamicSubAgentThread;
   private readonly tracing: AgentTracing;
   private readonly logger: Logger;
+  private readonly metrics: OperationMetrics | undefined;
   // Finished sub-agents removed from `agentThreads`; kept so totals still include them.
   private finishedSubAgentMetrics: AgentThreadMetrics = createEmptyAgentThreadMetrics();
 
@@ -247,6 +250,7 @@ export class AgentThreadOrchestrator {
     this.createDynamicSubAgentThread = params.createDynamicSubAgentThread;
     this.tracing = params.tracing;
     this.logger = params.logger.child({ module: 'AgentThreadOrchestrator' });
+    this.metrics = params.metrics;
   }
 
   /**
@@ -517,6 +521,7 @@ export class AgentThreadOrchestrator {
 
         for (let i = 0; i < activeThreads.length && !shouldStopExecution; i += MAX_PARALLEL_SUB_AGENTS) {
           const batch = activeThreads.slice(i, i + MAX_PARALLEL_SUB_AGENTS);
+          this.metrics?.recordActiveThreads({ count: batch.length });
           const generators = batch.map(thread => {
             if (!thread.parent) {
               return rootSpan.wrapThreadWithContext(thread, signal);
