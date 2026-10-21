@@ -12,7 +12,6 @@ import type {
 import {
   CancellationReason,
   EventType,
-  resolvePreviousTurnId,
   SessionStoreConflictError,
   SessionStoreNotFoundError,
   TurnEventAlreadyExistsError,
@@ -77,7 +76,6 @@ import {
   subscribeTurnRoute,
 } from '../routes/turnRoutes';
 import type { ActiveTurnRegistry } from '../runtime/activeTurns';
-import { cancelSessionTurn } from '../runtime/cancelTurn';
 import { StreamGoneError, type EventSubscription, type EventSubscriptionRegistry } from '../runtime/event-subscription';
 import { validateSandboxFilePath } from '../runtime/sandboxFilePath';
 import {
@@ -626,28 +624,9 @@ export async function beginTurnExecution(
   // never overwrites an existing title.
   const title = session.record.last_turn_id ? undefined : deriveSessionTitle(input);
 
-  // Unpark a live previous turn so its drain emits turn.done before this turn freezes the row.
-  const previousId = resolvePreviousTurnId(previousTurnId, session.record.last_turn_id);
-  if (previousId) {
-    const hadLocalRun = await deps.activeTurns.abortAndWait({
-      sessionId,
-      turnId: previousId,
-      abortReason: CancellationReason.CancelledForNextTurn,
-    });
-    if (!hadLocalRun) {
-      await cancelSessionTurn(
-        {
-          activeTurns: deps.activeTurns,
-          session,
-          sessionStore: deps.sessionStore,
-          redis: deps.redis,
-          logger: deps.logger,
-        },
-        { turnId: previousId, reason: CancellationReason.CancelledForNextTurn },
-      );
-    }
-  }
-
+  // Freeze the predecessor in the store and leave its generator parked. A paused previous
+  // turn stays in memory until the keepalive timer offloads it. That is deliberate.
+  // TODO: freezing drops the previous turn's token cost. Fix when paused turns persist metrics.
   const turn = await session.createTurn({
     turn_id: turnId,
     active_executor_id: configuration.EXECUTOR_ID,
