@@ -112,7 +112,7 @@ export async function startScheduleRun<TTransaction>(params: {
     source: { type: 'schedule', id: schedule.id, run_id: run.id },
   });
 
-  // This is not atomic with session creation¡ so a failure here leaves the run unlinked.
+  // This is not atomic with session creation so a failure here leaves the run unlinked.
   // Runs before the idempotency check so retries relink it, at the cost of redundant writes on re-delivery.
   await scheduleStore.updateRun({
     tenant_id: schedule.tenant_id,
