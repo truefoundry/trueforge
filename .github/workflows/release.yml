@@ -417,6 +417,7 @@ jobs:
     permissions:
       id-token: write
       contents: read
+      packages: write
     with:
       # The shared build.yml inherits THIS run's github.sha, which is the
       # pre-version dispatch commit. version-release has already pushed the
@@ -448,6 +449,7 @@ jobs:
     permissions:
       id-token: write
       contents: read
+      packages: write
     with:
       # Same reason as the public image: build the version commit, not the
       # dispatch commit.
