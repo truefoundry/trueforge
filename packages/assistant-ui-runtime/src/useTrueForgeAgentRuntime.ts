@@ -141,6 +141,7 @@ function useTrueForgeAgentRuntimeImpl(
     isInitialSession,
     onError,
     initializeSession,
+    ...(options.sessionEventsCache != null ? { sessionEventsCache: options.sessionEventsCache } : {}),
     ...(agent.mode === 'draft' ? { getTurnHeaders } : {}),
   });
 

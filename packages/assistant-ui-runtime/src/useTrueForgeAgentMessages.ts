@@ -39,6 +39,7 @@ import {
   messageHasPendingRequiredActions,
   type RequiredActionInput,
 } from './requiredActionInputs.js';
+import type { SessionEventsCache } from './sessionEventsCache.js';
 import {
   createEmptySessionSnapshot,
   replaceSessionSnapshot,
@@ -74,6 +75,8 @@ export interface UseTrueForgeAgentMessagesOptions {
    * the session is resolved; return value is forwarded to `turn.execute`.
    */
   getTurnHeaders?: () => Promise<Record<string, string> | undefined>;
+  /** Optional per-shell cache shared with the history timeline view. */
+  sessionEventsCache?: SessionEventsCache;
 }
 
 export type SendTurnOptions =
@@ -484,6 +487,7 @@ export function useTrueForgeAgentMessages({
   initializeSession,
   resolveConversationSessionId,
   getTurnHeaders,
+  sessionEventsCache,
 }: UseTrueForgeAgentMessagesOptions) {
   const [snapshot, setSnapshot] = useState<SessionSnapshot>(createEmptySessionSnapshot);
   const [isRunning, setIsRunning] = useState(false);
@@ -491,6 +495,8 @@ export function useTrueForgeAgentMessages({
   // false causes consumers to briefly render an empty thread before the load
   // effect runs and flips this flag to true.
   const [isLoading, setIsLoading] = useState(sessionId != null && (isMain !== false || isInitialSession === true));
+  const sessionEventsCacheRef = useRef(sessionEventsCache);
+  sessionEventsCacheRef.current = sessionEventsCache;
   const [isLoadingOlderHistory, setIsLoadingOlderHistory] = useState(false);
   const [loadRetryTrigger, setLoadRetryTrigger] = useState(0);
   const [resumeUnavailable, setResumeUnavailable] = useState(false);
@@ -792,10 +798,14 @@ export function useTrueForgeAgentMessages({
 
     try {
       const conversationSessionId = await resolveActiveSessionId(sessionId, resolveConversationSessionIdRef.current);
-      const loadedSnapshot = await loadSessionSnapshot(server, conversationSessionId, snap => {
-        if (generation === loadGenerationRef.current) {
-          setSnapshot(snap);
-        }
+      const cache = sessionEventsCacheRef.current;
+      const loadedSnapshot = await loadSessionSnapshot(server, conversationSessionId, {
+        onProgress: snap => {
+          if (generation === loadGenerationRef.current) {
+            setSnapshot(snap);
+          }
+        },
+        ...(cache != null ? { sessionEventsCache: cache } : {}),
       });
       if (generation !== loadGenerationRef.current) {
         return;
@@ -865,6 +875,15 @@ export function useTrueForgeAgentMessages({
   useEffect(() => {
     void load().catch(() => undefined);
   }, [load]);
+
+  useEffect(() => {
+    if (sessionId == null || sessionEventsCache == null) {
+      return;
+    }
+    if (snapshot.turns.length > 0 || (snapshot.historyEvents != null && snapshot.historyEvents.length > 0)) {
+      sessionEventsCache.updateSnapshot(sessionId, snapshot);
+    }
+  }, [sessionId, sessionEventsCache, snapshot]);
 
   const sendTurn = useCallback(
     async (options: SendTurnOptions) => {

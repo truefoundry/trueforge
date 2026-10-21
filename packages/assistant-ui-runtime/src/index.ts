@@ -10,6 +10,7 @@ export {
   convertTurnsToThreadMessages,
   getTurnMessageContent,
   parseTurnIdFromMessageId,
+  projectSessionEventItems,
   repositoryItemsFromMessages,
 } from './convertTurnMessages.js';
 export type { ConvertTurnsResult, UserMessageContent } from './convertTurnMessages.js';
@@ -53,6 +54,8 @@ export {
   findCurrentPausedAssistantMessage,
   messageHasPendingRequiredActions,
 } from './requiredActionInputs.js';
+export { createSessionEventsCache } from './sessionEventsCache.js';
+export type { CachedSessionEntry, SessionEventsCache } from './sessionEventsCache.js';
 export { getSession } from './sessions.js';
 export { collectApprovalInputs, messageHasPendingApprovals, toTrueForgeApprovalInputs } from './toolApproval.js';
 export {

@@ -4,6 +4,7 @@ import { AssistantRuntimeProvider, useAuiState } from '@assistant-ui/react';
 import {
   trueForgeAttachmentAdapter,
   useTrueForgeAgentRuntime,
+  type SessionEventsCache,
   type TrueForgeAgentConfig,
   type UseTrueForgeAgentRuntimeOptions,
 } from '@truefoundry/trueforge-assistant-ui-runtime';
@@ -71,6 +72,8 @@ export type TrueForgeChatProviderProps = {
   agentName?: string;
   /** Forwarded to `listSessions({ agentId })` for history filtering. */
   listSessionsAgentId?: string;
+  /** Optional per-shell timeline cache shared with the history page. */
+  sessionEventsCache?: SessionEventsCache;
 };
 
 function ChatRuntimeScope({
@@ -81,6 +84,7 @@ function ChatRuntimeScope({
   initialSessionId,
   adapters,
   onError,
+  sessionEventsCache,
   children,
 }: {
   server: AgentUIServer;
@@ -90,6 +94,7 @@ function ChatRuntimeScope({
   initialSessionId?: string;
   adapters?: RuntimeAdapters;
   onError?: (error: unknown) => void;
+  sessionEventsCache?: SessionEventsCache;
   children: ReactNode;
 }) {
   const { showError } = useToaster();
@@ -117,6 +122,7 @@ function ChatRuntimeScope({
     listSessionsAgentId,
     listSessionsCreatedByMe: true,
     initialSessionId,
+    sessionEventsCache,
     onError: resolvedOnError,
     adapters: {
       ...adapters,
@@ -138,7 +144,17 @@ function ChatRuntimeScope({
  * assistant-ui + error toasts.
  */
 export function TrueForgeChatProvider(props: TrueForgeChatProviderProps) {
-  const { server, initialSessionId, adapters, onError, children, agent, agentName, listSessionsAgentId } = props;
+  const {
+    server,
+    initialSessionId,
+    adapters,
+    onError,
+    children,
+    agent,
+    agentName,
+    listSessionsAgentId,
+    sessionEventsCache,
+  } = props;
 
   const stableServer = useMemo(() => server, [server]);
 
@@ -152,6 +168,7 @@ export function TrueForgeChatProvider(props: TrueForgeChatProviderProps) {
         initialSessionId={initialSessionId}
         adapters={adapters}
         onError={onError}
+        sessionEventsCache={sessionEventsCache}
       >
         {children}
       </ChatRuntimeScope>

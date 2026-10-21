@@ -334,7 +334,9 @@ describe('useTrueForgeAgentMessages', () => {
     );
 
     await waitFor(() =>
-      expect(loadSessionSnapshot).toHaveBeenCalledWith(mockServer, 'session-from-url', expect.any(Function)),
+      expect(loadSessionSnapshot).toHaveBeenCalledWith(mockServer, 'session-from-url', {
+        onProgress: expect.any(Function),
+      }),
     );
 
     rerender({ isMain: true });
@@ -478,7 +480,9 @@ describe('useTrueForgeAgentMessages', () => {
     const { result } = renderHook(() => useTrueForgeAgentMessages({ server: mockServer, sessionId: 'session-1' }));
 
     await waitFor(() => expect(result.current.isLoading).toBe(false));
-    expect(loadSessionSnapshot).toHaveBeenCalledWith(mockServer, 'session-1', expect.any(Function));
+    expect(loadSessionSnapshot).toHaveBeenCalledWith(mockServer, 'session-1', {
+      onProgress: expect.any(Function),
+    });
     expect(result.current.messages).toHaveLength(1);
     expect(result.current.messages[0]?.role).toBe('user');
   });

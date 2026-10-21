@@ -1,7 +1,11 @@
 'use client';
 
 import { ThreadPrimitive, useAuiState, type ThreadMessageLike } from '@assistant-ui/react';
-import { convertTurnsToThreadMessages, isMcpServerAuthInfoList } from '@truefoundry/trueforge-assistant-ui-runtime';
+import {
+  convertTurnsToThreadMessages,
+  isMcpServerAuthInfoList,
+  projectSessionEventItems,
+} from '@truefoundry/trueforge-assistant-ui-runtime';
 import { Suspense, useCallback, useEffect, useMemo, useRef, useState, type ComponentType } from 'react';
 
 import { AssistantMessageBubble, type AssistantMessageBubbleProps } from '../atoms/AssistantMessageBubble.js';
@@ -170,6 +174,15 @@ function messageBelongsToTurn(message: ThreadMessageLike, turnId: string): boole
   return typeof customTurnId === 'string' && customTurnId === turnId;
 }
 
+function sessionEventsHaveOpenTurn(items: readonly SessionEventItem[]): boolean {
+  let open = false;
+  for (const item of items) {
+    if (item.event.type === 'turn.created') open = true;
+    else if (item.event.type === 'turn.done') open = false;
+  }
+  return open;
+}
+
 function messagesForTurn(messages: ThreadMessageLike[], turn: SessionTurnView): ThreadMessageLike[] {
   const matched = messages.filter(message => messageBelongsToTurn(message, turn.turnId));
   return applyMcpAuthState(matched, turn);
@@ -196,11 +209,9 @@ export function AgentSessionTimelineContainer({
   const AgentSessionTurnHeader = useSlot('AgentSessionTurnHeader');
   const AgentSessionEventTimeline = useSlot('AgentSessionEventTimeline');
   const AgentSessionMetricsStrip = useSlot('AgentSessionMetricsStrip');
-  const MessageListSkeleton = useSlot('MessageListSkeleton');
   const ThreadViewportShell = useSlot('ThreadViewportShell');
 
-  const [messages, setMessages] = useState<ThreadMessageLike[]>();
-  const [loadFailed, setLoadFailed] = useState(false);
+  const [hydrated, setHydrated] = useState<{ events: SessionEventItem[]; messages: ThreadMessageLike[] } | null>(null);
   const sectionRefs = useRef(new Map<number, HTMLElement>());
 
   const allTurnViews = useMemo(() => buildSessionTurnViews(events), [events]);
@@ -215,17 +226,27 @@ export function AgentSessionTimelineContainer({
     [sessionMetricsHint, timelineSegments, allTurnViews],
   );
 
+  const projected = useMemo(() => {
+    try {
+      return { failed: false, messages: projectSessionEventItems(projectionEvents) };
+    } catch {
+      return { failed: true, messages: [] };
+    }
+  }, [projectionEvents]);
+  const hasOpenTurn = useMemo(() => sessionEventsHaveOpenTurn(projectionEvents), [projectionEvents]);
+
   const handleSelectTurn = useCallback((index: number) => {
     sectionRefs.current.get(index)?.scrollIntoView({ behavior: 'smooth', block: 'start' });
   }, []);
 
   useEffect(() => {
+    if (!hasOpenTurn) return;
     let cancelled = false;
-    setMessages(undefined);
-    setLoadFailed(false);
+    const events = projectionEvents;
 
-    const bridge = createCachedListEventsBridge(projectionEvents, { allAtOnce: true });
+    const bridge = createCachedListEventsBridge(events, { allAtOnce: true });
     // Events already include every turn.created / turn.done, so skip listTurns.
+    // An open tip still needs getTurn / listTurnEvents, which the sync projection skips.
     const chatServer: AgentChatServer = {
       ...server,
       listEvents: req => bridge.listEvents(req),
@@ -234,29 +255,23 @@ export function AgentSessionTimelineContainer({
 
     void convertTurnsToThreadMessages(chatServer, sessionId)
       .then(result => {
-        if (!cancelled) setMessages(result.messages);
+        if (!cancelled) setHydrated({ events, messages: result.messages });
       })
       .catch(() => {
-        if (!cancelled) setLoadFailed(true);
+        // Sync projection is already on screen.
       });
 
     return () => {
       cancelled = true;
     };
-  }, [projectionEvents, server, sessionId]);
+  }, [hasOpenTurn, projectionEvents, server, sessionId]);
 
-  if (loadFailed) {
+  const messages = hydrated?.events === projectionEvents ? hydrated.messages : projected.messages;
+
+  if (projected.failed && hydrated?.events !== projectionEvents) {
     return (
       <div className="flex flex-1 items-center justify-center px-6 text-sm text-text-secondary">
         Session messages could not be loaded.
-      </div>
-    );
-  }
-
-  if (messages === undefined) {
-    return (
-      <div className="flex min-h-0 flex-1 flex-col overflow-hidden p-4">
-        <MessageListSkeleton />
       </div>
     );
   }

@@ -16,47 +16,51 @@ const threadState = {
   setThreadId: (_id: string) => {},
 };
 
-vi.mock('@truefoundry/trueforge-assistant-ui-runtime', () => ({
-  trueForgeAttachmentAdapter: {},
-  useTrueForgeAgentRuntime: () => {
-    const [threadId, setThreadId] = useState(threadState.threadId);
-    threadState.setThreadId = setThreadId;
-    return useExternalStoreRuntime<ThreadMessageLike>({
-      messages: [],
-      isRunning: false,
-      convertMessage: (message: ThreadMessageLike) => message,
-      onNew: async () => {},
-      adapters: {
-        threadList: {
-          threadId,
-          threads: [
-            { status: 'regular', id: 'thread-draft', title: 'New Chat' },
-            { status: 'regular', id: 'thread-2', remoteId: 'session-2', title: 'Second' },
-          ],
-          onSwitchToThread: async id => {
-            setThreadId(id);
+vi.mock('@truefoundry/trueforge-assistant-ui-runtime', async importOriginal => {
+  const actual = await importOriginal<typeof import('@truefoundry/trueforge-assistant-ui-runtime')>();
+  return {
+    ...actual,
+    trueForgeAttachmentAdapter: {},
+    useTrueForgeAgentRuntime: () => {
+      const [threadId, setThreadId] = useState(threadState.threadId);
+      threadState.setThreadId = setThreadId;
+      return useExternalStoreRuntime<ThreadMessageLike>({
+        messages: [],
+        isRunning: false,
+        convertMessage: (message: ThreadMessageLike) => message,
+        onNew: async () => {},
+        adapters: {
+          threadList: {
+            threadId,
+            threads: [
+              { status: 'regular', id: 'thread-draft', title: 'New Chat' },
+              { status: 'regular', id: 'thread-2', remoteId: 'session-2', title: 'Second' },
+            ],
+            onSwitchToThread: async id => {
+              setThreadId(id);
+            },
           },
         },
-      },
-    });
-  },
-  useTrueForgeCancel: () => vi.fn(),
-  useTrueForgeToolResponses: () => ({ pending: [] }),
-  useTrueForgeApprovals: () => ({ pending: [] }),
-  useTrueForgeRespondToToolApproval: () => vi.fn(),
-  useTrueForgeMcpAuth: () => ({ pending: [], connect: vi.fn(), continue: vi.fn() }),
-  useTrueForgeHistoryPagination: () => ({
-    isLoadingMore: false,
-    hasMore: false,
-    loadMore: vi.fn(),
-  }),
-  useTrueForgeAgentSpec: () => ({
-    agentSpec: { model: { name: 'openai-main/gpt-4.1' } },
-  }),
-  useTrueForgeFlushAgentSpec: () => async () => {},
-  useTrueForgeAdoptAgentSpec: () => vi.fn(),
-  useTrueForgeUpdateAgentSpec: () => vi.fn(),
-}));
+      });
+    },
+    useTrueForgeCancel: () => vi.fn(),
+    useTrueForgeToolResponses: () => ({ pending: [] }),
+    useTrueForgeApprovals: () => ({ pending: [] }),
+    useTrueForgeRespondToToolApproval: () => vi.fn(),
+    useTrueForgeMcpAuth: () => ({ pending: [], connect: vi.fn(), continue: vi.fn() }),
+    useTrueForgeHistoryPagination: () => ({
+      isLoadingMore: false,
+      hasMore: false,
+      loadMore: vi.fn(),
+    }),
+    useTrueForgeAgentSpec: () => ({
+      agentSpec: { model: { name: 'openai-main/gpt-4.1' } },
+    }),
+    useTrueForgeFlushAgentSpec: () => async () => {},
+    useTrueForgeAdoptAgentSpec: () => vi.fn(),
+    useTrueForgeUpdateAgentSpec: () => vi.fn(),
+  };
+});
 
 import { SessionsPage } from '@/atoms/agent-details/SessionsPage.js';
 import { CompactLayoutProvider } from '@/atoms/lib/CompactLayoutContext.js';

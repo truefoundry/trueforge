@@ -154,6 +154,18 @@ const groupingEvents: SessionEventItem[] = [
 ];
 
 describe('AgentSessionTimelineContainer', () => {
+  it('paints session events on the first render', () => {
+    render(
+      <ServerProvider server={createMockAgentUIServer()}>
+        <AgentSessionTimelineContainer sessionId="sess-1" events={events} />
+      </ServerProvider>,
+    );
+
+    expect(screen.queryByRole('status', { name: 'Loading conversation' })).not.toBeInTheDocument();
+    expect(screen.getByText('Turn 1')).toBeInTheDocument();
+    expect(screen.getByText('hello')).toBeInTheDocument();
+  });
+
   it('passes grouped turns to the timeline slot and scrolls on select', async () => {
     const scrollIntoView = vi.fn();
     HTMLElement.prototype.scrollIntoView = scrollIntoView;

@@ -1,10 +1,11 @@
 'use client';
 
-import type {
-  TrueForgeAgentConfig,
-  UseTrueForgeAgentRuntimeOptions,
+import {
+  createSessionEventsCache,
+  type TrueForgeAgentConfig,
+  type UseTrueForgeAgentRuntimeOptions,
 } from '@truefoundry/trueforge-assistant-ui-runtime';
-import { lazy, Suspense, useCallback, useEffect, useMemo, useState, type ReactNode } from 'react';
+import { lazy, Suspense, useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from 'react';
 import { ThinkingOrb } from 'thinking-orbs';
 
 import { AnalyticsProvider } from '../analytics/AnalyticsProvider.js';
@@ -24,6 +25,7 @@ import { ResolvedRoutesProvider } from '../routing/ResolvedRoutesContext.js';
 import type { ResolvedRoutes, RoutesConfig } from '../routing/types.js';
 import { CustomActionRenderersProvider, type CustomActionRenderers } from '../server/CustomActionRenderersContext.js';
 import { ServerProvider } from '../server/ServerContext.js';
+import { SessionEventsCacheProvider } from '../server/SessionEventsCacheContext.js';
 import { createSessionListCache, withSessionListCache } from '../server/sessionListCache.js';
 import { DEFAULT_AGENT_CONFIG, ShellModeProvider, useShellMode, type AgentConfig } from '../server/ShellModeContext.js';
 import type { TrueForgeServerConfig } from '../server/TrueForgeServerConfig.js';
@@ -189,6 +191,21 @@ function ChatProviderFromShell({
 
   // Keep one isolated cache per shell, preserved across chat runtime remounts.
   const [sessionListCache] = useState(createSessionListCache);
+  const [sessionEventsCache] = useState(createSessionEventsCache);
+
+  const previousServerRef = useRef(server);
+  useEffect(() => {
+    if (previousServerRef.current !== server) {
+      sessionEventsCache.clear();
+      previousServerRef.current = server;
+    }
+  }, [server, sessionEventsCache]);
+
+  useEffect(() => {
+    return () => {
+      sessionEventsCache.clear();
+    };
+  }, [sessionEventsCache]);
 
   const serverWithCreateIntent = useMemo((): AgentUIServer => {
     return {
@@ -209,8 +226,13 @@ function ChatProviderFromShell({
   }, [server, isCreateAgent]);
 
   const cachedRuntimeServer = useMemo(
-    () => withSessionListCache({ server: serverWithCreateIntent, cache: sessionListCache }),
-    [serverWithCreateIntent, sessionListCache],
+    () =>
+      withSessionListCache({
+        server: serverWithCreateIntent,
+        cache: sessionListCache,
+        sessionEventsCache,
+      }),
+    [serverWithCreateIntent, sessionEventsCache, sessionListCache],
   );
   const runtimeServer = useMemo<AgentUIServer>(() => {
     if (historyAgentFilter == null || historyAgentFilter.agentId != null) return cachedRuntimeServer;
@@ -257,23 +279,26 @@ function ChatProviderFromShell({
   }, [mode, draftDefaultAgentSpec, pendingSessionId]);
 
   return (
-    <DraftCatalogProvider>
-      <TrueForgeChatProvider
-        key={runtimeKey}
-        {...providerRest}
-        server={runtimeServer}
-        agent={agent}
-        listSessionsAgentId={listSessionsAgentId}
-        initialSessionId={pendingSessionId ?? hostInitialSessionId}
-      >
-        <AgentConfigInstructionsProvider>
-          <DraftSpecPreferenceBridge />
-          <HistorySessionSwitchBridge />
-          {onRemoteIdChange != null ? <RemoteIdRouteBridge onRemoteIdChange={onRemoteIdChange} /> : null}
-          {children}
-        </AgentConfigInstructionsProvider>
-      </TrueForgeChatProvider>
-    </DraftCatalogProvider>
+    <SessionEventsCacheProvider cache={sessionEventsCache}>
+      <DraftCatalogProvider>
+        <TrueForgeChatProvider
+          key={runtimeKey}
+          {...providerRest}
+          server={runtimeServer}
+          agent={agent}
+          listSessionsAgentId={listSessionsAgentId}
+          initialSessionId={pendingSessionId ?? hostInitialSessionId}
+          sessionEventsCache={sessionEventsCache}
+        >
+          <AgentConfigInstructionsProvider>
+            <DraftSpecPreferenceBridge />
+            <HistorySessionSwitchBridge />
+            {onRemoteIdChange != null ? <RemoteIdRouteBridge onRemoteIdChange={onRemoteIdChange} /> : null}
+            {children}
+          </AgentConfigInstructionsProvider>
+        </TrueForgeChatProvider>
+      </DraftCatalogProvider>
+    </SessionEventsCacheProvider>
   );
 }
 
