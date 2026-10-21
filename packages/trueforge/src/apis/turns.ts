@@ -13,9 +13,11 @@ import {
   CancellationReason,
   EventType,
   isNonTerminalTurnState,
+  isTurnOffloadReason,
   SessionStoreConflictError,
   SessionStoreNotFoundError,
   TurnEventAlreadyExistsError,
+  TurnNotFoundError,
   TurnOffloadReason,
   TurnOwnershipLostError,
   TurnResourceResolver,
@@ -717,6 +719,18 @@ export async function startTurnInProcess(params: BeginTurnExecutionParams): Prom
   return turn;
 }
 
+function cancellationReason(reason: unknown): CancellationReason {
+  switch (reason) {
+    case CancellationReason.ServerExecutionTimeout:
+    case CancellationReason.CancelledForNextTurn:
+    case CancellationReason.Abandoned:
+    case CancellationReason.ClientCancelled:
+      return reason;
+    default:
+      return CancellationReason.ClientCancelled;
+  }
+}
+
 /**
  * Rebuild a paused turn this replica owns, reseed the event-stream counter from
  * the existing tail, and drain in the background. Inbox replay happens inside rebuild.
@@ -727,13 +741,20 @@ async function resumePausedTurn(input: {
   requestContext: RequestContext;
   requestHeaders?: Record<string, string> | undefined;
   deps: BeginTurnExecutionDeps;
-}): Promise<{ turn: TurnHandle; startDrain: () => void }> {
+}): Promise<{ turn: TurnHandle; signal: AbortSignal; startDrain: () => void }> {
   const { abortController, resolver, executionTimeout } = await prepareTurnExecution({
     session: input.session,
     turnId: input.turnId,
     userRef: input.requestContext.subject.id,
     requestHeaders: input.requestHeaders,
     deps: input.deps,
+  });
+  const sessionId = input.session.session_id;
+  // Visible to cancel and shutdown before rebuildTurn returns a handle.
+  input.deps.activeTurns.reservePausedTurn({
+    sessionId,
+    turnId: input.turnId,
+    abortController,
   });
 
   let turn: TurnHandle;
@@ -746,6 +767,26 @@ async function resumePausedTurn(input: {
     });
   } catch (error) {
     executionTimeout.clear();
+    // Cancel found this reservation and did not freeze. If the stream never starts,
+    // freeze here so the row still becomes terminal. Offload leaves the row paused.
+    if (
+      abortController.signal.aborted &&
+      !isTurnOffloadReason(abortController.signal.reason) &&
+      !(error instanceof TurnOwnershipLostError)
+    ) {
+      try {
+        await input.session.freezeTurn({
+          turn_id: input.turnId,
+          reason: cancellationReason(abortController.signal.reason),
+        });
+      } catch (freezeError) {
+        if (!(freezeError instanceof TurnNotFoundError)) {
+          input.deps.activeTurns.releaseReservedTurn({ sessionId, turnId: input.turnId });
+          throw new Error(`Failed to freeze turn ${input.turnId} after rebuild failed`, { cause: freezeError });
+        }
+      }
+    }
+    input.deps.activeTurns.releaseReservedTurn({ sessionId, turnId: input.turnId });
     throw error;
   }
 
@@ -758,13 +799,19 @@ async function resumePausedTurn(input: {
   } catch (error) {
     executionTimeout.clear();
     abortController.abort(TurnOffloadReason);
-    await turn.stream().return(undefined);
+    const tracked = input.deps.activeTurns.track({
+      abortController,
+      stream: turn.stream(),
+      turn,
+    });
+    await tracked.return(undefined);
     throw error;
   }
 
   let drainStarted = false;
   return {
     turn,
+    signal: abortController.signal,
     startDrain: () => {
       if (drainStarted) {
         return;
@@ -999,6 +1046,22 @@ async function rebuildOptionallyAndRun(input: {
       }
     }
     case TurnOwnershipAction.Rebuild: {
+      // An aborted run still occupies the registry until its drain finishes.
+      // getTurnHandle hides it. Wait, then read the row the drain wrote.
+      await input.deps.activeTurns.waitForDrainingRun({ sessionId, turnId });
+      const current = await input.session.getTurn(turnId);
+      if (!current) {
+        return { type: 'conflict', message: `Turn not found: ${turnId}` };
+      }
+      if (current.active_executor_id !== configuration.EXECUTOR_ID) {
+        throw new TurnOwnershipLostError({
+          turn_id: turnId,
+          active_executor_id: configuration.EXECUTOR_ID,
+        });
+      }
+      if (current.state.status !== 'paused') {
+        return { type: 'conflict', message: `Turn is not accepting events: ${turnId}` };
+      }
       const resumed = await resumePausedTurn({
         session: input.session,
         turnId,
@@ -1007,6 +1070,11 @@ async function rebuildOptionallyAndRun(input: {
         deps: input.deps,
       });
       try {
+        // Cancel aborted the reserved controller and will not freeze. The drain writes
+        // the terminal state. Skip the inbox insert so this send is not a second writer.
+        if (resumed.signal.aborted) {
+          return { type: 'conflict', message: `Turn is not accepting events: ${turnId}` };
+        }
         return await applyTurnEvents({
           handle: resumed.turn,
           events: input.events,
