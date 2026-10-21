@@ -179,6 +179,8 @@ export class ActiveTurnRegistry {
     if (run?.phase !== 'live') {
       return undefined;
     }
+    // we hide the turn from the client if it was already aborted
+    // so that the client does not try to send events to it
     if (run.abortController.signal.aborted) {
       return undefined;
     }
@@ -187,10 +189,15 @@ export class ActiveTurnRegistry {
 
   /**
    * Wait until an aborted run has left the registry.
-   * The caller holds the per-turn lock. The drain does not, so this does not deadlock.
    * A live run is left alone.
+   *
+   * Consider that turn was paused and then cancelled before the send event was processed,
+   * Cancellation just sets the abort controller and does not wait for drain. It never takes the turn lock either,
+   * When we start processing send events, getTurnHandle will return undefined
+   * The caller will see undefined and decide to rebuild the turn because it will see it as paused in store
+   * This is why we need to wait for the turn to drain and re-read the turn from store
    */
-  async waitForDrainingRun(input: { sessionId: string; turnId: string }): Promise<void> {
+  async waitForRunToDrainIfAborted(input: { sessionId: string; turnId: string }): Promise<void> {
     const run = this.runs.get(activeTurnKey(input.sessionId, input.turnId));
     if (!run?.abortController.signal.aborted) {
       return;

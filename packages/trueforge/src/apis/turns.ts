@@ -1045,7 +1045,7 @@ async function rebuildOptionallyAndRun(input: {
     case TurnOwnershipAction.Rebuild: {
       // An aborted run still occupies the registry until its drain finishes.
       // getTurnHandle hides it. Wait, then read the row the drain wrote.
-      await input.deps.activeTurns.waitForDrainingRun({ sessionId, turnId });
+      await input.deps.activeTurns.waitForRunToDrainIfAborted({ sessionId, turnId });
       const current = await input.session.getTurn(turnId);
       if (!current) {
         return { type: 'conflict', message: `Turn not found: ${turnId}` };
