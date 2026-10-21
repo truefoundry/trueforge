@@ -175,14 +175,6 @@ function resolveTerminalState(input: {
   };
 }
 
-/** A live turn is running or paused. Terminal rows are not executed. */
-function executableTurnStatus(state: TurnState): NonTerminalTurnState['status'] {
-  if (state.status === 'running' || state.status === 'paused') {
-    return state.status;
-  }
-  throw new Error(`Cannot execute a ${state.status} turn`);
-}
-
 export class TurnHandle<TTurnCustom extends object = Record<string, never>> {
   private readonly store: ISessionStore<object, TTurnCustom>;
   private turn: TurnRecord<TTurnCustom>;
@@ -293,7 +285,10 @@ export class TurnHandle<TTurnCustom extends object = Record<string, never>> {
     resolver: ITurnResourceResolver<TTurnCustom>,
     signal: AbortSignal,
   ): AsyncGenerator<TurnStreamingEvent> {
-    const turnStatus = executableTurnStatus(this.turn.state);
+    if (this.turn.state.status !== 'running' && this.turn.state.status !== 'paused') {
+      throw new Error(`Cannot execute a ${this.turn.state.status} turn`);
+    }
+    const turnStatus = this.turn.state.status;
     let caughtError: Error | undefined;
     let executeResult: AgentThreadExecutionResult | undefined;
     try {

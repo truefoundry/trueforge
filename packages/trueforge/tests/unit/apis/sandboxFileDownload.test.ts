@@ -40,7 +40,7 @@ async function buildApp() {
   app.route(
     '/',
     createTurnsRouter({
-      activeTurns: new ActiveTurnRegistry(),
+      activeTurns: new ActiveTurnRegistry({ logger: createLogger({ silent: true }) }),
       authorizer: new TrueForgeAuthorizer(),
       eventSubscriptions: new EventSubscriptionRegistry(undefined),
       logger: createLogger({ silent: true }),

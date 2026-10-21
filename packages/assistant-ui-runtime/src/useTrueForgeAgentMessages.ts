@@ -999,8 +999,7 @@ export function useTrueForgeAgentMessages({
         if (!runStreamStarted) {
           // A supersede already aborted the live stream. A send that fails
           // before it installs a message must not cancel the painted open tip.
-          const hasIncompleteStream =
-            snapshotRef.current.activeStream != null && snapshotRef.current.activeStream.streamComplete !== true;
+          const hasIncompleteStream = isIncompleteActiveStream(snapshotRef.current);
           if ('userMessage' in options && (pendingUserWasSet || hasIncompleteStream)) {
             const abandoned = abandonInFlightClientTurn(commitActiveStream(snapshotRef.current));
             snapshotRef.current = abandoned;

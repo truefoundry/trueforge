@@ -29,7 +29,7 @@ describe('public CRUD after session deletion', () => {
     await migrateSqliteToLatest(db);
     const sessionStore = new SqliteSessionStore(db);
     const sessions = new Sessions({ sessionStore });
-    const activeTurns = new ActiveTurnRegistry();
+    const activeTurns = new ActiveTurnRegistry({ logger: createLogger({ silent: true }) });
     const modelProviderStore = new SqliteModelProviderStore(db);
     const tokenStore = new SqliteOAuthTokenStore(db);
     const mcpServerStore = new McpServerWithAuthStore({

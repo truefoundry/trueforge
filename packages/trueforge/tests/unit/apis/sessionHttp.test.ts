@@ -116,7 +116,7 @@ describe('sessions HTTP agent binding', () => {
     resolveMcpServerStore = jest.fn(() => mcpServerStore);
     resolveSkillStore = jest.fn(() => skillStore);
     const deps: SessionsRouterDeps = {
-      activeTurns: new ActiveTurnRegistry(),
+      activeTurns: new ActiveTurnRegistry({ logger: createLogger({ silent: true }) }),
       authorizer: new TrueForgeAuthorizer(),
       logger: createLogger({ silent: true }),
       redis: createClient(),

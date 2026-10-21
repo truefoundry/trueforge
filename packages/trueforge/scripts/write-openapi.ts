@@ -95,7 +95,7 @@ const app = createServerApp({
   sessionStore,
   sessionMetricsStore: new SqliteSessionMetricsStore(db),
   sessions: new Sessions({ sessionStore }),
-  activeTurns: new ActiveTurnRegistry(),
+  activeTurns: new ActiveTurnRegistry({ logger: winston.createLogger({ silent: true }) }),
   requestReplyRouter: new RequestReplyRouter(),
   resolveTurnExecutionStores: () => Promise.reject(new Error('turn stores are not used while writing OpenAPI')),
   eventSubscriptions: new EventSubscriptionRegistry<TurnStreamingEvent>(undefined),

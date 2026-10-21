@@ -131,7 +131,7 @@ describe('turns', () => {
       app.route(
         '/',
         createTurnsRouter({
-          activeTurns: new ActiveTurnRegistry(),
+          activeTurns: new ActiveTurnRegistry({ logger: createLogger({ silent: true }) }),
           authorizer: new TrueForgeAuthorizer(),
           eventSubscriptions: new EventSubscriptionRegistry(undefined),
           logger: createLogger({ silent: true }),
@@ -225,7 +225,7 @@ describe('turns', () => {
       app.route(
         '/',
         createTurnsRouter({
-          activeTurns: new ActiveTurnRegistry(),
+          activeTurns: new ActiveTurnRegistry({ logger: createLogger({ silent: true }) }),
           authorizer: {
             listAgentAccess: input =>
               Promise.resolve(
@@ -325,7 +325,7 @@ describe('turns', () => {
       app.route(
         '/',
         createTurnsRouter({
-          activeTurns: new ActiveTurnRegistry(),
+          activeTurns: new ActiveTurnRegistry({ logger: createLogger({ silent: true }) }),
           authorizer: new TrueForgeAuthorizer(),
           eventSubscriptions: new EventSubscriptionRegistry(undefined),
           logger: createLogger({ silent: true }),
@@ -394,7 +394,7 @@ describe('turns', () => {
       app.route(
         '/',
         createTurnsRouter({
-          activeTurns: new ActiveTurnRegistry(),
+          activeTurns: new ActiveTurnRegistry({ logger: createLogger({ silent: true }) }),
           authorizer: new TrueForgeAuthorizer(),
           eventSubscriptions: new EventSubscriptionRegistry(undefined),
           logger: createLogger({ silent: true }),
@@ -500,7 +500,7 @@ describe('turns', () => {
       app.route(
         '/',
         createTurnsRouter({
-          activeTurns: new ActiveTurnRegistry(),
+          activeTurns: new ActiveTurnRegistry({ logger: createLogger({ silent: true }) }),
           authorizer: new TrueForgeAuthorizer(),
           eventSubscriptions,
           logger,
@@ -629,20 +629,18 @@ describe('turns', () => {
       app.route(
         '/',
         createTurnsRouter({
+          activeTurns: new ActiveTurnRegistry({ logger: createLogger({ silent: true }) }),
+          authorizer: new TrueForgeAuthorizer(),
+          eventSubscriptions: new EventSubscriptionRegistry<TurnStreamingEvent>(undefined),
+          logger,
+          requestReplyRouter: new RequestReplyRouter(),
+          resolveAgentStore: () => new SqliteAgentStore(db),
+          resolveRequestContext: () => STANDALONE_REQUEST_CONTEXT,
+          resolveTurnExecutionStores: () => Promise.resolve(turnExecutionStores(db, tokenStore)),
+          sandboxEnvironmentStore: new SqliteSandboxEnvironmentStore(db),
+          sandboxProviderStore: new SqliteSandboxProviderStore(db),
           sessions,
           sessionStore: new SqliteSessionStore(db),
-          activeTurns: new ActiveTurnRegistry(),
-          resolveModelProviderStore: () => modelProviderStore,
-          resolveMcpServerStore: () => mcpServerStoreWithAuth(db, tokenStore),
-          resolveAgentStore: () => new SqliteAgentStore(db),
-          resolveTurnSkillsStore: () => new SqliteSkillStore(db),
-          eventSubscriptions: new EventSubscriptionRegistry<TurnStreamingEvent>(undefined),
-          resolveSandboxProviderStore: () => new SqliteSandboxProviderStore(db),
-          sandboxEnvironmentStore: new SqliteSandboxEnvironmentStore(db),
-          resolveWebSearchProviderStore: () => new SqliteWebSearchProviderStore(db),
-          logger,
-          resolveRequestContext: () => STANDALONE_REQUEST_CONTEXT,
-          authorizer: new TrueForgeAuthorizer(),
         }),
       );
 
@@ -748,7 +746,7 @@ describe('turns', () => {
       app.route(
         '/',
         createTurnsRouter({
-          activeTurns: new ActiveTurnRegistry(),
+          activeTurns: new ActiveTurnRegistry({ logger: createLogger({ silent: true }) }),
           authorizer: new TrueForgeAuthorizer(),
           eventSubscriptions: new EventSubscriptionRegistry(undefined),
           logger,
@@ -833,7 +831,7 @@ describe('turns', () => {
       app.route(
         '/',
         createTurnsRouter({
-          activeTurns: new ActiveTurnRegistry(),
+          activeTurns: new ActiveTurnRegistry({ logger: createLogger({ silent: true }) }),
           authorizer,
           eventSubscriptions: new EventSubscriptionRegistry(undefined),
           logger: createLogger({ silent: true }),
