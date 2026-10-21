@@ -23,6 +23,8 @@ export function finishReasonErrorMessage({
       const used = outputTokens > 0 && outputTokens !== maxOutputTokens ? ` after ${String(outputTokens)} tokens` : '';
       return `Output truncated: hit ${limit}${used}. Raise max_tokens and retry.`;
     }
+    case 'content_filter':
+      return "Output blocked: the model's content safety filter stopped the response. Rephrase the request and retry.";
     default:
       return undefined;
   }

@@ -91,6 +91,12 @@ describe('AgentThread finish reason errors', () => {
       modelParams: undefined,
       error: "Output truncated: hit the provider's default token limit after 4096 tokens. Raise max_tokens and retry.",
     },
+    {
+      name: 'content_filter',
+      finishReason: 'content_filter',
+      modelParams: undefined,
+      error: "Output blocked: the model's content safety filter stopped the response. Rephrase the request and retry.",
+    },
   ])('fails the turn for $name', async ({ finishReason, modelParams, error }) => {
     const done = await runUntilDone({ finishReason, modelParams });
     expect(done).toMatchObject({ status: 'error', error });
