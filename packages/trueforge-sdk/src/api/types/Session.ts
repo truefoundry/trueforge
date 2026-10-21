@@ -9,6 +9,7 @@ export interface Session {
     createdBySubject: TrueForge.CreatedBySubject;
     /** Unique session id. */
     id: string;
+    lastTurnDetails: TrueForge.SessionLastTurnDetails | null;
     metadata: TrueForge.SessionMetadata;
     metrics: TrueForge.SessionMetrics;
     /** When true, any subject in the tenant may read this session and its turns/events by id. */
