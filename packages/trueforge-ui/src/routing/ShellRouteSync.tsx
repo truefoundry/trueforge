@@ -1,14 +1,14 @@
 'use client';
 
-import { useCallback, useEffect, useMemo, useRef } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useLocation, useNavigate } from 'react-router-dom';
 
 import { sessionIsCreateAgent } from '../atoms/lib/sessionCreateAgent.js';
 import { findAgentByName } from '../atoms/lib/useSearchAgentsList.js';
-import { useToasterOptional } from '../containers/ToasterContainer.js';
 import {
   useOptionalAgentSessionsServer,
   useOptionalCatalogServer,
+  useOptionalPermissionsServer,
   useOptionalSandboxEnvironmentServer,
   useOptionalScheduleServer,
   useOptionalServer,
@@ -17,12 +17,12 @@ import {
 } from '../server/ServerContext.js';
 import { libraryAgentId, useShellMode } from '../server/ShellModeContext.js';
 import { toEffectiveRoutes } from '../server/serverChrome.js';
+import { getErrorMessage } from '../utils/getErrorMessage.js';
 import {
   readHistoryAgentSearch,
   updateHistoryAgentSearch,
   type HistoryAgentSearch,
 } from '../utils/historyAgentSearch.js';
-import { reportSessionAccessError } from '../utils/sessionAccessError.js';
 import { deriveChatPlace, derivePlace } from './derivePlace.js';
 import { buildPath, matchLocation, placesEqual, sanitizeSearchForPlace } from './paths.js';
 import type { ResolvedRoutes, RoutePlace, ShellSnapshot } from './types.js';
@@ -44,22 +44,20 @@ export function ShellRouteSync({
   routes,
   activeRemoteId,
   initialSettingsOpen,
-  onError,
 }: {
   routes: ResolvedRoutes;
   activeRemoteId: string | undefined;
   initialSettingsOpen: boolean;
-  onError?: (error: unknown) => void;
 }) {
   const shell = useShellMode();
   const server = useOptionalServer();
   const catalog = useOptionalCatalogServer();
   const sessions = useOptionalAgentSessionsServer();
+  const permissions = useOptionalPermissionsServer();
   const schedules = useOptionalScheduleServer();
   const sandboxEnvironments = useOptionalSandboxEnvironmentServer();
   const capabilities = useServerCapabilities();
   const capabilitiesSettled = useServerCapabilitiesSettled();
-  const toaster = useToasterOptional();
   const navigate = useNavigate();
   const location = useLocation();
   // Same gates as sidebar chrome: missing optional ports unregister their paths.
@@ -89,6 +87,7 @@ export function ShellRouteSync({
     environmentsOpen: shell.environmentsOpen,
     pendingSessionId: shell.pendingSessionId,
     activeRemoteId,
+    sessionAccessError: shell.sessionAccessError,
     mode: shell.mode,
     agentConfigMode: shell.agentConfigMode,
   };
@@ -103,9 +102,15 @@ export function ShellRouteSync({
   const appliedUrlPlaceRef = useRef<RoutePlace | null>(null);
   const bootedRef = useRef(false);
   const bootPlaceRef = useRef<RoutePlace | null>(null);
+  // Bumped when a boot session load is abandoned, so shell->URL sync runs again.
+  const [shellSyncNonce, setShellSyncNonce] = useState(0);
   const bootHistoryAgentRef = useRef<HistoryAgentSearch | null>(null);
   // Latest session id the URL asked for, so slower lookups cannot bind over it.
   const requestedSessionRef = useRef<string | null>(null);
+  // Changes when the user starts a new chat/agent or opens another session.
+  const chatIdentity = `${shell.runtimeKey}\0${shell.pendingSessionEpoch}`;
+  const chatIdentityRef = useRef(chatIdentity);
+  chatIdentityRef.current = chatIdentity;
   const requestedHistoryAgentRef = useRef<string | null>(null);
   // Boot owns the first URL; the ongoing effects skip their initial commit so
   // they do not fight boot with the stale first-render place.
@@ -116,7 +121,7 @@ export function ShellRouteSync({
    * A URL carries only the id, so ask the server whether it names a mutable
    * draft or an agent chat; guessing "mutable" opens an agent session as a
    * blank draft. `requestedSessionRef` drops replies a later place superseded.
-   * Access denied / missing session: toast, then New Chat (do not bind the id).
+   * Access denied / missing session: keep the URL and show a full-pane error.
    */
   const goToRoot = useCallback(() => {
     shell.setSettingsOpen(false);
@@ -137,6 +142,16 @@ export function ShellRouteSync({
     }
   }, [shell]);
 
+  const releaseAbandonedBootSession = useCallback((sessionId: string) => {
+    // Boot waits until the derived place matches the deep link. If that load is
+    // superseded or abandoned, clear the wait so later shell→URL updates can run.
+    const bootPlace = bootPlaceRef.current;
+    if (bootPlace?.type === 'session' && bootPlace.sessionId === sessionId) {
+      bootPlaceRef.current = null;
+      setShellSyncNonce(nonce => nonce + 1);
+    }
+  }, []);
+
   const openSession = useCallback(
     (sessionId: string) => {
       requestedSessionRef.current = sessionId;
@@ -144,10 +159,29 @@ export function ShellRouteSync({
         shell.openHistorySession({ sessionId });
         return;
       }
-      void server
-        .getSession({ sessionId })
-        .then(session => {
-          if (requestedSessionRef.current !== sessionId) return;
+      const requestedChatIdentity = chatIdentityRef.current;
+      // Shared viewers can read a session but cannot subscribe/send. Prefer the
+      // read-only share surface when MANAGE is missing and that route exists.
+      const canManagePromise =
+        permissions == null || sessions == null
+          ? Promise.resolve(true)
+          : permissions
+              .listPermissions({ resourceType: 'session', resourceIds: [sessionId] })
+              .then(response => (response.data.permissions[sessionId] ?? []).includes('MANAGE'))
+              .catch(() => true);
+
+      void Promise.all([server.getSession({ sessionId }), canManagePromise])
+        .then(([session, canManage]) => {
+          if (requestedSessionRef.current !== sessionId) {
+            releaseAbandonedBootSession(sessionId);
+            return;
+          }
+          if (!canManage) {
+            // Leave the /sessions/:id boot wait so shell→URL can rewrite to share.
+            releaseAbandonedBootSession(sessionId);
+            shell.openSharedSession(sessionId);
+            return;
+          }
           shell.openHistorySession({
             sessionId,
             isMutable: session.isMutable,
@@ -156,19 +190,22 @@ export function ShellRouteSync({
           });
         })
         .catch((error: unknown) => {
-          if (requestedSessionRef.current !== sessionId) return;
-          requestedSessionRef.current = null;
-          // Drop boot's "wait until place matches URL" so shell→URL can leave /sessions/:id.
-          bootPlaceRef.current = null;
-          reportSessionAccessError({
-            error,
-            ...(onError != null ? { onError } : {}),
-            ...(toaster != null ? { showError: toaster.showError } : {}),
+          if (requestedSessionRef.current !== sessionId) {
+            releaseAbandonedBootSession(sessionId);
+            return;
+          }
+          // The user already left (New Chat, agent, another session): do not pull them back.
+          if (chatIdentityRef.current !== requestedChatIdentity) {
+            releaseAbandonedBootSession(sessionId);
+            return;
+          }
+          shell.openInaccessibleSession({
+            sessionId,
+            message: getErrorMessage(error, 'This session could not be loaded.'),
           });
-          goToRoot();
         });
     },
-    [goToRoot, onError, server, shell, toaster],
+    [permissions, releaseAbandonedBootSession, server, sessions, shell],
   );
 
   const applyHistoryAgentSearch = useCallback(
@@ -384,7 +421,7 @@ export function ShellRouteSync({
     navigate({ pathname: target, search: targetSearch, hash: location.hash }, { replace });
     // location.pathname intentionally excluded: only react to shell-derived place changes.
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [placeKey, routeGatesKey, shell.historyAgentFilter?.agentName, shell.historyAgentFilter?.intent]);
+  }, [placeKey, routeGatesKey, shellSyncNonce, shell.historyAgentFilter?.agentName, shell.historyAgentFilter?.intent]);
 
   // URL -> shell: apply on genuine location changes (Back/Forward, manual edits).
   useEffect(() => {

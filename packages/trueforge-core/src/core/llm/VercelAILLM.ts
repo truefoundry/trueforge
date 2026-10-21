@@ -45,6 +45,7 @@ import {
   type RawAssistantMessageWithUsage,
   type ThinkingBlock,
 } from './LLMTypes';
+import { resolveMaxOutputTokens } from './usage';
 
 // ---------------------------------------------------------------------------
 // Public config
@@ -577,14 +578,6 @@ export function buildProviderOptions({
 // ---------------------------------------------------------------------------
 // Request conversion (OpenAI → SDK)
 // ---------------------------------------------------------------------------
-
-/** Prefers `max_completion_tokens`, falling back to the deprecated `max_tokens`. */
-export function resolveMaxOutputTokens(
-  body: Pick<ChatCompletionCreateParamsStreaming, 'max_completion_tokens'>,
-): number | undefined {
-  const limit: unknown = body.max_completion_tokens ?? Reflect.get(body, 'max_tokens');
-  return typeof limit === 'number' ? limit : undefined;
-}
 
 /** Parses the MIME type from a data URI (`data:<mime>;base64,...`). */
 export function parseMimeFromDataUri(uri: string): string | undefined {

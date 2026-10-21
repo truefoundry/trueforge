@@ -154,6 +154,13 @@ type ShellModeContextValue = {
     isMutable?: boolean;
     isCreateAgent?: boolean;
   }) => void;
+  /**
+   * Keep `/sessions/:id` in place and surface a full-pane load failure
+   * (no toast / redirect). Cleared when opening another session or draft.
+   */
+  openInaccessibleSession: (req: { sessionId: string; message: string }) => void;
+  /** Backend/access message when the current pending session could not be opened. */
+  sessionAccessError: string | null;
   /** Reset current chat; no-op when idle. */
   clearChat: () => void;
   /** Return library-only mode to its idle landing; no-op in other modes. */
@@ -278,6 +285,7 @@ export function ShellModeProvider({
   const [historyAgentFilter, setHistoryAgentFilter] = useState<HistoryAgentFilter | null>(null);
   const [pendingSessionId, setPendingSessionId] = useState<string | undefined>(undefined);
   const [pendingSessionEpoch, setPendingSessionEpoch] = useState(0);
+  const [sessionAccessError, setSessionAccessError] = useState<string | null>(null);
   const settingsEnabled = isSettingsChromeEnabled({ catalog, capabilities });
   const settingsOpen = settingsEnabled && settingsOpenState;
   const sessionsEnabled = isSessionsChromeEnabled({ sessions: sessionsServer });
@@ -491,6 +499,7 @@ export function ShellModeProvider({
         setSessionsOpen(false);
         setSchedulesOpen(false);
         setEnvironmentsOpen(false);
+        setSessionAccessError(null);
         setPendingSessionId(undefined);
         const isCreateAgent = resolveMutableIsCreateAgent(req);
         const kind: DraftPreferenceKind = isCreateAgent ? 'agent' : 'chat';
@@ -517,6 +526,7 @@ export function ShellModeProvider({
       setSessionsOpen(false);
       setSchedulesOpen(false);
       setEnvironmentsOpen(false);
+      setSessionAccessError(null);
       setPendingSessionId(undefined);
       setAgentConfigOpenState(false);
       setMode({
@@ -612,6 +622,7 @@ export function ShellModeProvider({
       setSessionsOpen(false);
       setSchedulesOpen(false);
       setEnvironmentsOpen(false);
+      setSessionAccessError(null);
       setAgentConfigOpenState(true);
       return;
     }
@@ -722,6 +733,7 @@ export function ShellModeProvider({
       setSessionsOpen(false);
       setSchedulesOpen(false);
       setEnvironmentsOpen(false);
+      setSessionAccessError(null);
       setPendingSessionId(sessionId);
       setPendingSessionEpoch(n => n + 1);
       if (isMutable) {
@@ -757,8 +769,42 @@ export function ShellModeProvider({
     ],
   );
 
+  const openInaccessibleSession = useCallback(
+    ({ sessionId, message }: { sessionId: string; message: string }) => {
+      setSettingsOpen(false);
+      setLibraryOpenState(false);
+      setLibraryAgentId(null);
+      setSessionsOpen(false);
+      setSchedulesOpen(false);
+      setEnvironmentsOpen(false);
+      setAgentConfigOpenState(false);
+      setSessionAccessError(message);
+      setPendingSessionId(sessionId);
+      setPendingSessionEpoch(n => n + 1);
+      // Keep chrome non-idle so layouts render the thread slot (gated by sessionAccessError).
+      if (isComposerEnabled) {
+        setMode({
+          status: 'active',
+          isMutable: true,
+          isCreateAgent: false,
+          agentSpec: chatSeedRef.current,
+          locked: false,
+        });
+        return;
+      }
+      setMode({
+        status: 'active',
+        isMutable: false,
+        isCreateAgent: false,
+        locked: false,
+      });
+    },
+    [isComposerEnabled, setSettingsOpen, setSessionsOpen, setSchedulesOpen, setEnvironmentsOpen],
+  );
+
   const clearChat = useCallback(() => {
     if (effectiveMode.status === 'idle') return;
+    setSessionAccessError(null);
     setPendingSessionId(undefined);
     if (effectiveMode.isMutable) {
       // Preserve Edit / builder vs chat intent. New Chat must use the latest
@@ -791,6 +837,7 @@ export function ShellModeProvider({
   const openLibraryHome = useCallback(() => {
     // Only library-only mode has an idle landing; other modes root via openDraft / clearChat.
     if (!isLibraryEnabled || isComposerEnabled) return;
+    setSessionAccessError(null);
     setPendingSessionId(undefined);
     setSettingsOpen(false);
     setLibraryOpenState(false);
@@ -842,6 +889,8 @@ export function ShellModeProvider({
       resetAgentBuilder,
       rememberDraftSpec,
       openHistorySession,
+      openInaccessibleSession,
+      sessionAccessError,
       clearChat,
       openLibraryHome,
       runtimeKey,
@@ -888,6 +937,8 @@ export function ShellModeProvider({
       resetAgentBuilder,
       rememberDraftSpec,
       openHistorySession,
+      openInaccessibleSession,
+      sessionAccessError,
       clearChat,
       openLibraryHome,
       runtimeKey,
