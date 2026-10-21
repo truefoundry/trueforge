@@ -312,6 +312,9 @@ export class SessionHandle<
         session_id: this.session.session_id,
         turn_id: input.turn_id,
       });
+      input.resolver.logger.info('Rebuilding paused turn', {
+        pendingEventCount: pendingTurnEvents.length,
+      });
       const { orchestrator } = await this.assembleTurn({
         previous: turn,
         resolver: input.resolver,

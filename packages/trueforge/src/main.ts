@@ -485,6 +485,7 @@ async function createServerRuntime<TTransaction>(persistence: ServerPersistence<
 
   const activeTurns = new ActiveTurnRegistry({
     pausedKeepaliveMs: configuration.TURN_PAUSED_KEEPALIVE_SECONDS * 1000,
+    logger,
   });
   const requestReplyRouter = new RequestReplyRouter();
   const eventSubscriptions = new EventSubscriptionRegistry<TurnStreamingEvent>(redis?.client);

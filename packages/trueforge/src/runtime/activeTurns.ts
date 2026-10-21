@@ -6,10 +6,16 @@
  */
 import { CancellationReason, TurnOffloadReason, type TurnHandle } from '@truefoundry/trueforge-core/agent-session';
 import { Mutex } from 'async-mutex';
+import type { Logger } from 'winston';
+import { currentLogContext, runWithLogContext, type LogContext } from '../logger';
 
 const DEFAULT_PAUSED_KEEPALIVE_MS = 300_000;
 
 interface ActiveTurnRun {
+  sessionId: string;
+  turnId: string;
+  /** Ids active when the run was registered. Timer and shutdown logs re-enter this. */
+  logContext: LogContext | undefined;
   /** Absent until `track()` attaches the stream. A reserved rebuild has no handle yet. */
   turn: TurnHandle | undefined;
   /** A rebuild reserved before `track()`. The row is paused, so shutdown offloads it. */
@@ -21,6 +27,14 @@ interface ActiveTurnRun {
 
 function activeTurnKey(sessionId: string, turnId: string): string {
   return `${sessionId}:${turnId}`;
+}
+
+function snapshotLogContext(): LogContext | undefined {
+  const current = currentLogContext();
+  if (current === undefined) {
+    return undefined;
+  }
+  return { ...current };
 }
 
 function isPausedRun(run: ActiveTurnRun | undefined): run is ActiveTurnRun {
@@ -42,10 +56,12 @@ export class ActiveTurnRegistry {
   private readonly keepaliveTimers = new Map<string, NodeJS.Timeout>();
   // the time to keep the turn alive for, in milliseconds
   private readonly pausedKeepaliveMs: number;
+  private readonly logger: Logger | undefined;
   private alreadyShutDownAbortReason: CancellationReason | undefined;
 
-  constructor(options?: { pausedKeepaliveMs?: number }) {
+  constructor(options?: { pausedKeepaliveMs?: number; logger?: Logger }) {
     this.pausedKeepaliveMs = options?.pausedKeepaliveMs ?? DEFAULT_PAUSED_KEEPALIVE_MS;
+    this.logger = options?.logger?.child({ module: 'ActiveTurnRegistry' });
   }
 
   /**
@@ -96,6 +112,9 @@ export class ActiveTurnRegistry {
         resolve(undefined);
       };
       run = {
+        sessionId: input.turn.session_id,
+        turnId: input.turn.id,
+        logContext: snapshotLogContext(),
         abortController: input.abortController,
         waitUntilCompleted,
         markCompleted,
@@ -108,8 +127,11 @@ export class ActiveTurnRegistry {
     // Accepted HTTP may still call track() after shutdownAndWait snapshotted.
     // Offload a paused turn so its row survives. Abort any other turn with the shutdown reason.
     if (this.alreadyShutDownAbortReason !== undefined && !input.abortController.signal.aborted) {
-      const reason = isPausedRun(run) ? TurnOffloadReason : this.alreadyShutDownAbortReason;
-      input.abortController.abort(reason);
+      const offload = isPausedRun(run);
+      if (offload) {
+        this.logOffload(run, 'shutdown');
+      }
+      input.abortController.abort(offload ? TurnOffloadReason : this.alreadyShutDownAbortReason);
     }
 
     const complete = () => {
@@ -191,14 +213,19 @@ export class ActiveTurnRegistry {
     const markCompleted = (): void => {
       resolve(undefined);
     };
-    this.runs.set(key, {
+    const run: ActiveTurnRun = {
+      sessionId: input.sessionId,
+      turnId: input.turnId,
+      logContext: snapshotLogContext(),
       turn: undefined,
       reservedPaused: true,
       abortController: input.abortController,
       waitUntilCompleted,
       markCompleted,
-    });
+    };
+    this.runs.set(key, run);
     if (this.alreadyShutDownAbortReason !== undefined && !input.abortController.signal.aborted) {
+      this.logOffload(run, 'shutdown');
       input.abortController.abort(TurnOffloadReason);
     }
   }
@@ -220,8 +247,11 @@ export class ActiveTurnRegistry {
    * A later send on this owner rebuilds. `0` disables the timer.
    */
   startPausedKeepalive(input: { sessionId: string; turnId: string }): void {
-    this.clearPausedKeepalive(input);
+    const replaced = this.discardPausedKeepalive(input);
     if (this.pausedKeepaliveMs <= 0 || this.alreadyShutDownAbortReason !== undefined) {
+      if (replaced) {
+        this.infoForTurn(input, 'Paused keepalive cleared', { pausedKeepaliveMs: this.pausedKeepaliveMs });
+      }
       return;
     }
     const key = activeTurnKey(input.sessionId, input.turnId);
@@ -234,22 +264,36 @@ export class ActiveTurnRegistry {
         this.keepaliveTimers.delete(key);
         const run = this.runs.get(key);
         if (isPausedRun(run)) {
+          this.logOffload(run, 'keepalive');
           await this.finishRun(run, TurnOffloadReason);
+          return;
         }
+        this.infoForTurn(input, 'Paused keepalive expired; turn is no longer paused');
       });
     }, this.pausedKeepaliveMs);
     timer.unref();
     this.keepaliveTimers.set(key, timer);
+    this.infoForTurn(input, replaced ? 'Paused keepalive restarted' : 'Paused keepalive started', {
+      pausedKeepaliveMs: this.pausedKeepaliveMs,
+    });
   }
 
   clearPausedKeepalive(input: { sessionId: string; turnId: string }): void {
+    if (!this.discardPausedKeepalive(input)) {
+      return;
+    }
+    this.infoForTurn(input, 'Paused keepalive cleared');
+  }
+
+  private discardPausedKeepalive(input: { sessionId: string; turnId: string }): boolean {
     const key = activeTurnKey(input.sessionId, input.turnId);
     const timer = this.keepaliveTimers.get(key);
     if (!timer) {
-      return;
+      return false;
     }
     clearTimeout(timer);
     this.keepaliveTimers.delete(key);
+    return true;
   }
 
   /**
@@ -260,6 +304,9 @@ export class ActiveTurnRegistry {
     const run = this.runs.get(activeTurnKey(input.sessionId, input.turnId));
     if (!run) {
       return;
+    }
+    if (!run.abortController.signal.aborted) {
+      this.logOffload(run, 'not-owner');
     }
     await this.finishRun(run, TurnOffloadReason);
   }
@@ -272,21 +319,56 @@ export class ActiveTurnRegistry {
    */
   async shutdownAndWait(abortReason: CancellationReason): Promise<void> {
     this.alreadyShutDownAbortReason = abortReason;
+    const timerCount = this.keepaliveTimers.size;
     for (const timer of this.keepaliveTimers.values()) {
       clearTimeout(timer);
     }
     this.keepaliveTimers.clear();
+    if (timerCount > 0) {
+      this.logger?.info('Cleared paused keepalive timers for shutdown', { timerCount });
+    }
     while (this.runs.size > 0) {
       const pending = Array.from(this.runs.values());
       for (const run of pending) {
         if (run.abortController.signal.aborted) {
           continue;
         }
-        const reason = isPausedRun(run) ? TurnOffloadReason : abortReason;
-        run.abortController.abort(reason);
+        const offload = isPausedRun(run);
+        if (offload) {
+          this.logOffload(run, 'shutdown');
+        }
+        run.abortController.abort(offload ? TurnOffloadReason : abortReason);
       }
       await Promise.allSettled(pending.map(run => run.waitUntilCompleted));
     }
+  }
+
+  private logOffload(run: ActiveTurnRun, cause: 'keepalive' | 'not-owner' | 'shutdown'): void {
+    this.infoInContext(run.logContext, 'Offloading paused turn', { cause });
+  }
+
+  private infoForTurn(
+    input: { sessionId: string; turnId: string },
+    message: string,
+    fields?: Record<string, unknown>,
+  ): void {
+    const run = this.runs.get(activeTurnKey(input.sessionId, input.turnId));
+    this.infoInContext(run?.logContext, message, fields);
+  }
+
+  private infoInContext(context: LogContext | undefined, message: string, fields?: Record<string, unknown>): void {
+    const write = (): void => {
+      if (fields === undefined) {
+        this.logger?.info(message);
+        return;
+      }
+      this.logger?.info(message, fields);
+    };
+    if (context === undefined) {
+      write();
+      return;
+    }
+    runWithLogContext(context, write);
   }
 
   private async finishRun(run: ActiveTurnRun, reason: CancellationReason | typeof TurnOffloadReason): Promise<void> {

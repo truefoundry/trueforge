@@ -70,7 +70,7 @@ import type { ISandboxProviderStore } from '../db/sandboxProviderStore';
 import type { ISkillStore } from '../db/skillStore';
 import type { TurnMetadata } from '../db/turnMetadata';
 import type { IWebSearchProviderStore } from '../db/webSearchProviderStore';
-import { currentLogContext, updateLogContext } from '../logger';
+import { currentLogContext, runWithLogContext, updateLogContext } from '../logger';
 import {
   createAndExecuteTurnRoute,
   downloadSandboxFileRoute,
@@ -735,6 +735,12 @@ async function resumePausedTurn(input: {
   requestHeaders?: Record<string, string> | undefined;
   deps: BeginTurnExecutionDeps;
 }): Promise<{ turn: TurnHandle; signal: AbortSignal; startDrain: () => void }> {
+  // Same chain as create: model, MCP, sandbox, and the detached drain keep these ids.
+  updateLogContext({
+    tenant_id: input.session.tenant_id,
+    session_id: input.session.session_id,
+    turn_id: input.turnId,
+  });
   const { abortController, resolver, executionTimeout } = await prepareTurnExecution({
     session: input.session,
     turnId: input.turnId,
@@ -1208,14 +1214,15 @@ async function attemptSendTurnEvents(input: {
     heartbeatMissing = (await input.deps.redis.exists(heartbeatKey(refetchedTurn.active_executor_id))) === 0;
   } catch (error) {
     input.deps.logger.warn('Failed to recheck owner heartbeat before steal', {
-      sessionId,
-      turnId: input.turnId,
       owner: refetchedTurn.active_executor_id,
       ...extractErrorLogFields(error),
     });
     return { type: 'unavailable', message: `Turn owner is unavailable: ${input.turnId}` };
   }
   if (!heartbeatMissing) {
+    input.deps.logger.info('Owner heartbeat is present; not stealing paused turn', {
+      owner: refetchedTurn.active_executor_id,
+    });
     return 'retry';
   }
   const action = resolveOwnershipAction({
@@ -1225,6 +1232,9 @@ async function attemptSendTurnEvents(input: {
     peerOutcome: forwarded.peerOutcome,
   });
   if (action === TurnOwnershipAction.Steal) {
+    input.deps.logger.info('Stealing paused turn', {
+      fromExecutor: refetchedTurn.active_executor_id,
+    });
     const won = await input.sessionStore.claimTurnExecutor({
       session_id: sessionId,
       turn_id: input.turnId,
@@ -1232,8 +1242,14 @@ async function attemptSendTurnEvents(input: {
       new_executor_id: configuration.EXECUTOR_ID,
     });
     if (!won) {
+      input.deps.logger.info('Paused turn steal lost the claim', {
+        fromExecutor: refetchedTurn.active_executor_id,
+      });
       return 'retry';
     }
+    input.deps.logger.info('Paused turn steal claimed the row', {
+      executorId: configuration.EXECUTOR_ID,
+    });
     try {
       return await rebuildOptionallyAndRun({
         session: input.session,
@@ -1317,53 +1333,62 @@ function handlePeerTurnEvents(deps: TurnsRouterDeps): RequestReplyRouteHandler {
     if (!parsed.success) {
       return { status: 400, body: { message: 'Invalid turns/send-events payload' } };
     }
-    const session = await deps.sessions.get({
-      tenant_id: parsed.data.tenant_id,
-      session_id: parsed.data.session_id,
-    });
-    if (!session) {
-      return { status: 404, body: { message: `Session not found: ${parsed.data.session_id}` } };
-    }
-    const result = await deps.activeTurns.withTurnLock(
-      { sessionId: parsed.data.session_id, turnId: parsed.data.turn_id },
-      async () => {
-        const requestContext = requestContextFromWire(parsed.data.request_context);
-        const runAsAgent = await referencedRunAsAgent({
-          session,
-          agentStore: deps.resolveAgentStore(requestContext),
-        });
-        const executionDeps = await executionDepsForCaller({
-          deps,
-          session,
-          requestContext,
-          requestHeaders: parsed.data.request_headers,
-          ...(runAsAgent !== undefined ? { runAsAgent } : {}),
-        });
-        return acceptOwnedTurnEvents({
-          session,
-          sessionStore: deps.sessionStore,
-          turnId: parsed.data.turn_id,
-          events: parsed.data.events,
-          requestContext,
-          requestHeaders: parsed.data.request_headers,
-          deps: executionDeps,
-        });
+    // No HTTP request context on this path. Resume and its drain inherit these ids.
+    return runWithLogContext(
+      {
+        tenant_id: parsed.data.tenant_id,
+        session_id: parsed.data.session_id,
+        turn_id: parsed.data.turn_id,
       },
+      () => handleParsedPeerTurnEvents(deps, parsed.data),
     );
-    if (result.type === 'applied') {
-      return { status: 200, body: jsonValueFrom({ events: result.events }) };
-    }
-    if (result.type === 'invalid') {
-      return { status: 400, body: { message: result.message } };
-    }
-    if (result.type === 'not_owner') {
-      return { status: 412, body: { message: 'Turn is not running on this executor' } };
-    }
-    if (result.type === 'conflict') {
-      return { status: 409, body: { message: result.message } };
-    }
-    return { status: 503, body: { message: result.message } };
   };
+}
+
+async function handleParsedPeerTurnEvents(deps: TurnsRouterDeps, body: z.infer<typeof SendEventsPeerBodySchema>) {
+  const session = await deps.sessions.get({
+    tenant_id: body.tenant_id,
+    session_id: body.session_id,
+  });
+  if (!session) {
+    return { status: 404, body: { message: `Session not found: ${body.session_id}` } };
+  }
+  const result = await deps.activeTurns.withTurnLock({ sessionId: body.session_id, turnId: body.turn_id }, async () => {
+    const requestContext = requestContextFromWire(body.request_context);
+    const runAsAgent = await referencedRunAsAgent({
+      session,
+      agentStore: deps.resolveAgentStore(requestContext),
+    });
+    const executionDeps = await executionDepsForCaller({
+      deps,
+      session,
+      requestContext,
+      requestHeaders: body.request_headers,
+      ...(runAsAgent !== undefined ? { runAsAgent } : {}),
+    });
+    return acceptOwnedTurnEvents({
+      session,
+      sessionStore: deps.sessionStore,
+      turnId: body.turn_id,
+      events: body.events,
+      requestContext,
+      requestHeaders: body.request_headers,
+      deps: executionDeps,
+    });
+  });
+  if (result.type === 'applied') {
+    return { status: 200, body: jsonValueFrom({ events: result.events }) };
+  }
+  if (result.type === 'invalid') {
+    return { status: 400, body: { message: result.message } };
+  }
+  if (result.type === 'not_owner') {
+    return { status: 412, body: { message: 'Turn is not running on this executor' } };
+  }
+  if (result.type === 'conflict') {
+    return { status: 409, body: { message: result.message } };
+  }
+  return { status: 503, body: { message: result.message } };
 }
 
 /** Mapped client error from turn execution; undefined means rethrow. */

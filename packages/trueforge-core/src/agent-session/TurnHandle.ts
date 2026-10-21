@@ -342,6 +342,11 @@ export class TurnHandle<TTurnCustom extends object = Record<string, never>> {
     if (closeError !== undefined) {
       throw closeError;
     }
+    if (isTurnOffloadReason(input.signal.reason)) {
+      input.resolver.logger.info('Offloaded paused turn without a terminal write');
+    } else if (ownershipLost !== undefined) {
+      input.resolver.logger.info('Lost turn ownership; skipped the terminal write');
+    }
     if (turnDone !== undefined) {
       yield turnDone;
     }

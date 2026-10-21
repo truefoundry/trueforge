@@ -585,6 +585,9 @@ export class AgentThreadOrchestrator {
     let rootAgentError: AgentThreadExecutionResult['root_agent_error'];
     let rootFinished = false;
     let turnPaused = turnStatus === 'paused';
+    if (turnPaused) {
+      this.logger.info('Executing paused turn', { pendingEventCount: this.pendingTurnEvents.length });
+    }
 
     const mainThread = this.getMainThread();
     const rootSpan = createRootAgentSpan(mainThread, this.tracing);
