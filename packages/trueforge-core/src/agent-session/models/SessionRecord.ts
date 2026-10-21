@@ -1,4 +1,10 @@
-import type { SessionAgent, SessionMetadata, SessionMetrics, SessionSource } from '../schemas/session';
+import type {
+  SessionAgent,
+  SessionLastTurnDetails,
+  SessionMetadata,
+  SessionMetrics,
+  SessionSource,
+} from '../schemas/session';
 import type { CreatedBySubject } from '../schemas/subject';
 
 /**
@@ -36,6 +42,7 @@ export interface SessionRecord<TCustom extends object = Record<string, never>> {
    * listing anchors. Advanced only by `createTurn` (atomic link).
    */
   last_turn_id: string | null;
+  last_turn_details: SessionLastTurnDetails | null;
   /** Instant the session was created (store domain). Wire/API serialize as ISO-8601. */
   created_at: Date;
   /** Instant the session was last updated (store domain). Wire/API serialize as ISO-8601. */

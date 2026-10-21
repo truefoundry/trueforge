@@ -501,7 +501,6 @@ export class PostgresSandboxEnvironmentStore implements ISandboxEnvironmentStore
       .where('tenant_id', '=', input.tenant_id)
       .where('name', '=', input.name)
       .where('lifecycle_stage', '=', 'active')
-      .where(sql`created_by_subject->>'subject_id'`, '=', input.created_by_subject_id)
       .forUpdate()
       .executeTakeFirst();
     if (environment === undefined) {

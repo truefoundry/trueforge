@@ -22,9 +22,12 @@ export enum CancellationReason {
   Abandoned = 'abandoned',
 }
 
+/** Every `TurnState` arm takes its `status` literal from here. */
+export const TurnStatusSchema = z.enum(['running', 'paused', 'done', 'cancelled', 'error']).openapi('TurnStatus');
+
 export const TurnStateRunningSchema = z
   .object({
-    status: z.literal('running').describe('Turn is still executing.'),
+    status: z.literal(TurnStatusSchema.enum.running).describe('Turn is still executing.'),
   })
   .openapi('TurnStateRunning');
 
@@ -36,7 +39,7 @@ export const ActionRequiredSchema = z
 
 export const TurnStatePausedSchema = z
   .object({
-    status: z.literal('paused').describe('Turn is paused waiting for required actions.'),
+    status: z.literal(TurnStatusSchema.enum.paused).describe('Turn is paused waiting for required actions.'),
     action_required_on_events: z
       .array(ActionRequiredSchema)
       .describe('Events that still need a user or client action.'),
@@ -93,7 +96,7 @@ export const TurnMetricsSchema = z
 
 export const TurnStateCancelledSchema = z
   .object({
-    status: z.literal('cancelled').describe('Turn was cancelled before completion.'),
+    status: z.literal(TurnStatusSchema.enum.cancelled).describe('Turn was cancelled before completion.'),
     reason: TurnStateCancelledReasonSchema,
     completed_at: z.string().describe('ISO 8601 time when cancellation completed.'),
     metrics: TurnMetricsSchema.optional().describe('Optional billable aggregate for work done before cancel.'),
@@ -102,7 +105,7 @@ export const TurnStateCancelledSchema = z
 
 export const TurnStateErrorSchema = z
   .object({
-    status: z.literal('error').describe('Turn ended with an error.'),
+    status: z.literal(TurnStatusSchema.enum.error).describe('Turn ended with an error.'),
     message: z.string().describe('Human-readable error message.'),
     completed_at: z.string().describe('ISO 8601 time when the error state was recorded.'),
     metrics: TurnMetricsSchema.optional().describe('Optional billable aggregate for work done before the error.'),
@@ -111,7 +114,7 @@ export const TurnStateErrorSchema = z
 
 export const TurnStateDoneSchema = z
   .object({
-    status: z.literal('done').describe('Turn finished with no open required actions.'),
+    status: z.literal(TurnStatusSchema.enum.done).describe('Turn finished with no open required actions.'),
     output: z
       .union([ModelMessageEventSchema, z.null()])
       .describe('Final `model.message` for the turn, or null when the turn ended without a final message.'),
