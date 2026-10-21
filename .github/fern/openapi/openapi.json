@@ -8024,6 +8024,16 @@
             },
             "description": "Unauthenticated."
           },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/RequestErrorResponse"
+                }
+              }
+            },
+            "description": "User does not have permission to edit Sandbox environment"
+          },
           "409": {
             "content": {
               "application/json": {
@@ -8106,6 +8116,16 @@
               }
             },
             "description": "Unauthenticated."
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/RequestErrorResponse"
+                }
+              }
+            },
+            "description": "User does not have permission to edit Sandbox environment"
           },
           "404": {
             "content": {
@@ -8199,6 +8219,16 @@
               }
             },
             "description": "Unauthenticated."
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/RequestErrorResponse"
+                }
+              }
+            },
+            "description": "User does not have permission to edit Sandbox environment"
           },
           "404": {
             "content": {
