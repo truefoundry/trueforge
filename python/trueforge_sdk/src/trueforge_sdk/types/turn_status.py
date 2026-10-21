@@ -8,10 +8,6 @@ T_Result = typing.TypeVar("T_Result")
 
 
 class TurnStatus(enum.StrEnum):
-    """
-    Lifecycle status of a turn.
-    """
-
     RUNNING = "running"
     PAUSED = "paused"
     DONE = "done"

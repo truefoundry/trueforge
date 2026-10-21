@@ -5624,7 +5624,6 @@
         "type": "object"
       },
       "TurnStatus": {
-        "description": "Lifecycle status of a turn.",
         "enum": [
           "running",
           "paused",
