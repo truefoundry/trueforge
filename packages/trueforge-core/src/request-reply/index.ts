@@ -21,3 +21,4 @@ export { RequestReplyRouter } from './router';
 export type { RouteHandler } from './router';
 export { jsonReplySchema, jsonValueFrom } from './types';
 export type { JSONReply, JSONValue, RequestEnvelope, RequestHandler } from './types';
+export { heartbeatKey } from './utils';

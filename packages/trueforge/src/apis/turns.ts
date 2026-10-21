@@ -44,6 +44,7 @@ import {
   withTimeout,
 } from '@truefoundry/trueforge-core/core';
 import {
+  heartbeatKey,
   jsonValueFrom,
   NO_RESPONDER_PUBLISH_DETAIL,
   NoResponderError,
@@ -1204,6 +1205,27 @@ async function attemptSendTurnEvents(input: {
     return { type: 'conflict', message: `Turn is not accepting events: ${refetchedTurn.turn_id}` };
   }
   if (refetchedTurn.state.status !== 'paused' || refetchedTurn.active_executor_id !== turn.active_executor_id) {
+    return 'retry';
+  }
+  // NoResponder covers a missing key before PUBLISH and a key that expires during the
+  // reply wait. The owner can refresh it before this claim. Steal only while it is still
+  // missing. A Redis error on this check is not proof the owner is gone.
+  if (input.deps.redis === undefined) {
+    return { type: 'unavailable', message: `Turn owner is unavailable: ${input.turnId}` };
+  }
+  let heartbeatMissing: boolean;
+  try {
+    heartbeatMissing = (await input.deps.redis.exists(heartbeatKey(refetchedTurn.active_executor_id))) === 0;
+  } catch (error) {
+    input.deps.logger.warn('Failed to recheck owner heartbeat before steal', {
+      sessionId,
+      turnId: input.turnId,
+      owner: refetchedTurn.active_executor_id,
+      ...extractErrorLogFields(error),
+    });
+    return { type: 'unavailable', message: `Turn owner is unavailable: ${input.turnId}` };
+  }
+  if (!heartbeatMissing) {
     return 'retry';
   }
   const action = resolveOwnershipAction({
