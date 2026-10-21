@@ -58,15 +58,17 @@ describe('TrueForgeAuthorizer.getPermissions', () => {
 
   it('grants MANAGE/DELETE via canEditSchedule (owner or admin)', async () => {
     const scheduleStore = {
-      getSchedule: jest.fn(async ({ id }: { id: string }) => {
-        if (id === 'sched-1') {
-          return { id: 'sched-1', created_by_subject: { subject_id: 'alice' } };
-        }
-        if (id === 'sched-2') {
-          return { id: 'sched-2', created_by_subject: { subject_id: 'carol' } };
-        }
-        return undefined;
-      }),
+      getSchedulesByIds: jest.fn(async ({ ids }: { ids: readonly string[] }) =>
+        ids.flatMap(id => {
+          if (id === 'sched-1') {
+            return [{ id: 'sched-1', created_by_subject: { subject_id: 'alice' } }];
+          }
+          if (id === 'sched-2') {
+            return [{ id: 'sched-2', created_by_subject: { subject_id: 'carol' } }];
+          }
+          return [];
+        }),
+      ),
     } as unknown as IScheduleStore;
 
     expect(
@@ -113,6 +115,30 @@ describe('TrueForgeAuthorizer.getPermissions', () => {
         'sched-2': ['MANAGE', 'DELETE'],
       },
     });
+  });
+
+  it('batches schedule ownership with deduped ids (no per-id getSchedule)', async () => {
+    const scheduleStore = {
+      getSchedule: jest.fn(),
+      getSchedulesByIds: jest.fn(async ({ ids }: { ids: readonly string[] }) => {
+        expect(ids).toEqual(['sched-1']);
+        return [{ id: 'sched-1', created_by_subject: { subject_id: 'alice' } }];
+      }),
+    } as unknown as IScheduleStore;
+
+    await expect(
+      authorizer.getPermissions({
+        resourceType: 'schedule',
+        requestContext: ALICE,
+        resourceIds: Array.from({ length: 100 }, () => 'sched-1'),
+        store: scheduleStore,
+      }),
+    ).resolves.toEqual({
+      type: 'schedule',
+      permissions: { 'sched-1': ['MANAGE', 'DELETE'] },
+    });
+    expect(scheduleStore.getSchedulesByIds).toHaveBeenCalledTimes(1);
+    expect(scheduleStore.getSchedule).not.toHaveBeenCalled();
   });
 
   it('always grants tenant agent CREATE in standalone mode; sandbox env CREATE follows canEditEnvironment', async () => {

@@ -178,6 +178,48 @@ describe('EnvironmentsPage', () => {
     });
   });
 
+  it('opens create drawer from envIsNew only after CREATE is granted', async () => {
+    window.history.replaceState(null, '', '/environments?envIsNew=true');
+    renderPage();
+    expect(await screen.findByRole('heading', { name: 'New environment' })).toBeInTheDocument();
+    await waitFor(() => {
+      expect(new URL(window.location.href).searchParams.get('envIsNew')).toBeNull();
+    });
+  });
+
+  it('does not open create drawer from envIsNew when CREATE is denied', async () => {
+    window.history.replaceState(null, '', '/environments?envIsNew=true');
+    let resolveTenant: ((value: ListPermissionsResponse) => void) | undefined;
+    renderPage({
+      permissions: {
+        listPermissions: vi.fn(async ({ resourceType }): Promise<ListPermissionsResponse> => {
+          if (resourceType !== 'tenant') {
+            return { data: { type: resourceType, permissions: {} } };
+          }
+          return new Promise(resolve => {
+            resolveTenant = resolve;
+          });
+        }),
+      },
+    });
+
+    expect(screen.queryByRole('heading', { name: 'New environment' })).not.toBeInTheDocument();
+
+    await act(async () => {
+      resolveTenant?.({
+        data: { type: 'tenant', permissions: { agent: ['CREATE'], sandbox_environment: [] } },
+      });
+    });
+
+    await waitFor(() => {
+      expect(screen.getByRole('button', { name: /New Environment/i })).toBeDisabled();
+    });
+    expect(screen.queryByRole('heading', { name: 'New environment' })).not.toBeInTheDocument();
+    await waitFor(() => {
+      expect(new URL(window.location.href).searchParams.get('envIsNew')).toBeNull();
+    });
+  });
+
   it('does not offer edit or delete actions without MANAGE/DELETE', async () => {
     renderPage({
       environments: [
@@ -303,9 +345,7 @@ describe('EnvironmentsPage', () => {
     const deleteEnvironment = vi.fn(async () => {});
     const track = vi.fn();
     renderPage({ environmentOverrides: { deleteEnvironment }, track });
-    await waitFor(() => {
-      expect(screen.getByText('python-data')).toBeInTheDocument();
-    });
+    expect(await screen.findByRole('button', { name: 'Delete python-data' })).toBeInTheDocument();
 
     fireEvent.click(screen.getByRole('button', { name: 'Delete python-data' }));
     const dialog = screen.getByRole('dialog');

@@ -50,9 +50,7 @@ export const ListPermissionsDataSchema = z
     type: PermissionResourceTypeSchema,
     permissions: z
       .record(z.string(), z.array(ResourcePermissionSchema))
-      .describe(
-        'For agent/schedule/session/sandbox_environment: keyed by resource id. For tenant: keyed by entity kind (e.g. `agent` / `sandbox_environment` → `CREATE`).',
-      ),
+      .describe('Keyed by resource id for resource types, or by entity kind for `tenant` (e.g. `agent` → `CREATE`).'),
   })
   .openapi('ListPermissionsData');
 
