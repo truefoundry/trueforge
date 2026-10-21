@@ -433,8 +433,8 @@ export class InMemorySessionStore<
     stored.turnIds.push(input.turn.turn_id);
     stored.record.last_turn_id = input.turn.turn_id;
     stored.record.last_turn_details = SessionLastTurnDetailsSchema.parse({
-      ...input.turn.state,
       id: input.turn.turn_id,
+      state: input.turn.state,
     });
     stored.record.metrics.total_turns += 1;
     stored.record.last_activity_timestamp_ms = Date.now();
@@ -609,7 +609,7 @@ export class InMemorySessionStore<
       stored.record.metrics.total_duration_ms += elapsed_ms > 0 ? Math.trunc(elapsed_ms) : 0;
     }
     if (stored.record.last_turn_details?.id === input.turn_id) {
-      stored.record.last_turn_details = SessionLastTurnDetailsSchema.parse({ ...input.state, id: input.turn_id });
+      stored.record.last_turn_details = SessionLastTurnDetailsSchema.parse({ id: input.turn_id, state: input.state });
     }
   }
 

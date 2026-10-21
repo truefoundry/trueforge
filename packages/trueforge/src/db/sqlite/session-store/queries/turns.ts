@@ -119,7 +119,7 @@ export interface ListTurnsResult {
 type DbOrTrx = Kysely<Database> | Transaction<Database>;
 
 function lastTurnDetails(input: { turn_id: string; state: TurnState }): RawBuilder<string> {
-  return jsonbBind(SessionLastTurnDetailsSchema.parse({ ...input.state, id: input.turn_id }));
+  return jsonbBind(SessionLastTurnDetailsSchema.parse({ id: input.turn_id, state: input.state }));
 }
 
 function metricsWithTerminalTurn(input: {

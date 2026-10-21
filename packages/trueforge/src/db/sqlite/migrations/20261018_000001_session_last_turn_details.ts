@@ -9,7 +9,9 @@ export async function up<TDatabase>(db: Kysely<TDatabase>): Promise<void> {
     await sql`ALTER TABLE session ADD COLUMN last_turn_details BLOB`.execute(trx);
     await sql`
       UPDATE session
-      SET last_turn_details = jsonb(json_object('id', t.turn_id, 'status', json_extract(t.state, '$.status')))
+      SET last_turn_details = jsonb(
+        json_object('id', t.turn_id, 'state', json_object('status', json_extract(t.state, '$.status')))
+      )
       FROM turn t
       WHERE t.session_id = session.session_id
         AND t.turn_id = session.last_turn_id

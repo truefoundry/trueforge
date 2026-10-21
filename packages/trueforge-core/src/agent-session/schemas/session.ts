@@ -49,13 +49,13 @@ export const SessionMetricsSchema = z
   .describe('Rolled-up cost, duration, and turn counters for a session.')
   .openapi('SessionMetrics');
 
-/**
- * Id and status of the session's last turn, always written as one document.
- */
-export const SessionLastTurnDetailsSchema = z.object({
-  id: z.string().min(1),
-  status: TurnStatusSchema,
-});
+/** The session's last turn, always written as one document. */
+export const SessionLastTurnDetailsSchema = z
+  .object({
+    id: z.string().min(1),
+    state: z.object({ status: TurnStatusSchema }),
+  })
+  .strict();
 
 export type SessionLastTurnDetails = z.infer<typeof SessionLastTurnDetailsSchema>;
 

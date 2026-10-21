@@ -132,7 +132,7 @@ function incrementSessionTotalTurns(): RawBuilder<SessionMetrics> {
 }
 
 function lastTurnDetails(input: { turn_id: string; state: TurnState }): RawBuilder<SessionLastTurnDetails> {
-  return json(SessionLastTurnDetailsSchema.parse({ ...input.state, id: input.turn_id }));
+  return json(SessionLastTurnDetailsSchema.parse({ id: input.turn_id, state: input.state }));
 }
 
 function metricsWithTerminalTurn(input: {
