@@ -2,7 +2,7 @@
 import { z } from '@hono/zod-openapi';
 
 export const PermissionResourceTypeSchema = z
-  .enum(['agent', 'schedule', 'session', 'tenant'])
+  .enum(['agent', 'schedule', 'session', 'tenant', 'sandbox_environment'])
   .describe('Resource type to evaluate permissions for.')
   .openapi('PermissionResourceType');
 
@@ -15,6 +15,11 @@ export const ScheduleResourcePermissionSchema = z
   .enum(['MANAGE', 'DELETE'])
   .describe('Granted action on a schedule.')
   .openapi('ScheduleResourcePermission');
+
+export const SandboxEnvironmentResourcePermissionSchema = z
+  .enum(['MANAGE', 'DELETE'])
+  .describe('Granted action on a sandbox environment.')
+  .openapi('SandboxEnvironmentResourcePermission');
 
 export const SessionResourcePermissionSchema = z
   .enum(['MANAGE', 'DELETE'])
@@ -46,7 +51,7 @@ export const ListPermissionsDataSchema = z
     permissions: z
       .record(z.string(), z.array(ResourcePermissionSchema))
       .describe(
-        'For agent/schedule/session: keyed by resource id. For tenant: keyed by entity kind (e.g. `agent` → `CREATE`).',
+        'For agent/schedule/session/sandbox_environment: keyed by resource id. For tenant: keyed by entity kind (e.g. `agent` / `sandbox_environment` → `CREATE`).',
       ),
   })
   .openapi('ListPermissionsData');
@@ -60,6 +65,7 @@ export const ListPermissionsResponseSchema = z
 export type PermissionResourceType = z.infer<typeof PermissionResourceTypeSchema>;
 export type AgentResourcePermission = z.infer<typeof AgentResourcePermissionSchema>;
 export type ScheduleResourcePermission = z.infer<typeof ScheduleResourcePermissionSchema>;
+export type SandboxEnvironmentResourcePermission = z.infer<typeof SandboxEnvironmentResourcePermissionSchema>;
 export type SessionResourcePermission = z.infer<typeof SessionResourcePermissionSchema>;
 export type TenantScopedResourcePermission = z.infer<typeof TenantScopedResourcePermissionSchema>;
 export type ResourcePermission = z.infer<typeof ResourcePermissionSchema>;
@@ -70,8 +76,12 @@ export type ListPermissionsResponse = z.infer<typeof ListPermissionsResponseSche
 export const AGENT_USE_PERMISSIONS = [AgentResourcePermissionSchema.enum.USE] as const;
 export const AGENT_OWNER_PERMISSIONS = AgentResourcePermissionSchema.options;
 export const SCHEDULE_OWNER_PERMISSIONS = ScheduleResourcePermissionSchema.options;
+export const SANDBOX_ENVIRONMENT_OWNER_PERMISSIONS = SandboxEnvironmentResourcePermissionSchema.options;
 export const SESSION_OWNER_PERMISSIONS = SessionResourcePermissionSchema.options;
 export const TENANT_CREATE_AGENT_PERMISSIONS = [TenantScopedResourcePermissionSchema.enum.CREATE] as const;
+export const TENANT_CREATE_SANDBOX_ENVIRONMENT_PERMISSIONS = [
+  TenantScopedResourcePermissionSchema.enum.CREATE,
+] as const;
 
 /** Response scaffold: every requested id starts with no grants. */
 export function emptyPermissionsByResourceId(resourceIds: readonly string[]): Record<string, ResourcePermission[]> {

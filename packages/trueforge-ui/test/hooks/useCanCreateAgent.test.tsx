@@ -11,7 +11,11 @@ import { createMockAgentUIServer } from '../server/mockServer.js';
 describe('useCanCreateAgent', () => {
   it('allows create when no permissions port is configured', () => {
     const { result } = renderHook(() => useCanCreateAgent());
-    expect(result.current).toEqual({ loading: false, canCreateAgent: true });
+    expect(result.current).toEqual({
+      loading: false,
+      canCreateAgent: true,
+      canCreateSandboxEnvironment: true,
+    });
   });
 
   it('fails closed until tenant CREATE loads', async () => {
@@ -28,20 +32,35 @@ describe('useCanCreateAgent', () => {
     );
     const { result } = renderHook(() => useCanCreateAgent(), { wrapper });
 
-    expect(result.current).toEqual({ loading: true, canCreateAgent: false });
+    expect(result.current).toEqual({
+      loading: true,
+      canCreateAgent: false,
+      canCreateSandboxEnvironment: false,
+    });
     expect(listPermissions).toHaveBeenCalledWith({ resourceType: 'tenant', resourceIds: [] });
 
     await act(async () => {
-      resolvePermissions?.({ data: { type: 'tenant', permissions: { agent: ['CREATE'] } } });
+      resolvePermissions?.({
+        data: {
+          type: 'tenant',
+          permissions: { agent: ['CREATE'], sandbox_environment: ['CREATE'] },
+        },
+      });
     });
-    await waitFor(() => expect(result.current).toEqual({ loading: false, canCreateAgent: true }));
+    await waitFor(() =>
+      expect(result.current).toEqual({
+        loading: false,
+        canCreateAgent: true,
+        canCreateSandboxEnvironment: true,
+      }),
+    );
   });
 
   it('denies create when CREATE is absent', async () => {
     const server = createMockAgentUIServer({
       permissions: {
         listPermissions: vi.fn(async (): Promise<ListPermissionsResponse> => ({
-          data: { type: 'tenant', permissions: { agent: [] } },
+          data: { type: 'tenant', permissions: { agent: [], sandbox_environment: [] } },
         })),
       },
     });
@@ -49,7 +68,13 @@ describe('useCanCreateAgent', () => {
       <ServerProvider server={server}>{children}</ServerProvider>
     );
     const { result } = renderHook(() => useCanCreateAgent(), { wrapper });
-    await waitFor(() => expect(result.current).toEqual({ loading: false, canCreateAgent: false }));
+    await waitFor(() =>
+      expect(result.current).toEqual({
+        loading: false,
+        canCreateAgent: false,
+        canCreateSandboxEnvironment: false,
+      }),
+    );
   });
 
   it('denies create when the permissions request fails', async () => {
@@ -64,6 +89,12 @@ describe('useCanCreateAgent', () => {
       <ServerProvider server={server}>{children}</ServerProvider>
     );
     const { result } = renderHook(() => useCanCreateAgent(), { wrapper });
-    await waitFor(() => expect(result.current).toEqual({ loading: false, canCreateAgent: false }));
+    await waitFor(() =>
+      expect(result.current).toEqual({
+        loading: false,
+        canCreateAgent: false,
+        canCreateSandboxEnvironment: false,
+      }),
+    );
   });
 });

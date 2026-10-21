@@ -5,7 +5,8 @@ import { useCallback, useEffect, useMemo, useRef, useState, type ComponentType }
 import { useTrackAnalytics } from '../../analytics/AnalyticsProvider.js';
 import { AnalyticsEvents } from '../../analytics/events.js';
 import { useToasterOptional } from '../../containers/ToasterContainer.js';
-import { useOptionalCurrentUser } from '../../contexts/CurrentUserContext.js';
+import { useCanCreateAgent } from '../../hooks/useCanCreateAgent.js';
+import { useResourcePermissions } from '../../hooks/useResourcePermissions.js';
 import { Icon } from '../../icons/Icon.js';
 import { useSandboxEnvironmentServer } from '../../server/ServerContext.js';
 import { useOptionalShellMode } from '../../server/ShellModeContext.js';
@@ -36,7 +37,12 @@ import {
   TableTokenPagination,
 } from '../primitives/Table.js';
 import { Tooltip } from '../primitives/Tooltip.js';
-import { formatNetworkingSummary, formatResourcesSummary, isEnvironmentReadOnly } from './environmentDisplay.js';
+import {
+  formatNetworkingSummary,
+  formatResourcesSummary,
+  isEnvironmentReadOnly,
+  isReservedEnvironmentName,
+} from './environmentDisplay.js';
 import { EnvironmentFormDrawer } from './EnvironmentFormDrawer.js';
 import { EnvironmentStatusBadge } from './EnvironmentStatusBadge.js';
 
@@ -58,11 +64,15 @@ export type EnvironmentsPageProps = Record<string, never>;
 export function EnvironmentsPage(_props: EnvironmentsPageProps) {
   const environmentServer = useSandboxEnvironmentServer();
   const shell = useOptionalShellMode();
-  const currentUser = useOptionalCurrentUser();
   const toaster = useToasterOptional();
   const track = useTrackAnalytics();
+  const { canCreateSandboxEnvironment } = useCanCreateAgent();
 
   const [environments, setEnvironments] = useState<SandboxEnvironment[]>([]);
+  const { allows } = useResourcePermissions({
+    resourceType: 'sandbox_environment',
+    resourceIds: environments.map(environment => environment.id),
+  });
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [nameQuery, setNameQuery] = useState(() => readEnvironmentShareSearch(window.location.search).q ?? '');
@@ -161,19 +171,19 @@ export function EnvironmentsPage(_props: EnvironmentsPageProps) {
     if (didConsumeIsNewRef.current) return;
     if (!readEnvironmentShareSearch(window.location.search).isNew) return;
     didConsumeIsNewRef.current = true;
-    setDrawer({ kind: 'create' });
+    if (canCreateSandboxEnvironment) setDrawer({ kind: 'create' });
     replaceEnvironmentShareSearch({ isNew: null });
-  }, []);
+  }, [canCreateSandboxEnvironment]);
 
   useEffect(() => {
     const onShareChange = () => {
       const share = readEnvironmentShareSearch(window.location.search);
       setNameQuery(share.q ?? '');
-      if (share.isNew) setDrawer({ kind: 'create' });
+      if (share.isNew && canCreateSandboxEnvironment) setDrawer({ kind: 'create' });
     };
     window.addEventListener(ENVIRONMENT_SHARE_CHANGE_EVENT, onShareChange);
     return () => window.removeEventListener(ENVIRONMENT_SHARE_CHANGE_EVENT, onShareChange);
-  }, []);
+  }, [canCreateSandboxEnvironment]);
 
   const filtered = useMemo(() => {
     const q = nameQuery.trim().toLowerCase();
@@ -184,6 +194,7 @@ export function EnvironmentsPage(_props: EnvironmentsPageProps) {
   const hasPageNav = nextPageToken != null || previousPageToken != null || environments.length > 0;
 
   const openCreate = () => {
+    if (!canCreateSandboxEnvironment) return;
     setDrawer({ kind: 'create' });
   };
 
@@ -217,7 +228,7 @@ export function EnvironmentsPage(_props: EnvironmentsPageProps) {
             <div className="w-64">
               <SearchInput query={nameQuery} setQuery={setNameQuery} placeholder="Search environments by name" />
             </div>
-            <Button.Primary type="button" onClick={openCreate}>
+            <Button.Primary type="button" onClick={openCreate} disabled={!canCreateSandboxEnvironment}>
               <Icon name="plus" className="size-3.5" />
               New Environment
             </Button.Primary>
@@ -271,13 +282,15 @@ export function EnvironmentsPage(_props: EnvironmentsPageProps) {
               </TableHeader>
               <TableBody>
                 {filtered.map(env => {
-                  const readOnly = isEnvironmentReadOnly(env, currentUser?.subjectId);
+                  const canManage = !isReservedEnvironmentName(env.name) && allows(env.id, 'MANAGE');
+                  const canDelete = !isReservedEnvironmentName(env.name) && allows(env.id, 'DELETE');
+                  const readOnly = isEnvironmentReadOnly(env, canManage);
                   return (
                     <TableRow
                       key={env.id}
                       className={readOnly ? undefined : 'cursor-pointer'}
                       onClick={() => {
-                        if (!readOnly) setDrawer({ kind: 'edit', environment: env });
+                        if (canManage) setDrawer({ kind: 'edit', environment: env });
                       }}
                     >
                       <TableCell className="w-96 max-w-96">
@@ -307,7 +320,7 @@ export function EnvironmentsPage(_props: EnvironmentsPageProps) {
                         {readOnly ? '—' : formatRelativeTime(env.updatedAt)}
                       </TableCell>
                       <TableCell>
-                        {!readOnly ? (
+                        {canDelete ? (
                           <button
                             type="button"
                             className={auiButtonClass({ variant: 'ghost', size: 'icon' })}
