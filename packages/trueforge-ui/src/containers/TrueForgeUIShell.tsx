@@ -183,7 +183,8 @@ function ChatProviderFromShell({
   /** When routing, reports the active thread's remote id up to `ShellRouteSync`. */
   onRemoteIdChange?: (id: string | undefined) => void;
 } & Omit<TrueForgeChatProviderProps, 'agent' | 'agentName' | 'listSessionsAgentId' | 'children'>) {
-  const { mode, runtimeKey, historyAgentFilter, listSessionsAgentId, pendingSessionId } = useShellMode();
+  const { mode, runtimeKey, historyAgentFilter, listSessionsAgentId, pendingSessionId, sessionAccessError } =
+    useShellMode();
 
   const isCreateAgent = mode.status === 'active' && mode.isMutable && mode.isCreateAgent;
 
@@ -238,6 +239,13 @@ function ChatProviderFromShell({
         defaultAgentSpec: { model: { name: 'openai-main/gpt-4.1' } },
       };
     }
+    // Access failures keep a pending id for the URL but must not bind named runtime to it.
+    if (sessionAccessError != null) {
+      return {
+        mode: 'draft',
+        defaultAgentSpec: draftDefaultAgentSpec,
+      };
+    }
     // Runtime still uses named|draft; shell mutability maps onto that adapter.
     if (!mode.isMutable) {
       const agentName = mode.agentName ?? mode.agentId ?? pendingSessionId;
@@ -254,7 +262,7 @@ function ChatProviderFromShell({
       mode: 'draft',
       defaultAgentSpec: draftDefaultAgentSpec,
     };
-  }, [mode, draftDefaultAgentSpec, pendingSessionId]);
+  }, [mode, draftDefaultAgentSpec, pendingSessionId, sessionAccessError]);
 
   return (
     <DraftCatalogProvider>
@@ -264,7 +272,7 @@ function ChatProviderFromShell({
         server={runtimeServer}
         agent={agent}
         listSessionsAgentId={listSessionsAgentId}
-        initialSessionId={pendingSessionId ?? hostInitialSessionId}
+        initialSessionId={sessionAccessError != null ? undefined : (pendingSessionId ?? hostInitialSessionId)}
       >
         <AgentConfigInstructionsProvider>
           <DraftSpecPreferenceBridge />
@@ -324,9 +332,9 @@ export function TrueForgeUIShell(props: TrueForgeUIShellProps) {
   const server = resolved.server;
   const layoutTree = <LayoutChildren layout={layout} className={className} />;
 
-  // Outer toaster so ShellRouteSync (sibling of chat provider) can toast access-denied
-  // deep links; nested ToasterProvider inside TrueForgeChatProvider stays for hosts
-  // that mount chat alone. Analytics wraps the same tree so chrome + chat share one sink.
+  // Outer toaster for sessions browser / chrome; nested ToasterProvider inside
+  // TrueForgeChatProvider stays for hosts that mount chat alone. Analytics wraps
+  // the same tree so chrome + chat share one sink.
   const shellTree = (
     <AnalyticsProvider track={analytics?.track}>
       <ToasterProvider>
@@ -338,7 +346,6 @@ export function TrueForgeUIShell(props: TrueForgeUIShellProps) {
                 routes={resolvedRoutes}
                 activeRemoteId={activeRemoteId}
                 initialSettingsOpen={initialSettingsOpen}
-                onError={onError}
               />
             </Suspense>
           ) : null}

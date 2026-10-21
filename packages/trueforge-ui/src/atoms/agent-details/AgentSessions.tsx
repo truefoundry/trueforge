@@ -17,7 +17,7 @@ import { useOptionalShellMode } from '../../server/ShellModeContext.js';
 import type { Session, SessionEventItem, SessionListEntry } from '../../server/types.js';
 import { useSlot } from '../../theme/SlotsProvider.js';
 import { drainListPages } from '../../utils/drainListPages.js';
-import { reportSessionAccessError } from '../../utils/sessionAccessError.js';
+import { getErrorMessage } from '../../utils/getErrorMessage.js';
 import { sessionTimeRangeFromCreatedAt } from '../../utils/sessionShareUrl.js';
 import { EmptyScreen } from '../EmptyScreen.js';
 import { cn } from '../lib/cn.js';
@@ -84,6 +84,7 @@ export function AgentSessions({
   const [detailSession, setDetailSession] = useState<Session>();
   const [detailLoading, setDetailLoading] = useState(false);
   const [detailFailed, setDetailFailed] = useState(false);
+  const [detailErrorMessage, setDetailErrorMessage] = useState('This session could not be loaded.');
   const [pendingDelete, setPendingDelete] = useState<SessionListEntry | null>(null);
 
   const canDeleteSession = typeof chatServer.deleteSession === 'function';
@@ -191,6 +192,7 @@ export function AgentSessions({
       setDetailEvents(undefined);
       setDetailSession(undefined);
       setDetailFailed(false);
+      setDetailErrorMessage('This session could not be loaded.');
       setDetailLoading(false);
       return;
     }
@@ -198,6 +200,7 @@ export function AgentSessions({
     let cancelled = false;
     setDetailLoading(true);
     setDetailFailed(false);
+    setDetailErrorMessage('This session could not be loaded.');
     setDetailEvents(undefined);
     setDetailSession(undefined);
 
@@ -219,14 +222,7 @@ export function AgentSessions({
       })
       .catch((error: unknown) => {
         if (cancelled) return;
-        reportSessionAccessError({
-          error,
-          ...(toaster != null ? { showError: toaster.showError } : {}),
-        });
-        if (detailOnly) {
-          onCloseDetail?.();
-          return;
-        }
+        setDetailErrorMessage(getErrorMessage(error, 'This session could not be loaded.'));
         setDetailFailed(true);
       })
       .finally(() => {
@@ -236,7 +232,7 @@ export function AgentSessions({
     return () => {
       cancelled = true;
     };
-  }, [chatServer, detailOnly, onCloseDetail, refreshKey, selectedSessionId, sessionsServer, toaster]);
+  }, [chatServer, refreshKey, selectedSessionId, sessionsServer]);
   useEffect(() => {
     onLoadingChange?.(listLoading || detailLoading);
   }, [detailLoading, listLoading, onLoadingChange]);
@@ -321,9 +317,7 @@ export function AgentSessions({
           Select a session to view details
         </div>
       ) : detailFailed ? (
-        <div className="flex flex-1 items-center justify-center px-6 text-sm text-text-secondary">
-          Session details could not be loaded.
-        </div>
+        <EmptyScreen title="Unable to load session" description={detailErrorMessage} className="bg-primary-bg" />
       ) : (
         <>
           <AgentSessionDetailHeader

@@ -79,6 +79,8 @@ export type ShellSnapshot = {
   pendingSessionId?: string;
   /** Remote id of the active thread once a fresh chat is persisted. */
   activeRemoteId?: string;
+  /** When set, prefer pendingSessionId over a stale activeRemoteId for URL sync. */
+  sessionAccessError?: string | null;
   mode: ShellMode;
   agentConfigMode: AgentConfig['mode'];
 };
