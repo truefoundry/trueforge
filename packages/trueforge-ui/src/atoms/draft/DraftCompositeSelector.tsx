@@ -5,6 +5,7 @@ import { useCallback, useEffect, useId, useMemo, useRef, useState, type ReactNod
 
 import { useMCPAuth } from '../../hooks/useMcpAuth.js';
 import { Icon } from '../../icons/Icon.js';
+import { readSandboxEnvironmentName, sandboxWithEnvironmentName } from '../../server/draftSpecPreferences.js';
 import { useOptionalCatalogServer, useServerCapabilities } from '../../server/ServerContext.js';
 import { useOptionalShellMode, type SettingsSection } from '../../server/ShellModeContext.js';
 import type { AgentSkill, ConnectorState } from '../../server/types.js';
@@ -585,7 +586,7 @@ export function DraftCompositeSelector({ disabled, isRunning, onAttach }: DraftC
     shell?.setSettingsOpen(true, section);
   };
 
-  const currentEnvName = agentSpec?.config?.sandbox?.environmentName?.trim() || 'default';
+  const currentEnvName = readSandboxEnvironmentName(agentSpec?.config?.sandbox);
 
   const filteredEnvironments = useMemo(() => {
     const readyNames = new Set(readyEnvironments.map(e => e.name));
@@ -616,9 +617,8 @@ export function DraftCompositeSelector({ disabled, isRunning, onAttach }: DraftC
       config: {
         ...agentSpec?.config,
         sandbox: {
-          ...agentSpec?.config?.sandbox,
+          ...sandboxWithEnvironmentName(agentSpec?.config?.sandbox, isDefault ? undefined : envName),
           enabled: isDefault ? agentSpec?.config?.sandbox?.enabled : true,
-          environmentName: isDefault ? undefined : envName,
         },
       },
     });

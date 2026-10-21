@@ -1,8 +1,10 @@
 'use client';
 
+import { useTrueForgeAgentSpec } from '@truefoundry/trueforge-assistant-ui-runtime';
 import { useMemo } from 'react';
 
 import { Icon } from '../../icons/Icon.js';
+import { readSandboxEnvironmentName, sandboxWithEnvironmentName } from '../../server/draftSpecPreferences.js';
 import { useOptionalShellMode } from '../../server/ShellModeContext.js';
 import type { AgentCompactionConfig, AgentRuntimeConfig } from '../../server/types.js';
 import { useReadySandboxEnvironments } from '../environments/useReadySandboxEnvironments.js';
@@ -35,6 +37,7 @@ function parsePositiveInteger(raw: string): number | null {
   return Number.isInteger(parsed) && parsed > 0 ? parsed : null;
 }
 
+const ENVIRONMENT_LOCKED_HINT = "Can't change the environment after a chat has started";
 const NO_SANDBOX_PROVIDER_HINT = 'No sandbox provider yet, add one in Settings → Sandbox';
 const DEFAULT_COMPACTION_THRESHOLD_TOKENS = 50_000;
 
@@ -66,7 +69,10 @@ export function AgentRuntimeConfigFields({
 }: AgentRuntimeConfigFieldsProps) {
   const shell = useOptionalShellMode();
   const { environments: readyEnvironments, refetch: refetchEnvironments } = useReadySandboxEnvironments();
-  const selectedEnvironmentName = value.sandbox?.environmentName?.trim() || 'default';
+  const { draftSessionId } = useTrueForgeAgentSpec();
+  // Turns reuse the session sandbox, so the environment is fixed once a chat has started.
+  const environmentLocked = draftSessionId != null;
+  const selectedEnvironmentName = readSandboxEnvironmentName(value.sandbox);
 
   const environmentOptions = useMemo(() => {
     const options: Array<{ value: string; label: string; disabled?: boolean }> = readyEnvironments.map(env => ({
@@ -115,6 +121,25 @@ export function AgentRuntimeConfigFields({
     },
   ];
   const sandboxEnabled = value.sandbox?.enabled ?? false;
+
+  const environmentSelect = (
+    <PopoverSelect
+      aria-label="Environment"
+      value={selectedEnvironmentName}
+      options={environmentOptions}
+      disabled={disabled || environmentLocked || !sandboxAvailable || !sandboxEnabled}
+      className="w-48"
+      onOpenChange={nextOpen => {
+        if (nextOpen) void refetchEnvironments();
+      }}
+      onValueChange={selected =>
+        onChange({
+          ...value,
+          sandbox: sandboxWithEnvironmentName(value.sandbox, selected === 'default' ? undefined : selected),
+        })
+      }
+    />
+  );
   const compactionEnabled = value.contextManagement?.compaction?.enabled ?? true;
   const thresholdMode: CompactionThresholdMode =
     value.contextManagement?.compaction?.trigger != null ? 'custom' : 'auto';
@@ -281,25 +306,13 @@ export function AgentRuntimeConfigFields({
                 ) : null}
               </span>
               <div className="flex shrink-0 items-center">
-                <PopoverSelect
-                  aria-label="Environment"
-                  value={value.sandbox?.environmentName?.trim() || 'default'}
-                  options={environmentOptions}
-                  disabled={disabled || !sandboxAvailable || !sandboxEnabled}
-                  className="w-48"
-                  onOpenChange={nextOpen => {
-                    if (nextOpen) void refetchEnvironments();
-                  }}
-                  onValueChange={selected =>
-                    onChange({
-                      ...value,
-                      sandbox: {
-                        ...value.sandbox,
-                        environmentName: selected === 'default' ? undefined : selected,
-                      },
-                    })
-                  }
-                />
+                {environmentLocked ? (
+                  <Tooltip content={ENVIRONMENT_LOCKED_HINT}>
+                    <span className="inline-flex">{environmentSelect}</span>
+                  </Tooltip>
+                ) : (
+                  environmentSelect
+                )}
               </div>
             </div>
             {switchField({ field: fileDownloadsField, className: rowClassName })}
