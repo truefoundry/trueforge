@@ -261,7 +261,9 @@ export function AgentSessionTimelineContainer({
     );
   }
 
-  if (messages.length === 0 && renderableTurnViews.length === 0) {
+  // Running tips are omitted from listEvents (and thus from turn views). Orphan
+  // projected content with no section to attach to must not blank the pane.
+  if (renderableTurnViews.length === 0) {
     return (
       <div className="flex flex-1 items-center justify-center px-6 text-sm text-text-secondary">
         This session has no messages yet.
