@@ -7,7 +7,7 @@ import { jwtVerify } from 'jose';
 import { updateLogContext } from '../logger';
 import type { Authenticator } from './authenticator';
 import { toRequestContext, type IdTokenClaims } from './claims';
-import { hasAdminRole, type RequestContext } from './identity';
+import { canAccessSettings, type RequestContext } from './identity';
 import { getOidcVerify } from './oidc';
 import { extractRequestToken, readBearerToken } from './token';
 
@@ -25,6 +25,7 @@ export function createAuthMiddleware(authenticator: Authenticator): MiddlewareHa
   };
 }
 
+/** Gates `/api/v1/settings` — uses {@link canAccessSettings} (always denied in TrueFoundry). */
 export function createAdminAuthMiddleware(authenticator: Authenticator): MiddlewareHandler {
   return async (c, next) => {
     const requestContext = await tryAuthenticate({ authenticator, context: c });
@@ -32,7 +33,7 @@ export function createAdminAuthMiddleware(authenticator: Authenticator): Middlew
       throw new HTTPException(401, { message: 'Authentication required' });
     }
     updateLogContext({ tenant_id: requestContext.tenant_id });
-    if (!hasAdminRole(requestContext)) {
+    if (!canAccessSettings(requestContext)) {
       throw new HTTPException(403, { message: 'Admin access required' });
     }
     c.set('request_context', requestContext);

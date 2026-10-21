@@ -132,7 +132,7 @@ export const DeleteScheduleResponseSchema = z.object({}).openapi('DeleteSchedule
  * Run lifecycle.
  * - `scheduled`  the one pending run; at most one per schedule, enforced by
  *                `schedule_run_pending_uq`
- * - `triggered`  taken by dispatch via `updateRunStatus`
+ * - `triggered`  taken by dispatch via `updateRun`
  * - `failed`     errored, or hand-off to the executor failed
  */
 export const ScheduleRunStatusSchema = z.enum(['scheduled', 'triggered', 'failed']).openapi('ScheduleRunStatus');
@@ -147,6 +147,7 @@ export const ScheduleRunSchema = z
     created_by_subject: CreatedBySubjectSchema,
     triggered_at: NullableIsoTimestamp,
     reason: z.string().nullable(),
+    session_id: z.string().nullable(),
     created_at: IsoTimestamp,
     updated_at: IsoTimestamp,
   })

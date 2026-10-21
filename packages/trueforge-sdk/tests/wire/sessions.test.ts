@@ -20,6 +20,7 @@ describe("SessionsClient", () => {
                         subject_type: "subject_type",
                     },
                     id: "id",
+                    last_turn_details: { id: "id", state: { status: "running" } },
                     metadata: { key: "value" },
                     metrics: { total_duration_ms: 1, total_turns: 1 },
                     shared: true,
@@ -57,6 +58,12 @@ describe("SessionsClient", () => {
                         subjectType: "subject_type",
                     },
                     id: "id",
+                    lastTurnDetails: {
+                        id: "id",
+                        state: {
+                            status: "running",
+                        },
+                    },
                     metadata: {
                         key: "value",
                     },
@@ -115,6 +122,7 @@ describe("SessionsClient", () => {
                     subject_type: "subject_type",
                 },
                 id: "id",
+                last_turn_details: { id: "id", state: { status: "running" } },
                 metadata: { key: "value" },
                 metrics: { total_cost_in_usd: 1.1, total_duration_ms: 1, total_turns: 1 },
                 shared: true,
@@ -155,6 +163,12 @@ describe("SessionsClient", () => {
                     subjectType: "subject_type",
                 },
                 id: "id",
+                lastTurnDetails: {
+                    id: "id",
+                    state: {
+                        status: "running",
+                    },
+                },
                 metadata: {
                     key: "value",
                 },
@@ -261,6 +275,7 @@ describe("SessionsClient", () => {
                     subject_type: "subject_type",
                 },
                 id: "id",
+                last_turn_details: { id: "id", state: { status: "running" } },
                 metadata: { key: "value" },
                 metrics: { total_cost_in_usd: 1.1, total_duration_ms: 1, total_turns: 1 },
                 shared: true,
@@ -296,6 +311,12 @@ describe("SessionsClient", () => {
                     subjectType: "subject_type",
                 },
                 id: "id",
+                lastTurnDetails: {
+                    id: "id",
+                    state: {
+                        status: "running",
+                    },
+                },
                 metadata: {
                     key: "value",
                 },
@@ -397,6 +418,7 @@ describe("SessionsClient", () => {
                     subject_type: "subject_type",
                 },
                 id: "id",
+                last_turn_details: { id: "id", state: { status: "running" } },
                 metadata: { key: "value" },
                 metrics: { total_cost_in_usd: 1.1, total_duration_ms: 1, total_turns: 1 },
                 shared: true,
@@ -433,6 +455,12 @@ describe("SessionsClient", () => {
                     subjectType: "subject_type",
                 },
                 id: "id",
+                lastTurnDetails: {
+                    id: "id",
+                    state: {
+                        status: "running",
+                    },
+                },
                 metadata: {
                     key: "value",
                 },

@@ -11,6 +11,8 @@ import { getErrorMessage } from '../../utils/getErrorMessage.js';
 export type UseReadySandboxEnvironmentsResult = {
   environments: SandboxEnvironment[];
   loading: boolean;
+  /** True once a list request has finished successfully, so an empty list is authoritative. */
+  loaded: boolean;
   error: string | null;
   refetch: () => Promise<void>;
 };
@@ -30,6 +32,7 @@ export function useReadySandboxEnvironments(): UseReadySandboxEnvironmentsResult
   const environmentsOpen = shell?.environmentsOpen ?? false;
   const [environments, setEnvironments] = useState<SandboxEnvironment[]>([]);
   const [loading, setLoading] = useState(false);
+  const [loaded, setLoaded] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const requestGenRef = useRef(0);
   const wasEnvironmentsOpenRef = useRef(environmentsOpen);
@@ -37,6 +40,7 @@ export function useReadySandboxEnvironments(): UseReadySandboxEnvironmentsResult
   const fetchReadyEnvironments = useCallback(async () => {
     if (!environmentServer) {
       setEnvironments([]);
+      setLoaded(false);
       setLoading(false);
       setError(null);
       return;
@@ -53,6 +57,7 @@ export function useReadySandboxEnvironments(): UseReadySandboxEnvironmentsResult
       if (gen !== requestGenRef.current) return;
       const readyOnly = all.filter(env => env.status === 'ready');
       setEnvironments(readyOnly);
+      setLoaded(true);
     } catch (caught) {
       if (gen !== requestGenRef.current) return;
       setError(getErrorMessage(caught, 'Failed to load sandbox environments.'));
@@ -78,6 +83,7 @@ export function useReadySandboxEnvironments(): UseReadySandboxEnvironmentsResult
   return {
     environments,
     loading,
+    loaded,
     error,
     refetch: fetchReadyEnvironments,
   };

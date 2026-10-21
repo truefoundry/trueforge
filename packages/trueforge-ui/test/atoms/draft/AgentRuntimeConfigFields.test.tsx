@@ -158,4 +158,30 @@ describe('AgentRuntimeConfigFields', () => {
     expect(missing).toBeDisabled();
     expect(missing).toHaveAttribute('aria-selected', 'true');
   });
+
+  it('shows a wire-only sandbox environment name and clears it when default is chosen', async () => {
+    const onChange = vi.fn();
+    const sandbox: NonNullable<AgentRuntimeConfig['sandbox']> = { enabled: true };
+    Reflect.set(sandbox, 'environment_name', 'test');
+    renderRuntimeFields({ value: { sandbox }, onChange });
+
+    const trigger = screen.getByRole('button', { name: 'Environment' });
+    await waitFor(() => {
+      expect(trigger).toHaveTextContent('test');
+    });
+
+    fireEvent.click(trigger);
+    fireEvent.click(await screen.findByRole('option', { name: 'default' }));
+
+    expect(onChange).toHaveBeenCalledWith(
+      expect.objectContaining({
+        sandbox: expect.objectContaining({ enabled: true, environmentName: undefined }),
+      }),
+    );
+    const update: unknown = onChange.mock.calls[0]?.[0];
+    if (typeof update !== 'object' || update === null || !('sandbox' in update)) {
+      throw new Error('expected sandbox update');
+    }
+    expect(update.sandbox).not.toHaveProperty('environment_name');
+  });
 });

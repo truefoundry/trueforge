@@ -61,8 +61,8 @@ import { StreamGoneError, type EventSubscription, type EventSubscriptionRegistry
 import { validateSandboxFilePath } from '../runtime/sandboxFilePath';
 import {
   buildTurnSandbox,
-  getMcpConnection,
   getModelDetails,
+  resolveMcpServer,
   resolveSandboxEnvironment,
   resolveSandboxProvider,
 } from '../runtime/sessionResources';
@@ -219,7 +219,7 @@ function createTurnResolver(deps: {
       };
     },
     mcp: async name => {
-      const connection = await getMcpConnection({
+      const connection = await resolveMcpServer({
         tenant_id,
         name,
         store: mcpServerStore,
@@ -231,10 +231,7 @@ function createTurnResolver(deps: {
           message: `Unknown MCP server "${name}" — not configured`,
         });
       }
-      return {
-        url: connection.url,
-        headers: connection.headers,
-      };
+      return connection;
     },
     mcpRequestTimeoutMs: configuration.MCP_REQUEST_TIMEOUT_MS,
     mcpConnectTimeoutMs: configuration.MCP_CONNECT_TIMEOUT_MS,

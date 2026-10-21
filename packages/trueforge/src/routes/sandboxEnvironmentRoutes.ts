@@ -117,6 +117,10 @@ export const createSandboxEnvironmentRoute = createRoute({
       content: { 'application/json': { schema: RequestErrorResponseSchema } },
       description: 'Unauthenticated.',
     },
+    403: {
+      content: { 'application/json': { schema: RequestErrorResponseSchema } },
+      description: 'User does not have permission to edit Sandbox environment',
+    },
     409: {
       content: { 'application/json': { schema: RequestErrorResponseSchema } },
       description: 'A sandbox environment with this name already exists.',
@@ -159,6 +163,10 @@ export const putSandboxEnvironmentRoute = createRoute({
       content: { 'application/json': { schema: RequestErrorResponseSchema } },
       description: 'Unauthenticated.',
     },
+    403: {
+      content: { 'application/json': { schema: RequestErrorResponseSchema } },
+      description: 'User does not have permission to edit Sandbox environment',
+    },
     404: {
       content: { 'application/json': { schema: RequestErrorResponseSchema } },
       description: 'Sandbox environment not found.',
@@ -197,6 +205,10 @@ export const deleteSandboxEnvironmentRoute = createRoute({
     401: {
       content: { 'application/json': { schema: RequestErrorResponseSchema } },
       description: 'Unauthenticated.',
+    },
+    403: {
+      content: { 'application/json': { schema: RequestErrorResponseSchema } },
+      description: 'User does not have permission to edit Sandbox environment',
     },
     404: {
       content: { 'application/json': { schema: RequestErrorResponseSchema } },

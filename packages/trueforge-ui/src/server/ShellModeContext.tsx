@@ -161,8 +161,11 @@ type ShellModeContextValue = {
   openInaccessibleSession: (req: { sessionId: string; message: string }) => void;
   /** Backend/access message when the current pending session could not be opened. */
   sessionAccessError: string | null;
-  /** Reset current chat; no-op when idle. */
-  clearChat: () => void;
+  /**
+   * Reset current chat; no-op when idle.
+   * Builder New Chat passes the live draft so the remount keeps the left panel.
+   */
+  clearChat: (liveSpec?: AgentSpec) => void;
   /** Return library-only mode to its idle landing; no-op in other modes. */
   openLibraryHome: () => void;
   /** Changes only when the chat runtime must reset. */
@@ -802,37 +805,39 @@ export function ShellModeProvider({
     [isComposerEnabled, setSettingsOpen, setSessionsOpen, setSchedulesOpen, setEnvironmentsOpen],
   );
 
-  const clearChat = useCallback(() => {
-    if (effectiveMode.status === 'idle') return;
-    setSessionAccessError(null);
-    setPendingSessionId(undefined);
-    if (effectiveMode.isMutable) {
-      // Preserve Edit / builder vs chat intent. New Chat must use the latest
-      // chat seed (storage), not the stale mode.agentSpec from draft open —
-      // toggles like web search update the seed without rewriting mode.agentSpec.
-      const kind: DraftPreferenceKind = effectiveMode.isCreateAgent ? 'agent' : 'chat';
-      const agentSpec =
-        kind === 'chat'
-          ? (readDraftSpecPreferences('chat') ?? chatSeedRef.current)
-          : (effectiveMode.agentSpec ?? agentSeedRef.current);
-      if (kind === 'chat') {
-        chatSeedRef.current = agentSpec;
+  const clearChat = useCallback(
+    (liveSpec?: AgentSpec) => {
+      if (effectiveMode.status === 'idle') return;
+      setSessionAccessError(null);
+      setPendingSessionId(undefined);
+      if (effectiveMode.isMutable) {
+        // Plain New Chat uses the chat seed. Builder New Chat keeps the live draft
+        // so the remount does not replace the left panel with the open/save snapshot.
+        const kind: DraftPreferenceKind = effectiveMode.isCreateAgent ? 'agent' : 'chat';
+        const agentSpec =
+          kind === 'agent'
+            ? (liveSpec ?? effectiveMode.agentSpec ?? agentSeedRef.current)
+            : (readDraftSpecPreferences('chat') ?? chatSeedRef.current);
+        if (kind === 'chat') {
+          chatSeedRef.current = agentSpec;
+        }
+        setMode({
+          status: 'active',
+          isMutable: true,
+          isCreateAgent: effectiveMode.isCreateAgent,
+          agentId: effectiveMode.agentId,
+          agentName: effectiveMode.agentName,
+          agentSpec,
+          locked: false,
+        });
+        setAgentConfigOpenState(effectiveMode.isCreateAgent);
+        bumpEpoch(true);
+        return;
       }
-      setMode({
-        status: 'active',
-        isMutable: true,
-        isCreateAgent: effectiveMode.isCreateAgent,
-        agentId: effectiveMode.agentId,
-        agentName: effectiveMode.agentName,
-        agentSpec,
-        locked: false,
-      });
-      setAgentConfigOpenState(effectiveMode.isCreateAgent);
-      bumpEpoch(true);
-      return;
-    }
-    bumpEpoch(false);
-  }, [effectiveMode, bumpEpoch]);
+      bumpEpoch(false);
+    },
+    [effectiveMode, bumpEpoch],
+  );
 
   const openLibraryHome = useCallback(() => {
     // Only library-only mode has an idle landing; other modes root via openDraft / clearChat.

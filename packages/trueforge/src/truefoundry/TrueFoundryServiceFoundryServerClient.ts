@@ -233,6 +233,8 @@ export class TrueFoundryServiceFoundryServerClient {
   /**
    * Model integrations. No limit/offset → full match set in one response.
    * Pass `filter` (account + model name together) for a point lookup.
+   * `mergeParams` folds provider defaults into `metadata.params`, which
+   * is the only params list the model mapping reads.
    */
   async listProviderIntegrations(input: {
     accessToken: string;
@@ -245,7 +247,7 @@ export class TrueFoundryServiceFoundryServerClient {
             provider_account_name: input.filter.provider_account_name,
             name: input.filter.name,
           };
-    const query: Record<string, string> = { type: 'model', ...filterQuery };
+    const query: Record<string, string> = { type: 'model', mergeParams: 'true', ...filterQuery };
     const payload = await this.#requestJson({
       operation: SERVICE_FOUNDRY_OPERATIONS.listProviderIntegrations,
       url: this.#url(INTEGRATIONS_PATH, query),
