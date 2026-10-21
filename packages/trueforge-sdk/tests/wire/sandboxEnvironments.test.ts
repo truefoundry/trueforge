@@ -247,6 +247,30 @@ describe("SandboxEnvironmentsClient", () => {
             .post("/api/v1/sandbox-environments")
             .jsonBody(rawRequestBody)
             .respondWith()
+            .statusCode(403)
+            .jsonBody(rawResponseBody)
+            .build();
+
+        await expect(async () => {
+            return await client.sandboxEnvironments.create({
+                manifest: {
+                    name: "xy",
+                },
+            });
+        }).rejects.toThrow(TrueForgeTypes.ForbiddenError);
+    });
+
+    test("create (5)", async () => {
+        const server = mockServerPool.createServer();
+        const client = new TrueForge({ maxRetries: 0, token: "test", baseUrl: server.baseUrl });
+        const rawRequestBody = { manifest: { name: "xy" } };
+        const rawResponseBody = { error: { message: "message" } };
+
+        server
+            .mockEndpoint()
+            .post("/api/v1/sandbox-environments")
+            .jsonBody(rawRequestBody)
+            .respondWith()
             .statusCode(409)
             .jsonBody(rawResponseBody)
             .build();
@@ -260,7 +284,7 @@ describe("SandboxEnvironmentsClient", () => {
         }).rejects.toThrow(TrueForgeTypes.ConflictError);
     });
 
-    test("create (5)", async () => {
+    test("create (6)", async () => {
         const server = mockServerPool.createServer();
         const client = new TrueForge({ maxRetries: 0, token: "test", baseUrl: server.baseUrl });
         const rawRequestBody = { manifest: { name: "xy" } };
@@ -284,7 +308,7 @@ describe("SandboxEnvironmentsClient", () => {
         }).rejects.toThrow(TrueForgeTypes.UnprocessableEntityError);
     });
 
-    test("create (6)", async () => {
+    test("create (7)", async () => {
         const server = mockServerPool.createServer();
         const client = new TrueForge({ maxRetries: 0, token: "test", baseUrl: server.baseUrl });
         const rawRequestBody = { manifest: { name: "xy" } };
@@ -439,6 +463,30 @@ describe("SandboxEnvironmentsClient", () => {
             .put("/api/v1/sandbox-environments")
             .jsonBody(rawRequestBody)
             .respondWith()
+            .statusCode(403)
+            .jsonBody(rawResponseBody)
+            .build();
+
+        await expect(async () => {
+            return await client.sandboxEnvironments.createOrUpdate({
+                manifest: {
+                    name: "xy",
+                },
+            });
+        }).rejects.toThrow(TrueForgeTypes.ForbiddenError);
+    });
+
+    test("create_or_update (5)", async () => {
+        const server = mockServerPool.createServer();
+        const client = new TrueForge({ maxRetries: 0, token: "test", baseUrl: server.baseUrl });
+        const rawRequestBody = { manifest: { name: "xy" } };
+        const rawResponseBody = { error: { message: "message" } };
+
+        server
+            .mockEndpoint()
+            .put("/api/v1/sandbox-environments")
+            .jsonBody(rawRequestBody)
+            .respondWith()
             .statusCode(404)
             .jsonBody(rawResponseBody)
             .build();
@@ -452,7 +500,7 @@ describe("SandboxEnvironmentsClient", () => {
         }).rejects.toThrow(TrueForgeTypes.NotFoundError);
     });
 
-    test("create_or_update (5)", async () => {
+    test("create_or_update (6)", async () => {
         const server = mockServerPool.createServer();
         const client = new TrueForge({ maxRetries: 0, token: "test", baseUrl: server.baseUrl });
         const rawRequestBody = { manifest: { name: "xy" } };
@@ -476,7 +524,7 @@ describe("SandboxEnvironmentsClient", () => {
         }).rejects.toThrow(TrueForgeTypes.ConflictError);
     });
 
-    test("create_or_update (6)", async () => {
+    test("create_or_update (7)", async () => {
         const server = mockServerPool.createServer();
         const client = new TrueForge({ maxRetries: 0, token: "test", baseUrl: server.baseUrl });
         const rawRequestBody = { manifest: { name: "xy" } };
@@ -500,7 +548,7 @@ describe("SandboxEnvironmentsClient", () => {
         }).rejects.toThrow(TrueForgeTypes.UnprocessableEntityError);
     });
 
-    test("create_or_update (7)", async () => {
+    test("create_or_update (8)", async () => {
         const server = mockServerPool.createServer();
         const client = new TrueForge({ maxRetries: 0, token: "test", baseUrl: server.baseUrl });
         const rawRequestBody = { manifest: { name: "xy" } };
@@ -676,6 +724,25 @@ describe("SandboxEnvironmentsClient", () => {
             .mockEndpoint()
             .delete("/api/v1/sandbox-environments/name")
             .respondWith()
+            .statusCode(403)
+            .jsonBody(rawResponseBody)
+            .build();
+
+        await expect(async () => {
+            return await client.sandboxEnvironments.delete("name");
+        }).rejects.toThrow(TrueForgeTypes.ForbiddenError);
+    });
+
+    test("delete (4)", async () => {
+        const server = mockServerPool.createServer();
+        const client = new TrueForge({ maxRetries: 0, token: "test", baseUrl: server.baseUrl });
+
+        const rawResponseBody = { error: { message: "message" } };
+
+        server
+            .mockEndpoint()
+            .delete("/api/v1/sandbox-environments/name")
+            .respondWith()
             .statusCode(404)
             .jsonBody(rawResponseBody)
             .build();
@@ -685,7 +752,7 @@ describe("SandboxEnvironmentsClient", () => {
         }).rejects.toThrow(TrueForgeTypes.NotFoundError);
     });
 
-    test("delete (4)", async () => {
+    test("delete (5)", async () => {
         const server = mockServerPool.createServer();
         const client = new TrueForge({ maxRetries: 0, token: "test", baseUrl: server.baseUrl });
 
@@ -704,7 +771,7 @@ describe("SandboxEnvironmentsClient", () => {
         }).rejects.toThrow(TrueForgeTypes.ConflictError);
     });
 
-    test("delete (5)", async () => {
+    test("delete (6)", async () => {
         const server = mockServerPool.createServer();
         const client = new TrueForge({ maxRetries: 0, token: "test", baseUrl: server.baseUrl });
 
@@ -723,7 +790,7 @@ describe("SandboxEnvironmentsClient", () => {
         }).rejects.toThrow(TrueForgeTypes.UnprocessableEntityError);
     });
 
-    test("delete (6)", async () => {
+    test("delete (7)", async () => {
         const server = mockServerPool.createServer();
         const client = new TrueForge({ maxRetries: 0, token: "test", baseUrl: server.baseUrl });
 

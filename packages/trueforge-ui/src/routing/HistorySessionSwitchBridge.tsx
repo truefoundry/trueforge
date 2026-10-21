@@ -13,9 +13,9 @@ export function HistorySessionSwitchBridge() {
   const pendingSessionEpoch = shell?.pendingSessionEpoch ?? 0;
 
   useEffect(() => {
-    if (pendingSessionId == null) return;
+    if (pendingSessionId == null || shell?.sessionAccessError != null) return;
     void Promise.resolve(aui.threads().switchToThread(pendingSessionId)).catch(() => undefined);
-  }, [aui, pendingSessionId, pendingSessionEpoch]);
+  }, [aui, pendingSessionId, pendingSessionEpoch, shell?.sessionAccessError]);
 
   return null;
 }

@@ -1,11 +1,37 @@
 // @vitest-environment jsdom
-import { fireEvent, render, screen } from '@testing-library/react';
+import { fireEvent, render, screen, within } from '@testing-library/react';
 import type { ReactNode } from 'react';
-import { describe, expect, it, vi } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 import { ResetAgentBuilderButton } from '@/atoms/ResetAgentBuilderButton.js';
 import { ShellModeProvider, useShellMode } from '@/server/ShellModeContext.js';
 import { SlotsProvider } from '@/theme/SlotsProvider.js';
+
+const originalShowModal = Object.getOwnPropertyDescriptor(HTMLDialogElement.prototype, 'showModal');
+const originalClose = Object.getOwnPropertyDescriptor(HTMLDialogElement.prototype, 'close');
+
+beforeEach(() => {
+  HTMLDialogElement.prototype.showModal = function showModal() {
+    this.open = true;
+  };
+  HTMLDialogElement.prototype.close = function close() {
+    this.open = false;
+    this.dispatchEvent(new Event('close'));
+  };
+});
+
+afterEach(() => {
+  if (originalShowModal === undefined) {
+    Reflect.deleteProperty(HTMLDialogElement.prototype, 'showModal');
+  } else {
+    Object.defineProperty(HTMLDialogElement.prototype, 'showModal', originalShowModal);
+  }
+  if (originalClose === undefined) {
+    Reflect.deleteProperty(HTMLDialogElement.prototype, 'close');
+  } else {
+    Object.defineProperty(HTMLDialogElement.prototype, 'close', originalClose);
+  }
+});
 
 vi.mock('@truefoundry/trueforge-assistant-ui-runtime', () => ({
   useTrueForgeAgentSpec: () => ({
@@ -66,13 +92,26 @@ describe('ResetAgentBuilderButton', () => {
     expect(screen.queryByRole('button', { name: 'Reset' })).not.toBeInTheDocument();
   });
 
-  it('resets the builder from the chat header control using the live draft', () => {
+  it('asks before resetting the builder from the live draft', () => {
     render(wrap(<Harness />));
 
     fireEvent.click(screen.getByRole('button', { name: 'Prep saved builder' }));
-    expect(screen.getByRole('button', { name: 'Reset' })).toBeInTheDocument();
+    fireEvent.click(screen.getByRole('button', { name: 'Reset' }));
+
+    const dialog = screen.getByRole('dialog', { name: 'Reset agent config' });
+    expect(dialog).toHaveTextContent('Instructions, connectors, and skills will be cleared');
+    fireEvent.click(within(dialog).getByRole('button', { name: 'Cancel' }));
+    expect(screen.queryByRole('dialog', { name: 'Reset agent config' })).not.toBeInTheDocument();
+
+    const afterCancel = JSON.parse(screen.getByTestId('mode').textContent ?? '{}') as {
+      agentId: string | null;
+    };
+    expect(afterCancel.agentId).toBe('saved');
 
     fireEvent.click(screen.getByRole('button', { name: 'Reset' }));
+    fireEvent.click(
+      within(screen.getByRole('dialog', { name: 'Reset agent config' })).getByRole('button', { name: 'Reset' }),
+    );
 
     const mode = JSON.parse(screen.getByTestId('mode').textContent ?? '{}') as {
       isCreateAgent: boolean;
