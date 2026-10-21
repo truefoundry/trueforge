@@ -28,7 +28,10 @@ export class ActiveTurnRegistry {
   private readonly runs = new Map<string, ActiveTurnRun>();
   /** Per-turn mutex. Dropped once unlocked, which means no waiter is still queued. */
   private readonly turnLocks = new Map<string, Mutex>();
+  // active turns keepalive timers, whenever turn is paused, we start a timer to keep the turn alive for a certain amount of time
+  // if the timer expires, we offload the turn
   private readonly keepaliveTimers = new Map<string, NodeJS.Timeout>();
+  // the time to keep the turn alive for, in milliseconds
   private readonly pausedKeepaliveMs: number;
   private alreadyShutDownAbortReason: CancellationReason | undefined;
 

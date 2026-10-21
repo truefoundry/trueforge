@@ -489,17 +489,26 @@ interface TurnPausedKeepalive {
   clear: () => void;
 }
 
+/**
+ * Running-only execution deadline for one turn.
+ * Each entry to `running` starts a fresh window. Pause clears it.
+ */
+interface TurnExecutionTimeout {
+  start: () => void;
+  clear: () => void;
+}
+
 export async function drainTurnEvents(input: {
   trackedStream: AsyncIterable<TurnStreamingEvent>;
   turnEventStream: EventSubscription<TurnStreamingEvent>;
   sessionId: string;
   turnId: string;
-  maxExecutionTimer: NodeJS.Timeout;
+  executionTimeout: TurnExecutionTimeout;
   logger: Logger;
   pausedKeepalive: TurnPausedKeepalive;
   onEvent?: (event: TurnStreamingEvent, sequenceNumber: number) => Promise<void>;
 }): Promise<void> {
-  const { trackedStream, turnEventStream, sessionId, turnId, maxExecutionTimer, logger, pausedKeepalive, onEvent } =
+  const { trackedStream, turnEventStream, sessionId, turnId, executionTimeout, logger, pausedKeepalive, onEvent } =
     input;
   try {
     for await (const event of trackedStream) {
@@ -510,8 +519,10 @@ export async function drainTurnEvents(input: {
       if (event.type === EventType.TURN_UPDATE) {
         if (event.state.status === 'paused') {
           pausedKeepalive.start();
+          executionTimeout.clear();
         } else {
           pausedKeepalive.clear();
+          executionTimeout.start();
         }
       }
       await onEvent?.(event, sequenceNumber);
@@ -531,7 +542,7 @@ export async function drainTurnEvents(input: {
       });
     }
   } finally {
-    clearTimeout(maxExecutionTimer);
+    executionTimeout.clear();
   }
 }
 
@@ -541,7 +552,7 @@ export interface TurnEventDrainInput {
   turnEventStream: EventSubscription<TurnStreamingEvent>;
   sessionId: string;
   turnId: string;
-  maxExecutionTimer: NodeJS.Timeout;
+  executionTimeout: TurnExecutionTimeout;
   logger: Logger;
   pausedKeepalive: TurnPausedKeepalive;
 }
@@ -559,7 +570,7 @@ async function prepareTurnExecution(input: {
 }): Promise<{
   abortController: AbortController;
   resolver: TurnResourceResolver;
-  startExecutionTimeout: () => NodeJS.Timeout;
+  executionTimeout: TurnExecutionTimeout;
 }> {
   assertGatewayMetadataRequestHeaders(input.requestHeaders);
   const abortController = new AbortController();
@@ -587,18 +598,32 @@ async function prepareTurnExecution(input: {
       ...(input.requestHeaders === undefined ? {} : { requestHeaders: input.requestHeaders }),
     },
   });
-  return {
-    abortController,
-    resolver,
-    startExecutionTimeout: () => {
-      const maxExecutionTimer = setTimeout(() => {
+  let executionTimer: NodeJS.Timeout | undefined;
+  const executionTimeout: TurnExecutionTimeout = {
+    start: () => {
+      if (executionTimer !== undefined) {
+        clearTimeout(executionTimer);
+      }
+      executionTimer = setTimeout(() => {
+        executionTimer = undefined;
         if (!abortController.signal.aborted) {
           abortController.abort(CancellationReason.ServerExecutionTimeout);
         }
       }, configuration.SERVER_EXECUTION_TIMEOUT_SECONDS * 1000);
-      maxExecutionTimer.unref();
-      return maxExecutionTimer;
+      executionTimer.unref();
     },
+    clear: () => {
+      if (executionTimer === undefined) {
+        return;
+      }
+      clearTimeout(executionTimer);
+      executionTimer = undefined;
+    },
+  };
+  return {
+    abortController,
+    resolver,
+    executionTimeout,
   };
 }
 
@@ -613,7 +638,7 @@ export async function beginTurnExecution(
   const sessionId = session.session_id;
   const turnId = newId();
   const tenant_id = session.tenant_id;
-  const { abortController, resolver, startExecutionTimeout } = await prepareTurnExecution({
+  const { abortController, resolver, executionTimeout } = await prepareTurnExecution({
     session,
     turnId,
     userRef,
@@ -638,7 +663,8 @@ export async function beginTurnExecution(
     update_session_title_if_not_exist: title,
   });
 
-  const maxExecutionTimer = startExecutionTimeout();
+  // A new turn is running immediately. Pause and the later resume are handled from the drain.
+  executionTimeout.start();
   const trackedStream = deps.activeTurns.track({
     abortController,
     stream: turn.stream(),
@@ -655,7 +681,7 @@ export async function beginTurnExecution(
       turnEventStream,
       sessionId,
       turnId: turn.id,
-      maxExecutionTimer,
+      executionTimeout,
       logger: deps.logger,
       pausedKeepalive: {
         start: () => {
@@ -702,14 +728,13 @@ async function resumePausedTurn(input: {
   requestHeaders?: Record<string, string> | undefined;
   deps: BeginTurnExecutionDeps;
 }): Promise<{ turn: TurnHandle; startDrain: () => void }> {
-  const { abortController, resolver, startExecutionTimeout } = await prepareTurnExecution({
+  const { abortController, resolver, executionTimeout } = await prepareTurnExecution({
     session: input.session,
     turnId: input.turnId,
     userRef: input.requestContext.subject.id,
     requestHeaders: input.requestHeaders,
     deps: input.deps,
   });
-  const maxExecutionTimer = startExecutionTimeout();
 
   let turn: TurnHandle;
   try {
@@ -720,7 +745,7 @@ async function resumePausedTurn(input: {
       abortController,
     });
   } catch (error) {
-    clearTimeout(maxExecutionTimer);
+    executionTimeout.clear();
     throw error;
   }
 
@@ -731,7 +756,7 @@ async function resumePausedTurn(input: {
     // Counter only. A missing stream stays at 1; log repair from the TurnRecord is later.
     await turnEventStream.resumeProducer({ streamTTLSeconds: configuration.TURN_STREAM_TTL_SECONDS });
   } catch (error) {
-    clearTimeout(maxExecutionTimer);
+    executionTimeout.clear();
     abortController.abort(TurnOffloadReason);
     await turn.stream().return(undefined);
     throw error;
@@ -761,7 +786,7 @@ async function resumePausedTurn(input: {
         turnEventStream,
         sessionId: input.session.session_id,
         turnId: turn.id,
-        maxExecutionTimer,
+        executionTimeout,
         logger: input.deps.logger,
         pausedKeepalive: {
           start: () => {

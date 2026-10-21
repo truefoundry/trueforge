@@ -761,8 +761,10 @@ export interface SharedServerConfiguration {
    */
   GRACEFUL_TIMEOUT_SECONDS: number;
   /**
-   * Max seconds a single turn may execute before it is cancelled with
-   * `server-execution-timeout`. Env: `SERVER_EXECUTION_TIMEOUT_SECONDS`. Default 600 (10 minutes).
+   * Max seconds a turn may stay `running` before it is cancelled with
+   * `server-execution-timeout`. Paused time is not counted: the window clears on
+   * pause and starts again on the next `running`. Env: `SERVER_EXECUTION_TIMEOUT_SECONDS`.
+   * Default 3600 (60 minutes).
    */
   SERVER_EXECUTION_TIMEOUT_SECONDS: number;
   /**
