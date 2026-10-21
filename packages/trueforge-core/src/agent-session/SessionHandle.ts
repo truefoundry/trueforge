@@ -18,6 +18,7 @@ import {
 import type { CreateDynamicSubAgentThread } from '../core/runtime/CreateDynamicSubAgentThread';
 import type { HarnessSandbox } from '../core/sandbox/Sandbox';
 import type { AgentTracing } from '../core/tracing/AgentTracing';
+import { reportableErrorFields } from '../core/util/reportableErrorLog';
 import { builtinsFromSpec } from './builtinsFromSpec';
 import type { ITurnResourceResolver, ResolvedAgentDefinition } from './ITurnResourceResolver';
 import type { SessionRecord } from './models/SessionRecord';
@@ -336,6 +337,7 @@ export class SessionHandle<
       await input.resolver.close().catch((closeError: unknown) => {
         input.resolver.logger.warn('TurnResourceResolver.close() failed after createTurn() error', {
           err: closeError,
+          ...reportableErrorFields({ error: closeError, operation: 'resolverCloseAfterCreateTurn' }),
         });
       });
       throw error;

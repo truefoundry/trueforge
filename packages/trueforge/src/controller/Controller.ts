@@ -8,6 +8,7 @@
  * the server itself; when `STANDALONE=false` it is the dedicated single-replica
  * process. Loops are written assuming this.
  */
+import { reportableErrorFields } from '@truefoundry/trueforge-core/core';
 import type { Logger } from 'winston';
 
 /** Reason passed to {@link AbortController.abort} when {@link Controller.stop} runs. */
@@ -119,7 +120,11 @@ export class Controller {
         if (signal.aborted) {
           return;
         }
-        this.#logger.error('Control loop pass failed', { loop: loop.name, error });
+        this.#logger.error('Control loop pass failed', {
+          loop: loop.name,
+          error,
+          ...reportableErrorFields({ error, operation: 'controlLoop', extra: { loop: loop.name } }),
+        });
       }
     })();
 

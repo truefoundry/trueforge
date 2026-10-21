@@ -1,12 +1,22 @@
 import { TrueForgeApi } from '@truefoundry/trueforge-sdk';
+import { createLogger } from 'winston';
 import { internalTrueForgeClient } from '../../../src/controller/internalTrueForgeClient';
 import { dispatchSandboxEnvBuilds, sandboxEnvBuildLoop } from '../../../src/controller/sandboxEnvBuild';
+import * as sentry from '../../../src/sentry';
+
+jest.mock('../../../src/sentry', () => ({
+  captureCriticalException: jest.fn(),
+}));
 
 function fakeLogger() {
   return { error: jest.fn(), debug: jest.fn(), info: jest.fn(), warn: jest.fn() };
 }
 
 describe('sandboxEnvBuildLoop', () => {
+  beforeEach(() => {
+    jest.mocked(sentry.captureCriticalException).mockClear();
+  });
+
   afterEach(() => {
     jest.restoreAllMocks();
   });
@@ -41,6 +51,16 @@ describe('sandboxEnvBuildLoop', () => {
 
     expect(progress).toHaveBeenCalledTimes(2);
     expect(logger.warn).toHaveBeenCalled();
+    expect(sentry.captureCriticalException).not.toHaveBeenCalled();
+  });
+
+  it('reports a progress failure once', async () => {
+    jest.spyOn(internalTrueForgeClient, 'listPendingSandboxEnvironmentVersions').mockResolvedValue(['ver-1']);
+    jest.spyOn(internalTrueForgeClient, 'progressSandboxEnvironmentVersion').mockRejectedValue(new Error('down'));
+
+    await dispatchSandboxEnvBuilds({ logger: createLogger({ silent: true }) });
+
+    expect(sentry.captureCriticalException).toHaveBeenCalledTimes(1);
   });
 
   it('does not tick when aborted', async () => {

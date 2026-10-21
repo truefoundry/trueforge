@@ -90,6 +90,65 @@ function stackWithCauses(error: Error): string | undefined {
   return stacks.length > 0 ? stacks.join('\nCaused by: ') : undefined;
 }
 
+const REPORTABLE_TRANSPORT_ERROR_NAMES = new Set([
+  'AbortError',
+  'TimeoutError',
+  'ConnectTimeoutError',
+  'HeadersTimeoutError',
+  'BodyTimeoutError',
+]);
+
+const REPORTABLE_TRANSPORT_ERROR_CODES = new Set([
+  'ECONNRESET',
+  'ECONNREFUSED',
+  'ETIMEDOUT',
+  'ENOTFOUND',
+  'EAI_AGAIN',
+  'EPIPE',
+  'EHOSTUNREACH',
+  'ENETUNREACH',
+  'ECONNABORTED',
+  'UND_ERR_CONNECT_TIMEOUT',
+  'UND_ERR_HEADERS_TIMEOUT',
+  'UND_ERR_BODY_TIMEOUT',
+  'UND_ERR_SOCKET',
+  'CERT_HAS_EXPIRED',
+  'UNABLE_TO_VERIFY_LEAF_SIGNATURE',
+  'DEPTH_ZERO_SELF_SIGNED_CERT',
+  'ERR_TLS_CERT_ALTNAME_INVALID',
+]);
+
+function transportErrorCode(error: object): string | undefined {
+  if (!('code' in error)) {
+    return undefined;
+  }
+  const code: unknown = Reflect.get(error, 'code');
+  return typeof code === 'string' ? code : undefined;
+}
+
+function hasReportableTransportSignal(error: unknown, seen: Set<unknown>): boolean {
+  if (typeof error !== 'object' || error === null || seen.has(error)) {
+    return false;
+  }
+  seen.add(error);
+  if (error instanceof Error && REPORTABLE_TRANSPORT_ERROR_NAMES.has(error.name)) {
+    return true;
+  }
+  const code = transportErrorCode(error);
+  if (code !== undefined && REPORTABLE_TRANSPORT_ERROR_CODES.has(code)) {
+    return true;
+  }
+  if (!('cause' in error)) {
+    return false;
+  }
+  return hasReportableTransportSignal(Reflect.get(error, 'cause'), seen);
+}
+
+/** Timeout, DNS, TLS, and socket failures, including those nested on `error.cause`. */
+export function isReportableTransportFailure(error: unknown): boolean {
+  return hasReportableTransportSignal(error, new Set());
+}
+
 export function extractErrorLogFields(error: unknown): ErrorLogFields {
   if (error instanceof Error) {
     const chain = describeErrorChain(error, new Set());

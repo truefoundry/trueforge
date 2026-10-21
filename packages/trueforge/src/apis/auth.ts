@@ -1,5 +1,9 @@
 import { OpenAPIHono } from '@hono/zod-openapi';
-import { extractErrorLogFields } from '@truefoundry/trueforge-core/core';
+import {
+  extractErrorLogFields,
+  isReportableTransportFailure,
+  reportableErrorFields,
+} from '@truefoundry/trueforge-core/core';
 import type { Context, MiddlewareHandler } from 'hono';
 import type { Configuration } from 'openid-client';
 import type { Logger } from 'winston';
@@ -61,7 +65,10 @@ export function createAuthRouter(params: {
         });
         return c.redirect(authorizationUrl, 302);
       } catch (error) {
-        params.logger.error('Failed to build login authorization', extractErrorLogFields(error));
+        params.logger.error('Failed to build login authorization', {
+          ...extractErrorLogFields(error),
+          ...reportableErrorFields({ error, operation: 'loginAuthorization' }),
+        });
         return c.redirect(oauthErrorRedirect('login_failed'), 302);
       }
     }
@@ -70,7 +77,10 @@ export function createAuthRouter(params: {
       try {
         return c.redirect(resolveTrueFoundryLoginReturnTo(returnTo), 302);
       } catch (error) {
-        params.logger.error('Failed to build TrueFoundry external login URL', extractErrorLogFields(error));
+        params.logger.error('Failed to build TrueFoundry external login URL', {
+          ...extractErrorLogFields(error),
+          ...reportableErrorFields({ error, operation: 'externalLoginUrl' }),
+        });
         return c.redirect(oauthErrorRedirect('login_failed'), 302);
       }
     }
@@ -114,7 +124,10 @@ export function createAuthRouter(params: {
       });
       return c.redirect(safeReturnTo(pending.return_to), 302);
     } catch (error) {
-      params.logger.error('Failed to exchange authorization code', extractErrorLogFields(error));
+      params.logger.error('Failed to exchange authorization code', {
+        ...extractErrorLogFields(error),
+        ...(isReportableTransportFailure(error) ? reportableErrorFields({ error, operation: 'oidcExchange' }) : {}),
+      });
       const soft = await redirectIfAlreadyAuthenticated({
         context: c,
         whenAuthenticated: safeReturnTo(pending.return_to),

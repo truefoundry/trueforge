@@ -1,3 +1,4 @@
+import { reportableErrorFields } from '@truefoundry/trueforge-core/core';
 import type { Logger } from 'winston';
 import { Controller } from './controller/Controller';
 import { sandboxEnvBuildLoop } from './controller/sandboxEnvBuild';
@@ -54,7 +55,12 @@ export function runController<TTransaction>(params: {
 
     // Passes only hold short transactions, so the deadline should never elapse.
     setTimeout(() => {
-      logger.warn(`Controller drain timed out after ${String(gracefulTimeoutSeconds)}s, exiting`);
+      logger.warn(`Controller drain timed out after ${String(gracefulTimeoutSeconds)}s, exiting`, {
+        ...reportableErrorFields({
+          error: new Error(`Controller drain timed out after ${String(gracefulTimeoutSeconds)}s, exiting`),
+          operation: 'controllerDrainTimeout',
+        }),
+      });
       process.exit(1);
     }, gracefulTimeoutSeconds * 1000).unref();
 

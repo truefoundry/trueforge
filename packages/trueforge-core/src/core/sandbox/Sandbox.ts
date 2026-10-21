@@ -15,6 +15,7 @@ import {
 } from '../runtime/DeferredTool';
 import type { AgentTracing } from '../tracing/AgentTracing';
 import { extractErrorLogFields } from '../util/errorLogFields';
+import { reportableErrorFields } from '../util/reportableErrorLog';
 import { CodeModeDispatcher } from './codeMode/CodeModeDispatcher';
 import { type CodeModeClientInstall, type CodeModeTransport } from './codeMode/CodeModeTransport';
 import { ensureExecSuccess, shellEscape, type SandboxProvider } from './provider/Provider';
@@ -541,7 +542,10 @@ export class Sandbox<TEnvironment = undefined> extends LocalToolMCP {
     try {
       ({ sandboxInfo, sandboxCreated } = await this.ensureReadySandbox());
     } catch (e) {
-      this.logger.error('Sandbox initialization failed', extractErrorLogFields(e));
+      this.logger.error('Sandbox initialization failed', {
+        ...extractErrorLogFields(e),
+        ...reportableErrorFields({ error: e, operation: 'sandboxInit' }),
+      });
       const message = e instanceof Error ? e.message : 'Sandbox initialization failed';
       const fallback = this.existingSandboxInfo;
       return toolResultResponse({
@@ -801,6 +805,7 @@ export class Sandbox<TEnvironment = undefined> extends LocalToolMCP {
       this.logger.error('Code Mode transport start failed', {
         ...extractErrorLogFields(e),
         sandboxId,
+        ...reportableErrorFields({ error: e, operation: 'codeModeTransportStart', extra: { sandboxId } }),
       });
       return undefined;
     }

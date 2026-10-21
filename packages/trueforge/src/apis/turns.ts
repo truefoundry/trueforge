@@ -26,6 +26,7 @@ import {
   PromiseTimeoutError,
   rawSandboxId,
   redisKey,
+  reportableErrorFields,
   SandboxError,
   VercelAILLM,
   withTimeout,
@@ -405,7 +406,10 @@ export async function drainTurnEvents(input: {
     if (error instanceof SessionStoreNotFoundError) {
       logger.warn('Turn stream ended after session/turn was removed', extractErrorLogFields(error));
     } else {
-      logger.error('Unexpected error in turn event drain', extractErrorLogFields(error));
+      logger.error('Unexpected error in turn event drain', {
+        ...extractErrorLogFields(error),
+        ...reportableErrorFields({ error, operation: 'eventDrain' }),
+      });
     }
   } finally {
     clearTimeout(maxExecutionTimer);
@@ -728,6 +732,7 @@ export function createTurnsRouter(deps: TurnsRouterDeps) {
         ...extractErrorLogFields(error),
         sandboxId,
         path,
+        ...reportableErrorFields({ error, operation: 'sandboxFileDownload', extra: { sandboxId, path } }),
       });
       return c.json({ error: { message: 'Failed to download file from sandbox' } }, 424);
     }
@@ -971,7 +976,10 @@ export function createTurnsRouter(deps: TurnsRouterDeps) {
         }
       } catch (error) {
         if (!subscribeAbort.signal.aborted) {
-          deps.logger.error('Unexpected error in turn subscribe SSE loop', extractErrorLogFields(error));
+          deps.logger.error('Unexpected error in turn subscribe SSE loop', {
+            ...extractErrorLogFields(error),
+            ...reportableErrorFields({ error, operation: 'subscribeSse' }),
+          });
         }
       } finally {
         clearTimeout(timeoutHandler);

@@ -13,6 +13,7 @@ import {
   configureOutboundFetches,
   configureOutboundUrlGuard,
   extractErrorLogFields,
+  reportableErrorFields,
 } from '@truefoundry/trueforge-core/core';
 import type { Context } from 'hono';
 import { mkdir } from 'node:fs/promises';
@@ -862,7 +863,10 @@ try {
     if (redis.mode !== 'sentinel') {
       requestReplySubscriber = redis.client.duplicate();
       requestReplySubscriber.on('error', (error: Error) => {
-        logger.error('[RedisSubscriber] Client error', extractErrorLogFields(error));
+        logger.error('[RedisSubscriber] Client error', {
+          ...extractErrorLogFields(error),
+          ...reportableErrorFields({ error, operation: 'redisSubscriber' }),
+        });
       });
       await requestReplySubscriber.connect();
     } else {
@@ -921,7 +925,12 @@ try {
 
       // Arm at the start of each shutdown; unref so this timer alone cannot keep the process alive.
       setTimeout(() => {
-        logger.warn(`Drain timed out after ${String(configuration.GRACEFUL_TIMEOUT_SECONDS)}s, exiting`);
+        logger.warn(`Drain timed out after ${String(configuration.GRACEFUL_TIMEOUT_SECONDS)}s, exiting`, {
+          ...reportableErrorFields({
+            error: new Error(`Drain timed out after ${String(configuration.GRACEFUL_TIMEOUT_SECONDS)}s, exiting`),
+            operation: 'serverDrainTimeout',
+          }),
+        });
         process.exit(1);
       }, configuration.GRACEFUL_TIMEOUT_SECONDS * 1000).unref();
 

@@ -8,6 +8,7 @@ import {
   type IToolSet,
 } from '../../mcp/IMCPServer';
 import { extractErrorLogFields } from '../../util/errorLogFields';
+import { reportableErrorFields } from '../../util/reportableErrorLog';
 import type { CodeModeErrorSource, CodeModeReply, CodeModeRequest } from './types';
 
 /** Minimal logger surface used by Code Mode (avoids a hard winston dep for PoC binders). */
@@ -87,7 +88,12 @@ export class CodeModeDispatcher {
     } catch (e) {
       const source = classifyErrorSource(e);
       const errorMessage = e instanceof Error ? e.message : 'Unknown Code Mode dispatch error';
-      this.logger.error(`Code Mode dispatch failed (source=${source})`, extractErrorLogFields(e));
+      this.logger.error(`Code Mode dispatch failed (source=${source})`, {
+        ...extractErrorLogFields(e),
+        ...(source === 'caller'
+          ? {}
+          : reportableErrorFields({ error: e, operation: 'codeModeDispatch', extra: { source } })),
+      });
       return { ok: false, error: errorMessage, source };
     }
   }

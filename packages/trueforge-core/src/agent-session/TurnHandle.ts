@@ -15,6 +15,7 @@ import type { AgentThreadOrchestrator } from '../core/runtime/AgentThreadOrchest
 import { getEmptyCurrentContextUsage } from '../core/runtime/contextUsage';
 import { isInternalThreadDoneCancelled } from '../core/runtime/contextUtils';
 import type { AgentThreadMetrics } from '../core/runtime/metrics';
+import { reportableErrorFields } from '../core/util/reportableErrorLog';
 import type { ITurnResourceResolver } from './ITurnResourceResolver';
 import type { TurnRecord } from './models/TurnRecord';
 import { EventType, type PersistedTurnEvent, type TurnCreatedEvent, type TurnDoneEvent } from './schemas/events';
@@ -374,7 +375,10 @@ export class TurnHandle<TTurnCustom extends object = Record<string, never>> {
       }
 
       await resolver.close().catch((err: unknown) => {
-        resolver.logger.warn('TurnResourceResolver.close() failed', { err });
+        resolver.logger.warn('TurnResourceResolver.close() failed', {
+          err,
+          ...reportableErrorFields({ error: err, operation: 'resolverClose' }),
+        });
       });
 
       if (!frozenByStore) {

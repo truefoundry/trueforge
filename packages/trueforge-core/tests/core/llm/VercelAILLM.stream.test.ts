@@ -14,6 +14,7 @@ import { APICallError } from 'ai';
 import type { ExtendedChatCompletionChunk, RawAssistantMessageWithUsage } from '../../../src/core/llm/LLMTypes';
 import {
   describeStreamError,
+  isReportableLlmTransportFailure,
   mapFinishReason,
   mapStreamToChunks,
   normalizeUsage,
@@ -678,5 +679,42 @@ describe('mapStreamToChunks', () => {
     // Only the finish-step chunk is emitted (no text-delta chunks for structural parts).
     const nonFinishChunks = chunks.filter(c => c.choices[0]?.finish_reason === null);
     expect(nonFinishChunks).toHaveLength(0);
+  });
+});
+
+describe('isReportableLlmTransportFailure', () => {
+  it('reports timeouts and dropped connections', () => {
+    const timedOut = new Error('timed out');
+    timedOut.name = 'TimeoutError';
+    const refused = new TypeError('fetch failed', {
+      cause: Object.assign(new Error('connect ECONNREFUSED'), { code: 'ECONNREFUSED' }),
+    });
+    const providerNetwork = new APICallError({
+      message: 'fetch failed',
+      url: 'https://example.com',
+      requestBodyValues: {},
+      cause: Object.assign(new Error('socket hang up'), { code: 'ECONNRESET' }),
+    });
+
+    expect(isReportableLlmTransportFailure(timedOut)).toBe(true);
+    expect(isReportableLlmTransportFailure(refused)).toBe(true);
+    expect(isReportableLlmTransportFailure(providerNetwork)).toBe(true);
+  });
+
+  it('skips provider HTTP responses, including rate limits and provider 5xx', () => {
+    for (const statusCode of [401, 429, 503]) {
+      expect(
+        isReportableLlmTransportFailure(
+          new APICallError({
+            message: 'provider rejected the request',
+            url: 'https://example.com',
+            requestBodyValues: {},
+            statusCode,
+            cause: Object.assign(new Error('connect ECONNRESET'), { code: 'ECONNRESET' }),
+          }),
+        ),
+      ).toBe(false);
+    }
+    expect(isReportableLlmTransportFailure(new Error('model produced an invalid tool call'))).toBe(false);
   });
 });

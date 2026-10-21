@@ -89,6 +89,25 @@ describe('progressSandboxEnvironmentVersion', () => {
         logger,
       }),
     ).rejects.toMatchObject({ status: 404 } satisfies Partial<HTTPException>);
+    expect(sentry.captureCriticalException).not.toHaveBeenCalled();
+  });
+
+  it('does not report a build failure from this layer', async () => {
+    const { sandboxEnvironmentStore, sandboxProviderStore } = makeStores();
+    mockProvider({
+      getBuildStatus: jest.fn().mockRejectedValue(new Error('network down')),
+      build: jest.fn(),
+    });
+
+    await expect(
+      progressSandboxEnvironmentVersion({
+        sandboxEnvironmentStore,
+        sandboxProviderStore,
+        environment_version_id: 'ver-1',
+        logger,
+      }),
+    ).rejects.toThrow('network down');
+    expect(sentry.captureCriticalException).not.toHaveBeenCalled();
   });
 
   it('marks ready when getBuildStatus reports ready', async () => {

@@ -34,8 +34,9 @@ import type {
   ChatCompletionTool,
 } from 'openai/resources/chat';
 import type { Logger } from 'winston';
-import { describeUnknownError, extractErrorLogFields } from '../util/errorLogFields';
+import { describeUnknownError, extractErrorLogFields, isReportableTransportFailure } from '../util/errorLogFields';
 import { modelSsrfFetch } from '../util/outboundFetch';
+import { reportableErrorFields } from '../util/reportableErrorLog';
 import type { ILLM, LLMCreateParams, LLMCreateParamsStreaming } from './ILLM';
 import {
   type CompletionUsage,
@@ -991,6 +992,14 @@ export function normalizeUsage(usage: {
   };
 }
 
+/** Provider HTTP responses stay in the log. Only a dropped connection or timeout is reportable. */
+export function isReportableLlmTransportFailure(error: unknown): boolean {
+  if (APICallError.isInstance(error) && error.statusCode != null) {
+    return false;
+  }
+  return isReportableTransportFailure(error);
+}
+
 /**
  * Prefer AI SDK `APICallError` (`message` / `statusCode`):
  * https://ai-sdk.dev/docs/reference/ai-sdk-errors/ai-api-call-error#properties
@@ -1445,7 +1454,12 @@ export class VercelAILLM implements ILLM {
       if (this.signal?.aborted) {
         this.logger.debug('LLM call aborted', extractErrorLogFields(error));
       } else {
-        this.logger.error('Error creating streaming chat completion', extractErrorLogFields(error));
+        this.logger.error('Error creating streaming chat completion', {
+          ...extractErrorLogFields(error),
+          ...(isReportableLlmTransportFailure(error)
+            ? reportableErrorFields({ error, operation: 'llmStreamCreate' })
+            : {}),
+        });
       }
       throw toStreamError(error);
     }
@@ -1483,7 +1497,12 @@ export class VercelAILLM implements ILLM {
       if (this.signal?.aborted) {
         this.logger.debug('LLM stream aborted', extractErrorLogFields(error));
       } else {
-        this.logger.error('Error reading LLM stream', extractErrorLogFields(error));
+        this.logger.error('Error reading LLM stream', {
+          ...extractErrorLogFields(error),
+          ...(isReportableLlmTransportFailure(error)
+            ? reportableErrorFields({ error, operation: 'llmStreamRead' })
+            : {}),
+        });
       }
       throw toStreamError(error);
     }

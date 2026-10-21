@@ -5,6 +5,7 @@ import { randomUUID } from 'node:crypto';
 import { join } from 'node:path/posix';
 import type { Logger } from 'winston';
 import { describeUnknownError, extractErrorLogFields } from '../../util/errorLogFields';
+import { reportableErrorFields } from '../../util/reportableErrorLog';
 import type { CodeModeTransport } from '../codeMode/CodeModeTransport';
 import { CodeModeNatsTransport } from '../codeMode/nats/CodeModeNatsTransport';
 import { DEFAULT_SANDBOX_NATS_WS_PORT } from '../constants';
@@ -170,7 +171,16 @@ export class TFYSandboxProvider implements SandboxProvider {
 
         if (!response.ok) {
           const text = await response.text();
-          this.logger.error(`Sandbox server returned ${String(response.status)}: ${text}`, { url: execUrl });
+          this.logger.error(`Sandbox server returned ${String(response.status)}: ${text}`, {
+            url: execUrl,
+            ...(response.status >= 500
+              ? reportableErrorFields({
+                  error: new Error(`Sandbox server returned ${String(response.status)}`),
+                  operation: 'sandboxServer5xx',
+                  extra: { status: response.status },
+                })
+              : {}),
+          });
           return {
             success: false,
             error: `Sandbox server returned ${String(response.status)} from ${execUrl}: ${text}`,
@@ -184,13 +194,18 @@ export class TFYSandboxProvider implements SandboxProvider {
           this.logger.error(`Sandbox exec timed out after ${String(timeoutSeconds)}s`, {
             url: execUrl,
             ...extractErrorLogFields(e),
+            ...reportableErrorFields({ error: e, operation: 'sandboxExecTimeout' }),
           });
           return {
             success: false,
             error: `Sandbox exec to ${execUrl} timed out after ${String(timeoutSeconds)}s`,
           };
         }
-        this.logger.error('Sandbox exec failed', { url: execUrl, ...extractErrorLogFields(e) });
+        this.logger.error('Sandbox exec failed', {
+          url: execUrl,
+          ...extractErrorLogFields(e),
+          ...reportableErrorFields({ error: e, operation: 'sandboxExec' }),
+        });
         return {
           success: false,
           error: `Sandbox exec to ${execUrl} failed: ${describeUnknownError(e)}`,
