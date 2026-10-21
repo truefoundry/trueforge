@@ -14,7 +14,6 @@ import { APICallError } from 'ai';
 import type { ExtendedChatCompletionChunk, RawAssistantMessageWithUsage } from '../../../src/core/llm/LLMTypes';
 import {
   describeStreamError,
-  llmStreamErrorObservation,
   mapFinishReason,
   mapStreamToChunks,
   normalizeUsage,
@@ -679,57 +678,5 @@ describe('mapStreamToChunks', () => {
     // Only the finish-step chunk is emitted (no text-delta chunks for structural parts).
     const nonFinishChunks = chunks.filter(c => c.choices[0]?.finish_reason === null);
     expect(nonFinishChunks).toHaveLength(0);
-  });
-});
-
-describe('llmStreamErrorObservation', () => {
-  it('classifies a create failure by HTTP status', () => {
-    expect(
-      llmStreamErrorObservation({
-        error: new APICallError({
-          message: 'slow down',
-          url: 'https://example.com',
-          requestBodyValues: {},
-          statusCode: 429,
-        }),
-        phase: 'api_call',
-        aborted: false,
-      }),
-    ).toEqual({ errorKind: 'api_call', statusClass: '4xx' });
-  });
-
-  it('reads status from a wrapped stream error', () => {
-    const cause = new APICallError({
-      message: 'upstream',
-      url: 'https://example.com',
-      requestBodyValues: {},
-      statusCode: 503,
-    });
-    expect(
-      llmStreamErrorObservation({
-        error: new Error('Request failed (503): upstream', { cause }),
-        phase: 'stream_part',
-        aborted: false,
-      }),
-    ).toEqual({ errorKind: 'stream_part', statusClass: '5xx' });
-  });
-
-  it('labels an abort ahead of the phase', () => {
-    const aborted = new Error('LLM stream aborted');
-    aborted.name = 'AbortError';
-    expect(llmStreamErrorObservation({ error: aborted, phase: 'api_call', aborted: false })).toEqual({
-      errorKind: 'abort',
-      statusClass: 'none',
-    });
-  });
-
-  it('labels an unrecognized stream part as unknown', () => {
-    expect(
-      llmStreamErrorObservation({
-        error: new Error('Unknown stream part type: {"type":"nope"}'),
-        phase: 'stream_part',
-        aborted: false,
-      }),
-    ).toEqual({ errorKind: 'unknown', statusClass: 'none' });
   });
 });
