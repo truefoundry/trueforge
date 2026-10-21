@@ -2,12 +2,13 @@
 import { act, render, waitFor } from '@testing-library/react';
 import { StrictMode, useEffect, useState, type ReactNode } from 'react';
 import { MemoryRouter, useLocation, useNavigate, type NavigateFunction } from 'react-router-dom';
-import { describe, expect, it } from 'vitest';
+import { describe, expect, it, vi } from 'vitest';
 
 import { resolveRoutesConfig } from '@/routing/paths.js';
 import { ShellRouteSync } from '@/routing/ShellRouteSync.js';
 import { ServerProvider } from '@/server/ServerContext.js';
 import { ShellModeProvider, useShellMode, type AgentConfig } from '@/server/ShellModeContext.js';
+import type { ListPermissionsResponse, PermissionsServer } from '@/server/types.js';
 import {
   createMockAgentSessionsServer,
   createMockAgentUIServer,
@@ -53,6 +54,7 @@ function SettingsCatalogProvider({
   includeSchedules = false,
   includeEnvironments = false,
   getSession,
+  permissions,
 }: {
   children: ReactNode;
   settingsEnabled?: boolean;
@@ -69,12 +71,14 @@ function SettingsCatalogProvider({
     updatedAt: string;
     agentName?: string;
   }>;
+  permissions?: PermissionsServer;
 }) {
   const server = createMockAgentUIServer({
     ...(includeCatalog ? { catalog: createMockCatalog() } : {}),
     ...(includeSessions ? { sessions: createMockAgentSessionsServer() } : {}),
     ...(includeSchedules ? { schedules: createMockScheduleServer() } : {}),
     ...(includeEnvironments ? { sandboxEnvironments: createMockSandboxEnvironmentServer() } : {}),
+    ...(permissions == null ? {} : { permissions }),
     getCapabilities: async () => {
       if (capabilitiesFail) throw new Error('Unavailable');
       return {
@@ -111,6 +115,7 @@ function Harness({
   includeSchedules = false,
   includeEnvironments = false,
   getSession,
+  permissions,
 }: {
   agentConfig?: AgentConfig;
   initialRemoteId?: string;
@@ -129,6 +134,7 @@ function Harness({
     updatedAt: string;
     agentName?: string;
   }>;
+  permissions?: PermissionsServer;
 }) {
   const [remoteId, setId] = useState<string | undefined>(initialRemoteId);
   setRemoteId = setId;
@@ -141,6 +147,7 @@ function Harness({
       includeSchedules={includeSchedules}
       includeEnvironments={includeEnvironments}
       getSession={getSession}
+      permissions={permissions}
     >
       <ShellModeProvider agentConfig={agentConfig} initialSettingsOpen={initialSettingsOpen}>
         <CaptureShell />
@@ -170,6 +177,7 @@ function renderSync(opts: {
     updatedAt: string;
     agentName?: string;
   }>;
+  permissions?: PermissionsServer;
   strict?: boolean;
 }) {
   const tree = (
@@ -185,6 +193,7 @@ function renderSync(opts: {
         includeSchedules={opts.includeSchedules}
         includeEnvironments={opts.includeEnvironments}
         getSession={opts.getSession}
+        permissions={opts.permissions}
       />
     </MemoryRouter>
   );
@@ -196,6 +205,37 @@ describe('ShellRouteSync', () => {
     renderSync({ initialEntries: ['/sessions/abc'] });
     await waitFor(() => expect(shell.pendingSessionId).toBe('abc'));
     expect(pathname).toBe('/sessions/abc');
+  });
+
+  it('rewrites a non-manager session deep link to the shared read-only view', async () => {
+    renderSync({
+      initialEntries: ['/sessions/shared-by-other'],
+      permissions: {
+        listPermissions: vi.fn(async (): Promise<ListPermissionsResponse> => ({
+          data: { type: 'session', permissions: { 'shared-by-other': [] } },
+        })),
+      },
+    });
+
+    await waitFor(() => expect(shell.sharedSessionId).toBe('shared-by-other'));
+    expect(shell.sessionsOpen).toBe(true);
+    expect(shell.pendingSessionId).toBeUndefined();
+    await waitFor(() => expect(pathname).toBe('/sessions/share/shared-by-other'));
+  });
+
+  it('keeps a manager session deep link on the live chat route', async () => {
+    renderSync({
+      initialEntries: ['/sessions/owned'],
+      permissions: {
+        listPermissions: vi.fn(async (): Promise<ListPermissionsResponse> => ({
+          data: { type: 'session', permissions: { owned: ['MANAGE'] } },
+        })),
+      },
+    });
+
+    await waitFor(() => expect(shell.pendingSessionId).toBe('owned'));
+    expect(shell.sharedSessionId).toBeNull();
+    expect(pathname).toBe('/sessions/owned');
   });
 
   it('keeps the session URL and surfaces a pane error when a deep link is forbidden', async () => {
