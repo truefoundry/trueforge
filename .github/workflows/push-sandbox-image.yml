@@ -22,7 +22,9 @@ jobs:
     permissions:
       id-token: write
       contents: read
+      packages: write
     with:
+      artifactory_oidc_provider_name: github-jfrog-trueforge
       artifactory_registry_url: ${{ vars.TRUEFOUNDRY_ARTIFACTORY_REGISTRY_URL }}
       artifactory_repository_url: ${{ vars.TRUEFOUNDRY_ARTIFACTORY_PUBLIC_REPOSITORY }}
       image_artifact_name: trueforge-sandbox
@@ -33,9 +35,6 @@ jobs:
       platforms: linux/amd64
       enable_jfrog: true
       enable_public_ecr: false
-    secrets:
-      artifactory_username: ${{ secrets.TRUEFORGE_ARTIFACTORY_USERNAME }}
-      artifactory_password: ${{ secrets.TRUEFORGE_ARTIFACTORY_PASSWORD }}
 
   print-uri:
     name: Print pushed image URI

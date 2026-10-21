@@ -43,6 +43,7 @@ import {
 import type { ISkillStore } from '../db/skillStore';
 import type { WithTransaction } from '../db/transaction';
 import type { IWebSearchProviderStore } from '../db/webSearchProviderStore';
+import { updateLogContext } from '../logger';
 import {
   createScheduleRoute,
   createScheduleRunRoute,
@@ -208,6 +209,7 @@ export function createScheduleExecutionRouter<TTransaction>(deps: ScheduleTurnEx
           created_by_subject: item.schedule.created_by_subject,
         }),
       );
+      updateLogContext({ tenant_id: item.schedule.tenant_id });
       await startScheduleRunOnRequest({ c, item, deps });
     } catch (error) {
       if (
