@@ -177,7 +177,8 @@ describe('AgentSessionTimelineContainer', () => {
     expect(await screen.findByText('timeline turns=1')).toBeInTheDocument();
     expect(await screen.findByText('Turn 1')).toBeInTheDocument();
     expect(screen.getByText('Turn')).toBeInTheDocument();
-    expect(screen.getByText('Duration')).toBeInTheDocument();
+    const metricsStrip = container.querySelector('[data-slot="agent-session-metrics-sticky"]');
+    expect(metricsStrip).toHaveTextContent('Duration');
     expect(await screen.findAllByRole('button', { name: 'Copy' })).not.toHaveLength(0);
     expect(container.querySelector('[data-slot="agent-session-scroll"]')).toHaveClass('overflow-y-auto');
     expect(container.querySelector('[data-slot="agent-session-metrics-sticky"]')).toHaveClass(
