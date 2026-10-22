@@ -71,10 +71,10 @@ export class LargeToolResponseProcessor implements ToolResponseProcessor {
   }
 
   // Thresholds are configured in tokens, estimated at 4 characters per token; state them in characters for the model.
-  private blockThresholdDescription(): string {
+  private blockLimitDescription(): string {
     const perResponse = (this.individualTokenThreshold * 4).toLocaleString('en-US');
     const combined = (this.totalTokenThreshold * 4).toLocaleString('en-US');
-    return `blocked at ${perResponse} characters or more per response, or ${combined} characters or more across parallel responses`;
+    return `${perResponse} characters per response, ${combined} characters combined across parallel responses`;
   }
 
   private createLargeToolResponseGuidance(sandbox: HarnessSandbox | undefined): string {
@@ -88,7 +88,7 @@ export class LargeToolResponseProcessor implements ToolResponseProcessor {
       steps.push(createDynamicSubAgentLargeToolResponseGuidance());
     }
 
-    return `Content too big. Tool responses are ${this.blockThresholdDescription()}. To handle a large tool call the Agent can do the following:\n${steps
+    return `Content too big (limit: ${this.blockLimitDescription()}). To handle a large tool call the Agent can do the following:\n${steps
       .map((step, index) => `${String(index + 1)}. ${step}`)
       .join('\n')}`;
   }
@@ -111,7 +111,7 @@ export class LargeToolResponseProcessor implements ToolResponseProcessor {
       .map((step, index) => `${String(index + 1)}. ${step}`)
       .join('\n')}`;
 
-    return `Content too large (${size}). Tool responses are ${this.blockThresholdDescription()}. Result saved to: ${filePath}.\n\n${guidance}\n\nPreview (first and last ${String(this.previewNumberOfCharacters)} chars):\n${preview}`;
+    return `Content too large (${size}; limit: ${this.blockLimitDescription()}). Result saved to: ${filePath}.\n\n${guidance}\n\nPreview (first and last ${String(this.previewNumberOfCharacters)} chars):\n${preview}`;
   }
 
   private buildResultsWithInfo(results: ToolCallResult[], sandbox: HarnessSandbox | undefined): ToolResultWithInfo[] {
@@ -136,7 +136,7 @@ export class LargeToolResponseProcessor implements ToolResponseProcessor {
         newContent = entry.originalContent.slice(0, FAILURE_MESSAGE_TRUNCATION_LENGTH);
         break;
       case 'sandbox':
-        newContent = `Content too big. Tool responses are ${this.blockThresholdDescription()}. The Agent should write to a file if required and use grep and sed.\n\nPreview:\n${preview}`;
+        newContent = `Content too big (limit: ${this.blockLimitDescription()}). The Agent should write to a file if required and use grep and sed.\n\nPreview:\n${preview}`;
         break;
       case 'mcp':
         newContent = `${this.createLargeToolResponseGuidance(sandbox)}\n\nPreview (first and last ${String(this.previewNumberOfCharacters)} chars):\n${preview}`;
