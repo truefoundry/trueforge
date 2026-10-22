@@ -7,6 +7,7 @@ import {
   type Sessions,
   type TurnStreamingEvent,
 } from '@truefoundry/trueforge-core/agent-session';
+import type { OperationMetrics } from '@truefoundry/trueforge-core/core';
 import type { Context } from 'hono';
 import { HTTPException } from 'hono/http-exception';
 import type { Logger } from 'winston';
@@ -84,6 +85,8 @@ export interface ScheduleTurnExecutionDeps<TTransaction> {
   agentStore: IAgentStore<TTransaction>;
   /** Call with `{}` — schedules have no caller `x-tfg-skills`. */
   resolveTurnSkillsStore: (input: ResolveTurnSkillsStoreInput) => Pick<ISkillStore, 'resolveTurnSkills'>;
+  /** Operation series registered on the process scrape registry. */
+  operationMetrics: OperationMetrics;
 }
 
 export interface SchedulesRouterDeps<TTransaction> extends ScheduleTurnExecutionDeps<TTransaction> {
@@ -128,6 +131,7 @@ export async function startScheduleRunOnRequest<TTransaction>(params: {
       webSearchProviderStore: deps.resolveWebSearchProviderStore(c),
       skillStore: deps.resolveTurnSkillsStore({}),
       logger: deps.logger,
+      operationMetrics: deps.operationMetrics,
     },
   });
 }

@@ -53,6 +53,7 @@ import { estimateTokensForString, resolveMaxOutputTokens } from '../llm/usage';
 import { convertMCPServersToTools, type ConvertToolsResult, type MappedMCPTool } from '../mcp/convertMCPServers';
 import { executeToolCalls } from '../mcp/executeToolCalls';
 import type { IToolSet, MCPAuthRequired } from '../mcp/IMCPServer';
+import { elapsedSeconds, type LlmRequestOutcome, type OperationMetrics } from '../observability/operationMetrics';
 import type { HarnessSandbox, SandboxInfo } from '../sandbox/Sandbox';
 import type { AgentTracing } from '../tracing/AgentTracing';
 import { describeUnknownError, extractErrorLogFields } from '../util/errorLogFields';
@@ -530,6 +531,7 @@ export class AgentThread {
   private sandbox?: HarnessSandbox | undefined;
   private readonly tracing: AgentTracing;
   private readonly logger: Logger;
+  private readonly operationMetrics: OperationMetrics | undefined;
 
   private metrics: AgentThreadMetrics = createEmptyAgentThreadMetrics();
   private tfyManagedServerNames = new Set<string>();
@@ -545,6 +547,7 @@ export class AgentThread {
   constructor(input: AgentThreadConstructorInput) {
     this.tracing = input.tracing;
     this.logger = input.logger.child({ module: 'AgentThread' });
+    this.operationMetrics = input.operationMetrics;
     this.threadId = input.threadId;
     this.definition = input.definition;
     this.context = input.context ? [...input.context] : [];
@@ -586,6 +589,7 @@ export class AgentThread {
       this.deferredTool = new DeferredTool(this.definition.toolSets, {
         tracing: this.tracing,
         logger: input.logger,
+        ...(this.operationMetrics !== undefined ? { metrics: this.operationMetrics } : {}),
       });
     }
 
@@ -1094,6 +1098,40 @@ export class AgentThread {
     return this.convertedTools;
   }
 
+  private recordLlmCall({
+    startedMs,
+    outcome,
+    finishReason,
+  }: {
+    startedMs: number;
+    outcome: LlmRequestOutcome;
+    finishReason: FinishReason | null;
+  }): void {
+    const metrics = this.operationMetrics;
+    const providerType = this.definition.providerType;
+    if (metrics === undefined || providerType === undefined) {
+      return;
+    }
+    metrics.recordLlmRequest({
+      providerType,
+      outcome,
+      finishReason: finishReason ?? 'none',
+      durationSeconds: elapsedSeconds(startedMs),
+    });
+  }
+
+  private recordLlmTimeToFirstToken(startedMs: number): void {
+    const metrics = this.operationMetrics;
+    const providerType = this.definition.providerType;
+    if (metrics === undefined || providerType === undefined) {
+      return;
+    }
+    metrics.recordLlmTimeToFirstToken({
+      providerType,
+      durationSeconds: elapsedSeconds(startedMs),
+    });
+  }
+
   private async *stepLLMCall(
     tools: ChatCompletionTool[],
     toolMapping: Map<string, MappedMCPTool>,
@@ -1109,6 +1147,8 @@ export class AgentThread {
     }
 
     const requestBody = this.transformToLLMRequest(tools);
+    // Duration includes the provider stream and each delta's drain. appendToContext stays outside.
+    const requestStartedMs = performance.now();
     const llmStream = this.definition.modelClient.create(requestBody);
 
     // We start the delta stream with a model message event.
@@ -1122,42 +1162,64 @@ export class AgentThread {
     } satisfies ModelMessageEvent;
 
     let firstDeltaTimestamped = false;
-    let result = await llmStream.next();
     let modelMessageUsage: ModelMessageUsage | undefined = undefined;
-    while (!result.done) {
-      const chunk = result.value;
-      if (chunk.usage) {
-        modelMessageUsage = this.computeAssistantMessageUsage({
-          requestBody,
-          usage: chunk.usage,
-          toolMapping,
-        });
-      }
-      const event = await buildModelMessageDeltaEvent({
-        chunk,
-        threadId: this.threadId,
-        toolMapping,
-        usage: modelMessageUsage,
-        id: modelMessageEventId,
-        logger: this.logger,
-      });
-      if (event) {
-        if (!firstDeltaTimestamped) {
-          firstDeltaTimestamped = true;
-          yield { ...event, created_at: new Date().toISOString() };
-        } else {
-          yield event;
-        }
-      }
+    let result: Awaited<ReturnType<typeof llmStream.next>>;
+    try {
       result = await llmStream.next();
+      while (!result.done) {
+        const chunk = result.value;
+        if (chunk.usage) {
+          modelMessageUsage = this.computeAssistantMessageUsage({
+            requestBody,
+            usage: chunk.usage,
+            toolMapping,
+          });
+        }
+        const event = await buildModelMessageDeltaEvent({
+          chunk,
+          threadId: this.threadId,
+          toolMapping,
+          usage: modelMessageUsage,
+          id: modelMessageEventId,
+          logger: this.logger,
+        });
+        if (event) {
+          if (!firstDeltaTimestamped) {
+            firstDeltaTimestamped = true;
+            this.recordLlmTimeToFirstToken(requestStartedMs);
+            yield { ...event, created_at: new Date().toISOString() };
+          } else {
+            yield event;
+          }
+        }
+        result = await llmStream.next();
+      }
+    } catch (error) {
+      this.recordLlmCall({
+        startedMs: requestStartedMs,
+        outcome: isLlmCallAborted({ error, signal }) ? 'aborted' : 'error',
+        finishReason: null,
+      });
+      throw error;
     }
 
     // If the stream was aborted mid-way, result.value.output is only a partial
     // accumulation of the deltas — not the true complete response. Skip the
     // final model.message event to avoid emitting an inconsistent assembled message.
     if (signal?.aborted) {
+      this.recordLlmCall({
+        startedMs: requestStartedMs,
+        outcome: 'aborted',
+        finishReason: result.value.finish_reason,
+      });
       return { outcome: 'exit', modelMessageEventId };
     }
+
+    this.recordLlmCall({
+      startedMs: requestStartedMs,
+      outcome: 'success',
+      finishReason: result.value.finish_reason,
+    });
 
     // should be computed by this point but in case provider never gives out any delta with usage, compute it now.
     modelMessageUsage ??= this.computeAssistantMessageUsage({
@@ -1281,6 +1343,7 @@ export class AgentThread {
       toolMapping,
       threadId: this.threadId,
       approvalDecisions: decisions,
+      metrics: this.operationMetrics,
     });
     void clientSideToolCalls;
     if (approvalRequiredToolCalls.length > 0) {
@@ -1480,6 +1543,7 @@ export class AgentThread {
               return;
             }
             if (this.metrics.iterations >= iterationLimit) {
+              this.operationMetrics?.recordHarnessLimit({ limit: 'iteration_limit' });
               yield this.generateErrorEvent(
                 `You have reached iteration limit of ${String(iterationLimit)}, please request again`,
               );
@@ -1559,4 +1623,11 @@ function claimCapabilityState(
     claimed[key] = value;
   }
   return claimed;
+}
+
+function isLlmCallAborted({ error, signal }: { error: unknown; signal: AbortSignal | undefined }): boolean {
+  if (signal?.aborted === true) {
+    return true;
+  }
+  return error instanceof Error && error.name === 'AbortError';
 }

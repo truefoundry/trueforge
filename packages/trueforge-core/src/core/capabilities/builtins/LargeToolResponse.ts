@@ -2,6 +2,7 @@ import dedent from 'dedent';
 import type { Logger } from 'winston';
 import { describeContentSize, estimateTokensForString } from '../../llm/usage';
 import type { ToolCallResult } from '../../mcp/executeToolCalls';
+import type { OperationMetrics } from '../../observability/operationMetrics';
 import type { HarnessSandbox, SandboxInfo } from '../../sandbox/Sandbox';
 import { createSandboxLargeToolResponseGuidance, SANDBOX_SCHEMA_INFER_TAG } from '../../sandbox/Sandbox';
 import { extractErrorLogFields } from '../../util/errorLogFields';
@@ -50,6 +51,7 @@ export class LargeToolResponseProcessor implements ToolResponseProcessor {
   private totalTokenThreshold: number;
   private previewNumberOfCharacters: number;
   private readonly logger: Logger;
+  private readonly metrics: OperationMetrics | undefined;
 
   constructor(param: {
     dynamicSubAgentsPresent: boolean;
@@ -57,6 +59,7 @@ export class LargeToolResponseProcessor implements ToolResponseProcessor {
     totalTokenThreshold: number;
     previewNumberOfCharacters: number;
     logger: Logger;
+    metrics?: OperationMetrics | undefined;
   }) {
     if (param.individualTokenThreshold > param.totalTokenThreshold) {
       throw new Error(
@@ -68,6 +71,7 @@ export class LargeToolResponseProcessor implements ToolResponseProcessor {
     this.totalTokenThreshold = param.totalTokenThreshold;
     this.previewNumberOfCharacters = param.previewNumberOfCharacters;
     this.logger = param.logger.child({ module: 'LargeToolResponse' });
+    this.metrics = param.metrics;
   }
 
   private createLargeToolResponseGuidance(sandbox: HarnessSandbox | undefined): string {
@@ -120,7 +124,9 @@ export class LargeToolResponseProcessor implements ToolResponseProcessor {
     entry: ToolResultWithInfo,
     pendingSandboxDumps: ToolResultWithInfo[],
     sandbox: HarnessSandbox | undefined,
+    limit: 'large_tool_response_individual' | 'large_tool_response_total',
   ): number {
+    this.metrics?.recordHarnessLimit({ limit });
     const preview = createContentPreview(entry.originalContent, this.previewNumberOfCharacters);
 
     let newContent: string;
@@ -202,7 +208,7 @@ export class LargeToolResponseProcessor implements ToolResponseProcessor {
     const unblocked: ToolResultWithInfo[] = [];
     for (const entry of resultsWithInfo) {
       if (entry.originalTokens >= this.individualTokenThreshold) {
-        runningTotal -= this.blockResult(entry, pendingSandboxDumps, sandbox);
+        runningTotal -= this.blockResult(entry, pendingSandboxDumps, sandbox, 'large_tool_response_individual');
       } else {
         unblocked.push(entry);
       }
@@ -213,7 +219,7 @@ export class LargeToolResponseProcessor implements ToolResponseProcessor {
       if (runningTotal < this.totalTokenThreshold) {
         break;
       }
-      runningTotal -= this.blockResult(entry, pendingSandboxDumps, sandbox);
+      runningTotal -= this.blockResult(entry, pendingSandboxDumps, sandbox, 'large_tool_response_total');
     }
 
     const sandboxCreated = sandbox ? await this.executeSandboxDumps(pendingSandboxDumps, sandbox) : undefined;
@@ -231,6 +237,7 @@ export function largeToolResponse(options: {
   dynamicSubAgentsPresent: boolean;
   settings?: LargeToolResponseSettings | undefined;
   logger: Logger;
+  metrics?: OperationMetrics | undefined;
 }): AgentCapability {
   return {
     toolResponseProcessors: [
@@ -240,6 +247,7 @@ export function largeToolResponse(options: {
         totalTokenThreshold: options.settings?.totalTokenThreshold ?? DEFAULT_TOTAL_TOOL_TOKEN_THRESHOLD,
         previewNumberOfCharacters: options.settings?.previewNumberOfCharacters ?? DEFAULT_PREVIEW_NUMBER_OF_CHARACTERS,
         logger: options.logger,
+        ...(options.metrics !== undefined ? { metrics: options.metrics } : {}),
       }),
     ],
   };

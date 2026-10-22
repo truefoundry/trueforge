@@ -11,6 +11,7 @@ import {
   type UserToolResponseMessage,
 } from '../events/schema';
 import type { LLMToolMessage } from '../llm/LLMTypes';
+import type { OperationMetrics } from '../observability/operationMetrics';
 import type { AgentExecutionTrace, AgentTracing } from '../tracing/AgentTracing';
 import { onSignalAbort } from '../util/abort';
 import { mergeAsyncGenerators } from '../util/promiseUtils';
@@ -88,6 +89,19 @@ function getActiveAgentThreads(agentThreads: Map<string, AgentThread>): AgentThr
     }
     return agentThread;
   });
+}
+
+/** Each thread counts once, the first time it is a leaf. Later loop steps run the same threads again. */
+function countNewlyActiveThreads(threads: readonly AgentThread[], countedThreadIds: Set<string>): number {
+  let started = 0;
+  for (const thread of threads) {
+    if (countedThreadIds.has(thread.threadId)) {
+      continue;
+    }
+    countedThreadIds.add(thread.threadId);
+    started += 1;
+  }
+  return started;
 }
 
 function mergeAuthEvents(events: InternalMCPAuthRequiredEvent[]): InternalMCPAuthRequiredEvent {
@@ -232,6 +246,7 @@ export interface AgentThreadOrchestratorInput {
   createDynamicSubAgentThread: CreateDynamicSubAgentThread;
   tracing: AgentTracing;
   logger: Logger;
+  metrics?: OperationMetrics | undefined;
 }
 
 export class AgentThreadOrchestrator {
@@ -239,6 +254,7 @@ export class AgentThreadOrchestrator {
   private readonly createDynamicSubAgentThread: CreateDynamicSubAgentThread;
   private readonly tracing: AgentTracing;
   private readonly logger: Logger;
+  private readonly metrics: OperationMetrics | undefined;
   // Finished sub-agents removed from `agentThreads`; kept so totals still include them.
   private finishedSubAgentMetrics: AgentThreadMetrics = createEmptyAgentThreadMetrics();
 
@@ -247,6 +263,7 @@ export class AgentThreadOrchestrator {
     this.createDynamicSubAgentThread = params.createDynamicSubAgentThread;
     this.tracing = params.tracing;
     this.logger = params.logger.child({ module: 'AgentThreadOrchestrator' });
+    this.metrics = params.metrics;
   }
 
   /**
@@ -507,6 +524,7 @@ export class AgentThreadOrchestrator {
       shouldStopExecution = true;
     });
 
+    const countedThreadIds = new Set<string>();
     try {
       while (agentThreads.size > 0) {
         if (shouldStopExecution) {
@@ -514,6 +532,10 @@ export class AgentThreadOrchestrator {
         }
 
         const activeThreads = getActiveAgentThreads(agentThreads);
+        const startedCount = countNewlyActiveThreads(activeThreads, countedThreadIds);
+        if (startedCount > 0) {
+          this.metrics?.recordActiveThreads({ count: startedCount });
+        }
 
         for (let i = 0; i < activeThreads.length && !shouldStopExecution; i += MAX_PARALLEL_SUB_AGENTS) {
           const batch = activeThreads.slice(i, i + MAX_PARALLEL_SUB_AGENTS);

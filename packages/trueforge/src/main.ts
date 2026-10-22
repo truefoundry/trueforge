@@ -30,6 +30,8 @@ let isTrueFoundryModeEnabled: typeof import('./config').isTrueFoundryModeEnabled
 let getTrueForgeAuthMode: typeof import('./config').getTrueForgeAuthMode;
 let getPublicUiBasePath: typeof import('./config').getPublicUiBasePath;
 let TrueForgeAuthMode: typeof import('./config').TrueForgeAuthMode;
+let serverHttpMetrics: HttpMetrics;
+let operationMetrics: OperationMetrics;
 
 try {
   ({
@@ -45,6 +47,8 @@ try {
     allowedHosts: configuration.OUTBOUND_URL_ALLOWED_HOSTS,
     blockedHosts: configuration.OUTBOUND_URL_BLOCKED_HOSTS,
   });
+  serverHttpMetrics = createHttpMetrics();
+  operationMetrics = createOperationMetrics(serverHttpMetrics.registry);
   configureOutboundFetches({
     outbound: {
       connectTimeoutMs: configuration.OUTBOUND_HTTP_CONNECT_TIMEOUT_MS,
@@ -52,6 +56,7 @@ try {
       bodyTimeoutMs: configuration.OUTBOUND_HTTP_BODY_TIMEOUT_MS,
       maxRetries: configuration.OUTBOUND_HTTP_MAX_RETRIES,
       idempotent: true,
+      metrics: { module: 'generic', operations: operationMetrics },
     },
     model: {
       connectTimeoutMs: configuration.MODEL_HTTP_CONNECT_TIMEOUT_MS,
@@ -59,6 +64,7 @@ try {
       bodyTimeoutMs: configuration.MODEL_HTTP_BODY_TIMEOUT_MS,
       maxRetries: configuration.MODEL_HTTP_MAX_RETRIES,
       idempotent: true,
+      metrics: { module: 'model', operations: operationMetrics },
     },
     mcp: {
       connectTimeoutMs: configuration.MCP_HTTP_CONNECT_TIMEOUT_MS,
@@ -66,6 +72,7 @@ try {
       bodyTimeoutMs: configuration.MCP_HTTP_BODY_TIMEOUT_MS,
       maxRetries: configuration.MCP_HTTP_MAX_RETRIES,
       idempotent: false,
+      metrics: { module: 'mcp', operations: operationMetrics },
     },
   });
 } catch (error) {
@@ -83,6 +90,7 @@ import {
   type ISessionStore,
   type TurnStreamingEvent,
 } from '@truefoundry/trueforge-core/agent-session';
+import type { OperationMetrics } from '@truefoundry/trueforge-core/core';
 import { RequestReplyExecutor, RequestReplyRouter, type RedisClient } from '@truefoundry/trueforge-core/request-reply';
 import type { Kysely, Transaction } from 'kysely';
 import type { Logger } from 'winston';
@@ -120,13 +128,17 @@ import type { Database as SqliteDatabase } from './db/sqlite/types';
 import type { WithTransaction } from './db/transaction';
 import type { IWebSearchProviderStore } from './db/webSearchProviderStore';
 import { mountFrontend } from './frontend';
+import type { HttpMetrics } from './http/prometheus';
+import { createHttpMetrics, setMetricsScrapeAppendix } from './http/prometheus';
 import { serverTlsServeOptions } from './http/tls';
 import { createServerLogger, shouldColorize } from './logger';
 import type { IOAuthTokenStore } from './mcp/auth/types';
+import { createOperationMetrics } from './observability/agentMetrics';
+import { startSdkMetrics } from './observability/sdkMetrics';
 import { PACKAGE_VERSION } from './packageVersion';
 import { ActiveTurnRegistry } from './runtime/activeTurns';
 import { EventSubscriptionRegistry } from './runtime/event-subscription';
-import type { ConnectedRedis } from './runtime/redis';
+import { enableRedisOpenTelemetry, type ConnectedRedis } from './runtime/redis';
 import { initSentry } from './sentry';
 import { printStandaloneStartupBanner } from './startupBanner';
 import { InlineMcpServerStore } from './truefoundry/InlineMcpServerStore';
@@ -226,6 +238,7 @@ function createServiceFoundryServerClient(logger: Logger): TrueFoundryServiceFou
     httpAgentTimeoutMs: configuration.TRUEFOUNDRY_SERVICEFOUNDRY_HTTP_AGENT_TIMEOUT_MS,
     tls: { enabled: configuration.TRUEFOUNDRY_MTLS_ENABLED, dir: configuration.TRUEFOUNDRY_MTLS_CERTS_DIR },
     apiKey,
+    metrics: operationMetrics,
   });
 }
 
@@ -526,6 +539,7 @@ async function createDistributedPersistence(options: {
     statementTimeoutMs,
     idleInTransactionSessionTimeoutMs,
     ssl: databaseSsl,
+    metrics: operationMetrics,
   });
   await migrateToLatest(db);
   logger.info(`Executor id: ${executorId}`);
@@ -633,7 +647,7 @@ async function createServerRuntime<TTransaction>(persistence: ServerPersistence<
     serviceFoundryClient,
   } = persistence;
 
-  const activeTurns = new ActiveTurnRegistry();
+  const activeTurns = new ActiveTurnRegistry({ metrics: operationMetrics });
   const requestReplyRouter = new RequestReplyRouter();
   const eventSubscriptions = new EventSubscriptionRegistry<TurnStreamingEvent>(redis?.client);
   const sessions = new Sessions({ sessionStore });
@@ -790,6 +804,8 @@ async function createServerRuntime<TTransaction>(persistence: ServerPersistence<
     oidcClient,
     authenticator,
     authorizer,
+    httpMetrics: serverHttpMetrics,
+    operationMetrics,
   });
 
   return { activeTurns, app, controller, destroyDb, redis, requestReplyRouter };
@@ -802,6 +818,13 @@ try {
   });
 
   await initSentry(configuration, logger, { tags: { component: 'server' } });
+  setMetricsScrapeAppendix({
+    scrape: startSdkMetrics(),
+    onError(error) {
+      logger.error('SDK metrics scrape failed', extractErrorLogFields(error));
+    },
+  });
+  enableRedisOpenTelemetry();
 
   if (configuration.STANDALONE) {
     printStandaloneStartupBanner({ version: PACKAGE_VERSION, color: shouldColorize() });

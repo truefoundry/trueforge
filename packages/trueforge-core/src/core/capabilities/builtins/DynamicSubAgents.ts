@@ -4,6 +4,7 @@ import { z } from 'zod';
 import { InstructionBuilder } from '../../InstructionBuilder';
 import type { InternalToolCallInfo } from '../../llm/LLMTypes';
 import { defineTool, LocalToolMCP, type ToolDefinition } from '../../mcp/LocalToolMCP';
+import type { OperationMetrics } from '../../observability/operationMetrics';
 import type { AgentTracing } from '../../tracing/AgentTracing';
 import type { AgentCapability } from '../AgentCapability';
 
@@ -120,8 +121,16 @@ export class DynamicSubAgents extends LocalToolMCP {
     });
   }
 
-  constructor({ modelSetConfig, tracing }: { modelSetConfig?: ModelSetConfig | undefined; tracing: AgentTracing }) {
-    super({ tracing });
+  constructor({
+    modelSetConfig,
+    tracing,
+    metrics,
+  }: {
+    modelSetConfig?: ModelSetConfig | undefined;
+    tracing: AgentTracing;
+    metrics?: OperationMetrics | undefined;
+  }) {
+    super({ tracing, ...(metrics !== undefined ? { metrics } : {}) });
     this.tools = [this.getCreateSubAgentTool(modelSetConfig)];
   }
 
@@ -149,10 +158,12 @@ export function dynamicSubAgents(options: {
   modelSetConfig?: ModelSetConfig | undefined;
   sandboxAvailable: boolean;
   tracing: AgentTracing;
+  metrics?: OperationMetrics | undefined;
 }): AgentCapability {
   const toolSet = new DynamicSubAgents({
     modelSetConfig: options.modelSetConfig,
     tracing: options.tracing,
+    ...(options.metrics !== undefined ? { metrics: options.metrics } : {}),
   });
   return {
     systemToolSets: [toolSet],

@@ -260,6 +260,7 @@ export class SessionHandle<
         createDynamicSubAgentThread,
         tracing,
         logger: input.resolver.logger,
+        ...(input.resolver.operationMetrics !== undefined ? { metrics: input.resolver.operationMetrics } : {}),
       });
 
       // SEND BEFORE COMMIT — validate + append; throw ⇒ nothing persisted.
@@ -475,6 +476,7 @@ export class SessionHandle<
         tracing: input.tracing,
         webSearchProvider: input.resolver.webSearchProvider,
         logger: input.resolver.logger,
+        ...(input.resolver.operationMetrics !== undefined ? { metrics: input.resolver.operationMetrics } : {}),
       }),
       ...(extraCapabilities ?? []),
     ];
@@ -492,6 +494,7 @@ export class SessionHandle<
       capabilityState: input.previousThreadSnapshot?.capability_state ?? undefined,
       tracing: input.tracing,
       logger: input.resolver.logger,
+      ...(input.resolver.operationMetrics !== undefined ? { operationMetrics: input.resolver.operationMetrics } : {}),
     });
   }
 
@@ -531,6 +534,7 @@ export class SessionHandle<
           tracing: input.tracing,
           webSearchProvider: input.resolver.webSearchProvider,
           logger: input.resolver.logger,
+          ...(input.resolver.operationMetrics !== undefined ? { metrics: input.resolver.operationMetrics } : {}),
         }),
         ...(extraCapabilities ?? []),
       ];
@@ -544,6 +548,7 @@ export class SessionHandle<
         capabilities,
         tracing: input.tracing,
         logger: input.resolver.logger,
+        ...(input.resolver.operationMetrics !== undefined ? { operationMetrics: input.resolver.operationMetrics } : {}),
       });
     };
   }

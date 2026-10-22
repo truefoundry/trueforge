@@ -19,6 +19,7 @@ import { SqliteOAuthTokenStore } from '../../../src/db/sqlite/token-store/Sqlite
 import { SqliteWebSearchProviderStore } from '../../../src/db/sqlite/web-search-provider-store/SqliteWebSearchProviderStore';
 import { ActiveTurnRegistry } from '../../../src/runtime/activeTurns';
 import { EventSubscriptionRegistry } from '../../../src/runtime/event-subscription';
+import { metrics } from '../testOperationMetrics';
 
 /** Parsed rather than built literally, so config defaults match what the create route stores. */
 function agentSpec(): AgentSpec {
@@ -58,6 +59,7 @@ async function buildApp() {
       logger: createLogger({ silent: true }),
       resolveRequestContext: () => STANDALONE_REQUEST_CONTEXT,
       authorizer: new TrueForgeAuthorizer(),
+      operationMetrics: metrics,
     }),
   );
 

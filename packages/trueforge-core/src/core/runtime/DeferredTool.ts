@@ -16,6 +16,7 @@ import {
   toolResultResponse,
 } from '../mcp/IMCPServer';
 import { defineTool, LocalToolMCP, type ToolDefinition } from '../mcp/LocalToolMCP';
+import type { OperationMetrics } from '../observability/operationMetrics';
 import type { AgentTracing } from '../tracing/AgentTracing';
 import { extractErrorLogFields } from '../util/errorLogFields';
 
@@ -71,9 +72,10 @@ export class DeferredTool extends LocalToolMCP {
     options: {
       tracing: AgentTracing;
       logger: Logger;
+      metrics?: OperationMetrics | undefined;
     },
   ) {
-    super({ tracing: options.tracing });
+    super({ tracing: options.tracing, ...(options.metrics !== undefined ? { metrics: options.metrics } : {}) });
     this.logger = options.logger.child({ module: 'DeferredTool' });
     this.serverMap = new Map(servers.map(s => [s.name, s]));
     this.tools = this.buildTools();

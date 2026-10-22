@@ -1,4 +1,5 @@
 import Parallel from 'parallel-web';
+import { elapsedSeconds, type OperationMetrics, type ParallelWebOperation } from '../observability/operationMetrics';
 import { ssrfFetch } from '../util/outboundFetch';
 import {
   WebSearchProviders,
@@ -18,6 +19,7 @@ export interface ParallelWebSearchProviderOptions {
   apiKey: string;
   /** Parallel Search mode preset. Caller supplies the default (e.g. `turbo`). */
   mode: ParallelSearchMode;
+  metrics?: OperationMetrics | undefined;
 }
 
 /**
@@ -27,6 +29,7 @@ export class ParallelWebSearchProvider implements IWebSearchProvider {
   readonly id = WebSearchProviders.Parallel;
   readonly #client: Parallel;
   readonly #mode: ParallelSearchMode;
+  readonly #metrics: OperationMetrics | undefined;
 
   constructor(options: ParallelWebSearchProviderOptions) {
     this.#client = new Parallel({
@@ -34,19 +37,22 @@ export class ParallelWebSearchProvider implements IWebSearchProvider {
       fetch: ssrfFetch,
     });
     this.#mode = options.mode;
+    this.#metrics = options.metrics;
   }
 
   async search(input: { search_queries: string[]; objective: string | undefined }): Promise<WebSearchHits> {
-    const response = await this.#client.search({
-      search_queries: input.search_queries,
-      ...(input.objective ? { objective: input.objective } : {}),
-      mode: this.#mode,
-      max_chars_total: PARALLEL_SEARCH_MAX_CHARS_TOTAL,
-      advanced_settings: {
-        max_results: PARALLEL_SEARCH_MAX_RESULTS,
-        excerpt_settings: { max_chars_per_result: PARALLEL_SEARCH_MAX_CHARS_PER_RESULT },
-      },
-    });
+    const response = await this.#observe('search', () =>
+      this.#client.search({
+        search_queries: input.search_queries,
+        ...(input.objective ? { objective: input.objective } : {}),
+        mode: this.#mode,
+        max_chars_total: PARALLEL_SEARCH_MAX_CHARS_TOTAL,
+        advanced_settings: {
+          max_results: PARALLEL_SEARCH_MAX_RESULTS,
+          excerpt_settings: { max_chars_per_result: PARALLEL_SEARCH_MAX_CHARS_PER_RESULT },
+        },
+      }),
+    );
     return {
       hits: response.results.map(result => ({
         title: result.title ?? '',
@@ -58,10 +64,15 @@ export class ParallelWebSearchProvider implements IWebSearchProvider {
   }
 
   async fetch(input: { urls: string[]; objective: string | undefined }): Promise<WebFetchPages> {
-    const response = await this.#client.extract({
-      urls: input.urls,
-      ...(input.objective ? { objective: input.objective } : {}),
-    });
+    const response = await this.#observe(
+      'extract',
+      () =>
+        this.#client.extract({
+          urls: input.urls,
+          ...(input.objective ? { objective: input.objective } : {}),
+        }),
+      result => result.errors.length,
+    );
     const pages = [
       ...response.results.map(result => ({
         url: result.url,
@@ -77,5 +88,37 @@ export class ParallelWebSearchProvider implements IWebSearchProvider {
       })),
     ];
     return { pages };
+  }
+
+  async #observe<T>(
+    operation: ParallelWebOperation,
+    run: () => Promise<T>,
+    partialErrorCount?: (result: T) => number,
+  ): Promise<T> {
+    const metrics = this.#metrics;
+    if (metrics === undefined) {
+      return run();
+    }
+    const startedMs = performance.now();
+    try {
+      const result = await run();
+      metrics.recordParallelWebRequest({
+        operation,
+        outcome: 'success',
+        durationSeconds: elapsedSeconds(startedMs),
+      });
+      const partialErrors = partialErrorCount === undefined ? 0 : partialErrorCount(result);
+      if (partialErrors > 0) {
+        metrics.recordParallelWebPartialErrors({ count: partialErrors });
+      }
+      return result;
+    } catch (error) {
+      metrics.recordParallelWebRequest({
+        operation,
+        outcome: 'error',
+        durationSeconds: elapsedSeconds(startedMs),
+      });
+      throw error;
+    }
   }
 }

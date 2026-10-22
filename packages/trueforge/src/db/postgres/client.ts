@@ -1,3 +1,4 @@
+import type { OperationMetrics } from '@truefoundry/trueforge-core/core';
 import { Kysely, PostgresDialect } from 'kysely';
 import pg, { Pool } from 'pg';
 
@@ -44,8 +45,10 @@ export function createDb(options: {
   idleInTransactionSessionTimeoutMs: number;
   /** Client TLS for the pg Pool (`false` | `true` | `{ cert, key, ca, rejectUnauthorized }`). */
   ssl?: boolean | PostgresSslConfig | undefined;
+  /** When set, each query records duration. SQL text is not a label. */
+  metrics?: OperationMetrics | undefined;
 }): Kysely<Database> {
-  const { connectionString, poolMax, statementTimeoutMs, idleInTransactionSessionTimeoutMs, ssl } = options;
+  const { connectionString, poolMax, statementTimeoutMs, idleInTransactionSessionTimeoutMs, ssl, metrics } = options;
   const schema = getTrueForgePostgresSchema();
   configurePgTypeParsers();
   const pool = new Pool({
@@ -66,6 +69,16 @@ export function createDb(options: {
     dialect: new PostgresDialect({
       pool,
     }),
+    ...(metrics === undefined
+      ? {}
+      : {
+          log(event) {
+            metrics.recordPostgresQuery({
+              outcome: event.level === 'error' ? 'error' : 'success',
+              durationSeconds: event.queryDurationMillis / 1000,
+            });
+          },
+        }),
   });
 }
 

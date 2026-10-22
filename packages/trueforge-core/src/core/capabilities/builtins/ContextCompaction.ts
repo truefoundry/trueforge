@@ -1,5 +1,6 @@
 import { EventType, newEventId } from '../../events/schema';
 import type { ILLM, LLMCreateParams } from '../../llm/ILLM';
+import type { OperationMetrics } from '../../observability/operationMetrics';
 import type { AgentDefinition } from '../../runtime/AgentDefinition';
 import type { ContextMessage } from '../../runtime/AgentThread.types';
 import { internalSystemMessage, isInternalSystemMessage, isLLMContextMessage } from '../../runtime/contextUtils';
@@ -199,10 +200,12 @@ function createSummarizationCandidate(context: ContextMessage[]) {
 export class ContextCompaction implements PreLLMAgentContextProcessor {
   private modelClient: ILLM;
   private compactionThresholdTokens: number;
+  private readonly metrics: OperationMetrics | undefined;
 
-  constructor(input: { modelClient: ILLM; compactionThresholdTokens: number }) {
+  constructor(input: { modelClient: ILLM; compactionThresholdTokens: number; metrics?: OperationMetrics | undefined }) {
     this.modelClient = input.modelClient;
     this.compactionThresholdTokens = input.compactionThresholdTokens;
+    this.metrics = input.metrics;
   }
 
   async *processPreLLM(
@@ -222,7 +225,14 @@ export class ContextCompaction implements PreLLMAgentContextProcessor {
       stream: false,
     };
 
-    const response = await this.modelClient.createNonStream(body);
+    let response: Awaited<ReturnType<ILLM['createNonStream']>>;
+    try {
+      response = await this.modelClient.createNonStream(body);
+    } catch (error) {
+      this.metrics?.recordHarnessLimit({ limit: 'context_compaction_error' });
+      throw error;
+    }
+    this.metrics?.recordHarnessLimit({ limit: 'context_compaction' });
     const context: ContextMessage[] = [{ role: 'assistant', content: response.output.content }, CONTINUATION_MESSAGE];
 
     yield {
@@ -252,6 +262,7 @@ export function contextCompaction(options: {
   definition: AgentDefinition;
   settings?: ContextCompactionSettings | undefined;
   compactionThresholdTokens?: number | undefined;
+  metrics?: OperationMetrics | undefined;
 }): AgentCapability {
   const threshold = resolveCompactionThresholdTokens({
     configuredThresholdTokens: options.compactionThresholdTokens ?? options.settings?.compactionThresholdTokens,
@@ -263,6 +274,7 @@ export function contextCompaction(options: {
       new ContextCompaction({
         modelClient: options.definition.modelClient,
         compactionThresholdTokens: threshold,
+        ...(options.metrics !== undefined ? { metrics: options.metrics } : {}),
       }),
     ],
   };

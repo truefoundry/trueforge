@@ -11,6 +11,7 @@ import { dynamicSubAgents } from '../core/capabilities/builtins/DynamicSubAgents
 import { largeToolResponse } from '../core/capabilities/builtins/LargeToolResponse';
 import { openUI } from '../core/capabilities/builtins/OpenUI';
 import { webSearch } from '../core/capabilities/builtins/WebSearch';
+import type { OperationMetrics } from '../core/observability/operationMetrics';
 import type { AgentDefinition } from '../core/runtime/AgentDefinition';
 import type { AgentTracing } from '../core/tracing/AgentTracing';
 import type { IWebSearchProvider } from '../core/web-search/WebSearchProvider';
@@ -25,22 +26,25 @@ export function builtinsFromSpec(input: {
   tracing: AgentTracing;
   webSearchProvider: IWebSearchProvider | undefined;
   logger: Logger;
+  metrics?: OperationMetrics | undefined;
 }): AgentCapability[] {
-  const { spec, definition, isChild, sandboxAvailable, tracing, webSearchProvider, logger } = input;
+  const { spec, definition, isChild, sandboxAvailable, tracing, webSearchProvider, logger, metrics } = input;
   const config = spec.config;
-  const capabilities: AgentCapability[] = [currentDateTime({ tracing })];
+  const metricsOption = metrics !== undefined ? { metrics } : {};
+  const capabilities: AgentCapability[] = [currentDateTime({ tracing, ...metricsOption })];
 
   if (config.context_management.compaction.enabled) {
     capabilities.push(
       contextCompaction({
         definition,
         compactionThresholdTokens: config.context_management.compaction.trigger?.value,
+        ...metricsOption,
       }),
     );
   }
 
   if (!isChild && config.ask_user_questions.enabled) {
-    capabilities.push(askUserQuestion());
+    capabilities.push(askUserQuestion(metrics));
   }
 
   const dynamicSubAgentsEnabled = config.dynamic_sub_agents.enabled;
@@ -49,6 +53,7 @@ export function builtinsFromSpec(input: {
       dynamicSubAgents({
         sandboxAvailable,
         tracing,
+        ...metricsOption,
       }),
     );
   }
@@ -58,16 +63,17 @@ export function builtinsFromSpec(input: {
       largeToolResponse({
         dynamicSubAgentsPresent: !isChild && dynamicSubAgentsEnabled,
         logger,
+        ...metricsOption,
       }),
     );
   }
 
   if (!isChild && config.generative_ui.enabled) {
-    capabilities.push(openUI({ preload: false, tracing }));
+    capabilities.push(openUI({ preload: false, tracing, ...metricsOption }));
   }
 
   if (webSearchProvider && config.web_search.enabled) {
-    capabilities.push(webSearch({ provider: webSearchProvider, tracing }));
+    capabilities.push(webSearch({ provider: webSearchProvider, tracing, ...metricsOption }));
   }
 
   return capabilities;

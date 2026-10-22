@@ -14,7 +14,7 @@ import {
   type TurnInputItem,
   type TurnRecordWithoutSnapshot,
 } from '@truefoundry/trueforge-core/agent-session';
-import type { IWebSearchProvider } from '@truefoundry/trueforge-core/core';
+import type { IWebSearchProvider, OperationMetrics } from '@truefoundry/trueforge-core/core';
 import {
   AgentHarnessError,
   existingSandboxIdForProvider,
@@ -131,6 +131,8 @@ export interface TurnsRouterDeps {
   logger: Logger;
   resolveRequestContext: ResolveRequestContext;
   authorizer: Authorizer;
+  /** Operation series registered on the process scrape registry. */
+  operationMetrics: OperationMetrics;
 }
 
 /**
@@ -140,7 +142,7 @@ export interface TurnsRouterDeps {
  */
 export type BeginTurnExecutionDeps = Pick<
   TurnsRouterDeps,
-  'activeTurns' | 'eventSubscriptions' | 'logger' | 'sandboxEnvironmentStore'
+  'activeTurns' | 'eventSubscriptions' | 'logger' | 'sandboxEnvironmentStore' | 'operationMetrics'
 > & {
   agentStore: IAgentStore;
   modelProviderStore: IModelProviderStore;
@@ -177,6 +179,7 @@ function createTurnResolver(deps: {
   userRef: string;
   session: SessionHandle;
   turnMetadata: TurnMetadata;
+  operationMetrics: OperationMetrics;
 }): TurnResourceResolver {
   const {
     mcpServerStore,
@@ -208,9 +211,11 @@ function createTurnResolver(deps: {
           providerConfig: resolved.providerConfig,
           logger,
           signal,
+          metrics: deps.operationMetrics,
         }),
         defaultModelParams: resolved.defaultModelParams,
         modelProperties: resolved.modelProperties,
+        providerType: resolved.providerConfig.provider.type,
       };
     },
     mcp: async name => {
@@ -261,6 +266,7 @@ function createTurnResolver(deps: {
         fileDownloadEnabled: spec.config.sandbox.file_downloads,
         existingSandboxId: carriedSandboxId,
         tracing,
+        metrics: deps.operationMetrics,
       };
       // Env-capable providers (Daytona): resolve env. Others skip (no snapshot concept).
       if (provider.envSupported) {
@@ -290,6 +296,7 @@ function createTurnResolver(deps: {
     },
     webSearchProvider,
     logger,
+    operationMetrics: deps.operationMetrics,
   });
 }
 
@@ -442,6 +449,7 @@ export async function beginTurnExecution(
   const webSearchProvider = await resolveWebSearchProvider({
     tenant_id: tenantId,
     store: deps.webSearchProviderStore,
+    metrics: deps.operationMetrics,
   });
   const resolver = createTurnResolver({
     mcpServerStore: deps.mcpServerStore,
@@ -461,6 +469,7 @@ export async function beginTurnExecution(
       ...(sessionAgent.type === 'reference' ? { agent: { id: sessionAgent.id, name: sessionAgent.name } } : {}),
       ...(requestHeaders === undefined ? {} : { requestHeaders }),
     },
+    operationMetrics: deps.operationMetrics,
   });
 
   // First turn only: derive the title from the first user message. The store
@@ -479,6 +488,7 @@ export async function beginTurnExecution(
 
   const maxExecutionTimer = setTimeout(() => {
     if (!abortController.signal.aborted) {
+      deps.operationMetrics.recordTurnTimeout({ phase: 'execution' });
       abortController.abort(CancellationReason.ServerExecutionTimeout);
     }
   }, configuration.SERVER_EXECUTION_TIMEOUT_SECONDS * 1000);
@@ -858,8 +868,13 @@ export function createTurnsRouter(deps: TurnsRouterDeps) {
         turn_id: turn.id,
       };
       let shouldWriteToSSEStream = true;
+      let closedByServer = false;
       return streamSSE(c, async stream => {
         stream.onAbort(() => {
+          if (closedByServer) {
+            return;
+          }
+          deps.operationMetrics.recordTurnSseDisconnect({ path: 'create' });
           shouldWriteToSSEStream = false;
           deps.logger.info(
             'Create-turn SSE client disconnected, continuing drain without writing',
@@ -877,6 +892,7 @@ export function createTurnsRouter(deps: TurnsRouterDeps) {
                 );
               } catch (error) {
                 if (error instanceof PromiseTimeoutError) {
+                  deps.operationMetrics.recordTurnTimeout({ phase: 'sse_write' });
                   deps.logger.error('SSE stream write timed out', extractErrorLogFields(error));
                 } else {
                   deps.logger.error('SSE stream write error', extractErrorLogFields(error));
@@ -887,6 +903,7 @@ export function createTurnsRouter(deps: TurnsRouterDeps) {
           },
         });
         if (!shouldWriteToSSEStream && !stream.closed) {
+          closedByServer = true;
           stream.abort();
         }
         await stream.close();
@@ -946,6 +963,7 @@ export function createTurnsRouter(deps: TurnsRouterDeps) {
     const subscribeAbort = new AbortController();
     const timeoutMs = configuration.TURN_SUBSCRIBE_TIMEOUT_MS;
     const timeoutHandler = setTimeout(() => {
+      deps.operationMetrics.recordTurnTimeout({ phase: 'subscribe' });
       deps.logger.info('Subscribe turn stream server-side timeout reached, closing stream', {
         afterSequenceNumber,
         timeoutMs,
@@ -955,6 +973,7 @@ export function createTurnsRouter(deps: TurnsRouterDeps) {
 
     return streamSSE(c, async stream => {
       stream.onAbort(() => {
+        deps.operationMetrics.recordTurnSseDisconnect({ path: 'subscribe' });
         subscribeAbort.abort(new Error('client-disconnected'));
       });
 

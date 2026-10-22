@@ -8,8 +8,30 @@ import { existsSync, readFileSync } from 'node:fs';
 import { setTimeout as sleep } from 'node:timers/promises';
 
 import { extractErrorLogFields } from '@truefoundry/trueforge-core/core';
-import { createClient, createSentinel, type RedisClientType, type RedisSentinelType } from 'redis';
+import { createClient, createSentinel, OpenTelemetry, type RedisClientType, type RedisSentinelType } from 'redis';
 import type { Logger } from 'winston';
+
+let redisMetricsEnabled = false;
+
+/**
+ * node-redis command, connection, resiliency, pubsub, and stream instruments.
+ * Call once after the shared meter is installed, and before any client is created.
+ * Channel and stream names stay off the labels.
+ */
+export function enableRedisOpenTelemetry(): void {
+  if (redisMetricsEnabled) {
+    return;
+  }
+  OpenTelemetry.init({
+    metrics: {
+      enabled: true,
+      enabledMetricGroups: ['command', 'connection-basic', 'connection-advanced', 'resiliency', 'pubsub', 'streaming'],
+      hidePubSubChannelNames: true,
+      hideStreamNames: true,
+    },
+  });
+  redisMetricsEnabled = true;
+}
 
 const DEFAULT_SENTINEL_PORT = 26379;
 const SENTINEL_RETRY_BASE_MS = 200;
