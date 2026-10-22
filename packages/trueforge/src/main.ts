@@ -539,6 +539,7 @@ async function createDistributedPersistence(options: {
     statementTimeoutMs,
     idleInTransactionSessionTimeoutMs,
     ssl: databaseSsl,
+    metrics: operationMetrics,
   });
   await migrateToLatest(db);
   logger.info(`Executor id: ${executorId}`);

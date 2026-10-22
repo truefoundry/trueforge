@@ -176,6 +176,7 @@ export type {
   OutboundHttpStatusClass,
   ParallelWebOperation,
   ParallelWebOutcome,
+  PostgresQueryOutcome,
   ServiceFoundryOperation,
   ServiceFoundryOutcome,
   ToolCallOutcome,

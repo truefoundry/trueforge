@@ -92,6 +92,9 @@ export type ServiceFoundryOperation =
 
 export type ServiceFoundryOutcome = 'success' | 'error' | 'timeout';
 
+/** Postgres query result. SQL text and table names stay off the label. */
+export type PostgresQueryOutcome = 'success' | 'error';
+
 /**
  * Server-owned operation metrics. Core times work and reports outcomes; it does not
  * import a metrics client. Callers that are not recording omit the recorder.
@@ -151,6 +154,7 @@ export interface OperationMetrics {
     statusClass: OutboundHttpStatusClass;
     durationSeconds: number;
   }): void;
+  recordPostgresQuery(options: { outcome: PostgresQueryOutcome; durationSeconds: number }): void;
 }
 
 /** Time `run` and record one MCP operation. Callers that are not recording skip the timer. */
