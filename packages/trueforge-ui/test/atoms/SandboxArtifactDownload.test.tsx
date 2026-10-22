@@ -46,6 +46,21 @@ describe('parseSandboxArtifacts', () => {
       { name: 'report.pdf', path: '/sandbox/out/report.pdf' },
     ]);
   });
+
+  it('drops path-traversal and scheme-like paths', () => {
+    expect(
+      parseSandboxArtifacts(
+        [
+          '[ok](/tmp/ok.txt)',
+          '[up](/tmp/../etc/passwd)',
+          '[dots](..\\secret)',
+          '[web](https://evil.example/x)',
+          '[js](javascript:alert(1))',
+          '[nul](/tmp/ok\0.txt)',
+        ].join('\n'),
+      ),
+    ).toEqual([{ name: 'ok', path: '/tmp/ok.txt' }]);
+  });
 });
 
 describe('SandboxArtifactDownload', () => {

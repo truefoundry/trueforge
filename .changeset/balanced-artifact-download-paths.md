@@ -2,4 +2,4 @@
 "@truefoundry/trueforge-ui": patch
 ---
 
-Preserve balanced parentheses and escaped delimiters in sandbox artifact download paths.
+Fix sandbox artifact download when the path contains parentheses.
