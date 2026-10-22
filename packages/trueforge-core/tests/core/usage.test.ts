@@ -1,5 +1,5 @@
 import { CompletionUsageSchema, getEmptyUsage } from '../../src/core/llm/LLMTypes';
-import { mergeUsage } from '../../src/core/llm/usage';
+import { describeContentSize, mergeUsage } from '../../src/core/llm/usage';
 import {
   addAgentThreadMetrics,
   createEmptyAgentThreadMetrics,
@@ -30,6 +30,13 @@ describe('CompletionUsage', () => {
       output_tokens: 0,
       total_tokens: 0,
     });
+  });
+});
+
+describe('describeContentSize', () => {
+  it('formats characters and estimated tokens with thousands separators', () => {
+    expect(describeContentSize('x'.repeat(50_000))).toBe('50,000 characters, ~12,500 tokens');
+    expect(describeContentSize('')).toBe('0 characters, ~0 tokens');
   });
 });
 

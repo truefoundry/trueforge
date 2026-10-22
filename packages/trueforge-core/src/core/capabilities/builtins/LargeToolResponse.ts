@@ -1,6 +1,6 @@
 import dedent from 'dedent';
 import type { Logger } from 'winston';
-import { estimateTokensForString } from '../../llm/usage';
+import { describeContentSize, estimateTokensForString } from '../../llm/usage';
 import type { ToolCallResult } from '../../mcp/executeToolCalls';
 import type { HarnessSandbox, SandboxInfo } from '../../sandbox/Sandbox';
 import { createSandboxLargeToolResponseGuidance, SANDBOX_SCHEMA_INFER_TAG } from '../../sandbox/Sandbox';
@@ -86,11 +86,12 @@ export class LargeToolResponseProcessor implements ToolResponseProcessor {
       .join('\n')}`;
   }
 
-  private createFileDumpMessage(params: { filePath: string; preview: string }): string {
-    const { filePath, preview } = params;
+  private createFileDumpMessage(params: { filePath: string; preview: string; size: string }): string {
+    const { filePath, preview, size } = params;
     const steps: string[] = [
       dedent`Use sandbox to read parts of the file or extract data.
-      Use ${SANDBOX_SCHEMA_INFER_TAG} to undertand the schema.`,
+      Use ${SANDBOX_SCHEMA_INFER_TAG} to undertand the schema.
+      The file's total size is given above. Plan reads against it, for example extract fields with a script or read sized ranges, instead of probing with small incremental reads.`,
     ];
 
     if (this.dynamicSubAgentsPresent) {
@@ -103,7 +104,7 @@ export class LargeToolResponseProcessor implements ToolResponseProcessor {
       .map((step, index) => `${String(index + 1)}. ${step}`)
       .join('\n')}`;
 
-    return `Content too large. Result saved to: ${filePath}.\n\n${guidance}\n\nPreview (first and last ${String(this.previewNumberOfCharacters)} chars):\n${preview}`;
+    return `Content too large (${size}). Result saved to: ${filePath}.\n\n${guidance}\n\nPreview (first and last ${String(this.previewNumberOfCharacters)} chars):\n${preview}`;
   }
 
   private buildResultsWithInfo(results: ToolCallResult[], sandbox: HarnessSandbox | undefined): ToolResultWithInfo[] {
@@ -161,7 +162,11 @@ export class LargeToolResponseProcessor implements ToolResponseProcessor {
         sourceTool: entry.toolCallResult.info,
       });
       const preview = createContentPreview(entry.originalContent, this.previewNumberOfCharacters);
-      entry.toolCallResult.message.content = this.createFileDumpMessage({ filePath: stored.filePath, preview });
+      entry.toolCallResult.message.content = this.createFileDumpMessage({
+        filePath: stored.filePath,
+        preview,
+        size: describeContentSize(entry.originalContent),
+      });
       entry.toolCallResult.isStructuredContent = false;
       return stored.sandboxCreated;
     } catch (error) {
