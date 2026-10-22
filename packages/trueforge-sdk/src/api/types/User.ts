@@ -3,8 +3,8 @@
 export interface User {
     /** Human-readable name for the user. */
     displayName: string;
-    /** Email of the user; null when unknown. */
-    email: string | null;
-    /** Stable user identifier. */
+    /** Email of the user. */
+    email: string;
+    /** User id, unique within the tenant. */
     id: string;
 }

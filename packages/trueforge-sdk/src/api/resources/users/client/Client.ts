@@ -23,7 +23,7 @@ export class UsersClient {
     }
 
     /**
-     * List users in the tenant that sessions can be shared with. Searches email and display name. Returns an empty list when no user directory is configured.
+     * List users in the tenant that sessions can be shared with. Searches email and display name.
      *
      * @param {TrueForge.ListUsersRequest} request
      * @param {UsersClient.RequestOptions} requestOptions - Request-specific configuration.

@@ -2071,7 +2071,7 @@ await client.sessions.update("session_id");
 <dl>
 <dd>
 
-List the users this session is shared with. Only the session creator may call this.
+List the subjects this session is shared with.
 </dd>
 </dl>
 </dd>
@@ -2134,7 +2134,7 @@ await client.sessions.listAccess("session_id");
 <dl>
 <dd>
 
-Share this session with users. Existing grants are left unchanged. Only the session creator may call this.
+Share this session with one or more subjects. Subjects that already have access are left unchanged. Returns every subject the session is shared with.
 </dd>
 </dl>
 </dd>
@@ -2210,7 +2210,7 @@ await client.sessions.createAccess("session_id", {
 <dl>
 <dd>
 
-Revoke one user's access to this session. Only the session creator may call this.
+Revoke a subject's access to this session.
 </dd>
 </dl>
 </dd>
@@ -2249,7 +2249,7 @@ await client.sessions.deleteAccess("session_id", "user", "subject_id");
 <dl>
 <dd>
 
-**subject_type:** `TrueForge.SessionAccessSubjectType` — Kind of subject the session is shared with.
+**subject_type:** `TrueForge.SessionAccessSubjectType` — Kind of subject.
     
 </dd>
 </dl>
@@ -2257,7 +2257,7 @@ await client.sessions.deleteAccess("session_id", "user", "subject_id");
 <dl>
 <dd>
 
-**subject_id:** `string` — Subject identifier, as returned by `GET /api/v1/users`.
+**subject_id:** `string` — ID of the subject.
     
 </dd>
 </dl>
@@ -3209,7 +3209,7 @@ await client.skills.listVersions({
 <dl>
 <dd>
 
-List users in the tenant that sessions can be shared with. Searches email and display name. Returns an empty list when no user directory is configured.
+List users in the tenant that sessions can be shared with. Searches email and display name.
 </dd>
 </dl>
 </dd>

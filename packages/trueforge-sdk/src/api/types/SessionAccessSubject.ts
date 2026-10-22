@@ -2,8 +2,11 @@
 
 import type * as TrueForge from "../index.js";
 
+/**
+ * Who the session is shared with.
+ */
 export interface SessionAccessSubject {
-    /** Subject identifier, as returned by `GET /api/v1/users`. */
+    /** ID of the subject. */
     subjectId: string;
     subjectType: TrueForge.SessionAccessSubjectType;
 }

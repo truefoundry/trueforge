@@ -591,7 +591,7 @@ export class SessionsClient {
     }
 
     /**
-     * List the users this session is shared with. Only the session creator may call this.
+     * List the subjects this session is shared with.
      *
      * @param {string} session_id - Session identifier.
      * @param {SessionsClient.RequestOptions} requestOptions - Request-specific configuration.
@@ -691,7 +691,7 @@ export class SessionsClient {
     }
 
     /**
-     * Share this session with users. Existing grants are left unchanged. Only the session creator may call this.
+     * Share this session with one or more subjects. Subjects that already have access are left unchanged. Returns every subject the session is shared with.
      *
      * @param {string} session_id - Session identifier.
      * @param {TrueForge.CreateSessionAccessRequest} request
@@ -834,11 +834,11 @@ export class SessionsClient {
     }
 
     /**
-     * Revoke one user's access to this session. Only the session creator may call this.
+     * Revoke a subject's access to this session.
      *
      * @param {string} session_id - Session identifier.
-     * @param {TrueForge.SessionAccessSubjectType} subject_type - Kind of subject the session is shared with.
-     * @param {string} subject_id - Subject identifier, as returned by `GET /api/v1/users`.
+     * @param {TrueForge.SessionAccessSubjectType} subject_type - Kind of subject.
+     * @param {string} subject_id - ID of the subject.
      * @param {SessionsClient.RequestOptions} requestOptions - Request-specific configuration.
      *
      * @throws {@link TrueForge.ForbiddenError}

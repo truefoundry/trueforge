@@ -1110,11 +1110,11 @@
         "additionalProperties": false,
         "properties": {
           "subjects": {
-            "description": "Subjects to share the session with (1–100).",
+            "description": "Subjects to share the session with (1–50).",
             "items": {
               "$ref": "#/components/schemas/SessionAccessSubject"
             },
-            "maxItems": 100,
+            "maxItems": 50,
             "minItems": 1,
             "type": "array"
           }
@@ -2144,7 +2144,7 @@
         "properties": {
           "data": {
             "items": {
-              "$ref": "#/components/schemas/SessionAccessGrant"
+              "$ref": "#/components/schemas/SessionAccess"
             },
             "type": "array"
           }
@@ -4063,43 +4063,22 @@
         ],
         "type": "object"
       },
-      "SessionAccessGrant": {
+      "SessionAccess": {
         "additionalProperties": false,
         "properties": {
           "created_at": {
-            "description": "When access was granted (ISO-8601 UTC).",
+            "description": "When the session was shared with the subject (ISO-8601 UTC).",
             "type": "string"
           },
           "granted_by_subject": {
             "$ref": "#/components/schemas/CreatedBySubject"
           },
-          "subject_display_name": {
-            "description": "Display name of the subject; null when the subject can no longer be resolved.",
-            "type": [
-              "string",
-              "null"
-            ]
-          },
-          "subject_email": {
-            "description": "Email of the subject; null when unknown or the subject can no longer be resolved.",
-            "type": [
-              "string",
-              "null"
-            ]
-          },
-          "subject_id": {
-            "description": "Subject identifier.",
-            "type": "string"
-          },
-          "subject_type": {
-            "$ref": "#/components/schemas/SessionAccessSubjectType"
+          "subject": {
+            "$ref": "#/components/schemas/SessionAccessSubject"
           }
         },
         "required": [
-          "subject_type",
-          "subject_id",
-          "subject_display_name",
-          "subject_email",
+          "subject",
           "granted_by_subject",
           "created_at"
         ],
@@ -4107,9 +4086,10 @@
       },
       "SessionAccessSubject": {
         "additionalProperties": false,
+        "description": "Who the session is shared with.",
         "properties": {
           "subject_id": {
-            "description": "Subject identifier, as returned by `GET /api/v1/users`.",
+            "description": "ID of the subject.",
             "maxLength": 255,
             "minLength": 1,
             "type": "string"
@@ -4125,7 +4105,7 @@
         "type": "object"
       },
       "SessionAccessSubjectType": {
-        "description": "Kind of subject the session is shared with.",
+        "description": "Kind of subject.",
         "enum": [
           "user"
         ],
@@ -5972,14 +5952,11 @@
             "type": "string"
           },
           "email": {
-            "description": "Email of the user; null when unknown.",
-            "type": [
-              "string",
-              "null"
-            ]
+            "description": "Email of the user.",
+            "type": "string"
           },
           "id": {
-            "description": "Stable user identifier.",
+            "description": "User id, unique within the tenant.",
             "type": "string"
           }
         },
@@ -9432,7 +9409,7 @@
     },
     "/api/v1/sessions/{session_id}/access": {
       "get": {
-        "description": "List the users this session is shared with. Only the session creator may call this.",
+        "description": "List the subjects this session is shared with.",
         "parameters": [
           {
             "description": "Session identifier.",
@@ -9456,7 +9433,7 @@
                 }
               }
             },
-            "description": "Users the session is shared with."
+            "description": "Subjects the session is shared with."
           },
           "403": {
             "content": {
@@ -9466,7 +9443,7 @@
                 }
               }
             },
-            "description": "Caller is not the session creator."
+            "description": "User does not have permission."
           },
           "404": {
             "content": {
@@ -9489,7 +9466,7 @@
         "x-fern-sdk-method-name": "list_access"
       },
       "post": {
-        "description": "Share this session with users. Existing grants are left unchanged. Only the session creator may call this.",
+        "description": "Share this session with one or more subjects. Subjects that already have access are left unchanged. Returns every subject the session is shared with.",
         "parameters": [
           {
             "description": "Session identifier.",
@@ -9523,7 +9500,7 @@
                 }
               }
             },
-            "description": "All grants on the session after the write."
+            "description": "Subjects the session is shared with after the change."
           },
           "400": {
             "content": {
@@ -9543,7 +9520,7 @@
                 }
               }
             },
-            "description": "Caller is not the session creator."
+            "description": "User does not have permission."
           },
           "404": {
             "content": {
@@ -9578,7 +9555,7 @@
     },
     "/api/v1/sessions/{session_id}/access/{subject_type}/{subject_id}": {
       "delete": {
-        "description": "Revoke one user's access to this session. Only the session creator may call this.",
+        "description": "Revoke a subject's access to this session.",
         "parameters": [
           {
             "description": "Session identifier.",
@@ -9593,7 +9570,7 @@
             }
           },
           {
-            "description": "Kind of subject the session is shared with.",
+            "description": "Kind of subject.",
             "in": "path",
             "name": "subject_type",
             "required": true,
@@ -9602,12 +9579,12 @@
             }
           },
           {
-            "description": "Subject identifier, as returned by `GET /api/v1/users`.",
+            "description": "ID of the subject.",
             "in": "path",
             "name": "subject_id",
             "required": true,
             "schema": {
-              "description": "Subject identifier, as returned by `GET /api/v1/users`.",
+              "description": "ID of the subject.",
               "maxLength": 255,
               "minLength": 1,
               "type": "string"
@@ -9633,7 +9610,7 @@
                 }
               }
             },
-            "description": "Caller is not the session creator."
+            "description": "User does not have permission."
           },
           "404": {
             "content": {
@@ -9643,7 +9620,7 @@
                 }
               }
             },
-            "description": "Session or grant not found."
+            "description": "Session not found, or the subject does not have access."
           }
         },
         "summary": "Revoke session access",
@@ -11658,7 +11635,7 @@
     },
     "/api/v1/users": {
       "get": {
-        "description": "List users in the tenant that sessions can be shared with. Searches email and display name. Returns an empty list when no user directory is configured.",
+        "description": "List users in the tenant that sessions can be shared with. Searches email and display name.",
         "parameters": [
           {
             "description": "Case-insensitive substring match on email or display name.",

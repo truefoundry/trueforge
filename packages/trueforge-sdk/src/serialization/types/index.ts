@@ -188,7 +188,7 @@ export * from "./ScheduleRun.js";
 export * from "./ScheduleRunStatus.js";
 export * from "./ScheduleStatus.js";
 export * from "./Session.js";
-export * from "./SessionAccessGrant.js";
+export * from "./SessionAccess.js";
 export * from "./SessionAccessSubject.js";
 export * from "./SessionAccessSubjectType.js";
 export * from "./SessionAgent.js";

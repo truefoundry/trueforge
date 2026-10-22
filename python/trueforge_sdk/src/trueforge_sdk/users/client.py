@@ -34,7 +34,7 @@ class UsersClient:
         request_options: typing.Optional[RequestOptions] = None,
     ) -> SyncPager[User, ListUsersResponse]:
         """
-        List users in the tenant that sessions can be shared with. Searches email and display name. Returns an empty list when no user directory is configured.
+        List users in the tenant that sessions can be shared with. Searches email and display name.
 
         Parameters
         ----------
@@ -97,7 +97,7 @@ class AsyncUsersClient:
         request_options: typing.Optional[RequestOptions] = None,
     ) -> AsyncPager[User, ListUsersResponse]:
         """
-        List users in the tenant that sessions can be shared with. Searches email and display name. Returns an empty list when no user directory is configured.
+        List users in the tenant that sessions can be shared with. Searches email and display name.
 
         Parameters
         ----------

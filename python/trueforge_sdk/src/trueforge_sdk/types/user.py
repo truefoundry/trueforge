@@ -13,14 +13,14 @@ class User(UncheckedBaseModel):
     Human-readable name for the user.
     """
 
-    email: typing.Optional[str] = pydantic.Field(default=None)
+    email: str = pydantic.Field()
     """
-    Email of the user; null when unknown.
+    Email of the user.
     """
 
     id: str = pydantic.Field()
     """
-    Stable user identifier.
+    User id, unique within the tenant.
     """
 
     if IS_PYDANTIC_V2:

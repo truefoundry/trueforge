@@ -3,5 +3,5 @@
 import type * as TrueForge from "../index.js";
 
 export interface ListSessionAccessResponse {
-    data: TrueForge.SessionAccessGrant[];
+    data: TrueForge.SessionAccess[];
 }

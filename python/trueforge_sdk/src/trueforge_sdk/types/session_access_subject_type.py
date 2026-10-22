@@ -4,5 +4,5 @@ import typing
 
 SessionAccessSubjectType = typing.Literal["user"]
 """
-Kind of subject the session is shared with.
+Kind of subject.
 """

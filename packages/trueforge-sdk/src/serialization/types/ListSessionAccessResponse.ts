@@ -3,17 +3,17 @@
 import type * as TrueForge from "../../api/index.js";
 import * as core from "../../core/index.js";
 import type * as serializers from "../index.js";
-import { SessionAccessGrant } from "./SessionAccessGrant.js";
+import { SessionAccess } from "./SessionAccess.js";
 
 export const ListSessionAccessResponse: core.serialization.ObjectSchema<
     serializers.ListSessionAccessResponse.Raw,
     TrueForge.ListSessionAccessResponse
 > = core.serialization.object({
-    data: core.serialization.list(SessionAccessGrant),
+    data: core.serialization.list(SessionAccess),
 });
 
 export declare namespace ListSessionAccessResponse {
     export interface Raw {
-        data: SessionAccessGrant.Raw[];
+        data: SessionAccess.Raw[];
     }
 }

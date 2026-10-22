@@ -546,10 +546,7 @@ describe("SessionsClient", () => {
                         subject_id: "subject_id",
                         subject_type: "subject_type",
                     },
-                    subject_display_name: "subject_display_name",
-                    subject_email: "subject_email",
-                    subject_id: "subject_id",
-                    subject_type: "user",
+                    subject: { subject_id: "subject_id", subject_type: "user" },
                 },
             ],
         };
@@ -572,10 +569,10 @@ describe("SessionsClient", () => {
                         subjectId: "subject_id",
                         subjectType: "subject_type",
                     },
-                    subjectDisplayName: "subject_display_name",
-                    subjectEmail: "subject_email",
-                    subjectId: "subject_id",
-                    subjectType: "user",
+                    subject: {
+                        subjectId: "subject_id",
+                        subjectType: "user",
+                    },
                 },
             ],
         });
@@ -632,10 +629,7 @@ describe("SessionsClient", () => {
                         subject_id: "subject_id",
                         subject_type: "subject_type",
                     },
-                    subject_display_name: "subject_display_name",
-                    subject_email: "subject_email",
-                    subject_id: "subject_id",
-                    subject_type: "user",
+                    subject: { subject_id: "subject_id", subject_type: "user" },
                 },
             ],
         };
@@ -666,10 +660,10 @@ describe("SessionsClient", () => {
                         subjectId: "subject_id",
                         subjectType: "subject_type",
                     },
-                    subjectDisplayName: "subject_display_name",
-                    subjectEmail: "subject_email",
-                    subjectId: "subject_id",
-                    subjectType: "user",
+                    subject: {
+                        subjectId: "subject_id",
+                        subjectType: "user",
+                    },
                 },
             ],
         });

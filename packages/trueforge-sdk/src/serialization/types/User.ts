@@ -6,14 +6,14 @@ import type * as serializers from "../index.js";
 
 export const User: core.serialization.ObjectSchema<serializers.User.Raw, TrueForge.User> = core.serialization.object({
     displayName: core.serialization.property("display_name", core.serialization.string()),
-    email: core.serialization.string().nullable(),
+    email: core.serialization.string(),
     id: core.serialization.string(),
 });
 
 export declare namespace User {
     export interface Raw {
         display_name: string;
-        email?: string | null;
+        email: string;
         id: string;
     }
 }

@@ -196,7 +196,7 @@ if typing.TYPE_CHECKING:
     from .schedule_run_status import ScheduleRunStatus
     from .schedule_status import ScheduleStatus
     from .session import Session
-    from .session_access_grant import SessionAccessGrant
+    from .session_access import SessionAccess
     from .session_access_subject import SessionAccessSubject
     from .session_access_subject_type import SessionAccessSubjectType
     from .session_agent import SessionAgent
@@ -473,7 +473,7 @@ _dynamic_imports: typing.Dict[str, str] = {
     "ScheduleRunStatus": ".schedule_run_status",
     "ScheduleStatus": ".schedule_status",
     "Session": ".session",
-    "SessionAccessGrant": ".session_access_grant",
+    "SessionAccess": ".session_access",
     "SessionAccessSubject": ".session_access_subject",
     "SessionAccessSubjectType": ".session_access_subject_type",
     "SessionAgent": ".session_agent",
@@ -774,7 +774,7 @@ __all__ = [
     "ScheduleRunStatus",
     "ScheduleStatus",
     "Session",
-    "SessionAccessGrant",
+    "SessionAccess",
     "SessionAccessSubject",
     "SessionAccessSubjectType",
     "SessionAgent",

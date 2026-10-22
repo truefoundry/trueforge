@@ -509,7 +509,7 @@ class RawSessionsClient:
         self, *, session_id: str, request_options: typing.Optional[RequestOptions] = None
     ) -> HttpResponse[ListSessionAccessResponse]:
         """
-        List the users this session is shared with. Only the session creator may call this.
+        List the subjects this session is shared with.
 
         Parameters
         ----------
@@ -522,7 +522,7 @@ class RawSessionsClient:
         Returns
         -------
         HttpResponse[ListSessionAccessResponse]
-            Users the session is shared with.
+            Subjects the session is shared with.
         """
         _response = self._client_wrapper.httpx_client.request(
             f"api/v1/sessions/{encode_path_param(session_id)}/access",
@@ -578,7 +578,7 @@ class RawSessionsClient:
         request_options: typing.Optional[RequestOptions] = None,
     ) -> HttpResponse[ListSessionAccessResponse]:
         """
-        Share this session with users. Existing grants are left unchanged. Only the session creator may call this.
+        Share this session with one or more subjects. Subjects that already have access are left unchanged. Returns every subject the session is shared with.
 
         Parameters
         ----------
@@ -586,7 +586,7 @@ class RawSessionsClient:
             Session identifier.
 
         subjects : typing.Sequence[SessionAccessSubject]
-            Subjects to share the session with (1–100).
+            Subjects to share the session with (1–50).
 
         request_options : typing.Optional[RequestOptions]
             Request-specific configuration.
@@ -594,7 +594,7 @@ class RawSessionsClient:
         Returns
         -------
         HttpResponse[ListSessionAccessResponse]
-            All grants on the session after the write.
+            Subjects the session is shared with after the change.
         """
         _response = self._client_wrapper.httpx_client.request(
             f"api/v1/sessions/{encode_path_param(session_id)}/access",
@@ -677,7 +677,7 @@ class RawSessionsClient:
         self, *, session_id: str, subject_id: str, request_options: typing.Optional[RequestOptions] = None
     ) -> HttpResponse[DeleteSessionAccessResponse]:
         """
-        Revoke one user's access to this session. Only the session creator may call this.
+        Revoke a subject's access to this session.
 
         Parameters
         ----------
@@ -685,7 +685,7 @@ class RawSessionsClient:
             Session identifier.
 
         subject_id : str
-            Subject identifier, as returned by `GET /api/v1/users`.
+            ID of the subject.
 
         request_options : typing.Optional[RequestOptions]
             Request-specific configuration.
@@ -2382,7 +2382,7 @@ class AsyncRawSessionsClient:
         self, *, session_id: str, request_options: typing.Optional[RequestOptions] = None
     ) -> AsyncHttpResponse[ListSessionAccessResponse]:
         """
-        List the users this session is shared with. Only the session creator may call this.
+        List the subjects this session is shared with.
 
         Parameters
         ----------
@@ -2395,7 +2395,7 @@ class AsyncRawSessionsClient:
         Returns
         -------
         AsyncHttpResponse[ListSessionAccessResponse]
-            Users the session is shared with.
+            Subjects the session is shared with.
         """
         _response = await self._client_wrapper.httpx_client.request(
             f"api/v1/sessions/{encode_path_param(session_id)}/access",
@@ -2451,7 +2451,7 @@ class AsyncRawSessionsClient:
         request_options: typing.Optional[RequestOptions] = None,
     ) -> AsyncHttpResponse[ListSessionAccessResponse]:
         """
-        Share this session with users. Existing grants are left unchanged. Only the session creator may call this.
+        Share this session with one or more subjects. Subjects that already have access are left unchanged. Returns every subject the session is shared with.
 
         Parameters
         ----------
@@ -2459,7 +2459,7 @@ class AsyncRawSessionsClient:
             Session identifier.
 
         subjects : typing.Sequence[SessionAccessSubject]
-            Subjects to share the session with (1–100).
+            Subjects to share the session with (1–50).
 
         request_options : typing.Optional[RequestOptions]
             Request-specific configuration.
@@ -2467,7 +2467,7 @@ class AsyncRawSessionsClient:
         Returns
         -------
         AsyncHttpResponse[ListSessionAccessResponse]
-            All grants on the session after the write.
+            Subjects the session is shared with after the change.
         """
         _response = await self._client_wrapper.httpx_client.request(
             f"api/v1/sessions/{encode_path_param(session_id)}/access",
@@ -2550,7 +2550,7 @@ class AsyncRawSessionsClient:
         self, *, session_id: str, subject_id: str, request_options: typing.Optional[RequestOptions] = None
     ) -> AsyncHttpResponse[DeleteSessionAccessResponse]:
         """
-        Revoke one user's access to this session. Only the session creator may call this.
+        Revoke a subject's access to this session.
 
         Parameters
         ----------
@@ -2558,7 +2558,7 @@ class AsyncRawSessionsClient:
             Session identifier.
 
         subject_id : str
-            Subject identifier, as returned by `GET /api/v1/users`.
+            ID of the subject.
 
         request_options : typing.Optional[RequestOptions]
             Request-specific configuration.

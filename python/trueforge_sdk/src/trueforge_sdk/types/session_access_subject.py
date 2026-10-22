@@ -9,9 +9,13 @@ from .session_access_subject_type import SessionAccessSubjectType
 
 
 class SessionAccessSubject(UncheckedBaseModel):
+    """
+    Who the session is shared with.
+    """
+
     subject_id: str = pydantic.Field()
     """
-    Subject identifier, as returned by `GET /api/v1/users`.
+    ID of the subject.
     """
 
     subject_type: SessionAccessSubjectType = "user"
