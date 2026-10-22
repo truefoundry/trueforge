@@ -158,7 +158,7 @@ describe('draft composer sections', () => {
         <BuilderMode>
           <ServerProvider server={server}>
             <DraftCatalogProvider>
-              <DraftComposerRightSection />
+              <DraftComposerRightSection disabled={false} isRunning={false} />
             </DraftCatalogProvider>
           </ServerProvider>
         </BuilderMode>
