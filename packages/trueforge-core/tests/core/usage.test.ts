@@ -34,9 +34,9 @@ describe('CompletionUsage', () => {
 });
 
 describe('describeContentSize', () => {
-  it('formats characters and estimated tokens with thousands separators', () => {
-    expect(describeContentSize('x'.repeat(50_000))).toBe('50,000 characters, ~12,500 tokens');
-    expect(describeContentSize('')).toBe('0 characters, ~0 tokens');
+  it('formats characters with thousands separators', () => {
+    expect(describeContentSize('x'.repeat(50_000))).toBe('50,000 characters');
+    expect(describeContentSize('')).toBe('0 characters');
   });
 });
 
