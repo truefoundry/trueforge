@@ -174,6 +174,9 @@ export interface AgentSpec<
 // Session — plain DTO, generic in TSpec so host's spec type flows through
 // ---------------------------------------------------------------------------
 
+/** Last turn status on a session row; `paused` = awaiting user input. */
+export type SessionLastTurnStatus = TurnState['status'] | 'paused';
+
 export interface Session<TSpec extends AgentSpec = AgentSpec> {
   id: string;
   title?: string | null;
@@ -185,6 +188,8 @@ export interface Session<TSpec extends AgentSpec = AgentSpec> {
   shared?: boolean;
   /** Rolled-up turns/duration/cost from the session detail API when the host provides it. */
   metrics?: SessionListMetrics;
+  /** Status of the session's most recent turn; omitted until the first turn. */
+  lastTurnStatus?: SessionLastTurnStatus;
   createdAt: string;
   updatedAt: string;
   /** Arbitrary caller key-value metadata strings. */
@@ -937,6 +942,8 @@ export interface SessionListEntry<TSpec extends AgentSpec = AgentSpec> {
   updatedAt: string;
   lastActivityAt: string;
   metrics: SessionListMetrics;
+  /** Status of the session's most recent turn; omitted until the first turn. `paused` = awaiting user input. */
+  lastTurnStatus?: SessionLastTurnStatus;
   /** Present when bound to a published (immutable) agent. */
   agentName?: string | null;
   /** Present when bound to a mutable / draft agent spec. */

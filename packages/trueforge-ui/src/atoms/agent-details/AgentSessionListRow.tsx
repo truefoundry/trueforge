@@ -8,7 +8,7 @@ import { getUserInitials } from '../UserAvatar.js';
 import { auiButtonClass } from '../lib/buttonClasses.js';
 import { cn } from '../lib/cn.js';
 import { formatAbsoluteDateTime } from '../lib/dateFormat.js';
-import { formatRelativeShort } from '../lib/threadListMeta.js';
+import { formatRelativeShort, getLastTurnIndicator } from '../lib/threadListMeta.js';
 import { Avatar, AvatarFallback } from '../primitives/Avatar.js';
 import { DropdownMenu, DropdownMenuItem } from '../primitives/DropdownMenu.js';
 import { Tooltip } from '../primitives/Tooltip.js';
@@ -18,6 +18,7 @@ export function AgentSessionListRow({
   title,
   agentName,
   sourceType,
+  lastTurnStatus,
   lastActivityAt,
   metrics,
   createdBySubject,
@@ -32,6 +33,7 @@ export function AgentSessionListRow({
   const absolute = formatAbsoluteDateTime(activityAt);
   const subjectLabel = createdBySubject != null ? createdByLabel(createdBySubject) : null;
   const subjectInitials = subjectLabel != null ? getUserInitials(subjectLabel) || '?' : null;
+  const lastTurnIndicator = getLastTurnIndicator(lastTurnStatus);
 
   return (
     <div
@@ -43,6 +45,13 @@ export function AgentSessionListRow({
     >
       <div className="flex items-center gap-2 px-4 pt-3">
         <button type="button" onClick={onSelect} className="flex min-w-0 flex-1 items-center gap-1 text-left">
+          {lastTurnIndicator != null ? (
+            <Tooltip content={lastTurnIndicator.label}>
+              <span aria-label={lastTurnIndicator.label} className="inline-flex shrink-0 pr-0.5">
+                <span className={cn('size-2 rounded-full', lastTurnIndicator.dotClassName)} />
+              </span>
+            </Tooltip>
+          ) : null}
           <span className="truncate text-sm font-medium text-text-primary">{title}</span>
           {sourceType === 'schedule' ? (
             <Tooltip content="Scheduled Session">

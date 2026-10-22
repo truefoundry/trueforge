@@ -97,6 +97,7 @@ function toUiSession(session: TrueForgeApi.Session): HarnessUiSession {
       totalDurationMs: session.metrics.totalDurationMs,
       ...(session.metrics.totalCostInUsd == null ? {} : { totalCostInUsd: session.metrics.totalCostInUsd }),
     },
+    ...(session.lastTurnDetails == null ? {} : { lastTurnStatus: session.lastTurnDetails.state.status }),
     ...(session.title === null ? {} : { title: session.title }),
     // `name` is a create-time snapshot, so references whose agent predates it stay
     // unlabelled; `isMutable` alone keeps them out of the composer.

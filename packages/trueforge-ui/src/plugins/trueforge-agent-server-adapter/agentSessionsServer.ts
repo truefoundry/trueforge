@@ -22,6 +22,7 @@ export type HarnessSessionListEntry = SessionListEntry<HarnessAgentSpec> & {
 };
 
 function toSessionListEntry(session: TrueForgeApi.Session): HarnessSessionListEntry {
+  const lastTurnStatus = session.lastTurnDetails?.state.status;
   return {
     id: session.id,
     createdAt: session.createdAt,
@@ -34,6 +35,7 @@ function toSessionListEntry(session: TrueForgeApi.Session): HarnessSessionListEn
       ...(session.metrics.totalCostInUsd == null ? {} : { totalCostInUsd: session.metrics.totalCostInUsd }),
       totalDurationMs: session.metrics.totalDurationMs,
     },
+    ...(lastTurnStatus === undefined ? {} : { lastTurnStatus }),
     ...(session.title === null ? {} : { title: session.title }),
     ...(session.agent.type === 'reference' && session.agent.name !== null ? { agentName: session.agent.name } : {}),
     ...(session.agent.type === 'inline' ? { agentSpec: toUiAgentSpec(session.agent.spec) } : {}),

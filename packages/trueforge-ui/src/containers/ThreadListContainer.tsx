@@ -21,6 +21,7 @@ import {
   canReuseMutableShell,
   readThreadAgentName,
   readThreadIsMutable,
+  readThreadLastTurnStatus,
   threadListIndicesByRecency,
   threadListItemIsMutable,
 } from '../atoms/lib/threadListMeta.js';
@@ -204,6 +205,7 @@ function ThreadListItemRow({
   const custom = useAuiState(s => s.threadListItem.custom);
   const mainThreadId = useAuiState(s => s.threads.mainThreadId);
   const agentName = readThreadAgentName(custom);
+  const lastTurnStatus = readThreadLastTurnStatus(custom);
   const showRename = canRenameSession && remoteId != null;
   const showDelete = canDeleteSession && remoteId != null;
   const showActions = showRename || showDelete;
@@ -276,6 +278,7 @@ function ThreadListItemRow({
         title={displayTitle}
         active={id === mainThreadId && !sidebarNavOpen}
         agentName={agentName}
+        {...(lastTurnStatus === undefined ? {} : { lastTurnStatus })}
         lastMessageAt={lastMessageAt}
         onSelect={() => {
           track(
