@@ -154,9 +154,7 @@ export function ScheduleFormFields({
                   minute hour day-of-month month day-of-week. Runs must be at least 1 hour apart.
                 </span>
                 {!hasFiveCronFields(values.customCron) ? (
-                  <span className="mt-1 block text-xs text-red-600 dark:text-red-400">
-                    Enter exactly 5 space-separated fields.
-                  </span>
+                  <span className="mt-1 block text-xs text-failure-bg">Enter exactly 5 space-separated fields.</span>
                 ) : null}
               </div>
             ) : null}
