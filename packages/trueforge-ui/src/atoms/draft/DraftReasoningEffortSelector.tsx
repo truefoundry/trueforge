@@ -23,7 +23,7 @@ export function DraftReasoningEffortSelector({ disabled, isRunning }: DraftReaso
   const updateAgentSpec = useTrueForgeUpdateAgentSpec();
   const [open, setOpen] = useState(false);
   const containerRef = useRef<HTMLDivElement>(null);
-  const clearedStickyEffortForModelRef = useRef<string | null>(null);
+  const previousModelNameRef = useRef<string | null>(null);
   const menuId = useId();
   const isMobile = useIsMobile();
   const compactLayout = useCompactLayout();
@@ -51,16 +51,14 @@ export function DraftReasoningEffortSelector({ disabled, isRunning }: DraftReaso
     return () => document.removeEventListener('mousedown', handler);
   }, [open]);
 
-  // Heal sticky effort left by mergeAgentSpec when the selected model has none.
+  // Clear a sticky effort only when the selection changes onto a model with no efforts.
+  // An effort set while staying on the current model is explicit.
   useEffect(() => {
     if (!updateAgentSpec || selected === undefined) return;
-    if (hasReasoningEfforts(efforts)) {
-      clearedStickyEffortForModelRef.current = null;
-      return;
-    }
-    if (currentEffort === undefined) return;
-    if (clearedStickyEffortForModelRef.current === selected.name) return;
-    clearedStickyEffortForModelRef.current = selected.name;
+    const previousName = previousModelNameRef.current;
+    previousModelNameRef.current = selected.name;
+    if (previousName === null || previousName === selected.name) return;
+    if (hasReasoningEfforts(efforts) || currentEffort === undefined) return;
     updateAgentSpec({
       model: modelPatchWithReasoningEffort(selected.name, agentSpec?.model?.params, undefined),
     });
