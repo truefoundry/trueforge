@@ -452,7 +452,7 @@ describe('turns', () => {
             tenant_id: STANDALONE_REQUEST_CONTEXT.tenant_id,
             spec: AgentSpecSchema.parse({ model: { name: 'test-provider/test-model' } }),
             record: {
-              last_turn_id: null,
+              last_turn_details: null,
               created_by_subject: {
                 subject_id: STANDALONE_REQUEST_CONTEXT.subject.id,
                 subject_type: STANDALONE_REQUEST_CONTEXT.subject.type,
@@ -584,7 +584,7 @@ describe('turns', () => {
             tenant_id: STANDALONE_REQUEST_CONTEXT.tenant_id,
             spec: AgentSpecSchema.parse({ model: { name: 'test-provider/test-model' } }),
             record: {
-              last_turn_id: null,
+              last_turn_details: null,
               created_by_subject: {
                 subject_id: STANDALONE_REQUEST_CONTEXT.subject.id,
                 subject_type: STANDALONE_REQUEST_CONTEXT.subject.type,
@@ -723,7 +723,7 @@ describe('turns', () => {
             spec: agentSpec,
             record: {
               session_id: 's1',
-              last_turn_id: null,
+              last_turn_details: null,
               created_by_subject: {
                 subject_id: STANDALONE_REQUEST_CONTEXT.subject.id,
                 subject_type: STANDALONE_REQUEST_CONTEXT.subject.type,

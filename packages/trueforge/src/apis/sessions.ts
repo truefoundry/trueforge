@@ -589,7 +589,7 @@ export function createSessionsRouter(deps: SessionsRouterDeps) {
     ) {
       return c.json({ error: { message: FORBIDDEN_SESSION_ACCESS } }, 403);
     }
-    const turnId = session.record.last_turn_id;
+    const turnId = session.record.last_turn_details?.id;
     if (!turnId) {
       return c.json({}, 200);
     }
