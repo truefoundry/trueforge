@@ -90,7 +90,7 @@ export class LargeToolResponseProcessor implements ToolResponseProcessor {
     const { filePath, preview, size } = params;
     const steps: string[] = [
       dedent`Use sandbox to read parts of the file or extract data.
-      Use ${SANDBOX_SCHEMA_INFER_TAG} to undertand the schema.
+      Use ${SANDBOX_SCHEMA_INFER_TAG} to understand the schema.
       The file's total size is given above. Plan reads against it, for example extract fields with a script or read sized ranges, instead of probing with small incremental reads.`,
     ];
 
