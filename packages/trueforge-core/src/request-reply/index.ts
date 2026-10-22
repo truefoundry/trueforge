@@ -9,6 +9,7 @@ export { redisRequest } from './client';
 export type { SendRequestOptions } from './client';
 export {
   NO_RESPONDER_HEARTBEAT_DETAIL,
+  NO_RESPONDER_HEARTBEAT_LOST_DETAIL,
   NO_RESPONDER_PUBLISH_DETAIL,
   NoResponderError,
   ReplyError,
@@ -21,4 +22,3 @@ export { RequestReplyRouter } from './router';
 export type { RouteHandler } from './router';
 export { jsonReplySchema, jsonValueFrom } from './types';
 export type { JSONReply, JSONValue, RequestEnvelope, RequestHandler } from './types';
-export { heartbeatKey } from './utils';

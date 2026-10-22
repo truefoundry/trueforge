@@ -171,8 +171,8 @@ export class ActiveTurnRegistry {
    * The live turn handle for a turn executing in this process, or undefined when it is not
    * resumable here — never started, already terminal (the stream removed its run), aborting,
    * or still in the rebuilding phase.
-   * An aborted run stays registered until its drain finishes. Call `waitForDrainingRun` before
-   * rebuilding so a second generator does not write with the same executor id.
+   * An aborted run stays registered until its drain finishes. `isCancelled` tells a
+   * send to reject instead of rebuilding over that drain.
    */
   getTurnHandle(input: { sessionId: string; turnId: string }): TurnHandle | undefined {
     const run = this.runs.get(activeTurnKey(input.sessionId, input.turnId));
@@ -188,21 +188,24 @@ export class ActiveTurnRegistry {
   }
 
   /**
-   * Wait until an aborted run has left the registry.
-   * A live run is left alone.
-   *
-   * Consider that turn was paused and then cancelled before the send event was processed,
-   * Cancellation just sets the abort controller and does not wait for drain. It never takes the turn lock either,
-   * When we start processing send events, getTurnHandle will return undefined
-   * The caller will see undefined and decide to rebuild the turn because it will see it as paused in store
-   * This is why we need to wait for the turn to drain and re-read the turn from store
+   * True when a local run was aborted with a cancellation reason.
+   * Offload is not a cancellation, so the caller may rebuild.
+   * Cancel does not take the turn lock and does not wait for the drain, and `getTurnHandle`
+   * hides the aborted run. The row can still look paused. The caller rejects the send
+   * instead of starting a second generator with the same executor id.
    */
-  async waitForRunToDrainIfAborted(input: { sessionId: string; turnId: string }): Promise<void> {
+  isCancelled(input: { sessionId: string; turnId: string }): boolean {
     const run = this.runs.get(activeTurnKey(input.sessionId, input.turnId));
     if (!run?.abortController.signal.aborted) {
-      return;
+      return false;
     }
-    await run.waitUntilCompleted;
+    const { signal } = run.abortController;
+    return (
+      signal.reason === CancellationReason.ServerExecutionTimeout ||
+      signal.reason === CancellationReason.CancelledForNextTurn ||
+      signal.reason === CancellationReason.Abandoned ||
+      signal.reason === CancellationReason.ClientCancelled
+    );
   }
 
   /**
@@ -313,7 +316,7 @@ export class ActiveTurnRegistry {
   /**
    * Enter shutdown mode and wait until the registry is empty.
    * Does not take the per-turn lock.
-   * A send holds it across rebuild, `waitForDrainingRun`, and `dropLocalTurn`;
+   * A send holds it across rebuild and `dropLocalTurn`;
    * Keepalive holds it across `finishRun`.
    * Waiting for the lock would defer the abort until those calls returned,
    * so it could not interrupt them.

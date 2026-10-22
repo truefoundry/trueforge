@@ -120,6 +120,20 @@ describe('ActiveTurnRegistry', () => {
     ).toBe(true);
     expect(abortController.signal.aborted).toBe(true);
     expect(abortController.signal.reason).toBe(CancellationReason.ClientCancelled);
+    expect(registry.isCancelled({ sessionId: 's1', turnId: 't1' })).toBe(true);
+  });
+
+  it('isCancelled ignores an offloaded run', () => {
+    const registry = new ActiveTurnRegistry({ logger });
+    const abortController = new AbortController();
+    void registry.track({
+      turn: turn('s1', 't1', 'paused'),
+      abortController,
+      stream: values([1]),
+    });
+    abortController.abort(TurnOffloadReason);
+
+    expect(registry.isCancelled({ sessionId: 's1', turnId: 't1' })).toBe(false);
   });
 
   it('cancelIfRunning returns false for unknown ids', () => {

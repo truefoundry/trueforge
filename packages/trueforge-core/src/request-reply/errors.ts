@@ -1,7 +1,9 @@
-/** Heartbeat key was absent. */
-export const NO_RESPONDER_HEARTBEAT_DETAIL = 'heartbeat not present';
+/** Heartbeat key was absent before the request was published. */
+export const NO_RESPONDER_HEARTBEAT_DETAIL = 'heartbeat-not-present';
 /** PUBLISH returned 0 while the heartbeat key still existed. */
-export const NO_RESPONDER_PUBLISH_DETAIL = 'No executor received the published request';
+export const NO_RESPONDER_PUBLISH_DETAIL = 'no-executor-subscribed';
+/** Heartbeat key disappeared after the request was published, while waiting for the reply. */
+export const NO_RESPONDER_HEARTBEAT_LOST_DETAIL = 'heartbeat-lost-during-wait';
 
 /** The target executor's heartbeat is missing or nobody is subscribed (map to HTTP 412). */
 export class NoResponderError extends Error {

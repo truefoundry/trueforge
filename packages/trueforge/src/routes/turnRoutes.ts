@@ -209,6 +209,10 @@ export const postTurnEventsRoute = createRoute({
       content: { 'application/json': { schema: RequestErrorResponseSchema } },
       description: 'Turn is terminal, or an event id already exists.',
     },
+    500: {
+      content: { 'application/json': { schema: RequestErrorResponseSchema } },
+      description: 'The executor ran the request and failed while applying the events.',
+    },
     503: {
       content: { 'application/json': { schema: RequestErrorResponseSchema } },
       description: 'Turn owner is unavailable. Retry.',
