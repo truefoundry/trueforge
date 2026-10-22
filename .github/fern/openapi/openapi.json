@@ -397,6 +397,11 @@
           },
           "provider": {
             "$ref": "#/components/schemas/AvailableModelProvider"
+          },
+          "warning": {
+            "description": "Warning for not so capable models.",
+            "minLength": 1,
+            "type": "string"
           }
         },
         "required": [

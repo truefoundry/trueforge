@@ -9,4 +9,6 @@ export interface AvailableModel {
     name: string;
     properties: TrueForge.ModelProperties;
     provider: TrueForge.AvailableModelProvider;
+    /** Warning for not so capable models. */
+    warning?: string;
 }
