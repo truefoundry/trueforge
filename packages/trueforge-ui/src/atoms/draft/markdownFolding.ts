@@ -11,9 +11,12 @@ export function computeMarkdownFoldingRanges(lines: readonly string[]): Markdown
   let fenceMarker = '';
 
   const closeHeadingsAt = ({ level, endLine }: { level: number; endLine: number }) => {
-    while (openHeadings.length > 0 && openHeadings[openHeadings.length - 1]!.level >= level) {
-      const heading = openHeadings.pop();
-      if (heading === undefined) break;
+    for (
+      let heading = openHeadings.at(-1);
+      heading !== undefined && heading.level >= level;
+      heading = openHeadings.at(-1)
+    ) {
+      openHeadings.pop();
       let end = endLine;
       while (end > heading.start && lines[end - 1]?.trim() === '') end -= 1;
       if (end > heading.start) ranges.push({ start: heading.start, end });
