@@ -949,9 +949,7 @@ type SendEventsResult =
   | { type: 'applied'; events: TurnUserEvent[] } // the events were applied successfully
   | { type: 'invalid'; message: string } // the events were invalid
   | { type: 'conflict'; message: string } // the turn is not accepting events
-  | { type: 'failed'; message: string } // this executor ran the request and failed while applying the events
-  | { type: 'unavailable'; message: string } // the owning executor could not be reached
-  | { type: 'not_owner' }; // the turn is not owned by this executor
+  | { type: 'failed'; message: string }; // this executor ran the request and failed while applying the events
 
 export enum PeerOutcome {
   /** The owner did not receive this request: heartbeat missing, or publish reached nobody. */
@@ -1033,7 +1031,9 @@ async function rebuildOptionallyAndRun(input: {
       // a paused turn, but we don't have a local active turn
       action = TurnOwnershipAction.Rebuild;
     } else {
-      // a running turn without an ActiveTurn lost its executor; it is never resumed
+      // a running state turn, either
+      // - cancelled but hasn't reached turn.done
+      // - stuck in running state because the executor died suddenly
       action = TurnOwnershipAction.Reject;
     }
 
@@ -1066,7 +1066,7 @@ async function rebuildOptionallyAndRun(input: {
         // getTurnHandle hides that run. Reject instead of rebuilding over it.
         // we will not be able to apply events on cancelled turn anyway.
         if (input.deps.activeTurns.isCancelled({ sessionId, turnId })) {
-          return { type: 'conflict', message: `Turn is not accepting events: ${turnId}` };
+          return { type: 'conflict', message: 'Turn is cancelled, cannot apply events' };
         }
         const resumed = await resumePausedTurn({
           session: input.session,
@@ -1090,7 +1090,7 @@ async function rebuildOptionallyAndRun(input: {
         // apply? -> startDrain (without await) -> return conflict
         try {
           if (resumed.signal.aborted) {
-            return { type: 'conflict', message: `Turn is not accepting events: ${turnId}` };
+            return { type: 'conflict', message: 'Turn is cancelled or unable to accept events' };
           }
           return await applyTurnEvents({
             handle: resumed.turn,
@@ -1108,8 +1108,8 @@ async function rebuildOptionallyAndRun(input: {
           type: 'conflict',
           message:
             input.turn.state.status === 'running'
-              ? `Turn is running but its executor is gone: ${input.turn.turn_id}`
-              : `Turn is not accepting events: ${input.turn.turn_id}`,
+              ? 'Turn is running but its executor is gone'
+              : 'Turn is cancelled or unable to accept events',
         };
     }
   } catch (error) {
@@ -1121,7 +1121,8 @@ async function rebuildOptionallyAndRun(input: {
       turnId,
       ...extractErrorLogFields(error),
     });
-    return { type: 'failed', message: `Failed to apply events to turn: ${turnId}` };
+    const cause = error instanceof Error ? error.message : String(error);
+    return { type: 'failed', message: `Failed to apply events: ${cause}` };
   }
 }
 
@@ -1134,10 +1135,12 @@ async function forwardTurnEvents(input: {
   events: TurnUserEvent[];
   requestContext: RequestContext;
   requestHeaders?: Record<string, string> | undefined;
-  logger: Pick<Logger, 'warn'>;
+  logger: Logger;
 }): Promise<ForwardedSendResult> {
   if (!input.redis) {
-    return { type: 'unavailable', message: `Turn owner is unavailable: ${input.turnId}` };
+    // unreachable code, we should always have a redis client
+    input.logger.error('Failed to apply turn events: no redis client');
+    return { type: 'failed', message: 'Unable to reach the turn executor' };
   }
   const { requestContext } = input;
   const body = SendEventsPeerBodySchema.parse({
@@ -1164,39 +1167,45 @@ async function forwardTurnEvents(input: {
         pollIntervalMs: configuration.REDIS_REQUEST_REPLY_POLL_INTERVAL_MS,
       },
     });
-    if (reply.status === 200) {
-      const parsed = PeerEventsReplySchema.safeParse(reply.body);
-      if (!parsed.success) {
-        // ideally we should never get here because peer should send a valid response
-        // this can cause a bad state for e.g. if peer accepted the batch, applied approvals, but then sent an invalid response
-        // We will send back 500, client will retry but will get back 400 because we already applied the approvals
-        return { type: 'failed', message: `Failed to apply events to turn: ${input.turnId}` };
+
+    switch (reply.status) {
+      case 200: {
+        const parsed = PeerEventsReplySchema.safeParse(reply.body);
+        if (!parsed.success) {
+          // ideally unreachable because peer should send a valid response
+          // this can cause a bad state for e.g. if peer accepted the batch, applied approvals, but then sent an invalid response
+          return { type: 'failed', message: 'Turn executor sent an invalid response' };
+        }
+        return { type: 'applied', events: parsed.data.events };
       }
-      return { type: 'applied', events: parsed.data.events };
+      // The peer replied the events were invalid
+      case 400: {
+        const parsed = PeerMessageSchema.safeParse(reply.body);
+        return {
+          type: 'invalid',
+          message: parsed.success ? parsed.data.message : `Turn rejected the events`,
+        };
+      }
+      // The peer replied turn is not accepting events
+      case 409: {
+        const parsed = PeerMessageSchema.safeParse(reply.body);
+        return {
+          type: 'conflict',
+          message: parsed.success ? parsed.data.message : `Turn is not accepting events`,
+        };
+      }
+      // The peer replied that it does not own the row. The batch was not applied.
+      case 412:
+        return { type: 'peer', peerOutcome: PeerOutcome.NotOwner };
+      case 500:
+      default: {
+        const parsed = PeerMessageSchema.safeParse(reply.body);
+        return {
+          type: 'failed',
+          message: parsed.success ? parsed.data.message : `Failed to apply events`,
+        };
+      }
     }
-    // The peer replied that it does not own the row. The batch was not applied.
-    if (reply.status === 412) {
-      return { type: 'peer', peerOutcome: PeerOutcome.NotOwner };
-    }
-    if (reply.status === 409 || reply.status === 400) {
-      const parsed = PeerMessageSchema.safeParse(reply.body);
-      return {
-        type: reply.status === 400 ? 'invalid' : 'conflict',
-        message: parsed.success ? parsed.data.message : `Turn is not accepting events: ${input.turnId}`,
-      };
-    }
-    if (reply.status === 500) {
-      const parsed = PeerMessageSchema.safeParse(reply.body);
-      return {
-        type: 'failed',
-        message: parsed.success ? parsed.data.message : `Failed to apply events to turn: ${input.turnId}`,
-      };
-    }
-    const parsed = PeerMessageSchema.safeParse(reply.body);
-    return {
-      type: 'unavailable',
-      message: parsed.success ? parsed.data.message : `Turn owner is unavailable: ${input.turnId}`,
-    };
   } catch (error) {
     if (error instanceof NoResponderError) {
       // The request was published, then the heartbeat disappeared while waiting for the reply.
@@ -1206,8 +1215,7 @@ async function forwardTurnEvents(input: {
       }
       // Heartbeat was already missing, or publish reached nobody. This batch was not delivered.
       return { type: 'peer', peerOutcome: PeerOutcome.NoResponder };
-    }
-    if (error instanceof RequestTimeoutError) {
+    } else if (error instanceof RequestTimeoutError) {
       // The owner may have applied the batch before the reply wait ended.
       // Do not send it again; the client retries.
       return { type: 'peer', peerOutcome: PeerOutcome.OwnerNotGone };
@@ -1227,11 +1235,11 @@ async function handleParsedPeerTurnEvents(deps: TurnsRouterDeps, body: z.infer<t
     session_id: body.session_id,
   });
   if (!session) {
-    return { status: 404, body: { message: `Session not found: ${body.session_id}` } };
+    return { status: 404, body: { message: `Session not found` } };
   }
   const result = await deps.activeTurns.withTurnLock(
     { sessionId: body.session_id, turnId: body.turn_id },
-    async (): Promise<SendEventsResult> => {
+    async (): Promise<SendEventsResult | { type: 'not_owner' }> => {
       const requestContext = requestContextFromWire(body.request_context);
       const runAsAgent = await referencedRunAsAgent({
         session,
@@ -1247,7 +1255,7 @@ async function handleParsedPeerTurnEvents(deps: TurnsRouterDeps, body: z.infer<t
       // Same run as an owner. A peered request does not steal, so a lost row is 412.
       const turn = await session.getTurn(body.turn_id);
       if (!turn) {
-        return { type: 'conflict', message: `Turn not found: ${body.turn_id}` };
+        return { type: 'conflict', message: `Turn not found` };
       }
       if (turn.active_executor_id !== configuration.EXECUTOR_ID) {
         return { type: 'not_owner' };
@@ -1267,22 +1275,22 @@ async function handleParsedPeerTurnEvents(deps: TurnsRouterDeps, body: z.infer<t
       return owned;
     },
   );
-  if (result.type === 'applied') {
-    return { status: 200, body: jsonValueFrom({ events: result.events }) };
+  switch (result.type) {
+    case 'applied':
+      return { status: 200, body: jsonValueFrom({ events: result.events }) };
+    case 'invalid':
+      return { status: 400, body: { message: result.message } };
+    case 'not_owner':
+      return { status: 412, body: { message: 'Turn is no longer owned by this executor' } };
+    case 'conflict':
+      return { status: 409, body: { message: result.message } };
+    case 'failed':
+      return { status: 500, body: { message: result.message } };
+    default: {
+      const _exhaustive: never = result;
+      throw new Error(`Unreachable send result: ${JSON.stringify(_exhaustive)}`);
+    }
   }
-  if (result.type === 'invalid') {
-    return { status: 400, body: { message: result.message } };
-  }
-  if (result.type === 'not_owner') {
-    return { status: 412, body: { message: 'Turn is not running on this executor' } };
-  }
-  if (result.type === 'conflict') {
-    return { status: 409, body: { message: result.message } };
-  }
-  if (result.type === 'failed') {
-    return { status: 500, body: { message: result.message } };
-  }
-  return { status: 503, body: { message: result.message } };
 }
 
 function handlePeerTurnEvents(deps: TurnsRouterDeps): RequestReplyRouteHandler {
@@ -1371,29 +1379,26 @@ async function sendTurnEvents(input: {
   const refetchedTurn = await input.session.getTurn(input.turnId);
   if (refetchedTurn === undefined) {
     // Unreachable. Turns are not deleted, and the load above found this row.
-    return { type: 'conflict', message: `Turn not found: ${input.turnId}` };
+    return { type: 'conflict', message: `Turn not found` };
   }
 
   // 412: the peer did not apply the batch. Load the row again and send to the current owner.
   // Timeout, heartbeat lost after publish, and transport errors may already have been
   // applied, so this pass does not send again.
   if (forwarded.peerOutcome === PeerOutcome.NotOwner || forwarded.peerOutcome === PeerOutcome.OwnerNotGone) {
-    if (refetchedTurn.state.status !== 'running' && refetchedTurn.state.status !== 'paused') {
-      return {
-        type: 'conflict',
-        message: `Turn is not accepting events: ${refetchedTurn.turn_id}`,
-      };
+    if (!isNonTerminalTurnState(refetchedTurn.state)) {
+      return { type: 'conflict', message: 'Turn is not accepting events' };
     }
     if (forwarded.peerOutcome === PeerOutcome.NotOwner) {
       return 'retry';
     }
-    return { type: 'unavailable', message: `Turn owner is unavailable: ${input.turnId}` };
+    return { type: 'failed', message: `Turn executor did not acknowledge the events` };
   }
 
   // This batch was not delivered. A finished row is a conflict. A running row or a new
   // owner is loaded again and sent to whoever owns it now.
   if (!isNonTerminalTurnState(refetchedTurn.state)) {
-    return { type: 'conflict', message: `Turn is not accepting events: ${refetchedTurn.turn_id}` };
+    return { type: 'conflict', message: `Turn is in terminal state, cannot apply events` };
   }
   if (refetchedTurn.state.status === 'running' || refetchedTurn.active_executor_id !== turn.active_executor_id) {
     return 'retry';
@@ -1413,7 +1418,7 @@ async function sendTurnEvents(input: {
     input.deps.logger.info('Paused turn steal lost the claim', {
       fromExecutor: refetchedTurn.active_executor_id,
     });
-    return { type: 'unavailable', message: `Turn owner is unavailable: ${input.turnId}` };
+    return 'retry';
   }
   input.deps.logger.info('Paused turn steal claimed the row', {
     executorId: configuration.EXECUTOR_ID,
@@ -1445,81 +1450,12 @@ async function sendTurnEventsWithRetries(input: {
       return result;
     }
   }
-  return { type: 'unavailable', message: `Turn ownership did not settle: ${input.turnId}` };
+  input.deps.logger.error('Turn ownership did not settle while trying to apply events');
+  return { type: 'failed', message: 'Unable to determine the executor for the turn' };
 }
 
 /** DB-backed turns (mounted at /api/v1/sessions). */
 export function createTurnsRouter(deps: TurnsRouterDeps) {
-  const postTurnEventsHandler: RouteHandler<typeof postTurnEventsRoute> = async c => {
-    const { session_id: sessionId, turn_id: turnId } = c.req.valid('param');
-    const body = c.req.valid('json');
-    const requestContext = deps.resolveRequestContext(c);
-    const session = await deps.sessions.get({
-      tenant_id: requestContext.tenant_id,
-      session_id: sessionId,
-    });
-    if (!session) {
-      return c.json({ error: { message: `Session not found: ${sessionId}` } }, 404);
-    }
-    if (
-      !isSessionOwner({
-        subject_id: requestContext.subject.id,
-        created_by_subject: session.record.created_by_subject,
-      })
-    ) {
-      return c.json({ error: { message: FORBIDDEN_SESSION_ACCESS } }, 403);
-    }
-    const turn = await session.getTurn(turnId);
-    if (!turn) {
-      return c.json({ error: { message: `Turn not found: ${turnId}` } }, 404);
-    }
-
-    const createdAt = new Date().toISOString();
-    const events: TurnUserEvent[] = body.events.map(payload => ({
-      ...payload,
-      id: newEventId(),
-      created_at: createdAt,
-    }));
-    const requestHeaders = c.req.header();
-
-    return deps.activeTurns.withTurnLock({ sessionId, turnId }, async () => {
-      const runAsAgent = await referencedRunAsAgent({
-        session,
-        agentStore: deps.resolveAgentStore(requestContext),
-      });
-      const executionDeps = await executionDepsForCaller({
-        deps,
-        session,
-        requestContext,
-        requestHeaders,
-        ...(runAsAgent !== undefined ? { runAsAgent } : {}),
-      });
-      const result = await sendTurnEventsWithRetries({
-        session,
-        sessionStore: deps.sessionStore,
-        turnId,
-        events,
-        requestContext,
-        requestHeaders,
-        deps: executionDeps,
-      });
-      if (result.type === 'applied') {
-        return c.json({ data: result.events }, 201);
-      }
-      if (result.type === 'invalid') {
-        return c.json({ error: { message: result.message } }, 400);
-      }
-      if (result.type === 'conflict') {
-        return c.json({ error: { message: result.message } }, 409);
-      }
-      if (result.type === 'failed') {
-        return c.json({ error: { message: result.message } }, 500);
-      }
-      const message = result.type === 'not_owner' ? `Turn owner is unavailable: ${turnId}` : result.message;
-      return c.json({ error: { message } }, 503);
-    });
-  };
-
   const listTurnsHandler: RouteHandler<typeof listTurnsRoute> = async c => {
     const { session_id: sessionId } = c.req.valid('param');
     const query = c.req.valid('query');
@@ -1810,6 +1746,76 @@ export function createTurnsRouter(deps: TurnsRouterDeps) {
       }
       throw error;
     }
+  };
+
+  const postTurnEventsHandler: RouteHandler<typeof postTurnEventsRoute> = async c => {
+    const { session_id: sessionId, turn_id: turnId } = c.req.valid('param');
+    const body = c.req.valid('json');
+    const requestContext = deps.resolveRequestContext(c);
+    const session = await deps.sessions.get({
+      tenant_id: requestContext.tenant_id,
+      session_id: sessionId,
+    });
+    if (!session) {
+      return c.json({ error: { message: `Session not found: ${sessionId}` } }, 404);
+    }
+    if (
+      !isSessionOwner({
+        subject_id: requestContext.subject.id,
+        created_by_subject: session.record.created_by_subject,
+      })
+    ) {
+      return c.json({ error: { message: FORBIDDEN_SESSION_ACCESS } }, 403);
+    }
+    const turn = await session.getTurn(turnId);
+    if (!turn) {
+      return c.json({ error: { message: `Turn not found: ${turnId}` } }, 404);
+    }
+
+    const createdAt = new Date().toISOString();
+    const events: TurnUserEvent[] = body.events.map(payload => ({
+      ...payload,
+      id: newEventId(),
+      created_at: createdAt,
+    }));
+    const requestHeaders = c.req.header();
+
+    return deps.activeTurns.withTurnLock({ sessionId, turnId }, async () => {
+      const runAsAgent = await referencedRunAsAgent({
+        session,
+        agentStore: deps.resolveAgentStore(requestContext),
+      });
+      const executionDeps = await executionDepsForCaller({
+        deps,
+        session,
+        requestContext,
+        requestHeaders,
+        ...(runAsAgent !== undefined ? { runAsAgent } : {}),
+      });
+      const result = await sendTurnEventsWithRetries({
+        session,
+        sessionStore: deps.sessionStore,
+        turnId,
+        events,
+        requestContext,
+        requestHeaders,
+        deps: executionDeps,
+      });
+      switch (result.type) {
+        case 'applied':
+          return c.json({ data: result.events }, 201);
+        case 'invalid':
+          return c.json({ error: { message: `Failed to apply events: ${result.message}` } }, 400);
+        case 'conflict':
+          return c.json({ error: { message: `Failed to apply events: ${result.message}` } }, 409);
+        case 'failed':
+          return c.json({ error: { message: `Failed to apply events: ${result.message}` } }, 500);
+        default: {
+          const _exhaustive: never = result;
+          throw new Error(`Unreachable send result: ${JSON.stringify(_exhaustive)}`);
+        }
+      }
+    });
   };
 
   const subscribeTurnHandler: RouteHandler<typeof subscribeTurnRoute> = async c => {
