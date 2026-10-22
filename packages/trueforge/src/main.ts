@@ -818,7 +818,12 @@ try {
   });
 
   await initSentry(configuration, logger, { tags: { component: 'server' } });
-  setMetricsScrapeAppendix(startSdkMetrics());
+  setMetricsScrapeAppendix({
+    scrape: startSdkMetrics(),
+    onError(error) {
+      logger.error('SDK metrics scrape failed', extractErrorLogFields(error));
+    },
+  });
   enableRedisOpenTelemetry();
 
   if (configuration.STANDALONE) {
