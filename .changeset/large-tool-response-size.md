@@ -2,4 +2,4 @@
 '@truefoundry/trueforge-core': patch
 ---
 
-The sandbox file-dump message for a blocked large tool response now states its exact size (`Content too large (50,000 characters). Result saved to: …`) and prompts the model to plan reads against that total, instead of guessing with small incremental reads.
+Blocked large tool response messages now state the exact content size and the blocking thresholds in characters (`Content too large (50,000 characters). Tool responses are blocked at 24,000 characters or more per response, or 40,000 characters or more across parallel responses. Result saved to: …`, at the default thresholds), and the file-dump message prompts the model to plan reads against the total instead of guessing with small incremental reads.
