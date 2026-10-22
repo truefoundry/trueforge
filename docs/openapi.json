@@ -10057,6 +10057,16 @@
             },
             "description": "Turn is terminal, or an event id already exists."
           },
+          "500": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/RequestErrorResponse"
+                }
+              }
+            },
+            "description": "The executor ran the request and failed while applying the events."
+          },
           "503": {
             "content": {
               "application/json": {
