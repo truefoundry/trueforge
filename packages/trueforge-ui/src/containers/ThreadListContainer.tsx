@@ -8,7 +8,7 @@ import {
   useAui,
   useAuiState,
 } from '@assistant-ui/react';
-import { useCallback, useEffect, useMemo, useRef, useState, type ReactNode, type Ref } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState, type ReactNode, type Ref, type RefObject } from 'react';
 
 import { useTrackAnalytics } from '../analytics/AnalyticsProvider.js';
 import { AnalyticsEvents } from '../analytics/events.js';
@@ -175,12 +175,14 @@ function ThreadListItemActionsMenu({
 }
 
 function ThreadListItemRow({
+  selectionRef,
   onThreadOpen,
   canRenameSession,
   canDeleteSession,
   canManageResource,
   canDeleteResource,
 }: {
+  selectionRef: RefObject<number>;
   onThreadOpen?: () => void;
   canRenameSession: boolean;
   canDeleteSession: boolean;
@@ -278,6 +280,7 @@ function ThreadListItemRow({
             AnalyticsEvents.Session.SELECTED,
             withSessionProps({ is_mutable: threadListItemIsMutable(custom) }, { sessionId: remoteId, agentName }),
           );
+          const selection = ++selectionRef.current;
           onThreadOpen?.();
           shell?.setSettingsOpen(false);
           shell?.setLibraryOpen(false);
@@ -288,10 +291,16 @@ function ThreadListItemRow({
           // A row created in this client has no custom yet; defaulting to mutable would
           // reopen a saved-agent chat as a draft, so ask the server first.
           if (remoteId != null && server != null && readThreadIsMutable(custom) === undefined && agentName == null) {
-            void server.getSession({ sessionId: remoteId }).then(
-              session => openRow({ sessionMutable: session.isMutable, rowAgentName: session.agentName ?? undefined }),
-              () => openRow({ sessionMutable: threadListItemIsMutable(custom), rowAgentName: agentName }),
-            );
+            void server
+              .getSession({ sessionId: remoteId })
+              .then(
+                session => ({ sessionMutable: session.isMutable, rowAgentName: session.agentName ?? undefined }),
+                () => ({ sessionMutable: threadListItemIsMutable(custom), rowAgentName: agentName }),
+              )
+              .then(resolved => {
+                // A later row click or New Chat supersedes this pending open.
+                if (selectionRef.current === selection) openRow(resolved);
+              });
             return;
           }
           // Prefer custom.isMutable (session wire); agentName-only is a legacy fallback.
@@ -353,6 +362,7 @@ function isPersistedHistoryVariant(variant: NonNullable<ThreadListContainerProps
 }
 
 function ThreadListItemsByRecency({
+  selectionRef,
   indices,
   onThreadOpen,
   canRenameSession,
@@ -360,6 +370,7 @@ function ThreadListItemsByRecency({
   canManageResource,
   canDeleteResource,
 }: {
+  selectionRef: RefObject<number>;
   indices: number[];
   onThreadOpen?: () => void;
   canRenameSession: boolean;
@@ -377,6 +388,7 @@ function ThreadListItemsByRecency({
         return (
           <ThreadListItemByIndexProvider key={key} index={index} archived={false}>
             <ThreadListItemRow
+              selectionRef={selectionRef}
               onThreadOpen={onThreadOpen}
               canRenameSession={canRenameSession}
               canDeleteSession={canDeleteSession}
@@ -458,6 +470,7 @@ export function ThreadListContainer({ onThreadOpen, variant = 'default' }: Threa
   const viewportRef = useRef<HTMLDivElement>(null);
   const hasMoreRef = useRef(hasMore);
   const auiRef = useRef(aui);
+  const selectionRef = useRef(0);
   hasMoreRef.current = hasMore;
   auiRef.current = aui;
 
@@ -524,6 +537,7 @@ export function ThreadListContainer({ onThreadOpen, variant = 'default' }: Threa
         },
       ),
     );
+    selectionRef.current += 1;
     onThreadOpen?.();
     shell?.setLibraryOpen(false);
     shell?.setSessionsOpen(false);
@@ -548,6 +562,7 @@ export function ThreadListContainer({ onThreadOpen, variant = 'default' }: Threa
     listBody = (
       <ThreadListPrimitive.Root className="flex min-h-0 flex-col gap-0.5">
         <ThreadListItemsByRecency
+          selectionRef={selectionRef}
           indices={indices}
           onThreadOpen={onThreadOpen}
           canRenameSession={canRenameSession}
