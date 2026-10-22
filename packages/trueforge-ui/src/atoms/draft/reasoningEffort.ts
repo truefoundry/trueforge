@@ -3,7 +3,7 @@ import type { Model, ModelParams, ModelSelection } from '../../server/types.js';
 type ReasoningEfforts = ModelSelection['properties']['reasoningEfforts'];
 
 /** Playground parameter catalog: max-token default 2500, slider 50–128000 step 100. */
-const FALLBACK_MAX_TOKENS = 25000;
+const FALLBACK_MAX_TOKENS = 2500;
 const FALLBACK_MAX_TOKENS_MIN = 50;
 const FALLBACK_MAX_TOKENS_MAX = 128_000;
 const FALLBACK_MAX_TOKENS_STEP = 100;
@@ -38,19 +38,19 @@ export function reasoningEffortOptions(catalog: ReasoningEfforts, current: strin
 
 export function reasoningEffortSeed(catalog: ReasoningEfforts): string {
   const fallback = resolveReasoningEffort([...FALLBACK_REASONING_EFFORTS], undefined) ?? 'minimal';
-  if (!hasReasoningEfforts(catalog)) return fallback;
-  return catalog[0] ?? fallback;
+  return resolveReasoningEffort(catalog, undefined) ?? fallback;
 }
 
 export function hasReasoningEfforts(efforts: ReasoningEfforts): efforts is string[] {
   return Array.isArray(efforts) && efforts.length > 0;
 }
 
-/** Keep current if still listed; otherwise the lowest non-"none" effort; none if model has no efforts. */
+/** Keep current if still listed; otherwise default to "medium", falling back to the lowest non-"none" effort. */
 export function resolveReasoningEffort(efforts: ReasoningEfforts, current: string | undefined): string | undefined {
   if (!hasReasoningEfforts(efforts)) return undefined;
   if (current && efforts.includes(current)) return current;
-  // Default to the lowest real effort, not "none" — catalog lists are ordered ascending.
+  if (efforts.includes('medium')) return 'medium';
+  // Catalog lists are ordered ascending, so the first non-"none" entry is the lowest real effort.
   return efforts.find(effort => effort !== 'none') ?? efforts[0];
 }
 

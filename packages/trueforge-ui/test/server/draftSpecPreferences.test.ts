@@ -97,6 +97,39 @@ describe('draft preference storage', () => {
     });
   });
 
+  it('stores a wire sandbox environment name as environmentName', () => {
+    window.localStorage.setItem(
+      AGENT_DRAFT_SPEC_PREFERENCES_STORAGE_KEY,
+      JSON.stringify({
+        version: 1,
+        spec: {
+          model: { name: 'agent/model' },
+          config: { sandbox: { enabled: true, fileDownloads: true, environment_name: 'test' } },
+        },
+      }),
+    );
+
+    expect(readDraftSpecPreferences('agent')).toEqual({
+      model: { name: 'agent/model' },
+      config: { sandbox: { enabled: true, fileDownloads: true, environmentName: 'test' } },
+    });
+
+    const sandbox = { enabled: true, environmentName: 'python-dev' };
+    Reflect.set(sandbox, 'environment_name', 'test');
+    writeDraftSpecPreferences('agent', { model: { name: 'agent/model' }, config: { sandbox } });
+    expect(readDraftSpecPreferences('agent')).toEqual({
+      model: { name: 'agent/model' },
+      config: { sandbox: { enabled: true, environmentName: 'python-dev' } },
+    });
+    expect(JSON.parse(window.localStorage.getItem(AGENT_DRAFT_SPEC_PREFERENCES_STORAGE_KEY) ?? 'null')).toEqual({
+      version: 1,
+      spec: {
+        model: { name: 'agent/model' },
+        config: { sandbox: { enabled: true, environmentName: 'python-dev' } },
+      },
+    });
+  });
+
   it('persists the chat web-search toggle across read/write', () => {
     writeDraftSpecPreferences('chat', {
       model: { name: 'chat/model' },

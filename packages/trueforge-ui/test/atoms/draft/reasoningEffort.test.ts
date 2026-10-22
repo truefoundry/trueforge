@@ -3,6 +3,7 @@ import { describe, expect, it } from 'vitest';
 import {
   hasReasoningEfforts,
   modelPatchWithReasoningEffort,
+  reasoningEffortSeed,
   resolveReasoningEffort,
 } from '@/atoms/draft/reasoningEffort.js';
 
@@ -32,7 +33,12 @@ describe('resolveReasoningEffort', () => {
     expect(resolveReasoningEffort(['low', 'high'], 'medium')).toBe('low');
   });
 
-  it('defaults to the lowest non-"none" effort, skipping "none"', () => {
+  it('defaults to "medium" when the model offers it', () => {
+    expect(resolveReasoningEffort(['none', 'low', 'medium', 'high'], undefined)).toBe('medium');
+    expect(resolveReasoningEffort(['low', 'medium', 'high'], 'bogus')).toBe('medium');
+  });
+
+  it('defaults to the lowest non-"none" effort when "medium" is not offered, skipping "none"', () => {
     expect(resolveReasoningEffort(['none', 'low', 'high'], undefined)).toBe('low');
     expect(resolveReasoningEffort(['none', 'minimal', 'low'], 'bogus')).toBe('minimal');
   });
@@ -43,6 +49,17 @@ describe('resolveReasoningEffort', () => {
 
   it('falls back to "none" only when it is the sole effort', () => {
     expect(resolveReasoningEffort(['none'], undefined)).toBe('none');
+  });
+});
+
+describe('reasoningEffortSeed', () => {
+  it('defaults to medium when the catalog or playground fallback offers it', () => {
+    expect(reasoningEffortSeed(['none', 'low', 'medium', 'high'])).toBe('medium');
+    expect(reasoningEffortSeed(undefined)).toBe('medium');
+  });
+
+  it('uses the lowest non-none effort when medium is absent', () => {
+    expect(reasoningEffortSeed(['none', 'low', 'high'])).toBe('low');
   });
 });
 

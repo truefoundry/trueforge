@@ -7,6 +7,7 @@ from ..core.pydantic_utilities import IS_PYDANTIC_V2
 from ..core.unchecked_base_model import UncheckedBaseModel
 from .created_by_subject import CreatedBySubject
 from .session_agent import SessionAgent
+from .session_last_turn_details import SessionLastTurnDetails
 from .session_metadata import SessionMetadata
 from .session_metrics import SessionMetrics
 from .session_source import SessionSource
@@ -25,6 +26,7 @@ class Session(UncheckedBaseModel):
     Unique session id.
     """
 
+    last_turn_details: typing.Optional[SessionLastTurnDetails] = None
     metadata: SessionMetadata
     metrics: SessionMetrics
     shared: bool = pydantic.Field()

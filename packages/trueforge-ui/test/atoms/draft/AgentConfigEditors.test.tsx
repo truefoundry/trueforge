@@ -303,7 +303,7 @@ describe('AgentConfigEditors', () => {
       model: { name: 'openai/gpt', params: { maxTokens: 2500 } },
     });
     expect(onChange).toHaveBeenNthCalledWith(2, {
-      model: { name: 'openai/gpt', params: { reasoningEffort: 'minimal' } },
+      model: { name: 'openai/gpt', params: { reasoningEffort: 'medium' } },
     });
 
     rerender(

@@ -7,7 +7,7 @@ import { createSqliteDb } from '../../../src/db/sqlite/client';
 import { SqliteMcpServerStore } from '../../../src/db/sqlite/mcp-server-store/SqliteMcpServerStore';
 import { SqliteOAuthTokenStore } from '../../../src/db/sqlite/token-store/SqliteOAuthTokenStore';
 import { mcpOAuthCallbackUrl } from '../../../src/mcp/auth/mcpOAuthHelpers';
-import { getMcpConnection } from '../../../src/runtime/sessionResources';
+import { resolveMcpServer } from '../../../src/runtime/sessionResources';
 
 jest.mock('undici', () => {
   const actual = jest.requireActual<typeof import('undici')>('undici');
@@ -20,7 +20,7 @@ jest.mock('undici', () => {
   };
 });
 
-describe('getMcpConnection', () => {
+describe('resolveMcpServer', () => {
   let db: ReturnType<typeof createSqliteDb>;
   let mcpServerStore: IMcpServerWithAuthStore;
   let tokenStore: SqliteOAuthTokenStore;
@@ -96,7 +96,7 @@ describe('getMcpConnection', () => {
         },
       });
 
-      const connection = await getMcpConnection({
+      const connection = await resolveMcpServer({
         tenant_id: 'default',
         name: 'oauth-mcp',
         store: mcpServerStore,
@@ -108,6 +108,7 @@ describe('getMcpConnection', () => {
       }
 
       expect(connection.url).toBe(mcpUrl);
+      expect(connection.server).toEqual({ name: 'oauth-mcp', description: 'OAuth MCP server.' });
       expect(typeof connection.headers).toBe('function');
       if (typeof connection.headers !== 'function') {
         throw new Error('expected async headers resolver');
@@ -154,7 +155,7 @@ describe('getMcpConnection', () => {
       },
     });
 
-    const connection = await getMcpConnection({
+    const connection = await resolveMcpServer({
       tenant_id: 'default',
       name: 'tokened-mcp',
       store: mcpServerStore,
@@ -181,7 +182,7 @@ describe('getMcpConnection', () => {
       },
     });
 
-    const connection = await getMcpConnection({
+    const connection = await resolveMcpServer({
       tenant_id: 'default',
       name: 'open-mcp',
       store: mcpServerStore,
@@ -193,6 +194,7 @@ describe('getMcpConnection', () => {
     }
 
     expect(connection.url).toBe('https://mcp.open.example/mcp');
+    expect(connection.server).toEqual({ name: 'open-mcp', description: 'Open MCP server.' });
     expect(connection.headers).toEqual({});
   });
 
@@ -209,7 +211,7 @@ describe('getMcpConnection', () => {
       },
     });
 
-    const connection = await getMcpConnection({
+    const connection = await resolveMcpServer({
       tenant_id: 'default',
       name: 'header-mcp',
       store: mcpServerStore,
@@ -221,6 +223,7 @@ describe('getMcpConnection', () => {
     }
 
     expect(connection.url).toBe('https://mcp.header.example/mcp');
+    expect(connection.server).toEqual({ name: 'header-mcp', description: 'Header MCP server.' });
     expect(connection.headers).toEqual({ Authorization: 'Bearer static-token' });
   });
 
@@ -248,7 +251,7 @@ describe('getMcpConnection', () => {
         },
       });
 
-      const connection = await getMcpConnection({
+      const connection = await resolveMcpServer({
         tenant_id: 'default',
         name: 'tfy-mcp',
         store,
@@ -267,7 +270,7 @@ describe('getMcpConnection', () => {
 
   it('returns undefined when the server is not registered', async () => {
     await expect(
-      getMcpConnection({
+      resolveMcpServer({
         tenant_id: 'default',
         name: 'missing-mcp',
         store: mcpServerStore,

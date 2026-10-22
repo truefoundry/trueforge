@@ -185,7 +185,7 @@ describe('schedule RBAC', () => {
     expect((await postJson('/runs', 'POST', { schedule_id: '01jqzz000000000000000nope' })).status).toBe(404);
   });
 
-  it("does not let an OIDC settings admin access another user's schedule", async () => {
+  it('lets an admin read and mutate another user schedule; created_by_me still scopes list', async () => {
     const { app, asUser, postJson } = await setup();
 
     asUser(ALICE);
@@ -193,15 +193,18 @@ describe('schedule RBAC', () => {
     const { id } = ((await created.json()) as { data: { id: string } }).data;
 
     asUser(ADMIN);
-    expect((await app.request(`/${id}`)).status).toBe(403);
+    expect((await app.request(`/${id}`)).status).toBe(200);
     const adminList = await app.request('/');
-    expect(ListSchedulesResponseSchema.parse(await adminList.json()).data).toEqual([]);
-    expect((await app.request(`/${id}/runs`)).status).toBe(403);
+    expect(ListSchedulesResponseSchema.parse(await adminList.json()).data.map(row => row.id)).toEqual([id]);
+    expect(
+      ListSchedulesResponseSchema.parse(await (await app.request('/?created_by_me=true')).json()).data,
+    ).toHaveLength(0);
+    expect((await app.request(`/${id}/runs`)).status).toBe(200);
     expect((await postJson(`/${id}`, 'PUT', { name: 'admin-renamed', manifest: scheduleBody.manifest })).status).toBe(
-      403,
+      200,
     );
-    expect((await app.request(`/${id}`, { method: 'DELETE' })).status).toBe(403);
-    expect((await postJson('/runs', 'POST', { schedule_id: id })).status).toBe(403);
+    expect((await postJson('/runs', 'POST', { schedule_id: id })).status).toBe(201);
+    expect((await app.request(`/${id}`, { method: 'DELETE' })).status).toBe(200);
   });
 
   it('lets an agent manager read schedules and runs but keeps mutations creator-only', async () => {
@@ -318,6 +321,7 @@ describe('create schedule run', () => {
         schedule_id: scheduleId,
         status: 'triggered',
         reason: null,
+        session_id: null,
         created_by_subject: {
           subject_id: 'alice',
           subject_type: 'user',
@@ -347,7 +351,30 @@ describe('create schedule run', () => {
     expect(runs.data.map(r => r.status).sort()).toEqual(['scheduled', 'triggered']);
   });
 
-  it('does not let an OIDC settings admin trigger another creator schedule', async () => {
+  it('returns the linked session_id from run-now and the runs list', async () => {
+    const { app, asUser, postJson } = await setup();
+    mockedStartScheduleRun.mockImplementation(async ({ item, scheduleStore }) => {
+      await scheduleStore.updateRun({ tenant_id: item.run.tenant_id, id: item.run.id, session_id: 'session-1' });
+      return undefined;
+    });
+
+    asUser(ALICE);
+    const created = await postJson('/', 'POST', scheduleBody);
+    const { id: scheduleId } = ((await created.json()) as { data: { id: string } }).data;
+
+    const res = await postJson('/runs', 'POST', { schedule_id: scheduleId });
+    expect(res.status).toBe(201);
+    const runNow = CreateScheduleRunResponseSchema.parse(await res.json()).data;
+    expect(runNow.session_id).toBe('session-1');
+
+    const list = ListScheduleRunsResponseSchema.parse(await (await app.request(`/${scheduleId}/runs`)).json());
+    expect(list.data.map(run => [run.status, run.session_id]).sort()).toEqual([
+      ['scheduled', null],
+      ['triggered', 'session-1'],
+    ]);
+  });
+
+  it('lets an admin trigger another creator schedule', async () => {
     const { asUser, postJson } = await setup();
 
     asUser(ALICE);
@@ -356,8 +383,8 @@ describe('create schedule run', () => {
 
     asUser(ADMIN);
     const res = await postJson('/runs', 'POST', { schedule_id: scheduleId });
-    expect(res.status).toBe(403);
-    expect(mockedStartScheduleRun).not.toHaveBeenCalled();
+    expect(res.status).toBe(201);
+    expect(mockedStartScheduleRun).toHaveBeenCalled();
   });
 
   it('marks the run failed and returns 404 when startScheduleRun reports a missing agent', async () => {

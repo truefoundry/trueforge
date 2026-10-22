@@ -80,6 +80,7 @@ export function toWireSession(record: SessionRecord): Session {
     metrics: record.metrics,
     metadata: record.metadata,
     source: record.source,
+    last_turn_details: record.last_turn_details,
   };
 }
 

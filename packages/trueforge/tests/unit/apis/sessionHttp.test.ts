@@ -28,7 +28,7 @@ import { SqliteOAuthTokenStore } from '../../../src/db/sqlite/token-store/Sqlite
 import { SqliteWebSearchProviderStore } from '../../../src/db/sqlite/web-search-provider-store/SqliteWebSearchProviderStore';
 import { ActiveTurnRegistry } from '../../../src/runtime/activeTurns';
 import { EventSubscriptionRegistry } from '../../../src/runtime/event-subscription/index.js';
-import { ListSessionsResponseSchema } from '../../../src/schemas/session';
+import { GetSessionResponseSchema, ListSessionsResponseSchema } from '../../../src/schemas/session';
 import {
   GetSessionMetricsChartDataResponseSchema,
   GetSessionMetricsChartResponseSchema,
@@ -194,6 +194,22 @@ describe('sessions HTTP agent binding', () => {
       subject_display_name: STANDALONE_REQUEST_CONTEXT.subject.display_name,
     });
     expect(json.data.metrics).toEqual({ total_duration_ms: 0, total_turns: 0 });
+  });
+
+  it('returns last_turn_details on get and list', async () => {
+    const created = await app.request('/', jsonInit('POST', { agent: { spec: inlineSpec } }));
+    expect(created.status).toBe(201);
+    const session = GetSessionResponseSchema.parse(await created.json()).data;
+    expect(session.last_turn_details).toBeNull();
+
+    await sessionStore.createTurn(makeCreateTurnInput({ sessionId: session.id, turnId: 'turn-1' }));
+    const expected = { id: 'turn-1', state: { status: 'running' } };
+
+    const fetched = await app.request(`/${session.id}`);
+    expect(GetSessionResponseSchema.parse(await fetched.json()).data.last_turn_details).toEqual(expected);
+
+    const listed = ListSessionsResponseSchema.parse(await (await app.request('/')).json()).data;
+    expect(listed.find(item => item.id === session.id)?.last_turn_details).toEqual(expected);
   });
 
   it('returns 404 when creating a session for an unknown agent name', async () => {

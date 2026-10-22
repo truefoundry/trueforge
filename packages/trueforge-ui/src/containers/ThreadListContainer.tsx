@@ -268,7 +268,8 @@ function ThreadListItemRow({
             pendingSessionId: shell?.pendingSessionId,
           });
 
-          if ((sameImmutable || sameMutable) && remoteId != null) {
+          // An access-error pane must go through openHistorySession so the error clears.
+          if ((sameImmutable || sameMutable) && remoteId != null && shell?.sessionAccessError == null) {
             void Promise.resolve(aui.threads().switchToThread(id)).catch(() => undefined);
             return;
           }

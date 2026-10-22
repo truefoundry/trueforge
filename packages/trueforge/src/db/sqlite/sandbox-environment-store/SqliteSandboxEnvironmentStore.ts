@@ -607,7 +607,6 @@ export class SqliteSandboxEnvironmentStore implements ISandboxEnvironmentStore<T
       .where('tenant_id', '=', input.tenant_id)
       .where('name', '=', input.name)
       .where('lifecycle_stage', '=', 'active')
-      .where(sql`json_extract(created_by_subject, '$.subject_id')`, '=', input.created_by_subject_id)
       .executeTakeFirst();
     if (environment === undefined) {
       return;
