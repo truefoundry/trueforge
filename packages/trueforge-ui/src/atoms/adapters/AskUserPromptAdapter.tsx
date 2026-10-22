@@ -101,7 +101,7 @@ export function AskUserPrompt({
         {answeredQuestions.map(q => (
           <div key={q.id} data-testid={dataTestPrefix ? `${dataTestPrefix}-answered-${q.id}` : undefined}>
             <div className="flex items-center justify-between rounded-t-lg border border-primary-button-bg/30 bg-primary-button-bg/10 px-4 py-2">
-              <div className="min-w-0 font-sans text-xs font-medium text-primary-button-bg">
+              <div className="min-w-0 font-sans text-xs font-medium text-primary-button-bg [&_.markdown-body]:text-inherit!">
                 <Markdown content={q.question} />
               </div>
               <div className="flex h-fit shrink-0 items-center gap-1 rounded border border-primary-button-bg/40 bg-primary-bg px-2 py-0.5 text-[0.6875rem] font-medium text-text-secondary">
@@ -182,7 +182,7 @@ export function AskUserPrompt({
         {totalQuestions > 1 ? (
           <div className="min-w-0 font-sans text-sm font-medium text-primary-button-bg">Questions</div>
         ) : (
-          <div className="min-w-0 font-sans text-sm font-medium text-primary-button-bg">
+          <div className="min-w-0 font-sans text-sm font-medium text-primary-button-bg [&_.markdown-body]:text-inherit!">
             <Markdown content={currentQuestion.question} />
           </div>
         )}
