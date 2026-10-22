@@ -144,8 +144,11 @@ export function App() {
           return;
         }
         const reasoningEfforts = first.properties.reasoningEfforts;
-        // Default to the lowest real effort, not "none" — catalog lists are ordered ascending.
-        const defaultReasoningEffort = reasoningEfforts?.find(effort => effort !== 'none') ?? reasoningEfforts?.[0];
+        // Default to "medium"; catalog lists are ordered ascending, so otherwise the lowest real effort, not "none".
+        const defaultReasoningEffort =
+          reasoningEfforts?.find(effort => effort === 'medium') ??
+          reasoningEfforts?.find(effort => effort !== 'none') ??
+          reasoningEfforts?.[0];
         setBoot({
           status: 'ready',
           openSettings: false,
