@@ -311,7 +311,7 @@ export const listSessionAccessRoute = createRoute({
   path: '/{session_id}/access',
   tags: [OpenApiTag.AGENT_SESSIONS],
   summary: 'List session access',
-  description: 'List the users this session is shared with. Only the session creator may call this.',
+  description: 'List the subjects this session is shared with.',
   'x-fern-sdk-group-name': ['sessions'],
   'x-fern-sdk-method-name': 'list_access',
   request: {
@@ -320,11 +320,11 @@ export const listSessionAccessRoute = createRoute({
   responses: {
     200: {
       content: { 'application/json': { schema: ListSessionAccessResponseSchema } },
-      description: 'Users the session is shared with.',
+      description: 'Subjects the session is shared with.',
     },
     403: {
       content: { 'application/json': { schema: RequestErrorResponseSchema } },
-      description: 'Caller is not the session creator.',
+      description: 'User does not have permission.',
     },
     404: {
       content: { 'application/json': { schema: RequestErrorResponseSchema } },
@@ -339,7 +339,7 @@ export const createSessionAccessRoute = createRoute({
   tags: [OpenApiTag.AGENT_SESSIONS],
   summary: 'Share a session',
   description:
-    'Share this session with users. Existing grants are left unchanged. Only the session creator may call this.',
+    'Share this session with one or more subjects. Subjects that already have access are left unchanged. Returns every subject the session is shared with.',
   'x-fern-sdk-group-name': ['sessions'],
   'x-fern-sdk-method-name': 'create_access',
   request: {
@@ -352,7 +352,7 @@ export const createSessionAccessRoute = createRoute({
   responses: {
     201: {
       content: { 'application/json': { schema: ListSessionAccessResponseSchema } },
-      description: 'All grants on the session after the write.',
+      description: 'Subjects the session is shared with after the change.',
     },
     400: {
       content: { 'application/json': { schema: RequestErrorResponseSchema } },
@@ -360,7 +360,7 @@ export const createSessionAccessRoute = createRoute({
     },
     403: {
       content: { 'application/json': { schema: RequestErrorResponseSchema } },
-      description: 'Caller is not the session creator.',
+      description: 'User does not have permission.',
     },
     404: {
       content: { 'application/json': { schema: RequestErrorResponseSchema } },
@@ -378,7 +378,7 @@ export const deleteSessionAccessRoute = createRoute({
   path: '/{session_id}/access/{subject_type}/{subject_id}',
   tags: [OpenApiTag.AGENT_SESSIONS],
   summary: 'Revoke session access',
-  description: "Revoke one user's access to this session. Only the session creator may call this.",
+  description: "Revoke a subject's access to this session.",
   'x-fern-sdk-group-name': ['sessions'],
   'x-fern-sdk-method-name': 'delete_access',
   request: {
@@ -391,11 +391,11 @@ export const deleteSessionAccessRoute = createRoute({
     },
     403: {
       content: { 'application/json': { schema: RequestErrorResponseSchema } },
-      description: 'Caller is not the session creator.',
+      description: 'User does not have permission.',
     },
     404: {
       content: { 'application/json': { schema: RequestErrorResponseSchema } },
-      description: 'Session or grant not found.',
+      description: 'Session not found, or the subject does not have access.',
     },
   },
 });

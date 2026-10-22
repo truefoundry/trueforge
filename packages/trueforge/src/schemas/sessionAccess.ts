@@ -1,42 +1,34 @@
-/** Session access grant wire schemas. */
+/** Session access wire schemas. */
 import { z } from '@hono/zod-openapi';
 import { CreatedBySubjectSchema } from '@truefoundry/trueforge-core/agent-session';
 
-const SESSION_ACCESS_MAX_SUBJECTS_PER_REQUEST = 100;
+const SESSION_ACCESS_MAX_SUBJECTS_PER_REQUEST = 50;
 
 export const SessionAccessSubjectTypeSchema = z
   .enum(['user'])
-  .describe('Kind of subject the session is shared with.')
+  .describe('Kind of subject.')
   .openapi('SessionAccessSubjectType');
 
 export const SessionAccessSubjectSchema = z
   .object({
     subject_type: SessionAccessSubjectTypeSchema,
-    subject_id: z.string().min(1).max(255).describe('Subject identifier, as returned by `GET /api/v1/users`.'),
+    subject_id: z.string().min(1).max(255).describe('ID of the subject.'),
   })
   .strict()
+  .describe('Who the session is shared with.')
   .openapi('SessionAccessSubject');
 
-export const SessionAccessGrantSchema = z
+export const SessionAccessSchema = z
   .object({
-    subject_type: SessionAccessSubjectTypeSchema,
-    subject_id: z.string().describe('Subject identifier.'),
-    subject_display_name: z
-      .string()
-      .nullable()
-      .describe('Display name of the subject; null when the subject can no longer be resolved.'),
-    subject_email: z
-      .string()
-      .nullable()
-      .describe('Email of the subject; null when unknown or the subject can no longer be resolved.'),
+    subject: SessionAccessSubjectSchema,
     granted_by_subject: CreatedBySubjectSchema,
-    created_at: z.string().describe('When access was granted (ISO-8601 UTC).'),
+    created_at: z.string().describe('When the session was shared with the subject (ISO-8601 UTC).'),
   })
   .strict()
-  .openapi('SessionAccessGrant');
+  .openapi('SessionAccess');
 
 export const ListSessionAccessResponseSchema = z
-  .object({ data: z.array(SessionAccessGrantSchema) })
+  .object({ data: z.array(SessionAccessSchema) })
   .openapi('ListSessionAccessResponse');
 
 export const CreateSessionAccessRequestSchema = z
@@ -54,4 +46,4 @@ export const DeleteSessionAccessResponseSchema = z.object({}).strict().openapi('
 
 export type SessionAccessSubjectType = z.infer<typeof SessionAccessSubjectTypeSchema>;
 export type SessionAccessSubject = z.infer<typeof SessionAccessSubjectSchema>;
-export type SessionAccessGrant = z.infer<typeof SessionAccessGrantSchema>;
+export type SessionAccess = z.infer<typeof SessionAccessSchema>;

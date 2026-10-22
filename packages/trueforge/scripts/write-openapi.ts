@@ -16,7 +16,6 @@ import winston from 'winston';
 import { buildOpenApiDocument, createServerApp } from '../src/app';
 import { TrueForgeAuthorizer } from '../src/auth/authorizer';
 import { StandaloneAuthenticator } from '../src/auth/standaloneAuthenticator';
-import { EmptyUserDirectory } from '../src/auth/userDirectory';
 import { McpCatalog } from '../src/catalog/McpCatalog';
 import { ModelCatalog } from '../src/catalog/ModelCatalog';
 import { SandboxCatalog } from '../src/catalog/SandboxCatalog';
@@ -36,6 +35,7 @@ import { SqliteSessionMetricsStore } from '../src/db/sqlite/session-metrics/Sqli
 import { SqliteSkillStore } from '../src/db/sqlite/skill-store/SqliteSkillStore';
 import { SqliteOAuthTokenStore } from '../src/db/sqlite/token-store/SqliteOAuthTokenStore';
 import { SqliteWebSearchProviderStore } from '../src/db/sqlite/web-search-provider-store/SqliteWebSearchProviderStore';
+import { EmptyUserStore } from '../src/db/userStore';
 import { ActiveTurnRegistry } from '../src/runtime/activeTurns';
 import { EventSubscriptionRegistry } from '../src/runtime/event-subscription';
 
@@ -98,7 +98,7 @@ const app = createServerApp({
   sessionStore,
   accessControlEntryStore: new SqliteAccessControlEntryStore(db),
   sessionMetricsStore: new SqliteSessionMetricsStore(db),
-  userDirectory: new EmptyUserDirectory(),
+  userStore: new EmptyUserStore(),
   sessions: new Sessions({ sessionStore }),
   activeTurns: new ActiveTurnRegistry(),
   requestReplyRouter: new RequestReplyRouter(),

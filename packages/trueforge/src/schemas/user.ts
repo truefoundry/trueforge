@@ -1,4 +1,4 @@
-/** Tenant user directory wire schemas. */
+/** Tenant user wire schemas. */
 import { z } from '@hono/zod-openapi';
 import { TokenPaginationSchema } from '@truefoundry/trueforge-core/agent-session';
 import { PAGE_LIMIT } from './common';
@@ -7,9 +7,9 @@ const LIST_USERS_PAGE_LIMIT = 100;
 
 export const UserSchema = z
   .object({
-    id: z.string().describe('Stable user identifier.'),
+    id: z.string().describe('User id, unique within the tenant.'),
     display_name: z.string().describe('Human-readable name for the user.'),
-    email: z.string().nullable().describe('Email of the user; null when unknown.'),
+    email: z.string().describe('Email of the user.'),
   })
   .openapi('User');
 
@@ -41,4 +41,4 @@ export const ListUsersResponseSchema = z
   })
   .openapi('ListUsersResponse');
 
-export type DirectoryUser = z.infer<typeof UserSchema>;
+export type User = z.infer<typeof UserSchema>;

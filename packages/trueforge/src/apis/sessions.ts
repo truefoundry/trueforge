@@ -31,7 +31,6 @@ import { z } from 'zod';
 import type { ResolveSkillStoreInput } from '../app';
 import type { Authorizer } from '../auth/authorizer';
 import { createdBySubjectFromRequestContext, type RequestContext, type ResolveRequestContext } from '../auth/identity';
-import type { UserDirectory } from '../auth/userDirectory';
 import configuration from '../config';
 import type { IAccessControlEntryStore, SessionAccessRecord } from '../db/accessControlEntryStore';
 import type { IAgentStore } from '../db/agentStore';
@@ -40,6 +39,7 @@ import type { IModelProviderStore } from '../db/modelProviderStore';
 import type { ISandboxEnvironmentStore } from '../db/sandboxEnvironmentStore';
 import type { ISandboxProviderStore } from '../db/sandboxProviderStore';
 import type { ISkillStore } from '../db/skillStore';
+import type { IUserStore } from '../db/userStore';
 import type { IWebSearchProviderStore } from '../db/webSearchProviderStore';
 import { updateLogContext } from '../logger';
 import {
@@ -59,7 +59,7 @@ import type { ActiveTurnRegistry } from '../runtime/activeTurns';
 import { validateAgentSpec } from '../runtime/sessionResources';
 import { honoQueriesToRecord } from '../schemas/deepObjectQuery';
 import { isSessionAgentNameRef, parseListSessionsQuery, type Session } from '../schemas/session';
-import type { SessionAccessGrant, SessionAccessSubject } from '../schemas/sessionAccess';
+import type { SessionAccess, SessionAccessSubject } from '../schemas/sessionAccess';
 import { newId } from '../utils/id';
 import { agentIfAccessible, canReadAgentBoundResource, canReadSession, resolveManagedAgentIds } from './agentAccess';
 
@@ -93,7 +93,7 @@ export interface SessionsRouterDeps {
   sessions: Sessions;
   sessionStore: ISessionStore;
   accessControlEntryStore: IAccessControlEntryStore;
-  userDirectory: UserDirectory;
+  userStore: IUserStore;
   activeTurns: ActiveTurnRegistry;
   resolveModelProviderStore: (input: { c: Context; allowInlineResources?: boolean }) => IModelProviderStore;
   resolveMcpServerStore: (input: { c: Context; allowInlineResources?: boolean }) => IMcpServerStore;
@@ -280,27 +280,12 @@ function uniqueSubjects(subjects: readonly SessionAccessSubject[]): SessionAcces
   return [...byKey.values()];
 }
 
-/** One directory lookup for all grantees; unresolvable users keep their grant with null details. */
-async function toWireGrants(
-  userDirectory: UserDirectory,
-  input: { records: readonly SessionAccessRecord[]; context: RequestContext },
-): Promise<SessionAccessGrant[]> {
-  const users = await userDirectory.getUsersByIds({
-    context: input.context,
-    ids: input.records.map(record => record.subject_id),
-  });
-  const userById = new Map(users.map(user => [user.id, user]));
-  return input.records.map(record => {
-    const user = userById.get(record.subject_id);
-    return {
-      subject_type: record.subject_type,
-      subject_id: record.subject_id,
-      subject_display_name: user?.display_name ?? null,
-      subject_email: user?.email ?? null,
-      granted_by_subject: record.granted_by_subject,
-      created_at: record.created_at,
-    };
-  });
+function toWireSessionAccess(record: SessionAccessRecord): SessionAccess {
+  return {
+    subject: { subject_type: record.subject_type, subject_id: record.subject_id },
+    granted_by_subject: record.granted_by_subject,
+    created_at: record.created_at,
+  };
 }
 
 /**
@@ -704,7 +689,7 @@ export function createSessionsRouter(deps: SessionsRouterDeps) {
       tenant_id: requestContext.tenant_id,
       session_id: sessionId,
     });
-    return c.json({ data: await toWireGrants(deps.userDirectory, { records, context: requestContext }) }, 200);
+    return c.json({ data: records.map(toWireSessionAccess) }, 200);
   };
 
   const createSessionAccessHandler: RouteHandler<typeof createSessionAccessRoute> = async c => {
@@ -715,7 +700,7 @@ export function createSessionsRouter(deps: SessionsRouterDeps) {
     if (subjects.some(subject => subject.subject_id === requestContext.subject.id)) {
       throw new HTTPException(422, { message: 'The session creator already has access.' });
     }
-    const knownUsers = await deps.userDirectory.getUsersByIds({
+    const knownUsers = await deps.userStore.getUsersByIds({
       context: requestContext,
       ids: subjects.map(subject => subject.subject_id),
     });
@@ -734,7 +719,7 @@ export function createSessionsRouter(deps: SessionsRouterDeps) {
       tenant_id: requestContext.tenant_id,
       session_id: sessionId,
     });
-    return c.json({ data: await toWireGrants(deps.userDirectory, { records, context: requestContext }) }, 201);
+    return c.json({ data: records.map(toWireSessionAccess) }, 201);
   };
 
   const deleteSessionAccessHandler: RouteHandler<typeof deleteSessionAccessRoute> = async c => {
@@ -746,7 +731,7 @@ export function createSessionsRouter(deps: SessionsRouterDeps) {
       subject: { subject_type, subject_id },
     });
     if (!revoked) {
-      return c.json({ error: { message: 'No matching grant found.' } }, 404);
+      return c.json({ error: { message: 'Subject does not have access to this session.' } }, 404);
     }
     return c.json({}, 200);
   };

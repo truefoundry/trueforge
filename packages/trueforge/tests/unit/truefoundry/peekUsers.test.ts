@@ -41,11 +41,13 @@ describe('TrueFoundryServiceFoundryServerClient.peekUsers', () => {
   });
 
   it('searches users by name with the caller token, limit, and offset', async () => {
-    fetchMock.mockResolvedValue(jsonResponse({ users: [{ id: 'u1', name: 'Alice' }], totalUsers: 1, teams: [] }));
+    fetchMock.mockResolvedValue(
+      jsonResponse({ users: [{ id: 'u1', name: 'Alice', email: 'alice@example.com' }], totalUsers: 1, teams: [] }),
+    );
 
     await expect(
       createClient().peekUsers({ accessToken: 'caller-token', name: 'ali', limit: 10, offset: 20 }),
-    ).resolves.toEqual({ users: [{ id: 'u1', name: 'Alice' }], totalUsers: 1 });
+    ).resolves.toEqual({ users: [{ id: 'u1', name: 'Alice', email: 'alice@example.com' }], totalUsers: 1 });
 
     const url = requestedUrl();
     expect(url.pathname).toBe('/v1/subjects/peek');

@@ -118,14 +118,6 @@ export function savedAgentAccess(input: {
   };
 }
 
-/** Caller bearer token for ServiceFoundry calls made on the caller's behalf. */
-export function requireUserCredential(context: RequestContext): string {
-  if (context.user_credential === null) {
-    throw new HTTPException(401, { message: 'Authentication token required to call TrueFoundry' });
-  }
-  return context.user_credential;
-}
-
 /** Token of whoever made the request. */
 export function callerAccessToken(context: RequestContext): ResolveServiceFoundryAuthorization {
   if (context.user_credential === null) {

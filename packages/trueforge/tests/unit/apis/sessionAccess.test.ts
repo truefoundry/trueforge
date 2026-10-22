@@ -8,7 +8,6 @@ import { createSessionsRouter } from '../../../src/apis/sessions';
 import { createAppErrorHandler } from '../../../src/app';
 import { TrueForgeAuthorizer } from '../../../src/auth/authorizer';
 import type { RequestContext } from '../../../src/auth/identity';
-import { EmptyUserDirectory, type UserDirectory } from '../../../src/auth/userDirectory';
 import { migrateSqliteToLatest } from '../../../src/db/migrateSqlite';
 import { SqliteAccessControlEntryStore } from '../../../src/db/sqlite/access-control-entry-store/SqliteAccessControlEntryStore';
 import { SqliteAgentStore } from '../../../src/db/sqlite/agent-store/SqliteAgentStore';
@@ -21,17 +20,18 @@ import { SqliteSessionStore } from '../../../src/db/sqlite/session-store/SqliteS
 import { SqliteSkillStore } from '../../../src/db/sqlite/skill-store/SqliteSkillStore';
 import type { Database } from '../../../src/db/sqlite/types';
 import { SqliteWebSearchProviderStore } from '../../../src/db/sqlite/web-search-provider-store/SqliteWebSearchProviderStore';
+import { EmptyUserStore, type IUserStore } from '../../../src/db/userStore';
 import { ActiveTurnRegistry } from '../../../src/runtime/activeTurns';
 import { ListSessionAccessResponseSchema } from '../../../src/schemas/sessionAccess';
-import type { DirectoryUser } from '../../../src/schemas/user';
+import type { User } from '../../../src/schemas/user';
 
 const TENANT = 'default';
 const SESSION_ID = 'shared-session';
 const CALLER_HEADER = 'x-test-caller';
 
-const USERS: DirectoryUser[] = [
+const USERS: User[] = [
   { id: 'alice', display_name: 'Alice', email: 'alice@example.com' },
-  { id: 'bob', display_name: 'Bob', email: null },
+  { id: 'bob', display_name: 'Bob', email: 'bob@example.com' },
 ];
 
 function contextFor(subjectId: string): RequestContext {
@@ -43,19 +43,19 @@ function contextFor(subjectId: string): RequestContext {
   };
 }
 
-class FakeUserDirectory implements UserDirectory {
+class FakeUserStore implements IUserStore {
   readonly getUsersByIdsCalls: string[][] = [];
-  readonly #users: DirectoryUser[];
+  readonly #users: User[];
 
-  constructor(users: DirectoryUser[]) {
+  constructor(users: User[]) {
     this.#users = users;
   }
 
-  listUsers(): Promise<{ data: DirectoryUser[]; total: number }> {
+  listUsers(): Promise<{ data: User[]; total: number }> {
     return Promise.resolve({ data: this.#users, total: this.#users.length });
   }
 
-  getUsersByIds(input: { ids: readonly string[] }): Promise<DirectoryUser[]> {
+  getUsersByIds(input: { ids: readonly string[] }): Promise<User[]> {
     this.getUsersByIdsCalls.push([...input.ids]);
     const ids = new Set(input.ids);
     return Promise.resolve(this.#users.filter(user => ids.has(user.id)));
@@ -74,8 +74,8 @@ function asCaller(caller: string, method = 'GET'): RequestInit {
   return { method, headers: { [CALLER_HEADER]: caller } };
 }
 
-function buildApp(input: { db: Kysely<Database>; sessionStore: SqliteSessionStore; userDirectory: UserDirectory }) {
-  const { db, sessionStore, userDirectory } = input;
+function buildApp(input: { db: Kysely<Database>; sessionStore: SqliteSessionStore; userStore: IUserStore }) {
+  const { db, sessionStore, userStore } = input;
   const agentStore = new SqliteAgentStore(db);
   const logger = createLogger({ silent: true });
   const app = new OpenAPIHono();
@@ -85,7 +85,7 @@ function buildApp(input: { db: Kysely<Database>; sessionStore: SqliteSessionStor
       sessions: new Sessions({ sessionStore }),
       sessionStore,
       accessControlEntryStore: new SqliteAccessControlEntryStore(db),
-      userDirectory,
+      userStore,
       activeTurns: new ActiveTurnRegistry(),
       resolveModelProviderStore: () => new SqliteModelProviderStore(db),
       resolveMcpServerStore: () => new SqliteMcpServerStore(db),
@@ -108,15 +108,15 @@ function buildApp(input: { db: Kysely<Database>; sessionStore: SqliteSessionStor
 describe('session access API', () => {
   let db: Kysely<Database>;
   let sessionStore: SqliteSessionStore;
-  let directory: FakeUserDirectory;
+  let fakeUserStore: FakeUserStore;
   let app: OpenAPIHono;
 
   beforeEach(async () => {
     db = createSqliteDb(':memory:');
     await migrateSqliteToLatest(db);
     sessionStore = new SqliteSessionStore(db);
-    directory = new FakeUserDirectory(USERS);
-    app = buildApp({ db, sessionStore, userDirectory: directory });
+    fakeUserStore = new FakeUserStore(USERS);
+    app = buildApp({ db, sessionStore, userStore: fakeUserStore });
     await sessionStore.createSession({
       tenant_id: TENANT,
       session_id: SESSION_ID,
@@ -136,17 +136,18 @@ describe('session access API', () => {
     await db.destroy();
   });
 
-  async function listGrants(): Promise<string[]> {
+  async function listSubjectIds(): Promise<string[]> {
     const response = await app.request(`/${SESSION_ID}/access`, asCaller('owner'));
     expect(response.status).toBe(200);
-    return ListSessionAccessResponseSchema.parse(await response.json()).data.map(grant => grant.subject_id);
+    return ListSessionAccessResponseSchema.parse(await response.json()).data.map(access => access.subject.subject_id);
   }
 
-  async function grant(subjectIds: string[]): Promise<Response> {
-    return app.request(
-      `/${SESSION_ID}/access`,
-      jsonInit('POST', { subjects: subjectIds.map(subject_id => ({ subject_type: 'user', subject_id })) }),
-    );
+  function userSubjects(subjectIds: string[]) {
+    return { subjects: subjectIds.map(subject_id => ({ subject_type: 'user', subject_id })) };
+  }
+
+  async function share(subjectIds: string[]): Promise<Response> {
+    return app.request(`/${SESSION_ID}/access`, jsonInit('POST', userSubjects(subjectIds)));
   }
 
   describe('access rules', () => {
@@ -157,10 +158,7 @@ describe('session access API', () => {
       expect(list.status).toBe(403);
       expect(await list.json()).toEqual(forbidden);
 
-      const create = await app.request(
-        `/${SESSION_ID}/access`,
-        jsonInit('POST', { subjects: [{ subject_type: 'user', subject_id: 'bob' }] }, 'alice'),
-      );
+      const create = await app.request(`/${SESSION_ID}/access`, jsonInit('POST', userSubjects(['bob']), 'alice'));
       expect(create.status).toBe(403);
 
       const remove = await app.request(`/${SESSION_ID}/access/user/bob`, asCaller('alice', 'DELETE'));
@@ -169,64 +167,62 @@ describe('session access API', () => {
 
     it('returns 404 for an unknown session', async () => {
       expect((await app.request('/missing/access', asCaller('owner'))).status).toBe(404);
-      expect(
-        (
-          await app.request(
-            '/missing/access',
-            jsonInit('POST', { subjects: [{ subject_type: 'user', subject_id: 'alice' }] }),
-          )
-        ).status,
-      ).toBe(404);
+      expect((await app.request('/missing/access', jsonInit('POST', userSubjects(['alice'])))).status).toBe(404);
       expect((await app.request('/missing/access/user/alice', asCaller('owner', 'DELETE'))).status).toBe(404);
     });
   });
 
   describe('create', () => {
-    it('grants users and returns the enriched list', async () => {
-      const response = await grant(['alice', 'bob']);
+    it('shares with users and returns every subject with access', async () => {
+      const response = await share(['alice', 'bob']);
 
       expect(response.status).toBe(201);
       const { data } = ListSessionAccessResponseSchema.parse(await response.json());
+      const grantedBy = { subject_id: 'owner', subject_type: 'user', subject_display_name: 'owner' };
       expect(data).toEqual([
-        expect.objectContaining({
-          subject_type: 'user',
-          subject_id: 'alice',
-          subject_display_name: 'Alice',
-          subject_email: 'alice@example.com',
-          granted_by_subject: { subject_id: 'owner', subject_type: 'user', subject_display_name: 'owner' },
-        }),
-        expect.objectContaining({ subject_id: 'bob', subject_display_name: 'Bob', subject_email: null }),
+        {
+          subject: { subject_type: 'user', subject_id: 'alice' },
+          granted_by_subject: grantedBy,
+          created_at: expect.any(String),
+        },
+        {
+          subject: { subject_type: 'user', subject_id: 'bob' },
+          granted_by_subject: grantedBy,
+          created_at: expect.any(String),
+        },
       ]);
     });
 
     it('collapses duplicates and is idempotent', async () => {
-      expect((await grant(['alice', 'alice'])).status).toBe(201);
-      expect(directory.getUsersByIdsCalls[0]).toEqual(['alice']);
+      expect((await share(['alice', 'alice'])).status).toBe(201);
+      expect(fakeUserStore.getUsersByIdsCalls[0]).toEqual(['alice']);
 
-      const again = await grant(['alice']);
+      const again = await share(['alice']);
       expect(again.status).toBe(201);
-      expect(ListSessionAccessResponseSchema.parse(await again.json()).data.map(g => g.subject_id)).toEqual(['alice']);
+      expect(
+        ListSessionAccessResponseSchema.parse(await again.json()).data.map(access => access.subject.subject_id),
+      ).toEqual(['alice']);
     });
 
-    it('rejects granting the session creator', async () => {
-      const response = await grant(['owner']);
+    it('rejects sharing with the session creator', async () => {
+      const response = await share(['owner']);
 
       expect(response.status).toBe(422);
       expect(await response.json()).toEqual({ error: { message: 'The session creator already has access.' } });
     });
 
     it('rejects unknown users without writing anything', async () => {
-      const response = await grant(['alice', 'ghost', 'phantom']);
+      const response = await share(['alice', 'ghost', 'phantom']);
 
       expect(response.status).toBe(422);
       expect(await response.json()).toEqual({ error: { message: 'Unknown users: ghost, phantom' } });
-      expect(await listGrants()).toEqual([]);
+      expect(await listSubjectIds()).toEqual([]);
     });
 
-    it('rejects every user when no directory is configured', async () => {
-      app = buildApp({ db, sessionStore, userDirectory: new EmptyUserDirectory() });
+    it('rejects every user when no user store is configured', async () => {
+      app = buildApp({ db, sessionStore, userStore: new EmptyUserStore() });
 
-      const response = await grant(['alice']);
+      const response = await share(['alice']);
 
       expect(response.status).toBe(422);
       expect(await response.json()).toEqual({ error: { message: 'Unknown users: alice' } });
@@ -234,12 +230,7 @@ describe('session access API', () => {
 
     it.each([
       ['an empty subject list', { subjects: [] }],
-      [
-        'more than 100 subjects',
-        {
-          subjects: Array.from({ length: 101 }, (_, i) => ({ subject_type: 'user', subject_id: `u${String(i)}` })),
-        },
-      ],
+      ['more than 50 subjects', userSubjects(Array.from({ length: 51 }, (_, i) => `u${String(i)}`))],
       ['an unsupported subject type', { subjects: [{ subject_type: 'tenant', subject_id: 'default' }] }],
     ])('rejects %s', async (_label, body) => {
       const response = await app.request(`/${SESSION_ID}/access`, jsonInit('POST', body));
@@ -248,35 +239,36 @@ describe('session access API', () => {
   });
 
   describe('list', () => {
-    it('keeps grants for users the directory no longer resolves', async () => {
-      expect((await grant(['alice'])).status).toBe(201);
-      app = buildApp({ db, sessionStore, userDirectory: new EmptyUserDirectory() });
+    it('lists subjects without looking up users', async () => {
+      expect((await share(['alice'])).status).toBe(201);
+      const callsAfterShare = fakeUserStore.getUsersByIdsCalls.length;
 
       const response = await app.request(`/${SESSION_ID}/access`, asCaller('owner'));
 
       expect(response.status).toBe(200);
       expect(ListSessionAccessResponseSchema.parse(await response.json()).data).toEqual([
-        expect.objectContaining({ subject_id: 'alice', subject_display_name: null, subject_email: null }),
+        expect.objectContaining({ subject: { subject_type: 'user', subject_id: 'alice' } }),
       ]);
+      expect(fakeUserStore.getUsersByIdsCalls).toHaveLength(callsAfterShare);
     });
   });
 
   describe('delete', () => {
-    it('revokes an existing grant', async () => {
-      expect((await grant(['alice', 'bob'])).status).toBe(201);
+    it('revokes an existing subject', async () => {
+      expect((await share(['alice', 'bob'])).status).toBe(201);
 
       const response = await app.request(`/${SESSION_ID}/access/user/alice`, asCaller('owner', 'DELETE'));
 
       expect(response.status).toBe(200);
       expect(await response.json()).toEqual({});
-      expect(await listGrants()).toEqual(['bob']);
+      expect(await listSubjectIds()).toEqual(['bob']);
     });
 
-    it('returns 404 when there is no matching grant', async () => {
+    it('returns 404 when the subject does not have access', async () => {
       const response = await app.request(`/${SESSION_ID}/access/user/alice`, asCaller('owner', 'DELETE'));
 
       expect(response.status).toBe(404);
-      expect(await response.json()).toEqual({ error: { message: 'No matching grant found.' } });
+      expect(await response.json()).toEqual({ error: { message: 'Subject does not have access to this session.' } });
     });
 
     it('rejects an unsupported subject type', async () => {
@@ -284,8 +276,8 @@ describe('session access API', () => {
     });
   });
 
-  it('does not yet give granted users read access', async () => {
-    expect((await grant(['alice'])).status).toBe(201);
+  it('does not yet give users with access read access', async () => {
+    expect((await share(['alice'])).status).toBe(201);
 
     expect((await app.request(`/${SESSION_ID}`, asCaller('alice'))).status).toBe(403);
     expect((await app.request(`/${SESSION_ID}/events`, asCaller('alice'))).status).toBe(403);

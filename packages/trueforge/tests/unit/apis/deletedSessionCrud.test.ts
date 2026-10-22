@@ -7,7 +7,6 @@ import { createSessionsRouter } from '../../../src/apis/sessions';
 import { createTurnsRouter } from '../../../src/apis/turns';
 import { TrueForgeAuthorizer } from '../../../src/auth/authorizer';
 import { STANDALONE_REQUEST_CONTEXT } from '../../../src/auth/identity';
-import { EmptyUserDirectory } from '../../../src/auth/userDirectory';
 import { McpServerWithAuthStore } from '../../../src/db/McpServerWithAuthStore';
 import { migrateSqliteToLatest } from '../../../src/db/migrateSqlite';
 import { SqliteAccessControlEntryStore } from '../../../src/db/sqlite/access-control-entry-store/SqliteAccessControlEntryStore';
@@ -21,6 +20,7 @@ import { SqliteSessionStore } from '../../../src/db/sqlite/session-store/SqliteS
 import { SqliteSkillStore } from '../../../src/db/sqlite/skill-store/SqliteSkillStore';
 import { SqliteOAuthTokenStore } from '../../../src/db/sqlite/token-store/SqliteOAuthTokenStore';
 import { SqliteWebSearchProviderStore } from '../../../src/db/sqlite/web-search-provider-store/SqliteWebSearchProviderStore';
+import { EmptyUserStore } from '../../../src/db/userStore';
 import { ActiveTurnRegistry } from '../../../src/runtime/activeTurns';
 import { EventSubscriptionRegistry } from '../../../src/runtime/event-subscription/index.js';
 import { ListSessionsResponseSchema } from '../../../src/schemas/session';
@@ -52,7 +52,7 @@ describe('public CRUD after session deletion', () => {
         sessions,
         sessionStore,
         accessControlEntryStore: new SqliteAccessControlEntryStore(db),
-        userDirectory: new EmptyUserDirectory(),
+        userStore: new EmptyUserStore(),
         activeTurns,
         resolveModelProviderStore: () => modelProviderStore,
         resolveMcpServerStore: () => mcpServerStore,

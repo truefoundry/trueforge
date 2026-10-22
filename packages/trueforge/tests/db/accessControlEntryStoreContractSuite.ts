@@ -89,7 +89,7 @@ export function runAccessControlEntryStoreContractSuite(getEnv: () => AccessCont
     expect(listed).toEqual([original]);
   });
 
-  it('revoke deletes an existing grant and reports a missing one', async () => {
+  it('revoke deletes an existing entry and reports a missing one', async () => {
     const { store, seedSession } = getEnv();
     await seedSession({ tenant_id: TENANT, session_id: 's1' });
     await store.grantSessionAccess({
@@ -136,6 +136,7 @@ export function runAccessControlEntryStoreContractSuite(getEnv: () => AccessCont
     expect(await store.revokeSessionAccess({ tenant_id: OTHER_TENANT, session_id: 's1', subject: user('alice') })).toBe(
       false,
     );
+    expect(await store.listSessionAccess({ tenant_id: TENANT, session_id: 's1' })).toHaveLength(1);
   });
 
   it('rejects grants on a session that does not exist', async () => {

@@ -1,4 +1,4 @@
-/** Tenant user directory API (mounted at /api/v1/users). */
+/** Tenant users API (mounted at /api/v1/users). */
 import { OpenAPIHono, type RouteHandler } from '@hono/zod-openapi';
 import { InvalidPageTokenError } from '@truefoundry/trueforge-core/agent-session';
 import {
@@ -7,11 +7,11 @@ import {
 } from '@truefoundry/trueforge-core/agent-session/store/OffsetPageToken';
 import { HTTPException } from 'hono/http-exception';
 import type { ResolveRequestContext } from '../auth/identity';
-import type { UserDirectory } from '../auth/userDirectory';
+import type { IUserStore } from '../db/userStore';
 import { listUsersRoute } from '../routes/userRoutes';
 
 export interface UsersRouterDeps {
-  userDirectory: UserDirectory;
+  userStore: IUserStore;
   resolveRequestContext: ResolveRequestContext;
 }
 
@@ -30,7 +30,7 @@ export function createUsersRouter(deps: UsersRouterDeps): OpenAPIHono {
   const listUsersHandler: RouteHandler<typeof listUsersRoute> = async c => {
     const { query, limit, page_token: pageToken } = c.req.valid('query');
     const offset = decodeOffset(pageToken);
-    const { data, total } = await deps.userDirectory.listUsers({
+    const { data, total } = await deps.userStore.listUsers({
       context: deps.resolveRequestContext(c),
       query,
       limit,

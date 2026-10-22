@@ -1,4 +1,4 @@
-/** Explicit per-subject grants on a session. Rows are removed with their session. */
+/** Explicit per-subject access to a session. Rows are removed with their session. */
 import type { CreatedBySubject } from '@truefoundry/trueforge-core/agent-session';
 import type { SessionAccessSubject, SessionAccessSubjectType } from '../schemas/sessionAccess';
 
@@ -35,10 +35,10 @@ export interface IAccessControlEntryStore<TTransaction = never> {
   /** Ordered by (created_at, subject_id). */
   listSessionAccess(input: ListSessionAccessInput, transaction?: TTransaction): Promise<SessionAccessRecord[]>;
   /**
-   * Inserts the subjects in one statement, so either all land or none do; existing grants are left
+   * Inserts the subjects in one statement, so either all land or none do; existing entries are left
    * untouched. Rejects when the session does not exist.
    */
   grantSessionAccess(input: GrantSessionAccessInput, transaction?: TTransaction): Promise<void>;
-  /** Deletes one grant; false when it did not exist. */
+  /** Deletes one subject's entry; false when it did not exist. */
   revokeSessionAccess(input: RevokeSessionAccessInput, transaction?: TTransaction): Promise<boolean>;
 }

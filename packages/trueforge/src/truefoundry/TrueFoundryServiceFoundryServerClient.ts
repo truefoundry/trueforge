@@ -111,19 +111,19 @@ const VendTokenResponseSchema = z.object({
 export type VendedTokens = z.infer<typeof VendTokenResponseSchema>;
 
 /** Only the user half of `GET v1/subjects/peek`; teams and other kinds are ignored. */
-const SfyPeekUserSchema = z.object({
+const PeekUserSchema = z.object({
   id: z.string().min(1),
   name: z.string().nullish(),
-  email: z.string().nullish(),
+  email: z.string().min(1),
 });
 
-const SfyPeekUsersResponseSchema = z.object({
-  users: z.array(SfyPeekUserSchema),
+const PeekUsersResponseSchema = z.object({
+  users: z.array(PeekUserSchema),
   totalUsers: z.number().int().nonnegative(),
 });
 
-export type SfyPeekUser = z.infer<typeof SfyPeekUserSchema>;
-export type SfyPeekUsersResponse = z.infer<typeof SfyPeekUsersResponseSchema>;
+export type PeekUser = z.infer<typeof PeekUserSchema>;
+export type PeekUsersResponse = z.infer<typeof PeekUsersResponseSchema>;
 
 export interface PutRemoteAgentInput {
   accessToken: string;
@@ -616,8 +616,8 @@ export class TrueFoundryServiceFoundryServerClient {
 
   /**
    * `GET v1/subjects/peek` for active tenant users, with the caller's token.
-   * `ids` switches to id lookup (SFY then ignores `name`); otherwise `name` is a substring search.
-   * Always sends `limit`: SFY returns every match when it is missing.
+   * `ids` switches to id lookup (ServiceFoundry then ignores `name`); otherwise `name` is a substring search.
+   * Always sends `limit`: ServiceFoundry returns every match when it is missing.
    */
   async peekUsers(input: {
     accessToken: string;
@@ -625,7 +625,7 @@ export class TrueFoundryServiceFoundryServerClient {
     ids?: readonly string[];
     limit: number;
     offset: number;
-  }): Promise<SfyPeekUsersResponse> {
+  }): Promise<PeekUsersResponse> {
     const filter =
       input.ids === undefined
         ? { subjectType: ['user'], ...(input.name === undefined ? {} : { name: input.name }) }
@@ -639,7 +639,7 @@ export class TrueFoundryServiceFoundryServerClient {
       accessToken: input.accessToken,
       method: 'GET',
     });
-    const parsed = SfyPeekUsersResponseSchema.safeParse(payload);
+    const parsed = PeekUsersResponseSchema.safeParse(payload);
     if (!parsed.success) {
       this.#logger.error('TrueFoundry ServiceFoundry subjects response was malformed', {
         ...extractErrorLogFields(parsed.error),
