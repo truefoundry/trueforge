@@ -129,15 +129,16 @@ import type { WithTransaction } from './db/transaction';
 import type { IWebSearchProviderStore } from './db/webSearchProviderStore';
 import { mountFrontend } from './frontend';
 import type { HttpMetrics } from './http/prometheus';
-import { createHttpMetrics } from './http/prometheus';
+import { createHttpMetrics, setMetricsScrapeAppendix } from './http/prometheus';
 import { serverTlsServeOptions } from './http/tls';
 import { createServerLogger, shouldColorize } from './logger';
 import type { IOAuthTokenStore } from './mcp/auth/types';
 import { createOperationMetrics } from './observability/agentMetrics';
+import { startSdkMetrics } from './observability/sdkMetrics';
 import { PACKAGE_VERSION } from './packageVersion';
 import { ActiveTurnRegistry } from './runtime/activeTurns';
 import { EventSubscriptionRegistry } from './runtime/event-subscription';
-import type { ConnectedRedis } from './runtime/redis';
+import { enableRedisOpenTelemetry, type ConnectedRedis } from './runtime/redis';
 import { initSentry } from './sentry';
 import { printStandaloneStartupBanner } from './startupBanner';
 import { InlineMcpServerStore } from './truefoundry/InlineMcpServerStore';
@@ -816,6 +817,8 @@ try {
   });
 
   await initSentry(configuration, logger, { tags: { component: 'server' } });
+  setMetricsScrapeAppendix(startSdkMetrics());
+  enableRedisOpenTelemetry();
 
   if (configuration.STANDALONE) {
     printStandaloneStartupBanner({ version: PACKAGE_VERSION, color: shouldColorize() });

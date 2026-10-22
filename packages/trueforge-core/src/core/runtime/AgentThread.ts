@@ -1543,6 +1543,7 @@ export class AgentThread {
               return;
             }
             if (this.metrics.iterations >= iterationLimit) {
+              this.operationMetrics?.recordHarnessLimit({ limit: 'iteration_limit' });
               yield this.generateErrorEvent(
                 `You have reached iteration limit of ${String(iterationLimit)}, please request again`,
               );

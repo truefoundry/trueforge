@@ -38,6 +38,7 @@ export function builtinsFromSpec(input: {
       contextCompaction({
         definition,
         compactionThresholdTokens: config.context_management.compaction.trigger?.value,
+        ...metricsOption,
       }),
     );
   }
@@ -62,6 +63,7 @@ export function builtinsFromSpec(input: {
       largeToolResponse({
         dynamicSubAgentsPresent: !isChild && dynamicSubAgentsEnabled,
         logger,
+        ...metricsOption,
       }),
     );
   }

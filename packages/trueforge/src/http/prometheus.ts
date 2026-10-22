@@ -20,15 +20,28 @@ export interface HttpMetrics {
   registry: Registry;
 }
 
+/** Extra Prometheus text appended to `GET /metrics`. Read on each scrape. */
+let metricsScrapeAppendix: (() => Promise<string>) | undefined;
+
+/** OpenTelemetry SDK meters (Daytona, Redis) are not prom-client metrics, so their Prometheus text is appended here. */
+export function setMetricsScrapeAppendix(scrape: () => Promise<string>): void {
+  metricsScrapeAppendix = scrape;
+}
+
 /** Inbound HTTP series plus the registry later operation metrics share. */
 export function createHttpMetrics(): HttpMetrics {
   const registry = new Registry();
-  const { printMetrics, registerMetrics } = prometheus({
+  const { registerMetrics } = prometheus({
     registry,
     collectDefaultMetrics: true,
     metricOptions: {
       requestDuration,
     },
   });
-  return { middleware: registerMetrics, handler: printMetrics, registry };
+  const handler: MiddlewareHandler = async c => {
+    const body = await registry.metrics();
+    const extra = metricsScrapeAppendix === undefined ? '' : await metricsScrapeAppendix();
+    return c.text(extra.length === 0 ? body : `${body}${extra}`);
+  };
+  return { middleware: registerMetrics, handler, registry };
 }
