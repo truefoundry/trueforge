@@ -64,8 +64,8 @@ function causeMessageAlreadyIncluded({ head, tail }: { head: string; tail: strin
     return true;
   }
   const unlabeledTail = stripErrorPrefix({
-    prefix: MODEL_ERROR_PREFIX,
-    message: stripErrorPrefix({ prefix: MCP_ERROR_PREFIX, message: tail }),
+    prefix: [MCP_ERROR_PREFIX, MODEL_ERROR_PREFIX],
+    message: tail,
   });
   return unlabeledTail.length > 0 && head.includes(unlabeledTail);
 }

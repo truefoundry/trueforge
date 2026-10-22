@@ -9,15 +9,17 @@ function hasErrorPrefix({ prefix, message }: { prefix: string; message: string }
 }
 
 /**
- * Remove one leading source label so an outer wrapper can add context and then apply that label once.
- * Messages that do not start with the label are returned unchanged.
+ * Remove leading source labels, in the given order, so an outer wrapper can add context and then apply one label.
+ * A label is removed only when the current text starts with it. Text that matches none of them is returned unchanged.
  */
-export function stripErrorPrefix({ prefix, message }: { prefix: string; message: string }): string {
-  if (!hasErrorPrefix({ prefix, message })) {
-    return message;
-  }
-  const rest = message.slice(prefix.length);
-  return rest.startsWith(' ') ? rest.slice(1) : rest;
+export function stripErrorPrefix({ prefix, message }: { prefix: string | readonly string[]; message: string }): string {
+  const prefixes = typeof prefix === 'string' ? [prefix] : prefix;
+  return prefixes.reduce((current, item) => {
+    if (!hasErrorPrefix({ prefix: item, message: current })) {
+      return current;
+    }
+    return current.slice(item.length).trim();
+  }, message);
 }
 
 /**
