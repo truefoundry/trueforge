@@ -599,16 +599,25 @@ export function ShellModeProvider({
     [selectLibraryAgent],
   );
 
+  const sandboxEnabled = capabilities?.sandbox.enabled;
+  const webSearchEnabled = capabilities?.webSearch?.enabled;
+
   const openDraft = useCallback(() => {
     if (!isComposerEnabled) return;
     refreshCapabilities?.();
     setHistoryAgentFilter(null);
     // Prefer storage so a just-toggled web-search preference is not lost if the
     // in-memory seed has not been rewritten yet this tick.
-    const seed = readDraftSpecPreferences('chat') ?? chatSeedRef.current;
+    // Align web-search with capability so inline New Chat sessions admit enabled:true
+    // even if createSession races the preference bridge.
+    const seed = withCapabilitiesWebSearch({
+      spec: readDraftSpecPreferences('chat') ?? chatSeedRef.current,
+      webSearchEnabled,
+      kind: 'chat',
+    });
     chatSeedRef.current = seed;
     selectLibraryAgent({ isMutable: true, isCreateAgent: false, agentSpec: seed });
-  }, [isComposerEnabled, refreshCapabilities, selectLibraryAgent]);
+  }, [isComposerEnabled, refreshCapabilities, selectLibraryAgent, webSearchEnabled]);
 
   const isActiveAgentBuilder =
     effectiveMode.status === 'active' && effectiveMode.isMutable && effectiveMode.isCreateAgent;
@@ -664,8 +673,6 @@ export function ShellModeProvider({
     [applyFreshAgentBuilderSeed, isComposerEnabled, refreshCapabilities, selectLibraryAgent],
   );
 
-  const sandboxEnabled = capabilities?.sandbox.enabled;
-  const webSearchEnabled = capabilities?.webSearch?.enabled;
   // Child effects (DraftSpecPreferenceBridge) run before this updates — so remember still
   // sees the prior capability when Settings refresh flips web-search on.
   const prevWebSearchEnabledRef = useRef(webSearchEnabled);
@@ -817,7 +824,11 @@ export function ShellModeProvider({
         const agentSpec =
           kind === 'agent'
             ? (liveSpec ?? effectiveMode.agentSpec ?? agentSeedRef.current)
-            : (readDraftSpecPreferences('chat') ?? chatSeedRef.current);
+            : withCapabilitiesWebSearch({
+                spec: readDraftSpecPreferences('chat') ?? chatSeedRef.current,
+                webSearchEnabled,
+                kind: 'chat',
+              });
         if (kind === 'chat') {
           chatSeedRef.current = agentSpec;
         }
@@ -836,7 +847,7 @@ export function ShellModeProvider({
       }
       bumpEpoch(false);
     },
-    [effectiveMode, bumpEpoch],
+    [effectiveMode, bumpEpoch, webSearchEnabled],
   );
 
   const openLibraryHome = useCallback(() => {

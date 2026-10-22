@@ -587,6 +587,44 @@ describe('ShellModeProvider', () => {
     });
   });
 
+  it('openDraft and clearChat enable web search on New Chat when the capability is available', async () => {
+    const getCapabilities = vi.fn(async () => ({
+      data: {
+        sandbox: { enabled: true },
+        skill: { enabled: true },
+        settings: { enabled: true },
+        webSearch: { enabled: true },
+      },
+    }));
+    const server = createMockAgentUIServer({ catalog: createMockCatalog(), getCapabilities });
+    const { result } = renderHook(
+      () => ({
+        shell: useShellMode(),
+        capabilities: useServerCapabilities(),
+      }),
+      {
+        wrapper: wrapWithServer(server, {
+          mode: 'AgentComposer',
+          defaultAgentSpec: { model: { name: 'openai-main/gpt-4.1' } },
+        }),
+      },
+    );
+    await waitFor(() => expect(result.current.capabilities?.webSearch?.enabled).toBe(true));
+
+    act(() => result.current.shell.openDraft());
+    expect(result.current.shell.mode).toMatchObject({
+      status: 'active',
+      isMutable: true,
+      isCreateAgent: false,
+      agentSpec: { config: { webSearch: { enabled: true } } },
+    });
+
+    act(() => result.current.shell.clearChat());
+    expect(result.current.shell.mode).toMatchObject({
+      agentSpec: { config: { webSearch: { enabled: true } } },
+    });
+  });
+
   it('does not persist capability-forced web-search off as a chat preference', async () => {
     const getCapabilities = vi.fn(async () => ({
       data: {

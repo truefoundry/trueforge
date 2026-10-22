@@ -377,6 +377,32 @@ describe('recoverWebSearchAfterCapabilityAvailable', () => {
       }),
     ).toBe(spec);
   });
+
+  it('default-fills New Chat on when capability first becomes known after a schema-default off', () => {
+    expect(
+      recoverWebSearchAfterCapabilityAvailable({
+        spec: { model: { name: 'model' }, config: { webSearch: { enabled: false } } },
+        previousWebSearchEnabled: undefined,
+        webSearchEnabled: true,
+        kind: 'chat',
+      }),
+    ).toEqual({
+      model: { name: 'model' },
+      config: { webSearch: { enabled: true } },
+    });
+  });
+
+  it('does not default-fill agent drafts when capability first becomes known', () => {
+    const spec = { model: { name: 'model' }, config: { webSearch: { enabled: false } } };
+    expect(
+      recoverWebSearchAfterCapabilityAvailable({
+        spec,
+        previousWebSearchEnabled: undefined,
+        webSearchEnabled: true,
+        kind: 'agent',
+      }),
+    ).toBe(spec);
+  });
 });
 
 describe('webSearchPreferenceToStore', () => {
