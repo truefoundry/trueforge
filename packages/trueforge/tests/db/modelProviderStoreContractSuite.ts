@@ -151,6 +151,7 @@ export function runModelProviderStoreContractSuite(getStore: () => IModelProvide
         model_id: 'gpt-5.6-sol',
         provider: { name: 'openai' },
         properties: { context_length: 400000, max_output_tokens: 32768 },
+        warning: 'Reasoning effort is missing, so the output of this model might not be efficient.',
       },
     ]);
   });
