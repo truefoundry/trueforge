@@ -231,7 +231,7 @@ describe('ScheduleFormDrawer', () => {
     expect(recurrence.getByRole('button', { name: 'Daily' })).toBeInTheDocument();
     expect(recurrence.getByRole('button', { name: 'Weekly' })).toBeInTheDocument();
     expect(recurrence.getByLabelText('Timezone')).toBeInTheDocument();
-    expect(recurrence.queryByRole('button', { name: 'Custom' })).not.toBeInTheDocument();
+    expect(recurrence.getByRole('button', { name: 'Custom' })).toBeInTheDocument();
     expect(recurrence.queryByLabelText('Cron expression')).not.toBeInTheDocument();
     expect(recurrence.getByText('Schedule')).toBeInTheDocument();
     expect(recurrence.getByText(/^Daily 9:00 AM/)).toBeInTheDocument();
@@ -243,15 +243,28 @@ describe('ScheduleFormDrawer', () => {
     ).toBeTruthy();
   });
 
-  it('keeps a legacy custom cron read-only until its recurrence is replaced', async () => {
+  it('edits an existing custom cron and rejects malformed expressions', async () => {
     renderDrawer({
       mode: 'edit',
       schedule: pausedSchedule({ cron: '0 9 1 * *' }),
     });
 
-    expect(await screen.findByText('Existing custom schedule')).toBeInTheDocument();
-    expect(screen.getAllByText('0 9 1 * *')).not.toHaveLength(0);
-    expect(screen.queryByLabelText('Cron expression')).not.toBeInTheDocument();
+    const input = await screen.findByLabelText('Cron expression');
+    expect(input).toHaveValue('0 9 1 * *');
+
+    fireEvent.change(input, { target: { value: '0 */4 *' } });
+    expect(screen.getByText('Enter exactly 5 space-separated fields.')).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'Save' })).toBeDisabled();
+
+    fireEvent.change(input, { target: { value: '0 */4 * * *' } });
+    expect(screen.getByRole('button', { name: 'Save' })).toBeEnabled();
+  });
+
+  it('seeds the custom cron from the current recurrence', async () => {
+    renderDrawer({});
+
+    fireEvent.click(await screen.findByRole('button', { name: 'Custom' }));
+    expect(screen.getByLabelText('Cron expression')).toHaveValue('0 9 * * *');
   });
 
   it('blocks create when the selected agent lacks USE', async () => {
