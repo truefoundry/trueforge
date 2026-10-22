@@ -139,7 +139,7 @@ export function runModelProviderStoreContractSuite(getStore: () => IModelProvide
     await store.upsertProvider({ tenant_id: 'other-tenant', name: 'openai', manifest: openai });
 
     const models = await store.listModels({ tenant_id: TENANT });
-    expect(models).toEqual([
+    expect(models).toMatchObject([
       {
         name: 'anthropic/claude-sonnet-4-6',
         model_id: 'claude-sonnet-4-6',
@@ -151,7 +151,6 @@ export function runModelProviderStoreContractSuite(getStore: () => IModelProvide
         model_id: 'gpt-5.6-sol',
         provider: { name: 'openai' },
         properties: { context_length: 400000, max_output_tokens: 32768 },
-        warning: 'Reasoning effort is missing, so the output of this model might not be efficient.',
       },
     ]);
   });

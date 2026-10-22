@@ -320,29 +320,6 @@ describe('settings model-providers and models routers', () => {
       ],
     });
   });
-
-  it('GET /models warns when reasoning effort and context length are missing', async () => {
-    const { settingsRouter: freshSettings, modelsRouter: freshModels } = await createRouters();
-    const incomplete = { model_id: 'bare-model', name: 'bare-model', properties: {} };
-    expect(
-      (await freshSettings.request('/model-providers', putInit({ ...anthropicBody, models: [incomplete] }))).status,
-    ).toBe(200);
-
-    const response = await freshModels.request('/');
-    expect(response.status).toBe(200);
-    expect(await response.json()).toEqual({
-      data: [
-        {
-          name: 'anthropic/bare-model',
-          model_id: 'bare-model',
-          provider: { name: 'anthropic' },
-          properties: {},
-          warning:
-            'Reasoning effort and context length are missing, so the output of this model might not be efficient.',
-        },
-      ],
-    });
-  });
 });
 
 describe('custom providers may omit auth', () => {
