@@ -192,6 +192,8 @@ function ThreadListItemRow({
   const aui = useAui();
   const shell = useOptionalShellMode();
   const server = useOptionalServer();
+  const runtimeKeyRef = useRef(shell?.runtimeKey);
+  runtimeKeyRef.current = shell?.runtimeKey;
   const track = useTrackAnalytics();
   const toaster = useToasterOptional();
   const ThreadListRow = useSlot('ThreadListRow');
@@ -281,6 +283,7 @@ function ThreadListItemRow({
             withSessionProps({ is_mutable: threadListItemIsMutable(custom) }, { sessionId: remoteId, agentName }),
           );
           const selection = ++selectionRef.current;
+          const clickedRuntimeKey = shell?.runtimeKey;
           onThreadOpen?.();
           shell?.setSettingsOpen(false);
           shell?.setLibraryOpen(false);
@@ -298,8 +301,9 @@ function ThreadListItemRow({
                 () => ({ sessionMutable: threadListItemIsMutable(custom), rowAgentName: agentName }),
               )
               .then(resolved => {
-                // A later row click or New Chat supersedes this pending open.
-                if (selectionRef.current === selection) openRow(resolved);
+                // A later row click supersedes this open; New Chat / agent switches remount the runtime.
+                if (selectionRef.current === selection && runtimeKeyRef.current === clickedRuntimeKey)
+                  openRow(resolved);
               });
             return;
           }
@@ -537,7 +541,6 @@ export function ThreadListContainer({ onThreadOpen, variant = 'default' }: Threa
         },
       ),
     );
-    selectionRef.current += 1;
     onThreadOpen?.();
     shell?.setLibraryOpen(false);
     shell?.setSessionsOpen(false);
