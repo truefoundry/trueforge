@@ -6,11 +6,12 @@ export function hasReasoningEfforts(efforts: ReasoningEfforts): efforts is strin
   return Array.isArray(efforts) && efforts.length > 0;
 }
 
-/** Keep current if still listed; otherwise the lowest non-"none" effort; none if model has no efforts. */
+/** Keep current if still listed; otherwise default to "medium", falling back to the lowest non-"none" effort. */
 export function resolveReasoningEffort(efforts: ReasoningEfforts, current: string | undefined): string | undefined {
   if (!hasReasoningEfforts(efforts)) return undefined;
   if (current && efforts.includes(current)) return current;
-  // Default to the lowest real effort, not "none" — catalog lists are ordered ascending.
+  if (efforts.includes('medium')) return 'medium';
+  // Catalog lists are ordered ascending, so the first non-"none" entry is the lowest real effort.
   return efforts.find(effort => effort !== 'none') ?? efforts[0];
 }
 
