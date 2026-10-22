@@ -20,6 +20,7 @@ import { useCompactLayout } from '../atoms/lib/CompactLayoutContext.js';
 import {
   canReuseMutableShell,
   readThreadAgentName,
+  readThreadIsMutable,
   threadListIndicesByRecency,
   threadListItemIsMutable,
 } from '../atoms/lib/threadListMeta.js';
@@ -188,6 +189,7 @@ function ThreadListItemRow({
 }) {
   const aui = useAui();
   const shell = useOptionalShellMode();
+  const server = useOptionalServer();
   const track = useTrackAnalytics();
   const toaster = useToasterOptional();
   const ThreadListRow = useSlot('ThreadListRow');
@@ -230,6 +232,40 @@ function ThreadListItemRow({
     }
   };
 
+  const openRow = ({ sessionMutable, rowAgentName }: { sessionMutable: boolean; rowAgentName: string | undefined }) => {
+    const sameImmutable =
+      !sessionMutable &&
+      shell?.mode.status === 'active' &&
+      !shell.mode.isMutable &&
+      (rowAgentName == null
+        ? shell.mode.agentName == null && shell.mode.agentId == null
+        : shell.mode.agentName === rowAgentName || shell.mode.agentId === rowAgentName);
+    const sameMutable = canReuseMutableShell({
+      sessionMutable,
+      shellMutable: shell?.mode.status === 'active' && shell.mode.isMutable,
+      ...(shell?.mode.status === 'active' && shell.mode.isMutable
+        ? { shellAgentName: shell.mode.agentName, shellAgentId: shell.mode.agentId }
+        : {}),
+      remoteId,
+      pendingSessionId: shell?.pendingSessionId,
+    });
+
+    // An access-error pane must go through openHistorySession so the error clears.
+    if ((sameImmutable || sameMutable) && remoteId != null && shell?.sessionAccessError == null) {
+      void Promise.resolve(aui.threads().switchToThread(id)).catch(() => undefined);
+      return;
+    }
+    if (remoteId != null) {
+      shell?.openHistorySession({
+        sessionId: remoteId,
+        isMutable: sessionMutable,
+        ...(rowAgentName != null ? { agentName: rowAgentName } : {}),
+      });
+      return;
+    }
+    void Promise.resolve(aui.threads().switchToThread(id)).catch(() => undefined);
+  };
+
   return (
     <ThreadListItemPrimitive.Root className="min-w-0">
       <ThreadListRow
@@ -249,39 +285,17 @@ function ThreadListItemRow({
           shell?.setSchedulesOpen(false);
           shell?.setEnvironmentsOpen(false);
 
+          // A row created in this client has no custom yet; defaulting to mutable would
+          // reopen a saved-agent chat as a draft, so ask the server first.
+          if (remoteId != null && server != null && readThreadIsMutable(custom) === undefined && agentName == null) {
+            void server.getSession({ sessionId: remoteId }).then(
+              session => openRow({ sessionMutable: session.isMutable, rowAgentName: session.agentName ?? undefined }),
+              () => openRow({ sessionMutable: threadListItemIsMutable(custom), rowAgentName: agentName }),
+            );
+            return;
+          }
           // Prefer custom.isMutable (session wire); agentName-only is a legacy fallback.
-          const sessionMutable = threadListItemIsMutable(custom);
-          const sameImmutable =
-            !sessionMutable &&
-            shell?.mode.status === 'active' &&
-            !shell.mode.isMutable &&
-            (agentName == null
-              ? shell.mode.agentName == null && shell.mode.agentId == null
-              : shell.mode.agentName === agentName || shell.mode.agentId === agentName);
-          const sameMutable = canReuseMutableShell({
-            sessionMutable,
-            shellMutable: shell?.mode.status === 'active' && shell.mode.isMutable,
-            ...(shell?.mode.status === 'active' && shell.mode.isMutable
-              ? { shellAgentName: shell.mode.agentName, shellAgentId: shell.mode.agentId }
-              : {}),
-            remoteId,
-            pendingSessionId: shell?.pendingSessionId,
-          });
-
-          // An access-error pane must go through openHistorySession so the error clears.
-          if ((sameImmutable || sameMutable) && remoteId != null && shell?.sessionAccessError == null) {
-            void Promise.resolve(aui.threads().switchToThread(id)).catch(() => undefined);
-            return;
-          }
-          if (remoteId != null) {
-            shell?.openHistorySession({
-              sessionId: remoteId,
-              isMutable: sessionMutable,
-              ...(agentName != null ? { agentName } : {}),
-            });
-            return;
-          }
-          void Promise.resolve(aui.threads().switchToThread(id)).catch(() => undefined);
+          openRow({ sessionMutable: threadListItemIsMutable(custom), rowAgentName: agentName });
         }}
         actions={
           showActions ? (
