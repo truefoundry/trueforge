@@ -135,20 +135,6 @@ export function formatTimelineAxisDuration(durationMs: number): string {
 const DEFAULT_AXIS_TICK_TARGET = 8;
 const AXIS_TICK_PX = 120;
 
-/** Width of the drawable chart. `0` means the scrollport has not been measured yet. */
-export function getTimelineChartWidthPx({
-  viewportWidthPx,
-  contentPx,
-}: {
-  viewportWidthPx: number;
-  contentPx: number;
-}): number {
-  if (viewportWidthPx <= 0) return 0;
-  // Ignore subpixel overflow so a chart that already fits does not grow a scrollbar.
-  if (contentPx <= viewportWidthPx + 1) return viewportWidthPx;
-  return Math.ceil(contentPx);
-}
-
 export type TimelineTurnStretch = {
   /** Pixels added so the turn bar reaches the minimum. Indexed by ordinal. */
   extraPx: number[];
@@ -221,7 +207,7 @@ export function getTimelineAxisTickTarget(chartWidthPx?: number): number {
   return Math.max(DEFAULT_AXIS_TICK_TARGET, Math.round(chartWidthPx / AXIS_TICK_PX));
 }
 
-function getCleanAxisStepMs(totalMs: number, tickTarget: number): number {
+function getCleanAxisStepMs({ totalMs, tickTarget }: { totalMs: number; tickTarget: number }): number {
   const { divisorMs } = timelineAxisUnit(totalMs);
   const target = totalMs / divisorMs / tickTarget;
   if (divisorMs >= 60_000 && target < 1) return Math.max(0.25, Math.ceil(target * 4) / 4) * divisorMs;
@@ -244,7 +230,7 @@ export function buildTimelineAxisTicks({
   turnGapMs: number;
   chartWidthPx?: number;
 }): Array<{ value: number }> {
-  const stepMs = getCleanAxisStepMs(activeTotalMs, getTimelineAxisTickTarget(chartWidthPx));
+  const stepMs = getCleanAxisStepMs({ totalMs: activeTotalMs, tickTarget: getTimelineAxisTickTarget(chartWidthPx) });
   const activeTicks: number[] = [];
   for (let activeMs = 0; activeMs < activeTotalMs; activeMs += stepMs) activeTicks.push(activeMs);
   const lastRegularTick = activeTicks.at(-1);

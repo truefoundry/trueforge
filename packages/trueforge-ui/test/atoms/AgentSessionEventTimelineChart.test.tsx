@@ -196,6 +196,44 @@ describe('AgentSessionEventTimelineChart', () => {
     }
   });
 
+  it('keeps every turn within the drawn axis even when the gap floor forces extra room', () => {
+    // 100px pane, 6 turns -> 5 gaps. Unclamped scale (100 - 5*12 - 12 = 28) is below the
+    // half-pane floor (50), so the floor itself demands 22px more than the pane has.
+    const clientWidth = vi.spyOn(HTMLElement.prototype, 'clientWidth', 'get').mockReturnValue(100);
+    const sixTurns: SessionEventTimelineSegment[] = Array.from({ length: 6 }, (_, turnIndex) => ({
+      id: `turn-${turnIndex}-model`,
+      type: 'model' as const,
+      title: 'model.message',
+      description: 'response',
+      startMs: turnIndex * 1_000,
+      endMs: turnIndex * 1_000 + 1_000,
+      turnIndex,
+      threadId: 'main',
+    }));
+
+    try {
+      render(<AgentSessionEventTimelineChart turns={turns} segments={sixTurns} hiddenTypes={new Set()} />);
+      const datasets = Reflect.get(capturedData ?? {}, 'datasets');
+      if (!Array.isArray(datasets)) throw new Error('Expected chart datasets');
+      const turnEndsMs = datasets.flatMap(dataset => {
+        const label = Reflect.get(dataset, 'label');
+        if (typeof label !== 'string' || !label.startsWith('Turn ')) return [];
+        const data = Reflect.get(dataset, 'data');
+        const point = Array.isArray(data) ? data[0] : undefined;
+        const range = typeof point === 'object' && point != null ? Reflect.get(point, 'x') : undefined;
+        return Array.isArray(range) ? [Number(range[1])] : [];
+      });
+      expect(turnEndsMs).toHaveLength(6);
+
+      const scales = Reflect.get(capturedOptions ?? {}, 'scales');
+      const xScale = typeof scales === 'object' && scales != null ? Reflect.get(scales, 'x') : undefined;
+      const axisMaxMs = typeof xScale === 'object' && xScale != null ? Number(Reflect.get(xScale, 'max')) : NaN;
+      expect(axisMaxMs).toBeGreaterThanOrEqual(Math.max(...turnEndsMs));
+    } finally {
+      clientWidth.mockRestore();
+    }
+  });
+
   it('groups overlapping tool calls within a sub-agent lane', async () => {
     const subAgentSegments: SessionEventTimelineSegment[] = [
       ...segments,

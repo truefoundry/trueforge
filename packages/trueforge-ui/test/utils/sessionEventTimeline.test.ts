@@ -12,7 +12,6 @@ import {
   getActiveTimelineMs,
   getSubAgentHoverGroups,
   getSubAgentLanes,
-  getTimelineChartWidthPx,
   getTimelineTurnStretch,
   groupCoincidentTimelineMarkers,
   groupOverlappingToolCalls,
@@ -649,12 +648,6 @@ describe('sessionEventTimelineChart helpers', () => {
       chartWidthPx: 2_400,
     });
     assert.ok(wide.length > narrow.length);
-  });
-
-  it('keeps a chart that fits inside the pane and grows one that does not', () => {
-    assert.equal(getTimelineChartWidthPx({ viewportWidthPx: 0, contentPx: 800 }), 0);
-    assert.equal(getTimelineChartWidthPx({ viewportWidthPx: 400, contentPx: 440 }), 440);
-    assert.equal(getTimelineChartWidthPx({ viewportWidthPx: 2_000, contentPx: 88 }), 2_000);
   });
 
   it('stretches a short turn to the minimum width and shifts the next turn', () => {

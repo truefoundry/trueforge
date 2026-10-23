@@ -200,7 +200,8 @@ export function AgentSessionEventTimelineChart({
   const { turnRanges } = useMemo(() => getTimelineLayout(segments), [segments]);
   const gapCount = Math.max(0, turnRanges.length - 1);
   // Long turns keep the pane's time scale. Short turns stretch on top of it and widen the chart.
-  const fitScaleWidthPx = Math.max(widthPx / 2, widthPx - TURN_GAP_PX * gapCount - END_PAD_PX);
+  const unclampedScaleWidthPx = widthPx - TURN_GAP_PX * gapCount - END_PAD_PX;
+  const fitScaleWidthPx = Math.max(widthPx / 2, unclampedScaleWidthPx);
   const msPerPx = activeTotalMs / Math.max(1, fitScaleWidthPx);
   const orderedRanges = useMemo(
     () => [...turnRanges].sort((left, right) => left.ordinal - right.ordinal),
@@ -258,8 +259,11 @@ export function AgentSessionEventTimelineChart({
           })),
     [msPerPx, orderedRanges, stretch],
   );
-  // Unstretched content fills the pane exactly, so only short-turn stretch can overflow it.
-  const totalExtraPx = stretch.extraPx.reduce((sum, px) => sum + px, 0);
+  // Unstretched content fills the pane exactly, unless the half-pane floor above clamped the
+  // scale wider than the pane allows for this many gaps; that shortfall must widen the chart
+  // too, or the last turns draw past the axis and clip even though the pane says it scrolls.
+  const floorDeficitPx = widthPx > 0 ? Math.max(0, fitScaleWidthPx - unclampedScaleWidthPx) : 0;
+  const totalExtraPx = stretch.extraPx.reduce((sum, px) => sum + px, 0) + floorDeficitPx;
   const scrolls = totalExtraPx > 0;
   const chartWidthPx = widthPx + Math.ceil(totalExtraPx);
   const timelineMaxMs = Math.max(1, chartWidthPx) * msPerPx;

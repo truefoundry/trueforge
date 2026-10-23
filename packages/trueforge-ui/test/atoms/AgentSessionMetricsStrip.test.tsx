@@ -153,7 +153,8 @@ describe('CostBreakdownRows', () => {
       />,
     );
 
-    expect(screen.getByText('T1')).toBeInTheDocument();
+    expect(screen.getByText('T1')).toHaveAttribute('title', 'T1');
+    expect(screen.getByText('T1').closest('.max-h-72')).toHaveClass('overflow-y-auto', 'overflow-x-hidden', 'pr-3');
     expect(screen.getByText('T2')).toBeInTheDocument();
     expect(screen.getByText('$2.0000')).toBeInTheDocument();
     expect(screen.getByText('$0.6000')).toBeInTheDocument();
@@ -161,6 +162,6 @@ describe('CostBreakdownRows', () => {
 
   it('renders nothing for an empty dataset', () => {
     const { container } = render(<CostBreakdownRows data={[]} />);
-    expect(container.firstChild).toBeEmptyDOMElement();
+    expect(container.querySelector('.grid')).toBeEmptyDOMElement();
   });
 });
