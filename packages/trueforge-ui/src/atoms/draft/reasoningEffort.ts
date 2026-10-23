@@ -2,9 +2,9 @@ import type { Model, ModelParams, ModelSelection } from '../../server/types.js';
 
 type ReasoningEfforts = ModelSelection['properties']['reasoningEfforts'];
 
-/** Playground parameter catalog: max-token default 2500, slider 50–128000 step 100. */
-const FALLBACK_MAX_TOKENS = 2500;
-const FALLBACK_MAX_TOKENS_MIN = 50;
+/** Playground max-token catalog, except min is 100 (not 50) so the 25000 default sits on the step grid. */
+const FALLBACK_MAX_TOKENS = 25000;
+const FALLBACK_MAX_TOKENS_MIN = 100;
 const FALLBACK_MAX_TOKENS_MAX = 128_000;
 const FALLBACK_MAX_TOKENS_STEP = 100;
 const FALLBACK_REASONING_EFFORTS = ['none', 'minimal', 'low', 'medium', 'high'] as const;

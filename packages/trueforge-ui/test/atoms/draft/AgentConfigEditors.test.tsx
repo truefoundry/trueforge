@@ -267,7 +267,7 @@ describe('AgentConfigEditors', () => {
 
   it('shows playground fallbacks and a support warning when the model omits parameters', () => {
     const spec: AgentSpec = {
-      model: { name: 'openai/gpt', params: { maxTokens: 2500, reasoningEffort: 'xhigh' } },
+      model: { name: 'openai/gpt', params: { maxTokens: 25000, reasoningEffort: 'xhigh' } },
     };
     const onChange = vi.fn();
     const { rerender } = render(
@@ -300,7 +300,7 @@ describe('AgentConfigEditors', () => {
     fireEvent.click(screen.getByRole('button', { name: 'Turn Maximum Tokens on' }));
     fireEvent.click(screen.getByRole('button', { name: 'Turn Reasoning Effort on' }));
     expect(onChange).toHaveBeenNthCalledWith(1, {
-      model: { name: 'openai/gpt', params: { maxTokens: 2500 } },
+      model: { name: 'openai/gpt', params: { maxTokens: 25000 } },
     });
     expect(onChange).toHaveBeenNthCalledWith(2, {
       model: { name: 'openai/gpt', params: { reasoningEffort: 'medium' } },
@@ -329,7 +329,7 @@ describe('AgentConfigEditors', () => {
       </SlotsProvider>,
     );
 
-    expect(screen.getByRole('slider', { name: 'Maximum tokens slider' })).toHaveAttribute('min', '50');
+    expect(screen.getByRole('slider', { name: 'Maximum tokens slider' })).toHaveAttribute('min', '100');
     expect(screen.getByRole('slider', { name: 'Maximum tokens slider' })).toHaveAttribute('max', '128000');
     expect(screen.getByRole('slider', { name: 'Maximum tokens slider' })).toHaveAttribute('step', '100');
     expect(screen.getByRole('option', { name: 'xhigh' })).toBeInTheDocument();

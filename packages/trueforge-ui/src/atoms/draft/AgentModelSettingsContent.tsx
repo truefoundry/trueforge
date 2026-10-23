@@ -167,7 +167,10 @@ export function AgentModelSettingsContent({ spec, model, onChange }: AgentModelS
             className={auiInputClass('h-8 w-24')}
             onChange={event => {
               const value = finiteNumber(event.target.value);
-              if (value !== null) setParam('maxTokens', Math.max(maxTokens.min, Math.min(maxTokens.max, value)));
+              if (value !== null) setParam('maxTokens', Math.min(maxTokens.max, value));
+            }}
+            onBlur={() => {
+              if (maxTokensValue < maxTokens.min) setParam('maxTokens', maxTokens.min);
             }}
           />
         </div>
