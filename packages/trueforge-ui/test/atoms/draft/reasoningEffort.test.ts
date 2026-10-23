@@ -62,8 +62,12 @@ describe('reasoningEffortSeed', () => {
     expect(reasoningEffortSeed(undefined)).toBe('medium');
   });
 
-  it('uses the lowest non-none effort when medium is absent', () => {
-    expect(reasoningEffortSeed(['none', 'low', 'high'])).toBe('low');
+  it('prefers high over low when medium is absent', () => {
+    expect(reasoningEffortSeed(['none', 'low', 'high'])).toBe('high');
+  });
+
+  it('uses the lowest non-none effort when no preferred effort is listed', () => {
+    expect(reasoningEffortSeed(['none', 'minimal'])).toBe('minimal');
   });
 });
 
