@@ -27,6 +27,7 @@ import type {
   UserContent,
 } from 'ai';
 import { APICallError, jsonSchema, Output, streamText } from 'ai';
+import { randomUUID } from 'node:crypto';
 import type {
   ChatCompletionContentPart,
   ChatCompletionCreateParamsStreaming,
@@ -35,18 +36,21 @@ import type {
 } from 'openai/resources/chat';
 import type { Logger } from 'winston';
 import { ModelProviderError } from '../errors';
-import { describeUnknownError, extractErrorLogFields } from '../util/errorLogFields';
+import { describeUnknownError, extractErrorLogFields, type ErrorLogFields } from '../util/errorLogFields';
 import { modelSsrfFetch } from '../util/outboundFetch';
 import type { ILLM, LLMCreateParams, LLMCreateParamsStreaming } from './ILLM';
 import {
+  getEmptyUsage,
   type CompletionUsage,
   type ExtendedChatCompletionChunk,
-  getEmptyUsage,
   type RawAssistantMessage,
   type RawAssistantMessageWithUsage,
   type ThinkingBlock,
 } from './LLMTypes';
 import { resolveMaxOutputTokens } from './usage';
+
+/** Correlates harness model calls with TrueFoundry AI Gateway request traces. */
+export const X_TFY_REQUEST_ID = 'x-tfy-request-id';
 
 // ---------------------------------------------------------------------------
 // Public config
@@ -1374,6 +1378,22 @@ export async function* mapStreamToChunks({
 // VercelAILLM
 // ---------------------------------------------------------------------------
 
+/** Error log fields with gateway correlation id plus model and URL when known. */
+export function llmErrorLogFields(input: {
+  error: unknown;
+  tfyRequestId: string;
+  model: string;
+  gatewayUrl: string | undefined;
+}): ErrorLogFields & { tfy_request_id: string; model: string; gateway_url?: string } {
+  const fields = extractErrorLogFields(input.error);
+  return {
+    ...fields,
+    tfy_request_id: input.tfyRequestId,
+    model: input.model,
+    ...(input.gatewayUrl !== undefined ? { gateway_url: input.gatewayUrl } : {}),
+  };
+}
+
 /** ILLM implementation backed by Vercel AI SDK, supporting multiple LLM providers. */
 export class VercelAILLM implements ILLM {
   private readonly config: VercelAILLMConfig;
@@ -1389,7 +1409,15 @@ export class VercelAILLM implements ILLM {
   async *create(
     body: LLMCreateParamsStreaming,
   ): AsyncGenerator<ExtendedChatCompletionChunk, RawAssistantMessageWithUsage, unknown> {
-    const { providerConfig } = this.config;
+    // Per-call id on x-tfy-request-id so harness error logs can be correlated with gateway traces.
+    const tfyRequestId = randomUUID();
+    const providerConfig: VercelAIProviderConfig = {
+      ...this.config.providerConfig,
+      headers: {
+        ...this.config.providerConfig.headers,
+        [X_TFY_REQUEST_ID]: tfyRequestId,
+      },
+    };
     const languageModel = buildLanguageModel(providerConfig);
     const { provider, model } = providerConfig;
 
@@ -1447,7 +1475,15 @@ export class VercelAILLM implements ILLM {
       if (this.signal?.aborted) {
         this.logger.debug('LLM call aborted', extractErrorLogFields(streamError));
       } else {
-        this.logger.error('Error creating streaming chat completion', extractErrorLogFields(streamError));
+        this.logger.error(
+          'Error creating streaming chat completion',
+          llmErrorLogFields({
+            error: streamError,
+            tfyRequestId,
+            model: providerConfig.name,
+            gatewayUrl: providerConfig.baseUrl,
+          }),
+        );
       }
       throw streamError;
     }
@@ -1486,7 +1522,15 @@ export class VercelAILLM implements ILLM {
       if (this.signal?.aborted) {
         this.logger.debug('LLM stream aborted', extractErrorLogFields(streamError));
       } else {
-        this.logger.error('Error reading LLM stream', extractErrorLogFields(streamError));
+        this.logger.error(
+          'Error reading LLM stream',
+          llmErrorLogFields({
+            error: streamError,
+            tfyRequestId,
+            model: providerConfig.name,
+            gatewayUrl: providerConfig.baseUrl,
+          }),
+        );
       }
       throw streamError;
     }
