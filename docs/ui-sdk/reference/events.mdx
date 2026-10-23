@@ -277,9 +277,11 @@ interface SandboxCreatedEvent {
 }
 ```
 
-`sandboxId` is what you pass to
-[`downloadSandboxFile`](/ui-sdk/setup-custom-servers/server-contract#agentchatserver) to retrieve artifacts the
-agent produced.
+`sandboxId` identifies the sandbox for artifact downloads. The runtime supplies it to
+[`downloadSandboxFile`](/ui-sdk/setup-custom-servers/server-contract#agentchatserver) when a
+`sandbox.created` event was observed. After a resume, that event may be outside the loaded
+history window, so the download request can contain only `sessionId`, `turnId`, and `path`.
+Turn-scoped download backends can resolve the sandbox from `turnId`.
 
 `mcp.initialize` (`{ type, id, createdAt, threadId }`, plus any additional fields you attach)
 reports MCP server startup.
