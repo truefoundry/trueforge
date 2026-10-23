@@ -397,6 +397,11 @@
           },
           "provider": {
             "$ref": "#/components/schemas/AvailableModelProvider"
+          },
+          "warning": {
+            "description": "Set when reasoning effort or context length is not configured; may affect TrueForge performance.",
+            "minLength": 1,
+            "type": "string"
           }
         },
         "required": [
