@@ -112,10 +112,16 @@
       },
       {
         "tab": "API Reference",
-        "openapi": {
-          "source": "./openapi.json",
-          "directory": "api-reference"
-        }
+        "groups": [
+          {
+            "group": "API reference",
+            "openapi": {
+              "source": "./openapi.json",
+              "directory": "api-reference"
+            },
+            "boost": 0.9
+          }
+        ]
       }
     ]
   },
