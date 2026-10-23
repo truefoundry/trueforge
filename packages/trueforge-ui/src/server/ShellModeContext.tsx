@@ -27,6 +27,7 @@ import {
   useOptionalSandboxEnvironmentServer,
   useOptionalScheduleServer,
   useServerCapabilities,
+  useServerCapabilitiesSettled,
 } from './ServerContext.js';
 import type { AgentLibraryEntry, AgentSpec } from './types.js';
 
@@ -254,6 +255,7 @@ export function ShellModeProvider({
   children: ReactNode;
 }) {
   const capabilities = useServerCapabilities();
+  const capabilitiesPending = !useServerCapabilitiesSettled();
   const catalog = useOptionalCatalogServer();
   const refreshCapabilities = useOptionalRefreshServerCapabilities();
   const sessionsServer = useOptionalAgentSessionsServer();
@@ -599,16 +601,25 @@ export function ShellModeProvider({
     [selectLibraryAgent],
   );
 
+  const sandboxEnabled = capabilities?.sandbox.enabled;
+  const webSearchEnabled = capabilities?.webSearch?.enabled;
+
   const openDraft = useCallback(() => {
     if (!isComposerEnabled) return;
     refreshCapabilities?.();
     setHistoryAgentFilter(null);
     // Prefer storage so a just-toggled web-search preference is not lost if the
     // in-memory seed has not been rewritten yet this tick.
-    const seed = readDraftSpecPreferences('chat') ?? chatSeedRef.current;
+    // Align web-search with capability so inline New Chat sessions admit enabled:true
+    // even if createSession races the preference bridge.
+    const seed = withCapabilitiesWebSearch({
+      spec: readDraftSpecPreferences('chat') ?? chatSeedRef.current,
+      webSearchEnabled,
+      kind: 'chat',
+    });
     chatSeedRef.current = seed;
     selectLibraryAgent({ isMutable: true, isCreateAgent: false, agentSpec: seed });
-  }, [isComposerEnabled, refreshCapabilities, selectLibraryAgent]);
+  }, [isComposerEnabled, refreshCapabilities, selectLibraryAgent, webSearchEnabled]);
 
   const isActiveAgentBuilder =
     effectiveMode.status === 'active' && effectiveMode.isMutable && effectiveMode.isCreateAgent;
@@ -664,8 +675,6 @@ export function ShellModeProvider({
     [applyFreshAgentBuilderSeed, isComposerEnabled, refreshCapabilities, selectLibraryAgent],
   );
 
-  const sandboxEnabled = capabilities?.sandbox.enabled;
-  const webSearchEnabled = capabilities?.webSearch?.enabled;
   // Child effects (DraftSpecPreferenceBridge) run before this updates — so remember still
   // sees the prior capability when Settings refresh flips web-search on.
   const prevWebSearchEnabledRef = useRef(webSearchEnabled);
@@ -686,6 +695,7 @@ export function ShellModeProvider({
         spec: aligned,
         webSearchEnabled,
         previousWebSearchEnabled,
+        capabilitiesPending,
         kind,
       });
       if (kind === 'chat') {
@@ -701,12 +711,13 @@ export function ShellModeProvider({
           spec: agentAligned,
           webSearchEnabled,
           previousWebSearchEnabled,
+          capabilitiesPending,
           kind: 'agent',
         });
       }
       writeDraftSpecPreferences(kind, preferences);
     },
-    [sandboxEnabled, webSearchEnabled],
+    [sandboxEnabled, webSearchEnabled, capabilitiesPending],
   );
 
   const openHistorySession = useCallback(
@@ -817,7 +828,11 @@ export function ShellModeProvider({
         const agentSpec =
           kind === 'agent'
             ? (liveSpec ?? effectiveMode.agentSpec ?? agentSeedRef.current)
-            : (readDraftSpecPreferences('chat') ?? chatSeedRef.current);
+            : withCapabilitiesWebSearch({
+                spec: readDraftSpecPreferences('chat') ?? chatSeedRef.current,
+                webSearchEnabled,
+                kind: 'chat',
+              });
         if (kind === 'chat') {
           chatSeedRef.current = agentSpec;
         }
@@ -836,7 +851,7 @@ export function ShellModeProvider({
       }
       bumpEpoch(false);
     },
-    [effectiveMode, bumpEpoch],
+    [effectiveMode, bumpEpoch, webSearchEnabled],
   );
 
   const openLibraryHome = useCallback(() => {
