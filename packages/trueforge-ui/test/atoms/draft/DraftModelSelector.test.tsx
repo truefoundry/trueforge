@@ -129,7 +129,7 @@ describe('DraftModelSelector', () => {
     expect(updateAgentSpec).toHaveBeenCalledWith({
       model: {
         name: 'anthropic/claude-3.7-sonnet',
-        params: { maxTokens: 512, reasoningEffort: 'low' },
+        params: { maxTokens: 512, reasoningEffort: 'high' },
       },
     });
     expect(screen.queryByRole('listbox', { name: 'Select model' })).not.toBeInTheDocument();
