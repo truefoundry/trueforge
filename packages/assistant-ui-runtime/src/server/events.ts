@@ -105,6 +105,7 @@ export interface ModelMessageEvent {
   finishReason?: string | null;
   createdAt: string;
   usage?: unknown;
+  model?: { name: string };
 }
 
 export interface ModelMessageDeltaEvent {

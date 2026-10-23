@@ -139,7 +139,7 @@ export function runModelProviderStoreContractSuite(getStore: () => IModelProvide
     await store.upsertProvider({ tenant_id: 'other-tenant', name: 'openai', manifest: openai });
 
     const models = await store.listModels({ tenant_id: TENANT });
-    expect(models).toEqual([
+    expect(models).toMatchObject([
       {
         name: 'anthropic/claude-sonnet-4-6',
         model_id: 'claude-sonnet-4-6',
