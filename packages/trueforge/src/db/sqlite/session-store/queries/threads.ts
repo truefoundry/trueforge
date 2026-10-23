@@ -9,6 +9,7 @@ import type {
 import type { ContextMessage, SubAgentCompletion } from '@truefoundry/trueforge-core/core/runtime/AgentThread.types';
 import type { CurrentContextUsage } from '@truefoundry/trueforge-core/core/runtime/contextUsage';
 import { sql, type Kysely, type RawBuilder, type Transaction } from 'kysely';
+import { isTransaction } from '../../../transaction';
 import { jsonbBind, jsonbSet, nowIso } from '../../sqlExpressions';
 import type { Database, TurnThreadCheckpoint } from '../../types';
 import { sortedByAppendId } from '../sqlExpressions';
@@ -26,11 +27,15 @@ type DbOrTrx = Kysely<Database> | Transaction<Database>;
  * addThreads — fenced tx: INSERT log rows, INSERT turn_thread rows,
  * INSERT turn_thread_context rows, INSERT capability rows.
  */
-export async function addThreads(db: Kysely<Database>, input: AddThreadsInput): Promise<void> {
+export async function addThreads(db: DbOrTrx, input: AddThreadsInput): Promise<void> {
+  if (isTransaction<Database>(db)) {
+    await addThreadsInTransaction(db, input);
+    return;
+  }
   await db.transaction().execute(trx => addThreadsInTransaction(trx, input));
 }
 
-export async function addThreadsInTransaction(db: DbOrTrx, input: AddThreadsInput): Promise<void> {
+async function addThreadsInTransaction(db: Transaction<Database>, input: AddThreadsInput): Promise<void> {
   await assertOwnedRunningTurn(db, {
     session_id: input.session_id,
     turn_id: input.turn_id,
@@ -174,11 +179,15 @@ export async function addThreadsInTransaction(db: DbOrTrx, input: AddThreadsInpu
  * Older turns keep their per-turn maps. Log rows stay (other turns may reference them).
  * Empty thread_ids is a no-op.
  */
-export async function removeThreads(db: Kysely<Database>, input: RemoveThreadsInput): Promise<void> {
+export async function removeThreads(db: DbOrTrx, input: RemoveThreadsInput): Promise<void> {
+  if (isTransaction<Database>(db)) {
+    await removeThreadsInTransaction(db, input);
+    return;
+  }
   await db.transaction().execute(trx => removeThreadsInTransaction(trx, input));
 }
 
-export async function removeThreadsInTransaction(db: DbOrTrx, input: RemoveThreadsInput): Promise<void> {
+async function removeThreadsInTransaction(db: Transaction<Database>, input: RemoveThreadsInput): Promise<void> {
   if (input.thread_ids.length === 0) {
     return;
   }
@@ -325,11 +334,15 @@ async function fencedTurnThreadContextUpdate(
  * appendToThreadContext — fenced transaction: inserts log rows, appends mapping rows,
  * updates usage (COALESCE: provided wins, else keep), patches completion.
  */
-export async function appendToThreadContext(db: Kysely<Database>, input: AppendToThreadContextInput): Promise<void> {
+export async function appendToThreadContext(db: DbOrTrx, input: AppendToThreadContextInput): Promise<void> {
+  if (isTransaction<Database>(db)) {
+    await appendToThreadContextInTransaction(db, input);
+    return;
+  }
   await db.transaction().execute(trx => appendToThreadContextInTransaction(trx, input));
 }
 
-export async function appendToThreadContextInTransaction(
+async function appendToThreadContextInTransaction(
   db: Transaction<Database>,
   input: AppendToThreadContextInput,
 ): Promise<void> {

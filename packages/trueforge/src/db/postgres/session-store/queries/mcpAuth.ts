@@ -1,6 +1,7 @@
 import type { PatchThreadsMCPAuthInput } from '@truefoundry/trueforge-core/agent-session/store/ISessionStore';
 import { SessionStoreInvariantError } from '@truefoundry/trueforge-core/agent-session/store/SessionStoreErrors';
-import { sql, Transaction, type Kysely } from 'kysely';
+import { sql, type Kysely, type Transaction } from 'kysely';
+import { isTransaction } from '../../../transaction';
 import { json, jsonbSet } from '../../sqlExpressions';
 import type { Database, TurnThreadCheckpoint } from '../../types';
 import { assertOwnedNonTerminalTurn } from './turns';
@@ -55,9 +56,9 @@ export async function patchThreadsMCPAuth(db: DbOrTrx, input: PatchThreadsMCPAut
       .execute();
   };
 
-  if (db instanceof Transaction) {
+  if (isTransaction<Database>(db)) {
     await execute(db);
-  } else {
-    await db.transaction().execute(execute);
+    return;
   }
+  await db.transaction().execute(execute);
 }

@@ -50,7 +50,6 @@ import {
 import {
   insertTurnInboundEvents as insertTurnInboundEventsQuery,
   listUnconsumedTurnInboundEvents as listUnconsumedTurnInboundEventsQuery,
-  markTurnInboundEventsConsumedInTransaction,
   markTurnInboundEventsConsumed as markTurnInboundEventsConsumedQuery,
 } from './queries/inboundEvents';
 import { patchThreadsMCPAuth as patchThreadsMCPAuthQuery } from './queries/mcpAuth';
@@ -64,7 +63,6 @@ import {
   updateSession as updateSessionQuery,
 } from './queries/sessions';
 import {
-  addThreadsInTransaction,
   addThreads as addThreadsQuery,
   appendToThreadContext as appendToThreadContextQuery,
   overwriteThreadContext as overwriteThreadContextQuery,
@@ -236,13 +234,11 @@ export class PostgresSessionStore implements ISessionStore<Transaction<Database>
     input: MarkTurnInboundEventsConsumedInput,
     transaction?: Transaction<Database>,
   ): Promise<void> {
-    return transaction
-      ? markTurnInboundEventsConsumedInTransaction(transaction, input)
-      : markTurnInboundEventsConsumedQuery(this.db, input);
+    return markTurnInboundEventsConsumedQuery(transaction ?? this.db, input);
   }
 
   addThreads(input: AddThreadsInput, transaction?: Transaction<Database>): Promise<void> {
-    return transaction ? addThreadsInTransaction(transaction, input) : addThreadsQuery(this.db, input);
+    return addThreadsQuery(transaction ?? this.db, input);
   }
 
   removeThreads(input: RemoveThreadsInput, transaction?: Transaction<Database>): Promise<void> {

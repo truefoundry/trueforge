@@ -9,9 +9,9 @@ import {
   SessionStoreInvariantError,
   TurnEventAlreadyExistsError,
 } from '@truefoundry/trueforge-core/agent-session/store/SessionStoreErrors';
-import type { Kysely, Transaction } from 'kysely';
-import { sql } from 'kysely';
+import { sql, type Kysely, type Transaction } from 'kysely';
 import { firstDuplicate, firstValueInSet } from '../../../../utils/collections';
+import { isTransaction } from '../../../transaction';
 import { toTurnUserEvent, toTurnUserEventMessage } from '../../../turnInboundEvents';
 import { isUniqueViolation } from '../../client';
 import { json } from '../../sqlExpressions';
@@ -138,13 +138,17 @@ export async function listUnconsumedTurnInboundEvents(
 }
 
 export async function markTurnInboundEventsConsumed(
-  db: Kysely<Database>,
+  db: DbOrTrx,
   input: MarkTurnInboundEventsConsumedInput,
 ): Promise<void> {
+  if (isTransaction<Database>(db)) {
+    await markTurnInboundEventsConsumedInTransaction(db, input);
+    return;
+  }
   await db.transaction().execute(trx => markTurnInboundEventsConsumedInTransaction(trx, input));
 }
 
-export async function markTurnInboundEventsConsumedInTransaction(
+async function markTurnInboundEventsConsumedInTransaction(
   db: Transaction<Database>,
   input: MarkTurnInboundEventsConsumedInput,
 ): Promise<void> {

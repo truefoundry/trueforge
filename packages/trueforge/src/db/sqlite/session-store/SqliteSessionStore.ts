@@ -43,7 +43,6 @@ import type { Kysely, Transaction } from 'kysely';
 import type { Database } from '../types';
 import { patchThreadCapabilityState as patchThreadCapabilityStateQuery } from './queries/capabilities';
 import {
-  appendToEventsInTransaction,
   appendToEvents as appendToEventsQuery,
   listSessionEvents as listSessionEventsQuery,
   listTurnEvents as listTurnEventsQuery,
@@ -51,7 +50,6 @@ import {
 import {
   insertTurnInboundEvents as insertTurnInboundEventsQuery,
   listUnconsumedTurnInboundEvents as listUnconsumedTurnInboundEventsQuery,
-  markTurnInboundEventsConsumedInTransaction,
   markTurnInboundEventsConsumed as markTurnInboundEventsConsumedQuery,
 } from './queries/inboundEvents';
 import { patchThreadsMCPAuth as patchThreadsMCPAuthQuery } from './queries/mcpAuth';
@@ -65,14 +63,11 @@ import {
   updateSession as updateSessionQuery,
 } from './queries/sessions';
 import {
-  addThreadsInTransaction,
   addThreads as addThreadsQuery,
-  appendToThreadContextInTransaction,
   appendToThreadContext as appendToThreadContextQuery,
   overwriteThreadContext as overwriteThreadContextQuery,
   patchMCPServers as patchMCPServersQuery,
   patchSandboxInfo as patchSandboxInfoQuery,
-  removeThreadsInTransaction,
   removeThreads as removeThreadsQuery,
 } from './queries/threads';
 import type { NewThreadRegistration } from './queries/turns';
@@ -222,7 +217,7 @@ export class SqliteSessionStore implements ISessionStore<Transaction<Database>, 
   }
 
   appendToEvents(input: AppendToEventsInput, transaction?: Transaction<Database>): Promise<void> {
-    return transaction ? appendToEventsInTransaction(transaction, input) : appendToEventsQuery(this.db, input);
+    return appendToEventsQuery(transaction ?? this.db, input);
   }
 
   insertTurnInboundEvents(input: InsertTurnInboundEventsInput): Promise<void> {
@@ -237,23 +232,19 @@ export class SqliteSessionStore implements ISessionStore<Transaction<Database>, 
     input: MarkTurnInboundEventsConsumedInput,
     transaction?: Transaction<Database>,
   ): Promise<void> {
-    return transaction
-      ? markTurnInboundEventsConsumedInTransaction(transaction, input)
-      : markTurnInboundEventsConsumedQuery(this.db, input);
+    return markTurnInboundEventsConsumedQuery(transaction ?? this.db, input);
   }
 
   addThreads(input: AddThreadsInput, transaction?: Transaction<Database>): Promise<void> {
-    return transaction ? addThreadsInTransaction(transaction, input) : addThreadsQuery(this.db, input);
+    return addThreadsQuery(transaction ?? this.db, input);
   }
 
   removeThreads(input: RemoveThreadsInput, transaction?: Transaction<Database>): Promise<void> {
-    return transaction ? removeThreadsInTransaction(transaction, input) : removeThreadsQuery(this.db, input);
+    return removeThreadsQuery(transaction ?? this.db, input);
   }
 
   appendToThreadContext(input: AppendToThreadContextInput, transaction?: Transaction<Database>): Promise<void> {
-    return transaction
-      ? appendToThreadContextInTransaction(transaction, input)
-      : appendToThreadContextQuery(this.db, input);
+    return appendToThreadContextQuery(transaction ?? this.db, input);
   }
 
   overwriteThreadContext(input: OverwriteThreadContextInput): Promise<void> {

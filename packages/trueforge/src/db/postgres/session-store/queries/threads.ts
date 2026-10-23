@@ -11,6 +11,7 @@ import type { AgentInfo } from '@truefoundry/trueforge-core/core/events/schema';
 import type { ContextMessage, SubAgentCompletion } from '@truefoundry/trueforge-core/core/runtime/AgentThread.types';
 import type { CurrentContextUsage } from '@truefoundry/trueforge-core/core/runtime/contextUsage';
 import { sql, type Kysely, type RawBuilder, type Transaction } from 'kysely';
+import { isTransaction } from '../../../transaction';
 import { json, jsonbSet } from '../../sqlExpressions';
 import type { Database, TurnThreadCheckpoint } from '../../types';
 import { values } from '../sqlExpressions';
@@ -38,11 +39,15 @@ interface CapabilityStateInsertRow {
  * addThreads — fenced tx, max 3 batched statements: log INSERT, turn_thread INSERT,
  * capability upsert. No turn.checkpoint touch (threads live in turn_thread).
  */
-export async function addThreads(db: Kysely<Database>, input: AddThreadsInput): Promise<void> {
+export async function addThreads(db: DbOrTrx, input: AddThreadsInput): Promise<void> {
+  if (isTransaction<Database>(db)) {
+    await addThreadsInTransaction(db, input);
+    return;
+  }
   await db.transaction().execute(trx => addThreadsInTransaction(trx, input));
 }
 
-export async function addThreadsInTransaction(db: DbOrTrx, input: AddThreadsInput): Promise<void> {
+async function addThreadsInTransaction(db: Transaction<Database>, input: AddThreadsInput): Promise<void> {
   await assertOwnedRunningTurn(db, {
     session_id: input.session_id,
     turn_id: input.turn_id,

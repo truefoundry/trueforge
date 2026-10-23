@@ -19,18 +19,22 @@ import {
   TurnNotFoundError,
 } from '@truefoundry/trueforge-core/agent-session/store/SessionStoreErrors';
 import { sql, type Kysely, type Transaction } from 'kysely';
+import { isTransaction } from '../../../transaction';
 import { jsonbBind, jsonText } from '../../sqlExpressions';
 import type { Database } from '../../types';
 import { classifyTurnFenceWriteFailure, type TurnKeys } from './turns';
 
-export async function appendToEvents(db: Kysely<Database>, input: AppendToEventsInput): Promise<void> {
+type DbOrTrx = Kysely<Database> | Transaction<Database>;
+
+export async function appendToEvents(db: DbOrTrx, input: AppendToEventsInput): Promise<void> {
+  if (isTransaction<Database>(db)) {
+    await appendToEventsInTransaction(db, input);
+    return;
+  }
   await db.transaction().execute(trx => appendToEventsInTransaction(trx, input));
 }
 
-export async function appendToEventsInTransaction(
-  db: Transaction<Database>,
-  input: AppendToEventsInput,
-): Promise<void> {
+async function appendToEventsInTransaction(db: Transaction<Database>, input: AppendToEventsInput): Promise<void> {
   if (input.events.length === 0) {
     return;
   }
