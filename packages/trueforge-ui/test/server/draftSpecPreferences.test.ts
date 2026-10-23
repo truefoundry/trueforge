@@ -377,6 +377,32 @@ describe('recoverWebSearchAfterCapabilityAvailable', () => {
       }),
     ).toBe(spec);
   });
+
+  it('default-fills New Chat on when capability first becomes known after a schema-default off', () => {
+    expect(
+      recoverWebSearchAfterCapabilityAvailable({
+        spec: { model: { name: 'model' }, config: { webSearch: { enabled: false } } },
+        previousWebSearchEnabled: undefined,
+        webSearchEnabled: true,
+        kind: 'chat',
+      }),
+    ).toEqual({
+      model: { name: 'model' },
+      config: { webSearch: { enabled: true } },
+    });
+  });
+
+  it('does not default-fill agent drafts when capability first becomes known', () => {
+    const spec = { model: { name: 'model' }, config: { webSearch: { enabled: false } } };
+    expect(
+      recoverWebSearchAfterCapabilityAvailable({
+        spec,
+        previousWebSearchEnabled: undefined,
+        webSearchEnabled: true,
+        kind: 'agent',
+      }),
+    ).toBe(spec);
+  });
 });
 
 describe('webSearchPreferenceToStore', () => {
@@ -418,6 +444,28 @@ describe('webSearchPreferenceToStore', () => {
         kind: 'chat',
       }),
     ).toEqual(forcedOff);
+  });
+
+  it('does not store a schema-default off while capabilities are pending, so it recovers once known', () => {
+    const schemaDefault = { model: { name: 'model' }, config: { webSearch: { enabled: false } } };
+    const stored = webSearchPreferenceToStore({
+      spec: schemaDefault,
+      webSearchEnabled: undefined,
+      previousWebSearchEnabled: undefined,
+      capabilitiesPending: true,
+      kind: 'chat',
+    });
+    expect(stored).toEqual({ model: { name: 'model' } });
+
+    writeDraftSpecPreferences('chat', stored);
+    expect(
+      webSearchPreferenceToStore({
+        spec: schemaDefault,
+        webSearchEnabled: true,
+        previousWebSearchEnabled: undefined,
+        kind: 'chat',
+      }),
+    ).toEqual({ model: { name: 'model' }, config: { webSearch: { enabled: true } } });
   });
 
   it('default-fills on after an outage when no choice was stored', () => {
