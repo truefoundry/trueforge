@@ -285,6 +285,12 @@ export async function listSessions(
       query = query.where(sql<boolean>`metadata = '{}'::jsonb`);
     } else {
       query = query.where(sql<boolean>`metadata @> ${json(input.metadata)}`);
+      // Matches the same rows as the `@>` filter above (metadata values are always strings).
+      // Postgres can only use the GIN index for `@>`; spelling each pair as `metadata->>'key' = value`
+      // also lets it use single-key indexes. Those match on the literal key, so it is inlined, not bound.
+      for (const [key, value] of Object.entries(input.metadata)) {
+        query = query.where(sql<string>`metadata->>${sql.lit(key)}`, '=', value);
+      }
     }
   }
   if (input.source_type !== undefined) {
