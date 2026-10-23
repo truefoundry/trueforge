@@ -40,6 +40,7 @@ import {
   mergeOverlappingSubAgentSegments,
   TIMELINE_TYPE,
   timelineChartMs,
+  type TimelineGap,
   type TimelineHoverTarget,
   type TimelineTurnBar,
   type TimelineTurnRange,
