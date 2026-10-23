@@ -1699,6 +1699,7 @@ describe('convertTurnMessages', () => {
           status: { type: 'incomplete', reason: 'cancelled' },
           metadata: { custom: { cancellationReason: 'abandoned' } },
           sequenceNumber: 1,
+          turnState: { status: 'cancelled', reason: 'abandoned', completedAt: createdAt },
         },
       ]);
     });

@@ -195,6 +195,7 @@ export class SessionHandle<
         previous,
         resolver: input.resolver,
         abortController: input.abortController,
+        pendingTurnEvents: [],
       });
 
       const new_context_appends = await collectContextAppends(orchestrator.send(input.input ?? []));
@@ -421,7 +422,7 @@ export class SessionHandle<
     previous: TurnRecord<TTurnCustom> | undefined;
     resolver: ITurnResourceResolver<TTurnCustom>;
     abortController: AbortController;
-    pendingTurnEvents?: TurnUserEvent[] | undefined;
+    pendingTurnEvents: TurnUserEvent[];
   }): Promise<{ orchestrator: AgentThreadOrchestrator; agentThreads: Map<string, AgentThread> }> {
     const tracing = input.resolver.createTracing();
     const agent = this.session.agent;
@@ -474,10 +475,9 @@ export class SessionHandle<
       createDynamicSubAgentThread,
       tracing,
       logger: input.resolver.logger,
-      ...(input.pendingTurnEvents !== undefined ? { pendingTurnEvents: input.pendingTurnEvents } : {}),
-      ...(previousMcpServers !== null && previousMcpServers !== undefined
-        ? { mcpServers: Object.values(previousMcpServers) }
-        : {}),
+      pendingTurnEvents: input.pendingTurnEvents,
+      mcpServers:
+        previousMcpServers !== null && previousMcpServers !== undefined ? Object.values(previousMcpServers) : [],
     });
 
     return { orchestrator, agentThreads };

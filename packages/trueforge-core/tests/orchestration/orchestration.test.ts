@@ -74,6 +74,8 @@ describe('orchestration: mocked LLM and no tools', () => {
       createDynamicSubAgentThread: () => Promise.reject(new Error('unexpected sub-agent in no-tool test')),
       tracing: NOOP_AGENT_TRACING,
       logger: makeSilentLogger(),
+      pendingTurnEvents: [],
+      mcpServers: [],
     });
 
     for await (const _event of orchestrator.send([{ type: EventType.USER_MESSAGE, content: 'hello' }])) {

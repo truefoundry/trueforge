@@ -198,8 +198,8 @@ export async function cancelSessionTurn(
       }
     } catch (error) {
       const fields = {
-        sessionId,
-        turnId,
+        session_id: sessionId,
+        turn_id: turnId,
         owner,
         ...extractErrorLogFields(error),
       };

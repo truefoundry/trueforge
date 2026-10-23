@@ -646,6 +646,8 @@ describe('AgentThreadOrchestrator.send: approval policy validation', () => {
       createDynamicSubAgentThread: () => Promise.reject(new Error('unexpected sub-agent in policy test')),
       tracing: NOOP_AGENT_TRACING,
       logger: makeSilentLogger(),
+      pendingTurnEvents: [],
+      mcpServers: [],
     });
   });
 
@@ -835,6 +837,8 @@ function makeApprovalHarness(finalReply: string): {
     createDynamicSubAgentThread: () => Promise.reject(new Error('unexpected sub-agent in approval test')),
     tracing: NOOP_AGENT_TRACING,
     logger: makeSilentLogger(),
+    pendingTurnEvents: [],
+    mcpServers: [],
   });
   return { orchestrator, thread, callTool };
 }
@@ -886,7 +890,8 @@ function makeApprovalHarnessWithUserToolSet(
     createDynamicSubAgentThread: () => Promise.reject(new Error('unexpected sub-agent in approval policy test')),
     tracing: NOOP_AGENT_TRACING,
     logger: makeSilentLogger(),
-    ...(mcpServers !== undefined ? { mcpServers } : {}),
+    pendingTurnEvents: [],
+    mcpServers: mcpServers ?? [],
   });
   return { orchestrator, thread, callTool, toolSet };
 }

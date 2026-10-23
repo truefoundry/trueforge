@@ -70,6 +70,8 @@ describe('orchestration: MCP auth continuation', () => {
       createDynamicSubAgentThread: () => Promise.reject(new Error('unexpected sub-agent')),
       tracing: NOOP_AGENT_TRACING,
       logger: makeSilentLogger(),
+      pendingTurnEvents: [],
+      mcpServers: [],
     });
     const iterator = orchestrator.execute({ signal: new AbortController().signal });
 

@@ -653,58 +653,52 @@ async function resolveSessionTip(options: {
   sessionId: string;
   itemsAsc: readonly SessionEventItem[];
 }): Promise<SessionTip> {
-  const { server, sessionId, itemsAsc } = options;
-  const open = findOpenTurnCreated(itemsAsc);
-  if (open != null) {
-    const continuationInput = open.event.input ?? [];
-    if (typeof server.getTurn === 'function') {
-      try {
-        const turn = await server.getTurn({
-          sessionId,
-          turnId: open.turnId,
-        });
-        if (turn.state.status === TURN_STATUS.RUNNING || turn.state.status === TURN_STATUS.PAUSED) {
-          return {
-            runningTurn:
-              open.update?.state.status === TURN_STATUS.PAUSED && turn.state.status === TURN_STATUS.RUNNING
-                ? turnFromCreatedEvent({
-                    sessionId,
-                    turnId: open.turnId,
-                    event: open.event,
-                    update: open.update,
-                  })
-                : turn,
-            ...(open.sandboxId != null ? { sandboxId: open.sandboxId } : {}),
-            continuationInput: turn.input ?? continuationInput,
-          };
-        }
-        // Tip finished between listEvents and getTurn: nothing to
-        // resume, but its answers still belong in the fold, and the turn
-        // itself must be committed so the painted user message stays.
-        return { finishedTurn: turn, continuationInput: turn.input ?? continuationInput };
-      } catch {
-        // getTurn failed; synthesize from the open turn.created below.
-      }
-    }
-    return {
-      runningTurn: turnFromCreatedEvent({
-        sessionId,
-        turnId: open.turnId,
-        event: open.event,
-        ...(open.update != null ? { update: open.update } : {}),
-      }),
-      ...(open.sandboxId != null ? { sandboxId: open.sandboxId } : {}),
-      continuationInput,
-    };
+  const open = findOpenTurnCreated(options.itemsAsc);
+  if (open == null) {
+    return { continuationInput: [] };
   }
 
-  // Hosts that exclude the running turn from listEvents still surface it as
-  // the first row of listTurns when that API is tip-first.
-  const turnsPage = await server.listTurns({ sessionId, limit: 1 });
-  const tip = turnsPage.data[0];
-  return tip?.state.status === TURN_STATUS.RUNNING || tip?.state.status === TURN_STATUS.PAUSED
-    ? { runningTurn: tip, continuationInput: tip.input ?? [] }
-    : { continuationInput: [] };
+  const { server, sessionId } = options;
+  const continuationInput = open.event.input ?? [];
+  if (typeof server.getTurn === 'function') {
+    try {
+      const turn = await server.getTurn({
+        sessionId,
+        turnId: open.turnId,
+      });
+      if (turn.state.status === TURN_STATUS.RUNNING || turn.state.status === TURN_STATUS.PAUSED) {
+        return {
+          runningTurn:
+            open.update?.state.status === TURN_STATUS.PAUSED && turn.state.status === TURN_STATUS.RUNNING
+              ? turnFromCreatedEvent({
+                  sessionId,
+                  turnId: open.turnId,
+                  event: open.event,
+                  update: open.update,
+                })
+              : turn,
+          ...(open.sandboxId != null ? { sandboxId: open.sandboxId } : {}),
+          continuationInput: turn.input ?? continuationInput,
+        };
+      }
+      // Tip finished between listEvents and getTurn: nothing to
+      // resume, but its answers still belong in the fold, and the turn
+      // itself must be committed so the painted user message stays.
+      return { finishedTurn: turn, continuationInput: turn.input ?? continuationInput };
+    } catch {
+      // getTurn failed; synthesize from the open turn.created below.
+    }
+  }
+  return {
+    runningTurn: turnFromCreatedEvent({
+      sessionId,
+      turnId: open.turnId,
+      event: open.event,
+      ...(open.update != null ? { update: open.update } : {}),
+    }),
+    ...(open.sandboxId != null ? { sandboxId: open.sandboxId } : {}),
+    continuationInput,
+  };
 }
 
 /**

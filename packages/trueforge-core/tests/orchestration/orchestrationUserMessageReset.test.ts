@@ -131,6 +131,8 @@ describe('orchestration: user-message reset', () => {
       createDynamicSubAgentThread: () => Promise.reject(new Error('unexpected sub-agent')),
       tracing: NOOP_AGENT_TRACING,
       logger: makeSilentLogger(),
+      pendingTurnEvents: [],
+      mcpServers: [],
     });
 
     const sendEvents = [];
@@ -220,6 +222,8 @@ describe('orchestration: user-message reset', () => {
       createDynamicSubAgentThread: () => Promise.reject(new Error('unexpected sub-agent')),
       tracing: NOOP_AGENT_TRACING,
       logger: makeSilentLogger(),
+      pendingTurnEvents: [],
+      mcpServers: [],
     });
 
     const sendEvents: unknown[] = [];
@@ -304,6 +308,8 @@ describe('orchestration: user-message reset', () => {
       createDynamicSubAgentThread: () => Promise.reject(new Error('unexpected sub-agent')),
       tracing: NOOP_AGENT_TRACING,
       logger: makeSilentLogger(),
+      pendingTurnEvents: [],
+      mcpServers: [],
     });
 
     await expect(

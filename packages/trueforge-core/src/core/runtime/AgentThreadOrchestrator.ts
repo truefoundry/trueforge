@@ -183,12 +183,12 @@ export interface AgentThreadOrchestratorInput {
   tracing: AgentTracing;
   logger: Logger;
   /** Inbox rows not yet in the snapshot. `execute` applies them. A rebuild passes these. */
-  pendingTurnEvents?: TurnUserEvent[] | undefined;
+  pendingTurnEvents: TurnUserEvent[];
   /**
    * MCP servers already initialized on an earlier turn. A later allow-session policy
    * is patched onto these records. This turn often does not emit `mcp.initialize` again.
    */
-  mcpServers?: MCPServerInitInfo[] | undefined;
+  mcpServers: MCPServerInitInfo[];
 }
 
 export class AgentThreadOrchestrator {
@@ -208,8 +208,8 @@ export class AgentThreadOrchestrator {
     this.createDynamicSubAgentThread = params.createDynamicSubAgentThread;
     this.tracing = params.tracing;
     this.logger = params.logger.child({ module: 'AgentThreadOrchestrator' });
-    this.pendingTurnEvents = params.pendingTurnEvents !== undefined ? [...params.pendingTurnEvents] : [];
-    for (const server of params.mcpServers ?? []) {
+    this.pendingTurnEvents = [...params.pendingTurnEvents];
+    for (const server of params.mcpServers) {
       this.mcpServerInitInfoById.set(server.id, server);
     }
   }

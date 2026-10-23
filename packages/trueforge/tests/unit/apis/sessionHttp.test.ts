@@ -498,7 +498,11 @@ describe('sessions HTTP agent binding', () => {
     const send = jest.fn().mockImplementation(async function* (events: Parameters<TurnHandle['send']>[0]) {
       yield events;
     });
-    jest.spyOn(sessionDeps.activeTurns, 'getTurnHandle').mockReturnValue({ send } as unknown as TurnHandle);
+    jest.spyOn(sessionDeps.activeTurns, 'getTurnHandle').mockReturnValue({
+      send,
+      state: { status: 'running' },
+      record: { active_executor_id: configuration.EXECUTOR_ID },
+    } as unknown as TurnHandle);
 
     const res = await app.request(
       `/${session.id}/turns/tip-1/events`,

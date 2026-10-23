@@ -191,6 +191,8 @@ describe('orchestration: dynamic sub-agent', () => {
       createDynamicSubAgentThread: createSubAgentThread,
       tracing: NOOP_AGENT_TRACING,
       logger: makeSilentLogger(),
+      pendingTurnEvents: [],
+      mcpServers: [],
     };
 
     const orchestrator = new AgentThreadOrchestrator(orchestratorInput);
