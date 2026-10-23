@@ -144,7 +144,7 @@ function lastTurnDetails(input: { turn_id: string; turn_state: TurnState }): Raw
 
 /** Terminal states fold cost and duration; last_turn_details moves only for the session's last turn. */
 async function applyTurnStateToSession(
-  trx: Transaction<Database>,
+  db: Transaction<Database>,
   input: { id: string; turn_id: string; turn_created_at: Date; turn_state: TurnState },
 ): Promise<void> {
   let metrics: RawBuilder<SessionMetrics> | undefined;
@@ -165,7 +165,7 @@ async function applyTurnStateToSession(
       )`;
     }
   }
-  await trx
+  await db
     .updateTable('session')
     .set({
       last_turn_details: sql<string>`CASE

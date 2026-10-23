@@ -145,19 +145,19 @@ export async function markTurnInboundEventsConsumed(
 }
 
 export async function markTurnInboundEventsConsumedInTransaction(
-  trx: Transaction<Database>,
+  db: Transaction<Database>,
   input: MarkTurnInboundEventsConsumedInput,
 ): Promise<void> {
   if (input.event_ids.length === 0) {
     return;
   }
-  await requireSession(trx, input.session_id);
+  await requireSession(db, input.session_id);
 
   const uniqueIds = [...new Set(input.event_ids)];
   const keys = { session_id: input.session_id, turn_id: input.turn_id };
 
-  await assertTurnNonTerminal(trx, keys);
-  const existing = await trx
+  await assertTurnNonTerminal(db, keys);
+  const existing = await db
     .selectFrom('turn_inbound_events')
     .select('event_id')
     .where('session_id', '=', input.session_id)
@@ -172,7 +172,7 @@ export async function markTurnInboundEventsConsumedInTransaction(
       );
     }
   }
-  await trx
+  await db
     .updateTable('turn_inbound_events')
     .set({ consumed: true })
     .where('session_id', '=', input.session_id)

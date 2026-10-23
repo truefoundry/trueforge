@@ -6,11 +6,11 @@ import type { Database, TurnThreadCheckpoint } from '../../types';
 import { assertOwnedNonTerminalTurn } from './turns';
 
 async function assertThreadsExist(
-  trx: Transaction<Database>,
+  db: Transaction<Database>,
   keys: { session_id: string; turn_id: string },
   threadIds: readonly string[],
 ): Promise<void> {
-  const rows = await trx
+  const rows = await db
     .selectFrom('turn_thread')
     .select('thread_id')
     .where('session_id', '=', keys.session_id)
@@ -29,19 +29,19 @@ export async function patchThreadsMCPAuth(
   input: PatchThreadsMCPAuthInput,
   transaction?: Transaction<Database>,
 ): Promise<void> {
-  const execute = async (trx: Transaction<Database>): Promise<void> => {
+  const execute = async (db: Transaction<Database>): Promise<void> => {
     const threadIds = [...new Set(input.thread_ids)];
     const keys = {
       session_id: input.session_id,
       turn_id: input.turn_id,
       active_executor_id: input.active_executor_id,
     };
-    await assertOwnedNonTerminalTurn(trx, keys);
+    await assertOwnedNonTerminalTurn(db, keys);
     if (threadIds.length === 0) {
       return;
     }
-    await assertThreadsExist(trx, keys, threadIds);
-    await trx
+    await assertThreadsExist(db, keys, threadIds);
+    await db
       .updateTable('turn_thread')
       .set({
         checkpoint: jsonbSet<TurnThreadCheckpoint>(
