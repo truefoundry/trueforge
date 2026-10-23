@@ -28,9 +28,9 @@ describe('resolveReasoningEffort', () => {
     expect(resolveReasoningEffort(['low', 'high'], 'high')).toBe('high');
   });
 
-  it('falls back to first when current missing or invalid', () => {
-    expect(resolveReasoningEffort(['low', 'high'], undefined)).toBe('low');
-    expect(resolveReasoningEffort(['low', 'high'], 'medium')).toBe('low');
+  it('falls back to "high" when current is missing or invalid and "medium" is not offered', () => {
+    expect(resolveReasoningEffort(['low', 'high'], undefined)).toBe('high');
+    expect(resolveReasoningEffort(['low', 'high'], 'medium')).toBe('high');
   });
 
   it('defaults to "medium" when the model offers it', () => {
@@ -38,9 +38,13 @@ describe('resolveReasoningEffort', () => {
     expect(resolveReasoningEffort(['low', 'medium', 'high'], 'bogus')).toBe('medium');
   });
 
-  it('defaults to the lowest non-"none" effort when "medium" is not offered, skipping "none"', () => {
-    expect(resolveReasoningEffort(['none', 'low', 'high'], undefined)).toBe('low');
-    expect(resolveReasoningEffort(['none', 'minimal', 'low'], 'bogus')).toBe('minimal');
+  it('defaults to "high" before "low", and to "low" when neither "medium" nor "high" is offered', () => {
+    expect(resolveReasoningEffort(['none', 'low', 'high'], undefined)).toBe('high');
+    expect(resolveReasoningEffort(['none', 'minimal', 'low'], 'bogus')).toBe('low');
+  });
+
+  it('defaults to the lowest non-"none" effort when no preferred effort is offered, skipping "none"', () => {
+    expect(resolveReasoningEffort(['none', 'minimal', 'xhigh'], undefined)).toBe('minimal');
   });
 
   it('still honors an explicit "none" selection', () => {

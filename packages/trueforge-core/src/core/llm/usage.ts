@@ -5,6 +5,11 @@ export function estimateTokensForString(s: string): number {
   return s.length / 4;
 }
 
+/** Size label for prompts replacing full content, so the model can size reads without guessing. */
+export function describeContentSize(content: string): string {
+  return `${content.length.toLocaleString('en-US')} characters`;
+}
+
 function sumOptional(a: number | undefined, b: number | undefined): number | undefined {
   if (a === undefined && b === undefined) {
     return undefined;

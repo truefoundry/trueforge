@@ -45,11 +45,15 @@ export function hasReasoningEfforts(efforts: ReasoningEfforts): efforts is strin
   return Array.isArray(efforts) && efforts.length > 0;
 }
 
-/** Keep current if still listed; otherwise default to "medium", falling back to the lowest non-"none" effort. */
+const DEFAULT_REASONING_EFFORT_PREFERENCE = ['medium', 'high', 'low'] as const;
+
+/** Keep current if still listed; otherwise default by preference: "medium", then "high", then "low". */
 export function resolveReasoningEffort(efforts: ReasoningEfforts, current: string | undefined): string | undefined {
   if (!hasReasoningEfforts(efforts)) return undefined;
   if (current && efforts.includes(current)) return current;
-  if (efforts.includes('medium')) return 'medium';
+  for (const preferred of DEFAULT_REASONING_EFFORT_PREFERENCE) {
+    if (efforts.includes(preferred)) return preferred;
+  }
   // Catalog lists are ordered ascending, so the first non-"none" entry is the lowest real effort.
   return efforts.find(effort => effort !== 'none') ?? efforts[0];
 }
