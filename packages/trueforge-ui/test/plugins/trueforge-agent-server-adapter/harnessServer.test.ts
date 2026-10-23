@@ -19,7 +19,7 @@ const session = {
     },
   },
   title: null,
-  created_by: 'trueforge-default',
+  created_by_subject: { subject_id: 'u_owner', subject_type: 'user', subject_display_name: 'Owner' },
   created_at: '2026-08-03T00:00:00.000Z',
   updated_at: '2026-08-03T00:00:00.000Z',
   metrics: {
@@ -319,6 +319,7 @@ describe('createHarnessChatServer', () => {
     assert.equal(listedAgents, false);
     assert.equal(found.agentName, 'reviewer');
     assert.equal(found.isMutable, false);
+    assert.deepEqual(found.createdBy, { id: 'u_owner', displayName: 'Owner' });
     assert.deepEqual(found.metrics, {
       totalTurns: 1,
       totalDurationMs: 12_000,

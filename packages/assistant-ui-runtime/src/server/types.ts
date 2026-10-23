@@ -174,6 +174,11 @@ export interface AgentSpec<
 // Session — plain DTO, generic in TSpec so host's spec type flows through
 // ---------------------------------------------------------------------------
 
+export interface SessionSubject {
+  id: string;
+  displayName: string;
+}
+
 export interface Session<TSpec extends AgentSpec = AgentSpec> {
   id: string;
   title?: string | null;
@@ -183,6 +188,8 @@ export interface Session<TSpec extends AgentSpec = AgentSpec> {
   isMutable: boolean;
   /** When true, any subject in the tenant may read this session and its turns/events by id. */
   shared?: boolean;
+  /** Creator of the session; the only subject allowed to manage its sharing. */
+  createdBy?: SessionSubject;
   /** Rolled-up turns/duration/cost from the session detail API when the host provides it. */
   metrics?: SessionListMetrics;
   createdAt: string;
@@ -201,8 +208,6 @@ export interface UpdateSessionRequest<TSpec extends AgentSpec = AgentSpec> {
   sessionId: string;
   agentSpec?: TSpec;
   title?: string;
-  /** When true, any subject in the tenant may read this session and its turns/events by id. */
-  shared?: boolean;
 }
 
 // ---------------------------------------------------------------------------
@@ -1154,6 +1159,39 @@ export interface PermissionsServer<
 }
 
 // ---------------------------------------------------------------------------
+// Session access — share a session with specific users or the whole tenant
+// ---------------------------------------------------------------------------
+
+export type SessionAccessSubjectType = 'user' | 'tenant';
+
+export interface SessionAccessSubject {
+  subjectType: SessionAccessSubjectType;
+  subjectId: string;
+}
+
+export interface SessionAccessGrant extends SessionAccessSubject {
+  /** Null for `tenant` grants and users the directory can no longer resolve. */
+  displayName: string | null;
+  email: string | null;
+  createdAt: string;
+}
+
+export interface DirectoryUser {
+  id: string;
+  displayName: string;
+  email: string | null;
+}
+
+/** Only the session creator may call these; others are rejected with a permission error. */
+export interface SessionAccessServer {
+  listAccess(req: { sessionId: string }): Promise<SessionAccessGrant[]>;
+  grantAccess(req: { sessionId: string; subjects: SessionAccessSubject[] }): Promise<SessionAccessGrant[]>;
+  revokeAccess(req: { sessionId: string } & SessionAccessSubject): Promise<void>;
+  /** Directory search for the invite input. Resolves empty when the host has no user directory. */
+  searchUsers(req: { query?: string; limit?: number; pageToken?: string }): Promise<ListResult<DirectoryUser>>;
+}
+
+// ---------------------------------------------------------------------------
 // AgentMetrics — optional aggregate metrics + time-series charts
 // ---------------------------------------------------------------------------
 
@@ -1252,6 +1290,7 @@ export type AgentUIServerPort<
   TSandboxEnvironments extends SandboxEnvironmentServer = SandboxEnvironmentServer,
   TMetrics extends AgentMetricsServer = AgentMetricsServer,
   TPermissions extends PermissionsServer = PermissionsServer,
+  TSessionAccess extends SessionAccessServer = SessionAccessServer,
 > = TChat &
   TBuilder & {
     catalog?: TCatalog;
@@ -1260,6 +1299,8 @@ export type AgentUIServerPort<
     sandboxEnvironments?: TSandboxEnvironments;
     metrics?: TMetrics;
     permissions?: TPermissions;
+    /** Optional session sharing port; omit to hide the invite and collaborator UI. */
+    sessionAccess?: TSessionAccess;
     /** Authenticated caller identity. Used for tenant-scoped share copy. */
     getMe?: () => Promise<{ tenantId: string }>;
   };
