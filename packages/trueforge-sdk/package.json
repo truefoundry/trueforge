@@ -253,6 +253,17 @@
             },
             "default": "./dist/cjs/api/resources/internal/resources/sessions/exports.js"
         },
+        "./internal/turns": {
+            "import": {
+                "types": "./dist/esm/api/resources/internal/resources/turns/exports.d.mts",
+                "default": "./dist/esm/api/resources/internal/resources/turns/exports.mjs"
+            },
+            "require": {
+                "types": "./dist/cjs/api/resources/internal/resources/turns/exports.d.ts",
+                "default": "./dist/cjs/api/resources/internal/resources/turns/exports.js"
+            },
+            "default": "./dist/cjs/api/resources/internal/resources/turns/exports.js"
+        },
         "./internal/agents": {
             "import": {
                 "types": "./dist/esm/api/resources/internal/resources/agents/exports.d.mts",

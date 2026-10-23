@@ -120,6 +120,9 @@ server:
   publicBaseUrl: ""
   # Seconds the server is given to drain turns on SIGTERM (GRACEFUL_TIMEOUT_SECONDS).
   gracefulTimeoutSeconds: 30
+  # Seconds Kubernetes waits after SIGTERM before SIGKILL. Must exceed
+  # gracefulTimeoutSeconds so the process can finish draining.
+  terminationGracePeriodSeconds: 300
   # The server always runs peered (STANDALONE=false) against Postgres + Redis.
   # Escape hatch for knobs not covered by configs.*. Each entry is a full env
   # item: {name, value} or {name, valueFrom: {secretKeyRef|configMapKeyRef: ...}}.

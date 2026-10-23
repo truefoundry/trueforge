@@ -4383,6 +4383,159 @@ client.internal.sessions.get_or_create_by_external_id(
 </dl>
 </details>
 
+## Internal Turns
+<details><summary><code>client.internal.turns.<a href="src/trueforge_sdk/internal/turns/client.py">list_abandoned</a>() -> ListAbandonedTurnsResponse</code></summary>
+<dl>
+<dd>
+
+#### 📝 Description
+
+<dl>
+<dd>
+
+<dl>
+<dd>
+
+Returns all running turns whose last activity is past the stale threshold.
+</dd>
+</dl>
+</dd>
+</dl>
+
+#### 🔌 Usage
+
+<dl>
+<dd>
+
+<dl>
+<dd>
+
+```python
+from trueforge_sdk import TrueForge
+
+client = TrueForge(
+    token="<token>",
+    base_url="https://yourhost.com/path/to/api",
+)
+
+client.internal.turns.list_abandoned()
+
+```
+</dd>
+</dl>
+</dd>
+</dl>
+
+#### ⚙️ Parameters
+
+<dl>
+<dd>
+
+<dl>
+<dd>
+
+**request_options:** `typing.Optional[RequestOptions]` — Request-specific configuration.
+    
+</dd>
+</dl>
+</dd>
+</dl>
+
+
+</dd>
+</dl>
+</details>
+
+<details><summary><code>client.internal.turns.<a href="src/trueforge_sdk/internal/turns/client.py">close_abandoned</a>(...)</code></summary>
+<dl>
+<dd>
+
+#### 📝 Description
+
+<dl>
+<dd>
+
+<dl>
+<dd>
+
+Cancels a stale running turn (turn.done with abandoned reason).
+</dd>
+</dl>
+</dd>
+</dl>
+
+#### 🔌 Usage
+
+<dl>
+<dd>
+
+<dl>
+<dd>
+
+```python
+from trueforge_sdk import TrueForge
+
+client = TrueForge(
+    token="<token>",
+    base_url="https://yourhost.com/path/to/api",
+)
+
+client.internal.turns.close_abandoned(
+    session_id="session_id",
+    tenant_id="tenant_id",
+    turn_id="turn_id",
+)
+
+```
+</dd>
+</dl>
+</dd>
+</dl>
+
+#### ⚙️ Parameters
+
+<dl>
+<dd>
+
+<dl>
+<dd>
+
+**session_id:** `str` — Session that owns the turn.
+    
+</dd>
+</dl>
+
+<dl>
+<dd>
+
+**tenant_id:** `str` — Tenant that owns the session.
+    
+</dd>
+</dl>
+
+<dl>
+<dd>
+
+**turn_id:** `str` — Turn to close.
+    
+</dd>
+</dl>
+
+<dl>
+<dd>
+
+**request_options:** `typing.Optional[RequestOptions]` — Request-specific configuration.
+    
+</dd>
+</dl>
+</dd>
+</dl>
+
+
+</dd>
+</dl>
+</details>
+
 ## Internal Agents
 <details><summary><code>client.internal.agents.<a href="src/trueforge_sdk/internal/agents/client.py">get_code_snippets</a>(...) -> GetAgentCodeSnippetsResponse</code></summary>
 <dl>

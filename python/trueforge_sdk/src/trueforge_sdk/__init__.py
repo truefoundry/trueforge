@@ -7,6 +7,7 @@ from importlib import import_module
 
 if typing.TYPE_CHECKING:
     from .types import (
+        AbandonedTurn,
         ActionRequired,
         ActionRequiredEvent,
         Agent,
@@ -103,6 +104,7 @@ if typing.TYPE_CHECKING:
         InitialUserMessage,
         InputTokensCompactionTrigger,
         LargeToolResponseConfig,
+        ListAbandonedTurnsResponse,
         ListAgentsResponse,
         ListAvailableMcpServersResponse,
         ListAvailableModelsResponse,
@@ -312,6 +314,7 @@ if typing.TYPE_CHECKING:
     from .client import AsyncTrueForge, TrueForge
     from .version import __version__
 _dynamic_imports: typing.Dict[str, str] = {
+    "AbandonedTurn": ".types",
     "ActionRequired": ".types",
     "ActionRequiredEvent": ".types",
     "Agent": ".types",
@@ -419,6 +422,7 @@ _dynamic_imports: typing.Dict[str, str] = {
     "InputTokensCompactionTrigger": ".types",
     "InternalServerError": ".errors",
     "LargeToolResponseConfig": ".types",
+    "ListAbandonedTurnsResponse": ".types",
     "ListAgentsResponse": ".types",
     "ListAvailableMcpServersResponse": ".types",
     "ListAvailableModelsResponse": ".types",
@@ -638,6 +642,7 @@ def __dir__():
 
 
 __all__ = [
+    "AbandonedTurn",
     "ActionRequired",
     "ActionRequiredEvent",
     "Agent",
@@ -745,6 +750,7 @@ __all__ = [
     "InputTokensCompactionTrigger",
     "InternalServerError",
     "LargeToolResponseConfig",
+    "ListAbandonedTurnsResponse",
     "ListAgentsResponse",
     "ListAvailableMcpServersResponse",
     "ListAvailableModelsResponse",

@@ -2,6 +2,32 @@
   "components": {
     "parameters": {},
     "schemas": {
+      "AbandonedTurn": {
+        "additionalProperties": false,
+        "properties": {
+          "session_id": {
+            "description": "Session that owns the turn.",
+            "minLength": 1,
+            "type": "string"
+          },
+          "tenant_id": {
+            "description": "Tenant that owns the session.",
+            "minLength": 1,
+            "type": "string"
+          },
+          "turn_id": {
+            "description": "Running turn with stale last activity.",
+            "minLength": 1,
+            "type": "string"
+          }
+        },
+        "required": [
+          "tenant_id",
+          "session_id",
+          "turn_id"
+        ],
+        "type": "object"
+      },
       "ActionRequired": {
         "properties": {
           "id": {
@@ -858,6 +884,32 @@
           "id",
           "type",
           "function"
+        ],
+        "type": "object"
+      },
+      "CloseAbandonedTurnRequest": {
+        "additionalProperties": false,
+        "properties": {
+          "session_id": {
+            "description": "Session that owns the turn.",
+            "minLength": 1,
+            "type": "string"
+          },
+          "tenant_id": {
+            "description": "Tenant that owns the session.",
+            "minLength": 1,
+            "type": "string"
+          },
+          "turn_id": {
+            "description": "Turn to close.",
+            "minLength": 1,
+            "type": "string"
+          }
+        },
+        "required": [
+          "tenant_id",
+          "session_id",
+          "turn_id"
         ],
         "type": "object"
       },
@@ -1888,6 +1940,21 @@
             "type": "boolean"
           }
         },
+        "type": "object"
+      },
+      "ListAbandonedTurnsResponse": {
+        "additionalProperties": false,
+        "properties": {
+          "data": {
+            "items": {
+              "$ref": "#/components/schemas/AbandonedTurn"
+            },
+            "type": "array"
+          }
+        },
+        "required": [
+          "data"
+        ],
         "type": "object"
       },
       "ListAgentsResponse": {
@@ -6752,6 +6819,93 @@
           "sessions"
         ],
         "x-fern-sdk-method-name": "get_or_create_by_external_id"
+      }
+    },
+    "/api/internal/turns/abandoned": {
+      "get": {
+        "description": "Returns all running turns whose last activity is past the stale threshold.",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ListAbandonedTurnsResponse"
+                }
+              }
+            },
+            "description": "Stale running turns oldest-first."
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/RequestErrorResponse"
+                }
+              }
+            },
+            "description": "Invalid service credential."
+          }
+        },
+        "summary": "List abandoned running turns",
+        "tags": [
+          "Internal"
+        ],
+        "x-excluded": true,
+        "x-fern-sdk-group-name": [
+          "internal",
+          "turns"
+        ],
+        "x-fern-sdk-method-name": "list_abandoned"
+      }
+    },
+    "/api/internal/turns/close-abandoned": {
+      "post": {
+        "description": "Cancels a stale running turn (turn.done with abandoned reason).",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CloseAbandonedTurnRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "204": {
+            "description": "Closed (or already terminal / missing turn)."
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/RequestErrorResponse"
+                }
+              }
+            },
+            "description": "Invalid service credential."
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/RequestErrorResponse"
+                }
+              }
+            },
+            "description": "Session not found."
+          }
+        },
+        "summary": "Close an abandoned running turn",
+        "tags": [
+          "Internal"
+        ],
+        "x-excluded": true,
+        "x-fern-sdk-group-name": [
+          "internal",
+          "turns"
+        ],
+        "x-fern-sdk-method-name": "close_abandoned"
       }
     },
     "/api/v1/agents": {

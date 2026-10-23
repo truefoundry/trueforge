@@ -6,6 +6,7 @@ import typing
 from importlib import import_module
 
 if typing.TYPE_CHECKING:
+    from .abandoned_turn import AbandonedTurn
     from .action_required import ActionRequired
     from .action_required_event import ActionRequiredEvent
     from .agent import Agent
@@ -102,6 +103,7 @@ if typing.TYPE_CHECKING:
     from .initial_user_message import InitialUserMessage
     from .input_tokens_compaction_trigger import InputTokensCompactionTrigger
     from .large_tool_response_config import LargeToolResponseConfig
+    from .list_abandoned_turns_response import ListAbandonedTurnsResponse
     from .list_agents_response import ListAgentsResponse
     from .list_available_mcp_servers_response import ListAvailableMcpServersResponse
     from .list_available_models_response import ListAvailableModelsResponse
@@ -279,6 +281,7 @@ if typing.TYPE_CHECKING:
     from .web_search_provider_manifest import WebSearchProviderManifest
     from .zai_model_provider import ZaiModelProvider
 _dynamic_imports: typing.Dict[str, str] = {
+    "AbandonedTurn": ".abandoned_turn",
     "ActionRequired": ".action_required",
     "ActionRequiredEvent": ".action_required_event",
     "Agent": ".agent",
@@ -375,6 +378,7 @@ _dynamic_imports: typing.Dict[str, str] = {
     "InitialUserMessage": ".initial_user_message",
     "InputTokensCompactionTrigger": ".input_tokens_compaction_trigger",
     "LargeToolResponseConfig": ".large_tool_response_config",
+    "ListAbandonedTurnsResponse": ".list_abandoned_turns_response",
     "ListAgentsResponse": ".list_agents_response",
     "ListAvailableMcpServersResponse": ".list_available_mcp_servers_response",
     "ListAvailableModelsResponse": ".list_available_models_response",
@@ -576,6 +580,7 @@ def __dir__():
 
 
 __all__ = [
+    "AbandonedTurn",
     "ActionRequired",
     "ActionRequiredEvent",
     "Agent",
@@ -672,6 +677,7 @@ __all__ = [
     "InitialUserMessage",
     "InputTokensCompactionTrigger",
     "LargeToolResponseConfig",
+    "ListAbandonedTurnsResponse",
     "ListAgentsResponse",
     "ListAvailableMcpServersResponse",
     "ListAvailableModelsResponse",
