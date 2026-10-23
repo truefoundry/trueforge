@@ -139,6 +139,18 @@
   font-size: 1em;
 }
 
+.aui-markdown.markdown-body :where(ul) {
+  list-style-type: disc;
+}
+
+.aui-markdown.markdown-body :where(ul ul) {
+  list-style-type: circle;
+}
+
+.aui-markdown.markdown-body :where(ol) {
+  list-style-type: decimal;
+}
+
 /* Preset typography applies to prose only; code always keeps a monospace stack. */
 .aui-markdown.markdown-body :is(code, kbd, pre, samp, tt) {
   font-family: var(
