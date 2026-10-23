@@ -446,6 +446,28 @@ describe('webSearchPreferenceToStore', () => {
     ).toEqual(forcedOff);
   });
 
+  it('does not store a schema-default off while capabilities are pending, so it recovers once known', () => {
+    const schemaDefault = { model: { name: 'model' }, config: { webSearch: { enabled: false } } };
+    const stored = webSearchPreferenceToStore({
+      spec: schemaDefault,
+      webSearchEnabled: undefined,
+      previousWebSearchEnabled: undefined,
+      capabilitiesPending: true,
+      kind: 'chat',
+    });
+    expect(stored).toEqual({ model: { name: 'model' } });
+
+    writeDraftSpecPreferences('chat', stored);
+    expect(
+      webSearchPreferenceToStore({
+        spec: schemaDefault,
+        webSearchEnabled: true,
+        previousWebSearchEnabled: undefined,
+        kind: 'chat',
+      }),
+    ).toEqual({ model: { name: 'model' }, config: { webSearch: { enabled: true } } });
+  });
+
   it('default-fills on after an outage when no choice was stored', () => {
     expect(
       webSearchPreferenceToStore({

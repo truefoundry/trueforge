@@ -266,22 +266,25 @@ export function persistedWebSearchEnabled(kind: DraftPreferenceKind): boolean | 
 }
 
 /**
- * Remember a user web-search choice. Capability-forced off is omitted unless a choice
- * was already stored, and that stored off is not rewritten to on when search returns.
+ * Remember a user web-search choice. Capability-forced off, or any value seen before capabilities
+ * settle (a schema default, not a choice), is omitted unless a choice was already stored; a stored off
+ * is not rewritten to on when search returns.
  */
 export function webSearchPreferenceToStore({
   spec,
   webSearchEnabled,
   previousWebSearchEnabled,
+  capabilitiesPending = false,
   kind,
 }: {
   spec: AgentSpec;
   webSearchEnabled: boolean | null | undefined;
   previousWebSearchEnabled: boolean | null | undefined;
+  capabilitiesPending?: boolean;
   kind: DraftPreferenceKind;
 }): AgentSpec {
   const persistedEnabled = persistedWebSearchEnabled(kind);
-  if (webSearchEnabled === false) {
+  if (webSearchEnabled === false || capabilitiesPending) {
     const stripped = withoutWebSearchPreference(spec);
     return persistedEnabled === undefined ? stripped : withWebSearchEnabled(stripped, persistedEnabled);
   }

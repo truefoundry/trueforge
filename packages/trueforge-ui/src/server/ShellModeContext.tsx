@@ -27,6 +27,7 @@ import {
   useOptionalSandboxEnvironmentServer,
   useOptionalScheduleServer,
   useServerCapabilities,
+  useServerCapabilitiesSettled,
 } from './ServerContext.js';
 import type { AgentLibraryEntry, AgentSpec } from './types.js';
 
@@ -254,6 +255,7 @@ export function ShellModeProvider({
   children: ReactNode;
 }) {
   const capabilities = useServerCapabilities();
+  const capabilitiesPending = !useServerCapabilitiesSettled();
   const catalog = useOptionalCatalogServer();
   const refreshCapabilities = useOptionalRefreshServerCapabilities();
   const sessionsServer = useOptionalAgentSessionsServer();
@@ -693,6 +695,7 @@ export function ShellModeProvider({
         spec: aligned,
         webSearchEnabled,
         previousWebSearchEnabled,
+        capabilitiesPending,
         kind,
       });
       if (kind === 'chat') {
@@ -708,12 +711,13 @@ export function ShellModeProvider({
           spec: agentAligned,
           webSearchEnabled,
           previousWebSearchEnabled,
+          capabilitiesPending,
           kind: 'agent',
         });
       }
       writeDraftSpecPreferences(kind, preferences);
     },
-    [sandboxEnabled, webSearchEnabled],
+    [sandboxEnabled, webSearchEnabled, capabilitiesPending],
   );
 
   const openHistorySession = useCallback(
