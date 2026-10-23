@@ -2,4 +2,4 @@
 "@truefoundry/trueforge": patch
 ---
 
-Add session access API (share, list, revoke) and user listing.
+Add session grants API (share, list, revoke) and user listing.

@@ -34,7 +34,7 @@ import type {
 } from '../../schemas/sandboxEnvironment';
 import type { StoredSandboxProviderManifest } from '../../schemas/sandboxProvider';
 import type { ScheduleManifest, ScheduleRunStatus, ScheduleStatus } from '../../schemas/schedule';
-import type { SessionAccessSubjectType } from '../../schemas/sessionAccess';
+import type { SessionGrantSubjectType } from '../../schemas/sessionGrant';
 import type { SkillManifest } from '../../schemas/skill';
 import type { WebSearchProviderManifest } from '../../schemas/webSearchProvider';
 import type { OAuthClient, OAuthPendingAuthorizationData, OAuthServer, OAuthToken } from '../mcpServerStore';
@@ -124,7 +124,7 @@ export interface SessionTable {
 export interface AccessControlEntryTable {
   tenant_id: string;
   session_id: string;
-  subject_type: SessionAccessSubjectType;
+  subject_type: SessionGrantSubjectType;
   subject_id: string;
   granted_by_subject: JSONColumnType<CreatedBySubject, CreatedBySubject, CreatedBySubject>;
   created_at: Date;

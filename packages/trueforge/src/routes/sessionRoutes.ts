@@ -16,24 +16,17 @@ import {
   UpdateSessionRequestSchema,
 } from '../schemas/session';
 import {
-  CreateSessionAccessRequestSchema,
-  DeleteSessionAccessResponseSchema,
-  ListSessionAccessResponseSchema,
-  SessionAccessSubjectSchema,
-  SessionAccessSubjectTypeSchema,
-} from '../schemas/sessionAccess';
+  CreateSessionGrantsRequestSchema,
+  DeleteSessionGrantResponseSchema,
+  DeleteSessionGrantsRequestQuerySchema,
+  ListSessionGrantsResponseSchema,
+} from '../schemas/sessionGrant';
 import { CancelSessionRequestSchema, CancelSessionResponseSchema } from '../schemas/turn';
 import { TOKEN_PAGINATION } from './fernExtensions';
 import { OpenApiTag } from './openapiTags';
 
 export const SessionIdParamsSchema = z.object({
   session_id: z.string().min(1).max(64).describe('Session identifier.'),
-});
-
-const SessionAccessSubjectParamsSchema = z.object({
-  ...SessionIdParamsSchema.shape,
-  subject_type: SessionAccessSubjectTypeSchema,
-  subject_id: SessionAccessSubjectSchema.shape.subject_id,
 });
 
 export const createSessionRoute = createRoute({
@@ -306,20 +299,20 @@ export const listSessionEventsRoute = createRoute({
   },
 });
 
-export const listSessionAccessRoute = createRoute({
+export const listSessionGrantsRoute = createRoute({
   method: 'get',
-  path: '/{session_id}/access',
+  path: '/{session_id}/grants',
   tags: [OpenApiTag.AGENT_SESSIONS],
-  summary: 'List session access',
+  summary: 'List session grants',
   description: 'List the subjects this session is shared with.',
   'x-fern-sdk-group-name': ['sessions'],
-  'x-fern-sdk-method-name': 'list_access',
+  'x-fern-sdk-method-name': 'list_grants',
   request: {
     params: SessionIdParamsSchema,
   },
   responses: {
     200: {
-      content: { 'application/json': { schema: ListSessionAccessResponseSchema } },
+      content: { 'application/json': { schema: ListSessionGrantsResponseSchema } },
       description: 'Subjects the session is shared with.',
     },
     403: {
@@ -333,25 +326,25 @@ export const listSessionAccessRoute = createRoute({
   },
 });
 
-export const createSessionAccessRoute = createRoute({
+export const createSessionGrantsRoute = createRoute({
   method: 'post',
-  path: '/{session_id}/access',
+  path: '/{session_id}/grants',
   tags: [OpenApiTag.AGENT_SESSIONS],
   summary: 'Share a session',
   description:
     'Share this session with one or more subjects. Subjects that already have access are left unchanged. Returns every subject the session is shared with.',
   'x-fern-sdk-group-name': ['sessions'],
-  'x-fern-sdk-method-name': 'create_access',
+  'x-fern-sdk-method-name': 'create_grants',
   request: {
     params: SessionIdParamsSchema,
     body: {
-      content: { 'application/json': { schema: CreateSessionAccessRequestSchema } },
+      content: { 'application/json': { schema: CreateSessionGrantsRequestSchema } },
       required: true,
     },
   },
   responses: {
     201: {
-      content: { 'application/json': { schema: ListSessionAccessResponseSchema } },
+      content: { 'application/json': { schema: ListSessionGrantsResponseSchema } },
       description: 'Subjects the session is shared with after the change.',
     },
     400: {
@@ -373,21 +366,26 @@ export const createSessionAccessRoute = createRoute({
   },
 });
 
-export const deleteSessionAccessRoute = createRoute({
+export const deleteSessionGrantRoute = createRoute({
   method: 'delete',
-  path: '/{session_id}/access/{subject_type}/{subject_id}',
+  path: '/{session_id}/grants',
   tags: [OpenApiTag.AGENT_SESSIONS],
-  summary: 'Revoke session access',
+  summary: 'Revoke a session grant',
   description: "Revoke a subject's access to this session.",
   'x-fern-sdk-group-name': ['sessions'],
-  'x-fern-sdk-method-name': 'delete_access',
+  'x-fern-sdk-method-name': 'delete_grant',
   request: {
-    params: SessionAccessSubjectParamsSchema,
+    params: SessionIdParamsSchema,
+    query: DeleteSessionGrantsRequestQuerySchema,
   },
   responses: {
     200: {
-      content: { 'application/json': { schema: DeleteSessionAccessResponseSchema } },
+      content: { 'application/json': { schema: DeleteSessionGrantResponseSchema } },
       description: 'Access revoked.',
+    },
+    400: {
+      content: { 'application/json': { schema: RequestErrorResponseSchema } },
+      description: 'Invalid query parameters.',
     },
     403: {
       content: { 'application/json': { schema: RequestErrorResponseSchema } },

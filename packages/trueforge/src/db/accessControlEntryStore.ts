@@ -1,11 +1,11 @@
 /** Explicit per-subject access to a session. Rows are removed with their session. */
 import type { CreatedBySubject } from '@truefoundry/trueforge-core/agent-session';
-import type { SessionAccessSubject, SessionAccessSubjectType } from '../schemas/sessionAccess';
+import type { SessionGrantSubject, SessionGrantSubjectType } from '../schemas/sessionGrant';
 
 export interface SessionAccessRecord {
   tenant_id: string;
   session_id: string;
-  subject_type: SessionAccessSubjectType;
+  subject_type: SessionGrantSubjectType;
   subject_id: string;
   granted_by_subject: CreatedBySubject;
   /** ISO-8601 UTC instant. */
@@ -21,14 +21,14 @@ export interface GrantSessionAccessInput {
   tenant_id: string;
   session_id: string;
   /** Non-empty and de-duplicated by the caller. */
-  subjects: SessionAccessSubject[];
+  subjects: SessionGrantSubject[];
   granted_by_subject: CreatedBySubject;
 }
 
 export interface RevokeSessionAccessInput {
   tenant_id: string;
   session_id: string;
-  subject: SessionAccessSubject;
+  subject: SessionGrantSubject;
 }
 
 export interface IAccessControlEntryStore<TTransaction = never> {

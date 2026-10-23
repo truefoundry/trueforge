@@ -44,14 +44,14 @@ import type { IWebSearchProviderStore } from '../db/webSearchProviderStore';
 import { updateLogContext } from '../logger';
 import {
   cancelSessionRoute,
-  createSessionAccessRoute,
+  createSessionGrantsRoute,
   createSessionRoute,
-  deleteSessionAccessRoute,
+  deleteSessionGrantRoute,
   deleteSessionRoute,
   getOrCreateSessionByExternalIdRoute,
   getSessionRoute,
-  listSessionAccessRoute,
   listSessionEventsRoute,
+  listSessionGrantsRoute,
   listSessionsRoute,
   updateSessionRoute,
 } from '../routes/sessionRoutes';
@@ -59,7 +59,7 @@ import type { ActiveTurnRegistry } from '../runtime/activeTurns';
 import { validateAgentSpec } from '../runtime/sessionResources';
 import { honoQueriesToRecord } from '../schemas/deepObjectQuery';
 import { isSessionAgentNameRef, parseListSessionsQuery, type Session } from '../schemas/session';
-import type { SessionAccess, SessionAccessSubject } from '../schemas/sessionAccess';
+import type { SessionGrant, SessionGrantSubject } from '../schemas/sessionGrant';
 import { newId } from '../utils/id';
 import { agentIfAccessible, canReadAgentBoundResource, canReadSession, resolveManagedAgentIds } from './agentAccess';
 
@@ -272,15 +272,15 @@ async function requireOwnedSession(
   return { requestContext, record };
 }
 
-function uniqueSubjects(subjects: readonly SessionAccessSubject[]): SessionAccessSubject[] {
-  const byKey = new Map<string, SessionAccessSubject>();
+function uniqueSubjects(subjects: readonly SessionGrantSubject[]): SessionGrantSubject[] {
+  const byKey = new Map<string, SessionGrantSubject>();
   for (const subject of subjects) {
     byKey.set(`${subject.subject_type}:${subject.subject_id}`, subject);
   }
   return [...byKey.values()];
 }
 
-function toWireSessionAccess(record: SessionAccessRecord): SessionAccess {
+function toWireSessionGrant(record: SessionAccessRecord): SessionGrant {
   return {
     subject: { subject_type: record.subject_type, subject_id: record.subject_id },
     granted_by_subject: record.granted_by_subject,
@@ -682,17 +682,17 @@ export function createSessionsRouter(deps: SessionsRouterDeps) {
     }
   };
 
-  const listSessionAccessHandler: RouteHandler<typeof listSessionAccessRoute> = async c => {
+  const listSessionGrantsHandler: RouteHandler<typeof listSessionGrantsRoute> = async c => {
     const { session_id: sessionId } = c.req.valid('param');
     const { requestContext } = await requireOwnedSession(deps, { c, session_id: sessionId });
     const records = await deps.accessControlEntryStore.listSessionAccess({
       tenant_id: requestContext.tenant_id,
       session_id: sessionId,
     });
-    return c.json({ data: records.map(toWireSessionAccess) }, 200);
+    return c.json({ data: records.map(toWireSessionGrant) }, 200);
   };
 
-  const createSessionAccessHandler: RouteHandler<typeof createSessionAccessRoute> = async c => {
+  const createSessionGrantsHandler: RouteHandler<typeof createSessionGrantsRoute> = async c => {
     const { session_id: sessionId } = c.req.valid('param');
     const body = c.req.valid('json');
     const { requestContext } = await requireOwnedSession(deps, { c, session_id: sessionId });
@@ -719,11 +719,12 @@ export function createSessionsRouter(deps: SessionsRouterDeps) {
       tenant_id: requestContext.tenant_id,
       session_id: sessionId,
     });
-    return c.json({ data: records.map(toWireSessionAccess) }, 201);
+    return c.json({ data: records.map(toWireSessionGrant) }, 201);
   };
 
-  const deleteSessionAccessHandler: RouteHandler<typeof deleteSessionAccessRoute> = async c => {
-    const { session_id: sessionId, subject_type, subject_id } = c.req.valid('param');
+  const deleteSessionGrantHandler: RouteHandler<typeof deleteSessionGrantRoute> = async c => {
+    const { session_id: sessionId } = c.req.valid('param');
+    const { subject_type, subject_id } = c.req.valid('query');
     const { requestContext } = await requireOwnedSession(deps, { c, session_id: sessionId });
     const revoked = await deps.accessControlEntryStore.revokeSessionAccess({
       tenant_id: requestContext.tenant_id,
@@ -744,9 +745,9 @@ export function createSessionsRouter(deps: SessionsRouterDeps) {
   router.openapi(listSessionsRoute, listSessionsHandler);
   router.openapi(cancelSessionRoute, cancelSessionHandler);
   router.openapi(listSessionEventsRoute, listSessionEventsHandler);
-  router.openapi(listSessionAccessRoute, listSessionAccessHandler);
-  router.openapi(createSessionAccessRoute, createSessionAccessHandler);
-  router.openapi(deleteSessionAccessRoute, deleteSessionAccessHandler);
+  router.openapi(listSessionGrantsRoute, listSessionGrantsHandler);
+  router.openapi(createSessionGrantsRoute, createSessionGrantsHandler);
+  router.openapi(deleteSessionGrantRoute, deleteSessionGrantHandler);
   deps.requestReplyRouter.registerRoute(SESSIONS_CANCEL_PATH, cancelSessionTurnPeerHandler(deps.activeTurns));
   return router;
 }

@@ -22,7 +22,7 @@ import type { Database } from '../../../src/db/sqlite/types';
 import { SqliteWebSearchProviderStore } from '../../../src/db/sqlite/web-search-provider-store/SqliteWebSearchProviderStore';
 import { EmptyUserStore, type IUserStore } from '../../../src/db/userStore';
 import { ActiveTurnRegistry } from '../../../src/runtime/activeTurns';
-import { ListSessionAccessResponseSchema } from '../../../src/schemas/sessionAccess';
+import { ListSessionGrantsResponseSchema } from '../../../src/schemas/sessionGrant';
 import type { User } from '../../../src/schemas/user';
 
 const TENANT = 'default';
@@ -105,7 +105,7 @@ function buildApp(input: { db: Kysely<Database>; sessionStore: SqliteSessionStor
   return app;
 }
 
-describe('session access API', () => {
+describe('session grants API', () => {
   let db: Kysely<Database>;
   let sessionStore: SqliteSessionStore;
   let fakeUserStore: FakeUserStore;
@@ -137,9 +137,9 @@ describe('session access API', () => {
   });
 
   async function listSubjectIds(): Promise<string[]> {
-    const response = await app.request(`/${SESSION_ID}/access`, asCaller('owner'));
+    const response = await app.request(`/${SESSION_ID}/grants`, asCaller('owner'));
     expect(response.status).toBe(200);
-    return ListSessionAccessResponseSchema.parse(await response.json()).data.map(access => access.subject.subject_id);
+    return ListSessionGrantsResponseSchema.parse(await response.json()).data.map(access => access.subject.subject_id);
   }
 
   function userSubjects(subjectIds: string[]) {
@@ -147,28 +147,33 @@ describe('session access API', () => {
   }
 
   async function share(subjectIds: string[]): Promise<Response> {
-    return app.request(`/${SESSION_ID}/access`, jsonInit('POST', userSubjects(subjectIds)));
+    return app.request(`/${SESSION_ID}/grants`, jsonInit('POST', userSubjects(subjectIds)));
   }
 
   describe('access rules', () => {
     it('rejects callers other than the session creator', async () => {
       const forbidden = { error: { message: 'Only the session creator can manage access to this session' } };
 
-      const list = await app.request(`/${SESSION_ID}/access`, asCaller('alice'));
+      const list = await app.request(`/${SESSION_ID}/grants`, asCaller('alice'));
       expect(list.status).toBe(403);
       expect(await list.json()).toEqual(forbidden);
 
-      const create = await app.request(`/${SESSION_ID}/access`, jsonInit('POST', userSubjects(['bob']), 'alice'));
+      const create = await app.request(`/${SESSION_ID}/grants`, jsonInit('POST', userSubjects(['bob']), 'alice'));
       expect(create.status).toBe(403);
 
-      const remove = await app.request(`/${SESSION_ID}/access/user/bob`, asCaller('alice', 'DELETE'));
+      const remove = await app.request(
+        `/${SESSION_ID}/grants?subject_type=user&subject_id=bob`,
+        asCaller('alice', 'DELETE'),
+      );
       expect(remove.status).toBe(403);
     });
 
     it('returns 404 for an unknown session', async () => {
-      expect((await app.request('/missing/access', asCaller('owner'))).status).toBe(404);
-      expect((await app.request('/missing/access', jsonInit('POST', userSubjects(['alice'])))).status).toBe(404);
-      expect((await app.request('/missing/access/user/alice', asCaller('owner', 'DELETE'))).status).toBe(404);
+      expect((await app.request('/missing/grants', asCaller('owner'))).status).toBe(404);
+      expect((await app.request('/missing/grants', jsonInit('POST', userSubjects(['alice'])))).status).toBe(404);
+      expect(
+        (await app.request('/missing/grants?subject_type=user&subject_id=alice', asCaller('owner', 'DELETE'))).status,
+      ).toBe(404);
     });
   });
 
@@ -177,7 +182,7 @@ describe('session access API', () => {
       const response = await share(['alice', 'bob']);
 
       expect(response.status).toBe(201);
-      const { data } = ListSessionAccessResponseSchema.parse(await response.json());
+      const { data } = ListSessionGrantsResponseSchema.parse(await response.json());
       const grantedBy = { subject_id: 'owner', subject_type: 'user', subject_display_name: 'owner' };
       expect(data).toEqual([
         {
@@ -200,7 +205,7 @@ describe('session access API', () => {
       const again = await share(['alice']);
       expect(again.status).toBe(201);
       expect(
-        ListSessionAccessResponseSchema.parse(await again.json()).data.map(access => access.subject.subject_id),
+        ListSessionGrantsResponseSchema.parse(await again.json()).data.map(access => access.subject.subject_id),
       ).toEqual(['alice']);
     });
 
@@ -233,7 +238,7 @@ describe('session access API', () => {
       ['more than 50 subjects', userSubjects(Array.from({ length: 51 }, (_, i) => `u${String(i)}`))],
       ['an unsupported subject type', { subjects: [{ subject_type: 'tenant', subject_id: 'default' }] }],
     ])('rejects %s', async (_label, body) => {
-      const response = await app.request(`/${SESSION_ID}/access`, jsonInit('POST', body));
+      const response = await app.request(`/${SESSION_ID}/grants`, jsonInit('POST', body));
       expect(response.status).toBe(400);
     });
   });
@@ -243,10 +248,10 @@ describe('session access API', () => {
       expect((await share(['alice'])).status).toBe(201);
       const callsAfterShare = fakeUserStore.getUsersByIdsCalls.length;
 
-      const response = await app.request(`/${SESSION_ID}/access`, asCaller('owner'));
+      const response = await app.request(`/${SESSION_ID}/grants`, asCaller('owner'));
 
       expect(response.status).toBe(200);
-      expect(ListSessionAccessResponseSchema.parse(await response.json()).data).toEqual([
+      expect(ListSessionGrantsResponseSchema.parse(await response.json()).data).toEqual([
         expect.objectContaining({ subject: { subject_type: 'user', subject_id: 'alice' } }),
       ]);
       expect(fakeUserStore.getUsersByIdsCalls).toHaveLength(callsAfterShare);
@@ -257,7 +262,10 @@ describe('session access API', () => {
     it('revokes an existing subject', async () => {
       expect((await share(['alice', 'bob'])).status).toBe(201);
 
-      const response = await app.request(`/${SESSION_ID}/access/user/alice`, asCaller('owner', 'DELETE'));
+      const response = await app.request(
+        `/${SESSION_ID}/grants?subject_type=user&subject_id=alice`,
+        asCaller('owner', 'DELETE'),
+      );
 
       expect(response.status).toBe(200);
       expect(await response.json()).toEqual({});
@@ -265,14 +273,34 @@ describe('session access API', () => {
     });
 
     it('returns 404 when the subject does not have access', async () => {
-      const response = await app.request(`/${SESSION_ID}/access/user/alice`, asCaller('owner', 'DELETE'));
+      const response = await app.request(
+        `/${SESSION_ID}/grants?subject_type=user&subject_id=alice`,
+        asCaller('owner', 'DELETE'),
+      );
 
       expect(response.status).toBe(404);
       expect(await response.json()).toEqual({ error: { message: 'Subject does not have access to this session.' } });
     });
 
     it('rejects an unsupported subject type', async () => {
-      expect((await app.request(`/${SESSION_ID}/access/tenant/default`, asCaller('owner', 'DELETE'))).status).toBe(400);
+      expect(
+        (await app.request(`/${SESSION_ID}/grants?subject_type=tenant&subject_id=default`, asCaller('owner', 'DELETE')))
+          .status,
+      ).toBe(400);
+    });
+
+    it.each([
+      ['no query parameters', ''],
+      ['a missing subject_id', '?subject_type=user'],
+      ['a missing subject_type', '?subject_id=alice'],
+      ['an empty subject_id', '?subject_type=user&subject_id='],
+    ])('rejects %s without revoking anything', async (_label, query) => {
+      expect((await share(['alice'])).status).toBe(201);
+
+      const response = await app.request(`/${SESSION_ID}/grants${query}`, asCaller('owner', 'DELETE'));
+
+      expect(response.status).toBe(400);
+      expect(await listSubjectIds()).toEqual(['alice']);
     });
   });
 
