@@ -154,6 +154,48 @@ describe('AgentSessionEventTimelineChart', () => {
     expect(screen.queryByRole('tooltip')).not.toBeInTheDocument();
   });
 
+  it('grows wider than the pane and scrolls when short turns would otherwise collapse', async () => {
+    const clientWidth = vi.spyOn(HTMLElement.prototype, 'clientWidth', 'get').mockReturnValue(400);
+    const manyTurns: SessionEventTimelineSegment[] = [
+      ...Array.from({ length: 8 }, (_, turnIndex) => ({
+        id: `turn-${turnIndex}-model`,
+        type: 'model' as const,
+        title: 'model.message',
+        description: 'response',
+        startMs: turnIndex * 1_000,
+        endMs: turnIndex * 1_000 + 1_000,
+        turnIndex,
+        threadId: 'main',
+      })),
+      {
+        id: 'turn-long-model',
+        type: 'model',
+        title: 'model.message',
+        description: 'response',
+        startMs: 8_000,
+        endMs: 108_000,
+        turnIndex: 8,
+        threadId: 'main',
+      },
+    ];
+
+    try {
+      const { container } = render(
+        <AgentSessionEventTimelineChart turns={turns} segments={manyTurns} hiddenTypes={new Set()} />,
+      );
+      const wrapper = container.querySelector<HTMLElement>('[data-slot="agent-session-event-timeline-chart"]');
+      if (wrapper == null) throw new Error('Expected timeline chart wrapper');
+      expect(wrapper).toHaveClass('overflow-x-auto');
+      await waitFor(() => {
+        const width = wrapper.firstElementChild?.getAttribute('style') ?? '';
+        const pixels = Number(/width:\s*(\d+(?:\.\d+)?)px/.exec(width)?.[1]);
+        expect(pixels).toBeGreaterThan(400);
+      });
+    } finally {
+      clientWidth.mockRestore();
+    }
+  });
+
   it('groups overlapping tool calls within a sub-agent lane', async () => {
     const subAgentSegments: SessionEventTimelineSegment[] = [
       ...segments,
