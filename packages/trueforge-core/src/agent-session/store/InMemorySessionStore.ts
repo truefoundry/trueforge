@@ -185,6 +185,8 @@ function paginate<T>(items: T[], limit: number, pageToken?: string): { data: T[]
 /**
  * Reference ISessionStore implementation. Proves the contract without SSE/subscription
  * hooks. Deep-copies on read/write boundaries so callers cannot mutate stored state.
+ * Does not support transactional updates: `withTransaction` runs the callback and
+ * leaves any writes in place when the callback throws.
  */
 export class InMemorySessionStore<
   TSessionCustom extends object = Record<string, never>,
@@ -195,6 +197,7 @@ export class InMemorySessionStore<
   private readonly events = new Map<string, StoredEvent[]>();
   /** session_id:turn_id → inbound send-event inbox */
   private readonly inboundEvents = new Map<string, StoredInboundEvent[]>();
+
   async withTransaction<T>(callback: (transaction: undefined) => Promise<T>): Promise<T> {
     return await callback(undefined);
   }

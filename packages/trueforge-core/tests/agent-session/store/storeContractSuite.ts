@@ -66,8 +66,15 @@ function contextContents(messages: ContextMessage[] | undefined): string[] {
   });
 }
 
-/** Store contract suite — factory-injected so other backends can reuse it. */
-export function runStoreContractSuite<TTransaction>(createStore: () => ISessionStore<TTransaction>) {
+/**
+ * Store contract suite — factory-injected so other backends can reuse it.
+ * `transactions` covers grouped commit and rollback. InMemorySessionStore does not
+ * roll back, so only database backends opt in.
+ */
+export function runStoreContractSuite<TTransaction>(
+  createStore: () => ISessionStore<TTransaction>,
+  options?: { transactions?: boolean },
+) {
   type Store = ISessionStore<TTransaction>;
   const tenant = 't1';
   const sessionId = 's1';
@@ -4313,6 +4320,100 @@ export function runStoreContractSuite<TTransaction>(createStore: () => ISessionS
       expect(afterEvents).toEqual(beforeEvents);
     });
   });
+
+  if (options?.transactions) {
+    describe('withTransaction', () => {
+      const scope = {
+        session_id: sessionId,
+        turn_id: 'turn-1',
+        active_executor_id: TEST_ACTIVE_EXECUTOR_ID,
+      };
+      const inbound = {
+        id: 'evt-grouped',
+        type: 'user.tool_approval' as const,
+        thread_id: 'main',
+        tool_call_id: 'tc-grouped',
+        approval: { status: 'allow' as const },
+        created_at: new Date().toISOString(),
+      };
+
+      async function seedGroupedTurn(store: Store) {
+        await seedSession(store);
+        await store.createTurn(makeCreateTurnInput({ sessionId, turnId: 'turn-1' }));
+        await store.insertTurnInboundEvents({ ...scope, events: [inbound] });
+      }
+
+      async function applyGroupedWrite(store: Store, transaction: TTransaction) {
+        await store.appendToThreadContext(
+          {
+            ...scope,
+            thread_id: MAIN_THREAD_ID,
+            context: [userMessage('grouped')],
+            current_context_usage: null,
+            completion: null,
+          },
+          transaction,
+        );
+        await store.appendToEvents({ ...scope, events: [inbound] }, transaction);
+        await store.markTurnInboundEventsConsumed({ ...scope, event_ids: [inbound.id] }, transaction);
+      }
+
+      it('commits thread context, the event list, and inbox consumption together', async () => {
+        const store = createStore();
+        await seedGroupedTurn(store);
+
+        await store.withTransaction(async transaction => {
+          await applyGroupedWrite(store, transaction);
+        });
+
+        const turn = mustGet(await store.getTurn({ session_id: sessionId, turn_id: 'turn-1' }));
+        expect(contextContents(turn.snapshot.threads[MAIN_THREAD_ID]?.context)).toEqual(['grouped']);
+        const events = await store.listTurnEvents({
+          session_id: sessionId,
+          turn_id: 'turn-1',
+          limit: 20,
+          page_token: undefined,
+          order: 'asc',
+        });
+        expect(events.data).toContainEqual(inbound);
+        expect(await store.listUnconsumedTurnInboundEvents({ session_id: sessionId, turn_id: 'turn-1' })).toEqual([]);
+      });
+
+      it('rolls back thread context, the event list, and inbox consumption together', async () => {
+        const store = createStore();
+        await seedGroupedTurn(store);
+        const before = mustGet(await store.getTurn({ session_id: sessionId, turn_id: 'turn-1' }));
+        const beforeEvents = await store.listTurnEvents({
+          session_id: sessionId,
+          turn_id: 'turn-1',
+          limit: 20,
+          page_token: undefined,
+          order: 'asc',
+        });
+
+        await expect(
+          store.withTransaction(async transaction => {
+            await applyGroupedWrite(store, transaction);
+            throw new Error('grouped write failed');
+          }),
+        ).rejects.toThrow('grouped write failed');
+
+        const after = mustGet(await store.getTurn({ session_id: sessionId, turn_id: 'turn-1' }));
+        const afterEvents = await store.listTurnEvents({
+          session_id: sessionId,
+          turn_id: 'turn-1',
+          limit: 20,
+          page_token: undefined,
+          order: 'asc',
+        });
+        expect(after).toEqual(before);
+        expect(afterEvents).toEqual(beforeEvents);
+        expect(await store.listUnconsumedTurnInboundEvents({ session_id: sessionId, turn_id: 'turn-1' })).toEqual([
+          inbound,
+        ]);
+      });
+    });
+  }
 
   describe('no SSE surface', () => {
     it('ISessionStore has no subscribe* members', () => {

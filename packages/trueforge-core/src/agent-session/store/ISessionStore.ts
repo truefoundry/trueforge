@@ -382,7 +382,10 @@ export interface ISessionStore<
    */
   updateTurnTerminalState(input: UpdateTurnTerminalStateInput): Promise<void>;
 
-  /** Runs related writes atomically and supplies the backend transaction handle. */
+  /**
+   * Supplies the backend transaction handle. Database backends commit the callback's
+   * writes together and roll them back when the callback throws.
+   */
   withTransaction<T>(callback: (transaction: TTransaction) => Promise<T>): Promise<T>;
 
   /**

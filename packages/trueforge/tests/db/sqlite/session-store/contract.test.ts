@@ -13,5 +13,5 @@ describe('SqliteSessionStore (ISessionStore contract)', () => {
     await env?.teardown();
   });
 
-  runStoreContractSuite(() => new SqliteSessionStore(env.db));
+  runStoreContractSuite(() => new SqliteSessionStore(env.db), { transactions: true });
 });

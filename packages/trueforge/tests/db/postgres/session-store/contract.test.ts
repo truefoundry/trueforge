@@ -36,10 +36,13 @@ describePg('PostgresSessionStore (ISessionStore contract)', () => {
     }
   });
 
-  runStoreContractSuite(() => {
-    if (env === undefined) {
-      throw new Error('Postgres test environment not initialized');
-    }
-    return new PostgresSessionStore(env.db);
-  });
+  runStoreContractSuite(
+    () => {
+      if (env === undefined) {
+        throw new Error('Postgres test environment not initialized');
+      }
+      return new PostgresSessionStore(env.db);
+    },
+    { transactions: true },
+  );
 });
