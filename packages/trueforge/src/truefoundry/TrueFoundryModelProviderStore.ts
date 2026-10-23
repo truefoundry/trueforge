@@ -98,12 +98,7 @@ export class TrueFoundryModelProviderStore<TTransaction = never> implements IMod
   }
 
   async listModels(input: ListModelProvidersInput, transaction?: TTransaction): Promise<AvailableModel[]> {
-    const models = flattenProviderModels(await this.listProviders(input, transaction));
-    return models.map(model =>
-      model.warning === undefined
-        ? model
-        : { ...model, warning: `${model.warning} Edit this model in the TrueFoundry models section to configure it.` },
-    );
+    return flattenProviderModels(await this.listProviders(input, transaction));
   }
 
   async resolveInvokeHeaders(input: {

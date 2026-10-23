@@ -99,7 +99,7 @@ export function modelPropertiesWarning(input: { properties: ModelProperties }): 
     return undefined;
   }
   const missingText = missing.join(' and ');
-  return `${missingText.charAt(0).toUpperCase()}${missingText.slice(1)} ${missing.length > 1 ? 'are' : 'is'} missing, so the output of this model might not be efficient.`;
+  return `${missingText.charAt(0).toUpperCase()}${missingText.slice(1)} ${missing.length > 1 ? 'are' : 'is'} not configured for this model, which may affect TrueForge's performance.`;
 }
 
 /** Application-side flatten shared by both store implementations. */
