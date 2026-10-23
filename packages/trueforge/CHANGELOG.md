@@ -1,5 +1,81 @@
 # @truefoundry/trueforge
 
+## 0.180.0
+
+### Patch Changes
+
+- 36a0bfa: Preserve supervisord ENTRYPOINT on Daytona custom-environment buildInfo snapshots so the sandbox NATS bridge starts (Daytona otherwise defaults to sleep infinity).
+- d233f44: Set Daytona `requestTimeoutMs` to 60s so the SDK applies a per-exec HTTP deadline (command timeout + 5s) and a hung toolbox response cannot leave a turn blocked without a tool.response.
+- 0a1606d: Default the reasoning effort to `medium` when the selected model offers it, instead of defaulting to the lowest effort. TrueFoundry model listing now passes `mergeParams` to the provider-integrations API so provider-level parameter defaults are included in each model's advertised parameters.
+- 0a42995: In TrueFoundry mode, `x-tfg-skills`, `x-tfg-mcp`, and `x-tfg-models` are allowed when creating an inline session, replacing its spec, or running a turn on it. Create and replace only use the headers to check the spec and do not save them. `x-tfg-skills` must list every skill as a git skill; registry skill ids are not accepted. MCP servers and models fall back to the registry when a name is missing. Other routes reject these headers.
+- 3b2405e: Add tenant, request, session, and turn ids to server and controller logs so a failure can be filtered to one request or turn. Log lines no longer include the package version.
+- ce2a843: Add newer model presets to the shipped model catalog for the providers it already lists.
+- 26c77c4: Add optional AgentSpec-shaped `model` (`{ name: provider/model, params? }`) on `model.message` events, stamp it from the bound agent definition for new turns, and backfill the session tip turn's events / turn output from the session agent model FQN.
+- 8cd3f33: Expose Prometheus request metrics at `GET /metrics` so a scraper can see rate, status, and latency for `/api` requests.
+- f10e3b8: Default reasoning effort now follows `medium` → `high` → `low` in both the draft (New Chat) composer and the agent builder (Agent Config) when the selected model does not offer `medium`, instead of falling back to the lowest offered effort.
+- d3d80a2: Use the `rediss://` URL scheme for standalone Redis when `REDIS_TLS_ENABLED` is true so TLS connections advertise the secure protocol in the connection URL.
+- b037c92: Only validate `model.params.reasoning_effort` against a model's advertised efforts when that list is non-empty, so models without configured efforts no longer reject specs that set it.
+- b575b9a: Compare the service API key with `crypto.timingSafeEqual` so a rejected credential does not leak how much of the key matched.
+- 9208cc8: Allow tenant members to use sandbox environments created by other members while keeping update and delete actions restricted to the creator.
+- 5da156a: Add a host-overridable Register Skills action next to the Skills modal title. The default slot waits for capabilities, routes to Settings → Skills or a platform URL, and hides when neither applies.
+- eb5560c: Add a keyless You.com remote MCP server preset to the shipped MCP catalog so users can opt into You.com web search alongside the existing presets.
+- Updated dependencies [5dd0089]
+- Updated dependencies [36a0bfa]
+- Updated dependencies [0a1606d]
+- Updated dependencies [5fd9cca]
+- Updated dependencies [26c77c4]
+- Updated dependencies [be2bb87]
+- Updated dependencies [248e768]
+- Updated dependencies [05cef0b]
+  - @truefoundry/trueforge-core@0.180.0
+  - @truefoundry/trueforge-sdk@0.180.0
+
+## 0.180.0-rc.4
+
+### Patch Changes
+
+- Updated dependencies [5fd9cca]
+  - @truefoundry/trueforge-core@0.180.0-rc.3
+
+## 0.180.0-rc.3
+
+### Patch Changes
+
+- f10e3b8: Default reasoning effort now follows `medium` → `high` → `low` in both the draft (New Chat) composer and the agent builder (Agent Config) when the selected model does not offer `medium`, instead of falling back to the lowest offered effort.
+
+## 0.180.0-rc.2
+
+### Patch Changes
+
+- 0a1606d: Default the reasoning effort to `medium` when the selected model offers it (falling back to the lowest real effort otherwise), instead of defaulting to the lowest effort. TrueFoundry model listing now passes `mergeParams` to the provider-integrations API so provider-level parameter defaults are included in each model's advertised parameters.
+- Updated dependencies [0a1606d]
+  - @truefoundry/trueforge-core@0.180.0-rc.2
+
+## 0.180.0-rc.1
+
+### Patch Changes
+
+- 36a0bfa: Preserve supervisord ENTRYPOINT on Daytona custom-environment buildInfo snapshots so the sandbox NATS bridge starts (Daytona otherwise defaults to sleep infinity).
+- d233f44: Set Daytona `requestTimeoutMs` to 60s so the SDK applies a per-exec HTTP deadline (command timeout + 5s) and a hung toolbox response cannot leave a turn blocked without a tool.response.
+- 0a42995: In TrueFoundry mode, `x-tfg-skills`, `x-tfg-mcp`, and `x-tfg-models` are allowed when creating an inline session, replacing its spec, or running a turn on it. Create and replace only use the headers to check the spec and do not save them. `x-tfg-skills` must list every skill as a git skill; registry skill ids are not accepted. MCP servers and models fall back to the registry when a name is missing. Other routes reject these headers.
+- 3b2405e: Add tenant, request, session, and turn ids to server and controller logs so a failure can be filtered to one request or turn. Log lines no longer include the package version.
+- ce2a843: Add newer model presets to the shipped model catalog for the providers it already lists.
+- 26c77c4: Add optional AgentSpec-shaped `model` (`{ name: provider/model, params? }`) on `model.message` events, stamp it from the bound agent definition for new turns, and backfill the session tip turn's events / turn output from the session agent model FQN.
+- 8cd3f33: Expose Prometheus request metrics at `GET /metrics` so a scraper can see rate, status, and latency for `/api` requests.
+- d3d80a2: Use the `rediss://` URL scheme for standalone Redis when `REDIS_TLS_ENABLED` is true so TLS connections advertise the secure protocol in the connection URL.
+- b037c92: Only validate `model.params.reasoning_effort` against a model's advertised efforts when that list is non-empty, so models without configured efforts no longer reject specs that set it.
+- b575b9a: Compare the service API key with `crypto.timingSafeEqual` so a rejected credential does not leak how much of the key matched.
+- 9208cc8: Allow tenant members to use sandbox environments created by other members while keeping update and delete actions restricted to the creator.
+- 5da156a: Add a host-overridable Register Skills action next to the Skills modal title. The default slot waits for capabilities, routes to Settings → Skills or a platform URL, and hides when neither applies.
+- eb5560c: Add a keyless You.com remote MCP server preset to the shipped MCP catalog so users can opt into You.com web search alongside the existing presets.
+- Updated dependencies [5dd0089]
+- Updated dependencies [36a0bfa]
+- Updated dependencies [26c77c4]
+- Updated dependencies [be2bb87]
+- Updated dependencies [248e768]
+- Updated dependencies [05cef0b]
+  - @truefoundry/trueforge-core@0.180.0-rc.1
+
 ## 0.179.0
 
 ### Patch Changes
