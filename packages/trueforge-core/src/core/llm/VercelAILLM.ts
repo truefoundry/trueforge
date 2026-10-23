@@ -34,6 +34,7 @@ import type {
   ChatCompletionTool,
 } from 'openai/resources/chat';
 import type { Logger } from 'winston';
+import { ModelProviderError } from '../errors';
 import { describeUnknownError, extractErrorLogFields } from '../util/errorLogFields';
 import { modelSsrfFetch } from '../util/outboundFetch';
 import type { ILLM, LLMCreateParams, LLMCreateParamsStreaming } from './ILLM';
@@ -1008,10 +1009,10 @@ export function describeStreamError(raw: unknown): string {
 }
 
 export function toStreamError(raw: unknown): Error {
-  if (raw instanceof Error) {
+  if (raw instanceof ModelProviderError) {
     return raw;
   }
-  return new Error(describeStreamError(raw), { cause: raw });
+  return new ModelProviderError(describeStreamError(raw), { cause: raw });
 }
 
 export function mapFinishReason(reason: FinishReason): RawAssistantMessageWithUsage['finish_reason'] {
@@ -1442,12 +1443,13 @@ export class VercelAILLM implements ILLM {
         ...(output !== undefined ? { output } : {}),
       });
     } catch (error) {
+      const streamError = toStreamError(error);
       if (this.signal?.aborted) {
-        this.logger.debug('LLM call aborted', extractErrorLogFields(error));
+        this.logger.debug('LLM call aborted', extractErrorLogFields(streamError));
       } else {
-        this.logger.error('Error creating streaming chat completion', extractErrorLogFields(error));
+        this.logger.error('Error creating streaming chat completion', extractErrorLogFields(streamError));
       }
-      throw toStreamError(error);
+      throw streamError;
     }
 
     // Detached: warnings resolve at stream start, and a pending or rejected promise must never
@@ -1480,12 +1482,13 @@ export class VercelAILLM implements ILLM {
       result.output.source = `${provider.type}/${provider.name}/${model.name}`;
       return result;
     } catch (error) {
+      const streamError = toStreamError(error);
       if (this.signal?.aborted) {
-        this.logger.debug('LLM stream aborted', extractErrorLogFields(error));
+        this.logger.debug('LLM stream aborted', extractErrorLogFields(streamError));
       } else {
-        this.logger.error('Error reading LLM stream', extractErrorLogFields(error));
+        this.logger.error('Error reading LLM stream', extractErrorLogFields(streamError));
       }
-      throw toStreamError(error);
+      throw streamError;
     }
   }
 
