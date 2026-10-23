@@ -4,19 +4,19 @@ import type * as TrueForge from "../../api/index.js";
 import * as core from "../../core/index.js";
 import type * as serializers from "../index.js";
 import { CreatedBySubject } from "./CreatedBySubject.js";
-import { SessionAccessSubject } from "./SessionAccessSubject.js";
+import { SessionGrantSubject } from "./SessionGrantSubject.js";
 
-export const SessionAccess: core.serialization.ObjectSchema<serializers.SessionAccess.Raw, TrueForge.SessionAccess> =
+export const SessionGrant: core.serialization.ObjectSchema<serializers.SessionGrant.Raw, TrueForge.SessionGrant> =
     core.serialization.object({
         createdAt: core.serialization.property("created_at", core.serialization.string()),
         grantedBySubject: core.serialization.property("granted_by_subject", CreatedBySubject),
-        subject: SessionAccessSubject,
+        subject: SessionGrantSubject,
     });
 
-export declare namespace SessionAccess {
+export declare namespace SessionGrant {
     export interface Raw {
         created_at: string;
         granted_by_subject: CreatedBySubject.Raw;
-        subject: SessionAccessSubject.Raw;
+        subject: SessionGrantSubject.Raw;
     }
 }

@@ -67,7 +67,7 @@ if typing.TYPE_CHECKING:
     from .delete_model_provider_response import DeleteModelProviderResponse
     from .delete_sandbox_environment_response import DeleteSandboxEnvironmentResponse
     from .delete_schedule_response import DeleteScheduleResponse
-    from .delete_session_access_response import DeleteSessionAccessResponse
+    from .delete_session_grant_response import DeleteSessionGrantResponse
     from .delete_skill_response import DeleteSkillResponse
     from .dynamic_sub_agents_config import DynamicSubAgentsConfig
     from .extended_chunk_delta_tool_call import ExtendedChunkDeltaToolCall
@@ -116,8 +116,8 @@ if typing.TYPE_CHECKING:
     from .list_sandbox_environments_response import ListSandboxEnvironmentsResponse
     from .list_schedule_runs_response import ListScheduleRunsResponse
     from .list_schedules_response import ListSchedulesResponse
-    from .list_session_access_response import ListSessionAccessResponse
     from .list_session_events_response import ListSessionEventsResponse
+    from .list_session_grants_response import ListSessionGrantsResponse
     from .list_sessions_order import ListSessionsOrder
     from .list_sessions_response import ListSessionsResponse
     from .list_skill_versions_response import ListSkillVersionsResponse
@@ -196,9 +196,6 @@ if typing.TYPE_CHECKING:
     from .schedule_run_status import ScheduleRunStatus
     from .schedule_status import ScheduleStatus
     from .session import Session
-    from .session_access import SessionAccess
-    from .session_access_subject import SessionAccessSubject
-    from .session_access_subject_type import SessionAccessSubjectType
     from .session_agent import SessionAgent
     from .session_agent_inline import SessionAgentInline
     from .session_agent_name_ref import SessionAgentNameRef
@@ -206,6 +203,9 @@ if typing.TYPE_CHECKING:
     from .session_agent_spec_body import SessionAgentSpecBody
     from .session_event import SessionEvent
     from .session_event_item import SessionEventItem
+    from .session_grant import SessionGrant
+    from .session_grant_subject import SessionGrantSubject
+    from .session_grant_subject_type import SessionGrantSubjectType
     from .session_metadata import SessionMetadata
     from .session_metrics import SessionMetrics
     from .session_metrics_chart import SessionMetricsChart
@@ -344,7 +344,7 @@ _dynamic_imports: typing.Dict[str, str] = {
     "DeleteModelProviderResponse": ".delete_model_provider_response",
     "DeleteSandboxEnvironmentResponse": ".delete_sandbox_environment_response",
     "DeleteScheduleResponse": ".delete_schedule_response",
-    "DeleteSessionAccessResponse": ".delete_session_access_response",
+    "DeleteSessionGrantResponse": ".delete_session_grant_response",
     "DeleteSkillResponse": ".delete_skill_response",
     "DynamicSubAgentsConfig": ".dynamic_sub_agents_config",
     "ExtendedChunkDeltaToolCall": ".extended_chunk_delta_tool_call",
@@ -393,8 +393,8 @@ _dynamic_imports: typing.Dict[str, str] = {
     "ListSandboxEnvironmentsResponse": ".list_sandbox_environments_response",
     "ListScheduleRunsResponse": ".list_schedule_runs_response",
     "ListSchedulesResponse": ".list_schedules_response",
-    "ListSessionAccessResponse": ".list_session_access_response",
     "ListSessionEventsResponse": ".list_session_events_response",
+    "ListSessionGrantsResponse": ".list_session_grants_response",
     "ListSessionsOrder": ".list_sessions_order",
     "ListSessionsResponse": ".list_sessions_response",
     "ListSkillVersionsResponse": ".list_skill_versions_response",
@@ -473,9 +473,6 @@ _dynamic_imports: typing.Dict[str, str] = {
     "ScheduleRunStatus": ".schedule_run_status",
     "ScheduleStatus": ".schedule_status",
     "Session": ".session",
-    "SessionAccess": ".session_access",
-    "SessionAccessSubject": ".session_access_subject",
-    "SessionAccessSubjectType": ".session_access_subject_type",
     "SessionAgent": ".session_agent",
     "SessionAgentInline": ".session_agent_inline",
     "SessionAgentNameRef": ".session_agent_name_ref",
@@ -483,6 +480,9 @@ _dynamic_imports: typing.Dict[str, str] = {
     "SessionAgentSpecBody": ".session_agent_spec_body",
     "SessionEvent": ".session_event",
     "SessionEventItem": ".session_event_item",
+    "SessionGrant": ".session_grant",
+    "SessionGrantSubject": ".session_grant_subject",
+    "SessionGrantSubjectType": ".session_grant_subject_type",
     "SessionMetadata": ".session_metadata",
     "SessionMetrics": ".session_metrics",
     "SessionMetricsChart": ".session_metrics_chart",
@@ -645,7 +645,7 @@ __all__ = [
     "DeleteModelProviderResponse",
     "DeleteSandboxEnvironmentResponse",
     "DeleteScheduleResponse",
-    "DeleteSessionAccessResponse",
+    "DeleteSessionGrantResponse",
     "DeleteSkillResponse",
     "DynamicSubAgentsConfig",
     "ExtendedChunkDeltaToolCall",
@@ -694,8 +694,8 @@ __all__ = [
     "ListSandboxEnvironmentsResponse",
     "ListScheduleRunsResponse",
     "ListSchedulesResponse",
-    "ListSessionAccessResponse",
     "ListSessionEventsResponse",
+    "ListSessionGrantsResponse",
     "ListSessionsOrder",
     "ListSessionsResponse",
     "ListSkillVersionsResponse",
@@ -774,9 +774,6 @@ __all__ = [
     "ScheduleRunStatus",
     "ScheduleStatus",
     "Session",
-    "SessionAccess",
-    "SessionAccessSubject",
-    "SessionAccessSubjectType",
     "SessionAgent",
     "SessionAgentInline",
     "SessionAgentNameRef",
@@ -784,6 +781,9 @@ __all__ = [
     "SessionAgentSpecBody",
     "SessionEvent",
     "SessionEventItem",
+    "SessionGrant",
+    "SessionGrantSubject",
+    "SessionGrantSubjectType",
     "SessionMetadata",
     "SessionMetrics",
     "SessionMetricsChart",

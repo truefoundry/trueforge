@@ -1,5 +1,5 @@
 export { CancelSessionRequest } from "./CancelSessionRequest.js";
-export { CreateSessionAccessRequest } from "./CreateSessionAccessRequest.js";
+export { CreateSessionGrantsRequest } from "./CreateSessionGrantsRequest.js";
 export { CreateSessionRequest } from "./CreateSessionRequest.js";
 export { CreateTurnEventRequest } from "./CreateTurnEventRequest.js";
 export { CreateTurnSessionsRequest } from "./CreateTurnSessionsRequest.js";

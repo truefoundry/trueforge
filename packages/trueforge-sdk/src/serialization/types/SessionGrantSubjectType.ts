@@ -4,11 +4,11 @@ import type * as TrueForge from "../../api/index.js";
 import * as core from "../../core/index.js";
 import type * as serializers from "../index.js";
 
-export const SessionAccessSubjectType: core.serialization.Schema<
-    serializers.SessionAccessSubjectType.Raw,
-    TrueForge.SessionAccessSubjectType
+export const SessionGrantSubjectType: core.serialization.Schema<
+    serializers.SessionGrantSubjectType.Raw,
+    TrueForge.SessionGrantSubjectType
 > = core.serialization.stringLiteral("user");
 
-export declare namespace SessionAccessSubjectType {
+export declare namespace SessionGrantSubjectType {
     export type Raw = "user";
 }

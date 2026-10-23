@@ -3,4 +3,4 @@
 /**
  * Kind of subject.
  */
-export type SessionAccessSubjectType = "user";
+export type SessionGrantSubjectType = "user";

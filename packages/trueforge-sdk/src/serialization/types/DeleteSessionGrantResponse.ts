@@ -4,11 +4,11 @@ import type * as TrueForge from "../../api/index.js";
 import * as core from "../../core/index.js";
 import type * as serializers from "../index.js";
 
-export const DeleteSessionAccessResponse: core.serialization.ObjectSchema<
-    serializers.DeleteSessionAccessResponse.Raw,
-    TrueForge.DeleteSessionAccessResponse
+export const DeleteSessionGrantResponse: core.serialization.ObjectSchema<
+    serializers.DeleteSessionGrantResponse.Raw,
+    TrueForge.DeleteSessionGrantResponse
 > = core.serialization.object({});
 
-export declare namespace DeleteSessionAccessResponse {
+export declare namespace DeleteSessionGrantResponse {
     export type Raw = {};
 }

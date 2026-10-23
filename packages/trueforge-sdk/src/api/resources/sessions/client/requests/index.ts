@@ -1,9 +1,10 @@
 export type { CancelSessionRequest } from "./CancelSessionRequest.js";
-export type { CreateSessionAccessRequest } from "./CreateSessionAccessRequest.js";
+export type { CreateSessionGrantsRequest } from "./CreateSessionGrantsRequest.js";
 export type { CreateSessionRequest } from "./CreateSessionRequest.js";
 export type { CreateTurnEventRequest } from "./CreateTurnEventRequest.js";
 export type { CreateTurnSessionsRequest } from "./CreateTurnSessionsRequest.js";
 export type { CreateTurnSessionsStreamRequest } from "./CreateTurnSessionsStreamRequest.js";
+export type { DeleteGrantSessionsRequest } from "./DeleteGrantSessionsRequest.js";
 export type { DownloadSandboxFileSessionsRequest } from "./DownloadSandboxFileSessionsRequest.js";
 export type { ListEventsSessionsRequest } from "./ListEventsSessionsRequest.js";
 export type { ListSessionsRequest } from "./ListSessionsRequest.js";

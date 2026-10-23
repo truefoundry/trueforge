@@ -7,7 +7,7 @@ from ..core.pydantic_utilities import IS_PYDANTIC_V2
 from ..core.unchecked_base_model import UncheckedBaseModel
 
 
-class DeleteSessionAccessResponse(UncheckedBaseModel):
+class DeleteSessionGrantResponse(UncheckedBaseModel):
     if IS_PYDANTIC_V2:
         model_config: typing.ClassVar[pydantic.ConfigDict] = pydantic.ConfigDict(extra="allow")  # type: ignore # Pydantic v2
     else:

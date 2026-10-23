@@ -32,11 +32,11 @@ from ..errors.unprocessable_entity_error import UnprocessableEntityError
 from ..types.cancel_session_response import CancelSessionResponse
 from ..types.create_session_agent import CreateSessionAgent
 from ..types.create_turn_event_response import CreateTurnEventResponse
-from ..types.delete_session_access_response import DeleteSessionAccessResponse
+from ..types.delete_session_grant_response import DeleteSessionGrantResponse
 from ..types.get_session_response import GetSessionResponse
 from ..types.get_turn_response import GetTurnResponse
-from ..types.list_session_access_response import ListSessionAccessResponse
 from ..types.list_session_events_response import ListSessionEventsResponse
+from ..types.list_session_grants_response import ListSessionGrantsResponse
 from ..types.list_sessions_order import ListSessionsOrder
 from ..types.list_sessions_response import ListSessionsResponse
 from ..types.list_turn_events_order import ListTurnEventsOrder
@@ -45,10 +45,10 @@ from ..types.list_turns_response import ListTurnsResponse
 from ..types.previous_turn_id_input import PreviousTurnIdInput
 from ..types.request_error_response import RequestErrorResponse
 from ..types.session import Session
-from ..types.session_access_subject import SessionAccessSubject
 from ..types.session_agent_spec_body import SessionAgentSpecBody
 from ..types.session_event import SessionEvent
 from ..types.session_event_item import SessionEventItem
+from ..types.session_grant_subject import SessionGrantSubject
 from ..types.session_metadata import SessionMetadata
 from ..types.session_source_type import SessionSourceType
 from ..types.turn import Turn
@@ -505,242 +505,6 @@ class RawSessionsClient:
             )
         raise ApiError(status_code=_response.status_code, headers=dict(_response.headers), body=_response_json)
 
-    def list_access(
-        self, *, session_id: str, request_options: typing.Optional[RequestOptions] = None
-    ) -> HttpResponse[ListSessionAccessResponse]:
-        """
-        List the subjects this session is shared with.
-
-        Parameters
-        ----------
-        session_id : str
-            Session identifier.
-
-        request_options : typing.Optional[RequestOptions]
-            Request-specific configuration.
-
-        Returns
-        -------
-        HttpResponse[ListSessionAccessResponse]
-            Subjects the session is shared with.
-        """
-        _response = self._client_wrapper.httpx_client.request(
-            f"api/v1/sessions/{encode_path_param(session_id)}/access",
-            method="GET",
-            request_options=request_options,
-        )
-        try:
-            if 200 <= _response.status_code < 300:
-                _data = typing.cast(
-                    ListSessionAccessResponse,
-                    construct_type(
-                        type_=ListSessionAccessResponse,  # type: ignore
-                        object_=_response.json(),
-                    ),
-                )
-                return HttpResponse(response=_response, data=_data)
-            if _response.status_code == 403:
-                raise ForbiddenError(
-                    headers=dict(_response.headers),
-                    body=typing.cast(
-                        RequestErrorResponse,
-                        construct_type(
-                            type_=RequestErrorResponse,  # type: ignore
-                            object_=_response.json(),
-                        ),
-                    ),
-                )
-            if _response.status_code == 404:
-                raise NotFoundError(
-                    headers=dict(_response.headers),
-                    body=typing.cast(
-                        RequestErrorResponse,
-                        construct_type(
-                            type_=RequestErrorResponse,  # type: ignore
-                            object_=_response.json(),
-                        ),
-                    ),
-                )
-            _response_json = _response.json()
-        except JSONDecodeError:
-            raise ApiError(status_code=_response.status_code, headers=dict(_response.headers), body=_response.text)
-        except ValidationError as e:
-            raise ParsingError(
-                status_code=_response.status_code, headers=dict(_response.headers), body=_response.json(), cause=e
-            )
-        raise ApiError(status_code=_response.status_code, headers=dict(_response.headers), body=_response_json)
-
-    def create_access(
-        self,
-        *,
-        session_id: str,
-        subjects: typing.Sequence[SessionAccessSubject],
-        request_options: typing.Optional[RequestOptions] = None,
-    ) -> HttpResponse[ListSessionAccessResponse]:
-        """
-        Share this session with one or more subjects. Subjects that already have access are left unchanged. Returns every subject the session is shared with.
-
-        Parameters
-        ----------
-        session_id : str
-            Session identifier.
-
-        subjects : typing.Sequence[SessionAccessSubject]
-            Subjects to share the session with (1–50).
-
-        request_options : typing.Optional[RequestOptions]
-            Request-specific configuration.
-
-        Returns
-        -------
-        HttpResponse[ListSessionAccessResponse]
-            Subjects the session is shared with after the change.
-        """
-        _response = self._client_wrapper.httpx_client.request(
-            f"api/v1/sessions/{encode_path_param(session_id)}/access",
-            method="POST",
-            json={
-                "subjects": convert_and_respect_annotation_metadata(
-                    object_=subjects, annotation=typing.Sequence[SessionAccessSubject], direction="write"
-                ),
-            },
-            headers={
-                "content-type": "application/json",
-            },
-            request_options=request_options,
-            omit=OMIT,
-        )
-        try:
-            if 200 <= _response.status_code < 300:
-                _data = typing.cast(
-                    ListSessionAccessResponse,
-                    construct_type(
-                        type_=ListSessionAccessResponse,  # type: ignore
-                        object_=_response.json(),
-                    ),
-                )
-                return HttpResponse(response=_response, data=_data)
-            if _response.status_code == 400:
-                raise BadRequestError(
-                    headers=dict(_response.headers),
-                    body=typing.cast(
-                        RequestErrorResponse,
-                        construct_type(
-                            type_=RequestErrorResponse,  # type: ignore
-                            object_=_response.json(),
-                        ),
-                    ),
-                )
-            if _response.status_code == 403:
-                raise ForbiddenError(
-                    headers=dict(_response.headers),
-                    body=typing.cast(
-                        RequestErrorResponse,
-                        construct_type(
-                            type_=RequestErrorResponse,  # type: ignore
-                            object_=_response.json(),
-                        ),
-                    ),
-                )
-            if _response.status_code == 404:
-                raise NotFoundError(
-                    headers=dict(_response.headers),
-                    body=typing.cast(
-                        RequestErrorResponse,
-                        construct_type(
-                            type_=RequestErrorResponse,  # type: ignore
-                            object_=_response.json(),
-                        ),
-                    ),
-                )
-            if _response.status_code == 422:
-                raise UnprocessableEntityError(
-                    headers=dict(_response.headers),
-                    body=typing.cast(
-                        RequestErrorResponse,
-                        construct_type(
-                            type_=RequestErrorResponse,  # type: ignore
-                            object_=_response.json(),
-                        ),
-                    ),
-                )
-            _response_json = _response.json()
-        except JSONDecodeError:
-            raise ApiError(status_code=_response.status_code, headers=dict(_response.headers), body=_response.text)
-        except ValidationError as e:
-            raise ParsingError(
-                status_code=_response.status_code, headers=dict(_response.headers), body=_response.json(), cause=e
-            )
-        raise ApiError(status_code=_response.status_code, headers=dict(_response.headers), body=_response_json)
-
-    def delete_access(
-        self, *, session_id: str, subject_id: str, request_options: typing.Optional[RequestOptions] = None
-    ) -> HttpResponse[DeleteSessionAccessResponse]:
-        """
-        Revoke a subject's access to this session.
-
-        Parameters
-        ----------
-        session_id : str
-            Session identifier.
-
-        subject_id : str
-            ID of the subject.
-
-        request_options : typing.Optional[RequestOptions]
-            Request-specific configuration.
-
-        Returns
-        -------
-        HttpResponse[DeleteSessionAccessResponse]
-            Access revoked.
-        """
-        _response = self._client_wrapper.httpx_client.request(
-            f"api/v1/sessions/{encode_path_param(session_id)}/access/user/{encode_path_param(subject_id)}",
-            method="DELETE",
-            request_options=request_options,
-        )
-        try:
-            if 200 <= _response.status_code < 300:
-                _data = typing.cast(
-                    DeleteSessionAccessResponse,
-                    construct_type(
-                        type_=DeleteSessionAccessResponse,  # type: ignore
-                        object_=_response.json(),
-                    ),
-                )
-                return HttpResponse(response=_response, data=_data)
-            if _response.status_code == 403:
-                raise ForbiddenError(
-                    headers=dict(_response.headers),
-                    body=typing.cast(
-                        RequestErrorResponse,
-                        construct_type(
-                            type_=RequestErrorResponse,  # type: ignore
-                            object_=_response.json(),
-                        ),
-                    ),
-                )
-            if _response.status_code == 404:
-                raise NotFoundError(
-                    headers=dict(_response.headers),
-                    body=typing.cast(
-                        RequestErrorResponse,
-                        construct_type(
-                            type_=RequestErrorResponse,  # type: ignore
-                            object_=_response.json(),
-                        ),
-                    ),
-                )
-            _response_json = _response.json()
-        except JSONDecodeError:
-            raise ApiError(status_code=_response.status_code, headers=dict(_response.headers), body=_response.text)
-        except ValidationError as e:
-            raise ParsingError(
-                status_code=_response.status_code, headers=dict(_response.headers), body=_response.json(), cause=e
-            )
-        raise ApiError(status_code=_response.status_code, headers=dict(_response.headers), body=_response_json)
-
     def cancel(
         self, *, session_id: str, request_options: typing.Optional[RequestOptions] = None
     ) -> HttpResponse[CancelSessionResponse]:
@@ -889,6 +653,257 @@ class RawSessionsClient:
                         request_options=request_options,
                     )
                 return SyncPager(has_next=_has_next, items=_items, get_next=_get_next, response=_parsed_response)
+            if _response.status_code == 400:
+                raise BadRequestError(
+                    headers=dict(_response.headers),
+                    body=typing.cast(
+                        RequestErrorResponse,
+                        construct_type(
+                            type_=RequestErrorResponse,  # type: ignore
+                            object_=_response.json(),
+                        ),
+                    ),
+                )
+            if _response.status_code == 403:
+                raise ForbiddenError(
+                    headers=dict(_response.headers),
+                    body=typing.cast(
+                        RequestErrorResponse,
+                        construct_type(
+                            type_=RequestErrorResponse,  # type: ignore
+                            object_=_response.json(),
+                        ),
+                    ),
+                )
+            if _response.status_code == 404:
+                raise NotFoundError(
+                    headers=dict(_response.headers),
+                    body=typing.cast(
+                        RequestErrorResponse,
+                        construct_type(
+                            type_=RequestErrorResponse,  # type: ignore
+                            object_=_response.json(),
+                        ),
+                    ),
+                )
+            _response_json = _response.json()
+        except JSONDecodeError:
+            raise ApiError(status_code=_response.status_code, headers=dict(_response.headers), body=_response.text)
+        except ValidationError as e:
+            raise ParsingError(
+                status_code=_response.status_code, headers=dict(_response.headers), body=_response.json(), cause=e
+            )
+        raise ApiError(status_code=_response.status_code, headers=dict(_response.headers), body=_response_json)
+
+    def list_grants(
+        self, *, session_id: str, request_options: typing.Optional[RequestOptions] = None
+    ) -> HttpResponse[ListSessionGrantsResponse]:
+        """
+        List the subjects this session is shared with.
+
+        Parameters
+        ----------
+        session_id : str
+            Session identifier.
+
+        request_options : typing.Optional[RequestOptions]
+            Request-specific configuration.
+
+        Returns
+        -------
+        HttpResponse[ListSessionGrantsResponse]
+            Subjects the session is shared with.
+        """
+        _response = self._client_wrapper.httpx_client.request(
+            f"api/v1/sessions/{encode_path_param(session_id)}/grants",
+            method="GET",
+            request_options=request_options,
+        )
+        try:
+            if 200 <= _response.status_code < 300:
+                _data = typing.cast(
+                    ListSessionGrantsResponse,
+                    construct_type(
+                        type_=ListSessionGrantsResponse,  # type: ignore
+                        object_=_response.json(),
+                    ),
+                )
+                return HttpResponse(response=_response, data=_data)
+            if _response.status_code == 403:
+                raise ForbiddenError(
+                    headers=dict(_response.headers),
+                    body=typing.cast(
+                        RequestErrorResponse,
+                        construct_type(
+                            type_=RequestErrorResponse,  # type: ignore
+                            object_=_response.json(),
+                        ),
+                    ),
+                )
+            if _response.status_code == 404:
+                raise NotFoundError(
+                    headers=dict(_response.headers),
+                    body=typing.cast(
+                        RequestErrorResponse,
+                        construct_type(
+                            type_=RequestErrorResponse,  # type: ignore
+                            object_=_response.json(),
+                        ),
+                    ),
+                )
+            _response_json = _response.json()
+        except JSONDecodeError:
+            raise ApiError(status_code=_response.status_code, headers=dict(_response.headers), body=_response.text)
+        except ValidationError as e:
+            raise ParsingError(
+                status_code=_response.status_code, headers=dict(_response.headers), body=_response.json(), cause=e
+            )
+        raise ApiError(status_code=_response.status_code, headers=dict(_response.headers), body=_response_json)
+
+    def create_grants(
+        self,
+        *,
+        session_id: str,
+        subjects: typing.Sequence[SessionGrantSubject],
+        request_options: typing.Optional[RequestOptions] = None,
+    ) -> HttpResponse[ListSessionGrantsResponse]:
+        """
+        Share this session with one or more subjects. Subjects that already have access are left unchanged. Returns every subject the session is shared with.
+
+        Parameters
+        ----------
+        session_id : str
+            Session identifier.
+
+        subjects : typing.Sequence[SessionGrantSubject]
+            Subjects to share the session with (1–50).
+
+        request_options : typing.Optional[RequestOptions]
+            Request-specific configuration.
+
+        Returns
+        -------
+        HttpResponse[ListSessionGrantsResponse]
+            Subjects the session is shared with after the change.
+        """
+        _response = self._client_wrapper.httpx_client.request(
+            f"api/v1/sessions/{encode_path_param(session_id)}/grants",
+            method="POST",
+            json={
+                "subjects": convert_and_respect_annotation_metadata(
+                    object_=subjects, annotation=typing.Sequence[SessionGrantSubject], direction="write"
+                ),
+            },
+            headers={
+                "content-type": "application/json",
+            },
+            request_options=request_options,
+            omit=OMIT,
+        )
+        try:
+            if 200 <= _response.status_code < 300:
+                _data = typing.cast(
+                    ListSessionGrantsResponse,
+                    construct_type(
+                        type_=ListSessionGrantsResponse,  # type: ignore
+                        object_=_response.json(),
+                    ),
+                )
+                return HttpResponse(response=_response, data=_data)
+            if _response.status_code == 400:
+                raise BadRequestError(
+                    headers=dict(_response.headers),
+                    body=typing.cast(
+                        RequestErrorResponse,
+                        construct_type(
+                            type_=RequestErrorResponse,  # type: ignore
+                            object_=_response.json(),
+                        ),
+                    ),
+                )
+            if _response.status_code == 403:
+                raise ForbiddenError(
+                    headers=dict(_response.headers),
+                    body=typing.cast(
+                        RequestErrorResponse,
+                        construct_type(
+                            type_=RequestErrorResponse,  # type: ignore
+                            object_=_response.json(),
+                        ),
+                    ),
+                )
+            if _response.status_code == 404:
+                raise NotFoundError(
+                    headers=dict(_response.headers),
+                    body=typing.cast(
+                        RequestErrorResponse,
+                        construct_type(
+                            type_=RequestErrorResponse,  # type: ignore
+                            object_=_response.json(),
+                        ),
+                    ),
+                )
+            if _response.status_code == 422:
+                raise UnprocessableEntityError(
+                    headers=dict(_response.headers),
+                    body=typing.cast(
+                        RequestErrorResponse,
+                        construct_type(
+                            type_=RequestErrorResponse,  # type: ignore
+                            object_=_response.json(),
+                        ),
+                    ),
+                )
+            _response_json = _response.json()
+        except JSONDecodeError:
+            raise ApiError(status_code=_response.status_code, headers=dict(_response.headers), body=_response.text)
+        except ValidationError as e:
+            raise ParsingError(
+                status_code=_response.status_code, headers=dict(_response.headers), body=_response.json(), cause=e
+            )
+        raise ApiError(status_code=_response.status_code, headers=dict(_response.headers), body=_response_json)
+
+    def delete_grant(
+        self, *, session_id: str, subject_id: str, request_options: typing.Optional[RequestOptions] = None
+    ) -> HttpResponse[DeleteSessionGrantResponse]:
+        """
+        Revoke a subject's access to this session.
+
+        Parameters
+        ----------
+        session_id : str
+            Session identifier.
+
+        subject_id : str
+            ID of the subject.
+
+        request_options : typing.Optional[RequestOptions]
+            Request-specific configuration.
+
+        Returns
+        -------
+        HttpResponse[DeleteSessionGrantResponse]
+            Access revoked.
+        """
+        _response = self._client_wrapper.httpx_client.request(
+            f"api/v1/sessions/{encode_path_param(session_id)}/grants",
+            method="DELETE",
+            params={
+                "subject_type": "user",
+                "subject_id": subject_id,
+            },
+            request_options=request_options,
+        )
+        try:
+            if 200 <= _response.status_code < 300:
+                _data = typing.cast(
+                    DeleteSessionGrantResponse,
+                    construct_type(
+                        type_=DeleteSessionGrantResponse,  # type: ignore
+                        object_=_response.json(),
+                    ),
+                )
+                return HttpResponse(response=_response, data=_data)
             if _response.status_code == 400:
                 raise BadRequestError(
                     headers=dict(_response.headers),
@@ -2378,242 +2393,6 @@ class AsyncRawSessionsClient:
             )
         raise ApiError(status_code=_response.status_code, headers=dict(_response.headers), body=_response_json)
 
-    async def list_access(
-        self, *, session_id: str, request_options: typing.Optional[RequestOptions] = None
-    ) -> AsyncHttpResponse[ListSessionAccessResponse]:
-        """
-        List the subjects this session is shared with.
-
-        Parameters
-        ----------
-        session_id : str
-            Session identifier.
-
-        request_options : typing.Optional[RequestOptions]
-            Request-specific configuration.
-
-        Returns
-        -------
-        AsyncHttpResponse[ListSessionAccessResponse]
-            Subjects the session is shared with.
-        """
-        _response = await self._client_wrapper.httpx_client.request(
-            f"api/v1/sessions/{encode_path_param(session_id)}/access",
-            method="GET",
-            request_options=request_options,
-        )
-        try:
-            if 200 <= _response.status_code < 300:
-                _data = typing.cast(
-                    ListSessionAccessResponse,
-                    construct_type(
-                        type_=ListSessionAccessResponse,  # type: ignore
-                        object_=_response.json(),
-                    ),
-                )
-                return AsyncHttpResponse(response=_response, data=_data)
-            if _response.status_code == 403:
-                raise ForbiddenError(
-                    headers=dict(_response.headers),
-                    body=typing.cast(
-                        RequestErrorResponse,
-                        construct_type(
-                            type_=RequestErrorResponse,  # type: ignore
-                            object_=_response.json(),
-                        ),
-                    ),
-                )
-            if _response.status_code == 404:
-                raise NotFoundError(
-                    headers=dict(_response.headers),
-                    body=typing.cast(
-                        RequestErrorResponse,
-                        construct_type(
-                            type_=RequestErrorResponse,  # type: ignore
-                            object_=_response.json(),
-                        ),
-                    ),
-                )
-            _response_json = _response.json()
-        except JSONDecodeError:
-            raise ApiError(status_code=_response.status_code, headers=dict(_response.headers), body=_response.text)
-        except ValidationError as e:
-            raise ParsingError(
-                status_code=_response.status_code, headers=dict(_response.headers), body=_response.json(), cause=e
-            )
-        raise ApiError(status_code=_response.status_code, headers=dict(_response.headers), body=_response_json)
-
-    async def create_access(
-        self,
-        *,
-        session_id: str,
-        subjects: typing.Sequence[SessionAccessSubject],
-        request_options: typing.Optional[RequestOptions] = None,
-    ) -> AsyncHttpResponse[ListSessionAccessResponse]:
-        """
-        Share this session with one or more subjects. Subjects that already have access are left unchanged. Returns every subject the session is shared with.
-
-        Parameters
-        ----------
-        session_id : str
-            Session identifier.
-
-        subjects : typing.Sequence[SessionAccessSubject]
-            Subjects to share the session with (1–50).
-
-        request_options : typing.Optional[RequestOptions]
-            Request-specific configuration.
-
-        Returns
-        -------
-        AsyncHttpResponse[ListSessionAccessResponse]
-            Subjects the session is shared with after the change.
-        """
-        _response = await self._client_wrapper.httpx_client.request(
-            f"api/v1/sessions/{encode_path_param(session_id)}/access",
-            method="POST",
-            json={
-                "subjects": convert_and_respect_annotation_metadata(
-                    object_=subjects, annotation=typing.Sequence[SessionAccessSubject], direction="write"
-                ),
-            },
-            headers={
-                "content-type": "application/json",
-            },
-            request_options=request_options,
-            omit=OMIT,
-        )
-        try:
-            if 200 <= _response.status_code < 300:
-                _data = typing.cast(
-                    ListSessionAccessResponse,
-                    construct_type(
-                        type_=ListSessionAccessResponse,  # type: ignore
-                        object_=_response.json(),
-                    ),
-                )
-                return AsyncHttpResponse(response=_response, data=_data)
-            if _response.status_code == 400:
-                raise BadRequestError(
-                    headers=dict(_response.headers),
-                    body=typing.cast(
-                        RequestErrorResponse,
-                        construct_type(
-                            type_=RequestErrorResponse,  # type: ignore
-                            object_=_response.json(),
-                        ),
-                    ),
-                )
-            if _response.status_code == 403:
-                raise ForbiddenError(
-                    headers=dict(_response.headers),
-                    body=typing.cast(
-                        RequestErrorResponse,
-                        construct_type(
-                            type_=RequestErrorResponse,  # type: ignore
-                            object_=_response.json(),
-                        ),
-                    ),
-                )
-            if _response.status_code == 404:
-                raise NotFoundError(
-                    headers=dict(_response.headers),
-                    body=typing.cast(
-                        RequestErrorResponse,
-                        construct_type(
-                            type_=RequestErrorResponse,  # type: ignore
-                            object_=_response.json(),
-                        ),
-                    ),
-                )
-            if _response.status_code == 422:
-                raise UnprocessableEntityError(
-                    headers=dict(_response.headers),
-                    body=typing.cast(
-                        RequestErrorResponse,
-                        construct_type(
-                            type_=RequestErrorResponse,  # type: ignore
-                            object_=_response.json(),
-                        ),
-                    ),
-                )
-            _response_json = _response.json()
-        except JSONDecodeError:
-            raise ApiError(status_code=_response.status_code, headers=dict(_response.headers), body=_response.text)
-        except ValidationError as e:
-            raise ParsingError(
-                status_code=_response.status_code, headers=dict(_response.headers), body=_response.json(), cause=e
-            )
-        raise ApiError(status_code=_response.status_code, headers=dict(_response.headers), body=_response_json)
-
-    async def delete_access(
-        self, *, session_id: str, subject_id: str, request_options: typing.Optional[RequestOptions] = None
-    ) -> AsyncHttpResponse[DeleteSessionAccessResponse]:
-        """
-        Revoke a subject's access to this session.
-
-        Parameters
-        ----------
-        session_id : str
-            Session identifier.
-
-        subject_id : str
-            ID of the subject.
-
-        request_options : typing.Optional[RequestOptions]
-            Request-specific configuration.
-
-        Returns
-        -------
-        AsyncHttpResponse[DeleteSessionAccessResponse]
-            Access revoked.
-        """
-        _response = await self._client_wrapper.httpx_client.request(
-            f"api/v1/sessions/{encode_path_param(session_id)}/access/user/{encode_path_param(subject_id)}",
-            method="DELETE",
-            request_options=request_options,
-        )
-        try:
-            if 200 <= _response.status_code < 300:
-                _data = typing.cast(
-                    DeleteSessionAccessResponse,
-                    construct_type(
-                        type_=DeleteSessionAccessResponse,  # type: ignore
-                        object_=_response.json(),
-                    ),
-                )
-                return AsyncHttpResponse(response=_response, data=_data)
-            if _response.status_code == 403:
-                raise ForbiddenError(
-                    headers=dict(_response.headers),
-                    body=typing.cast(
-                        RequestErrorResponse,
-                        construct_type(
-                            type_=RequestErrorResponse,  # type: ignore
-                            object_=_response.json(),
-                        ),
-                    ),
-                )
-            if _response.status_code == 404:
-                raise NotFoundError(
-                    headers=dict(_response.headers),
-                    body=typing.cast(
-                        RequestErrorResponse,
-                        construct_type(
-                            type_=RequestErrorResponse,  # type: ignore
-                            object_=_response.json(),
-                        ),
-                    ),
-                )
-            _response_json = _response.json()
-        except JSONDecodeError:
-            raise ApiError(status_code=_response.status_code, headers=dict(_response.headers), body=_response.text)
-        except ValidationError as e:
-            raise ParsingError(
-                status_code=_response.status_code, headers=dict(_response.headers), body=_response.json(), cause=e
-            )
-        raise ApiError(status_code=_response.status_code, headers=dict(_response.headers), body=_response_json)
-
     async def cancel(
         self, *, session_id: str, request_options: typing.Optional[RequestOptions] = None
     ) -> AsyncHttpResponse[CancelSessionResponse]:
@@ -2765,6 +2544,257 @@ class AsyncRawSessionsClient:
                         )
 
                 return AsyncPager(has_next=_has_next, items=_items, get_next=_get_next, response=_parsed_response)
+            if _response.status_code == 400:
+                raise BadRequestError(
+                    headers=dict(_response.headers),
+                    body=typing.cast(
+                        RequestErrorResponse,
+                        construct_type(
+                            type_=RequestErrorResponse,  # type: ignore
+                            object_=_response.json(),
+                        ),
+                    ),
+                )
+            if _response.status_code == 403:
+                raise ForbiddenError(
+                    headers=dict(_response.headers),
+                    body=typing.cast(
+                        RequestErrorResponse,
+                        construct_type(
+                            type_=RequestErrorResponse,  # type: ignore
+                            object_=_response.json(),
+                        ),
+                    ),
+                )
+            if _response.status_code == 404:
+                raise NotFoundError(
+                    headers=dict(_response.headers),
+                    body=typing.cast(
+                        RequestErrorResponse,
+                        construct_type(
+                            type_=RequestErrorResponse,  # type: ignore
+                            object_=_response.json(),
+                        ),
+                    ),
+                )
+            _response_json = _response.json()
+        except JSONDecodeError:
+            raise ApiError(status_code=_response.status_code, headers=dict(_response.headers), body=_response.text)
+        except ValidationError as e:
+            raise ParsingError(
+                status_code=_response.status_code, headers=dict(_response.headers), body=_response.json(), cause=e
+            )
+        raise ApiError(status_code=_response.status_code, headers=dict(_response.headers), body=_response_json)
+
+    async def list_grants(
+        self, *, session_id: str, request_options: typing.Optional[RequestOptions] = None
+    ) -> AsyncHttpResponse[ListSessionGrantsResponse]:
+        """
+        List the subjects this session is shared with.
+
+        Parameters
+        ----------
+        session_id : str
+            Session identifier.
+
+        request_options : typing.Optional[RequestOptions]
+            Request-specific configuration.
+
+        Returns
+        -------
+        AsyncHttpResponse[ListSessionGrantsResponse]
+            Subjects the session is shared with.
+        """
+        _response = await self._client_wrapper.httpx_client.request(
+            f"api/v1/sessions/{encode_path_param(session_id)}/grants",
+            method="GET",
+            request_options=request_options,
+        )
+        try:
+            if 200 <= _response.status_code < 300:
+                _data = typing.cast(
+                    ListSessionGrantsResponse,
+                    construct_type(
+                        type_=ListSessionGrantsResponse,  # type: ignore
+                        object_=_response.json(),
+                    ),
+                )
+                return AsyncHttpResponse(response=_response, data=_data)
+            if _response.status_code == 403:
+                raise ForbiddenError(
+                    headers=dict(_response.headers),
+                    body=typing.cast(
+                        RequestErrorResponse,
+                        construct_type(
+                            type_=RequestErrorResponse,  # type: ignore
+                            object_=_response.json(),
+                        ),
+                    ),
+                )
+            if _response.status_code == 404:
+                raise NotFoundError(
+                    headers=dict(_response.headers),
+                    body=typing.cast(
+                        RequestErrorResponse,
+                        construct_type(
+                            type_=RequestErrorResponse,  # type: ignore
+                            object_=_response.json(),
+                        ),
+                    ),
+                )
+            _response_json = _response.json()
+        except JSONDecodeError:
+            raise ApiError(status_code=_response.status_code, headers=dict(_response.headers), body=_response.text)
+        except ValidationError as e:
+            raise ParsingError(
+                status_code=_response.status_code, headers=dict(_response.headers), body=_response.json(), cause=e
+            )
+        raise ApiError(status_code=_response.status_code, headers=dict(_response.headers), body=_response_json)
+
+    async def create_grants(
+        self,
+        *,
+        session_id: str,
+        subjects: typing.Sequence[SessionGrantSubject],
+        request_options: typing.Optional[RequestOptions] = None,
+    ) -> AsyncHttpResponse[ListSessionGrantsResponse]:
+        """
+        Share this session with one or more subjects. Subjects that already have access are left unchanged. Returns every subject the session is shared with.
+
+        Parameters
+        ----------
+        session_id : str
+            Session identifier.
+
+        subjects : typing.Sequence[SessionGrantSubject]
+            Subjects to share the session with (1–50).
+
+        request_options : typing.Optional[RequestOptions]
+            Request-specific configuration.
+
+        Returns
+        -------
+        AsyncHttpResponse[ListSessionGrantsResponse]
+            Subjects the session is shared with after the change.
+        """
+        _response = await self._client_wrapper.httpx_client.request(
+            f"api/v1/sessions/{encode_path_param(session_id)}/grants",
+            method="POST",
+            json={
+                "subjects": convert_and_respect_annotation_metadata(
+                    object_=subjects, annotation=typing.Sequence[SessionGrantSubject], direction="write"
+                ),
+            },
+            headers={
+                "content-type": "application/json",
+            },
+            request_options=request_options,
+            omit=OMIT,
+        )
+        try:
+            if 200 <= _response.status_code < 300:
+                _data = typing.cast(
+                    ListSessionGrantsResponse,
+                    construct_type(
+                        type_=ListSessionGrantsResponse,  # type: ignore
+                        object_=_response.json(),
+                    ),
+                )
+                return AsyncHttpResponse(response=_response, data=_data)
+            if _response.status_code == 400:
+                raise BadRequestError(
+                    headers=dict(_response.headers),
+                    body=typing.cast(
+                        RequestErrorResponse,
+                        construct_type(
+                            type_=RequestErrorResponse,  # type: ignore
+                            object_=_response.json(),
+                        ),
+                    ),
+                )
+            if _response.status_code == 403:
+                raise ForbiddenError(
+                    headers=dict(_response.headers),
+                    body=typing.cast(
+                        RequestErrorResponse,
+                        construct_type(
+                            type_=RequestErrorResponse,  # type: ignore
+                            object_=_response.json(),
+                        ),
+                    ),
+                )
+            if _response.status_code == 404:
+                raise NotFoundError(
+                    headers=dict(_response.headers),
+                    body=typing.cast(
+                        RequestErrorResponse,
+                        construct_type(
+                            type_=RequestErrorResponse,  # type: ignore
+                            object_=_response.json(),
+                        ),
+                    ),
+                )
+            if _response.status_code == 422:
+                raise UnprocessableEntityError(
+                    headers=dict(_response.headers),
+                    body=typing.cast(
+                        RequestErrorResponse,
+                        construct_type(
+                            type_=RequestErrorResponse,  # type: ignore
+                            object_=_response.json(),
+                        ),
+                    ),
+                )
+            _response_json = _response.json()
+        except JSONDecodeError:
+            raise ApiError(status_code=_response.status_code, headers=dict(_response.headers), body=_response.text)
+        except ValidationError as e:
+            raise ParsingError(
+                status_code=_response.status_code, headers=dict(_response.headers), body=_response.json(), cause=e
+            )
+        raise ApiError(status_code=_response.status_code, headers=dict(_response.headers), body=_response_json)
+
+    async def delete_grant(
+        self, *, session_id: str, subject_id: str, request_options: typing.Optional[RequestOptions] = None
+    ) -> AsyncHttpResponse[DeleteSessionGrantResponse]:
+        """
+        Revoke a subject's access to this session.
+
+        Parameters
+        ----------
+        session_id : str
+            Session identifier.
+
+        subject_id : str
+            ID of the subject.
+
+        request_options : typing.Optional[RequestOptions]
+            Request-specific configuration.
+
+        Returns
+        -------
+        AsyncHttpResponse[DeleteSessionGrantResponse]
+            Access revoked.
+        """
+        _response = await self._client_wrapper.httpx_client.request(
+            f"api/v1/sessions/{encode_path_param(session_id)}/grants",
+            method="DELETE",
+            params={
+                "subject_type": "user",
+                "subject_id": subject_id,
+            },
+            request_options=request_options,
+        )
+        try:
+            if 200 <= _response.status_code < 300:
+                _data = typing.cast(
+                    DeleteSessionGrantResponse,
+                    construct_type(
+                        type_=DeleteSessionGrantResponse,  # type: ignore
+                        object_=_response.json(),
+                    ),
+                )
+                return AsyncHttpResponse(response=_response, data=_data)
             if _response.status_code == 400:
                 raise BadRequestError(
                     headers=dict(_response.headers),

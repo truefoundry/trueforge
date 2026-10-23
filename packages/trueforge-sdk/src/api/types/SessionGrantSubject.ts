@@ -5,8 +5,8 @@ import type * as TrueForge from "../index.js";
 /**
  * Who the session is shared with.
  */
-export interface SessionAccessSubject {
+export interface SessionGrantSubject {
     /** ID of the subject. */
     subjectId: string;
-    subjectType: TrueForge.SessionAccessSubjectType;
+    subjectType: TrueForge.SessionGrantSubjectType;
 }

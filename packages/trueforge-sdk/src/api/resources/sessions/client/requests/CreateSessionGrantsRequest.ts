@@ -11,7 +11,7 @@ import type * as TrueForge from "../../../../index.js";
  *             }]
  *     }
  */
-export interface CreateSessionAccessRequest {
+export interface CreateSessionGrantsRequest {
     /** Subjects to share the session with (1–50). */
-    subjects: TrueForge.SessionAccessSubject[];
+    subjects: TrueForge.SessionGrantSubject[];
 }

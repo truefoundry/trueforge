@@ -2,9 +2,9 @@
 
 import type * as TrueForge from "../index.js";
 
-export interface SessionAccess {
+export interface SessionGrant {
     /** When the session was shared with the subject (ISO-8601 UTC). */
     createdAt: string;
     grantedBySubject: TrueForge.CreatedBySubject;
-    subject: TrueForge.SessionAccessSubject;
+    subject: TrueForge.SessionGrantSubject;
 }

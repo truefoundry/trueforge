@@ -2059,224 +2059,6 @@ await client.sessions.update("session_id");
 </dl>
 </details>
 
-<details><summary><code>client.sessions.<a href="/src/api/resources/sessions/client/Client.ts">listAccess</a>(session_id) -> TrueForge.ListSessionAccessResponse</code></summary>
-<dl>
-<dd>
-
-#### 📝 Description
-
-<dl>
-<dd>
-
-<dl>
-<dd>
-
-List the subjects this session is shared with.
-</dd>
-</dl>
-</dd>
-</dl>
-
-#### 🔌 Usage
-
-<dl>
-<dd>
-
-<dl>
-<dd>
-
-```typescript
-await client.sessions.listAccess("session_id");
-
-```
-</dd>
-</dl>
-</dd>
-</dl>
-
-#### ⚙️ Parameters
-
-<dl>
-<dd>
-
-<dl>
-<dd>
-
-**session_id:** `string` — Session identifier.
-    
-</dd>
-</dl>
-
-<dl>
-<dd>
-
-**requestOptions:** `SessionsClient.RequestOptions` 
-    
-</dd>
-</dl>
-</dd>
-</dl>
-
-
-</dd>
-</dl>
-</details>
-
-<details><summary><code>client.sessions.<a href="/src/api/resources/sessions/client/Client.ts">createAccess</a>(session_id, { ...params }) -> TrueForge.ListSessionAccessResponse</code></summary>
-<dl>
-<dd>
-
-#### 📝 Description
-
-<dl>
-<dd>
-
-<dl>
-<dd>
-
-Share this session with one or more subjects. Subjects that already have access are left unchanged. Returns every subject the session is shared with.
-</dd>
-</dl>
-</dd>
-</dl>
-
-#### 🔌 Usage
-
-<dl>
-<dd>
-
-<dl>
-<dd>
-
-```typescript
-await client.sessions.createAccess("session_id", {
-    subjects: [{
-            subjectId: "subject_id",
-            subjectType: "user"
-        }]
-});
-
-```
-</dd>
-</dl>
-</dd>
-</dl>
-
-#### ⚙️ Parameters
-
-<dl>
-<dd>
-
-<dl>
-<dd>
-
-**session_id:** `string` — Session identifier.
-    
-</dd>
-</dl>
-
-<dl>
-<dd>
-
-**request:** `TrueForge.CreateSessionAccessRequest` 
-    
-</dd>
-</dl>
-
-<dl>
-<dd>
-
-**requestOptions:** `SessionsClient.RequestOptions` 
-    
-</dd>
-</dl>
-</dd>
-</dl>
-
-
-</dd>
-</dl>
-</details>
-
-<details><summary><code>client.sessions.<a href="/src/api/resources/sessions/client/Client.ts">deleteAccess</a>(session_id, subject_type, subject_id) -> TrueForge.DeleteSessionAccessResponse</code></summary>
-<dl>
-<dd>
-
-#### 📝 Description
-
-<dl>
-<dd>
-
-<dl>
-<dd>
-
-Revoke a subject's access to this session.
-</dd>
-</dl>
-</dd>
-</dl>
-
-#### 🔌 Usage
-
-<dl>
-<dd>
-
-<dl>
-<dd>
-
-```typescript
-await client.sessions.deleteAccess("session_id", "user", "subject_id");
-
-```
-</dd>
-</dl>
-</dd>
-</dl>
-
-#### ⚙️ Parameters
-
-<dl>
-<dd>
-
-<dl>
-<dd>
-
-**session_id:** `string` — Session identifier.
-    
-</dd>
-</dl>
-
-<dl>
-<dd>
-
-**subject_type:** `TrueForge.SessionAccessSubjectType` — Kind of subject.
-    
-</dd>
-</dl>
-
-<dl>
-<dd>
-
-**subject_id:** `string` — ID of the subject.
-    
-</dd>
-</dl>
-
-<dl>
-<dd>
-
-**requestOptions:** `SessionsClient.RequestOptions` 
-    
-</dd>
-</dl>
-</dd>
-</dl>
-
-
-</dd>
-</dl>
-</details>
-
 <details><summary><code>client.sessions.<a href="/src/api/resources/sessions/client/Client.ts">cancel</a>(session_id, { ...params }) -> TrueForge.CancelSessionResponse</code></summary>
 <dl>
 <dd>
@@ -2412,6 +2194,219 @@ const response = page.response;
 <dd>
 
 **request:** `TrueForge.ListEventsSessionsRequest` 
+    
+</dd>
+</dl>
+
+<dl>
+<dd>
+
+**requestOptions:** `SessionsClient.RequestOptions` 
+    
+</dd>
+</dl>
+</dd>
+</dl>
+
+
+</dd>
+</dl>
+</details>
+
+<details><summary><code>client.sessions.<a href="/src/api/resources/sessions/client/Client.ts">listGrants</a>(session_id) -> TrueForge.ListSessionGrantsResponse</code></summary>
+<dl>
+<dd>
+
+#### 📝 Description
+
+<dl>
+<dd>
+
+<dl>
+<dd>
+
+List the subjects this session is shared with.
+</dd>
+</dl>
+</dd>
+</dl>
+
+#### 🔌 Usage
+
+<dl>
+<dd>
+
+<dl>
+<dd>
+
+```typescript
+await client.sessions.listGrants("session_id");
+
+```
+</dd>
+</dl>
+</dd>
+</dl>
+
+#### ⚙️ Parameters
+
+<dl>
+<dd>
+
+<dl>
+<dd>
+
+**session_id:** `string` — Session identifier.
+    
+</dd>
+</dl>
+
+<dl>
+<dd>
+
+**requestOptions:** `SessionsClient.RequestOptions` 
+    
+</dd>
+</dl>
+</dd>
+</dl>
+
+
+</dd>
+</dl>
+</details>
+
+<details><summary><code>client.sessions.<a href="/src/api/resources/sessions/client/Client.ts">createGrants</a>(session_id, { ...params }) -> TrueForge.ListSessionGrantsResponse</code></summary>
+<dl>
+<dd>
+
+#### 📝 Description
+
+<dl>
+<dd>
+
+<dl>
+<dd>
+
+Share this session with one or more subjects. Subjects that already have access are left unchanged. Returns every subject the session is shared with.
+</dd>
+</dl>
+</dd>
+</dl>
+
+#### 🔌 Usage
+
+<dl>
+<dd>
+
+<dl>
+<dd>
+
+```typescript
+await client.sessions.createGrants("session_id", {
+    subjects: [{
+            subjectId: "subject_id",
+            subjectType: "user"
+        }]
+});
+
+```
+</dd>
+</dl>
+</dd>
+</dl>
+
+#### ⚙️ Parameters
+
+<dl>
+<dd>
+
+<dl>
+<dd>
+
+**session_id:** `string` — Session identifier.
+    
+</dd>
+</dl>
+
+<dl>
+<dd>
+
+**request:** `TrueForge.CreateSessionGrantsRequest` 
+    
+</dd>
+</dl>
+
+<dl>
+<dd>
+
+**requestOptions:** `SessionsClient.RequestOptions` 
+    
+</dd>
+</dl>
+</dd>
+</dl>
+
+
+</dd>
+</dl>
+</details>
+
+<details><summary><code>client.sessions.<a href="/src/api/resources/sessions/client/Client.ts">deleteGrant</a>(session_id, { ...params }) -> TrueForge.DeleteSessionGrantResponse</code></summary>
+<dl>
+<dd>
+
+#### 📝 Description
+
+<dl>
+<dd>
+
+<dl>
+<dd>
+
+Revoke a subject's access to this session.
+</dd>
+</dl>
+</dd>
+</dl>
+
+#### 🔌 Usage
+
+<dl>
+<dd>
+
+<dl>
+<dd>
+
+```typescript
+await client.sessions.deleteGrant("session_id", {
+    subjectType: "user",
+    subjectId: "subject_id"
+});
+
+```
+</dd>
+</dl>
+</dd>
+</dl>
+
+#### ⚙️ Parameters
+
+<dl>
+<dd>
+
+<dl>
+<dd>
+
+**session_id:** `string` — Session identifier.
+    
+</dd>
+</dl>
+
+<dl>
+<dd>
+
+**request:** `TrueForge.DeleteGrantSessionsRequest` 
     
 </dd>
 </dl>

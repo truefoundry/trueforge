@@ -2,7 +2,7 @@
 
 import typing
 
-SessionAccessSubjectType = typing.Literal["user"]
+SessionGrantSubjectType = typing.Literal["user"]
 """
 Kind of subject.
 """

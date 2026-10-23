@@ -5,18 +5,11 @@ import typing
 import pydantic
 from ..core.pydantic_utilities import IS_PYDANTIC_V2
 from ..core.unchecked_base_model import UncheckedBaseModel
-from .created_by_subject import CreatedBySubject
-from .session_access_subject import SessionAccessSubject
+from .session_grant import SessionGrant
 
 
-class SessionAccess(UncheckedBaseModel):
-    created_at: str = pydantic.Field()
-    """
-    When the session was shared with the subject (ISO-8601 UTC).
-    """
-
-    granted_by_subject: CreatedBySubject
-    subject: SessionAccessSubject
+class ListSessionGrantsResponse(UncheckedBaseModel):
+    data: typing.List[SessionGrant]
 
     if IS_PYDANTIC_V2:
         model_config: typing.ClassVar[pydantic.ConfigDict] = pydantic.ConfigDict(extra="allow")  # type: ignore # Pydantic v2
