@@ -550,7 +550,7 @@ export function SchedulesPage({ agentId }: SchedulesPageProps) {
                         ) : (
                           <ScheduleLastRunsCell
                             runs={runsByScheduleId[schedule.id] ?? []}
-                            {...(shell == null
+                            {...(!canOpenRunSession
                               ? {}
                               : { onOpenSession: run => handleOpenRunSession({ run, schedule }) })}
                           />
