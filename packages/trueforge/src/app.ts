@@ -317,8 +317,8 @@ export interface ServerDeps<TTransaction> {
   sandboxProviderStore: ISandboxProviderStore<TTransaction>;
   scheduleStore: IScheduleStore<TTransaction>;
   sessionMetricsStore: ISessionMetricsStore;
-  sessions: Sessions<Record<string, never>, Record<string, never>, TTransaction>;
-  sessionStore: ISessionStore<Record<string, never>, Record<string, never>, TTransaction>;
+  sessions: Sessions<TTransaction>;
+  sessionStore: ISessionStore<TTransaction>;
   skillCatalog: SkillCatalog;
   tokenStore: IOAuthTokenStore<TTransaction>;
   webSearchCatalog: WebSearchCatalog;

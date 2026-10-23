@@ -107,8 +107,8 @@ export interface SessionsRouterDeps<TTransaction = never> {
   resolveSkillStore: (input: { c: Context; allowInlineResources?: boolean }) => ISkillStore;
   sandboxEnvironmentStore: ISandboxEnvironmentStore;
   sandboxProviderStore: ISandboxProviderStore;
-  sessions: Sessions<Record<string, never>, Record<string, never>, TTransaction>;
-  sessionStore: ISessionStore<Record<string, never>, Record<string, never>, TTransaction>;
+  sessions: Sessions<TTransaction>;
+  sessionStore: ISessionStore<TTransaction>;
   webSearchProviderStore: IWebSearchProviderStore;
 }
 

@@ -189,7 +189,7 @@ function paginate<T>(items: T[], limit: number, pageToken?: string): { data: T[]
 export class InMemorySessionStore<
   TSessionCustom extends object = Record<string, never>,
   TTurnCustom extends object = Record<string, never>,
-> implements ISessionStore<TSessionCustom, TTurnCustom, undefined> {
+> implements ISessionStore<undefined, TSessionCustom, TTurnCustom> {
   private readonly sessions = new Map<string, StoredSession<TSessionCustom>>();
   private readonly turns = new Map<string, TurnRecord<TTurnCustom>>();
   private readonly events = new Map<string, StoredEvent[]>();

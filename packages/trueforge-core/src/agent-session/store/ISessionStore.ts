@@ -263,9 +263,9 @@ export interface ListSessionEventsInput {
  * as a discriminated `agent` (ref | value); named agents are not hydrated on read.
  */
 export interface ISessionStore<
+  TTransaction = never,
   TSessionCustom extends object = Record<string, never>,
   TTurnCustom extends object = Record<string, never>,
-  TTransaction = never,
 > {
   /**
    * Persists a discriminated `agent` (ref | value). SQL backends may flatten to columns.

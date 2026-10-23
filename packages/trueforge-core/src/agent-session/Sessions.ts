@@ -25,13 +25,13 @@ export type SessionsCreateInput<TSessionCustom extends object> = Omit<
 };
 
 export class Sessions<
+  TTransaction = never,
   TSessionCustom extends object = Record<string, never>,
   TTurnCustom extends object = Record<string, never>,
-  TTransaction = never,
 > {
-  private readonly store: ISessionStore<TSessionCustom, TTurnCustom, TTransaction>;
+  private readonly store: ISessionStore<TTransaction, TSessionCustom, TTurnCustom>;
 
-  constructor(deps: { sessionStore: ISessionStore<TSessionCustom, TTurnCustom, TTransaction> }) {
+  constructor(deps: { sessionStore: ISessionStore<TTransaction, TSessionCustom, TTurnCustom> }) {
     this.store = deps.sessionStore;
   }
 
@@ -40,7 +40,7 @@ export class Sessions<
    */
   async create(
     input: SessionsCreateInput<TSessionCustom>,
-  ): Promise<SessionHandle<TSessionCustom, TTurnCustom, TTransaction>> {
+  ): Promise<SessionHandle<TTransaction, TSessionCustom, TTurnCustom>> {
     await this.store.createSession({
       ...input,
       custom: input.custom ?? null,
@@ -64,7 +64,7 @@ export class Sessions<
    * Returns the session as stored (ref agents are not hydrated to a value), or
    * undefined if not found. Read-only: does not bump last_activity_timestamp_ms.
    */
-  async get(input: GetSessionInput): Promise<SessionHandle<TSessionCustom, TTurnCustom, TTransaction> | undefined> {
+  async get(input: GetSessionInput): Promise<SessionHandle<TTransaction, TSessionCustom, TTurnCustom> | undefined> {
     const record = await this.store.getSession(input);
     if (!record) {
       return undefined;
@@ -81,7 +81,7 @@ export class Sessions<
    */
   async getByExternalId(
     input: GetSessionByExternalIdInput,
-  ): Promise<SessionHandle<TSessionCustom, TTurnCustom, TTransaction> | undefined> {
+  ): Promise<SessionHandle<TTransaction, TSessionCustom, TTurnCustom> | undefined> {
     const record = await this.store.getSessionByExternalId(input);
     if (!record) {
       return undefined;
@@ -97,7 +97,7 @@ export class Sessions<
    */
   async getOrCreateByExternalId(
     input: Omit<SessionsCreateInput<TSessionCustom>, 'session_id' | 'external_id'> & { external_id: string },
-  ): Promise<{ session: SessionHandle<TSessionCustom, TTurnCustom, TTransaction>; created: boolean }> {
+  ): Promise<{ session: SessionHandle<TTransaction, TSessionCustom, TTurnCustom>; created: boolean }> {
     const { tenant_id, external_id } = input;
 
     const existing = await this.getByExternalId({ tenant_id, external_id });

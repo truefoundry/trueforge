@@ -175,8 +175,8 @@ function resolveTerminalState(input: {
   };
 }
 
-export class TurnHandle<TTurnCustom extends object = Record<string, never>, TTransaction = never> {
-  private readonly store: ISessionStore<object, TTurnCustom, TTransaction>;
+export class TurnHandle<TTransaction = never, TTurnCustom extends object = Record<string, never>> {
+  private readonly store: ISessionStore<TTransaction, object, TTurnCustom>;
   private turn: TurnRecord<TTurnCustom>;
   private readonly orchestrator: AgentThreadOrchestrator;
   private readonly resolver: ITurnResourceResolver<TTurnCustom>;
@@ -184,7 +184,7 @@ export class TurnHandle<TTurnCustom extends object = Record<string, never>, TTra
   private streamStarted = false;
 
   constructor(options: {
-    store: ISessionStore<object, TTurnCustom, TTransaction>;
+    store: ISessionStore<TTransaction, object, TTurnCustom>;
     turn: TurnRecord<TTurnCustom>;
     orchestrator: AgentThreadOrchestrator;
     resolver: ITurnResourceResolver<TTurnCustom>;

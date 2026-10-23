@@ -158,7 +158,7 @@ interface ServerPersistence<TTransaction> {
   /** One shared client for TrueFoundry store resolvers + auth; undefined when TrueFoundry mode is off. */
   serviceFoundryClient: TrueFoundryServiceFoundryServerClient | undefined;
   sessionMetricsStore: ISessionMetricsStore;
-  sessionStore: ISessionStore<Record<string, never>, Record<string, never>, TTransaction>;
+  sessionStore: ISessionStore<TTransaction>;
   tokenStore: IOAuthTokenStore<TTransaction>;
   webSearchProviderStore: IWebSearchProviderStore<TTransaction>;
   withTransaction: WithTransaction<TTransaction>;

@@ -15,7 +15,7 @@ export interface PermissionsRouterDeps<TTransaction> {
   authorizer: Authorizer;
   resolveAgentStore: (c: Context) => IAgentStore<TTransaction>;
   scheduleStore: IScheduleStore<TTransaction>;
-  sessionStore: ISessionStore<Record<string, never>, Record<string, never>, TTransaction>;
+  sessionStore: ISessionStore<TTransaction>;
   resolveRequestContext: ResolveRequestContext;
 }
 

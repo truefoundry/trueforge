@@ -110,7 +110,7 @@ type TurnCustom = Record<string, never>;
  *    may additionally require `state->>'status' = 'running'`.
  * 3. Terminal turns are IMMUTABLE — a terminal read is a final read.
  */
-export class PostgresSessionStore implements ISessionStore<SessionCustom, TurnCustom, Transaction<Database>> {
+export class PostgresSessionStore implements ISessionStore<Transaction<Database>, SessionCustom, TurnCustom> {
   constructor(private readonly db: Kysely<Database>) {}
 
   createSession(input: CreateSessionInput<SessionCustom>): Promise<void> {

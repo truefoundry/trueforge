@@ -26,7 +26,7 @@ import { makeAgentSpec, makeTestResolver, mintTestTurnId, TEST_ACTIVE_EXECUTOR_I
 
 /** Drives the same accept → persist → enqueue seam as POST /events. */
 async function sendWithInbox(
-  turn: TurnHandle<Record<string, never>, undefined>,
+  turn: TurnHandle<undefined>,
   store: InMemorySessionStore,
   events: TurnUserEvent[],
 ): Promise<void> {

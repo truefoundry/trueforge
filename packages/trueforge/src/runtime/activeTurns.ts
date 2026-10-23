@@ -23,7 +23,7 @@ interface RebuildingTurnRun extends TurnRunCompletion {
 
 interface LiveTurnRun<TTransaction> extends TurnRunCompletion {
   phase: 'live';
-  turn: TurnHandle<Record<string, never>, TTransaction>;
+  turn: TurnHandle<TTransaction>;
 }
 
 type ActiveTurnRun<TTransaction> = RebuildingTurnRun | LiveTurnRun<TTransaction>;
@@ -99,7 +99,7 @@ export class ActiveTurnRegistry<TTransaction = never> {
   track<T>(input: {
     abortController: AbortController;
     stream: AsyncIterable<T>;
-    turn: TurnHandle<Record<string, never>, TTransaction>;
+    turn: TurnHandle<TTransaction>;
   }): AsyncGenerator<T> {
     const key = activeTurnKey(input.turn.session_id, input.turn.id);
     const existing = this.runs.get(key);
@@ -178,10 +178,7 @@ export class ActiveTurnRegistry<TTransaction = never> {
    * An aborted run stays registered until its drain finishes. `isCancelled` tells a
    * send to reject instead of rebuilding over that drain.
    */
-  getTurnHandle(input: {
-    sessionId: string;
-    turnId: string;
-  }): TurnHandle<Record<string, never>, TTransaction> | undefined {
+  getTurnHandle(input: { sessionId: string; turnId: string }): TurnHandle<TTransaction> | undefined {
     const run = this.runs.get(activeTurnKey(input.sessionId, input.turnId));
     if (run?.phase !== 'live') {
       return undefined;

@@ -67,10 +67,8 @@ function contextContents(messages: ContextMessage[] | undefined): string[] {
 }
 
 /** Store contract suite — factory-injected so other backends can reuse it. */
-export function runStoreContractSuite<TTransaction>(
-  createStore: () => ISessionStore<Record<string, never>, Record<string, never>, TTransaction>,
-) {
-  type Store = ISessionStore<Record<string, never>, Record<string, never>, TTransaction>;
+export function runStoreContractSuite<TTransaction>(createStore: () => ISessionStore<TTransaction>) {
+  type Store = ISessionStore<TTransaction>;
   const tenant = 't1';
   const sessionId = 's1';
   const missingSessionId = 'missing-session';
