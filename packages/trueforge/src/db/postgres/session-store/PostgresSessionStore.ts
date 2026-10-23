@@ -270,7 +270,7 @@ export class PostgresSessionStore implements ISessionStore<Transaction<Database>
   }
 
   patchThreadsMCPAuth(input: PatchThreadsMCPAuthInput, transaction?: Transaction<Database>): Promise<void> {
-    return patchThreadsMCPAuthQuery(this.db, input, transaction);
+    return patchThreadsMCPAuthQuery(transaction ?? this.db, input);
   }
 
   listTurnEvents(input: ListTurnEventsInput): Promise<{ data: PersistedTurnEvent[]; pagination: TokenPagination }> {

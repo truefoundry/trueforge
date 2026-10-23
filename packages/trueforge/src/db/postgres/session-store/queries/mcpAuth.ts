@@ -1,9 +1,11 @@
 import type { PatchThreadsMCPAuthInput } from '@truefoundry/trueforge-core/agent-session/store/ISessionStore';
 import { SessionStoreInvariantError } from '@truefoundry/trueforge-core/agent-session/store/SessionStoreErrors';
-import { sql, type Kysely, type Transaction } from 'kysely';
+import { sql, Transaction, type Kysely } from 'kysely';
 import { json, jsonbSet } from '../../sqlExpressions';
 import type { Database, TurnThreadCheckpoint } from '../../types';
 import { assertOwnedNonTerminalTurn } from './turns';
+
+type DbOrTrx = Kysely<Database> | Transaction<Database>;
 
 async function assertThreadsExist(
   db: Transaction<Database>,
@@ -24,11 +26,7 @@ async function assertThreadsExist(
   }
 }
 
-export async function patchThreadsMCPAuth(
-  db: Kysely<Database>,
-  input: PatchThreadsMCPAuthInput,
-  transaction?: Transaction<Database>,
-): Promise<void> {
+export async function patchThreadsMCPAuth(db: DbOrTrx, input: PatchThreadsMCPAuthInput): Promise<void> {
   const execute = async (db: Transaction<Database>): Promise<void> => {
     const threadIds = [...new Set(input.thread_ids)];
     const keys = {
@@ -57,8 +55,8 @@ export async function patchThreadsMCPAuth(
       .execute();
   };
 
-  if (transaction) {
-    await execute(transaction);
+  if (db instanceof Transaction) {
+    await execute(db);
   } else {
     await db.transaction().execute(execute);
   }
