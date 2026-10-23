@@ -465,7 +465,7 @@ export async function beginTurnExecution(
 
   // First turn only: derive the title from the first user message. The store
   // never overwrites an existing title.
-  const title = session.record.last_turn_id ? undefined : deriveSessionTitle(input);
+  const title = session.record.last_turn_details ? undefined : deriveSessionTitle(input);
 
   const turn = await session.createTurn({
     turn_id: turnId,

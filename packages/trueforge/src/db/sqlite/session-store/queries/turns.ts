@@ -371,7 +371,7 @@ export async function createTurn(db: Kysely<Database>, input: CreateTurnInput): 
       // Step 1: read session tip; no FOR UPDATE (BEGIN IMMEDIATE is the lock).
       const locked = await trx
         .selectFrom('session')
-        .select(['last_turn_id'])
+        .select(['session_id'])
         .where('session_id', '=', input.session_id)
         .executeTakeFirst();
 
@@ -383,7 +383,6 @@ export async function createTurn(db: Kysely<Database>, input: CreateTurnInput): 
       let sessionUpdate = trx
         .updateTable('session')
         .set({
-          last_turn_id: input.turn.turn_id,
           last_turn_details: lastTurnDetails({ turn_id: input.turn.turn_id, turn_state: input.turn.state }),
           updated_at: nowIso(),
           last_activity_timestamp_ms: input.last_activity_timestamp_ms,

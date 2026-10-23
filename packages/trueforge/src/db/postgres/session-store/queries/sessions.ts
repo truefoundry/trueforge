@@ -68,7 +68,6 @@ function mapRowToSessionRecord(row: {
   agent_spec: AgentSpec | null;
   title: string | null;
   shared: boolean;
-  last_turn_id: string | null;
   last_turn_details: SessionLastTurnDetails | null;
   external_id: string | null;
   custom: Record<string, unknown> | null;
@@ -91,7 +90,6 @@ function mapRowToSessionRecord(row: {
     }),
     title: row.title,
     shared: row.shared,
-    last_turn_id: row.last_turn_id,
     last_turn_details: SessionLastTurnDetailsSchema.nullable().parse(row.last_turn_details),
     external_id: row.external_id,
     custom: parseSessionCustom(row.custom),

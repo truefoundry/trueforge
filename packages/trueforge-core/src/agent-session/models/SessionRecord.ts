@@ -38,10 +38,9 @@ export interface SessionRecord<TCustom extends object = Record<string, never>> {
    */
   source: SessionSource | null;
   /**
-   * Session tip — used for `previous_turn_id: 'auto'` resolution and turn
+   * Session tip — `id` drives `previous_turn_id: 'auto'` resolution and turn
    * listing anchors. Advanced only by `createTurn` (atomic link).
    */
-  last_turn_id: string | null;
   last_turn_details: SessionLastTurnDetails | null;
   /** Instant the session was created (store domain). Wire/API serialize as ISO-8601. */
   created_at: Date;

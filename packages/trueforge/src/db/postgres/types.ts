@@ -92,11 +92,6 @@ export interface SessionTable {
   title: string | null;
   /** When true, any subject in the tenant may GET this session. */
   shared: boolean;
-  /**
-   * top: HOT — bumped once per createTurn under the session lock;
-   *      tiny fixed-width column keeps the bump a cheap HOT update
-   */
-  last_turn_id: string | null;
   /** Null until the first turn; always replaced as a whole document. */
   last_turn_details: JSONColumnType<
     SessionLastTurnDetails,
