@@ -89,7 +89,7 @@ describe('progressSandboxEnvironmentVersion', () => {
       'Sandbox environment version not found',
       expect.objectContaining({
         environment_version_id: 'missing',
-        reportable_error: expect.objectContaining({ operation: 'notFound' }),
+        reportable_error: expect.objectContaining({ error: expect.any(HTTPException) }),
       }),
     );
   });
@@ -136,7 +136,7 @@ describe('progressSandboxEnvironmentVersion', () => {
     expect(warn).toHaveBeenCalledWith(
       'Sandbox environment build failed authz',
       expect.objectContaining({
-        reportable_error: expect.objectContaining({ operation: 'authz' }),
+        reportable_error: expect.objectContaining({ error: authError }),
       }),
     );
   });

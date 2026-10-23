@@ -123,7 +123,7 @@ export class Controller {
         this.#logger.error('Control loop pass failed', {
           loop: loop.name,
           error,
-          ...reportableErrorFields({ error, operation: 'controlLoop', extra: { loop: loop.name } }),
+          ...reportableErrorFields({ error, extra: { loop: loop.name } }),
         });
       }
     })();

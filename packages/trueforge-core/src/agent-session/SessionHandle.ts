@@ -337,7 +337,7 @@ export class SessionHandle<
       await input.resolver.close().catch((closeError: unknown) => {
         input.resolver.logger.warn('TurnResourceResolver.close() failed after createTurn() error', {
           err: closeError,
-          ...reportableErrorFields({ error: closeError, operation: 'resolverCloseAfterCreateTurn' }),
+          ...reportableErrorFields({ error: closeError }),
         });
       });
       throw error;

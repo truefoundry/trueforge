@@ -868,7 +868,7 @@ try {
       requestReplySubscriber.on('error', (error: Error) => {
         logger.error('[RedisSubscriber] Client error', {
           ...extractErrorLogFields(error),
-          ...reportableErrorFields({ error, operation: 'redisSubscriber' }),
+          ...reportableErrorFields({ error }),
         });
       });
       await requestReplySubscriber.connect();
@@ -931,7 +931,6 @@ try {
         logger.warn(`Drain timed out after ${String(configuration.GRACEFUL_TIMEOUT_SECONDS)}s, exiting`, {
           ...reportableErrorFields({
             error: new Error(`Drain timed out after ${String(configuration.GRACEFUL_TIMEOUT_SECONDS)}s, exiting`),
-            operation: 'serverDrainTimeout',
           }),
         });
         process.exit(1);

@@ -34,7 +34,6 @@ export async function progressSandboxEnvironmentVersion({
       environment_version_id,
       ...reportableErrorFields({
         error,
-        operation: 'notFound',
         extra: { environment_version_id },
       }),
     });
@@ -85,7 +84,6 @@ export async function progressSandboxEnvironmentVersion({
         status_reason,
         ...reportableErrorFields({
           error,
-          operation: 'authz',
           extra: { environment_version_id, tenant_id: pending.tenant_id, status_reason },
         }),
       });

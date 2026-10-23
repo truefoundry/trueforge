@@ -96,7 +96,7 @@ export class CodeModeNatsTransport implements CodeModeTransport {
     } catch (e) {
       this.logger.warn('Code Mode NATS drain failed/timed out; forcing close', {
         ...extractErrorLogFields(e),
-        ...reportableErrorFields({ error: e, operation: 'codeModeNatsDrain' }),
+        ...reportableErrorFields({ error: e }),
       });
       await nc.close().catch(() => {
         /* no-op */
@@ -166,7 +166,7 @@ export class CodeModeNatsTransport implements CodeModeTransport {
     if (err) {
       this.logger.error('Code Mode NATS subscription error', {
         ...extractErrorLogFields(err),
-        ...reportableErrorFields({ error: err, operation: 'codeModeNatsSubscription' }),
+        ...reportableErrorFields({ error: err }),
       });
       return;
     }
@@ -182,7 +182,7 @@ export class CodeModeNatsTransport implements CodeModeTransport {
       } catch (e) {
         this.logger.warn(`Failed to send dispatcher-missing reply on '${msg.subject}'`, {
           ...extractErrorLogFields(e),
-          ...reportableErrorFields({ error: e, operation: 'codeModeNatsMissingDispatcherReply' }),
+          ...reportableErrorFields({ error: e }),
         });
       }
       return;
@@ -204,14 +204,14 @@ export class CodeModeNatsTransport implements CodeModeTransport {
     } catch (e) {
       this.logger.error(`Failed to decode Code Mode NATS request on '${msg.subject}'`, {
         ...extractErrorLogFields(e),
-        ...reportableErrorFields({ error: e, operation: 'codeModeNatsDecode' }),
+        ...reportableErrorFields({ error: e }),
       });
       try {
         msg.respond(this.encode({ ok: false, error: 'Malformed Code Mode request', source: 'caller' }));
       } catch (respondErr) {
         this.logger.warn(`Failed to send decode-error reply on '${msg.subject}'`, {
           ...extractErrorLogFields(respondErr),
-          ...reportableErrorFields({ error: respondErr, operation: 'codeModeNatsDecodeReply' }),
+          ...reportableErrorFields({ error: respondErr }),
         });
       }
       return;
@@ -223,7 +223,7 @@ export class CodeModeNatsTransport implements CodeModeTransport {
     } catch (e) {
       this.logger.error('Failed to publish Code Mode NATS reply', {
         ...extractErrorLogFields(e),
-        ...reportableErrorFields({ error: e, operation: 'codeModeNatsPublish' }),
+        ...reportableErrorFields({ error: e }),
       });
     }
   }

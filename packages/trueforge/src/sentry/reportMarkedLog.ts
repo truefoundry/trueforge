@@ -12,20 +12,27 @@ function readExtra(value: unknown): Record<string, unknown> | undefined {
   return extra;
 }
 
-function readReportableError(
-  value: unknown,
-): { error: unknown; operation: string; extra: Record<string, unknown> | undefined } | undefined {
-  if (typeof value !== 'object' || value === null || !('operation' in value) || !('error' in value)) {
+function readFilePath(value: unknown): string | undefined {
+  if (typeof value !== 'object' || value === null || !('filepath' in value)) {
     return undefined;
   }
-  const operation = Reflect.get(value, 'operation');
-  if (typeof operation !== 'string' || operation.length === 0) {
+  const filepath = Reflect.get(value, 'filepath');
+  if (typeof filepath !== 'string' || filepath.length === 0) {
+    return undefined;
+  }
+  return filepath;
+}
+
+function readReportableError(
+  value: unknown,
+): { error: unknown; extra: Record<string, unknown> | undefined; filepath: string | undefined } | undefined {
+  if (typeof value !== 'object' || value === null || !('error' in value)) {
     return undefined;
   }
   return {
     error: Reflect.get(value, 'error'),
-    operation,
     extra: readExtra(Reflect.get(value, 'extra')),
+    filepath: readFilePath(value),
   };
 }
 
@@ -46,7 +53,7 @@ export function reportMarkedLogFormat(): winston.Logform.Format {
       const error = toError(marked.error);
       if (error !== undefined) {
         captureCriticalException(error, {
-          tags: { operation: marked.operation },
+          ...(marked.filepath !== undefined ? { tags: { filepath: marked.filepath } } : {}),
           ...(marked.extra !== undefined ? { extra: marked.extra } : {}),
         });
       }

@@ -204,12 +204,12 @@ export async function cancelSessionTurn(
       if (error instanceof RequestTimeoutError) {
         deps.logger.warn('Timed out waiting for owning executor to cancel; freezing the running turn', {
           ...fields,
-          ...reportableErrorFields({ error, operation: 'cancelPeerTimeout', extra: { turn_id: turnId, owner } }),
+          ...reportableErrorFields({ error, extra: { turn_id: turnId, owner } }),
         });
       } else {
         deps.logger.warn('Failed to reach owning executor over Redis; freezing the running turn', {
           ...fields,
-          ...reportableErrorFields({ error, operation: 'cancelPeerRedis', extra: { turn_id: turnId, owner } }),
+          ...reportableErrorFields({ error, extra: { turn_id: turnId, owner } }),
         });
       }
     }

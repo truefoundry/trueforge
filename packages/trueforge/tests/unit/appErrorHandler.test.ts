@@ -1,5 +1,4 @@
 import { OpenAPIHono, createRoute, z } from '@hono/zod-openapi';
-import { reportableErrorFields } from '@truefoundry/trueforge-core/core';
 import { HTTPException } from 'hono/http-exception';
 import winston from 'winston';
 import { createAppErrorHandler } from '../../src/app';
@@ -42,7 +41,10 @@ describe('createAppErrorHandler', () => {
       status: 500,
       error: thrown.message,
       stack: thrown.stack,
-      ...reportableErrorFields({ error: thrown, operation: 'unhandled' }),
+      reportable_error: expect.objectContaining({
+        error: thrown,
+        filepath: expect.stringContaining('trueforge/src/app.ts'),
+      }),
     });
   });
 
@@ -62,7 +64,10 @@ describe('createAppErrorHandler', () => {
       status,
       error: thrown.message,
       stack: thrown.stack,
-      ...reportableErrorFields({ error: thrown, operation: 'serverApiError' }),
+      reportable_error: expect.objectContaining({
+        error: thrown,
+        filepath: expect.stringContaining('trueforge/src/app.ts'),
+      }),
     });
   });
 
@@ -81,7 +86,10 @@ describe('createAppErrorHandler', () => {
       status: 500,
       error: `${thrown.message}: ${cause.message}`,
       stack: `${thrown.stack ?? ''}\nCaused by: ${cause.stack ?? ''}`,
-      ...reportableErrorFields({ error: thrown, operation: 'serverApiError' }),
+      reportable_error: expect.objectContaining({
+        error: thrown,
+        filepath: expect.stringContaining('trueforge/src/app.ts'),
+      }),
     });
   });
 

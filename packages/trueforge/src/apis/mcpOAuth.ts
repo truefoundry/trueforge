@@ -121,7 +121,7 @@ export function createMcpOAuthRouter<TTransaction>(deps: McpOAuthRouterDeps<TTra
       }
       deps.logger.error('MCP OAuth callback unexpected failure', {
         ...extractErrorLogFields(err),
-        ...reportableErrorFields({ error: err, operation: 'mcpOAuthCallbackUnexpected' }),
+        ...reportableErrorFields({ error: err }),
       });
       return callbackFailure({ c, pending, message: 'Internal server error', jsonStatus: 500 });
     }

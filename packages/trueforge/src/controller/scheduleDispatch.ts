@@ -297,7 +297,6 @@ export async function dispatchScheduledRuns<TTransaction>(params: {
           error,
           ...reportableErrorFields({
             error,
-            operation: 'handoff',
             extra: {
               tenant_id: run.tenant_id,
               schedule_id: schedule.id,
@@ -332,7 +331,6 @@ export async function dispatchScheduledRuns<TTransaction>(params: {
         error,
         ...reportableErrorFields({
           error,
-          operation: 'processRun',
           extra: {
             tenant_id: run.tenant_id,
             schedule_id: run.schedule_id,

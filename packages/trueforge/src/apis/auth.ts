@@ -67,7 +67,7 @@ export function createAuthRouter(params: {
       } catch (error) {
         params.logger.error('Failed to build login authorization', {
           ...extractErrorLogFields(error),
-          ...reportableErrorFields({ error, operation: 'loginAuthorization' }),
+          ...reportableErrorFields({ error }),
         });
         return c.redirect(oauthErrorRedirect('login_failed'), 302);
       }
@@ -79,7 +79,7 @@ export function createAuthRouter(params: {
       } catch (error) {
         params.logger.error('Failed to build TrueFoundry external login URL', {
           ...extractErrorLogFields(error),
-          ...reportableErrorFields({ error, operation: 'externalLoginUrl' }),
+          ...reportableErrorFields({ error }),
         });
         return c.redirect(oauthErrorRedirect('login_failed'), 302);
       }
@@ -126,7 +126,7 @@ export function createAuthRouter(params: {
     } catch (error) {
       params.logger.error('Failed to exchange authorization code', {
         ...extractErrorLogFields(error),
-        ...(isReportableTransportFailure(error) ? reportableErrorFields({ error, operation: 'oidcExchange' }) : {}),
+        ...(isReportableTransportFailure(error) ? reportableErrorFields({ error }) : {}),
       });
       const soft = await redirectIfAlreadyAuthenticated({
         context: c,

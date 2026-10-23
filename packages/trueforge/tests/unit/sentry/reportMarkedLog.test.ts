@@ -33,11 +33,11 @@ describe('reportMarkedLogFormat', () => {
     const { logger, lines } = loggedLines();
     logger.error('Unhandled error', {
       error: 'boom',
-      ...reportableErrorFields({ error: failure, operation: 'unhandled', extra: { path: '/api' } }),
+      ...reportableErrorFields({ error: failure, extra: { path: '/api' } }),
     });
 
     expect(captureCriticalException).toHaveBeenCalledWith(failure, {
-      tags: { operation: 'unhandled' },
+      tags: { filepath: expect.stringContaining('reportMarkedLog.test.ts') },
       extra: { path: '/api' },
     });
     expect(lines.join('')).not.toContain('reportable_error');
@@ -51,11 +51,11 @@ describe('reportMarkedLogFormat', () => {
     expect(captureCriticalException).not.toHaveBeenCalled();
   });
 
-  it('reports each repeated operation', () => {
+  it('reports each repeated marked log', () => {
     const { logger } = loggedLines();
     const failure = new Error('socket closed');
-    logger.error('[Redis] Client error', reportableErrorFields({ error: failure, operation: 'redisClient' }));
-    logger.error('[Redis] Client error', reportableErrorFields({ error: failure, operation: 'redisClient' }));
+    logger.error('[Redis] Client error', reportableErrorFields({ error: failure }));
+    logger.error('[Redis] Client error', reportableErrorFields({ error: failure }));
     expect(captureCriticalException).toHaveBeenCalledTimes(2);
   });
 });

@@ -544,7 +544,7 @@ export class Sandbox<TEnvironment = undefined> extends LocalToolMCP {
     } catch (e) {
       this.logger.error('Sandbox initialization failed', {
         ...extractErrorLogFields(e),
-        ...reportableErrorFields({ error: e, operation: 'sandboxInit' }),
+        ...reportableErrorFields({ error: e }),
       });
       const message = e instanceof Error ? e.message : 'Sandbox initialization failed';
       const fallback = this.existingSandboxInfo;
@@ -805,7 +805,7 @@ export class Sandbox<TEnvironment = undefined> extends LocalToolMCP {
       this.logger.error('Code Mode transport start failed', {
         ...extractErrorLogFields(e),
         sandboxId,
-        ...reportableErrorFields({ error: e, operation: 'codeModeTransportStart', extra: { sandboxId } }),
+        ...reportableErrorFields({ error: e, extra: { sandboxId } }),
       });
       return undefined;
     }

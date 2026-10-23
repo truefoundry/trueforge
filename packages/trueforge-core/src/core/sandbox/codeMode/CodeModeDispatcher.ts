@@ -90,9 +90,7 @@ export class CodeModeDispatcher {
       const errorMessage = e instanceof Error ? e.message : 'Unknown Code Mode dispatch error';
       this.logger.error(`Code Mode dispatch failed (source=${source})`, {
         ...extractErrorLogFields(e),
-        ...(source === 'caller'
-          ? {}
-          : reportableErrorFields({ error: e, operation: 'codeModeDispatch', extra: { source } })),
+        ...(source === 'caller' ? {} : reportableErrorFields({ error: e, extra: { source } })),
       });
       return { ok: false, error: errorMessage, source };
     }

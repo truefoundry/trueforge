@@ -359,7 +359,6 @@ export class DaytonaSandboxProvider implements SandboxProvider<DaytonaSandboxEnv
         ...extractErrorLogFields(alertError),
         ...reportableErrorFields({
           error: alertError,
-          operation: 'sandboxCreate',
           extra: { snapshot_ref: env.snapshot_ref },
         }),
       });
@@ -445,7 +444,7 @@ export class DaytonaSandboxProvider implements SandboxProvider<DaytonaSandboxEnv
         this.logger.error('Sandbox recovery failed', {
           ...extractErrorLogFields(recoveryError),
           originalError: extractErrorLogFields(originalError),
-          ...reportableErrorFields({ error: recoveryError, operation: 'sandboxRecovery' }),
+          ...reportableErrorFields({ error: recoveryError }),
         });
         throw new Error('Sandbox is unavailable; recovery attempt failed.', { cause: recoveryError });
       }
@@ -460,7 +459,7 @@ export class DaytonaSandboxProvider implements SandboxProvider<DaytonaSandboxEnv
         this.logger.error('Sandbox operation failed after successful recovery', {
           ...extractErrorLogFields(retryError),
           originalError: extractErrorLogFields(originalError),
-          ...reportableErrorFields({ error: retryError, operation: 'sandboxOperationAfterRecovery' }),
+          ...reportableErrorFields({ error: retryError }),
         });
         // Rethrow as-is so callers can match domain error types (SandboxPathIsDirectoryError, DaytonaError statusCode mappings, etc.).
         throw retryError;
@@ -514,7 +513,7 @@ export class DaytonaSandboxProvider implements SandboxProvider<DaytonaSandboxEnv
         }
         this.logger.error('Sandbox execution error', {
           ...extractErrorLogFields(e),
-          ...reportableErrorFields({ error: e, operation: 'sandboxExecution' }),
+          ...reportableErrorFields({ error: e }),
         });
         const message = e instanceof Error ? e.message : 'Unknown error';
         return { success: false, error: message };
@@ -583,7 +582,7 @@ export class DaytonaSandboxProvider implements SandboxProvider<DaytonaSandboxEnv
         DaytonaSandboxProvider.cachedSandboxes.delete(params.sandboxId);
         this.logger.error('Failed to create signed preview URL', {
           ...extractErrorLogFields(e),
-          ...reportableErrorFields({ error: e, operation: 'signedPreviewUrl' }),
+          ...reportableErrorFields({ error: e }),
         });
         throw e;
       }

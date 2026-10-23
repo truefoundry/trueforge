@@ -58,7 +58,6 @@ export function runController<TTransaction>(params: {
       logger.warn(`Controller drain timed out after ${String(gracefulTimeoutSeconds)}s, exiting`, {
         ...reportableErrorFields({
           error: new Error(`Controller drain timed out after ${String(gracefulTimeoutSeconds)}s, exiting`),
-          operation: 'controllerDrainTimeout',
         }),
       });
       process.exit(1);

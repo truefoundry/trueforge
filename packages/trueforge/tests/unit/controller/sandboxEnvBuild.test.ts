@@ -45,7 +45,7 @@ describe('sandboxEnvBuildLoop', () => {
       'Sandbox environment version not found; skipping',
       expect.objectContaining({
         environment_version_id: 'gone',
-        reportable_error: expect.objectContaining({ operation: 'progressNotFound' }),
+        reportable_error: expect.objectContaining({ error: expect.any(TrueForgeApi.NotFoundError) }),
       }),
     );
   });
@@ -61,7 +61,7 @@ describe('sandboxEnvBuildLoop', () => {
     expect(error).toHaveBeenCalledWith(
       'Sandbox environment version progress failed',
       expect.objectContaining({
-        reportable_error: expect.objectContaining({ operation: 'progress' }),
+        reportable_error: expect.objectContaining({ error: expect.any(Error) }),
       }),
     );
   });

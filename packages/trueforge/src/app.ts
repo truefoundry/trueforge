@@ -159,12 +159,7 @@ export function createAppErrorHandler(params: { logger: Logger }): ErrorHandler 
         path: c.req.path,
         status,
         ...extractErrorLogFields(error),
-        ...(status >= 500
-          ? reportableErrorFields({
-              error,
-              operation: message === 'Unhandled error' ? 'unhandled' : 'serverApiError',
-            })
-          : {}),
+        ...(status >= 500 ? reportableErrorFields({ error }) : {}),
       };
       if (status >= 500) {
         params.logger.error(message, fields);

@@ -184,7 +184,7 @@ export class LargeToolResponseProcessor implements ToolResponseProcessor {
     } catch (error) {
       this.logger.error('Failed to upload to sandbox', {
         ...extractErrorLogFields(error),
-        ...reportableErrorFields({ error, operation: 'sandboxUpload' }),
+        ...reportableErrorFields({ error }),
       });
       return undefined;
     }

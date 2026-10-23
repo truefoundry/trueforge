@@ -109,7 +109,6 @@ export class RequestReplyExecutor {
         ...extractErrorLogFields(err),
         ...reportableErrorFields({
           error: err,
-          operation: 'requestReplySubscriber',
           extra: { executorId: this.executorId },
         }),
       });
@@ -121,13 +120,6 @@ export class RequestReplyExecutor {
     this.subscriberClient.on('end', () => {
       this.logger.warn('[RequestReplyExecutor] Subscriber connection ended', {
         executorId: this.executorId,
-        ...(this.closed
-          ? {}
-          : reportableErrorFields({
-              error: new Error('Subscriber connection ended'),
-              operation: 'requestReplySubscriberEnded',
-              extra: { executorId: this.executorId },
-            })),
       });
       this.stopHeartbeat();
     });
@@ -160,7 +152,6 @@ export class RequestReplyExecutor {
         ...extractErrorLogFields(error),
         ...reportableErrorFields({
           error,
-          operation: 'requestReplySubscribe',
           extra: { executorId: this.executorId },
         }),
       });
@@ -179,7 +170,6 @@ export class RequestReplyExecutor {
         ...extractErrorLogFields(err),
         ...reportableErrorFields({
           error: err,
-          operation: 'requestReplyHeartbeat',
           extra: { executorId: this.executorId },
         }),
       });
@@ -218,7 +208,6 @@ export class RequestReplyExecutor {
         executorId: this.executorId,
         ...reportableErrorFields({
           error: err,
-          operation: 'requestReplyInvalidJson',
           extra: { executorId: this.executorId },
         }),
       });
@@ -243,7 +232,6 @@ export class RequestReplyExecutor {
         zod: zodError,
         ...reportableErrorFields({
           error: parsedRequest.error,
-          operation: 'requestReplyInvalidShape',
           extra: { executorId: this.executorId },
         }),
       });
@@ -280,7 +268,6 @@ export class RequestReplyExecutor {
         ...extractErrorLogFields(err),
         ...reportableErrorFields({
           error: err,
-          operation: 'requestReplyProcessing',
           extra: { executorId: this.executorId },
         }),
       });

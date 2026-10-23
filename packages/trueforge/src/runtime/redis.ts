@@ -154,7 +154,7 @@ async function connectSentinelWithRetry(input: {
     client.on('error', (error: Error) => {
       input.logger.error('[Redis] Client error', {
         ...extractErrorLogFields(error),
-        ...reportableErrorFields({ error, operation: 'redisClient' }),
+        ...reportableErrorFields({ error }),
       });
     });
     try {
@@ -174,7 +174,7 @@ async function connectSentinelWithRetry(input: {
       input.logger.error('[Redis] Sentinel connect failed, rebuilding and retrying', {
         attempt,
         ...extractErrorLogFields(error),
-        ...reportableErrorFields({ error, operation: 'redisSentinelConnect', extra: { attempt } }),
+        ...reportableErrorFields({ error, extra: { attempt } }),
       });
       await sleep(Math.min(SENTINEL_RETRY_BASE_MS * 2 ** attempt, SENTINEL_RETRY_MAX_MS));
     }
@@ -221,7 +221,7 @@ export async function connectRedis(input: ConnectRedisInput): Promise<ConnectedR
       created.on('error', (error: Error) => {
         input.logger.error('[Redis] Client error', {
           ...extractErrorLogFields(error),
-          ...reportableErrorFields({ error, operation: 'redisClient' }),
+          ...reportableErrorFields({ error }),
         });
       });
       await created.connect();

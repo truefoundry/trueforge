@@ -176,7 +176,6 @@ export class TFYSandboxProvider implements SandboxProvider {
             ...(response.status >= 500
               ? reportableErrorFields({
                   error: new Error(`Sandbox server returned ${String(response.status)}`),
-                  operation: 'sandboxServer5xx',
                   extra: { status: response.status },
                 })
               : {}),
@@ -194,7 +193,7 @@ export class TFYSandboxProvider implements SandboxProvider {
           this.logger.error(`Sandbox exec timed out after ${String(timeoutSeconds)}s`, {
             url: execUrl,
             ...extractErrorLogFields(e),
-            ...reportableErrorFields({ error: e, operation: 'sandboxExecTimeout' }),
+            ...reportableErrorFields({ error: e }),
           });
           return {
             success: false,
@@ -204,7 +203,7 @@ export class TFYSandboxProvider implements SandboxProvider {
         this.logger.error('Sandbox exec failed', {
           url: execUrl,
           ...extractErrorLogFields(e),
-          ...reportableErrorFields({ error: e, operation: 'sandboxExec' }),
+          ...reportableErrorFields({ error: e }),
         });
         return {
           success: false,

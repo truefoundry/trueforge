@@ -26,7 +26,6 @@ export async function dispatchSandboxEnvBuilds({ logger }: { logger: Logger }): 
           environment_version_id: environmentVersionId,
           ...reportableErrorFields({
             error,
-            operation: 'progressNotFound',
             extra: { environment_version_id: environmentVersionId },
           }),
         });
@@ -37,7 +36,6 @@ export async function dispatchSandboxEnvBuilds({ logger }: { logger: Logger }): 
         error: error instanceof Error ? error.message : String(error),
         ...reportableErrorFields({
           error,
-          operation: 'progress',
           extra: { environment_version_id: environmentVersionId },
         }),
       });

@@ -405,7 +405,7 @@ export async function drainTurnEvents(input: {
     } else {
       logger.error('Unexpected error in turn event drain', {
         ...extractErrorLogFields(error),
-        ...reportableErrorFields({ error, operation: 'eventDrain' }),
+        ...reportableErrorFields({ error }),
       });
     }
   } finally {
@@ -729,7 +729,7 @@ export function createTurnsRouter(deps: TurnsRouterDeps) {
         ...extractErrorLogFields(error),
         sandboxId,
         path,
-        ...reportableErrorFields({ error, operation: 'sandboxFileDownload', extra: { sandboxId, path } }),
+        ...reportableErrorFields({ error, extra: { sandboxId, path } }),
       });
       return c.json({ error: { message: 'Failed to download file from sandbox' } }, 424);
     }
@@ -975,7 +975,7 @@ export function createTurnsRouter(deps: TurnsRouterDeps) {
         if (!subscribeAbort.signal.aborted) {
           deps.logger.error('Unexpected error in turn subscribe SSE loop', {
             ...extractErrorLogFields(error),
-            ...reportableErrorFields({ error, operation: 'subscribeSse' }),
+            ...reportableErrorFields({ error }),
           });
         }
       } finally {

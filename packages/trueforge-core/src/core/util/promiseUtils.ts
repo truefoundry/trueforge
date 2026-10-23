@@ -46,7 +46,7 @@ export async function* mergeAsyncGenerators<T>(
     nextPromise.catch((error: unknown) => {
       logger.error(`Unexpected error in mergeAsyncGenerators generator ${String(idx)}`, {
         ...extractErrorLogFields(error),
-        ...reportableErrorFields({ error, operation: 'mergeAsyncGenerators', extra: { generator: idx } }),
+        ...reportableErrorFields({ error, extra: { generator: idx } }),
       });
     });
     return nextPromise;

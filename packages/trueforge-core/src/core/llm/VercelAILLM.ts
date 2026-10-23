@@ -1458,9 +1458,7 @@ export class VercelAILLM implements ILLM {
       } else {
         this.logger.error('Error creating streaming chat completion', {
           ...extractErrorLogFields(streamError),
-          ...(isReportableLlmTransportFailure(error)
-            ? reportableErrorFields({ error: streamError, operation: 'llmStreamCreate' })
-            : {}),
+          ...(isReportableLlmTransportFailure(error) ? reportableErrorFields({ error: streamError }) : {}),
         });
       }
       throw streamError;
@@ -1502,9 +1500,7 @@ export class VercelAILLM implements ILLM {
       } else {
         this.logger.error('Error reading LLM stream', {
           ...extractErrorLogFields(streamError),
-          ...(isReportableLlmTransportFailure(error)
-            ? reportableErrorFields({ error: streamError, operation: 'llmStreamRead' })
-            : {}),
+          ...(isReportableLlmTransportFailure(error) ? reportableErrorFields({ error: streamError }) : {}),
         });
       }
       throw streamError;
