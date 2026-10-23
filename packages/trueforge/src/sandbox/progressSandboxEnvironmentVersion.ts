@@ -1,5 +1,9 @@
 /** Progress pending env version: snapshot build only (secrets sync on PUT). */
-import { DAYTONA_SNAPSHOT_NOT_STARTED_REASON, withTimeout } from '@truefoundry/trueforge-core/core';
+import {
+  DAYTONA_SNAPSHOT_NOT_STARTED_REASON,
+  reportableErrorFields,
+  withTimeout,
+} from '@truefoundry/trueforge-core/core';
 import { HTTPException } from 'hono/http-exception';
 import type { Logger } from 'winston';
 import type { ISandboxEnvironmentStore } from '../db/sandboxEnvironmentStore';
@@ -11,7 +15,6 @@ import {
   toSandboxEnvironment,
   toSandboxStatus,
 } from '../sandbox/providerUtils';
-import { captureCriticalException } from '../sentry';
 
 export async function progressSandboxEnvironmentVersion({
   sandboxEnvironmentStore,
@@ -27,9 +30,13 @@ export async function progressSandboxEnvironmentVersion({
   const pending = await sandboxEnvironmentStore.getSandboxEnvironmentVersion({ environment_version_id });
   if (pending === undefined) {
     const error = new HTTPException(404, { message: 'Sandbox environment version not found' });
-    captureCriticalException(error, {
-      tags: { module: 'progressSandboxEnvironmentVersion', operation: 'notFound' },
-      extra: { environment_version_id },
+    logger.warn('Sandbox environment version not found', {
+      environment_version_id,
+      ...reportableErrorFields({
+        error,
+        operation: 'notFound',
+        extra: { environment_version_id },
+      }),
     });
     throw error;
   }
@@ -76,17 +83,14 @@ export async function progressSandboxEnvironmentVersion({
       logger.warn('Sandbox environment build failed authz', {
         environment_version_id,
         status_reason,
-      });
-      captureCriticalException(error, {
-        tags: { module: 'progressSandboxEnvironmentVersion', operation: 'authz' },
-        extra: { environment_version_id, tenant_id: pending.tenant_id, status_reason },
+        ...reportableErrorFields({
+          error,
+          operation: 'authz',
+          extra: { environment_version_id, tenant_id: pending.tenant_id, status_reason },
+        }),
       });
       return;
     }
-    captureCriticalException(error, {
-      tags: { module: 'progressSandboxEnvironmentVersion', operation: 'build' },
-      extra: { environment_version_id, tenant_id: pending.tenant_id },
-    });
     throw error;
   }
 }

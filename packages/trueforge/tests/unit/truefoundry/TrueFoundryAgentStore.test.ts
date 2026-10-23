@@ -106,6 +106,7 @@ function tfStore(input: {
       user_credential: input.accessToken ?? TOKEN,
     },
     db: input.db ?? mockDb(),
+    logger: LOGGER,
   });
 }
 

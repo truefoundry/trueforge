@@ -331,8 +331,9 @@ function buildResolveAgentStore(options: {
   persistenceStore: PostgresAgentStore;
   db: Kysely<PostgresDatabase>;
   client: TrueFoundryServiceFoundryServerClient | undefined;
+  logger: Logger;
 }): (rc: RequestContext) => IAgentStore<Transaction<PostgresDatabase>> {
-  const { persistenceStore, client, db } = options;
+  const { persistenceStore, client, db, logger } = options;
   return rc => {
     if (client) {
       return new TrueFoundryAgentStore({
@@ -340,6 +341,7 @@ function buildResolveAgentStore(options: {
         client,
         context: rc,
         db,
+        logger,
       });
     }
     return persistenceStore;
@@ -569,6 +571,7 @@ async function createDistributedPersistence(options: {
     persistenceStore: agentStore,
     db,
     client: serviceFoundryClient,
+    logger,
   });
   const resolveSandboxProviderStore = buildResolveSandboxProviderStore({
     persistenceStore: sandboxProviderStore,

@@ -66,11 +66,10 @@ describe('createAppErrorHandler', () => {
     });
   });
 
-  it('does not mark a 500 whose cause was already marked', async () => {
+  it('marks a 500 that wraps an earlier error', async () => {
     const logger = winston.createLogger({ silent: true });
     const errorLog = jest.spyOn(logger, 'error');
     const cause = new Error('socket hang up');
-    reportableErrorFields({ error: cause, operation: 'serviceFoundryRequest' });
     const thrown = new HTTPException(500, { message: 'Service unavailable', cause });
 
     const response = await appThrowing(logger, thrown).request('/test');
@@ -82,6 +81,7 @@ describe('createAppErrorHandler', () => {
       status: 500,
       error: `${thrown.message}: ${cause.message}`,
       stack: `${thrown.stack ?? ''}\nCaused by: ${cause.stack ?? ''}`,
+      ...reportableErrorFields({ error: thrown, operation: 'serverApiError' }),
     });
   });
 

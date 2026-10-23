@@ -7,7 +7,6 @@
  */
 import { AsyncLocalStorage } from 'node:async_hooks';
 import winston, { type Logger } from 'winston';
-import { reportMarkedLogFormat } from './sentry/reportMarkedLog';
 
 const STANDALONE_META_SKIP = new Set(['level', 'message', 'timestamp', 'component', 'stack', 'splat']);
 
@@ -133,8 +132,7 @@ function jsonFormat(): winston.Logform.Format {
 }
 
 function serverLogFormat(options: { standalone: boolean }): winston.Logform.Format {
-  const output = options.standalone ? standaloneFormat(shouldColorize()) : jsonFormat();
-  return winston.format.combine(reportMarkedLogFormat(), output);
+  return options.standalone ? standaloneFormat(shouldColorize()) : jsonFormat();
 }
 
 function createLogger(options: { level: string; standalone: boolean; component: 'server' | 'controller' }): Logger {

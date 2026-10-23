@@ -1,14 +1,6 @@
 import winston from 'winston';
 import { captureCriticalException } from './captureCriticalException';
 
-const REPORT_THROTTLE_MS = 60_000;
-
-const reportedAt = new Map<string, number>();
-
-export function resetMarkedLogReports(): void {
-  reportedAt.clear();
-}
-
 function readExtra(value: unknown): Record<string, unknown> | undefined {
   if (typeof value !== 'object' || value === null || Array.isArray(value)) {
     return undefined;
@@ -37,31 +29,27 @@ function readReportableError(
   };
 }
 
-function toError(value: unknown): Error {
+function toError(value: unknown): Error | undefined {
   if (value instanceof Error) {
     return value;
   }
-  const message = typeof value === 'string' && value.length > 0 ? value : 'Reportable error';
-  return new Error(message, { cause: value });
-}
-
-function reserveReport(operation: string, nowMs: number): boolean {
-  const previous = reportedAt.get(operation);
-  if (previous !== undefined && nowMs - previous < REPORT_THROTTLE_MS) {
-    return false;
+  if (typeof value !== 'string' || value.length === 0) {
+    return undefined;
   }
-  reportedAt.set(operation, nowMs);
-  return true;
+  return new Error(value, { cause: value });
 }
 
 export function reportMarkedLogFormat(): winston.Logform.Format {
   return winston.format(info => {
     const marked = readReportableError(info['reportable_error']);
-    if (marked !== undefined && reserveReport(marked.operation, Date.now())) {
-      captureCriticalException(toError(marked.error), {
-        tags: { operation: marked.operation },
-        ...(marked.extra !== undefined ? { extra: marked.extra } : {}),
-      });
+    if (marked !== undefined) {
+      const error = toError(marked.error);
+      if (error !== undefined) {
+        captureCriticalException(error, {
+          tags: { operation: marked.operation },
+          ...(marked.extra !== undefined ? { extra: marked.extra } : {}),
+        });
+      }
     }
     Reflect.deleteProperty(info, 'reportable_error');
     return info;

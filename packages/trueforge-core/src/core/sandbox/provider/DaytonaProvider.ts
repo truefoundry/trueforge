@@ -82,8 +82,6 @@ export interface DaytonaSandboxProviderOptions {
   /** Defaults to 1 hour (same as the gateway's max agent execution time). */
   previewUrlExpirySeconds?: number;
   logger: Logger;
-  /** Host alert hook (e.g. Sentry P1). */
-  onCriticalAlert?: (error: Error) => void;
 }
 
 export class DaytonaSandboxProvider implements SandboxProvider<DaytonaSandboxEnvironment> {
@@ -100,7 +98,6 @@ export class DaytonaSandboxProvider implements SandboxProvider<DaytonaSandboxEnv
   private readonly apiKey: string;
   private readonly apiUrl: string;
   private readonly logger: Logger;
-  private readonly onCriticalAlert: ((error: Error) => void) | undefined;
   private readonly daytona: Daytona;
   private static readonly cachedSandboxes = new Map<string, { sandbox: Sandbox; defaultTimeoutMs: number }>();
   // De-dupes concurrent recovery attempts on the same sandbox to a single refreshData+start round-trip.
@@ -118,7 +115,6 @@ export class DaytonaSandboxProvider implements SandboxProvider<DaytonaSandboxEnv
     this.fileMaxBytesForDownload = options.fileMaxBytesForDownload;
     this.natsBridgePort = options.natsBridgePort ?? DEFAULT_SANDBOX_NATS_WS_PORT;
     this.previewUrlExpirySeconds = options.previewUrlExpirySeconds ?? DEFAULT_PREVIEW_URL_EXPIRY_SECONDS;
-    this.onCriticalAlert = options.onCriticalAlert;
     this.logger = options.logger.child({ module: 'DaytonaProvider' });
   }
 
@@ -361,8 +357,12 @@ export class DaytonaSandboxProvider implements SandboxProvider<DaytonaSandboxEnv
       this.logger.error('Daytona sandbox create failed', {
         snapshot_ref: env.snapshot_ref,
         ...extractErrorLogFields(alertError),
+        ...reportableErrorFields({
+          error: alertError,
+          operation: 'sandboxCreate',
+          extra: { snapshot_ref: env.snapshot_ref },
+        }),
       });
-      this.onCriticalAlert?.(alertError);
       throw error;
     }
   }

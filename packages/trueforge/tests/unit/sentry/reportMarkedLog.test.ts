@@ -2,7 +2,7 @@ import { reportableErrorFields } from '@truefoundry/trueforge-core/core';
 import { Writable } from 'node:stream';
 import winston from 'winston';
 import { captureCriticalException } from '../../../src/sentry/captureCriticalException';
-import { reportMarkedLogFormat, resetMarkedLogReports } from '../../../src/sentry/reportMarkedLog';
+import { reportMarkedLogFormat } from '../../../src/sentry/reportMarkedLog';
 
 jest.mock('../../../src/sentry/captureCriticalException', () => ({
   captureCriticalException: jest.fn(),
@@ -25,13 +25,7 @@ function loggedLines(): { logger: winston.Logger; lines: string[] } {
 
 describe('reportMarkedLogFormat', () => {
   beforeEach(() => {
-    resetMarkedLogReports();
     jest.mocked(captureCriticalException).mockClear();
-    jest.spyOn(Date, 'now').mockReturnValue(1_000);
-  });
-
-  afterEach(() => {
-    jest.restoreAllMocks();
   });
 
   it('reports a marked record and removes the marker from the printed line', () => {
@@ -57,14 +51,10 @@ describe('reportMarkedLogFormat', () => {
     expect(captureCriticalException).not.toHaveBeenCalled();
   });
 
-  it('reports the first repeated operation and the next one after 60 seconds', () => {
+  it('reports each repeated operation', () => {
     const { logger } = loggedLines();
     const failure = new Error('socket closed');
     logger.error('[Redis] Client error', reportableErrorFields({ error: failure, operation: 'redisClient' }));
-    logger.error('[Redis] Client error', reportableErrorFields({ error: failure, operation: 'redisClient' }));
-    expect(captureCriticalException).toHaveBeenCalledTimes(1);
-
-    jest.spyOn(Date, 'now').mockReturnValue(1_000 + 60_000);
     logger.error('[Redis] Client error', reportableErrorFields({ error: failure, operation: 'redisClient' }));
     expect(captureCriticalException).toHaveBeenCalledTimes(2);
   });

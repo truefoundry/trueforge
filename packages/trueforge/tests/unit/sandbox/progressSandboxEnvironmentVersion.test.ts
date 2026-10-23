@@ -6,11 +6,6 @@ import type { ISandboxEnvironmentStore } from '../../../src/db/sandboxEnvironmen
 import type { ISandboxProviderStore } from '../../../src/db/sandboxProviderStore';
 import { progressSandboxEnvironmentVersion } from '../../../src/sandbox/progressSandboxEnvironmentVersion';
 import * as providerUtils from '../../../src/sandbox/providerUtils';
-import * as sentry from '../../../src/sentry';
-
-jest.mock('../../../src/sentry', () => ({
-  captureCriticalException: jest.fn(),
-}));
 
 jest.mock('../../../src/sandbox/providerUtils', () => {
   const actual = jest.requireActual<typeof import('../../../src/sandbox/providerUtils')>(
@@ -77,11 +72,11 @@ function mockProvider(methods: Record<string, jest.Mock>): void {
 describe('progressSandboxEnvironmentVersion', () => {
   beforeEach(() => {
     jest.mocked(providerUtils.toDaytonaSandboxProvider).mockReset();
-    jest.mocked(sentry.captureCriticalException).mockClear();
   });
 
   it('throws 404 when the version is missing', async () => {
     const { sandboxEnvironmentStore, sandboxProviderStore } = makeStores({ pending: null });
+    const warn = jest.spyOn(logger, 'warn');
     await expect(
       progressSandboxEnvironmentVersion({
         sandboxEnvironmentStore,
@@ -90,18 +85,22 @@ describe('progressSandboxEnvironmentVersion', () => {
         logger,
       }),
     ).rejects.toMatchObject({ status: 404 } satisfies Partial<HTTPException>);
-    expect(sentry.captureCriticalException).toHaveBeenCalledWith(expect.objectContaining({ status: 404 }), {
-      tags: { module: 'progressSandboxEnvironmentVersion', operation: 'notFound' },
-      extra: { environment_version_id: 'missing' },
-    });
+    expect(warn).toHaveBeenCalledWith(
+      'Sandbox environment version not found',
+      expect.objectContaining({
+        environment_version_id: 'missing',
+        reportable_error: expect.objectContaining({ operation: 'notFound' }),
+      }),
+    );
   });
 
-  it('reports a build failure from this layer', async () => {
+  it('rethrows a build failure without reporting it from this layer', async () => {
     const { sandboxEnvironmentStore, sandboxProviderStore } = makeStores();
     mockProvider({
       getBuildStatus: jest.fn().mockRejectedValue(new Error('network down')),
       build: jest.fn(),
     });
+    const errorLog = jest.spyOn(logger, 'error');
 
     await expect(
       progressSandboxEnvironmentVersion({
@@ -111,15 +110,13 @@ describe('progressSandboxEnvironmentVersion', () => {
         logger,
       }),
     ).rejects.toThrow('network down');
-    expect(sentry.captureCriticalException).toHaveBeenCalledWith(expect.any(Error), {
-      tags: { module: 'progressSandboxEnvironmentVersion', operation: 'build' },
-      extra: { environment_version_id: 'ver-1', tenant_id: 'tenant-1' },
-    });
+    expect(errorLog).not.toHaveBeenCalled();
   });
 
   it('reports an authz failure and marks the version failed', async () => {
     const { sandboxEnvironmentStore, sandboxProviderStore, envStore } = makeStores();
     const authError = new DaytonaError('Unauthorized', 401);
+    const warn = jest.spyOn(logger, 'warn');
     mockProvider({
       getBuildStatus: jest.fn().mockRejectedValue(authError),
       build: jest.fn(),
@@ -136,14 +133,12 @@ describe('progressSandboxEnvironmentVersion', () => {
       environment_version_id: 'ver-1',
       status_reason: 'Sandbox provider rejected the API key — check the credentials',
     });
-    expect(sentry.captureCriticalException).toHaveBeenCalledWith(authError, {
-      tags: { module: 'progressSandboxEnvironmentVersion', operation: 'authz' },
-      extra: {
-        environment_version_id: 'ver-1',
-        tenant_id: 'tenant-1',
-        status_reason: 'Sandbox provider rejected the API key — check the credentials',
-      },
-    });
+    expect(warn).toHaveBeenCalledWith(
+      'Sandbox environment build failed authz',
+      expect.objectContaining({
+        reportable_error: expect.objectContaining({ operation: 'authz' }),
+      }),
+    );
   });
 
   it('marks ready when getBuildStatus reports ready', async () => {

@@ -2,21 +2,12 @@ import { TrueForgeApi } from '@truefoundry/trueforge-sdk';
 import { createLogger } from 'winston';
 import { internalTrueForgeClient } from '../../../src/controller/internalTrueForgeClient';
 import { dispatchSandboxEnvBuilds, sandboxEnvBuildLoop } from '../../../src/controller/sandboxEnvBuild';
-import * as sentry from '../../../src/sentry';
-
-jest.mock('../../../src/sentry', () => ({
-  captureCriticalException: jest.fn(),
-}));
 
 function fakeLogger() {
   return { error: jest.fn(), debug: jest.fn(), info: jest.fn(), warn: jest.fn() };
 }
 
 describe('sandboxEnvBuildLoop', () => {
-  beforeEach(() => {
-    jest.mocked(sentry.captureCriticalException).mockClear();
-  });
-
   afterEach(() => {
     jest.restoreAllMocks();
   });
@@ -50,20 +41,29 @@ describe('sandboxEnvBuildLoop', () => {
     await dispatchSandboxEnvBuilds({ logger: logger as never });
 
     expect(progress).toHaveBeenCalledTimes(2);
-    expect(logger.warn).toHaveBeenCalled();
-    expect(sentry.captureCriticalException).toHaveBeenCalledWith(expect.any(TrueForgeApi.NotFoundError), {
-      tags: { module: 'sandboxEnvBuild', operation: 'progressNotFound' },
-      extra: { environment_version_id: 'gone' },
-    });
+    expect(logger.warn).toHaveBeenCalledWith(
+      'Sandbox environment version not found; skipping',
+      expect.objectContaining({
+        environment_version_id: 'gone',
+        reportable_error: expect.objectContaining({ operation: 'progressNotFound' }),
+      }),
+    );
   });
 
   it('reports a progress failure once', async () => {
     jest.spyOn(internalTrueForgeClient, 'listPendingSandboxEnvironmentVersions').mockResolvedValue(['ver-1']);
     jest.spyOn(internalTrueForgeClient, 'progressSandboxEnvironmentVersion').mockRejectedValue(new Error('down'));
+    const logger = createLogger({ silent: true });
+    const error = jest.spyOn(logger, 'error');
 
-    await dispatchSandboxEnvBuilds({ logger: createLogger({ silent: true }) });
+    await dispatchSandboxEnvBuilds({ logger });
 
-    expect(sentry.captureCriticalException).toHaveBeenCalledTimes(1);
+    expect(error).toHaveBeenCalledWith(
+      'Sandbox environment version progress failed',
+      expect.objectContaining({
+        reportable_error: expect.objectContaining({ operation: 'progress' }),
+      }),
+    );
   });
 
   it('does not tick when aborted', async () => {

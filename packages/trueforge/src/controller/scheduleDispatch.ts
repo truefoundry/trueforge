@@ -1,4 +1,5 @@
 import type { SessionHandle, Sessions, TurnInputItem } from '@truefoundry/trueforge-core/agent-session';
+import { reportableErrorFields } from '@truefoundry/trueforge-core/core';
 import type { Logger } from 'winston';
 import type { AgentRecord, IAgentStore } from '../db/agentStore';
 import {
@@ -10,7 +11,6 @@ import {
 import type { WithTransaction } from '../db/transaction';
 import { nextTriggerAfter } from '../runtime/cron';
 import { InvalidCronError, type ScheduleRunStatus } from '../schemas/schedule';
-import { captureCriticalException } from '../sentry';
 import type { ControlLoop } from './Controller';
 import { internalTrueForgeClient } from './internalTrueForgeClient';
 
@@ -295,14 +295,15 @@ export async function dispatchScheduledRuns<TTransaction>(params: {
           schedule_id: schedule.id,
           run_id: run.id,
           error,
-        });
-        captureCriticalException(error, {
-          tags: { module: 'scheduleDispatch', operation: 'handoff' },
-          extra: {
-            tenant_id: run.tenant_id,
-            schedule_id: schedule.id,
-            run_id: run.id,
-          },
+          ...reportableErrorFields({
+            error,
+            operation: 'handoff',
+            extra: {
+              tenant_id: run.tenant_id,
+              schedule_id: schedule.id,
+              run_id: run.id,
+            },
+          }),
         });
         await finishScheduledRun({
           store,
@@ -329,14 +330,15 @@ export async function dispatchScheduledRuns<TTransaction>(params: {
         schedule_id: run.schedule_id,
         run_id: run.id,
         error,
-      });
-      captureCriticalException(error, {
-        tags: { module: 'scheduleDispatch', operation: 'processRun' },
-        extra: {
-          tenant_id: run.tenant_id,
-          schedule_id: run.schedule_id,
-          run_id: run.id,
-        },
+        ...reportableErrorFields({
+          error,
+          operation: 'processRun',
+          extra: {
+            tenant_id: run.tenant_id,
+            schedule_id: run.schedule_id,
+            run_id: run.id,
+          },
+        }),
       });
     }
   }

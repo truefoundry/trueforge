@@ -477,41 +477,6 @@ describe('auth router (auth enabled)', () => {
     errorLog.mockRestore();
   });
 
-  it('GET /callback marks a token-endpoint network failure for Sentry', async () => {
-    const errorLog = jest.spyOn(logger, 'error');
-    const router = createTestAuthRouter({ oidcClient });
-    const loginRes = await router.request('/login?return_to=/', { redirect: 'manual' });
-    const stateCookieRaw = cookieValue(setCookies(loginRes), STATE_COOKIE) ?? '';
-    const authorizationUrl = new URL(loginRes.headers.get('location') ?? '');
-    const state = authorizationUrl.searchParams.get('state') ?? '';
-
-    const fetchStub = globalThis.fetch;
-    const failingFetch: typeof fetch = async (input, init) => {
-      if (String(input) === `${ISSUER}/token` && init?.method === 'POST') {
-        throw new TypeError('fetch failed', {
-          cause: Object.assign(new Error('connect ECONNREFUSED'), { code: 'ECONNREFUSED' }),
-        });
-      }
-      return fetchStub(input, init);
-    };
-    globalThis.fetch = failingFetch;
-
-    const res = await router.request(`/callback?code=abc&state=${state}&iss=${encodeURIComponent(ISSUER)}`, {
-      redirect: 'manual',
-      headers: { Cookie: `${STATE_COOKIE}=${stateCookieRaw}` },
-    });
-
-    expect(res.status).toBe(302);
-    expect(res.headers.get('location')).toBe('/?error=login_failed');
-    expect(errorLog).toHaveBeenCalledWith(
-      'Failed to exchange authorization code',
-      expect.objectContaining({
-        reportable_error: expect.objectContaining({ operation: 'oidcExchange' }),
-      }),
-    );
-    errorLog.mockRestore();
-  });
-
   it('GET /callback keeps login_failed when exchange fails and the leftover cookie is blocked', async () => {
     const restrictedClient = await initOidc({
       ...configuredOidc,

@@ -360,7 +360,6 @@ export class TrueFoundryServiceFoundryServerClient {
       } catch (error) {
         this.#logger.error('TrueFoundry ServiceFoundry resolve agent-skill-versions returned an unexpected response', {
           ...extractErrorLogFields(error),
-          ...reportableErrorFields({ error, operation: 'resolveAgentSkillVersions' }),
         });
         throw new HTTPException(500, {
           message: 'TrueFoundry ServiceFoundry resolve agent-skill-versions returned an unexpected response',
@@ -702,7 +701,6 @@ export class TrueFoundryServiceFoundryServerClient {
         durationMs: Date.now() - startedAt,
         timedOut,
         ...extractErrorLogFields(error),
-        ...reportableErrorFields({ error, operation: 'serviceFoundryRequest', extra: { timedOut } }),
       });
       throw new HTTPException(500, {
         message: timedOut

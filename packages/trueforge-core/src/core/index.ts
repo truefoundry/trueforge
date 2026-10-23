@@ -181,12 +181,7 @@ export {
   ssrfFetch,
 } from './util/outboundFetch';
 export { PromiseTimeoutError, withTimeout } from './util/promiseUtils';
-export {
-  hasMarkedReportableError,
-  rememberReportedError,
-  reportableErrorFields,
-  type ReportableErrorLog,
-} from './util/reportableErrorLog';
+export { reportableErrorFields, type ReportableErrorLog } from './util/reportableErrorLog';
 export {
   assertSafeOutboundUrl,
   configureOutboundUrlGuard,
