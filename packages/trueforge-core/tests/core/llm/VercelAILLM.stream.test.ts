@@ -11,6 +11,7 @@ import type {
   ToolSet,
 } from 'ai';
 import { APICallError } from 'ai';
+import { ModelProviderError } from '../../../src/core/errors';
 import type { ExtendedChatCompletionChunk, RawAssistantMessageWithUsage } from '../../../src/core/llm/LLMTypes';
 import {
   describeStreamError,
@@ -217,16 +218,20 @@ describe('describeStreamError', () => {
 });
 
 describe('toStreamError', () => {
-  it('returns Error instances unchanged', () => {
-    const err = new Error('keep me');
+  it('wraps Error instances with one model prefix and keeps the cause', () => {
+    const err = new Error('provider unavailable');
     err.name = 'AbortError';
-    expect(toStreamError(err)).toBe(err);
+    const wrapped = toStreamError(err);
+    expect(wrapped).toBeInstanceOf(ModelProviderError);
+    expect(wrapped).not.toBe(err);
+    expect(wrapped.message).toBe('[Model Error] provider unavailable');
+    expect(wrapped.cause).toBe(err);
   });
 
   it('wraps plain objects using describeStreamError', () => {
     const wrapped = toStreamError({ message: 'The requested model does not exist.' });
-    expect(wrapped).toBeInstanceOf(Error);
-    expect(wrapped.message).toBe('The requested model does not exist.');
+    expect(wrapped).toBeInstanceOf(ModelProviderError);
+    expect(wrapped.message).toBe('[Model Error] The requested model does not exist.');
     expect(wrapped.cause).toEqual({ message: 'The requested model does not exist.' });
   });
 });

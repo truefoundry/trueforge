@@ -1,3 +1,5 @@
+import { MCP_ERROR_PREFIX, MODEL_ERROR_PREFIX, stripErrorPrefix } from '../errors';
+
 export interface ErrorLogFields {
   error: string;
   stack?: string | undefined;
@@ -47,10 +49,25 @@ function describeErrorChain(error: unknown, seen: Set<unknown>): string {
   if (head.length === 0) {
     return tail;
   }
-  if (tail.length === 0 || head.includes(tail)) {
+  if (tail.length === 0 || causeMessageAlreadyIncluded({ head, tail })) {
     return head;
   }
   return `${head}: ${tail}`;
+}
+
+/**
+ * A wrapped MCP or model error keeps the upstream error as `cause`, but its message drops the
+ * source label before adding context. That label must not be joined back onto the outer text.
+ */
+function causeMessageAlreadyIncluded({ head, tail }: { head: string; tail: string }): boolean {
+  if (head.includes(tail)) {
+    return true;
+  }
+  const unlabeledTail = stripErrorPrefix({
+    prefix: [MCP_ERROR_PREFIX, MODEL_ERROR_PREFIX],
+    message: tail,
+  });
+  return unlabeledTail.length > 0 && head.includes(unlabeledTail);
 }
 
 /**

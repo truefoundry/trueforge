@@ -397,6 +397,11 @@
           },
           "provider": {
             "$ref": "#/components/schemas/AvailableModelProvider"
+          },
+          "warning": {
+            "description": "Set when reasoning effort or context length is not configured; may affect TrueForge performance.",
+            "minLength": 1,
+            "type": "string"
           }
         },
         "required": [
@@ -3969,6 +3974,9 @@
             "description": "Unique session id.",
             "type": "string"
           },
+          "last_turn_details": {
+            "$ref": "#/components/schemas/SessionLastTurnDetails"
+          },
           "metadata": {
             "$ref": "#/components/schemas/SessionMetadata"
           },
@@ -4004,7 +4012,8 @@
           "updated_at",
           "metrics",
           "metadata",
-          "source"
+          "source",
+          "last_turn_details"
         ],
         "type": "object"
       },
@@ -4185,6 +4194,39 @@
         "required": [
           "turn_id",
           "event"
+        ],
+        "type": "object"
+      },
+      "SessionLastTurnDetails": {
+        "additionalProperties": false,
+        "description": "The session's most recent turn; null until the first turn.",
+        "properties": {
+          "id": {
+            "description": "Id of the last turn.",
+            "minLength": 1,
+            "type": "string"
+          },
+          "state": {
+            "$ref": "#/components/schemas/SessionLastTurnState"
+          }
+        },
+        "required": [
+          "id",
+          "state"
+        ],
+        "type": [
+          "object",
+          "null"
+        ]
+      },
+      "SessionLastTurnState": {
+        "properties": {
+          "status": {
+            "$ref": "#/components/schemas/TurnStatus"
+          }
+        },
+        "required": [
+          "status"
         ],
         "type": "object"
       },
@@ -5585,6 +5627,16 @@
           "status"
         ],
         "type": "object"
+      },
+      "TurnStatus": {
+        "enum": [
+          "running",
+          "paused",
+          "done",
+          "cancelled",
+          "error"
+        ],
+        "type": "string"
       },
       "TurnStreamingEvent": {
         "discriminator": {
