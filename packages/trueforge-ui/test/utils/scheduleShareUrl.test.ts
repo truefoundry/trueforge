@@ -1,6 +1,7 @@
 import {
   clearScheduleShareSearch,
   readScheduleShareSearch,
+  writeOpenScheduleByNameSearch,
   writeOpenSchedulesForAgentSearch,
   writeScheduleShareSearch,
 } from '@/utils/scheduleShareUrl.js';
@@ -41,6 +42,17 @@ describe('scheduleShareUrl', () => {
     expect(url.searchParams.get('isNew')).toBe('true');
     expect(url.searchParams.get('agentId')).toBeNull();
     expect(url.searchParams.get('tab')).toBeNull();
+    expect(url.searchParams.get('theme')).toBe('dark');
+  });
+
+  it('writeOpenScheduleByNameSearch clears session keys and filters, then sets the name query', () => {
+    window.history.replaceState(null, '', '/sessions?sessionId=sess_1&agent=old&status=paused&theme=dark');
+    writeOpenScheduleByNameSearch({ name: 'daily-digest' });
+    const url = new URL(window.location.href);
+    expect(url.searchParams.get('q')).toBe('daily-digest');
+    expect(url.searchParams.get('agent')).toBeNull();
+    expect(url.searchParams.get('status')).toBeNull();
+    expect(url.searchParams.get('sessionId')).toBeNull();
     expect(url.searchParams.get('theme')).toBe('dark');
   });
 });

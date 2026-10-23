@@ -93,3 +93,17 @@ export function writeOpenSchedulesForAgentSearch({ agentId, isNew }: { agentId: 
   });
   window.history.replaceState(window.history.state, '', url);
 }
+
+/** Point the address bar at schedules searched by name. Caller still opens the schedules place via shell. */
+export function writeOpenScheduleByNameSearch({ name }: { name: string }): void {
+  const url = new URL(window.location.href);
+  writeSessionShareSearch(url.searchParams, {
+    sessionId: null,
+    agentId: null,
+    tab: null,
+    view: null,
+    timeRange: null,
+  });
+  writeScheduleShareSearch(url.searchParams, { agent: null, status: null, q: name, isNew: null });
+  window.history.replaceState(window.history.state, '', url);
+}
