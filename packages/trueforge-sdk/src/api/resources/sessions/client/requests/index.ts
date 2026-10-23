@@ -1,4 +1,5 @@
 export type { CancelSessionRequest } from "./CancelSessionRequest.js";
+export type { CreateSessionAccessRequest } from "./CreateSessionAccessRequest.js";
 export type { CreateSessionRequest } from "./CreateSessionRequest.js";
 export type { CreateTurnEventRequest } from "./CreateTurnEventRequest.js";
 export type { CreateTurnSessionsRequest } from "./CreateTurnSessionsRequest.js";

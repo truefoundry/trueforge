@@ -561,6 +561,342 @@ describe("SessionsClient", () => {
         }).rejects.toThrow(TrueForgeTypes.UnprocessableEntityError);
     });
 
+    test("list_access (1)", async () => {
+        const server = mockServerPool.createServer();
+        const client = new TrueForge({ maxRetries: 0, token: "test", baseUrl: server.baseUrl });
+
+        const rawResponseBody = {
+            data: [
+                {
+                    created_at: "created_at",
+                    granted_by_subject: {
+                        subject_display_name: "subject_display_name",
+                        subject_id: "subject_id",
+                        subject_type: "subject_type",
+                    },
+                    subject: { subject_id: "subject_id", subject_type: "user" },
+                },
+            ],
+        };
+
+        server
+            .mockEndpoint()
+            .get("/api/v1/sessions/session_id/access")
+            .respondWith()
+            .statusCode(200)
+            .jsonBody(rawResponseBody)
+            .build();
+
+        const response = await client.sessions.listAccess("session_id");
+        expect(response).toEqual({
+            data: [
+                {
+                    createdAt: "created_at",
+                    grantedBySubject: {
+                        subjectDisplayName: "subject_display_name",
+                        subjectId: "subject_id",
+                        subjectType: "subject_type",
+                    },
+                    subject: {
+                        subjectId: "subject_id",
+                        subjectType: "user",
+                    },
+                },
+            ],
+        });
+    });
+
+    test("list_access (2)", async () => {
+        const server = mockServerPool.createServer();
+        const client = new TrueForge({ maxRetries: 0, token: "test", baseUrl: server.baseUrl });
+
+        const rawResponseBody = { error: { message: "message" } };
+
+        server
+            .mockEndpoint()
+            .get("/api/v1/sessions/session_id/access")
+            .respondWith()
+            .statusCode(403)
+            .jsonBody(rawResponseBody)
+            .build();
+
+        await expect(async () => {
+            return await client.sessions.listAccess("session_id");
+        }).rejects.toThrow(TrueForgeTypes.ForbiddenError);
+    });
+
+    test("list_access (3)", async () => {
+        const server = mockServerPool.createServer();
+        const client = new TrueForge({ maxRetries: 0, token: "test", baseUrl: server.baseUrl });
+
+        const rawResponseBody = { error: { message: "message" } };
+
+        server
+            .mockEndpoint()
+            .get("/api/v1/sessions/session_id/access")
+            .respondWith()
+            .statusCode(404)
+            .jsonBody(rawResponseBody)
+            .build();
+
+        await expect(async () => {
+            return await client.sessions.listAccess("session_id");
+        }).rejects.toThrow(TrueForgeTypes.NotFoundError);
+    });
+
+    test("create_access (1)", async () => {
+        const server = mockServerPool.createServer();
+        const client = new TrueForge({ maxRetries: 0, token: "test", baseUrl: server.baseUrl });
+        const rawRequestBody = { subjects: [{ subject_id: "subject_id", subject_type: "user" }] };
+        const rawResponseBody = {
+            data: [
+                {
+                    created_at: "created_at",
+                    granted_by_subject: {
+                        subject_display_name: "subject_display_name",
+                        subject_id: "subject_id",
+                        subject_type: "subject_type",
+                    },
+                    subject: { subject_id: "subject_id", subject_type: "user" },
+                },
+            ],
+        };
+
+        server
+            .mockEndpoint()
+            .post("/api/v1/sessions/session_id/access")
+            .jsonBody(rawRequestBody)
+            .respondWith()
+            .statusCode(200)
+            .jsonBody(rawResponseBody)
+            .build();
+
+        const response = await client.sessions.createAccess("session_id", {
+            subjects: [
+                {
+                    subjectId: "subject_id",
+                    subjectType: "user",
+                },
+            ],
+        });
+        expect(response).toEqual({
+            data: [
+                {
+                    createdAt: "created_at",
+                    grantedBySubject: {
+                        subjectDisplayName: "subject_display_name",
+                        subjectId: "subject_id",
+                        subjectType: "subject_type",
+                    },
+                    subject: {
+                        subjectId: "subject_id",
+                        subjectType: "user",
+                    },
+                },
+            ],
+        });
+    });
+
+    test("create_access (2)", async () => {
+        const server = mockServerPool.createServer();
+        const client = new TrueForge({ maxRetries: 0, token: "test", baseUrl: server.baseUrl });
+        const rawRequestBody = {
+            subjects: [
+                { subject_id: "x", subject_type: "user" },
+                { subject_id: "x", subject_type: "user" },
+            ],
+        };
+        const rawResponseBody = { error: { message: "message" } };
+
+        server
+            .mockEndpoint()
+            .post("/api/v1/sessions/session_id/access")
+            .jsonBody(rawRequestBody)
+            .respondWith()
+            .statusCode(400)
+            .jsonBody(rawResponseBody)
+            .build();
+
+        await expect(async () => {
+            return await client.sessions.createAccess("session_id", {
+                subjects: [
+                    {
+                        subjectId: "x",
+                        subjectType: "user",
+                    },
+                    {
+                        subjectId: "x",
+                        subjectType: "user",
+                    },
+                ],
+            });
+        }).rejects.toThrow(TrueForgeTypes.BadRequestError);
+    });
+
+    test("create_access (3)", async () => {
+        const server = mockServerPool.createServer();
+        const client = new TrueForge({ maxRetries: 0, token: "test", baseUrl: server.baseUrl });
+        const rawRequestBody = {
+            subjects: [
+                { subject_id: "x", subject_type: "user" },
+                { subject_id: "x", subject_type: "user" },
+            ],
+        };
+        const rawResponseBody = { error: { message: "message" } };
+
+        server
+            .mockEndpoint()
+            .post("/api/v1/sessions/session_id/access")
+            .jsonBody(rawRequestBody)
+            .respondWith()
+            .statusCode(403)
+            .jsonBody(rawResponseBody)
+            .build();
+
+        await expect(async () => {
+            return await client.sessions.createAccess("session_id", {
+                subjects: [
+                    {
+                        subjectId: "x",
+                        subjectType: "user",
+                    },
+                    {
+                        subjectId: "x",
+                        subjectType: "user",
+                    },
+                ],
+            });
+        }).rejects.toThrow(TrueForgeTypes.ForbiddenError);
+    });
+
+    test("create_access (4)", async () => {
+        const server = mockServerPool.createServer();
+        const client = new TrueForge({ maxRetries: 0, token: "test", baseUrl: server.baseUrl });
+        const rawRequestBody = {
+            subjects: [
+                { subject_id: "x", subject_type: "user" },
+                { subject_id: "x", subject_type: "user" },
+            ],
+        };
+        const rawResponseBody = { error: { message: "message" } };
+
+        server
+            .mockEndpoint()
+            .post("/api/v1/sessions/session_id/access")
+            .jsonBody(rawRequestBody)
+            .respondWith()
+            .statusCode(404)
+            .jsonBody(rawResponseBody)
+            .build();
+
+        await expect(async () => {
+            return await client.sessions.createAccess("session_id", {
+                subjects: [
+                    {
+                        subjectId: "x",
+                        subjectType: "user",
+                    },
+                    {
+                        subjectId: "x",
+                        subjectType: "user",
+                    },
+                ],
+            });
+        }).rejects.toThrow(TrueForgeTypes.NotFoundError);
+    });
+
+    test("create_access (5)", async () => {
+        const server = mockServerPool.createServer();
+        const client = new TrueForge({ maxRetries: 0, token: "test", baseUrl: server.baseUrl });
+        const rawRequestBody = {
+            subjects: [
+                { subject_id: "x", subject_type: "user" },
+                { subject_id: "x", subject_type: "user" },
+            ],
+        };
+        const rawResponseBody = { error: { message: "message" } };
+
+        server
+            .mockEndpoint()
+            .post("/api/v1/sessions/session_id/access")
+            .jsonBody(rawRequestBody)
+            .respondWith()
+            .statusCode(422)
+            .jsonBody(rawResponseBody)
+            .build();
+
+        await expect(async () => {
+            return await client.sessions.createAccess("session_id", {
+                subjects: [
+                    {
+                        subjectId: "x",
+                        subjectType: "user",
+                    },
+                    {
+                        subjectId: "x",
+                        subjectType: "user",
+                    },
+                ],
+            });
+        }).rejects.toThrow(TrueForgeTypes.UnprocessableEntityError);
+    });
+
+    test("delete_access (1)", async () => {
+        const server = mockServerPool.createServer();
+        const client = new TrueForge({ maxRetries: 0, token: "test", baseUrl: server.baseUrl });
+
+        const rawResponseBody = {};
+
+        server
+            .mockEndpoint()
+            .delete("/api/v1/sessions/session_id/access/user/subject_id")
+            .respondWith()
+            .statusCode(200)
+            .jsonBody(rawResponseBody)
+            .build();
+
+        const response = await client.sessions.deleteAccess("session_id", "user", "subject_id");
+        expect(response).toEqual({});
+    });
+
+    test("delete_access (2)", async () => {
+        const server = mockServerPool.createServer();
+        const client = new TrueForge({ maxRetries: 0, token: "test", baseUrl: server.baseUrl });
+
+        const rawResponseBody = { error: { message: "message" } };
+
+        server
+            .mockEndpoint()
+            .delete("/api/v1/sessions/session_id/access/user/subject_id")
+            .respondWith()
+            .statusCode(403)
+            .jsonBody(rawResponseBody)
+            .build();
+
+        await expect(async () => {
+            return await client.sessions.deleteAccess("session_id", "user", "subject_id");
+        }).rejects.toThrow(TrueForgeTypes.ForbiddenError);
+    });
+
+    test("delete_access (3)", async () => {
+        const server = mockServerPool.createServer();
+        const client = new TrueForge({ maxRetries: 0, token: "test", baseUrl: server.baseUrl });
+
+        const rawResponseBody = { error: { message: "message" } };
+
+        server
+            .mockEndpoint()
+            .delete("/api/v1/sessions/session_id/access/user/subject_id")
+            .respondWith()
+            .statusCode(404)
+            .jsonBody(rawResponseBody)
+            .build();
+
+        await expect(async () => {
+            return await client.sessions.deleteAccess("session_id", "user", "subject_id");
+        }).rejects.toThrow(TrueForgeTypes.NotFoundError);
+    });
+
     test("cancel (1)", async () => {
         const server = mockServerPool.createServer();
         const client = new TrueForge({ maxRetries: 0, token: "test", baseUrl: server.baseUrl });

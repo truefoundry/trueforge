@@ -15,6 +15,7 @@ import { TrueForgeAuthorizer, type Authorizer } from '../../../src/auth/authoriz
 import { STANDALONE_REQUEST_CONTEXT } from '../../../src/auth/identity';
 import { McpServerWithAuthStore } from '../../../src/db/McpServerWithAuthStore';
 import { migrateSqliteToLatest } from '../../../src/db/migrateSqlite';
+import { SqliteAccessControlEntryStore } from '../../../src/db/sqlite/access-control-entry-store/SqliteAccessControlEntryStore';
 import { SqliteAgentStore } from '../../../src/db/sqlite/agent-store/SqliteAgentStore';
 import { createSqliteDb } from '../../../src/db/sqlite/client';
 import { SqliteMcpServerStore } from '../../../src/db/sqlite/mcp-server-store/SqliteMcpServerStore';
@@ -26,6 +27,7 @@ import { SqliteSessionStore } from '../../../src/db/sqlite/session-store/SqliteS
 import { SqliteSkillStore } from '../../../src/db/sqlite/skill-store/SqliteSkillStore';
 import { SqliteOAuthTokenStore } from '../../../src/db/sqlite/token-store/SqliteOAuthTokenStore';
 import { SqliteWebSearchProviderStore } from '../../../src/db/sqlite/web-search-provider-store/SqliteWebSearchProviderStore';
+import { EmptyUserStore } from '../../../src/db/userStore';
 import { ActiveTurnRegistry } from '../../../src/runtime/activeTurns';
 import { EventSubscriptionRegistry } from '../../../src/runtime/event-subscription/index.js';
 import { GetSessionResponseSchema, ListSessionsResponseSchema } from '../../../src/schemas/session';
@@ -117,6 +119,8 @@ describe('sessions HTTP agent binding', () => {
     const deps: SessionsRouterDeps = {
       sessions,
       sessionStore,
+      accessControlEntryStore: new SqliteAccessControlEntryStore(db),
+      userStore: new EmptyUserStore(),
       activeTurns: new ActiveTurnRegistry(),
       resolveModelProviderStore,
       resolveMcpServerStore,

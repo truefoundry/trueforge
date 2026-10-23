@@ -1106,6 +1106,24 @@
         ],
         "type": "object"
       },
+      "CreateSessionAccessRequest": {
+        "additionalProperties": false,
+        "properties": {
+          "subjects": {
+            "description": "Subjects to share the session with (1–50).",
+            "items": {
+              "$ref": "#/components/schemas/SessionAccessSubject"
+            },
+            "maxItems": 50,
+            "minItems": 1,
+            "type": "array"
+          }
+        },
+        "required": [
+          "subjects"
+        ],
+        "type": "object"
+      },
       "CreateSessionAgent": {
         "anyOf": [
           {
@@ -1317,6 +1335,11 @@
         "type": "object"
       },
       "DeleteScheduleResponse": {
+        "properties": {},
+        "type": "object"
+      },
+      "DeleteSessionAccessResponse": {
+        "additionalProperties": false,
         "properties": {},
         "type": "object"
       },
@@ -2117,6 +2140,20 @@
         ],
         "type": "object"
       },
+      "ListSessionAccessResponse": {
+        "properties": {
+          "data": {
+            "items": {
+              "$ref": "#/components/schemas/SessionAccess"
+            },
+            "type": "array"
+          }
+        },
+        "required": [
+          "data"
+        ],
+        "type": "object"
+      },
       "ListSessionEventsResponse": {
         "properties": {
           "data": {
@@ -2222,6 +2259,24 @@
           "data": {
             "items": {
               "$ref": "#/components/schemas/Turn"
+            },
+            "type": "array"
+          },
+          "pagination": {
+            "$ref": "#/components/schemas/TokenPagination"
+          }
+        },
+        "required": [
+          "data",
+          "pagination"
+        ],
+        "type": "object"
+      },
+      "ListUsersResponse": {
+        "properties": {
+          "data": {
+            "items": {
+              "$ref": "#/components/schemas/User"
             },
             "type": "array"
           },
@@ -4011,6 +4066,54 @@
           "last_turn_details"
         ],
         "type": "object"
+      },
+      "SessionAccess": {
+        "additionalProperties": false,
+        "properties": {
+          "created_at": {
+            "description": "When the session was shared with the subject (ISO-8601 UTC).",
+            "type": "string"
+          },
+          "granted_by_subject": {
+            "$ref": "#/components/schemas/CreatedBySubject"
+          },
+          "subject": {
+            "$ref": "#/components/schemas/SessionAccessSubject"
+          }
+        },
+        "required": [
+          "subject",
+          "granted_by_subject",
+          "created_at"
+        ],
+        "type": "object"
+      },
+      "SessionAccessSubject": {
+        "additionalProperties": false,
+        "description": "Who the session is shared with.",
+        "properties": {
+          "subject_id": {
+            "description": "ID of the subject.",
+            "maxLength": 255,
+            "minLength": 1,
+            "type": "string"
+          },
+          "subject_type": {
+            "$ref": "#/components/schemas/SessionAccessSubjectType"
+          }
+        },
+        "required": [
+          "subject_type",
+          "subject_id"
+        ],
+        "type": "object"
+      },
+      "SessionAccessSubjectType": {
+        "description": "Kind of subject.",
+        "enum": [
+          "user"
+        ],
+        "type": "string"
       },
       "SessionAgent": {
         "discriminator": {
@@ -5886,6 +5989,28 @@
         },
         "required": [
           "manifest"
+        ],
+        "type": "object"
+      },
+      "User": {
+        "properties": {
+          "display_name": {
+            "description": "Human-readable name for the user.",
+            "type": "string"
+          },
+          "email": {
+            "description": "Email of the user.",
+            "type": "string"
+          },
+          "id": {
+            "description": "User id, unique within the tenant.",
+            "type": "string"
+          }
+        },
+        "required": [
+          "id",
+          "display_name",
+          "email"
         ],
         "type": "object"
       },
@@ -9329,6 +9454,232 @@
         "x-fern-sdk-method-name": "update"
       }
     },
+    "/api/v1/sessions/{session_id}/access": {
+      "get": {
+        "description": "List the subjects this session is shared with.",
+        "parameters": [
+          {
+            "description": "Session identifier.",
+            "in": "path",
+            "name": "session_id",
+            "required": true,
+            "schema": {
+              "description": "Session identifier.",
+              "maxLength": 64,
+              "minLength": 1,
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ListSessionAccessResponse"
+                }
+              }
+            },
+            "description": "Subjects the session is shared with."
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/RequestErrorResponse"
+                }
+              }
+            },
+            "description": "User does not have permission."
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/RequestErrorResponse"
+                }
+              }
+            },
+            "description": "Session not found."
+          }
+        },
+        "summary": "List session access",
+        "tags": [
+          "Agent Sessions"
+        ],
+        "x-fern-sdk-group-name": [
+          "sessions"
+        ],
+        "x-fern-sdk-method-name": "list_access"
+      },
+      "post": {
+        "description": "Share this session with one or more subjects. Subjects that already have access are left unchanged. Returns every subject the session is shared with.",
+        "parameters": [
+          {
+            "description": "Session identifier.",
+            "in": "path",
+            "name": "session_id",
+            "required": true,
+            "schema": {
+              "description": "Session identifier.",
+              "maxLength": 64,
+              "minLength": 1,
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CreateSessionAccessRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "201": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ListSessionAccessResponse"
+                }
+              }
+            },
+            "description": "Subjects the session is shared with after the change."
+          },
+          "400": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/RequestErrorResponse"
+                }
+              }
+            },
+            "description": "Invalid request body."
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/RequestErrorResponse"
+                }
+              }
+            },
+            "description": "User does not have permission."
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/RequestErrorResponse"
+                }
+              }
+            },
+            "description": "Session not found."
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/RequestErrorResponse"
+                }
+              }
+            },
+            "description": "A subject is unknown or is the session creator."
+          }
+        },
+        "summary": "Share a session",
+        "tags": [
+          "Agent Sessions"
+        ],
+        "x-fern-sdk-group-name": [
+          "sessions"
+        ],
+        "x-fern-sdk-method-name": "create_access"
+      }
+    },
+    "/api/v1/sessions/{session_id}/access/{subject_type}/{subject_id}": {
+      "delete": {
+        "description": "Revoke a subject's access to this session.",
+        "parameters": [
+          {
+            "description": "Session identifier.",
+            "in": "path",
+            "name": "session_id",
+            "required": true,
+            "schema": {
+              "description": "Session identifier.",
+              "maxLength": 64,
+              "minLength": 1,
+              "type": "string"
+            }
+          },
+          {
+            "description": "Kind of subject.",
+            "in": "path",
+            "name": "subject_type",
+            "required": true,
+            "schema": {
+              "$ref": "#/components/schemas/SessionAccessSubjectType"
+            }
+          },
+          {
+            "description": "ID of the subject.",
+            "in": "path",
+            "name": "subject_id",
+            "required": true,
+            "schema": {
+              "description": "ID of the subject.",
+              "maxLength": 255,
+              "minLength": 1,
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/DeleteSessionAccessResponse"
+                }
+              }
+            },
+            "description": "Access revoked."
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/RequestErrorResponse"
+                }
+              }
+            },
+            "description": "User does not have permission."
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/RequestErrorResponse"
+                }
+              }
+            },
+            "description": "Session not found, or the subject does not have access."
+          }
+        },
+        "summary": "Revoke session access",
+        "tags": [
+          "Agent Sessions"
+        ],
+        "x-fern-sdk-group-name": [
+          "sessions"
+        ],
+        "x-fern-sdk-method-name": "delete_access"
+      }
+    },
     "/api/v1/sessions/{session_id}/cancel": {
       "post": {
         "description": "Cancel the running last turn for a session. Only the session creator may cancel.",
@@ -11328,6 +11679,83 @@
         ],
         "x-fern-sdk-method-name": "list_versions"
       }
+    },
+    "/api/v1/users": {
+      "get": {
+        "description": "List users in the tenant that sessions can be shared with. Searches email and display name.",
+        "parameters": [
+          {
+            "description": "Case-insensitive substring match on email or display name.",
+            "in": "query",
+            "name": "query",
+            "required": false,
+            "schema": {
+              "description": "Case-insensitive substring match on email or display name.",
+              "maxLength": 200,
+              "minLength": 1,
+              "type": "string"
+            }
+          },
+          {
+            "description": "Page size. Defaults to 25, max 100.",
+            "in": "query",
+            "name": "limit",
+            "required": false,
+            "schema": {
+              "default": 25,
+              "description": "Page size. Defaults to 25, max 100.",
+              "maximum": 100,
+              "minimum": 1,
+              "type": "integer"
+            }
+          },
+          {
+            "description": "Opaque token from a previous response `next_page_token`.",
+            "in": "query",
+            "name": "page_token",
+            "required": false,
+            "schema": {
+              "description": "Opaque token from a previous response `next_page_token`.",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ListUsersResponse"
+                }
+              }
+            },
+            "description": "Paginated users."
+          },
+          "400": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/RequestErrorResponse"
+                }
+              }
+            },
+            "description": "Invalid query parameters or page token."
+          }
+        },
+        "summary": "List users",
+        "tags": [
+          "Users"
+        ],
+        "x-fern-pagination": {
+          "cursor": "$request.page_token",
+          "next_cursor": "$response.pagination.next_page_token",
+          "results": "$response.data"
+        },
+        "x-fern-sdk-group-name": [
+          "users"
+        ],
+        "x-fern-sdk-method-name": "list"
+      }
     }
   },
   "security": [
@@ -11341,6 +11769,9 @@
     },
     {
       "name": "Auth"
+    },
+    {
+      "name": "Users"
     },
     {
       "name": "Capabilities"

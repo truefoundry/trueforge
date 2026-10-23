@@ -591,6 +591,357 @@ export class SessionsClient {
     }
 
     /**
+     * List the subjects this session is shared with.
+     *
+     * @param {string} session_id - Session identifier.
+     * @param {SessionsClient.RequestOptions} requestOptions - Request-specific configuration.
+     *
+     * @throws {@link TrueForge.ForbiddenError}
+     * @throws {@link TrueForge.NotFoundError}
+     * @throws {@link errors.TrueForgeError}
+     * @throws {@link errors.TrueForgeTimeoutError}
+     *
+     * @example
+     *     await client.sessions.listAccess("session_id")
+     */
+    public listAccess(
+        session_id: string,
+        requestOptions?: SessionsClient.RequestOptions,
+    ): core.HttpResponsePromise<TrueForge.ListSessionAccessResponse> {
+        return core.HttpResponsePromise.fromPromise(this.__listAccess(session_id, requestOptions));
+    }
+
+    private async __listAccess(
+        session_id: string,
+        requestOptions?: SessionsClient.RequestOptions,
+    ): Promise<core.WithRawResponse<TrueForge.ListSessionAccessResponse>> {
+        const _authRequest: core.AuthRequest = await this._options.authProvider.getAuthRequest();
+        const _headers: core.Fetcher.Args["headers"] = mergeHeaders(
+            _authRequest.headers,
+            this._options?.headers,
+            requestOptions?.headers,
+        );
+        const _response = await (this._options.fetcher ?? core.fetcher)({
+            url: core.url.join(
+                (await core.Supplier.get(this._options.baseUrl)) ??
+                    (await core.Supplier.get(this._options.environment)),
+                `api/v1/sessions/${core.url.encodePathParam(session_id)}/access`,
+            ),
+            method: "GET",
+            headers: _headers,
+            queryString: core.url.queryBuilder().mergeAdditional(requestOptions?.queryParams).build(),
+            timeoutMs: (requestOptions?.timeoutInSeconds ?? this._options?.timeoutInSeconds ?? 60) * 1000,
+            maxRetries: requestOptions?.maxRetries ?? this._options?.maxRetries,
+            abortSignal: requestOptions?.abortSignal,
+            fetchFn: this._options?.fetch,
+            logging: this._options.logging,
+        });
+        if (_response.ok) {
+            return {
+                data: serializers.ListSessionAccessResponse.parseOrThrow(_response.body, {
+                    unrecognizedObjectKeys: "passthrough",
+                    allowUnrecognizedUnionMembers: true,
+                    allowUnrecognizedEnumValues: true,
+                    skipValidation: true,
+                    breadcrumbsPrefix: ["response"],
+                }),
+                rawResponse: _response.rawResponse,
+            };
+        }
+
+        if (_response.error.reason === "status-code") {
+            switch (_response.error.statusCode) {
+                case 403:
+                    throw new TrueForge.ForbiddenError(
+                        serializers.RequestErrorResponse.parseOrThrow(_response.error.body, {
+                            unrecognizedObjectKeys: "passthrough",
+                            allowUnrecognizedUnionMembers: true,
+                            allowUnrecognizedEnumValues: true,
+                            skipValidation: true,
+                            breadcrumbsPrefix: ["response"],
+                        }),
+                        _response.rawResponse,
+                    );
+                case 404:
+                    throw new TrueForge.NotFoundError(
+                        serializers.RequestErrorResponse.parseOrThrow(_response.error.body, {
+                            unrecognizedObjectKeys: "passthrough",
+                            allowUnrecognizedUnionMembers: true,
+                            allowUnrecognizedEnumValues: true,
+                            skipValidation: true,
+                            breadcrumbsPrefix: ["response"],
+                        }),
+                        _response.rawResponse,
+                    );
+                default:
+                    throw new errors.TrueForgeError({
+                        statusCode: _response.error.statusCode,
+                        body: _response.error.body,
+                        rawResponse: _response.rawResponse,
+                    });
+            }
+        }
+
+        return handleNonStatusCodeError(
+            _response.error,
+            _response.rawResponse,
+            "GET",
+            "/api/v1/sessions/{session_id}/access",
+        );
+    }
+
+    /**
+     * Share this session with one or more subjects. Subjects that already have access are left unchanged. Returns every subject the session is shared with.
+     *
+     * @param {string} session_id - Session identifier.
+     * @param {TrueForge.CreateSessionAccessRequest} request
+     * @param {SessionsClient.RequestOptions} requestOptions - Request-specific configuration.
+     *
+     * @throws {@link TrueForge.BadRequestError}
+     * @throws {@link TrueForge.ForbiddenError}
+     * @throws {@link TrueForge.NotFoundError}
+     * @throws {@link TrueForge.UnprocessableEntityError}
+     * @throws {@link errors.TrueForgeError}
+     * @throws {@link errors.TrueForgeTimeoutError}
+     *
+     * @example
+     *     await client.sessions.createAccess("session_id", {
+     *         subjects: [{
+     *                 subjectId: "subject_id",
+     *                 subjectType: "user"
+     *             }]
+     *     })
+     */
+    public createAccess(
+        session_id: string,
+        request: TrueForge.CreateSessionAccessRequest,
+        requestOptions?: SessionsClient.RequestOptions,
+    ): core.HttpResponsePromise<TrueForge.ListSessionAccessResponse> {
+        return core.HttpResponsePromise.fromPromise(this.__createAccess(session_id, request, requestOptions));
+    }
+
+    private async __createAccess(
+        session_id: string,
+        request: TrueForge.CreateSessionAccessRequest,
+        requestOptions?: SessionsClient.RequestOptions,
+    ): Promise<core.WithRawResponse<TrueForge.ListSessionAccessResponse>> {
+        const _authRequest: core.AuthRequest = await this._options.authProvider.getAuthRequest();
+        const _headers: core.Fetcher.Args["headers"] = mergeHeaders(
+            _authRequest.headers,
+            this._options?.headers,
+            requestOptions?.headers,
+        );
+        const _response = await (this._options.fetcher ?? core.fetcher)({
+            url: core.url.join(
+                (await core.Supplier.get(this._options.baseUrl)) ??
+                    (await core.Supplier.get(this._options.environment)),
+                `api/v1/sessions/${core.url.encodePathParam(session_id)}/access`,
+            ),
+            method: "POST",
+            headers: _headers,
+            contentType: "application/json",
+            queryString: core.url.queryBuilder().mergeAdditional(requestOptions?.queryParams).build(),
+            requestType: "json",
+            body: mergeAdditionalBodyParameters(
+                serializers.CreateSessionAccessRequest.jsonOrThrow(request, {
+                    unrecognizedObjectKeys: "passthrough",
+                    allowUnrecognizedUnionMembers: true,
+                    allowUnrecognizedEnumValues: true,
+                    omitUndefined: true,
+                }),
+                requestOptions?.additionalBodyParameters,
+            ),
+            timeoutMs: (requestOptions?.timeoutInSeconds ?? this._options?.timeoutInSeconds ?? 60) * 1000,
+            maxRetries: requestOptions?.maxRetries ?? this._options?.maxRetries,
+            abortSignal: requestOptions?.abortSignal,
+            fetchFn: this._options?.fetch,
+            logging: this._options.logging,
+        });
+        if (_response.ok) {
+            return {
+                data: serializers.ListSessionAccessResponse.parseOrThrow(_response.body, {
+                    unrecognizedObjectKeys: "passthrough",
+                    allowUnrecognizedUnionMembers: true,
+                    allowUnrecognizedEnumValues: true,
+                    skipValidation: true,
+                    breadcrumbsPrefix: ["response"],
+                }),
+                rawResponse: _response.rawResponse,
+            };
+        }
+
+        if (_response.error.reason === "status-code") {
+            switch (_response.error.statusCode) {
+                case 400:
+                    throw new TrueForge.BadRequestError(
+                        serializers.RequestErrorResponse.parseOrThrow(_response.error.body, {
+                            unrecognizedObjectKeys: "passthrough",
+                            allowUnrecognizedUnionMembers: true,
+                            allowUnrecognizedEnumValues: true,
+                            skipValidation: true,
+                            breadcrumbsPrefix: ["response"],
+                        }),
+                        _response.rawResponse,
+                    );
+                case 403:
+                    throw new TrueForge.ForbiddenError(
+                        serializers.RequestErrorResponse.parseOrThrow(_response.error.body, {
+                            unrecognizedObjectKeys: "passthrough",
+                            allowUnrecognizedUnionMembers: true,
+                            allowUnrecognizedEnumValues: true,
+                            skipValidation: true,
+                            breadcrumbsPrefix: ["response"],
+                        }),
+                        _response.rawResponse,
+                    );
+                case 404:
+                    throw new TrueForge.NotFoundError(
+                        serializers.RequestErrorResponse.parseOrThrow(_response.error.body, {
+                            unrecognizedObjectKeys: "passthrough",
+                            allowUnrecognizedUnionMembers: true,
+                            allowUnrecognizedEnumValues: true,
+                            skipValidation: true,
+                            breadcrumbsPrefix: ["response"],
+                        }),
+                        _response.rawResponse,
+                    );
+                case 422:
+                    throw new TrueForge.UnprocessableEntityError(
+                        serializers.RequestErrorResponse.parseOrThrow(_response.error.body, {
+                            unrecognizedObjectKeys: "passthrough",
+                            allowUnrecognizedUnionMembers: true,
+                            allowUnrecognizedEnumValues: true,
+                            skipValidation: true,
+                            breadcrumbsPrefix: ["response"],
+                        }),
+                        _response.rawResponse,
+                    );
+                default:
+                    throw new errors.TrueForgeError({
+                        statusCode: _response.error.statusCode,
+                        body: _response.error.body,
+                        rawResponse: _response.rawResponse,
+                    });
+            }
+        }
+
+        return handleNonStatusCodeError(
+            _response.error,
+            _response.rawResponse,
+            "POST",
+            "/api/v1/sessions/{session_id}/access",
+        );
+    }
+
+    /**
+     * Revoke a subject's access to this session.
+     *
+     * @param {string} session_id - Session identifier.
+     * @param {TrueForge.SessionAccessSubjectType} subject_type - Kind of subject.
+     * @param {string} subject_id - ID of the subject.
+     * @param {SessionsClient.RequestOptions} requestOptions - Request-specific configuration.
+     *
+     * @throws {@link TrueForge.ForbiddenError}
+     * @throws {@link TrueForge.NotFoundError}
+     * @throws {@link errors.TrueForgeError}
+     * @throws {@link errors.TrueForgeTimeoutError}
+     *
+     * @example
+     *     await client.sessions.deleteAccess("session_id", "user", "subject_id")
+     */
+    public deleteAccess(
+        session_id: string,
+        subject_type: TrueForge.SessionAccessSubjectType,
+        subject_id: string,
+        requestOptions?: SessionsClient.RequestOptions,
+    ): core.HttpResponsePromise<TrueForge.DeleteSessionAccessResponse> {
+        return core.HttpResponsePromise.fromPromise(
+            this.__deleteAccess(session_id, subject_type, subject_id, requestOptions),
+        );
+    }
+
+    private async __deleteAccess(
+        session_id: string,
+        subject_type: TrueForge.SessionAccessSubjectType,
+        subject_id: string,
+        requestOptions?: SessionsClient.RequestOptions,
+    ): Promise<core.WithRawResponse<TrueForge.DeleteSessionAccessResponse>> {
+        const _authRequest: core.AuthRequest = await this._options.authProvider.getAuthRequest();
+        const _headers: core.Fetcher.Args["headers"] = mergeHeaders(
+            _authRequest.headers,
+            this._options?.headers,
+            requestOptions?.headers,
+        );
+        const _response = await (this._options.fetcher ?? core.fetcher)({
+            url: core.url.join(
+                (await core.Supplier.get(this._options.baseUrl)) ??
+                    (await core.Supplier.get(this._options.environment)),
+                `api/v1/sessions/${core.url.encodePathParam(session_id)}/access/${core.url.encodePathParam(serializers.SessionAccessSubjectType.jsonOrThrow(subject_type, { omitUndefined: true }))}/${core.url.encodePathParam(subject_id)}`,
+            ),
+            method: "DELETE",
+            headers: _headers,
+            queryString: core.url.queryBuilder().mergeAdditional(requestOptions?.queryParams).build(),
+            timeoutMs: (requestOptions?.timeoutInSeconds ?? this._options?.timeoutInSeconds ?? 60) * 1000,
+            maxRetries: requestOptions?.maxRetries ?? this._options?.maxRetries,
+            abortSignal: requestOptions?.abortSignal,
+            fetchFn: this._options?.fetch,
+            logging: this._options.logging,
+        });
+        if (_response.ok) {
+            return {
+                data: serializers.DeleteSessionAccessResponse.parseOrThrow(_response.body, {
+                    unrecognizedObjectKeys: "passthrough",
+                    allowUnrecognizedUnionMembers: true,
+                    allowUnrecognizedEnumValues: true,
+                    skipValidation: true,
+                    breadcrumbsPrefix: ["response"],
+                }),
+                rawResponse: _response.rawResponse,
+            };
+        }
+
+        if (_response.error.reason === "status-code") {
+            switch (_response.error.statusCode) {
+                case 403:
+                    throw new TrueForge.ForbiddenError(
+                        serializers.RequestErrorResponse.parseOrThrow(_response.error.body, {
+                            unrecognizedObjectKeys: "passthrough",
+                            allowUnrecognizedUnionMembers: true,
+                            allowUnrecognizedEnumValues: true,
+                            skipValidation: true,
+                            breadcrumbsPrefix: ["response"],
+                        }),
+                        _response.rawResponse,
+                    );
+                case 404:
+                    throw new TrueForge.NotFoundError(
+                        serializers.RequestErrorResponse.parseOrThrow(_response.error.body, {
+                            unrecognizedObjectKeys: "passthrough",
+                            allowUnrecognizedUnionMembers: true,
+                            allowUnrecognizedEnumValues: true,
+                            skipValidation: true,
+                            breadcrumbsPrefix: ["response"],
+                        }),
+                        _response.rawResponse,
+                    );
+                default:
+                    throw new errors.TrueForgeError({
+                        statusCode: _response.error.statusCode,
+                        body: _response.error.body,
+                        rawResponse: _response.rawResponse,
+                    });
+            }
+        }
+
+        return handleNonStatusCodeError(
+            _response.error,
+            _response.rawResponse,
+            "DELETE",
+            "/api/v1/sessions/{session_id}/access/{subject_type}/{subject_id}",
+        );
+    }
+
+    /**
      * Cancel the running last turn for a session. Only the session creator may cancel.
      *
      * @param {string} session_id - Session identifier.

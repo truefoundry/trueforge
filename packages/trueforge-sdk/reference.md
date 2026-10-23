@@ -2059,6 +2059,224 @@ await client.sessions.update("session_id");
 </dl>
 </details>
 
+<details><summary><code>client.sessions.<a href="/src/api/resources/sessions/client/Client.ts">listAccess</a>(session_id) -> TrueForge.ListSessionAccessResponse</code></summary>
+<dl>
+<dd>
+
+#### 📝 Description
+
+<dl>
+<dd>
+
+<dl>
+<dd>
+
+List the subjects this session is shared with.
+</dd>
+</dl>
+</dd>
+</dl>
+
+#### 🔌 Usage
+
+<dl>
+<dd>
+
+<dl>
+<dd>
+
+```typescript
+await client.sessions.listAccess("session_id");
+
+```
+</dd>
+</dl>
+</dd>
+</dl>
+
+#### ⚙️ Parameters
+
+<dl>
+<dd>
+
+<dl>
+<dd>
+
+**session_id:** `string` — Session identifier.
+    
+</dd>
+</dl>
+
+<dl>
+<dd>
+
+**requestOptions:** `SessionsClient.RequestOptions` 
+    
+</dd>
+</dl>
+</dd>
+</dl>
+
+
+</dd>
+</dl>
+</details>
+
+<details><summary><code>client.sessions.<a href="/src/api/resources/sessions/client/Client.ts">createAccess</a>(session_id, { ...params }) -> TrueForge.ListSessionAccessResponse</code></summary>
+<dl>
+<dd>
+
+#### 📝 Description
+
+<dl>
+<dd>
+
+<dl>
+<dd>
+
+Share this session with one or more subjects. Subjects that already have access are left unchanged. Returns every subject the session is shared with.
+</dd>
+</dl>
+</dd>
+</dl>
+
+#### 🔌 Usage
+
+<dl>
+<dd>
+
+<dl>
+<dd>
+
+```typescript
+await client.sessions.createAccess("session_id", {
+    subjects: [{
+            subjectId: "subject_id",
+            subjectType: "user"
+        }]
+});
+
+```
+</dd>
+</dl>
+</dd>
+</dl>
+
+#### ⚙️ Parameters
+
+<dl>
+<dd>
+
+<dl>
+<dd>
+
+**session_id:** `string` — Session identifier.
+    
+</dd>
+</dl>
+
+<dl>
+<dd>
+
+**request:** `TrueForge.CreateSessionAccessRequest` 
+    
+</dd>
+</dl>
+
+<dl>
+<dd>
+
+**requestOptions:** `SessionsClient.RequestOptions` 
+    
+</dd>
+</dl>
+</dd>
+</dl>
+
+
+</dd>
+</dl>
+</details>
+
+<details><summary><code>client.sessions.<a href="/src/api/resources/sessions/client/Client.ts">deleteAccess</a>(session_id, subject_type, subject_id) -> TrueForge.DeleteSessionAccessResponse</code></summary>
+<dl>
+<dd>
+
+#### 📝 Description
+
+<dl>
+<dd>
+
+<dl>
+<dd>
+
+Revoke a subject's access to this session.
+</dd>
+</dl>
+</dd>
+</dl>
+
+#### 🔌 Usage
+
+<dl>
+<dd>
+
+<dl>
+<dd>
+
+```typescript
+await client.sessions.deleteAccess("session_id", "user", "subject_id");
+
+```
+</dd>
+</dl>
+</dd>
+</dl>
+
+#### ⚙️ Parameters
+
+<dl>
+<dd>
+
+<dl>
+<dd>
+
+**session_id:** `string` — Session identifier.
+    
+</dd>
+</dl>
+
+<dl>
+<dd>
+
+**subject_type:** `TrueForge.SessionAccessSubjectType` — Kind of subject.
+    
+</dd>
+</dl>
+
+<dl>
+<dd>
+
+**subject_id:** `string` — ID of the subject.
+    
+</dd>
+</dl>
+
+<dl>
+<dd>
+
+**requestOptions:** `SessionsClient.RequestOptions` 
+    
+</dd>
+</dl>
+</dd>
+</dl>
+
+
+</dd>
+</dl>
+</details>
+
 <details><summary><code>client.sessions.<a href="/src/api/resources/sessions/client/Client.ts">cancel</a>(session_id, { ...params }) -> TrueForge.CancelSessionResponse</code></summary>
 <dl>
 <dd>
@@ -2967,6 +3185,82 @@ await client.skills.listVersions({
 <dd>
 
 **requestOptions:** `SkillsClient.RequestOptions` 
+    
+</dd>
+</dl>
+</dd>
+</dl>
+
+
+</dd>
+</dl>
+</details>
+
+## Users
+<details><summary><code>client.users.<a href="/src/api/resources/users/client/Client.ts">list</a>({ ...params }) -> core.Page&lt;TrueForge.User, TrueForge.ListUsersResponse&gt;</code></summary>
+<dl>
+<dd>
+
+#### 📝 Description
+
+<dl>
+<dd>
+
+<dl>
+<dd>
+
+List users in the tenant that sessions can be shared with. Searches email and display name.
+</dd>
+</dl>
+</dd>
+</dl>
+
+#### 🔌 Usage
+
+<dl>
+<dd>
+
+<dl>
+<dd>
+
+```typescript
+const pageableResponse = await client.users.list();
+for await (const item of pageableResponse) {
+    console.log(item);
+}
+
+// Or you can manually iterate page-by-page
+let page = await client.users.list();
+while (page.hasNextPage()) {
+    page = await page.getNextPage();
+}
+
+// You can also access the underlying response
+const response = page.response;
+
+```
+</dd>
+</dl>
+</dd>
+</dl>
+
+#### ⚙️ Parameters
+
+<dl>
+<dd>
+
+<dl>
+<dd>
+
+**request:** `TrueForge.ListUsersRequest` 
+    
+</dd>
+</dl>
+
+<dl>
+<dd>
+
+**requestOptions:** `UsersClient.RequestOptions` 
     
 </dd>
 </dl>

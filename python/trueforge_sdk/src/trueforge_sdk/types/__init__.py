@@ -67,6 +67,7 @@ if typing.TYPE_CHECKING:
     from .delete_model_provider_response import DeleteModelProviderResponse
     from .delete_sandbox_environment_response import DeleteSandboxEnvironmentResponse
     from .delete_schedule_response import DeleteScheduleResponse
+    from .delete_session_access_response import DeleteSessionAccessResponse
     from .delete_skill_response import DeleteSkillResponse
     from .dynamic_sub_agents_config import DynamicSubAgentsConfig
     from .extended_chunk_delta_tool_call import ExtendedChunkDeltaToolCall
@@ -115,6 +116,7 @@ if typing.TYPE_CHECKING:
     from .list_sandbox_environments_response import ListSandboxEnvironmentsResponse
     from .list_schedule_runs_response import ListScheduleRunsResponse
     from .list_schedules_response import ListSchedulesResponse
+    from .list_session_access_response import ListSessionAccessResponse
     from .list_session_events_response import ListSessionEventsResponse
     from .list_sessions_order import ListSessionsOrder
     from .list_sessions_response import ListSessionsResponse
@@ -123,6 +125,7 @@ if typing.TYPE_CHECKING:
     from .list_turn_events_order import ListTurnEventsOrder
     from .list_turn_events_response import ListTurnEventsResponse
     from .list_turns_response import ListTurnsResponse
+    from .list_users_response import ListUsersResponse
     from .mcp_auth_required_event import McpAuthRequiredEvent
     from .mcp_auth_status import McpAuthStatus
     from .mcp_auth_status_status import McpAuthStatusStatus
@@ -193,6 +196,9 @@ if typing.TYPE_CHECKING:
     from .schedule_run_status import ScheduleRunStatus
     from .schedule_status import ScheduleStatus
     from .session import Session
+    from .session_access import SessionAccess
+    from .session_access_subject import SessionAccessSubject
+    from .session_access_subject_type import SessionAccessSubjectType
     from .session_agent import SessionAgent
     from .session_agent_inline import SessionAgentInline
     from .session_agent_name_ref import SessionAgentNameRef
@@ -263,6 +269,7 @@ if typing.TYPE_CHECKING:
     from .turn_streaming_event import TurnStreamingEvent
     from .turn_update_event import TurnUpdateEvent
     from .turn_update_event_state import TurnUpdateEventState
+    from .user import User
     from .user_mcp_auth_continue_event import UserMcpAuthContinueEvent
     from .user_mcp_auth_continue_input_event import UserMcpAuthContinueInputEvent
     from .user_message import UserMessage
@@ -340,6 +347,7 @@ _dynamic_imports: typing.Dict[str, str] = {
     "DeleteModelProviderResponse": ".delete_model_provider_response",
     "DeleteSandboxEnvironmentResponse": ".delete_sandbox_environment_response",
     "DeleteScheduleResponse": ".delete_schedule_response",
+    "DeleteSessionAccessResponse": ".delete_session_access_response",
     "DeleteSkillResponse": ".delete_skill_response",
     "DynamicSubAgentsConfig": ".dynamic_sub_agents_config",
     "ExtendedChunkDeltaToolCall": ".extended_chunk_delta_tool_call",
@@ -388,6 +396,7 @@ _dynamic_imports: typing.Dict[str, str] = {
     "ListSandboxEnvironmentsResponse": ".list_sandbox_environments_response",
     "ListScheduleRunsResponse": ".list_schedule_runs_response",
     "ListSchedulesResponse": ".list_schedules_response",
+    "ListSessionAccessResponse": ".list_session_access_response",
     "ListSessionEventsResponse": ".list_session_events_response",
     "ListSessionsOrder": ".list_sessions_order",
     "ListSessionsResponse": ".list_sessions_response",
@@ -396,6 +405,7 @@ _dynamic_imports: typing.Dict[str, str] = {
     "ListTurnEventsOrder": ".list_turn_events_order",
     "ListTurnEventsResponse": ".list_turn_events_response",
     "ListTurnsResponse": ".list_turns_response",
+    "ListUsersResponse": ".list_users_response",
     "McpAuthRequiredEvent": ".mcp_auth_required_event",
     "McpAuthStatus": ".mcp_auth_status",
     "McpAuthStatusStatus": ".mcp_auth_status_status",
@@ -466,6 +476,9 @@ _dynamic_imports: typing.Dict[str, str] = {
     "ScheduleRunStatus": ".schedule_run_status",
     "ScheduleStatus": ".schedule_status",
     "Session": ".session",
+    "SessionAccess": ".session_access",
+    "SessionAccessSubject": ".session_access_subject",
+    "SessionAccessSubjectType": ".session_access_subject_type",
     "SessionAgent": ".session_agent",
     "SessionAgentInline": ".session_agent_inline",
     "SessionAgentNameRef": ".session_agent_name_ref",
@@ -536,6 +549,7 @@ _dynamic_imports: typing.Dict[str, str] = {
     "TurnStreamingEvent": ".turn_streaming_event",
     "TurnUpdateEvent": ".turn_update_event",
     "TurnUpdateEventState": ".turn_update_event_state",
+    "User": ".user",
     "UserMcpAuthContinueEvent": ".user_mcp_auth_continue_event",
     "UserMcpAuthContinueInputEvent": ".user_mcp_auth_continue_input_event",
     "UserMessage": ".user_message",
@@ -637,6 +651,7 @@ __all__ = [
     "DeleteModelProviderResponse",
     "DeleteSandboxEnvironmentResponse",
     "DeleteScheduleResponse",
+    "DeleteSessionAccessResponse",
     "DeleteSkillResponse",
     "DynamicSubAgentsConfig",
     "ExtendedChunkDeltaToolCall",
@@ -685,6 +700,7 @@ __all__ = [
     "ListSandboxEnvironmentsResponse",
     "ListScheduleRunsResponse",
     "ListSchedulesResponse",
+    "ListSessionAccessResponse",
     "ListSessionEventsResponse",
     "ListSessionsOrder",
     "ListSessionsResponse",
@@ -693,6 +709,7 @@ __all__ = [
     "ListTurnEventsOrder",
     "ListTurnEventsResponse",
     "ListTurnsResponse",
+    "ListUsersResponse",
     "McpAuthRequiredEvent",
     "McpAuthStatus",
     "McpAuthStatusStatus",
@@ -763,6 +780,9 @@ __all__ = [
     "ScheduleRunStatus",
     "ScheduleStatus",
     "Session",
+    "SessionAccess",
+    "SessionAccessSubject",
+    "SessionAccessSubjectType",
     "SessionAgent",
     "SessionAgentInline",
     "SessionAgentNameRef",
@@ -833,6 +853,7 @@ __all__ = [
     "TurnStreamingEvent",
     "TurnUpdateEvent",
     "TurnUpdateEventState",
+    "User",
     "UserMcpAuthContinueEvent",
     "UserMcpAuthContinueInputEvent",
     "UserMessage",

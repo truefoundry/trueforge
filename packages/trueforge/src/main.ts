@@ -105,6 +105,7 @@ import { SkillCatalog } from './catalog/SkillCatalog';
 import { WebSearchCatalog } from './catalog/WebSearchCatalog';
 import { type DistributedServerConfiguration } from './config';
 import { createController } from './controller';
+import type { IAccessControlEntryStore } from './db/accessControlEntryStore';
 import type { AgentRecord, IAgentStore } from './db/agentStore';
 import type { IMcpServerStore, IMcpServerWithAuthStore } from './db/mcpServerStore';
 import { McpServerWithAuthStore } from './db/McpServerWithAuthStore';
@@ -118,6 +119,7 @@ import type { ISessionMetricsStore } from './db/sessionMetricsStore';
 import type { ISkillStore } from './db/skillStore';
 import type { Database as SqliteDatabase } from './db/sqlite/types';
 import type { WithTransaction } from './db/transaction';
+import { EmptyUserStore, type IUserStore } from './db/userStore';
 import type { IWebSearchProviderStore } from './db/webSearchProviderStore';
 import { mountFrontend } from './frontend';
 import { serverTlsServeOptions } from './http/tls';
@@ -157,6 +159,7 @@ import { TrueFoundrySandboxEnvironmentStore } from './truefoundry/TrueFoundrySan
 import { TrueFoundrySandboxProviderStore } from './truefoundry/TrueFoundrySandboxProviderStore';
 import { TrueFoundryServiceFoundryServerClient } from './truefoundry/TrueFoundryServiceFoundryServerClient';
 import { TrueFoundryAdminSkillStore, TrueFoundrySkillStore } from './truefoundry/TrueFoundrySkillStore';
+import { TrueFoundryUserStore } from './truefoundry/TrueFoundryUserStore';
 import { TrueFoundryWebSearchProviderStore } from './truefoundry/TrueFoundryWebSearchProviderStore';
 
 /** Persistence-layer model store resolve (RequestContext, not Hono Context). */
@@ -183,6 +186,7 @@ type ResolveTurnSkillsStore<TTransaction> = (input: {
 interface ServerPersistence<TTransaction> {
   withTransaction: WithTransaction<TTransaction>;
   sessionStore: ISessionStore;
+  accessControlEntryStore: IAccessControlEntryStore<TTransaction>;
   sessionMetricsStore: ISessionMetricsStore;
   tokenStore: IOAuthTokenStore<TTransaction>;
   scheduleStore: IScheduleStore<TTransaction>;
@@ -403,6 +407,7 @@ async function createStandalonePersistence(options: {
       import('./db/sqlite/agent-store/SqliteAgentStore'),
       import('./db/sqlite/schedule-store/SqliteScheduleStore'),
       import('./db/sqlite/sandbox-environment-store/SqliteSandboxEnvironmentStore'),
+      import('./db/sqlite/access-control-entry-store/SqliteAccessControlEntryStore'),
     ]),
   ]);
   const [
@@ -417,6 +422,7 @@ async function createStandalonePersistence(options: {
     { SqliteAgentStore },
     { SqliteScheduleStore },
     { SqliteSandboxEnvironmentStore },
+    { SqliteAccessControlEntryStore },
   ] = sqliteStores;
 
   const db = createSqliteDb(sqlitePath);
@@ -439,6 +445,7 @@ async function createStandalonePersistence(options: {
   return {
     withTransaction: callback => db.transaction().execute(callback),
     sessionStore: new SqliteSessionStore(db),
+    accessControlEntryStore: new SqliteAccessControlEntryStore(db),
     sessionMetricsStore: new SqliteSessionMetricsStore(db),
     mcpOAuthStore: mcpServerStore,
     tokenStore,
@@ -503,6 +510,7 @@ async function createDistributedPersistence(options: {
       import('./db/postgres/agent-store/PostgresAgentStore'),
       import('./db/postgres/schedule-store/PostgresScheduleStore'),
       import('./db/postgres/sandbox-environment-store/PostgresSandboxEnvironmentStore'),
+      import('./db/postgres/access-control-entry-store/PostgresAccessControlEntryStore'),
     ]),
   ]);
   const [
@@ -517,6 +525,7 @@ async function createDistributedPersistence(options: {
     { PostgresAgentStore },
     { PostgresScheduleStore },
     { PostgresSandboxEnvironmentStore },
+    { PostgresAccessControlEntryStore },
   ] = postgresStores;
 
   logger.info('Connecting to Postgres');
@@ -582,6 +591,7 @@ async function createDistributedPersistence(options: {
   return {
     withTransaction: callback => db.transaction().execute(callback),
     sessionStore: new PostgresSessionStore(db),
+    accessControlEntryStore: new PostgresAccessControlEntryStore(db),
     sessionMetricsStore: new PostgresSessionMetricsStore(db),
     mcpOAuthStore: mcpServerWithAuthStore,
     tokenStore,
@@ -621,6 +631,7 @@ async function createServerRuntime<TTransaction>(persistence: ServerPersistence<
   const {
     withTransaction,
     sessionStore,
+    accessControlEntryStore,
     sessionMetricsStore,
     tokenStore,
     scheduleStore,
@@ -648,6 +659,7 @@ async function createServerRuntime<TTransaction>(persistence: ServerPersistence<
 
   let authenticator;
   let authorizer: Authorizer;
+  let userStore: IUserStore;
   const mode = getTrueForgeAuthMode(configuration);
   if (mode === TrueForgeAuthMode.TrueFoundry) {
     if (serviceFoundryClient === undefined) {
@@ -658,12 +670,15 @@ async function createServerRuntime<TTransaction>(persistence: ServerPersistence<
       serviceFoundryClient,
     });
     authorizer = new TrueFoundryAuthorizer(serviceFoundryClient);
+    userStore = new TrueFoundryUserStore(serviceFoundryClient);
   } else if (mode === TrueForgeAuthMode.Oidc) {
     authenticator = createAuthenticator({ mode: TrueForgeAuthMode.Oidc });
     authorizer = new TrueForgeAuthorizer();
+    userStore = new EmptyUserStore();
   } else {
     authenticator = createAuthenticator({ mode: TrueForgeAuthMode.Standalone });
     authorizer = new TrueForgeAuthorizer();
+    userStore = new EmptyUserStore();
   }
 
   // Standalone owns the control loops in-process; they hand off via HTTP loopback
@@ -780,7 +795,9 @@ async function createServerRuntime<TTransaction>(persistence: ServerPersistence<
     sandboxEnvironmentStore,
     sandboxProviderStore: persistence.sandboxProviderStore,
     sessionStore,
+    accessControlEntryStore,
     sessionMetricsStore,
+    userStore,
     sessions,
     activeTurns,
     redis: redis?.client,

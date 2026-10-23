@@ -2464,6 +2464,253 @@ client.sessions.update(
 </dl>
 </details>
 
+<details><summary><code>client.sessions.<a href="src/trueforge_sdk/sessions/client.py">list_access</a>(...) -> ListSessionAccessResponse</code></summary>
+<dl>
+<dd>
+
+#### 📝 Description
+
+<dl>
+<dd>
+
+<dl>
+<dd>
+
+List the subjects this session is shared with.
+</dd>
+</dl>
+</dd>
+</dl>
+
+#### 🔌 Usage
+
+<dl>
+<dd>
+
+<dl>
+<dd>
+
+```python
+from trueforge_sdk import TrueForge
+
+client = TrueForge(
+    token="<token>",
+    base_url="https://yourhost.com/path/to/api",
+)
+
+client.sessions.list_access(
+    session_id="session_id",
+)
+
+```
+</dd>
+</dl>
+</dd>
+</dl>
+
+#### ⚙️ Parameters
+
+<dl>
+<dd>
+
+<dl>
+<dd>
+
+**session_id:** `str` — Session identifier.
+    
+</dd>
+</dl>
+
+<dl>
+<dd>
+
+**request_options:** `typing.Optional[RequestOptions]` — Request-specific configuration.
+    
+</dd>
+</dl>
+</dd>
+</dl>
+
+
+</dd>
+</dl>
+</details>
+
+<details><summary><code>client.sessions.<a href="src/trueforge_sdk/sessions/client.py">create_access</a>(...) -> ListSessionAccessResponse</code></summary>
+<dl>
+<dd>
+
+#### 📝 Description
+
+<dl>
+<dd>
+
+<dl>
+<dd>
+
+Share this session with one or more subjects. Subjects that already have access are left unchanged. Returns every subject the session is shared with.
+</dd>
+</dl>
+</dd>
+</dl>
+
+#### 🔌 Usage
+
+<dl>
+<dd>
+
+<dl>
+<dd>
+
+```python
+from trueforge_sdk import TrueForge, SessionAccessSubject
+
+client = TrueForge(
+    token="<token>",
+    base_url="https://yourhost.com/path/to/api",
+)
+
+client.sessions.create_access(
+    session_id="session_id",
+    subjects=[
+        SessionAccessSubject(
+            subject_id="subject_id",
+            subject_type="user",
+        )
+    ],
+)
+
+```
+</dd>
+</dl>
+</dd>
+</dl>
+
+#### ⚙️ Parameters
+
+<dl>
+<dd>
+
+<dl>
+<dd>
+
+**session_id:** `str` — Session identifier.
+    
+</dd>
+</dl>
+
+<dl>
+<dd>
+
+**subjects:** `typing.List[SessionAccessSubject]` — Subjects to share the session with (1–50).
+    
+</dd>
+</dl>
+
+<dl>
+<dd>
+
+**request_options:** `typing.Optional[RequestOptions]` — Request-specific configuration.
+    
+</dd>
+</dl>
+</dd>
+</dl>
+
+
+</dd>
+</dl>
+</details>
+
+<details><summary><code>client.sessions.<a href="src/trueforge_sdk/sessions/client.py">delete_access</a>(...) -> DeleteSessionAccessResponse</code></summary>
+<dl>
+<dd>
+
+#### 📝 Description
+
+<dl>
+<dd>
+
+<dl>
+<dd>
+
+Revoke a subject's access to this session.
+</dd>
+</dl>
+</dd>
+</dl>
+
+#### 🔌 Usage
+
+<dl>
+<dd>
+
+<dl>
+<dd>
+
+```python
+from trueforge_sdk import TrueForge
+
+client = TrueForge(
+    token="<token>",
+    base_url="https://yourhost.com/path/to/api",
+)
+
+client.sessions.delete_access(
+    session_id="session_id",
+    subject_id="subject_id",
+)
+
+```
+</dd>
+</dl>
+</dd>
+</dl>
+
+#### ⚙️ Parameters
+
+<dl>
+<dd>
+
+<dl>
+<dd>
+
+**session_id:** `str` — Session identifier.
+    
+</dd>
+</dl>
+
+<dl>
+<dd>
+
+**subject_type:** `SessionAccessSubjectType` — Kind of subject.
+    
+</dd>
+</dl>
+
+<dl>
+<dd>
+
+**subject_id:** `str` — ID of the subject.
+    
+</dd>
+</dl>
+
+<dl>
+<dd>
+
+**request_options:** `typing.Optional[RequestOptions]` — Request-specific configuration.
+    
+</dd>
+</dl>
+</dd>
+</dl>
+
+
+</dd>
+</dl>
+</details>
+
 <details><summary><code>client.sessions.<a href="src/trueforge_sdk/sessions/client.py">cancel</a>(...) -> CancelSessionResponse</code></summary>
 <dl>
 <dd>
@@ -3495,6 +3742,93 @@ client.skills.list_versions(
 <dd>
 
 **name:** `str` — Skill name.
+    
+</dd>
+</dl>
+
+<dl>
+<dd>
+
+**request_options:** `typing.Optional[RequestOptions]` — Request-specific configuration.
+    
+</dd>
+</dl>
+</dd>
+</dl>
+
+
+</dd>
+</dl>
+</details>
+
+## Users
+<details><summary><code>client.users.<a href="src/trueforge_sdk/users/client.py">list</a>(...) -> ListUsersResponse</code></summary>
+<dl>
+<dd>
+
+#### 📝 Description
+
+<dl>
+<dd>
+
+<dl>
+<dd>
+
+List users in the tenant that sessions can be shared with. Searches email and display name.
+</dd>
+</dl>
+</dd>
+</dl>
+
+#### 🔌 Usage
+
+<dl>
+<dd>
+
+<dl>
+<dd>
+
+```python
+from trueforge_sdk import TrueForge
+
+client = TrueForge(
+    token="<token>",
+    base_url="https://yourhost.com/path/to/api",
+)
+
+client.users.list()
+
+```
+</dd>
+</dl>
+</dd>
+</dl>
+
+#### ⚙️ Parameters
+
+<dl>
+<dd>
+
+<dl>
+<dd>
+
+**query:** `typing.Optional[str]` — Case-insensitive substring match on email or display name.
+    
+</dd>
+</dl>
+
+<dl>
+<dd>
+
+**limit:** `typing.Optional[int]` — Page size. Defaults to 25, max 100.
+    
+</dd>
+</dl>
+
+<dl>
+<dd>
+
+**page_token:** `typing.Optional[str]` — Opaque token from a previous response `next_page_token`.
     
 </dd>
 </dl>

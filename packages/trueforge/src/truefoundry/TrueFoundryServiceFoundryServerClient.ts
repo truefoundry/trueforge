@@ -25,6 +25,7 @@ const AGENT_SKILL_VERSIONS_PATH = 'v1/agent-skill-versions';
 const SESSION_PATH = 'v1/session';
 const AGENT_PERMISSIONS_PATH = 'v1/authorize/permissions';
 const VEND_TOKEN_PATH = 'internal/vend-token';
+const SUBJECTS_PEEK_PATH = 'v1/subjects/peek';
 const AGENT_SKILLS_PAGE_SIZE = 100;
 /** SFY resolve `@ArrayMaxSize(50)` — chunk larger AgentSpec skill lists. */
 const AGENT_SKILL_RESOLVE_CHUNK_SIZE = 50;
@@ -108,6 +109,21 @@ const VendTokenResponseSchema = z.object({
 });
 
 export type VendedTokens = z.infer<typeof VendTokenResponseSchema>;
+
+/** Only the user half of `GET v1/subjects/peek`; teams and other kinds are ignored. */
+const PeekUserSchema = z.object({
+  id: z.string().min(1),
+  name: z.string().nullish(),
+  email: z.string().min(1),
+});
+
+const PeekUsersResponseSchema = z.object({
+  users: z.array(PeekUserSchema),
+  totalUsers: z.number().int().nonnegative(),
+});
+
+export type PeekUser = z.infer<typeof PeekUserSchema>;
+export type PeekUsersResponse = z.infer<typeof PeekUsersResponseSchema>;
 
 export interface PutRemoteAgentInput {
   accessToken: string;
@@ -592,6 +608,44 @@ export class TrueFoundryServiceFoundryServerClient {
       });
       throw new HTTPException(424, {
         message: 'TrueFoundry ServiceFoundry tenant permissions response was malformed',
+        cause: parsed.error,
+      });
+    }
+    return parsed.data;
+  }
+
+  /**
+   * `GET v1/subjects/peek` for active tenant users, with the caller's token.
+   * `ids` switches to id lookup (ServiceFoundry then ignores `name`); otherwise `name` is a substring search.
+   * Always sends `limit`: ServiceFoundry returns every match when it is missing.
+   */
+  async peekUsers(input: {
+    accessToken: string;
+    name?: string;
+    ids?: readonly string[];
+    limit: number;
+    offset: number;
+  }): Promise<PeekUsersResponse> {
+    const filter =
+      input.ids === undefined
+        ? { subjectType: ['user'], ...(input.name === undefined ? {} : { name: input.name }) }
+        : { subjects: input.ids.map(id => ({ subjectType: 'user', subjectId: id })) };
+    const payload = await this.#requestJson({
+      url: this.#url(SUBJECTS_PEEK_PATH, {
+        filter: JSON.stringify(filter),
+        limit: String(input.limit),
+        offset: String(input.offset),
+      }),
+      accessToken: input.accessToken,
+      method: 'GET',
+    });
+    const parsed = PeekUsersResponseSchema.safeParse(payload);
+    if (!parsed.success) {
+      this.#logger.error('TrueFoundry ServiceFoundry subjects response was malformed', {
+        ...extractErrorLogFields(parsed.error),
+      });
+      throw new HTTPException(424, {
+        message: 'TrueFoundry ServiceFoundry subjects response was malformed',
         cause: parsed.error,
       });
     }

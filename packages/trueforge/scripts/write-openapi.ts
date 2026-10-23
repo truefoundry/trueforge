@@ -23,6 +23,7 @@ import { SkillCatalog } from '../src/catalog/SkillCatalog';
 import { WebSearchCatalog } from '../src/catalog/WebSearchCatalog';
 import configuration from '../src/config';
 import { McpServerWithAuthStore } from '../src/db/McpServerWithAuthStore';
+import { SqliteAccessControlEntryStore } from '../src/db/sqlite/access-control-entry-store/SqliteAccessControlEntryStore';
 import { SqliteAgentStore } from '../src/db/sqlite/agent-store/SqliteAgentStore';
 import { createSqliteDb } from '../src/db/sqlite/client';
 import { SqliteMcpServerStore } from '../src/db/sqlite/mcp-server-store/SqliteMcpServerStore';
@@ -34,6 +35,7 @@ import { SqliteSessionMetricsStore } from '../src/db/sqlite/session-metrics/Sqli
 import { SqliteSkillStore } from '../src/db/sqlite/skill-store/SqliteSkillStore';
 import { SqliteOAuthTokenStore } from '../src/db/sqlite/token-store/SqliteOAuthTokenStore';
 import { SqliteWebSearchProviderStore } from '../src/db/sqlite/web-search-provider-store/SqliteWebSearchProviderStore';
+import { EmptyUserStore } from '../src/db/userStore';
 import { ActiveTurnRegistry } from '../src/runtime/activeTurns';
 import { EventSubscriptionRegistry } from '../src/runtime/event-subscription';
 
@@ -94,7 +96,9 @@ const app = createServerApp({
   scheduleStore: new SqliteScheduleStore(db),
   tokenStore,
   sessionStore,
+  accessControlEntryStore: new SqliteAccessControlEntryStore(db),
   sessionMetricsStore: new SqliteSessionMetricsStore(db),
+  userStore: new EmptyUserStore(),
   sessions: new Sessions({ sessionStore }),
   activeTurns: new ActiveTurnRegistry(),
   requestReplyRouter: new RequestReplyRouter(),
