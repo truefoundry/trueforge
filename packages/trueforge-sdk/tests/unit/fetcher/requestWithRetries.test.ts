@@ -279,4 +279,45 @@ describe("requestWithRetries", () => {
         expect(setTimeoutSpy).toHaveBeenCalledWith(expect.any(Function), 60000);
         expect(response.status).toBe(200);
     });
+
+    it("should stop waiting and not retry when aborted during the backoff", async () => {
+        vi.restoreAllMocks();
+        const controller = new AbortController();
+        mockFetch.mockImplementation(async () => new Response("", { status: 429, headers: { "Retry-After": "1" } }));
+
+        const responsePromise = requestWithRetries(() => mockFetch(), 2, controller.signal);
+        const assertion = expect(responsePromise).rejects.toBe("cancelled");
+        await vi.advanceTimersByTimeAsync(30);
+        controller.abort("cancelled");
+        await assertion;
+
+        expect(mockFetch).toHaveBeenCalledTimes(1);
+        expect(vi.getTimerCount()).toBe(0);
+    });
+
+    it("should not wait when the signal is already aborted", async () => {
+        vi.restoreAllMocks();
+        const controller = new AbortController();
+        controller.abort("cancelled");
+        mockFetch.mockImplementation(async () => new Response("", { status: 503 }));
+
+        await expect(requestWithRetries(() => mockFetch(), 2, controller.signal)).rejects.toBe("cancelled");
+        expect(mockFetch).toHaveBeenCalledTimes(1);
+        expect(vi.getTimerCount()).toBe(0);
+    });
+
+    it("should still retry normally when a signal is passed but never aborted", async () => {
+        vi.restoreAllMocks();
+        const controller = new AbortController();
+        mockFetch
+            .mockImplementationOnce(async () => new Response("", { status: 503 }))
+            .mockImplementationOnce(async () => new Response("", { status: 200 }));
+
+        const responsePromise = requestWithRetries(() => mockFetch(), 2, controller.signal);
+        await vi.runAllTimersAsync();
+        const response = await responsePromise;
+
+        expect(response.status).toBe(200);
+        expect(mockFetch).toHaveBeenCalledTimes(2);
+    });
 });
