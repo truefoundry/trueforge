@@ -1,5 +1,5 @@
 import { OpenAPIHono, type RouteHandler } from '@hono/zod-openapi';
-import type { Context } from 'hono';
+import { HTTPException } from 'hono/http-exception';
 import type { Logger } from 'winston';
 import { createdBySubjectFromRequestContext, type ResolveRequestContext } from '../auth/identity';
 import type { ISandboxEnvironmentStore } from '../db/sandboxEnvironmentStore';
@@ -12,7 +12,7 @@ import type { SandboxProviderManifest, UpdateSandboxProviderRequest } from '../s
 import { MissingStoredSecretError, resolveStoredSecretValue, toRedactedSecretValue } from '../utils/secretRedaction';
 
 export interface SandboxProvidersRouterDeps<TTransaction> {
-  resolveSandboxProviderStore: (c: Context) => ISandboxProviderStore<TTransaction>;
+  sandboxProviderStore: ISandboxProviderStore<TTransaction>;
   sandboxEnvironmentStore: ISandboxEnvironmentStore<TTransaction>;
   withTransaction: WithTransaction<TTransaction>;
   logger: Logger;
@@ -39,7 +39,7 @@ function storedApiKey(record: SandboxProviderRecord | undefined): string | undef
 export function createSandboxProvidersRouter<TTransaction>(deps: SandboxProvidersRouterDeps<TTransaction>) {
   const getHandler: RouteHandler<typeof getSandboxProviderRoute> = async c => {
     const requestContext = deps.resolveRequestContext(c);
-    const store = deps.resolveSandboxProviderStore(c);
+    const store = deps.sandboxProviderStore;
     const record = await store.getSandboxProvider(requestContext.tenant_id);
     if (record?.manifest.type !== 'daytona') {
       return c.json({ error: { message: 'No sandbox provider configured' } }, 404);
@@ -57,7 +57,7 @@ export function createSandboxProvidersRouter<TTransaction>(deps: SandboxProvider
   const putHandler: RouteHandler<typeof putSandboxProviderRoute> = async c => {
     const body: UpdateSandboxProviderRequest = c.req.valid('json');
     const requestContext = deps.resolveRequestContext(c);
-    const store = deps.resolveSandboxProviderStore(c);
+    const store = deps.sandboxProviderStore;
     const incoming = body.manifest;
     const resolveManifest = (existing: SandboxProviderRecord | undefined): SandboxProviderManifest => ({
       ...incoming,
@@ -112,21 +112,20 @@ export function createSandboxProvidersRouter<TTransaction>(deps: SandboxProvider
       );
     } catch (error) {
       if (error instanceof MissingStoredSecretError) {
-        return c.json({ error: { message: 'API key is required' } }, 400);
+        throw new HTTPException(400, { message: 'API key is required', cause: error });
       }
       if (isDaytonaAuthError(error)) {
-        return c.json({ error: { message: 'Sandbox provider rejected the API key — check the credentials' } }, 422);
+        throw new HTTPException(422, {
+          message: 'Sandbox provider rejected the API key — check the credentials',
+          cause: error,
+        });
       }
       if (isDaytonaPermissionError(error)) {
-        return c.json(
-          {
-            error: {
-              message:
-                'Sandbox provider denied access: the API key is missing required permissions. Grant write:sandboxes, write:snapshots, and delete:snapshots on the key, then try again.',
-            },
-          },
-          422,
-        );
+        throw new HTTPException(422, {
+          message:
+            'Sandbox provider denied access: the API key is missing required permissions. Grant write:sandboxes, write:snapshots, and delete:snapshots on the key, then try again.',
+          cause: error,
+        });
       }
       throw error;
     }

@@ -8,9 +8,12 @@ import type {
 import { CancellationReason, TurnNotFoundError } from '@truefoundry/trueforge-core/agent-session';
 import { NoResponderError, redisRequest, RequestTimeoutError } from '@truefoundry/trueforge-core/request-reply';
 import type { RedisClientType } from 'redis';
+import { createLogger } from 'winston';
 import { cancelSessionTurn } from '../../../src/apis/sessions';
 import configuration from '../../../src/config';
 import { ActiveTurnRegistry } from '../../../src/runtime/activeTurns';
+
+const logger = createLogger({ silent: true });
 
 jest.mock('@truefoundry/trueforge-core/request-reply', () => {
   const actual = jest.requireActual<typeof import('@truefoundry/trueforge-core/request-reply')>(
@@ -86,7 +89,7 @@ function cancelDeps(input: {
 function trackRun(registry: ActiveTurnRegistry, turnId: string): AbortController {
   const abortController = new AbortController();
   registry.track({
-    turn: { session_id: SESSION_ID, id: turnId } as TurnHandle,
+    turn: { session_id: SESSION_ID, id: turnId, state: { status: 'running' } } as TurnHandle,
     abortController,
     stream: (async function* () {
       await new Promise(() => undefined);
@@ -102,7 +105,7 @@ describe('cancelSessionTurn', () => {
   });
 
   it('aborts a turn running in this process without freezing', async () => {
-    const activeTurns = new ActiveTurnRegistry();
+    const activeTurns = new ActiveTurnRegistry({ logger });
     const turnId = 'turn-local-running';
     const abortController = trackRun(activeTurns, turnId);
     const session = sessionHandle();
@@ -120,7 +123,7 @@ describe('cancelSessionTurn', () => {
   });
 
   it('freezes when this executor owns the turn but the run is gone', async () => {
-    const activeTurns = new ActiveTurnRegistry();
+    const activeTurns = new ActiveTurnRegistry({ logger });
     const turnId = 'turn-local-gone';
     const session = sessionHandle();
 
@@ -138,12 +141,12 @@ describe('cancelSessionTurn', () => {
   });
 
   it('aborts a paused turn parked in this process, then drops it from the registry', async () => {
-    const activeTurns = new ActiveTurnRegistry();
+    const activeTurns = new ActiveTurnRegistry({ logger });
     const turnId = 'turn-local-paused';
     const abortController = new AbortController();
     const parked = Promise.withResolvers<undefined>();
     const tracked = activeTurns.track({
-      turn: { session_id: SESSION_ID, id: turnId } as TurnHandle,
+      turn: { session_id: SESSION_ID, id: turnId, state: { status: 'paused' } } as TurnHandle,
       abortController,
       stream: (async function* () {
         yield 'paused';
@@ -183,7 +186,7 @@ describe('cancelSessionTurn', () => {
   });
 
   it('freezes a paused turn this executor owns when the run is gone', async () => {
-    const activeTurns = new ActiveTurnRegistry();
+    const activeTurns = new ActiveTurnRegistry({ logger });
     const turnId = 'turn-paused-gone';
     const session = sessionHandle();
 
@@ -199,7 +202,7 @@ describe('cancelSessionTurn', () => {
   });
 
   it('asks the owning peer to cancel a paused turn and does not freeze when the peer aborts', async () => {
-    const activeTurns = new ActiveTurnRegistry();
+    const activeTurns = new ActiveTurnRegistry({ logger });
     const turnId = 'turn-paused-remote';
     const session = sessionHandle();
     redisRequestMock.mockResolvedValue({ status: 200, body: {} });
@@ -219,7 +222,7 @@ describe('cancelSessionTurn', () => {
   });
 
   it('freezes when the run is not in this process and there is no Redis client', async () => {
-    const activeTurns = new ActiveTurnRegistry();
+    const activeTurns = new ActiveTurnRegistry({ logger });
     const turnId = 'turn-remote-no-redis';
     const session = sessionHandle();
 
@@ -239,7 +242,7 @@ describe('cancelSessionTurn', () => {
   });
 
   it('does not freeze when the owning peer aborts', async () => {
-    const activeTurns = new ActiveTurnRegistry();
+    const activeTurns = new ActiveTurnRegistry({ logger });
     const turnId = 'turn-remote-ok';
     const session = sessionHandle();
     redisRequestMock.mockResolvedValue({ status: 200, body: {} });
@@ -263,7 +266,7 @@ describe('cancelSessionTurn', () => {
   });
 
   it('freezes when the owning peer is alive but the turn is not running there', async () => {
-    const activeTurns = new ActiveTurnRegistry();
+    const activeTurns = new ActiveTurnRegistry({ logger });
     const turnId = 'turn-remote-412';
     const session = sessionHandle();
     redisRequestMock.mockResolvedValue({ status: 412, body: { message: 'Turn is not running on this executor' } });
@@ -282,10 +285,10 @@ describe('cancelSessionTurn', () => {
   });
 
   it('freezes when the owning executor is unreachable', async () => {
-    const activeTurns = new ActiveTurnRegistry();
+    const activeTurns = new ActiveTurnRegistry({ logger });
     const turnId = 'turn-remote-no-responder';
     const session = sessionHandle();
-    const logger = silentLogger();
+    const cancelLogger = silentLogger();
     redisRequestMock.mockRejectedValue(new NoResponderError(REMOTE_EXECUTOR));
 
     await expect(
@@ -295,23 +298,23 @@ describe('cancelSessionTurn', () => {
           turn: turnRecord({ turnId: turnId, state: { status: 'running' }, activeExecutorId: REMOTE_EXECUTOR }),
           session,
           redis: REDIS,
-          logger,
+          logger: cancelLogger,
         }),
         { turnId },
       ),
     ).resolves.toBeUndefined();
     expect(session.freezeTurn).toHaveBeenCalled();
-    expect(logger.warn).toHaveBeenCalledWith(
+    expect(cancelLogger.warn).toHaveBeenCalledWith(
       'Failed to reach owning executor over Redis; freezing the turn',
-      expect.objectContaining({ sessionId: SESSION_ID, turnId, owner: REMOTE_EXECUTOR }),
+      expect.objectContaining({ turn_id: turnId, owner: REMOTE_EXECUTOR }),
     );
   });
 
   it('freezes when waiting for the owning executor times out', async () => {
-    const activeTurns = new ActiveTurnRegistry();
+    const activeTurns = new ActiveTurnRegistry({ logger });
     const turnId = 'turn-remote-timeout';
     const session = sessionHandle();
-    const logger = silentLogger();
+    const cancelLogger = silentLogger();
     redisRequestMock.mockRejectedValue(new RequestTimeoutError(60_000));
 
     await expect(
@@ -321,23 +324,23 @@ describe('cancelSessionTurn', () => {
           turn: turnRecord({ turnId: turnId, state: { status: 'running' }, activeExecutorId: REMOTE_EXECUTOR }),
           session,
           redis: REDIS,
-          logger,
+          logger: cancelLogger,
         }),
         { turnId },
       ),
     ).resolves.toBeUndefined();
     expect(session.freezeTurn).toHaveBeenCalled();
-    expect(logger.warn).toHaveBeenCalledWith(
+    expect(cancelLogger.warn).toHaveBeenCalledWith(
       'Timed out waiting for owning executor to cancel; freezing the turn',
-      expect.objectContaining({ sessionId: SESSION_ID, turnId, owner: REMOTE_EXECUTOR }),
+      expect.objectContaining({ turn_id: turnId, owner: REMOTE_EXECUTOR }),
     );
   });
 
   it('freezes when Redis itself cannot be reached', async () => {
-    const activeTurns = new ActiveTurnRegistry();
+    const activeTurns = new ActiveTurnRegistry({ logger });
     const turnId = 'turn-remote-redis-down';
     const session = sessionHandle();
-    const logger = silentLogger();
+    const cancelLogger = silentLogger();
     redisRequestMock.mockRejectedValue(new Error('Redis connection closed'));
 
     await expect(
@@ -347,17 +350,16 @@ describe('cancelSessionTurn', () => {
           turn: turnRecord({ turnId: turnId, state: { status: 'running' }, activeExecutorId: REMOTE_EXECUTOR }),
           session,
           redis: REDIS,
-          logger,
+          logger: cancelLogger,
         }),
         { turnId },
       ),
     ).resolves.toBeUndefined();
     expect(session.freezeTurn).toHaveBeenCalled();
-    expect(logger.warn).toHaveBeenCalledWith(
+    expect(cancelLogger.warn).toHaveBeenCalledWith(
       'Failed to reach owning executor over Redis; freezing the turn',
       expect.objectContaining({
-        sessionId: SESSION_ID,
-        turnId,
+        turn_id: turnId,
         owner: REMOTE_EXECUTOR,
         error: 'Redis connection closed',
       }),
@@ -365,7 +367,7 @@ describe('cancelSessionTurn', () => {
   });
 
   it('treats a missing turn as a successful cancel', async () => {
-    const activeTurns = new ActiveTurnRegistry();
+    const activeTurns = new ActiveTurnRegistry({ logger });
     const turnId = 'turn-missing';
     const session = sessionHandle();
     session.freezeTurn = jest.fn().mockRejectedValue(new TurnNotFoundError(turnId));

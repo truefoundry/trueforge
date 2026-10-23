@@ -2775,6 +2775,9 @@
             "description": "Unique identifier for the event (monotonic ULID).",
             "type": "string"
           },
+          "model": {
+            "$ref": "#/components/schemas/Model"
+          },
           "name": {
             "description": "Optional participant name.",
             "type": "string"
@@ -3885,6 +3888,12 @@
             "format": "date-time",
             "type": "string"
           },
+          "session_id": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
           "status": {
             "$ref": "#/components/schemas/ScheduleRunStatus"
           },
@@ -3909,6 +3918,7 @@
           "created_by_subject",
           "triggered_at",
           "reason",
+          "session_id",
           "created_at",
           "updated_at"
         ],
@@ -3946,6 +3956,9 @@
             "description": "Unique session id.",
             "type": "string"
           },
+          "last_turn_details": {
+            "$ref": "#/components/schemas/SessionLastTurnDetails"
+          },
           "metadata": {
             "$ref": "#/components/schemas/SessionMetadata"
           },
@@ -3981,7 +3994,8 @@
           "updated_at",
           "metrics",
           "metadata",
-          "source"
+          "source",
+          "last_turn_details"
         ],
         "type": "object"
       },
@@ -4162,6 +4176,39 @@
         "required": [
           "turn_id",
           "event"
+        ],
+        "type": "object"
+      },
+      "SessionLastTurnDetails": {
+        "additionalProperties": false,
+        "description": "The session's most recent turn; null until the first turn.",
+        "properties": {
+          "id": {
+            "description": "Id of the last turn.",
+            "minLength": 1,
+            "type": "string"
+          },
+          "state": {
+            "$ref": "#/components/schemas/SessionLastTurnState"
+          }
+        },
+        "required": [
+          "id",
+          "state"
+        ],
+        "type": [
+          "object",
+          "null"
+        ]
+      },
+      "SessionLastTurnState": {
+        "properties": {
+          "status": {
+            "$ref": "#/components/schemas/TurnStatus"
+          }
+        },
+        "required": [
+          "status"
         ],
         "type": "object"
       },
@@ -5508,6 +5555,16 @@
           "status"
         ],
         "type": "object"
+      },
+      "TurnStatus": {
+        "enum": [
+          "running",
+          "paused",
+          "done",
+          "cancelled",
+          "error"
+        ],
+        "type": "string"
       },
       "TurnStreamingEvent": {
         "discriminator": {
@@ -7882,7 +7939,7 @@
     },
     "/api/v1/sandbox-environments": {
       "get": {
-        "description": "List the tenant default environment plus sandbox environments created by the authenticated subject.",
+        "description": "List available sandbox environments",
         "parameters": [
           {
             "description": "Page size. Defaults to 25, max 1000.",
@@ -7997,6 +8054,16 @@
             },
             "description": "Unauthenticated."
           },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/RequestErrorResponse"
+                }
+              }
+            },
+            "description": "User does not have permission to edit Sandbox environment"
+          },
           "409": {
             "content": {
               "application/json": {
@@ -8038,7 +8105,7 @@
         "x-fern-sdk-method-name": "create"
       },
       "put": {
-        "description": "Create or replace by `manifest.name`. Requires a configured sandbox provider.",
+        "description": "Create a new sandbox environment or update an existing one.",
         "requestBody": {
           "content": {
             "application/json": {
@@ -8079,6 +8146,26 @@
               }
             },
             "description": "Unauthenticated."
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/RequestErrorResponse"
+                }
+              }
+            },
+            "description": "User does not have permission to edit Sandbox environment"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/RequestErrorResponse"
+                }
+              }
+            },
+            "description": "Sandbox environment not found."
           },
           "409": {
             "content": {
@@ -8123,7 +8210,7 @@
     },
     "/api/v1/sandbox-environments/{name}": {
       "delete": {
-        "description": "Delete by name. Fails if any agent still references the environment.",
+        "description": "Delete a sandbox environment, fails if any agent still references it.",
         "parameters": [
           {
             "description": "Sandbox environment name.",
@@ -8163,6 +8250,16 @@
             },
             "description": "Unauthenticated."
           },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/RequestErrorResponse"
+                }
+              }
+            },
+            "description": "User does not have permission to edit Sandbox environment"
+          },
           "404": {
             "content": {
               "application/json": {
@@ -8171,7 +8268,7 @@
                 }
               }
             },
-            "description": "Sandbox environment not found."
+            "description": "Sandbox environment not found or not owned by the caller."
           },
           "409": {
             "content": {
@@ -8214,7 +8311,6 @@
         "x-fern-sdk-method-name": "delete"
       },
       "get": {
-        "description": "Get a sandbox environment by name. The tenant default is readable by any tenant member; custom environments are owner-scoped.",
         "parameters": [
           {
             "description": "Sandbox environment name.",
@@ -10036,7 +10132,17 @@
                 }
               }
             },
-            "description": "Turn is terminal, or an event id already exists."
+            "description": "Turn is terminal, running and not accepting events, or an event id already exists."
+          },
+          "500": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/RequestErrorResponse"
+                }
+              }
+            },
+            "description": "The executor ran the request and failed while applying the events."
           }
         },
         "summary": "Create turn events",

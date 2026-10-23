@@ -575,9 +575,17 @@ export function AgentMcpEditorContent({
                                       {tool.name}
                                     </span>
                                     {tool.description ? (
-                                      <span className="text-text-secondary line-clamp-1 text-xs">
-                                        {tool.description}
-                                      </span>
+                                      <Tooltip
+                                        content={tool.description}
+                                        side="bottom"
+                                        className="max-w-sm whitespace-normal text-left"
+                                        triggerClassName="block min-w-0 w-full"
+                                        interactive={false}
+                                      >
+                                        <span className="text-text-secondary block truncate text-xs">
+                                          {tool.description}
+                                        </span>
+                                      </Tooltip>
                                     ) : null}
                                   </span>
                                 </button>

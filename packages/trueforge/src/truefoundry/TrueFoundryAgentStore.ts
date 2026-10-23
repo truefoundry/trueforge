@@ -84,12 +84,12 @@ export class TrueFoundryAgentStore implements IAgentStore<Transaction<Database>>
   constructor(input: {
     inner: PostgresAgentStore;
     client: TrueFoundryServiceFoundryServerClient;
-    context: RequestContext;
+    requestContext: RequestContext;
     db: Kysely<Database>;
   }) {
     this.#inner = input.inner;
     this.#client = input.client;
-    this.#resolveAccessToken = callerAccessToken(input.context);
+    this.#resolveAccessToken = callerAccessToken(input.requestContext);
     this.#db = input.db;
   }
 

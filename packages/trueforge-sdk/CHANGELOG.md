@@ -1,3 +1,13 @@
+## [0.179.0] - 2026-10-14
+
+## [0.179.0-rc.1] - 2026-10-13
+
+## [0.178.0] - 2026-10-09
+
+## [0.178.0-rc.2] - 2026-10-08
+
+## [0.178.0-rc.1] - 2026-10-08
+
 ## [0.177.0] - 2026-10-07
 
 ## [0.177.0-rc.1] - 2026-10-05
@@ -7,6 +17,37 @@
 ## [0.2.1] - 2026-09-29
 
 ## [0.2.1-rc.0] - 2026-09-22
+
+## 0.179.0
+
+### Patch Changes
+
+- 694a572: Reject duplicate sandbox environment names on create (POST) instead of overwriting via upsert.
+
+## 0.179.0-rc.1
+
+### Patch Changes
+
+- 694a572: Reject duplicate sandbox environment names on create (POST) instead of overwriting via upsert.
+
+## 0.178.0
+
+### Patch Changes
+
+- 8c24138: Regenerate SDK from updated OpenAPI spec.
+- 9bb142d: Reject duplicate sandbox environment names on create (POST) instead of overwriting via upsert.
+
+## 0.178.0-rc.2
+
+### Patch Changes
+
+- 9bb142d: Reject duplicate sandbox environment names on create (POST) instead of overwriting via upsert.
+
+## 0.178.0-rc.1
+
+### Patch Changes
+
+- 8c24138: Regenerate SDK from updated OpenAPI spec.
 
 ## 0.177.0
 

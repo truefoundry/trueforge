@@ -12,6 +12,9 @@ export const MESSAGE_CUSTOM_KEY = {
   TURN_ID: 'turnId',
 } as const;
 
+/** Wire cancel reason from `turn.done` — UI reads this for the cancelled banner. */
+export const CANCELLATION_REASON_CUSTOM_KEY = 'cancellationReason';
+
 /** Keys written to `ThreadMessage.metadata.custom` by this runtime adapter. */
 export interface TrueForgeMessageCustomMetadata {
   [MESSAGE_CUSTOM_KEY.SUB_AGENT]?: SubAgentCustomMetadata;
@@ -20,6 +23,7 @@ export interface TrueForgeMessageCustomMetadata {
   [MESSAGE_CUSTOM_KEY.SANDBOX_ID]?: string;
   /** Turn that produced this message. Scopes artifact downloads to their own turn. */
   [MESSAGE_CUSTOM_KEY.TURN_ID]?: string;
+  [CANCELLATION_REASON_CUSTOM_KEY]?: string;
   [MESSAGE_CUSTOM_KEY.TOOL_APPROVAL_THREAD_ID]?: string;
   [MESSAGE_CUSTOM_KEY.TOOL_RESPONSE_THREAD_ID]?: string;
 }

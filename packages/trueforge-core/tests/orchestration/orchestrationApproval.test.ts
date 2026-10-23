@@ -1,5 +1,5 @@
 /** Pause on write_note approval, then resume after allow or deny. */
-import { EventType, newEventId } from '../../src/core/events/schema';
+import { EventType, newEventId, type MCPServerInitInfo } from '../../src/core/events/schema';
 import type { IToolSet, ToolSource } from '../../src/core/mcp/IMCPServer';
 import { toolResultResponse } from '../../src/core/mcp/IMCPServer';
 import { ToolSet } from '../../src/core/mcp/ToolSet';
@@ -7,7 +7,7 @@ import { AgentThread } from '../../src/core/runtime/AgentThread';
 import { InternalEventType, type AgentThreadConstructorInput } from '../../src/core/runtime/AgentThread.types';
 import { AgentThreadOrchestrator } from '../../src/core/runtime/AgentThreadOrchestrator';
 import { NOOP_AGENT_TRACING } from '../../src/core/tracing/NoopAgentTracing';
-import { makeSilentLogger } from '../core/harnessMocks';
+import { makeSilentLogger, TEST_MODEL_NAME } from '../core/harnessMocks';
 import {
   driveUntilPauseOrDone,
   llmCreateInputs,
@@ -423,6 +423,54 @@ describe('orchestration: a policy that lands mid-pause resolves an existing pend
     expect(callTool).toHaveBeenCalledTimes(1);
   });
 
+  it('patches the policy onto the MCP server record from the previous turn', async () => {
+    const { orchestrator, callTool } = makeApprovalHarnessWithUserToolSet(ROOT_FINAL, [
+      {
+        id: 'notes',
+        name: POLICY_SERVER_NAME,
+        session_id: 'mcp-session',
+        transport_type: 'streamable-http',
+      },
+    ]);
+
+    for await (const _event of orchestrator.send([{ type: EventType.USER_MESSAGE, content: 'hello' }])) {
+      void _event;
+    }
+    const iterator = orchestrator.execute({ signal: new AbortController().signal });
+    expect((await driveUntilPauseOrDone(iterator)).kind).toBe('paused');
+
+    for await (const _batch of orchestrator.send([
+      {
+        type: EventType.USER_TOOL_APPROVAL_POLICY,
+        id: newEventId(),
+        created_at: new Date().toISOString(),
+        policies: [{ server_name: POLICY_SERVER_NAME, name: WRITE_NOTE_TOOL_NAME, policy: { type: 'allow_session' } }],
+      },
+    ])) {
+      void _batch;
+    }
+    orchestrator.wake();
+
+    const resumed = await driveUntilPauseOrDone(iterator);
+    expect(resumed.kind).toBe('done');
+    if (resumed.kind !== 'done') {
+      throw new Error('expected turn to finish after the policy landed');
+    }
+    expect(resumed.events[0]).toMatchObject({
+      type: InternalEventType.APPROVAL_POLICY_APPLY,
+      mcp_servers_patches: [
+        {
+          id: 'notes',
+          name: POLICY_SERVER_NAME,
+          session_id: 'mcp-session',
+          transport_type: 'streamable-http',
+          approval_policies: { [WRITE_NOTE_TOOL_NAME]: { type: 'allow_session' } },
+        },
+      ],
+    });
+    expect(callTool).toHaveBeenCalledTimes(1);
+  });
+
   it('applies a decision and policy in accepted order', async () => {
     const { orchestrator, callTool } = makeApprovalHarnessWithUserToolSet(ROOT_FINAL);
 
@@ -568,7 +616,11 @@ describe('AgentThreadOrchestrator.send: approval policy validation', () => {
     toolSet = makeApprovalGatedWriteNoteToolSet().toolSet;
     const thread = new AgentThread({
       definition: {
-        modelClient: { create: jest.fn(), createNonStream: jest.fn() },
+        modelClient: {
+          create: jest.fn(),
+          createNonStream: jest.fn(),
+        },
+        modelName: TEST_MODEL_NAME,
         instruction: INSTRUCTION,
         messages: undefined,
         modelParams: undefined,
@@ -594,6 +646,8 @@ describe('AgentThreadOrchestrator.send: approval policy validation', () => {
       createDynamicSubAgentThread: () => Promise.reject(new Error('unexpected sub-agent in policy test')),
       tracing: NOOP_AGENT_TRACING,
       logger: makeSilentLogger(),
+      pendingTurnEvents: [],
+      mcpServers: [],
     });
   });
 
@@ -744,6 +798,8 @@ function makeApprovalHarness(finalReply: string): {
           .mockImplementation(() => textReplyStream(finalReply)),
         createNonStream: jest.fn(),
       },
+      modelName: TEST_MODEL_NAME,
+
       instruction: INSTRUCTION,
       messages: undefined,
       modelParams: undefined,
@@ -781,11 +837,16 @@ function makeApprovalHarness(finalReply: string): {
     createDynamicSubAgentThread: () => Promise.reject(new Error('unexpected sub-agent in approval test')),
     tracing: NOOP_AGENT_TRACING,
     logger: makeSilentLogger(),
+    pendingTurnEvents: [],
+    mcpServers: [],
   });
   return { orchestrator, thread, callTool };
 }
 
-function makeApprovalHarnessWithUserToolSet(finalReply: string): {
+function makeApprovalHarnessWithUserToolSet(
+  finalReply: string,
+  mcpServers?: MCPServerInitInfo[],
+): {
   orchestrator: AgentThreadOrchestrator;
   thread: AgentThread;
   callTool: jest.Mock;
@@ -801,6 +862,7 @@ function makeApprovalHarnessWithUserToolSet(finalReply: string): {
           .mockImplementation(() => textReplyStream(finalReply)),
         createNonStream: jest.fn(),
       },
+      modelName: TEST_MODEL_NAME,
       instruction: INSTRUCTION,
       messages: undefined,
       modelParams: undefined,
@@ -828,6 +890,8 @@ function makeApprovalHarnessWithUserToolSet(finalReply: string): {
     createDynamicSubAgentThread: () => Promise.reject(new Error('unexpected sub-agent in approval policy test')),
     tracing: NOOP_AGENT_TRACING,
     logger: makeSilentLogger(),
+    pendingTurnEvents: [],
+    mcpServers: mcpServers ?? [],
   });
   return { orchestrator, thread, callTool, toolSet };
 }

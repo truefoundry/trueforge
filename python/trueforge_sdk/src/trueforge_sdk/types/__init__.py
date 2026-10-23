@@ -199,6 +199,8 @@ if typing.TYPE_CHECKING:
     from .session_agent_spec_body import SessionAgentSpecBody
     from .session_event import SessionEvent
     from .session_event_item import SessionEventItem
+    from .session_last_turn_details import SessionLastTurnDetails
+    from .session_last_turn_state import SessionLastTurnState
     from .session_metadata import SessionMetadata
     from .session_metrics import SessionMetrics
     from .session_metrics_chart import SessionMetricsChart
@@ -254,6 +256,7 @@ if typing.TYPE_CHECKING:
     from .turn_state_error_metrics import TurnStateErrorMetrics
     from .turn_state_paused import TurnStatePaused
     from .turn_state_running import TurnStateRunning
+    from .turn_status import TurnStatus
     from .turn_streaming_event import TurnStreamingEvent
     from .turn_update_event import TurnUpdateEvent
     from .turn_update_event_state import TurnUpdateEventState
@@ -468,6 +471,8 @@ _dynamic_imports: typing.Dict[str, str] = {
     "SessionAgentSpecBody": ".session_agent_spec_body",
     "SessionEvent": ".session_event",
     "SessionEventItem": ".session_event_item",
+    "SessionLastTurnDetails": ".session_last_turn_details",
+    "SessionLastTurnState": ".session_last_turn_state",
     "SessionMetadata": ".session_metadata",
     "SessionMetrics": ".session_metrics",
     "SessionMetricsChart": ".session_metrics_chart",
@@ -523,6 +528,7 @@ _dynamic_imports: typing.Dict[str, str] = {
     "TurnStateErrorMetrics": ".turn_state_error_metrics",
     "TurnStatePaused": ".turn_state_paused",
     "TurnStateRunning": ".turn_state_running",
+    "TurnStatus": ".turn_status",
     "TurnStreamingEvent": ".turn_streaming_event",
     "TurnUpdateEvent": ".turn_update_event",
     "TurnUpdateEventState": ".turn_update_event_state",
@@ -761,6 +767,8 @@ __all__ = [
     "SessionAgentSpecBody",
     "SessionEvent",
     "SessionEventItem",
+    "SessionLastTurnDetails",
+    "SessionLastTurnState",
     "SessionMetadata",
     "SessionMetrics",
     "SessionMetricsChart",
@@ -816,6 +824,7 @@ __all__ = [
     "TurnStateErrorMetrics",
     "TurnStatePaused",
     "TurnStateRunning",
+    "TurnStatus",
     "TurnStreamingEvent",
     "TurnUpdateEvent",
     "TurnUpdateEventState",

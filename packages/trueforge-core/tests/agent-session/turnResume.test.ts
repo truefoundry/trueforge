@@ -34,6 +34,7 @@ async function sendWithInbox(
     await store.insertTurnInboundEvents({
       session_id: turn.session_id,
       turn_id: turn.id,
+      active_executor_id: turn.record.active_executor_id,
       events: batch,
     });
   }
@@ -292,7 +293,9 @@ describe('TurnHandle.send() full-approval resume (agent-session e2e)', () => {
 
     const pending = iterator.next();
     pending.catch(() => undefined);
-    await sendWithInbox(turn, store, [
+    // Stale executor cannot insert inbox rows. Wake the parked generator so the
+    // next fenced persist hits TurnOwnershipLostError and stays suspended.
+    for await (const _batch of turn.send([
       {
         type: EventType.USER_TOOL_APPROVAL,
         id: newEventId(),
@@ -301,7 +304,9 @@ describe('TurnHandle.send() full-approval resume (agent-session e2e)', () => {
         tool_call_id: WRITE_NOTE_CALL_ID,
         approval: { status: 'allow' },
       },
-    ]);
+    ])) {
+      // intentionally not inserting
+    }
 
     try {
       const parked = await Promise.race([

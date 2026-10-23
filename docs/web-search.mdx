@@ -1,0 +1,51 @@
+---
+title: 'Setup Web Search'
+sidebarTitle: 'Web Search'
+description: 'Connect a web search provider so agents can search the web and fetch pages with the built-in tools.'
+---
+
+TrueForge ships two built-in tools for live web access: `web_search` finds pages, and `web_fetch` extracts their content as text for the model. Both stay off until a provider is configured under **Settings → Web search** and an agent enables them.
+
+## Supported providers
+
+| Provider type | Notes                                     |
+| ------------- | ----------------------------------------- |
+| `parallel`    | [Parallel](https://parallel.ai). Requires an API key. |
+
+The list comes from the shipped [`web-search-catalog.yaml`](https://github.com/truefoundry/trueforge/blob/main/packages/trueforge/catalog/web-search-catalog.yaml). Self-hosted deployments can [override the catalog](/harness/initial-setup#changing-what-the-ui-offers).
+
+## Configure a provider
+
+1. Open **Settings → Web search** and choose the Parallel preset.
+2. Paste your Parallel API key and save.
+
+One provider is active at a time. API and UI reads redact the key, so when you update the provider later, leave the API key blank to keep the stored value, or enter a new key to rotate it.
+
+## Enable web search on an agent
+
+| Where | How                                                                                                                                |
+| ----- | ---------------------------------------------------------------------------------------------------------------------------------- |
+| UI    | **Build Agent → Runtime Config → Web search**, or the **Web search** row under **Built-in** in the composer's connectors picker |
+| API   | `config.web_search.enabled`                                                                                                        |
+
+Once a provider is configured, the UI turns the toggle on for new agents. Agents created through the API keep the schema default, `{ "enabled": false }`, until you set the field.
+
+<Note>Until a provider is configured, the composer's **Web search** row stays disabled.</Note>
+
+## What the agent gets
+
+- `web_search` takes up to 5 keyword queries per call plus an optional objective, and returns ranked hits with titles, URLs, and snippets. Search operators such as `site:` and `filetype:` may work when the provider supports them.
+- `web_fetch` extracts up to 5 URLs as markdown or text, without a summarization step.
+
+The harness adds guidance to the system prompt about when to search and when to fetch. Both tools run on the server through the configured provider; agent definitions never contain the API key.
+
+## Search through MCP instead
+
+An MCP server with search tools works as well, and the [Quickstart](/quickstart) connects Exa that way. The built-in tools are independent of MCP: every agent with `config.web_search.enabled` gets them, with no per-tool selection.
+
+## Manage the provider through the API
+
+- `GET /api/v1/settings/web-search-providers` reads the provider, with the key redacted.
+- `PUT /api/v1/settings/web-search-providers` creates, replaces, or rotates the key.
+- `GET /api/v1/catalogs/web-search-providers` lists the presets.
+- `GET /api/v1/capabilities` reports whether web search is available.

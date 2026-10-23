@@ -82,6 +82,29 @@ export function terminalMessage(state: unknown): string {
   return isRecord(state) && typeof state.message === 'string' ? state.message : '';
 }
 
+/** Cancel reason on turn.done (`client-cancelled`, etc.). */
+export function terminalReason(state: unknown): string {
+  return isRecord(state) ? (readString(state, 'reason', 'reason') ?? '') : '';
+}
+
+/** Sub-agent thread.done error text (`ThreadStateError.error`). */
+export function terminalThreadError(state: unknown): string {
+  if (!isRecord(state)) return '';
+  if (typeof state.error === 'string' && state.error.length > 0) return state.error;
+  return terminalMessage(state);
+}
+
+/** Cancel mid-stream can persist thread.done error "LLM stream aborted"; not a real failure. */
+export function isAbortShapedThreadError(message: string): boolean {
+  const normalized = message.trim().toLowerCase();
+  return (
+    normalized === 'llm stream aborted' ||
+    normalized === 'aborterror' ||
+    normalized.includes('stream aborted') ||
+    normalized.includes('aborterror')
+  );
+}
+
 export function terminalStatus(state: unknown): string | undefined {
   return isRecord(state) && typeof state.status === 'string' ? state.status : undefined;
 }

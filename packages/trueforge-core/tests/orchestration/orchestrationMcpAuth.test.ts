@@ -5,7 +5,7 @@ import { InternalEventType, type AgentThreadConstructorInput } from '../../src/c
 import { AgentThreadOrchestrator } from '../../src/core/runtime/AgentThreadOrchestrator';
 import { NOOP_AGENT_TRACING } from '../../src/core/tracing/NoopAgentTracing';
 import { withTimeout } from '../../src/core/util/promiseUtils';
-import { makeSilentLogger } from '../core/harnessMocks';
+import { makeSilentLogger, TEST_MODEL_NAME } from '../core/harnessMocks';
 import { textReplyStream } from './helpers/helpers';
 
 function makeAuthBlockedThread(threadId: string): AgentThread {
@@ -34,6 +34,7 @@ function makeAuthBlockedThread(threadId: string): AgentThread {
         create: jest.fn(() => textReplyStream(`${threadId} done`)),
         createNonStream: jest.fn(),
       },
+      modelName: TEST_MODEL_NAME,
       instruction: undefined,
       messages: [{ role: 'user', content: 'continue' }],
       modelParams: undefined,
@@ -69,6 +70,8 @@ describe('orchestration: MCP auth continuation', () => {
       createDynamicSubAgentThread: () => Promise.reject(new Error('unexpected sub-agent')),
       tracing: NOOP_AGENT_TRACING,
       logger: makeSilentLogger(),
+      pendingTurnEvents: [],
+      mcpServers: [],
     });
     const iterator = orchestrator.execute({ signal: new AbortController().signal });
 

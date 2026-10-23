@@ -198,10 +198,28 @@ describe('ShellModeProvider', () => {
 
     act(() => result.current.openAgentBuilder());
     act(() =>
+      result.current.rememberDraftSpec(
+        {
+          model: { name: 'saved/model' },
+          instructions: 'Keep building trips.',
+          mcpServers: [{ name: 'exa' }],
+          skills: [{ name: 'research' }],
+          config: { sandbox: { enabled: true } },
+        },
+        'agent',
+      ),
+    );
+    act(() =>
       result.current.bindMutableAgent({
         agentId: 'saved',
         agentName: 'saved',
-        agentSpec: { model: { name: 'saved/model' } },
+        agentSpec: {
+          model: { name: 'saved/model' },
+          instructions: 'Keep building trips.',
+          mcpServers: [{ name: 'exa' }],
+          skills: [{ name: 'research' }],
+          config: { sandbox: { enabled: true } },
+        },
       }),
     );
     expect(result.current.mode).toMatchObject({ agentId: 'saved', agentName: 'saved' });
@@ -213,10 +231,136 @@ describe('ShellModeProvider', () => {
       status: 'active',
       isMutable: true,
       isCreateAgent: true,
+      agentSpec: {
+        model: { name: 'saved/model' },
+        config: { sandbox: { enabled: true } },
+      },
     });
     if (result.current.mode.status !== 'active') throw new Error('expected active mode');
     expect(result.current.mode.agentId).toBeUndefined();
     expect(result.current.mode.agentName).toBeUndefined();
+    expect(result.current.mode.agentSpec).not.toHaveProperty('instructions');
+    expect(result.current.mode.agentSpec).not.toHaveProperty('mcpServers');
+    expect(result.current.mode.agentSpec).not.toHaveProperty('skills');
+  });
+
+  it('resetAgentBuilder clears config mounts and saved identity', () => {
+    const { result } = renderHook(() => useShellMode(), { wrapper: wrap() });
+
+    act(() => result.current.openAgentBuilder());
+    act(() =>
+      result.current.bindMutableAgent({
+        agentId: 'saved',
+        agentName: 'saved',
+        agentSpec: {
+          model: { name: 'saved/model' },
+          instructions: 'Keep building trips.',
+          mcpServers: [{ name: 'exa' }],
+          skills: [{ name: 'research' }],
+          config: { sandbox: { enabled: true } },
+        },
+      }),
+    );
+
+    const beforeKey = result.current.runtimeKey;
+    act(() => result.current.resetAgentBuilder());
+
+    expect(result.current.runtimeKey).not.toBe(beforeKey);
+    expect(result.current.mode).toMatchObject({
+      status: 'active',
+      isMutable: true,
+      isCreateAgent: true,
+      agentSpec: {
+        model: { name: 'saved/model' },
+        config: { sandbox: { enabled: true } },
+      },
+    });
+    if (result.current.mode.status !== 'active') throw new Error('expected active mode');
+    expect(result.current.mode.agentId).toBeUndefined();
+    expect(result.current.mode.agentSpec).not.toHaveProperty('mcpServers');
+  });
+
+  it('keeps left panel clean after save → New Chat → Build Agent', () => {
+    const { result } = renderHook(() => useShellMode(), { wrapper: wrap() });
+
+    act(() => result.current.openAgentBuilder());
+    act(() =>
+      result.current.rememberDraftSpec(
+        {
+          model: { name: 'saved/model' },
+          instructions: 'Keep building trips.',
+          mcpServers: [{ name: 'exa' }],
+          skills: [{ name: 'research' }],
+          config: { sandbox: { enabled: true } },
+        },
+        'agent',
+      ),
+    );
+    act(() =>
+      result.current.bindMutableAgent({
+        agentId: 'saved',
+        agentName: 'saved',
+        agentSpec: {
+          model: { name: 'saved/model' },
+          instructions: 'Keep building trips.',
+          mcpServers: [{ name: 'exa' }],
+          skills: [{ name: 'research' }],
+          config: { sandbox: { enabled: true } },
+        },
+      }),
+    );
+
+    act(() => result.current.openDraft());
+    act(() => result.current.openAgentBuilder());
+
+    expect(result.current.mode).toMatchObject({
+      status: 'active',
+      isMutable: true,
+      isCreateAgent: true,
+      agentSpec: {
+        model: { name: 'saved/model' },
+        config: { sandbox: { enabled: true } },
+      },
+    });
+    if (result.current.mode.status !== 'active') throw new Error('expected active mode');
+    expect(result.current.mode.agentSpec).not.toHaveProperty('mcpServers');
+    expect(result.current.mode.agentSpec).not.toHaveProperty('skills');
+    expect(result.current.mode.agentSpec).not.toHaveProperty('instructions');
+  });
+
+  it('resetAgentBuilder prefers the live draft over the open/save snapshot', () => {
+    const { result } = renderHook(() => useShellMode(), { wrapper: wrap() });
+
+    act(() => result.current.openAgentBuilder());
+    act(() =>
+      result.current.rememberDraftSpec(
+        {
+          model: { name: 'opened/model' },
+          config: { sandbox: { enabled: false } },
+        },
+        'agent',
+      ),
+    );
+
+    act(() =>
+      result.current.resetAgentBuilder({
+        model: { name: 'live/model' },
+        mcpServers: [{ name: 'exa' }],
+        config: { sandbox: { enabled: true }, webSearch: { enabled: true } },
+      }),
+    );
+
+    expect(result.current.mode).toMatchObject({
+      status: 'active',
+      isMutable: true,
+      isCreateAgent: true,
+      agentSpec: {
+        model: { name: 'live/model' },
+        config: { sandbox: { enabled: true }, webSearch: { enabled: true } },
+      },
+    });
+    if (result.current.mode.status !== 'active') throw new Error('expected active mode');
+    expect(result.current.mode.agentSpec).not.toHaveProperty('mcpServers');
   });
 
   it('restores the active agent draft after visiting New Chat', () => {
@@ -399,6 +543,89 @@ describe('ShellModeProvider', () => {
     expect(result.current.runtimeKey).not.toBe(keyBefore);
   });
 
+  it('clearChat and openDraft keep a disabled chat web-search preference', () => {
+    const { result } = renderHook(() => useShellMode(), {
+      wrapper: wrap({
+        mode: 'AgentComposer',
+        defaultAgentSpec: {
+          model: { name: 'openai-main/gpt-4.1' },
+          config: { webSearch: { enabled: true } },
+        },
+      }),
+    });
+
+    act(() =>
+      result.current.rememberDraftSpec(
+        {
+          model: { name: 'openai-main/gpt-4.1' },
+          config: { webSearch: { enabled: false } },
+        },
+        'chat',
+      ),
+    );
+
+    act(() => result.current.clearChat());
+    expect(result.current.mode).toMatchObject({
+      status: 'active',
+      isMutable: true,
+      isCreateAgent: false,
+      agentSpec: { config: { webSearch: { enabled: false } } },
+    });
+
+    act(() =>
+      result.current.rememberDraftSpec(
+        {
+          model: { name: 'openai-main/gpt-4.1' },
+          config: { webSearch: { enabled: false } },
+        },
+        'chat',
+      ),
+    );
+    act(() => result.current.openDraft());
+    expect(result.current.mode).toMatchObject({
+      agentSpec: { config: { webSearch: { enabled: false } } },
+    });
+  });
+
+  it('does not persist capability-forced web-search off as a chat preference', async () => {
+    const getCapabilities = vi.fn(async () => ({
+      data: {
+        sandbox: { enabled: true },
+        skill: { enabled: true },
+        settings: { enabled: true },
+        webSearch: { enabled: false },
+      },
+    }));
+    const server = createMockAgentUIServer({ catalog: createMockCatalog(), getCapabilities });
+    const { result } = renderHook(
+      () => ({
+        shell: useShellMode(),
+        capabilities: useServerCapabilities(),
+      }),
+      {
+        wrapper: wrapWithServer(server, {
+          mode: 'AgentComposer',
+          defaultAgentSpec: { model: { name: 'openai-main/gpt-4.1' } },
+        }),
+      },
+    );
+    await waitFor(() => expect(result.current.capabilities?.webSearch?.enabled).toBe(false));
+
+    act(() =>
+      result.current.shell.rememberDraftSpec(
+        {
+          model: { name: 'openai-main/gpt-4.1' },
+          config: { webSearch: { enabled: true } },
+        },
+        'chat',
+      ),
+    );
+
+    expect(readDraftSpecPreferences('chat')).toEqual({
+      model: { name: 'openai-main/gpt-4.1' },
+    });
+  });
+
   it('clearChat is a no-op while idle', () => {
     const { result } = renderHook(() => useShellMode(), {
       wrapper: wrap({ mode: 'AgentLibrary' }),
@@ -497,6 +724,42 @@ describe('ShellModeProvider', () => {
       locked: false,
     });
     expect(result.current.runtimeKey).not.toBe(keyBefore);
+  });
+
+  it('clearChat on a builder keeps the live draft instead of the open snapshot', () => {
+    const { result } = renderHook(() => useShellMode(), {
+      wrapper: wrap({ mode: 'AgentLibraryWithComposer' }),
+    });
+    const opened = {
+      model: { name: 'opened/model' },
+      instructions: 'Opened instructions.',
+    };
+    const live = {
+      model: { name: 'live/model' },
+      instructions: 'Keep these instructions.',
+      mcpServers: [{ name: 'exa' }],
+      skills: [{ name: 'research' }],
+      config: { sandbox: { enabled: true } },
+    };
+
+    act(() =>
+      result.current.selectLibraryAgent({
+        isMutable: true,
+        isCreateAgent: true,
+        agentSpec: opened,
+      }),
+    );
+    const keyBefore = result.current.runtimeKey;
+
+    act(() => result.current.clearChat(live));
+
+    expect(result.current.runtimeKey).not.toBe(keyBefore);
+    expect(result.current.mode).toMatchObject({
+      status: 'active',
+      isMutable: true,
+      isCreateAgent: true,
+      agentSpec: live,
+    });
   });
 
   it('listSessionsAgentId follows history filter when library is enabled', () => {

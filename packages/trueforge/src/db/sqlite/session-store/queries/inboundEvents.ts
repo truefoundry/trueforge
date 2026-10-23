@@ -15,7 +15,7 @@ import { toTurnUserEvent, toTurnUserEventMessage } from '../../../turnInboundEve
 import { isUniqueViolation } from '../../client';
 import { jsonbBind, jsonText } from '../../sqlExpressions';
 import type { Database } from '../../types';
-import { assertTurnNonTerminal } from './turns';
+import { assertOwnedNonTerminalTurn, assertTurnNonTerminal } from './turns';
 
 type DbOrTrx = Kysely<Database> | Transaction<Database>;
 
@@ -68,12 +68,16 @@ export async function insertTurnInboundEvents(
     });
   }
 
-  const keys = { session_id: input.session_id, turn_id: input.turn_id };
+  const keys = {
+    session_id: input.session_id,
+    turn_id: input.turn_id,
+    active_executor_id: input.active_executor_id,
+  };
 
   try {
-    // Ensure the turn does not stop before we insert events.
+    // The row must still be non-terminal and owned by this executor.
     await db.transaction().execute(async trx => {
-      await assertTurnNonTerminal(trx, keys);
+      await assertOwnedNonTerminalTurn(trx, keys);
       await trx
         .insertInto('turn_inbound_events')
         .values(

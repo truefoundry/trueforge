@@ -1,5 +1,135 @@
 # @truefoundry/trueforge
 
+## 0.179.0
+
+### Patch Changes
+
+- 97f7d7f: Bump `@modelcontextprotocol/sdk` from 1.30.1 to 1.31.0.
+- bbe23c8: Preserve supervisord ENTRYPOINT on Daytona custom-environment buildInfo snapshots so the sandbox NATS bridge starts (Daytona otherwise defaults to sleep infinity).
+- f975575: On Daytona sandbox create, reactivate inactive snapshots with a clear retry error, and raise a P1 for unexpected create failures (not authz).
+- 6a38bc1: Map Daytona sandbox-environment secret sync HTTP 4xx failures to 422 instead of 502.
+- 95f5c5c: Remove the sandbox-environments frontend feature flag and always enable environments UI.
+- 8cc8453: Log a traceback for every error that leaves the server as a non-2xx response. Thrown `HTTPException`s below 500 were returned with nothing in the log but the access-log line, so a 400/422/424 could not be traced to the code that raised it. Route handlers that caught an error and converted it into a client error now rethrow it as an `HTTPException` carrying the original as `cause`, and OpenAPI request validation throws instead of answering directly, so the app error handler is the one place that builds the error envelope and logs it. Each line carries method, path, status, the error chain, and the stack. When the handler rethrows with `cause`, the traceback includes the route throw and each cause stack. Routine `401`/`403`/`404` rejections stay at debug level.
+- e1f470f: Raise the default model HTTP headers and body timeouts to 2 minutes so slow first-token and idle stream responses are not dropped.
+- f072150: Remove `AUTOMATICALLY_MOVE_TRUEFORGE_TABLES_FROM_PUBLIC_TO_TRUEFORGE_SCHEMA` and the Postgres bootstrap that moved public tables into `POSTGRES_SCHEMA`; schema creation stays with the Migrator and init migration.
+- ee3cbc4: Remove the internal ServiceFoundry agent and session import API used for the TrueFoundry to TrueForge backfill, including the unused managed-agent ID passed on agent create.
+- 694a572: Reject duplicate sandbox environment names on create (POST) instead of overwriting via upsert.
+- e25945d: Add configurable sandbox resource caps and limit environment variable and secret names in the UI.
+- 87634d8: Truncate derived session titles on grapheme boundaries so emoji clusters are never split, and leave
+  the title unset when nothing fits instead of storing a blank value.
+- a2f2877: Allow tenant members to use sandbox environments created by other members while keeping update and delete actions restricted to the creator.
+- Updated dependencies [97f7d7f]
+- Updated dependencies [bbe23c8]
+- Updated dependencies [f975575]
+- Updated dependencies [8cc8453]
+- Updated dependencies [e1f470f]
+- Updated dependencies [694a572]
+- Updated dependencies [bbe23c8]
+  - @truefoundry/trueforge-core@0.179.0
+  - @truefoundry/trueforge-sdk@0.179.0
+
+## 0.179.0-rc.3
+
+### Patch Changes
+
+- a2f2877: Allow tenant members to use sandbox environments created by other members while keeping update and delete actions restricted to the creator.
+
+## 0.179.0-rc.2
+
+### Patch Changes
+
+- bbe23c8: Preserve supervisord ENTRYPOINT on Daytona custom-environment buildInfo snapshots so the sandbox NATS bridge starts (Daytona otherwise defaults to sleep infinity).
+- Updated dependencies [bbe23c8]
+- Updated dependencies [bbe23c8]
+  - @truefoundry/trueforge-core@0.179.0-rc.2
+
+## 0.179.0-rc.1
+
+### Patch Changes
+
+- 97f7d7f: Bump `@modelcontextprotocol/sdk` from 1.30.1 to 1.31.0.
+- f975575: On Daytona sandbox create, reactivate inactive snapshots with a clear retry error, and raise a P1 for unexpected create failures (not authz).
+- 6a38bc1: Map Daytona sandbox-environment secret sync HTTP 4xx failures to 422 instead of 502.
+- 95f5c5c: Remove the sandbox-environments frontend feature flag and always enable environments UI.
+- 8cc8453: Log a traceback for every error that leaves the server as a non-2xx response. Thrown `HTTPException`s below 500 were returned with nothing in the log but the access-log line, so a 400/422/424 could not be traced to the code that raised it. Route handlers that caught an error and converted it into a client error now rethrow it as an `HTTPException` carrying the original as `cause`, and OpenAPI request validation throws instead of answering directly, so the app error handler is the one place that builds the error envelope and logs it. Each line carries method, path, status, the error chain, and the stack. When the handler rethrows with `cause`, the traceback includes the route throw and each cause stack. Routine `401`/`403`/`404` rejections stay at debug level.
+- e1f470f: Raise the default model HTTP headers and body timeouts to 2 minutes so slow first-token and idle stream responses are not dropped.
+- f072150: Remove `AUTOMATICALLY_MOVE_TRUEFORGE_TABLES_FROM_PUBLIC_TO_TRUEFORGE_SCHEMA` and the Postgres bootstrap that moved public tables into `POSTGRES_SCHEMA`; schema creation stays with the Migrator and init migration.
+- ee3cbc4: Remove the internal ServiceFoundry agent and session import API used for the TrueFoundry to TrueForge backfill, including the unused managed-agent ID passed on agent create.
+- 694a572: Reject duplicate sandbox environment names on create (POST) instead of overwriting via upsert.
+- e25945d: Add configurable sandbox resource caps and limit environment variable and secret names in the UI.
+- 87634d8: Truncate derived session titles on grapheme boundaries so emoji clusters are never split, and leave
+  the title unset when nothing fits instead of storing a blank value.
+- Updated dependencies [97f7d7f]
+- Updated dependencies [f975575]
+- Updated dependencies [8cc8453]
+- Updated dependencies [e1f470f]
+- Updated dependencies [694a572]
+  - @truefoundry/trueforge-core@0.179.0-rc.1
+  - @truefoundry/trueforge-sdk@0.179.0-rc.1
+
+## 0.178.0
+
+### Patch Changes
+
+- 93824b0: Map Daytona sandbox-environment secret sync HTTP 4xx failures to 422 instead of 502.
+- 8578796: Remove the sandbox-environments frontend feature flag and always enable environments UI.
+- 5300f50: Add a frontend feature flag for sandbox-environment management.
+- 8b6c4bf: Raise the default model HTTP body timeout to 60s and shorten the default MCP request timeout to 2 minutes.
+- b6a7781: Raise the default model HTTP headers timeout to 60 seconds so slow first-token responses are not dropped.
+- 06884d0: Raise the default model HTTP headers and body timeouts to 2 minutes so slow first-token and idle stream responses are not dropped.
+- 9bb142d: Reject duplicate sandbox environment names on create (POST) instead of overwriting via upsert.
+- 8578796: Add configurable sandbox resource caps and limit environment variable and secret names in the UI.
+- 8d39138: Add a host-pluggable analytics contract (`analytics.track` / `AnalyticsProvider`) with a shared event catalog and first-wave click instrumentation. Hosts own the vendor sink; the SDK never ships PostHog.
+- d6b1389: Time out a hung create-turn SSE write so turn drain and subscribe dual-writes keep running.
+- Updated dependencies [8c24138]
+- Updated dependencies [8b6c4bf]
+- Updated dependencies [8c24138]
+- Updated dependencies [b6a7781]
+- Updated dependencies [06884d0]
+- Updated dependencies [9bb142d]
+  - @truefoundry/trueforge-sdk@0.178.0
+  - @truefoundry/trueforge-core@0.178.0
+
+## 0.178.0-rc.4
+
+### Patch Changes
+
+- 06884d0: Raise the default model HTTP headers and body timeouts to 2 minutes so slow first-token and idle stream responses are not dropped.
+- Updated dependencies [06884d0]
+  - @truefoundry/trueforge-core@0.178.0-rc.2
+
+## 0.178.0-rc.3
+
+### Patch Changes
+
+- 93824b0: Map Daytona sandbox-environment secret sync HTTP 4xx failures to 422 instead of 502.
+- 9bb142d: Reject duplicate sandbox environment names on create (POST) instead of overwriting via upsert.
+- Updated dependencies [9bb142d]
+  - @truefoundry/trueforge-sdk@0.178.0-rc.2
+
+## 0.178.0-rc.2
+
+### Patch Changes
+
+- 8578796: Remove the sandbox-environments frontend feature flag and always enable environments UI.
+- 8578796: Add configurable sandbox resource caps and limit environment variable and secret names in the UI.
+
+## 0.178.0-rc.1
+
+### Patch Changes
+
+- 5300f50: Add a frontend feature flag for sandbox-environment management.
+- 8b6c4bf: Raise the default model HTTP body timeout to 60s and shorten the default MCP request timeout to 2 minutes.
+- b6a7781: Raise the default model HTTP headers timeout to 60 seconds so slow first-token responses are not dropped.
+- 8d39138: Add a host-pluggable analytics contract (`analytics.track` / `AnalyticsProvider`) with a shared event catalog and first-wave click instrumentation. Hosts own the vendor sink; the SDK never ships PostHog.
+- d6b1389: Time out a hung create-turn SSE write so turn drain and subscribe dual-writes keep running.
+- Updated dependencies [8c24138]
+- Updated dependencies [8b6c4bf]
+- Updated dependencies [8c24138]
+- Updated dependencies [b6a7781]
+  - @truefoundry/trueforge-sdk@0.178.0-rc.1
+  - @truefoundry/trueforge-core@0.178.0-rc.1
+
 ## 0.177.0
 
 ### Patch Changes

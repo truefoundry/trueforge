@@ -5,8 +5,8 @@ import {
   type AgentDefinition,
   type AgentTracing,
   type DaytonaSandboxEnvironment,
+  type McpConnection,
   type ModelParams,
-  type RemoteMcpHeaders,
   type SandboxProvider,
   type Skill,
   type VercelAIProviderConfig,
@@ -32,11 +32,6 @@ import {
 import type { ReasoningEffort } from '../schemas/modelProvider';
 import { DEFAULT_SANDBOX_ENVIRONMENT_NAME } from '../schemas/sandboxEnvironment';
 import { hasConfiguredWebSearchProvider } from '../websearch/providers';
-
-export interface McpConnection {
-  url: string;
-  headers: RemoteMcpHeaders;
-}
 
 /** Split `provider/model` FQN. Returns undefined when the shape is not exactly one slash. */
 export function parseModelFqn(name: string): { providerName: string; modelName: string } | undefined {
@@ -112,11 +107,11 @@ export async function getModelDetails({
 }
 
 /**
- * Load MCP url + headers for a configured server. Returns undefined when unregistered.
+ * Resolve a configured MCP server for a turn.
  *
  * TODO: OAuth header resolvers re-run on every RemoteMCP listTools/callTool; cache or gate later.
  */
-export async function getMcpConnection({
+export async function resolveMcpServer({
   tenant_id,
   name,
   store,
@@ -135,6 +130,7 @@ export async function getMcpConnection({
   }
   return {
     url: record.manifest.url,
+    server: { name: record.name, description: record.manifest.description },
     headers: store.resolveInvokeHeaders({
       record,
       userRef,
@@ -265,7 +261,6 @@ export function buildTurnSandbox<TEnvironment = undefined>(input: {
 export async function validateAgentSpec({
   spec,
   tenant_id,
-  created_by_subject_id,
   modelProviderStore,
   mcpServerStore,
   skillStore,
@@ -291,11 +286,9 @@ export async function validateAgentSpec({
   const reasoningEffort = spec.model.params?.reasoning_effort;
   if (reasoningEffort !== undefined) {
     const efforts = resolved.reasoningEfforts;
-    if (!efforts?.some(effort => effort === reasoningEffort)) {
+    if (efforts && efforts.length > 0 && !efforts.some(effort => effort === reasoningEffort)) {
       throw new HTTPException(422, {
-        message: efforts
-          ? `Reasoning effort "${reasoningEffort}" is not supported by model "${spec.model.name}"`
-          : `Model "${spec.model.name}" does not support configurable reasoning effort`,
+        message: `Reasoning effort "${reasoningEffort}" is not supported by model "${spec.model.name}"`,
       });
     }
   }
@@ -342,7 +335,6 @@ export async function validateAgentSpec({
     const environment = await sandboxEnvironmentStore.getEnvironment({
       tenant_id,
       name: environmentName,
-      created_by_subject_id,
     });
     if (environment === undefined) {
       throw new HTTPException(422, {

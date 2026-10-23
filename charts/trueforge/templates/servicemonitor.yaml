@@ -1,0 +1,29 @@
+{{- if and .Values.serviceMonitor.enabled (.Capabilities.APIVersions.Has "monitoring.coreos.com/v1") }}
+apiVersion: monitoring.coreos.com/v1
+kind: ServiceMonitor
+metadata:
+  name: {{ include "trueforge.server.fullname" . }}
+  labels:
+    {{- include "trueforge.serviceMonitor.labels" . | nindent 4 }}
+  {{- with (include "trueforge.serviceMonitor.annotations" .) }}
+  annotations:
+    {{- . | nindent 4 }}
+  {{- end }}
+spec:
+  namespaceSelector:
+    matchNames:
+      - {{ .Release.Namespace }}
+  selector:
+    matchLabels:
+      {{- include "trueforge.selectorLabels" . | nindent 6 }}
+  endpoints:
+    - port: http
+      path: {{ .Values.serviceMonitor.path | quote }}
+      honorLabels: true
+      interval: {{ .Values.serviceMonitor.interval }}
+      {{- if .Values.mtls.enabled }}
+      scheme: https
+      tlsConfig:
+        insecureSkipVerify: true
+      {{- end }}
+{{- end }}

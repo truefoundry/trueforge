@@ -5,8 +5,10 @@ import { createContext, useCallback, useContext, useEffect, useMemo, useRef, use
 import type { HistoryAgentIntent } from '../utils/historyAgentSearch.js';
 import { replaceSessionShareSearch } from '../utils/sessionShareUrl.js';
 import {
+  freshAgentBuilderSeed,
   readDraftSpecPreferences,
   selectDraftSpecPreferences,
+  webSearchPreferenceToStore,
   withCapabilitiesSandbox,
   withCapabilitiesWebSearch,
   writeDraftSpecPreferences,
@@ -134,6 +136,12 @@ type ShellModeContextValue = {
   openDraft: () => void;
   /** Open New Agent builder (mutable + Agent Config drawer). */
   openAgentBuilder: () => void;
+  /**
+   * Remount New Agent with a clean config panel (model + runtime toggles only).
+   * Clears instructions, MCP servers, skills, and saved-agent identity.
+   * Pass the live draft when available so model/runtime edits are not discarded.
+   */
+  resetAgentBuilder: (liveSpec?: AgentSpec) => void;
   /** Remember plain-draft composer choices as the seed for future New Chat / New Agent. */
   rememberDraftSpec: (agentSpec: AgentSpec, kind?: DraftPreferenceKind) => void;
   /**
@@ -146,8 +154,18 @@ type ShellModeContextValue = {
     isMutable?: boolean;
     isCreateAgent?: boolean;
   }) => void;
-  /** Reset current chat; no-op when idle. */
-  clearChat: () => void;
+  /**
+   * Keep `/sessions/:id` in place and surface a full-pane load failure
+   * (no toast / redirect). Cleared when opening another session or draft.
+   */
+  openInaccessibleSession: (req: { sessionId: string; message: string }) => void;
+  /** Backend/access message when the current pending session could not be opened. */
+  sessionAccessError: string | null;
+  /**
+   * Reset current chat; no-op when idle.
+   * Builder New Chat passes the live draft so the remount keeps the left panel.
+   */
+  clearChat: (liveSpec?: AgentSpec) => void;
   /** Return library-only mode to its idle landing; no-op in other modes. */
   openLibraryHome: () => void;
   /** Changes only when the chat runtime must reset. */
@@ -270,6 +288,7 @@ export function ShellModeProvider({
   const [historyAgentFilter, setHistoryAgentFilter] = useState<HistoryAgentFilter | null>(null);
   const [pendingSessionId, setPendingSessionId] = useState<string | undefined>(undefined);
   const [pendingSessionEpoch, setPendingSessionEpoch] = useState(0);
+  const [sessionAccessError, setSessionAccessError] = useState<string | null>(null);
   const settingsEnabled = isSettingsChromeEnabled({ catalog, capabilities });
   const settingsOpen = settingsEnabled && settingsOpenState;
   const sessionsEnabled = isSessionsChromeEnabled({ sessions: sessionsServer });
@@ -483,6 +502,7 @@ export function ShellModeProvider({
         setSessionsOpen(false);
         setSchedulesOpen(false);
         setEnvironmentsOpen(false);
+        setSessionAccessError(null);
         setPendingSessionId(undefined);
         const isCreateAgent = resolveMutableIsCreateAgent(req);
         const kind: DraftPreferenceKind = isCreateAgent ? 'agent' : 'chat';
@@ -509,6 +529,7 @@ export function ShellModeProvider({
       setSessionsOpen(false);
       setSchedulesOpen(false);
       setEnvironmentsOpen(false);
+      setSessionAccessError(null);
       setPendingSessionId(undefined);
       setAgentConfigOpenState(false);
       setMode({
@@ -541,6 +562,13 @@ export function ShellModeProvider({
     ],
   );
 
+  const applyFreshAgentBuilderSeed = useCallback((source: AgentSpec) => {
+    const seed = freshAgentBuilderSeed(source);
+    agentSeedRef.current = seed;
+    writeDraftSpecPreferences('agent', seed);
+    return seed;
+  }, []);
+
   const bindMutableAgent = useCallback(
     (req: { agentId: string; agentName: string; description?: string; agentSpec: AgentSpec }) => {
       if (!isComposerEnabled) return;
@@ -557,8 +585,11 @@ export function ShellModeProvider({
           locked: false,
         };
       });
+      // Drop mounts from the next New Agent seed so leaving via New Chat / Try / history
+      // does not bring the just-saved agent's instructions / MCP / skills back.
+      applyFreshAgentBuilderSeed(req.agentSpec);
     },
-    [isComposerEnabled],
+    [applyFreshAgentBuilderSeed, isComposerEnabled],
   );
 
   const selectAgent = useCallback(
@@ -572,12 +603,17 @@ export function ShellModeProvider({
     if (!isComposerEnabled) return;
     refreshCapabilities?.();
     setHistoryAgentFilter(null);
-    selectLibraryAgent({ isMutable: true, isCreateAgent: false, agentSpec: chatSeedRef.current });
+    // Prefer storage so a just-toggled web-search preference is not lost if the
+    // in-memory seed has not been rewritten yet this tick.
+    const seed = readDraftSpecPreferences('chat') ?? chatSeedRef.current;
+    chatSeedRef.current = seed;
+    selectLibraryAgent({ isMutable: true, isCreateAgent: false, agentSpec: seed });
   }, [isComposerEnabled, refreshCapabilities, selectLibraryAgent]);
 
   const isActiveAgentBuilder =
     effectiveMode.status === 'active' && effectiveMode.isMutable && effectiveMode.isCreateAgent;
   const isBoundAgentBuilder = isActiveAgentBuilder && effectiveMode.agentId != null;
+
   const openAgentBuilder = useCallback(() => {
     if (!isComposerEnabled) return;
     refreshCapabilities?.();
@@ -589,11 +625,19 @@ export function ShellModeProvider({
       setSessionsOpen(false);
       setSchedulesOpen(false);
       setEnvironmentsOpen(false);
+      setSessionAccessError(null);
       setAgentConfigOpenState(true);
       return;
     }
-    selectLibraryAgent({ isMutable: true, isCreateAgent: true, agentSpec: agentSeedRef.current });
+    // After save, drop previous instructions / MCP / skills from the left panel seed.
+    const boundSpec = isBoundAgentBuilder && effectiveMode.status === 'active' ? effectiveMode.agentSpec : undefined;
+    const agentSpec = isBoundAgentBuilder
+      ? applyFreshAgentBuilderSeed(boundSpec ?? agentSeedRef.current)
+      : agentSeedRef.current;
+    selectLibraryAgent({ isMutable: true, isCreateAgent: true, agentSpec });
   }, [
+    applyFreshAgentBuilderSeed,
+    effectiveMode,
     isActiveAgentBuilder,
     isBoundAgentBuilder,
     isComposerEnabled,
@@ -605,27 +649,58 @@ export function ShellModeProvider({
     setSettingsOpen,
   ]);
 
+  const resetAgentBuilder = useCallback(
+    (liveSpec?: AgentSpec) => {
+      if (!isComposerEnabled) return;
+      refreshCapabilities?.();
+      // Prefer the live draft (button) or remembered seed — mode.agentSpec is only open/save snapshot.
+      const source = liveSpec ?? agentSeedRef.current;
+      selectLibraryAgent({
+        isMutable: true,
+        isCreateAgent: true,
+        agentSpec: applyFreshAgentBuilderSeed(source),
+      });
+    },
+    [applyFreshAgentBuilderSeed, isComposerEnabled, refreshCapabilities, selectLibraryAgent],
+  );
+
   const sandboxEnabled = capabilities?.sandbox.enabled;
   const webSearchEnabled = capabilities?.webSearch?.enabled;
+  // Child effects (DraftSpecPreferenceBridge) run before this updates — so remember still
+  // sees the prior capability when Settings refresh flips web-search on.
+  const prevWebSearchEnabledRef = useRef(webSearchEnabled);
+  useEffect(() => {
+    prevWebSearchEnabledRef.current = webSearchEnabled;
+  }, [webSearchEnabled]);
   const rememberDraftSpec = useCallback(
     (agentSpec: AgentSpec, kind: DraftPreferenceKind = 'chat') => {
+      const previousWebSearchEnabled = prevWebSearchEnabledRef.current;
       const selected = selectDraftSpecPreferences(agentSpec, kind);
       const withSandbox = kind === 'agent' ? withCapabilitiesSandbox(selected, sandboxEnabled) : selected;
-      const preferences =
-        kind === 'agent'
-          ? withCapabilitiesWebSearch({
-              spec: withSandbox,
-              webSearchEnabled,
-              kind: 'agent',
-            })
-          : withSandbox;
+      const aligned = withCapabilitiesWebSearch({
+        spec: withSandbox,
+        webSearchEnabled,
+        kind,
+      });
+      const preferences = webSearchPreferenceToStore({
+        spec: aligned,
+        webSearchEnabled,
+        previousWebSearchEnabled,
+        kind,
+      });
       if (kind === 'chat') {
         chatSeedRef.current = preferences;
       } else {
         // Keep the active builder intact in memory; storage remains limited to reusable preferences.
-        agentSeedRef.current = withCapabilitiesWebSearch({
+        const agentAligned = withCapabilitiesWebSearch({
           spec: withCapabilitiesSandbox(agentSpec, sandboxEnabled),
           webSearchEnabled,
+          kind: 'agent',
+        });
+        agentSeedRef.current = webSearchPreferenceToStore({
+          spec: agentAligned,
+          webSearchEnabled,
+          previousWebSearchEnabled,
           kind: 'agent',
         });
       }
@@ -661,6 +736,7 @@ export function ShellModeProvider({
       setSessionsOpen(false);
       setSchedulesOpen(false);
       setEnvironmentsOpen(false);
+      setSessionAccessError(null);
       setPendingSessionId(sessionId);
       setPendingSessionEpoch(n => n + 1);
       if (isMutable) {
@@ -696,31 +772,77 @@ export function ShellModeProvider({
     ],
   );
 
-  const clearChat = useCallback(() => {
-    if (effectiveMode.status === 'idle') return;
-    setPendingSessionId(undefined);
-    if (effectiveMode.isMutable) {
-      // Preserve Edit / builder vs chat intent; blank drafts fall back to host seed.
-      const kind: DraftPreferenceKind = effectiveMode.isCreateAgent ? 'agent' : 'chat';
+  const openInaccessibleSession = useCallback(
+    ({ sessionId, message }: { sessionId: string; message: string }) => {
+      setSettingsOpen(false);
+      setLibraryOpenState(false);
+      setLibraryAgentId(null);
+      setSessionsOpen(false);
+      setSchedulesOpen(false);
+      setEnvironmentsOpen(false);
+      setAgentConfigOpenState(false);
+      setSessionAccessError(message);
+      setPendingSessionId(sessionId);
+      setPendingSessionEpoch(n => n + 1);
+      // Keep chrome non-idle so layouts render the thread slot (gated by sessionAccessError).
+      if (isComposerEnabled) {
+        setMode({
+          status: 'active',
+          isMutable: true,
+          isCreateAgent: false,
+          agentSpec: chatSeedRef.current,
+          locked: false,
+        });
+        return;
+      }
       setMode({
         status: 'active',
-        isMutable: true,
-        isCreateAgent: effectiveMode.isCreateAgent,
-        agentId: effectiveMode.agentId,
-        agentName: effectiveMode.agentName,
-        agentSpec: effectiveMode.agentSpec ?? (kind === 'agent' ? agentSeedRef.current : chatSeedRef.current),
+        isMutable: false,
+        isCreateAgent: false,
         locked: false,
       });
-      setAgentConfigOpenState(effectiveMode.isCreateAgent);
-      bumpEpoch(true);
-      return;
-    }
-    bumpEpoch(false);
-  }, [effectiveMode, bumpEpoch]);
+    },
+    [isComposerEnabled, setSettingsOpen, setSessionsOpen, setSchedulesOpen, setEnvironmentsOpen],
+  );
+
+  const clearChat = useCallback(
+    (liveSpec?: AgentSpec) => {
+      if (effectiveMode.status === 'idle') return;
+      setSessionAccessError(null);
+      setPendingSessionId(undefined);
+      if (effectiveMode.isMutable) {
+        // Plain New Chat uses the chat seed. Builder New Chat keeps the live draft
+        // so the remount does not replace the left panel with the open/save snapshot.
+        const kind: DraftPreferenceKind = effectiveMode.isCreateAgent ? 'agent' : 'chat';
+        const agentSpec =
+          kind === 'agent'
+            ? (liveSpec ?? effectiveMode.agentSpec ?? agentSeedRef.current)
+            : (readDraftSpecPreferences('chat') ?? chatSeedRef.current);
+        if (kind === 'chat') {
+          chatSeedRef.current = agentSpec;
+        }
+        setMode({
+          status: 'active',
+          isMutable: true,
+          isCreateAgent: effectiveMode.isCreateAgent,
+          agentId: effectiveMode.agentId,
+          agentName: effectiveMode.agentName,
+          agentSpec,
+          locked: false,
+        });
+        setAgentConfigOpenState(effectiveMode.isCreateAgent);
+        bumpEpoch(true);
+        return;
+      }
+      bumpEpoch(false);
+    },
+    [effectiveMode, bumpEpoch],
+  );
 
   const openLibraryHome = useCallback(() => {
     // Only library-only mode has an idle landing; other modes root via openDraft / clearChat.
     if (!isLibraryEnabled || isComposerEnabled) return;
+    setSessionAccessError(null);
     setPendingSessionId(undefined);
     setSettingsOpen(false);
     setLibraryOpenState(false);
@@ -769,8 +891,11 @@ export function ShellModeProvider({
       selectAgent,
       openDraft,
       openAgentBuilder,
+      resetAgentBuilder,
       rememberDraftSpec,
       openHistorySession,
+      openInaccessibleSession,
+      sessionAccessError,
       clearChat,
       openLibraryHome,
       runtimeKey,
@@ -814,8 +939,11 @@ export function ShellModeProvider({
       selectAgent,
       openDraft,
       openAgentBuilder,
+      resetAgentBuilder,
       rememberDraftSpec,
       openHistorySession,
+      openInaccessibleSession,
+      sessionAccessError,
       clearChat,
       openLibraryHome,
       runtimeKey,

@@ -10,6 +10,7 @@ import type {
   CreatedBySubject,
   LegacyTurnInputItem,
   PersistedTurnEvent,
+  SessionLastTurnDetails,
   SessionMetadata,
   SessionMetrics,
   SessionSource,
@@ -84,6 +85,8 @@ export interface SessionTable {
   /** 0/1. When 1, any subject in the tenant may GET this session. */
   shared: number;
   last_turn_id: string | null;
+  /** Null until the first turn; always replaced as a whole document. */
+  last_turn_details: JsonbColumn<SessionLastTurnDetails> | null;
   /** Optional unique key within `tenant_id` when set. */
   external_id: string | null;
   custom: JsonbColumn<Record<string, unknown>> | null;
@@ -356,6 +359,7 @@ export interface ScheduleRunTable {
   created_by_subject: JsonbColumn<CreatedBySubject>;
   triggered_at: string | null;
   reason: string | null;
+  session_id: string | null;
   created_at: string;
   updated_at: string;
 }

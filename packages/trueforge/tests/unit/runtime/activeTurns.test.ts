@@ -1,8 +1,11 @@
-import { CancellationReason, type TurnHandle } from '@truefoundry/trueforge-core/agent-session';
+import { CancellationReason, TurnOffloadReason, type TurnHandle } from '@truefoundry/trueforge-core/agent-session';
+import { createLogger } from 'winston';
 import { ActiveTurnRegistry } from '../../../src/runtime/activeTurns';
 
-function turn(sessionId: string, turnId: string): TurnHandle {
-  return { session_id: sessionId, id: turnId } as TurnHandle;
+const logger = createLogger({ silent: true });
+
+function turn(sessionId: string, turnId: string, status: 'running' | 'paused' = 'running'): TurnHandle {
+  return { session_id: sessionId, id: turnId, state: { status } } as TurnHandle;
 }
 
 async function* values<T>(items: T[]): AsyncGenerator<T> {
@@ -32,7 +35,7 @@ async function* gateOnAbort(signal: AbortSignal): AsyncGenerator<string> {
 
 describe('ActiveTurnRegistry', () => {
   it('track passes events through and removes the run when the stream completes', async () => {
-    const registry = new ActiveTurnRegistry();
+    const registry = new ActiveTurnRegistry({ logger });
     const abortController = new AbortController();
     const tracked = registry.track({
       turn: turn('s1', 't1'),
@@ -55,7 +58,7 @@ describe('ActiveTurnRegistry', () => {
   });
 
   it('track cleans up when the consumer breaks early', async () => {
-    const registry = new ActiveTurnRegistry();
+    const registry = new ActiveTurnRegistry({ logger });
     const abortController = new AbortController();
     const tracked = registry.track({
       turn: turn('s1', 't1'),
@@ -77,7 +80,7 @@ describe('ActiveTurnRegistry', () => {
   });
 
   it('track cleans up when the stream throws', async () => {
-    const registry = new ActiveTurnRegistry();
+    const registry = new ActiveTurnRegistry({ logger });
     const abortController = new AbortController();
     const tracked = registry.track({
       turn: turn('s1', 't1'),
@@ -100,7 +103,7 @@ describe('ActiveTurnRegistry', () => {
   });
 
   it('cancelIfRunning aborts with the given reason and returns true', () => {
-    const registry = new ActiveTurnRegistry();
+    const registry = new ActiveTurnRegistry({ logger });
     const abortController = new AbortController();
     void registry.track({
       turn: turn('s1', 't1'),
@@ -117,10 +120,24 @@ describe('ActiveTurnRegistry', () => {
     ).toBe(true);
     expect(abortController.signal.aborted).toBe(true);
     expect(abortController.signal.reason).toBe(CancellationReason.ClientCancelled);
+    expect(registry.isCancelled({ sessionId: 's1', turnId: 't1' })).toBe(true);
+  });
+
+  it('isCancelled ignores an offloaded run', () => {
+    const registry = new ActiveTurnRegistry({ logger });
+    const abortController = new AbortController();
+    void registry.track({
+      turn: turn('s1', 't1', 'paused'),
+      abortController,
+      stream: values([1]),
+    });
+    abortController.abort(TurnOffloadReason);
+
+    expect(registry.isCancelled({ sessionId: 's1', turnId: 't1' })).toBe(false);
   });
 
   it('cancelIfRunning returns false for unknown ids', () => {
-    const registry = new ActiveTurnRegistry();
+    const registry = new ActiveTurnRegistry({ logger });
     expect(
       registry.cancelIfRunning({
         sessionId: 'missing',
@@ -131,7 +148,7 @@ describe('ActiveTurnRegistry', () => {
   });
 
   it('cancelIfRunning does not re-abort an already-aborted controller', () => {
-    const registry = new ActiveTurnRegistry();
+    const registry = new ActiveTurnRegistry({ logger });
     const abortController = new AbortController();
     void registry.track({
       turn: turn('s1', 't1'),
@@ -151,7 +168,7 @@ describe('ActiveTurnRegistry', () => {
   });
 
   it('shutdownAndWait aborts runs and waits until tracked streams finish', async () => {
-    const registry = new ActiveTurnRegistry();
+    const registry = new ActiveTurnRegistry({ logger });
     const abortController = new AbortController();
     const tracked = registry.track({
       turn: turn('s1', 't1'),
@@ -179,7 +196,7 @@ describe('ActiveTurnRegistry', () => {
   });
 
   it('late track after shutdownAndWait aborts immediately with the shutdown reason', async () => {
-    const registry = new ActiveTurnRegistry();
+    const registry = new ActiveTurnRegistry({ logger });
     await registry.shutdownAndWait(CancellationReason.Abandoned);
 
     const abortController = new AbortController();
@@ -191,6 +208,25 @@ describe('ActiveTurnRegistry', () => {
 
     expect(abortController.signal.aborted).toBe(true);
     expect(abortController.signal.reason).toBe(CancellationReason.Abandoned);
+
+    for await (const value of tracked) {
+      void value;
+    }
+  });
+
+  it('late track after shutdownAndWait offloads a paused turn', async () => {
+    const registry = new ActiveTurnRegistry({ logger });
+    await registry.shutdownAndWait(CancellationReason.Abandoned);
+
+    const abortController = new AbortController();
+    const tracked = registry.track({
+      turn: turn('s1', 'late-paused', 'paused'),
+      abortController,
+      stream: values(['x']),
+    });
+
+    expect(abortController.signal.aborted).toBe(true);
+    expect(abortController.signal.reason).toBe(TurnOffloadReason);
 
     for await (const value of tracked) {
       void value;

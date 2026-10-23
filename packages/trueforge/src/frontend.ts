@@ -8,7 +8,7 @@ import { existsSync, readFileSync } from 'node:fs';
 import path from 'node:path';
 
 /** Routes the server answers itself; never served from the build. /api covers every version below it. */
-const SERVER_PATH_PREFIXES = ['/api', '/healthz'];
+const SERVER_PATH_PREFIXES = ['/api', '/healthz', '/metrics'];
 
 /** Only Vite's hashed asset names can be cached forever. */
 const HASHED_ASSET_PREFIX = '/assets/';

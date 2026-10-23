@@ -32,4 +32,4 @@ Include package version, peer versions, and a minimal reproduction when possible
 
 ## Security
 
-Do not open public issues for vulnerabilities. See [SECURITY.md](./SECURITY.md).
+Do not open public issues for vulnerabilities. Submit them at [vdp.truefoundry.com](https://vdp.truefoundry.com). See [SECURITY.md](./SECURITY.md).

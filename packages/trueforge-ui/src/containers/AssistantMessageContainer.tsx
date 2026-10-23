@@ -2,6 +2,7 @@
 
 import { useActionBarCopy, useMessageError, useThreadIsRunning, type PartState } from '@assistant-ui/core/react';
 import { MessagePrimitive, useAuiState, type EnrichedPartState, type GroupByContext } from '@assistant-ui/react';
+import { CANCELLATION_REASON_CUSTOM_KEY } from '@truefoundry/trueforge-assistant-ui-runtime';
 
 import { useTrackAnalytics } from '../analytics/AnalyticsProvider.js';
 import { AnalyticsEvents } from '../analytics/events.js';
@@ -38,12 +39,18 @@ export function AssistantMessageContainer() {
   const AssistantMessageBubble = useSlot('AssistantMessageBubble');
   const MessageActionBar = useSlot('MessageActionBar');
   const MessageErrorBanner = useSlot('MessageErrorBanner');
+  const MessageCancelledBanner = useSlot('MessageCancelledBanner');
   const MessageIndicator = useSlot('MessageIndicator');
   const isThreadRunning = useThreadIsRunning();
   const error = useMessageError();
   const createdAt = useAuiState(s => s.message.createdAt);
   const sessionId = useAuiState(s => s.threadListItem.remoteId);
   const isMessageRunning = useAuiState(s => s.message.status?.type === 'running');
+  const messageStatus = useAuiState(s => s.message.status);
+  const cancellationReason = useAuiState(s => {
+    const value = s.message.metadata?.custom?.[CANCELLATION_REASON_CUSTOM_KEY];
+    return typeof value === 'string' ? value : undefined;
+  });
   const track = useTrackAnalytics();
   const shell = useOptionalShellMode();
   const shellAgent =
@@ -57,6 +64,10 @@ export function AssistantMessageContainer() {
   };
 
   const parts = useAuiState(s => s.message.parts);
+  const cancelledBanner =
+    messageStatus?.type === 'incomplete' && messageStatus.reason === 'cancelled'
+      ? (cancellationReason ?? 'cancelled')
+      : undefined;
 
   const { cutIndex, hasFinal, toolCount, thinkingCount } = computeAgentStepsSplit(parts, isMessageRunning);
 
@@ -82,6 +93,7 @@ export function AssistantMessageContainer() {
     <MessagePrimitive.Root data-role="assistant">
       <AssistantMessageBubble
         error={error !== undefined ? <MessageErrorBanner message={String(error)} /> : undefined}
+        statusBanner={cancelledBanner !== undefined ? <MessageCancelledBanner message={cancelledBanner} /> : undefined}
         actionBar={
           !isThreadRunning ? <MessageActionBar isCopied={isCopied} onCopy={onCopy} createdAt={createdAt} /> : undefined
         }

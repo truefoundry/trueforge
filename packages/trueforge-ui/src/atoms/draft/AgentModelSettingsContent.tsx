@@ -7,6 +7,7 @@ import { useSlot } from '../../theme/SlotsProvider.js';
 import { auiButtonClass } from '../lib/buttonClasses.js';
 import { cn } from '../lib/cn.js';
 import { auiInputClass } from '../lib/inputClasses.js';
+import { resolveReasoningEffort } from './reasoningEffort.js';
 
 export type AgentModelSettingsContentProps = {
   spec: AgentSpec;
@@ -108,8 +109,7 @@ export function AgentModelSettingsContent({ spec, model, onChange }: AgentModelS
     const nextEnabled = !customEnabled;
     setCustomEnabled(nextEnabled);
     if (nextEnabled) {
-      const restored = savedCustomParams.current ?? {};
-      replaceCustomParams(restored);
+      replaceCustomParams(savedCustomParams.current ?? {});
       return;
     }
     savedCustomParams.current = customParamsFrom(params);
@@ -118,7 +118,7 @@ export function AgentModelSettingsContent({ spec, model, onChange }: AgentModelS
 
   const maxOutputTokens = model?.properties.maxOutputTokens;
   const reasoningEfforts = model?.properties.reasoningEfforts ?? [];
-  const firstReasoningEffort = reasoningEfforts[0];
+  const defaultReasoningEffort = resolveReasoningEffort(reasoningEfforts, undefined);
 
   const rows: Array<{
     label: string;
@@ -127,12 +127,12 @@ export function AgentModelSettingsContent({ spec, model, onChange }: AgentModelS
     onToggle: (enabled: boolean) => void;
   }> = [];
 
-  if (firstReasoningEffort !== undefined) {
+  if (defaultReasoningEffort !== undefined) {
     rows.push({
       label: 'Reasoning Effort',
       enabled: params.reasoningEffort !== undefined,
       onToggle: enabled =>
-        enabled ? setParam('reasoningEffort', firstReasoningEffort) : removeParam('reasoningEffort'),
+        enabled ? setParam('reasoningEffort', defaultReasoningEffort) : removeParam('reasoningEffort'),
       control: (
         <select
           value={params.reasoningEffort ?? ''}

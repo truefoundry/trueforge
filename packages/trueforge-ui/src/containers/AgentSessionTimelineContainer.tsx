@@ -208,8 +208,16 @@ function applyMcpAuthState(messages: ThreadMessageLike[], turn: SessionTurnView)
   return messages.map((message, index) => (index === assistantIndex ? updatedAssistant : message));
 }
 
+function messageBelongsToTurn(message: ThreadMessageLike, turnId: string): boolean {
+  if (turnIdFromMessage(message) === turnId) return true;
+  // Folded continuations keep `${openingTurnId}-assistant` but stamp the cancelling
+  // turn id on metadata.custom.turnId so the banner lands on the right section.
+  const customTurnId = message.metadata?.custom?.['turnId'];
+  return typeof customTurnId === 'string' && customTurnId === turnId;
+}
+
 function messagesForTurn(messages: ThreadMessageLike[], turn: SessionTurnView): ThreadMessageLike[] {
-  const matched = messages.filter(message => turnIdFromMessage(message) === turn.turnId);
+  const matched = messages.filter(message => messageBelongsToTurn(message, turn.turnId));
   const withMcpAuth = applyMcpAuthState(matched, turn);
   return applyTerminalState(withMcpAuth, turn);
 }
@@ -309,7 +317,9 @@ export function AgentSessionTimelineContainer({
     );
   }
 
-  if (messages.length === 0 && renderableTurnViews.length === 0) {
+  // Running tips are omitted from listEvents (and thus from turn views). Orphan
+  // projected content with no section to attach to must not blank the pane.
+  if (renderableTurnViews.length === 0) {
     return (
       <div className="flex flex-1 items-center justify-center px-6 text-sm text-text-secondary">
         This session has no messages yet.

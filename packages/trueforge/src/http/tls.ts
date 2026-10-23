@@ -116,16 +116,18 @@ export function serverTlsServeOptions(
       cert: Buffer.from(read(TLS_CERT_FILE)),
       ca: Buffer.from(read(TLS_CA_FILE)),
       requestCert: true,
-      // Do not reject at handshake so /healthz probes without a cert still connect.
+      // Do not reject at handshake so /healthz probes and /metrics scrapes without a cert still connect.
       rejectUnauthorized: false,
     },
   };
 }
 
-/** Rejects certless requests except `/healthz`. Mount only when mTLS is enabled. */
+const CLIENT_CERT_EXEMPT_PATHS = new Set(['/healthz', '/metrics']);
+
+/** Rejects certless requests except `/healthz` and `/metrics`. Mount only when mTLS is enabled. */
 export function createClientCertificateMiddleware(logger: Logger): MiddlewareHandler {
   return async (c, next) => {
-    if (c.req.path === '/healthz') {
+    if (CLIENT_CERT_EXEMPT_PATHS.has(c.req.path)) {
       await next();
       return;
     }

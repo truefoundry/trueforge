@@ -410,10 +410,12 @@ export function buildRedisStandaloneUrl(parts: {
   database: number;
   username: string | undefined;
   password: string | undefined;
+  tls: boolean;
 }): string {
   const bareHost = parts.host.startsWith('[') && parts.host.endsWith(']') ? parts.host.slice(1, -1) : parts.host;
   const host = isIPv6(bareHost) ? `[${bareHost}]` : bareHost;
-  const url = new URL(`redis://${host}:${String(parts.port)}/${String(parts.database)}`);
+  const protocol = parts.tls ? 'rediss' : 'redis';
+  const url = new URL(`${protocol}://${host}:${String(parts.port)}/${String(parts.database)}`);
   if (parts.username !== undefined) {
     url.username = parts.username;
   }
@@ -445,6 +447,11 @@ function resolveRedisConnection(): RedisConnection | undefined {
   const username = optionalNonEmptyEnv('REDIS_USERNAME');
   const password = getEnv('REDIS_PASSWORD');
   const passwordOrUndefined = password === undefined || password === '' ? undefined : password;
+  const tls = parseBoolean({
+    envKey: 'REDIS_TLS_ENABLED',
+    raw: getEnv('REDIS_TLS_ENABLED'),
+    defaultValue: false,
+  });
 
   if (sentinelEnabled) {
     const nodes = optionalNonEmptyEnv('REDIS_SENTINEL_NODES');
@@ -497,6 +504,7 @@ function resolveRedisConnection(): RedisConnection | undefined {
         database,
         username,
         password: passwordOrUndefined,
+        tls,
       }),
     };
   }
@@ -753,8 +761,10 @@ export interface SharedServerConfiguration {
    */
   GRACEFUL_TIMEOUT_SECONDS: number;
   /**
-   * Max seconds a single turn may execute before it is cancelled with
-   * `server-execution-timeout`. Env: `SERVER_EXECUTION_TIMEOUT_SECONDS`. Default 600 (10 minutes).
+   * Max seconds a turn may stay `running` before it is cancelled with
+   * `server-execution-timeout`. Paused time is not counted: the window clears on
+   * pause and starts again on the next `running`. Env: `SERVER_EXECUTION_TIMEOUT_SECONDS`.
+   * Default 3600 (60 minutes).
    */
   SERVER_EXECUTION_TIMEOUT_SECONDS: number;
   /**
@@ -772,6 +782,12 @@ export interface SharedServerConfiguration {
    * Env: `TURN_SUBSCRIBE_TIMEOUT_MS`. Default 600000.
    */
   TURN_SUBSCRIBE_TIMEOUT_MS: number;
+  /**
+   * How long a paused turn stays in memory before it is offloaded.
+   * The row stays paused. The next send on the owner rebuilds it.
+   * Env: `TURN_PAUSED_KEEPALIVE_SECONDS`. Default 300.
+   */
+  TURN_PAUSED_KEEPALIVE_SECONDS: number;
   /**
    * Max ms to wait for one create-turn SSE write before dropping that client
    * and keeping the turn drain running. Env: `TURN_SSE_STREAM_WRITE_TIMEOUT_MS`. Default 60000.
@@ -1162,6 +1178,11 @@ const shared: SharedServerConfiguration = {
     envKey: 'TURN_SUBSCRIBE_TIMEOUT_MS',
     raw: getEnv('TURN_SUBSCRIBE_TIMEOUT_MS'),
     defaultValue: 600_000,
+  }),
+  TURN_PAUSED_KEEPALIVE_SECONDS: parsePositiveInt({
+    envKey: 'TURN_PAUSED_KEEPALIVE_SECONDS',
+    raw: getEnv('TURN_PAUSED_KEEPALIVE_SECONDS'),
+    defaultValue: 300,
   }),
   TURN_SSE_STREAM_WRITE_TIMEOUT_MS: parsePositiveInt({
     envKey: 'TURN_SSE_STREAM_WRITE_TIMEOUT_MS',

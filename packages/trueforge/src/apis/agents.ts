@@ -4,6 +4,7 @@
 import { OpenAPIHono, type RouteHandler } from '@hono/zod-openapi';
 import { InvalidPageTokenError, type AgentSpec } from '@truefoundry/trueforge-core/agent-session';
 import type { Context } from 'hono';
+import { HTTPException } from 'hono/http-exception';
 import type { Authorizer } from '../auth/authorizer';
 import { createdBySubjectFromRequestContext, type ResolveRequestContext } from '../auth/identity';
 import configuration from '../config';
@@ -39,9 +40,9 @@ export interface AgentsRouterDeps<TTransaction> {
   resolveModelProviderStore: (c: Context) => IModelProviderStore<TTransaction>;
   resolveMcpServerStore: (c: Context) => IMcpServerStore<TTransaction>;
   resolveSkillStore: ResolveSkillStore<TTransaction>;
-  resolveSandboxProviderStore: (c: Context) => ISandboxProviderStore<TTransaction>;
+  sandboxProviderStore: ISandboxProviderStore<TTransaction>;
   sandboxEnvironmentStore: ISandboxEnvironmentStore<TTransaction>;
-  resolveWebSearchProviderStore: (c: Context) => IWebSearchProviderStore<TTransaction>;
+  webSearchProviderStore: IWebSearchProviderStore<TTransaction>;
   withTransaction: WithTransaction<TTransaction>;
   resolveRequestContext: ResolveRequestContext;
   authorizer: Authorizer;
@@ -110,7 +111,7 @@ export function createAgentsRouter<TTransaction>(deps: AgentsRouterDeps<TTransac
       return c.json({ data: data.map(toWireAgent), pagination }, 200);
     } catch (error) {
       if (error instanceof InvalidPageTokenError) {
-        return c.json({ error: { message: error.message } }, 400);
+        throw new HTTPException(400, { message: error.message, cause: error });
       }
       throw error;
     }
@@ -124,9 +125,9 @@ export function createAgentsRouter<TTransaction>(deps: AgentsRouterDeps<TTransac
       modelProviderStore: deps.resolveModelProviderStore(c),
       mcpServerStore: deps.resolveMcpServerStore(c),
       skillStore: deps.resolveSkillStore(c),
-      sandboxProviderStore: deps.resolveSandboxProviderStore(c),
+      sandboxProviderStore: deps.sandboxProviderStore,
       sandboxEnvironmentStore: deps.sandboxEnvironmentStore,
-      webSearchProviderStore: deps.resolveWebSearchProviderStore(c),
+      webSearchProviderStore: deps.webSearchProviderStore,
       tenant_id: requestContext.tenant_id,
       created_by_subject_id: requestContext.subject.id,
     });
@@ -231,9 +232,9 @@ export function createAgentsRouter<TTransaction>(deps: AgentsRouterDeps<TTransac
       modelProviderStore: deps.resolveModelProviderStore(c),
       mcpServerStore: deps.resolveMcpServerStore(c),
       skillStore: deps.resolveSkillStore(c),
-      sandboxProviderStore: deps.resolveSandboxProviderStore(c),
+      sandboxProviderStore: deps.sandboxProviderStore,
       sandboxEnvironmentStore: deps.sandboxEnvironmentStore,
-      webSearchProviderStore: deps.resolveWebSearchProviderStore(c),
+      webSearchProviderStore: deps.webSearchProviderStore,
       tenant_id: requestContext.tenant_id,
       created_by_subject_id: requestContext.subject.id,
     });

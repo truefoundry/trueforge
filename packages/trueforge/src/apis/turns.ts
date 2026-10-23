@@ -2,13 +2,26 @@
  * DB-backed turns API (mounted at /api/v1/sessions).
  */
 import { OpenAPIHono, type RouteHandler } from '@hono/zod-openapi';
-import type { ISessionStore, Sessions, Turn, TurnStreamingEvent } from '@truefoundry/trueforge-core/agent-session';
+import type {
+  ISessionStore,
+  Sessions,
+  Turn,
+  TurnRecord,
+  TurnStreamingEvent,
+} from '@truefoundry/trueforge-core/agent-session';
 import {
   CancellationReason,
   EventType,
+  isNonTerminalTurnState,
+  isTurnOffloadReason,
   SessionStoreConflictError,
   SessionStoreNotFoundError,
+  TurnEventAlreadyExistsError,
+  TurnNotFoundError,
+  TurnOffloadReason,
+  TurnOwnershipLostError,
   TurnResourceResolver,
+  TurnUserEventSchema,
   type SessionHandle,
   type TurnHandle,
   type TurnRecordWithoutSnapshot,
@@ -30,12 +43,23 @@ import {
   VercelAILLM,
   withTimeout,
 } from '@truefoundry/trueforge-core/core';
+import {
+  jsonValueFrom,
+  NO_RESPONDER_HEARTBEAT_LOST_DETAIL,
+  NoResponderError,
+  redisRequest,
+  RequestTimeoutError,
+  type RedisClient,
+  type RouteHandler as RequestReplyRouteHandler,
+  type RequestReplyRouter,
+} from '@truefoundry/trueforge-core/request-reply';
 import type { Context } from 'hono';
 import { HTTPException } from 'hono/http-exception';
 import { streamSSE } from 'hono/streaming';
 import type { Logger } from 'winston';
+import { z } from 'zod';
 import type { Authorizer } from '../auth/authorizer';
-import type { ResolveRequestContext } from '../auth/identity';
+import { requestContextFromWire, type RequestContext, type ResolveRequestContext } from '../auth/identity';
 import configuration from '../config';
 import type { AgentRecord, IAgentStore } from '../db/agentStore';
 import type { IMcpServerWithAuthStore } from '../db/mcpServerStore';
@@ -45,6 +69,7 @@ import type { ISandboxProviderStore } from '../db/sandboxProviderStore';
 import type { ISkillStore } from '../db/skillStore';
 import type { TurnMetadata } from '../db/turnMetadata';
 import type { IWebSearchProviderStore } from '../db/webSearchProviderStore';
+import { currentLogContext, runWithLogContext, updateLogContext } from '../logger';
 import {
   createAndExecuteTurnRoute,
   downloadSandboxFileRoute,
@@ -59,8 +84,8 @@ import { StreamGoneError, type EventSubscription, type EventSubscriptionRegistry
 import { validateSandboxFilePath } from '../runtime/sandboxFilePath';
 import {
   buildTurnSandbox,
-  getMcpConnection,
   getModelDetails,
+  resolveMcpServer,
   resolveSandboxEnvironment,
   resolveSandboxProvider,
 } from '../runtime/sessionResources';
@@ -70,6 +95,10 @@ import { assertGatewayMetadataRequestHeaders } from '../truefoundry/gatewayMetad
 import { newId } from '../utils/id';
 import { resolveWebSearchProvider } from '../websearch/providers';
 import { canReadAgentBoundResource, canReadSession } from './agentAccess';
+
+const FORBIDDEN_SESSION_ACCESS = 'Only the session creator can access this session';
+const FORBIDDEN_CREATE_TURN = 'Only the session creator can create turns';
+const MAX_OWNERSHIP_ATTEMPTS = 3;
 
 export function toWireTurn(record: TurnRecordWithoutSnapshot): Turn {
   return {
@@ -113,22 +142,63 @@ export function toContentDisposition(path: string): string {
   return `attachment; filename*=UTF-8''${encoded}`;
 }
 
+/**
+ * Model, MCP, skill, agent, sandbox, and web-search stores for one turn.
+ * HTTP passes the request's context and headers. A peered `turns/send-events` passes the body fields.
+ */
+export interface ResolveTurnExecutionStoresInput<TTransaction = never> {
+  session: SessionHandle<Record<string, never>, Record<string, never>, TTransaction>;
+  requestContext: RequestContext;
+  requestHeaders?: Record<string, string> | undefined;
+  /** Saved agent when the session references one. The caller loads it. */
+  runAsAgent?: AgentRecord;
+}
+
+export interface TurnExecutionStores<TTransaction = never> {
+  agentStore: IAgentStore<TTransaction>;
+  modelProviderStore: IModelProviderStore<TTransaction>;
+  mcpServerStore: IMcpServerWithAuthStore<TTransaction>;
+  skillStore: Pick<ISkillStore<TTransaction>, 'resolveTurnSkills'>;
+  sandboxProviderStore: ISandboxProviderStore<TTransaction>;
+  webSearchProviderStore: IWebSearchProviderStore<TTransaction>;
+}
+
 export interface TurnsRouterDeps<TTransaction = never> {
-  sessions: Sessions<Record<string, never>, Record<string, never>, TTransaction>;
-  sessionStore: ISessionStore<Record<string, never>, Record<string, never>, TTransaction>;
   activeTurns: ActiveTurnRegistry<TTransaction>;
-  resolveModelProviderStore: (c: Context, runAsAgent?: AgentRecord) => IModelProviderStore;
-  resolveMcpServerStore: (c: Context, runAsAgent?: AgentRecord) => IMcpServerWithAuthStore;
-  resolveSkillStore: (c: Context) => ISkillStore;
-  resolveAgentStore: (c: Context) => IAgentStore;
+  authorizer: Authorizer;
   /** Resumable live turn-event transport: create-turn writes, subscribe polls. */
   eventSubscriptions: EventSubscriptionRegistry<TurnStreamingEvent>;
-  resolveSandboxProviderStore: (c: Context) => ISandboxProviderStore;
-  sandboxEnvironmentStore: ISandboxEnvironmentStore;
-  resolveWebSearchProviderStore: (c: Context) => IWebSearchProviderStore;
   logger: Logger;
+  /**
+   * Publishes to another executor:
+   *  - POST /events -> redis request `turns/send-events`
+   *  - Creating the next turn -> redis request `sessions/cancel`
+   * when the previous run is not in this process.
+   * Unset in standalone.
+   */
+  redis?: RedisClient | undefined;
+  /**
+   * Used to register routes
+   * - `turns/send-events` -> {@link handlePeerTurnEvents}
+   */
+  requestReplyRouter: RequestReplyRouter;
+  /** List, get, list events, subscribe, download, and create (referenced-agent check). */
+  resolveAgentStore: (requestContext: RequestContext) => IAgentStore;
   resolveRequestContext: ResolveRequestContext;
-  authorizer: Authorizer;
+  /**
+   * Model, MCP, skill, agent, sandbox, and web-search stores for a turn.
+   * Create, POST /events, and a peered `turns/send-events` all call this with the caller's
+   * request context and headers.
+   */
+  resolveTurnExecutionStores: (
+    input: ResolveTurnExecutionStoresInput<TTransaction>,
+  ) => Promise<TurnExecutionStores<TTransaction>>;
+  /** Create, POST /events, and peered send-events, via the turn execution deps. */
+  sandboxEnvironmentStore: ISandboxEnvironmentStore;
+  /** Sandbox file download. */
+  sandboxProviderStore: ISandboxProviderStore;
+  sessions: Sessions<Record<string, never>, Record<string, never>, TTransaction>;
+  sessionStore: ISessionStore<Record<string, never>, Record<string, never>, TTransaction>;
 }
 
 /**
@@ -146,7 +216,42 @@ export type BeginTurnExecutionDeps<TTransaction> = Pick<
   sandboxProviderStore: ISandboxProviderStore;
   webSearchProviderStore: IWebSearchProviderStore;
   skillStore: Pick<ISkillStore, 'resolveTurnSkills'>;
+  /** Loads the previous turn when create must cancel a run that is not in this process. */
+  sessionStore: Pick<ISessionStore, 'getTurn'>;
+  redis?: RedisClient | undefined;
 };
+
+async function referencedRunAsAgent<TTransaction>(input: {
+  session: SessionHandle<Record<string, never>, Record<string, never>, TTransaction>;
+  agentStore: IAgentStore;
+}): Promise<AgentRecord | undefined> {
+  if (input.session.record.agent.type !== 'reference') {
+    return undefined;
+  }
+  return input.agentStore.getAgent({
+    tenant_id: input.session.tenant_id,
+    id: input.session.record.agent.id,
+  });
+}
+
+async function executionDepsForCaller<TTransaction>(input: {
+  deps: TurnsRouterDeps<TTransaction>;
+  session: SessionHandle<Record<string, never>, Record<string, never>, TTransaction>;
+  requestContext: RequestContext;
+  requestHeaders?: Record<string, string> | undefined;
+  runAsAgent?: AgentRecord;
+}): Promise<BeginTurnExecutionDeps<TTransaction>> {
+  const stores = await input.deps.resolveTurnExecutionStores(input);
+  return {
+    activeTurns: input.deps.activeTurns,
+    eventSubscriptions: input.deps.eventSubscriptions,
+    logger: input.deps.logger,
+    sandboxEnvironmentStore: input.deps.sandboxEnvironmentStore,
+    sessionStore: input.deps.sessionStore,
+    redis: input.deps.redis,
+    ...stores,
+  };
+}
 
 interface BeginTurnExecutionParams<TTransaction> {
   session: SessionHandle<Record<string, never>, Record<string, never>, TTransaction>;
@@ -212,7 +317,7 @@ function createTurnResolver(deps: {
       };
     },
     mcp: async name => {
-      const connection = await getMcpConnection({
+      const connection = await resolveMcpServer({
         tenant_id,
         name,
         store: mcpServerStore,
@@ -224,10 +329,7 @@ function createTurnResolver(deps: {
           message: `Unknown MCP server "${name}" — not configured`,
         });
       }
-      return {
-        url: connection.url,
-        headers: connection.headers,
-      };
+      return connection;
     },
     mcpRequestTimeoutMs: configuration.MCP_REQUEST_TIMEOUT_MS,
     mcpConnectTimeoutMs: configuration.MCP_CONNECT_TIMEOUT_MS,
@@ -294,6 +396,27 @@ function createTurnResolver(deps: {
   });
 }
 
+/** Grapheme segmentation for title truncation (locale-independent per UAX #29). */
+const titleSegmenter = new Intl.Segmenter(undefined, { granularity: 'grapheme' });
+
+/**
+ * Caps a title at {@link MAX_SESSION_TITLE_LENGTH} UTF-16 units without splitting a
+ * grapheme cluster: clusters that would cross the cap (emoji with skin tones or
+ * ZWJ sequences, which read as one unit but span several) are dropped whole.
+ */
+function truncateSessionTitle(title: string): string {
+  let truncated = '';
+  let length = 0;
+  for (const { segment } of titleSegmenter.segment(title)) {
+    if (length + segment.length > MAX_SESSION_TITLE_LENGTH) {
+      break;
+    }
+    truncated += segment;
+    length += segment.length;
+  }
+  return truncated;
+}
+
 /**
  * Derives a session title from the first user message of the first turn. Returns the
  * trimmed text (capped at {@link MAX_SESSION_TITLE_LENGTH}) or `undefined` when no usable
@@ -317,7 +440,13 @@ export function deriveSessionTitle(input: UserMessage[] | undefined): string | u
   if (!trimmed) {
     return undefined;
   }
-  return trimmed.slice(0, MAX_SESSION_TITLE_LENGTH);
+  const title = truncateSessionTitle(trimmed);
+  // A single cluster longer than the cap truncates to nothing; treat it as no usable title
+  // so the store keeps the title unset instead of persisting a blank first-write-wins value.
+  if (!title) {
+    return undefined;
+  }
+  return title;
 }
 
 /**
@@ -350,46 +479,60 @@ export function streamTTLSecondsFor(event: TurnStreamingEvent): number | undefin
 export function turnStreamId(tenantId: string, sessionId: string, turnId: string): string {
   return redisKey('agent', 'turn', tenantId, sessionId, turnId, 'stream');
 }
-
 /**
  * Dual-write turn events to the resumable subscription registry, then optionally
  * forward each sequenced event (SSE path). Shared by streaming and non-streaming
  * create-turn; the HTTP response lifecycle does not own execution.
  */
+/** Start and clear the pause timer for the one turn this drain is consuming. */
+interface TurnPausedKeepalive {
+  start: () => void;
+  clear: () => void;
+}
+
+/**
+ * Running-only execution deadline for one turn.
+ * Each entry to `running` starts a fresh window. Pause clears it.
+ */
+interface TurnExecutionTimeout {
+  start: () => void;
+  clear: () => void;
+}
+
 export async function drainTurnEvents(input: {
   trackedStream: AsyncIterable<TurnStreamingEvent>;
   turnEventStream: EventSubscription<TurnStreamingEvent>;
-  sessionId: string;
-  turnId: string;
-  maxExecutionTimer: NodeJS.Timeout;
+  executionTimeout: TurnExecutionTimeout;
   logger: Logger;
+  pausedKeepalive: TurnPausedKeepalive;
   onEvent?: (event: TurnStreamingEvent, sequenceNumber: number) => Promise<void>;
 }): Promise<void> {
-  const { trackedStream, turnEventStream, sessionId, turnId, maxExecutionTimer, logger, onEvent } = input;
+  const { trackedStream, turnEventStream, executionTimeout, logger, pausedKeepalive, onEvent } = input;
   try {
     for await (const event of trackedStream) {
       // Dual-write before any client sink so subscribers can resume after disconnect.
       const sequenceNumber = await turnEventStream.put(event, {
         streamTTLSeconds: streamTTLSecondsFor(event),
       });
+      if (event.type === EventType.TURN_UPDATE) {
+        if (event.state.status === 'paused') {
+          pausedKeepalive.start();
+          executionTimeout.clear();
+        } else {
+          pausedKeepalive.clear();
+          executionTimeout.start();
+        }
+      }
       await onEvent?.(event, sequenceNumber);
     }
   } catch (error) {
     if (error instanceof SessionStoreNotFoundError) {
-      logger.warn('Turn stream ended after session/turn was removed', {
-        sessionId,
-        turnId,
-        ...extractErrorLogFields(error),
-      });
+      logger.warn('Turn stream ended after session/turn was removed', extractErrorLogFields(error));
     } else {
-      logger.error('Unexpected error in turn event drain', {
-        sessionId,
-        turnId,
-        ...extractErrorLogFields(error),
-      });
+      logger.error('Unexpected error in turn event drain', extractErrorLogFields(error));
     }
   } finally {
-    clearTimeout(maxExecutionTimer);
+    executionTimeout.clear();
   }
 }
 
@@ -397,10 +540,79 @@ export async function drainTurnEvents(input: {
 export interface TurnEventDrainInput {
   trackedStream: AsyncIterable<TurnStreamingEvent>;
   turnEventStream: EventSubscription<TurnStreamingEvent>;
-  sessionId: string;
-  turnId: string;
-  maxExecutionTimer: NodeJS.Timeout;
+  executionTimeout: TurnExecutionTimeout;
   logger: Logger;
+  pausedKeepalive: TurnPausedKeepalive;
+}
+
+/**
+ * Header check, abort, execution timeout, web search, and the per-turn resolver.
+ * Create and resume each keep their own persist and drain steps.
+ */
+async function prepareTurnExecution<TTransaction>(input: {
+  session: SessionHandle<Record<string, never>, Record<string, never>, TTransaction>;
+  turnId: string;
+  userRef: string;
+  requestHeaders: Record<string, string> | undefined;
+  deps: BeginTurnExecutionDeps<TTransaction>;
+}): Promise<{
+  abortController: AbortController;
+  resolver: TurnResourceResolver;
+  executionTimeout: TurnExecutionTimeout;
+}> {
+  assertGatewayMetadataRequestHeaders(input.requestHeaders);
+  const abortController = new AbortController();
+  const webSearchProvider = await resolveWebSearchProvider({
+    tenant_id: input.session.tenant_id,
+    store: input.deps.webSearchProviderStore,
+  });
+  const sessionAgent = input.session.record.agent;
+  const resolver = createTurnResolver({
+    mcpServerStore: input.deps.mcpServerStore,
+    skillStore: input.deps.skillStore,
+    sandboxProviderStore: input.deps.sandboxProviderStore,
+    sandboxEnvironmentStore: input.deps.sandboxEnvironmentStore,
+    agentStore: input.deps.agentStore,
+    modelProviderStore: input.deps.modelProviderStore,
+    webSearchProvider,
+    logger: input.deps.logger,
+    signal: abortController.signal,
+    userRef: input.userRef,
+    session: input.session,
+    turnMetadata: {
+      sessionId: input.session.session_id,
+      turnId: input.turnId,
+      ...(sessionAgent.type === 'reference' ? { agent: { id: sessionAgent.id, name: sessionAgent.name } } : {}),
+      ...(input.requestHeaders === undefined ? {} : { requestHeaders: input.requestHeaders }),
+    },
+  });
+  let executionTimer: NodeJS.Timeout | undefined;
+  const executionTimeout: TurnExecutionTimeout = {
+    start: () => {
+      if (executionTimer !== undefined) {
+        clearTimeout(executionTimer);
+      }
+      executionTimer = setTimeout(() => {
+        executionTimer = undefined;
+        if (!abortController.signal.aborted) {
+          abortController.abort(CancellationReason.ServerExecutionTimeout);
+        }
+      }, configuration.SERVER_EXECUTION_TIMEOUT_SECONDS * 1000);
+      executionTimer.unref();
+    },
+    clear: () => {
+      if (executionTimer === undefined) {
+        return;
+      }
+      clearTimeout(executionTimer);
+      executionTimer = undefined;
+    },
+  };
+  return {
+    abortController,
+    resolver,
+    executionTimeout,
+  };
 }
 
 /**
@@ -411,59 +623,42 @@ export async function beginTurnExecution<TTransaction>(
   params: BeginTurnExecutionParams<TTransaction>,
 ): Promise<{ turn: TurnHandle<Record<string, never>, TTransaction>; drainInput: TurnEventDrainInput }> {
   const { session, input, previous_turn_id: previousTurnId, userRef, requestHeaders, deps } = params;
-  // Fail closed on a bad inbound header before minting a turn id / starting execution.
-  assertGatewayMetadataRequestHeaders(requestHeaders);
   const sessionId = session.session_id;
   const turnId = newId();
-  const sessionAgent = session.record.agent;
-
-  const abortController = new AbortController();
-  const tenant_id = session.tenant_id;
-  const webSearchProvider = await resolveWebSearchProvider({
-    tenant_id,
-    store: deps.webSearchProviderStore,
+  const tenantId = session.tenant_id;
+  // Before the resolver, so model, MCP, and sandbox lines on this chain carry the ids.
+  updateLogContext({
+    tenant_id: tenantId,
+    session_id: sessionId,
+    turn_id: turnId,
   });
-  const resolver = createTurnResolver({
-    mcpServerStore: deps.mcpServerStore,
-    skillStore: deps.skillStore,
-    sandboxProviderStore: deps.sandboxProviderStore,
-    sandboxEnvironmentStore: deps.sandboxEnvironmentStore,
-    agentStore: deps.agentStore,
-    modelProviderStore: deps.modelProviderStore,
-    webSearchProvider,
-    logger: deps.logger,
-    signal: abortController.signal,
-    userRef,
+  const { abortController, resolver, executionTimeout } = await prepareTurnExecution({
     session,
-    turnMetadata: {
-      sessionId: session.session_id,
-      turnId,
-      ...(sessionAgent.type === 'reference' ? { agent: { id: sessionAgent.id, name: sessionAgent.name } } : {}),
-      ...(requestHeaders === undefined ? {} : { requestHeaders }),
-    },
+    turnId,
+    userRef,
+    requestHeaders,
+    deps,
   });
 
   // First turn only: derive the title from the first user message. The store
   // never overwrites an existing title.
   const title = session.record.last_turn_id ? undefined : deriveSessionTitle(input);
 
+  // Freeze the predecessor in the store and leave its generator parked. A paused previous
+  // turn stays in memory until the keepalive timer offloads it. That is deliberate.
+  // TODO: freezing drops the previous turn's token cost. Fix when paused turns persist metrics.
   const turn = await session.createTurn({
     turn_id: turnId,
     active_executor_id: configuration.EXECUTOR_ID,
     resolver,
-    abortController: abortController,
+    abortController,
     previous_turn_id: previousTurnId,
     input,
     update_session_title_if_not_exist: title,
   });
 
-  const maxExecutionTimer = setTimeout(() => {
-    if (!abortController.signal.aborted) {
-      abortController.abort(CancellationReason.ServerExecutionTimeout);
-    }
-  }, configuration.SERVER_EXECUTION_TIMEOUT_SECONDS * 1000);
-  maxExecutionTimer.unref();
-
+  // A new turn is running immediately. Pause and the later resume are handled from the drain.
+  executionTimeout.start();
   const trackedStream = deps.activeTurns.track({
     abortController,
     stream: turn.stream(),
@@ -471,17 +666,23 @@ export async function beginTurnExecution<TTransaction>(
   });
 
   // Held for the whole turn; the stream's sequence counter dies with it.
-  const turnEventStream = deps.eventSubscriptions.get(turnStreamId(tenant_id, sessionId, turn.id));
+  const turnEventStream = deps.eventSubscriptions.get(turnStreamId(tenantId, sessionId, turn.id));
 
   return {
     turn,
     drainInput: {
       trackedStream,
       turnEventStream,
-      sessionId,
-      turnId: turn.id,
-      maxExecutionTimer,
+      executionTimeout,
       logger: deps.logger,
+      pausedKeepalive: {
+        start: () => {
+          deps.activeTurns.startPausedKeepalive({ sessionId, turnId: turn.id });
+        },
+        clear: () => {
+          deps.activeTurns.clearPausedKeepalive({ sessionId, turnId: turn.id });
+        },
+      },
     },
   };
 }
@@ -508,6 +709,146 @@ export async function startTurnInProcess<TTransaction>(
   });
   await firstEventDualWritten;
   return turn;
+}
+
+function cancellationReason(reason: unknown): CancellationReason {
+  switch (reason) {
+    case CancellationReason.ServerExecutionTimeout:
+    case CancellationReason.CancelledForNextTurn:
+    case CancellationReason.Abandoned:
+    case CancellationReason.ClientCancelled:
+      return reason;
+    default:
+      return CancellationReason.ClientCancelled;
+  }
+}
+
+/**
+ * Rebuild a paused turn this replica owns, reseed the event-stream counter from
+ * the existing tail, and drain in the background. Inbox replay happens inside rebuild.
+ */
+async function resumePausedTurn<TTransaction>(input: {
+  session: SessionHandle<Record<string, never>, Record<string, never>, TTransaction>;
+  turnId: string;
+  requestContext: RequestContext;
+  requestHeaders?: Record<string, string> | undefined;
+  deps: BeginTurnExecutionDeps<TTransaction>;
+}): Promise<{ turn: TurnHandle<Record<string, never>, TTransaction>; signal: AbortSignal; startDrain: () => void }> {
+  // Same chain as create: model, MCP, sandbox, and the detached drain keep these ids.
+  updateLogContext({
+    tenant_id: input.session.tenant_id,
+    session_id: input.session.session_id,
+    turn_id: input.turnId,
+  });
+  const { abortController, resolver, executionTimeout } = await prepareTurnExecution({
+    session: input.session,
+    turnId: input.turnId,
+    userRef: input.requestContext.subject.id,
+    requestHeaders: input.requestHeaders,
+    deps: input.deps,
+  });
+  const sessionId = input.session.session_id;
+  // Visible to cancel and shutdown before rebuildTurn returns a handle.
+  input.deps.activeTurns.reservePausedTurn({
+    sessionId,
+    turnId: input.turnId,
+    abortController,
+  });
+
+  let turn: TurnHandle<Record<string, never>, TTransaction>;
+  try {
+    turn = await input.session.rebuildTurn({
+      turn_id: input.turnId,
+      active_executor_id: configuration.EXECUTOR_ID,
+      resolver,
+      abortController,
+    });
+  } catch (error) {
+    executionTimeout.clear();
+    // Cancel aborted this rebuilding run and did not freeze. If the stream never starts,
+    // freeze here so the row still becomes terminal. Offload leaves the row paused.
+    if (
+      abortController.signal.aborted &&
+      !isTurnOffloadReason(abortController.signal.reason) &&
+      !(error instanceof TurnOwnershipLostError)
+    ) {
+      try {
+        await input.session.freezeTurn({
+          turn_id: input.turnId,
+          reason: cancellationReason(abortController.signal.reason),
+        });
+      } catch (freezeError) {
+        if (!(freezeError instanceof TurnNotFoundError)) {
+          input.deps.activeTurns.releaseReservedTurn({ sessionId, turnId: input.turnId });
+          throw new Error(`Failed to freeze turn ${input.turnId} after rebuild failed`, { cause: freezeError });
+        }
+      }
+    }
+    input.deps.activeTurns.releaseReservedTurn({ sessionId, turnId: input.turnId });
+    throw error;
+  }
+
+  const turnEventStream = input.deps.eventSubscriptions.get(
+    turnStreamId(input.session.tenant_id, input.session.session_id, turn.id),
+  );
+  try {
+    // Counter only. A missing stream stays at 1; log repair from the TurnRecord is later.
+    await turnEventStream.resumeProducer({ streamTTLSeconds: configuration.TURN_STREAM_TTL_SECONDS });
+  } catch (error) {
+    input.deps.logger.warn('Paused turn stream resume failed', extractErrorLogFields(error));
+    executionTimeout.clear();
+    abortController.abort(TurnOffloadReason);
+    const tracked = input.deps.activeTurns.track({
+      abortController,
+      stream: turn.stream(),
+      turn,
+    });
+    await tracked.return(undefined);
+    throw error;
+  }
+
+  let drainStarted = false;
+  return {
+    turn,
+    signal: abortController.signal,
+    startDrain: () => {
+      if (drainStarted) {
+        return;
+      }
+      drainStarted = true;
+      const trackedStream = input.deps.activeTurns.track({
+        abortController,
+        stream: turn.stream(),
+        turn,
+      });
+      // Resume starts execute already paused, so no new paused `turn.update` is yielded
+      // unless the turn runs and pauses again. Arm here or this run never offloads.
+      input.deps.activeTurns.startPausedKeepalive({
+        sessionId: input.session.session_id,
+        turnId: turn.id,
+      });
+      void drainTurnEvents({
+        trackedStream,
+        turnEventStream,
+        executionTimeout,
+        logger: input.deps.logger,
+        pausedKeepalive: {
+          start: () => {
+            input.deps.activeTurns.startPausedKeepalive({
+              sessionId: input.session.session_id,
+              turnId: turn.id,
+            });
+          },
+          clear: () => {
+            input.deps.activeTurns.clearPausedKeepalive({
+              sessionId: input.session.session_id,
+              turnId: turn.id,
+            });
+          },
+        },
+      });
+    },
+  };
 }
 
 /** Mapped client error from turn execution; undefined means rethrow. */
@@ -575,8 +916,657 @@ function isSessionOwner({
   return created_by_subject.subject_id === subject_id;
 }
 
-const FORBIDDEN_SESSION_ACCESS = 'Only the session creator can access this session';
-const FORBIDDEN_CREATE_TURN = 'Only the session creator can create turns';
+/** Request-reply path the owner serves for inbound turn events. */
+const TURNS_SEND_EVENTS_PATH = 'turns/send-events';
+
+const PeerRequestContextSchema = z.object({
+  tenant_id: z.string(),
+  subject: z.object({
+    id: z.string(),
+    type: z.string(),
+    display_name: z.string(),
+  }),
+  roles: z.array(z.string()),
+  user_credential: z.string().nullable(),
+});
+
+const SendEventsPeerBodySchema = z.object({
+  tenant_id: z.string(),
+  session_id: z.string(),
+  turn_id: z.string(),
+  events: z.array(TurnUserEventSchema),
+  request_context: PeerRequestContextSchema,
+  request_headers: z.record(z.string(), z.string()).optional(),
+});
+
+const PeerEventsReplySchema = z.object({
+  events: z.array(TurnUserEventSchema),
+});
+
+const PeerMessageSchema = z.object({
+  message: z.string(),
+});
+
+type SendEventsResult =
+  | { type: 'applied'; events: TurnUserEvent[] } // the events were applied successfully
+  | { type: 'invalid'; message: string } // the events were invalid
+  | { type: 'conflict'; message: string } // the turn is not accepting events
+  | { type: 'failed'; message: string }; // this executor ran the request and failed while applying the events
+
+export enum PeerOutcome {
+  /** The owner did not receive this request: heartbeat missing, or publish reached nobody. */
+  NoResponder = 'no_responder',
+  /** The peer replied that it does not own the row. The batch was not applied. */
+  NotOwner = 'not_owner',
+  /** The request may already have been applied but we did not receive the reply. Do not send it again. */
+  OwnerNotGone = 'owner_not_gone',
+}
+
+type ForwardedSendResult = SendEventsResult | { type: 'peer'; peerOutcome: PeerOutcome };
+
+export enum TurnOwnershipAction {
+  /** Handle on the local ActiveTurn. */
+  Run = 'run',
+  /** This replica owns the turn but has no ActiveTurn: rebuild it, then handle. */
+  Rebuild = 'rebuild',
+  /** The turn cannot accept this request (terminal, or running with its executor gone). */
+  Reject = 'reject',
+}
+
+/** Send a batch to the live handle and persist each yielded inbox batch. */
+async function applyTurnEvents<TTransaction>(input: {
+  handle: TurnHandle<Record<string, never>, TTransaction>;
+  events: TurnUserEvent[];
+  sessionStore: Pick<
+    ISessionStore<Record<string, never>, Record<string, never>, TTransaction>,
+    'insertTurnInboundEvents'
+  >;
+  sessionId: string;
+  turnId: string;
+}): Promise<SendEventsResult> {
+  try {
+    for await (const batch of input.handle.send(input.events)) {
+      await input.sessionStore.insertTurnInboundEvents({
+        session_id: input.sessionId,
+        turn_id: input.turnId,
+        active_executor_id: input.handle.record.active_executor_id,
+        events: batch,
+      });
+    }
+  } catch (error) {
+    if (error instanceof AgentHarnessError && error.code === 'invalid_send_input') {
+      return { type: 'invalid', message: error.message };
+    }
+    if (error instanceof TurnEventAlreadyExistsError) {
+      return { type: 'conflict', message: error.message };
+    }
+    throw error;
+  }
+  return { type: 'applied', events: input.events };
+}
+
+/**
+ * Run or rebuild a turn this executor owns, then apply the batch.
+ * An HTTP send that already owns the row, a peered send, and a steal that just claimed the row all come here.
+ * If the row is claimed away before the batch is applied, return `'retry'`.
+ * The peered send turns that into 412. A peered request does not steal.
+ */
+async function rebuildOptionallyAndRun<TTransaction>(input: {
+  session: SessionHandle<Record<string, never>, Record<string, never>, TTransaction>;
+  turn: TurnRecord;
+  events: TurnUserEvent[];
+  sessionStore: Pick<
+    ISessionStore<Record<string, never>, Record<string, never>, TTransaction>,
+    'insertTurnInboundEvents'
+  >;
+  requestContext: RequestContext;
+  requestHeaders: Record<string, string> | undefined;
+  deps: BeginTurnExecutionDeps<TTransaction>;
+}): Promise<SendEventsResult | 'retry'> {
+  const sessionId = input.session.session_id;
+  const turnId = input.turn.turn_id;
+  try {
+    const handle = input.deps.activeTurns.getTurnHandle({ sessionId, turnId });
+    const hasLocalActiveTurn = handle !== undefined;
+    let action: TurnOwnershipAction;
+    if (!isNonTerminalTurnState(input.turn.state)) {
+      // done, cancelled, and error cannot accept a send
+      action = TurnOwnershipAction.Reject;
+    } else if (hasLocalActiveTurn) {
+      // we already have a local active turn
+      action = TurnOwnershipAction.Run;
+    } else if (input.turn.state.status === 'paused') {
+      // a paused turn, but we don't have a local active turn
+      action = TurnOwnershipAction.Rebuild;
+    } else {
+      // a running state turn, either
+      // - cancelled but hasn't reached turn.done
+      // - stuck in running state because the executor died suddenly
+      action = TurnOwnershipAction.Reject;
+    }
+
+    const status = input.turn.state.status;
+    input.deps.logger.info('Owned turn send', { action, status });
+
+    switch (action) {
+      case TurnOwnershipAction.Run: {
+        if (handle === undefined) {
+          throw new Error('Unreachable: run requires a local turn');
+        }
+        // Drop the pause timer before wake. If it fired while this handler held the lock,
+        // the callback sees the timer was replaced and does not offload. A send that leaves
+        // the turn paused rearms; a later `running` update clears that timer from the drain.
+        input.deps.activeTurns.clearPausedKeepalive({ sessionId, turnId });
+        try {
+          const applied = await applyTurnEvents({
+            handle,
+            events: input.events,
+            sessionStore: input.sessionStore,
+            sessionId,
+            turnId,
+          });
+          input.deps.logger.info('Owned turn send finished', { action, status, reason: 'run', result: applied.type });
+          return applied;
+        } finally {
+          if (handle.state.status === 'paused') {
+            input.deps.activeTurns.startPausedKeepalive({ sessionId, turnId });
+          }
+        }
+      }
+      case TurnOwnershipAction.Rebuild: {
+        // A cancel on paused turn aborts the local run and leaves the turn status paused in store
+        // until the drain writes turn.done
+        // getTurnHandle hides that run. Reject instead of rebuilding over it.
+        // we will not be able to apply events on cancelled turn anyway.
+        if (input.deps.activeTurns.isCancelled({ sessionId, turnId })) {
+          input.deps.logger.info('Owned turn send finished', {
+            action,
+            status,
+            reason: 'cancelled-locally',
+            result: 'conflict',
+          });
+          return { type: 'conflict', message: 'Turn is cancelled, cannot apply events' };
+        }
+        const resumed = await resumePausedTurn({
+          session: input.session,
+          turnId,
+          requestContext: input.requestContext,
+          requestHeaders: input.requestHeaders,
+          deps: input.deps,
+        });
+
+        // when we start resumePausedTurn, we first stage the turn in ActiveTurns while it is being rebuilt
+        // Case 1:
+        // Happy path: the turn is resumed and events are applied
+        // resumed? -> applyTurnEvents -> startDrain -> return applied
+        // Case 2:
+        // While we are rebuilding, the turn can be cancelled or server shutdown can happen
+        // We startDrain regardless so the loop exits (turn.done or offloaded)
+        // aborted? -> startDrain (without await) -> return conflict
+        // Case 3:
+        // Applying events fails after the turn is resumed
+        // We startDrain so turn gets parked and sticks around in memory
+        // apply? -> startDrain (without await) -> return conflict
+        try {
+          if (resumed.signal.aborted) {
+            input.deps.logger.info('Owned turn send finished', {
+              action,
+              status,
+              reason: 'aborted-during-rebuild',
+              result: 'conflict',
+            });
+            return { type: 'conflict', message: 'Turn is cancelled or unable to accept events' };
+          }
+          const applied = await applyTurnEvents({
+            handle: resumed.turn,
+            events: input.events,
+            sessionStore: input.sessionStore,
+            sessionId,
+            turnId,
+          });
+          input.deps.logger.info('Owned turn send finished', {
+            action,
+            status,
+            reason: 'rebuild',
+            result: applied.type,
+          });
+          return applied;
+        } finally {
+          resumed.startDrain();
+        }
+      }
+      case TurnOwnershipAction.Reject: {
+        const reason = input.turn.state.status === 'running' ? 'running-without-generator' : 'not-accepting';
+        input.deps.logger.info('Owned turn send finished', { action, status, reason, result: 'conflict' });
+        return {
+          type: 'conflict',
+          message:
+            input.turn.state.status === 'running'
+              ? 'Turn is running but its executor is gone'
+              : 'Turn is cancelled or unable to accept events',
+        };
+      }
+    }
+  } catch (error) {
+    if (error instanceof TurnOwnershipLostError) {
+      input.deps.logger.info('Owned turn send finished', {
+        status: input.turn.state.status,
+        reason: 'ownership-lost',
+        result: 'retry',
+      });
+      return 'retry';
+    }
+    input.deps.logger.error('Failed to apply events to an owned turn', extractErrorLogFields(error));
+    const cause = error instanceof Error ? error.message : String(error);
+    return { type: 'failed', message: `Failed to apply events: ${cause}` };
+  }
+}
+
+/** Ask the owning replica to apply the events. A peer outcome means this replica must decide again. */
+async function forwardTurnEvents(input: {
+  redis: RedisClient | undefined;
+  activeExecutorId: string;
+  sessionId: string;
+  turnId: string;
+  events: TurnUserEvent[];
+  requestContext: RequestContext;
+  requestHeaders?: Record<string, string> | undefined;
+  logger: Logger;
+}): Promise<ForwardedSendResult> {
+  if (!input.redis) {
+    // unreachable code, we should always have a redis client
+    input.logger.error('Failed to apply turn events: no redis client');
+    return { type: 'failed', message: 'Unable to reach the turn executor' };
+  }
+  const { requestContext } = input;
+  const body = SendEventsPeerBodySchema.parse({
+    tenant_id: requestContext.tenant_id,
+    session_id: input.sessionId,
+    turn_id: input.turnId,
+    events: input.events,
+    request_context: {
+      tenant_id: requestContext.tenant_id,
+      subject: requestContext.subject,
+      roles: requestContext.roles,
+      user_credential: requestContext.user_credential,
+    },
+    ...(input.requestHeaders === undefined ? {} : { request_headers: input.requestHeaders }),
+  });
+  try {
+    const reply = await redisRequest({
+      redis: input.redis,
+      executorId: input.activeExecutorId,
+      path: TURNS_SEND_EVENTS_PATH,
+      request: { body: jsonValueFrom(body) },
+      options: {
+        replyTimeoutMs: configuration.REDIS_REQUEST_REPLY_TIMEOUT_MS,
+        pollIntervalMs: configuration.REDIS_REQUEST_REPLY_POLL_INTERVAL_MS,
+      },
+    });
+
+    input.logger.info('Turn send peer replied', { activeExecutorId: input.activeExecutorId, status: reply.status });
+    switch (reply.status) {
+      case 200: {
+        const parsed = PeerEventsReplySchema.safeParse(reply.body);
+        if (!parsed.success) {
+          // ideally unreachable because peer should send a valid response
+          // this can cause a bad state for e.g. if peer accepted the batch, applied approvals, but then sent an invalid response
+          input.logger.warn('Turn send peer reply was invalid', { activeExecutorId: input.activeExecutorId });
+          return { type: 'failed', message: 'Turn executor sent an invalid response' };
+        }
+        return { type: 'applied', events: parsed.data.events };
+      }
+      // The peer replied the events were invalid
+      case 400: {
+        const parsed = PeerMessageSchema.safeParse(reply.body);
+        return {
+          type: 'invalid',
+          message: parsed.success ? parsed.data.message : `Turn rejected the events`,
+        };
+      }
+      // The peer replied turn is not accepting events
+      case 409: {
+        const parsed = PeerMessageSchema.safeParse(reply.body);
+        return {
+          type: 'conflict',
+          message: parsed.success ? parsed.data.message : `Turn is not accepting events`,
+        };
+      }
+      // The peer replied that it does not own the row. The batch was not applied.
+      case 412:
+        return { type: 'peer', peerOutcome: PeerOutcome.NotOwner };
+      case 500:
+      default: {
+        const parsed = PeerMessageSchema.safeParse(reply.body);
+        return {
+          type: 'failed',
+          message: parsed.success ? parsed.data.message : `Failed to apply events`,
+        };
+      }
+    }
+  } catch (error) {
+    if (error instanceof NoResponderError) {
+      input.logger.info('Turn send peer missed', { activeExecutorId: input.activeExecutorId, detail: error.detail });
+      // The request was published, then the heartbeat disappeared while waiting for the reply.
+      // The owner may have applied the batch. Do not send it again.
+      if (error.detail === NO_RESPONDER_HEARTBEAT_LOST_DETAIL) {
+        return { type: 'peer', peerOutcome: PeerOutcome.OwnerNotGone };
+      }
+      // Heartbeat was already missing, or publish reached nobody. This batch was not delivered.
+      return { type: 'peer', peerOutcome: PeerOutcome.NoResponder };
+    } else if (error instanceof RequestTimeoutError) {
+      input.logger.info('Turn send peer missed', { activeExecutorId: input.activeExecutorId, detail: 'timeout' });
+      // The owner may have applied the batch before the reply wait ended.
+      // Do not send it again; the client retries.
+      return { type: 'peer', peerOutcome: PeerOutcome.OwnerNotGone };
+    }
+    input.logger.warn('Turn send peer missed', {
+      activeExecutorId: input.activeExecutorId,
+      detail: 'transport',
+      ...extractErrorLogFields(error),
+    });
+    return { type: 'peer', peerOutcome: PeerOutcome.OwnerNotGone };
+  }
+}
+
+async function handleParsedPeerTurnEvents<TTransaction>(
+  deps: TurnsRouterDeps<TTransaction>,
+  body: z.infer<typeof SendEventsPeerBodySchema>,
+) {
+  const session = await deps.sessions.get({
+    tenant_id: body.tenant_id,
+    session_id: body.session_id,
+  });
+  if (!session) {
+    deps.logger.info('Peered turn send finished', { result: 'not-found', reason: 'session-not-found' });
+    return { status: 404, body: { message: `Session not found` } };
+  }
+  const result = await deps.activeTurns.withTurnLock(
+    { sessionId: body.session_id, turnId: body.turn_id },
+    async (): Promise<SendEventsResult | { type: 'not_owner' }> => {
+      const requestContext = requestContextFromWire(body.request_context);
+      const runAsAgent = await referencedRunAsAgent({
+        session,
+        agentStore: deps.resolveAgentStore(requestContext),
+      });
+      const executionDeps = await executionDepsForCaller({
+        deps,
+        session,
+        requestContext,
+        requestHeaders: body.request_headers,
+        ...(runAsAgent !== undefined ? { runAsAgent } : {}),
+      });
+      // Same run as an owner. A peered request does not steal, so a lost row is 412.
+      const turn = await session.getTurn(body.turn_id);
+      if (!turn) {
+        deps.logger.info('Peered turn send finished', { result: 'conflict', reason: 'turn-not-found' });
+        return { type: 'conflict', message: `Turn not found` };
+      }
+      if (turn.active_executor_id !== configuration.EXECUTOR_ID) {
+        deps.logger.info('Peered turn send finished', {
+          result: 'not-owner',
+          reason: 'executor-mismatch',
+          activeExecutorId: turn.active_executor_id,
+        });
+        return { type: 'not_owner' };
+      }
+      const owned = await rebuildOptionallyAndRun({
+        session,
+        turn,
+        events: body.events,
+        sessionStore: deps.sessionStore,
+        requestContext,
+        requestHeaders: body.request_headers,
+        deps: executionDeps,
+      });
+      if (owned === 'retry') {
+        deps.logger.info('Peered turn send finished', { result: 'not-owner', reason: 'ownership-lost' });
+        return { type: 'not_owner' };
+      }
+      return owned;
+    },
+  );
+  switch (result.type) {
+    case 'applied':
+      return { status: 200, body: jsonValueFrom({ events: result.events }) };
+    case 'invalid':
+      return { status: 400, body: { message: result.message } };
+    case 'not_owner':
+      return { status: 412, body: { message: 'Turn is no longer owned by this executor' } };
+    case 'conflict':
+      return { status: 409, body: { message: result.message } };
+    case 'failed':
+      return { status: 500, body: { message: result.message } };
+    default: {
+      const _exhaustive: never = result;
+      throw new Error(`Unreachable send result: ${JSON.stringify(_exhaustive)}`);
+    }
+  }
+}
+
+function handlePeerTurnEvents<TTransaction>(deps: TurnsRouterDeps<TTransaction>): RequestReplyRouteHandler {
+  return async request => {
+    const parsed = SendEventsPeerBodySchema.safeParse(request.body);
+    if (!parsed.success) {
+      return { status: 400, body: { message: 'Invalid turns/send-events payload' } };
+    }
+    // No HTTP request context on this path. Resume and its drain inherit these ids.
+    return runWithLogContext(
+      {
+        tenant_id: parsed.data.tenant_id,
+        session_id: parsed.data.session_id,
+        turn_id: parsed.data.turn_id,
+      },
+      () => handleParsedPeerTurnEvents(deps, parsed.data),
+    );
+  };
+}
+
+/**
+ * A user send ends in `rebuildOptionallyAndRun` by one of three paths:
+ * this process already owns the row and runs it;
+ * this process forwards to the owner, and that peer runs it;
+ * the owner never received the batch, this process steals the paused row, and then runs it.
+ */
+
+/**
+ * One try at delivering a user send.
+ * We own the turn: run or rebuild it. If the turn is claimed away before the batch is applied, try again.
+ * The peer says it is not the owner: the batch was not applied, so load the turn and send it to whoever owns it now.
+ * The batch never reached the owner: steal it when the turn is still paused under that same owner. A running turn is a conflict. Another executor means try again.
+ * The owner may already have applied the batch: stop, and let the client retry.
+ */
+async function sendTurnEvents<TTransaction>(input: {
+  session: SessionHandle<Record<string, never>, Record<string, never>, TTransaction>;
+  sessionStore: Pick<
+    ISessionStore<Record<string, never>, Record<string, never>, TTransaction>,
+    'claimTurnExecutor' | 'insertTurnInboundEvents'
+  >;
+  turnId: string;
+  events: TurnUserEvent[];
+  requestContext: RequestContext;
+  requestHeaders: Record<string, string> | undefined;
+  deps: BeginTurnExecutionDeps<TTransaction>;
+}): Promise<SendEventsResult | 'retry'> {
+  const sessionId = input.session.session_id;
+  const turn = await input.session.getTurn(input.turnId);
+  if (!turn) {
+    input.deps.logger.info('Turn send finished', { reason: 'turn-not-found', result: 'conflict' });
+    return { type: 'conflict', message: `Turn not found: ${input.turnId}` };
+  }
+  // done, cancelled, and error cannot accept a send.
+  if (!isNonTerminalTurnState(turn.state)) {
+    input.deps.logger.info('Turn send finished', {
+      reason: 'turn-status-terminal',
+      result: 'conflict',
+      status: turn.state.status,
+    });
+    return { type: 'conflict', message: `Turn is not accepting events: ${turn.turn_id}` };
+  }
+  if (turn.active_executor_id === configuration.EXECUTOR_ID) {
+    return rebuildOptionallyAndRun({
+      session: input.session,
+      turn,
+      events: input.events,
+      sessionStore: input.sessionStore,
+      requestContext: input.requestContext,
+      requestHeaders: input.requestHeaders,
+      deps: input.deps,
+    });
+  }
+
+  // If the turn got paused and parked and then stolen, we need to drop the local turn
+  await input.deps.activeTurns.dropLocalTurn({ sessionId, turnId: input.turnId });
+
+  input.deps.logger.info('Turn send forwarding', {
+    activeExecutorId: turn.active_executor_id,
+    status: turn.state.status,
+  });
+  // Try to forward the events to the owner
+  const forwarded = await forwardTurnEvents({
+    redis: input.deps.redis,
+    activeExecutorId: turn.active_executor_id,
+    sessionId,
+    turnId: input.turnId,
+    events: input.events,
+    requestContext: input.requestContext,
+    requestHeaders: input.requestHeaders,
+    logger: input.deps.logger,
+  });
+
+  // If the reply anything other than peering call status, return the result
+  // that means owner either accepted the events or rejected them
+  if (forwarded.type !== 'peer') {
+    input.deps.logger.info('Turn send finished', { reason: 'peer-reply', result: forwarded.type });
+    return forwarded;
+  }
+
+  const refetchedTurn = await input.session.getTurn(input.turnId);
+  if (refetchedTurn === undefined) {
+    // Unreachable. Turns are not deleted, and the load above found this row.
+    input.deps.logger.info('Turn send finished', { reason: 'turn-not-found', result: 'conflict' });
+    return { type: 'conflict', message: `Turn not found` };
+  }
+
+  // 412: the peer did not apply the batch. Load the row again and send to the current owner.
+  // Timeout, No Responder (heartbeat lost after publish), and transport errors may already have been
+  // applied, so this pass does not send again.
+  if (forwarded.peerOutcome === PeerOutcome.NotOwner || forwarded.peerOutcome === PeerOutcome.OwnerNotGone) {
+    if (!isNonTerminalTurnState(refetchedTurn.state)) {
+      input.deps.logger.info('Turn send finished', {
+        reason: 'turn-status-terminal',
+        result: 'conflict',
+        status: refetchedTurn.state.status,
+        peerOutcome: forwarded.peerOutcome,
+      });
+      return { type: 'conflict', message: 'Turn is not accepting events' };
+    }
+    if (forwarded.peerOutcome === PeerOutcome.NotOwner) {
+      input.deps.logger.info('Turn send retrying', {
+        reason: 'peer-not-owner',
+        result: 'retry',
+        owner: refetchedTurn.active_executor_id,
+      });
+      return 'retry';
+    }
+    input.deps.logger.info('Turn send finished', {
+      reason: 'owner-not-gone',
+      result: 'failed',
+      peerOutcome: forwarded.peerOutcome,
+      owner: refetchedTurn.active_executor_id,
+      status: refetchedTurn.state.status,
+    });
+    return { type: 'failed', message: 'Turn executor did not acknowledge the events' };
+  }
+
+  // No Responder (heartbeat missing or zero subscribers) case
+  // This batch was not delivered. A finished row is a conflict. A new owner has not
+  // seen it, so send there even if that owner already moved the row to running.
+  // The same owner with a running row will miss the forward again; do not steal it.
+  if (!isNonTerminalTurnState(refetchedTurn.state)) {
+    input.deps.logger.info('Turn send finished', {
+      reason: 'turn-status-terminal',
+      result: 'conflict',
+      status: refetchedTurn.state.status,
+      peerOutcome: forwarded.peerOutcome,
+    });
+    return { type: 'conflict', message: 'Turn is in terminal state, cannot apply events' };
+  }
+  if (refetchedTurn.active_executor_id !== turn.active_executor_id) {
+    input.deps.logger.info('Turn send retrying', {
+      reason: 'owner-changed',
+      result: 'retry',
+      fromExecutor: turn.active_executor_id,
+      owner: refetchedTurn.active_executor_id,
+      status: refetchedTurn.state.status,
+    });
+    return 'retry';
+  }
+  if (refetchedTurn.state.status === 'running') {
+    // TODO: this is the case where turn is stuck in running state because the executor died suddenly
+    // we cannot steal reliably yet - we will handle this in upcoming changes
+    input.deps.logger.info('Turn send finished', {
+      reason: 'running-not-delivered',
+      result: 'conflict',
+      owner: refetchedTurn.active_executor_id,
+    });
+    return { type: 'conflict', message: 'Turn is running and its executor is gone' };
+  }
+
+  // Paused, still owned by the executor that did not receive this batch.
+  input.deps.logger.info('Turn send stealing', {
+    fromExecutor: refetchedTurn.active_executor_id,
+  });
+  const won = await input.sessionStore.claimTurnExecutor({
+    session_id: sessionId,
+    turn_id: input.turnId,
+    expected_executor_id: refetchedTurn.active_executor_id,
+    new_executor_id: configuration.EXECUTOR_ID,
+  });
+  if (!won) {
+    input.deps.logger.info('Turn send retrying', {
+      reason: 'steal-lost',
+      result: 'retry',
+      fromExecutor: refetchedTurn.active_executor_id,
+    });
+    return 'retry';
+  }
+  input.deps.logger.info('Turn send steal claimed the row', {
+    executorId: configuration.EXECUTOR_ID,
+  });
+  return rebuildOptionallyAndRun({
+    session: input.session,
+    turn: refetchedTurn,
+    events: input.events,
+    sessionStore: input.sessionStore,
+    requestContext: input.requestContext,
+    requestHeaders: input.requestHeaders,
+    deps: input.deps,
+  });
+}
+
+/** User send. Forwards to the owner and may steal a paused turn whose heartbeat is gone. */
+async function sendTurnEventsWithRetries<TTransaction>(input: {
+  session: SessionHandle<Record<string, never>, Record<string, never>, TTransaction>;
+  sessionStore: Pick<
+    ISessionStore<Record<string, never>, Record<string, never>, TTransaction>,
+    'claimTurnExecutor' | 'insertTurnInboundEvents'
+  >;
+  turnId: string;
+  events: TurnUserEvent[];
+  requestContext: RequestContext;
+  requestHeaders: Record<string, string> | undefined;
+  deps: BeginTurnExecutionDeps<TTransaction>;
+}): Promise<SendEventsResult> {
+  for (let attempt = 0; attempt < MAX_OWNERSHIP_ATTEMPTS; attempt++) {
+    const result = await sendTurnEvents(input);
+    if (result !== 'retry') {
+      return result;
+    }
+  }
+  input.deps.logger.error('Turn send ownership did not settle', { attempts: MAX_OWNERSHIP_ATTEMPTS });
+  return { type: 'failed', message: 'Unable to determine the executor for the turn' };
+}
 
 /** DB-backed turns (mounted at /api/v1/sessions). */
 export function createTurnsRouter<TTransaction>(deps: TurnsRouterDeps<TTransaction>) {
@@ -593,7 +1583,7 @@ export function createTurnsRouter<TTransaction>(deps: TurnsRouterDeps<TTransacti
     }
     const allowed = await canReadSession({
       shared: session.record.shared,
-      store: deps.resolveAgentStore(c),
+      store: deps.resolveAgentStore(requestContext),
       context: requestContext,
       authorizer: deps.authorizer,
       agent_id: session.record.agent.type === 'reference' ? session.record.agent.id : undefined,
@@ -610,7 +1600,7 @@ export function createTurnsRouter<TTransaction>(deps: TurnsRouterDeps<TTransacti
       return c.json({ data: data.map(toWireTurn), pagination }, 200);
     } catch (error) {
       if (error instanceof SessionStoreConflictError) {
-        return c.json({ error: { message: error.message } }, 400);
+        throw new HTTPException(400, { message: error.message, cause: error });
       }
       throw error;
     }
@@ -628,7 +1618,7 @@ export function createTurnsRouter<TTransaction>(deps: TurnsRouterDeps<TTransacti
     }
     const allowed = await canReadSession({
       shared: session.record.shared,
-      store: deps.resolveAgentStore(c),
+      store: deps.resolveAgentStore(requestContext),
       context: requestContext,
       authorizer: deps.authorizer,
       agent_id: session.record.agent.type === 'reference' ? session.record.agent.id : undefined,
@@ -641,7 +1631,7 @@ export function createTurnsRouter<TTransaction>(deps: TurnsRouterDeps<TTransacti
     if (!turn) {
       return c.json({ error: { message: `Turn not found: ${turnId}` } }, 404);
     }
-    return c.json({ data: toWireTurn(turn.record) }, 200);
+    return c.json({ data: toWireTurn(turn) }, 200);
   };
 
   const downloadSandboxFileHandler: RouteHandler<typeof downloadSandboxFileRoute> = async c => {
@@ -676,14 +1666,14 @@ export function createTurnsRouter<TTransaction>(deps: TurnsRouterDeps<TTransacti
       if (!turn) {
         return c.json({ error: { message: `Turn not found: ${turnId}` } }, 404);
       }
-      sandboxId = turn.record.snapshot.sandbox_info?.sandbox_id;
+      sandboxId = turn.snapshot.sandbox_info?.sandbox_id;
       if (sandboxId === undefined) {
         return c.json({ error: { message: `Turn has no sandbox: ${turnId}` } }, 412);
       }
 
       const provider = await resolveSandboxProvider({
         tenant_id: requestContext.tenant_id,
-        store: deps.resolveSandboxProviderStore(c),
+        store: deps.sandboxProviderStore,
         logger: deps.logger,
         sessionId,
       });
@@ -702,12 +1692,10 @@ export function createTurnsRouter<TTransaction>(deps: TurnsRouterDeps<TTransacti
     } catch (error) {
       // Every guard and the provider itself raise SandboxError, whose statusCode is the contract.
       if (error instanceof SandboxError) {
-        return c.json({ error: { message: error.message } }, error.statusCode);
+        throw new HTTPException(error.statusCode, { message: error.message, cause: error });
       }
       deps.logger.error('Sandbox file download failed', {
         ...extractErrorLogFields(error),
-        sessionId,
-        turnId,
         sandboxId,
         path,
       });
@@ -728,7 +1716,7 @@ export function createTurnsRouter<TTransaction>(deps: TurnsRouterDeps<TTransacti
     }
     const allowed = await canReadSession({
       shared: session.record.shared,
-      store: deps.resolveAgentStore(c),
+      store: deps.resolveAgentStore(requestContext),
       context: requestContext,
       authorizer: deps.authorizer,
       agent_id: session.record.agent.type === 'reference' ? session.record.agent.id : undefined,
@@ -742,7 +1730,8 @@ export function createTurnsRouter<TTransaction>(deps: TurnsRouterDeps<TTransacti
       return c.json({ error: { message: `Turn not found: ${turnId}` } }, 404);
     }
     try {
-      const { data, pagination } = await turn.listEvents({
+      const { data, pagination } = await session.listTurnEvents({
+        turn_id: turnId,
         limit: query.limit,
         page_token: query.page_token,
         order: query.order,
@@ -750,7 +1739,7 @@ export function createTurnsRouter<TTransaction>(deps: TurnsRouterDeps<TTransacti
       return c.json({ data, pagination }, 200);
     } catch (error) {
       if (error instanceof SessionStoreConflictError) {
-        return c.json({ error: { message: error.message } }, 400);
+        throw new HTTPException(400, { message: error.message, cause: error });
       }
       throw error;
     }
@@ -780,7 +1769,7 @@ export function createTurnsRouter<TTransaction>(deps: TurnsRouterDeps<TTransacti
     let referencedAgent: AgentRecord | undefined;
     if (session.record.agent.type === 'reference') {
       const agentId = session.record.agent.id;
-      const agent = await deps.resolveAgentStore(c).getAgent({
+      const agent = await deps.resolveAgentStore(requestContext).getAgent({
         tenant_id: requestContext.tenant_id,
         id: agentId,
       });
@@ -798,22 +1787,20 @@ export function createTurnsRouter<TTransaction>(deps: TurnsRouterDeps<TTransacti
       referencedAgent = agent;
     }
 
+    // x-tfg-skills / x-tfg-mcp / x-tfg-models on turns only when the session agent is inline.
     const turnParams: BeginTurnExecutionParams<TTransaction> = {
       session,
       input: body.input,
       previous_turn_id: body.previous_turn_id,
       userRef: requestContext.subject.id,
       requestHeaders: c.req.header(),
-      deps: {
-        ...deps,
-        modelProviderStore: deps.resolveModelProviderStore(c, referencedAgent),
-        mcpServerStore: deps.resolveMcpServerStore(c, referencedAgent),
-        skillStore: deps.resolveSkillStore(c),
-        agentStore: deps.resolveAgentStore(c),
-        sandboxProviderStore: deps.resolveSandboxProviderStore(c),
-        sandboxEnvironmentStore: deps.sandboxEnvironmentStore,
-        webSearchProviderStore: deps.resolveWebSearchProviderStore(c),
-      },
+      deps: await executionDepsForCaller({
+        deps,
+        session,
+        requestContext,
+        requestHeaders: c.req.header(),
+        ...(referencedAgent !== undefined ? { runAsAgent: referencedAgent } : {}),
+      }),
     };
 
     try {
@@ -824,15 +1811,22 @@ export function createTurnsRouter<TTransaction>(deps: TurnsRouterDeps<TTransacti
       }
 
       // Stream: same engine; a hung SSE write is timed out so drain/dual-write continue.
-      const { drainInput } = await beginTurnExecution(turnParams);
+      const { drainInput, turn } = await beginTurnExecution(turnParams);
+      // Hono maps client disconnect to stream.abort() (body cancel / AbortSignal)
+      // outside request ALS, so capture ids here and pass them on the disconnect line.
+      const disconnectLogContext = {
+        ...currentLogContext(),
+        session_id: sessionId,
+        turn_id: turn.id,
+      };
       let shouldWriteToSSEStream = true;
       return streamSSE(c, async stream => {
         stream.onAbort(() => {
           shouldWriteToSSEStream = false;
-          deps.logger.info('Create-turn SSE client disconnected, continuing drain without writing', {
-            sessionId,
-            turnId: drainInput.turnId,
-          });
+          deps.logger.info(
+            'Create-turn SSE client disconnected, continuing drain without writing',
+            disconnectLogContext,
+          );
         });
         await drainTurnEvents({
           ...drainInput,
@@ -862,10 +1856,80 @@ export function createTurnsRouter<TTransaction>(deps: TurnsRouterDeps<TTransacti
     } catch (error) {
       const turnError = getTurnExecutionError(error);
       if (turnError) {
-        return c.json({ error: { message: turnError.message } }, turnError.status);
+        throw new HTTPException(turnError.status, { message: turnError.message, cause: error });
       }
       throw error;
     }
+  };
+
+  const postTurnEventsHandler: RouteHandler<typeof postTurnEventsRoute> = async c => {
+    const { session_id: sessionId, turn_id: turnId } = c.req.valid('param');
+    const body = c.req.valid('json');
+    const requestContext = deps.resolveRequestContext(c);
+    const session = await deps.sessions.get({
+      tenant_id: requestContext.tenant_id,
+      session_id: sessionId,
+    });
+    if (!session) {
+      return c.json({ error: { message: `Session not found: ${sessionId}` } }, 404);
+    }
+    if (
+      !isSessionOwner({
+        subject_id: requestContext.subject.id,
+        created_by_subject: session.record.created_by_subject,
+      })
+    ) {
+      return c.json({ error: { message: FORBIDDEN_SESSION_ACCESS } }, 403);
+    }
+    const turn = await session.getTurn(turnId);
+    if (!turn) {
+      return c.json({ error: { message: `Turn not found: ${turnId}` } }, 404);
+    }
+
+    const createdAt = new Date().toISOString();
+    const events: TurnUserEvent[] = body.events.map(payload => ({
+      ...payload,
+      id: newEventId(),
+      created_at: createdAt,
+    }));
+    const requestHeaders = c.req.header();
+
+    return deps.activeTurns.withTurnLock({ sessionId, turnId }, async () => {
+      const runAsAgent = await referencedRunAsAgent({
+        session,
+        agentStore: deps.resolveAgentStore(requestContext),
+      });
+      const executionDeps = await executionDepsForCaller({
+        deps,
+        session,
+        requestContext,
+        requestHeaders,
+        ...(runAsAgent !== undefined ? { runAsAgent } : {}),
+      });
+      const result = await sendTurnEventsWithRetries({
+        session,
+        sessionStore: deps.sessionStore,
+        turnId,
+        events,
+        requestContext,
+        requestHeaders,
+        deps: executionDeps,
+      });
+      switch (result.type) {
+        case 'applied':
+          return c.json({ data: result.events }, 201);
+        case 'invalid':
+          return c.json({ error: { message: `Failed to apply events: ${result.message}` } }, 400);
+        case 'conflict':
+          return c.json({ error: { message: `Failed to apply events: ${result.message}` } }, 409);
+        case 'failed':
+          return c.json({ error: { message: `Failed to apply events: ${result.message}` } }, 500);
+        default: {
+          const _exhaustive: never = result;
+          throw new Error(`Unreachable send result: ${JSON.stringify(_exhaustive)}`);
+        }
+      }
+    });
   };
 
   const subscribeTurnHandler: RouteHandler<typeof subscribeTurnRoute> = async c => {
@@ -882,7 +1946,7 @@ export function createTurnsRouter<TTransaction>(deps: TurnsRouterDeps<TTransacti
       return c.json({ error: { message: `Session not found: ${sessionId}` } }, 404);
     }
     const allowed = await canReadAgentBoundResource({
-      store: deps.resolveAgentStore(c),
+      store: deps.resolveAgentStore(requestContext),
       context: requestContext,
       authorizer: deps.authorizer,
       agent_id: session.record.agent.type === 'reference' ? session.record.agent.id : undefined,
@@ -915,8 +1979,6 @@ export function createTurnsRouter<TTransaction>(deps: TurnsRouterDeps<TTransacti
     const timeoutMs = configuration.TURN_SUBSCRIBE_TIMEOUT_MS;
     const timeoutHandler = setTimeout(() => {
       deps.logger.info('Subscribe turn stream server-side timeout reached, closing stream', {
-        sessionId,
-        turnId,
         afterSequenceNumber,
         timeoutMs,
       });
@@ -951,63 +2013,6 @@ export function createTurnsRouter<TTransaction>(deps: TurnsRouterDeps<TTransacti
     });
   };
 
-  const postTurnEventsHandler: RouteHandler<typeof postTurnEventsRoute> = async c => {
-    const { session_id: sessionId, turn_id: turnId } = c.req.valid('param');
-    const body = c.req.valid('json');
-    const requestContext = deps.resolveRequestContext(c);
-    const session = await deps.sessions.get({
-      tenant_id: requestContext.tenant_id,
-      session_id: sessionId,
-    });
-    if (!session) {
-      return c.json({ error: { message: `Session not found: ${sessionId}` } }, 404);
-    }
-    if (
-      !isSessionOwner({
-        subject_id: requestContext.subject.id,
-        created_by_subject: session.record.created_by_subject,
-      })
-    ) {
-      return c.json({ error: { message: FORBIDDEN_SESSION_ACCESS } }, 403);
-    }
-    const turn = await session.getTurn(turnId);
-    if (!turn) {
-      return c.json({ error: { message: `Turn not found: ${turnId}` } }, 404);
-    }
-
-    return deps.activeTurns.withTurnLock({ sessionId, turnId }, async () => {
-      const turnHandle = deps.activeTurns.getTurnHandle({ sessionId, turnId });
-      if (!turnHandle) {
-        return c.json({ error: { message: `Turn is not running on this server: ${turnId}` } }, 409);
-      }
-
-      const createdAt = new Date().toISOString();
-      const events: TurnUserEvent[] = body.events.map(payload => ({
-        ...payload,
-        id: newEventId(),
-        created_at: createdAt,
-      }));
-
-      try {
-        // Insert each accepted batch before resuming send(), which enqueues it and wakes execution.
-        for await (const batch of turnHandle.send(events)) {
-          await deps.sessionStore.insertTurnInboundEvents({
-            session_id: sessionId,
-            turn_id: turnId,
-            events: batch,
-          });
-        }
-      } catch (error) {
-        if (error instanceof AgentHarnessError && error.code === 'invalid_send_input') {
-          return c.json({ error: { message: error.message } }, 400);
-        }
-        throw error;
-      }
-
-      return c.json({ data: events }, 201);
-    });
-  };
-
   const router = new OpenAPIHono();
   router.openapi(createAndExecuteTurnRoute, createAndExecuteTurnHandler);
   router.openapi(listTurnsRoute, listTurnsHandler);
@@ -1016,5 +2021,6 @@ export function createTurnsRouter<TTransaction>(deps: TurnsRouterDeps<TTransacti
   router.openapi(listTurnEventsRoute, listTurnEventsHandler);
   router.openapi(postTurnEventsRoute, postTurnEventsHandler);
   router.openapi(subscribeTurnRoute, subscribeTurnHandler);
+  deps.requestReplyRouter.registerRoute(TURNS_SEND_EVENTS_PATH, handlePeerTurnEvents(deps));
   return router;
 }

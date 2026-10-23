@@ -98,10 +98,11 @@ A literal string still works for throwaway clusters (`apiKey: "…"`), but prefe
 ## Extra environment
 
 `env` is a map of variable name to value, applied to both the server and the
-controller. Values are scalars or `valueFrom` references. A key that matches
-something the chart already sets **replaces** it rather than adding a second
-entry, so it doubles as the override for computed values like `POSTGRES_HOST`
-or `PUBLIC_BASE_URL`.
+controller. Values are scalars, `valueFrom` references, or `${k8s-secret/...}`
+reference strings. A key that matches something the chart already sets
+**replaces** it rather than adding a second entry, so it doubles as the override
+for computed values like `POSTGRES_HOST` or `PUBLIC_BASE_URL`. Setting a key to
+`null` drops the override and hands the variable back to the chart.
 
 This is the extension point for running against a hosting platform. The chart
 does not model any particular platform; those settings live in the caller's
@@ -116,6 +117,20 @@ env:
     valueFrom:
       secretKeyRef: { name: platform-creds, key: api-key }
 ```
+
+A parent chart that wants its own users to be able to redirect a key at a
+different Secret must declare the default as a scalar, because Helm refuses to
+replace a map with a scalar. Write such defaults as `${k8s-secret/<secret>/<key>}`
+strings instead of `valueFrom` maps. The key must not contain `/`.
+
+```yaml
+env:
+  REDIS_SENTINEL_PASSWORD: "${k8s-secret/redis-passwords/application_password}"
+```
+
+The string renders a `secretKeyRef` with `optional: true`, so a missing key
+leaves the variable unset rather than blocking the pod. The same strings are
+accepted by every field listed under [Using Secrets](#using-secrets).
 
 When the platform also needs files (an outbound mTLS client certificate, say),
 mount them with `extraVolumes` / `extraVolumeMounts`, which apply to both
@@ -216,7 +231,8 @@ The server always runs peered (`STANDALONE=false`), so Redis is always required.
 Bundled by default (`redis.enabled=true`, **auth disabled** — fine only when
 Redis stays unreachable outside the cluster trust boundary). To use an
 **external** Redis, set `redis.enabled=false`, `externalRedis.enabled=true`, and exactly one
-of `externalRedis.url`, `externalRedis.host`, or Sentinel. Fields accept a string or
+of `externalRedis.url`, `externalRedis.host`, or Sentinel. `env.REDIS_HOST` or
+`env.REDIS_SENTINEL_NODES` can supply the transport when those are empty. Fields accept a string or
 `valueFrom.secretKeyRef`. url, host, and sentinel are mutually exclusive:
 
 ```yaml
@@ -313,9 +329,10 @@ OUTBOUND_URL_BLOCKED_HOSTS=["evil.example.com"]
 
 Prefer Kubernetes Secrets over literals in values files for production. This
 chart does **not** create Secrets for chart-owned fields — supply
-`valueFrom.secretKeyRef` (or create Secrets yourself and point at them).
+`valueFrom.secretKeyRef` or a `${k8s-secret/<secret>/<key>}` string (or create
+Secrets yourself and point at them). The key must not contain `/`.
 
-Fields that accept string | `valueFrom.secretKeyRef`:
+Fields that accept string | `valueFrom.secretKeyRef` | `${k8s-secret/...}`:
 `externalPostgres.host`, `externalPostgres.port`, `externalPostgres.database`,
 `externalPostgres.user`, `externalPostgres.password`, `externalRedis.url` / `host` / `auth`,
 `externalRedis.tls` (`caCert`, `cert`, `key`, `keyPassphrase`, `serverName`),
@@ -377,6 +394,7 @@ extraObjects:
 | `redis.nameOverride`  | `trueforge-redis`                   | Bitnami name prefix for bundled Redis objects. |
 | `service.type`        | `ClusterIP`                         | Service type.                         |
 | `service.port`        | `8790`                              | Service port.                         |
+| `serviceMonitor.enabled` | `false`                          | Prometheus Operator ServiceMonitor for `GET /metrics`. Set `labels` so the operator's Prometheus selects the monitor. `mtls.enabled` scrapes `https` and skips certificate verification. |
 | `server.port`         | `8790`                              | Container port (`PORT`).              |
 | `autoscaling.enabled` | `false`                             | Enable a HorizontalPodAutoscaler.     |
 | `podDisruptionBudget.enabled` | `true`                        | Server PodDisruptionBudget (`minAvailable` defaults to `1`); rendered only when the server runs more than one replica. |

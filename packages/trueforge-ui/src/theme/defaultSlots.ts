@@ -29,6 +29,7 @@ import type {
   AgentSessionEventTimelineProps,
   AgentSessionsProps,
 } from '../atoms/agent-details/types.js';
+import { AgentLibraryUsageCells } from '../atoms/AgentLibraryUsage.js';
 import { AgentLibraryRow, AgentsLibrary } from '../atoms/AgentsLibrary.js';
 import { AgentsLibraryButton } from '../atoms/AgentsLibraryButton.js';
 import { ApprovalNavBanner } from '../atoms/ApprovalNavBanner.js';
@@ -55,6 +56,7 @@ import { AgentRuntimeConfigDrawer } from '../atoms/draft/AgentRuntimeConfigDrawe
 import { AgentRuntimeConfigFields } from '../atoms/draft/AgentRuntimeConfigFields.js';
 import { AgentRuntimeEditorContent } from '../atoms/draft/AgentRuntimeEditorContent.js';
 import { AgentSkillsEditorContent } from '../atoms/draft/AgentSkillsEditorContent.js';
+import { AgentSkillsHeaderActionSlot } from '../atoms/draft/AgentSkillsHeaderActionSlot.js';
 import { DraftAgentConfigTrigger } from '../atoms/draft/DraftAgentConfigTrigger.js';
 import { DraftCapabilitiesPanel } from '../atoms/draft/DraftCapabilitiesPanel.js';
 import { DraftComposerActionsMenu } from '../atoms/draft/DraftComposerActionsMenu.js';
@@ -67,12 +69,14 @@ import { FilePreviewPanel } from '../atoms/FilePreviewPanel.js';
 import { HistoryLoader } from '../atoms/HistoryLoader.js';
 import { Markdown } from '../atoms/Markdown.js';
 import { MessageActionBar } from '../atoms/MessageActionBar.js';
+import { MessageCancelledBanner } from '../atoms/MessageCancelledBanner.js';
 import { MessageErrorBanner } from '../atoms/MessageErrorBanner.js';
 import { MessageIndicator } from '../atoms/MessageIndicator.js';
 import { MessageTimestamp } from '../atoms/MessageTimestamp.js';
 import { MonacoEditorCore } from '../atoms/MonacoEditorCore.js';
 import { OpenUiFenceBlock } from '../atoms/OpenUiFenceBlock.js';
 import { PermissionGuard } from '../atoms/PermissionGuard.js';
+import { ResetAgentBuilderButton } from '../atoms/ResetAgentBuilderButton.js';
 import { SandboxArtifactDownload } from '../atoms/SandboxArtifactDownload.js';
 import { SandboxToolCallCard } from '../atoms/SandboxToolCallCard.js';
 import { SaveAgentButton } from '../atoms/SaveAgentButton.js';
@@ -174,6 +178,7 @@ export const defaultSlots = {
   AgentResourceEditorContent,
   AgentResourceConfigModal,
   AgentSkillsEditorContent,
+  AgentSkillsHeaderActionSlot,
   AgentConfigPanel,
   AgentConfigSection,
   AgentRuntimeConfigFields,
@@ -188,6 +193,7 @@ export const defaultSlots = {
   UserMessageEdit,
   UserMessageActionBar,
   MessageActionBar,
+  MessageCancelledBanner,
   MessageErrorBanner,
   MessageIndicator,
   MessageTimestamp,
@@ -218,6 +224,7 @@ export const defaultSlots = {
   ThreadListNewButton,
   AgentsLibrary,
   AgentLibraryRow,
+  AgentLibraryUsageCells,
   AgentsLibraryButton,
   ApprovalNavBanner,
   SessionsBrowserButton,
@@ -253,6 +260,7 @@ export const defaultSlots = {
   SaveAgentForm,
   SelectAgentEmptyState,
   ClearChatButton,
+  ResetAgentBuilderButton,
   ShareChatButton,
   ShareSessionDialog,
   ThreadListRowSkeleton,

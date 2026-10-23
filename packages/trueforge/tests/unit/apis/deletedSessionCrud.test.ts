@@ -29,7 +29,7 @@ describe('public CRUD after session deletion', () => {
     await migrateSqliteToLatest(db);
     const sessionStore = new SqliteSessionStore(db);
     const sessions = new Sessions({ sessionStore });
-    const activeTurns = new ActiveTurnRegistry();
+    const activeTurns = new ActiveTurnRegistry({ logger: createLogger({ silent: true }) });
     const modelProviderStore = new SqliteModelProviderStore(db);
     const tokenStore = new SqliteOAuthTokenStore(db);
     const mcpServerStore = new McpServerWithAuthStore({
@@ -47,40 +47,46 @@ describe('public CRUD after session deletion', () => {
     app.route(
       '/',
       createSessionsRouter({
-        sessions,
-        sessionStore,
         activeTurns,
-        resolveModelProviderStore: () => modelProviderStore,
-        resolveMcpServerStore: () => mcpServerStore,
-        resolveSkillStore: () => skillStore,
-        resolveAgentStore: () => agentStore,
-        resolveSandboxProviderStore: () => sandboxProviderStore,
-        sandboxEnvironmentStore,
-        resolveWebSearchProviderStore: () => webSearchProviderStore,
+        authorizer: new TrueForgeAuthorizer(),
+        logger: createLogger({ silent: true }),
         redis: createClient(),
         requestReplyRouter: new RequestReplyRouter(),
+        resolveAgentStore: () => agentStore,
+        resolveMcpServerStore: () => mcpServerStore,
+        resolveModelProviderStore: () => modelProviderStore,
         resolveRequestContext: () => STANDALONE_REQUEST_CONTEXT,
-        logger: createLogger({ silent: true }),
-        authorizer: new TrueForgeAuthorizer(),
+        resolveSkillStore: () => skillStore,
+        sandboxEnvironmentStore,
+        sandboxProviderStore,
+        sessions,
+        sessionStore,
+        webSearchProviderStore,
       }),
     );
     app.route(
       '/',
       createTurnsRouter({
+        activeTurns,
+        authorizer: new TrueForgeAuthorizer(),
+        eventSubscriptions: new EventSubscriptionRegistry(undefined),
+        logger: createLogger({ silent: true }),
+        requestReplyRouter: new RequestReplyRouter(),
+        resolveAgentStore: () => agentStore,
+        resolveRequestContext: () => STANDALONE_REQUEST_CONTEXT,
+        resolveTurnExecutionStores: () =>
+          Promise.resolve({
+            agentStore,
+            modelProviderStore,
+            mcpServerStore,
+            skillStore,
+            sandboxProviderStore,
+            webSearchProviderStore,
+          }),
+        sandboxEnvironmentStore,
+        sandboxProviderStore,
         sessions,
         sessionStore,
-        activeTurns,
-        resolveModelProviderStore: () => modelProviderStore,
-        resolveMcpServerStore: () => mcpServerStore,
-        resolveSkillStore: () => skillStore,
-        resolveAgentStore: () => agentStore,
-        eventSubscriptions: new EventSubscriptionRegistry(undefined),
-        resolveSandboxProviderStore: () => sandboxProviderStore,
-        sandboxEnvironmentStore,
-        resolveWebSearchProviderStore: () => webSearchProviderStore,
-        logger: createLogger({ silent: true }),
-        resolveRequestContext: () => STANDALONE_REQUEST_CONTEXT,
-        authorizer: new TrueForgeAuthorizer(),
       }),
     );
 

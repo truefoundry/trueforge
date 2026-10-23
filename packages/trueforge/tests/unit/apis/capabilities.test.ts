@@ -85,7 +85,7 @@ describe('capabilities routers', () => {
     return withAuth(
       createCapabilitiesRouter({
         sandboxEnvironmentStore: mockDefaultEnvStore(),
-        resolveWebSearchProviderStore: () => webSearchStore ?? emptyWebSearchStore,
+        webSearchProviderStore: webSearchStore ?? emptyWebSearchStore,
         withTransaction: (() => {
           const run = <T>(callback: (trx: never) => Promise<T>): Promise<T> =>
             db.transaction().execute(callback as never);
@@ -298,7 +298,7 @@ describe('capabilities routers', () => {
       const router = withAuth(
         createCapabilitiesRouter({
           sandboxEnvironmentStore: mockDefaultEnvStore(),
-          resolveWebSearchProviderStore: () => emptyWebSearchStore,
+          webSearchProviderStore: emptyWebSearchStore,
           withTransaction: (() => {
             const run = <T>(callback: (trx: never) => Promise<T>): Promise<T> =>
               db.transaction().execute(callback as never);

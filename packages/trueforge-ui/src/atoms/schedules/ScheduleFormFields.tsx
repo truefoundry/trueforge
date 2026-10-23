@@ -10,6 +10,7 @@ import {
   WEEKDAY_OPTIONS,
   formatCadenceSummary,
   getTimezoneOptions,
+  hasFiveCronFields,
   valuesToCron,
   type RecurrenceKind,
   type ScheduleFormValues,
@@ -19,6 +20,7 @@ export const RECURRENCE_OPTIONS: Array<{ value: RecurrenceKind; label: string }>
   { value: 'hourly', label: 'Hourly' },
   { value: 'daily', label: 'Daily' },
   { value: 'weekly', label: 'Weekly' },
+  { value: 'custom', label: 'Custom' },
 ];
 
 const HOUR_OPTIONS = Array.from({ length: 24 }, (_, hour) => ({
@@ -57,6 +59,12 @@ export function ScheduleFormFields({
 
   const set = <K extends keyof ScheduleFormValues>(key: K, value: ScheduleFormValues[K]) => {
     onChange({ ...values, [key]: value });
+  };
+
+  const selectRecurrence = (recurrence: RecurrenceKind) => {
+    // Seed the custom input from the current selection so it is a starting point, not a blank box.
+    const customCron = recurrence === 'custom' && values.recurrence !== 'custom' ? cron : values.customCron;
+    onChange({ ...values, recurrence, customCron });
   };
 
   const toggleWeekday = (day: number) => {
@@ -108,7 +116,7 @@ export function ScheduleFormFields({
         <legend className="mb-1.5 text-sm font-medium">Frequency</legend>
         <div className="rounded-t-lg border border-border p-4">
           <div className="flex flex-col gap-4">
-            <div className="grid grid-cols-3 gap-1 rounded-lg border border-border bg-primary-bg p-1">
+            <div className="grid grid-cols-4 gap-1 rounded-lg border border-border bg-primary-bg p-1">
               {RECURRENCE_OPTIONS.map(opt => {
                 const selected = values.recurrence === opt.value;
                 return (
@@ -122,7 +130,7 @@ export function ScheduleFormFields({
                         : 'border-transparent text-text-secondary hover:bg-ghost-button-hover',
                     )}
                     aria-pressed={selected}
-                    onClick={() => set('recurrence', opt.value)}
+                    onClick={() => selectRecurrence(opt.value)}
                   >
                     {opt.label}
                   </button>
@@ -131,12 +139,23 @@ export function ScheduleFormFields({
             </div>
 
             {values.recurrence === 'custom' ? (
-              <div className="rounded-md border border-border bg-secondary-bg/40 px-3 py-2">
-                <span className="block text-xs text-text-secondary">Existing custom schedule</span>
-                <code className="mt-1 block font-mono text-sm text-text-primary">{values.customCron}</code>
+              <div className="block">
+                <span className="mb-1.5 block text-sm font-medium">Cron expression</span>
+                <input
+                  aria-label="Cron expression"
+                  value={values.customCron}
+                  onChange={e => set('customCron', e.target.value)}
+                  placeholder="0 */4 * * *"
+                  spellCheck={false}
+                  aria-invalid={!hasFiveCronFields(values.customCron)}
+                  className={cn(auiInputClass('h-8'), 'font-mono')}
+                />
                 <span className="mt-1 block text-xs text-text-secondary">
-                  Select Hourly, Daily, or Weekly to replace this schedule.
+                  minute hour day-of-month month day-of-week. Runs must be at least 1 hour apart.
                 </span>
+                {!hasFiveCronFields(values.customCron) ? (
+                  <span className="mt-1 block text-xs text-failure-bg">Enter exactly 5 space-separated fields.</span>
+                ) : null}
               </div>
             ) : null}
 

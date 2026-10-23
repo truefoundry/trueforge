@@ -2,7 +2,13 @@
  * DB-backed sessions APIs (mounted at /api/v1/sessions and /api/internal/sessions).
  */
 import { OpenAPIHono, type RouteHandler } from '@hono/zod-openapi';
-import type { ISessionStore, SessionHandle, SessionRecord, Sessions } from '@truefoundry/trueforge-core/agent-session';
+import type {
+  AgentSpec,
+  ISessionStore,
+  SessionHandle,
+  SessionRecord,
+  Sessions,
+} from '@truefoundry/trueforge-core/agent-session';
 import {
   CancellationReason,
   isNonTerminalTurnState,
@@ -20,17 +26,20 @@ import {
   type RequestReplyRouter,
 } from '@truefoundry/trueforge-core/request-reply';
 import type { Context } from 'hono';
+import { HTTPException } from 'hono/http-exception';
 import type { Logger } from 'winston';
 import { z } from 'zod';
 import type { Authorizer } from '../auth/authorizer';
-import { createdBySubjectFromRequestContext, type ResolveRequestContext } from '../auth/identity';
+import { createdBySubjectFromRequestContext, type RequestContext, type ResolveRequestContext } from '../auth/identity';
 import configuration from '../config';
 import type { IAgentStore } from '../db/agentStore';
 import type { IMcpServerStore } from '../db/mcpServerStore';
 import type { IModelProviderStore } from '../db/modelProviderStore';
 import type { ISandboxEnvironmentStore } from '../db/sandboxEnvironmentStore';
 import type { ISandboxProviderStore } from '../db/sandboxProviderStore';
+import type { ISkillStore } from '../db/skillStore';
 import type { IWebSearchProviderStore } from '../db/webSearchProviderStore';
+import { updateLogContext } from '../logger';
 import {
   cancelSessionRoute,
   createSessionRoute,
@@ -47,7 +56,6 @@ import { honoQueriesToRecord } from '../schemas/deepObjectQuery';
 import { isSessionAgentNameRef, parseListSessionsQuery, type Session } from '../schemas/session';
 import { newId } from '../utils/id';
 import { agentIfAccessible, canReadAgentBoundResource, canReadSession, resolveManagedAgentIds } from './agentAccess';
-import type { ResolveSkillStore } from './skills';
 
 /** Request-reply path a replica serves to cancel a turn it owns. */
 export const SESSIONS_CANCEL_PATH = 'sessions/cancel';
@@ -72,56 +80,58 @@ export function toWireSession(record: SessionRecord): Session {
     metrics: record.metrics,
     metadata: record.metadata,
     source: record.source,
+    last_turn_details: record.last_turn_details,
   };
 }
 
 export interface SessionsRouterDeps<TTransaction = never> {
+  activeTurns: ActiveTurnRegistry<TTransaction>;
+  authorizer: Authorizer;
+  logger: Logger;
+  /**
+   * Publishes to another executor:
+   *  - Creating the next turn -> redis request `sessions/cancel`
+   * when the previous run is not in this process.
+   * Unset in standalone.
+   */
+  redis?: RedisClient | undefined;
+  /**
+   * Used to register routes
+   * - `sessions/cancel` -> {@link cancelSessionTurnPeerHandler}
+   */
+  requestReplyRouter: RequestReplyRouter;
+  resolveAgentStore: (c: Context) => IAgentStore;
+  resolveMcpServerStore: (input: { c: Context; allowInlineResources?: boolean }) => IMcpServerStore;
+  resolveModelProviderStore: (input: { c: Context; allowInlineResources?: boolean }) => IModelProviderStore;
+  resolveRequestContext: ResolveRequestContext;
+  resolveSkillStore: (input: { c: Context; allowInlineResources?: boolean }) => ISkillStore;
+  sandboxEnvironmentStore: ISandboxEnvironmentStore;
+  sandboxProviderStore: ISandboxProviderStore;
   sessions: Sessions<Record<string, never>, Record<string, never>, TTransaction>;
   sessionStore: ISessionStore<Record<string, never>, Record<string, never>, TTransaction>;
-  activeTurns: ActiveTurnRegistry<TTransaction>;
-  resolveModelProviderStore: (c: Context) => IModelProviderStore;
-  resolveMcpServerStore: (c: Context) => IMcpServerStore;
-  resolveSkillStore: ResolveSkillStore;
-  resolveAgentStore: (c: Context) => IAgentStore;
-  resolveSandboxProviderStore: (c: Context) => ISandboxProviderStore;
-  sandboxEnvironmentStore: ISandboxEnvironmentStore;
-  redis?: RedisClient | undefined;
-  resolveWebSearchProviderStore: (c: Context) => IWebSearchProviderStore;
-  requestReplyRouter: RequestReplyRouter;
-  resolveRequestContext: ResolveRequestContext;
-  logger: Logger;
-  authorizer: Authorizer;
-}
-
-function cancelTurnOnThisExecutor<TTransaction>(
-  activeTurns: ActiveTurnRegistry<TTransaction>,
-  input: { sessionId: string; turnId: string; reason: CancellationReason },
-): boolean {
-  return activeTurns.cancelIfRunning({
-    sessionId: input.sessionId,
-    turnId: input.turnId,
-    abortReason: input.reason,
-  });
+  webSearchProviderStore: IWebSearchProviderStore;
 }
 
 /**
- * Peer-facing cancel handler: aborts the turn if it runs in this process.
- * 200 = abort fired, 412 = not running here (treated by callers as a no-op).
+ * Peer-facing cancel handler. 200 means this process found the run and signaled abort.
+ * The drain writes `turn.done` afterward. 412 means it is not running here.
  */
 export function cancelSessionTurnPeerHandler<TTransaction>(
   activeTurns: ActiveTurnRegistry<TTransaction>,
 ): RequestReplyRouteHandler {
-  // Synchronous by nature; the transport expects a Promise and require-await
-  // forbids an async fn without awaits.
   return request => {
     const parsed = CancelPeerBodySchema.safeParse(request.body);
     if (!parsed.success) {
       return Promise.resolve({ status: 400, body: { message: 'Invalid sessions/cancel payload' } });
     }
-    const found = cancelTurnOnThisExecutor(activeTurns, {
+    // Note that we do not wait for the abort to complete.
+    // This means a turn.done can arrive delayed till any in progress step is completed
+    // if they do not honor the abort signal.
+    // This is intentional.
+    const found = activeTurns.cancelIfRunning({
       sessionId: parsed.data.session_id,
       turnId: parsed.data.turn_id,
-      reason: parsed.data.reason,
+      abortReason: parsed.data.reason,
     });
     if (!found) {
       return Promise.resolve({ status: 412, body: { message: 'Turn is not running on this executor' } });
@@ -144,9 +154,9 @@ export interface CancelTurnDeps<TTransaction = never> {
  * owning peer over Redis request-reply. Callers state the motive; default is a
  * plain client cancel.
  *
- * A confirmed abort (this process, or peer HTTP 200) lets TurnHandle persist
- * the terminal state. If abort cannot be confirmed, this replica freezes the
- * turn in the store so the session is not stuck `running` or `paused`.
+ * A found run (this process, or peer HTTP 200) is aborted and not frozen. The drain
+ * writes the terminal state afterward. A stuck call can leave the row non-terminal.
+ * If the run was not found, this replica freezes the turn in the store.
  *
  * Redis timeout and Redis/transport failures are not a clean cancellation —
  * the owning replica may still be executing — but the turn is still frozen.
@@ -158,6 +168,8 @@ export async function cancelSessionTurn<TTransaction>(
 ): Promise<void> {
   const { turnId, reason = CancellationReason.ClientCancelled } = input;
   const sessionId = deps.session.session_id;
+  // Cancel is POST /sessions/{session_id}/cancel — path middleware has session_id only.
+  updateLogContext({ turn_id: turnId });
 
   const turn = await deps.sessionStore.getTurn({
     session_id: sessionId,
@@ -189,8 +201,8 @@ export async function cancelSessionTurn<TTransaction>(
       }
     } catch (error) {
       const fields = {
-        sessionId,
-        turnId,
+        session_id: sessionId,
+        turn_id: turnId,
         owner,
         ...extractErrorLogFields(error),
       };
@@ -204,7 +216,11 @@ export async function cancelSessionTurn<TTransaction>(
     return;
   }
 
-  const aborted = cancelTurnOnThisExecutor(deps.activeTurns, { sessionId, turnId, reason });
+  const aborted = deps.activeTurns.cancelIfRunning({
+    sessionId,
+    turnId,
+    abortReason: reason,
+  });
   if (!aborted) {
     await freezeTurnIgnoringMissing(deps.session, { turnId, reason });
   }
@@ -237,18 +253,48 @@ function isSessionOwner({
   return subject_id === created_by_subject.subject_id;
 }
 
+/**
+ * Inline create and spec replace check model, MCP, and skill names against `x-tfg-*` when those
+ * headers are present. The headers are not written onto the session.
+ */
+function validateInlineSessionSpec<TTransaction>(
+  deps: Pick<
+    SessionsRouterDeps<TTransaction>,
+    | 'resolveMcpServerStore'
+    | 'resolveModelProviderStore'
+    | 'resolveSkillStore'
+    | 'sandboxEnvironmentStore'
+    | 'sandboxProviderStore'
+    | 'webSearchProviderStore'
+  >,
+  input: { c: Context; spec: AgentSpec; requestContext: RequestContext },
+): Promise<void> {
+  const { c, spec, requestContext } = input;
+  return validateAgentSpec({
+    spec,
+    tenant_id: requestContext.tenant_id,
+    created_by_subject_id: requestContext.subject.id,
+    modelProviderStore: deps.resolveModelProviderStore({ c, allowInlineResources: true }),
+    mcpServerStore: deps.resolveMcpServerStore({ c, allowInlineResources: true }),
+    skillStore: deps.resolveSkillStore({ c, allowInlineResources: true }),
+    sandboxProviderStore: deps.sandboxProviderStore,
+    sandboxEnvironmentStore: deps.sandboxEnvironmentStore,
+    webSearchProviderStore: deps.webSearchProviderStore,
+  });
+}
+
 type InternalSessionsRouterDeps<TTransaction> = Pick<
   SessionsRouterDeps<TTransaction>,
-  | 'sessions'
-  | 'resolveModelProviderStore'
-  | 'resolveMcpServerStore'
-  | 'resolveSkillStore'
-  | 'resolveAgentStore'
-  | 'resolveSandboxProviderStore'
-  | 'sandboxEnvironmentStore'
-  | 'resolveWebSearchProviderStore'
-  | 'resolveRequestContext'
   | 'authorizer'
+  | 'resolveAgentStore'
+  | 'resolveMcpServerStore'
+  | 'resolveModelProviderStore'
+  | 'resolveRequestContext'
+  | 'resolveSkillStore'
+  | 'sandboxEnvironmentStore'
+  | 'sandboxProviderStore'
+  | 'sessions'
+  | 'webSearchProviderStore'
 >;
 
 function createGetOrCreateSessionByExternalIdHandler<TTransaction>(
@@ -292,16 +338,10 @@ function createGetOrCreateSessionByExternalIdHandler<TTransaction>(
       }
       agent = { type: 'reference', id: named.id, name: named.name };
     } else {
-      await validateAgentSpec({
+      await validateInlineSessionSpec(deps, {
+        c,
         spec: body.agent.spec,
-        tenant_id: requestContext.tenant_id,
-        created_by_subject_id: requestContext.subject.id,
-        modelProviderStore: deps.resolveModelProviderStore(c),
-        mcpServerStore: deps.resolveMcpServerStore(c),
-        skillStore: deps.resolveSkillStore(c),
-        sandboxProviderStore: deps.resolveSandboxProviderStore(c),
-        sandboxEnvironmentStore: deps.sandboxEnvironmentStore,
-        webSearchProviderStore: deps.resolveWebSearchProviderStore(c),
+        requestContext,
       });
       agent = { type: 'inline', spec: body.agent.spec };
     }
@@ -341,6 +381,7 @@ export function createSessionsRouter<TTransaction>(deps: SessionsRouterDeps<TTra
   const createSessionHandler: RouteHandler<typeof createSessionRoute> = async c => {
     const body = c.req.valid('json');
     const sessionId = newId();
+    updateLogContext({ session_id: sessionId });
     const requestContext = deps.resolveRequestContext(c);
 
     if (isSessionAgentNameRef(body.agent)) {
@@ -367,16 +408,10 @@ export function createSessionsRouter<TTransaction>(deps: SessionsRouterDeps<TTra
       return c.json({ data: toWireSession(session.record) }, 201);
     }
 
-    await validateAgentSpec({
+    await validateInlineSessionSpec(deps, {
+      c,
       spec: body.agent.spec,
-      tenant_id: requestContext.tenant_id,
-      created_by_subject_id: requestContext.subject.id,
-      modelProviderStore: deps.resolveModelProviderStore(c),
-      mcpServerStore: deps.resolveMcpServerStore(c),
-      skillStore: deps.resolveSkillStore(c),
-      sandboxProviderStore: deps.resolveSandboxProviderStore(c),
-      sandboxEnvironmentStore: deps.sandboxEnvironmentStore,
-      webSearchProviderStore: deps.resolveWebSearchProviderStore(c),
+      requestContext,
     });
     const session = await deps.sessions.create({
       tenant_id: requestContext.tenant_id,
@@ -461,17 +496,25 @@ export function createSessionsRouter<TTransaction>(deps: SessionsRouterDeps<TTra
     // Inline sessions may replace their agent; named (reference) sessions
     // cannot — the store rejects that with SessionStoreInvariantError → 422 below.
     if (body.agent !== undefined) {
-      await validateAgentSpec({
-        spec: body.agent.spec,
-        tenant_id: requestContext.tenant_id,
-        created_by_subject_id: requestContext.subject.id,
-        modelProviderStore: deps.resolveModelProviderStore(c),
-        mcpServerStore: deps.resolveMcpServerStore(c),
-        skillStore: deps.resolveSkillStore(c),
-        sandboxProviderStore: deps.resolveSandboxProviderStore(c),
-        sandboxEnvironmentStore: deps.sandboxEnvironmentStore,
-        webSearchProviderStore: deps.resolveWebSearchProviderStore(c),
-      });
+      if (existing.agent.type === 'inline') {
+        await validateInlineSessionSpec(deps, {
+          c,
+          spec: body.agent.spec,
+          requestContext,
+        });
+      } else {
+        await validateAgentSpec({
+          spec: body.agent.spec,
+          tenant_id: requestContext.tenant_id,
+          created_by_subject_id: requestContext.subject.id,
+          modelProviderStore: deps.resolveModelProviderStore({ c }),
+          mcpServerStore: deps.resolveMcpServerStore({ c }),
+          skillStore: deps.resolveSkillStore({ c }),
+          sandboxProviderStore: deps.sandboxProviderStore,
+          sandboxEnvironmentStore: deps.sandboxEnvironmentStore,
+          webSearchProviderStore: deps.webSearchProviderStore,
+        });
+      }
     }
     try {
       await deps.sessionStore.updateSession({
@@ -487,7 +530,7 @@ export function createSessionsRouter<TTransaction>(deps: SessionsRouterDeps<TTra
         return c.json({ error: { message: `Session not found: ${sessionId}` } }, 404);
       }
       if (error instanceof SessionStoreInvariantError) {
-        return c.json({ error: { message: error.message } }, 422);
+        throw new HTTPException(422, { message: error.message, cause: error });
       }
       throw error;
     }
@@ -531,7 +574,7 @@ export function createSessionsRouter<TTransaction>(deps: SessionsRouterDeps<TTra
       return c.json({ data: data.map(toWireSession), pagination }, 200);
     } catch (error) {
       if (error instanceof SessionStoreConflictError) {
-        return c.json({ error: { message: error.message } }, 400);
+        throw new HTTPException(400, { message: error.message, cause: error });
       }
       throw error;
     }
@@ -595,7 +638,7 @@ export function createSessionsRouter<TTransaction>(deps: SessionsRouterDeps<TTra
       return c.json({ data, pagination }, 200);
     } catch (error) {
       if (error instanceof SessionStoreConflictError) {
-        return c.json({ error: { message: error.message } }, 400);
+        throw new HTTPException(400, { message: error.message, cause: error });
       }
       if (error instanceof SessionStoreNotFoundError) {
         return c.json({ error: { message: error.message } }, 404);

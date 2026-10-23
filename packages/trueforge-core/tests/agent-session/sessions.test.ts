@@ -3,7 +3,6 @@ import { CancellationReason } from '../../src/agent-session/schemas/turn';
 import { Sessions } from '../../src/agent-session/Sessions';
 import { InMemorySessionStore } from '../../src/agent-session/store/InMemorySessionStore';
 import { TurnNotFoundError } from '../../src/agent-session/store/SessionStoreErrors';
-import { TurnHandle } from '../../src/agent-session/TurnHandle';
 import { makeAgentSpec, makeTestResolver, mintTestTurnId, TEST_ACTIVE_EXECUTOR_ID } from './testHelpers';
 
 describe('Sessions / SessionHandle / TurnHandle (storage + createTurn)', () => {
@@ -178,22 +177,10 @@ describe('Sessions / SessionHandle / TurnHandle (storage + createTurn)', () => {
     });
     const getSession = jest.spyOn(store, 'getSession');
 
-    const direct = await TurnHandle.get({
-      store,
-      session_id: 's1',
-      turn_id: created.id,
-    });
     const throughSession = await session.getTurn(created.id);
-    const missingDirect = await TurnHandle.get({
-      store,
-      session_id: 's1',
-      turn_id: 'missing-turn',
-    });
     const missingThroughSession = await session.getTurn('missing-turn');
 
-    expect(direct?.id).toBe(created.id);
-    expect(throughSession?.id).toBe(created.id);
-    expect(missingDirect).toBeUndefined();
+    expect(throughSession?.turn_id).toBe(created.id);
     expect(missingThroughSession).toBeUndefined();
     expect(getSession).not.toHaveBeenCalled();
   });

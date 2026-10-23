@@ -182,10 +182,16 @@ function commitActiveStream(snapshot: SessionSnapshot): SessionSnapshot {
   });
 }
 
-function buildCancelledTurnState(completedAt: string): TurnStateCancelled {
+function buildCancelledTurnState({
+  completedAt,
+  reason = 'Superseded by a later message',
+}: {
+  completedAt: string;
+  reason?: string;
+}): TurnStateCancelled {
   return {
     status: TURN_STATUS.CANCELLED,
-    reason: 'Superseded by a later message',
+    reason,
     completedAt,
   };
 }
@@ -263,7 +269,7 @@ function abandonInFlightClientTurn(snapshot: SessionSnapshot): SessionSnapshot {
   }
 
   const completedAt = new Date().toISOString();
-  const cancelledState = buildCancelledTurnState(completedAt);
+  const cancelledState = buildCancelledTurnState({ completedAt });
 
   if (hasIncompleteStream && active != null) {
     const activeSandboxIdValue = active.update.metadata?.custom?.[MESSAGE_CUSTOM_KEY.SANDBOX_ID];
@@ -430,6 +436,9 @@ export function useTrueForgeAgentMessages({
   const actionSubmissionsRef = useRef(new Set<string>());
   const loadGenerationRef = useRef(0);
   const streamGenerationRef = useRef(0);
+  // Bumped once a send has applied its message. An earlier failure must not
+  // discard the in-flight load or cancel the painted tip.
+  const sendEpochRef = useRef(0);
   const streamReconnectPendingRef = useRef(false);
   const cancelRequestedRef = useRef(false);
   const lazilyCreatedSessionIdRef = useRef<string | undefined>(undefined);
@@ -713,6 +722,7 @@ export function useTrueForgeAgentMessages({
 
     const generation = ++loadGenerationRef.current;
     ++streamGenerationRef.current;
+    const sendEpoch = sendEpochRef.current;
     setIsRunning(false);
     abortControllerRef.current?.abort();
     loadOlderInflightRef.current = null;
@@ -724,11 +734,16 @@ export function useTrueForgeAgentMessages({
     try {
       const conversationSessionId = await resolveActiveSessionId(sessionId, resolveConversationSessionIdRef.current);
       const loadedSnapshot = await loadSessionSnapshot(server, conversationSessionId, snap => {
-        if (generation === loadGenerationRef.current) {
-          setSnapshot(snap);
+        if (generation !== loadGenerationRef.current) {
+          return;
         }
+        // The events window is paintable before getTurn confirms the tip.
+        setSnapshot(snap);
+        setIsLoading(false);
       });
-      if (generation !== loadGenerationRef.current) {
+      if (generation !== loadGenerationRef.current || sendEpoch !== sendEpochRef.current) {
+        // A send applied its message while getTurn was in flight. Applying this
+        // snapshot would drop that message and resume the old tip.
         return;
       }
 
@@ -923,6 +938,9 @@ export function useTrueForgeAgentMessages({
           pendingUserTurnId = turnId;
         }
 
+        // The message is on the snapshot. A load still awaiting getTurn must
+        // leave this send in place. Failures before this point do not count.
+        ++sendEpochRef.current;
         runStreamStarted = true;
         await runStream(
           (signal, track) =>
@@ -979,9 +997,14 @@ export function useTrueForgeAgentMessages({
           options.onPreTurnFailure?.();
         }
         if (!runStreamStarted) {
-          const abandoned = abandonInFlightClientTurn(commitActiveStream(snapshotRef.current));
-          snapshotRef.current = abandoned;
-          setSnapshot(abandoned);
+          // A supersede already aborted the live stream. A send that fails
+          // before it installs a message must not cancel the painted open tip.
+          const hasIncompleteStream = isIncompleteActiveStream(snapshotRef.current);
+          if ('userMessage' in options && (pendingUserWasSet || hasIncompleteStream)) {
+            const abandoned = abandonInFlightClientTurn(commitActiveStream(snapshotRef.current));
+            snapshotRef.current = abandoned;
+            setSnapshot(abandoned);
+          }
           if (abortControllerRef.current?.signal.aborted) {
             abortControllerRef.current = null;
           }

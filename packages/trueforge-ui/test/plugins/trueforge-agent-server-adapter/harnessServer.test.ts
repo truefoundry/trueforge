@@ -164,6 +164,35 @@ describe('createHarnessChatServer', () => {
     });
   });
 
+  it('preserves sandbox environmentName on UI and harness agent specs', () => {
+    const ui = toUiAgentSpec({
+      model: { name: 'test/model' },
+      config: {
+        sandbox: { enabled: true, environmentName: 'python-dev', fileDownloads: true },
+        webSearch: { enabled: true },
+      },
+    });
+    assert.deepEqual(ui.config?.sandbox, {
+      enabled: true,
+      environmentName: 'python-dev',
+      fileDownloads: true,
+    });
+    assert.deepEqual(
+      toHarnessAgentSpec({
+        model: { name: 'test/model' },
+        config: {
+          sandbox: { enabled: true, environmentName: 'python-dev', fileDownloads: true },
+          webSearch: { enabled: true },
+        },
+      }).config?.sandbox,
+      {
+        enabled: true,
+        environmentName: 'python-dev',
+        fileDownloads: true,
+      },
+    );
+  });
+
   it('reports pages under the ListResult pagination contract', async () => {
     const server = createHarnessChatServer({ fetch: fetchMock });
 

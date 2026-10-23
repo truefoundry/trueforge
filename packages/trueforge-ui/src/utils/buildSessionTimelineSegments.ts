@@ -9,6 +9,7 @@ import {
   getSubAgentDescription,
   getTurnInputSummary,
   getTurnInputType,
+  isAbortShapedThreadError,
   isRecord,
   mcpToolSlashLabel,
   parentToolCallId,
@@ -19,7 +20,9 @@ import {
   summarizeToolApprovalPolicy,
   terminalCompletedAt,
   terminalMessage,
+  terminalReason,
   terminalStatus,
+  terminalThreadError,
   toolCallDescription,
   toolCallsOf,
   type TimelineEvent,
@@ -1067,17 +1070,42 @@ function appendEventSegments({
       }
       const doneEvent = threadDoneEvents.get(threadId);
       const doneMs = doneEvent == null ? null : parseTimestamp(eventCreatedAt(doneEvent));
+      // Cancelled unfinished children omit public thread.done; close the bar at turn end
+      // so the chart still allocates a lane for child model/tool segments.
+      const turnEndMs = parseTimestamp(terminalCompletedAt(turn.done?.state)) ?? parseTimestamp(turn.done?.createdAt);
+      const closeMs =
+        doneMs != null && doneMs >= eventMs ? doneMs : turnEndMs != null && turnEndMs >= eventMs ? turnEndMs : eventMs;
       segments.push({
         id: eventId(event),
         type: 'sub_agent',
         title: event.type,
         description: getSubAgentDescription(event),
         startMs: eventMs - originMs,
-        endMs: doneMs != null && doneMs >= eventMs ? doneMs - originMs : eventMs - originMs,
+        endMs: closeMs - originMs,
         turnIndex,
         threadId,
-        isMarker: doneMs == null || doneMs < eventMs,
+        isMarker: closeMs <= eventMs,
       });
+      const doneState = doneEvent != null && isRecord(doneEvent.state) ? doneEvent.state : undefined;
+      if (doneState != null && terminalStatus(doneState) === 'error') {
+        const errorText = terminalThreadError(doneState);
+        const turnCancelled = terminalStatus(turn.done?.state) === 'cancelled';
+        // Cancel mid-stream can leave abort-shaped thread.done error; do not chart as failure.
+        if (!(turnCancelled && isAbortShapedThreadError(errorText))) {
+          const errorMs = doneMs ?? eventMs;
+          segments.push({
+            id: `${eventId(event)}-error`,
+            type: 'error',
+            title: 'thread.error',
+            description: errorText,
+            startMs: errorMs - originMs,
+            endMs: errorMs - originMs,
+            turnIndex,
+            threadId,
+            isMarker: true,
+          });
+        }
+      }
       return;
     }
     case 'user.tool_approval': {
@@ -1216,6 +1244,22 @@ function appendTerminalSegment({
       description: terminalMessage(turn.done?.state),
       startMs: errorMs - originMs,
       endMs: errorMs - originMs,
+      turnIndex,
+      threadId: MAIN_THREAD_ID,
+      isMarker: true,
+    });
+    return;
+  }
+  if (status === 'cancelled') {
+    const cancelledMs = parseTimestamp(terminalCompletedAt(turn.done?.state)) ?? latestMs;
+    const reason = terminalReason(turn.done?.state);
+    segments.push({
+      id: `${turn.turnId}-turn.cancelled`,
+      type: 'system',
+      title: 'turn.cancelled',
+      description: reason.length > 0 ? reason : 'cancelled',
+      startMs: cancelledMs - originMs,
+      endMs: cancelledMs - originMs,
       turnIndex,
       threadId: MAIN_THREAD_ID,
       isMarker: true,

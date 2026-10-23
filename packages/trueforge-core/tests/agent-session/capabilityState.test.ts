@@ -20,6 +20,7 @@ import {
   makeTestResolver,
   mintTestTurnId,
   TEST_ACTIVE_EXECUTOR_ID,
+  TEST_MODEL_NAME,
 } from './testHelpers';
 
 function makePlanShapedCapability(options: {
@@ -286,6 +287,7 @@ describe('capability_state (tfy.plan fixture)', () => {
     const thread = new AgentThread({
       definition: {
         modelClient: makeMockILLM({ create: jest.fn().mockImplementation(() => emptyLlmStream()) }),
+        modelName: TEST_MODEL_NAME,
       },
       threadId: MAIN_THREAD_ID,
       title: 'main',

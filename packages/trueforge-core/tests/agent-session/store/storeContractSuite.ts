@@ -2,7 +2,7 @@ import { z } from 'zod';
 import { MAIN_THREAD_ID } from '../../../src/agent-session/models/TurnRecord';
 import type { PersistedTurnEvent } from '../../../src/agent-session/schemas/events';
 import { EventType } from '../../../src/agent-session/schemas/events';
-import { CancellationReason } from '../../../src/agent-session/schemas/turn';
+import { CancellationReason, type NonTerminalTurnState } from '../../../src/agent-session/schemas/turn';
 import type { ISessionStore } from '../../../src/agent-session/store/ISessionStore';
 import { decodeSessionEventPageToken } from '../../../src/agent-session/store/SessionEventPageToken';
 import {
@@ -781,6 +781,7 @@ export function runStoreContractSuite<TTransaction>(
         store.insertTurnInboundEvents({
           session_id: sessionId,
           turn_id: 'turn-1',
+          active_executor_id: TEST_ACTIVE_EXECUTOR_ID,
           events: [
             {
               id: newEventId(),
@@ -1415,6 +1416,114 @@ export function runStoreContractSuite<TTransaction>(
         source_id: 'missing-sched',
       });
       expect(unmatched.data).toEqual([]);
+    });
+  });
+
+  describe('last_turn_details', () => {
+    async function lastTurnDetails(store: Store) {
+      return mustGet(await store.getSession({ tenant_id: tenant, session_id: sessionId })).last_turn_details;
+    }
+
+    async function setNonTerminalState(store: Store, turnId: string, state: NonTerminalTurnState) {
+      await store.updateTurnNonTerminalState({
+        active_executor_id: TEST_ACTIVE_EXECUTOR_ID,
+        session_id: sessionId,
+        turn_id: turnId,
+        state,
+        turn_update_event: makeTurnUpdateEvent(state),
+      });
+    }
+
+    async function freezeTurn(store: Store, turnId: string) {
+      await store.freezeAndGetTurn({
+        session_id: sessionId,
+        turn_id: turnId,
+        reason: CancellationReason.ClientCancelled,
+        turn_done_event: makeTurnDoneEvent(makeCancelledTurnState(CancellationReason.ClientCancelled)),
+      });
+    }
+
+    it('is null before the first turn', async () => {
+      const store = createStore();
+      await seedSession(store);
+      expect(await lastTurnDetails(store)).toBeNull();
+    });
+
+    it('createTurn sets id and running status with last_turn_id', async () => {
+      const store = createStore();
+      await seedSession(store);
+      await store.createTurn(makeCreateTurnInput({ sessionId, turnId: 'turn-1' }));
+      const session = mustGet(await store.getSession({ tenant_id: tenant, session_id: sessionId }));
+      expect(session.last_turn_details).toEqual({ id: 'turn-1', state: { status: 'running' } });
+      expect(session.last_turn_id).toBe('turn-1');
+    });
+
+    it('follows pause, resume, and terminal transitions of the last turn', async () => {
+      const store = createStore();
+      await seedSession(store);
+      await store.createTurn(makeCreateTurnInput({ sessionId, turnId: 'turn-1' }));
+
+      await setNonTerminalState(store, 'turn-1', makePausedTurnState());
+      expect(await lastTurnDetails(store)).toEqual({ id: 'turn-1', state: { status: 'paused' } });
+
+      await setNonTerminalState(store, 'turn-1', { status: 'running' });
+      expect(await lastTurnDetails(store)).toEqual({ id: 'turn-1', state: { status: 'running' } });
+
+      await finishTurn(store, 'turn-1');
+      expect(await lastTurnDetails(store)).toEqual({ id: 'turn-1', state: { status: 'done' } });
+    });
+
+    it('freezeAndGetTurn records cancelled, and a repeat freeze leaves it unchanged', async () => {
+      const store = createStore();
+      await seedSession(store);
+      await store.createTurn(makeCreateTurnInput({ sessionId, turnId: 'turn-1' }));
+      await freezeTurn(store, 'turn-1');
+      expect(await lastTurnDetails(store)).toEqual({ id: 'turn-1', state: { status: 'cancelled' } });
+      await freezeTurn(store, 'turn-1');
+      expect(await lastTurnDetails(store)).toEqual({ id: 'turn-1', state: { status: 'cancelled' } });
+    });
+
+    it('a superseded turn changing status does not touch the newer last turn', async () => {
+      const store = createStore();
+      await seedSession(store);
+      await store.createTurn(makeCreateTurnInput({ sessionId, turnId: 'turn-1' }));
+      await store.createTurn(makeCreateTurnInput({ sessionId, turnId: 'turn-2' }));
+      const expected = { id: 'turn-2', state: { status: 'running' } };
+      expect(await lastTurnDetails(store)).toEqual(expected);
+
+      await setNonTerminalState(store, 'turn-1', makePausedTurnState());
+      expect(await lastTurnDetails(store)).toEqual(expected);
+
+      await finishTurn(store, 'turn-1');
+      expect(await lastTurnDetails(store)).toEqual(expected);
+
+      await store.createTurn(makeCreateTurnInput({ sessionId, turnId: 'turn-3' }));
+      await freezeTurn(store, 'turn-2');
+      expect(await lastTurnDetails(store)).toEqual({ id: 'turn-3', state: { status: 'running' } });
+    });
+
+    it('a superseded turn finishing still adds its cost and duration to session metrics', async () => {
+      const store = createStore();
+      await seedSession(store);
+      await store.createTurn(makeCreateTurnInput({ sessionId, turnId: 'turn-1' }));
+      await store.createTurn(makeCreateTurnInput({ sessionId, turnId: 'turn-2' }));
+      const turn1 = mustGet(await store.getTurn({ session_id: sessionId, turn_id: 'turn-1' }));
+      const doneState = {
+        ...makeDoneTurnState(),
+        completed_at: new Date(turn1.created_at.getTime() + 1500).toISOString(),
+        metrics: { total_cost_in_usd: 1.25 },
+      };
+      await store.updateTurnTerminalState({
+        active_executor_id: TEST_ACTIVE_EXECUTOR_ID,
+        session_id: sessionId,
+        turn_id: 'turn-1',
+        state: doneState,
+        turn_done_event: makeTurnDoneEvent(doneState),
+      });
+
+      const session = mustGet(await store.getSession({ tenant_id: tenant, session_id: sessionId }));
+      expect(session.last_turn_details).toEqual({ id: 'turn-2', state: { status: 'running' } });
+      expect(session.metrics).toEqual({ total_cost_in_usd: 1.25, total_duration_ms: 1500, total_turns: 2 });
     });
   });
 
@@ -2966,6 +3075,7 @@ export function runStoreContractSuite<TTransaction>(
       await store.insertTurnInboundEvents({
         session_id: sessionId,
         turn_id: 'turn-1',
+        active_executor_id: TEST_ACTIVE_EXECUTOR_ID,
         events: [later, earlier],
       });
 
@@ -2973,6 +3083,7 @@ export function runStoreContractSuite<TTransaction>(
         store.insertTurnInboundEvents({
           session_id: sessionId,
           turn_id: 'turn-1',
+          active_executor_id: TEST_ACTIVE_EXECUTOR_ID,
           events: [later],
         }),
       ).rejects.toMatchObject({
@@ -2993,6 +3104,7 @@ export function runStoreContractSuite<TTransaction>(
         store.insertTurnInboundEvents({
           session_id: sessionId,
           turn_id: 'turn-1',
+          active_executor_id: TEST_ACTIVE_EXECUTOR_ID,
           events: [fresh, later],
         }),
       ).rejects.toMatchObject({
@@ -3005,6 +3117,7 @@ export function runStoreContractSuite<TTransaction>(
         store.insertTurnInboundEvents({
           session_id: sessionId,
           turn_id: 'turn-1',
+          active_executor_id: TEST_ACTIVE_EXECUTOR_ID,
           events: [
             {
               id: dupId,
@@ -3035,6 +3148,7 @@ export function runStoreContractSuite<TTransaction>(
         store.insertTurnInboundEvents({
           session_id: sessionId,
           turn_id: 'turn-1',
+          active_executor_id: TEST_ACTIVE_EXECUTOR_ID,
           events: [
             {
               id: 'evt-after-done',
@@ -3047,6 +3161,29 @@ export function runStoreContractSuite<TTransaction>(
           ],
         }),
       ).rejects.toBeInstanceOf(TurnNotRunningError);
+    });
+
+    it('turn_inbound_events: a stale executor cannot insert', async () => {
+      const store = createStore();
+      await seedSession(store);
+      await store.createTurn(makeCreateTurnInput({ sessionId, turnId: 'turn-1' }));
+      await expect(
+        store.insertTurnInboundEvents({
+          session_id: sessionId,
+          turn_id: 'turn-1',
+          active_executor_id: 'someone-else',
+          events: [
+            {
+              id: 'evt-stale',
+              type: 'user.tool_approval' as const,
+              thread_id: 'main',
+              tool_call_id: 'tc-stale',
+              approval: { status: 'allow' as const },
+              created_at: new Date().toISOString(),
+            },
+          ],
+        }),
+      ).rejects.toBeInstanceOf(TurnOwnershipLostError);
     });
 
     it('turn_inbound_events: list unconsumed and mark consumed', async () => {
@@ -3074,6 +3211,7 @@ export function runStoreContractSuite<TTransaction>(
       await store.insertTurnInboundEvents({
         session_id: sessionId,
         turn_id: 'turn-1',
+        active_executor_id: TEST_ACTIVE_EXECUTOR_ID,
         events: [evtB, evtA],
       });
 
@@ -3203,6 +3341,7 @@ export function runStoreContractSuite<TTransaction>(
         store.insertTurnInboundEvents({
           session_id: sessionId,
           turn_id: 'turn-1',
+          active_executor_id: TEST_ACTIVE_EXECUTOR_ID,
           events: [inbound],
         }),
       ]);
@@ -3223,6 +3362,7 @@ export function runStoreContractSuite<TTransaction>(
       await store.insertTurnInboundEvents({
         session_id: sessionId,
         turn_id: 'turn-1',
+        active_executor_id: TEST_ACTIVE_EXECUTOR_ID,
         events: [
           {
             id: newEventId(),
@@ -3239,6 +3379,7 @@ export function runStoreContractSuite<TTransaction>(
         store.insertTurnInboundEvents({
           session_id: sessionId,
           turn_id: 'turn-1',
+          active_executor_id: TEST_ACTIVE_EXECUTOR_ID,
           events: [
             {
               id: newEventId(),

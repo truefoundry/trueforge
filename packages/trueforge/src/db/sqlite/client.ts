@@ -129,6 +129,7 @@ const JSON_RESULT_COLUMNS = new Set([
   'custom',
   'metadata',
   'metrics',
+  'last_turn_details',
   'ancestor_ids',
   'input',
   'state',

@@ -2,7 +2,9 @@ import { DAYTONA_SNAPSHOT_NOT_STARTED_REASON } from '@truefoundry/trueforge-core
 import { createLogger } from 'winston';
 import { createSandboxEnvironmentBuildRouter } from '../../../src/apis/sandboxEnvironmentBuild';
 import { createSandboxEnvironmentsRouter } from '../../../src/apis/sandboxEnvironments';
-import { STANDALONE_REQUEST_CONTEXT } from '../../../src/auth/identity';
+import type { RequestContext } from '../../../src/auth/identity';
+import { STANDALONE_REQUEST_CONTEXT, TRUEFOUNDRY_TENANT_ADMIN_ROLE } from '../../../src/auth/identity';
+import { getTrueForgeAuthMode, TrueForgeAuthMode } from '../../../src/config';
 import { migrateSqliteToLatest } from '../../../src/db/migrateSqlite';
 import { createSqliteDb } from '../../../src/db/sqlite/client';
 import { SqliteSandboxEnvironmentStore } from '../../../src/db/sqlite/sandbox-environment-store/SqliteSandboxEnvironmentStore';
@@ -16,6 +18,14 @@ jest.mock('../../../src/sandbox/providerUtils', () => {
   return {
     ...actual,
     toDaytonaSandboxProvider: jest.fn(),
+  };
+});
+
+jest.mock('../../../src/config', () => {
+  const actual = jest.requireActual<typeof import('../../../src/config')>('../../../src/config');
+  return {
+    ...actual,
+    getTrueForgeAuthMode: jest.fn(() => actual.TrueForgeAuthMode.Standalone),
   };
 });
 
@@ -33,11 +43,13 @@ const daytonaManifest = {
 describe('sandbox environments API → build controller path', () => {
   afterEach(() => {
     jest.restoreAllMocks();
+    jest.mocked(getTrueForgeAuthMode).mockReturnValue(TrueForgeAuthMode.Standalone);
   });
 
   async function setup() {
     const db = createSqliteDb(':memory:');
     await migrateSqliteToLatest(db);
+    let requestContext: RequestContext = STANDALONE_REQUEST_CONTEXT;
     const sandboxEnvironmentStore = new SqliteSandboxEnvironmentStore(db);
     const sandboxProviderStore = new SqliteSandboxProviderStore(db);
     await sandboxProviderStore.upsertSandboxProvider({
@@ -51,8 +63,8 @@ describe('sandbox environments API → build controller path', () => {
         ({
           listAgentNamesUsingSandboxEnvironment: jest.fn().mockResolvedValue([]),
         }) as never,
-      resolveSandboxProviderStore: () => sandboxProviderStore,
-      resolveRequestContext: () => STANDALONE_REQUEST_CONTEXT,
+      sandboxProviderStore,
+      resolveRequestContext: () => requestContext,
       logger,
     });
     const buildRouter = createSandboxEnvironmentBuildRouter({
@@ -60,7 +72,18 @@ describe('sandbox environments API → build controller path', () => {
       sandboxProviderStore,
       logger,
     });
-    return { publicRouter, buildRouter, sandboxEnvironmentStore };
+    return {
+      publicRouter,
+      buildRouter,
+      sandboxEnvironmentStore,
+      setSubject(subjectId: string, roles: string[] = STANDALONE_REQUEST_CONTEXT.roles) {
+        requestContext = {
+          ...STANDALONE_REQUEST_CONTEXT,
+          subject: { id: subjectId, type: 'user', display_name: subjectId },
+          roles,
+        };
+      },
+    };
   }
 
   it('PUT custom env lands pending; internal progress marks ready after build', async () => {
@@ -222,5 +245,195 @@ describe('sandbox environments API → build controller path', () => {
     expect(listRes.status).toBe(200);
     const listBody = (await listRes.json()) as { data: unknown[] };
     expect(Array.isArray(listBody.data)).toBe(true);
+  });
+
+  it('allows all users to read; create is admin-only; update/delete allow admin or creator', async () => {
+    const { publicRouter, setSubject } = await setup();
+    jest.mocked(providerUtils.toDaytonaSandboxProvider).mockReturnValue({
+      createSecret: jest.fn(),
+      updateSecret: jest.fn(),
+      deleteSecret: jest.fn(),
+      getBuildStatus: jest.fn(),
+      build: jest.fn(),
+    } as never);
+
+    setSubject('alice', ['admin']);
+    const body = {
+      manifest: {
+        name: 'shared-env',
+        description: 'created by alice',
+        image: { type: 'build', build_script: 'pip install httpx' },
+      },
+    };
+    expect(
+      (
+        await publicRouter.request('/', {
+          method: 'POST',
+          headers: { 'content-type': 'application/json' },
+          body: JSON.stringify(body),
+        })
+      ).status,
+    ).toBe(201);
+
+    // Creator retains edit access even without admin role.
+    setSubject('alice', ['everyone']);
+    const creatorUpdate = await publicRouter.request('/', {
+      method: 'PUT',
+      headers: { 'content-type': 'application/json' },
+      body: JSON.stringify({
+        manifest: {
+          name: 'shared-env',
+          description: 'updated by creator',
+          image: { type: 'build', build_script: 'pip install httpx' },
+        },
+      }),
+    });
+    expect(creatorUpdate.status).toBe(200);
+    expect(((await creatorUpdate.json()) as { data: { description: string } }).data.description).toBe(
+      'updated by creator',
+    );
+
+    setSubject('bob', ['everyone']);
+    const listed = (await (await publicRouter.request('/')).json()) as { data: { name: string }[] };
+    expect(listed.data.map(environment => environment.name)).toContain('shared-env');
+    expect((await publicRouter.request('/shared-env')).status).toBe(200);
+    expect(
+      (
+        await publicRouter.request('/', {
+          method: 'POST',
+          headers: { 'content-type': 'application/json' },
+          body: JSON.stringify({
+            manifest: {
+              name: 'bob-env',
+              description: 'denied',
+              image: { type: 'build', build_script: 'pip install httpx' },
+            },
+          }),
+        })
+      ).status,
+    ).toBe(403);
+
+    const update = await publicRouter.request('/', {
+      method: 'PUT',
+      headers: { 'content-type': 'application/json' },
+      body: JSON.stringify(body),
+    });
+    expect(update.status).toBe(403);
+    expect(await update.json()).toEqual({
+      error: { message: 'User does not have permission to edit Sandbox environment' },
+    });
+
+    const remove = await publicRouter.request('/shared-env', { method: 'DELETE' });
+    expect(remove.status).toBe(403);
+    expect(await remove.json()).toEqual({
+      error: { message: 'User does not have permission to edit Sandbox environment' },
+    });
+
+    setSubject('carol', ['admin']);
+    const adminUpdate = await publicRouter.request('/', {
+      method: 'PUT',
+      headers: { 'content-type': 'application/json' },
+      body: JSON.stringify({
+        manifest: {
+          name: 'shared-env',
+          description: 'updated by carol',
+          image: { type: 'build', build_script: 'pip install requests' },
+        },
+      }),
+    });
+    expect(adminUpdate.status).toBe(200);
+    expect(((await adminUpdate.json()) as { data: { description: string } }).data.description).toBe('updated by carol');
+    expect((await publicRouter.request('/shared-env', { method: 'DELETE' })).status).toBe(200);
+  });
+
+  it('in TrueFoundry mode create is tenant-admin only; update/delete allow tenant-admin or creator', async () => {
+    jest.mocked(getTrueForgeAuthMode).mockReturnValue(TrueForgeAuthMode.TrueFoundry);
+    const { publicRouter, setSubject } = await setup();
+    jest.mocked(providerUtils.toDaytonaSandboxProvider).mockReturnValue({
+      createSecret: jest.fn(),
+      updateSecret: jest.fn(),
+      deleteSecret: jest.fn(),
+      getBuildStatus: jest.fn(),
+      build: jest.fn(),
+    } as never);
+
+    setSubject('bob', ['everyone']);
+    expect(
+      (
+        await publicRouter.request('/', {
+          method: 'POST',
+          headers: { 'content-type': 'application/json' },
+          body: JSON.stringify({
+            manifest: {
+              name: 'bob-env',
+              description: 'denied',
+              image: { type: 'build', build_script: 'pip install httpx' },
+            },
+          }),
+        })
+      ).status,
+    ).toBe(403);
+
+    setSubject('alice', [TRUEFOUNDRY_TENANT_ADMIN_ROLE]);
+    const body = {
+      manifest: {
+        name: 'tfy-env',
+        description: 'created by alice',
+        image: { type: 'build', build_script: 'pip install httpx' },
+      },
+    };
+    expect(
+      (
+        await publicRouter.request('/', {
+          method: 'POST',
+          headers: { 'content-type': 'application/json' },
+          body: JSON.stringify(body),
+        })
+      ).status,
+    ).toBe(201);
+
+    setSubject('alice', ['everyone']);
+    const creatorUpdate = await publicRouter.request('/', {
+      method: 'PUT',
+      headers: { 'content-type': 'application/json' },
+      body: JSON.stringify({
+        manifest: {
+          name: 'tfy-env',
+          description: 'updated by creator',
+          image: { type: 'build', build_script: 'pip install httpx' },
+        },
+      }),
+    });
+    expect(creatorUpdate.status).toBe(200);
+
+    setSubject('bob', ['everyone']);
+    expect((await publicRouter.request('/tfy-env')).status).toBe(200);
+    expect(
+      (
+        await publicRouter.request('/', {
+          method: 'PUT',
+          headers: { 'content-type': 'application/json' },
+          body: JSON.stringify(body),
+        })
+      ).status,
+    ).toBe(403);
+
+    setSubject('carol', [TRUEFOUNDRY_TENANT_ADMIN_ROLE]);
+    const update = await publicRouter.request('/', {
+      method: 'PUT',
+      headers: { 'content-type': 'application/json' },
+      body: JSON.stringify({
+        manifest: {
+          name: 'tfy-env',
+          description: 'updated by carol',
+          image: { type: 'build', build_script: 'pip install requests' },
+        },
+      }),
+    });
+    expect(update.status).toBe(200);
+    expect(((await update.json()) as { data: { description: string } }).data.description).toBe('updated by carol');
+
+    expect((await publicRouter.request('/tfy-env', { method: 'DELETE' })).status).toBe(200);
+    expect((await publicRouter.request('/tfy-env')).status).toBe(404);
   });
 });

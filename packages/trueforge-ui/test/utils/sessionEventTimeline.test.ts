@@ -65,10 +65,12 @@ function done({
   turnId,
   createdAt,
   status = 'done',
+  reason,
 }: {
   turnId: string;
   createdAt: string;
-  status?: 'done' | 'error';
+  status?: 'done' | 'error' | 'cancelled';
+  reason?: string;
 }): SessionEventItem {
   return {
     turnId,
@@ -78,7 +80,13 @@ function done({
       state:
         status === 'error'
           ? { status: 'error', message: 'failed', completedAt: createdAt }
-          : { status: 'done', completedAt: createdAt, output: null, requiredActions: [] },
+          : status === 'cancelled'
+            ? {
+                status: 'cancelled',
+                reason: reason ?? 'client-cancelled',
+                completedAt: createdAt,
+              }
+            : { status: 'done', completedAt: createdAt, output: null, requiredActions: [] },
       createdAt,
       threadId: null,
     },
@@ -3545,6 +3553,219 @@ describe('buildSessionMetrics', () => {
     assert.equal(metrics.totalCostUsd, 0.5);
     assert.equal(metrics.totalTokens, 80);
     assert.equal(metrics.tokenBreakdown.find(item => item.label === 'input')?.value, 50);
+    assert.equal(metrics.errors, 0);
+  });
+
+  it('emits a cancelled marker with reason and does not count it as an error', () => {
+    const turns = buildSessionTurnViews([
+      created({ turnId: 't1', createdAt: '2026-01-01T00:00:00.000Z' }),
+      done({
+        turnId: 't1',
+        createdAt: '2026-01-01T00:00:05.000Z',
+        status: 'cancelled',
+        reason: 'client-cancelled',
+      }),
+    ]);
+    const segments = buildSessionTimelineSegments(turns);
+    const cancelled = segments.find(segment => segment.title === 'turn.cancelled');
+    assert.equal(cancelled?.type, 'system');
+    assert.equal(cancelled?.description, 'client-cancelled');
+    assert.equal(cancelled?.isMarker, true);
+    const metrics = buildSessionMetrics({ turns, segments });
+    assert.equal(metrics.errors, 0);
+  });
+
+  it('emits a thread.error marker for failed sub-agents and counts it in errors', () => {
+    const turns = buildSessionTurnViews([
+      created({ turnId: 't1', createdAt: '2026-01-01T00:00:00.000Z' }),
+      {
+        turnId: 't1',
+        event: {
+          type: 'model.message',
+          id: 'model-1',
+          threadId: 'main',
+          content: 'spawn',
+          createdAt: '2026-01-01T00:00:01.000Z',
+          toolCalls: [
+            {
+              id: 'call-sub',
+              type: 'function',
+              function: { name: 'create_sub_agent', arguments: '{}' },
+            },
+          ],
+        },
+      },
+      {
+        turnId: 't1',
+        event: {
+          type: 'thread.created',
+          id: 'thread-1',
+          threadId: 'child',
+          title: 'Researcher',
+          createdAt: '2026-01-01T00:00:01.100Z',
+          agentInfo: { type: 'dynamic', name: 'researcher', input: 'research' },
+          parent: { threadId: 'main', toolCallId: 'call-sub' },
+        },
+      },
+      {
+        turnId: 't1',
+        event: {
+          type: 'thread.done',
+          id: 'thread-done',
+          threadId: 'child',
+          title: 'Researcher',
+          createdAt: '2026-01-01T00:00:04.000Z',
+          state: { status: 'error', error: 'sub-agent blew up' },
+        },
+      },
+      done({ turnId: 't1', createdAt: '2026-01-01T00:00:05.000Z' }),
+    ]);
+
+    const segments = buildSessionTimelineSegments(turns);
+    const threadError = segments.find(segment => segment.title === 'thread.error');
+    assert.equal(threadError?.type, 'error');
+    assert.equal(threadError?.description, 'sub-agent blew up');
+    assert.equal(threadError?.threadId, 'child');
+    const metrics = buildSessionMetrics({ turns, segments });
+    assert.equal(metrics.errors, 1);
+  });
+
+  it('closes unfinished sub-agent bars at turn.done when thread.done is missing', () => {
+    const turns = buildSessionTurnViews([
+      created({ turnId: 't1', createdAt: '2026-01-01T00:00:00.000Z' }),
+      {
+        turnId: 't1',
+        event: {
+          type: 'model.message',
+          id: 'model-1',
+          threadId: 'main',
+          content: 'spawn',
+          createdAt: '2026-01-01T00:00:01.000Z',
+          toolCalls: [
+            {
+              id: 'call-sub',
+              type: 'function',
+              function: { name: 'create_sub_agent', arguments: '{}' },
+            },
+          ],
+        },
+      },
+      {
+        turnId: 't1',
+        event: {
+          type: 'thread.created',
+          id: 'thread-1',
+          threadId: 'child',
+          title: 'Researcher',
+          createdAt: '2026-01-01T00:00:01.100Z',
+          agentInfo: { type: 'dynamic', name: 'researcher', input: 'research' },
+          parent: { threadId: 'main', toolCallId: 'call-sub' },
+        },
+      },
+      {
+        turnId: 't1',
+        event: {
+          type: 'model.message',
+          id: 'child-model',
+          threadId: 'child',
+          content: 'working',
+          createdAt: '2026-01-01T00:00:02.000Z',
+          toolCalls: [
+            {
+              id: 'call-exec',
+              type: 'function',
+              function: { name: 'exec', arguments: '{}' },
+            },
+          ],
+        },
+      },
+      {
+        turnId: 't1',
+        event: {
+          type: 'tool.response',
+          id: 'tool-1',
+          threadId: 'child',
+          toolCallId: 'call-exec',
+          content: 'ok',
+          createdAt: '2026-01-01T00:00:04.000Z',
+        },
+      },
+      done({
+        turnId: 't1',
+        createdAt: '2026-01-01T00:00:05.000Z',
+        status: 'cancelled',
+        reason: 'client-cancelled',
+      }),
+    ]);
+
+    const segments = buildSessionTimelineSegments(turns);
+    const subAgent = segments.find(segment => segment.type === 'sub_agent');
+    assert.ok(subAgent);
+    assert.equal(subAgent.isMarker, false);
+    assert.equal(subAgent.startMs, 1_100);
+    assert.equal(subAgent.endMs, 5_000);
+    assert.ok(segments.some(segment => segment.threadId === 'child' && segment.type === 'tool_call'));
+  });
+
+  it('suppresses abort-shaped thread.error on cancelled turns and does not count it', () => {
+    const turns = buildSessionTurnViews([
+      created({ turnId: 't1', createdAt: '2026-01-01T00:00:00.000Z' }),
+      {
+        turnId: 't1',
+        event: {
+          type: 'model.message',
+          id: 'model-1',
+          threadId: 'main',
+          content: 'spawn',
+          createdAt: '2026-01-01T00:00:01.000Z',
+          toolCalls: [
+            {
+              id: 'call-sub',
+              type: 'function',
+              function: { name: 'create_sub_agent', arguments: '{}' },
+            },
+          ],
+        },
+      },
+      {
+        turnId: 't1',
+        event: {
+          type: 'thread.created',
+          id: 'thread-1',
+          threadId: 'child',
+          title: 'Researcher',
+          createdAt: '2026-01-01T00:00:01.100Z',
+          agentInfo: { type: 'dynamic', name: 'researcher', input: 'research' },
+          parent: { threadId: 'main', toolCallId: 'call-sub' },
+        },
+      },
+      {
+        turnId: 't1',
+        event: {
+          type: 'thread.done',
+          id: 'thread-done',
+          threadId: 'child',
+          title: 'Researcher',
+          createdAt: '2026-01-01T00:00:04.000Z',
+          state: { status: 'error', error: 'LLM stream aborted' },
+        },
+      },
+      done({
+        turnId: 't1',
+        createdAt: '2026-01-01T00:00:05.000Z',
+        status: 'cancelled',
+        reason: 'client-cancelled',
+      }),
+    ]);
+
+    const segments = buildSessionTimelineSegments(turns);
+    assert.equal(
+      segments.find(segment => segment.title === 'thread.error'),
+      undefined,
+    );
+    const cancelled = segments.find(segment => segment.title === 'turn.cancelled');
+    assert.equal(cancelled?.description, 'client-cancelled');
+    const metrics = buildSessionMetrics({ turns, segments });
     assert.equal(metrics.errors, 0);
   });
 

@@ -1,5 +1,55 @@
 # @truefoundry/trueforge-core
 
+## 0.179.0
+
+### Patch Changes
+
+- 97f7d7f: Bump `@modelcontextprotocol/sdk` from 1.30.1 to 1.31.0.
+- bbe23c8: Preserve supervisord ENTRYPOINT on Daytona custom-environment buildInfo snapshots so the sandbox NATS bridge starts (Daytona otherwise defaults to sleep infinity).
+- f975575: On Daytona sandbox create, reactivate inactive snapshots with a clear retry error, and raise a P1 for unexpected create failures (not authz).
+- 8cc8453: `extractErrorLogFields` appends each `cause` stack after the outer stack, joined with `Caused by:`. A wrapper captures the boundary rather than the throw site, so the origin frames stay on the same traceback.
+- e1f470f: Raise the default model HTTP headers and body timeouts to 2 minutes so slow first-token and idle stream responses are not dropped.
+- bbe23c8: Add 502 and 503 status codes to SSRF fetch retry logic. These errors indicate temporary upstream failures and are now eligible for automatic retries across model, MCP, and outbound fetch operations.
+
+## 0.179.0-rc.2
+
+### Patch Changes
+
+- bbe23c8: Preserve supervisord ENTRYPOINT on Daytona custom-environment buildInfo snapshots so the sandbox NATS bridge starts (Daytona otherwise defaults to sleep infinity).
+- bbe23c8: Add 502 and 503 status codes to SSRF fetch retry logic. These errors indicate temporary upstream failures and are now eligible for automatic retries across model, MCP, and outbound fetch operations.
+
+## 0.179.0-rc.1
+
+### Patch Changes
+
+- 97f7d7f: Bump `@modelcontextprotocol/sdk` from 1.30.1 to 1.31.0.
+- f975575: On Daytona sandbox create, reactivate inactive snapshots with a clear retry error, and raise a P1 for unexpected create failures (not authz).
+- 8cc8453: `extractErrorLogFields` appends each `cause` stack after the outer stack, joined with `Caused by:`. A wrapper captures the boundary rather than the throw site, so the origin frames stay on the same traceback.
+- e1f470f: Raise the default model HTTP headers and body timeouts to 2 minutes so slow first-token and idle stream responses are not dropped.
+
+## 0.178.0
+
+### Patch Changes
+
+- 8b6c4bf: Raise the default model HTTP body timeout to 60s and shorten the default MCP request timeout to 2 minutes.
+- 8c24138: Raise the default agent `config.iteration_limit` from 100 to 512.
+- b6a7781: Raise the default model HTTP headers timeout to 60 seconds so slow first-token responses are not dropped.
+- 06884d0: Raise the default model HTTP headers and body timeouts to 2 minutes so slow first-token and idle stream responses are not dropped.
+
+## 0.178.0-rc.2
+
+### Patch Changes
+
+- 06884d0: Raise the default model HTTP headers and body timeouts to 2 minutes so slow first-token and idle stream responses are not dropped.
+
+## 0.178.0-rc.1
+
+### Patch Changes
+
+- 8b6c4bf: Raise the default model HTTP body timeout to 60s and shorten the default MCP request timeout to 2 minutes.
+- 8c24138: Raise the default agent `config.iteration_limit` from 100 to 512.
+- b6a7781: Raise the default model HTTP headers timeout to 60 seconds so slow first-token responses are not dropped.
+
 ## 0.177.0
 
 ### Patch Changes

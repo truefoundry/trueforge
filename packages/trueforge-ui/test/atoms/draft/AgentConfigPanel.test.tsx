@@ -96,7 +96,9 @@ describe('AgentConfigPanel', () => {
     expect(screen.queryByText('Endpoint')).not.toBeInTheDocument();
     expect(screen.queryByText('Variables')).not.toBeInTheDocument();
     expect(screen.queryByText('Initial messages')).not.toBeInTheDocument();
-    expect(screen.queryByRole('button', { name: 'Close agent config' })).not.toBeInTheDocument();
+    expect(
+      screen.getByRole('heading', { name: 'Skills' }).closest('div.items-start')?.querySelector('svg'),
+    ).toHaveClass('lucide-lightbulb');
     expect(screen.getByRole('heading', { name: 'Agent Config' }).parentElement).toHaveClass(
       'min-h-14',
       'border-b',

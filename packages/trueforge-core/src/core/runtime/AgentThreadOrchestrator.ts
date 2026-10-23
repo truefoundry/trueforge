@@ -182,6 +182,13 @@ export interface AgentThreadOrchestratorInput {
   createDynamicSubAgentThread: CreateDynamicSubAgentThread;
   tracing: AgentTracing;
   logger: Logger;
+  /** Inbox rows not yet in the snapshot. `execute` applies them. A rebuild passes these. */
+  pendingTurnEvents: TurnUserEvent[];
+  /**
+   * MCP servers already initialized on an earlier turn. A later allow-session policy
+   * is patched onto these records. This turn often does not emit `mcp.initialize` again.
+   */
+  mcpServers: MCPServerInitInfo[];
 }
 
 export class AgentThreadOrchestrator {
@@ -192,7 +199,7 @@ export class AgentThreadOrchestrator {
   // Finished sub-agents removed from `agentThreads`; kept so totals still include them.
   private finishedSubAgentMetrics: AgentThreadMetrics = createEmptyAgentThreadMetrics();
   private readonly wakeSignal: Signalable = signalable();
-  private readonly pendingTurnEvents: TurnUserEvent[] = [];
+  private readonly pendingTurnEvents: TurnUserEvent[];
   // Last-seen MCP server init records (by id)/
   private readonly mcpServerInitInfoById = new Map<string, MCPServerInitInfo>();
 
@@ -201,6 +208,10 @@ export class AgentThreadOrchestrator {
     this.createDynamicSubAgentThread = params.createDynamicSubAgentThread;
     this.tracing = params.tracing;
     this.logger = params.logger.child({ module: 'AgentThreadOrchestrator' });
+    this.pendingTurnEvents = [...params.pendingTurnEvents];
+    for (const server of params.mcpServers) {
+      this.mcpServerInitInfoById.set(server.id, server);
+    }
   }
 
   public wake(): void {
@@ -566,8 +577,14 @@ export class AgentThreadOrchestrator {
 
   public async *execute({
     signal,
+    turnStatus = 'running',
   }: {
     signal: AbortSignal;
+    /**
+     * Status of the turn being executed. A rebuild passes `paused` so the first
+     * runnable batch persists `running`. A fresh execute starts `running`.
+     */
+    turnStatus?: 'running' | 'paused' | undefined;
   }): AsyncGenerator<AgentThreadExecutionEvent, AgentThreadExecutionResult, unknown> {
     const { agentThreads } = this;
 
@@ -575,7 +592,10 @@ export class AgentThreadOrchestrator {
     let output: ModelMessageEvent | null = null;
     let rootAgentError: AgentThreadExecutionResult['root_agent_error'];
     let rootFinished = false;
-    let turnPaused = false;
+    let turnPaused = turnStatus === 'paused';
+    if (turnPaused) {
+      this.logger.info('Executing paused turn', { pendingEventCount: this.pendingTurnEvents.length });
+    }
 
     const mainThread = this.getMainThread();
     const rootSpan = createRootAgentSpan(mainThread, this.tracing);
@@ -602,7 +622,8 @@ export class AgentThreadOrchestrator {
           return done();
         }
 
-        // Apply accepted user events in the same order they entered the turn-level queue.
+        // splice returns the current items and leaves the queue empty before the body runs.
+        // A send during a yield pushes onto that empty queue and waits for the next loop.
         for (const event of this.pendingTurnEvents.splice(0)) {
           switch (event.type) {
             case EventType.USER_TOOL_APPROVAL_POLICY:

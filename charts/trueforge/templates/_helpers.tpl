@@ -87,6 +87,25 @@ Pod labels / annotations, global merged under the chart's own.
 {{- end }}
 
 {{/*
+ServiceMonitor labels. Chart labels first, then serviceMonitor.labels, so a
+parent can add the label its Prometheus selects on.
+*/}}
+{{- define "trueforge.serviceMonitor.labels" -}}
+{{- $merged := mergeOverwrite (include "trueforge.labels" . | fromYaml) (deepCopy (.Values.serviceMonitor.labels | default dict)) -}}
+{{- toYaml $merged -}}
+{{- end }}
+
+{{/*
+ServiceMonitor annotations. Common annotations first, then serviceMonitor.annotations.
+*/}}
+{{- define "trueforge.serviceMonitor.annotations" -}}
+{{- $merged := mergeOverwrite (include "trueforge.annotations" . | fromYaml) (deepCopy (.Values.serviceMonitor.annotations | default dict)) -}}
+{{- with $merged }}
+{{- toYaml . }}
+{{- end }}
+{{- end }}
+
+{{/*
 Selector labels.
 */}}
 {{- define "trueforge.selectorLabels" -}}
@@ -394,10 +413,50 @@ Replica count is always 1, even when a resourceTier is set.
 {{- end }}
 
 {{/*
+True when a value is a `${k8s-secret/...}` reference string.
+*/}}
+{{- define "trueforge.env.isSecretRef" -}}
+{{- $v := index . "value" -}}
+{{- if and (kindIs "string" $v) (hasPrefix "${k8s-secret/" $v) -}}true{{- end -}}
+{{- end }}
+
+{{/*
+JSON `valueFrom` body from a `${k8s-secret/<secret>/<key>}` reference. The key
+must not contain `/` (the split is on `/`). Lets a value carry a secretKeyRef
+as a plain string, which is the only shape a parent chart can override (Helm
+refuses to replace a map with a scalar).
+Expects: field (values path for errors), value.
+*/}}
+{{- define "trueforge.env.k8sSecretRef" -}}
+{{- $field := index . "field" -}}
+{{- $value := index . "value" -}}
+{{- $prefix := "${k8s-secret/" -}}
+{{- $secret := "" -}}
+{{- $key := "" -}}
+{{- if and (kindIs "string" $value) (hasPrefix $prefix $value) (hasSuffix "}" $value) -}}
+{{- $body := trimSuffix "}" (trimPrefix $prefix $value) -}}
+{{- if and $body (not (contains "}" $body)) (eq (printf "%s%s}" $prefix $body) $value) -}}
+{{- $parts := regexSplit "/" $body -1 -}}
+{{- if eq (len $parts) 2 -}}
+{{- if and (index $parts 0) (index $parts 1) -}}
+{{- $secret = index $parts 0 -}}
+{{- $key = index $parts 1 -}}
+{{- end -}}
+{{- end -}}
+{{- end -}}
+{{- end -}}
+{{- if and $secret $key -}}
+{{- dict "secretKeyRef" (dict "name" $secret "key" $key "optional" true) | toJson -}}
+{{- else -}}
+{{- fail (printf "%s has an invalid secret reference %q; use ${k8s-secret/<secret>/<key>}. The key must not contain /" $field $value) -}}
+{{- end -}}
+{{- end }}
+
+{{/*
 JSON env entry from a string | { valueFrom: ... } field.
 Expects: name (env var), field (values path for errors), value.
-Literals become env value; valueFrom maps are passed through. The chart does
-not create Secrets; callers who need secretKeyRef must supply valueFrom.
+Literals become env value; valueFrom maps are passed through; `${k8s-secret/...}`
+strings become a secretKeyRef. The chart creates no Secrets either way.
 */}}
 {{- define "trueforge.env.fromStringOrValueFrom" -}}
 {{- $name := index . "name" -}}
@@ -406,14 +465,17 @@ not create Secrets; callers who need secretKeyRef must supply valueFrom.
 {{- include "trueforge.requireStringOrValueFrom" (dict "name" $field "value" $value) -}}
 {{- if kindIs "map" $value -}}
 {{- dict "name" $name "valueFrom" $value.valueFrom | toJson -}}
+{{- else if include "trueforge.env.isSecretRef" (dict "value" $value) -}}
+{{- dict "name" $name "valueFrom" (include "trueforge.env.k8sSecretRef" (dict "field" $field "value" $value) | fromJson) | toJson -}}
 {{- else -}}
 {{- dict "name" $name "value" ($value | toString) | toJson -}}
 {{- end -}}
 {{- end }}
 
 {{/*
-One env entry from the `env` map. Scalars become a literal value; a map must
-carry valueFrom and is passed through untouched.
+One env entry from the `env` map. Scalars become a literal value, a map must
+carry valueFrom and is passed through untouched, and a `${k8s-secret/...}`
+string becomes a secretKeyRef.
 */}}
 {{- define "trueforge.env.item" -}}
 {{- $name := index . "name" -}}
@@ -421,6 +483,8 @@ carry valueFrom and is passed through untouched.
 {{- if kindIs "map" $value -}}
 {{- if not $value.valueFrom -}}{{- fail (printf "env.%s must set valueFrom when given as a map" $name) -}}{{- end -}}
 {{- dict "name" $name "valueFrom" $value.valueFrom | toJson -}}
+{{- else if include "trueforge.env.isSecretRef" (dict "value" $value) -}}
+{{- dict "name" $name "valueFrom" (include "trueforge.env.k8sSecretRef" (dict "field" (printf "env.%s" $name) "value" $value) | fromJson) | toJson -}}
 {{- else -}}
 {{- dict "name" $name "value" ($value | toString) | toJson -}}
 {{- end -}}
@@ -450,19 +514,25 @@ fields, wires bundled Postgres/Redis, optional OIDC, then server.extraEnv.
 {{- if .Values.redis.enabled -}}
 {{- $env = append $env (dict "name" "REDIS_URL" "value" (include "trueforge.redis.bundledUrl" .)) -}}
 {{- else if $externalRedis.enabled -}}
+{{- $envMap := .Values.env | default dict -}}
+{{- $envHost := index $envMap "REDIS_HOST" | default "" -}}
+{{- $envSentinelNodes := index $envMap "REDIS_SENTINEL_NODES" | default "" -}}
+{{- $envTransport := or (and (kindIs "string" $envHost) $envHost) (and (kindIs "string" $envSentinelNodes) $envSentinelNodes) -}}
 {{- if and $sentinelEnabled (or $externalRedis.url $externalRedis.host) -}}
 {{- fail "externalRedis.sentinel cannot be combined with externalRedis.url or externalRedis.host" -}}
 {{- end -}}
 {{- if and $externalRedis.url $externalRedis.host -}}
 {{- fail "externalRedis.url and externalRedis.host are mutually exclusive" -}}
 {{- end -}}
-{{- if and (not $sentinelEnabled) (not $externalRedis.url) (not $externalRedis.host) -}}
-{{- fail "externalRedis.url or externalRedis.host is required when using external Redis without sentinel" -}}
+{{- if and (not $sentinelEnabled) (not $externalRedis.url) (not $externalRedis.host) (not $envTransport) -}}
+{{- fail "externalRedis.url, externalRedis.host, or externalRedis.sentinel is required when env does not set REDIS_HOST or REDIS_SENTINEL_NODES" -}}
 {{- end -}}
 {{- if and (not $sentinelEnabled) $externalRedis.url (or $auth.username $auth.password (ne (($externalRedis.db | default 0) | toString) "0")) -}}
 {{- fail "externalRedis.auth and a non-zero externalRedis.db are ignored when externalRedis.url is set; encode them in the url or use host mode" -}}
 {{- end -}}
-{{- if $sentinelEnabled -}}
+{{- if and (not $sentinelEnabled) (not $externalRedis.url) (not $externalRedis.host) -}}
+{{- /* Transport comes from env.REDIS_HOST or env.REDIS_SENTINEL_NODES. */ -}}
+{{- else if $sentinelEnabled -}}
 {{- $_ := required "externalRedis.sentinel.nodes is required when externalRedis.sentinel.enabled is true" (join "," $sentinel.nodes) -}}
 {{- $_ := required "externalRedis.sentinel.masterName is required when externalRedis.sentinel.enabled is true" $sentinel.masterName -}}
 {{- $env = append $env (dict "name" "REDIS_SENTINEL_ENABLED" "value" "true") -}}
@@ -495,6 +565,7 @@ fields, wires bundled Postgres/Redis, optional OIDC, then server.extraEnv.
 {{- $env = append $env (include "trueforge.env.fromStringOrValueFrom" (dict "name" "REDIS_PASSWORD" "field" "externalRedis.auth.password" "value" $auth.password) | fromJson) -}}
 {{- end -}}
 {{- end -}}
+{{- if or $sentinelEnabled $externalRedis.url $externalRedis.host -}}
 {{- $env = append $env (dict "name" "REDIS_TLS_ENABLED" "value" (ternary "true" "false" $tlsEnabled)) -}}
 {{- if $tlsEnabled -}}
 {{- $rejectUnauthorized := true -}}
@@ -516,6 +587,7 @@ fields, wires bundled Postgres/Redis, optional OIDC, then server.extraEnv.
 {{- end -}}
 {{- if $tls.keyPassphrase -}}
 {{- $env = append $env (include "trueforge.env.fromStringOrValueFrom" (dict "name" "REDIS_TLS_KEY_PASSPHRASE" "field" "externalRedis.tls.keyPassphrase" "value" $tls.keyPassphrase) | fromJson) -}}
+{{- end -}}
 {{- end -}}
 {{- end -}}
 {{- else -}}
@@ -596,8 +668,15 @@ fields, wires bundled Postgres/Redis, optional OIDC, then server.extraEnv.
 {{- end -}}
 
 {{- /* env map: replace in place when the chart already emits the name, else
-       append. Keeps the pod spec free of duplicate env entries. */ -}}
-{{- $overrides := .Values.env | default dict -}}
+       append. Keeps the pod spec free of duplicate env entries. A null value
+       drops the override, so a parent chart can hand a key back to the chart
+       (Helm keeps null keys in subchart values rather than removing them). */ -}}
+{{- $overrides := dict -}}
+{{- range $name, $value := (.Values.env | default dict) -}}
+{{- if not (kindIs "invalid" $value) -}}
+{{- $_ := set $overrides $name $value -}}
+{{- end -}}
+{{- end -}}
 {{- if $overrides -}}
 {{- $out := list -}}
 {{- $seen := dict -}}

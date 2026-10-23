@@ -1,5 +1,10 @@
 import type { MessageStatus, ThreadMessage } from '@assistant-ui/core';
-import { completeAssistantStatus, runningAssistantStatus } from './assistantMessageStatus.js';
+import {
+  ASSISTANT_MESSAGE_STATUS_REASON,
+  ASSISTANT_MESSAGE_STATUS_TYPE,
+  completeAssistantStatus,
+  runningAssistantStatus,
+} from './assistantMessageStatus.js';
 import {
   APPROVAL_DECISION_STATUS,
   EVENT_TYPE,
@@ -64,9 +69,17 @@ export interface ThreadBucket {
   approvalDecisions: Map<string, ApprovalDecisionRef>;
   pendingResponses: Map<string, PendingResponseRef>;
   done: boolean;
+  /** Failure text from a sub-agent thread that ended in error. */
+  error?: string;
   title?: string;
   agentInfo?: AgentInfo;
 }
+
+/**
+ * Sticky note on the fold while projecting a finished parent turn.
+ * Unfinished children copy this so they show cancelled/error instead of running.
+ */
+export type ParentTerminalStatus = 'cancelled' | 'error';
 
 export interface ThreadParentLink {
   parentThreadId: string;
@@ -105,6 +118,8 @@ export class PeerThreadFoldState {
    * Delta events deliberately bypass this set because many chunks share an id.
    */
   readonly ingestedEventIds = new Set<string>();
+  /** Set only while building content for a cancelled/errored parent turn; cleared after. */
+  parentTerminalStatus: ParentTerminalStatus | undefined;
 
   getOrCreateBucket(threadId: string): ThreadBucket {
     let bucket = this.threads.get(threadId);
@@ -122,6 +137,35 @@ export class PeerThreadFoldState {
     }
     return bucket;
   }
+}
+
+/** Pull the human-readable error off a thread.done error state, or a fallback label. */
+function threadDoneErrorMessage(state: unknown): string | undefined {
+  if (typeof state !== 'object' || state == null) {
+    return undefined;
+  }
+  if (!('status' in state) || state.status !== 'error') {
+    return undefined;
+  }
+  if (!('error' in state)) {
+    return 'Sub-agent failed';
+  }
+  const error = state.error;
+  return typeof error === 'string' && error.length > 0 ? error : 'Sub-agent failed';
+}
+
+/**
+ * Cancel often leaves a noisy "LLM stream aborted" error on the child thread.
+ * That is cancel cleanup, not a real sub-agent failure.
+ */
+export function isAbortShapedThreadError(message: string): boolean {
+  const normalized = message.trim().toLowerCase();
+  return (
+    normalized === 'llm stream aborted' ||
+    normalized === 'aborterror' ||
+    normalized.includes('stream aborted') ||
+    normalized.includes('aborterror')
+  );
 }
 
 function isTurnScopedEvent(
@@ -207,6 +251,11 @@ function ingestEventIntoBucket(bucket: ThreadBucket, message: TurnStreamingEvent
     bucket.done = true;
     if (message.title) {
       bucket.title = message.title;
+    }
+    // Remember the failure message so the UI can show error instead of complete.
+    const errorMessage = threadDoneErrorMessage(message.state);
+    if (errorMessage != null) {
+      bucket.error = errorMessage;
     }
   }
 }
@@ -463,15 +512,42 @@ function bucketHasUnresolvedPendingResponses(bucket: ThreadBucket): boolean {
   return false;
 }
 
-function bucketAssistantStatus(bucket: ThreadBucket): MessageStatus {
+function bucketAssistantStatus(bucket: ThreadBucket, state: PeerThreadFoldState): MessageStatus {
   if (bucket.pendingApprovals.size > 0) {
     return toolApprovalStatus();
   }
   if (bucketHasUnresolvedPendingResponses(bucket)) {
     return toolResponseStatus();
   }
-  if (!bucket.done && bucket.modelMessageIds.length > 0) {
-    return runningAssistantStatus();
+  // Parent was cancelled: unfinished (or abort-noise) children count as cancelled too.
+  if (state.parentTerminalStatus === 'cancelled') {
+    if (!bucket.done || (bucket.error != null && isAbortShapedThreadError(bucket.error))) {
+      return {
+        type: ASSISTANT_MESSAGE_STATUS_TYPE.INCOMPLETE,
+        reason: ASSISTANT_MESSAGE_STATUS_REASON.CANCELLED,
+      };
+    }
+  }
+  // Real sub-agent failure (not abort noise from a cancel).
+  if (bucket.error != null) {
+    return {
+      type: ASSISTANT_MESSAGE_STATUS_TYPE.INCOMPLETE,
+      reason: ASSISTANT_MESSAGE_STATUS_REASON.ERROR,
+      error: bucket.error,
+    };
+  }
+  if (!bucket.done) {
+    // Parent already failed; child never finished — show parent failure, not "running".
+    if (state.parentTerminalStatus === 'error') {
+      return {
+        type: ASSISTANT_MESSAGE_STATUS_TYPE.INCOMPLETE,
+        reason: ASSISTANT_MESSAGE_STATUS_REASON.ERROR,
+        error: 'Parent turn failed',
+      };
+    }
+    if (bucket.modelMessageIds.length > 0) {
+      return runningAssistantStatus();
+    }
   }
   return completeAssistantStatus();
 }
@@ -607,7 +683,7 @@ function buildSubThreadMessages(state: PeerThreadFoldState, threadId: string): T
       id: `${threadId}-assistant`,
       role: 'assistant',
       content,
-      status: bucketAssistantStatus(bucket),
+      status: bucketAssistantStatus(bucket, state),
       createdAt: new Date(),
       metadata: {
         unstable_state: null,

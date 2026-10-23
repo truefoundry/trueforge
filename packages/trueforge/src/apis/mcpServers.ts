@@ -36,7 +36,7 @@ import {
   putMcpServerRoute,
 } from '../routes/mcpServerRoutes';
 import { findCatalogUsageConflict } from '../runtime/catalogUsage';
-import { getMcpConnection } from '../runtime/sessionResources';
+import { resolveMcpServer } from '../runtime/sessionResources';
 import type {
   AvailableMcpServer,
   ConfiguredMcpServer,
@@ -208,7 +208,7 @@ export function createSettingsMcpServersRouter<TTransaction>(deps: SettingsMcpSe
       await assertSafeOutboundUrl(incomingManifest.url);
     } catch (error) {
       const message = error instanceof Error ? error.message : 'Outbound URL blocked';
-      return c.json({ error: { message } }, 400);
+      throw new HTTPException(400, { message: message, cause: error });
     }
 
     // DCR finishes before the txn (remote I/O stays out of withTransaction on create).
@@ -239,7 +239,7 @@ export function createSettingsMcpServersRouter<TTransaction>(deps: SettingsMcpSe
       });
     } catch (error) {
       if (error instanceof MissingStoredSecretError) {
-        return c.json({ error: { message: 'Header secret is required' } }, 400);
+        throw new HTTPException(400, { message: 'Header secret is required', cause: error });
       }
       throw error;
     }
@@ -288,7 +288,7 @@ export function createSettingsMcpServersRouter<TTransaction>(deps: SettingsMcpSe
       await assertSafeOutboundUrl(incomingManifest.url);
     } catch (error) {
       const message = error instanceof Error ? error.message : 'Outbound URL blocked';
-      return c.json({ error: { message } }, 400);
+      throw new HTTPException(400, { message: message, cause: error });
     }
 
     try {
@@ -358,7 +358,7 @@ export function createSettingsMcpServersRouter<TTransaction>(deps: SettingsMcpSe
       );
     } catch (error) {
       if (error instanceof MissingStoredSecretError) {
-        return c.json({ error: { message: 'Header secret is required' } }, 400);
+        throw new HTTPException(400, { message: 'Header secret is required', cause: error });
       }
       if (error instanceof McpConnectionError) {
         deps.logger.error(
@@ -467,7 +467,7 @@ export function createMcpServersRouter<TTransaction>(deps: McpServersRouterDeps<
     const requestContext = deps.resolveRequestContext(c);
     const userRef = requestContext.subject.id;
     // Same url + header resolution as turn execution (store Bearer, DCR, or static headers).
-    const connection = await getMcpConnection({
+    const connection = await resolveMcpServer({
       tenant_id: requestContext.tenant_id,
       name,
       store: deps.resolveMcpServerStore(c),
@@ -480,7 +480,7 @@ export function createMcpServersRouter<TTransaction>(deps: McpServersRouterDeps<
       id: name,
       name,
       url: connection.url,
-      headers: connection.headers,
+      headers: connection.headers ?? {},
       requestTimeoutMs: configuration.MCP_REQUEST_TIMEOUT_MS,
       connectTimeoutMs: configuration.MCP_CONNECT_TIMEOUT_MS,
       maxResponseBytes: configuration.MCP_TOOL_CALL_MAX_RESPONSE_BYTES,

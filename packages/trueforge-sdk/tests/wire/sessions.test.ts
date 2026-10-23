@@ -20,6 +20,7 @@ describe("SessionsClient", () => {
                         subject_type: "subject_type",
                     },
                     id: "id",
+                    last_turn_details: { id: "id", state: { status: "running" } },
                     metadata: { key: "value" },
                     metrics: { total_duration_ms: 1, total_turns: 1 },
                     shared: true,
@@ -57,6 +58,12 @@ describe("SessionsClient", () => {
                         subjectType: "subject_type",
                     },
                     id: "id",
+                    lastTurnDetails: {
+                        id: "id",
+                        state: {
+                            status: "running",
+                        },
+                    },
                     metadata: {
                         key: "value",
                     },
@@ -115,6 +122,7 @@ describe("SessionsClient", () => {
                     subject_type: "subject_type",
                 },
                 id: "id",
+                last_turn_details: { id: "id", state: { status: "running" } },
                 metadata: { key: "value" },
                 metrics: { total_cost_in_usd: 1.1, total_duration_ms: 1, total_turns: 1 },
                 shared: true,
@@ -155,6 +163,12 @@ describe("SessionsClient", () => {
                     subjectType: "subject_type",
                 },
                 id: "id",
+                lastTurnDetails: {
+                    id: "id",
+                    state: {
+                        status: "running",
+                    },
+                },
                 metadata: {
                     key: "value",
                 },
@@ -261,6 +275,7 @@ describe("SessionsClient", () => {
                     subject_type: "subject_type",
                 },
                 id: "id",
+                last_turn_details: { id: "id", state: { status: "running" } },
                 metadata: { key: "value" },
                 metrics: { total_cost_in_usd: 1.1, total_duration_ms: 1, total_turns: 1 },
                 shared: true,
@@ -296,6 +311,12 @@ describe("SessionsClient", () => {
                     subjectType: "subject_type",
                 },
                 id: "id",
+                lastTurnDetails: {
+                    id: "id",
+                    state: {
+                        status: "running",
+                    },
+                },
                 metadata: {
                     key: "value",
                 },
@@ -397,6 +418,7 @@ describe("SessionsClient", () => {
                     subject_type: "subject_type",
                 },
                 id: "id",
+                last_turn_details: { id: "id", state: { status: "running" } },
                 metadata: { key: "value" },
                 metrics: { total_cost_in_usd: 1.1, total_duration_ms: 1, total_turns: 1 },
                 shared: true,
@@ -433,6 +455,12 @@ describe("SessionsClient", () => {
                     subjectType: "subject_type",
                 },
                 id: "id",
+                lastTurnDetails: {
+                    id: "id",
+                    state: {
+                        status: "running",
+                    },
+                },
                 metadata: {
                     key: "value",
                 },
@@ -1553,6 +1581,35 @@ describe("SessionsClient", () => {
                 ],
             });
         }).rejects.toThrow(TrueForgeTypes.ConflictError);
+    });
+
+    test("create_turn_events (6)", async () => {
+        const server = mockServerPool.createServer();
+        const client = new TrueForge({ maxRetries: 0, token: "test", baseUrl: server.baseUrl });
+        const rawRequestBody = { events: [{ type: "user.mcp_auth_continue" }, { type: "user.mcp_auth_continue" }] };
+        const rawResponseBody = { error: { message: "message" } };
+
+        server
+            .mockEndpoint()
+            .post("/api/v1/sessions/session_id/turns/turn_id/events")
+            .jsonBody(rawRequestBody)
+            .respondWith()
+            .statusCode(500)
+            .jsonBody(rawResponseBody)
+            .build();
+
+        await expect(async () => {
+            return await client.sessions.createTurnEvents("session_id", "turn_id", {
+                events: [
+                    {
+                        type: "user.mcp_auth_continue",
+                    },
+                    {
+                        type: "user.mcp_auth_continue",
+                    },
+                ],
+            });
+        }).rejects.toThrow(TrueForgeTypes.InternalServerError);
     });
 
     test("subscribe_to_turn (1)", async () => {
