@@ -1,9 +1,13 @@
 'use client';
 
-import type { ReactNode } from 'react';
+import { ArcElement, Chart as ChartJS, type ChartData, type ChartOptions } from 'chart.js';
+import { useMemo, type ReactNode } from 'react';
+import { Doughnut } from 'react-chartjs-2';
 
 import type { SessionMetricBarDatum } from '../../utils/buildSessionMetrics.js';
 import { formatCostUsd } from '../../utils/sessionDisplayFormat.js';
+
+ChartJS.register(ArcElement);
 
 export function CostBreakdownRows({ data }: { data: SessionMetricBarDatum[] }) {
   const maxValue = Math.max(0, ...data.map(item => item.value)) || 1;
@@ -77,6 +81,39 @@ export function StackedProportionBar({
           </div>
         ))}
       </div>
+    </div>
+  );
+}
+
+const DONUT_OPTIONS: ChartOptions<'doughnut'> = {
+  responsive: true,
+  maintainAspectRatio: false,
+  animation: false,
+  cutout: '60%',
+  events: [],
+  plugins: { legend: { display: false }, tooltip: { enabled: false } },
+};
+
+export function ProportionDonut({ data }: { data: SessionMetricBarDatum[] }) {
+  const visibleData = useMemo(() => data.filter(item => item.value > 0), [data]);
+  const chartData = useMemo<ChartData<'doughnut', number[], string>>(
+    () => ({
+      labels: visibleData.map(item => item.label),
+      datasets: [
+        {
+          data: visibleData.map(item => item.value),
+          backgroundColor: visibleData.map(item => item.color),
+          borderWidth: 0,
+        },
+      ],
+    }),
+    [visibleData],
+  );
+  if (visibleData.length === 0) return null;
+
+  return (
+    <div className="size-4 shrink-0" aria-hidden="true">
+      <Doughnut data={chartData} options={DONUT_OPTIONS} />
     </div>
   );
 }
