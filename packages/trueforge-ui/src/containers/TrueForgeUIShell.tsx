@@ -14,6 +14,7 @@ import { DraftCatalogProvider } from '../atoms/draft/DraftCatalogProvider.js';
 import { DraftSpecPreferenceBridge } from '../atoms/draft/DraftSpecPreferenceBridge.js';
 import { cn } from '../atoms/lib/cn.js';
 import { IS_CREATE_AGENT_METADATA_KEY, isCreateAgentMetadataValue } from '../atoms/lib/sessionCreateAgent.js';
+import { UI_SESSION_SOURCE_METADATA } from '../atoms/lib/sessionSource.js';
 import { preloadMonaco } from '../atoms/monacoPreload.js';
 import { CurrentUserProvider, type CurrentUser } from '../contexts/CurrentUserContext.js';
 import { WidgetVisibilityProvider } from '../layouts/WidgetVisibilityContext.js';
@@ -195,13 +196,14 @@ function ChatProviderFromShell({
     return {
       ...server,
       createSession: request => {
-        if (request.agentSpec === undefined) {
-          return server.createSession(request);
-        }
-        const withMetadata: CreateSessionRequest & { metadata: Record<string, string> } = {
+        const withMetadata: CreateSessionRequest = {
           ...request,
           metadata: {
-            [IS_CREATE_AGENT_METADATA_KEY]: isCreateAgentMetadataValue(isCreateAgent),
+            ...request.metadata,
+            ...UI_SESSION_SOURCE_METADATA,
+            ...(request.agentSpec === undefined
+              ? {}
+              : { [IS_CREATE_AGENT_METADATA_KEY]: isCreateAgentMetadataValue(isCreateAgent) }),
           },
         };
         return server.createSession(withMetadata);

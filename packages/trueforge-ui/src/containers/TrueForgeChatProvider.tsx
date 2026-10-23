@@ -10,6 +10,7 @@ import {
 import { useCallback, useMemo, type ReactNode } from 'react';
 
 import { sessionIsCreateAgent } from '../atoms/lib/sessionCreateAgent.js';
+import { UI_SESSION_SOURCE_METADATA } from '../atoms/lib/sessionSource.js';
 import { notifyComposerBusyFailure } from '../hooks/useComposerBusyState.js';
 import { ActiveSessionPermissionsProvider } from '../hooks/useResourcePermissions.js';
 import type { AgentUIServer } from '../server/types.js';
@@ -50,7 +51,10 @@ function runtimeServer({
       return session;
     },
     async listSessions(request) {
-      const result = await server.listSessions(request);
+      const result = await server.listSessions({
+        ...request,
+        metadata: { ...request?.metadata, ...UI_SESSION_SOURCE_METADATA },
+      });
       return {
         ...result,
         data: result.data.filter(session => !sessionIsCreateAgent(session)),
