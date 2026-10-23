@@ -25,10 +25,12 @@ import {
   type GetRunInput,
   type GetScheduledRunForInput,
   type GetScheduleInput,
+  type GetSchedulesByIdsInput,
   type IScheduleStore,
   type ListRunsInput,
   type ListScheduledRunsInput,
   type ListSchedulesInput,
+  type ScheduleOwnership,
   type ScheduleRecord,
   type ScheduleRunRecord,
   type ScheduleWriteResult,
@@ -311,6 +313,26 @@ export class SqliteScheduleStore implements IScheduleStore<Transaction<Database>
       .where(sql`json_extract(created_by_subject, '$.subject_id')`, '=', input.subject_id)
       .execute();
     return rows.map(row => row.id);
+  }
+
+  async getSchedulesByIds(
+    input: GetSchedulesByIdsInput,
+    transaction?: Transaction<Database>,
+  ): Promise<ScheduleOwnership[]> {
+    if (input.ids.length === 0) {
+      return [];
+    }
+    const db = transaction ?? this.#db;
+    const rows = await db
+      .selectFrom('schedule')
+      .select(['id', jsonText<CreatedBySubject>(sql.ref('created_by_subject')).as('created_by_subject')])
+      .where('tenant_id', '=', input.tenant_id)
+      .where('id', 'in', [...input.ids])
+      .execute();
+    return rows.map(row => ({
+      id: row.id,
+      created_by_subject: CreatedBySubjectSchema.parse(row.created_by_subject),
+    }));
   }
 
   async listRuns(

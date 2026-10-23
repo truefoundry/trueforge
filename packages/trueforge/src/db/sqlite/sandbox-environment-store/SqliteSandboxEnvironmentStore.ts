@@ -25,11 +25,13 @@ import {
   type CreateSandboxEnvironmentInput,
   type DeleteSandboxEnvironmentInput,
   type GetSandboxEnvironmentInput,
+  type GetSandboxEnvironmentsByIdsInput,
   type GetSandboxEnvironmentVersionInput,
   type ISandboxEnvironmentStore,
   type ListSandboxEnvironmentsInput,
   type MarkSandboxEnvironmentVersionFailedInput,
   type MarkSandboxEnvironmentVersionReadyInput,
+  type SandboxEnvironmentOwnership,
   type SandboxEnvironmentRecord,
   type SandboxEnvironmentSecretRecord,
   type SandboxEnvironmentVersionForProgress,
@@ -287,6 +289,27 @@ export class SqliteSandboxEnvironmentStore implements ISandboxEnvironmentStore<T
       return undefined;
     }
     return this.#withMountedSecrets(toWithVersion(row), db);
+  }
+
+  async getEnvironmentsByIds(
+    input: GetSandboxEnvironmentsByIdsInput,
+    transaction?: Transaction<Database>,
+  ): Promise<SandboxEnvironmentOwnership[]> {
+    if (input.ids.length === 0) {
+      return [];
+    }
+    const db = transaction ?? this.#db;
+    const rows = await db
+      .selectFrom('sandbox_environment')
+      .select(['id', jsonText<CreatedBySubject>(sql.ref('created_by_subject')).as('created_by_subject')])
+      .where('tenant_id', '=', input.tenant_id)
+      .where('id', 'in', [...input.ids])
+      .where('lifecycle_stage', '=', 'active')
+      .execute();
+    return rows.map(row => ({
+      id: row.id,
+      created_by_subject: CreatedBySubjectSchema.parse(row.created_by_subject),
+    }));
   }
 
   async getActiveEnvironment(
