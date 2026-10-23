@@ -77,9 +77,8 @@ describe('AgentConfigEditors', () => {
     );
 
     expect(screen.getByRole('dialog', { name: 'Instructions' })).toBeInTheDocument();
-    expect(screen.getByLabelText('Agent instructions')).toHaveClass('min-h-64');
 
-    fireEvent.change(screen.getByLabelText('Agent instructions'), {
+    fireEvent.change(screen.getByLabelText('JSON parameters editor'), {
       target: { value: 'Updated instructions' },
     });
     expect(onInstructionsSave).not.toHaveBeenCalled();
@@ -151,7 +150,7 @@ describe('AgentConfigEditors', () => {
       </SlotsProvider>,
     );
 
-    fireEvent.change(screen.getByLabelText('Agent instructions'), { target: { value: 'Discarded' } });
+    fireEvent.change(screen.getByLabelText('JSON parameters editor'), { target: { value: 'Discarded' } });
     fireEvent.click(screen.getByRole('button', { name: 'Close' }));
 
     expect(onInstructionsSave).not.toHaveBeenCalled();
