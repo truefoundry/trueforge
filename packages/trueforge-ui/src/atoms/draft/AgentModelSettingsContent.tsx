@@ -7,7 +7,13 @@ import { useSlot } from '../../theme/SlotsProvider.js';
 import { auiButtonClass } from '../lib/buttonClasses.js';
 import { cn } from '../lib/cn.js';
 import { auiInputClass } from '../lib/inputClasses.js';
-import { resolveReasoningEffort } from './reasoningEffort.js';
+import {
+  hasReasoningEfforts,
+  maxTokenControl,
+  reasoningEffortOptions,
+  reasoningEffortSeed,
+  UNSUPPORTED_MODEL_PARAM_WARNING,
+} from './reasoningEffort.js';
 
 export type AgentModelSettingsContentProps = {
   spec: AgentSpec;
@@ -117,51 +123,33 @@ export function AgentModelSettingsContent({ spec, model, onChange }: AgentModelS
   };
 
   const maxOutputTokens = model?.properties.maxOutputTokens;
-  const reasoningEfforts = model?.properties.reasoningEfforts ?? [];
-  const defaultReasoningEffort = resolveReasoningEffort(reasoningEfforts, undefined);
+  const maxTokens = maxTokenControl(maxOutputTokens);
+  const maxTokensValue = params.maxTokens ?? maxTokens.seed;
+
+  const catalogEfforts = model?.properties.reasoningEfforts;
+  const reasoningOptions = reasoningEffortOptions(catalogEfforts, params.reasoningEffort);
+  const reasoningSeed = reasoningEffortSeed(catalogEfforts);
 
   const rows: Array<{
     label: string;
     enabled: boolean;
+    unsupported: boolean;
     control: ReactNode;
     onToggle: (enabled: boolean) => void;
-  }> = [];
-
-  if (defaultReasoningEffort !== undefined) {
-    rows.push({
-      label: 'Reasoning Effort',
-      enabled: params.reasoningEffort !== undefined,
-      onToggle: enabled =>
-        enabled ? setParam('reasoningEffort', defaultReasoningEffort) : removeParam('reasoningEffort'),
-      control: (
-        <select
-          value={params.reasoningEffort ?? ''}
-          aria-label="Reasoning effort value"
-          className={auiInputClass('h-8 cursor-pointer py-1.5')}
-          onChange={event => setParam('reasoningEffort', event.target.value)}
-        >
-          {reasoningEfforts.map(effort => (
-            <option key={effort} value={effort}>
-              {effort}
-            </option>
-          ))}
-        </select>
-      ),
-    });
-  }
-
-  if (maxOutputTokens !== undefined) {
-    rows.push({
+  }> = [
+    {
       label: 'Maximum Tokens',
       enabled: params.maxTokens !== undefined,
-      onToggle: enabled => (enabled ? setParam('maxTokens', maxOutputTokens) : removeParam('maxTokens')),
+      unsupported: maxOutputTokens === undefined,
+      onToggle: enabled => (enabled ? setParam('maxTokens', maxTokens.seed) : removeParam('maxTokens')),
       control: (
         <div className="flex items-center gap-3">
           <input
             type="range"
-            min={1}
-            max={maxOutputTokens}
-            value={params.maxTokens ?? maxOutputTokens}
+            min={maxTokens.min}
+            max={maxTokens.max}
+            step={maxTokens.step}
+            value={maxTokensValue}
             aria-label="Maximum tokens slider"
             className="min-w-0 flex-1 accent-primary-button-bg"
             onChange={event => {
@@ -171,20 +159,44 @@ export function AgentModelSettingsContent({ spec, model, onChange }: AgentModelS
           />
           <input
             type="number"
-            min={1}
-            max={maxOutputTokens}
-            value={params.maxTokens ?? maxOutputTokens}
+            min={maxTokens.min}
+            max={maxTokens.max}
+            step={maxTokens.step}
+            value={maxTokensValue}
             aria-label="Maximum tokens value"
             className={auiInputClass('h-8 w-24')}
             onChange={event => {
               const value = finiteNumber(event.target.value);
-              if (value !== null) setParam('maxTokens', Math.max(1, Math.min(maxOutputTokens, value)));
+              if (value !== null) setParam('maxTokens', Math.min(maxTokens.max, value));
+            }}
+            onBlur={() => {
+              if (maxTokensValue < maxTokens.min) setParam('maxTokens', maxTokens.min);
             }}
           />
         </div>
       ),
-    });
-  }
+    },
+    {
+      label: 'Reasoning Effort',
+      enabled: params.reasoningEffort !== undefined,
+      unsupported: !hasReasoningEfforts(catalogEfforts),
+      onToggle: enabled => (enabled ? setParam('reasoningEffort', reasoningSeed) : removeParam('reasoningEffort')),
+      control: (
+        <select
+          value={params.reasoningEffort ?? ''}
+          aria-label="Reasoning effort value"
+          className={auiInputClass('h-8 cursor-pointer py-1.5')}
+          onChange={event => setParam('reasoningEffort', event.target.value)}
+        >
+          {reasoningOptions.map(effort => (
+            <option key={effort} value={effort}>
+              {effort}
+            </option>
+          ))}
+        </select>
+      ),
+    },
+  ];
 
   return (
     <div className="w-full">
@@ -227,7 +239,16 @@ export function AgentModelSettingsContent({ spec, model, onChange }: AgentModelS
                     {row.enabled ? 'On' : 'Off'}
                   </button>
                 </div>
-                {row.enabled ? <div className="mt-2">{row.control}</div> : null}
+                {row.enabled ? (
+                  <div className="mt-2">
+                    {row.control}
+                    {row.unsupported ? (
+                      <p className="text-failure-bg mt-2 text-xs font-medium" role="status">
+                        {UNSUPPORTED_MODEL_PARAM_WARNING}
+                      </p>
+                    ) : null}
+                  </div>
+                ) : null}
               </div>
             ))}
 
