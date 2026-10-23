@@ -7,7 +7,8 @@ import { AnalyticsEvents } from '../../analytics/events.js';
 import { useToasterOptional } from '../../containers/ToasterContainer.js';
 import { useResourcePermissions } from '../../hooks/useResourcePermissions.js';
 import { Icon } from '../../icons/Icon.js';
-import { useScheduleServer, useServer } from '../../server/ServerContext.js';
+import { isSessionsChromeEnabled } from '../../server/serverChrome.js';
+import { useOptionalAgentSessionsServer, useScheduleServer, useServer } from '../../server/ServerContext.js';
 import { libraryAgentId, useOptionalShellMode } from '../../server/ShellModeContext.js';
 import type { Schedule, ScheduleRun, ScheduleStatus } from '../../server/types.js';
 import { useSlot } from '../../theme/SlotsProvider.js';
@@ -161,6 +162,8 @@ export function SchedulesPage({ agentId }: SchedulesPageProps) {
   const toaster = useToasterOptional();
   const track = useTrackAnalytics();
   const shell = useOptionalShellMode();
+  const sessionsServer = useOptionalAgentSessionsServer();
+  const canOpenRunSession = shell != null && isSessionsChromeEnabled({ sessions: sessionsServer });
 
   const [schedules, setSchedules] = useState<Schedule[]>([]);
   const { allows } = useResourcePermissions({
@@ -196,7 +199,7 @@ export function SchedulesPage({ agentId }: SchedulesPageProps) {
   const [nextPageToken, setNextPageToken] = useState<string | undefined>(undefined);
   const [previousPageToken, setPreviousPageToken] = useState<string | undefined>(undefined);
   const handleOpenRunSession = ({ run, schedule }: { run: ScheduleRun; schedule: Schedule }) => {
-    if (shell == null || run.sessionId == null) return;
+    if (!canOpenRunSession || shell == null || run.sessionId == null) return;
     track(AnalyticsEvents.Schedule.RUN_SESSION_OPENED, { schedule_id: schedule.id, agent_id: schedule.agentId });
     const pinned = sessionTimeRangeFromCreatedAt(run.triggeredAt ?? run.scheduledFor);
     replaceSessionShareSearch({
