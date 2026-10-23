@@ -41,8 +41,9 @@ export function AgentSessionTurnHeader({
   cachedTokens,
   durationMs,
   totalCostInUsd,
+  modelName,
 }: AgentSessionTurnHeaderProps) {
-  const hasMetrics = totalTokens != null || durationMs != null || totalCostInUsd != null;
+  const hasMetrics = totalTokens != null || durationMs != null || totalCostInUsd != null || modelName != null;
   const hasTokenBreakdown = inputTokens != null || outputTokens != null || cachedTokens != null;
   const breakdownInput = inputTokens ?? 0;
   const breakdownOutput = outputTokens ?? 0;
@@ -60,16 +61,24 @@ export function AgentSessionTurnHeader({
         }
       >
         <Icon name="link" className="size-3.5 shrink-0" aria-hidden />
-        {`Tokens ${formatTokenCount(totalTokens)}`}
+        Tokens <span className="font-semibold">{formatTokenCount(totalTokens)}</span>
       </button>
     ) : null;
 
   return (
-    <div className="flex items-center gap-3 py-1 text-xs text-text-secondary">
-      <span className="shrink-0 font-semibold text-text-primary">{`Turn ${turnNumber}`}</span>
-      <div className="h-px min-w-4 flex-1 bg-border" aria-hidden="true" />
+    <div className="flex flex-col gap-2 text-xs text-text-secondary">
+      <span className="font-semibold text-text-primary">{`Turn ${turnNumber}`}</span>
       {hasMetrics ? (
-        <div className="flex shrink-0 items-center gap-3 tabular-nums">
+        <div className="flex min-w-0 flex-wrap items-center gap-x-3 gap-y-1 tabular-nums">
+          {modelName != null ? (
+            <LightTooltip title={modelName} side="bottom">
+              <span className="inline-flex min-w-0 items-center gap-1">
+                <Icon name="cube" className="size-3.5 shrink-0" aria-hidden />
+                <span className="shrink-0">Model</span>
+                <span className="max-w-64 truncate font-semibold">{modelName}</span>
+              </span>
+            </LightTooltip>
+          ) : null}
           {tokensTrigger != null ? (
             hasTokenBreakdown ? (
               <LightTooltip
@@ -91,12 +100,17 @@ export function AgentSessionTurnHeader({
           {durationMs != null ? (
             <span className="inline-flex items-center gap-1">
               <Icon name="clock" className="size-3.5 shrink-0" />
-              {`Duration ${formatDurationMs(durationMs)}`}
+              Duration <span className="font-semibold">{formatDurationMs(durationMs)}</span>
             </span>
           ) : null}
-          {totalCostInUsd != null ? <span>{`Cost ${formatCostUsd(totalCostInUsd)}`}</span> : null}
+          {totalCostInUsd != null ? (
+            <span>
+              Cost <span className="font-semibold">{formatCostUsd(totalCostInUsd)}</span>
+            </span>
+          ) : null}
         </div>
       ) : null}
+      <div className="h-px w-full bg-border" aria-hidden="true" />
     </div>
   );
 }

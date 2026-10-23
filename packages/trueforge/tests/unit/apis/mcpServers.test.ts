@@ -281,7 +281,7 @@ describe('mcp-servers routers', () => {
     expect(response.status).toBe(422);
     expect(await response.json()).toEqual({
       error: {
-        message: "Failed to discover OAuth authorization server for MCP server 'linear'",
+        message: "[MCP Error] Failed to discover OAuth authorization server for MCP server 'linear'",
       },
     });
     expect(await mcpServerStore.getServer({ tenant_id: 'default', name: putBodyWithDcr.name })).toBeUndefined();
