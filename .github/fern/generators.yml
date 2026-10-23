@@ -37,7 +37,7 @@ groups:
   ts-sdk:
     generators:
       - name: fernapi/fern-typescript-node-sdk
-        version: 3.98.3
+        version: 3.107.6
         output:
           location: local-file-system
           path: ../../packages/trueforge-sdk
@@ -104,7 +104,7 @@ groups:
   python-sdk:
     generators:
       - name: fernapi/fern-python-sdk
-        version: 5.34.2
+        version: 5.41.7
         output:
           location: local-file-system
           path: ../../python/trueforge_sdk

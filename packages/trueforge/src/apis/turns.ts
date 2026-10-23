@@ -61,8 +61,8 @@ import { StreamGoneError, type EventSubscription, type EventSubscriptionRegistry
 import { validateSandboxFilePath } from '../runtime/sandboxFilePath';
 import {
   buildTurnSandbox,
+  getMcpConnection,
   getModelDetails,
-  resolveMcpServer,
   resolveSandboxEnvironment,
   resolveSandboxProvider,
 } from '../runtime/sessionResources';
@@ -214,7 +214,7 @@ function createTurnResolver(deps: {
       };
     },
     mcp: async name => {
-      const connection = await resolveMcpServer({
+      const connection = await getMcpConnection({
         tenant_id,
         name,
         store: mcpServerStore,
