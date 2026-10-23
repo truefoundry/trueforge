@@ -28,37 +28,40 @@ async function assertThreadsExist(
 }
 
 export async function patchThreadsMCPAuth(db: DbOrTrx, input: PatchThreadsMCPAuthInput): Promise<void> {
-  const execute = async (db: Transaction<Database>): Promise<void> => {
-    const threadIds = [...new Set(input.thread_ids)];
-    const keys = {
-      session_id: input.session_id,
-      turn_id: input.turn_id,
-      active_executor_id: input.active_executor_id,
-    };
-    await assertOwnedNonTerminalTurn(db, keys);
-    if (threadIds.length === 0) {
-      return;
-    }
-    await assertThreadsExist(db, keys, threadIds);
-    await db
-      .updateTable('turn_thread')
-      .set({
-        checkpoint: jsonbSet<TurnThreadCheckpoint>(
-          sql`checkpoint`,
-          sql`'{pending_mcp_auth}'`,
-          json(input.pending_mcp_auth),
-        ),
-        updated_at: sql`now()`,
-      })
-      .where('session_id', '=', input.session_id)
-      .where('turn_id', '=', input.turn_id)
-      .where('thread_id', 'in', threadIds)
-      .execute();
-  };
-
   if (isTransaction<Database>(db)) {
-    await execute(db);
+    await patchThreadsMCPAuthInTransaction(db, input);
     return;
   }
-  await db.transaction().execute(execute);
+  await db.transaction().execute(trx => patchThreadsMCPAuthInTransaction(trx, input));
+}
+
+async function patchThreadsMCPAuthInTransaction(
+  db: Transaction<Database>,
+  input: PatchThreadsMCPAuthInput,
+): Promise<void> {
+  const threadIds = [...new Set(input.thread_ids)];
+  const keys = {
+    session_id: input.session_id,
+    turn_id: input.turn_id,
+    active_executor_id: input.active_executor_id,
+  };
+  await assertOwnedNonTerminalTurn(db, keys);
+  if (threadIds.length === 0) {
+    return;
+  }
+  await assertThreadsExist(db, keys, threadIds);
+  await db
+    .updateTable('turn_thread')
+    .set({
+      checkpoint: jsonbSet<TurnThreadCheckpoint>(
+        sql`checkpoint`,
+        sql`'{pending_mcp_auth}'`,
+        json(input.pending_mcp_auth),
+      ),
+      updated_at: sql`now()`,
+    })
+    .where('session_id', '=', input.session_id)
+    .where('turn_id', '=', input.turn_id)
+    .where('thread_id', 'in', threadIds)
+    .execute();
 }
