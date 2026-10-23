@@ -76,6 +76,9 @@ export async function convertMCPServersToTools(params: {
       const { name: toolName } = getUniqueSanitizedToolName(mcpTool.name, registeredNames);
       registeredNames.add(toolName);
       const description = `mcp server: ${serverName}\n${mcpTool.description ?? ''}`;
+      // Keep local definition containers so `$ref`s inside `properties` (e.g. FastMCP-style
+      // `#/$defs/<Model>` pointers to nested pydantic models) resolve on the wire.
+      const { $defs, definitions } = mcpTool.inputSchema;
       tools.push({
         type: 'function',
         function: {
@@ -85,6 +88,8 @@ export async function convertMCPServersToTools(params: {
             type: 'object',
             properties: mcpTool.inputSchema.properties ?? {},
             required: mcpTool.inputSchema.required ?? [],
+            ...($defs !== undefined ? { $defs } : {}),
+            ...(definitions !== undefined ? { definitions } : {}),
           },
         },
       });
