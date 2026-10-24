@@ -400,6 +400,7 @@ export function AgentSessions({
                   title={sessionTitle(entry)}
                   agentName={entry.agentName ?? undefined}
                   sourceType={entrySourceType(entry)}
+                  {...(entry.lastTurnStatus === undefined ? {} : { lastTurnStatus: entry.lastTurnStatus })}
                   lastActivityAt={entry.lastActivityAt}
                   metrics={entry.metrics}
                   {...(entry.createdBySubject == null ? {} : { createdBySubject: entry.createdBySubject })}

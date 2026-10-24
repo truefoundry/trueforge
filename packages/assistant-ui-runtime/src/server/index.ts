@@ -114,6 +114,7 @@ export type {
   SearchAgentsParams,
   SelectRegistrySkillRequest,
   Session,
+  SessionLastTurnStatus,
   SessionListEntry,
   SessionListMetrics,
   SkillBase,

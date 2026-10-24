@@ -184,6 +184,7 @@ export type {
   SelectRegistrySkillRequest,
   Session,
   SessionEventItem,
+  SessionLastTurnStatus,
   SessionListEntry,
   SessionListMetrics,
   SkillBase,

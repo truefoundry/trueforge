@@ -1,3 +1,5 @@
+import type { SessionLastTurnStatus } from '../../server/types.js';
+
 /** Matches TrueForge `PATCH /sessions/{id}` title max. */
 export const MAX_SESSION_TITLE_LENGTH = 50;
 
@@ -91,4 +93,29 @@ export function canReuseMutableShell({
   const editBound = (shellAgentName != null && shellAgentName !== '') || (shellAgentId != null && shellAgentId !== '');
   if (!editBound) return true;
   return remoteId != null && remoteId === pendingSessionId;
+}
+
+// done and cancelled are intentionally absent: only actionable states get a dot.
+const LAST_TURN_INDICATOR = {
+  running: { label: 'Last turn running', dotClassName: 'bg-blue-500 animate-pulse' },
+  paused: { label: 'Last turn waiting for input', dotClassName: 'bg-amber-500' },
+  error: { label: 'Last turn failed', dotClassName: 'bg-red-500' },
+} satisfies Partial<Record<SessionLastTurnStatus, { label: string; dotClassName: string }>>;
+
+type LastTurnIndicatorStatus = keyof typeof LAST_TURN_INDICATOR;
+
+function hasLastTurnIndicator(status: unknown): status is LastTurnIndicatorStatus {
+  return typeof status === 'string' && Object.hasOwn(LAST_TURN_INDICATOR, status);
+}
+
+/** Dot config for a session's last turn; null when the state shows no indicator. */
+export function getLastTurnIndicator(status: SessionLastTurnStatus | undefined) {
+  return hasLastTurnIndicator(status) ? LAST_TURN_INDICATOR[status] : null;
+}
+
+/** Last turn status stamped on thread-list custom by the runtime. */
+export function readThreadLastTurnStatus(custom: unknown): SessionLastTurnStatus | undefined {
+  if (custom == null || typeof custom !== 'object') return undefined;
+  const value = Reflect.get(custom, 'lastTurnStatus');
+  return hasLastTurnIndicator(value) ? value : undefined;
 }

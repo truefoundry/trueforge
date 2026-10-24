@@ -3,9 +3,11 @@
 import type { ReactNode } from 'react';
 
 import { Icon } from '../icons/Icon.js';
+import type { SessionLastTurnStatus } from '../server/types.js';
 import { auiButtonClass } from './lib/buttonClasses.js';
 import { cn } from './lib/cn.js';
-import { formatRelativeShort } from './lib/threadListMeta.js';
+import { formatRelativeShort, getLastTurnIndicator } from './lib/threadListMeta.js';
+import { Tooltip } from './primitives/Tooltip.js';
 
 export type ThreadListRowProps = {
   title: string;
@@ -13,6 +15,8 @@ export type ThreadListRowProps = {
   onSelect: () => void;
   /** Named-agent label under the title (from session.agentName). */
   agentName?: string;
+  /** Status of the session's last turn; shown as a dot beside the title. */
+  lastTurnStatus?: SessionLastTurnStatus;
   /** Shown as compact relative time on the right. */
   lastMessageAt?: Date;
   /** Overflow actions (e.g. rename / delete menu) — rendered as a sibling of the title button. */
@@ -34,10 +38,12 @@ export function ThreadListRow({
   active,
   onSelect,
   agentName,
+  lastTurnStatus,
   lastMessageAt,
   actions,
   className,
 }: ThreadListRowProps) {
+  const lastTurnIndicator = getLastTurnIndicator(lastTurnStatus);
   const relative = lastMessageAt != null ? formatRelativeShort(lastMessageAt) : undefined;
   const hasTrailing = relative != null || actions != null;
 
@@ -67,7 +73,16 @@ export function ThreadListRow({
         })}
       >
         <span className="min-w-0 flex-1">
-          <span className="block truncate text-sm font-normal text-text-primary">{title}</span>
+          <span className="flex min-w-0 items-center gap-1">
+            {lastTurnIndicator != null ? (
+              <Tooltip content={lastTurnIndicator.label}>
+                <span aria-label={lastTurnIndicator.label} className="inline-flex shrink-0 pr-0.5">
+                  <span className={cn('size-2 rounded-full', lastTurnIndicator.dotClassName)} />
+                </span>
+              </Tooltip>
+            ) : null}
+            <span className="truncate text-sm font-normal text-text-primary">{title}</span>
+          </span>
           {agentName != null ? <ThreadListAgentName agentName={agentName} /> : null}
         </span>
       </button>

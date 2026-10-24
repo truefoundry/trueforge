@@ -48,4 +48,20 @@ describe('AgentSessionListRow', () => {
     fireEvent.click(screen.getByText('writer'));
     expect(onSelect).toHaveBeenCalledOnce();
   });
+
+  it.each([
+    ['running', 'Last turn running', 'bg-blue-500'],
+    ['paused', 'Last turn waiting for input', 'bg-amber-500'],
+    ['error', 'Last turn failed', 'bg-red-500'],
+  ] as const)('shows an indicator when the last turn is %s', (status, label, colorClass) => {
+    render(<AgentSessionListRow {...baseProps} lastTurnStatus={status} />);
+
+    expect(screen.getByLabelText(label).firstElementChild).toHaveClass(colorClass);
+  });
+
+  it.each([undefined, 'done', 'cancelled'] as const)('hides the indicator when the last turn is %s', status => {
+    render(<AgentSessionListRow {...baseProps} {...(status === undefined ? {} : { lastTurnStatus: status })} />);
+
+    expect(screen.queryByLabelText(/^Last turn/)).not.toBeInTheDocument();
+  });
 });

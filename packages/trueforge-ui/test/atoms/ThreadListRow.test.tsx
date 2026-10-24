@@ -113,4 +113,20 @@ describe('ThreadListRow', () => {
     expect(time.className).toMatch(/md:opacity-100/);
     expect(time.className).toMatch(/md:group-hover:opacity-0/);
   });
+
+  it('shows a status dot for the last turn and none before the first turn', () => {
+    const { rerender } = render(
+      <SlotsProvider>
+        <ThreadListRow title="Session A" active={false} onSelect={() => {}} lastTurnStatus="paused" />
+      </SlotsProvider>,
+    );
+    expect(screen.getByLabelText('Last turn waiting for input').firstElementChild).toHaveClass('bg-amber-500');
+
+    rerender(
+      <SlotsProvider>
+        <ThreadListRow title="Session A" active={false} onSelect={() => {}} />
+      </SlotsProvider>,
+    );
+    expect(screen.queryByLabelText(/^Last turn/)).not.toBeInTheDocument();
+  });
 });
