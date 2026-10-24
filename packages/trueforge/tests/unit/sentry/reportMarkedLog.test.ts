@@ -1,4 +1,3 @@
-import { reportableErrorFields } from '@truefoundry/trueforge-core/core';
 import { Writable } from 'node:stream';
 import winston from 'winston';
 import { captureCriticalException } from '../../../src/sentry/captureCriticalException';
@@ -33,11 +32,10 @@ describe('reportMarkedLogFormat', () => {
     const { logger, lines } = loggedLines();
     logger.error('Unhandled error', {
       error: 'boom',
-      ...reportableErrorFields({ error: failure, extra: { path: '/api' } }),
+      reportable_error: { error: failure, extra: { path: '/api' } },
     });
 
     expect(captureCriticalException).toHaveBeenCalledWith(expect.any(Error), {
-      tags: { filepath: expect.stringContaining('reportMarkedLog.test.ts') },
       extra: { path: '/api' },
     });
     const reported: unknown = jest.mocked(captureCriticalException).mock.calls[0]?.[0];
@@ -65,8 +63,8 @@ describe('reportMarkedLogFormat', () => {
   it('reports each repeated marked log', () => {
     const { logger } = loggedLines();
     const failure = new Error('socket closed');
-    logger.error('[Redis] Client error', reportableErrorFields({ error: failure }));
-    logger.error('[Redis] Client error', reportableErrorFields({ error: failure }));
+    logger.error('[Redis] Client error', { reportable_error: { error: failure } });
+    logger.error('[Redis] Client error', { reportable_error: { error: failure } });
     expect(captureCriticalException).toHaveBeenCalledTimes(2);
   });
 });

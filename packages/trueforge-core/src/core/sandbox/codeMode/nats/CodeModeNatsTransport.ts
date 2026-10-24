@@ -6,7 +6,6 @@ import type { Logger } from 'winston';
 import { WebSocket } from 'ws';
 import { extractErrorLogFields } from '../../../util/errorLogFields';
 import { withTimeout } from '../../../util/promiseUtils';
-import { reportableErrorFields } from '../../../util/reportableErrorLog';
 import { DEFAULT_SANDBOX_NATS_WS_PORT } from '../../constants';
 import { sandboxScripts } from '../../sandboxScripts.gen';
 import type { CodeModeDispatcher } from '../CodeModeDispatcher';
@@ -96,7 +95,7 @@ export class CodeModeNatsTransport implements CodeModeTransport {
     } catch (e) {
       this.logger.warn('Code Mode NATS drain failed/timed out; forcing close', {
         ...extractErrorLogFields(e),
-        ...reportableErrorFields({ error: e }),
+        reportable_error: { error: e },
       });
       await nc.close().catch(() => {
         /* no-op */
@@ -166,7 +165,7 @@ export class CodeModeNatsTransport implements CodeModeTransport {
     if (err) {
       this.logger.error('Code Mode NATS subscription error', {
         ...extractErrorLogFields(err),
-        ...reportableErrorFields({ error: err }),
+        reportable_error: { error: err },
       });
       return;
     }
@@ -182,7 +181,7 @@ export class CodeModeNatsTransport implements CodeModeTransport {
       } catch (e) {
         this.logger.warn(`Failed to send dispatcher-missing reply on '${msg.subject}'`, {
           ...extractErrorLogFields(e),
-          ...reportableErrorFields({ error: e }),
+          reportable_error: { error: e },
         });
       }
       return;
@@ -204,14 +203,14 @@ export class CodeModeNatsTransport implements CodeModeTransport {
     } catch (e) {
       this.logger.error(`Failed to decode Code Mode NATS request on '${msg.subject}'`, {
         ...extractErrorLogFields(e),
-        ...reportableErrorFields({ error: e }),
+        reportable_error: { error: e },
       });
       try {
         msg.respond(this.encode({ ok: false, error: 'Malformed Code Mode request', source: 'caller' }));
       } catch (respondErr) {
         this.logger.warn(`Failed to send decode-error reply on '${msg.subject}'`, {
           ...extractErrorLogFields(respondErr),
-          ...reportableErrorFields({ error: respondErr }),
+          reportable_error: { error: respondErr },
         });
       }
       return;
@@ -223,7 +222,7 @@ export class CodeModeNatsTransport implements CodeModeTransport {
     } catch (e) {
       this.logger.error('Failed to publish Code Mode NATS reply', {
         ...extractErrorLogFields(e),
-        ...reportableErrorFields({ error: e }),
+        reportable_error: { error: e },
       });
     }
   }

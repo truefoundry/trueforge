@@ -1,5 +1,5 @@
 import { OpenAPIHono, type RouteHandler } from '@hono/zod-openapi';
-import { extractErrorLogFields, McpConnectionError, reportableErrorFields } from '@truefoundry/trueforge-core/core';
+import { extractErrorLogFields, McpConnectionError } from '@truefoundry/trueforge-core/core';
 import type { Context } from 'hono';
 import type { Logger } from 'winston';
 import type { RequestContext } from '../auth/identity';
@@ -121,7 +121,7 @@ export function createMcpOAuthRouter<TTransaction>(deps: McpOAuthRouterDeps<TTra
       }
       deps.logger.error('MCP OAuth callback unexpected failure', {
         ...extractErrorLogFields(err),
-        ...reportableErrorFields({ error: err }),
+        reportable_error: { error: err },
       });
       return callbackFailure({ c, pending, message: 'Internal server error', jsonStatus: 500 });
     }

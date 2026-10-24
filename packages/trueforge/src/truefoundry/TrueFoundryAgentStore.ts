@@ -1,5 +1,5 @@
 import type { AgentSpec, TokenPagination } from '@truefoundry/trueforge-core/agent-session';
-import { extractErrorLogFields, reportableErrorFields } from '@truefoundry/trueforge-core/core';
+import { extractErrorLogFields } from '@truefoundry/trueforge-core/core';
 import { sql, type Kysely, type Transaction } from 'kysely';
 import type { Logger } from 'winston';
 import type { RequestContext } from '../auth/identity';
@@ -200,7 +200,7 @@ export class TrueFoundryAgentStore implements IAgentStore<Transaction<Database>>
           agent_name: created.name,
           tenant_id: input.tenant_id,
           external_id: externalId,
-          ...reportableErrorFields({
+          reportable_error: {
             error: aggregate,
             extra: {
               agent_id: created.id,
@@ -208,7 +208,7 @@ export class TrueFoundryAgentStore implements IAgentStore<Transaction<Database>>
               tenant_id: input.tenant_id,
               external_id: externalId,
             },
-          }),
+          },
         });
         throw aggregate;
       }
@@ -273,7 +273,7 @@ export class TrueFoundryAgentStore implements IAgentStore<Transaction<Database>>
             agent_name: previous.name,
             tenant_id: input.tenant_id,
             external_id: previous.external_id,
-            ...reportableErrorFields({
+            reportable_error: {
               error: aggregate,
               extra: {
                 agent_id: input.id,
@@ -281,7 +281,7 @@ export class TrueFoundryAgentStore implements IAgentStore<Transaction<Database>>
                 tenant_id: input.tenant_id,
                 external_id: previous.external_id,
               },
-            }),
+            },
           });
           throw aggregate;
         }

@@ -56,7 +56,6 @@ import type { IToolSet, MCPAuthRequired } from '../mcp/IMCPServer';
 import type { HarnessSandbox, SandboxInfo } from '../sandbox/Sandbox';
 import type { AgentTracing } from '../tracing/AgentTracing';
 import { describeUnknownError, extractErrorLogFields, isReportableError } from '../util/errorLogFields';
-import { reportableErrorFields } from '../util/reportableErrorLog';
 import type { AgentDefinition } from './AgentDefinition';
 import type {
   AgentThreadConstructorInput,
@@ -1520,7 +1519,7 @@ export class AgentThread {
       // Model-provider failures are classified at the LLM call. turn.done only keeps the message.
       this.logger.error('Agent thread execution failed', {
         ...extractErrorLogFields(error),
-        ...(error instanceof ModelProviderError || !isReportableError(error) ? {} : reportableErrorFields({ error })),
+        ...(error instanceof ModelProviderError || !isReportableError(error) ? {} : { reportable_error: { error } }),
       });
       yield this.generateErrorEvent(describeUnknownError(error));
     } finally {

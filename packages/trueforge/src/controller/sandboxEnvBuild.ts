@@ -1,7 +1,6 @@
 /**
  * Control loop: list pending sandbox-env versions and hand each to the server over HTTP.
  */
-import { reportableErrorFields } from '@truefoundry/trueforge-core/core';
 import { TrueForgeApi, TrueForgeError } from '@truefoundry/trueforge-sdk';
 import type { Logger } from 'winston';
 import type { ControlLoop } from './Controller';
@@ -34,10 +33,12 @@ export async function dispatchSandboxEnvBuilds({ logger }: { logger: Logger }): 
         error: error instanceof Error ? error.message : String(error),
         ...(serverResponded
           ? {}
-          : reportableErrorFields({
-              error,
-              extra: { environment_version_id: environmentVersionId },
-            })),
+          : {
+              reportable_error: {
+                error,
+                extra: { environment_version_id: environmentVersionId },
+              },
+            }),
       });
     }
   }

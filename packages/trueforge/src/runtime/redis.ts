@@ -7,7 +7,7 @@
 import { existsSync, readFileSync } from 'node:fs';
 import { setTimeout as sleep } from 'node:timers/promises';
 
-import { extractErrorLogFields, reportableErrorFields } from '@truefoundry/trueforge-core/core';
+import { extractErrorLogFields } from '@truefoundry/trueforge-core/core';
 import { createClient, createSentinel, type RedisClientType, type RedisSentinelType } from 'redis';
 import type { Logger } from 'winston';
 
@@ -154,7 +154,7 @@ async function connectSentinelWithRetry(input: {
     client.on('error', (error: Error) => {
       input.logger.error('[Redis] Client error', {
         ...extractErrorLogFields(error),
-        ...reportableErrorFields({ error }),
+        reportable_error: { error },
       });
     });
     try {
@@ -174,7 +174,7 @@ async function connectSentinelWithRetry(input: {
       input.logger.error('[Redis] Sentinel connect failed, rebuilding and retrying', {
         attempt,
         ...extractErrorLogFields(error),
-        ...reportableErrorFields({ error, extra: { attempt } }),
+        reportable_error: { error, extra: { attempt } },
       });
       await sleep(Math.min(SENTINEL_RETRY_BASE_MS * 2 ** attempt, SENTINEL_RETRY_MAX_MS));
     }
@@ -221,7 +221,7 @@ export async function connectRedis(input: ConnectRedisInput): Promise<ConnectedR
       created.on('error', (error: Error) => {
         input.logger.error('[Redis] Client error', {
           ...extractErrorLogFields(error),
-          ...reportableErrorFields({ error }),
+          reportable_error: { error },
         });
       });
       await created.connect();

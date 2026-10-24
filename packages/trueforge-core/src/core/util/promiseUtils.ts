@@ -1,6 +1,5 @@
 import type { Logger } from 'winston';
 import { extractErrorLogFields } from './errorLogFields';
-import { reportableErrorFields } from './reportableErrorLog';
 
 export class PromiseTimeoutError extends Error {
   constructor(message: string) {
@@ -46,7 +45,7 @@ export async function* mergeAsyncGenerators<T>(
     nextPromise.catch((error: unknown) => {
       logger.error(`Unexpected error in mergeAsyncGenerators generator ${String(idx)}`, {
         ...extractErrorLogFields(error),
-        ...reportableErrorFields({ error, extra: { generator: idx } }),
+        reportable_error: { error, extra: { generator: idx } },
       });
     });
     return nextPromise;

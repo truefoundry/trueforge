@@ -5,7 +5,6 @@ import type { ToolCallResult } from '../../mcp/executeToolCalls';
 import type { HarnessSandbox, SandboxInfo } from '../../sandbox/Sandbox';
 import { createSandboxLargeToolResponseGuidance, SANDBOX_SCHEMA_INFER_TAG } from '../../sandbox/Sandbox';
 import { extractErrorLogFields } from '../../util/errorLogFields';
-import { reportableErrorFields } from '../../util/reportableErrorLog';
 import type { AgentCapability } from '../AgentCapability';
 import type { AgentThreadExecutionContext } from '../AgentContextProcessor';
 import type { ToolResponseProcessor, ToolResponseProcessorResult } from '../ToolResponseProcessor';
@@ -184,7 +183,7 @@ export class LargeToolResponseProcessor implements ToolResponseProcessor {
     } catch (error) {
       this.logger.error('Failed to upload to sandbox', {
         ...extractErrorLogFields(error),
-        ...reportableErrorFields({ error }),
+        reportable_error: { error },
       });
       return undefined;
     }

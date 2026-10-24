@@ -16,7 +16,7 @@ import {
   SessionStoreNotFoundError,
   TurnNotFoundError,
 } from '@truefoundry/trueforge-core/agent-session';
-import { extractErrorLogFields, reportableErrorFields } from '@truefoundry/trueforge-core/core';
+import { extractErrorLogFields } from '@truefoundry/trueforge-core/core';
 import {
   redisRequest,
   RequestTimeoutError,
@@ -204,12 +204,12 @@ export async function cancelSessionTurn(
       if (error instanceof RequestTimeoutError) {
         deps.logger.warn('Timed out waiting for owning executor to cancel; freezing the running turn', {
           ...fields,
-          ...reportableErrorFields({ error, extra: { turn_id: turnId, owner } }),
+          reportable_error: { error, extra: { turn_id: turnId, owner } },
         });
       } else {
         deps.logger.warn('Failed to reach owning executor over Redis; freezing the running turn', {
           ...fields,
-          ...reportableErrorFields({ error, extra: { turn_id: turnId, owner } }),
+          reportable_error: { error, extra: { turn_id: turnId, owner } },
         });
       }
     }

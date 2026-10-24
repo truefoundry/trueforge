@@ -26,7 +26,6 @@ import {
   PromiseTimeoutError,
   rawSandboxId,
   redisKey,
-  reportableErrorFields,
   SandboxError,
   VercelAILLM,
   withTimeout,
@@ -396,7 +395,7 @@ function reportUnexpectedTurnDone({ event, logger }: { event: TurnStreamingEvent
     const error = new Error(state.reason);
     logger.error('turn.done cancelled', {
       ...extractErrorLogFields(error),
-      ...reportableErrorFields({ error, extra: { reason: state.reason } }),
+      reportable_error: { error, extra: { reason: state.reason } },
     });
   }
 }
@@ -429,7 +428,7 @@ export async function drainTurnEvents(input: {
     } else {
       logger.error('Unexpected error in turn event drain', {
         ...extractErrorLogFields(error),
-        ...reportableErrorFields({ error }),
+        reportable_error: { error },
       });
     }
   } finally {
@@ -753,7 +752,7 @@ export function createTurnsRouter(deps: TurnsRouterDeps) {
         ...extractErrorLogFields(error),
         sandboxId,
         path,
-        ...reportableErrorFields({ error, extra: { sandboxId, path } }),
+        reportable_error: { error, extra: { sandboxId, path } },
       });
       return c.json({ error: { message: 'Failed to download file from sandbox' } }, 424);
     }
@@ -999,7 +998,7 @@ export function createTurnsRouter(deps: TurnsRouterDeps) {
         if (!subscribeAbort.signal.aborted) {
           deps.logger.error('Unexpected error in turn subscribe SSE loop', {
             ...extractErrorLogFields(error),
-            ...reportableErrorFields({ error }),
+            reportable_error: { error },
           });
         }
       } finally {

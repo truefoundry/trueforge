@@ -1,5 +1,5 @@
 import { OpenAPIHono } from '@hono/zod-openapi';
-import { extractErrorLogFields, isReportableError, reportableErrorFields } from '@truefoundry/trueforge-core/core';
+import { extractErrorLogFields, isReportableError } from '@truefoundry/trueforge-core/core';
 import type { Context, MiddlewareHandler } from 'hono';
 import type { Configuration } from 'openid-client';
 import type { Logger } from 'winston';
@@ -63,7 +63,7 @@ export function createAuthRouter(params: {
       } catch (error) {
         params.logger.error('Failed to build login authorization', {
           ...extractErrorLogFields(error),
-          ...reportableErrorFields({ error }),
+          reportable_error: { error },
         });
         return c.redirect(oauthErrorRedirect('login_failed'), 302);
       }
@@ -75,7 +75,7 @@ export function createAuthRouter(params: {
       } catch (error) {
         params.logger.error('Failed to build TrueFoundry external login URL', {
           ...extractErrorLogFields(error),
-          ...reportableErrorFields({ error }),
+          reportable_error: { error },
         });
         return c.redirect(oauthErrorRedirect('login_failed'), 302);
       }
@@ -122,7 +122,7 @@ export function createAuthRouter(params: {
     } catch (error) {
       params.logger.error('Failed to exchange authorization code', {
         ...extractErrorLogFields(error),
-        ...(isReportableError(error) ? reportableErrorFields({ error }) : {}),
+        ...(isReportableError(error) ? { reportable_error: { error } } : {}),
       });
       const soft = await redirectIfAlreadyAuthenticated({
         context: c,

@@ -5,7 +5,6 @@ import {
   isAuthRequired,
   McpConnectionError,
   RemoteMCP,
-  reportableErrorFields,
 } from '@truefoundry/trueforge-core/core';
 import type { Context } from 'hono';
 import { HTTPException } from 'hono/http-exception';
@@ -460,7 +459,7 @@ export function createMcpServersRouter<TTransaction>(deps: McpServersRouterDeps<
       }
       deps.logger.error(`MCP authorize unexpected failure for "${name}"`, {
         ...extractErrorLogFields(error),
-        ...reportableErrorFields({ error, extra: { mcp_server_name: name } }),
+        reportable_error: { error, extra: { mcp_server_name: name } },
       });
       return c.json({ error: { message: 'Internal server error' } }, 500);
     }

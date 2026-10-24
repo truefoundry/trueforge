@@ -37,7 +37,6 @@ import type { Logger } from 'winston';
 import { ModelProviderError } from '../errors';
 import { describeUnknownError, extractErrorLogFields, isReportableError } from '../util/errorLogFields';
 import { modelSsrfFetch } from '../util/outboundFetch';
-import { reportableErrorFields } from '../util/reportableErrorLog';
 import type { ILLM, LLMCreateParams, LLMCreateParamsStreaming } from './ILLM';
 import {
   type CompletionUsage,
@@ -1450,7 +1449,7 @@ export class VercelAILLM implements ILLM {
       } else {
         this.logger.error('Error creating streaming chat completion', {
           ...extractErrorLogFields(streamError),
-          ...(isReportableError(error) ? reportableErrorFields({ error: streamError }) : {}),
+          ...(isReportableError(error) ? { reportable_error: { error: streamError } } : {}),
         });
       }
       throw streamError;
@@ -1492,7 +1491,7 @@ export class VercelAILLM implements ILLM {
       } else {
         this.logger.error('Error reading LLM stream', {
           ...extractErrorLogFields(streamError),
-          ...(isReportableError(error) ? reportableErrorFields({ error: streamError }) : {}),
+          ...(isReportableError(error) ? { reportable_error: { error: streamError } } : {}),
         });
       }
       throw streamError;

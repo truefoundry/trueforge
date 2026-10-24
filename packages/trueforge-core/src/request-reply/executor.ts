@@ -2,7 +2,6 @@ import { randomUUID } from 'node:crypto';
 import type { Logger } from 'winston';
 import z from 'zod';
 import { extractErrorLogFields } from '../core/util/errorLogFields';
-import { reportableErrorFields } from '../core/util/reportableErrorLog';
 import { ReplyError } from './errors';
 import type { RedisClient } from './redisClient';
 import type { JSONReply, RequestHandler } from './types';
@@ -107,10 +106,10 @@ export class RequestReplyExecutor {
       this.logger.error('[RequestReplyExecutor] Subscriber error', {
         executorId: this.executorId,
         ...extractErrorLogFields(err),
-        ...reportableErrorFields({
+        reportable_error: {
           error: err,
           extra: { executorId: this.executorId },
-        }),
+        },
       });
       this.onError?.(err, { executorId: this.executorId, channel: this.channel });
       // error is often transient; the client can reconnect and fire ready again. Do not stop the heartbeat.
@@ -150,10 +149,10 @@ export class RequestReplyExecutor {
       this.logger.error('[RequestReplyExecutor] Error subscribing to request channel', {
         executorId: this.executorId,
         ...extractErrorLogFields(error),
-        ...reportableErrorFields({
+        reportable_error: {
           error,
           extra: { executorId: this.executorId },
-        }),
+        },
       });
       this.onError?.(error, { executorId: this.executorId, channel: this.channel });
       this.stopHeartbeat();
@@ -168,10 +167,10 @@ export class RequestReplyExecutor {
       this.logger.error('[RequestReplyExecutor] Heartbeat error', {
         executorId: this.executorId,
         ...extractErrorLogFields(err),
-        ...reportableErrorFields({
+        reportable_error: {
           error: err,
           extra: { executorId: this.executorId },
-        }),
+        },
       });
     }
   }
@@ -206,10 +205,10 @@ export class RequestReplyExecutor {
       // Drop the request, this should never happen
       this.logger.warn('[RequestReplyExecutor] Request message is not valid JSON', {
         executorId: this.executorId,
-        ...reportableErrorFields({
+        reportable_error: {
           error: err,
           extra: { executorId: this.executorId },
-        }),
+        },
       });
       this.onError?.(
         new Error(`Request message is not valid JSON for executorId: ${this.executorId}`, {
@@ -230,10 +229,10 @@ export class RequestReplyExecutor {
       this.logger.warn('[RequestReplyExecutor] Invalid request message shape', {
         executorId: this.executorId,
         zod: zodError,
-        ...reportableErrorFields({
+        reportable_error: {
           error: parsedRequest.error,
           extra: { executorId: this.executorId },
-        }),
+        },
       });
       this.onError?.(
         new Error(
@@ -266,10 +265,10 @@ export class RequestReplyExecutor {
         executorId: this.executorId,
         replyKey,
         ...extractErrorLogFields(err),
-        ...reportableErrorFields({
+        reportable_error: {
           error: err,
           extra: { executorId: this.executorId },
-        }),
+        },
       });
     }
   }

@@ -8,7 +8,6 @@ import {
   type IToolSet,
 } from '../../mcp/IMCPServer';
 import { extractErrorLogFields } from '../../util/errorLogFields';
-import { reportableErrorFields } from '../../util/reportableErrorLog';
 import type { CodeModeErrorSource, CodeModeReply, CodeModeRequest } from './types';
 
 /** Minimal logger surface used by Code Mode (avoids a hard winston dep for PoC binders). */
@@ -90,7 +89,7 @@ export class CodeModeDispatcher {
       const errorMessage = e instanceof Error ? e.message : 'Unknown Code Mode dispatch error';
       this.logger.error(`Code Mode dispatch failed (source=${source})`, {
         ...extractErrorLogFields(e),
-        ...(source === 'internal' ? reportableErrorFields({ error: e, extra: { source } }) : {}),
+        ...(source === 'internal' ? { reportable_error: { error: e, extra: { source } } } : {}),
       });
       return { ok: false, error: errorMessage, source };
     }

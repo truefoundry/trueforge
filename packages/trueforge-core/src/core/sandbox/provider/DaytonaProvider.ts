@@ -7,7 +7,6 @@ import { join } from 'node:path/posix';
 import type { Logger } from 'winston';
 import { extractErrorLogFields } from '../../util/errorLogFields';
 import { withTimeout } from '../../util/promiseUtils';
-import { reportableErrorFields } from '../../util/reportableErrorLog';
 import {
   SandboxFileNotFoundError,
   SandboxFileTooLargeError,
@@ -357,10 +356,10 @@ export class DaytonaSandboxProvider implements SandboxProvider<DaytonaSandboxEnv
       this.logger.error('Daytona sandbox create failed', {
         snapshot_ref: env.snapshot_ref,
         ...extractErrorLogFields(alertError),
-        ...reportableErrorFields({
+        reportable_error: {
           error: alertError,
           extra: { snapshot_ref: env.snapshot_ref },
-        }),
+        },
       });
       throw error;
     }
@@ -444,7 +443,7 @@ export class DaytonaSandboxProvider implements SandboxProvider<DaytonaSandboxEnv
         this.logger.error('Sandbox recovery failed', {
           ...extractErrorLogFields(recoveryError),
           originalError: extractErrorLogFields(originalError),
-          ...reportableErrorFields({ error: recoveryError }),
+          reportable_error: { error: recoveryError },
         });
         throw new Error('Sandbox is unavailable; recovery attempt failed.', { cause: recoveryError });
       }
@@ -459,7 +458,7 @@ export class DaytonaSandboxProvider implements SandboxProvider<DaytonaSandboxEnv
         this.logger.error('Sandbox operation failed after successful recovery', {
           ...extractErrorLogFields(retryError),
           originalError: extractErrorLogFields(originalError),
-          ...reportableErrorFields({ error: retryError }),
+          reportable_error: { error: retryError },
         });
         // Rethrow as-is so callers can match domain error types (SandboxPathIsDirectoryError, DaytonaError statusCode mappings, etc.).
         throw retryError;
@@ -513,7 +512,7 @@ export class DaytonaSandboxProvider implements SandboxProvider<DaytonaSandboxEnv
         }
         this.logger.error('Sandbox execution error', {
           ...extractErrorLogFields(e),
-          ...reportableErrorFields({ error: e }),
+          reportable_error: { error: e },
         });
         const message = e instanceof Error ? e.message : 'Unknown error';
         return { success: false, error: message };
@@ -582,7 +581,7 @@ export class DaytonaSandboxProvider implements SandboxProvider<DaytonaSandboxEnv
         DaytonaSandboxProvider.cachedSandboxes.delete(params.sandboxId);
         this.logger.error('Failed to create signed preview URL', {
           ...extractErrorLogFields(e),
-          ...reportableErrorFields({ error: e }),
+          reportable_error: { error: e },
         });
         throw e;
       }
