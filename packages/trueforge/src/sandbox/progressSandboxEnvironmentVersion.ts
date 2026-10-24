@@ -1,9 +1,5 @@
 /** Progress pending env version: snapshot build only (secrets sync on PUT). */
-import {
-  DAYTONA_SNAPSHOT_NOT_STARTED_REASON,
-  reportableErrorFields,
-  withTimeout,
-} from '@truefoundry/trueforge-core/core';
+import { DAYTONA_SNAPSHOT_NOT_STARTED_REASON, withTimeout } from '@truefoundry/trueforge-core/core';
 import { HTTPException } from 'hono/http-exception';
 import type { Logger } from 'winston';
 import type { ISandboxEnvironmentStore } from '../db/sandboxEnvironmentStore';
@@ -32,10 +28,6 @@ export async function progressSandboxEnvironmentVersion({
     const error = new HTTPException(404, { message: 'Sandbox environment version not found' });
     logger.warn('Sandbox environment version not found', {
       environment_version_id,
-      ...reportableErrorFields({
-        error,
-        extra: { environment_version_id },
-      }),
     });
     throw error;
   }
@@ -82,10 +74,6 @@ export async function progressSandboxEnvironmentVersion({
       logger.warn('Sandbox environment build failed authz', {
         environment_version_id,
         status_reason,
-        ...reportableErrorFields({
-          error,
-          extra: { environment_version_id, tenant_id: pending.tenant_id, status_reason },
-        }),
       });
       return;
     }

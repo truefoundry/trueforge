@@ -385,11 +385,8 @@ function reportUnexpectedTurnDone({ event, logger }: { event: TurnStreamingEvent
   }
   const { state } = event;
   if (state.status === 'error') {
-    const error = new Error(state.message);
-    logger.error('turn.done error', {
-      ...extractErrorLogFields(error),
-      ...reportableErrorFields({ error }),
-    });
+    // Only the message remains here. The thrown error was already classified, including provider 4xx.
+    logger.error('turn.done error', extractErrorLogFields(new Error(state.message)));
     return;
   }
   if (

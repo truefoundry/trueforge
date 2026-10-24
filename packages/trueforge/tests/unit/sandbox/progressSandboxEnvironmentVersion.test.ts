@@ -85,13 +85,9 @@ describe('progressSandboxEnvironmentVersion', () => {
         logger,
       }),
     ).rejects.toMatchObject({ status: 404 } satisfies Partial<HTTPException>);
-    expect(warn).toHaveBeenCalledWith(
-      'Sandbox environment version not found',
-      expect.objectContaining({
-        environment_version_id: 'missing',
-        reportable_error: expect.objectContaining({ error: expect.any(HTTPException) }),
-      }),
-    );
+    expect(warn).toHaveBeenCalledWith('Sandbox environment version not found', {
+      environment_version_id: 'missing',
+    });
   });
 
   it('rethrows a build failure without reporting it from this layer', async () => {
@@ -113,7 +109,7 @@ describe('progressSandboxEnvironmentVersion', () => {
     expect(errorLog).not.toHaveBeenCalled();
   });
 
-  it('reports an authz failure and marks the version failed', async () => {
+  it('logs an authz failure without reporting it and marks the version failed', async () => {
     const { sandboxEnvironmentStore, sandboxProviderStore, envStore } = makeStores();
     const authError = new DaytonaError('Unauthorized', 401);
     const warn = jest.spyOn(logger, 'warn');
@@ -133,12 +129,10 @@ describe('progressSandboxEnvironmentVersion', () => {
       environment_version_id: 'ver-1',
       status_reason: 'Sandbox provider rejected the API key — check the credentials',
     });
-    expect(warn).toHaveBeenCalledWith(
-      'Sandbox environment build failed authz',
-      expect.objectContaining({
-        reportable_error: expect.objectContaining({ error: authError }),
-      }),
-    );
+    expect(warn).toHaveBeenCalledWith('Sandbox environment build failed authz', {
+      environment_version_id: 'ver-1',
+      status_reason: 'Sandbox provider rejected the API key — check the credentials',
+    });
   });
 
   it('marks ready when getBuildStatus reports ready', async () => {

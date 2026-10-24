@@ -141,12 +141,12 @@ describe('turns', () => {
       return { message, error, reason };
     }
 
-    it('reports turn.done error, abandoned, and server-execution-timeout', async () => {
+    it('logs turn.done error without reporting it, and reports abandoned and server-execution-timeout', async () => {
       const errorLog = await drain(turnDone({ status: 'error', message: 'model failed', completed_at: completedAt }));
-      expect(reportedError(errorLog)).toMatchObject({
-        message: 'turn.done error',
-        error: expect.objectContaining({ message: 'model failed' }),
-      });
+      expect(errorLog).toHaveBeenCalledWith(
+        'turn.done error',
+        expect.not.objectContaining({ reportable_error: expect.anything() }),
+      );
 
       const abandonedLog = await drain(
         turnDone({ status: 'cancelled', reason: CancellationReason.Abandoned, completed_at: completedAt }),

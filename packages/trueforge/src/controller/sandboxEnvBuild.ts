@@ -2,7 +2,7 @@
  * Control loop: list pending sandbox-env versions and hand each to the server over HTTP.
  */
 import { reportableErrorFields } from '@truefoundry/trueforge-core/core';
-import { TrueForgeApi } from '@truefoundry/trueforge-sdk';
+import { TrueForgeApi, TrueForgeError } from '@truefoundry/trueforge-sdk';
 import type { Logger } from 'winston';
 import type { ControlLoop } from './Controller';
 import { internalTrueForgeClient } from './internalTrueForgeClient';
@@ -24,20 +24,20 @@ export async function dispatchSandboxEnvBuilds({ logger }: { logger: Logger }): 
       if (error instanceof TrueForgeApi.NotFoundError) {
         logger.warn('Sandbox environment version not found; skipping', {
           environment_version_id: environmentVersionId,
-          ...reportableErrorFields({
-            error,
-            extra: { environment_version_id: environmentVersionId },
-          }),
         });
         continue;
       }
+      // A status means the API handler already logged the failure. Report a call that got no response.
+      const serverResponded = error instanceof TrueForgeError && typeof error.statusCode === 'number';
       logger.error('Sandbox environment version progress failed', {
         environment_version_id: environmentVersionId,
         error: error instanceof Error ? error.message : String(error),
-        ...reportableErrorFields({
-          error,
-          extra: { environment_version_id: environmentVersionId },
-        }),
+        ...(serverResponded
+          ? {}
+          : reportableErrorFields({
+              error,
+              extra: { environment_version_id: environmentVersionId },
+            })),
       });
     }
   }
