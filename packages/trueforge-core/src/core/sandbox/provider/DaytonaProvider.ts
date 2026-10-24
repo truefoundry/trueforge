@@ -81,8 +81,6 @@ export interface DaytonaSandboxProviderOptions {
   /** Defaults to 1 hour (same as the gateway's max agent execution time). */
   previewUrlExpirySeconds?: number;
   logger: Logger;
-  /** Host alert hook (e.g. Sentry P1). */
-  onCriticalAlert?: (error: Error) => void;
 }
 
 export class DaytonaSandboxProvider implements SandboxProvider<DaytonaSandboxEnvironment> {
@@ -99,7 +97,6 @@ export class DaytonaSandboxProvider implements SandboxProvider<DaytonaSandboxEnv
   private readonly apiKey: string;
   private readonly apiUrl: string;
   private readonly logger: Logger;
-  private readonly onCriticalAlert: ((error: Error) => void) | undefined;
   private readonly daytona: Daytona;
   private static readonly cachedSandboxes = new Map<string, { sandbox: Sandbox; defaultTimeoutMs: number }>();
   // De-dupes concurrent recovery attempts on the same sandbox to a single refreshData+start round-trip.
@@ -117,7 +114,6 @@ export class DaytonaSandboxProvider implements SandboxProvider<DaytonaSandboxEnv
     this.fileMaxBytesForDownload = options.fileMaxBytesForDownload;
     this.natsBridgePort = options.natsBridgePort ?? DEFAULT_SANDBOX_NATS_WS_PORT;
     this.previewUrlExpirySeconds = options.previewUrlExpirySeconds ?? DEFAULT_PREVIEW_URL_EXPIRY_SECONDS;
-    this.onCriticalAlert = options.onCriticalAlert;
     this.logger = options.logger.child({ module: 'DaytonaProvider' });
   }
 
@@ -360,8 +356,11 @@ export class DaytonaSandboxProvider implements SandboxProvider<DaytonaSandboxEnv
       this.logger.error('Daytona sandbox create failed', {
         snapshot_ref: env.snapshot_ref,
         ...extractErrorLogFields(alertError),
+        reportable_error: {
+          error: alertError,
+          extra: { snapshot_ref: env.snapshot_ref },
+        },
       });
-      this.onCriticalAlert?.(alertError);
       throw error;
     }
   }
@@ -444,6 +443,7 @@ export class DaytonaSandboxProvider implements SandboxProvider<DaytonaSandboxEnv
         this.logger.error('Sandbox recovery failed', {
           ...extractErrorLogFields(recoveryError),
           originalError: extractErrorLogFields(originalError),
+          reportable_error: { error: recoveryError },
         });
         throw new Error('Sandbox is unavailable; recovery attempt failed.', { cause: recoveryError });
       }
@@ -458,6 +458,7 @@ export class DaytonaSandboxProvider implements SandboxProvider<DaytonaSandboxEnv
         this.logger.error('Sandbox operation failed after successful recovery', {
           ...extractErrorLogFields(retryError),
           originalError: extractErrorLogFields(originalError),
+          reportable_error: { error: retryError },
         });
         // Rethrow as-is so callers can match domain error types (SandboxPathIsDirectoryError, DaytonaError statusCode mappings, etc.).
         throw retryError;
@@ -509,7 +510,10 @@ export class DaytonaSandboxProvider implements SandboxProvider<DaytonaSandboxEnv
         if (e instanceof SandboxNotAvailableError) {
           throw e;
         }
-        this.logger.error('Sandbox execution error', extractErrorLogFields(e));
+        this.logger.error('Sandbox execution error', {
+          ...extractErrorLogFields(e),
+          reportable_error: { error: e },
+        });
         const message = e instanceof Error ? e.message : 'Unknown error';
         return { success: false, error: message };
       }
@@ -575,7 +579,10 @@ export class DaytonaSandboxProvider implements SandboxProvider<DaytonaSandboxEnv
         });
       } catch (e: unknown) {
         DaytonaSandboxProvider.cachedSandboxes.delete(params.sandboxId);
-        this.logger.error('Failed to create signed preview URL', extractErrorLogFields(e));
+        this.logger.error('Failed to create signed preview URL', {
+          ...extractErrorLogFields(e),
+          reportable_error: { error: e },
+        });
         throw e;
       }
     });

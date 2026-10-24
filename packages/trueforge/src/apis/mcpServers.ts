@@ -457,7 +457,10 @@ export function createMcpServersRouter<TTransaction>(deps: McpServersRouterDeps<
         }
         return c.json({ error: { message: error.message } }, 500);
       }
-      deps.logger.error(`MCP authorize unexpected failure for "${name}"`, extractErrorLogFields(error));
+      deps.logger.error(`MCP authorize unexpected failure for "${name}"`, {
+        ...extractErrorLogFields(error),
+        reportable_error: { error, extra: { mcp_server_name: name } },
+      });
       return c.json({ error: { message: 'Internal server error' } }, 500);
     }
   };

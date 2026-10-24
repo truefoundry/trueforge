@@ -12,7 +12,7 @@ import type {
 } from '../capabilities/AgentContextProcessor';
 import { SUB_AGENT_IDENTITY } from '../capabilities/builtins/DynamicSubAgents';
 import type { ToolResponseProcessor } from '../capabilities/ToolResponseProcessor';
-import { AgentHarnessError, InvalidAgentSendInputError } from '../errors';
+import { AgentHarnessError, InvalidAgentSendInputError, ModelProviderError } from '../errors';
 import type { RegisteredPassthroughEvent } from '../events/PassthroughEvents';
 import {
   EventType,
@@ -55,7 +55,7 @@ import { executeToolCalls } from '../mcp/executeToolCalls';
 import type { IToolSet, MCPAuthRequired } from '../mcp/IMCPServer';
 import type { HarnessSandbox, SandboxInfo } from '../sandbox/Sandbox';
 import type { AgentTracing } from '../tracing/AgentTracing';
-import { describeUnknownError, extractErrorLogFields } from '../util/errorLogFields';
+import { describeUnknownError, extractErrorLogFields, isReportableError } from '../util/errorLogFields';
 import type { AgentDefinition } from './AgentDefinition';
 import type {
   AgentThreadConstructorInput,
@@ -1516,7 +1516,11 @@ export class AgentThread {
     } catch (error) {
       // Providers / transports often reject with plain objects; instanceof Error would
       // otherwise collapse those into an opaque "Unknown error occurred" in Agent Steps.
-      this.logger.error('Agent thread execution failed', extractErrorLogFields(error));
+      // Model-provider failures are classified at the LLM call. turn.done only keeps the message.
+      this.logger.error('Agent thread execution failed', {
+        ...extractErrorLogFields(error),
+        ...(error instanceof ModelProviderError || !isReportableError(error) ? {} : { reportable_error: { error } }),
+      });
       yield this.generateErrorEvent(describeUnknownError(error));
     } finally {
       this.contextBusy = false;

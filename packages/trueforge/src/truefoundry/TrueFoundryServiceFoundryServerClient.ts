@@ -272,6 +272,7 @@ export class TrueFoundryServiceFoundryServerClient {
     if (!parsed.success) {
       this.#logger.error('TrueFoundry ServiceFoundry put remote agent returned an unexpected response', {
         ...extractErrorLogFields(parsed.error),
+        reportable_error: { error: parsed.error },
       });
       throw new HTTPException(424, {
         message: 'TrueFoundry ServiceFoundry put remote agent returned an unexpected response',
@@ -422,6 +423,7 @@ export class TrueFoundryServiceFoundryServerClient {
       this.#logger.error('TrueFoundry ServiceFoundry MCP authorize returned an unexpected response', {
         mcpServerId: input.mcpServerId,
         ...extractErrorLogFields(error),
+        reportable_error: { error, extra: { mcp_server_id: input.mcpServerId } },
       });
       throw new HTTPException(424, {
         message: 'TrueFoundry ServiceFoundry MCP authorize returned an unexpected response',
@@ -451,6 +453,7 @@ export class TrueFoundryServiceFoundryServerClient {
       this.#logger.error('TrueFoundry ServiceFoundry MCP auth status returned an unexpected response', {
         mcpServerId: input.mcpServerId,
         ...extractErrorLogFields(error),
+        reportable_error: { error, extra: { mcp_server_id: input.mcpServerId } },
       });
       throw new HTTPException(424, {
         message: 'TrueFoundry ServiceFoundry MCP auth status returned an unexpected response',
@@ -566,6 +569,7 @@ export class TrueFoundryServiceFoundryServerClient {
     if (!parsed.success) {
       this.#logger.error('TrueFoundry ServiceFoundry agent permissions response was malformed', {
         ...extractErrorLogFields(parsed.error),
+        reportable_error: { error: parsed.error },
       });
       throw new HTTPException(424, {
         message: 'TrueFoundry ServiceFoundry agent permissions response was malformed',
@@ -589,6 +593,7 @@ export class TrueFoundryServiceFoundryServerClient {
     if (!parsed.success) {
       this.#logger.error('TrueFoundry ServiceFoundry tenant permissions response was malformed', {
         ...extractErrorLogFields(parsed.error),
+        reportable_error: { error: parsed.error },
       });
       throw new HTTPException(424, {
         message: 'TrueFoundry ServiceFoundry tenant permissions response was malformed',
@@ -624,6 +629,7 @@ export class TrueFoundryServiceFoundryServerClient {
     if (!parsed.success) {
       this.#logger.error('TrueFoundry ServiceFoundry vend-token response was malformed', {
         ...extractErrorLogFields(parsed.error),
+        reportable_error: { error: parsed.error },
       });
       throw new HTTPException(424, {
         message: 'TrueFoundry ServiceFoundry vend-token response was malformed',
@@ -638,6 +644,7 @@ export class TrueFoundryServiceFoundryServerClient {
     if (!parsed.success) {
       this.#logger.error('TrueFoundry ServiceFoundry server returned an unexpected list response', {
         ...extractErrorLogFields(parsed.error),
+        reportable_error: { error: parsed.error },
       });
       throw new HTTPException(424, {
         message: 'TrueFoundry ServiceFoundry server returned an unexpected list response',
@@ -736,6 +743,7 @@ export class TrueFoundryServiceFoundryServerClient {
       this.#logger.error('TrueFoundry ServiceFoundry server returned non-JSON', {
         url: input.url.href,
         ...extractErrorLogFields(error),
+        reportable_error: { error },
       });
       throw new HTTPException(424, {
         message: 'TrueFoundry ServiceFoundry server returned non-JSON',

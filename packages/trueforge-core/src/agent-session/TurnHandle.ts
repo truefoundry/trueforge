@@ -374,7 +374,10 @@ export class TurnHandle<TTurnCustom extends object = Record<string, never>> {
       }
 
       await resolver.close().catch((err: unknown) => {
-        resolver.logger.warn('TurnResourceResolver.close() failed', { err });
+        resolver.logger.warn('TurnResourceResolver.close() failed', {
+          err,
+          reportable_error: { error: err },
+        });
       });
 
       if (!frozenByStore) {

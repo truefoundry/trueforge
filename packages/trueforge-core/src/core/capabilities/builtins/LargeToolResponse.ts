@@ -181,7 +181,10 @@ export class LargeToolResponseProcessor implements ToolResponseProcessor {
       entry.toolCallResult.isStructuredContent = false;
       return stored.sandboxCreated;
     } catch (error) {
-      this.logger.error('Failed to upload to sandbox', extractErrorLogFields(error));
+      this.logger.error('Failed to upload to sandbox', {
+        ...extractErrorLogFields(error),
+        reportable_error: { error },
+      });
       return undefined;
     }
   }

@@ -35,7 +35,7 @@ import type {
 } from 'openai/resources/chat';
 import type { Logger } from 'winston';
 import { ModelProviderError } from '../errors';
-import { describeUnknownError, extractErrorLogFields } from '../util/errorLogFields';
+import { describeUnknownError, extractErrorLogFields, isReportableError } from '../util/errorLogFields';
 import { modelSsrfFetch } from '../util/outboundFetch';
 import type { ILLM, LLMCreateParams, LLMCreateParamsStreaming } from './ILLM';
 import {
@@ -1447,7 +1447,10 @@ export class VercelAILLM implements ILLM {
       if (this.signal?.aborted) {
         this.logger.debug('LLM call aborted', extractErrorLogFields(streamError));
       } else {
-        this.logger.error('Error creating streaming chat completion', extractErrorLogFields(streamError));
+        this.logger.error('Error creating streaming chat completion', {
+          ...extractErrorLogFields(streamError),
+          ...(isReportableError(error) ? { reportable_error: { error: streamError } } : {}),
+        });
       }
       throw streamError;
     }
@@ -1486,7 +1489,10 @@ export class VercelAILLM implements ILLM {
       if (this.signal?.aborted) {
         this.logger.debug('LLM stream aborted', extractErrorLogFields(streamError));
       } else {
-        this.logger.error('Error reading LLM stream', extractErrorLogFields(streamError));
+        this.logger.error('Error reading LLM stream', {
+          ...extractErrorLogFields(streamError),
+          ...(isReportableError(error) ? { reportable_error: { error: streamError } } : {}),
+        });
       }
       throw streamError;
     }
