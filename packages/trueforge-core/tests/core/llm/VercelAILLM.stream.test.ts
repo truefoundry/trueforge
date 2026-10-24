@@ -729,4 +729,48 @@ describe('isReportableError', () => {
       ).toBe(false);
     }
   });
+
+  it('skips a stream error part that wraps a provider 4xx with a socket cause', async () => {
+    const cause = new APICallError({
+      message: 'rate limit',
+      url: 'https://example.com',
+      requestBodyValues: {},
+      statusCode: 429,
+      cause: Object.assign(new Error('socket hang up'), { code: 'ECONNRESET' }),
+    });
+    let thrown: unknown;
+    try {
+      await drainStream(
+        mapStreamToChunks({
+          stream: makeStream([{ type: 'error', error: cause }]),
+          chunkMeta: CHUNK_META,
+        }),
+      );
+    } catch (error) {
+      thrown = error;
+    }
+    expect(isReportableError(thrown)).toBe(false);
+  });
+
+  it('reports a stream error part that wraps a provider 5xx', async () => {
+    const cause = new APICallError({
+      message: 'provider unavailable',
+      url: 'https://example.com',
+      requestBodyValues: {},
+      statusCode: 503,
+      cause: Object.assign(new Error('socket hang up'), { code: 'ECONNRESET' }),
+    });
+    let thrown: unknown;
+    try {
+      await drainStream(
+        mapStreamToChunks({
+          stream: makeStream([{ type: 'error', error: cause }]),
+          chunkMeta: CHUNK_META,
+        }),
+      );
+    } catch (error) {
+      thrown = error;
+    }
+    expect(isReportableError(thrown)).toBe(true);
+  });
 });
