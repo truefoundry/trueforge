@@ -36,10 +36,21 @@ describe('reportMarkedLogFormat', () => {
       ...reportableErrorFields({ error: failure, extra: { path: '/api' } }),
     });
 
-    expect(captureCriticalException).toHaveBeenCalledWith(failure, {
+    expect(captureCriticalException).toHaveBeenCalledWith(expect.any(Error), {
       tags: { filepath: expect.stringContaining('reportMarkedLog.test.ts') },
       extra: { path: '/api' },
     });
+    const reported: unknown = jest.mocked(captureCriticalException).mock.calls[0]?.[0];
+    expect(reported).toBeInstanceOf(Error);
+    if (!(reported instanceof Error)) {
+      return;
+    }
+    expect(reported.message).toBe('Unhandled error');
+    expect(reported.cause).toBe(failure);
+    const reportedFrames = reported.stack?.slice(reported.stack.indexOf('\n') + 1);
+    const causeFrames = failure.stack?.slice((failure.stack?.indexOf('\n') ?? -1) + 1);
+    expect(reportedFrames).toBe(causeFrames);
+    expect(failure.message).toBe('boom');
     expect(lines.join('')).not.toContain('reportable_error');
   });
 

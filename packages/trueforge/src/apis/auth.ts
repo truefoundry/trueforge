@@ -1,9 +1,5 @@
 import { OpenAPIHono } from '@hono/zod-openapi';
-import {
-  extractErrorLogFields,
-  isReportableTransportFailure,
-  reportableErrorFields,
-} from '@truefoundry/trueforge-core/core';
+import { extractErrorLogFields, isReportableError, reportableErrorFields } from '@truefoundry/trueforge-core/core';
 import type { Context, MiddlewareHandler } from 'hono';
 import type { Configuration } from 'openid-client';
 import type { Logger } from 'winston';
@@ -126,7 +122,7 @@ export function createAuthRouter(params: {
     } catch (error) {
       params.logger.error('Failed to exchange authorization code', {
         ...extractErrorLogFields(error),
-        ...(isReportableTransportFailure(error) ? reportableErrorFields({ error }) : {}),
+        ...(isReportableError(error) ? reportableErrorFields({ error }) : {}),
       });
       const soft = await redirectIfAlreadyAuthenticated({
         context: c,

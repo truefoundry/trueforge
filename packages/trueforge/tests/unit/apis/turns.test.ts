@@ -1,14 +1,17 @@
 import { OpenAPIHono } from '@hono/zod-openapi';
 import {
   AgentSpecSchema,
+  CancellationReason,
+  EventType,
   Sessions,
   TurnNotFoundError,
+  type TerminalTurnState,
   type TurnInputItem,
   type TurnStreamingEvent,
 } from '@truefoundry/trueforge-core/agent-session';
 import type { Kysely } from 'kysely';
 import { createLogger } from 'winston';
-import { createTurnsRouter, deriveSessionTitle, turnStreamId } from '../../../src/apis/turns';
+import { createTurnsRouter, deriveSessionTitle, drainTurnEvents, turnStreamId } from '../../../src/apis/turns';
 import { TrueForgeAuthorizer, type Authorizer } from '../../../src/auth/authorizer';
 import { STANDALONE_REQUEST_CONTEXT } from '../../../src/auth/identity';
 import { McpServerWithAuthStore } from '../../../src/db/McpServerWithAuthStore';
@@ -26,7 +29,7 @@ import type { Database } from '../../../src/db/sqlite/types';
 import { SqliteWebSearchProviderStore } from '../../../src/db/sqlite/web-search-provider-store/SqliteWebSearchProviderStore';
 import { runWithLogContext } from '../../../src/logger';
 import { ActiveTurnRegistry } from '../../../src/runtime/activeTurns';
-import { EventSubscriptionRegistry } from '../../../src/runtime/event-subscription/index.js';
+import { EventSubscriptionRegistry, type EventSubscription } from '../../../src/runtime/event-subscription/index.js';
 
 function mcpServerStoreWithAuth(db: Kysely<Database>, tokenStore: SqliteOAuthTokenStore) {
   return new McpServerWithAuthStore({
@@ -87,6 +90,100 @@ describe('turns', () => {
 
     it('returns undefined when a single cluster exceeds the cap', () => {
       expect(deriveSessionTitle(userMessage(`e${'\u0301'.repeat(60)}`))).toBeUndefined();
+    });
+  });
+
+  describe('drainTurnEvents', () => {
+    const completedAt = '2026-01-01T00:00:00.000Z';
+
+    function turnDone(state: TerminalTurnState): TurnStreamingEvent {
+      return {
+        type: EventType.TURN_DONE,
+        id: 'evt-done',
+        created_at: completedAt,
+        thread_id: null,
+        state,
+      };
+    }
+
+    function subscription(): EventSubscription<TurnStreamingEvent> {
+      return {
+        put: async () => 1,
+        assertSubscribable: async () => undefined,
+        async *poll() {
+          /* drain does not read the subscription */
+        },
+      };
+    }
+
+    async function drain(event: TurnStreamingEvent): Promise<jest.SpyInstance> {
+      const logger = createLogger({ silent: true });
+      const errorLog = jest.spyOn(logger, 'error');
+      const timer = setTimeout(() => undefined, 60_000);
+      await drainTurnEvents({
+        trackedStream: (async function* () {
+          yield event;
+        })(),
+        turnEventStream: subscription(),
+        maxExecutionTimer: timer,
+        logger,
+      });
+      return errorLog;
+    }
+
+    function reportedError(errorLog: jest.SpyInstance): { message: unknown; error: unknown; reason: unknown } {
+      const [message, fields] = errorLog.mock.calls[0] ?? [];
+      const marked: unknown =
+        typeof fields === 'object' && fields !== null ? Reflect.get(fields, 'reportable_error') : undefined;
+      const error: unknown = typeof marked === 'object' && marked !== null ? Reflect.get(marked, 'error') : undefined;
+      const extra: unknown = typeof marked === 'object' && marked !== null ? Reflect.get(marked, 'extra') : undefined;
+      const reason: unknown = typeof extra === 'object' && extra !== null ? Reflect.get(extra, 'reason') : undefined;
+      return { message, error, reason };
+    }
+
+    it('reports turn.done error, abandoned, and server-execution-timeout', async () => {
+      const errorLog = await drain(turnDone({ status: 'error', message: 'model failed', completed_at: completedAt }));
+      expect(reportedError(errorLog)).toMatchObject({
+        message: 'turn.done error',
+        error: expect.objectContaining({ message: 'model failed' }),
+      });
+
+      const abandonedLog = await drain(
+        turnDone({ status: 'cancelled', reason: CancellationReason.Abandoned, completed_at: completedAt }),
+      );
+      expect(reportedError(abandonedLog)).toMatchObject({
+        message: 'turn.done cancelled',
+        error: expect.objectContaining({ message: CancellationReason.Abandoned }),
+        reason: CancellationReason.Abandoned,
+      });
+
+      const timeoutLog = await drain(
+        turnDone({
+          status: 'cancelled',
+          reason: CancellationReason.ServerExecutionTimeout,
+          completed_at: completedAt,
+        }),
+      );
+      expect(reportedError(timeoutLog)).toMatchObject({
+        message: 'turn.done cancelled',
+        error: expect.objectContaining({ message: CancellationReason.ServerExecutionTimeout }),
+        reason: CancellationReason.ServerExecutionTimeout,
+      });
+    });
+
+    it('does not report client-cancelled, cancelled-for-next-turn, or a finished turn', async () => {
+      for (const event of [
+        turnDone({ status: 'cancelled', reason: CancellationReason.ClientCancelled, completed_at: completedAt }),
+        turnDone({
+          status: 'cancelled',
+          reason: CancellationReason.CancelledForNextTurn,
+          completed_at: completedAt,
+        }),
+        turnDone({ status: 'done', output: null, required_actions: [], completed_at: completedAt }),
+      ]) {
+        const errorLog = await drain(event);
+        expect(errorLog).not.toHaveBeenCalled();
+      }
     });
   });
 

@@ -158,7 +158,7 @@ export type {
 // Errors / utils
 export { AgentHarnessError, McpConnectionError, McpDcrConfigurationError } from './errors';
 export { REDIS_KEY_NAMESPACE, redisKey } from './redisKeys';
-export { describeUnknownError, extractErrorLogFields, isReportableTransportFailure } from './util/errorLogFields';
+export { describeUnknownError, extractErrorLogFields, isReportableError } from './util/errorLogFields';
 export {
   DEFAULT_MCP_HTTP_BODY_TIMEOUT_MS,
   DEFAULT_MCP_HTTP_CONNECT_TIMEOUT_MS,

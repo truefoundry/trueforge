@@ -59,7 +59,7 @@ export async function initSentry(
     dsn,
     includeLocalVariables: false,
     defaultIntegrations: false,
-    integrations: [],
+    integrations: [Sentry.linkedErrorsIntegration()],
   });
   applyGlobalTags(globalTags);
   attachMarkedLogReporting(logger);

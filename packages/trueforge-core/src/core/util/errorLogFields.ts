@@ -107,63 +107,38 @@ function stackWithCauses(error: Error): string | undefined {
   return stacks.length > 0 ? stacks.join('\nCaused by: ') : undefined;
 }
 
-const REPORTABLE_TRANSPORT_ERROR_NAMES = new Set([
-  'AbortError',
-  'TimeoutError',
-  'ConnectTimeoutError',
-  'HeadersTimeoutError',
-  'BodyTimeoutError',
-]);
-
-const REPORTABLE_TRANSPORT_ERROR_CODES = new Set([
-  'ECONNRESET',
-  'ECONNREFUSED',
-  'ETIMEDOUT',
-  'ENOTFOUND',
-  'EAI_AGAIN',
-  'EPIPE',
-  'EHOSTUNREACH',
-  'ENETUNREACH',
-  'ECONNABORTED',
-  'UND_ERR_CONNECT_TIMEOUT',
-  'UND_ERR_HEADERS_TIMEOUT',
-  'UND_ERR_BODY_TIMEOUT',
-  'UND_ERR_SOCKET',
-  'CERT_HAS_EXPIRED',
-  'UNABLE_TO_VERIFY_LEAF_SIGNATURE',
-  'DEPTH_ZERO_SELF_SIGNED_CERT',
-  'ERR_TLS_CERT_ALTNAME_INVALID',
-]);
-
-function transportErrorCode(error: object): string | undefined {
-  if (!('code' in error)) {
+function readIntegerProperty(error: object, key: string): number | undefined {
+  if (!(key in error)) {
     return undefined;
   }
-  const code: unknown = Reflect.get(error, 'code');
-  return typeof code === 'string' ? code : undefined;
+  const value: unknown = Reflect.get(error, key);
+  return typeof value === 'number' && Number.isInteger(value) ? value : undefined;
 }
 
-function hasReportableTransportSignal(error: unknown, seen: Set<unknown>): boolean {
+/** `statusCode` (AI SDK, MCP) or `status` (OAuth, HTTPException). */
+function readHttpStatus(error: object): number | undefined {
+  return readIntegerProperty(error, 'statusCode') ?? readIntegerProperty(error, 'status');
+}
+
+function httpStatusInChain(error: unknown, seen: Set<unknown>): number | undefined {
   if (typeof error !== 'object' || error === null || seen.has(error)) {
-    return false;
+    return undefined;
   }
   seen.add(error);
-  if (error instanceof Error && REPORTABLE_TRANSPORT_ERROR_NAMES.has(error.name)) {
-    return true;
-  }
-  const code = transportErrorCode(error);
-  if (code !== undefined && REPORTABLE_TRANSPORT_ERROR_CODES.has(code)) {
-    return true;
+  const status = readHttpStatus(error);
+  if (status !== undefined) {
+    return status;
   }
   if (!('cause' in error)) {
-    return false;
+    return undefined;
   }
-  return hasReportableTransportSignal(Reflect.get(error, 'cause'), seen);
+  return httpStatusInChain(Reflect.get(error, 'cause'), seen);
 }
 
-/** Timeout, DNS, TLS, and socket failures, including those nested on `error.cause`. */
-export function isReportableTransportFailure(error: unknown): boolean {
-  return hasReportableTransportSignal(error, new Set());
+/** Every failure is reported except an HTTP status from 200 through 499, including on `cause`. */
+export function isReportableError(error: unknown): boolean {
+  const status = httpStatusInChain(error, new Set());
+  return status === undefined || status < 200 || status > 499;
 }
 
 export function extractErrorLogFields(error: unknown): ErrorLogFields {

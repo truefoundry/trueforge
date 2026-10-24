@@ -35,7 +35,7 @@ import type {
 } from 'openai/resources/chat';
 import type { Logger } from 'winston';
 import { ModelProviderError } from '../errors';
-import { describeUnknownError, extractErrorLogFields, isReportableTransportFailure } from '../util/errorLogFields';
+import { describeUnknownError, extractErrorLogFields, isReportableError } from '../util/errorLogFields';
 import { modelSsrfFetch } from '../util/outboundFetch';
 import { reportableErrorFields } from '../util/reportableErrorLog';
 import type { ILLM, LLMCreateParams, LLMCreateParamsStreaming } from './ILLM';
@@ -993,14 +993,6 @@ export function normalizeUsage(usage: {
   };
 }
 
-/** Provider HTTP responses stay in the log. Only a dropped connection or timeout is reportable. */
-export function isReportableLlmTransportFailure(error: unknown): boolean {
-  if (APICallError.isInstance(error) && error.statusCode != null) {
-    return false;
-  }
-  return isReportableTransportFailure(error);
-}
-
 /**
  * Prefer AI SDK `APICallError` (`message` / `statusCode`):
  * https://ai-sdk.dev/docs/reference/ai-sdk-errors/ai-api-call-error#properties
@@ -1458,7 +1450,7 @@ export class VercelAILLM implements ILLM {
       } else {
         this.logger.error('Error creating streaming chat completion', {
           ...extractErrorLogFields(streamError),
-          ...(isReportableLlmTransportFailure(error) ? reportableErrorFields({ error: streamError }) : {}),
+          ...(isReportableError(error) ? reportableErrorFields({ error: streamError }) : {}),
         });
       }
       throw streamError;
@@ -1500,7 +1492,7 @@ export class VercelAILLM implements ILLM {
       } else {
         this.logger.error('Error reading LLM stream', {
           ...extractErrorLogFields(streamError),
-          ...(isReportableLlmTransportFailure(error) ? reportableErrorFields({ error: streamError }) : {}),
+          ...(isReportableError(error) ? reportableErrorFields({ error: streamError }) : {}),
         });
       }
       throw streamError;

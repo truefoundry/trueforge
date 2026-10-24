@@ -46,13 +46,34 @@ function toError(value: unknown): Error | undefined {
   return new Error(value, { cause: value });
 }
 
+/** Log message is the Sentry title. The thrown error stays the cause and supplies the stack frames. */
+function errorWithLogTitle({ message, cause }: { message: string; cause: Error }): Error {
+  const titled = new Error(message, { cause });
+  const causeStack = cause.stack;
+  if (causeStack === undefined) {
+    titled.stack = `${titled.name}: ${message}`;
+    return titled;
+  }
+  const frameStart = causeStack.indexOf('\n');
+  const frames = frameStart === -1 ? '' : causeStack.slice(frameStart);
+  titled.stack = `${titled.name}: ${message}${frames}`;
+  return titled;
+}
+
+function reportedError({ message, cause }: { message: unknown; cause: Error }): Error {
+  if (typeof message === 'string' && message.length > 0) {
+    return errorWithLogTitle({ message, cause });
+  }
+  return cause;
+}
+
 export function reportMarkedLogFormat(): winston.Logform.Format {
   return winston.format(info => {
     const marked = readReportableError(info['reportable_error']);
     if (marked !== undefined) {
-      const error = toError(marked.error);
-      if (error !== undefined) {
-        captureCriticalException(error, {
+      const cause = toError(marked.error);
+      if (cause !== undefined) {
+        captureCriticalException(reportedError({ message: info.message, cause }), {
           ...(marked.filepath !== undefined ? { tags: { filepath: marked.filepath } } : {}),
           ...(marked.extra !== undefined ? { extra: marked.extra } : {}),
         });
