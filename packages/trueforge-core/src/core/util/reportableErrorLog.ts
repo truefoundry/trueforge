@@ -219,10 +219,20 @@ function callerFilePath(): string | undefined {
   return undefined;
 }
 
+const markedErrors = new WeakSet<object>();
+
+/** True when this error object was already attached to a Sentry log line. */
+export function errorAlreadyMarked(error: unknown): boolean {
+  return typeof error === 'object' && error !== null && markedErrors.has(error);
+}
+
 /** Metadata the Sentry log format uses to report a Winston line. */
 export function reportableErrorFields(input: { error: unknown; extra?: Record<string, unknown> }): {
   reportable_error: ReportableErrorLog;
 } {
+  if (typeof input.error === 'object' && input.error !== null) {
+    markedErrors.add(input.error);
+  }
   return {
     reportable_error: {
       error: input.error,

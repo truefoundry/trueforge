@@ -1,4 +1,5 @@
 import { OpenAPIHono, createRoute, z } from '@hono/zod-openapi';
+import { reportableErrorFields } from '@truefoundry/trueforge-core/core';
 import { HTTPException } from 'hono/http-exception';
 import winston from 'winston';
 import { createAppErrorHandler } from '../../src/app';
@@ -69,6 +70,21 @@ describe('createAppErrorHandler', () => {
         filepath: expect.stringContaining('trueforge/src/app.ts'),
       }),
     });
+  });
+
+  it('does not mark a 500 whose error was already marked', async () => {
+    const logger = winston.createLogger({ silent: true });
+    const errorLog = jest.spyOn(logger, 'error');
+    const thrown = new AggregateError([new Error('db update failed')], 'createAgent failed and cleanup also failed');
+    reportableErrorFields({ error: thrown, extra: { agent_id: 'agent-1' } });
+
+    const response = await appThrowing(logger, thrown).request('/test');
+
+    expect(response.status).toBe(500);
+    expect(errorLog).toHaveBeenCalledWith(
+      'Unhandled error',
+      expect.not.objectContaining({ reportable_error: expect.anything() }),
+    );
   });
 
   it('marks a 500 that wraps an earlier error', async () => {
