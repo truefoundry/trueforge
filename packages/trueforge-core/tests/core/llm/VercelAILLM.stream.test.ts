@@ -15,6 +15,7 @@ import { ModelProviderError } from '../../../src/core/errors';
 import type { ExtendedChatCompletionChunk, RawAssistantMessageWithUsage } from '../../../src/core/llm/LLMTypes';
 import {
   describeStreamError,
+  llmErrorLogFields,
   mapFinishReason,
   mapStreamToChunks,
   normalizeUsage,
@@ -683,5 +684,36 @@ describe('mapStreamToChunks', () => {
     // Only the finish-step chunk is emitted (no text-delta chunks for structural parts).
     const nonFinishChunks = chunks.filter(c => c.choices[0]?.finish_reason === null);
     expect(nonFinishChunks).toHaveLength(0);
+  });
+});
+
+// ─────────── LLM error correlation ───────────
+
+describe('llmErrorLogFields', () => {
+  it('includes tfy_request_id, model, and gateway_url for gateway correlation', () => {
+    const error = new Error('upstream failed');
+    expect(
+      llmErrorLogFields({
+        error,
+        tfyRequestId: 'req-abc',
+        model: 'truefoundry/acct/gpt',
+        gatewayUrl: 'https://gateway.example/v1',
+      }),
+    ).toMatchObject({
+      error: 'upstream failed',
+      tfy_request_id: 'req-abc',
+      model: 'truefoundry/acct/gpt',
+      gateway_url: 'https://gateway.example/v1',
+    });
+  });
+
+  it('omits gateway_url when the provider has no base URL', () => {
+    const fields = llmErrorLogFields({
+      error: new Error('upstream failed'),
+      tfyRequestId: 'req-abc',
+      model: 'openai/gpt',
+      gatewayUrl: undefined,
+    });
+    expect(fields).not.toHaveProperty('gateway_url');
   });
 });
