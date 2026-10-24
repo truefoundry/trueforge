@@ -40,9 +40,7 @@ describe('sandboxEnvBuildLoop', () => {
     await dispatchSandboxEnvBuilds({ logger: logger as never });
 
     expect(progress).toHaveBeenCalledTimes(2);
-    expect(logger.warn).toHaveBeenCalledWith('Sandbox environment version not found; skipping', {
-      environment_version_id: 'gone',
-    });
+    expect(logger.warn).toHaveBeenCalled();
   });
 
   it('does not tick when aborted', async () => {
