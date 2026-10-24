@@ -24,7 +24,7 @@ class AvailableModel(UncheckedBaseModel):
     provider: AvailableModelProvider
     warning: typing.Optional[str] = pydantic.Field(default=None)
     """
-    Warning for not so capable models.
+    Set when reasoning effort or context length is not configured; may affect TrueForge performance.
     """
 
     if IS_PYDANTIC_V2:
