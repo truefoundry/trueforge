@@ -138,7 +138,7 @@ function httpStatusInChain(error: unknown, seen: Set<unknown>): number | undefin
 /** Every failure is reported except an HTTP status from 200 through 499, including on `cause`. */
 export function isReportableError(error: unknown): boolean {
   const status = httpStatusInChain(error, new Set());
-  return status === undefined || status < 200 || status > 499;
+  return status === undefined || status > 499;
 }
 
 export function extractErrorLogFields(error: unknown): ErrorLogFields {

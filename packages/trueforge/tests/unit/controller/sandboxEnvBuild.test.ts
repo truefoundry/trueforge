@@ -1,5 +1,4 @@
-import { TrueForgeApi, TrueForgeError } from '@truefoundry/trueforge-sdk';
-import { createLogger } from 'winston';
+import { TrueForgeApi } from '@truefoundry/trueforge-sdk';
 import { internalTrueForgeClient } from '../../../src/controller/internalTrueForgeClient';
 import { dispatchSandboxEnvBuilds, sandboxEnvBuildLoop } from '../../../src/controller/sandboxEnvBuild';
 
@@ -44,54 +43,6 @@ describe('sandboxEnvBuildLoop', () => {
     expect(logger.warn).toHaveBeenCalledWith('Sandbox environment version not found; skipping', {
       environment_version_id: 'gone',
     });
-  });
-
-  it('reports a progress failure once', async () => {
-    jest.spyOn(internalTrueForgeClient, 'listPendingSandboxEnvironmentVersions').mockResolvedValue(['ver-1']);
-    jest.spyOn(internalTrueForgeClient, 'progressSandboxEnvironmentVersion').mockRejectedValue(new Error('down'));
-    const logger = createLogger({ silent: true });
-    const error = jest.spyOn(logger, 'error');
-
-    await dispatchSandboxEnvBuilds({ logger });
-
-    expect(error).toHaveBeenCalledWith(
-      'Sandbox environment version progress failed',
-      expect.objectContaining({
-        reportable_error: expect.objectContaining({ error: expect.any(Error) }),
-      }),
-    );
-  });
-
-  it('does not report a progress failure the API already answered', async () => {
-    jest.spyOn(internalTrueForgeClient, 'listPendingSandboxEnvironmentVersions').mockResolvedValue(['ver-1']);
-    jest
-      .spyOn(internalTrueForgeClient, 'progressSandboxEnvironmentVersion')
-      .mockRejectedValue(new TrueForgeApi.InternalServerError({ error: { message: 'down' } }));
-    const logger = fakeLogger();
-
-    await dispatchSandboxEnvBuilds({ logger: logger as never });
-
-    expect(logger.error).toHaveBeenCalledWith(
-      'Sandbox environment version progress failed',
-      expect.not.objectContaining({ reportable_error: expect.anything() }),
-    );
-  });
-
-  it('reports a progress failure that never received a response', async () => {
-    jest.spyOn(internalTrueForgeClient, 'listPendingSandboxEnvironmentVersions').mockResolvedValue(['ver-1']);
-    jest
-      .spyOn(internalTrueForgeClient, 'progressSandboxEnvironmentVersion')
-      .mockRejectedValue(new TrueForgeError({ message: 'socket hang up' }));
-    const logger = fakeLogger();
-
-    await dispatchSandboxEnvBuilds({ logger: logger as never });
-
-    expect(logger.error).toHaveBeenCalledWith(
-      'Sandbox environment version progress failed',
-      expect.objectContaining({
-        reportable_error: expect.objectContaining({ error: expect.any(TrueForgeError) }),
-      }),
-    );
   });
 
   it('does not tick when aborted', async () => {

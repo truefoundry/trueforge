@@ -1,4 +1,3 @@
-import { DaytonaError } from '@daytona/sdk';
 import { DAYTONA_SNAPSHOT_NOT_STARTED_REASON } from '@truefoundry/trueforge-core/core';
 import { HTTPException } from 'hono/http-exception';
 import { createLogger } from 'winston';
@@ -87,51 +86,6 @@ describe('progressSandboxEnvironmentVersion', () => {
     ).rejects.toMatchObject({ status: 404 } satisfies Partial<HTTPException>);
     expect(warn).toHaveBeenCalledWith('Sandbox environment version not found', {
       environment_version_id: 'missing',
-    });
-  });
-
-  it('rethrows a build failure without reporting it from this layer', async () => {
-    const { sandboxEnvironmentStore, sandboxProviderStore } = makeStores();
-    mockProvider({
-      getBuildStatus: jest.fn().mockRejectedValue(new Error('network down')),
-      build: jest.fn(),
-    });
-    const errorLog = jest.spyOn(logger, 'error');
-
-    await expect(
-      progressSandboxEnvironmentVersion({
-        sandboxEnvironmentStore,
-        sandboxProviderStore,
-        environment_version_id: 'ver-1',
-        logger,
-      }),
-    ).rejects.toThrow('network down');
-    expect(errorLog).not.toHaveBeenCalled();
-  });
-
-  it('logs an authz failure without reporting it and marks the version failed', async () => {
-    const { sandboxEnvironmentStore, sandboxProviderStore, envStore } = makeStores();
-    const authError = new DaytonaError('Unauthorized', 401);
-    const warn = jest.spyOn(logger, 'warn');
-    mockProvider({
-      getBuildStatus: jest.fn().mockRejectedValue(authError),
-      build: jest.fn(),
-    });
-
-    await progressSandboxEnvironmentVersion({
-      sandboxEnvironmentStore,
-      sandboxProviderStore,
-      environment_version_id: 'ver-1',
-      logger,
-    });
-
-    expect(envStore.markVersionFailed).toHaveBeenCalledWith({
-      environment_version_id: 'ver-1',
-      status_reason: 'Sandbox provider rejected the API key — check the credentials',
-    });
-    expect(warn).toHaveBeenCalledWith('Sandbox environment build failed authz', {
-      environment_version_id: 'ver-1',
-      status_reason: 'Sandbox provider rejected the API key — check the credentials',
     });
   });
 

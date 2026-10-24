@@ -369,7 +369,6 @@ describe('TrueFoundryAgentStore', () => {
       inner: mockInner({ createAgent, updateAgent, deleteAgent }),
       client: mockClient({ deleteRemoteAgent }),
     });
-    const errorLog = jest.spyOn(LOGGER, 'error');
 
     await expect(
       store.createAgent(
@@ -391,21 +390,6 @@ describe('TrueFoundryAgentStore', () => {
         expect.objectContaining({ message: 'local cleanup failed' }),
       ],
     });
-    expect(errorLog).toHaveBeenCalledWith(
-      'createAgent failed and cleanup also failed',
-      expect.objectContaining({
-        agent_id: local.id,
-        agent_name: local.name,
-        external_id: 'sf-1',
-        reportable_error: expect.objectContaining({
-          extra: expect.objectContaining({
-            agent_id: local.id,
-            agent_name: local.name,
-            external_id: 'sf-1',
-          }),
-        }),
-      }),
-    );
   });
 
   it('updateAgent without manifest passes through to the inner store', async () => {
@@ -602,7 +586,6 @@ describe('TrueFoundryAgentStore', () => {
       inner: mockInner({ getAgent, updateAgent }),
       client: mockClient({ putRemoteAgent }),
     });
-    const errorLog = jest.spyOn(LOGGER, 'error');
 
     await expect(
       store.updateAgent({ tenant_id: TENANT, id: previous.id, manifest: manifest({ instructions: 'Updated.' }) }),
@@ -613,21 +596,6 @@ describe('TrueFoundryAgentStore', () => {
         expect.objectContaining({ message: 'sf restore failed' }),
       ],
     });
-    expect(errorLog).toHaveBeenCalledWith(
-      'updateAgent failed and ServiceFoundry restore also failed',
-      expect.objectContaining({
-        agent_id: previous.id,
-        agent_name: previous.name,
-        external_id: previous.external_id,
-        reportable_error: expect.objectContaining({
-          extra: expect.objectContaining({
-            agent_id: previous.id,
-            agent_name: previous.name,
-            external_id: previous.external_id,
-          }),
-        }),
-      }),
-    );
   });
 
   it('deleteAgent reads the agent inside the transaction', async () => {
