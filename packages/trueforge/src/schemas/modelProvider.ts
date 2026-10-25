@@ -245,6 +245,11 @@ export const AvailableModelSchema = z
     model_id: z.string().describe('Upstream, provider-specific identifier sent to the provider API.'),
     provider: AvailableModelProviderSchema,
     properties: ModelPropertiesSchema,
+    warning: z
+      .string()
+      .min(1)
+      .optional()
+      .describe('Set when reasoning effort or context length is not configured; may affect TrueForge performance.'),
   })
   .strict()
   .openapi('AvailableModel');

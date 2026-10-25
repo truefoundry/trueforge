@@ -9,4 +9,6 @@ export interface AvailableModel {
     name: string;
     properties: TrueForge.ModelProperties;
     provider: TrueForge.AvailableModelProvider;
+    /** Set when reasoning effort or context length is not configured; may affect TrueForge performance. */
+    warning?: string;
 }

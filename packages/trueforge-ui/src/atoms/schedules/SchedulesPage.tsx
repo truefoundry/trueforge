@@ -7,13 +7,15 @@ import { AnalyticsEvents } from '../../analytics/events.js';
 import { useToasterOptional } from '../../containers/ToasterContainer.js';
 import { useResourcePermissions } from '../../hooks/useResourcePermissions.js';
 import { Icon } from '../../icons/Icon.js';
-import { useScheduleServer, useServer } from '../../server/ServerContext.js';
-import { libraryAgentId } from '../../server/ShellModeContext.js';
+import { isSessionsChromeEnabled } from '../../server/serverChrome.js';
+import { useOptionalAgentSessionsServer, useScheduleServer, useServer } from '../../server/ServerContext.js';
+import { libraryAgentId, useOptionalShellMode } from '../../server/ShellModeContext.js';
 import type { Schedule, ScheduleRun, ScheduleStatus } from '../../server/types.js';
 import { useSlot } from '../../theme/SlotsProvider.js';
 import { hasCreatedBySubject } from '../../utils/createdBySubject.js';
 import { getErrorMessage } from '../../utils/getErrorMessage.js';
 import { readScheduleShareSearch, replaceScheduleShareSearch } from '../../utils/scheduleShareUrl.js';
+import { replaceSessionShareSearch, sessionTimeRangeFromCreatedAt } from '../../utils/sessionShareUrl.js';
 import { AgentSearchPicker } from '../AgentSearchPicker.js';
 import { CreatedByCell } from '../CreatedByCell.js';
 import { EmptyScreen } from '../EmptyScreen.js';
@@ -159,6 +161,9 @@ export function SchedulesPage({ agentId }: SchedulesPageProps) {
   const server = useServer();
   const toaster = useToasterOptional();
   const track = useTrackAnalytics();
+  const shell = useOptionalShellMode();
+  const sessionsServer = useOptionalAgentSessionsServer();
+  const canOpenRunSession = shell != null && isSessionsChromeEnabled({ sessions: sessionsServer });
 
   const [schedules, setSchedules] = useState<Schedule[]>([]);
   const { allows } = useResourcePermissions({
@@ -193,6 +198,17 @@ export function SchedulesPage({ agentId }: SchedulesPageProps) {
   const [pageToken, setPageToken] = useState<string | undefined>(undefined);
   const [nextPageToken, setNextPageToken] = useState<string | undefined>(undefined);
   const [previousPageToken, setPreviousPageToken] = useState<string | undefined>(undefined);
+  const handleOpenRunSession = ({ run, schedule }: { run: ScheduleRun; schedule: Schedule }) => {
+    if (!canOpenRunSession || shell == null || run.sessionId == null) return;
+    track(AnalyticsEvents.Schedule.RUN_SESSION_OPENED, { schedule_id: schedule.id, agent_id: schedule.agentId });
+    const pinned = sessionTimeRangeFromCreatedAt(run.triggeredAt ?? run.scheduledFor);
+    replaceSessionShareSearch({
+      sessionId: run.sessionId,
+      view: 'sessions',
+      ...(pinned == null ? {} : { timeRange: pinned }),
+    });
+    shell.setSessionsOpen(true);
+  };
   const loadGenRef = useRef(0);
   const didConsumeIsNewRef = useRef(false);
 
@@ -532,7 +548,12 @@ export function SchedulesPage({ agentId }: SchedulesPageProps) {
                         {runsLoading ? (
                           <span className="text-text-secondary text-sm">…</span>
                         ) : (
-                          <ScheduleLastRunsCell runs={runsByScheduleId[schedule.id] ?? []} />
+                          <ScheduleLastRunsCell
+                            runs={runsByScheduleId[schedule.id] ?? []}
+                            {...(!canOpenRunSession
+                              ? {}
+                              : { onOpenSession: run => handleOpenRunSession({ run, schedule }) })}
+                          />
                         )}
                       </TableCell>
                       <TableCell className="text-right">

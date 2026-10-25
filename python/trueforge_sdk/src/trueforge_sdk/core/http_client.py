@@ -66,9 +66,12 @@ def _parse_retry_after(response_headers: httpx.Headers) -> typing.Optional[float
     retry_after_ms = response_headers.get("retry-after-ms")
     if retry_after_ms is not None:
         try:
-            return int(retry_after_ms) / 1000 if retry_after_ms > 0 else 0
-        except Exception:
+            retry_after_ms_value = float(retry_after_ms)
+        except ValueError:
             pass
+        else:
+            if 0 < retry_after_ms_value < float("inf"):
+                return retry_after_ms_value / 1000
 
     retry_after = response_headers.get("retry-after")
     if retry_after is None:
@@ -184,8 +187,33 @@ _SENSITIVE_HEADERS = frozenset(
 )
 
 
+_AUTH_HEADERS: typing.FrozenSet[str] = frozenset()
+
+
 def _redact_headers(headers: typing.Dict[str, str]) -> typing.Dict[str, str]:
-    return {k: ("[REDACTED]" if k.lower() in _SENSITIVE_HEADERS else v) for k, v in headers.items()}
+    return {
+        k: ("[REDACTED]" if k.lower() in _SENSITIVE_HEADERS or k.lower() in _AUTH_HEADERS else v)
+        for k, v in headers.items()
+    }
+
+
+def _merge_headers(*header_dicts: typing.Optional[typing.Dict[str, typing.Any]]) -> typing.Dict[str, typing.Any]:
+    """
+    Merge header dicts left to right. Header names are case-insensitive, so a later
+    `x-api-key` replaces an earlier `X-API-Key` instead of producing two headers.
+    """
+    merged: typing.Dict[str, typing.Any] = {}
+    keys_by_lower: typing.Dict[str, str] = {}
+    for header_dict in header_dicts:
+        if not header_dict:
+            continue
+        for key, value in header_dict.items():
+            existing_key = keys_by_lower.get(key.lower())
+            if existing_key is not None:
+                del merged[existing_key]
+            keys_by_lower[key.lower()] = key
+            merged[key] = value
+    return merged
 
 
 def _build_url(base_url: str, path: typing.Optional[str]) -> str:
@@ -425,11 +453,11 @@ class HttpClient:
         _request_url = _build_url(base_url, path)
         _request_headers = jsonable_encoder(
             remove_none_from_dict(
-                {
-                    **self.base_headers(),
-                    **(headers if headers is not None else {}),
-                    **(request_options.get("additional_headers", {}) or {} if request_options is not None else {}),
-                }
+                _merge_headers(
+                    self.base_headers(),
+                    headers,
+                    request_options.get("additional_headers") if request_options is not None else None,
+                )
             )
         )
         _request_headers = drop_content_type_without_body(
@@ -463,7 +491,12 @@ class HttpClient:
                 files=request_files,
                 timeout=timeout,
             )
-        except (httpx.ConnectError, httpx.RemoteProtocolError):
+        except (httpx.ConnectError, httpx.RemoteProtocolError) as error:
+            # A protocol error may occur after the server applied the request, even while reading a 200 body.
+            if isinstance(error, httpx.RemoteProtocolError) and not (
+                request_options is not None and request_options.get("retry_remote_protocol_errors", False)
+            ):
+                raise
             if retries < max_retries:
                 time.sleep(_retry_timeout_from_retries(retries=retries))
                 return self.request(
@@ -594,11 +627,11 @@ class HttpClient:
         _request_url = _build_url(base_url, path)
         _request_headers = jsonable_encoder(
             remove_none_from_dict(
-                {
-                    **self.base_headers(),
-                    **(headers if headers is not None else {}),
-                    **(request_options.get("additional_headers", {}) if request_options is not None else {}),
-                }
+                _merge_headers(
+                    self.base_headers(),
+                    headers,
+                    request_options.get("additional_headers") if request_options is not None else None,
+                )
             )
         )
         _request_headers = drop_content_type_without_body(
@@ -735,11 +768,11 @@ class AsyncHttpClient:
         _request_url = _build_url(base_url, path)
         _request_headers = jsonable_encoder(
             remove_none_from_dict(
-                {
-                    **_headers,
-                    **(headers if headers is not None else {}),
-                    **(request_options.get("additional_headers", {}) or {} if request_options is not None else {}),
-                }
+                _merge_headers(
+                    _headers,
+                    headers,
+                    request_options.get("additional_headers") if request_options is not None else None,
+                )
             )
         )
         _request_headers = drop_content_type_without_body(
@@ -773,7 +806,12 @@ class AsyncHttpClient:
                 files=request_files,
                 timeout=timeout,
             )
-        except (httpx.ConnectError, httpx.RemoteProtocolError):
+        except (httpx.ConnectError, httpx.RemoteProtocolError) as error:
+            # A protocol error may occur after the server applied the request, even while reading a 200 body.
+            if isinstance(error, httpx.RemoteProtocolError) and not (
+                request_options is not None and request_options.get("retry_remote_protocol_errors", False)
+            ):
+                raise
             if retries < max_retries:
                 await asyncio.sleep(_retry_timeout_from_retries(retries=retries))
                 return await self.request(
@@ -907,11 +945,11 @@ class AsyncHttpClient:
         _request_url = _build_url(base_url, path)
         _request_headers = jsonable_encoder(
             remove_none_from_dict(
-                {
-                    **_headers,
-                    **(headers if headers is not None else {}),
-                    **(request_options.get("additional_headers", {}) if request_options is not None else {}),
-                }
+                _merge_headers(
+                    _headers,
+                    headers,
+                    request_options.get("additional_headers") if request_options is not None else None,
+                )
             )
         )
         _request_headers = drop_content_type_without_body(

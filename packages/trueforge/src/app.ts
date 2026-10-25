@@ -159,6 +159,7 @@ export function createAppErrorHandler(params: { logger: Logger }): ErrorHandler 
         path: c.req.path,
         status,
         ...extractErrorLogFields(error),
+        ...(status >= 500 ? { reportable_error: { error } } : {}),
       };
       if (status >= 500) {
         params.logger.error(message, fields);

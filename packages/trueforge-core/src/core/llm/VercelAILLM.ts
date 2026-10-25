@@ -34,12 +34,13 @@ import type {
   ChatCompletionTool,
 } from 'openai/resources/chat';
 import type { Logger } from 'winston';
+import { ModelProviderError } from '../errors';
 import {
   httpStatusClass,
   type OperationMetrics,
   type OutboundHttpStatusClass,
 } from '../observability/operationMetrics';
-import { describeUnknownError, extractErrorLogFields } from '../util/errorLogFields';
+import { describeUnknownError, extractErrorLogFields, isReportableError } from '../util/errorLogFields';
 import { modelSsrfFetch } from '../util/outboundFetch';
 import type { ILLM, LLMCreateParams, LLMCreateParamsStreaming } from './ILLM';
 import {
@@ -1015,10 +1016,10 @@ export function describeStreamError(raw: unknown): string {
 }
 
 export function toStreamError(raw: unknown): Error {
-  if (raw instanceof Error) {
+  if (raw instanceof ModelProviderError) {
     return raw;
   }
-  return new Error(describeStreamError(raw), { cause: raw });
+  return new ModelProviderError(describeStreamError(raw), { cause: raw });
 }
 
 function isAbortError(error: unknown): boolean {
@@ -1488,12 +1489,16 @@ export class VercelAILLM implements ILLM {
       });
     } catch (error) {
       this.recordStreamError({ error, phase: 'api_call' });
+      const streamError = toStreamError(error);
       if (this.signal?.aborted) {
-        this.logger.debug('LLM call aborted', extractErrorLogFields(error));
+        this.logger.debug('LLM call aborted', extractErrorLogFields(streamError));
       } else {
-        this.logger.error('Error creating streaming chat completion', extractErrorLogFields(error));
+        this.logger.error('Error creating streaming chat completion', {
+          ...extractErrorLogFields(streamError),
+          ...(isReportableError(error) ? { reportable_error: { error: streamError } } : {}),
+        });
       }
-      throw toStreamError(error);
+      throw streamError;
     }
 
     // Detached: warnings resolve at stream start, and a pending or rejected promise must never
@@ -1527,12 +1532,16 @@ export class VercelAILLM implements ILLM {
       return result;
     } catch (error) {
       this.recordStreamError({ error, phase: 'stream_part' });
+      const streamError = toStreamError(error);
       if (this.signal?.aborted) {
-        this.logger.debug('LLM stream aborted', extractErrorLogFields(error));
+        this.logger.debug('LLM stream aborted', extractErrorLogFields(streamError));
       } else {
-        this.logger.error('Error reading LLM stream', extractErrorLogFields(error));
+        this.logger.error('Error reading LLM stream', {
+          ...extractErrorLogFields(streamError),
+          ...(isReportableError(error) ? { reportable_error: { error: streamError } } : {}),
+        });
       }
-      throw toStreamError(error);
+      throw streamError;
     }
   }
 

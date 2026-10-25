@@ -61,8 +61,8 @@ import { StreamGoneError, type EventSubscription, type EventSubscriptionRegistry
 import { validateSandboxFilePath } from '../runtime/sandboxFilePath';
 import {
   buildTurnSandbox,
+  getMcpConnection,
   getModelDetails,
-  resolveMcpServer,
   resolveSandboxEnvironment,
   resolveSandboxProvider,
 } from '../runtime/sessionResources';
@@ -219,7 +219,7 @@ function createTurnResolver(deps: {
       };
     },
     mcp: async name => {
-      const connection = await resolveMcpServer({
+      const connection = await getMcpConnection({
         tenant_id,
         name,
         store: mcpServerStore,
@@ -384,6 +384,29 @@ export function turnStreamId(tenantId: string, sessionId: string, turnId: string
   return redisKey('agent', 'turn', tenantId, sessionId, turnId, 'stream');
 }
 
+/** Client cancel and a turn replaced by the next one are expected endings. */
+function reportUnexpectedTurnDone({ event, logger }: { event: TurnStreamingEvent; logger: Logger }): void {
+  if (event.type !== EventType.TURN_DONE) {
+    return;
+  }
+  const { state } = event;
+  if (state.status === 'error') {
+    // Only the message remains here. The thrown error was already classified, including provider 4xx.
+    logger.error('turn.done error', extractErrorLogFields(new Error(state.message)));
+    return;
+  }
+  if (
+    state.status === 'cancelled' &&
+    (state.reason === CancellationReason.Abandoned || state.reason === CancellationReason.ServerExecutionTimeout)
+  ) {
+    const error = new Error(state.reason);
+    logger.error('turn.done cancelled', {
+      ...extractErrorLogFields(error),
+      reportable_error: { error, extra: { reason: state.reason } },
+    });
+  }
+}
+
 /**
  * Dual-write turn events to the resumable subscription registry, then optionally
  * forward each sequenced event (SSE path). Shared by streaming and non-streaming
@@ -399,6 +422,7 @@ export async function drainTurnEvents(input: {
   const { trackedStream, turnEventStream, maxExecutionTimer, logger, onEvent } = input;
   try {
     for await (const event of trackedStream) {
+      reportUnexpectedTurnDone({ event, logger });
       // Dual-write before any client sink so subscribers can resume after disconnect.
       const sequenceNumber = await turnEventStream.put(event, {
         streamTTLSeconds: streamTTLSecondsFor(event),
@@ -409,7 +433,10 @@ export async function drainTurnEvents(input: {
     if (error instanceof SessionStoreNotFoundError) {
       logger.warn('Turn stream ended after session/turn was removed', extractErrorLogFields(error));
     } else {
-      logger.error('Unexpected error in turn event drain', extractErrorLogFields(error));
+      logger.error('Unexpected error in turn event drain', {
+        ...extractErrorLogFields(error),
+        reportable_error: { error },
+      });
     }
   } finally {
     clearTimeout(maxExecutionTimer);
@@ -735,6 +762,7 @@ export function createTurnsRouter(deps: TurnsRouterDeps) {
         ...extractErrorLogFields(error),
         sandboxId,
         path,
+        reportable_error: { error, extra: { sandboxId, path } },
       });
       return c.json({ error: { message: 'Failed to download file from sandbox' } }, 424);
     }
@@ -987,7 +1015,10 @@ export function createTurnsRouter(deps: TurnsRouterDeps) {
         }
       } catch (error) {
         if (!subscribeAbort.signal.aborted) {
-          deps.logger.error('Unexpected error in turn subscribe SSE loop', extractErrorLogFields(error));
+          deps.logger.error('Unexpected error in turn subscribe SSE loop', {
+            ...extractErrorLogFields(error),
+            reportable_error: { error },
+          });
         }
       } finally {
         clearTimeout(timeoutHandler);

@@ -261,6 +261,80 @@ describe('AgentConfigEditors', () => {
         params: { maxTokens: undefined, temperature: 0.4 },
       },
     });
+    expect(screen.getByRole('slider', { name: 'Maximum tokens slider' })).toHaveAttribute('max', '8192');
+    expect(screen.queryByText('May not be supported by this Model')).not.toBeInTheDocument();
+  });
+
+  it('shows playground fallbacks and a support warning when the model omits parameters', () => {
+    const spec: AgentSpec = {
+      model: { name: 'openai/gpt', params: { maxTokens: 25000, reasoningEffort: 'xhigh' } },
+    };
+    const onChange = vi.fn();
+    const { rerender } = render(
+      <SlotsProvider>
+        <AgentConfigEditors
+          editor="model-settings"
+          spec={{ model: { name: 'openai/gpt' } }}
+          models={[
+            {
+              id: 'openai/gpt',
+              name: 'openai/gpt',
+              provider: { name: 'OpenAI' },
+              properties: {},
+            },
+          ]}
+          connectors={[]}
+          skills={[]}
+          loading={false}
+          error={null}
+          onChange={onChange}
+          onClose={vi.fn()}
+        />
+      </SlotsProvider>,
+    );
+
+    expect(screen.getByRole('button', { name: 'Turn Maximum Tokens on' })).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'Turn Reasoning Effort on' })).toBeInTheDocument();
+    expect(screen.queryByText('May not be supported by this Model')).not.toBeInTheDocument();
+
+    fireEvent.click(screen.getByRole('button', { name: 'Turn Maximum Tokens on' }));
+    fireEvent.click(screen.getByRole('button', { name: 'Turn Reasoning Effort on' }));
+    expect(onChange).toHaveBeenNthCalledWith(1, {
+      model: { name: 'openai/gpt', params: { maxTokens: 25000 } },
+    });
+    expect(onChange).toHaveBeenNthCalledWith(2, {
+      model: { name: 'openai/gpt', params: { reasoningEffort: 'medium' } },
+    });
+
+    rerender(
+      <SlotsProvider>
+        <AgentConfigEditors
+          editor="model-settings"
+          spec={spec}
+          models={[
+            {
+              id: 'openai/gpt',
+              name: 'openai/gpt',
+              provider: { name: 'OpenAI' },
+              properties: {},
+            },
+          ]}
+          connectors={[]}
+          skills={[]}
+          loading={false}
+          error={null}
+          onChange={onChange}
+          onClose={vi.fn()}
+        />
+      </SlotsProvider>,
+    );
+
+    expect(screen.getByRole('slider', { name: 'Maximum tokens slider' })).toHaveAttribute('min', '100');
+    expect(screen.getByRole('slider', { name: 'Maximum tokens slider' })).toHaveAttribute('max', '128000');
+    expect(screen.getByRole('slider', { name: 'Maximum tokens slider' })).toHaveAttribute('step', '100');
+    expect(screen.getByRole('option', { name: 'xhigh' })).toBeInTheDocument();
+    expect(screen.getByRole('option', { name: 'minimal' })).toBeInTheDocument();
+    expect(screen.getAllByText('May not be supported by this Model')).toHaveLength(2);
   });
 
   it('edits the complete parameter object in JSON view and rejects invalid JSON', () => {

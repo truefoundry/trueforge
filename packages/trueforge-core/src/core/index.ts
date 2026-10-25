@@ -190,7 +190,7 @@ export type {
 // Errors / utils
 export { AgentHarnessError, McpConnectionError, McpDcrConfigurationError } from './errors';
 export { REDIS_KEY_NAMESPACE, redisKey } from './redisKeys';
-export { describeUnknownError, extractErrorLogFields } from './util/errorLogFields';
+export { describeUnknownError, extractErrorLogFields, isReportableError } from './util/errorLogFields';
 export {
   DEFAULT_MCP_HTTP_BODY_TIMEOUT_MS,
   DEFAULT_MCP_HTTP_CONNECT_TIMEOUT_MS,
@@ -213,6 +213,7 @@ export {
   ssrfFetch,
 } from './util/outboundFetch';
 export { PromiseTimeoutError, withTimeout } from './util/promiseUtils';
+export { type ReportableErrorLog } from './util/reportableErrorLog';
 export {
   OUTBOUND_URL_BLOCKED,
   OutboundUrlBlockedError,

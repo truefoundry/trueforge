@@ -1019,6 +1019,8 @@ export interface ScheduleRun {
   reason?: string | null;
   triggeredAt: string | null;
   triggeredBy: string;
+  /** Session started by this run; null until one is linked. */
+  sessionId?: string | null;
 }
 
 export interface ListSchedulesParams extends Pick<PageParams, 'limit' | 'pageToken'> {

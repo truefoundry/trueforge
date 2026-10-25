@@ -324,6 +324,7 @@ function SessionTurnSection({
     cachedTokens?: number;
     durationMs?: number;
     totalCostInUsd?: number;
+    modelName?: string;
   }>;
   onMount: (node: HTMLElement | null) => void;
 }) {
@@ -342,6 +343,7 @@ function SessionTurnSection({
           cachedTokens={turn.cachedTokens}
           durationMs={turn.durationMs}
           totalCostInUsd={turn.totalCostInUsd}
+          modelName={turn.modelName}
         />
       ) : null}
       {messages.length > 0 ? (

@@ -114,6 +114,11 @@ export function valuesToCron(values: ScheduleFormValues): string {
   }
 }
 
+/** Shape check only; the server owns full validation and the minimum-interval rule. */
+export function hasFiveCronFields(cron: string): boolean {
+  return cron.trim().split(/\s+/).length === 5;
+}
+
 export function formatCadenceSummary(input: { cron: string; timezone: string }): string {
   const abbr = timezoneAbbrev(input.timezone);
   const parts = input.cron.trim().split(/\s+/);

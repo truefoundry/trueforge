@@ -343,8 +343,9 @@ function buildResolveAgentStore(options: {
   persistenceStore: PostgresAgentStore;
   db: Kysely<PostgresDatabase>;
   client: TrueFoundryServiceFoundryServerClient | undefined;
+  logger: Logger;
 }): (rc: RequestContext) => IAgentStore<Transaction<PostgresDatabase>> {
-  const { persistenceStore, client, db } = options;
+  const { persistenceStore, client, db, logger } = options;
   return rc => {
     if (client) {
       return new TrueFoundryAgentStore({
@@ -352,6 +353,7 @@ function buildResolveAgentStore(options: {
         client,
         context: rc,
         db,
+        logger,
       });
     }
     return persistenceStore;
@@ -582,6 +584,7 @@ async function createDistributedPersistence(options: {
     persistenceStore: agentStore,
     db,
     client: serviceFoundryClient,
+    logger,
   });
   const resolveSandboxProviderStore = buildResolveSandboxProviderStore({
     persistenceStore: sandboxProviderStore,
@@ -885,7 +888,10 @@ try {
     if (redis.mode !== 'sentinel') {
       requestReplySubscriber = redis.client.duplicate();
       requestReplySubscriber.on('error', (error: Error) => {
-        logger.error('[RedisSubscriber] Client error', extractErrorLogFields(error));
+        logger.error('[RedisSubscriber] Client error', {
+          ...extractErrorLogFields(error),
+          reportable_error: { error },
+        });
       });
       await requestReplySubscriber.connect();
     } else {
@@ -944,7 +950,11 @@ try {
 
       // Arm at the start of each shutdown; unref so this timer alone cannot keep the process alive.
       setTimeout(() => {
-        logger.warn(`Drain timed out after ${String(configuration.GRACEFUL_TIMEOUT_SECONDS)}s, exiting`);
+        logger.warn(`Drain timed out after ${String(configuration.GRACEFUL_TIMEOUT_SECONDS)}s, exiting`, {
+          reportable_error: {
+            error: new Error(`Drain timed out after ${String(configuration.GRACEFUL_TIMEOUT_SECONDS)}s, exiting`),
+          },
+        });
         process.exit(1);
       }, configuration.GRACEFUL_TIMEOUT_SECONDS * 1000).unref();
 
