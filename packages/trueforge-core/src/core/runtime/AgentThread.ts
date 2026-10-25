@@ -53,7 +53,7 @@ import { estimateTokensForString, resolveMaxOutputTokens } from '../llm/usage';
 import { convertMCPServersToTools, type ConvertToolsResult, type MappedMCPTool } from '../mcp/convertMCPServers';
 import { executeToolCalls } from '../mcp/executeToolCalls';
 import type { IToolSet, MCPAuthRequired } from '../mcp/IMCPServer';
-import { elapsedSeconds, type LlmRequestOutcome, type OperationMetrics } from '../observability/operationMetrics';
+import { elapsedSeconds, getOperationMetrics, type LlmRequestOutcome } from '../observability/operationMetrics';
 import type { HarnessSandbox, SandboxInfo } from '../sandbox/Sandbox';
 import type { AgentTracing } from '../tracing/AgentTracing';
 import { describeUnknownError, extractErrorLogFields, isReportableError } from '../util/errorLogFields';
@@ -531,7 +531,6 @@ export class AgentThread {
   private sandbox?: HarnessSandbox | undefined;
   private readonly tracing: AgentTracing;
   private readonly logger: Logger;
-  private readonly operationMetrics: OperationMetrics | undefined;
 
   private metrics: AgentThreadMetrics = createEmptyAgentThreadMetrics();
   private tfyManagedServerNames = new Set<string>();
@@ -547,7 +546,6 @@ export class AgentThread {
   constructor(input: AgentThreadConstructorInput) {
     this.tracing = input.tracing;
     this.logger = input.logger.child({ module: 'AgentThread' });
-    this.operationMetrics = input.operationMetrics;
     this.threadId = input.threadId;
     this.definition = input.definition;
     this.context = input.context ? [...input.context] : [];
@@ -589,7 +587,6 @@ export class AgentThread {
       this.deferredTool = new DeferredTool(this.definition.toolSets, {
         tracing: this.tracing,
         logger: input.logger,
-        ...(this.operationMetrics !== undefined ? { metrics: this.operationMetrics } : {}),
       });
     }
 
@@ -1107,7 +1104,7 @@ export class AgentThread {
     outcome: LlmRequestOutcome;
     finishReason: FinishReason | null;
   }): void {
-    const metrics = this.operationMetrics;
+    const metrics = getOperationMetrics();
     const providerType = this.definition.providerType;
     if (metrics === undefined || providerType === undefined) {
       return;
@@ -1121,7 +1118,7 @@ export class AgentThread {
   }
 
   private recordLlmTimeToFirstToken(startedMs: number): void {
-    const metrics = this.operationMetrics;
+    const metrics = getOperationMetrics();
     const providerType = this.definition.providerType;
     if (metrics === undefined || providerType === undefined) {
       return;
@@ -1343,7 +1340,6 @@ export class AgentThread {
       toolMapping,
       threadId: this.threadId,
       approvalDecisions: decisions,
-      metrics: this.operationMetrics,
     });
     void clientSideToolCalls;
     if (approvalRequiredToolCalls.length > 0) {
@@ -1543,7 +1539,7 @@ export class AgentThread {
               return;
             }
             if (this.metrics.iterations >= iterationLimit) {
-              this.operationMetrics?.recordHarnessLimit({ limit: 'iteration_limit' });
+              getOperationMetrics()?.recordHarnessLimit({ limit: 'iteration_limit' });
               yield this.generateErrorEvent(
                 `You have reached iteration limit of ${String(iterationLimit)}, please request again`,
               );

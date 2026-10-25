@@ -5,8 +5,8 @@ import { BlockList, isIP, type LookupFunction } from 'node:net';
 import { Agent, fetch as undiciFetch } from 'undici';
 import {
   elapsedSeconds,
+  getOperationMetrics,
   httpStatusClass,
-  type OperationMetrics,
   type OutboundHttpModule,
   type OutboundHttpOutcome,
   type OutboundHttpRetryReason,
@@ -56,10 +56,9 @@ export interface OutboundFetchOptions {
    * timeouts and 409/520/524 are not retried.
    */
   idempotent: boolean;
-  /** When set, each fetch records one observation. Absent skips metrics. */
+  /** When set, each fetch records one observation on the process recorder. Absent skips metrics. */
   metrics?: {
     module: OutboundHttpModule;
-    operations: OperationMetrics;
   };
 }
 
@@ -520,9 +519,9 @@ async function withOutboundHttpRetries(
       retryReason = reason;
     }
     await sleep(delayMs, signal);
-    const metrics = options.metrics;
-    if (metrics !== undefined) {
-      metrics.operations.recordOutboundHttpRetry({ module: metrics.module, reason: retryReason });
+    const metricsModule = options.metrics?.module;
+    if (metricsModule !== undefined) {
+      getOperationMetrics()?.recordOutboundHttpRetry({ module: metricsModule, reason: retryReason });
     }
     attempt += 1;
   }
@@ -562,15 +561,16 @@ export function createOutboundFetch(options: OutboundFetchOptions): OutboundFetc
   });
   const maxRetries = options.maxRetries;
   const idempotent = options.idempotent;
-  const metrics = options.metrics;
+  const metricsModule = options.metrics?.module;
   return {
     fetch: async (input, init) => {
       const startedMs = performance.now();
+      const metrics = metricsModule === undefined ? undefined : { module: metricsModule };
       try {
         const response = await withOutboundHttpRetries(input, init ?? {}, agent, { maxRetries, idempotent, metrics });
-        if (metrics !== undefined) {
-          metrics.operations.recordOutboundHttpRequest({
-            module: metrics.module,
+        if (metricsModule !== undefined) {
+          getOperationMetrics()?.recordOutboundHttpRequest({
+            module: metricsModule,
             outcome: responseOutboundHttpOutcome(response.status),
             statusClass: httpStatusClass(response.status),
             durationSeconds: elapsedSeconds(startedMs),
@@ -578,9 +578,9 @@ export function createOutboundFetch(options: OutboundFetchOptions): OutboundFetc
         }
         return response;
       } catch (error) {
-        if (metrics !== undefined) {
-          metrics.operations.recordOutboundHttpRequest({
-            module: metrics.module,
+        if (metricsModule !== undefined) {
+          getOperationMetrics()?.recordOutboundHttpRequest({
+            module: metricsModule,
             outcome: failedOutboundHttpOutcome(error),
             statusClass: 'none',
             durationSeconds: elapsedSeconds(startedMs),

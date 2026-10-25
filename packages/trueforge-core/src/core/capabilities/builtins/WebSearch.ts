@@ -3,7 +3,6 @@ import { z } from 'zod';
 import { InstructionBuilder } from '../../InstructionBuilder';
 import { type CallToolResponse, toolResultResponse } from '../../mcp/IMCPServer';
 import { defineTool, LocalToolMCP, type ToolDefinition } from '../../mcp/LocalToolMCP';
-import type { OperationMetrics } from '../../observability/operationMetrics';
 import type { AgentTracing } from '../../tracing/AgentTracing';
 import type { IWebSearchProvider } from '../../web-search/WebSearchProvider';
 import type { AgentCapability } from '../AgentCapability';
@@ -80,12 +79,8 @@ export class WebSearchTools extends LocalToolMCP {
   readonly displayName = 'WebSearch';
   readonly #provider: IWebSearchProvider;
 
-  constructor(options: {
-    provider: IWebSearchProvider;
-    tracing: AgentTracing;
-    metrics?: OperationMetrics | undefined;
-  }) {
-    super({ tracing: options.tracing, ...(options.metrics !== undefined ? { metrics: options.metrics } : {}) });
+  constructor(options: { provider: IWebSearchProvider; tracing: AgentTracing }) {
+    super({ tracing: options.tracing });
     this.#provider = options.provider;
   }
 
@@ -125,11 +120,7 @@ export class WebSearchTools extends LocalToolMCP {
   }
 }
 
-export function webSearch(options: {
-  provider: IWebSearchProvider;
-  tracing: AgentTracing;
-  metrics?: OperationMetrics | undefined;
-}): AgentCapability {
+export function webSearch(options: { provider: IWebSearchProvider; tracing: AgentTracing }): AgentCapability {
   return {
     systemToolSets: [new WebSearchTools(options)],
     instructionBuilders: [buildWebSearchInstruction],

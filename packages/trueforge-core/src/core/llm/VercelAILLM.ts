@@ -35,11 +35,7 @@ import type {
 } from 'openai/resources/chat';
 import type { Logger } from 'winston';
 import { ModelProviderError } from '../errors';
-import {
-  httpStatusClass,
-  type OperationMetrics,
-  type OutboundHttpStatusClass,
-} from '../observability/operationMetrics';
+import { getOperationMetrics, httpStatusClass, type OutboundHttpStatusClass } from '../observability/operationMetrics';
 import { describeUnknownError, extractErrorLogFields, isReportableError } from '../util/errorLogFields';
 import { modelSsrfFetch } from '../util/outboundFetch';
 import type { ILLM, LLMCreateParams, LLMCreateParamsStreaming } from './ILLM';
@@ -103,8 +99,6 @@ export interface VercelAILLMConfig {
   providerConfig: VercelAIProviderConfig;
   logger: Logger;
   signal?: AbortSignal;
-  /** Omitted when the host is not recording. Stream create and read failures increment from here. */
-  metrics?: OperationMetrics | undefined;
 }
 
 // ---------------------------------------------------------------------------
@@ -1546,7 +1540,7 @@ export class VercelAILLM implements ILLM {
   }
 
   private recordStreamError({ error, phase }: { error: unknown; phase: 'api_call' | 'stream_part' }): void {
-    const metrics = this.config.metrics;
+    const metrics = getOperationMetrics();
     if (metrics === undefined) {
       return;
     }

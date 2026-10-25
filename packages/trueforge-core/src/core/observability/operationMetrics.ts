@@ -97,7 +97,8 @@ export type PostgresQueryOutcome = 'success' | 'error';
 
 /**
  * Server-owned operation metrics. Core times work and reports outcomes; it does not
- * import a metrics client. Callers that are not recording omit the recorder.
+ * import a metrics client. The process installs one recorder with `configureOperationMetrics`.
+ * An unset recorder skips timing.
  */
 export interface OperationMetrics {
   recordOutboundHttpRequest(options: {
@@ -157,22 +158,33 @@ export interface OperationMetrics {
   recordPostgresQuery(options: { outcome: PostgresQueryOutcome; durationSeconds: number }): void;
 }
 
-/** Time `run` and record one MCP operation. Callers that are not recording skip the timer. */
+let currentOperationMetrics: OperationMetrics | undefined;
+
+/** Install the process recorder. `undefined` clears it. One recorder per process. */
+export function configureOperationMetrics(metrics: OperationMetrics | undefined): void {
+  currentOperationMetrics = metrics;
+}
+
+/** The process recorder, or `undefined` when this process is not recording. */
+export function getOperationMetrics(): OperationMetrics | undefined {
+  return currentOperationMetrics;
+}
+
+/** Time `run` and record one MCP operation. An unset recorder skips the timer. */
 export async function observeMcpOperation<T>({
-  metrics,
   method,
   serverClass,
   run,
   outcomeOf,
   outcomeOfError,
 }: {
-  metrics: OperationMetrics | undefined;
   method: McpMethod;
   serverClass: McpServerClass;
   run: () => Promise<T>;
   outcomeOf: (result: T) => McpOperationOutcome;
   outcomeOfError?: (error: unknown) => McpOperationOutcome;
 }): Promise<T> {
+  const metrics = getOperationMetrics();
   if (metrics === undefined) {
     return run();
   }

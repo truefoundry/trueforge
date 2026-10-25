@@ -7,7 +7,6 @@ import {
   type DaytonaSandboxEnvironment,
   type McpConnection,
   type ModelParams,
-  type OperationMetrics,
   type SandboxProvider,
   type Skill,
   type VercelAIProviderConfig,
@@ -238,7 +237,6 @@ export function buildTurnSandbox<TEnvironment = undefined>(input: {
   fileDownloadEnabled: boolean;
   existingSandboxId?: string | undefined;
   tracing: AgentTracing;
-  metrics?: OperationMetrics | undefined;
 }): Sandbox<TEnvironment> {
   // Empty mounter still uploads requested-skills file so existing skills are cleaned up.
   return new Sandbox({
@@ -252,7 +250,6 @@ export function buildTurnSandbox<TEnvironment = undefined>(input: {
     skillMounter: new SkillMounter({ skills: input.skills ?? [] }),
     tracing: input.tracing,
     logger: input.logger,
-    ...(input.metrics !== undefined ? { metrics: input.metrics } : {}),
   });
 }
 

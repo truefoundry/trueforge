@@ -4,7 +4,7 @@ import type { InternalEnrichedAssistantMessage, InternalEnrichedToolCall, LLMToo
 import type { CallToolResponse, MCPAuthRequired } from '../mcp/IMCPServer';
 import {
   elapsedSeconds,
-  type OperationMetrics,
+  getOperationMetrics,
   type ToolCallOutcome,
   type ToolCallServerClass,
 } from '../observability/operationMetrics';
@@ -93,13 +93,11 @@ export async function executeToolCalls({
   toolMapping,
   threadId,
   approvalDecisions,
-  metrics,
 }: {
   assistantMessage: InternalEnrichedAssistantMessage;
   toolMapping: Map<string, MappedMCPTool>;
   threadId: string;
   approvalDecisions: Map<string, ApprovalDecision>;
-  metrics?: OperationMetrics | undefined;
 }): Promise<ExecuteToolCallsResult> {
   const toolMessages: ToolCallResult[] = [];
   const initializationInfo: MCPServerInitInfo[] = [];
@@ -124,6 +122,7 @@ export async function executeToolCalls({
   }
 
   const toolCallPromises = assistantMessage.tool_calls.map(async toolCall => {
+    const metrics = getOperationMetrics();
     const startedMs = metrics === undefined ? undefined : performance.now();
     const record = (outcome: ToolCallOutcome, serverClass: ToolCallServerClass): void => {
       if (metrics === undefined || startedMs === undefined) {

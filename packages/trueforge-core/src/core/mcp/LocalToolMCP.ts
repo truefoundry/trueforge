@@ -2,7 +2,7 @@ import type { CallToolRequest, ListToolsResult } from '@modelcontextprotocol/sdk
 import { z } from 'zod';
 import type { ApprovalDecision, ToolApprovalPolicyAction } from '../events/schema';
 import type { InternalToolCallInfo } from '../llm/LLMTypes';
-import { type McpServerClass, observeMcpOperation, type OperationMetrics } from '../observability/operationMetrics';
+import { type McpServerClass, observeMcpOperation } from '../observability/operationMetrics';
 import type { AgentTracing } from '../tracing/AgentTracing';
 import {
   type CallToolResponse,
@@ -66,16 +66,10 @@ export abstract class LocalToolMCP implements IToolSet {
   readonly tracingEnabled: boolean = true;
 
   private readonly tracing: AgentTracing;
-  private readonly metrics: OperationMetrics | undefined;
   readonly serverClass: McpServerClass;
 
-  protected constructor(options: {
-    tracing: AgentTracing;
-    metrics?: OperationMetrics | undefined;
-    serverClass?: 'local' | 'sandbox' | undefined;
-  }) {
+  protected constructor(options: { tracing: AgentTracing; serverClass?: 'local' | 'sandbox' | undefined }) {
     this.tracing = options.tracing;
-    this.metrics = options.metrics;
     this.serverClass = options.serverClass ?? 'local';
   }
 
@@ -91,7 +85,6 @@ export abstract class LocalToolMCP implements IToolSet {
 
   listTools(): Promise<ListToolsResolvedResponse> {
     return observeMcpOperation({
-      metrics: this.metrics,
       method: 'tools/list',
       serverClass: this.serverClass,
       run: () =>
@@ -112,7 +105,6 @@ export abstract class LocalToolMCP implements IToolSet {
 
   async callTool(params: CallToolRequest['params'], approvalDecision?: ApprovalDecision): Promise<CallToolResponse> {
     return observeMcpOperation({
-      metrics: this.metrics,
       method: 'tools/call',
       serverClass: this.serverClass,
       run: () =>

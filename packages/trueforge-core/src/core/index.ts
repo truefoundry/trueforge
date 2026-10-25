@@ -155,7 +155,13 @@ export type {
   AgentTracing,
 } from './tracing/AgentTracing';
 
-export { elapsedSeconds, httpStatusClass, observeMcpOperation } from './observability/operationMetrics';
+export {
+  configureOperationMetrics,
+  elapsedSeconds,
+  getOperationMetrics,
+  httpStatusClass,
+  observeMcpOperation,
+} from './observability/operationMetrics';
 export type {
   HarnessLimit,
   LlmFinishReason,

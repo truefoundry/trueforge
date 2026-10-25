@@ -1,5 +1,5 @@
 import Parallel from 'parallel-web';
-import { elapsedSeconds, type OperationMetrics, type ParallelWebOperation } from '../observability/operationMetrics';
+import { elapsedSeconds, getOperationMetrics, type ParallelWebOperation } from '../observability/operationMetrics';
 import { ssrfFetch } from '../util/outboundFetch';
 import {
   WebSearchProviders,
@@ -19,7 +19,6 @@ export interface ParallelWebSearchProviderOptions {
   apiKey: string;
   /** Parallel Search mode preset. Caller supplies the default (e.g. `turbo`). */
   mode: ParallelSearchMode;
-  metrics?: OperationMetrics | undefined;
 }
 
 /**
@@ -29,7 +28,6 @@ export class ParallelWebSearchProvider implements IWebSearchProvider {
   readonly id = WebSearchProviders.Parallel;
   readonly #client: Parallel;
   readonly #mode: ParallelSearchMode;
-  readonly #metrics: OperationMetrics | undefined;
 
   constructor(options: ParallelWebSearchProviderOptions) {
     this.#client = new Parallel({
@@ -37,7 +35,6 @@ export class ParallelWebSearchProvider implements IWebSearchProvider {
       fetch: ssrfFetch,
     });
     this.#mode = options.mode;
-    this.#metrics = options.metrics;
   }
 
   async search(input: { search_queries: string[]; objective: string | undefined }): Promise<WebSearchHits> {
@@ -95,7 +92,7 @@ export class ParallelWebSearchProvider implements IWebSearchProvider {
     run: () => Promise<T>,
     partialErrorCount?: (result: T) => number,
   ): Promise<T> {
-    const metrics = this.#metrics;
+    const metrics = getOperationMetrics();
     if (metrics === undefined) {
       return run();
     }

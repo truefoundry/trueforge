@@ -1,7 +1,6 @@
 import { z } from 'zod';
 import { type CallToolResponse, toolResultResponse } from '../../mcp/IMCPServer';
 import { defineTool, LocalToolMCP, type ToolDefinition } from '../../mcp/LocalToolMCP';
-import type { OperationMetrics } from '../../observability/operationMetrics';
 import type { AgentTracing } from '../../tracing/AgentTracing';
 import type { AgentCapability } from '../AgentCapability';
 
@@ -14,8 +13,8 @@ export class CurrentDateTime extends LocalToolMCP {
   readonly name = CURRENT_DATETIME_SERVER_ID;
   readonly displayName = 'CurrentDateTime';
 
-  constructor(tracing: AgentTracing, metrics?: OperationMetrics) {
-    super({ tracing, ...(metrics !== undefined ? { metrics } : {}) });
+  constructor(tracing: AgentTracing) {
+    super({ tracing });
   }
 
   private tools: ToolDefinition[] = [
@@ -43,11 +42,8 @@ export class CurrentDateTime extends LocalToolMCP {
   }
 }
 
-export function currentDateTime(options: {
-  tracing: AgentTracing;
-  metrics?: OperationMetrics | undefined;
-}): AgentCapability {
+export function currentDateTime(options: { tracing: AgentTracing }): AgentCapability {
   return {
-    systemToolSets: [new CurrentDateTime(options.tracing, options.metrics)],
+    systemToolSets: [new CurrentDateTime(options.tracing)],
   };
 }

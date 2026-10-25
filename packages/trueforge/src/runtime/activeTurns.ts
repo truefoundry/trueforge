@@ -5,7 +5,7 @@
  * `track()` owns registration and cleanup around the stream lifecycle.
  */
 import { CancellationReason } from '@truefoundry/trueforge-core/agent-session';
-import type { OperationMetrics } from '@truefoundry/trueforge-core/core';
+import { getOperationMetrics } from '@truefoundry/trueforge-core/core';
 
 interface ActiveTurnRun {
   abortController: AbortController;
@@ -20,11 +20,6 @@ function activeTurnKey(sessionId: string, turnId: string): string {
 export class ActiveTurnRegistry {
   private readonly runs = new Map<string, ActiveTurnRun>();
   private alreadyShutDownAbortReason: CancellationReason | undefined;
-  private readonly metrics: OperationMetrics | undefined;
-
-  constructor(options?: { metrics?: OperationMetrics | undefined }) {
-    this.metrics = options?.metrics;
-  }
 
   /**
    * Registers the run immediately, then returns a generator that forwards
@@ -49,7 +44,7 @@ export class ActiveTurnRegistry {
       markCompleted,
     };
     this.runs.set(key, run);
-    this.metrics?.recordActiveTurns({ delta: 1 });
+    getOperationMetrics()?.recordActiveTurns({ delta: 1 });
 
     // Accepted HTTP may still call track() after shutdownAndWait snapshotted;
     // abort immediately so the turn ends as abandoned instead of running past exit.
@@ -61,7 +56,7 @@ export class ActiveTurnRegistry {
 
     const complete = () => {
       run.markCompleted();
-      this.metrics?.recordActiveTurns({ delta: -1 });
+      getOperationMetrics()?.recordActiveTurns({ delta: -1 });
       if (this.runs.get(key) === run) {
         this.runs.delete(key);
       }

@@ -2,7 +2,6 @@ import { z } from 'zod';
 import { ClientSideTool } from '../../mcp/ClientSideTool';
 import { toolResultResponse } from '../../mcp/IMCPServer';
 import { defineTool, type ToolDefinition } from '../../mcp/LocalToolMCP';
-import type { OperationMetrics } from '../../observability/operationMetrics';
 import type { AgentCapability } from '../AgentCapability';
 import { OPENUI_SECTION_TAG } from './OpenUI';
 
@@ -68,8 +67,8 @@ export class AskUserQuestion extends ClientSideTool {
   }
 }
 
-export function askUserQuestion(metrics?: OperationMetrics): AgentCapability {
+export function askUserQuestion(): AgentCapability {
   return {
-    systemToolSets: [new AskUserQuestion(metrics)],
+    systemToolSets: [new AskUserQuestion()],
   };
 }

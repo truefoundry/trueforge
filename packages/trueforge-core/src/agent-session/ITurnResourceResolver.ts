@@ -1,6 +1,5 @@
 import type { Logger } from 'winston';
 import type { AgentCapability } from '../core/capabilities/AgentCapability';
-import type { OperationMetrics } from '../core/observability/operationMetrics';
 import type { AgentDefinition } from '../core/runtime/AgentDefinition';
 import type { AgentInfo } from '../core/runtime/AgentThread.types';
 import type { HarnessSandbox, SandboxInfo } from '../core/sandbox/Sandbox';
@@ -27,8 +26,6 @@ export interface ITurnResourceResolver<TTurnCustom extends object = Record<strin
   readonly webSearchProvider?: IWebSearchProvider | undefined;
   /** Forwarded to AgentThread / orchestrator / RemoteMCP. */
   readonly logger: Logger;
-  /** Omitted when the host is not recording. Forwarded onto each agent thread. */
-  readonly operationMetrics?: OperationMetrics | undefined;
   /** Called exactly once per run, before any other method. */
   createTracing(): AgentTracing;
   /**

@@ -10,6 +10,7 @@
  * Postgres store modules stay dynamic so only the active engine is loaded.
  */
 import {
+  configureOperationMetrics,
   configureOutboundFetches,
   configureOutboundUrlGuard,
   extractErrorLogFields,
@@ -31,7 +32,6 @@ let getTrueForgeAuthMode: typeof import('./config').getTrueForgeAuthMode;
 let getPublicUiBasePath: typeof import('./config').getPublicUiBasePath;
 let TrueForgeAuthMode: typeof import('./config').TrueForgeAuthMode;
 let serverHttpMetrics: HttpMetrics;
-let operationMetrics: OperationMetrics;
 
 try {
   ({
@@ -48,7 +48,7 @@ try {
     blockedHosts: configuration.OUTBOUND_URL_BLOCKED_HOSTS,
   });
   serverHttpMetrics = createHttpMetrics();
-  operationMetrics = createOperationMetrics(serverHttpMetrics.registry);
+  configureOperationMetrics(createOperationMetrics(serverHttpMetrics.registry));
   configureOutboundFetches({
     outbound: {
       connectTimeoutMs: configuration.OUTBOUND_HTTP_CONNECT_TIMEOUT_MS,
@@ -56,7 +56,7 @@ try {
       bodyTimeoutMs: configuration.OUTBOUND_HTTP_BODY_TIMEOUT_MS,
       maxRetries: configuration.OUTBOUND_HTTP_MAX_RETRIES,
       idempotent: true,
-      metrics: { module: 'generic', operations: operationMetrics },
+      metrics: { module: 'generic' },
     },
     model: {
       connectTimeoutMs: configuration.MODEL_HTTP_CONNECT_TIMEOUT_MS,
@@ -64,7 +64,7 @@ try {
       bodyTimeoutMs: configuration.MODEL_HTTP_BODY_TIMEOUT_MS,
       maxRetries: configuration.MODEL_HTTP_MAX_RETRIES,
       idempotent: true,
-      metrics: { module: 'model', operations: operationMetrics },
+      metrics: { module: 'model' },
     },
     mcp: {
       connectTimeoutMs: configuration.MCP_HTTP_CONNECT_TIMEOUT_MS,
@@ -72,7 +72,7 @@ try {
       bodyTimeoutMs: configuration.MCP_HTTP_BODY_TIMEOUT_MS,
       maxRetries: configuration.MCP_HTTP_MAX_RETRIES,
       idempotent: false,
-      metrics: { module: 'mcp', operations: operationMetrics },
+      metrics: { module: 'mcp' },
     },
   });
 } catch (error) {
@@ -90,7 +90,6 @@ import {
   type ISessionStore,
   type TurnStreamingEvent,
 } from '@truefoundry/trueforge-core/agent-session';
-import type { OperationMetrics } from '@truefoundry/trueforge-core/core';
 import { RequestReplyExecutor, RequestReplyRouter, type RedisClient } from '@truefoundry/trueforge-core/request-reply';
 import type { Kysely, Transaction } from 'kysely';
 import type { Logger } from 'winston';
@@ -238,7 +237,6 @@ function createServiceFoundryServerClient(logger: Logger): TrueFoundryServiceFou
     httpAgentTimeoutMs: configuration.TRUEFOUNDRY_SERVICEFOUNDRY_HTTP_AGENT_TIMEOUT_MS,
     tls: { enabled: configuration.TRUEFOUNDRY_MTLS_ENABLED, dir: configuration.TRUEFOUNDRY_MTLS_CERTS_DIR },
     apiKey,
-    metrics: operationMetrics,
   });
 }
 
@@ -541,7 +539,6 @@ async function createDistributedPersistence(options: {
     statementTimeoutMs,
     idleInTransactionSessionTimeoutMs,
     ssl: databaseSsl,
-    metrics: operationMetrics,
   });
   await migrateToLatest(db);
   logger.info(`Executor id: ${executorId}`);
@@ -650,7 +647,7 @@ async function createServerRuntime<TTransaction>(persistence: ServerPersistence<
     serviceFoundryClient,
   } = persistence;
 
-  const activeTurns = new ActiveTurnRegistry({ metrics: operationMetrics });
+  const activeTurns = new ActiveTurnRegistry();
   const requestReplyRouter = new RequestReplyRouter();
   const eventSubscriptions = new EventSubscriptionRegistry<TurnStreamingEvent>(redis?.client);
   const sessions = new Sessions({ sessionStore });
@@ -808,7 +805,6 @@ async function createServerRuntime<TTransaction>(persistence: ServerPersistence<
     authenticator,
     authorizer,
     httpMetrics: serverHttpMetrics,
-    operationMetrics,
   });
 
   return { activeTurns, app, controller, destroyDb, redis, requestReplyRouter };

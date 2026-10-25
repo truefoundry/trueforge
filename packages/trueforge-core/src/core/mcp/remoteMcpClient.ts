@@ -7,7 +7,7 @@ import type { FetchLike } from '@modelcontextprotocol/sdk/shared/transport.js';
 import type { CallToolRequest, CallToolResult } from '@modelcontextprotocol/sdk/types.js';
 import { context, propagation } from '@opentelemetry/api';
 import { McpConnectionError } from '../errors';
-import { elapsedSeconds, type McpConnectOutcome, type OperationMetrics } from '../observability/operationMetrics';
+import { elapsedSeconds, getOperationMetrics, type McpConnectOutcome } from '../observability/operationMetrics';
 import { mcpSsrfFetch } from '../util/outboundFetch';
 import { PromiseTimeoutError, withTimeout } from '../util/promiseUtils';
 import type { ToolSchema } from './IMCPServer';
@@ -35,7 +35,7 @@ const TRANSPORT_PROBE_ORDER: RemoteMcpTransportType[] = ['streamable-http', 'sse
 export const DEFAULT_MAX_MCP_RESPONSE_BYTES = 50 * 1024 * 1024;
 
 /** GET SSE is long-lived and uncapped; every other body aborts at `maxBytes`. */
-export function withMaxResponseBytes(fetchFn: FetchLike, maxBytes: number, metrics?: OperationMetrics): FetchLike {
+export function withMaxResponseBytes(fetchFn: FetchLike, maxBytes: number): FetchLike {
   return async (url, init) => {
     const response = await fetchFn(url, init);
     const isGetSse =
@@ -54,7 +54,7 @@ export function withMaxResponseBytes(fetchFn: FetchLike, maxBytes: number, metri
             if (seen > maxBytes) {
               if (!limitRecorded) {
                 limitRecorded = true;
-                metrics?.recordHarnessLimit({ limit: 'mcp_response_bytes' });
+                getOperationMetrics()?.recordHarnessLimit({ limit: 'mcp_response_bytes' });
               }
               controller.error(new Error(`MCP response exceeded max ${String(maxBytes)} bytes`));
               return;
@@ -204,15 +204,10 @@ export async function connectRemoteMcp(params: {
   signal: AbortSignal;
   onClose?: (() => void) | undefined;
   onError?: ((error: Error) => void) | undefined;
-  metrics?: OperationMetrics | undefined;
 }): Promise<RemoteMcpConnection> {
   const url = new URL(params.url);
   const requestOptions = { signal: params.signal };
-  const fetchFn = withMaxResponseBytes(
-    mcpSsrfFetch,
-    params.maxResponseBytes ?? DEFAULT_MAX_MCP_RESPONSE_BYTES,
-    params.metrics,
-  );
+  const fetchFn = withMaxResponseBytes(mcpSsrfFetch, params.maxResponseBytes ?? DEFAULT_MAX_MCP_RESPONSE_BYTES);
   const candidates = params.knownTransportType
     ? [params.knownTransportType, ...TRANSPORT_PROBE_ORDER.filter(t => t !== params.knownTransportType)]
     : TRANSPORT_PROBE_ORDER;
@@ -227,6 +222,7 @@ export async function connectRemoteMcp(params: {
     // would still fire connectTimeoutMs later and cancel the live client.
     const timeout = new AbortController();
     const connectOptions = { signal: AbortSignal.any([params.signal, timeout.signal]) };
+    const metrics = getOperationMetrics();
     const startedMs = performance.now();
     try {
       stampTraceHeaders(params.headers);
@@ -238,7 +234,7 @@ export async function connectRemoteMcp(params: {
         transportType,
       );
     } catch (error) {
-      params.metrics?.recordMcpConnect({
+      metrics?.recordMcpConnect({
         transport: transportType,
         outcome: mcpConnectOutcome(error),
         durationSeconds: elapsedSeconds(startedMs),
@@ -259,7 +255,7 @@ export async function connectRemoteMcp(params: {
       continue;
     }
 
-    params.metrics?.recordMcpConnect({
+    metrics?.recordMcpConnect({
       transport: transportType,
       outcome: 'success',
       durationSeconds: elapsedSeconds(startedMs),

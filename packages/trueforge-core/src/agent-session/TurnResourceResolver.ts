@@ -6,7 +6,6 @@ import type { ToolSource } from '../core/mcp/IMCPServer';
 import { RemoteMCP, type McpConnection } from '../core/mcp/RemoteMCP';
 import type { ToolSelectorConfig } from '../core/mcp/ToolSelectorPolicy';
 import { ToolSet } from '../core/mcp/ToolSet';
-import type { OperationMetrics } from '../core/observability/operationMetrics';
 import type { AgentDefinition } from '../core/runtime/AgentDefinition';
 import type { AgentInfo } from '../core/runtime/AgentThread.types';
 import type { HarnessSandbox, SandboxInfo } from '../core/sandbox/Sandbox';
@@ -90,17 +89,11 @@ export class TurnResourceResolver<
       webSearchProvider?: IWebSearchProvider | undefined;
       /** Forwarded to RemoteMCP / AgentThread (required by their constructors). */
       logger: Logger;
-      /** Omitted when the host is not recording. */
-      operationMetrics?: OperationMetrics | undefined;
     },
   ) {}
 
   get webSearchProvider(): IWebSearchProvider | undefined {
     return this.deps.webSearchProvider;
-  }
-
-  get operationMetrics(): OperationMetrics | undefined {
-    return this.deps.operationMetrics;
   }
 
   get logger(): Logger {
@@ -207,7 +200,6 @@ export class TurnResourceResolver<
               logger: this.deps.logger,
               tracing,
               signal,
-              ...(this.deps.operationMetrics !== undefined ? { metrics: this.deps.operationMetrics } : {}),
             });
           },
         });

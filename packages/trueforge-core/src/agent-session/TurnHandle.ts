@@ -4,7 +4,12 @@
 import { AgentHarnessError } from '../core/errors';
 import type { MCPAuthRequiredEvent, ModelMessageDeltaEvent, ThreadDoneEvent } from '../core/events/schema';
 import { EventType as HarnessEventType, newEventId } from '../core/events/schema';
-import { elapsedSeconds, type TurnPersistPhase, type TurnTerminalStatus } from '../core/observability/operationMetrics';
+import {
+  elapsedSeconds,
+  getOperationMetrics,
+  type TurnPersistPhase,
+  type TurnTerminalStatus,
+} from '../core/observability/operationMetrics';
 import {
   InternalEventType,
   type AgentThreadExecutionEvent,
@@ -345,7 +350,7 @@ export class TurnHandle<TTurnCustom extends object = Record<string, never>> {
       const recordedStatus = frozenByStore
         ? (terminalStatusFromState(this.turn.state) ?? terminalState.status)
         : terminalState.status;
-      resolver.operationMetrics?.recordTurnDuration({
+      getOperationMetrics()?.recordTurnDuration({
         terminalStatus: recordedStatus,
         durationSeconds: elapsedSeconds(startedMs),
       });
@@ -432,7 +437,7 @@ export class TurnHandle<TTurnCustom extends object = Record<string, never>> {
       return await run();
     } catch (error) {
       if (!(error instanceof TurnNotRunningError)) {
-        this.resolver?.operationMetrics?.recordTurnPersistError({ phase });
+        getOperationMetrics()?.recordTurnPersistError({ phase });
       }
       throw error;
     }

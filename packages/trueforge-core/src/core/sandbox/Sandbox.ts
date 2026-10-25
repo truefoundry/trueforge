@@ -7,7 +7,6 @@ import { estimateTokensForString } from '../llm/usage';
 import type { MappedMCPTool } from '../mcp/convertMCPServers';
 import { toolResultResponse, type CallToolResponse, type IToolSet } from '../mcp/IMCPServer';
 import { defineTool, LocalToolMCP } from '../mcp/LocalToolMCP';
-import type { OperationMetrics } from '../observability/operationMetrics';
 import {
   DEFERRED_TOOLS_SERVER_ID,
   GET_TOOL_INFO_NAME,
@@ -107,7 +106,6 @@ export interface SandboxOptions<TEnvironment = undefined> {
   mcpConnectTimeoutMs: number;
   tracing: AgentTracing;
   logger: Logger;
-  metrics?: OperationMetrics | undefined;
 }
 
 export const SANDBOX_EXEC_TOOL_NAME = 'exec';
@@ -243,7 +241,6 @@ export class Sandbox<TEnvironment = undefined> extends LocalToolMCP {
     super({
       tracing: options.tracing,
       serverClass: 'sandbox',
-      ...(options.metrics !== undefined ? { metrics: options.metrics } : {}),
     });
     this.provider = options.provider;
     this.environment = options.environment;

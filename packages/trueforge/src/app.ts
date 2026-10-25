@@ -2,7 +2,7 @@
 import { swaggerUI } from '@hono/swagger-ui';
 import { OpenAPIHono, z } from '@hono/zod-openapi';
 import type { ISessionStore, Sessions, TurnStreamingEvent } from '@truefoundry/trueforge-core/agent-session';
-import { extractErrorLogFields, type OperationMetrics } from '@truefoundry/trueforge-core/core';
+import { extractErrorLogFields } from '@truefoundry/trueforge-core/core';
 import type { RedisClient, RequestReplyRouter } from '@truefoundry/trueforge-core/request-reply';
 import type { Context, ErrorHandler, MiddlewareHandler } from 'hono';
 import { bodyLimit } from 'hono/body-limit';
@@ -328,8 +328,6 @@ export interface ServerDeps<TTransaction> {
   authorizer: Authorizer;
   /** Shared scrape target. HTTP middleware and `GET /metrics` use this registry. */
   httpMetrics: HttpMetrics;
-  /** Operation series registered on `httpMetrics.registry`. */
-  operationMetrics: OperationMetrics;
 }
 
 export function createServerApp<TTransaction>(deps: ServerDeps<TTransaction>) {
@@ -351,7 +349,6 @@ export function createServerApp<TTransaction>(deps: ServerDeps<TTransaction>) {
     resolveWebSearchProviderStore: deps.resolveWebSearchProviderStore,
     activeTurns: deps.activeTurns,
     resolveTurnSkillsStore: deps.resolveTurnSkillsStore,
-    operationMetrics: deps.operationMetrics,
   };
 
   const httpMetrics = deps.httpMetrics;
@@ -613,7 +610,6 @@ export function createServerApp<TTransaction>(deps: ServerDeps<TTransaction>) {
         logger: deps.logger,
         resolveRequestContext,
         authorizer: deps.authorizer,
-        operationMetrics: deps.operationMetrics,
       }),
       authMiddleware,
     ),

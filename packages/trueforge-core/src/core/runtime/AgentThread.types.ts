@@ -25,7 +25,6 @@ import type {
   UserToolResponseMessage,
 } from '../events/schema';
 import type { InternalEnrichedAssistantMessage, LLMToolMessage, LLMUserMessage } from '../llm/LLMTypes';
-import type { OperationMetrics } from '../observability/operationMetrics';
 import type { HarnessSandbox } from '../sandbox/Sandbox';
 import type { AgentTracing } from '../tracing/AgentTracing';
 import type { AgentDefinition } from './AgentDefinition';
@@ -192,6 +191,4 @@ export interface AgentThreadConstructorInput {
   capabilityState?: CapabilityState | undefined;
   tracing: AgentTracing;
   logger: Logger;
-  /** Omitted when the host is not recording. Model-call series are reported from the LLM step. */
-  operationMetrics?: OperationMetrics | undefined;
 }

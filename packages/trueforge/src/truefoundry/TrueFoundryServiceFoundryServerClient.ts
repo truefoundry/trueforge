@@ -1,8 +1,8 @@
 import {
   elapsedSeconds,
   extractErrorLogFields,
+  getOperationMetrics,
   httpStatusClass,
-  type OperationMetrics,
   type ServiceFoundryOperation,
   type ServiceFoundryOutcome,
 } from '@truefoundry/trueforge-core/core';
@@ -196,7 +196,6 @@ export class TrueFoundryServiceFoundryServerClient {
   readonly #httpTimeoutMs: number;
   readonly #httpAgentTimeoutMs: number;
   readonly #apiKey: string;
-  readonly #metrics: OperationMetrics | undefined;
   readonly #controlPlaneUrlByTenant = new LRUCache<string, string>({
     max: TENANT_CONTROL_PLANE_URL_CACHE_MAX,
     ttl: TENANT_CONTROL_PLANE_URL_TTL_MS,
@@ -210,7 +209,6 @@ export class TrueFoundryServiceFoundryServerClient {
     httpAgentTimeoutMs: number;
     /** Service API key for vend-token and other privileged SFY calls. */
     apiKey: string;
-    metrics?: OperationMetrics | undefined;
   }) {
     const tls = input.tls;
     this.#baseUrl = normalizeInternalTlsUrl({ url: input.serviceFoundryServerUrl, enabled: tls.enabled }).replace(
@@ -222,7 +220,6 @@ export class TrueFoundryServiceFoundryServerClient {
     this.#httpTimeoutMs = input.httpTimeoutMs;
     this.#httpAgentTimeoutMs = input.httpAgentTimeoutMs;
     this.#apiKey = input.apiKey;
-    this.#metrics = input.metrics;
   }
 
   /** Service API key (`TRUEFOUNDRY_API_KEY`); callers pass it explicitly when needed. */
@@ -744,8 +741,9 @@ export class TrueFoundryServiceFoundryServerClient {
   }): Promise<unknown> {
     const startedAt = Date.now();
     const startedMs = performance.now();
+    const metrics = getOperationMetrics();
     const record = (outcome: ServiceFoundryOutcome, status?: number): void => {
-      this.#metrics?.recordServiceFoundryRequest({
+      metrics?.recordServiceFoundryRequest({
         operation: input.operation,
         outcome,
         statusClass: httpStatusClass(status),
