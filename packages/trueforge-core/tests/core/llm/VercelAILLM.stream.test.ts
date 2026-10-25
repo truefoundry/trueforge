@@ -714,22 +714,6 @@ describe('isReportableError', () => {
     expect(isReportableError(new Error('model produced an invalid tool call'))).toBe(true);
   });
 
-  it.skip('skips provider responses from 200 through 499', () => {
-    for (const statusCode of [200, 401, 429, 499]) {
-      expect(
-        isReportableError(
-          new APICallError({
-            message: 'provider rejected the request',
-            url: 'https://example.com',
-            requestBodyValues: {},
-            statusCode,
-            cause: Object.assign(new Error('connect ECONNRESET'), { code: 'ECONNRESET' }),
-          }),
-        ),
-      ).toBe(false);
-    }
-  });
-
   it('skips a stream error part that wraps a provider 4xx with a socket cause', async () => {
     const cause = new APICallError({
       message: 'rate limit',
@@ -750,27 +734,5 @@ describe('isReportableError', () => {
       thrown = error;
     }
     expect(isReportableError(thrown)).toBe(false);
-  });
-
-  it.skip('reports a stream error part that wraps a provider 5xx', async () => {
-    const cause = new APICallError({
-      message: 'provider unavailable',
-      url: 'https://example.com',
-      requestBodyValues: {},
-      statusCode: 503,
-      cause: Object.assign(new Error('socket hang up'), { code: 'ECONNRESET' }),
-    });
-    let thrown: unknown;
-    try {
-      await drainStream(
-        mapStreamToChunks({
-          stream: makeStream([{ type: 'error', error: cause }]),
-          chunkMeta: CHUNK_META,
-        }),
-      );
-    } catch (error) {
-      thrown = error;
-    }
-    expect(isReportableError(thrown)).toBe(true);
   });
 });
