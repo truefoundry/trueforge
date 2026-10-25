@@ -6,7 +6,9 @@ let scrapeSdkMetrics: (() => Promise<string>) | undefined;
 
 /**
  * One global meter for SDK instrumentation that already calls `metrics.getMeter`.
- * Daytona `WithInstrumentation` and Redis `OpenTelemetry.init` record here.
+ * Daytona `WithInstrumentation` records on each call. `DaytonaConfig.otelEnabled`
+ * starts a separate OTLP trace SDK and does not turn those meters on.
+ * Redis `OpenTelemetry.init` records here too.
  * The exporter does not open a port; `GET /metrics` appends its text.
  */
 export function startSdkMetrics(): () => Promise<string> {

@@ -56,7 +56,8 @@ interface ResolvedModel {
   modelClient: ILLM;
   defaultModelParams: ModelParams;
   modelProperties?: AgentDefinition['modelProperties'];
-  providerType?: VercelAIProviderName | undefined;
+  /** Explicit `undefined` when the host has no provider label for the model call series. */
+  providerType: VercelAIProviderName | undefined;
 }
 
 export class TurnResourceResolver<
