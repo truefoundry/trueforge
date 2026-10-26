@@ -1,6 +1,8 @@
-import { parseMcpToolArgs, SANDBOX_TOOL_NAMES, SUB_AGENT_TOOL_NAME } from './toolCallParsing.js';
+import { parseMcpToolArgs, parseSandboxArgs, SANDBOX_TOOL_NAMES, SUB_AGENT_TOOL_NAME } from './toolCallParsing.js';
 
 export const DEFAULT_ACTIVITY_LABEL = 'Working...';
+
+const MAX_INTENT_LENGTH = 60;
 
 export type ActivityPart = {
   type: string;
@@ -22,16 +24,19 @@ function isRunningSubAgent(part: ActivityPart): boolean {
 
 function toolLabel(part: ActivityPart): string {
   const toolName = part.toolName ?? 'tool';
-  if (SANDBOX_TOOL_NAMES.has(toolName)) return 'Running command...';
+  if (SANDBOX_TOOL_NAMES.has(toolName)) {
+    const intent = parseSandboxArgs(part.argsText)
+      .intent?.trim()
+      .replace(/[.…]+$/, '');
+    if (!intent) return 'Running command...';
+    return `${intent.length > MAX_INTENT_LENGTH ? `${intent.slice(0, MAX_INTENT_LENGTH)}…` : intent} · ${toolName}`;
+  }
   const { innerToolName } = parseMcpToolArgs(part.argsText);
   return `Running ${innerToolName ?? toolName}...`;
 }
 
-/** Describes what the agent is doing right now, from the newest part of the running message. */
+/** Detailed activity for a sub-agent card, whose tool calls are hidden while collapsed. */
 export function resolveActivityLabel(parts: readonly ActivityPart[]): string {
-  const runningSubAgents = parts.filter(isRunningSubAgent);
-  if (runningSubAgents.length > 1) return `Waiting for ${runningSubAgents.length} sub-agents...`;
-
   const last = parts[parts.length - 1];
   if (!last) return DEFAULT_ACTIVITY_LABEL;
 
@@ -48,4 +53,16 @@ export function resolveActivityLabel(parts: readonly ActivityPart[]): string {
     return `Sub-agent: ${resolveActivityLabel(nestedParts)}`;
   }
   return toolLabel(last);
+}
+
+/** Main-thread loader: the running tool row already shows its own detail, so stay generic. */
+export function resolveLoaderLabel(parts: readonly ActivityPart[]): string {
+  const subAgentCount = parts.filter(isRunningSubAgent).length;
+  if (subAgentCount > 1) return `Waiting for ${subAgentCount} sub-agents...`;
+  if (subAgentCount === 1) return 'Waiting for sub-agent...';
+
+  const last = parts[parts.length - 1];
+  if (last?.type === 'reasoning') return 'Thinking...';
+  if (last?.type === 'tool-call' && toolStatusType(last) === 'requires-action') return 'Waiting for your approval';
+  return DEFAULT_ACTIVITY_LABEL;
 }

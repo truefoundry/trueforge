@@ -13,7 +13,7 @@ import { withSessionProps } from '../analytics/sessionProps.js';
 import { useOptionalShellMode } from '../server/ShellModeContext.js';
 import { useSlot } from '../theme/SlotsProvider.js';
 import { computeAgentStepsSplit } from '../utils/computeAgentStepsSplit.js';
-import { resolveActivityLabel } from '../utils/resolveActivityLabel.js';
+import { resolveLoaderLabel } from '../utils/resolveActivityLabel.js';
 import { AgentStepsContainer } from './AgentStepsContainer.js';
 import { AssistantTextContainer } from './AssistantTextContainer.js';
 import { MessageImageContainer } from './MessageImageContainer.js';
@@ -139,7 +139,7 @@ export function AssistantMessageContainer() {
             }
           }}
         </MessagePrimitive.GroupedParts>
-        {showIndicator ? <MessageIndicator label={resolveActivityLabel(parts)} /> : null}
+        {showIndicator ? <MessageIndicator label={resolveLoaderLabel(parts)} /> : null}
       </AssistantMessageBubble>
     </MessagePrimitive.Root>
   );
