@@ -77,8 +77,8 @@ export class LargeToolResponseProcessor implements ToolResponseProcessor {
     const perResponse = (this.individualTokenThreshold * 4).toLocaleString('en-US');
     const combined = (this.totalTokenThreshold * 4).toLocaleString('en-US');
     return entry.originalTokens >= this.individualTokenThreshold
-      ? `this response exceeds the ${perResponse}-character limit for a single response`
-      : `the parallel responses together exceed the ${combined}-character combined limit`;
+      ? `this exceeds the ${perResponse}-character tool call response limit`
+      : `the parallel tool call responses together exceed the ${combined}-character combined tool call response limit`;
   }
 
   private createLargeToolResponseGuidance(sandbox: HarnessSandbox | undefined, entry: ToolResultWithInfo): string {
