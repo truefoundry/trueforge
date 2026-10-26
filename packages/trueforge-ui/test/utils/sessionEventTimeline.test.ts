@@ -86,6 +86,30 @@ function done({
 }
 
 describe('buildSessionTimelineSegments', () => {
+  it('draws one summary bar from compaction start to finish', () => {
+    const compaction = (type: 'started' | 'finished', id: string, createdAt: string): SessionEventItem => ({
+      turnId: 't1',
+      event: {
+        type: `thread.context_compaction_${type}`,
+        id,
+        createdAt,
+        threadId: 'main',
+        trigger: { type: 'context_threshold_exceeded', contextTokens: 3460, thresholdTokens: 1000 },
+        ...(type === 'finished' ? { durationMs: 7000, usage: { inputTokens: 1, outputTokens: 1 } } : {}),
+      },
+    });
+    const turns = buildSessionTurnViews([
+      created({ turnId: 't1', createdAt: '2026-01-01T00:00:00.000Z' }),
+      compaction('started', 'c1', '2026-01-01T00:00:02.000Z'),
+      compaction('finished', 'c2', '2026-01-01T00:00:09.000Z'),
+      done({ turnId: 't1', createdAt: '2026-01-01T00:00:10.000Z' }),
+    ]);
+    const summaries = buildSessionTimelineSegments(turns).filter(segment => segment.type === 'summary');
+    assert.equal(summaries.length, 1);
+    assert.equal(summaries[0]?.startMs, 2000);
+    assert.equal(summaries[0]?.endMs, 9000);
+  });
+
   it('compresses idle time between turns and keeps per-turn duration', () => {
     const turns = buildSessionTurnViews([
       created({ turnId: 't1', createdAt: '2026-01-01T00:00:00.000Z' }),

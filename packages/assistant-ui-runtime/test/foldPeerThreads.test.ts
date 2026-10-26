@@ -732,4 +732,51 @@ describe('foldPeerThreads', () => {
       },
     ]);
   });
+
+  it('keeps an unpaired compaction after an earlier model message in scope', () => {
+    const state = new PeerThreadFoldState();
+    ingestTurnEvent(state, modelMessage({ id: 'm1', threadId: ROOT_THREAD_ID, content: 'before' }));
+    ingestStreamEvent(state, {
+      type: 'thread.context_compaction_started',
+      id: 'comp-start',
+      createdAt,
+      threadId: ROOT_THREAD_ID,
+      trigger: { type: 'context_threshold_exceeded', contextTokens: 90_000, thresholdTokens: 80_000 },
+    });
+
+    const parts = buildRootAssistantContentForIds(state, ['m1']);
+    expect(parts).toHaveLength(2);
+    expect(parts[1]).toMatchObject({ type: 'data', name: CONTEXT_COMPACTION_DATA_NAME, data: { status: 'running' } });
+  });
+
+  it('pairs compaction with the model message emitted after it even when ids sort the other way', () => {
+    const state = new PeerThreadFoldState();
+    const trigger = { type: 'context_threshold_exceeded' as const, contextTokens: 3460, thresholdTokens: 1000 };
+    // Model message id is allocated before compaction runs, but it is emitted last.
+    ingestTurnEvent(state, {
+      ...modelMessage({ id: 'm-a', threadId: ROOT_THREAD_ID, content: 'after' }),
+      createdAt: '2026-10-26T12:53:01.719Z',
+    });
+    ingestStreamEvent(state, {
+      type: 'thread.context_compaction_started',
+      id: 'comp-b',
+      createdAt: '2026-10-26T12:52:52.306Z',
+      threadId: ROOT_THREAD_ID,
+      trigger,
+    });
+    ingestStreamEvent(state, {
+      type: 'thread.context_compaction_finished',
+      id: 'comp-c',
+      createdAt: '2026-10-26T12:52:59.131Z',
+      threadId: ROOT_THREAD_ID,
+      trigger,
+      durationMs: 6824,
+      usage: { inputTokens: 1, outputTokens: 1 },
+    });
+
+    const parts = buildRootAssistantContentForIds(state, ['m-a']);
+    expect(parts).toHaveLength(2);
+    expect(parts[0]).toMatchObject({ type: 'data', name: CONTEXT_COMPACTION_DATA_NAME, data: { status: 'complete' } });
+    expect(parts[1]).toEqual({ type: 'text', text: 'after' });
+  });
 });

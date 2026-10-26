@@ -153,11 +153,14 @@ export function buildSessionTimelineSegments(turns: SessionTurnView[]): SessionE
         (left, right) => (parseTimestamp(eventCreatedAt(left)) ?? 0) - (parseTimestamp(eventCreatedAt(right)) ?? 0),
       );
 
+    const compactionEndMsByStartedId = compactionEndTimes(events);
+
     for (const event of events) {
       const eventMs = parseTimestamp(eventCreatedAt(event));
       if (eventMs == null) continue;
       const threadId = eventThreadId(event);
       appendEventSegments({
+        compactionEndMsByStartedId,
         event,
         eventMs,
         createdMs,
@@ -232,6 +235,26 @@ function compactionTriggerDescription(event: TimelineEvent): string | undefined 
   return `Context ${String(contextTokens)} / threshold ${String(thresholdTokens)} tokens`;
 }
 
+/** Maps each compaction-started id to the next finished time on the same thread. */
+function compactionEndTimes(events: TimelineEvent[]): Map<string, number> {
+  const openByThread = new Map<string, string>();
+  const ends = new Map<string, number>();
+  for (const event of events) {
+    const threadId = eventThreadId(event);
+    if (event.type === 'thread.context_compaction_started') {
+      openByThread.set(threadId, eventId(event));
+    } else if (event.type === 'thread.context_compaction_finished') {
+      const startedId = openByThread.get(threadId);
+      const endMs = parseTimestamp(eventCreatedAt(event));
+      if (startedId != null && endMs != null) {
+        ends.set(startedId, endMs);
+        openByThread.delete(threadId);
+      }
+    }
+  }
+  return ends;
+}
+
 /**
  * Map one supported server event to zero or more visual segments.
  *
@@ -254,6 +277,7 @@ function appendEventSegments({
   toolCallRequestsByTurnId,
   threadDoneEvents,
   emittedWaitingRequestIds,
+  compactionEndMsByStartedId,
   segments,
 }: {
   event: TimelineEvent;
@@ -271,6 +295,7 @@ function appendEventSegments({
   toolCallRequestsByTurnId: Map<string, Map<string, SubAgentToolCallRequest>>;
   threadDoneEvents: Map<string, TimelineEvent>;
   emittedWaitingRequestIds: Set<string>;
+  compactionEndMsByStartedId: Map<string, number>;
   segments: SessionEventTimelineSegment[];
 }): void {
   switch (event.type) {
@@ -393,13 +418,30 @@ function appendEventSegments({
       }
       return;
     }
+    case 'thread.context_compaction_started': {
+      // Drawn as one bar from start to finish; unfinished compaction stays a marker.
+      const endMs = compactionEndMsByStartedId.get(eventId(event)) ?? eventMs;
+      segments.push({
+        id: eventId(event),
+        type: 'summary',
+        title: event.type,
+        description: compactionTriggerDescription(event) ?? 'Summarizing context',
+        startMs: eventMs - originMs,
+        endMs: endMs - originMs,
+        turnIndex,
+        threadId,
+        ...(endMs <= eventMs ? { isMarker: true } : {}),
+      });
+      return;
+    }
+    case 'thread.context_compaction_finished':
+      // Covered by the bar emitted for its started event.
+      return;
     case 'tool.approval_required':
     case 'tool.response_required':
     case 'mcp.auth_required':
     case 'mcp.initialize':
     case 'sandbox.created':
-    case 'thread.context_compaction_started':
-    case 'thread.context_compaction_finished':
       // These are point-in-time state transitions, so start and end are equal
       // and Chart.js renders them with the configured minimum marker width.
       segments.push({
@@ -409,10 +451,7 @@ function appendEventSegments({
             ? 'approval'
             : event.type === 'tool.response_required' || event.type === 'mcp.auth_required'
               ? 'waiting_on_human'
-              : event.type === 'thread.context_compaction_started' ||
-                  event.type === 'thread.context_compaction_finished'
-                ? 'summary'
-                : 'system',
+              : 'system',
         title: event.type,
         description:
           event.type === 'tool.approval_required'
@@ -423,11 +462,7 @@ function appendEventSegments({
                 ? 'MCP authentication required'
                 : event.type === 'mcp.initialize'
                   ? 'MCP initialized'
-                  : event.type === 'thread.context_compaction_started'
-                    ? (compactionTriggerDescription(event) ?? 'Summarizing context')
-                    : event.type === 'thread.context_compaction_finished'
-                      ? (compactionTriggerDescription(event) ?? 'Summarized context')
-                      : 'Sandbox created',
+                  : 'Sandbox created',
         startMs: eventMs - originMs,
         endMs: eventMs - originMs,
         turnIndex,

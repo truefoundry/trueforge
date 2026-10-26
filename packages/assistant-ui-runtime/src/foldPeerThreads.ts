@@ -237,10 +237,19 @@ function isContentAffectingEvent(message: TurnStreamingEvent): boolean {
   );
 }
 
+/**
+ * Events in emission-time order. Event ids are allocated before the work runs (a
+ * model.message id precedes the compaction that runs before it), so insertion
+ * order can disagree with `createdAt`; pairing and placement must follow time.
+ */
+function eventsInTimeOrder(bucket: ThreadBucket): [string, TurnEvent][] {
+  return [...bucket.events].sort(([, a], [, b]) => Date.parse(a.createdAt) - Date.parse(b.createdAt));
+}
+
 /** Next model.message id after `fromId` in insertion order, if any. */
 function nextModelMessageIdAfter({ bucket, fromId }: { bucket: ThreadBucket; fromId: string }): string | undefined {
   let passed = false;
-  for (const [id, event] of bucket.events) {
+  for (const [id, event] of eventsInTimeOrder(bucket)) {
     if (!passed) {
       if (id === fromId) {
         passed = true;
@@ -254,12 +263,33 @@ function nextModelMessageIdAfter({ bucket, fromId }: { bucket: ThreadBucket; fro
   return undefined;
 }
 
+/** Last model.message id before `beforeId` in insertion order, if any. */
+function previousModelMessageIdBefore({
+  bucket,
+  beforeId,
+}: {
+  bucket: ThreadBucket;
+  beforeId: string;
+}): string | undefined {
+  let previous: string | undefined;
+  for (const [id, event] of eventsInTimeOrder(bucket)) {
+    if (id === beforeId) {
+      return previous;
+    }
+    if (event.type === 'model.message') {
+      previous = id;
+    }
+  }
+  return previous;
+}
+
 /**
  * Compaction started events belonging to a model-message scope.
  *
  * A started event pairs with the next model.message after it. When that model
  * message is in scope, include the compaction. When there is no following model
- * message yet, include only for an empty scope (live tip / pre-LLM streaming).
+ * message yet, it is the live tip: include for an empty scope, or when the
+ * scope holds the model message right before it (mid-turn compaction).
  */
 function shouldIncludeCompactionStarted({
   bucket,
@@ -277,7 +307,11 @@ function shouldIncludeCompactionStarted({
   if (nextModelId != null) {
     return scopedModelIds.has(nextModelId);
   }
-  return scopedModelIds.size === 0;
+  if (scopedModelIds.size === 0) {
+    return true;
+  }
+  const previousModelId = previousModelMessageIdBefore({ bucket, beforeId: startedId });
+  return previousModelId != null && scopedModelIds.has(previousModelId);
 }
 
 function findFinishedForStarted({
@@ -288,7 +322,7 @@ function findFinishedForStarted({
   startedId: string;
 }): ThreadContextCompactionFinishedEvent | undefined {
   let passed = false;
-  for (const [id, event] of bucket.events) {
+  for (const [id, event] of eventsInTimeOrder(bucket)) {
     if (!passed) {
       if (id === startedId) {
         passed = true;
@@ -587,7 +621,7 @@ function buildThreadAssistantParts(
 
   // Walk insertion order so compaction steps sit before the model message they
   // prepare for (PreLLM). Scoped builds still filter via model-message pairing.
-  for (const [id, event] of bucket.events) {
+  for (const [id, event] of eventsInTimeOrder(bucket)) {
     if (event.type === 'thread.context_compaction_started') {
       if (
         !shouldIncludeCompactionStarted({
