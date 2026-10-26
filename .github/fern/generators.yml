@@ -42,6 +42,11 @@ groups:
           location: local-file-system
           path: ../../packages/trueforge-sdk
         config:
+          # type:module so trueforge-dev can load src/ as ESM (star re-exports).
+          # Still emits dual CJS+ESM dist; workspace/publish consumers should import.
+          outputEsm: true
+          # Deep-merge so we only add trueforge-dev without replacing Fern's exports.
+          packageJsonMergeStrategy: deep
           packageJson:
             name: '@truefoundry/trueforge-sdk'
             license: MIT
@@ -58,25 +63,17 @@ groups:
               provenance: true
             engines:
               node: '>=22'
-            # Merged onto Fern's dist import/require map. Workspace loaders opt in
-            # with --conditions=trueforge-dev / customConditions. Never name this
-            # "development" (Vite/webpack auto-activate it; src/ is not published).
+            # Workspace loaders opt in with --conditions=trueforge-dev /
+            # customConditions. Never name this "development" (Vite/webpack
+            # auto-activate it; src/ is not published).
             #
-            # Runtime loads src/ (no build); types stay on the generated .d.ts.
-            # Generated source is not exactOptionalPropertyTypes-clean, and pointing
-            # `types` at src/ would pull it into every consumer's tsc program.
+            # Runtime loads src/ (no build); types stay on the CJS .d.ts from
+            # `pnpm sdk:types` (generated source is not exactOptionalPropertyTypes-clean).
             exports:
               '.':
                 'trueforge-dev':
                   types: './dist/cjs/index.d.ts'
                   default: './src/index.ts'
-                import:
-                  types: './dist/esm/index.d.mts'
-                  default: './dist/esm/index.mjs'
-                require:
-                  types: './dist/cjs/index.d.ts'
-                  default: './dist/cjs/index.js'
-                default: './dist/cjs/index.js'
           allowExtraFields: true
           allowCustomFetcher: true
           # Map query params (OpenAPI additionalProperties) as deepObject brackets, not JSON strings.
