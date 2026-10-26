@@ -14,7 +14,15 @@ import type {
   TimelineSubAgentGroup,
   TimelineToolCallGroup,
 } from '../../utils/sessionEventTimelineChart.js';
+import { terminalCompletedAt } from '../../utils/sessionTimelineEvents.js';
 import type { SessionTurnView } from '../../utils/sessionTurnViews.js';
+import { formatAbsoluteDateTime } from '../lib/dateFormat.js';
+
+function formatTurnInstant(iso: string | undefined): string | null {
+  if (iso == null) return null;
+  const date = new Date(iso);
+  return Number.isNaN(date.getTime()) ? null : formatAbsoluteDateTime(date, { seconds: true });
+}
 
 export function hasSessionEventTooltip(segment: SessionEventTimelineSegment): boolean {
   return segment.type !== 'system' || segment.description.trim().length > 0;
@@ -68,6 +76,8 @@ export function SessionTurnTooltip({
   segments: SessionEventTimelineSegment[];
 }) {
   const isDark = useThemeMode() === 'dark';
+  const createdAt = formatTurnInstant(turn.created.createdAt);
+  const completedAt = formatTurnInstant(terminalCompletedAt(turn.done?.state) ?? turn.done?.createdAt);
   return (
     <div className="max-h-72 w-72 max-w-full overflow-auto text-xs text-text-primary">
       <div className="flex items-center justify-between gap-3">
@@ -77,6 +87,18 @@ export function SessionTurnTooltip({
       <div className="mt-1 flex flex-col text-text-secondary">
         {turn.totalCostInUsd != null ? <span>{`Cost: ${formatCostUsd(turn.totalCostInUsd)}`}</span> : null}
         {turn.totalTokens != null ? <span>{`Tokens: ${formatTokenCount(turn.totalTokens)}`}</span> : null}
+        {createdAt != null ? (
+          <div className="flex items-baseline justify-between gap-3">
+            <span>Created At</span>
+            <span className="tabular-nums text-text-primary">{createdAt}</span>
+          </div>
+        ) : null}
+        {completedAt != null ? (
+          <div className="flex items-baseline justify-between gap-3">
+            <span>Completed At</span>
+            <span className="tabular-nums text-text-primary">{completedAt}</span>
+          </div>
+        ) : null}
       </div>
       <div className="mt-2 border-t border-border pt-2">
         {segments.map(segment => {

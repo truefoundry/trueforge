@@ -6,7 +6,9 @@ import { AgentSessionEventTimelineChart } from '@/atoms/agent-details/AgentSessi
 import {
   SessionMarkerGroupTooltip,
   SessionSubAgentGroupTooltip,
+  SessionTurnTooltip,
 } from '@/atoms/agent-details/AgentSessionTimelineTooltip.js';
+import { formatAbsoluteDateTime } from '@/atoms/lib/dateFormat.js';
 import type { SessionEventTimelineSegment } from '@/utils/sessionEventTimeline.js';
 import type { SessionTurnView } from '@/utils/sessionTurnViews.js';
 
@@ -152,6 +154,68 @@ describe('AgentSessionEventTimelineChart', () => {
 
     fireEvent.mouseLeave(canvas);
     expect(screen.queryByRole('tooltip')).not.toBeInTheDocument();
+  });
+
+  it('shows created time and omits completed time while the hovered turn is running', async () => {
+    const { container } = render(
+      <AgentSessionEventTimelineChart
+        turns={turns}
+        segments={[
+          ...segments,
+          {
+            id: 'turn-2-model',
+            type: 'model',
+            title: 'model.message',
+            description: 'later',
+            startMs: 2_000,
+            endMs: 3_000,
+            turnIndex: 1,
+            threadId: 'main',
+          },
+        ]}
+        hiddenTypes={new Set()}
+      />,
+    );
+    const wrapper = container.querySelector<HTMLElement>('[data-slot="agent-session-event-timeline-chart"]');
+    const canvas = screen.getByRole('img', { name: 'Timeline chart' });
+    if (wrapper == null) throw new Error('Expected timeline chart wrapper');
+    vi.spyOn(wrapper, 'getBoundingClientRect').mockImplementation(() => new DOMRect(0, 0, 600, 120));
+    const onHover = Reflect.get(capturedOptions ?? {}, 'onHover');
+    if (typeof onHover !== 'function') throw new Error('Expected Chart.js onHover callback');
+
+    const native = new MouseEvent('mousemove', { clientX: 320 });
+    Object.defineProperty(native, 'target', { value: canvas });
+    act(() => onHover({ native }, [{ datasetIndex: 0 }]));
+
+    const tooltip = await screen.findByRole('tooltip');
+    expect(tooltip).toHaveTextContent(
+      `Created At${formatAbsoluteDateTime(new Date('2026-01-01T00:00:00.000Z'), { seconds: true })}`,
+    );
+    expect(tooltip).not.toHaveTextContent('Completed At');
+  });
+
+  it('shows completed time from turn.done completedAt', () => {
+    const turn = turns[0];
+    if (turn == null) throw new Error('Expected turn');
+    const completedAt = '2026-01-01T00:00:30.700Z';
+    render(
+      <SessionTurnTooltip
+        turn={{
+          ...turn,
+          done: {
+            type: 'turn.done',
+            id: 'turn-1-done',
+            createdAt: completedAt,
+            state: { status: 'done', completedAt },
+          },
+        }}
+        turnNumber={1}
+        durationMs={30_700}
+        segments={segments}
+      />,
+    );
+
+    expect(screen.getByText(formatAbsoluteDateTime(new Date(completedAt), { seconds: true }))).toBeInTheDocument();
   });
 
   it('grows wider than the pane and scrolls when short turns would otherwise collapse', async () => {
