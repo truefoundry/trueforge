@@ -2,15 +2,16 @@
 
 import type * as TrueForge from "../index.js";
 
-export interface AgentContextSummarizationEndEvent {
+export interface ThreadContextCompactionFinishedEvent {
     /** ISO 8601 event timestamp. */
     createdAt: string;
-    currentContextUsage: TrueForge.CurrentContextUsage;
+    /** Wall time of the compaction model call in milliseconds. */
+    durationMs: number;
     /** Unique identifier for the event (monotonic ULID). */
     id: string;
-    reason: TrueForge.CompactionSummarizationReason;
-    /** Thread whose context was summarized. */
+    /** Thread whose context was compacted. */
     threadId: string;
-    type: "agent.context.summarization.end";
+    trigger: TrueForge.CompactionTrigger;
+    type: "thread.context_compaction_finished";
     usage: TrueForge.CompletionUsage;
 }

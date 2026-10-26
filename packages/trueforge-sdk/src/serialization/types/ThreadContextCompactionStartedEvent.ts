@@ -3,25 +3,25 @@
 import type * as TrueForge from "../../api/index.js";
 import * as core from "../../core/index.js";
 import type * as serializers from "../index.js";
-import { CompactionSummarizationReason } from "./CompactionSummarizationReason.js";
+import { CompactionTrigger } from "./CompactionTrigger.js";
 
-export const AgentContextSummarizationStartEvent: core.serialization.ObjectSchema<
-    serializers.AgentContextSummarizationStartEvent.Raw,
-    TrueForge.AgentContextSummarizationStartEvent
+export const ThreadContextCompactionStartedEvent: core.serialization.ObjectSchema<
+    serializers.ThreadContextCompactionStartedEvent.Raw,
+    TrueForge.ThreadContextCompactionStartedEvent
 > = core.serialization.object({
     createdAt: core.serialization.property("created_at", core.serialization.string()),
     id: core.serialization.string(),
-    reason: CompactionSummarizationReason,
     threadId: core.serialization.property("thread_id", core.serialization.string()),
-    type: core.serialization.stringLiteral("agent.context.summarization.start"),
+    trigger: CompactionTrigger,
+    type: core.serialization.stringLiteral("thread.context_compaction_started"),
 });
 
-export declare namespace AgentContextSummarizationStartEvent {
+export declare namespace ThreadContextCompactionStartedEvent {
     export interface Raw {
         created_at: string;
         id: string;
-        reason: CompactionSummarizationReason.Raw;
         thread_id: string;
-        type: "agent.context.summarization.start";
+        trigger: CompactionTrigger.Raw;
+        type: "thread.context_compaction_started";
     }
 }

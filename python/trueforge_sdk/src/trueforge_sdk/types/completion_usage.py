@@ -9,7 +9,7 @@ from ..core.unchecked_base_model import UncheckedBaseModel
 
 class CompletionUsage(UncheckedBaseModel):
     """
-    Token usage for the summarization model call.
+    Token usage for the compaction model call.
     """
 
     cache_read_tokens: typing.Optional[int] = pydantic.Field(default=None)

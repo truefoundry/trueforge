@@ -2,13 +2,13 @@
 
 import type * as TrueForge from "../index.js";
 
-export interface AgentContextSummarizationStartEvent {
+export interface ThreadContextCompactionStartedEvent {
     /** ISO 8601 event timestamp. */
     createdAt: string;
     /** Unique identifier for the event (monotonic ULID). */
     id: string;
-    reason: TrueForge.CompactionSummarizationReason;
-    /** Thread whose context is being summarized. */
+    /** Thread whose context is being compacted. */
     threadId: string;
-    type: "agent.context.summarization.start";
+    trigger: TrueForge.CompactionTrigger;
+    type: "thread.context_compaction_started";
 }

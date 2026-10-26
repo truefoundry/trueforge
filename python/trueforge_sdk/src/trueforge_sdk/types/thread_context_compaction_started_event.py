@@ -5,10 +5,10 @@ import typing
 import pydantic
 from ..core.pydantic_utilities import IS_PYDANTIC_V2
 from ..core.unchecked_base_model import UncheckedBaseModel
-from .compaction_summarization_reason import CompactionSummarizationReason
+from .compaction_trigger import CompactionTrigger
 
 
-class AgentContextSummarizationStartEvent(UncheckedBaseModel):
+class ThreadContextCompactionStartedEvent(UncheckedBaseModel):
     created_at: str = pydantic.Field()
     """
     ISO 8601 event timestamp.
@@ -19,13 +19,13 @@ class AgentContextSummarizationStartEvent(UncheckedBaseModel):
     Unique identifier for the event (monotonic ULID).
     """
 
-    reason: CompactionSummarizationReason
     thread_id: str = pydantic.Field()
     """
-    Thread whose context is being summarized.
+    Thread whose context is being compacted.
     """
 
-    type: typing.Literal["agent.context.summarization.start"] = "agent.context.summarization.start"
+    trigger: CompactionTrigger
+    type: typing.Literal["thread.context_compaction_started"] = "thread.context_compaction_started"
 
     if IS_PYDANTIC_V2:
         model_config: typing.ClassVar[pydantic.ConfigDict] = pydantic.ConfigDict(extra="allow")  # type: ignore # Pydantic v2

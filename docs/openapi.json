@@ -133,82 +133,6 @@
         ],
         "type": "object"
       },
-      "AgentContextSummarizationEndEvent": {
-        "properties": {
-          "created_at": {
-            "description": "ISO 8601 event timestamp.",
-            "type": "string"
-          },
-          "current_context_usage": {
-            "$ref": "#/components/schemas/CurrentContextUsage"
-          },
-          "id": {
-            "description": "Unique identifier for the event (monotonic ULID).",
-            "type": "string"
-          },
-          "reason": {
-            "$ref": "#/components/schemas/CompactionSummarizationReason"
-          },
-          "thread_id": {
-            "description": "Thread whose context was summarized.",
-            "type": "string"
-          },
-          "type": {
-            "description": "Context summarization finished; context overwrite follows.",
-            "enum": [
-              "agent.context.summarization.end"
-            ],
-            "type": "string"
-          },
-          "usage": {
-            "$ref": "#/components/schemas/CompletionUsage"
-          }
-        },
-        "required": [
-          "type",
-          "id",
-          "created_at",
-          "thread_id",
-          "reason",
-          "usage",
-          "current_context_usage"
-        ],
-        "type": "object"
-      },
-      "AgentContextSummarizationStartEvent": {
-        "properties": {
-          "created_at": {
-            "description": "ISO 8601 event timestamp.",
-            "type": "string"
-          },
-          "id": {
-            "description": "Unique identifier for the event (monotonic ULID).",
-            "type": "string"
-          },
-          "reason": {
-            "$ref": "#/components/schemas/CompactionSummarizationReason"
-          },
-          "thread_id": {
-            "description": "Thread whose context is being summarized.",
-            "type": "string"
-          },
-          "type": {
-            "description": "Context summarization started; may take noticeable time.",
-            "enum": [
-              "agent.context.summarization.start"
-            ],
-            "type": "string"
-          }
-        },
-        "required": [
-          "type",
-          "id",
-          "created_at",
-          "thread_id",
-          "reason"
-        ],
-        "type": "object"
-      },
       "AgentInfo": {
         "properties": {
           "input": {
@@ -960,8 +884,8 @@
         },
         "type": "object"
       },
-      "CompactionSummarizationReason": {
-        "description": "Why summarization was triggered.",
+      "CompactionTrigger": {
+        "description": "Why compaction was triggered.",
         "properties": {
           "context_tokens": {
             "description": "Estimated context tokens when compaction fired (prompt + completion).",
@@ -989,7 +913,7 @@
         "type": "object"
       },
       "CompletionUsage": {
-        "description": "Token usage for the summarization model call.",
+        "description": "Token usage for the compaction model call.",
         "properties": {
           "cache_read_tokens": {
             "description": "Optional cache-read tokens.",
@@ -1402,26 +1326,6 @@
         "description": "Standard 5-field cron expression, evaluated in `timezone`.",
         "pattern": "^[\\d*,\\-/]+(?:\\s+[\\d*,\\-/]+){4}$",
         "type": "string"
-      },
-      "CurrentContextUsage": {
-        "description": "Estimated context budget after compaction (same value applied by the following overwrite).",
-        "properties": {
-          "completion_tokens": {
-            "description": "Live completion-side context tokens for the next LLM call.",
-            "minimum": 0,
-            "type": "integer"
-          },
-          "prompt_tokens": {
-            "description": "Live prompt-side context tokens for the next LLM call.",
-            "minimum": 0,
-            "type": "integer"
-          }
-        },
-        "required": [
-          "prompt_tokens",
-          "completion_tokens"
-        ],
-        "type": "object"
       },
       "CustomModelProvider": {
         "additionalProperties": false,
@@ -4281,12 +4185,12 @@
       "SessionEvent": {
         "discriminator": {
           "mapping": {
-            "agent.context.summarization.end": "#/components/schemas/AgentContextSummarizationEndEvent",
-            "agent.context.summarization.start": "#/components/schemas/AgentContextSummarizationStartEvent",
             "mcp.auth_required": "#/components/schemas/MCPAuthRequiredEvent",
             "mcp.initialize": "#/components/schemas/MCPInitializeEvent",
             "model.message": "#/components/schemas/ModelMessageEvent",
             "sandbox.created": "#/components/schemas/SandboxCreatedEvent",
+            "thread.context_compaction_finished": "#/components/schemas/ThreadContextCompactionFinishedEvent",
+            "thread.context_compaction_started": "#/components/schemas/ThreadContextCompactionStartedEvent",
             "thread.created": "#/components/schemas/ThreadCreatedEvent",
             "thread.done": "#/components/schemas/ThreadDoneEvent",
             "tool.approval_required": "#/components/schemas/ToolApprovalRequiredEvent",
@@ -4325,10 +4229,10 @@
             "$ref": "#/components/schemas/ThreadDoneEvent"
           },
           {
-            "$ref": "#/components/schemas/AgentContextSummarizationStartEvent"
+            "$ref": "#/components/schemas/ThreadContextCompactionStartedEvent"
           },
           {
-            "$ref": "#/components/schemas/AgentContextSummarizationEndEvent"
+            "$ref": "#/components/schemas/ThreadContextCompactionFinishedEvent"
           },
           {
             "$ref": "#/components/schemas/MCPAuthRequiredEvent"
@@ -4817,6 +4721,84 @@
         "required": [
           "type",
           "text"
+        ],
+        "type": "object"
+      },
+      "ThreadContextCompactionFinishedEvent": {
+        "properties": {
+          "created_at": {
+            "description": "ISO 8601 event timestamp.",
+            "type": "string"
+          },
+          "duration_ms": {
+            "description": "Wall time of the compaction model call in milliseconds.",
+            "minimum": 0,
+            "type": "integer"
+          },
+          "id": {
+            "description": "Unique identifier for the event (monotonic ULID).",
+            "type": "string"
+          },
+          "thread_id": {
+            "description": "Thread whose context was compacted.",
+            "type": "string"
+          },
+          "trigger": {
+            "$ref": "#/components/schemas/CompactionTrigger"
+          },
+          "type": {
+            "description": "Thread context compaction finished; context overwrite follows.",
+            "enum": [
+              "thread.context_compaction_finished"
+            ],
+            "type": "string"
+          },
+          "usage": {
+            "$ref": "#/components/schemas/CompletionUsage"
+          }
+        },
+        "required": [
+          "type",
+          "id",
+          "created_at",
+          "thread_id",
+          "trigger",
+          "usage",
+          "duration_ms"
+        ],
+        "type": "object"
+      },
+      "ThreadContextCompactionStartedEvent": {
+        "properties": {
+          "created_at": {
+            "description": "ISO 8601 event timestamp.",
+            "type": "string"
+          },
+          "id": {
+            "description": "Unique identifier for the event (monotonic ULID).",
+            "type": "string"
+          },
+          "thread_id": {
+            "description": "Thread whose context is being compacted.",
+            "type": "string"
+          },
+          "trigger": {
+            "$ref": "#/components/schemas/CompactionTrigger"
+          },
+          "type": {
+            "description": "Thread context compaction started; may take noticeable time.",
+            "enum": [
+              "thread.context_compaction_started"
+            ],
+            "type": "string"
+          }
+        },
+        "required": [
+          "type",
+          "id",
+          "created_at",
+          "thread_id",
+          "trigger"
         ],
         "type": "object"
       },
@@ -5819,13 +5801,13 @@
       "TurnStreamingEvent": {
         "discriminator": {
           "mapping": {
-            "agent.context.summarization.end": "#/components/schemas/AgentContextSummarizationEndEvent",
-            "agent.context.summarization.start": "#/components/schemas/AgentContextSummarizationStartEvent",
             "mcp.auth_required": "#/components/schemas/MCPAuthRequiredEvent",
             "mcp.initialize": "#/components/schemas/MCPInitializeEvent",
             "model.message": "#/components/schemas/ModelMessageEvent",
             "model.message.delta": "#/components/schemas/ModelMessageDeltaEvent",
             "sandbox.created": "#/components/schemas/SandboxCreatedEvent",
+            "thread.context_compaction_finished": "#/components/schemas/ThreadContextCompactionFinishedEvent",
+            "thread.context_compaction_started": "#/components/schemas/ThreadContextCompactionStartedEvent",
             "thread.created": "#/components/schemas/ThreadCreatedEvent",
             "thread.done": "#/components/schemas/ThreadDoneEvent",
             "tool.approval_required": "#/components/schemas/ToolApprovalRequiredEvent",
@@ -5858,10 +5840,10 @@
             "$ref": "#/components/schemas/ThreadDoneEvent"
           },
           {
-            "$ref": "#/components/schemas/AgentContextSummarizationStartEvent"
+            "$ref": "#/components/schemas/ThreadContextCompactionStartedEvent"
           },
           {
-            "$ref": "#/components/schemas/AgentContextSummarizationEndEvent"
+            "$ref": "#/components/schemas/ThreadContextCompactionFinishedEvent"
           },
           {
             "$ref": "#/components/schemas/MCPAuthRequiredEvent"

@@ -649,12 +649,10 @@ describe("SessionsClient", () => {
                 {
                     event: {
                         created_at: "created_at",
-                        current_context_usage: { completion_tokens: 1, prompt_tokens: 1 },
                         id: "id",
-                        reason: { context_tokens: 1, threshold_tokens: 1, type: "compaction" },
-                        thread_id: "thread_id",
-                        type: "agent.context.summarization.end",
-                        usage: { input_tokens: 1, output_tokens: 1, total_tokens: 1 },
+                        thread_id: null,
+                        mcp_servers: [{ auth_url: "auth_url", id: "id", name: "name" }],
+                        type: "mcp.auth_required",
                     },
                     turn_id: "turn_id",
                 },
@@ -675,23 +673,16 @@ describe("SessionsClient", () => {
                 {
                     event: {
                         createdAt: "created_at",
-                        currentContextUsage: {
-                            completionTokens: 1,
-                            promptTokens: 1,
-                        },
                         id: "id",
-                        reason: {
-                            contextTokens: 1,
-                            thresholdTokens: 1,
-                            type: "compaction",
-                        },
-                        threadId: "thread_id",
-                        type: "agent.context.summarization.end",
-                        usage: {
-                            inputTokens: 1,
-                            outputTokens: 1,
-                            totalTokens: 1,
-                        },
+                        threadId: null,
+                        mcpServers: [
+                            {
+                                authUrl: "auth_url",
+                                id: "id",
+                                name: "name",
+                            },
+                        ],
+                        type: "mcp.auth_required",
                     },
                     turnId: "turn_id",
                 },
@@ -889,7 +880,7 @@ describe("SessionsClient", () => {
         const client = new TrueForge({ maxRetries: 0, token: "test", baseUrl: server.baseUrl });
         const rawRequestBody = { stream: true };
         const rawResponseBody =
-            'event: \ndata: {"created_at":"created_at","current_context_usage":{"completion_tokens":1,"prompt_tokens":1},"id":"id","reason":{"context_tokens":1,"threshold_tokens":1,"type":"compaction"},"thread_id":"thread_id","type":"agent.context.summarization.end","usage":{"cache_read_tokens":1,"cache_write_tokens":1,"cost_in_usd":1.1,"input_tokens":1,"output_tokens":1,"reasoning_tokens":1,"total_tokens":1}}\n\n';
+            'event: \ndata: {"created_at":"created_at","id":"id","thread_id":"thread_id","mcp_servers":[{"auth_url":"auth_url","id":"id","name":"name"}],"type":"mcp.auth_required"}\n\n';
 
         server
             .mockEndpoint()
@@ -908,27 +899,16 @@ describe("SessionsClient", () => {
         expect(events).toEqual([
             {
                 createdAt: "created_at",
-                currentContextUsage: {
-                    completionTokens: 1,
-                    promptTokens: 1,
-                },
                 id: "id",
-                reason: {
-                    contextTokens: 1,
-                    thresholdTokens: 1,
-                    type: "compaction",
-                },
                 threadId: "thread_id",
-                type: "agent.context.summarization.end",
-                usage: {
-                    cacheReadTokens: 1,
-                    cacheWriteTokens: 1,
-                    costInUsd: 1.1,
-                    inputTokens: 1,
-                    outputTokens: 1,
-                    reasoningTokens: 1,
-                    totalTokens: 1,
-                },
+                mcpServers: [
+                    {
+                        authUrl: "auth_url",
+                        id: "id",
+                        name: "name",
+                    },
+                ],
+                type: "mcp.auth_required",
             },
         ]);
     });
@@ -1350,12 +1330,10 @@ describe("SessionsClient", () => {
             data: [
                 {
                     created_at: "created_at",
-                    current_context_usage: { completion_tokens: 1, prompt_tokens: 1 },
                     id: "id",
-                    reason: { context_tokens: 1, threshold_tokens: 1, type: "compaction" },
                     thread_id: "thread_id",
-                    type: "agent.context.summarization.end",
-                    usage: { input_tokens: 1, output_tokens: 1, total_tokens: 1 },
+                    mcp_servers: [{ auth_url: "auth_url", id: "id", name: "name" }],
+                    type: "mcp.auth_required",
                 },
             ],
             pagination: { limit: 1, next_page_token: "next_page_token", previous_page_token: "previous_page_token" },
@@ -1373,23 +1351,16 @@ describe("SessionsClient", () => {
             data: [
                 {
                     createdAt: "created_at",
-                    currentContextUsage: {
-                        completionTokens: 1,
-                        promptTokens: 1,
-                    },
                     id: "id",
-                    reason: {
-                        contextTokens: 1,
-                        thresholdTokens: 1,
-                        type: "compaction",
-                    },
                     threadId: "thread_id",
-                    type: "agent.context.summarization.end",
-                    usage: {
-                        inputTokens: 1,
-                        outputTokens: 1,
-                        totalTokens: 1,
-                    },
+                    mcpServers: [
+                        {
+                            authUrl: "auth_url",
+                            id: "id",
+                            name: "name",
+                        },
+                    ],
+                    type: "mcp.auth_required",
                 },
             ],
             pagination: {
@@ -1617,7 +1588,7 @@ describe("SessionsClient", () => {
         const client = new TrueForge({ maxRetries: 0, token: "test", baseUrl: server.baseUrl });
 
         const rawResponseBody =
-            'event: \ndata: {"created_at":"created_at","current_context_usage":{"completion_tokens":1,"prompt_tokens":1},"id":"id","reason":{"context_tokens":1,"threshold_tokens":1,"type":"compaction"},"thread_id":"thread_id","type":"agent.context.summarization.end","usage":{"cache_read_tokens":1,"cache_write_tokens":1,"cost_in_usd":1.1,"input_tokens":1,"output_tokens":1,"reasoning_tokens":1,"total_tokens":1}}\n\n';
+            'event: \ndata: {"created_at":"created_at","id":"id","thread_id":"thread_id","mcp_servers":[{"auth_url":"auth_url","id":"id","name":"name"}],"type":"mcp.auth_required"}\n\n';
 
         server
             .mockEndpoint()
@@ -1635,27 +1606,16 @@ describe("SessionsClient", () => {
         expect(events).toEqual([
             {
                 createdAt: "created_at",
-                currentContextUsage: {
-                    completionTokens: 1,
-                    promptTokens: 1,
-                },
                 id: "id",
-                reason: {
-                    contextTokens: 1,
-                    thresholdTokens: 1,
-                    type: "compaction",
-                },
                 threadId: "thread_id",
-                type: "agent.context.summarization.end",
-                usage: {
-                    cacheReadTokens: 1,
-                    cacheWriteTokens: 1,
-                    costInUsd: 1.1,
-                    inputTokens: 1,
-                    outputTokens: 1,
-                    reasoningTokens: 1,
-                    totalTokens: 1,
-                },
+                mcpServers: [
+                    {
+                        authUrl: "auth_url",
+                        id: "id",
+                        name: "name",
+                    },
+                ],
+                type: "mcp.auth_required",
             },
         ]);
     });

@@ -5,30 +5,33 @@ import typing
 import pydantic
 from ..core.pydantic_utilities import IS_PYDANTIC_V2
 from ..core.unchecked_base_model import UncheckedBaseModel
-from .compaction_summarization_reason import CompactionSummarizationReason
+from .compaction_trigger import CompactionTrigger
 from .completion_usage import CompletionUsage
-from .current_context_usage import CurrentContextUsage
 
 
-class AgentContextSummarizationEndEvent(UncheckedBaseModel):
+class ThreadContextCompactionFinishedEvent(UncheckedBaseModel):
     created_at: str = pydantic.Field()
     """
     ISO 8601 event timestamp.
     """
 
-    current_context_usage: CurrentContextUsage
+    duration_ms: int = pydantic.Field()
+    """
+    Wall time of the compaction model call in milliseconds.
+    """
+
     id: str = pydantic.Field()
     """
     Unique identifier for the event (monotonic ULID).
     """
 
-    reason: CompactionSummarizationReason
     thread_id: str = pydantic.Field()
     """
-    Thread whose context was summarized.
+    Thread whose context was compacted.
     """
 
-    type: typing.Literal["agent.context.summarization.end"] = "agent.context.summarization.end"
+    trigger: CompactionTrigger
+    type: typing.Literal["thread.context_compaction_finished"] = "thread.context_compaction_finished"
     usage: CompletionUsage
 
     if IS_PYDANTIC_V2:

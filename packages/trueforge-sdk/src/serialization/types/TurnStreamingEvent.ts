@@ -3,13 +3,13 @@
 import type * as TrueForge from "../../api/index.js";
 import * as core from "../../core/index.js";
 import type * as serializers from "../index.js";
-import { AgentContextSummarizationEndEvent } from "./AgentContextSummarizationEndEvent.js";
-import { AgentContextSummarizationStartEvent } from "./AgentContextSummarizationStartEvent.js";
 import { McpAuthRequiredEvent } from "./McpAuthRequiredEvent.js";
 import { McpInitializeEvent } from "./McpInitializeEvent.js";
 import { ModelMessageDeltaEvent } from "./ModelMessageDeltaEvent.js";
 import { ModelMessageEvent } from "./ModelMessageEvent.js";
 import { SandboxCreatedEvent } from "./SandboxCreatedEvent.js";
+import { ThreadContextCompactionFinishedEvent } from "./ThreadContextCompactionFinishedEvent.js";
+import { ThreadContextCompactionStartedEvent } from "./ThreadContextCompactionStartedEvent.js";
 import { ThreadCreatedEvent } from "./ThreadCreatedEvent.js";
 import { ThreadDoneEvent } from "./ThreadDoneEvent.js";
 import { ToolApprovalRequiredEvent } from "./ToolApprovalRequiredEvent.js";
@@ -27,13 +27,13 @@ export const TurnStreamingEvent: core.serialization.Schema<
     serializers.TurnStreamingEvent.Raw,
     TrueForge.TurnStreamingEvent
 > = core.serialization.undiscriminatedUnion([
-    AgentContextSummarizationEndEvent,
-    AgentContextSummarizationStartEvent,
     McpAuthRequiredEvent,
     McpInitializeEvent,
     ModelMessageEvent,
     ModelMessageDeltaEvent,
     SandboxCreatedEvent,
+    ThreadContextCompactionFinishedEvent,
+    ThreadContextCompactionStartedEvent,
     ThreadCreatedEvent,
     ThreadDoneEvent,
     ToolApprovalRequiredEvent,
@@ -50,13 +50,13 @@ export const TurnStreamingEvent: core.serialization.Schema<
 
 export declare namespace TurnStreamingEvent {
     export type Raw =
-        | AgentContextSummarizationEndEvent.Raw
-        | AgentContextSummarizationStartEvent.Raw
         | McpAuthRequiredEvent.Raw
         | McpInitializeEvent.Raw
         | ModelMessageEvent.Raw
         | ModelMessageDeltaEvent.Raw
         | SandboxCreatedEvent.Raw
+        | ThreadContextCompactionFinishedEvent.Raw
+        | ThreadContextCompactionStartedEvent.Raw
         | ThreadCreatedEvent.Raw
         | ThreadDoneEvent.Raw
         | ToolApprovalRequiredEvent.Raw

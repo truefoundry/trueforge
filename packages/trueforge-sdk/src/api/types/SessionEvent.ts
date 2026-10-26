@@ -3,12 +3,12 @@
 import type * as TrueForge from "../index.js";
 
 export type SessionEvent =
-    | TrueForge.AgentContextSummarizationEndEvent
-    | TrueForge.AgentContextSummarizationStartEvent
     | TrueForge.McpAuthRequiredEvent
     | TrueForge.McpInitializeEvent
     | TrueForge.ModelMessageEvent
     | TrueForge.SandboxCreatedEvent
+    | TrueForge.ThreadContextCompactionFinishedEvent
+    | TrueForge.ThreadContextCompactionStartedEvent
     | TrueForge.ThreadCreatedEvent
     | TrueForge.ThreadDoneEvent
     | TrueForge.ToolApprovalRequiredEvent

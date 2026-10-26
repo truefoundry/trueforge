@@ -7,19 +7,24 @@ from ..core.pydantic_utilities import IS_PYDANTIC_V2
 from ..core.unchecked_base_model import UncheckedBaseModel
 
 
-class CurrentContextUsage(UncheckedBaseModel):
+class CompactionTrigger(UncheckedBaseModel):
     """
-    Estimated context budget after compaction (same value applied by the following overwrite).
-    """
-
-    completion_tokens: int = pydantic.Field()
-    """
-    Live completion-side context tokens for the next LLM call.
+    Why compaction was triggered.
     """
 
-    prompt_tokens: int = pydantic.Field()
+    context_tokens: int = pydantic.Field()
     """
-    Live prompt-side context tokens for the next LLM call.
+    Estimated context tokens when compaction fired (prompt + completion).
+    """
+
+    threshold_tokens: int = pydantic.Field()
+    """
+    Configured compaction threshold in tokens.
+    """
+
+    type: typing.Literal["compaction"] = pydantic.Field(default="compaction")
+    """
+    Triggered because estimated context crossed the compaction threshold.
     """
 
     if IS_PYDANTIC_V2:
