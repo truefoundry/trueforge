@@ -1,4 +1,10 @@
-import { parseMcpToolArgs, parseSandboxArgs, SANDBOX_TOOL_NAMES, SUB_AGENT_TOOL_NAME } from './toolCallParsing.js';
+import {
+  hasPendingToolApproval,
+  parseMcpToolArgs,
+  parseSandboxArgs,
+  SANDBOX_TOOL_NAMES,
+  SUB_AGENT_TOOL_NAME,
+} from './toolCallParsing.js';
 
 export const DEFAULT_ACTIVITY_LABEL = 'Working...';
 
@@ -10,12 +16,21 @@ export type ActivityPart = {
   argsText?: string;
   status?: { type: string };
   result?: unknown;
+  approval?: { approved?: boolean; resolution?: 'cancelled' | 'expired' };
   messages?: readonly { content: readonly ActivityPart[] }[];
 };
 
-// Nested message content parts carry no status; an unresolved result means still running.
+// Nested message content parts carry no status: derive it from the approval gate, then from the result.
 function toolStatusType(part: ActivityPart): string {
-  return part.status?.type ?? (part.result === undefined ? 'running' : 'complete');
+  if (part.status) return part.status.type;
+  if (hasPendingToolApproval(part.approval)) return 'requires-action';
+  return part.result === undefined ? 'running' : 'complete';
+}
+
+function trimTrailingEllipsis(text: string): string {
+  let end = text.length;
+  while (end > 0 && (text[end - 1] === '.' || text[end - 1] === '…')) end--;
+  return text.slice(0, end);
 }
 
 function isRunningSubAgent(part: ActivityPart): boolean {
@@ -25,9 +40,7 @@ function isRunningSubAgent(part: ActivityPart): boolean {
 function toolLabel(part: ActivityPart): string {
   const toolName = part.toolName ?? 'tool';
   if (SANDBOX_TOOL_NAMES.has(toolName)) {
-    const intent = parseSandboxArgs(part.argsText)
-      .intent?.trim()
-      .replace(/[.…]+$/, '');
+    const intent = trimTrailingEllipsis(parseSandboxArgs(part.argsText).intent?.trim() ?? '');
     if (!intent) return 'Running command...';
     return `${intent.length > MAX_INTENT_LENGTH ? `${intent.slice(0, MAX_INTENT_LENGTH)}…` : intent} · ${toolName}`;
   }

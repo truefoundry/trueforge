@@ -35,6 +35,22 @@ describe('resolveActivityLabel', () => {
     );
   });
 
+  it('reports a pending approval on a nested part without status', () => {
+    expect(resolveActivityLabel([{ type: 'tool-call', toolName: 'exec', approval: {} }])).toBe(
+      'Waiting for your approval',
+    );
+    expect(resolveActivityLabel([{ type: 'tool-call', toolName: 'exec', approval: { approved: true } }])).toBe(
+      'Running command...',
+    );
+  });
+
+  it('trims long runs of trailing dots in linear time', () => {
+    const intent = `Inspect${'.'.repeat(100_000)}x`;
+    const start = performance.now();
+    resolveActivityLabel([running('exec', { argsText: JSON.stringify({ intent }) })]);
+    expect(performance.now() - start).toBeLessThan(500);
+  });
+
   it('surfaces the latest nested sub-agent activity', () => {
     const subAgent = running('create_sub_agent', {
       messages: [{ content: [{ type: 'tool-call', toolName: 'web_search' }] }],
