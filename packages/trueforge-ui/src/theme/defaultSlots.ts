@@ -64,6 +64,8 @@ import { DraftComposerActionsMenu } from '../atoms/draft/DraftComposerActionsMen
 import { DraftComposerLeftSection, DraftComposerRightSection } from '../atoms/draft/DraftComposerSections.js';
 import { CatalogRow, ConnectorConnectButton, DraftCompositeSelector } from '../atoms/draft/DraftCompositeSelector.js';
 import { DraftModelSelector } from '../atoms/draft/DraftModelSelector.js';
+import { InstructionsFullScreenEditor } from '../atoms/draft/InstructionsFullScreenEditor.js';
+import { InstructionsMarkdownEditor } from '../atoms/draft/InstructionsMarkdownEditor.js';
 import type { EnvironmentsPageProps } from '../atoms/environments/EnvironmentsPage.js';
 import { EnvironmentsButton } from '../atoms/EnvironmentsButton.js';
 import { FilePreviewPanel } from '../atoms/FilePreviewPanel.js';
@@ -172,6 +174,8 @@ export const defaultSlots = {
   AgentCustomParametersEditor,
   AgentConfigEditors,
   AgentInstructionsDrawer,
+  InstructionsFullScreenEditor,
+  InstructionsMarkdownEditor,
   AgentModelEditorContent,
   AgentModelSettingsContent,
   AgentMcpEditorContent,
