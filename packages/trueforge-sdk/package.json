@@ -9,8 +9,8 @@
     "exports": {
         ".": {
             "trueforge-dev": {
-                "types": "./dist/esm/index.d.mts",
-                "default": "./src/index.ts"
+                "default": "./src/index.ts",
+                "types": "./dist/esm/index.d.mts"
             },
             "import": {
                 "types": "./dist/esm/index.d.mts",
@@ -374,19 +374,19 @@
         "node": ">=22"
     },
     "sideEffects": false,
-    "license": "MIT",
     "author": "TrueForge",
-    "repository": {
-        "type": "git",
-        "url": "git+https://github.com/truefoundry/trueforge.git",
-        "directory": "packages/trueforge-sdk"
-    },
-    "homepage": "https://github.com/truefoundry/trueforge/tree/main/packages/trueforge-sdk#readme",
     "bugs": {
         "url": "https://github.com/truefoundry/trueforge/issues"
     },
+    "homepage": "https://github.com/truefoundry/trueforge/tree/main/packages/trueforge-sdk#readme",
+    "license": "MIT",
     "publishConfig": {
         "access": "public",
         "provenance": true
+    },
+    "repository": {
+        "directory": "packages/trueforge-sdk",
+        "type": "git",
+        "url": "git+https://github.com/truefoundry/trueforge.git"
     }
 }
