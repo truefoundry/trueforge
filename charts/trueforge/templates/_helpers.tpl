@@ -253,12 +253,13 @@ redis.nameOverride / redis.fullnameOverride.
 {{- end }}
 
 {{/*
-Resource tier (small | medium | large). Empty when unset so the explicit
-`resources` / `controller.resources` apply. resourceTier wins over a parent
-chart's global.resourceTier.
+Tier name (small | medium | large), or empty.
+resourceTierOverride wins over a parent chart's global.resourceTier.
+resourceTier is the same override when resourceTierOverride is empty.
+Explicit resources keys are applied later and win over this preset.
 */}}
 {{- define "trueforge.resourceTier" -}}
-{{- $override := .Values.resourceTier | default "" | toString | trim -}}
+{{- $override := .Values.resourceTierOverride | default .Values.resourceTier | default "" | toString | trim -}}
 {{- $fromGlobal := "" -}}
 {{- with .Values.global -}}
 {{- $fromGlobal = .resourceTier | default "" | toString | trim -}}
@@ -361,45 +362,46 @@ limits:
 {{- end }}
 
 {{/*
-Server requests/limits. Default is `.Values.resources`. A resourceTier preset
-replaces that table (chart resource defaults must not overlay it).
+Requests/limits for one workload.
+Explicit keys win. Missing keys come from the tier preset
+(resourceTierOverride, else global.resourceTier). With no tier, fallback
+is the preset that matches the previous chart defaults (server medium,
+controller small).
+Expects: root, prefix, fallback, overrides.
 */}}
-{{- define "trueforge.resources" -}}
-{{- $tier := include "trueforge.resourceTier" . | trim -}}
-{{- if $tier -}}
+{{- define "trueforge.tierResources" -}}
+{{- $tier := include "trueforge.resourceTier" .root | trim -}}
+{{- if not $tier -}}
+{{- $tier = .fallback -}}
+{{- end -}}
 {{- $defaultsYaml := "" -}}
 {{- if eq $tier "small" -}}
-  {{- $defaultsYaml = include "trueforge.defaultResources.small" . -}}
+{{- $defaultsYaml = include (printf "%s.small" .prefix) .root -}}
 {{- else if eq $tier "medium" -}}
-  {{- $defaultsYaml = include "trueforge.defaultResources.medium" . -}}
+{{- $defaultsYaml = include (printf "%s.medium" .prefix) .root -}}
 {{- else if eq $tier "large" -}}
-  {{- $defaultsYaml = include "trueforge.defaultResources.large" . -}}
+{{- $defaultsYaml = include (printf "%s.large" .prefix) .root -}}
 {{- end -}}
-{{- $defaultsYaml -}}
-{{- else -}}
-{{- toYaml (.Values.resources | default dict) -}}
-{{- end -}}
+{{- $defaults := fromYaml $defaultsYaml | default dict -}}
+{{- $overrides := .overrides | default dict -}}
+{{- $requests := merge (dict) ($overrides.requests | default dict) ($defaults.requests | default dict) -}}
+{{- $limits := merge (dict) ($overrides.limits | default dict) ($defaults.limits | default dict) -}}
+{{- dict "requests" $requests "limits" $limits | toYaml -}}
 {{- end }}
 
 {{/*
-Controller requests/limits. Default is `.Values.controller.resources`.
-Replica count is always 1, even when a resourceTier is set.
+Server requests/limits. Explicit `.Values.resources` keys win over the tier.
+*/}}
+{{- define "trueforge.resources" -}}
+{{- include "trueforge.tierResources" (dict "root" . "prefix" "trueforge.defaultResources" "fallback" "medium" "overrides" .Values.resources) -}}
+{{- end }}
+
+{{/*
+Controller requests/limits. Explicit `.Values.controller.resources` keys win
+over the tier. Replica count is always 1, even when a tier is set.
 */}}
 {{- define "trueforge.controller.resources" -}}
-{{- $tier := include "trueforge.resourceTier" . | trim -}}
-{{- if $tier -}}
-{{- $defaultsYaml := "" -}}
-{{- if eq $tier "small" -}}
-  {{- $defaultsYaml = include "trueforge.controller.defaultResources.small" . -}}
-{{- else if eq $tier "medium" -}}
-  {{- $defaultsYaml = include "trueforge.controller.defaultResources.medium" . -}}
-{{- else if eq $tier "large" -}}
-  {{- $defaultsYaml = include "trueforge.controller.defaultResources.large" . -}}
-{{- end -}}
-{{- $defaultsYaml -}}
-{{- else -}}
-{{- toYaml (.Values.controller.resources | default dict) -}}
-{{- end -}}
+{{- include "trueforge.tierResources" (dict "root" . "prefix" "trueforge.controller.defaultResources" "fallback" "small" "overrides" .Values.controller.resources) -}}
 {{- end }}
 
 {{- define "trueforge.tmpEmptyDirSizeLimit" -}}

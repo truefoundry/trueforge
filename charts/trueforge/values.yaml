@@ -5,6 +5,9 @@
 # JFrog mirror instead. Overriding the registry trips Bitnami's image guardrail,
 # so allowInsecureImages must be set for the subcharts to render.
 global:
+  # small | medium | large, usually set by a parent chart. Used when
+  # resourceTierOverride is empty. Keys on resources and controller.resources
+  # still win over the preset.
   resourceTier: ""
   security:
     allowInsecureImages: true
@@ -142,15 +145,10 @@ controller:
   serverUrl: ""
   # Extra env for the controller only; same item shape as server.extraEnv.
   extraEnv: []
-  resources:
-    requests:
-      cpu: 50m
-      memory: 128Mi
-      ephemeral-storage: 128Mi
-    limits:
-      cpu: 100m
-      memory: 256Mi
-      ephemeral-storage: 256Mi
+  # Partial requests/limits. Empty keys come from resourceTierOverride, then
+  # global.resourceTier. With no tier, the small preset is used. A key set
+  # here overrides the preset; other keys stay on the preset.
+  resources: {}
 # Controller → server API key (TRUEFORGE_API_KEY). Dev default is a known
 # placeholder — strongly recommended to create a Secret and set:
 #   apiKey: { valueFrom: { secretKeyRef: { name: trueforge-api-key, key: TRUEFORGE_API_KEY } } }
@@ -216,10 +214,11 @@ networkPolicy:
     # Env: OUTBOUND_URL_BLOCKED_HOSTS (JSON string array). Empty = no blocklist entries.
     # Example: ["evil.example.com"]
     blockedHosts: []
-# Resource tier: small | medium | large presets for server and controller.
-# Empty = use `resources` / `controller.resources`. Wins over a parent chart's
-# global.resourceTier.
-resourceTier: ""
+# small | medium | large preset for server and controller resources, and for
+# the server replica count. Empty inherits global.resourceTier. Loses to keys
+# set on resources / controller.resources. `resourceTier` is accepted when
+# this is empty.
+resourceTierOverride: ""
 # --- Bundled Postgres (Bitnami subchart) ---------------------------------------
 # Rendered only when postgresql.enabled is true. The server's POSTGRES_* env is
 # wired to this release automatically. See the Bitnami postgresql chart for the
@@ -366,15 +365,10 @@ extraContainers: []
 # Extra volumes / mounts on the server container (e.g. CA bundles, projected tokens).
 extraVolumes: []
 extraVolumeMounts: []
-resources:
-  requests:
-    cpu: 100m
-    memory: 256Mi
-    ephemeral-storage: 256Mi
-  limits:
-    cpu: 200m
-    memory: 512Mi
-    ephemeral-storage: 512Mi
+# Partial requests/limits for the server. Empty keys come from
+# resourceTierOverride, then global.resourceTier. With no tier, the medium
+# preset is used. A key set here overrides the preset; other keys stay on it.
+resources: {}
 # Mutual TLS for the server HTTPS listener and controller→server hop.
 # When enabled, chart probes use scheme HTTPS (same pattern as deltafusion-ingestor).
 # Secret must contain tls.crt / tls.key / ca.crt (e.g. truefoundry-internal-tls).
