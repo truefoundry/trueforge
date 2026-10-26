@@ -224,6 +224,7 @@ describe('sandbox environments API → build controller path', () => {
     ).resolves.toEqual([
       {
         id: createdBody.data.id,
+        name: 'create-only-env',
         created_by_subject: {
           subject_id: STANDALONE_REQUEST_CONTEXT.subject.id,
           subject_type: STANDALONE_REQUEST_CONTEXT.subject.type,

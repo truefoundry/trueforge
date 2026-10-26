@@ -299,7 +299,7 @@ describe('EnvironmentsPage', () => {
       expect(getEnvironment).not.toHaveBeenCalled();
 
       await act(async () => {
-        vi.advanceTimersByTime(PENDING_ENVIRONMENTS_POLL_INTERVAL_MS + 100);
+        await vi.advanceTimersByTimeAsync(PENDING_ENVIRONMENTS_POLL_INTERVAL_MS);
       });
 
       expect(getEnvironment).toHaveBeenCalledWith({ name: 'building-env' });

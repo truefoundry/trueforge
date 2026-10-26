@@ -169,8 +169,8 @@ describe('TrueForgeAuthorizer.getPermissions', () => {
   it('grants MANAGE/DELETE via canCreateOrEdit (owner or admin)', async () => {
     const sandboxEnvironmentStore = {
       getEnvironmentsByIds: jest.fn(async () => [
-        { id: 'env-1', created_by_subject: { subject_id: 'alice' } },
-        { id: 'env-2', created_by_subject: { subject_id: 'carol' } },
+        { id: 'env-1', name: 'alice-env', created_by_subject: { subject_id: 'alice' } },
+        { id: 'env-2', name: 'carol-env', created_by_subject: { subject_id: 'carol' } },
       ]),
     };
 

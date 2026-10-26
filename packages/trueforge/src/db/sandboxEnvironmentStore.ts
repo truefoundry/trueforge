@@ -99,6 +99,7 @@ export interface GetSandboxEnvironmentsByIdsInput {
 /** Minimal parent fields for permission evaluation. */
 export interface SandboxEnvironmentOwnership {
   id: string;
+  name: string;
   created_by_subject: CreatedBySubject;
 }
 

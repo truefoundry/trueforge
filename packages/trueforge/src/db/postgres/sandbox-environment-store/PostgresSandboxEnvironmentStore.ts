@@ -229,13 +229,14 @@ export class PostgresSandboxEnvironmentStore implements ISandboxEnvironmentStore
     const db = transaction ?? this.#db;
     const rows = await db
       .selectFrom('sandbox_environment')
-      .select(['id', 'created_by_subject'])
+      .select(['id', 'name', 'created_by_subject'])
       .where('tenant_id', '=', input.tenant_id)
       .where('id', 'in', [...input.ids])
       .where('lifecycle_stage', '=', 'active')
       .execute();
     return rows.map(row => ({
       id: row.id,
+      name: row.name,
       created_by_subject: CreatedBySubjectSchema.parse(row.created_by_subject),
     }));
   }
