@@ -797,4 +797,18 @@ describe('foldPeerThreads', () => {
     state.settledTurnCompletedAtMs = Date.parse('2026-10-26T12:52:46.773Z');
     expect(buildRootAssistantContentForIds(state, ['m1'])).toEqual([{ type: 'text', text: 'turn one' }]);
   });
+
+  it('does not attach a later compaction to a finished turn that had no model message', () => {
+    const state = new PeerThreadFoldState();
+    ingestStreamEvent(state, {
+      type: 'thread.context_compaction_started',
+      id: 'comp-next',
+      createdAt: '2026-10-26T12:52:52.306Z',
+      threadId: ROOT_THREAD_ID,
+      trigger: { type: 'context_threshold_exceeded', contextTokens: 3460, thresholdTokens: 1000 },
+    });
+
+    state.settledTurnCompletedAtMs = Date.parse('2026-10-26T12:52:46.773Z');
+    expect(buildRootAssistantContentForIds(state, [])).toEqual([]);
+  });
 });

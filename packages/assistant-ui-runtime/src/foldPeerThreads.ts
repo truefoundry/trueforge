@@ -311,13 +311,13 @@ function shouldIncludeCompactionStarted({
   if (nextModelId != null) {
     return scopedModelIds.has(nextModelId);
   }
-  if (scopedModelIds.size === 0) {
-    return true;
-  }
   // The fold is session-wide: a compaction that began after this turn finished is the next turn's.
   const startedAtMs = Date.parse(bucket.events.get(startedId)?.createdAt ?? '');
   if (settledTurnCompletedAtMs != null && startedAtMs > settledTurnCompletedAtMs) {
     return false;
+  }
+  if (scopedModelIds.size === 0) {
+    return true;
   }
   const previousModelId = previousModelMessageIdBefore({ bucket, beforeId: startedId });
   return previousModelId != null && scopedModelIds.has(previousModelId);
