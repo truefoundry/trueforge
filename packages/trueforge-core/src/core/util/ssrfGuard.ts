@@ -267,6 +267,10 @@ function nextHop(
   if (!URL_VERIFY.allowedProtocols.includes(nextUrl.protocol)) {
     throw new OutboundUrlBlockedError(`${OUTBOUND_URL_BLOCKED}: only http and https are allowed`);
   }
+  // Cleartext after TLS would drop confidentiality of the hop; block downgrades.
+  if (current.protocol === 'https:' && nextUrl.protocol === 'http:') {
+    throw new OutboundUrlBlockedError(`${OUTBOUND_URL_BLOCKED}: https to http redirect is not allowed`);
+  }
 
   const headers = new Headers(init.headers);
   let method = (init.method ?? 'GET').toUpperCase();

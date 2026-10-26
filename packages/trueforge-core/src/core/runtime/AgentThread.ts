@@ -27,6 +27,8 @@ import {
   type ModelMessageEvent,
   type ModelMessageUsage,
   type SandboxCreatedEvent,
+  type ThreadContextCompactionFinishedEvent,
+  type ThreadContextCompactionStartedEvent,
   type ThreadOverwriteContextEvent,
   type ToolApprovalRequiredEvent,
   type ToolResponseEvent,
@@ -975,6 +977,8 @@ export class AgentThread {
     hook: 'preLLM' | 'postToolCall',
   ): AsyncGenerator<
     | ThreadOverwriteContextEvent
+    | ThreadContextCompactionStartedEvent
+    | ThreadContextCompactionFinishedEvent
     | AgentThreadAppendContext
     | { type: typeof InternalEventType.PASSTHROUGH; event: RegisteredPassthroughEvent }
     | InternalCapabilityStateEvent,
@@ -985,6 +989,8 @@ export class AgentThread {
     hook: 'preSend' | 'preLLM' | 'postToolCall',
   ): AsyncGenerator<
     | ThreadOverwriteContextEvent
+    | ThreadContextCompactionStartedEvent
+    | ThreadContextCompactionFinishedEvent
     | AgentThreadAppendContext
     | { type: typeof InternalEventType.PASSTHROUGH; event: RegisteredPassthroughEvent }
     | InternalCapabilityStateEvent,
@@ -1028,6 +1034,13 @@ export class AgentThread {
             break;
           case EventType.AGENT_CONTEXT_OVERWRITE:
             yield* this.overwriteContext(response);
+            break;
+          case EventType.THREAD_CONTEXT_COMPACTION_STARTED:
+          case EventType.THREAD_CONTEXT_COMPACTION_FINISHED:
+            yield {
+              ...response,
+              thread_id: this.threadId,
+            };
             break;
           case InternalEventType.PASSTHROUGH:
             yield response;

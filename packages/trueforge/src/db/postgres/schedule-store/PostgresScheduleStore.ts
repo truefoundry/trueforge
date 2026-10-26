@@ -3,7 +3,7 @@ import {
   decodeOffsetPageToken,
   paginateOffsetRows,
 } from '@truefoundry/trueforge-core/agent-session/store/OffsetPageToken';
-import { sql, type Kysely, type Selectable, type Transaction, type UpdateObject } from 'kysely';
+import { type Kysely, type Selectable, type Transaction, type UpdateObject } from 'kysely';
 import { nextTriggerAfter } from '../../../runtime/cron';
 import { newId } from '../../../utils/id';
 import {
@@ -15,15 +15,16 @@ import {
   type CreateScheduleInput,
   type CreateScheduleRunInput,
   type DeleteScheduleInput,
-  type GetOwnedIdsInput,
   type GetRunByIdInput,
   type GetRunInput,
   type GetScheduledRunForInput,
   type GetScheduleInput,
+  type GetSchedulesByIdsInput,
   type IScheduleStore,
   type ListRunsInput,
   type ListScheduledRunsInput,
   type ListSchedulesInput,
+  type ScheduleOwnership,
   type ScheduleRecord,
   type ScheduleRunRecord,
   type ScheduleWriteResult,
@@ -244,19 +245,24 @@ export class PostgresScheduleStore implements IScheduleStore<Transaction<Databas
     return { data: data.map(toScheduleRecord), pagination };
   }
 
-  async getOwnedIds(input: GetOwnedIdsInput, transaction?: Transaction<Database>): Promise<readonly string[]> {
+  async getSchedulesByIds(
+    input: GetSchedulesByIdsInput,
+    transaction?: Transaction<Database>,
+  ): Promise<ScheduleOwnership[]> {
     if (input.ids.length === 0) {
       return [];
     }
     const db = transaction ?? this.#db;
     const rows = await db
       .selectFrom('schedule')
-      .select('id')
+      .select(['id', 'created_by_subject'])
       .where('tenant_id', '=', input.tenant_id)
       .where('id', 'in', [...input.ids])
-      .where(sql`created_by_subject->>'subject_id'`, '=', input.subject_id)
       .execute();
-    return rows.map(row => row.id);
+    return rows.map(row => ({
+      id: row.id,
+      created_by_subject: CreatedBySubjectSchema.parse(row.created_by_subject),
+    }));
   }
 
   async listRuns(
