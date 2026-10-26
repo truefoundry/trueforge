@@ -118,12 +118,6 @@ export interface GetScheduleInput {
   id: string;
 }
 
-export interface GetOwnedIdsInput {
-  tenant_id: string;
-  ids: readonly string[];
-  subject_id: string;
-}
-
 export interface GetSchedulesByIdsInput {
   tenant_id: string;
   ids: readonly string[];
@@ -273,8 +267,6 @@ export interface IScheduleStore<TTransaction = never> {
     input: ListSchedulesInput,
     transaction?: TTransaction,
   ): Promise<{ data: ScheduleRecord[]; pagination: TokenPagination }>;
-  /** Ids among `ids` owned by `subject_id`. Empty `ids` → `[]`. */
-  getOwnedIds(input: GetOwnedIdsInput, transaction?: TTransaction): Promise<readonly string[]>;
   /**
    * Schedules by id (ownership fields only). Empty `ids` → `[]`.
    * Unknown ids are omitted.

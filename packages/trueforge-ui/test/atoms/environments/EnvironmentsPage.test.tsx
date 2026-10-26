@@ -12,6 +12,7 @@ import { CurrentUserProvider, type CurrentUser } from '@/contexts/CurrentUserCon
 import { ServerProvider } from '@/server/ServerContext.js';
 import { ShellModeProvider } from '@/server/ShellModeContext.js';
 import type {
+  ListPermissionsRequest,
   ListPermissionsResponse,
   PermissionsServer,
   SandboxEnvironment,
@@ -81,25 +82,27 @@ function defaultPermissions(environments: SandboxEnvironment[]): PermissionsServ
       .map(environment => [environment.id, ['MANAGE', 'DELETE'] as const]),
   );
   return {
-    listPermissions: vi.fn(async ({ resourceType, resourceIds }): Promise<ListPermissionsResponse> => {
-      if (resourceType === 'tenant') {
-        return {
-          data: {
-            type: 'tenant',
-            permissions: { agent: ['CREATE'], sandbox_environment: ['CREATE'] },
-          },
-        };
-      }
-      if (resourceType === 'sandbox_environment') {
-        return {
-          data: {
-            type: 'sandbox_environment',
-            permissions: Object.fromEntries(resourceIds.map(id => [id, [...(ownerGrants[id] ?? [])]])),
-          },
-        };
-      }
-      return { data: { type: resourceType, permissions: {} } };
-    }),
+    listPermissions: vi.fn(
+      async ({ resourceType, resourceIds }: ListPermissionsRequest): Promise<ListPermissionsResponse> => {
+        if (resourceType === 'tenant') {
+          return {
+            data: {
+              type: 'tenant',
+              permissions: { agent: ['CREATE'], sandbox_environment: ['CREATE'] },
+            },
+          };
+        }
+        if (resourceType === 'sandbox_environment') {
+          return {
+            data: {
+              type: 'sandbox_environment',
+              permissions: Object.fromEntries(resourceIds.map(id => [id, [...(ownerGrants[id] ?? [])]])),
+            },
+          };
+        }
+        return { data: { type: resourceType, permissions: {} } };
+      },
+    ),
   };
 }
 

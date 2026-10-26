@@ -26,7 +26,7 @@ export const SessionResourcePermissionSchema = z
   .describe('Granted action on a session.')
   .openapi('SessionResourcePermission');
 
-/** Tenant-scoped create actions (keys are entity kinds, e.g. `agent`). */
+/** Tenant-scoped create actions (keys are entity kinds, e.g. `agent`, `sandbox_environment`). */
 export const TenantScopedResourcePermissionSchema = z
   .enum(['CREATE'])
   .describe('Granted create action on a tenant-scoped entity kind.')
