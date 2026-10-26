@@ -123,105 +123,102 @@ export function DraftModelCatalogPanel({
           </label>
         </div>
       )}
-      {!showHeading ? (
-        <div
-          className={cn(
-            'text-text-secondary grid gap-2 border-b border-border px-3 py-2 text-[10px] font-semibold uppercase',
-            detailedGridClass,
-          )}
-        >
-          <span>Model</span>
-          <span>Context</span>
-          <span aria-hidden />
-        </div>
-      ) : null}
-      <div
-        id={listboxId}
-        role="listbox"
-        aria-label="Select model"
-        className="flex min-h-0 flex-auto flex-col overflow-y-auto p-1"
-      >
-        {filtered.length === 0 ? (
-          <DraftCatalogEmptyState
-            loading={loading}
-            emptyLabel="No models"
-            settingsTarget="Models"
-            onOpenSettings={onOpenSettings}
-          />
-        ) : (
-          sections.map((section, sectionIndex) => {
-            const headingId = `${listboxId}-provider-${sectionIndex}`;
-            return (
-              <div
-                key={section.name}
-                role="group"
-                aria-labelledby={headingId}
-                className={cn(sectionIndex > 0 && 'mt-2')}
-              >
+      <div className="flex min-h-0 flex-auto flex-col overflow-y-auto">
+        {!showHeading ? (
+          <div
+            className={cn(
+              'bg-card-bg text-text-secondary sticky top-0 z-10 grid shrink-0 gap-2 border-b border-border px-3 py-2 text-[10px] font-semibold uppercase',
+              detailedGridClass,
+            )}
+          >
+            <span>Model</span>
+            <span>Context</span>
+            <span aria-hidden />
+          </div>
+        ) : null}
+        <div id={listboxId} role="listbox" aria-label="Select model" className="flex flex-col p-1">
+          {filtered.length === 0 ? (
+            <DraftCatalogEmptyState
+              loading={loading}
+              emptyLabel="No models"
+              settingsTarget="Models"
+              onOpenSettings={onOpenSettings}
+            />
+          ) : (
+            sections.map((section, sectionIndex) => {
+              const headingId = `${listboxId}-provider-${sectionIndex}`;
+              return (
                 <div
-                  id={headingId}
-                  className="text-text-secondary flex items-center gap-1.5 px-2 py-1.5 text-[11px] font-medium tracking-wide uppercase"
+                  key={section.name}
+                  role="group"
+                  aria-labelledby={headingId}
+                  className={cn(sectionIndex > 0 && 'mt-2')}
                 >
-                  <ProviderMark logo={section.logo} label={section.name} className="size-3.5 text-[9px]" />
-                  <span className="truncate">{section.name}</span>
-                </div>
-                {section.models.map(model => {
-                  const active = selectedName ? model.name === selectedName : filtered[0] === model;
-                  const warning = model.warning?.trim();
-                  return (
-                    <button
-                      key={model.id || model.name}
-                      type="button"
-                      role="option"
-                      aria-selected={active}
-                      className={cn(
-                        'w-full items-center rounded-md px-2 py-2 text-left text-sm',
-                        showHeading ? 'flex' : cn('grid gap-2', detailedGridClass),
-                        active ? 'bg-primary-button-bg/10 text-primary-button-bg' : 'hover:bg-ghost-button-hover',
-                      )}
-                      onClick={() => onSelect(model)}
-                    >
-                      <span className="min-w-0">
-                        <span className="block truncate font-normal">{displayModelLabel(model.name)}</span>
-                        {showHeading &&
-                        (model.properties.contextLength !== undefined ||
-                          model.properties.maxOutputTokens !== undefined) ? (
-                          <span className="text-text-secondary mt-0.5 block truncate text-[10px]">
-                            {[
-                              model.properties.contextLength === undefined
-                                ? null
-                                : `${formatTokens(model.properties.contextLength)} context`,
-                              model.properties.maxOutputTokens === undefined
-                                ? null
-                                : `${formatTokens(model.properties.maxOutputTokens)} output`,
-                            ]
-                              .filter(value => value !== null)
-                              .join(' · ')}
+                  <div
+                    id={headingId}
+                    className="text-text-secondary flex items-center gap-1.5 px-2 py-1.5 text-[11px] font-medium tracking-wide uppercase"
+                  >
+                    <ProviderMark logo={section.logo} label={section.name} className="size-3.5 text-[9px]" />
+                    <span className="truncate">{section.name}</span>
+                  </div>
+                  {section.models.map(model => {
+                    const active = selectedName ? model.name === selectedName : filtered[0] === model;
+                    const warning = model.warning?.trim();
+                    return (
+                      <button
+                        key={model.id || model.name}
+                        type="button"
+                        role="option"
+                        aria-selected={active}
+                        className={cn(
+                          'w-full items-center rounded-md px-2 py-2 text-left text-sm',
+                          showHeading ? 'flex' : cn('grid gap-2', detailedGridClass),
+                          active ? 'bg-primary-button-bg/10 text-primary-button-bg' : 'hover:bg-ghost-button-hover',
+                        )}
+                        onClick={() => onSelect(model)}
+                      >
+                        <span className="min-w-0">
+                          <span className="block truncate font-normal">{displayModelLabel(model.name)}</span>
+                          {showHeading &&
+                          (model.properties.contextLength !== undefined ||
+                            model.properties.maxOutputTokens !== undefined) ? (
+                            <span className="text-text-secondary mt-0.5 block truncate text-[10px]">
+                              {[
+                                model.properties.contextLength === undefined
+                                  ? null
+                                  : `${formatTokens(model.properties.contextLength)} context`,
+                                model.properties.maxOutputTokens === undefined
+                                  ? null
+                                  : `${formatTokens(model.properties.maxOutputTokens)} output`,
+                              ]
+                                .filter(value => value !== null)
+                                .join(' · ')}
+                            </span>
+                          ) : null}
+                        </span>
+                        {!showHeading ? (
+                          <span className={cn('text-text-secondary text-xs', active && 'text-primary-button-bg')}>
+                            {model.properties.contextLength === undefined
+                              ? '—'
+                              : formatTokens(model.properties.contextLength)}
                           </span>
                         ) : null}
-                      </span>
-                      {!showHeading ? (
-                        <span className={cn('text-text-secondary text-xs', active && 'text-primary-button-bg')}>
-                          {model.properties.contextLength === undefined
-                            ? '—'
-                            : formatTokens(model.properties.contextLength)}
-                        </span>
-                      ) : null}
-                      {active && showHeading ? <Icon name="check" className="ml-auto size-3.5" /> : null}
-                      {warning ? (
-                        <span className={cn('flex items-center justify-end', showHeading && !active && 'ml-auto')}>
-                          <ModelWarningMark warning={warning} />
-                        </span>
-                      ) : !showHeading ? (
-                        <span aria-hidden />
-                      ) : null}
-                    </button>
-                  );
-                })}
-              </div>
-            );
-          })
-        )}
+                        {active && showHeading ? <Icon name="check" className="ml-auto size-3.5" /> : null}
+                        {warning ? (
+                          <span className={cn('flex items-center justify-end', showHeading && !active && 'ml-auto')}>
+                            <ModelWarningMark warning={warning} />
+                          </span>
+                        ) : !showHeading ? (
+                          <span aria-hidden />
+                        ) : null}
+                      </button>
+                    );
+                  })}
+                </div>
+              );
+            })
+          )}
+        </div>
       </div>
     </>
   );
