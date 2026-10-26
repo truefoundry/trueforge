@@ -498,10 +498,12 @@ export class TurnHandle<TTurnCustom extends object = Record<string, never>> {
 
       case HarnessEventType.THREAD_CONTEXT_COMPACTION_STARTED:
       case HarnessEventType.THREAD_CONTEXT_COMPACTION_FINISHED: {
-        await this.store.appendToEvents({
-          ...scope,
-          events: [event],
-        });
+        await this.writeStore('append', () =>
+          this.store.appendToEvents({
+            ...scope,
+            events: [event],
+          }),
+        );
         return event;
       }
 
