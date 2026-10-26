@@ -22,7 +22,7 @@ class CompactionTrigger(UncheckedBaseModel):
     Configured compaction threshold in tokens.
     """
 
-    type: typing.Literal["compaction"] = pydantic.Field(default="compaction")
+    type: typing.Literal["context_threshold_exceeded"] = pydantic.Field(default="context_threshold_exceeded")
     """
     Triggered because estimated context crossed the compaction threshold.
     """

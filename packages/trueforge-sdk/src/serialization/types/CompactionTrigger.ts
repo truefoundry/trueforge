@@ -10,13 +10,13 @@ export const CompactionTrigger: core.serialization.ObjectSchema<
 > = core.serialization.object({
     contextTokens: core.serialization.property("context_tokens", core.serialization.number()),
     thresholdTokens: core.serialization.property("threshold_tokens", core.serialization.number()),
-    type: core.serialization.stringLiteral("compaction"),
+    type: core.serialization.stringLiteral("context_threshold_exceeded"),
 });
 
 export declare namespace CompactionTrigger {
     export interface Raw {
         context_tokens: number;
         threshold_tokens: number;
-        type: "compaction";
+        type: "context_threshold_exceeded";
     }
 }

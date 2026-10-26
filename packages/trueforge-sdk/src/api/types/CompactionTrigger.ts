@@ -9,5 +9,5 @@ export interface CompactionTrigger {
     /** Configured compaction threshold in tokens. */
     thresholdTokens: number;
     /** Triggered because estimated context crossed the compaction threshold. */
-    type: "compaction";
+    type: "context_threshold_exceeded";
 }

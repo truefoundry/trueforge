@@ -900,7 +900,7 @@
           "type": {
             "description": "Triggered because estimated context crossed the compaction threshold.",
             "enum": [
-              "compaction"
+              "context_threshold_exceeded"
             ],
             "type": "string"
           }
