@@ -85,6 +85,7 @@ export type AgentSessionTurnHeaderProps = {
   cachedTokens?: number;
   durationMs?: number;
   totalCostInUsd?: number;
+  modelName?: string;
 };
 
 export type AgentSessionMetricsStripProps = {

@@ -4,6 +4,7 @@ import {
   extractErrorLogFields,
   isAuthRequired,
   McpConnectionError,
+  OUTBOUND_URL_BLOCKED,
   RemoteMCP,
 } from '@truefoundry/trueforge-core/core';
 import type { Context } from 'hono';
@@ -36,7 +37,7 @@ import {
   putMcpServerRoute,
 } from '../routes/mcpServerRoutes';
 import { findCatalogUsageConflict } from '../runtime/catalogUsage';
-import { resolveMcpServer } from '../runtime/sessionResources';
+import { getMcpConnection } from '../runtime/sessionResources';
 import type {
   AvailableMcpServer,
   ConfiguredMcpServer,
@@ -207,7 +208,7 @@ export function createSettingsMcpServersRouter<TTransaction>(deps: SettingsMcpSe
     try {
       await assertSafeOutboundUrl(incomingManifest.url);
     } catch (error) {
-      const message = error instanceof Error ? error.message : 'Outbound URL blocked';
+      const message = error instanceof Error ? error.message : OUTBOUND_URL_BLOCKED;
       throw new HTTPException(400, { message: message, cause: error });
     }
 
@@ -287,7 +288,7 @@ export function createSettingsMcpServersRouter<TTransaction>(deps: SettingsMcpSe
     try {
       await assertSafeOutboundUrl(incomingManifest.url);
     } catch (error) {
-      const message = error instanceof Error ? error.message : 'Outbound URL blocked';
+      const message = error instanceof Error ? error.message : OUTBOUND_URL_BLOCKED;
       throw new HTTPException(400, { message: message, cause: error });
     }
 
@@ -457,7 +458,10 @@ export function createMcpServersRouter<TTransaction>(deps: McpServersRouterDeps<
         }
         return c.json({ error: { message: error.message } }, 500);
       }
-      deps.logger.error(`MCP authorize unexpected failure for "${name}"`, extractErrorLogFields(error));
+      deps.logger.error(`MCP authorize unexpected failure for "${name}"`, {
+        ...extractErrorLogFields(error),
+        reportable_error: { error, extra: { mcp_server_name: name } },
+      });
       return c.json({ error: { message: 'Internal server error' } }, 500);
     }
   };
@@ -467,7 +471,7 @@ export function createMcpServersRouter<TTransaction>(deps: McpServersRouterDeps<
     const requestContext = deps.resolveRequestContext(c);
     const userRef = requestContext.subject.id;
     // Same url + header resolution as turn execution (store Bearer, DCR, or static headers).
-    const connection = await resolveMcpServer({
+    const connection = await getMcpConnection({
       tenant_id: requestContext.tenant_id,
       name,
       store: deps.resolveMcpServerStore(c),

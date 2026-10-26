@@ -155,10 +155,48 @@ export type {
   AgentTracing,
 } from './tracing/AgentTracing';
 
+export {
+  configureOperationMetrics,
+  elapsedSeconds,
+  getOperationMetrics,
+  httpStatusClass,
+  observeMcpOperation,
+} from './observability/operationMetrics';
+export type {
+  HarnessLimit,
+  LlmFinishReason,
+  LlmProviderType,
+  LlmRequestOutcome,
+  LlmStreamErrorKind,
+  McpConnectOutcome,
+  McpDisconnectVia,
+  McpMethod,
+  McpOperationOutcome,
+  McpServerClass,
+  McpTransport,
+  OperationMetrics,
+  OutboundHttpModule,
+  OutboundHttpOutcome,
+  OutboundHttpRetryReason,
+  OutboundHttpRetryStatus,
+  OutboundHttpStatusClass,
+  ParallelWebOperation,
+  ParallelWebOutcome,
+  PostgresQueryOutcome,
+  ServiceFoundryOperation,
+  ServiceFoundryOutcome,
+  ToolCallOutcome,
+  ToolCallServerClass,
+  TurnPersistPhase,
+  TurnSsePath,
+  TurnTerminalStatus,
+  TurnTimeoutPhase,
+} from './observability/operationMetrics';
+
 // Errors / utils
 export { AgentHarnessError, McpConnectionError, McpDcrConfigurationError } from './errors';
 export { REDIS_KEY_NAMESPACE, redisKey } from './redisKeys';
-export { describeUnknownError, extractErrorLogFields } from './util/errorLogFields';
+export { describeUnknownError, extractErrorLogFields, isReportableError } from './util/errorLogFields';
 export {
   DEFAULT_MCP_HTTP_BODY_TIMEOUT_MS,
   DEFAULT_MCP_HTTP_CONNECT_TIMEOUT_MS,
@@ -181,7 +219,10 @@ export {
   ssrfFetch,
 } from './util/outboundFetch';
 export { PromiseTimeoutError, withTimeout } from './util/promiseUtils';
+export { type ReportableErrorLog } from './util/reportableErrorLog';
 export {
+  OUTBOUND_URL_BLOCKED,
+  OutboundUrlBlockedError,
   assertSafeOutboundUrl,
   configureOutboundUrlGuard,
   createOutboundFetch,

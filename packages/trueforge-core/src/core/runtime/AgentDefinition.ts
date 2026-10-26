@@ -2,6 +2,7 @@ import type { ILLM } from '../llm/ILLM';
 import type { LLMUserMessage } from '../llm/LLMTypes';
 import type { ModelParams } from '../llm/model';
 import type { ResponseFormat } from '../llm/responseFormat';
+import type { VercelAIProviderName } from '../llm/VercelAILLM';
 import type { IToolSet } from '../mcp/IMCPServer';
 
 /**
@@ -11,6 +12,8 @@ import type { IToolSet } from '../mcp/IMCPServer';
 export interface AgentDefinition {
   modelClient: ILLM;
   modelName: string;
+  /** Configured provider. Omitted when the host did not resolve one. */
+  providerType?: VercelAIProviderName | undefined;
   modelProperties?:
     | {
         /** Maximum combined input/output context for the resolved model, when known. */

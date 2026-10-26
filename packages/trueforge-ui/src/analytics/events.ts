@@ -68,6 +68,7 @@ export const AnalyticsEvents = {
     TOGGLED: 'trueforge.schedule.toggled',
     RUN_NOW: 'trueforge.schedule.run_now',
     OPENED_FROM_SESSION: 'trueforge.schedule.opened_from_session',
+    RUN_SESSION_OPENED: 'trueforge.schedule.run_session_opened',
   },
   Environment: {
     PAGE_OPENED: 'trueforge.environment.page_opened',

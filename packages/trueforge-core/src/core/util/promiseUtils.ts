@@ -43,7 +43,10 @@ export async function* mergeAsyncGenerators<T>(
     }
     const nextPromise = generator.next().then(result => ({ idx, result }));
     nextPromise.catch((error: unknown) => {
-      logger.error(`Unexpected error in mergeAsyncGenerators generator ${String(idx)}`, extractErrorLogFields(error));
+      logger.error(`Unexpected error in mergeAsyncGenerators generator ${String(idx)}`, {
+        ...extractErrorLogFields(error),
+        reportable_error: { error, extra: { generator: idx } },
+      });
     });
     return nextPromise;
   };
