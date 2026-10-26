@@ -101,20 +101,20 @@ groups:
           location: local-file-system
           path: ../../python/trueforge_sdk
         config:
+          client:
+            class_name: BaseTrueForge
+            exported_class_name: TrueForge
+            exported_filename: client.py
+            filename: base_client.py
+          inline_path_params: true
+          optional_auth: true
           # Import + upload name. pip install trueforge-sdk resolves via PEP 503.
           package_name: trueforge_sdk
-          optional_auth: true
-          stream_abstraction: true
-          use_request_defaults: all
-          inline_path_params: true
           pydantic_config:
             enum_type: forward_compatible_python_enums
             frozen: false
             skip_validation: true
-          client:
-            class_name: BaseTrueForge
-            filename: base_client.py
-            exported_class_name: TrueForge
-            exported_filename: client.py
           pyproject_python_version: '>=3.10'
+          stream_abstraction: true
+          use_request_defaults: all
         smart-casing: true
