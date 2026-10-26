@@ -101,7 +101,13 @@ export function makeTestResolver<TTurnCustom extends object = Record<string, nev
     create: jest.fn().mockImplementation(() => emptyLlmStream(options?.usage)),
   });
   const base = new TurnResourceResolver<TTurnCustom>({
-    llm: () => Promise.resolve({ modelClient: llm, defaultModelParams: {}, providerType: undefined }),
+    llm: () =>
+      Promise.resolve({
+        modelClient: llm,
+        defaultModelParams: {},
+        providerType: undefined,
+        compactionHeaders: undefined,
+      }),
     mcp: name => {
       return Promise.reject(new Error(`unexpected mcp lookup: ${name}`));
     },

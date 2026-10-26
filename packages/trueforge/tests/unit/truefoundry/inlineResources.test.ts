@@ -1,7 +1,7 @@
 import { HTTPException } from 'hono/http-exception';
 import type { IMcpServerWithAuthStore, McpServerRecord } from '../../../src/db/mcpServerStore';
 import type { IModelProviderStore, ModelProviderRecord } from '../../../src/db/modelProviderStore';
-import { TFG_METADATA_PREFIX, X_TFY_FORWARD_PINGS, X_TFY_METADATA } from '../../../src/truefoundry/gatewayMetadata';
+import { TFG_METADATA_PREFIX, X_TFY_METADATA } from '../../../src/truefoundry/gatewayMetadata';
 import { InlineMcpServerStore } from '../../../src/truefoundry/InlineMcpServerStore';
 import { InlineModelProviderStore } from '../../../src/truefoundry/InlineModelProviderStore';
 import {
@@ -209,7 +209,7 @@ describe('InlineModelProviderStore', () => {
     expect(models).toEqual([]);
   });
 
-  it('adds forward-pings and x-tfy-metadata on inline invokes, since the manifest already carries the api_key', async () => {
+  it('adds only x-tfy-metadata on inline invokes, since the manifest already carries the api_key', async () => {
     const { store, inner } = modelProviderStoreWith({ 'tfy-gateway': GATEWAY_PROVIDER });
     const record = { ...registryProvider, name: 'tfy-gateway' };
 
@@ -223,8 +223,7 @@ describe('InlineModelProviderStore', () => {
       },
     });
 
-    expect(Object.keys(headers).sort()).toEqual([X_TFY_FORWARD_PINGS, X_TFY_METADATA].sort());
-    expect(headers[X_TFY_FORWARD_PINGS]).toBe('true');
+    expect(Object.keys(headers)).toEqual([X_TFY_METADATA]);
     expect(JSON.parse(headers[X_TFY_METADATA] ?? '')).toMatchObject({
       env: 'prod',
       [`${TFG_METADATA_PREFIX}.session_id`]: 'sess-1',

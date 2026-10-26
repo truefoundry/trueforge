@@ -58,8 +58,8 @@ interface ResolvedModel {
   modelProperties?: AgentDefinition['modelProperties'];
   /** Explicit `undefined` when the host has no provider label for the model call series. */
   providerType: VercelAIProviderName | undefined;
-  /** Optional header overrides for the context-compaction LLM call. */
-  compactionHeaders?: Record<string, string> | undefined;
+  /** Header overrides for the context-compaction LLM call; `undefined` when none. */
+  compactionHeaders: Record<string, string> | undefined;
 }
 
 export class TurnResourceResolver<

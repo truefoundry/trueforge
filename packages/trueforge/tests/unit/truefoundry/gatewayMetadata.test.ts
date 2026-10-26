@@ -3,12 +3,10 @@ import {
   assertGatewayMetadataRequestHeaders,
   buildGatewayMetadata,
   gatewayMetadataHeadersForTurn,
-  gatewayModelInvokeHeaders,
   mergeGatewayMetadata,
   overlayGatewayMetadataHeaders,
   parseGatewayMetadataHeader,
   TFG_METADATA_PREFIX,
-  X_TFY_FORWARD_PINGS,
   X_TFY_METADATA,
 } from '../../../src/truefoundry/gatewayMetadata';
 
@@ -46,12 +44,6 @@ describe('assertGatewayMetadataRequestHeaders', () => {
 
   it('rejects a malformed header before callers mint a turn', () => {
     expect(() => assertGatewayMetadataRequestHeaders({ [X_TFY_METADATA]: 'not-json' })).toThrow(HTTPException);
-  });
-});
-
-describe('gatewayModelInvokeHeaders', () => {
-  it('asks the gateway to forward SSE pings on model streams', () => {
-    expect(gatewayModelInvokeHeaders()).toEqual({ [X_TFY_FORWARD_PINGS]: 'true' });
   });
 });
 

@@ -139,7 +139,11 @@ function compatibleModel(config: VercelAIProviderConfig): LanguageModel {
   // TODO: fine-grained-tool-streaming-2025-05-14 is considered deprecated.
   const outboundHeaders =
     provider.type === 'truefoundry'
-      ? { ...headers, 'anthropic-beta': 'fine-grained-tool-streaming-2025-05-14' }
+      ? {
+          ...headers,
+          'anthropic-beta': 'fine-grained-tool-streaming-2025-05-14',
+          'x-tfy-forward-pings': 'true',
+        }
       : headers;
   const client = createOpenAICompatible({
     name: provider.type,
@@ -1562,7 +1566,8 @@ export class VercelAILLM implements ILLM {
   }
 
   async createNonStream(body: LLMCreateParams, options?: LLMRequestOptions): Promise<RawAssistantMessageWithUsage> {
-    // Drain the streaming generator — reuses the same accumulation and error handling path.
+    // Implemented by draining the streaming path. If this switches to a real non-stream API,
+    // header and body timeouts must be much higher than streaming (TTFT-oriented) timeouts.
     const llmStream = this.create({ ...body, stream: true }, options);
     let result = await llmStream.next();
     while (!result.done) {

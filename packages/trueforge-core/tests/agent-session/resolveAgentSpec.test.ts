@@ -15,7 +15,13 @@ import {
 describe('TurnResourceResolver.resolveAgentSpec', () => {
   it('fails closed when deps.agent is not wired for a named lookup', async () => {
     const resolver = new TurnResourceResolver({
-      llm: () => Promise.resolve({ modelClient: makeMockILLM(), defaultModelParams: {}, providerType: undefined }),
+      llm: () =>
+        Promise.resolve({
+          modelClient: makeMockILLM(),
+          defaultModelParams: {},
+          providerType: undefined,
+          compactionHeaders: undefined,
+        }),
       mcp: () => Promise.reject(new Error('unused')),
       mcpRequestTimeoutMs: 1_000,
       mcpConnectTimeoutMs: 1_000,
@@ -29,7 +35,13 @@ describe('TurnResourceResolver.resolveAgentSpec', () => {
 describe('TurnResourceResolver.resolveAgentDefinition', () => {
   it('allows existing model resolvers to omit an unknown context length', async () => {
     const resolver = new TurnResourceResolver({
-      llm: () => Promise.resolve({ modelClient: makeMockILLM(), defaultModelParams: {}, providerType: undefined }),
+      llm: () =>
+        Promise.resolve({
+          modelClient: makeMockILLM(),
+          defaultModelParams: {},
+          providerType: undefined,
+          compactionHeaders: undefined,
+        }),
       mcp: () => Promise.reject(new Error('unused')),
       mcpRequestTimeoutMs: 1_000,
       mcpConnectTimeoutMs: 1_000,
@@ -66,6 +78,7 @@ describe('TurnResourceResolver.resolveAgentDefinition', () => {
           defaultModelParams: resolvedModelParams,
           modelProperties: { contextLength: 128_000 },
           providerType: undefined,
+          compactionHeaders: undefined,
         }),
       mcp: () => Promise.reject(new Error('unused')),
       mcpRequestTimeoutMs: 1_000,
