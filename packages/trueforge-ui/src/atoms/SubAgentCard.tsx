@@ -15,6 +15,7 @@ export type SubAgentCardProps = {
   expanded: boolean;
   onToggle: () => void;
   durationText?: string;
+  activityText?: string;
   children?: ReactNode;
   renderInstruction?: (instruction: string) => ReactNode;
   dataTestPrefix?: string;
@@ -29,6 +30,7 @@ export function SubAgentCard({
   expanded,
   onToggle,
   durationText,
+  activityText,
   children,
   renderInstruction,
   dataTestPrefix,
@@ -55,7 +57,14 @@ export function SubAgentCard({
       <AgentStepRow
         icon="agent-2"
         iconVariant="primary"
-        title={`Sub-agent: ${agentName}`}
+        title={
+          <>
+            {`Sub-agent: ${agentName}`}
+            {agentStatus === 'running' && activityText ? (
+              <span className="ml-2 font-normal text-text-secondary">{activityText}</span>
+            ) : null}
+          </>
+        }
         expandable
         expanded={expanded}
         onToggle={onToggle}

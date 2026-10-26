@@ -14,6 +14,7 @@ import { useCallback, useState } from 'react';
 import { useTrackAnalytics } from '../analytics/AnalyticsProvider.js';
 import { AnalyticsEvents } from '../analytics/events.js';
 import { useSlot } from '../theme/SlotsProvider.js';
+import { resolveActivityLabel } from '../utils/resolveActivityLabel.js';
 import {
   ASK_USER_TOOL_NAME,
   MCP_META_TOOLS,
@@ -228,6 +229,7 @@ export const ToolCallContainer: ToolCallMessagePartComponent = part => {
           expanded={expanded}
           onToggle={onToggle}
           durationText={durationText}
+          activityText={resolveActivityLabel(part.messages?.[part.messages.length - 1]?.content ?? [])}
           agentName={agentName}
           instruction={instruction}
           stepCount={stepCount}
