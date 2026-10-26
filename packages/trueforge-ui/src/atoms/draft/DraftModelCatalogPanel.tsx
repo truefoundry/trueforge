@@ -6,6 +6,7 @@ import type { ModelSelection } from '../../server/types.js';
 import { cn } from '../lib/cn.js';
 import { auiInputClass } from '../lib/inputClasses.js';
 import { CatalogLogo } from '../primitives/CatalogLogo.js';
+import { Tooltip, type TooltipSide } from '../primitives/Tooltip.js';
 import { DraftCatalogEmptyState } from './DraftCatalogEmptyState.js';
 import { modelMatchesQuery, normalizeModelSearchText } from './modelSearch.js';
 
@@ -21,6 +22,16 @@ export function displayModelLabel(modelName: string): string {
 
 function formatTokens(value: number): string {
   return Intl.NumberFormat('en', { notation: 'compact', maximumFractionDigits: 1 }).format(value);
+}
+
+export function ModelWarningMark({ warning, side = 'right' }: { warning: string; side?: TooltipSide }) {
+  return (
+    <Tooltip content={warning} side={side} className="max-w-xs whitespace-normal">
+      <span className="inline-flex shrink-0">
+        <Icon name="triangle-exclamation" className="text-warning-bg size-3.5" aria-label={warning} />
+      </span>
+    </Tooltip>
+  );
 }
 
 export function ProviderMark({ logo, label, className }: { logo?: string; label: string; className?: string }) {
@@ -89,7 +100,7 @@ export function DraftModelCatalogPanel({
     [models, needle],
   );
   const sections = groupModelsByProvider(filtered);
-  const detailedGridClass = 'grid-cols-[minmax(0,1fr)_5rem]';
+  const detailedGridClass = 'grid-cols-[minmax(0,1fr)_5rem_1rem]';
 
   return (
     <>
@@ -121,6 +132,7 @@ export function DraftModelCatalogPanel({
         >
           <span>Model</span>
           <span>Context</span>
+          <span aria-hidden />
         </div>
       ) : null}
       <div
@@ -155,6 +167,7 @@ export function DraftModelCatalogPanel({
                 </div>
                 {section.models.map(model => {
                   const active = selectedName ? model.name === selectedName : filtered[0] === model;
+                  const warning = model.warning?.trim();
                   return (
                     <button
                       key={model.id || model.name}
@@ -188,15 +201,20 @@ export function DraftModelCatalogPanel({
                         ) : null}
                       </span>
                       {!showHeading ? (
-                        <>
-                          <span className={cn('text-text-secondary text-xs', active && 'text-primary-button-bg')}>
-                            {model.properties.contextLength === undefined
-                              ? '—'
-                              : formatTokens(model.properties.contextLength)}
-                          </span>
-                        </>
+                        <span className={cn('text-text-secondary text-xs', active && 'text-primary-button-bg')}>
+                          {model.properties.contextLength === undefined
+                            ? '—'
+                            : formatTokens(model.properties.contextLength)}
+                        </span>
                       ) : null}
                       {active && showHeading ? <Icon name="check" className="ml-auto size-3.5" /> : null}
+                      {warning ? (
+                        <span className={cn('flex items-center justify-end', showHeading && !active && 'ml-auto')}>
+                          <ModelWarningMark warning={warning} />
+                        </span>
+                      ) : !showHeading ? (
+                        <span aria-hidden />
+                      ) : null}
                     </button>
                   );
                 })}
