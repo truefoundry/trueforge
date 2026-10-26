@@ -11,9 +11,21 @@ export type AgentMetadata = Record<string, string>;
 export type LLMCreateParams = Omit<ChatCompletionCreateParams, 'model'>;
 export type LLMCreateParamsStreaming = Omit<ChatCompletionCreateParamsStreaming, 'model'>;
 
+/** Per-call options for a single LLM request. */
+export interface LLMRequestOptions {
+  /** Extra outbound headers for this call only. */
+  headers?: Record<string, string> | undefined;
+  /**
+   * Call tags merged into the TrueFoundry gateway `x-tfy-metadata` header for this call.
+   * Ignored for non-TrueFoundry providers.
+   */
+  metadata?: AgentMetadata | undefined;
+}
+
 export interface ILLM {
   create(
     body: LLMCreateParamsStreaming,
+    options?: LLMRequestOptions,
   ): AsyncGenerator<ExtendedChatCompletionChunk, RawAssistantMessageWithUsage, unknown>;
-  createNonStream(body: LLMCreateParams): Promise<RawAssistantMessageWithUsage>;
+  createNonStream(body: LLMCreateParams, options?: LLMRequestOptions): Promise<RawAssistantMessageWithUsage>;
 }
