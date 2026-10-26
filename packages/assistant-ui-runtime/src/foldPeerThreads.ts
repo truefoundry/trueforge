@@ -305,20 +305,52 @@ function findFinishedForStarted({
   return undefined;
 }
 
-function compactionPartFromStarted({
+/**
+ * Unfinished compaction (started, no finished) stays `running` only while the
+ * thread/turn is still live. Terminal parent/bucket state mirrors
+ * `bucketAssistantStatus` so cancel/error does not leave a stuck spinner.
+ */
+function compactionPartDataFromStarted({
   bucket,
+  state,
   started,
 }: {
   bucket: ThreadBucket;
+  state: PeerThreadFoldState;
+  started: ThreadContextCompactionStartedEvent;
+}): ContextCompactionPartData {
+  const finished = findFinishedForStarted({ bucket, startedId: started.id });
+  if (finished != null) {
+    return { status: 'complete', started, finished };
+  }
+
+  if (state.parentTerminalStatus === 'cancelled') {
+    if (!bucket.done || (bucket.error != null && isAbortShapedThreadError(bucket.error))) {
+      return { status: 'incomplete', reason: 'cancelled', started };
+    }
+  }
+  if (bucket.error != null) {
+    return { status: 'incomplete', reason: 'error', started };
+  }
+  if (!bucket.done && state.parentTerminalStatus === 'error') {
+    return { status: 'incomplete', reason: 'error', started };
+  }
+  return { status: 'running', started };
+}
+
+function compactionPartFromStarted({
+  bucket,
+  state,
+  started,
+}: {
+  bucket: ThreadBucket;
+  state: PeerThreadFoldState;
   started: ThreadContextCompactionStartedEvent;
 }): Extract<AssistantContentPart, { type: 'data' }> {
-  const finished = findFinishedForStarted({ bucket, startedId: started.id });
-  const data: ContextCompactionPartData =
-    finished != null ? { status: 'complete', started, finished } : { status: 'running', started };
   return {
     type: 'data',
     name: CONTEXT_COMPACTION_DATA_NAME,
-    data,
+    data: compactionPartDataFromStarted({ bucket, state, started }),
   };
 }
 
@@ -566,7 +598,7 @@ function buildThreadAssistantParts(
       ) {
         continue;
       }
-      parts.push(compactionPartFromStarted({ bucket, started: event }));
+      parts.push(compactionPartFromStarted({ bucket, state, started: event }));
       continue;
     }
 

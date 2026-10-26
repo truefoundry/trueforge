@@ -1,7 +1,7 @@
 import type { ContextCompactionPartData } from '@truefoundry/trueforge-assistant-ui-runtime';
 
 import { useSlot } from '../../theme/SlotsProvider.js';
-import { AgentStepRow } from '../agent-chat/AgentStepRow.js';
+import { AgentStepRow, type AgentStepStatus } from '../agent-chat/AgentStepRow.js';
 import { cn } from '../lib/cn.js';
 
 export type ContextCompactionCardProps = {
@@ -13,8 +13,26 @@ export type ContextCompactionCardProps = {
 };
 
 function eventJson(data: ContextCompactionPartData): string {
-  const event = data.finished ?? data.started;
-  return JSON.stringify(event, null, 2);
+  return JSON.stringify(data.status === 'complete' ? data.finished : data.started, null, 2);
+}
+
+function cardPresentation(data: ContextCompactionPartData): {
+  title: string;
+  status: AgentStepStatus;
+  showSpinner: boolean;
+} {
+  switch (data.status) {
+    case 'running':
+      return { title: 'Summarizing context...', status: 'running', showSpinner: true };
+    case 'complete':
+      return { title: 'Summarized context', status: 'success', showSpinner: false };
+    case 'incomplete':
+      return {
+        title: data.reason === 'cancelled' ? 'Context summarization cancelled' : 'Context summarization failed',
+        status: 'error',
+        showSpinner: false,
+      };
+  }
 }
 
 export function ContextCompactionCard({
@@ -25,8 +43,7 @@ export function ContextCompactionCard({
   className,
 }: ContextCompactionCardProps) {
   const ToolCallContentBlock = useSlot('ToolCallContentBlock');
-  const isRunning = data.status === 'running';
-  const title = isRunning ? 'Summarizing context...' : 'Summarized context';
+  const { title, status, showSpinner } = cardPresentation(data);
   const json = eventJson(data);
 
   return (
@@ -42,8 +59,8 @@ export function ContextCompactionCard({
         expandable
         expanded={expanded}
         onToggle={onToggle}
-        status={isRunning ? 'running' : 'success'}
-        showSpinner={isRunning}
+        status={status}
+        showSpinner={showSpinner}
         dataTestPrefix={dataTestPrefix}
       >
         {expanded ? (

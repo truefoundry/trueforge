@@ -695,4 +695,41 @@ describe('foldPeerThreads', () => {
     });
     expect(complete[1]).toEqual({ type: 'text', text: 'after summary' });
   });
+
+  it('marks unfinished compaction incomplete when the parent turn was cancelled', () => {
+    const state = new PeerThreadFoldState();
+    const trigger = {
+      type: 'context_threshold_exceeded' as const,
+      contextTokens: 90_000,
+      thresholdTokens: 80_000,
+    };
+
+    ingestStreamEvent(state, {
+      type: 'thread.context_compaction_started',
+      id: 'comp-start',
+      createdAt,
+      threadId: ROOT_THREAD_ID,
+      trigger,
+    });
+
+    state.parentTerminalStatus = 'cancelled';
+    const parts = buildRootAssistantContentForIds(state, []);
+    expect(parts).toEqual([
+      {
+        type: 'data',
+        name: CONTEXT_COMPACTION_DATA_NAME,
+        data: {
+          status: 'incomplete',
+          reason: 'cancelled',
+          started: {
+            type: 'thread.context_compaction_started',
+            id: 'comp-start',
+            createdAt,
+            threadId: ROOT_THREAD_ID,
+            trigger,
+          },
+        },
+      },
+    ]);
+  });
 });
