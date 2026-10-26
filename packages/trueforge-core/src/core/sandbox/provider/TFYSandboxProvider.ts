@@ -170,7 +170,17 @@ export class TFYSandboxProvider implements SandboxProvider {
 
         if (!response.ok) {
           const text = await response.text();
-          this.logger.error(`Sandbox server returned ${String(response.status)}: ${text}`, { url: execUrl });
+          this.logger.error(`Sandbox server returned ${String(response.status)}: ${text}`, {
+            url: execUrl,
+            ...(response.status >= 500
+              ? {
+                  reportable_error: {
+                    error: new Error(`Sandbox server returned ${String(response.status)}`),
+                    extra: { status: response.status },
+                  },
+                }
+              : {}),
+          });
           return {
             success: false,
             error: `Sandbox server returned ${String(response.status)} from ${execUrl}: ${text}`,
@@ -184,13 +194,18 @@ export class TFYSandboxProvider implements SandboxProvider {
           this.logger.error(`Sandbox exec timed out after ${String(timeoutSeconds)}s`, {
             url: execUrl,
             ...extractErrorLogFields(e),
+            reportable_error: { error: e },
           });
           return {
             success: false,
             error: `Sandbox exec to ${execUrl} timed out after ${String(timeoutSeconds)}s`,
           };
         }
-        this.logger.error('Sandbox exec failed', { url: execUrl, ...extractErrorLogFields(e) });
+        this.logger.error('Sandbox exec failed', {
+          url: execUrl,
+          ...extractErrorLogFields(e),
+          reportable_error: { error: e },
+        });
         return {
           success: false,
           error: `Sandbox exec to ${execUrl} failed: ${describeUnknownError(e)}`,

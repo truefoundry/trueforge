@@ -1,5 +1,7 @@
 import type { AgentSpec, TokenPagination } from '@truefoundry/trueforge-core/agent-session';
+import { extractErrorLogFields } from '@truefoundry/trueforge-core/core';
 import { sql, type Kysely, type Transaction } from 'kysely';
+import type { Logger } from 'winston';
 import type { RequestContext } from '../auth/identity';
 import {
   type AgentCatalogUsageRow,
@@ -19,7 +21,6 @@ import {
 import { PostgresAgentStore } from '../db/postgres/agent-store/PostgresAgentStore';
 import type { Database } from '../db/postgres/types';
 import { AGENT_DESCRIPTION_MAX_LENGTH } from '../schemas/agent';
-import { captureCriticalException } from '../sentry';
 import { callerAccessToken, type ResolveServiceFoundryAuthorization } from './accessToken';
 import {
   TrueFoundryServiceFoundryServerClient,
@@ -80,17 +81,20 @@ export class TrueFoundryAgentStore implements IAgentStore<Transaction<Database>>
   readonly #client: TrueFoundryServiceFoundryServerClient;
   readonly #resolveAccessToken: ResolveServiceFoundryAuthorization;
   readonly #db: Kysely<Database>;
+  readonly #logger: Logger;
 
   constructor(input: {
     inner: PostgresAgentStore;
     client: TrueFoundryServiceFoundryServerClient;
     context: RequestContext;
     db: Kysely<Database>;
+    logger: Logger;
   }) {
     this.#inner = input.inner;
     this.#client = input.client;
     this.#resolveAccessToken = callerAccessToken(input.context);
     this.#db = input.db;
+    this.#logger = input.logger;
   }
 
   listAgents(
@@ -190,13 +194,20 @@ export class TrueFoundryAgentStore implements IAgentStore<Transaction<Database>>
         const aggregate = new AggregateError(failures, 'createAgent failed and cleanup also failed', {
           cause: error,
         });
-        captureCriticalException(aggregate, {
-          tags: { module: 'TrueFoundryAgentStore', operation: 'dualWrite' },
-          extra: {
-            agent_id: created.id,
-            agent_name: created.name,
-            tenant_id: input.tenant_id,
-            external_id: externalId,
+        this.#logger.error('createAgent failed and cleanup also failed', {
+          ...extractErrorLogFields(aggregate),
+          agent_id: created.id,
+          agent_name: created.name,
+          tenant_id: input.tenant_id,
+          external_id: externalId,
+          reportable_error: {
+            error: aggregate,
+            extra: {
+              agent_id: created.id,
+              agent_name: created.name,
+              tenant_id: input.tenant_id,
+              external_id: externalId,
+            },
           },
         });
         throw aggregate;
@@ -256,13 +267,20 @@ export class TrueFoundryAgentStore implements IAgentStore<Transaction<Database>>
             'updateAgent failed and ServiceFoundry restore also failed',
             { cause: restoreError },
           );
-          captureCriticalException(aggregate, {
-            tags: { module: 'TrueFoundryAgentStore', operation: 'dualWrite' },
-            extra: {
-              agent_id: input.id,
-              agent_name: previous.name,
-              tenant_id: input.tenant_id,
-              external_id: previous.external_id,
+          this.#logger.error('updateAgent failed and ServiceFoundry restore also failed', {
+            ...extractErrorLogFields(aggregate),
+            agent_id: input.id,
+            agent_name: previous.name,
+            tenant_id: input.tenant_id,
+            external_id: previous.external_id,
+            reportable_error: {
+              error: aggregate,
+              extra: {
+                agent_id: input.id,
+                agent_name: previous.name,
+                tenant_id: input.tenant_id,
+                external_id: previous.external_id,
+              },
             },
           });
           throw aggregate;

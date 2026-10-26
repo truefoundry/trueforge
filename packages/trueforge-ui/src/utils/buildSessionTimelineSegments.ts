@@ -202,7 +202,15 @@ export function buildSessionTimelineSegments(turns: SessionTurnView[]): SessionE
     .sort((left, right) => left.startMs - right.startMs || left.endMs - right.endMs);
 }
 
-function readNonNegativeInt(record: Record<string, unknown>, camel: string, snake: string): number | undefined {
+function readNonNegativeInt({
+  record,
+  camel,
+  snake,
+}: {
+  record: Record<string, unknown>;
+  camel: string;
+  snake: string;
+}): number | undefined {
   const camelValue = record[camel];
   if (typeof camelValue === 'number' && Number.isFinite(camelValue) && camelValue >= 0) return Math.floor(camelValue);
   const snakeValue = record[snake];
@@ -214,8 +222,12 @@ function readNonNegativeInt(record: Record<string, unknown>, camel: string, snak
 function compactionTriggerDescription(event: TimelineEvent): string | undefined {
   const trigger = isRecord(event.trigger) ? event.trigger : undefined;
   if (trigger == null || trigger.type !== 'compaction') return undefined;
-  const contextTokens = readNonNegativeInt(trigger, 'contextTokens', 'context_tokens');
-  const thresholdTokens = readNonNegativeInt(trigger, 'thresholdTokens', 'threshold_tokens');
+  const contextTokens = readNonNegativeInt({ record: trigger, camel: 'contextTokens', snake: 'context_tokens' });
+  const thresholdTokens = readNonNegativeInt({
+    record: trigger,
+    camel: 'thresholdTokens',
+    snake: 'threshold_tokens',
+  });
   if (contextTokens == null || thresholdTokens == null || thresholdTokens <= 0) return undefined;
   return `Context ${String(contextTokens)} / threshold ${String(thresholdTokens)} tokens`;
 }

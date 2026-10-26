@@ -360,6 +360,11 @@
   background-color: transparent !important;
 }
 
+.aui-monaco .monaco-editor .native-edit-context,
+.aui-monaco .monaco-editor .inputarea {
+  caret-color: transparent !important;
+}
+
 .aui-monaco .monaco-editor .overflow-guard {
   border-radius: inherit;
 }

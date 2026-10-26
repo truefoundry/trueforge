@@ -16,7 +16,6 @@ import {
   type SandboxStatus,
   type StoredSandboxProviderManifest,
 } from '../schemas/sandboxProvider';
-import { captureCriticalException } from '../sentry';
 
 /** Bound Daytona RPCs so API requests and controller ticks cannot hang indefinitely. */
 export const DAYTONA_RPC_TIMEOUT_MS = 5_000;
@@ -110,11 +109,6 @@ export function toDaytonaSandboxProvider({
     tenantName: tenant_id,
     fileMaxBytesForDownload: configuration.SANDBOX_FILE_MAX_BYTES_FOR_DOWNLOAD,
     logger,
-    onCriticalAlert: error => {
-      captureCriticalException(error, {
-        tags: { module: 'DaytonaProvider', operation: 'sandboxCreate', priority: 'P1' },
-      });
-    },
   });
 }
 

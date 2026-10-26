@@ -1,3 +1,4 @@
+import { getOperationMetrics } from '@truefoundry/trueforge-core/core';
 import { Kysely, PostgresDialect } from 'kysely';
 import pg, { Pool } from 'pg';
 
@@ -66,6 +67,12 @@ export function createDb(options: {
     dialect: new PostgresDialect({
       pool,
     }),
+    log(event) {
+      getOperationMetrics()?.recordPostgresQuery({
+        outcome: event.level === 'error' ? 'error' : 'success',
+        durationSeconds: event.queryDurationMillis / 1000,
+      });
+    },
   });
 }
 
