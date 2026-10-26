@@ -409,7 +409,10 @@ function appendEventSegments({
             ? 'approval'
             : event.type === 'tool.response_required' || event.type === 'mcp.auth_required'
               ? 'waiting_on_human'
-              : 'system',
+              : event.type === 'thread.context_compaction_started' ||
+                  event.type === 'thread.context_compaction_finished'
+                ? 'summary'
+                : 'system',
         title: event.type,
         description:
           event.type === 'tool.approval_required'
@@ -421,9 +424,9 @@ function appendEventSegments({
                 : event.type === 'mcp.initialize'
                   ? 'MCP initialized'
                   : event.type === 'thread.context_compaction_started'
-                    ? (compactionTriggerDescription(event) ?? 'Context compaction started')
+                    ? (compactionTriggerDescription(event) ?? 'Summarizing context')
                     : event.type === 'thread.context_compaction_finished'
-                      ? (compactionTriggerDescription(event) ?? 'Context compaction finished')
+                      ? (compactionTriggerDescription(event) ?? 'Summarized context')
                       : 'Sandbox created',
         startMs: eventMs - originMs,
         endMs: eventMs - originMs,

@@ -2,8 +2,10 @@ import { describe, expect, it } from 'vitest';
 import type { ModelMessageEvent, ThreadCreatedEvent, TurnEvent } from '../src/server/index.js';
 
 import { ROOT_THREAD_ID } from '../src/constants.js';
+import { CONTEXT_COMPACTION_DATA_NAME } from '../src/contextCompaction.js';
 import {
   buildRootAssistantContent,
+  buildRootAssistantContentForIds,
   ingestStreamEvent,
   ingestTurnEvent,
   PeerThreadFoldState,
@@ -625,5 +627,72 @@ describe('foldPeerThreads', () => {
       reason: 'error',
       error: 'sub-agent blew up',
     });
+  });
+
+  it('emits a running compaction data part before the following model message', () => {
+    const state = new PeerThreadFoldState();
+    const trigger = {
+      type: 'context_threshold_exceeded' as const,
+      contextTokens: 90_000,
+      thresholdTokens: 80_000,
+    };
+
+    expect(
+      ingestStreamEvent(state, {
+        type: 'thread.context_compaction_started',
+        id: 'comp-start',
+        createdAt,
+        threadId: ROOT_THREAD_ID,
+        trigger,
+      }),
+    ).toBe(true);
+
+    const running = buildRootAssistantContentForIds(state, []);
+    expect(running).toEqual([
+      {
+        type: 'data',
+        name: CONTEXT_COMPACTION_DATA_NAME,
+        data: {
+          status: 'running',
+          started: {
+            type: 'thread.context_compaction_started',
+            id: 'comp-start',
+            createdAt,
+            threadId: ROOT_THREAD_ID,
+            trigger,
+          },
+        },
+      },
+    ]);
+
+    expect(
+      ingestStreamEvent(state, {
+        type: 'thread.context_compaction_finished',
+        id: 'comp-finish',
+        createdAt,
+        threadId: ROOT_THREAD_ID,
+        trigger,
+        durationMs: 1200,
+        usage: { inputTokens: 10, outputTokens: 20 },
+      }),
+    ).toBe(true);
+
+    ingestTurnEvent(
+      state,
+      modelMessage({
+        id: 'm-after',
+        threadId: ROOT_THREAD_ID,
+        content: 'after summary',
+      }),
+    );
+
+    const complete = buildRootAssistantContentForIds(state, ['m-after']);
+    expect(complete).toHaveLength(2);
+    expect(complete[0]).toMatchObject({
+      type: 'data',
+      name: CONTEXT_COMPACTION_DATA_NAME,
+      data: { status: 'complete' },
+    });
+    expect(complete[1]).toEqual({ type: 'text', text: 'after summary' });
   });
 });

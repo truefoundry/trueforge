@@ -1,6 +1,8 @@
 import type { MessageStatus, ThreadMessage } from '@assistant-ui/core';
 import {
   isEventDelta,
+  type ThreadContextCompactionFinishedEvent,
+  type ThreadContextCompactionStartedEvent,
   type ThreadCreatedEvent,
   type ToolResponseRequiredEvent,
   type TurnEvent,
@@ -9,6 +11,7 @@ import {
 
 import { parseAskUserQuestionArgs } from './askUserQuestion.js';
 import { ROOT_THREAD_ID } from './constants.js';
+import { CONTEXT_COMPACTION_DATA_NAME, type ContextCompactionPartData } from './contextCompaction.js';
 import { isCreateSubAgentToolCall } from './createSubAgent.js';
 import type { SubAgentMessageCustomMetadata } from './messageCustomMetadata.js';
 import { buildAssistantContent, type AssistantContentPart, type SdkToolCall } from './modelMessageContent.js';
@@ -228,8 +231,95 @@ function isContentAffectingEvent(message: TurnStreamingEvent): boolean {
     message.type === 'model.message.delta' ||
     message.type === 'tool.response' ||
     message.type === 'tool.approval_required' ||
-    message.type === 'tool.response_required'
+    message.type === 'tool.response_required' ||
+    message.type === 'thread.context_compaction_started' ||
+    message.type === 'thread.context_compaction_finished'
   );
+}
+
+/** Next model.message id after `fromId` in insertion order, if any. */
+function nextModelMessageIdAfter({ bucket, fromId }: { bucket: ThreadBucket; fromId: string }): string | undefined {
+  let passed = false;
+  for (const [id, event] of bucket.events) {
+    if (!passed) {
+      if (id === fromId) {
+        passed = true;
+      }
+      continue;
+    }
+    if (event.type === 'model.message') {
+      return id;
+    }
+  }
+  return undefined;
+}
+
+/**
+ * Compaction started events belonging to a model-message scope.
+ *
+ * A started event pairs with the next model.message after it. When that model
+ * message is in scope, include the compaction. When there is no following model
+ * message yet, include only for an empty scope (live tip / pre-LLM streaming).
+ */
+function shouldIncludeCompactionStarted({
+  bucket,
+  startedId,
+  scopedModelIds,
+}: {
+  bucket: ThreadBucket;
+  startedId: string;
+  scopedModelIds: ReadonlySet<string> | null;
+}): boolean {
+  if (scopedModelIds == null) {
+    return true;
+  }
+  const nextModelId = nextModelMessageIdAfter({ bucket, fromId: startedId });
+  if (nextModelId != null) {
+    return scopedModelIds.has(nextModelId);
+  }
+  return scopedModelIds.size === 0;
+}
+
+function findFinishedForStarted({
+  bucket,
+  startedId,
+}: {
+  bucket: ThreadBucket;
+  startedId: string;
+}): ThreadContextCompactionFinishedEvent | undefined {
+  let passed = false;
+  for (const [id, event] of bucket.events) {
+    if (!passed) {
+      if (id === startedId) {
+        passed = true;
+      }
+      continue;
+    }
+    if (event.type === 'thread.context_compaction_started') {
+      return undefined;
+    }
+    if (event.type === 'thread.context_compaction_finished') {
+      return event;
+    }
+  }
+  return undefined;
+}
+
+function compactionPartFromStarted({
+  bucket,
+  started,
+}: {
+  bucket: ThreadBucket;
+  started: ThreadContextCompactionStartedEvent;
+}): Extract<AssistantContentPart, { type: 'data' }> {
+  const finished = findFinishedForStarted({ bucket, startedId: started.id });
+  const data: ContextCompactionPartData =
+    finished != null ? { status: 'complete', started, finished } : { status: 'running', started };
+  return {
+    type: 'data',
+    name: CONTEXT_COMPACTION_DATA_NAME,
+    data,
+  };
 }
 
 export function ingestStreamEvent(state: PeerThreadFoldState, message: TurnStreamingEvent): boolean {
@@ -450,7 +540,10 @@ function buildThreadAssistantParts(
     return [];
   }
 
-  const ids = threadId === ROOT_THREAD_ID && modelMessageIds != null ? modelMessageIds : bucket.modelMessageIds;
+  const scopedModelIds = threadId === ROOT_THREAD_ID && modelMessageIds != null ? new Set(modelMessageIds) : null;
+  const modelIdSet = new Set(
+    threadId === ROOT_THREAD_ID && modelMessageIds != null ? modelMessageIds : bucket.modelMessageIds,
+  );
 
   const parts: AssistantContentPart[] = [];
   // A single tool call can appear in more than one `model.message` event (e.g.
@@ -459,11 +552,28 @@ function buildThreadAssistantParts(
   // so emitting the same id twice crashes the render. Collapse duplicates,
   // letting the latest occurrence win while preserving the original position.
   const toolCallIndexById = new Map<string, number>();
-  for (const id of ids) {
-    const event = bucket.events.get(id);
-    if (event?.type !== 'model.message') {
+
+  // Walk insertion order so compaction steps sit before the model message they
+  // prepare for (PreLLM). Scoped builds still filter via model-message pairing.
+  for (const [id, event] of bucket.events) {
+    if (event.type === 'thread.context_compaction_started') {
+      if (
+        !shouldIncludeCompactionStarted({
+          bucket,
+          startedId: id,
+          scopedModelIds,
+        })
+      ) {
+        continue;
+      }
+      parts.push(compactionPartFromStarted({ bucket, started: event }));
       continue;
     }
+
+    if (event.type !== 'model.message' || !modelIdSet.has(id)) {
+      continue;
+    }
+
     for (const part of buildAssistantContent(event, {
       toolResults: bucket.toolResults,
       pendingApprovals: bucket.pendingApprovals,

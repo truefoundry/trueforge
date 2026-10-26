@@ -14,6 +14,10 @@ function reasoning(): AgentStepPart {
   return { type: 'reasoning', text: 'thinking' };
 }
 
+function compaction(): AgentStepPart {
+  return { type: 'data', name: 'thread.context_compaction' };
+}
+
 describe('computeAgentStepsSplit', () => {
   it('treats pure text as final immediately while running', () => {
     const parts = [text('hello world')];
@@ -44,5 +48,12 @@ describe('computeAgentStepsSplit', () => {
     const result = computeAgentStepsSplit(parts, false);
     expect(result.hasFinal).toBe(true);
     expect(result.cutIndex).toBe(1);
+  });
+
+  it('treats context compaction as an agent step for the trailing-text holdback', () => {
+    const parts = [compaction(), text('hi')];
+    const result = computeAgentStepsSplit(parts, true);
+    expect(result.hasFinal).toBe(false);
+    expect(result.cutIndex).toBe(parts.length);
   });
 });
