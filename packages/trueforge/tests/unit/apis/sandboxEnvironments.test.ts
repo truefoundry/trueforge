@@ -189,7 +189,7 @@ describe('sandbox environments API → build controller path', () => {
   });
 
   it('POST creates an environment and returns 409 on name clash', async () => {
-    const { publicRouter } = await setup();
+    const { publicRouter, sandboxEnvironmentStore } = await setup();
     jest.mocked(providerUtils.toDaytonaSandboxProvider).mockReturnValue({
       createSecret: jest.fn(),
       updateSecret: jest.fn(),
@@ -211,8 +211,27 @@ describe('sandbox environments API → build controller path', () => {
       body: JSON.stringify(createBody),
     });
     expect(created.status).toBe(201);
-    const createdBody = (await created.json()) as { data: { name: string; description: string } };
+    const createdBody = (await created.json()) as {
+      data: { id: string; name: string; description: string };
+    };
     expect(createdBody.data).toMatchObject({ name: 'create-only-env', description: 'first' });
+    // jsonText projection so ParseJSONResultsPlugin parses created_by_subject (list-permissions path).
+    await expect(
+      sandboxEnvironmentStore.getEnvironmentsByIds({
+        tenant_id: STANDALONE_REQUEST_CONTEXT.tenant_id,
+        ids: [createdBody.data.id],
+      }),
+    ).resolves.toEqual([
+      {
+        id: createdBody.data.id,
+        name: 'create-only-env',
+        created_by_subject: {
+          subject_id: STANDALONE_REQUEST_CONTEXT.subject.id,
+          subject_type: STANDALONE_REQUEST_CONTEXT.subject.type,
+          subject_display_name: STANDALONE_REQUEST_CONTEXT.subject.display_name,
+        },
+      },
+    ]);
 
     const clash = await publicRouter.request('/', {
       method: 'POST',

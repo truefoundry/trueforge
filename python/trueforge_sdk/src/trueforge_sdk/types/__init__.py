@@ -46,6 +46,8 @@ if typing.TYPE_CHECKING:
     from .chat_completion_message_tool_call import ChatCompletionMessageToolCall
     from .chat_completion_message_tool_call_function import ChatCompletionMessageToolCallFunction
     from .compaction_config import CompactionConfig
+    from .compaction_trigger import CompactionTrigger
+    from .completion_usage import CompletionUsage
     from .components_schemas_tool_approval_policy_allow_session import ComponentsSchemasToolApprovalPolicyAllowSession
     from .configured_mcp_server import ConfiguredMcpServer
     from .configured_model import ConfiguredModel
@@ -223,6 +225,8 @@ if typing.TYPE_CHECKING:
     from .skill_manifest import SkillManifest
     from .skill_version import SkillVersion
     from .text_content import TextContent
+    from .thread_context_compaction_finished_event import ThreadContextCompactionFinishedEvent
+    from .thread_context_compaction_started_event import ThreadContextCompactionStartedEvent
     from .thread_created_event import ThreadCreatedEvent
     from .thread_done_event import ThreadDoneEvent
     from .thread_state import ThreadState
@@ -319,6 +323,8 @@ _dynamic_imports: typing.Dict[str, str] = {
     "ChatCompletionMessageToolCall": ".chat_completion_message_tool_call",
     "ChatCompletionMessageToolCallFunction": ".chat_completion_message_tool_call_function",
     "CompactionConfig": ".compaction_config",
+    "CompactionTrigger": ".compaction_trigger",
+    "CompletionUsage": ".completion_usage",
     "ComponentsSchemasToolApprovalPolicyAllowSession": ".components_schemas_tool_approval_policy_allow_session",
     "ConfiguredMcpServer": ".configured_mcp_server",
     "ConfiguredModel": ".configured_model",
@@ -496,6 +502,8 @@ _dynamic_imports: typing.Dict[str, str] = {
     "SkillManifest": ".skill_manifest",
     "SkillVersion": ".skill_version",
     "TextContent": ".text_content",
+    "ThreadContextCompactionFinishedEvent": ".thread_context_compaction_finished_event",
+    "ThreadContextCompactionStartedEvent": ".thread_context_compaction_started_event",
     "ThreadCreatedEvent": ".thread_created_event",
     "ThreadDoneEvent": ".thread_done_event",
     "ThreadState": ".thread_state",
@@ -616,6 +624,8 @@ __all__ = [
     "ChatCompletionMessageToolCall",
     "ChatCompletionMessageToolCallFunction",
     "CompactionConfig",
+    "CompactionTrigger",
+    "CompletionUsage",
     "ComponentsSchemasToolApprovalPolicyAllowSession",
     "ConfiguredMcpServer",
     "ConfiguredModel",
@@ -793,6 +803,8 @@ __all__ = [
     "SkillManifest",
     "SkillVersion",
     "TextContent",
+    "ThreadContextCompactionFinishedEvent",
+    "ThreadContextCompactionStartedEvent",
     "ThreadCreatedEvent",
     "ThreadDoneEvent",
     "ThreadState",

@@ -9,7 +9,7 @@ import { InvalidPageTokenError } from '@truefoundry/trueforge-core/agent-session
 import type { Context } from 'hono';
 import { HTTPException } from 'hono/http-exception';
 import type { Logger } from 'winston';
-import { canEditEnvironment, createdBySubjectFromRequestContext, type ResolveRequestContext } from '../auth/identity';
+import { canCreateOrEdit, createdBySubjectFromRequestContext, type ResolveRequestContext } from '../auth/identity';
 import type { IAgentStore } from '../db/agentStore';
 import {
   SandboxEnvironmentNameConflictError,
@@ -219,7 +219,7 @@ export function createSandboxEnvironmentsRouter<TTransaction>(
 
   const createHandler: RouteHandler<typeof createSandboxEnvironmentRoute> = async c => {
     const requestContext = resolveRequestContext(c);
-    if (!canEditEnvironment(requestContext)) {
+    if (!canCreateOrEdit(requestContext)) {
       return c.json({ error: { message: FORBIDDEN_SANDBOX_ENVIRONMENT_WRITE } }, 403);
     }
     const body = c.req.valid('json');
@@ -242,7 +242,7 @@ export function createSandboxEnvironmentsRouter<TTransaction>(
       tenant_id: requestContext.tenant_id,
       name: body.manifest.name,
     });
-    if (!canEditEnvironment(requestContext, existing?.environment.created_by_subject.subject_id)) {
+    if (!canCreateOrEdit(requestContext, existing?.environment.created_by_subject.subject_id)) {
       return c.json({ error: { message: FORBIDDEN_SANDBOX_ENVIRONMENT_WRITE } }, 403);
     }
     const outcome = await writeSandboxEnvironment({ c, body, mode: 'upsert', existing });
@@ -266,7 +266,7 @@ export function createSandboxEnvironmentsRouter<TTransaction>(
     if (!existing) {
       return c.json({ error: { message: `Sandbox environment not found: ${name}` } }, 404);
     }
-    if (!canEditEnvironment(requestContext, existing.environment.created_by_subject.subject_id)) {
+    if (!canCreateOrEdit(requestContext, existing.environment.created_by_subject.subject_id)) {
       return c.json({ error: { message: FORBIDDEN_SANDBOX_ENVIRONMENT_WRITE } }, 403);
     }
     const agentNames = await resolveAgentStore(c).listAgentNamesUsingSandboxEnvironment({

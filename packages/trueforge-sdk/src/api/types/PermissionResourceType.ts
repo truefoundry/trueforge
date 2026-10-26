@@ -6,5 +6,6 @@ export const PermissionResourceType = {
     Schedule: "schedule",
     Session: "session",
     Tenant: "tenant",
+    SandboxEnvironment: "sandbox_environment",
 } as const;
 export type PermissionResourceType = (typeof PermissionResourceType)[keyof typeof PermissionResourceType];
